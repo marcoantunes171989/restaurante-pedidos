@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"C:/Projetos/restaurante-pedidos\" && git add -A && if ! git diff --cached --quiet; then HASH=$(git rev-parse --short HEAD 2>/dev/null || echo 'novo'); MSG=\"auto: $(date '+%Y-%m-%d %H:%M')\"; git commit -m \"$MSG\" && git push origin master && echo \"[deploy-log] commit $HASH enviado para master\"; fi || true",
+            "shell": "bash",
+            "timeout": 60,
+            "statusMessage": "Sincronizando com GitHub e Vercel..."
+          }
+        ]
+      }
+    ]
+  }
+}

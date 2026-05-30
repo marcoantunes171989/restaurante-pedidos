@@ -22,3 +22,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+.vercel
+
+# Variáveis de ambiente (nunca commitar)
+.env
+.env.local
+.env.production
