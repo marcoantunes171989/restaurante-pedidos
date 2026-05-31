@@ -689,12 +689,12 @@ export default function RestaurantePedidoApp() {
     notify("success", "Conta finalizada com sucesso no caixa.");
   }
 
-  // Baixa das comandas após pagamento: marca pedidos como pago + entregue (libera comanda)
+  // Baixa das comandas após pagamento: marca pedidos NÃO PAGOS como pago + entregue (libera comanda)
   async function baixarComandas(comandas) {
     if (!canAccess(currentUser, "cashier")) return notify("error", "Usuário sem permissão para finalizar pagamento.");
-    const alvo = orders.filter((o) => comandas.includes(o.command) && o.status !== "delivered");
+    const alvo = orders.filter((o) => comandas.includes(o.command) && o.paymentStatus !== "paid");
     if (alvo.length === 0) return notify("error", "Nenhum pedido em aberto para essas comandas.");
-    setOrders((cur) => cur.map((o) => comandas.includes(o.command) ? { ...o, paymentStatus: "paid", status: "delivered" } : o));
+    setOrders((cur) => cur.map((o) => (comandas.includes(o.command) && o.paymentStatus !== "paid") ? { ...o, paymentStatus: "paid", status: "delivered" } : o));
     if (dbReady) {
       try {
         await Promise.all(alvo.map((o) => atualizarPedido(o.id, { status_pagamento: "pago", status: "entregue" })));
@@ -1910,8 +1910,8 @@ function CashierView({ orders, baixarComandas, onSair }) {
   const [pessoas, setPessoas]   = useState(1);            // divisão da conta
   const [scannerAberto, setScannerAberto] = useState(false);
 
-  // Pedidos ativos (não baixados) das comandas lidas
-  const pedidos = orders.filter((o) => comandasLidas.includes(o.command) && o.status !== "delivered");
+  // Pedidos NÃO PAGOS das comandas lidas (entregue ou não, o que importa é o pagamento)
+  const pedidos = orders.filter((o) => comandasLidas.includes(o.command) && o.paymentStatus !== "paid");
 
   // Agrupa por comanda
   const porComanda = comandasLidas.map((cmd) => {
