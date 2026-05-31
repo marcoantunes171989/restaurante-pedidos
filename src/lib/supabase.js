@@ -1,7 +1,12 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+// Fallback embutido — garante que o app NUNCA fique em tela branca por env var ausente.
+// Em produção o ideal é vir do ambiente (VITE_SUPABASE_*), mas se faltar, usa estes valores.
+const FALLBACK_URL = 'https://rwnzggjxhxnfrhstbxkm.supabase.co'
+const FALLBACK_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ3bnpnZ2p4aHhuZnJoc3RieGttIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxNjk2MjUsImV4cCI6MjA5NTc0NTYyNX0.hkCTJF65URa5zN8TBfV72vLJzj71Ie8jmKLRi4_bzfM'
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || FALLBACK_URL
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || FALLBACK_KEY
 
 export const supabase = createClient(supabaseUrl, supabaseKey)
 
