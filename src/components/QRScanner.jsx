@@ -71,10 +71,10 @@ export function QRScannerModal({ onSucesso, onCancelar }) {
       setStatus("iniciando");
       setMensagem("Solicitando acesso à câmera...");
 
-      // Tenta câmera traseira primeiro, depois frontal
+      // Sempre prefere câmera frontal no tablet para escanear o QR Code
       const constraintsList = [
-        { video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } } },
-        { video: { facingMode: { ideal: "user" } } },
+        { video: { facingMode: { exact: "user" } } },
+        { video: { facingMode: "user" } },
         { video: true },
       ];
 
