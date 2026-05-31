@@ -481,7 +481,7 @@ export default function RestaurantePedidoApp() {
           </main>
         )}
 
-        {activeTab === "kitchen" && canAccess(currentUser, "kitchen") && <KitchenView groupedOrders={groupedOrders} orders={orders} updateOrderStatus={updateOrderStatus} />}
+        {activeTab === "kitchen" && canAccess(currentUser, "kitchen") && <KitchenView groupedOrders={groupedOrders} updateOrderStatus={updateOrderStatus} />}
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} />}
         {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierView currentTableOrders={currentTableOrders} currentTableSubtotal={currentTableSubtotal} currentTableTotal={currentTableTotal} closePayment={closePayment} />}
         {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} adminSection={adminSection} setAdminSection={setAdminSection} />}
@@ -498,31 +498,9 @@ const kitchenCols = [
   { key: "ready",     label: "Finalizado",   bg: "bg-emerald-500/10 border-emerald-500/30", dot: "bg-emerald-400" },
 ];
 
-function KitchenView({ groupedOrders, orders, updateOrderStatus }) {
-  const totalAtivo = (groupedOrders.received?.length || 0) + (groupedOrders.preparing?.length || 0);
-
+function KitchenView({ groupedOrders, updateOrderStatus }) {
   return (
-    <div className="flex flex-col gap-4">
-      {/* Cabeçalho */}
-      <div className="flex items-center justify-between rounded-3xl border border-white/10 bg-white/[0.06] px-6 py-4">
-        <div>
-          <h2 className="text-2xl font-black text-white">👨‍🍳 Cozinha</h2>
-          <p className="mt-0.5 text-sm text-slate-400">Gerencie os pedidos — atualize o status para refletir no painel público</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="rounded-2xl border border-amber-400/30 bg-amber-500/10 px-4 py-2 text-center">
-            <p className="text-xs font-bold text-amber-400">Em aberto</p>
-            <p className="text-2xl font-black text-amber-300">{totalAtivo}</p>
-          </div>
-          <div className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-2 text-center">
-            <p className="text-xs font-bold text-slate-400">Total</p>
-            <p className="text-2xl font-black text-white">{orders.length}</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Colunas */}
-      <div className="grid gap-4 lg:grid-cols-3">
+    <div className="grid gap-4 lg:grid-cols-3">
         {kitchenCols.map(({ key, label, bg, dot }) => {
           const lista = groupedOrders[key] || [];
           return (
@@ -598,7 +576,6 @@ function KitchenView({ groupedOrders, orders, updateOrderStatus }) {
             </div>
           );
         })}
-      </div>
     </div>
   );
 }
