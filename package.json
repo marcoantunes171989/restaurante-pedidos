@@ -13,6 +13,7 @@
     "@supabase/supabase-js": "^2.106.2",
     "@zxing/browser": "^0.2.0",
     "@zxing/library": "^0.22.0",
+    "jsqr": "^1.4.0",
     "qrcode": "^1.5.4",
     "react": "^19.2.6",
     "react-dom": "^19.2.6"
