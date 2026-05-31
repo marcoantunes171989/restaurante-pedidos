@@ -1,4 +1,11 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect, useCallback } from "react";
+import {
+  supabase,
+  fetchProducts, insertProduct, updateProductRow,
+  fetchUsers,    insertUser,    updateUserRow,
+  fetchAccesses, insertAccess,  updateAccessRow,
+  fetchOrders,   insertOrder,   updateOrderRow,
+} from "./lib/supabase";
 
 const fallbackImage = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=900&q=80";
 
@@ -111,6 +118,27 @@ export default function RestaurantePedidoApp() {
   const [activeTab, setActiveTab] = useState("tablet");
   const [products, setProducts] = useState(initialProducts);
   const [orders, setOrders] = useState(initialOrders);
+  const [dbReady, setDbReady] = useState(false);
+
+  // ── Carrega dados do Supabase na inicialização ──────────────
+  useEffect(() => {
+    async function loadAll() {
+      try {
+        const [prods, usrs, accs, ords] = await Promise.all([
+          fetchProducts(), fetchUsers(), fetchAccesses(), fetchOrders(),
+        ]);
+        if (prods.length)  setProducts(prods);
+        if (usrs.length)   setUsers(usrs);
+        if (accs.length)   setAccesses(accs);
+        if (ords.length)   setOrders(ords);
+        setDbReady(true);
+      } catch (err) {
+        console.warn("Supabase indisponível — usando dados locais:", err.message);
+        setDbReady(false);
+      }
+    }
+    loadAll();
+  }, []);
   const [cart, setCart] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState("Todos");
   const [search, setSearch] = useState("");
@@ -216,7 +244,7 @@ export default function RestaurantePedidoApp() {
     setCart((cur) => cur.map((i) => i.id === pid ? { ...i, extraIngredients: i.extraIngredients.filter((v) => v !== ing) } : i));
   }
 
-  function handleSendOrder() {
+  async function handleSendOrder() {
     if (!canAccess(currentUser, "tablet")) return notify("error", "Usuário sem permissão para realizar pedido no tablet.");
     if (cart.length === 0) return notify("error", "Inclua pelo menos um produto antes de realizar o pedido.");
     if (!isValidCommand(commandCode)) return notify("error", "Faça a leitura da comanda antes de enviar. Exemplo aceito: CMD-000245.");
@@ -227,89 +255,120 @@ export default function RestaurantePedidoApp() {
       createdAt: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
       items: cart.map((i) => ({ name: i.name, quantity: i.quantity, price: i.price, selectedIngredients: i.selectedIngredients, removedIngredients: i.removedIngredients, extraIngredients: i.extraIngredients, observation: i.observation })),
     };
-    setOrders((cur) => [newOrder, ...cur]);
+    try {
+      const saved = dbReady ? await insertOrder(newOrder) : newOrder;
+      setOrders((cur) => [saved, ...cur]);
+    } catch { setOrders((cur) => [newOrder, ...cur]); }
     setCart([]); setCommandCode("");
     if (canAccess(currentUser, "panel")) setActiveTab("panel");
     notify("success", "Pedido enviado para a cozinha e vinculado à comanda com sucesso.");
   }
 
-  function updateOrderStatus(oid, status) {
+  async function updateOrderStatus(oid, status) {
     if (!canAccess(currentUser, "kitchen")) return notify("error", "Usuário sem permissão para alterar status da cozinha.");
     setOrders((cur) => cur.map((o) => o.id === oid ? { ...o, status } : o));
+    if (dbReady) try { await updateOrderRow(oid, { status }); } catch {}
   }
 
-  function requestBill() {
+  async function requestBill() {
     if (!canAccess(currentUser, "tablet") && !canAccess(currentUser, "cashier")) return notify("error", "Usuário sem permissão para solicitar conta.");
     if (currentTableOrders.length === 0) return notify("error", "Não existe pedido vinculado à mesa/comanda para solicitar a conta.");
     setOrders((cur) => cur.map((o) => o.table === currentTable ? { ...o, paymentStatus: "requested" } : o));
+    if (dbReady) try {
+      await Promise.all(currentTableOrders.map((o) => updateOrderRow(o.id, { payment_status: "requested" })));
+    } catch {}
     if (canAccess(currentUser, "cashier")) setActiveTab("cashier");
     notify("success", "Conta solicitada ao caixa. Aguarde a conferência dos itens da mesa.");
   }
 
-  function closePayment() {
+  async function closePayment() {
     if (!canAccess(currentUser, "cashier")) return notify("error", "Usuário sem permissão para finalizar pagamento.");
     if (currentTableOrders.length === 0) return notify("error", "Nenhuma conta encontrada para fechamento nesta mesa.");
     setOrders((cur) => cur.map((o) => o.table === currentTable ? { ...o, paymentStatus: "paid" } : o));
+    if (dbReady) try {
+      await Promise.all(currentTableOrders.map((o) => updateOrderRow(o.id, { payment_status: "paid" })));
+    } catch {}
     notify("success", "Conta finalizada com sucesso no caixa.");
   }
 
-  function addProduct() {
+  async function addProduct() {
     if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
     if (!adminForm.name.trim()) return notify("error", "Informe o nome do produto.");
     if (!adminForm.price || Number(adminForm.price) <= 0) return notify("error", "Informe um preço de venda válido.");
-    const np = { id: Date.now(), name: adminForm.name.trim(), category: adminForm.category, price: Number(adminForm.price), cost: Number(adminForm.cost || 0), active: true, time: adminForm.time || "15-25 min", description: adminForm.description || "Produto cadastrado pelo administrativo.", badge: "Admin", imageUrl: adminForm.imageUrl || fallbackImage, ingredients: adminForm.ingredientsText.split(",").map((s) => s.trim()).filter(Boolean) };
-    setProducts((cur) => [np, ...cur]);
+    const np = { name: adminForm.name.trim(), category: adminForm.category, price: Number(adminForm.price), cost: Number(adminForm.cost || 0), active: true, time: adminForm.time || "15-25 min", description: adminForm.description || "Produto cadastrado pelo administrativo.", badge: "Admin", imageUrl: adminForm.imageUrl || fallbackImage, ingredients: adminForm.ingredientsText.split(",").map((s) => s.trim()).filter(Boolean) };
+    try {
+      const saved = dbReady ? await insertProduct(np) : { ...np, id: Date.now() };
+      setProducts((cur) => [saved, ...cur]);
+    } catch { setProducts((cur) => [{ ...np, id: Date.now() }, ...cur]); }
     setAdminForm({ name: "", category: "Pratos principais", price: "", cost: "", time: "15-25 min", imageUrl: "", ingredientsText: "", description: "" });
     notify("success", "Produto cadastrado com sucesso no administrativo.");
   }
 
-  function updateProductPrice(pid, value) {
+  async function updateProductPrice(pid, value) {
     if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
-    setProducts((cur) => cur.map((p) => p.id === pid ? { ...p, price: Number(value || 0) } : p));
+    const price = Number(value || 0);
+    setProducts((cur) => cur.map((p) => p.id === pid ? { ...p, price } : p));
+    if (dbReady) try { await updateProductRow(pid, { price }); } catch {}
   }
 
-  function toggleProduct(pid) {
+  async function toggleProduct(pid) {
     if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
-    setProducts((cur) => cur.map((p) => p.id === pid ? { ...p, active: !p.active } : p));
+    const product = products.find((p) => p.id === pid);
+    const active = !product?.active;
+    setProducts((cur) => cur.map((p) => p.id === pid ? { ...p, active } : p));
+    if (dbReady) try { await updateProductRow(pid, { active }); } catch {}
   }
 
-  function addUser() {
+  async function addUser() {
     if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
     if (!userForm.name.trim() || !userForm.email.trim()) return notify("error", "Informe nome e e-mail do usuário.");
     if (users.some((u) => u.email.toLowerCase() === userForm.email.toLowerCase())) return notify("error", "Já existe usuário com este e-mail.");
-    const nu = { id: Date.now(), name: userForm.name.trim(), email: userForm.email.trim(), password: userForm.password || "123456", role: userForm.role || "Operador", active: true, accessIds: [] };
-    setUsers((cur) => [nu, ...cur]);
+    const nu = { name: userForm.name.trim(), email: userForm.email.trim(), password: userForm.password || "123456", role: userForm.role || "Operador", active: true, accessIds: [] };
+    try {
+      const saved = dbReady ? await insertUser(nu) : { ...nu, id: Date.now() };
+      setUsers((cur) => [saved, ...cur]);
+    } catch { setUsers((cur) => [{ ...nu, id: Date.now() }, ...cur]); }
     setUserForm({ name: "", email: "", password: "123456", role: "Operador" });
     notify("success", "Usuário cadastrado. Agora vincule os acessos na tela Usuário x Acesso.");
   }
 
-  function addAccess() {
+  async function addAccess() {
     if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
     const id = accessForm.id.trim().toLowerCase().replace(/[^a-z0-9_-]/g, "");
     if (!id || !accessForm.label.trim()) return notify("error", "Informe código e descrição do acesso.");
     if (accesses.some((a) => a.id === id)) return notify("error", "Já existe um acesso com este código.");
-    setAccesses((cur) => [...cur, { id, label: accessForm.label.trim(), desc: accessForm.desc || "Acesso personalizado", type: accessForm.type || "Operacional", active: true }]);
+    const na = { id, label: accessForm.label.trim(), desc: accessForm.desc || "Acesso personalizado", type: accessForm.type || "Operacional", active: true };
+    try {
+      const saved = dbReady ? await insertAccess(na) : na;
+      setAccesses((cur) => [...cur, saved]);
+    } catch { setAccesses((cur) => [...cur, na]); }
     setAccessForm({ id: "", label: "", desc: "", type: "Operacional" });
     notify("success", "Permissão de acesso cadastrada com sucesso.");
   }
 
-  function toggleUserAccess(uid, aid) {
+  async function toggleUserAccess(uid, aid) {
     if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
-    setUsers((cur) => cur.map((u) => {
-      if (u.id !== uid) return u;
-      const ex = u.accessIds.includes(aid);
-      return { ...u, accessIds: ex ? u.accessIds.filter((id) => id !== aid) : [...u.accessIds, aid] };
-    }));
+    const user = users.find((u) => u.id === uid);
+    const ex = user?.accessIds.includes(aid);
+    const accessIds = ex ? user.accessIds.filter((id) => id !== aid) : [...(user?.accessIds || []), aid];
+    setUsers((cur) => cur.map((u) => u.id === uid ? { ...u, accessIds } : u));
+    if (dbReady) try { await updateUserRow(uid, { access_ids: accessIds }); } catch {}
   }
 
-  function toggleUserStatus(uid) {
+  async function toggleUserStatus(uid) {
     if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
-    setUsers((cur) => cur.map((u) => u.id === uid ? { ...u, active: !u.active } : u));
+    const user = users.find((u) => u.id === uid);
+    const active = !user?.active;
+    setUsers((cur) => cur.map((u) => u.id === uid ? { ...u, active } : u));
+    if (dbReady) try { await updateUserRow(uid, { active }); } catch {}
   }
 
-  function toggleAccessStatus(aid) {
+  async function toggleAccessStatus(aid) {
     if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
-    setAccesses((cur) => cur.map((a) => a.id === aid ? { ...a, active: !a.active } : a));
+    const access = accesses.find((a) => a.id === aid);
+    const active = !access?.active;
+    setAccesses((cur) => cur.map((a) => a.id === aid ? { ...a, active } : a));
+    if (dbReady) try { await updateAccessRow(aid, { active }); } catch {}
   }
 
   if (!currentUser) {
@@ -345,7 +404,13 @@ export default function RestaurantePedidoApp() {
         <header className="mb-6 rounded-[2rem] border border-white/10 bg-white/[0.06] p-5 shadow-2xl backdrop-blur-xl sm:p-7">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <div className="mb-3 inline-flex rounded-full border border-blue-400/30 bg-blue-500/10 px-4 py-2 text-sm font-semibold text-blue-100">Sistema Restaurante • Acesso controlado</div>
+              <div className="mb-3 flex flex-wrap items-center gap-2">
+                <span className="inline-flex rounded-full border border-blue-400/30 bg-blue-500/10 px-4 py-2 text-sm font-semibold text-blue-100">Sistema Restaurante • Acesso controlado</span>
+                <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold ${dbReady ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-200" : "border-amber-400/30 bg-amber-500/10 text-amber-200"}`}>
+                  <span className={`h-2 w-2 rounded-full ${dbReady ? "bg-emerald-400" : "bg-amber-400"}`} />
+                  {dbReady ? "Supabase conectado" : "Modo local"}
+                </span>
+              </div>
               <h1 className="max-w-4xl text-3xl font-black tracking-tight text-white sm:text-5xl">Pedido digital completo para restaurante</h1>
               <p className="mt-3 text-sm leading-6 text-slate-300">Usuário logado: <strong className="text-white">{currentUser.name}</strong> • Perfil: {currentUser.role}</p>
             </div>
