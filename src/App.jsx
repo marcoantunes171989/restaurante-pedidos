@@ -4,6 +4,7 @@ import {
   fetchUsuarios,  inserirUsuario,  atualizarUsuario,
   fetchAcessos,   inserirAcesso,   atualizarAcesso,
   fetchPedidos,   inserirPedido,   atualizarPedido,
+  escutarPedidos,
 } from "./lib/supabase";
 
 const fallbackImage = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=900&q=80";
@@ -142,17 +143,15 @@ export default function RestaurantePedidoApp() {
     loadAll();
   }, []);
 
-  // ── Polling automático de pedidos (painel e cozinha) ────────
+  // ── Realtime: escuta tab_pedidos permanentemente ─────────────
+  // Qualquer INSERT ou UPDATE dispara atualização imediata
   useEffect(() => {
-    if (!dbReady || (activeTab !== "panel" && activeTab !== "kitchen")) return;
-    const interval = setInterval(async () => {
-      try {
-        const ords = await fetchPedidos();
-        if (ords.length) setOrders(ords);
-      } catch {}
-    }, 15000);
-    return () => clearInterval(interval);
-  }, [activeTab, dbReady]);
+    if (!dbReady) return;
+    const unsubscribe = escutarPedidos((pedidosAtualizados) => {
+      setOrders(pedidosAtualizados);
+    });
+    return unsubscribe;
+  }, [dbReady]);
   const [cart, setCart] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState("Todos");
   const [search, setSearch] = useState("");

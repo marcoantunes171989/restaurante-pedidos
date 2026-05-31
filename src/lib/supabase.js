@@ -6,6 +6,34 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 export const supabase = createClient(supabaseUrl, supabaseKey)
 
 // ════════════════════════════════════════════════════════════
+//  Realtime — escuta mudanças em tab_pedidos em tempo real
+//  Retorna função de unsubscribe para uso no useEffect cleanup
+// ════════════════════════════════════════════════════════════
+export function escutarPedidos(onMudanca) {
+  const canal = supabase
+    .channel('canal_pedidos')
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'tab_pedidos' },
+      async () => {
+        // Sempre que qualquer linha mudar (INSERT/UPDATE/DELETE),
+        // busca a lista completa atualizada e repassa para o app
+        try {
+          const { data, error } = await supabase
+            .from('tab_pedidos')
+            .select('*')
+            .order('criado_em', { ascending: false })
+          if (!error && data) onMudanca(data.map(dbParaPedido))
+        } catch {}
+      }
+    )
+    .subscribe()
+
+  // Retorna função de cleanup
+  return () => supabase.removeChannel(canal)
+}
+
+// ════════════════════════════════════════════════════════════
 //  tab_produtos
 // ════════════════════════════════════════════════════════════
 export async function fetchProdutos() {
