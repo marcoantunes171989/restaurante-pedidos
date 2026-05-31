@@ -726,6 +726,9 @@ export default function RestaurantePedidoApp() {
               addExtraIngredient={addExtraIngredient} removeExtraIngredient={removeExtraIngredient}
               subtotal={subtotal} serviceFee={serviceFee} total={total} totalItems={totalItems}
               handleSendOrder={handleSendOrder} requestBill={requestBill}
+              currentTableOrders={currentTableOrders}
+              currentTableSubtotal={currentTableSubtotal}
+              currentTableTotal={currentTableTotal}
               message={message} onSair={logout}
               onAbrirScanner={() => setScannerAberto(true)}
             />
@@ -766,9 +769,21 @@ function TabletView({
   addExtraIngredient, removeExtraIngredient,
   subtotal, serviceFee, total, totalItems,
   handleSendOrder, requestBill, message, onSair, onAbrirScanner,
+  currentTableOrders = [], currentTableSubtotal = 0, currentTableTotal = 0,
 }) {
+  const [verConta, setVerConta] = useState(false);
   const totalCartItems = cart.reduce((s, i) => s + i.quantity, 0);
   const comandaValida = /^[A-Z]{3}-\d{6}$/.test(String(commandCode || "").trim().toUpperCase());
+  const temPedidoNaMesa = currentTableOrders.length > 0 && currentTableTotal > 0;
+
+  // Agrupa pedidos por comanda
+  const porComanda = currentTableOrders.reduce((acc, order) => {
+    const key = order.command;
+    if (!acc[key]) acc[key] = { comanda: key, pedidos: [], subtotal: 0 };
+    acc[key].pedidos.push(order);
+    acc[key].subtotal += order.items.reduce((s, i) => s + i.price * i.quantity, 0);
+    return acc;
+  }, {});
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-slate-950 overflow-hidden">
@@ -1010,8 +1025,7 @@ function TabletView({
               </div>
             )}
 
-            {/* Botões */}
-            {/* Se comanda ainda não escaneada, abre câmera; se já válida, envia direto */}
+            {/* Botão enviar pedido */}
             {!comandaValida ? (
               <button onClick={onAbrirScanner}
                 disabled={cart.length === 0}
@@ -1025,13 +1039,115 @@ function TabletView({
                 🚀 Confirmar e enviar para a cozinha
               </button>
             )}
-            <button onClick={requestBill}
-              className="w-full rounded-2xl border border-white/10 bg-white/[0.06] py-3 text-sm font-black text-slate-300 hover:bg-white/10 transition">
-              🧾 Solicitar conta da mesa
-            </button>
+
+            {/* Solicitar conta — só habilitado com pedidos na mesa */}
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => setVerConta(true)}
+                disabled={!temPedidoNaMesa}
+                title={!temPedidoNaMesa ? "Nenhum pedido registrado nesta mesa" : "Ver conta detalhada"}
+                className="rounded-2xl border border-white/10 bg-white/[0.06] py-3 text-xs font-black text-slate-300 hover:bg-white/10 transition disabled:opacity-30 disabled:cursor-not-allowed">
+                👁️ Ver conta
+              </button>
+              <button
+                onClick={requestBill}
+                disabled={!temPedidoNaMesa}
+                title={!temPedidoNaMesa ? "Nenhum pedido registrado nesta mesa" : "Solicitar fechamento ao caixa"}
+                className="rounded-2xl border border-violet-400/30 bg-violet-500/10 py-3 text-xs font-black text-violet-300 hover:bg-violet-500/20 transition disabled:opacity-30 disabled:cursor-not-allowed">
+                🧾 Fechar conta
+              </button>
+            </div>
+            {!temPedidoNaMesa && (
+              <p className="text-center text-xs text-slate-600">Conta disponível após o primeiro pedido</p>
+            )}
           </div>
         </aside>
       </div>
+
+      {/* ── Modal de visualização da conta ─────────────────── */}
+      {verConta && (
+        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="w-full max-w-lg rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+              <div>
+                <h2 className="text-lg font-black text-white">🧾 Conta — Mesa {tableNumber.padStart(2,"0")}</h2>
+                <p className="text-xs text-slate-400">{currentTableOrders.length} pedido(s) registrado(s)</p>
+              </div>
+              <button onClick={() => setVerConta(false)}
+                className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20 transition">
+                Fechar ✕
+              </button>
+            </div>
+
+            {/* Corpo com scroll */}
+            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+              {/* Por comanda */}
+              {Object.values(porComanda).map(({ comanda, pedidos, subtotal: subCmd }) => (
+                <div key={comanda} className="rounded-3xl border border-white/10 bg-slate-800/60 overflow-hidden">
+                  {/* Cabeçalho da comanda */}
+                  <div className="flex items-center justify-between border-b border-white/10 bg-white/[0.04] px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <span className="rounded-xl bg-blue-500/20 border border-blue-400/30 px-2.5 py-1 font-mono text-xs font-black text-blue-300">
+                        {comanda}
+                      </span>
+                      <span className="text-xs text-slate-400">{pedidos.length} pedido(s)</span>
+                    </div>
+                    <span className="text-sm font-black text-white">{formatCurrency(subCmd)}</span>
+                  </div>
+                  {/* Itens da comanda */}
+                  <div className="divide-y divide-white/5">
+                    {pedidos.map((order) => (
+                      <div key={order.id} className="px-4 py-3">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">{order.id} • {order.createdAt}</span>
+                          <StatusChip status={order.status} />
+                        </div>
+                        {order.items.map((item, idx) => (
+                          <div key={idx} className="flex justify-between text-sm py-0.5">
+                            <span className="text-slate-300">
+                              <span className="font-black text-white">{item.quantity}×</span> {item.name}
+                            </span>
+                            <span className="font-bold text-white">{formatCurrency(item.price * item.quantity)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Totais finais */}
+            <div className="border-t border-white/10 bg-slate-950/60 px-6 py-4 space-y-2">
+              <div className="flex justify-between text-sm text-slate-400">
+                <span>Subtotal</span>
+                <span className="font-bold text-white">{formatCurrency(currentTableSubtotal)}</span>
+              </div>
+              <div className="flex justify-between text-sm text-slate-400">
+                <span>Taxa de serviço (10%)</span>
+                <span className="font-bold text-white">{formatCurrency(currentTableSubtotal * 0.1)}</span>
+              </div>
+              <div className="h-px bg-white/10" />
+              <div className="flex justify-between text-lg font-black text-white">
+                <span>Total da mesa</span>
+                <span className="text-emerald-400">{formatCurrency(currentTableTotal)}</span>
+              </div>
+              {Object.keys(porComanda).length > 1 && (
+                <p className="text-xs text-slate-500 text-center">
+                  {Object.keys(porComanda).length} comandas na mesa • Total dividido: {formatCurrency(currentTableTotal / Object.keys(porComanda).length)} por comanda
+                </p>
+              )}
+              <button onClick={() => { setVerConta(false); requestBill(); }}
+                disabled={!temPedidoNaMesa}
+                className="mt-2 w-full rounded-2xl bg-violet-500 py-4 text-sm font-black text-white hover:bg-violet-400 transition active:scale-95">
+                🧾 Solicitar fechamento ao caixa
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
