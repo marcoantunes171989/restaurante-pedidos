@@ -532,8 +532,14 @@ export default function RestaurantePedidoApp() {
     const found = users.find((u) => u.email.toLowerCase() === loginForm.email.toLowerCase() && u.password === loginForm.password && u.active);
     if (!found) return notify("error", "Usuário, senha ou status inválido.");
     setCurrentUser(found);
-    // Escolhe a primeira aba seguindo a ordem fixa do menu (tablet primeiro)
-    const primeira = ordemMenu.find((id) => found.accessIds.includes(id) && accesses.some((a) => a.id === id && a.active));
+    // Aba inicial: admin abre no Administrativo; demais seguem a ordem do menu
+    const acessosAtivos = (id) => found.accessIds.includes(id) && accesses.some((a) => a.id === id && a.active);
+    let primeira;
+    if (acessosAtivos("admin")) {
+      primeira = "admin";
+    } else {
+      primeira = ordemMenu.find((id) => acessosAtivos(id));
+    }
     setActiveTab(primeira || "blocked");
     notify("success", `Acesso liberado para ${found.name}.`);
   }
