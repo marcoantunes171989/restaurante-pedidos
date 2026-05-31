@@ -689,6 +689,20 @@ export default function RestaurantePedidoApp() {
     notify("success", "Conta finalizada com sucesso no caixa.");
   }
 
+  // Baixa das comandas após pagamento: marca pedidos como pago + entregue (libera comanda)
+  async function baixarComandas(comandas) {
+    if (!canAccess(currentUser, "cashier")) return notify("error", "Usuário sem permissão para finalizar pagamento.");
+    const alvo = orders.filter((o) => comandas.includes(o.command) && o.status !== "delivered");
+    if (alvo.length === 0) return notify("error", "Nenhum pedido em aberto para essas comandas.");
+    setOrders((cur) => cur.map((o) => comandas.includes(o.command) ? { ...o, paymentStatus: "paid", status: "delivered" } : o));
+    if (dbReady) {
+      try {
+        await Promise.all(alvo.map((o) => atualizarPedido(o.id, { status_pagamento: "pago", status: "entregue" })));
+      } catch (err) { console.error("Erro ao baixar comandas:", err); }
+    }
+    notify("success", `✅ Pagamento finalizado! ${comandas.length} comanda(s) baixada(s) e liberada(s).`);
+  }
+
   async function addProduct() {
     if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
     if (!adminForm.name.trim()) return notify("error", "Informe o nome do produto.");
@@ -878,7 +892,7 @@ export default function RestaurantePedidoApp() {
           <KitchenView groupedOrders={groupedOrders} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} onSair={logout} currentUser={currentUser} />
         )}
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} />}
-        {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierView currentTableOrders={currentTableOrders} currentTableSubtotal={currentTableSubtotal} currentTableTotal={currentTableTotal} closePayment={closePayment} />}
+        {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierView orders={orders} baixarComandas={baixarComandas} onSair={logout} />}
         {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} adminSection={adminSection} setAdminSection={setAdminSection} />}
 
       </div>
@@ -1891,8 +1905,207 @@ function PanelView({ groupedOrders }) {
   );
 }
 
-function CashierView({ currentTableOrders, currentTableSubtotal, currentTableTotal, closePayment }) {
-  return <main className="grid gap-6 lg:grid-cols-[1fr_420px]"><Card><h2 className="text-2xl font-black text-white">Pagamento / Caixa</h2><p className="mt-1 text-sm text-slate-300">Acesso somente à conta da mesa.</p><div className="mt-5 overflow-hidden rounded-3xl border border-white/10"><div className="hidden grid-cols-5 bg-white/[0.08] px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-slate-400 md:grid"><span>Pedido</span><span>Comanda</span><span>Status</span><span>Pagamento</span><span className="text-right">Total</span></div>{currentTableOrders.map((order) => <div key={order.id} className="grid gap-2 border-t border-white/10 px-4 py-4 text-sm text-slate-200 md:grid-cols-5 md:items-center md:gap-0"><span className="font-black text-white">{order.id}</span><span className="font-mono text-xs">{order.command}</span><span>{statusMap[order.status].label}</span><span>{paymentStatusMap[order.paymentStatus]}</span><span className="text-right font-black text-white">{formatCurrency(orderTotal(order))}</span></div>)}</div></Card><aside className="rounded-[2rem] border border-white/10 bg-white/[0.06] p-5 shadow-2xl backdrop-blur-xl lg:self-start"><h3 className="text-xl font-black text-white">Fechamento da conta</h3><div className="mt-5 rounded-3xl bg-white p-5 text-slate-900 shadow-xl"><div className="space-y-2 text-sm"><div className="flex justify-between"><span>Pedidos da mesa</span><strong>{currentTableOrders.length}</strong></div><div className="flex justify-between"><span>Subtotal</span><strong>{formatCurrency(currentTableSubtotal)}</strong></div><div className="flex justify-between"><span>Taxa 10%</span><strong>{formatCurrency(currentTableSubtotal * 0.1)}</strong></div><div className="h-px bg-slate-200" /><div className="flex justify-between text-lg"><span className="font-black">Total</span><strong>{formatCurrency(currentTableTotal)}</strong></div></div></div><button onClick={closePayment} className="mt-4 w-full rounded-2xl bg-violet-500 px-5 py-4 text-sm font-black text-white">Finalizar pagamento</button></aside></main>;
+function CashierView({ orders, baixarComandas, onSair }) {
+  const [comandasLidas, setComandasLidas] = useState([]); // comandas escaneadas
+  const [pessoas, setPessoas]   = useState(1);            // divisão da conta
+  const [scannerAberto, setScannerAberto] = useState(false);
+
+  // Pedidos ativos (não baixados) das comandas lidas
+  const pedidos = orders.filter((o) => comandasLidas.includes(o.command) && o.status !== "delivered");
+
+  // Agrupa por comanda
+  const porComanda = comandasLidas.map((cmd) => {
+    const ped = pedidos.filter((o) => o.command === cmd);
+    const sub = ped.reduce((s, o) => s + orderTotal(o), 0);
+    return { comanda: cmd, pedidos: ped, subtotal: sub };
+  });
+
+  const subtotal = pedidos.reduce((s, o) => s + orderTotal(o), 0);
+  const taxa = subtotal * 0.1;
+  const total = subtotal + taxa;
+  const porPessoa = total / Math.max(1, pessoas);
+  const mesas = [...new Set(pedidos.map((o) => o.table))];
+
+  function adicionarComanda(cmd) {
+    setComandasLidas((cur) => cur.includes(cmd) ? cur : [...cur, cmd]);
+    setScannerAberto(false);
+  }
+  function removerComanda(cmd) {
+    setComandasLidas((cur) => cur.filter((c) => c !== cmd));
+  }
+
+  function imprimirCupom() {
+    const linhas = [];
+    porComanda.forEach(({ comanda, pedidos: peds }) => {
+      peds.forEach((o) => o.items.forEach((it) => {
+        linhas.push({ q: it.quantity, nome: it.name, v: it.price * it.quantity, cmd: comanda });
+      }));
+    });
+    const data = new Date().toLocaleString("pt-BR");
+    const janela = window.open("", "_blank", "width=380,height=600");
+    janela.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Cupom</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Courier New',monospace;font-size:12px;color:#000;background:#fff;padding:10px;width:300px}
+  .center{text-align:center}.bold{font-weight:bold}
+  .linha{border-top:1px dashed #000;margin:6px 0}
+  .item{display:flex;justify-content:space-between;margin:2px 0}
+  .item .nome{flex:1;padding-right:8px}
+  .tot{display:flex;justify-content:space-between;font-weight:bold;font-size:13px}
+  h1{font-size:16px;margin-bottom:2px}
+  .small{font-size:10px;color:#333}
+</style></head><body>
+  <div class="center">
+    <h1 class="bold">RESTAURANTE</h1>
+    <p class="small">CUPOM NÃO FISCAL</p>
+    <p class="small">Sem valor fiscal</p>
+  </div>
+  <div class="linha"></div>
+  <p class="small">Data: ${data}</p>
+  <p class="small">Mesa(s): ${mesas.join(", ") || "-"}</p>
+  <p class="small">Comanda(s): ${comandasLidas.join(", ")}</p>
+  <div class="linha"></div>
+  <div class="item bold"><span class="nome">ITEM</span><span>VALOR</span></div>
+  ${linhas.map(l => `<div class="item"><span class="nome">${l.q}x ${l.nome}</span><span>${formatCurrency(l.v)}</span></div>`).join("")}
+  <div class="linha"></div>
+  <div class="item"><span>Subtotal</span><span>${formatCurrency(subtotal)}</span></div>
+  <div class="item"><span>Taxa servico (10%)</span><span>${formatCurrency(taxa)}</span></div>
+  <div class="linha"></div>
+  <div class="tot"><span>TOTAL</span><span>${formatCurrency(total)}</span></div>
+  ${pessoas > 1 ? `<div class="item small"><span>Dividido por ${pessoas}</span><span>${formatCurrency(porPessoa)}/pessoa</span></div>` : ""}
+  <div class="linha"></div>
+  <p class="center small">Obrigado pela preferencia!</p>
+  <p class="center small">.</p>
+  <script>window.onload=()=>{window.print();window.close()}<\/script>
+</body></html>`);
+    janela.document.close();
+  }
+
+  function finalizar() {
+    if (comandasLidas.length === 0) return;
+    baixarComandas(comandasLidas);
+    setComandasLidas([]);
+    setPessoas(1);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col bg-slate-950 overflow-hidden">
+      {/* Cabeçalho */}
+      <header className="flex shrink-0 items-center justify-between border-b border-white/10 bg-slate-900/90 px-6 py-3 backdrop-blur-xl">
+        <div className="flex items-center gap-3">
+          <span className="text-2xl">💳</span>
+          <div>
+            <p className="text-lg font-black text-white leading-tight">Caixa / Pagamento</p>
+            <p className="text-xs text-slate-500">Leia as comandas para fechar a conta</p>
+          </div>
+        </div>
+        <button onClick={onSair} className="rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-2 text-sm font-black text-red-300 hover:bg-red-500/20 transition">Sair</button>
+      </header>
+
+      <div className="flex flex-1 overflow-hidden">
+        {/* Lista de comandas/itens */}
+        <div className="flex-1 overflow-y-auto p-6">
+          {/* Botão ler comanda */}
+          <button onClick={() => setScannerAberto(true)}
+            className="mb-5 flex w-full items-center justify-center gap-3 rounded-3xl border-2 border-dashed border-blue-400/40 bg-blue-500/5 py-5 text-base font-black text-blue-300 hover:bg-blue-500/10 transition active:scale-[0.99]">
+            📷 Ler comanda
+          </button>
+
+          {comandasLidas.length === 0 ? (
+            <div className="flex h-64 flex-col items-center justify-center gap-3 opacity-30">
+              <span className="text-5xl">🧾</span>
+              <p className="font-black text-slate-300">Nenhuma comanda lida</p>
+              <p className="text-sm text-slate-500">Escaneie a comanda do cliente para ver os gastos</p>
+            </div>
+          ) : porComanda.map(({ comanda, pedidos: peds, subtotal: sub }) => (
+            <div key={comanda} className="mb-4 overflow-hidden rounded-3xl border border-white/10 bg-slate-900">
+              <div className="flex items-center justify-between border-b border-white/10 bg-white/[0.04] px-5 py-3">
+                <div className="flex items-center gap-2">
+                  <span className="rounded-xl bg-blue-500/20 border border-blue-400/30 px-3 py-1 font-mono text-sm font-black text-blue-300">{comanda}</span>
+                  <span className="text-xs text-slate-400">{peds.length} pedido(s) • {[...new Set(peds.map(p=>p.table))].join(", ")}</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-base font-black text-white">{formatCurrency(sub)}</span>
+                  <button onClick={() => removerComanda(comanda)} className="rounded-lg bg-white/5 px-2 py-1 text-xs text-slate-400 hover:bg-red-500/20 hover:text-red-300 transition">✕</button>
+                </div>
+              </div>
+              <div className="divide-y divide-white/5">
+                {peds.length === 0 && <p className="px-5 py-3 text-sm text-slate-500">Sem pedidos em aberto nesta comanda.</p>}
+                {peds.map((o) => (
+                  <div key={o.id} className="px-5 py-3">
+                    <p className="mb-1 text-xs font-bold uppercase tracking-widest text-slate-500">{o.id} • {o.createdAt}</p>
+                    {o.items.map((it, i) => (
+                      <div key={i} className="flex justify-between text-sm">
+                        <span className="text-slate-300"><span className="font-black text-white">{it.quantity}x</span> {it.name}</span>
+                        <span className="font-bold text-white">{formatCurrency(it.price * it.quantity)}</span>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Painel de fechamento */}
+        <aside className="flex w-[380px] shrink-0 flex-col border-l border-white/10 bg-slate-900/60 backdrop-blur-xl">
+          <div className="border-b border-white/10 px-5 py-4">
+            <p className="text-lg font-black text-white">🧾 Fechamento</p>
+            <p className="text-xs text-slate-500">{comandasLidas.length} comanda(s) • {pedidos.length} pedido(s)</p>
+          </div>
+
+          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+            {/* Totais */}
+            <div className="rounded-3xl bg-white p-5 text-slate-900 shadow-xl">
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between"><span>Mesa(s)</span><strong>{mesas.join(", ") || "-"}</strong></div>
+                <div className="flex justify-between"><span>Subtotal</span><strong>{formatCurrency(subtotal)}</strong></div>
+                <div className="flex justify-between"><span>Taxa 10%</span><strong>{formatCurrency(taxa)}</strong></div>
+                <div className="h-px bg-slate-200" />
+                <div className="flex justify-between text-xl"><span className="font-black">Total</span><strong>{formatCurrency(total)}</strong></div>
+              </div>
+            </div>
+
+            {/* Divisão da conta */}
+            <div className="rounded-3xl border border-white/10 bg-slate-800/50 p-4">
+              <p className="mb-2 text-xs font-black uppercase tracking-widest text-slate-400">Dividir a conta</p>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1 rounded-2xl border border-white/10 bg-slate-900 p-1">
+                  <button onClick={() => setPessoas((p) => Math.max(1, p - 1))} className="h-10 w-10 rounded-xl bg-slate-800 text-lg font-black text-white hover:bg-slate-700">−</button>
+                  <span className="w-10 text-center text-lg font-black text-white">{pessoas}</span>
+                  <button onClick={() => setPessoas((p) => p + 1)} className="h-10 w-10 rounded-xl bg-blue-500 text-lg font-black text-white hover:bg-blue-400">+</button>
+                </div>
+                <div className="flex-1 text-right">
+                  <p className="text-xs text-slate-500">{pessoas} {pessoas === 1 ? "pessoa" : "pessoas"}</p>
+                  <p className="text-lg font-black text-emerald-400">{formatCurrency(porPessoa)}<span className="text-xs text-slate-500">/cada</span></p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Ações */}
+          <div className="shrink-0 border-t border-white/10 px-5 py-4 space-y-3">
+            <button onClick={imprimirCupom} disabled={pedidos.length === 0}
+              className="w-full rounded-2xl border border-white/10 bg-white/[0.06] py-3 text-sm font-black text-slate-200 hover:bg-white/10 transition disabled:opacity-30 disabled:cursor-not-allowed">
+              🖨️ Imprimir cupom não fiscal
+            </button>
+            <button onClick={finalizar} disabled={pedidos.length === 0}
+              className="w-full rounded-2xl bg-violet-500 py-4 text-sm font-black text-white hover:bg-violet-400 transition active:scale-95 shadow-lg shadow-violet-950/30 disabled:opacity-40 disabled:cursor-not-allowed">
+              ✅ Finalizar pagamento e dar baixa
+            </button>
+          </div>
+        </aside>
+      </div>
+
+      {/* Scanner do caixa */}
+      {scannerAberto && (
+        <QRScannerModal
+          onSucesso={(codigo) => adicionarComanda(codigo)}
+          onCancelar={() => setScannerAberto(false)}
+        />
+      )}
+    </div>
+  );
 }
 
 function AdminView({ products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, toggleUserStatus, toggleAccessStatus, adminSection, setAdminSection }) {
