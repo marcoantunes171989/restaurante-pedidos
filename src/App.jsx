@@ -1926,6 +1926,19 @@ function CashierView({ orders, baixarComandas, onSair }) {
   const porPessoa = total / Math.max(1, pessoas);
   const mesas = [...new Set(pedidos.map((o) => o.table))];
 
+  // ── Solicitações de fechamento das mesas (pagamento "requested", não pago) ──
+  const solicitacoes = (() => {
+    const pendentes = orders.filter((o) => o.paymentStatus === "requested");
+    const mapa = {};
+    pendentes.forEach((o) => {
+      if (!mapa[o.table]) mapa[o.table] = { mesa: o.table, comandas: new Set(), subtotal: 0, pedidos: 0 };
+      mapa[o.table].comandas.add(o.command);
+      mapa[o.table].subtotal += orderTotal(o);
+      mapa[o.table].pedidos += 1;
+    });
+    return Object.values(mapa).map((m) => ({ ...m, comandas: [...m.comandas], total: m.subtotal * 1.1 }));
+  })();
+
   function adicionarComanda(cmd) {
     setComandasLidas((cur) => cur.includes(cmd) ? cur : [...cur, cmd]);
     setScannerAberto(false);
@@ -1933,50 +1946,90 @@ function CashierView({ orders, baixarComandas, onSair }) {
   function removerComanda(cmd) {
     setComandasLidas((cur) => cur.filter((c) => c !== cmd));
   }
+  // Carrega todas as comandas de uma mesa solicitante de uma vez
+  function carregarMesa(comandasDaMesa) {
+    setComandasLidas((cur) => [...new Set([...cur, ...comandasDaMesa])]);
+  }
 
   function imprimirCupom() {
-    const linhas = [];
-    porComanda.forEach(({ comanda, pedidos: peds }) => {
-      peds.forEach((o) => o.items.forEach((it) => {
-        linhas.push({ q: it.quantity, nome: it.name, v: it.price * it.quantity, cmd: comanda });
-      }));
-    });
-    const data = new Date().toLocaleString("pt-BR");
-    const janela = window.open("", "_blank", "width=380,height=600");
-    janela.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Cupom</title>
+    // Agrupa itens por comanda para layout profissional
+    const blocos = porComanda
+      .filter((b) => b.pedidos.length > 0)
+      .map(({ comanda, pedidos: peds, subtotal: subCmd }) => {
+        const itens = [];
+        peds.forEach((o) => o.items.forEach((it) => itens.push({ q: it.quantity, nome: it.name, unit: it.price, v: it.price * it.quantity })));
+        return { comanda, itens, subCmd };
+      });
+    const agora = new Date();
+    const data = agora.toLocaleDateString("pt-BR");
+    const hora = agora.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    const doc = String(Math.floor(100000 + Math.random() * 899999));
+
+    const janela = window.open("", "_blank", "width=400,height=640");
+    janela.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Cupom ${doc}</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
-  body{font-family:'Courier New',monospace;font-size:12px;color:#000;background:#fff;padding:10px;width:300px}
-  .center{text-align:center}.bold{font-weight:bold}
-  .linha{border-top:1px dashed #000;margin:6px 0}
-  .item{display:flex;justify-content:space-between;margin:2px 0}
-  .item .nome{flex:1;padding-right:8px}
-  .tot{display:flex;justify-content:space-between;font-weight:bold;font-size:13px}
-  h1{font-size:16px;margin-bottom:2px}
-  .small{font-size:10px;color:#333}
+  @page{size:80mm auto;margin:0}
+  body{font-family:'Courier New',Consolas,monospace;font-size:12px;line-height:1.35;color:#000;background:#fff;width:80mm;padding:4mm 3mm}
+  .c{text-align:center}.b{font-weight:bold}.r{text-align:right}
+  .sep{border-top:1px dashed #000;margin:5px 0}
+  .sep2{border-top:2px solid #000;margin:5px 0}
+  .row{display:flex;justify-content:space-between;gap:6px}
+  .row .l{flex:1}
+  h1{font-size:17px;letter-spacing:1px;margin:2px 0}
+  .xs{font-size:10px}.sm{font-size:11px}.lg{font-size:15px}
+  .cmd{background:#000;color:#fff;padding:2px 6px;font-weight:bold;display:inline-block;margin:6px 0 3px}
+  .item-nome{font-size:11px}
+  .item-det{font-size:9px;color:#222;padding-left:10px}
+  table{width:100%;border-collapse:collapse}
+  td{vertical-align:top;padding:1px 0}
 </style></head><body>
-  <div class="center">
-    <h1 class="bold">RESTAURANTE</h1>
-    <p class="small">CUPOM NÃO FISCAL</p>
-    <p class="small">Sem valor fiscal</p>
+  <div class="c">
+    <h1 class="b">RESTAURANTE</h1>
+    <p class="xs">Rua Exemplo, 123 - Centro</p>
+    <p class="xs">CNPJ 00.000.000/0001-00</p>
+    <p class="xs">Tel: (00) 0000-0000</p>
   </div>
-  <div class="linha"></div>
-  <p class="small">Data: ${data}</p>
-  <p class="small">Mesa(s): ${mesas.join(", ") || "-"}</p>
-  <p class="small">Comanda(s): ${comandasLidas.join(", ")}</p>
-  <div class="linha"></div>
-  <div class="item bold"><span class="nome">ITEM</span><span>VALOR</span></div>
-  ${linhas.map(l => `<div class="item"><span class="nome">${l.q}x ${l.nome}</span><span>${formatCurrency(l.v)}</span></div>`).join("")}
-  <div class="linha"></div>
-  <div class="item"><span>Subtotal</span><span>${formatCurrency(subtotal)}</span></div>
-  <div class="item"><span>Taxa servico (10%)</span><span>${formatCurrency(taxa)}</span></div>
-  <div class="linha"></div>
-  <div class="tot"><span>TOTAL</span><span>${formatCurrency(total)}</span></div>
-  ${pessoas > 1 ? `<div class="item small"><span>Dividido por ${pessoas}</span><span>${formatCurrency(porPessoa)}/pessoa</span></div>` : ""}
-  <div class="linha"></div>
-  <p class="center small">Obrigado pela preferencia!</p>
-  <p class="center small">.</p>
-  <script>window.onload=()=>{window.print();window.close()}<\/script>
+  <div class="sep2"></div>
+  <p class="c b sm">CUPOM NAO FISCAL</p>
+  <p class="c xs">*** SEM VALOR FISCAL ***</p>
+  <p class="c xs">Documento auxiliar de venda</p>
+  <div class="sep"></div>
+  <div class="row xs"><span class="l">Doc.: ${doc}</span><span>${data} ${hora}</span></div>
+  <div class="row xs"><span class="l">Mesa(s): ${mesas.join(", ") || "-"}</span><span>Operador: Caixa</span></div>
+  <div class="sep"></div>
+  <table>
+    <tr class="b xs"><td>ITEM/QTD x UNIT</td><td class="r">VALOR</td></tr>
+  </table>
+  ${blocos.map(b => `
+    <span class="cmd xs">COMANDA ${b.comanda}</span>
+    <table>
+      ${b.itens.map(it => `
+        <tr>
+          <td class="item-nome">${it.q}x ${it.nome}</td>
+          <td class="r b">${formatCurrency(it.v)}</td>
+        </tr>
+        <tr><td class="item-det" colspan="2">${it.q} un x ${formatCurrency(it.unit)}</td></tr>
+      `).join("")}
+    </table>
+    <div class="row sm b"><span class="l">Subtotal ${b.comanda}</span><span>${formatCurrency(b.subCmd)}</span></div>
+  `).join("")}
+  <div class="sep2"></div>
+  <div class="row sm"><span class="l">Subtotal geral</span><span>${formatCurrency(subtotal)}</span></div>
+  <div class="row sm"><span class="l">Taxa de servico (10%)</span><span>${formatCurrency(taxa)}</span></div>
+  <div class="sep"></div>
+  <div class="row b lg"><span class="l">TOTAL A PAGAR</span><span>${formatCurrency(total)}</span></div>
+  ${pessoas > 1 ? `
+  <div class="sep"></div>
+  <div class="row sm"><span class="l">Dividido por ${pessoas} pessoas</span><span class="b">${formatCurrency(porPessoa)}</span></div>
+  <p class="xs c">(valor por pessoa)</p>` : ""}
+  <div class="sep2"></div>
+  <p class="c xs">Pagamento na mesa com o garcom</p>
+  <p class="c sm b" style="margin-top:4px">OBRIGADO PELA PREFERENCIA!</p>
+  <p class="c xs" style="margin-top:6px">${data} ${hora}</p>
+  <p class="c xs">.</p>
+  <p class="c xs">.</p>
+  <script>window.onload=function(){window.print();setTimeout(function(){window.close()},300)}<\/script>
 </body></html>`);
     janela.document.close();
   }
@@ -2005,10 +2058,39 @@ function CashierView({ orders, baixarComandas, onSair }) {
       <div className="flex flex-1 overflow-hidden">
         {/* Lista de comandas/itens */}
         <div className="flex-1 overflow-y-auto p-6">
+
+          {/* ── Solicitações de fechamento das mesas ─────────── */}
+          {solicitacoes.length > 0 && (
+            <div className="mb-5 rounded-3xl border border-amber-400/30 bg-amber-500/5 p-4">
+              <div className="mb-3 flex items-center gap-2">
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-amber-500 text-sm">🔔</span>
+                <p className="font-black text-amber-200">Solicitações de fechamento ({solicitacoes.length})</p>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {solicitacoes.map((s) => {
+                  const jaCarregada = s.comandas.every((c) => comandasLidas.includes(c));
+                  return (
+                    <button key={s.mesa} onClick={() => carregarMesa(s.comandas)}
+                      className={`rounded-2xl border p-4 text-left transition active:scale-95 ${jaCarregada ? "border-emerald-400/40 bg-emerald-500/10" : "border-amber-400/30 bg-slate-900 hover:bg-amber-500/10"}`}>
+                      <div className="flex items-center justify-between">
+                        <p className="text-lg font-black text-white">{s.mesa}</p>
+                        <span className="text-base font-black text-amber-300">{formatCurrency(s.total)}</span>
+                      </div>
+                      <p className="mt-0.5 text-xs text-slate-400">{s.comandas.length} comanda(s) • {s.pedidos} pedido(s)</p>
+                      <p className="mt-2 text-xs font-bold {jaCarregada ? 'text-emerald-300' : 'text-amber-300'}">
+                        {jaCarregada ? "✅ Carregada — gere o cupom" : "👆 Tocar para carregar a conta"}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Botão ler comanda */}
           <button onClick={() => setScannerAberto(true)}
             className="mb-5 flex w-full items-center justify-center gap-3 rounded-3xl border-2 border-dashed border-blue-400/40 bg-blue-500/5 py-5 text-base font-black text-blue-300 hover:bg-blue-500/10 transition active:scale-[0.99]">
-            📷 Ler comanda
+            📷 Ler comanda manualmente
           </button>
 
           {comandasLidas.length === 0 ? (
@@ -2083,15 +2165,21 @@ function CashierView({ orders, baixarComandas, onSair }) {
             </div>
           </div>
 
-          {/* Ações */}
+          {/* Ações — fluxo em 2 passos */}
           <div className="shrink-0 border-t border-white/10 px-5 py-4 space-y-3">
+            <p className="text-xs text-slate-500">
+              <span className="font-black text-slate-300">Passo 1:</span> imprima o cupom e leve à mesa para o garçom receber.
+              <span className="font-black text-slate-300"> Passo 2:</span> após receber, dê baixa.
+            </p>
+            {/* Passo 1 — imprimir cupom (ação principal) */}
             <button onClick={imprimirCupom} disabled={pedidos.length === 0}
-              className="w-full rounded-2xl border border-white/10 bg-white/[0.06] py-3 text-sm font-black text-slate-200 hover:bg-white/10 transition disabled:opacity-30 disabled:cursor-not-allowed">
-              🖨️ Imprimir cupom não fiscal
+              className="w-full rounded-2xl bg-blue-500 py-4 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95 shadow-lg shadow-blue-950/30 disabled:opacity-40 disabled:cursor-not-allowed">
+              🖨️ Gerar e imprimir cupom não fiscal
             </button>
+            {/* Passo 2 — baixa após receber pagamento */}
             <button onClick={finalizar} disabled={pedidos.length === 0}
-              className="w-full rounded-2xl bg-violet-500 py-4 text-sm font-black text-white hover:bg-violet-400 transition active:scale-95 shadow-lg shadow-violet-950/30 disabled:opacity-40 disabled:cursor-not-allowed">
-              ✅ Finalizar pagamento e dar baixa
+              className="w-full rounded-2xl border border-violet-400/30 bg-violet-500/10 py-3 text-sm font-black text-violet-300 hover:bg-violet-500/20 transition disabled:opacity-30 disabled:cursor-not-allowed">
+              ✅ Confirmar recebimento e dar baixa
             </button>
           </div>
         </aside>
