@@ -116,11 +116,12 @@ function StatusChip({ status }) {
 export default function RestaurantePedidoApp() {
   const [accesses, setAccesses] = useState(defaultAccesses);
   const [users, setUsers] = useState(initialUsers);
+  // ⚠️ Pedidos iniciam VAZIOS — dados sempre vêm do Supabase
   const [currentUser, setCurrentUser] = useState(null);
   const [loginForm, setLoginForm] = useState({ email: "admin@restaurante.com", password: "123456" });
   const [activeTab, setActiveTab] = useState("tablet");
   const [products, setProducts] = useState(initialProducts);
-  const [orders, setOrders] = useState(initialOrders);
+  const [orders, setOrders] = useState([]);
   const [dbReady, setDbReady] = useState(false);
 
   // ── Carrega dados do Supabase na inicialização ──────────────
@@ -130,13 +131,13 @@ export default function RestaurantePedidoApp() {
         const [prods, usrs, accs, ords] = await Promise.all([
           fetchProdutos(), fetchUsuarios(), fetchAcessos(), fetchPedidos(),
         ]);
-        if (prods.length)  setProducts(prods);
-        if (usrs.length)   setUsers(usrs);
-        if (accs.length)   setAccesses(accs);
-        if (ords.length)   setOrders(ords);
+        if (prods.length) setProducts(prods);
+        if (usrs.length)  setUsers(usrs);
+        if (accs.length)  setAccesses(accs);
+        setOrders(ords); // sempre sobrescreve — pedidos SEMPRE vêm do Supabase
         setDbReady(true);
       } catch (err) {
-        console.warn("Supabase indisponível — usando dados locais:", err.message);
+        console.warn("Supabase indisponível:", err.message);
         setDbReady(false);
       }
     }
@@ -279,8 +280,17 @@ export default function RestaurantePedidoApp() {
 
   async function updateOrderStatus(oid, status) {
     if (!canAccess(currentUser, "kitchen")) return notify("error", "Usuário sem permissão para alterar status da cozinha.");
+    // 1. Atualiza estado local imediatamente (UI responsiva)
     setOrders((cur) => cur.map((o) => o.id === oid ? { ...o, status } : o));
-    if (dbReady) try { await atualizarPedido(oid, { status: _statusParaDb[status] ?? status }); } catch {}
+    // 2. Salva no Supabase — o Realtime dispara e atualiza painel e cozinha
+    const statusDb = _statusParaDb[status] ?? status;
+    if (dbReady) {
+      try {
+        await atualizarPedido(oid, { status: statusDb });
+      } catch (err) {
+        console.error("Erro ao atualizar status no Supabase:", err);
+      }
+    }
   }
 
   async function requestBill() {

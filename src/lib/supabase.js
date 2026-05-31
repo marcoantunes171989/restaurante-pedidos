@@ -9,27 +9,33 @@ export const supabase = createClient(supabaseUrl, supabaseKey)
 //  Realtime — escuta mudanças em tab_pedidos em tempo real
 //  Retorna função de unsubscribe para uso no useEffect cleanup
 // ════════════════════════════════════════════════════════════
-export function escutarPedidos(onMudanca) {
-  const canal = supabase
-    .channel('canal_pedidos')
-    .on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'tab_pedidos' },
-      async () => {
-        // Sempre que qualquer linha mudar (INSERT/UPDATE/DELETE),
-        // busca a lista completa atualizada e repassa para o app
-        try {
-          const { data, error } = await supabase
-            .from('tab_pedidos')
-            .select('*')
-            .order('criado_em', { ascending: false })
-          if (!error && data) onMudanca(data.map(dbParaPedido))
-        } catch {}
-      }
-    )
-    .subscribe()
+async function recarregarPedidos(onMudanca) {
+  const { data, error } = await supabase
+    .from('tab_pedidos')
+    .select('*')
+    .order('criado_em', { ascending: false })
+  if (!error && data) onMudanca(data.map(dbParaPedido))
+}
 
-  // Retorna função de cleanup
+export function escutarPedidos(onMudanca) {
+  // Remove canal anterior se existir (evita canais duplicados)
+  supabase.removeAllChannels()
+
+  const canal = supabase
+    .channel('canal_pedidos_realtime')
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'tab_pedidos' },
+      () => recarregarPedidos(onMudanca))
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tab_pedidos' },
+      () => recarregarPedidos(onMudanca))
+    .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'tab_pedidos' },
+      () => recarregarPedidos(onMudanca))
+    .subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        // Canal conectado — carrega estado atual imediatamente
+        recarregarPedidos(onMudanca)
+      }
+    })
+
   return () => supabase.removeChannel(canal)
 }
 
