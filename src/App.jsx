@@ -6,6 +6,8 @@ import {
   fetchPedidos,   inserirPedido,   atualizarPedido,   escutarPedidos,
   STATUS_APP_PARA_DB,
 } from "./lib/supabase";
+import { GeradorComandas } from "./components/QRComandas";
+import { QRScannerModal  } from "./components/QRScanner";
 
 const fallbackImage = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=900&q=80";
 
@@ -132,7 +134,8 @@ export default function RestaurantePedidoApp() {
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
   const [dbReady, setDbReady] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading]     = useState(true);
+  const [scannerAberto, setScannerAberto] = useState(false);
 
   // ── Carregamento inicial + Realtime para todas as tabelas ────
   useEffect(() => {
@@ -514,20 +517,33 @@ export default function RestaurantePedidoApp() {
         {message.text && <div className={`mb-6 rounded-3xl border p-4 shadow-xl ${message.type === "error" ? "border-red-400/30 bg-red-500/10 text-red-100" : "border-emerald-400/30 bg-emerald-500/10 text-emerald-100"}`}><p className="font-bold">{message.type === "error" ? "Atenção necessária" : "Operação concluída"}</p><p className="text-sm opacity-90">{message.text}</p></div>}
 
         {activeTab === "tablet" && canAccess(currentUser, "tablet") && (
-          <TabletView
-            products={products} categories={categories}
-            filteredItems={filteredItems} selectedCategory={selectedCategory} setSelectedCategory={setSelectedCategory}
-            search={search} setSearch={setSearch}
-            cart={cart} tableNumber={tableNumber} setTableNumber={setTableNumber}
-            customerName={customerName} setCustomerName={setCustomerName}
-            commandCode={commandCode} setCommandCode={setCommandCode}
-            addToCart={addToCart} removeFromCart={removeFromCart} updateCartItem={updateCartItem}
-            removeIngredient={removeIngredient} restoreIngredient={restoreIngredient}
-            addExtraIngredient={addExtraIngredient} removeExtraIngredient={removeExtraIngredient}
-            subtotal={subtotal} serviceFee={serviceFee} total={total} totalItems={totalItems}
-            handleSendOrder={handleSendOrder} requestBill={requestBill}
-            message={message} onSair={logout}
-          />
+          <>
+            <TabletView
+              products={products} categories={categories}
+              filteredItems={filteredItems} selectedCategory={selectedCategory} setSelectedCategory={setSelectedCategory}
+              search={search} setSearch={setSearch}
+              cart={cart} tableNumber={tableNumber} setTableNumber={setTableNumber}
+              customerName={customerName} setCustomerName={setCustomerName}
+              commandCode={commandCode} setCommandCode={setCommandCode}
+              addToCart={addToCart} removeFromCart={removeFromCart} updateCartItem={updateCartItem}
+              removeIngredient={removeIngredient} restoreIngredient={restoreIngredient}
+              addExtraIngredient={addExtraIngredient} removeExtraIngredient={removeExtraIngredient}
+              subtotal={subtotal} serviceFee={serviceFee} total={total} totalItems={totalItems}
+              handleSendOrder={handleSendOrder} requestBill={requestBill}
+              message={message} onSair={logout}
+              onAbrirScanner={() => setScannerAberto(true)}
+            />
+            {scannerAberto && (
+              <QRScannerModal
+                onSucesso={(codigo) => {
+                  setCommandCode(codigo);
+                  setScannerAberto(false);
+                  handleSendOrder();
+                }}
+                onCancelar={() => setScannerAberto(false)}
+              />
+            )}
+          </>
         )}
 
         {activeTab === "kitchen" && canAccess(currentUser, "kitchen") && (
@@ -553,9 +569,10 @@ function TabletView({
   removeIngredient, restoreIngredient,
   addExtraIngredient, removeExtraIngredient,
   subtotal, serviceFee, total, totalItems,
-  handleSendOrder, requestBill, message, onSair,
+  handleSendOrder, requestBill, message, onSair, onAbrirScanner,
 }) {
   const totalCartItems = cart.reduce((s, i) => s + i.quantity, 0);
+  const comandaValida = /^[A-Z]{3}-\d{6}$/.test(String(commandCode || "").trim().toUpperCase());
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-slate-950 overflow-hidden">
@@ -696,12 +713,23 @@ function TabletView({
                   className="w-full rounded-2xl border border-white/10 bg-slate-800 px-3 py-2.5 text-white outline-none focus:border-blue-400 text-sm" />
               </label>
             </div>
-            <label>
+            <div>
               <span className="mb-1 block text-xs font-bold uppercase tracking-widest text-amber-500">⚠ Comanda obrigatória</span>
-              <input value={commandCode} onChange={(e) => setCommandCode(e.target.value.toUpperCase())}
-                placeholder="Ex.: CMD-000245"
-                className="w-full rounded-2xl border border-amber-400/30 bg-slate-800 px-3 py-2.5 font-mono text-white outline-none focus:border-amber-400 text-sm" />
-            </label>
+              <div className="flex gap-2">
+                <input value={commandCode} onChange={(e) => setCommandCode(e.target.value.toUpperCase())}
+                  placeholder="Ex.: CMD-000001"
+                  className={`flex-1 rounded-2xl border bg-slate-800 px-3 py-2.5 font-mono text-white outline-none text-sm transition
+                    ${comandaValida ? "border-emerald-400/50 focus:border-emerald-400" : "border-amber-400/30 focus:border-amber-400"}`} />
+                <button onClick={onAbrirScanner}
+                  title="Escanear QR Code da comanda"
+                  className="shrink-0 rounded-2xl border border-blue-400/30 bg-blue-500/10 px-3 py-2.5 text-blue-300 hover:bg-blue-500/20 transition text-lg">
+                  📷
+                </button>
+              </div>
+              {comandaValida && (
+                <p className="mt-1 text-xs text-emerald-400 font-semibold">✅ Comanda válida: {commandCode}</p>
+              )}
+            </div>
           </div>
 
           {/* Itens do carrinho */}
@@ -787,10 +815,20 @@ function TabletView({
             )}
 
             {/* Botões */}
-            <button onClick={handleSendOrder}
-              className="w-full rounded-2xl bg-blue-500 py-4 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95 shadow-lg shadow-blue-950/30">
-              🚀 Enviar pedido para a cozinha
-            </button>
+            {/* Se comanda ainda não escaneada, abre câmera; se já válida, envia direto */}
+            {!comandaValida ? (
+              <button onClick={onAbrirScanner}
+                disabled={cart.length === 0}
+                className="w-full rounded-2xl bg-blue-500 py-4 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95 shadow-lg shadow-blue-950/30 disabled:opacity-40 disabled:cursor-not-allowed">
+                📷 Escanear comanda e enviar pedido
+              </button>
+            ) : (
+              <button onClick={handleSendOrder}
+                disabled={cart.length === 0}
+                className="w-full rounded-2xl bg-emerald-500 py-4 text-sm font-black text-white hover:bg-emerald-400 transition active:scale-95 shadow-lg shadow-emerald-950/30 disabled:opacity-40 disabled:cursor-not-allowed">
+                🚀 Confirmar e enviar para a cozinha
+              </button>
+            )}
             <button onClick={requestBill}
               className="w-full rounded-2xl border border-white/10 bg-white/[0.06] py-3 text-sm font-black text-slate-300 hover:bg-white/10 transition">
               🧾 Solicitar conta da mesa
@@ -1213,7 +1251,34 @@ function CashierView({ currentTableOrders, currentTableSubtotal, currentTableTot
 }
 
 function AdminView({ products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, toggleUserStatus, toggleAccessStatus, adminSection, setAdminSection }) {
-  return <main className="space-y-6"><Card><h2 className="text-2xl font-black text-white">Administrativo</h2><p className="mt-1 text-sm text-slate-300">Produtos, usuários, permissões de acesso e vínculo usuário x acesso.</p><div className="mt-5 flex flex-wrap gap-2">{[{ id: "products", label: "Produtos" }, { id: "users", label: "Usuários" }, { id: "access", label: "Permissões de acesso" }, { id: "link", label: "Usuário x Acesso" }].map((s) => <button key={s.id} onClick={() => setAdminSection(s.id)} className={`rounded-full border px-4 py-2 text-sm font-black ${adminSection === s.id ? "border-blue-400 bg-blue-500 text-white" : "border-white/10 bg-white/[0.06] text-slate-300"}`}>{s.label}</button>)}</div></Card>{adminSection === "products" && <ProductAdmin products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} />}{adminSection === "users" && <UserAdmin users={users} userForm={userForm} setUserForm={setUserForm} addUser={addUser} toggleUserStatus={toggleUserStatus} />}{adminSection === "access" && <AccessAdmin accesses={accesses} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleAccessStatus={toggleAccessStatus} />}{adminSection === "link" && <UserAccessAdmin users={users} accesses={accesses} toggleUserAccess={toggleUserAccess} />}</main>;
+  const abas = [
+    { id: "products", label: "🛒 Produtos"       },
+    { id: "users",    label: "👥 Usuários"        },
+    { id: "access",   label: "🔐 Permissões"      },
+    { id: "link",     label: "🔗 Usuário x Acesso"},
+    { id: "comandas", label: "🎫 Comandas QR"     },
+  ];
+  return (
+    <main className="space-y-6">
+      <Card>
+        <h2 className="text-2xl font-black text-white">Administrativo</h2>
+        <p className="mt-1 text-sm text-slate-300">Produtos, usuários, permissões e geração de comandas com QR Code.</p>
+        <div className="mt-5 flex flex-wrap gap-2">
+          {abas.map((s) => (
+            <button key={s.id} onClick={() => setAdminSection(s.id)}
+              className={`rounded-full border px-4 py-2 text-sm font-black ${adminSection === s.id ? "border-blue-400 bg-blue-500 text-white" : "border-white/10 bg-white/[0.06] text-slate-300"}`}>
+              {s.label}
+            </button>
+          ))}
+        </div>
+      </Card>
+      {adminSection === "products"  && <ProductAdmin   products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} />}
+      {adminSection === "users"     && <UserAdmin      users={users} userForm={userForm} setUserForm={setUserForm} addUser={addUser} toggleUserStatus={toggleUserStatus} />}
+      {adminSection === "access"    && <AccessAdmin    accesses={accesses} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleAccessStatus={toggleAccessStatus} />}
+      {adminSection === "link"      && <UserAccessAdmin users={users} accesses={accesses} toggleUserAccess={toggleUserAccess} />}
+      {adminSection === "comandas"  && <GeradorComandas />}
+    </main>
+  );
 }
 
 function ProductAdmin({ products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct }) {
