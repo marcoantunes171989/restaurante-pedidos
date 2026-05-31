@@ -257,7 +257,7 @@ function pedidoParaDb(p) {
 // ════════════════════════════════════════════════════════════
 //  Conversores de status
 // ════════════════════════════════════════════════════════════
-export const STATUS_APP_PARA_DB = { received: 'recebido', preparing: 'preparando', ready: 'finalizado' }
-export const STATUS_DB_PARA_APP = { recebido: 'received', preparando: 'preparing', finalizado: 'ready'  }
+export const STATUS_APP_PARA_DB = { received: 'recebido', preparing: 'preparando', ready: 'finalizado', delivered: 'entregue' }
+export const STATUS_DB_PARA_APP = { recebido: 'received', preparando: 'preparing', finalizado: 'ready', entregue: 'delivered' }
 export const PAGT_APP_PARA_DB   = { open: 'aberto', requested: 'solicitado', paid: 'pago' }
 export const PAGT_DB_PARA_APP   = { aberto: 'open', solicitado: 'requested', pago: 'paid' }

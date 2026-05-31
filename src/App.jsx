@@ -45,9 +45,10 @@ const initialUsers = [
 ];
 
 const statusMap = {
-  received: { label: "Recebido", title: "Pedido recebido", order: 1, progress: 25, dot: "bg-blue-500", chip: "bg-blue-50 text-blue-700 border-blue-100" },
-  preparing: { label: "Em preparação", title: "Em preparação", order: 2, progress: 65, dot: "bg-amber-500", chip: "bg-amber-50 text-amber-700 border-amber-100" },
-  ready: { label: "Finalizado", title: "Pedido finalizado", order: 3, progress: 100, dot: "bg-emerald-500", chip: "bg-emerald-50 text-emerald-700 border-emerald-100" },
+  received:  { label: "Recebido",     title: "Pedido recebido",    order: 1, progress: 25,  dot: "bg-blue-500",   chip: "bg-blue-50 text-blue-700 border-blue-100"     },
+  preparing: { label: "Em preparação",title: "Em preparação",      order: 2, progress: 65,  dot: "bg-amber-500",  chip: "bg-amber-50 text-amber-700 border-amber-100"  },
+  ready:     { label: "Finalizado",   title: "Pedido finalizado",  order: 3, progress: 100, dot: "bg-emerald-500",chip: "bg-emerald-50 text-emerald-700 border-emerald-100"},
+  delivered: { label: "Entregue",     title: "Pedido entregue",    order: 4, progress: 100, dot: "bg-slate-500",  chip: "bg-slate-100 text-slate-600 border-slate-200" },
 };
 
 const paymentStatusMap = { open: "Conta aberta", requested: "Fechamento solicitado", paid: "Conta paga" };
@@ -482,15 +483,18 @@ export default function RestaurantePedidoApp() {
   const currentTableSubtotal = currentTableOrders.reduce((sum, o) => sum + orderTotal(o), 0);
   const currentTableTotal = currentTableSubtotal + currentTableSubtotal * 0.1;
 
-  const sortedOrders = [...orders].sort((a, b) => {
-    const diff = statusMap[a.status].order - statusMap[b.status].order;
+  // Pedidos ativos = excluindo os já entregues (apenas para exibição na cozinha/painel)
+  const activeOrders = orders.filter((o) => o.status !== "delivered");
+
+  const sortedOrders = [...activeOrders].sort((a, b) => {
+    const diff = (statusMap[a.status]?.order ?? 9) - (statusMap[b.status]?.order ?? 9);
     return diff !== 0 ? diff : a.createdAt.localeCompare(b.createdAt);
   });
 
   const groupedOrders = {
-    received: sortedOrders.filter((o) => o.status === "received"),
+    received:  sortedOrders.filter((o) => o.status === "received"),
     preparing: sortedOrders.filter((o) => o.status === "preparing"),
-    ready: sortedOrders.filter((o) => o.status === "ready"),
+    ready:     sortedOrders.filter((o) => o.status === "ready"),
   };
 
   const rawPayload = { mesa: currentTable, comanda: commandCode || "Aguardando leitura", cliente: customerName, carrinho: cart, pedidosDaMesa: currentTableOrders, usuarioLogado: currentUser, resumo: { totalItems, subtotal, serviceFee, total } };
@@ -580,16 +584,22 @@ export default function RestaurantePedidoApp() {
 
   async function updateOrderStatus(oid, status) {
     if (!canAccess(currentUser, "kitchen")) return notify("error", "Usuário sem permissão para alterar status da cozinha.");
-    // 1. Atualiza estado local imediatamente (UI responsiva)
     setOrders((cur) => cur.map((o) => o.id === oid ? { ...o, status } : o));
-    // 2. Salva no Supabase — o Realtime dispara e atualiza painel e cozinha
     const statusDb = STATUS_APP_PARA_DB[status] ?? status;
     if (dbReady) {
-      try {
-        await atualizarPedido(oid, { status: statusDb });
-      } catch (err) {
-        console.error("Erro ao atualizar status no Supabase:", err);
-      }
+      try { await atualizarPedido(oid, { status: statusDb }); }
+      catch (err) { console.error("Erro ao atualizar status:", err); }
+    }
+  }
+
+  async function marcarEntregue(oid) {
+    if (!canAccess(currentUser, "kitchen")) return notify("error", "Usuário sem permissão.");
+    // Remove da view ativa imediatamente (UI responsiva)
+    setOrders((cur) => cur.map((o) => o.id === oid ? { ...o, status: "delivered" } : o));
+    // Salva no banco como "entregue" — mantido para relatórios
+    if (dbReady) {
+      try { await atualizarPedido(oid, { status: "entregue" }); }
+      catch (err) { console.error("Erro ao marcar como entregue:", err); }
     }
   }
 
@@ -799,7 +809,7 @@ export default function RestaurantePedidoApp() {
         )}
 
         {activeTab === "kitchen" && canAccess(currentUser, "kitchen") && (
-          <KitchenView groupedOrders={groupedOrders} updateOrderStatus={updateOrderStatus} onSair={logout} onVoltar={() => openTab("tablet")} currentUser={currentUser} />
+          <KitchenView groupedOrders={groupedOrders} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} onSair={logout} currentUser={currentUser} />
         )}
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} />}
         {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierView currentTableOrders={currentTableOrders} currentTableSubtotal={currentTableSubtotal} currentTableTotal={currentTableTotal} closePayment={closePayment} />}
@@ -1211,7 +1221,7 @@ const kitchenCols = [
   { key: "ready",     label: "Finalizado", sub: "Pronto p/ retirada",dot: "bg-emerald-400", header: "border-emerald-500/40 bg-emerald-500/10", card: "border-emerald-500/20" },
 ];
 
-function KitchenView({ groupedOrders, updateOrderStatus, onSair, currentUser }) {
+function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, onSair, currentUser }) {
   const [hora, setHora] = useState(() =>
     new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
   );
@@ -1320,28 +1330,40 @@ function KitchenView({ groupedOrders, updateOrderStatus, onSair, currentUser }) 
                       ))}
                     </div>
 
-                    {/* Botões */}
-                    <div className="grid grid-cols-2 gap-2 border-t border-white/10 px-4 py-3">
-                      <button
-                        onClick={() => updateOrderStatus(order.id, "preparing")}
-                        disabled={order.status === "ready"}
-                        className={`rounded-2xl py-3 text-sm font-black transition active:scale-95
-                          ${order.status === "preparing"
-                            ? "bg-amber-500 text-white ring-2 ring-amber-400/40"
-                            : order.status === "ready"
-                            ? "cursor-not-allowed bg-white/5 text-slate-600"
-                            : "bg-amber-500/20 text-amber-300 hover:bg-amber-500 hover:text-white"}`}>
-                        👨‍🍳 Preparar
-                      </button>
-                      <button
-                        onClick={() => updateOrderStatus(order.id, "ready")}
-                        disabled={order.status === "ready"}
-                        className={`rounded-2xl py-3 text-sm font-black transition active:scale-95
-                          ${order.status === "ready"
-                            ? "bg-emerald-500 text-white ring-2 ring-emerald-400/40"
-                            : "bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500 hover:text-white"}`}>
-                        ✅ Finalizar
-                      </button>
+                    {/* Botões de status */}
+                    <div className="border-t border-white/10 px-4 py-3 space-y-2">
+                      {/* Preparar + Finalizar */}
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          onClick={() => updateOrderStatus(order.id, "preparing")}
+                          disabled={order.status === "ready"}
+                          className={`rounded-2xl py-3 text-sm font-black transition active:scale-95
+                            ${order.status === "preparing"
+                              ? "bg-amber-500 text-white ring-2 ring-amber-400/40"
+                              : order.status === "ready"
+                              ? "cursor-not-allowed bg-white/5 text-slate-600"
+                              : "bg-amber-500/20 text-amber-300 hover:bg-amber-500 hover:text-white"}`}>
+                          👨‍🍳 Preparar
+                        </button>
+                        <button
+                          onClick={() => updateOrderStatus(order.id, "ready")}
+                          disabled={order.status === "ready"}
+                          className={`rounded-2xl py-3 text-sm font-black transition active:scale-95
+                            ${order.status === "ready"
+                              ? "bg-emerald-500 text-white ring-2 ring-emerald-400/40"
+                              : "bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500 hover:text-white"}`}>
+                          ✅ Finalizar
+                        </button>
+                      </div>
+
+                      {/* Botão Entregue — só aparece quando finalizado */}
+                      {order.status === "ready" && (
+                        <button
+                          onClick={() => marcarEntregue(order.id)}
+                          className="w-full rounded-2xl border border-violet-400/40 bg-violet-500/15 py-3 text-sm font-black text-violet-300 hover:bg-violet-500 hover:text-white transition active:scale-95 shadow-lg shadow-violet-950/20">
+                          🛎️ Marcar como Entregue
+                        </button>
+                      )}
                     </div>
                   </article>
                 ))}
