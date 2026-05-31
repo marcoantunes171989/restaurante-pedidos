@@ -450,6 +450,21 @@ export default function RestaurantePedidoApp() {
     iniciar();
     return () => unsubs.forEach((fn) => fn && fn());
   }, []);
+
+  // ── Polling de segurança — garante sync mesmo se Realtime falhar ──
+  // Quando cozinha ou painel estão ativos, recarrega pedidos a cada 4s
+  useEffect(() => {
+    if (!dbReady) return;
+    if (activeTab !== "kitchen" && activeTab !== "panel") return;
+    const intervalo = setInterval(async () => {
+      try {
+        const ords = await fetchPedidos();
+        setOrders(ords);
+      } catch (e) { /* silencioso — Realtime cobre */ }
+    }, 4000);
+    return () => clearInterval(intervalo);
+  }, [dbReady, activeTab]);
+
   const [cart, setCart] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState("Todos");
   const [search, setSearch] = useState("");
@@ -585,19 +600,32 @@ export default function RestaurantePedidoApp() {
     const codigo = (codigoOverride || commandCode || "").trim().toUpperCase();
     if (!isValidCommand(codigo)) return notify("error", "Escaneie a comanda antes de enviar o pedido.");
     clearMessage();
+    // ID único: timestamp + aleatório (evita colisão de chave primária)
     const newOrder = {
-      id: `PED-${Math.floor(1000 + Math.random() * 9000)}`,
+      id: `PED-${Date.now().toString().slice(-7)}${Math.floor(Math.random() * 90 + 10)}`,
       table: currentTable, command: codigo, customer: customerName,
       status: "received", paymentStatus: "open",
       createdAt: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
       items: cart.map((i) => ({ name: i.name, quantity: i.quantity, price: i.price, selectedIngredients: i.selectedIngredients, removedIngredients: i.removedIngredients, extraIngredients: i.extraIngredients, observation: i.observation })),
     };
-    try {
-      const saved = dbReady ? await inserirPedido(newOrder) : newOrder;
-      setOrders((cur) => [saved, ...cur]);
-    } catch { setOrders((cur) => [newOrder, ...cur]); }
+
+    if (dbReady) {
+      // Grava no Supabase — se falhar, MOSTRA o erro (não esconde)
+      try {
+        const saved = await inserirPedido(newOrder);
+        setOrders((cur) => [saved, ...cur.filter((o) => o.id !== saved.id)]);
+        // O Realtime vai propagar para cozinha e painel automaticamente
+      } catch (err) {
+        console.error("Falha ao salvar pedido no Supabase:", err);
+        return notify("error", `Erro ao salvar o pedido no banco: ${err.message || err}. Tente novamente.`);
+      }
+    } else {
+      // Modo offline — apenas local
+      setOrders((cur) => [newOrder, ...cur]);
+    }
+
     setCart([]);
-    setCommandCode(codigo); // mantém comanda visível
+    setCommandCode(codigo);
     notify("success", `✅ Pedido enviado! Comanda ${codigo} vinculada à ${currentTable}.`);
   }
 
