@@ -74,6 +74,15 @@ function itemDetails(item) {
   ].filter(Boolean).join(" • ");
 }
 
+// Normaliza string: remove acentos e converte para minúsculas
+function normalizar(str) {
+  return String(str || "")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "") // remove diacríticos (acentos)
+    .toLowerCase()
+    .trim();
+}
+
 function canAccess(user, accessId) {
   return Boolean(user && user.active && user.accessIds.includes(accessId));
 }
@@ -180,10 +189,15 @@ export default function RestaurantePedidoApp() {
   const currentTable = `Mesa ${tableNumber.padStart(2, "0")}`;
   const allowedTabs = useMemo(() => accesses.filter((a) => a.active && canAccess(currentUser, a.id)), [accesses, currentUser]);
   const activeProducts = products.filter((p) => p.active);
-  const filteredItems = useMemo(() => activeProducts.filter((item) => {
-    const text = `${item.name} ${item.description} ${item.category}`.toLowerCase();
-    return (selectedCategory === "Todos" || item.category === selectedCategory) && text.includes(search.toLowerCase());
-  }), [activeProducts, selectedCategory, search]);
+  const filteredItems = useMemo(() => {
+    const termo = normalizar(search);
+    return activeProducts.filter((item) => {
+      const texto = normalizar(`${item.name} ${item.description} ${item.category} ${(item.ingredients || []).join(" ")}`);
+      const categoriaOk = selectedCategory === "Todos" || item.category === selectedCategory;
+      const buscaOk = termo === "" || texto.includes(termo);
+      return categoriaOk && buscaOk;
+    });
+  }, [activeProducts, selectedCategory, search]);
 
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const serviceFee = subtotal * 0.1;
@@ -555,18 +569,11 @@ function TabletView({
             <p className="text-xs text-slate-500">Mesa {tableNumber.padStart(2,"0")}</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          {/* Busca */}
-          <input
-            value={search} onChange={(e) => setSearch(e.target.value)}
-            placeholder="🔍  Buscar produto..."
-            className="w-48 rounded-2xl border border-white/10 bg-slate-800 px-4 py-2 text-sm text-white outline-none focus:border-blue-400 sm:w-64"
-          />
-          {/* Carrinho badge */}
+        <div className="flex items-center gap-3">
           {totalCartItems > 0 && (
             <div className="flex items-center gap-1.5 rounded-2xl border border-blue-400/30 bg-blue-500/10 px-3 py-2">
               <span className="text-sm">🛒</span>
-              <span className="text-sm font-black text-blue-300">{totalCartItems}</span>
+              <span className="text-sm font-black text-blue-300">{totalCartItems} {totalCartItems === 1 ? "item" : "itens"}</span>
             </div>
           )}
           <button onClick={onSair} className="rounded-2xl border border-red-400/20 bg-red-500/10 px-3 py-2 text-xs font-black text-red-300 hover:bg-red-500/20 transition">Sair</button>
@@ -574,13 +581,38 @@ function TabletView({
       </header>
 
       {/* ── Filtros de categoria ──────────────────────────── */}
-      <div className="shrink-0 flex gap-2 overflow-x-auto border-b border-white/10 bg-slate-900/50 px-5 py-3">
+      <div className="shrink-0 flex items-center gap-2 overflow-x-auto border-b border-white/10 bg-slate-900/50 px-5 py-3">
         {categories.map((c) => (
           <button key={c} onClick={() => setSelectedCategory(c)}
             className={`shrink-0 rounded-full border px-4 py-1.5 text-sm font-bold transition ${selectedCategory === c ? "border-blue-400 bg-blue-500 text-white" : "border-white/10 bg-white/[0.05] text-slate-300 hover:bg-white/10"}`}>
             {c}
           </button>
         ))}
+      </div>
+
+      {/* ── Campo de busca — abaixo dos filtros, largura total ── */}
+      <div className="shrink-0 border-b border-white/10 bg-slate-900/30 px-5 py-3">
+        <div className="relative w-full">
+          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm">🔍</span>
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar por nome, ingrediente ou categoria... (sem distinção de maiúsculas ou acentos)"
+            className="w-full rounded-2xl border border-white/10 bg-slate-800/80 py-3 pl-10 pr-4 text-sm text-white outline-none transition focus:border-blue-400 focus:bg-slate-800 placeholder:text-slate-500"
+          />
+          {search && (
+            <button onClick={() => setSearch("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-slate-400 hover:text-white transition">
+              ✕
+            </button>
+          )}
+        </div>
+        {search && (
+          <p className="mt-1.5 text-xs text-slate-500">
+            {filteredItems.length === 0 ? "Nenhum produto encontrado para" : `${filteredItems.length} produto(s) encontrado(s) para`}
+            {" "}<span className="font-bold text-slate-300">"{search}"</span>
+          </p>
+        )}
       </div>
 
       {/* ── Corpo: Cardápio + Carrinho ────────────────────── */}
