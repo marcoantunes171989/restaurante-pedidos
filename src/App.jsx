@@ -212,14 +212,6 @@ export default function RestaurantePedidoApp() {
   function openTab(tabId) {
     if (!canAccess(currentUser, tabId)) return notify("error", "Usuário sem permissão para acessar esta tela.");
     setActiveTab(tabId); clearMessage();
-    if (tabId === "panel") {
-      const el = document.documentElement;
-      const req = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
-      if (req) req.call(el).catch(() => {});
-    } else {
-      const exit = document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen || document.msExitFullscreen;
-      if (exit && document.fullscreenElement) exit.call(document).catch(() => {});
-    }
   }
 
   function addToCart(product) {
@@ -447,7 +439,18 @@ export default function RestaurantePedidoApp() {
 
         <section className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           {allowedTabs.map((tab) => (
-            <button key={tab.id} onClick={() => openTab(tab.id)} className={`rounded-3xl border p-4 text-left transition ${activeTab === tab.id ? "border-blue-400 bg-blue-500 text-white shadow-xl shadow-blue-950/30" : "border-white/10 bg-white/[0.06] text-slate-300 hover:bg-white/[0.1]"}`}>
+            <button key={tab.id} onClick={(e) => {
+              // Fullscreen chamado ANTES de qualquer setState — precisa ser gesto direto
+              if (tab.id === "panel") {
+                const el = document.documentElement;
+                const fn = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+                if (fn) fn.call(el).catch(() => {});
+              } else if (document.fullscreenElement) {
+                const fn = document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen || document.msExitFullscreen;
+                if (fn) fn.call(document).catch(() => {});
+              }
+              openTab(tab.id);
+            }} className={`rounded-3xl border p-4 text-left transition ${activeTab === tab.id ? "border-blue-400 bg-blue-500 text-white shadow-xl shadow-blue-950/30" : "border-white/10 bg-white/[0.06] text-slate-300 hover:bg-white/[0.1]"}`}>
               <p className="text-sm font-black">{tab.label}</p>
               <p className="mt-1 text-xs opacity-75">{tab.desc}</p>
             </button>
@@ -500,10 +503,22 @@ const panelStatusConfig = {
   ready:     { col: "border-emerald-500/40 bg-emerald-500/10", num: "bg-emerald-500", bar: "bg-emerald-500", icon: "✅", progress: 100 },
 };
 
+function entrarTelaCheia() {
+  const el = document.documentElement;
+  const fn = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+  if (fn) fn.call(el).catch(() => {});
+}
+
+function sairTelaCheia() {
+  const fn = document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen || document.msExitFullscreen;
+  if (fn && document.fullscreenElement) fn.call(document).catch(() => {});
+}
+
 function PanelView({ groupedOrders }) {
   const [hora, setHora] = useState(() =>
     new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
   );
+  const [isFullscreen, setIsFullscreen] = useState(!!document.fullscreenElement);
 
   // Relógio sincronizado com o segundo exato da máquina
   useEffect(() => {
@@ -514,12 +529,22 @@ function PanelView({ groupedOrders }) {
     return () => { clearTimeout(timeout); clearInterval(intervalo); };
   }, []);
 
+  // Detecta mudanças no estado fullscreen (ESC, F11, etc.)
+  useEffect(() => {
+    const onChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", onChange);
+    document.addEventListener("webkitfullscreenchange", onChange);
+    document.addEventListener("mozfullscreenchange", onChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", onChange);
+      document.removeEventListener("webkitfullscreenchange", onChange);
+      document.removeEventListener("mozfullscreenchange", onChange);
+    };
+  }, []);
+
   // Sair do fullscreen ao desmontar (troca de aba)
   useEffect(() => {
-    return () => {
-      const exit = document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen || document.msExitFullscreen;
-      if (exit && document.fullscreenElement) exit.call(document).catch(() => {});
-    };
+    return () => sairTelaCheia();
   }, []);
 
   const todosOrdenados = [
@@ -574,8 +599,33 @@ function PanelView({ groupedOrders }) {
             <p className="font-bold text-emerald-400" style={{ fontSize: "clamp(7px,0.65vw,10px)" }}>Total ativo</p>
             <p className="font-black text-emerald-300" style={{ fontSize: "clamp(18px,2.5vw,36px)" }}>{total}</p>
           </div>
+
+          {/* Botão tela cheia */}
+          <button
+            onClick={isFullscreen ? sairTelaCheia : entrarTelaCheia}
+            title={isFullscreen ? "Sair da tela cheia" : "Abrir em tela cheia"}
+            className="flex shrink-0 items-center justify-center rounded-[1vw] border border-white/20 bg-white/10 font-black text-white transition hover:bg-white/20 active:scale-95"
+            style={{ width: "clamp(32px,3.5vw,52px)", height: "clamp(32px,3.5vw,52px)", fontSize: "clamp(14px,1.8vw,24px)" }}>
+            {isFullscreen ? "⛶" : "⛶"}
+            <span className="sr-only">{isFullscreen ? "Sair da tela cheia" : "Tela cheia"}</span>
+          </button>
         </div>
       </header>
+
+      {/* Overlay: exibe botão grande se não estiver em fullscreen */}
+      {!isFullscreen && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+          <button
+            onClick={entrarTelaCheia}
+            className="flex flex-col items-center gap-4 rounded-3xl border border-white/20 bg-slate-900 px-12 py-10 shadow-2xl transition hover:bg-slate-800 active:scale-95">
+            <span style={{ fontSize: "clamp(40px,8vw,80px)" }}>⛶</span>
+            <div className="text-center">
+              <p className="font-black text-white" style={{ fontSize: "clamp(16px,2.5vw,32px)" }}>Abrir em tela cheia</p>
+              <p className="mt-1 text-slate-400" style={{ fontSize: "clamp(10px,1vw,14px)" }}>Clique aqui ou pressione F11 no teclado</p>
+            </div>
+          </button>
+        </div>
+      )}
 
       {/* ── Colunas ───────────────────────────────────────────── */}
       <div className="flex flex-1 overflow-hidden">
