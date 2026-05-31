@@ -481,7 +481,9 @@ export default function RestaurantePedidoApp() {
           </main>
         )}
 
-        {activeTab === "kitchen" && canAccess(currentUser, "kitchen") && <KitchenView groupedOrders={groupedOrders} updateOrderStatus={updateOrderStatus} />}
+        {activeTab === "kitchen" && canAccess(currentUser, "kitchen") && (
+          <KitchenView groupedOrders={groupedOrders} updateOrderStatus={updateOrderStatus} onSair={logout} onVoltar={() => openTab("tablet")} currentUser={currentUser} />
+        )}
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} />}
         {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierView currentTableOrders={currentTableOrders} currentTableSubtotal={currentTableSubtotal} currentTableTotal={currentTableTotal} closePayment={closePayment} />}
         {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} adminSection={adminSection} setAdminSection={setAdminSection} />}
@@ -493,43 +495,103 @@ export default function RestaurantePedidoApp() {
 }
 
 const kitchenCols = [
-  { key: "received",  label: "Aguardando",   bg: "bg-blue-500/10  border-blue-500/30",  dot: "bg-blue-400"    },
-  { key: "preparing", label: "Preparando",   bg: "bg-amber-500/10 border-amber-500/30", dot: "bg-amber-400"   },
-  { key: "ready",     label: "Finalizado",   bg: "bg-emerald-500/10 border-emerald-500/30", dot: "bg-emerald-400" },
+  { key: "received",  label: "Aguardando", sub: "Na fila",           dot: "bg-blue-400",    header: "border-blue-500/40 bg-blue-500/10",    card: "border-blue-500/20"  },
+  { key: "preparing", label: "Preparando", sub: "Em produção",       dot: "bg-amber-400",   header: "border-amber-500/40 bg-amber-500/10",  card: "border-amber-500/20" },
+  { key: "ready",     label: "Finalizado", sub: "Pronto p/ retirada",dot: "bg-emerald-400", header: "border-emerald-500/40 bg-emerald-500/10", card: "border-emerald-500/20" },
 ];
 
-function KitchenView({ groupedOrders, updateOrderStatus }) {
+function KitchenView({ groupedOrders, updateOrderStatus, onSair, currentUser }) {
+  const [hora, setHora] = useState(() =>
+    new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+  );
+  useEffect(() => {
+    const tick = () => setHora(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
+    const ms = 1000 - new Date().getMilliseconds();
+    let iv;
+    const t = setTimeout(() => { tick(); iv = setInterval(tick, 1000); }, ms);
+    return () => { clearTimeout(t); clearInterval(iv); };
+  }, []);
+
+  const totalAtivo   = (groupedOrders.received?.length || 0) + (groupedOrders.preparing?.length || 0);
+  const totalFinal   = groupedOrders.ready?.length || 0;
+  const totalGeral   = totalAtivo + totalFinal;
+
   return (
-    <div className="grid gap-4 lg:grid-cols-3">
-        {kitchenCols.map(({ key, label, bg, dot }) => {
+    <div className="fixed inset-0 z-50 flex flex-col bg-slate-950 overflow-hidden">
+
+      {/* ── Cabeçalho mínimo ──────────────────────────────────── */}
+      <header className="flex shrink-0 items-center justify-between border-b border-white/10 bg-slate-900/90 px-6 py-3 backdrop-blur-xl">
+        <div className="flex items-center gap-3">
+          <span className="text-2xl">👨‍🍳</span>
+          <div>
+            <p className="text-lg font-black text-white leading-tight">Cozinha</p>
+            <p className="text-xs text-slate-500">{currentUser?.name}</p>
+          </div>
+        </div>
+
+        {/* Métricas centrais */}
+        <div className="flex items-center gap-3">
+          <div className="rounded-2xl border border-amber-400/30 bg-amber-500/10 px-4 py-1.5 text-center">
+            <p className="text-xs font-bold text-amber-400">Em aberto</p>
+            <p className="text-xl font-black text-amber-300">{totalAtivo}</p>
+          </div>
+          <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-1.5 text-center">
+            <p className="text-xs font-bold text-emerald-400">Finalizados</p>
+            <p className="text-xl font-black text-emerald-300">{totalFinal}</p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-1.5 text-center">
+            <p className="text-xs font-bold text-slate-400">Total</p>
+            <p className="text-xl font-black text-white">{totalGeral}</p>
+          </div>
+        </div>
+
+        {/* Relógio + Sair */}
+        <div className="flex items-center gap-4">
+          <p className="font-black tabular-nums text-white text-xl">{hora}</p>
+          <button onClick={onSair}
+            className="rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-2 text-sm font-black text-red-300 hover:bg-red-500/20 transition">
+            Sair
+          </button>
+        </div>
+      </header>
+
+      {/* ── 3 Colunas de pedidos ──────────────────────────────── */}
+      <div className="flex flex-1 overflow-hidden">
+        {kitchenCols.map(({ key, label, sub, dot, header, card }) => {
           const lista = groupedOrders[key] || [];
           return (
-            <div key={key} className={`rounded-[1.75rem] border ${bg} p-4`}>
-              {/* Título da coluna */}
-              <div className="mb-4 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className={`h-3 w-3 rounded-full ${dot}`} />
-                  <h3 className="text-base font-black text-white">{label}</h3>
+            <div key={key} className={`flex flex-1 flex-col border-r border-white/10 last:border-r-0`}>
+
+              {/* Cabeçalho da coluna */}
+              <div className={`shrink-0 border-b border-white/10 px-5 py-3 ${header} border-t-0 border-x-0`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className={`h-3 w-3 rounded-full ${dot} shadow-sm`} />
+                    <h2 className="text-base font-black text-white">{label}</h2>
+                    <span className="text-xs text-slate-400">— {sub}</span>
+                  </div>
+                  <span className="rounded-full border border-white/10 bg-white/[0.08] px-3 py-0.5 text-xs font-black text-white">
+                    {lista.length}
+                  </span>
                 </div>
-                <span className="rounded-full border border-white/10 bg-white/[0.08] px-3 py-1 text-xs font-black text-white">
-                  {lista.length}
-                </span>
               </div>
 
-              {/* Cards de pedido */}
-              <div className="space-y-3">
+              {/* Cards */}
+              <div className="flex-1 overflow-y-auto space-y-3 p-4">
                 {lista.length === 0 && (
-                  <div className="rounded-3xl border border-dashed border-white/10 p-6 text-center text-sm text-slate-500">
-                    Nenhum pedido
+                  <div className="mt-6 flex flex-col items-center justify-center gap-2 opacity-25">
+                    <span className="text-4xl">🕐</span>
+                    <p className="text-sm font-bold text-slate-400">Nenhum pedido</p>
                   </div>
                 )}
                 {lista.map((order) => (
-                  <article key={order.id} className="overflow-hidden rounded-3xl border border-white/10 bg-slate-900/90">
-                    {/* Header do card */}
+                  <article key={order.id} className={`overflow-hidden rounded-3xl border bg-slate-900/90 ${card} ${key === "ready" ? "ring-1 ring-emerald-500/30" : ""}`}>
+
+                    {/* Topo do card */}
                     <div className="flex items-start justify-between gap-3 border-b border-white/10 px-4 py-3">
                       <div>
                         <p className="text-xs font-bold uppercase tracking-widest text-slate-500">{order.id}</p>
-                        <h4 className="text-2xl font-black leading-tight text-white">{order.table}</h4>
+                        <h3 className="text-2xl font-black leading-tight text-white">{order.table}</h3>
                         <p className="text-xs text-slate-400">{order.command} • {order.createdAt}</p>
                       </div>
                       <StatusChip status={order.status} />
@@ -547,14 +609,14 @@ function KitchenView({ groupedOrders, updateOrderStatus }) {
                       ))}
                     </div>
 
-                    {/* Ações — apenas Preparar e Finalizar */}
+                    {/* Botões */}
                     <div className="grid grid-cols-2 gap-2 border-t border-white/10 px-4 py-3">
                       <button
                         onClick={() => updateOrderStatus(order.id, "preparing")}
                         disabled={order.status === "ready"}
                         className={`rounded-2xl py-3 text-sm font-black transition active:scale-95
                           ${order.status === "preparing"
-                            ? "bg-amber-500 text-white ring-2 ring-amber-400/50 shadow-lg shadow-amber-950/30"
+                            ? "bg-amber-500 text-white ring-2 ring-amber-400/40"
                             : order.status === "ready"
                             ? "cursor-not-allowed bg-white/5 text-slate-600"
                             : "bg-amber-500/20 text-amber-300 hover:bg-amber-500 hover:text-white"}`}>
@@ -565,7 +627,7 @@ function KitchenView({ groupedOrders, updateOrderStatus }) {
                         disabled={order.status === "ready"}
                         className={`rounded-2xl py-3 text-sm font-black transition active:scale-95
                           ${order.status === "ready"
-                            ? "bg-emerald-500 text-white ring-2 ring-emerald-400/50 shadow-lg shadow-emerald-950/30"
+                            ? "bg-emerald-500 text-white ring-2 ring-emerald-400/40"
                             : "bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500 hover:text-white"}`}>
                         ✅ Finalizar
                       </button>
@@ -576,6 +638,14 @@ function KitchenView({ groupedOrders, updateOrderStatus }) {
             </div>
           );
         })}
+      </div>
+
+      {/* ── Rodapé ────────────────────────────────────────────── */}
+      <footer className="shrink-0 flex items-center justify-between border-t border-white/10 bg-slate-900/60 px-6 py-2 backdrop-blur">
+        <span className="text-xs text-slate-500">⚡ Atualização em tempo real via Supabase</span>
+        <span className="text-xs text-slate-500">Pedidos salvos automaticamente no banco de dados</span>
+        <span className="text-xs text-slate-500">Sistema Restaurante — Cozinha</span>
+      </footer>
     </div>
   );
 }
