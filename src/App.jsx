@@ -141,6 +141,18 @@ export default function RestaurantePedidoApp() {
     }
     loadAll();
   }, []);
+
+  // ── Polling automático de pedidos quando painel está ativo ──
+  useEffect(() => {
+    if (activeTab !== "panel" || !dbReady) return;
+    const interval = setInterval(async () => {
+      try {
+        const ords = await fetchPedidos();
+        if (ords.length) setOrders(ords);
+      } catch {}
+    }, 15000); // atualiza a cada 15 segundos
+    return () => clearInterval(interval);
+  }, [activeTab, dbReady]);
   const [cart, setCart] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState("Todos");
   const [search, setSearch] = useState("");
@@ -460,7 +472,7 @@ export default function RestaurantePedidoApp() {
         )}
 
         {activeTab === "kitchen" && canAccess(currentUser, "kitchen") && <KitchenView groupedOrders={groupedOrders} orders={orders} updateOrderStatus={updateOrderStatus} />}
-        {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} currentTable={currentTable} currentTableOrders={currentTableOrders} requestBill={requestBill} rawJsonOpen={rawJsonOpen} setRawJsonOpen={setRawJsonOpen} />}
+        {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} />}
         {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierView currentTableOrders={currentTableOrders} currentTableSubtotal={currentTableSubtotal} currentTableTotal={currentTableTotal} closePayment={closePayment} />}
         {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} adminSection={adminSection} setAdminSection={setAdminSection} />}
 
@@ -474,8 +486,163 @@ function KitchenView({ groupedOrders, orders, updateOrderStatus }) {
   return <Card><div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"><div><h2 className="text-2xl font-black text-white">Cozinha</h2><p className="mt-1 text-sm text-slate-300">Pedidos recebidos, em preparação e finalizados.</p></div><p className="rounded-full bg-white/10 px-4 py-2 text-sm font-bold text-slate-200">{orders.length} pedidos</p></div><div className="grid gap-4 lg:grid-cols-3">{Object.entries(groupedOrders).map(([status, list]) => <div key={status} className="rounded-[1.75rem] border border-white/10 bg-slate-950/40 p-4"><div className="mb-4 flex items-center justify-between"><h3 className="text-lg font-black text-white">{statusMap[status].title}</h3><span className="rounded-full border border-white/10 bg-white/[0.08] px-3 py-1 text-xs font-black text-white">{list.length}</span></div><div className="space-y-4">{list.length === 0 && <div className="rounded-3xl border border-dashed border-white/10 p-5 text-center text-sm text-slate-400">Nenhum pedido.</div>}{list.map((order) => <article key={order.id} className="rounded-3xl border border-white/10 bg-slate-900/80 p-4"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">{order.id}</p><h4 className="mt-1 text-xl font-black text-white">{order.table}</h4><p className="text-sm text-slate-400">{order.command} • {order.createdAt}</p></div><StatusChip status={order.status} /></div><div className="mt-4 space-y-2">{order.items.map((item, idx) => <div key={`${order.id}-${idx}`} className="rounded-2xl bg-white/[0.06] px-4 py-3 text-sm text-slate-100"><strong>{item.quantity}x {item.name}</strong>{itemDetails(item) && <p className="mt-1 text-xs leading-5 text-amber-100">{itemDetails(item)}</p>}</div>)}</div><div className="mt-5 grid grid-cols-3 gap-2"><button onClick={() => updateOrderStatus(order.id, "received")} className="rounded-2xl border border-white/10 bg-white/[0.06] px-2 py-3 text-xs font-black text-white">Recebido</button><button onClick={() => updateOrderStatus(order.id, "preparing")} className="rounded-2xl bg-amber-500 px-2 py-3 text-xs font-black text-white">Preparar</button><button onClick={() => updateOrderStatus(order.id, "ready")} className="rounded-2xl bg-emerald-500 px-2 py-3 text-xs font-black text-white">Finalizar</button></div></article>)}</div></div>)}</div></Card>;
 }
 
-function PanelView({ groupedOrders, currentTable, currentTableOrders, requestBill, rawJsonOpen, setRawJsonOpen }) {
-  return <main className="grid gap-6 lg:grid-cols-[1fr_360px]"><Card><h2 className="text-2xl font-black text-white">Painel público de pedidos</h2><p className="mt-1 text-sm text-slate-300">Lista em ordem: recebidos, em preparação e finalizados.</p><div className="mt-5 grid gap-4 lg:grid-cols-3">{Object.entries(groupedOrders).map(([status, list]) => <div key={status} className="rounded-[1.75rem] border border-white/10 bg-slate-950/40 p-4"><div className="mb-4 flex items-center justify-between"><h3 className="text-lg font-black text-white">{statusMap[status].title}</h3><span className={`h-3 w-3 rounded-full ${statusMap[status].dot}`} /></div><div className="space-y-3">{list.length === 0 && <div className="rounded-3xl border border-dashed border-white/10 p-5 text-center text-sm text-slate-400">Sem pedidos.</div>}{list.map((order) => <article key={order.id} className="rounded-3xl border border-white/10 bg-white/[0.06] p-4"><div className="flex items-center justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">{order.id}</p><h4 className="mt-1 text-2xl font-black text-white">{order.table}</h4></div><StatusChip status={order.status} /></div><div className="mt-4 h-3 overflow-hidden rounded-full bg-slate-800"><div className={`h-full rounded-full ${statusMap[order.status].dot}`} style={{ width: `${statusMap[order.status].progress}%` }} /></div></article>)}</div></div>)}</div></Card><aside className="rounded-[2rem] border border-white/10 bg-white/[0.06] p-5 shadow-2xl backdrop-blur-xl lg:self-start"><h3 className="text-xl font-black text-white">Resumo da mesa</h3><div className="mt-5 rounded-3xl bg-white p-5 text-slate-900"><p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Mesa ativa</p><p className="mt-1 text-3xl font-black">{currentTable}</p><p className="mt-2 text-sm text-slate-500">{currentTableOrders.length} pedidos vinculados.</p></div><button onClick={requestBill} className="mt-4 w-full rounded-2xl bg-emerald-500 px-5 py-4 text-sm font-black text-white">Solicitar conta</button><button onClick={() => setRawJsonOpen(!rawJsonOpen)} className="mt-3 w-full rounded-2xl border border-white/10 bg-white/[0.08] px-5 py-4 text-sm font-black text-white">{rawJsonOpen ? "Ocultar JSON" : "Ver JSON bruto"}</button></aside></main>;
+const panelStatusConfig = {
+  received:  { label: "Aguardando",   col: "border-blue-500/40 bg-blue-500/10",    num: "bg-blue-500 text-white",      bar: "bg-blue-500",    icon: "⏳", progress: 25 },
+  preparing: { label: "Preparando",   col: "border-amber-500/40 bg-amber-500/10",  num: "bg-amber-500 text-white",     bar: "bg-amber-500",   icon: "👨‍🍳", progress: 65 },
+  ready:     { label: "Pronto! 🎉",   col: "border-emerald-500/40 bg-emerald-500/10", num: "bg-emerald-500 text-white", bar: "bg-emerald-500", icon: "✅", progress: 100 },
+};
+
+function PanelView({ groupedOrders }) {
+  const [hora, setHora] = useState(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }));
+  useEffect(() => {
+    const t = setInterval(() => setHora(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })), 10000);
+    return () => clearInterval(t);
+  }, []);
+
+  // Numeração global de liberação por ordem de chegada
+  const todosOrdenados = [...(groupedOrders.received || []), ...(groupedOrders.preparing || []), ...(groupedOrders.ready || [])];
+  const ordemMap = {};
+  todosOrdenados.forEach((o, i) => { ordemMap[o.id] = i + 1; });
+
+  const colunas = [
+    { key: "received",  titulo: "Aguardando",  subtitulo: "Na fila para preparo"    },
+    { key: "preparing", titulo: "Preparando",  subtitulo: "Em produção na cozinha"  },
+    { key: "ready",     titulo: "Pronto!",     subtitulo: "Retire no balcão"        },
+  ];
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col bg-slate-950 overflow-hidden">
+      {/* Cabeçalho do painel */}
+      <header className="flex items-center justify-between border-b border-white/10 bg-slate-900/80 px-8 py-4 backdrop-blur">
+        <div className="flex items-center gap-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-500 text-2xl shadow-lg shadow-blue-950/50">🍽️</div>
+          <div>
+            <h1 className="text-2xl font-black tracking-tight text-white">Painel de Pedidos</h1>
+            <p className="text-xs font-semibold text-slate-400">Acompanhe o status do seu pedido em tempo real</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-6">
+          <div className="text-right">
+            <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Horário</p>
+            <p className="text-3xl font-black tabular-nums text-white">{hora}</p>
+          </div>
+          <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-2 text-center">
+            <p className="text-xs font-bold text-emerald-400">Total ativo</p>
+            <p className="text-2xl font-black text-emerald-300">{todosOrdenados.length}</p>
+          </div>
+        </div>
+      </header>
+
+      {/* Legenda de numeração */}
+      <div className="border-b border-white/5 bg-slate-900/40 px-8 py-2">
+        <p className="text-xs font-semibold text-slate-500">
+          <span className="mr-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/20 text-xs font-black text-white">Nº</span>
+          Número de ordem de liberação — quanto menor o número, mais próximo da retirada
+        </p>
+      </div>
+
+      {/* Colunas de status */}
+      <div className="flex flex-1 overflow-hidden">
+        {colunas.map(({ key, titulo, subtitulo }) => {
+          const cfg = panelStatusConfig[key];
+          const lista = groupedOrders[key] || [];
+          return (
+            <div key={key} className={`flex flex-1 flex-col border-r border-white/10 last:border-r-0`}>
+              {/* Cabeçalho da coluna */}
+              <div className={`border-b border-white/10 px-6 py-4 ${cfg.col}`}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-widest text-slate-400">{subtitulo}</p>
+                    <h2 className="mt-1 text-2xl font-black text-white">{cfg.icon} {titulo}</h2>
+                  </div>
+                  <span className={`flex h-10 w-10 items-center justify-center rounded-2xl text-lg font-black ${cfg.num}`}>
+                    {lista.length}
+                  </span>
+                </div>
+                {/* Barra de progresso da coluna */}
+                <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10">
+                  <div className={`h-full rounded-full transition-all duration-700 ${cfg.bar}`}
+                    style={{ width: lista.length ? "100%" : "0%" }} />
+                </div>
+              </div>
+
+              {/* Cards de pedidos */}
+              <div className="flex-1 space-y-4 overflow-y-auto p-5">
+                {lista.length === 0 && (
+                  <div className="mt-8 flex flex-col items-center justify-center gap-3 opacity-30">
+                    <span className="text-5xl">🕐</span>
+                    <p className="text-sm font-bold text-slate-400">Nenhum pedido</p>
+                  </div>
+                )}
+                {lista.map((order) => {
+                  const num = ordemMap[order.id];
+                  const isReady = key === "ready";
+                  return (
+                    <article key={order.id}
+                      className={`relative overflow-hidden rounded-3xl border p-5 transition-all duration-300 ${cfg.col} ${isReady ? "ring-2 ring-emerald-500/50 shadow-xl shadow-emerald-950/40" : ""}`}>
+
+                      {/* Número de ordem — destaque principal */}
+                      <div className="mb-4 flex items-center gap-3">
+                        <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-2xl font-black shadow-lg ${cfg.num}`}>
+                          {num}
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Ordem de liberação</p>
+                          <p className="text-xs text-slate-500">{order.id} • {order.createdAt}</p>
+                        </div>
+                        {isReady && (
+                          <span className="ml-auto animate-pulse rounded-full bg-emerald-500 px-3 py-1 text-xs font-black text-white">
+                            RETIRAR
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Mesa — elemento principal */}
+                      <div className="mb-3 flex items-end justify-between">
+                        <div>
+                          <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Mesa</p>
+                          <p className="text-5xl font-black leading-none text-white">{order.table.replace("Mesa ", "")}</p>
+                          <p className="mt-1 text-sm font-semibold text-slate-400">{order.table}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Comanda</p>
+                          <p className="font-mono text-sm font-bold text-slate-300">{order.command}</p>
+                        </div>
+                      </div>
+
+                      {/* Itens do pedido */}
+                      <div className="mb-4 space-y-1">
+                        {order.items.map((item, i) => (
+                          <p key={i} className="text-xs text-slate-400">
+                            <span className="font-black text-slate-300">{item.quantity}x</span> {item.name}
+                          </p>
+                        ))}
+                      </div>
+
+                      {/* Barra de progresso individual */}
+                      <div className="h-2 overflow-hidden rounded-full bg-black/30">
+                        <div className={`h-full rounded-full transition-all duration-1000 ${cfg.bar}`}
+                          style={{ width: `${panelStatusConfig[key].progress}%` }} />
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Rodapé */}
+      <footer className="border-t border-white/10 bg-slate-900/60 px-8 py-3 backdrop-blur">
+        <div className="flex items-center justify-between text-xs text-slate-500">
+          <span>🔄 Atualização automática em tempo real</span>
+          <span>Pedidos finalizados ficam disponíveis para retirada no balcão</span>
+          <span>Sistema Restaurante — Painel Público</span>
+        </div>
+      </footer>
+    </div>
+  );
 }
 
 function CashierView({ currentTableOrders, currentTableSubtotal, currentTableTotal, closePayment }) {
