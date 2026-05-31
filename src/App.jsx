@@ -528,6 +528,21 @@ export default function RestaurantePedidoApp() {
     });
   }
 
+  // Adiciona item já personalizado vindo do modal de detalhes
+  function addConfiguredToCart(configurado) {
+    clearMessage();
+    setCart((cur) => {
+      const ex = cur.find((i) => i.id === configurado.id);
+      if (ex) {
+        // Já existe — soma a quantidade e mantém a personalização mais recente
+        return cur.map((i) => i.id === configurado.id
+          ? { ...configurado, quantity: i.quantity + configurado.quantity }
+          : i);
+      }
+      return [...cur, configurado];
+    });
+  }
+
   function removeFromCart(pid) {
     setCart((cur) => cur.map((i) => i.id === pid ? { ...i, quantity: i.quantity - 1 } : i).filter((i) => i.quantity > 0));
   }
@@ -789,6 +804,7 @@ export default function RestaurantePedidoApp() {
               customerName={customerName} setCustomerName={setCustomerName}
               commandCode={commandCode} setCommandCode={setCommandCode}
               addToCart={addToCart} removeFromCart={removeFromCart} updateCartItem={updateCartItem}
+              addConfiguredToCart={addConfiguredToCart}
               removeIngredient={removeIngredient} restoreIngredient={restoreIngredient}
               addExtraIngredient={addExtraIngredient} removeExtraIngredient={removeExtraIngredient}
               subtotal={subtotal} serviceFee={serviceFee} total={total} totalItems={totalItems}
@@ -831,7 +847,7 @@ function TabletView({
   products, categories, filteredItems, selectedCategory, setSelectedCategory,
   search, setSearch, cart, tableNumber, setTableNumber,
   customerName, setCustomerName, commandCode, setCommandCode,
-  addToCart, removeFromCart, updateCartItem,
+  addToCart, removeFromCart, updateCartItem, addConfiguredToCart,
   removeIngredient, restoreIngredient,
   addExtraIngredient, removeExtraIngredient,
   subtotal, serviceFee, total, totalItems,
@@ -839,7 +855,7 @@ function TabletView({
   currentTableOrders = [], currentTableSubtotal = 0, currentTableTotal = 0,
 }) {
   const [verConta, setVerConta]         = useState(false);
-  const [itemExpandido, setItemExpandido] = useState(null); // id do item com ingredientes abertos
+  const [produtoDetalhe, setProdutoDetalhe] = useState(null); // produto aberto no modal
   const totalCartItems = cart.reduce((s, i) => s + i.quantity, 0);
   const comandaValida  = isValidCommand(commandCode);
   const temPedidoNaMesa = currentTableOrders.length > 0 && currentTableTotal > 0;
@@ -928,8 +944,8 @@ function TabletView({
               const noCarrinho = cart.find((c) => c.id === item.id);
               return (
                 <article key={item.id} className={`group overflow-hidden rounded-3xl border bg-slate-900 shadow-xl transition-all hover:-translate-y-1 hover:shadow-2xl ${noCarrinho ? "border-blue-500/50 ring-2 ring-blue-500/20" : "border-white/10 hover:border-blue-500/40"}`}>
-                  {/* Imagem */}
-                  <div className="relative h-44 overflow-hidden bg-slate-800">
+                  {/* Imagem (clicável → abre detalhes) */}
+                  <button onClick={() => setProdutoDetalhe(item)} className="relative block h-44 w-full overflow-hidden bg-slate-800 text-left">
                     <img src={item.imageUrl || fallbackImage} alt={item.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
                     <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-transparent to-transparent" />
                     {item.badge && (
@@ -940,18 +956,22 @@ function TabletView({
                         {noCarrinho.quantity}
                       </div>
                     )}
-                    {/* Preço sobre a imagem */}
                     <div className="absolute bottom-3 left-3">
                       <span className="rounded-2xl bg-black/60 px-3 py-1.5 text-lg font-black text-white backdrop-blur-sm">{formatCurrency(item.price)}</span>
                     </div>
-                  </div>
+                    <span className="absolute bottom-3 right-3 rounded-full bg-white/15 px-2.5 py-1 text-xs font-bold text-white backdrop-blur-sm opacity-0 transition group-hover:opacity-100">
+                      Ver detalhes →
+                    </span>
+                  </button>
                   {/* Conteúdo */}
                   <div className="p-4">
                     <div className="flex items-center justify-between gap-2">
                       <p className="text-xs font-bold uppercase tracking-widest text-blue-400">{item.category}</p>
                       <span className="text-xs text-slate-500">⏱ {item.time}</span>
                     </div>
-                    <h3 className="mt-1 text-base font-black text-white leading-tight">{item.name}</h3>
+                    <button onClick={() => setProdutoDetalhe(item)} className="mt-1 block text-left">
+                      <h3 className="text-base font-black text-white leading-tight hover:text-blue-300 transition">{item.name}</h3>
+                    </button>
                     <p className="mt-1 text-xs leading-5 text-slate-400 line-clamp-2">{item.description}</p>
                     <div className="mt-2 flex flex-wrap gap-1">
                       {(item.ingredients || []).slice(0, 3).map((ing) => (
@@ -961,18 +981,23 @@ function TabletView({
                         <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-xs text-slate-500">+{item.ingredients.length - 3}</span>
                       )}
                     </div>
-                    <div className="mt-3">
+                    <div className="mt-3 flex items-center gap-2">
                       {noCarrinho ? (
-                        <div className="flex items-center justify-between gap-1 rounded-2xl bg-blue-500/10 border border-blue-500/30 p-1">
+                        <div className="flex flex-1 items-center justify-between gap-1 rounded-2xl bg-blue-500/10 border border-blue-500/30 p-1">
                           <button onClick={() => removeFromCart(item.id)} className="h-10 flex-1 rounded-xl bg-slate-800 font-black text-white hover:bg-slate-700 transition active:scale-95">−</button>
                           <span className="w-10 text-center text-lg font-black text-white">{noCarrinho.quantity}</span>
                           <button onClick={() => addToCart(item)} className="h-10 flex-1 rounded-xl bg-blue-500 font-black text-white hover:bg-blue-400 transition active:scale-95">+</button>
                         </div>
                       ) : (
-                        <button onClick={() => addToCart(item)} className="w-full rounded-2xl bg-blue-500 py-3 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95">
-                          + Adicionar ao pedido
+                        <button onClick={() => addToCart(item)} className="flex-1 rounded-2xl bg-blue-500 py-3 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95">
+                          + Adicionar
                         </button>
                       )}
+                      {/* Botão personalizar */}
+                      <button onClick={() => setProdutoDetalhe(item)} title="Personalizar ingredientes"
+                        className="h-12 w-12 shrink-0 rounded-2xl border border-white/10 bg-white/[0.06] text-lg text-slate-300 hover:bg-white/10 hover:text-white transition active:scale-95">
+                        ⚙️
+                      </button>
                     </div>
                   </div>
                 </article>
@@ -1228,6 +1253,166 @@ function TabletView({
           </div>
         </div>
       )}
+
+      {/* ── Modal de detalhes/personalização do produto ───────── */}
+      {produtoDetalhe && (
+        <ProdutoModal
+          produto={produtoDetalhe}
+          onFechar={() => setProdutoDetalhe(null)}
+          onAdicionar={(itemConfig) => { addConfiguredToCart(itemConfig); setProdutoDetalhe(null); }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+//  Modal de detalhes/personalização do produto
+// ════════════════════════════════════════════════════════════
+function ProdutoModal({ produto, onFechar, onAdicionar }) {
+  const [quantidade, setQuantidade]   = useState(1);
+  const [selecionados, setSelecionados] = useState([...(produto.ingredients || [])]);
+  const [removidos, setRemovidos]       = useState([]);
+  const [extras, setExtras]             = useState([]);
+  const [extraInput, setExtraInput]     = useState("");
+  const [observacao, setObservacao]     = useState("");
+
+  function toggleIngrediente(ing) {
+    if (selecionados.includes(ing)) {
+      setSelecionados((s) => s.filter((x) => x !== ing));
+      setRemovidos((r) => [...r, ing]);
+    } else {
+      setRemovidos((r) => r.filter((x) => x !== ing));
+      setSelecionados((s) => [...s, ing]);
+    }
+  }
+
+  function addExtra() {
+    const v = extraInput.trim();
+    if (!v || extras.includes(v)) return setExtraInput("");
+    setExtras((e) => [...e, v]);
+    setExtraInput("");
+  }
+
+  function confirmar() {
+    onAdicionar({
+      ...produto,
+      quantity: quantidade,
+      selectedIngredients: selecionados,
+      removedIngredients: removidos,
+      extraIngredients: extras,
+      extraIngredientInput: "",
+      observation: observacao,
+    });
+  }
+
+  const totalItem = produto.price * quantidade;
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4" onClick={onFechar}>
+      <div onClick={(e) => e.stopPropagation()}
+        className="flex w-full max-w-md flex-col overflow-hidden rounded-t-[2rem] sm:rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl max-h-[92vh]">
+
+        {/* Imagem grande */}
+        <div className="relative h-52 shrink-0 overflow-hidden bg-slate-800">
+          <img src={produto.imageUrl || fallbackImage} alt={produto.name} className="h-full w-full object-cover" />
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/30 to-transparent" />
+          <button onClick={onFechar}
+            className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-lg font-black text-white backdrop-blur-sm hover:bg-black/80 transition">
+            ✕
+          </button>
+          {produto.badge && (
+            <span className="absolute left-4 top-4 rounded-full bg-blue-500/90 px-3 py-1 text-xs font-black text-white shadow-lg">{produto.badge}</span>
+          )}
+          <div className="absolute bottom-4 left-4 right-4">
+            <p className="text-xs font-bold uppercase tracking-widest text-blue-300">{produto.category} • ⏱ {produto.time}</p>
+            <h2 className="mt-0.5 text-2xl font-black text-white leading-tight">{produto.name}</h2>
+          </div>
+        </div>
+
+        {/* Corpo rolável */}
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+          {/* Descrição */}
+          <p className="text-sm leading-6 text-slate-300">{produto.description}</p>
+
+          {/* Ingredientes — toggle */}
+          {(produto.ingredients || []).length > 0 && (
+            <div>
+              <p className="mb-2 text-xs font-black uppercase tracking-widest text-slate-400">
+                Ingredientes <span className="text-slate-600">• toque para remover/adicionar</span>
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {(produto.ingredients || []).map((ing) => {
+                  const ativo = selecionados.includes(ing);
+                  return (
+                    <button key={ing} onClick={() => toggleIngrediente(ing)}
+                      className={`rounded-full border px-3 py-1.5 text-sm font-bold transition active:scale-95
+                        ${ativo
+                          ? "border-emerald-400/30 bg-emerald-500/15 text-emerald-200"
+                          : "border-red-400/30 bg-red-500/15 text-red-300 line-through"}`}>
+                      {ativo ? "✓" : "✗"} {ing}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Ingredientes extras */}
+          <div>
+            <p className="mb-2 text-xs font-black uppercase tracking-widest text-slate-400">Adicionar extra</p>
+            <div className="flex gap-2">
+              <input value={extraInput}
+                onChange={(e) => setExtraInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && addExtra()}
+                placeholder="Ex.: bacon, queijo extra..."
+                className="flex-1 rounded-2xl border border-white/10 bg-slate-800 px-3 py-2.5 text-sm text-white outline-none focus:border-blue-400" />
+              <button onClick={addExtra}
+                className="rounded-2xl bg-blue-500 px-4 py-2.5 text-sm font-black text-white hover:bg-blue-400 transition">+ Add</button>
+            </div>
+            {extras.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {extras.map((ing) => (
+                  <button key={ing} onClick={() => setExtras((e) => e.filter((x) => x !== ing))}
+                    className="rounded-full border border-blue-400/30 bg-blue-500/15 px-2.5 py-1 text-xs font-bold text-blue-200">
+                    + {ing} ✕
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Observação */}
+          <div>
+            <p className="mb-2 text-xs font-black uppercase tracking-widest text-slate-400">Observação</p>
+            <textarea value={observacao}
+              onChange={(e) => setObservacao(e.target.value)}
+              rows={2}
+              placeholder="Ex.: ao ponto, sem cebola, capricha no molho..."
+              className="w-full resize-none rounded-2xl border border-white/10 bg-slate-800 px-3 py-2.5 text-sm text-white outline-none focus:border-amber-400" />
+          </div>
+        </div>
+
+        {/* Rodapé fixo — quantidade + adicionar */}
+        <div className="shrink-0 border-t border-white/10 bg-slate-950/60 px-5 py-4">
+          <div className="flex items-center gap-3">
+            {/* Seletor de quantidade */}
+            <div className="flex items-center gap-1 rounded-2xl border border-white/10 bg-white/[0.06] p-1">
+              <button onClick={() => setQuantidade((q) => Math.max(1, q - 1))}
+                className="h-11 w-11 rounded-xl bg-slate-800 text-xl font-black text-white hover:bg-slate-700 transition active:scale-95">−</button>
+              <span className="w-10 text-center text-xl font-black text-white">{quantidade}</span>
+              <button onClick={() => setQuantidade((q) => q + 1)}
+                className="h-11 w-11 rounded-xl bg-blue-500 text-xl font-black text-white hover:bg-blue-400 transition active:scale-95">+</button>
+            </div>
+            {/* Botão adicionar */}
+            <button onClick={confirmar}
+              className="flex flex-1 items-center justify-between rounded-2xl bg-blue-500 px-5 py-4 font-black text-white hover:bg-blue-400 transition active:scale-95 shadow-lg shadow-blue-950/30">
+              <span>Adicionar</span>
+              <span>{formatCurrency(totalItem)}</span>
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
