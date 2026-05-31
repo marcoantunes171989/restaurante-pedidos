@@ -500,25 +500,20 @@ export default function RestaurantePedidoApp() {
         {message.text && <div className={`mb-6 rounded-3xl border p-4 shadow-xl ${message.type === "error" ? "border-red-400/30 bg-red-500/10 text-red-100" : "border-emerald-400/30 bg-emerald-500/10 text-emerald-100"}`}><p className="font-bold">{message.type === "error" ? "Atenção necessária" : "Operação concluída"}</p><p className="text-sm opacity-90">{message.text}</p></div>}
 
         {activeTab === "tablet" && canAccess(currentUser, "tablet") && (
-          <main className="grid gap-6 lg:grid-cols-[1fr_430px]">
-            <Card>
-              <div className="mb-5 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between"><div><h2 className="text-2xl font-black text-white">Tablet do cliente</h2><p className="mt-1 text-sm text-slate-300">Cardápio, imagens, ingredientes, carrinho, comanda e solicitação de conta.</p></div><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar produto..." className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white outline-none focus:border-blue-400 xl:max-w-sm" /></div>
-              <div className="mb-5 flex gap-2 overflow-x-auto pb-2">{categories.map((c) => <button key={c} onClick={() => setSelectedCategory(c)} className={`whitespace-nowrap rounded-full border px-4 py-2 text-sm font-bold ${selectedCategory === c ? "border-blue-400 bg-blue-500 text-white" : "border-white/10 bg-white/[0.05] text-slate-300"}`}>{c}</button>)}</div>
-              <div className="grid gap-4 md:grid-cols-2">{filteredItems.map((item) => <article key={item.id} className="overflow-hidden rounded-[1.75rem] border border-white/10 bg-slate-900/70 shadow-xl"><div className="h-44 overflow-hidden bg-slate-800"><img src={item.imageUrl || fallbackImage} alt={item.name} className="h-full w-full object-cover" /></div><div className="p-4"><div className="mb-2 flex items-start justify-between gap-2"><div><p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-300">{item.category}</p><h3 className="mt-1 text-lg font-black text-white">{item.name}</h3></div><span className="rounded-full bg-white/10 px-3 py-1 text-xs font-bold text-slate-200">{item.badge}</span></div><p className="text-sm leading-5 text-slate-300">{item.description}</p><div className="mt-3 flex flex-wrap gap-2">{(item.ingredients || []).slice(0, 4).map((ing) => <span key={ing} className="rounded-full bg-white/[0.06] px-3 py-1 text-xs text-slate-300">{ing}</span>)}</div><div className="mt-4 flex items-center justify-between gap-3"><div><p className="text-xl font-black text-white">{formatCurrency(item.price)}</p><p className="text-xs text-slate-400">Preparo: {item.time}</p></div><button onClick={() => addToCart(item)} className="rounded-2xl bg-blue-500 px-4 py-3 text-sm font-black text-white hover:bg-blue-400">Adicionar</button></div></div></article>)}</div>
-            </Card>
-            <aside className="rounded-[2rem] border border-white/10 bg-white/[0.06] p-5 shadow-2xl backdrop-blur-xl lg:sticky lg:top-6 lg:self-start">
-              <h2 className="text-2xl font-black text-white">Resumo do pedido</h2>
-              <p className="mt-1 text-sm text-slate-300">Personalize ingredientes, leia a comanda e envie para a cozinha.</p>
-              <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
-                <label><span className="mb-2 block text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Mesa</span><input value={tableNumber} onChange={(e) => setTableNumber(e.target.value.replace(/[^0-9]/g, "").slice(0, 2))} className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400" /></label>
-                <label><span className="mb-2 block text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Cliente</span><input value={customerName} onChange={(e) => setCustomerName(e.target.value)} className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400" /></label>
-              </div>
-              <div className="mt-4 rounded-3xl border border-amber-400/20 bg-amber-500/10 p-4"><p className="text-sm font-black text-amber-100">Leitura obrigatória da comanda</p><input value={commandCode} onChange={(e) => setCommandCode(e.target.value.toUpperCase())} placeholder="Ex.: CMD-000245" className="mt-3 w-full rounded-2xl border border-amber-300/20 bg-slate-950/70 px-4 py-3 font-mono text-white outline-none focus:border-amber-300" /></div>
-              <div className="mt-5 space-y-3">{cart.length === 0 ? <div className="rounded-3xl border border-dashed border-white/15 bg-white/[0.03] p-6 text-center text-sm text-slate-400">Nenhum item selecionado.</div> : cart.map((item) => <div key={item.id} className="rounded-3xl border border-white/10 bg-slate-950/50 p-4"><div className="flex items-start justify-between gap-3"><div><p className="font-black text-white">{item.name}</p><p className="text-sm text-slate-400">{formatCurrency(item.price)} cada</p></div><div className="flex items-center gap-2 rounded-2xl bg-white/10 p-1"><button onClick={() => removeFromCart(item.id)} className="h-8 w-8 rounded-xl bg-white/10 font-black text-white">-</button><span className="w-6 text-center font-black text-white">{item.quantity}</span><button onClick={() => addToCart(item)} className="h-8 w-8 rounded-xl bg-blue-500 font-black text-white">+</button></div></div><div className="mt-4 rounded-2xl border border-white/10 bg-slate-900/60 p-3"><p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Ingredientes</p><div className="mt-3 flex flex-wrap gap-2">{item.selectedIngredients.map((ing) => <button key={ing} onClick={() => removeIngredient(item.id, ing)} className="rounded-full border border-emerald-400/20 bg-emerald-500/10 px-3 py-2 text-xs font-bold text-emerald-100">+ {ing}</button>)}{item.removedIngredients.map((ing) => <button key={ing} onClick={() => restoreIngredient(item.id, ing)} className="rounded-full border border-red-400/20 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-100 line-through">- {ing}</button>)}</div><div className="mt-3 flex gap-2"><input value={item.extraIngredientInput} onChange={(e) => updateCartItem(item.id, { extraIngredientInput: e.target.value })} placeholder="Adicionar ingrediente extra" className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white outline-none focus:border-blue-400" /><button onClick={() => addExtraIngredient(item.id)} className="rounded-2xl bg-blue-500 px-3 py-2 text-xs font-black text-white">Add</button></div>{item.extraIngredients.length > 0 && <div className="mt-3 flex flex-wrap gap-2">{item.extraIngredients.map((ing) => <button key={ing} onClick={() => removeExtraIngredient(item.id, ing)} className="rounded-full border border-blue-400/20 bg-blue-500/10 px-3 py-2 text-xs font-bold text-blue-100">Extra: {ing} x</button>)}</div>}</div><input value={item.observation} onChange={(e) => updateCartItem(item.id, { observation: e.target.value })} placeholder="Observação" className="mt-3 w-full rounded-2xl border border-white/10 bg-slate-900/70 px-3 py-2 text-sm text-white outline-none focus:border-blue-400" /></div>)}</div>
-              <div className="mt-5 rounded-3xl bg-white p-4 text-slate-900 shadow-xl"><div className="space-y-2 text-sm"><div className="flex justify-between"><span>Subtotal</span><strong>{formatCurrency(subtotal)}</strong></div><div className="flex justify-between"><span>Taxa 10%</span><strong>{formatCurrency(serviceFee)}</strong></div><div className="h-px bg-slate-200" /><div className="flex justify-between text-lg"><span className="font-black">Total</span><strong>{formatCurrency(total)}</strong></div></div></div>
-              <div className="mt-4 grid gap-3"><button onClick={handleSendOrder} className="rounded-2xl bg-blue-500 px-5 py-4 text-sm font-black text-white hover:bg-blue-400">Realizar pedido e enviar para cozinha</button><button onClick={requestBill} className="rounded-2xl border border-white/10 bg-white/[0.08] px-5 py-4 text-sm font-black text-white hover:bg-white/[0.14]">Solicitar conta da mesa</button></div>
-            </aside>
-          </main>
+          <TabletView
+            products={products} categories={categories}
+            filteredItems={filteredItems} selectedCategory={selectedCategory} setSelectedCategory={setSelectedCategory}
+            search={search} setSearch={setSearch}
+            cart={cart} tableNumber={tableNumber} setTableNumber={setTableNumber}
+            customerName={customerName} setCustomerName={setCustomerName}
+            commandCode={commandCode} setCommandCode={setCommandCode}
+            addToCart={addToCart} removeFromCart={removeFromCart} updateCartItem={updateCartItem}
+            removeIngredient={removeIngredient} restoreIngredient={restoreIngredient}
+            addExtraIngredient={addExtraIngredient} removeExtraIngredient={removeExtraIngredient}
+            subtotal={subtotal} serviceFee={serviceFee} total={total} totalItems={totalItems}
+            handleSendOrder={handleSendOrder} requestBill={requestBill}
+            message={message} onSair={logout}
+          />
         )}
 
         {activeTab === "kitchen" && canAccess(currentUser, "kitchen") && (
@@ -528,7 +523,248 @@ export default function RestaurantePedidoApp() {
         {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierView currentTableOrders={currentTableOrders} currentTableSubtotal={currentTableSubtotal} currentTableTotal={currentTableTotal} closePayment={closePayment} />}
         {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} adminSection={adminSection} setAdminSection={setAdminSection} />}
 
-        {rawJsonOpen && <Card className="mt-6"><div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><h3 className="text-xl font-black text-white">JSON bruto da operação</h3><p className="text-sm text-slate-400">Payload preparado para integração futura com backend.</p></div><button onClick={() => navigator.clipboard && navigator.clipboard.writeText(JSON.stringify(rawPayload, null, 2))} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-3 text-sm font-black text-white">Copiar JSON</button></div><pre className="max-h-96 overflow-auto rounded-3xl bg-black/60 p-4 text-xs leading-5 text-emerald-200">{JSON.stringify(rawPayload, null, 2)}</pre></Card>}
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+//  TabletView — tela cheia para pedidos do cliente
+// ════════════════════════════════════════════════════════════
+function TabletView({
+  products, categories, filteredItems, selectedCategory, setSelectedCategory,
+  search, setSearch, cart, tableNumber, setTableNumber,
+  customerName, setCustomerName, commandCode, setCommandCode,
+  addToCart, removeFromCart, updateCartItem,
+  removeIngredient, restoreIngredient,
+  addExtraIngredient, removeExtraIngredient,
+  subtotal, serviceFee, total, totalItems,
+  handleSendOrder, requestBill, message, onSair,
+}) {
+  const totalCartItems = cart.reduce((s, i) => s + i.quantity, 0);
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col bg-slate-950 overflow-hidden">
+
+      {/* ── Cabeçalho mínimo ─────────────────────────────── */}
+      <header className="flex shrink-0 items-center justify-between border-b border-white/10 bg-slate-900/90 px-5 py-3 backdrop-blur-xl">
+        <div className="flex items-center gap-3">
+          <span className="text-2xl">🍽️</span>
+          <div>
+            <p className="text-base font-black text-white leading-tight">Cardápio</p>
+            <p className="text-xs text-slate-500">Mesa {tableNumber.padStart(2,"0")}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {/* Busca */}
+          <input
+            value={search} onChange={(e) => setSearch(e.target.value)}
+            placeholder="🔍  Buscar produto..."
+            className="w-48 rounded-2xl border border-white/10 bg-slate-800 px-4 py-2 text-sm text-white outline-none focus:border-blue-400 sm:w-64"
+          />
+          {/* Carrinho badge */}
+          {totalCartItems > 0 && (
+            <div className="flex items-center gap-1.5 rounded-2xl border border-blue-400/30 bg-blue-500/10 px-3 py-2">
+              <span className="text-sm">🛒</span>
+              <span className="text-sm font-black text-blue-300">{totalCartItems}</span>
+            </div>
+          )}
+          <button onClick={onSair} className="rounded-2xl border border-red-400/20 bg-red-500/10 px-3 py-2 text-xs font-black text-red-300 hover:bg-red-500/20 transition">Sair</button>
+        </div>
+      </header>
+
+      {/* ── Filtros de categoria ──────────────────────────── */}
+      <div className="shrink-0 flex gap-2 overflow-x-auto border-b border-white/10 bg-slate-900/50 px-5 py-3">
+        {categories.map((c) => (
+          <button key={c} onClick={() => setSelectedCategory(c)}
+            className={`shrink-0 rounded-full border px-4 py-1.5 text-sm font-bold transition ${selectedCategory === c ? "border-blue-400 bg-blue-500 text-white" : "border-white/10 bg-white/[0.05] text-slate-300 hover:bg-white/10"}`}>
+            {c}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Corpo: Cardápio + Carrinho ────────────────────── */}
+      <div className="flex flex-1 overflow-hidden">
+
+        {/* Cardápio */}
+        <div className="flex-1 overflow-y-auto p-5">
+          {filteredItems.length === 0 && (
+            <div className="flex h-40 items-center justify-center text-slate-500">Nenhum produto encontrado.</div>
+          )}
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+            {filteredItems.map((item) => {
+              const noCarrinho = cart.find((c) => c.id === item.id);
+              return (
+                <article key={item.id} className="overflow-hidden rounded-3xl border border-white/10 bg-slate-900 shadow-xl transition hover:border-blue-500/30">
+                  {/* Imagem */}
+                  <div className="relative h-44 overflow-hidden bg-slate-800">
+                    <img src={item.imageUrl || fallbackImage} alt={item.name} className="h-full w-full object-cover" />
+                    {item.badge && (
+                      <span className="absolute right-3 top-3 rounded-full bg-black/60 px-2.5 py-1 text-xs font-bold text-white backdrop-blur-sm">{item.badge}</span>
+                    )}
+                    {noCarrinho && (
+                      <div className="absolute left-3 top-3 flex h-7 w-7 items-center justify-center rounded-full bg-blue-500 text-xs font-black text-white shadow-lg">
+                        {noCarrinho.quantity}
+                      </div>
+                    )}
+                  </div>
+                  {/* Conteúdo */}
+                  <div className="p-4">
+                    <p className="text-xs font-bold uppercase tracking-widest text-blue-400">{item.category}</p>
+                    <h3 className="mt-1 text-base font-black text-white leading-tight">{item.name}</h3>
+                    <p className="mt-1 text-xs leading-5 text-slate-400 line-clamp-2">{item.description}</p>
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {(item.ingredients || []).slice(0, 3).map((ing) => (
+                        <span key={ing} className="rounded-full bg-white/[0.06] px-2 py-0.5 text-xs text-slate-400">{ing}</span>
+                      ))}
+                    </div>
+                    <div className="mt-3 flex items-center justify-between gap-2">
+                      <div>
+                        <p className="text-lg font-black text-white">{formatCurrency(item.price)}</p>
+                        <p className="text-xs text-slate-500">{item.time}</p>
+                      </div>
+                      {noCarrinho ? (
+                        <div className="flex items-center gap-1 rounded-2xl bg-blue-500/10 border border-blue-500/30 p-1">
+                          <button onClick={() => removeFromCart(item.id)} className="h-8 w-8 rounded-xl bg-slate-800 font-black text-white hover:bg-slate-700 transition">−</button>
+                          <span className="w-6 text-center font-black text-white">{noCarrinho.quantity}</span>
+                          <button onClick={() => addToCart(item)} className="h-8 w-8 rounded-xl bg-blue-500 font-black text-white hover:bg-blue-400 transition">+</button>
+                        </div>
+                      ) : (
+                        <button onClick={() => addToCart(item)} className="rounded-2xl bg-blue-500 px-4 py-2.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95">
+                          + Adicionar
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ── Carrinho / Resumo ─────────────────────────── */}
+        <aside className="flex w-[380px] shrink-0 flex-col border-l border-white/10 bg-slate-900/60 backdrop-blur-xl">
+          {/* Cabeçalho carrinho */}
+          <div className="border-b border-white/10 px-5 py-4">
+            <p className="text-lg font-black text-white">🛒 Resumo do pedido</p>
+            <p className="text-xs text-slate-500">Personalize e envie para a cozinha</p>
+          </div>
+
+          {/* Campos mesa / cliente / comanda */}
+          <div className="shrink-0 space-y-3 border-b border-white/10 px-5 py-4">
+            <div className="grid grid-cols-2 gap-3">
+              <label>
+                <span className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500">Mesa</span>
+                <input value={tableNumber} onChange={(e) => setTableNumber(e.target.value.replace(/[^0-9]/g,"").slice(0,2))}
+                  className="w-full rounded-2xl border border-white/10 bg-slate-800 px-3 py-2.5 text-white outline-none focus:border-blue-400 text-sm font-black" />
+              </label>
+              <label>
+                <span className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500">Cliente</span>
+                <input value={customerName} onChange={(e) => setCustomerName(e.target.value)}
+                  className="w-full rounded-2xl border border-white/10 bg-slate-800 px-3 py-2.5 text-white outline-none focus:border-blue-400 text-sm" />
+              </label>
+            </div>
+            <label>
+              <span className="mb-1 block text-xs font-bold uppercase tracking-widest text-amber-500">⚠ Comanda obrigatória</span>
+              <input value={commandCode} onChange={(e) => setCommandCode(e.target.value.toUpperCase())}
+                placeholder="Ex.: CMD-000245"
+                className="w-full rounded-2xl border border-amber-400/30 bg-slate-800 px-3 py-2.5 font-mono text-white outline-none focus:border-amber-400 text-sm" />
+            </label>
+          </div>
+
+          {/* Itens do carrinho */}
+          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+            {cart.length === 0 ? (
+              <div className="flex h-32 flex-col items-center justify-center gap-2 opacity-30">
+                <span className="text-3xl">🛒</span>
+                <p className="text-sm text-slate-400">Carrinho vazio</p>
+              </div>
+            ) : cart.map((item) => (
+              <div key={item.id} className="rounded-3xl border border-white/10 bg-slate-800/60 p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-black text-white leading-tight">{item.name}</p>
+                  <div className="flex items-center gap-1 rounded-xl bg-white/10 p-0.5">
+                    <button onClick={() => removeFromCart(item.id)} className="h-7 w-7 rounded-lg bg-white/10 font-black text-white text-xs hover:bg-white/20">−</button>
+                    <span className="w-5 text-center text-sm font-black text-white">{item.quantity}</span>
+                    <button onClick={() => addToCart(item)} className="h-7 w-7 rounded-lg bg-blue-500 font-black text-white text-xs hover:bg-blue-400">+</button>
+                  </div>
+                </div>
+                <p className="mt-0.5 text-xs text-slate-400">{formatCurrency(item.price)} cada • {formatCurrency(item.price * item.quantity)}</p>
+
+                {/* Ingredientes */}
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {item.selectedIngredients.map((ing) => (
+                    <button key={ing} onClick={() => removeIngredient(item.id, ing)}
+                      className="rounded-full border border-emerald-400/20 bg-emerald-500/10 px-2 py-0.5 text-xs text-emerald-200 hover:bg-red-500/20 hover:border-red-400/20 hover:text-red-200 transition">
+                      ✓ {ing}
+                    </button>
+                  ))}
+                  {item.removedIngredients.map((ing) => (
+                    <button key={ing} onClick={() => restoreIngredient(item.id, ing)}
+                      className="rounded-full border border-red-400/20 bg-red-500/10 px-2 py-0.5 text-xs text-red-300 line-through">
+                      ✗ {ing}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Extra */}
+                <div className="mt-2 flex gap-1">
+                  <input value={item.extraIngredientInput}
+                    onChange={(e) => updateCartItem(item.id, { extraIngredientInput: e.target.value })}
+                    onKeyDown={(e) => e.key === "Enter" && addExtraIngredient(item.id)}
+                    placeholder="Ingrediente extra..."
+                    className="min-w-0 flex-1 rounded-xl border border-white/10 bg-slate-900 px-2.5 py-1.5 text-xs text-white outline-none focus:border-blue-400" />
+                  <button onClick={() => addExtraIngredient(item.id)}
+                    className="rounded-xl bg-blue-500 px-2.5 py-1.5 text-xs font-black text-white">+</button>
+                </div>
+                {item.extraIngredients.length > 0 && (
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {item.extraIngredients.map((ing) => (
+                      <button key={ing} onClick={() => removeExtraIngredient(item.id, ing)}
+                        className="rounded-full border border-blue-400/20 bg-blue-500/10 px-2 py-0.5 text-xs text-blue-200">
+                        + {ing} ×
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Observação */}
+                <input value={item.observation}
+                  onChange={(e) => updateCartItem(item.id, { observation: e.target.value })}
+                  placeholder="Observação..."
+                  className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900 px-2.5 py-1.5 text-xs text-white outline-none focus:border-amber-400" />
+              </div>
+            ))}
+          </div>
+
+          {/* Total + Ações */}
+          <div className="shrink-0 border-t border-white/10 px-5 py-4 space-y-3">
+            {/* Totais */}
+            <div className="rounded-2xl bg-white/[0.06] px-4 py-3 space-y-1.5 text-sm">
+              <div className="flex justify-between text-slate-400"><span>Subtotal</span><span className="font-bold text-white">{formatCurrency(subtotal)}</span></div>
+              <div className="flex justify-between text-slate-400"><span>Taxa de serviço (10%)</span><span className="font-bold text-white">{formatCurrency(serviceFee)}</span></div>
+              <div className="h-px bg-white/10" />
+              <div className="flex justify-between text-base font-black text-white"><span>Total</span><span>{formatCurrency(total)}</span></div>
+            </div>
+
+            {/* Mensagem feedback */}
+            {message.text && (
+              <div className={`rounded-2xl border p-3 text-xs font-semibold ${message.type === "error" ? "border-red-400/30 bg-red-500/10 text-red-200" : "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"}`}>
+                {message.text}
+              </div>
+            )}
+
+            {/* Botões */}
+            <button onClick={handleSendOrder}
+              className="w-full rounded-2xl bg-blue-500 py-4 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95 shadow-lg shadow-blue-950/30">
+              🚀 Enviar pedido para a cozinha
+            </button>
+            <button onClick={requestBill}
+              className="w-full rounded-2xl border border-white/10 bg-white/[0.06] py-3 text-sm font-black text-slate-300 hover:bg-white/10 transition">
+              🧾 Solicitar conta da mesa
+            </button>
+          </div>
+        </aside>
       </div>
     </div>
   );
