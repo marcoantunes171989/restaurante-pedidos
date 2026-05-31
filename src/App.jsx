@@ -126,7 +126,7 @@ function CardGerarComandas() {
     for (let i = 0; i < quantidade; i++) {
       const codigo = `${prefixo}-${String(inicio + i).padStart(6, "0")}`;
       const qrUrl  = await QRCode.toDataURL(codigo, {
-        width: 280, margin: 2,
+        width: 400, margin: 2,
         color: { dark: "#000000", light: "#ffffff" },
         errorCorrectionLevel: "H",
       });
@@ -138,21 +138,55 @@ function CardGerarComandas() {
 
   function imprimir() {
     const janela = window.open("", "_blank");
-    janela.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"/><title>Comandas QR</title>
-    <style>
-      *{box-sizing:border-box;margin:0;padding:0}
-      body{background:#fff;font-family:Arial,sans-serif}
-      .grade{display:grid;grid-template-columns:repeat(4,1fr)}
-      .comanda{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 6px;border:1px dashed #bbb;break-inside:avoid;page-break-inside:avoid}
-      .comanda img{width:120px;height:120px;display:block}
-      .comanda p{margin-top:5px;font-size:12px;font-weight:bold;letter-spacing:2px;color:#111;text-align:center}
-      .comanda small{font-size:8px;color:#999;margin-top:1px}
-      @media print{body{margin:0}}
-    </style></head><body>
-    <div class="grade">${comandas.map(({ codigo, qrUrl }) =>
-      `<div class="comanda"><img src="${qrUrl}" alt="${codigo}"/><p>${codigo}</p><small>Comanda</small></div>`
-    ).join("")}</div>
-    <script>window.onload=()=>{window.print();window.close()}<\/script></body></html>`);
+    janela.document.write(`<!DOCTYPE html><html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Comandas — ${prefixo}</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{background:#fff;font-family:Arial,sans-serif}
+    .grade{
+      display:grid;
+      grid-template-columns:repeat(2,1fr);
+      gap:0;
+    }
+    .comanda{
+      display:flex;flex-direction:column;
+      align-items:center;justify-content:center;
+      padding:16px 12px;
+      border:1px dashed #ccc;
+      break-inside:avoid;
+      page-break-inside:avoid;
+    }
+    .comanda img{width:200px;height:200px;display:block}
+    .comanda .codigo{
+      margin-top:8px;
+      font-size:16px;font-weight:900;
+      letter-spacing:3px;color:#111;
+      text-align:center;font-family:monospace;
+    }
+    .comanda .label{
+      font-size:10px;color:#888;
+      margin-top:3px;text-align:center;
+      text-transform:uppercase;letter-spacing:1px;
+    }
+    @media print{
+      body{margin:0}
+      .grade{grid-template-columns:repeat(2,1fr)}
+    }
+  </style>
+</head>
+<body>
+  <div class="grade">
+    ${comandas.map(({ codigo, qrUrl }) => `
+      <div class="comanda">
+        <img src="${qrUrl}" alt="${codigo}"/>
+        <p class="codigo">${codigo}</p>
+        <p class="label">Comanda do cliente</p>
+      </div>`).join("")}
+  </div>
+  <script>window.onload=()=>{window.print();window.close()}<\/script>
+</body></html>`);
     janela.document.close();
   }
 
@@ -169,67 +203,83 @@ function CardGerarComandas() {
   }
 
   return (
-    <div className="rounded-3xl border border-blue-400/30 bg-blue-500/5 p-4">
-      <div className="mb-3 flex items-center justify-between">
+    <div className="rounded-3xl border border-blue-400/30 bg-slate-900/80 p-4">
+      {/* Cabeçalho do card */}
+      <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-xl">🎫</span>
-          <p className="text-sm font-black text-white">Gerar Comandas QR</p>
+          <p className="font-black text-white">Gerar Comandas QR</p>
         </div>
         <button onClick={() => { setAberto(false); setComandas([]); }}
-          className="rounded-xl border border-white/10 bg-white/[0.06] px-2 py-1 text-xs text-slate-400 hover:text-white">✕</button>
+          className="rounded-xl border border-white/10 bg-white/[0.06] px-2.5 py-1.5 text-xs text-slate-400 hover:text-white hover:bg-white/10 transition">✕</button>
       </div>
 
-      {/* Configuração compacta */}
+      {/* Configuração */}
       <div className="grid grid-cols-3 gap-2 text-xs">
         <label>
-          <span className="mb-1 block font-bold uppercase tracking-widest text-slate-500">Prefixo</span>
+          <span className="mb-1.5 block font-bold uppercase tracking-widest text-slate-500">Prefixo</span>
           <input value={prefixo}
             onChange={(e) => setPrefixo(e.target.value.toUpperCase().replace(/[^A-Z]/g,"").slice(0,3))}
             maxLength={3}
-            className="w-full rounded-xl border border-white/10 bg-slate-950 px-2 py-2 font-mono font-black text-white outline-none focus:border-blue-400 text-center" />
+            className="w-full rounded-xl border border-white/10 bg-slate-950 px-2 py-2.5 font-mono text-base font-black text-white outline-none focus:border-blue-400 text-center" />
         </label>
         <label>
-          <span className="mb-1 block font-bold uppercase tracking-widest text-slate-500">Início</span>
+          <span className="mb-1.5 block font-bold uppercase tracking-widest text-slate-500">Início</span>
           <input type="number" min={1} max={999999} value={inicio}
             onChange={(e) => setInicio(Math.max(1, Number(e.target.value)))}
-            className="w-full rounded-xl border border-white/10 bg-slate-950 px-2 py-2 text-white outline-none focus:border-blue-400 text-center" />
+            className="w-full rounded-xl border border-white/10 bg-slate-950 px-2 py-2.5 text-white outline-none focus:border-blue-400 text-center" />
         </label>
         <label>
-          <span className="mb-1 block font-bold uppercase tracking-widest text-slate-500">Qtde</span>
+          <span className="mb-1.5 block font-bold uppercase tracking-widest text-slate-500">Qtde</span>
           <input type="number" min={1} max={100} value={quantidade}
             onChange={(e) => setQuantidade(Math.min(100, Math.max(1, Number(e.target.value))))}
-            className="w-full rounded-xl border border-white/10 bg-slate-950 px-2 py-2 text-white outline-none focus:border-blue-400 text-center" />
+            className="w-full rounded-xl border border-white/10 bg-slate-950 px-2 py-2.5 text-white outline-none focus:border-blue-400 text-center" />
         </label>
       </div>
 
-      {/* Prévia do código */}
-      <p className="mt-2 text-center font-mono text-xs text-slate-400">
-        Ex.: <span className="font-black text-blue-300">{prefixo || "CMD"}-{String(inicio).padStart(6,"0")}</span>
-      </p>
+      {/* Exemplo do código gerado */}
+      <div className="mt-3 rounded-xl border border-white/10 bg-slate-950/60 py-2 text-center">
+        <span className="text-xs text-slate-500">Exemplo: </span>
+        <span className="font-mono text-sm font-black text-blue-300">
+          {prefixo || "CMD"}-{String(inicio).padStart(6,"0")}
+        </span>
+        <span className="text-xs text-slate-500"> até </span>
+        <span className="font-mono text-sm font-black text-blue-300">
+          {prefixo || "CMD"}-{String(inicio + quantidade - 1).padStart(6,"0")}
+        </span>
+      </div>
 
-      {/* Botões */}
+      {/* Botões de ação */}
       <div className="mt-3 flex gap-2">
         <button onClick={gerar} disabled={gerando || prefixo.length < 1}
-          className="flex-1 rounded-xl bg-blue-500 py-2.5 text-xs font-black text-white hover:bg-blue-400 disabled:opacity-50 transition">
+          className="flex-1 rounded-xl bg-blue-500 py-3 text-sm font-black text-white hover:bg-blue-400 disabled:opacity-40 transition active:scale-95">
           {gerando ? "⏳ Gerando..." : "⚡ Gerar QR Codes"}
         </button>
         {comandas.length > 0 && (
           <button onClick={imprimir}
-            className="flex-1 rounded-xl border border-emerald-400/30 bg-emerald-500/10 py-2.5 text-xs font-black text-emerald-300 hover:bg-emerald-500/20 transition">
+            className="flex-1 rounded-xl border border-emerald-400/30 bg-emerald-500/10 py-3 text-sm font-black text-emerald-300 hover:bg-emerald-500/20 transition active:scale-95">
             🖨️ Imprimir
           </button>
         )}
       </div>
 
-      {/* Prévia dos QR Codes gerados */}
+      {/* Prévia — 2 por linha, QR grande */}
       {comandas.length > 0 && (
-        <div className="mt-3">
-          <p className="mb-2 text-xs text-slate-500">{comandas.length} comanda(s) — <span className="font-mono font-bold text-slate-300">{comandas[0].codigo}</span> até <span className="font-mono font-bold text-slate-300">{comandas[comandas.length-1].codigo}</span></p>
-          <div className="grid grid-cols-4 gap-1.5 max-h-40 overflow-y-auto rounded-2xl bg-black/20 p-2">
+        <div className="mt-4">
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-xs font-bold text-slate-400">
+              {comandas.length} comanda(s) gerada(s)
+            </p>
+            <p className="font-mono text-xs text-slate-500">
+              {comandas[0].codigo} → {comandas[comandas.length-1].codigo}
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto rounded-2xl border border-white/10 bg-black/30 p-2">
             {comandas.map(({ codigo, qrUrl }) => (
-              <div key={codigo} className="flex flex-col items-center rounded-xl bg-white p-1.5">
-                <img src={qrUrl} alt={codigo} className="h-14 w-14" />
-                <p className="mt-0.5 font-mono text-[8px] font-black text-slate-800 text-center leading-tight">{codigo}</p>
+              <div key={codigo} className="flex flex-col items-center rounded-2xl bg-white p-3 shadow">
+                <img src={qrUrl} alt={codigo} className="h-28 w-28" />
+                <p className="mt-2 font-mono text-xs font-black text-slate-800 text-center tracking-wider leading-tight">{codigo}</p>
+                <p className="text-[10px] text-slate-500 mt-0.5">Comanda</p>
               </div>
             ))}
           </div>
