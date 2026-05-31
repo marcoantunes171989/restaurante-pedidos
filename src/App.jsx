@@ -493,10 +493,19 @@ const panelStatusConfig = {
 };
 
 function PanelView({ groupedOrders }) {
-  const [hora, setHora] = useState(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }));
+  const [hora, setHora] = useState(() => new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
   useEffect(() => {
-    const t = setInterval(() => setHora(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })), 10000);
-    return () => clearInterval(t);
+    // Sincroniza exatamente com a virada do segundo da máquina local
+    const agora = new Date();
+    const msAteProximoSegundo = 1000 - agora.getMilliseconds();
+    let intervalo;
+    const timeout = setTimeout(() => {
+      setHora(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
+      intervalo = setInterval(() => {
+        setHora(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
+      }, 1000);
+    }, msAteProximoSegundo);
+    return () => { clearTimeout(timeout); clearInterval(intervalo); };
   }, []);
 
   // Numeração global de liberação por ordem de chegada
