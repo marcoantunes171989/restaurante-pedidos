@@ -356,16 +356,19 @@ function TelaLogin({ loginForm, setLoginForm, login, message, users }) {
             </div>
           )}
 
-          {/* Dica de acesso rápido */}
+          {/* Acesso rápido — todos os usuários */}
           <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-            <p className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">Acesso rápido</p>
-            <div className="space-y-1.5">
-              {listaUsuarios.slice(0, 3).map((u) => (
+            <p className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-3">⚡ Acesso rápido</p>
+            <div className="space-y-2">
+              {listaUsuarios.map((u) => (
                 <button key={u.id}
                   onClick={() => setLoginForm({ email: u.email, password: u.password || "123456" })}
-                  className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-left text-xs text-slate-300 hover:bg-white/10 transition">
-                  <span className="font-black text-white">{u.name}</span>
-                  <span className="ml-2 text-slate-500">{u.email}</span>
+                  className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5 text-left text-xs hover:bg-blue-500/10 hover:border-blue-400/30 transition group">
+                  <div className="flex items-center justify-between">
+                    <span className="font-black text-white group-hover:text-blue-300 transition">{u.name}</span>
+                    <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] text-slate-500 group-hover:text-slate-400">{u.role}</span>
+                  </div>
+                  <span className="text-slate-500 group-hover:text-slate-400 transition">{u.email}</span>
                 </button>
               ))}
             </div>
