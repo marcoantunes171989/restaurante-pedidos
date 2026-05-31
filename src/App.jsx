@@ -58,7 +58,8 @@ function formatCurrency(value) {
 }
 
 function isValidCommand(code) {
-  return /^CMD-[0-9]{6}$/.test(String(code || "").trim().toUpperCase());
+  // Aceita qualquer prefixo de 1-5 letras + hífen + 4-8 números (ex: CMD-000001, RST-0001)
+  return /^[A-Z]{1,5}-\d{4,8}$/.test(String(code || "").trim().toUpperCase());
 }
 
 function createCartItem(product) {
@@ -562,13 +563,16 @@ export default function RestaurantePedidoApp() {
     setCart((cur) => cur.map((i) => i.id === pid ? { ...i, extraIngredients: i.extraIngredients.filter((v) => v !== ing) } : i));
   }
 
-  async function handleSendOrder() {
+  // codigoOverride: passado pelo scanner para evitar problema de estado async
+  async function handleSendOrder(codigoOverride) {
     if (!canAccess(currentUser, "tablet")) return notify("error", "Usuário sem permissão para realizar pedido no tablet.");
-    if (cart.length === 0) return notify("error", "Inclua pelo menos um produto antes de realizar o pedido.");
-    if (!isValidCommand(commandCode)) return notify("error", "Faça a leitura da comanda antes de enviar. Exemplo aceito: CMD-000245.");
+    if (cart.length === 0) return notify("error", "Adicione pelo menos um produto antes de enviar.");
+    const codigo = (codigoOverride || commandCode || "").trim().toUpperCase();
+    if (!isValidCommand(codigo)) return notify("error", "Escaneie a comanda antes de enviar o pedido.");
+    clearMessage();
     const newOrder = {
       id: `PED-${Math.floor(1000 + Math.random() * 9000)}`,
-      table: currentTable, command: commandCode.trim().toUpperCase(), customer: customerName,
+      table: currentTable, command: codigo, customer: customerName,
       status: "received", paymentStatus: "open",
       createdAt: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
       items: cart.map((i) => ({ name: i.name, quantity: i.quantity, price: i.price, selectedIngredients: i.selectedIngredients, removedIngredients: i.removedIngredients, extraIngredients: i.extraIngredients, observation: i.observation })),
@@ -577,9 +581,9 @@ export default function RestaurantePedidoApp() {
       const saved = dbReady ? await inserirPedido(newOrder) : newOrder;
       setOrders((cur) => [saved, ...cur]);
     } catch { setOrders((cur) => [newOrder, ...cur]); }
-    setCart([]); setCommandCode("");
-    if (canAccess(currentUser, "panel")) setActiveTab("panel");
-    notify("success", "Pedido enviado para a cozinha e vinculado à comanda com sucesso.");
+    setCart([]);
+    setCommandCode(codigo); // mantém comanda visível
+    notify("success", `✅ Pedido enviado! Comanda ${codigo} vinculada à ${currentTable}.`);
   }
 
   async function updateOrderStatus(oid, status) {
@@ -798,9 +802,9 @@ export default function RestaurantePedidoApp() {
             {scannerAberto && (
               <QRScannerModal
                 onSucesso={(codigo) => {
-                  setCommandCode(codigo);
+                  setCommandCode(codigo);   // atualiza o campo
                   setScannerAberto(false);
-                  handleSendOrder();
+                  handleSendOrder(codigo);  // passa diretamente — sem problema de state async
                 }}
                 onCancelar={() => setScannerAberto(false)}
               />
@@ -834,9 +838,10 @@ function TabletView({
   handleSendOrder, requestBill, message, onSair, onAbrirScanner,
   currentTableOrders = [], currentTableSubtotal = 0, currentTableTotal = 0,
 }) {
-  const [verConta, setVerConta] = useState(false);
+  const [verConta, setVerConta]         = useState(false);
+  const [itemExpandido, setItemExpandido] = useState(null); // id do item com ingredientes abertos
   const totalCartItems = cart.reduce((s, i) => s + i.quantity, 0);
-  const comandaValida = /^[A-Z]{3}-\d{6}$/.test(String(commandCode || "").trim().toUpperCase());
+  const comandaValida  = isValidCommand(commandCode);
   const temPedidoNaMesa = currentTableOrders.length > 0 && currentTableTotal > 0;
 
   // Agrupa pedidos por comanda
@@ -911,50 +916,61 @@ function TabletView({
 
         {/* Cardápio */}
         <div className="flex-1 overflow-y-auto p-5">
-          {filteredItems.length === 0 && (
-            <div className="flex h-40 items-center justify-center text-slate-500">Nenhum produto encontrado.</div>
-          )}
+          {filteredItems.length === 0 ? (
+            <div className="flex h-full flex-col items-center justify-center gap-3 opacity-40">
+              <span className="text-5xl">🔍</span>
+              <p className="text-base font-black text-slate-300">Nenhum produto encontrado</p>
+              <p className="text-sm text-slate-500">Tente outra busca ou categoria</p>
+            </div>
+          ) : (
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
             {filteredItems.map((item) => {
               const noCarrinho = cart.find((c) => c.id === item.id);
               return (
-                <article key={item.id} className="overflow-hidden rounded-3xl border border-white/10 bg-slate-900 shadow-xl transition hover:border-blue-500/30">
+                <article key={item.id} className={`group overflow-hidden rounded-3xl border bg-slate-900 shadow-xl transition-all hover:-translate-y-1 hover:shadow-2xl ${noCarrinho ? "border-blue-500/50 ring-2 ring-blue-500/20" : "border-white/10 hover:border-blue-500/40"}`}>
                   {/* Imagem */}
                   <div className="relative h-44 overflow-hidden bg-slate-800">
-                    <img src={item.imageUrl || fallbackImage} alt={item.name} className="h-full w-full object-cover" />
+                    <img src={item.imageUrl || fallbackImage} alt={item.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-transparent to-transparent" />
                     {item.badge && (
-                      <span className="absolute right-3 top-3 rounded-full bg-black/60 px-2.5 py-1 text-xs font-bold text-white backdrop-blur-sm">{item.badge}</span>
+                      <span className="absolute right-3 top-3 rounded-full bg-blue-500/90 px-2.5 py-1 text-xs font-black text-white shadow-lg backdrop-blur-sm">{item.badge}</span>
                     )}
                     {noCarrinho && (
-                      <div className="absolute left-3 top-3 flex h-7 w-7 items-center justify-center rounded-full bg-blue-500 text-xs font-black text-white shadow-lg">
+                      <div className="absolute left-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-blue-500 text-sm font-black text-white shadow-lg ring-2 ring-white/30">
                         {noCarrinho.quantity}
                       </div>
                     )}
+                    {/* Preço sobre a imagem */}
+                    <div className="absolute bottom-3 left-3">
+                      <span className="rounded-2xl bg-black/60 px-3 py-1.5 text-lg font-black text-white backdrop-blur-sm">{formatCurrency(item.price)}</span>
+                    </div>
                   </div>
                   {/* Conteúdo */}
                   <div className="p-4">
-                    <p className="text-xs font-bold uppercase tracking-widest text-blue-400">{item.category}</p>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs font-bold uppercase tracking-widest text-blue-400">{item.category}</p>
+                      <span className="text-xs text-slate-500">⏱ {item.time}</span>
+                    </div>
                     <h3 className="mt-1 text-base font-black text-white leading-tight">{item.name}</h3>
                     <p className="mt-1 text-xs leading-5 text-slate-400 line-clamp-2">{item.description}</p>
                     <div className="mt-2 flex flex-wrap gap-1">
                       {(item.ingredients || []).slice(0, 3).map((ing) => (
                         <span key={ing} className="rounded-full bg-white/[0.06] px-2 py-0.5 text-xs text-slate-400">{ing}</span>
                       ))}
+                      {(item.ingredients || []).length > 3 && (
+                        <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-xs text-slate-500">+{item.ingredients.length - 3}</span>
+                      )}
                     </div>
-                    <div className="mt-3 flex items-center justify-between gap-2">
-                      <div>
-                        <p className="text-lg font-black text-white">{formatCurrency(item.price)}</p>
-                        <p className="text-xs text-slate-500">{item.time}</p>
-                      </div>
+                    <div className="mt-3">
                       {noCarrinho ? (
-                        <div className="flex items-center gap-1 rounded-2xl bg-blue-500/10 border border-blue-500/30 p-1">
-                          <button onClick={() => removeFromCart(item.id)} className="h-8 w-8 rounded-xl bg-slate-800 font-black text-white hover:bg-slate-700 transition">−</button>
-                          <span className="w-6 text-center font-black text-white">{noCarrinho.quantity}</span>
-                          <button onClick={() => addToCart(item)} className="h-8 w-8 rounded-xl bg-blue-500 font-black text-white hover:bg-blue-400 transition">+</button>
+                        <div className="flex items-center justify-between gap-1 rounded-2xl bg-blue-500/10 border border-blue-500/30 p-1">
+                          <button onClick={() => removeFromCart(item.id)} className="h-10 flex-1 rounded-xl bg-slate-800 font-black text-white hover:bg-slate-700 transition active:scale-95">−</button>
+                          <span className="w-10 text-center text-lg font-black text-white">{noCarrinho.quantity}</span>
+                          <button onClick={() => addToCart(item)} className="h-10 flex-1 rounded-xl bg-blue-500 font-black text-white hover:bg-blue-400 transition active:scale-95">+</button>
                         </div>
                       ) : (
-                        <button onClick={() => addToCart(item)} className="rounded-2xl bg-blue-500 px-4 py-2.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95">
-                          + Adicionar
+                        <button onClick={() => addToCart(item)} className="w-full rounded-2xl bg-blue-500 py-3 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95">
+                          + Adicionar ao pedido
                         </button>
                       )}
                     </div>
@@ -963,6 +979,7 @@ function TabletView({
               );
             })}
           </div>
+          )}
         </div>
 
         {/* ── Carrinho / Resumo ─────────────────────────── */}
@@ -1096,7 +1113,7 @@ function TabletView({
                 📷 Escanear comanda e enviar pedido
               </button>
             ) : (
-              <button onClick={handleSendOrder}
+              <button onClick={() => handleSendOrder()}
                 disabled={cart.length === 0}
                 className="w-full rounded-2xl bg-emerald-500 py-4 text-sm font-black text-white hover:bg-emerald-400 transition active:scale-95 shadow-lg shadow-emerald-950/30 disabled:opacity-40 disabled:cursor-not-allowed">
                 🚀 Confirmar e enviar para a cozinha
