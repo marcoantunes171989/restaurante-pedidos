@@ -901,6 +901,7 @@ function TabletView({
   currentTableOrders = [], currentTableSubtotal = 0, currentTableTotal = 0,
 }) {
   const [verConta, setVerConta]         = useState(false);
+  const [carrinhoAberto, setCarrinhoAberto] = useState(false); // gaveta do carrinho
   const [produtoDetalhe, setProdutoDetalhe] = useState(null); // produto aberto no modal
   const totalCartItems = cart.reduce((s, i) => s + i.quantity, 0);
   const comandaValida  = isValidCommand(commandCode);
@@ -973,11 +974,8 @@ function TabletView({
         )}
       </div>
 
-      {/* ── Corpo: Cardápio + Carrinho ────────────────────── */}
-      <div className="flex flex-1 overflow-hidden">
-
-        {/* Cardápio */}
-        <div className="flex-1 overflow-y-auto p-5">
+      {/* ── Cardápio (largura total) ────────────────────── */}
+      <div className="flex-1 overflow-y-auto p-6">
           {filteredItems.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center gap-3 opacity-40">
               <span className="text-5xl">🔍</span>
@@ -985,7 +983,7 @@ function TabletView({
               <p className="text-sm text-slate-500">Tente outra busca ou categoria</p>
             </div>
           ) : (
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
             {filteredItems.map((item) => {
               const noCarrinho = cart.find((c) => c.id === item.id);
               return (
@@ -1046,14 +1044,42 @@ function TabletView({
             })}
           </div>
           )}
-        </div>
+      </div>
 
-        {/* ── Carrinho / Resumo ─────────────────────────── */}
-        <aside className="flex w-[380px] shrink-0 flex-col border-l border-white/10 bg-slate-900/60 backdrop-blur-xl">
+      {/* ── Rodapé fixo: resumo + botão enviar (largura total) ── */}
+      <footer className="shrink-0 border-t border-white/10 bg-slate-900/95 backdrop-blur-xl px-6 py-4">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-blue-400/30 bg-blue-500/15 text-xl">🛒</div>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-widest text-slate-500">{totalCartItems} {totalCartItems === 1 ? "item" : "itens"}</p>
+              <p className="text-lg font-black text-white">{formatCurrency(total)}</p>
+            </div>
+          </div>
+          <button onClick={() => setVerConta(true)} disabled={!temPedidoNaMesa}
+            title={!temPedidoNaMesa ? "Conta disponível após o primeiro pedido" : "Ver conta da mesa"}
+            className="shrink-0 rounded-2xl border border-white/10 bg-white/[0.06] px-5 py-4 text-sm font-black text-slate-300 hover:bg-white/10 transition disabled:opacity-30 disabled:cursor-not-allowed">
+            👁️ Conta
+          </button>
+          <button onClick={() => setCarrinhoAberto(true)} disabled={cart.length === 0}
+            className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-emerald-500 px-6 py-4 text-base font-black text-white hover:bg-emerald-400 transition active:scale-95 shadow-lg shadow-emerald-950/30 disabled:opacity-40 disabled:cursor-not-allowed">
+            🚀 Confirmar e enviar pedido para a cozinha
+          </button>
+        </div>
+      </footer>
+
+      {/* ── Gaveta do carrinho (desliza da direita) ──────────── */}
+      {carrinhoAberto && (
+        <div className="fixed inset-0 z-[90] flex justify-end bg-black/60 backdrop-blur-sm" onClick={() => setCarrinhoAberto(false)}>
+        <aside onClick={(e) => e.stopPropagation()} className="flex w-full max-w-md flex-col bg-slate-900 shadow-2xl">
           {/* Cabeçalho carrinho */}
-          <div className="border-b border-white/10 px-5 py-4">
-            <p className="text-lg font-black text-white">🛒 Resumo do pedido</p>
-            <p className="text-xs text-slate-500">Personalize e envie para a cozinha</p>
+          <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+            <div>
+              <p className="text-lg font-black text-white">🛒 Resumo do pedido</p>
+              <p className="text-xs text-slate-500">Personalize e envie para a cozinha</p>
+            </div>
+            <button onClick={() => setCarrinhoAberto(false)}
+              className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20 transition">✕</button>
           </div>
 
           {/* Campos mesa / cliente / comanda */}
@@ -1179,36 +1205,25 @@ function TabletView({
                 📷 Escanear comanda e enviar pedido
               </button>
             ) : (
-              <button onClick={() => handleSendOrder()}
+              <button onClick={() => { handleSendOrder(); setCarrinhoAberto(false); }}
                 disabled={cart.length === 0}
                 className="w-full rounded-2xl bg-emerald-500 py-4 text-sm font-black text-white hover:bg-emerald-400 transition active:scale-95 shadow-lg shadow-emerald-950/30 disabled:opacity-40 disabled:cursor-not-allowed">
                 🚀 Confirmar e enviar para a cozinha
               </button>
             )}
 
-            {/* Solicitar conta — só habilitado com pedidos na mesa */}
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={() => setVerConta(true)}
-                disabled={!temPedidoNaMesa}
-                title={!temPedidoNaMesa ? "Nenhum pedido registrado nesta mesa" : "Ver conta detalhada"}
-                className="rounded-2xl border border-white/10 bg-white/[0.06] py-3 text-xs font-black text-slate-300 hover:bg-white/10 transition disabled:opacity-30 disabled:cursor-not-allowed">
-                👁️ Ver conta
-              </button>
-              <button
-                onClick={requestBill}
-                disabled={!temPedidoNaMesa}
-                title={!temPedidoNaMesa ? "Nenhum pedido registrado nesta mesa" : "Solicitar fechamento ao caixa"}
-                className="rounded-2xl border border-violet-400/30 bg-violet-500/10 py-3 text-xs font-black text-violet-300 hover:bg-violet-500/20 transition disabled:opacity-30 disabled:cursor-not-allowed">
-                🧾 Fechar conta
-              </button>
-            </div>
-            {!temPedidoNaMesa && (
-              <p className="text-center text-xs text-slate-600">Conta disponível após o primeiro pedido</p>
-            )}
+            {/* Fechar conta da mesa */}
+            <button
+              onClick={requestBill}
+              disabled={!temPedidoNaMesa}
+              title={!temPedidoNaMesa ? "Nenhum pedido registrado nesta mesa" : "Solicitar fechamento ao caixa"}
+              className="w-full rounded-2xl border border-violet-400/30 bg-violet-500/10 py-3 text-xs font-black text-violet-300 hover:bg-violet-500/20 transition disabled:opacity-30 disabled:cursor-not-allowed">
+              🧾 Fechar conta da mesa
+            </button>
           </div>
         </aside>
-      </div>
+        </div>
+      )}
 
       {/* ── Modal de visualização da conta ─────────────────── */}
       {verConta && (
