@@ -641,8 +641,9 @@ export default function RestaurantePedidoApp() {
       setOrders((cur) => [newOrder, ...cur]);
     }
 
+    // Limpa carrinho E comanda — tela pronta para o próximo pedido
     setCart([]);
-    setCommandCode(codigo);
+    setCommandCode("");
     notify("success", `✅ Pedido enviado! Comanda ${codigo} vinculada à ${currentTable}.`);
   }
 
@@ -1026,23 +1027,18 @@ function TabletView({
                         <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-xs text-slate-500">+{item.ingredients.length - 3}</span>
                       )}
                     </div>
-                    <div className="mt-3 flex items-center gap-2">
+                    <div className="mt-3">
                       {noCarrinho ? (
-                        <div className="flex flex-1 items-center justify-between gap-1 rounded-2xl bg-blue-500/10 border border-blue-500/30 p-1">
+                        <div className="flex items-center justify-between gap-1 rounded-2xl bg-blue-500/10 border border-blue-500/30 p-1">
                           <button onClick={() => removeFromCart(item.id)} className="h-10 flex-1 rounded-xl bg-slate-800 font-black text-white hover:bg-slate-700 transition active:scale-95">−</button>
-                          <span className="w-10 text-center text-lg font-black text-white">{noCarrinho.quantity}</span>
-                          <button onClick={() => addToCart(item)} className="h-10 flex-1 rounded-xl bg-blue-500 font-black text-white hover:bg-blue-400 transition active:scale-95">+</button>
+                          <span className="w-12 text-center text-lg font-black text-white">{noCarrinho.quantity}</span>
+                          <button onClick={() => setProdutoDetalhe(item)} title="Personalizar / adicionar mais" className="h-10 flex-1 rounded-xl bg-blue-500 font-black text-white hover:bg-blue-400 transition active:scale-95">+</button>
                         </div>
                       ) : (
-                        <button onClick={() => addToCart(item)} className="flex-1 rounded-2xl bg-blue-500 py-3 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95">
-                          + Adicionar
+                        <button onClick={() => setProdutoDetalhe(item)} className="w-full rounded-2xl bg-blue-500 py-3 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95">
+                          + Adicionar ao pedido
                         </button>
                       )}
-                      {/* Botão personalizar */}
-                      <button onClick={() => setProdutoDetalhe(item)} title="Personalizar ingredientes"
-                        className="h-12 w-12 shrink-0 rounded-2xl border border-white/10 bg-white/[0.06] text-lg text-slate-300 hover:bg-white/10 hover:text-white transition active:scale-95">
-                        ⚙️
-                      </button>
                     </div>
                   </div>
                 </article>
