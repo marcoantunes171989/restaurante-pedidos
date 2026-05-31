@@ -479,7 +479,17 @@ export default function RestaurantePedidoApp() {
   const [accessForm, setAccessForm] = useState({ id: "", label: "", desc: "", type: "Operacional" });
 
   const currentTable = `Mesa ${tableNumber.padStart(2, "0")}`;
-  const allowedTabs = useMemo(() => accesses.filter((a) => a.active && canAccess(currentUser, a.id)), [accesses, currentUser]);
+  // Ordem fixa do menu (independente da ordem alfabética que vem do banco)
+  const ordemMenu = ["tablet", "kitchen", "panel", "cashier", "admin"];
+  const allowedTabs = useMemo(() =>
+    accesses
+      .filter((a) => a.active && canAccess(currentUser, a.id))
+      .sort((a, b) => {
+        const ia = ordemMenu.indexOf(a.id); const ib = ordemMenu.indexOf(b.id);
+        return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+      }),
+    [accesses, currentUser]
+  );
   const activeProducts = products.filter((p) => p.active);
   const filteredItems = useMemo(() => {
     const termo = normalizar(search);
@@ -522,8 +532,9 @@ export default function RestaurantePedidoApp() {
     const found = users.find((u) => u.email.toLowerCase() === loginForm.email.toLowerCase() && u.password === loginForm.password && u.active);
     if (!found) return notify("error", "Usuário, senha ou status inválido.");
     setCurrentUser(found);
-    const firstTab = accesses.find((a) => a.active && found.accessIds.includes(a.id));
-    setActiveTab(firstTab ? firstTab.id : "blocked");
+    // Escolhe a primeira aba seguindo a ordem fixa do menu (tablet primeiro)
+    const primeira = ordemMenu.find((id) => found.accessIds.includes(id) && accesses.some((a) => a.id === id && a.active));
+    setActiveTab(primeira || "blocked");
     notify("success", `Acesso liberado para ${found.name}.`);
   }
 
