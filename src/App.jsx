@@ -142,15 +142,15 @@ export default function RestaurantePedidoApp() {
     loadAll();
   }, []);
 
-  // ── Polling automático de pedidos quando painel está ativo ──
+  // ── Polling automático de pedidos (painel e cozinha) ────────
   useEffect(() => {
-    if (activeTab !== "panel" || !dbReady) return;
+    if (!dbReady || (activeTab !== "panel" && activeTab !== "kitchen")) return;
     const interval = setInterval(async () => {
       try {
         const ords = await fetchPedidos();
         if (ords.length) setOrders(ords);
       } catch {}
-    }, 15000); // atualiza a cada 15 segundos
+    }, 15000);
     return () => clearInterval(interval);
   }, [activeTab, dbReady]);
   const [cart, setCart] = useState([]);
@@ -493,8 +493,115 @@ export default function RestaurantePedidoApp() {
   );
 }
 
+const kitchenCols = [
+  { key: "received",  label: "Aguardando",   bg: "bg-blue-500/10  border-blue-500/30",  dot: "bg-blue-400"    },
+  { key: "preparing", label: "Preparando",   bg: "bg-amber-500/10 border-amber-500/30", dot: "bg-amber-400"   },
+  { key: "ready",     label: "Finalizado",   bg: "bg-emerald-500/10 border-emerald-500/30", dot: "bg-emerald-400" },
+];
+
 function KitchenView({ groupedOrders, orders, updateOrderStatus }) {
-  return <Card><div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"><div><h2 className="text-2xl font-black text-white">Cozinha</h2><p className="mt-1 text-sm text-slate-300">Pedidos recebidos, em preparação e finalizados.</p></div><p className="rounded-full bg-white/10 px-4 py-2 text-sm font-bold text-slate-200">{orders.length} pedidos</p></div><div className="grid gap-4 lg:grid-cols-3">{Object.entries(groupedOrders).map(([status, list]) => <div key={status} className="rounded-[1.75rem] border border-white/10 bg-slate-950/40 p-4"><div className="mb-4 flex items-center justify-between"><h3 className="text-lg font-black text-white">{statusMap[status].title}</h3><span className="rounded-full border border-white/10 bg-white/[0.08] px-3 py-1 text-xs font-black text-white">{list.length}</span></div><div className="space-y-4">{list.length === 0 && <div className="rounded-3xl border border-dashed border-white/10 p-5 text-center text-sm text-slate-400">Nenhum pedido.</div>}{list.map((order) => <article key={order.id} className="rounded-3xl border border-white/10 bg-slate-900/80 p-4"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">{order.id}</p><h4 className="mt-1 text-xl font-black text-white">{order.table}</h4><p className="text-sm text-slate-400">{order.command} • {order.createdAt}</p></div><StatusChip status={order.status} /></div><div className="mt-4 space-y-2">{order.items.map((item, idx) => <div key={`${order.id}-${idx}`} className="rounded-2xl bg-white/[0.06] px-4 py-3 text-sm text-slate-100"><strong>{item.quantity}x {item.name}</strong>{itemDetails(item) && <p className="mt-1 text-xs leading-5 text-amber-100">{itemDetails(item)}</p>}</div>)}</div><div className="mt-5 grid grid-cols-3 gap-2"><button onClick={() => updateOrderStatus(order.id, "received")} className="rounded-2xl border border-white/10 bg-white/[0.06] px-2 py-3 text-xs font-black text-white">Recebido</button><button onClick={() => updateOrderStatus(order.id, "preparing")} className="rounded-2xl bg-amber-500 px-2 py-3 text-xs font-black text-white">Preparar</button><button onClick={() => updateOrderStatus(order.id, "ready")} className="rounded-2xl bg-emerald-500 px-2 py-3 text-xs font-black text-white">Finalizar</button></div></article>)}</div></div>)}</div></Card>;
+  const totalAtivo = (groupedOrders.received?.length || 0) + (groupedOrders.preparing?.length || 0);
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Cabeçalho */}
+      <div className="flex items-center justify-between rounded-3xl border border-white/10 bg-white/[0.06] px-6 py-4">
+        <div>
+          <h2 className="text-2xl font-black text-white">👨‍🍳 Cozinha</h2>
+          <p className="mt-0.5 text-sm text-slate-400">Gerencie os pedidos — atualize o status para refletir no painel público</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="rounded-2xl border border-amber-400/30 bg-amber-500/10 px-4 py-2 text-center">
+            <p className="text-xs font-bold text-amber-400">Em aberto</p>
+            <p className="text-2xl font-black text-amber-300">{totalAtivo}</p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-2 text-center">
+            <p className="text-xs font-bold text-slate-400">Total</p>
+            <p className="text-2xl font-black text-white">{orders.length}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Colunas */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        {kitchenCols.map(({ key, label, bg, dot }) => {
+          const lista = groupedOrders[key] || [];
+          return (
+            <div key={key} className={`rounded-[1.75rem] border ${bg} p-4`}>
+              {/* Título da coluna */}
+              <div className="mb-4 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className={`h-3 w-3 rounded-full ${dot}`} />
+                  <h3 className="text-base font-black text-white">{label}</h3>
+                </div>
+                <span className="rounded-full border border-white/10 bg-white/[0.08] px-3 py-1 text-xs font-black text-white">
+                  {lista.length}
+                </span>
+              </div>
+
+              {/* Cards de pedido */}
+              <div className="space-y-3">
+                {lista.length === 0 && (
+                  <div className="rounded-3xl border border-dashed border-white/10 p-6 text-center text-sm text-slate-500">
+                    Nenhum pedido
+                  </div>
+                )}
+                {lista.map((order) => (
+                  <article key={order.id} className="overflow-hidden rounded-3xl border border-white/10 bg-slate-900/90">
+                    {/* Header do card */}
+                    <div className="flex items-start justify-between gap-3 border-b border-white/10 px-4 py-3">
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-widest text-slate-500">{order.id}</p>
+                        <h4 className="text-2xl font-black leading-tight text-white">{order.table}</h4>
+                        <p className="text-xs text-slate-400">{order.command} • {order.createdAt}</p>
+                      </div>
+                      <StatusChip status={order.status} />
+                    </div>
+
+                    {/* Itens */}
+                    <div className="space-y-2 px-4 py-3">
+                      {order.items.map((item, idx) => (
+                        <div key={`${order.id}-${idx}`} className="rounded-2xl bg-white/[0.05] px-3 py-2">
+                          <p className="text-sm font-black text-white">{item.quantity}x {item.name}</p>
+                          {itemDetails(item) && (
+                            <p className="mt-0.5 text-xs leading-5 text-amber-200">{itemDetails(item)}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Ações — apenas Preparar e Finalizar */}
+                    <div className="grid grid-cols-2 gap-2 border-t border-white/10 px-4 py-3">
+                      <button
+                        onClick={() => updateOrderStatus(order.id, "preparing")}
+                        disabled={order.status === "ready"}
+                        className={`rounded-2xl py-3 text-sm font-black transition active:scale-95
+                          ${order.status === "preparing"
+                            ? "bg-amber-500 text-white ring-2 ring-amber-400/50 shadow-lg shadow-amber-950/30"
+                            : order.status === "ready"
+                            ? "cursor-not-allowed bg-white/5 text-slate-600"
+                            : "bg-amber-500/20 text-amber-300 hover:bg-amber-500 hover:text-white"}`}>
+                        👨‍🍳 Preparar
+                      </button>
+                      <button
+                        onClick={() => updateOrderStatus(order.id, "ready")}
+                        disabled={order.status === "ready"}
+                        className={`rounded-2xl py-3 text-sm font-black transition active:scale-95
+                          ${order.status === "ready"
+                            ? "bg-emerald-500 text-white ring-2 ring-emerald-400/50 shadow-lg shadow-emerald-950/30"
+                            : "bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500 hover:text-white"}`}>
+                        ✅ Finalizar
+                      </button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 const panelStatusConfig = {
