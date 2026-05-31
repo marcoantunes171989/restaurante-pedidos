@@ -107,6 +107,225 @@ if (typeof window !== "undefined") runSelfTests();
 // Conversor de status para salvar no banco
 // STATUS_APP_PARA_DB importado de ./lib/supabase
 
+// ════════════════════════════════════════════════════════════
+//  Card inline de geração de comandas (tela de login)
+// ════════════════════════════════════════════════════════════
+function CardGerarComandas() {
+  const [aberto, setAberto]         = useState(false);
+  const [prefixo, setPrefixo]       = useState("CMD");
+  const [inicio, setInicio]         = useState(1);
+  const [quantidade, setQuantidade] = useState(12);
+  const [comandas, setComandas]     = useState([]);
+  const [gerando, setGerando]       = useState(false);
+
+  async function gerar() {
+    if (prefixo.length < 1) return;
+    setGerando(true);
+    const QRCode = (await import("qrcode")).default;
+    const lista = [];
+    for (let i = 0; i < quantidade; i++) {
+      const codigo = `${prefixo}-${String(inicio + i).padStart(6, "0")}`;
+      const qrUrl  = await QRCode.toDataURL(codigo, {
+        width: 280, margin: 2,
+        color: { dark: "#000000", light: "#ffffff" },
+        errorCorrectionLevel: "H",
+      });
+      lista.push({ codigo, qrUrl });
+    }
+    setComandas(lista);
+    setGerando(false);
+  }
+
+  function imprimir() {
+    const janela = window.open("", "_blank");
+    janela.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"/><title>Comandas QR</title>
+    <style>
+      *{box-sizing:border-box;margin:0;padding:0}
+      body{background:#fff;font-family:Arial,sans-serif}
+      .grade{display:grid;grid-template-columns:repeat(4,1fr)}
+      .comanda{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 6px;border:1px dashed #bbb;break-inside:avoid;page-break-inside:avoid}
+      .comanda img{width:120px;height:120px;display:block}
+      .comanda p{margin-top:5px;font-size:12px;font-weight:bold;letter-spacing:2px;color:#111;text-align:center}
+      .comanda small{font-size:8px;color:#999;margin-top:1px}
+      @media print{body{margin:0}}
+    </style></head><body>
+    <div class="grade">${comandas.map(({ codigo, qrUrl }) =>
+      `<div class="comanda"><img src="${qrUrl}" alt="${codigo}"/><p>${codigo}</p><small>Comanda</small></div>`
+    ).join("")}</div>
+    <script>window.onload=()=>{window.print();window.close()}<\/script></body></html>`);
+    janela.document.close();
+  }
+
+  if (!aberto) {
+    return (
+      <button
+        onClick={() => setAberto(true)}
+        className="flex h-full min-h-[100px] w-full flex-col items-center justify-center gap-2 rounded-3xl border border-dashed border-blue-400/40 bg-blue-500/5 p-4 text-center transition hover:bg-blue-500/10 hover:border-blue-400/70 active:scale-95">
+        <span className="text-3xl">🎫</span>
+        <p className="text-sm font-black text-blue-300">Gerar Comandas</p>
+        <p className="text-xs text-slate-500">Clique para gerar QR Codes</p>
+      </button>
+    );
+  }
+
+  return (
+    <div className="rounded-3xl border border-blue-400/30 bg-blue-500/5 p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-xl">🎫</span>
+          <p className="text-sm font-black text-white">Gerar Comandas QR</p>
+        </div>
+        <button onClick={() => { setAberto(false); setComandas([]); }}
+          className="rounded-xl border border-white/10 bg-white/[0.06] px-2 py-1 text-xs text-slate-400 hover:text-white">✕</button>
+      </div>
+
+      {/* Configuração compacta */}
+      <div className="grid grid-cols-3 gap-2 text-xs">
+        <label>
+          <span className="mb-1 block font-bold uppercase tracking-widest text-slate-500">Prefixo</span>
+          <input value={prefixo}
+            onChange={(e) => setPrefixo(e.target.value.toUpperCase().replace(/[^A-Z]/g,"").slice(0,3))}
+            maxLength={3}
+            className="w-full rounded-xl border border-white/10 bg-slate-950 px-2 py-2 font-mono font-black text-white outline-none focus:border-blue-400 text-center" />
+        </label>
+        <label>
+          <span className="mb-1 block font-bold uppercase tracking-widest text-slate-500">Início</span>
+          <input type="number" min={1} max={999999} value={inicio}
+            onChange={(e) => setInicio(Math.max(1, Number(e.target.value)))}
+            className="w-full rounded-xl border border-white/10 bg-slate-950 px-2 py-2 text-white outline-none focus:border-blue-400 text-center" />
+        </label>
+        <label>
+          <span className="mb-1 block font-bold uppercase tracking-widest text-slate-500">Qtde</span>
+          <input type="number" min={1} max={100} value={quantidade}
+            onChange={(e) => setQuantidade(Math.min(100, Math.max(1, Number(e.target.value))))}
+            className="w-full rounded-xl border border-white/10 bg-slate-950 px-2 py-2 text-white outline-none focus:border-blue-400 text-center" />
+        </label>
+      </div>
+
+      {/* Prévia do código */}
+      <p className="mt-2 text-center font-mono text-xs text-slate-400">
+        Ex.: <span className="font-black text-blue-300">{prefixo || "CMD"}-{String(inicio).padStart(6,"0")}</span>
+      </p>
+
+      {/* Botões */}
+      <div className="mt-3 flex gap-2">
+        <button onClick={gerar} disabled={gerando || prefixo.length < 1}
+          className="flex-1 rounded-xl bg-blue-500 py-2.5 text-xs font-black text-white hover:bg-blue-400 disabled:opacity-50 transition">
+          {gerando ? "⏳ Gerando..." : "⚡ Gerar QR Codes"}
+        </button>
+        {comandas.length > 0 && (
+          <button onClick={imprimir}
+            className="flex-1 rounded-xl border border-emerald-400/30 bg-emerald-500/10 py-2.5 text-xs font-black text-emerald-300 hover:bg-emerald-500/20 transition">
+            🖨️ Imprimir
+          </button>
+        )}
+      </div>
+
+      {/* Prévia dos QR Codes gerados */}
+      {comandas.length > 0 && (
+        <div className="mt-3">
+          <p className="mb-2 text-xs text-slate-500">{comandas.length} comanda(s) — <span className="font-mono font-bold text-slate-300">{comandas[0].codigo}</span> até <span className="font-mono font-bold text-slate-300">{comandas[comandas.length-1].codigo}</span></p>
+          <div className="grid grid-cols-4 gap-1.5 max-h-40 overflow-y-auto rounded-2xl bg-black/20 p-2">
+            {comandas.map(({ codigo, qrUrl }) => (
+              <div key={codigo} className="flex flex-col items-center rounded-xl bg-white p-1.5">
+                <img src={qrUrl} alt={codigo} className="h-14 w-14" />
+                <p className="mt-0.5 font-mono text-[8px] font-black text-slate-800 text-center leading-tight">{codigo}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+//  Tela de Login com card de comandas embutido
+// ════════════════════════════════════════════════════════════
+function TelaLogin({ loginForm, setLoginForm, login, message, users }) {
+  const listaUsuarios = users.length > 0 ? users : initialUsers;
+  return (
+    <div className="min-h-screen bg-slate-950 px-4 py-8 text-slate-100">
+      <div className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-[1fr_420px] lg:items-start">
+
+        {/* Painel esquerdo — info + usuários + card comandas */}
+        <div className="rounded-[2rem] border border-white/10 bg-white/[0.06] p-8 shadow-2xl backdrop-blur-xl">
+          <span className="inline-flex rounded-full border border-blue-400/30 bg-blue-500/10 px-4 py-2 text-sm font-semibold text-blue-100">
+            Restaurante Online • Login obrigatório
+          </span>
+          <h1 className="mt-5 max-w-3xl text-4xl font-black tracking-tight text-white sm:text-5xl">
+            Acesso por usuário e permissão
+          </h1>
+          <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">
+            Cada usuário acessa somente as telas liberadas pelo administrador.
+          </p>
+
+          {/* Grade de usuários + card de comandas */}
+          <div className="mt-6 grid gap-3 md:grid-cols-2">
+            {listaUsuarios.map((u) => (
+              <div key={u.id} className="rounded-3xl border border-white/10 bg-slate-900/70 p-4">
+                <p className="font-black text-white">{u.name}</p>
+                <p className="text-sm text-slate-400">{u.email}</p>
+                <p className="mt-1 text-xs text-blue-200">Senha: {u.password || "123456"}</p>
+              </div>
+            ))}
+            {/* Card de comandas ocupa o espaço vazio */}
+            <CardGerarComandas />
+          </div>
+        </div>
+
+        {/* Painel direito — formulário de login */}
+        <div className="rounded-[2rem] border border-white/10 bg-white/[0.06] p-6 shadow-2xl backdrop-blur-xl">
+          <h2 className="text-2xl font-black text-white">Entrar no sistema</h2>
+          <p className="mt-1 text-sm text-slate-300">Use um dos usuários cadastrados para acessar o sistema.</p>
+          <div className="mt-5 space-y-3">
+            <input
+              value={loginForm.email}
+              onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
+              onKeyDown={(e) => e.key === "Enter" && login()}
+              placeholder="E-mail"
+              className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400"
+            />
+            <input
+              type="password"
+              value={loginForm.password}
+              onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+              onKeyDown={(e) => e.key === "Enter" && login()}
+              placeholder="Senha"
+              className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400"
+            />
+            <button
+              onClick={login}
+              className="w-full rounded-2xl bg-blue-500 px-5 py-4 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95">
+              Acessar →
+            </button>
+          </div>
+          {message.text && (
+            <div className={`mt-4 rounded-2xl border p-4 text-sm ${message.type === "error" ? "border-red-400/30 bg-red-500/10 text-red-100" : "border-emerald-400/30 bg-emerald-500/10 text-emerald-100"}`}>
+              {message.text}
+            </div>
+          )}
+
+          {/* Dica de acesso rápido */}
+          <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+            <p className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">Acesso rápido</p>
+            <div className="space-y-1.5">
+              {listaUsuarios.slice(0, 3).map((u) => (
+                <button key={u.id}
+                  onClick={() => setLoginForm({ email: u.email, password: u.password || "123456" })}
+                  className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-left text-xs text-slate-300 hover:bg-white/10 transition">
+                  <span className="font-black text-white">{u.name}</span>
+                  <span className="ml-2 text-slate-500">{u.email}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Card({ children, className = "" }) {
   return <section className={`rounded-[2rem] border border-white/10 bg-white/[0.06] p-5 shadow-2xl backdrop-blur-xl ${className}`}>{children}</section>;
 }
@@ -442,30 +661,7 @@ export default function RestaurantePedidoApp() {
   }
 
   if (!currentUser) {
-    return (
-      <div className="min-h-screen bg-slate-950 px-4 py-8 text-slate-100">
-        <div className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-[1fr_420px] lg:items-center">
-          <div className="rounded-[2rem] border border-white/10 bg-white/[0.06] p-8 shadow-2xl backdrop-blur-xl">
-            <span className="inline-flex rounded-full border border-blue-400/30 bg-blue-500/10 px-4 py-2 text-sm font-semibold text-blue-100">Restaurante Online • Login obrigatório</span>
-            <h1 className="mt-5 max-w-3xl text-4xl font-black tracking-tight text-white sm:text-6xl">Acesso por usuário e permissão</h1>
-            <p className="mt-4 max-w-3xl text-sm leading-6 text-slate-300 sm:text-base">Cada usuário acessa somente as telas liberadas pelo administrador.</p>
-            <div className="mt-6 grid gap-3 md:grid-cols-2">
-              {initialUsers.map((u) => <div key={u.id} className="rounded-3xl border border-white/10 bg-slate-900/70 p-4"><p className="font-black text-white">{u.name}</p><p className="text-sm text-slate-400">{u.email}</p><p className="mt-1 text-xs text-blue-200">Senha: 123456</p></div>)}
-            </div>
-          </div>
-          <div className="rounded-[2rem] border border-white/10 bg-white/[0.06] p-6 shadow-2xl backdrop-blur-xl">
-            <h2 className="text-2xl font-black text-white">Entrar no sistema</h2>
-            <p className="mt-1 text-sm text-slate-300">Use um dos usuários de demonstração ou cadastre novos no administrativo.</p>
-            <div className="mt-5 space-y-3">
-              <input value={loginForm.email} onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })} placeholder="E-mail" className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400" />
-              <input type="password" value={loginForm.password} onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })} placeholder="Senha" className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400" />
-              <button onClick={login} className="w-full rounded-2xl bg-blue-500 px-5 py-4 text-sm font-black text-white hover:bg-blue-400">Acessar</button>
-            </div>
-            {message.text && <div className="mt-4 rounded-2xl border border-red-400/30 bg-red-500/10 p-4 text-sm text-red-100">{message.text}</div>}
-          </div>
-        </div>
-      </div>
-    );
+    return <TelaLogin loginForm={loginForm} setLoginForm={setLoginForm} login={login} message={message} users={users} />;
   }
 
   return (
