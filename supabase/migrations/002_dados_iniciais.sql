@@ -4,16 +4,16 @@
 -- ============================================================
 
 -- ── Permissões de acesso ─────────────────────────────────────
-insert into accesses (id, label, description, type) values
-  ('tablet',  'Tablet do cliente', 'Pedido, comanda e solicitação de conta',    'Operacional'),
-  ('kitchen', 'Cozinha',           'Pedidos recebidos, preparo e finalização',  'Operacional'),
-  ('panel',   'Painel público',    'Acompanhamento dos pedidos',                'Visualização'),
-  ('cashier', 'Pagamento',         'Conta da mesa e fechamento',                'Financeiro'),
-  ('admin',   'Administrativo',    'Produtos, preços, usuários e permissões',   'Gestão')
+insert into tab_acessos (id, rotulo, descricao, tipo) values
+  ('tablet',  'Tablet do cliente', 'Pedido, comanda e solicitação de conta',   'Operacional'),
+  ('kitchen', 'Cozinha',           'Pedidos recebidos, preparo e finalização', 'Operacional'),
+  ('panel',   'Painel público',    'Acompanhamento dos pedidos',               'Visualização'),
+  ('cashier', 'Pagamento',         'Conta da mesa e fechamento',               'Financeiro'),
+  ('admin',   'Administrativo',    'Produtos, preços, usuários e permissões',  'Gestão')
 on conflict (id) do nothing;
 
 -- ── Usuários demo (senha: 123456) ────────────────────────────
-insert into app_users (name, email, password, role, active, access_ids) values
+insert into tab_usuarios (nome, email, senha, perfil, ativo, ids_acesso) values
   ('Administrador', 'admin@restaurante.com',    '123456', 'Gestor',     true, ARRAY['tablet','kitchen','panel','cashier','admin']),
   ('Tablet Mesa',   'tablet@restaurante.com',   '123456', 'Cliente',    true, ARRAY['tablet','panel']),
   ('Equipe Cozinha','cozinha@restaurante.com',  '123456', 'Produção',   true, ARRAY['kitchen']),
@@ -22,7 +22,9 @@ insert into app_users (name, email, password, role, active, access_ids) values
 on conflict (email) do nothing;
 
 -- ── Produtos do cardápio ─────────────────────────────────────
-insert into products (name, category, price, cost, active, time, description, badge, image_url, ingredients) values
+insert into tab_produtos
+  (nome, categoria, preco, custo, ativo, tempo_preparo, descricao, destaque, url_imagem, ingredientes)
+values
 (
   'Risoto de Filé Mignon', 'Pratos principais', 58.90, 31.20, true, '25-35 min',
   'Arroz arbóreo, filé em tiras, parmesão e toque de vinho branco.',

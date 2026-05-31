@@ -1,10 +1,9 @@
 import React, { useMemo, useState, useEffect, useCallback } from "react";
 import {
-  supabase,
-  fetchProducts, insertProduct, updateProductRow,
-  fetchUsers,    insertUser,    updateUserRow,
-  fetchAccesses, insertAccess,  updateAccessRow,
-  fetchOrders,   insertOrder,   updateOrderRow,
+  fetchProdutos,  inserirProduto,  atualizarProduto,
+  fetchUsuarios,  inserirUsuario,  atualizarUsuario,
+  fetchAcessos,   inserirAcesso,   atualizarAcesso,
+  fetchPedidos,   inserirPedido,   atualizarPedido,
 } from "./lib/supabase";
 
 const fallbackImage = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=900&q=80";
@@ -93,6 +92,9 @@ function runSelfTests() {
 
 if (typeof window !== "undefined") runSelfTests();
 
+// Conversor de status para salvar no banco
+const _statusParaDb = { received: 'recebido', preparing: 'preparando', ready: 'finalizado' };
+
 function Card({ children, className = "" }) {
   return <section className={`rounded-[2rem] border border-white/10 bg-white/[0.06] p-5 shadow-2xl backdrop-blur-xl ${className}`}>{children}</section>;
 }
@@ -125,7 +127,7 @@ export default function RestaurantePedidoApp() {
     async function loadAll() {
       try {
         const [prods, usrs, accs, ords] = await Promise.all([
-          fetchProducts(), fetchUsers(), fetchAccesses(), fetchOrders(),
+          fetchProdutos(), fetchUsuarios(), fetchAcessos(), fetchPedidos(),
         ]);
         if (prods.length)  setProducts(prods);
         if (usrs.length)   setUsers(usrs);
@@ -256,7 +258,7 @@ export default function RestaurantePedidoApp() {
       items: cart.map((i) => ({ name: i.name, quantity: i.quantity, price: i.price, selectedIngredients: i.selectedIngredients, removedIngredients: i.removedIngredients, extraIngredients: i.extraIngredients, observation: i.observation })),
     };
     try {
-      const saved = dbReady ? await insertOrder(newOrder) : newOrder;
+      const saved = dbReady ? await inserirPedido(newOrder) : newOrder;
       setOrders((cur) => [saved, ...cur]);
     } catch { setOrders((cur) => [newOrder, ...cur]); }
     setCart([]); setCommandCode("");
@@ -267,7 +269,7 @@ export default function RestaurantePedidoApp() {
   async function updateOrderStatus(oid, status) {
     if (!canAccess(currentUser, "kitchen")) return notify("error", "Usuário sem permissão para alterar status da cozinha.");
     setOrders((cur) => cur.map((o) => o.id === oid ? { ...o, status } : o));
-    if (dbReady) try { await updateOrderRow(oid, { status }); } catch {}
+    if (dbReady) try { await atualizarPedido(oid, { status: _statusParaDb[status] ?? status }); } catch {}
   }
 
   async function requestBill() {
@@ -275,7 +277,7 @@ export default function RestaurantePedidoApp() {
     if (currentTableOrders.length === 0) return notify("error", "Não existe pedido vinculado à mesa/comanda para solicitar a conta.");
     setOrders((cur) => cur.map((o) => o.table === currentTable ? { ...o, paymentStatus: "requested" } : o));
     if (dbReady) try {
-      await Promise.all(currentTableOrders.map((o) => updateOrderRow(o.id, { payment_status: "requested" })));
+      await Promise.all(currentTableOrders.map((o) => atualizarPedido(o.id, { status_pagamento: "solicitado" })));
     } catch {}
     if (canAccess(currentUser, "cashier")) setActiveTab("cashier");
     notify("success", "Conta solicitada ao caixa. Aguarde a conferência dos itens da mesa.");
@@ -286,7 +288,7 @@ export default function RestaurantePedidoApp() {
     if (currentTableOrders.length === 0) return notify("error", "Nenhuma conta encontrada para fechamento nesta mesa.");
     setOrders((cur) => cur.map((o) => o.table === currentTable ? { ...o, paymentStatus: "paid" } : o));
     if (dbReady) try {
-      await Promise.all(currentTableOrders.map((o) => updateOrderRow(o.id, { payment_status: "paid" })));
+      await Promise.all(currentTableOrders.map((o) => atualizarPedido(o.id, { status_pagamento: "pago" })));
     } catch {}
     notify("success", "Conta finalizada com sucesso no caixa.");
   }
@@ -297,7 +299,7 @@ export default function RestaurantePedidoApp() {
     if (!adminForm.price || Number(adminForm.price) <= 0) return notify("error", "Informe um preço de venda válido.");
     const np = { name: adminForm.name.trim(), category: adminForm.category, price: Number(adminForm.price), cost: Number(adminForm.cost || 0), active: true, time: adminForm.time || "15-25 min", description: adminForm.description || "Produto cadastrado pelo administrativo.", badge: "Admin", imageUrl: adminForm.imageUrl || fallbackImage, ingredients: adminForm.ingredientsText.split(",").map((s) => s.trim()).filter(Boolean) };
     try {
-      const saved = dbReady ? await insertProduct(np) : { ...np, id: Date.now() };
+      const saved = dbReady ? await inserirProduto(np) : { ...np, id: Date.now() };
       setProducts((cur) => [saved, ...cur]);
     } catch { setProducts((cur) => [{ ...np, id: Date.now() }, ...cur]); }
     setAdminForm({ name: "", category: "Pratos principais", price: "", cost: "", time: "15-25 min", imageUrl: "", ingredientsText: "", description: "" });
@@ -308,7 +310,7 @@ export default function RestaurantePedidoApp() {
     if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
     const price = Number(value || 0);
     setProducts((cur) => cur.map((p) => p.id === pid ? { ...p, price } : p));
-    if (dbReady) try { await updateProductRow(pid, { price }); } catch {}
+    if (dbReady) try { await atualizarProduto(pid, { preco: price }); } catch {}
   }
 
   async function toggleProduct(pid) {
@@ -316,7 +318,7 @@ export default function RestaurantePedidoApp() {
     const product = products.find((p) => p.id === pid);
     const active = !product?.active;
     setProducts((cur) => cur.map((p) => p.id === pid ? { ...p, active } : p));
-    if (dbReady) try { await updateProductRow(pid, { active }); } catch {}
+    if (dbReady) try { await atualizarProduto(pid, { ativo: active }); } catch {}
   }
 
   async function addUser() {
@@ -325,7 +327,7 @@ export default function RestaurantePedidoApp() {
     if (users.some((u) => u.email.toLowerCase() === userForm.email.toLowerCase())) return notify("error", "Já existe usuário com este e-mail.");
     const nu = { name: userForm.name.trim(), email: userForm.email.trim(), password: userForm.password || "123456", role: userForm.role || "Operador", active: true, accessIds: [] };
     try {
-      const saved = dbReady ? await insertUser(nu) : { ...nu, id: Date.now() };
+      const saved = dbReady ? await inserirUsuario(nu) : { ...nu, id: Date.now() };
       setUsers((cur) => [saved, ...cur]);
     } catch { setUsers((cur) => [{ ...nu, id: Date.now() }, ...cur]); }
     setUserForm({ name: "", email: "", password: "123456", role: "Operador" });
@@ -339,7 +341,7 @@ export default function RestaurantePedidoApp() {
     if (accesses.some((a) => a.id === id)) return notify("error", "Já existe um acesso com este código.");
     const na = { id, label: accessForm.label.trim(), desc: accessForm.desc || "Acesso personalizado", type: accessForm.type || "Operacional", active: true };
     try {
-      const saved = dbReady ? await insertAccess(na) : na;
+      const saved = dbReady ? await inserirAcesso(na) : na;
       setAccesses((cur) => [...cur, saved]);
     } catch { setAccesses((cur) => [...cur, na]); }
     setAccessForm({ id: "", label: "", desc: "", type: "Operacional" });
@@ -352,7 +354,7 @@ export default function RestaurantePedidoApp() {
     const ex = user?.accessIds.includes(aid);
     const accessIds = ex ? user.accessIds.filter((id) => id !== aid) : [...(user?.accessIds || []), aid];
     setUsers((cur) => cur.map((u) => u.id === uid ? { ...u, accessIds } : u));
-    if (dbReady) try { await updateUserRow(uid, { access_ids: accessIds }); } catch {}
+    if (dbReady) try { await atualizarUsuario(uid, { ids_acesso: accessIds }); } catch {}
   }
 
   async function toggleUserStatus(uid) {
@@ -360,7 +362,7 @@ export default function RestaurantePedidoApp() {
     const user = users.find((u) => u.id === uid);
     const active = !user?.active;
     setUsers((cur) => cur.map((u) => u.id === uid ? { ...u, active } : u));
-    if (dbReady) try { await updateUserRow(uid, { active }); } catch {}
+    if (dbReady) try { await atualizarUsuario(uid, { ativo: active }); } catch {}
   }
 
   async function toggleAccessStatus(aid) {
@@ -368,7 +370,7 @@ export default function RestaurantePedidoApp() {
     const access = accesses.find((a) => a.id === aid);
     const active = !access?.active;
     setAccesses((cur) => cur.map((a) => a.id === aid ? { ...a, active } : a));
-    if (dbReady) try { await updateAccessRow(aid, { active }); } catch {}
+    if (dbReady) try { await atualizarAcesso(aid, { ativo: active }); } catch {}
   }
 
   if (!currentUser) {

@@ -1,188 +1,244 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl  = import.meta.env.VITE_SUPABASE_URL
-const supabaseKey  = import.meta.env.VITE_SUPABASE_ANON_KEY
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
 export const supabase = createClient(supabaseUrl, supabaseKey)
 
-// ─── Produtos ────────────────────────────────────────────────
-export async function fetchProducts() {
+// ════════════════════════════════════════════════════════════
+//  tab_produtos
+// ════════════════════════════════════════════════════════════
+export async function fetchProdutos() {
   const { data, error } = await supabase
-    .from('products')
+    .from('tab_produtos')
     .select('*')
     .order('id', { ascending: true })
   if (error) throw error
-  return data.map(dbToProduct)
+  return data.map(dbParaProduto)
 }
 
-export async function insertProduct(p) {
+export async function inserirProduto(p) {
   const { data, error } = await supabase
-    .from('products')
-    .insert([productToDb(p)])
+    .from('tab_produtos')
+    .insert([produtoParaDb(p)])
     .select()
     .single()
   if (error) throw error
-  return dbToProduct(data)
+  return dbParaProduto(data)
 }
 
-export async function updateProductRow(id, patch) {
+export async function atualizarProduto(id, campos) {
   const { error } = await supabase
-    .from('products')
-    .update(patch)
+    .from('tab_produtos')
+    .update(campos)
     .eq('id', id)
   if (error) throw error
 }
 
-// ─── Usuários ────────────────────────────────────────────────
-export async function fetchUsers() {
+// ════════════════════════════════════════════════════════════
+//  tab_usuarios
+// ════════════════════════════════════════════════════════════
+export async function fetchUsuarios() {
   const { data, error } = await supabase
-    .from('app_users')
+    .from('tab_usuarios')
     .select('*')
     .order('id', { ascending: true })
   if (error) throw error
-  return data.map(dbToUser)
+  return data.map(dbParaUsuario)
 }
 
-export async function insertUser(u) {
+export async function inserirUsuario(u) {
   const { data, error } = await supabase
-    .from('app_users')
-    .insert([userToDb(u)])
+    .from('tab_usuarios')
+    .insert([usuarioParaDb(u)])
     .select()
     .single()
   if (error) throw error
-  return dbToUser(data)
+  return dbParaUsuario(data)
 }
 
-export async function updateUserRow(id, patch) {
+export async function atualizarUsuario(id, campos) {
   const { error } = await supabase
-    .from('app_users')
-    .update(patch)
+    .from('tab_usuarios')
+    .update(campos)
     .eq('id', id)
   if (error) throw error
 }
 
-// ─── Acessos ─────────────────────────────────────────────────
-export async function fetchAccesses() {
+// ════════════════════════════════════════════════════════════
+//  tab_acessos
+// ════════════════════════════════════════════════════════════
+export async function fetchAcessos() {
   const { data, error } = await supabase
-    .from('accesses')
+    .from('tab_acessos')
     .select('*')
     .order('id', { ascending: true })
   if (error) throw error
-  return data.map(dbToAccess)
+  return data.map(dbParaAcesso)
 }
 
-export async function insertAccess(a) {
+export async function inserirAcesso(a) {
   const { data, error } = await supabase
-    .from('accesses')
-    .insert([accessToDb(a)])
+    .from('tab_acessos')
+    .insert([acessoParaDb(a)])
     .select()
     .single()
   if (error) throw error
-  return dbToAccess(data)
+  return dbParaAcesso(data)
 }
 
-export async function updateAccessRow(id, patch) {
+export async function atualizarAcesso(id, campos) {
   const { error } = await supabase
-    .from('accesses')
-    .update(patch)
+    .from('tab_acessos')
+    .update(campos)
     .eq('id', id)
   if (error) throw error
 }
 
-// ─── Pedidos ─────────────────────────────────────────────────
-export async function fetchOrders() {
+// ════════════════════════════════════════════════════════════
+//  tab_pedidos
+// ════════════════════════════════════════════════════════════
+export async function fetchPedidos() {
   const { data, error } = await supabase
-    .from('orders')
+    .from('tab_pedidos')
     .select('*')
-    .order('created_at', { ascending: false })
+    .order('criado_em', { ascending: false })
   if (error) throw error
-  return data.map(dbToOrder)
+  return data.map(dbParaPedido)
 }
 
-export async function insertOrder(o) {
+export async function inserirPedido(p) {
   const { data, error } = await supabase
-    .from('orders')
-    .insert([orderToDb(o)])
+    .from('tab_pedidos')
+    .insert([pedidoParaDb(p)])
     .select()
     .single()
   if (error) throw error
-  return dbToOrder(data)
+  return dbParaPedido(data)
 }
 
-export async function updateOrderRow(id, patch) {
+export async function atualizarPedido(id, campos) {
   const { error } = await supabase
-    .from('orders')
-    .update(patch)
+    .from('tab_pedidos')
+    .update(campos)
     .eq('id', id)
   if (error) throw error
 }
 
-// ─── Mappers DB → App ────────────────────────────────────────
-function dbToProduct(r) {
+// ════════════════════════════════════════════════════════════
+//  Mapeadores: DB → App
+// ════════════════════════════════════════════════════════════
+function dbParaProduto(r) {
   return {
-    id: r.id, name: r.name, category: r.category,
-    price: Number(r.price), cost: Number(r.cost),
-    active: r.active, time: r.time, description: r.description,
-    badge: r.badge, imageUrl: r.image_url,
-    ingredients: r.ingredients ?? [],
+    id:          r.id,
+    name:        r.nome,
+    category:    r.categoria,
+    price:       Number(r.preco),
+    cost:        Number(r.custo),
+    active:      r.ativo,
+    time:        r.tempo_preparo,
+    description: r.descricao,
+    badge:       r.destaque,
+    imageUrl:    r.url_imagem,
+    ingredients: r.ingredientes ?? [],
   }
 }
 
-function dbToUser(r) {
+function dbParaUsuario(r) {
   return {
-    id: r.id, name: r.name, email: r.email,
-    password: r.password, role: r.role,
-    active: r.active, accessIds: r.access_ids ?? [],
+    id:        r.id,
+    name:      r.nome,
+    email:     r.email,
+    password:  r.senha,
+    role:      r.perfil,
+    active:    r.ativo,
+    accessIds: r.ids_acesso ?? [],
   }
 }
 
-function dbToAccess(r) {
+function dbParaAcesso(r) {
   return {
-    id: r.id, label: r.label, desc: r.description,
-    type: r.type, active: r.active,
+    id:     r.id,
+    label:  r.rotulo,
+    desc:   r.descricao,
+    type:   r.tipo,
+    active: r.ativo,
   }
 }
 
-function dbToOrder(r) {
+function dbParaPedido(r) {
   return {
-    id: r.id, table: r.table_name, command: r.command,
-    customer: r.customer, status: r.status,
-    paymentStatus: r.payment_status,
-    createdAt: new Date(r.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-    items: r.items ?? [],
+    id:            r.id,
+    table:         r.mesa,
+    command:       r.comanda,
+    customer:      r.cliente,
+    status:        _statusParaApp(r.status),
+    paymentStatus: _pagamentoParaApp(r.status_pagamento),
+    createdAt:     new Date(r.criado_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+    items:         r.itens ?? [],
   }
 }
 
-// ─── Mappers App → DB ────────────────────────────────────────
-function productToDb(p) {
+// ════════════════════════════════════════════════════════════
+//  Mapeadores: App → DB
+// ════════════════════════════════════════════════════════════
+function produtoParaDb(p) {
   return {
-    name: p.name, category: p.category, price: p.price,
-    cost: p.cost ?? 0, active: p.active ?? true,
-    time: p.time, description: p.description,
-    badge: p.badge, image_url: p.imageUrl,
-    ingredients: p.ingredients ?? [],
+    nome:         p.name,
+    categoria:    p.category,
+    preco:        p.price,
+    custo:        p.cost ?? 0,
+    ativo:        p.active ?? true,
+    tempo_preparo: p.time,
+    descricao:    p.description,
+    destaque:     p.badge,
+    url_imagem:   p.imageUrl,
+    ingredientes: p.ingredients ?? [],
   }
 }
 
-function userToDb(u) {
+function usuarioParaDb(u) {
   return {
-    name: u.name, email: u.email, password: u.password,
-    role: u.role, active: u.active ?? true,
-    access_ids: u.accessIds ?? [],
+    nome:       u.name,
+    email:      u.email,
+    senha:      u.password,
+    perfil:     u.role,
+    ativo:      u.active ?? true,
+    ids_acesso: u.accessIds ?? [],
   }
 }
 
-function accessToDb(a) {
+function acessoParaDb(a) {
   return {
-    id: a.id, label: a.label, description: a.desc,
-    type: a.type, active: a.active ?? true,
+    id:        a.id,
+    rotulo:    a.label,
+    descricao: a.desc,
+    tipo:      a.type,
+    ativo:     a.active ?? true,
   }
 }
 
-function orderToDb(o) {
+function pedidoParaDb(p) {
   return {
-    id: o.id, table_name: o.table, command: o.command,
-    customer: o.customer ?? 'Visitante', status: o.status,
-    payment_status: o.paymentStatus, items: o.items ?? [],
+    id:               p.id,
+    mesa:             p.table,
+    comanda:          p.command,
+    cliente:          p.customer ?? 'Visitante',
+    status:           _statusParaDb(p.status),
+    status_pagamento: _pagamentoParaDb(p.paymentStatus),
+    itens:            p.items ?? [],
   }
 }
+
+// ════════════════════════════════════════════════════════════
+//  Conversores de status (App ↔ DB)
+// ════════════════════════════════════════════════════════════
+const STATUS_APP_PARA_DB  = { received: 'recebido', preparing: 'preparando', ready: 'finalizado' }
+const STATUS_DB_PARA_APP  = { recebido: 'received', preparando: 'preparing', finalizado: 'ready' }
+const PAGT_APP_PARA_DB    = { open: 'aberto', requested: 'solicitado', paid: 'pago' }
+const PAGT_DB_PARA_APP    = { aberto: 'open', solicitado: 'requested', pago: 'paid' }
+
+function _statusParaDb(s)     { return STATUS_APP_PARA_DB[s] ?? s }
+function _statusParaApp(s)    { return STATUS_DB_PARA_APP[s] ?? s }
+function _pagamentoParaDb(s)  { return PAGT_APP_PARA_DB[s]   ?? s }
+function _pagamentoParaApp(s) { return PAGT_DB_PARA_APP[s]   ?? s }
