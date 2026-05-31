@@ -1,10 +1,10 @@
 import React, { useMemo, useState, useEffect, useCallback } from "react";
 import {
-  fetchProdutos,  inserirProduto,  atualizarProduto,
-  fetchUsuarios,  inserirUsuario,  atualizarUsuario,
-  fetchAcessos,   inserirAcesso,   atualizarAcesso,
-  fetchPedidos,   inserirPedido,   atualizarPedido,
-  escutarPedidos,
+  fetchProdutos,  inserirProduto,  atualizarProduto,  escutarProdutos,
+  fetchUsuarios,  inserirUsuario,  atualizarUsuario,  escutarUsuarios,
+  fetchAcessos,   inserirAcesso,   atualizarAcesso,   escutarAcessos,
+  fetchPedidos,   inserirPedido,   atualizarPedido,   escutarPedidos,
+  STATUS_APP_PARA_DB,
 } from "./lib/supabase";
 
 const fallbackImage = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=900&q=80";
@@ -94,7 +94,7 @@ function runSelfTests() {
 if (typeof window !== "undefined") runSelfTests();
 
 // Conversor de status para salvar no banco
-const _statusParaDb = { received: 'recebido', preparing: 'preparando', ready: 'finalizado' };
+// STATUS_APP_PARA_DB importado de ./lib/supabase
 
 function Card({ children, className = "" }) {
   return <section className={`rounded-[2rem] border border-white/10 bg-white/[0.06] p-5 shadow-2xl backdrop-blur-xl ${className}`}>{children}</section>;
@@ -114,45 +114,56 @@ function StatusChip({ status }) {
 }
 
 export default function RestaurantePedidoApp() {
-  const [accesses, setAccesses] = useState(defaultAccesses);
-  const [users, setUsers] = useState(initialUsers);
-  // ⚠️ Pedidos iniciam VAZIOS — dados sempre vêm do Supabase
+  // Todos os estados iniciam VAZIOS — dados sempre vêm do Supabase
+  const [accesses, setAccesses] = useState([]);
+  const [users, setUsers] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
   const [loginForm, setLoginForm] = useState({ email: "admin@restaurante.com", password: "123456" });
   const [activeTab, setActiveTab] = useState("tablet");
-  const [products, setProducts] = useState(initialProducts);
+  const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
   const [dbReady, setDbReady] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  // ── Carrega dados do Supabase na inicialização ──────────────
+  // ── Carregamento inicial + Realtime para todas as tabelas ────
   useEffect(() => {
-    async function loadAll() {
+    setLoading(true);
+    let unsubs = [];
+
+    async function iniciar() {
       try {
+        // Carrega tudo em paralelo
         const [prods, usrs, accs, ords] = await Promise.all([
           fetchProdutos(), fetchUsuarios(), fetchAcessos(), fetchPedidos(),
         ]);
-        if (prods.length) setProducts(prods);
-        if (usrs.length)  setUsers(usrs);
-        if (accs.length)  setAccesses(accs);
-        setOrders(ords); // sempre sobrescreve — pedidos SEMPRE vêm do Supabase
+        setProducts(prods);
+        setUsers(usrs);
+        setAccesses(accs);
+        setOrders(ords);
         setDbReady(true);
+        setLoading(false);
+
+        // Ativa Realtime para todas as tabelas — atualizações instantâneas
+        unsubs = [
+          escutarProdutos(setProducts),
+          escutarUsuarios(setUsers),
+          escutarAcessos(setAccesses),
+          escutarPedidos(setOrders),
+        ];
       } catch (err) {
-        console.warn("Supabase indisponível:", err.message);
+        console.warn("Supabase indisponível — usando fallback local:", err.message);
+        setProducts(initialProducts);
+        setUsers(initialUsers);
+        setAccesses(defaultAccesses);
+        setOrders(initialOrders);
         setDbReady(false);
+        setLoading(false);
       }
     }
-    loadAll();
-  }, []);
 
-  // ── Realtime: escuta tab_pedidos permanentemente ─────────────
-  // Qualquer INSERT ou UPDATE dispara atualização imediata
-  useEffect(() => {
-    if (!dbReady) return;
-    const unsubscribe = escutarPedidos((pedidosAtualizados) => {
-      setOrders(pedidosAtualizados);
-    });
-    return unsubscribe;
-  }, [dbReady]);
+    iniciar();
+    return () => unsubs.forEach((fn) => fn && fn());
+  }, []);
   const [cart, setCart] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState("Todos");
   const [search, setSearch] = useState("");
@@ -283,7 +294,7 @@ export default function RestaurantePedidoApp() {
     // 1. Atualiza estado local imediatamente (UI responsiva)
     setOrders((cur) => cur.map((o) => o.id === oid ? { ...o, status } : o));
     // 2. Salva no Supabase — o Realtime dispara e atualiza painel e cozinha
-    const statusDb = _statusParaDb[status] ?? status;
+    const statusDb = STATUS_APP_PARA_DB[status] ?? status;
     if (dbReady) {
       try {
         await atualizarPedido(oid, { status: statusDb });
@@ -392,6 +403,25 @@ export default function RestaurantePedidoApp() {
     const active = !access?.active;
     setAccesses((cur) => cur.map((a) => a.id === aid ? { ...a, active } : a));
     if (dbReady) try { await atualizarAcesso(aid, { ativo: active }); } catch {}
+  }
+
+  // ── Tela de carregamento inicial ─────────────────────────────
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-950">
+        <div className="flex flex-col items-center gap-6 text-center">
+          <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-blue-500 text-4xl shadow-2xl shadow-blue-950/50 animate-pulse">🍽️</div>
+          <div>
+            <h1 className="text-2xl font-black text-white">Sistema Restaurante</h1>
+            <p className="mt-2 text-sm text-slate-400">Conectando ao banco de dados...</p>
+          </div>
+          <div className="flex items-center gap-2 rounded-full border border-blue-400/30 bg-blue-500/10 px-5 py-2">
+            <span className="h-2 w-2 animate-ping rounded-full bg-blue-400" />
+            <span className="text-sm font-semibold text-blue-200">Carregando dados do Supabase</span>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (!currentUser) {
