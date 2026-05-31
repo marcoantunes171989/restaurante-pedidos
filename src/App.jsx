@@ -212,6 +212,14 @@ export default function RestaurantePedidoApp() {
   function openTab(tabId) {
     if (!canAccess(currentUser, tabId)) return notify("error", "Usuário sem permissão para acessar esta tela.");
     setActiveTab(tabId); clearMessage();
+    if (tabId === "panel") {
+      const el = document.documentElement;
+      const req = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+      if (req) req.call(el).catch(() => {});
+    } else {
+      const exit = document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen || document.msExitFullscreen;
+      if (exit && document.fullscreenElement) exit.call(document).catch(() => {});
+    }
   }
 
   function addToCart(product) {
@@ -487,151 +495,187 @@ function KitchenView({ groupedOrders, orders, updateOrderStatus }) {
 }
 
 const panelStatusConfig = {
-  received:  { label: "Aguardando",   col: "border-blue-500/40 bg-blue-500/10",    num: "bg-blue-500 text-white",      bar: "bg-blue-500",    icon: "⏳", progress: 25 },
-  preparing: { label: "Preparando",   col: "border-amber-500/40 bg-amber-500/10",  num: "bg-amber-500 text-white",     bar: "bg-amber-500",   icon: "👨‍🍳", progress: 65 },
-  ready:     { label: "Pronto! 🎉",   col: "border-emerald-500/40 bg-emerald-500/10", num: "bg-emerald-500 text-white", bar: "bg-emerald-500", icon: "✅", progress: 100 },
+  received:  { col: "border-blue-500/40 bg-blue-500/10",       num: "bg-blue-500",    bar: "bg-blue-500",    icon: "⏳", progress: 25  },
+  preparing: { col: "border-amber-500/40 bg-amber-500/10",     num: "bg-amber-500",   bar: "bg-amber-500",   icon: "👨‍🍳", progress: 65  },
+  ready:     { col: "border-emerald-500/40 bg-emerald-500/10", num: "bg-emerald-500", bar: "bg-emerald-500", icon: "✅", progress: 100 },
 };
 
 function PanelView({ groupedOrders }) {
-  const [hora, setHora] = useState(() => new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
+  const [hora, setHora] = useState(() =>
+    new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+  );
+
+  // Relógio sincronizado com o segundo exato da máquina
   useEffect(() => {
-    // Sincroniza exatamente com a virada do segundo da máquina local
-    const agora = new Date();
-    const msAteProximoSegundo = 1000 - agora.getMilliseconds();
+    const tick = () => setHora(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
+    const ms = 1000 - new Date().getMilliseconds();
     let intervalo;
-    const timeout = setTimeout(() => {
-      setHora(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
-      intervalo = setInterval(() => {
-        setHora(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
-      }, 1000);
-    }, msAteProximoSegundo);
+    const timeout = setTimeout(() => { tick(); intervalo = setInterval(tick, 1000); }, ms);
     return () => { clearTimeout(timeout); clearInterval(intervalo); };
   }, []);
 
-  // Numeração global de liberação por ordem de chegada
-  const todosOrdenados = [...(groupedOrders.received || []), ...(groupedOrders.preparing || []), ...(groupedOrders.ready || [])];
+  // Sair do fullscreen ao desmontar (troca de aba)
+  useEffect(() => {
+    return () => {
+      const exit = document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen || document.msExitFullscreen;
+      if (exit && document.fullscreenElement) exit.call(document).catch(() => {});
+    };
+  }, []);
+
+  const todosOrdenados = [
+    ...(groupedOrders.received  || []),
+    ...(groupedOrders.preparing || []),
+    ...(groupedOrders.ready     || []),
+  ];
   const ordemMap = {};
   todosOrdenados.forEach((o, i) => { ordemMap[o.id] = i + 1; });
+  const total = todosOrdenados.length;
 
   const colunas = [
-    { key: "received",  titulo: "Aguardando",  subtitulo: "Na fila para preparo"    },
-    { key: "preparing", titulo: "Preparando",  subtitulo: "Em produção na cozinha"  },
-    { key: "ready",     titulo: "Pronto!",     subtitulo: "Retire no balcão"        },
+    { key: "received",  titulo: "Aguardando",  sub: "Na fila para preparo"   },
+    { key: "preparing", titulo: "Preparando",  sub: "Em produção na cozinha" },
+    { key: "ready",     titulo: "Pronto!",     sub: "Retire no balcão"       },
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-slate-950 overflow-hidden">
-      {/* Cabeçalho do painel */}
-      <header className="flex items-center justify-between border-b border-white/10 bg-slate-900/80 px-8 py-4 backdrop-blur">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-500 text-2xl shadow-lg shadow-blue-950/50">🍽️</div>
+    <div className="fixed inset-0 z-50 flex flex-col bg-slate-950 overflow-hidden" style={{ fontSize: "clamp(10px, 1.2vw, 16px)" }}>
+
+      {/* ── Cabeçalho ─────────────────────────────────────────── */}
+      <header className="flex shrink-0 items-center justify-between border-b border-white/10 bg-slate-900/90 px-[2vw] py-[1vh] backdrop-blur-xl">
+        <div className="flex items-center gap-[1vw]">
+          <div className="flex items-center justify-center rounded-[1vw] bg-blue-500 shadow-lg shadow-blue-950/50"
+            style={{ width: "clamp(36px,4vw,60px)", height: "clamp(36px,4vw,60px)", fontSize: "clamp(16px,2vw,28px)" }}>
+            🍽️
+          </div>
           <div>
-            <h1 className="text-2xl font-black tracking-tight text-white">Painel de Pedidos</h1>
-            <p className="text-xs font-semibold text-slate-400">Acompanhe o status do seu pedido em tempo real</p>
+            <h1 className="font-black tracking-tight text-white leading-tight"
+              style={{ fontSize: "clamp(14px,2vw,28px)" }}>
+              Painel de Pedidos
+            </h1>
+            <p className="text-slate-400 font-semibold" style={{ fontSize: "clamp(9px,0.9vw,13px)" }}>
+              Acompanhe o status do seu pedido em tempo real
+            </p>
           </div>
         </div>
-        <div className="flex items-center gap-6">
+
+        <div className="flex items-center gap-[2vw]">
+          {/* Legenda inline no header (telas pequenas ficam visíveis) */}
+          <p className="hidden sm:block text-slate-500 font-semibold" style={{ fontSize: "clamp(8px,0.75vw,11px)" }}>
+            🔢 Nº = ordem de liberação — menor número, mais próximo da retirada
+          </p>
+          {/* Relógio */}
           <div className="text-right">
-            <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Horário</p>
-            <p className="text-3xl font-black tabular-nums text-white">{hora}</p>
+            <p className="font-bold uppercase tracking-widest text-slate-500" style={{ fontSize: "clamp(7px,0.65vw,10px)" }}>Horário</p>
+            <p className="font-black tabular-nums text-white" style={{ fontSize: "clamp(18px,3vw,42px)" }}>{hora}</p>
           </div>
-          <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-2 text-center">
-            <p className="text-xs font-bold text-emerald-400">Total ativo</p>
-            <p className="text-2xl font-black text-emerald-300">{todosOrdenados.length}</p>
+          {/* Total */}
+          <div className="rounded-[1vw] border border-emerald-400/30 bg-emerald-500/10 text-center"
+            style={{ padding: "clamp(4px,0.8vw,12px) clamp(8px,1.2vw,20px)" }}>
+            <p className="font-bold text-emerald-400" style={{ fontSize: "clamp(7px,0.65vw,10px)" }}>Total ativo</p>
+            <p className="font-black text-emerald-300" style={{ fontSize: "clamp(18px,2.5vw,36px)" }}>{total}</p>
           </div>
         </div>
       </header>
 
-      {/* Legenda de numeração */}
-      <div className="border-b border-white/5 bg-slate-900/40 px-8 py-2">
-        <p className="text-xs font-semibold text-slate-500">
-          <span className="mr-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/20 text-xs font-black text-white">Nº</span>
-          Número de ordem de liberação — quanto menor o número, mais próximo da retirada
-        </p>
-      </div>
-
-      {/* Colunas de status */}
+      {/* ── Colunas ───────────────────────────────────────────── */}
       <div className="flex flex-1 overflow-hidden">
-        {colunas.map(({ key, titulo, subtitulo }) => {
+        {colunas.map(({ key, titulo, sub }) => {
           const cfg = panelStatusConfig[key];
           const lista = groupedOrders[key] || [];
+          const isReady = key === "ready";
+
           return (
-            <div key={key} className={`flex flex-1 flex-col border-r border-white/10 last:border-r-0`}>
+            <div key={key} className="flex flex-1 flex-col border-r border-white/10 last:border-r-0 min-w-0">
+
               {/* Cabeçalho da coluna */}
-              <div className={`border-b border-white/10 px-6 py-4 ${cfg.col}`}>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-widest text-slate-400">{subtitulo}</p>
-                    <h2 className="mt-1 text-2xl font-black text-white">{cfg.icon} {titulo}</h2>
+              <div className={`shrink-0 border-b border-white/10 ${cfg.col}`}
+                style={{ padding: "clamp(8px,1.2vh,18px) clamp(8px,1.5vw,24px)" }}>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-bold uppercase tracking-widest text-slate-400 truncate"
+                      style={{ fontSize: "clamp(7px,0.65vw,10px)" }}>{sub}</p>
+                    <h2 className="font-black text-white leading-tight"
+                      style={{ fontSize: "clamp(13px,1.8vw,26px)" }}>
+                      {cfg.icon} {titulo}
+                    </h2>
                   </div>
-                  <span className={`flex h-10 w-10 items-center justify-center rounded-2xl text-lg font-black ${cfg.num}`}>
+                  <span className={`shrink-0 flex items-center justify-center rounded-[0.8vw] font-black text-white ${cfg.num}`}
+                    style={{ width: "clamp(28px,3vw,48px)", height: "clamp(28px,3vw,48px)", fontSize: "clamp(12px,1.4vw,20px)" }}>
                     {lista.length}
                   </span>
                 </div>
-                {/* Barra de progresso da coluna */}
-                <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10">
+                <div className="mt-[0.8vh] overflow-hidden rounded-full bg-white/10" style={{ height: "clamp(3px,0.4vh,6px)" }}>
                   <div className={`h-full rounded-full transition-all duration-700 ${cfg.bar}`}
                     style={{ width: lista.length ? "100%" : "0%" }} />
                 </div>
               </div>
 
-              {/* Cards de pedidos */}
-              <div className="flex-1 space-y-4 overflow-y-auto p-5">
+              {/* Cards */}
+              <div className="flex-1 overflow-y-auto" style={{ padding: "clamp(6px,1vh,16px) clamp(6px,1vw,16px)", gap: "clamp(6px,1vh,14px)", display: "flex", flexDirection: "column" }}>
                 {lista.length === 0 && (
-                  <div className="mt-8 flex flex-col items-center justify-center gap-3 opacity-30">
-                    <span className="text-5xl">🕐</span>
-                    <p className="text-sm font-bold text-slate-400">Nenhum pedido</p>
+                  <div className="flex flex-1 flex-col items-center justify-center gap-2 opacity-25">
+                    <span style={{ fontSize: "clamp(24px,4vw,56px)" }}>🕐</span>
+                    <p className="font-bold text-slate-400" style={{ fontSize: "clamp(9px,0.9vw,13px)" }}>Nenhum pedido</p>
                   </div>
                 )}
                 {lista.map((order) => {
                   const num = ordemMap[order.id];
-                  const isReady = key === "ready";
                   return (
                     <article key={order.id}
-                      className={`relative overflow-hidden rounded-3xl border p-5 transition-all duration-300 ${cfg.col} ${isReady ? "ring-2 ring-emerald-500/50 shadow-xl shadow-emerald-950/40" : ""}`}>
+                      className={`relative flex-shrink-0 overflow-hidden rounded-[1.5vw] border transition-all duration-300 ${cfg.col} ${isReady ? "ring-2 ring-emerald-500/60 shadow-xl shadow-emerald-950/50" : ""}`}
+                      style={{ padding: "clamp(8px,1.2vh,18px) clamp(8px,1.2vw,18px)" }}>
 
-                      {/* Número de ordem — destaque principal */}
-                      <div className="mb-4 flex items-center gap-3">
-                        <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-2xl font-black shadow-lg ${cfg.num}`}>
+                      {/* Linha superior: número + id + badge RETIRAR */}
+                      <div className="mb-[1vh] flex items-center gap-[1vw]">
+                        <div className={`shrink-0 flex items-center justify-center rounded-[0.8vw] font-black text-white shadow-lg ${cfg.num}`}
+                          style={{ width: "clamp(32px,4vw,64px)", height: "clamp(32px,4vw,64px)", fontSize: "clamp(14px,2vw,32px)" }}>
                           {num}
                         </div>
-                        <div>
-                          <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Ordem de liberação</p>
-                          <p className="text-xs text-slate-500">{order.id} • {order.createdAt}</p>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-bold uppercase tracking-widest text-slate-400 truncate"
+                            style={{ fontSize: "clamp(6px,0.6vw,9px)" }}>Ordem de liberação</p>
+                          <p className="text-slate-500 truncate"
+                            style={{ fontSize: "clamp(7px,0.65vw,10px)" }}>{order.id} • {order.createdAt}</p>
                         </div>
                         {isReady && (
-                          <span className="ml-auto animate-pulse rounded-full bg-emerald-500 px-3 py-1 text-xs font-black text-white">
+                          <span className="shrink-0 animate-pulse rounded-full bg-emerald-500 font-black text-white"
+                            style={{ padding: "clamp(2px,0.4vh,6px) clamp(6px,0.8vw,12px)", fontSize: "clamp(7px,0.7vw,11px)" }}>
                             RETIRAR
                           </span>
                         )}
                       </div>
 
-                      {/* Mesa — elemento principal */}
-                      <div className="mb-3 flex items-end justify-between">
+                      {/* Mesa */}
+                      <div className="mb-[0.8vh] flex items-end justify-between gap-2">
                         <div>
-                          <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Mesa</p>
-                          <p className="text-5xl font-black leading-none text-white">{order.table.replace("Mesa ", "")}</p>
-                          <p className="mt-1 text-sm font-semibold text-slate-400">{order.table}</p>
+                          <p className="font-bold uppercase tracking-widest text-slate-400"
+                            style={{ fontSize: "clamp(6px,0.6vw,9px)" }}>Mesa</p>
+                          <p className="font-black leading-none text-white"
+                            style={{ fontSize: "clamp(28px,5.5vw,88px)" }}>
+                            {order.table.replace("Mesa ", "")}
+                          </p>
                         </div>
-                        <div className="text-right">
-                          <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Comanda</p>
-                          <p className="font-mono text-sm font-bold text-slate-300">{order.command}</p>
+                        <div className="text-right shrink-0">
+                          <p className="font-bold uppercase tracking-widest text-slate-500"
+                            style={{ fontSize: "clamp(6px,0.55vw,9px)" }}>Comanda</p>
+                          <p className="font-mono font-bold text-slate-300"
+                            style={{ fontSize: "clamp(8px,0.8vw,12px)" }}>{order.command}</p>
                         </div>
                       </div>
 
-                      {/* Itens do pedido */}
-                      <div className="mb-4 space-y-1">
+                      {/* Itens */}
+                      <div className="mb-[0.8vh]" style={{ display: "flex", flexDirection: "column", gap: "clamp(1px,0.3vh,4px)" }}>
                         {order.items.map((item, i) => (
-                          <p key={i} className="text-xs text-slate-400">
+                          <p key={i} className="text-slate-400 truncate" style={{ fontSize: "clamp(8px,0.75vw,11px)" }}>
                             <span className="font-black text-slate-300">{item.quantity}x</span> {item.name}
                           </p>
                         ))}
                       </div>
 
-                      {/* Barra de progresso individual */}
-                      <div className="h-2 overflow-hidden rounded-full bg-black/30">
+                      {/* Barra de progresso */}
+                      <div className="overflow-hidden rounded-full bg-black/30" style={{ height: "clamp(3px,0.5vh,7px)" }}>
                         <div className={`h-full rounded-full transition-all duration-1000 ${cfg.bar}`}
-                          style={{ width: `${panelStatusConfig[key].progress}%` }} />
+                          style={{ width: `${cfg.progress}%` }} />
                       </div>
                     </article>
                   );
@@ -642,13 +686,12 @@ function PanelView({ groupedOrders }) {
         })}
       </div>
 
-      {/* Rodapé */}
-      <footer className="border-t border-white/10 bg-slate-900/60 px-8 py-3 backdrop-blur">
-        <div className="flex items-center justify-between text-xs text-slate-500">
-          <span>🔄 Atualização automática em tempo real</span>
-          <span>Pedidos finalizados ficam disponíveis para retirada no balcão</span>
-          <span>Sistema Restaurante — Painel Público</span>
-        </div>
+      {/* ── Rodapé ────────────────────────────────────────────── */}
+      <footer className="shrink-0 flex items-center justify-between border-t border-white/10 bg-slate-900/60 px-[2vw] backdrop-blur"
+        style={{ paddingTop: "clamp(4px,0.8vh,10px)", paddingBottom: "clamp(4px,0.8vh,10px)" }}>
+        <span className="text-slate-500" style={{ fontSize: "clamp(7px,0.65vw,10px)" }}>🔄 Atualização automática a cada 15s</span>
+        <span className="text-slate-500" style={{ fontSize: "clamp(7px,0.65vw,10px)" }}>Pedidos prontos → retire no balcão</span>
+        <span className="text-slate-500" style={{ fontSize: "clamp(7px,0.65vw,10px)" }}>Sistema Restaurante — Painel Público</span>
       </footer>
     </div>
   );
