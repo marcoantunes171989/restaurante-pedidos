@@ -722,6 +722,25 @@ export default function RestaurantePedidoApp() {
     if (dbReady) try { await atualizarFormaPagamento(id, { ativo: active }); } catch {}
   }
 
+  // Baixa de PEDIDOS específicos (pagamento parcial/por item no caixa)
+  async function baixarPedidos(orderIds, info = null) {
+    if (!canAccess(currentUser, "cashier")) return notify("error", "Usuário sem permissão.");
+    const alvo = orders.filter((o) => orderIds.includes(o.id) && o.paymentStatus !== "paid");
+    const itensVendidos = alvo.flatMap((o) => o.items.map((it) => ({ name: it.name, quantity: it.quantity })));
+    if (alvo.length > 0) {
+      setOrders((cur) => cur.map((o) => orderIds.includes(o.id) ? { ...o, paymentStatus: "paid", status: "delivered" } : o));
+      if (dbReady) {
+        try {
+          await Promise.all(alvo.map((o) => atualizarPedido(o.id, { status_pagamento: "pago", status: "entregue" })));
+          await baixarEstoque(itensVendidos);
+        } catch (err) { console.error("Erro na baixa por pedido:", err); }
+      }
+    }
+    // Registra o pagamento mesmo que seja parcial (sem fechar pedidos)
+    if (dbReady && info) { try { await registrarPagamento(info); } catch {} }
+    notify("success", `✅ Pagamento registrado! ${alvo.length} pedido(s) baixado(s).`);
+  }
+
   async function addProduct() {
     if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
     if (!adminForm.name.trim()) return notify("error", "Informe o nome do produto.");
@@ -955,7 +974,7 @@ export default function RestaurantePedidoApp() {
           <KitchenView groupedOrders={groupedOrders} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} cancelarPedido={cancelarPedido} onSair={logout} currentUser={currentUser} />
         )}
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} />}
-        {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierView orders={orders} baixarComandas={baixarComandas} formasPagamento={formasPagamento} onSair={logout} />}
+        {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierView orders={orders} baixarComandas={baixarComandas} baixarPedidos={baixarPedidos} formasPagamento={formasPagamento} onSair={logout} />}
         {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamento} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} orders={orders} onSair={logout} />}
 
       </div>
@@ -2063,19 +2082,33 @@ function PanelView({ groupedOrders }) {
   );
 }
 
-function CashierView({ orders, baixarComandas, formasPagamento = [], onSair }) {
+function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = [], onSair }) {
   const [comandasLidas, setComandasLidas] = useState([]); // comandas escaneadas
   const [pessoas, setPessoas]   = useState(1);            // divisão da conta
   const [scannerAberto, setScannerAberto] = useState(false);
   const [pagamentoAberto, setPagamentoAberto] = useState(false); // modal de pagamento
   const [cupomAberto, setCupomAberto] = useState(false);         // modal do cupom
   const [comprovante, setComprovante] = useState(null);          // comprovante fiscal pós-pagamento
+  const [modoItens, setModoItens] = useState(false);             // seleção parcial por item
+  const [selecao, setSelecao] = useState({});                    // { "orderId::idx": { incluir, dividir } }
 
   // Pedidos NÃO PAGOS das comandas lidas (entregue ou não, o que importa é o pagamento)
   const pedidos = orders.filter((o) => comandasLidas.includes(o.command) && o.paymentStatus !== "paid" && o.status !== "cancelled");
   // Pagamento só é permitido quando todos os pedidos estão finalizados/entregues
   const pendentesPreparo = pedidos.filter((o) => o.status === "received" || o.status === "preparing");
   const podePagar = pedidos.length > 0 && pendentesPreparo.length === 0;
+
+  // Helpers de seleção por item
+  const chaveItem = (oid, idx) => `${oid}::${idx}`;
+  const selDe = (oid, idx) => selecao[chaveItem(oid, idx)] || { incluir: !modoItens, dividir: 1 };
+  function toggleItem(oid, idx) {
+    const k = chaveItem(oid, idx); const atual = selDe(oid, idx);
+    setSelecao((c) => ({ ...c, [k]: { ...atual, incluir: !atual.incluir } }));
+  }
+  function setDividir(oid, idx, n) {
+    const k = chaveItem(oid, idx); const atual = selDe(oid, idx);
+    setSelecao((c) => ({ ...c, [k]: { ...atual, dividir: Math.max(1, n) } }));
+  }
 
   // Agrupa por comanda
   const porComanda = comandasLidas.map((cmd) => {
@@ -2084,11 +2117,27 @@ function CashierView({ orders, baixarComandas, formasPagamento = [], onSair }) {
     return { comanda: cmd, pedidos: ped, subtotal: sub };
   });
 
-  const subtotal = pedidos.reduce((s, o) => s + orderTotal(o), 0);
+  // Subtotal considerando o modo: conta cheia OU itens selecionados (com divisão por item)
+  let subtotal = 0;
+  const itensPagosAgora = []; // para cupom/comprovante
+  pedidos.forEach((o) => o.items.forEach((it, idx) => {
+    const s = selDe(o.id, idx);
+    const incluir = modoItens ? s.incluir : true;
+    if (incluir) {
+      const valor = (it.price * it.quantity) / (s.dividir || 1);
+      subtotal += valor;
+      itensPagosAgora.push({ oid: o.id, comanda: o.command, name: it.name, quantity: it.quantity, valor, dividir: s.dividir || 1 });
+    }
+  }));
   const taxa = subtotal * 0.1;
   const total = subtotal + taxa;
   const porPessoa = total / Math.max(1, pessoas);
   const mesas = [...new Set(pedidos.map((o) => o.table))];
+
+  // Pedidos totalmente cobertos nesta seleção (todos os itens incluídos e sem divisão) → baixa
+  const pedidosCobertos = pedidos.filter((o) => o.items.every((it, idx) => {
+    const s = selDe(o.id, idx); return (modoItens ? s.incluir : true) && (s.dividir || 1) === 1;
+  })).map((o) => o.id);
 
   // ── Solicitações de fechamento das mesas (pagamento "requested", não pago) ──
   const solicitacoes = (() => {
@@ -2200,18 +2249,26 @@ function CashierView({ orders, baixarComandas, formasPagamento = [], onSair }) {
 
   // Chamado pelo modal de pagamento ao confirmar
   function confirmarPagamento({ detalhes, troco }) {
-    const info = { mesa: mesas.join(", "), total, troco, detalhes };
-    baixarComandas(comandasLidas, info);
-    // Guarda os dados para o comprovante fiscal ANTES de limpar
+    const info = { mesa: mesas.join(", "), total, troco, detalhes, comandas: [...comandasLidas] };
+    // Comprovante (com os itens efetivamente pagos agora)
+    const itensComprovante = itensPagosAgora.map((i) => ({ name: i.dividir > 1 ? `${i.name} (1/${i.dividir})` : i.name, quantity: i.quantity, valor: i.valor }));
     setComprovante({
-      ...info,
-      comandas: [...comandasLidas],
-      subtotal, taxa,
-      blocos: porComanda.filter((b) => b.pedidos.length > 0),
+      ...info, subtotal, taxa,
+      itensLivres: itensComprovante, // lista plana usada no comprovante
     });
+
+    if (modoItens) {
+      // Pagamento parcial: baixa apenas os pedidos totalmente cobertos
+      baixarPedidos(pedidosCobertos, info);
+    } else {
+      // Conta cheia: baixa todas as comandas
+      baixarComandas(comandasLidas, info);
+    }
     setPagamentoAberto(false);
     setComandasLidas([]);
     setPessoas(1);
+    setModoItens(false);
+    setSelecao({});
   }
 
   return (
@@ -2262,9 +2319,23 @@ function CashierView({ orders, baixarComandas, formasPagamento = [], onSair }) {
 
           {/* Botão ler comanda */}
           <button onClick={() => setScannerAberto(true)}
-            className="mb-5 flex w-full items-center justify-center gap-3 rounded-3xl border-2 border-dashed border-blue-400/40 bg-blue-500/5 py-5 text-base font-black text-blue-300 hover:bg-blue-500/10 transition active:scale-[0.99]">
+            className="mb-3 flex w-full items-center justify-center gap-3 rounded-3xl border-2 border-dashed border-blue-400/40 bg-blue-500/5 py-5 text-base font-black text-blue-300 hover:bg-blue-500/10 transition active:scale-[0.99]">
             📷 Ler comanda manualmente
           </button>
+
+          {/* Toggle: conta cheia x pagamento parcial por item */}
+          {pedidos.length > 0 && (
+            <div className="mb-5 flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] p-1.5">
+              <button onClick={() => { setModoItens(false); setSelecao({}); }}
+                className={`flex-1 rounded-xl py-2.5 text-sm font-black transition ${!modoItens ? "bg-blue-500 text-white" : "text-slate-300 hover:bg-white/5"}`}>
+                💳 Conta inteira
+              </button>
+              <button onClick={() => setModoItens(true)}
+                className={`flex-1 rounded-xl py-2.5 text-sm font-black transition ${modoItens ? "bg-emerald-500 text-white" : "text-slate-300 hover:bg-white/5"}`}>
+                ☑️ Selecionar itens / parcial
+              </button>
+            </div>
+          )}
 
           {comandasLidas.length === 0 ? (
             <div className="flex h-64 flex-col items-center justify-center gap-3 opacity-30">
@@ -2289,12 +2360,30 @@ function CashierView({ orders, baixarComandas, formasPagamento = [], onSair }) {
                 {peds.map((o) => (
                   <div key={o.id} className="px-5 py-3">
                     <p className="mb-1 text-xs font-bold uppercase tracking-widest text-slate-500">{o.id} • {o.createdAt}</p>
-                    {o.items.map((it, i) => (
-                      <div key={i} className="flex justify-between text-sm">
-                        <span className="text-slate-300"><span className="font-black text-white">{it.quantity}x</span> {it.name}</span>
-                        <span className="font-bold text-white">{formatCurrency(it.price * it.quantity)}</span>
-                      </div>
-                    ))}
+                    {o.items.map((it, i) => {
+                      const s = selDe(o.id, i);
+                      const incluido = modoItens ? s.incluir : true;
+                      const valor = (it.price * it.quantity) / (s.dividir || 1);
+                      return (
+                        <div key={i} className={`flex items-center justify-between gap-2 rounded-xl py-1.5 text-sm ${modoItens ? "px-2 " + (incluido ? "bg-emerald-500/5" : "opacity-50") : ""}`}>
+                          <div className="flex min-w-0 flex-1 items-center gap-2">
+                            {modoItens && (
+                              <input type="checkbox" checked={incluido} onChange={() => toggleItem(o.id, i)} className="h-4 w-4 shrink-0 accent-emerald-500" />
+                            )}
+                            <span className="text-slate-300 truncate"><span className="font-black text-white">{it.quantity}x</span> {it.name}</span>
+                          </div>
+                          {modoItens && incluido && (
+                            <div className="flex shrink-0 items-center gap-1 rounded-lg bg-white/5 px-1.5 py-0.5">
+                              <span className="text-xs text-slate-500">÷</span>
+                              <button onClick={() => setDividir(o.id, i, (s.dividir || 1) - 1)} className="h-5 w-5 rounded bg-white/10 text-xs font-black text-white">−</button>
+                              <span className="w-4 text-center text-xs font-black text-white">{s.dividir || 1}</span>
+                              <button onClick={() => setDividir(o.id, i, (s.dividir || 1) + 1)} className="h-5 w-5 rounded bg-blue-500 text-xs font-black text-white">+</button>
+                            </div>
+                          )}
+                          <span className="shrink-0 font-bold text-white">{formatCurrency(valor)}</span>
+                        </div>
+                      );
+                    })}
                   </div>
                 ))}
               </div>
@@ -2537,9 +2626,11 @@ function ComprovanteModal({ dados, onFechar }) {
   <p class="c xs">Doc.: ${doc} — ${agora.toLocaleString("pt-BR")}</p>
   <p class="xs">Mesa(s): ${dados.mesa || "-"} | Comanda(s): ${dados.comandas.join(", ")}</p>
   <div class="sep"></div>
-  ${dados.blocos.map((b) => b.pedidos.map((o) => o.items.map((it) =>
-    `<div class="row sm"><span class="l">${it.quantity}x ${it.name}</span><span>${formatCurrency(it.price * it.quantity)}</span></div>`
-  ).join("")).join("")).join("")}
+  ${(dados.itensLivres && dados.itensLivres.length
+      ? dados.itensLivres.map((it) => `<div class="row sm"><span class="l">${it.quantity}x ${it.name}</span><span>${formatCurrency(it.valor)}</span></div>`).join("")
+      : (dados.blocos || []).map((b) => b.pedidos.map((o) => o.items.map((it) =>
+          `<div class="row sm"><span class="l">${it.quantity}x ${it.name}</span><span>${formatCurrency(it.price * it.quantity)}</span></div>`
+        ).join("")).join("")).join(""))}
   <div class="sep"></div>
   <div class="row sm"><span class="l">Subtotal</span><span>${formatCurrency(dados.subtotal)}</span></div>
   <div class="row sm"><span class="l">Taxa servico (10%)</span><span>${formatCurrency(dados.taxa)}</span></div>
