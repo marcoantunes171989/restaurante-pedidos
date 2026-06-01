@@ -454,7 +454,7 @@ export default function RestaurantePedidoApp() {
   const [search, setSearch] = useState("");
   const [tableNumber, setTableNumber] = useState("07");
   const [commandCode, setCommandCode] = useState("");
-  const [customerName, setCustomerName] = useState("Comanda visitante");
+  const [customerName, setCustomerName] = useState("");
   const [message, setMessage] = useState({ type: "", text: "" });
   const [rawJsonOpen, setRawJsonOpen] = useState(false);
   const [adminSection, setAdminSection] = useState("dashboard");
@@ -599,6 +599,9 @@ export default function RestaurantePedidoApp() {
   async function handleSendOrder(codigoOverride) {
     if (!canAccess(currentUser, "tablet")) return notify("error", "Usuário sem permissão para realizar pedido no tablet.");
     if (cart.length === 0) return notify("error", "Adicione pelo menos um produto antes de enviar.");
+    // Mesa e nome do cliente obrigatórios (identificação na cozinha/painel/caixa)
+    if (!tableNumber || Number(tableNumber) <= 0) return notify("error", "Informe o número da mesa antes de enviar.");
+    if (!customerName.trim()) return notify("error", "Informe o nome do cliente para vincular à comanda.");
     const codigo = (codigoOverride || commandCode || "").trim().toUpperCase();
     if (!isValidCommand(codigo)) return notify("error", "Escaneie a comanda antes de enviar o pedido.");
     clearMessage();
@@ -1002,6 +1005,9 @@ function TabletView({
   const totalCartItems = cart.reduce((s, i) => s + i.quantity, 0);
   const comandaValida  = isValidCommand(commandCode);
   const temPedidoNaMesa = currentTableOrders.length > 0 && currentTableTotal > 0;
+  // Mesa + nome obrigatórios para escanear/enviar
+  const dadosCompletos = tableNumber && Number(tableNumber) > 0 && customerName.trim().length > 0;
+  const podeEscanear = cart.length > 0 && dadosCompletos;
   // Fechar conta só quando há pedido na mesa E todos foram entregues
   const podeFecharConta = currentTableOrders.length > 0 && currentTableOrders.every((o) => o.status === "delivered");
 
@@ -1184,14 +1190,16 @@ function TabletView({
           <div className="shrink-0 space-y-3 border-b border-white/10 px-5 py-4">
             <div className="grid grid-cols-2 gap-3">
               <label>
-                <span className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500">Mesa</span>
+                <span className="mb-1 block text-xs font-bold uppercase tracking-widest text-amber-500">⚠ Mesa *</span>
                 <input value={tableNumber} onChange={(e) => setTableNumber(e.target.value.replace(/[^0-9]/g,"").slice(0,2))}
-                  className="w-full rounded-2xl border border-white/10 bg-slate-800 px-3 py-2.5 text-white outline-none focus:border-blue-400 text-sm font-black" />
+                  placeholder="Nº"
+                  className={`w-full rounded-2xl border bg-slate-800 px-3 py-2.5 text-white outline-none text-sm font-black transition ${tableNumber && Number(tableNumber) > 0 ? "border-emerald-400/40 focus:border-emerald-400" : "border-amber-400/40 focus:border-amber-400"}`} />
               </label>
               <label>
-                <span className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500">Cliente</span>
+                <span className="mb-1 block text-xs font-bold uppercase tracking-widest text-amber-500">⚠ Cliente *</span>
                 <input value={customerName} onChange={(e) => setCustomerName(e.target.value)}
-                  className="w-full rounded-2xl border border-white/10 bg-slate-800 px-3 py-2.5 text-white outline-none focus:border-blue-400 text-sm" />
+                  placeholder="Nome do cliente"
+                  className={`w-full rounded-2xl border bg-slate-800 px-3 py-2.5 text-white outline-none text-sm transition ${customerName.trim() ? "border-emerald-400/40 focus:border-emerald-400" : "border-amber-400/40 focus:border-amber-400"}`} />
               </label>
             </div>
             <div>
@@ -1202,8 +1210,8 @@ function TabletView({
                   className={`flex-1 rounded-2xl border bg-slate-800 px-3 py-2.5 font-mono text-white outline-none text-sm transition
                     ${comandaValida ? "border-emerald-400/50 focus:border-emerald-400" : "border-amber-400/30 focus:border-amber-400"}`} />
                 <button onClick={onAbrirScanner}
-                  disabled={cart.length === 0}
-                  title={cart.length === 0 ? "Adicione itens ao carrinho primeiro" : "Escanear QR Code da comanda"}
+                  disabled={!podeEscanear}
+                  title={!podeEscanear ? "Preencha mesa, cliente e adicione itens" : "Escanear QR Code da comanda"}
                   className="shrink-0 rounded-2xl border border-blue-400/30 bg-blue-500/10 px-3 py-2.5 text-blue-300 hover:bg-blue-500/20 transition text-lg disabled:opacity-40 disabled:cursor-not-allowed">
                   📷
                 </button>
@@ -1296,10 +1304,17 @@ function TabletView({
               </div>
             )}
 
+            {/* Aviso de dados obrigatórios */}
+            {cart.length > 0 && !dadosCompletos && (
+              <div className="rounded-2xl border border-amber-400/30 bg-amber-500/10 p-3 text-xs font-semibold text-amber-200">
+                ⚠ Informe a <b>mesa</b> e o <b>nome do cliente</b> para vincular o pedido à comanda.
+              </div>
+            )}
+
             {/* Botão enviar pedido */}
             {!comandaValida ? (
               <button onClick={onAbrirScanner}
-                disabled={cart.length === 0}
+                disabled={!podeEscanear}
                 className="w-full rounded-2xl bg-blue-500 py-4 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95 shadow-lg shadow-blue-950/30 disabled:opacity-40 disabled:cursor-not-allowed">
                 📷 Escanear comanda e enviar pedido
               </button>
