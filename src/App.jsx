@@ -457,18 +457,22 @@ export default function RestaurantePedidoApp() {
     return () => unsubs.forEach((fn) => fn && fn());
   }, []);
 
-  // ── Polling de segurança — garante sync mesmo se Realtime falhar ──
-  // Quando cozinha ou painel estão ativos, recarrega pedidos a cada 4s
+  // ── Atualização quase imediata na cozinha e painel ──────────
+  // Realtime (WebSocket) cobre o instantâneo; este polling de 1.5s
+  // garante atualização mesmo se o Realtime falhar/atrasar.
   useEffect(() => {
     if (!dbReady) return;
     if (activeTab !== "kitchen" && activeTab !== "panel") return;
-    const intervalo = setInterval(async () => {
+    let ativo = true;
+    async function atualizar() {
       try {
         const ords = await fetchPedidos();
-        setOrders(ords);
+        if (ativo) setOrders(ords);
       } catch (e) { /* silencioso — Realtime cobre */ }
-    }, 4000);
-    return () => clearInterval(intervalo);
+    }
+    atualizar(); // dispara imediatamente ao entrar na tela
+    const intervalo = setInterval(atualizar, 1500);
+    return () => { ativo = false; clearInterval(intervalo); };
   }, [dbReady, activeTab]);
 
   const [cart, setCart] = useState([]);
