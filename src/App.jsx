@@ -483,7 +483,7 @@ export default function RestaurantePedidoApp() {
   const [customerName, setCustomerName] = useState("Comanda visitante");
   const [message, setMessage] = useState({ type: "", text: "" });
   const [rawJsonOpen, setRawJsonOpen] = useState(false);
-  const [adminSection, setAdminSection] = useState("products");
+  const [adminSection, setAdminSection] = useState("dashboard");
   const [adminForm, setAdminForm] = useState({ name: "", category: "Pratos principais", price: "", cost: "", time: "15-25 min", imageUrl: "", ingredientsText: "", description: "" });
   const [userForm, setUserForm] = useState({ name: "", email: "", password: "123456", role: "Operador" });
   const [accessForm, setAccessForm] = useState({ id: "", label: "", desc: "", type: "Operacional" });
@@ -927,7 +927,7 @@ export default function RestaurantePedidoApp() {
         )}
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} />}
         {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierView orders={orders} baixarComandas={baixarComandas} formasPagamento={formasPagamento} onSair={logout} />}
-        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamento} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} onSair={logout} />}
+        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamento} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} orders={orders} onSair={logout} />}
 
       </div>
     </div>
@@ -2485,47 +2485,262 @@ function CupomModal({ blocos, mesas, comandas, subtotal, taxa, total, pessoas, p
   );
 }
 
-function AdminView({ products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, toggleUserStatus, toggleAccessStatus, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, onSair }) {
-  const abas = [
-    { id: "products", label: "🛒 Produtos"       },
-    { id: "users",    label: "👥 Usuários"        },
-    { id: "access",   label: "🔐 Permissões"      },
-    { id: "link",     label: "🔗 Usuário x Acesso"},
-    { id: "comandas", label: "🎫 Comandas QR"     },
-    { id: "pagamento",label: "💳 Formas de pagamento" },
+function AdminView({ products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, toggleUserStatus, toggleAccessStatus, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, orders = [], onSair }) {
+  const menu = [
+    { grupo: "Gestão", itens: [
+      { id: "dashboard", icon: "📊", label: "Dashboard" },
+      { id: "relatorios", icon: "📈", label: "Relatórios de vendas" },
+    ]},
+    { grupo: "Cadastros", itens: [
+      { id: "products", icon: "🛒", label: "Produtos" },
+      { id: "pagamento", icon: "💳", label: "Formas de pagamento" },
+      { id: "comandas", icon: "🎫", label: "Comandas QR" },
+    ]},
+    { grupo: "Acessos", itens: [
+      { id: "users", icon: "👥", label: "Usuários" },
+      { id: "access", icon: "🔐", label: "Permissões" },
+      { id: "link", icon: "🔗", label: "Usuário x Acesso" },
+    ]},
   ];
+  const ativo = adminSection || "dashboard";
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-slate-950 overflow-hidden">
-      {/* Cabeçalho */}
-      <header className="flex shrink-0 items-center justify-between border-b border-white/10 bg-slate-900/90 px-6 py-3 backdrop-blur-xl">
-        <div className="flex items-center gap-3">
-          <span className="text-2xl">⚙️</span>
+    <div className="fixed inset-0 z-50 flex bg-slate-950 overflow-hidden">
+
+      {/* ── Menu lateral esquerdo (fixo) ─────────────────────── */}
+      <aside className="hidden md:flex w-64 shrink-0 flex-col border-r border-white/10 bg-slate-900">
+        <div className="flex items-center gap-3 border-b border-white/10 px-5 py-4">
+          <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-500 text-xl">⚙️</span>
           <div>
-            <p className="text-lg font-black text-white leading-tight">Administrativo</p>
-            <p className="text-xs text-slate-500">Cadastros e permissões — salvos no banco de dados</p>
+            <p className="font-black text-white leading-tight">Administrativo</p>
+            <p className="text-xs text-slate-500">Painel gerencial</p>
           </div>
         </div>
-        <button onClick={onSair} className="rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-2 text-sm font-black text-red-300 hover:bg-red-500/20 transition">Sair</button>
-      </header>
+        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-5">
+          {menu.map((g) => (
+            <div key={g.grupo}>
+              <p className="px-3 mb-1.5 text-xs font-bold uppercase tracking-widest text-slate-600">{g.grupo}</p>
+              <div className="space-y-1">
+                {g.itens.map((it) => (
+                  <button key={it.id} onClick={() => setAdminSection(it.id)}
+                    className={`flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-bold transition ${ativo === it.id ? "bg-blue-500 text-white shadow-lg shadow-blue-950/30" : "text-slate-300 hover:bg-white/[0.06]"}`}>
+                    <span className="text-base">{it.icon}</span>{it.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </nav>
+        <button onClick={onSair} className="m-3 rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm font-black text-red-300 hover:bg-red-500/20 transition">Sair</button>
+      </aside>
 
-      {/* Abas */}
-      <div className="shrink-0 flex gap-2 overflow-x-auto border-b border-white/10 bg-slate-900/50 px-6 py-3">
-        {abas.map((s) => (
-          <button key={s.id} onClick={() => setAdminSection(s.id)}
-            className={`shrink-0 rounded-full border px-4 py-2 text-sm font-black transition ${adminSection === s.id ? "border-blue-400 bg-blue-500 text-white" : "border-white/10 bg-white/[0.06] text-slate-300 hover:bg-white/10"}`}>
-            {s.label}
-          </button>
+      {/* ── Conteúdo ─────────────────────────────────────────── */}
+      <div className="flex flex-1 flex-col overflow-hidden">
+        {/* Cabeçalho mobile com abas (md:hidden) */}
+        <div className="md:hidden flex shrink-0 items-center justify-between border-b border-white/10 bg-slate-900/90 px-4 py-3">
+          <p className="font-black text-white">⚙️ Administrativo</p>
+          <button onClick={onSair} className="rounded-2xl border border-red-400/20 bg-red-500/10 px-3 py-1.5 text-xs font-black text-red-300">Sair</button>
+        </div>
+        <div className="md:hidden shrink-0 flex gap-2 overflow-x-auto border-b border-white/10 bg-slate-900/50 px-4 py-2">
+          {menu.flatMap((g) => g.itens).map((it) => (
+            <button key={it.id} onClick={() => setAdminSection(it.id)}
+              className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-black transition ${ativo === it.id ? "border-blue-400 bg-blue-500 text-white" : "border-white/10 bg-white/[0.06] text-slate-300"}`}>
+              {it.icon} {it.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Conteúdo rolável */}
+        <div className="flex-1 overflow-y-auto p-6">
+          {ativo === "dashboard"  && <DashboardAdmin orders={orders} products={products} />}
+          {ativo === "relatorios" && <RelatoriosAdmin orders={orders} products={products} />}
+          {ativo === "products"   && <ProductAdmin   products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} />}
+          {ativo === "users"      && <UserAdmin      users={users} userForm={userForm} setUserForm={setUserForm} addUser={addUser} toggleUserStatus={toggleUserStatus} />}
+          {ativo === "access"     && <AccessAdmin    accesses={accesses} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleAccessStatus={toggleAccessStatus} />}
+          {ativo === "link"       && <UserAccessAdmin users={users} accesses={accesses} toggleUserAccess={toggleUserAccess} />}
+          {ativo === "comandas"   && <GeradorComandas />}
+          {ativo === "pagamento"  && <PagamentoAdmin formasPagamento={formasPagamento} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} />}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+//  Helpers de análise de vendas (a partir dos pedidos)
+// ════════════════════════════════════════════════════════════
+function analisarVendas(orders, products) {
+  const pagos = orders.filter((o) => o.paymentStatus === "paid");
+  const faturamento = pagos.reduce((s, o) => s + orderTotal(o) * 1.1, 0); // com taxa
+  const faturamentoSemTaxa = pagos.reduce((s, o) => s + orderTotal(o), 0);
+  const emAberto = orders.filter((o) => o.paymentStatus !== "paid").reduce((s, o) => s + orderTotal(o) * 1.1, 0);
+  const ticket = pagos.length ? faturamento / pagos.length : 0;
+
+  // Produtos mais vendidos (todos os pedidos)
+  const porProduto = {};
+  orders.forEach((o) => o.items.forEach((it) => {
+    if (!porProduto[it.name]) porProduto[it.name] = { nome: it.name, qtd: 0, valor: 0 };
+    porProduto[it.name].qtd += it.quantity;
+    porProduto[it.name].valor += it.price * it.quantity;
+  }));
+  const topProdutos = Object.values(porProduto).sort((a, b) => b.qtd - a.qtd).slice(0, 6);
+
+  // Por categoria (cruza nome do item com categoria do produto)
+  const catDe = {};
+  products.forEach((p) => { catDe[p.name] = p.category; });
+  const porCategoria = {};
+  orders.forEach((o) => o.items.forEach((it) => {
+    const cat = catDe[it.name] || "Outros";
+    if (!porCategoria[cat]) porCategoria[cat] = { categoria: cat, valor: 0, qtd: 0 };
+    porCategoria[cat].valor += it.price * it.quantity;
+    porCategoria[cat].qtd += it.quantity;
+  }));
+  const categorias = Object.values(porCategoria).sort((a, b) => b.valor - a.valor);
+
+  return { pagos, faturamento, faturamentoSemTaxa, emAberto, ticket, topProdutos, categorias, totalPedidos: orders.length };
+}
+
+// Barra horizontal simples (sem biblioteca externa)
+function BarraHorizontal({ label, valor, max, sufixo = "", cor = "bg-blue-500" }) {
+  const pct = max > 0 ? (valor / max) * 100 : 0;
+  return (
+    <div>
+      <div className="mb-1 flex items-center justify-between text-sm">
+        <span className="text-slate-300 truncate pr-2">{label}</span>
+        <span className="font-black text-white shrink-0">{sufixo === "R$" ? formatCurrency(valor) : `${valor}${sufixo}`}</span>
+      </div>
+      <div className="h-2.5 overflow-hidden rounded-full bg-white/10">
+        <div className={`h-full rounded-full ${cor} transition-all duration-700`} style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function CardMetrica({ titulo, valor, sub, cor = "text-white", icon }) {
+  return (
+    <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-bold uppercase tracking-widest text-slate-500">{titulo}</p>
+        {icon && <span className="text-xl">{icon}</span>}
+      </div>
+      <p className={`mt-2 text-3xl font-black ${cor}`}>{valor}</p>
+      {sub && <p className="mt-1 text-xs text-slate-500">{sub}</p>}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+//  Dashboard gerencial
+// ════════════════════════════════════════════════════════════
+function DashboardAdmin({ orders, products }) {
+  const a = analisarVendas(orders, products);
+  const maxProd = Math.max(1, ...a.topProdutos.map((p) => p.qtd));
+  const maxCat = Math.max(1, ...a.categorias.map((c) => c.valor));
+  const semEstoque = products.filter((p) => (p.estoque ?? 0) <= 5);
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-black text-white">📊 Dashboard</h2>
+        <p className="mt-1 text-sm text-slate-400">Visão gerencial do estabelecimento em tempo real.</p>
+      </div>
+
+      {/* Métricas principais */}
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <CardMetrica titulo="Faturamento (pago)" valor={formatCurrency(a.faturamento)} sub={`${a.pagos.length} pedido(s) pago(s)`} cor="text-emerald-400" icon="💰" />
+        <CardMetrica titulo="Em aberto" valor={formatCurrency(a.emAberto)} sub="aguardando pagamento" cor="text-amber-400" icon="⏳" />
+        <CardMetrica titulo="Ticket médio" valor={formatCurrency(a.ticket)} sub="por pedido pago" cor="text-blue-400" icon="🎫" />
+        <CardMetrica titulo="Total de pedidos" valor={a.totalPedidos} sub={`${products.length} produtos cadastrados`} icon="📦" />
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Top produtos */}
+        <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
+          <h3 className="mb-4 text-lg font-black text-white">🏆 Produtos mais vendidos</h3>
+          <div className="space-y-3">
+            {a.topProdutos.length === 0 && <p className="text-sm text-slate-500">Sem vendas ainda.</p>}
+            {a.topProdutos.map((p) => (
+              <BarraHorizontal key={p.nome} label={p.nome} valor={p.qtd} max={maxProd} sufixo=" un" cor="bg-blue-500" />
+            ))}
+          </div>
+        </div>
+
+        {/* Por categoria */}
+        <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
+          <h3 className="mb-4 text-lg font-black text-white">🍽️ Faturamento por categoria</h3>
+          <div className="space-y-3">
+            {a.categorias.length === 0 && <p className="text-sm text-slate-500">Sem vendas ainda.</p>}
+            {a.categorias.map((c) => (
+              <BarraHorizontal key={c.categoria} label={c.categoria} valor={c.valor} max={maxCat} sufixo="R$" cor="bg-emerald-500" />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Alerta de estoque baixo */}
+      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
+        <h3 className="mb-4 text-lg font-black text-white">📉 Estoque baixo (≤ 5 unidades)</h3>
+        {semEstoque.length === 0 ? (
+          <p className="text-sm text-emerald-400">✅ Todos os produtos com estoque adequado.</p>
+        ) : (
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {semEstoque.map((p) => (
+              <div key={p.id} className="flex items-center justify-between rounded-2xl border border-red-400/20 bg-red-500/5 px-4 py-2.5">
+                <span className="text-sm font-bold text-white truncate">{p.name}</span>
+                <span className="text-sm font-black text-red-300">{p.estoque ?? 0} un</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+//  Relatórios de vendas detalhados
+// ════════════════════════════════════════════════════════════
+function RelatoriosAdmin({ orders, products }) {
+  const a = analisarVendas(orders, products);
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-black text-white">📈 Relatórios de vendas</h2>
+        <p className="mt-1 text-sm text-slate-400">Detalhamento de produtos vendidos e faturamento.</p>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-3">
+        <CardMetrica titulo="Subtotal vendido" valor={formatCurrency(a.faturamentoSemTaxa)} cor="text-white" />
+        <CardMetrica titulo="Faturamento + taxa" valor={formatCurrency(a.faturamento)} cor="text-emerald-400" />
+        <CardMetrica titulo="Itens vendidos" valor={a.topProdutos.reduce((s, p) => s + p.qtd, 0)} cor="text-blue-400" />
+      </div>
+
+      {/* Tabela de produtos vendidos */}
+      <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.04]">
+        <div className="hidden grid-cols-[2fr_1fr_1fr] bg-white/[0.06] px-5 py-3 text-xs font-black uppercase tracking-widest text-slate-400 sm:grid">
+          <span>Produto</span><span className="text-center">Qtd vendida</span><span className="text-right">Faturamento</span>
+        </div>
+        {a.topProdutos.length === 0 && <p className="px-5 py-6 text-center text-sm text-slate-500">Nenhuma venda registrada ainda.</p>}
+        {a.topProdutos.map((p) => (
+          <div key={p.nome} className="grid gap-1 border-t border-white/10 px-5 py-3 text-sm sm:grid-cols-[2fr_1fr_1fr] sm:items-center">
+            <span className="font-black text-white">{p.nome}</span>
+            <span className="text-slate-300 sm:text-center">{p.qtd} un</span>
+            <span className="font-black text-emerald-300 sm:text-right">{formatCurrency(p.valor)}</span>
+          </div>
         ))}
       </div>
 
-      {/* Conteúdo rolável */}
-      <div className="flex-1 overflow-y-auto p-6">
-        {adminSection === "products"  && <ProductAdmin   products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} />}
-        {adminSection === "users"     && <UserAdmin      users={users} userForm={userForm} setUserForm={setUserForm} addUser={addUser} toggleUserStatus={toggleUserStatus} />}
-        {adminSection === "access"    && <AccessAdmin    accesses={accesses} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleAccessStatus={toggleAccessStatus} />}
-        {adminSection === "link"      && <UserAccessAdmin users={users} accesses={accesses} toggleUserAccess={toggleUserAccess} />}
-        {adminSection === "comandas"  && <GeradorComandas />}
-        {adminSection === "pagamento" && <PagamentoAdmin formasPagamento={formasPagamento} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} />}
+      {/* Por categoria */}
+      <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.04]">
+        <div className="bg-white/[0.06] px-5 py-3 text-sm font-black text-white">Faturamento por categoria</div>
+        {a.categorias.map((c) => (
+          <div key={c.categoria} className="flex items-center justify-between border-t border-white/10 px-5 py-3 text-sm">
+            <span className="font-bold text-white">{c.categoria}</span>
+            <div className="flex items-center gap-4">
+              <span className="text-slate-400">{c.qtd} un</span>
+              <span className="font-black text-emerald-300">{formatCurrency(c.valor)}</span>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
