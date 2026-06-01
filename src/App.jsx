@@ -1002,6 +1002,8 @@ function TabletView({
   const totalCartItems = cart.reduce((s, i) => s + i.quantity, 0);
   const comandaValida  = isValidCommand(commandCode);
   const temPedidoNaMesa = currentTableOrders.length > 0 && currentTableTotal > 0;
+  // Fechar conta só quando há pedido na mesa E todos foram entregues
+  const podeFecharConta = currentTableOrders.length > 0 && currentTableOrders.every((o) => o.status === "delivered");
 
   // Agrupa pedidos por comanda
   const porComanda = currentTableOrders.reduce((acc, order) => {
@@ -1200,8 +1202,9 @@ function TabletView({
                   className={`flex-1 rounded-2xl border bg-slate-800 px-3 py-2.5 font-mono text-white outline-none text-sm transition
                     ${comandaValida ? "border-emerald-400/50 focus:border-emerald-400" : "border-amber-400/30 focus:border-amber-400"}`} />
                 <button onClick={onAbrirScanner}
-                  title="Escanear QR Code da comanda"
-                  className="shrink-0 rounded-2xl border border-blue-400/30 bg-blue-500/10 px-3 py-2.5 text-blue-300 hover:bg-blue-500/20 transition text-lg">
+                  disabled={cart.length === 0}
+                  title={cart.length === 0 ? "Adicione itens ao carrinho primeiro" : "Escanear QR Code da comanda"}
+                  className="shrink-0 rounded-2xl border border-blue-400/30 bg-blue-500/10 px-3 py-2.5 text-blue-300 hover:bg-blue-500/20 transition text-lg disabled:opacity-40 disabled:cursor-not-allowed">
                   📷
                 </button>
               </div>
@@ -1308,14 +1311,17 @@ function TabletView({
               </button>
             )}
 
-            {/* Fechar conta da mesa */}
+            {/* Fechar conta — só quando todos os pedidos foram entregues */}
             <button
               onClick={requestBill}
-              disabled={!temPedidoNaMesa}
-              title={!temPedidoNaMesa ? "Nenhum pedido registrado nesta mesa" : "Solicitar fechamento ao caixa"}
+              disabled={!podeFecharConta}
+              title={!podeFecharConta ? "Disponível quando os pedidos forem entregues" : "Solicitar fechamento ao caixa"}
               className="w-full rounded-2xl border border-violet-400/30 bg-violet-500/10 py-3 text-xs font-black text-violet-300 hover:bg-violet-500/20 transition disabled:opacity-30 disabled:cursor-not-allowed">
               🧾 Fechar conta da mesa
             </button>
+            {temPedidoNaMesa && !podeFecharConta && (
+              <p className="text-center text-xs text-slate-600">Aguardando entrega dos pedidos para fechar a conta</p>
+            )}
           </div>
         </aside>
         </div>
