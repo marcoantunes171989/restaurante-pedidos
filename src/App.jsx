@@ -1527,6 +1527,8 @@ function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, onSair,
   const [hora, setHora] = useState(() =>
     new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
   );
+  const [isFullscreen, setIsFullscreen] = useState(!!document.fullscreenElement);
+
   useEffect(() => {
     const tick = () => setHora(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
     const ms = 1000 - new Date().getMilliseconds();
@@ -1534,6 +1536,19 @@ function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, onSair,
     const t = setTimeout(() => { tick(); iv = setInterval(tick, 1000); }, ms);
     return () => { clearTimeout(t); clearInterval(iv); };
   }, []);
+
+  // Detecta mudanças de fullscreen (ESC, F11, etc.)
+  useEffect(() => {
+    const onChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", onChange);
+    document.addEventListener("webkitfullscreenchange", onChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", onChange);
+      document.removeEventListener("webkitfullscreenchange", onChange);
+    };
+  }, []);
+  // Sai do fullscreen ao trocar de tela
+  useEffect(() => () => sairTelaCheia(), []);
 
   const totalAtivo   = (groupedOrders.received?.length || 0) + (groupedOrders.preparing?.length || 0);
   const totalFinal   = groupedOrders.ready?.length || 0;
@@ -1568,15 +1583,34 @@ function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, onSair,
           </div>
         </div>
 
-        {/* Relógio + Sair */}
-        <div className="flex items-center gap-4">
+        {/* Relógio + tela cheia + Sair */}
+        <div className="flex items-center gap-3">
           <p className="font-black tabular-nums text-white text-xl">{hora}</p>
+          <button onClick={isFullscreen ? sairTelaCheia : entrarTelaCheia}
+            title={isFullscreen ? "Sair da tela cheia" : "Abrir em tela cheia"}
+            className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/20 bg-white/10 text-lg font-black text-white hover:bg-white/20 transition active:scale-95">
+            ⛶
+          </button>
           <button onClick={onSair}
             className="rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-2 text-sm font-black text-red-300 hover:bg-red-500/20 transition">
             Sair
           </button>
         </div>
       </header>
+
+      {/* Overlay: botão grande para abrir em tela cheia (F11) */}
+      {!isFullscreen && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+          <button onClick={entrarTelaCheia}
+            className="flex flex-col items-center gap-4 rounded-3xl border border-white/20 bg-slate-900 px-12 py-10 shadow-2xl transition hover:bg-slate-800 active:scale-95">
+            <span className="text-6xl">⛶</span>
+            <div className="text-center">
+              <p className="text-2xl font-black text-white">Abrir cozinha em tela cheia</p>
+              <p className="mt-1 text-sm text-slate-400">Clique aqui ou pressione F11 no teclado</p>
+            </div>
+          </button>
+        </div>
+      )}
 
       {/* ── 3 Colunas de pedidos ──────────────────────────────── */}
       <div className="flex flex-1 overflow-hidden">
