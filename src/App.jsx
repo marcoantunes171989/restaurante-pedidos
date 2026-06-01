@@ -766,6 +766,50 @@ export default function RestaurantePedidoApp() {
     if (dbReady) try { await atualizarProduto(pid, { ativo: active }); } catch {}
   }
 
+  // Edição completa de produto
+  async function editarProduto(pid, dados) {
+    if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
+    setProducts((cur) => cur.map((p) => p.id === pid ? { ...p, ...dados } : p));
+    if (dbReady) try {
+      await atualizarProduto(pid, {
+        nome: dados.name, categoria: dados.category, preco: Number(dados.price), custo: Number(dados.cost || 0),
+        tempo_preparo: dados.time, descricao: dados.description, url_imagem: dados.imageUrl,
+        ingredientes: dados.ingredients, estoque: Number(dados.estoque ?? 0),
+      });
+    } catch (e) { notify("error", "Erro ao salvar: " + e.message); }
+    notify("success", "Produto atualizado.");
+  }
+  async function removerProduto(pid) {
+    if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
+    setProducts((cur) => cur.filter((p) => p.id !== pid));
+    if (dbReady) try { await excluirProduto(pid); } catch (e) { notify("error", "Erro ao excluir: " + e.message); return; }
+    notify("success", "Produto excluído.");
+  }
+
+  // Usuários — edição e exclusão
+  async function editarUsuario(uid, dados) {
+    if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
+    setUsers((cur) => cur.map((u) => u.id === uid ? { ...u, ...dados } : u));
+    if (dbReady) try {
+      await atualizarUsuario(uid, { nome: dados.name, email: dados.email, senha: dados.password, perfil: dados.role });
+    } catch (e) { notify("error", "Erro: " + e.message); }
+    notify("success", "Usuário atualizado.");
+  }
+  async function removerUsuario(uid) {
+    if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
+    setUsers((cur) => cur.filter((u) => u.id !== uid));
+    if (dbReady) try { await excluirUsuario(uid); } catch (e) { notify("error", "Erro ao excluir: " + e.message); return; }
+    notify("success", "Usuário excluído.");
+  }
+
+  // Formas de pagamento — exclusão
+  async function removerFormaPagamento(id) {
+    if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
+    setFormasPagamento((cur) => cur.filter((f) => f.id !== id));
+    if (dbReady) try { await excluirFormaPagamento(id); } catch (e) { notify("error", "Erro ao excluir: " + e.message); return; }
+    notify("success", "Forma de pagamento excluída.");
+  }
+
   async function addUser() {
     if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
     if (!userForm.name.trim() || !userForm.email.trim()) return notify("error", "Informe nome e e-mail do usuário.");
@@ -928,7 +972,7 @@ export default function RestaurantePedidoApp() {
         )}
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} />}
         {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierView orders={orders} baixarComandas={baixarComandas} formasPagamento={formasPagamento} onSair={logout} />}
-        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamento} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} orders={orders} onSair={logout} />}
+        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamento} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} orders={orders} onSair={logout} />}
 
       </div>
     </div>
@@ -2486,7 +2530,7 @@ function CupomModal({ blocos, mesas, comandas, subtotal, taxa, total, pessoas, p
   );
 }
 
-function AdminView({ products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, toggleUserStatus, toggleAccessStatus, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, orders = [], onSair }) {
+function AdminView({ products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, toggleUserStatus, toggleAccessStatus, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarProduto, removerProduto, editarUsuario, removerUsuario, orders = [], onSair }) {
   const menu = [
     { grupo: "Gestão", itens: [
       { id: "dashboard", icon: "📊", label: "Dashboard" },
@@ -2554,12 +2598,12 @@ function AdminView({ products, categories, adminForm, setAdminForm, addProduct, 
         <div className="flex-1 overflow-y-auto p-6">
           {ativo === "dashboard"  && <DashboardAdmin orders={orders} products={products} />}
           {ativo === "relatorios" && <RelatoriosAdmin orders={orders} products={products} />}
-          {ativo === "products"   && <ProductAdmin   products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} />}
-          {ativo === "users"      && <UserAdmin      users={users} userForm={userForm} setUserForm={setUserForm} addUser={addUser} toggleUserStatus={toggleUserStatus} />}
+          {ativo === "products"   && <ProductAdmin   products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} editarProduto={editarProduto} removerProduto={removerProduto} />}
+          {ativo === "users"      && <UserAdmin      users={users} userForm={userForm} setUserForm={setUserForm} addUser={addUser} toggleUserStatus={toggleUserStatus} editarUsuario={editarUsuario} removerUsuario={removerUsuario} />}
           {ativo === "access"     && <AccessAdmin    accesses={accesses} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleAccessStatus={toggleAccessStatus} />}
           {ativo === "link"       && <UserAccessAdmin users={users} accesses={accesses} toggleUserAccess={toggleUserAccess} />}
           {ativo === "comandas"   && <GeradorComandas />}
-          {ativo === "pagamento"  && <PagamentoAdmin formasPagamento={formasPagamento} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} />}
+          {ativo === "pagamento"  && <PagamentoAdmin formasPagamento={formasPagamento} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} />}
         </div>
       </div>
     </div>
@@ -3020,8 +3064,9 @@ function RelatorioPermanencia({ pedidos }) {
 // ════════════════════════════════════════════════════════════
 //  Admin — Formas de pagamento
 // ════════════════════════════════════════════════════════════
-function PagamentoAdmin({ formasPagamento, addFormaPagamento, toggleFormaPagamento }) {
+function PagamentoAdmin({ formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento }) {
   const [form, setForm] = useState({ nome: "", tipo: "outro", permiteTroco: false });
+  const [excluir, setExcluir] = useState(null);
   const tipos = [
     { id: "dinheiro",       label: "Dinheiro" },
     { id: "cartao_credito", label: "Cartão de Crédito" },
@@ -3059,27 +3104,219 @@ function PagamentoAdmin({ formasPagamento, addFormaPagamento, toggleFormaPagamen
         <div className="mt-5 space-y-3">
           {formasPagamento.length === 0 && <p className="text-sm text-slate-500">Nenhuma forma cadastrada. Execute a migration 006 e cadastre acima.</p>}
           {formasPagamento.map((f) => (
-            <div key={f.id} className="grid gap-3 rounded-3xl border border-white/10 bg-slate-950/40 p-4 md:grid-cols-[1fr_120px_100px]">
-              <div>
-                <p className="font-black text-white">{f.nome}</p>
-                <p className="text-sm text-slate-400">{f.tipo}{f.permiteTroco ? " • permite troco" : ""}</p>
+            <div key={f.id} className="flex items-center gap-3 rounded-3xl border border-white/10 bg-slate-950/40 p-3">
+              <div className="min-w-0 flex-1">
+                <p className="font-black text-white truncate">{f.nome}</p>
+                <p className="text-xs text-slate-400">{f.tipo}{f.permiteTroco ? " • permite troco" : ""}</p>
               </div>
-              <span className={`h-fit rounded-full px-3 py-2 text-center text-xs font-black ${f.active ? "bg-emerald-500 text-white" : "bg-slate-700 text-slate-200"}`}>{f.active ? "Ativo" : "Inativo"}</span>
-              <button onClick={() => toggleFormaPagamento(f.id)} className="rounded-2xl border border-white/10 bg-white/[0.08] px-3 py-2 text-xs font-black text-white">Alterar</button>
+              <button onClick={() => toggleFormaPagamento(f.id)} className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-black ${f.active ? "bg-emerald-500 text-white" : "bg-slate-700 text-slate-200"}`}>{f.active ? "Ativo" : "Inativo"}</button>
+              <button onClick={() => setExcluir(f)} className="shrink-0 rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-1.5 text-xs font-black text-red-300 hover:bg-red-500/20">🗑️</button>
             </div>
           ))}
         </div>
       </Card>
+
+      {excluir && (
+        <ConfirmModal titulo="Excluir forma de pagamento?"
+          mensagem={`Deseja excluir "${excluir.nome}"? Esta ação não pode ser desfeita. (Dica: você pode apenas inativar.)`}
+          confirmar="Sim, excluir"
+          onConfirmar={() => { removerFormaPagamento(excluir.id); setExcluir(null); }}
+          onCancelar={() => setExcluir(null)} />
+      )}
     </main>
   );
 }
 
-function ProductAdmin({ products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct }) {
-  return <main className="grid gap-6 lg:grid-cols-[430px_1fr]"><Card className="lg:self-start"><h3 className="text-xl font-black text-white">Cadastro de produto</h3><div className="mt-5 space-y-3"><input value={adminForm.name} onChange={(e) => setAdminForm({ ...adminForm, name: e.target.value })} placeholder="Nome do produto" className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400" /><select value={adminForm.category} onChange={(e) => setAdminForm({ ...adminForm, category: e.target.value })} className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400">{categories.filter((c) => c !== "Todos").map((c) => <option key={c}>{c}</option>)}</select><div className="grid grid-cols-2 gap-3"><input value={adminForm.price} onChange={(e) => setAdminForm({ ...adminForm, price: e.target.value.replace(",", ".") })} placeholder="Preço venda" className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400" /><input value={adminForm.cost} onChange={(e) => setAdminForm({ ...adminForm, cost: e.target.value.replace(",", ".") })} placeholder="Custo" className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400" /></div><input value={adminForm.time} onChange={(e) => setAdminForm({ ...adminForm, time: e.target.value })} placeholder="Tempo de preparo" className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400" /><input value={adminForm.imageUrl} onChange={(e) => setAdminForm({ ...adminForm, imageUrl: e.target.value })} placeholder="URL da imagem ilustrativa" className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400" /><input value={adminForm.ingredientsText} onChange={(e) => setAdminForm({ ...adminForm, ingredientsText: e.target.value })} placeholder="Ingredientes separados por vírgula" className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400" /><textarea value={adminForm.description} onChange={(e) => setAdminForm({ ...adminForm, description: e.target.value })} placeholder="Descrição do produto" rows={4} className="w-full resize-none rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400" /><button onClick={addProduct} className="w-full rounded-2xl bg-slate-100 px-5 py-4 text-sm font-black text-slate-950">Cadastrar produto</button></div></Card><Card><div className="mb-5 grid gap-3 sm:grid-cols-3"><Metric label="Produtos" value={products.length} /><Metric label="Ativos" value={products.filter((p) => p.active).length} /><Metric label="Inativos" value={products.filter((p) => !p.active).length} /></div><div className="space-y-3">{products.map((p) => { const margin = p.price > 0 ? ((p.price - p.cost) / p.price) * 100 : 0; return <div key={p.id} className="grid gap-3 rounded-3xl border border-white/10 bg-slate-950/40 p-4 text-sm text-slate-200 md:grid-cols-[1fr_120px_120px_90px_90px] md:items-center"><div className="flex items-center gap-3"><img src={p.imageUrl || fallbackImage} alt={p.name} className="h-14 w-14 rounded-2xl object-cover" /><div><p className="font-black text-white">{p.name}</p><p className="text-xs text-slate-400">{p.category}</p></div></div><input value={p.price} onChange={(e) => updateProductPrice(p.id, e.target.value)} className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-white outline-none" /><span>{formatCurrency(p.cost)}</span><span className="font-black text-emerald-200">{margin.toFixed(1)}%</span><button onClick={() => toggleProduct(p.id)} className={`rounded-full px-3 py-2 text-xs font-black ${p.active ? "bg-emerald-500 text-white" : "bg-slate-700 text-slate-200"}`}>{p.active ? "Ativo" : "Inativo"}</button></div>; })}</div></Card></main>;
+// Modal de confirmação reutilizável (exclusões)
+function ConfirmModal({ titulo, mensagem, confirmar, onConfirmar, onCancelar, perigo = true }) {
+  return (
+    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onCancelar}>
+      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm rounded-[2rem] border border-white/10 bg-slate-900 p-6 shadow-2xl">
+        <div className="text-center">
+          <span className="text-4xl">{perigo ? "⚠️" : "❓"}</span>
+          <h2 className="mt-3 text-lg font-black text-white">{titulo}</h2>
+          <p className="mt-2 text-sm text-slate-400">{mensagem}</p>
+        </div>
+        <div className="mt-6 grid grid-cols-2 gap-3">
+          <button onClick={onCancelar} className="rounded-2xl border border-white/10 bg-white/[0.06] py-3 text-sm font-black text-slate-300 hover:bg-white/10">Cancelar</button>
+          <button onClick={onConfirmar} className={`rounded-2xl py-3 text-sm font-black text-white ${perigo ? "bg-red-500 hover:bg-red-400" : "bg-blue-500 hover:bg-blue-400"}`}>{confirmar}</button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
-function UserAdmin({ users, userForm, setUserForm, addUser, toggleUserStatus }) {
-  return <main className="grid gap-6 lg:grid-cols-[430px_1fr]"><Card className="lg:self-start"><h3 className="text-xl font-black text-white">Cadastro de usuário</h3><div className="mt-5 space-y-3"><input value={userForm.name} onChange={(e) => setUserForm({ ...userForm, name: e.target.value })} placeholder="Nome do usuário" className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none" /><input value={userForm.email} onChange={(e) => setUserForm({ ...userForm, email: e.target.value })} placeholder="E-mail de acesso" className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none" /><input value={userForm.password} onChange={(e) => setUserForm({ ...userForm, password: e.target.value })} placeholder="Senha" className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none" /><input value={userForm.role} onChange={(e) => setUserForm({ ...userForm, role: e.target.value })} placeholder="Perfil / cargo" className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none" /><button onClick={addUser} className="w-full rounded-2xl bg-blue-500 px-5 py-4 text-sm font-black text-white">Cadastrar usuário</button></div></Card><Card><h3 className="text-xl font-black text-white">Usuários cadastrados</h3><div className="mt-5 space-y-3">{users.map((u) => <div key={u.id} className="grid gap-3 rounded-3xl border border-white/10 bg-slate-950/40 p-4 md:grid-cols-[1fr_160px_100px]"><div><p className="font-black text-white">{u.name}</p><p className="text-sm text-slate-400">{u.email} • {u.role}</p><p className="mt-1 text-xs text-blue-200">Acessos: {u.accessIds.length}</p></div><span className={`h-fit rounded-full px-3 py-2 text-center text-xs font-black ${u.active ? "bg-emerald-500 text-white" : "bg-slate-700 text-slate-200"}`}>{u.active ? "Ativo" : "Inativo"}</span><button onClick={() => toggleUserStatus(u.id)} className="rounded-2xl border border-white/10 bg-white/[0.08] px-3 py-2 text-xs font-black text-white">Alterar</button></div>)}</div></Card></main>;
+function ProductAdmin({ products, categories, adminForm, setAdminForm, addProduct, toggleProduct, editarProduto, removerProduto }) {
+  const [editando, setEditando] = useState(null); // produto em edição
+  const [excluir, setExcluir]   = useState(null); // produto a excluir
+  const cats = categories.filter((c) => c !== "Todos");
+  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400";
+
+  return (
+    <main className="grid gap-6 lg:grid-cols-[420px_1fr]">
+      {/* Cadastro */}
+      <Card className="lg:self-start">
+        <h3 className="text-xl font-black text-white">Cadastrar produto</h3>
+        <div className="mt-5 space-y-3">
+          <input value={adminForm.name} onChange={(e) => setAdminForm({ ...adminForm, name: e.target.value })} placeholder="Nome do produto" className={inp} />
+          <select value={adminForm.category} onChange={(e) => setAdminForm({ ...adminForm, category: e.target.value })} className={inp}>{cats.map((c) => <option key={c}>{c}</option>)}</select>
+          <div className="grid grid-cols-2 gap-3">
+            <input value={adminForm.price} onChange={(e) => setAdminForm({ ...adminForm, price: e.target.value.replace(",", ".") })} placeholder="Preço venda" className={inp} />
+            <input value={adminForm.cost} onChange={(e) => setAdminForm({ ...adminForm, cost: e.target.value.replace(",", ".") })} placeholder="Custo" className={inp} />
+          </div>
+          <input value={adminForm.time} onChange={(e) => setAdminForm({ ...adminForm, time: e.target.value })} placeholder="Tempo de preparo" className={inp} />
+          <input value={adminForm.imageUrl} onChange={(e) => setAdminForm({ ...adminForm, imageUrl: e.target.value })} placeholder="URL da imagem" className={inp} />
+          <input value={adminForm.ingredientsText} onChange={(e) => setAdminForm({ ...adminForm, ingredientsText: e.target.value })} placeholder="Ingredientes (separados por vírgula)" className={inp} />
+          <textarea value={adminForm.description} onChange={(e) => setAdminForm({ ...adminForm, description: e.target.value })} placeholder="Descrição" rows={3} className={`${inp} resize-none`} />
+          <button onClick={addProduct} className="w-full rounded-2xl bg-blue-500 px-5 py-4 text-sm font-black text-white hover:bg-blue-400">+ Cadastrar produto</button>
+        </div>
+      </Card>
+
+      {/* Lista */}
+      <Card>
+        <div className="mb-5 grid gap-3 sm:grid-cols-3">
+          <Metric label="Produtos" value={products.length} />
+          <Metric label="Ativos" value={products.filter((p) => p.active).length} />
+          <Metric label="Inativos" value={products.filter((p) => !p.active).length} />
+        </div>
+        <div className="space-y-2">
+          {products.map((p) => {
+            const margin = p.price > 0 ? ((p.price - p.cost) / p.price) * 100 : 0;
+            return (
+              <div key={p.id} className="flex items-center gap-3 rounded-3xl border border-white/10 bg-slate-950/40 p-3">
+                <img src={p.imageUrl || fallbackImage} alt={p.name} className="h-14 w-14 shrink-0 rounded-2xl object-cover" />
+                <div className="min-w-0 flex-1">
+                  <p className="font-black text-white truncate">{p.name}</p>
+                  <p className="text-xs text-slate-400">{p.category} • {formatCurrency(p.price)} • margem {margin.toFixed(0)}% • estoque {p.estoque ?? 0}</p>
+                </div>
+                <button onClick={() => toggleProduct(p.id)} className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-black ${p.active ? "bg-emerald-500 text-white" : "bg-slate-700 text-slate-200"}`}>{p.active ? "Ativo" : "Inativo"}</button>
+                <button onClick={() => setEditando(p)} title="Editar" className="shrink-0 rounded-xl border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs font-black text-blue-300 hover:bg-white/10">✏️</button>
+                <button onClick={() => setExcluir(p)} title="Excluir" className="shrink-0 rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-1.5 text-xs font-black text-red-300 hover:bg-red-500/20">🗑️</button>
+              </div>
+            );
+          })}
+        </div>
+      </Card>
+
+      {/* Modal de edição */}
+      {editando && <ProdutoEditModal produto={editando} cats={cats} onSalvar={(d) => { editarProduto(editando.id, d); setEditando(null); }} onFechar={() => setEditando(null)} />}
+
+      {/* Confirmação de exclusão */}
+      {excluir && (
+        <ConfirmModal titulo="Excluir produto?"
+          mensagem={`Tem certeza que deseja excluir "${excluir.name}"? Esta ação não pode ser desfeita. (Dica: você pode apenas inativar.)`}
+          confirmar="Sim, excluir"
+          onConfirmar={() => { removerProduto(excluir.id); setExcluir(null); }}
+          onCancelar={() => setExcluir(null)} />
+      )}
+    </main>
+  );
+}
+
+function ProdutoEditModal({ produto, cats, onSalvar, onFechar }) {
+  const [f, setF] = useState({
+    name: produto.name, category: produto.category, price: produto.price, cost: produto.cost,
+    time: produto.time || "", imageUrl: produto.imageUrl || "", description: produto.description || "",
+    ingredients: (produto.ingredients || []).join(", "), estoque: produto.estoque ?? 0,
+  });
+  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400";
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onFechar}>
+      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-md flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl max-h-[92vh]">
+        <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+          <h2 className="text-lg font-black text-white">✏️ Editar produto</h2>
+          <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20">✕</button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
+          <input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="Nome" className={inp} />
+          <select value={f.category} onChange={(e) => setF({ ...f, category: e.target.value })} className={inp}>{cats.map((c) => <option key={c}>{c}</option>)}</select>
+          <div className="grid grid-cols-2 gap-3">
+            <input value={f.price} onChange={(e) => setF({ ...f, price: e.target.value.replace(",", ".") })} placeholder="Preço" className={inp} />
+            <input value={f.cost} onChange={(e) => setF({ ...f, cost: e.target.value.replace(",", ".") })} placeholder="Custo" className={inp} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <input value={f.time} onChange={(e) => setF({ ...f, time: e.target.value })} placeholder="Tempo preparo" className={inp} />
+            <input value={f.estoque} onChange={(e) => setF({ ...f, estoque: e.target.value.replace(/\D/g, "") })} placeholder="Estoque" className={inp} />
+          </div>
+          <input value={f.imageUrl} onChange={(e) => setF({ ...f, imageUrl: e.target.value })} placeholder="URL imagem" className={inp} />
+          <input value={f.ingredients} onChange={(e) => setF({ ...f, ingredients: e.target.value })} placeholder="Ingredientes (vírgula)" className={inp} />
+          <textarea value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} placeholder="Descrição" rows={3} className={`${inp} resize-none`} />
+        </div>
+        <div className="shrink-0 border-t border-white/10 px-6 py-4">
+          <button onClick={() => onSalvar({ ...f, ingredients: f.ingredients.split(",").map((s) => s.trim()).filter(Boolean) })}
+            className="w-full rounded-2xl bg-emerald-500 py-4 text-sm font-black text-white hover:bg-emerald-400">💾 Salvar alterações</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function UserAdmin({ users, userForm, setUserForm, addUser, toggleUserStatus, editarUsuario, removerUsuario }) {
+  const [editando, setEditando] = useState(null);
+  const [excluir, setExcluir]   = useState(null);
+  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400";
+  return (
+    <main className="grid gap-6 lg:grid-cols-[420px_1fr]">
+      <Card className="lg:self-start">
+        <h3 className="text-xl font-black text-white">Cadastrar usuário</h3>
+        <div className="mt-5 space-y-3">
+          <input value={userForm.name} onChange={(e) => setUserForm({ ...userForm, name: e.target.value })} placeholder="Nome do usuário" className={inp} />
+          <input value={userForm.email} onChange={(e) => setUserForm({ ...userForm, email: e.target.value })} placeholder="E-mail de acesso" className={inp} />
+          <input value={userForm.password} onChange={(e) => setUserForm({ ...userForm, password: e.target.value })} placeholder="Senha" className={inp} />
+          <input value={userForm.role} onChange={(e) => setUserForm({ ...userForm, role: e.target.value })} placeholder="Perfil / cargo" className={inp} />
+          <button onClick={addUser} className="w-full rounded-2xl bg-blue-500 px-5 py-4 text-sm font-black text-white hover:bg-blue-400">+ Cadastrar usuário</button>
+        </div>
+      </Card>
+      <Card>
+        <h3 className="text-xl font-black text-white">Usuários cadastrados</h3>
+        <div className="mt-5 space-y-2">
+          {users.map((u) => (
+            <div key={u.id} className="flex items-center gap-3 rounded-3xl border border-white/10 bg-slate-950/40 p-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-500/15 text-lg">👤</div>
+              <div className="min-w-0 flex-1">
+                <p className="font-black text-white truncate">{u.name}</p>
+                <p className="text-xs text-slate-400 truncate">{u.email} • {u.role} • {u.accessIds.length} acesso(s)</p>
+              </div>
+              <button onClick={() => toggleUserStatus(u.id)} className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-black ${u.active ? "bg-emerald-500 text-white" : "bg-slate-700 text-slate-200"}`}>{u.active ? "Ativo" : "Inativo"}</button>
+              <button onClick={() => setEditando(u)} className="shrink-0 rounded-xl border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs font-black text-blue-300 hover:bg-white/10">✏️</button>
+              <button onClick={() => setExcluir(u)} className="shrink-0 rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-1.5 text-xs font-black text-red-300 hover:bg-red-500/20">🗑️</button>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      {editando && <UsuarioEditModal usuario={editando} onSalvar={(d) => { editarUsuario(editando.id, d); setEditando(null); }} onFechar={() => setEditando(null)} />}
+      {excluir && (
+        <ConfirmModal titulo="Excluir usuário?"
+          mensagem={`Deseja excluir o usuário "${excluir.name}" (${excluir.email})? Esta ação não pode ser desfeita.`}
+          confirmar="Sim, excluir"
+          onConfirmar={() => { removerUsuario(excluir.id); setExcluir(null); }}
+          onCancelar={() => setExcluir(null)} />
+      )}
+    </main>
+  );
+}
+
+function UsuarioEditModal({ usuario, onSalvar, onFechar }) {
+  const [f, setF] = useState({ name: usuario.name, email: usuario.email, password: usuario.password, role: usuario.role });
+  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400";
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onFechar}>
+      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl">
+        <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+          <h2 className="text-lg font-black text-white">✏️ Editar usuário</h2>
+          <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20">✕</button>
+        </div>
+        <div className="px-6 py-4 space-y-3">
+          <input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="Nome" className={inp} />
+          <input value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} placeholder="E-mail" className={inp} />
+          <input value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} placeholder="Senha" className={inp} />
+          <input value={f.role} onChange={(e) => setF({ ...f, role: e.target.value })} placeholder="Perfil / cargo" className={inp} />
+          <button onClick={() => onSalvar(f)} className="w-full rounded-2xl bg-emerald-500 py-4 text-sm font-black text-white hover:bg-emerald-400">💾 Salvar alterações</button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function AccessAdmin({ accesses, accessForm, setAccessForm, addAccess, toggleAccessStatus }) {
