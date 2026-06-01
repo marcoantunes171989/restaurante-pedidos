@@ -2184,6 +2184,7 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
   const [comprovante, setComprovante] = useState(null);          // comprovante fiscal pós-pagamento
   const [modoItens, setModoItens] = useState(false);             // seleção parcial por item
   const [selecao, setSelecao] = useState({});                    // { "orderId::idx": { incluir, dividir } }
+  const [pagamentosFeitos, setPagamentosFeitos] = useState([]);  // pagamentos parciais acumulados
 
   // Pedidos NÃO PAGOS das comandas lidas (entregue ou não, o que importa é o pagamento)
   const pedidos = orders.filter((o) => comandasLidas.includes(o.command) && o.paymentStatus !== "paid" && o.status !== "cancelled");
@@ -2223,9 +2224,17 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
     }
   }));
   const taxa = subtotal * 0.1;
-  const total = subtotal + taxa;
-  const porPessoa = total / Math.max(1, pessoas);
+  const totalSelecao = subtotal + taxa;          // total da seleção atual
   const mesas = [...new Set(pedidos.map((o) => o.table))];
+
+  // ── Total geral das comandas e acúmulo de pagamentos ──
+  const totalGeral = pedidos.reduce((s, o) => s + orderTotal(o), 0) * 1.1; // todos os itens + taxa
+  const jaPago = pagamentosFeitos.reduce((s, p) => s + p.valor, 0);
+  const restanteGeral = Math.max(0, totalGeral - jaPago);
+  // Quanto será cobrado AGORA: seleção (parcial) ou todo o restante (conta inteira)
+  const aPagar = modoItens ? Math.min(totalSelecao, restanteGeral) : restanteGeral;
+  const total = aPagar;                          // o modal de pagamento cobra este valor
+  const porPessoa = total / Math.max(1, pessoas);
 
   // Pedidos totalmente cobertos nesta seleção (todos os itens incluídos e sem divisão) → baixa
   const pedidosCobertos = pedidos.filter((o) => o.items.every((it, idx) => {
@@ -2251,6 +2260,7 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
   }
   function removerComanda(cmd) {
     setComandasLidas((cur) => cur.filter((c) => c !== cmd));
+    setPagamentosFeitos([]); // ao alterar as comandas, zera os pagamentos parciais
   }
   // Carrega todas as comandas de uma mesa solicitante de uma vez
   function carregarMesa(comandasDaMesa) {
@@ -2342,26 +2352,34 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
 
   // Chamado pelo modal de pagamento ao confirmar
   function confirmarPagamento({ detalhes, troco }) {
-    const info = { mesa: mesas.join(", "), total, troco, detalhes, comandas: [...comandasLidas] };
-    // Comprovante (com os itens efetivamente pagos agora)
-    const itensComprovante = itensPagosAgora.map((i) => ({ name: i.dividir > 1 ? `${i.name} (1/${i.dividir})` : i.name, quantity: i.quantity, valor: i.valor }));
-    setComprovante({
-      ...info, subtotal, taxa,
-      itensLivres: itensComprovante, // lista plana usada no comprovante
-    });
+    const valorPago = aPagar; // valor cobrado neste pagamento
+    const novosPagamentos = [...pagamentosFeitos, { valor: valorPago, troco, detalhes, hora: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) }];
+    const totalPagoAgora = jaPago + valorPago;
+    const quitado = totalPagoAgora >= totalGeral - 0.01;
 
-    if (modoItens) {
-      // Pagamento parcial: baixa apenas os pedidos totalmente cobertos
-      baixarPedidos(pedidosCobertos, info);
-    } else {
-      // Conta cheia: baixa todas as comandas
-      baixarComandas(comandasLidas, info);
-    }
     setPagamentoAberto(false);
-    setComandasLidas([]);
     setPessoas(1);
     setModoItens(false);
     setSelecao({});
+
+    if (quitado) {
+      // QUITADO → baixa todas as comandas + comprovante fiscal final (com todos os pagamentos)
+      const detalhesTodos = novosPagamentos.flatMap((p) => p.detalhes);
+      const trocoTotal = novosPagamentos.reduce((s, p) => s + (p.troco || 0), 0);
+      const info = { mesa: mesas.join(", "), total: totalGeral, troco: trocoTotal, detalhes: detalhesTodos, comandas: [...comandasLidas] };
+      baixarComandas(comandasLidas, info);
+      setComprovante({
+        ...info,
+        subtotal: totalGeral / 1.1, taxa: totalGeral - totalGeral / 1.1,
+        blocos: porComanda.filter((b) => b.pedidos.length > 0),
+        parciais: novosPagamentos,
+      });
+      setPagamentosFeitos([]);
+      setComandasLidas([]);
+    } else {
+      // PARCIAL → mantém a comanda em tela, acumula o pago, aguarda o restante
+      setPagamentosFeitos(novosPagamentos);
+    }
   }
 
   return (
@@ -2492,16 +2510,45 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
           </div>
 
           <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-            {/* Totais */}
+            {/* Totais da mesa */}
             <div className="rounded-3xl bg-white p-5 text-slate-900 shadow-xl">
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between"><span>Mesa(s)</span><strong>{mesas.join(", ") || "-"}</strong></div>
-                <div className="flex justify-between"><span>Subtotal</span><strong>{formatCurrency(subtotal)}</strong></div>
-                <div className="flex justify-between"><span>Taxa 10%</span><strong>{formatCurrency(taxa)}</strong></div>
+                <div className="flex justify-between"><span>Total da conta</span><strong>{formatCurrency(totalGeral)}</strong></div>
+                {jaPago > 0 && <div className="flex justify-between text-emerald-600"><span>Já pago</span><strong>− {formatCurrency(jaPago)}</strong></div>}
                 <div className="h-px bg-slate-200" />
-                <div className="flex justify-between text-xl"><span className="font-black">Total</span><strong>{formatCurrency(total)}</strong></div>
+                <div className="flex justify-between text-xl"><span className="font-black">{jaPago > 0 ? "Restante" : "Total"}</span><strong className={jaPago > 0 ? "text-amber-600" : ""}>{formatCurrency(restanteGeral)}</strong></div>
               </div>
             </div>
+
+            {/* Histórico de pagamentos parciais */}
+            {pagamentosFeitos.length > 0 && (
+              <div className="rounded-3xl border border-emerald-400/20 bg-emerald-500/5 p-4">
+                <p className="mb-2 text-xs font-black uppercase tracking-widest text-emerald-300">✅ Pagamentos realizados ({pagamentosFeitos.length})</p>
+                <div className="space-y-2">
+                  {pagamentosFeitos.map((p, i) => (
+                    <div key={i} className="rounded-2xl bg-slate-900/60 px-3 py-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-slate-400">{p.hora} • {p.detalhes.map((d) => d.forma).join(", ")}</span>
+                        <span className="text-sm font-black text-emerald-300">{formatCurrency(p.valor)}</span>
+                      </div>
+                      {p.troco > 0 && <p className="text-xs text-slate-500">troco {formatCurrency(p.troco)}</p>}
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-2 flex justify-between border-t border-white/10 pt-2 text-sm">
+                  <span className="font-black text-white">Falta pagar</span>
+                  <span className="font-black text-amber-400">{formatCurrency(restanteGeral)}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Valor desta cobrança (quando parcial selecionado) */}
+            {modoItens && aPagar > 0 && aPagar < restanteGeral - 0.01 && (
+              <div className="rounded-2xl border border-blue-400/30 bg-blue-500/10 p-3 text-sm">
+                <div className="flex justify-between"><span className="text-blue-200">Cobrar agora (seleção)</span><span className="font-black text-blue-200">{formatCurrency(aPagar)}</span></div>
+              </div>
+            )}
 
             {/* Divisão da conta */}
             <div className="rounded-3xl border border-white/10 bg-slate-800/50 p-4">
@@ -2537,11 +2584,15 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
                 ⚠ {pendentesPreparo.length} pedido(s) ainda em preparo. O pagamento só é liberado após todos finalizados e entregues.
               </div>
             )}
-            {/* Passo 2 — pagamento + baixa (abre modal de pagamento) */}
-            <button onClick={() => setPagamentoAberto(true)} disabled={!podePagar}
+            {/* Passo 2 — pagamento (parcial ou total) */}
+            <button onClick={() => setPagamentoAberto(true)} disabled={!podePagar || aPagar <= 0}
               title={!podePagar ? "Aguarde todos os pedidos serem finalizados/entregues" : ""}
               className="w-full rounded-2xl bg-violet-500 py-4 text-sm font-black text-white hover:bg-violet-400 transition active:scale-95 shadow-lg shadow-violet-950/30 disabled:opacity-40 disabled:cursor-not-allowed">
-              💰 Finalizar pagamento e dar baixa
+              {jaPago > 0
+                ? `💰 Pagar ${formatCurrency(aPagar)} (resta ${formatCurrency(restanteGeral)})`
+                : modoItens && aPagar < restanteGeral - 0.01
+                ? `💰 Pagar seleção ${formatCurrency(aPagar)}`
+                : "💰 Finalizar pagamento e dar baixa"}
             </button>
           </div>
         </aside>
