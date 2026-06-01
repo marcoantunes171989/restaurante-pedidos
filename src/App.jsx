@@ -52,6 +52,7 @@ const statusMap = {
   preparing: { label: "Em preparação",title: "Em preparação",      order: 2, progress: 65,  dot: "bg-amber-500",  chip: "bg-amber-50 text-amber-700 border-amber-100"  },
   ready:     { label: "Finalizado",   title: "Pedido finalizado",  order: 3, progress: 100, dot: "bg-emerald-500",chip: "bg-emerald-50 text-emerald-700 border-emerald-100"},
   delivered: { label: "Entregue",     title: "Pedido entregue",    order: 4, progress: 100, dot: "bg-slate-500",  chip: "bg-slate-100 text-slate-600 border-slate-200" },
+  cancelled: { label: "Cancelado",    title: "Pedido cancelado",   order: 5, progress: 0,   dot: "bg-red-500",    chip: "bg-red-50 text-red-700 border-red-100" },
 };
 
 const paymentStatusMap = { open: "Conta aberta", requested: "Fechamento solicitado", paid: "Conta paga" };
@@ -494,7 +495,7 @@ export default function RestaurantePedidoApp() {
   const currentTableTotal = currentTableSubtotal + currentTableSubtotal * 0.1;
 
   // Pedidos ativos = excluindo os já entregues (apenas para exibição na cozinha/painel)
-  const activeOrders = orders.filter((o) => o.status !== "delivered");
+  const activeOrders = orders.filter((o) => o.status !== "delivered" && o.status !== "cancelled");
 
   const sortedOrders = [...activeOrders].sort((a, b) => {
     const diff = (statusMap[a.status]?.order ?? 9) - (statusMap[b.status]?.order ?? 9);
@@ -650,6 +651,17 @@ export default function RestaurantePedidoApp() {
       try { await atualizarPedido(oid, { status: "entregue" }); }
       catch (err) { console.error("Erro ao marcar como entregue:", err); }
     }
+  }
+
+  // Cancela um pedido com justificativa (ex.: DESISTÊNCIA)
+  async function cancelarPedido(oid, motivo) {
+    if (!canAccess(currentUser, "kitchen")) return notify("error", "Usuário sem permissão.");
+    setOrders((cur) => cur.map((o) => o.id === oid ? { ...o, status: "cancelled", cancelReason: motivo } : o));
+    if (dbReady) {
+      try { await atualizarPedido(oid, { status: "cancelado", motivo_cancelamento: motivo }); }
+      catch (err) { console.error("Erro ao cancelar pedido:", err); }
+    }
+    notify("success", `Pedido cancelado (${motivo}).`);
   }
 
   async function requestBill() {
@@ -940,7 +952,7 @@ export default function RestaurantePedidoApp() {
         )}
 
         {activeTab === "kitchen" && canAccess(currentUser, "kitchen") && (
-          <KitchenView groupedOrders={groupedOrders} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} onSair={logout} currentUser={currentUser} />
+          <KitchenView groupedOrders={groupedOrders} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} cancelarPedido={cancelarPedido} onSair={logout} currentUser={currentUser} />
         )}
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} />}
         {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierView orders={orders} baixarComandas={baixarComandas} formasPagamento={formasPagamento} onSair={logout} />}
@@ -1544,7 +1556,8 @@ const kitchenCols = [
   { key: "ready",     label: "Finalizado", sub: "Pronto p/ retirada",dot: "bg-emerald-400", header: "border-emerald-500/40 bg-emerald-500/10", card: "border-emerald-500/20" },
 ];
 
-function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, onSair, currentUser }) {
+function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, cancelarPedido, onSair, currentUser }) {
+  const [cancelando, setCancelando] = useState(null); // pedido a cancelar
   const [hora, setHora] = useState(() =>
     new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
   );
@@ -1721,6 +1734,15 @@ function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, onSair,
                           🛎️ Marcar como Entregue
                         </button>
                       )}
+
+                      {/* Cancelar — disponível enquanto não entregue */}
+                      {order.status !== "delivered" && (
+                        <button
+                          onClick={() => setCancelando(order)}
+                          className="w-full rounded-2xl border border-red-400/30 bg-red-500/10 py-2.5 text-xs font-black text-red-300 hover:bg-red-500/20 transition">
+                          ✕ Cancelar pedido
+                        </button>
+                      )}
                     </div>
                   </article>
                 ))}
@@ -1730,12 +1752,63 @@ function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, onSair,
         })}
       </div>
 
+      {/* Modal de cancelamento com justificativa */}
+      {cancelando && (
+        <CancelarModal
+          pedido={cancelando}
+          onConfirmar={(motivo) => { cancelarPedido(cancelando.id, motivo); setCancelando(null); }}
+          onFechar={() => setCancelando(null)}
+        />
+      )}
+
       {/* ── Rodapé ────────────────────────────────────────────── */}
       <footer className="shrink-0 flex items-center justify-between border-t border-white/10 bg-slate-900/60 px-6 py-2 backdrop-blur">
         <span className="text-xs text-slate-500">⚡ Atualização em tempo real via Supabase</span>
         <span className="text-xs text-slate-500">Pedidos salvos automaticamente no banco de dados</span>
         <span className="text-xs text-slate-500">Sistema Restaurante — Cozinha</span>
       </footer>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+//  Modal de cancelamento com justificativa
+// ════════════════════════════════════════════════════════════
+function CancelarModal({ pedido, onConfirmar, onFechar }) {
+  const motivos = ["DESISTÊNCIA", "Erro no pedido", "Item indisponível", "Demora no preparo", "Solicitação do cliente", "Outro"];
+  const [motivo, setMotivo] = useState("DESISTÊNCIA");
+  const [obs, setObs] = useState("");
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onFechar}>
+      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl">
+        <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+          <div>
+            <h2 className="text-lg font-black text-white">✕ Cancelar pedido</h2>
+            <p className="text-xs text-slate-400">{pedido.id} • {pedido.table} • {pedido.command}</p>
+          </div>
+          <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20">✕</button>
+        </div>
+        <div className="px-6 py-4 space-y-3">
+          <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Justificativa do cancelamento</p>
+          <div className="grid grid-cols-2 gap-2">
+            {motivos.map((m) => (
+              <button key={m} onClick={() => setMotivo(m)}
+                className={`rounded-2xl border px-3 py-2.5 text-xs font-black transition ${motivo === m ? "border-red-400 bg-red-500 text-white" : "border-white/10 bg-white/[0.06] text-slate-300 hover:bg-white/10"}`}>
+                {m}
+              </button>
+            ))}
+          </div>
+          {motivo === "Outro" && (
+            <input value={obs} onChange={(e) => setObs(e.target.value)} placeholder="Descreva o motivo..."
+              className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-red-400" />
+          )}
+          <button
+            onClick={() => onConfirmar(motivo === "Outro" ? (obs.trim() || "Outro") : motivo)}
+            className="mt-1 w-full rounded-2xl bg-red-500 py-4 text-sm font-black text-white hover:bg-red-400 transition active:scale-95">
+            Confirmar cancelamento
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -1998,7 +2071,10 @@ function CashierView({ orders, baixarComandas, formasPagamento = [], onSair }) {
   const [cupomAberto, setCupomAberto] = useState(false);         // modal do cupom
 
   // Pedidos NÃO PAGOS das comandas lidas (entregue ou não, o que importa é o pagamento)
-  const pedidos = orders.filter((o) => comandasLidas.includes(o.command) && o.paymentStatus !== "paid");
+  const pedidos = orders.filter((o) => comandasLidas.includes(o.command) && o.paymentStatus !== "paid" && o.status !== "cancelled");
+  // Pagamento só é permitido quando todos os pedidos estão finalizados/entregues
+  const pendentesPreparo = pedidos.filter((o) => o.status === "received" || o.status === "preparing");
+  const podePagar = pedidos.length > 0 && pendentesPreparo.length === 0;
 
   // Agrupa por comanda
   const porComanda = comandasLidas.map((cmd) => {
@@ -2269,8 +2345,15 @@ function CashierView({ orders, baixarComandas, formasPagamento = [], onSair }) {
               className="w-full rounded-2xl bg-blue-500 py-4 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95 shadow-lg shadow-blue-950/30 disabled:opacity-40 disabled:cursor-not-allowed">
               🖨️ Imprimir cupom não fiscal
             </button>
+            {/* Aviso: há pedidos não finalizados */}
+            {pedidos.length > 0 && !podePagar && (
+              <div className="rounded-2xl border border-amber-400/30 bg-amber-500/10 p-3 text-xs font-semibold text-amber-200">
+                ⚠ {pendentesPreparo.length} pedido(s) ainda em preparo. O pagamento só é liberado após todos finalizados e entregues.
+              </div>
+            )}
             {/* Passo 2 — pagamento + baixa (abre modal de pagamento) */}
-            <button onClick={() => setPagamentoAberto(true)} disabled={pedidos.length === 0}
+            <button onClick={() => setPagamentoAberto(true)} disabled={!podePagar}
+              title={!podePagar ? "Aguarde todos os pedidos serem finalizados/entregues" : ""}
               className="w-full rounded-2xl bg-violet-500 py-4 text-sm font-black text-white hover:bg-violet-400 transition active:scale-95 shadow-lg shadow-violet-950/30 disabled:opacity-40 disabled:cursor-not-allowed">
               💰 Finalizar pagamento e dar baixa
             </button>

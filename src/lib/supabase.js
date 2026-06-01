@@ -270,6 +270,7 @@ function dbParaPedido(r) {
     createdAtISO:  r.criado_em,          // timestamp completo (filtros/relatórios)
     updatedAtISO:  r.atualizado_em,      // usado como momento do pagamento (permanência)
     items:         r.itens ?? [],
+    cancelReason:  r.motivo_cancelamento ?? null,
   }
 }
 
@@ -341,7 +342,7 @@ function pedidoParaDb(p) {
 // ════════════════════════════════════════════════════════════
 //  Conversores de status
 // ════════════════════════════════════════════════════════════
-export const STATUS_APP_PARA_DB = { received: 'recebido', preparing: 'preparando', ready: 'finalizado', delivered: 'entregue' }
-export const STATUS_DB_PARA_APP = { recebido: 'received', preparando: 'preparing', finalizado: 'ready', entregue: 'delivered' }
+export const STATUS_APP_PARA_DB = { received: 'recebido', preparing: 'preparando', ready: 'finalizado', delivered: 'entregue', cancelled: 'cancelado' }
+export const STATUS_DB_PARA_APP = { recebido: 'received', preparando: 'preparing', finalizado: 'ready', entregue: 'delivered', cancelado: 'cancelled' }
 export const PAGT_APP_PARA_DB   = { open: 'aberto', requested: 'solicitado', paid: 'pago' }
 export const PAGT_DB_PARA_APP   = { aberto: 'open', solicitado: 'requested', pago: 'paid' }
