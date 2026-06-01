@@ -4,6 +4,8 @@ import {
   fetchUsuarios,  inserirUsuario,  atualizarUsuario,  escutarUsuarios,
   fetchAcessos,   inserirAcesso,   atualizarAcesso,   escutarAcessos,
   fetchPedidos,   inserirPedido,   atualizarPedido,   escutarPedidos,
+  fetchFormasPagamento, inserirFormaPagamento, atualizarFormaPagamento, escutarFormasPagamento,
+  baixarEstoque, registrarPagamento,
   STATUS_APP_PARA_DB,
 } from "./lib/supabase";
 import { GeradorComandas } from "./components/QRComandas";
@@ -407,6 +409,7 @@ export default function RestaurantePedidoApp() {
   const [activeTab, setActiveTab] = useState("tablet");
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
+  const [formasPagamento, setFormasPagamento] = useState([]);
   const [dbReady, setDbReady] = useState(false);
   const [loading, setLoading]     = useState(true);
   const [scannerAberto, setScannerAberto] = useState(false);
@@ -426,6 +429,8 @@ export default function RestaurantePedidoApp() {
         setUsers(usrs);
         setAccesses(accs);
         setOrders(ords);
+        // Formas de pagamento (tabela pode não existir ainda — não bloqueia)
+        try { setFormasPagamento(await fetchFormasPagamento()); } catch { /* migration 006 pendente */ }
         setDbReady(true);
         setLoading(false);
 
@@ -436,6 +441,7 @@ export default function RestaurantePedidoApp() {
           escutarAcessos(setAccesses),
           escutarPedidos(setOrders),
         ];
+        try { unsubs.push(escutarFormasPagamento(setFormasPagamento)); } catch {}
       } catch (err) {
         console.warn("Supabase indisponível — usando fallback local:", err.message);
         setProducts(initialProducts);
@@ -690,17 +696,40 @@ export default function RestaurantePedidoApp() {
   }
 
   // Baixa das comandas após pagamento: marca pedidos NÃO PAGOS como pago + entregue (libera comanda)
-  async function baixarComandas(comandas) {
+  // Baixa completa: pagamento + estoque + registro. info = { mesa, total, troco, detalhes }
+  async function baixarComandas(comandas, info = null) {
     if (!canAccess(currentUser, "cashier")) return notify("error", "Usuário sem permissão para finalizar pagamento.");
     const alvo = orders.filter((o) => comandas.includes(o.command) && o.paymentStatus !== "paid");
     if (alvo.length === 0) return notify("error", "Nenhum pedido em aberto para essas comandas.");
+    // Itens vendidos (para baixa de estoque)
+    const itensVendidos = alvo.flatMap((o) => o.items.map((it) => ({ name: it.name, quantity: it.quantity })));
     setOrders((cur) => cur.map((o) => (comandas.includes(o.command) && o.paymentStatus !== "paid") ? { ...o, paymentStatus: "paid", status: "delivered" } : o));
     if (dbReady) {
       try {
         await Promise.all(alvo.map((o) => atualizarPedido(o.id, { status_pagamento: "pago", status: "entregue" })));
-      } catch (err) { console.error("Erro ao baixar comandas:", err); }
+        await baixarEstoque(itensVendidos);            // baixa de estoque
+        if (info) await registrarPagamento({ ...info, comandas }); // histórico de pagamento
+      } catch (err) { console.error("Erro ao finalizar pagamento:", err); }
     }
-    notify("success", `✅ Pagamento finalizado! ${comandas.length} comanda(s) baixada(s) e liberada(s).`);
+    notify("success", `✅ Pagamento finalizado! ${comandas.length} comanda(s) baixada(s), estoque atualizado.`);
+  }
+
+  // ── Formas de pagamento (admin) ──────────────────────────────
+  async function addFormaPagamento(forma) {
+    if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
+    if (!forma.nome.trim()) return notify("error", "Informe o nome da forma de pagamento.");
+    try {
+      const nova = dbReady ? await inserirFormaPagamento(forma) : { ...forma, id: Date.now() };
+      setFormasPagamento((cur) => [...cur, nova]);
+      notify("success", "Forma de pagamento cadastrada.");
+    } catch (err) { notify("error", "Erro ao cadastrar: " + err.message); }
+  }
+  async function toggleFormaPagamento(id) {
+    if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
+    const f = formasPagamento.find((x) => x.id === id);
+    const active = !f?.active;
+    setFormasPagamento((cur) => cur.map((x) => x.id === id ? { ...x, active } : x));
+    if (dbReady) try { await atualizarFormaPagamento(id, { ativo: active }); } catch {}
   }
 
   async function addProduct() {
@@ -892,8 +921,8 @@ export default function RestaurantePedidoApp() {
           <KitchenView groupedOrders={groupedOrders} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} onSair={logout} currentUser={currentUser} />
         )}
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} />}
-        {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierView orders={orders} baixarComandas={baixarComandas} onSair={logout} />}
-        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} adminSection={adminSection} setAdminSection={setAdminSection} />}
+        {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierView orders={orders} baixarComandas={baixarComandas} formasPagamento={formasPagamento} onSair={logout} />}
+        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamento} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} />}
 
       </div>
     </div>
@@ -1905,10 +1934,12 @@ function PanelView({ groupedOrders }) {
   );
 }
 
-function CashierView({ orders, baixarComandas, onSair }) {
+function CashierView({ orders, baixarComandas, formasPagamento = [], onSair }) {
   const [comandasLidas, setComandasLidas] = useState([]); // comandas escaneadas
   const [pessoas, setPessoas]   = useState(1);            // divisão da conta
   const [scannerAberto, setScannerAberto] = useState(false);
+  const [pagamentoAberto, setPagamentoAberto] = useState(false); // modal de pagamento
+  const [cupomAberto, setCupomAberto] = useState(false);         // modal do cupom
 
   // Pedidos NÃO PAGOS das comandas lidas (entregue ou não, o que importa é o pagamento)
   const pedidos = orders.filter((o) => comandasLidas.includes(o.command) && o.paymentStatus !== "paid");
@@ -2034,9 +2065,15 @@ function CashierView({ orders, baixarComandas, onSair }) {
     janela.document.close();
   }
 
-  function finalizar() {
-    if (comandasLidas.length === 0) return;
-    baixarComandas(comandasLidas);
+  // Chamado pelo modal de pagamento ao confirmar
+  function confirmarPagamento({ detalhes, troco }) {
+    baixarComandas(comandasLidas, {
+      mesa: mesas.join(", "),
+      total,
+      troco,
+      detalhes,
+    });
+    setPagamentoAberto(false);
     setComandasLidas([]);
     setPessoas(1);
   }
@@ -2171,15 +2208,15 @@ function CashierView({ orders, baixarComandas, onSair }) {
               <span className="font-black text-slate-300">Passo 1:</span> imprima o cupom e leve à mesa para o garçom receber.
               <span className="font-black text-slate-300"> Passo 2:</span> após receber, dê baixa.
             </p>
-            {/* Passo 1 — imprimir cupom (ação principal) */}
-            <button onClick={imprimirCupom} disabled={pedidos.length === 0}
+            {/* Passo 1 — imprimir cupom (abre modal de cupom) */}
+            <button onClick={() => setCupomAberto(true)} disabled={pedidos.length === 0}
               className="w-full rounded-2xl bg-blue-500 py-4 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95 shadow-lg shadow-blue-950/30 disabled:opacity-40 disabled:cursor-not-allowed">
-              🖨️ Gerar e imprimir cupom não fiscal
+              🖨️ Imprimir cupom não fiscal
             </button>
-            {/* Passo 2 — baixa após receber pagamento */}
-            <button onClick={finalizar} disabled={pedidos.length === 0}
-              className="w-full rounded-2xl border border-violet-400/30 bg-violet-500/10 py-3 text-sm font-black text-violet-300 hover:bg-violet-500/20 transition disabled:opacity-30 disabled:cursor-not-allowed">
-              ✅ Confirmar recebimento e dar baixa
+            {/* Passo 2 — pagamento + baixa (abre modal de pagamento) */}
+            <button onClick={() => setPagamentoAberto(true)} disabled={pedidos.length === 0}
+              className="w-full rounded-2xl bg-violet-500 py-4 text-sm font-black text-white hover:bg-violet-400 transition active:scale-95 shadow-lg shadow-violet-950/30 disabled:opacity-40 disabled:cursor-not-allowed">
+              💰 Finalizar pagamento e dar baixa
             </button>
           </div>
         </aside>
@@ -2192,17 +2229,231 @@ function CashierView({ orders, baixarComandas, onSair }) {
           onCancelar={() => setScannerAberto(false)}
         />
       )}
+
+      {/* Modal de pagamento */}
+      {pagamentoAberto && (
+        <PagamentoModal
+          total={total} formasPagamento={formasPagamento.filter((f) => f.active !== false)}
+          onConfirmar={confirmarPagamento}
+          onCancelar={() => setPagamentoAberto(false)}
+        />
+      )}
+
+      {/* Modal do cupom */}
+      {cupomAberto && (
+        <CupomModal
+          blocos={porComanda.filter((b) => b.pedidos.length > 0)}
+          mesas={mesas} comandas={comandasLidas}
+          subtotal={subtotal} taxa={taxa} total={total} pessoas={pessoas} porPessoa={porPessoa}
+          imprimir={imprimirCupom}
+          onFechar={() => setCupomAberto(false)}
+        />
+      )}
     </div>
   );
 }
 
-function AdminView({ products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, toggleUserStatus, toggleAccessStatus, adminSection, setAdminSection }) {
+// ════════════════════════════════════════════════════════════
+//  Máscara de moeda BRL para inputs
+// ════════════════════════════════════════════════════════════
+function moedaParaNumero(str) {
+  const digits = String(str).replace(/\D/g, "");
+  return Number(digits) / 100;
+}
+function numeroParaMoeda(num) {
+  return Number(num || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+// ════════════════════════════════════════════════════════════
+//  Modal de pagamento — múltiplas formas, máscara BRL, troco só dinheiro
+// ════════════════════════════════════════════════════════════
+function PagamentoModal({ total, formasPagamento, onConfirmar, onCancelar }) {
+  const [linhas, setLinhas] = useState([]); // [{ formaId, nome, tipo, permiteTroco, valor }]
+
+  function addLinha(forma) {
+    setLinhas((cur) => [...cur, { formaId: forma.id, nome: forma.nome, tipo: forma.tipo, permiteTroco: forma.permiteTroco, valor: 0 }]);
+  }
+  function setValor(idx, str) {
+    const v = moedaParaNumero(str);
+    setLinhas((cur) => cur.map((l, i) => i === idx ? { ...l, valor: v } : l));
+  }
+  function removerLinha(idx) {
+    setLinhas((cur) => cur.filter((_, i) => i !== idx));
+  }
+
+  const pago = linhas.reduce((s, l) => s + l.valor, 0);
+  const pagoNaoDinheiro = linhas.filter((l) => !l.permiteTroco).reduce((s, l) => s + l.valor, 0);
+  const temDinheiro = linhas.some((l) => l.permiteTroco);
+  const restante = Math.max(0, total - pago);
+  const troco = Math.max(0, pago - total);
+  // Regras: não-dinheiro não pode passar do total; precisa cobrir o total; troco só com dinheiro
+  const excedeNaoDinheiro = pagoNaoDinheiro > total + 0.001;
+  const podeConfirmar = pago >= total - 0.001 && !excedeNaoDinheiro && (troco === 0 || temDinheiro) && linhas.length > 0;
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onCancelar}>
+      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-md flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl max-h-[92vh]">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+          <div>
+            <h2 className="text-lg font-black text-white">💰 Pagamento</h2>
+            <p className="text-xs text-slate-400">Total a pagar: <span className="font-black text-emerald-400">{formatCurrency(total)}</span></p>
+          </div>
+          <button onClick={onCancelar} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20">✕</button>
+        </div>
+
+        {/* Formas disponíveis */}
+        <div className="border-b border-white/10 px-6 py-3">
+          <p className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">Adicionar forma de pagamento</p>
+          <div className="flex flex-wrap gap-2">
+            {formasPagamento.length === 0 && <p className="text-xs text-slate-500">Nenhuma forma ativa. Cadastre no Administrativo → Formas de pagamento.</p>}
+            {formasPagamento.map((f) => (
+              <button key={f.id} onClick={() => addLinha(f)}
+                className="rounded-full border border-blue-400/30 bg-blue-500/10 px-3 py-1.5 text-sm font-bold text-blue-200 hover:bg-blue-500/20 transition">
+                + {f.nome}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Linhas de pagamento */}
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
+          {linhas.length === 0 ? (
+            <div className="flex h-28 flex-col items-center justify-center gap-2 opacity-30">
+              <span className="text-3xl">💳</span>
+              <p className="text-sm text-slate-400">Selecione as formas de pagamento acima</p>
+            </div>
+          ) : linhas.map((l, idx) => (
+            <div key={idx} className="rounded-2xl border border-white/10 bg-slate-800/60 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-black text-white">{l.nome}{l.permiteTroco && <span className="ml-2 rounded-full bg-emerald-500/20 px-2 py-0.5 text-xs text-emerald-300">troco</span>}</p>
+                <button onClick={() => removerLinha(idx)} className="rounded-lg bg-white/5 px-2 py-1 text-xs text-slate-400 hover:bg-red-500/20 hover:text-red-300">✕</button>
+              </div>
+              <div className="mt-2 flex items-center gap-2">
+                <span className="text-sm font-bold text-slate-400">R$</span>
+                <input
+                  inputMode="numeric"
+                  value={numeroParaMoeda(l.valor)}
+                  onChange={(e) => setValor(idx, e.target.value)}
+                  className="flex-1 rounded-xl border border-white/10 bg-slate-900 px-3 py-2.5 text-right text-lg font-black text-white outline-none focus:border-blue-400" />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Resumo */}
+        <div className="shrink-0 border-t border-white/10 px-6 py-4 space-y-2">
+          <div className="flex justify-between text-sm text-slate-400"><span>Total</span><span className="font-bold text-white">{formatCurrency(total)}</span></div>
+          <div className="flex justify-between text-sm text-slate-400"><span>Pago</span><span className="font-bold text-white">{formatCurrency(pago)}</span></div>
+          {restante > 0 && <div className="flex justify-between text-sm"><span className="text-amber-400">Falta</span><span className="font-black text-amber-400">{formatCurrency(restante)}</span></div>}
+          {troco > 0 && <div className="flex justify-between text-sm"><span className="text-emerald-400">Troco</span><span className="font-black text-emerald-400">{formatCurrency(troco)}</span></div>}
+          {excedeNaoDinheiro && <p className="text-xs text-red-400">⚠ Cartão/PIX não pode ultrapassar o total. Use dinheiro para troco.</p>}
+          {troco > 0 && !temDinheiro && <p className="text-xs text-red-400">⚠ Troco só é permitido com pagamento em dinheiro.</p>}
+          <button onClick={() => onConfirmar({ detalhes: linhas.map((l) => ({ forma: l.nome, valor: l.valor })), troco })}
+            disabled={!podeConfirmar}
+            className="mt-2 w-full rounded-2xl bg-emerald-500 py-4 text-sm font-black text-white hover:bg-emerald-400 transition active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed">
+            ✅ Confirmar pagamento e dar baixa
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+//  Modal do cupom — visualização + imprimir + WhatsApp + e-mail
+// ════════════════════════════════════════════════════════════
+function CupomModal({ blocos, mesas, comandas, subtotal, taxa, total, pessoas, porPessoa, imprimir, onFechar }) {
+  // Texto do cupom para WhatsApp/e-mail
+  const texto = (() => {
+    let t = "*RESTAURANTE — CUPOM NÃO FISCAL*\n";
+    t += `Mesa(s): ${mesas.join(", ") || "-"}\n`;
+    t += `Comanda(s): ${comandas.join(", ")}\n`;
+    t += "------------------------------\n";
+    blocos.forEach((b) => {
+      t += `Comanda ${b.comanda}:\n`;
+      b.pedidos.forEach((o) => o.items.forEach((it) => {
+        t += `  ${it.quantity}x ${it.name} - ${formatCurrency(it.price * it.quantity)}\n`;
+      }));
+    });
+    t += "------------------------------\n";
+    t += `Subtotal: ${formatCurrency(subtotal)}\n`;
+    t += `Taxa 10%: ${formatCurrency(taxa)}\n`;
+    t += `*TOTAL: ${formatCurrency(total)}*\n`;
+    if (pessoas > 1) t += `Dividido por ${pessoas}: ${formatCurrency(porPessoa)}/pessoa\n`;
+    t += "\nObrigado pela preferência!";
+    return t;
+  })();
+
+  function enviarWhatsApp() {
+    const fone = prompt("Telefone do cliente (com DDD, ex.: 11999998888):");
+    if (!fone) return;
+    const num = fone.replace(/\D/g, "");
+    window.open(`https://wa.me/55${num}?text=${encodeURIComponent(texto)}`, "_blank");
+  }
+  function enviarEmail() {
+    const email = prompt("E-mail do cliente:");
+    if (!email) return;
+    const assunto = encodeURIComponent("Cupom não fiscal - Restaurante");
+    const corpo = encodeURIComponent(texto.replace(/\*/g, ""));
+    window.open(`mailto:${email}?subject=${assunto}&body=${corpo}`, "_blank");
+  }
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onFechar}>
+      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-sm flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl max-h-[92vh]">
+        <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+          <h2 className="text-lg font-black text-white">🧾 Cupom não fiscal</h2>
+          <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20">✕</button>
+        </div>
+
+        {/* Prévia do cupom */}
+        <div className="flex-1 overflow-y-auto bg-white px-5 py-4 text-slate-900" style={{ fontFamily: "'Courier New', monospace", fontSize: 12 }}>
+          <p className="text-center font-black">RESTAURANTE</p>
+          <p className="text-center text-[10px]">CUPOM NÃO FISCAL — Sem valor fiscal</p>
+          <div className="my-2 border-t border-dashed border-slate-400" />
+          <p className="text-[11px]">Mesa(s): {mesas.join(", ") || "-"}</p>
+          <p className="text-[11px]">Comanda(s): {comandas.join(", ")}</p>
+          <div className="my-2 border-t border-dashed border-slate-400" />
+          {blocos.map((b) => (
+            <div key={b.comanda} className="mb-2">
+              <p className="font-black text-[11px]">COMANDA {b.comanda}</p>
+              {b.pedidos.map((o) => o.items.map((it, i) => (
+                <div key={o.id + i} className="flex justify-between text-[11px]">
+                  <span>{it.quantity}x {it.name}</span>
+                  <span>{formatCurrency(it.price * it.quantity)}</span>
+                </div>
+              )))}
+            </div>
+          ))}
+          <div className="my-2 border-t border-dashed border-slate-400" />
+          <div className="flex justify-between text-[11px]"><span>Subtotal</span><span>{formatCurrency(subtotal)}</span></div>
+          <div className="flex justify-between text-[11px]"><span>Taxa 10%</span><span>{formatCurrency(taxa)}</span></div>
+          <div className="mt-1 flex justify-between font-black text-[13px]"><span>TOTAL</span><span>{formatCurrency(total)}</span></div>
+          {pessoas > 1 && <div className="flex justify-between text-[10px]"><span>Por pessoa ({pessoas})</span><span>{formatCurrency(porPessoa)}</span></div>}
+        </div>
+
+        {/* Ações */}
+        <div className="shrink-0 border-t border-white/10 px-5 py-4 space-y-2">
+          <button onClick={imprimir} className="w-full rounded-2xl bg-blue-500 py-3.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95">🖨️ Imprimir</button>
+          <div className="grid grid-cols-2 gap-2">
+            <button onClick={enviarWhatsApp} className="rounded-2xl bg-emerald-500/90 py-3 text-sm font-black text-white hover:bg-emerald-500 transition active:scale-95">💬 WhatsApp</button>
+            <button onClick={enviarEmail} className="rounded-2xl border border-white/10 bg-white/[0.08] py-3 text-sm font-black text-slate-200 hover:bg-white/15 transition active:scale-95">✉️ E-mail</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AdminView({ products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, toggleUserStatus, toggleAccessStatus, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento }) {
   const abas = [
     { id: "products", label: "🛒 Produtos"       },
     { id: "users",    label: "👥 Usuários"        },
     { id: "access",   label: "🔐 Permissões"      },
     { id: "link",     label: "🔗 Usuário x Acesso"},
     { id: "comandas", label: "🎫 Comandas QR"     },
+    { id: "pagamento",label: "💳 Formas de pagamento" },
   ];
   return (
     <main className="space-y-6">
@@ -2223,6 +2474,64 @@ function AdminView({ products, categories, adminForm, setAdminForm, addProduct, 
       {adminSection === "access"    && <AccessAdmin    accesses={accesses} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleAccessStatus={toggleAccessStatus} />}
       {adminSection === "link"      && <UserAccessAdmin users={users} accesses={accesses} toggleUserAccess={toggleUserAccess} />}
       {adminSection === "comandas"  && <GeradorComandas />}
+      {adminSection === "pagamento" && <PagamentoAdmin formasPagamento={formasPagamento} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} />}
+    </main>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+//  Admin — Formas de pagamento
+// ════════════════════════════════════════════════════════════
+function PagamentoAdmin({ formasPagamento, addFormaPagamento, toggleFormaPagamento }) {
+  const [form, setForm] = useState({ nome: "", tipo: "outro", permiteTroco: false });
+  const tipos = [
+    { id: "dinheiro",       label: "Dinheiro" },
+    { id: "cartao_credito", label: "Cartão de Crédito" },
+    { id: "cartao_debito",  label: "Cartão de Débito" },
+    { id: "pix",            label: "PIX" },
+    { id: "outro",          label: "Outro" },
+  ];
+  function salvar() {
+    addFormaPagamento({ ...form, permiteTroco: form.tipo === "dinheiro" ? true : form.permiteTroco });
+    setForm({ nome: "", tipo: "outro", permiteTroco: false });
+  }
+  return (
+    <main className="grid gap-6 lg:grid-cols-[430px_1fr]">
+      <Card className="lg:self-start">
+        <h3 className="text-xl font-black text-white">Cadastrar forma de pagamento</h3>
+        <p className="mt-1 text-sm text-slate-300">Aparecerá na tela do caixa ao finalizar o pagamento.</p>
+        <div className="mt-5 space-y-3">
+          <input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })}
+            placeholder="Nome (ex.: Vale Refeição, Ticket)" className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400" />
+          <select value={form.tipo} onChange={(e) => setForm({ ...form, tipo: e.target.value })}
+            className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400">
+            {tipos.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+          </select>
+          <label className="flex items-center gap-2 text-sm text-slate-300">
+            <input type="checkbox" checked={form.tipo === "dinheiro" || form.permiteTroco}
+              disabled={form.tipo === "dinheiro"}
+              onChange={(e) => setForm({ ...form, permiteTroco: e.target.checked })} />
+            Permite troco {form.tipo === "dinheiro" && "(dinheiro sempre permite)"}
+          </label>
+          <button onClick={salvar} className="w-full rounded-2xl bg-blue-500 px-5 py-4 text-sm font-black text-white hover:bg-blue-400">Cadastrar forma</button>
+        </div>
+      </Card>
+      <Card>
+        <h3 className="text-xl font-black text-white">Formas cadastradas</h3>
+        <div className="mt-5 space-y-3">
+          {formasPagamento.length === 0 && <p className="text-sm text-slate-500">Nenhuma forma cadastrada. Execute a migration 006 e cadastre acima.</p>}
+          {formasPagamento.map((f) => (
+            <div key={f.id} className="grid gap-3 rounded-3xl border border-white/10 bg-slate-950/40 p-4 md:grid-cols-[1fr_120px_100px]">
+              <div>
+                <p className="font-black text-white">{f.nome}</p>
+                <p className="text-sm text-slate-400">{f.tipo}{f.permiteTroco ? " • permite troco" : ""}</p>
+              </div>
+              <span className={`h-fit rounded-full px-3 py-2 text-center text-xs font-black ${f.active ? "bg-emerald-500 text-white" : "bg-slate-700 text-slate-200"}`}>{f.active ? "Ativo" : "Inativo"}</span>
+              <button onClick={() => toggleFormaPagamento(f.id)} className="rounded-2xl border border-white/10 bg-white/[0.08] px-3 py-2 text-xs font-black text-white">Alterar</button>
+            </div>
+          ))}
+        </div>
+      </Card>
     </main>
   );
 }

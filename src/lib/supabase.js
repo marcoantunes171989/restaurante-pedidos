@@ -46,6 +46,68 @@ export function escutarProdutos(onMudanca) {
   return () => supabase.removeChannel(canal)
 }
 
+// Baixa de estoque: subtrai quantidades vendidas (por nome do produto)
+export async function baixarEstoque(itensVendidos) {
+  // itensVendidos: [{ name, quantity }]
+  const { data: produtos } = await supabase.from('tab_produtos').select('id,nome,estoque')
+  if (!produtos) return
+  // Soma quantidades por nome
+  const somas = {}
+  itensVendidos.forEach((it) => { somas[it.name] = (somas[it.name] || 0) + it.quantity })
+  await Promise.all(Object.entries(somas).map(async ([nome, qtd]) => {
+    const p = produtos.find((x) => x.nome === nome)
+    if (!p) return
+    const novo = Math.max(0, (p.estoque ?? 0) - qtd)
+    await supabase.from('tab_produtos').update({ estoque: novo }).eq('id', p.id)
+  }))
+}
+
+// ════════════════════════════════════════════════════════════
+//  tab_formas_pagamento — CRUD + Realtime
+// ════════════════════════════════════════════════════════════
+export async function fetchFormasPagamento() {
+  const { data, error } = await supabase
+    .from('tab_formas_pagamento').select('*').order('id', { ascending: true })
+  if (error) throw error
+  return data.map(dbParaForma)
+}
+export async function inserirFormaPagamento(f) {
+  const { data, error } = await supabase
+    .from('tab_formas_pagamento').insert([formaParaDb(f)]).select().single()
+  if (error) throw error
+  return dbParaForma(data)
+}
+export async function atualizarFormaPagamento(id, campos) {
+  const { error } = await supabase.from('tab_formas_pagamento').update(campos).eq('id', id)
+  if (error) throw error
+}
+export function escutarFormasPagamento(onMudanca) {
+  const reload = async () => {
+    const { data, error } = await supabase
+      .from('tab_formas_pagamento').select('*').order('id', { ascending: true })
+    if (!error && data) onMudanca(data.map(dbParaForma))
+  }
+  const canal = supabase.channel('ch_formas')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_formas_pagamento' }, reload)
+    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
+  return () => supabase.removeChannel(canal)
+}
+
+// Registra um pagamento (histórico)
+export async function registrarPagamento(p) {
+  const { error } = await supabase.from('tab_pagamentos').insert([{
+    mesa: p.mesa, comandas: p.comandas, total: p.total, troco: p.troco, detalhes: p.detalhes,
+  }])
+  if (error) console.warn('Falha ao registrar pagamento:', error.message)
+}
+
+function dbParaForma(r) {
+  return { id: r.id, nome: r.nome, tipo: r.tipo, permiteTroco: r.permite_troco, active: r.ativo }
+}
+function formaParaDb(f) {
+  return { nome: f.nome, tipo: f.tipo, permite_troco: f.permiteTroco ?? false, ativo: f.active ?? true }
+}
+
 // ════════════════════════════════════════════════════════════
 //  tab_usuarios — CRUD + Realtime
 // ════════════════════════════════════════════════════════════
@@ -170,6 +232,7 @@ function dbParaProduto(r) {
     badge:       r.destaque,
     imageUrl:    r.url_imagem,
     ingredients: r.ingredientes ?? [],
+    estoque:     r.estoque ?? 0,
   }
 }
 
