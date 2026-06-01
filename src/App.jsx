@@ -297,88 +297,60 @@ function CardGerarComandas() {
 // ════════════════════════════════════════════════════════════
 //  Tela de Login com card de comandas embutido
 // ════════════════════════════════════════════════════════════
-function TelaLogin({ loginForm, setLoginForm, login, message, users }) {
-  const listaUsuarios = users.length > 0 ? users : initialUsers;
+function TelaLogin({ loginForm, setLoginForm, login, message }) {
   return (
-    <div className="min-h-screen bg-slate-950 px-4 py-8 text-slate-100">
-      <div className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-[1fr_420px] lg:items-start">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-950 px-4 text-slate-100">
+      {/* Brilhos de fundo sutis */}
+      <div className="pointer-events-none absolute -top-32 -left-32 h-96 w-96 rounded-full bg-blue-600/20 blur-[120px]" />
+      <div className="pointer-events-none absolute -bottom-32 -right-32 h-96 w-96 rounded-full bg-violet-600/15 blur-[120px]" />
 
-        {/* Painel esquerdo — info + usuários + card comandas */}
-        <div className="rounded-[2rem] border border-white/10 bg-white/[0.06] p-8 shadow-2xl backdrop-blur-xl">
-          <span className="inline-flex rounded-full border border-blue-400/30 bg-blue-500/10 px-4 py-2 text-sm font-semibold text-blue-100">
-            Restaurante Online • Login obrigatório
-          </span>
-          <h1 className="mt-5 max-w-3xl text-4xl font-black tracking-tight text-white sm:text-5xl">
-            Acesso por usuário e permissão
-          </h1>
-          <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">
-            Cada usuário acessa somente as telas liberadas pelo administrador.
-          </p>
-
-          {/* Grade de usuários + card de comandas */}
-          <div className="mt-6 grid gap-3 md:grid-cols-2">
-            {listaUsuarios.map((u) => (
-              <div key={u.id} className="rounded-3xl border border-white/10 bg-slate-900/70 p-4">
-                <p className="font-black text-white">{u.name}</p>
-                <p className="text-sm text-slate-400">{u.email}</p>
-                <p className="mt-1 text-xs text-blue-200">Senha: {u.password || "123456"}</p>
-              </div>
-            ))}
-            {/* Card de comandas ocupa o espaço vazio */}
-            <CardGerarComandas />
-          </div>
+      {/* Card único, centralizado e minimalista */}
+      <div className="relative w-full max-w-sm">
+        {/* Logo */}
+        <div className="mb-8 text-center">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-blue-500 text-3xl shadow-2xl shadow-blue-950/50">🍽️</div>
+          <h1 className="mt-4 text-2xl font-black tracking-tight text-white">Restaurante</h1>
+          <p className="mt-1 text-sm text-slate-400">Acesse com seu usuário</p>
         </div>
 
-        {/* Painel direito — formulário de login */}
-        <div className="rounded-[2rem] border border-white/10 bg-white/[0.06] p-6 shadow-2xl backdrop-blur-xl">
-          <h2 className="text-2xl font-black text-white">Entrar no sistema</h2>
-          <p className="mt-1 text-sm text-slate-300">Use um dos usuários cadastrados para acessar o sistema.</p>
-          <div className="mt-5 space-y-3">
-            <input
-              value={loginForm.email}
-              onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
-              onKeyDown={(e) => e.key === "Enter" && login()}
-              placeholder="E-mail"
-              className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400"
-            />
-            <input
-              type="password"
-              value={loginForm.password}
-              onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-              onKeyDown={(e) => e.key === "Enter" && login()}
-              placeholder="Senha"
-              className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400"
-            />
+        {/* Formulário */}
+        <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6 shadow-2xl backdrop-blur-xl">
+          <div className="space-y-3">
+            <div>
+              <label className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500">E-mail</label>
+              <input
+                value={loginForm.email}
+                onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
+                onKeyDown={(e) => e.key === "Enter" && login()}
+                placeholder="seu@email.com"
+                className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3.5 text-white outline-none transition focus:border-blue-400 placeholder:text-slate-600"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500">Senha</label>
+              <input
+                type="password"
+                value={loginForm.password}
+                onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                onKeyDown={(e) => e.key === "Enter" && login()}
+                placeholder="••••••"
+                className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3.5 text-white outline-none transition focus:border-blue-400 placeholder:text-slate-600"
+              />
+            </div>
             <button
               onClick={login}
-              className="w-full rounded-2xl bg-blue-500 px-5 py-4 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95">
-              Acessar →
+              className="mt-1 w-full rounded-2xl bg-blue-500 px-5 py-4 text-sm font-black text-white transition hover:bg-blue-400 active:scale-[0.98] shadow-lg shadow-blue-950/40">
+              Entrar →
             </button>
           </div>
           {message.text && (
-            <div className={`mt-4 rounded-2xl border p-4 text-sm ${message.type === "error" ? "border-red-400/30 bg-red-500/10 text-red-100" : "border-emerald-400/30 bg-emerald-500/10 text-emerald-100"}`}>
+            <div className={`mt-4 rounded-2xl border p-3.5 text-sm ${message.type === "error" ? "border-red-400/30 bg-red-500/10 text-red-200" : "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"}`}>
               {message.text}
             </div>
           )}
-
-          {/* Acesso rápido — todos os usuários */}
-          <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-            <p className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-3">⚡ Acesso rápido</p>
-            <div className="space-y-2">
-              {listaUsuarios.map((u) => (
-                <button key={u.id}
-                  onClick={() => setLoginForm({ email: u.email, password: u.password || "123456" })}
-                  className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5 text-left text-xs hover:bg-blue-500/10 hover:border-blue-400/30 transition group">
-                  <div className="flex items-center justify-between">
-                    <span className="font-black text-white group-hover:text-blue-300 transition">{u.name}</span>
-                    <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] text-slate-500 group-hover:text-slate-400">{u.role}</span>
-                  </div>
-                  <span className="text-slate-500 group-hover:text-slate-400 transition">{u.email}</span>
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
+
+        <p className="mt-6 text-center text-xs text-slate-600">Acesso controlado por usuário e permissão</p>
       </div>
     </div>
   );
