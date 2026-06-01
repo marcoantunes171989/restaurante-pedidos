@@ -511,7 +511,8 @@ export default function RestaurantePedidoApp() {
   const serviceFee = subtotal * 0.1;
   const total = subtotal + serviceFee;
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
-  const currentTableOrders = orders.filter((o) => o.table === currentTable);
+  // Conta da mesa = apenas pedidos NÃO PAGOS (após baixa no caixa, somem imediatamente)
+  const currentTableOrders = orders.filter((o) => o.table === currentTable && o.paymentStatus !== "paid");
   const currentTableSubtotal = currentTableOrders.reduce((sum, o) => sum + orderTotal(o), 0);
   const currentTableTotal = currentTableSubtotal + currentTableSubtotal * 0.1;
 
