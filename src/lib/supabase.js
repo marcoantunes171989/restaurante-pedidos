@@ -269,6 +269,8 @@ function dbParaPedido(r) {
     createdAt:     new Date(r.criado_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
     createdAtISO:  r.criado_em,          // timestamp completo (filtros/relatórios)
     updatedAtISO:  r.atualizado_em,      // usado como momento do pagamento (permanência)
+    preparoEmISO:  r.preparo_em ?? null, // entrou em preparo
+    prontoEmISO:   r.pronto_em ?? null,  // ficou pronto
     items:         r.itens ?? [],
     cancelReason:  r.motivo_cancelamento ?? null,
   }

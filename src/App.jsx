@@ -637,10 +637,18 @@ export default function RestaurantePedidoApp() {
 
   async function updateOrderStatus(oid, status) {
     if (!canAccess(currentUser, "kitchen")) return notify("error", "Usuário sem permissão para alterar status da cozinha.");
-    setOrders((cur) => cur.map((o) => o.id === oid ? { ...o, status } : o));
+    const agora = new Date().toISOString();
+    // Marca o timestamp do estágio
+    const extra = {};
+    if (status === "preparing") extra.preparoEmISO = agora;
+    if (status === "ready")     extra.prontoEmISO  = agora;
+    setOrders((cur) => cur.map((o) => o.id === oid ? { ...o, status, ...extra } : o));
     const statusDb = STATUS_APP_PARA_DB[status] ?? status;
+    const campos = { status: statusDb };
+    if (status === "preparing") campos.preparo_em = agora;
+    if (status === "ready")     campos.pronto_em  = agora;
     if (dbReady) {
-      try { await atualizarPedido(oid, { status: statusDb }); }
+      try { await atualizarPedido(oid, campos); }
       catch (err) { console.error("Erro ao atualizar status:", err); }
     }
   }
@@ -976,7 +984,7 @@ export default function RestaurantePedidoApp() {
         {activeTab === "kitchen" && canAccess(currentUser, "kitchen") && (
           <KitchenView groupedOrders={groupedOrders} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} cancelarPedido={cancelarPedido} onSair={logout} currentUser={currentUser} />
         )}
-        {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} />}
+        {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} products={products} />}
         {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierView orders={orders} baixarComandas={baixarComandas} baixarPedidos={baixarPedidos} formasPagamento={formasPagamento} onSair={logout} />}
         {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamento} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} orders={orders} onSair={logout} />}
 
@@ -1870,20 +1878,39 @@ function sairTelaCheia() {
   if (fn && document.fullscreenElement) fn.call(document).catch(() => {});
 }
 
-function PanelView({ groupedOrders }) {
+function PanelView({ groupedOrders, products = [] }) {
   const [hora, setHora] = useState(() =>
     new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
   );
+  const [agora, setAgora] = useState(Date.now()); // tick para os contadores
   const [isFullscreen, setIsFullscreen] = useState(!!document.fullscreenElement);
 
-  // Relógio sincronizado com o segundo exato da máquina
+  // Relógio + tick dos contadores (a cada segundo)
   useEffect(() => {
-    const tick = () => setHora(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
+    const tick = () => {
+      setHora(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
+      setAgora(Date.now());
+    };
     const ms = 1000 - new Date().getMilliseconds();
     let intervalo;
     const timeout = setTimeout(() => { tick(); intervalo = setInterval(tick, 1000); }, ms);
     return () => { clearTimeout(timeout); clearInterval(intervalo); };
   }, []);
+
+  // Tempo médio (min) do produto a partir do campo "time" (ex.: "25-35 min")
+  const tempoMedioDe = (nome) => {
+    const p = products.find((x) => x.name === nome);
+    if (!p || !p.time) return 0;
+    const nums = String(p.time).match(/\d+/g);
+    if (!nums) return 0;
+    return nums.length >= 2 ? (Number(nums[0]) + Number(nums[1])) / 2 : Number(nums[0]);
+  };
+  // Tempo estimado do pedido = maior tempo médio entre os itens (o mais demorado define)
+  const tempoEstimadoPedido = (order) => Math.max(0, ...order.items.map((it) => tempoMedioDe(it.name)));
+  const fmtTimer = (ms) => {
+    const s = Math.max(0, Math.floor(ms / 1000)); const m = Math.floor(s / 60); const r = s % 60;
+    return `${String(m).padStart(2, "0")}:${String(r).padStart(2, "0")}`;
+  };
 
   // Detecta mudanças no estado fullscreen (ESC, F11, etc.)
   useEffect(() => {
@@ -2051,15 +2078,19 @@ function PanelView({ groupedOrders }) {
                         )}
                       </div>
 
-                      {/* Mesa */}
+                      {/* Mesa + cliente */}
                       <div className="mb-[0.8vh] flex items-end justify-between gap-2">
-                        <div>
+                        <div className="min-w-0">
                           <p className="font-bold uppercase tracking-widest text-slate-400"
                             style={{ fontSize: "clamp(6px,0.6vw,9px)" }}>Mesa</p>
                           <p className="font-black leading-none text-white"
                             style={{ fontSize: "clamp(28px,5.5vw,88px)" }}>
                             {order.table.replace("Mesa ", "")}
                           </p>
+                          {order.customer && (
+                            <p className="mt-[0.3vh] font-bold text-blue-300 truncate"
+                              style={{ fontSize: "clamp(9px,1vw,15px)" }}>👤 {order.customer}</p>
+                          )}
                         </div>
                         <div className="text-right shrink-0">
                           <p className="font-bold uppercase tracking-widest text-slate-500"
@@ -2077,6 +2108,47 @@ function PanelView({ groupedOrders }) {
                           </p>
                         ))}
                       </div>
+
+                      {/* Contador / tempo médio de preparo */}
+                      {(() => {
+                        const estMin = tempoEstimadoPedido(order);
+                        const estMs = estMin * 60000;
+                        if (key === "preparing" && order.preparoEmISO) {
+                          const decorrido = agora - new Date(order.preparoEmISO).getTime();
+                          const dentro = decorrido <= estMs;
+                          const restante = estMs - decorrido;
+                          return (
+                            <div className={`mb-[0.8vh] flex items-center justify-between rounded-[0.8vw] px-[1vw] py-[0.5vh] ${dentro ? "bg-amber-500/15 border border-amber-400/30" : "bg-red-500/15 border border-red-400/30"}`}>
+                              <span className="font-bold uppercase tracking-widest" style={{ fontSize: "clamp(6px,0.6vw,9px)", color: dentro ? "#fcd34d" : "#fca5a5" }}>
+                                ⏱ {dentro ? "No prazo" : "Atrasado"} {estMin > 0 && `• média ${estMin}min`}
+                              </span>
+                              <span className="font-black tabular-nums" style={{ fontSize: "clamp(12px,1.5vw,22px)", color: dentro ? "#fcd34d" : "#fca5a5" }}>
+                                {dentro && restante > 0 ? `falta ${fmtTimer(restante)}` : fmtTimer(decorrido)}
+                              </span>
+                            </div>
+                          );
+                        }
+                        if (key === "received") {
+                          return (
+                            <div className="mb-[0.8vh] flex items-center justify-between rounded-[0.8vw] border border-blue-400/30 bg-blue-500/10 px-[1vw] py-[0.5vh]">
+                              <span className="font-bold uppercase tracking-widest text-blue-200" style={{ fontSize: "clamp(6px,0.6vw,9px)" }}>⏳ Na fila</span>
+                              {estMin > 0 && <span className="font-black text-blue-200" style={{ fontSize: "clamp(9px,1vw,14px)" }}>~{estMin}min preparo</span>}
+                            </div>
+                          );
+                        }
+                        if (key === "ready" && order.preparoEmISO && order.prontoEmISO) {
+                          const realMs = new Date(order.prontoEmISO).getTime() - new Date(order.preparoEmISO).getTime();
+                          const noPrazo = realMs <= estMs;
+                          return (
+                            <div className="mb-[0.8vh] flex items-center justify-between rounded-[0.8vw] border border-emerald-400/30 bg-emerald-500/10 px-[1vw] py-[0.5vh]">
+                              <span className="font-bold uppercase tracking-widest text-emerald-200" style={{ fontSize: "clamp(6px,0.6vw,9px)" }}>
+                                ✅ Pronto em {fmtTimer(realMs)} {estMin > 0 && (noPrazo ? "• no prazo" : "• acima da média")}
+                              </span>
+                            </div>
+                          );
+                        }
+                        return null;
+                      })()}
 
                       {/* Barra de progresso */}
                       <div className="overflow-hidden rounded-full bg-black/30" style={{ height: "clamp(3px,0.5vh,7px)" }}>
