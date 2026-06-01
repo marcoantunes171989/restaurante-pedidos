@@ -923,7 +923,7 @@ export default function RestaurantePedidoApp() {
         )}
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} />}
         {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierView orders={orders} baixarComandas={baixarComandas} formasPagamento={formasPagamento} onSair={logout} />}
-        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamento} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} />}
+        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamento} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} onSair={logout} />}
 
       </div>
     </div>
@@ -2447,7 +2447,7 @@ function CupomModal({ blocos, mesas, comandas, subtotal, taxa, total, pessoas, p
   );
 }
 
-function AdminView({ products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, toggleUserStatus, toggleAccessStatus, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento }) {
+function AdminView({ products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, toggleUserStatus, toggleAccessStatus, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, onSair }) {
   const abas = [
     { id: "products", label: "🛒 Produtos"       },
     { id: "users",    label: "👥 Usuários"        },
@@ -2457,26 +2457,39 @@ function AdminView({ products, categories, adminForm, setAdminForm, addProduct, 
     { id: "pagamento",label: "💳 Formas de pagamento" },
   ];
   return (
-    <main className="space-y-6">
-      <Card>
-        <h2 className="text-2xl font-black text-white">Administrativo</h2>
-        <p className="mt-1 text-sm text-slate-300">Produtos, usuários, permissões e geração de comandas com QR Code.</p>
-        <div className="mt-5 flex flex-wrap gap-2">
-          {abas.map((s) => (
-            <button key={s.id} onClick={() => setAdminSection(s.id)}
-              className={`rounded-full border px-4 py-2 text-sm font-black ${adminSection === s.id ? "border-blue-400 bg-blue-500 text-white" : "border-white/10 bg-white/[0.06] text-slate-300"}`}>
-              {s.label}
-            </button>
-          ))}
+    <div className="fixed inset-0 z-50 flex flex-col bg-slate-950 overflow-hidden">
+      {/* Cabeçalho */}
+      <header className="flex shrink-0 items-center justify-between border-b border-white/10 bg-slate-900/90 px-6 py-3 backdrop-blur-xl">
+        <div className="flex items-center gap-3">
+          <span className="text-2xl">⚙️</span>
+          <div>
+            <p className="text-lg font-black text-white leading-tight">Administrativo</p>
+            <p className="text-xs text-slate-500">Cadastros e permissões — salvos no banco de dados</p>
+          </div>
         </div>
-      </Card>
-      {adminSection === "products"  && <ProductAdmin   products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} />}
-      {adminSection === "users"     && <UserAdmin      users={users} userForm={userForm} setUserForm={setUserForm} addUser={addUser} toggleUserStatus={toggleUserStatus} />}
-      {adminSection === "access"    && <AccessAdmin    accesses={accesses} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleAccessStatus={toggleAccessStatus} />}
-      {adminSection === "link"      && <UserAccessAdmin users={users} accesses={accesses} toggleUserAccess={toggleUserAccess} />}
-      {adminSection === "comandas"  && <GeradorComandas />}
-      {adminSection === "pagamento" && <PagamentoAdmin formasPagamento={formasPagamento} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} />}
-    </main>
+        <button onClick={onSair} className="rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-2 text-sm font-black text-red-300 hover:bg-red-500/20 transition">Sair</button>
+      </header>
+
+      {/* Abas */}
+      <div className="shrink-0 flex gap-2 overflow-x-auto border-b border-white/10 bg-slate-900/50 px-6 py-3">
+        {abas.map((s) => (
+          <button key={s.id} onClick={() => setAdminSection(s.id)}
+            className={`shrink-0 rounded-full border px-4 py-2 text-sm font-black transition ${adminSection === s.id ? "border-blue-400 bg-blue-500 text-white" : "border-white/10 bg-white/[0.06] text-slate-300 hover:bg-white/10"}`}>
+            {s.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Conteúdo rolável */}
+      <div className="flex-1 overflow-y-auto p-6">
+        {adminSection === "products"  && <ProductAdmin   products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} />}
+        {adminSection === "users"     && <UserAdmin      users={users} userForm={userForm} setUserForm={setUserForm} addUser={addUser} toggleUserStatus={toggleUserStatus} />}
+        {adminSection === "access"    && <AccessAdmin    accesses={accesses} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleAccessStatus={toggleAccessStatus} />}
+        {adminSection === "link"      && <UserAccessAdmin users={users} accesses={accesses} toggleUserAccess={toggleUserAccess} />}
+        {adminSection === "comandas"  && <GeradorComandas />}
+        {adminSection === "pagamento" && <PagamentoAdmin formasPagamento={formasPagamento} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} />}
+      </div>
+    </div>
   );
 }
 
