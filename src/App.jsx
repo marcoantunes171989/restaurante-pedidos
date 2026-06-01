@@ -2069,6 +2069,7 @@ function CashierView({ orders, baixarComandas, formasPagamento = [], onSair }) {
   const [scannerAberto, setScannerAberto] = useState(false);
   const [pagamentoAberto, setPagamentoAberto] = useState(false); // modal de pagamento
   const [cupomAberto, setCupomAberto] = useState(false);         // modal do cupom
+  const [comprovante, setComprovante] = useState(null);          // comprovante fiscal pós-pagamento
 
   // Pedidos NÃO PAGOS das comandas lidas (entregue ou não, o que importa é o pagamento)
   const pedidos = orders.filter((o) => comandasLidas.includes(o.command) && o.paymentStatus !== "paid" && o.status !== "cancelled");
@@ -2199,11 +2200,14 @@ function CashierView({ orders, baixarComandas, formasPagamento = [], onSair }) {
 
   // Chamado pelo modal de pagamento ao confirmar
   function confirmarPagamento({ detalhes, troco }) {
-    baixarComandas(comandasLidas, {
-      mesa: mesas.join(", "),
-      total,
-      troco,
-      detalhes,
+    const info = { mesa: mesas.join(", "), total, troco, detalhes };
+    baixarComandas(comandasLidas, info);
+    // Guarda os dados para o comprovante fiscal ANTES de limpar
+    setComprovante({
+      ...info,
+      comandas: [...comandasLidas],
+      subtotal, taxa,
+      blocos: porComanda.filter((b) => b.pedidos.length > 0),
     });
     setPagamentoAberto(false);
     setComandasLidas([]);
@@ -2388,6 +2392,9 @@ function CashierView({ orders, baixarComandas, formasPagamento = [], onSair }) {
           onFechar={() => setCupomAberto(false)}
         />
       )}
+
+      {/* Comprovante fiscal pós-pagamento (com formas de pagamento) */}
+      {comprovante && <ComprovanteModal dados={comprovante} onFechar={() => setComprovante(null)} />}
     </div>
   );
 }
@@ -2407,32 +2414,38 @@ function numeroParaMoeda(num) {
 //  Modal de pagamento — múltiplas formas, máscara BRL, troco só dinheiro
 // ════════════════════════════════════════════════════════════
 function PagamentoModal({ total, formasPagamento, onConfirmar, onCancelar }) {
-  const [linhas, setLinhas] = useState([]); // [{ formaId, nome, tipo, permiteTroco, valor }]
+  const [linhas, setLinhas] = useState([]); // mais recentes no topo (ordem decrescente)
+
+  // Soma atual já preenchida
+  const pagoAtual = linhas.reduce((s, l) => s + l.valor, 0);
 
   function addLinha(forma) {
-    setLinhas((cur) => [...cur, { formaId: forma.id, nome: forma.nome, tipo: forma.tipo, permiteTroco: forma.permiteTroco, valor: 0 }]);
+    // Pré-preenche com o valor restante a pagar (facilita a finalização)
+    const restanteAgora = Math.max(0, total - pagoAtual);
+    const nova = { uid: Date.now() + Math.random(), formaId: forma.id, nome: forma.nome, tipo: forma.tipo, permiteTroco: forma.permiteTroco, valor: restanteAgora };
+    setLinhas((cur) => [nova, ...cur]); // adiciona no TOPO (ordem decrescente)
   }
-  function setValor(idx, str) {
-    const v = moedaParaNumero(str);
-    setLinhas((cur) => cur.map((l, i) => i === idx ? { ...l, valor: v } : l));
+  function setValor(uid, str) {
+    const v = moedaParaNumero(str); // máscara: lê dígitos como centavos
+    setLinhas((cur) => cur.map((l) => l.uid === uid ? { ...l, valor: v } : l));
   }
-  function removerLinha(idx) {
-    setLinhas((cur) => cur.filter((_, i) => i !== idx));
+  function removerLinha(uid) {
+    setLinhas((cur) => cur.filter((l) => l.uid !== uid));
   }
 
   const pago = linhas.reduce((s, l) => s + l.valor, 0);
   const pagoNaoDinheiro = linhas.filter((l) => !l.permiteTroco).reduce((s, l) => s + l.valor, 0);
   const temDinheiro = linhas.some((l) => l.permiteTroco);
   const restante = Math.max(0, total - pago);
-  const troco = Math.max(0, pago - total);
-  // Regras: não-dinheiro não pode passar do total; precisa cobrir o total; troco só com dinheiro
+  const trocoBruto = pago - total;
+  const troco = trocoBruto > 0.001 ? trocoBruto : 0; // troco 0,00 = sem troco
   const excedeNaoDinheiro = pagoNaoDinheiro > total + 0.001;
+  // Só confirma se cobre o total, cartão/PIX não excede, e troco (>0) só com dinheiro
   const podeConfirmar = pago >= total - 0.001 && !excedeNaoDinheiro && (troco === 0 || temDinheiro) && linhas.length > 0;
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onCancelar}>
       <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-md flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl max-h-[92vh]">
-        {/* Header */}
         <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
           <div>
             <h2 className="text-lg font-black text-white">💰 Pagamento</h2>
@@ -2455,25 +2468,26 @@ function PagamentoModal({ total, formasPagamento, onConfirmar, onCancelar }) {
           </div>
         </div>
 
-        {/* Linhas de pagamento */}
+        {/* Linhas de pagamento (ordem decrescente — mais recente no topo) */}
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
           {linhas.length === 0 ? (
             <div className="flex h-28 flex-col items-center justify-center gap-2 opacity-30">
               <span className="text-3xl">💳</span>
-              <p className="text-sm text-slate-400">Selecione as formas de pagamento acima</p>
+              <p className="text-sm text-slate-400">Toque numa forma acima — o valor já vem preenchido</p>
             </div>
-          ) : linhas.map((l, idx) => (
-            <div key={idx} className="rounded-2xl border border-white/10 bg-slate-800/60 p-3">
+          ) : linhas.map((l) => (
+            <div key={l.uid} className="rounded-2xl border border-white/10 bg-slate-800/60 p-3">
               <div className="flex items-center justify-between gap-2">
                 <p className="text-sm font-black text-white">{l.nome}{l.permiteTroco && <span className="ml-2 rounded-full bg-emerald-500/20 px-2 py-0.5 text-xs text-emerald-300">troco</span>}</p>
-                <button onClick={() => removerLinha(idx)} className="rounded-lg bg-white/5 px-2 py-1 text-xs text-slate-400 hover:bg-red-500/20 hover:text-red-300">✕</button>
+                <button onClick={() => removerLinha(l.uid)} className="rounded-lg bg-white/5 px-2 py-1 text-xs text-slate-400 hover:bg-red-500/20 hover:text-red-300">✕</button>
               </div>
               <div className="mt-2 flex items-center gap-2">
                 <span className="text-sm font-bold text-slate-400">R$</span>
                 <input
                   inputMode="numeric"
                   value={numeroParaMoeda(l.valor)}
-                  onChange={(e) => setValor(idx, e.target.value)}
+                  onChange={(e) => setValor(l.uid, e.target.value)}
+                  onFocus={(e) => e.target.select()}
                   className="flex-1 rounded-xl border border-white/10 bg-slate-900 px-3 py-2.5 text-right text-lg font-black text-white outline-none focus:border-blue-400" />
               </div>
             </div>
@@ -2493,6 +2507,75 @@ function PagamentoModal({ total, formasPagamento, onConfirmar, onCancelar }) {
             className="mt-2 w-full rounded-2xl bg-emerald-500 py-4 text-sm font-black text-white hover:bg-emerald-400 transition active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed">
             ✅ Confirmar pagamento e dar baixa
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+//  Comprovante fiscal pós-pagamento (com formas de pagamento)
+// ════════════════════════════════════════════════════════════
+function ComprovanteModal({ dados, onFechar }) {
+  // dados: { mesa, comandas, total, troco, detalhes, blocos, subtotal, taxa }
+  function imprimir() {
+    const agora = new Date();
+    const doc = String(Math.floor(100000 + Math.random() * 899999));
+    const j = window.open("", "_blank", "width=400,height=640");
+    j.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Comprovante ${doc}</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}@page{size:80mm auto;margin:0}
+  body{font-family:'Courier New',monospace;font-size:12px;line-height:1.35;color:#000;background:#fff;width:80mm;padding:4mm 3mm}
+  .c{text-align:center}.b{font-weight:bold}.r{text-align:right}
+  .sep{border-top:1px dashed #000;margin:5px 0}.sep2{border-top:2px solid #000;margin:5px 0}
+  .row{display:flex;justify-content:space-between;gap:6px}.row .l{flex:1}
+  h1{font-size:16px}.xs{font-size:10px}.sm{font-size:11px}.lg{font-size:14px}
+</style></head><body>
+  <div class="c"><h1 class="b">RESTAURANTE</h1><p class="xs">CNPJ 00.000.000/0001-00</p></div>
+  <div class="sep2"></div>
+  <p class="c b sm">CUPOM FISCAL</p>
+  <p class="c xs">Doc.: ${doc} — ${agora.toLocaleString("pt-BR")}</p>
+  <p class="xs">Mesa(s): ${dados.mesa || "-"} | Comanda(s): ${dados.comandas.join(", ")}</p>
+  <div class="sep"></div>
+  ${dados.blocos.map((b) => b.pedidos.map((o) => o.items.map((it) =>
+    `<div class="row sm"><span class="l">${it.quantity}x ${it.name}</span><span>${formatCurrency(it.price * it.quantity)}</span></div>`
+  ).join("")).join("")).join("")}
+  <div class="sep"></div>
+  <div class="row sm"><span class="l">Subtotal</span><span>${formatCurrency(dados.subtotal)}</span></div>
+  <div class="row sm"><span class="l">Taxa servico (10%)</span><span>${formatCurrency(dados.taxa)}</span></div>
+  <div class="row b lg"><span class="l">TOTAL</span><span>${formatCurrency(dados.total)}</span></div>
+  <div class="sep"></div>
+  <p class="b xs">FORMAS DE PAGAMENTO</p>
+  ${dados.detalhes.map((d) => `<div class="row sm"><span class="l">${d.forma}</span><span>${formatCurrency(d.valor)}</span></div>`).join("")}
+  ${dados.troco > 0 ? `<div class="row sm b"><span class="l">TROCO</span><span>${formatCurrency(dados.troco)}</span></div>` : ""}
+  <div class="sep2"></div>
+  <p class="c sm b">PAGAMENTO CONFIRMADO</p>
+  <p class="c xs" style="margin-top:4px">Obrigado pela preferencia!</p>
+  <p class="c xs">.</p><p class="c xs">.</p>
+  <script>window.onload=function(){window.print();setTimeout(function(){window.close()},300)}<\/script>
+</body></html>`);
+    j.document.close();
+  }
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onFechar}>
+      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl overflow-hidden">
+        <div className="border-b border-white/10 px-6 py-5 text-center">
+          <span className="text-5xl">✅</span>
+          <h2 className="mt-2 text-xl font-black text-white">Pagamento confirmado!</h2>
+          <p className="text-sm text-slate-400">Comanda(s) baixada(s) e estoque atualizado.</p>
+        </div>
+        {/* Resumo do pagamento */}
+        <div className="px-6 py-4 space-y-2 text-sm">
+          <div className="flex justify-between"><span className="text-slate-400">Total pago</span><span className="font-black text-white">{formatCurrency(dados.total)}</span></div>
+          {dados.detalhes.map((d, i) => (
+            <div key={i} className="flex justify-between"><span className="text-slate-400">{d.forma}</span><span className="font-bold text-white">{formatCurrency(d.valor)}</span></div>
+          ))}
+          {dados.troco > 0 && <div className="flex justify-between border-t border-white/10 pt-2"><span className="text-emerald-400 font-black">Troco</span><span className="font-black text-emerald-400">{formatCurrency(dados.troco)}</span></div>}
+        </div>
+        <div className="border-t border-white/10 px-6 py-4 space-y-2">
+          <button onClick={imprimir} className="w-full rounded-2xl bg-blue-500 py-3.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95">🖨️ Imprimir cupom fiscal</button>
+          <button onClick={onFechar} className="w-full rounded-2xl border border-white/10 bg-white/[0.06] py-3 text-sm font-black text-slate-300 hover:bg-white/10">Fechar</button>
         </div>
       </div>
     </div>
