@@ -267,8 +267,24 @@ function dbParaPedido(r) {
     status:        STATUS_DB_PARA_APP[r.status]    ?? r.status,
     paymentStatus: PAGT_DB_PARA_APP[r.status_pagamento] ?? r.status_pagamento,
     createdAt:     new Date(r.criado_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+    createdAtISO:  r.criado_em,          // timestamp completo (filtros/relatórios)
+    updatedAtISO:  r.atualizado_em,      // usado como momento do pagamento (permanência)
     items:         r.itens ?? [],
   }
+}
+
+// ── Exclusões (requerem policy de DELETE — migration 007) ────
+export async function excluirProduto(id) {
+  const { error } = await supabase.from('tab_produtos').delete().eq('id', id)
+  if (error) throw error
+}
+export async function excluirFormaPagamento(id) {
+  const { error } = await supabase.from('tab_formas_pagamento').delete().eq('id', id)
+  if (error) throw error
+}
+export async function excluirUsuario(id) {
+  const { error } = await supabase.from('tab_usuarios').delete().eq('id', id)
+  if (error) throw error
 }
 
 // ════════════════════════════════════════════════════════════

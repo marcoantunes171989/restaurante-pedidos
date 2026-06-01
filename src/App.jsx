@@ -6,6 +6,7 @@ import {
   fetchPedidos,   inserirPedido,   atualizarPedido,   escutarPedidos,
   fetchFormasPagamento, inserirFormaPagamento, atualizarFormaPagamento, escutarFormasPagamento,
   baixarEstoque, registrarPagamento,
+  excluirProduto, excluirFormaPagamento, excluirUsuario,
   STATUS_APP_PARA_DB,
 } from "./lib/supabase";
 import { GeradorComandas } from "./components/QRComandas";
@@ -2566,6 +2567,63 @@ function AdminView({ products, categories, adminForm, setAdminForm, addProduct, 
 }
 
 // ════════════════════════════════════════════════════════════
+//  Filtro de período + seletor de datas
+// ════════════════════════════════════════════════════════════
+function intervaloPeriodo(periodo, ini, fim) {
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+  const fimHoje = new Date(); fimHoje.setHours(23, 59, 59, 999);
+  switch (periodo) {
+    case "hoje":   return [hoje, fimHoje];
+    case "ontem": { const o = new Date(hoje); o.setDate(o.getDate() - 1); const of = new Date(o); of.setHours(23,59,59,999); return [o, of]; }
+    case "7":  { const d = new Date(hoje); d.setDate(d.getDate() - 6);  return [d, fimHoje]; }
+    case "15": { const d = new Date(hoje); d.setDate(d.getDate() - 14); return [d, fimHoje]; }
+    case "30": { const d = new Date(hoje); d.setDate(d.getDate() - 29); return [d, fimHoje]; }
+    case "periodo": {
+      const a = ini ? new Date(ini + "T00:00:00") : new Date(0);
+      const b = fim ? new Date(fim + "T23:59:59") : fimHoje;
+      return [a, b];
+    }
+    default: return [new Date(0), fimHoje];
+  }
+}
+function filtrarPedidosPorPeriodo(orders, periodo, ini, fim) {
+  if (periodo === "tudo") return orders;
+  const [a, b] = intervaloPeriodo(periodo, ini, fim);
+  return orders.filter((o) => {
+    if (!o.createdAtISO) return true;
+    const d = new Date(o.createdAtISO);
+    return d >= a && d <= b;
+  });
+}
+
+function SeletorPeriodo({ periodo, setPeriodo, ini, setIni, fim, setFim }) {
+  const opcoes = [
+    { id: "hoje", label: "Hoje" }, { id: "ontem", label: "Ontem" },
+    { id: "7", label: "7 dias" }, { id: "15", label: "15 dias" }, { id: "30", label: "30 dias" },
+    { id: "tudo", label: "Tudo" }, { id: "periodo", label: "Período" },
+  ];
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {opcoes.map((o) => (
+        <button key={o.id} onClick={() => setPeriodo(o.id)}
+          className={`rounded-full border px-3 py-1.5 text-xs font-black transition ${periodo === o.id ? "border-blue-400 bg-blue-500 text-white" : "border-white/10 bg-white/[0.06] text-slate-300 hover:bg-white/10"}`}>
+          {o.label}
+        </button>
+      ))}
+      {periodo === "periodo" && (
+        <div className="flex items-center gap-2">
+          <input type="date" value={ini} onChange={(e) => setIni(e.target.value)}
+            className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-1.5 text-xs text-white outline-none focus:border-blue-400" />
+          <span className="text-xs text-slate-500">até</span>
+          <input type="date" value={fim} onChange={(e) => setFim(e.target.value)}
+            className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-1.5 text-xs text-white outline-none focus:border-blue-400" />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
 //  Helpers de análise de vendas (a partir dos pedidos)
 // ════════════════════════════════════════════════════════════
 function analisarVendas(orders, products) {
@@ -2632,25 +2690,47 @@ function CardMetrica({ titulo, valor, sub, cor = "text-white", icon }) {
 //  Dashboard gerencial
 // ════════════════════════════════════════════════════════════
 function DashboardAdmin({ orders, products }) {
-  const a = analisarVendas(orders, products);
+  const [periodo, setPeriodo] = useState("hoje");
+  const [ini, setIni] = useState("");
+  const [fim, setFim] = useState("");
+  const [modal, setModal] = useState(null); // { titulo, pedidos }
+
+  const filtrados = filtrarPedidosPorPeriodo(orders, periodo, ini, fim);
+  const a = analisarVendas(filtrados, products);
   const maxProd = Math.max(1, ...a.topProdutos.map((p) => p.qtd));
   const maxCat = Math.max(1, ...a.categorias.map((c) => c.valor));
   const semEstoque = products.filter((p) => (p.estoque ?? 0) <= 5);
 
+  const pagos = filtrados.filter((o) => o.paymentStatus === "paid");
+  const abertos = filtrados.filter((o) => o.paymentStatus !== "paid");
+
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-black text-white">📊 Dashboard</h2>
-        <p className="mt-1 text-sm text-slate-400">Visão gerencial do estabelecimento em tempo real.</p>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <h2 className="text-2xl font-black text-white">📊 Dashboard</h2>
+          <p className="mt-1 text-sm text-slate-400">Visão gerencial — clique nos cards para ver o detalhamento.</p>
+        </div>
+        <SeletorPeriodo periodo={periodo} setPeriodo={setPeriodo} ini={ini} setIni={setIni} fim={fim} setFim={setFim} />
       </div>
 
-      {/* Métricas principais */}
+      {/* Métricas principais (clicáveis) */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <CardMetrica titulo="Faturamento (pago)" valor={formatCurrency(a.faturamento)} sub={`${a.pagos.length} pedido(s) pago(s)`} cor="text-emerald-400" icon="💰" />
-        <CardMetrica titulo="Em aberto" valor={formatCurrency(a.emAberto)} sub="aguardando pagamento" cor="text-amber-400" icon="⏳" />
-        <CardMetrica titulo="Ticket médio" valor={formatCurrency(a.ticket)} sub="por pedido pago" cor="text-blue-400" icon="🎫" />
-        <CardMetrica titulo="Total de pedidos" valor={a.totalPedidos} sub={`${products.length} produtos cadastrados`} icon="📦" />
+        <button onClick={() => setModal({ titulo: "Faturamento — pedidos pagos", pedidos: pagos })} className="text-left">
+          <CardMetrica titulo="Faturamento (pago)" valor={formatCurrency(a.faturamento)} sub={`${a.pagos.length} pedido(s) • ver detalhes`} cor="text-emerald-400" icon="💰" />
+        </button>
+        <button onClick={() => setModal({ titulo: "Pedidos em aberto", pedidos: abertos })} className="text-left">
+          <CardMetrica titulo="Em aberto" valor={formatCurrency(a.emAberto)} sub="ver detalhes" cor="text-amber-400" icon="⏳" />
+        </button>
+        <button onClick={() => setModal({ titulo: "Pedidos pagos (ticket médio)", pedidos: pagos })} className="text-left">
+          <CardMetrica titulo="Ticket médio" valor={formatCurrency(a.ticket)} sub="por pedido pago" cor="text-blue-400" icon="🎫" />
+        </button>
+        <button onClick={() => setModal({ titulo: "Todos os pedidos do período", pedidos: filtrados })} className="text-left">
+          <CardMetrica titulo="Total de pedidos" valor={a.totalPedidos} sub="ver detalhes" icon="📦" />
+        </button>
       </div>
+
+      {modal && <ModalDetalhePedidos titulo={modal.titulo} pedidos={modal.pedidos} onFechar={() => setModal(null)} />}
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Top produtos */}
@@ -2699,46 +2779,237 @@ function DashboardAdmin({ orders, products }) {
 // ════════════════════════════════════════════════════════════
 //  Relatórios de vendas detalhados
 // ════════════════════════════════════════════════════════════
+// Modal genérico com lista de pedidos detalhada (clique nos cards)
+function ModalDetalhePedidos({ titulo, pedidos, onFechar }) {
+  const total = pedidos.reduce((s, o) => s + orderTotal(o) * 1.1, 0);
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onFechar}>
+      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-2xl flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl max-h-[88vh]">
+        <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+          <div>
+            <h2 className="text-lg font-black text-white">{titulo}</h2>
+            <p className="text-xs text-slate-400">{pedidos.length} pedido(s) • Total {formatCurrency(total)}</p>
+          </div>
+          <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20">✕</button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
+          {pedidos.length === 0 && <p className="py-8 text-center text-sm text-slate-500">Nenhum pedido no período.</p>}
+          {pedidos.map((o) => (
+            <div key={o.id} className="rounded-2xl border border-white/10 bg-slate-800/50 p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-widest text-slate-500">{o.id} • {o.table} • {o.command}</p>
+                  <p className="text-xs text-slate-400">{o.createdAtISO ? new Date(o.createdAtISO).toLocaleString("pt-BR") : o.createdAt}</p>
+                </div>
+                <span className="font-black text-emerald-300">{formatCurrency(orderTotal(o) * 1.1)}</span>
+              </div>
+              <div className="mt-2 space-y-0.5">
+                {o.items.map((it, i) => (
+                  <div key={i} className="flex justify-between text-sm text-slate-300">
+                    <span>{it.quantity}x {it.name}</span><span>{formatCurrency(it.price * it.quantity)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+//  Relatórios de vendas — filtros + exportação (Excel/PDF/imprimir)
+// ════════════════════════════════════════════════════════════
 function RelatoriosAdmin({ orders, products }) {
-  const a = analisarVendas(orders, products);
+  const [periodo, setPeriodo] = useState("7");
+  const [ini, setIni] = useState("");
+  const [fim, setFim] = useState("");
+  const [aba, setAba] = useState("vendas"); // vendas | cupom | permanencia
+
+  const filtrados = filtrarPedidosPorPeriodo(orders, periodo, ini, fim);
+  const a = analisarVendas(filtrados, products);
+
+  // ── Exportações ──
+  function baixarArquivo(conteudo, nome, tipo) {
+    const blob = new Blob([conteudo], { type: tipo });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url; link.download = nome; link.click();
+    URL.revokeObjectURL(url);
+  }
+  function exportarCSV() {
+    let csv = "Produto;Qtd vendida;Faturamento\n";
+    a.topProdutos.forEach((p) => { csv += `${p.nome};${p.qtd};${p.valor.toFixed(2)}\n`; });
+    csv += `\nTotal;;${a.faturamentoSemTaxa.toFixed(2)}\n`;
+    baixarArquivo("﻿" + csv, `relatorio-vendas-${periodo}.csv`, "text/csv;charset=utf-8");
+  }
+  function imprimirRelatorio() {
+    const j = window.open("", "_blank", "width=800,height=600");
+    j.document.write(`<html><head><meta charset="UTF-8"><title>Relatório de Vendas</title>
+    <style>body{font-family:Arial;padding:20px;color:#000}h1{font-size:18px}table{width:100%;border-collapse:collapse;margin-top:10px}th,td{border:1px solid #ccc;padding:8px;text-align:left;font-size:13px}th{background:#eee}.r{text-align:right}.tot{font-weight:bold}</style>
+    </head><body>
+    <h1>Relatório de Vendas</h1>
+    <p>Período: ${periodo === "periodo" ? `${ini} a ${fim}` : periodo} — Emitido em ${new Date().toLocaleString("pt-BR")}</p>
+    <table><thead><tr><th>Produto</th><th class="r">Qtd</th><th class="r">Faturamento</th></tr></thead><tbody>
+    ${a.topProdutos.map((p) => `<tr><td>${p.nome}</td><td class="r">${p.qtd}</td><td class="r">${formatCurrency(p.valor)}</td></tr>`).join("")}
+    <tr class="tot"><td>TOTAL</td><td class="r">${a.topProdutos.reduce((s,p)=>s+p.qtd,0)}</td><td class="r">${formatCurrency(a.faturamentoSemTaxa)}</td></tr>
+    </tbody></table>
+    <script>window.onload=()=>window.print()<\/script></body></html>`);
+    j.document.close();
+  }
+
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-black text-white">📈 Relatórios de vendas</h2>
-        <p className="mt-1 text-sm text-slate-400">Detalhamento de produtos vendidos e faturamento.</p>
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-3">
-        <CardMetrica titulo="Subtotal vendido" valor={formatCurrency(a.faturamentoSemTaxa)} cor="text-white" />
-        <CardMetrica titulo="Faturamento + taxa" valor={formatCurrency(a.faturamento)} cor="text-emerald-400" />
-        <CardMetrica titulo="Itens vendidos" valor={a.topProdutos.reduce((s, p) => s + p.qtd, 0)} cor="text-blue-400" />
-      </div>
-
-      {/* Tabela de produtos vendidos */}
-      <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.04]">
-        <div className="hidden grid-cols-[2fr_1fr_1fr] bg-white/[0.06] px-5 py-3 text-xs font-black uppercase tracking-widest text-slate-400 sm:grid">
-          <span>Produto</span><span className="text-center">Qtd vendida</span><span className="text-right">Faturamento</span>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <h2 className="text-2xl font-black text-white">📈 Relatórios</h2>
+          <p className="mt-1 text-sm text-slate-400">Vendas, cupons e tempo de permanência.</p>
         </div>
-        {a.topProdutos.length === 0 && <p className="px-5 py-6 text-center text-sm text-slate-500">Nenhuma venda registrada ainda.</p>}
-        {a.topProdutos.map((p) => (
-          <div key={p.nome} className="grid gap-1 border-t border-white/10 px-5 py-3 text-sm sm:grid-cols-[2fr_1fr_1fr] sm:items-center">
-            <span className="font-black text-white">{p.nome}</span>
-            <span className="text-slate-300 sm:text-center">{p.qtd} un</span>
-            <span className="font-black text-emerald-300 sm:text-right">{formatCurrency(p.valor)}</span>
-          </div>
+        <SeletorPeriodo periodo={periodo} setPeriodo={setPeriodo} ini={ini} setIni={setIni} fim={fim} setFim={setFim} />
+      </div>
+
+      {/* Sub-abas de relatório */}
+      <div className="flex flex-wrap gap-2">
+        {[{ id: "vendas", label: "🛒 Vendas" }, { id: "cupom", label: "🧾 Por cupom/mesa/comanda" }, { id: "permanencia", label: "⏱️ Permanência média" }].map((t) => (
+          <button key={t.id} onClick={() => setAba(t.id)}
+            className={`rounded-full border px-4 py-2 text-sm font-black transition ${aba === t.id ? "border-blue-400 bg-blue-500 text-white" : "border-white/10 bg-white/[0.06] text-slate-300"}`}>
+            {t.label}
+          </button>
         ))}
       </div>
 
-      {/* Por categoria */}
-      <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.04]">
-        <div className="bg-white/[0.06] px-5 py-3 text-sm font-black text-white">Faturamento por categoria</div>
-        {a.categorias.map((c) => (
-          <div key={c.categoria} className="flex items-center justify-between border-t border-white/10 px-5 py-3 text-sm">
-            <span className="font-bold text-white">{c.categoria}</span>
-            <div className="flex items-center gap-4">
-              <span className="text-slate-400">{c.qtd} un</span>
-              <span className="font-black text-emerald-300">{formatCurrency(c.valor)}</span>
+      {aba === "vendas" && (
+        <>
+          <div className="flex flex-wrap gap-2">
+            <button onClick={exportarCSV} className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-2.5 text-sm font-black text-emerald-300 hover:bg-emerald-500/20">📊 Exportar Excel (CSV)</button>
+            <button onClick={imprimirRelatorio} className="rounded-2xl border border-red-400/30 bg-red-500/10 px-4 py-2.5 text-sm font-black text-red-300 hover:bg-red-500/20">📄 PDF / Imprimir</button>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <CardMetrica titulo="Subtotal vendido" valor={formatCurrency(a.faturamentoSemTaxa)} cor="text-white" />
+            <CardMetrica titulo="Faturamento + taxa" valor={formatCurrency(a.faturamento)} cor="text-emerald-400" />
+            <CardMetrica titulo="Itens vendidos" valor={a.topProdutos.reduce((s, p) => s + p.qtd, 0)} cor="text-blue-400" />
+          </div>
+          <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.04]">
+            <div className="hidden grid-cols-[2fr_1fr_1fr] bg-white/[0.06] px-5 py-3 text-xs font-black uppercase tracking-widest text-slate-400 sm:grid">
+              <span>Produto</span><span className="text-center">Qtd vendida</span><span className="text-right">Faturamento</span>
             </div>
+            {a.topProdutos.length === 0 && <p className="px-5 py-6 text-center text-sm text-slate-500">Nenhuma venda no período.</p>}
+            {a.topProdutos.map((p) => (
+              <div key={p.nome} className="grid gap-1 border-t border-white/10 px-5 py-3 text-sm sm:grid-cols-[2fr_1fr_1fr] sm:items-center">
+                <span className="font-black text-white">{p.nome}</span>
+                <span className="text-slate-300 sm:text-center">{p.qtd} un</span>
+                <span className="font-black text-emerald-300 sm:text-right">{formatCurrency(p.valor)}</span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {aba === "cupom" && <RelatorioCupom pedidos={filtrados} />}
+      {aba === "permanencia" && <RelatorioPermanencia pedidos={filtrados} />}
+    </div>
+  );
+}
+
+// ── Relatório analítico por cupom fiscal / mesa / comanda ────
+function RelatorioCupom({ pedidos }) {
+  const pagos = pedidos.filter((o) => o.paymentStatus === "paid");
+  return (
+    <div className="space-y-3">
+      <p className="text-sm text-slate-400">{pagos.length} cupom(ns) fiscal(is) no período — itens detalhados por mesa e comanda.</p>
+      {pagos.length === 0 && <p className="rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-6 text-center text-sm text-slate-500">Nenhum cupom pago no período.</p>}
+      {pagos.map((o) => (
+        <div key={o.id} className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.04]">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 bg-white/[0.04] px-5 py-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-xl bg-blue-500/20 border border-blue-400/30 px-2.5 py-1 font-mono text-xs font-black text-blue-300">Cupom {o.id}</span>
+              <span className="rounded-xl bg-white/10 px-2.5 py-1 text-xs font-bold text-white">{o.table}</span>
+              <span className="rounded-xl bg-white/10 px-2.5 py-1 font-mono text-xs font-bold text-slate-300">{o.command}</span>
+            </div>
+            <span className="text-sm font-black text-emerald-300">{formatCurrency(orderTotal(o) * 1.1)}</span>
+          </div>
+          <div className="px-5 py-3">
+            <p className="mb-1 text-xs text-slate-500">{o.createdAtISO ? new Date(o.createdAtISO).toLocaleString("pt-BR") : o.createdAt}</p>
+            {o.items.map((it, i) => (
+              <div key={i} className="flex justify-between text-sm">
+                <span className="text-slate-300">{it.quantity}x {it.name}</span>
+                <span className="font-bold text-white">{formatCurrency(it.price * it.quantity)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Relatório de permanência média por comanda ───────────────
+function RelatorioPermanencia({ pedidos }) {
+  // Agrupa por comanda: primeiro pedido (início) e último pagamento (fim)
+  const porComanda = {};
+  pedidos.filter((o) => o.paymentStatus === "paid" && o.createdAtISO && o.updatedAtISO).forEach((o) => {
+    const k = o.command;
+    if (!porComanda[k]) porComanda[k] = { comanda: k, mesa: o.table, inicio: o.createdAtISO, fim: o.updatedAtISO };
+    if (new Date(o.createdAtISO) < new Date(porComanda[k].inicio)) porComanda[k].inicio = o.createdAtISO;
+    if (new Date(o.updatedAtISO) > new Date(porComanda[k].fim)) porComanda[k].fim = o.updatedAtISO;
+  });
+  const lista = Object.values(porComanda).map((c) => {
+    const ms = new Date(c.fim) - new Date(c.inicio);
+    const dia = new Date(c.inicio).toLocaleDateString("pt-BR", { weekday: "long" });
+    const horaIni = new Date(c.inicio).getHours();
+    return { ...c, ms, minutos: Math.round(ms / 60000), dia, horaIni };
+  });
+
+  const mediaGeral = lista.length ? lista.reduce((s, c) => s + c.ms, 0) / lista.length : 0;
+
+  // Por dia da semana
+  const porDia = {};
+  lista.forEach((c) => {
+    if (!porDia[c.dia]) porDia[c.dia] = { dia: c.dia, soma: 0, n: 0 };
+    porDia[c.dia].soma += c.ms; porDia[c.dia].n += 1;
+  });
+  const dias = Object.values(porDia).map((d) => ({ ...d, media: d.soma / d.n }));
+
+  function fmtDur(ms) {
+    const min = Math.floor(ms / 60000); const h = Math.floor(min / 60); const m = min % 60;
+    const s = Math.floor((ms % 60000) / 1000);
+    return h > 0 ? `${h}h ${m}min` : `${m}min ${s}s`;
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <CardMetrica titulo="Permanência média" valor={fmtDur(mediaGeral)} sub={`${lista.length} comanda(s) analisada(s)`} cor="text-blue-400" icon="⏱️" />
+        <CardMetrica titulo="Comandas finalizadas" valor={lista.length} sub="do pedido ao pagamento" icon="🧾" />
+      </div>
+
+      {/* Média por dia da semana */}
+      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
+        <h3 className="mb-4 text-lg font-black text-white">📅 Permanência média por dia da semana</h3>
+        {dias.length === 0 ? <p className="text-sm text-slate-500">Sem dados suficientes (precisa de comandas pagas no período).</p> :
+          <div className="space-y-3">
+            {dias.map((d) => (
+              <div key={d.dia} className="flex items-center justify-between text-sm">
+                <span className="capitalize text-slate-300">{d.dia}</span>
+                <span className="font-black text-white">{fmtDur(d.media)} <span className="text-xs text-slate-500">({d.n} comanda(s))</span></span>
+              </div>
+            ))}
+          </div>}
+      </div>
+
+      {/* Detalhe por comanda */}
+      <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.04]">
+        <div className="hidden grid-cols-[1fr_1fr_1.5fr_1fr] bg-white/[0.06] px-5 py-3 text-xs font-black uppercase tracking-widest text-slate-400 sm:grid">
+          <span>Comanda</span><span>Mesa</span><span>Período</span><span className="text-right">Permanência</span>
+        </div>
+        {lista.length === 0 && <p className="px-5 py-6 text-center text-sm text-slate-500">Nenhuma comanda paga no período.</p>}
+        {lista.sort((a,b)=>b.ms-a.ms).map((c, i) => (
+          <div key={i} className="grid gap-1 border-t border-white/10 px-5 py-3 text-sm sm:grid-cols-[1fr_1fr_1.5fr_1fr] sm:items-center">
+            <span className="font-mono font-black text-white">{c.comanda}</span>
+            <span className="text-slate-300">{c.mesa}</span>
+            <span className="text-xs text-slate-400">{new Date(c.inicio).toLocaleTimeString("pt-BR")} → {new Date(c.fim).toLocaleTimeString("pt-BR")}</span>
+            <span className="font-black text-blue-300 sm:text-right">{fmtDur(c.ms)}</span>
           </div>
         ))}
       </div>
