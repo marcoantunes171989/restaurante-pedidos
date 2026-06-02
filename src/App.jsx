@@ -3301,21 +3301,21 @@ function analisarVendas(orders, products) {
   const emAberto = validos.filter((o) => o.paymentStatus !== "paid").reduce((s, o) => s + orderTotal(o) * 1.1, 0);
   const ticket = pagos.length ? faturamento / pagos.length : 0;
 
-  // Produtos mais vendidos (apenas pedidos válidos)
+  // Produtos mais vendidos — considera VENDAS REALIZADAS (pedidos pagos),
+  // mantendo consistência com o faturamento e com o drill-down de cupons.
   const porProduto = {};
-  orders = validos; // usa apenas válidos no restante da análise
-  orders.forEach((o) => o.items.forEach((it) => {
+  pagos.forEach((o) => o.items.forEach((it) => {
     if (!porProduto[it.name]) porProduto[it.name] = { nome: it.name, qtd: 0, valor: 0 };
     porProduto[it.name].qtd += it.quantity;
     porProduto[it.name].valor += it.price * it.quantity;
   }));
   const topProdutos = Object.values(porProduto).sort((a, b) => b.qtd - a.qtd).slice(0, 6);
 
-  // Por categoria (cruza nome do item com categoria do produto)
+  // Por categoria (cruza nome do item com categoria do produto) — também só pagos
   const catDe = {};
   products.forEach((p) => { catDe[p.name] = p.category; });
   const porCategoria = {};
-  orders.forEach((o) => o.items.forEach((it) => {
+  pagos.forEach((o) => o.items.forEach((it) => {
     const cat = catDe[it.name] || "Outros";
     if (!porCategoria[cat]) porCategoria[cat] = { categoria: cat, valor: 0, qtd: 0 };
     porCategoria[cat].valor += it.price * it.quantity;
@@ -3323,7 +3323,7 @@ function analisarVendas(orders, products) {
   }));
   const categorias = Object.values(porCategoria).sort((a, b) => b.valor - a.valor);
 
-  return { pagos, faturamento, faturamentoSemTaxa, emAberto, ticket, topProdutos, categorias, totalPedidos: orders.length };
+  return { pagos, faturamento, faturamentoSemTaxa, emAberto, ticket, topProdutos, categorias, totalPedidos: validos.length };
 }
 
 // Barra horizontal simples (sem biblioteca externa)
