@@ -3551,69 +3551,118 @@ function TagsInput({ tags, setTags, placeholder = "Adicionar + Enter" }) {
 }
 
 function ProductAdmin({ products, categories, adminForm, setAdminForm, addProduct, toggleProduct, editarProduto, removerProduto }) {
-  const [editando, setEditando] = useState(null); // produto em edição
-  const [excluir, setExcluir]   = useState(null); // produto a excluir
+  const [editando, setEditando] = useState(null);
+  const [excluir, setExcluir]   = useState(null);
+  const [busca, setBusca]       = useState("");
   const cats = categories.filter((c) => c !== "Todos");
-  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400";
+  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400 transition";
+  const lbl = "mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500";
+  const set = (k, v) => setAdminForm({ ...adminForm, [k]: v });
+  const tagsAtuais = adminForm.ingredientsText ? adminForm.ingredientsText.split(",").map((s) => s.trim()).filter(Boolean) : [];
+
+  const filtrados = products.filter((p) => {
+    const t = `${p.name} ${p.category}`.toLowerCase();
+    return t.includes(busca.toLowerCase());
+  });
 
   return (
-    <main className="grid gap-6 lg:grid-cols-[420px_1fr]">
-      {/* Cadastro */}
+    <main className="grid gap-6 lg:grid-cols-[400px_1fr]">
+      {/* ── Formulário de cadastro ─────────────────────── */}
       <Card className="lg:self-start">
-        <h3 className="text-xl font-black text-white">Cadastrar produto</h3>
-        <div className="mt-5 space-y-3">
-          <input value={adminForm.name} onChange={(e) => setAdminForm({ ...adminForm, name: e.target.value })} placeholder="Nome do produto" className={inp} />
-          <select value={adminForm.category} onChange={(e) => setAdminForm({ ...adminForm, category: e.target.value })} className={inp}>{cats.map((c) => <option key={c}>{c}</option>)}</select>
-          <div className="grid grid-cols-2 gap-3">
-            <input value={adminForm.price} onChange={(e) => setAdminForm({ ...adminForm, price: e.target.value.replace(",", ".") })} placeholder="Preço venda" className={inp} />
-            <input value={adminForm.cost} onChange={(e) => setAdminForm({ ...adminForm, cost: e.target.value.replace(",", ".") })} placeholder="Custo" className={inp} />
+        <div className="flex items-center gap-2">
+          <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-blue-500/15 text-lg">🛒</span>
+          <h3 className="text-lg font-black text-white">Novo produto</h3>
+        </div>
+
+        {/* Preview da imagem */}
+        <div className="mt-4 overflow-hidden rounded-2xl border border-white/10 bg-slate-800">
+          <img src={adminForm.imageUrl || fallbackImage} alt="prévia" className="h-32 w-full object-cover" />
+        </div>
+
+        <div className="mt-4 space-y-3">
+          <div>
+            <span className={lbl}>Nome do produto *</span>
+            <input value={adminForm.name} onChange={(e) => set("name", e.target.value)} placeholder="Ex.: Risoto de Filé Mignon" className={inp} />
           </div>
-          <input value={adminForm.time} onChange={(e) => setAdminForm({ ...adminForm, time: e.target.value })} placeholder="Tempo de preparo" className={inp} />
-          <input value={adminForm.imageUrl} onChange={(e) => setAdminForm({ ...adminForm, imageUrl: e.target.value })} placeholder="URL da imagem" className={inp} />
-          {/* Ingredientes como tags */}
-          <TagsInput
-            tags={adminForm.ingredientsText ? adminForm.ingredientsText.split(",").map((s) => s.trim()).filter(Boolean) : []}
-            setTags={(arr) => setAdminForm({ ...adminForm, ingredientsText: arr.join(", ") })}
-            placeholder="Ingrediente + Enter"
-          />
-          <textarea value={adminForm.description} onChange={(e) => setAdminForm({ ...adminForm, description: e.target.value })} placeholder="Descrição" rows={3} className={`${inp} resize-none`} />
-          <button onClick={addProduct} className="w-full rounded-2xl bg-blue-500 px-5 py-4 text-sm font-black text-white hover:bg-blue-400">+ Cadastrar produto</button>
+          <div>
+            <span className={lbl}>Categoria</span>
+            <select value={adminForm.category} onChange={(e) => set("category", e.target.value)} className={inp}>{cats.map((c) => <option key={c}>{c}</option>)}</select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><span className={lbl}>Preço venda *</span><input value={adminForm.price} onChange={(e) => set("price", e.target.value.replace(",", "."))} placeholder="0.00" className={inp} /></div>
+            <div><span className={lbl}>Custo</span><input value={adminForm.cost} onChange={(e) => set("cost", e.target.value.replace(",", "."))} placeholder="0.00" className={inp} /></div>
+          </div>
+          {/* margem calculada */}
+          {adminForm.price && Number(adminForm.price) > 0 && (
+            <p className="text-xs text-emerald-300">Margem estimada: {(((Number(adminForm.price) - Number(adminForm.cost || 0)) / Number(adminForm.price)) * 100).toFixed(0)}%</p>
+          )}
+          <div>
+            <span className={lbl}>Tempo de preparo</span>
+            <input value={adminForm.time} onChange={(e) => set("time", e.target.value)} placeholder="Ex.: 25-35 min" className={inp} />
+          </div>
+          <div>
+            <span className={lbl}>URL da imagem</span>
+            <input value={adminForm.imageUrl} onChange={(e) => set("imageUrl", e.target.value)} placeholder="https://..." className={inp} />
+          </div>
+          <div>
+            <span className={lbl}>Ingredientes <span className="text-slate-600 normal-case">— Enter para adicionar</span></span>
+            <TagsInput tags={tagsAtuais} setTags={(arr) => set("ingredientsText", arr.join(", "))} placeholder="Ex.: Parmesão" />
+          </div>
+          <div>
+            <span className={lbl}>Descrição</span>
+            <textarea value={adminForm.description} onChange={(e) => set("description", e.target.value)} placeholder="Descrição do produto" rows={3} className={`${inp} resize-none`} />
+          </div>
+          <button onClick={addProduct} className="w-full rounded-2xl bg-blue-500 px-5 py-4 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95 shadow-lg shadow-blue-950/30">
+            + Cadastrar produto
+          </button>
         </div>
       </Card>
 
-      {/* Lista */}
+      {/* ── Lista de produtos ──────────────────────────── */}
       <Card>
-        <div className="mb-5 grid gap-3 sm:grid-cols-3">
+        <div className="mb-4 grid gap-3 sm:grid-cols-3">
           <Metric label="Produtos" value={products.length} />
           <Metric label="Ativos" value={products.filter((p) => p.active).length} />
           <Metric label="Inativos" value={products.filter((p) => !p.active).length} />
         </div>
+
+        {/* Busca */}
+        <div className="relative mb-4">
+          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">🔍</span>
+          <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar produto..."
+            className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-blue-400" />
+        </div>
+
         <div className="space-y-2">
-          {products.map((p) => {
+          {filtrados.length === 0 && <p className="py-6 text-center text-sm text-slate-500">Nenhum produto encontrado.</p>}
+          {filtrados.map((p) => {
             const margin = p.price > 0 ? ((p.price - p.cost) / p.price) * 100 : 0;
+            const estoqueBaixo = (p.estoque ?? 0) <= 5;
             return (
-              <div key={p.id} className="flex items-center gap-3 rounded-3xl border border-white/10 bg-slate-950/40 p-3">
+              <div key={p.id} className={`flex items-center gap-3 rounded-3xl border bg-slate-950/40 p-3 transition hover:bg-slate-900/60 ${p.active ? "border-white/10" : "border-white/10 opacity-60"}`}>
                 <img src={p.imageUrl || fallbackImage} alt={p.name} className="h-14 w-14 shrink-0 rounded-2xl object-cover" />
                 <div className="min-w-0 flex-1">
                   <p className="font-black text-white truncate">{p.name}</p>
-                  <p className="text-xs text-slate-400">{p.category} • {formatCurrency(p.price)} • margem {margin.toFixed(0)}% • estoque {p.estoque ?? 0}</p>
+                  <div className="flex flex-wrap items-center gap-x-2 text-xs text-slate-400">
+                    <span className="rounded-full bg-white/[0.06] px-2 py-0.5">{p.category}</span>
+                    <span className="font-bold text-white">{formatCurrency(p.price)}</span>
+                    <span className="text-emerald-300">margem {margin.toFixed(0)}%</span>
+                    <span className={estoqueBaixo ? "font-bold text-red-300" : ""}>estoque {p.estoque ?? 0}{estoqueBaixo ? " ⚠" : ""}</span>
+                  </div>
                 </div>
-                <button onClick={() => toggleProduct(p.id)} className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-black ${p.active ? "bg-emerald-500 text-white" : "bg-slate-700 text-slate-200"}`}>{p.active ? "Ativo" : "Inativo"}</button>
-                <button onClick={() => setEditando(p)} title="Editar" className="shrink-0 rounded-xl border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs font-black text-blue-300 hover:bg-white/10">✏️</button>
-                <button onClick={() => setExcluir(p)} title="Excluir" className="shrink-0 rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-1.5 text-xs font-black text-red-300 hover:bg-red-500/20">🗑️</button>
+                <button onClick={() => toggleProduct(p.id)} title={p.active ? "Inativar" : "Ativar"} className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-black transition ${p.active ? "bg-emerald-500 text-white hover:bg-emerald-400" : "bg-slate-700 text-slate-200 hover:bg-slate-600"}`}>{p.active ? "Ativo" : "Inativo"}</button>
+                <button onClick={() => setEditando(p)} title="Editar" className="shrink-0 rounded-xl border border-blue-400/20 bg-blue-500/10 px-3 py-1.5 text-xs font-black text-blue-300 hover:bg-blue-500/20 transition">✏️</button>
+                <button onClick={() => setExcluir(p)} title="Excluir" className="shrink-0 rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-1.5 text-xs font-black text-red-300 hover:bg-red-500/20 transition">🗑️</button>
               </div>
             );
           })}
         </div>
       </Card>
 
-      {/* Modal de edição */}
       {editando && <ProdutoEditModal produto={editando} cats={cats} onSalvar={(d) => { editarProduto(editando.id, d); setEditando(null); }} onFechar={() => setEditando(null)} />}
-
-      {/* Confirmação de exclusão */}
       {excluir && (
         <ConfirmModal titulo="Excluir produto?"
-          mensagem={`Tem certeza que deseja excluir "${excluir.name}"? Esta ação não pode ser desfeita. (Dica: você pode apenas inativar.)`}
+          mensagem={`Tem certeza que deseja excluir "${excluir.name}"? Esta ação não pode ser desfeita. Dica: você pode apenas inativar o produto.`}
           confirmar="Sim, excluir"
           onConfirmar={() => { removerProduto(excluir.id); setExcluir(null); }}
           onCancelar={() => setExcluir(null)} />
