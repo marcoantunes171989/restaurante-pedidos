@@ -1,5 +1,7 @@
 const PDFDocument = require("pdfkit");
 const fs = require("fs");
+const path = require("path");
+const IMGDIR = path.join(__dirname, "img");
 
 const OUT = "C:/Projetos/restaurante-pedidos/docs/Roteiro-Demonstracao-Cliente.pdf";
 const doc = new PDFDocument({ size: "A4", margin: 50, bufferPages: true });
@@ -40,6 +42,21 @@ function passo(n, txt) {
   doc.fillColor(ESCURO).font("Helvetica").fontSize(10.5).text(txt, M + 26, y, { width: CW - 26, lineGap: 2 });
   doc.moveDown(0.35);
 }
+function imagem(arquivo, legenda) {
+  const p = path.join(IMGDIR, arquivo);
+  if (!fs.existsSync(p)) return;
+  const w = CW, h = w * 800 / 1280;
+  if (doc.y + h + 24 > doc.page.height - 50) doc.addPage();
+  const y = doc.y;
+  doc.save();
+  doc.roundedRect(M, y, w, h, 6).clip();
+  doc.image(p, M, y, { width: w });
+  doc.restore();
+  doc.roundedRect(M, y, w, h, 6).lineWidth(1).strokeColor("#cbd5e1").stroke();
+  doc.y = y + h + 5;
+  if (legenda) { doc.fillColor(CINZA).font("Helvetica-Oblique").fontSize(9).text(legenda, { align: "center" }); }
+  doc.moveDown(0.7);
+}
 function caixa(txt, cor = CLARO, corTexto = ESCURO) {
   const altura = doc.heightOfString(txt, { width: CW - 24, lineGap: 2 }) + 18;
   if (doc.y + altura > doc.page.height - 60) doc.addPage();
@@ -52,7 +69,20 @@ function caixa(txt, cor = CLARO, corTexto = ESCURO) {
 // ---------- CAPA ----------
 doc.rect(0, 0, W, doc.page.height).fill(ESCURO);
 doc.roundedRect(W / 2 - 45, 150, 90, 90, 24).fill(AZUL);
-doc.fillColor("#fff").fontSize(54).text("\u{1F37D}", W / 2 - 30, 168);
+// Ícone garfo & faca desenhado (a fonte padrão não tem emoji)
+(() => {
+  const cx = W / 2, cy = 195;
+  doc.lineWidth(3).strokeColor("#ffffff").lineCap("round");
+  // Garfo
+  doc.moveTo(cx - 14, cy - 24).lineTo(cx - 14, cy - 6).stroke();
+  doc.moveTo(cx - 20, cy - 24).lineTo(cx - 20, cy - 8).stroke();
+  doc.moveTo(cx - 8, cy - 24).lineTo(cx - 8, cy - 8).stroke();
+  doc.moveTo(cx - 20, cy - 8).lineTo(cx - 8, cy - 8).stroke();
+  doc.moveTo(cx - 14, cy - 6).lineTo(cx - 14, cy + 24).stroke();
+  // Faca
+  doc.moveTo(cx + 12, cy - 24).lineTo(cx + 12, cy + 24).stroke();
+  doc.moveTo(cx + 12, cy - 24).lineTo(cx + 18, cy - 16).lineTo(cx + 12, cy - 2).stroke();
+})();
 doc.fillColor("#fff").font("Helvetica-Bold").fontSize(30).text("Sistema de Pedidos", 0, 280, { align: "center" });
 doc.fillColor("#93c5fd").fontSize(30).text("para Restaurantes", { align: "center" });
 doc.fillColor("#cbd5e1").font("Helvetica").fontSize(14).text("Roteiro de Demonstração ao Cliente", 0, 350, { align: "center" });
@@ -79,6 +109,26 @@ h2("Perfis de acesso");
 });
 doc.moveDown(0.3);
 caixa("Dica: cada empresa gera comandas com suas próprias iniciais (ex.: PIZ-000001). O sistema valida a comanda — uma comanda de outra empresa é recusada automaticamente.", "#eff6ff", "#1e40af");
+
+// ---------- TELAS DO SISTEMA (galeria) ----------
+doc.addPage();
+h1("Telas do sistema");
+p("Telas reais capturadas do sistema em funcionamento, com os dados de demonstração.");
+doc.moveDown(0.3);
+h2("Acesso e cadastro de empresas (Administrador geral)");
+imagem("02-empresas.png", "Painel do administrador geral — cadastro e manutenção das empresas (SaaS multi-empresa).");
+h2("Cardápio digital (Tablet do cliente / Garçom)");
+imagem("03-cardapio.png", "Cardápio com fotos, categorias, busca e carrinho — pedido vinculado à comanda.");
+doc.addPage();
+h2("Cozinha em tempo real");
+imagem("05-cozinha.png", "Quadro da cozinha (Aguardando / Preparando / Finalizado) atualizado em tempo real.");
+h2("Caixa / Pagamento");
+imagem("06-caixa.png", "Fechamento da conta: leitura da comanda, divisão, formas de pagamento e cupom.");
+doc.addPage();
+h2("Dashboard gerencial");
+imagem("04-dashboard.png", "Indicadores de vendas: faturamento, ticket médio, gráficos e produtos mais vendidos.");
+h2("Tela de acesso");
+imagem("01-login.png", "Login por usuário e senha, com controle de permissões por perfil.");
 
 // ---------- 2. ACESSOS ----------
 h1("2. Acessos para a demonstração");
@@ -143,28 +193,28 @@ h1("4. Recursos para destacar por segmento");
 p("Use cada segmento para mostrar uma funcionalidade diferente — todos já foram validados.");
 doc.moveDown(0.3);
 
-function bloco(emoji, titulo, cor, itens) {
+function bloco(titulo, cor, itens) {
   if (doc.y > doc.page.height - 140) doc.addPage();
   const y0 = doc.y;
   doc.roundedRect(M, y0, CW, 4, 2).fill(cor);
   doc.y = y0 + 10;
-  doc.fillColor(cor).font("Helvetica-Bold").fontSize(13).text(emoji + "  " + titulo);
+  doc.fillColor(cor).font("Helvetica-Bold").fontSize(13).text(titulo);
   doc.moveDown(0.2);
   itens.forEach(it=>{ doc.fillColor(CINZA).font("Helvetica").fontSize(10.5).text("•  " + it, {indent:8, lineGap:2}); });
   doc.moveDown(0.5);
 }
-bloco("\u{1F355}","Pizzaria — Fluxo completo + Dashboard", AZUL, [
+bloco("Pizzaria — Fluxo completo + Dashboard", AZUL, [
   "Ciclo ponta a ponta: comanda QR, pedido, cozinha, entrega e pagamento.",
   "Dashboard do gestor: faturamento, ticket médio, total de pedidos e faturamento por horário.",
   "Relatórios de vendas com clique no produto para ver os cupons."]);
-bloco("\u{1F363}","Sushi — Cancelamento com justificativa", ROXO, [
+bloco("Sushi — Cancelamento com justificativa", ROXO, [
   "Na cozinha, use Cancelar pedido e escolha o motivo (DESISTÊNCIA, Erro no pedido, etc.).",
   "O pedido cancelado não entra no faturamento nem nos relatórios."]);
-bloco("\u{1F35D}","Restaurante — Pagamento parcial / dividir conta", VERDE, [
+bloco("Restaurante — Pagamento parcial / dividir conta", VERDE, [
   "No caixa, ative Selecionar itens / parcial e pague apenas alguns itens.",
   "O sistema mostra o valor já pago e o restante; só quita quando o total é pago.",
   "Divisão por número de pessoas (ex.: conta dividida igualmente)."]);
-bloco("\u{1F354}","Hamburgueria — Múltiplas comandas na mesma mesa", AMBAR, [
+bloco("Hamburgueria — Múltiplas comandas na mesma mesa", AMBAR, [
   "Várias comandas (clientes diferentes) na mesma mesa, lidas juntas no caixa.",
   "Fechamento consolidado das comandas em um único pagamento.",
   "Baixa automática de estoque a cada venda."]);
@@ -185,8 +235,52 @@ doc.moveDown(0.3);
 h2("Administrador geral (SaaS)");
 p("Cria novas empresas (empresa + gestor), faz manutenção e inativa empresas preservando o histórico. Ao inativar uma empresa, todos os usuários dela são inativados automaticamente.");
 
-// ---------- 6. CHECKLIST ----------
-h1("6. Checklist pré-apresentação");
+// ---------- 6. DIFERENCIAIS COMERCIAIS ----------
+doc.addPage();
+h1("6. Diferenciais comerciais");
+p("Argumentos de venda para apoiar a conversa com o cliente.");
+doc.moveDown(0.3);
+function dif(titulo, texto) {
+  if (doc.y > doc.page.height - 90) doc.addPage();
+  const y = doc.y;
+  doc.roundedRect(M, y, 4, 30, 2).fill(VERDE);
+  doc.fillColor(ESCURO).font("Helvetica-Bold").fontSize(11).text(titulo, M + 14, y, { width: CW - 14 });
+  doc.fillColor(CINZA).font("Helvetica").fontSize(10).text(texto, M + 14, doc.y, { width: CW - 14, lineGap: 2 });
+  doc.moveDown(0.45);
+}
+dif("Pedido sem fila e sem erro", "O cliente pede pela comanda com QR Code; o pedido vai direto e digitado para a cozinha, eliminando erros de anotação e idas e vindas do garçom.");
+dif("Cozinha em tempo real", "Os pedidos aparecem instantaneamente na cozinha e mudam de status ao vivo — mais agilidade e controle do preparo, com tempo médio por prato.");
+dif("Caixa completo e flexível", "Conta inteira ou dividida, pagamento parcial por item, troco no dinheiro, múltiplas formas e cupom não fiscal por impressão, WhatsApp ou e-mail.");
+dif("Gestão na palma da mão", "Dashboard com faturamento, ticket médio, vendas por categoria, produtos mais vendidos e relatórios — decisões baseadas em dados.");
+dif("Multi-empresa (SaaS)", "Uma só plataforma para várias lojas/franquias, cada uma com dados, cardápio e usuários totalmente separados. Ideal para redes e para revenda do sistema.");
+dif("Controle de acesso por perfil", "Cada colaborador vê apenas o que precisa (garçom, cozinha, caixa, painel, gestor), aumentando a segurança e a organização.");
+dif("Baixa automática de estoque", "Cada venda baixa o estoque dos produtos automaticamente, ajudando no controle de insumos.");
+dif("Sem instalação e sempre atualizado", "Funciona no navegador (tablet, celular, TV ou computador). Atualizações e dados na nuvem, com sincronização em tempo real.");
+dif("Baixo custo para começar", "Plano inicial gratuito por empresa, sem necessidade de equipamentos caros — usa os dispositivos que o cliente já tem.");
+
+// ---------- 7. FAQ ----------
+doc.addPage();
+h1("7. Perguntas frequentes do cliente");
+function faq(q, a) {
+  if (doc.y > doc.page.height - 80) doc.addPage();
+  doc.fillColor(AZUL).font("Helvetica-Bold").fontSize(10.5).text("P:  " + q, { lineGap: 1 });
+  doc.fillColor(ESCURO).font("Helvetica").fontSize(10.5).text("R:  " + a, { lineGap: 2, indent: 0 });
+  doc.moveDown(0.5);
+}
+faq("Precisa de internet para funcionar?", "Sim. O sistema é online e sincroniza em tempo real na nuvem (Supabase). Recomenda-se uma conexão estável no estabelecimento.");
+faq("Funciona em qual aparelho?", "Em qualquer um com navegador: tablet, celular, computador ou TV. O painel da cozinha e o painel público ficam ótimos em tela cheia (F11).");
+faq("O cliente precisa instalar aplicativo?", "Não. Ele apenas escaneia o QR Code da comanda. O atendimento também é feito pelo tablet do garçom.");
+faq("Como funciona o pagamento?", "O caixa lê a(s) comanda(s), fecha a conta (inteira, dividida ou parcial por item), registra a forma de pagamento e emite o cupom não fiscal.");
+faq("É um sistema fiscal (emite NF-e/NFC-e)?", "O cupom atual é não fiscal (controle interno). A emissão fiscal pode ser integrada conforme a necessidade do cliente.");
+faq("Dá para usar em mais de uma loja?", "Sim. É multi-empresa: cada loja tem cardápio, usuários e relatórios próprios, totalmente isolados.");
+faq("Meus dados ficam seguros?", "Os dados ficam na nuvem com acesso controlado por usuário e permissão. Cada empresa só enxerga as próprias informações.");
+faq("Posso personalizar o cardápio e as fotos?", "Sim. Produtos, preços, categorias, ingredientes e imagens são totalmente editáveis pelo gestor.");
+faq("E se um pedido for cancelado?", "A cozinha cancela com justificativa (ex.: desistência). Pedidos cancelados não entram no faturamento nem nos relatórios.");
+faq("Quanto tempo para começar a usar?", "O cadastro da empresa e do cardápio é rápido. Com os dados em mãos, o restaurante pode operar no mesmo dia.");
+
+// ---------- 8. CHECKLIST ----------
+doc.addPage();
+h1("8. Checklist pré-apresentação");
 ["Acessar o sistema e confirmar que as 4 empresas demo aparecem (admin geral).",
  "Ter algumas comandas geradas/impressas de cada segmento.",
  "Conferir que os cardápios mostram as fotos dos produtos.",
@@ -202,9 +296,10 @@ caixa("Status do projeto: validado ponta a ponta nos 4 segmentos, com dados pers
 const range = doc.bufferedPageRange();
 for (let i = 1; i < range.count; i++) {
   doc.switchToPage(i);
+  doc.page.margins.bottom = 0; // evita que o pdfkit crie páginas novas ao escrever o rodapé
   doc.fillColor("#94a3b8").font("Helvetica").fontSize(8)
-     .text("Sistema de Pedidos para Restaurantes — Roteiro de Demonstração", M, doc.page.height - 35, {width:CW, align:"left"});
-  doc.text("Página " + (i+1), M, doc.page.height - 35, {width:CW, align:"right"});
+     .text("Sistema de Pedidos para Restaurantes — Roteiro de Demonstração", M, doc.page.height - 32, {width:CW, align:"left", lineBreak:false});
+  doc.text("Página " + (i+1), M, doc.page.height - 32, {width:CW, align:"right", lineBreak:false});
 }
 
 doc.end();
