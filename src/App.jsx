@@ -6,7 +6,7 @@ import {
   fetchPedidos,   inserirPedido,   atualizarPedido,   escutarPedidos,
   fetchFormasPagamento, inserirFormaPagamento, atualizarFormaPagamento, escutarFormasPagamento,
   fetchCategorias, inserirCategoria, atualizarCategoria, excluirCategoria, escutarCategorias,
-  fetchLojas, inserirLoja, atualizarLoja, escutarLojas,
+  fetchLojas, inserirLoja, atualizarLoja, escutarLojas, cadastrarEmpresa,
   baixarEstoque, registrarPagamento,
   excluirProduto, excluirFormaPagamento, excluirUsuario,
   STATUS_APP_PARA_DB,
@@ -300,52 +300,160 @@ function CardGerarComandas() {
 // ════════════════════════════════════════════════════════════
 //  Tela de Login com card de comandas embutido
 // ════════════════════════════════════════════════════════════
-function TelaLogin({ loginForm, setLoginForm, login, message }) {
+function TelaLogin({ loginForm, setLoginForm, login, message, registrarEmpresa, clearMessage }) {
+  const [modo, setModo] = useState("login"); // "login" | "signup"
+  const [signup, setSignup] = useState({ nomeLoja: "", prefixo: "", nomeResponsavel: "", email: "", senha: "" });
+  const [enviando, setEnviando] = useState(false);
+
+  function trocarModo(novo) {
+    if (clearMessage) clearMessage();
+    setModo(novo);
+  }
+
+  function setPrefixo(v) {
+    setSignup((s) => ({ ...s, prefixo: v.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 3) }));
+  }
+
+  const signupValido =
+    signup.nomeLoja.trim() && signup.prefixo.length >= 2 &&
+    signup.nomeResponsavel.trim() && signup.email.trim() && signup.senha.length >= 4;
+
+  async function enviarCadastro() {
+    if (!signupValido) return;
+    setEnviando(true);
+    try {
+      await registrarEmpresa(signup);
+    } catch { /* mensagem já exibida */ }
+    finally { setEnviando(false); }
+  }
+
+  const inputCls = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3.5 text-white outline-none transition focus:border-blue-400 placeholder:text-slate-600";
+  const labelCls = "mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500";
+
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-950 px-4 text-slate-100">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-950 px-4 py-10 text-slate-100">
       {/* Brilhos de fundo sutis */}
       <div className="pointer-events-none absolute -top-32 -left-32 h-96 w-96 rounded-full bg-blue-600/20 blur-[120px]" />
       <div className="pointer-events-none absolute -bottom-32 -right-32 h-96 w-96 rounded-full bg-violet-600/15 blur-[120px]" />
 
-      {/* Card único, centralizado e minimalista */}
       <div className="relative w-full max-w-sm">
         {/* Logo */}
         <div className="mb-8 text-center">
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-blue-500 text-3xl shadow-2xl shadow-blue-950/50">🍽️</div>
           <h1 className="mt-4 text-2xl font-black tracking-tight text-white">Restaurante</h1>
-          <p className="mt-1 text-sm text-slate-400">Acesse com seu usuário</p>
+          <p className="mt-1 text-sm text-slate-400">
+            {modo === "login" ? "Acesse com seu usuário" : "Crie a conta da sua empresa"}
+          </p>
+        </div>
+
+        {/* Toggle login / cadastro */}
+        <div className="mb-5 grid grid-cols-2 gap-1 rounded-2xl border border-white/10 bg-white/[0.04] p-1">
+          <button
+            onClick={() => trocarModo("login")}
+            className={`rounded-xl px-3 py-2.5 text-xs font-black transition ${modo === "login" ? "bg-blue-500 text-white shadow-lg shadow-blue-950/40" : "text-slate-400 hover:text-white"}`}>
+            Entrar
+          </button>
+          <button
+            onClick={() => trocarModo("signup")}
+            className={`rounded-xl px-3 py-2.5 text-xs font-black transition ${modo === "signup" ? "bg-emerald-500 text-white shadow-lg shadow-emerald-950/40" : "text-slate-400 hover:text-white"}`}>
+            Criar minha loja
+          </button>
         </div>
 
         {/* Formulário */}
         <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6 shadow-2xl backdrop-blur-xl">
-          <div className="space-y-3">
-            <div>
-              <label className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500">E-mail</label>
-              <input
-                value={loginForm.email}
-                onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
-                onKeyDown={(e) => e.key === "Enter" && login()}
-                placeholder="seu@email.com"
-                className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3.5 text-white outline-none transition focus:border-blue-400 placeholder:text-slate-600"
-              />
+          {modo === "login" ? (
+            <div className="space-y-3">
+              <div>
+                <label className={labelCls}>E-mail</label>
+                <input
+                  value={loginForm.email}
+                  onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
+                  onKeyDown={(e) => e.key === "Enter" && login()}
+                  placeholder="seu@email.com"
+                  className={inputCls}
+                />
+              </div>
+              <div>
+                <label className={labelCls}>Senha</label>
+                <input
+                  type="password"
+                  value={loginForm.password}
+                  onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                  onKeyDown={(e) => e.key === "Enter" && login()}
+                  placeholder="••••••"
+                  className={inputCls}
+                />
+              </div>
+              <button
+                onClick={login}
+                className="mt-1 w-full rounded-2xl bg-blue-500 px-5 py-4 text-sm font-black text-white transition hover:bg-blue-400 active:scale-[0.98] shadow-lg shadow-blue-950/40">
+                Entrar →
+              </button>
             </div>
-            <div>
-              <label className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500">Senha</label>
-              <input
-                type="password"
-                value={loginForm.password}
-                onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-                onKeyDown={(e) => e.key === "Enter" && login()}
-                placeholder="••••••"
-                className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3.5 text-white outline-none transition focus:border-blue-400 placeholder:text-slate-600"
-              />
+          ) : (
+            <div className="space-y-3">
+              <div>
+                <label className={labelCls}>Nome da empresa</label>
+                <input
+                  value={signup.nomeLoja}
+                  onChange={(e) => setSignup({ ...signup, nomeLoja: e.target.value })}
+                  placeholder="Ex.: Pizzaria do Bairro"
+                  className={inputCls}
+                />
+              </div>
+              <div>
+                <label className={labelCls}>Prefixo das comandas (2-3 letras)</label>
+                <input
+                  value={signup.prefixo}
+                  onChange={(e) => setPrefixo(e.target.value)}
+                  maxLength={3}
+                  placeholder="PZB"
+                  className={`${inputCls} font-mono text-lg font-black tracking-widest`}
+                />
+                {signup.prefixo.length >= 2 && (
+                  <p className="mt-1 text-[11px] text-slate-500">Comandas: <span className="font-mono font-bold text-blue-300">{signup.prefixo}-000001</span></p>
+                )}
+              </div>
+              <div>
+                <label className={labelCls}>Seu nome (responsável)</label>
+                <input
+                  value={signup.nomeResponsavel}
+                  onChange={(e) => setSignup({ ...signup, nomeResponsavel: e.target.value })}
+                  placeholder="Nome do gestor"
+                  className={inputCls}
+                />
+              </div>
+              <div>
+                <label className={labelCls}>E-mail de acesso</label>
+                <input
+                  value={signup.email}
+                  onChange={(e) => setSignup({ ...signup, email: e.target.value })}
+                  placeholder="gestor@empresa.com"
+                  className={inputCls}
+                />
+              </div>
+              <div>
+                <label className={labelCls}>Senha (mín. 4 caracteres)</label>
+                <input
+                  type="password"
+                  value={signup.senha}
+                  onChange={(e) => setSignup({ ...signup, senha: e.target.value })}
+                  onKeyDown={(e) => e.key === "Enter" && enviarCadastro()}
+                  placeholder="••••••"
+                  className={inputCls}
+                />
+              </div>
+              <button
+                onClick={enviarCadastro}
+                disabled={!signupValido || enviando}
+                className="mt-1 w-full rounded-2xl bg-emerald-500 px-5 py-4 text-sm font-black text-white transition hover:bg-emerald-400 active:scale-[0.98] disabled:opacity-50 shadow-lg shadow-emerald-950/40">
+                {enviando ? "⏳ Criando sua loja..." : "Criar minha loja grátis →"}
+              </button>
+              <p className="text-center text-[11px] text-slate-500">Plano gratuito • sem cartão de crédito</p>
             </div>
-            <button
-              onClick={login}
-              className="mt-1 w-full rounded-2xl bg-blue-500 px-5 py-4 text-sm font-black text-white transition hover:bg-blue-400 active:scale-[0.98] shadow-lg shadow-blue-950/40">
-              Entrar →
-            </button>
-          </div>
+          )}
+
           {message.text && (
             <div className={`mt-4 rounded-2xl border p-3.5 text-sm ${message.type === "error" ? "border-red-400/30 bg-red-500/10 text-red-200" : "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"}`}>
               {message.text}
@@ -353,7 +461,9 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
           )}
         </div>
 
-        <p className="mt-6 text-center text-xs text-slate-600">Acesso controlado por usuário e permissão</p>
+        <p className="mt-6 text-center text-xs text-slate-600">
+          {modo === "login" ? "Acesso controlado por usuário e permissão" : "Cada empresa tem seus dados totalmente separados"}
+        </p>
       </div>
     </div>
   );
@@ -552,6 +662,24 @@ export default function RestaurantePedidoApp() {
   }
 
   function logout() { setCurrentUser(null); setActiveTab("tablet"); setMessage({ type: "", text: "" }); }
+
+  // Onboarding SaaS: cria empresa/loja + admin e entra automaticamente
+  async function registrarEmpresa(dados) {
+    if (!dbReady) return notify("error", "Sistema offline — tente novamente em instantes.");
+    try {
+      const { loja, email } = await cadastrarEmpresa(dados);
+      setLojas((cur) => [...cur, loja]);
+      // Recarrega usuários e entra
+      const novoUser = { id: Date.now(), name: dados.nomeResponsavel, email, password: dados.senha, role: "Gestor", active: true, accessIds: ["tablet","kitchen","panel","cashier","admin"], lojaId: loja.id };
+      setUsers((cur) => [...cur, novoUser]);
+      setCurrentUser(novoUser);
+      setActiveTab("admin");
+      notify("success", `Bem-vindo, ${dados.nomeResponsavel}! Loja "${loja.nome}" criada. Comandas: ${loja.prefixo}-000001.`);
+    } catch (err) {
+      notify("error", err.message || "Erro ao cadastrar a empresa.");
+      throw err;
+    }
+  }
 
   function openTab(tabId) {
     if (!canAccess(currentUser, tabId)) return notify("error", "Usuário sem permissão para acessar esta tela.");
@@ -974,7 +1102,7 @@ export default function RestaurantePedidoApp() {
   }
 
   if (!currentUser) {
-    return <TelaLogin loginForm={loginForm} setLoginForm={setLoginForm} login={login} message={message} users={users} />;
+    return <TelaLogin loginForm={loginForm} setLoginForm={setLoginForm} login={login} message={message} users={users} registrarEmpresa={registrarEmpresa} clearMessage={clearMessage} />;
   }
 
   return (

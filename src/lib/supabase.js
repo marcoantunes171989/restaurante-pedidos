@@ -111,13 +111,48 @@ function dbParaForma(r) {
 export async function fetchLojas() {
   const { data, error } = await supabase.from('tab_lojas').select('*').order('id', { ascending: true })
   if (error) throw error
-  return data.map((r) => ({ id: r.id, nome: r.nome, prefixo: r.prefixo, active: r.ativo }))
+  return data.map((r) => ({ id: r.id, nome: r.nome, prefixo: r.prefixo, active: r.ativo, plano: r.plano ?? 'free', emailResponsavel: r.email_responsavel ?? null }))
 }
 export async function inserirLoja(loja) {
   const { data, error } = await supabase
-    .from('tab_lojas').insert([{ nome: loja.nome, prefixo: loja.prefixo }]).select().single()
+    .from('tab_lojas').insert([{ nome: loja.nome, prefixo: loja.prefixo, ...(loja.plano ? { plano: loja.plano } : {}), ...(loja.emailResponsavel ? { email_responsavel: loja.emailResponsavel } : {}) }]).select().single()
   if (error) throw error
-  return { id: data.id, nome: data.nome, prefixo: data.prefixo, active: data.ativo }
+  return { id: data.id, nome: data.nome, prefixo: data.prefixo, active: data.ativo, plano: data.plano ?? 'free' }
+}
+
+// ── Onboarding SaaS: cria loja + admin + dados iniciais ──────
+export async function cadastrarEmpresa({ nomeLoja, prefixo, nomeResponsavel, email, senha }) {
+  // 1. Verifica e-mail único
+  const { data: existe } = await supabase.from('tab_usuarios').select('id').eq('email', email).maybeSingle()
+  if (existe) throw new Error('Já existe um usuário com este e-mail.')
+  // 2. Verifica prefixo único
+  const { data: pfx } = await supabase.from('tab_lojas').select('id').eq('prefixo', prefixo).maybeSingle()
+  if (pfx) throw new Error('Já existe uma loja com este prefixo. Escolha outras iniciais.')
+  // 3. Cria a loja
+  const { data: loja, error: e1 } = await supabase.from('tab_lojas')
+    .insert([{ nome: nomeLoja, prefixo, plano: 'free', email_responsavel: email }]).select().single()
+  if (e1) throw e1
+  const lojaId = loja.id
+  // 4. Cria o usuário administrador (acesso total)
+  const { data: user, error: e2 } = await supabase.from('tab_usuarios')
+    .insert([{ nome: nomeResponsavel, email, senha, perfil: 'Gestor', ativo: true, ids_acesso: ['tablet', 'kitchen', 'panel', 'cashier', 'admin'], loja_id: lojaId }])
+    .select().single()
+  if (e2) throw e2
+  // 5. Seed de categorias e formas de pagamento padrão para a nova loja
+  try {
+    await supabase.from('tab_categorias').insert(
+      ['Entradas', 'Pratos principais', 'Lanches', 'Bebidas', 'Sobremesas'].map((nome, i) => ({ nome, ordem: i + 1, loja_id: lojaId }))
+    )
+  } catch {}
+  try {
+    await supabase.from('tab_formas_pagamento').insert([
+      { nome: 'Dinheiro', tipo: 'dinheiro', permite_troco: true, loja_id: lojaId },
+      { nome: 'Cartão de Crédito', tipo: 'cartao_credito', permite_troco: false, loja_id: lojaId },
+      { nome: 'Cartão de Débito', tipo: 'cartao_debito', permite_troco: false, loja_id: lojaId },
+      { nome: 'PIX', tipo: 'pix', permite_troco: false, loja_id: lojaId },
+    ])
+  } catch {}
+  return { loja: { id: loja.id, nome: loja.nome, prefixo: loja.prefixo, active: loja.ativo, plano: loja.plano }, email }
 }
 export async function atualizarLoja(id, campos) {
   const { error } = await supabase.from('tab_lojas').update(campos).eq('id', id)
