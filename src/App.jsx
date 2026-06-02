@@ -3114,7 +3114,7 @@ function AdminView({ products, categories, adminForm, setAdminForm, addProduct, 
           {ativo === "products"   && <ProductAdmin   products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} editarProduto={editarProduto} removerProduto={removerProduto} />}
           {ativo === "users"      && <UserAdmin      users={isSuperAdmin ? users : (usersLoja ?? users)} userForm={userForm} setUserForm={setUserForm} addUser={addUser} toggleUserStatus={toggleUserStatus} editarUsuario={editarUsuario} removerUsuario={removerUsuario} lojaInfo={lojaInfo} lojas={lojas} isSuperAdmin={isSuperAdmin} />}
           {ativo === "access"     && <AccessAdmin    accesses={accesses} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleAccessStatus={toggleAccessStatus} />}
-          {ativo === "link"       && <UserAccessAdmin users={usersLoja ?? users} accesses={accesses} toggleUserAccess={toggleUserAccess} />}
+          {ativo === "link"       && <UserAccessAdmin users={isSuperAdmin ? users : (usersLoja ?? users)} accesses={accesses} toggleUserAccess={toggleUserAccess} lojas={lojas} isSuperAdmin={isSuperAdmin} />}
           {ativo === "categorias" && <CategoriaAdmin categoriasDb={categoriasDb} produtos={products} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} />}
           {ativo === "comandas"   && <GeradorComandas prefixoLoja={lojaInfo?.prefixo || "CMD"} />}
           {ativo === "pagamento"  && <PagamentoAdmin formasPagamento={formasPagamento} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} />}
@@ -4420,6 +4420,77 @@ function AccessAdmin({ accesses, accessForm, setAccessForm, addAccess, toggleAcc
   return <main className="grid gap-6 lg:grid-cols-[430px_1fr]"><Card className="lg:self-start"><h3 className="text-xl font-black text-white">Cadastro de permissão de acesso</h3><p className="mt-1 text-sm text-slate-300">Cadastre códigos de telas/módulos para controlar o menu do usuário.</p><div className="mt-5 space-y-3"><input value={accessForm.id} onChange={(e) => setAccessForm({ ...accessForm, id: e.target.value })} placeholder="Código do acesso. Ex.: relatorios" className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none" /><input value={accessForm.label} onChange={(e) => setAccessForm({ ...accessForm, label: e.target.value })} placeholder="Nome do acesso" className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none" /><input value={accessForm.desc} onChange={(e) => setAccessForm({ ...accessForm, desc: e.target.value })} placeholder="Descrição" className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none" /><input value={accessForm.type} onChange={(e) => setAccessForm({ ...accessForm, type: e.target.value })} placeholder="Tipo / grupo" className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none" /><button onClick={addAccess} className="w-full rounded-2xl bg-blue-500 px-5 py-4 text-sm font-black text-white">Cadastrar permissão</button></div></Card><Card><h3 className="text-xl font-black text-white">Permissões cadastradas</h3><div className="mt-5 space-y-3">{accesses.map((a) => <div key={a.id} className="grid gap-3 rounded-3xl border border-white/10 bg-slate-950/40 p-4 md:grid-cols-[1fr_120px_100px]"><div><p className="font-black text-white">{a.label}</p><p className="text-sm text-slate-400">{a.id} • {a.type}</p><p className="mt-1 text-xs text-slate-500">{a.desc}</p></div><span className={`h-fit rounded-full px-3 py-2 text-center text-xs font-black ${a.active ? "bg-emerald-500 text-white" : "bg-slate-700 text-slate-200"}`}>{a.active ? "Ativo" : "Inativo"}</span><button onClick={() => toggleAccessStatus(a.id)} className="rounded-2xl border border-white/10 bg-white/[0.08] px-3 py-2 text-xs font-black text-white">Alterar</button></div>)}</div></Card></main>;
 }
 
-function UserAccessAdmin({ users, accesses, toggleUserAccess }) {
-  return <Card><h3 className="text-xl font-black text-white">Usuário x Acesso</h3><p className="mt-1 text-sm text-slate-300">Vincule quais telas cada usuário poderá visualizar. O menu do sistema será montado apenas com os acessos liberados.</p><div className="mt-5 space-y-4">{users.map((u) => <div key={u.id} className="rounded-3xl border border-white/10 bg-slate-950/40 p-4"><div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-black text-white">{u.name}</p><p className="text-sm text-slate-400">{u.email} • {u.role}</p></div><span className="rounded-full bg-blue-500/10 px-3 py-1 text-xs font-black text-blue-100">{u.accessIds.length} acessos</span></div><div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">{accesses.map((a) => { const checked = u.accessIds.includes(a.id); return <button key={`${u.id}-${a.id}`} onClick={() => toggleUserAccess(u.id, a.id)} className={`rounded-2xl border p-3 text-left text-sm transition ${checked ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-100" : "border-white/10 bg-white/[0.04] text-slate-300"}`}><p className="font-black">{checked ? "✓ " : ""}{a.label}</p><p className="mt-1 text-xs opacity-70">{a.desc}</p></button>; })}</div></div>)}</div></Card>;
+function UserAccessAdmin({ users, accesses, toggleUserAccess, lojas = [], isSuperAdmin = false }) {
+  const [busca, setBusca]   = useState("");
+  const [lojaSel, setLojaSel] = useState(""); // filtro por empresa (id) — só super admin
+  const nomeLoja = (id) => lojas.find((l) => l.id === id)?.nome || "Sem empresa";
+  const prefLoja = (id) => lojas.find((l) => l.id === id)?.prefixo || "—";
+
+  const termo = busca.trim().toLowerCase();
+  const filtrados = users.filter((u) => {
+    if (lojaSel && String(u.lojaId ?? "") !== String(lojaSel)) return false;
+    if (!termo) return true;
+    const alvo = `${u.name} ${u.email} ${u.role} ${nomeLoja(u.lojaId)} ${prefLoja(u.lojaId)}`.toLowerCase();
+    return alvo.includes(termo);
+  });
+
+  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400 placeholder:text-slate-600";
+
+  return (
+    <Card>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 className="text-xl font-black text-white">Usuário x Acesso</h3>
+          <p className="mt-1 text-sm text-slate-300">Vincule quais telas cada usuário poderá visualizar. O menu é montado apenas com os acessos liberados.</p>
+        </div>
+        <span className="rounded-full bg-blue-500/15 px-3 py-1 text-xs font-black text-blue-300">{filtrados.length} de {users.length} usuário(s)</span>
+      </div>
+
+      {/* Filtros */}
+      <div className={`mt-4 grid gap-3 ${isSuperAdmin ? "sm:grid-cols-[1fr_240px]" : ""}`}>
+        <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="🔍 Buscar por nome, e-mail, perfil ou empresa…" className={inp} />
+        {isSuperAdmin && (
+          <select value={lojaSel} onChange={(e) => setLojaSel(e.target.value)} className={inp}>
+            <option value="">Todas as empresas</option>
+            {lojas.map((l) => <option key={l.id} value={l.id}>{l.nome} ({l.prefixo})</option>)}
+          </select>
+        )}
+      </div>
+
+      <div className="mt-5 space-y-4">
+        {filtrados.length === 0 && <p className="text-sm text-slate-500">Nenhum usuário encontrado para o filtro atual.</p>}
+        {filtrados.map((u) => (
+          <div key={u.id} className="rounded-3xl border border-white/10 bg-slate-950/40 p-4">
+            <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
+                <p className="font-black text-white">
+                  {u.name}
+                  {u.superAdmin && <span className="ml-2 rounded-full bg-violet-500/20 px-2 py-0.5 text-[10px] font-black text-violet-300 align-middle">ADMIN GERAL</span>}
+                </p>
+                <p className="text-sm text-slate-400">{u.email}</p>
+                <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                  <span className="rounded-full bg-white/[0.06] px-2.5 py-0.5 text-xs font-bold text-slate-200">👤 {u.role || "—"}</span>
+                  <span className="rounded-full bg-blue-500/10 px-2.5 py-0.5 text-xs font-bold text-blue-200">🏪 {u.superAdmin ? "Todas as empresas" : nomeLoja(u.lojaId)}{!u.superAdmin && u.lojaId ? ` (${prefLoja(u.lojaId)})` : ""}</span>
+                  <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${u.active ? "bg-emerald-500/15 text-emerald-300" : "bg-slate-700 text-slate-300"}`}>{u.active ? "Ativo" : "Inativo"}</span>
+                </div>
+              </div>
+              <span className="shrink-0 self-start rounded-full bg-blue-500/10 px-3 py-1 text-xs font-black text-blue-100">{u.accessIds.length} acesso(s)</span>
+            </div>
+            <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
+              {accesses.map((a) => {
+                const checked = u.accessIds.includes(a.id);
+                return (
+                  <button key={`${u.id}-${a.id}`} onClick={() => toggleUserAccess(u.id, a.id)}
+                    className={`rounded-2xl border p-3 text-left text-sm transition ${checked ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-100" : "border-white/10 bg-white/[0.04] text-slate-300 hover:bg-white/[0.08]"}`}>
+                    <p className="font-black">{checked ? "✓ " : ""}{a.label}</p>
+                    <p className="mt-1 text-xs opacity-70">{a.desc}</p>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
 }
