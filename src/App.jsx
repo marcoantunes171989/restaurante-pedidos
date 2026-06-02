@@ -3215,7 +3215,7 @@ function AdminView({ products, categories, adminForm, setAdminForm, addProduct, 
         {/* Conteúdo rolável */}
         <div className="flex-1 overflow-y-auto p-6">
           {ativo === "dashboard"  && <DashboardAdmin orders={orders} products={products} />}
-          {ativo === "relatorios" && <RelatoriosAdmin orders={orders} products={products} />}
+          {ativo === "relatorios" && <RelatoriosAdmin orders={orders} products={products} lojaInfo={lojaInfo} />}
           {ativo === "products"   && (precisaEmpresa ? avisoEmpresa : <ProductAdmin   products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} editarProduto={editarProduto} removerProduto={removerProduto} />)}
           {ativo === "users"      && <UserAdmin      users={isSuperAdmin ? users : (usersLoja ?? users)} userForm={userForm} setUserForm={setUserForm} addUser={addUser} toggleUserStatus={toggleUserStatus} editarUsuario={editarUsuario} removerUsuario={removerUsuario} lojaInfo={lojaInfo} lojas={lojas} isSuperAdmin={isSuperAdmin} cargos={cargos} />}
           {ativo === "cargos"     && <CargoAdmin     cargos={cargos} users={isSuperAdmin ? users : (usersLoja ?? users)} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} />}
@@ -3566,7 +3566,7 @@ function ModalDetalhePedidos({ titulo, pedidos, onFechar }) {
 // ════════════════════════════════════════════════════════════
 //  Relatórios de vendas — filtros + exportação (Excel/PDF/imprimir)
 // ════════════════════════════════════════════════════════════
-function RelatoriosAdmin({ orders, products }) {
+function RelatoriosAdmin({ orders, products, lojaInfo }) {
   const [periodo, setPeriodo] = useState("7");
   const [ini, setIni] = useState("");
   const [fim, setFim] = useState("");
@@ -3661,7 +3661,7 @@ function RelatoriosAdmin({ orders, products }) {
       {aba === "permanencia" && <RelatorioPermanencia pedidos={filtrados} />}
 
       {/* Drill-down: cupons de um produto */}
-      {drill && <CuponsProdutoModal nome={drill.nome} cupons={drill.cupons} onFechar={() => setDrill(null)} />}
+      {drill && <CuponsProdutoModal nome={drill.nome} cupons={drill.cupons} lojaInfo={lojaInfo} onFechar={() => setDrill(null)} />}
     </div>
   );
 }
@@ -3700,7 +3700,126 @@ function RelatorioCupom({ pedidos }) {
 
 // ── Relatório de permanência média por comanda ───────────────
 // Modal: cupons em que um produto foi vendido (com impressão)
-function CuponsProdutoModal({ nome, cupons, onFechar }) {
+// ════════════════════════════════════════════════════════════
+//  Cupom não fiscal profissional (80mm) — impressão e WhatsApp
+// ════════════════════════════════════════════════════════════
+function CupomNaoFiscalModal({ pedido, lojaInfo, onFechar }) {
+  const empresa = lojaInfo?.nome || "Restaurante";
+  const subtotal = orderTotal(pedido);
+  const taxa = subtotal * 0.1;
+  const total = subtotal + taxa;
+  const dataStr = pedido.createdAtISO ? new Date(pedido.createdAtISO).toLocaleString("pt-BR") : pedido.createdAt;
+
+  const texto = (() => {
+    let t = `*${empresa.toUpperCase()} — CUPOM NÃO FISCAL*\n`;
+    t += "Documento sem valor fiscal\n";
+    t += `Cupom: ${pedido.id}\n`;
+    t += `Data: ${dataStr}\n`;
+    t += `${pedido.table} • Comanda ${pedido.command}\n`;
+    if (pedido.customer) t += `Cliente: ${pedido.customer}\n`;
+    t += "------------------------------\n";
+    pedido.items.forEach((it) => {
+      t += `${it.quantity}x ${it.name} - ${formatCurrency(it.price * it.quantity)}\n`;
+      if (it.removedIngredients?.length) t += `   Sem: ${it.removedIngredients.join(", ")}\n`;
+      if (it.extraIngredients?.length) t += `   Extra: ${it.extraIngredients.join(", ")}\n`;
+    });
+    t += "------------------------------\n";
+    t += `Subtotal: ${formatCurrency(subtotal)}\n`;
+    t += `Taxa servico 10%: ${formatCurrency(taxa)}\n`;
+    t += `*TOTAL: ${formatCurrency(total)}*\n`;
+    t += "\nObrigado pela preferencia!";
+    return t;
+  })();
+
+  function enviarWhatsApp() {
+    const fone = prompt("Telefone do cliente (com DDD, ex.: 11999998888):");
+    if (!fone) return;
+    const num = fone.replace(/\D/g, "");
+    window.open(`https://wa.me/55${num}?text=${encodeURIComponent(texto)}`, "_blank");
+  }
+  function imprimir() {
+    const j = window.open("", "_blank", "width=400,height=680");
+    const linhas = pedido.items.map((it) =>
+      `<div class="row"><span>${it.quantity}x ${it.name}</span><span>${formatCurrency(it.price * it.quantity)}</span></div>` +
+      ((it.removedIngredients?.length) ? `<div class="obs">Sem: ${it.removedIngredients.join(", ")}</div>` : "") +
+      ((it.extraIngredients?.length) ? `<div class="obs">Extra: ${it.extraIngredients.join(", ")}</div>` : "") +
+      ((it.observation) ? `<div class="obs">Obs: ${it.observation}</div>` : "")
+    ).join("");
+    j.document.write(`<html><head><meta charset="UTF-8"><title>Cupom ${pedido.id}</title>
+    <style>
+      @page { size: 80mm auto; margin: 0; }
+      body { width: 80mm; margin: 0 auto; padding: 6mm 5mm; font-family: 'Courier New', monospace; font-size: 12px; color:#000; }
+      .c{text-align:center} .b{font-weight:bold} .big{font-size:15px}
+      .row{display:flex;justify-content:space-between;gap:8px} .obs{font-size:10px;color:#333;padding-left:8px}
+      .hr{border-top:1px dashed #000;margin:6px 0}
+    </style></head><body>
+      <p class="c b big">${empresa}</p>
+      <p class="c">CUPOM NÃO FISCAL</p>
+      <p class="c" style="font-size:10px">Documento sem valor fiscal</p>
+      <div class="hr"></div>
+      <p>Cupom: ${pedido.id}</p>
+      <p>Data: ${dataStr}</p>
+      <p>${pedido.table} &nbsp;•&nbsp; Comanda: ${pedido.command}</p>
+      ${pedido.customer ? `<p>Cliente: ${pedido.customer}</p>` : ""}
+      <div class="hr"></div>
+      ${linhas}
+      <div class="hr"></div>
+      <div class="row"><span>Subtotal</span><span>${formatCurrency(subtotal)}</span></div>
+      <div class="row"><span>Taxa servico 10%</span><span>${formatCurrency(taxa)}</span></div>
+      <div class="row b big"><span>TOTAL</span><span>${formatCurrency(total)}</span></div>
+      <div class="hr"></div>
+      <p class="c">Obrigado pela preferencia!</p>
+      <p class="c" style="font-size:10px">Emitido em ${new Date().toLocaleString("pt-BR")}</p>
+      <script>window.onload=()=>{window.print();}<\/script>
+    </body></html>`);
+    j.document.close();
+  }
+
+  return (
+    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={onFechar}>
+      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-sm flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl max-h-[92vh]">
+        <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+          <h2 className="text-base font-black text-white">🧾 Cupom não fiscal</h2>
+          <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20">✕</button>
+        </div>
+        {/* Prévia 80mm */}
+        <div className="flex-1 overflow-y-auto bg-white px-6 py-5 text-slate-900" style={{ fontFamily: "'Courier New', monospace", fontSize: 12 }}>
+          <p className="text-center text-base font-black">{empresa}</p>
+          <p className="text-center text-[11px]">CUPOM NÃO FISCAL</p>
+          <p className="text-center text-[9px] text-slate-500">Documento sem valor fiscal</p>
+          <div className="my-2 border-t border-dashed border-slate-400" />
+          <p className="text-[11px]">Cupom: {pedido.id}</p>
+          <p className="text-[11px]">Data: {dataStr}</p>
+          <p className="text-[11px]">{pedido.table} • Comanda: {pedido.command}</p>
+          {pedido.customer && <p className="text-[11px]">Cliente: {pedido.customer}</p>}
+          <div className="my-2 border-t border-dashed border-slate-400" />
+          {pedido.items.map((it, i) => (
+            <div key={i} className="mb-1">
+              <div className="flex justify-between text-[11px]"><span>{it.quantity}x {it.name}</span><span>{formatCurrency(it.price * it.quantity)}</span></div>
+              {it.removedIngredients?.length > 0 && <p className="pl-2 text-[9px] text-slate-500">Sem: {it.removedIngredients.join(", ")}</p>}
+              {it.extraIngredients?.length > 0 && <p className="pl-2 text-[9px] text-slate-500">Extra: {it.extraIngredients.join(", ")}</p>}
+              {it.observation && <p className="pl-2 text-[9px] text-slate-500">Obs: {it.observation}</p>}
+            </div>
+          ))}
+          <div className="my-2 border-t border-dashed border-slate-400" />
+          <div className="flex justify-between text-[11px]"><span>Subtotal</span><span>{formatCurrency(subtotal)}</span></div>
+          <div className="flex justify-between text-[11px]"><span>Taxa serviço 10%</span><span>{formatCurrency(taxa)}</span></div>
+          <div className="mt-1 flex justify-between text-[14px] font-black"><span>TOTAL</span><span>{formatCurrency(total)}</span></div>
+          <div className="my-2 border-t border-dashed border-slate-400" />
+          <p className="text-center text-[10px]">Obrigado pela preferência!</p>
+        </div>
+        {/* Ações */}
+        <div className="shrink-0 border-t border-white/10 px-5 py-4 space-y-2">
+          <button onClick={imprimir} className="w-full rounded-2xl bg-blue-500 py-3.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95">🖨️ Imprimir cupom</button>
+          <button onClick={enviarWhatsApp} className="w-full rounded-2xl bg-emerald-500/90 py-3.5 text-sm font-black text-white hover:bg-emerald-500 transition active:scale-95">💬 Enviar pelo WhatsApp</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CuponsProdutoModal({ nome, cupons, lojaInfo, onFechar }) {
+  const [cupomSel, setCupomSel] = useState(null); // pedido escolhido para o cupom profissional
   const totalQtd = cupons.reduce((s, o) => s + o.items.filter((it) => it.name === nome).reduce((x, it) => x + it.quantity, 0), 0);
   const totalValor = cupons.reduce((s, o) => s + o.items.filter((it) => it.name === nome).reduce((x, it) => x + it.price * it.quantity, 0), 0);
 
@@ -3740,8 +3859,8 @@ function CuponsProdutoModal({ nome, cupons, onFechar }) {
             const q = its.reduce((x, it) => x + it.quantity, 0);
             const v = its.reduce((x, it) => x + it.price * it.quantity, 0);
             return (
-              <div key={o.id} className="flex items-center justify-between rounded-2xl border border-white/10 bg-slate-800/50 px-4 py-3">
-                <div className="min-w-0">
+              <div key={o.id} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-slate-800/50 px-4 py-3">
+                <div className="min-w-0 flex-1">
                   <p className="text-xs font-bold uppercase tracking-widest text-slate-500">{o.id} • {o.table} • {o.command}</p>
                   <p className="text-sm text-white">👤 {o.customer || "-"} • {o.createdAtISO ? new Date(o.createdAtISO).toLocaleString("pt-BR") : o.createdAt}</p>
                 </div>
@@ -3749,11 +3868,15 @@ function CuponsProdutoModal({ nome, cupons, onFechar }) {
                   <p className="text-sm font-black text-white">{q} un</p>
                   <p className="text-sm font-black text-emerald-300">{formatCurrency(v)}</p>
                 </div>
+                <button onClick={() => setCupomSel(o)} title="Ver cupom não fiscal (imprimir / WhatsApp)"
+                  className="shrink-0 rounded-xl border border-blue-400/30 bg-blue-500/15 px-3 py-2 text-xs font-black text-blue-200 hover:bg-blue-500/25 transition">🧾 Cupom</button>
               </div>
             );
           })}
         </div>
       </div>
+
+      {cupomSel && <CupomNaoFiscalModal pedido={cupomSel} lojaInfo={lojaInfo} onFechar={() => setCupomSel(null)} />}
     </div>
   );
 }
