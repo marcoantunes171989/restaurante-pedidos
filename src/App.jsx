@@ -551,8 +551,14 @@ export default function RestaurantePedidoApp() {
   function clearMessage() { setMessage({ type: "", text: "" }); }
 
   function login() {
-    const found = users.find((u) => u.email.toLowerCase() === loginForm.email.toLowerCase() && u.password === loginForm.password && u.active);
-    if (!found) return notify("error", "Usuário, senha ou status inválido.");
+    const credOk = users.find((u) => u.email.toLowerCase() === loginForm.email.toLowerCase() && u.password === loginForm.password);
+    if (!credOk) return notify("error", "Usuário ou senha inválidos.");
+    // Usuário inativo (ou de empresa inativa) — bloqueia com mensagem específica
+    const lojaDoUser = lojas.find((l) => l.id === credOk.lojaId);
+    if (!credOk.active || (lojaDoUser && lojaDoUser.active === false)) {
+      return notify("error", "Usuário inativo, entre em contato com o administrador do sistema.");
+    }
+    const found = credOk;
     setCurrentUser(found);
     // Aba inicial: admin abre no Administrativo; demais seguem a ordem do menu
     const acessosAtivos = (id) => found.accessIds.includes(id) && accesses.some((a) => a.id === id && a.active);
@@ -572,9 +578,10 @@ export default function RestaurantePedidoApp() {
   async function criarEmpresa(dados) {
     if (!dbReady) { notify("error", "Sistema offline — tente novamente em instantes."); throw new Error("offline"); }
     try {
-      const { loja, email } = await cadastrarEmpresa(dados);
+      const cargo = cargos.find((c) => c.id === Number(dados.cargoId));
+      const { loja, email } = await cadastrarEmpresa({ ...dados, cargoId: cargo?.id || null, cargoNome: cargo?.nome || "Gestor" });
       setLojas((cur) => [...cur, loja]);
-      const novoUser = { id: Date.now(), name: dados.nomeResponsavel, email, password: dados.senha, role: "Gestor", active: true, accessIds: ["tablet","kitchen","panel","cashier","admin"], lojaId: loja.id };
+      const novoUser = { id: Date.now(), name: dados.nomeResponsavel, email, password: dados.senha, role: cargo?.nome || "Gestor", cargoId: cargo?.id || null, active: true, accessIds: ["tablet","kitchen","panel","cashier","admin"], lojaId: loja.id };
       setUsers((cur) => [...cur, novoUser]);
       notify("success", `Empresa "${loja.nome}" criada. Acesso do gestor: ${email}. Comandas: ${loja.prefixo}-000001.`);
     } catch (err) {
@@ -3181,7 +3188,7 @@ function AdminView({ products, categories, adminForm, setAdminForm, addProduct, 
           {ativo === "categorias" && <CategoriaAdmin categoriasDb={categoriasDb} produtos={products} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} />}
           {ativo === "comandas"   && <GeradorComandas prefixoLoja={lojaInfo?.prefixo || "CMD"} />}
           {ativo === "pagamento"  && <PagamentoAdmin formasPagamento={formasPagamento} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} />}
-          {ativo === "lojas"      && <LojaAdmin lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} lojaInfo={lojaInfo} criarEmpresa={criarEmpresa} />}
+          {ativo === "lojas"      && <LojaAdmin lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} lojaInfo={lojaInfo} criarEmpresa={criarEmpresa} cargos={cargos} />}
           {ativo === "minhaempresa" && <MinhaEmpresa lojaInfo={lojaInfo} qtdUsuarios={(usersLoja ?? users).length} qtdProdutos={products.length} />}
         </div>
       </div>
@@ -3848,8 +3855,10 @@ function MinhaEmpresa({ lojaInfo, qtdUsuarios = 0, qtdProdutos = 0 }) {
 // ════════════════════════════════════════════════════════════
 //  Admin — Lojas (multi-empresa) — somente super admin
 // ════════════════════════════════════════════════════════════
-function LojaAdmin({ lojas, addLoja, toggleLoja, editarLoja, removerLoja, lojaInfo, criarEmpresa }) {
-  const [form, setForm] = useState({ nomeLoja: "", prefixo: "", nomeResponsavel: "", email: "", senha: "" });
+function LojaAdmin({ lojas, addLoja, toggleLoja, editarLoja, removerLoja, lojaInfo, criarEmpresa, cargos = [] }) {
+  const cargosAtivos = cargos.filter((c) => c.active !== false);
+  const cargoGestorPadrao = cargosAtivos.find((c) => c.nome.toLowerCase() === "gestor")?.id ?? "";
+  const [form, setForm] = useState({ nomeLoja: "", prefixo: "", nomeResponsavel: "", email: "", senha: "", cargoId: cargoGestorPadrao });
   const [enviando, setEnviando] = useState(false);
   const [editando, setEditando] = useState(null); // loja em edição
   const [inativar, setInativar] = useState(null); // loja a inativar (confirmação)
@@ -3858,14 +3867,14 @@ function LojaAdmin({ lojas, addLoja, toggleLoja, editarLoja, removerLoja, lojaIn
   const lbl = "mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500";
 
   const valido = form.nomeLoja.trim() && form.prefixo.length >= 2 &&
-    form.nomeResponsavel.trim() && form.email.trim() && form.senha.length >= 4;
+    form.nomeResponsavel.trim() && form.email.trim() && form.senha.length >= 4 && form.cargoId;
 
   async function salvar() {
     if (!valido || !criarEmpresa) return;
     setEnviando(true);
     try {
       await criarEmpresa(form);
-      setForm({ nomeLoja: "", prefixo: "", nomeResponsavel: "", email: "", senha: "" });
+      setForm({ nomeLoja: "", prefixo: "", nomeResponsavel: "", email: "", senha: "", cargoId: cargoGestorPadrao });
     } catch { /* mensagem exibida no topo */ }
     finally { setEnviando(false); }
   }
@@ -3905,6 +3914,13 @@ function LojaAdmin({ lojas, addLoja, toggleLoja, editarLoja, removerLoja, lojaIn
           <div>
             <span className={lbl}>Gestor — senha (mín. 4)</span>
             <input type="password" value={form.senha} onChange={(e) => setForm({ ...form, senha: e.target.value })} placeholder="••••••" className={inp} autoComplete="new-password" name="empresa_gestor_senha" />
+          </div>
+          <div>
+            <span className={lbl}>Gestor — cargo / perfil</span>
+            <select value={form.cargoId ?? ""} onChange={(e) => setForm({ ...form, cargoId: e.target.value ? Number(e.target.value) : "" })} className={inp}>
+              <option value="">Selecione o cargo…</option>
+              {cargosAtivos.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
+            </select>
           </div>
           <button onClick={salvar} disabled={!valido || enviando}
             className="w-full rounded-2xl bg-blue-500 px-5 py-4 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95 disabled:opacity-50">

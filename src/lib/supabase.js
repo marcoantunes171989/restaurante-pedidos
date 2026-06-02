@@ -121,7 +121,7 @@ export async function inserirLoja(loja) {
 }
 
 // ── Onboarding SaaS: cria loja + admin + dados iniciais ──────
-export async function cadastrarEmpresa({ nomeLoja, prefixo, nomeResponsavel, email, senha }) {
+export async function cadastrarEmpresa({ nomeLoja, prefixo, nomeResponsavel, email, senha, cargoId = null, cargoNome = 'Gestor' }) {
   // 1. Verifica e-mail único
   const { data: existe } = await supabase.from('tab_usuarios').select('id').eq('email', email).maybeSingle()
   if (existe) throw new Error('Já existe um usuário com este e-mail.')
@@ -135,7 +135,7 @@ export async function cadastrarEmpresa({ nomeLoja, prefixo, nomeResponsavel, ema
   const lojaId = loja.id
   // 4. Cria o usuário administrador (acesso total)
   const { data: user, error: e2 } = await supabase.from('tab_usuarios')
-    .insert([{ nome: nomeResponsavel, email, senha, perfil: 'Gestor', ativo: true, ids_acesso: ['tablet', 'kitchen', 'panel', 'cashier', 'admin'], loja_id: lojaId }])
+    .insert([{ nome: nomeResponsavel, email, senha, perfil: cargoNome || 'Gestor', ...(cargoId ? { cargo_id: cargoId } : {}), ativo: true, ids_acesso: ['tablet', 'kitchen', 'panel', 'cashier', 'admin'], loja_id: lojaId }])
     .select().single()
   if (e2) throw e2
   // 5. Seed de categorias e formas de pagamento padrão para a nova loja
