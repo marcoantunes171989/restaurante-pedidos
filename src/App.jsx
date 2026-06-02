@@ -3142,27 +3142,94 @@ function CardMetrica({ titulo, valor, sub, cor = "text-white", icon }) {
 // ════════════════════════════════════════════════════════════
 //  Dashboard gerencial
 // ════════════════════════════════════════════════════════════
+// ── Gráfico de rosca (donut) em SVG, sem biblioteca ──
+const CORES_GRAF = ["#3b82f6", "#10b981", "#f59e0b", "#a855f7", "#ef4444", "#06b6d4", "#ec4899", "#84cc16"];
+function DonutChart({ dados, label = "" }) {
+  const total = dados.reduce((s, d) => s + d.valor, 0);
+  if (total === 0) return <div className="flex h-48 items-center justify-center text-sm text-slate-500">Sem dados</div>;
+  const R = 70, C = 2 * Math.PI * R;
+  let acc = 0;
+  return (
+    <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
+      <svg viewBox="0 0 180 180" className="h-44 w-44 -rotate-90">
+        {dados.map((d, i) => {
+          const frac = d.valor / total;
+          const dash = frac * C;
+          const el = (
+            <circle key={i} cx="90" cy="90" r={R} fill="none" stroke={CORES_GRAF[i % CORES_GRAF.length]} strokeWidth="26"
+              strokeDasharray={`${dash} ${C - dash}`} strokeDashoffset={-acc} />
+          );
+          acc += dash;
+          return el;
+        })}
+        <text x="90" y="90" className="rotate-90" textAnchor="middle" dominantBaseline="middle" fill="#fff" style={{ transform: "rotate(90deg)", transformOrigin: "90px 90px", fontSize: "13px", fontWeight: "900" }}>{label}</text>
+      </svg>
+      <div className="space-y-1.5">
+        {dados.map((d, i) => (
+          <div key={i} className="flex items-center gap-2 text-sm">
+            <span className="h-3 w-3 rounded-sm" style={{ background: CORES_GRAF[i % CORES_GRAF.length] }} />
+            <span className="text-slate-300">{d.label}</span>
+            <span className="font-black text-white">{((d.valor / total) * 100).toFixed(0)}%</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Gráfico de barras verticais (vendas por período) ──
+function BarrasVerticais({ dados, sufixo = "R$" }) {
+  const max = Math.max(1, ...dados.map((d) => d.valor));
+  return (
+    <div className="flex items-end justify-between gap-1.5" style={{ height: 180 }}>
+      {dados.map((d, i) => (
+        <div key={i} className="flex flex-1 flex-col items-center justify-end gap-1">
+          <span className="text-xs font-black text-white" style={{ fontSize: 9 }}>{d.valor > 0 ? (sufixo === "R$" ? formatCurrency(d.valor).replace("R$", "").trim() : d.valor) : ""}</span>
+          <div className="w-full rounded-t-lg bg-gradient-to-t from-blue-600 to-blue-400 transition-all" style={{ height: `${(d.valor / max) * 140}px`, minHeight: d.valor > 0 ? 4 : 0 }} />
+          <span className="text-xs text-slate-500" style={{ fontSize: 9 }}>{d.label}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function DashboardAdmin({ orders, products }) {
   const [periodo, setPeriodo] = useState("hoje");
   const [ini, setIni] = useState("");
   const [fim, setFim] = useState("");
-  const [modal, setModal] = useState(null); // { titulo, pedidos }
+  const [modal, setModal] = useState(null);
 
   const filtrados = filtrarPedidosPorPeriodo(orders, periodo, ini, fim);
   const a = analisarVendas(filtrados, products);
   const maxProd = Math.max(1, ...a.topProdutos.map((p) => p.qtd));
-  const maxCat = Math.max(1, ...a.categorias.map((c) => c.valor));
   const semEstoque = products.filter((p) => (p.estoque ?? 0) <= 5);
 
   const pagos = filtrados.filter((o) => o.paymentStatus === "paid");
   const abertos = filtrados.filter((o) => o.paymentStatus !== "paid");
 
+  // Faturamento por hora do dia (gráfico de barras)
+  const vendasPorHora = (() => {
+    const horas = Array.from({ length: 24 }, (_, h) => ({ label: `${h}h`, valor: 0 }));
+    pagos.forEach((o) => {
+      if (o.createdAtISO) { const h = new Date(o.createdAtISO).getHours(); horas[h].valor += orderTotal(o) * 1.1; }
+    });
+    // mostra apenas faixa de funcionamento (10h–23h)
+    return horas.slice(10, 24);
+  })();
+
+  // Distribuição de status dos pedidos
+  const statusDist = ["received", "preparing", "ready", "delivered", "cancelled"]
+    .map((s) => ({ label: statusMap[s]?.label || s, valor: filtrados.filter((o) => o.status === s).length }))
+    .filter((d) => d.valor > 0);
+
+  const catDonut = a.categorias.slice(0, 6).map((c) => ({ label: c.categoria, valor: c.valor }));
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h2 className="text-2xl font-black text-white">📊 Dashboard</h2>
-          <p className="mt-1 text-sm text-slate-400">Visão gerencial — clique nos cards para ver o detalhamento.</p>
+          <h2 className="text-2xl font-black text-white">📊 Dashboard gerencial</h2>
+          <p className="mt-1 text-sm text-slate-400">Análise de vendas — clique nos cards para detalhar.</p>
         </div>
         <SeletorPeriodo periodo={periodo} setPeriodo={setPeriodo} ini={ini} setIni={setIni} fim={fim} setFim={setFim} />
       </div>
@@ -3185,7 +3252,19 @@ function DashboardAdmin({ orders, products }) {
 
       {modal && <ModalDetalhePedidos titulo={modal.titulo} pedidos={modal.pedidos} onFechar={() => setModal(null)} />}
 
+      {/* Faturamento por hora */}
+      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
+        <h3 className="mb-4 text-lg font-black text-white">📈 Faturamento por horário</h3>
+        <BarrasVerticais dados={vendasPorHora} sufixo="R$" />
+      </div>
+
       <div className="grid gap-6 lg:grid-cols-2">
+        {/* Donut categorias */}
+        <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
+          <h3 className="mb-4 text-lg font-black text-white">🍽️ Vendas por categoria</h3>
+          <DonutChart dados={catDonut} label="Categorias" />
+        </div>
+
         {/* Top produtos */}
         <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
           <h3 className="mb-4 text-lg font-black text-white">🏆 Produtos mais vendidos</h3>
@@ -3196,34 +3275,31 @@ function DashboardAdmin({ orders, products }) {
             ))}
           </div>
         </div>
-
-        {/* Por categoria */}
-        <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
-          <h3 className="mb-4 text-lg font-black text-white">🍽️ Faturamento por categoria</h3>
-          <div className="space-y-3">
-            {a.categorias.length === 0 && <p className="text-sm text-slate-500">Sem vendas ainda.</p>}
-            {a.categorias.map((c) => (
-              <BarraHorizontal key={c.categoria} label={c.categoria} valor={c.valor} max={maxCat} sufixo="R$" cor="bg-emerald-500" />
-            ))}
-          </div>
-        </div>
       </div>
 
-      {/* Alerta de estoque baixo */}
-      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
-        <h3 className="mb-4 text-lg font-black text-white">📉 Estoque baixo (≤ 5 unidades)</h3>
-        {semEstoque.length === 0 ? (
-          <p className="text-sm text-emerald-400">✅ Todos os produtos com estoque adequado.</p>
-        ) : (
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {semEstoque.map((p) => (
-              <div key={p.id} className="flex items-center justify-between rounded-2xl border border-red-400/20 bg-red-500/5 px-4 py-2.5">
-                <span className="text-sm font-bold text-white truncate">{p.name}</span>
-                <span className="text-sm font-black text-red-300">{p.estoque ?? 0} un</span>
-              </div>
-            ))}
-          </div>
-        )}
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Status dos pedidos (donut) */}
+        <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
+          <h3 className="mb-4 text-lg font-black text-white">📋 Status dos pedidos</h3>
+          <DonutChart dados={statusDist} label="Status" />
+        </div>
+
+        {/* Estoque baixo */}
+        <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
+          <h3 className="mb-4 text-lg font-black text-white">📉 Estoque baixo (≤ 5 un)</h3>
+          {semEstoque.length === 0 ? (
+            <p className="text-sm text-emerald-400">✅ Todos os produtos com estoque adequado.</p>
+          ) : (
+            <div className="space-y-2">
+              {semEstoque.map((p) => (
+                <div key={p.id} className="flex items-center justify-between rounded-2xl border border-red-400/20 bg-red-500/5 px-4 py-2.5">
+                  <span className="text-sm font-bold text-white truncate">{p.name}</span>
+                  <span className="text-sm font-black text-red-300">{p.estoque ?? 0} un</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -3279,9 +3355,13 @@ function RelatoriosAdmin({ orders, products }) {
   const [ini, setIni] = useState("");
   const [fim, setFim] = useState("");
   const [aba, setAba] = useState("vendas"); // vendas | cupom | permanencia
+  const [drill, setDrill] = useState(null);  // produto clicado → cupons
 
   const filtrados = filtrarPedidosPorPeriodo(orders, periodo, ini, fim);
   const a = analisarVendas(filtrados, products);
+
+  // Cupons (pedidos pagos) que contêm um determinado produto
+  const cuponsDoProduto = (nome) => filtrados.filter((o) => o.paymentStatus === "paid" && o.items.some((it) => it.name === nome));
 
   // ── Exportações ──
   function baixarArquivo(conteudo, nome, tipo) {
@@ -3343,17 +3423,19 @@ function RelatoriosAdmin({ orders, products }) {
             <CardMetrica titulo="Faturamento + taxa" valor={formatCurrency(a.faturamento)} cor="text-emerald-400" />
             <CardMetrica titulo="Itens vendidos" valor={a.topProdutos.reduce((s, p) => s + p.qtd, 0)} cor="text-blue-400" />
           </div>
+          <p className="text-xs text-slate-500">👆 Clique em um produto para ver os cupons em que foi vendido.</p>
           <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.04]">
             <div className="hidden grid-cols-[2fr_1fr_1fr] bg-white/[0.06] px-5 py-3 text-xs font-black uppercase tracking-widest text-slate-400 sm:grid">
               <span>Produto</span><span className="text-center">Qtd vendida</span><span className="text-right">Faturamento</span>
             </div>
             {a.topProdutos.length === 0 && <p className="px-5 py-6 text-center text-sm text-slate-500">Nenhuma venda no período.</p>}
             {a.topProdutos.map((p) => (
-              <div key={p.nome} className="grid gap-1 border-t border-white/10 px-5 py-3 text-sm sm:grid-cols-[2fr_1fr_1fr] sm:items-center">
-                <span className="font-black text-white">{p.nome}</span>
+              <button key={p.nome} onClick={() => setDrill({ nome: p.nome, cupons: cuponsDoProduto(p.nome) })}
+                className="grid w-full gap-1 border-t border-white/10 px-5 py-3 text-left text-sm transition hover:bg-blue-500/10 sm:grid-cols-[2fr_1fr_1fr] sm:items-center">
+                <span className="font-black text-white">{p.nome} <span className="text-xs text-blue-400">▸</span></span>
                 <span className="text-slate-300 sm:text-center">{p.qtd} un</span>
                 <span className="font-black text-emerald-300 sm:text-right">{formatCurrency(p.valor)}</span>
-              </div>
+              </button>
             ))}
           </div>
         </>
@@ -3361,6 +3443,9 @@ function RelatoriosAdmin({ orders, products }) {
 
       {aba === "cupom" && <RelatorioCupom pedidos={filtrados} />}
       {aba === "permanencia" && <RelatorioPermanencia pedidos={filtrados} />}
+
+      {/* Drill-down: cupons de um produto */}
+      {drill && <CuponsProdutoModal nome={drill.nome} cupons={drill.cupons} onFechar={() => setDrill(null)} />}
     </div>
   );
 }
@@ -3398,6 +3483,65 @@ function RelatorioCupom({ pedidos }) {
 }
 
 // ── Relatório de permanência média por comanda ───────────────
+// Modal: cupons em que um produto foi vendido (com impressão)
+function CuponsProdutoModal({ nome, cupons, onFechar }) {
+  const totalQtd = cupons.reduce((s, o) => s + o.items.filter((it) => it.name === nome).reduce((x, it) => x + it.quantity, 0), 0);
+  const totalValor = cupons.reduce((s, o) => s + o.items.filter((it) => it.name === nome).reduce((x, it) => x + it.price * it.quantity, 0), 0);
+
+  function imprimir() {
+    const j = window.open("", "_blank", "width=800,height=600");
+    j.document.write(`<html><head><meta charset="UTF-8"><title>Cupons — ${nome}</title>
+    <style>body{font-family:Arial;padding:20px;color:#000}h1{font-size:18px}table{width:100%;border-collapse:collapse;margin-top:10px}th,td{border:1px solid #ccc;padding:8px;text-align:left;font-size:13px}th{background:#eee}.r{text-align:right}.tot{font-weight:bold;background:#f5f5f5}</style>
+    </head><body>
+    <h1>Cupons com o produto: ${nome}</h1>
+    <p>Período consultado — Emitido em ${new Date().toLocaleString("pt-BR")}</p>
+    <table><thead><tr><th>Cupom</th><th>Mesa</th><th>Comanda</th><th>Cliente</th><th>Data/Hora</th><th class="r">Qtd</th><th class="r">Valor</th></tr></thead><tbody>
+    ${cupons.map((o) => { const its = o.items.filter((it) => it.name === nome); const q = its.reduce((x, it) => x + it.quantity, 0); const v = its.reduce((x, it) => x + it.price * it.quantity, 0);
+      return `<tr><td>${o.id}</td><td>${o.table}</td><td>${o.command}</td><td>${o.customer || "-"}</td><td>${o.createdAtISO ? new Date(o.createdAtISO).toLocaleString("pt-BR") : o.createdAt}</td><td class="r">${q}</td><td class="r">${formatCurrency(v)}</td></tr>`; }).join("")}
+    <tr class="tot"><td colspan="5">TOTAL (${cupons.length} cupom/ns)</td><td class="r">${totalQtd}</td><td class="r">${formatCurrency(totalValor)}</td></tr>
+    </tbody></table>
+    <script>window.onload=()=>window.print()<\/script></body></html>`);
+    j.document.close();
+  }
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onFechar}>
+      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-2xl flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl max-h-[88vh]">
+        <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+          <div>
+            <h2 className="text-lg font-black text-white">🧾 Cupons — {nome}</h2>
+            <p className="text-xs text-slate-400">{cupons.length} cupom(ns) • {totalQtd} un • {formatCurrency(totalValor)}</p>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={imprimir} className="rounded-2xl bg-blue-500 px-4 py-2 text-sm font-black text-white hover:bg-blue-400">🖨️ Imprimir</button>
+            <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20">✕</button>
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-2">
+          {cupons.length === 0 && <p className="py-8 text-center text-sm text-slate-500">Nenhum cupom pago com este produto no período.</p>}
+          {cupons.map((o) => {
+            const its = o.items.filter((it) => it.name === nome);
+            const q = its.reduce((x, it) => x + it.quantity, 0);
+            const v = its.reduce((x, it) => x + it.price * it.quantity, 0);
+            return (
+              <div key={o.id} className="flex items-center justify-between rounded-2xl border border-white/10 bg-slate-800/50 px-4 py-3">
+                <div className="min-w-0">
+                  <p className="text-xs font-bold uppercase tracking-widest text-slate-500">{o.id} • {o.table} • {o.command}</p>
+                  <p className="text-sm text-white">👤 {o.customer || "-"} • {o.createdAtISO ? new Date(o.createdAtISO).toLocaleString("pt-BR") : o.createdAt}</p>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-sm font-black text-white">{q} un</p>
+                  <p className="text-sm font-black text-emerald-300">{formatCurrency(v)}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function RelatorioPermanencia({ pedidos }) {
   // Agrupa por comanda: primeiro pedido (início) e último pagamento (fim)
   const porComanda = {};
@@ -3652,6 +3796,7 @@ function ProductAdmin({ products, categories, adminForm, setAdminForm, addProduc
   const [editando, setEditando] = useState(null);
   const [excluir, setExcluir]   = useState(null);
   const [busca, setBusca]       = useState("");
+  const [filtroCat, setFiltroCat] = useState("Todos");
   const cats = categories.filter((c) => c !== "Todos");
   const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400 transition";
   const lbl = "mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500";
@@ -3660,7 +3805,9 @@ function ProductAdmin({ products, categories, adminForm, setAdminForm, addProduc
 
   const filtrados = products.filter((p) => {
     const t = `${p.name} ${p.category}`.toLowerCase();
-    return t.includes(busca.toLowerCase());
+    const okBusca = t.includes(busca.toLowerCase());
+    const okCat = filtroCat === "Todos" || p.category === filtroCat;
+    return okBusca && okCat;
   });
 
   return (
@@ -3725,10 +3872,20 @@ function ProductAdmin({ products, categories, adminForm, setAdminForm, addProduc
         </div>
 
         {/* Busca */}
-        <div className="relative mb-4">
+        <div className="relative mb-3">
           <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">🔍</span>
           <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar produto..."
             className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-blue-400" />
+        </div>
+
+        {/* Filtro por categoria */}
+        <div className="mb-4 flex flex-wrap gap-2">
+          {["Todos", ...cats].map((c) => (
+            <button key={c} onClick={() => setFiltroCat(c)}
+              className={`rounded-full border px-3 py-1.5 text-xs font-black transition ${filtroCat === c ? "border-blue-400 bg-blue-500 text-white" : "border-white/10 bg-white/[0.06] text-slate-300 hover:bg-white/10"}`}>
+              {c}
+            </button>
+          ))}
         </div>
 
         <div className="space-y-2">
