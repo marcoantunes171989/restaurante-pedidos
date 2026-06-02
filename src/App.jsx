@@ -2382,6 +2382,19 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
   const [modoItens, setModoItens] = useState(false);             // seleção parcial por item
   const [selecao, setSelecao] = useState({});                    // { "orderId::idx": { incluir, dividir } }
   const [pagamentosFeitos, setPagamentosFeitos] = useState([]);  // pagamentos parciais acumulados
+  const [reimpressaoAberta, setReimpressaoAberta] = useState(false); // lista de cupons do dia
+  const [cupomReimpressao, setCupomReimpressao] = useState(null);    // cupom selecionado para reimprimir
+
+  // Cupons fiscais PAGOS do dia atual (para reimpressão sem usar o relatório)
+  const ehHoje = (o) => {
+    const ref = o.createdAtISO || o.updatedAtISO;
+    if (!ref) return true; // sem data → assume sessão atual
+    const d = new Date(ref); const h = new Date();
+    return d.getFullYear() === h.getFullYear() && d.getMonth() === h.getMonth() && d.getDate() === h.getDate();
+  };
+  const cuponsDoDia = orders
+    .filter((o) => o.paymentStatus === "paid" && o.status !== "cancelled" && ehHoje(o))
+    .sort((a, b) => new Date(b.createdAtISO || 0) - new Date(a.createdAtISO || 0));
 
   // Pedidos NÃO PAGOS das comandas lidas (entregue ou não, o que importa é o pagamento)
   const pedidos = orders.filter((o) => comandasLidas.includes(o.command) && o.paymentStatus !== "paid" && o.status !== "cancelled");
@@ -2590,7 +2603,13 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
             <p className="text-xs text-slate-500">Leia as comandas para fechar a conta</p>
           </div>
         </div>
-        <button onClick={onSair} className="rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-2 text-sm font-black text-red-300 hover:bg-red-500/20 transition">Sair</button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setReimpressaoAberta(true)} title="Reimprimir cupons de hoje"
+            className="rounded-2xl border border-blue-400/30 bg-blue-500/15 px-4 py-2 text-sm font-black text-blue-200 hover:bg-blue-500/25 transition">
+            🧾 Reimprimir cupom{cuponsDoDia.length > 0 && <span className="ml-1.5 rounded-full bg-blue-500 px-1.5 py-0.5 text-[10px] text-white">{cuponsDoDia.length}</span>}
+          </button>
+          <button onClick={onSair} className="rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-2 text-sm font-black text-red-300 hover:bg-red-500/20 transition">Sair</button>
+        </div>
       </header>
 
       <div className="flex flex-1 overflow-hidden">
@@ -2826,6 +2845,65 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
 
       {/* Comprovante fiscal pós-pagamento (com formas de pagamento) */}
       {comprovante && <ComprovanteModal dados={comprovante} onFechar={() => setComprovante(null)} />}
+
+      {/* Reimpressão de cupons do dia */}
+      {reimpressaoAberta && (
+        <ReimpressaoCupons cupons={cuponsDoDia} lojaInfo={lojaInfo}
+          onSelecionar={(o) => setCupomReimpressao(o)}
+          onFechar={() => setReimpressaoAberta(false)} />
+      )}
+      {cupomReimpressao && (
+        <CupomNaoFiscalModal pedido={cupomReimpressao} lojaInfo={lojaInfo} onFechar={() => setCupomReimpressao(null)} />
+      )}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+//  Caixa — Reimpressão de cupons pagos do dia
+// ════════════════════════════════════════════════════════════
+function ReimpressaoCupons({ cupons, lojaInfo, onSelecionar, onFechar }) {
+  const [busca, setBusca] = useState("");
+  const hoje = new Date().toLocaleDateString("pt-BR");
+  const termo = busca.trim().toLowerCase();
+  const lista = termo
+    ? cupons.filter((o) => `${o.id} ${o.command} ${o.table} ${o.customer || ""}`.toLowerCase().includes(termo))
+    : cupons;
+  const totalDia = cupons.reduce((s, o) => s + orderTotal(o) * 1.1, 0);
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={onFechar}>
+      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-lg flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl max-h-[88vh]">
+        <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+          <div>
+            <h2 className="text-lg font-black text-white">🧾 Reimpressão de cupons — {hoje}</h2>
+            <p className="text-xs text-slate-400">{cupons.length} cupom(ns) pago(s) hoje{lojaInfo ? ` • ${lojaInfo.nome}` : ""} • Total {formatCurrency(totalDia)}</p>
+          </div>
+          <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20">✕</button>
+        </div>
+        <div className="border-b border-white/10 px-6 py-3">
+          <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="🔍 Buscar por cupom, comanda, mesa ou cliente…"
+            className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none focus:border-blue-400 placeholder:text-slate-600" />
+        </div>
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-2">
+          {cupons.length === 0 && <p className="py-10 text-center text-sm text-slate-500">Nenhum cupom pago hoje. Finalize uma venda para reimprimir aqui.</p>}
+          {cupons.length > 0 && lista.length === 0 && <p className="py-8 text-center text-sm text-slate-500">Nenhum cupom encontrado para “{busca}”.</p>}
+          {lista.map((o) => (
+            <button key={o.id} onClick={() => onSelecionar(o)}
+              className="flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-slate-800/50 px-4 py-3 text-left transition hover:border-blue-400/40 hover:bg-blue-500/10">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-blue-500/15 text-lg">🧾</span>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-bold uppercase tracking-widest text-slate-500">{o.id} • {o.table} • {o.command}</p>
+                <p className="text-sm text-white truncate">👤 {o.customer || "-"} • {o.createdAtISO ? new Date(o.createdAtISO).toLocaleTimeString("pt-BR") : o.createdAt}</p>
+              </div>
+              <div className="shrink-0 text-right">
+                <p className="text-sm font-black text-emerald-300">{formatCurrency(orderTotal(o) * 1.1)}</p>
+                <p className="text-[11px] font-bold text-blue-300">Reimprimir ▸</p>
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
