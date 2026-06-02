@@ -511,7 +511,8 @@ export default function RestaurantePedidoApp() {
   const total = subtotal + serviceFee;
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
   // Conta da mesa = apenas pedidos NÃO PAGOS (após baixa no caixa, somem imediatamente)
-  const currentTableOrders = orders.filter((o) => o.table === currentTable && o.paymentStatus !== "paid");
+  // Conta da mesa: não pagos E não cancelados
+  const currentTableOrders = orders.filter((o) => o.table === currentTable && o.paymentStatus !== "paid" && o.status !== "cancelled");
   const currentTableSubtotal = currentTableOrders.reduce((sum, o) => sum + orderTotal(o), 0);
   const currentTableTotal = currentTableSubtotal + currentTableSubtotal * 0.1;
 
@@ -3127,14 +3128,17 @@ function SeletorPeriodo({ periodo, setPeriodo, ini, setIni, fim, setFim }) {
 //  Helpers de análise de vendas (a partir dos pedidos)
 // ════════════════════════════════════════════════════════════
 function analisarVendas(orders, products) {
-  const pagos = orders.filter((o) => o.paymentStatus === "paid");
+  // Cancelados não entram em faturamento, em aberto, produtos vendidos, etc.
+  const validos = orders.filter((o) => o.status !== "cancelled");
+  const pagos = validos.filter((o) => o.paymentStatus === "paid");
   const faturamento = pagos.reduce((s, o) => s + orderTotal(o) * 1.1, 0); // com taxa
   const faturamentoSemTaxa = pagos.reduce((s, o) => s + orderTotal(o), 0);
-  const emAberto = orders.filter((o) => o.paymentStatus !== "paid").reduce((s, o) => s + orderTotal(o) * 1.1, 0);
+  const emAberto = validos.filter((o) => o.paymentStatus !== "paid").reduce((s, o) => s + orderTotal(o) * 1.1, 0);
   const ticket = pagos.length ? faturamento / pagos.length : 0;
 
-  // Produtos mais vendidos (todos os pedidos)
+  // Produtos mais vendidos (apenas pedidos válidos)
   const porProduto = {};
+  orders = validos; // usa apenas válidos no restante da análise
   orders.forEach((o) => o.items.forEach((it) => {
     if (!porProduto[it.name]) porProduto[it.name] = { nome: it.name, qtd: 0, valor: 0 };
     porProduto[it.name].qtd += it.quantity;
@@ -3251,8 +3255,8 @@ function DashboardAdmin({ orders, products }) {
   const maxProd = Math.max(1, ...a.topProdutos.map((p) => p.qtd));
   const semEstoque = products.filter((p) => (p.estoque ?? 0) <= 5);
 
-  const pagos = filtrados.filter((o) => o.paymentStatus === "paid");
-  const abertos = filtrados.filter((o) => o.paymentStatus !== "paid");
+  const pagos = filtrados.filter((o) => o.paymentStatus === "paid" && o.status !== "cancelled");
+  const abertos = filtrados.filter((o) => o.paymentStatus !== "paid" && o.status !== "cancelled");
 
   // Faturamento por hora do dia (gráfico de barras)
   const vendasPorHora = (() => {
