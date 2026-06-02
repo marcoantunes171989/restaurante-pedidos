@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect, useCallback } from "react";
 import {
   fetchProdutos,  inserirProduto,  atualizarProduto,  escutarProdutos,
-  fetchUsuarios,  inserirUsuario,  atualizarUsuario,  escutarUsuarios,
+  fetchUsuarios,  inserirUsuario,  atualizarUsuario,  atualizarUsuariosPorLoja,  escutarUsuarios,
   fetchAcessos,   inserirAcesso,   atualizarAcesso,   escutarAcessos,
   fetchPedidos,   inserirPedido,   atualizarPedido,   escutarPedidos,
   fetchFormasPagamento, inserirFormaPagamento, atualizarFormaPagamento, escutarFormasPagamento,
@@ -804,8 +804,20 @@ export default function RestaurantePedidoApp() {
     if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
     const l = lojas.find((x) => x.id === id);
     const active = !l?.active;
+    // Atualiza a empresa e, em cascata, todos os usuários dela (estado imediato, sem refresh)
     setLojas((cur) => cur.map((x) => x.id === id ? { ...x, active } : x));
-    if (dbReady) try { await atualizarLoja(id, { ativo: active }); } catch {}
+    setUsers((cur) => cur.map((u) => (u.lojaId === id && !u.superAdmin) ? { ...u, active } : u));
+    if (dbReady) {
+      try {
+        await atualizarLoja(id, { ativo: active });
+        // Persiste o vínculo: ativa/inativa todos os usuários da empresa no banco
+        await atualizarUsuariosPorLoja(id, { ativo: active });
+      } catch (err) { notify("error", "Erro ao salvar no banco: " + err.message); return; }
+    }
+    const qtd = users.filter((u) => u.lojaId === id && !u.superAdmin).length;
+    notify("success", active
+      ? `Empresa "${l?.nome || ""}" reativada — ${qtd} usuário(s) reativado(s).`
+      : `Empresa "${l?.nome || ""}" inativada — ${qtd} usuário(s) inativado(s).`);
   }
   async function editarLoja(id, dados) {
     if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");

@@ -233,6 +233,12 @@ export async function atualizarUsuario(id, campos) {
   if (error) throw error
 }
 
+// Atualiza em massa todos os usuários de uma loja (ex.: ativar/inativar junto com a empresa)
+export async function atualizarUsuariosPorLoja(lojaId, campos) {
+  const { error } = await supabase.from('tab_usuarios').update(campos).eq('loja_id', lojaId)
+  if (error) throw error
+}
+
 export function escutarUsuarios(onMudanca) {
   const reload = async () => {
     const { data, error } = await supabase
