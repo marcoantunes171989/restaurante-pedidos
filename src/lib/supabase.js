@@ -104,6 +104,41 @@ export async function registrarPagamento(p) {
 function dbParaForma(r) {
   return { id: r.id, nome: r.nome, tipo: r.tipo, permiteTroco: r.permite_troco, active: r.ativo }
 }
+
+// ════════════════════════════════════════════════════════════
+//  tab_categorias — CRUD + Realtime
+// ════════════════════════════════════════════════════════════
+export async function fetchCategorias() {
+  const { data, error } = await supabase
+    .from('tab_categorias').select('*').order('ordem', { ascending: true }).order('nome', { ascending: true })
+  if (error) throw error
+  return data.map((r) => ({ id: r.id, nome: r.nome, active: r.ativo, ordem: r.ordem }))
+}
+export async function inserirCategoria(nome) {
+  const { data, error } = await supabase
+    .from('tab_categorias').insert([{ nome }]).select().single()
+  if (error) throw error
+  return { id: data.id, nome: data.nome, active: data.ativo, ordem: data.ordem }
+}
+export async function atualizarCategoria(id, campos) {
+  const { error } = await supabase.from('tab_categorias').update(campos).eq('id', id)
+  if (error) throw error
+}
+export async function excluirCategoria(id) {
+  const { error } = await supabase.from('tab_categorias').delete().eq('id', id)
+  if (error) throw error
+}
+export function escutarCategorias(onMudanca) {
+  const reload = async () => {
+    const { data, error } = await supabase
+      .from('tab_categorias').select('*').order('ordem', { ascending: true }).order('nome', { ascending: true })
+    if (!error && data) onMudanca(data.map((r) => ({ id: r.id, nome: r.nome, active: r.ativo, ordem: r.ordem })))
+  }
+  const canal = supabase.channel('ch_categorias')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_categorias' }, reload)
+    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
+  return () => supabase.removeChannel(canal)
+}
 function formaParaDb(f) {
   return { nome: f.nome, tipo: f.tipo, permite_troco: f.permiteTroco ?? false, ativo: f.active ?? true }
 }

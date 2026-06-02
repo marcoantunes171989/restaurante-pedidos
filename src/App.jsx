@@ -5,6 +5,7 @@ import {
   fetchAcessos,   inserirAcesso,   atualizarAcesso,   escutarAcessos,
   fetchPedidos,   inserirPedido,   atualizarPedido,   escutarPedidos,
   fetchFormasPagamento, inserirFormaPagamento, atualizarFormaPagamento, escutarFormasPagamento,
+  fetchCategorias, inserirCategoria, atualizarCategoria, excluirCategoria, escutarCategorias,
   baixarEstoque, registrarPagamento,
   excluirProduto, excluirFormaPagamento, excluirUsuario,
   STATUS_APP_PARA_DB,
@@ -29,7 +30,7 @@ const initialOrders = [
   { id: "PED-1026", table: "Mesa 12", command: "CMD-000301", status: "ready", paymentStatus: "open", createdAt: "14:04", items: [{ name: "Risoto de Filé Mignon", quantity: 1, price: 58.9, selectedIngredients: ["Arroz arbóreo", "Filé mignon", "Parmesão"], removedIngredients: [], extraIngredients: [], observation: "" }, { name: "Pudim da Casa", quantity: 1, price: 17.9, selectedIngredients: ["Leite condensado", "Leite", "Ovos", "Calda de caramelo"], removedIngredients: [], extraIngredients: [], observation: "" }] },
 ];
 
-const categories = ["Todos", "Entradas", "Pratos principais", "Lanches", "Bebidas", "Sobremesas"];
+const categoriasPadrao = ["Entradas", "Pratos principais", "Lanches", "Bebidas", "Sobremesas"];
 
 const defaultAccesses = [
   { id: "tablet", label: "Tablet do cliente", desc: "Pedido, comanda e solicitação de conta", type: "Operacional", active: true },
@@ -384,6 +385,7 @@ export default function RestaurantePedidoApp() {
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
   const [formasPagamento, setFormasPagamento] = useState([]);
+  const [categoriasDb, setCategoriasDb] = useState([]);
   const [dbReady, setDbReady] = useState(false);
   const [loading, setLoading]     = useState(true);
   const [scannerAberto, setScannerAberto] = useState(false);
@@ -403,8 +405,9 @@ export default function RestaurantePedidoApp() {
         setUsers(usrs);
         setAccesses(accs);
         setOrders(ords);
-        // Formas de pagamento (tabela pode não existir ainda — não bloqueia)
+        // Formas de pagamento e categorias (tabelas podem não existir ainda — não bloqueiam)
         try { setFormasPagamento(await fetchFormasPagamento()); } catch { /* migration 006 pendente */ }
+        try { setCategoriasDb(await fetchCategorias()); } catch { /* migration 010 pendente */ }
         setDbReady(true);
         setLoading(false);
 
@@ -416,6 +419,7 @@ export default function RestaurantePedidoApp() {
           escutarPedidos(setOrders),
         ];
         try { unsubs.push(escutarFormasPagamento(setFormasPagamento)); } catch {}
+        try { unsubs.push(escutarCategorias(setCategoriasDb)); } catch {}
       } catch (err) {
         console.warn("Supabase indisponível — usando fallback local:", err.message);
         setProducts(initialProducts);
@@ -461,6 +465,10 @@ export default function RestaurantePedidoApp() {
   const [adminForm, setAdminForm] = useState({ name: "", category: "Pratos principais", price: "", cost: "", time: "15-25 min", imageUrl: "", ingredientsText: "", description: "" });
   const [userForm, setUserForm] = useState({ name: "", email: "", password: "123456", role: "Operador" });
   const [accessForm, setAccessForm] = useState({ id: "", label: "", desc: "", type: "Operacional" });
+
+  // Categorias vêm do banco (ativas); fallback para as padrão se a tabela estiver vazia
+  const nomesCategorias = categoriasDb.filter((c) => c.active).map((c) => c.nome);
+  const categories = ["Todos", ...(nomesCategorias.length ? nomesCategorias : categoriasPadrao)];
 
   const currentTable = `Mesa ${tableNumber.padStart(2, "0")}`;
   // Ordem fixa do menu (independente da ordem alfabética que vem do banco)
@@ -716,6 +724,32 @@ export default function RestaurantePedidoApp() {
   }
 
   // ── Formas de pagamento (admin) ──────────────────────────────
+  // ── Categorias (admin) ──────────────────────────────────────
+  async function addCategoria(nome) {
+    if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
+    const n = nome.trim();
+    if (!n) return notify("error", "Informe o nome da categoria.");
+    if (categoriasDb.some((c) => c.nome.toLowerCase() === n.toLowerCase())) return notify("error", "Categoria já existe.");
+    try {
+      const nova = dbReady ? await inserirCategoria(n) : { id: Date.now(), nome: n, active: true };
+      setCategoriasDb((cur) => [...cur, nova]);
+      notify("success", "Categoria cadastrada.");
+    } catch (err) { notify("error", "Erro ao cadastrar: " + err.message); }
+  }
+  async function toggleCategoria(id) {
+    if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
+    const c = categoriasDb.find((x) => x.id === id);
+    const active = !c?.active;
+    setCategoriasDb((cur) => cur.map((x) => x.id === id ? { ...x, active } : x));
+    if (dbReady) try { await atualizarCategoria(id, { ativo: active }); } catch {}
+  }
+  async function removerCategoria(id) {
+    if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
+    setCategoriasDb((cur) => cur.filter((x) => x.id !== id));
+    if (dbReady) try { await excluirCategoria(id); } catch (e) { notify("error", "Erro ao excluir: " + e.message); return; }
+    notify("success", "Categoria excluída.");
+  }
+
   async function addFormaPagamento(forma) {
     if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
     if (!forma.nome.trim()) return notify("error", "Informe o nome da forma de pagamento.");
@@ -986,7 +1020,7 @@ export default function RestaurantePedidoApp() {
         )}
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} products={products} />}
         {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierView orders={orders} baixarComandas={baixarComandas} baixarPedidos={baixarPedidos} formasPagamento={formasPagamento} onSair={logout} />}
-        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamento} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} orders={orders} onSair={logout} />}
+        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamento} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDb} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} orders={orders} onSair={logout} />}
 
       </div>
     </div>
@@ -2903,7 +2937,7 @@ function CupomModal({ blocos, mesas, comandas, subtotal, taxa, total, pessoas, p
   );
 }
 
-function AdminView({ products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, toggleUserStatus, toggleAccessStatus, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarProduto, removerProduto, editarUsuario, removerUsuario, orders = [], onSair }) {
+function AdminView({ products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, toggleUserStatus, toggleAccessStatus, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, orders = [], onSair }) {
   const menu = [
     { grupo: "Gestão", itens: [
       { id: "dashboard", icon: "📊", label: "Dashboard" },
@@ -2911,6 +2945,7 @@ function AdminView({ products, categories, adminForm, setAdminForm, addProduct, 
     ]},
     { grupo: "Cadastros", itens: [
       { id: "products", icon: "🛒", label: "Produtos" },
+      { id: "categorias", icon: "🏷️", label: "Categorias" },
       { id: "pagamento", icon: "💳", label: "Formas de pagamento" },
       { id: "comandas", icon: "🎫", label: "Comandas QR" },
     ]},
@@ -2975,6 +3010,7 @@ function AdminView({ products, categories, adminForm, setAdminForm, addProduct, 
           {ativo === "users"      && <UserAdmin      users={users} userForm={userForm} setUserForm={setUserForm} addUser={addUser} toggleUserStatus={toggleUserStatus} editarUsuario={editarUsuario} removerUsuario={removerUsuario} />}
           {ativo === "access"     && <AccessAdmin    accesses={accesses} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleAccessStatus={toggleAccessStatus} />}
           {ativo === "link"       && <UserAccessAdmin users={users} accesses={accesses} toggleUserAccess={toggleUserAccess} />}
+          {ativo === "categorias" && <CategoriaAdmin categoriasDb={categoriasDb} produtos={products} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} />}
           {ativo === "comandas"   && <GeradorComandas />}
           {ativo === "pagamento"  && <PagamentoAdmin formasPagamento={formasPagamento} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} />}
         </div>
@@ -3437,6 +3473,68 @@ function RelatorioPermanencia({ pedidos }) {
 // ════════════════════════════════════════════════════════════
 //  Admin — Formas de pagamento
 // ════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════
+//  Admin — Categorias
+// ════════════════════════════════════════════════════════════
+function CategoriaAdmin({ categoriasDb, produtos, addCategoria, toggleCategoria, removerCategoria }) {
+  const [nome, setNome] = useState("");
+  const [excluir, setExcluir] = useState(null);
+  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400";
+  // Conta quantos produtos usam cada categoria
+  const contagem = (catNome) => produtos.filter((p) => p.category === catNome).length;
+  function salvar() { addCategoria(nome); setNome(""); }
+
+  return (
+    <main className="grid gap-6 lg:grid-cols-[400px_1fr]">
+      <Card className="lg:self-start">
+        <div className="flex items-center gap-2">
+          <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-blue-500/15 text-lg">🏷️</span>
+          <h3 className="text-lg font-black text-white">Nova categoria</h3>
+        </div>
+        <p className="mt-1 text-sm text-slate-400">As categorias aparecem no cadastro de produtos e no cardápio do tablet.</p>
+        <div className="mt-5 space-y-3">
+          <input value={nome} onChange={(e) => setNome(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && salvar()}
+            placeholder="Ex.: Massas, Porções, Vinhos..." className={inp} />
+          <button onClick={salvar} className="w-full rounded-2xl bg-blue-500 px-5 py-4 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95">
+            + Cadastrar categoria
+          </button>
+        </div>
+      </Card>
+
+      <Card>
+        <h3 className="text-xl font-black text-white">Categorias cadastradas</h3>
+        <p className="mt-1 text-sm text-slate-400">{categoriasDb.length} categoria(s) — salvas no banco de dados.</p>
+        <div className="mt-5 space-y-2">
+          {categoriasDb.length === 0 && <p className="text-sm text-slate-500">Nenhuma categoria. Execute a migration 010 e cadastre acima.</p>}
+          {categoriasDb.map((c) => {
+            const usos = contagem(c.nome);
+            return (
+              <div key={c.id} className="flex items-center gap-3 rounded-3xl border border-white/10 bg-slate-950/40 p-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white/[0.06] text-lg">🏷️</span>
+                <div className="min-w-0 flex-1">
+                  <p className="font-black text-white truncate">{c.nome}</p>
+                  <p className="text-xs text-slate-400">{usos} produto(s) nesta categoria</p>
+                </div>
+                <button onClick={() => toggleCategoria(c.id)} className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-black ${c.active ? "bg-emerald-500 text-white" : "bg-slate-700 text-slate-200"}`}>{c.active ? "Ativa" : "Inativa"}</button>
+                <button onClick={() => setExcluir(c)} title="Excluir" className="shrink-0 rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-1.5 text-xs font-black text-red-300 hover:bg-red-500/20 transition">🗑️</button>
+              </div>
+            );
+          })}
+        </div>
+      </Card>
+
+      {excluir && (
+        <ConfirmModal titulo="Excluir categoria?"
+          mensagem={`Excluir a categoria "${excluir.nome}"? ${contagem(excluir.nome) > 0 ? `Atenção: ${contagem(excluir.nome)} produto(s) usam esta categoria.` : ""} Você pode apenas inativá-la.`}
+          confirmar="Sim, excluir"
+          onConfirmar={() => { removerCategoria(excluir.id); setExcluir(null); }}
+          onCancelar={() => setExcluir(null)} />
+      )}
+    </main>
+  );
+}
+
 function PagamentoAdmin({ formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento }) {
   const [form, setForm] = useState({ nome: "", tipo: "outro", permiteTroco: false });
   const [excluir, setExcluir] = useState(null);
