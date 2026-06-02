@@ -212,6 +212,41 @@ function formaParaDb(f) {
 }
 
 // ════════════════════════════════════════════════════════════
+//  tab_cargos — CRUD + Realtime (perfis/cargos reutilizáveis)
+// ════════════════════════════════════════════════════════════
+function dbParaCargo(r) {
+  return { id: r.id, nome: r.nome, descricao: r.descricao ?? '', active: r.ativo }
+}
+export async function fetchCargos() {
+  const { data, error } = await supabase.from('tab_cargos').select('*').order('nome', { ascending: true })
+  if (error) throw error
+  return data.map(dbParaCargo)
+}
+export async function inserirCargo({ nome, descricao = '' }) {
+  const { data, error } = await supabase.from('tab_cargos').insert([{ nome, descricao }]).select().single()
+  if (error) throw error
+  return dbParaCargo(data)
+}
+export async function atualizarCargo(id, campos) {
+  const { error } = await supabase.from('tab_cargos').update(campos).eq('id', id)
+  if (error) throw error
+}
+export async function excluirCargo(id) {
+  const { error } = await supabase.from('tab_cargos').delete().eq('id', id)
+  if (error) throw error
+}
+export function escutarCargos(onMudanca) {
+  const reload = async () => {
+    const { data, error } = await supabase.from('tab_cargos').select('*').order('nome', { ascending: true })
+    if (!error && data) onMudanca(data.map(dbParaCargo))
+  }
+  const canal = supabase.channel('ch_cargos')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_cargos' }, reload)
+    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
+  return () => supabase.removeChannel(canal)
+}
+
+// ════════════════════════════════════════════════════════════
 //  tab_usuarios — CRUD + Realtime
 // ════════════════════════════════════════════════════════════
 export async function fetchUsuarios() {
@@ -356,6 +391,7 @@ function dbParaUsuario(r) {
     active:    r.ativo,
     accessIds: r.ids_acesso ?? [],
     lojaId:    r.loja_id ?? null,
+    cargoId:   r.cargo_id ?? null,
     superAdmin: r.super_admin ?? false,
   }
 }
@@ -432,6 +468,7 @@ function usuarioParaDb(u) {
     ativo:      u.active ?? true,
     ids_acesso: u.accessIds ?? [],
     ...(u.lojaId ? { loja_id: u.lojaId } : {}),
+    ...(u.cargoId ? { cargo_id: u.cargoId } : {}),
     ...(u.superAdmin != null ? { super_admin: u.superAdmin } : {}),
   }
 }

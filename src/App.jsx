@@ -7,6 +7,7 @@ import {
   fetchFormasPagamento, inserirFormaPagamento, atualizarFormaPagamento, escutarFormasPagamento,
   fetchCategorias, inserirCategoria, atualizarCategoria, excluirCategoria, escutarCategorias,
   fetchLojas, inserirLoja, atualizarLoja, excluirLoja, escutarLojas, cadastrarEmpresa,
+  fetchCargos, inserirCargo, atualizarCargo, excluirCargo, escutarCargos,
   baixarEstoque, registrarPagamento,
   excluirProduto, excluirFormaPagamento, excluirUsuario,
   STATUS_APP_PARA_DB,
@@ -39,6 +40,16 @@ const defaultAccesses = [
   { id: "panel", label: "Painel público", desc: "Acompanhamento dos pedidos", type: "Visualização", active: true },
   { id: "cashier", label: "Pagamento", desc: "Conta da mesa e fechamento", type: "Financeiro", active: true },
   { id: "admin", label: "Administrativo", desc: "Produtos, preços, usuários e permissões", type: "Gestão", active: true },
+];
+
+const initialCargos = [
+  { id: 1, nome: "Gestor", descricao: "Administração geral da empresa", active: true },
+  { id: 2, nome: "Operador", descricao: "Operação geral do sistema", active: true },
+  { id: 3, nome: "Caixa", descricao: "Financeiro e fechamento de contas", active: true },
+  { id: 4, nome: "Cozinha", descricao: "Produção e preparo dos pedidos", active: true },
+  { id: 5, nome: "Garçom", descricao: "Atendimento e comandas das mesas", active: true },
+  { id: 6, nome: "Painel", descricao: "Exibição do painel de pedidos", active: true },
+  { id: 7, nome: "Cliente", descricao: "Acesso ao tablet/cardápio", active: true },
 ];
 
 const initialUsers = [
@@ -387,6 +398,7 @@ export default function RestaurantePedidoApp() {
   const [formasPagamento, setFormasPagamento] = useState([]);
   const [categoriasDb, setCategoriasDb] = useState([]);
   const [lojas, setLojas] = useState([]);
+  const [cargos, setCargos] = useState([]);
   const [dbReady, setDbReady] = useState(false);
   const [loading, setLoading]     = useState(true);
   const [scannerAberto, setScannerAberto] = useState(false);
@@ -410,6 +422,7 @@ export default function RestaurantePedidoApp() {
         try { setFormasPagamento(await fetchFormasPagamento()); } catch { /* migration 006 pendente */ }
         try { setCategoriasDb(await fetchCategorias()); } catch { /* migration 010 pendente */ }
         try { setLojas(await fetchLojas()); } catch { /* migration 011 pendente */ }
+        try { setCargos(await fetchCargos()); } catch { /* migration 014 pendente */ }
         setDbReady(true);
         setLoading(false);
 
@@ -423,12 +436,14 @@ export default function RestaurantePedidoApp() {
         try { unsubs.push(escutarFormasPagamento(setFormasPagamento)); } catch {}
         try { unsubs.push(escutarCategorias(setCategoriasDb)); } catch {}
         try { unsubs.push(escutarLojas(setLojas)); } catch {}
+        try { unsubs.push(escutarCargos(setCargos)); } catch {}
       } catch (err) {
         console.warn("Supabase indisponível — usando fallback local:", err.message);
         setProducts(initialProducts);
         setUsers(initialUsers);
         setAccesses(defaultAccesses);
         setOrders(initialOrders);
+        setCargos(initialCargos);
         setDbReady(false);
         setLoading(false);
       }
@@ -466,7 +481,7 @@ export default function RestaurantePedidoApp() {
   const [rawJsonOpen, setRawJsonOpen] = useState(false);
   const [adminSection, setAdminSection] = useState("dashboard");
   const [adminForm, setAdminForm] = useState({ name: "", category: "Pratos principais", price: "", cost: "", time: "15-25 min", imageUrl: "", ingredientsText: "", description: "" });
-  const [userForm, setUserForm] = useState({ name: "", email: "", password: "123456", role: "Operador" });
+  const [userForm, setUserForm] = useState({ name: "", email: "", password: "", role: "", cargoId: "", lojaId: "" });
   const [accessForm, setAccessForm] = useState({ id: "", label: "", desc: "", type: "Operacional" });
 
   // ── Multi-loja: filtra todos os dados pela loja do usuário logado ──
@@ -926,9 +941,10 @@ export default function RestaurantePedidoApp() {
   // Usuários — edição e exclusão
   async function editarUsuario(uid, dados) {
     if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
-    setUsers((cur) => cur.map((u) => u.id === uid ? { ...u, ...dados } : u));
+    const cargoId = dados.cargoId ? Number(dados.cargoId) : null;
+    setUsers((cur) => cur.map((u) => u.id === uid ? { ...u, ...dados, cargoId } : u));
     if (dbReady) try {
-      await atualizarUsuario(uid, { nome: dados.name, email: dados.email, senha: dados.password, perfil: dados.role });
+      await atualizarUsuario(uid, { nome: dados.name, email: dados.email, senha: dados.password, perfil: dados.role, ...(cargoId ? { cargo_id: cargoId } : {}) });
     } catch (e) { notify("error", "Erro: " + e.message); }
     notify("success", "Usuário atualizado.");
   }
@@ -949,15 +965,60 @@ export default function RestaurantePedidoApp() {
 
   async function addUser() {
     if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
+    const lojaDestino = userForm.lojaId || lojaAtual;
+    if (isSuperAdmin && !lojaDestino) return notify("error", "Selecione a empresa do usuário.");
     if (!userForm.name.trim() || !userForm.email.trim()) return notify("error", "Informe nome e e-mail do usuário.");
+    if (!userForm.password || userForm.password.length < 4) return notify("error", "Informe uma senha com no mínimo 4 caracteres.");
+    if (!userForm.cargoId) return notify("error", "Selecione o cargo/perfil do usuário.");
     if (users.some((u) => u.email.toLowerCase() === userForm.email.toLowerCase())) return notify("error", "Já existe usuário com este e-mail.");
-    const nu = { name: userForm.name.trim(), email: userForm.email.trim(), password: userForm.password || "123456", role: userForm.role || "Operador", active: true, accessIds: [], lojaId: userForm.lojaId || lojaAtual };
+    const cargo = cargos.find((c) => c.id === Number(userForm.cargoId));
+    const nu = { name: userForm.name.trim(), email: userForm.email.trim(), password: userForm.password, role: cargo?.nome || userForm.role || "Operador", cargoId: cargo?.id || null, active: true, accessIds: [], lojaId: lojaDestino };
     try {
       const saved = dbReady ? await inserirUsuario(nu) : { ...nu, id: Date.now() };
       setUsers((cur) => [saved, ...cur]);
     } catch { setUsers((cur) => [{ ...nu, id: Date.now() }, ...cur]); }
-    setUserForm({ name: "", email: "", password: "123456", role: "Operador" });
+    setUserForm({ name: "", email: "", password: "", role: "", cargoId: "", lojaId: isSuperAdmin ? "" : lojaAtual });
     notify("success", "Usuário cadastrado. Agora vincule os acessos na tela Usuário x Acesso.");
+  }
+
+  // ── Cargos / Perfis ─────────────────────────────────────────
+  async function addCargo({ nome, descricao }) {
+    if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
+    const n = (nome || "").trim();
+    if (!n) return notify("error", "Informe o nome do cargo.");
+    if (cargos.some((c) => c.nome.toLowerCase() === n.toLowerCase())) return notify("error", "Já existe um cargo com este nome.");
+    const novo = { nome: n, descricao: (descricao || "").trim(), active: true };
+    try {
+      const saved = dbReady ? await inserirCargo(novo) : { ...novo, id: Date.now() };
+      setCargos((cur) => [...cur, saved]);
+      notify("success", `Cargo "${n}" cadastrado.`);
+    } catch (e) { notify("error", "Erro ao cadastrar cargo: " + e.message); }
+  }
+  async function editarCargo(id, dados) {
+    if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
+    const n = (dados.nome || "").trim();
+    if (!n) return notify("error", "Informe o nome do cargo.");
+    if (cargos.some((c) => c.id !== id && c.nome.toLowerCase() === n.toLowerCase())) return notify("error", "Já existe outro cargo com este nome.");
+    setCargos((cur) => cur.map((c) => c.id === id ? { ...c, nome: n, descricao: (dados.descricao || "").trim() } : c));
+    // Mantém o nome do perfil sincronizado nos usuários vinculados a este cargo
+    setUsers((cur) => cur.map((u) => u.cargoId === id ? { ...u, role: n } : u));
+    if (dbReady) try { await atualizarCargo(id, { nome: n, descricao: (dados.descricao || "").trim() }); } catch (e) { notify("error", "Erro: " + e.message); return; }
+    notify("success", `Cargo "${n}" atualizado.`);
+  }
+  async function toggleCargo(id) {
+    if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
+    const c = cargos.find((x) => x.id === id);
+    const active = !c?.active;
+    setCargos((cur) => cur.map((x) => x.id === id ? { ...x, active } : x));
+    if (dbReady) try { await atualizarCargo(id, { ativo: active }); } catch {}
+  }
+  async function removerCargo(id) {
+    if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
+    if (users.some((u) => u.cargoId === id)) return notify("error", "Não é possível excluir: há usuários vinculados a este cargo. Inative-o.");
+    const c = cargos.find((x) => x.id === id);
+    setCargos((cur) => cur.filter((x) => x.id !== id));
+    if (dbReady) try { await excluirCargo(id); } catch (e) { notify("error", "Erro ao excluir: " + e.message); return; }
+    notify("success", `Cargo "${c?.nome || ""}" excluído.`);
   }
 
   async function addAccess() {
@@ -1111,7 +1172,7 @@ export default function RestaurantePedidoApp() {
         )}
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} products={products} lojaInfo={lojaInfo} />}
         {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierView orders={orders} baixarComandas={baixarComandas} baixarPedidos={baixarPedidos} formasPagamento={formasPagamentoLoja} onSair={logout} lojaInfo={lojaInfo} />}
-        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} criarEmpresa={criarEmpresa} />}
+        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} />}
 
       </div>
     </div>
@@ -3029,7 +3090,7 @@ function CupomModal({ blocos, mesas, comandas, subtotal, taxa, total, pessoas, p
   );
 }
 
-function AdminView({ products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, toggleUserStatus, toggleAccessStatus, usersLoja, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, lojas = [], addLoja, toggleLoja, editarLoja, removerLoja, lojaInfo, orders = [], onSair, isSuperAdmin = false, criarEmpresa }) {
+function AdminView({ products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, toggleUserStatus, toggleAccessStatus, usersLoja, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, lojas = [], addLoja, toggleLoja, editarLoja, removerLoja, lojaInfo, orders = [], onSair, isSuperAdmin = false, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo }) {
   const menu = [
     { grupo: "Gestão", itens: [
       { id: "dashboard", icon: "📊", label: "Dashboard" },
@@ -3048,6 +3109,7 @@ function AdminView({ products, categories, adminForm, setAdminForm, addProduct, 
       ]},
       { grupo: "Acessos", itens: [
         { id: "users", icon: "👥", label: "Usuários" },
+        { id: "cargos", icon: "🪪", label: "Cargos / Perfis" },
         { id: "access", icon: "🔐", label: "Permissões" },
         { id: "link", icon: "🔗", label: "Usuário x Acesso" },
       ]},
@@ -3112,7 +3174,8 @@ function AdminView({ products, categories, adminForm, setAdminForm, addProduct, 
           {ativo === "dashboard"  && <DashboardAdmin orders={orders} products={products} />}
           {ativo === "relatorios" && <RelatoriosAdmin orders={orders} products={products} />}
           {ativo === "products"   && <ProductAdmin   products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} editarProduto={editarProduto} removerProduto={removerProduto} />}
-          {ativo === "users"      && <UserAdmin      users={isSuperAdmin ? users : (usersLoja ?? users)} userForm={userForm} setUserForm={setUserForm} addUser={addUser} toggleUserStatus={toggleUserStatus} editarUsuario={editarUsuario} removerUsuario={removerUsuario} lojaInfo={lojaInfo} lojas={lojas} isSuperAdmin={isSuperAdmin} />}
+          {ativo === "users"      && <UserAdmin      users={isSuperAdmin ? users : (usersLoja ?? users)} userForm={userForm} setUserForm={setUserForm} addUser={addUser} toggleUserStatus={toggleUserStatus} editarUsuario={editarUsuario} removerUsuario={removerUsuario} lojaInfo={lojaInfo} lojas={lojas} isSuperAdmin={isSuperAdmin} cargos={cargos} />}
+          {ativo === "cargos"     && <CargoAdmin     cargos={cargos} users={isSuperAdmin ? users : (usersLoja ?? users)} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} />}
           {ativo === "access"     && <AccessAdmin    accesses={accesses} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleAccessStatus={toggleAccessStatus} />}
           {ativo === "link"       && <UserAccessAdmin users={isSuperAdmin ? users : (usersLoja ?? users)} accesses={accesses} toggleUserAccess={toggleUserAccess} lojas={lojas} isSuperAdmin={isSuperAdmin} />}
           {ativo === "categorias" && <CategoriaAdmin categoriasDb={categoriasDb} produtos={products} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} />}
@@ -4323,66 +4386,225 @@ function ProdutoEditModal({ produto, cats, onSalvar, onFechar }) {
   );
 }
 
-function UserAdmin({ users, userForm, setUserForm, addUser, toggleUserStatus, editarUsuario, removerUsuario, lojaInfo, lojas = [], isSuperAdmin = false }) {
+// ════════════════════════════════════════════════════════════
+//  Admin — Cargos / Perfis (cadastro reutilizável)
+// ════════════════════════════════════════════════════════════
+function CargoAdmin({ cargos = [], users = [], addCargo, editarCargo, toggleCargo, removerCargo }) {
+  const [form, setForm]   = useState({ nome: "", descricao: "" });
   const [editando, setEditando] = useState(null);
   const [excluir, setExcluir]   = useState(null);
+  const [busca, setBusca] = useState("");
+  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400 placeholder:text-slate-600";
+  const lbl = "mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500";
+  const qtdUsuarios = (id) => users.filter((u) => u.cargoId === id).length;
+
+  function salvar() {
+    if (!form.nome.trim()) return;
+    addCargo(form);
+    setForm({ nome: "", descricao: "" });
+  }
+
+  const termo = busca.trim().toLowerCase();
+  const filtrados = termo ? cargos.filter((c) => `${c.nome} ${c.descricao}`.toLowerCase().includes(termo)) : cargos;
+
+  return (
+    <main className="grid gap-6 lg:grid-cols-[400px_1fr]">
+      <Card className="lg:self-start">
+        <div className="flex items-center gap-2">
+          <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-blue-500/15 text-lg">🪪</span>
+          <h3 className="text-lg font-black text-white">Novo cargo / perfil</h3>
+        </div>
+        <p className="mt-1 text-sm text-slate-400">Os cargos aparecem como opção no cadastro de usuário. Salvos no banco e reutilizáveis.</p>
+        <div className="mt-5 space-y-3">
+          <div>
+            <label className={lbl}>Nome do cargo *</label>
+            <input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} onKeyDown={(e) => e.key === "Enter" && salvar()} placeholder="Ex.: Garçom, Gerente, Caixa" className={inp} />
+          </div>
+          <div>
+            <label className={lbl}>Descrição</label>
+            <input value={form.descricao} onChange={(e) => setForm({ ...form, descricao: e.target.value })} placeholder="Breve descrição das funções" className={inp} />
+          </div>
+          <button onClick={salvar} disabled={!form.nome.trim()} className="w-full rounded-2xl bg-blue-500 px-5 py-4 text-sm font-black text-white hover:bg-blue-400 disabled:opacity-50">+ Cadastrar cargo</button>
+        </div>
+      </Card>
+
+      <Card>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="text-xl font-black text-white">Cargos cadastrados</h3>
+            <p className="mt-0.5 text-sm text-slate-400">{cargos.length} cargo(s) • {cargos.filter((c) => c.active !== false).length} ativo(s)</p>
+          </div>
+        </div>
+        <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="🔍 Buscar cargo…" className={`${inp} mt-4`} />
+        <div className="mt-4 space-y-2">
+          {filtrados.length === 0 && <p className="text-sm text-slate-500">Nenhum cargo encontrado.</p>}
+          {filtrados.map((c) => (
+            <div key={c.id} className="flex items-center gap-3 rounded-3xl border border-white/10 bg-slate-950/40 p-3">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/[0.06] text-lg">🪪</span>
+              <div className="min-w-0 flex-1">
+                <p className="font-black text-white truncate">{c.nome}</p>
+                {c.descricao && <p className="text-xs text-slate-400 truncate">{c.descricao}</p>}
+                <p className="text-[11px] text-slate-500">{qtdUsuarios(c.id)} usuário(s) com este cargo</p>
+              </div>
+              <button onClick={() => toggleCargo(c.id)} className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-black ${c.active !== false ? "bg-emerald-500 text-white" : "bg-slate-700 text-slate-200"}`}>{c.active !== false ? "Ativo" : "Inativo"}</button>
+              <button onClick={() => setEditando(c)} className="shrink-0 rounded-xl border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs font-black text-blue-300 hover:bg-white/10">✏️</button>
+              <button onClick={() => setExcluir(c)} disabled={qtdUsuarios(c.id) > 0} title={qtdUsuarios(c.id) > 0 ? "Há usuários vinculados — inative em vez de excluir" : "Excluir cargo"} className="shrink-0 rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-1.5 text-xs font-black text-red-300 hover:bg-red-500/20 disabled:opacity-30 disabled:cursor-not-allowed">🗑️</button>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      {editando && <CargoEditModal cargo={editando} onSalvar={(d) => { editarCargo(editando.id, d); setEditando(null); }} onFechar={() => setEditando(null)} />}
+      {excluir && (
+        <ConfirmModal titulo="Excluir cargo?"
+          mensagem={`Deseja excluir o cargo "${excluir.nome}"? Esta ação não pode ser desfeita.`}
+          confirmar="Sim, excluir"
+          onConfirmar={() => { removerCargo(excluir.id); setExcluir(null); }}
+          onCancelar={() => setExcluir(null)} />
+      )}
+    </main>
+  );
+}
+
+function CargoEditModal({ cargo, onSalvar, onFechar }) {
+  const [nome, setNome] = useState(cargo.nome || "");
+  const [descricao, setDescricao] = useState(cargo.descricao || "");
   const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400";
+  const lbl = "mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500";
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onFechar}>
+      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl">
+        <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+          <h2 className="text-lg font-black text-white">✏️ Editar cargo</h2>
+          <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20">✕</button>
+        </div>
+        <div className="px-6 py-4 space-y-3">
+          <div><label className={lbl}>Nome</label><input value={nome} onChange={(e) => setNome(e.target.value)} className={inp} autoFocus /></div>
+          <div><label className={lbl}>Descrição</label><input value={descricao} onChange={(e) => setDescricao(e.target.value)} className={inp} /></div>
+          <button onClick={() => nome.trim() && onSalvar({ nome: nome.trim(), descricao: descricao.trim() })} disabled={!nome.trim()} className="w-full rounded-2xl bg-emerald-500 py-4 text-sm font-black text-white hover:bg-emerald-400 disabled:opacity-50">💾 Salvar alterações</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function UserAdmin({ users, userForm, setUserForm, addUser, toggleUserStatus, editarUsuario, removerUsuario, lojaInfo, lojas = [], isSuperAdmin = false, cargos = [] }) {
+  const [editando, setEditando] = useState(null);
+  const [excluir, setExcluir]   = useState(null);
+  const [busca, setBusca]       = useState("");
+  const [lojaSel, setLojaSel]   = useState("");
+  const [verSenha, setVerSenha] = useState(false);
+  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400 placeholder:text-slate-600";
+  const lbl = "mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500";
   const lojasAtivas = lojas.filter((l) => l.active !== false);
+  const cargosAtivos = cargos.filter((c) => c.active !== false);
   const lojaDoUser = (u) => lojas.find((l) => l.id === u.lojaId);
+
+  // Validação para habilitar o botão (sem salvar nada antes de tudo preenchido)
+  const formValido =
+    (!isSuperAdmin || userForm.lojaId) &&
+    userForm.name.trim() && userForm.email.trim() &&
+    (userForm.password || "").length >= 4 && userForm.cargoId;
+
+  const termo = busca.trim().toLowerCase();
+  const usuariosFiltrados = users.filter((u) => {
+    if (lojaSel && String(u.lojaId ?? "") !== String(lojaSel)) return false;
+    if (!termo) return true;
+    return `${u.name} ${u.email} ${u.role} ${lojaDoUser(u)?.nome || ""}`.toLowerCase().includes(termo);
+  });
+
   return (
     <main className="grid gap-6 lg:grid-cols-[420px_1fr]">
       <Card className="lg:self-start">
         <h3 className="text-xl font-black text-white">Cadastrar usuário</h3>
         {!isSuperAdmin && lojaInfo && (
           <p className="mt-1 text-xs text-slate-400">
-            Vinculado à loja <span className="font-bold text-blue-300">{lojaInfo.nome}</span>
+            Vinculado à empresa <span className="font-bold text-blue-300">{lojaInfo.nome}</span>
             <span className="ml-1 font-mono text-slate-500">({lojaInfo.prefixo})</span>
           </p>
         )}
         <div className="mt-5 space-y-3">
           {isSuperAdmin && (
             <div>
-              <label className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500">Empresa do usuário</label>
-              <select
-                value={userForm.lojaId ?? ""}
-                onChange={(e) => setUserForm({ ...userForm, lojaId: e.target.value ? Number(e.target.value) : null })}
+              <label className={lbl}>Empresa do usuário *</label>
+              <select value={userForm.lojaId ?? ""}
+                onChange={(e) => setUserForm({ ...userForm, lojaId: e.target.value ? Number(e.target.value) : "" })}
                 className={inp}>
                 <option value="">Selecione a empresa…</option>
-                {lojasAtivas.map((l) => (
-                  <option key={l.id} value={l.id}>{l.nome} ({l.prefixo})</option>
-                ))}
+                {lojasAtivas.map((l) => <option key={l.id} value={l.id}>{l.nome} ({l.prefixo})</option>)}
               </select>
             </div>
           )}
-          <input value={userForm.name} onChange={(e) => setUserForm({ ...userForm, name: e.target.value })} placeholder="Nome do usuário" className={inp} />
-          <input value={userForm.email} onChange={(e) => setUserForm({ ...userForm, email: e.target.value })} placeholder="E-mail de acesso" className={inp} />
-          <input value={userForm.password} onChange={(e) => setUserForm({ ...userForm, password: e.target.value })} placeholder="Senha" className={inp} />
-          <input value={userForm.role} onChange={(e) => setUserForm({ ...userForm, role: e.target.value })} placeholder="Perfil / cargo" className={inp} />
-          <button onClick={addUser} className="w-full rounded-2xl bg-blue-500 px-5 py-4 text-sm font-black text-white hover:bg-blue-400">+ Cadastrar usuário</button>
+          <div>
+            <label className={lbl}>Nome *</label>
+            <input value={userForm.name} onChange={(e) => setUserForm({ ...userForm, name: e.target.value })} placeholder="Nome do usuário" className={inp} autoComplete="off" name="novo_usuario_nome" />
+          </div>
+          <div>
+            <label className={lbl}>E-mail de acesso *</label>
+            <input value={userForm.email} onChange={(e) => setUserForm({ ...userForm, email: e.target.value })} placeholder="usuario@empresa.com" className={inp} autoComplete="off" name="novo_usuario_email" />
+          </div>
+          <div>
+            <label className={lbl}>Senha * (mín. 4)</label>
+            <div className="relative">
+              <input type={verSenha ? "text" : "password"} value={userForm.password} onChange={(e) => setUserForm({ ...userForm, password: e.target.value })} placeholder="Defina a senha" className={`${inp} pr-12`} autoComplete="new-password" name="novo_usuario_senha" />
+              <button type="button" onClick={() => setVerSenha((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-400 hover:text-white">{verSenha ? "🙈" : "👁️"}</button>
+            </div>
+          </div>
+          <div>
+            <label className={lbl}>Cargo / Perfil *</label>
+            <select value={userForm.cargoId ?? ""}
+              onChange={(e) => { const id = e.target.value ? Number(e.target.value) : ""; const c = cargos.find((x) => x.id === id); setUserForm({ ...userForm, cargoId: id, role: c?.nome || "" }); }}
+              className={inp}>
+              <option value="">Selecione o cargo…</option>
+              {cargosAtivos.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
+            </select>
+            {cargosAtivos.length === 0 && <p className="mt-1 text-[11px] text-amber-300">Nenhum cargo ativo. Cadastre em “Cargos / Perfis”.</p>}
+          </div>
+          <button onClick={addUser} disabled={!formValido}
+            className="w-full rounded-2xl bg-blue-500 px-5 py-4 text-sm font-black text-white hover:bg-blue-400 disabled:opacity-50 disabled:cursor-not-allowed">+ Cadastrar usuário</button>
+          {!formValido && <p className="text-center text-[11px] text-slate-500">Preencha todos os campos obrigatórios (*) para habilitar o cadastro.</p>}
         </div>
       </Card>
+
       <Card>
-        <h3 className="text-xl font-black text-white">Usuários cadastrados</h3>
-        <div className="mt-5 space-y-2">
-          {users.map((u) => (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="text-xl font-black text-white">Usuários cadastrados</h3>
+            <p className="mt-0.5 text-sm text-slate-400">{usuariosFiltrados.length} de {users.length} usuário(s)</p>
+          </div>
+        </div>
+        <div className={`mt-4 grid gap-3 ${isSuperAdmin ? "sm:grid-cols-[1fr_220px]" : ""}`}>
+          <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="🔍 Buscar por nome, e-mail, cargo ou empresa…" className={inp} />
+          {isSuperAdmin && (
+            <select value={lojaSel} onChange={(e) => setLojaSel(e.target.value)} className={inp}>
+              <option value="">Todas as empresas</option>
+              {lojas.map((l) => <option key={l.id} value={l.id}>{l.nome} ({l.prefixo})</option>)}
+            </select>
+          )}
+        </div>
+        <div className="mt-4 space-y-2">
+          {usuariosFiltrados.length === 0 && <p className="text-sm text-slate-500">Nenhum usuário encontrado.</p>}
+          {usuariosFiltrados.map((u) => (
             <div key={u.id} className="flex items-center gap-3 rounded-3xl border border-white/10 bg-slate-950/40 p-3">
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-500/15 text-lg">👤</div>
               <div className="min-w-0 flex-1">
                 <p className="font-black text-white truncate">{u.name}{u.superAdmin && <span className="ml-2 rounded-full bg-violet-500/20 px-2 py-0.5 text-[10px] font-black text-violet-300 align-middle">ADMIN GERAL</span>}</p>
-                <p className="text-xs text-slate-400 truncate">{u.email} • {u.role} • {u.accessIds.length} acesso(s)</p>
-                {isSuperAdmin && (
-                  <p className="text-[11px] text-slate-500 truncate">🏪 {lojaDoUser(u)?.nome || (u.superAdmin ? "Todas as empresas" : "Sem empresa")}</p>
-                )}
+                <p className="text-xs text-slate-400 truncate">{u.email}</p>
+                <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                  <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[11px] font-bold text-slate-200">🪪 {u.role || "—"}</span>
+                  {isSuperAdmin && <span className="rounded-full bg-blue-500/10 px-2 py-0.5 text-[11px] font-bold text-blue-200">🏪 {lojaDoUser(u)?.nome || (u.superAdmin ? "Todas" : "Sem empresa")}</span>}
+                  <span className="rounded-full bg-white/[0.04] px-2 py-0.5 text-[11px] font-bold text-slate-300">{u.accessIds.length} acesso(s)</span>
+                </div>
               </div>
               <button onClick={() => toggleUserStatus(u.id)} className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-black ${u.active ? "bg-emerald-500 text-white" : "bg-slate-700 text-slate-200"}`}>{u.active ? "Ativo" : "Inativo"}</button>
               <button onClick={() => setEditando(u)} className="shrink-0 rounded-xl border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs font-black text-blue-300 hover:bg-white/10">✏️</button>
-              <button onClick={() => setExcluir(u)} className="shrink-0 rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-1.5 text-xs font-black text-red-300 hover:bg-red-500/20">🗑️</button>
+              <button onClick={() => setExcluir(u)} disabled={u.superAdmin} className="shrink-0 rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-1.5 text-xs font-black text-red-300 hover:bg-red-500/20 disabled:opacity-30 disabled:cursor-not-allowed">🗑️</button>
             </div>
           ))}
         </div>
       </Card>
 
-      {editando && <UsuarioEditModal usuario={editando} onSalvar={(d) => { editarUsuario(editando.id, d); setEditando(null); }} onFechar={() => setEditando(null)} />}
+      {editando && <UsuarioEditModal usuario={editando} cargos={cargosAtivos} onSalvar={(d) => { editarUsuario(editando.id, d); setEditando(null); }} onFechar={() => setEditando(null)} />}
       {excluir && (
         <ConfirmModal titulo="Excluir usuário?"
           mensagem={`Deseja excluir o usuário "${excluir.name}" (${excluir.email})? Esta ação não pode ser desfeita.`}
@@ -4394,9 +4616,12 @@ function UserAdmin({ users, userForm, setUserForm, addUser, toggleUserStatus, ed
   );
 }
 
-function UsuarioEditModal({ usuario, onSalvar, onFechar }) {
-  const [f, setF] = useState({ name: usuario.name, email: usuario.email, password: usuario.password, role: usuario.role });
+function UsuarioEditModal({ usuario, cargos = [], onSalvar, onFechar }) {
+  const [f, setF] = useState({ name: usuario.name, email: usuario.email, password: usuario.password, role: usuario.role, cargoId: usuario.cargoId ?? "" });
+  const [verSenha, setVerSenha] = useState(false);
   const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400";
+  const lbl = "mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500";
+  const valido = f.name.trim() && f.email.trim() && (f.password || "").length >= 4 && f.cargoId;
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onFechar}>
       <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl">
@@ -4405,11 +4630,23 @@ function UsuarioEditModal({ usuario, onSalvar, onFechar }) {
           <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20">✕</button>
         </div>
         <div className="px-6 py-4 space-y-3">
-          <input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="Nome" className={inp} />
-          <input value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} placeholder="E-mail" className={inp} />
-          <input value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} placeholder="Senha" className={inp} />
-          <input value={f.role} onChange={(e) => setF({ ...f, role: e.target.value })} placeholder="Perfil / cargo" className={inp} />
-          <button onClick={() => onSalvar(f)} className="w-full rounded-2xl bg-emerald-500 py-4 text-sm font-black text-white hover:bg-emerald-400">💾 Salvar alterações</button>
+          <div><label className={lbl}>Nome</label><input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="Nome" className={inp} /></div>
+          <div><label className={lbl}>E-mail</label><input value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} placeholder="E-mail" className={inp} /></div>
+          <div>
+            <label className={lbl}>Senha (mín. 4)</label>
+            <div className="relative">
+              <input type={verSenha ? "text" : "password"} value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} placeholder="Senha" className={`${inp} pr-12`} />
+              <button type="button" onClick={() => setVerSenha((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-400 hover:text-white">{verSenha ? "🙈" : "👁️"}</button>
+            </div>
+          </div>
+          <div>
+            <label className={lbl}>Cargo / Perfil</label>
+            <select value={f.cargoId ?? ""} onChange={(e) => { const id = e.target.value ? Number(e.target.value) : ""; const c = cargos.find((x) => x.id === id); setF({ ...f, cargoId: id, role: c?.nome || f.role }); }} className={inp}>
+              <option value="">Selecione o cargo…</option>
+              {cargos.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
+            </select>
+          </div>
+          <button onClick={() => valido && onSalvar(f)} disabled={!valido} className="w-full rounded-2xl bg-emerald-500 py-4 text-sm font-black text-white hover:bg-emerald-400 disabled:opacity-50">💾 Salvar alterações</button>
         </div>
       </div>
     </div>
