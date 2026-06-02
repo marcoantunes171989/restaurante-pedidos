@@ -346,6 +346,7 @@ function dbParaUsuario(r) {
     active:    r.ativo,
     accessIds: r.ids_acesso ?? [],
     lojaId:    r.loja_id ?? null,
+    superAdmin: r.super_admin ?? false,
   }
 }
 
@@ -421,6 +422,7 @@ function usuarioParaDb(u) {
     ativo:      u.active ?? true,
     ids_acesso: u.accessIds ?? [],
     ...(u.lojaId ? { loja_id: u.lojaId } : {}),
+    ...(u.superAdmin != null ? { super_admin: u.superAdmin } : {}),
   }
 }
 

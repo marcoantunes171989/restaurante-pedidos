@@ -42,7 +42,7 @@ const defaultAccesses = [
 ];
 
 const initialUsers = [
-  { id: 1, name: "Administrador", email: "admin@restaurante.com", password: "123456", role: "Gestor", active: true, accessIds: ["tablet", "kitchen", "panel", "cashier", "admin"] },
+  { id: 1, name: "Administrador", email: "admin@restaurante.com", password: "123456", role: "Gestor", active: true, accessIds: ["tablet", "kitchen", "panel", "cashier", "admin"], superAdmin: true },
   { id: 2, name: "Tablet Mesa", email: "tablet@restaurante.com", password: "123456", role: "Cliente", active: true, accessIds: ["tablet", "panel"] },
   { id: 3, name: "Equipe Cozinha", email: "cozinha@restaurante.com", password: "123456", role: "Produção", active: true, accessIds: ["kitchen"] },
   { id: 4, name: "Painel TV", email: "painel@restaurante.com", password: "123456", role: "Painel", active: true, accessIds: ["panel"] },
@@ -300,160 +300,51 @@ function CardGerarComandas() {
 // ════════════════════════════════════════════════════════════
 //  Tela de Login com card de comandas embutido
 // ════════════════════════════════════════════════════════════
-function TelaLogin({ loginForm, setLoginForm, login, message, registrarEmpresa, clearMessage }) {
-  const [modo, setModo] = useState("login"); // "login" | "signup"
-  const [signup, setSignup] = useState({ nomeLoja: "", prefixo: "", nomeResponsavel: "", email: "", senha: "" });
-  const [enviando, setEnviando] = useState(false);
-
-  function trocarModo(novo) {
-    if (clearMessage) clearMessage();
-    setModo(novo);
-  }
-
-  function setPrefixo(v) {
-    setSignup((s) => ({ ...s, prefixo: v.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 3) }));
-  }
-
-  const signupValido =
-    signup.nomeLoja.trim() && signup.prefixo.length >= 2 &&
-    signup.nomeResponsavel.trim() && signup.email.trim() && signup.senha.length >= 4;
-
-  async function enviarCadastro() {
-    if (!signupValido) return;
-    setEnviando(true);
-    try {
-      await registrarEmpresa(signup);
-    } catch { /* mensagem já exibida */ }
-    finally { setEnviando(false); }
-  }
-
+function TelaLogin({ loginForm, setLoginForm, login, message }) {
   const inputCls = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3.5 text-white outline-none transition focus:border-blue-400 placeholder:text-slate-600";
   const labelCls = "mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500";
 
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-950 px-4 py-10 text-slate-100">
-      {/* Brilhos de fundo sutis */}
       <div className="pointer-events-none absolute -top-32 -left-32 h-96 w-96 rounded-full bg-blue-600/20 blur-[120px]" />
       <div className="pointer-events-none absolute -bottom-32 -right-32 h-96 w-96 rounded-full bg-violet-600/15 blur-[120px]" />
 
       <div className="relative w-full max-w-sm">
-        {/* Logo */}
         <div className="mb-8 text-center">
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-blue-500 text-3xl shadow-2xl shadow-blue-950/50">🍽️</div>
           <h1 className="mt-4 text-2xl font-black tracking-tight text-white">Restaurante</h1>
-          <p className="mt-1 text-sm text-slate-400">
-            {modo === "login" ? "Acesse com seu usuário" : "Crie a conta da sua empresa"}
-          </p>
+          <p className="mt-1 text-sm text-slate-400">Acesse com seu usuário</p>
         </div>
 
-        {/* Toggle login / cadastro */}
-        <div className="mb-5 grid grid-cols-2 gap-1 rounded-2xl border border-white/10 bg-white/[0.04] p-1">
-          <button
-            onClick={() => trocarModo("login")}
-            className={`rounded-xl px-3 py-2.5 text-xs font-black transition ${modo === "login" ? "bg-blue-500 text-white shadow-lg shadow-blue-950/40" : "text-slate-400 hover:text-white"}`}>
-            Entrar
-          </button>
-          <button
-            onClick={() => trocarModo("signup")}
-            className={`rounded-xl px-3 py-2.5 text-xs font-black transition ${modo === "signup" ? "bg-emerald-500 text-white shadow-lg shadow-emerald-950/40" : "text-slate-400 hover:text-white"}`}>
-            Criar minha loja
-          </button>
-        </div>
-
-        {/* Formulário */}
         <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6 shadow-2xl backdrop-blur-xl">
-          {modo === "login" ? (
-            <div className="space-y-3">
-              <div>
-                <label className={labelCls}>E-mail</label>
-                <input
-                  value={loginForm.email}
-                  onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
-                  onKeyDown={(e) => e.key === "Enter" && login()}
-                  placeholder="seu@email.com"
-                  className={inputCls}
-                />
-              </div>
-              <div>
-                <label className={labelCls}>Senha</label>
-                <input
-                  type="password"
-                  value={loginForm.password}
-                  onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-                  onKeyDown={(e) => e.key === "Enter" && login()}
-                  placeholder="••••••"
-                  className={inputCls}
-                />
-              </div>
-              <button
-                onClick={login}
-                className="mt-1 w-full rounded-2xl bg-blue-500 px-5 py-4 text-sm font-black text-white transition hover:bg-blue-400 active:scale-[0.98] shadow-lg shadow-blue-950/40">
-                Entrar →
-              </button>
+          <div className="space-y-3">
+            <div>
+              <label className={labelCls}>E-mail</label>
+              <input
+                value={loginForm.email}
+                onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
+                onKeyDown={(e) => e.key === "Enter" && login()}
+                placeholder="seu@email.com"
+                className={inputCls}
+              />
             </div>
-          ) : (
-            <div className="space-y-3">
-              <div>
-                <label className={labelCls}>Nome da empresa</label>
-                <input
-                  value={signup.nomeLoja}
-                  onChange={(e) => setSignup({ ...signup, nomeLoja: e.target.value })}
-                  placeholder="Ex.: Pizzaria do Bairro"
-                  className={inputCls}
-                />
-              </div>
-              <div>
-                <label className={labelCls}>Prefixo das comandas (2-3 letras)</label>
-                <input
-                  value={signup.prefixo}
-                  onChange={(e) => setPrefixo(e.target.value)}
-                  maxLength={3}
-                  placeholder="PZB"
-                  className={`${inputCls} font-mono text-lg font-black tracking-widest`}
-                />
-                {signup.prefixo.length >= 2 && (
-                  <p className="mt-1 text-[11px] text-slate-500">Comandas: <span className="font-mono font-bold text-blue-300">{signup.prefixo}-000001</span></p>
-                )}
-              </div>
-              <div>
-                <label className={labelCls}>Seu nome (responsável)</label>
-                <input
-                  value={signup.nomeResponsavel}
-                  onChange={(e) => setSignup({ ...signup, nomeResponsavel: e.target.value })}
-                  placeholder="Nome do gestor"
-                  className={inputCls}
-                />
-              </div>
-              <div>
-                <label className={labelCls}>E-mail de acesso</label>
-                <input
-                  value={signup.email}
-                  onChange={(e) => setSignup({ ...signup, email: e.target.value })}
-                  placeholder="gestor@empresa.com"
-                  className={inputCls}
-                />
-              </div>
-              <div>
-                <label className={labelCls}>Senha (mín. 4 caracteres)</label>
-                <input
-                  type="password"
-                  value={signup.senha}
-                  onChange={(e) => setSignup({ ...signup, senha: e.target.value })}
-                  onKeyDown={(e) => e.key === "Enter" && enviarCadastro()}
-                  placeholder="••••••"
-                  className={inputCls}
-                />
-              </div>
-              <button
-                onClick={enviarCadastro}
-                disabled={!signupValido || enviando}
-                className="mt-1 w-full rounded-2xl bg-emerald-500 px-5 py-4 text-sm font-black text-white transition hover:bg-emerald-400 active:scale-[0.98] disabled:opacity-50 shadow-lg shadow-emerald-950/40">
-                {enviando ? "⏳ Criando sua loja..." : "Criar minha loja grátis →"}
-              </button>
-              <p className="text-center text-[11px] text-slate-500">Plano gratuito • sem cartão de crédito</p>
+            <div>
+              <label className={labelCls}>Senha</label>
+              <input
+                type="password"
+                value={loginForm.password}
+                onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                onKeyDown={(e) => e.key === "Enter" && login()}
+                placeholder="••••••"
+                className={inputCls}
+              />
             </div>
-          )}
-
+            <button
+              onClick={login}
+              className="mt-1 w-full rounded-2xl bg-blue-500 px-5 py-4 text-sm font-black text-white transition hover:bg-blue-400 active:scale-[0.98] shadow-lg shadow-blue-950/40">
+              Entrar →
+            </button>
+          </div>
           {message.text && (
             <div className={`mt-4 rounded-2xl border p-3.5 text-sm ${message.type === "error" ? "border-red-400/30 bg-red-500/10 text-red-200" : "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"}`}>
               {message.text}
@@ -461,9 +352,7 @@ function TelaLogin({ loginForm, setLoginForm, login, message, registrarEmpresa, 
           )}
         </div>
 
-        <p className="mt-6 text-center text-xs text-slate-600">
-          {modo === "login" ? "Acesso controlado por usuário e permissão" : "Cada empresa tem seus dados totalmente separados"}
-        </p>
+        <p className="mt-6 text-center text-xs text-slate-600">Acesso controlado por usuário e permissão</p>
       </div>
     </div>
   );
@@ -583,6 +472,7 @@ export default function RestaurantePedidoApp() {
   // ── Multi-loja: filtra todos os dados pela loja do usuário logado ──
   const lojaAtual = currentUser?.lojaId ?? null;
   const lojaInfo = lojas.find((l) => l.id === lojaAtual) || null;
+  const isSuperAdmin = !!currentUser?.superAdmin;
   const filtraLoja = (arr) => lojaAtual == null ? arr : arr.filter((x) => x.lojaId == null || x.lojaId === lojaAtual);
   const products      = filtraLoja(productsAll);
   const orders        = filtraLoja(ordersAll);
@@ -663,18 +553,15 @@ export default function RestaurantePedidoApp() {
 
   function logout() { setCurrentUser(null); setActiveTab("tablet"); setMessage({ type: "", text: "" }); }
 
-  // Onboarding SaaS: cria empresa/loja + admin e entra automaticamente
-  async function registrarEmpresa(dados) {
-    if (!dbReady) return notify("error", "Sistema offline — tente novamente em instantes.");
+  // SaaS: somente o administrador geral cadastra empresas (sem trocar o usuário logado)
+  async function criarEmpresa(dados) {
+    if (!dbReady) { notify("error", "Sistema offline — tente novamente em instantes."); throw new Error("offline"); }
     try {
       const { loja, email } = await cadastrarEmpresa(dados);
       setLojas((cur) => [...cur, loja]);
-      // Recarrega usuários e entra
       const novoUser = { id: Date.now(), name: dados.nomeResponsavel, email, password: dados.senha, role: "Gestor", active: true, accessIds: ["tablet","kitchen","panel","cashier","admin"], lojaId: loja.id };
       setUsers((cur) => [...cur, novoUser]);
-      setCurrentUser(novoUser);
-      setActiveTab("admin");
-      notify("success", `Bem-vindo, ${dados.nomeResponsavel}! Loja "${loja.nome}" criada. Comandas: ${loja.prefixo}-000001.`);
+      notify("success", `Empresa "${loja.nome}" criada. Acesso do gestor: ${email}. Comandas: ${loja.prefixo}-000001.`);
     } catch (err) {
       notify("error", err.message || "Erro ao cadastrar a empresa.");
       throw err;
@@ -1102,7 +989,7 @@ export default function RestaurantePedidoApp() {
   }
 
   if (!currentUser) {
-    return <TelaLogin loginForm={loginForm} setLoginForm={setLoginForm} login={login} message={message} users={users} registrarEmpresa={registrarEmpresa} clearMessage={clearMessage} />;
+    return <TelaLogin loginForm={loginForm} setLoginForm={setLoginForm} login={login} message={message} users={users} />;
   }
 
   return (
@@ -1173,6 +1060,7 @@ export default function RestaurantePedidoApp() {
               currentTableTotal={currentTableTotal}
               message={message} onSair={logout}
               onAbrirScanner={() => setScannerAberto(true)}
+              lojaInfo={lojaInfo}
             />
             {scannerAberto && (
               <QRScannerModal
@@ -1188,11 +1076,11 @@ export default function RestaurantePedidoApp() {
         )}
 
         {activeTab === "kitchen" && canAccess(currentUser, "kitchen") && (
-          <KitchenView groupedOrders={groupedOrders} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} cancelarPedido={cancelarPedido} onSair={logout} currentUser={currentUser} />
+          <KitchenView groupedOrders={groupedOrders} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} cancelarPedido={cancelarPedido} onSair={logout} currentUser={currentUser} lojaInfo={lojaInfo} />
         )}
-        {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} products={products} />}
-        {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierView orders={orders} baixarComandas={baixarComandas} baixarPedidos={baixarPedidos} formasPagamento={formasPagamentoLoja} onSair={logout} />}
-        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} lojaInfo={lojaInfo} orders={orders} onSair={logout} />}
+        {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} products={products} lojaInfo={lojaInfo} />}
+        {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierView orders={orders} baixarComandas={baixarComandas} baixarPedidos={baixarPedidos} formasPagamento={formasPagamentoLoja} onSair={logout} lojaInfo={lojaInfo} />}
+        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} criarEmpresa={criarEmpresa} />}
 
       </div>
     </div>
@@ -1212,6 +1100,7 @@ function TabletView({
   subtotal, serviceFee, total, totalItems,
   handleSendOrder, requestBill, message, onSair, onAbrirScanner,
   currentTableOrders = [], currentTableSubtotal = 0, currentTableTotal = 0,
+  lojaInfo,
 }) {
   const [verConta, setVerConta]         = useState(false);
   const [carrinhoAberto, setCarrinhoAberto] = useState(false); // gaveta do carrinho
@@ -1242,7 +1131,7 @@ function TabletView({
         <div className="flex items-center gap-3">
           <span className="text-2xl">🍽️</span>
           <div>
-            <p className="text-base font-black text-white leading-tight">Cardápio</p>
+            <p className="text-base font-black text-white leading-tight">{lojaInfo?.nome || "Cardápio"}</p>
             <p className="text-xs text-slate-500">Mesa {tableNumber.padStart(2,"0")}</p>
           </div>
         </div>
@@ -1810,7 +1699,7 @@ const kitchenCols = [
   { key: "ready",     label: "Finalizado", sub: "Pronto p/ retirada",dot: "bg-emerald-400", header: "border-emerald-500/40 bg-emerald-500/10", card: "border-emerald-500/20" },
 ];
 
-function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, cancelarPedido, onSair, currentUser }) {
+function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, cancelarPedido, onSair, currentUser, lojaInfo }) {
   const [cancelando, setCancelando] = useState(null); // pedido a cancelar
   const [hora, setHora] = useState(() =>
     new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
@@ -1850,7 +1739,7 @@ function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, cancela
         <div className="flex items-center gap-3">
           <span className="text-2xl">👨‍🍳</span>
           <div>
-            <p className="text-lg font-black text-white leading-tight">Cozinha</p>
+            <p className="text-lg font-black text-white leading-tight">Cozinha{lojaInfo && <span className="ml-2 text-sm font-bold text-blue-300">· {lojaInfo.nome}</span>}</p>
             <p className="text-xs text-slate-500">{currentUser?.name}</p>
           </div>
         </div>
@@ -2084,7 +1973,7 @@ function sairTelaCheia() {
   if (fn && document.fullscreenElement) fn.call(document).catch(() => {});
 }
 
-function PanelView({ groupedOrders, products = [] }) {
+function PanelView({ groupedOrders, products = [], lojaInfo }) {
   const [hora, setHora] = useState(() =>
     new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
   );
@@ -2164,7 +2053,7 @@ function PanelView({ groupedOrders, products = [] }) {
           <div>
             <h1 className="font-black tracking-tight text-white leading-tight"
               style={{ fontSize: "clamp(14px,2vw,28px)" }}>
-              Painel de Pedidos
+              {lojaInfo?.nome || "Painel de Pedidos"}
             </h1>
             <p className="text-slate-400 font-semibold" style={{ fontSize: "clamp(9px,0.9vw,13px)" }}>
               Acompanhe o status do seu pedido em tempo real
@@ -2381,7 +2270,7 @@ function PanelView({ groupedOrders, products = [] }) {
   );
 }
 
-function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = [], onSair }) {
+function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = [], onSair, lojaInfo }) {
   const [comandasLidas, setComandasLidas] = useState([]); // comandas escaneadas
   const [pessoas, setPessoas]   = useState(1);            // divisão da conta
   const [scannerAberto, setScannerAberto] = useState(false);
@@ -2595,7 +2484,7 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
         <div className="flex items-center gap-3">
           <span className="text-2xl">💳</span>
           <div>
-            <p className="text-lg font-black text-white leading-tight">Caixa / Pagamento</p>
+            <p className="text-lg font-black text-white leading-tight">Caixa / Pagamento{lojaInfo && <span className="ml-2 text-sm font-bold text-blue-300">· {lojaInfo.nome}</span>}</p>
             <p className="text-xs text-slate-500">Leia as comandas para fechar a conta</p>
           </div>
         </div>
@@ -3109,7 +2998,7 @@ function CupomModal({ blocos, mesas, comandas, subtotal, taxa, total, pessoas, p
   );
 }
 
-function AdminView({ products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, toggleUserStatus, toggleAccessStatus, usersLoja, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, lojas = [], addLoja, toggleLoja, lojaInfo, orders = [], onSair }) {
+function AdminView({ products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, toggleUserStatus, toggleAccessStatus, usersLoja, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, lojas = [], addLoja, toggleLoja, lojaInfo, orders = [], onSair, isSuperAdmin = false, criarEmpresa }) {
   const menu = [
     { grupo: "Gestão", itens: [
       { id: "dashboard", icon: "📊", label: "Dashboard" },
@@ -3121,13 +3010,20 @@ function AdminView({ products, categories, adminForm, setAdminForm, addProduct, 
       { id: "pagamento", icon: "💳", label: "Formas de pagamento" },
       { id: "comandas", icon: "🎫", label: "Comandas QR" },
     ]},
-    { grupo: "Acessos", itens: [
-      { id: "users", icon: "👥", label: "Usuários" },
-      { id: "access", icon: "🔐", label: "Permissões" },
-      { id: "link", icon: "🔗", label: "Usuário x Acesso" },
-    ]},
+    // Apenas o administrador geral (super admin) cadastra empresas e usuários
+    ...(isSuperAdmin ? [
+      { grupo: "Empresas", itens: [
+        { id: "lojas", icon: "🏪", label: "Empresas" },
+      ]},
+      { grupo: "Acessos", itens: [
+        { id: "users", icon: "👥", label: "Usuários" },
+        { id: "access", icon: "🔐", label: "Permissões" },
+        { id: "link", icon: "🔗", label: "Usuário x Acesso" },
+      ]},
+    ] : []),
   ];
-  const ativo = adminSection || "dashboard";
+  const itensValidos = menu.flatMap((g) => g.itens).map((i) => i.id);
+  const ativo = itensValidos.includes(adminSection) ? adminSection : "dashboard";
   return (
     <div className="fixed inset-0 z-50 flex bg-slate-950 overflow-hidden">
 
@@ -3135,9 +3031,11 @@ function AdminView({ products, categories, adminForm, setAdminForm, addProduct, 
       <aside className="hidden md:flex w-64 shrink-0 flex-col border-r border-white/10 bg-slate-900">
         <div className="flex items-center gap-3 border-b border-white/10 px-5 py-4">
           <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-500 text-xl">⚙️</span>
-          <div>
-            <p className="font-black text-white leading-tight">Administrativo</p>
-            <p className="text-xs text-slate-500">Painel gerencial</p>
+          <div className="min-w-0">
+            <p className="font-black text-white leading-tight truncate">{isSuperAdmin ? "Administrativo" : (lojaInfo?.nome || "Administrativo")}</p>
+            <p className="text-xs text-slate-500 truncate">
+              {isSuperAdmin ? "Administrador geral" : (lojaInfo ? `Comandas: ${lojaInfo.prefixo}` : "Painel gerencial")}
+            </p>
           </div>
         </div>
         <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-5">
@@ -3162,7 +3060,7 @@ function AdminView({ products, categories, adminForm, setAdminForm, addProduct, 
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Cabeçalho mobile com abas (md:hidden) */}
         <div className="md:hidden flex shrink-0 items-center justify-between border-b border-white/10 bg-slate-900/90 px-4 py-3">
-          <p className="font-black text-white">⚙️ Administrativo</p>
+          <p className="font-black text-white truncate">⚙️ {isSuperAdmin ? "Administrativo" : (lojaInfo?.nome || "Administrativo")}</p>
           <button onClick={onSair} className="rounded-2xl border border-red-400/20 bg-red-500/10 px-3 py-1.5 text-xs font-black text-red-300">Sair</button>
         </div>
         <div className="md:hidden shrink-0 flex gap-2 overflow-x-auto border-b border-white/10 bg-slate-900/50 px-4 py-2">
@@ -3179,13 +3077,13 @@ function AdminView({ products, categories, adminForm, setAdminForm, addProduct, 
           {ativo === "dashboard"  && <DashboardAdmin orders={orders} products={products} />}
           {ativo === "relatorios" && <RelatoriosAdmin orders={orders} products={products} />}
           {ativo === "products"   && <ProductAdmin   products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} editarProduto={editarProduto} removerProduto={removerProduto} />}
-          {ativo === "users"      && <UserAdmin      users={usersLoja ?? users} userForm={userForm} setUserForm={setUserForm} addUser={addUser} toggleUserStatus={toggleUserStatus} editarUsuario={editarUsuario} removerUsuario={removerUsuario} lojaInfo={lojaInfo} />}
+          {ativo === "users"      && <UserAdmin      users={isSuperAdmin ? users : (usersLoja ?? users)} userForm={userForm} setUserForm={setUserForm} addUser={addUser} toggleUserStatus={toggleUserStatus} editarUsuario={editarUsuario} removerUsuario={removerUsuario} lojaInfo={lojaInfo} lojas={lojas} isSuperAdmin={isSuperAdmin} />}
           {ativo === "access"     && <AccessAdmin    accesses={accesses} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleAccessStatus={toggleAccessStatus} />}
           {ativo === "link"       && <UserAccessAdmin users={usersLoja ?? users} accesses={accesses} toggleUserAccess={toggleUserAccess} />}
           {ativo === "categorias" && <CategoriaAdmin categoriasDb={categoriasDb} produtos={products} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} />}
           {ativo === "comandas"   && <GeradorComandas prefixoLoja={lojaInfo?.prefixo || "CMD"} />}
           {ativo === "pagamento"  && <PagamentoAdmin formasPagamento={formasPagamento} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} />}
-          {ativo === "lojas"      && <LojaAdmin lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} lojaInfo={lojaInfo} />}
+          {ativo === "lojas"      && <LojaAdmin lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} lojaInfo={lojaInfo} criarEmpresa={criarEmpresa} />}
         </div>
       </div>
     </div>
@@ -3796,23 +3694,37 @@ function RelatorioPermanencia({ pedidos }) {
 // ════════════════════════════════════════════════════════════
 //  Admin — Lojas (multi-empresa)
 // ════════════════════════════════════════════════════════════
-function LojaAdmin({ lojas, addLoja, toggleLoja, lojaInfo }) {
-  const [form, setForm] = useState({ nome: "", prefixo: "" });
+function LojaAdmin({ lojas, addLoja, toggleLoja, lojaInfo, criarEmpresa }) {
+  const [form, setForm] = useState({ nomeLoja: "", prefixo: "", nomeResponsavel: "", email: "", senha: "" });
+  const [enviando, setEnviando] = useState(false);
   const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400";
   const lbl = "mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500";
-  function salvar() { addLoja(form); setForm({ nome: "", prefixo: "" }); }
+
+  const valido = form.nomeLoja.trim() && form.prefixo.length >= 2 &&
+    form.nomeResponsavel.trim() && form.email.trim() && form.senha.length >= 4;
+
+  async function salvar() {
+    if (!valido || !criarEmpresa) return;
+    setEnviando(true);
+    try {
+      await criarEmpresa(form);
+      setForm({ nomeLoja: "", prefixo: "", nomeResponsavel: "", email: "", senha: "" });
+    } catch { /* mensagem exibida no topo */ }
+    finally { setEnviando(false); }
+  }
+
   return (
     <main className="grid gap-6 lg:grid-cols-[400px_1fr]">
       <Card className="lg:self-start">
         <div className="flex items-center gap-2">
           <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-blue-500/15 text-lg">🏪</span>
-          <h3 className="text-lg font-black text-white">Nova loja / empresa</h3>
+          <h3 className="text-lg font-black text-white">Nova empresa</h3>
         </div>
-        <p className="mt-1 text-sm text-slate-400">Cada loja gera comandas com suas iniciais e vê apenas seus próprios dados.</p>
+        <p className="mt-1 text-sm text-slate-400">Cria a empresa e o usuário gestor dela. Cada empresa vê apenas os próprios dados.</p>
         <div className="mt-5 space-y-3">
           <div>
-            <span className={lbl}>Nome da loja</span>
-            <input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} placeholder="Ex.: Pizzaria Bella" className={inp} />
+            <span className={lbl}>Nome da empresa</span>
+            <input value={form.nomeLoja} onChange={(e) => setForm({ ...form, nomeLoja: e.target.value })} placeholder="Ex.: Pizzaria Bella" className={inp} />
           </div>
           <div>
             <span className={lbl}>Prefixo da comanda (2-5 letras)</span>
@@ -3820,7 +3732,22 @@ function LojaAdmin({ lojas, addLoja, toggleLoja, lojaInfo }) {
               placeholder="Ex.: PZB" className={`${inp} font-mono font-black tracking-widest`} />
             {form.prefixo && <p className="mt-1 text-xs text-blue-300">Comandas: {form.prefixo}-000001, {form.prefixo}-000002...</p>}
           </div>
-          <button onClick={salvar} className="w-full rounded-2xl bg-blue-500 px-5 py-4 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95">+ Cadastrar loja</button>
+          <div className="border-t border-white/10 pt-3">
+            <span className={lbl}>Gestor — nome</span>
+            <input value={form.nomeResponsavel} onChange={(e) => setForm({ ...form, nomeResponsavel: e.target.value })} placeholder="Nome do responsável" className={inp} />
+          </div>
+          <div>
+            <span className={lbl}>Gestor — e-mail de acesso</span>
+            <input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="gestor@empresa.com" className={inp} />
+          </div>
+          <div>
+            <span className={lbl}>Gestor — senha (mín. 4)</span>
+            <input type="password" value={form.senha} onChange={(e) => setForm({ ...form, senha: e.target.value })} placeholder="••••••" className={inp} />
+          </div>
+          <button onClick={salvar} disabled={!valido || enviando}
+            className="w-full rounded-2xl bg-blue-500 px-5 py-4 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95 disabled:opacity-50">
+            {enviando ? "⏳ Criando empresa..." : "+ Cadastrar empresa"}
+          </button>
         </div>
       </Card>
       <Card>
@@ -4218,21 +4145,37 @@ function ProdutoEditModal({ produto, cats, onSalvar, onFechar }) {
   );
 }
 
-function UserAdmin({ users, userForm, setUserForm, addUser, toggleUserStatus, editarUsuario, removerUsuario, lojaInfo }) {
+function UserAdmin({ users, userForm, setUserForm, addUser, toggleUserStatus, editarUsuario, removerUsuario, lojaInfo, lojas = [], isSuperAdmin = false }) {
   const [editando, setEditando] = useState(null);
   const [excluir, setExcluir]   = useState(null);
   const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400";
+  const lojasAtivas = lojas.filter((l) => l.active !== false);
+  const lojaDoUser = (u) => lojas.find((l) => l.id === u.lojaId);
   return (
     <main className="grid gap-6 lg:grid-cols-[420px_1fr]">
       <Card className="lg:self-start">
         <h3 className="text-xl font-black text-white">Cadastrar usuário</h3>
-        {lojaInfo && (
+        {!isSuperAdmin && lojaInfo && (
           <p className="mt-1 text-xs text-slate-400">
             Vinculado à loja <span className="font-bold text-blue-300">{lojaInfo.nome}</span>
             <span className="ml-1 font-mono text-slate-500">({lojaInfo.prefixo})</span>
           </p>
         )}
         <div className="mt-5 space-y-3">
+          {isSuperAdmin && (
+            <div>
+              <label className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500">Empresa do usuário</label>
+              <select
+                value={userForm.lojaId ?? ""}
+                onChange={(e) => setUserForm({ ...userForm, lojaId: e.target.value ? Number(e.target.value) : null })}
+                className={inp}>
+                <option value="">Selecione a empresa…</option>
+                {lojasAtivas.map((l) => (
+                  <option key={l.id} value={l.id}>{l.nome} ({l.prefixo})</option>
+                ))}
+              </select>
+            </div>
+          )}
           <input value={userForm.name} onChange={(e) => setUserForm({ ...userForm, name: e.target.value })} placeholder="Nome do usuário" className={inp} />
           <input value={userForm.email} onChange={(e) => setUserForm({ ...userForm, email: e.target.value })} placeholder="E-mail de acesso" className={inp} />
           <input value={userForm.password} onChange={(e) => setUserForm({ ...userForm, password: e.target.value })} placeholder="Senha" className={inp} />
@@ -4247,8 +4190,11 @@ function UserAdmin({ users, userForm, setUserForm, addUser, toggleUserStatus, ed
             <div key={u.id} className="flex items-center gap-3 rounded-3xl border border-white/10 bg-slate-950/40 p-3">
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-500/15 text-lg">👤</div>
               <div className="min-w-0 flex-1">
-                <p className="font-black text-white truncate">{u.name}</p>
+                <p className="font-black text-white truncate">{u.name}{u.superAdmin && <span className="ml-2 rounded-full bg-violet-500/20 px-2 py-0.5 text-[10px] font-black text-violet-300 align-middle">ADMIN GERAL</span>}</p>
                 <p className="text-xs text-slate-400 truncate">{u.email} • {u.role} • {u.accessIds.length} acesso(s)</p>
+                {isSuperAdmin && (
+                  <p className="text-[11px] text-slate-500 truncate">🏪 {lojaDoUser(u)?.nome || (u.superAdmin ? "Todas as empresas" : "Sem empresa")}</p>
+                )}
               </div>
               <button onClick={() => toggleUserStatus(u.id)} className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-black ${u.active ? "bg-emerald-500 text-white" : "bg-slate-700 text-slate-200"}`}>{u.active ? "Ativo" : "Inativo"}</button>
               <button onClick={() => setEditando(u)} className="shrink-0 rounded-xl border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs font-black text-blue-300 hover:bg-white/10">✏️</button>
