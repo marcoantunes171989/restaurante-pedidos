@@ -3121,9 +3121,6 @@ function AdminView({ products, categories, adminForm, setAdminForm, addProduct, 
       { id: "pagamento", icon: "💳", label: "Formas de pagamento" },
       { id: "comandas", icon: "🎫", label: "Comandas QR" },
     ]},
-    { grupo: "Empresa", itens: [
-      { id: "lojas", icon: "🏪", label: "Lojas" },
-    ]},
     { grupo: "Acessos", itens: [
       { id: "users", icon: "👥", label: "Usuários" },
       { id: "access", icon: "🔐", label: "Permissões" },
