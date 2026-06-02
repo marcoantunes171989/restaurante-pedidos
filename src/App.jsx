@@ -3028,7 +3028,7 @@ function AdminView({ products, categories, adminForm, setAdminForm, addProduct, 
       { id: "pagamento", icon: "💳", label: "Formas de pagamento" },
       { id: "comandas", icon: "🎫", label: "Comandas QR" },
     ]},
-    // Apenas o administrador geral (super admin) cadastra empresas e usuários
+    // Empresa: super admin gerencia todas; usuário comum vê apenas a sua
     ...(isSuperAdmin ? [
       { grupo: "Empresas", itens: [
         { id: "lojas", icon: "🏪", label: "Empresas" },
@@ -3038,7 +3038,11 @@ function AdminView({ products, categories, adminForm, setAdminForm, addProduct, 
         { id: "access", icon: "🔐", label: "Permissões" },
         { id: "link", icon: "🔗", label: "Usuário x Acesso" },
       ]},
-    ] : []),
+    ] : [
+      { grupo: "Empresa", itens: [
+        { id: "minhaempresa", icon: "🏪", label: "Minha empresa" },
+      ]},
+    ]),
   ];
   const itensValidos = menu.flatMap((g) => g.itens).map((i) => i.id);
   const ativo = itensValidos.includes(adminSection) ? adminSection : "dashboard";
@@ -3102,6 +3106,7 @@ function AdminView({ products, categories, adminForm, setAdminForm, addProduct, 
           {ativo === "comandas"   && <GeradorComandas prefixoLoja={lojaInfo?.prefixo || "CMD"} />}
           {ativo === "pagamento"  && <PagamentoAdmin formasPagamento={formasPagamento} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} />}
           {ativo === "lojas"      && <LojaAdmin lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} lojaInfo={lojaInfo} criarEmpresa={criarEmpresa} />}
+          {ativo === "minhaempresa" && <MinhaEmpresa lojaInfo={lojaInfo} qtdUsuarios={(usersLoja ?? users).length} qtdProdutos={products.length} />}
         </div>
       </div>
     </div>
@@ -3709,14 +3714,69 @@ function RelatorioPermanencia({ pedidos }) {
 // ════════════════════════════════════════════════════════════
 //  Admin — Formas de pagamento
 // ════════════════════════════════════════════════════════════
+//  Admin — Minha empresa (usuário comum: somente a própria empresa)
 // ════════════════════════════════════════════════════════════
-//  Admin — Lojas (multi-empresa)
+function MinhaEmpresa({ lojaInfo, qtdUsuarios = 0, qtdProdutos = 0 }) {
+  if (!lojaInfo) {
+    return (
+      <main className="mx-auto max-w-xl">
+        <Card>
+          <h3 className="text-xl font-black text-white">Minha empresa</h3>
+          <p className="mt-2 text-sm text-slate-400">Seu usuário ainda não está vinculado a nenhuma empresa. Solicite ao administrador geral.</p>
+        </Card>
+      </main>
+    );
+  }
+  return (
+    <main className="mx-auto max-w-xl space-y-6">
+      <Card>
+        <div className="flex items-center gap-4">
+          <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-3xl bg-blue-500/15 text-3xl">🏪</span>
+          <div className="min-w-0">
+            <h3 className="text-2xl font-black text-white truncate">{lojaInfo.nome}</h3>
+            <p className="mt-0.5 text-sm">
+              <span className={`rounded-full px-2 py-0.5 text-xs font-black ${lojaInfo.active !== false ? "bg-emerald-500/20 text-emerald-300" : "bg-slate-700 text-slate-300"}`}>
+                {lojaInfo.active !== false ? "Ativa" : "Inativa"}
+              </span>
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-6 grid grid-cols-2 gap-3">
+          <div className="rounded-2xl border border-white/10 bg-slate-950/40 p-4">
+            <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Prefixo das comandas</p>
+            <p className="mt-1 font-mono text-lg font-black text-blue-300">{lojaInfo.prefixo}-000001</p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-slate-950/40 p-4">
+            <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Identificador</p>
+            <p className="mt-1 text-lg font-black text-white">#{lojaInfo.id}</p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-slate-950/40 p-4">
+            <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Usuários</p>
+            <p className="mt-1 text-lg font-black text-white">{qtdUsuarios}</p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-slate-950/40 p-4">
+            <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Produtos</p>
+            <p className="mt-1 text-lg font-black text-white">{qtdProdutos}</p>
+          </div>
+        </div>
+
+        <p className="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] p-3 text-xs text-slate-400">
+          ℹ️ Você visualiza apenas os dados desta empresa. O cadastro e a manutenção de empresas são feitos pelo administrador geral.
+        </p>
+      </Card>
+    </main>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+//  Admin — Lojas (multi-empresa) — somente super admin
 // ════════════════════════════════════════════════════════════
 function LojaAdmin({ lojas, addLoja, toggleLoja, editarLoja, removerLoja, lojaInfo, criarEmpresa }) {
   const [form, setForm] = useState({ nomeLoja: "", prefixo: "", nomeResponsavel: "", email: "", senha: "" });
   const [enviando, setEnviando] = useState(false);
   const [editando, setEditando] = useState(null); // loja em edição
-  const [excluir, setExcluir]   = useState(null); // loja a excluir
+  const [inativar, setInativar] = useState(null); // loja a inativar (confirmação)
   const [busca, setBusca]       = useState("");
   const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400";
   const lbl = "mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500";
@@ -3806,15 +3866,15 @@ function LojaAdmin({ lojas, addLoja, toggleLoja, editarLoja, removerLoja, lojaIn
                 </p>
                 <p className="text-xs text-slate-400">Comandas: <span className="font-mono font-bold text-blue-300">{l.prefixo}-000001</span></p>
               </div>
-              <button onClick={() => toggleLoja(l.id)} title="Ativar/inativar"
-                className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-black transition ${l.active !== false ? "bg-emerald-500 text-white hover:bg-emerald-400" : "bg-slate-700 text-slate-200 hover:bg-slate-600"}`}>
+              <button
+                onClick={() => { if (l.active !== false) setInativar(l); else toggleLoja(l.id); }}
+                disabled={l.active !== false && lojaInfo?.id === l.id}
+                title={l.active !== false ? "Inativar empresa" : "Reativar empresa"}
+                className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-black transition disabled:opacity-30 disabled:cursor-not-allowed ${l.active !== false ? "bg-emerald-500 text-white hover:bg-emerald-400" : "bg-slate-700 text-slate-200 hover:bg-slate-600"}`}>
                 {l.active !== false ? "Ativa" : "Inativa"}
               </button>
               <button onClick={() => setEditando(l)} title="Editar empresa"
                 className="shrink-0 rounded-xl border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs font-black text-blue-300 hover:bg-white/10">✏️</button>
-              <button onClick={() => setExcluir(l)} title="Excluir empresa"
-                disabled={lojaInfo?.id === l.id}
-                className="shrink-0 rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-1.5 text-xs font-black text-red-300 hover:bg-red-500/20 disabled:opacity-30 disabled:cursor-not-allowed">🗑️</button>
             </div>
           ))}
         </div>
@@ -3827,13 +3887,13 @@ function LojaAdmin({ lojas, addLoja, toggleLoja, editarLoja, removerLoja, lojaIn
           onFechar={() => setEditando(null)}
         />
       )}
-      {excluir && (
+      {inativar && (
         <ConfirmModal
-          titulo="Excluir empresa?"
-          mensagem={`Deseja excluir a empresa "${excluir.nome}" (${excluir.prefixo})? Os dados vinculados (produtos, pedidos, usuários) podem ficar órfãos. Esta ação não pode ser desfeita.`}
-          confirmar="Sim, excluir"
-          onConfirmar={() => { removerLoja(excluir.id); setExcluir(null); }}
-          onCancelar={() => setExcluir(null)}
+          titulo="Inativar empresa?"
+          mensagem={`Deseja inativar a empresa "${inativar.nome}" (${inativar.prefixo})? O histórico (produtos, pedidos e usuários) é preservado e a empresa pode ser reativada a qualquer momento. Nenhum dado é apagado.`}
+          confirmar="Sim, inativar"
+          onConfirmar={() => { toggleLoja(inativar.id); setInativar(null); }}
+          onCancelar={() => setInativar(null)}
         />
       )}
     </main>
