@@ -6,7 +6,7 @@ function validarComanda(codigo) {
   return /^[A-Z]{1,5}-\d{4,8}$/.test(String(codigo || "").trim().toUpperCase());
 }
 
-export function QRScannerModal({ onSucesso, onCancelar }) {
+export function QRScannerModal({ onSucesso, onCancelar, prefixoLoja = "CMD" }) {
   const videoRef    = useRef(null);
   const canvasRef   = useRef(null);
   const streamRef   = useRef(null);
@@ -15,6 +15,20 @@ export function QRScannerModal({ onSucesso, onCancelar }) {
   const [mensagem, setMensagem]   = useState("Iniciando câmera...");
   const [codigo, setCodigo]       = useState("");
   const [tentativa, setTentativa] = useState(0);
+  const [manual, setManual]       = useState("");
+  const [erroManual, setErroManual] = useState("");
+
+  // Confirma a comanda digitada manualmente (sem câmera)
+  const confirmarManual = useCallback(() => {
+    const texto = String(manual || "").trim().toUpperCase();
+    if (!validarComanda(texto)) {
+      setErroManual("Formato inválido. Use o padrão LOJA-000001 (ex.: " + prefixoLoja + "-000001).");
+      return;
+    }
+    setErroManual("");
+    pararTudo();
+    onSucesso(texto);
+  }, [manual, prefixoLoja, onSucesso]);
 
   // Para tudo e libera câmera
   const pararTudo = useCallback(() => {
@@ -230,10 +244,29 @@ export function QRScannerModal({ onSucesso, onCancelar }) {
           {status === "lendo" ? "🔍 " + mensagem : mensagem.split("\n")[0]}
         </div>
 
+        {/* Entrada manual — funciona sem câmera (digitação direta da comanda) */}
+        <div className="border-t border-white/10 px-5 py-4">
+          <p className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">Ou digite a comanda</p>
+          <div className="flex gap-2">
+            <input
+              value={manual}
+              onChange={(e) => setManual(e.target.value.toUpperCase())}
+              onKeyDown={(e) => { if (e.key === "Enter") confirmarManual(); }}
+              placeholder={`Ex.: ${prefixoLoja}-000001`}
+              className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 font-mono text-sm font-black tracking-widest text-white outline-none focus:border-blue-400 placeholder:text-slate-600"
+            />
+            <button onClick={confirmarManual}
+              className="shrink-0 rounded-2xl bg-blue-500 px-5 py-3 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95">
+              Confirmar
+            </button>
+          </div>
+          {erroManual && <p className="mt-2 text-xs font-bold text-red-300">{erroManual}</p>}
+        </div>
+
         {/* Rodapé */}
         <div className="border-t border-white/10 px-5 py-3 flex items-center justify-between">
           <p className="text-xs text-slate-500">
-            Padrão aceito: <span className="font-mono font-black text-slate-300">CMD-000001</span>
+            Padrão aceito: <span className="font-mono font-black text-slate-300">{prefixoLoja}-000001</span>
           </p>
           {status === "lendo" && (
             <span className="flex items-center gap-1.5 text-xs text-emerald-400">

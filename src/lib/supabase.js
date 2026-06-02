@@ -38,7 +38,7 @@ export function escutarProdutos(onMudanca) {
       .from('tab_produtos').select('*').order('id', { ascending: true })
     if (!error && data) onMudanca(data.map(dbParaProduto))
   }
-  const canal = supabase.channel('ch_produtos')
+  const canal = supabase.channel('ch_produtos_'+Math.random().toString(36).slice(2))
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'tab_produtos' }, reload)
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tab_produtos' }, reload)
     .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'tab_produtos' }, reload)
@@ -87,7 +87,7 @@ export function escutarFormasPagamento(onMudanca) {
       .from('tab_formas_pagamento').select('*').order('id', { ascending: true })
     if (!error && data) onMudanca(data.map(dbParaForma))
   }
-  const canal = supabase.channel('ch_formas')
+  const canal = supabase.channel('ch_formas_'+Math.random().toString(36).slice(2))
     .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_formas_pagamento' }, reload)
     .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
   return () => supabase.removeChannel(canal)
@@ -167,7 +167,7 @@ export function escutarLojas(onMudanca) {
     const { data, error } = await supabase.from('tab_lojas').select('*').order('id', { ascending: true })
     if (!error && data) onMudanca(data.map((r) => ({ id: r.id, nome: r.nome, prefixo: r.prefixo, active: r.ativo })))
   }
-  const canal = supabase.channel('ch_lojas')
+  const canal = supabase.channel('ch_lojas_'+Math.random().toString(36).slice(2))
     .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_lojas' }, reload)
     .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
   return () => supabase.removeChannel(canal)
@@ -200,9 +200,9 @@ export function escutarCategorias(onMudanca) {
   const reload = async () => {
     const { data, error } = await supabase
       .from('tab_categorias').select('*').order('ordem', { ascending: true }).order('nome', { ascending: true })
-    if (!error && data) onMudanca(data.map((r) => ({ id: r.id, nome: r.nome, active: r.ativo, ordem: r.ordem })))
+    if (!error && data) onMudanca(data.map((r) => ({ id: r.id, nome: r.nome, active: r.ativo, ordem: r.ordem, lojaId: r.loja_id ?? null })))
   }
-  const canal = supabase.channel('ch_categorias')
+  const canal = supabase.channel('ch_categorias_'+Math.random().toString(36).slice(2))
     .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_categorias' }, reload)
     .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
   return () => supabase.removeChannel(canal)
@@ -240,7 +240,7 @@ export function escutarCargos(onMudanca) {
     const { data, error } = await supabase.from('tab_cargos').select('*').order('nome', { ascending: true })
     if (!error && data) onMudanca(data.map(dbParaCargo))
   }
-  const canal = supabase.channel('ch_cargos')
+  const canal = supabase.channel('ch_cargos_'+Math.random().toString(36).slice(2))
     .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_cargos' }, reload)
     .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
   return () => supabase.removeChannel(canal)
@@ -280,7 +280,7 @@ export function escutarUsuarios(onMudanca) {
       .from('tab_usuarios').select('*').order('id', { ascending: true })
     if (!error && data) onMudanca(data.map(dbParaUsuario))
   }
-  const canal = supabase.channel('ch_usuarios')
+  const canal = supabase.channel('ch_usuarios_'+Math.random().toString(36).slice(2))
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'tab_usuarios' }, reload)
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tab_usuarios' }, reload)
     .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'tab_usuarios' }, reload)
@@ -316,7 +316,7 @@ export function escutarAcessos(onMudanca) {
       .from('tab_acessos').select('*').order('id', { ascending: true })
     if (!error && data) onMudanca(data.map(dbParaAcesso))
   }
-  const canal = supabase.channel('ch_acessos')
+  const canal = supabase.channel('ch_acessos_'+Math.random().toString(36).slice(2))
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'tab_acessos' }, reload)
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tab_acessos' }, reload)
     .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'tab_acessos' }, reload)
@@ -352,7 +352,7 @@ export function escutarPedidos(onMudanca) {
       .from('tab_pedidos').select('*').order('criado_em', { ascending: false })
     if (!error && data) onMudanca(data.map(dbParaPedido))
   }
-  const canal = supabase.channel('ch_pedidos')
+  const canal = supabase.channel('ch_pedidos_'+Math.random().toString(36).slice(2))
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'tab_pedidos' }, reload)
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tab_pedidos' }, reload)
     .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'tab_pedidos' }, reload)

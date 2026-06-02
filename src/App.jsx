@@ -1171,6 +1171,7 @@ export default function RestaurantePedidoApp() {
                   handleSendOrder(codigo);  // passa diretamente — sem problema de state async
                 }}
                 onCancelar={() => setScannerAberto(false)}
+                prefixoLoja={lojaInfo?.prefixo || "CMD"}
               />
             )}
           </>
@@ -1410,7 +1411,7 @@ function TabletView({
               <span className="mb-1 block text-xs font-bold uppercase tracking-widest text-amber-500">⚠ Comanda obrigatória</span>
               <div className="flex gap-2">
                 <input value={commandCode} onChange={(e) => setCommandCode(e.target.value.toUpperCase())}
-                  placeholder="Ex.: CMD-000001"
+                  placeholder={`Ex.: ${lojaInfo?.prefixo || "CMD"}-000001`}
                   className={`flex-1 rounded-2xl border bg-slate-800 px-3 py-2.5 font-mono text-white outline-none text-sm transition
                     ${comandaValida ? "border-emerald-400/50 focus:border-emerald-400" : "border-amber-400/30 focus:border-amber-400"}`} />
                 <button onClick={onAbrirScanner}
@@ -2799,6 +2800,7 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
         <QRScannerModal
           onSucesso={(codigo) => adicionarComanda(codigo)}
           onCancelar={() => setScannerAberto(false)}
+          prefixoLoja={lojaInfo?.prefixo || "CMD"}
         />
       )}
 
