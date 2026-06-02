@@ -158,6 +158,10 @@ export async function atualizarLoja(id, campos) {
   const { error } = await supabase.from('tab_lojas').update(campos).eq('id', id)
   if (error) throw error
 }
+export async function excluirLoja(id) {
+  const { error } = await supabase.from('tab_lojas').delete().eq('id', id)
+  if (error) throw error
+}
 export function escutarLojas(onMudanca) {
   const reload = async () => {
     const { data, error } = await supabase.from('tab_lojas').select('*').order('id', { ascending: true })

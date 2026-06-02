@@ -6,7 +6,7 @@ import {
   fetchPedidos,   inserirPedido,   atualizarPedido,   escutarPedidos,
   fetchFormasPagamento, inserirFormaPagamento, atualizarFormaPagamento, escutarFormasPagamento,
   fetchCategorias, inserirCategoria, atualizarCategoria, excluirCategoria, escutarCategorias,
-  fetchLojas, inserirLoja, atualizarLoja, escutarLojas, cadastrarEmpresa,
+  fetchLojas, inserirLoja, atualizarLoja, excluirLoja, escutarLojas, cadastrarEmpresa,
   baixarEstoque, registrarPagamento,
   excluirProduto, excluirFormaPagamento, excluirUsuario,
   STATUS_APP_PARA_DB,
@@ -807,6 +807,24 @@ export default function RestaurantePedidoApp() {
     setLojas((cur) => cur.map((x) => x.id === id ? { ...x, active } : x));
     if (dbReady) try { await atualizarLoja(id, { ativo: active }); } catch {}
   }
+  async function editarLoja(id, dados) {
+    if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
+    const nome = (dados.nome || "").trim();
+    const prefixo = (dados.prefixo || "").trim().toUpperCase();
+    if (!nome || !prefixo) return notify("error", "Informe o nome e o prefixo da empresa.");
+    if (!/^[A-Z]{2,5}$/.test(prefixo)) return notify("error", "O prefixo deve ter de 2 a 5 letras (ex.: PZB).");
+    if (lojas.some((l) => l.id !== id && l.prefixo === prefixo)) return notify("error", "Já existe outra empresa com este prefixo.");
+    setLojas((cur) => cur.map((x) => x.id === id ? { ...x, nome, prefixo } : x));
+    if (dbReady) try { await atualizarLoja(id, { nome, prefixo }); } catch (err) { notify("error", "Erro ao salvar: " + err.message); }
+    notify("success", `Empresa "${nome}" atualizada.`);
+  }
+  async function removerLoja(id) {
+    if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
+    const l = lojas.find((x) => x.id === id);
+    setLojas((cur) => cur.filter((x) => x.id !== id));
+    if (dbReady) try { await excluirLoja(id); } catch (err) { notify("error", "Erro ao excluir: " + err.message); return; }
+    notify("success", `Empresa "${l?.nome || ""}" excluída.`);
+  }
 
   async function addFormaPagamento(forma) {
     if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
@@ -1080,7 +1098,7 @@ export default function RestaurantePedidoApp() {
         )}
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} products={products} lojaInfo={lojaInfo} />}
         {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierView orders={orders} baixarComandas={baixarComandas} baixarPedidos={baixarPedidos} formasPagamento={formasPagamentoLoja} onSair={logout} lojaInfo={lojaInfo} />}
-        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} criarEmpresa={criarEmpresa} />}
+        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} criarEmpresa={criarEmpresa} />}
 
       </div>
     </div>
@@ -2998,7 +3016,7 @@ function CupomModal({ blocos, mesas, comandas, subtotal, taxa, total, pessoas, p
   );
 }
 
-function AdminView({ products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, toggleUserStatus, toggleAccessStatus, usersLoja, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, lojas = [], addLoja, toggleLoja, lojaInfo, orders = [], onSair, isSuperAdmin = false, criarEmpresa }) {
+function AdminView({ products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, toggleUserStatus, toggleAccessStatus, usersLoja, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, lojas = [], addLoja, toggleLoja, editarLoja, removerLoja, lojaInfo, orders = [], onSair, isSuperAdmin = false, criarEmpresa }) {
   const menu = [
     { grupo: "Gestão", itens: [
       { id: "dashboard", icon: "📊", label: "Dashboard" },
@@ -3083,7 +3101,7 @@ function AdminView({ products, categories, adminForm, setAdminForm, addProduct, 
           {ativo === "categorias" && <CategoriaAdmin categoriasDb={categoriasDb} produtos={products} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} />}
           {ativo === "comandas"   && <GeradorComandas prefixoLoja={lojaInfo?.prefixo || "CMD"} />}
           {ativo === "pagamento"  && <PagamentoAdmin formasPagamento={formasPagamento} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} />}
-          {ativo === "lojas"      && <LojaAdmin lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} lojaInfo={lojaInfo} criarEmpresa={criarEmpresa} />}
+          {ativo === "lojas"      && <LojaAdmin lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} lojaInfo={lojaInfo} criarEmpresa={criarEmpresa} />}
         </div>
       </div>
     </div>
@@ -3694,9 +3712,12 @@ function RelatorioPermanencia({ pedidos }) {
 // ════════════════════════════════════════════════════════════
 //  Admin — Lojas (multi-empresa)
 // ════════════════════════════════════════════════════════════
-function LojaAdmin({ lojas, addLoja, toggleLoja, lojaInfo, criarEmpresa }) {
+function LojaAdmin({ lojas, addLoja, toggleLoja, editarLoja, removerLoja, lojaInfo, criarEmpresa }) {
   const [form, setForm] = useState({ nomeLoja: "", prefixo: "", nomeResponsavel: "", email: "", senha: "" });
   const [enviando, setEnviando] = useState(false);
+  const [editando, setEditando] = useState(null); // loja em edição
+  const [excluir, setExcluir]   = useState(null); // loja a excluir
+  const [busca, setBusca]       = useState("");
   const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400";
   const lbl = "mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500";
 
@@ -3712,6 +3733,11 @@ function LojaAdmin({ lojas, addLoja, toggleLoja, lojaInfo, criarEmpresa }) {
     } catch { /* mensagem exibida no topo */ }
     finally { setEnviando(false); }
   }
+
+  const termo = busca.trim().toLowerCase();
+  const lojasFiltradas = termo
+    ? lojas.filter((l) => l.nome.toLowerCase().includes(termo) || l.prefixo.toLowerCase().includes(termo))
+    : lojas;
 
   return (
     <main className="grid gap-6 lg:grid-cols-[400px_1fr]">
@@ -3751,23 +3777,102 @@ function LojaAdmin({ lojas, addLoja, toggleLoja, lojaInfo, criarEmpresa }) {
         </div>
       </Card>
       <Card>
-        <h3 className="text-xl font-black text-white">Lojas cadastradas</h3>
-        {lojaInfo && <p className="mt-1 text-sm text-emerald-300">Você está logado na loja: <b>{lojaInfo.nome}</b> ({lojaInfo.prefixo})</p>}
-        <div className="mt-5 space-y-2">
-          {lojas.length === 0 && <p className="text-sm text-slate-500">Nenhuma loja. Execute a migration 011 e cadastre acima.</p>}
-          {lojas.map((l) => (
-            <div key={l.id} className="flex items-center gap-3 rounded-3xl border border-white/10 bg-slate-950/40 p-3">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white/[0.06] text-lg">🏪</span>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="text-xl font-black text-white">Empresas cadastradas</h3>
+            <p className="mt-0.5 text-sm text-slate-400">{lojas.length} empresa(s) • {lojas.filter((l) => l.active !== false).length} ativa(s)</p>
+          </div>
+          <span className="rounded-full bg-blue-500/15 px-3 py-1 text-xs font-black text-blue-300">{lojasFiltradas.length} exibida(s)</span>
+        </div>
+        {lojaInfo && <p className="mt-2 text-sm text-emerald-300">Você está logado na empresa: <b>{lojaInfo.nome}</b> ({lojaInfo.prefixo})</p>}
+
+        <input
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+          placeholder="🔍 Buscar por nome ou prefixo…"
+          className="mt-4 w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400 placeholder:text-slate-600"
+        />
+
+        <div className="mt-4 space-y-2">
+          {lojas.length === 0 && <p className="text-sm text-slate-500">Nenhuma empresa cadastrada. Crie a primeira no formulário ao lado.</p>}
+          {lojas.length > 0 && lojasFiltradas.length === 0 && <p className="text-sm text-slate-500">Nenhuma empresa encontrada para “{busca}”.</p>}
+          {lojasFiltradas.map((l) => (
+            <div key={l.id} className="flex items-center gap-3 rounded-3xl border border-white/10 bg-slate-950/40 p-3 transition hover:border-white/20">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/[0.06] text-lg">🏪</span>
               <div className="min-w-0 flex-1">
-                <p className="font-black text-white truncate">{l.nome}{lojaInfo?.id === l.id && <span className="ml-2 rounded-full bg-emerald-500/20 px-2 py-0.5 text-xs text-emerald-300">atual</span>}</p>
-                <p className="text-xs text-slate-400">Comandas: <span className="font-mono font-bold text-blue-300">{l.prefixo}-000000</span></p>
+                <p className="font-black text-white truncate">
+                  {l.nome}
+                  {lojaInfo?.id === l.id && <span className="ml-2 rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-black text-emerald-300 align-middle">ATUAL</span>}
+                </p>
+                <p className="text-xs text-slate-400">Comandas: <span className="font-mono font-bold text-blue-300">{l.prefixo}-000001</span></p>
               </div>
-              <button onClick={() => toggleLoja(l.id)} className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-black ${l.active ? "bg-emerald-500 text-white" : "bg-slate-700 text-slate-200"}`}>{l.active ? "Ativa" : "Inativa"}</button>
+              <button onClick={() => toggleLoja(l.id)} title="Ativar/inativar"
+                className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-black transition ${l.active !== false ? "bg-emerald-500 text-white hover:bg-emerald-400" : "bg-slate-700 text-slate-200 hover:bg-slate-600"}`}>
+                {l.active !== false ? "Ativa" : "Inativa"}
+              </button>
+              <button onClick={() => setEditando(l)} title="Editar empresa"
+                className="shrink-0 rounded-xl border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs font-black text-blue-300 hover:bg-white/10">✏️</button>
+              <button onClick={() => setExcluir(l)} title="Excluir empresa"
+                disabled={lojaInfo?.id === l.id}
+                className="shrink-0 rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-1.5 text-xs font-black text-red-300 hover:bg-red-500/20 disabled:opacity-30 disabled:cursor-not-allowed">🗑️</button>
             </div>
           ))}
         </div>
       </Card>
+
+      {editando && (
+        <LojaEditModal
+          loja={editando}
+          onSalvar={(d) => { editarLoja(editando.id, d); setEditando(null); }}
+          onFechar={() => setEditando(null)}
+        />
+      )}
+      {excluir && (
+        <ConfirmModal
+          titulo="Excluir empresa?"
+          mensagem={`Deseja excluir a empresa "${excluir.nome}" (${excluir.prefixo})? Os dados vinculados (produtos, pedidos, usuários) podem ficar órfãos. Esta ação não pode ser desfeita.`}
+          confirmar="Sim, excluir"
+          onConfirmar={() => { removerLoja(excluir.id); setExcluir(null); }}
+          onCancelar={() => setExcluir(null)}
+        />
+      )}
     </main>
+  );
+}
+
+// Modal de edição de empresa
+function LojaEditModal({ loja, onSalvar, onFechar }) {
+  const [nome, setNome] = useState(loja.nome || "");
+  const [prefixo, setPrefixo] = useState(loja.prefixo || "");
+  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400";
+  const lbl = "mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500";
+  const valido = nome.trim() && /^[A-Z]{2,5}$/.test(prefixo);
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" onClick={onFechar}>
+      <div className="w-full max-w-md rounded-[2rem] border border-white/10 bg-slate-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-2">
+          <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-blue-500/15 text-lg">✏️</span>
+          <h3 className="text-lg font-black text-white">Editar empresa</h3>
+        </div>
+        <div className="mt-5 space-y-3">
+          <div>
+            <span className={lbl}>Nome da empresa</span>
+            <input value={nome} onChange={(e) => setNome(e.target.value)} className={inp} autoFocus />
+          </div>
+          <div>
+            <span className={lbl}>Prefixo da comanda (2-5 letras)</span>
+            <input value={prefixo} onChange={(e) => setPrefixo(e.target.value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 5))}
+              className={`${inp} font-mono font-black tracking-widest`} />
+            {prefixo && <p className="mt-1 text-xs text-blue-300">Comandas: {prefixo}-000001...</p>}
+          </div>
+        </div>
+        <div className="mt-6 flex gap-3">
+          <button onClick={onFechar} className="flex-1 rounded-2xl border border-white/10 bg-white/[0.06] px-5 py-3 text-sm font-black text-slate-300 hover:bg-white/10">Cancelar</button>
+          <button onClick={() => valido && onSalvar({ nome: nome.trim(), prefixo })} disabled={!valido}
+            className="flex-1 rounded-2xl bg-blue-500 px-5 py-3 text-sm font-black text-white hover:bg-blue-400 disabled:opacity-50">Salvar</button>
+        </div>
+      </div>
+    </div>
   );
 }
 
