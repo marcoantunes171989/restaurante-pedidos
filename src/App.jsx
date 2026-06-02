@@ -3519,6 +3519,37 @@ function ConfirmModal({ titulo, mensagem, confirmar, onConfirmar, onCancelar, pe
   );
 }
 
+// Campo de tags reutilizável (ingredientes, etc.)
+function TagsInput({ tags, setTags, placeholder = "Adicionar + Enter" }) {
+  const [input, setInput] = useState("");
+  const inp = "flex-1 rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400";
+  function add() {
+    const novos = input.split(",").map((s) => s.trim()).filter((s) => s && !tags.includes(s));
+    if (novos.length) setTags([...tags, ...novos]);
+    setInput("");
+  }
+  return (
+    <div>
+      <div className="flex gap-2">
+        <input value={input} onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
+          placeholder={placeholder} className={inp} />
+        <button onClick={add} className="shrink-0 rounded-2xl bg-blue-500 px-4 text-sm font-black text-white hover:bg-blue-400 transition">+ Add</button>
+      </div>
+      {tags.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-2">
+          {tags.map((t) => (
+            <span key={t} className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-3 py-1.5 text-sm font-bold text-emerald-200">
+              {t}
+              <button onClick={() => setTags(tags.filter((x) => x !== t))} className="flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500/30 text-xs text-emerald-100 hover:bg-red-500/40 hover:text-white transition">✕</button>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ProductAdmin({ products, categories, adminForm, setAdminForm, addProduct, toggleProduct, editarProduto, removerProduto }) {
   const [editando, setEditando] = useState(null); // produto em edição
   const [excluir, setExcluir]   = useState(null); // produto a excluir
@@ -3539,7 +3570,12 @@ function ProductAdmin({ products, categories, adminForm, setAdminForm, addProduc
           </div>
           <input value={adminForm.time} onChange={(e) => setAdminForm({ ...adminForm, time: e.target.value })} placeholder="Tempo de preparo" className={inp} />
           <input value={adminForm.imageUrl} onChange={(e) => setAdminForm({ ...adminForm, imageUrl: e.target.value })} placeholder="URL da imagem" className={inp} />
-          <input value={adminForm.ingredientsText} onChange={(e) => setAdminForm({ ...adminForm, ingredientsText: e.target.value })} placeholder="Ingredientes (separados por vírgula)" className={inp} />
+          {/* Ingredientes como tags */}
+          <TagsInput
+            tags={adminForm.ingredientsText ? adminForm.ingredientsText.split(",").map((s) => s.trim()).filter(Boolean) : []}
+            setTags={(arr) => setAdminForm({ ...adminForm, ingredientsText: arr.join(", ") })}
+            placeholder="Ingrediente + Enter"
+          />
           <textarea value={adminForm.description} onChange={(e) => setAdminForm({ ...adminForm, description: e.target.value })} placeholder="Descrição" rows={3} className={`${inp} resize-none`} />
           <button onClick={addProduct} className="w-full rounded-2xl bg-blue-500 px-5 py-4 text-sm font-black text-white hover:bg-blue-400">+ Cadastrar produto</button>
         </div>
@@ -3590,9 +3626,12 @@ function ProdutoEditModal({ produto, cats, onSalvar, onFechar }) {
   const [f, setF] = useState({
     name: produto.name, category: produto.category, price: produto.price, cost: produto.cost,
     time: produto.time || "", imageUrl: produto.imageUrl || "", description: produto.description || "",
-    ingredients: (produto.ingredients || []).join(", "), estoque: produto.estoque ?? 0,
+    estoque: produto.estoque ?? 0,
   });
+  const [tags, setTags] = useState([...(produto.ingredients || [])]); // ingredientes como tags
   const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400";
+  const lbl = "mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500";
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onFechar}>
       <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-md flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl max-h-[92vh]">
@@ -3600,23 +3639,47 @@ function ProdutoEditModal({ produto, cats, onSalvar, onFechar }) {
           <h2 className="text-lg font-black text-white">✏️ Editar produto</h2>
           <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20">✕</button>
         </div>
-        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
-          <input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="Nome" className={inp} />
-          <select value={f.category} onChange={(e) => setF({ ...f, category: e.target.value })} className={inp}>{cats.map((c) => <option key={c}>{c}</option>)}</select>
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+          {/* Nome + categoria */}
+          <div>
+            <span className={lbl}>Nome do produto</span>
+            <input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="Nome" className={inp} />
+          </div>
+          <div>
+            <span className={lbl}>Categoria</span>
+            <select value={f.category} onChange={(e) => setF({ ...f, category: e.target.value })} className={inp}>{cats.map((c) => <option key={c}>{c}</option>)}</select>
+          </div>
+
+          {/* Preço / custo / tempo / estoque */}
           <div className="grid grid-cols-2 gap-3">
-            <input value={f.price} onChange={(e) => setF({ ...f, price: e.target.value.replace(",", ".") })} placeholder="Preço" className={inp} />
-            <input value={f.cost} onChange={(e) => setF({ ...f, cost: e.target.value.replace(",", ".") })} placeholder="Custo" className={inp} />
+            <div><span className={lbl}>Preço venda</span><input value={f.price} onChange={(e) => setF({ ...f, price: e.target.value.replace(",", ".") })} placeholder="0.00" className={inp} /></div>
+            <div><span className={lbl}>Custo</span><input value={f.cost} onChange={(e) => setF({ ...f, cost: e.target.value.replace(",", ".") })} placeholder="0.00" className={inp} /></div>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <input value={f.time} onChange={(e) => setF({ ...f, time: e.target.value })} placeholder="Tempo preparo" className={inp} />
-            <input value={f.estoque} onChange={(e) => setF({ ...f, estoque: e.target.value.replace(/\D/g, "") })} placeholder="Estoque" className={inp} />
+            <div><span className={lbl}>Tempo de preparo</span><input value={f.time} onChange={(e) => setF({ ...f, time: e.target.value })} placeholder="25-35 min" className={inp} /></div>
+            <div><span className={lbl}>Estoque</span><input value={f.estoque} onChange={(e) => setF({ ...f, estoque: e.target.value.replace(/\D/g, "") })} placeholder="0" className={inp} /></div>
           </div>
-          <input value={f.imageUrl} onChange={(e) => setF({ ...f, imageUrl: e.target.value })} placeholder="URL imagem" className={inp} />
-          <input value={f.ingredients} onChange={(e) => setF({ ...f, ingredients: e.target.value })} placeholder="Ingredientes (vírgula)" className={inp} />
-          <textarea value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} placeholder="Descrição" rows={3} className={`${inp} resize-none`} />
+
+          {/* Imagem */}
+          <div>
+            <span className={lbl}>URL da imagem</span>
+            <input value={f.imageUrl} onChange={(e) => setF({ ...f, imageUrl: e.target.value })} placeholder="https://..." className={inp} />
+          </div>
+
+          {/* Ingredientes como TAGS */}
+          <div>
+            <span className={lbl}>Ingredientes <span className="text-slate-600 normal-case">— Enter para adicionar</span></span>
+            <TagsInput tags={tags} setTags={setTags} placeholder="Ex.: Parmesão" />
+          </div>
+
+          {/* Descrição */}
+          <div>
+            <span className={lbl}>Descrição</span>
+            <textarea value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} placeholder="Descrição do produto" rows={3} className={`${inp} resize-none`} />
+          </div>
         </div>
         <div className="shrink-0 border-t border-white/10 px-6 py-4">
-          <button onClick={() => onSalvar({ ...f, ingredients: f.ingredients.split(",").map((s) => s.trim()).filter(Boolean) })}
+          <button onClick={() => onSalvar({ ...f, ingredients: tags })}
             className="w-full rounded-2xl bg-emerald-500 py-4 text-sm font-black text-white hover:bg-emerald-400">💾 Salvar alterações</button>
         </div>
       </div>
