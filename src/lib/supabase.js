@@ -102,7 +102,36 @@ export async function registrarPagamento(p) {
 }
 
 function dbParaForma(r) {
-  return { id: r.id, nome: r.nome, tipo: r.tipo, permiteTroco: r.permite_troco, active: r.ativo }
+  return { id: r.id, nome: r.nome, tipo: r.tipo, permiteTroco: r.permite_troco, active: r.ativo, lojaId: r.loja_id ?? null }
+}
+
+// ════════════════════════════════════════════════════════════
+//  tab_lojas — CRUD + Realtime (multi-empresa)
+// ════════════════════════════════════════════════════════════
+export async function fetchLojas() {
+  const { data, error } = await supabase.from('tab_lojas').select('*').order('id', { ascending: true })
+  if (error) throw error
+  return data.map((r) => ({ id: r.id, nome: r.nome, prefixo: r.prefixo, active: r.ativo }))
+}
+export async function inserirLoja(loja) {
+  const { data, error } = await supabase
+    .from('tab_lojas').insert([{ nome: loja.nome, prefixo: loja.prefixo }]).select().single()
+  if (error) throw error
+  return { id: data.id, nome: data.nome, prefixo: data.prefixo, active: data.ativo }
+}
+export async function atualizarLoja(id, campos) {
+  const { error } = await supabase.from('tab_lojas').update(campos).eq('id', id)
+  if (error) throw error
+}
+export function escutarLojas(onMudanca) {
+  const reload = async () => {
+    const { data, error } = await supabase.from('tab_lojas').select('*').order('id', { ascending: true })
+    if (!error && data) onMudanca(data.map((r) => ({ id: r.id, nome: r.nome, prefixo: r.prefixo, active: r.ativo })))
+  }
+  const canal = supabase.channel('ch_lojas')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_lojas' }, reload)
+    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
+  return () => supabase.removeChannel(canal)
 }
 
 // ════════════════════════════════════════════════════════════
@@ -112,13 +141,13 @@ export async function fetchCategorias() {
   const { data, error } = await supabase
     .from('tab_categorias').select('*').order('ordem', { ascending: true }).order('nome', { ascending: true })
   if (error) throw error
-  return data.map((r) => ({ id: r.id, nome: r.nome, active: r.ativo, ordem: r.ordem }))
+  return data.map((r) => ({ id: r.id, nome: r.nome, active: r.ativo, ordem: r.ordem, lojaId: r.loja_id ?? null }))
 }
-export async function inserirCategoria(nome) {
+export async function inserirCategoria(nome, lojaId = null) {
   const { data, error } = await supabase
-    .from('tab_categorias').insert([{ nome }]).select().single()
+    .from('tab_categorias').insert([{ nome, ...(lojaId ? { loja_id: lojaId } : {}) }]).select().single()
   if (error) throw error
-  return { id: data.id, nome: data.nome, active: data.ativo, ordem: data.ordem }
+  return { id: data.id, nome: data.nome, active: data.ativo, ordem: data.ordem, lojaId: data.loja_id ?? null }
 }
 export async function atualizarCategoria(id, campos) {
   const { error } = await supabase.from('tab_categorias').update(campos).eq('id', id)
@@ -140,7 +169,7 @@ export function escutarCategorias(onMudanca) {
   return () => supabase.removeChannel(canal)
 }
 function formaParaDb(f) {
-  return { nome: f.nome, tipo: f.tipo, permite_troco: f.permiteTroco ?? false, ativo: f.active ?? true }
+  return { nome: f.nome, tipo: f.tipo, permite_troco: f.permiteTroco ?? false, ativo: f.active ?? true, ...(f.lojaId ? { loja_id: f.lojaId } : {}) }
 }
 
 // ════════════════════════════════════════════════════════════
@@ -268,6 +297,7 @@ function dbParaProduto(r) {
     imageUrl:    r.url_imagem,
     ingredients: r.ingredientes ?? [],
     estoque:     r.estoque ?? 0,
+    lojaId:      r.loja_id ?? null,
   }
 }
 
@@ -280,6 +310,7 @@ function dbParaUsuario(r) {
     role:      r.perfil,
     active:    r.ativo,
     accessIds: r.ids_acesso ?? [],
+    lojaId:    r.loja_id ?? null,
   }
 }
 
@@ -308,6 +339,7 @@ function dbParaPedido(r) {
     prontoEmISO:   r.pronto_em ?? null,  // ficou pronto
     items:         r.itens ?? [],
     cancelReason:  r.motivo_cancelamento ?? null,
+    lojaId:        r.loja_id ?? null,
   }
 }
 
@@ -340,6 +372,8 @@ function produtoParaDb(p) {
     destaque:      p.badge,
     url_imagem:    p.imageUrl,
     ingredientes:  p.ingredients ?? [],
+    estoque:       p.estoque ?? 100,
+    ...(p.lojaId ? { loja_id: p.lojaId } : {}),
   }
 }
 
@@ -351,6 +385,7 @@ function usuarioParaDb(u) {
     perfil:     u.role,
     ativo:      u.active ?? true,
     ids_acesso: u.accessIds ?? [],
+    ...(u.lojaId ? { loja_id: u.lojaId } : {}),
   }
 }
 
@@ -373,6 +408,7 @@ function pedidoParaDb(p) {
     status:           STATUS_APP_PARA_DB[p.status]        ?? p.status,
     status_pagamento: PAGT_APP_PARA_DB[p.paymentStatus]   ?? p.paymentStatus,
     itens:            p.items ?? [],
+    ...(p.lojaId ? { loja_id: p.lojaId } : {}),
   }
 }
 

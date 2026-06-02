@@ -19,8 +19,8 @@ async function gerarQR(texto) {
 // ══════════════════════════════════════════════════════════════
 //  Gerador de comandas com QR Code
 // ══════════════════════════════════════════════════════════════
-export function GeradorComandas() {
-  const [prefixo, setPrefixo]       = useState("CMD");
+export function GeradorComandas({ prefixoLoja = "CMD" }) {
+  const [prefixo, setPrefixo]       = useState(prefixoLoja);
   const [inicio, setInicio]         = useState(1);
   const [quantidade, setQuantidade] = useState(10);
   const [comandas, setComandas]     = useState([]);

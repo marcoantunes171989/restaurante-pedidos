@@ -6,6 +6,7 @@ import {
   fetchPedidos,   inserirPedido,   atualizarPedido,   escutarPedidos,
   fetchFormasPagamento, inserirFormaPagamento, atualizarFormaPagamento, escutarFormasPagamento,
   fetchCategorias, inserirCategoria, atualizarCategoria, excluirCategoria, escutarCategorias,
+  fetchLojas, inserirLoja, atualizarLoja, escutarLojas,
   baixarEstoque, registrarPagamento,
   excluirProduto, excluirFormaPagamento, excluirUsuario,
   STATUS_APP_PARA_DB,
@@ -382,10 +383,11 @@ export default function RestaurantePedidoApp() {
   const [currentUser, setCurrentUser] = useState(null);
   const [loginForm, setLoginForm] = useState({ email: "admin@restaurante.com", password: "123456" });
   const [activeTab, setActiveTab] = useState("tablet");
-  const [products, setProducts] = useState([]);
-  const [orders, setOrders] = useState([]);
+  const [productsAll, setProducts] = useState([]); // todas as lojas — filtrado em `products`
+  const [ordersAll, setOrders] = useState([]);     // todas as lojas — filtrado em `orders`
   const [formasPagamento, setFormasPagamento] = useState([]);
   const [categoriasDb, setCategoriasDb] = useState([]);
+  const [lojas, setLojas] = useState([]);
   const [dbReady, setDbReady] = useState(false);
   const [loading, setLoading]     = useState(true);
   const [scannerAberto, setScannerAberto] = useState(false);
@@ -408,6 +410,7 @@ export default function RestaurantePedidoApp() {
         // Formas de pagamento e categorias (tabelas podem não existir ainda — não bloqueiam)
         try { setFormasPagamento(await fetchFormasPagamento()); } catch { /* migration 006 pendente */ }
         try { setCategoriasDb(await fetchCategorias()); } catch { /* migration 010 pendente */ }
+        try { setLojas(await fetchLojas()); } catch { /* migration 011 pendente */ }
         setDbReady(true);
         setLoading(false);
 
@@ -420,6 +423,7 @@ export default function RestaurantePedidoApp() {
         ];
         try { unsubs.push(escutarFormasPagamento(setFormasPagamento)); } catch {}
         try { unsubs.push(escutarCategorias(setCategoriasDb)); } catch {}
+        try { unsubs.push(escutarLojas(setLojas)); } catch {}
       } catch (err) {
         console.warn("Supabase indisponível — usando fallback local:", err.message);
         setProducts(initialProducts);
@@ -466,8 +470,17 @@ export default function RestaurantePedidoApp() {
   const [userForm, setUserForm] = useState({ name: "", email: "", password: "123456", role: "Operador" });
   const [accessForm, setAccessForm] = useState({ id: "", label: "", desc: "", type: "Operacional" });
 
-  // Categorias vêm do banco (ativas); fallback para as padrão se a tabela estiver vazia
-  const nomesCategorias = categoriasDb.filter((c) => c.active).map((c) => c.nome);
+  // ── Multi-loja: filtra todos os dados pela loja do usuário logado ──
+  const lojaAtual = currentUser?.lojaId ?? null;
+  const lojaInfo = lojas.find((l) => l.id === lojaAtual) || null;
+  const filtraLoja = (arr) => lojaAtual == null ? arr : arr.filter((x) => x.lojaId == null || x.lojaId === lojaAtual);
+  const products      = filtraLoja(productsAll);
+  const orders        = filtraLoja(ordersAll);
+  const formasPagamentoLoja = filtraLoja(formasPagamento);
+  const categoriasDbLoja    = filtraLoja(categoriasDb);
+
+  // Categorias vêm do banco (ativas, da loja); fallback para as padrão se vazio
+  const nomesCategorias = categoriasDbLoja.filter((c) => c.active).map((c) => c.nome);
   const categories = ["Todos", ...(nomesCategorias.length ? nomesCategorias : categoriasPadrao)];
 
   const currentTable = `Mesa ${tableNumber.padStart(2, "0")}`;
@@ -612,6 +625,13 @@ export default function RestaurantePedidoApp() {
     if (!customerName.trim()) return notify("error", "Informe o nome do cliente para vincular à comanda.");
     const codigo = (codigoOverride || commandCode || "").trim().toUpperCase();
     if (!isValidCommand(codigo)) return notify("error", "Escaneie a comanda antes de enviar o pedido.");
+    // Validação multi-loja: a comanda deve ter o prefixo da loja atual
+    if (lojaInfo && lojaInfo.prefixo) {
+      const prefixoComanda = codigo.split("-")[0];
+      if (prefixoComanda !== lojaInfo.prefixo) {
+        return notify("error", `Comanda inválida! Verifique a comanda da loja atual. Esta comanda (${prefixoComanda}) não pertence à ${lojaInfo.nome} (${lojaInfo.prefixo}).`);
+      }
+    }
     clearMessage();
     // ID único: timestamp + aleatório (evita colisão de chave primária)
     const newOrder = {
@@ -620,6 +640,7 @@ export default function RestaurantePedidoApp() {
       status: "received", paymentStatus: "open",
       createdAt: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
       items: cart.map((i) => ({ name: i.name, quantity: i.quantity, price: i.price, selectedIngredients: i.selectedIngredients, removedIngredients: i.removedIngredients, extraIngredients: i.extraIngredients, observation: i.observation })),
+      lojaId: lojaAtual,
     };
 
     if (dbReady) {
@@ -731,7 +752,7 @@ export default function RestaurantePedidoApp() {
     if (!n) return notify("error", "Informe o nome da categoria.");
     if (categoriasDb.some((c) => c.nome.toLowerCase() === n.toLowerCase())) return notify("error", "Categoria já existe.");
     try {
-      const nova = dbReady ? await inserirCategoria(n) : { id: Date.now(), nome: n, active: true };
+      const nova = dbReady ? await inserirCategoria(n, lojaAtual) : { id: Date.now(), nome: n, active: true, lojaId: lojaAtual };
       setCategoriasDb((cur) => [...cur, nova]);
       notify("success", "Categoria cadastrada.");
     } catch (err) { notify("error", "Erro ao cadastrar: " + err.message); }
@@ -750,11 +771,33 @@ export default function RestaurantePedidoApp() {
     notify("success", "Categoria excluída.");
   }
 
+  // ── Lojas (multi-empresa) ───────────────────────────────────
+  async function addLoja(loja) {
+    if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
+    const nome = loja.nome.trim(); const prefixo = loja.prefixo.trim().toUpperCase();
+    if (!nome || !prefixo) return notify("error", "Informe o nome e o prefixo (iniciais) da loja.");
+    if (!/^[A-Z]{2,5}$/.test(prefixo)) return notify("error", "O prefixo deve ter de 2 a 5 letras (ex.: PZB).");
+    if (lojas.some((l) => l.prefixo === prefixo)) return notify("error", "Já existe loja com este prefixo.");
+    try {
+      const nova = dbReady ? await inserirLoja({ nome, prefixo }) : { id: Date.now(), nome, prefixo, active: true };
+      setLojas((cur) => [...cur, nova]);
+      notify("success", `Loja "${nome}" cadastrada (comandas: ${prefixo}-000000).`);
+    } catch (err) { notify("error", "Erro ao cadastrar loja: " + err.message); }
+  }
+  async function toggleLoja(id) {
+    if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
+    const l = lojas.find((x) => x.id === id);
+    const active = !l?.active;
+    setLojas((cur) => cur.map((x) => x.id === id ? { ...x, active } : x));
+    if (dbReady) try { await atualizarLoja(id, { ativo: active }); } catch {}
+  }
+
   async function addFormaPagamento(forma) {
     if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
     if (!forma.nome.trim()) return notify("error", "Informe o nome da forma de pagamento.");
     try {
-      const nova = dbReady ? await inserirFormaPagamento(forma) : { ...forma, id: Date.now() };
+      const comLoja = { ...forma, lojaId: lojaAtual };
+      const nova = dbReady ? await inserirFormaPagamento(comLoja) : { ...comLoja, id: Date.now() };
       setFormasPagamento((cur) => [...cur, nova]);
       notify("success", "Forma de pagamento cadastrada.");
     } catch (err) { notify("error", "Erro ao cadastrar: " + err.message); }
@@ -790,7 +833,7 @@ export default function RestaurantePedidoApp() {
     if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
     if (!adminForm.name.trim()) return notify("error", "Informe o nome do produto.");
     if (!adminForm.price || Number(adminForm.price) <= 0) return notify("error", "Informe um preço de venda válido.");
-    const np = { name: adminForm.name.trim(), category: adminForm.category, price: Number(adminForm.price), cost: Number(adminForm.cost || 0), active: true, time: adminForm.time || "15-25 min", description: adminForm.description || "Produto cadastrado pelo administrativo.", badge: "Admin", imageUrl: adminForm.imageUrl || fallbackImage, ingredients: adminForm.ingredientsText.split(",").map((s) => s.trim()).filter(Boolean) };
+    const np = { name: adminForm.name.trim(), category: adminForm.category, price: Number(adminForm.price), cost: Number(adminForm.cost || 0), active: true, time: adminForm.time || "15-25 min", description: adminForm.description || "Produto cadastrado pelo administrativo.", badge: "Admin", imageUrl: adminForm.imageUrl || fallbackImage, ingredients: adminForm.ingredientsText.split(",").map((s) => s.trim()).filter(Boolean), estoque: 100, lojaId: lojaAtual };
     try {
       const saved = dbReady ? await inserirProduto(np) : { ...np, id: Date.now() };
       setProducts((cur) => [saved, ...cur]);
@@ -862,7 +905,7 @@ export default function RestaurantePedidoApp() {
     if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
     if (!userForm.name.trim() || !userForm.email.trim()) return notify("error", "Informe nome e e-mail do usuário.");
     if (users.some((u) => u.email.toLowerCase() === userForm.email.toLowerCase())) return notify("error", "Já existe usuário com este e-mail.");
-    const nu = { name: userForm.name.trim(), email: userForm.email.trim(), password: userForm.password || "123456", role: userForm.role || "Operador", active: true, accessIds: [] };
+    const nu = { name: userForm.name.trim(), email: userForm.email.trim(), password: userForm.password || "123456", role: userForm.role || "Operador", active: true, accessIds: [], lojaId: userForm.lojaId || lojaAtual };
     try {
       const saved = dbReady ? await inserirUsuario(nu) : { ...nu, id: Date.now() };
       setUsers((cur) => [saved, ...cur]);
@@ -1019,8 +1062,8 @@ export default function RestaurantePedidoApp() {
           <KitchenView groupedOrders={groupedOrders} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} cancelarPedido={cancelarPedido} onSair={logout} currentUser={currentUser} />
         )}
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} products={products} />}
-        {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierView orders={orders} baixarComandas={baixarComandas} baixarPedidos={baixarPedidos} formasPagamento={formasPagamento} onSair={logout} />}
-        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamento} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDb} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} orders={orders} onSair={logout} />}
+        {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierView orders={orders} baixarComandas={baixarComandas} baixarPedidos={baixarPedidos} formasPagamento={formasPagamentoLoja} onSair={logout} />}
+        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} lojaInfo={lojaInfo} orders={orders} onSair={logout} />}
 
       </div>
     </div>
@@ -2937,7 +2980,7 @@ function CupomModal({ blocos, mesas, comandas, subtotal, taxa, total, pessoas, p
   );
 }
 
-function AdminView({ products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, toggleUserStatus, toggleAccessStatus, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, orders = [], onSair }) {
+function AdminView({ products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, toggleUserStatus, toggleAccessStatus, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, lojas = [], addLoja, toggleLoja, lojaInfo, orders = [], onSair }) {
   const menu = [
     { grupo: "Gestão", itens: [
       { id: "dashboard", icon: "📊", label: "Dashboard" },
@@ -2948,6 +2991,9 @@ function AdminView({ products, categories, adminForm, setAdminForm, addProduct, 
       { id: "categorias", icon: "🏷️", label: "Categorias" },
       { id: "pagamento", icon: "💳", label: "Formas de pagamento" },
       { id: "comandas", icon: "🎫", label: "Comandas QR" },
+    ]},
+    { grupo: "Empresa", itens: [
+      { id: "lojas", icon: "🏪", label: "Lojas" },
     ]},
     { grupo: "Acessos", itens: [
       { id: "users", icon: "👥", label: "Usuários" },
@@ -3011,8 +3057,9 @@ function AdminView({ products, categories, adminForm, setAdminForm, addProduct, 
           {ativo === "access"     && <AccessAdmin    accesses={accesses} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleAccessStatus={toggleAccessStatus} />}
           {ativo === "link"       && <UserAccessAdmin users={users} accesses={accesses} toggleUserAccess={toggleUserAccess} />}
           {ativo === "categorias" && <CategoriaAdmin categoriasDb={categoriasDb} produtos={products} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} />}
-          {ativo === "comandas"   && <GeradorComandas />}
+          {ativo === "comandas"   && <GeradorComandas prefixoLoja={lojaInfo?.prefixo || "CMD"} />}
           {ativo === "pagamento"  && <PagamentoAdmin formasPagamento={formasPagamento} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} />}
+          {ativo === "lojas"      && <LojaAdmin lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} lojaInfo={lojaInfo} />}
         </div>
       </div>
     </div>
@@ -3617,6 +3664,57 @@ function RelatorioPermanencia({ pedidos }) {
 // ════════════════════════════════════════════════════════════
 //  Admin — Formas de pagamento
 // ════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════
+//  Admin — Lojas (multi-empresa)
+// ════════════════════════════════════════════════════════════
+function LojaAdmin({ lojas, addLoja, toggleLoja, lojaInfo }) {
+  const [form, setForm] = useState({ nome: "", prefixo: "" });
+  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400";
+  const lbl = "mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500";
+  function salvar() { addLoja(form); setForm({ nome: "", prefixo: "" }); }
+  return (
+    <main className="grid gap-6 lg:grid-cols-[400px_1fr]">
+      <Card className="lg:self-start">
+        <div className="flex items-center gap-2">
+          <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-blue-500/15 text-lg">🏪</span>
+          <h3 className="text-lg font-black text-white">Nova loja / empresa</h3>
+        </div>
+        <p className="mt-1 text-sm text-slate-400">Cada loja gera comandas com suas iniciais e vê apenas seus próprios dados.</p>
+        <div className="mt-5 space-y-3">
+          <div>
+            <span className={lbl}>Nome da loja</span>
+            <input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} placeholder="Ex.: Pizzaria Bella" className={inp} />
+          </div>
+          <div>
+            <span className={lbl}>Prefixo da comanda (2-5 letras)</span>
+            <input value={form.prefixo} onChange={(e) => setForm({ ...form, prefixo: e.target.value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 5) })}
+              placeholder="Ex.: PZB" className={`${inp} font-mono font-black tracking-widest`} />
+            {form.prefixo && <p className="mt-1 text-xs text-blue-300">Comandas: {form.prefixo}-000001, {form.prefixo}-000002...</p>}
+          </div>
+          <button onClick={salvar} className="w-full rounded-2xl bg-blue-500 px-5 py-4 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95">+ Cadastrar loja</button>
+        </div>
+      </Card>
+      <Card>
+        <h3 className="text-xl font-black text-white">Lojas cadastradas</h3>
+        {lojaInfo && <p className="mt-1 text-sm text-emerald-300">Você está logado na loja: <b>{lojaInfo.nome}</b> ({lojaInfo.prefixo})</p>}
+        <div className="mt-5 space-y-2">
+          {lojas.length === 0 && <p className="text-sm text-slate-500">Nenhuma loja. Execute a migration 011 e cadastre acima.</p>}
+          {lojas.map((l) => (
+            <div key={l.id} className="flex items-center gap-3 rounded-3xl border border-white/10 bg-slate-950/40 p-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white/[0.06] text-lg">🏪</span>
+              <div className="min-w-0 flex-1">
+                <p className="font-black text-white truncate">{l.nome}{lojaInfo?.id === l.id && <span className="ml-2 rounded-full bg-emerald-500/20 px-2 py-0.5 text-xs text-emerald-300">atual</span>}</p>
+                <p className="text-xs text-slate-400">Comandas: <span className="font-mono font-bold text-blue-300">{l.prefixo}-000000</span></p>
+              </div>
+              <button onClick={() => toggleLoja(l.id)} className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-black ${l.active ? "bg-emerald-500 text-white" : "bg-slate-700 text-slate-200"}`}>{l.active ? "Ativa" : "Inativa"}</button>
+            </div>
+          ))}
+        </div>
+      </Card>
+    </main>
+  );
+}
+
 // ════════════════════════════════════════════════════════════
 //  Admin — Categorias
 // ════════════════════════════════════════════════════════════
