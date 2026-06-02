@@ -3657,7 +3657,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo }) {
         </>
       )}
 
-      {aba === "cupom" && <RelatorioCupom pedidos={filtrados} />}
+      {aba === "cupom" && <RelatorioCupom pedidos={filtrados} lojaInfo={lojaInfo} />}
       {aba === "permanencia" && <RelatorioPermanencia pedidos={filtrados} />}
 
       {/* Drill-down: cupons de um produto */}
@@ -3667,11 +3667,12 @@ function RelatoriosAdmin({ orders, products, lojaInfo }) {
 }
 
 // ── Relatório analítico por cupom fiscal / mesa / comanda ────
-function RelatorioCupom({ pedidos }) {
+function RelatorioCupom({ pedidos, lojaInfo }) {
+  const [cupomSel, setCupomSel] = useState(null);
   const pagos = pedidos.filter((o) => o.paymentStatus === "paid");
   return (
     <div className="space-y-3">
-      <p className="text-sm text-slate-400">{pagos.length} cupom(ns) fiscal(is) no período — itens detalhados por mesa e comanda.</p>
+      <p className="text-sm text-slate-400">{pagos.length} cupom(ns) fiscal(is) no período — itens detalhados por mesa e comanda. Clique em <b className="text-blue-300">🧾 Cupom</b> para reimprimir ou enviar ao cliente.</p>
       {pagos.length === 0 && <p className="rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-6 text-center text-sm text-slate-500">Nenhum cupom pago no período.</p>}
       {pagos.map((o) => (
         <div key={o.id} className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.04]">
@@ -3681,10 +3682,14 @@ function RelatorioCupom({ pedidos }) {
               <span className="rounded-xl bg-white/10 px-2.5 py-1 text-xs font-bold text-white">{o.table}</span>
               <span className="rounded-xl bg-white/10 px-2.5 py-1 font-mono text-xs font-bold text-slate-300">{o.command}</span>
             </div>
-            <span className="text-sm font-black text-emerald-300">{formatCurrency(orderTotal(o) * 1.1)}</span>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-black text-emerald-300">{formatCurrency(orderTotal(o) * 1.1)}</span>
+              <button onClick={() => setCupomSel(o)} title="Cupom não fiscal (imprimir / WhatsApp)"
+                className="rounded-xl border border-blue-400/30 bg-blue-500/15 px-3 py-1.5 text-xs font-black text-blue-200 hover:bg-blue-500/25 transition">🧾 Cupom</button>
+            </div>
           </div>
           <div className="px-5 py-3">
-            <p className="mb-1 text-xs text-slate-500">{o.createdAtISO ? new Date(o.createdAtISO).toLocaleString("pt-BR") : o.createdAt}</p>
+            <p className="mb-1 text-xs text-slate-500">{o.createdAtISO ? new Date(o.createdAtISO).toLocaleString("pt-BR") : o.createdAt}{o.customer ? ` • ${o.customer}` : ""}</p>
             {o.items.map((it, i) => (
               <div key={i} className="flex justify-between text-sm">
                 <span className="text-slate-300">{it.quantity}x {it.name}</span>
@@ -3694,6 +3699,8 @@ function RelatorioCupom({ pedidos }) {
           </div>
         </div>
       ))}
+
+      {cupomSel && <CupomNaoFiscalModal pedido={cupomSel} lojaInfo={lojaInfo} onFechar={() => setCupomSel(null)} />}
     </div>
   );
 }
