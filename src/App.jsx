@@ -399,6 +399,7 @@ export default function RestaurantePedidoApp() {
   const [categoriasDb, setCategoriasDb] = useState([]);
   const [lojas, setLojas] = useState([]);
   const [cargos, setCargos] = useState([]);
+  const [lojaContexto, setLojaContexto] = useState(null); // super admin: empresa em foco para cadastros
   const [dbReady, setDbReady] = useState(false);
   const [loading, setLoading]     = useState(true);
   const [scannerAberto, setScannerAberto] = useState(false);
@@ -485,9 +486,10 @@ export default function RestaurantePedidoApp() {
   const [accessForm, setAccessForm] = useState({ id: "", label: "", desc: "", type: "Operacional" });
 
   // ── Multi-loja: filtra todos os dados pela loja do usuário logado ──
-  const lojaAtual = currentUser?.lojaId ?? null;
-  const lojaInfo = lojas.find((l) => l.id === lojaAtual) || null;
   const isSuperAdmin = !!currentUser?.superAdmin;
+  // O super admin não tem empresa fixa: escolhe uma "empresa em foco" para gerenciar os cadastros
+  const lojaAtual = currentUser?.lojaId ?? (isSuperAdmin ? lojaContexto : null);
+  const lojaInfo = lojas.find((l) => l.id === lojaAtual) || null;
   const filtraLoja = (arr) => lojaAtual == null ? arr : arr.filter((x) => x.lojaId == null || x.lojaId === lojaAtual);
   const products      = filtraLoja(productsAll);
   const orders        = filtraLoja(ordersAll);
@@ -1179,7 +1181,7 @@ export default function RestaurantePedidoApp() {
         )}
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} products={products} lojaInfo={lojaInfo} />}
         {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierView orders={orders} baixarComandas={baixarComandas} baixarPedidos={baixarPedidos} formasPagamento={formasPagamentoLoja} onSair={logout} lojaInfo={lojaInfo} />}
-        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} />}
+        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} />}
 
       </div>
     </div>
@@ -3097,7 +3099,7 @@ function CupomModal({ blocos, mesas, comandas, subtotal, taxa, total, pessoas, p
   );
 }
 
-function AdminView({ products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, toggleUserStatus, toggleAccessStatus, usersLoja, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, lojas = [], addLoja, toggleLoja, editarLoja, removerLoja, lojaInfo, orders = [], onSair, isSuperAdmin = false, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo }) {
+function AdminView({ products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, toggleUserStatus, toggleAccessStatus, usersLoja, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, lojas = [], addLoja, toggleLoja, editarLoja, removerLoja, lojaInfo, orders = [], onSair, isSuperAdmin = false, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto }) {
   const menu = [
     { grupo: "Gestão", itens: [
       { id: "dashboard", icon: "📊", label: "Dashboard" },
@@ -3128,6 +3130,26 @@ function AdminView({ products, categories, adminForm, setAdminForm, addProduct, 
   ];
   const itensValidos = menu.flatMap((g) => g.itens).map((i) => i.id);
   const ativo = itensValidos.includes(adminSection) ? adminSection : "dashboard";
+  // Super admin precisa escolher "Empresa em foco" para gerenciar cadastros de uma empresa
+  const precisaEmpresa = isSuperAdmin && !lojaInfo;
+  const avisoEmpresa = (
+    <main className="mx-auto max-w-lg">
+      <Card>
+        <div className="text-center">
+          <span className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-3xl bg-blue-500/15 text-3xl">🏪</span>
+          <h3 className="text-lg font-black text-white">Selecione uma empresa</h3>
+          <p className="mt-2 text-sm text-slate-400">Como administrador geral, escolha a <b className="text-blue-300">Empresa em foco</b> no menu lateral para visualizar e gerenciar os cadastros desta empresa, sem misturar dados de outras.</p>
+          <select
+            value={lojaContexto ?? ""}
+            onChange={(e) => setLojaContexto(e.target.value ? Number(e.target.value) : null)}
+            className="mt-4 w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400">
+            <option value="">Selecione a empresa…</option>
+            {lojas.map((l) => <option key={l.id} value={l.id}>{l.nome} ({l.prefixo})</option>)}
+          </select>
+        </div>
+      </Card>
+    </main>
+  );
   return (
     <div className="fixed inset-0 z-50 flex bg-slate-950 overflow-hidden">
 
@@ -3142,6 +3164,18 @@ function AdminView({ products, categories, adminForm, setAdminForm, addProduct, 
             </p>
           </div>
         </div>
+        {isSuperAdmin && (
+          <div className="border-b border-white/10 px-4 py-3">
+            <label className="mb-1 block text-[10px] font-black uppercase tracking-widest text-slate-500">Empresa em foco</label>
+            <select
+              value={lojaContexto ?? ""}
+              onChange={(e) => setLojaContexto(e.target.value ? Number(e.target.value) : null)}
+              className="w-full rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm font-bold text-white outline-none focus:border-blue-400">
+              <option value="">Visão geral (todas)</option>
+              {lojas.map((l) => <option key={l.id} value={l.id}>{l.nome} ({l.prefixo})</option>)}
+            </select>
+          </div>
+        )}
         <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-5">
           {menu.map((g) => (
             <div key={g.grupo}>
@@ -3180,14 +3214,14 @@ function AdminView({ products, categories, adminForm, setAdminForm, addProduct, 
         <div className="flex-1 overflow-y-auto p-6">
           {ativo === "dashboard"  && <DashboardAdmin orders={orders} products={products} />}
           {ativo === "relatorios" && <RelatoriosAdmin orders={orders} products={products} />}
-          {ativo === "products"   && <ProductAdmin   products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} editarProduto={editarProduto} removerProduto={removerProduto} />}
+          {ativo === "products"   && (precisaEmpresa ? avisoEmpresa : <ProductAdmin   products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} editarProduto={editarProduto} removerProduto={removerProduto} />)}
           {ativo === "users"      && <UserAdmin      users={isSuperAdmin ? users : (usersLoja ?? users)} userForm={userForm} setUserForm={setUserForm} addUser={addUser} toggleUserStatus={toggleUserStatus} editarUsuario={editarUsuario} removerUsuario={removerUsuario} lojaInfo={lojaInfo} lojas={lojas} isSuperAdmin={isSuperAdmin} cargos={cargos} />}
           {ativo === "cargos"     && <CargoAdmin     cargos={cargos} users={isSuperAdmin ? users : (usersLoja ?? users)} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} />}
           {ativo === "access"     && <AccessAdmin    accesses={accesses} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleAccessStatus={toggleAccessStatus} />}
           {ativo === "link"       && <UserAccessAdmin users={isSuperAdmin ? users : (usersLoja ?? users)} accesses={accesses} toggleUserAccess={toggleUserAccess} lojas={lojas} isSuperAdmin={isSuperAdmin} />}
-          {ativo === "categorias" && <CategoriaAdmin categoriasDb={categoriasDb} produtos={products} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} />}
-          {ativo === "comandas"   && <GeradorComandas prefixoLoja={lojaInfo?.prefixo || "CMD"} />}
-          {ativo === "pagamento"  && <PagamentoAdmin formasPagamento={formasPagamento} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} />}
+          {ativo === "categorias" && (precisaEmpresa ? avisoEmpresa : <CategoriaAdmin categoriasDb={categoriasDb} produtos={products} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} />)}
+          {ativo === "comandas"   && (precisaEmpresa ? avisoEmpresa : <GeradorComandas prefixoLoja={lojaInfo?.prefixo || "CMD"} />)}
+          {ativo === "pagamento"  && (precisaEmpresa ? avisoEmpresa : <PagamentoAdmin formasPagamento={formasPagamento} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} />)}
           {ativo === "lojas"      && <LojaAdmin lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} lojaInfo={lojaInfo} criarEmpresa={criarEmpresa} cargos={cargos} />}
           {ativo === "minhaempresa" && <MinhaEmpresa lojaInfo={lojaInfo} qtdUsuarios={(usersLoja ?? users).length} qtdProdutos={products.length} />}
         </div>
