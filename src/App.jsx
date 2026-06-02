@@ -1025,6 +1025,7 @@ export default function RestaurantePedidoApp() {
               </div>
               <h1 className="max-w-4xl text-3xl font-black tracking-tight text-white sm:text-5xl">Pedido digital completo para restaurante</h1>
               <p className="mt-3 text-sm leading-6 text-slate-300">Usuário logado: <strong className="text-white">{currentUser.name}</strong> • Perfil: {currentUser.role}</p>
+              <p className="text-sm leading-6 text-slate-300">Empresa: <strong className="text-blue-300">{isSuperAdmin ? "Administrador geral (todas)" : (lojaInfo?.nome || "—")}</strong>{!isSuperAdmin && lojaInfo && <span className="text-slate-400"> ({lojaInfo.prefixo})</span>}</p>
             </div>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:w-[560px]">
               <Metric label="Mesa" value={currentTable} />
@@ -3824,11 +3825,11 @@ function LojaAdmin({ lojas, addLoja, toggleLoja, editarLoja, removerLoja, lojaIn
           </div>
           <div>
             <span className={lbl}>Gestor — e-mail de acesso</span>
-            <input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="gestor@empresa.com" className={inp} />
+            <input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="gestor@empresa.com" className={inp} autoComplete="off" name="empresa_gestor_email" />
           </div>
           <div>
             <span className={lbl}>Gestor — senha (mín. 4)</span>
-            <input type="password" value={form.senha} onChange={(e) => setForm({ ...form, senha: e.target.value })} placeholder="••••••" className={inp} />
+            <input type="password" value={form.senha} onChange={(e) => setForm({ ...form, senha: e.target.value })} placeholder="••••••" className={inp} autoComplete="new-password" name="empresa_gestor_senha" />
           </div>
           <button onClick={salvar} disabled={!valido || enviando}
             className="w-full rounded-2xl bg-blue-500 px-5 py-4 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95 disabled:opacity-50">

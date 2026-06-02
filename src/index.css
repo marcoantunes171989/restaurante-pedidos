@@ -5,3 +5,18 @@
 body {
   margin: 0;
 }
+
+/* Mantém o fundo escuro padrão mesmo quando o navegador preenche automaticamente (autofill) */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active,
+select:-webkit-autofill,
+textarea:-webkit-autofill {
+  -webkit-text-fill-color: #ffffff !important;
+  caret-color: #ffffff;
+  /* O box-shadow interno cobre o fundo amarelo/branco do autofill com a cor escura padrão */
+  -webkit-box-shadow: 0 0 0 1000px rgba(2, 6, 23, 0.7) inset !important;
+  box-shadow: 0 0 0 1000px rgba(2, 6, 23, 0.7) inset !important;
+  transition: background-color 9999s ease-in-out 0s;
+}
