@@ -1011,6 +1011,7 @@ export default function RestaurantePedidoApp() {
     } catch { setUsers((cur) => [{ ...nu, id: Date.now() }, ...cur]); }
     setUserForm({ name: "", email: "", password: "", role: "", cargoId: "", lojaId: isSuperAdmin ? "" : lojaAtual });
     notify("success", "Usuário cadastrado. Agora vincule os acessos na tela Usuário x Acesso.");
+    return true;
   }
 
   // ── Cargos / Perfis ─────────────────────────────────────────
@@ -5096,9 +5097,9 @@ function CargoEditModal({ cargo, onSalvar, onFechar }) {
 function UserAdmin({ users, userForm, setUserForm, addUser, toggleUserStatus, editarUsuario, removerUsuario, lojaInfo, lojas = [], isSuperAdmin = false, cargos = [] }) {
   const [editando, setEditando] = useState(null);
   const [excluir, setExcluir]   = useState(null);
+  const [criando, setCriando]   = useState(false);
   const [busca, setBusca]       = useState("");
   const [lojaSel, setLojaSel]   = useState("");
-  const [verSenha, setVerSenha] = useState(false);
   const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400 placeholder:text-slate-600";
   const lbl = "mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500";
   const lojasAtivas = lojas.filter((l) => l.active !== false);
@@ -5118,68 +5119,42 @@ function UserAdmin({ users, userForm, setUserForm, addUser, toggleUserStatus, ed
     return `${u.name} ${u.email} ${u.role} ${lojaDoUser(u)?.nome || ""}`.toLowerCase().includes(termo);
   });
 
-  return (
-    <main className="grid gap-6 lg:grid-cols-[420px_1fr]">
-      <Card className="lg:self-start">
-        <h3 className="text-xl font-black text-white">Cadastrar usuário</h3>
-        {!isSuperAdmin && lojaInfo && (
-          <p className="mt-1 text-xs text-slate-400">
-            Vinculado à empresa <span className="font-bold text-blue-300">{lojaInfo.nome}</span>
-            <span className="ml-1 font-mono text-slate-500">({lojaInfo.prefixo})</span>
-          </p>
-        )}
-        <div className="mt-5 space-y-3">
-          {isSuperAdmin && (
-            <div>
-              <label className={lbl}>Empresa do usuário *</label>
-              <select value={userForm.lojaId ?? ""}
-                onChange={(e) => setUserForm({ ...userForm, lojaId: e.target.value ? Number(e.target.value) : "" })}
-                className={inp}>
-                <option value="">Selecione a empresa…</option>
-                {lojasAtivas.map((l) => <option key={l.id} value={l.id}>{l.nome} ({l.prefixo})</option>)}
-              </select>
-            </div>
-          )}
-          <div>
-            <label className={lbl}>Nome *</label>
-            <input value={userForm.name} onChange={(e) => setUserForm({ ...userForm, name: e.target.value })} placeholder="Nome do usuário" className={inp} autoComplete="off" name="novo_usuario_nome" />
-          </div>
-          <div>
-            <label className={lbl}>E-mail de acesso *</label>
-            <input value={userForm.email} onChange={(e) => setUserForm({ ...userForm, email: e.target.value })} placeholder="usuario@empresa.com" className={inp} autoComplete="off" name="novo_usuario_email" />
-          </div>
-          <div>
-            <label className={lbl}>Senha * (mín. 4)</label>
-            <div className="relative">
-              <input type={verSenha ? "text" : "password"} value={userForm.password} onChange={(e) => setUserForm({ ...userForm, password: e.target.value })} placeholder="Defina a senha" className={`${inp} pr-12`} autoComplete="new-password" name="novo_usuario_senha" />
-              <button type="button" onClick={() => setVerSenha((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-400 hover:text-white">{verSenha ? "🙈" : "👁️"}</button>
-            </div>
-          </div>
-          <div>
-            <label className={lbl}>Cargo / Perfil *</label>
-            <select value={userForm.cargoId ?? ""}
-              onChange={(e) => { const id = e.target.value ? Number(e.target.value) : ""; const c = cargos.find((x) => x.id === id); setUserForm({ ...userForm, cargoId: id, role: c?.nome || "" }); }}
-              className={inp}>
-              <option value="">Selecione o cargo…</option>
-              {cargosAtivos.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
-            </select>
-            {cargosAtivos.length === 0 && <p className="mt-1 text-[11px] text-amber-300">Nenhum cargo ativo. Cadastre em “Cargos / Perfis”.</p>}
-          </div>
-          <button onClick={addUser} disabled={!formValido}
-            className="w-full rounded-2xl bg-blue-500 px-5 py-4 text-sm font-black text-white hover:bg-blue-400 disabled:opacity-50 disabled:cursor-not-allowed">+ Cadastrar usuário</button>
-          {!formValido && <p className="text-center text-[11px] text-slate-500">Preencha todos os campos obrigatórios (*) para habilitar o cadastro.</p>}
-        </div>
-      </Card>
+  function abrirCadastro() {
+    setUserForm({ name: "", email: "", password: "", role: "", cargoId: "", lojaId: isSuperAdmin ? "" : (lojaInfo?.id ?? "") });
+    setCriando(true);
+  }
+  async function salvarNovo() {
+    const ok = await addUser();
+    if (ok) setCriando(false);
+  }
 
-      <Card>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h3 className="text-xl font-black text-white">Usuários cadastrados</h3>
-            <p className="mt-0.5 text-sm text-slate-400">{usuariosFiltrados.length} de {users.length} usuário(s)</p>
-          </div>
+  return (
+    <main className="space-y-5">
+      {/* Cabeçalho: título + contadores + botão cadastrar */}
+      <div className="flex flex-col gap-4 rounded-[2rem] border border-white/10 bg-white/[0.04] p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h3 className="text-xl font-black text-white">Usuários</h3>
+          <p className="mt-0.5 text-sm text-slate-400">
+            <span className="font-bold text-white">{users.length}</span> no total •
+            <span className="text-emerald-300"> {users.filter((u) => u.active).length} ativos</span> •
+            <span className="text-slate-500"> {users.filter((u) => !u.active).length} inativos</span>
+          </p>
+          {!isSuperAdmin && lojaInfo && <p className="mt-1 text-xs text-slate-500">Novos usuários ficam vinculados a <b className="text-blue-300">{lojaInfo.nome}</b>.</p>}
         </div>
-        <div className={`mt-4 grid gap-3 ${isSuperAdmin ? "sm:grid-cols-[1fr_220px]" : ""}`}>
-          <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="🔍 Buscar por nome, e-mail, cargo ou empresa…" className={inp} />
+        <button onClick={abrirCadastro}
+          className="flex items-center justify-center gap-2 rounded-2xl bg-blue-500 px-6 py-3.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95 shadow-lg shadow-blue-950/30">
+          <span className="text-lg leading-none">+</span> Cadastrar usuário
+        </button>
+      </div>
+
+      {/* Busca + filtro + lista */}
+      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+        <div className={`mb-4 grid gap-3 ${isSuperAdmin ? "sm:grid-cols-[1fr_220px]" : ""}`}>
+          <div className="relative">
+            <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">🔍</span>
+            <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por nome, e-mail, cargo ou empresa..."
+              className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-blue-400" />
+          </div>
           {isSuperAdmin && (
             <select value={lojaSel} onChange={(e) => setLojaSel(e.target.value)} className={inp}>
               <option value="">Todas as empresas</option>
@@ -5187,8 +5162,15 @@ function UserAdmin({ users, userForm, setUserForm, addUser, toggleUserStatus, ed
             </select>
           )}
         </div>
-        <div className="mt-4 space-y-2">
-          {usuariosFiltrados.length === 0 && <p className="text-sm text-slate-500">Nenhum usuário encontrado.</p>}
+        <p className="mb-3 text-xs text-slate-500">{usuariosFiltrados.length} de {users.length} usuário(s)</p>
+        <div className="space-y-2">
+          {users.length === 0 && (
+            <div className="py-10 text-center">
+              <p className="text-sm text-slate-500">Nenhum usuário cadastrado.</p>
+              <button onClick={abrirCadastro} className="mt-3 rounded-2xl border border-blue-400/30 bg-blue-500/15 px-4 py-2 text-xs font-black text-blue-200 hover:bg-blue-500/25">+ Cadastrar usuário</button>
+            </div>
+          )}
+          {users.length > 0 && usuariosFiltrados.length === 0 && <p className="py-6 text-center text-sm text-slate-500">Nenhum usuário encontrado.</p>}
           {usuariosFiltrados.map((u) => (
             <div key={u.id} className="flex items-center gap-3 rounded-3xl border border-white/10 bg-slate-950/40 p-3">
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-500/15 text-lg">👤</div>
@@ -5207,8 +5189,12 @@ function UserAdmin({ users, userForm, setUserForm, addUser, toggleUserStatus, ed
             </div>
           ))}
         </div>
-      </Card>
+      </div>
 
+      {criando && (
+        <UsuarioCadastroModal userForm={userForm} setUserForm={setUserForm} onSalvar={salvarNovo} onFechar={() => setCriando(false)}
+          cargos={cargosAtivos} lojas={lojasAtivas} isSuperAdmin={isSuperAdmin} lojaInfo={lojaInfo} formValido={formValido} />
+      )}
       {editando && <UsuarioEditModal usuario={editando} cargos={cargosAtivos} onSalvar={(d) => { editarUsuario(editando.id, d); setEditando(null); }} onFechar={() => setEditando(null)} />}
       {excluir && (
         <ConfirmModal titulo="Excluir usuário?"
@@ -5218,6 +5204,84 @@ function UserAdmin({ users, userForm, setUserForm, addUser, toggleUserStatus, ed
           onCancelar={() => setExcluir(null)} />
       )}
     </main>
+  );
+}
+
+// Modal de cadastro de usuário (empresa em chips p/ super admin + cargo em chips)
+function UsuarioCadastroModal({ userForm, setUserForm, onSalvar, onFechar, cargos = [], lojas = [], isSuperAdmin, lojaInfo, formValido }) {
+  const [verSenha, setVerSenha] = useState(false);
+  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400 placeholder:text-slate-600";
+  const lbl = "mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500";
+  const chip = (sel) => `flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-black transition active:scale-95 ${sel ? "border-blue-400 bg-blue-500 text-white shadow-lg shadow-blue-950/40" : "border-white/10 bg-white/[0.04] text-slate-300 hover:border-white/25 hover:bg-white/10"}`;
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onFechar}>
+      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-lg flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl max-h-[92vh]">
+        <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+          <div className="flex items-center gap-2">
+            <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-blue-500/15 text-lg">👤</span>
+            <h2 className="text-lg font-black text-white">Novo usuário</h2>
+          </div>
+          <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20">✕</button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+          {/* Empresa (chips) — só super admin */}
+          {isSuperAdmin ? (
+            <div>
+              <span className={lbl}>Empresa do usuário *</span>
+              <div className="flex flex-wrap gap-2">
+                {lojas.length === 0 && <p className="text-xs text-amber-300">Nenhuma empresa ativa.</p>}
+                {lojas.map((l) => {
+                  const sel = userForm.lojaId === l.id;
+                  return <button key={l.id} type="button" onClick={() => setUserForm({ ...userForm, lojaId: l.id })} className={chip(sel)}>{sel && <span className="text-[11px]">✓</span>}{l.nome}</button>;
+                })}
+              </div>
+            </div>
+          ) : (lojaInfo && (
+            <p className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-xs text-slate-400">Vinculado à empresa <b className="text-blue-300">{lojaInfo.nome}</b> <span className="font-mono text-slate-500">({lojaInfo.prefixo})</span></p>
+          ))}
+
+          <div>
+            <span className={lbl}>Nome *</span>
+            <input autoFocus value={userForm.name} onChange={(e) => setUserForm({ ...userForm, name: e.target.value })} placeholder="Nome do usuário" className={inp} autoComplete="off" name="novo_usuario_nome" />
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <span className={lbl}>E-mail *</span>
+              <input value={userForm.email} onChange={(e) => setUserForm({ ...userForm, email: e.target.value })} placeholder="usuario@empresa.com" className={inp} autoComplete="off" name="novo_usuario_email" />
+            </div>
+            <div>
+              <span className={lbl}>Senha * (mín. 4)</span>
+              <div className="relative">
+                <input type={verSenha ? "text" : "password"} value={userForm.password} onChange={(e) => setUserForm({ ...userForm, password: e.target.value })} placeholder="Defina a senha" className={`${inp} pr-12`} autoComplete="new-password" name="novo_usuario_senha" />
+                <button type="button" onClick={() => setVerSenha((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-400 hover:text-white">{verSenha ? "🙈" : "👁️"}</button>
+              </div>
+            </div>
+          </div>
+
+          {/* Cargo (chips) */}
+          <div>
+            <span className={lbl}>Cargo / Perfil *</span>
+            <div className="flex flex-wrap gap-2">
+              {cargos.length === 0 && <p className="text-xs text-amber-300">Nenhum cargo ativo. Cadastre em “Cargos / Perfis”.</p>}
+              {cargos.map((c) => {
+                const sel = userForm.cargoId === c.id;
+                return <button key={c.id} type="button" onClick={() => setUserForm({ ...userForm, cargoId: c.id, role: c.nome })} className={chip(sel)}>{sel && <span className="text-[11px]">✓</span>}{c.nome}</button>;
+              })}
+            </div>
+          </div>
+        </div>
+
+        <div className="shrink-0 border-t border-white/10 px-6 py-4 flex gap-3">
+          <button onClick={onFechar} className="flex-1 rounded-2xl border border-white/10 bg-white/[0.06] py-3.5 text-sm font-black text-slate-300 hover:bg-white/10">Cancelar</button>
+          <button onClick={onSalvar} disabled={!formValido}
+            className="flex-[2] rounded-2xl bg-blue-500 py-3.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+            + Cadastrar usuário
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
