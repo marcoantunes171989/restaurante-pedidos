@@ -19,7 +19,7 @@ async function gerarQR(texto) {
 // ══════════════════════════════════════════════════════════════
 //  Gerador de comandas com QR Code — layout profissional
 // ══════════════════════════════════════════════════════════════
-export function GeradorComandas({ prefixoLoja = "CMD", empresa = "Restaurante" }) {
+export function GeradorComandas({ prefixoLoja = "CMD", empresa = "Restaurante", onGerar }) {
   const [nomeEmpresa, setNomeEmpresa] = useState(empresa);
   const [logoUrl, setLogoUrl]         = useState("");
   const [chamada, setChamada]         = useState("Escaneie e faça seu pedido");
@@ -52,6 +52,8 @@ export function GeradorComandas({ prefixoLoja = "CMD", empresa = "Restaurante" }
     setComandas(lista);
     setGerando(false);
     if (lista[0]) setQrAmostra(lista[0].qrUrl);
+    // Registra as comandas geradas no sistema (validação no envio do pedido)
+    if (onGerar) onGerar(lista.map((c) => c.codigo));
   }
 
   function imprimir() {

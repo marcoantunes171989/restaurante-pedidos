@@ -174,6 +174,31 @@ export function escutarLojas(onMudanca) {
 }
 
 // ════════════════════════════════════════════════════════════
+//  tab_comandas — registro de comandas geradas (validação)
+// ════════════════════════════════════════════════════════════
+export async function fetchComandas() {
+  const { data, error } = await supabase.from('tab_comandas').select('codigo, loja_id')
+  if (error) throw error
+  return data.map((r) => ({ codigo: r.codigo, lojaId: r.loja_id }))
+}
+export async function inserirComandas(codigos, lojaId) {
+  const linhas = codigos.map((c) => ({ codigo: c, loja_id: lojaId }))
+  const { error } = await supabase.from('tab_comandas')
+    .upsert(linhas, { onConflict: 'codigo', ignoreDuplicates: true })
+  if (error) throw error
+}
+export function escutarComandas(onMudanca) {
+  const reload = async () => {
+    const { data, error } = await supabase.from('tab_comandas').select('codigo, loja_id')
+    if (!error && data) onMudanca(data.map((r) => ({ codigo: r.codigo, lojaId: r.loja_id })))
+  }
+  const canal = supabase.channel('ch_comandas_'+Math.random().toString(36).slice(2))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_comandas' }, reload)
+    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
+  return () => supabase.removeChannel(canal)
+}
+
+// ════════════════════════════════════════════════════════════
 //  tab_categorias — CRUD + Realtime
 // ════════════════════════════════════════════════════════════
 export async function fetchCategorias() {
