@@ -1025,6 +1025,7 @@ export default function RestaurantePedidoApp() {
       const saved = dbReady ? await inserirCargo(novo) : { ...novo, id: Date.now() };
       setCargos((cur) => [...cur, saved]);
       notify("success", `Cargo "${n}" cadastrado.`);
+      return true;
     } catch (e) { notify("error", "Erro ao cadastrar cargo: " + e.message); }
   }
   async function editarCargo(id, dados) {
@@ -4996,54 +4997,54 @@ function ProdutoEditModal({ produto, cats, onSalvar, onFechar }) {
 //  Admin — Cargos / Perfis (cadastro reutilizável)
 // ════════════════════════════════════════════════════════════
 function CargoAdmin({ cargos = [], users = [], addCargo, editarCargo, toggleCargo, removerCargo }) {
-  const [form, setForm]   = useState({ nome: "", descricao: "" });
   const [editando, setEditando] = useState(null);
   const [excluir, setExcluir]   = useState(null);
-  const [busca, setBusca] = useState("");
-  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400 placeholder:text-slate-600";
-  const lbl = "mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500";
+  const [criando, setCriando]   = useState(false);
+  const [busca, setBusca]       = useState("");
   const qtdUsuarios = (id) => users.filter((u) => u.cargoId === id).length;
-
-  function salvar() {
-    if (!form.nome.trim()) return;
-    addCargo(form);
-    setForm({ nome: "", descricao: "" });
-  }
 
   const termo = busca.trim().toLowerCase();
   const filtrados = termo ? cargos.filter((c) => `${c.nome} ${c.descricao}`.toLowerCase().includes(termo)) : cargos;
 
-  return (
-    <main className="grid gap-6 lg:grid-cols-[400px_1fr]">
-      <Card className="lg:self-start">
-        <div className="flex items-center gap-2">
-          <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-blue-500/15 text-lg">🪪</span>
-          <h3 className="text-lg font-black text-white">Novo cargo / perfil</h3>
-        </div>
-        <p className="mt-1 text-sm text-slate-400">Os cargos aparecem como opção no cadastro de usuário. Salvos no banco e reutilizáveis.</p>
-        <div className="mt-5 space-y-3">
-          <div>
-            <label className={lbl}>Nome do cargo *</label>
-            <input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} onKeyDown={(e) => e.key === "Enter" && salvar()} placeholder="Ex.: Garçom, Gerente, Caixa" className={inp} />
-          </div>
-          <div>
-            <label className={lbl}>Descrição</label>
-            <input value={form.descricao} onChange={(e) => setForm({ ...form, descricao: e.target.value })} placeholder="Breve descrição das funções" className={inp} />
-          </div>
-          <button onClick={salvar} disabled={!form.nome.trim()} className="w-full rounded-2xl bg-blue-500 px-5 py-4 text-sm font-black text-white hover:bg-blue-400 disabled:opacity-50">+ Cadastrar cargo</button>
-        </div>
-      </Card>
+  async function salvarNovo(form) {
+    const ok = await addCargo(form);
+    if (ok) setCriando(false);
+  }
 
-      <Card>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h3 className="text-xl font-black text-white">Cargos cadastrados</h3>
-            <p className="mt-0.5 text-sm text-slate-400">{cargos.length} cargo(s) • {cargos.filter((c) => c.active !== false).length} ativo(s)</p>
-          </div>
+  return (
+    <main className="space-y-5">
+      {/* Cabeçalho: título + contadores + botão cadastrar */}
+      <div className="flex flex-col gap-4 rounded-[2rem] border border-white/10 bg-white/[0.04] p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h3 className="text-xl font-black text-white">Cargos / Perfis</h3>
+          <p className="mt-0.5 text-sm text-slate-400">
+            <span className="font-bold text-white">{cargos.length}</span> no total •
+            <span className="text-emerald-300"> {cargos.filter((c) => c.active !== false).length} ativos</span> •
+            <span className="text-slate-500"> {cargos.filter((c) => c.active === false).length} inativos</span>
+          </p>
+          <p className="mt-1 text-xs text-slate-500">Aparecem como opção no cadastro de usuário e de empresa.</p>
         </div>
-        <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="🔍 Buscar cargo…" className={`${inp} mt-4`} />
-        <div className="mt-4 space-y-2">
-          {filtrados.length === 0 && <p className="text-sm text-slate-500">Nenhum cargo encontrado.</p>}
+        <button onClick={() => setCriando(true)}
+          className="flex items-center justify-center gap-2 rounded-2xl bg-blue-500 px-6 py-3.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95 shadow-lg shadow-blue-950/30">
+          <span className="text-lg leading-none">+</span> Cadastrar cargo
+        </button>
+      </div>
+
+      {/* Busca + lista */}
+      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+        <div className="relative mb-4">
+          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">🔍</span>
+          <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar cargo..."
+            className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-blue-400" />
+        </div>
+        <div className="space-y-2">
+          {cargos.length === 0 && (
+            <div className="py-10 text-center">
+              <p className="text-sm text-slate-500">Nenhum cargo cadastrado.</p>
+              <button onClick={() => setCriando(true)} className="mt-3 rounded-2xl border border-blue-400/30 bg-blue-500/15 px-4 py-2 text-xs font-black text-blue-200 hover:bg-blue-500/25">+ Cadastrar cargo</button>
+            </div>
+          )}
+          {cargos.length > 0 && filtrados.length === 0 && <p className="py-6 text-center text-sm text-slate-500">Nenhum cargo encontrado.</p>}
           {filtrados.map((c) => (
             <div key={c.id} className="flex items-center gap-3 rounded-3xl border border-white/10 bg-slate-950/40 p-3">
               <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/[0.06] text-lg">🪪</span>
@@ -5058,8 +5059,9 @@ function CargoAdmin({ cargos = [], users = [], addCargo, editarCargo, toggleCarg
             </div>
           ))}
         </div>
-      </Card>
+      </div>
 
+      {criando && <CargoCadastroModal onSalvar={salvarNovo} onFechar={() => setCriando(false)} />}
       {editando && <CargoEditModal cargo={editando} onSalvar={(d) => { editarCargo(editando.id, d); setEditando(null); }} onFechar={() => setEditando(null)} />}
       {excluir && (
         <ConfirmModal titulo="Excluir cargo?"
@@ -5069,6 +5071,47 @@ function CargoAdmin({ cargos = [], users = [], addCargo, editarCargo, toggleCarg
           onCancelar={() => setExcluir(null)} />
       )}
     </main>
+  );
+}
+
+// Modal de cadastro de cargo (mesmo padrão dos demais)
+function CargoCadastroModal({ onSalvar, onFechar }) {
+  const [form, setForm] = useState({ nome: "", descricao: "" });
+  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400 placeholder:text-slate-600";
+  const lbl = "mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500";
+  const valido = form.nome.trim().length > 0;
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onFechar}>
+      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-md flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl">
+        <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+          <div className="flex items-center gap-2">
+            <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-blue-500/15 text-lg">🪪</span>
+            <h2 className="text-lg font-black text-white">Novo cargo / perfil</h2>
+          </div>
+          <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20">✕</button>
+        </div>
+        <div className="px-6 py-5 space-y-3">
+          <div>
+            <label className={lbl}>Nome do cargo *</label>
+            <input autoFocus value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })}
+              onKeyDown={(e) => { if (e.key === "Enter" && valido) onSalvar(form); }}
+              placeholder="Ex.: Garçom, Gerente, Caixa" className={inp} />
+          </div>
+          <div>
+            <label className={lbl}>Descrição</label>
+            <input value={form.descricao} onChange={(e) => setForm({ ...form, descricao: e.target.value })} placeholder="Breve descrição das funções" className={inp} />
+          </div>
+          <p className="text-xs text-slate-500">Disponível imediatamente no cadastro de usuários e empresas.</p>
+        </div>
+        <div className="shrink-0 border-t border-white/10 px-6 py-4 flex gap-3">
+          <button onClick={onFechar} className="flex-1 rounded-2xl border border-white/10 bg-white/[0.06] py-3.5 text-sm font-black text-slate-300 hover:bg-white/10">Cancelar</button>
+          <button onClick={() => onSalvar(form)} disabled={!valido}
+            className="flex-[2] rounded-2xl bg-blue-500 py-3.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+            + Cadastrar cargo
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
