@@ -7,9 +7,9 @@ import { useState } from "react";
 // ════════════════════════════════════════════════════════════
 
 const NOME_SISTEMA = "MesaSmart";
-// ⚠️ Defina aqui o WhatsApp comercial (formato internacional, só números): DDI + DDD + número.
-// Ex.: Brasil (11) 99999-9999 → "5511999999999"
-const WHATSAPP_COMERCIAL = "5511999999999";
+// WhatsApp comercial (formato internacional, só números): DDI + DDD + número.
+// (18) 98146-5499 → 55 + 18 + 981465499
+const WHATSAPP_COMERCIAL = "5518981465499";
 
 // ── Dados (reutilizáveis) ────────────────────────────────────
 const NAV = [
