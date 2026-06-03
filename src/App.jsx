@@ -815,6 +815,7 @@ export default function RestaurantePedidoApp() {
       const nova = dbReady ? await inserirCategoria(n, lojaAtual) : { id: Date.now(), nome: n, active: true, lojaId: lojaAtual };
       setCategoriasDb((cur) => [...cur, nova]);
       notify("success", "Categoria cadastrada.");
+      return true;
     } catch (err) { notify("error", "Erro ao cadastrar: " + err.message); }
   }
   async function toggleCategoria(id) {
@@ -4393,37 +4394,55 @@ function LojaEditModal({ loja, onSalvar, onFechar }) {
 //  Admin — Categorias
 // ════════════════════════════════════════════════════════════
 function CategoriaAdmin({ categoriasDb, produtos, addCategoria, toggleCategoria, removerCategoria }) {
-  const [nome, setNome] = useState("");
   const [excluir, setExcluir] = useState(null);
-  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400";
+  const [criando, setCriando] = useState(false);
+  const [busca, setBusca]     = useState("");
   // Conta quantos produtos usam cada categoria
   const contagem = (catNome) => produtos.filter((p) => p.category === catNome).length;
-  function salvar() { addCategoria(nome); setNome(""); }
+
+  const termo = busca.trim().toLowerCase();
+  const filtradas = termo ? categoriasDb.filter((c) => c.nome.toLowerCase().includes(termo)) : categoriasDb;
+
+  async function salvarNova(nome) {
+    const ok = await addCategoria(nome);
+    if (ok) setCriando(false);
+  }
 
   return (
-    <main className="grid gap-6 lg:grid-cols-[400px_1fr]">
-      <Card className="lg:self-start">
-        <div className="flex items-center gap-2">
-          <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-blue-500/15 text-lg">🏷️</span>
-          <h3 className="text-lg font-black text-white">Nova categoria</h3>
+    <main className="space-y-5">
+      {/* Cabeçalho: título + contadores + botão cadastrar */}
+      <div className="flex flex-col gap-4 rounded-[2rem] border border-white/10 bg-white/[0.04] p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h3 className="text-xl font-black text-white">Categorias</h3>
+          <p className="mt-0.5 text-sm text-slate-400">
+            <span className="font-bold text-white">{categoriasDb.length}</span> no total •
+            <span className="text-emerald-300"> {categoriasDb.filter((c) => c.active !== false).length} ativas</span> •
+            <span className="text-slate-500"> {categoriasDb.filter((c) => c.active === false).length} inativas</span>
+          </p>
+          <p className="mt-1 text-xs text-slate-500">Aparecem no cadastro de produtos e no cardápio do tablet.</p>
         </div>
-        <p className="mt-1 text-sm text-slate-400">As categorias aparecem no cadastro de produtos e no cardápio do tablet.</p>
-        <div className="mt-5 space-y-3">
-          <input value={nome} onChange={(e) => setNome(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && salvar()}
-            placeholder="Ex.: Massas, Porções, Vinhos..." className={inp} />
-          <button onClick={salvar} className="w-full rounded-2xl bg-blue-500 px-5 py-4 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95">
-            + Cadastrar categoria
-          </button>
-        </div>
-      </Card>
+        <button onClick={() => setCriando(true)}
+          className="flex items-center justify-center gap-2 rounded-2xl bg-blue-500 px-6 py-3.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95 shadow-lg shadow-blue-950/30">
+          <span className="text-lg leading-none">+</span> Cadastrar categoria
+        </button>
+      </div>
 
-      <Card>
-        <h3 className="text-xl font-black text-white">Categorias cadastradas</h3>
-        <p className="mt-1 text-sm text-slate-400">{categoriasDb.length} categoria(s) — salvas no banco de dados.</p>
-        <div className="mt-5 space-y-2">
-          {categoriasDb.length === 0 && <p className="text-sm text-slate-500">Nenhuma categoria. Execute a migration 010 e cadastre acima.</p>}
-          {categoriasDb.map((c) => {
+      {/* Busca + lista */}
+      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+        <div className="relative mb-4">
+          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">🔍</span>
+          <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar categoria..."
+            className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-blue-400" />
+        </div>
+        <div className="space-y-2">
+          {categoriasDb.length === 0 && (
+            <div className="py-10 text-center">
+              <p className="text-sm text-slate-500">Nenhuma categoria cadastrada.</p>
+              <button onClick={() => setCriando(true)} className="mt-3 rounded-2xl border border-blue-400/30 bg-blue-500/15 px-4 py-2 text-xs font-black text-blue-200 hover:bg-blue-500/25">+ Cadastrar categoria</button>
+            </div>
+          )}
+          {categoriasDb.length > 0 && filtradas.length === 0 && <p className="py-6 text-center text-sm text-slate-500">Nenhuma categoria encontrada.</p>}
+          {filtradas.map((c) => {
             const usos = contagem(c.nome);
             return (
               <div key={c.id} className="flex items-center gap-3 rounded-3xl border border-white/10 bg-slate-950/40 p-3">
@@ -4438,8 +4457,9 @@ function CategoriaAdmin({ categoriasDb, produtos, addCategoria, toggleCategoria,
             );
           })}
         </div>
-      </Card>
+      </div>
 
+      {criando && <CategoriaCadastroModal onSalvar={salvarNova} onFechar={() => setCriando(false)} />}
       {excluir && (
         <ConfirmModal titulo="Excluir categoria?"
           mensagem={`Excluir a categoria "${excluir.nome}"? ${contagem(excluir.nome) > 0 ? `Atenção: ${contagem(excluir.nome)} produto(s) usam esta categoria.` : ""} Você pode apenas inativá-la.`}
@@ -4448,6 +4468,43 @@ function CategoriaAdmin({ categoriasDb, produtos, addCategoria, toggleCategoria,
           onCancelar={() => setExcluir(null)} />
       )}
     </main>
+  );
+}
+
+// Modal de cadastro de nova categoria (mesmo padrão do produto)
+function CategoriaCadastroModal({ onSalvar, onFechar }) {
+  const [nome, setNome] = useState("");
+  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400 placeholder:text-slate-600";
+  const lbl = "mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500";
+  const valido = nome.trim().length > 0;
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onFechar}>
+      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-md flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl">
+        <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+          <div className="flex items-center gap-2">
+            <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-blue-500/15 text-lg">🏷️</span>
+            <h2 className="text-lg font-black text-white">Nova categoria</h2>
+          </div>
+          <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20">✕</button>
+        </div>
+        <div className="px-6 py-5 space-y-3">
+          <div>
+            <span className={lbl}>Nome da categoria *</span>
+            <input autoFocus value={nome} onChange={(e) => setNome(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && valido) onSalvar(nome); }}
+              placeholder="Ex.: Massas, Porções, Vinhos..." className={inp} />
+          </div>
+          <p className="text-xs text-slate-500">A categoria fica disponível imediatamente no cadastro de produtos e no cardápio.</p>
+        </div>
+        <div className="shrink-0 border-t border-white/10 px-6 py-4 flex gap-3">
+          <button onClick={onFechar} className="flex-1 rounded-2xl border border-white/10 bg-white/[0.06] py-3.5 text-sm font-black text-slate-300 hover:bg-white/10">Cancelar</button>
+          <button onClick={() => onSalvar(nome)} disabled={!valido}
+            className="flex-[2] rounded-2xl bg-blue-500 py-3.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+            + Cadastrar categoria
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
