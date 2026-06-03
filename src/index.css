@@ -6,6 +6,21 @@ body {
   margin: 0;
 }
 
+/* ── Responsividade global: ajusta a todas as resoluções ────── */
+html {
+  -webkit-text-size-adjust: 100%;   /* evita iOS inflar o texto */
+  text-size-adjust: 100%;
+}
+html, body, #root {
+  min-height: 100vh;
+  min-height: 100dvh;               /* altura real do viewport (mobile) */
+}
+body {
+  overflow-x: hidden;               /* nunca rola lateralmente em telas pequenas */
+}
+/* Mídia/QR e imagens nunca estouram a largura do container */
+img, svg, video, canvas { max-width: 100%; }
+
 /* ── Scrollbar minimalista (global) ─────────────────────────── */
 * {
   scrollbar-width: thin;                         /* Firefox */
