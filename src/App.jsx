@@ -1778,7 +1778,7 @@ function ProdutoModal({ produto, onFechar, onAdicionar }) {
                 placeholder="Ex.: bacon, queijo extra..."
                 className="flex-1 rounded-2xl border border-white/10 bg-slate-800 px-3 py-2.5 text-sm text-white outline-none focus:border-blue-400" />
               <button onClick={addExtra}
-                className="rounded-2xl bg-blue-500 px-4 py-2.5 text-sm font-black text-white hover:bg-blue-400 transition">+ Add</button>
+                className="rounded-2xl bg-blue-500 px-4 py-2.5 text-sm font-black text-white hover:bg-blue-400 transition">Adicionar</button>
             </div>
             {extras.length > 0 && (
               <div className="mt-2 flex flex-wrap gap-1.5">
