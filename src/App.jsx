@@ -3256,7 +3256,7 @@ function AdminView({ products, categories, adminForm, setAdminForm, addProduct, 
             </select>
           </div>
         )}
-        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-5">
+        <nav className="scrollbar-none flex-1 overflow-y-auto px-3 py-4 space-y-5">
           {menu.map((g) => (
             <div key={g.grupo}>
               <p className="px-3 mb-1.5 text-xs font-bold uppercase tracking-widest text-slate-600">{g.grupo}</p>

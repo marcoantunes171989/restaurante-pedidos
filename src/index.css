@@ -6,6 +6,27 @@ body {
   margin: 0;
 }
 
+/* ── Scrollbar minimalista (global) ─────────────────────────── */
+* {
+  scrollbar-width: thin;                         /* Firefox */
+  scrollbar-color: rgba(148, 163, 184, 0.25) transparent;
+}
+*::-webkit-scrollbar { width: 6px; height: 6px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.22);
+  border-radius: 9999px;
+}
+*::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, 0.4); }
+*::-webkit-scrollbar-corner { background: transparent; }
+
+/* Oculta totalmente a barra (mantendo o scroll) — usado no menu lateral */
+.scrollbar-none {
+  scrollbar-width: none;        /* Firefox */
+  -ms-overflow-style: none;     /* IE/Edge antigo */
+}
+.scrollbar-none::-webkit-scrollbar { width: 0; height: 0; display: none; }
+
 /* Mantém o fundo escuro padrão mesmo quando o navegador preenche automaticamente (autofill) */
 input:-webkit-autofill,
 input:-webkit-autofill:hover,
