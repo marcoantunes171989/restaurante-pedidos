@@ -1067,6 +1067,7 @@ export default function RestaurantePedidoApp() {
     } catch { setAccesses((cur) => [...cur, na]); }
     setAccessForm({ id: "", label: "", desc: "", type: "Operacional" });
     notify("success", "Permissão de acesso cadastrada com sucesso.");
+    return true;
   }
 
   async function toggleUserAccess(uid, aid) {
@@ -5366,7 +5367,122 @@ function UsuarioEditModal({ usuario, cargos = [], onSalvar, onFechar }) {
 }
 
 function AccessAdmin({ accesses, accessForm, setAccessForm, addAccess, toggleAccessStatus }) {
-  return <main className="grid gap-6 lg:grid-cols-[430px_1fr]"><Card className="lg:self-start"><h3 className="text-xl font-black text-white">Cadastro de permissão de acesso</h3><p className="mt-1 text-sm text-slate-300">Cadastre códigos de telas/módulos para controlar o menu do usuário.</p><div className="mt-5 space-y-3"><input value={accessForm.id} onChange={(e) => setAccessForm({ ...accessForm, id: e.target.value })} placeholder="Código do acesso. Ex.: relatorios" className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none" /><input value={accessForm.label} onChange={(e) => setAccessForm({ ...accessForm, label: e.target.value })} placeholder="Nome do acesso" className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none" /><input value={accessForm.desc} onChange={(e) => setAccessForm({ ...accessForm, desc: e.target.value })} placeholder="Descrição" className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none" /><input value={accessForm.type} onChange={(e) => setAccessForm({ ...accessForm, type: e.target.value })} placeholder="Tipo / grupo" className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none" /><button onClick={addAccess} className="w-full rounded-2xl bg-blue-500 px-5 py-4 text-sm font-black text-white">Cadastrar permissão</button></div></Card><Card><h3 className="text-xl font-black text-white">Permissões cadastradas</h3><div className="mt-5 space-y-3">{accesses.map((a) => <div key={a.id} className="grid gap-3 rounded-3xl border border-white/10 bg-slate-950/40 p-4 md:grid-cols-[1fr_120px_100px]"><div><p className="font-black text-white">{a.label}</p><p className="text-sm text-slate-400">{a.id} • {a.type}</p><p className="mt-1 text-xs text-slate-500">{a.desc}</p></div><span className={`h-fit rounded-full px-3 py-2 text-center text-xs font-black ${a.active ? "bg-emerald-500 text-white" : "bg-slate-700 text-slate-200"}`}>{a.active ? "Ativo" : "Inativo"}</span><button onClick={() => toggleAccessStatus(a.id)} className="rounded-2xl border border-white/10 bg-white/[0.08] px-3 py-2 text-xs font-black text-white">Alterar</button></div>)}</div></Card></main>;
+  const [criando, setCriando] = useState(false);
+  const [busca, setBusca]     = useState("");
+
+  function abrirCadastro() {
+    setAccessForm({ id: "", label: "", desc: "", type: "Operacional" });
+    setCriando(true);
+  }
+  async function salvarNovo() {
+    const ok = await addAccess();
+    if (ok) setCriando(false);
+  }
+
+  const termo = busca.trim().toLowerCase();
+  const filtrados = termo ? accesses.filter((a) => `${a.label} ${a.id} ${a.type} ${a.desc}`.toLowerCase().includes(termo)) : accesses;
+
+  return (
+    <main className="space-y-5">
+      {/* Cabeçalho: título + contadores + botão cadastrar */}
+      <div className="flex flex-col gap-4 rounded-[2rem] border border-white/10 bg-white/[0.04] p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h3 className="text-xl font-black text-white">Permissões</h3>
+          <p className="mt-0.5 text-sm text-slate-400">
+            <span className="font-bold text-white">{accesses.length}</span> no total •
+            <span className="text-emerald-300"> {accesses.filter((a) => a.active).length} ativas</span> •
+            <span className="text-slate-500"> {accesses.filter((a) => !a.active).length} inativas</span>
+          </p>
+          <p className="mt-1 text-xs text-slate-500">Códigos de telas/módulos que controlam o menu de cada usuário.</p>
+        </div>
+        <button onClick={abrirCadastro}
+          className="flex items-center justify-center gap-2 rounded-2xl bg-blue-500 px-6 py-3.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95 shadow-lg shadow-blue-950/30">
+          <span className="text-lg leading-none">+</span> Cadastrar permissão
+        </button>
+      </div>
+
+      {/* Busca + lista */}
+      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+        <div className="relative mb-4">
+          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">🔍</span>
+          <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar permissão..."
+            className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-blue-400" />
+        </div>
+        <div className="space-y-2">
+          {accesses.length === 0 && (
+            <div className="py-10 text-center">
+              <p className="text-sm text-slate-500">Nenhuma permissão cadastrada.</p>
+              <button onClick={abrirCadastro} className="mt-3 rounded-2xl border border-blue-400/30 bg-blue-500/15 px-4 py-2 text-xs font-black text-blue-200 hover:bg-blue-500/25">+ Cadastrar permissão</button>
+            </div>
+          )}
+          {accesses.length > 0 && filtrados.length === 0 && <p className="py-6 text-center text-sm text-slate-500">Nenhuma permissão encontrada.</p>}
+          {filtrados.map((a) => (
+            <div key={a.id} className="flex items-center gap-3 rounded-3xl border border-white/10 bg-slate-950/40 p-3">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/[0.06] text-lg">🔐</span>
+              <div className="min-w-0 flex-1">
+                <p className="font-black text-white truncate">{a.label}</p>
+                <p className="text-xs text-slate-400 truncate">
+                  <span className="font-mono text-blue-300">{a.id}</span>{a.type ? ` • ${a.type}` : ""}
+                </p>
+                {a.desc && <p className="text-[11px] text-slate-500 truncate">{a.desc}</p>}
+              </div>
+              <button onClick={() => toggleAccessStatus(a.id)} className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-black ${a.active ? "bg-emerald-500 text-white" : "bg-slate-700 text-slate-200"}`}>{a.active ? "Ativa" : "Inativa"}</button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {criando && <PermissaoCadastroModal accessForm={accessForm} setAccessForm={setAccessForm} onSalvar={salvarNovo} onFechar={() => setCriando(false)} />}
+    </main>
+  );
+}
+
+// Modal de cadastro de permissão de acesso (mesmo padrão dos demais)
+function PermissaoCadastroModal({ accessForm, setAccessForm, onSalvar, onFechar }) {
+  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400 placeholder:text-slate-600";
+  const lbl = "mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500";
+  const valido = (accessForm.id || "").trim() && (accessForm.label || "").trim();
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onFechar}>
+      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-md flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl">
+        <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+          <div className="flex items-center gap-2">
+            <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-blue-500/15 text-lg">🔐</span>
+            <h2 className="text-lg font-black text-white">Nova permissão</h2>
+          </div>
+          <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20">✕</button>
+        </div>
+        <div className="px-6 py-5 space-y-3">
+          <div>
+            <label className={lbl}>Código do acesso *</label>
+            <input autoFocus value={accessForm.id} onChange={(e) => setAccessForm({ ...accessForm, id: e.target.value })} placeholder="Ex.: relatorios" className={`${inp} font-mono`} />
+            <p className="mt-1 text-[11px] text-slate-500">Sem espaços/acentos — usado internamente para montar o menu.</p>
+          </div>
+          <div>
+            <label className={lbl}>Nome do acesso *</label>
+            <input value={accessForm.label} onChange={(e) => setAccessForm({ ...accessForm, label: e.target.value })} placeholder="Ex.: Relatórios" className={inp} />
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label className={lbl}>Tipo / grupo</label>
+              <input value={accessForm.type} onChange={(e) => setAccessForm({ ...accessForm, type: e.target.value })} placeholder="Ex.: Operacional" className={inp} />
+            </div>
+            <div>
+              <label className={lbl}>Descrição</label>
+              <input value={accessForm.desc} onChange={(e) => setAccessForm({ ...accessForm, desc: e.target.value })} placeholder="Breve descrição" className={inp} />
+            </div>
+          </div>
+        </div>
+        <div className="shrink-0 border-t border-white/10 px-6 py-4 flex gap-3">
+          <button onClick={onFechar} className="flex-1 rounded-2xl border border-white/10 bg-white/[0.06] py-3.5 text-sm font-black text-slate-300 hover:bg-white/10">Cancelar</button>
+          <button onClick={onSalvar} disabled={!valido}
+            className="flex-[2] rounded-2xl bg-blue-500 py-3.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+            + Cadastrar permissão
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function UserAccessAdmin({ users, accesses, toggleUserAccess, lojas = [], isSuperAdmin = false }) {
