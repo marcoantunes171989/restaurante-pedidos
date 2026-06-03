@@ -371,7 +371,7 @@ export default function LandingPage({ navigate }) {
       {/* ── Funcionalidades ───────────────────────────────── */}
       <section id="funcionalidades" className="scroll-mt-24 bg-white py-16 sm:py-20">
         <div className="mx-auto max-w-6xl px-5">
-          <TituloSecao tag="Funcionalidades" titulo="Tudo que o seu salão precisa, em uma só plataforma" subtitulo="Do pedido na mesa ao fechamento no caixa, com a cozinha sincronizada em tempo real." />
+          <TituloSecao tag="Funcionalidades" titulo="Tudo que o seu estabelecimento precisa, em uma só plataforma" subtitulo="Do pedido na mesa ao fechamento no caixa, com a cozinha sincronizada em tempo real." />
           <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {FEATURES.map((f) => <FeatureCard key={f.title} {...f} />)}
           </div>
