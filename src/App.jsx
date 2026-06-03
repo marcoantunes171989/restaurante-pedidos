@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useCallback } from "react";
+import React, { useMemo, useState, useEffect, useCallback, useRef } from "react";
 import {
   fetchProdutos,  inserirProduto,  atualizarProduto,  escutarProdutos,
   fetchUsuarios,  inserirUsuario,  atualizarUsuario,  atualizarUsuariosPorLoja,  escutarUsuarios,
@@ -1311,6 +1311,45 @@ function TabletView({
       window.removeEventListener("keydown", tentar);
     };
   }, []);
+  // ── Tela de descanso (screensaver) ────────────────────────────
+  // Aparece ao entrar no tablet e volta após 5 min de inatividade.
+  // É apenas um overlay: NÃO desmonta o tablet, então carrinho, mesa,
+  // comanda e quantidades já informados permanecem intactos.
+  const [descansoAtivo, setDescansoAtivo] = useState(true);
+  const [descansoIdx, setDescansoIdx] = useState(0);
+  const idleTimerRef = useRef(null);
+  const INATIVIDADE_MS = 5 * 60 * 1000; // 5 minutos
+
+  // Imagens dos produtos (modo fosco) para o screensaver
+  const imagensDescanso = useMemo(() => {
+    const fromProducts = (products || []).filter((p) => p.imageUrl).map((p) => p.imageUrl);
+    const base = fromProducts.length > 0 ? fromProducts : initialProducts.map((p) => p.imageUrl);
+    return [...new Set(base)].slice(0, 12);
+  }, [products]);
+
+  // Reinicia o cronômetro de inatividade a cada interação do usuário
+  useEffect(() => {
+    if (descansoAtivo) return; // em descanso não conta inatividade
+    const reset = () => {
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+      idleTimerRef.current = setTimeout(() => setDescansoAtivo(true), INATIVIDADE_MS);
+    };
+    reset();
+    const evts = ["pointerdown", "pointermove", "keydown", "touchstart", "wheel", "scroll"];
+    evts.forEach((e) => window.addEventListener(e, reset, { passive: true }));
+    return () => {
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+      evts.forEach((e) => window.removeEventListener(e, reset));
+    };
+  }, [descansoAtivo]);
+
+  // Troca a imagem de fundo do screensaver periodicamente (efeito "passando imagens")
+  useEffect(() => {
+    if (!descansoAtivo || imagensDescanso.length < 2) return;
+    const t = setInterval(() => setDescansoIdx((i) => (i + 1) % imagensDescanso.length), 4000);
+    return () => clearInterval(t);
+  }, [descansoAtivo, imagensDescanso.length]);
+
   const totalCartItems = cart.reduce((s, i) => s + i.quantity, 0);
   const comandaValida  = isValidCommand(commandCode);
   const temPedidoNaMesa = currentTableOrders.length > 0 && currentTableTotal > 0;
@@ -1775,6 +1814,54 @@ function TabletView({
           onConfirmar={() => { setConfirmarConta(false); requestBill(); }}
           onCancelar={() => setConfirmarConta(false)}
         />
+      )}
+
+      {/* ── Tela de descanso (screensaver) ───────────────────────
+          Overlay sobre o cardápio. Não desmonta o tablet → preserva
+          carrinho, mesa, comanda e quantidades já informados. */}
+      {descansoAtivo && (
+        <button
+          type="button"
+          onClick={() => setDescansoAtivo(false)}
+          className="absolute inset-0 z-[120] block w-full cursor-pointer overflow-hidden bg-slate-950 text-left">
+          {/* Imagens dos produtos em modo fosco (passando) */}
+          <div className="absolute inset-0">
+            {imagensDescanso.map((src, i) => (
+              <img key={src} src={src} alt=""
+                className="absolute inset-0 h-full w-full object-cover transition-opacity duration-1000"
+                style={{ opacity: i === descansoIdx ? 1 : 0, filter: "blur(8px) brightness(0.45) saturate(1.1)", transform: "scale(1.08)" }} />
+            ))}
+            {/* Camada fosca/escura por cima */}
+            <div className="absolute inset-0 bg-gradient-to-b from-slate-950/70 via-slate-950/55 to-slate-950/80 backdrop-blur-[2px]" />
+          </div>
+
+          {/* Faixa de miniaturas dos produtos (segmentos) */}
+          {imagensDescanso.length > 0 && (
+            <div className="absolute left-0 right-0 top-1/2 z-[1] flex -translate-y-[145%] items-center justify-center gap-3 px-6 opacity-60">
+              {imagensDescanso.slice(0, 6).map((src) => (
+                <img key={"thumb-" + src} src={src} alt=""
+                  className="h-16 w-16 shrink-0 rounded-2xl object-cover shadow-xl ring-1 ring-white/10"
+                  style={{ filter: "grayscale(0.2) brightness(0.85)" }} />
+              ))}
+            </div>
+          )}
+
+          {/* Anúncio central */}
+          <div className="relative z-[2] flex h-full flex-col items-center justify-center px-8 text-center">
+            <div className="flex flex-col items-center gap-5 rounded-[2.5rem] border border-white/15 bg-white/[0.06] px-10 py-12 shadow-2xl backdrop-blur-xl">
+              <span className="text-6xl">🍽️</span>
+              <div>
+                <p className="text-sm font-black uppercase tracking-[0.35em] text-blue-300">{lojaInfo?.nome || "Cardápio digital"}</p>
+                <h2 className="mt-3 text-4xl font-black leading-tight text-white sm:text-5xl">Bem-vindo!</h2>
+                <p className="mt-2 max-w-md text-base text-slate-300">Conheça nossos pratos e monte seu pedido direto da mesa.</p>
+              </div>
+              <div className="mt-2 flex items-center gap-3 rounded-full bg-blue-500 px-8 py-4 text-lg font-black text-white shadow-lg shadow-blue-900/40 animate-pulse">
+                👆 Toque na tela para iniciar o pedido
+              </div>
+            </div>
+            <p className="mt-8 text-xs text-slate-400">{totalCartItems > 0 ? `Seu pedido foi mantido — ${totalCartItems} ${totalCartItems === 1 ? "item" : "itens"} no carrinho` : "Toque em qualquer ponto para começar"}</p>
+          </div>
+        </button>
       )}
 
     </div>
