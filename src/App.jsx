@@ -1284,6 +1284,18 @@ function TabletView({
   }, []);
   // Sai da tela cheia ao trocar de tela (desmontar o tablet)
   useEffect(() => () => sairTelaCheia(), []);
+  // Trava a rolagem da página atrás do overlay: no celular, o conteúdo de fundo
+  // (maior que a viewport) deixava rolar e aparecer área vazia fora da tela fixa.
+  useEffect(() => {
+    const htmlOv = document.documentElement.style.overflow;
+    const bodyOv = document.body.style.overflow;
+    document.documentElement.style.overflow = "hidden";
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.documentElement.style.overflow = htmlOv;
+      document.body.style.overflow = bodyOv;
+    };
+  }, []);
   // Abre em tela cheia nativa automaticamente no primeiro toque/clique/tecla
   // (navegadores exigem um gesto do usuário — não é possível disparar só ao montar)
   useEffect(() => {

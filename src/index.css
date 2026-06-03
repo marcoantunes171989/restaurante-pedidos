@@ -4,6 +4,7 @@
 
 body {
   margin: 0;
+  background-color: #020617; /* slate-950: evita faixa branca quando o overlay não cobre 100% no mobile */
 }
 
 /* ── Responsividade global: ajusta a todas as resoluções ────── */
