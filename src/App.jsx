@@ -3692,17 +3692,107 @@ function RelatoriosAdmin({ orders, products, lojaInfo }) {
     baixarArquivo("﻿" + csv, `relatorio-vendas-${periodo}.csv`, "text/csv;charset=utf-8");
   }
   function imprimirRelatorio() {
-    const j = window.open("", "_blank", "width=800,height=600");
-    j.document.write(`<html><head><meta charset="UTF-8"><title>Relatório de Vendas</title>
-    <style>body{font-family:Arial;padding:20px;color:#000}h1{font-size:18px}table{width:100%;border-collapse:collapse;margin-top:10px}th,td{border:1px solid #ccc;padding:8px;text-align:left;font-size:13px}th{background:#eee}.r{text-align:right}.tot{font-weight:bold}</style>
-    </head><body>
-    <h1>Relatório de Vendas</h1>
-    <p>Período: ${periodo === "periodo" ? `${ini} a ${fim}` : periodo} — Emitido em ${new Date().toLocaleString("pt-BR")}</p>
-    <table><thead><tr><th>Produto</th><th class="r">Qtd</th><th class="r">Faturamento</th></tr></thead><tbody>
-    ${a.topProdutos.map((p) => `<tr><td>${p.nome}</td><td class="r">${p.qtd}</td><td class="r">${formatCurrency(p.valor)}</td></tr>`).join("")}
-    <tr class="tot"><td>TOTAL</td><td class="r">${a.topProdutos.reduce((s,p)=>s+p.qtd,0)}</td><td class="r">${formatCurrency(a.faturamentoSemTaxa)}</td></tr>
-    </tbody></table>
-    <script>window.onload=()=>window.print()<\/script></body></html>`);
+    const empresa = lojaInfo?.nome || "Restaurante";
+    const prefixo = lojaInfo?.prefixo ? ` (${lojaInfo.prefixo})` : "";
+    const labels = { hoje: "Hoje", ontem: "Ontem", "7": "Últimos 7 dias", "15": "Últimos 15 dias", "30": "Últimos 30 dias", tudo: "Todo o período", periodo: `${ini || "—"} a ${fim || "—"}` };
+    const periodoTxt = labels[periodo] || periodo;
+    const totalQtd = a.topProdutos.reduce((s, p) => s + p.qtd, 0);
+    const maxQtd = Math.max(1, ...a.topProdutos.map((p) => p.qtd));
+    const maxCat = Math.max(1, ...a.categorias.map((c) => c.valor));
+
+    const linhasProd = a.topProdutos.map((p, i) => `
+      <tr>
+        <td class="rank">${i + 1}</td>
+        <td>${p.nome}</td>
+        <td class="r">${p.qtd}</td>
+        <td><div class="bar"><div class="fill" style="width:${(p.qtd / maxQtd) * 100}%"></div></div></td>
+        <td class="r b">${formatCurrency(p.valor)}</td>
+      </tr>`).join("");
+
+    const linhasCat = a.categorias.map((c) => `
+      <tr>
+        <td>${c.categoria}</td>
+        <td class="r">${c.qtd}</td>
+        <td><div class="bar"><div class="fill cat" style="width:${(c.valor / maxCat) * 100}%"></div></div></td>
+        <td class="r b">${formatCurrency(c.valor)}</td>
+      </tr>`).join("");
+
+    const corpo = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Relatório de Vendas — ${empresa}</title>
+    <style>
+      @page { size: A4; margin: 14mm 14mm 16mm; }
+      * { box-sizing: border-box; }
+      body { font-family: 'Segoe UI', Arial, sans-serif; color:#0f172a; margin:0; }
+      .head { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid #2563eb; padding-bottom:12px; }
+      .head .emp { font-size:22px; font-weight:800; }
+      .head .sub { font-size:12px; color:#475569; margin-top:2px; }
+      .head .doc { text-align:right; }
+      .head .doc .t { font-size:15px; font-weight:800; color:#2563eb; }
+      .head .doc .m { font-size:11px; color:#64748b; }
+      .meta { display:flex; gap:18px; flex-wrap:wrap; margin:12px 0 4px; font-size:12px; color:#475569; }
+      .meta b { color:#0f172a; }
+      .kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin:16px 0; }
+      .kpi { border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; background:#f8fafc; }
+      .kpi .l { font-size:10px; text-transform:uppercase; letter-spacing:.08em; color:#64748b; font-weight:700; }
+      .kpi .v { font-size:18px; font-weight:800; margin-top:3px; }
+      .kpi .v.green { color:#059669; } .kpi .v.blue { color:#2563eb; }
+      h2 { font-size:14px; margin:18px 0 6px; color:#0f172a; }
+      table { width:100%; border-collapse:collapse; font-size:12px; }
+      thead th { background:#0f172a; color:#fff; text-align:left; padding:8px 10px; font-size:11px; }
+      thead th.r, td.r { text-align:right; }
+      tbody td { padding:7px 10px; border-bottom:1px solid #e2e8f0; }
+      tbody tr:nth-child(even) td { background:#f8fafc; }
+      td.rank { color:#2563eb; font-weight:800; width:26px; }
+      td.b, .b { font-weight:800; }
+      tfoot td { padding:9px 10px; font-weight:800; border-top:2px solid #0f172a; background:#eff6ff; }
+      .bar { height:8px; background:#e2e8f0; border-radius:99px; overflow:hidden; min-width:90px; }
+      .fill { height:100%; background:#3b82f6; } .fill.cat { background:#10b981; }
+      .foot { margin-top:22px; padding-top:10px; border-top:1px solid #e2e8f0; font-size:10px; color:#94a3b8; display:flex; justify-content:space-between; }
+    </style></head><body>
+      <div class="head">
+        <div>
+          <div class="emp">${empresa}${prefixo}</div>
+          <div class="sub">Sistema de Pedidos — Gestão de vendas</div>
+        </div>
+        <div class="doc">
+          <div class="t">RELATÓRIO DE VENDAS</div>
+          <div class="m">Emitido em ${new Date().toLocaleString("pt-BR")}</div>
+        </div>
+      </div>
+      <div class="meta">
+        <span>Período: <b>${periodoTxt}</b></span>
+        <span>Cupons pagos: <b>${a.pagos.length}</b></span>
+        <span>Pedidos no período: <b>${a.totalPedidos}</b></span>
+      </div>
+      <div class="kpis">
+        <div class="kpi"><div class="l">Subtotal vendido</div><div class="v">${formatCurrency(a.faturamentoSemTaxa)}</div></div>
+        <div class="kpi"><div class="l">Faturamento + taxa</div><div class="v green">${formatCurrency(a.faturamento)}</div></div>
+        <div class="kpi"><div class="l">Ticket médio</div><div class="v blue">${formatCurrency(a.ticket)}</div></div>
+        <div class="kpi"><div class="l">Itens vendidos</div><div class="v">${totalQtd}</div></div>
+      </div>
+
+      <h2>Produtos mais vendidos</h2>
+      <table>
+        <thead><tr><th>#</th><th>Produto</th><th class="r">Qtd</th><th>Participação</th><th class="r">Faturamento</th></tr></thead>
+        <tbody>${linhasProd || `<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:14px">Nenhuma venda no período.</td></tr>`}</tbody>
+        ${a.topProdutos.length ? `<tfoot><tr><td colspan="2">TOTAL</td><td class="r">${totalQtd}</td><td></td><td class="r">${formatCurrency(a.faturamentoSemTaxa)}</td></tr></tfoot>` : ""}
+      </table>
+
+      ${a.categorias.length ? `
+      <h2>Vendas por categoria</h2>
+      <table>
+        <thead><tr><th>Categoria</th><th class="r">Qtd</th><th>Participação</th><th class="r">Faturamento</th></tr></thead>
+        <tbody>${linhasCat}</tbody>
+      </table>` : ""}
+
+      <div class="foot">
+        <span>${empresa} — Relatório gerencial de vendas</span>
+        <span>Documento sem valor fiscal</span>
+      </div>
+      <script>window.onload=function(){window.print();}<\/script>
+    </body></html>`;
+    const j = window.open("", "_blank", "width=900,height=700");
+    if (!j) return;
+    j.document.write(corpo);
     j.document.close();
   }
 
