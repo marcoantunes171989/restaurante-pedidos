@@ -7,6 +7,9 @@ import { useState } from "react";
 // ════════════════════════════════════════════════════════════
 
 const NOME_SISTEMA = "MesaSmart";
+// ⚠️ Defina aqui o WhatsApp comercial (formato internacional, só números): DDI + DDD + número.
+// Ex.: Brasil (11) 99999-9999 → "5511999999999"
+const WHATSAPP_COMERCIAL = "5511999999999";
 
 // ── Dados (reutilizáveis) ────────────────────────────────────
 const NAV = [
@@ -265,7 +268,22 @@ export default function LandingPage({ navigate }) {
 
   function enviarContato(e) {
     e.preventDefault();
-    // TODO: integrar com backend/CRM. Por ora, apenas visual.
+    const f = new FormData(e.target);
+    const v = (k) => (f.get(k) || "").toString().trim();
+    const linhas = [
+      `*Solicitação de demonstração — ${NOME_SISTEMA}*`,
+      "",
+      `Nome: ${v("nome") || "-"}`,
+      `Estabelecimento: ${v("estabelecimento") || "-"}`,
+      `WhatsApp: ${v("whatsapp") || "-"}`,
+      `E-mail: ${v("email") || "-"}`,
+      `Segmento: ${v("segmento") || "-"}`,
+      `Mesas (aprox.): ${v("mesas") || "-"}`,
+      v("mensagem") ? `\nMensagem: ${v("mensagem")}` : "",
+    ];
+    const texto = linhas.join("\n");
+    // Abre o WhatsApp comercial com a mensagem pré-montada (preparado p/ CRM no futuro)
+    window.open(`https://wa.me/${WHATSAPP_COMERCIAL}?text=${encodeURIComponent(texto)}`, "_blank");
     setEnviado(true);
   }
 
@@ -486,30 +504,30 @@ export default function LandingPage({ navigate }) {
               ) : (
                 <form onSubmit={enviarContato} className="space-y-3">
                   <div className="grid gap-3 sm:grid-cols-2">
-                    <Campo label="Nome" placeholder="Seu nome" required />
-                    <Campo label="Estabelecimento" placeholder="Nome do estabelecimento" required />
+                    <Campo name="nome" label="Nome" placeholder="Seu nome" required />
+                    <Campo name="estabelecimento" label="Estabelecimento" placeholder="Nome do estabelecimento" required />
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2">
-                    <Campo label="WhatsApp" placeholder="(00) 00000-0000" />
-                    <Campo label="E-mail" type="email" placeholder="voce@email.com" required />
+                    <Campo name="whatsapp" label="WhatsApp" placeholder="(00) 00000-0000" />
+                    <Campo name="email" label="E-mail" type="email" placeholder="voce@email.com" required />
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div>
                       <label className={LBL}>Segmento</label>
-                      <select className={INP} defaultValue="">
+                      <select name="segmento" className={INP} defaultValue="">
                         <option value="" disabled>Selecione…</option>
                         {SEGMENTOS.map((s) => <option key={s.label}>{s.label}</option>)}
                         <option>Outro</option>
                       </select>
                     </div>
-                    <Campo label="Mesas (aprox.)" placeholder="Ex.: 20" />
+                    <Campo name="mesas" label="Mesas (aprox.)" placeholder="Ex.: 20" />
                   </div>
                   <div>
                     <label className={LBL}>Mensagem</label>
-                    <textarea rows={3} placeholder="Conte um pouco sobre a sua operação..." className={`${INP} resize-none`} />
+                    <textarea name="mensagem" rows={3} placeholder="Conte um pouco sobre a sua operação..." className={`${INP} resize-none`} />
                   </div>
-                  <button type="submit" className="w-full rounded-2xl bg-blue-600 py-3.5 text-sm font-black text-white transition hover:bg-blue-500 active:scale-95 shadow-lg shadow-blue-600/25">Enviar Solicitação</button>
-                  <p className="text-center text-[11px] text-slate-400">Seus dados são usados apenas para contato comercial.</p>
+                  <button type="submit" className="w-full rounded-2xl bg-blue-600 py-3.5 text-sm font-black text-white transition hover:bg-blue-500 active:scale-95 shadow-lg shadow-blue-600/25">💬 Enviar pelo WhatsApp</button>
+                  <p className="text-center text-[11px] text-slate-400">Abre o WhatsApp com a sua solicitação pronta para envio.</p>
                 </form>
               )}
             </div>
@@ -546,11 +564,11 @@ export default function LandingPage({ navigate }) {
 const INP = "w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-400 focus:bg-white placeholder:text-slate-400";
 const LBL = "mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500";
 
-function Campo({ label, type = "text", placeholder, required }) {
+function Campo({ name, label, type = "text", placeholder, required }) {
   return (
     <div>
       <label className={LBL}>{label}</label>
-      <input type={type} placeholder={placeholder} required={required} className={INP} />
+      <input name={name} type={type} placeholder={placeholder} required={required} className={INP} />
     </div>
   );
 }

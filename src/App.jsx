@@ -385,6 +385,10 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
         </div>
 
         <p className="mt-6 text-center text-xs text-slate-600">Acesso controlado por usuário e permissão</p>
+        <div className="mt-3 text-center">
+          <button onClick={() => { window.location.href = "/"; }}
+            className="text-xs font-bold text-slate-500 transition hover:text-blue-400">← Voltar ao site</button>
+        </div>
       </div>
     </div>
   );
