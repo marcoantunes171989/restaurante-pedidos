@@ -2497,6 +2497,7 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
   const [modoItens, setModoItens] = useState(false);             // seleção parcial por item
   const [selecao, setSelecao] = useState({});                    // { "orderId::idx": { incluir, dividir } }
   const [pagamentosFeitos, setPagamentosFeitos] = useState([]);  // pagamentos parciais acumulados
+  const [logFinanceiro, setLogFinanceiro] = useState([]);        // log de parcelas pagas/reabertas (relatório da sessão)
   const [reimpressaoAberta, setReimpressaoAberta] = useState(false); // lista de cupons do dia
   const [cupomReimpressao, setCupomReimpressao] = useState(null);    // cupom selecionado para reimprimir
 
@@ -2536,16 +2537,23 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
     return { comanda: cmd, pedidos: ped, subtotal: sub };
   });
 
+  // Itens já marcados como PAGOS em pagamentos parciais anteriores (chave "oid::idx")
+  const chavesPagas = new Set(
+    pagamentosFeitos.flatMap((p) => (p.itens || []).map((it) => it.key))
+  );
+
   // Subtotal considerando o modo: conta cheia OU itens selecionados (com divisão por item)
   let subtotal = 0;
   const itensPagosAgora = []; // para cupom/comprovante
   pedidos.forEach((o) => o.items.forEach((it, idx) => {
+    const key = chaveItem(o.id, idx);
+    if (chavesPagas.has(key)) return; // item já pago em parcela anterior → não recobra
     const s = selDe(o.id, idx);
     const incluir = modoItens ? s.incluir : true;
     if (incluir) {
       const valor = (it.price * it.quantity) / (s.dividir || 1);
       subtotal += valor;
-      itensPagosAgora.push({ oid: o.id, comanda: o.command, name: it.name, quantity: it.quantity, valor, dividir: s.dividir || 1 });
+      itensPagosAgora.push({ key, oid: o.id, comanda: o.command, name: it.name, quantity: it.quantity, valor, dividir: s.dividir || 1 });
     }
   }));
   const taxa = subtotal * 0.1;
@@ -2586,6 +2594,7 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
   function removerComanda(cmd) {
     setComandasLidas((cur) => cur.filter((c) => c !== cmd));
     setPagamentosFeitos([]); // ao alterar as comandas, zera os pagamentos parciais
+    setLogFinanceiro([]);
   }
   // Carrega todas as comandas de uma mesa solicitante de uma vez
   function carregarMesa(comandasDaMesa) {
@@ -2678,7 +2687,24 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
   // Chamado pelo modal de pagamento ao confirmar
   function confirmarPagamento({ detalhes, troco }) {
     const valorPago = aPagar; // valor cobrado neste pagamento
-    const novosPagamentos = [...pagamentosFeitos, { valor: valorPago, troco, detalhes, hora: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) }];
+    const hora = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+    // Itens marcados como PAGOS nesta parcela (apenas no modo de seleção por item)
+    const itensDaParcela = modoItens
+      ? itensPagosAgora
+          .filter((it) => (it.dividir || 1) === 1) // só marca PAGO itens cobrados integralmente
+          .map((it) => ({ key: it.key, oid: it.oid, comanda: it.comanda, name: it.name, quantity: it.quantity, valor: it.valor }))
+      : [];
+    const parcelaId = Date.now();
+    const novosPagamentos = [...pagamentosFeitos, { id: parcelaId, valor: valorPago, troco, detalhes, hora, itens: itensDaParcela }];
+    // Log financeiro: parcela paga
+    setLogFinanceiro((cur) => [
+      ...cur,
+      {
+        tipo: "pago", parcelaId, hora, valor: valorPago,
+        formas: detalhes.map((d) => d.forma).join(", "),
+        itens: itensDaParcela.map((it) => `${it.quantity}x ${it.name}`),
+      },
+    ]);
     const totalPagoAgora = jaPago + valorPago;
     const quitado = totalPagoAgora >= totalGeral - 0.01;
 
@@ -2701,10 +2727,29 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
       });
       setPagamentosFeitos([]);
       setComandasLidas([]);
+      setLogFinanceiro([]);
     } else {
       // PARCIAL → mantém a comanda em tela, acumula o pago, aguarda o restante
       setPagamentosFeitos(novosPagamentos);
     }
+  }
+
+  // Cancela uma parcela paga → itens voltam a "em aberto" e o valor volta a "falta pagar".
+  // Registra o log da reabertura do título da parcela financeira.
+  function cancelarPagamento(parcelaId) {
+    const p = pagamentosFeitos.find((x) => x.id === parcelaId);
+    if (!p) return;
+    setPagamentosFeitos((cur) => cur.filter((x) => x.id !== parcelaId));
+    setLogFinanceiro((cur) => [
+      ...cur,
+      {
+        tipo: "reaberto", parcelaId,
+        hora: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+        valor: p.valor,
+        formas: (p.detalhes || []).map((d) => d.forma).join(", "),
+        itens: (p.itens || []).map((it) => `${it.quantity}x ${it.name}`),
+      },
+    ]);
   }
 
   return (
@@ -2803,16 +2848,18 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
                   <div key={o.id} className="px-5 py-3">
                     <p className="mb-1 text-xs font-bold uppercase tracking-widest text-slate-500">{o.id} • {o.createdAt}</p>
                     {o.items.map((it, i) => {
+                      const pago = chavesPagas.has(chaveItem(o.id, i));
                       const s = selDe(o.id, i);
-                      const incluido = modoItens ? s.incluir : true;
+                      const incluido = !pago && (modoItens ? s.incluir : true);
                       const valor = (it.price * it.quantity) / (s.dividir || 1);
                       return (
-                        <div key={i} className={`flex items-center justify-between gap-2 rounded-xl py-1.5 text-sm ${modoItens ? "px-2 " + (incluido ? "bg-emerald-500/5" : "opacity-50") : ""}`}>
+                        <div key={i} className={`flex items-center justify-between gap-2 rounded-xl py-1.5 text-sm ${pago ? "px-2 bg-emerald-500/10" : modoItens ? "px-2 " + (incluido ? "bg-emerald-500/5" : "opacity-50") : ""}`}>
                           <div className="flex min-w-0 flex-1 items-center gap-2">
-                            {modoItens && (
+                            {modoItens && !pago && (
                               <input type="checkbox" checked={incluido} onChange={() => toggleItem(o.id, i)} className="h-4 w-4 shrink-0 accent-emerald-500" />
                             )}
-                            <span className="text-slate-300 truncate"><span className="font-black text-white">{it.quantity}x</span> {it.name}</span>
+                            <span className={`truncate ${pago ? "text-emerald-200/70 line-through" : "text-slate-300"}`}><span className={`font-black ${pago ? "text-emerald-200/70" : "text-white"}`}>{it.quantity}x</span> {it.name}</span>
+                            {pago && <span className="shrink-0 rounded-md bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-emerald-300">✓ Pago</span>}
                           </div>
                           {modoItens && incluido && (
                             <div className="flex shrink-0 items-center gap-1 rounded-lg bg-white/5 px-1.5 py-0.5">
@@ -2822,7 +2869,7 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
                               <button onClick={() => setDividir(o.id, i, (s.dividir || 1) + 1)} className="h-5 w-5 rounded bg-blue-500 text-xs font-black text-white">+</button>
                             </div>
                           )}
-                          <span className="shrink-0 font-bold text-white">{formatCurrency(valor)}</span>
+                          <span className={`shrink-0 font-bold ${pago ? "text-emerald-200/70 line-through" : "text-white"}`}>{formatCurrency(valor)}</span>
                         </div>
                       );
                     })}
@@ -2858,11 +2905,21 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
                 <p className="mb-2 text-xs font-black uppercase tracking-widest text-emerald-300">✅ Pagamentos realizados ({pagamentosFeitos.length})</p>
                 <div className="space-y-2">
                   {pagamentosFeitos.map((p, i) => (
-                    <div key={i} className="rounded-2xl bg-slate-900/60 px-3 py-2">
-                      <div className="flex items-center justify-between">
+                    <div key={p.id ?? i} className="rounded-2xl bg-slate-900/60 px-3 py-2">
+                      <div className="flex items-center justify-between gap-2">
                         <span className="text-xs text-slate-400">{p.hora} • {p.detalhes.map((d) => d.forma).join(", ")}</span>
-                        <span className="text-sm font-black text-emerald-300">{formatCurrency(p.valor)}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-black text-emerald-300">{formatCurrency(p.valor)}</span>
+                          <button onClick={() => cancelarPagamento(p.id)}
+                            title="Cancelar pagamento e reabrir os itens"
+                            className="rounded-lg bg-white/5 px-1.5 py-0.5 text-[10px] font-black text-slate-400 hover:bg-red-500/20 hover:text-red-300 transition">
+                            ↩ Cancelar
+                          </button>
+                        </div>
                       </div>
+                      {p.itens && p.itens.length > 0 && (
+                        <p className="mt-0.5 text-[11px] text-emerald-300/70">{p.itens.map((it) => `${it.quantity}x ${it.name}`).join(", ")}</p>
+                      )}
                       {p.troco > 0 && <p className="text-xs text-slate-500">troco {formatCurrency(p.troco)}</p>}
                     </div>
                   ))}
@@ -2870,6 +2927,29 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
                 <div className="mt-2 flex justify-between border-t border-white/10 pt-2 text-sm">
                   <span className="font-black text-white">Falta pagar</span>
                   <span className="font-black text-amber-400">{formatCurrency(restanteGeral)}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Log financeiro: parcelas pagas e reabertas (relatório da sessão) */}
+            {logFinanceiro.length > 0 && (
+              <div className="rounded-3xl border border-white/10 bg-slate-800/40 p-4">
+                <p className="mb-2 text-xs font-black uppercase tracking-widest text-slate-400">📋 Log financeiro</p>
+                <div className="space-y-1.5">
+                  {logFinanceiro.map((l, i) => (
+                    <div key={i} className="flex items-start justify-between gap-2 text-xs">
+                      <div className="min-w-0">
+                        <span className={`font-black ${l.tipo === "pago" ? "text-emerald-300" : "text-red-300"}`}>
+                          {l.tipo === "pago" ? "✓ Parcela paga" : "↩ Parcela reaberta"}
+                        </span>
+                        <span className="text-slate-500"> • {l.hora}{l.formas ? ` • ${l.formas}` : ""}</span>
+                        {l.itens && l.itens.length > 0 && (
+                          <p className="truncate text-[11px] text-slate-500">{l.itens.join(", ")}</p>
+                        )}
+                      </div>
+                      <span className={`shrink-0 font-black ${l.tipo === "pago" ? "text-emerald-300" : "text-red-300"}`}>{formatCurrency(l.valor)}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
