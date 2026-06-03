@@ -2508,6 +2508,13 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
   const [logFinanceiro, setLogFinanceiro] = useState([]);        // log de parcelas pagas/reabertas (relatório da sessão)
   const [reimpressaoAberta, setReimpressaoAberta] = useState(false); // lista de cupons do dia
   const [cupomReimpressao, setCupomReimpressao] = useState(null);    // cupom selecionado para reimprimir
+  // ── Consulta de comanda (ler QR, ver compras em aberto e dar baixa) ──
+  const [modoCaixa, setModoCaixa] = useState("caixa");               // "caixa" | "consulta"
+  const [consultaCodigo, setConsultaCodigo] = useState("");          // comanda consultada
+  const [consultaScanner, setConsultaScanner] = useState(false);     // scanner da consulta
+  const [consultaInput, setConsultaInput] = useState("");            // digitação manual
+  const [consultaPagamento, setConsultaPagamento] = useState(false); // modal de pagamento da consulta
+  const [consultaComprovante, setConsultaComprovante] = useState(null);
 
   // Cupons fiscais PAGOS do dia atual (para reimpressão sem usar o relatório)
   const ehHoje = (o) => {
@@ -2760,6 +2767,45 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
     ]);
   }
 
+  // ── Consulta de comanda: pedidos em aberto da comanda consultada ──
+  const consultaPedidos = consultaCodigo
+    ? orders.filter((o) => o.command === consultaCodigo && o.paymentStatus !== "paid" && o.status !== "cancelled")
+    : [];
+  const consultaJaUsada = consultaCodigo && orders.some((o) => o.command === consultaCodigo); // já teve algum pedido (pago/aberto)
+  const consultaPendentes = consultaPedidos.filter((o) => o.status === "received" || o.status === "preparing");
+  const consultaSubtotal = consultaPedidos.reduce((s, o) => s + orderTotal(o), 0);
+  const consultaTaxa = consultaSubtotal * 0.1;
+  const consultaTotal = consultaSubtotal + consultaTaxa;
+  const consultaMesas = [...new Set(consultaPedidos.map((o) => o.table))];
+  const consultaPodePagar = consultaPedidos.length > 0 && consultaPendentes.length === 0;
+
+  function lerComandaConsulta(codigo) {
+    const c = (codigo || "").trim().toUpperCase();
+    if (!c) return;
+    setConsultaCodigo(c);
+    setConsultaInput(c);
+    setConsultaScanner(false);
+  }
+
+  // Dá baixa (finaliza pagamento) da comanda consultada → libera a comanda para reuso
+  function confirmarPagamentoConsulta({ detalhes, troco }) {
+    const info = { mesa: consultaMesas.join(", "), total: consultaTotal, troco, detalhes, comandas: [consultaCodigo] };
+    const blocosCmd = [{
+      comanda: consultaCodigo,
+      pedidos: consultaPedidos,
+      subtotal: consultaSubtotal,
+    }];
+    baixarComandas([consultaCodigo], info); // mantém os pedidos no banco como pagos; comanda fica livre
+    setConsultaComprovante({
+      ...info,
+      subtotal: consultaSubtotal, taxa: consultaTaxa,
+      blocos: blocosCmd,
+      parciais: [{ valor: consultaTotal, troco, detalhes, hora: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) }],
+    });
+    setConsultaPagamento(false);
+    // mantém consultaCodigo: a tela passará a exibir "comanda livre / disponível para reuso"
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-slate-950 overflow-hidden">
       {/* Cabeçalho */}
@@ -2768,8 +2814,19 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
           <span className="text-2xl">💳</span>
           <div>
             <p className="text-lg font-black text-white leading-tight">Caixa / Pagamento{lojaInfo && <span className="ml-2 text-sm font-bold text-blue-300">· {lojaInfo.nome}</span>}</p>
-            <p className="text-xs text-slate-500">Leia as comandas para fechar a conta</p>
+            <p className="text-xs text-slate-500">{modoCaixa === "consulta" ? "Consulte uma comanda e dê baixa" : "Leia as comandas para fechar a conta"}</p>
           </div>
+        </div>
+        {/* Alternador de modo: Caixa x Consultar comanda */}
+        <div className="flex items-center gap-1 rounded-2xl border border-white/10 bg-white/[0.04] p-1">
+          <button onClick={() => setModoCaixa("caixa")}
+            className={`rounded-xl px-3 py-2 text-sm font-black transition ${modoCaixa === "caixa" ? "bg-violet-500 text-white" : "text-slate-300 hover:bg-white/5"}`}>
+            💳 Caixa
+          </button>
+          <button onClick={() => setModoCaixa("consulta")}
+            className={`rounded-xl px-3 py-2 text-sm font-black transition ${modoCaixa === "consulta" ? "bg-blue-500 text-white" : "text-slate-300 hover:bg-white/5"}`}>
+            🔍 Consultar comanda
+          </button>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => setReimpressaoAberta(true)} title="Reimprimir cupons de hoje"
@@ -2780,6 +2837,7 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
         </div>
       </header>
 
+      {modoCaixa === "caixa" && (
       <div className="flex flex-1 overflow-hidden">
         {/* Lista de comandas/itens */}
         <div className="flex-1 overflow-y-auto p-6">
@@ -3016,6 +3074,115 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
           </div>
         </aside>
       </div>
+      )}
+
+      {/* ── Modo: Consultar comanda ──────────────────────────── */}
+      {modoCaixa === "consulta" && (
+        <div className="flex flex-1 items-start justify-center overflow-y-auto p-6">
+          <div className="w-full max-w-xl space-y-5">
+            {/* Leitura da comanda */}
+            <div className="rounded-3xl border border-white/10 bg-slate-900 p-6">
+              <p className="mb-1 text-lg font-black text-white">🔍 Consultar comanda</p>
+              <p className="mb-4 text-xs text-slate-500">Leia o QR Code ou digite o código da comanda para verificar se há compras em aberto.</p>
+              <div className="flex gap-2">
+                <input
+                  value={consultaInput}
+                  onChange={(e) => setConsultaInput(e.target.value.toUpperCase())}
+                  onKeyDown={(e) => { if (e.key === "Enter") lerComandaConsulta(consultaInput); }}
+                  placeholder={`Ex.: ${lojaInfo?.prefixo || "CMD"}-000123`}
+                  className="flex-1 rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm font-mono font-black text-white outline-none focus:border-blue-400 placeholder:text-slate-600" />
+                <button onClick={() => lerComandaConsulta(consultaInput)} disabled={!consultaInput.trim()}
+                  className="rounded-2xl bg-blue-500 px-4 py-3 text-sm font-black text-white hover:bg-blue-400 transition disabled:opacity-40">
+                  Consultar
+                </button>
+                <button onClick={() => setConsultaScanner(true)} title="Ler QR Code"
+                  className="rounded-2xl border border-blue-400/30 bg-blue-500/10 px-4 py-3 text-lg text-blue-300 hover:bg-blue-500/20 transition">
+                  📷
+                </button>
+              </div>
+              {consultaCodigo && (
+                <button onClick={() => { setConsultaCodigo(""); setConsultaInput(""); setConsultaComprovante(null); }}
+                  className="mt-3 text-xs font-bold text-slate-400 hover:text-slate-200">↩ Limpar consulta</button>
+              )}
+            </div>
+
+            {/* Resultado da consulta */}
+            {consultaCodigo && (
+              consultaPedidos.length > 0 ? (
+                <div className="overflow-hidden rounded-3xl border border-amber-400/30 bg-slate-900">
+                  <div className="flex items-center justify-between border-b border-white/10 bg-amber-500/10 px-5 py-4">
+                    <div>
+                      <p className="font-mono text-base font-black text-amber-300">{consultaCodigo}</p>
+                      <p className="text-xs text-amber-200/80">🟠 Comanda em aberto • {consultaPedidos.length} pedido(s) • Mesa(s) {consultaMesas.join(", ") || "-"}</p>
+                    </div>
+                    <span className="text-lg font-black text-white">{formatCurrency(consultaTotal)}</span>
+                  </div>
+                  <div className="divide-y divide-white/5 px-5 py-2">
+                    {consultaPedidos.map((o) => (
+                      <div key={o.id} className="py-2">
+                        <p className="mb-1 text-[11px] font-bold uppercase tracking-widest text-slate-500">{o.id} • {o.createdAt} • <StatusChip status={o.status} /></p>
+                        {o.items.map((it, i) => (
+                          <div key={i} className="flex justify-between py-0.5 text-sm">
+                            <span className="text-slate-300"><span className="font-black text-white">{it.quantity}x</span> {it.name}</span>
+                            <span className="font-bold text-white">{formatCurrency(it.price * it.quantity)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="border-t border-white/10 bg-slate-950/60 px-5 py-4 space-y-2">
+                    <div className="flex justify-between text-sm text-slate-400"><span>Subtotal</span><span className="font-bold text-white">{formatCurrency(consultaSubtotal)}</span></div>
+                    <div className="flex justify-between text-sm text-slate-400"><span>Taxa de serviço (10%)</span><span className="font-bold text-white">{formatCurrency(consultaTaxa)}</span></div>
+                    <div className="h-px bg-white/10" />
+                    <div className="flex justify-between text-lg font-black text-white"><span>Total</span><span className="text-emerald-400">{formatCurrency(consultaTotal)}</span></div>
+                    {!consultaPodePagar && (
+                      <div className="rounded-2xl border border-amber-400/30 bg-amber-500/10 p-3 text-xs font-semibold text-amber-200">
+                        ⚠ {consultaPendentes.length} pedido(s) ainda em preparo. A baixa só é liberada após todos finalizados.
+                      </div>
+                    )}
+                    <button onClick={() => setConsultaPagamento(true)} disabled={!consultaPodePagar}
+                      className="mt-1 w-full rounded-2xl bg-violet-500 py-4 text-sm font-black text-white hover:bg-violet-400 transition active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed">
+                      💰 Dar baixa / Finalizar pagamento
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-3xl border border-emerald-400/30 bg-emerald-500/5 p-6 text-center">
+                  <p className="text-4xl">✅</p>
+                  <p className="mt-2 font-mono text-base font-black text-emerald-300">{consultaCodigo}</p>
+                  <p className="mt-1 font-black text-emerald-200">Comanda livre — sem compras em aberto</p>
+                  <p className="mt-1 text-xs text-slate-400">
+                    {consultaJaUsada
+                      ? "Os pedidos anteriores já foram pagos e baixados. A comanda está disponível para reutilização."
+                      : "Nenhum pedido foi registrado nesta comanda. Disponível para uso."}
+                  </p>
+                </div>
+              )
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Scanner da consulta */}
+      {consultaScanner && (
+        <QRScannerModal
+          onSucesso={(codigo) => lerComandaConsulta(codigo)}
+          onCancelar={() => setConsultaScanner(false)}
+          prefixoLoja={lojaInfo?.prefixo || "CMD"}
+        />
+      )}
+
+      {/* Pagamento da consulta */}
+      {consultaPagamento && (
+        <PagamentoModal
+          total={consultaTotal} formasPagamento={formasPagamento.filter((f) => f.active !== false)}
+          onConfirmar={confirmarPagamentoConsulta}
+          onCancelar={() => setConsultaPagamento(false)}
+        />
+      )}
+
+      {/* Comprovante da baixa pela consulta */}
+      {consultaComprovante && <ComprovanteModal dados={consultaComprovante} onFechar={() => setConsultaComprovante(null)} />}
 
       {/* Scanner do caixa */}
       {scannerAberto && (
