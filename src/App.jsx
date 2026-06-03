@@ -891,6 +891,7 @@ export default function RestaurantePedidoApp() {
       const nova = dbReady ? await inserirFormaPagamento(comLoja) : { ...comLoja, id: Date.now() };
       setFormasPagamento((cur) => [...cur, nova]);
       notify("success", "Forma de pagamento cadastrada.");
+      return true;
     } catch (err) { notify("error", "Erro ao cadastrar: " + err.message); }
   }
   async function toggleFormaPagamento(id) {
@@ -4508,58 +4509,77 @@ function CategoriaCadastroModal({ onSalvar, onFechar }) {
   );
 }
 
+const TIPOS_PAGAMENTO = [
+  { id: "dinheiro",       label: "Dinheiro" },
+  { id: "cartao_credito", label: "Cartão de Crédito" },
+  { id: "cartao_debito",  label: "Cartão de Débito" },
+  { id: "pix",            label: "PIX" },
+  { id: "outro",          label: "Outro" },
+];
+
 function PagamentoAdmin({ formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento }) {
-  const [form, setForm] = useState({ nome: "", tipo: "outro", permiteTroco: false });
   const [excluir, setExcluir] = useState(null);
-  const tipos = [
-    { id: "dinheiro",       label: "Dinheiro" },
-    { id: "cartao_credito", label: "Cartão de Crédito" },
-    { id: "cartao_debito",  label: "Cartão de Débito" },
-    { id: "pix",            label: "PIX" },
-    { id: "outro",          label: "Outro" },
-  ];
-  function salvar() {
-    addFormaPagamento({ ...form, permiteTroco: form.tipo === "dinheiro" ? true : form.permiteTroco });
-    setForm({ nome: "", tipo: "outro", permiteTroco: false });
+  const [criando, setCriando] = useState(false);
+  const [busca, setBusca]     = useState("");
+  const labelTipo = (id) => TIPOS_PAGAMENTO.find((t) => t.id === id)?.label || id;
+
+  const termo = busca.trim().toLowerCase();
+  const filtradas = termo ? formasPagamento.filter((f) => `${f.nome} ${labelTipo(f.tipo)}`.toLowerCase().includes(termo)) : formasPagamento;
+
+  async function salvarNova(forma) {
+    const ok = await addFormaPagamento({ ...forma, permiteTroco: forma.tipo === "dinheiro" ? true : forma.permiteTroco });
+    if (ok) setCriando(false);
   }
+
   return (
-    <main className="grid gap-6 lg:grid-cols-[430px_1fr]">
-      <Card className="lg:self-start">
-        <h3 className="text-xl font-black text-white">Cadastrar forma de pagamento</h3>
-        <p className="mt-1 text-sm text-slate-300">Aparecerá na tela do caixa ao finalizar o pagamento.</p>
-        <div className="mt-5 space-y-3">
-          <input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })}
-            placeholder="Nome (ex.: Vale Refeição, Ticket)" className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400" />
-          <select value={form.tipo} onChange={(e) => setForm({ ...form, tipo: e.target.value })}
-            className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400">
-            {tipos.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
-          </select>
-          <label className="flex items-center gap-2 text-sm text-slate-300">
-            <input type="checkbox" checked={form.tipo === "dinheiro" || form.permiteTroco}
-              disabled={form.tipo === "dinheiro"}
-              onChange={(e) => setForm({ ...form, permiteTroco: e.target.checked })} />
-            Permite troco {form.tipo === "dinheiro" && "(dinheiro sempre permite)"}
-          </label>
-          <button onClick={salvar} className="w-full rounded-2xl bg-blue-500 px-5 py-4 text-sm font-black text-white hover:bg-blue-400">Cadastrar forma</button>
+    <main className="space-y-5">
+      {/* Cabeçalho: título + contadores + botão cadastrar */}
+      <div className="flex flex-col gap-4 rounded-[2rem] border border-white/10 bg-white/[0.04] p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h3 className="text-xl font-black text-white">Formas de pagamento</h3>
+          <p className="mt-0.5 text-sm text-slate-400">
+            <span className="font-bold text-white">{formasPagamento.length}</span> no total •
+            <span className="text-emerald-300"> {formasPagamento.filter((f) => f.active !== false).length} ativas</span> •
+            <span className="text-slate-500"> {formasPagamento.filter((f) => f.active === false).length} inativas</span>
+          </p>
+          <p className="mt-1 text-xs text-slate-500">Aparecem na tela do caixa ao finalizar o pagamento.</p>
         </div>
-      </Card>
-      <Card>
-        <h3 className="text-xl font-black text-white">Formas cadastradas</h3>
-        <div className="mt-5 space-y-3">
-          {formasPagamento.length === 0 && <p className="text-sm text-slate-500">Nenhuma forma cadastrada. Execute a migration 006 e cadastre acima.</p>}
-          {formasPagamento.map((f) => (
+        <button onClick={() => setCriando(true)}
+          className="flex items-center justify-center gap-2 rounded-2xl bg-blue-500 px-6 py-3.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95 shadow-lg shadow-blue-950/30">
+          <span className="text-lg leading-none">+</span> Cadastrar forma
+        </button>
+      </div>
+
+      {/* Busca + lista */}
+      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+        <div className="relative mb-4">
+          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">🔍</span>
+          <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar forma de pagamento..."
+            className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-blue-400" />
+        </div>
+        <div className="space-y-2">
+          {formasPagamento.length === 0 && (
+            <div className="py-10 text-center">
+              <p className="text-sm text-slate-500">Nenhuma forma cadastrada.</p>
+              <button onClick={() => setCriando(true)} className="mt-3 rounded-2xl border border-blue-400/30 bg-blue-500/15 px-4 py-2 text-xs font-black text-blue-200 hover:bg-blue-500/25">+ Cadastrar forma</button>
+            </div>
+          )}
+          {formasPagamento.length > 0 && filtradas.length === 0 && <p className="py-6 text-center text-sm text-slate-500">Nenhuma forma encontrada.</p>}
+          {filtradas.map((f) => (
             <div key={f.id} className="flex items-center gap-3 rounded-3xl border border-white/10 bg-slate-950/40 p-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white/[0.06] text-lg">💳</span>
               <div className="min-w-0 flex-1">
                 <p className="font-black text-white truncate">{f.nome}</p>
-                <p className="text-xs text-slate-400">{f.tipo}{f.permiteTroco ? " • permite troco" : ""}</p>
+                <p className="text-xs text-slate-400">{labelTipo(f.tipo)}{f.permiteTroco ? " • permite troco" : ""}</p>
               </div>
               <button onClick={() => toggleFormaPagamento(f.id)} className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-black ${f.active ? "bg-emerald-500 text-white" : "bg-slate-700 text-slate-200"}`}>{f.active ? "Ativo" : "Inativo"}</button>
-              <button onClick={() => setExcluir(f)} className="shrink-0 rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-1.5 text-xs font-black text-red-300 hover:bg-red-500/20">🗑️</button>
+              <button onClick={() => setExcluir(f)} title="Excluir" className="shrink-0 rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-1.5 text-xs font-black text-red-300 hover:bg-red-500/20">🗑️</button>
             </div>
           ))}
         </div>
-      </Card>
+      </div>
 
+      {criando && <FormaPagamentoCadastroModal onSalvar={salvarNova} onFechar={() => setCriando(false)} />}
       {excluir && (
         <ConfirmModal titulo="Excluir forma de pagamento?"
           mensagem={`Deseja excluir "${excluir.nome}"? Esta ação não pode ser desfeita. (Dica: você pode apenas inativar.)`}
@@ -4568,6 +4588,54 @@ function PagamentoAdmin({ formasPagamento, addFormaPagamento, toggleFormaPagamen
           onCancelar={() => setExcluir(null)} />
       )}
     </main>
+  );
+}
+
+// Modal de cadastro de forma de pagamento (mesmo padrão dos demais)
+function FormaPagamentoCadastroModal({ onSalvar, onFechar }) {
+  const [form, setForm] = useState({ nome: "", tipo: "outro", permiteTroco: false });
+  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400 placeholder:text-slate-600";
+  const lbl = "mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500";
+  const valido = form.nome.trim().length > 0;
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onFechar}>
+      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-md flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl">
+        <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+          <div className="flex items-center gap-2">
+            <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-blue-500/15 text-lg">💳</span>
+            <h2 className="text-lg font-black text-white">Nova forma de pagamento</h2>
+          </div>
+          <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20">✕</button>
+        </div>
+        <div className="px-6 py-5 space-y-3">
+          <div>
+            <span className={lbl}>Nome *</span>
+            <input autoFocus value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })}
+              onKeyDown={(e) => { if (e.key === "Enter" && valido) onSalvar(form); }}
+              placeholder="Ex.: Vale Refeição, Ticket..." className={inp} />
+          </div>
+          <div>
+            <span className={lbl}>Tipo</span>
+            <select value={form.tipo} onChange={(e) => setForm({ ...form, tipo: e.target.value })} className={inp}>
+              {TIPOS_PAGAMENTO.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+            </select>
+          </div>
+          <label className="flex items-center gap-2 rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-3 text-sm text-slate-300">
+            <input type="checkbox" checked={form.tipo === "dinheiro" || form.permiteTroco}
+              disabled={form.tipo === "dinheiro"}
+              onChange={(e) => setForm({ ...form, permiteTroco: e.target.checked })} />
+            Permite troco {form.tipo === "dinheiro" && <span className="text-slate-500">(dinheiro sempre permite)</span>}
+          </label>
+        </div>
+        <div className="shrink-0 border-t border-white/10 px-6 py-4 flex gap-3">
+          <button onClick={onFechar} className="flex-1 rounded-2xl border border-white/10 bg-white/[0.06] py-3.5 text-sm font-black text-slate-300 hover:bg-white/10">Cancelar</button>
+          <button onClick={() => onSalvar(form)} disabled={!valido}
+            className="flex-[2] rounded-2xl bg-blue-500 py-3.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+            + Cadastrar forma
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
