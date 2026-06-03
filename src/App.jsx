@@ -680,11 +680,11 @@ export default function RestaurantePedidoApp() {
   async function handleSendOrder(codigoOverride) {
     if (!canAccess(currentUser, "tablet")) return notify("error", "Usuário sem permissão para realizar pedido no tablet.");
     if (cart.length === 0) return notify("error", "Adicione pelo menos um produto antes de enviar.");
-    // Mesa e nome do cliente obrigatórios (identificação na cozinha/painel/caixa)
+    // Mesa obrigatória; nome do cliente é opcional
     if (!tableNumber || Number(tableNumber) <= 0) return notify("error", "Informe o número da mesa antes de enviar.");
-    if (!customerName.trim()) return notify("error", "Informe o nome do cliente para vincular à comanda.");
+    // Comanda obrigatória — feita pela leitura do QR Code da comanda
     const codigo = (codigoOverride || commandCode || "").trim().toUpperCase();
-    if (!isValidCommand(codigo)) return notify("error", "Escaneie a comanda antes de enviar o pedido.");
+    if (!isValidCommand(codigo)) return notify("error", "Escaneie o QR Code da comanda para gerar o pedido.");
     // Validação multi-loja: a comanda deve ter o prefixo da loja atual
     if (lojaInfo && lojaInfo.prefixo) {
       const prefixoComanda = codigo.split("-")[0];
@@ -696,7 +696,7 @@ export default function RestaurantePedidoApp() {
     // ID único: timestamp + aleatório (evita colisão de chave primária)
     const newOrder = {
       id: `PED-${Date.now().toString().slice(-7)}${Math.floor(Math.random() * 90 + 10)}`,
-      table: currentTable, command: codigo, customer: customerName,
+      table: currentTable, command: codigo, customer: customerName.trim() || "Cliente",
       status: "received", paymentStatus: "open",
       createdAt: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
       items: cart.map((i) => ({ name: i.name, quantity: i.quantity, price: i.price, selectedIngredients: i.selectedIngredients, removedIngredients: i.removedIngredients, extraIngredients: i.extraIngredients, observation: i.observation })),
@@ -718,9 +718,11 @@ export default function RestaurantePedidoApp() {
       setOrders((cur) => [newOrder, ...cur]);
     }
 
-    // Limpa carrinho E comanda — tela pronta para o próximo pedido
+    // Limpa tudo — resumo do pedido sempre em branco para o próximo
     setCart([]);
     setCommandCode("");
+    setCustomerName("");
+    setTableNumber("");
     notify("success", `✅ Pedido enviado! Comanda ${codigo} vinculada à ${currentTable}.`);
   }
 
@@ -1243,7 +1245,8 @@ function TabletView({
   const comandaValida  = isValidCommand(commandCode);
   const temPedidoNaMesa = currentTableOrders.length > 0 && currentTableTotal > 0;
   // Mesa + nome obrigatórios para escanear/enviar
-  const dadosCompletos = tableNumber && Number(tableNumber) > 0 && customerName.trim().length > 0;
+  // Mesa obrigatória; nome do cliente é opcional
+  const dadosCompletos = tableNumber && Number(tableNumber) > 0;
   const podeEscanear = cart.length > 0 && dadosCompletos;
   // Fechar conta só quando há pedido na mesa E todos foram entregues
   const podeFecharConta = currentTableOrders.length > 0 && currentTableOrders.every((o) => o.status === "delivered");
@@ -1428,27 +1431,27 @@ function TabletView({
             <div className="grid grid-cols-2 gap-3">
               <label>
                 <span className="mb-1 block text-xs font-bold uppercase tracking-widest text-amber-500">⚠ Mesa *</span>
-                <input value={tableNumber} onChange={(e) => setTableNumber(e.target.value.replace(/[^0-9]/g,"").slice(0,2))}
+                <input autoFocus value={tableNumber} onChange={(e) => setTableNumber(e.target.value.replace(/[^0-9]/g,"").slice(0,2))}
                   placeholder="Nº"
                   className={`w-full rounded-2xl border bg-slate-800 px-3 py-2.5 text-white outline-none text-sm font-black transition ${tableNumber && Number(tableNumber) > 0 ? "border-emerald-400/40 focus:border-emerald-400" : "border-amber-400/40 focus:border-amber-400"}`} />
               </label>
               <label>
-                <span className="mb-1 block text-xs font-bold uppercase tracking-widest text-amber-500">⚠ Cliente *</span>
+                <span className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500">Cliente (opcional)</span>
                 <input value={customerName} onChange={(e) => setCustomerName(e.target.value)}
                   placeholder="Nome do cliente"
-                  className={`w-full rounded-2xl border bg-slate-800 px-3 py-2.5 text-white outline-none text-sm transition ${customerName.trim() ? "border-emerald-400/40 focus:border-emerald-400" : "border-amber-400/40 focus:border-amber-400"}`} />
+                  className="w-full rounded-2xl border border-white/10 bg-slate-800 px-3 py-2.5 text-white outline-none text-sm transition focus:border-blue-400" />
               </label>
             </div>
             <div>
-              <span className="mb-1 block text-xs font-bold uppercase tracking-widest text-amber-500">⚠ Comanda obrigatória</span>
+              <span className="mb-1 block text-xs font-bold uppercase tracking-widest text-amber-500">⚠ Comanda obrigatória — leia o QR Code</span>
               <div className="flex gap-2">
-                <input value={commandCode} onChange={(e) => setCommandCode(e.target.value.toUpperCase())}
-                  placeholder={`Ex.: ${lojaInfo?.prefixo || "CMD"}-000001`}
-                  className={`flex-1 rounded-2xl border bg-slate-800 px-3 py-2.5 font-mono text-white outline-none text-sm transition
-                    ${comandaValida ? "border-emerald-400/50 focus:border-emerald-400" : "border-amber-400/30 focus:border-amber-400"}`} />
+                <input value={commandCode} readOnly
+                  placeholder={`Escaneie o QR (${lojaInfo?.prefixo || "CMD"}-000001)`}
+                  className={`flex-1 rounded-2xl border bg-slate-800 px-3 py-2.5 font-mono text-white outline-none text-sm transition cursor-default
+                    ${comandaValida ? "border-emerald-400/50" : "border-amber-400/30"}`} />
                 <button onClick={onAbrirScanner}
                   disabled={!podeEscanear}
-                  title={!podeEscanear ? "Preencha mesa, cliente e adicione itens" : "Escanear QR Code da comanda"}
+                  title={!podeEscanear ? "Informe a mesa e adicione itens" : "Escanear QR Code da comanda"}
                   className="shrink-0 rounded-2xl border border-blue-400/30 bg-blue-500/10 px-3 py-2.5 text-blue-300 hover:bg-blue-500/20 transition text-lg disabled:opacity-40 disabled:cursor-not-allowed">
                   📷
                 </button>
@@ -1544,7 +1547,7 @@ function TabletView({
             {/* Aviso de dados obrigatórios */}
             {cart.length > 0 && !dadosCompletos && (
               <div className="rounded-2xl border border-amber-400/30 bg-amber-500/10 p-3 text-xs font-semibold text-amber-200">
-                ⚠ Informe a <b>mesa</b> e o <b>nome do cliente</b> para vincular o pedido à comanda.
+                ⚠ Informe a <b>mesa</b> e leia o <b>QR Code da comanda</b> para enviar o pedido.
               </div>
             )}
 
