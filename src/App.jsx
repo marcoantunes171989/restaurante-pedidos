@@ -4790,7 +4790,7 @@ function TagsInput({ tags, setTags, placeholder = "Adicionar + Enter" }) {
         <input value={input} onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
           placeholder={placeholder} className={inp} />
-        <button onClick={add} className="shrink-0 rounded-2xl bg-blue-500 px-4 text-sm font-black text-white hover:bg-blue-400 transition">+ Add</button>
+        <button onClick={add} className="shrink-0 rounded-2xl bg-blue-500 px-4 text-sm font-black text-white hover:bg-blue-400 transition">Adicionar</button>
       </div>
       {tags.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-2">
