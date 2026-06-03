@@ -87,6 +87,26 @@ function orderTotal(order) {
   return order.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
 }
 
+// Abre janela de impressão no padrão térmico 80mm (automação comercial / não fiscal).
+// Recebe o corpo já em HTML; aplica o cabeçalho/estilo padrão e dispara a impressão.
+function abrirImpressaoTermica(tituloDoc, corpoHTML) {
+  const j = window.open("", "_blank", "width=400,height=680");
+  if (!j) return;
+  j.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>${tituloDoc}</title>
+  <style>
+    @page { size: 80mm auto; margin: 0; }
+    * { box-sizing: border-box; }
+    body { width: 80mm; margin: 0 auto; padding: 6mm 5mm; font-family: 'Courier New', monospace; font-size: 12px; color:#000; }
+    .c{text-align:center} .b{font-weight:bold} .big{font-size:15px} .sm{font-size:10px} .mut{color:#444}
+    .row{display:flex;justify-content:space-between;gap:8px}
+    .obs{font-size:10px;color:#333;padding-left:8px}
+    .hr{border-top:1px dashed #000;margin:6px 0}
+    .hr2{border-top:2px solid #000;margin:6px 0}
+  </style></head><body>${corpoHTML}
+  <script>window.onload=function(){window.print();}<\/script></body></html>`);
+  j.document.close();
+}
+
 function itemDetails(item) {
   return [
     item.removedIngredients?.length ? `Sem: ${item.removedIngredients.join(", ")}` : "",
@@ -3823,25 +3843,17 @@ function CupomNaoFiscalModal({ pedido, lojaInfo, onFechar }) {
     window.open(`https://wa.me/55${num}?text=${encodeURIComponent(texto)}`, "_blank");
   }
   function imprimir() {
-    const j = window.open("", "_blank", "width=400,height=680");
     const linhas = pedido.items.map((it) =>
       `<div class="row"><span>${it.quantity}x ${it.name}</span><span>${formatCurrency(it.price * it.quantity)}</span></div>` +
       ((it.removedIngredients?.length) ? `<div class="obs">Sem: ${it.removedIngredients.join(", ")}</div>` : "") +
       ((it.extraIngredients?.length) ? `<div class="obs">Extra: ${it.extraIngredients.join(", ")}</div>` : "") +
       ((it.observation) ? `<div class="obs">Obs: ${it.observation}</div>` : "")
     ).join("");
-    j.document.write(`<html><head><meta charset="UTF-8"><title>Cupom ${pedido.id}</title>
-    <style>
-      @page { size: 80mm auto; margin: 0; }
-      body { width: 80mm; margin: 0 auto; padding: 6mm 5mm; font-family: 'Courier New', monospace; font-size: 12px; color:#000; }
-      .c{text-align:center} .b{font-weight:bold} .big{font-size:15px}
-      .row{display:flex;justify-content:space-between;gap:8px} .obs{font-size:10px;color:#333;padding-left:8px}
-      .hr{border-top:1px dashed #000;margin:6px 0}
-    </style></head><body>
+    const corpo = `
       <p class="c b big">${empresa}</p>
       <p class="c">CUPOM NÃO FISCAL</p>
-      <p class="c" style="font-size:10px">Documento sem valor fiscal</p>
-      <div class="hr"></div>
+      <p class="c sm mut">Documento sem valor fiscal</p>
+      <div class="hr2"></div>
       <p>Cupom: ${pedido.id}</p>
       <p>Data: ${dataStr}</p>
       <p>${pedido.table} &nbsp;•&nbsp; Comanda: ${pedido.command}</p>
@@ -3852,12 +3864,10 @@ function CupomNaoFiscalModal({ pedido, lojaInfo, onFechar }) {
       <div class="row"><span>Subtotal</span><span>${formatCurrency(subtotal)}</span></div>
       <div class="row"><span>Taxa servico 10%</span><span>${formatCurrency(taxa)}</span></div>
       <div class="row b big"><span>TOTAL</span><span>${formatCurrency(total)}</span></div>
-      <div class="hr"></div>
+      <div class="hr2"></div>
       <p class="c">Obrigado pela preferencia!</p>
-      <p class="c" style="font-size:10px">Emitido em ${new Date().toLocaleString("pt-BR")}</p>
-      <script>window.onload=()=>{window.print();}<\/script>
-    </body></html>`);
-    j.document.close();
+      <p class="c sm">Emitido em ${new Date().toLocaleString("pt-BR")}</p>`;
+    abrirImpressaoTermica(`Cupom ${pedido.id}`, corpo);
   }
 
   return (
@@ -3909,19 +3919,35 @@ function CuponsProdutoModal({ nome, cupons, lojaInfo, onFechar }) {
   const totalValor = cupons.reduce((s, o) => s + o.items.filter((it) => it.name === nome).reduce((x, it) => x + it.price * it.quantity, 0), 0);
 
   function imprimir() {
-    const j = window.open("", "_blank", "width=800,height=600");
-    j.document.write(`<html><head><meta charset="UTF-8"><title>Cupons — ${nome}</title>
-    <style>body{font-family:Arial;padding:20px;color:#000}h1{font-size:18px}table{width:100%;border-collapse:collapse;margin-top:10px}th,td{border:1px solid #ccc;padding:8px;text-align:left;font-size:13px}th{background:#eee}.r{text-align:right}.tot{font-weight:bold;background:#f5f5f5}</style>
-    </head><body>
-    <h1>Cupons com o produto: ${nome}</h1>
-    <p>Período consultado — Emitido em ${new Date().toLocaleString("pt-BR")}</p>
-    <table><thead><tr><th>Cupom</th><th>Mesa</th><th>Comanda</th><th>Cliente</th><th>Data/Hora</th><th class="r">Qtd</th><th class="r">Valor</th></tr></thead><tbody>
-    ${cupons.map((o) => { const its = o.items.filter((it) => it.name === nome); const q = its.reduce((x, it) => x + it.quantity, 0); const v = its.reduce((x, it) => x + it.price * it.quantity, 0);
-      return `<tr><td>${o.id}</td><td>${o.table}</td><td>${o.command}</td><td>${o.customer || "-"}</td><td>${o.createdAtISO ? new Date(o.createdAtISO).toLocaleString("pt-BR") : o.createdAt}</td><td class="r">${q}</td><td class="r">${formatCurrency(v)}</td></tr>`; }).join("")}
-    <tr class="tot"><td colspan="5">TOTAL (${cupons.length} cupom/ns)</td><td class="r">${totalQtd}</td><td class="r">${formatCurrency(totalValor)}</td></tr>
-    </tbody></table>
-    <script>window.onload=()=>window.print()<\/script></body></html>`);
-    j.document.close();
+    const empresa = lojaInfo?.nome || "Restaurante";
+    const linhas = cupons.map((o) => {
+      const its = o.items.filter((it) => it.name === nome);
+      const q = its.reduce((x, it) => x + it.quantity, 0);
+      const v = its.reduce((x, it) => x + it.price * it.quantity, 0);
+      const dt = o.createdAtISO ? new Date(o.createdAtISO).toLocaleString("pt-BR") : o.createdAt;
+      return `<div style="margin-bottom:5px">
+        <div class="b">${o.id}</div>
+        <div class="sm mut">${o.table} • ${o.command}</div>
+        <div class="sm mut">${o.customer || "-"} • ${dt}</div>
+        <div class="row"><span>${q}x ${nome}</span><span>${formatCurrency(v)}</span></div>
+        <div class="hr"></div>
+      </div>`;
+    }).join("");
+    const corpo = `
+      <p class="c b big">${empresa}</p>
+      <p class="c">RELATÓRIO DE VENDAS</p>
+      <p class="c sm mut">Documento sem valor fiscal</p>
+      <div class="hr2"></div>
+      <p>Produto: <span class="b">${nome}</span></p>
+      <p class="sm">Cupons: ${cupons.length}</p>
+      <p class="sm">Emitido em ${new Date().toLocaleString("pt-BR")}</p>
+      <div class="hr2"></div>
+      ${linhas}
+      <div class="hr2"></div>
+      <div class="row b"><span>TOTAL (${totalQtd} un)</span><span>${formatCurrency(totalValor)}</span></div>
+      <div class="hr2"></div>
+      <p class="c sm">Relatório por produto — uso interno</p>`;
+    abrirImpressaoTermica(`Relatório — ${nome}`, corpo);
   }
 
   return (
