@@ -1822,8 +1822,9 @@ function TabletView({
       {descansoAtivo && (
         <button
           type="button"
-          onClick={() => setDescansoAtivo(false)}
-          className="absolute inset-0 z-[120] block w-full cursor-pointer overflow-hidden bg-slate-950 text-left">
+          onClick={() => { entrarTelaCheia(); setDescansoAtivo(false); }}
+          style={{ height: "100dvh" }}
+          className="fixed inset-0 z-[120] block w-full cursor-pointer overflow-hidden bg-slate-950 text-left">
           {/* Imagens dos produtos em modo fosco (passando) */}
           <div className="absolute inset-0">
             {imagensDescanso.map((src, i) => (
