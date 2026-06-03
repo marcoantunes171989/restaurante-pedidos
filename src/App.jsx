@@ -1293,6 +1293,9 @@ function TabletView({
   const podeEscanear = cart.length > 0 && dadosCompletos;
   // Fechar conta só quando há pedido na mesa E todos foram entregues
   const podeFecharConta = currentTableOrders.length > 0 && currentTableOrders.every((o) => o.status === "delivered");
+  // Conta já solicitada ao caixa? (permite reenviar caso o caixa tenha fechado/perdido)
+  const contaSolicitada = currentTableOrders.length > 0 && currentTableOrders.some((o) => o.paymentStatus === "requested");
+  const [confirmarConta, setConfirmarConta] = useState(false); // modal de confirmação do envio
 
   // Agrupa pedidos por comanda
   const porComanda = currentTableOrders.reduce((acc, order) => {
@@ -1612,14 +1615,17 @@ function TabletView({
               </button>
             )}
 
-            {/* Fechar conta — só quando todos os pedidos foram entregues */}
+            {/* Fechar conta — só quando todos os pedidos foram entregues. Envia ao caixa apenas após confirmação. */}
             <button
-              onClick={requestBill}
+              onClick={() => setConfirmarConta(true)}
               disabled={!podeFecharConta}
-              title={!podeFecharConta ? "Disponível quando os pedidos forem entregues" : "Solicitar fechamento ao caixa"}
-              className="w-full rounded-2xl border border-violet-400/30 bg-violet-500/10 py-3 text-xs font-black text-violet-300 hover:bg-violet-500/20 transition disabled:opacity-30 disabled:cursor-not-allowed">
-              🧾 Fechar conta da mesa
+              title={!podeFecharConta ? "Disponível quando os pedidos forem entregues" : (contaSolicitada ? "Reenviar a conta ao caixa" : "Solicitar fechamento ao caixa")}
+              className={`w-full rounded-2xl border py-3 text-xs font-black transition disabled:opacity-30 disabled:cursor-not-allowed ${contaSolicitada ? "border-amber-400/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20" : "border-violet-400/30 bg-violet-500/10 text-violet-300 hover:bg-violet-500/20"}`}>
+              {contaSolicitada ? "🔁 Reenviar conta ao caixa" : "🧾 Fechar conta da mesa"}
             </button>
+            {contaSolicitada && (
+              <p className="text-center text-xs text-amber-300/80">✅ Conta já enviada ao caixa — reenvie se necessário</p>
+            )}
             {temPedidoNaMesa && !podeFecharConta && (
               <p className="text-center text-xs text-slate-600">Aguardando entrega dos pedidos para fechar a conta</p>
             )}
@@ -1703,10 +1709,10 @@ function TabletView({
                   {Object.keys(porComanda).length} comandas na mesa • Total dividido: {formatCurrency(currentTableTotal / Object.keys(porComanda).length)} por comanda
                 </p>
               )}
-              <button onClick={() => { setVerConta(false); requestBill(); }}
+              <button onClick={() => { setVerConta(false); setConfirmarConta(true); }}
                 disabled={!temPedidoNaMesa}
-                className="mt-2 w-full rounded-2xl bg-violet-500 py-4 text-sm font-black text-white hover:bg-violet-400 transition active:scale-95">
-                🧾 Solicitar fechamento ao caixa
+                className={`mt-2 w-full rounded-2xl py-4 text-sm font-black text-white transition active:scale-95 ${contaSolicitada ? "bg-amber-500 hover:bg-amber-400" : "bg-violet-500 hover:bg-violet-400"}`}>
+                {contaSolicitada ? "🔁 Reenviar conta ao caixa" : "🧾 Solicitar fechamento ao caixa"}
               </button>
             </div>
           </div>
@@ -1719,6 +1725,20 @@ function TabletView({
           produto={produtoDetalhe}
           onFechar={() => setProdutoDetalhe(null)}
           onAdicionar={(itemConfig) => { addConfiguredToCart(itemConfig); setProdutoDetalhe(null); }}
+        />
+      )}
+
+      {/* ── Confirmação de envio da conta ao caixa ───────────── */}
+      {confirmarConta && (
+        <ConfirmModal
+          perigo={false}
+          titulo={contaSolicitada ? "Reenviar conta ao caixa?" : "Enviar conta ao caixa?"}
+          mensagem={contaSolicitada
+            ? "A conta desta mesa já foi enviada. Deseja reenviar a solicitação ao caixa (ex.: caso o caixa tenha fechado)?"
+            : "A conta será enviada ao caixa para conferência e fechamento. Deseja confirmar o envio?"}
+          confirmar={contaSolicitada ? "Sim, reenviar" : "Sim, enviar ao caixa"}
+          onConfirmar={() => { setConfirmarConta(false); requestBill(); }}
+          onCancelar={() => setConfirmarConta(false)}
         />
       )}
 
