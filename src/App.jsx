@@ -1320,6 +1320,16 @@ function TabletView({
   const idleTimerRef = useRef(null);
   const INATIVIDADE_MS = 5 * 60 * 1000; // 5 minutos
 
+  // iOS no navegador (Safari/Chrome) não permite Fullscreen API; a tela cheia
+  // real vem do modo standalone (Adicionar à Tela de Início). Detecta esse caso
+  // para orientar o usuário na tela de descanso.
+  const iosSemApp = useMemo(() => {
+    const ua = navigator.userAgent || "";
+    const ios = /iP(hone|ad|od)/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    const standalone = (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || window.navigator.standalone === true;
+    return ios && !standalone;
+  }, []);
+
   // Imagens dos produtos (modo fosco) para o screensaver
   const imagensDescanso = useMemo(() => {
     const fromProducts = (products || []).filter((p) => p.imageUrl).map((p) => p.imageUrl);
@@ -1373,7 +1383,8 @@ function TabletView({
   }, {});
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-slate-950 overflow-hidden">
+    <div className="fixed inset-0 z-50 flex flex-col bg-slate-950 overflow-hidden"
+      style={{ height: "100dvh", paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}>
 
       {/* ── Cabeçalho mínimo ─────────────────────────────── */}
       <header className="flex shrink-0 items-center justify-between border-b border-white/10 bg-slate-900/90 px-5 py-3 backdrop-blur-xl">
@@ -1861,6 +1872,11 @@ function TabletView({
               </div>
             </div>
             <p className="mt-8 text-xs text-slate-400">{totalCartItems > 0 ? `Seu pedido foi mantido — ${totalCartItems} ${totalCartItems === 1 ? "item" : "itens"} no carrinho` : "Toque em qualquer ponto para começar"}</p>
+            {iosSemApp && (
+              <p className="mt-3 max-w-xs text-[11px] leading-4 text-slate-500">
+                📱 iPhone/iPad: para tela cheia, toque em <span className="font-bold text-slate-300">Compartilhar ⬆️</span> e depois <span className="font-bold text-slate-300">“Adicionar à Tela de Início”</span>.
+              </p>
+            )}
           </div>
         </button>
       )}
@@ -2290,9 +2306,12 @@ const panelStatusConfig = {
 };
 
 function entrarTelaCheia() {
+  // iOS (Safari/Chrome) NÃO suporta Fullscreen API para elementos — só vídeo.
+  // Nesses navegadores os métodos abaixo são undefined → no-op silencioso.
+  // A tela cheia real no iOS vem do modo standalone (Adicionar à Tela de Início).
   const el = document.documentElement;
   const fn = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
-  if (fn) fn.call(el).catch(() => {});
+  if (fn) { try { Promise.resolve(fn.call(el)).catch(() => {}); } catch { /* ignora */ } }
 }
 
 function sairTelaCheia() {

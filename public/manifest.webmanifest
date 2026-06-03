@@ -1,0 +1,15 @@
+{
+  "name": "Pedido Prime",
+  "short_name": "Pedido Prime",
+  "description": "Cardápio digital, pedidos na mesa e caixa.",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "any",
+  "background_color": "#020617",
+  "theme_color": "#020617",
+  "start_url": "/login",
+  "scope": "/",
+  "icons": [
+    { "src": "/favicon.svg", "type": "image/svg+xml", "sizes": "any", "purpose": "any" }
+  ]
+}
