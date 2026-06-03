@@ -1181,7 +1181,7 @@ export default function RestaurantePedidoApp() {
           {allowedTabs.map((tab) => (
             <button key={tab.id} onClick={(e) => {
               // Fullscreen chamado ANTES de qualquer setState — precisa ser gesto direto
-              if (tab.id === "panel") {
+              if (tab.id === "panel" || tab.id === "tablet") {
                 const el = document.documentElement;
                 const fn = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
                 if (fn) fn.call(el).catch(() => {});
@@ -1266,6 +1266,20 @@ function TabletView({
   const [verConta, setVerConta]         = useState(false);
   const [carrinhoAberto, setCarrinhoAberto] = useState(false); // gaveta do carrinho
   const [produtoDetalhe, setProdutoDetalhe] = useState(null); // produto aberto no modal
+  const [isFullscreen, setIsFullscreen] = useState(!!document.fullscreenElement);
+
+  // Detecta mudanças de tela cheia (Esc/F11) para atualizar o botão e o aviso
+  useEffect(() => {
+    const onChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", onChange);
+    document.addEventListener("webkitfullscreenchange", onChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", onChange);
+      document.removeEventListener("webkitfullscreenchange", onChange);
+    };
+  }, []);
+  // Sai da tela cheia ao trocar de tela (desmontar o tablet)
+  useEffect(() => () => sairTelaCheia(), []);
   const totalCartItems = cart.reduce((s, i) => s + i.quantity, 0);
   const comandaValida  = isValidCommand(commandCode);
   const temPedidoNaMesa = currentTableOrders.length > 0 && currentTableTotal > 0;
@@ -1304,6 +1318,9 @@ function TabletView({
               <span className="text-sm font-black text-blue-300">{totalCartItems} {totalCartItems === 1 ? "item" : "itens"}</span>
             </div>
           )}
+          <button onClick={isFullscreen ? sairTelaCheia : entrarTelaCheia}
+            title={isFullscreen ? "Sair da tela cheia" : "Abrir em tela cheia (ocupa toda a tela)"}
+            className="flex h-9 w-9 items-center justify-center rounded-2xl border border-white/15 bg-white/10 text-base font-black text-white hover:bg-white/20 transition active:scale-95">⛶</button>
           <button onClick={onSair} className="rounded-2xl border border-red-400/20 bg-red-500/10 px-3 py-2 text-xs font-black text-red-300 hover:bg-red-500/20 transition">Sair</button>
         </div>
       </header>
@@ -1699,6 +1716,20 @@ function TabletView({
           onFechar={() => setProdutoDetalhe(null)}
           onAdicionar={(itemConfig) => { addConfiguredToCart(itemConfig); setProdutoDetalhe(null); }}
         />
+      )}
+
+      {/* ── Aviso de tela cheia (mantém o cardápio ocupando toda a tela) ── */}
+      {!isFullscreen && (
+        <div className="absolute inset-0 z-[80] flex items-center justify-center bg-black/80 backdrop-blur-sm">
+          <button onClick={entrarTelaCheia}
+            className="flex flex-col items-center gap-4 rounded-3xl border border-white/20 bg-slate-900 px-12 py-10 shadow-2xl transition hover:bg-slate-800 active:scale-95">
+            <span className="text-6xl">⛶</span>
+            <div className="text-center">
+              <p className="text-2xl font-black text-white">Abrir cardápio em tela cheia</p>
+              <p className="mt-1 text-sm text-slate-400">Clique aqui ou pressione F11 — ocupa toda a tela (topo e rodapé)</p>
+            </div>
+          </button>
+        </div>
       )}
     </div>
   );
