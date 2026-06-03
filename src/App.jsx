@@ -1449,9 +1449,9 @@ function TabletView({
               <p className="text-lg font-black text-white">{formatCurrency(total)}</p>
             </div>
           </div>
-          <button onClick={() => setVerConta(true)} disabled={!temPedidoNaMesa}
-            title={!temPedidoNaMesa ? "Conta disponível após o primeiro pedido" : "Ver conta da mesa"}
-            className="shrink-0 rounded-2xl border border-white/10 bg-white/[0.06] px-5 py-4 text-sm font-black text-slate-300 hover:bg-white/10 transition disabled:opacity-30 disabled:cursor-not-allowed">
+          <button onClick={() => setVerConta(true)}
+            title="Ver conta da mesa"
+            className="shrink-0 rounded-2xl border border-white/10 bg-white/[0.06] px-5 py-4 text-sm font-black text-slate-300 hover:bg-white/10 transition">
             👁️ Conta
           </button>
           <button onClick={() => setCarrinhoAberto(true)} disabled={cart.length === 0}
@@ -1653,6 +1653,14 @@ function TabletView({
 
             {/* Corpo com scroll */}
             <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+              {/* Estado vazio: nenhuma comanda/pedido na mesa ainda */}
+              {currentTableOrders.length === 0 && (
+                <div className="flex h-48 flex-col items-center justify-center gap-2 text-center opacity-50">
+                  <span className="text-4xl">🧾</span>
+                  <p className="font-black text-slate-300">Nenhum pedido na mesa ainda</p>
+                  <p className="text-xs text-slate-500">Envie um pedido para que a conta seja exibida aqui.</p>
+                </div>
+              )}
               {/* Por comanda */}
               {Object.values(porComanda).map(({ comanda, pedidos, subtotal: subCmd }) => (
                 <div key={comanda} className="rounded-3xl border border-white/10 bg-slate-800/60 overflow-hidden">
