@@ -1,12 +1,12 @@
 import { useState } from "react";
 
 // ════════════════════════════════════════════════════════════
-//  Landing page institucional/comercial — MesaSmart
+//  Landing page institucional/comercial — Pedido Prime
 //  Tecnologias: React + Tailwind (sem libs de ícones / imagens externas)
 //  Recebe `navigate(rota)` para abrir o sistema interno (ex.: "/login").
 // ════════════════════════════════════════════════════════════
 
-const NOME_SISTEMA = "MesaSmart";
+const NOME_SISTEMA = "Pedido Prime";
 // WhatsApp comercial (formato internacional, só números): DDI + DDD + número.
 // (18) 98146-5499 → 55 + 18 + 981465499
 const WHATSAPP_COMERCIAL = "5518981465499";
