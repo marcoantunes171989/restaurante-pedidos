@@ -1078,6 +1078,12 @@ export default function RestaurantePedidoApp() {
     setUsers((cur) => cur.map((u) => u.id === uid ? { ...u, accessIds } : u));
     if (dbReady) try { await atualizarUsuario(uid, { ids_acesso: accessIds }); } catch {}
   }
+  // Define o conjunto completo de acessos de uma vez (ações em massa: liberar/bloquear todas)
+  async function definirAcessos(uid, accessIds) {
+    if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
+    setUsers((cur) => cur.map((u) => u.id === uid ? { ...u, accessIds } : u));
+    if (dbReady) try { await atualizarUsuario(uid, { ids_acesso: accessIds }); } catch {}
+  }
 
   async function toggleUserStatus(uid) {
     if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
@@ -1208,7 +1214,7 @@ export default function RestaurantePedidoApp() {
         )}
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} products={products} lojaInfo={lojaInfo} />}
         {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierView orders={orders} baixarComandas={baixarComandas} baixarPedidos={baixarPedidos} formasPagamento={formasPagamentoLoja} onSair={logout} lojaInfo={lojaInfo} />}
-        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} />}
+        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} />}
 
       </div>
     </div>
@@ -3205,7 +3211,7 @@ function CupomModal({ blocos, mesas, comandas, subtotal, taxa, total, pessoas, p
   );
 }
 
-function AdminView({ products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, toggleUserStatus, toggleAccessStatus, usersLoja, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, lojas = [], addLoja, toggleLoja, editarLoja, removerLoja, lojaInfo, orders = [], onSair, isSuperAdmin = false, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto }) {
+function AdminView({ products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, toggleUserStatus, toggleAccessStatus, usersLoja, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, lojas = [], addLoja, toggleLoja, editarLoja, removerLoja, lojaInfo, orders = [], onSair, isSuperAdmin = false, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto }) {
   const menu = [
     { grupo: "Gestão", itens: [
       { id: "dashboard", icon: "📊", label: "Dashboard" },
@@ -3324,7 +3330,7 @@ function AdminView({ products, categories, adminForm, setAdminForm, addProduct, 
           {ativo === "users"      && <UserAdmin      users={isSuperAdmin ? users : (usersLoja ?? users)} userForm={userForm} setUserForm={setUserForm} addUser={addUser} toggleUserStatus={toggleUserStatus} editarUsuario={editarUsuario} removerUsuario={removerUsuario} lojaInfo={lojaInfo} lojas={lojas} isSuperAdmin={isSuperAdmin} cargos={cargos} />}
           {ativo === "cargos"     && <CargoAdmin     cargos={cargos} users={isSuperAdmin ? users : (usersLoja ?? users)} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} />}
           {ativo === "access"     && <AccessAdmin    accesses={accesses} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleAccessStatus={toggleAccessStatus} />}
-          {ativo === "link"       && <UserAccessAdmin users={isSuperAdmin ? users : (usersLoja ?? users)} accesses={accesses} toggleUserAccess={toggleUserAccess} lojas={lojas} isSuperAdmin={isSuperAdmin} />}
+          {ativo === "link"       && <UserAccessAdmin users={isSuperAdmin ? users : (usersLoja ?? users)} accesses={accesses} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} lojas={lojas} isSuperAdmin={isSuperAdmin} />}
           {ativo === "categorias" && (precisaEmpresa ? avisoEmpresa : <CategoriaAdmin categoriasDb={categoriasDb} produtos={products} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} />)}
           {ativo === "comandas"   && (precisaEmpresa ? avisoEmpresa : <GeradorComandas prefixoLoja={lojaInfo?.prefixo || "CMD"} empresa={lojaInfo?.nome || "Restaurante"} />)}
           {ativo === "pagamento"  && (precisaEmpresa ? avisoEmpresa : <PagamentoAdmin formasPagamento={formasPagamento} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} />)}
@@ -5485,9 +5491,10 @@ function PermissaoCadastroModal({ accessForm, setAccessForm, onSalvar, onFechar 
   );
 }
 
-function UserAccessAdmin({ users, accesses, toggleUserAccess, lojas = [], isSuperAdmin = false }) {
-  const [busca, setBusca]   = useState("");
+function UserAccessAdmin({ users, accesses, toggleUserAccess, definirAcessos, lojas = [], isSuperAdmin = false }) {
+  const [busca, setBusca]     = useState("");
   const [lojaSel, setLojaSel] = useState(""); // filtro por empresa (id) — só super admin
+  const [selId, setSelId]     = useState(null);
   const nomeLoja = (id) => lojas.find((l) => l.id === id)?.nome || "Sem empresa";
   const prefLoja = (id) => lojas.find((l) => l.id === id)?.prefixo || "—";
 
@@ -5495,67 +5502,115 @@ function UserAccessAdmin({ users, accesses, toggleUserAccess, lojas = [], isSupe
   const filtrados = users.filter((u) => {
     if (lojaSel && String(u.lojaId ?? "") !== String(lojaSel)) return false;
     if (!termo) return true;
-    const alvo = `${u.name} ${u.email} ${u.role} ${nomeLoja(u.lojaId)} ${prefLoja(u.lojaId)}`.toLowerCase();
-    return alvo.includes(termo);
+    return `${u.name} ${u.email} ${u.role} ${nomeLoja(u.lojaId)} ${prefLoja(u.lojaId)}`.toLowerCase().includes(termo);
   });
 
-  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400 placeholder:text-slate-600";
+  // Usuário selecionado (auto-seleciona o primeiro da lista filtrada)
+  const sel = users.find((u) => u.id === selId) || filtrados[0] || null;
+  const acessosAtivos = accesses.filter((a) => a.active !== false);
+
+  function liberarTodas() { if (sel) definirAcessos(sel.id, acessosAtivos.map((a) => a.id)); }
+  function bloquearTodas() { if (sel) definirAcessos(sel.id, []); }
 
   return (
-    <Card>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h3 className="text-xl font-black text-white">Usuário x Acesso</h3>
-          <p className="mt-1 text-sm text-slate-300">Vincule quais telas cada usuário poderá visualizar. O menu é montado apenas com os acessos liberados.</p>
+    <main className="grid gap-5 lg:grid-cols-[330px_1fr]">
+      {/* ── Lista de usuários ─────────────────────────────── */}
+      <div className="flex max-h-[78vh] flex-col rounded-[2rem] border border-white/10 bg-white/[0.04] p-4">
+        <div className="px-1">
+          <h3 className="text-lg font-black text-white">Usuário × Acesso</h3>
+          <p className="mt-0.5 text-xs text-slate-400">Selecione um usuário para liberar as telas.</p>
         </div>
-        <span className="rounded-full bg-blue-500/15 px-3 py-1 text-xs font-black text-blue-300">{filtrados.length} de {users.length} usuário(s)</span>
+        <div className="mt-3 space-y-2">
+          <div className="relative">
+            <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">🔍</span>
+            <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar usuário..."
+              className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-2.5 pl-11 pr-4 text-sm text-white outline-none focus:border-blue-400" />
+          </div>
+          {isSuperAdmin && (
+            <select value={lojaSel} onChange={(e) => setLojaSel(e.target.value)}
+              className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-2.5 text-sm text-white outline-none focus:border-blue-400">
+              <option value="">Todas as empresas</option>
+              {lojas.map((l) => <option key={l.id} value={l.id}>{l.nome} ({l.prefixo})</option>)}
+            </select>
+          )}
+        </div>
+        <div className="scrollbar-none mt-3 flex-1 space-y-1.5 overflow-y-auto pr-1">
+          {filtrados.length === 0 && <p className="px-1 py-6 text-center text-sm text-slate-500">Nenhum usuário encontrado.</p>}
+          {filtrados.map((u) => {
+            const ativo = sel?.id === u.id;
+            return (
+              <button key={u.id} onClick={() => setSelId(u.id)}
+                className={`flex w-full items-center gap-3 rounded-2xl border px-3 py-2.5 text-left transition ${ativo ? "border-blue-400/60 bg-blue-500/15" : "border-white/10 bg-slate-950/40 hover:border-white/20 hover:bg-white/[0.06]"}`}>
+                <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-sm ${ativo ? "bg-blue-500 text-white" : "bg-white/[0.06] text-slate-300"}`}>👤</span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-black text-white">{u.name}</p>
+                  <p className="truncate text-[11px] text-slate-400">{u.role || "—"}{isSuperAdmin ? ` • ${nomeLoja(u.lojaId)}` : ""}</p>
+                </div>
+                <span className="shrink-0 rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] font-black text-slate-300">{u.accessIds.length}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      {/* Filtros */}
-      <div className={`mt-4 grid gap-3 ${isSuperAdmin ? "sm:grid-cols-[1fr_240px]" : ""}`}>
-        <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="🔍 Buscar por nome, e-mail, perfil ou empresa…" className={inp} />
-        {isSuperAdmin && (
-          <select value={lojaSel} onChange={(e) => setLojaSel(e.target.value)} className={inp}>
-            <option value="">Todas as empresas</option>
-            {lojas.map((l) => <option key={l.id} value={l.id}>{l.nome} ({l.prefixo})</option>)}
-          </select>
-        )}
-      </div>
-
-      <div className="mt-5 space-y-4">
-        {filtrados.length === 0 && <p className="text-sm text-slate-500">Nenhum usuário encontrado para o filtro atual.</p>}
-        {filtrados.map((u) => (
-          <div key={u.id} className="rounded-3xl border border-white/10 bg-slate-950/40 p-4">
-            <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+      {/* ── Detalhe: acessos do usuário selecionado ───────── */}
+      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
+        {!sel ? (
+          <div className="flex h-full min-h-[300px] flex-col items-center justify-center text-center">
+            <span className="text-4xl">🔗</span>
+            <p className="mt-3 text-sm text-slate-400">Selecione um usuário à esquerda para gerenciar os acessos.</p>
+          </div>
+        ) : (
+          <>
+            {/* Cabeçalho do usuário */}
+            <div className="flex flex-col gap-3 border-b border-white/10 pb-5 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
-                <p className="font-black text-white">
-                  {u.name}
-                  {u.superAdmin && <span className="ml-2 rounded-full bg-violet-500/20 px-2 py-0.5 text-[10px] font-black text-violet-300 align-middle">ADMIN GERAL</span>}
+                <p className="text-lg font-black text-white">
+                  {sel.name}
+                  {sel.superAdmin && <span className="ml-2 rounded-full bg-violet-500/20 px-2 py-0.5 text-[10px] font-black text-violet-300 align-middle">ADMIN GERAL</span>}
                 </p>
-                <p className="text-sm text-slate-400">{u.email}</p>
-                <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                  <span className="rounded-full bg-white/[0.06] px-2.5 py-0.5 text-xs font-bold text-slate-200">👤 {u.role || "—"}</span>
-                  <span className="rounded-full bg-blue-500/10 px-2.5 py-0.5 text-xs font-bold text-blue-200">🏪 {u.superAdmin ? "Todas as empresas" : nomeLoja(u.lojaId)}{!u.superAdmin && u.lojaId ? ` (${prefLoja(u.lojaId)})` : ""}</span>
-                  <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${u.active ? "bg-emerald-500/15 text-emerald-300" : "bg-slate-700 text-slate-300"}`}>{u.active ? "Ativo" : "Inativo"}</span>
+                <p className="text-sm text-slate-400">{sel.email}</p>
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                  <span className="rounded-full bg-white/[0.06] px-2.5 py-0.5 text-xs font-bold text-slate-200">🪪 {sel.role || "—"}</span>
+                  <span className="rounded-full bg-blue-500/10 px-2.5 py-0.5 text-xs font-bold text-blue-200">🏪 {sel.superAdmin ? "Todas" : nomeLoja(sel.lojaId)}</span>
+                  <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${sel.active ? "bg-emerald-500/15 text-emerald-300" : "bg-slate-700 text-slate-300"}`}>{sel.active ? "Ativo" : "Inativo"}</span>
                 </div>
               </div>
-              <span className="shrink-0 self-start rounded-full bg-blue-500/10 px-3 py-1 text-xs font-black text-blue-100">{u.accessIds.length} acesso(s)</span>
+              <div className="shrink-0 text-right">
+                <p className="text-2xl font-black text-white">{sel.accessIds.length}<span className="text-sm text-slate-500">/{acessosAtivos.length}</span></p>
+                <p className="text-[11px] font-bold uppercase tracking-widest text-slate-500">telas liberadas</p>
+              </div>
             </div>
-            <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
-              {accesses.map((a) => {
-                const checked = u.accessIds.includes(a.id);
+
+            {/* Ações rápidas */}
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button onClick={liberarTodas} className="rounded-2xl border border-emerald-400/30 bg-emerald-500/15 px-4 py-2 text-xs font-black text-emerald-200 hover:bg-emerald-500/25 transition">✓ Liberar todas</button>
+              <button onClick={bloquearTodas} className="rounded-2xl border border-red-400/30 bg-red-500/10 px-4 py-2 text-xs font-black text-red-300 hover:bg-red-500/20 transition">✕ Bloquear todas</button>
+            </div>
+
+            {/* Switches de acesso */}
+            <div className="mt-4 grid gap-2.5 sm:grid-cols-2">
+              {acessosAtivos.length === 0 && <p className="text-sm text-slate-500">Nenhuma permissão ativa cadastrada.</p>}
+              {acessosAtivos.map((a) => {
+                const checked = sel.accessIds.includes(a.id);
                 return (
-                  <button key={`${u.id}-${a.id}`} onClick={() => toggleUserAccess(u.id, a.id)}
-                    className={`rounded-2xl border p-3 text-left text-sm transition ${checked ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-100" : "border-white/10 bg-white/[0.04] text-slate-300 hover:bg-white/[0.08]"}`}>
-                    <p className="font-black">{checked ? "✓ " : ""}{a.label}</p>
-                    <p className="mt-1 text-xs opacity-70">{a.desc}</p>
+                  <button key={a.id} onClick={() => toggleUserAccess(sel.id, a.id)}
+                    className={`flex items-center justify-between gap-3 rounded-2xl border p-3.5 text-left transition ${checked ? "border-emerald-400/30 bg-emerald-500/10" : "border-white/10 bg-slate-950/40 hover:bg-white/[0.06]"}`}>
+                    <div className="min-w-0">
+                      <p className={`text-sm font-black ${checked ? "text-emerald-100" : "text-white"}`}>{a.label}</p>
+                      {a.desc && <p className="mt-0.5 truncate text-xs text-slate-400">{a.desc}</p>}
+                    </div>
+                    <span className={`relative h-6 w-11 shrink-0 rounded-full transition ${checked ? "bg-emerald-500" : "bg-slate-700"}`}>
+                      <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${checked ? "left-[22px]" : "left-0.5"}`} />
+                    </span>
                   </button>
                 );
               })}
             </div>
-          </div>
-        ))}
+            <p className="mt-4 text-xs text-slate-500">O menu de cada usuário é montado apenas com as telas liberadas aqui.</p>
+          </>
+        )}
       </div>
-    </Card>
+    </main>
   );
 }
