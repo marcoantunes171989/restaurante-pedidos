@@ -3435,8 +3435,8 @@ function AdminView({ products, categories, adminForm, setAdminForm, addProduct, 
           ))}
         </div>
 
-        {/* Conteúdo rolável */}
-        <div className="flex-1 overflow-y-auto p-6">
+        {/* Conteúdo rolável — remonta ao trocar a "Empresa em foco" para refletir a empresa selecionada em todas as telas */}
+        <div key={`ctx-${lojaContexto ?? "geral"}`} className="flex-1 overflow-y-auto p-6">
           {ativo === "dashboard"  && <DashboardAdmin orders={orders} products={products} />}
           {ativo === "relatorios" && <RelatoriosAdmin orders={orders} products={products} lojaInfo={lojaInfo} />}
           {ativo === "products"   && (precisaEmpresa ? avisoEmpresa : <ProductAdmin   products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} editarProduto={editarProduto} removerProduto={removerProduto} />)}
