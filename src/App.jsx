@@ -3211,6 +3211,66 @@ function CupomModal({ blocos, mesas, comandas, subtotal, taxa, total, pessoas, p
   );
 }
 
+// Combo moderno e minimalista da "Empresa em foco" (menu lateral do super admin)
+function ComboEmpresaFoco({ lojas = [], valor, onChange }) {
+  const [aberto, setAberto] = useState(false);
+  const [busca, setBusca]   = useState("");
+  const atual = lojas.find((l) => l.id === valor) || null;
+  const termo = busca.trim().toLowerCase();
+  const lista = termo ? lojas.filter((l) => `${l.nome} ${l.prefixo}`.toLowerCase().includes(termo)) : lojas;
+  const escolher = (id) => { onChange(id); setAberto(false); setBusca(""); };
+  const item = (sel) => `flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-sm transition ${sel ? "bg-blue-500/20 text-blue-100" : "text-slate-300 hover:bg-white/[0.06]"}`;
+
+  return (
+    <div className="relative">
+      <button onClick={() => setAberto((o) => !o)}
+        className={`flex w-full items-center gap-2 rounded-xl border bg-slate-950/70 px-2.5 py-2 text-left transition ${aberto ? "border-blue-400/60" : "border-white/10 hover:border-white/25"}`}>
+        <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-sm ${atual ? "bg-blue-500/20" : "bg-white/[0.06]"}`}>{atual ? "🏪" : "🌐"}</span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-black text-white">{atual ? atual.nome : "Visão geral"}</p>
+          <p className="truncate text-[10px] text-slate-500">{atual ? `Comandas: ${atual.prefixo}` : "Todas as empresas"}</p>
+        </div>
+        <span className={`shrink-0 text-[10px] text-slate-400 transition-transform ${aberto ? "rotate-180" : ""}`}>▼</span>
+      </button>
+
+      {aberto && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setAberto(false)} />
+          <div className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-2xl border border-white/10 bg-slate-900 shadow-2xl">
+            {lojas.length > 6 && (
+              <div className="border-b border-white/10 p-2">
+                <input autoFocus value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar empresa..."
+                  className="w-full rounded-lg border border-white/10 bg-slate-950/70 px-3 py-1.5 text-xs text-white outline-none focus:border-blue-400 placeholder:text-slate-600" />
+              </div>
+            )}
+            <div className="scrollbar-none max-h-64 space-y-0.5 overflow-y-auto p-1.5">
+              <button onClick={() => escolher(null)} className={item(valor == null)}>
+                <span className="flex h-6 w-6 items-center justify-center rounded-md bg-white/[0.06] text-xs">🌐</span>
+                <span className="flex-1 truncate font-bold">Visão geral (todas)</span>
+                {valor == null && <span className="text-xs text-blue-300">✓</span>}
+              </button>
+              {lista.map((l) => {
+                const sel = valor === l.id;
+                return (
+                  <button key={l.id} onClick={() => escolher(l.id)} className={item(sel)}>
+                    <span className="flex h-6 w-6 items-center justify-center rounded-md bg-blue-500/15 text-xs">🏪</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-bold">{l.nome}</span>
+                      <span className="block truncate text-[10px] text-slate-500">{l.prefixo}{l.active === false ? " • inativa" : ""}</span>
+                    </span>
+                    {sel && <span className="text-xs text-blue-300">✓</span>}
+                  </button>
+                );
+              })}
+              {lista.length === 0 && <p className="px-2 py-3 text-center text-xs text-slate-500">Nenhuma empresa.</p>}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function AdminView({ products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, toggleUserStatus, toggleAccessStatus, usersLoja, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, lojas = [], addLoja, toggleLoja, editarLoja, removerLoja, lojaInfo, orders = [], onSair, isSuperAdmin = false, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto }) {
   const menu = [
     { grupo: "Gestão", itens: [
@@ -3278,14 +3338,8 @@ function AdminView({ products, categories, adminForm, setAdminForm, addProduct, 
         </div>
         {isSuperAdmin && (
           <div className="border-b border-white/10 px-4 py-3">
-            <label className="mb-1 block text-[10px] font-black uppercase tracking-widest text-slate-500">Empresa em foco</label>
-            <select
-              value={lojaContexto ?? ""}
-              onChange={(e) => setLojaContexto(e.target.value ? Number(e.target.value) : null)}
-              className="w-full rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm font-bold text-white outline-none focus:border-blue-400">
-              <option value="">Visão geral (todas)</option>
-              {lojas.map((l) => <option key={l.id} value={l.id}>{l.nome} ({l.prefixo})</option>)}
-            </select>
+            <label className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-slate-500">Empresa em foco</label>
+            <ComboEmpresaFoco lojas={lojas} valor={lojaContexto} onChange={setLojaContexto} />
           </div>
         )}
         <nav className="scrollbar-none flex-1 overflow-y-auto px-3 py-4 space-y-5">
