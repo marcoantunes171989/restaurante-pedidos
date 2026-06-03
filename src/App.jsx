@@ -1284,6 +1284,21 @@ function TabletView({
   }, []);
   // Sai da tela cheia ao trocar de tela (desmontar o tablet)
   useEffect(() => () => sairTelaCheia(), []);
+  // Abre em tela cheia nativa automaticamente no primeiro toque/clique/tecla
+  // (navegadores exigem um gesto do usuário — não é possível disparar só ao montar)
+  useEffect(() => {
+    const tentar = () => {
+      if (!document.fullscreenElement) entrarTelaCheia();
+      window.removeEventListener("pointerdown", tentar);
+      window.removeEventListener("keydown", tentar);
+    };
+    window.addEventListener("pointerdown", tentar, { once: true });
+    window.addEventListener("keydown", tentar, { once: true });
+    return () => {
+      window.removeEventListener("pointerdown", tentar);
+      window.removeEventListener("keydown", tentar);
+    };
+  }, []);
   const totalCartItems = cart.reduce((s, i) => s + i.quantity, 0);
   const comandaValida  = isValidCommand(commandCode);
   const temPedidoNaMesa = currentTableOrders.length > 0 && currentTableTotal > 0;
@@ -1376,7 +1391,7 @@ function TabletView({
               <p className="text-sm text-slate-500">Tente outra busca ou categoria</p>
             </div>
           ) : (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+          <div className="grid gap-5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 240px), 1fr))" }}>
             {filteredItems.map((item) => {
               const noCarrinho = cart.find((c) => c.id === item.id);
               return (
@@ -1440,10 +1455,10 @@ function TabletView({
       </div>
 
       {/* ── Rodapé fixo: resumo + botão enviar (largura total) ── */}
-      <footer className="shrink-0 border-t border-white/10 bg-slate-900/95 backdrop-blur-xl px-6 py-4">
-        <div className="flex items-center gap-4">
+      <footer className="shrink-0 border-t border-white/10 bg-slate-900/95 backdrop-blur-xl px-4 py-3 sm:px-6 sm:py-4">
+        <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-blue-400/30 bg-blue-500/15 text-xl">🛒</div>
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-blue-400/30 bg-blue-500/15 text-xl sm:h-12 sm:w-12">🛒</div>
             <div>
               <p className="text-xs font-bold uppercase tracking-widest text-slate-500">{totalCartItems} {totalCartItems === 1 ? "item" : "itens"}</p>
               <p className="text-lg font-black text-white">{formatCurrency(total)}</p>
@@ -1451,12 +1466,12 @@ function TabletView({
           </div>
           <button onClick={() => setVerConta(true)}
             title="Ver conta da mesa"
-            className="shrink-0 rounded-2xl border border-white/10 bg-white/[0.06] px-5 py-4 text-sm font-black text-slate-300 hover:bg-white/10 transition">
+            className="shrink-0 rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-black text-slate-300 hover:bg-white/10 transition sm:px-5 sm:py-4">
             👁️ Conta
           </button>
           <button onClick={() => setCarrinhoAberto(true)} disabled={cart.length === 0}
-            className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-emerald-500 px-6 py-4 text-base font-black text-white hover:bg-emerald-400 transition active:scale-95 shadow-lg shadow-emerald-950/30 disabled:opacity-40 disabled:cursor-not-allowed">
-            🚀 Confirmar e enviar pedido para a cozinha
+            className="flex flex-1 basis-full items-center justify-center gap-2 rounded-2xl bg-emerald-500 px-4 py-3.5 text-sm font-black text-white hover:bg-emerald-400 transition active:scale-95 shadow-lg shadow-emerald-950/30 disabled:opacity-40 disabled:cursor-not-allowed sm:basis-0 sm:px-6 sm:py-4 sm:text-base">
+            <span className="truncate">🚀 Confirmar e enviar pedido<span className="hidden sm:inline"> para a cozinha</span></span>
           </button>
         </div>
       </footer>
@@ -1750,19 +1765,6 @@ function TabletView({
         />
       )}
 
-      {/* ── Aviso de tela cheia (mantém o cardápio ocupando toda a tela) ── */}
-      {!isFullscreen && (
-        <div className="absolute inset-0 z-[80] flex items-center justify-center bg-black/80 backdrop-blur-sm">
-          <button onClick={entrarTelaCheia}
-            className="flex flex-col items-center gap-4 rounded-3xl border border-white/20 bg-slate-900 px-12 py-10 shadow-2xl transition hover:bg-slate-800 active:scale-95">
-            <span className="text-6xl">⛶</span>
-            <div className="text-center">
-              <p className="text-2xl font-black text-white">Abrir cardápio em tela cheia</p>
-              <p className="mt-1 text-sm text-slate-400">Clique aqui ou pressione F11 — ocupa toda a tela (topo e rodapé)</p>
-            </div>
-          </button>
-        </div>
-      )}
     </div>
   );
 }
