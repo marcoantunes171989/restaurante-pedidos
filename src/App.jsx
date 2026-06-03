@@ -4220,27 +4220,10 @@ function MinhaEmpresa({ lojaInfo, qtdUsuarios = 0, qtdProdutos = 0 }) {
 // ════════════════════════════════════════════════════════════
 function LojaAdmin({ lojas, addLoja, toggleLoja, editarLoja, removerLoja, lojaInfo, criarEmpresa, cargos = [] }) {
   const cargosAtivos = cargos.filter((c) => c.active !== false);
-  const cargoGestorPadrao = cargosAtivos.find((c) => c.nome.toLowerCase() === "gestor")?.id ?? "";
-  const [form, setForm] = useState({ nomeLoja: "", prefixo: "", nomeResponsavel: "", email: "", senha: "", cargoId: cargoGestorPadrao });
-  const [enviando, setEnviando] = useState(false);
   const [editando, setEditando] = useState(null); // loja em edição
   const [inativar, setInativar] = useState(null); // loja a inativar (confirmação)
+  const [criando, setCriando]   = useState(false); // modal de nova empresa
   const [busca, setBusca]       = useState("");
-  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400";
-  const lbl = "mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500";
-
-  const valido = form.nomeLoja.trim() && form.prefixo.length >= 2 &&
-    form.nomeResponsavel.trim() && form.email.trim() && form.senha.length >= 4 && form.cargoId;
-
-  async function salvar() {
-    if (!valido || !criarEmpresa) return;
-    setEnviando(true);
-    try {
-      await criarEmpresa(form);
-      setForm({ nomeLoja: "", prefixo: "", nomeResponsavel: "", email: "", senha: "", cargoId: cargoGestorPadrao });
-    } catch { /* mensagem exibida no topo */ }
-    finally { setEnviando(false); }
-  }
 
   const termo = busca.trim().toLowerCase();
   const lojasFiltradas = termo
@@ -4248,69 +4231,39 @@ function LojaAdmin({ lojas, addLoja, toggleLoja, editarLoja, removerLoja, lojaIn
     : lojas;
 
   return (
-    <main className="grid gap-6 lg:grid-cols-[400px_1fr]">
-      <Card className="lg:self-start">
-        <div className="flex items-center gap-2">
-          <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-blue-500/15 text-lg">🏪</span>
-          <h3 className="text-lg font-black text-white">Nova empresa</h3>
+    <main className="space-y-5">
+      {/* Cabeçalho: título + contadores + botão cadastrar */}
+      <div className="flex flex-col gap-4 rounded-[2rem] border border-white/10 bg-white/[0.04] p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h3 className="text-xl font-black text-white">Empresas</h3>
+          <p className="mt-0.5 text-sm text-slate-400">
+            <span className="font-bold text-white">{lojas.length}</span> no total •
+            <span className="text-emerald-300"> {lojas.filter((l) => l.active !== false).length} ativas</span> •
+            <span className="text-slate-500"> {lojas.filter((l) => l.active === false).length} inativas</span>
+          </p>
+          {lojaInfo && <p className="mt-1 text-xs text-emerald-300">Você está logado em <b>{lojaInfo.nome}</b> ({lojaInfo.prefixo})</p>}
         </div>
-        <p className="mt-1 text-sm text-slate-400">Cria a empresa e o usuário gestor dela. Cada empresa vê apenas os próprios dados.</p>
-        <div className="mt-5 space-y-3">
-          <div>
-            <span className={lbl}>Nome da empresa</span>
-            <input value={form.nomeLoja} onChange={(e) => setForm({ ...form, nomeLoja: e.target.value })} placeholder="Ex.: Pizzaria Bella" className={inp} />
-          </div>
-          <div>
-            <span className={lbl}>Prefixo da comanda (2-5 letras)</span>
-            <input value={form.prefixo} onChange={(e) => setForm({ ...form, prefixo: e.target.value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 5) })}
-              placeholder="Ex.: PZB" className={`${inp} font-mono font-black tracking-widest`} />
-            {form.prefixo && <p className="mt-1 text-xs text-blue-300">Comandas: {form.prefixo}-000001, {form.prefixo}-000002...</p>}
-          </div>
-          <div className="border-t border-white/10 pt-3">
-            <span className={lbl}>Gestor — nome</span>
-            <input value={form.nomeResponsavel} onChange={(e) => setForm({ ...form, nomeResponsavel: e.target.value })} placeholder="Nome do responsável" className={inp} />
-          </div>
-          <div>
-            <span className={lbl}>Gestor — e-mail de acesso</span>
-            <input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="gestor@empresa.com" className={inp} autoComplete="off" name="empresa_gestor_email" />
-          </div>
-          <div>
-            <span className={lbl}>Gestor — senha (mín. 4)</span>
-            <input type="password" value={form.senha} onChange={(e) => setForm({ ...form, senha: e.target.value })} placeholder="••••••" className={inp} autoComplete="new-password" name="empresa_gestor_senha" />
-          </div>
-          <div>
-            <span className={lbl}>Gestor — cargo / perfil</span>
-            <select value={form.cargoId ?? ""} onChange={(e) => setForm({ ...form, cargoId: e.target.value ? Number(e.target.value) : "" })} className={inp}>
-              <option value="">Selecione o cargo…</option>
-              {cargosAtivos.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
-            </select>
-          </div>
-          <button onClick={salvar} disabled={!valido || enviando}
-            className="w-full rounded-2xl bg-blue-500 px-5 py-4 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95 disabled:opacity-50">
-            {enviando ? "⏳ Criando empresa..." : "+ Cadastrar empresa"}
-          </button>
-        </div>
-      </Card>
-      <Card>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h3 className="text-xl font-black text-white">Empresas cadastradas</h3>
-            <p className="mt-0.5 text-sm text-slate-400">{lojas.length} empresa(s) • {lojas.filter((l) => l.active !== false).length} ativa(s)</p>
-          </div>
-          <span className="rounded-full bg-blue-500/15 px-3 py-1 text-xs font-black text-blue-300">{lojasFiltradas.length} exibida(s)</span>
-        </div>
-        {lojaInfo && <p className="mt-2 text-sm text-emerald-300">Você está logado na empresa: <b>{lojaInfo.nome}</b> ({lojaInfo.prefixo})</p>}
+        <button onClick={() => setCriando(true)}
+          className="flex items-center justify-center gap-2 rounded-2xl bg-blue-500 px-6 py-3.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95 shadow-lg shadow-blue-950/30">
+          <span className="text-lg leading-none">+</span> Cadastrar empresa
+        </button>
+      </div>
 
-        <input
-          value={busca}
-          onChange={(e) => setBusca(e.target.value)}
-          placeholder="🔍 Buscar por nome ou prefixo…"
-          className="mt-4 w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400 placeholder:text-slate-600"
-        />
-
-        <div className="mt-4 space-y-2">
-          {lojas.length === 0 && <p className="text-sm text-slate-500">Nenhuma empresa cadastrada. Crie a primeira no formulário ao lado.</p>}
-          {lojas.length > 0 && lojasFiltradas.length === 0 && <p className="text-sm text-slate-500">Nenhuma empresa encontrada para “{busca}”.</p>}
+      {/* Busca + lista */}
+      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+        <div className="relative mb-4">
+          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">🔍</span>
+          <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por nome ou prefixo..."
+            className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-blue-400" />
+        </div>
+        <div className="space-y-2">
+          {lojas.length === 0 && (
+            <div className="py-10 text-center">
+              <p className="text-sm text-slate-500">Nenhuma empresa cadastrada.</p>
+              <button onClick={() => setCriando(true)} className="mt-3 rounded-2xl border border-blue-400/30 bg-blue-500/15 px-4 py-2 text-xs font-black text-blue-200 hover:bg-blue-500/25">+ Cadastrar empresa</button>
+            </div>
+          )}
+          {lojas.length > 0 && lojasFiltradas.length === 0 && <p className="py-6 text-center text-sm text-slate-500">Nenhuma empresa encontrada para “{busca}”.</p>}
           {lojasFiltradas.map((l) => (
             <div key={l.id} className="flex items-center gap-3 rounded-3xl border border-white/10 bg-slate-950/40 p-3 transition hover:border-white/20">
               <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/[0.06] text-lg">🏪</span>
@@ -4333,8 +4286,11 @@ function LojaAdmin({ lojas, addLoja, toggleLoja, editarLoja, removerLoja, lojaIn
             </div>
           ))}
         </div>
-      </Card>
+      </div>
 
+      {criando && (
+        <EmpresaCadastroModal cargos={cargosAtivos} criarEmpresa={criarEmpresa} onFechar={() => setCriando(false)} />
+      )}
       {editando && (
         <LojaEditModal
           loja={editando}
@@ -4352,6 +4308,104 @@ function LojaAdmin({ lojas, addLoja, toggleLoja, editarLoja, removerLoja, lojaIn
         />
       )}
     </main>
+  );
+}
+
+// Modal de cadastro de empresa (empresa + gestor) — combo de cargo em chips elegantes
+function EmpresaCadastroModal({ cargos = [], criarEmpresa, onFechar }) {
+  const cargoGestorPadrao = cargos.find((c) => c.nome.toLowerCase() === "gestor")?.id ?? (cargos[0]?.id ?? "");
+  const [form, setForm] = useState({ nomeLoja: "", prefixo: "", nomeResponsavel: "", email: "", senha: "", cargoId: cargoGestorPadrao });
+  const [enviando, setEnviando] = useState(false);
+  const [verSenha, setVerSenha] = useState(false);
+  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400 placeholder:text-slate-600";
+  const lbl = "mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500";
+
+  const valido = form.nomeLoja.trim() && form.prefixo.length >= 2 &&
+    form.nomeResponsavel.trim() && form.email.trim() && form.senha.length >= 4 && form.cargoId;
+
+  async function salvar() {
+    if (!valido || enviando) return;
+    setEnviando(true);
+    try { await criarEmpresa(form); onFechar(); }
+    catch { /* erro já notificado */ }
+    finally { setEnviando(false); }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onFechar}>
+      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-lg flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl max-h-[92vh]">
+        <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+          <div className="flex items-center gap-2">
+            <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-blue-500/15 text-lg">🏪</span>
+            <h2 className="text-lg font-black text-white">Nova empresa</h2>
+          </div>
+          <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20">✕</button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+          {/* Dados da empresa */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="sm:col-span-2">
+              <span className={lbl}>Nome da empresa *</span>
+              <input autoFocus value={form.nomeLoja} onChange={(e) => setForm({ ...form, nomeLoja: e.target.value })} placeholder="Ex.: Pizzaria Bella" className={inp} />
+            </div>
+            <div className="sm:col-span-2">
+              <span className={lbl}>Prefixo da comanda (2-5 letras) *</span>
+              <input value={form.prefixo} onChange={(e) => setForm({ ...form, prefixo: e.target.value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 5) })}
+                placeholder="Ex.: PZB" className={`${inp} font-mono font-black tracking-widest`} />
+              {form.prefixo.length >= 2 && <p className="mt-1 text-xs text-blue-300">Comandas: {form.prefixo}-000001, {form.prefixo}-000002…</p>}
+            </div>
+          </div>
+
+          {/* Dados do gestor */}
+          <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+            <p className="mb-3 text-xs font-black uppercase tracking-widest text-blue-300">👤 Usuário gestor</p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="sm:col-span-2">
+                <span className={lbl}>Nome *</span>
+                <input value={form.nomeResponsavel} onChange={(e) => setForm({ ...form, nomeResponsavel: e.target.value })} placeholder="Nome do responsável" className={inp} autoComplete="off" name="emp_gestor_nome" />
+              </div>
+              <div>
+                <span className={lbl}>E-mail *</span>
+                <input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="gestor@empresa.com" className={inp} autoComplete="off" name="emp_gestor_email" />
+              </div>
+              <div>
+                <span className={lbl}>Senha * (mín. 4)</span>
+                <div className="relative">
+                  <input type={verSenha ? "text" : "password"} value={form.senha} onChange={(e) => setForm({ ...form, senha: e.target.value })} placeholder="••••••" className={`${inp} pr-12`} autoComplete="new-password" name="emp_gestor_senha" />
+                  <button type="button" onClick={() => setVerSenha((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-400 hover:text-white">{verSenha ? "🙈" : "👁️"}</button>
+                </div>
+              </div>
+            </div>
+
+            {/* Combo de cargo em chips (minimalista, moderno e elegante) */}
+            <div className="mt-3">
+              <span className={lbl}>Cargo / perfil *</span>
+              <div className="flex flex-wrap gap-2">
+                {cargos.length === 0 && <p className="text-xs text-amber-300">Nenhum cargo ativo. Cadastre em “Cargos / Perfis”.</p>}
+                {cargos.map((c) => {
+                  const sel = form.cargoId === c.id;
+                  return (
+                    <button key={c.id} type="button" onClick={() => setForm({ ...form, cargoId: c.id })}
+                      className={`flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-black transition active:scale-95 ${sel ? "border-blue-400 bg-blue-500 text-white shadow-lg shadow-blue-950/40" : "border-white/10 bg-white/[0.04] text-slate-300 hover:border-white/25 hover:bg-white/10"}`}>
+                      {sel && <span className="text-[11px]">✓</span>}{c.nome}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="shrink-0 border-t border-white/10 px-6 py-4 flex gap-3">
+          <button onClick={onFechar} className="flex-1 rounded-2xl border border-white/10 bg-white/[0.06] py-3.5 text-sm font-black text-slate-300 hover:bg-white/10">Cancelar</button>
+          <button onClick={salvar} disabled={!valido || enviando}
+            className="flex-[2] rounded-2xl bg-blue-500 py-3.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+            {enviando ? "⏳ Criando empresa..." : "+ Cadastrar empresa"}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
