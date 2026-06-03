@@ -556,6 +556,9 @@ export default function LandingPage({ navigate }) {
           </div>
         </div>
       </footer>
+
+      {/* Botão flutuante de WhatsApp */}
+      <BotaoWhatsApp />
     </div>
   );
 }
@@ -570,6 +573,22 @@ function Campo({ name, label, type = "text", placeholder, required }) {
       <label className={LBL}>{label}</label>
       <input name={name} type={type} placeholder={placeholder} required={required} className={INP} />
     </div>
+  );
+}
+
+// Botão flutuante de WhatsApp (fixo no canto inferior direito)
+function BotaoWhatsApp() {
+  const texto = encodeURIComponent(`Olá! Tenho interesse no ${NOME_SISTEMA} e gostaria de uma demonstração.`);
+  return (
+    <a href={`https://wa.me/${WHATSAPP_COMERCIAL}?text=${texto}`} target="_blank" rel="noopener noreferrer"
+      aria-label="Falar no WhatsApp"
+      className="group fixed bottom-5 right-5 z-[60] flex items-center gap-2 rounded-full bg-[#25D366] px-4 py-3.5 font-black text-white shadow-2xl shadow-emerald-900/30 transition hover:bg-[#1ebe5b] active:scale-95">
+      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#25D366] opacity-20" />
+      <svg viewBox="0 0 32 32" className="relative h-7 w-7 fill-white" aria-hidden="true">
+        <path d="M16 3C9.4 3 4 8.4 4 15c0 2.1.6 4.1 1.6 5.9L4 29l8.3-1.6c1.7.9 3.6 1.4 5.7 1.4 6.6 0 12-5.4 12-12S22.6 3 16 3zm0 21.8c-1.8 0-3.5-.5-5-1.4l-.4-.2-3.6.7.7-3.5-.2-.4c-1-1.6-1.5-3.4-1.5-5.3C5.5 9.3 10.2 4.7 16 4.7S26.5 9.3 26.5 15 21.8 24.8 16 24.8zm5.7-7.4c-.3-.2-1.8-.9-2.1-1-.3-.1-.5-.2-.7.2-.2.3-.8 1-.9 1.2-.2.2-.3.2-.6.1-1.8-.9-3-1.6-4.2-3.6-.3-.5.3-.5.8-1.5.1-.2 0-.4 0-.5 0-.2-.7-1.7-1-2.3-.3-.6-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4-.3.3-1 1-1 2.5s1.1 2.9 1.2 3.1c.2.2 2.1 3.3 5.2 4.6 2.6 1.1 3.1.9 3.7.8.6-.1 1.8-.7 2-1.4.3-.7.3-1.3.2-1.4-.1-.2-.3-.2-.6-.4z"/>
+      </svg>
+      <span className="relative hidden pr-1 text-sm sm:inline">Fale no WhatsApp</span>
+    </a>
   );
 }
 
