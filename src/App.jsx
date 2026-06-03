@@ -1296,16 +1296,16 @@ function TabletView({
       document.body.style.overflow = bodyOv;
     };
   }, []);
-  // Abre em tela cheia nativa automaticamente no primeiro toque/clique/tecla
-  // (navegadores exigem um gesto do usuário — não é possível disparar só ao montar)
+  // Mantém SEMPRE em tela cheia: a cada interação, se não estiver em tela cheia,
+  // reativa (navegadores exigem um gesto do usuário). Cobre o caso de sair da
+  // tela cheia (ESC/botão) ou sair e entrar novamente — a próxima ação reabre
+  // em tela cheia. (No iOS a API não existe → no-op; usar app na Tela de Início.)
   useEffect(() => {
     const tentar = () => {
-      if (!document.fullscreenElement) entrarTelaCheia();
-      window.removeEventListener("pointerdown", tentar);
-      window.removeEventListener("keydown", tentar);
+      if (!document.fullscreenElement && !document.webkitFullscreenElement) entrarTelaCheia();
     };
-    window.addEventListener("pointerdown", tentar, { once: true });
-    window.addEventListener("keydown", tentar, { once: true });
+    window.addEventListener("pointerdown", tentar);
+    window.addEventListener("keydown", tentar);
     return () => {
       window.removeEventListener("pointerdown", tentar);
       window.removeEventListener("keydown", tentar);
