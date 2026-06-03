@@ -930,6 +930,7 @@ export default function RestaurantePedidoApp() {
     } catch { setProducts((cur) => [{ ...np, id: Date.now() }, ...cur]); }
     setAdminForm({ name: "", category: "Pratos principais", price: "", cost: "", time: "15-25 min", imageUrl: "", ingredientsText: "", description: "" });
     notify("success", "Produto cadastrado com sucesso no administrativo.");
+    return true;
   }
 
   async function updateProductPrice(pid, value) {
@@ -4566,13 +4567,10 @@ function TagsInput({ tags, setTags, placeholder = "Adicionar + Enter" }) {
 function ProductAdmin({ products, categories, adminForm, setAdminForm, addProduct, toggleProduct, editarProduto, removerProduto }) {
   const [editando, setEditando] = useState(null);
   const [excluir, setExcluir]   = useState(null);
+  const [criando, setCriando]   = useState(false);
   const [busca, setBusca]       = useState("");
   const [filtroCat, setFiltroCat] = useState("Todos");
   const cats = categories.filter((c) => c !== "Todos");
-  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400 transition";
-  const lbl = "mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500";
-  const set = (k, v) => setAdminForm({ ...adminForm, [k]: v });
-  const tagsAtuais = adminForm.ingredientsText ? adminForm.ingredientsText.split(",").map((s) => s.trim()).filter(Boolean) : [];
 
   const filtrados = products.filter((p) => {
     const t = `${p.name} ${p.category}`.toLowerCase();
@@ -4581,76 +4579,41 @@ function ProductAdmin({ products, categories, adminForm, setAdminForm, addProduc
     return okBusca && okCat;
   });
 
+  function abrirCadastro() {
+    setAdminForm({ name: "", category: cats[0] || "Pratos principais", price: "", cost: "", time: "15-25 min", imageUrl: "", ingredientsText: "", description: "" });
+    setCriando(true);
+  }
+  async function salvarNovo() {
+    const ok = await addProduct();
+    if (ok) setCriando(false);
+  }
+
   return (
-    <main className="grid gap-6 lg:grid-cols-[400px_1fr]">
-      {/* ── Formulário de cadastro ─────────────────────── */}
-      <Card className="lg:self-start">
-        <div className="flex items-center gap-2">
-          <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-blue-500/15 text-lg">🛒</span>
-          <h3 className="text-lg font-black text-white">Novo produto</h3>
+    <main className="space-y-5">
+      {/* ── Cabeçalho: título + métricas + botão cadastrar ── */}
+      <div className="flex flex-col gap-4 rounded-[2rem] border border-white/10 bg-white/[0.04] p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h3 className="text-xl font-black text-white">Produtos</h3>
+          <p className="mt-0.5 text-sm text-slate-400">
+            <span className="font-bold text-white">{products.length}</span> no total •
+            <span className="text-emerald-300"> {products.filter((p) => p.active).length} ativos</span> •
+            <span className="text-slate-500"> {products.filter((p) => !p.active).length} inativos</span>
+          </p>
         </div>
+        <button onClick={abrirCadastro}
+          className="flex items-center justify-center gap-2 rounded-2xl bg-blue-500 px-6 py-3.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95 shadow-lg shadow-blue-950/30">
+          <span className="text-lg leading-none">+</span> Cadastrar produto
+        </button>
+      </div>
 
-        {/* Preview da imagem */}
-        <div className="mt-4 overflow-hidden rounded-2xl border border-white/10 bg-slate-800">
-          <img src={adminForm.imageUrl || fallbackImage} alt="prévia" className="h-32 w-full object-cover" />
-        </div>
-
-        <div className="mt-4 space-y-3">
-          <div>
-            <span className={lbl}>Nome do produto *</span>
-            <input value={adminForm.name} onChange={(e) => set("name", e.target.value)} placeholder="Ex.: Risoto de Filé Mignon" className={inp} />
-          </div>
-          <div>
-            <span className={lbl}>Categoria</span>
-            <select value={adminForm.category} onChange={(e) => set("category", e.target.value)} className={inp}>{cats.map((c) => <option key={c}>{c}</option>)}</select>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div><span className={lbl}>Preço venda *</span><input value={adminForm.price} onChange={(e) => set("price", e.target.value.replace(",", "."))} placeholder="0.00" className={inp} /></div>
-            <div><span className={lbl}>Custo</span><input value={adminForm.cost} onChange={(e) => set("cost", e.target.value.replace(",", "."))} placeholder="0.00" className={inp} /></div>
-          </div>
-          {/* margem calculada */}
-          {adminForm.price && Number(adminForm.price) > 0 && (
-            <p className="text-xs text-emerald-300">Margem estimada: {(((Number(adminForm.price) - Number(adminForm.cost || 0)) / Number(adminForm.price)) * 100).toFixed(0)}%</p>
-          )}
-          <div>
-            <span className={lbl}>Tempo de preparo</span>
-            <input value={adminForm.time} onChange={(e) => set("time", e.target.value)} placeholder="Ex.: 25-35 min" className={inp} />
-          </div>
-          <div>
-            <span className={lbl}>URL da imagem</span>
-            <input value={adminForm.imageUrl} onChange={(e) => set("imageUrl", e.target.value)} placeholder="https://..." className={inp} />
-          </div>
-          <div>
-            <span className={lbl}>Ingredientes <span className="text-slate-600 normal-case">— Enter para adicionar</span></span>
-            <TagsInput tags={tagsAtuais} setTags={(arr) => set("ingredientsText", arr.join(", "))} placeholder="Ex.: Parmesão" />
-          </div>
-          <div>
-            <span className={lbl}>Descrição</span>
-            <textarea value={adminForm.description} onChange={(e) => set("description", e.target.value)} placeholder="Descrição do produto" rows={3} className={`${inp} resize-none`} />
-          </div>
-          <button onClick={addProduct} className="w-full rounded-2xl bg-blue-500 px-5 py-4 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95 shadow-lg shadow-blue-950/30">
-            + Cadastrar produto
-          </button>
-        </div>
-      </Card>
-
-      {/* ── Lista de produtos ──────────────────────────── */}
-      <Card>
-        <div className="mb-4 grid gap-3 sm:grid-cols-3">
-          <Metric label="Produtos" value={products.length} />
-          <Metric label="Ativos" value={products.filter((p) => p.active).length} />
-          <Metric label="Inativos" value={products.filter((p) => !p.active).length} />
-        </div>
-
-        {/* Busca */}
+      {/* ── Busca + filtro por categoria ─────────────────── */}
+      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
         <div className="relative mb-3">
           <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">🔍</span>
-          <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar produto..."
+          <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar produto por nome ou categoria..."
             className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-blue-400" />
         </div>
-
-        {/* Filtro por categoria */}
-        <div className="mb-4 flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2">
           {["Todos", ...cats].map((c) => (
             <button key={c} onClick={() => setFiltroCat(c)}
               className={`rounded-full border px-3 py-1.5 text-xs font-black transition ${filtroCat === c ? "border-blue-400 bg-blue-500 text-white" : "border-white/10 bg-white/[0.06] text-slate-300 hover:bg-white/10"}`}>
@@ -4659,8 +4622,13 @@ function ProductAdmin({ products, categories, adminForm, setAdminForm, addProduc
           ))}
         </div>
 
-        <div className="space-y-2">
-          {filtrados.length === 0 && <p className="py-6 text-center text-sm text-slate-500">Nenhum produto encontrado.</p>}
+        <div className="mt-4 space-y-2">
+          {filtrados.length === 0 && (
+            <div className="py-10 text-center">
+              <p className="text-sm text-slate-500">Nenhum produto encontrado.</p>
+              <button onClick={abrirCadastro} className="mt-3 rounded-2xl border border-blue-400/30 bg-blue-500/15 px-4 py-2 text-xs font-black text-blue-200 hover:bg-blue-500/25">+ Cadastrar produto</button>
+            </div>
+          )}
           {filtrados.map((p) => {
             const margin = p.price > 0 ? ((p.price - p.cost) / p.price) * 100 : 0;
             const estoqueBaixo = (p.estoque ?? 0) <= 5;
@@ -4683,8 +4651,12 @@ function ProductAdmin({ products, categories, adminForm, setAdminForm, addProduc
             );
           })}
         </div>
-      </Card>
+      </div>
 
+      {criando && (
+        <ProdutoCadastroModal adminForm={adminForm} setAdminForm={setAdminForm} cats={cats}
+          onSalvar={salvarNovo} onFechar={() => setCriando(false)} />
+      )}
       {editando && <ProdutoEditModal produto={editando} cats={cats} onSalvar={(d) => { editarProduto(editando.id, d); setEditando(null); }} onFechar={() => setEditando(null)} />}
       {excluir && (
         <ConfirmModal titulo="Excluir produto?"
@@ -4694,6 +4666,84 @@ function ProductAdmin({ products, categories, adminForm, setAdminForm, addProduc
           onCancelar={() => setExcluir(null)} />
       )}
     </main>
+  );
+}
+
+// Modal de cadastro de novo produto (layout minimalista, bound ao adminForm)
+function ProdutoCadastroModal({ adminForm, setAdminForm, cats, onSalvar, onFechar }) {
+  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400 placeholder:text-slate-600";
+  const lbl = "mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500";
+  const set = (k, v) => setAdminForm({ ...adminForm, [k]: v });
+  const tagsAtuais = adminForm.ingredientsText ? adminForm.ingredientsText.split(",").map((s) => s.trim()).filter(Boolean) : [];
+  const precoNum = Number(adminForm.price);
+  const valido = adminForm.name.trim() && precoNum > 0;
+  const margem = precoNum > 0 ? (((precoNum - Number(adminForm.cost || 0)) / precoNum) * 100).toFixed(0) : null;
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onFechar}>
+      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-lg flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl max-h-[92vh]">
+        <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+          <div className="flex items-center gap-2">
+            <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-blue-500/15 text-lg">🛒</span>
+            <h2 className="text-lg font-black text-white">Novo produto</h2>
+          </div>
+          <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20">✕</button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+          {/* Prévia + nome/categoria */}
+          <div className="flex gap-4">
+            <div className="h-24 w-24 shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-slate-800">
+              <img src={adminForm.imageUrl || fallbackImage} alt="prévia" className="h-full w-full object-cover" />
+            </div>
+            <div className="min-w-0 flex-1 space-y-3">
+              <div>
+                <span className={lbl}>Nome do produto *</span>
+                <input autoFocus value={adminForm.name} onChange={(e) => set("name", e.target.value)} placeholder="Ex.: Risoto de Filé Mignon" className={inp} />
+              </div>
+              <div>
+                <span className={lbl}>Categoria</span>
+                <select value={adminForm.category} onChange={(e) => set("category", e.target.value)} className={inp}>{cats.map((c) => <option key={c}>{c}</option>)}</select>
+              </div>
+            </div>
+          </div>
+
+          {/* Preço / custo / tempo */}
+          <div className="grid grid-cols-3 gap-3">
+            <div><span className={lbl}>Preço *</span><input value={adminForm.price} onChange={(e) => set("price", e.target.value.replace(",", "."))} placeholder="0.00" className={inp} /></div>
+            <div><span className={lbl}>Custo</span><input value={adminForm.cost} onChange={(e) => set("cost", e.target.value.replace(",", "."))} placeholder="0.00" className={inp} /></div>
+            <div><span className={lbl}>Preparo</span><input value={adminForm.time} onChange={(e) => set("time", e.target.value)} placeholder="25-35 min" className={inp} /></div>
+          </div>
+          {margem !== null && <p className="text-xs font-bold text-emerald-300">Margem estimada: {margem}%</p>}
+
+          {/* Imagem */}
+          <div>
+            <span className={lbl}>URL da imagem</span>
+            <input value={adminForm.imageUrl} onChange={(e) => set("imageUrl", e.target.value)} placeholder="https://..." className={inp} />
+          </div>
+
+          {/* Ingredientes */}
+          <div>
+            <span className={lbl}>Ingredientes <span className="text-slate-600 normal-case">— Enter para adicionar</span></span>
+            <TagsInput tags={tagsAtuais} setTags={(arr) => set("ingredientsText", arr.join(", "))} placeholder="Ex.: Parmesão" />
+          </div>
+
+          {/* Descrição */}
+          <div>
+            <span className={lbl}>Descrição</span>
+            <textarea value={adminForm.description} onChange={(e) => set("description", e.target.value)} placeholder="Descrição do produto" rows={2} className={`${inp} resize-none`} />
+          </div>
+        </div>
+
+        <div className="shrink-0 border-t border-white/10 px-6 py-4 flex gap-3">
+          <button onClick={onFechar} className="flex-1 rounded-2xl border border-white/10 bg-white/[0.06] py-3.5 text-sm font-black text-slate-300 hover:bg-white/10">Cancelar</button>
+          <button onClick={onSalvar} disabled={!valido}
+            className="flex-[2] rounded-2xl bg-blue-500 py-3.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+            + Cadastrar produto
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
