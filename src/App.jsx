@@ -955,8 +955,11 @@ export default function RestaurantePedidoApp() {
   async function addProduct() {
     if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
     if (!adminForm.name.trim()) return notify("error", "Informe o nome do produto.");
-    if (!adminForm.price || Number(adminForm.price) <= 0) return notify("error", "Informe um preço de venda válido.");
-    const np = { name: adminForm.name.trim(), category: adminForm.category, price: Number(adminForm.price), cost: Number(adminForm.cost || 0), active: true, time: adminForm.time || "15-25 min", description: adminForm.description || "Produto cadastrado pelo administrativo.", badge: "Admin", imageUrl: adminForm.imageUrl || fallbackImage, ingredients: adminForm.ingredientsText.split(",").map((s) => s.trim()).filter(Boolean), estoque: 100, lojaId: lojaAtual };
+    const precoAdd = moedaParaNum(String(adminForm.price));
+    const custoAdd = moedaParaNum(String(adminForm.cost));
+    if (precoAdd <= 0) return notify("error", "Informe um preço de venda válido.");
+    if (custoAdd <= 0) return notify("error", "Informe o custo do produto.");
+    const np = { name: adminForm.name.trim(), category: adminForm.category, price: precoAdd, cost: custoAdd, active: true, time: adminForm.time || "15-25 min", description: adminForm.description || "Produto cadastrado pelo administrativo.", badge: "Admin", imageUrl: adminForm.imageUrl || fallbackImage, ingredients: adminForm.ingredientsText.split(",").map((s) => s.trim()).filter(Boolean), estoque: 100, lojaId: lojaAtual };
     try {
       const saved = dbReady ? await inserirProduto(np) : { ...np, id: Date.now() };
       setProducts((cur) => [saved, ...cur]);
@@ -5371,14 +5374,49 @@ function ProductAdmin({ products, categories, adminForm, setAdminForm, addProduc
 }
 
 // Modal de cadastro de novo produto (layout minimalista, bound ao adminForm)
+// Converte string raw (só dígitos) para exibição "R$ 0,00"
+function rawParaMoeda(raw) {
+  const digits = raw.replace(/\D/g, "").padStart(3, "0");
+  const cents = digits.slice(-2);
+  const reais = digits.slice(0, -2).replace(/^0+/, "") || "0";
+  return `R$ ${reais},${cents}`;
+}
+// Converte string de exibição "R$ 1.234,56" para número
+function moedaParaNum(raw) {
+  const digits = raw.replace(/\D/g, "");
+  if (!digits || digits === "000") return 0;
+  return Number((parseInt(digits, 10) / 100).toFixed(2));
+}
+// Handler de campo moeda: recebe o evento e retorna { display, num }
+function handleMoeda(e) {
+  const digits = e.target.value.replace(/\D/g, "");
+  return { display: rawParaMoeda(digits), num: moedaParaNum(digits) };
+}
+
 function ProdutoCadastroModal({ adminForm, setAdminForm, cats, onSalvar, onFechar }) {
   const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400 placeholder:text-slate-600";
   const lbl = "mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500";
   const set = (k, v) => setAdminForm({ ...adminForm, [k]: v });
   const tagsAtuais = adminForm.ingredientsText ? adminForm.ingredientsText.split(",").map((s) => s.trim()).filter(Boolean) : [];
-  const precoNum = Number(adminForm.price);
-  const valido = adminForm.name.trim() && precoNum > 0;
-  const margem = precoNum > 0 ? (((precoNum - Number(adminForm.cost || 0)) / precoNum) * 100).toFixed(0) : null;
+  const precoNum = moedaParaNum(String(adminForm.price));
+  const custoNum = moedaParaNum(String(adminForm.cost));
+  // Todos os campos são obrigatórios
+  const valido = adminForm.name.trim() &&
+    precoNum > 0 && custoNum > 0 &&
+    adminForm.time.trim() &&
+    adminForm.imageUrl.trim() &&
+    tagsAtuais.length > 0 &&
+    adminForm.description.trim();
+  const margem = precoNum > 0 && custoNum > 0
+    ? (((precoNum - custoNum) / precoNum) * 100).toFixed(0)
+    : null;
+  // Inicializa display dos campos moeda na primeira vez (se value for numérico puro)
+  function displayMoeda(v) {
+    if (!v || v === "0") return "";
+    if (String(v).startsWith("R$")) return v;
+    const digits = String(Math.round(Number(v) * 100)).padStart(3, "0");
+    return rawParaMoeda(digits);
+  }
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onFechar}>
@@ -5409,39 +5447,56 @@ function ProdutoCadastroModal({ adminForm, setAdminForm, cats, onSalvar, onFecha
             </div>
           </div>
 
-          {/* Preço / custo / tempo */}
+          {/* Custo / Preço venda / Preparo */}
           <div className="grid grid-cols-3 gap-3">
-            <div><span className={lbl}>Preço *</span><input value={adminForm.price} onChange={(e) => set("price", e.target.value.replace(",", "."))} placeholder="0.00" className={inp} /></div>
-            <div><span className={lbl}>Custo</span><input value={adminForm.cost} onChange={(e) => set("cost", e.target.value.replace(",", "."))} placeholder="0.00" className={inp} /></div>
-            <div><span className={lbl}>Preparo</span><input value={adminForm.time} onChange={(e) => set("time", e.target.value)} placeholder="25-35 min" className={inp} /></div>
+            <div>
+              <span className={lbl}>Custo *</span>
+              <input inputMode="numeric" value={displayMoeda(adminForm.cost)}
+                onChange={(e) => { const {display} = handleMoeda(e); set("cost", display); }}
+                placeholder="R$ 0,00" className={inp} />
+            </div>
+            <div>
+              <span className={lbl}>Preço venda *</span>
+              <input inputMode="numeric" value={displayMoeda(adminForm.price)}
+                onChange={(e) => { const {display} = handleMoeda(e); set("price", display); }}
+                placeholder="R$ 0,00" className={inp} />
+            </div>
+            <div><span className={lbl}>Preparo *</span><input value={adminForm.time} onChange={(e) => set("time", e.target.value)} placeholder="25-35 min" className={inp} /></div>
           </div>
           {margem !== null && <p className="text-xs font-bold text-emerald-300">Margem estimada: {margem}%</p>}
 
           {/* Imagem */}
           <div>
-            <span className={lbl}>URL da imagem</span>
+            <span className={lbl}>URL da imagem *</span>
             <input value={adminForm.imageUrl} onChange={(e) => set("imageUrl", e.target.value)} placeholder="https://..." className={inp} />
           </div>
 
           {/* Ingredientes */}
           <div>
-            <span className={lbl}>Ingredientes <span className="text-slate-600 normal-case">— Enter para adicionar</span></span>
+            <span className={lbl}>Ingredientes * <span className="text-slate-600 normal-case">— Enter para adicionar</span></span>
             <TagsInput tags={tagsAtuais} setTags={(arr) => set("ingredientsText", arr.join(", "))} placeholder="Ex.: Parmesão" />
           </div>
 
           {/* Descrição */}
           <div>
-            <span className={lbl}>Descrição</span>
+            <span className={lbl}>Descrição *</span>
             <textarea value={adminForm.description} onChange={(e) => set("description", e.target.value)} placeholder="Descrição do produto" rows={2} className={`${inp} resize-none`} />
           </div>
         </div>
 
-        <div className="shrink-0 border-t border-white/10 px-6 py-4 flex gap-3">
-          <button onClick={onFechar} className="flex-1 rounded-2xl border border-white/10 bg-white/[0.06] py-3.5 text-sm font-black text-slate-300 hover:bg-white/10">Cancelar</button>
-          <button onClick={onSalvar} disabled={!valido}
-            className="flex-[2] rounded-2xl bg-blue-500 py-3.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
-            + Cadastrar produto
-          </button>
+        <div className="shrink-0 border-t border-white/10 px-6 py-4 space-y-2">
+          {!valido && (adminForm.name || moedaParaNum(String(adminForm.price)) > 0) && (
+            <p className="text-xs font-semibold text-amber-400">
+              ⚠ Preencha todos os campos obrigatórios (*) para cadastrar.
+            </p>
+          )}
+          <div className="flex gap-3">
+            <button onClick={onFechar} className="flex-1 rounded-2xl border border-white/10 bg-white/[0.06] py-3.5 text-sm font-black text-slate-300 hover:bg-white/10">Cancelar</button>
+            <button onClick={onSalvar} disabled={!valido}
+              className="flex-[2] rounded-2xl bg-blue-500 py-3.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+              + Cadastrar produto
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -5471,14 +5526,26 @@ function SeletorCategoria({ valor, aoMudar, categorias }) {
 }
 
 function ProdutoEditModal({ produto, cats, onSalvar, onFechar }) {
+  // Inicializa campos de moeda já formatados
+  const toDisplay = (v) => {
+    if (!v && v !== 0) return "";
+    if (String(v).startsWith("R$")) return v;
+    const digits = String(Math.round(Number(v) * 100)).padStart(3, "0");
+    return rawParaMoeda(digits);
+  };
   const [f, setF] = useState({
-    name: produto.name, category: produto.category, price: produto.price, cost: produto.cost,
+    name: produto.name, category: produto.category,
+    price: toDisplay(produto.price), cost: toDisplay(produto.cost),
     time: produto.time || "", imageUrl: produto.imageUrl || "", description: produto.description || "",
     estoque: produto.estoque ?? 0,
   });
   const [tags, setTags] = useState([...(produto.ingredients || [])]); // ingredientes como tags
   const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400";
   const lbl = "mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500";
+  const precoNum = moedaParaNum(String(f.price));
+  const custoNum = moedaParaNum(String(f.cost));
+  const validoEdit = f.name.trim() && precoNum > 0 && custoNum > 0 &&
+    f.time.trim() && f.imageUrl.trim() && tags.length > 0 && f.description.trim();
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onFechar}>
@@ -5498,37 +5565,58 @@ function ProdutoEditModal({ produto, cats, onSalvar, onFechar }) {
             <SeletorCategoria valor={f.category} aoMudar={(c) => setF({ ...f, category: c })} categorias={cats} />
           </div>
 
-          {/* Preço / custo / tempo / estoque */}
+          {/* Custo / Preço venda */}
           <div className="grid grid-cols-2 gap-3">
-            <div><span className={lbl}>Preço venda</span><input value={f.price} onChange={(e) => setF({ ...f, price: e.target.value.replace(",", ".") })} placeholder="0.00" className={inp} /></div>
-            <div><span className={lbl}>Custo</span><input value={f.cost} onChange={(e) => setF({ ...f, cost: e.target.value.replace(",", ".") })} placeholder="0.00" className={inp} /></div>
+            <div>
+              <span className={lbl}>Custo *</span>
+              <input inputMode="numeric" value={f.cost}
+                onChange={(e) => { const {display}=handleMoeda(e); setF({...f, cost: display}); }}
+                placeholder="R$ 0,00" className={inp} />
+            </div>
+            <div>
+              <span className={lbl}>Preço venda *</span>
+              <input inputMode="numeric" value={f.price}
+                onChange={(e) => { const {display}=handleMoeda(e); setF({...f, price: display}); }}
+                placeholder="R$ 0,00" className={inp} />
+            </div>
           </div>
+          {precoNum > 0 && custoNum > 0 && (
+            <p className="text-xs font-bold text-emerald-300">Margem estimada: {(((precoNum-custoNum)/precoNum)*100).toFixed(0)}%</p>
+          )}
           <div className="grid grid-cols-2 gap-3">
-            <div><span className={lbl}>Tempo de preparo</span><input value={f.time} onChange={(e) => setF({ ...f, time: e.target.value })} placeholder="25-35 min" className={inp} /></div>
+            <div><span className={lbl}>Tempo de preparo *</span><input value={f.time} onChange={(e) => setF({ ...f, time: e.target.value })} placeholder="25-35 min" className={inp} /></div>
             <div><span className={lbl}>Estoque</span><input value={f.estoque} onChange={(e) => setF({ ...f, estoque: e.target.value.replace(/\D/g, "") })} placeholder="0" className={inp} /></div>
           </div>
 
           {/* Imagem */}
           <div>
-            <span className={lbl}>URL da imagem</span>
+            <span className={lbl}>URL da imagem *</span>
             <input value={f.imageUrl} onChange={(e) => setF({ ...f, imageUrl: e.target.value })} placeholder="https://..." className={inp} />
           </div>
 
           {/* Ingredientes como TAGS */}
           <div>
-            <span className={lbl}>Ingredientes <span className="text-slate-600 normal-case">— Enter para adicionar</span></span>
+            <span className={lbl}>Ingredientes * <span className="text-slate-600 normal-case">— Enter para adicionar</span></span>
             <TagsInput tags={tags} setTags={setTags} placeholder="Ex.: Parmesão" />
           </div>
 
           {/* Descrição */}
           <div>
-            <span className={lbl}>Descrição</span>
+            <span className={lbl}>Descrição *</span>
             <textarea value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} placeholder="Descrição do produto" rows={3} className={`${inp} resize-none`} />
           </div>
         </div>
-        <div className="shrink-0 border-t border-white/10 px-6 py-4">
-          <button onClick={() => onSalvar({ ...f, ingredients: tags })}
-            className="w-full rounded-2xl bg-emerald-500 py-4 text-sm font-black text-white hover:bg-emerald-400">💾 Salvar alterações</button>
+        <div className="shrink-0 border-t border-white/10 px-6 py-4 space-y-2">
+          {!validoEdit && (
+            <p className="text-xs font-semibold text-amber-400">
+              ⚠ Preencha todos os campos obrigatórios (*) para salvar.
+            </p>
+          )}
+          <button onClick={() => onSalvar({ ...f, price: precoNum, cost: custoNum, ingredients: tags })}
+            disabled={!validoEdit}
+            className="w-full rounded-2xl bg-emerald-500 py-4 text-sm font-black text-white hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed transition">
+            💾 Salvar alterações
+          </button>
         </div>
       </div>
     </div>
