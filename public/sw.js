@@ -1,78 +1,54 @@
-/* ═══════════════════════════════════════════════════════════════════
-   Service Worker — Pedido Prime
-   Garantias:
-   1. App-shell sempre atualizado: network-first + cache de fallback.
-   2. Auto-update forçado: skipWaiting imediato + reload de todas as abas.
-   3. Offline-to-online sync: ao recuperar internet, detecta nova versão
-      e força atualização mesmo que o app esteja fechado (background sync).
-   4. Retry: se o update falhar (rede instável), tenta novamente em 30s.
-   5. Supabase/API: NUNCA em cache — passa 100% pela rede (back-end).
-   ═══════════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════
+   Service Worker — Pedido Prime  (v5)
 
-// ── Versão do cache: mudar aqui força limpeza total na ativação ──────
-const CACHE_VERSION = "pedido-prime-v4";
+   Mudança principal: NÃO chama skipWaiting() no install.
+   O novo SW aguarda sinal da página ("SKIP_WAITING") antes de assumir.
+   Isso garante:
+   - No browser: update silencioso na próxima abertura (sem popup inútil).
+   - No app (standalone): banner "Atualizar" → usuário decide quando.
+   ═══════════════════════════════════════════════════════════════ */
+
+const CACHE_VERSION = "pedido-prime-v5";
 const SHELL_URLS    = ["/", "/login"];
 
-// ── Instala: pré-cacheia o shell e ativa imediatamente ───────────────
+// ── Install: pré-cacheia o shell, NÃO assume imediatamente ───────────
 self.addEventListener("install", (e) => {
-  self.skipWaiting();                          // assume controle sem esperar
   e.waitUntil(
     caches.open(CACHE_VERSION)
       .then((c) => c.addAll(SHELL_URLS).catch(() => {}))
   );
+  // Sem skipWaiting aqui → permite que a página mostre banner
+  // e aplique somente quando o usuário confirmar (standalone)
+  // OU na próxima abertura (browser).
 });
 
-// ── Ativa: apaga caches antigos e assume todas as abas abertas ───────
+// ── Activate: limpa caches antigos, assume clientes ──────────────────
 self.addEventListener("activate", (e) => {
   e.waitUntil((async () => {
-    // Verifica se era uma atualização (havia clientes controlados anteriormente)
-    const clientesAnteriores = await self.clients.matchAll({ type: "window", includeUncontrolled: false });
-    const eraAtualizacao = clientesAnteriores.length > 0;
-
     const keys = await caches.keys();
-    await Promise.all(
-      keys
-        .filter((k) => k !== CACHE_VERSION)
-        .map((k) => caches.delete(k))
-    );
-    await self.clients.claim();               // controla abas sem reload manual
-
-    // Só notifica "SW_UPDATED" se era uma ATUALIZAÇÃO real (havia versão anterior).
-    // Na primeira instalação não existe versão anterior → NÃO emite o evento.
-    if (eraAtualizacao) {
-      const todos = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
-      todos.forEach((c) => c.postMessage({ type: "SW_UPDATED", version: CACHE_VERSION }));
-    }
+    await Promise.all(keys.filter((k) => k !== CACHE_VERSION).map((k) => caches.delete(k)));
+    await self.clients.claim();
+    // Notifica páginas abertas que a nova versão está ativa
+    const clients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    clients.forEach((c) => c.postMessage({ type: "SW_ATIVADO", version: CACHE_VERSION }));
   })());
 });
 
-// ── Mensagens vindas do app ──────────────────────────────────────────
+// ── Mensagens da página ──────────────────────────────────────────────
 self.addEventListener("message", (e) => {
   if (!e.data) return;
-  switch (e.data.type) {
-    case "SKIP_WAITING":
-      self.skipWaiting();
-      break;
-    case "CHECK_UPDATE":
-      // App pede verificação imediata (chamado ao voltar online)
-      self.registration.update().catch(() => {});
-      break;
-  }
+  if (e.data.type === "SKIP_WAITING") self.skipWaiting();
+  if (e.data.type === "CHECK_UPDATE") self.registration.update().catch(() => {});
 });
 
-// ── Fetch: network-first para o app shell; bypass total para APIs ────
+// ── Fetch: network-first same-origin, bypass total para cross-origin ─
 self.addEventListener("fetch", (e) => {
   const req = e.request;
   const url = new URL(req.url);
-
-  // 1. Não cacheia nada cross-origin (Supabase, CDN de imagens, etc.)
-  if (url.origin !== self.location.origin) return;
-  // 2. Só GET same-origin
+  if (url.origin !== self.location.origin) return; // Supabase / CDN → rede direta
   if (req.method !== "GET") return;
-  // 3. Não cacheia endpoints de API internos (/api/*)
   if (url.pathname.startsWith("/api/")) return;
 
-  // Network-first: tenta rede, guarda em cache, serve do cache se offline
   e.respondWith((async () => {
     try {
       const resp = await fetch(req.clone(), { cache: "no-cache" });
@@ -82,37 +58,20 @@ self.addEventListener("fetch", (e) => {
       }
       return resp;
     } catch {
-      // Offline: serve do cache se disponível
       const cached = await caches.match(req);
       if (cached) return cached;
-      // Fallback para o index.html (SPA)
-      const root = await caches.match("/");
-      return root || new Response("Offline", { status: 503 });
+      return caches.match("/") || new Response("Offline", { status: 503 });
     }
   })());
 });
 
-// ── Background Sync: ao voltar online, verifica update ──────────────
-// Registrado pelo app via reg.sync.register("check-update")
+// ── Background Sync (voltar online) ─────────────────────────────────
 self.addEventListener("sync", (e) => {
-  if (e.tag === "check-update") {
-    e.waitUntil(
-      self.registration.update()
-        .then(() => notificarClientes("SYNC_UPDATE_CHECKED"))
-        .catch(() => {})
-    );
-  }
-});
-
-// ── Periodic Background Sync (onde suportado) ───────────────────────
-self.addEventListener("periodicsync", (e) => {
-  if (e.tag === "hourly-update") {
+  if (e.tag === "check-update")
     e.waitUntil(self.registration.update().catch(() => {}));
-  }
 });
 
-// ── Helper: notifica todas as abas abertas ───────────────────────────
-async function notificarClientes(tipo, payload = {}) {
-  const clients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
-  clients.forEach((c) => c.postMessage({ type: tipo, ...payload }));
-}
+self.addEventListener("periodicsync", (e) => {
+  if (e.tag === "hourly-update")
+    e.waitUntil(self.registration.update().catch(() => {}));
+});
