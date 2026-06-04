@@ -948,6 +948,17 @@ export default function RestaurantePedidoApp() {
     setFormasPagamento((cur) => cur.map((x) => x.id === id ? { ...x, active } : x));
     if (dbReady) try { await atualizarFormaPagamento(id, { ativo: active }); } catch {}
   }
+  async function editarFormaPagamento(id, dados) {
+    if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
+    const n = dados.nome?.trim();
+    if (!n) return notify("error", "Informe o nome da forma de pagamento.");
+    setFormasPagamento((cur) => cur.map((x) => x.id === id ? { ...x, ...dados, nome: n } : x));
+    if (dbReady) try {
+      await atualizarFormaPagamento(id, { nome: n, tipo: dados.tipo, permite_troco: dados.permiteTroco });
+    } catch (e) { notify("error", "Erro ao atualizar: " + e.message); return; }
+    notify("success", "Forma de pagamento atualizada.");
+    return true;
+  }
 
   // Baixa de PEDIDOS específicos (pagamento parcial/por item no caixa)
   async function baixarPedidos(orderIds, info = null) {
@@ -1264,7 +1275,7 @@ export default function RestaurantePedidoApp() {
         )}
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} products={products} lojaInfo={lojaInfo} />}
         {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierView orders={orders} baixarComandas={baixarComandas} baixarPedidos={baixarPedidos} formasPagamento={formasPagamentoLoja} onSair={logout} lojaInfo={lojaInfo} />}
-        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} />}
+        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} />}
 
       </div>
     </div>
@@ -3749,7 +3760,7 @@ function ComboEmpresaFoco({ lojas = [], valor, onChange }) {
   );
 }
 
-function AdminView({ products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, toggleUserStatus, toggleAccessStatus, usersLoja, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], addLoja, toggleLoja, editarLoja, removerLoja, lojaInfo, orders = [], onSair, isSuperAdmin = false, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas }) {
+function AdminView({ products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, toggleUserStatus, toggleAccessStatus, usersLoja, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], addLoja, toggleLoja, editarLoja, removerLoja, lojaInfo, orders = [], onSair, isSuperAdmin = false, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas }) {
   const menu = [
     { grupo: "Gestão", itens: [
       { id: "dashboard", icon: "📊", label: "Dashboard" },
@@ -3865,7 +3876,7 @@ function AdminView({ products, categories, adminForm, setAdminForm, addProduct, 
           {ativo === "link"       && <UserAccessAdmin users={isSuperAdmin ? users : (usersLoja ?? users)} accesses={accesses} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} lojas={lojas} isSuperAdmin={isSuperAdmin} />}
           {ativo === "categorias" && (precisaEmpresa ? avisoEmpresa : <CategoriaAdmin categoriasDb={categoriasDb} produtos={products} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} />)}
           {ativo === "comandas"   && (precisaEmpresa ? avisoEmpresa : <GeradorComandas prefixoLoja={lojaInfo?.prefixo || "CMD"} empresa={lojaInfo?.nome || "Restaurante"} onGerar={registrarComandas} />)}
-          {ativo === "pagamento"  && (precisaEmpresa ? avisoEmpresa : <PagamentoAdmin formasPagamento={formasPagamento} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} />)}
+          {ativo === "pagamento"  && (precisaEmpresa ? avisoEmpresa : <PagamentoAdmin formasPagamento={formasPagamento} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} />)}
           {ativo === "lojas"      && <LojaAdmin lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} lojaInfo={lojaInfo} criarEmpresa={criarEmpresa} cargos={cargos} />}
           {ativo === "minhaempresa" && <MinhaEmpresa lojaInfo={lojaInfo} qtdUsuarios={(usersLoja ?? users).length} qtdProdutos={products.length} />}
         </div>
@@ -5217,10 +5228,11 @@ const TIPOS_PAGAMENTO = [
   { id: "outro",          label: "Outro" },
 ];
 
-function PagamentoAdmin({ formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento }) {
-  const [excluir, setExcluir] = useState(null);
-  const [criando, setCriando] = useState(false);
-  const [busca, setBusca]     = useState("");
+function PagamentoAdmin({ formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento }) {
+  const [excluir, setExcluir]   = useState(null);
+  const [criando, setCriando]   = useState(false);
+  const [editando, setEditando] = useState(null);
+  const [busca, setBusca]       = useState("");
   const labelTipo = (id) => TIPOS_PAGAMENTO.find((t) => t.id === id)?.label || id;
 
   const termo = busca.trim().toLowerCase();
@@ -5230,10 +5242,14 @@ function PagamentoAdmin({ formasPagamento, addFormaPagamento, toggleFormaPagamen
     const ok = await addFormaPagamento({ ...forma, permiteTroco: forma.tipo === "dinheiro" ? true : forma.permiteTroco });
     if (ok) setCriando(false);
   }
+  async function salvarEdicao(dados) {
+    const ok = await editarFormaPagamento(editando.id, { ...dados, permiteTroco: dados.tipo === "dinheiro" ? true : dados.permiteTroco });
+    if (ok) setEditando(null);
+  }
 
   return (
     <main className="space-y-5">
-      {/* Cabeçalho: título + contadores + botão cadastrar */}
+      {/* Cabeçalho */}
       <div className="flex flex-col gap-4 rounded-[2rem] border border-white/10 bg-white/[0.04] p-5 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h3 className="text-xl font-black text-white">Formas de pagamento</h3>
@@ -5242,7 +5258,7 @@ function PagamentoAdmin({ formasPagamento, addFormaPagamento, toggleFormaPagamen
             <span className="text-emerald-300"> {formasPagamento.filter((f) => f.active !== false).length} ativas</span> •
             <span className="text-slate-500"> {formasPagamento.filter((f) => f.active === false).length} inativas</span>
           </p>
-          <p className="mt-1 text-xs text-slate-500">Aparecem na tela do caixa ao finalizar o pagamento.</p>
+          <p className="mt-1 text-xs text-slate-500">Clique em uma forma para editar. Aparecem na tela do caixa.</p>
         </div>
         <button onClick={() => setCriando(true)}
           className="flex items-center justify-center gap-2 rounded-2xl bg-blue-500 px-6 py-3.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95 shadow-lg shadow-blue-950/30">
@@ -5266,20 +5282,37 @@ function PagamentoAdmin({ formasPagamento, addFormaPagamento, toggleFormaPagamen
           )}
           {formasPagamento.length > 0 && filtradas.length === 0 && <p className="py-6 text-center text-sm text-slate-500">Nenhuma forma encontrada.</p>}
           {filtradas.map((f) => (
-            <div key={f.id} className="flex items-center gap-3 rounded-3xl border border-white/10 bg-slate-950/40 p-3">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white/[0.06] text-lg">💳</span>
+            <div key={f.id}
+              onClick={() => setEditando(f)}
+              className="group flex cursor-pointer items-center gap-3 rounded-3xl border border-white/10 bg-slate-950/40 p-3 transition hover:border-blue-400/30 hover:bg-white/[0.06]">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white/[0.06] text-lg group-hover:bg-blue-500/15 transition">💳</span>
               <div className="min-w-0 flex-1">
                 <p className="font-black text-white truncate">{f.nome}</p>
                 <p className="text-xs text-slate-400">{labelTipo(f.tipo)}{f.permiteTroco ? " • permite troco" : ""}</p>
               </div>
-              <button onClick={() => toggleFormaPagamento(f.id)} className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-black ${f.active ? "bg-emerald-500 text-white" : "bg-slate-700 text-slate-200"}`}>{f.active ? "Ativo" : "Inativo"}</button>
-              <button onClick={() => setExcluir(f)} title="Excluir" className="shrink-0 rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-1.5 text-xs font-black text-red-300 hover:bg-red-500/20">🗑️</button>
+              <span className="shrink-0 text-xs text-slate-600 group-hover:text-blue-400 transition">✏️ Editar</span>
+              <button onClick={(e) => { e.stopPropagation(); toggleFormaPagamento(f.id); }}
+                className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-black ${f.active !== false ? "bg-emerald-500 text-white" : "bg-slate-700 text-slate-200"}`}>
+                {f.active !== false ? "Ativo" : "Inativo"}
+              </button>
+              <button onClick={(e) => { e.stopPropagation(); setExcluir(f); }}
+                title="Excluir" className="shrink-0 rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-1.5 text-xs font-black text-red-300 hover:bg-red-500/20">
+                🗑️
+              </button>
             </div>
           ))}
         </div>
       </div>
 
       {criando && <FormaPagamentoCadastroModal onSalvar={salvarNova} onFechar={() => setCriando(false)} />}
+      {editando && (
+        <FormaPagamentoEditModal
+          forma={editando}
+          onSalvar={salvarEdicao}
+          onToggle={() => { toggleFormaPagamento(editando.id); setEditando((f) => f ? { ...f, active: f.active === false ? true : false } : f); }}
+          onFechar={() => setEditando(null)}
+        />
+      )}
       {excluir && (
         <ConfirmModal titulo="Excluir forma de pagamento?"
           mensagem={`Deseja excluir "${excluir.nome}"? Esta ação não pode ser desfeita. (Dica: você pode apenas inativar.)`}
@@ -5288,6 +5321,79 @@ function PagamentoAdmin({ formasPagamento, addFormaPagamento, toggleFormaPagamen
           onCancelar={() => setExcluir(null)} />
       )}
     </main>
+  );
+}
+
+// Modal de edição de forma de pagamento
+function FormaPagamentoEditModal({ forma, onSalvar, onToggle, onFechar }) {
+  const [f, setF] = useState({ nome: forma.nome, tipo: forma.tipo || "outro", permiteTroco: !!forma.permiteTroco });
+  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400 placeholder:text-slate-600";
+  const lbl = "mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500";
+  const valido = f.nome.trim().length > 0;
+  const ativa = forma.active !== false;
+  const labelTipo = (id) => TIPOS_PAGAMENTO.find((t) => t.id === id)?.label || id;
+  const alterado = f.nome.trim() !== forma.nome || f.tipo !== (forma.tipo || "outro") || f.permiteTroco !== !!forma.permiteTroco;
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onFechar}>
+      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-md flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+          <div className="flex items-center gap-2">
+            <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-blue-500/15 text-lg">💳</span>
+            <h2 className="text-lg font-black text-white">Editar forma de pagamento</h2>
+          </div>
+          <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20">✕</button>
+        </div>
+
+        <div className="px-6 py-5 space-y-4">
+          {/* Nome */}
+          <div>
+            <span className={lbl}>Nome *</span>
+            <input autoFocus value={f.nome} onChange={(e) => setF({ ...f, nome: e.target.value })}
+              placeholder="Ex.: Vale Refeição, Ticket..." className={inp} />
+          </div>
+
+          {/* Tipo */}
+          <div>
+            <span className={lbl}>Tipo</span>
+            <select value={f.tipo} onChange={(e) => setF({ ...f, tipo: e.target.value })} className={inp}>
+              {TIPOS_PAGAMENTO.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+            </select>
+          </div>
+
+          {/* Troco */}
+          <label className="flex items-center gap-2 rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-3 text-sm text-slate-300 cursor-pointer hover:bg-white/[0.04] transition">
+            <input type="checkbox" checked={f.tipo === "dinheiro" || f.permiteTroco}
+              disabled={f.tipo === "dinheiro"}
+              onChange={(e) => setF({ ...f, permiteTroco: e.target.checked })}
+              className="accent-blue-500" />
+            Permite troco {f.tipo === "dinheiro" && <span className="text-slate-500">(dinheiro sempre permite)</span>}
+          </label>
+
+          {/* Status */}
+          <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
+            <div>
+              <p className="text-sm font-black text-white">Status</p>
+              <p className="text-xs text-slate-400">{ativa ? "Disponível na tela do caixa" : "Oculta na tela do caixa"}</p>
+            </div>
+            <button onClick={onToggle}
+              className={`shrink-0 rounded-full px-4 py-2 text-sm font-black transition ${ativa ? "bg-emerald-500 text-white hover:bg-emerald-400" : "bg-slate-700 text-slate-200 hover:bg-slate-600"}`}>
+              {ativa ? "✅ Ativo" : "⏸ Inativo"}
+            </button>
+          </div>
+        </div>
+
+        {/* Rodapé */}
+        <div className="shrink-0 border-t border-white/10 px-6 py-4 flex gap-3">
+          <button onClick={onFechar} className="flex-1 rounded-2xl border border-white/10 bg-white/[0.06] py-3.5 text-sm font-black text-slate-300 hover:bg-white/10">Cancelar</button>
+          <button onClick={() => onSalvar(f)} disabled={!valido || !alterado}
+            className="flex-[2] rounded-2xl bg-blue-500 py-3.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+            💾 Salvar alterações
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
