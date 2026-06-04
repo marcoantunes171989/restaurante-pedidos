@@ -7,7 +7,7 @@ import {
   fetchFormasPagamento, inserirFormaPagamento, atualizarFormaPagamento, escutarFormasPagamento,
   fetchCategorias, inserirCategoria, atualizarCategoria, excluirCategoria, escutarCategorias,
   fetchLojas, inserirLoja, atualizarLoja, excluirLoja, escutarLojas, cadastrarEmpresa,
-  fetchComandas, inserirComandas, escutarComandas,
+  fetchComandas, inserirComandas, escutarComandas, excluirComanda, renomearComanda,
   fetchCargos, inserirCargo, atualizarCargo, excluirCargo, escutarCargos,
   baixarEstoque, registrarPagamento,
   excluirProduto, excluirFormaPagamento, excluirUsuario,
@@ -833,6 +833,23 @@ export default function RestaurantePedidoApp() {
     });
     setComandasCarregadas(true);
     if (dbReady) try { await inserirComandas(codigos, lojaAtual); } catch (e) { console.warn("Falha ao registrar comandas:", e.message); }
+  }
+
+  // ── Gestão de comandas (excluir / renomear) ──────────────────
+  async function excluirComandaFn(codigo) {
+    if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
+    setComandas((cur) => cur.filter((c) => c.codigo !== codigo));
+    if (dbReady) try { await excluirComanda(codigo); } catch (e) { notify("error", "Erro ao excluir comanda: " + e.message); return; }
+    notify("success", "Comanda excluída.");
+  }
+  async function renomearComandaFn(codigoAntigo, codigoNovo) {
+    if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
+    if (!codigoNovo?.trim()) return notify("error", "Informe o novo código.");
+    if (comandas.some((c) => c.codigo === codigoNovo && c.codigo !== codigoAntigo))
+      return notify("error", "Já existe uma comanda com este código.");
+    setComandas((cur) => cur.map((c) => c.codigo === codigoAntigo ? { ...c, codigo: codigoNovo } : c));
+    if (dbReady) try { await renomearComanda(codigoAntigo, codigoNovo, lojaAtual); } catch (e) { notify("error", "Erro ao renomear: " + e.message); return; }
+    notify("success", "Comanda atualizada com sucesso.");
   }
 
   // ── Formas de pagamento (admin) ──────────────────────────────
@@ -3875,7 +3892,7 @@ function AdminView({ products, categories, adminForm, setAdminForm, addProduct, 
           {ativo === "access"     && <AccessAdmin    accesses={accesses} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleAccessStatus={toggleAccessStatus} />}
           {ativo === "link"       && <UserAccessAdmin users={isSuperAdmin ? users : (usersLoja ?? users)} accesses={accesses} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} lojas={lojas} isSuperAdmin={isSuperAdmin} />}
           {ativo === "categorias" && (precisaEmpresa ? avisoEmpresa : <CategoriaAdmin categoriasDb={categoriasDb} produtos={products} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} />)}
-          {ativo === "comandas"   && (precisaEmpresa ? avisoEmpresa : <GeradorComandas prefixoLoja={lojaInfo?.prefixo || "CMD"} empresa={lojaInfo?.nome || "Restaurante"} onGerar={registrarComandas} />)}
+          {ativo === "comandas"   && (precisaEmpresa ? avisoEmpresa : <GeradorComandas prefixoLoja={lojaInfo?.prefixo || "CMD"} empresa={lojaInfo?.nome || "Restaurante"} onGerar={registrarComandas} comandasRegistradas={filtraLoja(comandas)} onExcluirComanda={excluirComandaFn} onRenomearComanda={renomearComandaFn} />)}
           {ativo === "pagamento"  && (precisaEmpresa ? avisoEmpresa : <PagamentoAdmin formasPagamento={formasPagamento} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} />)}
           {ativo === "lojas"      && <LojaAdmin lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} lojaInfo={lojaInfo} criarEmpresa={criarEmpresa} cargos={cargos} />}
           {ativo === "minhaempresa" && <MinhaEmpresa lojaInfo={lojaInfo} qtdUsuarios={(usersLoja ?? users).length} qtdProdutos={products.length} />}

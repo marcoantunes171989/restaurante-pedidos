@@ -187,6 +187,15 @@ export async function inserirComandas(codigos, lojaId) {
     .upsert(linhas, { onConflict: 'codigo', ignoreDuplicates: true })
   if (error) throw error
 }
+export async function excluirComanda(codigo) {
+  const { error } = await supabase.from('tab_comandas').delete().eq('codigo', codigo)
+  if (error) throw error
+}
+export async function renomearComanda(codigoAntigo, codigoNovo, lojaId) {
+  // Insere novo e remove antigo (não há UPDATE simples na PK)
+  await inserirComandas([codigoNovo], lojaId)
+  await excluirComanda(codigoAntigo)
+}
 export function escutarComandas(onMudanca) {
   const reload = async () => {
     const { data, error } = await supabase.from('tab_comandas').select('codigo, loja_id')
