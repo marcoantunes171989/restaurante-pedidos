@@ -862,6 +862,22 @@ export default function RestaurantePedidoApp() {
     if (dbReady) try { await excluirCategoria(id); } catch (e) { notify("error", "Erro ao excluir: " + e.message); return; }
     notify("success", "Categoria excluída.");
   }
+  async function renomearCategoria(id, novoNome) {
+    if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
+    const n = novoNome.trim();
+    if (!n) return notify("error", "Informe o nome da categoria.");
+    const anterior = categoriasDb.find((x) => x.id === id);
+    if (!anterior) return;
+    if (categoriasDb.some((c) => c.id !== id && c.nome.toLowerCase() === n.toLowerCase())) return notify("error", "Já existe uma categoria com este nome.");
+    // Atualiza localmente a categoria e todos os produtos que a usam
+    setCategoriasDb((cur) => cur.map((x) => x.id === id ? { ...x, nome: n } : x));
+    if (anterior.nome !== n) {
+      setProducts((cur) => cur.map((p) => p.category === anterior.nome ? { ...p, category: n } : p));
+    }
+    if (dbReady) try { await atualizarCategoria(id, { nome: n }); } catch (e) { notify("error", "Erro ao renomear: " + e.message); return; }
+    notify("success", "Categoria renomeada com sucesso.");
+    return true;
+  }
 
   // ── Lojas (multi-empresa) ───────────────────────────────────
   async function addLoja(loja) {
@@ -1248,7 +1264,7 @@ export default function RestaurantePedidoApp() {
         )}
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} products={products} lojaInfo={lojaInfo} />}
         {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierView orders={orders} baixarComandas={baixarComandas} baixarPedidos={baixarPedidos} formasPagamento={formasPagamentoLoja} onSair={logout} lojaInfo={lojaInfo} />}
-        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} />}
+        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} />}
 
       </div>
     </div>
@@ -3733,7 +3749,7 @@ function ComboEmpresaFoco({ lojas = [], valor, onChange }) {
   );
 }
 
-function AdminView({ products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, toggleUserStatus, toggleAccessStatus, usersLoja, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, lojas = [], addLoja, toggleLoja, editarLoja, removerLoja, lojaInfo, orders = [], onSair, isSuperAdmin = false, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas }) {
+function AdminView({ products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, toggleUserStatus, toggleAccessStatus, usersLoja, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], addLoja, toggleLoja, editarLoja, removerLoja, lojaInfo, orders = [], onSair, isSuperAdmin = false, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas }) {
   const menu = [
     { grupo: "Gestão", itens: [
       { id: "dashboard", icon: "📊", label: "Dashboard" },
@@ -3847,7 +3863,7 @@ function AdminView({ products, categories, adminForm, setAdminForm, addProduct, 
           {ativo === "cargos"     && <CargoAdmin     cargos={cargos} users={isSuperAdmin ? users : (usersLoja ?? users)} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} />}
           {ativo === "access"     && <AccessAdmin    accesses={accesses} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleAccessStatus={toggleAccessStatus} />}
           {ativo === "link"       && <UserAccessAdmin users={isSuperAdmin ? users : (usersLoja ?? users)} accesses={accesses} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} lojas={lojas} isSuperAdmin={isSuperAdmin} />}
-          {ativo === "categorias" && (precisaEmpresa ? avisoEmpresa : <CategoriaAdmin categoriasDb={categoriasDb} produtos={products} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} />)}
+          {ativo === "categorias" && (precisaEmpresa ? avisoEmpresa : <CategoriaAdmin categoriasDb={categoriasDb} produtos={products} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} />)}
           {ativo === "comandas"   && (precisaEmpresa ? avisoEmpresa : <GeradorComandas prefixoLoja={lojaInfo?.prefixo || "CMD"} empresa={lojaInfo?.nome || "Restaurante"} onGerar={registrarComandas} />)}
           {ativo === "pagamento"  && (precisaEmpresa ? avisoEmpresa : <PagamentoAdmin formasPagamento={formasPagamento} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} />)}
           {ativo === "lojas"      && <LojaAdmin lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} lojaInfo={lojaInfo} criarEmpresa={criarEmpresa} cargos={cargos} />}
@@ -4973,12 +4989,14 @@ function LojaEditModal({ loja, onSalvar, onFechar }) {
 // ════════════════════════════════════════════════════════════
 //  Admin — Categorias
 // ════════════════════════════════════════════════════════════
-function CategoriaAdmin({ categoriasDb, produtos, addCategoria, toggleCategoria, removerCategoria }) {
-  const [excluir, setExcluir] = useState(null);
-  const [criando, setCriando] = useState(false);
-  const [busca, setBusca]     = useState("");
-  // Conta quantos produtos usam cada categoria
-  const contagem = (catNome) => produtos.filter((p) => p.category === catNome).length;
+function CategoriaAdmin({ categoriasDb, produtos, addCategoria, toggleCategoria, removerCategoria, renomearCategoria }) {
+  const [excluir, setExcluir]   = useState(null);
+  const [criando, setCriando]   = useState(false);
+  const [editando, setEditando] = useState(null); // categoria sendo editada
+  const [busca, setBusca]       = useState("");
+
+  const produtosDaCat = (catNome) => produtos.filter((p) => p.category === catNome);
+  const contagem = (catNome) => produtosDaCat(catNome).length;
 
   const termo = busca.trim().toLowerCase();
   const filtradas = termo ? categoriasDb.filter((c) => c.nome.toLowerCase().includes(termo)) : categoriasDb;
@@ -4987,10 +5005,15 @@ function CategoriaAdmin({ categoriasDb, produtos, addCategoria, toggleCategoria,
     const ok = await addCategoria(nome);
     if (ok) setCriando(false);
   }
+  async function salvarEdicao(novoNome) {
+    if (!editando) return;
+    const ok = await renomearCategoria(editando.id, novoNome);
+    if (ok) setEditando(null);
+  }
 
   return (
     <main className="space-y-5">
-      {/* Cabeçalho: título + contadores + botão cadastrar */}
+      {/* Cabeçalho */}
       <div className="flex flex-col gap-4 rounded-[2rem] border border-white/10 bg-white/[0.04] p-5 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h3 className="text-xl font-black text-white">Categorias</h3>
@@ -4999,7 +5022,7 @@ function CategoriaAdmin({ categoriasDb, produtos, addCategoria, toggleCategoria,
             <span className="text-emerald-300"> {categoriasDb.filter((c) => c.active !== false).length} ativas</span> •
             <span className="text-slate-500"> {categoriasDb.filter((c) => c.active === false).length} inativas</span>
           </p>
-          <p className="mt-1 text-xs text-slate-500">Aparecem no cadastro de produtos e no cardápio do tablet.</p>
+          <p className="mt-1 text-xs text-slate-500">Clique em uma categoria para editar e ver os produtos vinculados.</p>
         </div>
         <button onClick={() => setCriando(true)}
           className="flex items-center justify-center gap-2 rounded-2xl bg-blue-500 px-6 py-3.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95 shadow-lg shadow-blue-950/30">
@@ -5025,14 +5048,23 @@ function CategoriaAdmin({ categoriasDb, produtos, addCategoria, toggleCategoria,
           {filtradas.map((c) => {
             const usos = contagem(c.nome);
             return (
-              <div key={c.id} className="flex items-center gap-3 rounded-3xl border border-white/10 bg-slate-950/40 p-3">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white/[0.06] text-lg">🏷️</span>
+              <div key={c.id}
+                onClick={() => setEditando(c)}
+                className="group flex cursor-pointer items-center gap-3 rounded-3xl border border-white/10 bg-slate-950/40 p-3 transition hover:border-blue-400/30 hover:bg-white/[0.06]">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white/[0.06] text-lg group-hover:bg-blue-500/15 transition">🏷️</span>
                 <div className="min-w-0 flex-1">
                   <p className="font-black text-white truncate">{c.nome}</p>
                   <p className="text-xs text-slate-400">{usos} produto(s) nesta categoria</p>
                 </div>
-                <button onClick={() => toggleCategoria(c.id)} className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-black ${c.active ? "bg-emerald-500 text-white" : "bg-slate-700 text-slate-200"}`}>{c.active ? "Ativa" : "Inativa"}</button>
-                <button onClick={() => setExcluir(c)} title="Excluir" className="shrink-0 rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-1.5 text-xs font-black text-red-300 hover:bg-red-500/20 transition">🗑️</button>
+                <span className="shrink-0 text-xs text-slate-600 group-hover:text-blue-400 transition">✏️ Editar</span>
+                <button onClick={(e) => { e.stopPropagation(); toggleCategoria(c.id); }}
+                  className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-black ${c.active !== false ? "bg-emerald-500 text-white" : "bg-slate-700 text-slate-200"}`}>
+                  {c.active !== false ? "Ativa" : "Inativa"}
+                </button>
+                <button onClick={(e) => { e.stopPropagation(); setExcluir(c); }}
+                  title="Excluir" className="shrink-0 rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-1.5 text-xs font-black text-red-300 hover:bg-red-500/20 transition">
+                  🗑️
+                </button>
               </div>
             );
           })}
@@ -5040,6 +5072,15 @@ function CategoriaAdmin({ categoriasDb, produtos, addCategoria, toggleCategoria,
       </div>
 
       {criando && <CategoriaCadastroModal onSalvar={salvarNova} onFechar={() => setCriando(false)} />}
+      {editando && (
+        <CategoriaEditModal
+          categoria={editando}
+          produtos={produtosDaCat(editando.nome)}
+          onSalvar={salvarEdicao}
+          onToggle={() => { toggleCategoria(editando.id); setEditando((c) => c ? { ...c, active: c.active === false ? true : false } : c); }}
+          onFechar={() => setEditando(null)}
+        />
+      )}
       {excluir && (
         <ConfirmModal titulo="Excluir categoria?"
           mensagem={`Excluir a categoria "${excluir.nome}"? ${contagem(excluir.nome) > 0 ? `Atenção: ${contagem(excluir.nome)} produto(s) usam esta categoria.` : ""} Você pode apenas inativá-la.`}
@@ -5048,6 +5089,86 @@ function CategoriaAdmin({ categoriasDb, produtos, addCategoria, toggleCategoria,
           onCancelar={() => setExcluir(null)} />
       )}
     </main>
+  );
+}
+
+// Modal de edição de categoria + lista de produtos vinculados
+function CategoriaEditModal({ categoria, produtos, onSalvar, onToggle, onFechar }) {
+  const [nome, setNome] = useState(categoria.nome);
+  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400 placeholder:text-slate-600";
+  const lbl = "mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500";
+  const valido = nome.trim().length > 0;
+  const ativa = categoria.active !== false;
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onFechar}>
+      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-md flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl max-h-[90vh]">
+
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+          <div className="flex items-center gap-2">
+            <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-blue-500/15 text-lg">🏷️</span>
+            <h2 className="text-lg font-black text-white">Editar categoria</h2>
+          </div>
+          <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20">✕</button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+          {/* Nome */}
+          <div>
+            <span className={lbl}>Nome da categoria *</span>
+            <input autoFocus value={nome} onChange={(e) => setNome(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && valido) onSalvar(nome); }}
+              placeholder="Ex.: Entradas, Bebidas..." className={inp} />
+          </div>
+
+          {/* Status */}
+          <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
+            <div>
+              <p className="text-sm font-black text-white">Status</p>
+              <p className="text-xs text-slate-400">{ativa ? "Visível no cardápio e no cadastro de produtos" : "Oculta do cardápio e do cadastro de produtos"}</p>
+            </div>
+            <button onClick={onToggle}
+              className={`shrink-0 rounded-full px-4 py-2 text-sm font-black transition ${ativa ? "bg-emerald-500 text-white hover:bg-emerald-400" : "bg-slate-700 text-slate-200 hover:bg-slate-600"}`}>
+              {ativa ? "✅ Ativa" : "⏸ Inativa"}
+            </button>
+          </div>
+
+          {/* Produtos vinculados */}
+          <div>
+            <p className={lbl}>Produtos vinculados ({produtos.length})</p>
+            {produtos.length === 0 ? (
+              <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] px-4 py-6 text-center">
+                <p className="text-sm text-slate-500">Nenhum produto nesta categoria.</p>
+              </div>
+            ) : (
+              <div className="space-y-1.5 rounded-2xl border border-white/[0.06] bg-white/[0.03] p-2">
+                {produtos.map((p) => (
+                  <div key={p.id} className="flex items-center gap-3 rounded-xl bg-white/[0.04] px-3 py-2">
+                    <img src={p.imageUrl} alt={p.name}
+                      className="h-9 w-9 shrink-0 rounded-xl object-cover"
+                      onError={(e) => { e.target.style.display="none"; }} />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-black text-white">{p.name}</p>
+                      <p className="text-xs text-slate-500">{p.active ? "✅ Ativo" : "⏸ Inativo"} · {formatCurrency(p.price)}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Rodapé */}
+        <div className="shrink-0 border-t border-white/10 px-6 py-4 flex gap-3">
+          <button onClick={onFechar} className="flex-1 rounded-2xl border border-white/10 bg-white/[0.06] py-3.5 text-sm font-black text-slate-300 hover:bg-white/10">Cancelar</button>
+          <button onClick={() => onSalvar(nome)} disabled={!valido || nome.trim() === categoria.nome}
+            className="flex-[2] rounded-2xl bg-blue-500 py-3.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+            💾 Salvar alterações
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
