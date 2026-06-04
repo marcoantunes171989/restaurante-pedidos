@@ -12,6 +12,7 @@ import {
   baixarEstoque, registrarPagamento,
   excluirProduto, excluirFormaPagamento, excluirUsuario,
   STATUS_APP_PARA_DB,
+  uploadImagemProduto, validarImagemProduto,
 } from "./lib/supabase";
 import { GeradorComandas } from "./components/QRComandas";
 import { QRScannerModal  } from "./components/QRScanner";
@@ -34,6 +35,9 @@ const initialOrders = [
 ];
 
 const categoriasPadrao = ["Entradas", "Pratos principais", "Lanches", "Bebidas", "Sobremesas"];
+
+// Tempos de preparo padronizados — aparecem igual em todas as telas (tablet, cozinha, etc.)
+const TEMPOS_PREPARO = ["5-10 min", "10-15 min", "15-20 min", "20-30 min", "25-35 min", "35-45 min", "45-60 min", "Mais de 60 min"];
 
 const defaultAccesses = [
   { id: "tablet", label: "Tablet do cliente", desc: "Pedido, comanda e solicitação de conta", type: "Operacional", active: true },
@@ -1005,14 +1009,15 @@ export default function RestaurantePedidoApp() {
     notify("success", `✅ Pagamento registrado! ${alvo.length} pedido(s) baixado(s).`);
   }
 
-  async function addProduct() {
+  async function addProduct(overrideImageUrl) {
     if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
     if (!adminForm.name.trim()) return notify("error", "Informe o nome do produto.");
     const precoAdd = moedaParaNum(String(adminForm.price));
     const custoAdd = moedaParaNum(String(adminForm.cost));
     if (precoAdd <= 0) return notify("error", "Informe um preço de venda válido.");
     if (custoAdd <= 0) return notify("error", "Informe o custo do produto.");
-    const np = { name: adminForm.name.trim(), category: adminForm.category, price: precoAdd, cost: custoAdd, active: true, time: adminForm.time || "15-25 min", description: adminForm.description || "Produto cadastrado pelo administrativo.", badge: "Admin", imageUrl: adminForm.imageUrl || fallbackImage, ingredients: adminForm.ingredientsText.split(",").map((s) => s.trim()).filter(Boolean), estoque: 100, lojaId: lojaAtual };
+    const imgFinal = (typeof overrideImageUrl === "string" && overrideImageUrl) ? overrideImageUrl : adminForm.imageUrl;
+    const np = { name: adminForm.name.trim(), category: adminForm.category, price: precoAdd, cost: custoAdd, active: true, time: adminForm.time || "15-25 min", description: adminForm.description || "Produto cadastrado pelo administrativo.", badge: "Admin", imageUrl: imgFinal || fallbackImage, ingredients: adminForm.ingredientsText.split(",").map((s) => s.trim()).filter(Boolean), estoque: 100, lojaId: lojaAtual };
     try {
       const saved = dbReady ? await inserirProduto(np) : { ...np, id: Date.now() };
       setProducts((cur) => [saved, ...cur]);
@@ -3937,7 +3942,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
         <div key={`ctx-${lojaContexto ?? "geral"}`} className="flex-1 overflow-y-auto p-6">
           {ativo === "dashboard"  && <DashboardAdmin orders={orders} products={products} />}
           {ativo === "relatorios" && <RelatoriosAdmin orders={orders} products={products} lojaInfo={lojaInfo} />}
-          {ativo === "products"   && (precisaEmpresa ? avisoEmpresa : <ProductAdmin   products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} editarProduto={editarProduto} removerProduto={removerProduto} />)}
+          {ativo === "products"   && (precisaEmpresa ? avisoEmpresa : <ProductAdmin   products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} editarProduto={editarProduto} removerProduto={removerProduto} lojaId={lojaInfo?.id} />)}
           {ativo === "users"      && <UserAdmin      users={isSuperAdmin ? users : (usersLoja ?? users)} userForm={userForm} setUserForm={setUserForm} addUser={addUser} toggleUserStatus={toggleUserStatus} editarUsuario={editarUsuario} removerUsuario={removerUsuario} lojaInfo={lojaInfo} lojas={lojas} isSuperAdmin={isSuperAdmin} cargos={cargos} />}
           {ativo === "cargos"     && <CargoAdmin     cargos={cargos} users={isSuperAdmin ? users : (usersLoja ?? users)} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} />}
           {ativo === "access"     && <AccessAdmin    accesses={accesses} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleAccessStatus={toggleAccessStatus} />}
@@ -5742,7 +5747,7 @@ function TagsInput({ tags, setTags, placeholder = "Adicionar + Enter" }) {
   );
 }
 
-function ProductAdmin({ products, categories, adminForm, setAdminForm, addProduct, toggleProduct, editarProduto, removerProduto }) {
+function ProductAdmin({ products, categories, adminForm, setAdminForm, addProduct, toggleProduct, editarProduto, removerProduto, lojaId }) {
   const [editando, setEditando] = useState(null);
   const [excluir, setExcluir]   = useState(null);
   const [criando, setCriando]   = useState(false);
@@ -5758,11 +5763,11 @@ function ProductAdmin({ products, categories, adminForm, setAdminForm, addProduc
   });
 
   function abrirCadastro() {
-    setAdminForm({ name: "", category: cats[0] || "Pratos principais", price: "", cost: "", time: "15-25 min", imageUrl: "", ingredientsText: "", description: "" });
+    setAdminForm({ name: "", category: cats[0] || "Pratos principais", price: "", cost: "", time: TEMPOS_PREPARO[3], imageUrl: "", ingredientsText: "", description: "" });
     setCriando(true);
   }
-  async function salvarNovo() {
-    const ok = await addProduct();
+  async function salvarNovo(overrideImageUrl) {
+    const ok = await addProduct(overrideImageUrl);
     if (ok) setCriando(false);
   }
 
@@ -5832,10 +5837,10 @@ function ProductAdmin({ products, categories, adminForm, setAdminForm, addProduc
       </div>
 
       {criando && (
-        <ProdutoCadastroModal adminForm={adminForm} setAdminForm={setAdminForm} cats={cats}
+        <ProdutoCadastroModal adminForm={adminForm} setAdminForm={setAdminForm} cats={cats} lojaId={lojaId}
           onSalvar={salvarNovo} onFechar={() => setCriando(false)} />
       )}
-      {editando && <ProdutoEditModal produto={editando} cats={cats} onSalvar={(d) => { editarProduto(editando.id, d); setEditando(null); }} onFechar={() => setEditando(null)} />}
+      {editando && <ProdutoEditModal produto={editando} cats={cats} lojaId={lojaId} onSalvar={(d) => { editarProduto(editando.id, d); setEditando(null); }} onFechar={() => setEditando(null)} />}
       {excluir && (
         <ConfirmModal titulo="Excluir produto?"
           mensagem={`Tem certeza que deseja excluir "${excluir.name}"? Esta ação não pode ser desfeita. Dica: você pode apenas inativar o produto.`}
@@ -5867,13 +5872,78 @@ function handleMoeda(e) {
   return { display: rawParaMoeda(digits), num: moedaParaNum(digits) };
 }
 
-function ProdutoCadastroModal({ adminForm, setAdminForm, cats, onSalvar, onFechar }) {
+// ── Seletor de imagem (arquivo local + URL) ────────────────────
+// Aceita PNG e JPEG, máx 2 MB. Mostra prévia e progresso de upload.
+// onImageUrl(url) → chamado com a URL final (blob para prévia, publicUrl após upload)
+// onFileChange(file|null) → arquivo selecionado (para upload no salvar)
+function SeletorImagem({ urlAtual, onImageUrl, onFileChange, uploading = false, erroUpload = "" }) {
+  const fileRef = React.useRef(null);
+  const [previa, setPrevia] = React.useState("");
+
+  function handleFile(e) {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    const erroVal = validarImagemProduto(f);
+    if (erroVal) { onFileChange(null); onImageUrl(""); alert(erroVal); return; }
+    const blob = URL.createObjectURL(f);
+    setPrevia(blob);
+    onFileChange(f);
+    onImageUrl(blob); // prévia imediata
+  }
+
+  const exibir = previa || urlAtual;
+
+  return (
+    <div className="space-y-2">
+      <div className="flex gap-3">
+        {/* Miniatura */}
+        <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-slate-800">
+          {exibir
+            ? <img src={exibir} alt="prévia" className="h-full w-full object-cover" onError={() => {}} />
+            : <div className="flex h-full w-full items-center justify-center text-2xl">🖼️</div>
+          }
+          {uploading && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/60">
+              <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-400 border-t-transparent" />
+            </div>
+          )}
+        </div>
+        {/* Controles */}
+        <div className="flex-1 space-y-2">
+          {/* Arquivo local */}
+          <input ref={fileRef} type="file" accept=".png,.jpg,.jpeg,image/png,image/jpeg" className="hidden" onChange={handleFile} />
+          <button type="button" onClick={() => fileRef.current?.click()}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-blue-400/30 bg-blue-500/10 py-2.5 text-xs font-black text-blue-300 hover:bg-blue-500/20 transition">
+            📁 Escolher arquivo (PNG / JPEG • máx 2 MB)
+          </button>
+          {/* OU URL */}
+          <div className="relative">
+            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-600">🔗</span>
+            <input
+              value={previa ? "" : (urlAtual || "")}
+              onChange={(e) => { setPrevia(""); onFileChange(null); onImageUrl(e.target.value); }}
+              placeholder="ou cole uma URL de imagem..."
+              className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-2.5 pl-8 pr-3 text-xs text-white outline-none focus:border-blue-400 placeholder:text-slate-600"
+            />
+          </div>
+        </div>
+      </div>
+      {previa && <p className="text-[11px] text-emerald-400">✅ Arquivo selecionado — será enviado ao salvar.</p>}
+      {erroUpload && <p className="text-[11px] text-red-400">❌ {erroUpload}</p>}
+    </div>
+  );
+}
+
+function ProdutoCadastroModal({ adminForm, setAdminForm, cats, onSalvar, onFechar, lojaId }) {
   const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400 placeholder:text-slate-600";
   const lbl = "mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500";
   const set = (k, v) => setAdminForm({ ...adminForm, [k]: v });
   const tagsAtuais = adminForm.ingredientsText ? adminForm.ingredientsText.split(",").map((s) => s.trim()).filter(Boolean) : [];
   const precoNum = moedaParaNum(String(adminForm.price));
   const custoNum = moedaParaNum(String(adminForm.cost));
+  const [arquivoImg, setArquivoImg] = React.useState(null);
+  const [uploadando, setUploadando] = React.useState(false);
+  const [erroUpload, setErroUpload] = React.useState("");
   // Todos os campos são obrigatórios
   const valido = adminForm.name.trim() &&
     precoNum > 0 && custoNum > 0 &&
@@ -5890,6 +5960,25 @@ function ProdutoCadastroModal({ adminForm, setAdminForm, cats, onSalvar, onFecha
     if (String(v).startsWith("R$")) return v;
     const digits = String(Math.round(Number(v) * 100)).padStart(3, "0");
     return rawParaMoeda(digits);
+  }
+
+  // Salvar: se houver arquivo local, faz upload primeiro e usa a URL pública
+  async function handleSalvar() {
+    setErroUpload("");
+    let urlFinal;
+    if (arquivoImg) {
+      setUploadando(true);
+      try {
+        urlFinal = await uploadImagemProduto(arquivoImg, lojaId || "geral");
+        set("imageUrl", urlFinal);
+      } catch (e) {
+        setUploadando(false);
+        setErroUpload(e.message || "Falha no upload da imagem.");
+        return;
+      }
+      setUploadando(false);
+    }
+    onSalvar(urlFinal);
   }
 
   return (
@@ -5935,14 +6024,26 @@ function ProdutoCadastroModal({ adminForm, setAdminForm, cats, onSalvar, onFecha
                 onChange={(e) => { const {display} = handleMoeda(e); set("price", display); }}
                 placeholder="R$ 0,00" className={inp} />
             </div>
-            <div><span className={lbl}>Preparo *</span><input value={adminForm.time} onChange={(e) => set("time", e.target.value)} placeholder="25-35 min" className={inp} /></div>
+            <div>
+              <span className={lbl}>Preparo *</span>
+              <select value={adminForm.time || ""} onChange={(e) => set("time", e.target.value)} className={inp}>
+                <option value="" disabled>Selecione...</option>
+                {TEMPOS_PREPARO.map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
           </div>
           {margem !== null && <p className="text-xs font-bold text-emerald-300">Margem estimada: {margem}%</p>}
 
-          {/* Imagem */}
+          {/* Imagem — arquivo local (PNG/JPEG) ou URL */}
           <div>
-            <span className={lbl}>URL da imagem *</span>
-            <input value={adminForm.imageUrl} onChange={(e) => set("imageUrl", e.target.value)} placeholder="https://..." className={inp} />
+            <span className={lbl}>Imagem do produto *</span>
+            <SeletorImagem
+              urlAtual={adminForm.imageUrl}
+              onImageUrl={(u) => set("imageUrl", u)}
+              onFileChange={setArquivoImg}
+              uploading={uploadando}
+              erroUpload={erroUpload}
+            />
           </div>
 
           {/* Ingredientes */}
@@ -5966,9 +6067,9 @@ function ProdutoCadastroModal({ adminForm, setAdminForm, cats, onSalvar, onFecha
           )}
           <div className="flex gap-3">
             <button onClick={onFechar} className="flex-1 rounded-2xl border border-white/10 bg-white/[0.06] py-3.5 text-sm font-black text-slate-300 hover:bg-white/10">Cancelar</button>
-            <button onClick={onSalvar} disabled={!valido}
+            <button onClick={handleSalvar} disabled={!valido || uploadando}
               className="flex-[2] rounded-2xl bg-blue-500 py-3.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
-              + Cadastrar produto
+              {uploadando ? "⏳ Enviando imagem..." : "+ Cadastrar produto"}
             </button>
           </div>
         </div>
@@ -5999,7 +6100,7 @@ function SeletorCategoria({ valor, aoMudar, categorias }) {
   );
 }
 
-function ProdutoEditModal({ produto, cats, onSalvar, onFechar }) {
+function ProdutoEditModal({ produto, cats, onSalvar, onFechar, lojaId }) {
   // Inicializa campos de moeda já formatados
   const toDisplay = (v) => {
     if (!v && v !== 0) return "";
@@ -6014,12 +6115,34 @@ function ProdutoEditModal({ produto, cats, onSalvar, onFechar }) {
     estoque: produto.estoque ?? 0,
   });
   const [tags, setTags] = useState([...(produto.ingredients || [])]); // ingredientes como tags
+  const [arquivoImg, setArquivoImg] = React.useState(null);
+  const [uploadando, setUploadando] = React.useState(false);
+  const [erroUpload, setErroUpload] = React.useState("");
   const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400";
   const lbl = "mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500";
   const precoNum = moedaParaNum(String(f.price));
   const custoNum = moedaParaNum(String(f.cost));
   const validoEdit = f.name.trim() && precoNum > 0 && custoNum > 0 &&
     f.time.trim() && f.imageUrl.trim() && tags.length > 0 && f.description.trim();
+  // Tempos: garante que o valor atual apareça mesmo se for um texto antigo fora do padrão
+  const opcoesTempo = TEMPOS_PREPARO.includes(f.time) || !f.time ? TEMPOS_PREPARO : [f.time, ...TEMPOS_PREPARO];
+
+  async function handleSalvarEdit() {
+    setErroUpload("");
+    let imgFinal = f.imageUrl;
+    if (arquivoImg) {
+      setUploadando(true);
+      try {
+        imgFinal = await uploadImagemProduto(arquivoImg, lojaId || "geral");
+      } catch (e) {
+        setUploadando(false);
+        setErroUpload(e.message || "Falha no upload da imagem.");
+        return;
+      }
+      setUploadando(false);
+    }
+    onSalvar({ ...f, imageUrl: imgFinal, price: precoNum, cost: custoNum, ingredients: tags });
+  }
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onFechar}>
@@ -6058,14 +6181,26 @@ function ProdutoEditModal({ produto, cats, onSalvar, onFechar }) {
             <p className="text-xs font-bold text-emerald-300">Margem estimada: {(((precoNum-custoNum)/precoNum)*100).toFixed(0)}%</p>
           )}
           <div className="grid grid-cols-2 gap-3">
-            <div><span className={lbl}>Tempo de preparo *</span><input value={f.time} onChange={(e) => setF({ ...f, time: e.target.value })} placeholder="25-35 min" className={inp} /></div>
+            <div>
+              <span className={lbl}>Tempo de preparo *</span>
+              <select value={f.time || ""} onChange={(e) => setF({ ...f, time: e.target.value })} className={inp}>
+                <option value="" disabled>Selecione...</option>
+                {opcoesTempo.map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
             <div><span className={lbl}>Estoque</span><input value={f.estoque} onChange={(e) => setF({ ...f, estoque: e.target.value.replace(/\D/g, "") })} placeholder="0" className={inp} /></div>
           </div>
 
-          {/* Imagem */}
+          {/* Imagem — arquivo local (PNG/JPEG) ou URL */}
           <div>
-            <span className={lbl}>URL da imagem *</span>
-            <input value={f.imageUrl} onChange={(e) => setF({ ...f, imageUrl: e.target.value })} placeholder="https://..." className={inp} />
+            <span className={lbl}>Imagem do produto *</span>
+            <SeletorImagem
+              urlAtual={f.imageUrl}
+              onImageUrl={(u) => setF((cur) => ({ ...cur, imageUrl: u }))}
+              onFileChange={setArquivoImg}
+              uploading={uploadando}
+              erroUpload={erroUpload}
+            />
           </div>
 
           {/* Ingredientes como TAGS */}
@@ -6086,10 +6221,10 @@ function ProdutoEditModal({ produto, cats, onSalvar, onFechar }) {
               ⚠ Preencha todos os campos obrigatórios (*) para salvar.
             </p>
           )}
-          <button onClick={() => onSalvar({ ...f, price: precoNum, cost: custoNum, ingredients: tags })}
-            disabled={!validoEdit}
+          <button onClick={handleSalvarEdit}
+            disabled={!validoEdit || uploadando}
             className="w-full rounded-2xl bg-emerald-500 py-4 text-sm font-black text-white hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed transition">
-            💾 Salvar alterações
+            {uploadando ? "⏳ Enviando imagem..." : "💾 Salvar alterações"}
           </button>
         </div>
       </div>

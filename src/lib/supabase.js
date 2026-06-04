@@ -11,6 +11,41 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || FALLBACK_KEY
 export const supabase = createClient(supabaseUrl, supabaseKey)
 
 // ════════════════════════════════════════════════════════════
+//  Storage — upload de imagens de produtos
+// ════════════════════════════════════════════════════════════
+const BUCKET = 'produto-imagens'
+const MAX_BYTES = 2 * 1024 * 1024           // 2 MB
+const EXTS_OK   = ['image/jpeg', 'image/png', 'image/jpg']
+
+export function validarImagemProduto(file) {
+  if (!file) return 'Nenhum arquivo selecionado.'
+  if (!EXTS_OK.includes(file.type))
+    return 'Formato inválido. Use PNG ou JPEG.'
+  if (file.size > MAX_BYTES)
+    return `Arquivo muito grande (${(file.size / 1024 / 1024).toFixed(1)} MB). Máximo: 2 MB.`
+  return null // ok
+}
+
+export async function uploadImagemProduto(file, lojaId = 'geral') {
+  const erro = validarImagemProduto(file)
+  if (erro) throw new Error(erro)
+
+  // Garante que o bucket existe (ignora erro se já existir)
+  await supabase.storage.createBucket(BUCKET, { public: true }).catch(() => {})
+
+  const ext = file.type === 'image/png' ? 'png' : 'jpg'
+  const nome = `${lojaId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+
+  const { error } = await supabase.storage.from(BUCKET).upload(nome, file, {
+    cacheControl: '3600', upsert: false, contentType: file.type,
+  })
+  if (error) throw new Error('Falha no upload: ' + error.message)
+
+  const { data } = supabase.storage.from(BUCKET).getPublicUrl(nome)
+  return data.publicUrl
+}
+
+// ════════════════════════════════════════════════════════════
 //  tab_produtos — CRUD + Realtime
 // ════════════════════════════════════════════════════════════
 export async function fetchProdutos() {
