@@ -25,6 +25,10 @@ self.addEventListener("install", (e) => {
 // ── Ativa: apaga caches antigos e assume todas as abas abertas ───────
 self.addEventListener("activate", (e) => {
   e.waitUntil((async () => {
+    // Verifica se era uma atualização (havia clientes controlados anteriormente)
+    const clientesAnteriores = await self.clients.matchAll({ type: "window", includeUncontrolled: false });
+    const eraAtualizacao = clientesAnteriores.length > 0;
+
     const keys = await caches.keys();
     await Promise.all(
       keys
@@ -33,9 +37,12 @@ self.addEventListener("activate", (e) => {
     );
     await self.clients.claim();               // controla abas sem reload manual
 
-    // Notifica TODAS as abas abertas: nova versão ativa → elas recarregam
-    const clients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
-    clients.forEach((c) => c.postMessage({ type: "SW_UPDATED", version: CACHE_VERSION }));
+    // Só notifica "SW_UPDATED" se era uma ATUALIZAÇÃO real (havia versão anterior).
+    // Na primeira instalação não existe versão anterior → NÃO emite o evento.
+    if (eraAtualizacao) {
+      const todos = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      todos.forEach((c) => c.postMessage({ type: "SW_UPDATED", version: CACHE_VERSION }));
+    }
   })());
 });
 
