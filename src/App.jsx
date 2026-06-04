@@ -7,7 +7,7 @@ import {
   fetchFormasPagamento, inserirFormaPagamento, atualizarFormaPagamento, escutarFormasPagamento,
   fetchCategorias, inserirCategoria, atualizarCategoria, excluirCategoria, escutarCategorias,
   fetchLojas, inserirLoja, atualizarLoja, excluirLoja, escutarLojas, cadastrarEmpresa,
-  fetchComandas, inserirComandas, escutarComandas, excluirComanda, renomearComanda,
+  fetchComandas, inserirComandas, escutarComandas, excluirComanda, renomearComanda, toggleComandaAtivo,
   fetchCargos, inserirCargo, atualizarCargo, excluirCargo, escutarCargos,
   baixarEstoque, registrarPagamento,
   excluirProduto, excluirFormaPagamento, excluirUsuario,
@@ -704,9 +704,12 @@ export default function RestaurantePedidoApp() {
     // Validação de existência: a comanda precisa ter sido GERADA no sistema para esta empresa.
     // (Só aplica quando o registro de comandas está disponível — migration 019.)
     if (comandasCarregadas) {
-      const valida = comandas.some((c) => c.codigo === codigo && c.lojaId === lojaAtual);
-      if (!valida) {
+      const encontrada = comandas.find((c) => c.codigo === codigo && c.lojaId === lojaAtual);
+      if (!encontrada) {
         return notify("error", "Comanda inválida ou não corresponde a esta empresa. Gere a comanda no sistema (Comandas QR).");
+      }
+      if (encontrada.ativo === false) {
+        return notify("error", `Comanda ${codigo} está inativa e não aceita novos pedidos. Reative-a no painel Administrativo > Comandas QR.`);
       }
     }
     clearMessage();
@@ -841,6 +844,12 @@ export default function RestaurantePedidoApp() {
     setComandas((cur) => cur.filter((c) => c.codigo !== codigo));
     if (dbReady) try { await excluirComanda(codigo); } catch (e) { notify("error", "Erro ao excluir comanda: " + e.message); return; }
     notify("success", "Comanda excluída.");
+  }
+  async function toggleComandaFn(codigo, ativo) {
+    if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
+    setComandas((cur) => cur.map((c) => c.codigo === codigo ? { ...c, ativo } : c));
+    if (dbReady) try { await toggleComandaAtivo(codigo, ativo); } catch (e) { notify("error", "Erro ao atualizar comanda: " + e.message); }
+    notify("success", ativo ? "Comanda reativada." : "Comanda inativada. Referências preservadas.");
   }
   async function renomearComandaFn(codigoAntigo, codigoNovo) {
     if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
@@ -3892,7 +3901,7 @@ function AdminView({ products, categories, adminForm, setAdminForm, addProduct, 
           {ativo === "access"     && <AccessAdmin    accesses={accesses} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleAccessStatus={toggleAccessStatus} />}
           {ativo === "link"       && <UserAccessAdmin users={isSuperAdmin ? users : (usersLoja ?? users)} accesses={accesses} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} lojas={lojas} isSuperAdmin={isSuperAdmin} />}
           {ativo === "categorias" && (precisaEmpresa ? avisoEmpresa : <CategoriaAdmin categoriasDb={categoriasDb} produtos={products} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} />)}
-          {ativo === "comandas"   && (precisaEmpresa ? avisoEmpresa : <GeradorComandas prefixoLoja={lojaInfo?.prefixo || "CMD"} empresa={lojaInfo?.nome || "Restaurante"} onGerar={registrarComandas} comandasRegistradas={filtraLoja(comandas)} onExcluirComanda={excluirComandaFn} onRenomearComanda={renomearComandaFn} />)}
+          {ativo === "comandas"   && (precisaEmpresa ? avisoEmpresa : <GeradorComandas prefixoLoja={lojaInfo?.prefixo || "CMD"} empresa={lojaInfo?.nome || "Restaurante"} onGerar={registrarComandas} comandasRegistradas={filtraLoja(comandas)} orders={orders} onExcluirComanda={excluirComandaFn} onRenomearComanda={renomearComandaFn} onToggleComanda={toggleComandaFn} />)}
           {ativo === "pagamento"  && (precisaEmpresa ? avisoEmpresa : <PagamentoAdmin formasPagamento={formasPagamento} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} />)}
           {ativo === "lojas"      && <LojaAdmin lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} lojaInfo={lojaInfo} criarEmpresa={criarEmpresa} cargos={cargos} />}
           {ativo === "minhaempresa" && <MinhaEmpresa lojaInfo={lojaInfo} qtdUsuarios={(usersLoja ?? users).length} qtdProdutos={products.length} />}

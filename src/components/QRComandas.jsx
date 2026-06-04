@@ -20,11 +20,11 @@ export function GeradorComandas({
   prefixoLoja = "CMD",
   empresa = "Restaurante",
   onGerar,
-  // Comandas já registradas no sistema (do banco, da loja atual)
   comandasRegistradas = [],
-  // Funções de gerenciamento (opcionais – passadas pelo App)
+  orders = [],           // pedidos da loja — para checar histórico
   onExcluirComanda,
   onRenomearComanda,
+  onToggleComanda,
 }) {
   const [aba, setAba] = useState("gerar"); // "gerar" | "visualizar"
 
@@ -52,10 +52,12 @@ export function GeradorComandas({
       {aba === "visualizar" && (
         <PainelVisualizar
           comandasRegistradas={comandasRegistradas}
+          orders={orders}
           empresa={empresa}
           prefixoLoja={prefixoLoja}
           onExcluir={onExcluirComanda}
           onRenomear={onRenomearComanda}
+          onToggle={onToggleComanda}
         />
       )}
     </div>
@@ -185,11 +187,16 @@ function PainelGerar({ prefixoLoja, empresa, onGerar }) {
 // ══════════════════════════════════════════════════════════════
 //  Aba 2 — Visualizar / Reimprimir / Editar comandas existentes
 // ══════════════════════════════════════════════════════════════
-function PainelVisualizar({ comandasRegistradas, empresa, prefixoLoja, onExcluir, onRenomear }) {
+function PainelVisualizar({ comandasRegistradas, orders, empresa, prefixoLoja, onExcluir, onRenomear, onToggle }) {
   const [busca, setBusca]               = useState("");
   const [selecionadas, setSelecionadas] = useState(new Set());
-  const [editando, setEditando]         = useState(null);   // { codigo, lojaId }
+  const [editando, setEditando]         = useState(null);
   const [confirmExcluir, setConfirmExcluir] = useState(null);
+  const [bloqueioExcluir, setBloqueioExcluir] = useState(null); // comanda com histórico
+
+  // Conta pedidos vinculados a uma comanda
+  const pedidosDaComanda = (codigo) => (orders || []).filter((o) => o.command === codigo);
+  const temHistorico = (codigo) => pedidosDaComanda(codigo).length > 0;
   const [qrCache, setQrCache]           = useState({});    // codigo → dataUrl
   const [gerando, setGerando]           = useState(false);
   const [nomeEmpresa]                   = useState(empresa);
@@ -321,11 +328,21 @@ function PainelVisualizar({ comandasRegistradas, empresa, prefixoLoja, onExcluir
                         onClick={(e) => e.stopPropagation()}
                         className="h-4 w-4 shrink-0 accent-blue-500" />
                       <div className="min-w-0 flex-1">
-                        {qr
-                          ? <img src={qr} alt={c.codigo} className="mb-1 h-16 w-16 rounded-lg bg-white p-0.5" />
-                          : <div className="mb-1 flex h-16 w-16 items-center justify-center rounded-lg bg-slate-800 text-[10px] text-slate-500">QR</div>
-                        }
-                        <p className="font-mono text-xs font-black text-white">{c.codigo}</p>
+                        <div className="relative mb-1 inline-block">
+                          {qr
+                            ? <img src={qr} alt={c.codigo} className={`h-16 w-16 rounded-lg bg-white p-0.5 ${c.ativo === false ? "opacity-40 grayscale" : ""}`} />
+                            : <div className="flex h-16 w-16 items-center justify-center rounded-lg bg-slate-800 text-[10px] text-slate-500">QR</div>
+                          }
+                          {c.ativo === false && (
+                            <span className="absolute -bottom-1 left-0 right-0 text-center rounded-full bg-slate-700 px-1 py-0.5 text-[9px] font-black text-slate-300">INATIVA</span>
+                          )}
+                          {temHistorico(c.codigo) && (
+                            <span title={`${pedidosDaComanda(c.codigo).length} pedido(s)`} className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-[9px] font-black text-white">
+                              {pedidosDaComanda(c.codigo).length}
+                            </span>
+                          )}
+                        </div>
+                        <p className={`font-mono text-xs font-black ${c.ativo === false ? "text-slate-500 line-through" : "text-white"}`}>{c.codigo}</p>
                       </div>
                       <div className="flex shrink-0 flex-col gap-1.5" onClick={(e) => e.stopPropagation()}>
                         <button onClick={() => reimprimirUma(c.codigo)}
@@ -338,9 +355,18 @@ function PainelVisualizar({ comandasRegistradas, empresa, prefixoLoja, onExcluir
                           className="rounded-xl border border-amber-400/20 bg-amber-500/10 p-2 text-amber-300 hover:bg-amber-500/20 transition">
                           ✏️
                         </button>
+                        {onToggle && (
+                          <button
+                            onClick={() => onToggle(c.codigo, c.ativo === false ? true : false)}
+                            title={c.ativo === false ? "Reativar comanda" : "Inativar comanda"}
+                            className={`rounded-xl border p-2 text-xs font-black transition ${c.ativo === false ? "border-emerald-400/20 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20" : "border-slate-400/20 bg-slate-500/10 text-slate-400 hover:bg-slate-500/20"}`}>
+                            {c.ativo === false ? "▶️" : "⏸"}
+                          </button>
+                        )}
                         {onExcluir && (
-                          <button onClick={() => setConfirmExcluir(c)}
-                            title="Excluir comanda"
+                          <button
+                            onClick={() => temHistorico(c.codigo) ? setBloqueioExcluir(c) : setConfirmExcluir(c)}
+                            title={temHistorico(c.codigo) ? "Comanda com histórico — veja opções" : "Excluir comanda"}
                             className="rounded-xl border border-red-400/20 bg-red-500/10 p-2 text-red-300 hover:bg-red-500/20 transition">
                             🗑️
                           </button>
@@ -368,7 +394,7 @@ function PainelVisualizar({ comandasRegistradas, empresa, prefixoLoja, onExcluir
         />
       )}
 
-      {/* Confirm excluir */}
+      {/* Confirm excluir (sem histórico) */}
       {confirmExcluir && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4"
           onClick={() => setConfirmExcluir(null)}>
@@ -376,8 +402,7 @@ function PainelVisualizar({ comandasRegistradas, empresa, prefixoLoja, onExcluir
             <div>
               <h2 className="text-lg font-black text-white">Excluir comanda?</h2>
               <p className="mt-1 text-sm text-slate-400">
-                A comanda <span className="font-mono font-black text-white">{confirmExcluir.codigo}</span> será removida do sistema.
-                Pedidos já realizados com ela não são afetados.
+                A comanda <span className="font-mono font-black text-white">{confirmExcluir.codigo}</span> será removida do sistema permanentemente.
               </p>
             </div>
             <div className="flex gap-3">
@@ -386,6 +411,75 @@ function PainelVisualizar({ comandasRegistradas, empresa, prefixoLoja, onExcluir
                 className="flex-[1.5] rounded-2xl bg-red-500 py-3 text-sm font-black text-white hover:bg-red-400 transition active:scale-95">
                 🗑️ Excluir
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de bloqueio: comanda com histórico de pedidos */}
+      {bloqueioExcluir && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4"
+          onClick={() => setBloqueioExcluir(null)}>
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-[2rem] border border-amber-400/20 bg-slate-900 shadow-2xl overflow-hidden">
+            {/* Header */}
+            <div className="bg-amber-500/10 border-b border-amber-400/20 px-6 py-4 flex items-center gap-3">
+              <span className="text-3xl">⚠️</span>
+              <div>
+                <h2 className="text-base font-black text-white">Comanda com histórico de pedidos</h2>
+                <p className="text-xs text-amber-300/80">Exclusão bloqueada para preservar as referências</p>
+              </div>
+            </div>
+
+            <div className="px-6 py-5 space-y-4">
+              <p className="text-sm text-slate-300">
+                A comanda <span className="font-mono font-black text-amber-300">{bloqueioExcluir.codigo}</span> possui{" "}
+                <span className="font-black text-white">{pedidosDaComanda(bloqueioExcluir.codigo).length} pedido(s)</span> registrado(s).
+                Excluí-la quebraria o histórico financeiro e de pedidos.
+              </p>
+
+              {/* Resumo dos pedidos */}
+              <div className="rounded-2xl border border-white/10 bg-slate-950/50 p-3 space-y-1.5 max-h-40 overflow-y-auto">
+                <p className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">Pedidos vinculados</p>
+                {pedidosDaComanda(bloqueioExcluir.codigo).slice(0, 10).map((o) => (
+                  <div key={o.id} className="flex items-center justify-between text-xs">
+                    <span className="font-mono text-slate-300">{o.id}</span>
+                    <span className="text-slate-400">{o.table} · {o.createdAt}</span>
+                    <span className={`rounded-full px-2 py-0.5 font-black ${o.paymentStatus === "paid" ? "bg-emerald-500/20 text-emerald-300" : "bg-amber-500/20 text-amber-300"}`}>
+                      {o.paymentStatus === "paid" ? "Pago" : "Em aberto"}
+                    </span>
+                  </div>
+                ))}
+                {pedidosDaComanda(bloqueioExcluir.codigo).length > 10 && (
+                  <p className="text-xs text-slate-500 text-center">+ {pedidosDaComanda(bloqueioExcluir.codigo).length - 10} pedido(s)</p>
+                )}
+              </div>
+
+              <div className="rounded-2xl border border-blue-400/20 bg-blue-500/10 px-4 py-3">
+                <p className="text-xs font-bold text-blue-300">💡 Recomendação</p>
+                <p className="mt-0.5 text-xs text-slate-300">
+                  Inative a comanda para que ela não aceite novos pedidos, mantendo o histórico intacto.
+                  Você pode reativá-la a qualquer momento.
+                </p>
+              </div>
+            </div>
+
+            <div className="border-t border-white/10 px-6 py-4 flex gap-2">
+              <button onClick={() => setBloqueioExcluir(null)}
+                className="flex-1 rounded-2xl border border-white/10 bg-white/[0.06] py-3 text-sm font-black text-slate-300 hover:bg-white/10">
+                Cancelar
+              </button>
+              {onToggle && bloqueioExcluir.ativo !== false && (
+                <button onClick={async () => { await onToggle?.(bloqueioExcluir.codigo, false); setBloqueioExcluir(null); }}
+                  className="flex-[1.5] rounded-2xl bg-amber-500 py-3 text-sm font-black text-white hover:bg-amber-400 transition active:scale-95">
+                  ⏸ Inativar comanda
+                </button>
+              )}
+              {onToggle && bloqueioExcluir.ativo === false && (
+                <button onClick={async () => { await onToggle?.(bloqueioExcluir.codigo, true); setBloqueioExcluir(null); }}
+                  className="flex-[1.5] rounded-2xl bg-emerald-500 py-3 text-sm font-black text-white hover:bg-emerald-400 transition active:scale-95">
+                  ▶️ Reativar comanda
+                </button>
+              )}
             </div>
           </div>
         </div>
