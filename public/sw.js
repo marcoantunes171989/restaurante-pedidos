@@ -1,51 +1,50 @@
 /* ═══════════════════════════════════════════════════════════════
-   Service Worker — Pedido Prime  (v5)
+   Service Worker — Pedido Prime  (v6)
 
-   Mudança principal: NÃO chama skipWaiting() no install.
-   O novo SW aguarda sinal da página ("SKIP_WAITING") antes de assumir.
-   Isso garante:
-   - No browser: update silencioso na próxima abertura (sem popup inútil).
-   - No app (standalone): banner "Atualizar" → usuário decide quando.
+   Restaura skipWaiting() no install → propagação imediata para
+   todos os usuários com versões antigas. Mantém compatibilidade
+   retroativa enviando SW_UPDATED (código antigo) + SW_ATIVADO (novo).
    ═══════════════════════════════════════════════════════════════ */
 
-const CACHE_VERSION = "pedido-prime-v5";
+const CACHE_VERSION = "pedido-prime-v6";
 const SHELL_URLS    = ["/", "/login"];
 
-// ── Install: pré-cacheia o shell, NÃO assume imediatamente ───────────
 self.addEventListener("install", (e) => {
+  self.skipWaiting();   // ativa imediatamente → todos recebem a atualização
   e.waitUntil(
     caches.open(CACHE_VERSION)
       .then((c) => c.addAll(SHELL_URLS).catch(() => {}))
   );
-  // Sem skipWaiting aqui → permite que a página mostre banner
-  // e aplique somente quando o usuário confirmar (standalone)
-  // OU na próxima abertura (browser).
 });
 
-// ── Activate: limpa caches antigos, assume clientes ──────────────────
 self.addEventListener("activate", (e) => {
   e.waitUntil((async () => {
+    // Limpa caches antigos
     const keys = await caches.keys();
     await Promise.all(keys.filter((k) => k !== CACHE_VERSION).map((k) => caches.delete(k)));
     await self.clients.claim();
-    // Notifica páginas abertas que a nova versão está ativa
+
+    // Notifica todas as abas:
+    //   SW_ATIVADO  → código novo (PwaBanner)
+    //   SW_UPDATED  → compatibilidade com código antigo (UpdateBanner)
     const clients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
-    clients.forEach((c) => c.postMessage({ type: "SW_ATIVADO", version: CACHE_VERSION }));
+    clients.forEach((c) => {
+      c.postMessage({ type: "SW_ATIVADO",  version: CACHE_VERSION });
+      c.postMessage({ type: "SW_UPDATED",  version: CACHE_VERSION }); // backward-compat
+    });
   })());
 });
 
-// ── Mensagens da página ──────────────────────────────────────────────
 self.addEventListener("message", (e) => {
   if (!e.data) return;
-  if (e.data.type === "SKIP_WAITING") self.skipWaiting();
-  if (e.data.type === "CHECK_UPDATE") self.registration.update().catch(() => {});
+  if (e.data.type === "SKIP_WAITING")  self.skipWaiting();
+  if (e.data.type === "CHECK_UPDATE")  self.registration.update().catch(() => {});
 });
 
-// ── Fetch: network-first same-origin, bypass total para cross-origin ─
 self.addEventListener("fetch", (e) => {
   const req = e.request;
   const url = new URL(req.url);
-  if (url.origin !== self.location.origin) return; // Supabase / CDN → rede direta
+  if (url.origin !== self.location.origin) return;
   if (req.method !== "GET") return;
   if (url.pathname.startsWith("/api/")) return;
 
@@ -59,13 +58,11 @@ self.addEventListener("fetch", (e) => {
       return resp;
     } catch {
       const cached = await caches.match(req);
-      if (cached) return cached;
-      return caches.match("/") || new Response("Offline", { status: 503 });
+      return cached || caches.match("/") || new Response("Offline", { status: 503 });
     }
   })());
 });
 
-// ── Background Sync (voltar online) ─────────────────────────────────
 self.addEventListener("sync", (e) => {
   if (e.tag === "check-update")
     e.waitUntil(self.registration.update().catch(() => {}));
