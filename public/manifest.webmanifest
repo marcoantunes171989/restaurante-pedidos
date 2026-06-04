@@ -9,6 +9,11 @@
   "theme_color": "#020617",
   "start_url": "/login",
   "scope": "/",
+  "id": "/",
+  "related_applications": [
+    { "platform": "webapp", "url": "/manifest.webmanifest" }
+  ],
+  "prefer_related_applications": false,
   "icons": [
     { "src": "/icon-192.png", "type": "image/png", "sizes": "192x192", "purpose": "any" },
     { "src": "/icon-512.png", "type": "image/png", "sizes": "512x512", "purpose": "any" },
