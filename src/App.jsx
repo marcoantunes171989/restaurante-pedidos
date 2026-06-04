@@ -5404,7 +5404,7 @@ function ProdutoCadastroModal({ adminForm, setAdminForm, cats, onSalvar, onFecha
               </div>
               <div>
                 <span className={lbl}>Categoria</span>
-                <select value={adminForm.category} onChange={(e) => set("category", e.target.value)} className={inp}>{cats.map((c) => <option key={c}>{c}</option>)}</select>
+                <SeletorCategoria valor={adminForm.category} aoMudar={(c) => set("category", c)} categorias={cats} />
               </div>
             </div>
           </div>
@@ -5448,6 +5448,28 @@ function ProdutoCadastroModal({ adminForm, setAdminForm, cats, onSalvar, onFecha
   );
 }
 
+// Seletor de categoria minimalista e gourmet (chips com acento dourado/âmbar)
+function SeletorCategoria({ valor, aoMudar, categorias }) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {categorias.map((c) => {
+        const ativo = valor === c;
+        return (
+          <button key={c} type="button" onClick={() => aoMudar(c)}
+            className={`group inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-bold tracking-tight transition active:scale-95 ${
+              ativo
+                ? "border-amber-300/50 bg-gradient-to-br from-amber-400/20 to-amber-600/[0.08] text-amber-100 shadow-[0_0_0_1px_rgba(251,191,36,0.12),0_4px_16px_-6px_rgba(251,191,36,0.4)]"
+                : "border-white/10 bg-white/[0.04] text-slate-300 hover:border-amber-300/30 hover:bg-white/[0.07] hover:text-amber-100/90"
+            }`}>
+            <span className={`h-1.5 w-1.5 rounded-full transition ${ativo ? "bg-amber-300 shadow-[0_0_6px_1px_rgba(251,191,36,0.7)]" : "bg-slate-600 group-hover:bg-amber-300/50"}`} />
+            {c}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function ProdutoEditModal({ produto, cats, onSalvar, onFechar }) {
   const [f, setF] = useState({
     name: produto.name, category: produto.category, price: produto.price, cost: produto.cost,
@@ -5473,7 +5495,7 @@ function ProdutoEditModal({ produto, cats, onSalvar, onFechar }) {
           </div>
           <div>
             <span className={lbl}>Categoria</span>
-            <select value={f.category} onChange={(e) => setF({ ...f, category: e.target.value })} className={inp}>{cats.map((c) => <option key={c}>{c}</option>)}</select>
+            <SeletorCategoria valor={f.category} aoMudar={(c) => setF({ ...f, category: c })} categorias={cats} />
           </div>
 
           {/* Preço / custo / tempo / estoque */}
