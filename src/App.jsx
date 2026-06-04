@@ -1017,7 +1017,8 @@ export default function RestaurantePedidoApp() {
     if (precoAdd <= 0) return notify("error", "Informe um preço de venda válido.");
     if (custoAdd <= 0) return notify("error", "Informe o custo do produto.");
     const imgFinal = (typeof overrideImageUrl === "string" && overrideImageUrl) ? overrideImageUrl : adminForm.imageUrl;
-    const np = { name: adminForm.name.trim(), category: adminForm.category, price: precoAdd, cost: custoAdd, active: true, time: adminForm.time || "15-25 min", description: adminForm.description || "Produto cadastrado pelo administrativo.", badge: "Admin", imageUrl: imgFinal || fallbackImage, ingredients: adminForm.ingredientsText.split(",").map((s) => s.trim()).filter(Boolean), estoque: 100, lojaId: lojaAtual };
+    if (!adminForm.time || !adminForm.time.trim()) return notify("error", "Selecione o tempo de preparo.");
+    const np = { name: adminForm.name.trim(), category: adminForm.category, price: precoAdd, cost: custoAdd, active: true, time: adminForm.time, description: adminForm.description || "Produto cadastrado pelo administrativo.", badge: "Admin", imageUrl: imgFinal || fallbackImage, ingredients: adminForm.ingredientsText.split(",").map((s) => s.trim()).filter(Boolean), estoque: 100, lojaId: lojaAtual };
     try {
       const saved = dbReady ? await inserirProduto(np) : { ...np, id: Date.now() };
       setProducts((cur) => [saved, ...cur]);
@@ -1045,6 +1046,7 @@ export default function RestaurantePedidoApp() {
   // Edição completa de produto
   async function editarProduto(pid, dados) {
     if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
+    if (!dados.time || !dados.time.trim()) return notify("error", "Selecione o tempo de preparo.");
     setProducts((cur) => cur.map((p) => p.id === pid ? { ...p, ...dados } : p));
     if (dbReady) try {
       await atualizarProduto(pid, {
