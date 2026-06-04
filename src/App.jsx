@@ -3904,7 +3904,17 @@ function AdminView({ products, categories, adminForm, setAdminForm, addProduct, 
           {ativo === "comandas"   && (precisaEmpresa ? avisoEmpresa : <GeradorComandas prefixoLoja={lojaInfo?.prefixo || "CMD"} empresa={lojaInfo?.nome || "Restaurante"} onGerar={registrarComandas} comandasRegistradas={filtraLoja(comandas)} orders={orders} onExcluirComanda={excluirComandaFn} onRenomearComanda={renomearComandaFn} onToggleComanda={toggleComandaFn} />)}
           {ativo === "pagamento"  && (precisaEmpresa ? avisoEmpresa : <PagamentoAdmin formasPagamento={formasPagamento} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} />)}
           {ativo === "lojas"      && <LojaAdmin lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} lojaInfo={lojaInfo} criarEmpresa={criarEmpresa} cargos={cargos} />}
-          {ativo === "minhaempresa" && <MinhaEmpresa lojaInfo={lojaInfo} qtdUsuarios={(usersLoja ?? users).length} qtdProdutos={products.length} />}
+          {ativo === "minhaempresa" && (
+            <MinhaEmpresa
+              lojaInfo={lojaInfo}
+              usuarios={usersLoja ?? users}
+              produtos={products}
+              formasPagamento={formasPagamento}
+              categoriasDb={categoriasDb}
+              comandas={filtraLoja(comandas)}
+              orders={orders}
+            />
+          )}
         </div>
       </div>
     </div>
@@ -4740,7 +4750,7 @@ function RelatorioPermanencia({ pedidos }) {
 // ════════════════════════════════════════════════════════════
 //  Admin — Minha empresa (usuário comum: somente a própria empresa)
 // ════════════════════════════════════════════════════════════
-function MinhaEmpresa({ lojaInfo, qtdUsuarios = 0, qtdProdutos = 0 }) {
+function MinhaEmpresa({ lojaInfo, usuarios = [], produtos = [], formasPagamento = [], categoriasDb = [], comandas = [], orders = [] }) {
   if (!lojaInfo) {
     return (
       <main className="mx-auto max-w-xl">
@@ -4751,44 +4761,213 @@ function MinhaEmpresa({ lojaInfo, qtdUsuarios = 0, qtdProdutos = 0 }) {
       </main>
     );
   }
+
+  // Métricas
+  const pedidosPagos    = orders.filter((o) => o.paymentStatus === "paid" && o.status !== "cancelled");
+  const faturamentoTotal = pedidosPagos.reduce((s, o) => s + orderTotal(o) * 1.1, 0);
+  const produtosAtivos  = produtos.filter((p) => p.active !== false);
+  const usuariosAtivos  = usuarios.filter((u) => u.active !== false);
+  const formasAtivas    = formasPagamento.filter((f) => f.active !== false);
+  const catAtivas       = categoriasDb.filter((c) => c.active !== false);
+  const comandasAtivas  = comandas.filter((c) => c.ativo !== false);
+
+  const Secao = ({ titulo, children }) => (
+    <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+      <h4 className="mb-4 text-base font-black text-white">{titulo}</h4>
+      {children}
+    </div>
+  );
+  const Metrica = ({ label, valor, cor = "text-white" }) => (
+    <div className="rounded-2xl border border-white/10 bg-slate-950/40 p-4">
+      <p className="text-xs font-bold uppercase tracking-widest text-slate-500">{label}</p>
+      <p className={`mt-1 text-xl font-black ${cor}`}>{valor}</p>
+    </div>
+  );
+
   return (
-    <main className="mx-auto max-w-xl space-y-6">
-      <Card>
+    <main className="space-y-6 max-w-4xl">
+      {/* ── Cabeçalho da empresa ──────────────────────────────── */}
+      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
         <div className="flex items-center gap-4">
           <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-3xl bg-blue-500/15 text-3xl">🏪</span>
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <h3 className="text-2xl font-black text-white truncate">{lojaInfo.nome}</h3>
-            <p className="mt-0.5 text-sm">
-              <span className={`rounded-full px-2 py-0.5 text-xs font-black ${lojaInfo.active !== false ? "bg-emerald-500/20 text-emerald-300" : "bg-slate-700 text-slate-300"}`}>
-                {lojaInfo.active !== false ? "Ativa" : "Inativa"}
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              <span className={`rounded-full px-2.5 py-0.5 text-xs font-black ${lojaInfo.active !== false ? "bg-emerald-500/20 text-emerald-300" : "bg-slate-700 text-slate-300"}`}>
+                {lojaInfo.active !== false ? "✅ Ativa" : "⏸ Inativa"}
               </span>
+              <span className="rounded-full border border-white/10 bg-white/[0.06] px-2.5 py-0.5 font-mono text-xs font-black text-blue-300">
+                {lojaInfo.prefixo}
+              </span>
+              <span className="text-xs text-slate-500">ID #{lojaInfo.id}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Visão geral (métricas) ────────────────────────────── */}
+      <Secao titulo="📊 Visão geral">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <Metrica label="Faturamento total" valor={formatCurrency(faturamentoTotal)} cor="text-emerald-400" />
+          <Metrica label="Pedidos pagos" valor={pedidosPagos.length} />
+          <Metrica label="Produtos ativos" valor={`${produtosAtivos.length} / ${produtos.length}`} />
+          <Metrica label="Usuários ativos" valor={`${usuariosAtivos.length} / ${usuarios.length}`} />
+        </div>
+      </Secao>
+
+      {/* ── Dados cadastrais ──────────────────────────────────── */}
+      <Secao titulo="🏢 Dados cadastrais da empresa">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <p className="mb-1 text-xs font-bold uppercase tracking-widest text-slate-500">Nome da empresa</p>
+            <p className="font-black text-white">{lojaInfo.nome}</p>
+          </div>
+          <div>
+            <p className="mb-1 text-xs font-bold uppercase tracking-widest text-slate-500">Prefixo das comandas</p>
+            <p className="font-mono font-black text-blue-300">{lojaInfo.prefixo}</p>
+          </div>
+          <div>
+            <p className="mb-1 text-xs font-bold uppercase tracking-widest text-slate-500">Identificador do sistema</p>
+            <p className="font-mono text-sm font-black text-slate-300">#{lojaInfo.id}</p>
+          </div>
+          <div>
+            <p className="mb-1 text-xs font-bold uppercase tracking-widest text-slate-500">Status</p>
+            <p className={`font-black ${lojaInfo.active !== false ? "text-emerald-300" : "text-slate-400"}`}>
+              {lojaInfo.active !== false ? "Ativa" : "Inativa"}
             </p>
           </div>
+          {lojaInfo.nomeResponsavel && (
+            <div>
+              <p className="mb-1 text-xs font-bold uppercase tracking-widest text-slate-500">Responsável</p>
+              <p className="font-black text-white">{lojaInfo.nomeResponsavel}</p>
+            </div>
+          )}
+          {lojaInfo.email && (
+            <div>
+              <p className="mb-1 text-xs font-bold uppercase tracking-widest text-slate-500">E-mail</p>
+              <p className="font-black text-white">{lojaInfo.email}</p>
+            </div>
+          )}
+          {lojaInfo.segmento && (
+            <div>
+              <p className="mb-1 text-xs font-bold uppercase tracking-widest text-slate-500">Segmento</p>
+              <p className="font-black text-white">{lojaInfo.segmento}</p>
+            </div>
+          )}
         </div>
+      </Secao>
 
-        <div className="mt-6 grid grid-cols-2 gap-3">
-          <div className="rounded-2xl border border-white/10 bg-slate-950/40 p-4">
-            <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Prefixo das comandas</p>
-            <p className="mt-1 font-mono text-lg font-black text-blue-300">{lojaInfo.prefixo}-000001</p>
+      {/* ── Usuários ──────────────────────────────────────────── */}
+      <Secao titulo={`👥 Usuários (${usuarios.length})`}>
+        {usuarios.length === 0
+          ? <p className="text-sm text-slate-500">Nenhum usuário cadastrado.</p>
+          : (
+          <div className="space-y-2">
+            {usuarios.map((u) => (
+              <div key={u.id} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-white/[0.06] text-base">👤</span>
+                <div className="min-w-0 flex-1">
+                  <p className="font-black text-white truncate">{u.name}</p>
+                  <p className="text-xs text-slate-400 truncate">{u.email}{u.role ? ` · ${u.role}` : ""}</p>
+                </div>
+                <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-black ${u.active !== false ? "bg-emerald-500/20 text-emerald-300" : "bg-slate-700 text-slate-300"}`}>
+                  {u.active !== false ? "Ativo" : "Inativo"}
+                </span>
+              </div>
+            ))}
           </div>
-          <div className="rounded-2xl border border-white/10 bg-slate-950/40 p-4">
-            <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Identificador</p>
-            <p className="mt-1 text-lg font-black text-white">#{lojaInfo.id}</p>
-          </div>
-          <div className="rounded-2xl border border-white/10 bg-slate-950/40 p-4">
-            <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Usuários</p>
-            <p className="mt-1 text-lg font-black text-white">{qtdUsuarios}</p>
-          </div>
-          <div className="rounded-2xl border border-white/10 bg-slate-950/40 p-4">
-            <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Produtos</p>
-            <p className="mt-1 text-lg font-black text-white">{qtdProdutos}</p>
-          </div>
-        </div>
+        )}
+      </Secao>
 
-        <p className="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] p-3 text-xs text-slate-400">
-          ℹ️ Você visualiza apenas os dados desta empresa. O cadastro e a manutenção de empresas são feitos pelo administrador geral.
-        </p>
-      </Card>
+      {/* ── Produtos ──────────────────────────────────────────── */}
+      <Secao titulo={`🛒 Produtos (${produtos.length})`}>
+        {produtos.length === 0
+          ? <p className="text-sm text-slate-500">Nenhum produto cadastrado.</p>
+          : (
+          <div className="space-y-2 max-h-80 overflow-y-auto">
+            {produtos.map((p) => (
+              <div key={p.id} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-3">
+                {p.imageUrl && (
+                  <img src={p.imageUrl} alt={p.name}
+                    className="h-10 w-10 shrink-0 rounded-xl object-cover"
+                    onError={(e) => { e.target.style.display = "none"; }} />
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="font-black text-white truncate">{p.name}</p>
+                  <p className="text-xs text-slate-400">{p.category} · {formatCurrency(p.price)}</p>
+                </div>
+                <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-black ${p.active !== false ? "bg-emerald-500/20 text-emerald-300" : "bg-slate-700 text-slate-300"}`}>
+                  {p.active !== false ? "Ativo" : "Inativo"}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </Secao>
+
+      {/* ── Grid: Categorias + Formas de Pagamento + Comandas ─── */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* Categorias */}
+        <Secao titulo={`🏷️ Categorias (${catAtivas.length} ativas)`}>
+          {categoriasDb.length === 0
+            ? <p className="text-sm text-slate-500">Nenhuma categoria.</p>
+            : (
+            <div className="space-y-1.5">
+              {categoriasDb.map((c) => (
+                <div key={c.id} className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-slate-950/30 px-3 py-2">
+                  <p className="text-sm font-black text-white truncate">{c.nome}</p>
+                  <span className={`ml-2 shrink-0 text-[10px] font-black ${c.active !== false ? "text-emerald-400" : "text-slate-500"}`}>
+                    {c.active !== false ? "●" : "○"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </Secao>
+
+        {/* Formas de pagamento */}
+        <Secao titulo={`💳 Pagamentos (${formasAtivas.length} ativos)`}>
+          {formasPagamento.length === 0
+            ? <p className="text-sm text-slate-500">Nenhuma forma cadastrada.</p>
+            : (
+            <div className="space-y-1.5">
+              {formasPagamento.map((f) => (
+                <div key={f.id} className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-slate-950/30 px-3 py-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-black text-white truncate">{f.nome}</p>
+                    <p className="text-[11px] text-slate-500">{f.tipo}{f.permiteTroco ? " · troco" : ""}</p>
+                  </div>
+                  <span className={`ml-2 shrink-0 text-[10px] font-black ${f.active !== false ? "text-emerald-400" : "text-slate-500"}`}>
+                    {f.active !== false ? "●" : "○"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </Secao>
+
+        {/* Comandas */}
+        <Secao titulo={`🎫 Comandas (${comandasAtivas.length} ativas)`}>
+          {comandas.length === 0
+            ? <p className="text-sm text-slate-500">Nenhuma comanda gerada.</p>
+            : (
+            <div className="space-y-1.5 max-h-64 overflow-y-auto">
+              {comandas.map((c) => (
+                <div key={c.codigo} className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-slate-950/30 px-3 py-2">
+                  <p className={`font-mono text-xs font-black ${c.ativo === false ? "text-slate-500 line-through" : "text-white"}`}>{c.codigo}</p>
+                  <span className={`ml-2 shrink-0 text-[10px] font-black ${c.ativo !== false ? "text-emerald-400" : "text-slate-500"}`}>
+                    {c.ativo !== false ? "●" : "○"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </Secao>
+      </div>
+
+      <p className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-xs text-slate-400">
+        ℹ️ Visualização completa do cadastro desta empresa. O cadastro e a manutenção de empresas são feitos pelo administrador geral.
+      </p>
     </main>
   );
 }
