@@ -11,10 +11,14 @@ body {
 html {
   -webkit-text-size-adjust: 100%;   /* evita iOS inflar o texto */
   text-size-adjust: 100%;
+  /* Fundo escuro no <html> também: cobre a área da status bar (topo) no
+     PWA Android/iOS, eliminando a borda/faixa branca acima do app. */
+  background-color: #020617;
 }
 html, body, #root {
   min-height: 100vh;
   min-height: 100dvh;               /* altura real do viewport (mobile) */
+  background-color: #020617;        /* garante fundo escuro de ponta a ponta */
 }
 body {
   overflow-x: hidden;               /* nunca rola lateralmente em telas pequenas */
