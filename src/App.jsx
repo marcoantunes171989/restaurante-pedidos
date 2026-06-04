@@ -1301,7 +1301,7 @@ export default function RestaurantePedidoApp() {
         )}
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} products={products} lojaInfo={lojaInfo} />}
         {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierView orders={orders} baixarComandas={baixarComandas} baixarPedidos={baixarPedidos} formasPagamento={formasPagamentoLoja} onSair={logout} lojaInfo={lojaInfo} />}
-        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} />}
+        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} />}
 
       </div>
     </div>
@@ -3786,7 +3786,7 @@ function ComboEmpresaFoco({ lojas = [], valor, onChange }) {
   );
 }
 
-function AdminView({ products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, toggleUserStatus, toggleAccessStatus, usersLoja, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], addLoja, toggleLoja, editarLoja, removerLoja, lojaInfo, orders = [], onSair, isSuperAdmin = false, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas }) {
+function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, toggleUserStatus, toggleAccessStatus, usersLoja, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], addLoja, toggleLoja, editarLoja, removerLoja, lojaInfo, orders = [], onSair, isSuperAdmin = false, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas }) {
   const menu = [
     { grupo: "Gestão", itens: [
       { id: "dashboard", icon: "📊", label: "Dashboard" },
@@ -3872,15 +3872,57 @@ function AdminView({ products, categories, adminForm, setAdminForm, addProduct, 
             </div>
           ))}
         </nav>
-        <button onClick={onSair} className="m-3 rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm font-black text-red-300 hover:bg-red-500/20 transition">Sair</button>
+        {/* ── Card do usuário logado (fixo no rodapé da sidebar) ── */}
+        {currentUser && (
+          <div className="shrink-0 border-t border-white/10 p-3 space-y-2">
+            {/* Avatar + nome + cargo */}
+            <div className="flex items-center gap-2.5 rounded-2xl bg-white/[0.04] px-3 py-2.5">
+              {/* Avatar com inicial */}
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-500/20 text-sm font-black text-blue-300 uppercase select-none">
+                {(currentUser.name || "U").charAt(0)}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-black text-white leading-tight">{currentUser.name}</p>
+                <p className="truncate text-[11px] text-slate-400 leading-tight">{currentUser.role || "Usuário"}</p>
+                {currentUser.email && (
+                  <p className="truncate text-[10px] text-slate-600 leading-tight mt-0.5">{currentUser.email}</p>
+                )}
+              </div>
+              {/* Badge: super admin ou empresa */}
+              {isSuperAdmin ? (
+                <span className="shrink-0 rounded-full bg-violet-500/20 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-violet-300">Admin</span>
+              ) : lojaInfo ? (
+                <span className="shrink-0 rounded-full bg-blue-500/20 px-1.5 py-0.5 font-mono text-[9px] font-black text-blue-300">{lojaInfo.prefixo}</span>
+              ) : null}
+            </div>
+            {/* Botão Sair */}
+            <button onClick={onSair}
+              className="w-full rounded-2xl border border-red-400/20 bg-red-500/10 py-2.5 text-sm font-black text-red-300 hover:bg-red-500/20 transition active:scale-95">
+              ← Sair
+            </button>
+          </div>
+        )}
+        {!currentUser && (
+          <button onClick={onSair} className="m-3 rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm font-black text-red-300 hover:bg-red-500/20 transition">Sair</button>
+        )}
       </aside>
 
       {/* ── Conteúdo ─────────────────────────────────────────── */}
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Cabeçalho mobile com abas (md:hidden) */}
-        <div className="md:hidden flex shrink-0 items-center justify-between border-b border-white/10 bg-slate-900/90 px-4 py-3">
-          <p className="font-black text-white truncate">⚙️ {isSuperAdmin ? "Administrativo" : (lojaInfo?.nome || "Administrativo")}</p>
-          <button onClick={onSair} className="rounded-2xl border border-red-400/20 bg-red-500/10 px-3 py-1.5 text-xs font-black text-red-300">Sair</button>
+        <div className="md:hidden flex shrink-0 items-center justify-between gap-3 border-b border-white/10 bg-slate-900/90 px-4 py-3">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            {currentUser && (
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-blue-500/20 text-xs font-black text-blue-300 uppercase">
+                {(currentUser.name || "U").charAt(0)}
+              </div>
+            )}
+            <div className="min-w-0">
+              <p className="truncate text-sm font-black text-white leading-tight">{currentUser?.name || "Administrativo"}</p>
+              {currentUser?.role && <p className="truncate text-[10px] text-slate-500 leading-tight">{currentUser.role}{lojaInfo ? ` · ${lojaInfo.nome}` : ""}</p>}
+            </div>
+          </div>
+          <button onClick={onSair} className="shrink-0 rounded-2xl border border-red-400/20 bg-red-500/10 px-3 py-1.5 text-xs font-black text-red-300">Sair</button>
         </div>
         <div className="md:hidden shrink-0 flex gap-2 overflow-x-auto border-b border-white/10 bg-slate-900/50 px-4 py-2">
           {menu.flatMap((g) => g.itens).map((it) => (
