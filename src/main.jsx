@@ -17,6 +17,16 @@ let swReg       = null
 let retryCount  = 0
 let retryTimer  = null
 let recarregando = false // evita loop de reload quando o novo SW assume
+let atualizacaoPronta = false // há uma nova versão pronta para aplicar
+const CARGA_INICIAL = Date.now()
+
+// Aplica a atualização pendente recarregando a página (assets novos já servidos
+// pelo SW que assumiu o controle). Guard contra loop de reload.
+function aplicarAtualizacaoAuto() {
+  if (!atualizacaoPronta || recarregando) return
+  recarregando = true
+  window.location.reload()
+}
 
 function ehStandaloneLocal() {
   if (window.matchMedia?.("(display-mode: standalone)")?.matches) return true;
@@ -53,41 +63,65 @@ async function iniciarSW(onAtivado) {
 
     // updatefound: novo SW sendo instalado → ao ficar "installed" (com um
     // controlador já existente = atualização real), mostra o banner no app.
+    // Marca que há atualização pronta: mostra o banner (opção manual) e tenta
+    // aplicar automaticamente conforme as regras de auto-update.
+    const marcarAtualizacao = () => {
+      atualizacaoPronta = true
+      if (ehStandaloneLocal()) onAtivado() // banner como opção manual durante o uso
+      autoAplicarSeOportuno()
+    }
+    // Auto-update no PWA instalado:
+    //  - Logo após abrir o app (até 12s) → aplica na hora (cenário "reabrir o app").
+    //  - Já em uso → adia para o próximo foco/visibilidade da janela (ao voltar ao
+    //    app), evitando recarregar enquanto o usuário trabalha.
+    function autoAplicarSeOportuno() {
+      if (!atualizacaoPronta || recarregando) return
+      if (!ehStandaloneLocal()) { aplicarAtualizacaoAuto(); return }
+      if (Date.now() - CARGA_INICIAL < 12000) aplicarAtualizacaoAuto()
+    }
+
     swReg.addEventListener('updatefound', () => {
       const sw = swReg.installing
       if (!sw) return
       sw.addEventListener('statechange', () => {
         if (sw.state === 'installed' && navigator.serviceWorker.controller) {
-          if (ehStandaloneLocal()) onAtivado()
+          marcarAtualizacao()
         }
       })
     })
     // Se já havia um SW aguardando ao abrir (deploy ocorreu com o app fechado)
-    if (swReg.waiting && navigator.serviceWorker.controller && ehStandaloneLocal()) onAtivado()
+    if (swReg.waiting && navigator.serviceWorker.controller) marcarAtualizacao()
 
     // controllerchange: o novo SW assumiu o controle.
-    //  - PWA instalado (standalone): mostra o banner "Atualizar" (opção visível).
     //  - Navegador: recarrega silenciosamente (transparente).
+    //  - PWA instalado: marca atualização pronta e aplica automaticamente
+    //    (na hora se recém-aberto; senão ao reabrir/refocar a janela).
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (ehStandaloneLocal()) {
-        onAtivado() // exibe o banner com o botão "Atualizar"
-      } else {
+      if (!ehStandaloneLocal()) {
         if (recarregando) return
         recarregando = true
         window.location.reload()
+        return
+      }
+      atualizacaoPronta = true
+      onAtivado()
+      autoAplicarSeOportuno()
+    })
+
+    // Mensagens do SW (SW_ATIVADO / SW_UPDATED compat.)
+    navigator.serviceWorker.addEventListener('message', (e) => {
+      if (!e.data) return
+      if (e.data.type === 'SW_ATIVADO' || e.data.type === 'SW_UPDATED') {
+        marcarAtualizacao()
       }
     })
 
-    // Mensagens do SW
-    navigator.serviceWorker.addEventListener('message', (e) => {
-      if (!e.data) return
-      // SW_ATIVADO (novo código) ou SW_UPDATED (compat. backward)
-      // Em standalone: onAtivado() mostra banner
-      // No browser: já foi tratado pelo controllerchange acima
-      if (e.data.type === 'SW_ATIVADO' || e.data.type === 'SW_UPDATED') {
-        if (ehStandaloneLocal()) onAtivado()
-      }
+    // Ao reabrir/refocar a janela do PWA, aplica a atualização pendente.
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') aplicarAtualizacaoAuto()
     })
+    window.addEventListener('focus', aplicarAtualizacaoAuto)
+    window.addEventListener('pageshow', aplicarAtualizacaoAuto)
 
     await checkUpdate(swReg)
     setInterval(() => checkUpdate(swReg), CHECK_INTERVAL_MS)
