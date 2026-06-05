@@ -6,7 +6,12 @@
    retroativa enviando SW_UPDATED (código antigo) + SW_ATIVADO (novo).
    ═══════════════════════════════════════════════════════════════ */
 
-const CACHE_VERSION = "pedido-prime-v6";
+// __BUILD_TIME__ é substituído pelo timestamp do build (vite.config.js) a cada
+// deploy → o conteúdo do sw.js MUDA, fazendo o navegador detectar a atualização
+// (inclusive em PWA instalado no Windows). Sem isso, o SW fica byte-idêntico e
+// o update nunca é detectado.
+const BUILD_TIME    = "__BUILD_TIME__";
+const CACHE_VERSION = "pedido-prime-" + BUILD_TIME;
 const SHELL_URLS    = ["/", "/login"];
 
 self.addEventListener("install", (e) => {

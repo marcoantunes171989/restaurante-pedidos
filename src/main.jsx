@@ -13,9 +13,10 @@ const CHECK_INTERVAL_MS = 5 * 60 * 1000
 const RETRY_INTERVAL_MS = 30 * 1000
 const MAX_RETRIES       = 5
 
-let swReg      = null
-let retryCount = 0
-let retryTimer = null
+let swReg       = null
+let retryCount  = 0
+let retryTimer  = null
+let recarregando = false // evita loop de reload quando o novo SW assume
 
 function ehStandaloneLocal() {
   if (window.matchMedia?.("(display-mode: standalone)")?.matches) return true;
@@ -50,15 +51,13 @@ async function iniciarSW(onAtivado) {
   try {
     swReg = await navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' })
 
-    // controllerchange: novo SW assumiu o controle
+    // controllerchange: o novo SW assumiu o controle → atualiza AUTOMATICAMENTE
+    // em TODOS os modos (navegador e PWA instalado no Windows/Mac), recarregando
+    // a página para carregar o novo código. O flag evita loop de reload.
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (ehStandaloneLocal()) {
-        // No app instalado: avisa para recarregar (usuário decide)
-        onAtivado()
-      } else {
-        // No browser: recarrega silenciosamente (transparente para o usuário)
-        window.location.reload()
-      }
+      if (recarregando) return
+      recarregando = true
+      window.location.reload()
     })
 
     // Mensagens do SW
