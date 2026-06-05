@@ -263,7 +263,7 @@ function TabletMock() {
 export default function LandingPage({ navigate }) {
   const acessar = () => (navigate ? navigate("/login") : (window.location.href = "/login"));
   const [menuAberto, setMenuAberto] = useState(false);
-  const [faqAberto, setFaqAberto] = useState(0);
+  const [faqAberto, setFaqAberto] = useState(-1);
   const [enviado, setEnviado] = useState(false);
 
   function enviarContato(e) {
