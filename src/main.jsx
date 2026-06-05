@@ -9,7 +9,7 @@ import PwaBanner from './PwaBanner.jsx'
 //  SW Manager
 // ══════════════════════════════════════════════════════════════
 
-const CHECK_INTERVAL_MS = 5 * 60 * 1000
+const CHECK_INTERVAL_MS = 20 * 1000 // verifica atualização a cada 20s (rápido p/ PWA instalado)
 const RETRY_INTERVAL_MS = 30 * 1000
 const MAX_RETRIES       = 5
 
@@ -83,6 +83,10 @@ async function iniciarSW(onAtivado) {
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') checkUpdate(swReg)
     })
+    // Ao focar a janela do app (clicar de volta no PWA) → verifica na hora
+    window.addEventListener('focus', () => checkUpdate(swReg))
+    // Em cada navegação interna do app → também verifica (oportunidade rápida)
+    window.addEventListener('pageshow', () => checkUpdate(swReg))
 
     await registrarBgSync(swReg)
   } catch {
