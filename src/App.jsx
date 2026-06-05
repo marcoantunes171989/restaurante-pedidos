@@ -2242,7 +2242,7 @@ function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, cancela
   const totalGeral   = totalAtivo + totalFinal;
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-slate-950 overflow-hidden pt-[22px]">
+    <div className="fixed inset-0 z-50 flex flex-col bg-slate-950 overflow-hidden" style={{ paddingTop: "calc(env(safe-area-inset-top) + 22px)" }}>
 
       {/* ── Cabeçalho mínimo ──────────────────────────────────── */}
       <header className="flex shrink-0 items-center justify-between border-b border-white/10 bg-slate-900/90 px-6 py-3 backdrop-blur-xl">
@@ -2554,7 +2554,7 @@ function PanelView({ groupedOrders, products = [], lojaInfo }) {
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-slate-950 overflow-hidden pt-[22px]" style={{ fontSize: "clamp(10px, 1.2vw, 16px)" }}>
+    <div className="fixed inset-0 z-50 flex flex-col bg-slate-950 overflow-hidden" style={{ fontSize: "clamp(10px, 1.2vw, 16px)", paddingTop: "calc(env(safe-area-inset-top) + 22px)" }}>
 
       {/* ── Cabeçalho ─────────────────────────────────────────── */}
       <header className="flex shrink-0 items-center justify-between border-b border-white/10 bg-slate-900/90 px-[2vw] py-[1vh] backdrop-blur-xl">
@@ -3095,7 +3095,7 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-slate-950 overflow-hidden pt-[22px]">
+    <div className="fixed inset-0 z-50 flex flex-col bg-slate-950 overflow-hidden" style={{ paddingTop: "calc(env(safe-area-inset-top) + 22px)" }}>
       {/* Cabeçalho */}
       <header className="flex shrink-0 items-center justify-between border-b border-white/10 bg-slate-900/90 px-6 py-3 backdrop-blur-xl">
         <div className="flex items-center gap-3">
@@ -3950,7 +3950,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
     </main>
   );
   return (
-    <div className="fixed inset-0 z-50 flex bg-slate-950 overflow-hidden pt-[22px]">
+    <div className="fixed inset-0 z-50 flex bg-slate-950 overflow-hidden" style={{ paddingTop: "calc(env(safe-area-inset-top) + 22px)" }}>
 
       {/* ── Menu lateral esquerdo (fixo) ─────────────────────── */}
       <aside className="hidden md:flex w-64 shrink-0 flex-col border-r border-white/10 bg-slate-900">
