@@ -7260,6 +7260,8 @@ function UserAccessAdmin({ users, accesses, toggleUserAccess, definirAcessos, lo
   const [busca, setBusca]     = useState("");
   const [lojaSel, setLojaSel] = useState(""); // filtro por empresa (id) — só super admin
   const [editandoId, setEditandoId] = useState(null); // usuário aberto no modal
+  const [pagina, setPagina]   = useState(1);
+  const POR_PAGINA = 10;
   const nomeLoja = (id) => lojas.find((l) => l.id === id)?.nome || "Sem empresa";
   const prefLoja = (id) => lojas.find((l) => l.id === id)?.prefixo || "—";
   const acessosAtivos = accesses.filter((a) => a.active !== false);
@@ -7272,6 +7274,12 @@ function UserAccessAdmin({ users, accesses, toggleUserAccess, definirAcessos, lo
   });
   const comAcesso = users.filter((u) => u.accessIds.length > 0).length;
   const editando = users.find((u) => u.id === editandoId) || null; // live (reflete toggles)
+
+  // Paginação: 10 registros por página
+  const totalPaginas = Math.max(1, Math.ceil(filtrados.length / POR_PAGINA));
+  useEffect(() => { setPagina(1); }, [busca, lojaSel, users.length]);
+  const paginaAtual = Math.min(pagina, totalPaginas);
+  const visiveis = filtrados.slice((paginaAtual - 1) * POR_PAGINA, paginaAtual * POR_PAGINA);
 
   return (
     <main className="space-y-5">
@@ -7304,7 +7312,7 @@ function UserAccessAdmin({ users, accesses, toggleUserAccess, definirAcessos, lo
 
         <div className="space-y-2">
           {filtrados.length === 0 && <p className="py-8 text-center text-sm text-slate-500">Nenhum usuário encontrado.</p>}
-          {filtrados.map((u) => (
+          {visiveis.map((u) => (
             <div key={u.id}
               onClick={() => setEditandoId(u.id)}
               className="group flex cursor-pointer items-center gap-3 rounded-3xl border border-white/10 bg-slate-950/40 p-3 transition hover:border-blue-400/30 hover:bg-white/[0.06]">
@@ -7323,6 +7331,11 @@ function UserAccessAdmin({ users, accesses, toggleUserAccess, definirAcessos, lo
             </div>
           ))}
         </div>
+
+        {filtrados.length > POR_PAGINA && (
+          <Paginacao pagina={paginaAtual} totalPaginas={totalPaginas} total={filtrados.length}
+            porPagina={POR_PAGINA} onMudar={setPagina} rotulo="usuário(s)" />
+        )}
       </div>
 
       {editando && (
