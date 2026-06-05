@@ -122,20 +122,30 @@ async function iniciarSW(onAtivado) {
 //  → é marcada como duplicada e bloqueada.
 // ══════════════════════════════════════════════════════════════
 let _instanciaPromise = null
+let _soltarLock = null // libera o lock segurado por esta página
 function checarInstanciaUnica() {
   if (_instanciaPromise) return _instanciaPromise
   _instanciaPromise = new Promise((resolve) => {
     if (!('locks' in navigator)) { resolve(true); return } // navegador sem suporte → permite
     navigator.locks.request('pedido-prime-instancia-unica', { mode: 'exclusive', ifAvailable: true }, (lock) => {
       if (lock) {
-        resolve(true)                  // somos a instância primária
-        return new Promise(() => {})   // segura o lock para sempre (até fechar a aba)
+        resolve(true)                                  // somos a instância primária
+        return new Promise((res) => { _soltarLock = res }) // segura até liberar (pagehide)
       }
       resolve(false)                   // lock já tomado → instância duplicada
       return undefined
     }).catch(() => resolve(true))      // em erro, não bloqueia
   })
   return _instanciaPromise
+}
+// Libera o lock ao sair/ocultar a página (navegação ou bfcache). Sem isso, ao
+// ir do sistema para a landing e voltar, a página antiga (em bfcache) continua
+// segurando o lock e a nova é vista como "duplicada" no mesmo computador.
+if (typeof window !== 'undefined') {
+  window.addEventListener('pagehide', () => {
+    if (_soltarLock) { _soltarLock(); _soltarLock = null }
+    _instanciaPromise = null // permite readquirir o lock ao voltar/recarregar
+  })
 }
 
 function useInstanciaUnica(ativo) {
