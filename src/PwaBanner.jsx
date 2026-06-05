@@ -83,15 +83,30 @@ export default function PwaBanner({ swAtivado = false }) {
   const [instrucaoInstalar, setInstrucaoInstalar] = useState(false);
   const [instrucaoAbrir, setInstrucaoAbrir]       = useState(false);
   const [atualizando, setAtualizando]             = useState(false);
+  const [novaVersao, setNovaVersao]               = useState(null); // commit da versão a aplicar
   const dispensadoRef = useRef(false);
   const timerRef      = useRef(null);
   const lembreteRef   = useRef(null); // timer do lembrete de atualização (15s)
   const so            = detectaSO();
+  // Versão atual em execução (injetada no build)
+  const versaoAtual = (typeof __APP_VERSION__ !== "undefined") ? __APP_VERSION__ : "local";
 
   // ── Banner de atualização só em standalone ────────────────
   useEffect(() => {
     if (swAtivado && ehStandalone()) setBanner("atualizar");
   }, [swAtivado]);
+
+  // Descobre a versão (commit) que será aplicada, lendo o sw.js novo (no-cache)
+  useEffect(() => {
+    if (banner !== "atualizar") return;
+    fetch("/sw.js", { cache: "no-store" })
+      .then((r) => r.text())
+      .then((t) => {
+        const m = t.match(/APP_VERSION\s*=\s*"([^"]+)"/);
+        if (m && m[1] && m[1] !== "__APP_VERSION__") setNovaVersao(m[1]);
+      })
+      .catch(() => {});
+  }, [banner]);
 
   // ── Pipeline de detecção de instalação ───────────────────
   useEffect(() => {
@@ -256,6 +271,15 @@ export default function PwaBanner({ swAtivado = false }) {
             <p className="mt-0.5 text-xs leading-5 text-slate-400">
               {atualizando ? "Aplicando atualização…" : "Reinicie o app para ter as últimas novidades."}
             </p>
+            {!atualizando && (
+              <p className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 font-mono text-[11px]">
+                <span className="text-slate-500">Atual: {versaoAtual}</span>
+                <span className="text-slate-600">→</span>
+                <span className="rounded bg-blue-500/15 px-1.5 py-[1px] font-black text-blue-300">
+                  {novaVersao || "carregando…"}
+                </span>
+              </p>
+            )}
           </div>
         </div>
         {/* Botões: linha própria, espaçados e em largura total */}

@@ -11,6 +11,7 @@
 // (inclusive em PWA instalado no Windows). Sem isso, o SW fica byte-idêntico e
 // o update nunca é detectado.
 const BUILD_TIME    = "__BUILD_TIME__";
+const APP_VERSION   = "__APP_VERSION__"; // commit (versão) deste deploy — lido pelo banner
 const CACHE_VERSION = "pedido-prime-" + BUILD_TIME;
 const SHELL_URLS    = ["/", "/login"];
 
