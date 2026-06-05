@@ -3830,13 +3830,13 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
     ...(isSuperAdmin ? [
       { grupo: "Empresas", itens: [
         { id: "lojas", icon: "🏪", label: "Empresas" },
-        { id: "licencas", icon: "🔑", label: "Licenças de uso" },
       ]},
       { grupo: "Acessos", itens: [
         { id: "users", icon: "👥", label: "Usuários" },
         { id: "cargos", icon: "🪪", label: "Cargos / Perfis" },
         { id: "access", icon: "🔐", label: "Permissões" },
         { id: "link", icon: "🔗", label: "Usuário x Acesso" },
+        { id: "licencas", icon: "🔑", label: "Licenças de uso" },
       ]},
     ] : [
       { grupo: "Empresa", itens: [
