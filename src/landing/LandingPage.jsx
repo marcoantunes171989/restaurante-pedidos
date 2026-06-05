@@ -552,7 +552,6 @@ export default function LandingPage({ navigate }) {
           </div>
           <div className="mt-10 flex flex-col items-center justify-between gap-2 border-t border-white/10 pt-6 text-xs sm:flex-row">
             <span>© 2026 {NOME_SISTEMA}. Todos os direitos reservados.</span>
-            <span>Feito com React + Tailwind CSS</span>
           </div>
         </div>
       </footer>
