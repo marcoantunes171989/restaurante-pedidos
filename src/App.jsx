@@ -1497,8 +1497,11 @@ function TabletView({
   // comanda e quantidades já informados permanecem intactos.
   const [descansoAtivo, setDescansoAtivo] = useState(true);
   const [descansoIdx, setDescansoIdx] = useState(0);
+  const [porInatividade, setPorInatividade] = useState(false); // descanso veio de 5 min ocioso
+  const [ocioseg, setOcioseg] = useState(0);                   // tempo (s) em descanso por inatividade
   const idleTimerRef = useRef(null);
   const INATIVIDADE_MS = 5 * 60 * 1000; // 5 minutos
+  const INATIVIDADE_MIN = 5;
 
   // iOS no navegador (Safari/Chrome) não permite Fullscreen API; a tela cheia
   // real vem do modo standalone (Adicionar à Tela de Início). Detecta esse caso
@@ -1522,7 +1525,7 @@ function TabletView({
     if (descansoAtivo) return; // em descanso não conta inatividade
     const reset = () => {
       if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-      idleTimerRef.current = setTimeout(() => setDescansoAtivo(true), INATIVIDADE_MS);
+      idleTimerRef.current = setTimeout(() => { setPorInatividade(true); setDescansoAtivo(true); }, INATIVIDADE_MS);
     };
     reset();
     const evts = ["pointerdown", "pointermove", "keydown", "touchstart", "wheel", "scroll"];
@@ -1539,6 +1542,17 @@ function TabletView({
     const t = setInterval(() => setDescansoIdx((i) => (i + 1) % imagensDescanso.length), 4000);
     return () => clearInterval(t);
   }, [descansoAtivo, imagensDescanso.length]);
+
+  // Cronômetro ao vivo: conta o tempo em descanso quando entrou por inatividade
+  // (começa em 5 min e segue contando). Zera ao sair do descanso.
+  useEffect(() => {
+    if (descansoAtivo && porInatividade) {
+      setOcioseg(INATIVIDADE_MIN * 60); // já ficou 5 min ocioso ao acionar
+      const t = setInterval(() => setOcioseg((s) => s + 1), 1000);
+      return () => clearInterval(t);
+    }
+    setOcioseg(0);
+  }, [descansoAtivo, porInatividade]);
 
   const totalCartItems = cart.reduce((s, i) => s + i.quantity, 0);
   const comandaValida  = isValidCommand(commandCode);
@@ -2010,7 +2024,7 @@ function TabletView({
       {descansoAtivo && (
         <button
           type="button"
-          onClick={() => { entrarTelaCheia(); setDescansoAtivo(false); }}
+          onClick={() => { entrarTelaCheia(); setDescansoAtivo(false); setPorInatividade(false); }}
           style={{ height: "100dvh" }}
           className="fixed inset-0 z-[120] block w-full cursor-pointer overflow-hidden bg-slate-950 text-left">
           {/* Imagens dos produtos em modo fosco (passando) */}
@@ -2035,17 +2049,31 @@ function TabletView({
             </div>
           )}
 
+          {/* Aviso de inatividade (elegante) — só quando entrou por 5 min ocioso */}
+          {porInatividade && (
+            <div className="absolute left-1/2 top-8 z-[3] flex -translate-x-1/2 items-center gap-3 rounded-full border border-amber-300/30 bg-amber-500/10 px-5 py-2.5 shadow-xl backdrop-blur-md">
+              <span className="flex h-2.5 w-2.5 items-center justify-center">
+                <span className="absolute h-2.5 w-2.5 animate-ping rounded-full bg-amber-400/60" />
+                <span className="h-2.5 w-2.5 rounded-full bg-amber-400" />
+              </span>
+              <span className="text-sm font-black text-amber-200">Inativo por {INATIVIDADE_MIN} minutos</span>
+              <span className="font-mono text-sm font-black tabular-nums text-amber-100">
+                {String(Math.floor(ocioseg / 60)).padStart(2, "0")}:{String(ocioseg % 60).padStart(2, "0")}
+              </span>
+            </div>
+          )}
+
           {/* Anúncio central */}
           <div className="relative z-[2] flex h-full flex-col items-center justify-center px-8 text-center">
             <div className="flex flex-col items-center gap-5 rounded-[2.5rem] border border-white/15 bg-white/[0.06] px-10 py-12 shadow-2xl backdrop-blur-xl">
               <span className="text-6xl">🍽️</span>
               <div>
                 <p className="text-sm font-black uppercase tracking-[0.35em] text-blue-300">{lojaInfo?.nome || "Cardápio digital"}</p>
-                <h2 className="mt-3 text-4xl font-black leading-tight text-white sm:text-5xl">Bem-vindo!</h2>
-                <p className="mt-2 max-w-md text-base text-slate-300">Conheça nossos pratos e monte seu pedido direto da mesa.</p>
+                <h2 className="mt-3 text-4xl font-black leading-tight text-white sm:text-5xl">{porInatividade ? "Voltamos quando quiser" : "Bem-vindo!"}</h2>
+                <p className="mt-2 max-w-md text-base text-slate-300">{porInatividade ? "A tela entrou em descanso por inatividade. Seu pedido foi preservado." : "Conheça nossos pratos e monte seu pedido direto da mesa."}</p>
               </div>
               <div className="mt-2 flex items-center gap-3 rounded-full bg-blue-500 px-8 py-4 text-lg font-black text-white shadow-lg shadow-blue-900/40 animate-pulse">
-                👆 Toque na tela para iniciar o pedido
+                👆 {porInatividade ? "Toque para continuar de onde parou" : "Toque na tela para iniciar o pedido"}
               </div>
             </div>
             <p className="mt-8 text-xs text-slate-400">{totalCartItems > 0 ? `Seu pedido foi mantido — ${totalCartItems} ${totalCartItems === 1 ? "item" : "itens"} no carrinho` : "Toque em qualquer ponto para começar"}</p>
