@@ -1,5 +1,6 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import QRCode from "qrcode";
+import { uploadImagemProduto, validarImagemProduto } from "../lib/supabase";
 
 // ── Helpers ───────────────────────────────────────────────────
 function gerarCodigo(prefixo = "CMD", numero) {
@@ -25,6 +26,9 @@ export function GeradorComandas({
   onExcluirComanda,
   onRenomearComanda,
   onToggleComanda,
+  lojaId,                // empresa em foco (para upload e salvar a logo)
+  logoSalvo = "",        // logo salva no banco da empresa
+  onSalvarLogo,          // (url) => persiste a logo no banco
 }) {
   const [aba, setAba] = useState("gerar"); // "gerar" | "visualizar"
 
@@ -47,6 +51,9 @@ export function GeradorComandas({
           prefixoLoja={prefixoLoja}
           empresa={empresa}
           onGerar={onGerar}
+          lojaId={lojaId}
+          logoSalvo={logoSalvo}
+          onSalvarLogo={onSalvarLogo}
         />
       )}
       {aba === "visualizar" && (
@@ -67,9 +74,9 @@ export function GeradorComandas({
 // ══════════════════════════════════════════════════════════════
 //  Aba 1 — Gerar novas comandas (código existente mantido)
 // ══════════════════════════════════════════════════════════════
-function PainelGerar({ prefixoLoja, empresa, onGerar }) {
+function PainelGerar({ prefixoLoja, empresa, onGerar, lojaId, logoSalvo = "", onSalvarLogo }) {
   const [nomeEmpresa, setNomeEmpresa] = useState(empresa);
-  const [logoUrl, setLogoUrl]         = useState("");
+  const [logoUrl, setLogoUrl]         = useState(logoSalvo || "");
   const [chamada, setChamada]         = useState("Escaneie e faça seu pedido");
   const [prefixo, setPrefixo]         = useState(prefixoLoja);
   const [inicio, setInicio]           = useState(1);
@@ -77,6 +84,39 @@ function PainelGerar({ prefixoLoja, empresa, onGerar }) {
   const [colunas, setColunas]         = useState(3);
   const [comandas, setComandas]       = useState([]);
   const [gerando, setGerando]         = useState(false);
+  const [uploadandoLogo, setUploadandoLogo] = useState(false);
+  const [erroLogo, setErroLogo]       = useState("");
+  const fileLogoRef = useRef(null);
+
+  // Sincroniza a logo quando muda a empresa em foco (logo salva no banco)
+  useEffect(() => { setLogoUrl(logoSalvo || ""); }, [logoSalvo]);
+  useEffect(() => { setNomeEmpresa(empresa); }, [empresa]);
+  useEffect(() => { setPrefixo(prefixoLoja); }, [prefixoLoja]);
+
+  // Importa logo de arquivo local → Storage → salva no banco → reflete no preview/impressão
+  async function importarLogo(e) {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    setErroLogo("");
+    const erroVal = validarImagemProduto(f);
+    if (erroVal) { setErroLogo(erroVal); return; }
+    setUploadandoLogo(true);
+    try {
+      const url = await uploadImagemProduto(f, lojaId || "logos");
+      setLogoUrl(url);                 // preview/impressão atualizam na hora
+      if (onSalvarLogo) await onSalvarLogo(url); // persiste no banco
+    } catch (err) {
+      setErroLogo(err.message || "Falha ao enviar a logo.");
+    }
+    setUploadandoLogo(false);
+  }
+  function removerLogo() {
+    setLogoUrl("");
+    if (onSalvarLogo) onSalvarLogo("");
+  }
+  function salvarLogoUrl() {
+    if (onSalvarLogo) onSalvarLogo(logoUrl.trim());
+  }
 
   const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400 placeholder:text-slate-600 transition";
   const lbl = "mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500";
@@ -132,7 +172,51 @@ function PainelGerar({ prefixoLoja, empresa, onGerar }) {
           <h4 className="text-base font-black text-white">Identidade</h4>
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <div className="sm:col-span-2"><span className={lbl}>Nome da empresa</span><input value={nomeEmpresa} onChange={(e) => setNomeEmpresa(e.target.value)} placeholder="Ex.: Pizzaria do Bairro" className={inp} /></div>
-            <div className="sm:col-span-2"><span className={lbl}>Logo (URL — opcional)</span><input value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} placeholder="https://.../logo.png" className={inp} /></div>
+            {/* Logo da empresa — arquivo local (salva no banco) ou URL */}
+            <div className="sm:col-span-2">
+              <span className={lbl}>Logo da empresa</span>
+              <div className="flex gap-3">
+                {/* Miniatura */}
+                <div className="relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-slate-950/60">
+                  {logoUrl
+                    ? <img src={logoUrl} alt="logo" className="h-full w-full object-contain p-1" onError={() => {}} />
+                    : <span className="text-2xl">🏷️</span>}
+                  {uploadandoLogo && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/60">
+                      <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-400 border-t-transparent" />
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1 space-y-2">
+                  <input ref={fileLogoRef} type="file" accept=".png,.jpg,.jpeg,image/png,image/jpeg" className="hidden" onChange={importarLogo} />
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => fileLogoRef.current?.click()} disabled={uploadandoLogo}
+                      className="flex-1 rounded-2xl border border-blue-400/30 bg-blue-500/10 py-2.5 text-xs font-black text-blue-300 hover:bg-blue-500/20 transition disabled:opacity-50">
+                      📁 Importar logo (PNG/JPEG · 2 MB)
+                    </button>
+                    {logoUrl && (
+                      <button type="button" onClick={removerLogo}
+                        className="rounded-2xl border border-red-400/20 bg-red-500/10 px-3 py-2.5 text-xs font-black text-red-300 hover:bg-red-500/20 transition">
+                        🗑️
+                      </button>
+                    )}
+                  </div>
+                  {/* OU colar URL */}
+                  <div className="flex gap-2">
+                    <input value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} placeholder="ou cole uma URL da logo..."
+                      className="flex-1 rounded-2xl border border-white/10 bg-slate-950/70 px-3 py-2.5 text-xs text-white outline-none focus:border-blue-400 placeholder:text-slate-600" />
+                    {onSalvarLogo && (
+                      <button type="button" onClick={salvarLogoUrl}
+                        className="rounded-2xl bg-emerald-500/90 px-3 py-2.5 text-xs font-black text-white hover:bg-emerald-500 transition">
+                        💾 Salvar
+                      </button>
+                    )}
+                  </div>
+                  {erroLogo && <p className="text-[11px] text-red-400">❌ {erroLogo}</p>}
+                  {!erroLogo && logoUrl && <p className="text-[11px] text-emerald-400">✅ Logo aplicada ao preview e à impressão. Salva por empresa.</p>}
+                </div>
+              </div>
+            </div>
             <div className="sm:col-span-2"><span className={lbl}>Chamada (rodapé)</span><input value={chamada} onChange={(e) => setChamada(e.target.value)} placeholder="Escaneie e faça seu pedido" className={inp} /></div>
           </div>
           <h4 className="mt-6 text-base font-black text-white">Numeração</h4>
