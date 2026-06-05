@@ -154,8 +154,8 @@ function useInstanciaUnica(ativo) {
 const APP_VERSAO = (typeof __APP_VERSION__ !== 'undefined') ? __APP_VERSION__ : 'local'
 function VersaoBadge() {
   return (
-    <div className="fixed top-0 left-0 z-[400] pointer-events-none select-none">
-      <span className="rounded-br-md bg-slate-900/70 px-2 py-[2px] font-mono text-[11px] tracking-wide text-slate-400 backdrop-blur-sm">
+    <div className="fixed top-0 left-0 z-[400] px-2 py-[3px] pointer-events-none select-none">
+      <span className="font-mono text-[11px] tracking-wide text-slate-500">
         Versão: {APP_VERSAO}
       </span>
     </div>
