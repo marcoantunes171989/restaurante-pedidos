@@ -5255,6 +5255,25 @@ function LicencaAdmin({ lojas = [], usuarios = [], setLicencaEmpresa }) {
   );
 }
 
+// Componentes estáveis (top-level) — evitam remontagem da árvore ao paginar
+// (manter o scroll da tela ao trocar de página no card de produtos).
+function EmpresaSecao({ titulo, children }) {
+  return (
+    <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+      <h4 className="mb-4 text-base font-black text-white">{titulo}</h4>
+      {children}
+    </div>
+  );
+}
+function EmpresaMetrica({ label, valor, cor = "text-white" }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-slate-950/40 p-4">
+      <p className="text-xs font-bold uppercase tracking-widest text-slate-500">{label}</p>
+      <p className={`mt-1 text-xl font-black ${cor}`}>{valor}</p>
+    </div>
+  );
+}
+
 function MinhaEmpresa({ lojaInfo, usuarios = [], produtos = [], formasPagamento = [], categoriasDb = [], comandas = [], orders = [] }) {
   if (!lojaInfo) {
     return (
@@ -5283,18 +5302,8 @@ function MinhaEmpresa({ lojaInfo, usuarios = [], produtos = [], formasPagamento 
   const pagProd = Math.min(paginaProd, totalPagProd);
   const produtosVisiveis = produtos.slice((pagProd - 1) * PROD_POR_PAGINA, pagProd * PROD_POR_PAGINA);
 
-  const Secao = ({ titulo, children }) => (
-    <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
-      <h4 className="mb-4 text-base font-black text-white">{titulo}</h4>
-      {children}
-    </div>
-  );
-  const Metrica = ({ label, valor, cor = "text-white" }) => (
-    <div className="rounded-2xl border border-white/10 bg-slate-950/40 p-4">
-      <p className="text-xs font-bold uppercase tracking-widest text-slate-500">{label}</p>
-      <p className={`mt-1 text-xl font-black ${cor}`}>{valor}</p>
-    </div>
-  );
+  const Secao = EmpresaSecao;
+  const Metrica = EmpresaMetrica;
 
   return (
     <main className="w-full space-y-6">
@@ -5397,7 +5406,7 @@ function MinhaEmpresa({ lojaInfo, usuarios = [], produtos = [], formasPagamento 
           ? <p className="text-sm text-slate-500">Nenhum produto cadastrado.</p>
           : (
           <>
-            <div className="grid gap-2 sm:grid-cols-2">
+            <div className="space-y-2">
               {produtosVisiveis.map((p) => (
                 <div key={p.id} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-3">
                   {p.imageUrl && (
@@ -5423,8 +5432,8 @@ function MinhaEmpresa({ lojaInfo, usuarios = [], produtos = [], formasPagamento 
         )}
       </Secao>
 
-      {/* ── Grid: Categorias + Formas de Pagamento + Comandas ─── */}
-      <div className="grid gap-6 lg:grid-cols-3">
+      {/* ── Categorias + Formas de Pagamento + Comandas (empilhados) ─── */}
+      <div className="space-y-6">
         {/* Categorias */}
         <Secao titulo={`🏷️ Categorias (${catAtivas.length} ativas)`}>
           {categoriasDb.length === 0
