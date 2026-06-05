@@ -7259,9 +7259,10 @@ function PermissaoCadastroModal({ accessForm, setAccessForm, onSalvar, onFechar 
 function UserAccessAdmin({ users, accesses, toggleUserAccess, definirAcessos, lojas = [], isSuperAdmin = false }) {
   const [busca, setBusca]     = useState("");
   const [lojaSel, setLojaSel] = useState(""); // filtro por empresa (id) — só super admin
-  const [selId, setSelId]     = useState(null);
+  const [editandoId, setEditandoId] = useState(null); // usuário aberto no modal
   const nomeLoja = (id) => lojas.find((l) => l.id === id)?.nome || "Sem empresa";
   const prefLoja = (id) => lojas.find((l) => l.id === id)?.prefixo || "—";
+  const acessosAtivos = accesses.filter((a) => a.active !== false);
 
   const termo = busca.trim().toLowerCase();
   const filtrados = users.filter((u) => {
@@ -7269,15 +7270,8 @@ function UserAccessAdmin({ users, accesses, toggleUserAccess, definirAcessos, lo
     if (!termo) return true;
     return `${u.name} ${u.email} ${u.role} ${nomeLoja(u.lojaId)} ${prefLoja(u.lojaId)}`.toLowerCase().includes(termo);
   });
-
-  // Usuário selecionado (auto-seleciona o primeiro da lista filtrada)
-  const sel = users.find((u) => u.id === selId) || filtrados[0] || null;
-  const acessosAtivos = accesses.filter((a) => a.active !== false);
-
-  function liberarTodas() { if (sel) definirAcessos(sel.id, acessosAtivos.map((a) => a.id)); }
-  function bloquearTodas() { if (sel) definirAcessos(sel.id, []); }
-
   const comAcesso = users.filter((u) => u.accessIds.length > 0).length;
+  const editando = users.find((u) => u.id === editandoId) || null; // live (reflete toggles)
 
   return (
     <main className="space-y-5">
@@ -7288,104 +7282,128 @@ function UserAccessAdmin({ users, accesses, toggleUserAccess, definirAcessos, lo
           <span className="font-bold text-white">{users.length}</span> usuário(s) •
           <span className="text-emerald-300"> {comAcesso} com acesso liberado</span>
         </p>
-        <p className="mt-1 text-xs text-slate-500">Selecione um usuário e libere as telas que ele pode acessar. O menu de cada usuário é montado apenas com as telas liberadas aqui.</p>
+        <p className="mt-1 text-xs text-slate-500">Clique em um usuário para liberar as telas que ele pode acessar. O menu de cada usuário é montado apenas com as telas liberadas aqui.</p>
       </div>
 
-      {/* ── Master-detail: lista + acessos ────────────────── */}
-      <div className="grid gap-5 lg:grid-cols-[330px_1fr]">
-      {/* ── Lista de usuários ─────────────────────────────── */}
-      <div className="flex max-h-[74vh] flex-col rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
-        <div className="space-y-2">
-          <div className="relative">
+      {/* ── Busca + lista (largura total — padrão do projeto) ── */}
+      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+        <div className="mb-4 flex flex-col gap-2 sm:flex-row">
+          <div className="relative flex-1">
             <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">🔍</span>
-            <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar usuário..."
+            <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar usuário por nome, e-mail ou cargo..."
               className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-blue-400" />
           </div>
           {isSuperAdmin && (
             <select value={lojaSel} onChange={(e) => setLojaSel(e.target.value)}
-              className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none focus:border-blue-400">
+              className="rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none focus:border-blue-400 sm:w-64">
               <option value="">Todas as empresas</option>
               {lojas.map((l) => <option key={l.id} value={l.id}>{l.nome} ({l.prefixo})</option>)}
             </select>
           )}
         </div>
-        <div className="scrollbar-none mt-3 flex-1 space-y-2 overflow-y-auto pr-1">
-          {filtrados.length === 0 && <p className="px-1 py-6 text-center text-sm text-slate-500">Nenhum usuário encontrado.</p>}
-          {filtrados.map((u) => {
-            const ativo = sel?.id === u.id;
-            return (
-              <button key={u.id} onClick={() => setSelId(u.id)}
-                className={`flex w-full items-center gap-3 rounded-3xl border px-3 py-2.5 text-left transition ${ativo ? "border-blue-400/60 bg-blue-500/15" : "border-white/10 bg-slate-950/40 hover:border-white/20 hover:bg-white/[0.06]"}`}>
-                <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-sm ${ativo ? "bg-blue-500 text-white" : "bg-white/[0.06] text-slate-300"}`}>👤</span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-black text-white">{u.name}</p>
-                  <p className="truncate text-[11px] text-slate-400">{u.role || "—"}{isSuperAdmin ? ` • ${nomeLoja(u.lojaId)}` : ""}</p>
-                </div>
-                <span className="shrink-0 rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] font-black text-slate-300">{u.accessIds.length}</span>
-              </button>
-            );
-          })}
+
+        <div className="space-y-2">
+          {filtrados.length === 0 && <p className="py-8 text-center text-sm text-slate-500">Nenhum usuário encontrado.</p>}
+          {filtrados.map((u) => (
+            <div key={u.id}
+              onClick={() => setEditandoId(u.id)}
+              className="group flex cursor-pointer items-center gap-3 rounded-3xl border border-white/10 bg-slate-950/40 p-3 transition hover:border-blue-400/30 hover:bg-white/[0.06]">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white/[0.06] text-lg group-hover:bg-blue-500/15 transition">👤</span>
+              <div className="min-w-0 flex-1">
+                <p className="font-black text-white truncate">
+                  {u.name}
+                  {u.superAdmin && <span className="ml-2 rounded-full bg-violet-500/20 px-2 py-0.5 text-[10px] font-black text-violet-300 align-middle">ADMIN GERAL</span>}
+                </p>
+                <p className="truncate text-xs text-slate-400">{u.email} · {u.role || "—"}{isSuperAdmin ? ` · ${nomeLoja(u.lojaId)}` : ""}</p>
+              </div>
+              <span className="shrink-0 text-xs text-slate-600 group-hover:text-blue-400 transition hidden sm:inline">✏️ Gerenciar</span>
+              <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-black ${u.accessIds.length > 0 ? "bg-emerald-500/15 text-emerald-300" : "bg-slate-700 text-slate-300"}`}>
+                {u.accessIds.length}/{acessosAtivos.length} telas
+              </span>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* ── Detalhe: acessos do usuário selecionado ───────── */}
-      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
-        {!sel ? (
-          <div className="flex h-full min-h-[300px] flex-col items-center justify-center text-center">
-            <span className="text-4xl">🔗</span>
-            <p className="mt-3 text-sm text-slate-400">Selecione um usuário à esquerda para gerenciar os acessos.</p>
-          </div>
-        ) : (
-          <>
-            {/* Cabeçalho do usuário */}
-            <div className="flex flex-col gap-3 border-b border-white/10 pb-5 sm:flex-row sm:items-start sm:justify-between">
-              <div className="min-w-0">
-                <p className="text-lg font-black text-white">
-                  {sel.name}
-                  {sel.superAdmin && <span className="ml-2 rounded-full bg-violet-500/20 px-2 py-0.5 text-[10px] font-black text-violet-300 align-middle">ADMIN GERAL</span>}
-                </p>
-                <p className="text-sm text-slate-400">{sel.email}</p>
-                <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                  <span className="rounded-full bg-white/[0.06] px-2.5 py-0.5 text-xs font-bold text-slate-200">🪪 {sel.role || "—"}</span>
-                  <span className="rounded-full bg-blue-500/10 px-2.5 py-0.5 text-xs font-bold text-blue-200">🏪 {sel.superAdmin ? "Todas" : nomeLoja(sel.lojaId)}</span>
-                  <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${sel.active ? "bg-emerald-500/15 text-emerald-300" : "bg-slate-700 text-slate-300"}`}>{sel.active ? "Ativo" : "Inativo"}</span>
-                </div>
-              </div>
-              <div className="shrink-0 text-right">
-                <p className="text-2xl font-black text-white">{sel.accessIds.length}<span className="text-sm text-slate-500">/{acessosAtivos.length}</span></p>
-                <p className="text-[11px] font-bold uppercase tracking-widest text-slate-500">telas liberadas</p>
-              </div>
-            </div>
-
-            {/* Ações rápidas */}
-            <div className="mt-4 flex flex-wrap gap-2">
-              <button onClick={liberarTodas} className="rounded-2xl border border-emerald-400/30 bg-emerald-500/15 px-4 py-2 text-xs font-black text-emerald-200 hover:bg-emerald-500/25 transition">✓ Liberar todas</button>
-              <button onClick={bloquearTodas} className="rounded-2xl border border-red-400/30 bg-red-500/10 px-4 py-2 text-xs font-black text-red-300 hover:bg-red-500/20 transition">✕ Bloquear todas</button>
-            </div>
-
-            {/* Switches de acesso */}
-            <div className="mt-4 grid gap-2.5 sm:grid-cols-2">
-              {acessosAtivos.length === 0 && <p className="text-sm text-slate-500">Nenhuma permissão ativa cadastrada.</p>}
-              {acessosAtivos.map((a) => {
-                const checked = sel.accessIds.includes(a.id);
-                return (
-                  <button key={a.id} onClick={() => toggleUserAccess(sel.id, a.id)}
-                    className={`flex items-center justify-between gap-3 rounded-2xl border p-3.5 text-left transition ${checked ? "border-emerald-400/30 bg-emerald-500/10" : "border-white/10 bg-slate-950/40 hover:bg-white/[0.06]"}`}>
-                    <div className="min-w-0">
-                      <p className={`text-sm font-black ${checked ? "text-emerald-100" : "text-white"}`}>{a.label}</p>
-                      {a.desc && <p className="mt-0.5 truncate text-xs text-slate-400">{a.desc}</p>}
-                    </div>
-                    <span className={`relative h-6 w-11 shrink-0 rounded-full transition ${checked ? "bg-emerald-500" : "bg-slate-700"}`}>
-                      <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${checked ? "left-[22px]" : "left-0.5"}`} />
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </>
-        )}
-      </div>
-      </div>
+      {editando && (
+        <UserAccessModal
+          usuario={editando}
+          acessosAtivos={acessosAtivos}
+          isSuperAdmin={isSuperAdmin}
+          nomeLoja={nomeLoja}
+          toggleUserAccess={toggleUserAccess}
+          definirAcessos={definirAcessos}
+          onFechar={() => setEditandoId(null)}
+        />
+      )}
     </main>
+  );
+}
+
+// Modal de gestão de acessos de um usuário (padrão de modal do projeto)
+function UserAccessModal({ usuario, acessosAtivos = [], isSuperAdmin = false, nomeLoja, toggleUserAccess, definirAcessos, onFechar }) {
+  const liberadas = usuario.accessIds.length;
+  const total = acessosAtivos.length;
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onFechar}>
+      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-lg flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl max-h-[92vh]">
+        {/* Cabeçalho */}
+        <div className="flex items-start justify-between gap-3 border-b border-white/10 px-6 py-4">
+          <div className="min-w-0">
+            <h2 className="text-lg font-black text-white">
+              {usuario.name}
+              {usuario.superAdmin && <span className="ml-2 rounded-full bg-violet-500/20 px-2 py-0.5 text-[10px] font-black text-violet-300 align-middle">ADMIN GERAL</span>}
+            </h2>
+            <p className="text-sm text-slate-400 truncate">{usuario.email}</p>
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              <span className="rounded-full bg-white/[0.06] px-2.5 py-0.5 text-xs font-bold text-slate-200">🪪 {usuario.role || "—"}</span>
+              <span className="rounded-full bg-blue-500/10 px-2.5 py-0.5 text-xs font-bold text-blue-200">🏪 {usuario.superAdmin ? "Todas" : nomeLoja(usuario.lojaId)}</span>
+              <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${usuario.active ? "bg-emerald-500/15 text-emerald-300" : "bg-slate-700 text-slate-300"}`}>{usuario.active ? "Ativo" : "Inativo"}</span>
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-3">
+            <div className="text-right">
+              <p className="text-2xl font-black text-white leading-none">{liberadas}<span className="text-sm text-slate-500">/{total}</span></p>
+              <p className="mt-0.5 text-[10px] font-bold uppercase tracking-widest text-slate-500">telas</p>
+            </div>
+            <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20">✕</button>
+          </div>
+        </div>
+
+        {/* Corpo */}
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
+          <div className="flex flex-wrap gap-2">
+            <button onClick={() => definirAcessos(usuario.id, acessosAtivos.map((a) => a.id))}
+              className="rounded-2xl border border-emerald-400/30 bg-emerald-500/15 px-4 py-2 text-xs font-black text-emerald-200 hover:bg-emerald-500/25 transition">✓ Liberar todas</button>
+            <button onClick={() => definirAcessos(usuario.id, [])}
+              className="rounded-2xl border border-red-400/30 bg-red-500/10 px-4 py-2 text-xs font-black text-red-300 hover:bg-red-500/20 transition">✕ Bloquear todas</button>
+          </div>
+
+          <div className="space-y-2">
+            {acessosAtivos.length === 0 && <p className="text-sm text-slate-500">Nenhuma permissão ativa cadastrada.</p>}
+            {acessosAtivos.map((a) => {
+              const checked = usuario.accessIds.includes(a.id);
+              return (
+                <button key={a.id} onClick={() => toggleUserAccess(usuario.id, a.id)}
+                  className={`flex w-full items-center justify-between gap-3 rounded-2xl border p-3.5 text-left transition ${checked ? "border-emerald-400/30 bg-emerald-500/10" : "border-white/10 bg-slate-950/40 hover:bg-white/[0.06]"}`}>
+                  <div className="min-w-0">
+                    <p className={`text-sm font-black ${checked ? "text-emerald-100" : "text-white"}`}>{a.label}</p>
+                    {a.desc && <p className="mt-0.5 truncate text-xs text-slate-400">{a.desc}</p>}
+                  </div>
+                  <span className={`relative h-6 w-11 shrink-0 rounded-full transition ${checked ? "bg-emerald-500" : "bg-slate-700"}`}>
+                    <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${checked ? "left-[22px]" : "left-0.5"}`} />
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Rodapé */}
+        <div className="shrink-0 border-t border-white/10 px-6 py-4">
+          <button onClick={onFechar} className="w-full rounded-2xl bg-blue-500 py-3.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95">Concluir</button>
+        </div>
+      </div>
+    </div>
   );
 }
