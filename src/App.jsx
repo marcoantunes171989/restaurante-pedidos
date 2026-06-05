@@ -4701,11 +4701,13 @@ function RelatorioCupom({ pedidos, lojaInfo }) {
 //  Cupom não fiscal profissional (80mm) — impressão e WhatsApp
 // ════════════════════════════════════════════════════════════
 function CupomNaoFiscalModal({ pedido, lojaInfo, onFechar }) {
+  const [formato, setFormato] = useState("80mm"); // "80mm" | "a4"
   const empresa = lojaInfo?.nome || "Restaurante";
   const subtotal = orderTotal(pedido);
   const taxa = subtotal * 0.1;
   const total = subtotal + taxa;
   const dataStr = pedido.createdAtISO ? new Date(pedido.createdAtISO).toLocaleString("pt-BR") : pedido.createdAt;
+  const totalItens = pedido.items.reduce((s, it) => s + it.quantity, 0);
 
   const texto = (() => {
     let t = `*${empresa.toUpperCase()} — CUPOM NÃO FISCAL*\n`;
@@ -4762,6 +4764,88 @@ function CupomNaoFiscalModal({ pedido, lojaInfo, onFechar }) {
     abrirImpressaoTermica(`Cupom ${pedido.id}`, corpo);
   }
 
+  // ── Impressão A4 — layout comercial elegante ──────────────────
+  function imprimirA4() {
+    const linhas = pedido.items.map((it, i) => {
+      const det = itemDetails(it);
+      return `<tr class="${i % 2 ? "alt" : ""}">
+        <td class="qt">${it.quantity}×</td>
+        <td class="nm"><span class="np">${it.name}</span>${det ? `<span class="dt">${det}</span>` : ""}</td>
+        <td class="un">${formatCurrency(it.price)}</td>
+        <td class="tt">${formatCurrency(it.price * it.quantity)}</td>
+      </tr>`;
+    }).join("");
+    const inicial = (empresa || "R").charAt(0).toUpperCase();
+    const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Cupom ${pedido.id}</title>
+<style>
+  @page { size: A4; margin: 14mm; }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Segoe UI',Arial,sans-serif;color:#0f172a;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .doc{max-width:680px;margin:0 auto}
+  .top{display:flex;align-items:center;gap:16px;border-bottom:3px solid #2563eb;padding-bottom:16px}
+  .logo{width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,#3b82f6,#1e3a8a);color:#fff;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:800}
+  .emp{flex:1}
+  .emp h1{font-size:24px;font-weight:800;letter-spacing:-.5px;line-height:1.1}
+  .emp p{font-size:12px;color:#64748b;margin-top:2px}
+  .pill{align-self:flex-start;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:999px;padding:6px 14px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px}
+  .info{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:20px 0}
+  .card{border:1px solid #e2e8f0;border-radius:12px;padding:10px 12px;background:#f8fafc}
+  .card .l{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1.2px;color:#94a3b8}
+  .card .v{font-size:14px;font-weight:700;margin-top:3px;word-break:break-word}
+  table{width:100%;border-collapse:collapse;margin-top:6px}
+  thead th{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#64748b;text-align:left;padding:10px 8px;border-bottom:2px solid #e2e8f0}
+  thead th.r,tbody td.un,tbody td.tt{text-align:right}
+  tbody td{padding:11px 8px;border-bottom:1px solid #f1f5f9;vertical-align:top;font-size:13px}
+  tbody tr.alt td{background:#f8fafc}
+  td.qt{font-weight:800;color:#2563eb;width:48px}
+  .np{font-weight:700;display:block}
+  .dt{display:block;font-size:11px;color:#64748b;margin-top:2px}
+  td.un{color:#64748b}
+  td.tt{font-weight:800}
+  .tot{margin-top:18px;display:flex;justify-content:flex-end}
+  .totbox{width:300px}
+  .tr{display:flex;justify-content:space-between;padding:7px 0;font-size:13px;color:#475569}
+  .tr.grand{margin-top:6px;padding:14px 16px;background:linear-gradient(135deg,#2563eb,#1e3a8a);color:#fff;border-radius:14px;font-size:18px;font-weight:800}
+  .ft{margin-top:26px;border-top:1px dashed #cbd5e1;padding-top:16px;text-align:center;color:#64748b}
+  .ft .ty{font-size:15px;font-weight:800;color:#0f172a}
+  .ft .nf{font-size:10px;text-transform:uppercase;letter-spacing:1px;margin-top:6px}
+</style></head><body>
+  <div class="doc">
+    <div class="top">
+      <div class="logo">${inicial}</div>
+      <div class="emp"><h1>${empresa}</h1><p>Cupom de venda · automação comercial</p></div>
+      <span class="pill">Não fiscal</span>
+    </div>
+    <div class="info">
+      <div class="card"><div class="l">Cupom</div><div class="v">${pedido.id}</div></div>
+      <div class="card"><div class="l">Data / Hora</div><div class="v">${dataStr}</div></div>
+      <div class="card"><div class="l">${pedido.table || "Mesa"}</div><div class="v">Comanda ${pedido.command}</div></div>
+      <div class="card"><div class="l">Cliente</div><div class="v">${pedido.customer || "—"}</div></div>
+    </div>
+    <table>
+      <thead><tr><th>Qtd</th><th>Item</th><th class="r">Unitário</th><th class="r">Total</th></tr></thead>
+      <tbody>${linhas}</tbody>
+    </table>
+    <div class="tot"><div class="totbox">
+      <div class="tr"><span>Subtotal (${totalItens} ${totalItens === 1 ? "item" : "itens"})</span><span>${formatCurrency(subtotal)}</span></div>
+      <div class="tr"><span>Taxa de serviço (10%)</span><span>${formatCurrency(taxa)}</span></div>
+      <div class="tr grand"><span>TOTAL</span><span>${formatCurrency(total)}</span></div>
+    </div></div>
+    <div class="ft">
+      <p class="ty">Obrigado pela preferência!</p>
+      <p class="nf">Documento sem valor fiscal · emitido em ${new Date().toLocaleString("pt-BR")}</p>
+    </div>
+  </div>
+  <script>window.onload=function(){window.print();}<\/script>
+</body></html>`;
+    const j = window.open("", "_blank", "width=820,height=900");
+    if (!j) return;
+    j.document.write(html);
+    j.document.close();
+  }
+
+  function imprimirCupom() { formato === "a4" ? imprimirA4() : imprimir(); }
+
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={onFechar}>
       <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-sm flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl max-h-[92vh]">
@@ -4796,8 +4880,27 @@ function CupomNaoFiscalModal({ pedido, lojaInfo, onFechar }) {
           <p className="text-center text-[10px]">Obrigado pela preferência!</p>
         </div>
         {/* Ações */}
-        <div className="shrink-0 border-t border-white/10 px-5 py-4 space-y-2">
-          <button onClick={imprimir} className="w-full rounded-2xl bg-blue-500 py-3.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95">🖨️ Imprimir cupom</button>
+        <div className="shrink-0 border-t border-white/10 px-5 py-4 space-y-3">
+          {/* Seletor de formato de impressão */}
+          <div>
+            <p className="mb-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500">Formato da impressão</p>
+            <div className="flex items-center gap-1.5 rounded-2xl border border-white/10 bg-white/[0.04] p-1">
+              <button onClick={() => setFormato("80mm")}
+                className={`flex-1 rounded-xl py-2 text-xs font-black transition ${formato === "80mm" ? "bg-blue-500 text-white" : "text-slate-300 hover:bg-white/5"}`}>
+                🧾 Cupom 80mm
+              </button>
+              <button onClick={() => setFormato("a4")}
+                className={`flex-1 rounded-xl py-2 text-xs font-black transition ${formato === "a4" ? "bg-blue-500 text-white" : "text-slate-300 hover:bg-white/5"}`}>
+                📄 Folha A4
+              </button>
+            </div>
+            <p className="mt-1 text-[10px] text-slate-500">
+              {formato === "80mm" ? "Impressora térmica de bobina (não fiscal)." : "Impressora comum (A4) — layout comercial elegante."}
+            </p>
+          </div>
+          <button onClick={imprimirCupom} className="w-full rounded-2xl bg-blue-500 py-3.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95">
+            🖨️ Imprimir {formato === "a4" ? "em A4" : "cupom 80mm"}
+          </button>
           <button onClick={enviarWhatsApp} className="w-full rounded-2xl bg-emerald-500/90 py-3.5 text-sm font-black text-white hover:bg-emerald-500 transition active:scale-95">💬 Enviar pelo WhatsApp</button>
         </div>
       </div>
