@@ -4058,6 +4058,112 @@ function filtrarPedidosPorPeriodo(orders, periodo, ini, fim) {
   });
 }
 
+// ── Helpers de data (YYYY-MM-DD) ─────────────────────────────
+function dataHojeStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+function formatarDataBR(s) {
+  if (!s) return "";
+  const [y, m, d] = s.split("-");
+  return `${d}/${m}/${y}`;
+}
+
+// ── Calendário minimalista (datas futuras desabilitadas) ──────
+function CalendarioMinimalista({ valor, onChange, max, min, placeholder = "Selecionar" }) {
+  const [aberto, setAberto] = useState(false);
+  const ref = useRef(null);
+  const baseRef = valor ? new Date(valor + "T00:00:00") : new Date();
+  const [vista, setVista] = useState({ ano: baseRef.getFullYear(), mes: baseRef.getMonth() });
+
+  useEffect(() => {
+    const fn = (e) => { if (ref.current && !ref.current.contains(e.target)) setAberto(false); };
+    document.addEventListener("mousedown", fn);
+    return () => document.removeEventListener("mousedown", fn);
+  }, []);
+  // Ao abrir, posiciona o mês na data selecionada (ou hoje)
+  useEffect(() => {
+    if (!aberto) return;
+    const b = valor ? new Date(valor + "T00:00:00") : new Date();
+    setVista({ ano: b.getFullYear(), mes: b.getMonth() });
+  }, [aberto]);
+
+  const meses = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+  const diasSemana = ["D", "S", "T", "Q", "Q", "S", "S"];
+  const primeiroDiaSemana = new Date(vista.ano, vista.mes, 1).getDay();
+  const diasNoMes = new Date(vista.ano, vista.mes + 1, 0).getDate();
+  const maxDate = max ? new Date(max + "T23:59:59") : null;
+  const minDate = min ? new Date(min + "T00:00:00") : null;
+  const podeProximo = !maxDate || new Date(vista.ano, vista.mes + 1, 1) <= maxDate;
+
+  const desabilitado = (dia) => {
+    const d = new Date(vista.ano, vista.mes, dia);
+    if (maxDate && d > maxDate) return true;
+    if (minDate && d < minDate) return true;
+    return false;
+  };
+  const ehSelecionado = (dia) => valor === `${vista.ano}-${String(vista.mes + 1).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
+
+  function selecionar(dia) {
+    if (desabilitado(dia)) return;
+    onChange(`${vista.ano}-${String(vista.mes + 1).padStart(2, "0")}-${String(dia).padStart(2, "0")}`);
+    setAberto(false);
+  }
+  function navegar(delta) {
+    setVista((v) => {
+      const novo = new Date(v.ano, v.mes + delta, 1);
+      return { ano: novo.getFullYear(), mes: novo.getMonth() };
+    });
+  }
+
+  return (
+    <div ref={ref} className="relative">
+      <button type="button" onClick={() => setAberto((a) => !a)}
+        className={`flex items-center gap-2 rounded-xl border bg-slate-950/70 px-3 py-1.5 text-xs font-bold outline-none transition ${aberto ? "border-blue-400 text-white" : "border-white/10 text-slate-200 hover:border-white/20"}`}>
+        <span className="text-slate-400">📅</span>
+        <span className={valor ? "" : "text-slate-500"}>{valor ? formatarDataBR(valor) : placeholder}</span>
+      </button>
+
+      {aberto && (
+        <div className="absolute left-0 top-full z-[120] mt-2 w-64 rounded-2xl border border-white/10 bg-slate-900 p-3 shadow-2xl">
+          {/* Cabeçalho do mês */}
+          <div className="mb-2 flex items-center justify-between">
+            <button type="button" onClick={() => navegar(-1)}
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-300 hover:bg-white/10 transition">‹</button>
+            <span className="text-sm font-black text-white">{meses[vista.mes]} {vista.ano}</span>
+            <button type="button" onClick={() => podeProximo && navegar(1)} disabled={!podeProximo}
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-300 hover:bg-white/10 transition disabled:opacity-25 disabled:cursor-not-allowed">›</button>
+          </div>
+          {/* Dias da semana */}
+          <div className="mb-1 grid grid-cols-7 gap-0.5 text-center">
+            {diasSemana.map((d, i) => (
+              <span key={i} className="py-1 text-[10px] font-black uppercase text-slate-600">{d}</span>
+            ))}
+          </div>
+          {/* Grade de dias */}
+          <div className="grid grid-cols-7 gap-0.5">
+            {Array.from({ length: primeiroDiaSemana }).map((_, i) => <span key={"e" + i} />)}
+            {Array.from({ length: diasNoMes }).map((_, i) => {
+              const dia = i + 1;
+              const off = desabilitado(dia);
+              const sel = ehSelecionado(dia);
+              return (
+                <button key={dia} type="button" disabled={off} onClick={() => selecionar(dia)}
+                  className={`flex h-8 items-center justify-center rounded-lg text-xs font-bold transition ${
+                    sel ? "bg-blue-500 text-white"
+                    : off ? "text-slate-700 cursor-not-allowed"
+                    : "text-slate-200 hover:bg-white/10"}`}>
+                  {dia}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SeletorPeriodo({ periodo, setPeriodo, ini, setIni, fim, setFim }) {
   const opcoes = [
     { id: "hoje", label: "Hoje" }, { id: "ontem", label: "Ontem" },
@@ -4074,11 +4180,9 @@ function SeletorPeriodo({ periodo, setPeriodo, ini, setIni, fim, setFim }) {
       ))}
       {periodo === "periodo" && (
         <div className="flex items-center gap-2">
-          <input type="date" value={ini} onChange={(e) => setIni(e.target.value)}
-            className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-1.5 text-xs text-white outline-none focus:border-blue-400" />
+          <CalendarioMinimalista valor={ini} onChange={setIni} max={dataHojeStr()} placeholder="Data inicial" />
           <span className="text-xs text-slate-500">até</span>
-          <input type="date" value={fim} onChange={(e) => setFim(e.target.value)}
-            className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-1.5 text-xs text-white outline-none focus:border-blue-400" />
+          <CalendarioMinimalista valor={fim} onChange={setFim} max={dataHojeStr()} min={ini || undefined} placeholder="Data final" />
         </div>
       )}
     </div>
