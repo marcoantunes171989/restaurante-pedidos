@@ -542,7 +542,7 @@ export default function RestaurantePedidoApp() {
   const [cart, setCart] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState("Todos");
   const [search, setSearch] = useState("");
-  const [tableNumber, setTableNumber] = useState("07");
+  const [tableNumber, setTableNumber] = useState("");
   const [commandCode, setCommandCode] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [message, setMessage] = useState({ type: "", text: "" });
@@ -1726,6 +1726,7 @@ function TabletView({
               <label>
                 <span className="mb-1 block text-xs font-bold uppercase tracking-widest text-amber-500">⚠ Mesa *</span>
                 <input autoFocus value={tableNumber} onChange={(e) => setTableNumber(e.target.value.replace(/[^0-9]/g,"").slice(0,2))}
+                  type="tel" inputMode="numeric" pattern="[0-9]*"
                   placeholder="Nº"
                   className={`w-full rounded-2xl border bg-slate-800 px-3 py-2.5 text-white outline-none text-sm font-black transition ${tableNumber && Number(tableNumber) > 0 ? "border-emerald-400/40 focus:border-emerald-400" : "border-amber-400/40 focus:border-amber-400"}`} />
               </label>
