@@ -588,8 +588,13 @@ export default function RestaurantePedidoApp() {
   function login() {
     const credOk = users.find((u) => u.email.toLowerCase() === loginForm.email.toLowerCase() && u.password === loginForm.password);
     if (!credOk) return notify("error", "Usuário ou senha inválidos.");
-    // Usuário inativo (ou de empresa inativa) — bloqueia com mensagem específica
     const lojaDoUser = lojas.find((l) => l.id === credOk.lojaId);
+    // Licença da empresa suspensa — bloqueia o acesso de todos os usuários da empresa.
+    // (O administrador geral do sistema — superAdmin — nunca é bloqueado.)
+    if (!credOk.superAdmin && lojaDoUser && lojaDoUser.licencaBloqueada === true) {
+      return notify("error", "Licença suspensa, entre em contato com o administrador do sistema.");
+    }
+    // Usuário inativo (ou de empresa inativa) — bloqueia com mensagem específica
     if (!credOk.active || (lojaDoUser && lojaDoUser.active === false)) {
       return notify("error", "Usuário inativo, entre em contato com o administrador do sistema.");
     }
@@ -940,6 +945,22 @@ export default function RestaurantePedidoApp() {
     notify("success", active
       ? `Empresa "${l?.nome || ""}" reativada — ${qtd} usuário(s) reativado(s).`
       : `Empresa "${l?.nome || ""}" inativada — ${qtd} usuário(s) inativado(s).`);
+  }
+  // ── Licença de uso por empresa (somente administrador geral) ──
+  async function setLicencaEmpresa(id, bloquear) {
+    if (!isSuperAdmin) return notify("error", "Somente o administrador geral controla licenças.");
+    const l = lojas.find((x) => x.id === id);
+    setLojas((cur) => cur.map((x) => x.id === id ? { ...x, licencaBloqueada: bloquear } : x));
+    // Se a empresa bloqueada tiver um usuário logado agora, encerra a sessão dele
+    if (bloquear && currentUser && !currentUser.superAdmin && currentUser.lojaId === id) {
+      logout();
+      notify("error", "Licença suspensa, entre em contato com o administrador do sistema.");
+    }
+    if (dbReady) try { await atualizarLoja(id, { licenca_bloqueada: bloquear }); }
+    catch (err) { notify("error", "Erro ao salvar licença: " + err.message); return; }
+    notify("success", bloquear
+      ? `Licença da empresa "${l?.nome || ""}" SUSPENSA. Acessos bloqueados.`
+      : `Licença da empresa "${l?.nome || ""}" LIBERADA. Acessos reativados.`);
   }
   async function editarLoja(id, dados) {
     if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
@@ -1308,7 +1329,7 @@ export default function RestaurantePedidoApp() {
         )}
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} products={products} lojaInfo={lojaInfo} />}
         {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierView orders={orders} baixarComandas={baixarComandas} baixarPedidos={baixarPedidos} formasPagamento={formasPagamentoLoja} onSair={logout} lojaInfo={lojaInfo} />}
-        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} />}
+        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} setLicencaEmpresa={setLicencaEmpresa} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} />}
 
       </div>
     </div>
@@ -3793,7 +3814,7 @@ function ComboEmpresaFoco({ lojas = [], valor, onChange }) {
   );
 }
 
-function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, toggleUserStatus, toggleAccessStatus, usersLoja, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], addLoja, toggleLoja, editarLoja, removerLoja, lojaInfo, orders = [], onSair, isSuperAdmin = false, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{} }) {
+function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, toggleUserStatus, toggleAccessStatus, usersLoja, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], addLoja, toggleLoja, editarLoja, removerLoja, setLicencaEmpresa = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{} }) {
   const menu = [
     { grupo: "Gestão", itens: [
       { id: "dashboard", icon: "📊", label: "Dashboard" },
@@ -3809,6 +3830,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
     ...(isSuperAdmin ? [
       { grupo: "Empresas", itens: [
         { id: "lojas", icon: "🏪", label: "Empresas" },
+        { id: "licencas", icon: "🔑", label: "Licenças de uso" },
       ]},
       { grupo: "Acessos", itens: [
         { id: "users", icon: "👥", label: "Usuários" },
@@ -3953,6 +3975,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           {ativo === "comandas"   && (precisaEmpresa ? avisoEmpresa : <GeradorComandas prefixoLoja={lojaInfo?.prefixo || "CMD"} empresa={lojaInfo?.nome || "Restaurante"} onGerar={registrarComandas} comandasRegistradas={comandasRegistradas} orders={orders} onExcluirComanda={excluirComandaFn} onRenomearComanda={renomearComandaFn} onToggleComanda={toggleComandaFn} />)}
           {ativo === "pagamento"  && (precisaEmpresa ? avisoEmpresa : <PagamentoAdmin formasPagamento={formasPagamento} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} />)}
           {ativo === "lojas"      && <LojaAdmin lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} lojaInfo={lojaInfo} criarEmpresa={criarEmpresa} cargos={cargos} />}
+          {ativo === "licencas"   && <LicencaAdmin lojas={lojas} usuarios={users} setLicencaEmpresa={setLicencaEmpresa} />}
           {ativo === "minhaempresa" && (
             <MinhaEmpresa
               lojaInfo={lojaInfo}
@@ -4799,6 +4822,110 @@ function RelatorioPermanencia({ pedidos }) {
 // ════════════════════════════════════════════════════════════
 //  Admin — Minha empresa (usuário comum: somente a própria empresa)
 // ════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════
+//  Admin — Licenças de uso por empresa (somente administrador geral)
+// ════════════════════════════════════════════════════════════
+function LicencaAdmin({ lojas = [], usuarios = [], setLicencaEmpresa }) {
+  const [busca, setBusca]       = useState("");
+  const [confirmar, setConfirmar] = useState(null); // { loja, bloquear }
+
+  const empresas = lojas.filter((l) => !l.matriz); // todas as empresas (matriz tb pode aparecer; mantém simples)
+  const termo = busca.trim().toLowerCase();
+  const filtradas = termo
+    ? empresas.filter((l) => `${l.nome} ${l.prefixo}`.toLowerCase().includes(termo))
+    : empresas;
+
+  const qtdUsuarios = (id) => usuarios.filter((u) => u.lojaId === id && !u.superAdmin).length;
+  const suspensas = empresas.filter((l) => l.licencaBloqueada === true).length;
+  const liberadas = empresas.length - suspensas;
+
+  return (
+    <main className="space-y-5">
+      {/* Cabeçalho */}
+      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+        <div className="flex items-center gap-3">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-3xl bg-amber-500/15 text-2xl">🔑</span>
+          <div>
+            <h3 className="text-xl font-black text-white">Licenças de uso</h3>
+            <p className="mt-0.5 text-sm text-slate-400">
+              <span className="text-emerald-300">{liberadas} liberada(s)</span> •
+              <span className="text-red-300"> {suspensas} suspensa(s)</span> de {empresas.length} empresa(s)
+            </p>
+          </div>
+        </div>
+        <p className="mt-3 rounded-2xl border border-amber-400/20 bg-amber-500/10 px-4 py-3 text-xs text-amber-200">
+          ⚠️ Ao <b>suspender a licença</b>, nenhum usuário da empresa consegue logar — verão a mensagem
+          <i> "Licença suspensa, entre em contato com o administrador do sistema."</i> O administrador geral nunca é bloqueado.
+        </p>
+      </div>
+
+      {/* Busca + lista */}
+      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+        <div className="relative mb-4">
+          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">🔍</span>
+          <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar empresa..."
+            className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-blue-400" />
+        </div>
+
+        {filtradas.length === 0 && <p className="py-8 text-center text-sm text-slate-500">Nenhuma empresa encontrada.</p>}
+
+        <div className="space-y-2">
+          {filtradas.map((l) => {
+            const bloqueada = l.licencaBloqueada === true;
+            return (
+              <div key={l.id}
+                className={`flex items-center gap-3 rounded-3xl border p-3 transition ${bloqueada ? "border-red-400/30 bg-red-500/[0.06]" : "border-white/10 bg-slate-950/40"}`}>
+                <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-lg ${bloqueada ? "bg-red-500/15" : "bg-white/[0.06]"}`}>
+                  {bloqueada ? "🔒" : "🔓"}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="font-black text-white truncate">{l.nome}</p>
+                  <p className="text-xs text-slate-400">
+                    <span className="font-mono">{l.prefixo}</span> · {qtdUsuarios(l.id)} usuário(s)
+                  </p>
+                </div>
+                <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-black ${bloqueada ? "bg-red-500/20 text-red-300" : "bg-emerald-500/20 text-emerald-300"}`}>
+                  {bloqueada ? "Suspensa" : "Liberada"}
+                </span>
+                <button
+                  onClick={() => setConfirmar({ loja: l, bloquear: !bloqueada })}
+                  className={`shrink-0 rounded-2xl px-4 py-2 text-xs font-black transition active:scale-95 ${bloqueada ? "bg-emerald-500 text-white hover:bg-emerald-400" : "bg-red-500 text-white hover:bg-red-400"}`}>
+                  {bloqueada ? "▶ Liberar acesso" : "⛔ Suspender"}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Confirmação */}
+      {confirmar && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={() => setConfirmar(null)}>
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm rounded-[2rem] border border-white/10 bg-slate-900 p-6 shadow-2xl space-y-4">
+            <div>
+              <h2 className="text-lg font-black text-white">
+                {confirmar.bloquear ? "Suspender licença?" : "Liberar licença?"}
+              </h2>
+              <p className="mt-1 text-sm text-slate-400">
+                {confirmar.bloquear
+                  ? <>A empresa <b className="text-white">{confirmar.loja.nome}</b> terá o acesso <b className="text-red-300">bloqueado</b>. {qtdUsuarios(confirmar.loja.id)} usuário(s) não conseguirão logar.</>
+                  : <>A empresa <b className="text-white">{confirmar.loja.nome}</b> terá o acesso <b className="text-emerald-300">liberado</b>. Os usuários poderão logar normalmente.</>}
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setConfirmar(null)} className="flex-1 rounded-2xl border border-white/10 bg-white/[0.06] py-3 text-sm font-black text-slate-300 hover:bg-white/10">Cancelar</button>
+              <button onClick={async () => { await setLicencaEmpresa(confirmar.loja.id, confirmar.bloquear); setConfirmar(null); }}
+                className={`flex-[1.5] rounded-2xl py-3 text-sm font-black text-white transition active:scale-95 ${confirmar.bloquear ? "bg-red-500 hover:bg-red-400" : "bg-emerald-500 hover:bg-emerald-400"}`}>
+                {confirmar.bloquear ? "⛔ Suspender" : "▶ Liberar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </main>
+  );
+}
+
 function MinhaEmpresa({ lojaInfo, usuarios = [], produtos = [], formasPagamento = [], categoriasDb = [], comandas = [], orders = [] }) {
   if (!lojaInfo) {
     return (
