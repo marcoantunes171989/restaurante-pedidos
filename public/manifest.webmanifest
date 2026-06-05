@@ -11,7 +11,7 @@
   "scope": "/",
   "id": "/",
   "related_applications": [
-    { "platform": "webapp", "url": "/manifest.webmanifest" }
+    { "platform": "webapp", "url": "https://restaurante-pedidos-delta.vercel.app/manifest.webmanifest" }
   ],
   "prefer_related_applications": false,
   "icons": [

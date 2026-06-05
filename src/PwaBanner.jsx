@@ -51,7 +51,9 @@ async function verificarAPI() {
   if (!("getInstalledRelatedApps" in navigator)) return false;
   try {
     const apps = await navigator.getInstalledRelatedApps();
-    return apps.some((a) => a.platform === "webapp" && (!a.url || a.url.includes(window.location.hostname)));
+    // A API só retorna apps relacionados ao manifest desta página → basta haver
+    // uma entrada "webapp" para confirmar que o PWA está instalado neste aparelho.
+    return apps.some((a) => a.platform === "webapp");
   } catch { return false; }
 }
 
@@ -85,6 +87,7 @@ export default function PwaBanner({ swAtivado = false }) {
   const [atualizando, setAtualizando]             = useState(false);
   const [novaVersao, setNovaVersao]               = useState(null); // commit da versão a aplicar
   const dispensadoRef = useRef(false);
+  const deferredRef   = useRef(null); // evento beforeinstallprompt (sinal de "não instalado")
   const timerRef      = useRef(null);
   const lembreteRef   = useRef(null); // timer do lembrete de atualização (15s)
   const so            = detectaSO();
@@ -109,54 +112,79 @@ export default function PwaBanner({ swAtivado = false }) {
   }, [banner]);
 
   // ── Pipeline de detecção de instalação ───────────────────
+  // Decisão entre "instalar" (não instalado) x "abrirApp" (instalado):
+  //  Sinais de INSTALADO  → getInstalledRelatedApps() / flag local.
+  //  Sinal de NÃO INSTALADO (definitivo) → beforeinstallprompt disparou.
+  // No Windows (Chrome/Edge) o getInstalledRelatedApps é autoritativo: se o
+  // ícone for removido (desinstalado), a API deixa de retornar o app → mostra
+  // "Instalar"; se estiver instalado, retorna o app → mostra "Abrir no app".
   useEffect(() => {
     if (ehStandalone()) return; // Dentro do app → não mostra nada (atualizar cuida)
     let cancelado = false;
+    let decidido = false;
 
-    (async () => {
-      // 1. API nativa (Chrome/Edge Android/Windows/Mac)
-      const viaAPI = await verificarAPI();
-      if (cancelado) return;
-      if (viaAPI) { setBanner("abrirApp"); return; }
+    const mostrarInstalar = () => {
+      if (cancelado || decidido || dispensadoRef.current || ehStandalone()) return;
+      decidido = true;
+      setBanner("instalar");
+    };
+    const mostrarAbrir = () => {
+      if (cancelado || decidido || ehStandalone()) return;
+      decidido = true;
+      setBanner("abrirApp");
+    };
 
-      // 2. Flag de localStorage (iOS, Firefox, Samsung)
-      if (lerFlag()) { setBanner("abrirApp"); return; }
-
-      // 3. Heurístico Chrome/Edge: se beforeinstallprompt não disparou em 3s
-      //    e estamos em Chrome/Edge → provavelmente instalado
-      const chromeoide = /Chrome|Edg/.test(navigator.userAgent) && !/iPhone|iPad|CriOS/.test(navigator.userAgent);
-      if (chromeoide) {
-        await new Promise((r) => setTimeout(r, 3000));
-        if (cancelado) return;
-        // Se BIP ainda não disparou, assume instalado
-        if (!deferredEvt) { setBanner("abrirApp"); return; }
-      }
-
-      // 4. Não instalado → aguarda 10 s
-      timerRef.current = setTimeout(() => {
-        if (!cancelado && !dispensadoRef.current && !ehStandalone())
-          setBanner("instalar");
-      }, DELAY_INSTALAR);
-    })();
-
-    // Eventos nativos do navegador
+    // beforeinstallprompt = navegador confirma que o app NÃO está instalado e é
+    // instalável → é o sinal definitivo. Sobrepõe qualquer decisão anterior.
     const onBIP = (e) => {
       e.preventDefault();
+      deferredRef.current = e;
       setDeferredEvt(e);
-      // beforeinstallprompt disparou → não instalado, cancela heurístico
+      clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => {
+        if (cancelado || dispensadoRef.current || ehStandalone()) return;
+        decidido = true;
+        setBanner("instalar");
+      }, 1500);
     };
     const onInstalled = () => {
       gravarFlag();
+      decidido = true;
       setBanner(null);
       clearTimeout(timerRef.current);
     };
     const onMode = () => {
-      if (ehStandalone()) { setBanner(null); clearTimeout(timerRef.current); }
+      if (ehStandalone()) { decidido = true; setBanner(null); clearTimeout(timerRef.current); }
     };
 
     window.addEventListener("beforeinstallprompt", onBIP);
     window.addEventListener("appinstalled", onInstalled);
     window.matchMedia?.("(display-mode: standalone)")?.addEventListener("change", onMode);
+
+    (async () => {
+      // 1. Está instalado? (sinal forte — Chrome/Edge Windows/Android/Mac)
+      if (await verificarAPI()) { if (!cancelado) mostrarAbrir(); return; }
+      if (cancelado) return;
+      // 2. Flag local (iOS/Firefox/Samsung, que não têm a API)
+      if (lerFlag()) { mostrarAbrir(); return; }
+
+      // 3. Não confirmou instalado. Aguarda janela p/ o beforeinstallprompt
+      //    disparar (caso não instalado e instalável). Depois decide.
+      const temAPI = "getInstalledRelatedApps" in navigator; // Chrome/Edge
+      timerRef.current = setTimeout(async () => {
+        if (cancelado || decidido) return;
+        if (deferredRef.current) { mostrarInstalar(); return; } // BIP chegou → instalar
+        if (temAPI) {
+          // Chrome/Edge: reconfirma. API diz NÃO instalado (ícone removido) →
+          // mostra INSTALAR; diz instalado → ABRIR.
+          const inst = await verificarAPI();
+          if (cancelado) return;
+          if (inst) mostrarAbrir(); else mostrarInstalar();
+        } else {
+          mostrarInstalar(); // navegadores sem a API → oferece instalar
+        }
+      }, 3500);
+    })();
 
     return () => {
       cancelado = true;
