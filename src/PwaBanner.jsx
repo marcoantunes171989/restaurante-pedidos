@@ -248,21 +248,23 @@ export default function PwaBanner({ swAtivado = false }) {
   if (banner === "atualizar") {
     return (
       <Wrap border="border-blue-400/30">
-        <div className="flex items-center gap-3 p-4">
-          <span className={`text-2xl shrink-0 ${atualizando ? "animate-spin" : ""}`}>🔄</span>
+        {/* Conteúdo: ícone + texto */}
+        <div className="flex items-start gap-3 p-4">
+          <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-500/15 text-2xl ${atualizando ? "animate-spin" : ""}`}>🔄</span>
           <div className="min-w-0 flex-1">
             <p className="text-sm font-black text-white">Nova versão disponível</p>
-            <p className="text-xs text-slate-400">
+            <p className="mt-0.5 text-xs leading-5 text-slate-400">
               {atualizando ? "Aplicando atualização…" : "Reinicie o app para ter as últimas novidades."}
             </p>
           </div>
-          {!atualizando && (
-            <div className="flex shrink-0 gap-2">
-              <Btn variante="ghost" onClick={adiarAtualizacao}>Depois</Btn>
-              <Btn variante="blue"  onClick={aplicarAtualizacao}>Atualizar</Btn>
-            </div>
-          )}
         </div>
+        {/* Botões: linha própria, espaçados e em largura total */}
+        {!atualizando && (
+          <div className="flex gap-2.5 border-t border-white/10 p-3">
+            <Btn variante="ghost" onClick={adiarAtualizacao}>Depois</Btn>
+            <Btn variante="blue"  onClick={aplicarAtualizacao}>🔄 Atualizar agora</Btn>
+          </div>
+        )}
       </Wrap>
     );
   }
