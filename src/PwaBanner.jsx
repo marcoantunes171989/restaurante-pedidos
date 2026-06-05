@@ -85,6 +85,7 @@ export default function PwaBanner({ swAtivado = false }) {
   const [atualizando, setAtualizando]             = useState(false);
   const dispensadoRef = useRef(false);
   const timerRef      = useRef(null);
+  const lembreteRef   = useRef(null); // timer do lembrete de atualização (15s)
   const so            = detectaSO();
 
   // ── Banner de atualização só em standalone ────────────────
@@ -159,6 +160,13 @@ export default function PwaBanner({ swAtivado = false }) {
     clearTimeout(timerRef.current);
   }
 
+  // ── Adiar atualização: esconde e reexibe a cada 15s (forca o update) ──
+  function adiarAtualizacao() {
+    setBanner(null);
+    clearTimeout(lembreteRef.current);
+    lembreteRef.current = setTimeout(() => setBanner("atualizar"), 15_000);
+  }
+
   // ── Instalar ──────────────────────────────────────────────
   async function instalar() {
     if (deferredEvt) {
@@ -219,6 +227,7 @@ export default function PwaBanner({ swAtivado = false }) {
 
   // ── Aplicar atualização (standalone) ─────────────────────
   async function aplicarAtualizacao() {
+    clearTimeout(lembreteRef.current);
     setAtualizando(true);
     // A nova versão já está ativa (skipWaiting no install do SW)
     // Basta recarregar para usar o novo código
@@ -249,7 +258,7 @@ export default function PwaBanner({ swAtivado = false }) {
           </div>
           {!atualizando && (
             <div className="flex shrink-0 gap-2">
-              <Btn variante="ghost" onClick={dispensar}>Depois</Btn>
+              <Btn variante="ghost" onClick={adiarAtualizacao}>Depois</Btn>
               <Btn variante="blue"  onClick={aplicarAtualizacao}>Atualizar</Btn>
             </div>
           )}

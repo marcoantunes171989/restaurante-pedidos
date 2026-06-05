@@ -115,11 +115,67 @@ async function iniciarSW(onAtivado) {
   }
 }
 
+// ══════════════════════════════════════════════════════════════
+//  Instância única por computador (Web Locks API)
+//  A primeira instância segura um lock exclusivo enquanto a aba viver.
+//  Uma segunda instância no mesmo navegador/computador não consegue o lock
+//  → é marcada como duplicada e bloqueada.
+// ══════════════════════════════════════════════════════════════
+let _instanciaPromise = null
+function checarInstanciaUnica() {
+  if (_instanciaPromise) return _instanciaPromise
+  _instanciaPromise = new Promise((resolve) => {
+    if (!('locks' in navigator)) { resolve(true); return } // navegador sem suporte → permite
+    navigator.locks.request('pedido-prime-instancia-unica', { mode: 'exclusive', ifAvailable: true }, (lock) => {
+      if (lock) {
+        resolve(true)                  // somos a instância primária
+        return new Promise(() => {})   // segura o lock para sempre (até fechar a aba)
+      }
+      resolve(false)                   // lock já tomado → instância duplicada
+      return undefined
+    }).catch(() => resolve(true))      // em erro, não bloqueia
+  })
+  return _instanciaPromise
+}
+
+function useInstanciaUnica(ativo) {
+  const [estado, setEstado] = useState('checando') // 'checando' | 'ok' | 'duplicado'
+  useEffect(() => {
+    if (!ativo) return // só aplica no app/sistema (a landing pública pode ter várias abas)
+    let cancel = false
+    checarInstanciaUnica().then((primario) => { if (!cancel) setEstado(primario ? 'ok' : 'duplicado') })
+    return () => { cancel = true }
+  }, [ativo])
+  return estado
+}
+
+function BloqueioInstancia() {
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950 p-6 text-center"
+      style={{ height: '100dvh' }}>
+      <div className="max-w-sm space-y-4">
+        <span className="text-6xl">🔒</span>
+        <h1 className="text-2xl font-black text-white">Aplicativo já em execução</h1>
+        <p className="text-sm leading-6 text-slate-400">
+          Já existe um <b className="text-white">Pedido Prime</b> aberto neste computador.
+          Para continuar aqui, feche a outra janela/aba do aplicativo.
+        </p>
+        <button onClick={() => window.location.reload()}
+          className="mt-2 rounded-2xl bg-blue-500 px-6 py-3 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95">
+          🔄 Tentar novamente
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // ── Root ─────────────────────────────────────────────────────
 function Root() {
   const [path, setPath]         = useState(window.location.pathname)
   const [swAtivado, setSwAtivado] = useState(false)
   const notifiedRef             = useRef(false)
+  const ehSistema               = /^\/(login|app|sistema)(\/|$)/.test(path)
+  const instancia               = useInstanciaUnica(ehSistema)
 
   useEffect(() => {
     const onPop = () => setPath(window.location.pathname)
@@ -143,7 +199,8 @@ function Root() {
     window.scrollTo(0, 0)
   }, [])
 
-  const ehSistema = /^\/(login|app|sistema)(\/|$)/.test(path)
+  // Segunda instância do app no mesmo computador → bloqueia
+  if (ehSistema && instancia === 'duplicado') return <BloqueioInstancia />
 
   return (
     <>
