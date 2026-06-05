@@ -614,6 +614,41 @@ export default function RestaurantePedidoApp() {
 
   function logout() { setCurrentUser(null); setActiveTab("tablet"); setMessage({ type: "", text: "" }); }
 
+  // ── Validação contínua da licença (em TODOS os dispositivos) ──────────
+  // O realtime (escutarLojas) mantém `lojas` atualizado. Sempre que a licença
+  // da empresa do usuário logado for suspensa (ou a empresa inativada) em
+  // qualquer dispositivo, a sessão é encerrada IMEDIATAMENTE aqui.
+  useEffect(() => {
+    if (!currentUser || currentUser.superAdmin) return;
+    const lojaDoUser = lojas.find((l) => l.id === currentUser.lojaId);
+    if (!lojaDoUser) return;
+    if (lojaDoUser.licencaBloqueada === true) {
+      setCurrentUser(null);
+      setActiveTab("tablet");
+      setMessage({ type: "error", text: "Licença suspensa, entre em contato com o administrador do sistema." });
+    } else if (lojaDoUser.active === false) {
+      setCurrentUser(null);
+      setActiveTab("tablet");
+      setMessage({ type: "error", text: "Empresa inativa, entre em contato com o administrador do sistema." });
+    }
+  }, [lojas, currentUser]);
+
+  // Revalida a licença ao voltar para a página/app (foreground) — rede pode
+  // ter ficado offline; força um refresh do estado das empresas.
+  useEffect(() => {
+    if (!dbReady) return;
+    const revalidar = async () => {
+      if (document.visibilityState !== "visible") return;
+      try { const ls = await fetchLojas(); setLojas(ls); } catch {}
+    };
+    document.addEventListener("visibilitychange", revalidar);
+    window.addEventListener("focus", revalidar);
+    return () => {
+      document.removeEventListener("visibilitychange", revalidar);
+      window.removeEventListener("focus", revalidar);
+    };
+  }, [dbReady]);
+
   // SaaS: somente o administrador geral cadastra empresas (sem trocar o usuário logado)
   async function criarEmpresa(dados) {
     if (!dbReady) { notify("error", "Sistema offline — tente novamente em instantes."); throw new Error("offline"); }
