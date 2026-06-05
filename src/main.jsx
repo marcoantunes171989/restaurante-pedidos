@@ -249,6 +249,34 @@ function Root() {
     })
   }, [])
 
+  // ── Tela cheia no app instalado (desktop) ───────────────────
+  // No desktop o navegador abre o PWA como janela (standalone), com barra de
+  // título e a barra de tarefas do Windows visível — não ocupa a tela toda. O
+  // display:"fullscreen" do manifest não é aplicado automaticamente no desktop;
+  // a tela cheia real exige a Fullscreen API disparada por um gesto. Então, ao
+  // primeiro clique/tecla, entramos em tela cheia uma única vez por sessão.
+  useEffect(() => {
+    if (!ehStandaloneLocal()) return
+    if (/Android|iPhone|iPad|iPod/.test(navigator.userAgent)) return // mobile já é tela cheia
+    let feito = false
+    const entrar = () => {
+      if (feito) return
+      feito = true
+      remover()
+      if (document.fullscreenElement) return
+      const el = document.documentElement
+      const fn = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen
+      try { fn?.call(el)?.catch?.(() => {}) } catch {}
+    }
+    const remover = () => {
+      window.removeEventListener('pointerdown', entrar)
+      window.removeEventListener('keydown', entrar)
+    }
+    window.addEventListener('pointerdown', entrar)
+    window.addEventListener('keydown', entrar)
+    return remover
+  }, [])
+
   const navigate = useCallback((to) => {
     if (to === window.location.pathname) return
     window.history.pushState({}, '', to)
