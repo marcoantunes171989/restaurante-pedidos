@@ -1296,19 +1296,26 @@ export default function RestaurantePedidoApp() {
     if (dbReady) try { await atualizarAcesso(aid, { ativo: active }); } catch {}
   }
 
-  // ── Tela de carregamento inicial ─────────────────────────────
+  // ── Tela de carregamento inicial (elegante e minimalista) ────
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950">
-        <div className="flex flex-col items-center gap-6 text-center">
-          <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-blue-500 text-4xl shadow-2xl shadow-blue-950/50 animate-pulse">🍽️</div>
+      <div className="relative flex items-center justify-center overflow-hidden bg-slate-950 px-4 text-slate-100"
+        style={{ minHeight: "100dvh" }}>
+        {/* Fundo: brilhos suaves + grade de pontos discreta */}
+        <div className="pointer-events-none absolute -top-40 -left-32 h-[26rem] w-[26rem] rounded-full bg-blue-600/20 blur-[130px]" />
+        <div className="pointer-events-none absolute -bottom-40 -right-32 h-[26rem] w-[26rem] rounded-full bg-violet-600/15 blur-[130px]" />
+        <div className="pointer-events-none absolute inset-0 opacity-[0.05]"
+          style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)", backgroundSize: "32px 32px" }} />
+
+        <div className="relative flex flex-col items-center gap-7 text-center">
+          <div className="flex h-20 w-20 items-center justify-center rounded-[1.6rem] bg-gradient-to-br from-blue-500 to-blue-700 text-4xl shadow-2xl shadow-blue-950/50 ring-1 ring-white/10 animate-pulse">🍽️</div>
           <div>
-            <h1 className="text-2xl font-black text-white">Sistema Restaurante</h1>
-            <p className="mt-2 text-sm text-slate-400">Conectando ao banco de dados...</p>
+            <h1 className="text-2xl font-black tracking-tight text-white">Restaurante Digital</h1>
+            <p className="mt-1.5 text-sm text-slate-400">Carregando ambiente do restaurante...</p>
           </div>
-          <div className="flex items-center gap-2 rounded-full border border-blue-400/30 bg-blue-500/10 px-5 py-2">
-            <span className="h-2 w-2 animate-ping rounded-full bg-blue-400" />
-            <span className="text-sm font-semibold text-blue-200">Carregando dados do Supabase</span>
+          <div className="flex items-center gap-2.5 rounded-full border border-white/10 bg-white/[0.04] px-5 py-2 backdrop-blur-xl">
+            <span className="h-4 w-4 animate-spin rounded-full border-2 border-blue-400/30 border-t-blue-400" />
+            <span className="text-sm font-bold text-slate-300">Inicializando sistema...</span>
           </div>
         </div>
       </div>
