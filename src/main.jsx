@@ -51,13 +51,31 @@ async function iniciarSW(onAtivado) {
   try {
     swReg = await navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' })
 
-    // controllerchange: o novo SW assumiu o controle → atualiza AUTOMATICAMENTE
-    // em TODOS os modos (navegador e PWA instalado no Windows/Mac), recarregando
-    // a página para carregar o novo código. O flag evita loop de reload.
+    // updatefound: novo SW sendo instalado → ao ficar "installed" (com um
+    // controlador já existente = atualização real), mostra o banner no app.
+    swReg.addEventListener('updatefound', () => {
+      const sw = swReg.installing
+      if (!sw) return
+      sw.addEventListener('statechange', () => {
+        if (sw.state === 'installed' && navigator.serviceWorker.controller) {
+          if (ehStandaloneLocal()) onAtivado()
+        }
+      })
+    })
+    // Se já havia um SW aguardando ao abrir (deploy ocorreu com o app fechado)
+    if (swReg.waiting && navigator.serviceWorker.controller && ehStandaloneLocal()) onAtivado()
+
+    // controllerchange: o novo SW assumiu o controle.
+    //  - PWA instalado (standalone): mostra o banner "Atualizar" (opção visível).
+    //  - Navegador: recarrega silenciosamente (transparente).
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (recarregando) return
-      recarregando = true
-      window.location.reload()
+      if (ehStandaloneLocal()) {
+        onAtivado() // exibe o banner com o botão "Atualizar"
+      } else {
+        if (recarregando) return
+        recarregando = true
+        window.location.reload()
+      }
     })
 
     // Mensagens do SW
