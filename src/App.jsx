@@ -1573,10 +1573,6 @@ function TabletView({
               <span className="text-sm font-black text-blue-300">{totalCartItems} {totalCartItems === 1 ? "item" : "itens"}</span>
             </div>
           )}
-          <button onClick={isFullscreen ? sairTelaCheia : entrarTelaCheia}
-            title={isFullscreen ? "Sair da tela cheia" : "Abrir em tela cheia (ocupa toda a tela)"}
-            className="flex h-9 w-9 items-center justify-center rounded-2xl border border-white/15 bg-white/10 text-base font-black text-white hover:bg-white/20 transition active:scale-95">⛶</button>
-          <button onClick={onSair} className="rounded-2xl border border-red-400/20 bg-red-500/10 px-3 py-2 text-xs font-black text-red-300 hover:bg-red-500/20 transition">Sair</button>
         </div>
       </header>
 
@@ -1628,7 +1624,7 @@ function TabletView({
             {filteredItems.map((item) => {
               const noCarrinho = cart.find((c) => c.id === item.id);
               return (
-                <article key={item.id} className={`group overflow-hidden rounded-3xl border bg-slate-900 shadow-xl transition-all hover:-translate-y-1 hover:shadow-2xl ${noCarrinho ? "border-blue-500/50 ring-2 ring-blue-500/20" : "border-white/10 hover:border-blue-500/40"}`}>
+                <article key={item.id} className={`group flex h-full flex-col overflow-hidden rounded-3xl border bg-slate-900 shadow-xl transition-all hover:-translate-y-1 hover:shadow-2xl ${noCarrinho ? "border-blue-500/50 ring-2 ring-blue-500/20" : "border-white/10 hover:border-blue-500/40"}`}>
                   {/* Imagem (clicável → abre detalhes) */}
                   <button onClick={() => setProdutoDetalhe(item)} className="relative block h-44 w-full overflow-hidden bg-slate-800 text-left">
                     <img src={item.imageUrl || fallbackImage} alt={item.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
@@ -1649,7 +1645,7 @@ function TabletView({
                     </span>
                   </button>
                   {/* Conteúdo */}
-                  <div className="p-4">
+                  <div className="flex flex-1 flex-col p-4">
                     <div className="flex items-center justify-between gap-2">
                       <p className="text-xs font-bold uppercase tracking-widest text-blue-400">{item.category}</p>
                       <span className="text-xs text-slate-500">⏱ {item.time}</span>
@@ -1666,7 +1662,7 @@ function TabletView({
                         <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-xs text-slate-500">+{item.ingredients.length - 3}</span>
                       )}
                     </div>
-                    <div className="mt-3">
+                    <div className="mt-auto pt-3">
                       {noCarrinho ? (
                         <div className="flex items-center justify-between gap-1 rounded-2xl bg-blue-500/10 border border-blue-500/30 p-1">
                           <button onClick={() => removeFromCart(item.id)} className="h-10 flex-1 rounded-xl bg-slate-800 font-black text-white hover:bg-slate-700 transition active:scale-95">−</button>
