@@ -6,7 +6,13 @@ function validarComanda(codigo) {
   return /^[A-Z]{1,5}-\d{4,8}$/.test(String(codigo || "").trim().toUpperCase());
 }
 
-export function QRScannerModal({ onSucesso, onCancelar, prefixoLoja = "CMD" }) {
+export function QRScannerModal({ onSucesso, onCancelar, prefixoLoja = "CMD", lojaNome = "" }) {
+  // Prefixo da comanda (parte antes do hífen) e checagem de pertencimento à loja
+  const prefixoDe = (c) => String(c || "").trim().toUpperCase().split("-")[0];
+  const pertenceALoja = (c) => prefixoDe(c) === String(prefixoLoja).toUpperCase();
+  const msgDivergencia = (c) =>
+    `Comanda inválida! Esta comanda (${prefixoDe(c)}) não pertence à ${lojaNome || "loja atual"} (${prefixoLoja}). Verifique a comanda do estabelecimento atual.`;
+
   const videoRef    = useRef(null);
   const canvasRef   = useRef(null);
   const streamRef   = useRef(null);
@@ -25,10 +31,15 @@ export function QRScannerModal({ onSucesso, onCancelar, prefixoLoja = "CMD" }) {
       setErroManual("Formato inválido. Use o padrão LOJA-000001 (ex.: " + prefixoLoja + "-000001).");
       return;
     }
+    // Divergência de loja: comanda de outro estabelecimento → mostra erro aqui
+    if (!pertenceALoja(texto)) {
+      setErroManual(msgDivergencia(texto));
+      return;
+    }
     setErroManual("");
     pararTudo();
     onSucesso(texto);
-  }, [manual, prefixoLoja, onSucesso]);
+  }, [manual, prefixoLoja, lojaNome, onSucesso]);
 
   // Para tudo e libera câmera
   const pararTudo = useCallback(() => {
@@ -63,6 +74,14 @@ export function QRScannerModal({ onSucesso, onCancelar, prefixoLoja = "CMD" }) {
         if (result?.data) {
           const texto = result.data.trim().toUpperCase();
           if (validarComanda(texto)) {
+            // Divergência de loja: comanda de outro estabelecimento → erro vermelho
+            if (!pertenceALoja(texto)) {
+              setCodigo(texto);
+              setStatus("erro");
+              setMensagem(msgDivergencia(texto));
+              pararTudo();
+              return; // para o loop
+            }
             setCodigo(texto);
             setStatus("sucesso");
             setMensagem("Comanda lida com sucesso!");

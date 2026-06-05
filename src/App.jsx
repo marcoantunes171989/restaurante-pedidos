@@ -1406,6 +1406,7 @@ export default function RestaurantePedidoApp() {
                 }}
                 onCancelar={() => setScannerAberto(false)}
                 prefixoLoja={lojaInfo?.prefixo || "CMD"}
+                lojaNome={lojaInfo?.nome || ""}
               />
             )}
           </>
@@ -3478,6 +3479,7 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
           onSucesso={(codigo) => adicionarComanda(codigo)}
           onCancelar={() => setScannerAberto(false)}
           prefixoLoja={lojaInfo?.prefixo || "CMD"}
+          lojaNome={lojaInfo?.nome || ""}
         />
       )}
 
