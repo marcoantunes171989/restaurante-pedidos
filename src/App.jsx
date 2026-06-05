@@ -7277,36 +7277,46 @@ function UserAccessAdmin({ users, accesses, toggleUserAccess, definirAcessos, lo
   function liberarTodas() { if (sel) definirAcessos(sel.id, acessosAtivos.map((a) => a.id)); }
   function bloquearTodas() { if (sel) definirAcessos(sel.id, []); }
 
+  const comAcesso = users.filter((u) => u.accessIds.length > 0).length;
+
   return (
-    <main className="grid gap-5 lg:grid-cols-[330px_1fr]">
+    <main className="space-y-5">
+      {/* ── Cabeçalho (padrão das demais telas) ───────────── */}
+      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+        <h3 className="text-xl font-black text-white">Usuário × Acesso</h3>
+        <p className="mt-0.5 text-sm text-slate-400">
+          <span className="font-bold text-white">{users.length}</span> usuário(s) •
+          <span className="text-emerald-300"> {comAcesso} com acesso liberado</span>
+        </p>
+        <p className="mt-1 text-xs text-slate-500">Selecione um usuário e libere as telas que ele pode acessar. O menu de cada usuário é montado apenas com as telas liberadas aqui.</p>
+      </div>
+
+      {/* ── Master-detail: lista + acessos ────────────────── */}
+      <div className="grid gap-5 lg:grid-cols-[330px_1fr]">
       {/* ── Lista de usuários ─────────────────────────────── */}
-      <div className="flex max-h-[78vh] flex-col rounded-[2rem] border border-white/10 bg-white/[0.04] p-4">
-        <div className="px-1">
-          <h3 className="text-lg font-black text-white">Usuário × Acesso</h3>
-          <p className="mt-0.5 text-xs text-slate-400">Selecione um usuário para liberar as telas.</p>
-        </div>
-        <div className="mt-3 space-y-2">
+      <div className="flex max-h-[74vh] flex-col rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+        <div className="space-y-2">
           <div className="relative">
             <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">🔍</span>
             <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar usuário..."
-              className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-2.5 pl-11 pr-4 text-sm text-white outline-none focus:border-blue-400" />
+              className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-blue-400" />
           </div>
           {isSuperAdmin && (
             <select value={lojaSel} onChange={(e) => setLojaSel(e.target.value)}
-              className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-2.5 text-sm text-white outline-none focus:border-blue-400">
+              className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none focus:border-blue-400">
               <option value="">Todas as empresas</option>
               {lojas.map((l) => <option key={l.id} value={l.id}>{l.nome} ({l.prefixo})</option>)}
             </select>
           )}
         </div>
-        <div className="scrollbar-none mt-3 flex-1 space-y-1.5 overflow-y-auto pr-1">
+        <div className="scrollbar-none mt-3 flex-1 space-y-2 overflow-y-auto pr-1">
           {filtrados.length === 0 && <p className="px-1 py-6 text-center text-sm text-slate-500">Nenhum usuário encontrado.</p>}
           {filtrados.map((u) => {
             const ativo = sel?.id === u.id;
             return (
               <button key={u.id} onClick={() => setSelId(u.id)}
-                className={`flex w-full items-center gap-3 rounded-2xl border px-3 py-2.5 text-left transition ${ativo ? "border-blue-400/60 bg-blue-500/15" : "border-white/10 bg-slate-950/40 hover:border-white/20 hover:bg-white/[0.06]"}`}>
-                <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-sm ${ativo ? "bg-blue-500 text-white" : "bg-white/[0.06] text-slate-300"}`}>👤</span>
+                className={`flex w-full items-center gap-3 rounded-3xl border px-3 py-2.5 text-left transition ${ativo ? "border-blue-400/60 bg-blue-500/15" : "border-white/10 bg-slate-950/40 hover:border-white/20 hover:bg-white/[0.06]"}`}>
+                <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-sm ${ativo ? "bg-blue-500 text-white" : "bg-white/[0.06] text-slate-300"}`}>👤</span>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-black text-white">{u.name}</p>
                   <p className="truncate text-[11px] text-slate-400">{u.role || "—"}{isSuperAdmin ? ` • ${nomeLoja(u.lojaId)}` : ""}</p>
@@ -7319,7 +7329,7 @@ function UserAccessAdmin({ users, accesses, toggleUserAccess, definirAcessos, lo
       </div>
 
       {/* ── Detalhe: acessos do usuário selecionado ───────── */}
-      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
+      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
         {!sel ? (
           <div className="flex h-full min-h-[300px] flex-col items-center justify-center text-center">
             <span className="text-4xl">🔗</span>
@@ -7372,9 +7382,9 @@ function UserAccessAdmin({ users, accesses, toggleUserAccess, definirAcessos, lo
                 );
               })}
             </div>
-            <p className="mt-4 text-xs text-slate-500">O menu de cada usuário é montado apenas com as telas liberadas aqui.</p>
           </>
         )}
+      </div>
       </div>
     </main>
   );
