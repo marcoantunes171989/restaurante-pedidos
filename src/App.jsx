@@ -2272,34 +2272,11 @@ function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, cancela
           </div>
         </div>
 
-        {/* Relógio + tela cheia + Sair */}
+        {/* Relógio */}
         <div className="flex items-center gap-3">
           <p className="font-black tabular-nums text-white text-xl">{hora}</p>
-          <button onClick={isFullscreen ? sairTelaCheia : entrarTelaCheia}
-            title={isFullscreen ? "Sair da tela cheia" : "Abrir em tela cheia"}
-            className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/20 bg-white/10 text-lg font-black text-white hover:bg-white/20 transition active:scale-95">
-            ⛶
-          </button>
-          <button onClick={onSair}
-            className="rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-2 text-sm font-black text-red-300 hover:bg-red-500/20 transition">
-            Sair
-          </button>
         </div>
       </header>
-
-      {/* Overlay: botão grande para abrir em tela cheia (F11) */}
-      {!isFullscreen && (
-        <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-          <button onClick={entrarTelaCheia}
-            className="flex flex-col items-center gap-4 rounded-3xl border border-white/20 bg-slate-900 px-12 py-10 shadow-2xl transition hover:bg-slate-800 active:scale-95">
-            <span className="text-6xl">⛶</span>
-            <div className="text-center">
-              <p className="text-2xl font-black text-white">Abrir cozinha em tela cheia</p>
-              <p className="mt-1 text-sm text-slate-400">Clique aqui ou pressione F11 no teclado</p>
-            </div>
-          </button>
-        </div>
-      )}
 
       {/* ── 3 Colunas de pedidos ──────────────────────────────── */}
       <div className="flex flex-1 overflow-hidden">
