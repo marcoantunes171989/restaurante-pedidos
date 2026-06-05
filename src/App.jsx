@@ -337,58 +337,92 @@ function CardGerarComandas() {
 //  Tela de Login com card de comandas embutido
 // ════════════════════════════════════════════════════════════
 function TelaLogin({ loginForm, setLoginForm, login, message }) {
-  const inputCls = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3.5 text-white outline-none transition focus:border-blue-400 placeholder:text-slate-600";
-  const labelCls = "mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500";
+  const [verSenha, setVerSenha] = useState(false);
+  const labelCls = "mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-slate-500";
+  const inputCls = "w-full rounded-2xl border border-white/10 bg-slate-950/60 py-3.5 pl-11 pr-4 text-[15px] text-white outline-none transition focus:border-blue-400/70 focus:bg-slate-950/90 focus:ring-2 focus:ring-blue-500/20 placeholder:text-slate-600";
+  const podeEntrar = loginForm.email.trim() && loginForm.password;
+
+  // Ícones (SVG inline — leves e elegantes)
+  const IconeMail = (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px]"><rect x="3" y="5" width="18" height="14" rx="2.5" /><path d="m3.5 7 8.5 6 8.5-6" /></svg>
+  );
+  const IconeLock = (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px]"><rect x="4" y="11" width="16" height="9" rx="2.5" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>
+  );
+  const IconeOlho = verSenha ? (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px]"><path d="m2 2 20 20" /><path d="M6.7 6.7C4 8.5 2 12 2 12s3.5 7 10 7c2.1 0 3.9-.6 5.3-1.6" /><path d="M9.9 4.2A11 11 0 0 1 12 4c6.5 0 10 7 10 7a18.5 18.5 0 0 1-2.4 3.3" /></svg>
+  ) : (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px]"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" /></svg>
+  );
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-950 px-4 py-10 text-slate-100">
-      <div className="pointer-events-none absolute -top-32 -left-32 h-96 w-96 rounded-full bg-blue-600/20 blur-[120px]" />
-      <div className="pointer-events-none absolute -bottom-32 -right-32 h-96 w-96 rounded-full bg-violet-600/15 blur-[120px]" />
+    <div className="relative flex items-center justify-center overflow-hidden bg-slate-950 px-4 py-10 text-slate-100"
+      style={{ minHeight: "100dvh" }}>
+      {/* Fundo: brilhos suaves */}
+      <div className="pointer-events-none absolute -top-40 -left-32 h-[28rem] w-[28rem] rounded-full bg-blue-600/20 blur-[130px]" />
+      <div className="pointer-events-none absolute -bottom-40 -right-32 h-[28rem] w-[28rem] rounded-full bg-violet-600/15 blur-[130px]" />
+      <div className="pointer-events-none absolute inset-0 opacity-[0.06]"
+        style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)", backgroundSize: "32px 32px" }} />
 
-      <div className="relative w-full max-w-sm">
-        <div className="mb-8 text-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-blue-500 text-3xl shadow-2xl shadow-blue-950/50">🍽️</div>
-          <h1 className="mt-4 text-2xl font-black tracking-tight text-white">Restaurante</h1>
-          <p className="mt-1 text-sm text-slate-400">Acesse com seu usuário</p>
+      <div className="relative w-full max-w-[380px]">
+        {/* Marca */}
+        <div className="mb-7 text-center">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[1.35rem] bg-gradient-to-br from-blue-500 to-blue-700 text-3xl shadow-2xl shadow-blue-950/50 ring-1 ring-white/10">🍽️</div>
+          <h1 className="mt-4 text-2xl font-black tracking-tight text-white">Pedido Prime</h1>
+          <p className="mt-1 text-sm text-slate-400">Bem-vindo de volta — faça login para continuar</p>
         </div>
 
-        <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6 shadow-2xl backdrop-blur-xl">
-          <div className="space-y-3">
-            <div>
-              <label className={labelCls}>E-mail</label>
-              <input
+        {/* Card */}
+        <form onSubmit={(e) => { e.preventDefault(); if (podeEntrar) login(); }}
+          className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6 shadow-2xl backdrop-blur-xl space-y-4">
+          {/* E-mail */}
+          <div>
+            <label className={labelCls}>E-mail</label>
+            <div className="relative">
+              <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500">{IconeMail}</span>
+              <input autoFocus type="email" inputMode="email" autoComplete="username"
                 value={loginForm.email}
                 onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
-                onKeyDown={(e) => e.key === "Enter" && login()}
-                placeholder="seu@email.com"
-                className={inputCls}
-              />
+                placeholder="seu@email.com" className={inputCls} />
             </div>
-            <div>
-              <label className={labelCls}>Senha</label>
-              <input
-                type="password"
+          </div>
+
+          {/* Senha */}
+          <div>
+            <label className={labelCls}>Senha</label>
+            <div className="relative">
+              <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500">{IconeLock}</span>
+              <input type={verSenha ? "text" : "password"} autoComplete="current-password"
                 value={loginForm.password}
                 onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-                onKeyDown={(e) => e.key === "Enter" && login()}
-                placeholder="••••••"
-                className={inputCls}
-              />
+                placeholder="••••••••" className={`${inputCls} pr-11`} />
+              <button type="button" onClick={() => setVerSenha((v) => !v)}
+                title={verSenha ? "Ocultar senha" : "Mostrar senha"}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-slate-500 hover:bg-white/10 hover:text-slate-200 transition">
+                {IconeOlho}
+              </button>
             </div>
-            <button
-              onClick={login}
-              className="mt-1 w-full rounded-2xl bg-blue-500 px-5 py-4 text-sm font-black text-white transition hover:bg-blue-400 active:scale-[0.98] shadow-lg shadow-blue-950/40">
-              Entrar →
-            </button>
           </div>
+
+          {/* Mensagem */}
           {message.text && (
-            <div className={`mt-4 rounded-2xl border p-3.5 text-sm ${message.type === "error" ? "border-red-400/30 bg-red-500/10 text-red-200" : "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"}`}>
-              {message.text}
+            <div className={`flex items-start gap-2 rounded-2xl border p-3 text-sm ${message.type === "error" ? "border-red-400/30 bg-red-500/10 text-red-200" : "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"}`}>
+              <span className="mt-0.5 shrink-0">{message.type === "error" ? "⚠️" : "✅"}</span>
+              <span>{message.text}</span>
             </div>
           )}
-        </div>
 
-        <p className="mt-6 text-center text-xs text-slate-600">Acesso controlado por usuário e permissão</p>
+          {/* Entrar */}
+          <button type="submit" disabled={!podeEntrar}
+            className="mt-1 w-full rounded-2xl bg-blue-500 px-5 py-4 text-sm font-black text-white transition hover:bg-blue-400 active:scale-[0.98] shadow-lg shadow-blue-950/40 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100">
+            Entrar →
+          </button>
+        </form>
+
+        {/* Rodapé */}
+        <p className="mt-6 flex items-center justify-center gap-1.5 text-center text-[11px] text-slate-600">
+          <span>🔒</span> Acesso controlado por usuário e permissão
+        </p>
         <div className="mt-3 text-center">
           <button onClick={() => { window.location.href = "/"; }}
             className="text-xs font-bold text-slate-500 transition hover:text-blue-400">← Voltar ao site</button>
