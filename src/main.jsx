@@ -149,6 +149,19 @@ function useInstanciaUnica(ativo) {
   return estado
 }
 
+// Versão do sistema (commit da Vercel) — badge discreto no topo de toda tela.
+// Permite validar, no aparelho, se a atualizacao foi efetivada (comparar com a Vercel).
+const APP_VERSAO = (typeof __APP_VERSION__ !== 'undefined') ? __APP_VERSION__ : 'local'
+function VersaoBadge() {
+  return (
+    <div className="fixed top-0 left-1/2 z-[400] -translate-x-1/2 pointer-events-none select-none">
+      <span className="rounded-b-md bg-slate-900/70 px-2 py-[1px] font-mono text-[9px] tracking-wider text-slate-500 backdrop-blur-sm">
+        v{APP_VERSAO}
+      </span>
+    </div>
+  )
+}
+
 function BloqueioInstancia() {
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950 p-6 text-center"
@@ -200,12 +213,13 @@ function Root() {
   }, [])
 
   // Segunda instância do app no mesmo computador → bloqueia
-  if (ehSistema && instancia === 'duplicado') return <BloqueioInstancia />
+  if (ehSistema && instancia === 'duplicado') return (<><BloqueioInstancia /><VersaoBadge /></>)
 
   return (
     <>
       {ehSistema ? <App /> : <LandingPage navigate={navigate} />}
       <PwaBanner swAtivado={swAtivado} />
+      <VersaoBadge />
     </>
   )
 }
