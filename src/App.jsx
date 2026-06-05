@@ -6553,7 +6553,7 @@ function ProdutoCadastroModal({ adminForm, setAdminForm, cats, onSalvar, onFecha
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onFechar}>
-      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-lg flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl max-h-[92vh]">
+      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-2xl flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl max-h-[92vh]">
         <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
           <div className="flex items-center gap-2">
             <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-blue-500/15 text-lg">🛒</span>
@@ -6716,73 +6716,80 @@ function ProdutoEditModal({ produto, cats, onSalvar, onFechar, lojaId }) {
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onFechar}>
-      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-md flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl max-h-[92vh]">
+      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-3xl flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl max-h-[92vh]">
         <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
           <h2 className="text-lg font-black text-white">✏️ Editar produto</h2>
           <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20">✕</button>
         </div>
-        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
-          {/* Nome + categoria */}
-          <div>
-            <span className={lbl}>Nome do produto</span>
-            <input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="Nome" className={inp} />
-          </div>
-          <div>
-            <span className={lbl}>Categoria</span>
-            <SeletorCategoria valor={f.category} aoMudar={(c) => setF({ ...f, category: c })} categorias={cats} />
-          </div>
+        <div className="flex-1 overflow-y-auto px-6 py-5">
+          <div className="grid gap-x-6 gap-y-4 md:grid-cols-2">
+            {/* ── Coluna esquerda ───────────────────────────── */}
+            <div className="space-y-4">
+              <div>
+                <span className={lbl}>Nome do produto</span>
+                <input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="Nome" className={inp} />
+              </div>
+              <div>
+                <span className={lbl}>Categoria</span>
+                <SeletorCategoria valor={f.category} aoMudar={(c) => setF({ ...f, category: c })} categorias={cats} />
+              </div>
 
-          {/* Custo / Preço venda */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <span className={lbl}>Custo *</span>
-              <input inputMode="numeric" value={f.cost}
-                onChange={(e) => { const {display}=handleMoeda(e); setF({...f, cost: display}); }}
-                placeholder="R$ 0,00" className={inp} />
+              {/* Custo / Preço venda */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <span className={lbl}>Custo *</span>
+                  <input inputMode="numeric" value={f.cost}
+                    onChange={(e) => { const {display}=handleMoeda(e); setF({...f, cost: display}); }}
+                    placeholder="R$ 0,00" className={inp} />
+                </div>
+                <div>
+                  <span className={lbl}>Preço venda *</span>
+                  <input inputMode="numeric" value={f.price}
+                    onChange={(e) => { const {display}=handleMoeda(e); setF({...f, price: display}); }}
+                    placeholder="R$ 0,00" className={inp} />
+                </div>
+              </div>
+              {precoNum > 0 && custoNum > 0 && (
+                <p className="text-xs font-bold text-emerald-300">Margem estimada: {(((precoNum-custoNum)/precoNum)*100).toFixed(0)}%</p>
+              )}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <span className={lbl}>Tempo de preparo *</span>
+                  <select value={f.time || ""} onChange={(e) => setF({ ...f, time: e.target.value })} className={inp}>
+                    <option value="" disabled>Selecione...</option>
+                    {opcoesTempo.map((t) => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div><span className={lbl}>Estoque</span><input value={f.estoque} onChange={(e) => setF({ ...f, estoque: e.target.value.replace(/\D/g, "") })} placeholder="0" className={inp} /></div>
+              </div>
+
+              {/* Imagem — arquivo local (PNG/JPEG) ou URL */}
+              <div>
+                <span className={lbl}>Imagem do produto *</span>
+                <SeletorImagem
+                  urlAtual={f.imageUrl}
+                  onImageUrl={(u) => setF((cur) => ({ ...cur, imageUrl: u }))}
+                  onFileChange={setArquivoImg}
+                  uploading={uploadando}
+                  erroUpload={erroUpload}
+                />
+              </div>
             </div>
-            <div>
-              <span className={lbl}>Preço venda *</span>
-              <input inputMode="numeric" value={f.price}
-                onChange={(e) => { const {display}=handleMoeda(e); setF({...f, price: display}); }}
-                placeholder="R$ 0,00" className={inp} />
+
+            {/* ── Coluna direita ────────────────────────────── */}
+            <div className="flex flex-col space-y-4">
+              {/* Ingredientes como TAGS */}
+              <div>
+                <span className={lbl}>Ingredientes * <span className="text-slate-600 normal-case">— Enter para adicionar</span></span>
+                <TagsInput tags={tags} setTags={setTags} placeholder="Ex.: Parmesão" />
+              </div>
+
+              {/* Descrição */}
+              <div className="flex flex-1 flex-col">
+                <span className={lbl}>Descrição *</span>
+                <textarea value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} placeholder="Descrição do produto" rows={5} className={`${inp} flex-1 resize-none`} />
+              </div>
             </div>
-          </div>
-          {precoNum > 0 && custoNum > 0 && (
-            <p className="text-xs font-bold text-emerald-300">Margem estimada: {(((precoNum-custoNum)/precoNum)*100).toFixed(0)}%</p>
-          )}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <span className={lbl}>Tempo de preparo *</span>
-              <select value={f.time || ""} onChange={(e) => setF({ ...f, time: e.target.value })} className={inp}>
-                <option value="" disabled>Selecione...</option>
-                {opcoesTempo.map((t) => <option key={t} value={t}>{t}</option>)}
-              </select>
-            </div>
-            <div><span className={lbl}>Estoque</span><input value={f.estoque} onChange={(e) => setF({ ...f, estoque: e.target.value.replace(/\D/g, "") })} placeholder="0" className={inp} /></div>
-          </div>
-
-          {/* Imagem — arquivo local (PNG/JPEG) ou URL */}
-          <div>
-            <span className={lbl}>Imagem do produto *</span>
-            <SeletorImagem
-              urlAtual={f.imageUrl}
-              onImageUrl={(u) => setF((cur) => ({ ...cur, imageUrl: u }))}
-              onFileChange={setArquivoImg}
-              uploading={uploadando}
-              erroUpload={erroUpload}
-            />
-          </div>
-
-          {/* Ingredientes como TAGS */}
-          <div>
-            <span className={lbl}>Ingredientes * <span className="text-slate-600 normal-case">— Enter para adicionar</span></span>
-            <TagsInput tags={tags} setTags={setTags} placeholder="Ex.: Parmesão" />
-          </div>
-
-          {/* Descrição */}
-          <div>
-            <span className={lbl}>Descrição *</span>
-            <textarea value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} placeholder="Descrição do produto" rows={3} className={`${inp} resize-none`} />
           </div>
         </div>
         <div className="shrink-0 border-t border-white/10 px-6 py-4 space-y-2">
