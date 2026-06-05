@@ -4982,6 +4982,13 @@ function MinhaEmpresa({ lojaInfo, usuarios = [], produtos = [], formasPagamento 
   const catAtivas       = categoriasDb.filter((c) => c.active !== false);
   const comandasAtivas  = comandas.filter((c) => c.ativo !== false);
 
+  // Paginação dos produtos — 10 por página
+  const PROD_POR_PAGINA = 10;
+  const [paginaProd, setPaginaProd] = useState(1);
+  const totalPagProd = Math.max(1, Math.ceil(produtos.length / PROD_POR_PAGINA));
+  const pagProd = Math.min(paginaProd, totalPagProd);
+  const produtosVisiveis = produtos.slice((pagProd - 1) * PROD_POR_PAGINA, pagProd * PROD_POR_PAGINA);
+
   const Secao = ({ titulo, children }) => (
     <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
       <h4 className="mb-4 text-base font-black text-white">{titulo}</h4>
@@ -4996,7 +5003,7 @@ function MinhaEmpresa({ lojaInfo, usuarios = [], produtos = [], formasPagamento 
   );
 
   return (
-    <main className="space-y-6 max-w-4xl">
+    <main className="w-full space-y-6">
       {/* ── Cabeçalho da empresa ──────────────────────────────── */}
       <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
         <div className="flex items-center gap-4">
@@ -5090,29 +5097,35 @@ function MinhaEmpresa({ lojaInfo, usuarios = [], produtos = [], formasPagamento 
         )}
       </Secao>
 
-      {/* ── Produtos ──────────────────────────────────────────── */}
+      {/* ── Produtos (paginado, 10 por página) ────────────────── */}
       <Secao titulo={`🛒 Produtos (${produtos.length})`}>
         {produtos.length === 0
           ? <p className="text-sm text-slate-500">Nenhum produto cadastrado.</p>
           : (
-          <div className="space-y-2 max-h-80 overflow-y-auto">
-            {produtos.map((p) => (
-              <div key={p.id} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-3">
-                {p.imageUrl && (
-                  <img src={p.imageUrl} alt={p.name}
-                    className="h-10 w-10 shrink-0 rounded-xl object-cover"
-                    onError={(e) => { e.target.style.display = "none"; }} />
-                )}
-                <div className="min-w-0 flex-1">
-                  <p className="font-black text-white truncate">{p.name}</p>
-                  <p className="text-xs text-slate-400">{p.category} · {formatCurrency(p.price)}</p>
+          <>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {produtosVisiveis.map((p) => (
+                <div key={p.id} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-3">
+                  {p.imageUrl && (
+                    <img src={p.imageUrl} alt={p.name}
+                      className="h-10 w-10 shrink-0 rounded-xl object-cover"
+                      onError={(e) => { e.target.style.display = "none"; }} />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="font-black text-white truncate">{p.name}</p>
+                    <p className="text-xs text-slate-400">{p.category} · {formatCurrency(p.price)}</p>
+                  </div>
+                  <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-black ${p.active !== false ? "bg-emerald-500/20 text-emerald-300" : "bg-slate-700 text-slate-300"}`}>
+                    {p.active !== false ? "Ativo" : "Inativo"}
+                  </span>
                 </div>
-                <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-black ${p.active !== false ? "bg-emerald-500/20 text-emerald-300" : "bg-slate-700 text-slate-300"}`}>
-                  {p.active !== false ? "Ativo" : "Inativo"}
-                </span>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+            <Paginacao
+              pagina={pagProd} totalPaginas={totalPagProd} total={produtos.length}
+              porPagina={PROD_POR_PAGINA} onMudar={setPaginaProd} rotulo="produto(s)"
+            />
+          </>
         )}
       </Secao>
 
@@ -5880,6 +5893,45 @@ function ConfirmModal({ titulo, mensagem, confirmar, onConfirmar, onCancelar, pe
   );
 }
 
+// Paginação reutilizável (10 itens por página por padrão)
+function Paginacao({ pagina, totalPaginas, total, porPagina = 10, onMudar, rotulo = "item(ns)" }) {
+  if (total <= porPagina) return null; // cabe em 1 página → não exibe
+  const inicio = (pagina - 1) * porPagina + 1;
+  const fim = Math.min(pagina * porPagina, total);
+  // Janela de páginas: atual ±2, sempre com 1 e última
+  const nums = [];
+  const add = (n) => { if (n >= 1 && n <= totalPaginas && !nums.includes(n)) nums.push(n); };
+  add(1);
+  for (let i = pagina - 2; i <= pagina + 2; i++) add(i);
+  add(totalPaginas);
+  nums.sort((a, b) => a - b);
+  const btn = "min-w-9 rounded-xl px-3 py-2 text-xs font-black transition disabled:opacity-30 disabled:cursor-not-allowed";
+
+  return (
+    <div className="mt-4 flex flex-col items-center justify-between gap-3 border-t border-white/10 pt-4 sm:flex-row">
+      <p className="text-xs text-slate-400">
+        Mostrando <b className="text-white">{inicio}–{fim}</b> de <b className="text-white">{total}</b> {rotulo} · página {pagina}/{totalPaginas}
+      </p>
+      <div className="flex flex-wrap items-center justify-center gap-1">
+        <button disabled={pagina <= 1} onClick={() => onMudar(pagina - 1)}
+          className={`${btn} border border-white/10 bg-white/[0.06] text-slate-300 hover:bg-white/10`}>‹ Anterior</button>
+        {nums.map((n, i) => {
+          const gap = i > 0 && n - nums[i - 1] > 1;
+          return (
+            <span key={n} className="flex items-center gap-1">
+              {gap && <span className="px-1 text-slate-600">…</span>}
+              <button onClick={() => onMudar(n)}
+                className={`${btn} ${n === pagina ? "bg-blue-500 text-white" : "border border-white/10 bg-white/[0.06] text-slate-300 hover:bg-white/10"}`}>{n}</button>
+            </span>
+          );
+        })}
+        <button disabled={pagina >= totalPaginas} onClick={() => onMudar(pagina + 1)}
+          className={`${btn} border border-white/10 bg-white/[0.06] text-slate-300 hover:bg-white/10`}>Próxima ›</button>
+      </div>
+    </div>
+  );
+}
+
 // Campo de tags reutilizável (ingredientes, etc.)
 function TagsInput({ tags, setTags, placeholder = "Adicionar + Enter" }) {
   const [input, setInput] = useState("");
@@ -5917,6 +5969,8 @@ function ProductAdmin({ products, categories, adminForm, setAdminForm, addProduc
   const [criando, setCriando]   = useState(false);
   const [busca, setBusca]       = useState("");
   const [filtroCat, setFiltroCat] = useState("Todos");
+  const [pagina, setPagina] = useState(1);
+  const POR_PAGINA = 10;
   const cats = categories.filter((c) => c !== "Todos");
 
   const filtrados = products.filter((p) => {
@@ -5925,6 +5979,12 @@ function ProductAdmin({ products, categories, adminForm, setAdminForm, addProduc
     const okCat = filtroCat === "Todos" || p.category === filtroCat;
     return okBusca && okCat;
   });
+
+  // Paginação: 10 produtos por página (por categoria ou em "Todos")
+  const totalPaginas = Math.max(1, Math.ceil(filtrados.length / POR_PAGINA));
+  useEffect(() => { setPagina(1); }, [busca, filtroCat, products.length]);
+  const paginaAtual = Math.min(pagina, totalPaginas);
+  const visiveis = filtrados.slice((paginaAtual - 1) * POR_PAGINA, paginaAtual * POR_PAGINA);
 
   function abrirCadastro() {
     setAdminForm({ name: "", category: cats[0] || "Pratos principais", price: "", cost: "", time: TEMPOS_PREPARO[3], imageUrl: "", ingredientsText: "", description: "" });
@@ -5976,7 +6036,7 @@ function ProductAdmin({ products, categories, adminForm, setAdminForm, addProduc
               <button onClick={abrirCadastro} className="mt-3 rounded-2xl border border-blue-400/30 bg-blue-500/15 px-4 py-2 text-xs font-black text-blue-200 hover:bg-blue-500/25">+ Cadastrar produto</button>
             </div>
           )}
-          {filtrados.map((p) => {
+          {visiveis.map((p) => {
             const margin = p.price > 0 ? ((p.price - p.cost) / p.price) * 100 : 0;
             const estoqueBaixo = (p.estoque ?? 0) <= 5;
             return (
@@ -5998,6 +6058,12 @@ function ProductAdmin({ products, categories, adminForm, setAdminForm, addProduc
             );
           })}
         </div>
+
+        {/* Paginação — 10 por página */}
+        <Paginacao
+          pagina={paginaAtual} totalPaginas={totalPaginas} total={filtrados.length}
+          porPagina={POR_PAGINA} onMudar={setPagina} rotulo="produto(s)"
+        />
       </div>
 
       {criando && (
