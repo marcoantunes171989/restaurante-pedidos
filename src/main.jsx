@@ -249,58 +249,11 @@ function Root() {
     })
   }, [])
 
-  // ── Tela cheia PERSISTENTE no app instalado (desktop) ───────
-  // No desktop o navegador abre o PWA como janela (standalone), com barra de
-  // título e a barra de tarefas do Windows visíveis — não ocupa a tela toda. O
-  // display:"fullscreen" do manifest não vale no desktop; a tela cheia real
-  // exige a Fullscreen API disparada por um gesto do usuário.
-  // Comportamento desejado: manter SEMPRE em tela cheia, reentrando após
-  // navegações/recarregamentos (no próximo gesto, sem oscilar), e só permanecer
-  // fora se o usuário FORÇAR a saída (Esc / F11).
-  useEffect(() => {
-    if (!ehStandaloneLocal()) return
-    if (/Android|iPhone|iPad|iPod/.test(navigator.userAgent)) return // mobile já é tela cheia
-
-    const KEY = 'pp_fs_usuario_saiu' // '1' = usuário forçou sair → não reentrar
-    const usuarioSaiu = () => { try { return sessionStorage.getItem(KEY) === '1' } catch { return false } }
-    const marcarSaiu  = (v) => { try { v ? sessionStorage.setItem(KEY, '1') : sessionStorage.removeItem(KEY) } catch {} }
-
-    // Pede tela cheia (no-op se já estiver, ou se o usuário tiver saído à força).
-    const pedirFullscreen = () => {
-      if (document.fullscreenElement || usuarioSaiu()) return
-      const el = document.documentElement
-      const fn = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen
-      try { fn?.call(el)?.catch?.(() => {}) } catch {}
-    }
-
-    // Qualquer gesto reentra na tela cheia se ela tiver caído (ex.: após reload).
-    // Com a guarda de document.fullscreenElement não há oscilação: já estando em
-    // tela cheia, nada acontece.
-    const onGesto = () => pedirFullscreen()
-
-    // Detecta saída FORÇADA pelo usuário (Esc ou F11) → para de reentrar.
-    const onKeyForcar = (e) => {
-      if ((e.key === 'Escape' || e.key === 'F11') && document.fullscreenElement) marcarSaiu(true)
-    }
-
-    // Sincroniza a intenção: ao entrar em tela cheia (inclusive via F11 manual),
-    // limpa a marca de "saiu" → voltamos a manter tela cheia nas próximas telas.
-    const onFsChange = () => { if (document.fullscreenElement) marcarSaiu(false) }
-
-    window.addEventListener('pointerdown', onGesto)
-    window.addEventListener('keydown', onGesto)
-    window.addEventListener('keydown', onKeyForcar, true)
-    document.addEventListener('fullscreenchange', onFsChange)
-    document.addEventListener('webkitfullscreenchange', onFsChange)
-
-    return () => {
-      window.removeEventListener('pointerdown', onGesto)
-      window.removeEventListener('keydown', onGesto)
-      window.removeEventListener('keydown', onKeyForcar, true)
-      document.removeEventListener('fullscreenchange', onFsChange)
-      document.removeEventListener('webkitfullscreenchange', onFsChange)
-    }
-  }, [])
+  // Obs.: não forçamos tela cheia via Fullscreen API no desktop. O navegador
+  // exibe obrigatoriamente o aviso "pressione Esc para sair" e um botão × ao
+  // entrar em tela cheia por código — UI nativa que não pode ser ocultada. Por
+  // opção do usuário, o app abre como janela (maximizada) sem esses avisos; quem
+  // quiser tela cheia usa F11.
 
   const navigate = useCallback((to) => {
     if (to === window.location.pathname) return
