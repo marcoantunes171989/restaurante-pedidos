@@ -4910,8 +4910,77 @@ function CupomNaoFiscalModal({ pedido, lojaInfo, onFechar }) {
 
 function CuponsProdutoModal({ nome, cupons, lojaInfo, onFechar }) {
   const [cupomSel, setCupomSel] = useState(null); // pedido escolhido para o cupom profissional
+  const [formato, setFormato] = useState("80mm"); // "80mm" | "a4"
   const totalQtd = cupons.reduce((s, o) => s + o.items.filter((it) => it.name === nome).reduce((x, it) => x + it.quantity, 0), 0);
   const totalValor = cupons.reduce((s, o) => s + o.items.filter((it) => it.name === nome).reduce((x, it) => x + it.price * it.quantity, 0), 0);
+
+  // Impressão A4 — relatório por produto, layout comercial elegante
+  function imprimirA4() {
+    const empresa = lojaInfo?.nome || "Restaurante";
+    const inicial = (empresa || "R").charAt(0).toUpperCase();
+    const linhas = cupons.map((o, i) => {
+      const its = o.items.filter((it) => it.name === nome);
+      const q = its.reduce((x, it) => x + it.quantity, 0);
+      const v = its.reduce((x, it) => x + it.price * it.quantity, 0);
+      const dt = o.createdAtISO ? new Date(o.createdAtISO).toLocaleString("pt-BR") : o.createdAt;
+      return `<tr class="${i % 2 ? "alt" : ""}">
+        <td class="cp"><span class="np">${o.id}</span><span class="dt">${o.table} · ${o.command}</span></td>
+        <td>${o.customer || "—"}</td>
+        <td class="dh">${dt}</td>
+        <td class="qt">${q}</td>
+        <td class="tt">${formatCurrency(v)}</td>
+      </tr>`;
+    }).join("");
+    const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Relatório — ${nome}</title>
+<style>
+  @page{size:A4;margin:14mm}*{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Segoe UI',Arial,sans-serif;color:#0f172a;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .doc{max-width:720px;margin:0 auto}
+  .top{display:flex;align-items:center;gap:16px;border-bottom:3px solid #2563eb;padding-bottom:16px}
+  .logo{width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,#3b82f6,#1e3a8a);color:#fff;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:800}
+  .emp{flex:1}.emp h1{font-size:22px;font-weight:800;letter-spacing:-.5px}.emp p{font-size:12px;color:#64748b;margin-top:2px}
+  .pill{align-self:flex-start;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:999px;padding:6px 14px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px}
+  .info{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:20px 0}
+  .card{border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;background:#f8fafc}
+  .card .l{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1.2px;color:#94a3b8}
+  .card .v{font-size:16px;font-weight:800;margin-top:3px}
+  table{width:100%;border-collapse:collapse;margin-top:6px}
+  thead th{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#64748b;text-align:left;padding:10px 8px;border-bottom:2px solid #e2e8f0}
+  thead th.qt,thead th.tt,tbody td.qt,tbody td.tt{text-align:right}
+  tbody td{padding:11px 8px;border-bottom:1px solid #f1f5f9;vertical-align:top;font-size:12px}
+  tbody tr.alt td{background:#f8fafc}
+  .np{font-weight:800;display:block}.dt{display:block;font-size:10px;color:#94a3b8;margin-top:2px}
+  td.dh{color:#64748b}td.qt{font-weight:800;color:#2563eb}td.tt{font-weight:800}
+  tfoot td{padding:14px 8px;font-size:14px;font-weight:800;border-top:2px solid #0f172a}
+  tfoot td.tt{text-align:right;color:#1d4ed8;font-size:16px}
+  .ft{margin-top:24px;border-top:1px dashed #cbd5e1;padding-top:14px;text-align:center;color:#64748b;font-size:10px;text-transform:uppercase;letter-spacing:1px}
+</style></head><body>
+  <div class="doc">
+    <div class="top">
+      <div class="logo">${inicial}</div>
+      <div class="emp"><h1>${empresa}</h1><p>Relatório de vendas por produto</p></div>
+      <span class="pill">Uso interno</span>
+    </div>
+    <div class="info">
+      <div class="card"><div class="l">Produto</div><div class="v">${nome}</div></div>
+      <div class="card"><div class="l">Cupons</div><div class="v">${cupons.length}</div></div>
+      <div class="card"><div class="l">Total vendido</div><div class="v" style="color:#059669">${formatCurrency(totalValor)}</div></div>
+    </div>
+    <table>
+      <thead><tr><th>Cupom</th><th>Cliente</th><th>Data / Hora</th><th class="qt">Qtd</th><th class="tt">Valor</th></tr></thead>
+      <tbody>${linhas}</tbody>
+      <tfoot><tr><td colspan="3">TOTAL</td><td class="qt">${totalQtd} un</td><td class="tt">${formatCurrency(totalValor)}</td></tr></tfoot>
+    </table>
+    <div class="ft">Documento sem valor fiscal · emitido em ${new Date().toLocaleString("pt-BR")}</div>
+  </div>
+  <script>window.onload=function(){window.print();}<\/script>
+</body></html>`;
+    const j = window.open("", "_blank", "width=860,height=900");
+    if (!j) return;
+    j.document.write(html); j.document.close();
+  }
+
+  function imprimirRelatorio() { formato === "a4" ? imprimirA4() : imprimir(); }
 
   function imprimir() {
     const empresa = lojaInfo?.nome || "Restaurante";
@@ -4953,8 +5022,15 @@ function CuponsProdutoModal({ nome, cupons, lojaInfo, onFechar }) {
             <h2 className="text-lg font-black text-white">🧾 Cupons — {nome}</h2>
             <p className="text-xs text-slate-400">{cupons.length} cupom(ns) • {totalQtd} un • {formatCurrency(totalValor)}</p>
           </div>
-          <div className="flex gap-2">
-            <button onClick={imprimir} className="rounded-2xl bg-blue-500 px-4 py-2 text-sm font-black text-white hover:bg-blue-400">🖨️ Imprimir</button>
+          <div className="flex items-center gap-2">
+            {/* Seletor de formato */}
+            <div className="flex items-center gap-1 rounded-2xl border border-white/10 bg-white/[0.04] p-1">
+              <button onClick={() => setFormato("80mm")}
+                className={`rounded-xl px-2.5 py-1.5 text-xs font-black transition ${formato === "80mm" ? "bg-blue-500 text-white" : "text-slate-300 hover:bg-white/5"}`}>🧾 80mm</button>
+              <button onClick={() => setFormato("a4")}
+                className={`rounded-xl px-2.5 py-1.5 text-xs font-black transition ${formato === "a4" ? "bg-blue-500 text-white" : "text-slate-300 hover:bg-white/5"}`}>📄 A4</button>
+            </div>
+            <button onClick={imprimirRelatorio} className="rounded-2xl bg-blue-500 px-4 py-2 text-sm font-black text-white hover:bg-blue-400">🖨️ Imprimir</button>
             <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20">✕</button>
           </div>
         </div>
