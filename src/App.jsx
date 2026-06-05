@@ -4122,7 +4122,7 @@ function formatarDataBR(s) {
 }
 
 // ── Calendário minimalista (datas futuras desabilitadas) ──────
-function CalendarioMinimalista({ valor, onChange, max, min, placeholder = "Selecionar" }) {
+function CalendarioMinimalista({ valor, onChange, max, min, placeholder = "Selecionar", alinhar = "esquerda" }) {
   const [aberto, setAberto] = useState(false);
   const ref = useRef(null);
   const baseRef = valor ? new Date(valor + "T00:00:00") : new Date();
@@ -4177,7 +4177,7 @@ function CalendarioMinimalista({ valor, onChange, max, min, placeholder = "Selec
       </button>
 
       {aberto && (
-        <div className="absolute left-0 top-full z-[120] mt-2 w-64 rounded-2xl border border-white/10 bg-slate-900 p-3 shadow-2xl">
+        <div className={`absolute top-full z-[120] mt-2 w-64 rounded-2xl border border-white/10 bg-slate-900 p-3 shadow-2xl ${alinhar === "direita" ? "right-0" : "left-0"}`}>
           {/* Cabeçalho do mês */}
           <div className="mb-2 flex items-center justify-between">
             <button type="button" onClick={() => navegar(-1)}
@@ -4234,7 +4234,7 @@ function SeletorPeriodo({ periodo, setPeriodo, ini, setIni, fim, setFim }) {
         <div className="flex items-center gap-2">
           <CalendarioMinimalista valor={ini} onChange={setIni} max={dataHojeStr()} placeholder="Data inicial" />
           <span className="text-xs text-slate-500">até</span>
-          <CalendarioMinimalista valor={fim} onChange={setFim} max={dataHojeStr()} min={ini || undefined} placeholder="Data final" />
+          <CalendarioMinimalista valor={fim} onChange={setFim} max={dataHojeStr()} min={ini || undefined} placeholder="Data final" alinhar="direita" />
         </div>
       )}
     </div>
