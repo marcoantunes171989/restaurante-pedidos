@@ -1555,7 +1555,7 @@ function TabletView({
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-slate-950 overflow-hidden"
-      style={{ height: "100dvh", paddingTop: "calc(env(safe-area-inset-top) + 16px)", paddingBottom: "env(safe-area-inset-bottom)" }}>
+      style={{ height: "100dvh", paddingTop: "calc(env(safe-area-inset-top) + 18px)", paddingBottom: "env(safe-area-inset-bottom)" }}>
 
       {/* ── Cabeçalho mínimo ─────────────────────────────── */}
       <header className="flex shrink-0 items-center justify-between border-b border-white/10 bg-slate-900/90 px-5 py-3 backdrop-blur-xl">
@@ -2242,7 +2242,7 @@ function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, cancela
   const totalGeral   = totalAtivo + totalFinal;
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-slate-950 overflow-hidden" style={{ paddingTop: "calc(env(safe-area-inset-top) + 16px)" }}>
+    <div className="fixed inset-0 z-50 flex flex-col bg-slate-950 overflow-hidden" style={{ paddingTop: "calc(env(safe-area-inset-top) + 18px)" }}>
 
       {/* ── Cabeçalho mínimo ──────────────────────────────────── */}
       <header className="flex shrink-0 items-center justify-between border-b border-white/10 bg-slate-900/90 px-6 py-3 backdrop-blur-xl">
@@ -2554,7 +2554,7 @@ function PanelView({ groupedOrders, products = [], lojaInfo }) {
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-slate-950 overflow-hidden" style={{ fontSize: "clamp(10px, 1.2vw, 16px)", paddingTop: "calc(env(safe-area-inset-top) + 16px)" }}>
+    <div className="fixed inset-0 z-50 flex flex-col bg-slate-950 overflow-hidden" style={{ fontSize: "clamp(10px, 1.2vw, 16px)", paddingTop: "calc(env(safe-area-inset-top) + 18px)" }}>
 
       {/* ── Cabeçalho ─────────────────────────────────────────── */}
       <header className="flex shrink-0 items-center justify-between border-b border-white/10 bg-slate-900/90 px-[2vw] py-[1vh] backdrop-blur-xl">
@@ -3095,7 +3095,7 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-slate-950 overflow-hidden" style={{ paddingTop: "calc(env(safe-area-inset-top) + 16px)" }}>
+    <div className="fixed inset-0 z-50 flex flex-col bg-slate-950 overflow-hidden" style={{ paddingTop: "calc(env(safe-area-inset-top) + 18px)" }}>
       {/* Cabeçalho */}
       <header className="flex shrink-0 items-center justify-between border-b border-white/10 bg-slate-900/90 px-6 py-3 backdrop-blur-xl">
         <div className="flex items-center gap-3">
@@ -3950,7 +3950,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
     </main>
   );
   return (
-    <div className="fixed inset-0 z-50 flex bg-slate-950 overflow-hidden" style={{ paddingTop: "calc(env(safe-area-inset-top) + 16px)" }}>
+    <div className="fixed inset-0 z-50 flex bg-slate-950 overflow-hidden" style={{ paddingTop: "calc(env(safe-area-inset-top) + 18px)" }}>
 
       {/* ── Menu lateral esquerdo (fixo) ─────────────────────── */}
       <aside className="hidden md:flex w-64 shrink-0 flex-col border-r border-white/10 bg-slate-900">
@@ -4345,12 +4345,12 @@ function DonutChart({ dados, label = "" }) {
 function BarrasVerticais({ dados, sufixo = "R$" }) {
   const max = Math.max(1, ...dados.map((d) => d.valor));
   return (
-    <div className="flex items-end justify-between gap-1.5" style={{ height: 180 }}>
+    <div className="flex items-end justify-between gap-1" style={{ height: 180 }}>
       {dados.map((d, i) => (
-        <div key={i} className="flex flex-1 flex-col items-center justify-end gap-1">
-          <span className="text-xs font-black text-white" style={{ fontSize: 9 }}>{d.valor > 0 ? (sufixo === "R$" ? formatCurrency(d.valor).replace("R$", "").trim() : d.valor) : ""}</span>
+        <div key={i} className="flex min-w-0 flex-1 flex-col items-center justify-end gap-1">
+          <span className="w-full truncate text-center font-black leading-none text-white" style={{ fontSize: 8 }}>{d.valor > 0 ? (sufixo === "R$" ? formatCurrency(d.valor).replace("R$", "").trim() : d.valor) : ""}</span>
           <div className="w-full rounded-t-lg bg-gradient-to-t from-blue-600 to-blue-400 transition-all" style={{ height: `${(d.valor / max) * 140}px`, minHeight: d.valor > 0 ? 4 : 0 }} />
-          <span className="text-xs text-slate-500" style={{ fontSize: 9 }}>{d.label}</span>
+          <span className="w-full truncate text-center leading-none text-slate-500" style={{ fontSize: 9 }}>{d.label}</span>
         </div>
       ))}
     </div>

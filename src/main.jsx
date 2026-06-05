@@ -199,7 +199,7 @@ const APP_VERSAO = (typeof __APP_VERSION__ !== 'undefined') ? __APP_VERSION__ : 
 function VersaoBadge() {
   return (
     <div className="fixed left-0 z-[400] px-2 py-[1px] pointer-events-none select-none"
-      style={{ top: "env(safe-area-inset-top)" }}>
+      style={{ top: "calc(env(safe-area-inset-top) + 2px)" }}>
       <span className="font-mono text-[11px] tracking-wide text-slate-500">
         Versão: {APP_VERSAO}
       </span>
