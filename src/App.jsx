@@ -374,13 +374,20 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
 
         {/* Card */}
         <form onSubmit={(e) => { e.preventDefault(); if (podeEntrar) login(); }}
+          autoComplete="off"
           className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6 shadow-2xl backdrop-blur-xl space-y-4">
+          {/* Campos isca ocultos: absorvem o autofill do navegador (Chrome/Edge/Safari) */}
+          <input type="text" name="username" autoComplete="username" tabIndex={-1} aria-hidden="true"
+            className="absolute h-0 w-0 opacity-0 pointer-events-none" />
+          <input type="password" name="password" autoComplete="current-password" tabIndex={-1} aria-hidden="true"
+            className="absolute h-0 w-0 opacity-0 pointer-events-none" />
           {/* E-mail */}
           <div>
             <label className={labelCls}>E-mail</label>
             <div className="relative">
               <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500">{IconeMail}</span>
-              <input autoFocus type="email" inputMode="email" autoComplete="username"
+              <input autoFocus type="email" inputMode="email"
+                autoComplete="off" name="login_email_nofill" data-lpignore="true" data-form-type="other"
                 value={loginForm.email}
                 onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
                 placeholder="seu@email.com" className={inputCls} />
@@ -392,7 +399,8 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
             <label className={labelCls}>Senha</label>
             <div className="relative">
               <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500">{IconeLock}</span>
-              <input type={verSenha ? "text" : "password"} autoComplete="current-password"
+              <input type={verSenha ? "text" : "password"}
+                autoComplete="new-password" name="login_senha_nofill" data-lpignore="true" data-form-type="other"
                 value={loginForm.password}
                 onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
                 placeholder="••••••••" className={`${inputCls} pr-11`} />
@@ -454,7 +462,7 @@ export default function RestaurantePedidoApp() {
   const [accesses, setAccesses] = useState([]);
   const [users, setUsers] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
-  const [loginForm, setLoginForm] = useState({ email: "admin@restaurante.com", password: "123456" });
+  const [loginForm, setLoginForm] = useState({ email: "", password: "" });
   const [activeTab, setActiveTab] = useState("tablet");
   const [productsAll, setProducts] = useState([]); // todas as lojas — filtrado em `products`
   const [ordersAll, setOrders] = useState([]);     // todas as lojas — filtrado em `orders`
