@@ -453,8 +453,20 @@ function Metric({ label, value }) {
   );
 }
 
-function StatusChip({ status }) {
-  return <span className={`rounded-full border px-3 py-1 text-xs font-black ${statusMap[status].chip}`}>{statusMap[status].label}</span>;
+// Rótulos de acompanhamento exibidos no TABLET (mesmos nomes dos estágios da
+// cozinha, mais amigáveis para o cliente acompanhar).
+const STATUS_TABLET_LABEL = {
+  received:  "Aguardando",
+  preparing: "Preparando",
+  ready:     "Finalizado",
+  delivered: "Pedido entregue",
+  cancelled: "Cancelado",
+};
+
+function StatusChip({ status, labels }) {
+  const s = statusMap[status];
+  const label = labels?.[status] ?? s.label;
+  return <span className={`rounded-full border px-3 py-1 text-xs font-black ${s.chip}`}>{label}</span>;
 }
 
 export default function RestaurantePedidoApp() {
@@ -1966,7 +1978,7 @@ function TabletView({
                       <div key={order.id} className="px-4 py-3">
                         <div className="flex items-center justify-between mb-1.5">
                           <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">{order.id} • {order.createdAt}</span>
-                          <StatusChip status={order.status} />
+                          <StatusChip status={order.status} labels={STATUS_TABLET_LABEL} />
                         </div>
                         {order.items.map((item, idx) => (
                           <div key={idx} className="flex justify-between text-sm py-0.5">
