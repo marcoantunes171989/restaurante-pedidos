@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "app.vercel.restaurante_pedidos_delta.twa",
+      "sha256_cert_fingerprints": [
+        "CF:99:29:4B:F0:4D:41:A7:E1:BC:8E:47:D8:C1:64:5F:DD:D7:1C:5A:39:C6:D6:63:9C:47:1B:80:D7:06:61:48"
+      ]
+    }
+  }
+]
