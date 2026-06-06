@@ -3135,7 +3135,6 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
             className="rounded-2xl border border-blue-400/30 bg-blue-500/15 px-4 py-2 text-sm font-black text-blue-200 hover:bg-blue-500/25 transition">
             🧾 Reimprimir cupom{cuponsDoDia.length > 0 && <span className="ml-1.5 rounded-full bg-blue-500 px-1.5 py-0.5 text-[10px] text-white">{cuponsDoDia.length}</span>}
           </button>
-          <button onClick={onSair} className="rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-2 text-sm font-black text-red-300 hover:bg-red-500/20 transition">Sair</button>
         </div>
       </header>
 
