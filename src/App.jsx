@@ -824,11 +824,11 @@ export default function RestaurantePedidoApp() {
       setOrders((cur) => [newOrder, ...cur]);
     }
 
-    // Mantém o NÚMERO DA MESA para acompanhar o status dos pedidos e permitir
-    // novos pedidos na mesma mesa (até o pagamento ser fechado no caixa). Limpa
-    // o carrinho e a comanda — a próxima rodada exige nova leitura do QR Code.
+    // Mantém o NÚMERO DA MESA e a COMANDA já lida para permitir vários pedidos
+    // (diferentes ou iguais) na MESMA comanda, sem precisar reler o QR Code a
+    // cada pedido. Limpa apenas o carrinho e o nome. Para usar outra comanda,
+    // basta escanear/digitar uma nova (substitui a atual).
     setCart([]);
-    setCommandCode("");
     setCustomerName("");
     notify("success", `✅ Pedido enviado! Comanda ${codigo} vinculada à ${currentTable}.`);
   }
@@ -1576,10 +1576,12 @@ function TabletView({
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-slate-950 overflow-hidden"
-      style={{ height: "100dvh", paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}>
+      style={{ height: "100dvh", paddingBottom: "env(safe-area-inset-bottom)" }}>
 
-      {/* ── Cabeçalho mínimo ─────────────────────────────── */}
-      <header className="flex shrink-0 items-center justify-between border-b border-white/10 bg-slate-900/90 px-5 py-3 backdrop-blur-xl">
+      {/* ── Cabeçalho mínimo (absorve a safe-area do topo com fundo sólido,
+            evitando faixa/linha branca no topo no Android) ───────────── */}
+      <header className="flex shrink-0 items-center justify-between border-b border-white/10 bg-slate-900 px-5 py-3"
+        style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)" }}>
         <div className="flex items-center gap-3">
           <span className="text-2xl">🍽️</span>
           <div>
