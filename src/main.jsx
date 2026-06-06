@@ -197,6 +197,14 @@ function useInstanciaUnica(ativo) {
 // Permite validar, no aparelho, se a atualizacao foi efetivada (comparar com a Vercel).
 const APP_VERSAO = (typeof __APP_VERSION__ !== 'undefined') ? __APP_VERSION__ : 'local'
 function VersaoBadge() {
+  // Oculta o badge na tela do tablet (kiosk do cliente), evitando o texto no topo.
+  const [oculto, setOculto] = useState(() => (typeof document !== 'undefined' && document.body.dataset.ppKiosk === '1'))
+  useEffect(() => {
+    const fn = () => setOculto(document.body.dataset.ppKiosk === '1')
+    window.addEventListener('pp-kiosk-change', fn)
+    return () => window.removeEventListener('pp-kiosk-change', fn)
+  }, [])
+  if (oculto) return null
   return (
     <div className="fixed left-0 z-[400] px-2.5 py-[2px] pointer-events-none select-none leading-none"
       style={{ top: "calc(env(safe-area-inset-top) + 6px)" }}>

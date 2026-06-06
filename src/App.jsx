@@ -1464,6 +1464,15 @@ function TabletView({
   }, []);
   // Sai da tela cheia ao trocar de tela (desmontar o tablet)
   useEffect(() => () => sairTelaCheia(), []);
+  // Tela do cliente (kiosk): oculta o badge "Versão" do topo enquanto no tablet
+  useEffect(() => {
+    document.body.dataset.ppKiosk = "1";
+    window.dispatchEvent(new Event("pp-kiosk-change"));
+    return () => {
+      delete document.body.dataset.ppKiosk;
+      window.dispatchEvent(new Event("pp-kiosk-change"));
+    };
+  }, []);
   // Trava a rolagem da página atrás do overlay: no celular, o conteúdo de fundo
   // (maior que a viewport) deixava rolar e aparecer área vazia fora da tela fixa.
   useEffect(() => {
@@ -1498,7 +1507,6 @@ function TabletView({
   const [descansoAtivo, setDescansoAtivo] = useState(true);
   const [descansoIdx, setDescansoIdx] = useState(0);
   const [porInatividade, setPorInatividade] = useState(false); // descanso veio de 5 min ocioso
-  const [ocioseg, setOcioseg] = useState(0);                   // tempo (s) em descanso por inatividade
   const idleTimerRef = useRef(null);
   const INATIVIDADE_MS = 5 * 60 * 1000; // 5 minutos
   const INATIVIDADE_MIN = 5;
@@ -1543,17 +1551,6 @@ function TabletView({
     return () => clearInterval(t);
   }, [descansoAtivo, imagensDescanso.length]);
 
-  // Cronômetro ao vivo: conta o tempo em descanso quando entrou por inatividade
-  // (começa em 5 min e segue contando). Zera ao sair do descanso.
-  useEffect(() => {
-    if (descansoAtivo && porInatividade) {
-      setOcioseg(INATIVIDADE_MIN * 60); // já ficou 5 min ocioso ao acionar
-      const t = setInterval(() => setOcioseg((s) => s + 1), 1000);
-      return () => clearInterval(t);
-    }
-    setOcioseg(0);
-  }, [descansoAtivo, porInatividade]);
-
   const totalCartItems = cart.reduce((s, i) => s + i.quantity, 0);
   const comandaValida  = isValidCommand(commandCode);
   const temPedidoNaMesa = currentTableOrders.length > 0 && currentTableTotal > 0;
@@ -1578,7 +1575,7 @@ function TabletView({
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-slate-950 overflow-hidden"
-      style={{ height: "100dvh", paddingTop: "calc(env(safe-area-inset-top) + 24px)", paddingBottom: "env(safe-area-inset-bottom)" }}>
+      style={{ height: "100dvh", paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}>
 
       {/* ── Cabeçalho mínimo ─────────────────────────────── */}
       <header className="flex shrink-0 items-center justify-between border-b border-white/10 bg-slate-900/90 px-5 py-3 backdrop-blur-xl">
@@ -1717,9 +1714,9 @@ function TabletView({
             </div>
           </div>
           <button onClick={() => setVerConta(true)}
-            title="Ver conta da mesa"
+            title="Ver conta e acompanhar o status dos pedidos"
             className="shrink-0 rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-black text-slate-300 hover:bg-white/10 transition sm:px-5 sm:py-4">
-            👁️ Conta
+            👁️ Conta / Acompanhar
           </button>
           <button onClick={() => setCarrinhoAberto(true)} disabled={cart.length === 0}
             className="flex flex-1 basis-full items-center justify-center gap-2 rounded-2xl bg-emerald-500 px-4 py-3.5 text-sm font-black text-white hover:bg-emerald-400 transition active:scale-95 shadow-lg shadow-emerald-950/30 disabled:opacity-40 disabled:cursor-not-allowed sm:basis-0 sm:px-6 sm:py-4 sm:text-base">
@@ -1911,7 +1908,7 @@ function TabletView({
             <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
               <div>
                 <h2 className="text-lg font-black text-white">🧾 Conta — Mesa {tableNumber.padStart(2,"0")}</h2>
-                <p className="text-xs text-slate-400">{currentTableOrders.length} pedido(s) registrado(s)</p>
+                <p className="text-xs text-slate-400">{currentTableOrders.length} pedido(s) • acompanhe o status de cada um</p>
               </div>
               <button onClick={() => setVerConta(false)}
                 className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20 transition">
@@ -1986,10 +1983,14 @@ function TabletView({
                 </p>
               )}
               <button onClick={() => { setVerConta(false); setConfirmarConta(true); }}
-                disabled={!temPedidoNaMesa}
-                className={`mt-2 w-full rounded-2xl py-4 text-sm font-black text-white transition active:scale-95 ${contaSolicitada ? "bg-amber-500 hover:bg-amber-400" : "bg-violet-500 hover:bg-violet-400"}`}>
+                disabled={!(currentTableTotal > 0)}
+                title={!(currentTableTotal > 0) ? "Disponível apenas com total da mesa maior que zero" : ""}
+                className={`mt-2 w-full rounded-2xl py-4 text-sm font-black text-white transition active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed ${contaSolicitada ? "bg-amber-500 hover:bg-amber-400" : "bg-violet-500 hover:bg-violet-400"}`}>
                 {contaSolicitada ? "🔁 Reenviar conta ao caixa" : "🧾 Solicitar fechamento ao caixa"}
               </button>
+              {!(currentTableTotal > 0) && (
+                <p className="text-center text-xs text-slate-500">O fechamento é liberado quando a mesa tiver um total maior que zero.</p>
+              )}
             </div>
           </div>
         </div>
@@ -2057,9 +2058,6 @@ function TabletView({
                 <span className="h-2.5 w-2.5 rounded-full bg-amber-400" />
               </span>
               <span className="text-sm font-black text-amber-200">Inativo por {INATIVIDADE_MIN} minutos</span>
-              <span className="font-mono text-sm font-black tabular-nums text-amber-100">
-                {String(Math.floor(ocioseg / 60)).padStart(2, "0")}:{String(ocioseg % 60).padStart(2, "0")}
-              </span>
             </div>
           )}
 
