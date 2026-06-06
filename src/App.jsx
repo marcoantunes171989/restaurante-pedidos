@@ -2317,6 +2317,17 @@ function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, cancela
       <div className="flex flex-1 overflow-hidden">
         {kitchenCols.map(({ key, label, sub, dot, header, card }) => {
           const lista = groupedOrders[key] || [];
+          // Agrupa os pedidos da coluna por MESA (mantendo a ordem de chegada).
+          // Cada grupo reúne os pedidos da mesma mesa (e suas comandas).
+          const grupos = (() => {
+            const mapa = new Map();
+            lista.forEach((o) => {
+              const chave = o.table || "—";
+              if (!mapa.has(chave)) mapa.set(chave, []);
+              mapa.get(chave).push(o);
+            });
+            return Array.from(mapa, ([mesa, pedidos]) => ({ mesa, pedidos }));
+          })();
           return (
             <div key={key} className={`flex flex-1 flex-col border-r border-white/10 last:border-r-0`}>
 
@@ -2342,15 +2353,32 @@ function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, cancela
                     <p className="text-sm font-bold text-slate-400">Nenhum pedido</p>
                   </div>
                 )}
-                {lista.map((order) => (
-                  <article key={order.id} className={`overflow-hidden rounded-3xl border bg-slate-900/90 ${card} ${key === "ready" ? "ring-1 ring-emerald-500/30" : ""}`}>
+                {grupos.map(({ mesa, pedidos }) => {
+                  const totalItensMesa = pedidos.reduce((s, p) => s + p.items.reduce((a, it) => a + it.quantity, 0), 0);
+                  return (
+                  <section key={mesa} className="overflow-hidden rounded-3xl border border-white/10 bg-slate-900/60">
+                    {/* Cabeçalho da MESA (agrupa as comandas/pedidos) */}
+                    <div className="flex items-center justify-between gap-3 border-b border-white/10 bg-white/[0.04] px-4 py-2.5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">🍽️</span>
+                        <h3 className="text-xl font-black leading-tight text-white">{mesa}</h3>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="rounded-full border border-white/10 bg-white/[0.06] px-2.5 py-0.5 text-[11px] font-black text-slate-300">{pedidos.length} pedido(s)</span>
+                        <span className="rounded-full border border-blue-400/20 bg-blue-500/10 px-2.5 py-0.5 text-[11px] font-black text-blue-300">{totalItensMesa} item(ns)</span>
+                      </div>
+                    </div>
+
+                    {/* Pedidos da mesa */}
+                    <div className="space-y-3 p-3">
+                  {pedidos.map((order) => (
+                  <article key={order.id} className={`overflow-hidden rounded-2xl border bg-slate-900/90 ${card} ${key === "ready" ? "ring-1 ring-emerald-500/30" : ""}`}>
 
                     {/* Topo do card */}
-                    <div className="flex items-start justify-between gap-3 border-b border-white/10 px-4 py-3">
+                    <div className="flex items-start justify-between gap-3 border-b border-white/10 px-4 py-2.5">
                       <div>
-                        <p className="text-xs font-bold uppercase tracking-widest text-slate-500">{order.id}</p>
-                        <h3 className="text-2xl font-black leading-tight text-white">{order.table}</h3>
-                        <p className="text-xs text-slate-400">{order.command} • {order.createdAt}</p>
+                        <p className="text-xs font-bold uppercase tracking-widest text-slate-500">{order.id} • {order.createdAt}</p>
+                        <p className="mt-0.5 font-mono text-sm font-black text-blue-300">{order.command}</p>
                       </div>
                       <StatusChip status={order.status} />
                     </div>
@@ -2412,7 +2440,11 @@ function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, cancela
                       )}
                     </div>
                   </article>
-                ))}
+                  ))}
+                    </div>
+                  </section>
+                  );
+                })}
               </div>
             </div>
           );
