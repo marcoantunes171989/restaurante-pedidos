@@ -461,10 +461,10 @@ function Metric({ label, value }) {
 // Rótulos de acompanhamento exibidos no TABLET (mesmos nomes dos estágios da
 // cozinha, mais amigáveis para o cliente acompanhar).
 const STATUS_TABLET_LABEL = {
-  received:  "Aguardando",
-  preparing: "Preparando",
-  ready:     "Finalizado",
-  delivered: "Pedido entregue",
+  received:  "Na fila - Aguardando",
+  preparing: "Em produção - Preparando",
+  ready:     "Pronto para Retirar - Finalizado",
+  delivered: "Pedido Entregue",
   cancelled: "Cancelado",
 };
 
@@ -622,6 +622,8 @@ export default function RestaurantePedidoApp() {
   // Conta da mesa = apenas pedidos NÃO PAGOS (após baixa no caixa, somem imediatamente)
   // Conta da mesa: não pagos E não cancelados
   const currentTableOrders = orders.filter((o) => o.table === currentTable && o.paymentStatus !== "paid" && o.status !== "cancelled");
+  // Cancelados da mesa (mostrados no acompanhamento, sem entrar no total)
+  const currentTableCancelled = orders.filter((o) => o.table === currentTable && o.status === "cancelled");
   const currentTableSubtotal = currentTableOrders.reduce((sum, o) => sum + orderTotal(o), 0);
   const currentTableTotal = currentTableSubtotal + currentTableSubtotal * 0.1;
 
@@ -1420,6 +1422,7 @@ export default function RestaurantePedidoApp() {
               subtotal={subtotal} serviceFee={serviceFee} total={total} totalItems={totalItems}
               handleSendOrder={handleSendOrder} requestBill={requestBill}
               currentTableOrders={currentTableOrders}
+              currentTableCancelled={currentTableCancelled}
               currentTableSubtotal={currentTableSubtotal}
               currentTableTotal={currentTableTotal}
               message={message} onSair={logout}
@@ -1465,7 +1468,7 @@ function TabletView({
   addExtraIngredient, removeExtraIngredient,
   subtotal, serviceFee, total, totalItems,
   handleSendOrder, requestBill, message, onSair, onAbrirScanner,
-  currentTableOrders = [], currentTableSubtotal = 0, currentTableTotal = 0,
+  currentTableOrders = [], currentTableCancelled = [], currentTableSubtotal = 0, currentTableTotal = 0,
   lojaInfo,
 }) {
   const [verConta, setVerConta]         = useState(false);
@@ -1580,7 +1583,10 @@ function TabletView({
   useEffect(() => {
     if (currentTableOrders.length > 0) {
       mesaComPedidoRef.current = tableNumber;
-    } else if (mesaComPedidoRef.current && mesaComPedidoRef.current === tableNumber) {
+    } else if (
+      mesaComPedidoRef.current && mesaComPedidoRef.current === tableNumber &&
+      currentTableCancelled.length === 0 // mantém a mesa enquanto houver cancelados a exibir
+    ) {
       mesaComPedidoRef.current = null;
       setTableNumber("");
       setCommandCode("");
@@ -1589,7 +1595,7 @@ function TabletView({
       setCarrinhoAberto(false);
       setDescansoAtivo(true); // tela de boas-vindas aguardando o próximo cliente
     }
-  }, [currentTableOrders.length, tableNumber]);
+  }, [currentTableOrders.length, currentTableCancelled.length, tableNumber]);
 
   const totalCartItems = cart.reduce((s, i) => s + i.quantity, 0);
   const comandaValida  = isValidCommand(commandCode);
@@ -1754,8 +1760,8 @@ function TabletView({
             </div>
           </div>
           <button onClick={() => setVerConta(true)}
-            disabled={currentTableOrders.length === 0}
-            title={currentTableOrders.length === 0 ? "Disponível após lançar um pedido na mesa" : "Ver conta e acompanhar o status dos pedidos"}
+            disabled={currentTableOrders.length === 0 && currentTableCancelled.length === 0}
+            title={(currentTableOrders.length === 0 && currentTableCancelled.length === 0) ? "Disponível após lançar um pedido na mesa" : "Ver conta e acompanhar o status dos pedidos"}
             className="shrink-0 rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-black text-slate-300 hover:bg-white/10 transition disabled:opacity-40 disabled:cursor-not-allowed sm:px-5 sm:py-4">
             👁️ Conta / Acompanhar
           </button>
@@ -1960,7 +1966,7 @@ function TabletView({
             {/* Corpo com scroll */}
             <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
               {/* Estado vazio: nenhuma comanda/pedido na mesa ainda */}
-              {currentTableOrders.length === 0 && (
+              {currentTableOrders.length === 0 && currentTableCancelled.length === 0 && (
                 <div className="flex h-48 flex-col items-center justify-center gap-2 text-center opacity-50">
                   <span className="text-4xl">🧾</span>
                   <p className="font-black text-slate-300">Nenhum pedido na mesa ainda</p>
@@ -2001,6 +2007,39 @@ function TabletView({
                   </div>
                 </div>
               ))}
+
+              {/* Pedidos cancelados pela cozinha (status + justificativa). Não entram no total. */}
+              {currentTableCancelled.length > 0 && (
+                <div className="rounded-3xl border border-red-400/20 bg-red-500/[0.06] overflow-hidden">
+                  <div className="flex items-center justify-between border-b border-red-400/20 bg-red-500/10 px-4 py-3">
+                    <span className="text-sm font-black text-red-300">✕ Pedidos cancelados</span>
+                    <span className="text-xs font-bold text-red-300/80">{currentTableCancelled.length} pedido(s)</span>
+                  </div>
+                  <div className="divide-y divide-white/5">
+                    {currentTableCancelled.map((order) => (
+                      <div key={order.id} className="px-4 py-3">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">{order.id} • {order.command} • {order.createdAt}</span>
+                          <StatusChip status="cancelled" labels={STATUS_TABLET_LABEL} />
+                        </div>
+                        {order.items.map((item, idx) => (
+                          <div key={idx} className="flex justify-between text-sm py-0.5">
+                            <span className="text-slate-400 line-through">
+                              <span className="font-black">{item.quantity}×</span> {item.name}
+                            </span>
+                            <span className="font-bold text-slate-500 line-through">{formatCurrency(item.price * item.quantity)}</span>
+                          </div>
+                        ))}
+                        {order.cancelReason && (
+                          <p className="mt-1.5 rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-200">
+                            Justificativa: <span className="font-black">{order.cancelReason}</span>
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Totais finais */}
