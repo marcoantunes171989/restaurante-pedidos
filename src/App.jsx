@@ -356,10 +356,14 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
   );
 
   return (
-    <div className="relative flex items-center justify-center overflow-hidden px-4 py-10 text-slate-100"
+    <div className="relative flex items-center justify-center overflow-hidden px-4 text-slate-100"
       style={{
         minHeight: "100dvh",
         backgroundColor: "#020617",
+        // Topo e rodapé com o MESMO tratamento (safe-area + respiro), fundo
+        // sólido escuro de ponta a ponta — sem faixa/linha clara no topo.
+        paddingTop: "calc(env(safe-area-inset-top) + 2.5rem)",
+        paddingBottom: "calc(env(safe-area-inset-bottom) + 2.5rem)",
         // Brilhos via radial-gradient no fundo (sem div desfocada clipada, que
         // gerava uma linha clara no topo ao ser cortada pelo overflow-hidden).
         backgroundImage:
@@ -1331,6 +1335,8 @@ export default function RestaurantePedidoApp() {
         style={{
           minHeight: "100dvh",
           backgroundColor: "#020617",
+          paddingTop: "env(safe-area-inset-top)",
+          paddingBottom: "env(safe-area-inset-bottom)",
           backgroundImage:
             "radial-gradient(30rem 30rem at -6rem -6rem, rgba(37,99,235,0.18), transparent 70%), radial-gradient(30rem 30rem at calc(100% + 6rem) calc(100% + 6rem), rgba(124,58,237,0.14), transparent 70%)",
         }}>
