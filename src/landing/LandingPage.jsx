@@ -14,6 +14,7 @@ const WHATSAPP_COMERCIAL = "5518981465499";
 // ── Dados (reutilizáveis) ────────────────────────────────────
 const NAV = [
   { label: "Funcionalidades", id: "funcionalidades" },
+  { label: "Baixar app", id: "app" },
   { label: "Como funciona", id: "como-funciona" },
   { label: "Segmentos", id: "segmentos" },
   { label: "Benefícios", id: "beneficios" },
@@ -154,6 +155,38 @@ function FeatureCard({ icon, title, desc }) {
       <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-xl">{icon}</span>
       <h3 className="mt-3 text-base font-black text-slate-900">{title}</h3>
       <p className="mt-1 text-sm leading-6 text-slate-500">{desc}</p>
+    </div>
+  );
+}
+
+// Mockup de uma "tela do app" dentro de um frame de tablet (para o anúncio do app)
+function MockTela({ titulo, legenda, children }) {
+  return (
+    <div className="flex flex-col items-center">
+      <div className="w-full max-w-[300px] rounded-[2rem] border border-white/10 bg-slate-900 p-2.5 shadow-2xl ring-1 ring-white/5">
+        <div className="overflow-hidden rounded-[1.4rem] bg-slate-950">
+          <div className="flex items-center gap-2 border-b border-white/10 bg-slate-900/80 px-4 py-2.5">
+            <span className="text-base">🍽️</span>
+            <span className="text-xs font-black text-white">Pedido Prime</span>
+            <span className="ml-auto h-2 w-2 rounded-full bg-emerald-400" />
+          </div>
+          <div className="space-y-2 p-3" style={{ minHeight: 220 }}>{children}</div>
+        </div>
+      </div>
+      <h3 className="mt-5 text-base font-black text-white">{titulo}</h3>
+      <p className="mt-1 max-w-[280px] text-center text-sm leading-6 text-slate-400">{legenda}</p>
+    </div>
+  );
+}
+function LinhaProduto({ nome, preco, img }) {
+  return (
+    <div className="flex items-center gap-2.5 rounded-xl border border-white/10 bg-white/[0.04] p-2">
+      <img src={img} alt="" className="h-10 w-10 shrink-0 rounded-lg object-cover" />
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-[11px] font-black text-white">{nome}</p>
+        <p className="text-[10px] font-bold text-emerald-300">{preco}</p>
+      </div>
+      <span className="shrink-0 rounded-lg bg-blue-500 px-2 py-1 text-[10px] font-black text-white">+ Add</span>
     </div>
   );
 }
@@ -332,7 +365,10 @@ export default function LandingPage({ navigate }) {
               Permita que seus clientes façam pedidos diretamente pela mesa, acompanhem o preparo em tempo real e solicitem a conta pelo próprio tablet — enquanto a cozinha recebe tudo automaticamente.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Botao variant="primary" onClick={() => goTo("contato")}>Solicitar Demonstração</Botao>
+              <a href="/baixar.html"
+                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-500 px-6 py-3.5 text-sm font-black text-white transition hover:bg-emerald-400 active:scale-95 shadow-lg shadow-emerald-600/25">
+                ⬇️ Baixar app (Android)
+              </a>
               <Botao variant="ghost" onClick={acessar}>Acessar Sistema →</Botao>
             </div>
             <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs font-bold text-slate-400">
@@ -374,6 +410,65 @@ export default function LandingPage({ navigate }) {
           <TituloSecao tag="Funcionalidades" titulo="Tudo que o seu estabelecimento precisa, em uma só plataforma" subtitulo="Do pedido na mesa ao fechamento no caixa, com a cozinha sincronizada em tempo real." />
           <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {FEATURES.map((f) => <FeatureCard key={f.title} {...f} />)}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Anúncio do APP (download Android) ──────────────── */}
+      <section id="app" className="scroll-mt-24 relative overflow-hidden bg-slate-950 py-16 sm:py-20">
+        <div className="pointer-events-none absolute inset-0"
+          style={{ backgroundImage: "radial-gradient(34rem 34rem at 10% -10%, rgba(37,99,235,.18), transparent 70%), radial-gradient(34rem 34rem at 110% 120%, rgba(16,185,129,.14), transparent 70%)" }} />
+        <div className="relative mx-auto max-w-6xl px-5">
+          <TituloSecao claro tag="📲 Aplicativo Android"
+            titulo="Leve o Pedido Prime no tablet do restaurante"
+            subtitulo="Baixe o aplicativo para Android e use direto no tablet da mesa, da cozinha ou do caixa — tudo sincronizado em tempo real." />
+
+          {/* Mockups das funcionalidades */}
+          <div className="mt-12 grid gap-10 sm:grid-cols-2 lg:grid-cols-3">
+            <MockTela titulo="Cardápio no tablet" legenda="O cliente pede sozinho, com fotos, adicionais e busca por item.">
+              <LinhaProduto nome="Risoto de Filé" preco="R$ 58,90" img="https://images.unsplash.com/photo-1476124369491-e7addf5db371?w=120&q=60" />
+              <LinhaProduto nome="Burger Artesanal" preco="R$ 34,90" img="https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=120&q=60" />
+              <LinhaProduto nome="Suco Natural" preco="R$ 12,90" img="https://images.unsplash.com/photo-1622597467836-f3285f2131b8?w=120&q=60" />
+              <div className="mt-1 rounded-xl bg-emerald-500 py-2 text-center text-[11px] font-black text-white">🚀 Enviar para a cozinha</div>
+            </MockTela>
+
+            <MockTela titulo="Cozinha em tempo real" legenda="Pedidos por mesa em colunas: na fila, preparando e finalizado.">
+              <div className="grid grid-cols-3 gap-1.5 text-center">
+                <span className="rounded-lg bg-blue-500/15 py-1 text-[9px] font-black text-blue-300">Aguardando</span>
+                <span className="rounded-lg bg-amber-500/15 py-1 text-[9px] font-black text-amber-300">Preparando</span>
+                <span className="rounded-lg bg-emerald-500/15 py-1 text-[9px] font-black text-emerald-300">Finalizado</span>
+              </div>
+              <div className="rounded-xl border border-white/10 bg-white/[0.04] p-2">
+                <p className="text-[10px] font-black text-white">🍽️ Mesa 12 · HAM-000026</p>
+                <p className="mt-1 text-[10px] text-slate-300">1× Cheeseburger</p>
+                <p className="text-[10px] text-slate-300">1× Milkshake</p>
+                <div className="mt-1.5 grid grid-cols-2 gap-1">
+                  <span className="rounded-md bg-amber-500/20 py-1 text-center text-[9px] font-black text-amber-300">👨‍🍳 Preparar</span>
+                  <span className="rounded-md bg-emerald-500/20 py-1 text-center text-[9px] font-black text-emerald-300">✅ Finalizar</span>
+                </div>
+              </div>
+            </MockTela>
+
+            <MockTela titulo="Acompanhar e fechar a conta" legenda="O cliente acompanha o status e solicita a conta pela própria mesa.">
+              <div className="rounded-xl border border-white/10 bg-white/[0.04] p-2.5 space-y-1.5">
+                <div className="flex items-center justify-between"><span className="text-[10px] text-slate-300">Cheeseburger</span><span className="rounded-md bg-amber-50 px-1.5 text-[9px] font-black text-amber-700">Preparando</span></div>
+                <div className="flex items-center justify-between"><span className="text-[10px] text-slate-300">Milkshake</span><span className="rounded-md bg-emerald-50 px-1.5 text-[9px] font-black text-emerald-700">Finalizado</span></div>
+              </div>
+              <div className="rounded-xl border border-white/10 bg-white/[0.04] p-2.5">
+                <div className="flex justify-between text-[10px] text-slate-400"><span>Subtotal</span><span className="text-white">R$ 47,80</span></div>
+                <div className="flex justify-between text-[11px] font-black text-white"><span>Total</span><span className="text-emerald-400">R$ 52,58</span></div>
+              </div>
+              <div className="rounded-xl bg-violet-500 py-2 text-center text-[11px] font-black text-white">🧾 Solicitar conta</div>
+            </MockTela>
+          </div>
+
+          {/* Botão de download */}
+          <div className="mt-12 flex flex-col items-center gap-3">
+            <a href="/baixar.html"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-500 px-8 py-4 text-base font-black text-white transition hover:bg-emerald-400 active:scale-95 shadow-xl shadow-emerald-600/30">
+              ⬇️ Baixar aplicativo (APK Android)
+            </a>
+            <p className="text-xs text-slate-400">Grátis · instala no tablet · sincroniza com o sistema em tempo real</p>
           </div>
         </div>
       </section>
