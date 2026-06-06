@@ -5,8 +5,13 @@ import jsQR from "jsqr";
 function validarComanda(codigo) {
   return /^[A-Z]{1,5}-\d{4,8}$/.test(String(codigo || "").trim().toUpperCase());
 }
+const LOGIN_QR_PREFIX = "PPLOGIN1:";
+function ehLoginQR(texto) {
+  return String(texto || "").trim().startsWith(LOGIN_QR_PREFIX);
+}
 
-export function QRScannerModal({ onSucesso, onCancelar, prefixoLoja = "CMD", lojaNome = "" }) {
+export function QRScannerModal({ onSucesso, onCancelar, prefixoLoja = "CMD", lojaNome = "", modo = "comanda" }) {
+  const ehLogin = modo === "login";
   // Prefixo da comanda (parte antes do hífen) e checagem de pertencimento à loja
   const prefixoDe = (c) => String(c || "").trim().toUpperCase().split("-")[0];
   const pertenceALoja = (c) => prefixoDe(c) === String(prefixoLoja).toUpperCase();
@@ -72,22 +77,42 @@ export function QRScannerModal({ onSucesso, onCancelar, prefixoLoja = "CMD", loj
           inversionAttempts: "dontInvert",
         });
         if (result?.data) {
-          const texto = result.data.trim().toUpperCase();
-          if (validarComanda(texto)) {
-            // Divergência de loja: comanda de outro estabelecimento → erro vermelho
-            if (!pertenceALoja(texto)) {
-              setCodigo(texto);
-              setStatus("erro");
-              setMensagem(msgDivergencia(texto));
+          const bruto = result.data.trim();
+          if (ehLogin) {
+            // Modo LOGIN: aceita só o QR de login; rejeita QR de comanda.
+            if (ehLoginQR(bruto)) {
+              setCodigo("Acesso");
+              setStatus("sucesso");
+              setMensagem("QR de login lido com sucesso!");
               pararTudo();
+              setTimeout(() => onSucesso(bruto), 700);
+              return;
+            }
+            if (validarComanda(bruto.toUpperCase())) {
+              setStatus("erro");
+              setMensagem("Este é um QR de comanda de pedido — não serve para login. Use o QR de login gerado em Usuário × Acesso.");
+              pararTudo();
+              return;
+            }
+            // QR não reconhecido → continua tentando
+          } else {
+            const texto = bruto.toUpperCase();
+            if (validarComanda(texto)) {
+              // Divergência de loja: comanda de outro estabelecimento → erro vermelho
+              if (!pertenceALoja(texto)) {
+                setCodigo(texto);
+                setStatus("erro");
+                setMensagem(msgDivergencia(texto));
+                pararTudo();
+                return; // para o loop
+              }
+              setCodigo(texto);
+              setStatus("sucesso");
+              setMensagem("Comanda lida com sucesso!");
+              pararTudo();
+              setTimeout(() => onSucesso(texto), 900);
               return; // para o loop
             }
-            setCodigo(texto);
-            setStatus("sucesso");
-            setMensagem("Comanda lida com sucesso!");
-            pararTudo();
-            setTimeout(() => onSucesso(texto), 900);
-            return; // para o loop
           }
         }
       }
@@ -151,7 +176,7 @@ export function QRScannerModal({ onSucesso, onCancelar, prefixoLoja = "CMD", loj
         videoRef.current.play().then(() => {
           if (cancelado) return;
           setStatus("lendo");
-          setMensagem("Aponte a câmera para o QR Code da comanda");
+          setMensagem(ehLogin ? "Aponte a câmera para o seu QR Code de login" : "Aponte a câmera para o QR Code da comanda");
           iniciarLeitura(videoRef.current, canvasRef.current);
         }).catch((err) => {
           setStatus("erro");
@@ -175,8 +200,8 @@ export function QRScannerModal({ onSucesso, onCancelar, prefixoLoja = "CMD", loj
         {/* Cabeçalho */}
         <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
           <div>
-            <h2 className="text-base font-black text-white">📷 Escanear Comanda</h2>
-            <p className="text-xs text-slate-400">Aponte para o QR Code impresso na comanda</p>
+            <h2 className="text-base font-black text-white">{ehLogin ? "🔐 Entrar com QR Code" : "📷 Escanear Comanda"}</h2>
+            <p className="text-xs text-slate-400">{ehLogin ? "Aponte para o seu QR Code de login" : "Aponte para o QR Code impresso na comanda"}</p>
           </div>
           <button onClick={fechar}
             className="rounded-2xl bg-red-500/20 border border-red-400/30 px-4 py-2.5 text-sm font-black text-red-300 hover:bg-red-500/40 transition active:scale-95">
@@ -229,9 +254,9 @@ export function QRScannerModal({ onSucesso, onCancelar, prefixoLoja = "CMD", loj
               {status === "sucesso" && (
                 <>
                   <span className="text-6xl">✅</span>
-                  <p className="text-lg font-black text-emerald-400">Comanda lida!</p>
-                  <p className="font-mono text-2xl font-black text-white tracking-widest">{codigo}</p>
-                  <p className="text-xs text-slate-400">Enviando pedido para a cozinha...</p>
+                  <p className="text-lg font-black text-emerald-400">{ehLogin ? "QR de login lido!" : "Comanda lida!"}</p>
+                  {!ehLogin && <p className="font-mono text-2xl font-black text-white tracking-widest">{codigo}</p>}
+                  <p className="text-xs text-slate-400">{ehLogin ? "Entrando no sistema..." : "Enviando pedido para a cozinha..."}</p>
                 </>
               )}
               {status === "erro" && (
@@ -263,29 +288,33 @@ export function QRScannerModal({ onSucesso, onCancelar, prefixoLoja = "CMD", loj
           {status === "lendo" ? "🔍 " + mensagem : mensagem.split("\n")[0]}
         </div>
 
-        {/* Entrada manual — funciona sem câmera (digitação direta da comanda) */}
-        <div className="border-t border-white/10 px-5 py-4">
-          <p className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">Ou digite a comanda</p>
-          <div className="flex gap-2">
-            <input
-              value={manual}
-              onChange={(e) => setManual(e.target.value.toUpperCase())}
-              onKeyDown={(e) => { if (e.key === "Enter") confirmarManual(); }}
-              placeholder={`Ex.: ${prefixoLoja}-000001`}
-              className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 font-mono text-sm font-black tracking-widest text-white outline-none focus:border-blue-400 placeholder:text-slate-600"
-            />
-            <button onClick={confirmarManual}
-              className="shrink-0 rounded-2xl bg-blue-500 px-5 py-3 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95">
-              Confirmar
-            </button>
+        {/* Entrada manual — só no modo comanda (login usa um payload codificado) */}
+        {!ehLogin && (
+          <div className="border-t border-white/10 px-5 py-4">
+            <p className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">Ou digite a comanda</p>
+            <div className="flex gap-2">
+              <input
+                value={manual}
+                onChange={(e) => setManual(e.target.value.toUpperCase())}
+                onKeyDown={(e) => { if (e.key === "Enter") confirmarManual(); }}
+                placeholder={`Ex.: ${prefixoLoja}-000001`}
+                className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 font-mono text-sm font-black tracking-widest text-white outline-none focus:border-blue-400 placeholder:text-slate-600"
+              />
+              <button onClick={confirmarManual}
+                className="shrink-0 rounded-2xl bg-blue-500 px-5 py-3 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95">
+                Confirmar
+              </button>
+            </div>
+            {erroManual && <p className="mt-2 text-xs font-bold text-red-300">{erroManual}</p>}
           </div>
-          {erroManual && <p className="mt-2 text-xs font-bold text-red-300">{erroManual}</p>}
-        </div>
+        )}
 
         {/* Rodapé */}
         <div className="border-t border-white/10 px-5 py-3 flex items-center justify-between">
           <p className="text-xs text-slate-500">
-            Padrão aceito: <span className="font-mono font-black text-slate-300">{prefixoLoja}-000001</span>
+            {ehLogin
+              ? <>Leia o <span className="font-black text-slate-300">QR de login</span> (gerado em Usuário × Acesso)</>
+              : <>Padrão aceito: <span className="font-mono font-black text-slate-300">{prefixoLoja}-000001</span></>}
           </p>
           {status === "lendo" && (
             <span className="flex items-center gap-1.5 text-xs text-emerald-400">

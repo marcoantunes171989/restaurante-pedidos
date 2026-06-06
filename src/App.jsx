@@ -84,6 +84,28 @@ function isValidCommand(code) {
   return /^[A-Z]{1,5}-\d{4,8}$/.test(String(code || "").trim().toUpperCase());
 }
 
+// ── QR de LOGIN ───────────────────────────────────────────────
+// Payload distinto do QR de comanda. O QR de comanda é "PREFIXO-000000";
+// o QR de login começa com LOGIN_QR_PREFIX, então um nunca é confundido com o
+// outro (a leitura no login só aceita este formato e rejeita comandas).
+const LOGIN_QR_PREFIX = "PPLOGIN1:";
+function gerarLoginQRTexto(user) {
+  try {
+    const json = JSON.stringify({ e: user.email, p: user.password });
+    return LOGIN_QR_PREFIX + btoa(unescape(encodeURIComponent(json)));
+  } catch { return ""; }
+}
+function lerLoginQRTexto(texto) {
+  const t = String(texto || "").trim();
+  if (!t.startsWith(LOGIN_QR_PREFIX)) return null;
+  try {
+    const json = decodeURIComponent(escape(atob(t.slice(LOGIN_QR_PREFIX.length))));
+    const o = JSON.parse(json);
+    if (o && o.e && o.p) return { email: String(o.e), password: String(o.p) };
+    return null;
+  } catch { return null; }
+}
+
 function createCartItem(product) {
   return { ...product, quantity: 1, observation: "", selectedIngredients: [...(product.ingredients || [])], removedIngredients: [], extraIngredients: [], extraIngredientInput: "" };
 }
@@ -338,6 +360,7 @@ function CardGerarComandas() {
 // ════════════════════════════════════════════════════════════
 function TelaLogin({ loginForm, setLoginForm, login, message }) {
   const [verSenha, setVerSenha] = useState(false);
+  const [scanLogin, setScanLogin] = useState(false); // scanner de QR de login
   const labelCls = "mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-slate-500";
   const inputCls = "w-full rounded-2xl border border-white/10 bg-slate-950/60 py-3.5 pl-11 pr-4 text-[15px] text-white outline-none transition focus:border-blue-400/70 focus:bg-slate-950/90 focus:ring-2 focus:ring-blue-500/20 placeholder:text-slate-600";
   const podeEntrar = loginForm.email.trim() && loginForm.password;
@@ -436,6 +459,17 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
           </button>
         </form>
 
+        {/* Entrar com QR Code — opção discreta e minimalista */}
+        <div className="mt-4 flex items-center gap-3">
+          <span className="h-px flex-1 bg-white/10" />
+          <button type="button" onClick={() => setScanLogin(true)}
+            className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500 transition hover:text-blue-300">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-[14px] w-[14px]"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M14 14h3v3M21 14v.01M14 21h.01M21 21v.01M17.5 21H21v-3.5"/></svg>
+            Entrar com QR Code
+          </button>
+          <span className="h-px flex-1 bg-white/10" />
+        </div>
+
         {/* Rodapé */}
         <p className="mt-6 flex items-center justify-center gap-1.5 text-center text-[11px] text-slate-600">
           <span>🔒</span> Acesso controlado por usuário e permissão
@@ -445,6 +479,21 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
             className="text-xs font-bold text-slate-500 transition hover:text-blue-400">← Voltar ao site</button>
         </div>
       </div>
+
+      {/* Scanner do QR de login */}
+      {scanLogin && (
+        <QRScannerModal
+          modo="login"
+          onSucesso={(texto) => {
+            setScanLogin(false);
+            const creds = lerLoginQRTexto(texto);
+            if (!creds) { return; }
+            setLoginForm(creds);
+            login(creds);
+          }}
+          onCancelar={() => setScanLogin(false)}
+        />
+      )}
     </div>
   );
 }
@@ -650,8 +699,9 @@ export default function RestaurantePedidoApp() {
   function notify(type, text) { setMessage({ type, text }); }
   function clearMessage() { setMessage({ type: "", text: "" }); }
 
-  function login() {
-    const credOk = users.find((u) => u.email.toLowerCase() === loginForm.email.toLowerCase() && u.password === loginForm.password);
+  function login(credsOverride) {
+    const creds = (credsOverride && credsOverride.email) ? credsOverride : loginForm;
+    const credOk = users.find((u) => u.email.toLowerCase() === creds.email.toLowerCase() && u.password === creds.password);
     if (!credOk) return notify("error", "Usuário ou senha inválidos.");
     const lojaDoUser = lojas.find((l) => l.id === credOk.lojaId);
     // Licença da empresa suspensa — bloqueia o acesso de todos os usuários da empresa.
@@ -7540,6 +7590,7 @@ function UserAccessAdmin({ users, accesses, toggleUserAccess, definirAcessos, lo
 function UserAccessModal({ usuario, acessosAtivos = [], isSuperAdmin = false, nomeLoja, toggleUserAccess, definirAcessos, onFechar }) {
   const liberadas = usuario.accessIds.length;
   const total = acessosAtivos.length;
+  const [qrAberto, setQrAberto] = useState(false);
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onFechar}>
       <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-lg flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl max-h-[92vh]">
@@ -7596,8 +7647,146 @@ function UserAccessModal({ usuario, acessosAtivos = [], isSuperAdmin = false, no
         </div>
 
         {/* Rodapé */}
-        <div className="shrink-0 border-t border-white/10 px-6 py-4">
-          <button onClick={onFechar} className="w-full rounded-2xl bg-blue-500 py-3.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95">Concluir</button>
+        <div className="shrink-0 border-t border-white/10 px-6 py-4 flex gap-3">
+          <button onClick={() => setQrAberto(true)}
+            className="flex-1 rounded-2xl border border-violet-400/30 bg-violet-500/15 py-3.5 text-sm font-black text-violet-200 hover:bg-violet-500/25 transition active:scale-95">
+            🔐 QR de login
+          </button>
+          <button onClick={onFechar} className="flex-1 rounded-2xl bg-blue-500 py-3.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95">Concluir</button>
+        </div>
+      </div>
+
+      {qrAberto && (
+        <QRLoginCardModal usuario={usuario} nomeEmpresa={usuario.superAdmin ? "Todas as empresas" : nomeLoja(usuario.lojaId)} onFechar={() => setQrAberto(false)} />
+      )}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+//  Cartão de QR de login (gerar / imprimir) — Usuário × Acesso
+// ════════════════════════════════════════════════════════════
+function QRLoginCardModal({ usuario, nomeEmpresa, onFechar }) {
+  const [qrUrl, setQrUrl]   = useState("");
+  const [imgUrl, setImgUrl] = useState("");   // imagem opcional (data URL ou link)
+  const [erroImg, setErroImg] = useState("");
+  const [urlInput, setUrlInput] = useState("");
+  const payload = gerarLoginQRTexto(usuario);
+
+  // Gera o QR (data URL) a partir do payload de login
+  useEffect(() => {
+    let vivo = true;
+    (async () => {
+      try {
+        const QRCode = (await import("qrcode")).default;
+        const url = await QRCode.toDataURL(payload, { width: 520, margin: 1, errorCorrectionLevel: "M", color: { dark: "#0f172a", light: "#ffffff" } });
+        if (vivo) setQrUrl(url);
+      } catch { /* ignora */ }
+    })();
+    return () => { vivo = false; };
+  }, [payload]);
+
+  // Upload de imagem local (PNG/JPEG, máx. 2MB) → data URL
+  function aoEscolherArquivo(e) {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    setErroImg("");
+    const tiposOk = ["image/png", "image/jpeg"];
+    if (!tiposOk.includes(f.type)) { setErroImg("Use uma imagem PNG ou JPEG."); return; }
+    if (f.size > 2 * 1024 * 1024) { setErroImg("A imagem deve ter no máximo 2 MB."); return; }
+    const reader = new FileReader();
+    reader.onload = () => setImgUrl(String(reader.result || ""));
+    reader.readAsDataURL(f);
+  }
+  function aplicarUrl() {
+    const u = urlInput.trim();
+    if (!u) return;
+    if (!/^https?:\/\//i.test(u)) { setErroImg("Informe uma URL http(s) válida."); return; }
+    setErroImg(""); setImgUrl(u);
+  }
+
+  function imprimir() {
+    const w = window.open("", "_blank", "width=420,height=640");
+    if (!w) return;
+    const imgHtml = imgUrl ? `<img src="${imgUrl}" alt="" style="width:84px;height:84px;border-radius:18px;object-fit:cover;border:1px solid #e2e8f0" />` : "";
+    w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>QR de login — ${usuario.name}</title>
+      <style>
+        *{box-sizing:border-box;font-family:Arial,Helvetica,sans-serif}
+        body{margin:0;padding:24px;color:#0f172a;display:flex;justify-content:center}
+        .card{width:340px;border:1px solid #e2e8f0;border-radius:22px;padding:24px;text-align:center}
+        .top{display:flex;align-items:center;gap:12px;justify-content:center;margin-bottom:14px}
+        .nome{font-size:20px;font-weight:800;margin:0}
+        .sub{margin:2px 0 0;color:#475569;font-size:13px;font-weight:700}
+        .qr{margin:14px auto 6px;width:240px;height:240px}
+        .qr img{width:100%;height:100%}
+        .rodape{margin-top:8px;color:#64748b;font-size:11px;font-weight:700}
+        .marca{margin-top:4px;color:#94a3b8;font-size:10px}
+      </style></head><body>
+      <div class="card">
+        <div class="top">${imgHtml}<div style="text-align:left">
+          <p class="nome">${usuario.name}</p>
+          <p class="sub">${nomeEmpresa || ""}</p>
+          <p class="sub" style="color:#7c3aed">${usuario.role || "—"}</p>
+        </div></div>
+        <div class="qr"><img src="${qrUrl}" alt="QR de login" /></div>
+        <p class="rodape">Aponte na tela de login → "Entrar com QR Code"</p>
+        <p class="marca">Pedido Prime • Acesso por QR</p>
+      </div>
+      <script>window.onload=function(){setTimeout(function(){window.print()},250)}</script>
+      </body></html>`);
+    w.document.close();
+  }
+
+  return (
+    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={onFechar}>
+      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-md flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl max-h-[92vh]">
+        <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+          <h2 className="text-lg font-black text-white">🔐 QR de login</h2>
+          <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20">✕</button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+          {/* Cartão de visualização */}
+          <div className="rounded-3xl border border-white/10 bg-white p-5 text-center text-slate-900">
+            <div className="flex items-center justify-center gap-3">
+              {imgUrl
+                ? <img src={imgUrl} alt="" className="h-16 w-16 rounded-2xl object-cover border border-slate-200" />
+                : <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100 text-2xl">👤</span>}
+              <div className="text-left">
+                <p className="text-lg font-black leading-tight">{usuario.name}</p>
+                <p className="text-xs font-bold text-slate-500">{nomeEmpresa}</p>
+                <p className="text-xs font-bold text-violet-600">{usuario.role || "—"}</p>
+              </div>
+            </div>
+            <div className="mx-auto mt-4 h-48 w-48">
+              {qrUrl ? <img src={qrUrl} alt="QR de login" className="h-full w-full" /> : <div className="flex h-full w-full items-center justify-center text-xs text-slate-400">gerando QR…</div>}
+            </div>
+            <p className="mt-2 text-[11px] font-bold text-slate-500">Login rápido • aponte na tela de login</p>
+          </div>
+
+          {/* Imagem opcional (URL ou arquivo PNG/JPEG ≤ 2MB) */}
+          <div className="space-y-2">
+            <p className="text-[11px] font-bold uppercase tracking-widest text-slate-500">Imagem (opcional) — PNG/JPEG, máx. 2 MB</p>
+            <div className="flex gap-2">
+              <input value={urlInput} onChange={(e) => setUrlInput(e.target.value)} placeholder="Cole uma URL https://…"
+                className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-3 py-2.5 text-xs text-white outline-none focus:border-blue-400 placeholder:text-slate-600" />
+              <button onClick={aplicarUrl} className="shrink-0 rounded-2xl border border-white/10 bg-white/[0.06] px-3 py-2.5 text-xs font-black text-slate-200 hover:bg-white/10">Usar</button>
+            </div>
+            <label className="flex cursor-pointer items-center justify-center gap-2 rounded-2xl border border-blue-400/30 bg-blue-500/10 px-3 py-2.5 text-xs font-black text-blue-200 hover:bg-blue-500/20 transition">
+              📁 Escolher arquivo do dispositivo
+              <input type="file" accept="image/png,image/jpeg" onChange={aoEscolherArquivo} className="hidden" />
+            </label>
+            {imgUrl && <button onClick={() => { setImgUrl(""); setUrlInput(""); }} className="text-[11px] font-bold text-slate-500 hover:text-red-300">Remover imagem</button>}
+            {erroImg && <p className="text-xs font-bold text-red-300">{erroImg}</p>}
+          </div>
+        </div>
+
+        <div className="shrink-0 border-t border-white/10 px-6 py-4 flex gap-3">
+          <button onClick={onFechar} className="flex-1 rounded-2xl border border-white/10 bg-white/[0.06] py-3.5 text-sm font-black text-slate-300 hover:bg-white/10">Fechar</button>
+          <button onClick={imprimir} disabled={!qrUrl}
+            className="flex-[1.5] rounded-2xl bg-blue-500 py-3.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+            🖨️ Imprimir QR de login
+          </button>
         </div>
       </div>
     </div>
