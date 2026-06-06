@@ -949,6 +949,10 @@ export default function RestaurantePedidoApp() {
   async function requestBill() {
     if (!canAccess(currentUser, "tablet") && !canAccess(currentUser, "cashier")) return notify("error", "Usuário sem permissão para solicitar conta.");
     if (currentTableOrders.length === 0) return notify("error", "Não existe pedido vinculado à mesa/comanda para solicitar a conta.");
+    // Só permite solicitar a conta quando TODOS os pedidos foram ENTREGUES pela cozinha
+    if (!currentTableOrders.every((o) => o.status === "delivered")) {
+      return notify("error", "Aguarde a cozinha entregar todos os pedidos antes de solicitar o fechamento.");
+    }
     setOrders((cur) => cur.map((o) => o.table === currentTable ? { ...o, paymentStatus: "requested" } : o));
     if (dbReady) try {
       await Promise.all(currentTableOrders.map((o) => atualizarPedido(o.id, { status_pagamento: "solicitado" })));
@@ -2119,11 +2123,14 @@ function TabletView({
                 </p>
               )}
               <button onClick={() => { setVerConta(false); setConfirmarConta(true); }}
-                disabled={!(currentTableTotal > 0)}
-                title={!(currentTableTotal > 0) ? "Disponível apenas com total da mesa maior que zero" : ""}
+                disabled={!podeFecharConta}
+                title={!podeFecharConta ? "Disponível somente quando todos os pedidos forem entregues pela cozinha" : ""}
                 className={`mt-2 w-full rounded-2xl py-4 text-sm font-black text-white transition active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed ${contaSolicitada ? "bg-amber-500 hover:bg-amber-400" : "bg-violet-500 hover:bg-violet-400"}`}>
                 {contaSolicitada ? "🔁 Reenviar conta ao caixa" : "🧾 Solicitar fechamento ao caixa"}
               </button>
+              {!podeFecharConta && currentTableOrders.length > 0 && (
+                <p className="text-center text-xs text-slate-500">Aguardando a cozinha entregar todos os pedidos para liberar o fechamento.</p>
+              )}
               {!(currentTableTotal > 0) && (
                 <p className="text-center text-xs text-slate-500">O fechamento é liberado quando a mesa tiver um total maior que zero.</p>
               )}
