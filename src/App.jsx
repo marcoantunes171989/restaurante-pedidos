@@ -356,11 +356,16 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
   );
 
   return (
-    <div className="relative flex items-center justify-center overflow-hidden bg-slate-950 px-4 py-10 text-slate-100"
-      style={{ minHeight: "100dvh" }}>
-      {/* Fundo: brilhos suaves */}
-      <div className="pointer-events-none absolute -top-40 -left-32 h-[28rem] w-[28rem] rounded-full bg-blue-600/20 blur-[130px]" />
-      <div className="pointer-events-none absolute -bottom-40 -right-32 h-[28rem] w-[28rem] rounded-full bg-violet-600/15 blur-[130px]" />
+    <div className="relative flex items-center justify-center overflow-hidden px-4 py-10 text-slate-100"
+      style={{
+        minHeight: "100dvh",
+        backgroundColor: "#020617",
+        // Brilhos via radial-gradient no fundo (sem div desfocada clipada, que
+        // gerava uma linha clara no topo ao ser cortada pelo overflow-hidden).
+        backgroundImage:
+          "radial-gradient(32rem 32rem at -6rem -6rem, rgba(37,99,235,0.18), transparent 70%), radial-gradient(32rem 32rem at calc(100% + 6rem) calc(100% + 6rem), rgba(124,58,237,0.14), transparent 70%)",
+      }}>
+      {/* Trama de pontos sutil */}
       <div className="pointer-events-none absolute inset-0 opacity-[0.06]"
         style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)", backgroundSize: "32px 32px" }} />
 
@@ -1320,11 +1325,14 @@ export default function RestaurantePedidoApp() {
   // ── Tela de carregamento inicial (elegante e minimalista) ────
   if (loading) {
     return (
-      <div className="relative flex items-center justify-center overflow-hidden bg-slate-950 px-4 text-slate-100"
-        style={{ minHeight: "100dvh" }}>
-        {/* Fundo: brilhos suaves + grade de pontos discreta */}
-        <div className="pointer-events-none absolute -top-40 -left-32 h-[26rem] w-[26rem] rounded-full bg-blue-600/20 blur-[130px]" />
-        <div className="pointer-events-none absolute -bottom-40 -right-32 h-[26rem] w-[26rem] rounded-full bg-violet-600/15 blur-[130px]" />
+      <div className="relative flex items-center justify-center overflow-hidden px-4 text-slate-100"
+        style={{
+          minHeight: "100dvh",
+          backgroundColor: "#020617",
+          backgroundImage:
+            "radial-gradient(30rem 30rem at -6rem -6rem, rgba(37,99,235,0.18), transparent 70%), radial-gradient(30rem 30rem at calc(100% + 6rem) calc(100% + 6rem), rgba(124,58,237,0.14), transparent 70%)",
+        }}>
+        {/* Grade de pontos discreta */}
         <div className="pointer-events-none absolute inset-0 opacity-[0.05]"
           style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)", backgroundSize: "32px 32px" }} />
 
