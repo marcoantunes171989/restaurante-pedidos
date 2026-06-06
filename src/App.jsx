@@ -824,11 +824,12 @@ export default function RestaurantePedidoApp() {
       setOrders((cur) => [newOrder, ...cur]);
     }
 
-    // Limpa tudo — resumo do pedido sempre em branco para o próximo
+    // Mantém o NÚMERO DA MESA para acompanhar o status dos pedidos e permitir
+    // novos pedidos na mesma mesa (até o pagamento ser fechado no caixa). Limpa
+    // o carrinho e a comanda — a próxima rodada exige nova leitura do QR Code.
     setCart([]);
     setCommandCode("");
     setCustomerName("");
-    setTableNumber("");
     notify("success", `✅ Pedido enviado! Comanda ${codigo} vinculada à ${currentTable}.`);
   }
 
@@ -1744,14 +1745,14 @@ function TabletView({
             <div className="grid grid-cols-2 gap-3">
               <label>
                 <span className="mb-1 block text-xs font-bold uppercase tracking-widest text-amber-500">⚠ Mesa *</span>
-                <input autoFocus value={tableNumber} onChange={(e) => setTableNumber(e.target.value.replace(/[^0-9]/g,"").slice(0,2))}
+                <input autoFocus={!(tableNumber && Number(tableNumber) > 0)} value={tableNumber} onChange={(e) => setTableNumber(e.target.value.replace(/[^0-9]/g,"").slice(0,2))}
                   type="tel" inputMode="numeric" pattern="[0-9]*"
                   placeholder="Nº"
                   className={`w-full rounded-2xl border bg-slate-800 px-3 py-2.5 text-white outline-none text-sm font-black transition ${tableNumber && Number(tableNumber) > 0 ? "border-emerald-400/40 focus:border-emerald-400" : "border-amber-400/40 focus:border-amber-400"}`} />
               </label>
               <label>
                 <span className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500">Cliente (opcional)</span>
-                <input value={customerName} onChange={(e) => setCustomerName(e.target.value)}
+                <input autoFocus={!!(tableNumber && Number(tableNumber) > 0)} value={customerName} onChange={(e) => setCustomerName(e.target.value)}
                   placeholder="Nome do cliente"
                   className="w-full rounded-2xl border border-white/10 bg-slate-800 px-3 py-2.5 text-white outline-none text-sm transition focus:border-blue-400" />
               </label>
