@@ -2,6 +2,8 @@
   "name": "Pedido Prime",
   "short_name": "Pedido Prime",
   "description": "Cardápio digital, pedidos na mesa e caixa.",
+  "lang": "pt-BR",
+  "dir": "ltr",
   "display": "fullscreen",
   "display_override": ["fullscreen", "standalone"],
   "orientation": "any",
@@ -10,15 +12,19 @@
   "start_url": "/login",
   "scope": "/",
   "id": "/",
+  "categories": ["food", "business", "productivity"],
   "related_applications": [
     { "platform": "webapp", "url": "https://restaurante-pedidos-delta.vercel.app/manifest.webmanifest" }
   ],
   "prefer_related_applications": false,
   "icons": [
-    { "src": "/icon-192.png", "type": "image/png", "sizes": "192x192", "purpose": "any" },
-    { "src": "/icon-512.png", "type": "image/png", "sizes": "512x512", "purpose": "any" },
-    { "src": "/icon-192.png", "type": "image/png", "sizes": "192x192", "purpose": "maskable" },
-    { "src": "/icon-512.png", "type": "image/png", "sizes": "512x512", "purpose": "maskable" },
-    { "src": "/favicon.svg", "type": "image/svg+xml", "sizes": "any", "purpose": "any" }
+    { "src": "https://restaurante-pedidos-delta.vercel.app/icon-192.png", "type": "image/png", "sizes": "192x192", "purpose": "any" },
+    { "src": "https://restaurante-pedidos-delta.vercel.app/icon-512.png", "type": "image/png", "sizes": "512x512", "purpose": "any" },
+    { "src": "https://restaurante-pedidos-delta.vercel.app/icon-192.png", "type": "image/png", "sizes": "192x192", "purpose": "maskable" },
+    { "src": "https://restaurante-pedidos-delta.vercel.app/icon-512.png", "type": "image/png", "sizes": "512x512", "purpose": "maskable" }
+  ],
+  "screenshots": [
+    { "src": "https://restaurante-pedidos-delta.vercel.app/icon-512.png", "type": "image/png", "sizes": "512x512", "form_factor": "wide", "label": "Pedido Prime" },
+    { "src": "https://restaurante-pedidos-delta.vercel.app/icon-512.png", "type": "image/png", "sizes": "512x512", "form_factor": "narrow", "label": "Pedido Prime" }
   ]
 }
