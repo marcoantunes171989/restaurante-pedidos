@@ -320,13 +320,14 @@ function Root() {
   }, [])
 
   // Segunda instância do app no mesmo computador → bloqueia
-  if (ehSistema && instancia === 'duplicado') return (<><BloqueioInstancia /><VersaoBadge /></>)
+  if (ehSistema && instancia === 'duplicado') return (<><BloqueioInstancia /></>)
 
+  // O badge de versão é exibido apenas na TELA DE LOGIN (dentro de <App/>),
+  // não na landing nem nas demais telas.
   return (
     <>
       {ehSistema ? <App /> : <LandingPage navigate={navigate} />}
       <PwaBanner swAtivado={swAtivado} />
-      <VersaoBadge />
     </>
   )
 }

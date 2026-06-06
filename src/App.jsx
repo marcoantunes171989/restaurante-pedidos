@@ -396,6 +396,14 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
       <div className="pointer-events-none absolute inset-0 opacity-[0.06]"
         style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)", backgroundSize: "32px 32px" }} />
 
+      {/* Versão do sistema — exibida somente nesta tela (login) */}
+      <div className="pointer-events-none absolute left-0 select-none px-2.5 py-[2px] leading-none"
+        style={{ top: "calc(env(safe-area-inset-top) + 6px)" }}>
+        <span className="font-mono text-[11px] leading-none tracking-wide text-slate-500">
+          Versão: {(typeof __APP_VERSION__ !== "undefined") ? __APP_VERSION__ : "local"}
+        </span>
+      </div>
+
       <div className="relative w-full max-w-[380px]">
         {/* Marca */}
         <div className="mb-7 text-center">
