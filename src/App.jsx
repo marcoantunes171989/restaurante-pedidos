@@ -1552,6 +1552,25 @@ function TabletView({
     return () => clearInterval(t);
   }, [descansoAtivo, imagensDescanso.length]);
 
+  // Reset do fluxo ao QUITAR a conta: quando a MESMA mesa que tinha pedidos em
+  // aberto zera (todos quitados no caixa), volta ao estado inicial — limpa mesa,
+  // comanda, cliente e fecha a conta, pronto para o próximo cliente com uma nova
+  // comanda. (Comparar a mesa evita reset indevido ao trocar de mesa na mão.)
+  const mesaComPedidoRef = useRef(null);
+  useEffect(() => {
+    if (currentTableOrders.length > 0) {
+      mesaComPedidoRef.current = tableNumber;
+    } else if (mesaComPedidoRef.current && mesaComPedidoRef.current === tableNumber) {
+      mesaComPedidoRef.current = null;
+      setTableNumber("");
+      setCommandCode("");
+      setCustomerName("");
+      setVerConta(false);
+      setCarrinhoAberto(false);
+      setDescansoAtivo(true); // tela de boas-vindas aguardando o próximo cliente
+    }
+  }, [currentTableOrders.length, tableNumber]);
+
   const totalCartItems = cart.reduce((s, i) => s + i.quantity, 0);
   const comandaValida  = isValidCommand(commandCode);
   const temPedidoNaMesa = currentTableOrders.length > 0 && currentTableTotal > 0;
@@ -1717,8 +1736,9 @@ function TabletView({
             </div>
           </div>
           <button onClick={() => setVerConta(true)}
-            title="Ver conta e acompanhar o status dos pedidos"
-            className="shrink-0 rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-black text-slate-300 hover:bg-white/10 transition sm:px-5 sm:py-4">
+            disabled={currentTableOrders.length === 0}
+            title={currentTableOrders.length === 0 ? "Disponível após lançar um pedido na mesa" : "Ver conta e acompanhar o status dos pedidos"}
+            className="shrink-0 rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-black text-slate-300 hover:bg-white/10 transition disabled:opacity-40 disabled:cursor-not-allowed sm:px-5 sm:py-4">
             👁️ Conta / Acompanhar
           </button>
           <button onClick={() => setCarrinhoAberto(true)} disabled={cart.length === 0}
