@@ -946,6 +946,23 @@ export default function RestaurantePedidoApp() {
     notify("success", `Pedido cancelado (${motivo}).`);
   }
 
+  // Cancelamento pelo CLIENTE no tablet — permitido só enquanto o pedido está
+  // "na fila" (received) ou "preparando" (preparing). Depois disso, não.
+  async function cancelarPedidoTablet(oid, motivo = "Cancelado pelo cliente") {
+    if (!canAccess(currentUser, "tablet")) return notify("error", "Sem permissão para cancelar.");
+    const alvo = orders.find((o) => o.id === oid);
+    if (!alvo) return;
+    if (alvo.status !== "received" && alvo.status !== "preparing") {
+      return notify("error", "Este pedido já avançou na cozinha e não pode mais ser cancelado pelo tablet.");
+    }
+    setOrders((cur) => cur.map((o) => o.id === oid ? { ...o, status: "cancelled", cancelReason: motivo } : o));
+    if (dbReady) {
+      try { await atualizarPedido(oid, { status: "cancelado", motivo_cancelamento: motivo }); }
+      catch (err) { console.error("Erro ao cancelar pedido (tablet):", err); }
+    }
+    notify("success", "Pedido cancelado.");
+  }
+
   async function requestBill() {
     if (!canAccess(currentUser, "tablet") && !canAccess(currentUser, "cashier")) return notify("error", "Usuário sem permissão para solicitar conta.");
     if (currentTableOrders.length === 0) return notify("error", "Não existe pedido vinculado à mesa/comanda para solicitar a conta.");
@@ -1483,6 +1500,7 @@ export default function RestaurantePedidoApp() {
               handleSendOrder={handleSendOrder} requestBill={requestBill}
               currentTableOrders={currentTableOrders}
               currentTableCancelled={currentTableCancelled}
+              cancelarPedidoTablet={cancelarPedidoTablet}
               currentTableSubtotal={currentTableSubtotal}
               currentTableTotal={currentTableTotal}
               message={message} onSair={logout}
@@ -1528,7 +1546,7 @@ function TabletView({
   addExtraIngredient, removeExtraIngredient,
   subtotal, serviceFee, total, totalItems,
   handleSendOrder, requestBill, message, onSair, onAbrirScanner,
-  currentTableOrders = [], currentTableCancelled = [], currentTableSubtotal = 0, currentTableTotal = 0,
+  currentTableOrders = [], currentTableCancelled = [], cancelarPedidoTablet = () => {}, currentTableSubtotal = 0, currentTableTotal = 0,
   lojaInfo,
 }) {
   const [verConta, setVerConta]         = useState(false);
@@ -1669,6 +1687,7 @@ function TabletView({
   // Conta já solicitada ao caixa? (permite reenviar caso o caixa tenha fechado/perdido)
   const contaSolicitada = currentTableOrders.length > 0 && currentTableOrders.some((o) => o.paymentStatus === "requested");
   const [confirmarConta, setConfirmarConta] = useState(false); // modal de confirmação do envio
+  const [cancelandoPedido, setCancelandoPedido] = useState(null); // pedido que o cliente quer cancelar
 
   // Agrupa pedidos por comanda
   const porComanda = currentTableOrders.reduce((acc, order) => {
@@ -2062,6 +2081,13 @@ function TabletView({
                             <span className="font-bold text-white">{formatCurrency(item.price * item.quantity)}</span>
                           </div>
                         ))}
+                        {/* Cancelar pelo cliente — só na fila/preparando */}
+                        {(order.status === "received" || order.status === "preparing") && (
+                          <button onClick={() => setCancelandoPedido(order)}
+                            className="mt-2 w-full rounded-xl border border-red-400/30 bg-red-500/10 py-2 text-xs font-black text-red-300 hover:bg-red-500/20 transition">
+                            ✕ Cancelar este pedido
+                          </button>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -2159,6 +2185,18 @@ function TabletView({
           confirmar={contaSolicitada ? "Sim, reenviar" : "Sim, enviar ao caixa"}
           onConfirmar={() => { setConfirmarConta(false); requestBill(); }}
           onCancelar={() => setConfirmarConta(false)}
+        />
+      )}
+
+      {/* Confirmação de cancelamento do pedido pelo cliente */}
+      {cancelandoPedido && (
+        <ConfirmModal
+          perigo={true}
+          titulo="Cancelar este pedido?"
+          mensagem={`Deseja cancelar o pedido ${cancelandoPedido.id}? Isso só é possível enquanto o pedido está na fila ou em preparo.`}
+          confirmar="Sim, cancelar pedido"
+          onConfirmar={() => { cancelarPedidoTablet(cancelandoPedido.id); setCancelandoPedido(null); }}
+          onCancelar={() => setCancelandoPedido(null)}
         />
       )}
 
