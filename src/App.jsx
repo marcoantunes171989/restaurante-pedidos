@@ -1595,12 +1595,10 @@ function TabletView({
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-slate-950 overflow-hidden"
-      style={{ height: "100dvh", paddingBottom: "env(safe-area-inset-bottom)" }}>
+      style={{ height: "100dvh", paddingTop: "calc(env(safe-area-inset-top) + 24px)", paddingBottom: "env(safe-area-inset-bottom)" }}>
 
-      {/* ── Cabeçalho mínimo (absorve a safe-area do topo com fundo sólido,
-            evitando faixa/linha branca no topo no Android) ───────────── */}
-      <header className="flex shrink-0 items-center justify-between border-b border-white/10 bg-slate-900 px-5 py-3"
-        style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)" }}>
+      {/* ── Cabeçalho mínimo (mesmo padrão das telas de cozinha/caixa) ── */}
+      <header className="flex shrink-0 items-center justify-between border-b border-white/10 bg-slate-900/90 px-5 py-3 backdrop-blur-xl">
         <div className="flex items-center gap-3">
           <span className="text-2xl">🍽️</span>
           <div>
