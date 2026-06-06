@@ -1685,7 +1685,7 @@ function TabletView({
           <span className="text-2xl">🍽️</span>
           <div>
             <p className="text-base font-black text-white leading-tight">{lojaInfo?.nome || "Cardápio"}</p>
-            <p className="text-xs text-slate-500">Mesa {tableNumber.padStart(2,"0")}</p>
+            <p className="text-xs text-slate-500">{tableNumber && Number(tableNumber) > 0 ? `Mesa ${tableNumber.padStart(2,"0")}` : "Informe a mesa"}</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
