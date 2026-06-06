@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#020617" />
+  <title>Baixar app — Pedido Prime</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <style>
+    *{box-sizing:border-box;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+    body{min-height:100dvh;background:#020617;color:#e2e8f0;display:flex;justify-content:center;padding:28px 18px;
+      background-image:radial-gradient(32rem 32rem at -6rem -6rem,rgba(37,99,235,.18),transparent 70%),
+        radial-gradient(32rem 32rem at calc(100% + 6rem) calc(100% + 6rem),rgba(124,58,237,.14),transparent 70%);}
+    .wrap{width:100%;max-width:460px}
+    .brand{text-align:center;margin-bottom:22px}
+    .logo{width:72px;height:72px;border-radius:22px;display:inline-flex;align-items:center;justify-content:center;
+      font-size:38px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);box-shadow:0 18px 40px -16px rgba(37,99,235,.7)}
+    h1{font-size:24px;font-weight:900;margin-top:14px;color:#fff}
+    .sub{color:#94a3b8;font-size:14px;margin-top:4px}
+    .card{border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);border-radius:26px;padding:22px;backdrop-filter:blur(12px)}
+    .btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:18px;border-radius:18px;border:0;
+      font-size:16px;font-weight:900;color:#fff;background:#22c55e;text-decoration:none;cursor:pointer;transition:.15s}
+    .btn:hover{background:#16a34a}
+    .btn.alt{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#cbd5e1;margin-top:12px}
+    .btn.alt:hover{background:rgba(255,255,255,.12)}
+    ol{margin:18px 4px 0;padding-left:18px;color:#cbd5e1;font-size:14px;line-height:1.9}
+    ol b{color:#fff}
+    .note{margin-top:16px;font-size:12px;color:#64748b;line-height:1.6}
+    .tag{display:inline-block;font-size:11px;font-weight:800;color:#93c5fd;background:rgba(59,130,246,.12);
+      border:1px solid rgba(59,130,246,.25);border-radius:999px;padding:4px 10px;margin-bottom:8px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="brand">
+      <span class="logo">🍽️</span>
+      <h1>Pedido Prime</h1>
+      <p class="sub">App para tablet Android do restaurante</p>
+    </div>
+
+    <div class="card">
+      <span class="tag">📥 Download do aplicativo</span>
+      <a class="btn" href="/pedido-prime.apk" download>⬇️ Baixar APK (Android)</a>
+      <a class="btn alt" href="/login">🌐 Abrir / instalar como app (PWA)</a>
+
+      <ol>
+        <li>Toque em <b>Baixar APK</b> acima.</li>
+        <li>Ao concluir, abra o arquivo e toque em <b>Instalar</b>.</li>
+        <li>Se pedir, permita <b>"Instalar apps desconhecidos"</b> para o navegador/Arquivos.</li>
+        <li>Abra o app pelo ícone <b>Pedido Prime</b> e faça login (ou use o QR de login).</li>
+      </ol>
+
+      <p class="note">Sincroniza em tempo real com o sistema (Supabase). Requer internet.
+        Caso o botão do APK não baixe, o arquivo ainda está sendo publicado — use a opção
+        "Abrir / instalar como app (PWA)" enquanto isso.</p>
+    </div>
+  </div>
+</body>
+</html>
