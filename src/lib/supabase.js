@@ -247,6 +247,46 @@ export function escutarComandas(onMudanca) {
 }
 
 // ════════════════════════════════════════════════════════════
+//  tab_dispositivos — controle de versão por aparelho
+// ════════════════════════════════════════════════════════════
+function mapDispositivo(r) {
+  return {
+    deviceId: r.device_id, nome: r.nome || '', versao: r.versao || '',
+    userEmail: r.user_email || '', lojaId: r.loja_id ?? null,
+    plataforma: r.plataforma || '', standalone: !!r.standalone,
+    ultimaAtividade: r.ultima_atividade, criadoEm: r.criado_em,
+  }
+}
+export async function registrarDispositivo({ deviceId, versao, userEmail = null, lojaId = null, plataforma = null, standalone = false }) {
+  if (!deviceId) return
+  const { error } = await supabase.from('tab_dispositivos').upsert([{
+    device_id: deviceId, versao, user_email: userEmail, loja_id: lojaId,
+    plataforma, standalone, ultima_atividade: new Date().toISOString(),
+  }], { onConflict: 'device_id' })
+  if (error) throw error
+}
+export async function fetchDispositivos() {
+  const { data, error } = await supabase.from('tab_dispositivos').select('*').order('ultima_atividade', { ascending: false })
+  if (error) throw error
+  return (data || []).map(mapDispositivo)
+}
+export async function renomearDispositivo(deviceId, nome) {
+  const { error } = await supabase.from('tab_dispositivos').update({ nome }).eq('device_id', deviceId)
+  if (error) throw error
+}
+export async function removerDispositivo(deviceId) {
+  const { error } = await supabase.from('tab_dispositivos').delete().eq('device_id', deviceId)
+  if (error) throw error
+}
+export function escutarDispositivos(onMudanca) {
+  const reload = async () => { try { onMudanca(await fetchDispositivos()) } catch {} }
+  const canal = supabase.channel('ch_dispositivos_' + Math.random().toString(36).slice(2))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_dispositivos' }, reload)
+    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
+  return () => supabase.removeChannel(canal)
+}
+
+// ════════════════════════════════════════════════════════════
 //  tab_categorias — CRUD + Realtime
 // ════════════════════════════════════════════════════════════
 export async function fetchCategorias() {

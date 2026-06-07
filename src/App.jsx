@@ -13,6 +13,7 @@ import {
   excluirProduto, excluirFormaPagamento, excluirUsuario,
   STATUS_APP_PARA_DB,
   uploadImagemProduto, validarImagemProduto,
+  registrarDispositivo, fetchDispositivos, escutarDispositivos, renomearDispositivo, removerDispositivo,
 } from "./lib/supabase";
 import { GeradorComandas } from "./components/QRComandas";
 import { QRScannerModal  } from "./components/QRScanner";
@@ -643,6 +644,29 @@ export default function RestaurantePedidoApp() {
   // O super admin não tem empresa fixa: escolhe uma "empresa em foco" para gerenciar os cadastros
   const lojaAtual = currentUser?.lojaId ?? (isSuperAdmin ? lojaContexto : null);
   const lojaInfo = lojas.find((l) => l.id === lojaAtual) || null;
+
+  // ── Controle de versão por aparelho (heartbeat) ─────────────
+  // Cada aparelho reporta sua versão atual ao Supabase, para o painel
+  // "Controle de versões" comparar com a versão liberada.
+  useEffect(() => {
+    if (!dbReady) return;
+    let id;
+    try {
+      id = localStorage.getItem("pp_device_id");
+      if (!id) { id = (crypto.randomUUID?.() || String(Date.now()) + Math.random().toString(36).slice(2)); localStorage.setItem("pp_device_id", id); }
+    } catch { return; }
+    if (!id) return;
+    const versao = (typeof __APP_VERSION__ !== "undefined") ? __APP_VERSION__ : "local";
+    const standalone = !!(window.matchMedia?.("(display-mode: standalone)")?.matches || window.matchMedia?.("(display-mode: fullscreen)")?.matches || window.navigator.standalone);
+    const plataforma = (navigator.userAgent || "").slice(0, 180);
+    const reportar = () => registrarDispositivo({ deviceId: id, versao, userEmail: currentUser?.email || null, lojaId: lojaAtual ?? null, plataforma, standalone }).catch(() => {});
+    reportar();
+    const iv = setInterval(reportar, 2 * 60 * 1000);
+    const onVis = () => { if (document.visibilityState === "visible") reportar(); };
+    document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("focus", reportar);
+    return () => { clearInterval(iv); document.removeEventListener("visibilitychange", onVis); window.removeEventListener("focus", reportar); };
+  }, [dbReady, currentUser?.email, lojaAtual]);
   const filtraLoja = (arr) => lojaAtual == null ? arr : arr.filter((x) => x.lojaId == null || x.lojaId === lojaAtual);
   const products      = filtraLoja(productsAll);
   const orders        = filtraLoja(ordersAll);
@@ -4155,9 +4179,13 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
         { id: "link", icon: "🔗", label: "Usuário x Acesso" },
         { id: "licencas", icon: "🔑", label: "Licenças de uso" },
       ]},
+      { grupo: "Sistema", itens: [
+        { id: "versoes", icon: "🔄", label: "Controle de versões" },
+      ]},
     ] : [
       { grupo: "Empresa", itens: [
         { id: "minhaempresa", icon: "🏪", label: "Minha empresa" },
+        { id: "versoes", icon: "🔄", label: "Controle de versões" },
       ]},
     ]),
   ];
@@ -4293,6 +4321,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           {ativo === "pagamento"  && (precisaEmpresa ? avisoEmpresa : <PagamentoAdmin formasPagamento={formasPagamento} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} />)}
           {ativo === "lojas"      && <LojaAdmin lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} lojaInfo={lojaInfo} criarEmpresa={criarEmpresa} cargos={cargos} />}
           {ativo === "licencas"   && <LicencaAdmin lojas={lojas} usuarios={users} setLicencaEmpresa={setLicencaEmpresa} />}
+          {ativo === "versoes"    && <VersoesAdmin lojas={lojas} lojaFiltro={isSuperAdmin ? null : (lojaInfo?.id ?? null)} />}
           {ativo === "minhaempresa" && (
             <MinhaEmpresa
               lojaInfo={lojaInfo}
@@ -5542,6 +5571,138 @@ function EmpresaMetrica({ label, valor, cor = "text-white" }) {
       <p className="text-xs font-bold uppercase tracking-widest text-slate-500">{label}</p>
       <p className={`mt-1 text-xl font-black ${cor}`}>{valor}</p>
     </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+//  Controle de versões / dispositivos (painel admin)
+// ════════════════════════════════════════════════════════════
+function tempoRelativo(iso) {
+  if (!iso) return "—";
+  const ms = Date.now() - new Date(iso).getTime();
+  const s = Math.floor(ms / 1000);
+  if (s < 60) return "agora";
+  const m = Math.floor(s / 60); if (m < 60) return `há ${m} min`;
+  const h = Math.floor(m / 60); if (h < 24) return `há ${h} h`;
+  const d = Math.floor(h / 24); return `há ${d} dia(s)`;
+}
+function VersoesAdmin({ lojas = [], lojaFiltro = null }) {
+  const [dispositivos, setDispositivos] = useState([]);
+  const [versaoLiberada, setVersaoLiberada] = useState(null);
+  const [carregando, setCarregando] = useState(true);
+  const [editId, setEditId] = useState(null);
+  const [editNome, setEditNome] = useState("");
+  const [excluir, setExcluir] = useState(null);
+  const versaoAtual = (typeof __APP_VERSION__ !== "undefined") ? __APP_VERSION__ : "local";
+  const nomeLoja = (id) => lojas.find((l) => l.id === id)?.nome || "—";
+
+  // Carrega dispositivos + realtime
+  useEffect(() => {
+    let vivo = true;
+    fetchDispositivos().then((d) => { if (vivo) { setDispositivos(d); setCarregando(false); } }).catch(() => setCarregando(false));
+    const off = escutarDispositivos((d) => { if (vivo) setDispositivos(d); });
+    return () => { vivo = false; off && off(); };
+  }, []);
+
+  // Versão LIBERADA (a publicada) — lida do sw.js (igual ao banner de atualização)
+  useEffect(() => {
+    fetch("/sw.js", { cache: "no-store" }).then((r) => r.text()).then((t) => {
+      const m = t.match(/APP_VERSION\s*=\s*"([^"]+)"/);
+      if (m && m[1] && m[1] !== "__APP_VERSION__") setVersaoLiberada(m[1]);
+      else setVersaoLiberada(versaoAtual);
+    }).catch(() => setVersaoLiberada(versaoAtual));
+  }, []);
+
+  const lista = (lojaFiltro == null ? dispositivos : dispositivos.filter((d) => d.lojaId === lojaFiltro));
+  const ref = versaoLiberada || versaoAtual;
+  const atualizados = lista.filter((d) => d.versao === ref).length;
+  const desatualizados = lista.length - atualizados;
+
+  async function salvarNome(id) {
+    try { await renomearDispositivo(id, editNome.trim()); } catch {}
+    setEditId(null); setEditNome("");
+  }
+  async function confirmarExcluir() {
+    if (!excluir) return;
+    try { await removerDispositivo(excluir.deviceId); } catch {}
+    setExcluir(null);
+  }
+
+  return (
+    <main className="space-y-5">
+      {/* Cabeçalho + versão liberada */}
+      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+        <h3 className="text-xl font-black text-white">🔄 Controle de versões</h3>
+        <p className="mt-0.5 text-sm text-slate-400">Acompanhe a versão liberada e a versão aplicada em cada aparelho.</p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <div className="rounded-2xl border border-blue-400/20 bg-blue-500/10 p-4">
+            <p className="text-[10px] font-black uppercase tracking-widest text-blue-300">Versão liberada</p>
+            <p className="mt-1 font-mono text-lg font-black text-white">{ref}</p>
+          </div>
+          <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 p-4">
+            <p className="text-[10px] font-black uppercase tracking-widest text-emerald-300">Aparelhos atualizados</p>
+            <p className="mt-1 text-lg font-black text-emerald-200">{atualizados}<span className="text-sm text-slate-400">/{lista.length}</span></p>
+          </div>
+          <div className="rounded-2xl border border-amber-400/20 bg-amber-500/10 p-4">
+            <p className="text-[10px] font-black uppercase tracking-widest text-amber-300">Desatualizados</p>
+            <p className="mt-1 text-lg font-black text-amber-200">{desatualizados}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Lista de dispositivos */}
+      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+        {carregando && <p className="py-8 text-center text-sm text-slate-500">Carregando aparelhos…</p>}
+        {!carregando && lista.length === 0 && (
+          <p className="py-8 text-center text-sm text-slate-500">Nenhum aparelho registrado ainda. Ao abrir o app em um aparelho, ele aparece aqui.</p>
+        )}
+        <div className="space-y-2">
+          {lista.map((d) => {
+            const ok = d.versao === ref;
+            return (
+              <div key={d.deviceId} className="flex flex-col gap-2 rounded-3xl border border-white/10 bg-slate-950/40 p-3.5 sm:flex-row sm:items-center sm:gap-3">
+                <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-lg ${d.standalone ? "bg-blue-500/15" : "bg-white/[0.06]"}`}>{d.standalone ? "📱" : "🌐"}</span>
+                <div className="min-w-0 flex-1">
+                  {editId === d.deviceId ? (
+                    <div className="flex gap-2">
+                      <input autoFocus value={editNome} onChange={(e) => setEditNome(e.target.value)} placeholder="Nome do aparelho (ex.: Tablet Mesa 1)"
+                        onKeyDown={(e) => { if (e.key === "Enter") salvarNome(d.deviceId); }}
+                        className="w-full rounded-xl border border-white/10 bg-slate-950/70 px-3 py-1.5 text-sm text-white outline-none focus:border-blue-400" />
+                      <button onClick={() => salvarNome(d.deviceId)} className="shrink-0 rounded-xl bg-blue-500 px-3 py-1.5 text-xs font-black text-white">Salvar</button>
+                    </div>
+                  ) : (
+                    <p className="truncate text-sm font-black text-white">
+                      {d.nome || "Aparelho sem nome"}
+                      <button onClick={() => { setEditId(d.deviceId); setEditNome(d.nome || ""); }} className="ml-2 text-[11px] font-bold text-slate-500 hover:text-blue-300">✏️ renomear</button>
+                    </p>
+                  )}
+                  <p className="truncate text-xs text-slate-400">
+                    {d.userEmail || "—"} · {d.standalone ? "App instalado" : "Navegador"} · {nomeLoja(d.lojaId)} · {tempoRelativo(d.ultimaAtividade)}
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <span className={`rounded-full px-3 py-1 font-mono text-xs font-black ${ok ? "bg-emerald-500/15 text-emerald-300" : "bg-amber-500/15 text-amber-300"}`}>
+                    {d.versao || "—"}
+                  </span>
+                  <span className={`rounded-full px-2.5 py-1 text-[10px] font-black ${ok ? "bg-emerald-500/10 text-emerald-300" : "bg-amber-500/10 text-amber-300"}`}>
+                    {ok ? "✓ Atualizado" : "↑ Desatualizado"}
+                  </span>
+                  <button onClick={() => setExcluir(d)} title="Remover registro deste aparelho" className="rounded-xl border border-red-400/20 bg-red-500/10 px-2.5 py-1 text-xs font-black text-red-300 hover:bg-red-500/20">✕</button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <p className="mt-4 text-xs text-slate-500">
+          Atualização é automática: o app recarrega a versão liberada ao reabrir e mostra o aviso "Nova versão disponível". Aparelhos desatualizados se atualizam sozinhos no próximo uso.
+        </p>
+      </div>
+
+      {excluir && (
+        <ConfirmModal perigo titulo="Remover aparelho?" mensagem={`Remover o registro de "${excluir.nome || "aparelho sem nome"}"? Ele reaparece automaticamente quando o app for aberto nele novamente.`}
+          confirmar="Remover" onConfirmar={confirmarExcluir} onCancelar={() => setExcluir(null)} />
+      )}
+    </main>
   );
 }
 
