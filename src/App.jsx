@@ -18,7 +18,7 @@ import {
 import { GeradorComandas } from "./components/QRComandas";
 import { QRScannerModal  } from "./components/QRScanner";
 
-const fallbackImage = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=900&q=80";
+export const fallbackImage = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=900&q=80";
 
 const initialProducts = [
   { id: 1, name: "Risoto de Filé Mignon", category: "Pratos principais", price: 58.9, cost: 31.2, active: true, time: "25-35 min", description: "Arroz arbóreo, filé em tiras, parmesão e toque de vinho branco.", badge: "Mais pedido", imageUrl: "https://images.unsplash.com/photo-1476124369491-e7addf5db371?auto=format&fit=crop&w=900&q=80", ingredients: ["Arroz arbóreo", "Filé mignon", "Parmesão", "Vinho branco", "Manteiga", "Caldo especial"] },
@@ -66,7 +66,7 @@ const initialUsers = [
   { id: 5, name: "Caixa", email: "caixa@restaurante.com", password: "123456", role: "Financeiro", active: true, accessIds: ["cashier"] },
 ];
 
-const statusMap = {
+export const statusMap = {
   received:  { label: "Recebido",     title: "Pedido recebido",    order: 1, progress: 25,  dot: "bg-blue-500",   chip: "bg-blue-50 text-blue-700 border-blue-100"     },
   preparing: { label: "Em preparação",title: "Em preparação",      order: 2, progress: 65,  dot: "bg-amber-500",  chip: "bg-amber-50 text-amber-700 border-amber-100"  },
   ready:     { label: "Finalizado",   title: "Pedido finalizado",  order: 3, progress: 100, dot: "bg-emerald-500",chip: "bg-emerald-50 text-emerald-700 border-emerald-100"},
@@ -76,11 +76,11 @@ const statusMap = {
 
 const paymentStatusMap = { open: "Conta aberta", requested: "Fechamento solicitado", paid: "Conta paga" };
 
-function formatCurrency(value) {
+export function formatCurrency(value) {
   return Number(value || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
-function isValidCommand(code) {
+export function isValidCommand(code) {
   // Aceita qualquer prefixo de 1-5 letras + hífen + 4-8 números (ex: CMD-000001, RST-0001)
   return /^[A-Z]{1,5}-\d{4,8}$/.test(String(code || "").trim().toUpperCase());
 }
@@ -155,7 +155,7 @@ function abrirImpressaoTermica(tituloDoc, corpoHTML) {
   j.document.close();
 }
 
-function itemDetails(item) {
+export function itemDetails(item) {
   return [
     item.removedIngredients?.length ? `Sem: ${item.removedIngredients.join(", ")}` : "",
     item.extraIngredients?.length ? `Adicionar: ${item.extraIngredients.join(", ")}` : "",
@@ -542,7 +542,7 @@ function Metric({ label, value }) {
 
 // Rótulos de acompanhamento exibidos no TABLET (mesmos nomes dos estágios da
 // cozinha, mais amigáveis para o cliente acompanhar).
-const STATUS_TABLET_LABEL = {
+export const STATUS_TABLET_LABEL = {
   received:  "Na fila - Aguardando",
   preparing: "Em produção - Preparando",
   ready:     "Pronto para Retirar - Finalizado",
@@ -2341,7 +2341,7 @@ function TabletView({
 // ════════════════════════════════════════════════════════════
 //  Modal de detalhes/personalização do produto
 // ════════════════════════════════════════════════════════════
-function ProdutoModal({ produto, onFechar, onAdicionar }) {
+export function ProdutoModal({ produto, onFechar, onAdicionar }) {
   const [quantidade, setQuantidade]   = useState(1);
   const [selecionados, setSelecionados] = useState([...(produto.ingredients || [])]);
   const [removidos, setRemovidos]       = useState([]);
@@ -6137,7 +6137,7 @@ function LojaAdmin({ lojas, addLoja, toggleLoja, editarLoja, removerLoja, lojaIn
 // Modal de cadastro de empresa (empresa + gestor) — combo de cargo em chips elegantes
 function EmpresaCadastroModal({ cargos = [], criarEmpresa, onFechar }) {
   const cargoGestorPadrao = cargos.find((c) => c.nome.toLowerCase() === "gestor")?.id ?? (cargos[0]?.id ?? "");
-  const [form, setForm] = useState({ nomeLoja: "", prefixo: "", documento: "", nomeResponsavel: "", email: "", senha: "", cargoId: cargoGestorPadrao });
+  const [form, setForm] = useState({ nomeLoja: "", prefixo: "", documento: "", modoUso: "interno", nomeResponsavel: "", email: "", senha: "", cargoId: cargoGestorPadrao });
   const [enviando, setEnviando] = useState(false);
   const [verSenha, setVerSenha] = useState(false);
   const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400 placeholder:text-slate-600";
@@ -6186,6 +6186,18 @@ function EmpresaCadastroModal({ cargos = [], criarEmpresa, onFechar }) {
               {form.documento && !docValido(form.documento) && (
                 <p className="mt-1 text-xs text-amber-400">Informe um CNPJ (14 dígitos) ou CPF (11 dígitos) válido.</p>
               )}
+            </div>
+            <div className="sm:col-span-2">
+              <span className={lbl}>Modo de uso</span>
+              <div className="grid grid-cols-3 gap-2">
+                {[["interno", "🖥️ Interno", "Tablets"], ["externo", "📱 Externo", "Cardápio do cliente"], ["ambos", "🔀 Ambos", "Os dois"]].map(([v, t, d]) => (
+                  <button key={v} type="button" onClick={() => setForm({ ...form, modoUso: v })}
+                    className={`rounded-2xl border px-2 py-2.5 text-center transition ${form.modoUso === v ? "border-blue-400 bg-blue-500/15" : "border-white/10 bg-slate-950/40 hover:bg-white/[0.06]"}`}>
+                    <p className={`text-xs font-black ${form.modoUso === v ? "text-blue-200" : "text-white"}`}>{t}</p>
+                    <p className="mt-0.5 text-[10px] text-slate-500">{d}</p>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -6246,6 +6258,7 @@ function LojaEditModal({ loja, onSalvar, onFechar }) {
   const [nome, setNome] = useState(loja.nome || "");
   const [prefixo, setPrefixo] = useState(loja.prefixo || "");
   const [doc, setDoc] = useState(loja.documento || "");
+  const [modoUso, setModoUso] = useState(loja.modoUso || "interno");
   const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400";
   const lbl = "mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500";
   const valido = nome.trim() && /^[A-Z]{2,5}$/.test(prefixo) && docValido(doc);
@@ -6273,10 +6286,22 @@ function LojaEditModal({ loja, onSalvar, onFechar }) {
               placeholder="00.000.000/0000-00 ou 000.000.000-00" className={`${inp} font-mono`} />
             {doc && !docValido(doc) && <p className="mt-1 text-xs text-amber-400">Informe um CNPJ (14) ou CPF (11) válido.</p>}
           </div>
+          <div>
+            <span className={lbl}>Modo de uso</span>
+            <div className="grid grid-cols-3 gap-2">
+              {[["interno", "🖥️ Interno", "Tablets"], ["externo", "📱 Externo", "Cardápio do cliente"], ["ambos", "🔀 Ambos", "Os dois"]].map(([v, t, d]) => (
+                <button key={v} type="button" onClick={() => setModoUso(v)}
+                  className={`rounded-2xl border px-2 py-2.5 text-center transition ${modoUso === v ? "border-blue-400 bg-blue-500/15" : "border-white/10 bg-slate-950/40 hover:bg-white/[0.06]"}`}>
+                  <p className={`text-xs font-black ${modoUso === v ? "text-blue-200" : "text-white"}`}>{t}</p>
+                  <p className="mt-0.5 text-[10px] text-slate-500">{d}</p>
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
         <div className="mt-6 flex gap-3">
           <button onClick={onFechar} className="flex-1 rounded-2xl border border-white/10 bg-white/[0.06] px-5 py-3 text-sm font-black text-slate-300 hover:bg-white/10">Cancelar</button>
-          <button onClick={() => valido && onSalvar({ nome: nome.trim(), prefixo, documento: soDigitos(doc) })} disabled={!valido}
+          <button onClick={() => valido && onSalvar({ nome: nome.trim(), prefixo, documento: soDigitos(doc), modo_uso: modoUso })} disabled={!valido}
             className="flex-1 rounded-2xl bg-blue-500 px-5 py-3 text-sm font-black text-white hover:bg-blue-400 disabled:opacity-50">Salvar</button>
         </div>
       </div>

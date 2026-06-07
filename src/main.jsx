@@ -4,6 +4,7 @@ import './index.css'
 import App from './App.jsx'
 import LandingPage from './landing/LandingPage.jsx'
 import PwaBanner from './PwaBanner.jsx'
+import CardapioPublico from './CardapioPublico.jsx'
 
 // ══════════════════════════════════════════════════════════════
 //  SW Manager
@@ -241,6 +242,7 @@ function Root() {
   const [swAtivado, setSwAtivado] = useState(false)
   const notifiedRef             = useRef(false)
   const ehSistema               = /^\/(login|app|sistema)(\/|$)/.test(path)
+  const ehCardapio              = /^\/cardapio(\/|$)/.test(path)
   const instancia               = useInstanciaUnica(ehSistema)
 
   useEffect(() => {
@@ -324,6 +326,9 @@ function Root() {
 
   // O badge de versão é exibido apenas na TELA DE LOGIN (dentro de <App/>),
   // não na landing nem nas demais telas.
+  // Cardápio digital público (cliente externo) — sem banner PWA/instância
+  if (ehCardapio) return <CardapioPublico />
+
   return (
     <>
       {ehSistema ? <App /> : <LandingPage navigate={navigate} />}
