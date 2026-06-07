@@ -27,5 +27,15 @@ drop policy if exists "tab_dispositivos_all" on public.tab_dispositivos;
 create policy "tab_dispositivos_all" on public.tab_dispositivos
   for all using (true) with check (true);
 
--- Realtime
-alter publication supabase_realtime add table public.tab_dispositivos;
+-- Realtime (idempotente — não falha se a tabela já estiver na publicação)
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'tab_dispositivos'
+  ) then
+    alter publication supabase_realtime add table public.tab_dispositivos;
+  end if;
+end $$;
