@@ -1211,8 +1211,16 @@ export default function RestaurantePedidoApp() {
     if (!nome || !prefixo) return notify("error", "Informe o nome e o prefixo da empresa.");
     if (!/^[A-Z]{2,5}$/.test(prefixo)) return notify("error", "O prefixo deve ter de 2 a 5 letras (ex.: PZB).");
     if (lojas.some((l) => l.id !== id && l.prefixo === prefixo)) return notify("error", "Já existe outra empresa com este prefixo.");
-    setLojas((cur) => cur.map((x) => x.id === id ? { ...x, nome, prefixo } : x));
-    if (dbReady) try { await atualizarLoja(id, { nome, prefixo }); } catch (err) { notify("error", "Erro ao salvar: " + err.message); }
+    // Campos opcionais (documento/CNPJ e modo de uso) — persistir quando enviados
+    const extra = {};
+    const extraLocal = {};
+    if (dados.documento !== undefined) { extra.documento = dados.documento || null; extraLocal.documento = dados.documento || null; }
+    if (dados.modo_uso !== undefined) { extra.modo_uso = dados.modo_uso; extraLocal.modoUso = dados.modo_uso; }
+    setLojas((cur) => cur.map((x) => x.id === id ? { ...x, nome, prefixo, ...extraLocal } : x));
+    if (dbReady) {
+      try { await atualizarLoja(id, { nome, prefixo, ...extra }); }
+      catch (err) { return notify("error", "Erro ao salvar: " + (err.message || err)); }
+    }
     notify("success", `Empresa "${nome}" atualizada.`);
   }
   async function removerLoja(id) {
@@ -6095,7 +6103,14 @@ function LojaAdmin({ lojas, addLoja, toggleLoja, editarLoja, removerLoja, lojaIn
                   {l.nome}
                   {lojaInfo?.id === l.id && <span className="ml-2 rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-black text-emerald-300 align-middle">ATUAL</span>}
                 </p>
-                <p className="text-xs text-slate-400">Comandas: <span className="font-mono font-bold text-blue-300">{l.prefixo}-000001</span></p>
+                <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-400">
+                  <span>Comandas: <span className="font-mono font-bold text-blue-300">{l.prefixo}-000001</span></span>
+                  {(() => { const m = l.modoUso || "interno";
+                    const map = { interno: ["🖥️ Interno", "bg-slate-600/30 text-slate-300"], externo: ["📱 Externo", "bg-emerald-500/15 text-emerald-300"], ambos: ["🔀 Ambos", "bg-blue-500/15 text-blue-300"] };
+                    const [txt, cls] = map[m] || map.interno;
+                    return <span className={`rounded-full px-2 py-0.5 text-[10px] font-black ${cls}`}>{txt}</span>;
+                  })()}
+                </p>
               </div>
               <button
                 onClick={() => { if (l.active !== false) setInativar(l); else toggleLoja(l.id); }}
