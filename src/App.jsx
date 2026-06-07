@@ -1188,6 +1188,18 @@ export default function RestaurantePedidoApp() {
     return true;
   }
 
+  // ── Modo de uso da empresa (interno | externo | ambos) ──────
+  async function setModoUsoEmpresa(id, modo) {
+    if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
+    if (!id) return notify("error", "Selecione uma empresa em foco.");
+    if (!["interno", "externo", "ambos"].includes(modo)) return;
+    setLojas((cur) => cur.map((x) => x.id === id ? { ...x, modoUso: modo } : x));
+    if (dbReady) try { await atualizarLoja(id, { modo_uso: modo }); }
+    catch (e) { notify("error", "Erro ao salvar o modo de uso: " + (e.message || e)); return; }
+    notify("success", "Modo de uso atualizado.");
+    return true;
+  }
+
   // ── Licença de uso por empresa (somente administrador geral) ──
   async function setLicencaEmpresa(id, bloquear) {
     if (!isSuperAdmin) return notify("error", "Somente o administrador geral controla licenças.");
@@ -1604,7 +1616,7 @@ export default function RestaurantePedidoApp() {
         )}
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} products={products} lojaInfo={lojaInfo} />}
         {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierView orders={orders} baixarComandas={baixarComandas} baixarPedidos={baixarPedidos} formasPagamento={formasPagamentoLoja} onSair={logout} lojaInfo={lojaInfo} />}
-        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} setLicencaEmpresa={setLicencaEmpresa} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} />}
+        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} setLicencaEmpresa={setLicencaEmpresa} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} />}
 
       </div>
     </div>
@@ -4200,7 +4212,7 @@ function ComboEmpresaFoco({ lojas = [], valor, onChange }) {
   );
 }
 
-function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, toggleUserStatus, toggleAccessStatus, usersLoja, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], addLoja, toggleLoja, editarLoja, removerLoja, setLicencaEmpresa = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{} }) {
+function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, toggleUserStatus, toggleAccessStatus, usersLoja, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], addLoja, toggleLoja, editarLoja, removerLoja, setLicencaEmpresa = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, setModoUsoEmpresa = async()=>{} }) {
   const menu = [
     { grupo: "Gestão", itens: [
       { id: "dashboard", icon: "📊", label: "Dashboard" },
@@ -4211,6 +4223,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
       { id: "categorias", icon: "🏷️", label: "Categorias" },
       { id: "pagamento", icon: "💳", label: "Formas de pagamento" },
       { id: "comandas", icon: "🎫", label: "Comandas QR" },
+      { id: "cardapioext", icon: "📱", label: "Cardápio externo" },
     ]},
     // Empresa: super admin gerencia todas; usuário comum vê apenas a sua
     ...(isSuperAdmin ? [
@@ -4367,6 +4380,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           {ativo === "lojas"      && <LojaAdmin lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} lojaInfo={lojaInfo} criarEmpresa={criarEmpresa} cargos={cargos} />}
           {ativo === "licencas"   && <LicencaAdmin lojas={lojas} usuarios={users} setLicencaEmpresa={setLicencaEmpresa} />}
           {ativo === "versoes"    && <VersoesAdmin lojas={lojas} lojaFiltro={isSuperAdmin ? null : (lojaInfo?.id ?? null)} />}
+          {ativo === "cardapioext" && (precisaEmpresa ? avisoEmpresa : <CardapioExternoAdmin lojaInfo={lojaInfo} setModoUsoEmpresa={setModoUsoEmpresa} />)}
           {ativo === "minhaempresa" && (
             <MinhaEmpresa
               lojaInfo={lojaInfo}
@@ -5817,6 +5831,73 @@ function VersoesAdmin({ lojas = [], lojaFiltro = null }) {
         <ConfirmModal perigo titulo="Remover aparelho?" mensagem={`Remover o registro de "${excluir.nome || "aparelho sem nome"}"? Ele reaparece automaticamente quando o app for aberto nele novamente.`}
           confirmar="Remover" onConfirmar={confirmarExcluir} onCancelar={() => setExcluir(null)} />
       )}
+    </main>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+//  Cardápio externo (tela admin) — link + QR + ativar modo
+// ════════════════════════════════════════════════════════════
+function CardapioExternoAdmin({ lojaInfo, setModoUsoEmpresa = async () => {} }) {
+  const [qr, setQr] = useState("");
+  const [copiado, setCopiado] = useState(false);
+  const origem = (typeof window !== "undefined") ? window.location.origin : "";
+  const prefixo = lojaInfo?.prefixo || "";
+  const link = `${origem}/cardapio?e=${prefixo}`;
+  const modo = lojaInfo?.modoUso || "interno";
+  const ativo = modo === "externo" || modo === "ambos";
+
+  useEffect(() => {
+    let vivo = true;
+    (async () => {
+      try { const QRCode = (await import("qrcode")).default; const u = await QRCode.toDataURL(link, { width: 520, margin: 1, color: { dark: "#0f172a", light: "#ffffff" } }); if (vivo) setQr(u); } catch {}
+    })();
+    return () => { vivo = false; };
+  }, [link]);
+
+  const copiar = () => { try { navigator.clipboard?.writeText(link); setCopiado(true); setTimeout(() => setCopiado(false), 1500); } catch {} };
+
+  return (
+    <main className="space-y-5">
+      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+        <h3 className="text-xl font-black text-white">📱 Cardápio digital externo</h3>
+        <p className="mt-0.5 text-sm text-slate-400">Cardápio do cliente no celular — ver, pedir e acompanhar. Empresa: <b className="text-white">{lojaInfo?.nome || "—"}</b></p>
+      </div>
+
+      {/* Ativação do modo */}
+      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+        <p className="text-[11px] font-bold uppercase tracking-widest text-slate-500">Modo de uso da empresa</p>
+        <div className="mt-2 grid grid-cols-3 gap-2">
+          {[["interno", "🖥️ Interno", "Tablets"], ["externo", "📱 Externo", "Cardápio do cliente"], ["ambos", "🔀 Ambos", "Os dois"]].map(([v, t, d]) => (
+            <button key={v} type="button" onClick={() => setModoUsoEmpresa(lojaInfo?.id, v)}
+              className={`rounded-2xl border px-2 py-3 text-center transition ${modo === v ? "border-blue-400 bg-blue-500/15" : "border-white/10 bg-slate-950/40 hover:bg-white/[0.06]"}`}>
+              <p className={`text-sm font-black ${modo === v ? "text-blue-200" : "text-white"}`}>{t}</p>
+              <p className="mt-0.5 text-[10px] text-slate-500">{d}</p>
+            </button>
+          ))}
+        </div>
+        <p className={`mt-3 rounded-2xl border px-3 py-2 text-xs font-bold ${ativo ? "border-emerald-400/20 bg-emerald-500/10 text-emerald-200" : "border-amber-400/20 bg-amber-500/10 text-amber-200"}`}>
+          {ativo ? "✓ Cardápio externo ATIVO — o link abaixo abre para o cliente." : "⚠️ Cardápio externo desativado. Selecione Externo ou Ambos para habilitar o link."}
+        </p>
+      </div>
+
+      {/* Link + QR */}
+      <div className="grid gap-5 lg:grid-cols-[1fr_auto]">
+        <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+          <p className="text-[11px] font-bold uppercase tracking-widest text-slate-500">Link geral (divulgação)</p>
+          <input readOnly value={link} onClick={(e) => e.target.select()}
+            className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 font-mono text-xs text-emerald-200 outline-none" />
+          <div className="mt-2 flex gap-2">
+            <button onClick={copiar} className="rounded-2xl border border-emerald-400/30 bg-emerald-500/15 px-4 py-2.5 text-xs font-black text-emerald-200 hover:bg-emerald-500/25">{copiado ? "✓ Copiado" : "Copiar link"}</button>
+            <a href={link} target="_blank" rel="noreferrer" className={`rounded-2xl px-4 py-2.5 text-xs font-black transition ${ativo ? "bg-blue-500 text-white hover:bg-blue-400" : "border border-white/10 bg-white/[0.06] text-slate-400 pointer-events-none opacity-50"}`}>🔗 Abrir cardápio</a>
+          </div>
+          <p className="mt-3 text-xs text-slate-400">Por mesa: acrescente <code className="rounded bg-white/10 px-1 text-emerald-300">&amp;mesa=NN&amp;c=COMANDA</code> ao link (ex.: pedido já vinculado à comanda da mesa).</p>
+        </div>
+        <div className="flex flex-col items-center justify-center rounded-[2rem] border border-white/10 bg-white p-5">
+          {qr ? <img src={qr} alt="QR do cardápio" className="h-44 w-44" /> : <div className="flex h-44 w-44 items-center justify-center text-xs text-slate-400">gerando QR…</div>}
+          <p className="mt-2 text-[11px] font-black text-slate-600">Aponte a câmera no cardápio</p>
+        </div>
+      </div>
     </main>
   );
 }
