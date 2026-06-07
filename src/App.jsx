@@ -85,6 +85,17 @@ function isValidCommand(code) {
   return /^[A-Z]{1,5}-\d{4,8}$/.test(String(code || "").trim().toUpperCase());
 }
 
+// Documento (CNPJ/CPF) — utilitários
+function soDigitos(s) { return String(s || "").replace(/\D/g, ""); }
+function docValido(s) { const d = soDigitos(s); return d.length === 11 || d.length === 14; }
+function formatarDoc(s) {
+  const d = soDigitos(s).slice(0, 14);
+  if (d.length <= 11) {
+    return d.replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+  }
+  return d.replace(/(\d{2})(\d)/, "$1.$2").replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d)/, "$1/$2").replace(/(\d{4})(\d{1,2})$/, "$1-$2");
+}
+
 // ID único do aparelho (persistido no localStorage) — usado no controle de versões
 function obterDeviceId() {
   try {
@@ -677,9 +688,12 @@ export default function RestaurantePedidoApp() {
   // aparelho + empresa para facilitar a identificação no controle de versões.
   const [precisaNomear, setPrecisaNomear] = useState(false);
   useEffect(() => {
-    if (!dbReady || !currentUser) return;
+    // Só obriga aparelhos de empresa cujo cadastro já tenha CNPJ/CPF (evita
+    // travar empresas antigas ainda sem documento). Super admin não é obrigado.
+    if (!dbReady || !currentUser || isSuperAdmin) return;
+    if (!lojaInfo?.documento) return;
     try { if (!localStorage.getItem("pp_device_nomeado")) setPrecisaNomear(true); } catch {}
-  }, [dbReady, currentUser]);
+  }, [dbReady, currentUser, isSuperAdmin, lojaInfo?.documento]);
   const filtraLoja = (arr) => lojaAtual == null ? arr : arr.filter((x) => x.lojaId == null || x.lojaId === lojaAtual);
   const products      = filtraLoja(productsAll);
   const orders        = filtraLoja(ordersAll);
@@ -1483,9 +1497,9 @@ export default function RestaurantePedidoApp() {
     <div className="min-h-screen bg-slate-950 text-slate-100">
       {precisaNomear && (
         <NomearDispositivoModal
-          empresaPadrao={lojaInfo?.nome || ""}
-          onSalvar={async (nomeFinal) => {
-            try { await renomearDispositivo(obterDeviceId(), nomeFinal); } catch {}
+          lojas={lojas}
+          onSalvar={async (nomeFinal, lojaId) => {
+            try { await renomearDispositivo(obterDeviceId(), nomeFinal, lojaId); } catch {}
             try { localStorage.setItem("pp_device_nomeado", "1"); } catch {}
             setPrecisaNomear(false);
           }}
@@ -5615,16 +5629,22 @@ function dataHora(iso) {
   catch { return "—"; }
 }
 
-// Modal obrigatório de nomeação do aparelho (instalação/primeiro uso)
-function NomearDispositivoModal({ empresaPadrao = "", onSalvar }) {
-  const [empresa, setEmpresa] = useState(empresaPadrao);
-  const [ident, setIdent] = useState("");
+// Modal obrigatório de identificação do aparelho na instalação do APK:
+// informa o CNPJ/CPF → valida no cadastro de empresas → mostra a empresa → e
+// pede uma referência do tablet (ex.: Mesa 1).
+function NomearDispositivoModal({ lojas = [], onSalvar }) {
+  const [doc, setDoc] = useState("");
+  const [ref, setRef] = useState("");
   const [salvando, setSalvando] = useState(false);
-  const valido = empresa.trim() && ident.trim();
+  const docOk = docValido(doc);
+  const empresa = docOk ? lojas.find((l) => l.documento && soDigitos(l.documento) === soDigitos(doc) && l.active !== false) : null;
+  const naoEncontrada = docOk && !empresa;
+  const valido = !!empresa && ref.trim();
+
   async function salvar() {
     if (!valido || salvando) return;
     setSalvando(true);
-    await onSalvar(`${empresa.trim()} — ${ident.trim()}`);
+    await onSalvar(`${empresa.nome} — ${ref.trim()}`, empresa.id);
   }
   const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none focus:border-blue-400 placeholder:text-slate-600";
   const lbl = "mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-slate-500";
@@ -5633,21 +5653,29 @@ function NomearDispositivoModal({ empresaPadrao = "", onSalvar }) {
       <div className="w-full max-w-md overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl">
         <div className="border-b border-white/10 px-6 py-4">
           <h2 className="text-lg font-black text-white">📱 Identifique este aparelho</h2>
-          <p className="mt-0.5 text-xs text-slate-400">Necessário para o controle de versões — informe a empresa e onde este aparelho fica.</p>
+          <p className="mt-0.5 text-xs text-slate-400">Informe o CNPJ/CPF da empresa e uma referência deste tablet para o controle de versões.</p>
         </div>
         <div className="px-6 py-5 space-y-4">
           <div>
-            <span className={lbl}>Empresa *</span>
-            <input value={empresa} onChange={(e) => setEmpresa(e.target.value)} placeholder="Nome da empresa" className={inp} />
+            <span className={lbl}>CNPJ ou CPF da empresa *</span>
+            <input autoFocus inputMode="numeric" value={formatarDoc(doc)}
+              onChange={(e) => setDoc(soDigitos(e.target.value).slice(0, 14))}
+              placeholder="00.000.000/0000-00 ou 000.000.000-00" className={`${inp} font-mono`} />
+            {empresa && (
+              <p className="mt-1.5 rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-3 py-1.5 text-xs font-black text-emerald-200">✓ Empresa: {empresa.nome}</p>
+            )}
+            {naoEncontrada && (
+              <p className="mt-1.5 rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-1.5 text-xs font-bold text-red-200">CNPJ/CPF não encontrado no cadastro de empresas.</p>
+            )}
           </div>
           <div>
-            <span className={lbl}>Identificação do aparelho *</span>
-            <input autoFocus value={ident} onChange={(e) => setIdent(e.target.value)} placeholder="Ex.: Tablet Mesa 1, Cozinha, Caixa" className={inp}
+            <span className={lbl}>Referência do tablet *</span>
+            <input value={ref} onChange={(e) => setRef(e.target.value)} placeholder="Ex.: Tablet Mesa 1, Cozinha, Caixa" className={inp}
               onKeyDown={(e) => { if (e.key === "Enter") salvar(); }} />
           </div>
           {valido && (
             <p className="rounded-2xl border border-blue-400/20 bg-blue-500/10 px-3 py-2 text-xs font-bold text-blue-200">
-              Será salvo como: <span className="text-white">{empresa.trim()} — {ident.trim()}</span>
+              Será salvo como: <span className="text-white">{empresa.nome} — {ref.trim()}</span>
             </p>
           )}
         </div>
@@ -6109,19 +6137,19 @@ function LojaAdmin({ lojas, addLoja, toggleLoja, editarLoja, removerLoja, lojaIn
 // Modal de cadastro de empresa (empresa + gestor) — combo de cargo em chips elegantes
 function EmpresaCadastroModal({ cargos = [], criarEmpresa, onFechar }) {
   const cargoGestorPadrao = cargos.find((c) => c.nome.toLowerCase() === "gestor")?.id ?? (cargos[0]?.id ?? "");
-  const [form, setForm] = useState({ nomeLoja: "", prefixo: "", nomeResponsavel: "", email: "", senha: "", cargoId: cargoGestorPadrao });
+  const [form, setForm] = useState({ nomeLoja: "", prefixo: "", documento: "", nomeResponsavel: "", email: "", senha: "", cargoId: cargoGestorPadrao });
   const [enviando, setEnviando] = useState(false);
   const [verSenha, setVerSenha] = useState(false);
   const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400 placeholder:text-slate-600";
   const lbl = "mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500";
 
-  const valido = form.nomeLoja.trim() && form.prefixo.length >= 2 &&
+  const valido = form.nomeLoja.trim() && form.prefixo.length >= 2 && docValido(form.documento) &&
     form.nomeResponsavel.trim() && form.email.trim() && form.senha.length >= 4 && form.cargoId;
 
   async function salvar() {
     if (!valido || enviando) return;
     setEnviando(true);
-    try { await criarEmpresa(form); onFechar(); }
+    try { await criarEmpresa({ ...form, documento: soDigitos(form.documento) }); onFechar(); }
     catch { /* erro já notificado */ }
     finally { setEnviando(false); }
   }
@@ -6149,6 +6177,15 @@ function EmpresaCadastroModal({ cargos = [], criarEmpresa, onFechar }) {
               <input value={form.prefixo} onChange={(e) => setForm({ ...form, prefixo: e.target.value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 5) })}
                 placeholder="Ex.: PZB" className={`${inp} font-mono font-black tracking-widest`} />
               {form.prefixo.length >= 2 && <p className="mt-1 text-xs text-blue-300">Comandas: {form.prefixo}-000001, {form.prefixo}-000002…</p>}
+            </div>
+            <div className="sm:col-span-2">
+              <span className={lbl}>CNPJ ou CPF *</span>
+              <input inputMode="numeric" value={formatarDoc(form.documento)}
+                onChange={(e) => setForm({ ...form, documento: soDigitos(e.target.value).slice(0, 14) })}
+                placeholder="00.000.000/0000-00 ou 000.000.000-00" className={`${inp} font-mono`} />
+              {form.documento && !docValido(form.documento) && (
+                <p className="mt-1 text-xs text-amber-400">Informe um CNPJ (14 dígitos) ou CPF (11 dígitos) válido.</p>
+              )}
             </div>
           </div>
 
@@ -6208,9 +6245,10 @@ function EmpresaCadastroModal({ cargos = [], criarEmpresa, onFechar }) {
 function LojaEditModal({ loja, onSalvar, onFechar }) {
   const [nome, setNome] = useState(loja.nome || "");
   const [prefixo, setPrefixo] = useState(loja.prefixo || "");
+  const [doc, setDoc] = useState(loja.documento || "");
   const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400";
   const lbl = "mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500";
-  const valido = nome.trim() && /^[A-Z]{2,5}$/.test(prefixo);
+  const valido = nome.trim() && /^[A-Z]{2,5}$/.test(prefixo) && docValido(doc);
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" onClick={onFechar}>
       <div className="w-full max-w-md rounded-[2rem] border border-white/10 bg-slate-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
@@ -6229,10 +6267,16 @@ function LojaEditModal({ loja, onSalvar, onFechar }) {
               className={`${inp} font-mono font-black tracking-widest`} />
             {prefixo && <p className="mt-1 text-xs text-blue-300">Comandas: {prefixo}-000001...</p>}
           </div>
+          <div>
+            <span className={lbl}>CNPJ ou CPF *</span>
+            <input inputMode="numeric" value={formatarDoc(doc)} onChange={(e) => setDoc(soDigitos(e.target.value).slice(0, 14))}
+              placeholder="00.000.000/0000-00 ou 000.000.000-00" className={`${inp} font-mono`} />
+            {doc && !docValido(doc) && <p className="mt-1 text-xs text-amber-400">Informe um CNPJ (14) ou CPF (11) válido.</p>}
+          </div>
         </div>
         <div className="mt-6 flex gap-3">
           <button onClick={onFechar} className="flex-1 rounded-2xl border border-white/10 bg-white/[0.06] px-5 py-3 text-sm font-black text-slate-300 hover:bg-white/10">Cancelar</button>
-          <button onClick={() => valido && onSalvar({ nome: nome.trim(), prefixo })} disabled={!valido}
+          <button onClick={() => valido && onSalvar({ nome: nome.trim(), prefixo, documento: soDigitos(doc) })} disabled={!valido}
             className="flex-1 rounded-2xl bg-blue-500 px-5 py-3 text-sm font-black text-white hover:bg-blue-400 disabled:opacity-50">Salvar</button>
         </div>
       </div>

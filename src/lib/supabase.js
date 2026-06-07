@@ -146,17 +146,17 @@ function dbParaForma(r) {
 export async function fetchLojas() {
   const { data, error } = await supabase.from('tab_lojas').select('*').order('id', { ascending: true })
   if (error) throw error
-  return data.map((r) => ({ id: r.id, nome: r.nome, prefixo: r.prefixo, active: r.ativo, plano: r.plano ?? 'free', emailResponsavel: r.email_responsavel ?? null, licencaBloqueada: r.licenca_bloqueada === true, logoUrl: r.logo_url ?? null }))
+  return data.map((r) => ({ id: r.id, nome: r.nome, prefixo: r.prefixo, active: r.ativo, plano: r.plano ?? 'free', emailResponsavel: r.email_responsavel ?? null, licencaBloqueada: r.licenca_bloqueada === true, logoUrl: r.logo_url ?? null, documento: r.documento ?? null }))
 }
 export async function inserirLoja(loja) {
   const { data, error } = await supabase
-    .from('tab_lojas').insert([{ nome: loja.nome, prefixo: loja.prefixo, ...(loja.plano ? { plano: loja.plano } : {}), ...(loja.emailResponsavel ? { email_responsavel: loja.emailResponsavel } : {}) }]).select().single()
+    .from('tab_lojas').insert([{ nome: loja.nome, prefixo: loja.prefixo, ...(loja.plano ? { plano: loja.plano } : {}), ...(loja.emailResponsavel ? { email_responsavel: loja.emailResponsavel } : {}), ...(loja.documento ? { documento: loja.documento } : {}) }]).select().single()
   if (error) throw error
   return { id: data.id, nome: data.nome, prefixo: data.prefixo, active: data.ativo, plano: data.plano ?? 'free' }
 }
 
 // ── Onboarding SaaS: cria loja + admin + dados iniciais ──────
-export async function cadastrarEmpresa({ nomeLoja, prefixo, nomeResponsavel, email, senha, cargoId = null, cargoNome = 'Gestor' }) {
+export async function cadastrarEmpresa({ nomeLoja, prefixo, nomeResponsavel, email, senha, documento = null, cargoId = null, cargoNome = 'Gestor' }) {
   // 1. Verifica e-mail único
   const { data: existe } = await supabase.from('tab_usuarios').select('id').eq('email', email).maybeSingle()
   if (existe) throw new Error('Já existe um usuário com este e-mail.')
@@ -165,7 +165,7 @@ export async function cadastrarEmpresa({ nomeLoja, prefixo, nomeResponsavel, ema
   if (pfx) throw new Error('Já existe uma loja com este prefixo. Escolha outras iniciais.')
   // 3. Cria a loja
   const { data: loja, error: e1 } = await supabase.from('tab_lojas')
-    .insert([{ nome: nomeLoja, prefixo, plano: 'free', email_responsavel: email }]).select().single()
+    .insert([{ nome: nomeLoja, prefixo, plano: 'free', email_responsavel: email, ...(documento ? { documento } : {}) }]).select().single()
   if (e1) throw e1
   const lojaId = loja.id
   // 4. Cria o usuário administrador (acesso total)
@@ -200,7 +200,7 @@ export async function excluirLoja(id) {
 export function escutarLojas(onMudanca) {
   const reload = async () => {
     const { data, error } = await supabase.from('tab_lojas').select('*').order('id', { ascending: true })
-    if (!error && data) onMudanca(data.map((r) => ({ id: r.id, nome: r.nome, prefixo: r.prefixo, active: r.ativo, plano: r.plano ?? 'free', emailResponsavel: r.email_responsavel ?? null, licencaBloqueada: r.licenca_bloqueada === true, logoUrl: r.logo_url ?? null })))
+    if (!error && data) onMudanca(data.map((r) => ({ id: r.id, nome: r.nome, prefixo: r.prefixo, active: r.ativo, plano: r.plano ?? 'free', emailResponsavel: r.email_responsavel ?? null, licencaBloqueada: r.licenca_bloqueada === true, logoUrl: r.logo_url ?? null, documento: r.documento ?? null })))
   }
   const canal = supabase.channel('ch_lojas_'+Math.random().toString(36).slice(2))
     .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_lojas' }, reload)
@@ -270,10 +270,12 @@ export async function fetchDispositivos() {
   if (error) throw error
   return (data || []).map(mapDispositivo)
 }
-export async function renomearDispositivo(deviceId, nome) {
+export async function renomearDispositivo(deviceId, nome, lojaId = undefined) {
   // upsert para funcionar mesmo se o aparelho ainda não foi registrado
+  const linha = { device_id: deviceId, nome }
+  if (lojaId !== undefined && lojaId !== null) linha.loja_id = lojaId
   const { error } = await supabase.from('tab_dispositivos')
-    .upsert([{ device_id: deviceId, nome }], { onConflict: 'device_id' })
+    .upsert([linha], { onConflict: 'device_id' })
   if (error) throw error
 }
 export async function removerDispositivo(deviceId) {
