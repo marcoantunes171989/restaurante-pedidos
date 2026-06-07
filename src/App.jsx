@@ -85,6 +85,15 @@ function isValidCommand(code) {
   return /^[A-Z]{1,5}-\d{4,8}$/.test(String(code || "").trim().toUpperCase());
 }
 
+// ID único do aparelho (persistido no localStorage) — usado no controle de versões
+function obterDeviceId() {
+  try {
+    let id = localStorage.getItem("pp_device_id");
+    if (!id) { id = (crypto.randomUUID?.() || String(Date.now()) + Math.random().toString(36).slice(2)); localStorage.setItem("pp_device_id", id); }
+    return id;
+  } catch { return null; }
+}
+
 // ── QR de LOGIN ───────────────────────────────────────────────
 // Payload distinto do QR de comanda. O QR de comanda é "PREFIXO-000000";
 // o QR de login começa com LOGIN_QR_PREFIX, então um nunca é confundido com o
@@ -650,11 +659,7 @@ export default function RestaurantePedidoApp() {
   // "Controle de versões" comparar com a versão liberada.
   useEffect(() => {
     if (!dbReady) return;
-    let id;
-    try {
-      id = localStorage.getItem("pp_device_id");
-      if (!id) { id = (crypto.randomUUID?.() || String(Date.now()) + Math.random().toString(36).slice(2)); localStorage.setItem("pp_device_id", id); }
-    } catch { return; }
+    const id = obterDeviceId();
     if (!id) return;
     const versao = (typeof __APP_VERSION__ !== "undefined") ? __APP_VERSION__ : "local";
     const standalone = !!(window.matchMedia?.("(display-mode: standalone)")?.matches || window.matchMedia?.("(display-mode: fullscreen)")?.matches || window.navigator.standalone);
@@ -667,6 +672,14 @@ export default function RestaurantePedidoApp() {
     window.addEventListener("focus", reportar);
     return () => { clearInterval(iv); document.removeEventListener("visibilitychange", onVis); window.removeEventListener("focus", reportar); };
   }, [dbReady, currentUser?.email, lojaAtual]);
+
+  // Na instalação/primeiro uso (aparelho ainda sem nome), obriga nomear o
+  // aparelho + empresa para facilitar a identificação no controle de versões.
+  const [precisaNomear, setPrecisaNomear] = useState(false);
+  useEffect(() => {
+    if (!dbReady || !currentUser) return;
+    try { if (!localStorage.getItem("pp_device_nomeado")) setPrecisaNomear(true); } catch {}
+  }, [dbReady, currentUser]);
   const filtraLoja = (arr) => lojaAtual == null ? arr : arr.filter((x) => x.lojaId == null || x.lojaId === lojaAtual);
   const products      = filtraLoja(productsAll);
   const orders        = filtraLoja(ordersAll);
@@ -1468,6 +1481,16 @@ export default function RestaurantePedidoApp() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
+      {precisaNomear && (
+        <NomearDispositivoModal
+          empresaPadrao={lojaInfo?.nome || ""}
+          onSalvar={async (nomeFinal) => {
+            try { await renomearDispositivo(obterDeviceId(), nomeFinal); } catch {}
+            try { localStorage.setItem("pp_device_nomeado", "1"); } catch {}
+            setPrecisaNomear(false);
+          }}
+        />
+      )}
       <div className="relative mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
         <header className="mb-6 rounded-[2rem] border border-white/10 bg-white/[0.06] p-5 shadow-2xl backdrop-blur-xl sm:p-7">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
@@ -5586,6 +5609,59 @@ function tempoRelativo(iso) {
   const h = Math.floor(m / 60); if (h < 24) return `há ${h} h`;
   const d = Math.floor(h / 24); return `há ${d} dia(s)`;
 }
+function dataHora(iso) {
+  if (!iso) return "—";
+  try { return new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }); }
+  catch { return "—"; }
+}
+
+// Modal obrigatório de nomeação do aparelho (instalação/primeiro uso)
+function NomearDispositivoModal({ empresaPadrao = "", onSalvar }) {
+  const [empresa, setEmpresa] = useState(empresaPadrao);
+  const [ident, setIdent] = useState("");
+  const [salvando, setSalvando] = useState(false);
+  const valido = empresa.trim() && ident.trim();
+  async function salvar() {
+    if (!valido || salvando) return;
+    setSalvando(true);
+    await onSalvar(`${empresa.trim()} — ${ident.trim()}`);
+  }
+  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none focus:border-blue-400 placeholder:text-slate-600";
+  const lbl = "mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-slate-500";
+  return (
+    <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
+      <div className="w-full max-w-md overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl">
+        <div className="border-b border-white/10 px-6 py-4">
+          <h2 className="text-lg font-black text-white">📱 Identifique este aparelho</h2>
+          <p className="mt-0.5 text-xs text-slate-400">Necessário para o controle de versões — informe a empresa e onde este aparelho fica.</p>
+        </div>
+        <div className="px-6 py-5 space-y-4">
+          <div>
+            <span className={lbl}>Empresa *</span>
+            <input value={empresa} onChange={(e) => setEmpresa(e.target.value)} placeholder="Nome da empresa" className={inp} />
+          </div>
+          <div>
+            <span className={lbl}>Identificação do aparelho *</span>
+            <input autoFocus value={ident} onChange={(e) => setIdent(e.target.value)} placeholder="Ex.: Tablet Mesa 1, Cozinha, Caixa" className={inp}
+              onKeyDown={(e) => { if (e.key === "Enter") salvar(); }} />
+          </div>
+          {valido && (
+            <p className="rounded-2xl border border-blue-400/20 bg-blue-500/10 px-3 py-2 text-xs font-bold text-blue-200">
+              Será salvo como: <span className="text-white">{empresa.trim()} — {ident.trim()}</span>
+            </p>
+          )}
+        </div>
+        <div className="border-t border-white/10 px-6 py-4">
+          <button onClick={salvar} disabled={!valido || salvando}
+            className="w-full rounded-2xl bg-blue-500 py-3.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed">
+            {salvando ? "Salvando…" : "Salvar e continuar"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function VersoesAdmin({ lojas = [], lojaFiltro = null }) {
   const [dispositivos, setDispositivos] = useState([]);
   const [versaoLiberada, setVersaoLiberada] = useState(null);
@@ -5677,7 +5753,10 @@ function VersoesAdmin({ lojas = [], lojaFiltro = null }) {
                     </p>
                   )}
                   <p className="truncate text-xs text-slate-400">
-                    {d.userEmail || "—"} · {d.standalone ? "App instalado" : "Navegador"} · {nomeLoja(d.lojaId)} · {tempoRelativo(d.ultimaAtividade)}
+                    {d.userEmail || "—"} · {d.standalone ? "App instalado" : "Navegador"} · {nomeLoja(d.lojaId)}
+                  </p>
+                  <p className="truncate text-[11px] text-slate-500">
+                    🕒 {dataHora(d.ultimaAtividade)} <span className="text-slate-600">({tempoRelativo(d.ultimaAtividade)})</span>
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">

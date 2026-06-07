@@ -271,7 +271,9 @@ export async function fetchDispositivos() {
   return (data || []).map(mapDispositivo)
 }
 export async function renomearDispositivo(deviceId, nome) {
-  const { error } = await supabase.from('tab_dispositivos').update({ nome }).eq('device_id', deviceId)
+  // upsert para funcionar mesmo se o aparelho ainda não foi registrado
+  const { error } = await supabase.from('tab_dispositivos')
+    .upsert([{ device_id: deviceId, nome }], { onConflict: 'device_id' })
   if (error) throw error
 }
 export async function removerDispositivo(deviceId) {
