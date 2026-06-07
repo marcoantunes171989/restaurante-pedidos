@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   fetchLojas, fetchProdutos, fetchCategorias,
   inserirPedido, atualizarPedido, escutarPedidos,
+  buscarClientePorTelefone, upsertCliente,
 } from "./lib/supabase";
 import {
   ProdutoModal, formatCurrency, fallbackImage, statusMap, STATUS_TABLET_LABEL, isValidCommand,
@@ -28,6 +29,9 @@ export default function CardapioPublico() {
   const [mesa, setMesa]           = useState(mesaURL);
   const [comanda, setComanda]     = useState(comURL);
   const [cliente, setCliente]     = useState("");
+  const [telefone, setTelefone]   = useState("");
+  const [clienteSalvo, setClienteSalvo] = useState(false); // telefone já tem cadastro
+  const modoExterno = !mesaURL; // link geral (divulgação) → pedido externo (delivery/retirada)
   const [aba, setAba]             = useState(null); // null | 'carrinho' | 'conta'
   const [enviando, setEnviando]   = useState(false);
   const [msg, setMsg]             = useState(null);
@@ -71,8 +75,23 @@ export default function CardapioPublico() {
     });
   }, [produtos, cat, busca]);
 
+  const telDig = telefone.replace(/\D/g, "");
+  // Busca cliente pelo telefone (auto-carrega o nome no próximo pedido)
+  useEffect(() => {
+    if (!modoExterno || !loja || telDig.length < 10) { setClienteSalvo(false); return; }
+    let vivo = true;
+    const t = setTimeout(async () => {
+      const c = await buscarClientePorTelefone(loja.id, telDig);
+      if (!vivo) return;
+      if (c) { setCliente(c.nome); setClienteSalvo(true); } else { setClienteSalvo(false); }
+    }, 500);
+    return () => { vivo = false; clearTimeout(t); };
+  }, [telDig, modoExterno, loja?.id]);
+
   const currentTable = mesa ? `Mesa ${String(mesa).padStart(2, "0")}` : "";
-  const meusPedidos = orders.filter((o) => o.table === currentTable && o.command === comanda && o.paymentStatus !== "paid" && o.status !== "cancelled");
+  const meusPedidos = modoExterno
+    ? orders.filter((o) => telDig && o.clienteTelefone === telDig && o.paymentStatus !== "paid" && o.status !== "cancelled")
+    : orders.filter((o) => o.table === currentTable && o.command === comanda && o.paymentStatus !== "paid" && o.status !== "cancelled");
   const subtotal = meusPedidos.reduce((s, o) => s + o.items.reduce((a, i) => a + i.price * i.quantity, 0), 0);
   const totalMesa = subtotal * 1.1;
   const totalCart = cart.reduce((s, i) => s + i.price * i.quantity, 0);
@@ -84,20 +103,37 @@ export default function CardapioPublico() {
   function removerItem(uid) { setCart((c) => c.filter((i) => i._uid !== uid)); }
 
   async function enviar() {
-    if (!mesa || Number(mesa) <= 0) return setMsg({ t: "error", m: "Informe o número da mesa." });
-    if (!isValidCommand(comanda)) return setMsg({ t: "error", m: "Escaneie o QR Code da mesa (comanda) para pedir." });
-    if (comanda.split("-")[0] !== loja.prefixo) return setMsg({ t: "error", m: `Comanda de outra empresa (${comanda.split("-")[0]}).` });
     if (cart.length === 0) return;
-    setEnviando(true);
-    const novo = {
-      id: `PED-${Date.now().toString().slice(-7)}${Math.floor(Math.random() * 90 + 10)}`,
-      table: currentTable, command: comanda, customer: cliente.trim() || "Cliente",
-      status: "received", paymentStatus: "open",
-      createdAt: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
-      items: cart.map((i) => ({ name: i.name, quantity: i.quantity, price: i.price, selectedIngredients: i.selectedIngredients, removedIngredients: i.removedIngredients, extraIngredients: i.extraIngredients, observation: i.observation })),
-      lojaId: loja.id,
-    };
-    try { await inserirPedido(novo); setCart([]); setCliente(""); setAba("conta"); setMsg({ t: "success", m: "✅ Pedido enviado para a cozinha!" }); }
+    const itens = cart.map((i) => ({ name: i.name, quantity: i.quantity, price: i.price, selectedIngredients: i.selectedIngredients, removedIngredients: i.removedIngredients, extraIngredients: i.extraIngredients, observation: i.observation }));
+    let novo;
+    if (modoExterno) {
+      // Pedido externo (link de divulgação): exige NOME + TELEFONE
+      if (!cliente.trim()) return setMsg({ t: "error", m: "Informe o seu nome." });
+      if (telDig.length < 10) return setMsg({ t: "error", m: "Informe um telefone válido (com DDD)." });
+      setEnviando(true);
+      try { await upsertCliente({ nome: cliente.trim(), telefone: telDig, lojaId: loja.id }); } catch {}
+      novo = {
+        id: `PED-${Date.now().toString().slice(-7)}${Math.floor(Math.random() * 90 + 10)}`,
+        table: "Externo", command: `EXT-${telDig.slice(-6)}`, customer: cliente.trim(), clienteTelefone: telDig,
+        status: "received", paymentStatus: "open",
+        createdAt: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+        items: itens, lojaId: loja.id,
+      };
+    } else {
+      // Pedido na mesa (QR da mesa): exige mesa + comanda
+      if (!mesa || Number(mesa) <= 0) return setMsg({ t: "error", m: "Informe o número da mesa." });
+      if (!isValidCommand(comanda)) return setMsg({ t: "error", m: "Escaneie o QR Code da mesa (comanda) para pedir." });
+      if (comanda.split("-")[0] !== loja.prefixo) return setMsg({ t: "error", m: `Comanda de outra empresa (${comanda.split("-")[0]}).` });
+      setEnviando(true);
+      novo = {
+        id: `PED-${Date.now().toString().slice(-7)}${Math.floor(Math.random() * 90 + 10)}`,
+        table: currentTable, command: comanda, customer: cliente.trim() || "Cliente",
+        status: "received", paymentStatus: "open",
+        createdAt: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+        items: itens, lojaId: loja.id,
+      };
+    }
+    try { await inserirPedido(novo); setCart([]); setAba("conta"); setMsg({ t: "success", m: "✅ Pedido enviado para a cozinha!" }); }
     catch { setMsg({ t: "error", m: "Erro ao enviar o pedido. Tente novamente." }); }
     finally { setEnviando(false); }
   }
@@ -198,18 +234,35 @@ export default function CardapioPublico() {
               ))}
             </div>
           )}
-          <div className="mt-4 grid grid-cols-2 gap-3">
-            <label><span className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-amber-500">⚠ Mesa *</span>
-              <input type="tel" inputMode="numeric" value={mesa} onChange={(e) => setMesa(e.target.value.replace(/\D/g, "").slice(0, 2))} placeholder="Nº" disabled={!!mesaURL}
-                className="w-full rounded-2xl border border-amber-400/40 bg-slate-800 px-3 py-2.5 text-sm font-black text-white outline-none disabled:opacity-70" /></label>
-            <label><span className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-slate-500">Seu nome (opcional)</span>
-              <input value={cliente} onChange={(e) => setCliente(e.target.value)} placeholder="Nome" className="w-full rounded-2xl border border-white/10 bg-slate-800 px-3 py-2.5 text-sm text-white outline-none" /></label>
-          </div>
-          {!comURL && (
-            <div className="mt-3"><span className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-amber-500">⚠ Comanda *</span>
-              <input value={comanda} onChange={(e) => setComanda(e.target.value.toUpperCase())} placeholder={`Ex.: ${loja.prefixo}-000001`}
-                className="w-full rounded-2xl border border-amber-400/40 bg-slate-800 px-3 py-2.5 font-mono text-sm font-black tracking-widest text-white outline-none" />
-              <p className="mt-1 text-[11px] text-slate-500">Escaneie o QR Code da mesa ou digite a comanda.</p></div>
+          {modoExterno ? (
+            // Pedido externo (link de divulgação) — nome + telefone obrigatórios
+            <div className="mt-4 space-y-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <label><span className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-amber-500">⚠ Telefone (WhatsApp) *</span>
+                  <input type="tel" inputMode="numeric" value={telefone} onChange={(e) => setTelefone(e.target.value.replace(/\D/g, "").slice(0, 11))} placeholder="(DDD) número"
+                    className="w-full rounded-2xl border border-amber-400/40 bg-slate-800 px-3 py-2.5 text-sm font-black text-white outline-none" /></label>
+                <label><span className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-amber-500">⚠ Seu nome *</span>
+                  <input value={cliente} onChange={(e) => setCliente(e.target.value)} placeholder="Nome completo"
+                    className="w-full rounded-2xl border border-amber-400/40 bg-slate-800 px-3 py-2.5 text-sm text-white outline-none" /></label>
+              </div>
+              {clienteSalvo && <p className="rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-3 py-1.5 text-xs font-bold text-emerald-200">✓ Cliente já cadastrado — bem-vindo(a) de volta, {cliente}!</p>}
+            </div>
+          ) : (
+            <>
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                <label><span className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-amber-500">⚠ Mesa *</span>
+                  <input type="tel" inputMode="numeric" value={mesa} onChange={(e) => setMesa(e.target.value.replace(/\D/g, "").slice(0, 2))} placeholder="Nº" disabled={!!mesaURL}
+                    className="w-full rounded-2xl border border-amber-400/40 bg-slate-800 px-3 py-2.5 text-sm font-black text-white outline-none disabled:opacity-70" /></label>
+                <label><span className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-slate-500">Seu nome (opcional)</span>
+                  <input value={cliente} onChange={(e) => setCliente(e.target.value)} placeholder="Nome" className="w-full rounded-2xl border border-white/10 bg-slate-800 px-3 py-2.5 text-sm text-white outline-none" /></label>
+              </div>
+              {!comURL && (
+                <div className="mt-3"><span className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-amber-500">⚠ Comanda *</span>
+                  <input value={comanda} onChange={(e) => setComanda(e.target.value.toUpperCase())} placeholder={`Ex.: ${loja.prefixo}-000001`}
+                    className="w-full rounded-2xl border border-amber-400/40 bg-slate-800 px-3 py-2.5 font-mono text-sm font-black tracking-widest text-white outline-none" />
+                  <p className="mt-1 text-[11px] text-slate-500">Escaneie o QR Code da mesa ou digite a comanda.</p></div>
+              )}
+            </>
           )}
           <div className="mt-4 flex items-center justify-between border-t border-white/10 pt-3"><span className="text-sm text-slate-400">Total</span><span className="text-xl font-black text-emerald-400">{formatCurrency(totalCart)}</span></div>
           <button onClick={enviar} disabled={!podeEnviar || enviando}
@@ -221,7 +274,7 @@ export default function CardapioPublico() {
 
       {/* Gaveta: Acompanhar / Conta */}
       {aba === "conta" && (
-        <Gaveta titulo={`🧾 ${currentTable || "Conta"}`} onFechar={() => setAba(null)}>
+        <Gaveta titulo={`🧾 ${modoExterno ? "Meus pedidos" : (currentTable || "Conta")}`} onFechar={() => setAba(null)}>
           {meusPedidos.length === 0 ? <p className="py-8 text-center text-sm text-slate-500">Nenhum pedido para acompanhar ainda.</p> : (
             <div className="space-y-2">
               {meusPedidos.map((o) => (

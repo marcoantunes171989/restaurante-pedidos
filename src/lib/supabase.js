@@ -577,6 +577,7 @@ function dbParaPedido(r) {
     items:         r.itens ?? [],
     cancelReason:  r.motivo_cancelamento ?? null,
     lojaId:        r.loja_id ?? null,
+    clienteTelefone: r.cliente_telefone ?? null,
   }
 }
 
@@ -648,7 +649,45 @@ function pedidoParaDb(p) {
     status_pagamento: PAGT_APP_PARA_DB[p.paymentStatus]   ?? p.paymentStatus,
     itens:            p.items ?? [],
     ...(p.lojaId ? { loja_id: p.lojaId } : {}),
+    ...(p.clienteTelefone ? { cliente_telefone: p.clienteTelefone } : {}),
   }
+}
+
+// ════════════════════════════════════════════════════════════
+//  tab_clientes — cadastro de clientes (pedidos externos / CRM)
+// ════════════════════════════════════════════════════════════
+function mapCliente(r) {
+  return { id: r.id, nome: r.nome, telefone: r.telefone, lojaId: r.loja_id ?? null, criadoEm: r.criado_em };
+}
+export async function buscarClientePorTelefone(lojaId, telefone) {
+  const tel = String(telefone || '').replace(/\D/g, '');
+  if (!tel) return null;
+  let q = supabase.from('tab_clientes').select('*').eq('telefone', tel).limit(1);
+  if (lojaId != null) q = q.eq('loja_id', lojaId);
+  const { data, error } = await q;
+  if (error) return null;
+  return (data && data[0]) ? mapCliente(data[0]) : null;
+}
+export async function upsertCliente({ nome, telefone, lojaId = null }) {
+  const tel = String(telefone || '').replace(/\D/g, '');
+  if (!tel || !nome) return null;
+  const { data, error } = await supabase.from('tab_clientes')
+    .upsert([{ nome: nome.trim(), telefone: tel, loja_id: lojaId }], { onConflict: 'telefone,loja_id' })
+    .select().single();
+  if (error) { try { const ex = await buscarClientePorTelefone(lojaId, tel); return ex; } catch { return null; } }
+  return mapCliente(data);
+}
+export async function fetchClientes() {
+  const { data, error } = await supabase.from('tab_clientes').select('*').order('criado_em', { ascending: false });
+  if (error) throw error;
+  return (data || []).map(mapCliente);
+}
+export function escutarClientes(onMudanca) {
+  const reload = async () => { try { onMudanca(await fetchClientes()); } catch {} };
+  const canal = supabase.channel('ch_clientes_' + Math.random().toString(36).slice(2))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_clientes' }, reload)
+    .subscribe((s) => { if (s === 'SUBSCRIBED') reload(); });
+  return () => supabase.removeChannel(canal);
 }
 
 // ════════════════════════════════════════════════════════════

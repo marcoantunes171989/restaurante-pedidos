@@ -10,6 +10,7 @@ import {
   fetchComandas, inserirComandas, escutarComandas, excluirComanda, renomearComanda, toggleComandaAtivo,
   fetchCargos, inserirCargo, atualizarCargo, excluirCargo, escutarCargos,
   fetchMesas, inserirMesa, atualizarMesa, excluirMesa, escutarMesas,
+  fetchClientes, escutarClientes,
   baixarEstoque, registrarPagamento,
   excluirProduto, excluirFormaPagamento, excluirUsuario,
   STATUS_APP_PARA_DB,
@@ -571,6 +572,7 @@ export default function RestaurantePedidoApp() {
   const [lojas, setLojas] = useState([]);
   const [cargos, setCargos] = useState([]);
   const [mesas, setMesas] = useState([]);
+  const [clientes, setClientes] = useState([]);
   const [comandas, setComandas] = useState([]);            // comandas geradas (registro p/ validação)
   const [comandasCarregadas, setComandasCarregadas] = useState(false); // tabela 019 disponível?
   const [lojaContexto, setLojaContexto] = useState(null); // super admin: empresa em foco para cadastros
@@ -599,6 +601,7 @@ export default function RestaurantePedidoApp() {
         try { setLojas(await fetchLojas()); } catch { /* migration 011 pendente */ }
         try { setCargos(await fetchCargos()); } catch { /* migration 014 pendente */ }
         try { setMesas(await fetchMesas()); } catch { /* migration 027 pendente */ }
+        try { setClientes(await fetchClientes()); } catch { /* migration 028 pendente */ }
         try { setComandas(await fetchComandas()); setComandasCarregadas(true); } catch { /* migration 019 pendente */ }
         setDbReady(true);
         setLoading(false);
@@ -615,6 +618,7 @@ export default function RestaurantePedidoApp() {
         try { unsubs.push(escutarLojas(setLojas)); } catch {}
         try { unsubs.push(escutarCargos(setCargos)); } catch {}
         try { unsubs.push(escutarMesas(setMesas)); } catch {}
+        try { unsubs.push(escutarClientes(setClientes)); } catch {}
         try { unsubs.push(escutarComandas(setComandas)); } catch {}
       } catch (err) {
         console.warn("Supabase indisponível — usando fallback local:", err.message);
@@ -1664,7 +1668,7 @@ export default function RestaurantePedidoApp() {
         )}
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} products={products} lojaInfo={lojaInfo} />}
         {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierView orders={orders} baixarComandas={baixarComandas} baixarPedidos={baixarPedidos} formasPagamento={formasPagamentoLoja} onSair={logout} lojaInfo={lojaInfo} />}
-        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} setLicencaEmpresa={setLicencaEmpresa} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} />}
+        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} setLicencaEmpresa={setLicencaEmpresa} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} />}
 
       </div>
     </div>
@@ -4277,11 +4281,12 @@ function ComboEmpresaFoco({ lojas = [], valor, onChange }) {
   );
 }
 
-function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, toggleUserStatus, toggleAccessStatus, usersLoja, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], addLoja, toggleLoja, editarLoja, removerLoja, setLicencaEmpresa = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, setModoUsoEmpresa = async()=>{}, mesas = [], addMesa, editarMesa, toggleMesa, removerMesa }) {
+function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, toggleUserStatus, toggleAccessStatus, usersLoja, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], addLoja, toggleLoja, editarLoja, removerLoja, setLicencaEmpresa = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, setModoUsoEmpresa = async()=>{}, mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, clientes = [] }) {
   const menu = [
     { grupo: "Gestão", itens: [
       { id: "dashboard", icon: "📊", label: "Dashboard" },
       { id: "relatorios", icon: "📈", label: "Relatórios de vendas" },
+      { id: "crm", icon: "👤", label: "CRM / Clientes" },
     ]},
     { grupo: "Cadastros", itens: [
       { id: "products", icon: "🛒", label: "Produtos" },
@@ -4435,6 +4440,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
         <div key={`ctx-${lojaContexto ?? "geral"}`} className="flex-1 overflow-y-auto p-6">
           {ativo === "dashboard"  && <DashboardAdmin orders={orders} products={products} />}
           {ativo === "relatorios" && <RelatoriosAdmin orders={orders} products={products} lojaInfo={lojaInfo} />}
+          {ativo === "crm"        && <CrmAdmin clientes={clientes} orders={orders} />}
           {ativo === "products"   && (precisaEmpresa ? avisoEmpresa : <ProductAdmin   products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} editarProduto={editarProduto} removerProduto={removerProduto} lojaId={lojaInfo?.id} />)}
           {ativo === "users"      && <UserAdmin      users={isSuperAdmin ? users : (usersLoja ?? users)} userForm={userForm} setUserForm={setUserForm} addUser={addUser} toggleUserStatus={toggleUserStatus} editarUsuario={editarUsuario} removerUsuario={removerUsuario} lojaInfo={lojaInfo} lojas={lojas} isSuperAdmin={isSuperAdmin} cargos={cargos} />}
           {ativo === "cargos"     && <CargoAdmin     cargos={cargos} users={isSuperAdmin ? users : (usersLoja ?? users)} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} />}
@@ -4447,7 +4453,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           {ativo === "lojas"      && <LojaAdmin lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} lojaInfo={lojaInfo} criarEmpresa={criarEmpresa} cargos={cargos} />}
           {ativo === "licencas"   && <LicencaAdmin lojas={lojas} usuarios={users} setLicencaEmpresa={setLicencaEmpresa} />}
           {ativo === "versoes"    && <VersoesAdmin lojas={lojas} lojaFiltro={isSuperAdmin ? null : (lojaInfo?.id ?? null)} />}
-          {ativo === "cardapioext" && (precisaEmpresa ? avisoEmpresa : <CardapioExternoAdmin lojaInfo={lojaInfo} setModoUsoEmpresa={setModoUsoEmpresa} comandas={comandasRegistradas} />)}
+          {ativo === "cardapioext" && (precisaEmpresa ? avisoEmpresa : <CardapioExternoAdmin lojaInfo={lojaInfo} setModoUsoEmpresa={setModoUsoEmpresa} comandas={comandasRegistradas} mesas={mesas} />)}
           {ativo === "minhaempresa" && (
             <MinhaEmpresa
               lojaInfo={lojaInfo}
@@ -5903,9 +5909,93 @@ function VersoesAdmin({ lojas = [], lojaFiltro = null }) {
 }
 
 // ════════════════════════════════════════════════════════════
+//  CRM — clientes e seus pedidos
+// ════════════════════════════════════════════════════════════
+function formatarTelefone(t) {
+  const d = String(t || "").replace(/\D/g, "");
+  if (d.length === 11) return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+  if (d.length === 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+  return t || "—";
+}
+function CrmAdmin({ clientes = [], orders = [] }) {
+  const [busca, setBusca] = useState("");
+  const [aberto, setAberto] = useState(null); // telefone expandido
+
+  const dados = useMemo(() => {
+    return (clientes || []).map((c) => {
+      const peds = orders.filter((o) => o.clienteTelefone && o.clienteTelefone === c.telefone && o.status !== "cancelled");
+      const total = peds.reduce((s, o) => s + o.items.reduce((a, i) => a + i.price * i.quantity, 0), 0);
+      const ultimo = peds.reduce((m, o) => (!m || new Date(o.createdAtISO) > new Date(m)) ? o.createdAtISO : m, null);
+      return { ...c, pedidos: peds, qtd: peds.length, total, ultimo };
+    }).sort((a, b) => b.qtd - a.qtd);
+  }, [clientes, orders]);
+
+  const termo = busca.trim().toLowerCase();
+  const filtrados = termo ? dados.filter((c) => `${c.nome} ${c.telefone}`.toLowerCase().includes(termo)) : dados;
+  const totalGeral = dados.reduce((s, c) => s + c.total, 0);
+
+  return (
+    <main className="space-y-5">
+      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+        <h3 className="text-xl font-black text-white">👤 CRM — Clientes</h3>
+        <p className="mt-0.5 text-sm text-slate-400">
+          <span className="font-bold text-white">{clientes.length}</span> cliente(s) cadastrado(s) (pedidos externos) • faturamento total: <span className="font-bold text-emerald-300">{formatCurrency(totalGeral)}</span>
+        </p>
+        <p className="mt-1 text-xs text-slate-500">Clientes que pediram pelo link de divulgação (nome + telefone). Clique para ver os pedidos.</p>
+      </div>
+
+      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+        <div className="relative mb-4">
+          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">🔍</span>
+          <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por nome ou telefone..."
+            className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-blue-400" />
+        </div>
+
+        {filtrados.length === 0 && <p className="py-8 text-center text-sm text-slate-500">Nenhum cliente encontrado.</p>}
+        <div className="space-y-2">
+          {filtrados.map((c) => {
+            const exp = aberto === c.telefone;
+            return (
+              <div key={c.telefone + c.id} className="rounded-3xl border border-white/10 bg-slate-950/40 overflow-hidden">
+                <button onClick={() => setAberto(exp ? null : c.telefone)} className="flex w-full items-center gap-3 p-3.5 text-left hover:bg-white/[0.04] transition">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-500/15 text-lg">👤</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-black text-white">{c.nome}</p>
+                    <p className="truncate text-xs text-slate-400">📱 {formatarTelefone(c.telefone)}{c.ultimo ? ` · último: ${new Date(c.ultimo).toLocaleDateString("pt-BR")}` : ""}</p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className="text-sm font-black text-white">{c.qtd} pedido(s)</p>
+                    <p className="text-xs font-bold text-emerald-300">{formatCurrency(c.total)}</p>
+                  </div>
+                  <span className={`shrink-0 text-slate-500 transition-transform ${exp ? "rotate-180" : ""}`}>▾</span>
+                </button>
+                {exp && (
+                  <div className="border-t border-white/10 bg-slate-950/60 p-3 space-y-2">
+                    {c.pedidos.length === 0 && <p className="text-xs text-slate-500">Sem pedidos registrados.</p>}
+                    {c.pedidos.map((o) => (
+                      <div key={o.id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+                        <div className="mb-1 flex items-center justify-between">
+                          <span className="text-xs font-bold uppercase tracking-widest text-slate-500">{o.id} • {new Date(o.createdAtISO).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span>
+                          <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-black ${statusMap[o.status]?.chip}`}>{STATUS_TABLET_LABEL[o.status] || statusMap[o.status]?.label}</span>
+                        </div>
+                        {o.items.map((it, idx) => <div key={idx} className="flex justify-between text-sm py-0.5"><span className="text-slate-300"><b className="text-white">{it.quantity}×</b> {it.name}</span><span className="font-bold text-white">{formatCurrency(it.price * it.quantity)}</span></div>)}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </main>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
 //  Cardápio externo (tela admin) — link + QR + ativar modo
 // ════════════════════════════════════════════════════════════
-function CardapioExternoAdmin({ lojaInfo, setModoUsoEmpresa = async () => {}, comandas = [] }) {
+function CardapioExternoAdmin({ lojaInfo, setModoUsoEmpresa = async () => {}, comandas = [], mesas = [] }) {
   const [qr, setQr] = useState("");
   const [copiado, setCopiado] = useState(false);
   const origem = (typeof window !== "undefined") ? window.location.origin : "";
@@ -5914,32 +6004,55 @@ function CardapioExternoAdmin({ lojaInfo, setModoUsoEmpresa = async () => {}, co
   const modo = lojaInfo?.modoUso || "interno";
   const ativo = modo === "externo" || modo === "ambos";
 
-  // ── QR por mesa (colar na mesa) ──────────────────────────────
-  const [mesaQR, setMesaQR] = useState("");
-  const [comandaQR, setComandaQR] = useState("");
-  const [qrMesa, setQrMesa] = useState("");
-  const comandasAtivas = (comandas || []).filter((c) => c.ativo !== false).map((c) => c.codigo);
-  const linkMesa = `${origem}/cardapio?e=${prefixo}${mesaQR ? `&mesa=${mesaQR}` : ""}${comandaQR ? `&c=${comandaQR}` : ""}`;
+  // ── QR por mesa (selecionar mesas cadastradas, sem duplicar, gerar em lote) ──
+  const mesasAtivas = (mesas || []).filter((m) => m.ativo !== false).sort((a, b) => a.numero - b.numero);
+  const [selMesas, setSelMesas] = useState([]); // números selecionados
+  const [addNum, setAddNum] = useState("");      // valor do select
+  const [qrMap, setQrMap] = useState({});        // numero -> dataURL
+  const disponiveis = mesasAtivas.filter((m) => !selMesas.includes(m.numero));
+  const linkDaMesa = (n) => `${origem}/cardapio?e=${prefixo}&mesa=${n}`;
+
+  function adicionar(n) { const num = Number(n); if (!num || selMesas.includes(num)) return; setSelMesas((s) => [...s, num].sort((a, b) => a - b)); setAddNum(""); }
+  function adicionarTodas() { setSelMesas(mesasAtivas.map((m) => m.numero)); }
+  function removerMesaSel(n) { setSelMesas((s) => s.filter((x) => x !== n)); }
+
+  // Gera o QR de cada mesa selecionada
   useEffect(() => {
     let vivo = true;
-    (async () => { try { const QRCode = (await import("qrcode")).default; const u = await QRCode.toDataURL(linkMesa, { width: 560, margin: 1, color: { dark: "#0f172a", light: "#ffffff" } }); if (vivo) setQrMesa(u); } catch {} })();
+    (async () => {
+      try {
+        const QRCode = (await import("qrcode")).default;
+        const novos = {};
+        for (const n of selMesas) {
+          if (qrMap[n]) { novos[n] = qrMap[n]; continue; }
+          novos[n] = await QRCode.toDataURL(linkDaMesa(n), { width: 520, margin: 1, color: { dark: "#0f172a", light: "#ffffff" } });
+        }
+        if (vivo) setQrMap(novos);
+      } catch {}
+    })();
     return () => { vivo = false; };
-  }, [linkMesa]);
-  function imprimirMesa() {
-    const w = window.open("", "_blank", "width=420,height=620"); if (!w) return;
-    w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>QR Mesa ${mesaQR || ""}</title>
-      <style>*{box-sizing:border-box;font-family:Arial,Helvetica,sans-serif}body{margin:0;padding:24px;text-align:center;color:#0f172a}
-      .card{border:2px solid #e2e8f0;border-radius:24px;padding:26px}.t{font-size:14px;font-weight:800;color:#475569;letter-spacing:.1em}
-      .m{font-size:30px;font-weight:900;margin:6px 0 2px}.e{font-size:13px;color:#64748b;font-weight:700}
-      .qr{width:280px;height:280px;margin:16px auto}.qr img{width:100%}.h{margin-top:8px;font-size:13px;font-weight:800;color:#0f172a}
-      .s{margin-top:2px;font-size:11px;color:#94a3b8}</style></head><body>
-      <div class="card"><p class="t">${(lojaInfo?.nome || "").toUpperCase()}</p>
-      ${mesaQR ? `<p class="m">Mesa ${String(mesaQR).padStart(2, "0")}</p>` : `<p class="m">Cardápio</p>`}
-      ${comandaQR ? `<p class="e">${comandaQR}</p>` : ""}
-      <div class="qr"><img src="${qrMesa}" /></div>
-      <p class="h">📷 Aponte a câmera e faça seu pedido</p>
-      <p class="s">Peça e acompanhe pelo seu celular</p></div>
-      <script>window.onload=function(){setTimeout(function(){window.print()},250)}</script></body></html>`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selMesas.join(","), prefixo]);
+
+  function imprimirTodas() {
+    if (selMesas.length === 0) return;
+    const w = window.open("", "_blank", "width=820,height=900"); if (!w) return;
+    const cards = selMesas.map((n) => `
+      <div class="card">
+        <p class="t">${(lojaInfo?.nome || "").toUpperCase()}</p>
+        <p class="m">Mesa ${String(n).padStart(2, "0")}</p>
+        <div class="qr"><img src="${qrMap[n] || ""}" /></div>
+        <p class="h">📷 Aponte a câmera e faça seu pedido</p>
+        <p class="s">Peça e acompanhe pelo seu celular</p>
+      </div>`).join("");
+    w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>QR das mesas — ${lojaInfo?.nome || ""}</title>
+      <style>*{box-sizing:border-box;font-family:Arial,Helvetica,sans-serif}body{margin:0;padding:16px;color:#0f172a}
+      .grid{display:flex;flex-wrap:wrap;gap:14px;justify-content:center}
+      .card{width:300px;border:2px solid #e2e8f0;border-radius:22px;padding:20px;text-align:center;page-break-inside:avoid}
+      .t{font-size:12px;font-weight:800;color:#475569;letter-spacing:.1em}.m{font-size:26px;font-weight:900;margin:4px 0 2px}
+      .qr{width:230px;height:230px;margin:12px auto}.qr img{width:100%}.h{margin-top:6px;font-size:12px;font-weight:800}.s{margin-top:2px;font-size:10px;color:#94a3b8}</style>
+      </head><body><div class="grid">${cards}</div>
+      <script>window.onload=function(){setTimeout(function(){window.print()},400)}</script></body></html>`);
     w.document.close();
   }
 
@@ -5995,34 +6108,50 @@ function CardapioExternoAdmin({ lojaInfo, setModoUsoEmpresa = async () => {}, co
         </div>
       </div>
 
-      {/* QR por mesa — para colar na mesa */}
+      {/* QR por mesa — selecionar mesas cadastradas e gerar em lote */}
       <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
-        <h3 className="text-base font-black text-white">🪧 QR Code da mesa (colar na mesa)</h3>
-        <p className="mt-0.5 text-xs text-slate-400">O cliente aponta a câmera, abre o cardápio já na mesa e pede pelo próprio celular — e acompanha o pedido.</p>
-        <div className="mt-4 grid gap-5 lg:grid-cols-[1fr_auto]">
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <label><span className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-slate-500">Mesa</span>
-                <input type="tel" inputMode="numeric" value={mesaQR} onChange={(e) => setMesaQR(e.target.value.replace(/\D/g, "").slice(0, 2))} placeholder="Nº"
-                  className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-3 py-2.5 text-sm font-black text-white outline-none focus:border-blue-400" /></label>
-              <label><span className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-slate-500">Comanda</span>
-                <input list="comandas-ext" value={comandaQR} onChange={(e) => setComandaQR(e.target.value.toUpperCase())} placeholder={`${prefixo}-000001`}
-                  className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-3 py-2.5 font-mono text-sm font-black tracking-widest text-white outline-none focus:border-blue-400" />
-                <datalist id="comandas-ext">{comandasAtivas.map((c) => <option key={c} value={c} />)}</datalist></label>
+        <h3 className="text-base font-black text-white">🪧 QR Code das mesas (colar na mesa)</h3>
+        <p className="mt-0.5 text-xs text-slate-400">Selecione as mesas cadastradas para gerar um QR por mesa. O cliente aponta a câmera, abre o cardápio já na mesa e pede pelo celular.</p>
+
+        {mesasAtivas.length === 0 ? (
+          <p className="mt-4 rounded-2xl border border-amber-400/20 bg-amber-500/10 px-3 py-2 text-xs font-bold text-amber-200">
+            Nenhuma mesa cadastrada. Cadastre em <b className="text-white">Cadastros → Mesas</b> para gerar os QRs.
+          </p>
+        ) : (
+          <>
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-end">
+              <label className="flex-1">
+                <span className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-slate-500">Adicionar mesa</span>
+                <select value={addNum} onChange={(e) => adicionar(e.target.value)} disabled={disponiveis.length === 0}
+                  className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-2.5 text-sm text-white outline-none focus:border-blue-400 disabled:opacity-50">
+                  <option value="">{disponiveis.length === 0 ? "Todas as mesas já selecionadas" : "Selecione uma mesa…"}</option>
+                  {disponiveis.map((m) => <option key={m.numero} value={m.numero}>Mesa {String(m.numero).padStart(2, "0")}{m.nome ? ` — ${m.nome}` : ""}</option>)}
+                </select>
+              </label>
+              <div className="flex gap-2">
+                <button onClick={adicionarTodas} disabled={disponiveis.length === 0} className="rounded-2xl border border-blue-400/30 bg-blue-500/15 px-4 py-2.5 text-xs font-black text-blue-200 hover:bg-blue-500/25 disabled:opacity-40">+ Adicionar todas</button>
+                <button onClick={imprimirTodas} disabled={selMesas.length === 0} className="rounded-2xl bg-blue-500 px-4 py-2.5 text-xs font-black text-white hover:bg-blue-400 disabled:opacity-40">🖨️ Imprimir todas ({selMesas.length})</button>
+              </div>
             </div>
-            <input readOnly value={linkMesa} onClick={(e) => e.target.select()}
-              className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-2.5 font-mono text-[11px] text-emerald-200 outline-none" />
-            <div className="flex gap-2">
-              <button onClick={imprimirMesa} className="rounded-2xl bg-blue-500 px-4 py-2.5 text-xs font-black text-white hover:bg-blue-400">🖨️ Imprimir QR da mesa</button>
-              <a href={linkMesa} target="_blank" rel="noreferrer" className={`rounded-2xl px-4 py-2.5 text-xs font-black transition ${ativo ? "border border-white/10 bg-white/[0.06] text-slate-200 hover:bg-white/10" : "border border-white/10 bg-white/[0.06] text-slate-500 pointer-events-none opacity-50"}`}>Abrir</a>
-            </div>
-            <p className="text-[11px] text-slate-500">Dica: gere um QR por mesa (com a comanda daquela mesa) e cole na mesa. Sem comanda, o cliente digita ao pedir.</p>
-          </div>
-          <div className="flex flex-col items-center justify-center rounded-[2rem] border border-white/10 bg-white p-5">
-            {qrMesa ? <img src={qrMesa} alt="QR da mesa" className="h-44 w-44" /> : <div className="flex h-44 w-44 items-center justify-center text-xs text-slate-400">gerando…</div>}
-            <p className="mt-2 text-[11px] font-black text-slate-600">{mesaQR ? `Mesa ${String(mesaQR).padStart(2, "0")}` : "Cardápio"}</p>
-          </div>
-        </div>
+
+            {selMesas.length === 0 ? (
+              <p className="mt-4 text-xs text-slate-500">Nenhuma mesa selecionada ainda.</p>
+            ) : (
+              <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {selMesas.map((n) => (
+                  <div key={n} className="flex flex-col items-center rounded-3xl border border-white/10 bg-white p-4">
+                    <div className="flex w-full items-center justify-between">
+                      <span className="text-sm font-black text-slate-900">Mesa {String(n).padStart(2, "0")}</span>
+                      <button onClick={() => removerMesaSel(n)} title="Remover" className="rounded-lg bg-red-100 px-2 py-0.5 text-xs font-black text-red-600 hover:bg-red-200">✕</button>
+                    </div>
+                    {qrMap[n] ? <img src={qrMap[n]} alt={`QR mesa ${n}`} className="mt-2 h-36 w-36" /> : <div className="mt-2 flex h-36 w-36 items-center justify-center text-xs text-slate-400">gerando…</div>}
+                    <p className="mt-1 text-[10px] font-black text-slate-500">📷 Aponte a câmera</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
       </div>
     </main>
   );
