@@ -6441,6 +6441,7 @@ function LojaAdmin({ lojas, addLoja, toggleLoja, editarLoja, removerLoja, lojaIn
                 </p>
                 <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-400">
                   <span>Comandas: <span className="font-mono font-bold text-blue-300">{l.prefixo}-000001</span></span>
+                  <span className="text-slate-500">{l.documento ? `· ${soDigitos(l.documento).length === 11 ? "CPF" : "CNPJ"}: ${formatarDoc(l.documento)}` : "· sem CNPJ/CPF"}</span>
                   {(() => { const m = l.modoUso || "interno";
                     const map = { interno: ["🖥️ Interno", "bg-slate-600/30 text-slate-300"], externo: ["📱 Externo", "bg-emerald-500/15 text-emerald-300"], ambos: ["🔀 Ambos", "bg-blue-500/15 text-blue-300"] };
                     const [txt, cls] = map[m] || map.interno;
