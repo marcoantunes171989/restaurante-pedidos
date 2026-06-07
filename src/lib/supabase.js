@@ -364,6 +364,44 @@ export function escutarCargos(onMudanca) {
 }
 
 // ════════════════════════════════════════════════════════════
+//  tab_mesas — CRUD + Realtime (migration 027)
+// ════════════════════════════════════════════════════════════
+function mapMesa(r) {
+  return { id: r.id, numero: r.numero, nome: r.nome || '', capacidade: r.capacidade ?? null, lojaId: r.loja_id ?? null, active: r.ativo }
+}
+export async function fetchMesas() {
+  const { data, error } = await supabase
+    .from('tab_mesas').select('*').order('loja_id', { ascending: true }).order('numero', { ascending: true })
+  if (error) throw error
+  return data.map(mapMesa)
+}
+export async function inserirMesa({ numero, nome, capacidade, lojaId }) {
+  const { data, error } = await supabase
+    .from('tab_mesas').insert([{ numero, nome: nome || null, capacidade: capacidade || null, loja_id: lojaId || null }]).select().single()
+  if (error) throw error
+  return mapMesa(data)
+}
+export async function atualizarMesa(id, campos) {
+  const { error } = await supabase.from('tab_mesas').update(campos).eq('id', id)
+  if (error) throw error
+}
+export async function excluirMesa(id) {
+  const { error } = await supabase.from('tab_mesas').delete().eq('id', id)
+  if (error) throw error
+}
+export function escutarMesas(onMudanca) {
+  const reload = async () => {
+    const { data, error } = await supabase
+      .from('tab_mesas').select('*').order('loja_id', { ascending: true }).order('numero', { ascending: true })
+    if (!error && data) onMudanca(data.map(mapMesa))
+  }
+  const canal = supabase.channel('ch_mesas_' + Math.random().toString(36).slice(2))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_mesas' }, reload)
+    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
+  return () => supabase.removeChannel(canal)
+}
+
+// ════════════════════════════════════════════════════════════
 //  tab_usuarios — CRUD + Realtime
 // ════════════════════════════════════════════════════════════
 export async function fetchUsuarios() {

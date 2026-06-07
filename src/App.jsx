@@ -9,6 +9,7 @@ import {
   fetchLojas, inserirLoja, atualizarLoja, excluirLoja, escutarLojas, cadastrarEmpresa,
   fetchComandas, inserirComandas, escutarComandas, excluirComanda, renomearComanda, toggleComandaAtivo,
   fetchCargos, inserirCargo, atualizarCargo, excluirCargo, escutarCargos,
+  fetchMesas, inserirMesa, atualizarMesa, excluirMesa, escutarMesas,
   baixarEstoque, registrarPagamento,
   excluirProduto, excluirFormaPagamento, excluirUsuario,
   STATUS_APP_PARA_DB,
@@ -569,6 +570,7 @@ export default function RestaurantePedidoApp() {
   const [categoriasDb, setCategoriasDb] = useState([]);
   const [lojas, setLojas] = useState([]);
   const [cargos, setCargos] = useState([]);
+  const [mesas, setMesas] = useState([]);
   const [comandas, setComandas] = useState([]);            // comandas geradas (registro p/ validação)
   const [comandasCarregadas, setComandasCarregadas] = useState(false); // tabela 019 disponível?
   const [lojaContexto, setLojaContexto] = useState(null); // super admin: empresa em foco para cadastros
@@ -596,6 +598,7 @@ export default function RestaurantePedidoApp() {
         try { setCategoriasDb(await fetchCategorias()); } catch { /* migration 010 pendente */ }
         try { setLojas(await fetchLojas()); } catch { /* migration 011 pendente */ }
         try { setCargos(await fetchCargos()); } catch { /* migration 014 pendente */ }
+        try { setMesas(await fetchMesas()); } catch { /* migration 027 pendente */ }
         try { setComandas(await fetchComandas()); setComandasCarregadas(true); } catch { /* migration 019 pendente */ }
         setDbReady(true);
         setLoading(false);
@@ -611,6 +614,7 @@ export default function RestaurantePedidoApp() {
         try { unsubs.push(escutarCategorias(setCategoriasDb)); } catch {}
         try { unsubs.push(escutarLojas(setLojas)); } catch {}
         try { unsubs.push(escutarCargos(setCargos)); } catch {}
+        try { unsubs.push(escutarMesas(setMesas)); } catch {}
         try { unsubs.push(escutarComandas(setComandas)); } catch {}
       } catch (err) {
         console.warn("Supabase indisponível — usando fallback local:", err.message);
@@ -1432,6 +1436,49 @@ export default function RestaurantePedidoApp() {
     notify("success", `Cargo "${c?.nome || ""}" excluído.`);
   }
 
+  // ── Mesas ────────────────────────────────────────────────
+  async function addMesa({ numero, nome, capacidade }) {
+    if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
+    const n = parseInt(numero, 10);
+    if (!n || n < 1 || n > 999) return notify("error", "Informe um número de mesa válido (1–999).");
+    const lojaId = lojaAtual ?? null;
+    const mesasLoja = mesas.filter((m) => m.lojaId === lojaId || (m.lojaId == null && lojaId == null));
+    if (mesasLoja.some((m) => m.numero === n)) return notify("error", `Mesa ${n} já cadastrada.`);
+    const nova = { numero: n, nome: (nome || "").trim(), capacidade: capacidade ? parseInt(capacidade, 10) : null, lojaId };
+    try {
+      const saved = dbReady ? await inserirMesa(nova) : { ...nova, id: Date.now(), active: true };
+      setMesas((cur) => [...cur, saved]);
+      notify("success", `Mesa ${String(n).padStart(2, "0")} cadastrada.`);
+      return true;
+    } catch (e) { notify("error", "Erro ao cadastrar mesa: " + e.message); }
+  }
+  async function editarMesa(id, dados) {
+    if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
+    const n = parseInt(dados.numero, 10);
+    if (!n || n < 1 || n > 999) return notify("error", "Número de mesa inválido.");
+    const lojaId = lojaAtual ?? null;
+    if (mesas.some((m) => m.id !== id && m.numero === n && (m.lojaId === lojaId || (m.lojaId == null && lojaId == null)))) return notify("error", `Mesa ${n} já cadastrada.`);
+    const nome = (dados.nome || "").trim();
+    const capacidade = dados.capacidade ? parseInt(dados.capacidade, 10) : null;
+    setMesas((cur) => cur.map((m) => m.id === id ? { ...m, numero: n, nome, capacidade } : m));
+    if (dbReady) try { await atualizarMesa(id, { numero: n, nome: nome || null, capacidade }); } catch (e) { notify("error", "Erro: " + e.message); return; }
+    notify("success", `Mesa ${String(n).padStart(2, "0")} atualizada.`);
+  }
+  async function toggleMesa(id) {
+    if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
+    const m = mesas.find((x) => x.id === id);
+    const active = !m?.active;
+    setMesas((cur) => cur.map((x) => x.id === id ? { ...x, active } : x));
+    if (dbReady) try { await atualizarMesa(id, { ativo: active }); } catch {}
+  }
+  async function removerMesa(id) {
+    if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
+    const m = mesas.find((x) => x.id === id);
+    setMesas((cur) => cur.filter((x) => x.id !== id));
+    if (dbReady) try { await excluirMesa(id); } catch (e) { notify("error", "Erro ao excluir: " + e.message); return; }
+    notify("success", `Mesa ${String(m?.numero || "").padStart(2, "0")} excluída.`);
+  }
+
   async function addAccess() {
     if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
     const id = accessForm.id.trim().toLowerCase().replace(/[^a-z0-9_-]/g, "");
@@ -1595,6 +1642,7 @@ export default function RestaurantePedidoApp() {
               message={message} onSair={logout}
               onAbrirScanner={() => setScannerAberto(true)}
               lojaInfo={lojaInfo}
+              mesas={filtraLoja(mesas).filter((m) => m.active)}
             />
             {scannerAberto && (
               <QRScannerModal
@@ -1616,7 +1664,7 @@ export default function RestaurantePedidoApp() {
         )}
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} products={products} lojaInfo={lojaInfo} />}
         {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierView orders={orders} baixarComandas={baixarComandas} baixarPedidos={baixarPedidos} formasPagamento={formasPagamentoLoja} onSair={logout} lojaInfo={lojaInfo} />}
-        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} setLicencaEmpresa={setLicencaEmpresa} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} />}
+        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} setLicencaEmpresa={setLicencaEmpresa} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} />}
 
       </div>
     </div>
@@ -1636,7 +1684,7 @@ function TabletView({
   subtotal, serviceFee, total, totalItems,
   handleSendOrder, requestBill, message, onSair, onAbrirScanner,
   currentTableOrders = [], currentTableCancelled = [], cancelarPedidoTablet = () => {}, currentTableSubtotal = 0, currentTableTotal = 0,
-  lojaInfo,
+  lojaInfo, mesas = [],
 }) {
   const [verConta, setVerConta]         = useState(false);
   const [carrinhoAberto, setCarrinhoAberto] = useState(false); // gaveta do carrinho
@@ -1956,7 +2004,22 @@ function TabletView({
 
           {/* Campos mesa / cliente / comanda */}
           <div className="shrink-0 space-y-3 border-b border-white/10 px-5 py-4">
-            <div className="grid grid-cols-2 gap-3">
+            {/* Mesa: grid de botões quando cadastradas, input livre caso contrário */}
+            {mesas.length > 0 ? (
+              <div>
+                <span className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-amber-500">⚠ Mesa *</span>
+                <div className="grid grid-cols-5 gap-1.5 max-h-36 overflow-y-auto pr-1">
+                  {[...mesas].sort((a, b) => a.numero - b.numero).map((m) => (
+                    <button key={m.id} type="button"
+                      onClick={() => setTableNumber(String(m.numero))}
+                      className={`flex flex-col items-center justify-center rounded-xl py-2 text-xs font-black transition active:scale-95 ${String(m.numero) === tableNumber ? "bg-emerald-500 text-white shadow-lg shadow-emerald-950/30" : "border border-white/10 bg-white/[0.06] text-slate-200 hover:bg-white/10"}`}>
+                      <span>{String(m.numero).padStart(2, "0")}</span>
+                      {m.nome && <span className="mt-0.5 block w-full truncate text-center text-[9px] font-normal opacity-70 px-0.5">{m.nome}</span>}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
               <label>
                 <span className="mb-1 block text-xs font-bold uppercase tracking-widest text-amber-500">⚠ Mesa *</span>
                 <input autoFocus={!(tableNumber && Number(tableNumber) > 0)} value={tableNumber} onChange={(e) => setTableNumber(e.target.value.replace(/[^0-9]/g,"").slice(0,2))}
@@ -1964,9 +2027,11 @@ function TabletView({
                   placeholder="Nº"
                   className={`w-full rounded-2xl border bg-slate-800 px-3 py-2.5 text-white outline-none text-sm font-black transition ${tableNumber && Number(tableNumber) > 0 ? "border-emerald-400/40 focus:border-emerald-400" : "border-amber-400/40 focus:border-amber-400"}`} />
               </label>
+            )}
+            <div className="grid grid-cols-1 gap-3">
               <label>
                 <span className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500">Cliente (opcional)</span>
-                <input autoFocus={!!(tableNumber && Number(tableNumber) > 0)} value={customerName} onChange={(e) => setCustomerName(e.target.value)}
+                <input value={customerName} onChange={(e) => setCustomerName(e.target.value)}
                   placeholder="Nome do cliente"
                   className="w-full rounded-2xl border border-white/10 bg-slate-800 px-3 py-2.5 text-white outline-none text-sm transition focus:border-blue-400" />
               </label>
@@ -4212,7 +4277,7 @@ function ComboEmpresaFoco({ lojas = [], valor, onChange }) {
   );
 }
 
-function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, toggleUserStatus, toggleAccessStatus, usersLoja, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], addLoja, toggleLoja, editarLoja, removerLoja, setLicencaEmpresa = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, setModoUsoEmpresa = async()=>{} }) {
+function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, toggleUserStatus, toggleAccessStatus, usersLoja, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], addLoja, toggleLoja, editarLoja, removerLoja, setLicencaEmpresa = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, setModoUsoEmpresa = async()=>{}, mesas = [], addMesa, editarMesa, toggleMesa, removerMesa }) {
   const menu = [
     { grupo: "Gestão", itens: [
       { id: "dashboard", icon: "📊", label: "Dashboard" },
@@ -4221,6 +4286,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
     { grupo: "Cadastros", itens: [
       { id: "products", icon: "🛒", label: "Produtos" },
       { id: "categorias", icon: "🏷️", label: "Categorias" },
+      { id: "mesas", icon: "🪑", label: "Mesas" },
       { id: "pagamento", icon: "💳", label: "Formas de pagamento" },
       { id: "comandas", icon: "🎫", label: "Comandas QR" },
       { id: "cardapioext", icon: "📱", label: "Cardápio externo" },
@@ -4375,6 +4441,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           {ativo === "access"     && <AccessAdmin    accesses={accesses} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleAccessStatus={toggleAccessStatus} />}
           {ativo === "link"       && <UserAccessAdmin users={isSuperAdmin ? users : (usersLoja ?? users)} accesses={accesses} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} lojas={lojas} isSuperAdmin={isSuperAdmin} />}
           {ativo === "categorias" && (precisaEmpresa ? avisoEmpresa : <CategoriaAdmin categoriasDb={categoriasDb} produtos={products} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} />)}
+          {ativo === "mesas"      && (precisaEmpresa ? avisoEmpresa : <MesaAdmin mesas={mesas} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} orders={orders} />)}
           {ativo === "comandas"   && (precisaEmpresa ? avisoEmpresa : <GeradorComandas prefixoLoja={lojaInfo?.prefixo || "CMD"} empresa={lojaInfo?.nome || "Restaurante"} onGerar={registrarComandas} comandasRegistradas={comandasRegistradas} orders={orders} onExcluirComanda={excluirComandaFn} onRenomearComanda={renomearComandaFn} onToggleComanda={toggleComandaFn} lojaId={lojaInfo?.id} logoSalvo={lojaInfo?.logoUrl || ""} onSalvarLogo={(url) => salvarLogoEmpresa(lojaInfo?.id, url)} />)}
           {ativo === "pagamento"  && (precisaEmpresa ? avisoEmpresa : <PagamentoAdmin formasPagamento={formasPagamento} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} />)}
           {ativo === "lojas"      && <LojaAdmin lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} lojaInfo={lojaInfo} criarEmpresa={criarEmpresa} cargos={cargos} />}
@@ -8303,6 +8370,200 @@ function QRLoginCardModal({ usuario, nomeEmpresa, onFechar }) {
           <button onClick={imprimir} disabled={!qrUrl}
             className="flex-[1.5] rounded-2xl bg-blue-500 py-3.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
             🖨️ Imprimir QR de login
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+//  Admin — Mesas (cadastro, edição, inativar, excluir)
+// ════════════════════════════════════════════════════════════
+function MesaAdmin({ mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, orders = [] }) {
+  const [editando, setEditando] = useState(null);
+  const [excluir, setExcluir]   = useState(null);
+  const [criando, setCriando]   = useState(false);
+  const [busca, setBusca]       = useState("");
+
+  const termo = busca.trim().toLowerCase();
+  const filtradas = termo
+    ? mesas.filter((m) => `${String(m.numero).padStart(2,"0")} ${m.nome}`.toLowerCase().includes(termo))
+    : mesas;
+  const mesasOrdenadas = [...filtradas].sort((a, b) => a.numero - b.numero);
+
+  const pedidosAbertos = (mesa) => {
+    const label = `Mesa ${String(mesa.numero).padStart(2, "0")}`;
+    return orders.filter((o) => o.table === label && o.paymentStatus !== "paid" && o.status !== "cancelled").length;
+  };
+
+  async function salvarNova(form) {
+    const ok = await addMesa(form);
+    if (ok) setCriando(false);
+  }
+
+  return (
+    <main className="space-y-5">
+      {/* Cabeçalho */}
+      <div className="flex flex-col gap-4 rounded-[2rem] border border-white/10 bg-white/[0.04] p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h3 className="text-xl font-black text-white">Mesas</h3>
+          <p className="mt-0.5 text-sm text-slate-400">
+            <span className="font-bold text-white">{mesas.length}</span> no total •
+            <span className="text-emerald-300"> {mesas.filter((m) => m.active !== false).length} ativas</span> •
+            <span className="text-slate-500"> {mesas.filter((m) => m.active === false).length} inativas</span>
+          </p>
+          <p className="mt-1 text-xs text-slate-500">Mesas ativas aparecem como seleção no tablet do cliente.</p>
+        </div>
+        <button onClick={() => setCriando(true)}
+          className="flex items-center justify-center gap-2 rounded-2xl bg-blue-500 px-6 py-3.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95 shadow-lg shadow-blue-950/30">
+          <span className="text-lg leading-none">+</span> Cadastrar mesa
+        </button>
+      </div>
+
+      {/* Busca + lista */}
+      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+        <div className="relative mb-4">
+          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">🔍</span>
+          <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por número ou nome..."
+            className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-blue-400" />
+        </div>
+        <div className="space-y-2">
+          {mesas.length === 0 && (
+            <div className="py-10 text-center">
+              <p className="text-sm text-slate-500">Nenhuma mesa cadastrada.</p>
+              <button onClick={() => setCriando(true)} className="mt-3 rounded-2xl border border-blue-400/30 bg-blue-500/15 px-4 py-2 text-xs font-black text-blue-200 hover:bg-blue-500/25">+ Cadastrar mesa</button>
+            </div>
+          )}
+          {mesas.length > 0 && mesasOrdenadas.length === 0 && <p className="py-6 text-center text-sm text-slate-500">Nenhuma mesa encontrada.</p>}
+          {mesasOrdenadas.map((m) => {
+            const abertos = pedidosAbertos(m);
+            return (
+              <div key={m.id} className="flex items-center gap-3 rounded-3xl border border-white/10 bg-slate-950/40 p-3">
+                <span className="flex h-11 w-14 shrink-0 items-center justify-center rounded-2xl bg-white/[0.06] text-base font-black text-white">
+                  {String(m.numero).padStart(2, "0")}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="font-black text-white leading-tight">{m.nome || `Mesa ${String(m.numero).padStart(2, "0")}`}</p>
+                  <p className="text-xs text-slate-400">
+                    {m.capacidade ? `${m.capacidade} lugares` : "Capacidade não definida"}
+                    {abertos > 0 && <span className="ml-2 rounded-full bg-amber-500/20 px-1.5 py-0.5 text-amber-300">{abertos} pedido(s) aberto(s)</span>}
+                  </p>
+                </div>
+                <button onClick={() => toggleMesa(m.id)}
+                  className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-black transition ${m.active !== false ? "bg-emerald-500 text-white" : "bg-slate-700 text-slate-200"}`}>
+                  {m.active !== false ? "Ativa" : "Inativa"}
+                </button>
+                <button onClick={() => setEditando(m)}
+                  className="shrink-0 rounded-xl border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs font-black text-blue-300 hover:bg-white/10">✏️</button>
+                <button onClick={() => setExcluir(m)}
+                  disabled={abertos > 0}
+                  title={abertos > 0 ? "Há pedidos em aberto — inative em vez de excluir" : "Excluir mesa"}
+                  className="shrink-0 rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-1.5 text-xs font-black text-red-300 hover:bg-red-500/20 disabled:opacity-30 disabled:cursor-not-allowed">🗑️</button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {criando && <MesaCadastroModal onSalvar={salvarNova} onFechar={() => setCriando(false)} />}
+      {editando && <MesaEditModal mesa={editando} onSalvar={(d) => { editarMesa(editando.id, d); setEditando(null); }} onFechar={() => setEditando(null)} />}
+      {excluir && (
+        <ConfirmModal titulo="Excluir mesa?"
+          mensagem={`Deseja excluir a Mesa ${String(excluir.numero).padStart(2, "0")}${excluir.nome ? ` (${excluir.nome})` : ""}? Esta ação não pode ser desfeita.`}
+          confirmar="Sim, excluir"
+          onConfirmar={() => { removerMesa(excluir.id); setExcluir(null); }}
+          onCancelar={() => setExcluir(null)} />
+      )}
+    </main>
+  );
+}
+
+function MesaCadastroModal({ onSalvar, onFechar }) {
+  const [form, setForm] = useState({ numero: "", nome: "", capacidade: "" });
+  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400 placeholder:text-slate-600";
+  const lbl = "mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500";
+  const valido = parseInt(form.numero, 10) > 0;
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onFechar}>
+      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-md flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl">
+        <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+          <div className="flex items-center gap-2">
+            <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-blue-500/15 text-lg">🪑</span>
+            <h2 className="text-lg font-black text-white">Nova mesa</h2>
+          </div>
+          <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20">✕</button>
+        </div>
+        <div className="px-6 py-5 space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={lbl}>Número *</label>
+              <input autoFocus value={form.numero}
+                onChange={(e) => setForm({ ...form, numero: e.target.value.replace(/[^0-9]/g, "").slice(0, 3) })}
+                onKeyDown={(e) => { if (e.key === "Enter" && valido) onSalvar(form); }}
+                type="tel" inputMode="numeric" placeholder="Ex.: 1" className={inp} />
+            </div>
+            <div>
+              <label className={lbl}>Capacidade</label>
+              <input value={form.capacidade}
+                onChange={(e) => setForm({ ...form, capacidade: e.target.value.replace(/[^0-9]/g, "").slice(0, 2) })}
+                type="tel" inputMode="numeric" placeholder="Nº de lugares" className={inp} />
+            </div>
+          </div>
+          <div>
+            <label className={lbl}>Nome / Identificação</label>
+            <input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })}
+              placeholder="Ex.: Varanda, VIP, Área externa" className={inp} />
+          </div>
+          <p className="text-xs text-slate-500">A mesa ficará disponível imediatamente no tablet do cliente.</p>
+        </div>
+        <div className="shrink-0 border-t border-white/10 px-6 py-4 flex gap-3">
+          <button onClick={onFechar} className="flex-1 rounded-2xl border border-white/10 bg-white/[0.06] py-3.5 text-sm font-black text-slate-300 hover:bg-white/10">Cancelar</button>
+          <button onClick={() => onSalvar(form)} disabled={!valido}
+            className="flex-[2] rounded-2xl bg-blue-500 py-3.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+            + Cadastrar mesa
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MesaEditModal({ mesa, onSalvar, onFechar }) {
+  const [form, setForm] = useState({ numero: String(mesa.numero), nome: mesa.nome || "", capacidade: mesa.capacidade ? String(mesa.capacidade) : "" });
+  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400 placeholder:text-slate-600";
+  const lbl = "mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500";
+  const valido = parseInt(form.numero, 10) > 0;
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onFechar}>
+      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl">
+        <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+          <h2 className="text-lg font-black text-white">✏️ Editar mesa {String(mesa.numero).padStart(2, "0")}</h2>
+          <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20">✕</button>
+        </div>
+        <div className="px-6 py-4 space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={lbl}>Número *</label>
+              <input autoFocus value={form.numero}
+                onChange={(e) => setForm({ ...form, numero: e.target.value.replace(/[^0-9]/g, "").slice(0, 3) })}
+                type="tel" inputMode="numeric" className={inp} />
+            </div>
+            <div>
+              <label className={lbl}>Capacidade</label>
+              <input value={form.capacidade}
+                onChange={(e) => setForm({ ...form, capacidade: e.target.value.replace(/[^0-9]/g, "").slice(0, 2) })}
+                type="tel" inputMode="numeric" placeholder="Nº de lugares" className={inp} />
+            </div>
+          </div>
+          <div>
+            <label className={lbl}>Nome / Identificação</label>
+            <input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })}
+              placeholder="Ex.: Varanda, VIP, Área externa" className={inp} />
+          </div>
+          <button onClick={() => valido && onSalvar(form)} disabled={!valido}
+            className="w-full rounded-2xl bg-emerald-500 py-4 text-sm font-black text-white hover:bg-emerald-400 disabled:opacity-50 transition">
+            💾 Salvar alterações
           </button>
         </div>
       </div>
