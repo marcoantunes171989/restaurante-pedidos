@@ -14,6 +14,7 @@ const WHATSAPP_COMERCIAL = "5518981465499";
 // ── Dados (reutilizáveis) ────────────────────────────────────
 const NAV = [
   { label: "Funcionalidades", id: "funcionalidades" },
+  { label: "2 formas de usar", id: "formas" },
   { label: "Baixar app", id: "app" },
   { label: "Como funciona", id: "como-funciona" },
   { label: "Segmentos", id: "segmentos" },
@@ -410,6 +411,43 @@ export default function LandingPage({ navigate }) {
           <TituloSecao tag="Funcionalidades" titulo="Tudo que o seu estabelecimento precisa, em uma só plataforma" subtitulo="Do pedido na mesa ao fechamento no caixa, com a cozinha sincronizada em tempo real." />
           <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {FEATURES.map((f) => <FeatureCard key={f.title} {...f} />)}
+          </div>
+        </div>
+      </section>
+
+      {/* ── 2 formas de usar: Interno x Externo ───────────── */}
+      <section id="formas" className="scroll-mt-24 bg-slate-50 py-16 sm:py-20">
+        <div className="mx-auto max-w-6xl px-5">
+          <TituloSecao tag="2 formas de usar"
+            titulo="Atendimento no tablet (interno) e cardápio no celular do cliente (externo)"
+            subtitulo="Use do jeito que o seu negócio precisa — só interno, só externo, ou os dois ao mesmo tempo. Mais agilidade no salão e mais conversão fora dele." />
+          <div className="mt-10 grid gap-6 lg:grid-cols-2">
+            {/* Interno */}
+            <div className="rounded-3xl border border-blue-100 bg-white p-7 shadow-sm">
+              <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-2xl">🖥️</span>
+              <h3 className="mt-4 text-xl font-black text-slate-900">Interno — tablet na mesa</h3>
+              <p className="mt-1 text-sm leading-6 text-slate-500">O cliente pede sozinho pelo tablet da mesa. Agilidade no salão, menos fila e menos erros de anotação.</p>
+              <ul className="mt-4 space-y-2 text-sm text-slate-700">
+                {["Pedido direto na mesa, sem esperar o garçom","Comanda por QR Code validada por empresa","Cozinha recebe o pedido na hora","Acompanhamento e conta pelo próprio tablet","Funciona como app instalado (Android), em tela cheia"].map((t) => (
+                  <li key={t} className="flex items-start gap-2"><span className="mt-0.5 text-blue-500">✓</span> {t}</li>
+                ))}
+              </ul>
+            </div>
+            {/* Externo */}
+            <div className="rounded-3xl border border-emerald-100 bg-white p-7 shadow-sm">
+              <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-2xl">📱</span>
+              <h3 className="mt-4 text-xl font-black text-slate-900">Externo — celular do cliente</h3>
+              <p className="mt-1 text-sm leading-6 text-slate-500">O cliente acessa o cardápio digital pelo próprio celular — na mesa (QR) ou de qualquer lugar pelo link. Faz o pedido e acompanha sem instalar nada.</p>
+              <ul className="mt-4 space-y-2 text-sm text-slate-700">
+                {["QR na mesa: aponta a câmera e já pede","Link/QR geral para redes sociais e fachada","Pedido cai direto na cozinha, em tempo real","Acompanha o status (na fila → preparando → pronto)","Solicita a conta pelo celular","Sem app, sem download — abre no navegador"].map((t) => (
+                  <li key={t} className="flex items-start gap-2"><span className="mt-0.5 text-emerald-500">✓</span> {t}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+          <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+            <Botao variant="primary" onClick={() => goTo("app")}>📲 Conhecer o app</Botao>
+            <Botao variant="light" onClick={acessar}>Acessar Sistema →</Botao>
           </div>
         </div>
       </section>

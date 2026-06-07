@@ -4380,7 +4380,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           {ativo === "lojas"      && <LojaAdmin lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} lojaInfo={lojaInfo} criarEmpresa={criarEmpresa} cargos={cargos} />}
           {ativo === "licencas"   && <LicencaAdmin lojas={lojas} usuarios={users} setLicencaEmpresa={setLicencaEmpresa} />}
           {ativo === "versoes"    && <VersoesAdmin lojas={lojas} lojaFiltro={isSuperAdmin ? null : (lojaInfo?.id ?? null)} />}
-          {ativo === "cardapioext" && (precisaEmpresa ? avisoEmpresa : <CardapioExternoAdmin lojaInfo={lojaInfo} setModoUsoEmpresa={setModoUsoEmpresa} />)}
+          {ativo === "cardapioext" && (precisaEmpresa ? avisoEmpresa : <CardapioExternoAdmin lojaInfo={lojaInfo} setModoUsoEmpresa={setModoUsoEmpresa} comandas={comandasRegistradas} />)}
           {ativo === "minhaempresa" && (
             <MinhaEmpresa
               lojaInfo={lojaInfo}
@@ -5838,7 +5838,7 @@ function VersoesAdmin({ lojas = [], lojaFiltro = null }) {
 // ════════════════════════════════════════════════════════════
 //  Cardápio externo (tela admin) — link + QR + ativar modo
 // ════════════════════════════════════════════════════════════
-function CardapioExternoAdmin({ lojaInfo, setModoUsoEmpresa = async () => {} }) {
+function CardapioExternoAdmin({ lojaInfo, setModoUsoEmpresa = async () => {}, comandas = [] }) {
   const [qr, setQr] = useState("");
   const [copiado, setCopiado] = useState(false);
   const origem = (typeof window !== "undefined") ? window.location.origin : "";
@@ -5846,6 +5846,35 @@ function CardapioExternoAdmin({ lojaInfo, setModoUsoEmpresa = async () => {} }) 
   const link = `${origem}/cardapio?e=${prefixo}`;
   const modo = lojaInfo?.modoUso || "interno";
   const ativo = modo === "externo" || modo === "ambos";
+
+  // ── QR por mesa (colar na mesa) ──────────────────────────────
+  const [mesaQR, setMesaQR] = useState("");
+  const [comandaQR, setComandaQR] = useState("");
+  const [qrMesa, setQrMesa] = useState("");
+  const comandasAtivas = (comandas || []).filter((c) => c.ativo !== false).map((c) => c.codigo);
+  const linkMesa = `${origem}/cardapio?e=${prefixo}${mesaQR ? `&mesa=${mesaQR}` : ""}${comandaQR ? `&c=${comandaQR}` : ""}`;
+  useEffect(() => {
+    let vivo = true;
+    (async () => { try { const QRCode = (await import("qrcode")).default; const u = await QRCode.toDataURL(linkMesa, { width: 560, margin: 1, color: { dark: "#0f172a", light: "#ffffff" } }); if (vivo) setQrMesa(u); } catch {} })();
+    return () => { vivo = false; };
+  }, [linkMesa]);
+  function imprimirMesa() {
+    const w = window.open("", "_blank", "width=420,height=620"); if (!w) return;
+    w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>QR Mesa ${mesaQR || ""}</title>
+      <style>*{box-sizing:border-box;font-family:Arial,Helvetica,sans-serif}body{margin:0;padding:24px;text-align:center;color:#0f172a}
+      .card{border:2px solid #e2e8f0;border-radius:24px;padding:26px}.t{font-size:14px;font-weight:800;color:#475569;letter-spacing:.1em}
+      .m{font-size:30px;font-weight:900;margin:6px 0 2px}.e{font-size:13px;color:#64748b;font-weight:700}
+      .qr{width:280px;height:280px;margin:16px auto}.qr img{width:100%}.h{margin-top:8px;font-size:13px;font-weight:800;color:#0f172a}
+      .s{margin-top:2px;font-size:11px;color:#94a3b8}</style></head><body>
+      <div class="card"><p class="t">${(lojaInfo?.nome || "").toUpperCase()}</p>
+      ${mesaQR ? `<p class="m">Mesa ${String(mesaQR).padStart(2, "0")}</p>` : `<p class="m">Cardápio</p>`}
+      ${comandaQR ? `<p class="e">${comandaQR}</p>` : ""}
+      <div class="qr"><img src="${qrMesa}" /></div>
+      <p class="h">📷 Aponte a câmera e faça seu pedido</p>
+      <p class="s">Peça e acompanhe pelo seu celular</p></div>
+      <script>window.onload=function(){setTimeout(function(){window.print()},250)}</script></body></html>`);
+    w.document.close();
+  }
 
   useEffect(() => {
     let vivo = true;
@@ -5896,6 +5925,36 @@ function CardapioExternoAdmin({ lojaInfo, setModoUsoEmpresa = async () => {} }) 
         <div className="flex flex-col items-center justify-center rounded-[2rem] border border-white/10 bg-white p-5">
           {qr ? <img src={qr} alt="QR do cardápio" className="h-44 w-44" /> : <div className="flex h-44 w-44 items-center justify-center text-xs text-slate-400">gerando QR…</div>}
           <p className="mt-2 text-[11px] font-black text-slate-600">Aponte a câmera no cardápio</p>
+        </div>
+      </div>
+
+      {/* QR por mesa — para colar na mesa */}
+      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+        <h3 className="text-base font-black text-white">🪧 QR Code da mesa (colar na mesa)</h3>
+        <p className="mt-0.5 text-xs text-slate-400">O cliente aponta a câmera, abre o cardápio já na mesa e pede pelo próprio celular — e acompanha o pedido.</p>
+        <div className="mt-4 grid gap-5 lg:grid-cols-[1fr_auto]">
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <label><span className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-slate-500">Mesa</span>
+                <input type="tel" inputMode="numeric" value={mesaQR} onChange={(e) => setMesaQR(e.target.value.replace(/\D/g, "").slice(0, 2))} placeholder="Nº"
+                  className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-3 py-2.5 text-sm font-black text-white outline-none focus:border-blue-400" /></label>
+              <label><span className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-slate-500">Comanda</span>
+                <input list="comandas-ext" value={comandaQR} onChange={(e) => setComandaQR(e.target.value.toUpperCase())} placeholder={`${prefixo}-000001`}
+                  className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-3 py-2.5 font-mono text-sm font-black tracking-widest text-white outline-none focus:border-blue-400" />
+                <datalist id="comandas-ext">{comandasAtivas.map((c) => <option key={c} value={c} />)}</datalist></label>
+            </div>
+            <input readOnly value={linkMesa} onClick={(e) => e.target.select()}
+              className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-2.5 font-mono text-[11px] text-emerald-200 outline-none" />
+            <div className="flex gap-2">
+              <button onClick={imprimirMesa} className="rounded-2xl bg-blue-500 px-4 py-2.5 text-xs font-black text-white hover:bg-blue-400">🖨️ Imprimir QR da mesa</button>
+              <a href={linkMesa} target="_blank" rel="noreferrer" className={`rounded-2xl px-4 py-2.5 text-xs font-black transition ${ativo ? "border border-white/10 bg-white/[0.06] text-slate-200 hover:bg-white/10" : "border border-white/10 bg-white/[0.06] text-slate-500 pointer-events-none opacity-50"}`}>Abrir</a>
+            </div>
+            <p className="text-[11px] text-slate-500">Dica: gere um QR por mesa (com a comanda daquela mesa) e cole na mesa. Sem comanda, o cliente digita ao pedir.</p>
+          </div>
+          <div className="flex flex-col items-center justify-center rounded-[2rem] border border-white/10 bg-white p-5">
+            {qrMesa ? <img src={qrMesa} alt="QR da mesa" className="h-44 w-44" /> : <div className="flex h-44 w-44 items-center justify-center text-xs text-slate-400">gerando…</div>}
+            <p className="mt-2 text-[11px] font-black text-slate-600">{mesaQR ? `Mesa ${String(mesaQR).padStart(2, "0")}` : "Cardápio"}</p>
+          </div>
         </div>
       </div>
     </main>
