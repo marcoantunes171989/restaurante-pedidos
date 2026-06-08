@@ -1689,6 +1689,7 @@ function TabletView({
   const [produtoDetalhe, setProdutoDetalhe] = useState(null); // produto aberto no modal
   const [isFullscreen, setIsFullscreen] = useState(!!document.fullscreenElement);
   const [trocarMesaAberto, setTrocarMesaAberto] = useState(false); // reabrir seleção de mesa
+  const [mesaManual, setMesaManual] = useState(""); // input manual quando não há mesas cadastradas
 
   // Mesa FIXA do tablet: este tablet "pertence" a uma mesa, escolhida no início
   // (combo de mesas cadastradas). Fica salva por aparelho (localStorage).
@@ -1702,8 +1703,9 @@ function TabletView({
     setTrocarMesaAberto(false);
   };
   const mesaSelecionada = mesas.find((m) => String(m.numero) === String(tableNumber)) || null;
-  // Precisa escolher a mesa: há mesas cadastradas e nenhuma definida para o tablet
-  const precisaMesa = mesas.length > 0 && !(tableNumber && Number(tableNumber) > 0);
+  // Precisa escolher a mesa após o login (em TODOS os dispositivos), enquanto
+  // nenhuma mesa estiver definida para o tablet.
+  const precisaMesa = !(tableNumber && Number(tableNumber) > 0);
 
   // Detecta mudanças de tela cheia (Esc/F11) para atualizar o botão e o aviso
   useEffect(() => {
@@ -1818,7 +1820,6 @@ function TabletView({
     ) {
       mesaComPedidoRef.current = null;
       // Mantém a MESA fixa do tablet (não limpa) — só zera comanda/cliente.
-      if (mesas.length === 0) setTableNumber("");
       setCommandCode("");
       setCustomerName("");
       setVerConta(false);
@@ -2019,26 +2020,16 @@ function TabletView({
 
           {/* Campos mesa / cliente / comanda */}
           <div className="shrink-0 space-y-3 border-b border-white/10 px-5 py-4">
-            {/* Mesa do tablet — apenas informativo (escolhida no início). */}
-            {mesas.length > 0 ? (
-              <div>
-                <span className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500">🍽️ Mesa deste tablet</span>
-                <div className="flex items-center justify-between rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-2.5">
-                  <span className="text-sm font-black text-emerald-100">
-                    {mesaSelecionada ? `Mesa ${String(mesaSelecionada.numero).padStart(2, "0")}${mesaSelecionada.nome ? ` — ${mesaSelecionada.nome}` : ""}` : (tableNumber ? `Mesa ${String(tableNumber).padStart(2, "0")}` : "Mesa não definida")}
-                  </span>
-                  <button type="button" onClick={() => setTrocarMesaAberto(true)} className="shrink-0 rounded-xl border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs font-black text-slate-200 hover:bg-white/10">Trocar</button>
-                </div>
+            {/* Mesa do tablet — apenas informativo (escolhida após o login). */}
+            <div>
+              <span className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500">🍽️ Mesa deste tablet</span>
+              <div className="flex items-center justify-between rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-2.5">
+                <span className="text-sm font-black text-emerald-100">
+                  {mesaSelecionada ? `Mesa ${String(mesaSelecionada.numero).padStart(2, "0")}${mesaSelecionada.nome ? ` — ${mesaSelecionada.nome}` : ""}` : (tableNumber ? `Mesa ${String(tableNumber).padStart(2, "0")}` : "Mesa não definida")}
+                </span>
+                <button type="button" onClick={() => setTrocarMesaAberto(true)} className="shrink-0 rounded-xl border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs font-black text-slate-200 hover:bg-white/10">Trocar</button>
               </div>
-            ) : (
-              <label>
-                <span className="mb-1 block text-xs font-bold uppercase tracking-widest text-amber-500">⚠ Mesa *</span>
-                <input autoFocus={!(tableNumber && Number(tableNumber) > 0)} value={tableNumber} onChange={(e) => setTableNumber(e.target.value.replace(/[^0-9]/g,"").slice(0,2))}
-                  type="tel" inputMode="numeric" pattern="[0-9]*"
-                  placeholder="Nº"
-                  className={`w-full rounded-2xl border bg-slate-800 px-3 py-2.5 text-white outline-none text-sm font-black transition ${tableNumber && Number(tableNumber) > 0 ? "border-emerald-400/40 focus:border-emerald-400" : "border-amber-400/40 focus:border-amber-400"}`} />
-              </label>
-            )}
+            </div>
             <div className="grid grid-cols-1 gap-3">
               <label>
                 <span className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500">Cliente (opcional)</span>
@@ -2348,8 +2339,8 @@ function TabletView({
         />
       )}
 
-      {/* Seleção da mesa do tablet — obrigatória no início; ou ao trocar */}
-      {(precisaMesa || trocarMesaAberto) && mesas.length > 0 && (
+      {/* Seleção da mesa do tablet — obrigatória após o login; ou ao trocar */}
+      {(precisaMesa || trocarMesaAberto) && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
           <div className="w-full max-w-md overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl">
             <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
@@ -2360,15 +2351,30 @@ function TabletView({
               {!precisaMesa && <button onClick={() => setTrocarMesaAberto(false)} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20">✕</button>}
             </div>
             <div className="max-h-[60vh] overflow-y-auto px-6 py-5">
-              <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-                {[...mesas].sort((a, b) => a.numero - b.numero).map((m) => (
-                  <button key={m.id} type="button" onClick={() => definirMesaTablet(m.numero)}
-                    className={`flex flex-col items-center justify-center rounded-2xl py-3 transition active:scale-95 ${String(m.numero) === String(tableNumber) ? "bg-emerald-500 text-white" : "border border-white/10 bg-white/[0.06] text-slate-200 hover:bg-white/10"}`}>
-                    <span className="text-base font-black">{String(m.numero).padStart(2, "0")}</span>
-                    {m.nome && <span className="mt-0.5 w-full truncate px-1 text-center text-[10px] opacity-70">{m.nome}</span>}
+              {mesas.length > 0 ? (
+                <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                  {[...mesas].sort((a, b) => a.numero - b.numero).map((m) => (
+                    <button key={m.id} type="button" onClick={() => definirMesaTablet(m.numero)}
+                      className={`flex flex-col items-center justify-center rounded-2xl py-3 transition active:scale-95 ${String(m.numero) === String(tableNumber) ? "bg-emerald-500 text-white" : "border border-white/10 bg-white/[0.06] text-slate-200 hover:bg-white/10"}`}>
+                      <span className="text-base font-black">{String(m.numero).padStart(2, "0")}</span>
+                      {m.nome && <span className="mt-0.5 w-full truncate px-1 text-center text-[10px] opacity-70">{m.nome}</span>}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-xs text-slate-400">Nenhuma mesa cadastrada. Informe o número da mesa deste tablet:</p>
+                  <input autoFocus type="tel" inputMode="numeric" value={mesaManual}
+                    onChange={(e) => setMesaManual(e.target.value.replace(/\D/g, "").slice(0, 2))}
+                    onKeyDown={(e) => { if (e.key === "Enter" && Number(mesaManual) > 0) definirMesaTablet(mesaManual); }}
+                    placeholder="Nº da mesa"
+                    className="w-full rounded-2xl border border-amber-400/40 bg-slate-800 px-4 py-3 text-center text-lg font-black text-white outline-none focus:border-emerald-400" />
+                  <button onClick={() => Number(mesaManual) > 0 && definirMesaTablet(mesaManual)} disabled={!(Number(mesaManual) > 0)}
+                    className="w-full rounded-2xl bg-emerald-500 py-3.5 text-sm font-black text-white hover:bg-emerald-400 transition active:scale-95 disabled:opacity-40">
+                    Confirmar mesa
                   </button>
-                ))}
-              </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
