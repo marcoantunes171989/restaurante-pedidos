@@ -531,6 +531,7 @@ function dbParaProduto(r) {
     badge:       r.destaque,
     imageUrl:    r.url_imagem,
     ingredients: r.ingredientes ?? [],
+    adicionais:  Array.isArray(r.adicionais) ? r.adicionais : [],
     estoque:     r.estoque ?? 0,
     lojaId:      r.loja_id ?? null,
   }
@@ -610,6 +611,7 @@ function produtoParaDb(p) {
     destaque:      p.badge,
     url_imagem:    p.imageUrl,
     ingredientes:  p.ingredients ?? [],
+    adicionais:    Array.isArray(p.adicionais) ? p.adicionais : [],
     estoque:       p.estoque ?? 100,
     ...(p.lojaId ? { loja_id: p.lojaId } : {}),
   }

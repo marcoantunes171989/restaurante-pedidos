@@ -958,12 +958,12 @@ export default function RestaurantePedidoApp() {
       setOrders((cur) => [newOrder, ...cur]);
     }
 
-    // Mantém o NÚMERO DA MESA e a COMANDA já lida para permitir vários pedidos
-    // (diferentes ou iguais) na MESMA comanda, sem precisar reler o QR Code a
-    // cada pedido. Limpa apenas o carrinho e o nome. Para usar outra comanda,
-    // basta escanear/digitar uma nova (substitui a atual).
+    // Mantém a MESA fixa do tablet, mas SEMPRE limpa a comanda e o carrinho —
+    // cada novo pedido exige ler/informar uma nova comanda (sem carregar a
+    // comanda anterior).
     setCart([]);
     setCustomerName("");
+    setCommandCode("");
     notify("success", `✅ Pedido enviado! Comanda ${codigo} vinculada à ${currentTable}.`);
   }
 
@@ -1303,7 +1303,7 @@ export default function RestaurantePedidoApp() {
     if (custoAdd <= 0) return notify("error", "Informe o custo do produto.");
     const imgFinal = (typeof overrideImageUrl === "string" && overrideImageUrl) ? overrideImageUrl : adminForm.imageUrl;
     if (!adminForm.time || !adminForm.time.trim()) return notify("error", "Selecione o tempo de preparo.");
-    const np = { name: adminForm.name.trim(), category: adminForm.category, price: precoAdd, cost: custoAdd, active: true, time: adminForm.time, description: adminForm.description || "Produto cadastrado pelo administrativo.", badge: "Admin", imageUrl: imgFinal || fallbackImage, ingredients: adminForm.ingredientsText.split(",").map((s) => s.trim()).filter(Boolean), estoque: 100, lojaId: lojaAtual };
+    const np = { name: adminForm.name.trim(), category: adminForm.category, price: precoAdd, cost: custoAdd, active: true, time: adminForm.time, description: adminForm.description || "Produto cadastrado pelo administrativo.", badge: "Admin", imageUrl: imgFinal || fallbackImage, ingredients: adminForm.ingredientsText.split(",").map((s) => s.trim()).filter(Boolean), adicionais: adminForm.adicionais || [], estoque: 100, lojaId: lojaAtual };
     try {
       const saved = dbReady ? await inserirProduto(np) : { ...np, id: Date.now() };
       setProducts((cur) => [saved, ...cur]);
@@ -1338,6 +1338,7 @@ export default function RestaurantePedidoApp() {
         nome: dados.name, categoria: dados.category, preco: Number(dados.price), custo: Number(dados.cost || 0),
         tempo_preparo: dados.time, descricao: dados.description, url_imagem: dados.imageUrl,
         ingredientes: dados.ingredients, estoque: Number(dados.estoque ?? 0),
+        adicionais: Array.isArray(dados.adicionais) ? dados.adicionais : [],
       });
     } catch (e) { notify("error", "Erro ao salvar: " + e.message); }
     notify("success", "Produto atualizado.");
@@ -2077,19 +2078,13 @@ function TabletView({
                 </div>
                 <p className="mt-0.5 text-xs text-slate-400">{formatCurrency(item.price)} cada • {formatCurrency(item.price * item.quantity)}</p>
 
-                {/* Ingredientes */}
+                {/* Ingredientes — somente leitura no resumo (edição é no produto) */}
                 <div className="mt-2 flex flex-wrap gap-1">
                   {item.selectedIngredients.map((ing) => (
-                    <button key={ing} onClick={() => removeIngredient(item.id, ing)}
-                      className="rounded-full border border-emerald-400/20 bg-emerald-500/10 px-2 py-0.5 text-xs text-emerald-200 hover:bg-red-500/20 hover:border-red-400/20 hover:text-red-200 transition">
-                      ✓ {ing}
-                    </button>
+                    <span key={ing} className="rounded-full border border-emerald-400/20 bg-emerald-500/10 px-2 py-0.5 text-xs text-emerald-200">✓ {ing}</span>
                   ))}
                   {item.removedIngredients.map((ing) => (
-                    <button key={ing} onClick={() => restoreIngredient(item.id, ing)}
-                      className="rounded-full border border-red-400/20 bg-red-500/10 px-2 py-0.5 text-xs text-red-300 line-through">
-                      ✗ {ing}
-                    </button>
+                    <span key={ing} className="rounded-full border border-red-400/20 bg-red-500/10 px-2 py-0.5 text-xs text-red-300 line-through">✗ {ing}</span>
                   ))}
                 </div>
 
@@ -2456,9 +2451,12 @@ export function ProdutoModal({ produto, onFechar, onAdicionar }) {
   const [quantidade, setQuantidade]   = useState(1);
   const [selecionados, setSelecionados] = useState([...(produto.ingredients || [])]);
   const [removidos, setRemovidos]       = useState([]);
-  const [extras, setExtras]             = useState([]);
-  const [extraInput, setExtraInput]     = useState("");
+  const [extras, setExtras]             = useState([]); // nomes dos adicionais selecionados
   const [observacao, setObservacao]     = useState("");
+
+  // Adicionais cadastrados e vinculados ao produto: [{ nome, preco }]
+  const adicionais = (produto.adicionais || []).filter((a) => a && a.nome);
+  const extrasTotal = adicionais.filter((a) => extras.includes(a.nome)).reduce((s, a) => s + (Number(a.preco) || 0), 0);
 
   function toggleIngrediente(ing) {
     if (selecionados.includes(ing)) {
@@ -2470,16 +2468,14 @@ export function ProdutoModal({ produto, onFechar, onAdicionar }) {
     }
   }
 
-  function addExtra() {
-    const v = extraInput.trim();
-    if (!v || extras.includes(v)) return setExtraInput("");
-    setExtras((e) => [...e, v]);
-    setExtraInput("");
+  function toggleExtra(nome) {
+    setExtras((e) => e.includes(nome) ? e.filter((x) => x !== nome) : [...e, nome]);
   }
 
   function confirmar() {
     onAdicionar({
       ...produto,
+      price: produto.price + extrasTotal, // preço unitário com adicionais
       quantity: quantidade,
       selectedIngredients: selecionados,
       removedIngredients: removidos,
@@ -2489,7 +2485,7 @@ export function ProdutoModal({ produto, onFechar, onAdicionar }) {
     });
   }
 
-  const totalItem = produto.price * quantidade;
+  const totalItem = (produto.price + extrasTotal) * quantidade;
 
   return (
     <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4" onClick={onFechar}>
@@ -2541,29 +2537,27 @@ export function ProdutoModal({ produto, onFechar, onAdicionar }) {
             </div>
           )}
 
-          {/* Ingredientes extras */}
-          <div>
-            <p className="mb-2 text-xs font-black uppercase tracking-widest text-slate-400">Adicionar extra</p>
-            <div className="flex gap-2">
-              <input value={extraInput}
-                onChange={(e) => setExtraInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && addExtra()}
-                placeholder="Ex.: bacon, queijo extra..."
-                className="flex-1 rounded-2xl border border-white/10 bg-slate-800 px-3 py-2.5 text-sm text-white outline-none focus:border-blue-400" />
-              <button onClick={addExtra}
-                className="rounded-2xl bg-blue-500 px-4 py-2.5 text-sm font-black text-white hover:bg-blue-400 transition">Adicionar</button>
-            </div>
-            {extras.length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {extras.map((ing) => (
-                  <button key={ing} onClick={() => setExtras((e) => e.filter((x) => x !== ing))}
-                    className="rounded-full border border-blue-400/30 bg-blue-500/15 px-2.5 py-1 text-xs font-bold text-blue-200">
-                    + {ing} ✕
-                  </button>
-                ))}
+          {/* Adicionais cadastrados do produto (selecionáveis, com preço) */}
+          {adicionais.length > 0 && (
+            <div>
+              <p className="mb-2 text-xs font-black uppercase tracking-widest text-slate-400">Adicionais</p>
+              <div className="space-y-1.5">
+                {adicionais.map((a) => {
+                  const sel = extras.includes(a.nome);
+                  return (
+                    <button key={a.nome} type="button" onClick={() => toggleExtra(a.nome)}
+                      className={`flex w-full items-center justify-between gap-3 rounded-2xl border px-3.5 py-2.5 text-left transition ${sel ? "border-blue-400/40 bg-blue-500/15" : "border-white/10 bg-slate-800 hover:bg-white/[0.06]"}`}>
+                      <span className="flex items-center gap-2 text-sm font-bold text-white">
+                        <span className={`flex h-5 w-5 items-center justify-center rounded-md border text-[11px] ${sel ? "border-blue-400 bg-blue-500 text-white" : "border-white/20 text-transparent"}`}>✓</span>
+                        {a.nome}
+                      </span>
+                      <span className={`text-sm font-black ${sel ? "text-blue-200" : "text-slate-400"}`}>+ {formatCurrency(Number(a.preco) || 0)}</span>
+                    </button>
+                  );
+                })}
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
           {/* Observação */}
           <div>
@@ -7220,6 +7214,43 @@ function TagsInput({ tags, setTags, placeholder = "Adicionar + Enter" }) {
   );
 }
 
+// Editor de adicionais (extras) do produto: lista de { nome, preco }
+function AdicionaisEditor({ value = [], onChange }) {
+  const [nome, setNome] = useState("");
+  const [preco, setPreco] = useState("");
+  const inp = "rounded-2xl border border-white/10 bg-slate-950/70 px-3 py-2.5 text-white outline-none focus:border-blue-400 text-sm";
+  function add() {
+    const n = nome.trim();
+    const p = parseFloat(String(preco).replace(/[^\d,.-]/g, "").replace(",", "."));
+    if (!n || isNaN(p) || p < 0) return;
+    if (value.some((a) => a.nome.toLowerCase() === n.toLowerCase())) { setNome(""); setPreco(""); return; }
+    onChange([...(value || []), { nome: n, preco: p }]);
+    setNome(""); setPreco("");
+  }
+  return (
+    <div>
+      <div className="flex gap-2">
+        <input value={nome} onChange={(e) => setNome(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
+          placeholder="Adicional (ex.: Bacon)" className={`${inp} flex-1`} />
+        <input value={preco} onChange={(e) => setPreco(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
+          inputMode="decimal" placeholder="R$ 0,00" className={`${inp} w-28`} />
+        <button type="button" onClick={add} className="shrink-0 rounded-2xl bg-blue-500 px-4 text-sm font-black text-white hover:bg-blue-400">+</button>
+      </div>
+      {(value || []).length > 0 && (
+        <div className="mt-2 space-y-1.5">
+          {value.map((a, i) => (
+            <div key={i} className="flex items-center justify-between rounded-xl border border-white/10 bg-slate-950/40 px-3 py-1.5">
+              <span className="text-sm font-bold text-white">{a.nome}</span>
+              <span className="flex items-center gap-2 text-sm"><span className="font-black text-emerald-300">{formatCurrency(Number(a.preco) || 0)}</span>
+                <button type="button" onClick={() => onChange(value.filter((_, idx) => idx !== i))} className="flex h-5 w-5 items-center justify-center rounded-full bg-red-500/20 text-xs text-red-300 hover:bg-red-500/40">✕</button></span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ProductAdmin({ products, categories, adminForm, setAdminForm, addProduct, toggleProduct, editarProduto, removerProduto, lojaId }) {
   const [editando, setEditando] = useState(null);
   const [excluir, setExcluir]   = useState(null);
@@ -7539,6 +7570,12 @@ function ProdutoCadastroModal({ adminForm, setAdminForm, cats, onSalvar, onFecha
             <TagsInput tags={tagsAtuais} setTags={(arr) => set("ingredientsText", arr.join(", "))} placeholder="Ex.: Parmesão" />
           </div>
 
+          {/* Adicionais (extras) do produto */}
+          <div>
+            <span className={lbl}>Adicionais <span className="text-slate-600 normal-case">— extras com preço que o cliente pode escolher</span></span>
+            <AdicionaisEditor value={adminForm.adicionais || []} onChange={(v) => set("adicionais", v)} />
+          </div>
+
           {/* Descrição */}
           <div>
             <span className={lbl}>Descrição *</span>
@@ -7602,6 +7639,7 @@ function ProdutoEditModal({ produto, cats, onSalvar, onFechar, lojaId }) {
     estoque: produto.estoque ?? 0,
   });
   const [tags, setTags] = useState([...(produto.ingredients || [])]); // ingredientes como tags
+  const [adicionais, setAdicionais] = useState([...(produto.adicionais || [])]); // extras do produto
   const [arquivoImg, setArquivoImg] = React.useState(null);
   const [uploadando, setUploadando] = React.useState(false);
   const [erroUpload, setErroUpload] = React.useState("");
@@ -7628,7 +7666,7 @@ function ProdutoEditModal({ produto, cats, onSalvar, onFechar, lojaId }) {
       }
       setUploadando(false);
     }
-    onSalvar({ ...f, imageUrl: imgFinal, price: precoNum, cost: custoNum, ingredients: tags });
+    onSalvar({ ...f, imageUrl: imgFinal, price: precoNum, cost: custoNum, ingredients: tags, adicionais });
   }
 
   return (
@@ -7706,6 +7744,12 @@ function ProdutoEditModal({ produto, cats, onSalvar, onFechar, lojaId }) {
           <div>
             <span className={lbl}>Ingredientes * <span className="text-slate-600 normal-case">— Enter para adicionar</span></span>
             <TagsInput tags={tags} setTags={setTags} placeholder="Ex.: Parmesão" />
+          </div>
+
+          {/* Adicionais (extras) do produto — nome + preço */}
+          <div>
+            <span className={lbl}>Adicionais <span className="text-slate-600 normal-case">— extras com preço que o cliente pode escolher</span></span>
+            <AdicionaisEditor value={adicionais} onChange={setAdicionais} />
           </div>
 
           {/* Descrição */}
