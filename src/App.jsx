@@ -791,7 +791,13 @@ export default function RestaurantePedidoApp() {
     notify("success", `Acesso liberado para ${found.name}.`);
   }
 
-  function logout() { setCurrentUser(null); setActiveTab("tablet"); setMessage({ type: "", text: "" }); }
+  function logout() {
+    // Ao sair, libera a mesa fixa deste aparelho para que o próximo login
+    // peça a seleção da mesa novamente (e libere a mesa para outros).
+    try { localStorage.removeItem("pp_tablet_mesa"); } catch {}
+    setTableNumber("");
+    setCurrentUser(null); setActiveTab("tablet"); setMessage({ type: "", text: "" });
+  }
 
   // ── Validação contínua da licença (em TODOS os dispositivos) ──────────
   // O realtime (escutarLojas) mantém `lojas` atualizado. Sempre que a licença
