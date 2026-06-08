@@ -573,6 +573,7 @@ export default function RestaurantePedidoApp() {
   const [cargos, setCargos] = useState([]);
   const [mesas, setMesas] = useState([]);
   const [clientes, setClientes] = useState([]);
+  const [dispositivos, setDispositivos] = useState([]);
   const [comandas, setComandas] = useState([]);            // comandas geradas (registro p/ validação)
   const [comandasCarregadas, setComandasCarregadas] = useState(false); // tabela 019 disponível?
   const [lojaContexto, setLojaContexto] = useState(null); // super admin: empresa em foco para cadastros
@@ -602,6 +603,7 @@ export default function RestaurantePedidoApp() {
         try { setCargos(await fetchCargos()); } catch { /* migration 014 pendente */ }
         try { setMesas(await fetchMesas()); } catch { /* migration 027 pendente */ }
         try { setClientes(await fetchClientes()); } catch { /* migration 028 pendente */ }
+        try { setDispositivos(await fetchDispositivos()); } catch { /* migration 024 pendente */ }
         try { setComandas(await fetchComandas()); setComandasCarregadas(true); } catch { /* migration 019 pendente */ }
         setDbReady(true);
         setLoading(false);
@@ -619,6 +621,7 @@ export default function RestaurantePedidoApp() {
         try { unsubs.push(escutarCargos(setCargos)); } catch {}
         try { unsubs.push(escutarMesas(setMesas)); } catch {}
         try { unsubs.push(escutarClientes(setClientes)); } catch {}
+        try { unsubs.push(escutarDispositivos(setDispositivos)); } catch {}
         try { unsubs.push(escutarComandas(setComandas)); } catch {}
       } catch (err) {
         console.warn("Supabase indisponível — usando fallback local:", err.message);
@@ -683,14 +686,14 @@ export default function RestaurantePedidoApp() {
     const versao = (typeof __APP_VERSION__ !== "undefined") ? __APP_VERSION__ : "local";
     const standalone = !!(window.matchMedia?.("(display-mode: standalone)")?.matches || window.matchMedia?.("(display-mode: fullscreen)")?.matches || window.navigator.standalone);
     const plataforma = (navigator.userAgent || "").slice(0, 180);
-    const reportar = () => registrarDispositivo({ deviceId: id, versao, userEmail: currentUser?.email || null, lojaId: lojaAtual ?? null, plataforma, standalone }).catch(() => {});
+    const reportar = () => registrarDispositivo({ deviceId: id, versao, userEmail: currentUser?.email || null, lojaId: lojaAtual ?? null, plataforma, standalone, mesa: (tableNumber && Number(tableNumber) > 0) ? tableNumber : null }).catch(() => {});
     reportar();
     const iv = setInterval(reportar, 2 * 60 * 1000);
     const onVis = () => { if (document.visibilityState === "visible") reportar(); };
     document.addEventListener("visibilitychange", onVis);
     window.addEventListener("focus", reportar);
     return () => { clearInterval(iv); document.removeEventListener("visibilitychange", onVis); window.removeEventListener("focus", reportar); };
-  }, [dbReady, currentUser?.email, lojaAtual]);
+  }, [dbReady, currentUser?.email, lojaAtual, tableNumber]);
 
   // Identificação do aparelho (CNPJ + referência) NÃO é mais obrigatória ao
   // entrar — não deve bloquear o login/uso (em nenhum dispositivo). A
@@ -1642,6 +1645,7 @@ export default function RestaurantePedidoApp() {
               onAbrirScanner={() => setScannerAberto(true)}
               lojaInfo={lojaInfo}
               mesas={filtraLoja(mesas).filter((m) => m.active)}
+              dispositivos={filtraLoja(dispositivos)}
             />
             {scannerAberto && (
               <QRScannerModal
@@ -1683,7 +1687,7 @@ function TabletView({
   subtotal, serviceFee, total, totalItems,
   handleSendOrder, requestBill, message, onSair, onAbrirScanner,
   currentTableOrders = [], currentTableCancelled = [], cancelarPedidoTablet = () => {}, currentTableSubtotal = 0, currentTableTotal = 0,
-  lojaInfo, mesas = [],
+  lojaInfo, mesas = [], dispositivos = [],
 }) {
   const [verConta, setVerConta]         = useState(false);
   const [carrinhoAberto, setCarrinhoAberto] = useState(false); // gaveta do carrinho
@@ -1707,6 +1711,20 @@ function TabletView({
   // Precisa escolher a mesa após o login (em TODOS os dispositivos), enquanto
   // nenhuma mesa estiver definida para o tablet.
   const precisaMesa = !(tableNumber && Number(tableNumber) > 0);
+
+  // Mesas EM USO por outro dispositivo (ativo nos últimos 5 min) → indisponíveis
+  const meuDeviceId = obterDeviceId();
+  const mesasOcupadas = useMemo(() => {
+    const RECENTE = 5 * 60 * 1000;
+    const set = new Set();
+    (dispositivos || []).forEach((d) => {
+      if (d.deviceId === meuDeviceId || !d.mesa) return;
+      const ativo = d.ultimaAtividade && (Date.now() - new Date(d.ultimaAtividade).getTime()) < RECENTE;
+      if (ativo) set.add(String(d.mesa));
+    });
+    return set;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dispositivos, meuDeviceId]);
 
   // Detecta mudanças de tela cheia (Esc/F11) para atualizar o botão e o aviso
   useEffect(() => {
@@ -2347,15 +2365,22 @@ function TabletView({
             </div>
             <div className="max-h-[60vh] overflow-y-auto px-6 py-5">
               {mesas.length > 0 ? (
-                <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-                  {[...mesas].sort((a, b) => a.numero - b.numero).map((m) => (
-                    <button key={m.id} type="button" onClick={() => definirMesaTablet(m.numero)}
-                      className={`flex flex-col items-center justify-center rounded-2xl py-3 transition active:scale-95 ${String(m.numero) === String(tableNumber) ? "bg-emerald-500 text-white" : "border border-white/10 bg-white/[0.06] text-slate-200 hover:bg-white/10"}`}>
-                      <span className="text-base font-black">{String(m.numero).padStart(2, "0")}</span>
-                      {m.nome && <span className="mt-0.5 w-full truncate px-1 text-center text-[10px] opacity-70">{m.nome}</span>}
-                    </button>
-                  ))}
-                </div>
+                <>
+                  <p className="mb-3 text-[11px] text-slate-500">Mesas <span className="text-slate-400">em uso por outro aparelho</span> aparecem desabilitadas.</p>
+                  <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                    {[...mesas].sort((a, b) => a.numero - b.numero).map((m) => {
+                      const ocupada = mesasOcupadas.has(String(m.numero)) && String(m.numero) !== String(tableNumber);
+                      return (
+                        <button key={m.id} type="button" disabled={ocupada} onClick={() => !ocupada && definirMesaTablet(m.numero)}
+                          className={`relative flex flex-col items-center justify-center rounded-2xl py-3 transition active:scale-95 ${ocupada ? "cursor-not-allowed border border-white/5 bg-slate-950/40 text-slate-600" : String(m.numero) === String(tableNumber) ? "bg-emerald-500 text-white" : "border border-white/10 bg-white/[0.06] text-slate-200 hover:bg-white/10"}`}>
+                          <span className="text-base font-black">{String(m.numero).padStart(2, "0")}</span>
+                          {m.nome && <span className="mt-0.5 w-full truncate px-1 text-center text-[10px] opacity-70">{m.nome}</span>}
+                          {ocupada && <span className="mt-0.5 text-[8px] font-black uppercase tracking-wide text-amber-500/80">em uso</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
               ) : (
                 <div className="space-y-3">
                   <p className="text-xs text-slate-400">Nenhuma mesa cadastrada. Informe o número da mesa deste tablet:</p>

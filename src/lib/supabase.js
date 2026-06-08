@@ -255,13 +255,14 @@ function mapDispositivo(r) {
     userEmail: r.user_email || '', lojaId: r.loja_id ?? null,
     plataforma: r.plataforma || '', standalone: !!r.standalone,
     ultimaAtividade: r.ultima_atividade, criadoEm: r.criado_em,
+    mesa: r.mesa ?? null,
   }
 }
-export async function registrarDispositivo({ deviceId, versao, userEmail = null, lojaId = null, plataforma = null, standalone = false }) {
+export async function registrarDispositivo({ deviceId, versao, userEmail = null, lojaId = null, plataforma = null, standalone = false, mesa = null }) {
   if (!deviceId) return
   const { error } = await supabase.from('tab_dispositivos').upsert([{
     device_id: deviceId, versao, user_email: userEmail, loja_id: lojaId,
-    plataforma, standalone, ultima_atividade: new Date().toISOString(),
+    plataforma, standalone, mesa: mesa != null ? String(mesa) : null, ultima_atividade: new Date().toISOString(),
   }], { onConflict: 'device_id' })
   if (error) throw error
 }
