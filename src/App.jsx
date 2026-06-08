@@ -2579,7 +2579,7 @@ export function ProdutoModal({ produto, onFechar, onAdicionar }) {
                         <span className={`flex h-5 w-5 items-center justify-center rounded-md border text-[11px] ${sel ? "border-blue-400 bg-blue-500 text-white" : "border-white/20 text-transparent"}`}>✓</span>
                         {a.nome}
                       </span>
-                      <span className={`text-sm font-black ${sel ? "text-blue-200" : "text-slate-400"}`}>+ {formatCurrency(Number(a.preco) || 0)}</span>
+                      <span className={`text-sm font-black ${sel ? "text-blue-200" : "text-slate-400"}`}>{(Number(a.preco) || 0) > 0 ? `+ ${formatCurrency(Number(a.preco))}` : "Grátis"}</span>
                     </button>
                   );
                 })}
@@ -7249,7 +7249,9 @@ function AdicionaisEditor({ value = [], onChange }) {
   const inp = "rounded-2xl border border-white/10 bg-slate-950/70 px-3 py-2.5 text-white outline-none focus:border-blue-400 text-sm";
   function add() {
     const n = nome.trim();
-    const p = parseFloat(String(preco).replace(/[^\d,.-]/g, "").replace(",", "."));
+    // Preço opcional: vazio = R$ 0,00 (adicional sem custo / grátis)
+    const limpo = String(preco).replace(/[^\d,.-]/g, "").replace(",", ".");
+    const p = limpo.trim() === "" ? 0 : parseFloat(limpo);
     if (!n || isNaN(p) || p < 0) return;
     if (value.some((a) => a.nome.toLowerCase() === n.toLowerCase())) { setNome(""); setPreco(""); return; }
     onChange([...(value || []), { nome: n, preco: p }]);
@@ -7269,7 +7271,7 @@ function AdicionaisEditor({ value = [], onChange }) {
           {value.map((a, i) => (
             <div key={i} className="flex items-center justify-between rounded-xl border border-white/10 bg-slate-950/40 px-3 py-1.5">
               <span className="text-sm font-bold text-white">{a.nome}</span>
-              <span className="flex items-center gap-2 text-sm"><span className="font-black text-emerald-300">{formatCurrency(Number(a.preco) || 0)}</span>
+              <span className="flex items-center gap-2 text-sm"><span className="font-black text-emerald-300">{(Number(a.preco) || 0) > 0 ? formatCurrency(Number(a.preco)) : "Grátis"}</span>
                 <button type="button" onClick={() => onChange(value.filter((_, idx) => idx !== i))} className="flex h-5 w-5 items-center justify-center rounded-full bg-red-500/20 text-xs text-red-300 hover:bg-red-500/40">✕</button></span>
             </div>
           ))}
