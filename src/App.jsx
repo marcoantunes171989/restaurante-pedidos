@@ -2545,22 +2545,23 @@ export function ProdutoModal({ produto, onFechar, onAdicionar }) {
           {/* Descrição */}
           <p className="text-sm leading-6 text-slate-300">{produto.description}</p>
 
-          {/* Ingredientes — toggle */}
+          {/* Ingredientes (grátis) — caixa de seleção, cor neutra, sem custo */}
           {(produto.ingredients || []).length > 0 && (
             <div>
               <p className="mb-2 text-xs font-black uppercase tracking-widest text-slate-400">
-                Ingredientes <span className="text-slate-600">• toque para remover/adicionar</span>
+                Ingredientes <span className="text-slate-600">• marque os que deseja incluir</span>
               </p>
-              <div className="flex flex-wrap gap-2">
+              <div className="space-y-1.5">
                 {(produto.ingredients || []).map((ing) => {
-                  const ativo = selecionados.includes(ing);
+                  const sel = selecionados.includes(ing);
                   return (
-                    <button key={ing} onClick={() => toggleIngrediente(ing)}
-                      className={`rounded-full border px-3 py-1.5 text-sm font-bold transition active:scale-95
-                        ${ativo
-                          ? "border-emerald-400/30 bg-emerald-500/15 text-emerald-200"
-                          : "border-red-400/30 bg-red-500/15 text-red-300 line-through"}`}>
-                      {ativo ? "✓" : "✗"} {ing}
+                    <button key={ing} type="button" onClick={() => toggleIngrediente(ing)}
+                      className={`flex w-full items-center justify-between gap-3 rounded-2xl border px-3.5 py-2.5 text-left transition ${sel ? "border-white/20 bg-white/[0.08]" : "border-white/10 bg-slate-800 hover:bg-white/[0.06]"}`}>
+                      <span className={`flex items-center gap-2 text-sm font-bold ${sel ? "text-white" : "text-slate-400 line-through"}`}>
+                        <span className={`flex h-5 w-5 items-center justify-center rounded-md border text-[11px] ${sel ? "border-slate-300 bg-slate-200 text-slate-900" : "border-white/20 text-transparent"}`}>✓</span>
+                        {ing}
+                      </span>
+                      <span className="text-xs font-black text-slate-500">{sel ? "Grátis" : "Removido"}</span>
                     </button>
                   );
                 })}
