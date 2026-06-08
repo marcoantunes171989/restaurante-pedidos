@@ -1694,6 +1694,22 @@ function TabletView({
   const [carrinhoAberto, setCarrinhoAberto] = useState(false); // gaveta do carrinho
   const [produtoDetalhe, setProdutoDetalhe] = useState(null); // produto aberto no modal
   const [isFullscreen, setIsFullscreen] = useState(!!document.fullscreenElement);
+  const [trocarMesaAberto, setTrocarMesaAberto] = useState(false); // reabrir seleção de mesa
+
+  // Mesa FIXA do tablet: este tablet "pertence" a uma mesa, escolhida no início
+  // (combo de mesas cadastradas). Fica salva por aparelho (localStorage).
+  useEffect(() => {
+    try { const m = localStorage.getItem("pp_tablet_mesa"); if (m && !tableNumber) setTableNumber(m); } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const definirMesaTablet = (numero) => {
+    setTableNumber(String(numero));
+    try { localStorage.setItem("pp_tablet_mesa", String(numero)); } catch {}
+    setTrocarMesaAberto(false);
+  };
+  const mesaSelecionada = mesas.find((m) => String(m.numero) === String(tableNumber)) || null;
+  // Precisa escolher a mesa: há mesas cadastradas e nenhuma definida para o tablet
+  const precisaMesa = mesas.length > 0 && !(tableNumber && Number(tableNumber) > 0);
 
   // Detecta mudanças de tela cheia (Esc/F11) para atualizar o botão e o aviso
   useEffect(() => {
@@ -1807,7 +1823,8 @@ function TabletView({
       currentTableCancelled.length === 0 // mantém a mesa enquanto houver cancelados a exibir
     ) {
       mesaComPedidoRef.current = null;
-      setTableNumber("");
+      // Mantém a MESA fixa do tablet (não limpa) — só zera comanda/cliente.
+      if (mesas.length === 0) setTableNumber("");
       setCommandCode("");
       setCustomerName("");
       setVerConta(false);
@@ -2008,19 +2025,15 @@ function TabletView({
 
           {/* Campos mesa / cliente / comanda */}
           <div className="shrink-0 space-y-3 border-b border-white/10 px-5 py-4">
-            {/* Mesa: grid de botões quando cadastradas, input livre caso contrário */}
+            {/* Mesa do tablet — apenas informativo (escolhida no início). */}
             {mesas.length > 0 ? (
               <div>
-                <span className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-amber-500">⚠ Mesa *</span>
-                <div className="grid grid-cols-5 gap-1.5 max-h-36 overflow-y-auto pr-1">
-                  {[...mesas].sort((a, b) => a.numero - b.numero).map((m) => (
-                    <button key={m.id} type="button"
-                      onClick={() => setTableNumber(String(m.numero))}
-                      className={`flex flex-col items-center justify-center rounded-xl py-2 text-xs font-black transition active:scale-95 ${String(m.numero) === tableNumber ? "bg-emerald-500 text-white shadow-lg shadow-emerald-950/30" : "border border-white/10 bg-white/[0.06] text-slate-200 hover:bg-white/10"}`}>
-                      <span>{String(m.numero).padStart(2, "0")}</span>
-                      {m.nome && <span className="mt-0.5 block w-full truncate text-center text-[9px] font-normal opacity-70 px-0.5">{m.nome}</span>}
-                    </button>
-                  ))}
+                <span className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500">🍽️ Mesa deste tablet</span>
+                <div className="flex items-center justify-between rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-2.5">
+                  <span className="text-sm font-black text-emerald-100">
+                    {mesaSelecionada ? `Mesa ${String(mesaSelecionada.numero).padStart(2, "0")}${mesaSelecionada.nome ? ` — ${mesaSelecionada.nome}` : ""}` : (tableNumber ? `Mesa ${String(tableNumber).padStart(2, "0")}` : "Mesa não definida")}
+                  </span>
+                  <button type="button" onClick={() => setTrocarMesaAberto(true)} className="shrink-0 rounded-xl border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs font-black text-slate-200 hover:bg-white/10">Trocar</button>
                 </div>
               </div>
             ) : (
@@ -2095,32 +2108,15 @@ function TabletView({
                   ))}
                 </div>
 
-                {/* Extra */}
-                <div className="mt-2 flex gap-1">
-                  <input value={item.extraIngredientInput}
-                    onChange={(e) => updateCartItem(item.id, { extraIngredientInput: e.target.value })}
-                    onKeyDown={(e) => e.key === "Enter" && addExtraIngredient(item.id)}
-                    placeholder="Ingrediente extra..."
-                    className="min-w-0 flex-1 rounded-xl border border-white/10 bg-slate-900 px-2.5 py-1.5 text-xs text-white outline-none focus:border-blue-400" />
-                  <button onClick={() => addExtraIngredient(item.id)}
-                    className="rounded-xl bg-blue-500 px-2.5 py-1.5 text-xs font-black text-white">+</button>
-                </div>
+                {/* Extras e observação adicionados na personalização aparecem como resumo */}
                 {item.extraIngredients.length > 0 && (
                   <div className="mt-1 flex flex-wrap gap-1">
                     {item.extraIngredients.map((ing) => (
-                      <button key={ing} onClick={() => removeExtraIngredient(item.id, ing)}
-                        className="rounded-full border border-blue-400/20 bg-blue-500/10 px-2 py-0.5 text-xs text-blue-200">
-                        + {ing} ×
-                      </button>
+                      <span key={ing} className="rounded-full border border-blue-400/20 bg-blue-500/10 px-2 py-0.5 text-xs text-blue-200">+ {ing}</span>
                     ))}
                   </div>
                 )}
-
-                {/* Observação */}
-                <input value={item.observation}
-                  onChange={(e) => updateCartItem(item.id, { observation: e.target.value })}
-                  placeholder="Observação..."
-                  className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900 px-2.5 py-1.5 text-xs text-white outline-none focus:border-amber-400" />
+                {item.observation && <p className="mt-1 text-xs text-amber-300">📝 {item.observation}</p>}
               </div>
             ))}
           </div>
@@ -2356,6 +2352,32 @@ function TabletView({
           onConfirmar={() => { cancelarPedidoTablet(cancelandoPedido.id); setCancelandoPedido(null); }}
           onCancelar={() => setCancelandoPedido(null)}
         />
+      )}
+
+      {/* Seleção da mesa do tablet — obrigatória no início; ou ao trocar */}
+      {(precisaMesa || trocarMesaAberto) && mesas.length > 0 && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
+          <div className="w-full max-w-md overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+              <div>
+                <h2 className="text-lg font-black text-white">🍽️ Selecione a mesa deste tablet</h2>
+                <p className="mt-0.5 text-xs text-slate-400">Escolha a mesa que este tablet atende. Fica salva no aparelho.</p>
+              </div>
+              {!precisaMesa && <button onClick={() => setTrocarMesaAberto(false)} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20">✕</button>}
+            </div>
+            <div className="max-h-[60vh] overflow-y-auto px-6 py-5">
+              <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                {[...mesas].sort((a, b) => a.numero - b.numero).map((m) => (
+                  <button key={m.id} type="button" onClick={() => definirMesaTablet(m.numero)}
+                    className={`flex flex-col items-center justify-center rounded-2xl py-3 transition active:scale-95 ${String(m.numero) === String(tableNumber) ? "bg-emerald-500 text-white" : "border border-white/10 bg-white/[0.06] text-slate-200 hover:bg-white/10"}`}>
+                    <span className="text-base font-black">{String(m.numero).padStart(2, "0")}</span>
+                    {m.nome && <span className="mt-0.5 w-full truncate px-1 text-center text-[10px] opacity-70">{m.nome}</span>}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ── Tela de descanso (screensaver) ───────────────────────
