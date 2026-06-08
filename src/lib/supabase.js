@@ -55,15 +55,28 @@ export async function fetchProdutos() {
   return data.map(dbParaProduto)
 }
 
+// Erro de coluna inexistente (ex.: 'adicionais' sem a migration 029)
+function ehColunaAusente(err, coluna) {
+  const m = String(err?.message || '').toLowerCase();
+  return m.includes(coluna) || err?.code === 'PGRST204' || m.includes('column');
+}
 export async function inserirProduto(p) {
-  const { data, error } = await supabase
-    .from('tab_produtos').insert([produtoParaDb(p)]).select().single()
-  if (error) throw error
-  return dbParaProduto(data)
+  const linha = produtoParaDb(p);
+  let res = await supabase.from('tab_produtos').insert([linha]).select().single();
+  if (res.error && 'adicionais' in linha && ehColunaAusente(res.error, 'adicionais')) {
+    const { adicionais, ...semExtra } = linha;
+    res = await supabase.from('tab_produtos').insert([semExtra]).select().single();
+  }
+  if (res.error) throw res.error
+  return dbParaProduto(res.data)
 }
 
 export async function atualizarProduto(id, campos) {
-  const { error } = await supabase.from('tab_produtos').update(campos).eq('id', id)
+  let { error } = await supabase.from('tab_produtos').update(campos).eq('id', id)
+  if (error && 'adicionais' in campos && ehColunaAusente(error, 'adicionais')) {
+    const { adicionais, ...rest } = campos;
+    ({ error } = await supabase.from('tab_produtos').update(rest).eq('id', id))
+  }
   if (error) throw error
 }
 
