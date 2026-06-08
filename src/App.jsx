@@ -1702,15 +1702,11 @@ function TabletView({
   const [trocarMesaAberto, setTrocarMesaAberto] = useState(false); // reabrir seleção de mesa
   const [mesaManual, setMesaManual] = useState(""); // input manual quando não há mesas cadastradas
 
-  // Mesa FIXA do tablet: este tablet "pertence" a uma mesa, escolhida no início
-  // (combo de mesas cadastradas). Fica salva por aparelho (localStorage).
-  useEffect(() => {
-    try { const m = localStorage.getItem("pp_tablet_mesa"); if (m && !tableNumber) setTableNumber(m); } catch {}
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // Mesa do tablet por SESSÃO: a cada login (tableNumber vazio) o tablet pede a
+  // seleção da mesa. Mantida apenas em memória — NÃO persiste entre logins, para
+  // sempre abrir a seleção após o login e liberar a mesa para outros aparelhos.
   const definirMesaTablet = (numero) => {
     setTableNumber(String(numero));
-    try { localStorage.setItem("pp_tablet_mesa", String(numero)); } catch {}
     setTrocarMesaAberto(false);
   };
   const mesaSelecionada = mesas.find((m) => String(m.numero) === String(tableNumber)) || null;
