@@ -692,16 +692,10 @@ export default function RestaurantePedidoApp() {
     return () => { clearInterval(iv); document.removeEventListener("visibilitychange", onVis); window.removeEventListener("focus", reportar); };
   }, [dbReady, currentUser?.email, lojaAtual]);
 
-  // Na instalação/primeiro uso (aparelho ainda sem nome), obriga nomear o
-  // aparelho + empresa para facilitar a identificação no controle de versões.
+  // Identificação do aparelho (CNPJ + referência) NÃO é mais obrigatória ao
+  // entrar — não deve bloquear o login/uso (em nenhum dispositivo). A
+  // identificação/renome do aparelho é feita no painel Controle de versões.
   const [precisaNomear, setPrecisaNomear] = useState(false);
-  useEffect(() => {
-    // Só obriga aparelhos de empresa cujo cadastro já tenha CNPJ/CPF (evita
-    // travar empresas antigas ainda sem documento). Super admin não é obrigado.
-    if (!dbReady || !currentUser || isSuperAdmin) return;
-    if (!lojaInfo?.documento) return;
-    try { if (!localStorage.getItem("pp_device_nomeado")) setPrecisaNomear(true); } catch {}
-  }, [dbReady, currentUser, isSuperAdmin, lojaInfo?.documento]);
   const filtraLoja = (arr) => lojaAtual == null ? arr : arr.filter((x) => x.lojaId == null || x.lojaId === lojaAtual);
   const products      = filtraLoja(productsAll);
   const orders        = filtraLoja(ordersAll);
