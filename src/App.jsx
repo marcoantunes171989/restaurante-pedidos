@@ -19,6 +19,7 @@ import {
 } from "./lib/supabase";
 import { GeradorComandas } from "./components/QRComandas";
 import { QRScannerModal  } from "./components/QRScanner";
+import { LogoPP } from "./components/BrandLogo";
 
 export const fallbackImage = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=900&q=80";
 
@@ -430,8 +431,8 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
       <div className="relative w-full max-w-[380px]">
         {/* Marca */}
         <div className="mb-7 text-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[1.35rem] bg-gradient-to-br from-blue-500 to-blue-700 text-3xl shadow-2xl shadow-blue-950/50 ring-1 ring-white/10">🍽️</div>
-          <h1 className="mt-4 text-2xl font-black tracking-tight text-white">Pedido Prime</h1>
+          <div className="mx-auto flex h-16 w-16 items-center justify-center"><LogoPP size={64} /></div>
+          <h1 className="mt-4 text-2xl font-black tracking-tight"><span className="text-white">Pedido</span> <span className="text-gold-400">Prime</span></h1>
           <p className="mt-1 text-sm text-slate-400">Bem-vindo de volta — faça login para continuar</p>
         </div>
 
@@ -1550,9 +1551,9 @@ export default function RestaurantePedidoApp() {
           style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)", backgroundSize: "32px 32px" }} />
 
         <div className="relative flex flex-col items-center gap-7 text-center">
-          <div className="flex h-20 w-20 items-center justify-center rounded-[1.6rem] bg-gradient-to-br from-blue-500 to-blue-700 text-4xl shadow-2xl shadow-blue-950/50 ring-1 ring-white/10 animate-pulse">🍽️</div>
+          <div className="flex h-20 w-20 items-center justify-center animate-pulse"><LogoPP size={80} /></div>
           <div>
-            <h1 className="text-2xl font-black tracking-tight text-white">Restaurante Digital</h1>
+            <h1 className="text-2xl font-black tracking-tight"><span className="text-white">Pedido</span> <span className="text-gold-400">Prime</span></h1>
             <p className="mt-1.5 text-sm text-slate-400">Carregando ambiente do restaurante...</p>
           </div>
           <div className="flex items-center gap-2.5 rounded-full border border-white/10 bg-white/[0.04] px-5 py-2 backdrop-blur-xl">
@@ -1879,7 +1880,7 @@ function TabletView({
       {/* ── Cabeçalho mínimo (mesmo padrão das telas de cozinha/caixa) ── */}
       <header className="flex shrink-0 items-center justify-between border-b border-white/10 bg-slate-900/90 px-5 py-3 backdrop-blur-xl">
         <div className="flex items-center gap-3">
-          <span className="text-2xl">🍽️</span>
+          <LogoPP size={32} />
           <div>
             <p className="text-base font-black text-white leading-tight">{lojaInfo?.nome || "Cardápio"}</p>
             <p className="text-xs text-slate-500">{tableNumber && Number(tableNumber) > 0 ? `Mesa ${tableNumber.padStart(2,"0")}` : "Informe a mesa"}</p>

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { LogoPP } from "../components/BrandLogo";
 
 // ════════════════════════════════════════════════════════════
 //  Landing page institucional/comercial — Pedido Prime
@@ -146,15 +147,20 @@ function Botao({ children, variant = "primary", onClick, className = "" }) {
     secondary: "bg-white text-slate-900 hover:bg-slate-100 border border-slate-200",
     ghost: "bg-white/10 text-white hover:bg-white/20 border border-white/15",
     light: "border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100",
+    gold: "bg-gold-400 text-blue-950 hover:bg-gold-300 shadow-lg shadow-gold-600/30",
   };
   return <button onClick={onClick} className={`${base} ${styles[variant]} ${className}`}>{children}</button>;
 }
 
+// Marca oficial: monograma PP + PEDIDO (branco/navy) PRIME (dourado)
 function Marca({ claro = false }) {
   return (
     <div className="flex shrink-0 items-center gap-2.5">
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-lg shadow-lg shadow-blue-600/30">🍽️</span>
-      <span className={`whitespace-nowrap text-lg font-black tracking-tight ${claro ? "text-white" : "text-slate-900"}`}>{NOME_SISTEMA}</span>
+      <LogoPP size={38} />
+      <span className="whitespace-nowrap text-lg font-black leading-none tracking-tight">
+        <span className={claro ? "text-white" : "text-blue-950"}>PEDIDO</span>{" "}
+        <span className="text-gold-500">PRIME</span>
+      </span>
     </div>
   );
 }
@@ -162,7 +168,7 @@ function Marca({ claro = false }) {
 function TituloSecao({ tag, titulo, subtitulo, claro = false }) {
   return (
     <div className="mx-auto max-w-2xl text-center">
-      {tag && <span className="inline-block rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-black uppercase tracking-widest text-blue-700">{tag}</span>}
+      {tag && <span className={`inline-block rounded-full border px-3 py-1 text-xs font-black uppercase tracking-widest ${claro ? "border-gold-400/40 bg-gold-400/10 text-gold-300" : "border-gold-300 bg-gold-50 text-gold-700"}`}>{tag}</span>}
       <h2 className={`mt-4 text-3xl font-black tracking-tight sm:text-4xl ${claro ? "text-white" : "text-slate-900"}`}>{titulo}</h2>
       {subtitulo && <p className={`mt-3 text-base leading-7 ${claro ? "text-slate-300" : "text-slate-500"}`}>{subtitulo}</p>}
     </div>
@@ -185,10 +191,10 @@ function MockTela({ titulo, legenda, children }) {
     <div className="flex flex-col items-center">
       <div className="w-full max-w-[300px] rounded-[2rem] border border-white/10 bg-slate-900 p-2.5 shadow-2xl ring-1 ring-white/5">
         <div className="overflow-hidden rounded-[1.4rem] bg-slate-950">
-          <div className="flex items-center gap-2 border-b border-white/10 bg-slate-900/80 px-4 py-2.5">
-            <span className="text-base">🍽️</span>
-            <span className="text-xs font-black text-white">Pedido Prime</span>
-            <span className="ml-auto h-2 w-2 rounded-full bg-emerald-400" />
+          <div className="flex items-center gap-2 border-b border-white/10 bg-blue-950/80 px-4 py-2.5">
+            <LogoPP size={18} />
+            <span className="text-xs font-black"><span className="text-white">PEDIDO</span> <span className="text-gold-400">PRIME</span></span>
+            <span className="ml-auto h-2 w-2 rounded-full bg-gold-400" />
           </div>
           <div className="space-y-2 p-3" style={{ minHeight: 220 }}>{children}</div>
         </div>
@@ -410,7 +416,7 @@ export default function LandingPage({ navigate }) {
     <div className="min-h-screen bg-white text-slate-900 antialiased">
       {/* ── Header sticky ─────────────────────────────────── */}
       {/* paddingTop: app instalado em tela cheia — afasta o conteúdo da barra de status (safe area) */}
-      <header className="sticky top-0 z-50 border-b border-white/10 bg-slate-900/90 backdrop-blur-xl" style={{ paddingTop: "env(safe-area-inset-top)" }}>
+      <header className="sticky top-0 z-50 border-b border-gold-400/20 bg-blue-950/90 backdrop-blur-xl" style={{ paddingTop: "env(safe-area-inset-top)" }}>
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-5 py-3.5">
           <button onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className="shrink-0"><Marca claro /></button>
           {/* Menu completo só quando cabe em uma linha (xl); abaixo disso, hambúrguer */}
@@ -426,7 +432,7 @@ export default function LandingPage({ navigate }) {
         </div>
         {/* Menu mobile */}
         {menuAberto && (
-          <div className="border-t border-white/10 bg-slate-900 px-5 py-4 xl:hidden">
+          <div className="border-t border-white/10 bg-blue-950 px-5 py-4 xl:hidden">
             <div className="grid gap-1">
               {NAV.map((n) => (
                 <button key={n.id} onClick={() => { goTo(n.id); setMenuAberto(false); }} className="rounded-xl px-3 py-2.5 text-left text-sm font-bold text-slate-300 hover:bg-white/[0.06]">{n.label}</button>
@@ -437,33 +443,63 @@ export default function LandingPage({ navigate }) {
         )}
       </header>
 
-      {/* ── Hero ──────────────────────────────────────────── */}
-      <section className="relative overflow-hidden bg-slate-950">
-        <div className="pointer-events-none absolute -left-40 -top-40 h-96 w-96 rounded-full bg-blue-600/20 blur-[120px]" />
-        <div className="pointer-events-none absolute -right-40 bottom-0 h-96 w-96 rounded-full bg-violet-600/15 blur-[120px]" />
-        <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-5 py-16 lg:grid-cols-2 lg:py-24">
-          <div>
-            <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs font-bold text-blue-200">
-              <span className="h-2 w-2 rounded-full bg-emerald-400" /> Pedidos por tablet, QR Code e gestão completa
-            </span>
-            <h1 className="mt-5 text-4xl font-black leading-tight tracking-tight text-white sm:text-5xl">
-              A plataforma completa de <span className="text-blue-400">pedidos e gestão</span> para o seu restaurante
-            </h1>
-            <p className="mt-5 max-w-xl text-base leading-7 text-slate-300 sm:text-lg">
-              Pedidos pelo tablet na mesa, controle de mesas e comandas por QR Code, cardápio externo no celular do cliente — e, para a gestão, dashboard, relatórios de vendas, usuários e permissões. Tudo isso e muito mais, tudo no {NOME_SISTEMA}.
-            </p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <a href="/baixar.html"
-                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-500 px-6 py-3.5 text-sm font-black text-white transition hover:bg-emerald-400 active:scale-95 shadow-lg shadow-emerald-600/25">
-                ⬇️ Baixar app (Android)
-              </a>
-              <Botao variant="ghost" onClick={acessar}>Acessar Sistema →</Botao>
+      {/* ── Hero (layout do banner oficial) ───────────────── */}
+      <section className="relative overflow-hidden bg-blue-950">
+        <div className="pointer-events-none absolute -left-40 -top-40 h-96 w-96 rounded-full bg-blue-500/25 blur-[120px]" />
+        <div className="pointer-events-none absolute -right-40 bottom-0 h-96 w-96 rounded-full bg-gold-500/10 blur-[120px]" />
+        <div className="relative mx-auto max-w-6xl px-5 py-16 lg:py-20">
+          <div className="grid items-center gap-12 lg:grid-cols-2">
+            <div>
+              <span className="inline-flex items-center gap-2 rounded-full border border-gold-400/30 bg-gold-400/10 px-3 py-1.5 text-xs font-bold text-gold-300">
+                <span className="h-2 w-2 rounded-full bg-gold-400" /> Sistema para restaurantes
+              </span>
+              <h1 className="mt-5 text-4xl font-black leading-tight tracking-tight text-white sm:text-5xl">
+                Tecnologia que <span className="text-gold-400">transforma o atendimento</span> do seu restaurante
+              </h1>
+              <p className="mt-5 max-w-xl text-base leading-7 text-slate-300 sm:text-lg">
+                Pedidos pelo tablet na mesa, controle de mesas e comandas por QR Code, cardápio externo no celular do cliente — e, para a gestão, dashboard, relatórios de vendas, usuários e permissões. Tudo isso e muito mais, tudo no {NOME_SISTEMA}.
+              </p>
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                <a href="/baixar.html"
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gold-400 px-6 py-3.5 text-sm font-black text-blue-950 transition hover:bg-gold-300 active:scale-95 shadow-lg shadow-gold-600/30">
+                  ⬇️ Baixar app (Android)
+                </a>
+                <Botao variant="ghost" onClick={acessar}>Acessar Sistema →</Botao>
+              </div>
+              {/* Diferenciais rápidos */}
+              <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs font-bold text-slate-300">
+                <span>⏱️ Mais agilidade</span><span>🎯 Menos erros</span><span>📊 Mais controle</span><span>⭐ Melhor experiência para o cliente</span>
+              </div>
             </div>
-            <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs font-bold text-slate-400">
-              <span>📲 Pedido por tablet</span><span>🪑 Controle de mesas</span><span>🎫 Comanda por QR</span><span>📊 Dashboard gerencial</span><span>📈 Relatórios de vendas</span>
+            <TabletMock />
+          </div>
+
+          {/* Faixa de recursos (estilo banner) */}
+          <div className="mt-12 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            {[
+              ["📲", "Tablet", "na mesa"],
+              ["🔳", "QR Code", "cardápio digital"],
+              ["👨‍🍳", "Cozinha", "integrada"],
+              ["📺", "Painel", "de pedidos"],
+              ["💳", "Caixa", "controle total"],
+            ].map(([ic, t, d]) => (
+              <div key={t} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
+                <span className="text-xl">{ic}</span>
+                <div className="leading-tight">
+                  <p className="text-sm font-black uppercase tracking-wide text-white">{t}</p>
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">{d}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Ribbon dourado */}
+          <div className="mt-8 flex justify-center">
+            <div className="inline-flex flex-col items-start gap-0.5 rounded-2xl border border-gold-400/50 bg-gold-400/10 px-6 py-3.5 sm:flex-row sm:items-center sm:gap-3">
+              <span className="text-base font-black uppercase tracking-wide text-gold-300">🚀 Moderno, completo e fácil de usar</span>
+              <span className="text-sm font-bold text-slate-300">— seu restaurante em outro nível</span>
             </div>
           </div>
-          <TabletMock />
         </div>
       </section>
 
@@ -541,7 +577,7 @@ export default function LandingPage({ navigate }) {
       </section>
 
       {/* ── Anúncio do APP (download Android) ──────────────── */}
-      <section id="app" className="scroll-mt-24 relative overflow-hidden bg-slate-950 py-16 sm:py-20">
+      <section id="app" className="scroll-mt-24 relative overflow-hidden bg-blue-950 py-16 sm:py-20">
         <div className="pointer-events-none absolute inset-0"
           style={{ backgroundImage: "radial-gradient(34rem 34rem at 10% -10%, rgba(37,99,235,.18), transparent 70%), radial-gradient(34rem 34rem at 110% 120%, rgba(16,185,129,.14), transparent 70%)" }} />
         <div className="relative mx-auto max-w-6xl px-5">
@@ -591,7 +627,7 @@ export default function LandingPage({ navigate }) {
           {/* Botão de download */}
           <div className="mt-12 flex flex-col items-center gap-3">
             <a href="/baixar.html"
-              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-500 px-8 py-4 text-base font-black text-white transition hover:bg-emerald-400 active:scale-95 shadow-xl shadow-emerald-600/30">
+              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gold-400 px-8 py-4 text-base font-black text-blue-950 transition hover:bg-gold-300 active:scale-95 shadow-xl shadow-gold-600/30">
               ⬇️ Baixar aplicativo (APK Android)
             </a>
             <p className="text-xs text-slate-400">Grátis · instala no tablet · sincroniza com o sistema em tempo real</p>
@@ -616,7 +652,7 @@ export default function LandingPage({ navigate }) {
       </section>
 
       {/* ── Gestão: dashboard, relatórios, usuários e permissões ── */}
-      <section id="gestao" className="scroll-mt-24 relative overflow-hidden bg-slate-950 py-16 sm:py-20">
+      <section id="gestao" className="scroll-mt-24 relative overflow-hidden bg-blue-950 py-16 sm:py-20">
         <div className="pointer-events-none absolute inset-0"
           style={{ backgroundImage: "radial-gradient(34rem 34rem at -10% 110%, rgba(16,185,129,.12), transparent 70%), radial-gradient(34rem 34rem at 110% -10%, rgba(37,99,235,.16), transparent 70%)" }} />
         <div className="relative mx-auto max-w-6xl px-5">
@@ -689,14 +725,14 @@ export default function LandingPage({ navigate }) {
       </section>
 
       {/* ── CTA ───────────────────────────────────────────── */}
-      <section className="bg-slate-950 py-16 sm:py-20">
+      <section className="bg-blue-950 py-16 sm:py-20">
         <div className="mx-auto max-w-5xl px-5">
-          <div className="relative overflow-hidden rounded-[2.5rem] border border-white/10 bg-gradient-to-br from-blue-600 to-blue-800 p-10 text-center shadow-2xl sm:p-14">
-            <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
-            <h2 className="relative text-3xl font-black tracking-tight text-white sm:text-4xl">Tudo isso e muito mais — tudo no {NOME_SISTEMA}</h2>
+          <div className="relative overflow-hidden rounded-[2.5rem] border border-gold-400/40 bg-gradient-to-br from-blue-800 to-blue-950 p-10 text-center shadow-2xl sm:p-14">
+            <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-gold-400/10 blur-3xl" />
+            <h2 className="relative text-3xl font-black tracking-tight text-white sm:text-4xl">Tudo isso e muito mais — tudo no <span className="text-gold-400">{NOME_SISTEMA}</span></h2>
             <p className="relative mx-auto mt-3 max-w-2xl text-base leading-7 text-blue-100">Pedidos por tablet, controle de mesas, comandas QR, cardápio externo, dashboard, relatórios, usuários e permissões. Digitalize a operação e gerencie com dados.</p>
             <div className="relative mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-              <Botao variant="secondary" onClick={() => goTo("contato")}>Solicitar Demonstração</Botao>
+              <Botao variant="gold" onClick={() => goTo("contato")}>Solicitar Demonstração</Botao>
               <Botao variant="ghost" onClick={acessar}>Acessar Sistema →</Botao>
             </div>
           </div>
@@ -783,7 +819,7 @@ export default function LandingPage({ navigate }) {
       </section>
 
       {/* ── Footer ────────────────────────────────────────── */}
-      <footer className="border-t border-white/10 bg-slate-950 py-12 text-slate-400">
+      <footer className="border-t border-gold-400/20 bg-blue-950 py-12 text-slate-400">
         <div className="mx-auto max-w-6xl px-5">
           <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
             <div className="sm:col-span-2 lg:col-span-1">

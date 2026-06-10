@@ -7,6 +7,7 @@ import {
 import {
   ProdutoModal, formatCurrency, fallbackImage, statusMap, STATUS_TABLET_LABEL, isValidCommand,
 } from "./App";
+import { LogoPP } from "./components/BrandLogo";
 
 // ════════════════════════════════════════════════════════════
 //  Cardápio digital PÚBLICO (cliente, externo) — ver + pedir + acompanhar
@@ -155,7 +156,7 @@ export default function CardapioPublico() {
       {/* Cabeçalho */}
       <header className="sticky top-0 z-30 border-b border-white/10 bg-slate-900/95 px-4 py-3 backdrop-blur-xl" style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)" }}>
         <div className="mx-auto flex max-w-3xl items-center gap-3">
-          {loja.logoUrl ? <img src={loja.logoUrl} alt="" className="h-10 w-10 rounded-2xl object-cover" /> : <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-500/15 text-xl">🍽️</span>}
+          {loja.logoUrl ? <img src={loja.logoUrl} alt="" className="h-10 w-10 rounded-2xl object-cover" /> : <LogoPP size={40} />}
           <div className="min-w-0 flex-1">
             <p className="truncate text-base font-black text-white leading-tight">{loja.nome}</p>
             <p className="text-xs text-slate-400">{currentTable ? `${currentTable}${comanda ? " · " + comanda : ""}` : "Cardápio digital"}</p>

@@ -15,6 +15,7 @@
  */
 
 import { useEffect, useState, useRef } from "react";
+import { LogoPP } from "./components/BrandLogo";
 
 const START_URL        = "/login";
 const STORAGE_KEY      = "pp_pwa_instalado";
@@ -328,7 +329,7 @@ export default function PwaBanner({ swAtivado = false }) {
     return (
       <Wrap border="border-emerald-400/20">
         <div className="flex items-start gap-3 p-4">
-          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-600 text-2xl shadow-lg shadow-emerald-600/30">🍽️</span>
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center"><LogoPP size={48} /></span>
           <div className="min-w-0 flex-1">
             <p className="text-sm font-black text-white">Pedido Prime instalado</p>
             {!instrucaoAbrir ? (
@@ -366,7 +367,7 @@ export default function PwaBanner({ swAtivado = false }) {
   return (
     <Wrap border="border-white/15">
       <div className="flex items-start gap-3 p-4">
-        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-blue-600 text-2xl shadow-lg shadow-blue-600/30">🍽️</span>
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center"><LogoPP size={48} /></span>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-black text-white">Instalar o Pedido Prime</p>
           <p className="mt-0.5 text-xs text-slate-400">
