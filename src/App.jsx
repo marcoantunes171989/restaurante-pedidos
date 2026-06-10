@@ -6326,7 +6326,7 @@ function CardapioExternoAdmin({ lojaInfo, setModoUsoEmpresa = async () => {}, co
           <input readOnly value={link} onClick={(e) => e.target.select()}
             className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 font-mono text-xs text-emerald-200 outline-none" />
           <div className="mt-2 flex gap-2">
-            <button onClick={copiar} className="rounded-2xl border border-emerald-400/30 bg-emerald-500/15 px-4 py-2.5 text-xs font-black text-emerald-200 hover:bg-emerald-500/25">{copiado ? "✓ Copiado" : "Copiar link"}</button>
+            <button onClick={copiar} disabled={!ativo} className={`rounded-2xl px-4 py-2.5 text-xs font-black transition ${ativo ? "border border-emerald-400/30 bg-emerald-500/15 text-emerald-200 hover:bg-emerald-500/25" : "border border-white/10 bg-white/[0.06] text-slate-400 pointer-events-none opacity-50"}`}>{copiado ? "✓ Copiado" : "Copiar link"}</button>
             <a href={link} target="_blank" rel="noreferrer" className={`rounded-2xl px-4 py-2.5 text-xs font-black transition ${ativo ? "bg-blue-500 text-white hover:bg-blue-400" : "border border-white/10 bg-white/[0.06] text-slate-400 pointer-events-none opacity-50"}`}>🔗 Abrir cardápio</a>
           </div>
           <p className="mt-3 text-xs text-slate-400">Por mesa: acrescente <code className="rounded bg-white/10 px-1 text-emerald-300">&amp;mesa=NN&amp;c=COMANDA</code> ao link (ex.: pedido já vinculado à comanda da mesa).</p>
