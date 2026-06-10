@@ -1867,6 +1867,11 @@ function TabletView({
   const contaSolicitada = currentTableOrders.length > 0 && currentTableOrders.some((o) => o.paymentStatus === "requested");
   const [confirmarConta, setConfirmarConta] = useState(false); // modal de confirmação do envio
   const [cancelandoPedido, setCancelandoPedido] = useState(null); // pedido que o cliente quer cancelar
+  const [garcomChamado, setGarcomChamado] = useState(false);   // feedback do botão "Chamar garçom"
+  function chamarGarcom() {
+    setGarcomChamado(true);
+    setTimeout(() => setGarcomChamado(false), 4000);
+  }
 
   // Agrupa pedidos por comanda
   const porComanda = currentTableOrders.reduce((acc, order) => {
@@ -1877,158 +1882,291 @@ function TabletView({
     return acc;
   }, {});
 
+  // ── Layout gourmet: ícone por categoria + card de produto ──
+  const iconeCategoria = (nome) => {
+    const n = (nome || "").toLowerCase();
+    if (n === "todos") return "⭐";
+    if (n.includes("entrada")) return "🥗";
+    if (n.includes("prato") || n.includes("principal")) return "🍽️";
+    if (n.includes("massa")) return "🍝";
+    if (n.includes("pizza")) return "🍕";
+    if (n.includes("hamb") || n.includes("lanche") || n.includes("burg")) return "🍔";
+    if (n.includes("bebida") || n.includes("suco") || n.includes("drink")) return "🥤";
+    if (n.includes("sobremesa") || n.includes("doce")) return "🍰";
+    if (n.includes("combo")) return "🎁";
+    if (n.includes("promo")) return "🏷️";
+    if (n.includes("açaí") || n.includes("acai") || n.includes("copo") || n.includes("tigela") || n.includes("bowl")) return "🫐";
+    if (n.includes("café") || n.includes("cafe")) return "☕";
+    if (n.includes("vitamina") || n.includes("shake")) return "🥤";
+    if (n.includes("porç") || n.includes("porc")) return "🍟";
+    return "🍴";
+  };
+  const TAGS_DESTAQUE = ["MAIS VENDIDO", "CHEF RECOMENDA", "NOVO", "ESPECIAL DA CASA"];
+  const cardGourmet = (item, tagAuto = null) => {
+    const noCarrinho = cart.find((c) => c.id === item.id);
+    const etiqueta = item.badge || tagAuto;
+    return (
+      <article key={item.id} className={`group flex h-full flex-col overflow-hidden rounded-2xl border bg-slate-900/80 shadow-xl transition-all hover:-translate-y-1 hover:shadow-2xl ${noCarrinho ? "border-gold-400/60 ring-2 ring-gold-400/20" : "border-white/10 hover:border-gold-400/40"}`}>
+        <button onClick={() => setProdutoDetalhe(item)} className="relative block h-36 w-full overflow-hidden bg-slate-800 text-left">
+          <img src={item.imageUrl || fallbackImage} alt={item.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-transparent" />
+          {etiqueta && (
+            <span className="absolute left-2.5 top-2.5 rounded-md bg-gold-400 px-2 py-1 text-[9px] font-black uppercase tracking-wider text-blue-950 shadow-lg">{etiqueta}</span>
+          )}
+          {noCarrinho && (
+            <span className="absolute right-2.5 top-2.5 flex h-7 w-7 items-center justify-center rounded-full bg-gold-400 text-xs font-black text-blue-950 shadow-lg ring-2 ring-white/20">{noCarrinho.quantity}</span>
+          )}
+        </button>
+        <div className="flex flex-1 flex-col p-3.5">
+          <h3 className="text-sm font-black text-white leading-tight">{item.name}</h3>
+          <p className="mt-1 text-[11px] leading-4 text-slate-400 line-clamp-3">{item.description}</p>
+          <div className="mt-auto pt-3">
+            <p className="text-base font-black text-gold-400">{formatCurrency(item.price)}</p>
+            {noCarrinho ? (
+              <div className="mt-2 flex items-center justify-between gap-1 rounded-xl border border-gold-400/40 bg-gold-400/10 p-1">
+                <button onClick={() => removeFromCart(item.id)} className="h-9 flex-1 rounded-lg bg-slate-800 font-black text-white hover:bg-slate-700 transition active:scale-95">−</button>
+                <span className="w-10 text-center text-base font-black text-white">{noCarrinho.quantity}</span>
+                <button onClick={() => setProdutoDetalhe(item)} title="Personalizar / adicionar mais" className="h-9 flex-1 rounded-lg bg-gold-400 font-black text-blue-950 hover:bg-gold-300 transition active:scale-95">+</button>
+              </div>
+            ) : (
+              <button onClick={() => setProdutoDetalhe(item)} className="mt-2 flex w-full items-center justify-between rounded-xl bg-gold-400 px-3.5 py-2.5 text-xs font-black text-blue-950 hover:bg-gold-300 transition active:scale-95 shadow-lg shadow-gold-900/20">
+                <span>Adicionar</span><span className="text-sm">+</span>
+              </button>
+            )}
+          </div>
+        </div>
+      </article>
+    );
+  };
+  // Resumo lateral "Meu pedido"
+  const servicoCart = total * 0.1;
+  const totalComServico = total + servicoCart;
+  const temConta = currentTableOrders.length > 0 || currentTableCancelled.length > 0;
+
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-slate-950 overflow-hidden"
       style={{ height: "100dvh", paddingTop: "calc(env(safe-area-inset-top) + 24px)", paddingBottom: "env(safe-area-inset-bottom)" }}>
 
-      {/* ── Cabeçalho mínimo (mesmo padrão das telas de cozinha/caixa) ── */}
-      <header className="flex shrink-0 items-center justify-between border-b border-white/10 bg-slate-900/90 px-5 py-3 backdrop-blur-xl">
-        <div className="flex items-center gap-3">
-          <LogoPP size={32} />
-          <div>
-            <p className="text-base font-black text-white leading-tight">{lojaInfo?.nome || "Cardápio"}</p>
-            <p className="text-xs text-slate-500">{tableNumber && Number(tableNumber) > 0 ? `Mesa ${tableNumber.padStart(2,"0")}` : "Informe a mesa"}</p>
+      {/* ── Cabeçalho gourmet: marca · MESA em destaque · ações ── */}
+      <header className="grid shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-3 border-b border-gold-400/15 bg-slate-900/90 px-5 py-2.5 backdrop-blur-xl">
+        {/* Marca */}
+        <div className="flex min-w-0 items-center gap-3">
+          <LogoPP size={42} />
+          <div className="min-w-0">
+            <p className="text-base font-black leading-none tracking-tight"><span className="text-white">PEDIDO</span> <span className="text-gold-400">PRIME</span></p>
+            <p className="mt-1 truncate text-[9px] font-bold uppercase tracking-[0.28em] text-slate-500">{lojaInfo?.nome || "Sistema para restaurantes"}</p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          {totalCartItems > 0 && (
-            <div className="flex items-center gap-1.5 rounded-2xl border border-blue-400/30 bg-blue-500/10 px-3 py-2">
-              <span className="text-sm">🛒</span>
-              <span className="text-sm font-black text-blue-300">{totalCartItems} {totalCartItems === 1 ? "item" : "itens"}</span>
-            </div>
-          )}
+        {/* Mesa em destaque (centro) */}
+        <div className="text-center leading-none">
+          <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-400">Mesa</p>
+          <p className="text-3xl font-black tabular-nums text-gold-400">{dadosCompletos ? String(tableNumber).padStart(2, "0") : "--"}</p>
+          {currentTableOrders.length > 0 && <p className="mt-0.5 text-[10px] font-bold text-slate-500">👤 {currentTableOrders.length} pedido(s) na mesa</p>}
+        </div>
+        {/* Ações */}
+        <div className="flex items-center justify-end gap-2">
+          <button onClick={chamarGarcom}
+            className="hidden sm:flex flex-col items-center rounded-xl px-2.5 py-1.5 text-slate-300 hover:bg-white/[0.06] transition">
+            <span className="text-lg leading-none">🔔</span>
+            <span className="mt-1 text-[9px] font-bold leading-none">Chamar<br/>garçom</span>
+          </button>
+          <button onClick={() => setVerConta(true)} disabled={!temConta}
+            className="hidden sm:flex flex-col items-center rounded-xl px-2.5 py-1.5 text-slate-300 hover:bg-white/[0.06] transition disabled:opacity-40 disabled:cursor-not-allowed">
+            <span className="text-lg leading-none">🧾</span>
+            <span className="mt-1 text-[9px] font-bold leading-none">Solicitar<br/>conta</span>
+          </button>
+          <button onClick={() => setCarrinhoAberto(true)}
+            className="flex items-center gap-2 rounded-xl border border-gold-400/50 bg-gold-400/10 px-3.5 py-2 text-gold-300 hover:bg-gold-400/20 transition">
+            <span className="text-base">🛒</span>
+            <span className="text-left leading-none">
+              <span className="block text-xs font-black">Meu pedido</span>
+              <span className="mt-0.5 block text-[10px] font-bold text-slate-400">{totalCartItems} {totalCartItems === 1 ? "item" : "itens"}</span>
+            </span>
+          </button>
         </div>
       </header>
 
-      {/* ── Filtros de categoria ──────────────────────────── */}
-      <div className="shrink-0 flex items-center gap-2 overflow-x-auto border-b border-white/10 bg-slate-900/50 px-5 py-3">
-        {categories.map((c) => (
-          <button key={c} onClick={() => setSelectedCategory(c)}
-            className={`shrink-0 rounded-full border px-4 py-1.5 text-sm font-bold transition ${selectedCategory === c ? "border-gold-400 bg-gold-400 text-blue-950 shadow-lg shadow-gold-600/20" : "border-white/10 bg-white/[0.05] text-slate-300 hover:bg-white/10"}`}>
-            {selectedCategory === c ? "★ " : ""}{c}
-          </button>
-        ))}
-      </div>
+      {/* ── Corpo: menu gourmet lateral · vitrine · meu pedido ── */}
+      <div className="flex flex-1 overflow-hidden">
 
-      {/* ── Campo de busca — abaixo dos filtros, largura total ── */}
-      <div className="shrink-0 border-b border-white/10 bg-slate-900/30 px-5 py-3">
-        <div className="relative w-full">
-          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm">🔍</span>
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por nome, ingrediente ou categoria... (sem distinção de maiúsculas ou acentos)"
-            className="w-full rounded-2xl border border-white/10 bg-slate-800/80 py-3 pl-10 pr-4 text-sm text-white outline-none transition focus:border-blue-400 focus:bg-slate-800 placeholder:text-slate-500"
-          />
-          {search && (
-            <button onClick={() => setSearch("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-slate-400 hover:text-white transition">
-              ✕
-            </button>
-          )}
-        </div>
-        {search && (
-          <p className="mt-1.5 text-xs text-slate-500">
-            {filteredItems.length === 0 ? "Nenhum produto encontrado para" : `${filteredItems.length} produto(s) encontrado(s) para`}
-            {" "}<span className="font-bold text-slate-300">"{search}"</span>
-          </p>
-        )}
-      </div>
-
-      {/* ── Cardápio (largura total) ────────────────────── */}
-      <div className="flex-1 overflow-y-auto p-6">
-          {filteredItems.length === 0 ? (
-            <div className="flex h-full flex-col items-center justify-center gap-3 opacity-40">
-              <span className="text-5xl">🔍</span>
-              <p className="text-base font-black text-slate-300">Nenhum produto encontrado</p>
-              <p className="text-sm text-slate-500">Tente outra busca ou categoria</p>
-            </div>
-          ) : (
-          <div className="grid gap-5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 240px), 1fr))" }}>
-            {filteredItems.map((item) => {
-              const noCarrinho = cart.find((c) => c.id === item.id);
+        {/* Menu gourmet lateral (categorias) */}
+        <aside className="hidden md:flex w-48 lg:w-52 shrink-0 flex-col border-r border-gold-400/10 bg-slate-900/60">
+          <nav className="scrollbar-none flex-1 space-y-1 overflow-y-auto p-3">
+            {categories.map((c) => {
+              const sel = selectedCategory === c;
               return (
-                <article key={item.id} className={`group flex h-full flex-col overflow-hidden rounded-3xl border bg-slate-900 shadow-xl transition-all hover:-translate-y-1 hover:shadow-2xl ${noCarrinho ? "border-blue-500/50 ring-2 ring-blue-500/20" : "border-white/10 hover:border-blue-500/40"}`}>
-                  {/* Imagem (clicável → abre detalhes) */}
-                  <button onClick={() => setProdutoDetalhe(item)} className="relative block h-44 w-full overflow-hidden bg-slate-800 text-left">
-                    <img src={item.imageUrl || fallbackImage} alt={item.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-transparent to-transparent" />
-                    {item.badge && (
-                      <span className="absolute right-3 top-3 rounded-full bg-blue-500/90 px-2.5 py-1 text-xs font-black text-white shadow-lg backdrop-blur-sm">{item.badge}</span>
-                    )}
-                    {noCarrinho && (
-                      <div className="absolute left-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-blue-500 text-sm font-black text-white shadow-lg ring-2 ring-white/30">
-                        {noCarrinho.quantity}
-                      </div>
-                    )}
-                    <div className="absolute bottom-3 left-3">
-                      <span className="rounded-2xl bg-black/60 px-3 py-1.5 text-lg font-black text-gold-400 backdrop-blur-sm">{formatCurrency(item.price)}</span>
-                    </div>
-                    <span className="absolute bottom-3 right-3 rounded-full bg-white/15 px-2.5 py-1 text-xs font-bold text-white backdrop-blur-sm opacity-0 transition group-hover:opacity-100">
-                      Ver detalhes →
-                    </span>
-                  </button>
-                  {/* Conteúdo */}
-                  <div className="flex flex-1 flex-col p-4">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-xs font-bold uppercase tracking-widest text-gold-400">{item.category}</p>
-                      <span className="text-xs text-slate-500">⏱ {item.time}</span>
-                    </div>
-                    <button onClick={() => setProdutoDetalhe(item)} className="mt-1 block text-left">
-                      <h3 className="text-base font-black text-white leading-tight hover:text-gold-300 transition">{item.name}</h3>
-                    </button>
-                    <p className="mt-1 text-xs leading-5 text-slate-400 line-clamp-2">{item.description}</p>
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      {(item.ingredients || []).slice(0, 3).map((ing) => (
-                        <span key={ing} className="rounded-full bg-white/[0.06] px-2 py-0.5 text-xs text-slate-400">{ing}</span>
-                      ))}
-                      {(item.ingredients || []).length > 3 && (
-                        <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-xs text-slate-500">+{item.ingredients.length - 3}</span>
-                      )}
-                    </div>
-                    <div className="mt-auto pt-3">
-                      {noCarrinho ? (
-                        <div className="flex items-center justify-between gap-1 rounded-2xl bg-blue-500/10 border border-blue-500/30 p-1">
-                          <button onClick={() => removeFromCart(item.id)} className="h-10 flex-1 rounded-xl bg-slate-800 font-black text-white hover:bg-slate-700 transition active:scale-95">−</button>
-                          <span className="w-12 text-center text-lg font-black text-white">{noCarrinho.quantity}</span>
-                          <button onClick={() => setProdutoDetalhe(item)} title="Personalizar / adicionar mais" className="h-10 flex-1 rounded-xl bg-gold-400 font-black text-blue-950 hover:bg-gold-300 transition active:scale-95">+</button>
-                        </div>
-                      ) : (
-                        <button onClick={() => setProdutoDetalhe(item)} className="w-full rounded-2xl bg-gold-400 py-3 text-sm font-black text-blue-950 hover:bg-gold-300 transition active:scale-95 shadow-lg shadow-gold-900/20">
-                          + Adicionar ao pedido
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </article>
+                <button key={c} onClick={() => setSelectedCategory(c)}
+                  className={`flex w-full items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left text-[13px] font-bold transition ${sel ? "border-gold-400 bg-gold-400/10 text-gold-300" : "border-transparent text-slate-300 hover:bg-white/[0.05] hover:text-white"}`}>
+                  <span className="text-base">{iconeCategoria(c)}</span>
+                  <span className="truncate">{c === "Todos" ? "Destaques" : c}</span>
+                </button>
               );
             })}
+          </nav>
+          {/* Experiência Prime */}
+          <button onClick={() => { setSelectedCategory("Todos"); setSearch(""); }}
+            className="m-3 rounded-2xl border border-gold-400/40 bg-gold-400/[0.06] p-3.5 text-left hover:bg-gold-400/10 transition">
+            <p className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-gold-400">💎 Experiência Prime</p>
+            <p className="mt-1 text-[10px] leading-4 text-slate-400">Veja nossas sugestões especiais para você</p>
+          </button>
+        </aside>
+
+        {/* Vitrine central */}
+        <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
+          {/* Categorias (telas sem o menu lateral) */}
+          <div className="md:hidden shrink-0 flex items-center gap-2 overflow-x-auto border-b border-white/10 bg-slate-900/50 px-4 py-2.5">
+            {categories.map((c) => (
+              <button key={c} onClick={() => setSelectedCategory(c)}
+                className={`shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-bold transition ${selectedCategory === c ? "border-gold-400 bg-gold-400 text-blue-950" : "border-white/10 bg-white/[0.05] text-slate-300"}`}>
+                {iconeCategoria(c)} {c === "Todos" ? "Destaques" : c}
+              </button>
+            ))}
           </div>
-          )}
+          {/* Busca */}
+          <div className="shrink-0 border-b border-white/10 bg-slate-900/30 px-5 py-2.5">
+            <div className="relative w-full">
+              <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-slate-400">🔍</span>
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar no cardápio..."
+                className="w-full rounded-xl border border-white/10 bg-slate-800/80 py-2.5 pl-10 pr-4 text-sm text-white outline-none transition focus:border-gold-400/60 focus:bg-slate-800 placeholder:text-slate-500"
+              />
+              {search && (
+                <button onClick={() => setSearch("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-slate-400 hover:text-white transition">✕</button>
+              )}
+            </div>
+            {search && (
+              <p className="mt-1.5 text-xs text-slate-500">
+                {filteredItems.length === 0 ? "Nenhum produto encontrado para" : `${filteredItems.length} produto(s) encontrado(s) para`}
+                {" "}<span className="font-bold text-slate-300">"{search}"</span>
+              </p>
+            )}
+          </div>
+
+          {/* Seções da vitrine */}
+          <div className="flex-1 overflow-y-auto p-5">
+            {filteredItems.length === 0 ? (
+              <div className="flex h-full flex-col items-center justify-center gap-3 opacity-40">
+                <span className="text-5xl">🔍</span>
+                <p className="text-base font-black text-slate-300">Nenhum produto encontrado</p>
+                <p className="text-sm text-slate-500">Tente outra busca ou categoria</p>
+              </div>
+            ) : (() => {
+              const emDestaques = selectedCategory === "Todos";
+              const comTag = filteredItems.filter((i) => i.badge);
+              const destaques = emDestaques ? (comTag.length > 0 ? comTag.slice(0, 8) : filteredItems.slice(0, 4)) : [];
+              const demais = emDestaques ? filteredItems.filter((i) => !destaques.includes(i)) : filteredItems;
+              const cabSecao = (titulo) => (
+                <div className="mb-4 flex items-center gap-4">
+                  <h2 className="shrink-0 text-base font-black uppercase tracking-[0.18em] text-white">{titulo}</h2>
+                  <div className="h-px flex-1 bg-gold-400/25" />
+                  <span className="shrink-0 text-xs font-black text-gold-400">Ver todos →</span>
+                </div>
+              );
+              const grade = { gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 205px), 1fr))" };
+              return (
+                <div className="space-y-8">
+                  {emDestaques && destaques.length > 0 && (
+                    <section>
+                      {cabSecao("Destaques da casa")}
+                      <div className="grid gap-4" style={grade}>
+                        {destaques.map((item, i) => cardGourmet(item, TAGS_DESTAQUE[i % TAGS_DESTAQUE.length]))}
+                      </div>
+                    </section>
+                  )}
+                  {demais.length > 0 && (
+                    <section>
+                      {cabSecao(emDestaques ? "Mais pedidos" : selectedCategory)}
+                      <div className="grid gap-4" style={grade}>
+                        {demais.map((item) => cardGourmet(item))}
+                      </div>
+                    </section>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
+        </main>
+
+        {/* ── Meu pedido (lateral fixa) ─────────────────────── */}
+        <aside className="hidden lg:flex w-72 xl:w-80 shrink-0 flex-col border-l border-gold-400/10 bg-slate-900/70">
+          <div className="shrink-0 border-b border-gold-400/15 px-4 py-3.5">
+            <p className="text-sm font-black uppercase tracking-[0.22em] text-white">Meu pedido</p>
+          </div>
+          <div className="scrollbar-none flex-1 space-y-2 overflow-y-auto p-3">
+            {cart.length === 0 && (
+              <div className="flex h-full flex-col items-center justify-center gap-2 opacity-40">
+                <span className="text-4xl">🛒</span>
+                <p className="text-xs font-bold text-slate-400">Seu pedido aparece aqui</p>
+              </div>
+            )}
+            {cart.map((c) => (
+              <div key={c._uid || c.id} className="rounded-xl border border-white/10 bg-slate-950/50 p-2.5">
+                <div className="flex items-start gap-2.5">
+                  <img src={c.imageUrl || fallbackImage} alt="" className="h-10 w-10 shrink-0 rounded-lg object-cover" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-black text-white leading-tight">{c.quantity}x {c.name}</p>
+                    {(c.removedIngredients || []).map((r) => <p key={r} className="text-[10px] text-slate-500">Sem {r}</p>)}
+                    {(c.extraIngredients || []).map((e) => <p key={e?.nome || e} className="text-[10px] text-slate-500">+ {e?.nome || e}</p>)}
+                    {c.observation && <p className="truncate text-[10px] italic text-slate-500">"{c.observation}"</p>}
+                    <p className="mt-1 text-xs font-black text-gold-400">{formatCurrency(c.price * c.quantity)}</p>
+                  </div>
+                  <button onClick={() => removeFromCart(c.id)} title="Remover" className="shrink-0 rounded-lg p-1 text-slate-500 hover:bg-red-500/10 hover:text-red-300 transition">🗑️</button>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="shrink-0 border-t border-gold-400/15 p-4">
+            <div className="flex justify-between text-xs text-slate-400"><span>Subtotal</span><span className="font-bold text-slate-200">{formatCurrency(total)}</span></div>
+            <div className="mt-1 flex justify-between text-xs text-slate-400"><span>Serviço (10%)</span><span className="font-bold text-slate-200">{formatCurrency(servicoCart)}</span></div>
+            <div className="mt-2 flex items-center justify-between border-t border-white/10 pt-2">
+              <span className="text-sm font-black uppercase tracking-wider text-white">Total</span>
+              <span className="text-lg font-black text-gold-400">{formatCurrency(totalComServico)}</span>
+            </div>
+            <button onClick={() => setCarrinhoAberto(true)} disabled={cart.length === 0}
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-gold-400 px-4 py-3.5 text-sm font-black text-blue-950 hover:bg-gold-300 transition active:scale-95 shadow-lg shadow-gold-900/30 disabled:opacity-40 disabled:cursor-not-allowed">
+              Enviar pedido para a cozinha ✈️
+            </button>
+            <button onClick={() => setVerConta(true)} disabled={!temConta}
+              className="mt-2 w-full rounded-xl border border-white/10 bg-white/[0.05] py-2.5 text-xs font-black text-slate-300 hover:bg-white/10 transition disabled:opacity-40 disabled:cursor-not-allowed">
+              👁️ Conta / Acompanhar pedidos
+            </button>
+          </div>
+        </aside>
       </div>
 
-      {/* ── Rodapé fixo: resumo + botão enviar (largura total) ── */}
-      <footer className="shrink-0 border-t border-white/10 bg-slate-900/95 backdrop-blur-xl px-4 py-3 sm:px-6 sm:py-4">
+      {/* ── Rodapé (somente telas sem a lateral "Meu pedido") ── */}
+      <footer className="lg:hidden shrink-0 border-t border-gold-400/15 bg-slate-900/95 backdrop-blur-xl px-4 py-3">
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-blue-400/30 bg-blue-500/15 text-xl sm:h-12 sm:w-12">🛒</div>
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-gold-400/40 bg-gold-400/10 text-xl">🛒</div>
             <div>
-              <p className="text-xs font-bold uppercase tracking-widest text-slate-500">{totalCartItems} {totalCartItems === 1 ? "item" : "itens"}</p>
-              <p className="text-lg font-black text-white">{formatCurrency(total)}</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{totalCartItems} {totalCartItems === 1 ? "item" : "itens"} · serviço incluso</p>
+              <p className="text-lg font-black text-gold-400">{formatCurrency(totalComServico)}</p>
             </div>
           </div>
           <button onClick={() => setVerConta(true)}
-            disabled={currentTableOrders.length === 0 && currentTableCancelled.length === 0}
-            title={(currentTableOrders.length === 0 && currentTableCancelled.length === 0) ? "Disponível após lançar um pedido na mesa" : "Ver conta e acompanhar o status dos pedidos"}
-            className="shrink-0 rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-black text-slate-300 hover:bg-white/10 transition disabled:opacity-40 disabled:cursor-not-allowed sm:px-5 sm:py-4">
-            👁️ Conta / Acompanhar
+            disabled={!temConta}
+            title={!temConta ? "Disponível após lançar um pedido na mesa" : "Ver conta e acompanhar o status dos pedidos"}
+            className="shrink-0 rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-black text-slate-300 hover:bg-white/10 transition disabled:opacity-40 disabled:cursor-not-allowed">
+            👁️ Conta
           </button>
           <button onClick={() => setCarrinhoAberto(true)} disabled={cart.length === 0}
-            className="flex flex-1 basis-full items-center justify-center gap-2 rounded-2xl bg-emerald-500 px-4 py-3.5 text-sm font-black text-white hover:bg-emerald-400 transition active:scale-95 shadow-lg shadow-emerald-950/30 disabled:opacity-40 disabled:cursor-not-allowed sm:basis-0 sm:px-6 sm:py-4 sm:text-base">
-            <span className="truncate">🚀 Confirmar e enviar pedido<span className="hidden sm:inline"> para a cozinha</span></span>
+            className="flex flex-1 basis-full items-center justify-center gap-2 rounded-2xl bg-gold-400 px-4 py-3.5 text-sm font-black text-blue-950 hover:bg-gold-300 transition active:scale-95 shadow-lg shadow-gold-900/30 disabled:opacity-40 disabled:cursor-not-allowed sm:basis-0">
+            <span className="truncate">Enviar pedido para a cozinha ✈️</span>
           </button>
         </div>
       </footer>
+
+      {/* Toast: garçom chamado */}
+      {garcomChamado && (
+        <div className="fixed left-1/2 top-24 z-[120] -translate-x-1/2 rounded-2xl border border-gold-400/50 bg-slate-900/95 px-5 py-3 text-center shadow-2xl backdrop-blur-xl">
+          <p className="text-sm font-black text-gold-300">🔔 Garçom chamado!</p>
+          <p className="mt-0.5 text-xs text-slate-400">Aguarde — alguém virá até a {dadosCompletos ? `Mesa ${String(tableNumber).padStart(2, "0")}` : "sua mesa"}.</p>
+        </div>
+      )}
 
       {/* ── Gaveta do carrinho (desliza da direita) ──────────── */}
       {carrinhoAberto && (
