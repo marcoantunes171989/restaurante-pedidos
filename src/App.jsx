@@ -486,7 +486,7 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
 
           {/* Entrar */}
           <button type="submit" disabled={!podeEntrar}
-            className="mt-1 w-full rounded-2xl bg-blue-500 px-5 py-4 text-sm font-black text-white transition hover:bg-blue-400 active:scale-[0.98] shadow-lg shadow-blue-950/40 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100">
+            className="mt-1 w-full rounded-2xl bg-gold-400 px-5 py-4 text-sm font-black text-blue-950 transition hover:bg-gold-300 active:scale-[0.98] shadow-lg shadow-gold-900/40 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100">
             Entrar →
           </button>
         </form>
@@ -1585,8 +1585,12 @@ export default function RestaurantePedidoApp() {
         <header className="mb-6 rounded-[2rem] border border-white/10 bg-white/[0.06] p-5 shadow-2xl backdrop-blur-xl sm:p-7">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
             <div>
+              <div className="mb-4 flex items-center gap-3">
+                <LogoPP size={48} />
+                <span className="text-xl font-black leading-none tracking-tight"><span className="text-white">PEDIDO</span> <span className="text-gold-400">PRIME</span></span>
+              </div>
               <div className="mb-3 flex flex-wrap items-center gap-2">
-                <span className="inline-flex rounded-full border border-blue-400/30 bg-blue-500/10 px-4 py-2 text-sm font-semibold text-blue-100">Sistema Restaurante • Acesso controlado</span>
+                <span className="inline-flex rounded-full border border-gold-400/30 bg-gold-400/10 px-4 py-2 text-sm font-semibold text-gold-200">Sistema para restaurantes • Acesso controlado</span>
                 <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold ${dbReady ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-200" : "border-amber-400/30 bg-amber-500/10 text-amber-200"}`}>
                   <span className={`h-2 w-2 rounded-full ${dbReady ? "bg-emerald-400" : "bg-amber-400"}`} />
                   {dbReady ? "Supabase conectado" : "Modo local"}
@@ -1987,10 +1991,10 @@ function TabletView({
                         <div className="flex items-center justify-between gap-1 rounded-2xl bg-blue-500/10 border border-blue-500/30 p-1">
                           <button onClick={() => removeFromCart(item.id)} className="h-10 flex-1 rounded-xl bg-slate-800 font-black text-white hover:bg-slate-700 transition active:scale-95">−</button>
                           <span className="w-12 text-center text-lg font-black text-white">{noCarrinho.quantity}</span>
-                          <button onClick={() => setProdutoDetalhe(item)} title="Personalizar / adicionar mais" className="h-10 flex-1 rounded-xl bg-blue-500 font-black text-white hover:bg-blue-400 transition active:scale-95">+</button>
+                          <button onClick={() => setProdutoDetalhe(item)} title="Personalizar / adicionar mais" className="h-10 flex-1 rounded-xl bg-gold-400 font-black text-blue-950 hover:bg-gold-300 transition active:scale-95">+</button>
                         </div>
                       ) : (
-                        <button onClick={() => setProdutoDetalhe(item)} className="w-full rounded-2xl bg-blue-500 py-3 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95">
+                        <button onClick={() => setProdutoDetalhe(item)} className="w-full rounded-2xl bg-gold-400 py-3 text-sm font-black text-blue-950 hover:bg-gold-300 transition active:scale-95 shadow-lg shadow-gold-900/20">
                           + Adicionar ao pedido
                         </button>
                       )}
@@ -2166,7 +2170,7 @@ function TabletView({
               onClick={() => setConfirmarConta(true)}
               disabled={!podeFecharConta}
               title={!podeFecharConta ? "Disponível quando os pedidos forem entregues" : (contaSolicitada ? "Reenviar a conta ao caixa" : "Solicitar fechamento ao caixa")}
-              className={`w-full rounded-2xl border py-3 text-xs font-black transition disabled:opacity-30 disabled:cursor-not-allowed ${contaSolicitada ? "border-amber-400/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20" : "border-violet-400/30 bg-violet-500/10 text-violet-300 hover:bg-violet-500/20"}`}>
+              className={`w-full rounded-2xl border py-3 text-xs font-black transition disabled:opacity-30 disabled:cursor-not-allowed ${contaSolicitada ? "border-amber-400/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20" : "border-gold-400/30 bg-gold-500/10 text-gold-300 hover:bg-gold-500/20"}`}>
               {contaSolicitada ? "🔁 Reenviar conta ao caixa" : "🧾 Fechar conta da mesa"}
             </button>
             {contaSolicitada && (
@@ -2306,7 +2310,7 @@ function TabletView({
               <button onClick={() => { setVerConta(false); setConfirmarConta(true); }}
                 disabled={!podeFecharConta}
                 title={!podeFecharConta ? "Disponível somente quando todos os pedidos forem entregues pela cozinha" : ""}
-                className={`mt-2 w-full rounded-2xl py-4 text-sm font-black text-white transition active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed ${contaSolicitada ? "bg-amber-500 hover:bg-amber-400" : "bg-violet-500 hover:bg-violet-400"}`}>
+                className={`mt-2 w-full rounded-2xl py-4 text-sm font-black transition active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed ${contaSolicitada ? "bg-amber-500 text-blue-950 hover:bg-amber-400" : "bg-gold-400 text-blue-950 hover:bg-gold-300"}`}>
                 {contaSolicitada ? "🔁 Reenviar conta ao caixa" : "🧾 Solicitar fechamento ao caixa"}
               </button>
               {!podeFecharConta && currentTableOrders.length > 0 && (
@@ -2667,9 +2671,9 @@ function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, cancela
       {/* ── Cabeçalho mínimo ──────────────────────────────────── */}
       <header className="flex shrink-0 items-center justify-between border-b border-white/10 bg-slate-900/90 px-6 py-3 backdrop-blur-xl">
         <div className="flex items-center gap-3">
-          <span className="text-2xl">👨‍🍳</span>
+          <LogoPP size={36} />
           <div>
-            <p className="text-lg font-black text-white leading-tight">Cozinha{lojaInfo && <span className="ml-2 text-sm font-bold text-blue-300">· {lojaInfo.nome}</span>}</p>
+            <p className="text-lg font-black text-white leading-tight">👨‍🍳 Cozinha{lojaInfo && <span className="ml-2 text-sm font-bold text-gold-300">· {lojaInfo.nome}</span>}</p>
             <p className="text-xs text-slate-500">{currentUser?.name}</p>
           </div>
         </div>
@@ -2808,7 +2812,7 @@ function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, cancela
                       {order.status === "ready" && (
                         <button
                           onClick={() => marcarEntregue(order.id)}
-                          className="w-full rounded-2xl border border-violet-400/40 bg-violet-500/15 py-3 text-sm font-black text-violet-300 hover:bg-violet-500 hover:text-white transition active:scale-95 shadow-lg shadow-violet-950/20">
+                          className="w-full rounded-2xl border border-gold-400/40 bg-gold-500/15 py-3 text-sm font-black text-gold-300 hover:bg-gold-400 hover:text-blue-950 transition active:scale-95 shadow-lg shadow-gold-900/20">
                           🛎️ Marcar como Entregue
                         </button>
                       )}
@@ -3531,16 +3535,16 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
       {/* Cabeçalho */}
       <header className="flex shrink-0 items-center justify-between border-b border-white/10 bg-slate-900/90 px-6 py-3 backdrop-blur-xl">
         <div className="flex items-center gap-3">
-          <span className="text-2xl">💳</span>
+          <LogoPP size={36} />
           <div>
-            <p className="text-lg font-black text-white leading-tight">Caixa / Pagamento{lojaInfo && <span className="ml-2 text-sm font-bold text-blue-300">· {lojaInfo.nome}</span>}</p>
+            <p className="text-lg font-black text-white leading-tight">💳 Caixa / Pagamento{lojaInfo && <span className="ml-2 text-sm font-bold text-gold-300">· {lojaInfo.nome}</span>}</p>
             <p className="text-xs text-slate-500">{modoCaixa === "consulta" ? "Consulte uma comanda e dê baixa" : "Leia as comandas para fechar a conta"}</p>
           </div>
         </div>
         {/* Alternador de modo: Caixa x Consultar comanda */}
         <div className="flex items-center gap-1 rounded-2xl border border-white/10 bg-white/[0.04] p-1">
           <button onClick={() => setModoCaixa("caixa")}
-            className={`rounded-xl px-3 py-2 text-sm font-black transition ${modoCaixa === "caixa" ? "bg-violet-500 text-white" : "text-slate-300 hover:bg-white/5"}`}>
+            className={`rounded-xl px-3 py-2 text-sm font-black transition ${modoCaixa === "caixa" ? "bg-gold-400 text-blue-950" : "text-slate-300 hover:bg-white/5"}`}>
             💳 Caixa
           </button>
           <button onClick={() => setModoCaixa("consulta")}
@@ -3783,7 +3787,7 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
             {/* Passo 2 — pagamento (parcial ou total) */}
             <button onClick={() => setPagamentoAberto(true)} disabled={!podePagar || aPagar <= 0}
               title={!podePagar ? "Aguarde todos os pedidos serem finalizados/entregues" : ""}
-              className="w-full rounded-2xl bg-violet-500 py-4 text-sm font-black text-white hover:bg-violet-400 transition active:scale-95 shadow-lg shadow-violet-950/30 disabled:opacity-40 disabled:cursor-not-allowed">
+              className="w-full rounded-2xl bg-gold-400 py-4 text-sm font-black text-blue-950 hover:bg-gold-300 transition active:scale-95 shadow-lg shadow-gold-900/30 disabled:opacity-40 disabled:cursor-not-allowed">
               {jaPago > 0
                 ? `💰 Pagar ${formatCurrency(aPagar)} (resta ${formatCurrency(restanteGeral)})`
                 : modoItens && aPagar < restanteGeral - 0.01
@@ -3860,7 +3864,7 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
                       </div>
                     )}
                     <button onClick={() => setConsultaPagamento(true)} disabled={!consultaPodePagar}
-                      className="mt-1 w-full rounded-2xl bg-violet-500 py-4 text-sm font-black text-white hover:bg-violet-400 transition active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed">
+                      className="mt-1 w-full rounded-2xl bg-gold-400 py-4 text-sm font-black text-blue-950 hover:bg-gold-300 transition active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed">
                       💰 Dar baixa / Finalizar pagamento
                     </button>
                   </div>
@@ -4447,7 +4451,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
               </div>
               {/* Badge: super admin ou empresa */}
               {isSuperAdmin ? (
-                <span className="shrink-0 rounded-full bg-violet-500/20 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-violet-300">Admin</span>
+                <span className="shrink-0 rounded-full bg-gold-500/20 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-gold-300">Admin</span>
               ) : lojaInfo ? (
                 <span className="shrink-0 rounded-full bg-blue-500/20 px-1.5 py-0.5 font-mono text-[9px] font-black text-blue-300">{lojaInfo.prefixo}</span>
               ) : null}
@@ -6177,7 +6181,7 @@ function CrmAdmin({ clientes = [], orders = [] }) {
                     {/* Resumo do cliente */}
                     <div className="flex flex-wrap items-center gap-2">
                       {c.favorito && (
-                        <span className="rounded-full border border-violet-400/20 bg-violet-500/10 px-3 py-1 text-[11px] font-bold text-violet-300">
+                        <span className="rounded-full border border-gold-400/20 bg-gold-500/10 px-3 py-1 text-[11px] font-bold text-gold-300">
                           ❤️ Favorito: {c.favorito.nome} ({c.favorito.qtd}×)
                         </span>
                       )}
@@ -8224,7 +8228,7 @@ function UserAdmin({ users, userForm, setUserForm, addUser, toggleUserStatus, ed
             <div key={u.id} className="flex items-center gap-3 rounded-3xl border border-white/10 bg-slate-950/40 p-3">
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-500/15 text-lg">👤</div>
               <div className="min-w-0 flex-1">
-                <p className="font-black text-white truncate">{u.name}{u.superAdmin && <span className="ml-2 rounded-full bg-violet-500/20 px-2 py-0.5 text-[10px] font-black text-violet-300 align-middle">ADMIN GERAL</span>}</p>
+                <p className="font-black text-white truncate">{u.name}{u.superAdmin && <span className="ml-2 rounded-full bg-gold-500/20 px-2 py-0.5 text-[10px] font-black text-gold-300 align-middle">ADMIN GERAL</span>}</p>
                 <p className="text-xs text-slate-400 truncate">{u.email}</p>
                 <div className="mt-1 flex flex-wrap items-center gap-1.5">
                   <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[11px] font-bold text-slate-200">🪪 {u.role || "—"}</span>
@@ -8554,7 +8558,7 @@ function UserAccessAdmin({ users, accesses, toggleUserAccess, definirAcessos, lo
               <div className="min-w-0 flex-1">
                 <p className="font-black text-white truncate">
                   {u.name}
-                  {u.superAdmin && <span className="ml-2 rounded-full bg-violet-500/20 px-2 py-0.5 text-[10px] font-black text-violet-300 align-middle">ADMIN GERAL</span>}
+                  {u.superAdmin && <span className="ml-2 rounded-full bg-gold-500/20 px-2 py-0.5 text-[10px] font-black text-gold-300 align-middle">ADMIN GERAL</span>}
                 </p>
                 <p className="truncate text-xs text-slate-400">{u.email} · {u.role || "—"}{isSuperAdmin ? ` · ${nomeLoja(u.lojaId)}` : ""}</p>
               </div>
@@ -8600,7 +8604,7 @@ function UserAccessModal({ usuario, acessosAtivos = [], isSuperAdmin = false, no
           <div className="min-w-0">
             <h2 className="text-lg font-black text-white">
               {usuario.name}
-              {usuario.superAdmin && <span className="ml-2 rounded-full bg-violet-500/20 px-2 py-0.5 text-[10px] font-black text-violet-300 align-middle">ADMIN GERAL</span>}
+              {usuario.superAdmin && <span className="ml-2 rounded-full bg-gold-500/20 px-2 py-0.5 text-[10px] font-black text-gold-300 align-middle">ADMIN GERAL</span>}
             </h2>
             <p className="text-sm text-slate-400 truncate">{usuario.email}</p>
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
@@ -8650,7 +8654,7 @@ function UserAccessModal({ usuario, acessosAtivos = [], isSuperAdmin = false, no
         {/* Rodapé */}
         <div className="shrink-0 border-t border-white/10 px-6 py-4 flex gap-3">
           <button onClick={() => setQrAberto(true)}
-            className="flex-1 rounded-2xl border border-violet-400/30 bg-violet-500/15 py-3.5 text-sm font-black text-violet-200 hover:bg-violet-500/25 transition active:scale-95">
+            className="flex-1 rounded-2xl border border-gold-400/30 bg-gold-500/15 py-3.5 text-sm font-black text-gold-200 hover:bg-gold-500/25 transition active:scale-95">
             🔐 QR de login
           </button>
           <button onClick={onFechar} className="flex-1 rounded-2xl bg-blue-500 py-3.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95">Concluir</button>
@@ -8756,7 +8760,7 @@ function QRLoginCardModal({ usuario, nomeEmpresa, onFechar }) {
               <div className="text-left">
                 <p className="text-lg font-black leading-tight">{usuario.name}</p>
                 <p className="text-xs font-bold text-slate-500">{nomeEmpresa}</p>
-                <p className="text-xs font-bold text-violet-600">{usuario.role || "—"}</p>
+                <p className="text-xs font-bold text-gold-600">{usuario.role || "—"}</p>
               </div>
             </div>
             <div className="mx-auto mt-4 h-48 w-48">

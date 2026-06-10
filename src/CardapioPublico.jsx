@@ -192,7 +192,7 @@ export default function CardapioPublico() {
                 <h3 className="mt-1 text-base font-black text-white leading-tight">{item.name}</h3>
                 <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-400">{item.description}</p>
                 <button onClick={() => setDetalhe(item)} className="mt-auto pt-3">
-                  <span className="block w-full rounded-2xl bg-blue-500 py-3 text-center text-sm font-black text-white hover:bg-blue-400 transition">+ Adicionar</span>
+                  <span className="block w-full rounded-2xl bg-gold-400 py-3 text-center text-sm font-black text-blue-950 hover:bg-gold-300 transition shadow-lg shadow-gold-900/20">+ Adicionar</span>
                 </button>
               </div>
             </article>
@@ -295,7 +295,7 @@ export default function CardapioPublico() {
                 <div className="flex justify-between text-lg font-black text-white"><span>Total</span><span className="text-emerald-400">{formatCurrency(totalMesa)}</span></div>
               </div>
               <button onClick={solicitarConta} disabled={!podeFechar}
-                className={`mt-3 w-full rounded-2xl py-4 text-sm font-black text-white transition active:scale-95 disabled:opacity-40 ${contaSolicitada ? "bg-amber-500" : "bg-violet-500 hover:bg-violet-400"}`}>
+                className={`mt-3 w-full rounded-2xl py-4 text-sm font-black text-white transition active:scale-95 disabled:opacity-40 ${contaSolicitada ? "bg-amber-500" : "bg-gold-500 hover:bg-gold-400"}`}>
                 {contaSolicitada ? "🔁 Reenviar conta ao caixa" : "🧾 Solicitar fechamento da conta"}
               </button>
               {!podeFechar && <p className="mt-2 text-center text-xs text-slate-500">Disponível quando todos os pedidos forem entregues.</p>}

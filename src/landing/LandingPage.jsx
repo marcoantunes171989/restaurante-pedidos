@@ -308,7 +308,7 @@ function TabletMock() {
           <div className="flex-1">
             <p className="text-[10px] uppercase tracking-widest text-slate-400">Total parcial</p>
             <p className="text-xl font-black text-white">R$ 102,70</p>
-            <button className="mt-2 w-full rounded-xl bg-violet-500 py-2 text-xs font-black text-white">🧾 Solicitar conta</button>
+            <button className="mt-2 w-full rounded-xl bg-gold-500 py-2 text-xs font-black text-white">🧾 Solicitar conta</button>
           </div>
         </div>
       </div>
@@ -620,7 +620,7 @@ export default function LandingPage({ navigate }) {
                 <div className="flex justify-between text-[10px] text-slate-400"><span>Subtotal</span><span className="text-white">R$ 47,80</span></div>
                 <div className="flex justify-between text-[11px] font-black text-white"><span>Total</span><span className="text-emerald-400">R$ 52,58</span></div>
               </div>
-              <div className="rounded-xl bg-violet-500 py-2 text-center text-[11px] font-black text-white">🧾 Solicitar conta</div>
+              <div className="rounded-xl bg-gold-500 py-2 text-center text-[11px] font-black text-white">🧾 Solicitar conta</div>
             </MockTela>
           </div>
 
