@@ -5966,11 +5966,40 @@ function CrmAdmin({ clientes = [], orders = [] }) {
   const [ordem, setOrdem] = useState("pedidos"); // pedidos | valor | recente | nome
   const [aberto, setAberto] = useState(null);    // telefone expandido
 
-  // Consolida cada cliente com os pedidos vinculados pelo telefone
+  // ── Período de análise (presets + intervalo personalizado) ──
+  const [preset, setPreset]   = useState("todos"); // hoje | 7d | 30d | 90d | todos | custom
+  const [dataIni, setDataIni] = useState("");      // YYYY-MM-DD
+  const [dataFim, setDataFim] = useState("");
+
+  const intervalo = useMemo(() => {
+    const iniDia = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
+    const fimDia = (d) => { const x = new Date(d); x.setHours(23, 59, 59, 999); return x; };
+    const hoje = new Date();
+    if (preset === "hoje") return { ini: iniDia(hoje), fim: fimDia(hoje) };
+    if (preset === "7d")   return { ini: iniDia(new Date(hoje.getTime() - 6  * 86400000)), fim: fimDia(hoje) };
+    if (preset === "30d")  return { ini: iniDia(new Date(hoje.getTime() - 29 * 86400000)), fim: fimDia(hoje) };
+    if (preset === "90d")  return { ini: iniDia(new Date(hoje.getTime() - 89 * 86400000)), fim: fimDia(hoje) };
+    if (preset === "custom") return {
+      ini: dataIni ? iniDia(`${dataIni}T00:00:00`) : null,
+      fim: dataFim ? fimDia(`${dataFim}T00:00:00`) : null,
+    };
+    return { ini: null, fim: null }; // todos
+  }, [preset, dataIni, dataFim]);
+
+  // Pedidos de clientes dentro do período selecionado
+  const pedidosPeriodo = useMemo(() => orders.filter((o) => {
+    if (!o.clienteTelefone || o.status === "cancelled") return false;
+    const t = new Date(o.createdAtISO);
+    if (intervalo.ini && t < intervalo.ini) return false;
+    if (intervalo.fim && t > intervalo.fim) return false;
+    return true;
+  }), [orders, intervalo]);
+
+  // Consolida cada cliente com os pedidos vinculados pelo telefone (no período)
   const dados = useMemo(() => {
     return (clientes || []).map((c) => {
-      const peds = orders
-        .filter((o) => o.clienteTelefone && o.clienteTelefone === c.telefone && o.status !== "cancelled")
+      const peds = pedidosPeriodo
+        .filter((o) => o.clienteTelefone === c.telefone)
         .sort((a, b) => new Date(b.createdAtISO) - new Date(a.createdAtISO));
       const total  = peds.reduce((s, o) => s + o.items.reduce((a, i) => a + i.price * i.quantity, 0), 0);
       const ultimo = peds[0]?.createdAtISO || null;
@@ -5984,7 +6013,7 @@ function CrmAdmin({ clientes = [], orders = [] }) {
         favorito: fav ? { nome: fav[0], qtd: fav[1] } : null,
       };
     });
-  }, [clientes, orders]);
+  }, [clientes, pedidosPeriodo]);
 
   const ordenados = useMemo(() => {
     const l = [...dados];
@@ -5998,11 +6027,17 @@ function CrmAdmin({ clientes = [], orders = [] }) {
   const termo = busca.trim().toLowerCase();
   const filtrados = termo ? ordenados.filter((c) => `${c.nome} ${c.telefone}`.toLowerCase().includes(termo)) : ordenados;
 
-  // Indicadores gerais
+  // Indicadores do período selecionado
   const totalGeral   = dados.reduce((s, c) => s + c.total, 0);
   const totalPedidos = dados.reduce((s, c) => s + c.qtd, 0);
-  const ativos30     = dados.filter((c) => c.ultimo && (Date.now() - new Date(c.ultimo).getTime()) <= 30 * 86400000).length;
+  const comPedidos   = dados.filter((c) => c.qtd > 0).length;
   const ticketGeral  = totalPedidos > 0 ? totalGeral / totalPedidos : 0;
+  const rotuloPeriodo = preset === "todos" ? "todo o histórico"
+    : preset === "hoje" ? "hoje"
+    : preset === "7d" ? "últimos 7 dias"
+    : preset === "30d" ? "últimos 30 dias"
+    : preset === "90d" ? "últimos 90 dias"
+    : `${dataIni ? new Date(`${dataIni}T00:00:00`).toLocaleDateString("pt-BR") : "início"} → ${dataFim ? new Date(`${dataFim}T00:00:00`).toLocaleDateString("pt-BR") : "hoje"}`;
 
   // Classificação por recorrência
   const classif = (c) =>
@@ -6019,13 +6054,47 @@ function CrmAdmin({ clientes = [], orders = [] }) {
       <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
         <h3 className="text-xl font-black text-white">👤 CRM — Clientes</h3>
         <p className="mt-0.5 text-sm text-slate-400">Clientes identificados nos pedidos do cardápio digital (nome + telefone). Clique em um cliente para ver o histórico completo.</p>
-        {/* Indicadores */}
-        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+
+        {/* Período de análise */}
+        <div className="mt-4 rounded-2xl border border-white/[0.06] bg-slate-950/40 p-3">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">📅 Período de análise</p>
+          <div className="mt-2 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-wrap gap-1.5">
+              {[["hoje", "Hoje"], ["7d", "7 dias"], ["30d", "30 dias"], ["90d", "90 dias"], ["todos", "Tudo"]].map(([v, t]) => (
+                <button key={v} onClick={() => setPreset(v)}
+                  className={`rounded-xl border px-3.5 py-2 text-xs font-black transition ${preset === v ? "border-blue-400 bg-blue-500 text-white" : "border-white/10 bg-white/[0.04] text-slate-300 hover:bg-white/[0.08]"}`}>
+                  {t}
+                </button>
+              ))}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="flex items-center gap-1.5 text-xs font-bold text-slate-400">
+                De
+                <input type="date" value={dataIni} onChange={(e) => { setDataIni(e.target.value); setPreset("custom"); }}
+                  className={`rounded-xl border bg-slate-950/70 px-2.5 py-2 text-xs text-white outline-none focus:border-blue-400 ${preset === "custom" ? "border-blue-400/50" : "border-white/10"}`} />
+              </label>
+              <label className="flex items-center gap-1.5 text-xs font-bold text-slate-400">
+                Até
+                <input type="date" value={dataFim} onChange={(e) => { setDataFim(e.target.value); setPreset("custom"); }}
+                  className={`rounded-xl border bg-slate-950/70 px-2.5 py-2 text-xs text-white outline-none focus:border-blue-400 ${preset === "custom" ? "border-blue-400/50" : "border-white/10"}`} />
+              </label>
+              {preset === "custom" && (dataIni || dataFim) && (
+                <button onClick={() => { setDataIni(""); setDataFim(""); setPreset("todos"); }}
+                  className="rounded-xl border border-white/10 bg-white/[0.06] px-3 py-2 text-xs font-black text-slate-300 hover:bg-white/10 transition">
+                  ✕ Limpar
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Indicadores do período */}
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
           {[
-            { t: "Clientes",          v: String(dados.length),          ic: "👥", c: "text-white" },
-            { t: "Ativos (30 dias)",  v: String(ativos30),              ic: "🔥", c: "text-blue-300" },
-            { t: "Faturamento",       v: formatCurrency(totalGeral),    ic: "💰", c: "text-emerald-300" },
-            { t: "Ticket médio",      v: formatCurrency(ticketGeral),   ic: "🧾", c: "text-amber-300" },
+            { t: "Clientes",            v: String(dados.length),        ic: "👥", c: "text-white" },
+            { t: "Com pedidos",         v: String(comPedidos),          ic: "🔥", c: "text-blue-300" },
+            { t: "Faturamento",         v: formatCurrency(totalGeral),  ic: "💰", c: "text-emerald-300" },
+            { t: "Ticket médio",        v: formatCurrency(ticketGeral), ic: "🧾", c: "text-amber-300" },
           ].map((k) => (
             <div key={k.t} className="rounded-2xl border border-white/[0.06] bg-slate-950/40 px-4 py-3">
               <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{k.ic} {k.t}</p>
@@ -6033,6 +6102,7 @@ function CrmAdmin({ clientes = [], orders = [] }) {
             </div>
           ))}
         </div>
+        <p className="mt-2 text-[11px] text-slate-500">Indicadores e histórico calculados sobre: <b className="text-slate-300">{rotuloPeriodo}</b> · {totalPedidos} pedido(s) no período.</p>
       </div>
 
       <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
