@@ -5963,49 +5963,132 @@ function formatarTelefone(t) {
 }
 function CrmAdmin({ clientes = [], orders = [] }) {
   const [busca, setBusca] = useState("");
-  const [aberto, setAberto] = useState(null); // telefone expandido
+  const [ordem, setOrdem] = useState("pedidos"); // pedidos | valor | recente | nome
+  const [aberto, setAberto] = useState(null);    // telefone expandido
 
+  // Consolida cada cliente com os pedidos vinculados pelo telefone
   const dados = useMemo(() => {
     return (clientes || []).map((c) => {
-      const peds = orders.filter((o) => o.clienteTelefone && o.clienteTelefone === c.telefone && o.status !== "cancelled");
-      const total = peds.reduce((s, o) => s + o.items.reduce((a, i) => a + i.price * i.quantity, 0), 0);
-      const ultimo = peds.reduce((m, o) => (!m || new Date(o.createdAtISO) > new Date(m)) ? o.createdAtISO : m, null);
-      return { ...c, pedidos: peds, qtd: peds.length, total, ultimo };
-    }).sort((a, b) => b.qtd - a.qtd);
+      const peds = orders
+        .filter((o) => o.clienteTelefone && o.clienteTelefone === c.telefone && o.status !== "cancelled")
+        .sort((a, b) => new Date(b.createdAtISO) - new Date(a.createdAtISO));
+      const total  = peds.reduce((s, o) => s + o.items.reduce((a, i) => a + i.price * i.quantity, 0), 0);
+      const ultimo = peds[0]?.createdAtISO || null;
+      // Produto favorito (mais pedido pelo cliente)
+      const cont = {};
+      peds.forEach((o) => o.items.forEach((i) => { cont[i.name] = (cont[i.name] || 0) + i.quantity; }));
+      const fav = Object.entries(cont).sort((a, b) => b[1] - a[1])[0] || null;
+      return {
+        ...c, pedidos: peds, qtd: peds.length, total, ultimo,
+        ticket: peds.length ? total / peds.length : 0,
+        favorito: fav ? { nome: fav[0], qtd: fav[1] } : null,
+      };
+    });
   }, [clientes, orders]);
 
+  const ordenados = useMemo(() => {
+    const l = [...dados];
+    if (ordem === "valor")        l.sort((a, b) => b.total - a.total);
+    else if (ordem === "recente") l.sort((a, b) => new Date(b.ultimo || b.criadoEm || 0) - new Date(a.ultimo || a.criadoEm || 0));
+    else if (ordem === "nome")    l.sort((a, b) => String(a.nome || "").localeCompare(String(b.nome || ""), "pt-BR"));
+    else                          l.sort((a, b) => b.qtd - a.qtd || b.total - a.total);
+    return l;
+  }, [dados, ordem]);
+
   const termo = busca.trim().toLowerCase();
-  const filtrados = termo ? dados.filter((c) => `${c.nome} ${c.telefone}`.toLowerCase().includes(termo)) : dados;
-  const totalGeral = dados.reduce((s, c) => s + c.total, 0);
+  const filtrados = termo ? ordenados.filter((c) => `${c.nome} ${c.telefone}`.toLowerCase().includes(termo)) : ordenados;
+
+  // Indicadores gerais
+  const totalGeral   = dados.reduce((s, c) => s + c.total, 0);
+  const totalPedidos = dados.reduce((s, c) => s + c.qtd, 0);
+  const ativos30     = dados.filter((c) => c.ultimo && (Date.now() - new Date(c.ultimo).getTime()) <= 30 * 86400000).length;
+  const ticketGeral  = totalPedidos > 0 ? totalGeral / totalPedidos : 0;
+
+  // Classificação por recorrência
+  const classif = (c) =>
+    c.qtd >= 5 ? { t: "⭐ VIP",        cls: "border-amber-400/30 bg-amber-500/15 text-amber-300" }
+    : c.qtd >= 2 ? { t: "🔁 Recorrente", cls: "border-blue-400/30 bg-blue-500/15 text-blue-300" }
+    : c.qtd === 1 ? { t: "🆕 Novo",      cls: "border-emerald-400/30 bg-emerald-500/15 text-emerald-300" }
+    : { t: "Sem pedidos", cls: "border-white/10 bg-white/[0.06] text-slate-400" };
+
+  const linkWhats = (tel) => `https://wa.me/55${String(tel || "").replace(/\D/g, "")}`;
 
   return (
     <main className="space-y-5">
+      {/* Cabeçalho */}
       <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
         <h3 className="text-xl font-black text-white">👤 CRM — Clientes</h3>
-        <p className="mt-0.5 text-sm text-slate-400">
-          <span className="font-bold text-white">{clientes.length}</span> cliente(s) cadastrado(s) (pedidos externos) • faturamento total: <span className="font-bold text-emerald-300">{formatCurrency(totalGeral)}</span>
-        </p>
-        <p className="mt-1 text-xs text-slate-500">Clientes que pediram pelo link de divulgação (nome + telefone). Clique para ver os pedidos.</p>
+        <p className="mt-0.5 text-sm text-slate-400">Clientes identificados nos pedidos do cardápio digital (nome + telefone). Clique em um cliente para ver o histórico completo.</p>
+        {/* Indicadores */}
+        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {[
+            { t: "Clientes",          v: String(dados.length),          ic: "👥", c: "text-white" },
+            { t: "Ativos (30 dias)",  v: String(ativos30),              ic: "🔥", c: "text-blue-300" },
+            { t: "Faturamento",       v: formatCurrency(totalGeral),    ic: "💰", c: "text-emerald-300" },
+            { t: "Ticket médio",      v: formatCurrency(ticketGeral),   ic: "🧾", c: "text-amber-300" },
+          ].map((k) => (
+            <div key={k.t} className="rounded-2xl border border-white/[0.06] bg-slate-950/40 px-4 py-3">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{k.ic} {k.t}</p>
+              <p className={`mt-0.5 text-lg font-black ${k.c}`}>{k.v}</p>
+            </div>
+          ))}
+        </div>
       </div>
 
       <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
-        <div className="relative mb-4">
-          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">🔍</span>
-          <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por nome ou telefone..."
-            className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-blue-400" />
+        {/* Busca + ordenação */}
+        <div className="mb-4 flex flex-col gap-2 sm:flex-row">
+          <div className="relative flex-1">
+            <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">🔍</span>
+            <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por nome ou telefone..."
+              className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-blue-400" />
+          </div>
+          <select value={ordem} onChange={(e) => setOrdem(e.target.value)}
+            className="rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none focus:border-blue-400">
+            <option value="pedidos">Mais pedidos</option>
+            <option value="valor">Maior valor gasto</option>
+            <option value="recente">Pedido mais recente</option>
+            <option value="nome">Nome (A–Z)</option>
+          </select>
         </div>
 
-        {filtrados.length === 0 && <p className="py-8 text-center text-sm text-slate-500">Nenhum cliente encontrado.</p>}
+        {/* Vazio: orienta de onde vêm os clientes */}
+        {filtrados.length === 0 && (
+          <div className="py-12 text-center">
+            <p className="text-4xl">👤</p>
+            <p className="mt-2 text-sm font-bold text-slate-400">{clientes.length === 0 ? "Nenhum cliente registrado ainda." : "Nenhum cliente encontrado para esta busca."}</p>
+            {clientes.length === 0 && (
+              <p className="mx-auto mt-1 max-w-md text-xs text-slate-500">
+                Os clientes entram aqui automaticamente quando pedem pelo <b className="text-slate-300">cardápio digital externo</b> informando nome e telefone. Divulgue o link em <b className="text-slate-300">Cadastros → Cardápio externo</b>.
+              </p>
+            )}
+          </div>
+        )}
+
         <div className="space-y-2">
           {filtrados.map((c) => {
             const exp = aberto === c.telefone;
+            const cl = classif(c);
             return (
               <div key={c.telefone + c.id} className="rounded-3xl border border-white/10 bg-slate-950/40 overflow-hidden">
                 <button onClick={() => setAberto(exp ? null : c.telefone)} className="flex w-full items-center gap-3 p-3.5 text-left hover:bg-white/[0.04] transition">
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-500/15 text-lg">👤</span>
+                  {/* Avatar com a inicial */}
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-500/15 text-base font-black uppercase text-blue-300">
+                    {(c.nome || "?").trim().charAt(0)}
+                  </span>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate font-black text-white">{c.nome}</p>
-                    <p className="truncate text-xs text-slate-400">📱 {formatarTelefone(c.telefone)}{c.ultimo ? ` · último: ${new Date(c.ultimo).toLocaleDateString("pt-BR")}` : ""}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="truncate font-black text-white">{c.nome}</p>
+                      <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[9px] font-black ${cl.cls}`}>{cl.t}</span>
+                    </div>
+                    <p className="truncate text-xs text-slate-400">
+                      📱 {formatarTelefone(c.telefone)}
+                      {c.ultimo ? ` · último pedido ${tempoRelativo(c.ultimo)}` : (c.criadoEm ? ` · cadastrado em ${new Date(c.criadoEm).toLocaleDateString("pt-BR")}` : "")}
+                    </p>
+                  </div>
+                  <div className="hidden shrink-0 text-right sm:block">
+                    <p className="text-xs text-slate-500">Ticket médio</p>
+                    <p className="text-sm font-black text-amber-300">{c.qtd > 0 ? formatCurrency(c.ticket) : "—"}</p>
                   </div>
                   <div className="shrink-0 text-right">
                     <p className="text-sm font-black text-white">{c.qtd} pedido(s)</p>
@@ -6015,16 +6098,48 @@ function CrmAdmin({ clientes = [], orders = [] }) {
                 </button>
                 {exp && (
                   <div className="border-t border-white/10 bg-slate-950/60 p-3 space-y-2">
+                    {/* Resumo do cliente */}
+                    <div className="flex flex-wrap items-center gap-2">
+                      {c.favorito && (
+                        <span className="rounded-full border border-violet-400/20 bg-violet-500/10 px-3 py-1 text-[11px] font-bold text-violet-300">
+                          ❤️ Favorito: {c.favorito.nome} ({c.favorito.qtd}×)
+                        </span>
+                      )}
+                      {c.criadoEm && (
+                        <span className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-[11px] font-bold text-slate-400">
+                          Cliente desde {new Date(c.criadoEm).toLocaleDateString("pt-BR")}
+                        </span>
+                      )}
+                      <a href={linkWhats(c.telefone)} target="_blank" rel="noopener noreferrer"
+                        className="ml-auto rounded-full border border-emerald-400/30 bg-emerald-500/15 px-3 py-1 text-[11px] font-black text-emerald-300 hover:bg-emerald-500/25 transition">
+                        💬 Chamar no WhatsApp
+                      </a>
+                    </div>
                     {c.pedidos.length === 0 && <p className="text-xs text-slate-500">Sem pedidos registrados.</p>}
-                    {c.pedidos.map((o) => (
-                      <div key={o.id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
-                        <div className="mb-1 flex items-center justify-between">
-                          <span className="text-xs font-bold uppercase tracking-widest text-slate-500">{o.id} • {new Date(o.createdAtISO).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span>
-                          <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-black ${statusMap[o.status]?.chip}`}>{STATUS_TABLET_LABEL[o.status] || statusMap[o.status]?.label}</span>
+                    {c.pedidos.map((o) => {
+                      const totalPedido = o.items.reduce((a, i) => a + i.price * i.quantity, 0);
+                      return (
+                        <div key={o.id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+                          <div className="mb-1 flex flex-wrap items-center justify-between gap-1">
+                            <span className="text-xs font-bold uppercase tracking-widest text-slate-500">
+                              {o.id} • {new Date(o.createdAtISO).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                              {o.table ? ` • ${o.table}` : ""}{o.command ? ` • ${o.command}` : ""}
+                            </span>
+                            <span className="flex items-center gap-1.5">
+                              <span className={`rounded-full px-2 py-0.5 text-[10px] font-black ${o.paymentStatus === "paid" ? "bg-emerald-500/20 text-emerald-300" : "bg-amber-500/20 text-amber-300"}`}>
+                                {o.paymentStatus === "paid" ? "✓ Pago" : "Em aberto"}
+                              </span>
+                              <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-black ${statusMap[o.status]?.chip}`}>{STATUS_TABLET_LABEL[o.status] || statusMap[o.status]?.label}</span>
+                            </span>
+                          </div>
+                          {o.items.map((it, idx) => <div key={idx} className="flex justify-between text-sm py-0.5"><span className="text-slate-300"><b className="text-white">{it.quantity}×</b> {it.name}</span><span className="font-bold text-white">{formatCurrency(it.price * it.quantity)}</span></div>)}
+                          <div className="mt-1.5 flex justify-between border-t border-white/10 pt-1.5 text-sm">
+                            <span className="font-bold text-slate-400">Total do pedido</span>
+                            <span className="font-black text-emerald-300">{formatCurrency(totalPedido)}</span>
+                          </div>
                         </div>
-                        {o.items.map((it, idx) => <div key={idx} className="flex justify-between text-sm py-0.5"><span className="text-slate-300"><b className="text-white">{it.quantity}×</b> {it.name}</span><span className="font-bold text-white">{formatCurrency(it.price * it.quantity)}</span></div>)}
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
