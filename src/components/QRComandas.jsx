@@ -29,28 +29,46 @@ export function GeradorComandas({
   lojaId,                // empresa em foco (para upload e salvar a logo)
   logoSalvo = "",        // logo salva no banco da empresa
   onSalvarLogo,          // (url) => persiste a logo no banco
+  onIrCardapioExterno,   // () => navega para a tela Cardápio externo
 }) {
   const [aba, setAba] = useState("gerar"); // "gerar" | "visualizar"
-  const origem = (typeof window !== "undefined") ? window.location.origin : "";
-  const linkGeral = `${origem}/cardapio?e=${prefixoLoja}`;
-  const [copiado, setCopiado] = useState(false);
-  const copiar = (txt) => { try { navigator.clipboard?.writeText(txt); setCopiado(true); setTimeout(() => setCopiado(false), 1500); } catch {} };
 
   return (
     <div className="space-y-5">
-      {/* Cardápio digital externo (link para o cliente) */}
-      <div className="rounded-[2rem] border border-emerald-400/20 bg-emerald-500/[0.06] p-5">
-        <h3 className="text-base font-black text-white">📱 Cardápio digital (cliente / externo)</h3>
-        <p className="mt-0.5 text-xs text-slate-400">Link geral para divulgar (redes sociais, fachada). Por mesa, acrescente <code className="text-emerald-300">&amp;c=COMANDA</code> ao link.</p>
-        <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-          <input readOnly value={linkGeral} onClick={(e) => e.target.select()}
-            className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-2.5 font-mono text-xs text-emerald-200 outline-none" />
-          <div className="flex gap-2">
-            <button onClick={() => copiar(linkGeral)} className="shrink-0 rounded-2xl border border-emerald-400/30 bg-emerald-500/15 px-4 py-2.5 text-xs font-black text-emerald-200 hover:bg-emerald-500/25">{copiado ? "✓ Copiado" : "Copiar"}</button>
-            <a href={linkGeral} target="_blank" rel="noreferrer" className="shrink-0 rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-2.5 text-xs font-black text-slate-200 hover:bg-white/10">Abrir</a>
-          </div>
+      {/* Cabeçalho — comandas para uso local nas mesas (tablet) */}
+      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+        <h3 className="text-xl font-black text-white">🎫 Comandas QR — uso local nas mesas</h3>
+        <p className="mt-0.5 text-sm text-slate-400">
+          Gere e imprima as comandas físicas das mesas. No atendimento, o <b className="text-slate-200">tablet</b> escaneia o QR da comanda para abrir o pedido da mesa.
+        </p>
+        {/* Como funciona — fluxo local */}
+        <div className="mt-4 grid gap-2 sm:grid-cols-3">
+          {[
+            ["1", "🖨️", "Gere e imprima", "Crie as comandas com a identidade da empresa e imprima."],
+            ["2", "🪑", "Distribua nas mesas", "Cada comanda fica disponível para o atendimento local."],
+            ["3", "📲", "Escaneie no tablet", "O tablet lê o QR e vincula o pedido à comanda da mesa."],
+          ].map(([n, ic, t, d]) => (
+            <div key={n} className="flex items-start gap-3 rounded-2xl border border-white/[0.06] bg-slate-950/40 px-4 py-3">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-blue-500/15 text-base">{ic}</span>
+              <div>
+                <p className="text-xs font-black text-white">{n}. {t}</p>
+                <p className="mt-0.5 text-[11px] leading-snug text-slate-500">{d}</p>
+              </div>
+            </div>
+          ))}
         </div>
-        <p className="mt-2 text-[11px] text-slate-500">⚠️ Funciona se o <b className="text-slate-300">Modo de uso</b> da empresa estiver como <b className="text-slate-300">Externo</b> ou <b className="text-slate-300">Ambos</b> (em Empresas → editar).</p>
+        {/* Atalho — o cardápio digital do cliente mora na tela própria */}
+        <div className="mt-3 flex flex-col gap-2 rounded-2xl border border-emerald-400/20 bg-emerald-500/[0.06] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-xs text-slate-400">
+            📱 Procurando o link do <b className="text-emerald-300">cardápio digital do cliente</b> (externo)? Ele fica na tela <b className="text-slate-200">Cardápio externo</b>.
+          </p>
+          {onIrCardapioExterno && (
+            <button onClick={onIrCardapioExterno}
+              className="shrink-0 rounded-2xl border border-emerald-400/30 bg-emerald-500/15 px-4 py-2 text-xs font-black text-emerald-200 hover:bg-emerald-500/25 transition">
+              Abrir Cardápio externo →
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Alternador de abas */}
@@ -170,7 +188,7 @@ function PainelGerar({ prefixoLoja, empresa, onGerar, lojaId, logoSalvo = "", on
       <div className="flex flex-col gap-4 rounded-[2rem] border border-white/10 bg-white/[0.04] p-5 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h3 className="text-xl font-black text-white">Gerar comandas QR Code</h3>
-          <p className="mt-0.5 text-sm text-slate-400">Gere e imprima comandas com a identidade da sua empresa.</p>
+          <p className="mt-0.5 text-sm text-slate-400">Comandas impressas para as mesas, com a identidade da sua empresa — lidas pelo tablet no atendimento local.</p>
         </div>
         <div className="flex gap-2">
           <button onClick={gerar} disabled={gerando || prefixo.length < 1}
