@@ -17,55 +17,69 @@ const NAV = [
   { label: "2 formas de usar", id: "formas" },
   { label: "Baixar app", id: "app" },
   { label: "Como funciona", id: "como-funciona" },
+  { label: "Gestão", id: "gestao" },
   { label: "Segmentos", id: "segmentos" },
-  { label: "Benefícios", id: "beneficios" },
   { label: "FAQ", id: "faq" },
   { label: "Contato", id: "contato" },
 ];
 
 const PROBLEMAS = [
-  "Demora no atendimento",
+  "Demora no atendimento e filas no salão",
   "Erros na anotação de pedidos",
   "Falta de comunicação entre salão e cozinha",
   "Cliente chamando o garçom várias vezes",
-  "Dificuldade para acompanhar o status do pedido",
+  "Gerente sem visão das vendas em tempo real",
+  "Sem controle de quem acessa o quê no sistema",
   "Lentidão no fechamento da conta",
 ];
 const SOLUCOES = [
-  "Pedido direto na mesa",
+  "Pedido pelo tablet, direto na mesa",
   "Envio automático para a cozinha",
-  "Acompanhamento em tempo real",
-  "Solicitação de conta pelo tablet",
-  "Controle por QR Code",
-  "Gestão centralizada no administrativo",
+  "Controle de mesas e comandas por QR Code",
+  "Acompanhamento do pedido em tempo real",
+  "Dashboard e relatórios de vendas para o gerente",
+  "Usuários, cargos e permissões por tela",
+  "Solicitação de conta e caixa integrado",
 ];
 
 const FEATURES = [
-  { icon: "📱", title: "Pedido pelo tablet da mesa", desc: "O cliente faz o pedido sozinho, direto da mesa, sem esperar o atendente." },
-  { icon: "🔳", title: "Comanda digital por QR Code", desc: "Cada comanda tem um QR exclusivo, validado por empresa no envio do pedido." },
-  { icon: "⚡", title: "Envio automático para a cozinha", desc: "O pedido chega digitado e instantâneo na cozinha — sem ruído nem retrabalho." },
+  { icon: "📲", title: "Pedidos pelo tablet da mesa", desc: "O cliente pede sozinho, direto da mesa — com fotos, adicionais e observações, sem esperar o atendente." },
+  { icon: "🪑", title: "Controle de mesas", desc: "Mesas cadastradas e vinculadas ao tablet: o aparelho seleciona a mesa no login e o sistema mostra só as livres." },
+  { icon: "🎫", title: "QR Code para tablet e mesa", desc: "Gere e imprima comandas QR com a identidade da empresa — o tablet escaneia e vincula o pedido à mesa." },
+  { icon: "📱", title: "Cardápio para pedidos externos", desc: "O cliente acessa o cardápio digital pelo próprio celular — QR na mesa ou link de divulgação — sem instalar nada." },
+  { icon: "⚡", title: "Envio automático para a cozinha", desc: "O pedido chega digitado e instantâneo no painel da cozinha — sem ruído nem retrabalho." },
   { icon: "👨‍🍳", title: "Painel da cozinha", desc: "Pedidos em colunas (recebido, preparando, pronto) atualizados em tempo real." },
-  { icon: "📺", title: "Painel de acompanhamento", desc: "O cliente acompanha o andamento do pedido pela própria mesa." },
-  { icon: "🧾", title: "Solicitação de conta pelo tablet", desc: "Fechamento solicitado pela mesa, sem precisar chamar o garçom." },
-  { icon: "🛒", title: "Cadastro de produtos", desc: "Nome, preço, custo, margem, tempo de preparo, categoria e descrição." },
-  { icon: "🖼️", title: "Imagens dos produtos", desc: "Cardápio visual e apetitoso, com foto em cada item." },
-  { icon: "🧩", title: "Adicionais e ingredientes", desc: "Configure extras e permita adicionar ou remover ingredientes por item." },
-  { icon: "🪑", title: "Controle de mesas", desc: "Pedidos vinculados à mesa e à comanda para organização total." },
-  { icon: "👥", title: "Usuários e permissões", desc: "Cada colaborador vê apenas as telas liberadas para o seu cargo." },
-  { icon: "💳", title: "Setor de pagamento/caixa", desc: "Conta inteira, dividida ou parcial por item, com troco e cupom." },
-  { icon: "📊", title: "Relatórios e indicadores", desc: "Faturamento, ticket médio, produtos mais vendidos e vendas por categoria." },
-  { icon: "🏪", title: "Multi-empresa (SaaS)", desc: "Uma plataforma para várias lojas, cada uma com dados isolados." },
-  { icon: "🔐", title: "Área administrativa", desc: "Gestão centralizada de cardápio, equipe, permissões e operação." },
+  { icon: "📊", title: "Dashboard gerencial", desc: "Indicadores da operação ao vivo para análise gerencial: faturamento, pedidos e desempenho." },
+  { icon: "📈", title: "Relatórios de vendas", desc: "Faturamento, ticket médio, produtos mais vendidos e vendas por categoria — prontos para decisão." },
+  { icon: "🧑‍💼", title: "Gerenciamento de vendas", desc: "Gerentes acompanham pedidos, fechamentos e o desempenho do salão pelo painel administrativo." },
+  { icon: "👥", title: "Controle de usuários", desc: "Cadastro de colaboradores com cargos e perfis — cada um com o seu acesso." },
+  { icon: "🔐", title: "Controle de permissões", desc: "Defina por cargo quais telas cada colaborador enxerga: tablet, cozinha, caixa, painel ou administrativo." },
+  { icon: "💳", title: "Caixa e pagamentos", desc: "Conta inteira, dividida ou parcial por item, com formas de pagamento, troco e cupom." },
+  { icon: "🛒", title: "Cadastro de produtos", desc: "Nome, preço, custo, margem, tempo de preparo, categoria, descrição e imagem." },
+  { icon: "🧩", title: "Adicionais e ingredientes", desc: "Extras com preço (ou grátis) e ingredientes que o cliente pode adicionar ou remover por item." },
+  { icon: "📺", title: "Painel de acompanhamento", desc: "O cliente acompanha o andamento do pedido pela própria mesa, do recebido ao entregue." },
+  { icon: "🧾", title: "Solicitação de conta pela mesa", desc: "Fechamento solicitado pelo tablet ou celular, sem precisar chamar o garçom." },
+  { icon: "👤", title: "CRM / Clientes", desc: "Histórico de clientes e pedidos para conhecer e fidelizar quem mais consome." },
+  { icon: "🏪", title: "Multi-empresa (SaaS)", desc: "Uma plataforma para várias lojas, cada uma com cardápio, equipe e dados isolados." },
+];
+
+const GESTAO = [
+  { icon: "📊", title: "Dashboard para análise gerencial", desc: "Visão ao vivo do faturamento, dos pedidos e da operação — tudo em uma tela, direto do administrativo." },
+  { icon: "📈", title: "Relatórios de vendas", desc: "Faturamento por período, ticket médio, produtos mais vendidos e vendas por categoria." },
+  { icon: "🧑‍💼", title: "Gerenciamento de vendas por gerentes", desc: "O gerente acompanha o salão, os fechamentos e o desempenho da equipe sem depender de planilhas." },
+  { icon: "🪑", title: "Mesas e comandas sob controle", desc: "Mesas livres e ocupadas em tempo real, comandas QR ativas/inativas e histórico preservado." },
+  { icon: "👥", title: "Usuários e cargos", desc: "Cada colaborador com seu login, cargo e perfil — do garçom ao gestor." },
+  { icon: "🔐", title: "Permissões por tela", desc: "Controle fino do que cada cargo acessa: cozinha vê cozinha, caixa vê caixa, gestor vê tudo." },
 ];
 
 const PASSOS = [
-  { n: 1, title: "Acesso ao cardápio", desc: "O cliente acessa o cardápio pelo tablet da mesa ou pelo QR Code." },
+  { n: 1, title: "Acesso ao cardápio", desc: "O cliente acessa pelo tablet da mesa (com mesa e comanda QR vinculadas) ou pelo celular." },
   { n: 2, title: "Escolha dos itens", desc: "Seleciona produtos, adicionais, ingredientes e observações." },
-  { n: 3, title: "Envio à cozinha", desc: "O pedido é enviado automaticamente para a cozinha." },
+  { n: 3, title: "Envio à cozinha", desc: "O pedido é enviado automaticamente para o painel da cozinha." },
   { n: 4, title: "Atualização de status", desc: "A cozinha marca: recebido, em preparo, pronto ou entregue." },
-  { n: 5, title: "Acompanhamento", desc: "O cliente acompanha o andamento diretamente pelo tablet." },
-  { n: 6, title: "Solicitação de conta", desc: "O cliente pede a conta pela própria mesa." },
-  { n: 7, title: "Fechamento no caixa", desc: "O caixa finaliza com acesso separado das demais operações." },
+  { n: 5, title: "Acompanhamento", desc: "O cliente acompanha o andamento diretamente pela mesa." },
+  { n: 6, title: "Solicitação de conta", desc: "O cliente pede a conta pelo próprio tablet ou celular." },
+  { n: 7, title: "Fechamento no caixa", desc: "O caixa finaliza o pagamento — e a venda já entra no dashboard e nos relatórios." },
 ];
 
 const SEGMENTOS = [
@@ -86,32 +100,37 @@ const SEGMENTOS = [
 const BENEFICIOS = [
   { icon: "✅", title: "Menos erros nos pedidos", desc: "Pedido digitado pelo próprio cliente, sem ruído de comunicação." },
   { icon: "⚡", title: "Mais agilidade", desc: "Atendimento mais rápido do pedido ao fechamento." },
+  { icon: "📊", title: "Decisão com dados", desc: "Dashboard e relatórios de vendas mostram onde o negócio ganha (e perde) dinheiro." },
+  { icon: "🧑‍💼", title: "Gerente no controle", desc: "Vendas, mesas e equipe acompanhadas em tempo real, de qualquer lugar." },
+  { icon: "🔐", title: "Acessos sob controle", desc: "Usuários, cargos e permissões garantem que cada um veja só o que precisa." },
   { icon: "😀", title: "Melhor experiência", desc: "O cliente pede, acompanha e fecha sem depender do garçom." },
-  { icon: "🤝", title: "Menos dependência manual", desc: "A equipe foca no preparo e na entrega, não na anotação." },
   { icon: "🔗", title: "Salão, cozinha e caixa integrados", desc: "Todos falam a mesma língua, em tempo real." },
-  { icon: "⏱️", title: "Controle em tempo real", desc: "Acompanhe a operação e o faturamento ao vivo." },
   { icon: "🚀", title: "Mais produtividade", desc: "Equipe atende mais mesas com menos esforço." },
-  { icon: "✨", title: "Imagem mais moderna", desc: "Um atendimento digital valoriza o seu estabelecimento." },
   { icon: "📈", title: "Maior ticket médio", desc: "Adicionais e sugestões no cardápio aumentam o consumo." },
 ];
 
 const PERFIS = [
-  { icon: "📱", title: "Cliente / Tablet", desc: "Vê o cardápio, faz o pedido, acompanha o status e solicita a conta." },
+  { icon: "📲", title: "Cliente / Tablet", desc: "Vê o cardápio, faz o pedido, acompanha o status e solicita a conta — sempre vinculado à mesa e à comanda." },
   { icon: "👨‍🍳", title: "Cozinha", desc: "Vê apenas os pedidos: recebidos, em preparo, prontos e entregues." },
   { icon: "💳", title: "Caixa / Pagamento", desc: "Vê a conta da mesa, os itens consumidos e realiza o fechamento." },
-  { icon: "🔐", title: "Administrativo", desc: "Gerencia produtos, preços, imagens, categorias, usuários, permissões e relatórios." },
-  { icon: "📺", title: "Painel geral", desc: "Exibe os pedidos por status para acompanhamento operacional." },
+  { icon: "🧑‍💼", title: "Gerente / Gestor", desc: "Dashboard, relatórios de vendas, mesas, comandas e o dia a dia da operação." },
+  { icon: "🔐", title: "Administrativo", desc: "Gerencia produtos, preços, imagens, categorias, usuários, cargos e permissões." },
+  { icon: "📺", title: "Painel geral", desc: "Exibe os pedidos por status para acompanhamento operacional do salão." },
 ];
 
 const FAQ = [
   { q: "O sistema funciona apenas para restaurantes?", a: "Não. O sistema pode ser utilizado em pizzarias, hamburguerias, lanchonetes, restaurantes japoneses, cafeterias, bares, food parks e outros segmentos alimentares." },
-  { q: "O cliente precisa instalar aplicativo?", a: "Não necessariamente. O acesso pode ser feito pelo tablet da mesa ou por QR Code, conforme a configuração do estabelecimento." },
-  { q: "O pedido vai direto para a cozinha?", a: "Sim. Após a confirmação, o pedido é sincronizado automaticamente com o painel da cozinha." },
-  { q: "O cliente consegue acompanhar o pedido?", a: "Sim. O cliente acompanha o status do pedido diretamente pelo tablet." },
-  { q: "É possível solicitar a conta pelo tablet?", a: "Sim. O cliente pode solicitar a conta pela própria mesa." },
-  { q: "Existe controle de usuários?", a: "Sim. O sistema permite acessos separados para tablet, cozinha, caixa, painel e administrativo." },
-  { q: "Posso cadastrar imagens dos produtos?", a: "Sim. A área administrativa permite cadastrar imagens, descrição, preço e configurações dos produtos." },
-  { q: "O sistema permite adicionais e remoção de ingredientes?", a: "Sim. O cliente pode adicionar ou remover ingredientes conforme a configuração do produto." },
+  { q: "Como funcionam os pedidos pelo tablet?", a: "Cada tablet fica vinculado a uma mesa (selecionada no login) e lê a comanda QR do cliente. O pedido sai da mesa direto para a cozinha, e o cliente acompanha tudo pela tela." },
+  { q: "Como funciona o controle de mesas?", a: "As mesas são cadastradas no administrativo. No login do tablet, o sistema mostra apenas as mesas livres — uma mesa em uso por outro aparelho fica indisponível, evitando conflitos." },
+  { q: "O que é a comanda por QR Code?", a: "Cada comanda tem um QR exclusivo gerado e impresso pelo sistema, com a identidade da sua empresa. O tablet escaneia o QR e vincula o pedido à comanda e à mesa, com validação por empresa." },
+  { q: "Tem cardápio para pedidos externos?", a: "Sim. O cliente acessa o cardápio digital pelo próprio celular — via QR na mesa ou link divulgado nas redes sociais — vê os produtos, pede e acompanha sem instalar nada." },
+  { q: "Tem dashboard e relatórios de vendas?", a: "Sim. O administrativo traz um dashboard para análise gerencial em tempo real e relatórios de faturamento, ticket médio, produtos mais vendidos e vendas por categoria." },
+  { q: "O gerente consegue acompanhar as vendas?", a: "Sim. O perfil de gestão acompanha pedidos, fechamentos, mesas e o desempenho do salão pelo painel administrativo — sem planilhas paralelas." },
+  { q: "Existe controle de usuários e permissões?", a: "Sim. Cada colaborador tem seu login com cargo/perfil, e as permissões definem por tela o que cada um acessa: tablet, cozinha, caixa, painel ou administrativo." },
+  { q: "O pedido vai direto para a cozinha?", a: "Sim. Após a confirmação, o pedido é sincronizado automaticamente com o painel da cozinha, em tempo real." },
+  { q: "O sistema permite adicionais e remoção de ingredientes?", a: "Sim. Você configura adicionais com preço (ou grátis) e ingredientes que o cliente pode incluir ou remover em cada produto." },
+  { q: "Posso cadastrar imagens dos produtos?", a: "Sim. A área administrativa permite cadastrar imagem, descrição, preço, custo, margem e configurações de cada produto." },
+  { q: "O cliente precisa instalar aplicativo?", a: "Não necessariamente. No salão, o tablet do estabelecimento usa o app Android; no celular, o cliente acessa pelo navegador, sem download." },
 ];
 
 // ── Helpers de UI reutilizáveis ──────────────────────────────
@@ -291,6 +310,72 @@ function TabletMock() {
   );
 }
 
+// Mock do dashboard gerencial (apenas HTML/CSS/Tailwind)
+function DashboardMock() {
+  const barras = [42, 58, 35, 72, 64, 88, 95];
+  const dias = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
+  return (
+    <div className="relative mx-auto w-full max-w-md">
+      <div className="pointer-events-none absolute -inset-6 rounded-[3rem] bg-emerald-500/15 blur-3xl" />
+      <div className="relative overflow-hidden rounded-[2.2rem] border border-white/15 bg-slate-900 p-4 shadow-2xl">
+        {/* Topo */}
+        <div className="flex items-center justify-between rounded-2xl bg-slate-800/70 px-4 py-3">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">📊</span>
+            <div>
+              <p className="text-sm font-black leading-none text-white">Dashboard</p>
+              <p className="text-[10px] text-slate-400">Visão gerencial • hoje</p>
+            </div>
+          </div>
+          <span className="rounded-full bg-emerald-500/20 px-2 py-1 text-[10px] font-black text-emerald-300">● Ao vivo</span>
+        </div>
+
+        {/* Indicadores */}
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          {[
+            { t: "Faturamento", v: "R$ 4.380", c: "text-emerald-400" },
+            { t: "Pedidos", v: "127", c: "text-white" },
+            { t: "Ticket médio", v: "R$ 34,50", c: "text-blue-300" },
+          ].map((k) => (
+            <div key={k.t} className="rounded-xl border border-white/5 bg-slate-800/40 px-2.5 py-2 text-center">
+              <p className="text-[9px] uppercase tracking-wider text-slate-400">{k.t}</p>
+              <p className={`text-sm font-black ${k.c}`}>{k.v}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Vendas da semana */}
+        <div className="mt-3 rounded-2xl border border-white/5 bg-slate-800/40 p-3">
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Vendas da semana</p>
+          <div className="mt-2 flex h-24 items-end gap-1.5">
+            {barras.map((h, i) => (
+              <div key={i} className="flex flex-1 flex-col items-center gap-1">
+                <div className={`w-full rounded-t-md ${i === 6 ? "bg-emerald-400" : "bg-blue-500/70"}`} style={{ height: `${h}%` }} />
+                <span className="text-[8px] font-bold text-slate-500">{dias[i]}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Mais vendidos */}
+        <div className="mt-3 rounded-2xl border border-white/5 bg-slate-800/40 p-3 space-y-1.5">
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Mais vendidos</p>
+          {[
+            { n: "1º Burger Artesanal", q: "38 un." },
+            { n: "2º Pizza Calabresa", q: "29 un." },
+            { n: "3º Suco Natural", q: "24 un." },
+          ].map((p) => (
+            <div key={p.n} className="flex items-center justify-between text-[11px]">
+              <span className="font-bold text-slate-200">{p.n}</span>
+              <span className="font-black text-emerald-300">{p.q}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ════════════════════════════════════════════════════════════
 //  Página
 // ════════════════════════════════════════════════════════════
@@ -359,13 +444,13 @@ export default function LandingPage({ navigate }) {
         <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-5 py-16 lg:grid-cols-2 lg:py-24">
           <div>
             <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs font-bold text-blue-200">
-              <span className="h-2 w-2 rounded-full bg-emerald-400" /> Pedidos digitais por tablet e QR Code
+              <span className="h-2 w-2 rounded-full bg-emerald-400" /> Pedidos por tablet, QR Code e gestão completa
             </span>
             <h1 className="mt-5 text-4xl font-black leading-tight tracking-tight text-white sm:text-5xl">
-              Modernize o atendimento do seu restaurante com <span className="text-blue-400">pedidos digitais</span> por tablet e QR Code
+              A plataforma completa de <span className="text-blue-400">pedidos e gestão</span> para o seu restaurante
             </h1>
             <p className="mt-5 max-w-xl text-base leading-7 text-slate-300 sm:text-lg">
-              Permita que seus clientes façam pedidos diretamente pela mesa, acompanhem o preparo em tempo real e solicitem a conta pelo próprio tablet — enquanto a cozinha recebe tudo automaticamente.
+              Pedidos pelo tablet na mesa, controle de mesas e comandas por QR Code, cardápio externo no celular do cliente — e, para a gestão, dashboard, relatórios de vendas, usuários e permissões. Tudo isso e muito mais, tudo no {NOME_SISTEMA}.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <a href="/baixar.html"
@@ -375,7 +460,7 @@ export default function LandingPage({ navigate }) {
               <Botao variant="ghost" onClick={acessar}>Acessar Sistema →</Botao>
             </div>
             <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs font-bold text-slate-400">
-              <span>⚡ Tempo real</span><span>🔳 Comanda por QR</span><span>👨‍🍳 Cozinha integrada</span><span>💳 Caixa e relatórios</span>
+              <span>📲 Pedido por tablet</span><span>🪑 Controle de mesas</span><span>🎫 Comanda por QR</span><span>📊 Dashboard gerencial</span><span>📈 Relatórios de vendas</span>
             </div>
           </div>
           <TabletMock />
@@ -385,7 +470,7 @@ export default function LandingPage({ navigate }) {
       {/* ── Dores e solução ───────────────────────────────── */}
       <section className="bg-slate-50 py-16 sm:py-20">
         <div className="mx-auto max-w-6xl px-5">
-          <TituloSecao tag="O problema → a solução" titulo="Atendimento manual gera filas, erros e retrabalho" subtitulo="Veja as principais dores que o sistema elimina no dia a dia do seu estabelecimento." />
+          <TituloSecao tag="O problema → a solução" titulo="Atendimento manual gera filas, erros e gestão no escuro" subtitulo="Veja as principais dores que o sistema elimina no dia a dia do seu estabelecimento — do salão ao escritório." />
           <div className="mt-10 grid gap-6 lg:grid-cols-2">
             <div className="rounded-2xl border border-red-100 bg-white p-6 shadow-sm">
               <h3 className="text-base font-black text-red-600">😣 Sem o {NOME_SISTEMA}</h3>
@@ -410,10 +495,11 @@ export default function LandingPage({ navigate }) {
       {/* ── Funcionalidades ───────────────────────────────── */}
       <section id="funcionalidades" className="scroll-mt-24 bg-white py-16 sm:py-20">
         <div className="mx-auto max-w-6xl px-5">
-          <TituloSecao tag="Funcionalidades" titulo="Tudo que o seu estabelecimento precisa, em uma só plataforma" subtitulo="Do pedido na mesa ao fechamento no caixa, com a cozinha sincronizada em tempo real." />
+          <TituloSecao tag="Funcionalidades" titulo="Tudo que o seu estabelecimento precisa, em uma só plataforma" subtitulo="Do pedido no tablet da mesa ao relatório de vendas do gerente — com a cozinha e o caixa sincronizados em tempo real." />
           <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {FEATURES.map((f) => <FeatureCard key={f.title} {...f} />)}
           </div>
+          <p className="mt-10 text-center text-base font-black text-slate-700">Tudo isso e muito mais — tudo no <span className="text-blue-600">{NOME_SISTEMA}</span>. 🚀</p>
         </div>
       </section>
 
@@ -426,11 +512,11 @@ export default function LandingPage({ navigate }) {
           <div className="mt-10 grid gap-6 lg:grid-cols-2">
             {/* Interno */}
             <div className="rounded-3xl border border-blue-100 bg-white p-7 shadow-sm">
-              <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-2xl">🖥️</span>
+              <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-2xl">📲</span>
               <h3 className="mt-4 text-xl font-black text-slate-900">Interno — tablet na mesa</h3>
               <p className="mt-1 text-sm leading-6 text-slate-500">O cliente pede sozinho pelo tablet da mesa. Agilidade no salão, menos fila e menos erros de anotação.</p>
               <ul className="mt-4 space-y-2 text-sm text-slate-700">
-                {["Pedido direto na mesa, sem esperar o garçom","Comanda por QR Code validada por empresa","Cozinha recebe o pedido na hora","Acompanhamento e conta pelo próprio tablet","Funciona como app instalado (Android), em tela cheia"].map((t) => (
+                {["Pedido direto na mesa, sem esperar o garçom","Tablet vinculado à mesa — só mesas livres aparecem","Comanda por QR Code validada por empresa","Cozinha recebe o pedido na hora","Acompanhamento e conta pelo próprio tablet","Funciona como app instalado (Android), em tela cheia"].map((t) => (
                   <li key={t} className="flex items-start gap-2"><span className="mt-0.5 text-blue-500">✓</span> {t}</li>
                 ))}
               </ul>
@@ -516,7 +602,7 @@ export default function LandingPage({ navigate }) {
       {/* ── Como funciona ─────────────────────────────────── */}
       <section id="como-funciona" className="scroll-mt-24 bg-slate-50 py-16 sm:py-20">
         <div className="mx-auto max-w-6xl px-5">
-          <TituloSecao tag="Como funciona" titulo="Do pedido ao caixa em 7 passos" subtitulo="Um fluxo simples, digital e sincronizado entre cliente, cozinha e caixa." />
+          <TituloSecao tag="Como funciona" titulo="Do pedido ao caixa em 7 passos" subtitulo="Um fluxo simples, digital e sincronizado entre cliente, cozinha, caixa e gestão." />
           <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {PASSOS.map((p) => (
               <div key={p.n} className="relative rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -525,6 +611,32 @@ export default function LandingPage({ navigate }) {
                 <p className="mt-1 text-sm leading-6 text-slate-500">{p.desc}</p>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Gestão: dashboard, relatórios, usuários e permissões ── */}
+      <section id="gestao" className="scroll-mt-24 relative overflow-hidden bg-slate-950 py-16 sm:py-20">
+        <div className="pointer-events-none absolute inset-0"
+          style={{ backgroundImage: "radial-gradient(34rem 34rem at -10% 110%, rgba(16,185,129,.12), transparent 70%), radial-gradient(34rem 34rem at 110% -10%, rgba(37,99,235,.16), transparent 70%)" }} />
+        <div className="relative mx-auto max-w-6xl px-5">
+          <TituloSecao claro tag="📊 Gestão"
+            titulo="Gestão completa para gerentes e donos"
+            subtitulo="Enquanto o salão atende, a gestão acompanha tudo: vendas, mesas, equipe e resultados — em tempo real, sem planilhas." />
+          <div className="mt-12 grid items-center gap-12 lg:grid-cols-2">
+            <DashboardMock />
+            <div className="grid gap-4 sm:grid-cols-2">
+              {GESTAO.map((g) => (
+                <div key={g.title} className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
+                  <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/[0.08] text-xl">{g.icon}</span>
+                  <h3 className="mt-3 text-base font-black text-white">{g.title}</h3>
+                  <p className="mt-1 text-sm leading-6 text-slate-400">{g.desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="relative mt-10 flex justify-center">
+            <Botao variant="ghost" onClick={acessar}>Conhecer o painel administrativo →</Botao>
           </div>
         </div>
       </section>
@@ -547,7 +659,7 @@ export default function LandingPage({ navigate }) {
       {/* ── Benefícios ────────────────────────────────────── */}
       <section id="beneficios" className="scroll-mt-24 bg-slate-50 py-16 sm:py-20">
         <div className="mx-auto max-w-6xl px-5">
-          <TituloSecao tag="Benefícios" titulo="Resultados reais para o seu negócio" subtitulo="O que muda na prática para o dono do estabelecimento e para a equipe." />
+          <TituloSecao tag="Benefícios" titulo="Resultados reais para o seu negócio" subtitulo="O que muda na prática para o dono, para o gerente e para a equipe." />
           <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {BENEFICIOS.map((b) => (
               <div key={b.title} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -563,7 +675,7 @@ export default function LandingPage({ navigate }) {
       {/* ── Perfis de acesso ──────────────────────────────── */}
       <section className="bg-white py-16 sm:py-20">
         <div className="mx-auto max-w-6xl px-5">
-          <TituloSecao tag="Perfis de acesso" titulo="Cada usuário vê apenas o que precisa" subtitulo="Acessos separados garantem segurança e organização entre salão, cozinha, caixa e administração." />
+          <TituloSecao tag="Perfis de acesso" titulo="Cada usuário vê apenas o que precisa" subtitulo="Usuários, cargos e permissões por tela garantem segurança e organização entre salão, cozinha, caixa e gestão." />
           <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {PERFIS.map((p) => (
               <div key={p.title} className="rounded-2xl border border-slate-200 bg-gradient-to-b from-white to-slate-50 p-5 shadow-sm">
@@ -581,8 +693,8 @@ export default function LandingPage({ navigate }) {
         <div className="mx-auto max-w-5xl px-5">
           <div className="relative overflow-hidden rounded-[2.5rem] border border-white/10 bg-gradient-to-br from-blue-600 to-blue-800 p-10 text-center shadow-2xl sm:p-14">
             <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
-            <h2 className="relative text-3xl font-black tracking-tight text-white sm:text-4xl">Leve seu atendimento para um novo nível</h2>
-            <p className="relative mx-auto mt-3 max-w-2xl text-base leading-7 text-blue-100">Digitalize o processo de pedidos, reduza falhas operacionais e entregue uma experiência mais moderna para seus clientes.</p>
+            <h2 className="relative text-3xl font-black tracking-tight text-white sm:text-4xl">Tudo isso e muito mais — tudo no {NOME_SISTEMA}</h2>
+            <p className="relative mx-auto mt-3 max-w-2xl text-base leading-7 text-blue-100">Pedidos por tablet, controle de mesas, comandas QR, cardápio externo, dashboard, relatórios, usuários e permissões. Digitalize a operação e gerencie com dados.</p>
             <div className="relative mt-8 flex flex-col justify-center gap-3 sm:flex-row">
               <Botao variant="secondary" onClick={() => goTo("contato")}>Solicitar Demonstração</Botao>
               <Botao variant="ghost" onClick={acessar}>Acessar Sistema →</Botao>
@@ -612,9 +724,9 @@ export default function LandingPage({ navigate }) {
               <div className="mt-6 space-y-4">
                 {[
                   { icon: "🎯", t: "Solicite uma demonstração", d: "Conheça o sistema na prática, sem compromisso." },
-                  { icon: "🛠️", t: "Atendimento para implantação", d: "Apoiamos a configuração do cardápio e da equipe." },
+                  { icon: "🛠️", t: "Atendimento para implantação", d: "Apoiamos a configuração do cardápio, das mesas e da equipe." },
                   { icon: "🍽️", t: "Diversos segmentos alimentares", d: "Restaurantes, pizzarias, hamburguerias, cafeterias e mais." },
-                  { icon: "🧩", t: "Operação completa", d: "Preparado para tablet, cozinha, caixa e administrativo." },
+                  { icon: "🧩", t: "Operação completa", d: "Tablet, cozinha, caixa, painel e administrativo com gestão de vendas." },
                 ].map((b) => (
                   <div key={b.t} className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-lg">{b.icon}</span>
@@ -676,9 +788,9 @@ export default function LandingPage({ navigate }) {
           <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
             <div className="sm:col-span-2 lg:col-span-1">
               <Marca claro />
-              <p className="mt-3 max-w-xs text-sm leading-6">Sistema de pedidos digitais por tablet e QR Code, com cozinha integrada, caixa e administração — para diversos segmentos alimentares.</p>
+              <p className="mt-3 max-w-xs text-sm leading-6">Plataforma de pedidos por tablet e QR Code com controle de mesas, cardápio externo, dashboard e relatórios de vendas, usuários e permissões — para diversos segmentos alimentares.</p>
             </div>
-            <FooterCol titulo="Produto" itens={[{ t: "Funcionalidades", id: "funcionalidades" }, { t: "Como funciona", id: "como-funciona" }, { t: "Segmentos", id: "segmentos" }, { t: "Benefícios", id: "beneficios" }]} />
+            <FooterCol titulo="Produto" itens={[{ t: "Funcionalidades", id: "funcionalidades" }, { t: "Como funciona", id: "como-funciona" }, { t: "Gestão", id: "gestao" }, { t: "Segmentos", id: "segmentos" }, { t: "Benefícios", id: "beneficios" }]} />
             <FooterCol titulo="Suporte" itens={[{ t: "FAQ", id: "faq" }, { t: "Contato", id: "contato" }]} />
             <div>
               <p className="text-sm font-black text-white">Acesso</p>
