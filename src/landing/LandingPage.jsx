@@ -133,9 +133,9 @@ function Botao({ children, variant = "primary", onClick, className = "" }) {
 
 function Marca({ claro = false }) {
   return (
-    <div className="flex items-center gap-2.5">
-      <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600 text-lg shadow-lg shadow-blue-600/30">🍽️</span>
-      <span className={`text-lg font-black tracking-tight ${claro ? "text-white" : "text-slate-900"}`}>{NOME_SISTEMA}</span>
+    <div className="flex shrink-0 items-center gap-2.5">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-lg shadow-lg shadow-blue-600/30">🍽️</span>
+      <span className={`whitespace-nowrap text-lg font-black tracking-tight ${claro ? "text-white" : "text-slate-900"}`}>{NOME_SISTEMA}</span>
     </div>
   );
 }
@@ -324,22 +324,24 @@ export default function LandingPage({ navigate }) {
   return (
     <div className="min-h-screen bg-white text-slate-900 antialiased">
       {/* ── Header sticky ─────────────────────────────────── */}
-      <header className="sticky top-0 z-50 border-b border-white/10 bg-slate-900/90 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-3.5">
-          <button onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}><Marca claro /></button>
-          <nav className="hidden items-center gap-6 lg:flex">
+      {/* paddingTop: app instalado em tela cheia — afasta o conteúdo da barra de status (safe area) */}
+      <header className="sticky top-0 z-50 border-b border-white/10 bg-slate-900/90 backdrop-blur-xl" style={{ paddingTop: "env(safe-area-inset-top)" }}>
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-5 py-3.5">
+          <button onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className="shrink-0"><Marca claro /></button>
+          {/* Menu completo só quando cabe em uma linha (xl); abaixo disso, hambúrguer */}
+          <nav className="hidden min-w-0 items-center gap-4 xl:flex">
             {NAV.map((n) => (
-              <button key={n.id} onClick={() => goTo(n.id)} className="text-sm font-bold text-slate-300 transition hover:text-white">{n.label}</button>
+              <button key={n.id} onClick={() => goTo(n.id)} className="whitespace-nowrap text-sm font-bold text-slate-300 transition hover:text-white">{n.label}</button>
             ))}
           </nav>
-          <div className="flex items-center gap-2">
-            <Botao variant="primary" onClick={acessar} className="hidden sm:inline-flex">Acessar Sistema</Botao>
-            <button onClick={() => setMenuAberto((v) => !v)} className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/15 bg-white/10 text-white lg:hidden">☰</button>
+          <div className="flex shrink-0 items-center gap-2">
+            <Botao variant="primary" onClick={acessar} className="hidden whitespace-nowrap sm:inline-flex">Acessar Sistema</Botao>
+            <button onClick={() => setMenuAberto((v) => !v)} className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/15 bg-white/10 text-white xl:hidden">☰</button>
           </div>
         </div>
         {/* Menu mobile */}
         {menuAberto && (
-          <div className="border-t border-white/10 bg-slate-900 px-5 py-4 lg:hidden">
+          <div className="border-t border-white/10 bg-slate-900 px-5 py-4 xl:hidden">
             <div className="grid gap-1">
               {NAV.map((n) => (
                 <button key={n.id} onClick={() => { goTo(n.id); setMenuAberto(false); }} className="rounded-xl px-3 py-2.5 text-left text-sm font-bold text-slate-300 hover:bg-white/[0.06]">{n.label}</button>
