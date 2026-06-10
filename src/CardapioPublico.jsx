@@ -168,7 +168,7 @@ export default function CardapioPublico() {
         {/* Categorias */}
         <div className="sticky top-[64px] z-20 -mx-4 flex gap-2 overflow-x-auto border-b border-white/10 bg-slate-950/90 px-4 py-3 backdrop-blur">
           {cats.map((c) => (
-            <button key={c} onClick={() => setCat(c)} className={`shrink-0 rounded-full border px-4 py-1.5 text-sm font-bold transition ${cat === c ? "border-blue-400 bg-blue-500 text-white" : "border-white/10 bg-white/[0.05] text-slate-300"}`}>{c}</button>
+            <button key={c} onClick={() => setCat(c)} className={`shrink-0 rounded-full border px-4 py-1.5 text-sm font-bold transition ${cat === c ? "border-gold-400 bg-gold-400 text-blue-950 shadow-lg shadow-gold-600/20" : "border-white/10 bg-white/[0.05] text-slate-300"}`}>{cat === c ? "★ " : ""}{c}</button>
           ))}
         </div>
 
@@ -185,10 +185,10 @@ export default function CardapioPublico() {
             <article key={item.id} className="flex h-full flex-col overflow-hidden rounded-3xl border border-white/10 bg-slate-900 shadow-xl">
               <button onClick={() => setDetalhe(item)} className="relative block h-40 w-full overflow-hidden bg-slate-800 text-left">
                 <img src={item.imageUrl || fallbackImage} alt={item.name} className="h-full w-full object-cover" />
-                <span className="absolute bottom-2 left-2 rounded-2xl bg-black/60 px-3 py-1 text-base font-black text-white backdrop-blur-sm">{formatCurrency(item.price)}</span>
+                <span className="absolute bottom-2 left-2 rounded-2xl bg-black/60 px-3 py-1 text-base font-black text-gold-400 backdrop-blur-sm">{formatCurrency(item.price)}</span>
               </button>
               <div className="flex flex-1 flex-col p-4">
-                <p className="text-xs font-bold uppercase tracking-widest text-blue-400">{item.category}</p>
+                <p className="text-xs font-bold uppercase tracking-widest text-gold-400">{item.category}</p>
                 <h3 className="mt-1 text-base font-black text-white leading-tight">{item.name}</h3>
                 <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-400">{item.description}</p>
                 <button onClick={() => setDetalhe(item)} className="mt-auto pt-3">

@@ -1900,8 +1900,8 @@ function TabletView({
       <div className="shrink-0 flex items-center gap-2 overflow-x-auto border-b border-white/10 bg-slate-900/50 px-5 py-3">
         {categories.map((c) => (
           <button key={c} onClick={() => setSelectedCategory(c)}
-            className={`shrink-0 rounded-full border px-4 py-1.5 text-sm font-bold transition ${selectedCategory === c ? "border-blue-400 bg-blue-500 text-white" : "border-white/10 bg-white/[0.05] text-slate-300 hover:bg-white/10"}`}>
-            {c}
+            className={`shrink-0 rounded-full border px-4 py-1.5 text-sm font-bold transition ${selectedCategory === c ? "border-gold-400 bg-gold-400 text-blue-950 shadow-lg shadow-gold-600/20" : "border-white/10 bg-white/[0.05] text-slate-300 hover:bg-white/10"}`}>
+            {selectedCategory === c ? "★ " : ""}{c}
           </button>
         ))}
       </div>
@@ -1958,7 +1958,7 @@ function TabletView({
                       </div>
                     )}
                     <div className="absolute bottom-3 left-3">
-                      <span className="rounded-2xl bg-black/60 px-3 py-1.5 text-lg font-black text-white backdrop-blur-sm">{formatCurrency(item.price)}</span>
+                      <span className="rounded-2xl bg-black/60 px-3 py-1.5 text-lg font-black text-gold-400 backdrop-blur-sm">{formatCurrency(item.price)}</span>
                     </div>
                     <span className="absolute bottom-3 right-3 rounded-full bg-white/15 px-2.5 py-1 text-xs font-bold text-white backdrop-blur-sm opacity-0 transition group-hover:opacity-100">
                       Ver detalhes →
@@ -1967,11 +1967,11 @@ function TabletView({
                   {/* Conteúdo */}
                   <div className="flex flex-1 flex-col p-4">
                     <div className="flex items-center justify-between gap-2">
-                      <p className="text-xs font-bold uppercase tracking-widest text-blue-400">{item.category}</p>
+                      <p className="text-xs font-bold uppercase tracking-widest text-gold-400">{item.category}</p>
                       <span className="text-xs text-slate-500">⏱ {item.time}</span>
                     </div>
                     <button onClick={() => setProdutoDetalhe(item)} className="mt-1 block text-left">
-                      <h3 className="text-base font-black text-white leading-tight hover:text-blue-300 transition">{item.name}</h3>
+                      <h3 className="text-base font-black text-white leading-tight hover:text-gold-300 transition">{item.name}</h3>
                     </button>
                     <p className="mt-1 text-xs leading-5 text-slate-400 line-clamp-2">{item.description}</p>
                     <div className="mt-2 flex flex-wrap gap-1">
@@ -2988,14 +2988,17 @@ function PanelView({ groupedOrders, products = [], lojaInfo }) {
       {/* ── Cabeçalho ─────────────────────────────────────────── */}
       <header className="flex shrink-0 items-center justify-between border-b border-white/10 bg-slate-900/90 px-[2vw] py-[1vh] backdrop-blur-xl">
         <div className="flex items-center gap-[1vw]">
-          <div className="flex items-center justify-center rounded-[1vw] bg-blue-500 shadow-lg shadow-blue-950/50"
-            style={{ width: "clamp(36px,4vw,60px)", height: "clamp(36px,4vw,60px)", fontSize: "clamp(16px,2vw,28px)" }}>
-            🍽️
+          <div className="flex items-center justify-center"
+            style={{ width: "clamp(36px,4vw,60px)", height: "clamp(36px,4vw,60px)" }}>
+            <LogoPP size={60} className="h-full w-full" />
           </div>
           <div>
+            <p className="font-black uppercase tracking-[0.25em] text-gold-400 leading-none" style={{ fontSize: "clamp(8px,0.85vw,13px)" }}>
+              Painel de Pedidos
+            </p>
             <h1 className="font-black tracking-tight text-white leading-tight"
               style={{ fontSize: "clamp(14px,2vw,28px)" }}>
-              {lojaInfo?.nome || "Painel de Pedidos"}
+              {lojaInfo?.nome || "Pedido Prime"}
             </h1>
             <p className="text-slate-400 font-semibold" style={{ fontSize: "clamp(9px,0.9vw,13px)" }}>
               Acompanhe o status do seu pedido em tempo real
@@ -4389,33 +4392,39 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
     <div className="fixed inset-0 z-50 flex bg-slate-950 overflow-hidden" style={{ paddingTop: "calc(env(safe-area-inset-top) + 24px)" }}>
 
       {/* ── Menu lateral esquerdo (fixo) ─────────────────────── */}
-      <aside className="hidden md:flex w-64 shrink-0 flex-col border-r border-white/10 bg-slate-900">
-        <div className="flex items-center gap-3 border-b border-white/10 px-5 py-4">
-          <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-500 text-xl">⚙️</span>
+      <aside className="hidden md:flex w-64 shrink-0 flex-col border-r border-gold-400/15 bg-blue-950">
+        <div className="flex items-center gap-3 border-b border-gold-400/15 px-5 py-4">
+          <LogoPP size={40} />
           <div className="min-w-0">
-            <p className="font-black text-white leading-tight truncate">{isSuperAdmin ? "Administrativo" : (lojaInfo?.nome || "Administrativo")}</p>
-            <p className="text-xs text-slate-500 truncate">
-              {isSuperAdmin ? "Administrador geral" : (lojaInfo ? `Comandas: ${lojaInfo.prefixo}` : "Painel gerencial")}
+            <p className="text-sm font-black leading-tight truncate"><span className="text-white">PEDIDO</span> <span className="text-gold-400">PRIME</span></p>
+            <p className="text-[11px] text-slate-400 truncate">
+              {isSuperAdmin ? "Administrador geral" : (lojaInfo ? lojaInfo.nome : "Painel gerencial")}
             </p>
           </div>
         </div>
         {isSuperAdmin && (
-          <div className="border-b border-white/10 px-4 py-3">
-            <label className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-slate-500">Empresa em foco</label>
+          <div className="border-b border-gold-400/15 px-4 py-3">
+            <label className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-gold-400/80">Empresa em foco</label>
             <ComboEmpresaFoco lojas={lojas} valor={lojaContexto} onChange={setLojaContexto} />
           </div>
         )}
         <nav className="scrollbar-none flex-1 overflow-y-auto px-3 py-4 space-y-5">
           {menu.map((g) => (
             <div key={g.grupo}>
-              <p className="px-3 mb-1.5 text-xs font-bold uppercase tracking-widest text-slate-600">{g.grupo}</p>
+              <p className="px-3 mb-1.5 text-[11px] font-bold uppercase tracking-widest text-gold-400/60">{g.grupo}</p>
               <div className="space-y-1">
-                {g.itens.map((it) => (
-                  <button key={it.id} onClick={() => setAdminSection(it.id)}
-                    className={`flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-bold transition ${ativo === it.id ? "bg-blue-500 text-white shadow-lg shadow-blue-950/30" : "text-slate-300 hover:bg-white/[0.06]"}`}>
-                    <span className="text-base">{it.icon}</span>{it.label}
-                  </button>
-                ))}
+                {g.itens.map((it) => {
+                  const sel = ativo === it.id;
+                  return (
+                    <button key={it.id} onClick={() => setAdminSection(it.id)}
+                      className={`group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold transition ${sel ? "bg-gold-400/10 text-gold-300" : "text-slate-300 hover:bg-white/[0.05] hover:text-white"}`}>
+                      {/* Barra de destaque dourada do item ativo */}
+                      <span className={`absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 rounded-full bg-gold-400 transition-opacity ${sel ? "opacity-100" : "opacity-0"}`} />
+                      <span className={`text-base transition ${sel ? "grayscale-0" : "opacity-80 group-hover:opacity-100"}`}>{it.icon}</span>
+                      <span className="truncate">{it.label}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           ))}
@@ -4458,24 +4467,20 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
       {/* ── Conteúdo ─────────────────────────────────────────── */}
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Cabeçalho mobile com abas (md:hidden) */}
-        <div className="md:hidden flex shrink-0 items-center justify-between gap-3 border-b border-white/10 bg-slate-900/90 px-4 py-3">
+        <div className="md:hidden flex shrink-0 items-center justify-between gap-3 border-b border-gold-400/15 bg-blue-950/90 px-4 py-3">
           <div className="flex min-w-0 flex-1 items-center gap-2">
-            {currentUser && (
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-blue-500/20 text-xs font-black text-blue-300 uppercase">
-                {(currentUser.name || "U").charAt(0)}
-              </div>
-            )}
+            <LogoPP size={28} />
             <div className="min-w-0">
-              <p className="truncate text-sm font-black text-white leading-tight">{currentUser?.name || "Administrativo"}</p>
-              {currentUser?.role && <p className="truncate text-[10px] text-slate-500 leading-tight">{currentUser.role}{lojaInfo ? ` · ${lojaInfo.nome}` : ""}</p>}
+              <p className="truncate text-sm font-black leading-tight"><span className="text-white">PEDIDO</span> <span className="text-gold-400">PRIME</span></p>
+              {currentUser?.role && <p className="truncate text-[10px] text-slate-400 leading-tight">{currentUser.role}{lojaInfo ? ` · ${lojaInfo.nome}` : ""}</p>}
             </div>
           </div>
           <button onClick={onSair} className="shrink-0 rounded-2xl border border-red-400/20 bg-red-500/10 px-3 py-1.5 text-xs font-black text-red-300">Sair</button>
         </div>
-        <div className="md:hidden shrink-0 flex gap-2 overflow-x-auto border-b border-white/10 bg-slate-900/50 px-4 py-2">
+        <div className="md:hidden shrink-0 flex gap-2 overflow-x-auto border-b border-gold-400/15 bg-blue-950/50 px-4 py-2">
           {menu.flatMap((g) => g.itens).map((it) => (
             <button key={it.id} onClick={() => setAdminSection(it.id)}
-              className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-black transition ${ativo === it.id ? "border-blue-400 bg-blue-500 text-white" : "border-white/10 bg-white/[0.06] text-slate-300"}`}>
+              className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-black transition ${ativo === it.id ? "border-gold-400 bg-gold-400 text-blue-950" : "border-white/10 bg-white/[0.06] text-slate-300"}`}>
               {it.icon} {it.label}
             </button>
           ))}

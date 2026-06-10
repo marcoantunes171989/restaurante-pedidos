@@ -5,6 +5,7 @@
 body {
   margin: 0;
   background-color: #020617; /* slate-950: evita faixa branca quando o overlay não cobre 100% no mobile */
+  font-family: 'Montserrat', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
 }
 
 /* ── Responsividade global: ajusta a todas as resoluções ────── */
