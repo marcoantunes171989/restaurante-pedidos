@@ -20,6 +20,7 @@ import {
 import { GeradorComandas } from "./components/QRComandas";
 import { QRScannerModal  } from "./components/QRScanner";
 import { LogoPP } from "./components/BrandLogo";
+import { IconDashboard, IconRelatorios, IconCrm, IconProdutos, IconCategorias, IconMesas, IconPagamento, IconQr, IconCardapio, IconEmpresas, IconUsuarios, IconCargos, IconPermissoes, IconLink, IconLicencas, IconVersoes, IconEmpresa } from "./components/PrimeIcons";
 
 export const fallbackImage = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=900&q=80";
 
@@ -407,7 +408,7 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
       style={{
         minHeight: "100dvh",
         backgroundColor: "#000000",
-        fontFamily: "'Poppins','Montserrat',sans-serif",
+        fontFamily: "'Inter','Sora',sans-serif",
         // Topo e rodapé com o MESMO tratamento (safe-area + respiro), fundo
         // sólido escuro de ponta a ponta — sem faixa/linha clara no topo.
         paddingTop: "calc(env(safe-area-inset-top) + 2.5rem)",
@@ -1946,7 +1947,7 @@ function TabletView({
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-black overflow-hidden"
-      style={{ height: "100dvh", paddingTop: "calc(env(safe-area-inset-top) + 24px)", paddingBottom: "env(safe-area-inset-bottom)", fontFamily: "'Poppins','Montserrat',sans-serif" }}>
+      style={{ height: "100dvh", paddingTop: "calc(env(safe-area-inset-top) + 24px)", paddingBottom: "env(safe-area-inset-bottom)", fontFamily: "'Inter','Sora',sans-serif" }}>
 
       {/* ── Cabeçalho gourmet: marca · MESA em destaque · ações ── */}
       <header className="grid shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-3 border-b border-gold-400/15 bg-black/90 px-5 py-2.5 backdrop-blur-xl">
@@ -2536,7 +2537,7 @@ function TabletView({
           role="button"
           tabIndex={0}
           onClick={() => { entrarTelaCheia(); setDescansoAtivo(false); setPorInatividade(false); }}
-          style={{ height: "100dvh", fontFamily: "'Poppins','Montserrat',sans-serif" }}
+          style={{ height: "100dvh", fontFamily: "'Inter','Sora',sans-serif" }}
           className="fixed inset-0 z-[120] block w-full cursor-pointer overflow-hidden bg-black text-left">
           {/* Imagens dos produtos em modo fosco (passando) */}
           <div className="absolute inset-0">
@@ -2676,7 +2677,7 @@ export function ProdutoModal({ produto, onFechar, onAdicionar }) {
 
   return (
     <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm p-0 sm:p-4"
-      style={{ fontFamily: "'Poppins','Montserrat',sans-serif" }} onClick={onFechar}>
+      style={{ fontFamily: "'Inter','Sora',sans-serif" }} onClick={onFechar}>
       <div onClick={(e) => e.stopPropagation()}
         className="flex w-full max-w-md flex-col overflow-hidden rounded-t-[1.6rem] sm:rounded-[1.6rem] border border-gold-400/25 bg-[#0d0d0d] shadow-2xl max-h-[92vh]">
 
@@ -4492,41 +4493,43 @@ function ComboEmpresaFoco({ lojas = [], valor, onChange }) {
 }
 
 function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, toggleUserStatus, toggleAccessStatus, usersLoja, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], addLoja, toggleLoja, editarLoja, removerLoja, setLicencaEmpresa = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, setModoUsoEmpresa = async()=>{}, mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, clientes = [] }) {
+  // Menu reorganizado por contexto (SaaS premium) — mesmos ids e permissões de antes
   const menu = [
-    { grupo: "Gestão", itens: [
-      { id: "dashboard", icon: "📊", label: "Dashboard" },
-      { id: "relatorios", icon: "📈", label: "Relatórios de vendas" },
-      { id: "crm", icon: "👤", label: "CRM / Clientes" },
+    { grupo: "Visão Geral", itens: [
+      { id: "dashboard", icon: <IconDashboard />, label: "Dashboard" },
+      { id: "relatorios", icon: <IconRelatorios />, label: "Relatórios" },
+      { id: "crm", icon: <IconCrm />, label: "CRM / Clientes" },
     ]},
-    { grupo: "Cadastros", itens: [
-      { id: "products", icon: "🛒", label: "Produtos" },
-      { id: "categorias", icon: "🏷️", label: "Categorias" },
-      { id: "mesas", icon: "🪑", label: "Mesas" },
-      { id: "pagamento", icon: "💳", label: "Formas de pagamento" },
-      { id: "comandas", icon: "🎫", label: "Comandas QR" },
-      { id: "cardapioext", icon: "📱", label: "Cardápio externo" },
+    { grupo: "Operação", itens: [
+      { id: "mesas", icon: <IconMesas />, label: "Mesas" },
+      { id: "comandas", icon: <IconQr />, label: "Comandas e QR Code" },
     ]},
-    // Empresa: super admin gerencia todas; usuário comum vê apenas a sua
+    { grupo: "Cardápio", itens: [
+      { id: "products", icon: <IconProdutos />, label: "Produtos" },
+      { id: "categorias", icon: <IconCategorias />, label: "Categorias" },
+      { id: "cardapioext", icon: <IconCardapio />, label: "Cardápio Externo" },
+    ]},
+    { grupo: "Configurações", itens: [
+      { id: "pagamento", icon: <IconPagamento />, label: "Formas de Pagamento" },
+      // Empresa: super admin gerencia todas (grupo Plataforma); usuário comum vê a sua
+      ...(!isSuperAdmin ? [
+        { id: "minhaempresa", icon: <IconEmpresa />, label: "Minha Empresa" },
+        { id: "versoes", icon: <IconVersoes />, label: "Controle de Versões" },
+      ] : []),
+    ]},
     ...(isSuperAdmin ? [
-      { grupo: "Empresas", itens: [
-        { id: "lojas", icon: "🏪", label: "Empresas" },
-      ]},
       { grupo: "Acessos", itens: [
-        { id: "users", icon: "👥", label: "Usuários" },
-        { id: "cargos", icon: "🪪", label: "Cargos / Perfis" },
-        { id: "access", icon: "🔐", label: "Permissões" },
-        { id: "link", icon: "🔗", label: "Usuário x Acesso" },
-        { id: "licencas", icon: "🔑", label: "Licenças de uso" },
+        { id: "users", icon: <IconUsuarios />, label: "Usuários" },
+        { id: "cargos", icon: <IconCargos />, label: "Cargos / Perfis" },
+        { id: "access", icon: <IconPermissoes />, label: "Permissões" },
+        { id: "link", icon: <IconLink />, label: "Usuário x Acesso" },
       ]},
-      { grupo: "Sistema", itens: [
-        { id: "versoes", icon: "🔄", label: "Controle de versões" },
+      { grupo: "Plataforma", itens: [
+        { id: "lojas", icon: <IconEmpresas />, label: "Empresas" },
+        { id: "licencas", icon: <IconLicencas />, label: "Licenças de Uso" },
+        { id: "versoes", icon: <IconVersoes />, label: "Controle de Versões" },
       ]},
-    ] : [
-      { grupo: "Empresa", itens: [
-        { id: "minhaempresa", icon: "🏪", label: "Minha empresa" },
-        { id: "versoes", icon: "🔄", label: "Controle de versões" },
-      ]},
-    ]),
+    ] : []),
   ];
   const itensValidos = menu.flatMap((g) => g.itens).map((i) => i.id);
   const ativo = itensValidos.includes(adminSection) ? adminSection : "dashboard";

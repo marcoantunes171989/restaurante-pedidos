@@ -2,10 +2,40 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Design tokens Pedido Prime (paleta premium) ────────────── */
+:root {
+  --prime-bg-dark: #070B16;
+  --prime-sidebar: #0B1B33;
+  --prime-card-dark: #111827;
+  --prime-card-soft: #172033;
+  --prime-border: #253149;
+
+  --prime-blue: #2563EB;
+  --prime-blue-hover: #3B82F6;
+
+  --prime-gold: #D6A84F;
+  --prime-gold-light: #F0C76A;
+  --prime-gold-dark: #A97923;
+
+  --prime-green: #10B981;
+  --prime-red: #EF4444;
+  --prime-yellow: #F59E0B;
+
+  --prime-text: #F9FAFB;
+  --prime-text-muted: #94A3B8;
+  --prime-text-soft: #CBD5E1;
+}
+
 body {
   margin: 0;
-  background-color: #020617; /* slate-950: evita faixa branca quando o overlay não cobre 100% no mobile */
-  font-family: 'Montserrat', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+  background-color: var(--prime-bg-dark); /* evita faixa clara quando o overlay não cobre 100% no mobile */
+  /* Tipografia: Inter para textos, menus, tabelas e formulários */
+  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+}
+
+/* Sora para títulos, marca, botões de destaque e cabeçalhos de página */
+h1, h2, h3, .brand-title, .page-title, .font-display {
+  font-family: 'Sora', 'Inter', sans-serif;
 }
 
 /* ── Responsividade global: ajusta a todas as resoluções ────── */
@@ -14,12 +44,12 @@ html {
   text-size-adjust: 100%;
   /* Fundo escuro no <html> também: cobre a área da status bar (topo) no
      PWA Android/iOS, eliminando a borda/faixa branca acima do app. */
-  background-color: #020617;
+  background-color: #070B16;
 }
 html, body, #root {
   min-height: 100vh;
   min-height: 100dvh;               /* altura real do viewport (mobile) */
-  background-color: #020617;        /* garante fundo escuro de ponta a ponta */
+  background-color: #070B16;        /* garante fundo escuro de ponta a ponta */
 }
 body {
   overflow-x: hidden;               /* nunca rola lateralmente em telas pequenas */
