@@ -406,7 +406,8 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
     <div className="relative flex items-center justify-center overflow-hidden px-4 text-slate-100"
       style={{
         minHeight: "100dvh",
-        backgroundColor: "#020617",
+        backgroundColor: "#000000",
+        fontFamily: "'Poppins','Montserrat',sans-serif",
         // Topo e rodapé com o MESMO tratamento (safe-area + respiro), fundo
         // sólido escuro de ponta a ponta — sem faixa/linha clara no topo.
         paddingTop: "calc(env(safe-area-inset-top) + 2.5rem)",
@@ -414,7 +415,7 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
         // Brilhos via radial-gradient no fundo (sem div desfocada clipada, que
         // gerava uma linha clara no topo ao ser cortada pelo overflow-hidden).
         backgroundImage:
-          "radial-gradient(32rem 32rem at -6rem -6rem, rgba(37,99,235,0.18), transparent 70%), radial-gradient(32rem 32rem at calc(100% + 6rem) calc(100% + 6rem), rgba(124,58,237,0.14), transparent 70%)",
+          "radial-gradient(32rem 32rem at -6rem -6rem, rgba(43,97,174,0.16), transparent 70%), radial-gradient(32rem 32rem at calc(100% + 6rem) calc(100% + 6rem), rgba(212,160,23,0.10), transparent 70%)",
       }}>
       {/* Trama de pontos sutil */}
       <div className="pointer-events-none absolute inset-0 opacity-[0.06]"
@@ -2638,6 +2639,7 @@ export function ProdutoModal({ produto, onFechar, onAdicionar }) {
   const [removidos, setRemovidos]       = useState([]);
   const [extras, setExtras]             = useState([]); // nomes dos adicionais selecionados
   const [observacao, setObservacao]     = useState("");
+  const [favorito, setFavorito]         = useState(false); // coração (visual, por sessão)
 
   // Adicionais cadastrados e vinculados ao produto: [{ nome, preco }]
   const adicionais = (produto.adicionais || []).filter((a) => a && a.nome);
@@ -2673,49 +2675,55 @@ export function ProdutoModal({ produto, onFechar, onAdicionar }) {
   const totalItem = (produto.price + extrasTotal) * quantidade;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4" onClick={onFechar}>
+    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm p-0 sm:p-4"
+      style={{ fontFamily: "'Poppins','Montserrat',sans-serif" }} onClick={onFechar}>
       <div onClick={(e) => e.stopPropagation()}
-        className="flex w-full max-w-md flex-col overflow-hidden rounded-t-[2rem] sm:rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl max-h-[92vh]">
+        className="flex w-full max-w-md flex-col overflow-hidden rounded-t-[1.6rem] sm:rounded-[1.6rem] border border-gold-400/25 bg-[#0d0d0d] shadow-2xl max-h-[92vh]">
 
-        {/* Imagem grande */}
-        <div className="relative h-52 shrink-0 overflow-hidden bg-slate-800">
+        {/* Imagem grande — voltar e favorito */}
+        <div className="relative h-52 shrink-0 overflow-hidden bg-[#1a1a1a]">
           <img src={produto.imageUrl || fallbackImage} alt={produto.name} className="h-full w-full object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/30 to-transparent" />
-          <button onClick={onFechar}
-            className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-lg font-black text-white backdrop-blur-sm hover:bg-black/80 transition">
-            ✕
+          <div className="absolute inset-0 bg-gradient-to-t from-[#0d0d0d] via-transparent to-black/30" />
+          <button onClick={onFechar} title="Voltar"
+            className="absolute left-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-lg font-bold text-white backdrop-blur-sm hover:bg-black/80 transition">
+            ←
+          </button>
+          <button onClick={() => setFavorito((f) => !f)} title="Favoritar"
+            className={`absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full backdrop-blur-sm transition ${favorito ? "bg-gold-400 text-blue-950" : "bg-black/60 text-white hover:bg-black/80"}`}>
+            {favorito ? "♥" : "♡"}
           </button>
           {produto.badge && (
-            <span className="absolute left-4 top-4 rounded-full bg-blue-500/90 px-3 py-1 text-xs font-black text-white shadow-lg">{produto.badge}</span>
+            <span className="absolute left-4 bottom-4 rounded-md bg-gold-400 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-blue-950 shadow-lg">{produto.badge}</span>
           )}
-          <div className="absolute bottom-4 left-4 right-4">
-            <p className="text-xs font-bold uppercase tracking-widest text-blue-300">{produto.category} • ⏱ {produto.time}</p>
-            <h2 className="mt-0.5 text-2xl font-black text-white leading-tight">{produto.name}</h2>
+        </div>
+
+        {/* Título + preço (padrão gourmet) */}
+        <div className="shrink-0 px-5 pt-4">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.25em] text-gold-400/80">{produto.category} • ⏱ {produto.time}</p>
+          <div className="mt-1 flex items-start justify-between gap-3">
+            <h2 className="text-xl font-semibold tracking-tight text-white leading-tight">{produto.name}</h2>
+            <span className="shrink-0 text-xl font-semibold text-gold-400">{formatCurrency(produto.price)}</span>
           </div>
+          <p className="mt-1.5 text-xs font-light leading-5 text-slate-300">{produto.description}</p>
         </div>
 
         {/* Corpo rolável */}
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
-          {/* Descrição */}
-          <p className="text-sm leading-6 text-slate-300">{produto.description}</p>
-
-          {/* Ingredientes (grátis) — caixa de seleção, cor neutra, sem custo */}
-          {(produto.ingredients || []).length > 0 && (
+          {/* Adicionais (selecionáveis, com preço dourado) */}
+          {adicionais.length > 0 && (
             <div>
-              <p className="mb-2 text-xs font-black uppercase tracking-widest text-slate-400">
-                Ingredientes <span className="text-slate-600">• marque os que deseja incluir</span>
-              </p>
+              <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.18em] text-gold-400">Adicionais</p>
               <div className="space-y-1.5">
-                {(produto.ingredients || []).map((ing) => {
-                  const sel = selecionados.includes(ing);
+                {adicionais.map((a) => {
+                  const sel = extras.includes(a.nome);
                   return (
-                    <button key={ing} type="button" onClick={() => toggleIngrediente(ing)}
-                      className={`flex w-full items-center justify-between gap-3 rounded-2xl border px-3.5 py-2.5 text-left transition ${sel ? "border-white/20 bg-white/[0.08]" : "border-white/10 bg-slate-800 hover:bg-white/[0.06]"}`}>
-                      <span className={`flex items-center gap-2 text-sm font-bold ${sel ? "text-white" : "text-slate-400 line-through"}`}>
-                        <span className={`flex h-5 w-5 items-center justify-center rounded-md border text-[11px] ${sel ? "border-slate-300 bg-slate-200 text-slate-900" : "border-white/20 text-transparent"}`}>✓</span>
-                        {ing}
+                    <button key={a.nome} type="button" onClick={() => toggleExtra(a.nome)}
+                      className={`flex w-full items-center justify-between gap-3 rounded-xl border px-3.5 py-2.5 text-left transition ${sel ? "border-gold-400/60 bg-gold-400/10" : "border-white/10 bg-white/[0.03] hover:border-white/25"}`}>
+                      <span className="flex items-center gap-2.5 text-sm font-medium text-white">
+                        <span className={`flex h-5 w-5 items-center justify-center rounded-md border text-[11px] transition ${sel ? "border-gold-400 bg-gold-400 text-blue-950" : "border-white/25 text-transparent"}`}>✓</span>
+                        {a.nome}
                       </span>
-                      <span className="text-xs font-black text-slate-500">{sel ? "Grátis" : "Removido"}</span>
+                      <span className={`text-sm font-semibold ${sel ? "text-gold-300" : "text-gold-400/70"}`}>{(Number(a.preco) || 0) > 0 ? `+ ${formatCurrency(Number(a.preco))}` : "Grátis"}</span>
                     </button>
                   );
                 })}
@@ -2723,21 +2731,18 @@ export function ProdutoModal({ produto, onFechar, onAdicionar }) {
             </div>
           )}
 
-          {/* Adicionais cadastrados do produto (selecionáveis, com preço) */}
-          {adicionais.length > 0 && (
+          {/* Remover ingredientes — "Sem X" compacto, como no padrão gourmet */}
+          {(produto.ingredients || []).length > 0 && (
             <div>
-              <p className="mb-2 text-xs font-black uppercase tracking-widest text-slate-400">Adicionais</p>
-              <div className="space-y-1.5">
-                {adicionais.map((a) => {
-                  const sel = extras.includes(a.nome);
+              <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.18em] text-gold-400">Remover ingredientes</p>
+              <div className="flex flex-wrap gap-2">
+                {(produto.ingredients || []).map((ing) => {
+                  const removido = removidos.includes(ing);
                   return (
-                    <button key={a.nome} type="button" onClick={() => toggleExtra(a.nome)}
-                      className={`flex w-full items-center justify-between gap-3 rounded-2xl border px-3.5 py-2.5 text-left transition ${sel ? "border-blue-400/40 bg-blue-500/15" : "border-white/10 bg-slate-800 hover:bg-white/[0.06]"}`}>
-                      <span className="flex items-center gap-2 text-sm font-bold text-white">
-                        <span className={`flex h-5 w-5 items-center justify-center rounded-md border text-[11px] ${sel ? "border-blue-400 bg-blue-500 text-white" : "border-white/20 text-transparent"}`}>✓</span>
-                        {a.nome}
-                      </span>
-                      <span className={`text-sm font-black ${sel ? "text-blue-200" : "text-slate-400"}`}>{(Number(a.preco) || 0) > 0 ? `+ ${formatCurrency(Number(a.preco))}` : "Grátis"}</span>
+                    <button key={ing} type="button" onClick={() => toggleIngrediente(ing)}
+                      className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-left text-xs font-medium transition ${removido ? "border-gold-400/60 bg-gold-400/10 text-white" : "border-white/10 bg-white/[0.03] text-slate-300 hover:border-white/25"}`}>
+                      <span className={`flex h-4 w-4 items-center justify-center rounded border text-[10px] transition ${removido ? "border-gold-400 bg-gold-400 text-blue-950" : "border-white/25 text-transparent"}`}>✓</span>
+                      Sem {ing}
                     </button>
                   );
                 })}
@@ -2747,30 +2752,30 @@ export function ProdutoModal({ produto, onFechar, onAdicionar }) {
 
           {/* Observação */}
           <div>
-            <p className="mb-2 text-xs font-black uppercase tracking-widest text-slate-400">Observação</p>
+            <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.18em] text-gold-400">Observação</p>
             <textarea value={observacao}
               onChange={(e) => setObservacao(e.target.value)}
               rows={2}
-              placeholder="Ex.: ao ponto, sem cebola, capricha no molho..."
-              className="w-full resize-none rounded-2xl border border-white/10 bg-slate-800 px-3 py-2.5 text-sm text-white outline-none focus:border-amber-400" />
+              placeholder="Ex.: Ponto da carne, alergias, etc."
+              className="w-full resize-none rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-sm font-light text-white outline-none placeholder:text-slate-500 focus:border-gold-400/60" />
           </div>
         </div>
 
-        {/* Rodapé fixo — quantidade + adicionar */}
-        <div className="shrink-0 border-t border-white/10 bg-slate-950/60 px-5 py-4">
+        {/* Rodapé fixo — quantidade + adicionar ao pedido */}
+        <div className="shrink-0 border-t border-gold-400/15 bg-black/60 px-5 py-4">
           <div className="flex items-center gap-3">
             {/* Seletor de quantidade */}
-            <div className="flex items-center gap-1 rounded-2xl border border-white/10 bg-white/[0.06] p-1">
+            <div className="flex items-center gap-1 rounded-xl border border-white/15 bg-white/[0.03] p-1">
               <button onClick={() => setQuantidade((q) => Math.max(1, q - 1))}
-                className="h-11 w-11 rounded-xl bg-slate-800 text-xl font-black text-white hover:bg-slate-700 transition active:scale-95">−</button>
-              <span className="w-10 text-center text-xl font-black text-white">{quantidade}</span>
+                className="h-11 w-11 rounded-lg text-xl font-semibold text-white hover:bg-white/10 transition active:scale-95">−</button>
+              <span className="w-10 text-center text-xl font-semibold text-white">{quantidade}</span>
               <button onClick={() => setQuantidade((q) => q + 1)}
-                className="h-11 w-11 rounded-xl bg-blue-500 text-xl font-black text-white hover:bg-blue-400 transition active:scale-95">+</button>
+                className="h-11 w-11 rounded-lg text-xl font-semibold text-gold-400 hover:bg-gold-400/10 transition active:scale-95">+</button>
             </div>
             {/* Botão adicionar */}
             <button onClick={confirmar}
-              className="flex flex-1 items-center justify-between rounded-2xl bg-blue-500 px-5 py-4 font-black text-white hover:bg-blue-400 transition active:scale-95 shadow-lg shadow-blue-950/30">
-              <span>Adicionar</span>
+              className="flex flex-1 items-center justify-between gap-2 rounded-xl bg-gold-400 px-5 py-4 text-sm font-semibold text-blue-950 hover:bg-gold-300 transition active:scale-95 shadow-lg shadow-gold-900/30">
+              <span>Adicionar ao pedido</span>
               <span>{formatCurrency(totalItem)}</span>
             </button>
           </div>
