@@ -5855,23 +5855,21 @@ function LicencaAdmin({ lojas = [], usuarios = [], setLicencaEmpresa }) {
 
   return (
     <main className="space-y-5">
-      {/* Cabeçalho */}
-      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
-        <div className="flex items-center gap-3">
-          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-3xl bg-amber-500/15 text-2xl">🔑</span>
-          <div>
-            <h3 className="text-xl font-black text-white">Licenças de uso</h3>
-            <p className="mt-0.5 text-sm text-slate-400">
-              <span className="text-emerald-300">{liberadas} liberada(s)</span> •
-              <span className="text-red-300"> {suspensas} suspensa(s)</span> de {empresas.length} empresa(s)
-            </p>
-          </div>
-        </div>
-        <p className="mt-3 rounded-2xl border border-amber-400/20 bg-amber-500/10 px-4 py-3 text-xs text-amber-200">
-          ⚠️ Ao <b>suspender a licença</b>, nenhum usuário da empresa consegue logar — verão a mensagem
-          <i> "Licença suspensa, entre em contato com o administrador do sistema."</i> O administrador geral nunca é bloqueado.
-        </p>
-      </div>
+      {/* ── Cabeçalho padronizado (PageHeader) ─────────────── */}
+      <PageHeader
+        icone={<IconLicencas />}
+        titulo="Licenças de Uso"
+        descricao="Controle de liberação e suspensão do acesso de cada empresa à plataforma."
+        indicadores={[
+          { valor: empresas.length, rotulo: empresas.length === 1 ? "empresa" : "empresas" },
+          { valor: liberadas, rotulo: "liberadas", tom: "ok" },
+          { valor: suspensas, rotulo: "suspensas", tom: "erro" },
+        ]}
+      />
+      <p className="rounded-2xl border border-amber-400/20 bg-amber-500/10 px-4 py-3 text-xs text-amber-200">
+        Ao <b>suspender a licença</b>, os usuários da empresa não poderão acessar o sistema — verão a mensagem
+        <i> "A licença desta empresa está temporariamente suspensa. Entre em contato com o administrador do sistema."</i> O administrador geral continua com acesso liberado.
+      </p>
 
       {/* Busca + lista */}
       <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
@@ -6084,8 +6082,11 @@ function VersoesAdmin({ lojas = [], lojaFiltro = null }) {
     <main className="space-y-5">
       {/* Cabeçalho + versão liberada */}
       <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
-        <h3 className="text-xl font-black text-white">🔄 Controle de versões</h3>
-        <p className="mt-0.5 text-sm text-slate-400">Acompanhe a versão liberada e a versão aplicada em cada aparelho.</p>
+        <h3 className="page-title flex items-center gap-2.5 text-xl font-bold tracking-tight text-white">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gold-400/30 bg-gold-400/10 text-gold-300"><IconVersoes /></span>
+          Controle de Versões
+        </h3>
+        <p className="mt-1 text-sm text-slate-400">Acompanhe a versão liberada da plataforma e a versão aplicada em cada aparelho.</p>
         <div className="mt-4 grid gap-3 sm:grid-cols-3">
           <div className="rounded-2xl border border-blue-400/20 bg-blue-500/10 p-4">
             <p className="text-[10px] font-black uppercase tracking-widest text-blue-300">Versão liberada</p>
@@ -6837,22 +6838,20 @@ function LojaAdmin({ lojas, addLoja, toggleLoja, editarLoja, removerLoja, lojaIn
 
   return (
     <main className="space-y-5">
-      {/* Cabeçalho: título + contadores + botão cadastrar */}
-      <div className="flex flex-col gap-4 rounded-[2rem] border border-white/10 bg-white/[0.04] p-5 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h3 className="text-xl font-black text-white">Empresas</h3>
-          <p className="mt-0.5 text-sm text-slate-400">
-            <span className="font-bold text-white">{lojas.length}</span> no total •
-            <span className="text-emerald-300"> {lojas.filter((l) => l.active !== false).length} ativas</span> •
-            <span className="text-slate-500"> {lojas.filter((l) => l.active === false).length} inativas</span>
-          </p>
-          {lojaInfo && <p className="mt-1 text-xs text-emerald-300">Você está logado em <b>{lojaInfo.nome}</b> ({lojaInfo.prefixo})</p>}
-        </div>
-        <button onClick={() => setCriando(true)}
-          className="flex items-center justify-center gap-2 rounded-2xl bg-blue-500 px-6 py-3.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95 shadow-lg shadow-blue-950/30">
-          <span className="text-lg leading-none">+</span> Cadastrar empresa
-        </button>
-      </div>
+      {/* ── Cabeçalho padronizado (PageHeader) ─────────────── */}
+      <PageHeader
+        icone={<IconEmpresas />}
+        titulo="Empresas"
+        descricao="Gestão multiempresa da plataforma: prefixo de comanda, modo de uso, plano e licença."
+        indicadores={[
+          { valor: lojas.length, rotulo: lojas.length === 1 ? "empresa" : "empresas" },
+          { valor: lojas.filter((l) => l.active !== false).length, rotulo: "ativas", tom: "ok" },
+          { valor: lojas.filter((l) => l.active === false).length, rotulo: "inativas" },
+          { valor: lojas.filter((l) => l.licencaBloqueada).length, rotulo: "com licença suspensa", tom: "erro" },
+        ]}
+        acao={<PrimeButton onClick={() => setCriando(true)}><span className="text-lg leading-none">+</span> Cadastrar empresa</PrimeButton>}
+      />
+      {lojaInfo && <p className="text-xs text-emerald-300">Você está logado em <b>{lojaInfo.nome}</b> ({lojaInfo.prefixo})</p>}
 
       {/* Busca + lista */}
       <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
@@ -8214,22 +8213,19 @@ function CargoAdmin({ cargos = [], users = [], addCargo, editarCargo, toggleCarg
 
   return (
     <main className="space-y-5">
-      {/* Cabeçalho: título + contadores + botão cadastrar */}
-      <div className="flex flex-col gap-4 rounded-[2rem] border border-white/10 bg-white/[0.04] p-5 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h3 className="text-xl font-black text-white">Cargos / Perfis</h3>
-          <p className="mt-0.5 text-sm text-slate-400">
-            <span className="font-bold text-white">{cargos.length}</span> no total •
-            <span className="text-emerald-300"> {cargos.filter((c) => c.active !== false).length} ativos</span> •
-            <span className="text-slate-500"> {cargos.filter((c) => c.active === false).length} inativos</span>
-          </p>
-          <p className="mt-1 text-xs text-slate-500">Aparecem como opção no cadastro de usuário e de empresa.</p>
-        </div>
-        <button onClick={() => setCriando(true)}
-          className="flex items-center justify-center gap-2 rounded-2xl bg-blue-500 px-6 py-3.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95 shadow-lg shadow-blue-950/30">
-          <span className="text-lg leading-none">+</span> Cadastrar cargo
-        </button>
-      </div>
+      {/* ── Cabeçalho padronizado (PageHeader) ─────────────── */}
+      <PageHeader
+        icone={<IconCargos />}
+        titulo="Cargos / Perfis"
+        descricao="Perfis de acesso que aparecem no cadastro de usuários e empresas."
+        indicadores={[
+          { valor: cargos.length, rotulo: cargos.length === 1 ? "cargo" : "cargos" },
+          { valor: cargos.filter((c) => c.active !== false).length, rotulo: "ativos", tom: "ok" },
+          { valor: cargos.filter((c) => c.active === false).length, rotulo: "inativos" },
+          { valor: users.length, rotulo: "usuários vinculados", tom: "gold" },
+        ]}
+        acao={<PrimeButton onClick={() => setCriando(true)}><span className="text-lg leading-none">+</span> Cadastrar cargo</PrimeButton>}
+      />
 
       {/* Busca + lista */}
       <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
@@ -8374,22 +8370,18 @@ function UserAdmin({ users, userForm, setUserForm, addUser, toggleUserStatus, ed
 
   return (
     <main className="space-y-5">
-      {/* Cabeçalho: título + contadores + botão cadastrar */}
-      <div className="flex flex-col gap-4 rounded-[2rem] border border-white/10 bg-white/[0.04] p-5 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h3 className="text-xl font-black text-white">Usuários</h3>
-          <p className="mt-0.5 text-sm text-slate-400">
-            <span className="font-bold text-white">{users.length}</span> no total •
-            <span className="text-emerald-300"> {users.filter((u) => u.active).length} ativos</span> •
-            <span className="text-slate-500"> {users.filter((u) => !u.active).length} inativos</span>
-          </p>
-          {!isSuperAdmin && lojaInfo && <p className="mt-1 text-xs text-slate-500">Novos usuários ficam vinculados a <b className="text-blue-300">{lojaInfo.nome}</b>.</p>}
-        </div>
-        <button onClick={abrirCadastro}
-          className="flex items-center justify-center gap-2 rounded-2xl bg-blue-500 px-6 py-3.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95 shadow-lg shadow-blue-950/30">
-          <span className="text-lg leading-none">+</span> Cadastrar usuário
-        </button>
-      </div>
+      {/* ── Cabeçalho padronizado (PageHeader) ─────────────── */}
+      <PageHeader
+        icone={<IconUsuarios />}
+        titulo="Usuários"
+        descricao={!isSuperAdmin && lojaInfo ? `Equipe com acesso ao sistema — novos usuários ficam vinculados a ${lojaInfo.nome}.` : "Equipe com acesso ao sistema, com cargo, empresa e telas liberadas por permissão."}
+        indicadores={[
+          { valor: users.length, rotulo: users.length === 1 ? "usuário" : "usuários" },
+          { valor: users.filter((u) => u.active).length, rotulo: "ativos", tom: "ok" },
+          { valor: users.filter((u) => !u.active).length, rotulo: "inativos" },
+        ]}
+        acao={<PrimeButton onClick={abrirCadastro}><span className="text-lg leading-none">+</span> Cadastrar usuário</PrimeButton>}
+      />
 
       {/* Busca + filtro + lista */}
       <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
@@ -8584,22 +8576,18 @@ function AccessAdmin({ accesses, accessForm, setAccessForm, addAccess, toggleAcc
 
   return (
     <main className="space-y-5">
-      {/* Cabeçalho: título + contadores + botão cadastrar */}
-      <div className="flex flex-col gap-4 rounded-[2rem] border border-white/10 bg-white/[0.04] p-5 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h3 className="text-xl font-black text-white">Permissões</h3>
-          <p className="mt-0.5 text-sm text-slate-400">
-            <span className="font-bold text-white">{accesses.length}</span> no total •
-            <span className="text-emerald-300"> {accesses.filter((a) => a.active).length} ativas</span> •
-            <span className="text-slate-500"> {accesses.filter((a) => !a.active).length} inativas</span>
-          </p>
-          <p className="mt-1 text-xs text-slate-500">Códigos de telas/módulos que controlam o menu de cada usuário.</p>
-        </div>
-        <button onClick={abrirCadastro}
-          className="flex items-center justify-center gap-2 rounded-2xl bg-blue-500 px-6 py-3.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95 shadow-lg shadow-blue-950/30">
-          <span className="text-lg leading-none">+</span> Cadastrar permissão
-        </button>
-      </div>
+      {/* ── Cabeçalho padronizado (PageHeader) ─────────────── */}
+      <PageHeader
+        icone={<IconPermissoes />}
+        titulo="Permissões"
+        descricao="Códigos de telas e módulos que controlam o menu exibido para cada usuário."
+        indicadores={[
+          { valor: accesses.length, rotulo: accesses.length === 1 ? "permissão" : "permissões" },
+          { valor: accesses.filter((a) => a.active).length, rotulo: "ativas", tom: "ok" },
+          { valor: accesses.filter((a) => !a.active).length, rotulo: "inativas" },
+        ]}
+        acao={<PrimeButton onClick={abrirCadastro}><span className="text-lg leading-none">+</span> Cadastrar permissão</PrimeButton>}
+      />
 
       {/* Busca + lista */}
       <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
@@ -8712,15 +8700,17 @@ function UserAccessAdmin({ users, accesses, toggleUserAccess, definirAcessos, lo
 
   return (
     <main className="space-y-5">
-      {/* ── Cabeçalho (padrão das demais telas) ───────────── */}
-      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
-        <h3 className="text-xl font-black text-white">Usuário × Acesso</h3>
-        <p className="mt-0.5 text-sm text-slate-400">
-          <span className="font-bold text-white">{users.length}</span> usuário(s) •
-          <span className="text-emerald-300"> {comAcesso} com acesso liberado</span>
-        </p>
-        <p className="mt-1 text-xs text-slate-500">Clique em um usuário para liberar as telas que ele pode acessar. O menu de cada usuário é montado apenas com as telas liberadas aqui.</p>
-      </div>
+      {/* ── Cabeçalho padronizado (PageHeader) ─────────────── */}
+      <PageHeader
+        icone={<IconLink />}
+        titulo="Usuário × Acesso"
+        descricao="Clique em um usuário para liberar as telas que ele pode acessar. O menu de cada usuário é montado apenas com as telas liberadas aqui."
+        indicadores={[
+          { valor: users.length, rotulo: users.length === 1 ? "usuário" : "usuários" },
+          { valor: comAcesso, rotulo: "com acesso liberado", tom: "ok" },
+          { valor: users.length - comAcesso, rotulo: "sem acessos", tom: users.length - comAcesso > 0 ? "alerta" : undefined },
+        ]}
+      />
 
       {/* ── Busca + lista (largura total — padrão do projeto) ── */}
       <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
