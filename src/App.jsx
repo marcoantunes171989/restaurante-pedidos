@@ -1918,10 +1918,10 @@ function TabletView({
           )}
         </button>
         <div className="flex flex-1 flex-col p-3.5">
-          <h3 className="text-sm font-black text-white leading-tight">{item.name}</h3>
-          <p className="mt-1 text-[11px] leading-4 text-slate-400 line-clamp-3">{item.description}</p>
+          <h3 className="text-lg font-semibold tracking-tight text-white leading-tight">{item.name}</h3>
+          <p className="mt-1 text-xs font-light leading-5 text-slate-300 line-clamp-3">{item.description}</p>
           <div className="mt-auto pt-3">
-            <p className="text-base font-black text-gold-400">{formatCurrency(item.price)}</p>
+            <p className="text-lg font-semibold text-gold-400">{formatCurrency(item.price)}</p>
             {noCarrinho ? (
               <div className="mt-2 flex items-center justify-between gap-1 rounded-xl border border-gold-400/40 bg-gold-400/10 p-1">
                 <button onClick={() => removeFromCart(item.id)} className="h-9 flex-1 rounded-lg bg-slate-800 font-black text-white hover:bg-slate-700 transition active:scale-95">−</button>
@@ -1929,8 +1929,8 @@ function TabletView({
                 <button onClick={() => setProdutoDetalhe(item)} title="Personalizar / adicionar mais" className="h-9 flex-1 rounded-lg bg-gold-400 font-black text-blue-950 hover:bg-gold-300 transition active:scale-95">+</button>
               </div>
             ) : (
-              <button onClick={() => setProdutoDetalhe(item)} className="mt-2 flex w-full items-center justify-between rounded-xl bg-gold-400 px-3.5 py-2.5 text-xs font-black text-blue-950 hover:bg-gold-300 transition active:scale-95 shadow-lg shadow-gold-900/20">
-                <span>Adicionar</span><span className="text-sm">+</span>
+              <button onClick={() => setProdutoDetalhe(item)} className="mt-2 flex w-full items-center justify-between rounded-xl bg-gold-400 px-3.5 py-2.5 text-sm font-semibold text-blue-950 hover:bg-gold-300 transition active:scale-95 shadow-lg shadow-gold-900/20">
+                <span>Adicionar</span><span className="text-base leading-none">+</span>
               </button>
             )}
           </div>
@@ -1961,7 +1961,11 @@ function TabletView({
         <div className="text-center leading-none">
           <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-400">Mesa</p>
           <p className="text-3xl font-black tabular-nums text-gold-400">{dadosCompletos ? String(tableNumber).padStart(2, "0") : "--"}</p>
-          {currentTableOrders.length > 0 && <p className="mt-0.5 text-[10px] font-bold text-slate-500">👤 {currentTableOrders.length} pedido(s) na mesa</p>}
+          {(() => {
+            const mesaAtual = (mesas || []).find((m) => String(m.numero) === String(tableNumber));
+            if (mesaAtual?.capacidade) return <p className="mt-0.5 text-[10px] font-bold text-slate-400">👤 {mesaAtual.capacidade} pessoas</p>;
+            return currentTableOrders.length > 0 ? <p className="mt-0.5 text-[10px] font-bold text-slate-500">👤 {currentTableOrders.length} pedido(s) na mesa</p> : null;
+          })()}
         </div>
         {/* Ações */}
         <div className="flex items-center justify-end gap-2">
@@ -1996,7 +2000,7 @@ function TabletView({
               const sel = selectedCategory === c;
               return (
                 <button key={c} onClick={() => setSelectedCategory(c)}
-                  className={`flex w-full items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left text-[13px] font-bold transition ${sel ? "border-gold-400 bg-gold-400/10 text-gold-300" : "border-transparent text-slate-300 hover:bg-white/[0.05] hover:text-white"}`}>
+                  className={`flex w-full items-center gap-3 rounded-2xl border px-3.5 py-3 text-left text-sm font-medium tracking-wide transition ${sel ? "border-gold-400 bg-gold-400/10 font-semibold text-gold-300" : "border-white/10 bg-white/[0.02] text-slate-200 hover:border-white/25 hover:bg-white/[0.05] hover:text-white"}`}>
                   <span className="text-base">{iconeCategoria(c)}</span>
                   <span className="truncate">{c === "Todos" ? "Destaques" : c}</span>
                 </button>
@@ -2038,7 +2042,7 @@ function TabletView({
               const demais = emDestaques ? filteredItems.filter((i) => !destaques.includes(i)) : filteredItems;
               const cabSecao = (titulo) => (
                 <div className="mb-4 flex items-center gap-4">
-                  <h2 className="shrink-0 text-base font-black uppercase tracking-[0.18em] text-gold-400">{titulo}</h2>
+                  <h2 className="shrink-0 text-lg font-bold uppercase tracking-[0.14em] text-gold-400">{titulo}</h2>
                   <div className="h-px flex-1 bg-gold-400/25" />
                   <span className="shrink-0 text-xs font-black text-gold-400">Ver todos →</span>
                 </div>
