@@ -2549,8 +2549,9 @@ function TabletView({
           Overlay sobre o cardápio. Não desmonta o tablet → preserva
           carrinho, mesa, comanda e quantidades já informados. */}
       {descansoAtivo && (
-        <button
-          type="button"
+        <div
+          role="button"
+          tabIndex={0}
           onClick={() => { entrarTelaCheia(); setDescansoAtivo(false); setPorInatividade(false); }}
           style={{ height: "100dvh" }}
           className="fixed inset-0 z-[120] block w-full cursor-pointer overflow-hidden bg-slate-950 text-left">
@@ -2587,27 +2588,59 @@ function TabletView({
             </div>
           )}
 
-          {/* Anúncio central */}
-          <div className="relative z-[2] flex h-full flex-col items-center justify-center px-8 text-center">
-            <div className="flex flex-col items-center gap-5 rounded-[2.5rem] border border-white/15 bg-white/[0.06] px-10 py-12 shadow-2xl backdrop-blur-xl">
-              <span className="text-6xl">🍽️</span>
-              <div>
-                <p className="text-sm font-black uppercase tracking-[0.35em] text-blue-300">{lojaInfo?.nome || "Cardápio digital"}</p>
-                <h2 className="mt-3 text-4xl font-black leading-tight text-white sm:text-5xl">{porInatividade ? "Voltamos quando quiser" : "Bem-vindo!"}</h2>
-                <p className="mt-2 max-w-md text-base text-slate-300">{porInatividade ? "A tela entrou em descanso por inatividade. Seu pedido foi preservado." : "Conheça nossos pratos e monte seu pedido direto da mesa."}</p>
+          {/* Cartão de boas-vindas gourmet */}
+          <div className="relative z-[2] flex h-full flex-col items-center justify-center px-6 text-center">
+            <div className="flex w-full max-w-sm flex-col items-center rounded-[2rem] border border-gold-400/30 bg-slate-950/80 px-8 py-9 shadow-2xl backdrop-blur-xl">
+              {/* Marca */}
+              <LogoPP size={56} />
+              <p className="mt-3 text-lg font-black leading-none tracking-tight"><span className="text-white">PEDIDO</span> <span className="text-gold-400">PRIME</span></p>
+              <p className="mt-1.5 text-[9px] font-bold uppercase tracking-[0.35em] text-slate-500">{lojaInfo?.nome || "Sistema para restaurantes"}</p>
+
+              {/* Divisor com cloche dourada */}
+              <div className="mt-5 flex w-full items-center gap-3">
+                <div className="h-px flex-1 bg-gold-400/30" />
+                <svg width="34" height="26" viewBox="0 0 34 26" fill="none" aria-hidden="true">
+                  <path d="M3 19h28" stroke="#E0B135" strokeWidth="2" strokeLinecap="round" />
+                  <path d="M6 19a11 11 0 0 1 22 0" stroke="#E0B135" strokeWidth="2" strokeLinecap="round" />
+                  <circle cx="17" cy="5.5" r="2" stroke="#E0B135" strokeWidth="2" />
+                </svg>
+                <div className="h-px flex-1 bg-gold-400/30" />
               </div>
-              <div className="mt-2 flex items-center gap-3 rounded-full bg-blue-500 px-8 py-4 text-lg font-black text-white shadow-lg shadow-blue-900/40 animate-pulse">
-                👆 {porInatividade ? "Toque para continuar de onde parou" : "Toque na tela para iniciar o pedido"}
+
+              {/* Mesa em destaque */}
+              <p className="mt-5 text-sm font-bold text-slate-300">{porInatividade ? "Que bom ter você de volta à" : "Bem-vindo à"}</p>
+              <p className="mt-1 text-5xl font-black tracking-tight text-gold-400">{dadosCompletos ? `Mesa ${String(tableNumber).padStart(2, "0")}` : (lojaInfo?.nome || "nossa casa")}</p>
+              <p className="mt-4 max-w-xs text-sm leading-6 text-slate-300">
+                {porInatividade
+                  ? "A tela entrou em descanso por inatividade. Seu pedido foi preservado — continue de onde parou."
+                  : "Explore nosso cardápio digital, escolha seus produtos favoritos e envie seu pedido diretamente para a cozinha."}
+              </p>
+
+              {/* Ações */}
+              <button type="button"
+                onClick={() => { entrarTelaCheia(); setDescansoAtivo(false); setPorInatividade(false); }}
+                className="mt-6 w-full rounded-xl bg-gold-400 py-3.5 text-sm font-black text-blue-950 shadow-lg shadow-gold-900/40 hover:bg-gold-300 transition active:scale-95 animate-pulse">
+                {porInatividade ? "👆 Continuar pedido" : "👆 Iniciar pedido"}
+              </button>
+              <div className="mt-2.5 grid w-full grid-cols-2 gap-2.5">
+                <button type="button" onClick={() => setSelectedCategory("Todos")}
+                  className="rounded-xl border border-white/15 bg-white/[0.05] py-3 text-xs font-black text-slate-200 hover:bg-white/10 transition">
+                  Ver destaques
+                </button>
+                <button type="button" onClick={chamarGarcom}
+                  className="rounded-xl border border-white/15 bg-white/[0.05] py-3 text-xs font-black text-slate-200 hover:bg-white/10 transition">
+                  Chamar garçom
+                </button>
               </div>
             </div>
-            <p className="mt-8 text-xs text-slate-400">{totalCartItems > 0 ? `Seu pedido foi mantido — ${totalCartItems} ${totalCartItems === 1 ? "item" : "itens"} no carrinho` : "Toque em qualquer ponto para começar"}</p>
+            <p className="mt-6 text-xs text-slate-400">{totalCartItems > 0 ? `Seu pedido foi mantido — ${totalCartItems} ${totalCartItems === 1 ? "item" : "itens"} no carrinho` : "Toque em qualquer ponto para começar"}</p>
             {iosSemApp && (
               <p className="mt-3 max-w-xs text-[11px] leading-4 text-slate-500">
                 📱 iPhone/iPad: para tela cheia, toque em <span className="font-bold text-slate-300">Compartilhar ⬆️</span> e depois <span className="font-bold text-slate-300">“Adicionar à Tela de Início”</span>.
               </p>
             )}
           </div>
-        </button>
+        </div>
       )}
 
     </div>
