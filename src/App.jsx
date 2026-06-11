@@ -21,6 +21,7 @@ import { GeradorComandas } from "./components/QRComandas";
 import { QRScannerModal  } from "./components/QRScanner";
 import { LogoPP } from "./components/BrandLogo";
 import { IconDashboard, IconRelatorios, IconCrm, IconProdutos, IconCategorias, IconMesas, IconPagamento, IconQr, IconCardapio, IconEmpresas, IconUsuarios, IconCargos, IconPermissoes, IconLink, IconLicencas, IconVersoes, IconEmpresa } from "./components/PrimeIcons";
+import { PageHeader, PrimeButton } from "./components/Prime";
 
 export const fallbackImage = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=900&q=80";
 
@@ -4900,14 +4901,19 @@ function BarraHorizontal({ label, valor, max, sufixo = "", cor = "bg-blue-500" }
   );
 }
 
-function CardMetrica({ titulo, valor, sub, cor = "text-white", icon }) {
+function CardMetrica({ titulo, valor, sub, cor = "text-white", icon, variacao = null }) {
   return (
     <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
       <div className="flex items-center justify-between">
         <p className="text-xs font-bold uppercase tracking-widest text-slate-500">{titulo}</p>
         {icon && <span className="text-xl">{icon}</span>}
       </div>
-      <p className={`mt-2 text-3xl font-black ${cor}`}>{valor}</p>
+      <p className={`page-title mt-2 text-3xl font-bold ${cor}`}>{valor}</p>
+      {variacao != null && (
+        <p className={`mt-1 text-[11px] font-semibold ${variacao >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+          {variacao >= 0 ? "▲ +" : "▼ "}{variacao.toFixed(0)}% em relação ao período anterior
+        </p>
+      )}
       {sub && <p className="mt-1 text-xs text-slate-500">{sub}</p>}
     </div>
   );
@@ -4920,7 +4926,12 @@ function CardMetrica({ titulo, valor, sub, cor = "text-white", icon }) {
 const CORES_GRAF = ["#3b82f6", "#10b981", "#f59e0b", "#a855f7", "#ef4444", "#06b6d4", "#ec4899", "#84cc16"];
 function DonutChart({ dados, label = "" }) {
   const total = dados.reduce((s, d) => s + d.valor, 0);
-  if (total === 0) return <div className="flex h-48 items-center justify-center text-sm text-slate-500">Sem dados</div>;
+  if (total === 0) return (
+    <div className="flex h-48 flex-col items-center justify-center gap-1 text-center">
+      <p className="text-sm font-semibold text-slate-400">Nenhuma venda encontrada para este período.</p>
+      <p className="text-xs text-slate-500">Altere o filtro de datas ou aguarde novas movimentações.</p>
+    </div>
+  );
   const R = 70, C = 2 * Math.PI * R;
   let acc = 0;
   return (
@@ -4998,11 +5009,33 @@ function DashboardAdmin({ orders, products }) {
 
   const catDonut = a.categorias.slice(0, 6).map((c) => ({ label: c.categoria, valor: c.valor }));
 
+  // Comparativo com o intervalo imediatamente anterior (hoje x ontem, semana x semana...)
+  const comparativo = (() => {
+    if (periodo === "tudo") return null;
+    const [a0, b0] = intervaloPeriodo(periodo, ini, fim);
+    if (!a0 || a0.getTime() <= 0) return null;
+    const dur = b0.getTime() - a0.getTime();
+    const aPrev = new Date(a0.getTime() - dur - 1);
+    const bPrev = new Date(a0.getTime() - 1);
+    const anteriores = orders.filter((o) => { if (!o.createdAtISO) return false; const d = new Date(o.createdAtISO); return d >= aPrev && d <= bPrev; });
+    if (anteriores.length === 0) return null;
+    const ant = analisarVendas(anteriores, products);
+    const varPct = (atual, anterior) => anterior > 0 ? ((atual - anterior) / anterior) * 100 : (atual > 0 ? 100 : null);
+    return {
+      faturamento: varPct(a.faturamento, ant.faturamento),
+      ticket: varPct(a.ticket, ant.ticket),
+      pedidos: varPct(a.totalPedidos, ant.totalPedidos),
+    };
+  })();
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h2 className="text-2xl font-black text-white">📊 Dashboard gerencial</h2>
+          <h2 className="page-title flex items-center gap-2.5 text-2xl font-bold tracking-tight text-white">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gold-400/30 bg-gold-400/10 text-gold-300"><IconDashboard /></span>
+            Dashboard gerencial
+          </h2>
           <p className="mt-1 text-sm text-slate-400">Análise de vendas — clique nos cards para detalhar.</p>
         </div>
         <SeletorPeriodo periodo={periodo} setPeriodo={setPeriodo} ini={ini} setIni={setIni} fim={fim} setFim={setFim} />
@@ -5011,16 +5044,16 @@ function DashboardAdmin({ orders, products }) {
       {/* Métricas principais (clicáveis) */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <button onClick={() => setModal({ titulo: "Faturamento — pedidos pagos", pedidos: pagos })} className="text-left">
-          <CardMetrica titulo="Faturamento (pago)" valor={formatCurrency(a.faturamento)} sub={`${a.pagos.length} pedido(s) • ver detalhes`} cor="text-emerald-400" icon="💰" />
+          <CardMetrica titulo="Faturamento (pago)" valor={formatCurrency(a.faturamento)} sub={`${a.pagos.length} pedido(s) • ver detalhes`} cor="text-emerald-400" icon="💰" variacao={comparativo?.faturamento} />
         </button>
         <button onClick={() => setModal({ titulo: "Pedidos em aberto", pedidos: abertos })} className="text-left">
           <CardMetrica titulo="Em aberto" valor={formatCurrency(a.emAberto)} sub="ver detalhes" cor="text-amber-400" icon="⏳" />
         </button>
         <button onClick={() => setModal({ titulo: "Pedidos pagos (ticket médio)", pedidos: pagos })} className="text-left">
-          <CardMetrica titulo="Ticket médio" valor={formatCurrency(a.ticket)} sub="por pedido pago" cor="text-blue-400" icon="🎫" />
+          <CardMetrica titulo="Ticket médio" valor={formatCurrency(a.ticket)} sub="por pedido pago" cor="text-blue-400" icon="🎫" variacao={comparativo?.ticket} />
         </button>
         <button onClick={() => setModal({ titulo: "Todos os pedidos do período", pedidos: filtrados })} className="text-left">
-          <CardMetrica titulo="Total de pedidos" valor={a.totalPedidos} sub="ver detalhes" icon="📦" />
+          <CardMetrica titulo="Total de pedidos" valor={a.totalPedidos} sub="ver detalhes" icon="📦" variacao={comparativo?.pedidos} />
         </button>
       </div>
 
@@ -5043,7 +5076,12 @@ function DashboardAdmin({ orders, products }) {
         <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
           <h3 className="mb-4 text-lg font-black text-white">🏆 Produtos mais vendidos</h3>
           <div className="space-y-3">
-            {a.topProdutos.length === 0 && <p className="text-sm text-slate-500">Sem vendas ainda.</p>}
+            {a.topProdutos.length === 0 && (
+              <div className="py-4 text-center">
+                <p className="text-sm font-semibold text-slate-400">Nenhuma venda encontrada para este período.</p>
+                <p className="mt-0.5 text-xs text-slate-500">Altere o filtro de datas ou aguarde novas movimentações.</p>
+              </div>
+            )}
             {a.topProdutos.map((p) => (
               <BarraHorizontal key={p.nome} label={p.nome} valor={p.qtd} max={maxProd} sufixo=" un" cor="bg-blue-500" />
             ))}
@@ -7088,22 +7126,19 @@ function CategoriaAdmin({ categoriasDb, produtos, addCategoria, toggleCategoria,
 
   return (
     <main className="space-y-5">
-      {/* Cabeçalho */}
-      <div className="flex flex-col gap-4 rounded-[2rem] border border-white/10 bg-white/[0.04] p-5 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h3 className="text-xl font-black text-white">Categorias</h3>
-          <p className="mt-0.5 text-sm text-slate-400">
-            <span className="font-bold text-white">{categoriasDb.length}</span> no total •
-            <span className="text-emerald-300"> {categoriasDb.filter((c) => c.active !== false).length} ativas</span> •
-            <span className="text-slate-500"> {categoriasDb.filter((c) => c.active === false).length} inativas</span>
-          </p>
-          <p className="mt-1 text-xs text-slate-500">Clique em uma categoria para editar e ver os produtos vinculados.</p>
-        </div>
-        <button onClick={() => setCriando(true)}
-          className="flex items-center justify-center gap-2 rounded-2xl bg-blue-500 px-6 py-3.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95 shadow-lg shadow-blue-950/30">
-          <span className="text-lg leading-none">+</span> Cadastrar categoria
-        </button>
-      </div>
+      {/* ── Cabeçalho padronizado (PageHeader) ─────────────── */}
+      <PageHeader
+        icone={<IconCategorias />}
+        titulo="Categorias"
+        descricao="Organize o cardápio em categorias exibidas no tablet, QR Code e cardápio externo."
+        indicadores={[
+          { valor: categoriasDb.length, rotulo: categoriasDb.length === 1 ? "categoria" : "categorias" },
+          { valor: categoriasDb.filter((c) => c.active !== false).length, rotulo: "ativas", tom: "ok" },
+          { valor: categoriasDb.filter((c) => c.active === false).length, rotulo: "inativas" },
+          { valor: produtos.length, rotulo: "produtos vinculados", tom: "gold" },
+        ]}
+        acao={<PrimeButton onClick={() => setCriando(true)}><span className="text-lg leading-none">+</span> Cadastrar categoria</PrimeButton>}
+      />
 
       {/* Busca + lista */}
       <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
@@ -7313,22 +7348,18 @@ function PagamentoAdmin({ formasPagamento, addFormaPagamento, toggleFormaPagamen
 
   return (
     <main className="space-y-5">
-      {/* Cabeçalho */}
-      <div className="flex flex-col gap-4 rounded-[2rem] border border-white/10 bg-white/[0.04] p-5 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h3 className="text-xl font-black text-white">Formas de pagamento</h3>
-          <p className="mt-0.5 text-sm text-slate-400">
-            <span className="font-bold text-white">{formasPagamento.length}</span> no total •
-            <span className="text-emerald-300"> {formasPagamento.filter((f) => f.active !== false).length} ativas</span> •
-            <span className="text-slate-500"> {formasPagamento.filter((f) => f.active === false).length} inativas</span>
-          </p>
-          <p className="mt-1 text-xs text-slate-500">Clique em uma forma para editar. Aparecem na tela do caixa.</p>
-        </div>
-        <button onClick={() => setCriando(true)}
-          className="flex items-center justify-center gap-2 rounded-2xl bg-blue-500 px-6 py-3.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95 shadow-lg shadow-blue-950/30">
-          <span className="text-lg leading-none">+</span> Cadastrar forma
-        </button>
-      </div>
+      {/* ── Cabeçalho padronizado (PageHeader) ─────────────── */}
+      <PageHeader
+        icone={<IconPagamento />}
+        titulo="Formas de Pagamento"
+        descricao="Defina como o caixa recebe os pagamentos: dinheiro, cartões, PIX e outras formas."
+        indicadores={[
+          { valor: formasPagamento.length, rotulo: formasPagamento.length === 1 ? "forma" : "formas" },
+          { valor: formasPagamento.filter((f) => f.active !== false).length, rotulo: "ativas", tom: "ok" },
+          { valor: formasPagamento.filter((f) => f.active === false).length, rotulo: "inativas" },
+        ]}
+        acao={<PrimeButton onClick={() => setCriando(true)}><span className="text-lg leading-none">+</span> Cadastrar forma</PrimeButton>}
+      />
 
       {/* Busca + lista */}
       <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
@@ -7671,21 +7702,20 @@ function ProductAdmin({ products, categories, adminForm, setAdminForm, addProduc
 
   return (
     <main className="space-y-5">
-      {/* ── Cabeçalho: título + métricas + botão cadastrar ── */}
-      <div className="flex flex-col gap-4 rounded-[2rem] border border-white/10 bg-white/[0.04] p-5 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h3 className="text-xl font-black text-white">Produtos</h3>
-          <p className="mt-0.5 text-sm text-slate-400">
-            <span className="font-bold text-white">{products.length}</span> no total •
-            <span className="text-emerald-300"> {products.filter((p) => p.active).length} ativos</span> •
-            <span className="text-slate-500"> {products.filter((p) => !p.active).length} inativos</span>
-          </p>
-        </div>
-        <button onClick={abrirCadastro}
-          className="flex items-center justify-center gap-2 rounded-2xl bg-blue-500 px-6 py-3.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95 shadow-lg shadow-blue-950/30">
-          <span className="text-lg leading-none">+</span> Cadastrar produto
-        </button>
-      </div>
+      {/* ── Cabeçalho padronizado (PageHeader) ─────────────── */}
+      <PageHeader
+        icone={<IconProdutos />}
+        titulo="Produtos"
+        descricao="Gerencie os itens vendidos no tablet, QR Code e cardápio externo."
+        indicadores={[
+          { valor: products.length, rotulo: products.length === 1 ? "produto" : "produtos" },
+          { valor: products.filter((p) => p.active).length, rotulo: "ativos", tom: "ok" },
+          { valor: products.filter((p) => !p.active).length, rotulo: "inativos" },
+          ...(products.filter((p) => p.active && (p.estoque ?? 0) > 0 && p.estoque <= 5).length > 0
+            ? [{ valor: products.filter((p) => p.active && (p.estoque ?? 0) > 0 && p.estoque <= 5).length, rotulo: "com estoque baixo", tom: "alerta" }] : []),
+        ]}
+        acao={<PrimeButton onClick={abrirCadastro}><span className="text-lg leading-none">+</span> Cadastrar produto</PrimeButton>}
+      />
 
       {/* ── Busca + filtro por categoria ─────────────────── */}
       <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
@@ -8986,22 +9016,19 @@ function MesaAdmin({ mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, o
 
   return (
     <main className="space-y-5">
-      {/* Cabeçalho */}
-      <div className="flex flex-col gap-4 rounded-[2rem] border border-white/10 bg-white/[0.04] p-5 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h3 className="text-xl font-black text-white">Mesas</h3>
-          <p className="mt-0.5 text-sm text-slate-400">
-            <span className="font-bold text-white">{mesas.length}</span> no total •
-            <span className="text-emerald-300"> {mesas.filter((m) => m.active !== false).length} ativas</span> •
-            <span className="text-slate-500"> {mesas.filter((m) => m.active === false).length} inativas</span>
-          </p>
-          <p className="mt-1 text-xs text-slate-500">Mesas ativas aparecem como seleção no tablet do cliente.</p>
-        </div>
-        <button onClick={() => setCriando(true)}
-          className="flex items-center justify-center gap-2 rounded-2xl bg-blue-500 px-6 py-3.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95 shadow-lg shadow-blue-950/30">
-          <span className="text-lg leading-none">+</span> Cadastrar mesa
-        </button>
-      </div>
+      {/* ── Cabeçalho padronizado (PageHeader) ─────────────── */}
+      <PageHeader
+        icone={<IconMesas />}
+        titulo="Mesas"
+        descricao="Controle as mesas disponíveis, ocupadas, inativas e vinculadas ao tablet ou QR Code."
+        indicadores={[
+          { valor: mesas.length, rotulo: mesas.length === 1 ? "mesa" : "mesas" },
+          { valor: mesas.filter((m) => m.active !== false && pedidosAbertos(m) === 0).length, rotulo: "disponíveis", tom: "ok" },
+          { valor: mesas.filter((m) => m.active !== false && pedidosAbertos(m) > 0).length, rotulo: "ocupadas", tom: "alerta" },
+          { valor: mesas.filter((m) => m.active === false).length, rotulo: mesas.filter((m) => m.active === false).length === 1 ? "inativa" : "inativas" },
+        ]}
+        acao={<PrimeButton onClick={() => setCriando(true)}><span className="text-lg leading-none">+</span> Cadastrar mesa</PrimeButton>}
+      />
 
       {/* Busca + lista */}
       <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
