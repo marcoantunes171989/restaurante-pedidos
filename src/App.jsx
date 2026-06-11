@@ -1906,8 +1906,8 @@ function TabletView({
     const noCarrinho = cart.find((c) => c.id === item.id);
     const etiqueta = item.badge || tagAuto;
     return (
-      <article key={item.id} className={`group flex h-full flex-col overflow-hidden rounded-2xl border bg-slate-900/80 shadow-xl transition-all hover:-translate-y-1 hover:shadow-2xl ${noCarrinho ? "border-gold-400/60 ring-2 ring-gold-400/20" : "border-white/10 hover:border-gold-400/40"}`}>
-        <button onClick={() => setProdutoDetalhe(item)} className="relative block h-36 w-full overflow-hidden bg-slate-800 text-left">
+      <article key={item.id} className={`group flex h-full flex-col overflow-hidden rounded-2xl border bg-[#121212] shadow-xl transition-all hover:-translate-y-1 hover:shadow-2xl ${noCarrinho ? "border-gold-400/60 ring-2 ring-gold-400/20" : "border-white/10 hover:border-gold-400/40"}`}>
+        <button onClick={() => setProdutoDetalhe(item)} className="relative block h-36 w-full overflow-hidden bg-[#1a1a1a] text-left">
           <img src={item.imageUrl || fallbackImage} alt={item.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
           <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-transparent" />
           {etiqueta && (
@@ -1944,11 +1944,11 @@ function TabletView({
   const temConta = currentTableOrders.length > 0 || currentTableCancelled.length > 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-slate-950 overflow-hidden"
-      style={{ height: "100dvh", paddingTop: "calc(env(safe-area-inset-top) + 24px)", paddingBottom: "env(safe-area-inset-bottom)" }}>
+    <div className="fixed inset-0 z-50 flex flex-col bg-black overflow-hidden"
+      style={{ height: "100dvh", paddingTop: "calc(env(safe-area-inset-top) + 24px)", paddingBottom: "env(safe-area-inset-bottom)", fontFamily: "'Poppins','Montserrat',sans-serif" }}>
 
       {/* ── Cabeçalho gourmet: marca · MESA em destaque · ações ── */}
-      <header className="grid shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-3 border-b border-gold-400/15 bg-slate-900/90 px-5 py-2.5 backdrop-blur-xl">
+      <header className="grid shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-3 border-b border-gold-400/15 bg-black/90 px-5 py-2.5 backdrop-blur-xl">
         {/* Marca */}
         <div className="flex min-w-0 items-center gap-3">
           <LogoPP size={42} />
@@ -1990,7 +1990,7 @@ function TabletView({
       <div className="flex flex-1 overflow-hidden">
 
         {/* Menu gourmet lateral (categorias) */}
-        <aside className="hidden md:flex w-48 lg:w-52 shrink-0 flex-col border-r border-gold-400/10 bg-slate-900/60">
+        <aside className="hidden md:flex w-48 lg:w-52 shrink-0 flex-col border-r border-gold-400/10 bg-black">
           <nav className="scrollbar-none flex-1 space-y-1 overflow-y-auto p-3">
             {categories.map((c) => {
               const sel = selectedCategory === c;
@@ -2014,35 +2014,13 @@ function TabletView({
         {/* Vitrine central */}
         <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
           {/* Categorias (telas sem o menu lateral) */}
-          <div className="md:hidden shrink-0 flex items-center gap-2 overflow-x-auto border-b border-white/10 bg-slate-900/50 px-4 py-2.5">
+          <div className="md:hidden shrink-0 flex items-center gap-2 overflow-x-auto border-b border-white/10 bg-black/50 px-4 py-2.5">
             {categories.map((c) => (
               <button key={c} onClick={() => setSelectedCategory(c)}
                 className={`shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-bold transition ${selectedCategory === c ? "border-gold-400 bg-gold-400 text-blue-950" : "border-white/10 bg-white/[0.05] text-slate-300"}`}>
                 {iconeCategoria(c)} {c === "Todos" ? "Destaques" : c}
               </button>
             ))}
-          </div>
-          {/* Busca */}
-          <div className="shrink-0 border-b border-white/10 bg-slate-900/30 px-5 py-2.5">
-            <div className="relative w-full">
-              <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-slate-400">🔍</span>
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Buscar no cardápio..."
-                className="w-full rounded-xl border border-white/10 bg-slate-800/80 py-2.5 pl-10 pr-4 text-sm text-white outline-none transition focus:border-gold-400/60 focus:bg-slate-800 placeholder:text-slate-500"
-              />
-              {search && (
-                <button onClick={() => setSearch("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-slate-400 hover:text-white transition">✕</button>
-              )}
-            </div>
-            {search && (
-              <p className="mt-1.5 text-xs text-slate-500">
-                {filteredItems.length === 0 ? "Nenhum produto encontrado para" : `${filteredItems.length} produto(s) encontrado(s) para`}
-                {" "}<span className="font-bold text-slate-300">"{search}"</span>
-              </p>
-            )}
           </div>
 
           {/* Seções da vitrine */}
@@ -2060,7 +2038,7 @@ function TabletView({
               const demais = emDestaques ? filteredItems.filter((i) => !destaques.includes(i)) : filteredItems;
               const cabSecao = (titulo) => (
                 <div className="mb-4 flex items-center gap-4">
-                  <h2 className="shrink-0 text-base font-black uppercase tracking-[0.18em] text-white">{titulo}</h2>
+                  <h2 className="shrink-0 text-base font-black uppercase tracking-[0.18em] text-gold-400">{titulo}</h2>
                   <div className="h-px flex-1 bg-gold-400/25" />
                   <span className="shrink-0 text-xs font-black text-gold-400">Ver todos →</span>
                 </div>
@@ -2091,7 +2069,7 @@ function TabletView({
         </main>
 
         {/* ── Meu pedido (lateral fixa) ─────────────────────── */}
-        <aside className="hidden lg:flex w-72 xl:w-80 shrink-0 flex-col border-l border-gold-400/10 bg-slate-900/70">
+        <aside className="hidden lg:flex w-72 xl:w-80 shrink-0 flex-col border-l border-gold-400/10 bg-black">
           <div className="shrink-0 border-b border-gold-400/15 px-4 py-3.5">
             <p className="text-sm font-black uppercase tracking-[0.22em] text-white">Meu pedido</p>
           </div>
@@ -2103,7 +2081,7 @@ function TabletView({
               </div>
             )}
             {cart.map((c) => (
-              <div key={c._uid || c.id} className="rounded-xl border border-white/10 bg-slate-950/50 p-2.5">
+              <div key={c._uid || c.id} className="rounded-xl border border-white/10 bg-white/[0.04] p-2.5">
                 <div className="flex items-start gap-2.5">
                   <img src={c.imageUrl || fallbackImage} alt="" className="h-10 w-10 shrink-0 rounded-lg object-cover" />
                   <div className="min-w-0 flex-1">
@@ -2138,7 +2116,7 @@ function TabletView({
       </div>
 
       {/* ── Rodapé (somente telas sem a lateral "Meu pedido") ── */}
-      <footer className="lg:hidden shrink-0 border-t border-gold-400/15 bg-slate-900/95 backdrop-blur-xl px-4 py-3">
+      <footer className="lg:hidden shrink-0 border-t border-gold-400/15 bg-black/95 backdrop-blur-xl px-4 py-3">
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-gold-400/40 bg-gold-400/10 text-xl">🛒</div>
@@ -2553,8 +2531,8 @@ function TabletView({
           role="button"
           tabIndex={0}
           onClick={() => { entrarTelaCheia(); setDescansoAtivo(false); setPorInatividade(false); }}
-          style={{ height: "100dvh" }}
-          className="fixed inset-0 z-[120] block w-full cursor-pointer overflow-hidden bg-slate-950 text-left">
+          style={{ height: "100dvh", fontFamily: "'Poppins','Montserrat',sans-serif" }}
+          className="fixed inset-0 z-[120] block w-full cursor-pointer overflow-hidden bg-black text-left">
           {/* Imagens dos produtos em modo fosco (passando) */}
           <div className="absolute inset-0">
             {imagensDescanso.map((src, i) => (
@@ -2590,7 +2568,7 @@ function TabletView({
 
           {/* Cartão de boas-vindas gourmet */}
           <div className="relative z-[2] flex h-full flex-col items-center justify-center px-6 text-center">
-            <div className="flex w-full max-w-sm flex-col items-center rounded-[2rem] border border-gold-400/30 bg-slate-950/80 px-8 py-9 shadow-2xl backdrop-blur-xl">
+            <div className="flex w-full max-w-sm flex-col items-center rounded-[2rem] border border-gold-400/30 bg-black/80 px-8 py-9 shadow-2xl backdrop-blur-xl">
               {/* Marca */}
               <LogoPP size={56} />
               <p className="mt-3 text-lg font-black leading-none tracking-tight"><span className="text-white">PEDIDO</span> <span className="text-gold-400">PRIME</span></p>
