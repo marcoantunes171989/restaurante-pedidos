@@ -44,24 +44,18 @@ const SOLUCOES = [
 ];
 
 const FEATURES = [
-  { icon: "📲", title: "Pedidos pelo tablet da mesa", desc: "O cliente pede sozinho, direto da mesa — com fotos, adicionais e observações, sem esperar o atendente." },
-  { icon: "🪑", title: "Controle de mesas", desc: "Mesas cadastradas e vinculadas ao tablet: o aparelho seleciona a mesa no login e o sistema mostra só as livres." },
-  { icon: "🎫", title: "QR Code para tablet e mesa", desc: "Gere e imprima comandas QR com a identidade da empresa — o tablet escaneia e vincula o pedido à mesa." },
-  { icon: "📱", title: "Cardápio para pedidos externos", desc: "O cliente acessa o cardápio digital pelo próprio celular — QR na mesa ou link de divulgação — sem instalar nada." },
-  { icon: "⚡", title: "Envio automático para a cozinha", desc: "O pedido chega digitado e instantâneo no painel da cozinha — sem ruído nem retrabalho." },
-  { icon: "👨‍🍳", title: "Painel da cozinha", desc: "Pedidos em colunas (recebido, preparando, pronto) atualizados em tempo real." },
-  { icon: "📊", title: "Dashboard gerencial", desc: "Indicadores da operação ao vivo para análise gerencial: faturamento, pedidos e desempenho." },
-  { icon: "📈", title: "Relatórios de vendas", desc: "Faturamento, ticket médio, produtos mais vendidos e vendas por categoria — prontos para decisão." },
-  { icon: "🧑‍💼", title: "Gerenciamento de vendas", desc: "Gerentes acompanham pedidos, fechamentos e o desempenho do salão pelo painel administrativo." },
-  { icon: "👥", title: "Controle de usuários", desc: "Cadastro de colaboradores com cargos e perfis — cada um com o seu acesso." },
-  { icon: "🔐", title: "Controle de permissões", desc: "Defina por cargo quais telas cada colaborador enxerga: tablet, cozinha, caixa, painel ou administrativo." },
-  { icon: "💳", title: "Caixa e pagamentos", desc: "Conta inteira, dividida ou parcial por item, com formas de pagamento, troco e cupom." },
-  { icon: "🛒", title: "Cadastro de produtos", desc: "Nome, preço, custo, margem, tempo de preparo, categoria, descrição e imagem." },
-  { icon: "🧩", title: "Adicionais e ingredientes", desc: "Extras com preço (ou grátis) e ingredientes que o cliente pode adicionar ou remover por item." },
-  { icon: "📺", title: "Painel de acompanhamento", desc: "O cliente acompanha o andamento do pedido pela própria mesa, do recebido ao entregue." },
-  { icon: "🧾", title: "Solicitação de conta pela mesa", desc: "Fechamento solicitado pelo tablet ou celular, sem precisar chamar o garçom." },
-  { icon: "👤", title: "CRM / Clientes", desc: "Histórico de clientes e pedidos para conhecer e fidelizar quem mais consome." },
-  { icon: "🏪", title: "Multi-empresa (SaaS)", desc: "Uma plataforma para várias lojas, cada uma com cardápio, equipe e dados isolados." },
+  { icon: "📲", title: "Pedidos por tablet", desc: "O cliente pede sozinho, direto da mesa — com fotos, adicionais e observações, sem esperar o atendente." },
+  { icon: "🎫", title: "QR Code por mesa", desc: "Comandas e QR Codes impressos com a identidade da empresa — o tablet escaneia e vincula o pedido à mesa." },
+  { icon: "📱", title: "Link externo", desc: "Cardápio digital no celular do cliente, por QR na mesa ou link de divulgação — sem instalar nada." },
+  { icon: "👨‍🍳", title: "Cozinha em tempo real", desc: "Pedidos em colunas (aguardando, preparando, pronto) com tempo decorrido e destaque para atrasados." },
+  { icon: "📺", title: "Painel TV", desc: "Acompanhamento dos pedidos em telão, com fonte ampliada e atualização em tempo real." },
+  { icon: "💳", title: "Financeiro / Caixa", desc: "Conta inteira, dividida ou parcial por item, alerta de conta solicitada, troco e cupom." },
+  { icon: "👤", title: "CRM de clientes", desc: "Classificação VIP/recorrente, ticket médio, produto favorito e histórico por período." },
+  { icon: "📊", title: "Dashboard gerencial", desc: "Faturamento, ticket médio e pedidos com comparativo automático contra o período anterior." },
+  { icon: "📈", title: "Relatórios de vendas", desc: "Vendas por produto, categoria, comanda e forma de pagamento — prontos para decisão." },
+  { icon: "🛒", title: "Controle de produtos", desc: "Preço, custo, margem, estoque, ingredientes, adicionais e visibilidade por canal." },
+  { icon: "🏪", title: "Multiempresa", desc: "Uma plataforma SaaS para várias empresas, cada uma com cardápio, equipe e dados isolados." },
+  { icon: "🔐", title: "Licenças e permissões", desc: "Controle por cargo e por tela, com liberação e suspensão de licença por empresa." },
 ];
 
 const GESTAO = [
@@ -74,13 +68,12 @@ const GESTAO = [
 ];
 
 const PASSOS = [
-  { n: 1, title: "Acesso ao cardápio", desc: "O cliente acessa pelo tablet da mesa (com mesa e comanda QR vinculadas) ou pelo celular." },
-  { n: 2, title: "Escolha dos itens", desc: "Seleciona produtos, adicionais, ingredientes e observações." },
-  { n: 3, title: "Envio à cozinha", desc: "O pedido é enviado automaticamente para o painel da cozinha." },
-  { n: 4, title: "Atualização de status", desc: "A cozinha marca: recebido, em preparo, pronto ou entregue." },
-  { n: 5, title: "Acompanhamento", desc: "O cliente acompanha o andamento diretamente pela mesa." },
-  { n: 6, title: "Solicitação de conta", desc: "O cliente pede a conta pelo próprio tablet ou celular." },
-  { n: 7, title: "Fechamento no caixa", desc: "O caixa finaliza o pagamento — e a venda já entra no dashboard e nos relatórios." },
+  { n: 1, title: "Cliente acessa", desc: "Pelo tablet da mesa, QR Code ou link externo — sem instalar nada." },
+  { n: 2, title: "Pedido vai para a cozinha", desc: "Enviado automaticamente, digitado e sem ruído de comunicação." },
+  { n: 3, title: "Cozinha altera o status", desc: "Aguardando, preparando e pronto — com destaque para atrasados." },
+  { n: 4, title: "Cliente acompanha", desc: "O andamento do pedido aparece em tempo real na mesa." },
+  { n: 5, title: "Caixa fecha a comanda", desc: "Conta inteira, dividida ou parcial, com alerta de conta solicitada." },
+  { n: 6, title: "Gestor acompanha os resultados", desc: "Dashboard, relatórios e CRM atualizados a cada venda." },
 ];
 
 const SEGMENTOS = [
@@ -99,15 +92,13 @@ const SEGMENTOS = [
 ];
 
 const BENEFICIOS = [
-  { icon: "✅", title: "Menos erros nos pedidos", desc: "Pedido digitado pelo próprio cliente, sem ruído de comunicação." },
-  { icon: "⚡", title: "Mais agilidade", desc: "Atendimento mais rápido do pedido ao fechamento." },
-  { icon: "📊", title: "Decisão com dados", desc: "Dashboard e relatórios de vendas mostram onde o negócio ganha (e perde) dinheiro." },
-  { icon: "🧑‍💼", title: "Gerente no controle", desc: "Vendas, mesas e equipe acompanhadas em tempo real, de qualquer lugar." },
-  { icon: "🔐", title: "Acessos sob controle", desc: "Usuários, cargos e permissões garantem que cada um veja só o que precisa." },
-  { icon: "😀", title: "Melhor experiência", desc: "O cliente pede, acompanha e fecha sem depender do garçom." },
-  { icon: "🔗", title: "Salão, cozinha e caixa integrados", desc: "Todos falam a mesma língua, em tempo real." },
-  { icon: "🚀", title: "Mais produtividade", desc: "Equipe atende mais mesas com menos esforço." },
-  { icon: "📈", title: "Maior ticket médio", desc: "Adicionais e sugestões no cardápio aumentam o consumo." },
+  { icon: "🏪", title: "SaaS multiempresa", desc: "Várias empresas em uma só plataforma, cada uma com dados, equipe e cardápio isolados." },
+  { icon: "🔐", title: "Controle por perfil", desc: "Cargos e permissões por tela: cada colaborador vê apenas o que precisa." },
+  { icon: "✨", title: "Experiência premium", desc: "Visual gourmet no tablet e identidade profissional em todas as telas." },
+  { icon: "⚡", title: "Operação em tempo real", desc: "Salão, cozinha, painel e caixa sincronizados a cada segundo." },
+  { icon: "📱", title: "Cardápio digital completo", desc: "Tablet na mesa, QR Code e link externo no celular do cliente." },
+  { icon: "📊", title: "Gestão com dados", desc: "Dashboard com comparativos, relatórios de vendas e CRM estratégico." },
+  { icon: "🔑", title: "Controle de licença", desc: "Liberação e suspensão de acesso por empresa, direto da plataforma." },
 ];
 
 const PERFIS = [
@@ -120,18 +111,13 @@ const PERFIS = [
 ];
 
 const FAQ = [
-  { q: "O sistema funciona apenas para restaurantes?", a: "Não. O sistema pode ser utilizado em pizzarias, hamburguerias, lanchonetes, restaurantes japoneses, cafeterias, bares, food parks e outros segmentos alimentares." },
-  { q: "Como funcionam os pedidos pelo tablet?", a: "Cada tablet fica vinculado a uma mesa (selecionada no login) e lê a comanda QR do cliente. O pedido sai da mesa direto para a cozinha, e o cliente acompanha tudo pela tela." },
-  { q: "Como funciona o controle de mesas?", a: "As mesas são cadastradas no administrativo. No login do tablet, o sistema mostra apenas as mesas livres — uma mesa em uso por outro aparelho fica indisponível, evitando conflitos." },
-  { q: "O que é a comanda por QR Code?", a: "Cada comanda tem um QR exclusivo gerado e impresso pelo sistema, com a identidade da sua empresa. O tablet escaneia o QR e vincula o pedido à comanda e à mesa, com validação por empresa." },
-  { q: "Tem cardápio para pedidos externos?", a: "Sim. O cliente acessa o cardápio digital pelo próprio celular — via QR na mesa ou link divulgado nas redes sociais — vê os produtos, pede e acompanha sem instalar nada." },
-  { q: "Tem dashboard e relatórios de vendas?", a: "Sim. O administrativo traz um dashboard para análise gerencial em tempo real e relatórios de faturamento, ticket médio, produtos mais vendidos e vendas por categoria." },
-  { q: "O gerente consegue acompanhar as vendas?", a: "Sim. O perfil de gestão acompanha pedidos, fechamentos, mesas e o desempenho do salão pelo painel administrativo — sem planilhas paralelas." },
-  { q: "Existe controle de usuários e permissões?", a: "Sim. Cada colaborador tem seu login com cargo/perfil, e as permissões definem por tela o que cada um acessa: tablet, cozinha, caixa, painel ou administrativo." },
-  { q: "O pedido vai direto para a cozinha?", a: "Sim. Após a confirmação, o pedido é sincronizado automaticamente com o painel da cozinha, em tempo real." },
-  { q: "O sistema permite adicionais e remoção de ingredientes?", a: "Sim. Você configura adicionais com preço (ou grátis) e ingredientes que o cliente pode incluir ou remover em cada produto." },
-  { q: "Posso cadastrar imagens dos produtos?", a: "Sim. A área administrativa permite cadastrar imagem, descrição, preço, custo, margem e configurações de cada produto." },
-  { q: "O cliente precisa instalar aplicativo?", a: "Não necessariamente. No salão, o tablet do estabelecimento usa o app Android; no celular, o cliente acessa pelo navegador, sem download." },
+  { q: "O Pedido Prime funciona com tablet?", a: "Sim. O tablet fica vinculado a uma mesa (selecionada no login) e o cliente pede sozinho, acompanha o preparo e solicita a conta direto da mesa." },
+  { q: "Posso usar QR Code nas mesas?", a: "Sim. O sistema gera e imprime QR Codes por mesa e comandas QR com a identidade da sua empresa, validados por empresa no envio do pedido." },
+  { q: "O cliente pode pedir pelo celular?", a: "Sim. Pelo QR da mesa ou pelo link de divulgação, o cliente abre o cardápio digital no navegador, pede e acompanha — sem instalar nada." },
+  { q: "O sistema possui cozinha integrada?", a: "Sim. O pedido chega na cozinha em tempo real, em colunas por status, com tempo decorrido e destaque automático para pedidos atrasados." },
+  { q: "Consigo controlar várias empresas?", a: "Sim. O Pedido Prime é um SaaS multiempresa: cada empresa tem cardápio, equipe, mesas, comandas e dados totalmente isolados." },
+  { q: "Existe controle de permissões?", a: "Sim. Usuários, cargos e permissões por tela definem exatamente o que cada colaborador acessa: tablet, cozinha, caixa, painel ou administrativo." },
+  { q: "É possível bloquear empresa por licença?", a: "Sim. O administrador da plataforma libera ou suspende a licença de cada empresa — usuários de empresa suspensa não conseguem acessar até a regularização." },
 ];
 
 // ── Helpers de UI reutilizáveis ──────────────────────────────
@@ -426,6 +412,7 @@ export default function LandingPage({ navigate }) {
             ))}
           </nav>
           <div className="flex shrink-0 items-center gap-2">
+            <Botao variant="gold" onClick={() => goTo("contato")} className="hidden whitespace-nowrap 2xl:inline-flex">Solicitar Demonstração</Botao>
             <Botao variant="primary" onClick={acessar} className="hidden whitespace-nowrap sm:inline-flex">Acessar Sistema</Botao>
             <button onClick={() => setMenuAberto((v) => !v)} className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/15 bg-white/10 text-white xl:hidden">☰</button>
           </div>
@@ -451,20 +438,20 @@ export default function LandingPage({ navigate }) {
           <div className="grid items-center gap-12 lg:grid-cols-2">
             <div>
               <span className="inline-flex items-center gap-2 rounded-full border border-gold-400/30 bg-gold-400/10 px-3 py-1.5 text-xs font-bold text-gold-300">
-                <span className="h-2 w-2 rounded-full bg-gold-400" /> Sistema para restaurantes
+                <span className="h-2 w-2 rounded-full bg-gold-400" /> Plataforma inteligente para atendimento, comandas e gestão
               </span>
               <h1 className="mt-5 text-4xl font-black leading-tight tracking-tight text-white sm:text-5xl">
-                Tecnologia que <span className="text-gold-400">transforma o atendimento</span> do seu restaurante
+                Transforme o atendimento do seu restaurante com <span className="text-gold-400">pedidos digitais em tempo real</span>
               </h1>
               <p className="mt-5 max-w-xl text-base leading-7 text-slate-300 sm:text-lg">
-                Pedidos pelo tablet na mesa, controle de mesas e comandas por QR Code, cardápio externo no celular do cliente — e, para a gestão, dashboard, relatórios de vendas, usuários e permissões. Tudo isso e muito mais, tudo no {NOME_SISTEMA}.
+                Controle mesas, comandas, pedidos, cozinha, financeiro, relatórios e dashboards em uma única plataforma SaaS para restaurantes. Tudo isso e muito mais, tudo no {NOME_SISTEMA}.
               </p>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                <a href="/baixar.html"
+                <button onClick={() => goTo("contato")}
                   className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gold-400 px-6 py-3.5 text-sm font-black text-blue-950 transition hover:bg-gold-300 active:scale-95 shadow-lg shadow-gold-600/30">
-                  ⬇️ Baixar app (Android)
-                </a>
-                <Botao variant="ghost" onClick={acessar}>Acessar Sistema →</Botao>
+                  Solicitar demonstração
+                </button>
+                <Botao variant="ghost" onClick={() => goTo("funcionalidades")}>Ver funcionalidades →</Botao>
               </div>
               {/* Diferenciais rápidos */}
               <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs font-bold text-slate-300">
@@ -638,7 +625,7 @@ export default function LandingPage({ navigate }) {
       {/* ── Como funciona ─────────────────────────────────── */}
       <section id="como-funciona" className="scroll-mt-24 bg-slate-50 py-16 sm:py-20">
         <div className="mx-auto max-w-6xl px-5">
-          <TituloSecao tag="Como funciona" titulo="Do pedido ao caixa em 7 passos" subtitulo="Um fluxo simples, digital e sincronizado entre cliente, cozinha, caixa e gestão." />
+          <TituloSecao tag="Como funciona" titulo="Do pedido ao resultado em 6 passos" subtitulo="Um fluxo simples, digital e sincronizado entre cliente, cozinha, caixa e gestão." />
           <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {PASSOS.map((p) => (
               <div key={p.n} className="relative rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -695,7 +682,7 @@ export default function LandingPage({ navigate }) {
       {/* ── Benefícios ────────────────────────────────────── */}
       <section id="beneficios" className="scroll-mt-24 bg-slate-50 py-16 sm:py-20">
         <div className="mx-auto max-w-6xl px-5">
-          <TituloSecao tag="Benefícios" titulo="Resultados reais para o seu negócio" subtitulo="O que muda na prática para o dono, para o gerente e para a equipe." />
+          <TituloSecao tag="Diferenciais" titulo="Por que escolher o Pedido Prime" subtitulo="Uma plataforma SaaS pensada para operação em tempo real e gestão profissional." />
           <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {BENEFICIOS.map((b) => (
               <div key={b.title} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
