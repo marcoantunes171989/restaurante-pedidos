@@ -2918,8 +2918,12 @@ function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, cancela
 
                     {/* Pedidos da mesa */}
                     <div className="space-y-3 p-3">
-                  {pedidos.map((order) => (
-                  <article key={order.id} className={`overflow-hidden rounded-2xl border bg-slate-900/90 ${card} ${key === "ready" ? "ring-1 ring-emerald-500/30" : ""}`}>
+                  {pedidos.map((order) => {
+                  // Tempo decorrido desde a criação — pedido atrasado (>= 20 min sem finalizar) ganha destaque
+                  const minutos = order.createdAtISO ? Math.max(0, Math.floor((Date.now() - new Date(order.createdAtISO).getTime()) / 60000)) : null;
+                  const atrasado = minutos != null && minutos >= 20 && (order.status === "received" || order.status === "preparing");
+                  return (
+                  <article key={order.id} className={`overflow-hidden rounded-2xl border bg-slate-900/90 ${card} ${key === "ready" ? "ring-1 ring-emerald-500/30" : ""} ${atrasado ? "!border-red-500/70 ring-2 ring-red-500/30" : ""}`}>
 
                     {/* Topo do card */}
                     <div className="flex items-start justify-between gap-3 border-b border-white/10 px-4 py-2.5">
@@ -2927,7 +2931,14 @@ function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, cancela
                         <p className="text-xs font-bold uppercase tracking-widest text-slate-500">{order.id} • {order.createdAt}</p>
                         <p className="mt-0.5 font-mono text-sm font-black text-blue-300">{order.command}</p>
                       </div>
-                      <StatusChip status={order.status} />
+                      <div className="flex flex-col items-end gap-1">
+                        <StatusChip status={order.status} />
+                        {minutos != null && (
+                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-black tabular-nums ${atrasado ? "animate-pulse bg-red-500 text-white" : "border border-white/10 bg-white/[0.06] text-slate-300"}`}>
+                            {atrasado ? "⚠ ATRASADO · " : "⏱ "}{minutos} min
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     {/* Itens */}
@@ -2987,7 +2998,8 @@ function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, cancela
                       )}
                     </div>
                   </article>
-                  ))}
+                  );
+                  })}
                     </div>
                   </section>
                   );
@@ -3719,6 +3731,24 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
           </button>
         </div>
       </header>
+
+      {/* ── Alerta destacado: mesas aguardando fechamento ────── */}
+      {modoCaixa === "caixa" && solicitacoes.some((s) => !s.comandas.every((c) => comandasLidas.includes(c))) && (
+        <div className="shrink-0 border-b border-amber-400/30 bg-amber-500/15 px-6 py-2.5">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+            <span className="flex items-center gap-2 text-sm font-black text-amber-200">
+              <span className="relative flex h-2.5 w-2.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400/70" /><span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-amber-400" /></span>
+              🔔 {solicitacoes.filter((s) => !s.comandas.every((c) => comandasLidas.includes(c))).map((s) => s.mesa).join(", ")} solicitou fechamento da conta
+            </span>
+            {solicitacoes.filter((s) => !s.comandas.every((c) => comandasLidas.includes(c))).map((s) => (
+              <button key={s.mesa} onClick={() => carregarMesa(s.comandas)}
+                className="rounded-full border border-amber-400/50 bg-amber-500/20 px-3 py-1 text-xs font-black text-amber-100 hover:bg-amber-400 hover:text-blue-950 transition">
+                Carregar {s.mesa} · {formatCurrency(s.total)}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {modoCaixa === "caixa" && (
       <div className="flex flex-1 overflow-hidden">
