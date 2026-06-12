@@ -1461,14 +1461,14 @@ export default function RestaurantePedidoApp() {
   }
 
   // ── Mesas ────────────────────────────────────────────────
-  async function addMesa({ numero, nome, capacidade }) {
+  async function addMesa({ numero, nome, capacidade, localizacao }) {
     if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
     const n = parseInt(numero, 10);
     if (!n || n < 1 || n > 999) return notify("error", "Informe um número de mesa válido (1–999).");
     const lojaId = lojaAtual ?? null;
     const mesasLoja = mesas.filter((m) => m.lojaId === lojaId || (m.lojaId == null && lojaId == null));
     if (mesasLoja.some((m) => m.numero === n)) return notify("error", `Mesa ${n} já cadastrada.`);
-    const nova = { numero: n, nome: (nome || "").trim(), capacidade: capacidade ? parseInt(capacidade, 10) : null, lojaId };
+    const nova = { numero: n, nome: (nome || "").trim(), capacidade: capacidade ? parseInt(capacidade, 10) : null, lojaId, localizacao: (localizacao || "").trim() || null };
     try {
       const saved = dbReady ? await inserirMesa(nova) : { ...nova, id: Date.now(), active: true };
       setMesas((cur) => [...cur, saved]);
@@ -9146,9 +9146,14 @@ function MesaAdmin({ mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, o
                   <p className="font-black text-white leading-tight">{m.nome || `Mesa ${String(m.numero).padStart(2, "0")}`}</p>
                   <p className="text-xs text-slate-400">
                     {m.capacidade ? `${m.capacidade} lugares` : "Capacidade não definida"}
+                    {m.localizacao && <span className="text-slate-500"> · 📍 {m.localizacao}</span>}
                     {abertos > 0 && <span className="ml-2 rounded-full bg-amber-500/20 px-1.5 py-0.5 text-amber-300">{abertos} pedido(s) aberto(s)</span>}
                   </p>
                 </div>
+                {/* Status operacional (briefing item 16): ocupada > inativa > disponível */}
+                <span className={`hidden shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black sm:inline ${abertos > 0 ? "bg-amber-500/20 text-amber-300" : m.active === false ? "bg-slate-700 text-slate-300" : "bg-emerald-500/15 text-emerald-300"}`}>
+                  {abertos > 0 ? "Ocupada" : m.active === false ? "Inativa" : "Disponível"}
+                </span>
                 <button onClick={() => toggleMesa(m.id)}
                   className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-black transition ${m.active !== false ? "bg-emerald-500 text-white" : "bg-slate-700 text-slate-200"}`}>
                   {m.active !== false ? "Ativa" : "Inativa"}
@@ -9179,7 +9184,7 @@ function MesaAdmin({ mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, o
 }
 
 function MesaCadastroModal({ onSalvar, onFechar }) {
-  const [form, setForm] = useState({ numero: "", nome: "", capacidade: "" });
+  const [form, setForm] = useState({ numero: "", nome: "", capacidade: "", localizacao: "" });
   const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400 placeholder:text-slate-600";
   const lbl = "mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500";
   const valido = parseInt(form.numero, 10) > 0;
@@ -9213,6 +9218,11 @@ function MesaCadastroModal({ onSalvar, onFechar }) {
             <label className={lbl}>Nome / Identificação</label>
             <input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })}
               placeholder="Ex.: Varanda, VIP, Área externa" className={inp} />
+          </div>
+          <div>
+            <label className={lbl}>Localização</label>
+            <input value={form.localizacao} onChange={(e) => setForm({ ...form, localizacao: e.target.value })}
+              placeholder="Ex.: Salão principal, 2º andar, próximo à janela" className={inp} />
           </div>
           <p className="text-xs text-slate-500">A mesa ficará disponível imediatamente no tablet do cliente.</p>
         </div>

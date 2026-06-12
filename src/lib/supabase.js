@@ -388,7 +388,8 @@ export function escutarCargos(onMudanca) {
 //  tab_mesas — CRUD + Realtime (migration 027)
 // ════════════════════════════════════════════════════════════
 function mapMesa(r) {
-  return { id: r.id, numero: r.numero, nome: r.nome || '', capacidade: r.capacidade ?? null, lojaId: r.loja_id ?? null, active: r.ativo }
+  return { id: r.id, numero: r.numero, nome: r.nome || '', capacidade: r.capacidade ?? null, lojaId: r.loja_id ?? null, active: r.ativo,
+    localizacao: r.localizacao || '', observacao: r.observacao || '', permiteTablet: r.permite_tablet !== false, permiteQr: r.permite_qr !== false }
 }
 export async function fetchMesas() {
   const { data, error } = await supabase
@@ -396,11 +397,17 @@ export async function fetchMesas() {
   if (error) throw error
   return data.map(mapMesa)
 }
-export async function inserirMesa({ numero, nome, capacidade, lojaId }) {
-  const { data, error } = await supabase
-    .from('tab_mesas').insert([{ numero, nome: nome || null, capacidade: capacidade || null, loja_id: lojaId || null }]).select().single()
-  if (error) throw error
-  return mapMesa(data)
+export async function inserirMesa({ numero, nome, capacidade, lojaId, localizacao, observacao }) {
+  const linha = { numero, nome: nome || null, capacidade: capacidade || null, loja_id: lojaId || null,
+    ...(localizacao ? { localizacao } : {}), ...(observacao ? { observacao } : {}) }
+  let res = await supabase.from('tab_mesas').insert([linha]).select().single()
+  // Tolerância: banco sem a migration 035 → tenta sem as colunas novas
+  if (res.error && (localizacao || observacao)) {
+    const { localizacao: _l, observacao: _o, ...semNovas } = linha
+    res = await supabase.from('tab_mesas').insert([semNovas]).select().single()
+  }
+  if (res.error) throw res.error
+  return mapMesa(res.data)
 }
 export async function atualizarMesa(id, campos) {
   const { error } = await supabase.from('tab_mesas').update(campos).eq('id', id)
