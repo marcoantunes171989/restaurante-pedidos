@@ -5202,6 +5202,25 @@ function RelatoriosAdmin({ orders, products, lojaInfo }) {
   const filtrados = filtrarPedidosPorPeriodo(orders, periodo, ini, fim);
   const a = analisarVendas(filtrados, products);
 
+  // Margem estimada: (preço − custo cadastrado) dos itens pagos no período
+  const custoPorNome = Object.fromEntries(products.map((p) => [p.name, Number(p.cost) || 0]));
+  const margemEstimada = filtrados
+    .filter((o) => o.paymentStatus === "paid" && o.status !== "cancelled")
+    .reduce((s, o) => s + o.items.reduce((x, it) => x + ((it.price || 0) - (custoPorNome[it.name] ?? 0)) * it.quantity, 0), 0);
+
+  // Comparativo com o intervalo imediatamente anterior (mesma duração)
+  const comparativo = (() => {
+    if (periodo === "tudo") return null;
+    const [a0, b0] = intervaloPeriodo(periodo, ini, fim);
+    if (!a0 || a0.getTime() <= 0) return null;
+    const dur = b0.getTime() - a0.getTime();
+    const anteriores = orders.filter((o) => { if (!o.createdAtISO) return false; const d = new Date(o.createdAtISO); return d >= new Date(a0.getTime() - dur - 1) && d <= new Date(a0.getTime() - 1); });
+    if (anteriores.length === 0) return null;
+    const ant = analisarVendas(anteriores, products);
+    const varPct = (at, an) => an > 0 ? ((at - an) / an) * 100 : (at > 0 ? 100 : null);
+    return { faturamento: varPct(a.faturamento, ant.faturamento), ticket: varPct(a.ticket, ant.ticket), pedidos: varPct(a.totalPedidos, ant.totalPedidos) };
+  })();
+
   // Cupons (pedidos pagos) que contêm um determinado produto
   const cuponsDoProduto = (nome) => filtrados.filter((o) => o.paymentStatus === "paid" && o.items.some((it) => it.name === nome));
 
@@ -5350,10 +5369,13 @@ function RelatoriosAdmin({ orders, products, lojaInfo }) {
             <button onClick={exportarCSV} className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-2.5 text-sm font-black text-emerald-300 hover:bg-emerald-500/20">📊 Exportar Excel (CSV)</button>
             <button onClick={imprimirRelatorio} className="rounded-2xl border border-red-400/30 bg-red-500/10 px-4 py-2.5 text-sm font-black text-red-300 hover:bg-red-500/20">📄 PDF / Imprimir</button>
           </div>
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             <CardMetrica titulo="Subtotal vendido" valor={formatCurrency(a.faturamentoSemTaxa)} cor="text-white" />
-            <CardMetrica titulo="Faturamento + taxa" valor={formatCurrency(a.faturamento)} cor="text-emerald-400" />
+            <CardMetrica titulo="Faturamento + taxa" valor={formatCurrency(a.faturamento)} cor="text-emerald-400" variacao={comparativo?.faturamento} />
             <CardMetrica titulo="Itens vendidos" valor={a.topProdutos.reduce((s, p) => s + p.qtd, 0)} cor="text-blue-400" />
+            <CardMetrica titulo="Ticket médio" valor={formatCurrency(a.ticket)} sub="por pedido pago" cor="text-blue-400" variacao={comparativo?.ticket} />
+            <CardMetrica titulo="Qtd. de pedidos" valor={a.totalPedidos} sub="no período" cor="text-white" variacao={comparativo?.pedidos} />
+            <CardMetrica titulo="Margem estimada" valor={formatCurrency(margemEstimada)} sub="preço − custo cadastrado (itens pagos)" cor="text-gold-400" />
           </div>
           <p className="text-xs text-slate-500">👆 Clique em um produto para ver os cupons em que foi vendido.</p>
           <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.04]">
