@@ -8823,6 +8823,7 @@ function UserAccessAdmin({ users, accesses, toggleUserAccess, definirAcessos, lo
           nomeLoja={nomeLoja}
           toggleUserAccess={toggleUserAccess}
           definirAcessos={definirAcessos}
+          outrosUsuarios={users.filter((u) => u.id !== editando.id && (u.accessIds || []).length > 0)}
           onFechar={() => setEditandoId(null)}
         />
       )}
@@ -8831,7 +8832,7 @@ function UserAccessAdmin({ users, accesses, toggleUserAccess, definirAcessos, lo
 }
 
 // Modal de gestão de acessos de um usuário (padrão de modal do projeto)
-function UserAccessModal({ usuario, acessosAtivos = [], isSuperAdmin = false, nomeLoja, toggleUserAccess, definirAcessos, onFechar }) {
+function UserAccessModal({ usuario, acessosAtivos = [], isSuperAdmin = false, nomeLoja, toggleUserAccess, definirAcessos, outrosUsuarios = [], onFechar }) {
   const liberadas = usuario.accessIds.length;
   const total = acessosAtivos.length;
   const [qrAberto, setQrAberto] = useState(false);
@@ -8863,11 +8864,20 @@ function UserAccessModal({ usuario, acessosAtivos = [], isSuperAdmin = false, no
 
         {/* Corpo */}
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button onClick={() => definirAcessos(usuario.id, acessosAtivos.map((a) => a.id))}
               className="rounded-2xl border border-emerald-400/30 bg-emerald-500/15 px-4 py-2 text-xs font-black text-emerald-200 hover:bg-emerald-500/25 transition">✓ Liberar todas</button>
             <button onClick={() => definirAcessos(usuario.id, [])}
               className="rounded-2xl border border-red-400/30 bg-red-500/10 px-4 py-2 text-xs font-black text-red-300 hover:bg-red-500/20 transition">✕ Bloquear todas</button>
+            {/* Copiar o conjunto de acessos de outro usuário (item 24 do padrão SaaS) */}
+            {outrosUsuarios.length > 0 && (
+              <select defaultValue=""
+                onChange={(e) => { const u = outrosUsuarios.find((x) => String(x.id) === e.target.value); if (u) definirAcessos(usuario.id, [...(u.accessIds || [])]); e.target.value = ""; }}
+                className="rounded-2xl border border-gold-400/30 bg-gold-400/10 px-3 py-2 text-xs font-black text-gold-200 outline-none focus:border-gold-400">
+                <option value="" disabled>Copiar acesso de outro usuário…</option>
+                {outrosUsuarios.map((u) => <option key={u.id} value={u.id}>{u.name} ({(u.accessIds || []).length} tela{(u.accessIds || []).length === 1 ? "" : "s"})</option>)}
+              </select>
+            )}
           </div>
 
           <div className="space-y-2">
