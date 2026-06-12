@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import QRCode from "qrcode";
 import { uploadImagemProduto, validarImagemProduto } from "../lib/supabase";
+import { IconBusca } from "./PrimeIcons";
 
 // ── Helpers ───────────────────────────────────────────────────
 function gerarCodigo(prefixo = "CMD", numero) {
@@ -407,7 +408,7 @@ function PainelVisualizar({ comandasRegistradas, orders, empresa, prefixoLoja, o
       {/* Busca + lista */}
       <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
         <div className="relative mb-4">
-          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">🔍</span>
+          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"><IconBusca /></span>
           <input value={busca} onChange={(e) => setBusca(e.target.value)}
             placeholder="Buscar comanda pelo código..."
             className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-blue-400" />

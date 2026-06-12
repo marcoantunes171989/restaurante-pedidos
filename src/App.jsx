@@ -20,7 +20,7 @@ import {
 import { GeradorComandas } from "./components/QRComandas";
 import { QRScannerModal  } from "./components/QRScanner";
 import { LogoPP } from "./components/BrandLogo";
-import { IconDashboard, IconRelatorios, IconCrm, IconProdutos, IconCategorias, IconMesas, IconPagamento, IconQr, IconCardapio, IconEmpresas, IconUsuarios, IconCargos, IconPermissoes, IconLink, IconLicencas, IconVersoes, IconEmpresa } from "./components/PrimeIcons";
+import { IconDashboard, IconRelatorios, IconCrm, IconProdutos, IconCategorias, IconMesas, IconPagamento, IconQr, IconCardapio, IconEmpresas, IconUsuarios, IconCargos, IconPermissoes, IconLink, IconLicencas, IconVersoes, IconEmpresa, IconBusca } from "./components/PrimeIcons";
 import { PageHeader, PrimeButton } from "./components/Prime";
 
 export const fallbackImage = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=900&q=80";
@@ -2034,7 +2034,7 @@ function TabletView({
           <div className="flex-1 overflow-y-auto p-5">
             {filteredItems.length === 0 ? (
               <div className="flex h-full flex-col items-center justify-center gap-3 opacity-40">
-                <span className="text-5xl">🔍</span>
+                <span className="text-5xl"><IconBusca /></span>
                 <p className="text-base font-black text-slate-300">Nenhum produto encontrado</p>
                 <p className="text-sm text-slate-500">Tente outra busca ou categoria</p>
               </div>
@@ -5904,7 +5904,7 @@ function LicencaAdmin({ lojas = [], usuarios = [], setLicencaEmpresa }) {
       {/* Busca + lista */}
       <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
         <div className="relative mb-4">
-          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">🔍</span>
+          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"><IconBusca /></span>
           <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar empresa..."
             className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-blue-400" />
         </div>
@@ -6292,7 +6292,10 @@ function CrmAdmin({ clientes = [], orders = [] }) {
     <main className="space-y-5">
       {/* Cabeçalho */}
       <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
-        <h3 className="text-xl font-black text-white">👤 CRM — Clientes</h3>
+        <h3 className="page-title flex items-center gap-2.5 text-xl font-bold tracking-tight text-white">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gold-400/30 bg-gold-400/10 text-gold-300"><IconCrm /></span>
+          CRM — Clientes
+        </h3>
         <p className="mt-0.5 text-sm text-slate-400">Clientes identificados nos pedidos do cardápio digital (nome + telefone). Clique em um cliente para ver o histórico completo.</p>
 
         {/* Período de análise */}
@@ -6349,7 +6352,7 @@ function CrmAdmin({ clientes = [], orders = [] }) {
         {/* Busca + ordenação */}
         <div className="mb-4 flex flex-col gap-2 sm:flex-row">
           <div className="relative flex-1">
-            <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">🔍</span>
+            <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"><IconBusca /></span>
             <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por nome ou telefone..."
               className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-blue-400" />
           </div>
@@ -6538,7 +6541,10 @@ function CardapioExternoAdmin({ lojaInfo, setModoUsoEmpresa = async () => {}, co
   return (
     <main className="space-y-5">
       <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
-        <h3 className="text-xl font-black text-white">📱 Cardápio digital externo</h3>
+        <h3 className="page-title flex items-center gap-2.5 text-xl font-bold tracking-tight text-white">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gold-400/30 bg-gold-400/10 text-gold-300"><IconCardapio /></span>
+          Cardápio Digital Externo
+        </h3>
         <p className="mt-0.5 text-sm text-slate-400">Cardápio do cliente no celular — ver, pedir e acompanhar. Empresa: <b className="text-white">{lojaInfo?.nome || "—"}</b></p>
       </div>
 
@@ -6886,7 +6892,7 @@ function LojaAdmin({ lojas, addLoja, toggleLoja, editarLoja, removerLoja, lojaIn
       {/* Busca + lista */}
       <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
         <div className="relative mb-4">
-          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">🔍</span>
+          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"><IconBusca /></span>
           <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por nome ou prefixo..."
             className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-blue-400" />
         </div>
@@ -7172,7 +7178,7 @@ function CategoriaAdmin({ categoriasDb, produtos, addCategoria, toggleCategoria,
       {/* Busca + lista */}
       <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
         <div className="relative mb-4">
-          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">🔍</span>
+          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"><IconBusca /></span>
           <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar categoria..."
             className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-blue-400" />
         </div>
@@ -7393,7 +7399,7 @@ function PagamentoAdmin({ formasPagamento, addFormaPagamento, toggleFormaPagamen
       {/* Busca + lista */}
       <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
         <div className="relative mb-4">
-          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">🔍</span>
+          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"><IconBusca /></span>
           <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar forma de pagamento..."
             className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-blue-400" />
         </div>
@@ -7749,7 +7755,7 @@ function ProductAdmin({ products, categories, adminForm, setAdminForm, addProduc
       {/* ── Busca + filtro por categoria ─────────────────── */}
       <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
         <div className="relative mb-3">
-          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">🔍</span>
+          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"><IconBusca /></span>
           <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar produto por nome ou categoria..."
             className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-blue-400" />
         </div>
@@ -8260,7 +8266,7 @@ function CargoAdmin({ cargos = [], users = [], addCargo, editarCargo, toggleCarg
       {/* Busca + lista */}
       <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
         <div className="relative mb-4">
-          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">🔍</span>
+          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"><IconBusca /></span>
           <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar cargo..."
             className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-blue-400" />
         </div>
@@ -8417,7 +8423,7 @@ function UserAdmin({ users, userForm, setUserForm, addUser, toggleUserStatus, ed
       <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
         <div className={`mb-4 grid gap-3 ${isSuperAdmin ? "sm:grid-cols-[1fr_220px]" : ""}`}>
           <div className="relative">
-            <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">🔍</span>
+            <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"><IconBusca /></span>
             <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por nome, e-mail, cargo ou empresa..."
               className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-blue-400" />
           </div>
@@ -8622,7 +8628,7 @@ function AccessAdmin({ accesses, accessForm, setAccessForm, addAccess, toggleAcc
       {/* Busca + lista */}
       <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
         <div className="relative mb-4">
-          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">🔍</span>
+          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"><IconBusca /></span>
           <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar permissão..."
             className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-blue-400" />
         </div>
@@ -8746,7 +8752,7 @@ function UserAccessAdmin({ users, accesses, toggleUserAccess, definirAcessos, lo
       <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
         <div className="mb-4 flex flex-col gap-2 sm:flex-row">
           <div className="relative flex-1">
-            <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">🔍</span>
+            <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"><IconBusca /></span>
             <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar usuário por nome, e-mail ou cargo..."
               className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-blue-400" />
           </div>
@@ -9053,7 +9059,7 @@ function MesaAdmin({ mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, o
       {/* Busca + lista */}
       <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
         <div className="relative mb-4">
-          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">🔍</span>
+          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"><IconBusca /></span>
           <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por número ou nome..."
             className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-blue-400" />
         </div>

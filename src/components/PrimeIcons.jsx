@@ -22,3 +22,4 @@ export const IconLicencas   = () => (<svg {...base}><circle cx="8.5" cy="9" r="4
 export const IconVersoes    = () => (<svg {...base}><path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v4h-4"/></svg>);
 export const IconEmpresa    = () => (<svg {...base}><path d="M4 9 5.2 4.5A1 1 0 0 1 6.2 4h11.6a1 1 0 0 1 1 .5L20 9"/><path d="M4 9h16v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V9Z"/><path d="M9 20v-5h6v5"/></svg>);
 export const IconComanda    = () => (<svg {...base}><path d="M7 3h10a1 1 0 0 1 1 1v17l-3-2-3 2-3-2-3 2V4a1 1 0 0 1 1-1Z"/><path d="M9 8h6M9 12h6"/></svg>);
+export const IconBusca      = () => (<svg {...base} width="16" height="16"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg>);
