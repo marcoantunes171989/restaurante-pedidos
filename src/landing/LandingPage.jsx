@@ -403,17 +403,23 @@ export default function LandingPage({ navigate }) {
       {/* ── Header sticky ─────────────────────────────────── */}
       {/* paddingTop: app instalado em tela cheia — afasta o conteúdo da barra de status (safe area) */}
       <header className="sticky top-0 z-50 border-b border-gold-400/20 bg-blue-950/90 backdrop-blur-xl" style={{ paddingTop: "env(safe-area-inset-top)" }}>
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-5 py-3.5">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-5 py-3.5">
           <button onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className="shrink-0"><Marca claro /></button>
           {/* Menu completo só quando cabe em uma linha (xl); abaixo disso, hambúrguer */}
-          <nav className="hidden min-w-0 items-center gap-4 xl:flex">
+          <nav className="hidden min-w-0 items-center gap-3 xl:flex 2xl:gap-4">
             {NAV.map((n) => (
-              <button key={n.id} onClick={() => goTo(n.id)} className="whitespace-nowrap text-sm font-bold text-slate-300 transition hover:text-white">{n.label}</button>
+              <button key={n.id} onClick={() => goTo(n.id)} className="whitespace-nowrap text-[13px] font-bold text-slate-300 transition hover:text-white 2xl:text-sm">{n.label}</button>
             ))}
           </nav>
           <div className="flex shrink-0 items-center gap-2">
-            <Botao variant="gold" onClick={() => goTo("contato")} className="hidden whitespace-nowrap 2xl:inline-flex">Solicitar Demonstração</Botao>
-            <Botao variant="primary" onClick={acessar} className="hidden whitespace-nowrap sm:inline-flex">Acessar Sistema</Botao>
+            <button onClick={() => goTo("contato")}
+              className="font-display hidden whitespace-nowrap rounded-xl bg-gold-400 px-4 py-2.5 text-xs font-bold text-blue-950 shadow-lg shadow-gold-600/25 transition hover:bg-gold-300 active:scale-95 xl:inline-flex">
+              Solicitar Demonstração
+            </button>
+            <button onClick={acessar}
+              className="font-display hidden whitespace-nowrap rounded-xl bg-blue-500 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-blue-600/25 transition hover:bg-blue-400 active:scale-95 sm:inline-flex">
+              Acessar Sistema
+            </button>
             <button onClick={() => setMenuAberto((v) => !v)} className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/15 bg-white/10 text-white xl:hidden">☰</button>
           </div>
         </div>
