@@ -6,7 +6,7 @@ import {
   fetchPedidos,   inserirPedido,   atualizarPedido,   escutarPedidos,
   fetchFormasPagamento, inserirFormaPagamento, atualizarFormaPagamento, escutarFormasPagamento,
   fetchCategorias, inserirCategoria, atualizarCategoria, excluirCategoria, escutarCategorias,
-  fetchLojas, inserirLoja, atualizarLoja, excluirLoja, escutarLojas, cadastrarEmpresa,
+  fetchLojas, inserirLoja, atualizarLoja, excluirLoja, escutarLojas, cadastrarEmpresa, registrarLicencaHistorico,
   fetchComandas, inserirComandas, escutarComandas, excluirComanda, renomearComanda, toggleComandaAtivo,
   fetchCargos, inserirCargo, atualizarCargo, excluirCargo, escutarCargos,
   fetchMesas, inserirMesa, atualizarMesa, excluirMesa, escutarMesas,
@@ -1216,7 +1216,17 @@ export default function RestaurantePedidoApp() {
   }
 
   // ── Licença de uso por empresa (somente administrador geral) ──
-  async function setLicencaEmpresa(id, bloquear) {
+  // Define/remove a validade da licença (migration 031) e registra no histórico
+  async function setValidadeLicenca(id, dataISO) {
+    if (!isSuperAdmin) return notify("error", "Somente o administrador geral controla licenças.");
+    setLojas((cur) => cur.map((x) => x.id === id ? { ...x, licencaValidade: dataISO || null } : x));
+    if (dbReady) try {
+      await atualizarLoja(id, { licenca_validade: dataISO || null });
+      await registrarLicencaHistorico({ lojaId: id, acao: "renovada", motivo: dataISO ? `Validade definida para ${dataISO}` : "Validade removida", usuarioEmail: currentUser?.email || null });
+    } catch (err) { notify("error", "Erro ao salvar validade: " + err.message); }
+  }
+
+  async function setLicencaEmpresa(id, bloquear, motivo = "") {
     if (!isSuperAdmin) return notify("error", "Somente o administrador geral controla licenças.");
     const l = lojas.find((x) => x.id === id);
     setLojas((cur) => cur.map((x) => x.id === id ? { ...x, licencaBloqueada: bloquear } : x));
@@ -1225,8 +1235,10 @@ export default function RestaurantePedidoApp() {
       logout();
       notify("error", "Licença suspensa, entre em contato com o administrador do sistema.");
     }
-    if (dbReady) try { await atualizarLoja(id, { licenca_bloqueada: bloquear }); }
+    if (dbReady) try { await atualizarLoja(id, { licenca_bloqueada: bloquear, licenca_motivo: bloquear ? (motivo || null) : null }); }
     catch (err) { notify("error", "Erro ao salvar licença: " + err.message); return; }
+    // Trilha de auditoria da licença (migration 031) — falha silenciosa se indisponível
+    if (dbReady) try { await registrarLicencaHistorico({ lojaId: id, acao: bloquear ? "suspensa" : "liberada", motivo: motivo || null, usuarioEmail: currentUser?.email || null }); } catch {}
     notify("success", bloquear
       ? `Licença da empresa "${l?.nome || ""}" SUSPENSA. Acessos bloqueados.`
       : `Licença da empresa "${l?.nome || ""}" LIBERADA. Acessos reativados.`);
@@ -1681,7 +1693,7 @@ export default function RestaurantePedidoApp() {
         )}
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} products={products} lojaInfo={lojaInfo} />}
         {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierView orders={orders} baixarComandas={baixarComandas} baixarPedidos={baixarPedidos} formasPagamento={formasPagamentoLoja} onSair={logout} lojaInfo={lojaInfo} />}
-        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} setLicencaEmpresa={setLicencaEmpresa} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} />}
+        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} />}
 
       </div>
     </div>
@@ -4523,7 +4535,7 @@ function ComboEmpresaFoco({ lojas = [], valor, onChange }) {
   );
 }
 
-function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, toggleUserStatus, toggleAccessStatus, usersLoja, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], addLoja, toggleLoja, editarLoja, removerLoja, setLicencaEmpresa = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, setModoUsoEmpresa = async()=>{}, mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, clientes = [] }) {
+function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, toggleUserStatus, toggleAccessStatus, usersLoja, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], addLoja, toggleLoja, editarLoja, removerLoja, setLicencaEmpresa = async()=>{}, setValidadeLicenca = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, setModoUsoEmpresa = async()=>{}, mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, clientes = [] }) {
   // Menu reorganizado por contexto (SaaS premium) — mesmos ids e permissões de antes
   const menu = [
     { grupo: "Visão Geral", itens: [
@@ -4697,7 +4709,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           {ativo === "comandas"   && (precisaEmpresa ? avisoEmpresa : <GeradorComandas prefixoLoja={lojaInfo?.prefixo || "CMD"} empresa={lojaInfo?.nome || "Restaurante"} onGerar={registrarComandas} comandasRegistradas={comandasRegistradas} orders={orders} onExcluirComanda={excluirComandaFn} onRenomearComanda={renomearComandaFn} onToggleComanda={toggleComandaFn} lojaId={lojaInfo?.id} logoSalvo={lojaInfo?.logoUrl || ""} onSalvarLogo={(url) => salvarLogoEmpresa(lojaInfo?.id, url)} onIrCardapioExterno={() => setAdminSection("cardapioext")} />)}
           {ativo === "pagamento"  && (precisaEmpresa ? avisoEmpresa : <PagamentoAdmin formasPagamento={formasPagamento} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} />)}
           {ativo === "lojas"      && <LojaAdmin lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} lojaInfo={lojaInfo} criarEmpresa={criarEmpresa} cargos={cargos} />}
-          {ativo === "licencas"   && <LicencaAdmin lojas={lojas} usuarios={users} setLicencaEmpresa={setLicencaEmpresa} />}
+          {ativo === "licencas"   && <LicencaAdmin lojas={lojas} usuarios={users} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} />}
           {ativo === "versoes"    && <VersoesAdmin lojas={lojas} lojaFiltro={isSuperAdmin ? null : (lojaInfo?.id ?? null)} />}
           {ativo === "cardapioext" && (precisaEmpresa ? avisoEmpresa : <CardapioExternoAdmin lojaInfo={lojaInfo} setModoUsoEmpresa={setModoUsoEmpresa} comandas={comandasRegistradas} mesas={mesas} />)}
           {ativo === "minhaempresa" && (
@@ -5891,7 +5903,7 @@ function RelatorioPermanencia({ pedidos }) {
 // ════════════════════════════════════════════════════════════
 //  Admin — Licenças de uso por empresa (somente administrador geral)
 // ════════════════════════════════════════════════════════════
-function LicencaAdmin({ lojas = [], usuarios = [], setLicencaEmpresa }) {
+function LicencaAdmin({ lojas = [], usuarios = [], setLicencaEmpresa, setValidadeLicenca = async()=>{} }) {
   const [busca, setBusca]       = useState("");
   const [confirmar, setConfirmar] = useState(null); // { loja, bloquear }
 
@@ -5949,6 +5961,10 @@ function LicencaAdmin({ lojas = [], usuarios = [], setLicencaEmpresa }) {
                     {l.licencaValidade && <span className="text-slate-500"> · válida até {new Date(`${l.licencaValidade}T00:00:00`).toLocaleDateString("pt-BR")}</span>}
                   </p>
                 </div>
+                {/* Validade da licença — grava no banco e registra no histórico (migration 031) */}
+                <input type="date" value={l.licencaValidade || ""} onChange={(e) => setValidadeLicenca(l.id, e.target.value)}
+                  title="Validade da licença"
+                  className="hidden shrink-0 rounded-xl border border-white/10 bg-slate-950/70 px-2.5 py-1.5 text-xs text-white outline-none focus:border-gold-400/60 sm:block" />
                 {/* Alerta de vencimento (requer migration 031 — campo licenca_validade) */}
                 {(() => {
                   if (!l.licencaValidade || bloqueada) return null;
@@ -5985,9 +6001,16 @@ function LicencaAdmin({ lojas = [], usuarios = [], setLicencaEmpresa }) {
                   : <>A empresa <b className="text-white">{confirmar.loja.nome}</b> terá o acesso <b className="text-emerald-300">liberado</b>. Os usuários poderão logar normalmente.</>}
               </p>
             </div>
+            {/* Motivo da suspensão — vai para o histórico de licenças (migration 031) */}
+            {confirmar.bloquear && (
+              <textarea value={confirmar.motivo || ""} rows={2}
+                onChange={(e) => setConfirmar((c) => ({ ...c, motivo: e.target.value }))}
+                placeholder="Motivo da suspensão (ex.: inadimplência, solicitação do cliente)..."
+                className="w-full resize-none rounded-2xl border border-white/10 bg-slate-950/70 px-3.5 py-2.5 text-sm text-white outline-none placeholder:text-slate-500 focus:border-red-400/60" />
+            )}
             <div className="flex gap-3">
               <button onClick={() => setConfirmar(null)} className="flex-1 rounded-2xl border border-white/10 bg-white/[0.06] py-3 text-sm font-black text-slate-300 hover:bg-white/10">Cancelar</button>
-              <button onClick={async () => { await setLicencaEmpresa(confirmar.loja.id, confirmar.bloquear); setConfirmar(null); }}
+              <button onClick={async () => { await setLicencaEmpresa(confirmar.loja.id, confirmar.bloquear, confirmar.motivo || ""); setConfirmar(null); }}
                 className={`flex-[1.5] rounded-2xl py-3 text-sm font-black text-white transition active:scale-95 ${confirmar.bloquear ? "bg-red-500 hover:bg-red-400" : "bg-emerald-500 hover:bg-emerald-400"}`}>
                 {confirmar.bloquear ? "⛔ Suspender" : "▶ Liberar"}
               </button>

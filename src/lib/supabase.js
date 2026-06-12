@@ -153,6 +153,13 @@ function dbParaForma(r) {
   return { id: r.id, nome: r.nome, tipo: r.tipo, permiteTroco: r.permite_troco, active: r.ativo, lojaId: r.loja_id ?? null }
 }
 
+// Trilha de auditoria das licenças (migration 031)
+export async function registrarLicencaHistorico({ lojaId, acao, motivo = null, usuarioEmail = null }) {
+  const { error } = await supabase.from('tab_licenca_historico')
+    .insert([{ loja_id: lojaId, acao, motivo, usuario_email: usuarioEmail }])
+  if (error) throw error
+}
+
 // ════════════════════════════════════════════════════════════
 //  tab_lojas — CRUD + Realtime (multi-empresa)
 // ════════════════════════════════════════════════════════════
