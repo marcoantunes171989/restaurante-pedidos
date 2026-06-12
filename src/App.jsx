@@ -5946,8 +5946,17 @@ function LicencaAdmin({ lojas = [], usuarios = [], setLicencaEmpresa }) {
                   <p className="font-black text-white truncate">{l.nome}</p>
                   <p className="text-xs text-slate-400">
                     <span className="font-mono">{l.prefixo}</span> · {qtdUsuarios(l.id)} usuário(s)
+                    {l.licencaValidade && <span className="text-slate-500"> · válida até {new Date(`${l.licencaValidade}T00:00:00`).toLocaleDateString("pt-BR")}</span>}
                   </p>
                 </div>
+                {/* Alerta de vencimento (requer migration 031 — campo licenca_validade) */}
+                {(() => {
+                  if (!l.licencaValidade || bloqueada) return null;
+                  const dias = Math.ceil((new Date(`${l.licencaValidade}T23:59:59`).getTime() - Date.now()) / 86400000);
+                  if (dias < 0) return <span className="shrink-0 rounded-full bg-red-500/20 px-3 py-1 text-xs font-black text-red-300">Vencida</span>;
+                  if (dias <= 7) return <span className="shrink-0 animate-pulse rounded-full bg-amber-500/20 px-3 py-1 text-xs font-black text-amber-300">Vence em {dias} dia{dias === 1 ? "" : "s"}</span>;
+                  return null;
+                })()}
                 <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-black ${bloqueada ? "bg-red-500/20 text-red-300" : "bg-emerald-500/20 text-emerald-300"}`}>
                   {bloqueada ? "Suspensa" : "Liberada"}
                 </span>
