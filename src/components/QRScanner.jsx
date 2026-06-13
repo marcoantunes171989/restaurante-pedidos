@@ -191,20 +191,23 @@ export function QRScannerModal({ onSucesso, onCancelar, prefixoLoja = "CMD", loj
 
   const bg = status === "sucesso" ? "border-emerald-500/40 bg-emerald-500/5"
            : status === "erro"    ? "border-red-500/40 bg-red-500/5"
-           : "border-white/10 bg-slate-900";
+           : "border-gold-400/20 bg-black";
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 backdrop-blur-md p-4" style={{ fontFamily: "'Poppins','Inter',sans-serif" }}>
       <div className={`w-full max-w-sm rounded-[2rem] border shadow-2xl overflow-hidden transition-colors ${bg}`}>
 
         {/* Cabeçalho */}
-        <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
-          <div>
-            <h2 className="text-base font-black text-white">{ehLogin ? "🔐 Entrar com QR Code" : "📷 Escanear Comanda"}</h2>
-            <p className="text-xs text-slate-400">{ehLogin ? "Aponte para o seu QR Code de login" : "Aponte para o QR Code impresso na comanda"}</p>
+        <div className="flex items-center justify-between gap-3 border-b border-gold-400/15 px-5 py-4">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gold-400/30 bg-gold-400/10 text-gold-300">{ehLogin ? "🔐" : "📷"}</span>
+            <div>
+              <h2 className="font-display text-base font-bold tracking-tight text-white">{ehLogin ? "Entrar com QR Code" : "Escanear Comanda"}</h2>
+              <p className="text-xs text-slate-400">{ehLogin ? "Aponte para o seu QR Code de login" : "Aponte para o QR Code impresso na comanda"}</p>
+            </div>
           </div>
           <button onClick={fechar}
-            className="rounded-2xl bg-red-500/20 border border-red-400/30 px-4 py-2.5 text-sm font-black text-red-300 hover:bg-red-500/40 transition active:scale-95">
+            className="shrink-0 rounded-2xl bg-red-500/15 border border-red-400/30 px-4 py-2.5 text-sm font-bold text-red-300 hover:bg-red-500/30 transition active:scale-95">
             ✕ Cancelar
           </button>
         </div>
@@ -226,11 +229,11 @@ export function QRScannerModal({ onSucesso, onCancelar, prefixoLoja = "CMD", loj
           {status === "lendo" && (
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
               <div className="relative h-48 w-48">
-                <div className="absolute left-0 top-0 h-7 w-7 border-l-4 border-t-4 border-blue-400 rounded-tl-xl" />
-                <div className="absolute right-0 top-0 h-7 w-7 border-r-4 border-t-4 border-blue-400 rounded-tr-xl" />
-                <div className="absolute left-0 bottom-0 h-7 w-7 border-l-4 border-b-4 border-blue-400 rounded-bl-xl" />
-                <div className="absolute right-0 bottom-0 h-7 w-7 border-r-4 border-b-4 border-blue-400 rounded-br-xl" />
-                <div className="absolute left-3 right-3 h-0.5 bg-blue-400/80 shadow shadow-blue-400 rounded-full"
+                <div className="absolute left-0 top-0 h-7 w-7 border-l-4 border-t-4 border-gold-400 rounded-tl-xl" />
+                <div className="absolute right-0 top-0 h-7 w-7 border-r-4 border-t-4 border-gold-400 rounded-tr-xl" />
+                <div className="absolute left-0 bottom-0 h-7 w-7 border-l-4 border-b-4 border-gold-400 rounded-bl-xl" />
+                <div className="absolute right-0 bottom-0 h-7 w-7 border-r-4 border-b-4 border-gold-400 rounded-br-xl" />
+                <div className="absolute left-3 right-3 h-0.5 bg-gold-400/80 shadow shadow-gold-500 rounded-full"
                   style={{ animation: "scanLine 2s ease-in-out infinite" }} />
               </div>
               <style>{`
@@ -247,7 +250,7 @@ export function QRScannerModal({ onSucesso, onCancelar, prefixoLoja = "CMD", loj
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 p-6 text-center bg-slate-950/90">
               {status === "iniciando" && (
                 <>
-                  <div className="h-12 w-12 animate-spin rounded-full border-4 border-blue-500/30 border-t-blue-500" />
+                  <div className="h-12 w-12 animate-spin rounded-full border-4 border-gold-400/30 border-t-gold-400" />
                   <p className="text-sm text-slate-300">{mensagem}</p>
                 </>
               )}
@@ -265,7 +268,7 @@ export function QRScannerModal({ onSucesso, onCancelar, prefixoLoja = "CMD", loj
                   <p className="text-sm text-red-300 leading-6 whitespace-pre-line">{mensagem}</p>
                   <div className="flex gap-2 mt-1">
                     <button onClick={() => setTentativa((n) => n + 1)}
-                      className="rounded-2xl bg-blue-500/20 border border-blue-400/30 px-4 py-2 text-xs font-black text-blue-200 hover:bg-blue-500/30 transition">
+                      className="rounded-2xl bg-gold-400/15 border border-gold-400/40 px-4 py-2 text-xs font-bold text-gold-200 hover:bg-gold-400/25 transition">
                       🔄 Tentar novamente
                     </button>
                     <button onClick={fechar}
@@ -283,14 +286,14 @@ export function QRScannerModal({ onSucesso, onCancelar, prefixoLoja = "CMD", loj
         <div className={`px-5 py-3 text-center text-sm font-semibold transition-all
           ${status === "sucesso" ? "text-emerald-300 bg-emerald-500/10"
           : status === "erro"   ? "text-red-300 bg-red-500/10"
-          : status === "lendo"  ? "text-blue-300 bg-blue-500/5"
+          : status === "lendo"  ? "text-gold-300 bg-gold-400/5"
           : "text-slate-400"}`}>
           {status === "lendo" ? "🔍 " + mensagem : mensagem.split("\n")[0]}
         </div>
 
         {/* Entrada manual — só no modo comanda (login usa um payload codificado) */}
         {!ehLogin && (
-          <div className="border-t border-white/10 px-5 py-4">
+          <div className="border-t border-gold-400/15 px-5 py-4">
             <p className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">Ou digite a comanda</p>
             <div className="flex gap-2">
               <input
@@ -298,10 +301,10 @@ export function QRScannerModal({ onSucesso, onCancelar, prefixoLoja = "CMD", loj
                 onChange={(e) => setManual(e.target.value.toUpperCase())}
                 onKeyDown={(e) => { if (e.key === "Enter") confirmarManual(); }}
                 placeholder={`Ex.: ${prefixoLoja}-000001`}
-                className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 font-mono text-sm font-black tracking-widest text-white outline-none focus:border-blue-400 placeholder:text-slate-600"
+                className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 font-mono text-sm font-black tracking-widest text-white outline-none focus:border-gold-400/60 placeholder:text-slate-600"
               />
               <button onClick={confirmarManual}
-                className="shrink-0 rounded-2xl bg-blue-500 px-5 py-3 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95">
+                className="font-display shrink-0 rounded-2xl bg-gold-400 px-5 py-3 text-sm font-bold text-blue-950 hover:bg-gold-300 transition active:scale-95">
                 Confirmar
               </button>
             </div>
@@ -310,7 +313,7 @@ export function QRScannerModal({ onSucesso, onCancelar, prefixoLoja = "CMD", loj
         )}
 
         {/* Rodapé */}
-        <div className="border-t border-white/10 px-5 py-3 flex items-center justify-between">
+        <div className="border-t border-gold-400/15 px-5 py-3 flex items-center justify-between">
           <p className="text-xs text-slate-500">
             {ehLogin
               ? <>Leia o <span className="font-black text-slate-300">QR de login</span> (gerado em Usuário × Acesso)</>
