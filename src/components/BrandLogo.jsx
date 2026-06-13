@@ -7,7 +7,7 @@
 // ════════════════════════════════════════════════════════════
 import { useState } from "react";
 
-const LOGO_SRC = "/logo-pp.png";
+const LOGO_SRC = "/logo-oficial.png";
 
 export function LogoPP({ size = 40, fundo = true, className = "" }) {
   const [erro, setErro] = useState(false);
