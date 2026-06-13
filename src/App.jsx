@@ -5218,29 +5218,30 @@ function ModalDetalhePedidos({ titulo, pedidos, onFechar }) {
   const total = pedidos.reduce((s, o) => s + orderTotal(o) * 1.1, 0);
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onFechar}>
-      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-2xl flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl max-h-[88vh]">
-        <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-2xl flex-col overflow-hidden rounded-[2rem] border border-gold-400/15 bg-blue-950 shadow-2xl max-h-[88vh]">
+        <div className="flex items-center justify-between gap-3 border-b border-gold-400/15 px-6 py-4">
           <div>
-            <h2 className="text-lg font-black text-white">{titulo}</h2>
-            <p className="text-xs text-slate-400">{pedidos.length} pedido(s) • Total {formatCurrency(total)}</p>
+            <h2 className="page-title text-lg font-bold tracking-tight text-white">{titulo}</h2>
+            <p className="mt-0.5 text-xs text-slate-400">{pedidos.length} pedido(s) • Total <span className="font-semibold text-emerald-300">{formatCurrency(total)}</span></p>
           </div>
-          <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20">✕</button>
+          <button onClick={onFechar} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-sm font-bold text-slate-300 hover:bg-white/15 transition">✕</button>
         </div>
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
           {pedidos.length === 0 && <p className="py-8 text-center text-sm text-slate-500">Nenhum pedido no período.</p>}
           {pedidos.map((o) => (
-            <div key={o.id} className="rounded-2xl border border-white/10 bg-slate-800/50 p-4">
-              <div className="flex items-center justify-between">
+            <div key={o.id} className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+              <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-widest text-slate-500">{o.id} • {o.table} • {o.command}</p>
-                  <p className="text-xs text-slate-400">{o.createdAtISO ? new Date(o.createdAtISO).toLocaleString("pt-BR") : o.createdAt}</p>
+                  <p className="text-[11px] font-bold uppercase tracking-widest text-slate-500">{o.id} • {o.table} • {o.command}</p>
+                  <p className="mt-0.5 text-xs text-slate-400">{o.createdAtISO ? new Date(o.createdAtISO).toLocaleString("pt-BR") : o.createdAt}</p>
                 </div>
-                <span className="font-black text-emerald-300">{formatCurrency(orderTotal(o) * 1.1)}</span>
+                <span className="page-title shrink-0 text-base font-bold text-emerald-300">{formatCurrency(orderTotal(o) * 1.1)}</span>
               </div>
               <div className="mt-2 space-y-0.5">
                 {o.items.map((it, i) => (
-                  <div key={i} className="flex justify-between text-sm text-slate-300">
-                    <span>{it.quantity}x {it.name}</span><span>{formatCurrency(it.price * it.quantity)}</span>
+                  <div key={i} className="flex justify-between gap-3 text-sm">
+                    <span className="text-slate-200"><b className="font-semibold text-white">{it.quantity}x</b> {it.name}</span>
+                    <span className="shrink-0 font-medium text-slate-300">{formatCurrency(it.price * it.quantity)}</span>
                   </div>
                 ))}
               </div>
