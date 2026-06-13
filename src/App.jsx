@@ -2283,23 +2283,13 @@ function TabletView({
                 </div>
                 <p className="mt-0.5 text-xs text-slate-400">{formatCurrency(item.price)} cada • <span className="font-semibold text-gold-400">{formatCurrency(item.price * item.quantity)}</span></p>
 
-                {/* Ingredientes — somente leitura no resumo (edição é no produto) */}
-                <div className="mt-2 flex flex-wrap gap-1">
-                  {item.selectedIngredients.map((ing) => (
-                    <span key={ing} className="rounded-full border border-emerald-400/20 bg-emerald-500/10 px-2 py-0.5 text-xs text-emerald-200">✓ {ing}</span>
-                  ))}
-                  {item.removedIngredients.map((ing) => (
-                    <span key={ing} className="rounded-full border border-red-400/20 bg-red-500/10 px-2 py-0.5 text-xs text-red-300 line-through">✗ {ing}</span>
-                  ))}
-                </div>
-
-                {/* Extras e observação adicionados na personalização aparecem como resumo */}
+                {/* Resumo limpo: a lista de ingredientes padrão não é exibida aqui.
+                    Mantém apenas as modificações relevantes para a cozinha. */}
+                {item.removedIngredients.length > 0 && (
+                  <p className="mt-1 text-xs text-red-300">Sem: {item.removedIngredients.join(", ")}</p>
+                )}
                 {item.extraIngredients.length > 0 && (
-                  <div className="mt-1 flex flex-wrap gap-1">
-                    {item.extraIngredients.map((ing) => (
-                      <span key={ing} className="rounded-full border border-blue-400/20 bg-blue-500/10 px-2 py-0.5 text-xs text-blue-200">+ {ing}</span>
-                    ))}
-                  </div>
+                  <p className="mt-1 text-xs text-gold-300">Adicionais: {item.extraIngredients.join(", ")}</p>
                 )}
                 {item.observation && <p className="mt-1 text-xs text-amber-300">📝 {item.observation}</p>}
               </div>
