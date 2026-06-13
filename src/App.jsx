@@ -181,6 +181,22 @@ function canAccess(user, accessId) {
   return Boolean(user && user.active && user.accessIds.includes(accessId));
 }
 
+// Ações configuráveis por módulo (briefing item 23 — migration 032)
+const ACOES_MODULO = [
+  ["ver", "Visualizar"], ["incluir", "Incluir"], ["alterar", "Alterar"],
+  ["excluir", "Excluir"], ["inativar", "Inativar"], ["exportar", "Exportar"],
+];
+// Verdadeiro se o usuário pode executar a ação no módulo. Retrocompatível:
+// se o módulo não estiver no mapa, todas as ações são permitidas.
+function temAcao(user, moduloId, acao) {
+  if (!user) return false;
+  if (user.superAdmin) return true;
+  const mapa = user.permissoesAcoes || {};
+  const lista = mapa[moduloId];
+  if (!Array.isArray(lista)) return true; // módulo não configurado → liberado
+  return lista.includes(acao);
+}
+
 function runSelfTests() {
   const sample = createCartItem(initialProducts[0]);
   console.assert(sample.quantity === 1, "Novo item deve iniciar com quantidade 1");
@@ -1551,6 +1567,13 @@ export default function RestaurantePedidoApp() {
     setUsers((cur) => cur.map((u) => u.id === uid ? { ...u, accessIds } : u));
     if (dbReady) try { await atualizarUsuario(uid, { ids_acesso: accessIds }); } catch {}
   }
+  // Salva o mapa de ações por módulo do usuário (migration 032). Tolerante se a coluna não existir.
+  async function definirAcoesUsuario(uid, permissoesAcoes) {
+    if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
+    setUsers((cur) => cur.map((u) => u.id === uid ? { ...u, permissoesAcoes } : u));
+    if (dbReady) try { await atualizarUsuario(uid, { permissoes_acoes: permissoesAcoes }); }
+    catch (e) { notify("error", "Erro ao salvar permissões: " + (e.message || e)); }
+  }
 
   async function toggleUserStatus(uid) {
     if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
@@ -1712,7 +1735,7 @@ export default function RestaurantePedidoApp() {
         )}
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} products={products} lojaInfo={lojaInfo} />}
         {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierView orders={orders} baixarComandas={baixarComandas} baixarPedidos={baixarPedidos} formasPagamento={formasPagamentoLoja} onSair={logout} lojaInfo={lojaInfo} />}
-        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} />}
+        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} />}
 
       </div>
     </div>
@@ -4554,7 +4577,7 @@ function ComboEmpresaFoco({ lojas = [], valor, onChange }) {
   );
 }
 
-function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, toggleUserStatus, toggleAccessStatus, usersLoja, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], addLoja, toggleLoja, editarLoja, removerLoja, setLicencaEmpresa = async()=>{}, setValidadeLicenca = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, setModoUsoEmpresa = async()=>{}, salvarConfigExterno = async()=>{}, mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, clientes = [] }) {
+function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, definirAcoesUsuario, toggleUserStatus, toggleAccessStatus, usersLoja, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], addLoja, toggleLoja, editarLoja, removerLoja, setLicencaEmpresa = async()=>{}, setValidadeLicenca = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, setModoUsoEmpresa = async()=>{}, salvarConfigExterno = async()=>{}, mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, clientes = [] }) {
   // Menu reorganizado por contexto (SaaS premium) — mesmos ids e permissões de antes
   const menu = [
     { grupo: "Visão Geral", itens: [
@@ -4722,7 +4745,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           {ativo === "users"      && <UserAdmin      users={isSuperAdmin ? users : (usersLoja ?? users)} userForm={userForm} setUserForm={setUserForm} addUser={addUser} toggleUserStatus={toggleUserStatus} editarUsuario={editarUsuario} removerUsuario={removerUsuario} lojaInfo={lojaInfo} lojas={lojas} isSuperAdmin={isSuperAdmin} cargos={cargos} />}
           {ativo === "cargos"     && <CargoAdmin     cargos={cargos} users={isSuperAdmin ? users : (usersLoja ?? users)} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} />}
           {ativo === "access"     && <AccessAdmin    accesses={accesses} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleAccessStatus={toggleAccessStatus} />}
-          {ativo === "link"       && <UserAccessAdmin users={isSuperAdmin ? users : (usersLoja ?? users)} accesses={accesses} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} lojas={lojas} isSuperAdmin={isSuperAdmin} />}
+          {ativo === "link"       && <UserAccessAdmin users={isSuperAdmin ? users : (usersLoja ?? users)} accesses={accesses} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} lojas={lojas} isSuperAdmin={isSuperAdmin} />}
           {ativo === "categorias" && (precisaEmpresa ? avisoEmpresa : <CategoriaAdmin categoriasDb={categoriasDb} produtos={products} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} />)}
           {ativo === "mesas"      && (precisaEmpresa ? avisoEmpresa : <MesaAdmin mesas={mesas} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} orders={orders} />)}
           {ativo === "comandas"   && (precisaEmpresa ? avisoEmpresa : <GeradorComandas prefixoLoja={lojaInfo?.prefixo || "CMD"} empresa={lojaInfo?.nome || "Restaurante"} onGerar={registrarComandas} comandasRegistradas={comandasRegistradas} orders={orders} onExcluirComanda={excluirComandaFn} onRenomearComanda={renomearComandaFn} onToggleComanda={toggleComandaFn} lojaId={lojaInfo?.id} logoSalvo={lojaInfo?.logoUrl || ""} onSalvarLogo={(url) => salvarLogoEmpresa(lojaInfo?.id, url)} onIrCardapioExterno={() => setAdminSection("cardapioext")} />)}
@@ -8978,7 +9001,7 @@ function PermissaoCadastroModal({ accessForm, setAccessForm, onSalvar, onFechar 
   );
 }
 
-function UserAccessAdmin({ users, accesses, toggleUserAccess, definirAcessos, lojas = [], isSuperAdmin = false }) {
+function UserAccessAdmin({ users, accesses, toggleUserAccess, definirAcessos, definirAcoesUsuario = async()=>{}, lojas = [], isSuperAdmin = false }) {
   const [busca, setBusca]     = useState("");
   const [lojaSel, setLojaSel] = useState(""); // filtro por empresa (id) — só super admin
   const [editandoId, setEditandoId] = useState(null); // usuário aberto no modal
@@ -9069,7 +9092,7 @@ function UserAccessAdmin({ users, accesses, toggleUserAccess, definirAcessos, lo
           isSuperAdmin={isSuperAdmin}
           nomeLoja={nomeLoja}
           toggleUserAccess={toggleUserAccess}
-          definirAcessos={definirAcessos}
+          definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario}
           outrosUsuarios={users.filter((u) => u.id !== editando.id && (u.accessIds || []).length > 0)}
           onFechar={() => setEditandoId(null)}
         />
@@ -9079,10 +9102,28 @@ function UserAccessAdmin({ users, accesses, toggleUserAccess, definirAcessos, lo
 }
 
 // Modal de gestão de acessos de um usuário (padrão de modal do projeto)
-function UserAccessModal({ usuario, acessosAtivos = [], isSuperAdmin = false, nomeLoja, toggleUserAccess, definirAcessos, outrosUsuarios = [], onFechar }) {
+function UserAccessModal({ usuario, acessosAtivos = [], isSuperAdmin = false, nomeLoja, toggleUserAccess, definirAcessos, definirAcoesUsuario = async () => {}, outrosUsuarios = [], onFechar }) {
   const liberadas = usuario.accessIds.length;
   const total = acessosAtivos.length;
   const [qrAberto, setQrAberto] = useState(false);
+  // Matriz de ações por módulo (item 23) — mapa local sincronizado com o usuário
+  const [acoes, setAcoes] = useState(usuario.permissoesAcoes || {});
+  const [expandido, setExpandido] = useState(null); // id do módulo com a matriz aberta
+  // ações de um módulo; se não configurado, considera todas liberadas
+  const acoesDe = (mid) => Array.isArray(acoes[mid]) ? acoes[mid] : ACOES_MODULO.map(([k]) => k);
+  const configurado = (mid) => Array.isArray(acoes[mid]);
+  function toggleAcao(mid, acao) {
+    setAcoes((cur) => {
+      const atual = Array.isArray(cur[mid]) ? cur[mid] : ACOES_MODULO.map(([k]) => k);
+      const novo = atual.includes(acao) ? atual.filter((x) => x !== acao) : [...atual, acao];
+      const mapa = { ...cur, [mid]: novo };
+      definirAcoesUsuario(usuario.id, mapa);
+      return mapa;
+    });
+  }
+  function resetarAcoes(mid) {
+    setAcoes((cur) => { const mapa = { ...cur }; delete mapa[mid]; definirAcoesUsuario(usuario.id, mapa); return mapa; });
+  }
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onFechar}>
       <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-lg flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl max-h-[92vh]">
@@ -9131,17 +9172,48 @@ function UserAccessModal({ usuario, acessosAtivos = [], isSuperAdmin = false, no
             {acessosAtivos.length === 0 && <p className="text-sm text-slate-500">Nenhuma permissão ativa cadastrada.</p>}
             {acessosAtivos.map((a) => {
               const checked = usuario.accessIds.includes(a.id);
+              const aberto = expandido === a.id;
               return (
-                <button key={a.id} onClick={() => toggleUserAccess(usuario.id, a.id)}
-                  className={`flex w-full items-center justify-between gap-3 rounded-2xl border p-3.5 text-left transition ${checked ? "border-emerald-400/30 bg-emerald-500/10" : "border-white/10 bg-slate-950/40 hover:bg-white/[0.06]"}`}>
-                  <div className="min-w-0">
-                    <p className={`text-sm font-black ${checked ? "text-emerald-100" : "text-white"}`}>{a.label}</p>
-                    {a.desc && <p className="mt-0.5 truncate text-xs text-slate-400">{a.desc}</p>}
+                <div key={a.id} className={`rounded-2xl border transition ${checked ? "border-emerald-400/30 bg-emerald-500/10" : "border-white/10 bg-slate-950/40"}`}>
+                  <div className="flex w-full items-center justify-between gap-3 p-3.5">
+                    <button onClick={() => toggleUserAccess(usuario.id, a.id)} className="flex min-w-0 flex-1 items-center justify-between gap-3 text-left">
+                      <div className="min-w-0">
+                        <p className={`text-sm font-black ${checked ? "text-emerald-100" : "text-white"}`}>{a.label}</p>
+                        {a.desc && <p className="mt-0.5 truncate text-xs text-slate-400">{a.desc}</p>}
+                      </div>
+                      <span className={`relative h-6 w-11 shrink-0 rounded-full transition ${checked ? "bg-emerald-500" : "bg-slate-700"}`}>
+                        <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${checked ? "left-[22px]" : "left-0.5"}`} />
+                      </span>
+                    </button>
+                    {/* Abre a matriz de ações do módulo (só quando a tela está liberada) */}
+                    {checked && (
+                      <button onClick={() => setExpandido(aberto ? null : a.id)} title="Ações do módulo"
+                        className={`shrink-0 rounded-xl border px-2.5 py-1.5 text-[10px] font-black transition ${configurado(a.id) ? "border-gold-400/50 bg-gold-400/10 text-gold-300" : "border-white/10 bg-white/[0.06] text-slate-400"}`}>
+                        {configurado(a.id) ? `${acoesDe(a.id).length}/${ACOES_MODULO.length}` : "ações"} {aberto ? "▴" : "▾"}
+                      </button>
+                    )}
                   </div>
-                  <span className={`relative h-6 w-11 shrink-0 rounded-full transition ${checked ? "bg-emerald-500" : "bg-slate-700"}`}>
-                    <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${checked ? "left-[22px]" : "left-0.5"}`} />
-                  </span>
-                </button>
+                  {/* Matriz de ações (item 23 — migration 032) */}
+                  {checked && aberto && (
+                    <div className="border-t border-white/10 px-3.5 py-3">
+                      <div className="flex flex-wrap gap-1.5">
+                        {ACOES_MODULO.map(([k, label]) => {
+                          const on = acoesDe(a.id).includes(k);
+                          return (
+                            <button key={k} onClick={() => toggleAcao(a.id, k)}
+                              className={`rounded-lg border px-2.5 py-1.5 text-[11px] font-bold transition ${on ? "border-gold-400/60 bg-gold-400/10 text-gold-200" : "border-white/10 bg-white/[0.03] text-slate-500"}`}>
+                              <span className={`mr-1 ${on ? "" : "opacity-40"}`}>{on ? "✓" : "○"}</span>{label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <div className="mt-2 flex items-center justify-between">
+                        <p className="text-[10px] text-slate-500">{configurado(a.id) ? "Ações personalizadas para este usuário." : "Todas as ações liberadas (padrão)."}</p>
+                        {configurado(a.id) && <button onClick={() => resetarAcoes(a.id)} className="text-[10px] font-bold text-slate-400 underline hover:text-white">Restaurar padrão</button>}
+                      </div>
+                    </div>
+                  )}
+                </div>
               );
             })}
           </div>

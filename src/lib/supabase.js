@@ -450,7 +450,12 @@ export async function inserirUsuario(u) {
 }
 
 export async function atualizarUsuario(id, campos) {
-  const { error } = await supabase.from('tab_usuarios').update(campos).eq('id', id)
+  let { error } = await supabase.from('tab_usuarios').update(campos).eq('id', id)
+  // Fallback: banco sem a migration 032 (coluna permissoes_acoes) → tenta sem ela
+  if (error && 'permissoes_acoes' in campos && ehColunaAusente(error, 'permissoes_acoes')) {
+    const { permissoes_acoes, ...rest } = campos;
+    ({ error } = await supabase.from('tab_usuarios').update(rest).eq('id', id))
+  }
   if (error) throw error
 }
 
@@ -587,6 +592,8 @@ function dbParaUsuario(r) {
     lojaId:    r.loja_id ?? null,
     cargoId:   r.cargo_id ?? null,
     superAdmin: r.super_admin ?? false,
+    // Migration 032 — ações permitidas por módulo (mapa retrocompatível)
+    permissoesAcoes: r.permissoes_acoes ?? {},
   }
 }
 
