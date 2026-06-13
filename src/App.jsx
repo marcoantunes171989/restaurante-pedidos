@@ -2531,28 +2531,44 @@ function TabletView({
 
       {/* Seleção da mesa do tablet — obrigatória após o login; ou ao trocar */}
       {(precisaMesa || trocarMesaAberto) && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
-          <div className="w-full max-w-md overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
-              <div>
-                <h2 className="text-lg font-black text-white">🍽️ Selecione a mesa deste tablet</h2>
-                <p className="mt-0.5 text-xs text-slate-400">Escolha a mesa que este tablet atende. Fica salva no aparelho.</p>
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/85 backdrop-blur-md p-4" style={{ fontFamily: "'Poppins','Inter',sans-serif" }}>
+          <div className="w-full max-w-md overflow-hidden rounded-[2rem] border border-gold-400/20 bg-black shadow-2xl">
+            <div className="flex items-center justify-between gap-3 border-b border-gold-400/15 px-6 py-4">
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gold-400/30 bg-gold-400/10 text-gold-300">🍽️</span>
+                <div>
+                  <h2 className="font-display text-lg font-bold tracking-tight text-white">Selecione a mesa deste tablet</h2>
+                  <p className="mt-0.5 text-xs text-slate-400">Escolha a mesa que este tablet atende. Fica salva no aparelho.</p>
+                </div>
               </div>
-              {!precisaMesa && <button onClick={() => setTrocarMesaAberto(false)} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20">✕</button>}
+              {!precisaMesa && <button onClick={() => setTrocarMesaAberto(false)} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-sm font-bold text-slate-300 hover:bg-white/15">✕</button>}
             </div>
             <div className="max-h-[60vh] overflow-y-auto px-6 py-5">
               {mesas.length > 0 ? (
                 <>
-                  <p className="mb-3 text-[11px] text-slate-500">Mesas <span className="text-slate-400">em uso por outro aparelho</span> aparecem desabilitadas.</p>
+                  {/* Legenda de status */}
+                  <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] font-bold">
+                    <span className="flex items-center gap-1.5 text-emerald-300"><span className="h-2.5 w-2.5 rounded-full bg-emerald-400" /> Disponível</span>
+                    <span className="flex items-center gap-1.5 text-red-300"><span className="h-2.5 w-2.5 rounded-full bg-red-500" /> Ocupada (outro aparelho)</span>
+                  </div>
                   <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
                     {[...mesas].sort((a, b) => a.numero - b.numero).map((m) => {
                       const ocupada = mesasOcupadas.has(String(m.numero)) && String(m.numero) !== String(tableNumber);
+                      const atual = String(m.numero) === String(tableNumber);
+                      // atual = a mesa deste tablet (dourado) · ocupada = vermelho · disponível = verde
+                      const estilo = atual
+                        ? "border border-gold-400 bg-gold-400/15 text-gold-200"
+                        : ocupada
+                          ? "cursor-not-allowed border border-red-500/40 bg-red-500/10 text-red-300/70"
+                          : "border border-emerald-500/40 bg-emerald-500/10 text-emerald-100 hover:bg-emerald-500/20";
                       return (
                         <button key={m.id} type="button" disabled={ocupada} onClick={() => !ocupada && definirMesaTablet(m.numero)}
-                          className={`relative flex flex-col items-center justify-center rounded-2xl py-3 transition active:scale-95 ${ocupada ? "cursor-not-allowed border border-white/5 bg-slate-950/40 text-slate-600" : String(m.numero) === String(tableNumber) ? "bg-emerald-500 text-white" : "border border-white/10 bg-white/[0.06] text-slate-200 hover:bg-white/10"}`}>
+                          className={`relative flex flex-col items-center justify-center rounded-2xl py-3 transition active:scale-95 ${estilo}`}>
                           <span className="text-base font-black">{String(m.numero).padStart(2, "0")}</span>
-                          {m.nome && <span className="mt-0.5 w-full truncate px-1 text-center text-[10px] opacity-70">{m.nome}</span>}
-                          {ocupada && <span className="mt-0.5 text-[8px] font-black uppercase tracking-wide text-amber-500/80">em uso</span>}
+                          {m.nome && <span className="mt-0.5 w-full truncate px-1 text-center text-[10px] opacity-80">{m.nome}</span>}
+                          <span className={`mt-0.5 text-[8px] font-black uppercase tracking-wide ${atual ? "text-gold-300" : ocupada ? "text-red-400" : "text-emerald-400"}`}>
+                            {atual ? "Este tablet" : ocupada ? "Ocupada" : "Disponível"}
+                          </span>
                         </button>
                       );
                     })}
@@ -2565,9 +2581,9 @@ function TabletView({
                     onChange={(e) => setMesaManual(e.target.value.replace(/\D/g, "").slice(0, 2))}
                     onKeyDown={(e) => { if (e.key === "Enter" && Number(mesaManual) > 0) definirMesaTablet(mesaManual); }}
                     placeholder="Nº da mesa"
-                    className="w-full rounded-2xl border border-amber-400/40 bg-slate-800 px-4 py-3 text-center text-lg font-black text-white outline-none focus:border-emerald-400" />
+                    className="w-full rounded-2xl border border-gold-400/40 bg-white/[0.04] px-4 py-3 text-center text-lg font-black text-white outline-none focus:border-gold-400 placeholder:text-slate-600" />
                   <button onClick={() => Number(mesaManual) > 0 && definirMesaTablet(mesaManual)} disabled={!(Number(mesaManual) > 0)}
-                    className="w-full rounded-2xl bg-emerald-500 py-3.5 text-sm font-black text-white hover:bg-emerald-400 transition active:scale-95 disabled:opacity-40">
+                    className="font-display w-full rounded-2xl bg-gold-400 py-3.5 text-sm font-bold text-blue-950 hover:bg-gold-300 transition active:scale-95 disabled:opacity-40">
                     Confirmar mesa
                   </button>
                 </div>
