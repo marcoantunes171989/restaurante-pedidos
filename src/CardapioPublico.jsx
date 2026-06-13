@@ -47,7 +47,9 @@ export default function CardapioPublico() {
         const l = lojas.find((x) => x.prefixo === prefixo) || null;
         setLoja(l);
         if (l) {
-          setProdutos(prods.filter((p) => (p.lojaId == null || p.lojaId === l.id) && p.active));
+          // Modo mesa (QR) respeita visivelQr; link geral respeita visivelExterno (migration 034)
+          const canalOk = (p) => mesaURL ? (p.visivelQr !== false) : (p.visivelExterno !== false);
+          setProdutos(prods.filter((p) => (p.lojaId == null || p.lojaId === l.id) && p.active && canalOk(p)));
           setCategorias(cats.filter((c) => (c.lojaId == null || c.lojaId === l.id) && c.active !== false));
         }
       } catch { if (vivo) setLoja(null); }

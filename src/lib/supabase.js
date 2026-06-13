@@ -71,10 +71,13 @@ export async function inserirProduto(p) {
   return dbParaProduto(res.data)
 }
 
+// Colunas opcionais (migrations 029/034) — removidas no fallback se o banco não as tiver
+const COLS_PRODUTO_OPCIONAIS = ['adicionais', 'controla_estoque', 'estoque_minimo', 'preco_promocional', 'visivel_tablet', 'visivel_qr', 'visivel_externo'];
 export async function atualizarProduto(id, campos) {
   let { error } = await supabase.from('tab_produtos').update(campos).eq('id', id)
-  if (error && 'adicionais' in campos && ehColunaAusente(error, 'adicionais')) {
-    const { adicionais, ...rest } = campos;
+  if (error && COLS_PRODUTO_OPCIONAIS.some((c) => c in campos) && ehColunaAusente(error, 'column')) {
+    const rest = { ...campos };
+    COLS_PRODUTO_OPCIONAIS.forEach((c) => delete rest[c]);
     ({ error } = await supabase.from('tab_produtos').update(rest).eq('id', id))
   }
   if (error) throw error
@@ -562,6 +565,13 @@ function dbParaProduto(r) {
     adicionais:  Array.isArray(r.adicionais) ? r.adicionais : [],
     estoque:     r.estoque ?? 0,
     lojaId:      r.loja_id ?? null,
+    // Migration 034 — estoque avançado, promoção e visibilidade por canal
+    controlaEstoque:  r.controla_estoque === true,
+    estoqueMinimo:    r.estoque_minimo ?? 0,
+    precoPromocional: r.preco_promocional != null ? Number(r.preco_promocional) : null,
+    visivelTablet:    r.visivel_tablet !== false,
+    visivelQr:        r.visivel_qr !== false,
+    visivelExterno:   r.visivel_externo !== false,
   }
 }
 

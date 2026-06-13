@@ -725,7 +725,8 @@ export default function RestaurantePedidoApp() {
       }),
     [accesses, currentUser]
   );
-  const activeProducts = products.filter((p) => p.active);
+  // Tablet do salão respeita a visibilidade "Tablet" do produto (migration 034)
+  const activeProducts = products.filter((p) => p.active && p.visivelTablet !== false);
   const filteredItems = useMemo(() => {
     const termo = normalizar(search);
     return activeProducts.filter((item) => {
@@ -1364,6 +1365,13 @@ export default function RestaurantePedidoApp() {
         tempo_preparo: dados.time, descricao: dados.description, url_imagem: dados.imageUrl,
         ingredientes: dados.ingredients, estoque: Number(dados.estoque ?? 0),
         adicionais: Array.isArray(dados.adicionais) ? dados.adicionais : [],
+        // Migration 034 — promoção, estoque avançado e visibilidade por canal
+        ...(dados.precoPromocional != null ? { preco_promocional: dados.precoPromocional > 0 ? dados.precoPromocional : null } : {}),
+        ...(dados.controlaEstoque != null ? { controla_estoque: !!dados.controlaEstoque } : {}),
+        ...(dados.estoqueMinimo != null ? { estoque_minimo: Number(dados.estoqueMinimo) || 0 } : {}),
+        ...(dados.visivelTablet != null ? { visivel_tablet: !!dados.visivelTablet } : {}),
+        ...(dados.visivelQr != null ? { visivel_qr: !!dados.visivelQr } : {}),
+        ...(dados.visivelExterno != null ? { visivel_externo: !!dados.visivelExterno } : {}),
       });
     } catch (e) { notify("error", "Erro ao salvar: " + e.message); }
     notify("success", "Produto atualizado.");
@@ -7836,12 +7844,23 @@ function ProductAdmin({ products, categories, adminForm, setAdminForm, addProduc
               <div key={p.id} className={`flex items-center gap-3 rounded-3xl border bg-slate-950/40 p-3 transition hover:bg-slate-900/60 ${p.active ? "border-white/10" : "border-white/10 opacity-60"}`}>
                 <img src={p.imageUrl || fallbackImage} alt={p.name} className="h-14 w-14 shrink-0 rounded-2xl object-cover" />
                 <div className="min-w-0 flex-1">
-                  <p className="font-black text-white truncate">{p.name}</p>
+                  <p className="flex items-center gap-1.5 font-black text-white truncate">
+                    {p.name}
+                    {p.precoPromocional > 0 && <span className="shrink-0 rounded-full bg-gold-400/15 px-1.5 py-0.5 text-[9px] font-black text-gold-300">PROMO</span>}
+                  </p>
                   <div className="flex flex-wrap items-center gap-x-2 text-xs text-slate-400">
                     <span className="rounded-full bg-white/[0.06] px-2 py-0.5">{p.category}</span>
-                    <span className="font-bold text-white">{formatCurrency(p.price)}</span>
+                    {p.precoPromocional > 0
+                      ? <span><span className="text-slate-500 line-through">{formatCurrency(p.price)}</span> <span className="font-bold text-gold-300">{formatCurrency(p.precoPromocional)}</span></span>
+                      : <span className="font-bold text-white">{formatCurrency(p.price)}</span>}
                     <span className="text-emerald-300">margem {margin.toFixed(0)}%</span>
                     <span className={estoqueBaixo ? "font-bold text-red-300" : ""}>estoque {p.estoque ?? 0}{estoqueBaixo ? " ⚠" : ""}</span>
+                    {/* Canais ocultos (migration 034) */}
+                    {(p.visivelTablet === false || p.visivelQr === false || p.visivelExterno === false) && (
+                      <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-bold text-amber-300">
+                        oculto: {[p.visivelTablet === false && "tablet", p.visivelQr === false && "QR", p.visivelExterno === false && "externo"].filter(Boolean).join(", ")}
+                      </span>
+                    )}
                   </div>
                 </div>
                 <button onClick={() => toggleProduct(p.id)} title={p.active ? "Inativar" : "Ativar"} className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-black transition ${p.active ? "bg-emerald-500 text-white hover:bg-emerald-400" : "bg-slate-700 text-slate-200 hover:bg-slate-600"}`}>{p.active ? "Ativo" : "Inativo"}</button>
@@ -8140,8 +8159,14 @@ function ProdutoEditModal({ produto, cats, onSalvar, onFechar, lojaId }) {
   const [f, setF] = useState({
     name: produto.name, category: produto.category,
     price: toDisplay(produto.price), cost: toDisplay(produto.cost),
+    precoPromo: produto.precoPromocional ? toDisplay(produto.precoPromocional) : "",
     time: produto.time || "", imageUrl: produto.imageUrl || "", description: produto.description || "",
     estoque: produto.estoque ?? 0,
+    controlaEstoque: produto.controlaEstoque ?? false,
+    estoqueMinimo: produto.estoqueMinimo ?? 0,
+    visivelTablet: produto.visivelTablet !== false,
+    visivelQr: produto.visivelQr !== false,
+    visivelExterno: produto.visivelExterno !== false,
   });
   const [tags, setTags] = useState([...(produto.ingredients || [])]); // ingredientes como tags
   const [adicionais, setAdicionais] = useState([...(produto.adicionais || [])]); // extras do produto
@@ -8171,7 +8196,12 @@ function ProdutoEditModal({ produto, cats, onSalvar, onFechar, lojaId }) {
       }
       setUploadando(false);
     }
-    onSalvar({ ...f, imageUrl: imgFinal, price: precoNum, cost: custoNum, ingredients: tags, adicionais });
+    onSalvar({
+      ...f, imageUrl: imgFinal, price: precoNum, cost: custoNum, ingredients: tags, adicionais,
+      precoPromocional: moedaParaNum(String(f.precoPromo)),
+      controlaEstoque: f.controlaEstoque, estoqueMinimo: f.estoqueMinimo,
+      visivelTablet: f.visivelTablet, visivelQr: f.visivelQr, visivelExterno: f.visivelExterno,
+    });
   }
 
   return (
@@ -8229,9 +8259,48 @@ function ProdutoEditModal({ produto, cats, onSalvar, onFechar, lojaId }) {
               <input value={f.estoque} onChange={(e) => setF({ ...f, estoque: e.target.value.replace(/\D/g, "") })} placeholder="0" className={inp} />
             </div>
           </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="sm:col-span-2">
+              <span className={lbl}>Preço promocional <span className="text-slate-600 normal-case">— opcional</span></span>
+              <input inputMode="numeric" value={f.precoPromo}
+                onChange={(e) => { const {display}=handleMoeda(e); setF({...f, precoPromo: display}); }}
+                placeholder="R$ 0,00" className={inp} />
+            </div>
+          </div>
           {precoNum > 0 && custoNum > 0 && (
-            <p className="text-xs font-bold text-emerald-300">Margem estimada: {(((precoNum-custoNum)/precoNum)*100).toFixed(0)}%</p>
+            <p className="text-xs font-bold text-emerald-300">
+              Margem estimada: {(((precoNum-custoNum)/precoNum)*100).toFixed(0)}%
+              {moedaParaNum(String(f.precoPromo)) > 0 && <span className="ml-2 text-gold-300">· Promo: {(((moedaParaNum(String(f.precoPromo))-custoNum)/moedaParaNum(String(f.precoPromo)))*100).toFixed(0)}%</span>}
+            </p>
           )}
+
+          {/* Estoque & Visibilidade (migration 034) */}
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-xs font-bold uppercase tracking-widest text-slate-400">Controle de estoque</span>
+              <button type="button" onClick={() => setF({ ...f, controlaEstoque: !f.controlaEstoque })}
+                className={`relative h-6 w-11 shrink-0 rounded-full transition ${f.controlaEstoque ? "bg-emerald-500" : "bg-slate-700"}`}>
+                <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${f.controlaEstoque ? "left-[22px]" : "left-0.5"}`} />
+              </button>
+            </div>
+            {f.controlaEstoque && (
+              <div>
+                <span className={lbl}>Estoque mínimo <span className="text-slate-600 normal-case">— alerta de baixo estoque</span></span>
+                <input value={f.estoqueMinimo} onChange={(e) => setF({ ...f, estoqueMinimo: e.target.value.replace(/\D/g, "") })} placeholder="0" className={inp} />
+              </div>
+            )}
+            <div>
+              <span className={lbl}>Visível em</span>
+              <div className="flex flex-wrap gap-2">
+                {[["visivelTablet", "📲 Tablet"], ["visivelQr", "🔳 QR Code"], ["visivelExterno", "📱 Cardápio externo"]].map(([k, t]) => (
+                  <button key={k} type="button" onClick={() => setF({ ...f, [k]: !f[k] })}
+                    className={`rounded-xl border px-3 py-2 text-xs font-bold transition ${f[k] ? "border-gold-400/60 bg-gold-400/10 text-gold-200" : "border-white/10 bg-white/[0.03] text-slate-500"}`}>
+                    <span className={`mr-1.5 ${f[k] ? "" : "opacity-40"}`}>{f[k] ? "✓" : "○"}</span>{t}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
 
           {/* Imagem — arquivo local (PNG/JPEG) ou URL */}
           <div>
