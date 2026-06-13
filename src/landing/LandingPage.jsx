@@ -127,46 +127,46 @@ function goTo(id) {
 }
 
 function Botao({ children, variant = "primary", onClick, className = "" }) {
-  const base = "inline-flex items-center justify-center gap-2 rounded-2xl px-6 py-3.5 text-sm font-black transition active:scale-95";
+  const base = "font-display inline-flex items-center justify-center gap-2 rounded-2xl px-6 py-3.5 text-sm font-bold transition active:scale-95";
   const styles = {
-    primary: "bg-blue-600 text-white hover:bg-blue-500 shadow-lg shadow-blue-600/25",
-    secondary: "bg-white text-slate-900 hover:bg-slate-100 border border-slate-200",
+    primary: "bg-blue-500 text-white hover:bg-blue-400 shadow-lg shadow-blue-950/40",
+    secondary: "bg-gold-400 text-blue-950 hover:bg-gold-300 shadow-lg shadow-gold-900/30",
     ghost: "bg-white/10 text-white hover:bg-white/20 border border-white/15",
-    light: "border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100",
-    gold: "bg-gold-400 text-blue-950 hover:bg-gold-300 shadow-lg shadow-gold-600/30",
+    light: "border border-gold-400/40 bg-gold-400/10 text-gold-200 hover:bg-gold-400/20",
+    gold: "bg-gold-400 text-blue-950 hover:bg-gold-300 shadow-lg shadow-gold-900/30",
   };
   return <button onClick={onClick} className={`${base} ${styles[variant]} ${className}`}>{children}</button>;
 }
 
-// Marca oficial: monograma PP + PEDIDO (branco/navy) PRIME (dourado)
-function Marca({ claro = false }) {
+// Marca oficial: logo + PEDIDO (branco) PRIME (dourado)
+function Marca({ claro = true }) {
   return (
     <div className="flex shrink-0 items-center gap-2.5">
       <LogoPP size={38} />
-      <span className="whitespace-nowrap text-lg font-black leading-none tracking-tight">
+      <span className="font-display whitespace-nowrap text-lg font-bold leading-none tracking-tight">
         <span className={claro ? "text-white" : "text-blue-950"}>PEDIDO</span>{" "}
-        <span className="text-gold-500">PRIME</span>
+        <span className="text-gold-400">PRIME</span>
       </span>
     </div>
   );
 }
 
-function TituloSecao({ tag, titulo, subtitulo, claro = false }) {
+function TituloSecao({ tag, titulo, subtitulo }) {
   return (
     <div className="mx-auto max-w-2xl text-center">
-      {tag && <span className={`inline-block rounded-full border px-3 py-1 text-xs font-black uppercase tracking-widest ${claro ? "border-gold-400/40 bg-gold-400/10 text-gold-300" : "border-gold-300 bg-gold-50 text-gold-700"}`}>{tag}</span>}
-      <h2 className={`mt-4 text-3xl font-black tracking-tight sm:text-4xl ${claro ? "text-white" : "text-slate-900"}`}>{titulo}</h2>
-      {subtitulo && <p className={`mt-3 text-base leading-7 ${claro ? "text-slate-300" : "text-slate-500"}`}>{subtitulo}</p>}
+      {tag && <span className="inline-block rounded-full border border-gold-400/40 bg-gold-400/10 px-3 py-1 text-xs font-black uppercase tracking-widest text-gold-300">{tag}</span>}
+      <h2 className="font-display mt-4 text-3xl font-bold tracking-tight text-white sm:text-4xl">{titulo}</h2>
+      {subtitulo && <p className="mt-3 text-base leading-7 text-slate-400">{subtitulo}</p>}
     </div>
   );
 }
 
 function FeatureCard({ icon, title, desc }) {
   return (
-    <div className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md">
-      <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-xl">{icon}</span>
-      <h3 className="mt-3 text-base font-black text-slate-900">{title}</h3>
-      <p className="mt-1 text-sm leading-6 text-slate-500">{desc}</p>
+    <div className="group rounded-2xl border border-white/10 bg-white/[0.04] p-5 transition hover:-translate-y-0.5 hover:border-gold-400/30 hover:bg-white/[0.06]">
+      <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-gold-400/10 text-xl">{icon}</span>
+      <h3 className="font-display mt-3 text-base font-bold text-white">{title}</h3>
+      <p className="mt-1 text-sm leading-6 text-slate-400">{desc}</p>
     </div>
   );
 }
@@ -198,19 +198,19 @@ function LinhaProduto({ nome, preco, img }) {
         <p className="truncate text-[11px] font-black text-white">{nome}</p>
         <p className="text-[10px] font-bold text-emerald-300">{preco}</p>
       </div>
-      <span className="shrink-0 rounded-lg bg-blue-500 px-2 py-1 text-[10px] font-black text-white">+ Add</span>
+      <span className="shrink-0 rounded-lg bg-gold-400 px-2 py-1 text-[10px] font-black text-blue-950">+ Add</span>
     </div>
   );
 }
 
 function FAQItem({ q, a, aberto, onToggle }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <div className="rounded-2xl border border-white/10 bg-white/[0.04]">
       <button onClick={onToggle} className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left">
-        <span className="text-sm font-black text-slate-900 sm:text-base">{q}</span>
-        <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600 transition-transform ${aberto ? "rotate-45" : ""}`}>+</span>
+        <span className="font-display text-sm font-semibold text-white sm:text-base">{q}</span>
+        <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gold-400/15 text-gold-300 transition-transform ${aberto ? "rotate-45" : ""}`}>+</span>
       </button>
-      {aberto && <p className="px-5 pb-5 text-sm leading-6 text-slate-500">{a}</p>}
+      {aberto && <p className="px-5 pb-5 text-sm leading-6 text-slate-400">{a}</p>}
     </div>
   );
 }
@@ -399,7 +399,7 @@ export default function LandingPage({ navigate }) {
   }
 
   return (
-    <div className="min-h-screen bg-white text-slate-900 antialiased">
+    <div className="min-h-screen bg-[#070B16] text-slate-100 antialiased">
       {/* ── Header sticky ─────────────────────────────────── */}
       {/* paddingTop: app instalado em tela cheia — afasta o conteúdo da barra de status (safe area) */}
       <header className="sticky top-0 z-50 border-b border-gold-400/20 bg-blue-950/90 backdrop-blur-xl" style={{ paddingTop: "env(safe-area-inset-top)" }}>
@@ -497,23 +497,23 @@ export default function LandingPage({ navigate }) {
       </section>
 
       {/* ── Dores e solução ───────────────────────────────── */}
-      <section className="bg-slate-50 py-16 sm:py-20">
+      <section className="bg-[#0A1424] py-16 sm:py-20">
         <div className="mx-auto max-w-6xl px-5">
           <TituloSecao tag="O problema → a solução" titulo="Atendimento manual gera filas, erros e gestão no escuro" subtitulo="Veja as principais dores que o sistema elimina no dia a dia do seu estabelecimento — do salão ao escritório." />
           <div className="mt-10 grid gap-6 lg:grid-cols-2">
-            <div className="rounded-2xl border border-red-100 bg-white p-6 shadow-sm">
+            <div className="rounded-2xl border border-red-400/20 bg-red-500/[0.06] p-6">
               <h3 className="text-base font-black text-red-600">😣 Sem o {NOME_SISTEMA}</h3>
               <ul className="mt-4 space-y-2.5">
                 {PROBLEMAS.map((p) => (
-                  <li key={p} className="flex items-start gap-2 text-sm text-slate-600"><span className="mt-0.5 text-red-400">✕</span> {p}</li>
+                  <li key={p} className="flex items-start gap-2 text-sm text-slate-300"><span className="mt-0.5 text-red-400">✕</span> {p}</li>
                 ))}
               </ul>
             </div>
-            <div className="rounded-2xl border border-emerald-100 bg-white p-6 shadow-sm">
+            <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/[0.06] p-6">
               <h3 className="text-base font-black text-emerald-600">🚀 Com o {NOME_SISTEMA}</h3>
               <ul className="mt-4 space-y-2.5">
                 {SOLUCOES.map((s) => (
-                  <li key={s} className="flex items-start gap-2 text-sm text-slate-700"><span className="mt-0.5 text-emerald-500">✓</span> {s}</li>
+                  <li key={s} className="flex items-start gap-2 text-sm text-slate-300"><span className="mt-0.5 text-emerald-500">✓</span> {s}</li>
                 ))}
               </ul>
             </div>
@@ -522,40 +522,40 @@ export default function LandingPage({ navigate }) {
       </section>
 
       {/* ── Funcionalidades ───────────────────────────────── */}
-      <section id="funcionalidades" className="scroll-mt-24 bg-white py-16 sm:py-20">
+      <section id="funcionalidades" className="scroll-mt-24 bg-[#070B16] py-16 sm:py-20">
         <div className="mx-auto max-w-6xl px-5">
           <TituloSecao tag="Funcionalidades" titulo="Tudo que o seu estabelecimento precisa, em uma só plataforma" subtitulo="Do pedido no tablet da mesa ao relatório de vendas do gerente — com a cozinha e o caixa sincronizados em tempo real." />
           <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {FEATURES.map((f) => <FeatureCard key={f.title} {...f} />)}
           </div>
-          <p className="mt-10 text-center text-base font-black text-slate-700">Tudo isso e muito mais — tudo no <span className="text-blue-600">{NOME_SISTEMA}</span>. 🚀</p>
+          <p className="mt-10 text-center text-base font-bold text-slate-300">Tudo isso e muito mais — tudo no <span className="text-gold-400">{NOME_SISTEMA}</span>. 🚀</p>
         </div>
       </section>
 
       {/* ── 2 formas de usar: Interno x Externo ───────────── */}
-      <section id="formas" className="scroll-mt-24 bg-slate-50 py-16 sm:py-20">
+      <section id="formas" className="scroll-mt-24 bg-[#0A1424] py-16 sm:py-20">
         <div className="mx-auto max-w-6xl px-5">
           <TituloSecao tag="2 formas de usar"
             titulo="Atendimento no tablet (interno) e cardápio no celular do cliente (externo)"
             subtitulo="Use do jeito que o seu negócio precisa — só interno, só externo, ou os dois ao mesmo tempo. Mais agilidade no salão e mais conversão fora dele." />
           <div className="mt-10 grid gap-6 lg:grid-cols-2">
             {/* Interno */}
-            <div className="rounded-3xl border border-blue-100 bg-white p-7 shadow-sm">
-              <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-2xl">📲</span>
-              <h3 className="mt-4 text-xl font-black text-slate-900">Interno — tablet na mesa</h3>
+            <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-7">
+              <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gold-400/10 text-2xl">📲</span>
+              <h3 className="font-display mt-4 text-xl font-bold text-white">Interno — tablet na mesa</h3>
               <p className="mt-1 text-sm leading-6 text-slate-500">O cliente pede sozinho pelo tablet da mesa. Agilidade no salão, menos fila e menos erros de anotação.</p>
-              <ul className="mt-4 space-y-2 text-sm text-slate-700">
+              <ul className="mt-4 space-y-2 text-sm text-slate-300">
                 {["Pedido direto na mesa, sem esperar o garçom","Tablet vinculado à mesa — só mesas livres aparecem","Comanda por QR Code validada por empresa","Cozinha recebe o pedido na hora","Acompanhamento e conta pelo próprio tablet","Funciona como app instalado (Android), em tela cheia"].map((t) => (
                   <li key={t} className="flex items-start gap-2"><span className="mt-0.5 text-blue-500">✓</span> {t}</li>
                 ))}
               </ul>
             </div>
             {/* Externo */}
-            <div className="rounded-3xl border border-emerald-100 bg-white p-7 shadow-sm">
+            <div className="rounded-3xl border border-emerald-400/20 bg-emerald-500/[0.05] p-7">
               <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-2xl">📱</span>
-              <h3 className="mt-4 text-xl font-black text-slate-900">Externo — celular do cliente</h3>
+              <h3 className="font-display mt-4 text-xl font-bold text-white">Externo — celular do cliente</h3>
               <p className="mt-1 text-sm leading-6 text-slate-500">O cliente acessa o cardápio digital pelo próprio celular — na mesa (QR) ou de qualquer lugar pelo link. Faz o pedido e acompanha sem instalar nada.</p>
-              <ul className="mt-4 space-y-2 text-sm text-slate-700">
+              <ul className="mt-4 space-y-2 text-sm text-slate-300">
                 {["QR na mesa: aponta a câmera e já pede","Link/QR geral para redes sociais e fachada","Pedido cai direto na cozinha, em tempo real","Acompanha o status (na fila → preparando → pronto)","Solicita a conta pelo celular","Sem app, sem download — abre no navegador"].map((t) => (
                   <li key={t} className="flex items-start gap-2"><span className="mt-0.5 text-emerald-500">✓</span> {t}</li>
                 ))}
@@ -629,14 +629,14 @@ export default function LandingPage({ navigate }) {
       </section>
 
       {/* ── Como funciona ─────────────────────────────────── */}
-      <section id="como-funciona" className="scroll-mt-24 bg-slate-50 py-16 sm:py-20">
+      <section id="como-funciona" className="scroll-mt-24 bg-[#0A1424] py-16 sm:py-20">
         <div className="mx-auto max-w-6xl px-5">
           <TituloSecao tag="Como funciona" titulo="Do pedido ao resultado em 6 passos" subtitulo="Um fluxo simples, digital e sincronizado entre cliente, cozinha, caixa e gestão." />
           <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {PASSOS.map((p) => (
-              <div key={p.n} className="relative rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-base font-black text-white shadow-lg shadow-blue-600/25">{p.n}</span>
-                <h3 className="mt-3 text-base font-black text-slate-900">{p.title}</h3>
+              <div key={p.n} className="relative rounded-2xl border border-white/10 bg-white/[0.04] p-5">
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gold-400 text-base font-black text-blue-950 shadow-lg shadow-gold-900/25">{p.n}</span>
+                <h3 className="mt-3 font-display text-base font-bold text-white">{p.title}</h3>
                 <p className="mt-1 text-sm leading-6 text-slate-500">{p.desc}</p>
               </div>
             ))}
@@ -671,14 +671,14 @@ export default function LandingPage({ navigate }) {
       </section>
 
       {/* ── Segmentos ─────────────────────────────────────── */}
-      <section id="segmentos" className="scroll-mt-24 bg-white py-16 sm:py-20">
+      <section id="segmentos" className="scroll-mt-24 bg-[#070B16] py-16 sm:py-20">
         <div className="mx-auto max-w-6xl px-5">
           <TituloSecao tag="Segmentos atendidos" titulo="Feito para vários modelos de operação" subtitulo="Uma solução flexível para diferentes modelos de atendimento, cardápio, mesa, comanda e operação." />
           <div className="mt-10 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
             {SEGMENTOS.map((s) => (
-              <div key={s.label} className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-blue-200 hover:shadow-md">
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-xl">{s.icon}</span>
-                <span className="text-sm font-black text-slate-800">{s.label}</span>
+              <div key={s.label} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-4 transition hover:border-gold-400/30 hover:bg-white/[0.06]">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gold-400/10 text-xl">{s.icon}</span>
+                <span className="text-sm font-semibold text-slate-200">{s.label}</span>
               </div>
             ))}
           </div>
@@ -686,14 +686,14 @@ export default function LandingPage({ navigate }) {
       </section>
 
       {/* ── Benefícios ────────────────────────────────────── */}
-      <section id="beneficios" className="scroll-mt-24 bg-slate-50 py-16 sm:py-20">
+      <section id="beneficios" className="scroll-mt-24 bg-[#0A1424] py-16 sm:py-20">
         <div className="mx-auto max-w-6xl px-5">
           <TituloSecao tag="Diferenciais" titulo="Por que escolher o Pedido Prime" subtitulo="Uma plataforma SaaS pensada para operação em tempo real e gestão profissional." />
           <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {BENEFICIOS.map((b) => (
-              <div key={b.title} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50 text-xl">{b.icon}</span>
-                <h3 className="mt-3 text-base font-black text-slate-900">{b.title}</h3>
+              <div key={b.title} className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
+                <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500/15 text-xl">{b.icon}</span>
+                <h3 className="mt-3 font-display text-base font-bold text-white">{b.title}</h3>
                 <p className="mt-1 text-sm leading-6 text-slate-500">{b.desc}</p>
               </div>
             ))}
@@ -702,14 +702,14 @@ export default function LandingPage({ navigate }) {
       </section>
 
       {/* ── Perfis de acesso ──────────────────────────────── */}
-      <section className="bg-white py-16 sm:py-20">
+      <section className="bg-[#070B16] py-16 sm:py-20">
         <div className="mx-auto max-w-6xl px-5">
           <TituloSecao tag="Perfis de acesso" titulo="Cada usuário vê apenas o que precisa" subtitulo="Usuários, cargos e permissões por tela garantem segurança e organização entre salão, cozinha, caixa e gestão." />
           <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {PERFIS.map((p) => (
-              <div key={p.title} className="rounded-2xl border border-slate-200 bg-gradient-to-b from-white to-slate-50 p-5 shadow-sm">
-                <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-xl">{p.icon}</span>
-                <h3 className="mt-3 text-base font-black text-slate-900">{p.title}</h3>
+              <div key={p.title} className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
+                <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-gold-400/10 text-xl">{p.icon}</span>
+                <h3 className="mt-3 font-display text-base font-bold text-white">{p.title}</h3>
                 <p className="mt-1 text-sm leading-6 text-slate-500">{p.desc}</p>
               </div>
             ))}
@@ -733,7 +733,7 @@ export default function LandingPage({ navigate }) {
       </section>
 
       {/* ── FAQ ───────────────────────────────────────────── */}
-      <section id="faq" className="scroll-mt-24 bg-slate-50 py-16 sm:py-20">
+      <section id="faq" className="scroll-mt-24 bg-[#0A1424] py-16 sm:py-20">
         <div className="mx-auto max-w-3xl px-5">
           <TituloSecao tag="FAQ" titulo="Perguntas frequentes" subtitulo="Tire as principais dúvidas sobre o funcionamento do sistema." />
           <div className="mt-10 space-y-3">
@@ -745,7 +745,7 @@ export default function LandingPage({ navigate }) {
       </section>
 
       {/* ── Contato ───────────────────────────────────────── */}
-      <section id="contato" className="scroll-mt-24 bg-white py-16 sm:py-20">
+      <section id="contato" className="scroll-mt-24 bg-[#070B16] py-16 sm:py-20">
         <div className="mx-auto max-w-6xl px-5">
           <div className="grid gap-10 lg:grid-cols-[1fr_1.1fr]">
             <div>
@@ -757,10 +757,10 @@ export default function LandingPage({ navigate }) {
                   { icon: "🍽️", t: "Diversos segmentos alimentares", d: "Restaurantes, pizzarias, hamburguerias, cafeterias e mais." },
                   { icon: "🧩", t: "Operação completa", d: "Tablet, cozinha, caixa, painel e administrativo com gestão de vendas." },
                 ].map((b) => (
-                  <div key={b.t} className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-lg">{b.icon}</span>
+                  <div key={b.t} className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gold-400/10 text-lg">{b.icon}</span>
                     <div>
-                      <p className="text-sm font-black text-slate-900">{b.t}</p>
+                      <p className="font-display text-sm font-bold text-white">{b.t}</p>
                       <p className="text-sm text-slate-500">{b.d}</p>
                     </div>
                   </div>
@@ -769,11 +769,11 @@ export default function LandingPage({ navigate }) {
             </div>
 
             {/* Formulário (visual; pronto para integração) */}
-            <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+            <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6 sm:p-8">
               {enviado ? (
                 <div className="flex h-full min-h-[320px] flex-col items-center justify-center text-center">
                   <span className="text-5xl">✅</span>
-                  <h3 className="mt-4 text-xl font-black text-slate-900">Solicitação enviada!</h3>
+                  <h3 className="font-display mt-4 text-xl font-bold text-white">Solicitação enviada!</h3>
                   <p className="mt-2 text-sm text-slate-500">Recebemos seus dados. Em breve entraremos em contato para a demonstração.</p>
                   <Botao variant="light" onClick={() => setEnviado(false)} className="mt-5">Enviar nova solicitação</Botao>
                 </div>
@@ -802,7 +802,7 @@ export default function LandingPage({ navigate }) {
                     <label className={LBL}>Mensagem</label>
                     <textarea name="mensagem" rows={3} placeholder="Conte um pouco sobre a sua operação..." className={`${INP} resize-none`} />
                   </div>
-                  <button type="submit" className="w-full rounded-2xl bg-blue-600 py-3.5 text-sm font-black text-white transition hover:bg-blue-500 active:scale-95 shadow-lg shadow-blue-600/25">💬 Enviar pelo WhatsApp</button>
+                  <button type="submit" className="font-display w-full rounded-2xl bg-gold-400 py-3.5 text-sm font-bold text-blue-950 transition hover:bg-gold-300 active:scale-95 shadow-lg shadow-gold-900/30">💬 Enviar pelo WhatsApp</button>
                   <p className="text-center text-[11px] text-slate-400">Abre o WhatsApp com a sua solicitação pronta para envio.</p>
                 </form>
               )}
@@ -839,8 +839,8 @@ export default function LandingPage({ navigate }) {
 }
 
 // classes utilitárias do formulário
-const INP = "w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-400 focus:bg-white placeholder:text-slate-400";
-const LBL = "mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500";
+const INP = "w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none transition focus:border-gold-400/60 placeholder:text-slate-500";
+const LBL = "mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-400";
 
 function Campo({ name, label, type = "text", placeholder, required }) {
   return (
