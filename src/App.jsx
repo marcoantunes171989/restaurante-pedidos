@@ -1216,6 +1216,17 @@ export default function RestaurantePedidoApp() {
     return true;
   }
 
+  // Salva as configurações do cardápio externo (migration 033) — config_externo jsonb
+  async function salvarConfigExterno(id, config) {
+    if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
+    if (!id) return notify("error", "Selecione uma empresa em foco.");
+    setLojas((cur) => cur.map((x) => x.id === id ? { ...x, configExterno: config } : x));
+    if (dbReady) try { await atualizarLoja(id, { config_externo: config }); }
+    catch (e) { notify("error", "Erro ao salvar configurações: " + (e.message || e)); return; }
+    notify("success", "Configurações do cardápio externo salvas.");
+    return true;
+  }
+
   // ── Licença de uso por empresa (somente administrador geral) ──
   // Define/remove a validade da licença (migration 031) e registra no histórico
   async function setValidadeLicenca(id, dataISO) {
@@ -1701,7 +1712,7 @@ export default function RestaurantePedidoApp() {
         )}
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} products={products} lojaInfo={lojaInfo} />}
         {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierView orders={orders} baixarComandas={baixarComandas} baixarPedidos={baixarPedidos} formasPagamento={formasPagamentoLoja} onSair={logout} lojaInfo={lojaInfo} />}
-        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} />}
+        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} />}
 
       </div>
     </div>
@@ -4543,7 +4554,7 @@ function ComboEmpresaFoco({ lojas = [], valor, onChange }) {
   );
 }
 
-function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, toggleUserStatus, toggleAccessStatus, usersLoja, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], addLoja, toggleLoja, editarLoja, removerLoja, setLicencaEmpresa = async()=>{}, setValidadeLicenca = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, setModoUsoEmpresa = async()=>{}, mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, clientes = [] }) {
+function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, toggleUserStatus, toggleAccessStatus, usersLoja, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], addLoja, toggleLoja, editarLoja, removerLoja, setLicencaEmpresa = async()=>{}, setValidadeLicenca = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, setModoUsoEmpresa = async()=>{}, salvarConfigExterno = async()=>{}, mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, clientes = [] }) {
   // Menu reorganizado por contexto (SaaS premium) — mesmos ids e permissões de antes
   const menu = [
     { grupo: "Visão Geral", itens: [
@@ -4719,7 +4730,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           {ativo === "lojas"      && <LojaAdmin lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} lojaInfo={lojaInfo} criarEmpresa={criarEmpresa} cargos={cargos} />}
           {ativo === "licencas"   && <LicencaAdmin lojas={lojas} usuarios={users} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} />}
           {ativo === "versoes"    && <VersoesAdmin lojas={lojas} lojaFiltro={isSuperAdmin ? null : (lojaInfo?.id ?? null)} />}
-          {ativo === "cardapioext" && (precisaEmpresa ? avisoEmpresa : <CardapioExternoAdmin lojaInfo={lojaInfo} setModoUsoEmpresa={setModoUsoEmpresa} comandas={comandasRegistradas} mesas={mesas} />)}
+          {ativo === "cardapioext" && (precisaEmpresa ? avisoEmpresa : <CardapioExternoAdmin lojaInfo={lojaInfo} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} comandas={comandasRegistradas} mesas={mesas} />)}
           {ativo === "minhaempresa" && (
             <MinhaEmpresa
               lojaInfo={lojaInfo}
@@ -6529,7 +6540,7 @@ function CrmAdmin({ clientes = [], orders = [] }) {
 // ════════════════════════════════════════════════════════════
 //  Cardápio externo (tela admin) — link + QR + ativar modo
 // ════════════════════════════════════════════════════════════
-function CardapioExternoAdmin({ lojaInfo, setModoUsoEmpresa = async () => {}, comandas = [], mesas = [] }) {
+function CardapioExternoAdmin({ lojaInfo, setModoUsoEmpresa = async () => {}, salvarConfigExterno = async () => {}, comandas = [], mesas = [] }) {
   const [qr, setQr] = useState("");
   const [copiado, setCopiado] = useState(false);
   const origem = (typeof window !== "undefined") ? window.location.origin : "";
@@ -6600,6 +6611,39 @@ function CardapioExternoAdmin({ lojaInfo, setModoUsoEmpresa = async () => {}, co
 
   const copiar = () => { try { navigator.clipboard?.writeText(link); setCopiado(true); setTimeout(() => setCopiado(false), 1500); } catch {} };
 
+  // ── Configurações do cardápio externo (migration 033 — config_externo) ──
+  const CFG_PADRAO = {
+    aceitaPedidoExterno: true, consumoLocal: true, entrega: false, retirada: true, pedidoMinimo: "",
+    pagOnline: false, pagEntrega: true, pagRetirada: true, pagPix: true, pagCartao: true, pagDinheiro: true,
+    taxaEntrega: "", tempoEntregaMin: "", areaAtendimento: "", obsEntrega: "",
+    horarios: { seg: "", ter: "", qua: "", qui: "", sex: "", sab: "", dom: "" }, bloquearForaHorario: false,
+  };
+  const [aba, setAba] = useState("link"); // link | qrmesa | pedido | pagamento | entrega | horarios
+  const [cfg, setCfg] = useState({ ...CFG_PADRAO, ...(lojaInfo?.configExterno || {}), horarios: { ...CFG_PADRAO.horarios, ...((lojaInfo?.configExterno || {}).horarios || {}) } });
+  const [salvandoCfg, setSalvandoCfg] = useState(false);
+  useEffect(() => { setCfg({ ...CFG_PADRAO, ...(lojaInfo?.configExterno || {}), horarios: { ...CFG_PADRAO.horarios, ...((lojaInfo?.configExterno || {}).horarios || {}) } }); /* eslint-disable-next-line */ }, [lojaInfo?.id]);
+  const setC = (k, v) => setCfg((c) => ({ ...c, [k]: v }));
+  async function salvarCfg() { setSalvandoCfg(true); await salvarConfigExterno(lojaInfo?.id, cfg); setSalvandoCfg(false); }
+
+  const Toggle = ({ on, onClick, label, hint }) => (
+    <button type="button" onClick={onClick} className="flex w-full items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-left transition hover:bg-white/[0.05]">
+      <span><span className="text-sm font-bold text-white">{label}</span>{hint && <span className="block text-[11px] text-slate-500">{hint}</span>}</span>
+      <span className={`relative h-6 w-11 shrink-0 rounded-full transition ${on ? "bg-emerald-500" : "bg-slate-700"}`}><span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${on ? "left-[22px]" : "left-0.5"}`} /></span>
+    </button>
+  );
+  const inpCfg = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none focus:border-gold-400/60 placeholder:text-slate-600";
+  const lblCfg = "mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500";
+  const BotaoSalvarCfg = () => (
+    <div className="flex justify-end pt-1">
+      <PrimeButton variante="gold" onClick={salvarCfg} disabled={salvandoCfg}>{salvandoCfg ? "Salvando…" : "Salvar configurações"}</PrimeButton>
+    </div>
+  );
+  const ABAS = [
+    ["link", "Link público"], ["qrmesa", "QR por mesa"], ["pedido", "Pedido externo"],
+    ["pagamento", "Pagamento"], ["entrega", "Entrega"], ["horarios", "Horários"],
+  ];
+  const DIAS = [["seg", "Segunda"], ["ter", "Terça"], ["qua", "Quarta"], ["qui", "Quinta"], ["sex", "Sexta"], ["sab", "Sábado"], ["dom", "Domingo"]];
+
   return (
     <main className="space-y-5">
       <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
@@ -6625,9 +6669,25 @@ function CardapioExternoAdmin({ lojaInfo, setModoUsoEmpresa = async () => {}, co
         <p className={`mt-3 rounded-2xl border px-3 py-2 text-xs font-bold ${ativo ? "border-emerald-400/20 bg-emerald-500/10 text-emerald-200" : "border-amber-400/20 bg-amber-500/10 text-amber-200"}`}>
           {ativo ? "✓ Cardápio externo ATIVO — o link abaixo abre para o cliente." : "⚠️ Cardápio externo desativado. Selecione Externo ou Ambos para habilitar o link."}
         </p>
+        <div className="mt-3 grid gap-1.5 text-[11px] leading-snug text-slate-500 sm:grid-cols-3">
+          <p><b className="text-slate-300">Interno:</b> uso por tablet dentro do estabelecimento.</p>
+          <p><b className="text-slate-300">Externo:</b> uso pelo celular do cliente via link ou QR Code.</p>
+          <p><b className="text-slate-300">Ambos:</b> atendimento no salão e pedidos externos.</p>
+        </div>
       </div>
 
-      {/* Link + QR */}
+      {/* ── Abas (item 19) ─────────────────────────────────── */}
+      <div className="flex items-center gap-1.5 overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.04] p-1.5">
+        {ABAS.map(([id, label]) => (
+          <button key={id} onClick={() => setAba(id)}
+            className={`shrink-0 rounded-xl px-4 py-2 text-sm font-bold transition ${aba === id ? "bg-gold-400 text-blue-950" : "text-slate-300 hover:bg-white/5"}`}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* Aba: Link público */}
+      {aba === "link" && (
       <div className="grid gap-5 lg:grid-cols-[1fr_auto]">
         <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
           <p className="text-[11px] font-bold uppercase tracking-widest text-slate-500">Link geral (divulgação)</p>
@@ -6644,8 +6704,10 @@ function CardapioExternoAdmin({ lojaInfo, setModoUsoEmpresa = async () => {}, co
           <p className="mt-2 text-[11px] font-black text-slate-600">Aponte a câmera no cardápio</p>
         </div>
       </div>
+      )}
 
-      {/* QR por mesa — selecionar mesas cadastradas e gerar em lote */}
+      {/* Aba: QR por mesa — selecionar mesas cadastradas e gerar em lote */}
+      {aba === "qrmesa" && (
       <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
         <h3 className="text-base font-black text-white">🪧 QR Code das mesas (colar na mesa)</h3>
         <p className="mt-0.5 text-xs text-slate-400">Selecione as mesas cadastradas para gerar um QR por mesa. O cliente aponta a câmera, abre o cardápio já na mesa e pede pelo celular.</p>
@@ -6690,6 +6752,90 @@ function CardapioExternoAdmin({ lojaInfo, setModoUsoEmpresa = async () => {}, co
           </>
         )}
       </div>
+      )}
+
+      {/* Aba: Pedido externo */}
+      {aba === "pedido" && (
+        <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5 space-y-3">
+          <h3 className="text-base font-black text-white">Pedido externo</h3>
+          <Toggle on={cfg.aceitaPedidoExterno} onClick={() => setC("aceitaPedidoExterno", !cfg.aceitaPedidoExterno)} label="Aceitar pedido externo" hint="Cliente pode pedir pelo link/QR de divulgação" />
+          <Toggle on={cfg.consumoLocal} onClick={() => setC("consumoLocal", !cfg.consumoLocal)} label="Aceita consumo no local" hint="Pedido para consumir no estabelecimento" />
+          <Toggle on={cfg.retirada} onClick={() => setC("retirada", !cfg.retirada)} label="Aceita retirada" hint="Cliente retira no balcão" />
+          <Toggle on={cfg.entrega} onClick={() => setC("entrega", !cfg.entrega)} label="Aceita entrega" hint="Delivery na área de atendimento" />
+          <div>
+            <label className={lblCfg}>Pedido mínimo (R$)</label>
+            <input value={cfg.pedidoMinimo} onChange={(e) => setC("pedidoMinimo", e.target.value.replace(/[^\d.,]/g, ""))} placeholder="Ex.: 20" className={inpCfg} />
+          </div>
+          <BotaoSalvarCfg />
+        </div>
+      )}
+
+      {/* Aba: Pagamento */}
+      {aba === "pagamento" && (
+        <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5 space-y-3">
+          <h3 className="text-base font-black text-white">Pagamento</h3>
+          <Toggle on={cfg.pagOnline} onClick={() => setC("pagOnline", !cfg.pagOnline)} label="Aceita pagamento online" hint="Cobrança no momento do pedido" />
+          <Toggle on={cfg.pagEntrega} onClick={() => setC("pagEntrega", !cfg.pagEntrega)} label="Pagamento na entrega" />
+          <Toggle on={cfg.pagRetirada} onClick={() => setC("pagRetirada", !cfg.pagRetirada)} label="Pagamento na retirada" />
+          <div>
+            <label className={lblCfg}>Formas permitidas</label>
+            <div className="flex flex-wrap gap-2">
+              {[["pagPix", "PIX"], ["pagCartao", "Cartão"], ["pagDinheiro", "Dinheiro"]].map(([k, t]) => (
+                <button key={k} type="button" onClick={() => setC(k, !cfg[k])}
+                  className={`rounded-xl border px-3.5 py-2 text-xs font-bold transition ${cfg[k] ? "border-gold-400/60 bg-gold-400/10 text-gold-200" : "border-white/10 bg-white/[0.03] text-slate-500"}`}>
+                  <span className={`mr-1.5 ${cfg[k] ? "" : "opacity-40"}`}>{cfg[k] ? "✓" : "○"}</span>{t}
+                </button>
+              ))}
+            </div>
+          </div>
+          <BotaoSalvarCfg />
+        </div>
+      )}
+
+      {/* Aba: Entrega e retirada */}
+      {aba === "entrega" && (
+        <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5 space-y-3">
+          <h3 className="text-base font-black text-white">Entrega e retirada</h3>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label className={lblCfg}>Taxa de entrega (R$)</label>
+              <input value={cfg.taxaEntrega} onChange={(e) => setC("taxaEntrega", e.target.value.replace(/[^\d.,]/g, ""))} placeholder="Ex.: 8" className={inpCfg} />
+            </div>
+            <div>
+              <label className={lblCfg}>Tempo médio de entrega (min)</label>
+              <input value={cfg.tempoEntregaMin} onChange={(e) => setC("tempoEntregaMin", e.target.value.replace(/\D/g, ""))} placeholder="Ex.: 45" className={inpCfg} />
+            </div>
+          </div>
+          <div>
+            <label className={lblCfg}>Área de atendimento</label>
+            <input value={cfg.areaAtendimento} onChange={(e) => setC("areaAtendimento", e.target.value)} placeholder="Ex.: Centro e bairros vizinhos" className={inpCfg} />
+          </div>
+          <div>
+            <label className={lblCfg}>Observações de entrega</label>
+            <textarea value={cfg.obsEntrega} onChange={(e) => setC("obsEntrega", e.target.value)} rows={2} placeholder="Ex.: Não entregamos em condomínios fechados após 22h" className={`${inpCfg} resize-none`} />
+          </div>
+          <BotaoSalvarCfg />
+        </div>
+      )}
+
+      {/* Aba: Horários */}
+      {aba === "horarios" && (
+        <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5 space-y-3">
+          <h3 className="text-base font-black text-white">Horários de funcionamento</h3>
+          <p className="text-xs text-slate-500">Deixe em branco o dia em que não abre. Ex.: <span className="text-slate-300">18:00–23:00</span></p>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {DIAS.map(([k, label]) => (
+              <div key={k} className="flex items-center gap-3">
+                <span className="w-20 shrink-0 text-xs font-bold text-slate-400">{label}</span>
+                <input value={cfg.horarios[k]} onChange={(e) => setCfg((c) => ({ ...c, horarios: { ...c.horarios, [k]: e.target.value } }))}
+                  placeholder="Fechado" className={`${inpCfg} py-2`} />
+              </div>
+            ))}
+          </div>
+          <Toggle on={cfg.bloquearForaHorario} onClick={() => setC("bloquearForaHorario", !cfg.bloquearForaHorario)} label="Bloquear pedidos fora do horário" hint="Impede o envio quando o estabelecimento está fechado" />
+          <BotaoSalvarCfg />
+        </div>
+      )}
     </main>
   );
 }
