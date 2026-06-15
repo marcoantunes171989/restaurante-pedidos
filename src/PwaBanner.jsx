@@ -1,11 +1,15 @@
 /**
- * PwaBanner — único banner PWA, uma mensagem por vez.
+ * PwaBanner — banner PWA, uma mensagem por vez.
  *
  * Prioridade:
  *  1. Standalone + SW ativado   → "Nova versão" (recarregar)
  *  2. Standalone + sem update   → nada
  *  3. Browser + app instalado   → "Abrir no aplicativo"
- *  4. Browser + não instalado   → após 10 s → "Instalar"
+ *  4. Browser + não instalado   → nada (NÃO sugerimos instalar)
+ *
+ * Obs.: a sugestão periódica de instalação foi removida a pedido —
+ * o usuário pode instalar pelo próprio navegador quando quiser. Também
+ * suprimimos o prompt nativo do navegador (beforeinstallprompt).
  *
  * "Abrir no aplicativo" por plataforma:
  *  iOS       → instrução imediata (ícone na Tela de Início).
@@ -20,7 +24,6 @@ import { LogoPP } from "./components/BrandLogo";
 const START_URL        = "/login";
 const STORAGE_KEY      = "pp_pwa_instalado";
 const STORAGE_TTL_DIAS = 90;
-const DELAY_INSTALAR   = 10_000;
 
 // ── Detecta standalone ────────────────────────────────────────
 function ehStandalone() {
@@ -61,14 +64,6 @@ async function verificarAPI() {
 // ── Textos por plataforma ─────────────────────────────────────
 const NOMES_SO = { ios: "iPhone / iPad", android: "Android", windows: "Windows", mac: "Mac", outro: "este dispositivo" };
 
-const INSTRUCOES_INSTALAR = {
-  ios:     "Toque no ícone Compartilhar ⬆️ e selecione 'Adicionar à Tela de Início'. Depois abra o app pelo ícone 🍽️ criado.",
-  android: "Menu do Chrome (⋮) → 'Instalar aplicativo' ou 'Adicionar à tela inicial'.",
-  windows: "Clique no ícone ⊕ na barra de endereço do Chrome ou Edge.",
-  mac:     "Chrome/Edge: ícone ⊕ na barra de endereço. Safari: Arquivo → Adicionar ao Dock.",
-  outro:   "No menu do navegador, escolha 'Instalar aplicativo'.",
-};
-
 // Como ABRIR o app já instalado (instrução por plataforma)
 const INSTRUCOES_ABRIR = {
   ios:     "Procure e toque no ícone 🍽️ Pedido Prime na sua Tela de Início.",
@@ -80,15 +75,12 @@ const INSTRUCOES_ABRIR = {
 
 // ═══════════════════════════════════════════════════════════════
 export default function PwaBanner({ swAtivado = false }) {
-  // banner: 'atualizar' | 'abrirApp' | 'instalar' | null
+  // banner: 'atualizar' | 'abrirApp' | null
   const [banner, setBanner]         = useState(null);
-  const [deferredEvt, setDeferredEvt] = useState(null);
-  const [instrucaoInstalar, setInstrucaoInstalar] = useState(false);
   const [instrucaoAbrir, setInstrucaoAbrir]       = useState(false);
   const [atualizando, setAtualizando]             = useState(false);
   const [novaVersao, setNovaVersao]               = useState(null); // commit da versão a aplicar
   const dispensadoRef = useRef(false);
-  const deferredRef   = useRef(null); // evento beforeinstallprompt (sinal de "não instalado")
   const timerRef      = useRef(null);
   const lembreteRef   = useRef(null); // timer do lembrete de atualização (15s)
   const so            = detectaSO();
@@ -112,42 +104,22 @@ export default function PwaBanner({ swAtivado = false }) {
       .catch(() => {});
   }, [banner]);
 
-  // ── Pipeline de detecção de instalação ───────────────────
-  // Decisão entre "instalar" (não instalado) x "abrirApp" (instalado):
-  //  Sinais de INSTALADO  → getInstalledRelatedApps() / flag local.
-  //  Sinal de NÃO INSTALADO (definitivo) → beforeinstallprompt disparou.
-  // No Windows (Chrome/Edge) o getInstalledRelatedApps é autoritativo: se o
-  // ícone for removido (desinstalado), a API deixa de retornar o app → mostra
-  // "Instalar"; se estiver instalado, retorna o app → mostra "Abrir no app".
+  // ── Detecção de app instalado → "Abrir no aplicativo" ─────
+  // Só oferecemos ABRIR quando o app já está instalado. Não há mais sugestão
+  // de instalar nem agendamento periódico. O prompt nativo é suprimido.
   useEffect(() => {
     if (ehStandalone()) return; // Dentro do app → não mostra nada (atualizar cuida)
     let cancelado = false;
     let decidido = false;
 
-    const mostrarInstalar = () => {
-      if (cancelado || decidido || dispensadoRef.current || ehStandalone()) return;
-      decidido = true;
-      setBanner("instalar");
-    };
     const mostrarAbrir = () => {
-      if (cancelado || decidido || ehStandalone()) return;
+      if (cancelado || decidido || dispensadoRef.current || ehStandalone()) return;
       decidido = true;
       setBanner("abrirApp");
     };
 
-    // beforeinstallprompt = navegador confirma que o app NÃO está instalado e é
-    // instalável → é o sinal definitivo. Sobrepõe qualquer decisão anterior.
-    const onBIP = (e) => {
-      e.preventDefault();
-      deferredRef.current = e;
-      setDeferredEvt(e);
-      clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(() => {
-        if (cancelado || dispensadoRef.current || ehStandalone()) return;
-        decidido = true;
-        setBanner("instalar");
-      }, 1500);
-    };
+    // Suprime o prompt nativo de instalação do navegador (não sugerimos instalar)
+    const onBIP = (e) => { e.preventDefault(); };
     const onInstalled = () => {
       gravarFlag();
       decidido = true;
@@ -169,21 +141,14 @@ export default function PwaBanner({ swAtivado = false }) {
       // 2. Flag local (iOS/Firefox/Samsung, que não têm a API)
       if (lerFlag()) { mostrarAbrir(); return; }
 
-      // 3. Não confirmou instalado. Aguarda janela p/ o beforeinstallprompt
-      //    disparar (caso não instalado e instalável). Depois decide.
-      const temAPI = "getInstalledRelatedApps" in navigator; // Chrome/Edge
+      // 3. Sem confirmação de instalado. Se houver API, reconfirma após uma
+      //    janela (cobre detecção tardia). Se continuar não instalado → nada.
+      if (!("getInstalledRelatedApps" in navigator)) return;
       timerRef.current = setTimeout(async () => {
         if (cancelado || decidido) return;
-        if (deferredRef.current) { mostrarInstalar(); return; } // BIP chegou → instalar
-        if (temAPI) {
-          // Chrome/Edge: reconfirma. API diz NÃO instalado (ícone removido) →
-          // mostra INSTALAR; diz instalado → ABRIR.
-          const inst = await verificarAPI();
-          if (cancelado) return;
-          if (inst) mostrarAbrir(); else mostrarInstalar();
-        } else {
-          mostrarInstalar(); // navegadores sem a API → oferece instalar
-        }
+        const inst = await verificarAPI();
+        if (cancelado || !inst) return;
+        mostrarAbrir();
       }, 3500);
     })();
 
@@ -209,22 +174,6 @@ export default function PwaBanner({ swAtivado = false }) {
     setBanner(null);
     clearTimeout(lembreteRef.current);
     lembreteRef.current = setTimeout(() => setBanner("atualizar"), 15_000);
-  }
-
-  // ── Instalar ──────────────────────────────────────────────
-  async function instalar() {
-    if (deferredEvt) {
-      try {
-        deferredEvt.prompt();
-        const { outcome } = await deferredEvt.userChoice;
-        if (outcome === "accepted") { gravarFlag(); setBanner(null); return; }
-        dispensar();
-      } catch { dispensar(); }
-      setDeferredEvt(null);
-    } else {
-      gravarFlag();
-      setInstrucaoInstalar(true);
-    }
   }
 
   // ── Abrir o app instalado ─────────────────────────────────
@@ -259,14 +208,11 @@ export default function PwaBanner({ swAtivado = false }) {
     }, 2500);
   }
 
-  // ── Flag inválida (usuário nunca instalou, reseta) ────────
+  // ── Detecção de "instalado" estava errada → limpa flag e fecha ──
   function resetarFlag() {
     limparFlag();
     setBanner(null);
     setInstrucaoAbrir(false);
-    timerRef.current = setTimeout(() => {
-      if (!dispensadoRef.current && !ehStandalone()) setBanner("instalar");
-    }, DELAY_INSTALAR);
   }
 
   // ── Aplicar atualização (standalone) ─────────────────────
@@ -345,7 +291,7 @@ export default function PwaBanner({ swAtivado = false }) {
                 </div>
                 <button onClick={resetarFlag}
                   className="text-xs text-slate-500 underline hover:text-slate-300 transition">
-                  Não instalei — instalar agora
+                  Não tenho instalado — ocultar
                 </button>
               </div>
             )}
@@ -361,38 +307,7 @@ export default function PwaBanner({ swAtivado = false }) {
     );
   }
 
-  // ══════════════════════════════════════════════════════════
-  //  INSTALAR — não instalado, após 10 s
-  // ══════════════════════════════════════════════════════════
-  return (
-    <Wrap border="border-white/15">
-      <div className="flex items-start gap-3 p-4">
-        <span className="flex h-12 w-12 shrink-0 items-center justify-center"><LogoPP size={48} /></span>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-black text-white">Instalar o Pedido Prime</p>
-          <p className="mt-0.5 text-xs text-slate-400">
-            Acesso rápido em {NOMES_SO[so]}, tela cheia e sempre atualizado.
-          </p>
-          {instrucaoInstalar && (
-            <div className="mt-2 rounded-2xl border border-blue-400/20 bg-blue-500/10 p-2.5 space-y-1">
-              <p className="text-xs leading-5 text-blue-200">📲 {INSTRUCOES_INSTALAR[so]}</p>
-              {so === "ios" && (
-                <p className="text-[11px] text-blue-300/70">
-                  Após instalar, feche o Safari e abra pelo ícone. Na próxima visita detectamos automaticamente.
-                </p>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-      <div className="flex gap-2 border-t border-white/10 p-3">
-        <Btn variante="ghost" onClick={dispensar}>Agora não</Btn>
-        <Btn variante="blue"  onClick={instalar}>
-          {deferredEvt ? "📥 Instalar aplicativo" : "Como instalar"}
-        </Btn>
-      </div>
-    </Wrap>
-  );
+  return null;
 }
 
 // ── Utilitários ───────────────────────────────────────────────
