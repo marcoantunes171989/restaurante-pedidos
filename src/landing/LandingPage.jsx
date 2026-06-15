@@ -16,12 +16,62 @@ const WHATSAPP_COMERCIAL = "5518981465499";
 const NAV = [
   { label: "Funcionalidades", id: "funcionalidades" },
   { label: "2 formas de usar", id: "formas" },
-  { label: "Baixar app", id: "app" },
   { label: "Como funciona", id: "como-funciona" },
   { label: "Gestão", id: "gestao" },
-  { label: "Segmentos", id: "segmentos" },
+  { label: "Planos", id: "planos" },
   { label: "FAQ", id: "faq" },
   { label: "Contato", id: "contato" },
+];
+
+// ── Planos / tabela de preços (escolha dinâmica pelo cliente) ──
+const PLANOS = [
+  {
+    id: "start", icon: "📲", nome: "Start", preco: "149", periodo: "/mês*",
+    desc: "Para quem está começando a digitalizar o atendimento.",
+    cta: "Começar agora",
+    recursos: [
+      "Cardápio digital online", "Cadastro de produtos e categorias", "Cadastro de imagens dos produtos",
+      "QR Code para acesso ao cardápio", "Recebimento de pedidos", "Painel administrativo",
+      "Atualização de preços e produtos", "Suporte básico",
+    ],
+    indicado: "Lanchonetes, cafeterias, pequenas hamburguerias e estabelecimentos começando a digitalizar.",
+  },
+  {
+    id: "profissional", icon: "👑", nome: "Profissional", preco: "249", periodo: "/mês*", destaque: true,
+    desc: "O mais recomendado: agiliza o atendimento nas mesas e reduz erros nos pedidos.",
+    cta: "Escolher plano",
+    recursos: [
+      "Tudo do plano Start", "Pedido por tablet na mesa", "Pedido por QR Code na comanda",
+      "Controle de mesas", "Controle de comandas", "Envio do pedido para a cozinha",
+      "Painel da cozinha", "Acompanhamento do pedido pelo cliente", "Solicitação de conta pela mesa",
+      "Personalização com a identidade do estabelecimento", "Suporte prioritário",
+    ],
+    obs: "O tablet deve ser adquirido pelo estabelecimento. O equipamento não está incluso no valor do plano.",
+    indicado: "Restaurantes, pizzarias, hamburguerias, bares e cafeterias com atendimento presencial.",
+  },
+  {
+    id: "prime", icon: "📊", nome: "Prime", preco: "399", periodo: "/mês*",
+    desc: "Para quem quer mais controle gerencial, relatórios e visão estratégica.",
+    cta: "Quero o Prime",
+    recursos: [
+      "Tudo do plano Profissional", "Dashboard gerencial", "Relatórios de vendas",
+      "Relatórios de produtos mais vendidos", "Análise de pedidos", "CRM de clientes",
+      "Gestão de promoções e produtos em destaque", "Múltiplos usuários", "Controle de permissões",
+      "Treinamento inicial da equipe", "Suporte premium",
+    ],
+    indicado: "Restaurantes com maior movimento, casas com várias mesas e equipes que querem profissionalizar a gestão.",
+  },
+  {
+    id: "personalizado", icon: "🤝", nome: "Personalizado", preco: null, precoTexto: "Sob consulta", periodo: "",
+    desc: "Soluções sob medida para operações maiores e mais complexas.",
+    cta: "Falar com consultor",
+    recursos: [
+      "Multiunidade", "Funcionalidades sob medida", "Integrações personalizadas",
+      "Personalização avançada", "Consultoria de implantação", "Treinamento dedicado",
+      "Suporte estratégico", "Adequação conforme a necessidade operacional",
+    ],
+    indicado: "Redes de restaurantes, franquias, grupos alimentícios e praças de alimentação.",
+  },
 ];
 
 const PROBLEMAS = [
@@ -376,11 +426,21 @@ export default function LandingPage({ navigate }) {
   const [menuAberto, setMenuAberto] = useState(false);
   const [faqAberto, setFaqAberto] = useState(-1);
   const [enviado, setEnviado] = useState(false);
+  const [planoEscolhido, setPlanoEscolhido] = useState(null); // plano selecionado dinamicamente
+
+  // Cliente escolhe o plano → marca, leva ao contato e já fala com vendas no WhatsApp
+  function escolherPlano(plano) {
+    setPlanoEscolhido(plano.id);
+    const precoTxt = plano.preco ? `R$ ${plano.preco}${plano.periodo}` : (plano.precoTexto || "Sob consulta");
+    const texto = `*Tenho interesse no plano ${plano.nome.toUpperCase()} (${precoTxt}) — ${NOME_SISTEMA}*\n\nGostaria de mais informações para contratar este plano para o meu estabelecimento.`;
+    window.open(`https://wa.me/${WHATSAPP_COMERCIAL}?text=${encodeURIComponent(texto)}`, "_blank");
+  }
 
   function enviarContato(e) {
     e.preventDefault();
     const f = new FormData(e.target);
     const v = (k) => (f.get(k) || "").toString().trim();
+    const planoSel = PLANOS.find((p) => p.id === planoEscolhido);
     const linhas = [
       `*Solicitação de demonstração — ${NOME_SISTEMA}*`,
       "",
@@ -390,9 +450,10 @@ export default function LandingPage({ navigate }) {
       `E-mail: ${v("email") || "-"}`,
       `Segmento: ${v("segmento") || "-"}`,
       `Mesas (aprox.): ${v("mesas") || "-"}`,
+      planoSel ? `Plano de interesse: ${planoSel.nome}${planoSel.preco ? ` (R$ ${planoSel.preco}${planoSel.periodo})` : ""}` : "",
       v("mensagem") ? `\nMensagem: ${v("mensagem")}` : "",
     ];
-    const texto = linhas.join("\n");
+    const texto = linhas.filter(Boolean).join("\n");
     // Abre o WhatsApp comercial com a mensagem pré-montada (preparado p/ CRM no futuro)
     window.open(`https://wa.me/${WHATSAPP_COMERCIAL}?text=${encodeURIComponent(texto)}`, "_blank");
     setEnviado(true);
@@ -695,6 +756,93 @@ export default function LandingPage({ navigate }) {
                 <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500/15 text-xl">{b.icon}</span>
                 <h3 className="mt-3 font-display text-base font-bold text-white">{b.title}</h3>
                 <p className="mt-1 text-sm leading-6 text-slate-500">{b.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Planos / tabela de preços ─────────────────────── */}
+      <section id="planos" className="scroll-mt-24 relative overflow-hidden bg-[#0A1424] py-16 sm:py-20">
+        <div className="pointer-events-none absolute inset-0"
+          style={{ backgroundImage: "radial-gradient(34rem 34rem at 110% -10%, rgba(214,168,79,.12), transparent 70%), radial-gradient(34rem 34rem at -10% 110%, rgba(37,99,235,.12), transparent 70%)" }} />
+        <div className="relative mx-auto max-w-6xl px-5">
+          <TituloSecao tag="Planos" titulo="Planos para o seu restaurante"
+            subtitulo="Escolha o plano ideal e transforme a experiência dos seus clientes com o Pedido Prime." />
+
+          <div className="mt-12 grid gap-5 lg:grid-cols-4">
+            {PLANOS.map((p) => {
+              const sel = planoEscolhido === p.id;
+              return (
+                <div key={p.id}
+                  className={`relative flex flex-col rounded-[1.6rem] border p-6 transition ${p.destaque ? "border-gold-400/60 bg-gold-400/[0.06]" : "border-white/10 bg-white/[0.03]"} ${sel ? "ring-2 ring-gold-400 ring-offset-2 ring-offset-[#0A1424]" : ""}`}>
+                  {p.destaque && (
+                    <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-gold-400 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-blue-950 shadow-lg">★ Mais escolhido</span>
+                  )}
+                  {/* Ícone + nome */}
+                  <div className="text-center">
+                    <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-gold-400/30 bg-gold-400/10 text-2xl">{p.icon}</span>
+                    <h3 className="font-display mt-3 text-xl font-bold tracking-tight text-white">{p.nome}</h3>
+                    <p className="mt-1 min-h-[40px] text-xs leading-5 text-slate-400">{p.desc}</p>
+                  </div>
+                  {/* Preço */}
+                  <div className="mt-4 border-y border-white/10 py-4 text-center">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">A partir de</p>
+                    {p.preco ? (
+                      <p className="font-display mt-1 text-3xl font-bold text-gold-400">R$ {p.preco}<span className="text-sm font-medium text-slate-400">{p.periodo}</span></p>
+                    ) : (
+                      <p className="font-display mt-1 text-2xl font-bold text-gold-400">{p.precoTexto}</p>
+                    )}
+                  </div>
+                  {/* Recursos */}
+                  <ul className="mt-4 flex-1 space-y-2">
+                    {p.recursos.map((r) => (
+                      <li key={r} className="flex items-start gap-2 text-[13px] leading-snug text-slate-300">
+                        <span className="mt-0.5 shrink-0 text-gold-400">✓</span> {r}
+                      </li>
+                    ))}
+                  </ul>
+                  {p.obs && (
+                    <p className="mt-3 rounded-xl border border-gold-400/20 bg-gold-400/[0.06] px-3 py-2 text-[10px] leading-snug text-gold-200/90">
+                      <b className="text-gold-300">ⓘ Importante:</b> {p.obs}
+                    </p>
+                  )}
+                  {/* Indicado para */}
+                  <div className="mt-3">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-gold-400/70">Indicado para</p>
+                    <p className="mt-0.5 text-[11px] leading-snug text-slate-400">{p.indicado}</p>
+                  </div>
+                  {/* CTA — seleção dinâmica */}
+                  <button onClick={() => escolherPlano(p)}
+                    className={`font-display mt-5 w-full rounded-xl px-4 py-3 text-sm font-bold transition active:scale-95 ${p.destaque ? "bg-gold-400 text-blue-950 hover:bg-gold-300 shadow-lg shadow-gold-900/30" : "border border-gold-400/40 bg-gold-400/10 text-gold-200 hover:bg-gold-400/20"}`}>
+                    {p.cta}
+                  </button>
+                  {sel && <p className="mt-2 text-center text-[10px] font-bold text-gold-300">✓ Plano selecionado</p>}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Faixa "todos a partir deste valor" */}
+          <div className="mt-8 flex flex-col items-center gap-1.5 rounded-2xl border border-gold-400/40 bg-gold-400/[0.06] px-6 py-4 text-center">
+            <p className="font-display text-base font-bold uppercase tracking-wide text-gold-300">🏷️ Todos os planos são a partir deste valor</p>
+            <p className="max-w-3xl text-xs leading-relaxed text-slate-400">Os valores podem variar conforme a quantidade de mesas, tablets, unidades, personalizações, integrações e nível de implantação necessário.</p>
+          </div>
+
+          {/* Garantias */}
+          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              ["🛡️", "Segurança e confiabilidade", "Seus dados protegidos com tecnologia moderna e backups diários."],
+              ["🎧", "Suporte especializado", "Atendimento humanizado e suporte técnico de qualidade."],
+              ["🎓", "Treinamento incluso", "Capacitação da sua equipe para aproveitar todo o potencial do sistema."],
+              ["⬇️", "Atualizações constantes", "Novas funcionalidades e melhorias sempre para o seu negócio."],
+            ].map(([ic, t, d]) => (
+              <div key={t} className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gold-400/10 text-lg">{ic}</span>
+                <div>
+                  <p className="font-display text-sm font-bold text-white">{t}</p>
+                  <p className="mt-0.5 text-[11px] leading-snug text-slate-400">{d}</p>
+                </div>
               </div>
             ))}
           </div>
