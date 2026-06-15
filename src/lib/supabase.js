@@ -179,15 +179,20 @@ export async function inserirLoja(loja) {
 }
 
 // ── Onboarding SaaS: cria loja + admin + dados iniciais ──────
-export async function cadastrarEmpresa({ nomeLoja, prefixo, nomeResponsavel, email, senha, documento = null, modoUso = 'interno', logoUrl = '', cargoId = null, cargoNome = 'Gestor' }) {
-  // 1. Verifica e-mail único
-  const { data: existe } = await supabase.from('tab_usuarios').select('id').eq('email', email).maybeSingle()
-  if (existe) throw new Error('Já existe um usuário com este e-mail.')
+export async function cadastrarEmpresa({ nomeLoja, prefixo, nomeResponsavel = '', email = '', senha = '', documento = null, modoUso = 'interno', logoUrl = '', cargoId = null, cargoNome = 'Gestor' }) {
+  // Usuário gestor é opcional: quando informado, cria o login; senão, só a empresa
+  // (os usuários são cadastrados depois na tela "Usuários").
+  const criarGestor = !!(email && senha)
+  // 1. Verifica e-mail único (apenas se houver gestor)
+  if (criarGestor) {
+    const { data: existe } = await supabase.from('tab_usuarios').select('id').eq('email', email).maybeSingle()
+    if (existe) throw new Error('Já existe um usuário com este e-mail.')
+  }
   // 2. Verifica prefixo único
   const { data: pfx } = await supabase.from('tab_lojas').select('id').eq('prefixo', prefixo).maybeSingle()
   if (pfx) throw new Error('Já existe uma loja com este prefixo. Escolha outras iniciais.')
   // 3. Cria a loja
-  const baseLoja = { nome: nomeLoja, prefixo, plano: 'free', email_responsavel: email, ...(documento ? { documento } : {}), modo_uso: modoUso || 'interno' }
+  const baseLoja = { nome: nomeLoja, prefixo, plano: 'free', ...(email ? { email_responsavel: email } : {}), ...(documento ? { documento } : {}), modo_uso: modoUso || 'interno' }
   let loja, e1
   ;({ data: loja, error: e1 } = await supabase.from('tab_lojas')
     .insert([{ ...baseLoja, ...(logoUrl ? { logo_url: logoUrl } : {}) }]).select().single())
@@ -197,11 +202,13 @@ export async function cadastrarEmpresa({ nomeLoja, prefixo, nomeResponsavel, ema
   }
   if (e1) throw e1
   const lojaId = loja.id
-  // 4. Cria o usuário administrador (acesso total)
-  const { data: user, error: e2 } = await supabase.from('tab_usuarios')
-    .insert([{ nome: nomeResponsavel, email, senha, perfil: cargoNome || 'Gestor', ...(cargoId ? { cargo_id: cargoId } : {}), ativo: true, ids_acesso: ['tablet', 'kitchen', 'panel', 'cashier', 'admin'], loja_id: lojaId }])
-    .select().single()
-  if (e2) throw e2
+  // 4. Cria o usuário administrador (acesso total) — somente se informado
+  if (criarGestor) {
+    const { error: e2 } = await supabase.from('tab_usuarios')
+      .insert([{ nome: nomeResponsavel, email, senha, perfil: cargoNome || 'Gestor', ...(cargoId ? { cargo_id: cargoId } : {}), ativo: true, ids_acesso: ['tablet', 'kitchen', 'panel', 'cashier', 'admin'], loja_id: lojaId }])
+      .select().single()
+    if (e2) throw e2
+  }
   // 5. Seed de categorias e formas de pagamento padrão para a nova loja
   try {
     await supabase.from('tab_categorias').insert(

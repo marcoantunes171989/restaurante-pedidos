@@ -863,9 +863,14 @@ export default function RestaurantePedidoApp() {
       const cargo = cargos.find((c) => c.id === Number(dados.cargoId));
       const { loja, email } = await cadastrarEmpresa({ ...dados, logoUrl: dados.logoUrl || "", cargoId: cargo?.id || null, cargoNome: cargo?.nome || "Gestor" });
       setLojas((cur) => [...cur, { ...loja, logoUrl: dados.logoUrl || null }]);
-      const novoUser = { id: Date.now(), name: dados.nomeResponsavel, email, password: dados.senha, role: cargo?.nome || "Gestor", cargoId: cargo?.id || null, active: true, accessIds: ["tablet","kitchen","panel","cashier","admin"], lojaId: loja.id };
-      setUsers((cur) => [...cur, novoUser]);
-      notify("success", `Empresa "${loja.nome}" criada. Acesso do gestor: ${email}. Comandas: ${loja.prefixo}-000001.`);
+      // O usuário gestor é cadastrado depois, na tela "Usuários" (este modal trata só dos dados da empresa)
+      if (email) {
+        const novoUser = { id: Date.now(), name: dados.nomeResponsavel, email, password: dados.senha, role: cargo?.nome || "Gestor", cargoId: cargo?.id || null, active: true, accessIds: ["tablet","kitchen","panel","cashier","admin"], lojaId: loja.id };
+        setUsers((cur) => [...cur, novoUser]);
+        notify("success", `Empresa "${loja.nome}" criada. Acesso do gestor: ${email}. Comandas: ${loja.prefixo}-000001.`);
+      } else {
+        notify("success", `Empresa "${loja.nome}" criada. Comandas: ${loja.prefixo}-000001. Cadastre os usuários em "Usuários".`);
+      }
     } catch (err) {
       notify("error", err.message || "Erro ao cadastrar a empresa.");
       throw err;
@@ -7199,7 +7204,7 @@ function LojaAdmin({ lojas, addLoja, toggleLoja, editarLoja, removerLoja, lojaIn
       </div>
 
       {criando && (
-        <EmpresaCadastroModal cargos={cargosAtivos} criarEmpresa={criarEmpresa} onFechar={() => setCriando(false)} />
+        <EmpresaCadastroModal criarEmpresa={criarEmpresa} onFechar={() => setCriando(false)} />
       )}
       {editando && (
         <LojaEditModal
@@ -7222,11 +7227,9 @@ function LojaAdmin({ lojas, addLoja, toggleLoja, editarLoja, removerLoja, lojaIn
 }
 
 // Modal de cadastro de empresa (empresa + gestor) — combo de cargo em chips elegantes
-function EmpresaCadastroModal({ cargos = [], criarEmpresa, onFechar }) {
-  const cargoGestorPadrao = cargos.find((c) => c.nome.toLowerCase() === "gestor")?.id ?? (cargos[0]?.id ?? "");
-  const [form, setForm] = useState({ nomeLoja: "", prefixo: "", documento: "", modoUso: "interno", logoUrl: "", nomeResponsavel: "", email: "", senha: "", cargoId: cargoGestorPadrao });
+function EmpresaCadastroModal({ criarEmpresa, onFechar }) {
+  const [form, setForm] = useState({ nomeLoja: "", prefixo: "", documento: "", modoUso: "interno", logoUrl: "" });
   const [enviando, setEnviando] = useState(false);
-  const [verSenha, setVerSenha] = useState(false);
   const [uploadando, setUploadando] = useState(false);
   const [erroLogo, setErroLogo] = useState("");
   const fileLogoRef = React.useRef(null);
@@ -7245,8 +7248,7 @@ function EmpresaCadastroModal({ cargos = [], criarEmpresa, onFechar }) {
     setUploadando(false);
   }
 
-  const valido = form.nomeLoja.trim() && form.prefixo.length >= 2 && docValido(form.documento) &&
-    form.nomeResponsavel.trim() && form.email.trim() && form.senha.length >= 4 && form.cargoId;
+  const valido = form.nomeLoja.trim() && form.prefixo.length >= 2 && docValido(form.documento);
 
   async function salvar() {
     if (!valido || enviando) return;
@@ -7334,45 +7336,6 @@ function EmpresaCadastroModal({ cargos = [], criarEmpresa, onFechar }) {
                 <li>• Aparece no <b className="text-slate-400">tablet do cliente</b> (tela de boas-vindas) em tamanho padrão e enquadramento elegante.</li>
               </ul>
               {erroLogo && <p className="mt-1 text-[11px] text-red-400">❌ {erroLogo}</p>}
-            </div>
-          </div>
-
-          {/* Dados do gestor */}
-          <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
-            <p className="mb-3 text-xs font-black uppercase tracking-widest text-gold-300">👤 Usuário gestor</p>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="sm:col-span-2">
-                <span className={lbl}>Nome *</span>
-                <input value={form.nomeResponsavel} onChange={(e) => setForm({ ...form, nomeResponsavel: e.target.value })} placeholder="Nome do responsável" className={inp} autoComplete="off" name="emp_gestor_nome" />
-              </div>
-              <div>
-                <span className={lbl}>E-mail *</span>
-                <input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="gestor@empresa.com" className={inp} autoComplete="off" name="emp_gestor_email" />
-              </div>
-              <div>
-                <span className={lbl}>Senha * (mín. 4)</span>
-                <div className="relative">
-                  <input type={verSenha ? "text" : "password"} value={form.senha} onChange={(e) => setForm({ ...form, senha: e.target.value })} placeholder="••••••" className={`${inp} pr-12`} autoComplete="new-password" name="emp_gestor_senha" />
-                  <button type="button" onClick={() => setVerSenha((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-400 hover:text-white">{verSenha ? "🙈" : "👁️"}</button>
-                </div>
-              </div>
-            </div>
-
-            {/* Combo de cargo em chips (minimalista, moderno e elegante) */}
-            <div className="mt-3">
-              <span className={lbl}>Cargo / perfil *</span>
-              <div className="flex flex-wrap gap-2">
-                {cargos.length === 0 && <p className="text-xs text-amber-300">Nenhum cargo ativo. Cadastre em “Cargos / Perfis”.</p>}
-                {cargos.map((c) => {
-                  const sel = form.cargoId === c.id;
-                  return (
-                    <button key={c.id} type="button" onClick={() => setForm({ ...form, cargoId: c.id })}
-                      className={`flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-black transition active:scale-95 ${sel ? "border-gold-400 bg-gold-400 text-blue-950 shadow-lg shadow-gold-900/30" : "border-white/10 bg-white/[0.04] text-slate-300 hover:border-white/25 hover:bg-white/10"}`}>
-                      {sel && <span className="text-[11px]">✓</span>}{c.nome}
-                    </button>
-                  );
-                })}
-              </div>
             </div>
           </div>
         </div>
