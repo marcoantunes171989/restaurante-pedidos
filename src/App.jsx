@@ -5411,17 +5411,20 @@ function RelatoriosAdmin({ orders, products, lojaInfo }) {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h2 className="text-2xl font-black text-white">📈 Relatórios</h2>
-          <p className="mt-1 text-sm text-slate-400">Vendas, cupons e tempo de permanência.</p>
+          <h2 className="page-title flex items-center gap-2.5 text-2xl font-bold tracking-tight text-white">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gold-400/30 bg-gold-400/10 text-gold-300"><IconRelatorios /></span>
+            Relatórios de vendas
+          </h2>
+          <p className="mt-1 text-sm text-slate-400">Análise gerencial: vendas, cupons e tempo de permanência por período.</p>
         </div>
         <SeletorPeriodo periodo={periodo} setPeriodo={setPeriodo} ini={ini} setIni={setIni} fim={fim} setFim={setFim} />
       </div>
 
       {/* Sub-abas de relatório */}
       <div className="flex flex-wrap gap-2">
-        {[{ id: "vendas", label: "🛒 Vendas" }, { id: "cupom", label: "🧾 Por cupom/mesa/comanda" }, { id: "permanencia", label: "⏱️ Permanência média" }].map((t) => (
+        {[{ id: "vendas", label: "Vendas" }, { id: "cupom", label: "Cupom / Mesa / Comanda" }, { id: "permanencia", label: "Permanência" }].map((t) => (
           <button key={t.id} onClick={() => setAba(t.id)}
-            className={`rounded-full border px-4 py-2 text-sm font-black transition ${aba === t.id ? "border-blue-400 bg-blue-500 text-white" : "border-white/10 bg-white/[0.06] text-slate-300"}`}>
+            className={`font-display rounded-xl px-4 py-2.5 text-sm font-bold transition ${aba === t.id ? "bg-gold-400 text-blue-950 shadow-lg shadow-gold-900/20" : "border border-white/10 bg-white/[0.04] text-slate-300 hover:bg-white/[0.08]"}`}>
             {t.label}
           </button>
         ))}
@@ -5430,29 +5433,35 @@ function RelatoriosAdmin({ orders, products, lojaInfo }) {
       {aba === "vendas" && (
         <>
           <div className="flex flex-wrap gap-2">
-            <button onClick={exportarCSV} className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-2.5 text-sm font-black text-emerald-300 hover:bg-emerald-500/20">📊 Exportar Excel (CSV)</button>
-            <button onClick={imprimirRelatorio} className="rounded-2xl border border-red-400/30 bg-red-500/10 px-4 py-2.5 text-sm font-black text-red-300 hover:bg-red-500/20">📄 PDF / Imprimir</button>
+            <button onClick={exportarCSV} className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-2.5 text-sm font-bold text-emerald-300 hover:bg-emerald-500/20 transition">📊 Exportar Excel (CSV)</button>
+            <button onClick={imprimirRelatorio} className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-2.5 text-sm font-bold text-slate-200 hover:bg-white/10 transition">📄 PDF / Imprimir</button>
           </div>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             <CardMetrica titulo="Subtotal vendido" valor={formatCurrency(a.faturamentoSemTaxa)} cor="text-white" />
             <CardMetrica titulo="Faturamento + taxa" valor={formatCurrency(a.faturamento)} cor="text-emerald-400" variacao={comparativo?.faturamento} />
-            <CardMetrica titulo="Itens vendidos" valor={a.topProdutos.reduce((s, p) => s + p.qtd, 0)} cor="text-blue-400" />
-            <CardMetrica titulo="Ticket médio" valor={formatCurrency(a.ticket)} sub="por pedido pago" cor="text-blue-400" variacao={comparativo?.ticket} />
+            <CardMetrica titulo="Itens vendidos" valor={a.topProdutos.reduce((s, p) => s + p.qtd, 0)} cor="text-white" />
+            <CardMetrica titulo="Ticket médio" valor={formatCurrency(a.ticket)} sub="por pedido pago" cor="text-gold-400" variacao={comparativo?.ticket} />
             <CardMetrica titulo="Qtd. de pedidos" valor={a.totalPedidos} sub="no período" cor="text-white" variacao={comparativo?.pedidos} />
             <CardMetrica titulo="Margem estimada" valor={formatCurrency(margemEstimada)} sub="preço − custo cadastrado (itens pagos)" cor="text-gold-400" />
           </div>
-          <p className="text-xs text-slate-500">👆 Clique em um produto para ver os cupons em que foi vendido.</p>
           <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.04]">
-            <div className="hidden grid-cols-[2fr_1fr_1fr] bg-white/[0.06] px-5 py-3 text-xs font-black uppercase tracking-widest text-slate-400 sm:grid">
+            <div className="flex items-center justify-between border-b border-gold-400/15 px-5 py-3">
+              <h3 className="page-title text-sm font-bold uppercase tracking-wider text-white">Produtos mais vendidos</h3>
+              <span className="text-[11px] text-slate-500">👆 toque para ver os cupons</span>
+            </div>
+            <div className="hidden grid-cols-[2fr_1fr_1fr] bg-white/[0.03] px-5 py-2.5 text-[11px] font-bold uppercase tracking-widest text-gold-400/70 sm:grid">
               <span>Produto</span><span className="text-center">Qtd vendida</span><span className="text-right">Faturamento</span>
             </div>
             {a.topProdutos.length === 0 && <p className="px-5 py-6 text-center text-sm text-slate-500">Nenhuma venda no período.</p>}
-            {a.topProdutos.map((p) => (
+            {a.topProdutos.map((p, i) => (
               <button key={p.nome} onClick={() => setDrill({ nome: p.nome, cupons: cuponsDoProduto(p.nome) })}
-                className="grid w-full gap-1 border-t border-white/10 px-5 py-3 text-left text-sm transition hover:bg-blue-500/10 sm:grid-cols-[2fr_1fr_1fr] sm:items-center">
-                <span className="font-black text-white">{p.nome} <span className="text-xs text-blue-400">▸</span></span>
+                className="grid w-full gap-1 border-t border-white/[0.06] px-5 py-3 text-left text-sm transition hover:bg-gold-400/[0.06] sm:grid-cols-[2fr_1fr_1fr] sm:items-center">
+                <span className="flex items-center gap-2 font-semibold text-white">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-gold-400/15 text-[10px] font-black text-gold-300">{i + 1}</span>
+                  {p.nome} <span className="text-xs text-gold-400">▸</span>
+                </span>
                 <span className="text-slate-300 sm:text-center">{p.qtd} un</span>
-                <span className="font-black text-emerald-300 sm:text-right">{formatCurrency(p.valor)}</span>
+                <span className="font-semibold text-emerald-300 sm:text-right">{formatCurrency(p.valor)}</span>
               </button>
             ))}
           </div>
@@ -5474,20 +5483,20 @@ function RelatorioCupom({ pedidos, lojaInfo }) {
   const pagos = pedidos.filter((o) => o.paymentStatus === "paid");
   return (
     <div className="space-y-3">
-      <p className="text-sm text-slate-400">{pagos.length} cupom(ns) fiscal(is) no período — itens detalhados por mesa e comanda. Clique em <b className="text-blue-300">🧾 Cupom</b> para reimprimir ou enviar ao cliente.</p>
+      <p className="text-sm text-slate-400">{pagos.length} cupom(ns) fiscal(is) no período — itens detalhados por mesa e comanda. Toque em <b className="text-gold-300">🧾 Cupom</b> para reimprimir ou enviar ao cliente.</p>
       {pagos.length === 0 && <p className="rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-6 text-center text-sm text-slate-500">Nenhum cupom pago no período.</p>}
       {pagos.map((o) => (
         <div key={o.id} className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.04]">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 bg-white/[0.04] px-5 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gold-400/15 bg-white/[0.03] px-5 py-3">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-xl bg-blue-500/20 border border-blue-400/30 px-2.5 py-1 font-mono text-xs font-black text-blue-300">Cupom {o.id}</span>
+              <span className="rounded-xl border border-gold-400/30 bg-gold-400/10 px-2.5 py-1 font-mono text-xs font-black text-gold-300">Cupom {o.id}</span>
               <span className="rounded-xl bg-white/10 px-2.5 py-1 text-xs font-bold text-white">{o.table}</span>
               <span className="rounded-xl bg-white/10 px-2.5 py-1 font-mono text-xs font-bold text-slate-300">{o.command}</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-sm font-black text-emerald-300">{formatCurrency(orderTotal(o) * 1.1)}</span>
+              <span className="page-title text-sm font-bold text-emerald-300">{formatCurrency(orderTotal(o) * 1.1)}</span>
               <button onClick={() => setCupomSel(o)} title="Cupom não fiscal (imprimir / WhatsApp)"
-                className="rounded-xl border border-blue-400/30 bg-blue-500/15 px-3 py-1.5 text-xs font-black text-blue-200 hover:bg-blue-500/25 transition">🧾 Cupom</button>
+                className="rounded-xl border border-gold-400/30 bg-gold-400/10 px-3 py-1.5 text-xs font-black text-gold-200 hover:bg-gold-400/20 transition">🧾 Cupom</button>
             </div>
           </div>
           <div className="px-5 py-3">
@@ -5907,22 +5916,28 @@ function RelatorioPermanencia({ pedidos }) {
     return h > 0 ? `${h}h ${m}min` : `${m}min ${s}s`;
   }
 
+  const maxDia = Math.max(1, ...dias.map((d) => d.media));
   return (
     <div className="space-y-5">
       <div className="grid gap-4 sm:grid-cols-2">
-        <CardMetrica titulo="Permanência média" valor={fmtDur(mediaGeral)} sub={`${lista.length} comanda(s) analisada(s)`} cor="text-blue-400" icon="⏱️" />
-        <CardMetrica titulo="Comandas finalizadas" valor={lista.length} sub="do pedido ao pagamento" icon="🧾" />
+        <CardMetrica titulo="Permanência média" valor={fmtDur(mediaGeral)} sub={`${lista.length} comanda(s) analisada(s)`} cor="text-gold-400" icon="⏱️" />
+        <CardMetrica titulo="Comandas finalizadas" valor={lista.length} sub="do pedido ao pagamento" cor="text-white" icon="🧾" />
       </div>
 
-      {/* Média por dia da semana */}
+      {/* Média por dia da semana — com barras de proporção */}
       <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
-        <h3 className="mb-4 text-lg font-black text-white">📅 Permanência média por dia da semana</h3>
+        <h3 className="page-title mb-4 flex items-center gap-2 text-base font-bold tracking-tight text-white">📅 Permanência média por dia da semana</h3>
         {dias.length === 0 ? <p className="text-sm text-slate-500">Sem dados suficientes (precisa de comandas pagas no período).</p> :
-          <div className="space-y-3">
-            {dias.map((d) => (
-              <div key={d.dia} className="flex items-center justify-between text-sm">
-                <span className="capitalize text-slate-300">{d.dia}</span>
-                <span className="font-black text-white">{fmtDur(d.media)} <span className="text-xs text-slate-500">({d.n} comanda(s))</span></span>
+          <div className="space-y-3.5">
+            {dias.sort((a, b) => b.media - a.media).map((d) => (
+              <div key={d.dia}>
+                <div className="mb-1 flex items-center justify-between text-sm">
+                  <span className="font-medium capitalize text-slate-200">{d.dia}</span>
+                  <span className="font-semibold text-white">{fmtDur(d.media)} <span className="text-xs font-normal text-slate-500">({d.n} comanda{d.n === 1 ? "" : "s"})</span></span>
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-white/[0.06]">
+                  <div className="h-full rounded-full bg-gradient-to-r from-gold-500 to-gold-300" style={{ width: `${(d.media / maxDia) * 100}%` }} />
+                </div>
               </div>
             ))}
           </div>}
@@ -5930,16 +5945,19 @@ function RelatorioPermanencia({ pedidos }) {
 
       {/* Detalhe por comanda */}
       <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.04]">
-        <div className="hidden grid-cols-[1fr_1fr_1.5fr_1fr] bg-white/[0.06] px-5 py-3 text-xs font-black uppercase tracking-widest text-slate-400 sm:grid">
+        <div className="border-b border-gold-400/15 px-5 py-3">
+          <h3 className="page-title text-sm font-bold uppercase tracking-wider text-white">Detalhe por comanda</h3>
+        </div>
+        <div className="hidden grid-cols-[1fr_1fr_1.5fr_1fr] bg-white/[0.03] px-5 py-2.5 text-[11px] font-bold uppercase tracking-widest text-gold-400/70 sm:grid">
           <span>Comanda</span><span>Mesa</span><span>Período</span><span className="text-right">Permanência</span>
         </div>
         {lista.length === 0 && <p className="px-5 py-6 text-center text-sm text-slate-500">Nenhuma comanda paga no período.</p>}
         {lista.sort((a,b)=>b.ms-a.ms).map((c, i) => (
-          <div key={i} className="grid gap-1 border-t border-white/10 px-5 py-3 text-sm sm:grid-cols-[1fr_1fr_1.5fr_1fr] sm:items-center">
-            <span className="font-mono font-black text-white">{c.comanda}</span>
+          <div key={i} className="grid gap-1 border-t border-white/[0.06] px-5 py-3 text-sm sm:grid-cols-[1fr_1fr_1.5fr_1fr] sm:items-center">
+            <span className="font-mono font-semibold text-white">{c.comanda}</span>
             <span className="text-slate-300">{c.mesa}</span>
             <span className="text-xs text-slate-400">{new Date(c.inicio).toLocaleTimeString("pt-BR")} → {new Date(c.fim).toLocaleTimeString("pt-BR")}</span>
-            <span className="font-black text-blue-300 sm:text-right">{fmtDur(c.ms)}</span>
+            <span className="font-semibold text-gold-300 sm:text-right">{fmtDur(c.ms)}</span>
           </div>
         ))}
       </div>
