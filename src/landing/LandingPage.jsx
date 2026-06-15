@@ -26,7 +26,7 @@ const NAV = [
 // ── Planos / tabela de preços (escolha dinâmica pelo cliente) ──
 const PLANOS = [
   {
-    id: "start", icon: "📲", nome: "Start", preco: "149", periodo: "/mês*",
+    id: "start", ico: "phone", ctaIco: "rocket", nome: "Start", preco: "149", periodo: "/mês*",
     desc: "Para quem está começando a digitalizar o atendimento.",
     cta: "Começar agora",
     recursos: [
@@ -37,7 +37,7 @@ const PLANOS = [
     indicado: "Lanchonetes, cafeterias, pequenas hamburguerias e estabelecimentos começando a digitalizar.",
   },
   {
-    id: "profissional", icon: "👑", nome: "Profissional", preco: "249", periodo: "/mês*", destaque: true,
+    id: "profissional", ico: "phone", ctaIco: "crown", nome: "Profissional", preco: "249", periodo: "/mês*", destaque: true,
     desc: "O mais recomendado: agiliza o atendimento nas mesas e reduz erros nos pedidos.",
     cta: "Escolher plano",
     recursos: [
@@ -50,7 +50,7 @@ const PLANOS = [
     indicado: "Restaurantes, pizzarias, hamburguerias, bares e cafeterias com atendimento presencial.",
   },
   {
-    id: "prime", icon: "📊", nome: "Prime", preco: "399", periodo: "/mês*",
+    id: "prime", ico: "bars", ctaIco: "bars", nome: "Prime", preco: "399", periodo: "/mês*",
     desc: "Para quem quer mais controle gerencial, relatórios e visão estratégica.",
     cta: "Quero o Prime",
     recursos: [
@@ -62,7 +62,7 @@ const PLANOS = [
     indicado: "Restaurantes com maior movimento, casas com várias mesas e equipes que querem profissionalizar a gestão.",
   },
   {
-    id: "personalizado", icon: "🤝", nome: "Personalizado", preco: null, precoTexto: "Sob consulta", periodo: "",
+    id: "personalizado", ico: "handshake", ctaIco: "person", nome: "Personalizado", preco: null, precoTexto: "Sob consulta", periodo: "",
     desc: "Soluções sob medida para operações maiores e mais complexas.",
     cta: "Falar com consultor",
     recursos: [
@@ -219,6 +219,35 @@ function FeatureCard({ icon, title, desc }) {
       <p className="mt-1 text-sm leading-6 text-slate-400">{desc}</p>
     </div>
   );
+}
+
+// ── Ícones de linha (planos) — SVG próprios, herdam currentColor ──
+const svgBase = { fill: "none", stroke: "currentColor", strokeWidth: 1.7, strokeLinecap: "round", strokeLinejoin: "round", viewBox: "0 0 24 24", "aria-hidden": true };
+function PlanoIcone({ tipo, className = "h-7 w-7" }) {
+  const p = { ...svgBase, className };
+  if (tipo === "bars") return (<svg {...p}><rect x="4" y="13" width="3.5" height="7" rx="1" /><rect x="10.25" y="8" width="3.5" height="12" rx="1" /><rect x="16.5" y="4" width="3.5" height="16" rx="1" /></svg>);
+  if (tipo === "handshake") return (<svg {...p}><path d="m11 17 2 2a1.5 1.5 0 0 0 2.5-1.1" /><path d="M13.5 19.4 16 17a1.5 1.5 0 0 0 2.4.4l.6-.6" /><path d="m19 17 2-2-4-6-3 1-2-1-2 1-3 4 2 2 3-2 3 3" /><path d="m3 9 4-6" /><path d="m21 9-2-3" /></svg>);
+  // phone (smartphone) — padrão
+  return (<svg {...p}><rect x="6.5" y="3" width="11" height="18" rx="2.4" /><path d="M11 18h2" /></svg>);
+}
+function CtaIcone({ tipo, className = "h-4 w-4" }) {
+  const p = { ...svgBase, className };
+  if (tipo === "crown") return (<svg {...p}><path d="m3 8 3.5 3L12 5l5.5 6L21 8l-1.5 10h-15L3 8Z" /><path d="M4.5 18h15" /></svg>);
+  if (tipo === "bars") return (<svg {...p}><rect x="4" y="13" width="3.5" height="7" rx="1" /><rect x="10.25" y="8" width="3.5" height="12" rx="1" /><rect x="16.5" y="4" width="3.5" height="16" rx="1" /></svg>);
+  if (tipo === "person") return (<svg {...p}><circle cx="12" cy="8" r="3.4" /><path d="M5.5 20c.7-3.3 3.2-5 6.5-5s5.8 1.7 6.5 5" /></svg>);
+  // rocket — padrão
+  return (<svg {...p}><path d="M5 15c-1.2.6-2 2-2 4 2 0 3.4-.8 4-2" /><path d="M9 17c-1.5-.6-3-2.1-3.6-3.6 0-5 3-9 9.6-10.4C16.4 9.6 12.4 12.6 9 17Z" /><path d="M9 13.5 7 12m4.5 4.5L13 15" /></svg>);
+}
+function CheckCircle({ className = "h-[18px] w-[18px]" }) {
+  return (<svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="m8.5 12 2.3 2.3L15.5 9.6" /></svg>);
+}
+function GarantiaIcone({ tipo, className = "h-5 w-5" }) {
+  const p = { ...svgBase, className };
+  if (tipo === "headset") return (<svg {...p}><path d="M4 13v-1a8 8 0 0 1 16 0v1" /><path d="M4 13h2.5a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-4Z" /><path d="M20 13h-2.5a1 1 0 0 0-1 1v3a1 1 0 0 0 1 1H19a1 1 0 0 0 1-1v-4Z" /><path d="M20 17v1a3 3 0 0 1-3 3h-3" /></svg>);
+  if (tipo === "cap") return (<svg {...p}><path d="m12 4 10 5-10 5L2 9l10-5Z" /><path d="M6 11v4c0 1.4 2.7 3 6 3s6-1.6 6-3v-4" /><path d="M22 9v5" /></svg>);
+  if (tipo === "cloud") return (<svg {...p}><path d="M7 18a4 4 0 0 1-.5-7.97A6 6 0 0 1 18 9.5a3.5 3.5 0 0 1-.5 8.5H7Z" /><path d="M12 11v6M9.5 14.5 12 17l2.5-2.5" /></svg>);
+  // shield — padrão
+  return (<svg {...p}><path d="M12 3 5 6v5c0 4.4 2.9 8 7 10 4.1-2 7-5.6 7-10V6l-7-3Z" /><path d="m9 12 2 2 4-4.5" /></svg>);
 }
 
 // Mockup de uma "tela do app" dentro de um frame de tablet (para o anúncio do app)
@@ -763,59 +792,77 @@ export default function LandingPage({ navigate }) {
       </section>
 
       {/* ── Planos / tabela de preços ─────────────────────── */}
-      <section id="planos" className="scroll-mt-24 relative overflow-hidden bg-[#0A1424] py-16 sm:py-20">
+      <section id="planos" className="scroll-mt-24 relative overflow-hidden bg-[#060912] py-16 sm:py-24">
         <div className="pointer-events-none absolute inset-0"
-          style={{ backgroundImage: "radial-gradient(34rem 34rem at 110% -10%, rgba(214,168,79,.12), transparent 70%), radial-gradient(34rem 34rem at -10% 110%, rgba(37,99,235,.12), transparent 70%)" }} />
-        <div className="relative mx-auto max-w-6xl px-5">
-          <TituloSecao tag="Planos" titulo="Planos para o seu restaurante"
-            subtitulo="Escolha o plano ideal e transforme a experiência dos seus clientes com o Pedido Prime." />
+          style={{ backgroundImage: "radial-gradient(40rem 30rem at 100% -10%, rgba(214,168,79,.14), transparent 65%), radial-gradient(36rem 30rem at -10% 110%, rgba(214,168,79,.08), transparent 70%)" }} />
+        <div className="relative mx-auto max-w-7xl px-5">
+          {/* Título no padrão do anexo */}
+          <div className="text-center">
+            <h2 className="font-display text-3xl font-black uppercase leading-tight tracking-tight text-white sm:text-5xl">
+              Planos para o <span className="text-gold-400">seu restaurante</span>
+            </h2>
+            <p className="mx-auto mt-3 max-w-2xl text-sm leading-7 text-slate-300 sm:text-base">
+              Escolha o plano ideal e transforme a experiência dos seus clientes com o {NOME_SISTEMA}.
+            </p>
+          </div>
 
-          <div className="mt-12 grid gap-5 lg:grid-cols-4">
+          <div className="mt-14 grid gap-5 lg:grid-cols-4">
             {PLANOS.map((p) => {
               const sel = planoEscolhido === p.id;
+              const filled = p.id !== "start"; // Start = contorno; demais = dourado preenchido
               return (
                 <div key={p.id}
-                  className={`relative flex flex-col rounded-[1.6rem] border p-6 transition ${p.destaque ? "border-gold-400/60 bg-gold-400/[0.06]" : "border-white/10 bg-white/[0.03]"} ${sel ? "ring-2 ring-gold-400 ring-offset-2 ring-offset-[#0A1424]" : ""}`}>
+                  className={`relative flex flex-col rounded-[1.6rem] border bg-[#0B0F1A] p-6 transition ${p.destaque ? "border-gold-400/70 shadow-[0_0_0_1px_rgba(214,168,79,.4),0_18px_50px_-12px_rgba(214,168,79,.35)]" : "border-gold-400/15"} ${sel ? "ring-2 ring-gold-400 ring-offset-2 ring-offset-[#060912]" : ""}`}>
                   {p.destaque && (
-                    <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-gold-400 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-blue-950 shadow-lg">★ Mais escolhido</span>
+                    <span className="absolute -top-3 left-1/2 -translate-x-1/2 inline-flex items-center gap-1 rounded-full bg-gold-400 px-3.5 py-1 text-[10px] font-black uppercase tracking-wider text-blue-950 shadow-lg">★ Mais escolhido</span>
                   )}
-                  {/* Ícone + nome */}
+                  {/* Ícone em anel + nome */}
                   <div className="text-center">
-                    <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-gold-400/30 bg-gold-400/10 text-2xl">{p.icon}</span>
-                    <h3 className="font-display mt-3 text-xl font-bold tracking-tight text-white">{p.nome}</h3>
-                    <p className="mt-1 min-h-[40px] text-xs leading-5 text-slate-400">{p.desc}</p>
+                    <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border-2 border-gold-400/50 text-gold-400">
+                      <PlanoIcone tipo={p.ico} />
+                    </span>
+                    <h3 className="font-display mt-3 text-2xl font-black uppercase tracking-tight text-gold-400">{p.nome}</h3>
+                    <p className="mx-auto mt-1.5 min-h-[56px] max-w-[15rem] text-xs leading-5 text-slate-400">{p.desc}</p>
                   </div>
                   {/* Preço */}
-                  <div className="mt-4 border-y border-white/10 py-4 text-center">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">A partir de</p>
+                  <div className="mt-2 border-t border-gold-400/15 pt-4 text-center">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400">A partir de</p>
                     {p.preco ? (
-                      <p className="font-display mt-1 text-3xl font-bold text-gold-400">R$ {p.preco}<span className="text-sm font-medium text-slate-400">{p.periodo}</span></p>
+                      <p className="font-display mt-1 leading-none">
+                        <span className="align-top text-base font-bold text-gold-400">R$ </span>
+                        <span className="text-5xl font-black text-gold-400">{p.preco}</span>
+                        <span className="ml-1 text-sm font-medium text-slate-400">{p.periodo}</span>
+                      </p>
                     ) : (
-                      <p className="font-display mt-1 text-2xl font-bold text-gold-400">{p.precoTexto}</p>
+                      <p className="font-display mt-1 text-2xl font-black uppercase text-gold-400">{p.precoTexto}</p>
                     )}
                   </div>
                   {/* Recursos */}
-                  <ul className="mt-4 flex-1 space-y-2">
+                  <ul className="mt-5 flex-1 space-y-2.5">
                     {p.recursos.map((r) => (
-                      <li key={r} className="flex items-start gap-2 text-[13px] leading-snug text-slate-300">
-                        <span className="mt-0.5 shrink-0 text-gold-400">✓</span> {r}
+                      <li key={r} className="flex items-start gap-2.5 text-[13px] leading-snug text-slate-200">
+                        <span className="mt-px shrink-0 text-gold-400"><CheckCircle /></span> {r}
                       </li>
                     ))}
                   </ul>
                   {p.obs && (
-                    <p className="mt-3 rounded-xl border border-gold-400/20 bg-gold-400/[0.06] px-3 py-2 text-[10px] leading-snug text-gold-200/90">
-                      <b className="text-gold-300">ⓘ Importante:</b> {p.obs}
-                    </p>
+                    <div className="mt-4 flex items-start gap-2.5 rounded-xl border border-gold-400/30 bg-gold-400/[0.05] px-3 py-2.5">
+                      <svg className="mt-0.5 h-4 w-4 shrink-0 text-gold-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></svg>
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-wider text-gold-300">Observação importante</p>
+                        <p className="mt-0.5 text-[10.5px] leading-snug text-slate-300">{p.obs}</p>
+                      </div>
+                    </div>
                   )}
                   {/* Indicado para */}
-                  <div className="mt-3">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-gold-400/70">Indicado para</p>
-                    <p className="mt-0.5 text-[11px] leading-snug text-slate-400">{p.indicado}</p>
+                  <div className="mt-4">
+                    <p className="text-[11px] font-black uppercase tracking-widest text-gold-400">Indicado para</p>
+                    <p className="mt-1 text-[11.5px] leading-snug text-slate-400">{p.indicado}</p>
                   </div>
                   {/* CTA — seleção dinâmica */}
                   <button onClick={() => escolherPlano(p)}
-                    className={`font-display mt-5 w-full rounded-xl px-4 py-3 text-sm font-bold transition active:scale-95 ${p.destaque ? "bg-gold-400 text-blue-950 hover:bg-gold-300 shadow-lg shadow-gold-900/30" : "border border-gold-400/40 bg-gold-400/10 text-gold-200 hover:bg-gold-400/20"}`}>
-                    {p.cta}
+                    className={`font-display mt-6 flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3.5 text-sm font-black uppercase tracking-wide transition active:scale-95 ${filled ? "bg-gradient-to-b from-gold-300 to-gold-500 text-blue-950 hover:from-gold-200 hover:to-gold-400 shadow-lg shadow-gold-900/30" : "border-2 border-gold-400/60 text-gold-300 hover:bg-gold-400/10"}`}>
+                    <CtaIcone tipo={p.ctaIco} /> {p.cta}
                   </button>
                   {sel && <p className="mt-2 text-center text-[10px] font-bold text-gold-300">✓ Plano selecionado</p>}
                 </div>
@@ -824,24 +871,29 @@ export default function LandingPage({ navigate }) {
           </div>
 
           {/* Faixa "todos a partir deste valor" */}
-          <div className="mt-8 flex flex-col items-center gap-1.5 rounded-2xl border border-gold-400/40 bg-gold-400/[0.06] px-6 py-4 text-center">
-            <p className="font-display text-base font-bold uppercase tracking-wide text-gold-300">🏷️ Todos os planos são a partir deste valor</p>
-            <p className="max-w-3xl text-xs leading-relaxed text-slate-400">Os valores podem variar conforme a quantidade de mesas, tablets, unidades, personalizações, integrações e nível de implantação necessário.</p>
+          <div className="mt-10 flex items-start gap-4 rounded-2xl border-2 border-gold-400/50 bg-gold-400/[0.05] px-6 py-5">
+            <span className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 border-gold-400/50 text-gold-400 sm:flex">
+              <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 11V5a1 1 0 0 1 1-1h6l9 9-7 7-9-9Z" /><circle cx="8" cy="8" r="1.3" fill="currentColor" stroke="none" /></svg>
+            </span>
+            <div>
+              <p className="font-display text-lg font-black uppercase tracking-wide text-gold-300">Todos os planos são a partir deste valor!</p>
+              <p className="mt-1 max-w-4xl text-sm leading-relaxed text-slate-300">Os valores podem variar conforme a quantidade de mesas, tablets, unidades, personalizações, integrações e nível de implantação necessário.</p>
+            </div>
           </div>
 
           {/* Garantias */}
-          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {[
-              ["🛡️", "Segurança e confiabilidade", "Seus dados protegidos com tecnologia moderna e backups diários."],
-              ["🎧", "Suporte especializado", "Atendimento humanizado e suporte técnico de qualidade."],
-              ["🎓", "Treinamento incluso", "Capacitação da sua equipe para aproveitar todo o potencial do sistema."],
-              ["⬇️", "Atualizações constantes", "Novas funcionalidades e melhorias sempre para o seu negócio."],
+              ["shield", "Segurança e confiabilidade", "Seus dados protegidos com tecnologia moderna e backups diários."],
+              ["headset", "Suporte especializado", "Atendimento humanizado e suporte técnico de qualidade."],
+              ["cap", "Treinamento incluso", "Capacitação da sua equipe para aproveitar todo o potencial do sistema."],
+              ["cloud", "Atualizações constantes", "Novas funcionalidades e melhorias sempre para o seu negócio."],
             ].map(([ic, t, d]) => (
-              <div key={t} className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gold-400/10 text-lg">{ic}</span>
+              <div key={t} className="flex items-start gap-3">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 border-gold-400/50 text-gold-400"><GarantiaIcone tipo={ic} /></span>
                 <div>
-                  <p className="font-display text-sm font-bold text-white">{t}</p>
-                  <p className="mt-0.5 text-[11px] leading-snug text-slate-400">{d}</p>
+                  <p className="font-display text-sm font-black uppercase tracking-wide text-gold-300">{t}</p>
+                  <p className="mt-0.5 text-[12px] leading-snug text-slate-400">{d}</p>
                 </div>
               </div>
             ))}
