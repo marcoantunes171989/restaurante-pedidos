@@ -179,7 +179,7 @@ export async function inserirLoja(loja) {
 }
 
 // ── Onboarding SaaS: cria loja + admin + dados iniciais ──────
-export async function cadastrarEmpresa({ nomeLoja, prefixo, nomeResponsavel, email, senha, documento = null, modoUso = 'interno', cargoId = null, cargoNome = 'Gestor' }) {
+export async function cadastrarEmpresa({ nomeLoja, prefixo, nomeResponsavel, email, senha, documento = null, modoUso = 'interno', logoUrl = '', cargoId = null, cargoNome = 'Gestor' }) {
   // 1. Verifica e-mail único
   const { data: existe } = await supabase.from('tab_usuarios').select('id').eq('email', email).maybeSingle()
   if (existe) throw new Error('Já existe um usuário com este e-mail.')
@@ -187,8 +187,14 @@ export async function cadastrarEmpresa({ nomeLoja, prefixo, nomeResponsavel, ema
   const { data: pfx } = await supabase.from('tab_lojas').select('id').eq('prefixo', prefixo).maybeSingle()
   if (pfx) throw new Error('Já existe uma loja com este prefixo. Escolha outras iniciais.')
   // 3. Cria a loja
-  const { data: loja, error: e1 } = await supabase.from('tab_lojas')
-    .insert([{ nome: nomeLoja, prefixo, plano: 'free', email_responsavel: email, ...(documento ? { documento } : {}), modo_uso: modoUso || 'interno' }]).select().single()
+  const baseLoja = { nome: nomeLoja, prefixo, plano: 'free', email_responsavel: email, ...(documento ? { documento } : {}), modo_uso: modoUso || 'interno' }
+  let loja, e1
+  ;({ data: loja, error: e1 } = await supabase.from('tab_lojas')
+    .insert([{ ...baseLoja, ...(logoUrl ? { logo_url: logoUrl } : {}) }]).select().single())
+  // Fallback: se a coluna logo_url não existir nesta base, cria sem ela
+  if (e1 && logoUrl) {
+    ;({ data: loja, error: e1 } = await supabase.from('tab_lojas').insert([baseLoja]).select().single())
+  }
   if (e1) throw e1
   const lojaId = loja.id
   // 4. Cria o usuário administrador (acesso total)

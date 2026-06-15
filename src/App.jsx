@@ -861,8 +861,8 @@ export default function RestaurantePedidoApp() {
     if (!dbReady) { notify("error", "Sistema offline — tente novamente em instantes."); throw new Error("offline"); }
     try {
       const cargo = cargos.find((c) => c.id === Number(dados.cargoId));
-      const { loja, email } = await cadastrarEmpresa({ ...dados, cargoId: cargo?.id || null, cargoNome: cargo?.nome || "Gestor" });
-      setLojas((cur) => [...cur, loja]);
+      const { loja, email } = await cadastrarEmpresa({ ...dados, logoUrl: dados.logoUrl || "", cargoId: cargo?.id || null, cargoNome: cargo?.nome || "Gestor" });
+      setLojas((cur) => [...cur, { ...loja, logoUrl: dados.logoUrl || null }]);
       const novoUser = { id: Date.now(), name: dados.nomeResponsavel, email, password: dados.senha, role: cargo?.nome || "Gestor", cargoId: cargo?.id || null, active: true, accessIds: ["tablet","kitchen","panel","cashier","admin"], lojaId: loja.id };
       setUsers((cur) => [...cur, novoUser]);
       notify("success", `Empresa "${loja.nome}" criada. Acesso do gestor: ${email}. Comandas: ${loja.prefixo}-000001.`);
@@ -7224,11 +7224,26 @@ function LojaAdmin({ lojas, addLoja, toggleLoja, editarLoja, removerLoja, lojaIn
 // Modal de cadastro de empresa (empresa + gestor) — combo de cargo em chips elegantes
 function EmpresaCadastroModal({ cargos = [], criarEmpresa, onFechar }) {
   const cargoGestorPadrao = cargos.find((c) => c.nome.toLowerCase() === "gestor")?.id ?? (cargos[0]?.id ?? "");
-  const [form, setForm] = useState({ nomeLoja: "", prefixo: "", documento: "", modoUso: "interno", nomeResponsavel: "", email: "", senha: "", cargoId: cargoGestorPadrao });
+  const [form, setForm] = useState({ nomeLoja: "", prefixo: "", documento: "", modoUso: "interno", logoUrl: "", nomeResponsavel: "", email: "", senha: "", cargoId: cargoGestorPadrao });
   const [enviando, setEnviando] = useState(false);
   const [verSenha, setVerSenha] = useState(false);
-  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400 placeholder:text-slate-600";
+  const [uploadando, setUploadando] = useState(false);
+  const [erroLogo, setErroLogo] = useState("");
+  const fileLogoRef = React.useRef(null);
+  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-gold-400/60 placeholder:text-slate-600 transition";
   const lbl = "mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500";
+
+  async function importarLogo(e) {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    setErroLogo("");
+    const erroVal = validarImagemProduto(f);
+    if (erroVal) { setErroLogo(erroVal); return; }
+    setUploadando(true);
+    try { setForm((s) => ({ ...s, logoUrl: "" })); const url = await uploadImagemProduto(f, "logos"); setForm((s) => ({ ...s, logoUrl: url })); }
+    catch (err) { setErroLogo(err.message || "Falha ao enviar a logo."); }
+    setUploadando(false);
+  }
 
   const valido = form.nomeLoja.trim() && form.prefixo.length >= 2 && docValido(form.documento) &&
     form.nomeResponsavel.trim() && form.email.trim() && form.senha.length >= 4 && form.cargoId;
@@ -7245,9 +7260,9 @@ function EmpresaCadastroModal({ cargos = [], criarEmpresa, onFechar }) {
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onFechar}>
       <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-lg flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl max-h-[92vh]">
         <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
-          <div className="flex items-center gap-2">
-            <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-blue-500/15 text-lg">🏪</span>
-            <h2 className="text-lg font-black text-white">Nova empresa</h2>
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-gold-400/15 text-gold-300"><IconEmpresa /></span>
+            <h2 className="page-title text-lg font-bold tracking-tight text-white">Nova empresa</h2>
           </div>
           <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20">✕</button>
         </div>
@@ -7279,18 +7294,52 @@ function EmpresaCadastroModal({ cargos = [], criarEmpresa, onFechar }) {
               <div className="grid grid-cols-3 gap-2">
                 {[["interno", "🖥️ Interno", "Tablets"], ["externo", "📱 Externo", "Cardápio do cliente"], ["ambos", "🔀 Ambos", "Os dois"]].map(([v, t, d]) => (
                   <button key={v} type="button" onClick={() => setForm({ ...form, modoUso: v })}
-                    className={`rounded-2xl border px-2 py-2.5 text-center transition ${form.modoUso === v ? "border-blue-400 bg-blue-500/15" : "border-white/10 bg-slate-950/40 hover:bg-white/[0.06]"}`}>
-                    <p className={`text-xs font-black ${form.modoUso === v ? "text-blue-200" : "text-white"}`}>{t}</p>
+                    className={`rounded-2xl border px-2 py-2.5 text-center transition ${form.modoUso === v ? "border-gold-400/60 bg-gold-400/10" : "border-white/10 bg-slate-950/40 hover:bg-white/[0.06]"}`}>
+                    <p className={`text-xs font-black ${form.modoUso === v ? "text-gold-300" : "text-white"}`}>{t}</p>
                     <p className="mt-0.5 text-[10px] text-slate-500">{d}</p>
                   </button>
                 ))}
               </div>
             </div>
+
+            {/* Logo do estabelecimento — exibida no tablet para o cliente */}
+            <div className="sm:col-span-2">
+              <span className={lbl}>Logo do estabelecimento</span>
+              <div className="flex gap-3">
+                <div className="relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-gold-400/20 bg-slate-950/60">
+                  {form.logoUrl
+                    ? <img src={form.logoUrl} alt="logo" className="h-full w-full object-contain p-1" onError={() => {}} />
+                    : <span className="text-2xl opacity-40">🏷️</span>}
+                  {uploadando && <div className="absolute inset-0 flex items-center justify-center bg-black/60"><div className="h-6 w-6 animate-spin rounded-full border-2 border-gold-400 border-t-transparent" /></div>}
+                </div>
+                <div className="flex-1 space-y-2">
+                  <input ref={fileLogoRef} type="file" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" className="hidden" onChange={importarLogo} />
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => fileLogoRef.current?.click()} disabled={uploadando}
+                      className="flex-1 rounded-2xl border border-gold-400/30 bg-gold-400/10 py-2.5 text-xs font-black text-gold-200 hover:bg-gold-400/20 transition disabled:opacity-50">
+                      📁 Importar logo
+                    </button>
+                    {form.logoUrl && (
+                      <button type="button" onClick={() => setForm({ ...form, logoUrl: "" })}
+                        className="rounded-2xl border border-red-400/20 bg-red-500/10 px-3 py-2.5 text-xs font-black text-red-300 hover:bg-red-500/20 transition">🗑️</button>
+                    )}
+                  </div>
+                  <input value={form.logoUrl} onChange={(e) => setForm({ ...form, logoUrl: e.target.value })} placeholder="ou cole a URL da logo..."
+                    className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-3 py-2.5 text-xs text-white outline-none focus:border-gold-400/60 placeholder:text-slate-600" />
+                </div>
+              </div>
+              <ul className="mt-2 space-y-0.5 text-[11px] leading-relaxed text-slate-500">
+                <li>• Formatos: <b className="text-slate-400">PNG, JPG ou WebP</b> (PNG com fundo transparente fica melhor).</li>
+                <li>• Tamanho máximo: <b className="text-slate-400">2 MB</b>. Proporção ideal: <b className="text-slate-400">quadrada (1:1)</b>, ex.: 512×512px.</li>
+                <li>• Aparece no <b className="text-slate-400">tablet do cliente</b> (tela de boas-vindas) em tamanho padrão e enquadramento elegante.</li>
+              </ul>
+              {erroLogo && <p className="mt-1 text-[11px] text-red-400">❌ {erroLogo}</p>}
+            </div>
           </div>
 
           {/* Dados do gestor */}
           <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
-            <p className="mb-3 text-xs font-black uppercase tracking-widest text-blue-300">👤 Usuário gestor</p>
+            <p className="mb-3 text-xs font-black uppercase tracking-widest text-gold-300">👤 Usuário gestor</p>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="sm:col-span-2">
                 <span className={lbl}>Nome *</span>
@@ -7318,7 +7367,7 @@ function EmpresaCadastroModal({ cargos = [], criarEmpresa, onFechar }) {
                   const sel = form.cargoId === c.id;
                   return (
                     <button key={c.id} type="button" onClick={() => setForm({ ...form, cargoId: c.id })}
-                      className={`flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-black transition active:scale-95 ${sel ? "border-blue-400 bg-blue-500 text-white shadow-lg shadow-blue-950/40" : "border-white/10 bg-white/[0.04] text-slate-300 hover:border-white/25 hover:bg-white/10"}`}>
+                      className={`flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-black transition active:scale-95 ${sel ? "border-gold-400 bg-gold-400 text-blue-950 shadow-lg shadow-gold-900/30" : "border-white/10 bg-white/[0.04] text-slate-300 hover:border-white/25 hover:bg-white/10"}`}>
                       {sel && <span className="text-[11px]">✓</span>}{c.nome}
                     </button>
                   );
@@ -7330,8 +7379,8 @@ function EmpresaCadastroModal({ cargos = [], criarEmpresa, onFechar }) {
 
         <div className="shrink-0 border-t border-white/10 px-6 py-4 flex gap-3">
           <button onClick={onFechar} className="flex-1 rounded-2xl border border-white/10 bg-white/[0.06] py-3.5 text-sm font-black text-slate-300 hover:bg-white/10">Cancelar</button>
-          <button onClick={salvar} disabled={!valido || enviando}
-            className="flex-[2] rounded-2xl bg-blue-500 py-3.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+          <button onClick={salvar} disabled={!valido || enviando || uploadando}
+            className="font-display flex-[2] rounded-2xl bg-gold-400 py-3.5 text-sm font-bold text-blue-950 hover:bg-gold-300 transition active:scale-95 shadow-lg shadow-gold-900/30 disabled:opacity-50 disabled:cursor-not-allowed">
             {enviando ? "⏳ Criando empresa..." : "+ Cadastrar empresa"}
           </button>
         </div>
@@ -7350,7 +7399,7 @@ function LojaEditModal({ loja, onSalvar, onFechar }) {
   const [uploadando, setUploadando] = useState(false);
   const [erroLogo, setErroLogo] = useState("");
   const fileLogoRef = React.useRef(null);
-  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400";
+  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-gold-400/60 transition";
   const lbl = "mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500";
   const valido = nome.trim() && /^[A-Z]{2,5}$/.test(prefixo) && docValido(doc);
 
@@ -7369,9 +7418,9 @@ function LojaEditModal({ loja, onSalvar, onFechar }) {
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" onClick={onFechar}>
       <div className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-[2rem] border border-white/10 bg-slate-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center gap-2">
-          <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-blue-500/15 text-lg">✏️</span>
-          <h3 className="text-lg font-black text-white">Editar empresa</h3>
+        <div className="flex items-center gap-2.5">
+          <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-gold-400/15 text-gold-300"><IconEmpresa /></span>
+          <h3 className="page-title text-lg font-bold tracking-tight text-white">Editar empresa</h3>
         </div>
         <div className="mt-5 space-y-3">
           <div>
@@ -7395,8 +7444,8 @@ function LojaEditModal({ loja, onSalvar, onFechar }) {
             <div className="grid grid-cols-3 gap-2">
               {[["interno", "🖥️ Interno", "Tablets"], ["externo", "📱 Externo", "Cardápio do cliente"], ["ambos", "🔀 Ambos", "Os dois"]].map(([v, t, d]) => (
                 <button key={v} type="button" onClick={() => setModoUso(v)}
-                  className={`rounded-2xl border px-2 py-2.5 text-center transition ${modoUso === v ? "border-blue-400 bg-blue-500/15" : "border-white/10 bg-slate-950/40 hover:bg-white/[0.06]"}`}>
-                  <p className={`text-xs font-black ${modoUso === v ? "text-blue-200" : "text-white"}`}>{t}</p>
+                  className={`rounded-2xl border px-2 py-2.5 text-center transition ${modoUso === v ? "border-gold-400/60 bg-gold-400/10" : "border-white/10 bg-slate-950/40 hover:bg-white/[0.06]"}`}>
+                  <p className={`text-xs font-black ${modoUso === v ? "text-gold-300" : "text-white"}`}>{t}</p>
                   <p className="mt-0.5 text-[10px] text-slate-500">{d}</p>
                 </button>
               ))}
@@ -7442,7 +7491,7 @@ function LojaEditModal({ loja, onSalvar, onFechar }) {
         <div className="mt-6 flex gap-3">
           <button onClick={onFechar} className="flex-1 rounded-2xl border border-white/10 bg-white/[0.06] px-5 py-3 text-sm font-black text-slate-300 hover:bg-white/10">Cancelar</button>
           <button onClick={() => valido && onSalvar({ nome: nome.trim(), prefixo, documento: soDigitos(doc), modo_uso: modoUso, logo_url: logoUrl.trim() })} disabled={!valido || uploadando}
-            className="flex-1 rounded-2xl bg-blue-500 px-5 py-3 text-sm font-black text-white hover:bg-blue-400 disabled:opacity-50">Salvar</button>
+            className="font-display flex-1 rounded-2xl bg-gold-400 px-5 py-3 text-sm font-bold text-blue-950 hover:bg-gold-300 transition active:scale-95 shadow-lg shadow-gold-900/30 disabled:opacity-50">Salvar</button>
         </div>
       </div>
     </div>

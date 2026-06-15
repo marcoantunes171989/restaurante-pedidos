@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C C:\\\\Projetos\\\\restaurante-pedidos log --oneline -10)",
+      "PowerShell(git -C \"C:\\\\Projetos\\\\restaurante-pedidos\" log --oneline -10)",
+      "PowerShell(Get-ChildItem \"C:\\\\Projetos\\\\restaurante-pedidos\\\\src\" -Recurse -Directory | Select-Object FullName | ForEach-Object { $_.FullName.Replace\\(\"C:\\\\Projetos\\\\restaurante-pedidos\\\\src\\\\\",\"\"\\) })",
+      "PowerShell(\\(Get-Content \"C:\\\\Projetos\\\\restaurante-pedidos\\\\src\\\\App.jsx\" | Measure-Object -Line\\).Lines)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(supabase --version)",
+      "Bash(psql --version)",
+      "Bash(supabase db *)"
+    ]
+  }
+}
