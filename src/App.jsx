@@ -3159,7 +3159,6 @@ function PanelView({ groupedOrders, products = [], lojaInfo }) {
     new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
   );
   const [agora, setAgora] = useState(Date.now()); // tick para os contadores
-  const [isFullscreen, setIsFullscreen] = useState(!!document.fullscreenElement);
 
   // Relógio + tick dos contadores (a cada segundo)
   useEffect(() => {
@@ -3188,16 +3187,26 @@ function PanelView({ groupedOrders, products = [], lojaInfo }) {
     return `${String(m).padStart(2, "0")}:${String(r).padStart(2, "0")}`;
   };
 
-  // Detecta mudanças no estado fullscreen (ESC, F11, etc.)
+  // Entra em tela cheia automaticamente quando aberto pelo app (PWA em modo
+  // standalone/fullscreen). A Fullscreen API do navegador exige um gesto do
+  // usuário, então também tentamos na primeira interação como fallback. Fora
+  // do app (aba normal do navegador) não força — usar F11 se quiser.
   useEffect(() => {
-    const onChange = () => setIsFullscreen(!!document.fullscreenElement);
-    document.addEventListener("fullscreenchange", onChange);
-    document.addEventListener("webkitfullscreenchange", onChange);
-    document.addEventListener("mozfullscreenchange", onChange);
+    const standalone = !!(
+      window.matchMedia?.("(display-mode: standalone)")?.matches ||
+      window.matchMedia?.("(display-mode: fullscreen)")?.matches ||
+      window.navigator.standalone
+    );
+    if (!standalone) return;
+    entrarTelaCheia(); // tenta imediatamente (funciona em contextos de quiosque/app)
+    const tentar = () => {
+      if (!document.fullscreenElement && !document.webkitFullscreenElement) entrarTelaCheia();
+    };
+    window.addEventListener("pointerdown", tentar);
+    window.addEventListener("keydown", tentar);
     return () => {
-      document.removeEventListener("fullscreenchange", onChange);
-      document.removeEventListener("webkitfullscreenchange", onChange);
-      document.removeEventListener("mozfullscreenchange", onChange);
+      window.removeEventListener("pointerdown", tentar);
+      window.removeEventListener("keydown", tentar);
     };
   }, []);
 
@@ -3261,16 +3270,6 @@ function PanelView({ groupedOrders, products = [], lojaInfo }) {
             <p className="font-bold text-emerald-400" style={{ fontSize: "clamp(7px,0.65vw,10px)" }}>Total ativo</p>
             <p className="font-black text-emerald-300" style={{ fontSize: "clamp(18px,2.5vw,36px)" }}>{total}</p>
           </div>
-
-          {/* Botão tela cheia */}
-          <button
-            onClick={isFullscreen ? sairTelaCheia : entrarTelaCheia}
-            title={isFullscreen ? "Sair da tela cheia" : "Abrir em tela cheia"}
-            className="flex shrink-0 items-center justify-center rounded-[1vw] border border-white/20 bg-white/10 font-black text-white transition hover:bg-white/20 active:scale-95"
-            style={{ width: "clamp(32px,3.5vw,52px)", height: "clamp(32px,3.5vw,52px)", fontSize: "clamp(14px,1.8vw,24px)" }}>
-            {isFullscreen ? "⛶" : "⛶"}
-            <span className="sr-only">{isFullscreen ? "Sair da tela cheia" : "Tela cheia"}</span>
-          </button>
         </div>
       </header>
 
