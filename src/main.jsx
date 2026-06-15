@@ -150,50 +150,6 @@ async function iniciarSW(onAtivado) {
   }
 }
 
-// ══════════════════════════════════════════════════════════════
-//  Instância única por computador (Web Locks API)
-//  A primeira instância segura um lock exclusivo enquanto a aba viver.
-//  Uma segunda instância no mesmo navegador/computador não consegue o lock
-//  → é marcada como duplicada e bloqueada.
-// ══════════════════════════════════════════════════════════════
-let _instanciaPromise = null
-let _soltarLock = null // libera o lock segurado por esta página
-function checarInstanciaUnica() {
-  if (_instanciaPromise) return _instanciaPromise
-  _instanciaPromise = new Promise((resolve) => {
-    if (!('locks' in navigator)) { resolve(true); return } // navegador sem suporte → permite
-    navigator.locks.request('pedido-prime-instancia-unica', { mode: 'exclusive', ifAvailable: true }, (lock) => {
-      if (lock) {
-        resolve(true)                                  // somos a instância primária
-        return new Promise((res) => { _soltarLock = res }) // segura até liberar (pagehide)
-      }
-      resolve(false)                   // lock já tomado → instância duplicada
-      return undefined
-    }).catch(() => resolve(true))      // em erro, não bloqueia
-  })
-  return _instanciaPromise
-}
-// Libera o lock ao sair/ocultar a página (navegação ou bfcache). Sem isso, ao
-// ir do sistema para a landing e voltar, a página antiga (em bfcache) continua
-// segurando o lock e a nova é vista como "duplicada" no mesmo computador.
-if (typeof window !== 'undefined') {
-  window.addEventListener('pagehide', () => {
-    if (_soltarLock) { _soltarLock(); _soltarLock = null }
-    _instanciaPromise = null // permite readquirir o lock ao voltar/recarregar
-  })
-}
-
-function useInstanciaUnica(ativo) {
-  const [estado, setEstado] = useState('checando') // 'checando' | 'ok' | 'duplicado'
-  useEffect(() => {
-    if (!ativo) return // só aplica no app/sistema (a landing pública pode ter várias abas)
-    let cancel = false
-    checarInstanciaUnica().then((primario) => { if (!cancel) setEstado(primario ? 'ok' : 'duplicado') })
-    return () => { cancel = true }
-  }, [ativo])
-  return estado
-}
-
 // Versão do sistema (commit da Vercel) — badge discreto no topo de toda tela.
 // Permite validar, no aparelho, se a atualizacao foi efetivada (comparar com a Vercel).
 const APP_VERSAO = (typeof __APP_VERSION__ !== 'undefined') ? __APP_VERSION__ : 'local'
@@ -216,26 +172,6 @@ function VersaoBadge() {
   )
 }
 
-function BloqueioInstancia() {
-  return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950 p-6 text-center"
-      style={{ height: '100dvh' }}>
-      <div className="max-w-sm space-y-4">
-        <span className="text-6xl">🔒</span>
-        <h1 className="text-2xl font-black text-white">Aplicativo já em execução</h1>
-        <p className="text-sm leading-6 text-slate-400">
-          Já existe um <b className="text-white">Pedido Prime</b> aberto neste computador.
-          Para continuar aqui, feche a outra janela/aba do aplicativo.
-        </p>
-        <button onClick={() => window.location.reload()}
-          className="mt-2 rounded-2xl bg-blue-500 px-6 py-3 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95">
-          🔄 Tentar novamente
-        </button>
-      </div>
-    </div>
-  )
-}
-
 // ── Root ─────────────────────────────────────────────────────
 function Root() {
   const [path, setPath]         = useState(window.location.pathname)
@@ -243,7 +179,6 @@ function Root() {
   const notifiedRef             = useRef(false)
   const ehSistema               = /^\/(login|app|sistema)(\/|$)/.test(path)
   const ehCardapio              = /^\/cardapio(\/|$)/.test(path)
-  const instancia               = useInstanciaUnica(ehSistema)
 
   useEffect(() => {
     const onPop = () => setPath(window.location.pathname)
@@ -320,9 +255,6 @@ function Root() {
     setPath(to)
     window.scrollTo(0, 0)
   }, [])
-
-  // Segunda instância do app no mesmo computador → bloqueia
-  if (ehSistema && instancia === 'duplicado') return (<><BloqueioInstancia /></>)
 
   // O badge de versão é exibido apenas na TELA DE LOGIN (dentro de <App/>),
   // não na landing nem nas demais telas.
