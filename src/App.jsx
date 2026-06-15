@@ -1283,6 +1283,7 @@ export default function RestaurantePedidoApp() {
     const extraLocal = {};
     if (dados.documento !== undefined) { extra.documento = dados.documento || null; extraLocal.documento = dados.documento || null; }
     if (dados.modo_uso !== undefined) { extra.modo_uso = dados.modo_uso; extraLocal.modoUso = dados.modo_uso; }
+    if (dados.logo_url !== undefined) { extra.logo_url = dados.logo_url || null; extraLocal.logoUrl = dados.logo_url || null; }
     setLojas((cur) => cur.map((x) => x.id === id ? { ...x, nome, prefixo, ...extraLocal } : x));
     if (dbReady) {
       try { await atualizarLoja(id, { nome, prefixo, ...extra }); }
@@ -2639,10 +2640,25 @@ function TabletView({
           {/* Cartão de boas-vindas gourmet */}
           <div className="relative z-[2] flex h-full flex-col items-center justify-center px-6 text-center">
             <div className="flex w-full max-w-sm flex-col items-center rounded-[2rem] border border-gold-400/30 bg-black/80 px-8 py-9 shadow-2xl backdrop-blur-xl">
-              {/* Marca */}
-              <LogoPP size={56} />
-              <p className="mt-3 text-lg font-black leading-none tracking-tight"><span className="text-white">PEDIDO</span> <span className="text-gold-400">PRIME</span></p>
-              <p className="mt-1.5 text-[9px] font-bold uppercase tracking-[0.35em] text-slate-500">{lojaInfo?.nome || "Sistema para restaurantes"}</p>
+              {/* Logo do estabelecimento (quando cadastrada) — destaque para o cliente */}
+              {lojaInfo?.logoUrl ? (
+                <>
+                  <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-2xl border border-gold-400/40 bg-black/40 p-1.5 shadow-lg">
+                    <img src={lojaInfo.logoUrl} alt={lojaInfo?.nome || "Logo"} className="h-full w-full object-contain" />
+                  </div>
+                  <p className="font-display mt-3 text-xl font-bold tracking-tight text-white">{lojaInfo?.nome}</p>
+                  <p className="mt-1.5 flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.3em] text-slate-500">
+                    <LogoPP size={14} /> Pedido Prime
+                  </p>
+                </>
+              ) : (
+                <>
+                  {/* Marca da plataforma (fallback quando não há logo da empresa) */}
+                  <LogoPP size={56} />
+                  <p className="mt-3 text-lg font-black leading-none tracking-tight"><span className="text-white">PEDIDO</span> <span className="text-gold-400">PRIME</span></p>
+                  <p className="mt-1.5 text-[9px] font-bold uppercase tracking-[0.35em] text-slate-500">{lojaInfo?.nome || "Sistema para restaurantes"}</p>
+                </>
+              )}
 
               {/* Divisor com cloche dourada */}
               <div className="mt-5 flex w-full items-center gap-3">
@@ -7327,12 +7343,29 @@ function LojaEditModal({ loja, onSalvar, onFechar }) {
   const [prefixo, setPrefixo] = useState(loja.prefixo || "");
   const [doc, setDoc] = useState(loja.documento || "");
   const [modoUso, setModoUso] = useState(loja.modoUso || "interno");
+  const [logoUrl, setLogoUrl] = useState(loja.logoUrl || "");
+  const [uploadando, setUploadando] = useState(false);
+  const [erroLogo, setErroLogo] = useState("");
+  const fileLogoRef = React.useRef(null);
   const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400";
   const lbl = "mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500";
   const valido = nome.trim() && /^[A-Z]{2,5}$/.test(prefixo) && docValido(doc);
+
+  async function importarLogo(e) {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    setErroLogo("");
+    const erroVal = validarImagemProduto(f);
+    if (erroVal) { setErroLogo(erroVal); return; }
+    setUploadando(true);
+    try { setLogoUrl(await uploadImagemProduto(f, loja.id || "logos")); }
+    catch (err) { setErroLogo(err.message || "Falha ao enviar a logo."); }
+    setUploadando(false);
+  }
+
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" onClick={onFechar}>
-      <div className="w-full max-w-md rounded-[2rem] border border-white/10 bg-slate-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+      <div className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-[2rem] border border-white/10 bg-slate-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-2">
           <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-blue-500/15 text-lg">✏️</span>
           <h3 className="text-lg font-black text-white">Editar empresa</h3>
@@ -7366,10 +7399,46 @@ function LojaEditModal({ loja, onSalvar, onFechar }) {
               ))}
             </div>
           </div>
+
+          {/* Logo da empresa — exibida no tablet para o cliente */}
+          <div>
+            <span className={lbl}>Logo do estabelecimento</span>
+            <div className="flex gap-3">
+              {/* Miniatura (proporção quadrada, como aparece no tablet) */}
+              <div className="relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-gold-400/20 bg-slate-950/60">
+                {logoUrl
+                  ? <img src={logoUrl} alt="logo" className="h-full w-full object-contain p-1" onError={() => {}} />
+                  : <span className="text-2xl opacity-40">🏷️</span>}
+                {uploadando && <div className="absolute inset-0 flex items-center justify-center bg-black/60"><div className="h-6 w-6 animate-spin rounded-full border-2 border-gold-400 border-t-transparent" /></div>}
+              </div>
+              <div className="flex-1 space-y-2">
+                <input ref={fileLogoRef} type="file" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" className="hidden" onChange={importarLogo} />
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => fileLogoRef.current?.click()} disabled={uploadando}
+                    className="flex-1 rounded-2xl border border-gold-400/30 bg-gold-400/10 py-2.5 text-xs font-black text-gold-200 hover:bg-gold-400/20 transition disabled:opacity-50">
+                    📁 Importar logo
+                  </button>
+                  {logoUrl && (
+                    <button type="button" onClick={() => setLogoUrl("")}
+                      className="rounded-2xl border border-red-400/20 bg-red-500/10 px-3 py-2.5 text-xs font-black text-red-300 hover:bg-red-500/20 transition">🗑️</button>
+                  )}
+                </div>
+                <input value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} placeholder="ou cole a URL da logo..."
+                  className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-3 py-2.5 text-xs text-white outline-none focus:border-gold-400/60 placeholder:text-slate-600" />
+              </div>
+            </div>
+            {/* Especificações da logo */}
+            <ul className="mt-2 space-y-0.5 text-[11px] leading-relaxed text-slate-500">
+              <li>• Formatos: <b className="text-slate-400">PNG, JPG ou WebP</b> (PNG com fundo transparente fica melhor).</li>
+              <li>• Tamanho máximo: <b className="text-slate-400">2 MB</b>. Proporção ideal: <b className="text-slate-400">quadrada (1:1)</b>, ex.: 512×512px.</li>
+              <li>• Aparece no <b className="text-slate-400">tablet do cliente</b> (tela de boas-vindas) em tamanho padrão e enquadramento elegante.</li>
+            </ul>
+            {erroLogo && <p className="mt-1 text-[11px] text-red-400">❌ {erroLogo}</p>}
+          </div>
         </div>
         <div className="mt-6 flex gap-3">
           <button onClick={onFechar} className="flex-1 rounded-2xl border border-white/10 bg-white/[0.06] px-5 py-3 text-sm font-black text-slate-300 hover:bg-white/10">Cancelar</button>
-          <button onClick={() => valido && onSalvar({ nome: nome.trim(), prefixo, documento: soDigitos(doc), modo_uso: modoUso })} disabled={!valido}
+          <button onClick={() => valido && onSalvar({ nome: nome.trim(), prefixo, documento: soDigitos(doc), modo_uso: modoUso, logo_url: logoUrl.trim() })} disabled={!valido || uploadando}
             className="flex-1 rounded-2xl bg-blue-500 px-5 py-3 text-sm font-black text-white hover:bg-blue-400 disabled:opacity-50">Salvar</button>
         </div>
       </div>
