@@ -3274,21 +3274,6 @@ function PanelView({ groupedOrders, products = [], lojaInfo }) {
         </div>
       </header>
 
-      {/* Overlay: exibe botão grande se não estiver em fullscreen */}
-      {!isFullscreen && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-          <button
-            onClick={entrarTelaCheia}
-            className="flex flex-col items-center gap-4 rounded-3xl border border-white/20 bg-slate-900 px-12 py-10 shadow-2xl transition hover:bg-slate-800 active:scale-95">
-            <span style={{ fontSize: "clamp(40px,8vw,80px)" }}>⛶</span>
-            <div className="text-center">
-              <p className="font-black text-white" style={{ fontSize: "clamp(16px,2.5vw,32px)" }}>Abrir em tela cheia</p>
-              <p className="mt-1 text-slate-400" style={{ fontSize: "clamp(10px,1vw,14px)" }}>Clique aqui ou pressione F11 no teclado</p>
-            </div>
-          </button>
-        </div>
-      )}
-
       {/* ── Colunas ───────────────────────────────────────────── */}
       <div className="flex flex-1 overflow-hidden">
         {colunas.map(({ key, titulo, sub }) => {
