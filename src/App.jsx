@@ -2176,7 +2176,7 @@ function TabletView({
               Enviar pedido para a cozinha ✈️
             </button>
             <button onClick={() => setVerConta(true)} disabled={!temConta}
-              className="mt-2 w-full rounded-xl border border-white/10 bg-white/[0.05] py-2.5 text-xs font-black text-slate-300 hover:bg-white/10 transition disabled:opacity-40 disabled:cursor-not-allowed">
+              className="mt-2 w-full rounded-xl border border-gold-400/45 bg-gold-400/[0.07] py-2.5 text-xs font-black text-[var(--ord-text-soft)] hover:bg-gold-400/15 hover:border-gold-400/70 transition disabled:opacity-40 disabled:cursor-not-allowed">
               👁️ Conta / Acompanhar pedidos
             </button>
           </div>
@@ -2217,7 +2217,7 @@ function TabletView({
       {/* ── Gaveta do carrinho (desliza da direita) ──────────── */}
       {carrinhoAberto && (
         <div className="fixed inset-0 z-[90] flex justify-end bg-black/60 backdrop-blur-sm" onClick={() => setCarrinhoAberto(false)}>
-        <aside onClick={(e) => e.stopPropagation()} className="flex w-full max-w-md flex-col border-l border-gold-400/15 bg-black shadow-2xl" style={{ fontFamily: "'Poppins','Inter',sans-serif" }}>
+        <aside onClick={(e) => e.stopPropagation()} className="tema-claro-area flex w-full max-w-md flex-col border-l border-gold-400/15 bg-black shadow-2xl" style={{ fontFamily: "'Poppins','Inter',sans-serif" }}>
           {/* Cabeçalho carrinho */}
           <div className="flex items-center justify-between border-b border-gold-400/15 px-5 py-4">
             <div className="flex items-center gap-2.5">
@@ -2364,7 +2364,7 @@ function TabletView({
       {/* ── Modal de visualização da conta ─────────────────── */}
       {verConta && (
         <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="w-full max-w-lg rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+          <div className="tema-claro-area w-full max-w-lg rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
 
             {/* Header */}
             <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
@@ -2765,7 +2765,7 @@ export function ProdutoModal({ produto, onFechar, onAdicionar }) {
     <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm p-0 sm:p-4"
       style={{ fontFamily: "'Inter','Sora',sans-serif" }} onClick={onFechar}>
       <div onClick={(e) => e.stopPropagation()}
-        className="flex w-full max-w-md flex-col overflow-hidden rounded-t-[1.6rem] sm:rounded-[1.6rem] border border-gold-400/25 bg-[#0d0d0d] shadow-2xl max-h-[92vh]">
+        className="tema-claro-area flex w-full max-w-md flex-col overflow-hidden rounded-t-[1.6rem] sm:rounded-[1.6rem] border border-gold-400/25 bg-[#0d0d0d] shadow-2xl max-h-[92vh]">
 
         {/* Imagem grande — voltar e favorito */}
         <div className="relative h-52 shrink-0 overflow-hidden bg-[#1a1a1a]">
@@ -2849,7 +2849,7 @@ export function ProdutoModal({ produto, onFechar, onAdicionar }) {
         </div>
 
         {/* Rodapé fixo — quantidade + adicionar ao pedido */}
-        <div className="shrink-0 border-t border-gold-400/15 bg-black/60 px-5 py-4">
+        <div className="shrink-0 border-t border-gold-400/15 bg-white/[0.03] px-5 py-4">
           <div className="flex items-center gap-3">
             {/* Seletor de quantidade */}
             <div className="flex items-center gap-1 rounded-xl border border-white/15 bg-white/[0.03] p-1">

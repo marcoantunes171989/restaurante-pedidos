@@ -62,13 +62,18 @@
   color: #0F172A;
 }
 /* Superfícies sólidas escuras → branco (cards/painéis) */
+[data-theme="light"] .tema-claro-area.bg-black,
+[data-theme="light"] .tema-claro-area .bg-black,
 [data-theme="light"] .tema-claro-area .bg-slate-950,
 [data-theme="light"] .tema-claro-area .bg-slate-900,
 [data-theme="light"] .tema-claro-area .bg-blue-950,
 [data-theme="light"] .tema-claro-area .bg-\[\#070B16\],
 [data-theme="light"] .tema-claro-area .bg-\[\#0A1424\],
 [data-theme="light"] .tema-claro-area .bg-\[\#0B0F1A\],
-[data-theme="light"] .tema-claro-area .bg-\[\#060912\] { background-color: #FFFFFF !important; }
+[data-theme="light"] .tema-claro-area .bg-\[\#060912\],
+[data-theme="light"] .tema-claro-area.bg-\[\#0d0d0d\],
+[data-theme="light"] .tema-claro-area .bg-\[\#0d0d0d\],
+[data-theme="light"] .tema-claro-area .bg-\[\#1a1a1a\] { background-color: #FFFFFF !important; }
 /* Inputs/selects com fundo escuro translúcido → branco */
 [data-theme="light"] .tema-claro-area .bg-slate-950\/70,
 [data-theme="light"] .tema-claro-area .bg-slate-950\/60,
@@ -76,6 +81,10 @@
 [data-theme="light"] .tema-claro-area .bg-slate-950\/40,
 [data-theme="light"] .tema-claro-area .bg-slate-900\/90,
 [data-theme="light"] .tema-claro-area .bg-slate-900\/80 { background-color: #FFFFFF !important; }
+/* Cartões aninhados (slate-800) → off-white para diferenciar do branco */
+[data-theme="light"] .tema-claro-area .bg-slate-800,
+[data-theme="light"] .tema-claro-area .bg-slate-800\/60,
+[data-theme="light"] .tema-claro-area .bg-slate-800\/40 { background-color: #F1F5F9 !important; }
 /* Superfícies elevadas translúcidas (white/x) → cinza claro sutil e visível */
 [data-theme="light"] .tema-claro-area .bg-white\/\[0\.02\],
 [data-theme="light"] .tema-claro-area .bg-white\/\[0\.03\],
