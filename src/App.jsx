@@ -20,7 +20,8 @@ import {
 import { GeradorComandas } from "./components/QRComandas";
 import { QRScannerModal  } from "./components/QRScanner";
 import { LogoPP } from "./components/BrandLogo";
-import { IconDashboard, IconRelatorios, IconCrm, IconProdutos, IconCategorias, IconMesas, IconPagamento, IconQr, IconCardapio, IconEmpresas, IconUsuarios, IconCargos, IconPermissoes, IconLink, IconLicencas, IconVersoes, IconEmpresa, IconBusca } from "./components/PrimeIcons";
+import { IconDashboard, IconRelatorios, IconCrm, IconProdutos, IconCategorias, IconMesas, IconPagamento, IconQr, IconCardapio, IconEmpresas, IconUsuarios, IconCargos, IconPermissoes, IconLink, IconLicencas, IconVersoes, IconEmpresa, IconBusca, IconConfig } from "./components/PrimeIcons";
+import { obterTema, aplicarTema } from "./lib/theme";
 import { PageHeader, PrimeButton } from "./components/Prime";
 
 export const fallbackImage = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=900&q=80";
@@ -1964,8 +1965,8 @@ function TabletView({
     const noCarrinho = cart.find((c) => c.id === item.id);
     const etiqueta = item.badge || tagAuto;
     return (
-      <article key={item.id} className={`group flex h-full flex-col overflow-hidden rounded-2xl border bg-[#121212] shadow-xl transition-all hover:-translate-y-1 hover:shadow-2xl ${noCarrinho ? "border-gold-400/60 ring-2 ring-gold-400/20" : "border-white/10 hover:border-gold-400/40"}`}>
-        <button onClick={() => setProdutoDetalhe(item)} className="relative block h-36 w-full overflow-hidden bg-[#1a1a1a] text-left">
+      <article key={item.id} className={`group flex h-full flex-col overflow-hidden rounded-2xl border bg-[var(--ord-card)] shadow-xl transition-all hover:-translate-y-1 hover:shadow-2xl ${noCarrinho ? "border-gold-400/60 ring-2 ring-gold-400/20" : "border-[var(--ord-border)] hover:border-gold-400/40"}`}>
+        <button onClick={() => setProdutoDetalhe(item)} className="relative block h-36 w-full overflow-hidden bg-[var(--ord-elev)] text-left">
           <img src={item.imageUrl || fallbackImage} alt={item.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
           <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-transparent" />
           {etiqueta && (
@@ -1976,8 +1977,8 @@ function TabletView({
           )}
         </button>
         <div className="flex flex-1 flex-col p-3.5">
-          <h3 className="text-lg font-semibold tracking-tight text-white leading-tight">{item.name}</h3>
-          <p className="mt-1 text-xs font-light leading-5 text-slate-300 line-clamp-3">{item.description}</p>
+          <h3 className="text-lg font-semibold tracking-tight leading-tight text-[var(--ord-text)]">{item.name}</h3>
+          <p className="mt-1 text-xs font-light leading-5 line-clamp-3 text-[var(--ord-text-soft)]">{item.description}</p>
           <div className="mt-auto pt-3">
             <p className="text-lg font-semibold text-gold-400">{formatCurrency(item.price)}</p>
             {noCarrinho ? (
@@ -2002,7 +2003,7 @@ function TabletView({
   const temConta = currentTableOrders.length > 0 || currentTableCancelled.length > 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-black overflow-hidden"
+    <div className="fixed inset-0 z-50 flex flex-col overflow-hidden bg-[var(--ord-bg)]"
       style={{ height: "100dvh", paddingTop: "calc(env(safe-area-inset-top) + 24px)", paddingBottom: "env(safe-area-inset-bottom)", fontFamily: "'Inter','Sora',sans-serif" }}>
 
       {/* ── Cabeçalho gourmet: marca · MESA em destaque · ações ── */}
@@ -2131,23 +2132,23 @@ function TabletView({
         </main>
 
         {/* ── Meu pedido (lateral fixa) ─────────────────────── */}
-        <aside className="hidden lg:flex w-72 xl:w-80 shrink-0 flex-col border-l border-gold-400/10 bg-black">
+        <aside className="hidden lg:flex w-72 xl:w-80 shrink-0 flex-col border-l border-gold-400/10 bg-[var(--ord-bg)]">
           <div className="shrink-0 border-b border-gold-400/15 px-4 py-3.5">
-            <p className="text-sm font-black uppercase tracking-[0.22em] text-white">Meu pedido</p>
+            <p className="text-sm font-black uppercase tracking-[0.22em] text-[var(--ord-text)]">Meu pedido</p>
           </div>
           <div className="scrollbar-none flex-1 space-y-2 overflow-y-auto p-3">
             {cart.length === 0 && (
               <div className="flex h-full flex-col items-center justify-center gap-2 opacity-40">
                 <span className="text-4xl">🛒</span>
-                <p className="text-xs font-bold text-slate-400">Seu pedido aparece aqui</p>
+                <p className="text-xs font-bold text-[var(--ord-text-muted)]">Seu pedido aparece aqui</p>
               </div>
             )}
             {cart.map((c) => (
-              <div key={c._uid || c.id} className="rounded-xl border border-white/10 bg-white/[0.04] p-2.5">
+              <div key={c._uid || c.id} className="rounded-xl border border-[var(--ord-border)] bg-[var(--ord-elev)] p-2.5">
                 <div className="flex items-start gap-2.5">
                   <img src={c.imageUrl || fallbackImage} alt="" className="h-10 w-10 shrink-0 rounded-lg object-cover" />
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-black text-white leading-tight">{c.quantity}x {c.name}</p>
+                    <p className="text-xs font-black leading-tight text-[var(--ord-text)]">{c.quantity}x {c.name}</p>
                     {(c.removedIngredients || []).map((r) => <p key={r} className="text-[10px] text-slate-500">Sem {r}</p>)}
                     {(c.extraIngredients || []).map((e) => <p key={e?.nome || e} className="text-[10px] text-slate-500">+ {e?.nome || e}</p>)}
                     {c.observation && <p className="truncate text-[10px] italic text-slate-500">"{c.observation}"</p>}
@@ -2161,8 +2162,8 @@ function TabletView({
           <div className="shrink-0 border-t border-gold-400/15 p-4">
             <div className="flex justify-between text-xs text-slate-400"><span>Subtotal</span><span className="font-bold text-slate-200">{formatCurrency(total)}</span></div>
             <div className="mt-1 flex justify-between text-xs text-slate-400"><span>Serviço (10%)</span><span className="font-bold text-slate-200">{formatCurrency(servicoCart)}</span></div>
-            <div className="mt-2 flex items-center justify-between border-t border-white/10 pt-2">
-              <span className="text-sm font-black uppercase tracking-wider text-white">Total</span>
+            <div className="mt-2 flex items-center justify-between border-t border-[var(--ord-border)] pt-2">
+              <span className="text-sm font-black uppercase tracking-wider text-[var(--ord-text)]">Total</span>
               <span className="text-lg font-black text-gold-400">{formatCurrency(totalComServico)}</span>
             </div>
             <button onClick={() => setCarrinhoAberto(true)} disabled={cart.length === 0}
@@ -4605,6 +4606,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
     ]},
     { grupo: "Configurações", itens: [
       { id: "pagamento", icon: <IconPagamento />, label: "Formas de Pagamento" },
+      { id: "config", icon: <IconConfig />, label: "Configurações" },
       // Empresa: super admin gerencia todas (grupo Plataforma); usuário comum vê a sua
       ...(!isSuperAdmin ? [
         { id: "minhaempresa", icon: <IconEmpresa />, label: "Minha Empresa" },
@@ -4759,6 +4761,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           {ativo === "mesas"      && (precisaEmpresa ? avisoEmpresa : <MesaAdmin mesas={mesas} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} orders={orders} />)}
           {ativo === "comandas"   && (precisaEmpresa ? avisoEmpresa : <GeradorComandas prefixoLoja={lojaInfo?.prefixo || "CMD"} empresa={lojaInfo?.nome || "Restaurante"} onGerar={registrarComandas} comandasRegistradas={comandasRegistradas} orders={orders} onExcluirComanda={excluirComandaFn} onRenomearComanda={renomearComandaFn} onToggleComanda={toggleComandaFn} lojaId={lojaInfo?.id} logoSalvo={lojaInfo?.logoUrl || ""} onSalvarLogo={(url) => salvarLogoEmpresa(lojaInfo?.id, url)} onIrCardapioExterno={() => setAdminSection("cardapioext")} />)}
           {ativo === "pagamento"  && (precisaEmpresa ? avisoEmpresa : <PagamentoAdmin formasPagamento={formasPagamento} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} />)}
+          {ativo === "config"     && <ConfiguracoesAdmin />}
           {ativo === "lojas"      && <LojaAdmin lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} lojaInfo={lojaInfo} criarEmpresa={criarEmpresa} cargos={cargos} />}
           {ativo === "licencas"   && <LicencaAdmin lojas={lojas} usuarios={users} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} />}
           {ativo === "versoes"    && <VersoesAdmin lojas={lojas} lojaFiltro={isSuperAdmin ? null : (lojaInfo?.id ?? null)} />}
@@ -7673,6 +7676,65 @@ const TIPOS_PAGAMENTO = [
   { id: "pix",            label: "PIX" },
   { id: "outro",          label: "Outro" },
 ];
+
+// ════════════════════════════════════════════════════════════
+//  Admin — Configurações (aparência / tema das telas do cliente)
+// ════════════════════════════════════════════════════════════
+function ConfiguracoesAdmin() {
+  const [tema, setTema] = useState(() => obterTema());
+  function escolher(t) { setTema(aplicarTema(t)); }
+  return (
+    <main className="space-y-5">
+      <PageHeader
+        icone={<IconConfig />}
+        titulo="Configurações"
+        descricao="Preferências de aparência do sistema. As alterações ficam salvas neste aparelho."
+      />
+
+      {/* Aparência — tema das telas do cliente */}
+      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
+        <h3 className="page-title text-base font-bold tracking-tight text-white">Aparência das telas do cliente</h3>
+        <p className="mt-1 text-sm text-slate-400">
+          Escolha o tema da <b className="text-slate-200">tela de pedido</b> e demais telas voltadas ao cliente (tablet e cardápio).
+          O <b className="text-slate-200">menu lateral</b> permanece sempre escuro.
+        </p>
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          {[
+            { id: "dark",  titulo: "Escuro",  desc: "Visual gourmet em fundo preto com acentos dourados (padrão).", amostraBg: "#000000", amostraCard: "#121212", amostraText: "#ffffff" },
+            { id: "light", titulo: "Claro",   desc: "Fundo claro com texto escuro, mantendo os acentos dourados.", amostraBg: "#F1F4F9", amostraCard: "#FFFFFF", amostraText: "#0F172A" },
+          ].map((op) => {
+            const sel = tema === op.id;
+            return (
+              <button key={op.id} type="button" onClick={() => escolher(op.id)}
+                className={`rounded-2xl border p-4 text-left transition ${sel ? "border-gold-400 bg-gold-400/10" : "border-white/10 bg-white/[0.03] hover:bg-white/[0.06]"}`}>
+                <div className="flex items-center justify-between gap-3">
+                  <span className={`font-display text-sm font-bold ${sel ? "text-gold-300" : "text-white"}`}>{op.titulo}</span>
+                  <span className={`flex h-5 w-5 items-center justify-center rounded-full border text-[11px] ${sel ? "border-gold-400 bg-gold-400 text-blue-950" : "border-white/25 text-transparent"}`}>✓</span>
+                </div>
+                {/* Amostra visual do tema */}
+                <div className="mt-3 overflow-hidden rounded-xl border border-white/10" style={{ background: op.amostraBg }}>
+                  <div className="flex items-center gap-2 p-2.5">
+                    <span className="h-8 w-8 shrink-0 rounded-lg" style={{ background: op.amostraCard }} />
+                    <div className="flex-1">
+                      <div className="h-2 w-20 rounded-full" style={{ background: op.amostraText, opacity: 0.85 }} />
+                      <div className="mt-1.5 h-2 w-12 rounded-full bg-gold-400" />
+                    </div>
+                    <span className="rounded-md bg-gold-400 px-2 py-1 text-[9px] font-black text-blue-950">Adicionar</span>
+                  </div>
+                </div>
+                <p className="mt-2 text-[11px] leading-snug text-slate-500">{op.desc}</p>
+              </button>
+            );
+          })}
+        </div>
+        <p className="mt-3 text-[11px] text-slate-500">
+          💡 A preferência é salva por aparelho — cada tablet pode usar o tema que preferir.
+        </p>
+      </div>
+    </main>
+  );
+}
 
 function PagamentoAdmin({ formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento }) {
   const [excluir, setExcluir]   = useState(null);

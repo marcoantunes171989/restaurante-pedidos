@@ -1,7 +1,11 @@
 import { StrictMode, useState, useEffect, useCallback, useRef } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
+import { inicializarTema } from './lib/theme.js'
 import App from './App.jsx'
+
+// Aplica o tema salvo (claro/escuro) o quanto antes, evitando flash
+inicializarTema()
 import LandingPage from './landing/LandingPage.jsx'
 import PwaBanner from './PwaBanner.jsx'
 import CardapioPublico from './CardapioPublico.jsx'

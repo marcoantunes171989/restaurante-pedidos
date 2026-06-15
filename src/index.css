@@ -24,6 +24,30 @@
   --prime-text: #F9FAFB;
   --prime-text-muted: #94A3B8;
   --prime-text-soft: #CBD5E1;
+
+  /* ── Tema das telas do cliente (tablet/pedido) — escuro por padrão ──
+     Trocado para claro via [data-theme="light"]. Os menus laterais NÃO
+     usam estas variáveis (ficam sempre escuros). */
+  --ord-bg: #000000;          /* fundo da tela do pedido */
+  --ord-card: #121212;        /* cards de produto */
+  --ord-elev: rgba(255,255,255,0.04); /* superfícies elevadas (item do pedido) */
+  --ord-header: rgba(0,0,0,0.90);      /* cabeçalho */
+  --ord-text: #FFFFFF;        /* texto principal */
+  --ord-text-soft: #CBD5E1;   /* texto secundário */
+  --ord-text-muted: #64748B;  /* texto sutil */
+  --ord-border: rgba(255,255,255,0.10);
+}
+
+/* Tema CLARO das telas do cliente (menus laterais permanecem escuros) */
+[data-theme="light"] {
+  --ord-bg: #F1F4F9;
+  --ord-card: #FFFFFF;
+  --ord-elev: #FFFFFF;
+  --ord-header: rgba(255,255,255,0.92);
+  --ord-text: #0F172A;
+  --ord-text-soft: #334155;
+  --ord-text-muted: #64748B;
+  --ord-border: #E2E8F0;
 }
 
 body {
