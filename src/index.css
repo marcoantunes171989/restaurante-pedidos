@@ -50,6 +50,69 @@
   --ord-border: #E2E8F0;
 }
 
+/* ══════════════════════════════════════════════════════════════
+   Tema CLARO das áreas de conteúdo (admin, caixa, cozinha, painel)
+   Aplicado só onde a classe .tema-claro-area está presente — os menus
+   laterais e cabeçalhos ficam FORA dessa classe, então permanecem
+   escuros. Reescreve as superfícies/textos/bordas neutros para claro,
+   preservando os acentos dourados e as cores semânticas (verde, âmbar,
+   vermelho, azul). Ativo apenas com [data-theme="light"]. */
+[data-theme="light"] .tema-claro-area {
+  background-color: #F1F4F9 !important;
+  color: #0F172A;
+}
+/* Superfícies sólidas escuras → branco (cards/painéis) */
+[data-theme="light"] .tema-claro-area .bg-slate-950,
+[data-theme="light"] .tema-claro-area .bg-slate-900,
+[data-theme="light"] .tema-claro-area .bg-blue-950,
+[data-theme="light"] .tema-claro-area .bg-\[\#070B16\],
+[data-theme="light"] .tema-claro-area .bg-\[\#0A1424\],
+[data-theme="light"] .tema-claro-area .bg-\[\#0B0F1A\],
+[data-theme="light"] .tema-claro-area .bg-\[\#060912\] { background-color: #FFFFFF !important; }
+/* Inputs/selects com fundo escuro translúcido → branco */
+[data-theme="light"] .tema-claro-area .bg-slate-950\/70,
+[data-theme="light"] .tema-claro-area .bg-slate-950\/60,
+[data-theme="light"] .tema-claro-area .bg-slate-950\/50,
+[data-theme="light"] .tema-claro-area .bg-slate-950\/40,
+[data-theme="light"] .tema-claro-area .bg-slate-900\/90,
+[data-theme="light"] .tema-claro-area .bg-slate-900\/80 { background-color: #FFFFFF !important; }
+/* Superfícies elevadas translúcidas (white/x) → cinza claro sutil e visível */
+[data-theme="light"] .tema-claro-area .bg-white\/\[0\.02\],
+[data-theme="light"] .tema-claro-area .bg-white\/\[0\.03\],
+[data-theme="light"] .tema-claro-area .bg-white\/\[0\.04\],
+[data-theme="light"] .tema-claro-area .bg-white\/\[0\.05\],
+[data-theme="light"] .tema-claro-area .bg-white\/\[0\.06\],
+[data-theme="light"] .tema-claro-area .bg-white\/\[0\.08\],
+[data-theme="light"] .tema-claro-area .bg-white\/5,
+[data-theme="light"] .tema-claro-area .bg-white\/10 { background-color: rgba(15, 23, 42, 0.045) !important; }
+/* Textos neutros → escuros (gold e cores semânticas preservados) */
+[data-theme="light"] .tema-claro-area .text-white { color: #0F172A !important; }
+[data-theme="light"] .tema-claro-area .text-slate-300 { color: #334155 !important; }
+[data-theme="light"] .tema-claro-area .text-slate-400 { color: #475569 !important; }
+[data-theme="light"] .tema-claro-area .text-slate-500 { color: #64748B !important; }
+[data-theme="light"] .tema-claro-area .text-slate-600 { color: #94A3B8 !important; }
+[data-theme="light"] .tema-claro-area .text-blue-200,
+[data-theme="light"] .tema-claro-area .text-blue-300 { color: #1D4ED8 !important; }
+/* Bordas neutras → claras */
+[data-theme="light"] .tema-claro-area .border-white\/5,
+[data-theme="light"] .tema-claro-area .border-white\/10,
+[data-theme="light"] .tema-claro-area .border-white\/20,
+[data-theme="light"] .tema-claro-area .border-white\/\[0\.08\] { border-color: #E2E8F0 !important; }
+/* Placeholder mais escuro no fundo claro */
+[data-theme="light"] .tema-claro-area .placeholder\:text-slate-600::placeholder { color: #94A3B8 !important; }
+/* Mantém texto branco nos botões sólidos coloridos (legibilidade) */
+[data-theme="light"] .tema-claro-area .bg-blue-500.text-white,
+[data-theme="light"] .tema-claro-area .bg-emerald-500.text-white,
+[data-theme="light"] .tema-claro-area .bg-green-500.text-white,
+[data-theme="light"] .tema-claro-area .bg-red-500.text-white { color: #FFFFFF !important; }
+/* Autofill claro dentro da área clara */
+[data-theme="light"] .tema-claro-area input:-webkit-autofill {
+  -webkit-text-fill-color: #0F172A !important;
+  caret-color: #0F172A;
+  -webkit-box-shadow: 0 0 0 1000px #FFFFFF inset !important;
+  box-shadow: 0 0 0 1000px #FFFFFF inset !important;
+}
+
 body {
   margin: 0;
   background-color: var(--prime-bg-dark); /* evita faixa clara quando o overlay não cobre 100% no mobile */

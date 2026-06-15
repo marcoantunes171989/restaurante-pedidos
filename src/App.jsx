@@ -2946,7 +2946,7 @@ function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, cancela
       </header>
 
       {/* ── 3 Colunas de pedidos ──────────────────────────────── */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="tema-claro-area flex flex-1 overflow-hidden">
         {kitchenCols.map(({ key, label, sub, dot, header, card }) => {
           const lista = groupedOrders[key] || [];
           // Agrupa os pedidos da coluna por MESA (mantendo a ordem de chegada).
@@ -3296,7 +3296,7 @@ function PanelView({ groupedOrders, products = [], lojaInfo }) {
       </header>
 
       {/* ── Colunas ───────────────────────────────────────────── */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="tema-claro-area flex flex-1 overflow-hidden">
         {colunas.map(({ key, titulo, sub }) => {
           const cfg = panelStatusConfig[key];
           const lista = groupedOrders[key] || [];
@@ -3820,7 +3820,7 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
       )}
 
       {modoCaixa === "caixa" && (
-      <div className="flex flex-1 overflow-hidden">
+      <div className="tema-claro-area flex flex-1 overflow-hidden">
         {/* Lista de comandas/itens */}
         <div className="flex-1 overflow-y-auto p-6">
 
@@ -4060,7 +4060,7 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
 
       {/* ── Modo: Consultar comanda ──────────────────────────── */}
       {modoCaixa === "consulta" && (
-        <div className="flex flex-1 items-start justify-center overflow-y-auto p-6">
+        <div className="tema-claro-area flex flex-1 items-start justify-center overflow-y-auto p-6">
           <div className="w-full max-w-xl space-y-5">
             {/* Leitura da comanda */}
             <div className="rounded-3xl border border-white/10 bg-slate-900 p-6">
@@ -4753,7 +4753,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
         </div>
 
         {/* Conteúdo rolável — remonta ao trocar a "Empresa em foco" para refletir a empresa selecionada em todas as telas */}
-        <div key={`ctx-${lojaContexto ?? "geral"}`} className="flex-1 overflow-y-auto p-6">
+        <div key={`ctx-${lojaContexto ?? "geral"}`} className="tema-claro-area flex-1 overflow-y-auto p-6">
           {ativo === "dashboard"  && <DashboardAdmin orders={orders} products={products} />}
           {ativo === "relatorios" && <RelatoriosAdmin orders={orders} products={products} lojaInfo={lojaInfo} />}
           {ativo === "crm"        && <CrmAdmin clientes={clientes} orders={orders} />}
