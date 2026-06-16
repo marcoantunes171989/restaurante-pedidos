@@ -4532,7 +4532,7 @@ function CupomModal({ blocos, mesas, comandas, subtotal, taxa, total, pessoas, p
   );
 }
 
-// Combo moderno e minimalista da "Empresa em foco" (menu lateral do super admin)
+// Combo "Empresa em foco" (menu lateral do super admin) — identidade navy + dourado
 function ComboEmpresaFoco({ lojas = [], valor, onChange }) {
   const [aberto, setAberto] = useState(false);
   const [busca, setBusca]   = useState("");
@@ -4540,46 +4540,52 @@ function ComboEmpresaFoco({ lojas = [], valor, onChange }) {
   const termo = busca.trim().toLowerCase();
   const lista = termo ? lojas.filter((l) => `${l.nome} ${l.prefixo}`.toLowerCase().includes(termo)) : lojas;
   const escolher = (id) => { onChange(id); setAberto(false); setBusca(""); };
-  const item = (sel) => `flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-sm transition ${sel ? "bg-blue-500/20 text-blue-100" : "text-slate-300 hover:bg-white/[0.06]"}`;
+  const item = (sel) => `flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-sm transition ${sel ? "bg-gold-400/10 text-gold-200 ring-1 ring-gold-400/30" : "text-slate-300 hover:bg-white/[0.06]"}`;
+  const Globo = ({ className = "h-4 w-4" }) => (<svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c2.5 2.5 3.8 5.7 3.8 9S14.5 18.5 12 21c-2.5-2.5-3.8-5.7-3.8-9S9.5 5.5 12 3Z" /></svg>);
 
   return (
     <div className="relative">
       <button onClick={() => setAberto((o) => !o)}
-        className={`flex w-full items-center gap-2 rounded-xl border bg-slate-950/70 px-2.5 py-2 text-left transition ${aberto ? "border-blue-400/60" : "border-white/10 hover:border-white/25"}`}>
-        <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-sm ${atual ? "bg-blue-500/20" : "bg-white/[0.06]"}`}>{atual ? "🏪" : "🌐"}</span>
+        className={`flex w-full items-center gap-2.5 rounded-xl border bg-blue-950/60 px-2.5 py-2 text-left transition ${aberto ? "border-gold-400/60 ring-1 ring-gold-400/20" : "border-gold-400/15 hover:border-gold-400/40"}`}>
+        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition ${atual ? "border-gold-400/30 bg-gold-400/10 text-gold-300" : "border-white/10 bg-white/[0.06] text-slate-300"}`}>
+          {atual ? <IconEmpresa /> : <Globo />}
+        </span>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-black text-white">{atual ? atual.nome : "Visão geral"}</p>
-          <p className="truncate text-[10px] text-slate-500">{atual ? `Comandas: ${atual.prefixo}` : "Todas as empresas"}</p>
+          <p className="font-display truncate text-sm font-bold text-white">{atual ? atual.nome : "Visão geral"}</p>
+          <p className="truncate text-[10px] font-medium text-gold-400/70">{atual ? `Comandas: ${atual.prefixo}` : "Todas as empresas"}</p>
         </div>
-        <span className={`shrink-0 text-[10px] text-slate-400 transition-transform ${aberto ? "rotate-180" : ""}`}>▼</span>
+        <svg className={`h-3.5 w-3.5 shrink-0 text-gold-400/80 transition-transform ${aberto ? "rotate-180" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
       </button>
 
       {aberto && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setAberto(false)} />
-          <div className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-2xl border border-white/10 bg-slate-900 shadow-2xl">
+          <div className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-2xl border border-gold-400/20 bg-blue-950 shadow-2xl shadow-black/60">
             {lojas.length > 6 && (
-              <div className="border-b border-white/10 p-2">
-                <input autoFocus value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar empresa..."
-                  className="w-full rounded-lg border border-white/10 bg-slate-950/70 px-3 py-1.5 text-xs text-white outline-none focus:border-blue-400 placeholder:text-slate-600" />
+              <div className="border-b border-gold-400/15 p-2">
+                <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-slate-950/70 px-3 py-1.5 focus-within:border-gold-400/60 transition">
+                  <span className="shrink-0 text-gold-400/70"><IconBusca /></span>
+                  <input autoFocus value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar empresa..."
+                    className="w-full bg-transparent text-xs text-white outline-none placeholder:text-slate-500" />
+                </div>
               </div>
             )}
             <div className="scrollbar-none max-h-64 space-y-0.5 overflow-y-auto p-1.5">
               <button onClick={() => escolher(null)} className={item(valor == null)}>
-                <span className="flex h-6 w-6 items-center justify-center rounded-md bg-white/[0.06] text-xs">🌐</span>
+                <span className={`flex h-7 w-7 items-center justify-center rounded-md border ${valor == null ? "border-gold-400/30 bg-gold-400/10 text-gold-300" : "border-white/10 bg-white/[0.06] text-slate-300"}`}><Globo /></span>
                 <span className="flex-1 truncate font-bold">Visão geral (todas)</span>
-                {valor == null && <span className="text-xs text-blue-300">✓</span>}
+                {valor == null && <span className="shrink-0 text-gold-400">✓</span>}
               </button>
               {lista.map((l) => {
                 const sel = valor === l.id;
                 return (
                   <button key={l.id} onClick={() => escolher(l.id)} className={item(sel)}>
-                    <span className="flex h-6 w-6 items-center justify-center rounded-md bg-blue-500/15 text-xs">🏪</span>
+                    <span className={`flex h-7 w-7 items-center justify-center rounded-md border ${sel ? "border-gold-400/30 bg-gold-400/10 text-gold-300" : "border-white/10 bg-white/[0.06] text-slate-300"}`}><IconEmpresa /></span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate font-bold">{l.nome}</span>
-                      <span className="block truncate text-[10px] text-slate-500">{l.prefixo}{l.active === false ? " • inativa" : ""}</span>
+                      <span className="block truncate text-[10px] text-gold-400/60">{l.prefixo}{l.active === false ? " • inativa" : ""}</span>
                     </span>
-                    {sel && <span className="text-xs text-blue-300">✓</span>}
+                    {sel && <span className="shrink-0 text-gold-400">✓</span>}
                   </button>
                 );
               })}
