@@ -102,26 +102,30 @@ export function escutarProdutos(onMudanca) {
 // registra a movimentação (estoque antes/depois) para o relatório gerencial.
 export async function baixarEstoque(itensVendidos, lojaId = null, comandas = []) {
   // itensVendidos: [{ name, quantity }]
-  let q = supabase.from('tab_produtos').select('id,nome,estoque,loja_id')
+  let q = supabase.from('tab_produtos').select('id,nome,estoque,estoque_minimo,loja_id')
   if (lojaId != null) q = q.eq('loja_id', lojaId)
   const { data: produtos } = await q
-  if (!produtos) return []
+  if (!produtos) return { movimentos: [], alertas: [] }
   // Soma quantidades por nome (um produto pode aparecer em vários pedidos)
   const somas = {}
   itensVendidos.forEach((it) => { somas[it.name] = (somas[it.name] || 0) + it.quantity })
-  const movimentos = []
+  const movimentos = []   // linhas para gravar (colunas do banco)
+  const alertas = []      // produtos que atingiram o mínimo / zeraram após a baixa
   const comandasTxt = Array.isArray(comandas) ? comandas.join(', ') : (comandas || null)
   await Promise.all(Object.entries(somas).map(async ([nome, qtd]) => {
     const p = produtos.find((x) => x.nome === nome)
     if (!p) return
     const antes = p.estoque ?? 0
     const depois = Math.max(0, antes - qtd)
+    const minimo = p.estoque_minimo ?? 0
     await supabase.from('tab_produtos').update({ estoque: depois }).eq('id', p.id)
     movimentos.push({ loja_id: p.loja_id ?? lojaId ?? null, produto_id: p.id, produto_nome: nome, quantidade: qtd, estoque_antes: antes, estoque_depois: depois, comandas: comandasTxt })
+    if (depois <= 0) alertas.push({ nome, estoque: depois, minimo, zerado: true })
+    else if (minimo > 0 && depois <= minimo) alertas.push({ nome, estoque: depois, minimo, zerado: false })
   }))
   // Registra as movimentações (tolerante: ignora se a tabela ainda não existir)
   if (movimentos.length) { try { await supabase.from('tab_estoque_mov').insert(movimentos) } catch {} }
-  return movimentos
+  return { movimentos, alertas }
 }
 
 // Histórico de movimentações de estoque (tolerante: [] se a tabela não existir)

@@ -1094,14 +1094,17 @@ export default function RestaurantePedidoApp() {
     // Itens vendidos (para baixa de estoque)
     const itensVendidos = alvo.flatMap((o) => o.items.map((it) => ({ name: it.name, quantity: it.quantity })));
     setOrders((cur) => cur.map((o) => (comandas.includes(o.command) && o.paymentStatus !== "paid") ? { ...o, paymentStatus: "paid", status: "delivered" } : o));
+    let alertasEstoque = [];
     if (dbReady) {
       try {
         await Promise.all(alvo.map((o) => atualizarPedido(o.id, { status_pagamento: "pago", status: "entregue" })));
-        await baixarEstoque(itensVendidos, lojaAtual, comandas); // baixa correta por loja + registro
+        const r = await baixarEstoque(itensVendidos, lojaAtual, comandas); // baixa correta por loja + registro
+        alertasEstoque = r?.alertas || [];
         if (info) await registrarPagamento({ ...info, comandas }); // histórico de pagamento
       } catch (err) { console.error("Erro ao finalizar pagamento:", err); }
     }
     notify("success", `✅ Pagamento finalizado! ${comandas.length} comanda(s) baixada(s), estoque atualizado.`);
+    return { alertas: alertasEstoque };
   }
 
   // ── Comandas geradas (registro para validação) ──────────────
@@ -1345,7 +1348,7 @@ export default function RestaurantePedidoApp() {
       if (dbReady) {
         try {
           await Promise.all(alvo.map((o) => atualizarPedido(o.id, { status_pagamento: "pago", status: "entregue" })));
-          await baixarEstoque(itensVendidos);
+          await baixarEstoque(itensVendidos, lojaAtual, [...new Set(alvo.map((o) => o.command).filter(Boolean))]);
         } catch (err) { console.error("Erro na baixa por pedido:", err); }
       }
     }
@@ -3665,7 +3668,7 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
   }
 
   // Chamado pelo modal de pagamento ao confirmar
-  function confirmarPagamento({ detalhes, troco }) {
+  async function confirmarPagamento({ detalhes, troco }) {
     const valorPago = aPagar; // valor cobrado neste pagamento
     const hora = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
     // Itens marcados como PAGOS nesta parcela (apenas no modo de seleção por item)
@@ -3698,12 +3701,13 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
       const detalhesTodos = novosPagamentos.flatMap((p) => p.detalhes);
       const trocoTotal = novosPagamentos.reduce((s, p) => s + (p.troco || 0), 0);
       const info = { mesa: mesas.join(", "), total: totalGeral, troco: trocoTotal, detalhes: detalhesTodos, comandas: [...comandasLidas] };
-      baixarComandas(comandasLidas, info);
+      const baixa = await baixarComandas(comandasLidas, info);
       setComprovante({
         ...info,
         subtotal: totalGeral / 1.1, taxa: totalGeral - totalGeral / 1.1,
         blocos: porComanda.filter((b) => b.pedidos.length > 0),
         parciais: novosPagamentos,
+        alertasEstoque: baixa?.alertas || [],
       });
       setPagamentosFeitos([]);
       setComandasLidas([]);
@@ -3753,19 +3757,20 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
   }
 
   // Dá baixa (finaliza pagamento) da comanda consultada → libera a comanda para reuso
-  function confirmarPagamentoConsulta({ detalhes, troco }) {
+  async function confirmarPagamentoConsulta({ detalhes, troco }) {
     const info = { mesa: consultaMesas.join(", "), total: consultaTotal, troco, detalhes, comandas: [consultaCodigo] };
     const blocosCmd = [{
       comanda: consultaCodigo,
       pedidos: consultaPedidos,
       subtotal: consultaSubtotal,
     }];
-    baixarComandas([consultaCodigo], info); // mantém os pedidos no banco como pagos; comanda fica livre
+    const baixa = await baixarComandas([consultaCodigo], info); // mantém os pedidos no banco como pagos; comanda fica livre
     setConsultaComprovante({
       ...info,
       subtotal: consultaSubtotal, taxa: consultaTaxa,
       blocos: blocosCmd,
       parciais: [{ valor: consultaTotal, troco, detalhes, hora: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) }],
+      alertasEstoque: baixa?.alertas || [],
     });
     setConsultaPagamento(false);
     // mantém consultaCodigo: a tela passará a exibir "comanda livre / disponível para reuso"
@@ -4437,6 +4442,23 @@ function ComprovanteModal({ dados, onFechar }) {
           ))}
           {dados.troco > 0 && <div className="flex justify-between border-t border-white/10 pt-2"><span className="text-emerald-400 font-black">Troco</span><span className="font-black text-emerald-400">{formatCurrency(dados.troco)}</span></div>}
         </div>
+        {/* Alerta automático: produtos que zeraram ou atingiram o estoque mínimo após a baixa */}
+        {Array.isArray(dados.alertasEstoque) && dados.alertasEstoque.length > 0 && (
+          <div className="mx-6 mb-1 rounded-2xl border border-amber-400/40 bg-amber-500/10 px-4 py-3">
+            <p className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-amber-300">⚠️ Alerta de estoque</p>
+            <ul className="mt-2 space-y-1">
+              {dados.alertasEstoque.map((a) => (
+                <li key={a.nome} className="flex items-center justify-between gap-2 text-sm">
+                  <span className="min-w-0 truncate font-bold text-amber-100">{a.nome}</span>
+                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-black ${a.zerado ? "bg-red-500/20 text-red-300" : "bg-amber-500/20 text-amber-200"}`}>
+                    {a.zerado ? "Esgotado (0 un)" : `Mínimo atingido · ${a.estoque}/${a.minimo} un`}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-2 text-[11px] leading-snug text-amber-200/80">Reabasteça em <b>Produtos</b> para não faltar no atendimento.</p>
+          </div>
+        )}
         <div className="border-t border-white/10 px-6 py-4 space-y-2">
           <button onClick={imprimir} className="w-full rounded-2xl bg-blue-500 py-3.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95">🖨️ Imprimir cupom fiscal</button>
           <button onClick={onFechar} className="w-full rounded-2xl border border-white/10 bg-white/[0.06] py-3 text-sm font-black text-slate-300 hover:bg-white/10">Fechar</button>
