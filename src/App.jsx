@@ -18,6 +18,7 @@ import {
   registrarDispositivo, fetchDispositivos, escutarDispositivos, renomearDispositivo, removerDispositivo,
   fetchPlanos, fetchAssinaturas, fetchPlanoModulos, escutarAssinaturas, salvarAssinatura,
   fetchPromocoes, inserirPromocao, atualizarPromocao, excluirPromocao, escutarPromocoes,
+  fetchGruposOpcoes, fetchOpcoes, inserirGrupoOpcoes, atualizarGrupoOpcoes, excluirGrupoOpcoes, inserirOpcao, atualizarOpcao, excluirOpcao, escutarGruposOpcoes, escutarOpcoes,
 } from "./lib/supabase";
 import { statusAssinatura, getCurrentCompanyPlan, modulosDoPlano, MODULOS_LABEL, canAccessModule, getBlockedModuleMessage } from "./lib/plans";
 import { GeradorComandas } from "./components/QRComandas";
@@ -604,6 +605,8 @@ export default function RestaurantePedidoApp() {
   const [assinaturas, setAssinaturas] = useState([]);      // assinatura por empresa
   const [planoModulos, setPlanoModulos] = useState([]);    // vínculo plano × módulo
   const [promocoes, setPromocoes] = useState([]);          // promoções por empresa (migration 039)
+  const [gruposOpcoes, setGruposOpcoes] = useState([]);    // grupos de adicionais/variações (migration 040)
+  const [opcoes, setOpcoes] = useState([]);                // opções dos grupos
   const [lojaContexto, setLojaContexto] = useState(null); // super admin: empresa em foco para cadastros
   const [dbReady, setDbReady] = useState(false);
   const [loading, setLoading]     = useState(true);
@@ -637,6 +640,8 @@ export default function RestaurantePedidoApp() {
         try { setAssinaturas(await fetchAssinaturas()); } catch { /* migration 037 pendente */ }
         try { setPlanoModulos(await fetchPlanoModulos()); } catch { /* migration 037 pendente */ }
         try { setPromocoes(await fetchPromocoes()); } catch { /* migration 039 pendente */ }
+        try { setGruposOpcoes(await fetchGruposOpcoes()); } catch { /* migration 040 pendente */ }
+        try { setOpcoes(await fetchOpcoes()); } catch { /* migration 040 pendente */ }
         setDbReady(true);
         setLoading(false);
 
@@ -657,6 +662,8 @@ export default function RestaurantePedidoApp() {
         try { unsubs.push(escutarComandas(setComandas)); } catch {}
         try { unsubs.push(escutarAssinaturas(setAssinaturas)); } catch {}
         try { unsubs.push(escutarPromocoes(setPromocoes)); } catch {}
+        try { unsubs.push(escutarGruposOpcoes(setGruposOpcoes)); } catch {}
+        try { unsubs.push(escutarOpcoes(setOpcoes)); } catch {}
       } catch (err) {
         console.warn("Supabase indisponível — usando fallback local:", err.message);
         setProducts(initialProducts);
@@ -991,7 +998,7 @@ export default function RestaurantePedidoApp() {
       table: currentTable, command: codigo, customer: customerName.trim() || "Cliente",
       status: "received", paymentStatus: "open",
       createdAt: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
-      items: cart.map((i) => ({ name: i.name, quantity: i.quantity, price: i.price, selectedIngredients: i.selectedIngredients, removedIngredients: i.removedIngredients, extraIngredients: i.extraIngredients, observation: i.observation })),
+      items: cart.map((i) => ({ name: i.name, quantity: i.quantity, price: i.price, selectedIngredients: i.selectedIngredients, removedIngredients: i.removedIngredients, extraIngredients: i.extraIngredients, selectedOptions: i.selectedOptions || [], observation: i.observation })),
       lojaId: lojaAtual,
     };
 
@@ -1308,6 +1315,34 @@ export default function RestaurantePedidoApp() {
     setPromocoes((cur) => cur.filter((p) => p.id !== id));
     if (dbReady) try { await excluirPromocao(id); } catch (e) { notify("error", "Erro ao excluir: " + (e.message || e)); return; }
     notify("success", "Promoção excluída.");
+  }
+
+  // ── Adicionais e Variações estruturados (migration 040) ─────
+  async function addGrupoOpcoes(produtoId, dados) {
+    if (!canAccess(currentUser, "admin")) return notify("error", "Sem permissão.");
+    if (dbReady) { try { const g = await inserirGrupoOpcoes({ ...dados, produtoId, lojaId: lojaAtual }); setGruposOpcoes((cur) => [...cur, g]); return g; } catch (e) { notify("error", "Erro ao criar grupo: " + (e.message || e)); return; } }
+    const g = { ...dados, produtoId, lojaId: lojaAtual, id: Date.now() }; setGruposOpcoes((cur) => [...cur, g]); return g;
+  }
+  async function editarGrupoOpcoes(id, dados) {
+    setGruposOpcoes((cur) => cur.map((g) => g.id === id ? { ...g, ...dados } : g));
+    if (dbReady) try { await atualizarGrupoOpcoes(id, dados); } catch (e) { notify("error", "Erro ao salvar grupo: " + (e.message || e)); }
+  }
+  async function removerGrupoOpcoes(id) {
+    setGruposOpcoes((cur) => cur.filter((g) => g.id !== id));
+    setOpcoes((cur) => cur.filter((o) => o.grupoId !== id));
+    if (dbReady) try { await excluirGrupoOpcoes(id); } catch (e) { notify("error", "Erro ao excluir grupo: " + (e.message || e)); }
+  }
+  async function addOpcao(grupoId, dados) {
+    if (dbReady) { try { const o = await inserirOpcao({ ...dados, grupoId, lojaId: lojaAtual }); setOpcoes((cur) => [...cur, o]); return o; } catch (e) { notify("error", "Erro ao criar opção: " + (e.message || e)); return; } }
+    const o = { ...dados, grupoId, lojaId: lojaAtual, id: Date.now() }; setOpcoes((cur) => [...cur, o]); return o;
+  }
+  async function editarOpcao(id, dados) {
+    setOpcoes((cur) => cur.map((o) => o.id === id ? { ...o, ...dados } : o));
+    if (dbReady) try { await atualizarOpcao(id, dados); } catch (e) { notify("error", "Erro ao salvar opção: " + (e.message || e)); }
+  }
+  async function removerOpcao(id) {
+    setOpcoes((cur) => cur.filter((o) => o.id !== id));
+    if (dbReady) try { await excluirOpcao(id); } catch (e) { notify("error", "Erro ao excluir opção: " + (e.message || e)); }
   }
 
   // ── Licença de uso por empresa (somente administrador geral) ──
@@ -1767,6 +1802,7 @@ export default function RestaurantePedidoApp() {
           <>
             <TabletView
               promocoes={filtraLoja(promocoes).filter((p) => p.ativo && p.mostrarTablet && promocaoVigente(p))}
+              gruposOpcoes={filtraLoja(gruposOpcoes)} opcoes={filtraLoja(opcoes)}
               products={products} categories={categories}
               filteredItems={filteredItems} selectedCategory={selectedCategory} setSelectedCategory={setSelectedCategory}
               search={search} setSearch={setSearch}
@@ -1810,7 +1846,7 @@ export default function RestaurantePedidoApp() {
         )}
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} products={products} lojaInfo={lojaInfo} />}
         {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierView orders={orders} baixarComandas={baixarComandas} baixarPedidos={baixarPedidos} formasPagamento={formasPagamentoLoja} onSair={logout} lojaInfo={lojaInfo} />}
-        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} promocoes={filtraLoja(promocoes)} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} />}
+        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} promocoes={filtraLoja(promocoes)} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} opcoesApi={{ grupos: filtraLoja(gruposOpcoes), opcoes: filtraLoja(opcoes), addGrupo: addGrupoOpcoes, editarGrupo: editarGrupoOpcoes, removerGrupo: removerGrupoOpcoes, addOpcao, editarOpcao, removerOpcao }} />}
 
       </div>
     </div>
@@ -1821,7 +1857,7 @@ export default function RestaurantePedidoApp() {
 //  TabletView — tela cheia para pedidos do cliente
 // ════════════════════════════════════════════════════════════
 function TabletView({
-  promocoes = [],
+  promocoes = [], gruposOpcoes = [], opcoes = [],
   products, categories, filteredItems, selectedCategory, setSelectedCategory,
   search, setSearch, cart, tableNumber, setTableNumber,
   customerName, setCustomerName, commandCode, setCommandCode,
@@ -2385,6 +2421,9 @@ function TabletView({
 
                 {/* Resumo limpo: a lista de ingredientes padrão não é exibida aqui.
                     Mantém apenas as modificações relevantes para a cozinha. */}
+                {(item.selectedOptions || []).length > 0 && (
+                  <p className="mt-1 text-xs text-gold-300">{item.selectedOptions.map((o) => o.nome).join(", ")}</p>
+                )}
                 {item.removedIngredients.length > 0 && (
                   <p className="mt-1 text-xs text-red-300">Sem: {item.removedIngredients.join(", ")}</p>
                 )}
@@ -2598,6 +2637,7 @@ function TabletView({
       {produtoDetalhe && (
         <ProdutoModal
           produto={produtoDetalhe}
+          grupos={gruposOpcoes} opcoes={opcoes}
           onFechar={() => setProdutoDetalhe(null)}
           onAdicionar={(itemConfig) => { addConfiguredToCart(itemConfig); setProdutoDetalhe(null); }}
         />
@@ -2813,17 +2853,37 @@ function TabletView({
 // ════════════════════════════════════════════════════════════
 //  Modal de detalhes/personalização do produto
 // ════════════════════════════════════════════════════════════
-export function ProdutoModal({ produto, onFechar, onAdicionar }) {
+export function ProdutoModal({ produto, onFechar, onAdicionar, grupos = [], opcoes = [] }) {
   const [quantidade, setQuantidade]   = useState(1);
   const [selecionados, setSelecionados] = useState([...(produto.ingredients || [])]);
   const [removidos, setRemovidos]       = useState([]);
   const [extras, setExtras]             = useState([]); // nomes dos adicionais selecionados
   const [observacao, setObservacao]     = useState("");
   const [favorito, setFavorito]         = useState(false); // coração (visual, por sessão)
+  const [escolhas, setEscolhas]         = useState({});    // { [grupoId]: [opcaoId, ...] } — variações/adicionais estruturados
 
   // Adicionais cadastrados e vinculados ao produto: [{ nome, preco }]
   const adicionais = (produto.adicionais || []).filter((a) => a && a.nome);
   const extrasTotal = adicionais.filter((a) => extras.includes(a.nome)).reduce((s, a) => s + (Number(a.preco) || 0), 0);
+
+  // Grupos de opções estruturados (migration 040)
+  const gruposProduto = (grupos || []).filter((g) => g.produtoId === produto.id && g.ativo !== false).sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
+  const opcoesDoGrupo = (gid) => (opcoes || []).filter((o) => o.grupoId === gid && o.ativo !== false).sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
+  function toggleOpcao(g, opcaoId) {
+    setEscolhas((cur) => {
+      const atual = cur[g.id] || [];
+      const max = g.maxSelect ?? 1;
+      let prox;
+      if (atual.includes(opcaoId)) prox = atual.filter((x) => x !== opcaoId);
+      else if (max <= 1) prox = [opcaoId];                       // seleção única → troca
+      else if (atual.length >= max) prox = [...atual.slice(1), opcaoId]; // respeita o máximo
+      else prox = [...atual, opcaoId];
+      return { ...cur, [g.id]: prox };
+    });
+  }
+  const opcoesTotal = gruposProduto.reduce((s, g) => s + (escolhas[g.id] || []).reduce((x, oid) => { const o = opcoesDoGrupo(g.id).find((op) => op.id === oid); return x + (o?.precoDelta || 0); }, 0), 0);
+  const grupoFaltando = gruposProduto.find((g) => g.obrigatorio && (escolhas[g.id] || []).length < (g.minSelect || 1));
+  const podeAdicionar = !grupoFaltando;
 
   function toggleIngrediente(ing) {
     if (selecionados.includes(ing)) {
@@ -2840,19 +2900,22 @@ export function ProdutoModal({ produto, onFechar, onAdicionar }) {
   }
 
   function confirmar() {
+    if (!podeAdicionar) return;
+    const selectedOptions = gruposProduto.flatMap((g) => (escolhas[g.id] || []).map((oid) => { const o = opcoesDoGrupo(g.id).find((op) => op.id === oid); return { grupo: g.nome, nome: o?.nome || "", preco: o?.precoDelta || 0 }; }));
     onAdicionar({
       ...produto,
-      price: produto.price + extrasTotal, // preço unitário com adicionais
+      price: produto.price + extrasTotal + opcoesTotal, // preço unitário com adicionais + opções
       quantity: quantidade,
       selectedIngredients: selecionados,
       removedIngredients: removidos,
       extraIngredients: extras,
+      selectedOptions,
       extraIngredientInput: "",
       observation: observacao,
     });
   }
 
-  const totalItem = (produto.price + extrasTotal) * quantidade;
+  const totalItem = (produto.price + extrasTotal + opcoesTotal) * quantidade;
 
   return (
     <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm p-0 sm:p-4"
@@ -2889,6 +2952,39 @@ export function ProdutoModal({ produto, onFechar, onAdicionar }) {
 
         {/* Corpo rolável */}
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+          {/* Grupos de variações/adicionais estruturados (migration 040) */}
+          {gruposProduto.map((g) => {
+            const sel = escolhas[g.id] || [];
+            const faltam = g.obrigatorio && sel.length < (g.minSelect || 1);
+            return (
+              <div key={g.id}>
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-gold-400">{g.nome}</p>
+                  <span className={`rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${g.obrigatorio ? (faltam ? "bg-red-500/15 text-red-300" : "bg-emerald-500/15 text-emerald-300") : "bg-white/[0.06] text-slate-400"}`}>
+                    {g.obrigatorio ? (faltam ? "Obrigatório" : "✓ Ok") : "Opcional"}{(g.maxSelect ?? 1) > 1 ? ` · até ${g.maxSelect}` : ""}
+                  </span>
+                </div>
+                <div className="space-y-1.5">
+                  {opcoesDoGrupo(g.id).map((o) => {
+                    const on = sel.includes(o.id);
+                    const unico = (g.maxSelect ?? 1) <= 1;
+                    return (
+                      <button key={o.id} type="button" onClick={() => toggleOpcao(g, o.id)}
+                        className={`flex w-full items-center justify-between gap-3 rounded-xl border px-3.5 py-2.5 text-left transition ${on ? "border-gold-400/60 bg-gold-400/10" : "border-white/10 bg-white/[0.03] hover:border-white/25"}`}>
+                        <span className="flex items-center gap-2.5 text-sm font-medium text-white">
+                          <span className={`flex h-5 w-5 items-center justify-center border text-[11px] transition ${unico ? "rounded-full" : "rounded-md"} ${on ? "border-gold-400 bg-gold-400 text-blue-950" : "border-white/25 text-transparent"}`}>{unico ? "●" : "✓"}</span>
+                          {o.nome}
+                        </span>
+                        <span className={`text-sm font-semibold ${on ? "text-gold-300" : "text-gold-400/70"}`}>{o.precoDelta > 0 ? `+ ${formatCurrency(o.precoDelta)}` : (o.precoDelta < 0 ? formatCurrency(o.precoDelta) : "Grátis")}</span>
+                      </button>
+                    );
+                  })}
+                  {opcoesDoGrupo(g.id).length === 0 && <p className="text-xs text-slate-500">Sem opções cadastradas.</p>}
+                </div>
+              </div>
+            );
+          })}
+
           {/* Adicionais (selecionáveis, com preço dourado) */}
           {adicionais.length > 0 && (
             <div>
@@ -2953,9 +3049,10 @@ export function ProdutoModal({ produto, onFechar, onAdicionar }) {
                 className="h-11 w-11 rounded-lg text-xl font-semibold text-gold-400 hover:bg-gold-400/10 transition active:scale-95">+</button>
             </div>
             {/* Botão adicionar */}
-            <button onClick={confirmar}
-              className="flex flex-1 items-center justify-between gap-2 rounded-xl bg-gold-400 px-5 py-4 text-sm font-semibold text-blue-950 hover:bg-gold-300 transition active:scale-95 shadow-lg shadow-gold-900/30">
-              <span>Adicionar ao pedido</span>
+            <button onClick={confirmar} disabled={!podeAdicionar}
+              title={!podeAdicionar ? `Escolha: ${grupoFaltando?.nome}` : undefined}
+              className="flex flex-1 items-center justify-between gap-2 rounded-xl bg-gold-400 px-5 py-4 text-sm font-semibold text-blue-950 hover:bg-gold-300 transition active:scale-95 shadow-lg shadow-gold-900/30 disabled:opacity-40 disabled:cursor-not-allowed">
+              <span>{podeAdicionar ? "Adicionar ao pedido" : `Escolha: ${grupoFaltando?.nome}`}</span>
               <span>{formatCurrency(totalItem)}</span>
             </button>
           </div>
@@ -4710,7 +4807,7 @@ function ComboEmpresaFoco({ lojas = [], valor, onChange }) {
   );
 }
 
-function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, definirAcoesUsuario, toggleUserStatus, toggleAccessStatus, usersLoja, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], addLoja, toggleLoja, editarLoja, removerLoja, setLicencaEmpresa = async()=>{}, setValidadeLicenca = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, setModoUsoEmpresa = async()=>{}, salvarConfigExterno = async()=>{}, mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, clientes = [], planoAtual = null, assinaturaAtual = null, planos = [], planoModulos = [], definirAssinatura = async()=>{}, promocoes = [], addPromocao = async()=>{}, editarPromocao = async()=>{}, togglePromocao = async()=>{}, removerPromocao = async()=>{} }) {
+function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, definirAcoesUsuario, toggleUserStatus, toggleAccessStatus, usersLoja, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], addLoja, toggleLoja, editarLoja, removerLoja, setLicencaEmpresa = async()=>{}, setValidadeLicenca = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, setModoUsoEmpresa = async()=>{}, salvarConfigExterno = async()=>{}, mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, clientes = [], planoAtual = null, assinaturaAtual = null, planos = [], planoModulos = [], definirAssinatura = async()=>{}, promocoes = [], addPromocao = async()=>{}, editarPromocao = async()=>{}, togglePromocao = async()=>{}, removerPromocao = async()=>{}, opcoesApi = null }) {
   // Menu reorganizado por contexto (SaaS premium) — mesmos ids e permissões de antes
   const menu = [
     { grupo: "Visão Geral", itens: [
@@ -4884,7 +4981,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           {ativo === "dashboard"  && <DashboardAdmin orders={orders} products={products} />}
           {ativo === "relatorios" && <RelatoriosAdmin orders={orders} products={products} lojaInfo={lojaInfo} />}
           {ativo === "crm"        && <CrmAdmin clientes={clientes} orders={orders} />}
-          {ativo === "products"   && (precisaEmpresa ? avisoEmpresa : <ProductAdmin   products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} editarProduto={editarProduto} removerProduto={removerProduto} lojaId={lojaInfo?.id} />)}
+          {ativo === "products"   && (precisaEmpresa ? avisoEmpresa : <ProductAdmin   products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} editarProduto={editarProduto} removerProduto={removerProduto} lojaId={lojaInfo?.id} opcoesApi={opcoesApi} />)}
           {ativo === "users"      && <UserAdmin      users={isSuperAdmin ? users : (usersLoja ?? users)} userForm={userForm} setUserForm={setUserForm} addUser={addUser} toggleUserStatus={toggleUserStatus} editarUsuario={editarUsuario} removerUsuario={removerUsuario} lojaInfo={lojaInfo} lojas={lojas} isSuperAdmin={isSuperAdmin} cargos={cargos} />}
           {ativo === "cargos"     && <CargoAdmin     cargos={cargos} users={isSuperAdmin ? users : (usersLoja ?? users)} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} />}
           {ativo === "access"     && <AccessAdmin    accesses={accesses} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleAccessStatus={toggleAccessStatus} />}
@@ -8279,6 +8376,100 @@ function PromocaoModal({ promocao, produtos = [], categoriasDb = [], onSalvar, o
   );
 }
 
+// ════════════════════════════════════════════════════════════
+//  Admin — Adicionais e Variações de um produto (migration 040)
+// ════════════════════════════════════════════════════════════
+function GruposOpcoesModal({ produto, api, onFechar }) {
+  const grupos = (api.grupos || []).filter((g) => g.produtoId === produto.id).sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
+  const [novoGrupo, setNovoGrupo] = useState({ nome: "", minSelect: 0, maxSelect: 1, obrigatorio: false });
+  const [novaOpcao, setNovaOpcao] = useState({}); // { [grupoId]: { nome, precoDelta } }
+  const inp = "w-full rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white outline-none focus:border-gold-400/60 transition";
+
+  async function criarGrupo() {
+    if (!novoGrupo.nome.trim()) return;
+    await api.addGrupo(produto.id, { ...novoGrupo, ordem: grupos.length });
+    setNovoGrupo({ nome: "", minSelect: 0, maxSelect: 1, obrigatorio: false });
+  }
+  async function criarOpcao(grupoId) {
+    const d = novaOpcao[grupoId];
+    if (!d?.nome?.trim()) return;
+    await api.addOpcao(grupoId, { nome: d.nome.trim(), precoDelta: Number(String(d.precoDelta || "0").replace(",", ".")) || 0 });
+    setNovaOpcao((c) => ({ ...c, [grupoId]: { nome: "", precoDelta: "" } }));
+  }
+
+  return (
+    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onFechar}>
+      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-2xl flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl max-h-[92vh]">
+        <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-gold-400/15 text-gold-300"><IconProdutos /></span>
+            <div>
+              <h2 className="page-title text-lg font-bold tracking-tight text-white">Adicionais e Variações</h2>
+              <p className="text-xs text-slate-500">{produto.name}</p>
+            </div>
+          </div>
+          <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20">✕</button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+          {grupos.length === 0 && <p className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-slate-400">Nenhum grupo ainda. Crie grupos como “Tamanho”, “Ponto da carne”, “Adicionais” ou “Escolha a bebida”.</p>}
+
+          {grupos.map((g) => {
+            const ops = (api.opcoes || []).filter((o) => o.grupoId === g.id).sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
+            const nd = novaOpcao[g.id] || { nome: "", precoDelta: "" };
+            return (
+              <div key={g.id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                <div className="flex flex-wrap items-end gap-2">
+                  <div className="min-w-[140px] flex-1">
+                    <span className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-slate-500">Grupo</span>
+                    <input value={g.nome} onChange={(e) => api.editarGrupo(g.id, { nome: e.target.value })} className={inp} />
+                  </div>
+                  <div className="w-16"><span className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-slate-500">Mín</span><input inputMode="numeric" value={g.minSelect} onChange={(e) => api.editarGrupo(g.id, { minSelect: Number(e.target.value.replace(/\D/g, "")) || 0 })} className={inp} /></div>
+                  <div className="w-16"><span className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-slate-500">Máx</span><input inputMode="numeric" value={g.maxSelect} onChange={(e) => api.editarGrupo(g.id, { maxSelect: Number(e.target.value.replace(/\D/g, "")) || 1 })} className={inp} /></div>
+                  <button onClick={() => api.editarGrupo(g.id, { obrigatorio: !g.obrigatorio })} className={`rounded-xl border px-3 py-2 text-xs font-black transition ${g.obrigatorio ? "border-gold-400/60 bg-gold-400/10 text-gold-200" : "border-white/10 bg-white/[0.03] text-slate-400"}`}>{g.obrigatorio ? "Obrigatório" : "Opcional"}</button>
+                  <button onClick={() => api.removerGrupo(g.id)} className="rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-2 text-xs font-black text-red-300 hover:bg-red-500/20">🗑️</button>
+                </div>
+
+                {/* Opções do grupo */}
+                <div className="mt-3 space-y-1.5">
+                  {ops.map((o) => (
+                    <div key={o.id} className="flex items-center gap-2 rounded-xl border border-white/5 bg-white/[0.02] px-3 py-2">
+                      <span className="flex-1 truncate text-sm text-white">{o.nome}</span>
+                      <span className="text-xs font-black text-gold-400">{o.precoDelta > 0 ? `+ ${formatCurrency(o.precoDelta)}` : (o.precoDelta < 0 ? formatCurrency(o.precoDelta) : "Grátis")}</span>
+                      <button onClick={() => api.removerOpcao(o.id)} className="rounded-lg p-1 text-slate-500 hover:text-red-300">🗑️</button>
+                    </div>
+                  ))}
+                </div>
+                {/* Nova opção */}
+                <div className="mt-2 flex gap-2">
+                  <input value={nd.nome} onChange={(e) => setNovaOpcao((c) => ({ ...c, [g.id]: { ...nd, nome: e.target.value } }))} placeholder="Nova opção (ex.: Bacon)" className={`${inp} flex-1`} onKeyDown={(e) => e.key === "Enter" && criarOpcao(g.id)} />
+                  <input value={nd.precoDelta} onChange={(e) => setNovaOpcao((c) => ({ ...c, [g.id]: { ...nd, precoDelta: e.target.value.replace(/[^\d.,-]/g, "") } }))} placeholder="+ R$" className={`${inp} w-24`} onKeyDown={(e) => e.key === "Enter" && criarOpcao(g.id)} />
+                  <button onClick={() => criarOpcao(g.id)} className="rounded-xl bg-gold-400 px-4 text-sm font-black text-blue-950 hover:bg-gold-300 transition">+</button>
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Novo grupo */}
+          <div className="rounded-2xl border border-gold-400/25 bg-gold-400/[0.04] p-4">
+            <p className="mb-2 text-xs font-black uppercase tracking-widest text-gold-300">+ Novo grupo</p>
+            <div className="flex flex-wrap items-end gap-2">
+              <div className="min-w-[140px] flex-1"><span className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-slate-500">Nome</span><input value={novoGrupo.nome} onChange={(e) => setNovoGrupo({ ...novoGrupo, nome: e.target.value })} placeholder="Ex.: Tamanho, Ponto da carne…" className={inp} onKeyDown={(e) => e.key === "Enter" && criarGrupo()} /></div>
+              <div className="w-16"><span className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-slate-500">Mín</span><input inputMode="numeric" value={novoGrupo.minSelect} onChange={(e) => setNovoGrupo({ ...novoGrupo, minSelect: Number(e.target.value.replace(/\D/g, "")) || 0 })} className={inp} /></div>
+              <div className="w-16"><span className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-slate-500">Máx</span><input inputMode="numeric" value={novoGrupo.maxSelect} onChange={(e) => setNovoGrupo({ ...novoGrupo, maxSelect: Number(e.target.value.replace(/\D/g, "")) || 1 })} className={inp} /></div>
+              <button onClick={() => setNovoGrupo({ ...novoGrupo, obrigatorio: !novoGrupo.obrigatorio })} className={`rounded-xl border px-3 py-2 text-xs font-black transition ${novoGrupo.obrigatorio ? "border-gold-400/60 bg-gold-400/10 text-gold-200" : "border-white/10 bg-white/[0.03] text-slate-400"}`}>{novoGrupo.obrigatorio ? "Obrigatório" : "Opcional"}</button>
+              <button onClick={criarGrupo} className="rounded-xl bg-gold-400 px-4 py-2 text-sm font-black text-blue-950 hover:bg-gold-300 transition">Criar</button>
+            </div>
+          </div>
+        </div>
+        <div className="shrink-0 border-t border-white/10 px-6 py-4">
+          <button onClick={onFechar} className="w-full rounded-2xl bg-gold-400 py-3.5 text-sm font-black text-blue-950 hover:bg-gold-300 transition">Concluído</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ConfiguracoesAdmin() {
   const [tema, setTema] = useState(() => obterTema());
   function escolher(t) { setTema(aplicarTema(t)); }
@@ -8676,9 +8867,10 @@ function AdicionaisEditor({ value = [], onChange }) {
   );
 }
 
-function ProductAdmin({ products, categories, adminForm, setAdminForm, addProduct, toggleProduct, editarProduto, removerProduto, lojaId }) {
+function ProductAdmin({ products, categories, adminForm, setAdminForm, addProduct, toggleProduct, editarProduto, removerProduto, lojaId, opcoesApi = null }) {
   const [editando, setEditando] = useState(null);
   const [excluir, setExcluir]   = useState(null);
+  const [variacoes, setVariacoes] = useState(null); // produto cujas variações/adicionais estamos editando
   const [criando, setCriando]   = useState(false);
   const [busca, setBusca]       = useState("");
   const [filtroCat, setFiltroCat] = useState("Todos");
@@ -8776,6 +8968,7 @@ function ProductAdmin({ products, categories, adminForm, setAdminForm, addProduc
                 </div>
                 <button onClick={() => toggleProduct(p.id)} title={p.active ? "Inativar" : "Ativar"} className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-black transition ${p.active ? "bg-emerald-500 text-white hover:bg-emerald-400" : "bg-slate-700 text-slate-200 hover:bg-slate-600"}`}>{p.active ? "Ativo" : "Inativo"}</button>
                 <button onClick={() => setEditando(p)} title="Editar" className="shrink-0 rounded-xl border border-blue-400/20 bg-blue-500/10 px-3 py-1.5 text-xs font-black text-blue-300 hover:bg-blue-500/20 transition">✏️</button>
+                {opcoesApi && <button onClick={() => setVariacoes(p)} title="Adicionais e variações" className="shrink-0 rounded-xl border border-gold-400/30 bg-gold-400/10 px-3 py-1.5 text-xs font-black text-gold-200 hover:bg-gold-400/20 transition">⭐ Variações</button>}
                 <button onClick={() => setExcluir(p)} title="Excluir" className="shrink-0 rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-1.5 text-xs font-black text-red-300 hover:bg-red-500/20 transition">🗑️</button>
               </div>
             );
@@ -8794,6 +8987,7 @@ function ProductAdmin({ products, categories, adminForm, setAdminForm, addProduc
           onSalvar={salvarNovo} onFechar={() => setCriando(false)} />
       )}
       {editando && <ProdutoEditModal produto={editando} cats={cats} lojaId={lojaId} onSalvar={(d) => { editarProduto(editando.id, d); setEditando(null); }} onFechar={() => setEditando(null)} />}
+      {variacoes && opcoesApi && <GruposOpcoesModal produto={variacoes} api={opcoesApi} onFechar={() => setVariacoes(null)} />}
       {excluir && (
         <ConfirmModal titulo="Excluir produto?"
           mensagem={`Tem certeza que deseja excluir "${excluir.name}"? Esta ação não pode ser desfeita. Dica: você pode apenas inativar o produto.`}

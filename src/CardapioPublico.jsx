@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  fetchLojas, fetchProdutos, fetchCategorias, fetchPromocoes,
+  fetchLojas, fetchProdutos, fetchCategorias, fetchPromocoes, fetchGruposOpcoes, fetchOpcoes,
   inserirPedido, atualizarPedido, escutarPedidos,
   buscarClientePorTelefone, upsertCliente,
 } from "./lib/supabase";
@@ -24,6 +24,8 @@ export default function CardapioPublico() {
   const [produtos, setProdutos]   = useState([]);
   const [categorias, setCategorias] = useState([]);
   const [promocoes, setPromocoes] = useState([]);
+  const [gruposOpcoes, setGruposOpcoes] = useState([]);
+  const [opcoes, setOpcoes] = useState([]);
   const [orders, setOrders]       = useState([]);
   const [cat, setCat]             = useState("Todos");
   const [busca, setBusca]         = useState("");
@@ -44,11 +46,13 @@ export default function CardapioPublico() {
     let vivo = true;
     (async () => {
       try {
-        const [lojas, prods, cats, promos] = await Promise.all([fetchLojas(), fetchProdutos(), fetchCategorias(), fetchPromocoes().catch(() => [])]);
+        const [lojas, prods, cats, promos, grps, ops] = await Promise.all([fetchLojas(), fetchProdutos(), fetchCategorias(), fetchPromocoes().catch(() => []), fetchGruposOpcoes().catch(() => []), fetchOpcoes().catch(() => [])]);
         if (!vivo) return;
         const l = lojas.find((x) => x.prefixo === prefixo) || null;
         setLoja(l);
         if (l) {
+          setGruposOpcoes((grps || []).filter((g) => g.lojaId === l.id));
+          setOpcoes((ops || []).filter((o) => o.lojaId === l.id));
           // Modo mesa (QR) respeita visivelQr; link geral respeita visivelExterno (migration 034)
           const canalOk = (p) => mesaURL ? (p.visivelQr !== false) : (p.visivelExterno !== false);
           setProdutos(prods.filter((p) => (p.lojaId == null || p.lojaId === l.id) && p.active && canalOk(p)));
@@ -110,7 +114,7 @@ export default function CardapioPublico() {
 
   async function enviar() {
     if (cart.length === 0) return;
-    const itens = cart.map((i) => ({ name: i.name, quantity: i.quantity, price: i.price, selectedIngredients: i.selectedIngredients, removedIngredients: i.removedIngredients, extraIngredients: i.extraIngredients, observation: i.observation }));
+    const itens = cart.map((i) => ({ name: i.name, quantity: i.quantity, price: i.price, selectedIngredients: i.selectedIngredients, removedIngredients: i.removedIngredients, extraIngredients: i.extraIngredients, selectedOptions: i.selectedOptions || [], observation: i.observation }));
     let novo;
     if (modoExterno) {
       // Pedido externo (link de divulgação): exige NOME + TELEFONE
@@ -246,7 +250,7 @@ export default function CardapioPublico() {
       )}
 
       {/* Modal de produto (reutilizado) */}
-      {detalhe && <ProdutoModal produto={detalhe} onFechar={() => setDetalhe(null)} onAdicionar={addConfigurado} />}
+      {detalhe && <ProdutoModal produto={detalhe} grupos={gruposOpcoes} opcoes={opcoes} onFechar={() => setDetalhe(null)} onAdicionar={addConfigurado} />}
 
       {/* Gaveta: Carrinho */}
       {aba === "carrinho" && (

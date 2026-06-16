@@ -220,6 +220,71 @@ export function escutarPromocoes(onMudanca) {
   return () => supabase.removeChannel(canal)
 }
 
+// ════════════════════════════════════════════════════════════
+//  Adicionais e Variações (migration 040) — grupos + opções
+//  Tolerante: [] se as tabelas ainda não existirem.
+// ════════════════════════════════════════════════════════════
+function dbParaGrupo(r) {
+  return { id: r.id, lojaId: r.loja_id, produtoId: r.produto_id, nome: r.nome, minSelect: r.min_select ?? 0, maxSelect: r.max_select ?? 1, obrigatorio: r.obrigatorio === true, ordem: r.ordem ?? 0, ativo: r.ativo !== false }
+}
+function dbParaOpcao(r) {
+  return { id: r.id, lojaId: r.loja_id, grupoId: r.grupo_id, nome: r.nome, descricao: r.descricao ?? "", precoDelta: r.preco_delta != null ? Number(r.preco_delta) : 0, ordem: r.ordem ?? 0, ativo: r.ativo !== false }
+}
+export async function fetchGruposOpcoes(lojaId = null) {
+  let q = supabase.from('tab_grupos_opcoes').select('*').order('ordem', { ascending: true })
+  if (lojaId != null) q = q.eq('loja_id', lojaId)
+  const { data, error } = await q
+  if (error || !data) return []
+  return data.map(dbParaGrupo)
+}
+export async function fetchOpcoes(lojaId = null) {
+  let q = supabase.from('tab_opcoes').select('*').order('ordem', { ascending: true })
+  if (lojaId != null) q = q.eq('loja_id', lojaId)
+  const { data, error } = await q
+  if (error || !data) return []
+  return data.map(dbParaOpcao)
+}
+export async function inserirGrupoOpcoes(g) {
+  const { data, error } = await supabase.from('tab_grupos_opcoes').insert([{ loja_id: g.lojaId ?? null, produto_id: g.produtoId, nome: g.nome, min_select: g.minSelect ?? 0, max_select: g.maxSelect ?? 1, obrigatorio: !!g.obrigatorio, ordem: g.ordem ?? 0 }]).select().single()
+  if (error) throw error
+  return dbParaGrupo(data)
+}
+export async function atualizarGrupoOpcoes(id, g) {
+  const { error } = await supabase.from('tab_grupos_opcoes').update({ nome: g.nome, min_select: g.minSelect ?? 0, max_select: g.maxSelect ?? 1, obrigatorio: !!g.obrigatorio, ativo: g.ativo !== false, atualizado_em: new Date().toISOString() }).eq('id', id)
+  if (error) throw error
+}
+export async function excluirGrupoOpcoes(id) {
+  const { error } = await supabase.from('tab_grupos_opcoes').delete().eq('id', id)
+  if (error) throw error
+}
+export async function inserirOpcao(o) {
+  const { data, error } = await supabase.from('tab_opcoes').insert([{ loja_id: o.lojaId ?? null, grupo_id: o.grupoId, nome: o.nome, descricao: o.descricao || null, preco_delta: Number(o.precoDelta) || 0, ordem: o.ordem ?? 0 }]).select().single()
+  if (error) throw error
+  return dbParaOpcao(data)
+}
+export async function atualizarOpcao(id, o) {
+  const { error } = await supabase.from('tab_opcoes').update({ nome: o.nome, descricao: o.descricao || null, preco_delta: Number(o.precoDelta) || 0, ativo: o.ativo !== false }).eq('id', id)
+  if (error) throw error
+}
+export async function excluirOpcao(id) {
+  const { error } = await supabase.from('tab_opcoes').delete().eq('id', id)
+  if (error) throw error
+}
+export function escutarGruposOpcoes(onMudanca) {
+  const reload = async () => { try { onMudanca(await fetchGruposOpcoes()) } catch {} }
+  const canal = supabase.channel('ch_grupos_op_' + Math.random().toString(36).slice(2))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_grupos_opcoes' }, reload)
+    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
+  return () => supabase.removeChannel(canal)
+}
+export function escutarOpcoes(onMudanca) {
+  const reload = async () => { try { onMudanca(await fetchOpcoes()) } catch {} }
+  const canal = supabase.channel('ch_opcoes_' + Math.random().toString(36).slice(2))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_opcoes' }, reload)
+    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
+  return () => supabase.removeChannel(canal)
+}
+
 // Cria/atualiza a assinatura de uma loja (super admin). Upsert por loja_id.
 export async function salvarAssinatura(lojaId, campos) {
   const payload = { loja_id: lojaId, atualizado_em: new Date().toISOString() }
