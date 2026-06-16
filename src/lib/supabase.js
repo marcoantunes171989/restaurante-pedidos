@@ -319,6 +319,61 @@ export function escutarSetoresCozinha(onMudanca) {
   return () => supabase.removeChannel(canal)
 }
 
+// ════════════════════════════════════════════════════════════
+//  Fechamento de Caixa (migration 042) — sessão + movimentações
+//  Tolerante: null/[] quando as tabelas ainda não existem.
+// ════════════════════════════════════════════════════════════
+function dbParaCaixa(r) {
+  return { id: r.id, lojaId: r.loja_id, abertoPor: r.aberto_por, fechadoPor: r.fechado_por,
+    valorAbertura: Number(r.valor_abertura) || 0, valorFechamento: r.valor_fechamento != null ? Number(r.valor_fechamento) : null,
+    valorEsperado: r.valor_esperado != null ? Number(r.valor_esperado) : null, diferenca: r.diferenca != null ? Number(r.diferenca) : null,
+    status: r.status ?? 'aberto', abertoEmISO: r.aberto_em, fechadoEmISO: r.fechado_em, observacoes: r.observacoes }
+}
+function dbParaCaixaMov(r) {
+  return { id: r.id, lojaId: r.loja_id, caixaId: r.caixa_id, tipo: r.tipo, valor: Number(r.valor) || 0, formaPagamentoId: r.forma_pagamento_id ?? null, descricao: r.descricao ?? "", usuarioId: r.usuario_id ?? null, criadoEmISO: r.criado_em }
+}
+export async function fetchCaixaAberto(lojaId) {
+  let q = supabase.from('tab_caixas').select('*').eq('status', 'aberto').order('aberto_em', { ascending: false }).limit(1)
+  if (lojaId != null) q = q.eq('loja_id', lojaId)
+  const { data, error } = await q
+  if (error || !data || !data.length) return null
+  return dbParaCaixa(data[0])
+}
+export async function fetchCaixas(lojaId, limite = 60) {
+  let q = supabase.from('tab_caixas').select('*').order('aberto_em', { ascending: false }).limit(limite)
+  if (lojaId != null) q = q.eq('loja_id', lojaId)
+  const { data, error } = await q
+  if (error || !data) return []
+  return data.map(dbParaCaixa)
+}
+export async function fetchMovimentosCaixa(caixaId) {
+  const { data, error } = await supabase.from('tab_caixa_mov').select('*').eq('caixa_id', caixaId).order('criado_em', { ascending: true })
+  if (error || !data) return []
+  return data.map(dbParaCaixaMov)
+}
+export async function abrirCaixa({ lojaId, valorAbertura, abertoPor, observacoes }) {
+  const { data, error } = await supabase.from('tab_caixas').insert([{ loja_id: lojaId ?? null, valor_abertura: Number(valorAbertura) || 0, aberto_por: abertoPor ?? null, observacoes: observacoes || null, status: 'aberto' }]).select().single()
+  if (error) throw error
+  return dbParaCaixa(data)
+}
+export async function registrarMovimentoCaixa({ caixaId, lojaId, tipo, valor, formaPagamentoId, descricao, usuarioId }) {
+  const { data, error } = await supabase.from('tab_caixa_mov').insert([{ caixa_id: caixaId, loja_id: lojaId ?? null, tipo, valor: Number(valor) || 0, forma_pagamento_id: formaPagamentoId ?? null, descricao: descricao || null, usuario_id: usuarioId ?? null }]).select().single()
+  if (error) throw error
+  return dbParaCaixaMov(data)
+}
+export async function fecharCaixa(caixaId, { valorFechamento, valorEsperado, diferenca, fechadoPor, observacoes }) {
+  const { data, error } = await supabase.from('tab_caixas').update({ status: 'fechado', valor_fechamento: Number(valorFechamento) || 0, valor_esperado: valorEsperado != null ? Number(valorEsperado) : null, diferenca: diferenca != null ? Number(diferenca) : null, fechado_por: fechadoPor ?? null, fechado_em: new Date().toISOString(), ...(observacoes ? { observacoes } : {}) }).eq('id', caixaId).select().single()
+  if (error) throw error
+  return dbParaCaixa(data)
+}
+export function escutarCaixas(onMudanca) {
+  const reload = async () => { try { onMudanca(await fetchCaixas(null)) } catch {} }
+  const canal = supabase.channel('ch_caixas_' + Math.random().toString(36).slice(2))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_caixas' }, reload)
+    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
+  return () => supabase.removeChannel(canal)
+}
+
 // Cria/atualiza a assinatura de uma loja (super admin). Upsert por loja_id.
 export async function salvarAssinatura(lojaId, campos) {
   const payload = { loja_id: lojaId, atualizado_em: new Date().toISOString() }
