@@ -16,7 +16,9 @@ import {
   STATUS_APP_PARA_DB,
   uploadImagemProduto, validarImagemProduto,
   registrarDispositivo, fetchDispositivos, escutarDispositivos, renomearDispositivo, removerDispositivo,
+  fetchPlanos, fetchAssinaturas, fetchPlanoModulos, escutarAssinaturas, salvarAssinatura,
 } from "./lib/supabase";
+import { statusAssinatura, getCurrentCompanyPlan, modulosDoPlano, MODULOS_LABEL } from "./lib/plans";
 import { GeradorComandas } from "./components/QRComandas";
 import { QRScannerModal  } from "./components/QRScanner";
 import { LogoPP } from "./components/BrandLogo";
@@ -597,6 +599,9 @@ export default function RestaurantePedidoApp() {
   const [dispositivos, setDispositivos] = useState([]);
   const [comandas, setComandas] = useState([]);            // comandas geradas (registro p/ validação)
   const [comandasCarregadas, setComandasCarregadas] = useState(false); // tabela 019 disponível?
+  const [planos, setPlanos] = useState([]);                // catálogo de planos (migration 037)
+  const [assinaturas, setAssinaturas] = useState([]);      // assinatura por empresa
+  const [planoModulos, setPlanoModulos] = useState([]);    // vínculo plano × módulo
   const [lojaContexto, setLojaContexto] = useState(null); // super admin: empresa em foco para cadastros
   const [dbReady, setDbReady] = useState(false);
   const [loading, setLoading]     = useState(true);
@@ -626,6 +631,9 @@ export default function RestaurantePedidoApp() {
         try { setClientes(await fetchClientes()); } catch { /* migration 028 pendente */ }
         try { setDispositivos(await fetchDispositivos()); } catch { /* migration 024 pendente */ }
         try { setComandas(await fetchComandas()); setComandasCarregadas(true); } catch { /* migration 019 pendente */ }
+        try { setPlanos(await fetchPlanos()); } catch { /* migration 037 pendente */ }
+        try { setAssinaturas(await fetchAssinaturas()); } catch { /* migration 037 pendente */ }
+        try { setPlanoModulos(await fetchPlanoModulos()); } catch { /* migration 037 pendente */ }
         setDbReady(true);
         setLoading(false);
 
@@ -644,6 +652,7 @@ export default function RestaurantePedidoApp() {
         try { unsubs.push(escutarClientes(setClientes)); } catch {}
         try { unsubs.push(escutarDispositivos(setDispositivos)); } catch {}
         try { unsubs.push(escutarComandas(setComandas)); } catch {}
+        try { unsubs.push(escutarAssinaturas(setAssinaturas)); } catch {}
       } catch (err) {
         console.warn("Supabase indisponível — usando fallback local:", err.message);
         setProducts(initialProducts);
@@ -696,6 +705,9 @@ export default function RestaurantePedidoApp() {
   // O super admin não tem empresa fixa: escolhe uma "empresa em foco" para gerenciar os cadastros
   const lojaAtual = currentUser?.lojaId ?? (isSuperAdmin ? lojaContexto : null);
   const lojaInfo = lojas.find((l) => l.id === lojaAtual) || null;
+  // SaaS: assinatura e plano da empresa em foco (Fase 1 — somente exibição)
+  const assinaturaAtual = lojaAtual != null ? (assinaturas.find((a) => a.lojaId === lojaAtual) || null) : null;
+  const planoAtual = getCurrentCompanyPlan(assinaturaAtual, planos);
 
   // ── Controle de versão por aparelho (heartbeat) ─────────────
   // Cada aparelho reporta sua versão atual ao Supabase, para o painel
@@ -1252,6 +1264,18 @@ export default function RestaurantePedidoApp() {
     return true;
   }
 
+  // ── Assinatura/plano por empresa (somente administrador geral) ──
+  async function definirAssinatura(lojaId, campos) {
+    if (!isSuperAdmin) return notify("error", "Somente o administrador geral altera o plano da empresa.");
+    if (!lojaId) return notify("error", "Selecione a empresa em foco.");
+    try {
+      const nova = await salvarAssinatura(lojaId, campos);
+      setAssinaturas((cur) => { const resto = cur.filter((a) => a.lojaId !== lojaId); return [...resto, nova]; });
+      notify("success", "Plano/assinatura atualizado.");
+      return true;
+    } catch (err) { notify("error", "Erro ao salvar assinatura: " + (err.message || err)); }
+  }
+
   // ── Licença de uso por empresa (somente administrador geral) ──
   // Define/remove a validade da licença (migration 031) e registra no histórico
   async function setValidadeLicenca(id, dataISO) {
@@ -1745,7 +1769,7 @@ export default function RestaurantePedidoApp() {
         )}
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} products={products} lojaInfo={lojaInfo} />}
         {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierView orders={orders} baixarComandas={baixarComandas} baixarPedidos={baixarPedidos} formasPagamento={formasPagamentoLoja} onSair={logout} lojaInfo={lojaInfo} />}
-        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} />}
+        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} />}
 
       </div>
     </div>
@@ -4620,7 +4644,7 @@ function ComboEmpresaFoco({ lojas = [], valor, onChange }) {
   );
 }
 
-function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, definirAcoesUsuario, toggleUserStatus, toggleAccessStatus, usersLoja, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], addLoja, toggleLoja, editarLoja, removerLoja, setLicencaEmpresa = async()=>{}, setValidadeLicenca = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, setModoUsoEmpresa = async()=>{}, salvarConfigExterno = async()=>{}, mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, clientes = [] }) {
+function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, definirAcoesUsuario, toggleUserStatus, toggleAccessStatus, usersLoja, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], addLoja, toggleLoja, editarLoja, removerLoja, setLicencaEmpresa = async()=>{}, setValidadeLicenca = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, setModoUsoEmpresa = async()=>{}, salvarConfigExterno = async()=>{}, mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, clientes = [], planoAtual = null, assinaturaAtual = null, planos = [], planoModulos = [], definirAssinatura = async()=>{} }) {
   // Menu reorganizado por contexto (SaaS premium) — mesmos ids e permissões de antes
   const menu = [
     { grupo: "Visão Geral", itens: [
@@ -4640,6 +4664,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
     { grupo: "Configurações", itens: [
       { id: "pagamento", icon: <IconPagamento />, label: "Formas de Pagamento" },
       { id: "config", icon: <IconConfig />, label: "Configurações" },
+      { id: "plano", icon: <IconLicencas />, label: "Meu Plano" },
       // Empresa: super admin gerencia todas (grupo Plataforma); usuário comum vê a sua
       ...(!isSuperAdmin ? [
         { id: "minhaempresa", icon: <IconEmpresa />, label: "Minha Empresa" },
@@ -4723,6 +4748,8 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
             </div>
           ))}
         </nav>
+        {/* Selo do status da assinatura (some quando não há assinatura) */}
+        <TrialBadge assinatura={assinaturaAtual} />
         {/* ── Card do usuário logado (fixo no rodapé da sidebar) ── */}
         {currentUser && (
           <div className="shrink-0 border-t border-white/10 p-3 space-y-2">
@@ -4795,6 +4822,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           {ativo === "comandas"   && (precisaEmpresa ? avisoEmpresa : <GeradorComandas prefixoLoja={lojaInfo?.prefixo || "CMD"} empresa={lojaInfo?.nome || "Restaurante"} onGerar={registrarComandas} comandasRegistradas={comandasRegistradas} orders={orders} onExcluirComanda={excluirComandaFn} onRenomearComanda={renomearComandaFn} onToggleComanda={toggleComandaFn} lojaId={lojaInfo?.id} logoSalvo={lojaInfo?.logoUrl || ""} onSalvarLogo={(url) => salvarLogoEmpresa(lojaInfo?.id, url)} onIrCardapioExterno={() => setAdminSection("cardapioext")} />)}
           {ativo === "pagamento"  && (precisaEmpresa ? avisoEmpresa : <PagamentoAdmin formasPagamento={formasPagamento} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} />)}
           {ativo === "config"     && <ConfiguracoesAdmin />}
+          {ativo === "plano"      && <MeuPlanoAdmin planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} lojaInfo={lojaInfo} isSuperAdmin={isSuperAdmin} lojaAtual={lojaInfo?.id} definirAssinatura={definirAssinatura} />}
           {ativo === "lojas"      && <LojaAdmin lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} lojaInfo={lojaInfo} criarEmpresa={criarEmpresa} cargos={cargos} />}
           {ativo === "licencas"   && <LicencaAdmin lojas={lojas} usuarios={users} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} />}
           {ativo === "versoes"    && <VersoesAdmin lojas={lojas} lojaFiltro={isSuperAdmin ? null : (lojaInfo?.id ?? null)} />}
@@ -7798,6 +7826,133 @@ const TIPOS_PAGAMENTO = [
 // ════════════════════════════════════════════════════════════
 //  Admin — Configurações (aparência / tema das telas do cliente)
 // ════════════════════════════════════════════════════════════
+// Selo de status da assinatura (sidebar do admin). Some quando não há assinatura.
+function TrialBadge({ assinatura }) {
+  const st = statusAssinatura(assinatura);
+  if (st.status === "none") return null;
+  const cores = {
+    ok:     "border-emerald-400/30 bg-emerald-500/10 text-emerald-300",
+    trial:  "border-gold-400/40 bg-gold-400/10 text-gold-300",
+    alerta: "border-amber-400/40 bg-amber-500/10 text-amber-300",
+    erro:   "border-red-400/40 bg-red-500/10 text-red-300",
+    neutro: "border-white/10 bg-white/[0.06] text-slate-300",
+  };
+  return (
+    <div className={`mx-3 mb-2 rounded-xl border px-3 py-1.5 text-center text-[11px] font-black uppercase tracking-wide ${cores[st.tom] || cores.neutro}`}>
+      {st.rotulo}
+    </div>
+  );
+}
+
+const PLANO_WHATS = "5518981465499"; // contato comercial Pedido Prime
+function MeuPlanoAdmin({ planoAtual, assinaturaAtual, planos = [], planoModulos = [], lojaInfo, isSuperAdmin = false, lojaAtual, definirAssinatura = async () => {} }) {
+  const st = statusAssinatura(assinaturaAtual);
+  const permitidos = modulosDoPlano(planoAtual, planoModulos); // null = todos
+  const todos = Object.keys(MODULOS_LABEL);
+  const liberados = permitidos ? todos.filter((s) => permitidos.includes(s)) : todos;
+  const bloqueados = permitidos ? todos.filter((s) => !permitidos.includes(s)) : [];
+  const tomBadge = { ok: "text-emerald-300", trial: "text-gold-300", alerta: "text-amber-300", erro: "text-red-300", neutro: "text-slate-300" }[st.tom] || "text-slate-300";
+  function falar(msg) { window.open(`https://wa.me/${PLANO_WHATS}?text=${encodeURIComponent(msg)}`, "_blank"); }
+
+  // Edição (somente super admin)
+  const [form, setForm] = useState({
+    planoId: assinaturaAtual?.planoId ?? "", status: assinaturaAtual?.status ?? "active",
+    dataFim: assinaturaAtual?.dataFim ?? "", dataTrialFim: assinaturaAtual?.dataTrialFim ?? "", precoMensal: assinaturaAtual?.precoMensal ?? "",
+  });
+  useEffect(() => { setForm({ planoId: assinaturaAtual?.planoId ?? "", status: assinaturaAtual?.status ?? "active", dataFim: assinaturaAtual?.dataFim ?? "", dataTrialFim: assinaturaAtual?.dataTrialFim ?? "", precoMensal: assinaturaAtual?.precoMensal ?? "" }); }, [assinaturaAtual?.id, lojaAtual]);
+  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-gold-400/60 transition";
+  const lbl = "mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500";
+
+  return (
+    <main className="space-y-5">
+      <PageHeader icone={<IconLicencas />} titulo="Meu Plano" descricao="Plano contratado, status da assinatura e módulos liberados para a sua empresa." />
+
+      {/* Cards principais */}
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="rounded-[1.5rem] border border-gold-400/30 bg-gold-400/[0.07] p-5">
+          <p className="text-[11px] font-bold uppercase tracking-widest text-gold-400/80">Plano atual</p>
+          <p className="page-title mt-2 text-xl font-bold text-white">{planoAtual ? planoAtual.nome : "Não configurado"}</p>
+          <p className="mt-0.5 text-sm font-black text-gold-400">{planoAtual?.precoBase != null ? `A partir de ${formatCurrency(planoAtual.precoBase)}/mês` : (planoAtual?.isPersonalizado ? "Sob consulta" : "Acesso completo")}</p>
+        </div>
+        <CardMetrica titulo="Status da assinatura" valor={st.rotulo} cor={tomBadge} />
+        <CardMetrica titulo="Validade" valor={assinaturaAtual?.dataFim ? new Date(assinaturaAtual.dataFim).toLocaleDateString("pt-BR") : "—"} sub={st.diasTrial != null ? `Trial: ${Math.max(0, st.diasTrial)} dia(s)` : ""} cor="text-white" />
+        <CardMetrica titulo="Valor contratado" valor={assinaturaAtual?.precoMensal != null ? formatCurrency(assinaturaAtual.precoMensal) : (planoAtual?.precoBase != null ? formatCurrency(planoAtual.precoBase) : "—")} sub="por mês" cor="text-gold-400" />
+      </div>
+
+      {!planoAtual && (
+        <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-4 text-sm text-slate-300">
+          Sua empresa ainda não tem um plano vinculado — o acesso está <b className="text-emerald-300">completo</b>. Fale com a gente para enquadrar no plano ideal.
+        </div>
+      )}
+
+      {/* Módulos liberados / bloqueados */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+          <h3 className="page-title text-sm font-bold uppercase tracking-wider text-emerald-300">✓ Módulos liberados</h3>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {liberados.map((s) => <span key={s} className="rounded-full border border-emerald-400/25 bg-emerald-500/10 px-3 py-1.5 text-xs font-bold text-emerald-200">{MODULOS_LABEL[s]}</span>)}
+          </div>
+        </div>
+        <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+          <h3 className="page-title text-sm font-bold uppercase tracking-wider text-slate-400">Disponíveis em outro plano</h3>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {bloqueados.length === 0 && <p className="text-xs text-slate-500">Todos os módulos estão liberados.</p>}
+            {bloqueados.map((s) => <span key={s} className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-bold text-slate-500">{MODULOS_LABEL[s]}</span>)}
+          </div>
+        </div>
+      </div>
+
+      {/* Ações comerciais */}
+      <div className="flex flex-wrap gap-3">
+        <button onClick={() => falar(`Olá! Sou da empresa ${lojaInfo?.nome || ""} e quero fazer upgrade do meu plano no Pedido Prime.`)}
+          className="font-display rounded-2xl bg-gold-400 px-5 py-3 text-sm font-bold text-blue-950 hover:bg-gold-300 transition active:scale-95 shadow-lg shadow-gold-900/30">⬆ Solicitar upgrade</button>
+        <button onClick={() => falar(`Olá! Sou da empresa ${lojaInfo?.nome || ""} e preciso de suporte com o Pedido Prime.`)}
+          className="rounded-2xl border border-gold-400/40 bg-gold-400/10 px-5 py-3 text-sm font-black text-gold-200 hover:bg-gold-400/20 transition">Falar com suporte</button>
+      </div>
+
+      {/* Painel do super admin: define o plano/assinatura da empresa em foco */}
+      {isSuperAdmin && (
+        <div className="rounded-[2rem] border border-gold-400/20 bg-gold-400/[0.04] p-6">
+          <h3 className="page-title text-base font-bold tracking-tight text-white">Gerenciar assinatura (administrador geral)</h3>
+          <p className="mt-1 text-sm text-slate-400">{lojaInfo ? <>Empresa em foco: <b className="text-gold-300">{lojaInfo.nome}</b></> : "Selecione a empresa em foco no menu lateral."}</p>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <div>
+              <span className={lbl}>Plano</span>
+              <select value={form.planoId} onChange={(e) => setForm({ ...form, planoId: e.target.value ? Number(e.target.value) : "" })} className={inp}>
+                <option value="">— Sem plano (acesso completo) —</option>
+                {planos.map((p) => <option key={p.id} value={p.id}>{p.nome}{p.precoBase != null ? ` · ${formatCurrency(p.precoBase)}/mês` : ""}</option>)}
+              </select>
+            </div>
+            <div>
+              <span className={lbl}>Status</span>
+              <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className={inp}>
+                {["active", "trial", "overdue", "blocked", "canceled"].map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <div>
+              <span className={lbl}>Fim do trial</span>
+              <input type="date" value={form.dataTrialFim || ""} onChange={(e) => setForm({ ...form, dataTrialFim: e.target.value })} className={inp} />
+            </div>
+            <div>
+              <span className={lbl}>Vencimento</span>
+              <input type="date" value={form.dataFim || ""} onChange={(e) => setForm({ ...form, dataFim: e.target.value })} className={inp} />
+            </div>
+            <div>
+              <span className={lbl}>Valor mensal (R$)</span>
+              <input inputMode="decimal" value={form.precoMensal ?? ""} onChange={(e) => setForm({ ...form, precoMensal: e.target.value })} placeholder="0,00" className={inp} />
+            </div>
+          </div>
+          <div className="mt-4">
+            <PrimeButton onClick={() => definirAssinatura(lojaAtual, { planoId: form.planoId || null, status: form.status, dataFim: form.dataFim || null, dataTrialFim: form.dataTrialFim || null, precoMensal: form.precoMensal === "" ? null : Number(String(form.precoMensal).replace(",", ".")) || 0 })}>
+              Salvar assinatura
+            </PrimeButton>
+          </div>
+        </div>
+      )}
+    </main>
+  );
+}
+
 function ConfiguracoesAdmin() {
   const [tema, setTema] = useState(() => obterTema());
   function escolher(t) { setTema(aplicarTema(t)); }

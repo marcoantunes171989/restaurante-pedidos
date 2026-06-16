@@ -138,6 +138,57 @@ export async function fetchMovimentosEstoque(lojaId = null) {
 }
 
 // ════════════════════════════════════════════════════════════
+//  SaaS — Planos, Módulos e Assinaturas (migration 037)
+//  TODAS tolerantes: retornam [] se a tabela ainda não existir,
+//  para não afetar o app de empresas que não rodaram a migration.
+// ════════════════════════════════════════════════════════════
+export async function fetchPlanos() {
+  const { data, error } = await supabase.from('tab_planos').select('*').order('ordem', { ascending: true })
+  if (error || !data) return []
+  return data.map((r) => ({ id: r.id, nome: r.nome, slug: r.slug, descricao: r.descricao, precoBase: r.preco_base != null ? Number(r.preco_base) : null, isPersonalizado: r.is_personalizado === true, ordem: r.ordem, ativo: r.ativo !== false }))
+}
+export async function fetchModulos() {
+  const { data, error } = await supabase.from('tab_modulos').select('*').order('ordem', { ascending: true })
+  if (error || !data) return []
+  return data.map((r) => ({ id: r.id, nome: r.nome, slug: r.slug, descricao: r.descricao, icone: r.icone, ordem: r.ordem, ativo: r.ativo !== false }))
+}
+export async function fetchPlanoModulos() {
+  // Join com tab_modulos para já trazer o slug do módulo
+  const { data, error } = await supabase.from('tab_plano_modulos').select('id, plano_id, modulo_id, pode_acessar, tab_modulos(slug)')
+  if (error || !data) return []
+  return data.map((r) => ({ id: r.id, planoId: r.plano_id, moduloId: r.modulo_id, podeAcessar: r.pode_acessar !== false, moduloSlug: r.tab_modulos?.slug ?? null }))
+}
+export async function fetchAssinaturas() {
+  const { data, error } = await supabase.from('tab_assinaturas').select('*')
+  if (error || !data) return []
+  return data.map(dbParaAssinatura)
+}
+function dbParaAssinatura(r) {
+  return { id: r.id, lojaId: r.loja_id, planoId: r.plano_id, status: r.status ?? 'active', dataInicio: r.data_inicio, dataFim: r.data_fim, dataTrialFim: r.data_trial_fim, precoMensal: r.preco_mensal != null ? Number(r.preco_mensal) : null, observacoes: r.observacoes }
+}
+export function escutarAssinaturas(onMudanca) {
+  const reload = async () => { try { onMudanca(await fetchAssinaturas()) } catch {} }
+  const canal = supabase.channel('ch_assinaturas_' + Math.random().toString(36).slice(2))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_assinaturas' }, reload)
+    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
+  return () => supabase.removeChannel(canal)
+}
+// Cria/atualiza a assinatura de uma loja (super admin). Upsert por loja_id.
+export async function salvarAssinatura(lojaId, campos) {
+  const payload = { loja_id: lojaId, atualizado_em: new Date().toISOString() }
+  if (campos.planoId !== undefined)     payload.plano_id = campos.planoId
+  if (campos.status !== undefined)      payload.status = campos.status
+  if (campos.dataInicio !== undefined)  payload.data_inicio = campos.dataInicio || null
+  if (campos.dataFim !== undefined)     payload.data_fim = campos.dataFim || null
+  if (campos.dataTrialFim !== undefined) payload.data_trial_fim = campos.dataTrialFim || null
+  if (campos.precoMensal !== undefined) payload.preco_mensal = campos.precoMensal
+  if (campos.observacoes !== undefined) payload.observacoes = campos.observacoes
+  const { data, error } = await supabase.from('tab_assinaturas').upsert(payload, { onConflict: 'loja_id' }).select().single()
+  if (error) throw error
+  return dbParaAssinatura(data)
+}
+
+// ════════════════════════════════════════════════════════════
 //  tab_formas_pagamento — CRUD + Realtime
 // ════════════════════════════════════════════════════════════
 export async function fetchFormasPagamento() {
