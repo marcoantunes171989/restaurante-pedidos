@@ -21,6 +21,7 @@ import {
   fetchGruposOpcoes, fetchOpcoes, inserirGrupoOpcoes, atualizarGrupoOpcoes, excluirGrupoOpcoes, inserirOpcao, atualizarOpcao, excluirOpcao, escutarGruposOpcoes, escutarOpcoes,
   fetchSetoresCozinha, inserirSetorCozinha, atualizarSetorCozinha, excluirSetorCozinha, escutarSetoresCozinha,
   fetchCaixaAberto, fetchCaixas, fetchMovimentosCaixa, abrirCaixa, registrarMovimentoCaixa, fecharCaixa, escutarCaixas,
+  fetchFidelidadeRegras, salvarFidelidadeRegra, fetchFidelidadeRecompensas, inserirRecompensa, excluirRecompensa, fetchFidelidadeTransacoes, lancarFidelidadeTransacao, escutarFidelidadeTransacoes,
 } from "./lib/supabase";
 import { statusAssinatura, getCurrentCompanyPlan, modulosDoPlano, MODULOS_LABEL, canAccessModule, getBlockedModuleMessage } from "./lib/plans";
 import { GeradorComandas } from "./components/QRComandas";
@@ -611,6 +612,9 @@ export default function RestaurantePedidoApp() {
   const [opcoes, setOpcoes] = useState([]);                // opções dos grupos
   const [setoresCozinha, setSetoresCozinha] = useState([]); // setores de cozinha (migration 041)
   const [caixas, setCaixas] = useState([]);                // sessões de caixa (migration 042)
+  const [fidRegras, setFidRegras] = useState([]);          // fidelidade: regras (migration 043)
+  const [fidRecompensas, setFidRecompensas] = useState([]); // fidelidade: recompensas
+  const [fidTransacoes, setFidTransacoes] = useState([]);  // fidelidade: transações de pontos
   const [lojaContexto, setLojaContexto] = useState(null); // super admin: empresa em foco para cadastros
   const [dbReady, setDbReady] = useState(false);
   const [loading, setLoading]     = useState(true);
@@ -648,6 +652,9 @@ export default function RestaurantePedidoApp() {
         try { setOpcoes(await fetchOpcoes()); } catch { /* migration 040 pendente */ }
         try { setSetoresCozinha(await fetchSetoresCozinha()); } catch { /* migration 041 pendente */ }
         try { setCaixas(await fetchCaixas(null)); } catch { /* migration 042 pendente */ }
+        try { setFidRegras(await fetchFidelidadeRegras()); } catch { /* migration 043 pendente */ }
+        try { setFidRecompensas(await fetchFidelidadeRecompensas()); } catch { /* migration 043 pendente */ }
+        try { setFidTransacoes(await fetchFidelidadeTransacoes(null)); } catch { /* migration 043 pendente */ }
         setDbReady(true);
         setLoading(false);
 
@@ -672,6 +679,7 @@ export default function RestaurantePedidoApp() {
         try { unsubs.push(escutarOpcoes(setOpcoes)); } catch {}
         try { unsubs.push(escutarSetoresCozinha(setSetoresCozinha)); } catch {}
         try { unsubs.push(escutarCaixas(setCaixas)); } catch {}
+        try { unsubs.push(escutarFidelidadeTransacoes(setFidTransacoes)); } catch {}
       } catch (err) {
         console.warn("Supabase indisponível — usando fallback local:", err.message);
         setProducts(initialProducts);
@@ -1141,6 +1149,18 @@ export default function RestaurantePedidoApp() {
             await Promise.all(formas.map((d) => registrarMovimentoCaixa({ caixaId: caixaAberto.id, lojaId: lojaAtual, tipo: "venda", valor: d.valor, descricao: `Venda ${d.forma || ""} · ${info.mesa || ""}`.trim(), usuarioId: currentUser?.id ?? null })));
           } catch {}
         }
+        // Fidelidade: concede pontos ao cliente identificado (por telefone). Tolerante.
+        if (fidRegraAtual && fidRegraAtual.valorPorPonto > 0) {
+          try {
+            const porCliente = {};
+            alvo.forEach((o) => { if (o.clienteTelefone) porCliente[o.clienteTelefone] = (porCliente[o.clienteTelefone] || 0) + orderTotal(o); });
+            for (const [tel, valor] of Object.entries(porCliente)) {
+              const cli = clientes.find((c) => c.telefone === tel && (c.lojaId == null || c.lojaId === lojaAtual));
+              const pts = Math.floor(valor / fidRegraAtual.valorPorPonto);
+              if (cli && pts > 0) { const t = await lancarFidelidadeTransacao({ lojaId: lojaAtual, clienteId: cli.id, pontos: pts, tipo: "earn", descricao: `Compra ${formatCurrency(valor)}` }); setFidTransacoes((cur) => [t, ...cur]); }
+            }
+          } catch {}
+        }
       } catch (err) { console.error("Erro ao finalizar pagamento:", err); }
     }
     notify("success", `✅ Pagamento finalizado! ${comandas.length} comanda(s) baixada(s), estoque atualizado.`);
@@ -1332,6 +1352,28 @@ export default function RestaurantePedidoApp() {
     setPromocoes((cur) => cur.filter((p) => p.id !== id));
     if (dbReady) try { await excluirPromocao(id); } catch (e) { notify("error", "Erro ao excluir: " + (e.message || e)); return; }
     notify("success", "Promoção excluída.");
+  }
+
+  // ── Fidelidade (migration 043) ─────────────────────────────
+  const fidRegraAtual = fidRegras.find((r) => (lojaAtual == null || r.lojaId === lojaAtual) && r.ativo) || null;
+  async function salvarRegraFid(campos) {
+    if (!canAccess(currentUser, "admin")) return notify("error", "Sem permissão.");
+    try { await salvarFidelidadeRegra(lojaAtual, campos); setFidRegras(await fetchFidelidadeRegras()); notify("success", "Regra de fidelidade salva."); }
+    catch (e) { notify("error", "Erro ao salvar regra: " + (e.message || e)); }
+  }
+  async function addRecompensaFid(dados) {
+    if (!dados.nome?.trim()) return notify("error", "Informe o nome da recompensa.");
+    try { const r = await inserirRecompensa({ ...dados, lojaId: lojaAtual }); setFidRecompensas((cur) => [...cur, r].sort((a, b) => a.pontosNecessarios - b.pontosNecessarios)); notify("success", "Recompensa criada."); }
+    catch (e) { notify("error", "Erro ao criar recompensa: " + (e.message || e)); }
+  }
+  async function removerRecompensaFid(id) {
+    setFidRecompensas((cur) => cur.filter((r) => r.id !== id));
+    try { await excluirRecompensa(id); } catch (e) { notify("error", "Erro ao excluir: " + (e.message || e)); }
+  }
+  async function lancarPontos(clienteId, pontos, tipo, descricao) {
+    if (!clienteId || !pontos) return;
+    try { const t = await lancarFidelidadeTransacao({ lojaId: lojaAtual, clienteId, pontos, tipo, descricao }); setFidTransacoes((cur) => [t, ...cur]); notify("success", tipo === "redeem" ? "Resgate registrado." : "Pontos lançados."); }
+    catch (e) { notify("error", "Erro ao lançar pontos: " + (e.message || e)); }
   }
 
   // ── Fechamento de Caixa (migration 042) ────────────────────
@@ -1902,7 +1944,7 @@ export default function RestaurantePedidoApp() {
         )}
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} products={products} lojaInfo={lojaInfo} />}
         {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierView orders={orders} baixarComandas={baixarComandas} baixarPedidos={baixarPedidos} formasPagamento={formasPagamentoLoja} onSair={logout} lojaInfo={lojaInfo} />}
-        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} promocoes={filtraLoja(promocoes)} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} opcoesApi={{ grupos: filtraLoja(gruposOpcoes), opcoes: filtraLoja(opcoes), addGrupo: addGrupoOpcoes, editarGrupo: editarGrupoOpcoes, removerGrupo: removerGrupoOpcoes, addOpcao, editarOpcao, removerOpcao }} setores={filtraLoja(setoresCozinha)} setoresApi={{ add: addSetorCozinha, editar: editarSetorCozinha, remover: removerSetorCozinha }} caixaAberto={caixaAberto} caixasLoja={filtraLoja(caixas)} caixaApi={{ abrir: abrirCaixaFn, movimentar: movimentarCaixaFn, fechar: fecharCaixaFn, fetchMovimentos: fetchMovimentosCaixa }} />}
+        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} promocoes={filtraLoja(promocoes)} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} opcoesApi={{ grupos: filtraLoja(gruposOpcoes), opcoes: filtraLoja(opcoes), addGrupo: addGrupoOpcoes, editarGrupo: editarGrupoOpcoes, removerGrupo: removerGrupoOpcoes, addOpcao, editarOpcao, removerOpcao }} setores={filtraLoja(setoresCozinha)} setoresApi={{ add: addSetorCozinha, editar: editarSetorCozinha, remover: removerSetorCozinha }} caixaAberto={caixaAberto} caixasLoja={filtraLoja(caixas)} caixaApi={{ abrir: abrirCaixaFn, movimentar: movimentarCaixaFn, fechar: fecharCaixaFn, fetchMovimentos: fetchMovimentosCaixa }} fidRegra={fidRegraAtual} fidRecompensas={filtraLoja(fidRecompensas)} fidTransacoes={filtraLoja(fidTransacoes)} fidApi={{ salvarRegra: salvarRegraFid, addRecompensa: addRecompensaFid, removerRecompensa: removerRecompensaFid, lancarPontos }} />}
 
       </div>
     </div>
@@ -4885,13 +4927,14 @@ function ComboEmpresaFoco({ lojas = [], valor, onChange }) {
   );
 }
 
-function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, definirAcoesUsuario, toggleUserStatus, toggleAccessStatus, usersLoja, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], addLoja, toggleLoja, editarLoja, removerLoja, setLicencaEmpresa = async()=>{}, setValidadeLicenca = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, setModoUsoEmpresa = async()=>{}, salvarConfigExterno = async()=>{}, mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, clientes = [], planoAtual = null, assinaturaAtual = null, planos = [], planoModulos = [], definirAssinatura = async()=>{}, promocoes = [], addPromocao = async()=>{}, editarPromocao = async()=>{}, togglePromocao = async()=>{}, removerPromocao = async()=>{}, opcoesApi = null, setores = [], setoresApi = null, caixaAberto = null, caixasLoja = [], caixaApi = null }) {
+function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, definirAcoesUsuario, toggleUserStatus, toggleAccessStatus, usersLoja, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], addLoja, toggleLoja, editarLoja, removerLoja, setLicencaEmpresa = async()=>{}, setValidadeLicenca = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, setModoUsoEmpresa = async()=>{}, salvarConfigExterno = async()=>{}, mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, clientes = [], planoAtual = null, assinaturaAtual = null, planos = [], planoModulos = [], definirAssinatura = async()=>{}, promocoes = [], addPromocao = async()=>{}, editarPromocao = async()=>{}, togglePromocao = async()=>{}, removerPromocao = async()=>{}, opcoesApi = null, setores = [], setoresApi = null, caixaAberto = null, caixasLoja = [], caixaApi = null, fidRegra = null, fidRecompensas = [], fidTransacoes = [], fidApi = null }) {
   // Menu reorganizado por contexto (SaaS premium) — mesmos ids e permissões de antes
   const menu = [
     { grupo: "Visão Geral", itens: [
       { id: "dashboard", icon: <IconDashboard />, label: "Dashboard" },
       { id: "relatorios", icon: <IconRelatorios />, label: "Relatórios" },
       { id: "crm", icon: <IconCrm />, label: "CRM / Clientes" },
+      { id: "fidelidade", icon: <IconLicencas />, label: "Fidelidade" },
     ]},
     { grupo: "Operação", itens: [
       { id: "mesas", icon: <IconMesas />, label: "Mesas" },
@@ -5060,7 +5103,8 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           ) : (<>
           {ativo === "dashboard"  && <DashboardAdmin orders={orders} products={products} />}
           {ativo === "relatorios" && <RelatoriosAdmin orders={orders} products={products} lojaInfo={lojaInfo} />}
-          {ativo === "crm"        && <CrmAdmin clientes={clientes} orders={orders} />}
+          {ativo === "crm"        && <CrmAdmin clientes={clientes} orders={orders} fidTransacoes={fidTransacoes} fidRecompensas={fidRecompensas} lancarPontos={fidApi?.lancarPontos} />}
+          {ativo === "fidelidade" && (precisaEmpresa ? avisoEmpresa : <FidelidadeAdmin regra={fidRegra} recompensas={fidRecompensas} transacoes={fidTransacoes} clientes={clientes} api={fidApi} />)}
           {ativo === "products"   && (precisaEmpresa ? avisoEmpresa : <ProductAdmin   products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} editarProduto={editarProduto} removerProduto={removerProduto} lojaId={lojaInfo?.id} opcoesApi={opcoesApi} setores={setores} />)}
           {ativo === "setores"    && (precisaEmpresa ? avisoEmpresa : <SetoresCozinhaAdmin setores={setores} produtos={products} api={setoresApi} />)}
           {ativo === "caixa"      && (precisaEmpresa ? avisoEmpresa : <CaixaSessaoAdmin caixaAberto={caixaAberto} caixas={caixasLoja} api={caixaApi} formasPagamento={formasPagamento} currentUser={currentUser} />)}
@@ -6720,7 +6764,8 @@ function formatarTelefone(t) {
   if (d.length === 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
   return t || "—";
 }
-function CrmAdmin({ clientes = [], orders = [] }) {
+function CrmAdmin({ clientes = [], orders = [], fidTransacoes = [], fidRecompensas = [], lancarPontos = null }) {
+  const saldoPorCliente = useMemo(() => { const m = {}; fidTransacoes.forEach((t) => { if (t.clienteId != null) m[t.clienteId] = (m[t.clienteId] || 0) + t.pontos; }); return m; }, [fidTransacoes]);
   const [busca, setBusca] = useState("");
   const [ordem, setOrdem] = useState("pedidos"); // pedidos | valor | recente | nome
   const [aberto, setAberto] = useState(null);    // telefone expandido
@@ -6770,9 +6815,10 @@ function CrmAdmin({ clientes = [], orders = [] }) {
         ...c, pedidos: peds, qtd: peds.length, total, ultimo,
         ticket: peds.length ? total / peds.length : 0,
         favorito: fav ? { nome: fav[0], qtd: fav[1] } : null,
+        pontos: saldoPorCliente[c.id] || 0,
       };
     });
-  }, [clientes, pedidosPeriodo]);
+  }, [clientes, pedidosPeriodo, saldoPorCliente]);
 
   const ordenados = useMemo(() => {
     const l = [...dados];
@@ -6926,6 +6972,7 @@ function CrmAdmin({ clientes = [], orders = [] }) {
                     <p className="text-sm font-black text-white">{c.qtd} pedido(s)</p>
                     <p className="text-xs font-bold text-emerald-300">{formatCurrency(c.total)}</p>
                   </div>
+                  {c.pontos > 0 && <span className="hidden shrink-0 rounded-full border border-gold-400/30 bg-gold-400/10 px-2.5 py-1 text-[11px] font-black text-gold-300 sm:inline">⭐ {c.pontos} pts</span>}
                   <span className={`shrink-0 text-slate-500 transition-transform ${exp ? "rotate-180" : ""}`}>▾</span>
                 </button>
                 {exp && (
@@ -6947,6 +6994,10 @@ function CrmAdmin({ clientes = [], orders = [] }) {
                         💬 Chamar no WhatsApp
                       </a>
                     </div>
+                    {/* Fidelidade — saldo + lançar/resgatar pontos */}
+                    {lancarPontos && (
+                      <FidelidadePainelCliente cliente={c} pontos={c.pontos} recompensas={fidRecompensas} lancarPontos={lancarPontos} />
+                    )}
                     {c.pedidos.length === 0 && <p className="text-xs text-slate-500">Sem pedidos registrados.</p>}
                     {c.pedidos.map((o) => {
                       const totalPedido = o.items.reduce((a, i) => a + i.price * i.quantity, 0);
@@ -8761,6 +8812,105 @@ function CaixaSessaoAdmin({ caixaAberto, caixas = [], api, formasPagamento = [],
           </div>
         </div>
       )}
+    </main>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+//  Fidelidade — painel do cliente (no CRM) + tela admin
+// ════════════════════════════════════════════════════════════
+function FidelidadePainelCliente({ cliente, pontos, recompensas = [], lancarPontos }) {
+  const [valor, setValor] = useState("");
+  const n = Number(String(valor).replace(/\D/g, "")) || 0;
+  return (
+    <div className="rounded-2xl border border-gold-400/25 bg-gold-400/[0.05] p-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="flex items-center gap-1.5 text-sm font-black text-gold-300">⭐ {pontos} ponto(s)</span>
+        <div className="ml-auto flex items-center gap-1.5">
+          <input inputMode="numeric" value={valor} onChange={(e) => setValor(e.target.value.replace(/\D/g, ""))} placeholder="qtd" className="w-16 rounded-lg border border-white/10 bg-slate-950/70 px-2 py-1.5 text-center text-xs text-white outline-none focus:border-gold-400/60" />
+          <button onClick={() => { if (n > 0) { lancarPontos(cliente.id, n, "adjust", "Ajuste manual"); setValor(""); } }} className="rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-2.5 py-1.5 text-xs font-black text-emerald-300 hover:bg-emerald-500/20">+ Lançar</button>
+          <button onClick={() => { if (n > 0 && n <= pontos) { lancarPontos(cliente.id, -n, "redeem", "Resgate manual"); setValor(""); } }} disabled={n <= 0 || n > pontos} className="rounded-lg border border-amber-400/30 bg-amber-500/10 px-2.5 py-1.5 text-xs font-black text-amber-300 hover:bg-amber-500/20 disabled:opacity-40">− Resgatar</button>
+        </div>
+      </div>
+      {recompensas.filter((r) => r.ativo !== false).length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {recompensas.filter((r) => r.ativo !== false).map((r) => {
+            const pode = pontos >= r.pontosNecessarios;
+            return (
+              <button key={r.id} disabled={!pode} onClick={() => lancarPontos(cliente.id, -r.pontosNecessarios, "redeem", `Resgate: ${r.nome}`)}
+                className={`rounded-full border px-3 py-1 text-[11px] font-black transition ${pode ? "border-gold-400/50 bg-gold-400/10 text-gold-200 hover:bg-gold-400/20" : "border-white/10 bg-white/[0.03] text-slate-600"}`}>
+                🎁 {r.nome} · {r.pontosNecessarios}pts
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FidelidadeAdmin({ regra, recompensas = [], transacoes = [], clientes = [], api }) {
+  const [valorPorPonto, setValorPorPonto] = useState(regra?.valorPorPonto ?? 1);
+  const [nova, setNova] = useState({ nome: "", descricao: "", pontosNecessarios: "" });
+  useEffect(() => { setValorPorPonto(regra?.valorPorPonto ?? 1); }, [regra?.id]);
+  const saldo = useMemo(() => { const m = {}; transacoes.forEach((t) => { if (t.clienteId != null) m[t.clienteId] = (m[t.clienteId] || 0) + t.pontos; }); return m; }, [transacoes]);
+  const ranking = clientes.map((c) => ({ ...c, pontos: saldo[c.id] || 0 })).filter((c) => c.pontos > 0).sort((a, b) => b.pontos - a.pontos).slice(0, 20);
+  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-gold-400/60 transition";
+  const lbl = "mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500";
+
+  return (
+    <main className="space-y-5">
+      <PageHeader icone={<IconLicencas />} titulo="Programa de Fidelidade" descricao="Cada R$ gasto vira pontos; pontos viram recompensas. Pontos são creditados automaticamente ao fechar a conta de clientes identificados." />
+
+      {/* Regra de pontuação */}
+      <div className="rounded-[2rem] border border-gold-400/20 bg-gold-400/[0.04] p-6">
+        <h3 className="page-title text-base font-bold tracking-tight text-white">Regra de pontuação</h3>
+        <div className="mt-3 flex flex-wrap items-end gap-3">
+          <div className="min-w-[180px]">
+            <span className={lbl}>R$ que valem 1 ponto</span>
+            <input inputMode="decimal" value={valorPorPonto} onChange={(e) => setValorPorPonto(e.target.value.replace(/[^\d.,]/g, ""))} className={inp} />
+          </div>
+          <PrimeButton onClick={() => api?.salvarRegra({ valorPorPonto: Number(String(valorPorPonto).replace(",", ".")) || 1, ativo: true })}>Salvar regra</PrimeButton>
+          <p className="text-sm text-slate-400">Ex.: <b className="text-gold-300">R$ 1</b> = 1 ponto → uma compra de R$ 50 gera 50 pontos.</p>
+        </div>
+      </div>
+
+      {/* Recompensas */}
+      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
+        <h3 className="page-title text-base font-bold tracking-tight text-white">Recompensas</h3>
+        <div className="mt-3 flex flex-wrap items-end gap-2">
+          <div className="min-w-[160px] flex-1"><span className={lbl}>Nome</span><input value={nova.nome} onChange={(e) => setNova({ ...nova, nome: e.target.value })} placeholder="Ex.: Sobremesa grátis" className={inp} /></div>
+          <div className="min-w-[140px] flex-1"><span className={lbl}>Descrição</span><input value={nova.descricao} onChange={(e) => setNova({ ...nova, descricao: e.target.value })} placeholder="Opcional" className={inp} /></div>
+          <div className="w-28"><span className={lbl}>Pontos</span><input inputMode="numeric" value={nova.pontosNecessarios} onChange={(e) => setNova({ ...nova, pontosNecessarios: e.target.value.replace(/\D/g, "") })} placeholder="100" className={inp} /></div>
+          <PrimeButton onClick={() => { if (nova.nome.trim()) { api?.addRecompensa({ ...nova, pontosNecessarios: Number(nova.pontosNecessarios) || 0 }); setNova({ nome: "", descricao: "", pontosNecessarios: "" }); } }}>+ Criar</PrimeButton>
+        </div>
+        <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+          {recompensas.length === 0 && <p className="text-sm text-slate-500">Nenhuma recompensa cadastrada.</p>}
+          {recompensas.map((r) => (
+            <div key={r.id} className="flex items-center justify-between gap-2 rounded-2xl border border-gold-400/20 bg-gold-400/[0.05] px-4 py-3">
+              <div className="min-w-0">
+                <p className="truncate font-black text-white">🎁 {r.nome}</p>
+                <p className="truncate text-[11px] text-slate-400">{r.descricao || "—"}</p>
+              </div>
+              <span className="shrink-0 rounded-full bg-gold-400/15 px-2.5 py-1 text-xs font-black text-gold-300">{r.pontosNecessarios} pts</span>
+              <button onClick={() => api?.removerRecompensa(r.id)} className="shrink-0 rounded-lg p-1 text-slate-500 hover:text-red-300">🗑️</button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Ranking de clientes por pontos */}
+      <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.04]">
+        <div className="border-b border-gold-400/15 px-5 py-3"><h3 className="page-title text-sm font-bold uppercase tracking-wider text-white">Clientes com mais pontos</h3></div>
+        {ranking.length === 0 && <p className="px-5 py-6 text-center text-sm text-slate-500">Nenhum cliente com pontos ainda.</p>}
+        {ranking.map((c, i) => (
+          <div key={c.id} className="flex items-center gap-3 border-t border-white/5 px-5 py-2.5 text-sm">
+            <span className="w-6 shrink-0 text-center font-black text-gold-400">{i + 1}</span>
+            <span className="min-w-0 flex-1 truncate font-bold text-white">{c.nome}</span>
+            <span className="shrink-0 font-black text-gold-300">⭐ {c.pontos} pts</span>
+          </div>
+        ))}
+      </div>
     </main>
   );
 }

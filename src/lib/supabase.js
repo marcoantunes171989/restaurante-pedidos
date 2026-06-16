@@ -374,6 +374,61 @@ export function escutarCaixas(onMudanca) {
   return () => supabase.removeChannel(canal)
 }
 
+// ════════════════════════════════════════════════════════════
+//  Fidelidade (migration 043) — regras, recompensas, transações
+//  Tolerante: [] quando as tabelas ainda não existem.
+// ════════════════════════════════════════════════════════════
+export async function fetchFidelidadeRegras() {
+  const { data, error } = await supabase.from('tab_fidelidade_regras').select('*')
+  if (error || !data) return []
+  return data.map((r) => ({ id: r.id, lojaId: r.loja_id, nome: r.nome, valorPorPonto: Number(r.valor_por_ponto) || 1, ativo: r.ativo !== false }))
+}
+export async function salvarFidelidadeRegra(lojaId, campos) {
+  // upsert "manual": existe regra da loja? atualiza; senão insere
+  const { data: ex } = await supabase.from('tab_fidelidade_regras').select('id').eq('loja_id', lojaId).limit(1)
+  if (ex && ex.length) {
+    const { error } = await supabase.from('tab_fidelidade_regras').update({ valor_por_ponto: Number(campos.valorPorPonto) || 1, ativo: campos.ativo !== false, nome: campos.nome || 'Programa de Fidelidade', atualizado_em: new Date().toISOString() }).eq('id', ex[0].id)
+    if (error) throw error
+    return { id: ex[0].id }
+  }
+  const { data, error } = await supabase.from('tab_fidelidade_regras').insert([{ loja_id: lojaId ?? null, valor_por_ponto: Number(campos.valorPorPonto) || 1, ativo: campos.ativo !== false, nome: campos.nome || 'Programa de Fidelidade' }]).select().single()
+  if (error) throw error
+  return { id: data.id }
+}
+export async function fetchFidelidadeRecompensas() {
+  const { data, error } = await supabase.from('tab_fidelidade_recompensas').select('*').order('pontos_necessarios', { ascending: true })
+  if (error || !data) return []
+  return data.map((r) => ({ id: r.id, lojaId: r.loja_id, nome: r.nome, descricao: r.descricao ?? "", pontosNecessarios: r.pontos_necessarios ?? 0, ativo: r.ativo !== false }))
+}
+export async function inserirRecompensa(r) {
+  const { data, error } = await supabase.from('tab_fidelidade_recompensas').insert([{ loja_id: r.lojaId ?? null, nome: r.nome, descricao: r.descricao || null, pontos_necessarios: Number(r.pontosNecessarios) || 0 }]).select().single()
+  if (error) throw error
+  return { id: data.id, lojaId: data.loja_id, nome: data.nome, descricao: data.descricao ?? "", pontosNecessarios: data.pontos_necessarios ?? 0, ativo: true }
+}
+export async function excluirRecompensa(id) {
+  const { error } = await supabase.from('tab_fidelidade_recompensas').delete().eq('id', id)
+  if (error) throw error
+}
+export async function fetchFidelidadeTransacoes(lojaId) {
+  let q = supabase.from('tab_fidelidade_transacoes').select('*').order('criado_em', { ascending: false }).limit(5000)
+  if (lojaId != null) q = q.eq('loja_id', lojaId)
+  const { data, error } = await q
+  if (error || !data) return []
+  return data.map((r) => ({ id: r.id, lojaId: r.loja_id, clienteId: r.cliente_id, orderId: r.order_id, pontos: r.pontos, tipo: r.tipo, descricao: r.descricao ?? "", criadoEmISO: r.criado_em }))
+}
+export async function lancarFidelidadeTransacao(t) {
+  const { data, error } = await supabase.from('tab_fidelidade_transacoes').insert([{ loja_id: t.lojaId ?? null, cliente_id: t.clienteId ?? null, order_id: t.orderId ?? null, pontos: Number(t.pontos) || 0, tipo: t.tipo || 'earn', descricao: t.descricao || null }]).select().single()
+  if (error) throw error
+  return { id: data.id, lojaId: data.loja_id, clienteId: data.cliente_id, orderId: data.order_id, pontos: data.pontos, tipo: data.tipo, descricao: data.descricao ?? "", criadoEmISO: data.criado_em }
+}
+export function escutarFidelidadeTransacoes(onMudanca) {
+  const reload = async () => { try { onMudanca(await fetchFidelidadeTransacoes(null)) } catch {} }
+  const canal = supabase.channel('ch_fid_trans_' + Math.random().toString(36).slice(2))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_fidelidade_transacoes' }, reload)
+    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
+  return () => supabase.removeChannel(canal)
+}
+
 // Cria/atualiza a assinatura de uma loja (super admin). Upsert por loja_id.
 export async function salvarAssinatura(lojaId, campos) {
   const payload = { loja_id: lojaId, atualizado_em: new Date().toISOString() }
