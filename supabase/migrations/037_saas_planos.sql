@@ -76,13 +76,18 @@ create policy "tab_assinaturas_all"   on public.tab_assinaturas   for all using 
 
 do $$
 begin
-  for r in
-    select unnest(array['tab_planos','tab_modulos','tab_plano_modulos','tab_assinaturas']) as t
-  loop
-    if not exists (select 1 from pg_publication_tables where pubname='supabase_realtime' and schemaname='public' and tablename=r.t) then
-      execute format('alter publication supabase_realtime add table public.%I', r.t);
-    end if;
-  end loop;
+  if not exists (select 1 from pg_publication_tables where pubname='supabase_realtime' and schemaname='public' and tablename='tab_planos') then
+    alter publication supabase_realtime add table public.tab_planos;
+  end if;
+  if not exists (select 1 from pg_publication_tables where pubname='supabase_realtime' and schemaname='public' and tablename='tab_modulos') then
+    alter publication supabase_realtime add table public.tab_modulos;
+  end if;
+  if not exists (select 1 from pg_publication_tables where pubname='supabase_realtime' and schemaname='public' and tablename='tab_plano_modulos') then
+    alter publication supabase_realtime add table public.tab_plano_modulos;
+  end if;
+  if not exists (select 1 from pg_publication_tables where pubname='supabase_realtime' and schemaname='public' and tablename='tab_assinaturas') then
+    alter publication supabase_realtime add table public.tab_assinaturas;
+  end if;
 end $$;
 
 -- ════════════════════════════════════════════════════════════

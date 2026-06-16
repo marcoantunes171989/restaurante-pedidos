@@ -72,7 +72,7 @@ export async function inserirProduto(p) {
 }
 
 // Colunas opcionais (migrations 029/034) — removidas no fallback se o banco não as tiver
-const COLS_PRODUTO_OPCIONAIS = ['adicionais', 'controla_estoque', 'estoque_minimo', 'preco_promocional', 'visivel_tablet', 'visivel_qr', 'visivel_externo'];
+const COLS_PRODUTO_OPCIONAIS = ['adicionais', 'controla_estoque', 'estoque_minimo', 'preco_promocional', 'visivel_tablet', 'visivel_qr', 'visivel_externo', 'is_featured', 'featured_label', 'featured_order', 'show_on_home', 'disponivel'];
 export async function atualizarProduto(id, campos) {
   let { error } = await supabase.from('tab_produtos').update(campos).eq('id', id)
   if (error && COLS_PRODUTO_OPCIONAIS.some((c) => c in campos) && ehColunaAusente(error, 'column')) {
@@ -665,6 +665,12 @@ function dbParaProduto(r) {
     visivelTablet:    r.visivel_tablet !== false,
     visivelQr:        r.visivel_qr !== false,
     visivelExterno:   r.visivel_externo !== false,
+    // Migration 038 — destaque e disponibilidade
+    isFeatured:       r.is_featured === true,
+    featuredLabel:    r.featured_label ?? null,
+    featuredOrder:    r.featured_order ?? 0,
+    showOnHome:       r.show_on_home !== false,
+    disponivel:       r.disponivel !== false,
   }
 }
 

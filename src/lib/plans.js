@@ -6,9 +6,13 @@
 //  atuais (sem assinatura) continuam com acesso TOTAL, como hoje.
 // ════════════════════════════════════════════════════════════
 
-// Feature flag global do bloqueio por plano. Mantemos DESLIGADO até
-// validar que nenhuma empresa perde acesso (Fase 2 liga isto).
-export const BLOQUEIO_PLANO_ATIVO = false;
+// Feature flag global do bloqueio por plano. LIGADO (Fase 2), porém com
+// guardas permissivas: empresa SEM assinatura cadastrada = acesso total;
+// super admin = acesso total; módulos essenciais nunca bloqueiam.
+export const BLOQUEIO_PLANO_ATIVO = true;
+
+// Módulos que nunca são bloqueados (operação mínima + caminho de upgrade).
+export const MODULOS_SEMPRE_LIVRES = ["config", "plano", "minhaempresa"];
 
 // Rótulos amigáveis dos módulos (espelha o seed da migration 037).
 export const MODULOS_LABEL = {
@@ -54,11 +58,12 @@ export function modulosDoPlano(plano, planoModulos = []) {
 
 // Pode acessar um módulo? PERMISSIVO por padrão.
 export function canAccessModule(slug, ctx = {}) {
-  if (!BLOQUEIO_PLANO_ATIVO) return true;                 // Fase 0/1: nunca bloqueia
-  const { assinatura, plano, planoModulos } = ctx;
-  if (!assinatura || assinatura.status === "active" && !plano) return true;
-  // Assinatura bloqueada/cancelada é tratada à parte (tela de bloqueio), não aqui.
-  if (!plano) return true;
+  if (!BLOQUEIO_PLANO_ATIVO) return true;                 // flag desligada: nunca bloqueia
+  if (MODULOS_SEMPRE_LIVRES.includes(slug)) return true;  // essenciais sempre livres
+  const { assinatura, plano, planoModulos, isSuperAdmin } = ctx;
+  if (isSuperAdmin) return true;                          // admin geral acessa tudo
+  if (!assinatura) return true;                          // empresa sem assinatura = acesso total
+  if (!plano) return true;                               // assinatura sem plano = permissivo
   if (plano.slug === "personalizado") return true;
   const permitidos = modulosDoPlano(plano, planoModulos);
   if (!permitidos) return true;                            // null = todos

@@ -183,22 +183,31 @@ export default function CardapioPublico() {
         {/* Grade de produtos */}
         <div className="grid gap-4 pb-6 sm:grid-cols-2">
           {itens.length === 0 && <p className="col-span-full py-10 text-center text-sm text-slate-500">Nenhum produto encontrado.</p>}
-          {itens.map((item) => (
-            <article key={item.id} className="flex h-full flex-col overflow-hidden rounded-3xl border border-white/10 bg-slate-900 shadow-xl">
-              <button onClick={() => setDetalhe(item)} className="relative block h-40 w-full overflow-hidden bg-slate-800 text-left">
-                <img src={item.imageUrl || fallbackImage} alt={item.name} className="h-full w-full object-cover" />
+          {itens.map((item) => {
+            const indisponivel = item.disponivel === false;
+            const etiqueta = (item.isFeatured && item.featuredLabel) || item.badge;
+            return (
+            <article key={item.id} className={`flex h-full flex-col overflow-hidden rounded-3xl border bg-slate-900 shadow-xl ${item.isFeatured && !indisponivel ? "border-gold-400/50" : "border-white/10"}`}>
+              <button onClick={() => !indisponivel && setDetalhe(item)} disabled={indisponivel} className="relative block h-40 w-full overflow-hidden bg-slate-800 text-left disabled:cursor-not-allowed">
+                <img src={item.imageUrl || fallbackImage} alt={item.name} className={`h-full w-full object-cover ${indisponivel ? "grayscale opacity-50" : ""}`} />
                 <span className="absolute bottom-2 left-2 rounded-2xl bg-black/60 px-3 py-1 text-base font-black text-gold-400 backdrop-blur-sm">{formatCurrency(item.price)}</span>
+                {etiqueta && !indisponivel && <span className="absolute left-2 top-2 rounded-md bg-gold-400 px-2 py-1 text-[9px] font-black uppercase tracking-wider text-blue-950 shadow-lg">{etiqueta}</span>}
+                {indisponivel && <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/70 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-slate-200">Indisponível</span>}
               </button>
               <div className="flex flex-1 flex-col p-4">
                 <p className="text-xs font-bold uppercase tracking-widest text-gold-400">{item.category}</p>
                 <h3 className="mt-1 text-base font-black text-white leading-tight">{item.name}</h3>
                 <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-400">{item.description}</p>
+                {indisponivel ? (
+                  <div className="mt-auto pt-3"><span className="block w-full rounded-2xl border border-white/10 bg-white/[0.04] py-3 text-center text-sm font-bold text-slate-500">Indisponível no momento</span></div>
+                ) : (
                 <button onClick={() => setDetalhe(item)} className="mt-auto pt-3">
                   <span className="block w-full rounded-2xl bg-gold-400 py-3 text-center text-sm font-black text-blue-950 hover:bg-gold-300 transition shadow-lg shadow-gold-900/20">+ Adicionar</span>
                 </button>
+                )}
               </div>
             </article>
-          ))}
+          );})}
         </div>
       </main>
 

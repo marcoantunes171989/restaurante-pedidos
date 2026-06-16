@@ -18,7 +18,7 @@ import {
   registrarDispositivo, fetchDispositivos, escutarDispositivos, renomearDispositivo, removerDispositivo,
   fetchPlanos, fetchAssinaturas, fetchPlanoModulos, escutarAssinaturas, salvarAssinatura,
 } from "./lib/supabase";
-import { statusAssinatura, getCurrentCompanyPlan, modulosDoPlano, MODULOS_LABEL } from "./lib/plans";
+import { statusAssinatura, getCurrentCompanyPlan, modulosDoPlano, MODULOS_LABEL, canAccessModule, getBlockedModuleMessage } from "./lib/plans";
 import { GeradorComandas } from "./components/QRComandas";
 import { QRScannerModal  } from "./components/QRScanner";
 import { LogoPP } from "./components/BrandLogo";
@@ -1433,6 +1433,12 @@ export default function RestaurantePedidoApp() {
         ...(dados.visivelTablet != null ? { visivel_tablet: !!dados.visivelTablet } : {}),
         ...(dados.visivelQr != null ? { visivel_qr: !!dados.visivelQr } : {}),
         ...(dados.visivelExterno != null ? { visivel_externo: !!dados.visivelExterno } : {}),
+        // Migration 038 — destaque e disponibilidade
+        ...(dados.isFeatured != null ? { is_featured: !!dados.isFeatured } : {}),
+        ...(dados.featuredLabel !== undefined ? { featured_label: dados.featuredLabel || null } : {}),
+        ...(dados.featuredOrder != null ? { featured_order: Number(dados.featuredOrder) || 0 } : {}),
+        ...(dados.showOnHome != null ? { show_on_home: !!dados.showOnHome } : {}),
+        ...(dados.disponivel != null ? { disponivel: !!dados.disponivel } : {}),
       });
     } catch (e) { notify("error", "Erro ao salvar: " + e.message); }
     notify("success", "Produto atualizado.");
@@ -1995,16 +2001,20 @@ function TabletView({
   const TAGS_DESTAQUE = ["MAIS VENDIDO", "CHEF RECOMENDA", "NOVO", "ESPECIAL DA CASA"];
   const cardGourmet = (item, tagAuto = null) => {
     const noCarrinho = cart.find((c) => c.id === item.id);
-    const etiqueta = item.badge || tagAuto;
+    const etiqueta = (item.isFeatured && item.featuredLabel) || item.badge || tagAuto;
+    const indisponivel = item.disponivel === false;
     return (
       <article key={item.id} className={`group flex h-full flex-col overflow-hidden rounded-2xl border bg-[var(--ord-card)] shadow-xl transition-all hover:-translate-y-1 hover:shadow-2xl ${noCarrinho ? "border-gold-400/60 ring-2 ring-gold-400/20" : "border-[var(--ord-border)] hover:border-gold-400/40"}`}>
-        <button onClick={() => setProdutoDetalhe(item)} className="relative block h-36 w-full overflow-hidden bg-[var(--ord-elev)] text-left">
-          <img src={item.imageUrl || fallbackImage} alt={item.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+        <button onClick={() => !indisponivel && setProdutoDetalhe(item)} disabled={indisponivel} className="relative block h-36 w-full overflow-hidden bg-[var(--ord-elev)] text-left disabled:cursor-not-allowed">
+          <img src={item.imageUrl || fallbackImage} alt={item.name} className={`h-full w-full object-cover transition-transform duration-500 group-hover:scale-105 ${indisponivel ? "grayscale opacity-50" : ""}`} />
           <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-transparent" />
-          {etiqueta && (
+          {etiqueta && !indisponivel && (
             <span className="absolute left-2.5 top-2.5 rounded-md bg-gold-400 px-2 py-1 text-[9px] font-black uppercase tracking-wider text-blue-950 shadow-lg">{etiqueta}</span>
           )}
-          {noCarrinho && (
+          {indisponivel && (
+            <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/70 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-slate-200">Indisponível no momento</span>
+          )}
+          {noCarrinho && !indisponivel && (
             <span className="absolute right-2.5 top-2.5 flex h-7 w-7 items-center justify-center rounded-full bg-gold-400 text-xs font-black text-blue-950 shadow-lg ring-2 ring-white/20">{noCarrinho.quantity}</span>
           )}
         </button>
@@ -2013,7 +2023,9 @@ function TabletView({
           <p className="mt-1 text-xs font-light leading-5 line-clamp-3 text-[var(--ord-text-soft)]">{item.description}</p>
           <div className="mt-auto pt-3">
             <p className="text-lg font-semibold text-gold-400">{formatCurrency(item.price)}</p>
-            {noCarrinho ? (
+            {indisponivel ? (
+              <div className="mt-2 w-full rounded-xl border border-[var(--ord-border)] bg-[var(--ord-elev)] px-3.5 py-2.5 text-center text-sm font-bold text-[var(--ord-text-muted)]">Indisponível no momento</div>
+            ) : noCarrinho ? (
               <div className="mt-2 flex items-center justify-between gap-1 rounded-xl border border-gold-400/40 bg-gold-400/10 p-1">
                 <button onClick={() => removeFromCart(item.id)} className="h-9 flex-1 rounded-lg bg-slate-800 font-black text-white hover:bg-slate-700 transition active:scale-95">−</button>
                 <span className="w-10 text-center text-base font-black text-white">{noCarrinho.quantity}</span>
@@ -2128,8 +2140,12 @@ function TabletView({
               </div>
             ) : (() => {
               const emDestaques = selectedCategory === "Todos";
+              // Prioriza produtos marcados como destaque (migration 038); senão, cai
+              // no comportamento anterior (com badge / primeiros itens).
+              const marcados = filteredItems.filter((i) => i.isFeatured && i.showOnHome !== false).sort((a, b) => (a.featuredOrder ?? 0) - (b.featuredOrder ?? 0));
               const comTag = filteredItems.filter((i) => i.badge);
-              const destaques = emDestaques ? (comTag.length > 0 ? comTag.slice(0, 8) : filteredItems.slice(0, 4)) : [];
+              const base = marcados.length > 0 ? marcados : (comTag.length > 0 ? comTag : filteredItems.slice(0, 4));
+              const destaques = emDestaques ? base.slice(0, 8) : [];
               const demais = emDestaques ? filteredItems.filter((i) => !destaques.includes(i)) : filteredItems;
               const cabSecao = (titulo) => (
                 <div className="mb-4 flex items-center gap-4">
@@ -4734,13 +4750,15 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
               <div className="space-y-1">
                 {g.itens.map((it) => {
                   const sel = ativo === it.id;
+                  const bloq = !canAccessModule(it.id, { assinatura: assinaturaAtual, plano: planoAtual, planoModulos, isSuperAdmin });
                   return (
-                    <button key={it.id} onClick={() => setAdminSection(it.id)}
+                    <button key={it.id} onClick={() => setAdminSection(it.id)} title={bloq ? "Disponível em outro plano" : undefined}
                       className={`group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold transition ${sel ? "bg-gold-400/10 text-gold-300" : "text-slate-300 hover:bg-white/[0.05] hover:text-white"}`}>
                       {/* Barra de destaque dourada do item ativo */}
                       <span className={`absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 rounded-full bg-gold-400 transition-opacity ${sel ? "opacity-100" : "opacity-0"}`} />
-                      <span className={`text-base transition ${sel ? "grayscale-0" : "opacity-80 group-hover:opacity-100"}`}>{it.icon}</span>
-                      <span className="truncate">{it.label}</span>
+                      <span className={`text-base transition ${sel ? "grayscale-0" : "opacity-80 group-hover:opacity-100"} ${bloq ? "opacity-40" : ""}`}>{it.icon}</span>
+                      <span className={`truncate ${bloq ? "opacity-50" : ""}`}>{it.label}</span>
+                      {bloq && <span className="ml-auto shrink-0 text-gold-400/70" title="Disponível em outro plano">🔒</span>}
                     </button>
                   );
                 })}
@@ -4809,6 +4827,9 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
 
         {/* Conteúdo rolável — remonta ao trocar a "Empresa em foco" para refletir a empresa selecionada em todas as telas */}
         <div key={`ctx-${lojaContexto ?? "geral"}`} className="tema-claro-area flex-1 overflow-y-auto p-6">
+          {!canAccessModule(ativo, { assinatura: assinaturaAtual, plano: planoAtual, planoModulos, isSuperAdmin }) ? (
+            <ModuloBloqueado slug={ativo} lojaInfo={lojaInfo} onVerPlanos={() => setAdminSection("plano")} />
+          ) : (<>
           {ativo === "dashboard"  && <DashboardAdmin orders={orders} products={products} />}
           {ativo === "relatorios" && <RelatoriosAdmin orders={orders} products={products} lojaInfo={lojaInfo} />}
           {ativo === "crm"        && <CrmAdmin clientes={clientes} orders={orders} />}
@@ -4838,6 +4859,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
               orders={orders}
             />
           )}
+          </>)}
         </div>
       </div>
     </div>
@@ -7826,6 +7848,27 @@ const TIPOS_PAGAMENTO = [
 // ════════════════════════════════════════════════════════════
 //  Admin — Configurações (aparência / tema das telas do cliente)
 // ════════════════════════════════════════════════════════════
+// Tela elegante exibida quando o módulo não está incluso no plano contratado.
+function ModuloBloqueado({ slug, lojaInfo, onVerPlanos = () => {} }) {
+  const msg = getBlockedModuleMessage(slug);
+  function falar() { window.open(`https://wa.me/5518981465499?text=${encodeURIComponent(`Olá! Sou da empresa ${lojaInfo?.nome || ""} e quero liberar o módulo "${MODULOS_LABEL[slug] || slug}" no Pedido Prime.`)}`, "_blank"); }
+  return (
+    <main className="flex min-h-[60vh] items-center justify-center">
+      <div className="w-full max-w-lg rounded-[2rem] border border-gold-400/30 bg-gold-400/[0.05] p-8 text-center shadow-2xl">
+        <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-gold-400/40 bg-gold-400/10 text-gold-300">
+          <svg className="h-8 w-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>
+        </span>
+        <h2 className="page-title mt-4 text-2xl font-bold tracking-tight text-white">{msg.titulo}</h2>
+        <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-400">{msg.descricao}</p>
+        <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
+          <button onClick={falar} className="font-display rounded-2xl bg-gold-400 px-6 py-3 text-sm font-bold text-blue-950 hover:bg-gold-300 transition active:scale-95 shadow-lg shadow-gold-900/30">Falar com consultor</button>
+          <button onClick={onVerPlanos} className="rounded-2xl border border-gold-400/40 bg-gold-400/10 px-6 py-3 text-sm font-black text-gold-200 hover:bg-gold-400/20 transition">Ver planos</button>
+        </div>
+      </div>
+    </main>
+  );
+}
+
 // Selo de status da assinatura (sidebar do admin). Some quando não há assinatura.
 function TrialBadge({ assinatura }) {
   const st = statusAssinatura(assinatura);
@@ -8752,6 +8795,11 @@ function ProdutoEditModal({ produto, cats, onSalvar, onFechar, lojaId }) {
     visivelTablet: produto.visivelTablet !== false,
     visivelQr: produto.visivelQr !== false,
     visivelExterno: produto.visivelExterno !== false,
+    // Migration 038 — destaque e disponibilidade
+    isFeatured: produto.isFeatured ?? false,
+    featuredLabel: produto.featuredLabel || "",
+    showOnHome: produto.showOnHome !== false,
+    disponivel: produto.disponivel !== false,
   });
   const [tags, setTags] = useState([...(produto.ingredients || [])]); // ingredientes como tags
   const [adicionais, setAdicionais] = useState([...(produto.adicionais || [])]); // extras do produto
@@ -8786,6 +8834,7 @@ function ProdutoEditModal({ produto, cats, onSalvar, onFechar, lojaId }) {
       precoPromocional: moedaParaNum(String(f.precoPromo)),
       controlaEstoque: f.controlaEstoque, estoqueMinimo: f.estoqueMinimo,
       visivelTablet: f.visivelTablet, visivelQr: f.visivelQr, visivelExterno: f.visivelExterno,
+      isFeatured: f.isFeatured, featuredLabel: f.isFeatured ? (f.featuredLabel || "Destaque") : "", showOnHome: f.showOnHome, disponivel: f.disponivel,
     });
   }
 
@@ -8885,6 +8934,45 @@ function ProdutoEditModal({ produto, cats, onSalvar, onFechar, lojaId }) {
                 ))}
               </div>
             </div>
+          </div>
+
+          {/* Destaque & Disponibilidade (migration 038) */}
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 space-y-3">
+            {/* Disponibilidade */}
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <span className="text-xs font-bold uppercase tracking-widest text-slate-400">Disponível para venda</span>
+                <p className="text-[11px] text-slate-500">Desligado: aparece como “Indisponível no momento” e não pode ser pedido.</p>
+              </div>
+              <button type="button" onClick={() => setF({ ...f, disponivel: !f.disponivel })}
+                className={`relative h-6 w-11 shrink-0 rounded-full transition ${f.disponivel ? "bg-emerald-500" : "bg-slate-700"}`}>
+                <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${f.disponivel ? "left-[22px]" : "left-0.5"}`} />
+              </button>
+            </div>
+            {/* Destaque */}
+            <div className="flex items-center justify-between gap-3 border-t border-white/10 pt-3">
+              <div>
+                <span className="text-xs font-bold uppercase tracking-widest text-gold-300">⭐ Produto em destaque</span>
+                <p className="text-[11px] text-slate-500">Aparece na seção “Destaques da Casa” do cardápio/tablet.</p>
+              </div>
+              <button type="button" onClick={() => setF({ ...f, isFeatured: !f.isFeatured })}
+                className={`relative h-6 w-11 shrink-0 rounded-full transition ${f.isFeatured ? "bg-gold-400" : "bg-slate-700"}`}>
+                <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${f.isFeatured ? "left-[22px]" : "left-0.5"}`} />
+              </button>
+            </div>
+            {f.isFeatured && (
+              <div>
+                <span className={lbl}>Etiqueta do destaque</span>
+                <div className="flex flex-wrap gap-2">
+                  {["Mais vendido", "Sugestão do chef", "Novo", "Especial da casa", "Promoção", "Destaque"].map((lab) => (
+                    <button key={lab} type="button" onClick={() => setF({ ...f, featuredLabel: lab })}
+                      className={`rounded-full border px-3 py-1.5 text-xs font-bold transition ${f.featuredLabel === lab ? "border-gold-400 bg-gold-400 text-blue-950" : "border-white/10 bg-white/[0.04] text-slate-300 hover:bg-white/10"}`}>
+                      {lab}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Imagem — arquivo local (PNG/JPEG) ou URL */}
