@@ -19,6 +19,7 @@ import {
   fetchPlanos, fetchAssinaturas, fetchPlanoModulos, escutarAssinaturas, salvarAssinatura,
   fetchPromocoes, inserirPromocao, atualizarPromocao, excluirPromocao, escutarPromocoes,
   fetchGruposOpcoes, fetchOpcoes, inserirGrupoOpcoes, atualizarGrupoOpcoes, excluirGrupoOpcoes, inserirOpcao, atualizarOpcao, excluirOpcao, escutarGruposOpcoes, escutarOpcoes,
+  fetchSetoresCozinha, inserirSetorCozinha, atualizarSetorCozinha, excluirSetorCozinha, escutarSetoresCozinha,
 } from "./lib/supabase";
 import { statusAssinatura, getCurrentCompanyPlan, modulosDoPlano, MODULOS_LABEL, canAccessModule, getBlockedModuleMessage } from "./lib/plans";
 import { GeradorComandas } from "./components/QRComandas";
@@ -607,6 +608,7 @@ export default function RestaurantePedidoApp() {
   const [promocoes, setPromocoes] = useState([]);          // promoções por empresa (migration 039)
   const [gruposOpcoes, setGruposOpcoes] = useState([]);    // grupos de adicionais/variações (migration 040)
   const [opcoes, setOpcoes] = useState([]);                // opções dos grupos
+  const [setoresCozinha, setSetoresCozinha] = useState([]); // setores de cozinha (migration 041)
   const [lojaContexto, setLojaContexto] = useState(null); // super admin: empresa em foco para cadastros
   const [dbReady, setDbReady] = useState(false);
   const [loading, setLoading]     = useState(true);
@@ -642,6 +644,7 @@ export default function RestaurantePedidoApp() {
         try { setPromocoes(await fetchPromocoes()); } catch { /* migration 039 pendente */ }
         try { setGruposOpcoes(await fetchGruposOpcoes()); } catch { /* migration 040 pendente */ }
         try { setOpcoes(await fetchOpcoes()); } catch { /* migration 040 pendente */ }
+        try { setSetoresCozinha(await fetchSetoresCozinha()); } catch { /* migration 041 pendente */ }
         setDbReady(true);
         setLoading(false);
 
@@ -664,6 +667,7 @@ export default function RestaurantePedidoApp() {
         try { unsubs.push(escutarPromocoes(setPromocoes)); } catch {}
         try { unsubs.push(escutarGruposOpcoes(setGruposOpcoes)); } catch {}
         try { unsubs.push(escutarOpcoes(setOpcoes)); } catch {}
+        try { unsubs.push(escutarSetoresCozinha(setSetoresCozinha)); } catch {}
       } catch (err) {
         console.warn("Supabase indisponível — usando fallback local:", err.message);
         setProducts(initialProducts);
@@ -1317,6 +1321,23 @@ export default function RestaurantePedidoApp() {
     notify("success", "Promoção excluída.");
   }
 
+  // ── Setores de cozinha (migration 041) ─────────────────────
+  async function addSetorCozinha(dados) {
+    if (!canAccess(currentUser, "admin")) return notify("error", "Sem permissão.");
+    if (!dados.nome?.trim()) return notify("error", "Informe o nome do setor.");
+    if (dbReady) { try { const s = await inserirSetorCozinha({ ...dados, lojaId: lojaAtual }); setSetoresCozinha((cur) => [...cur, s]); } catch (e) { return notify("error", "Erro ao criar setor: " + (e.message || e)); } }
+    else setSetoresCozinha((cur) => [...cur, { ...dados, lojaId: lojaAtual, id: Date.now() }]);
+    notify("success", "Setor criado.");
+  }
+  async function editarSetorCozinha(id, dados) {
+    setSetoresCozinha((cur) => cur.map((s) => s.id === id ? { ...s, ...dados } : s));
+    if (dbReady) try { await atualizarSetorCozinha(id, dados); } catch (e) { notify("error", "Erro ao salvar setor: " + (e.message || e)); }
+  }
+  async function removerSetorCozinha(id) {
+    setSetoresCozinha((cur) => cur.filter((s) => s.id !== id));
+    if (dbReady) try { await excluirSetorCozinha(id); } catch (e) { notify("error", "Erro ao excluir setor: " + (e.message || e)); }
+  }
+
   // ── Adicionais e Variações estruturados (migration 040) ─────
   async function addGrupoOpcoes(produtoId, dados) {
     if (!canAccess(currentUser, "admin")) return notify("error", "Sem permissão.");
@@ -1508,6 +1529,8 @@ export default function RestaurantePedidoApp() {
         ...(dados.featuredOrder != null ? { featured_order: Number(dados.featuredOrder) || 0 } : {}),
         ...(dados.showOnHome != null ? { show_on_home: !!dados.showOnHome } : {}),
         ...(dados.disponivel != null ? { disponivel: !!dados.disponivel } : {}),
+        // Migration 041 — setor de cozinha
+        ...(dados.setorId !== undefined ? { setor_id: dados.setorId || null } : {}),
       });
     } catch (e) { notify("error", "Erro ao salvar: " + e.message); }
     notify("success", "Produto atualizado.");
@@ -1842,11 +1865,11 @@ export default function RestaurantePedidoApp() {
         )}
 
         {activeTab === "kitchen" && canAccess(currentUser, "kitchen") && (
-          <KitchenView groupedOrders={groupedOrders} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} cancelarPedido={cancelarPedido} onSair={logout} currentUser={currentUser} lojaInfo={lojaInfo} />
+          <KitchenView groupedOrders={groupedOrders} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} cancelarPedido={cancelarPedido} onSair={logout} currentUser={currentUser} lojaInfo={lojaInfo} setores={filtraLoja(setoresCozinha)} produtos={products} />
         )}
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} products={products} lojaInfo={lojaInfo} />}
         {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierView orders={orders} baixarComandas={baixarComandas} baixarPedidos={baixarPedidos} formasPagamento={formasPagamentoLoja} onSair={logout} lojaInfo={lojaInfo} />}
-        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} promocoes={filtraLoja(promocoes)} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} opcoesApi={{ grupos: filtraLoja(gruposOpcoes), opcoes: filtraLoja(opcoes), addGrupo: addGrupoOpcoes, editarGrupo: editarGrupoOpcoes, removerGrupo: removerGrupoOpcoes, addOpcao, editarOpcao, removerOpcao }} />}
+        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} promocoes={filtraLoja(promocoes)} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} opcoesApi={{ grupos: filtraLoja(gruposOpcoes), opcoes: filtraLoja(opcoes), addGrupo: addGrupoOpcoes, editarGrupo: editarGrupoOpcoes, removerGrupo: removerGrupoOpcoes, addOpcao, editarOpcao, removerOpcao }} setores={filtraLoja(setoresCozinha)} setoresApi={{ add: addSetorCozinha, editar: editarSetorCozinha, remover: removerSetorCozinha }} />}
 
       </div>
     </div>
@@ -3068,8 +3091,19 @@ const kitchenCols = [
   { key: "ready",     label: "Finalizado", sub: "Pronto p/ retirada",dot: "bg-emerald-400", header: "border-emerald-500/40 bg-emerald-500/10", card: "border-emerald-500/20" },
 ];
 
-function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, cancelarPedido, onSair, currentUser, lojaInfo }) {
+function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, cancelarPedido, onSair, currentUser, lojaInfo, setores = [], produtos = [] }) {
   const [cancelando, setCancelando] = useState(null); // pedido a cancelar
+  const [setorFiltro, setSetorFiltro] = useState(null); // null = todos
+  // Mapa nome do produto → setor (itens do pedido referenciam por nome)
+  const setorDoProduto = useMemo(() => { const m = {}; produtos.forEach((p) => { if (p.setorId) m[p.name] = p.setorId; }); return m; }, [produtos]);
+  const setoresAtivos = setores.filter((s) => s.ativo !== false);
+  // Aplica o filtro de setor sobre as colunas já agrupadas (sem alterar a lógica original)
+  const pedidoNoSetor = (o) => setorFiltro == null || (o.items || []).some((it) => setorDoProduto[it.name] === setorFiltro);
+  const grouped = useMemo(() => {
+    if (setorFiltro == null) return groupedOrders;
+    const out = {}; for (const k of Object.keys(groupedOrders || {})) out[k] = (groupedOrders[k] || []).filter(pedidoNoSetor); return out;
+  }, [groupedOrders, setorFiltro, setorDoProduto]);
+  groupedOrders = grouped;
   const [hora, setHora] = useState(() =>
     new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
   );
@@ -3134,6 +3168,17 @@ function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, cancela
           <p className="font-black tabular-nums text-white text-xl">{hora}</p>
         </div>
       </header>
+
+      {/* Filtro por setor de cozinha (migration 041) */}
+      {setoresAtivos.length > 0 && (
+        <div className="shrink-0 flex items-center gap-2 overflow-x-auto border-b border-white/10 bg-slate-900/70 px-6 py-2">
+          <span className="shrink-0 text-[11px] font-bold uppercase tracking-widest text-slate-500">Setor:</span>
+          <button onClick={() => setSetorFiltro(null)} className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-black transition ${setorFiltro == null ? "border-gold-400 bg-gold-400 text-blue-950" : "border-white/10 bg-white/[0.05] text-slate-300 hover:bg-white/10"}`}>Todos</button>
+          {setoresAtivos.map((s) => (
+            <button key={s.id} onClick={() => setSetorFiltro(s.id)} className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-black transition ${setorFiltro === s.id ? "border-gold-400 bg-gold-400 text-blue-950" : "border-white/10 bg-white/[0.05] text-slate-300 hover:bg-white/10"}`}>{s.nome}</button>
+          ))}
+        </div>
+      )}
 
       {/* ── 3 Colunas de pedidos ──────────────────────────────── */}
       <div className="tema-claro-area flex flex-1 overflow-hidden">
@@ -4807,7 +4852,7 @@ function ComboEmpresaFoco({ lojas = [], valor, onChange }) {
   );
 }
 
-function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, definirAcoesUsuario, toggleUserStatus, toggleAccessStatus, usersLoja, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], addLoja, toggleLoja, editarLoja, removerLoja, setLicencaEmpresa = async()=>{}, setValidadeLicenca = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, setModoUsoEmpresa = async()=>{}, salvarConfigExterno = async()=>{}, mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, clientes = [], planoAtual = null, assinaturaAtual = null, planos = [], planoModulos = [], definirAssinatura = async()=>{}, promocoes = [], addPromocao = async()=>{}, editarPromocao = async()=>{}, togglePromocao = async()=>{}, removerPromocao = async()=>{}, opcoesApi = null }) {
+function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, definirAcoesUsuario, toggleUserStatus, toggleAccessStatus, usersLoja, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], addLoja, toggleLoja, editarLoja, removerLoja, setLicencaEmpresa = async()=>{}, setValidadeLicenca = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, setModoUsoEmpresa = async()=>{}, salvarConfigExterno = async()=>{}, mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, clientes = [], planoAtual = null, assinaturaAtual = null, planos = [], planoModulos = [], definirAssinatura = async()=>{}, promocoes = [], addPromocao = async()=>{}, editarPromocao = async()=>{}, togglePromocao = async()=>{}, removerPromocao = async()=>{}, opcoesApi = null, setores = [], setoresApi = null }) {
   // Menu reorganizado por contexto (SaaS premium) — mesmos ids e permissões de antes
   const menu = [
     { grupo: "Visão Geral", itens: [
@@ -4818,6 +4863,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
     { grupo: "Operação", itens: [
       { id: "mesas", icon: <IconMesas />, label: "Mesas" },
       { id: "comandas", icon: <IconQr />, label: "Comandas e QR Code" },
+      { id: "setores", icon: <IconCategorias />, label: "Setores de Cozinha" },
     ]},
     { grupo: "Cardápio", itens: [
       { id: "products", icon: <IconProdutos />, label: "Produtos" },
@@ -4981,7 +5027,8 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           {ativo === "dashboard"  && <DashboardAdmin orders={orders} products={products} />}
           {ativo === "relatorios" && <RelatoriosAdmin orders={orders} products={products} lojaInfo={lojaInfo} />}
           {ativo === "crm"        && <CrmAdmin clientes={clientes} orders={orders} />}
-          {ativo === "products"   && (precisaEmpresa ? avisoEmpresa : <ProductAdmin   products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} editarProduto={editarProduto} removerProduto={removerProduto} lojaId={lojaInfo?.id} opcoesApi={opcoesApi} />)}
+          {ativo === "products"   && (precisaEmpresa ? avisoEmpresa : <ProductAdmin   products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} editarProduto={editarProduto} removerProduto={removerProduto} lojaId={lojaInfo?.id} opcoesApi={opcoesApi} setores={setores} />)}
+          {ativo === "setores"    && (precisaEmpresa ? avisoEmpresa : <SetoresCozinhaAdmin setores={setores} produtos={products} api={setoresApi} />)}
           {ativo === "users"      && <UserAdmin      users={isSuperAdmin ? users : (usersLoja ?? users)} userForm={userForm} setUserForm={setUserForm} addUser={addUser} toggleUserStatus={toggleUserStatus} editarUsuario={editarUsuario} removerUsuario={removerUsuario} lojaInfo={lojaInfo} lojas={lojas} isSuperAdmin={isSuperAdmin} cargos={cargos} />}
           {ativo === "cargos"     && <CargoAdmin     cargos={cargos} users={isSuperAdmin ? users : (usersLoja ?? users)} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} />}
           {ativo === "access"     && <AccessAdmin    accesses={accesses} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleAccessStatus={toggleAccessStatus} />}
@@ -8470,6 +8517,63 @@ function GruposOpcoesModal({ produto, api, onFechar }) {
   );
 }
 
+// ════════════════════════════════════════════════════════════
+//  Admin — Setores de Cozinha (migration 041)
+// ════════════════════════════════════════════════════════════
+function SetoresCozinhaAdmin({ setores = [], produtos = [], api }) {
+  const [nome, setNome] = useState("");
+  const [editId, setEditId] = useState(null);
+  const [editNome, setEditNome] = useState("");
+  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-gold-400/60 transition";
+  const contar = (sid) => produtos.filter((p) => p.setorId === sid).length;
+  const lista = [...setores].sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
+
+  return (
+    <main className="space-y-5">
+      <PageHeader icone={<IconCategorias />} titulo="Setores de Cozinha" descricao="Direcione produtos para setores (bar, pizzaria, chapa, sobremesa) e filtre o painel da cozinha." />
+
+      {/* Novo setor */}
+      <div className="flex gap-2">
+        <input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: Bar, Pizzaria, Chapa, Sobremesa…" className={`${inp} flex-1`} onKeyDown={(e) => { if (e.key === "Enter" && nome.trim()) { api?.add({ nome: nome.trim(), ordem: setores.length }); setNome(""); } }} />
+        <PrimeButton onClick={() => { if (nome.trim()) { api?.add({ nome: nome.trim(), ordem: setores.length }); setNome(""); } }}><span className="text-lg leading-none">+</span> Criar setor</PrimeButton>
+      </div>
+
+      {lista.length === 0 ? (
+        <div className="rounded-[2rem] border border-white/10 bg-white/[0.03] py-12 text-center">
+          <span className="text-4xl">🍳</span>
+          <p className="mt-2 font-black text-white">Nenhum setor cadastrado.</p>
+          <p className="text-sm text-slate-500">Crie setores para organizar o preparo e filtrar a cozinha.</p>
+        </div>
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {lista.map((s) => (
+            <div key={s.id} className={`rounded-2xl border p-4 ${s.ativo !== false ? "border-white/10 bg-white/[0.04]" : "border-white/10 bg-white/[0.02] opacity-70"}`}>
+              {editId === s.id ? (
+                <div className="flex gap-2">
+                  <input value={editNome} onChange={(e) => setEditNome(e.target.value)} className={`${inp} flex-1`} autoFocus />
+                  <button onClick={() => { api?.editar(s.id, { nome: editNome.trim() || s.nome }); setEditId(null); }} className="rounded-xl bg-gold-400 px-3 text-sm font-black text-blue-950">✓</button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="page-title truncate text-base font-bold text-white">{s.nome}</p>
+                    <p className="text-[11px] text-slate-500">{contar(s.id)} produto(s)</p>
+                  </div>
+                  <div className="flex shrink-0 gap-1.5">
+                    <button onClick={() => api?.editar(s.id, { ativo: s.ativo === false })} className={`rounded-lg px-2.5 py-1.5 text-xs font-black transition ${s.ativo !== false ? "bg-emerald-500/15 text-emerald-300" : "bg-slate-700/40 text-slate-400"}`}>{s.ativo !== false ? "Ativo" : "Inativo"}</button>
+                    <button onClick={() => { setEditId(s.id); setEditNome(s.nome); }} className="rounded-lg border border-blue-400/20 bg-blue-500/10 px-2.5 py-1.5 text-xs font-black text-blue-300">✏️</button>
+                    <button onClick={() => api?.remover(s.id)} className="rounded-lg border border-red-400/20 bg-red-500/10 px-2.5 py-1.5 text-xs font-black text-red-300">🗑️</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </main>
+  );
+}
+
 function ConfiguracoesAdmin() {
   const [tema, setTema] = useState(() => obterTema());
   function escolher(t) { setTema(aplicarTema(t)); }
@@ -8867,7 +8971,7 @@ function AdicionaisEditor({ value = [], onChange }) {
   );
 }
 
-function ProductAdmin({ products, categories, adminForm, setAdminForm, addProduct, toggleProduct, editarProduto, removerProduto, lojaId, opcoesApi = null }) {
+function ProductAdmin({ products, categories, adminForm, setAdminForm, addProduct, toggleProduct, editarProduto, removerProduto, lojaId, opcoesApi = null, setores = [] }) {
   const [editando, setEditando] = useState(null);
   const [excluir, setExcluir]   = useState(null);
   const [variacoes, setVariacoes] = useState(null); // produto cujas variações/adicionais estamos editando
@@ -8986,7 +9090,7 @@ function ProductAdmin({ products, categories, adminForm, setAdminForm, addProduc
         <ProdutoCadastroModal adminForm={adminForm} setAdminForm={setAdminForm} cats={cats} lojaId={lojaId}
           onSalvar={salvarNovo} onFechar={() => setCriando(false)} />
       )}
-      {editando && <ProdutoEditModal produto={editando} cats={cats} lojaId={lojaId} onSalvar={(d) => { editarProduto(editando.id, d); setEditando(null); }} onFechar={() => setEditando(null)} />}
+      {editando && <ProdutoEditModal produto={editando} cats={cats} lojaId={lojaId} setores={setores} onSalvar={(d) => { editarProduto(editando.id, d); setEditando(null); }} onFechar={() => setEditando(null)} />}
       {variacoes && opcoesApi && <GruposOpcoesModal produto={variacoes} api={opcoesApi} onFechar={() => setVariacoes(null)} />}
       {excluir && (
         <ConfirmModal titulo="Excluir produto?"
@@ -9253,7 +9357,7 @@ function SeletorCategoria({ valor, aoMudar, categorias }) {
   );
 }
 
-function ProdutoEditModal({ produto, cats, onSalvar, onFechar, lojaId }) {
+function ProdutoEditModal({ produto, cats, onSalvar, onFechar, lojaId, setores = [] }) {
   // Inicializa campos de moeda já formatados
   const toDisplay = (v) => {
     if (!v && v !== 0) return "";
@@ -9277,6 +9381,8 @@ function ProdutoEditModal({ produto, cats, onSalvar, onFechar, lojaId }) {
     featuredLabel: produto.featuredLabel || "",
     showOnHome: produto.showOnHome !== false,
     disponivel: produto.disponivel !== false,
+    // Migration 041 — setor de cozinha
+    setorId: produto.setorId || "",
   });
   const [tags, setTags] = useState([...(produto.ingredients || [])]); // ingredientes como tags
   const [adicionais, setAdicionais] = useState([...(produto.adicionais || [])]); // extras do produto
@@ -9312,6 +9418,7 @@ function ProdutoEditModal({ produto, cats, onSalvar, onFechar, lojaId }) {
       controlaEstoque: f.controlaEstoque, estoqueMinimo: f.estoqueMinimo,
       visivelTablet: f.visivelTablet, visivelQr: f.visivelQr, visivelExterno: f.visivelExterno,
       isFeatured: f.isFeatured, featuredLabel: f.isFeatured ? (f.featuredLabel || "Destaque") : "", showOnHome: f.showOnHome, disponivel: f.disponivel,
+      setorId: f.setorId || null,
     });
   }
 
@@ -9412,6 +9519,17 @@ function ProdutoEditModal({ produto, cats, onSalvar, onFechar, lojaId }) {
               </div>
             </div>
           </div>
+
+          {/* Setor de cozinha (migration 041) */}
+          {setores.length > 0 && (
+            <div>
+              <span className={lbl}>Setor de preparo</span>
+              <select value={f.setorId} onChange={(e) => setF({ ...f, setorId: e.target.value ? Number(e.target.value) : "" })} className={inp}>
+                <option value="">— Sem setor —</option>
+                {setores.filter((s) => s.ativo !== false).map((s) => <option key={s.id} value={s.id}>{s.nome}</option>)}
+              </select>
+            </div>
+          )}
 
           {/* Destaque & Disponibilidade (migration 038) */}
           <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 space-y-3">

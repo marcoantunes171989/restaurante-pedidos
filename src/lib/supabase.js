@@ -72,7 +72,7 @@ export async function inserirProduto(p) {
 }
 
 // Colunas opcionais (migrations 029/034) — removidas no fallback se o banco não as tiver
-const COLS_PRODUTO_OPCIONAIS = ['adicionais', 'controla_estoque', 'estoque_minimo', 'preco_promocional', 'visivel_tablet', 'visivel_qr', 'visivel_externo', 'is_featured', 'featured_label', 'featured_order', 'show_on_home', 'disponivel'];
+const COLS_PRODUTO_OPCIONAIS = ['adicionais', 'controla_estoque', 'estoque_minimo', 'preco_promocional', 'visivel_tablet', 'visivel_qr', 'visivel_externo', 'is_featured', 'featured_label', 'featured_order', 'show_on_home', 'disponivel', 'setor_id'];
 export async function atualizarProduto(id, campos) {
   let { error } = await supabase.from('tab_produtos').update(campos).eq('id', id)
   if (error && COLS_PRODUTO_OPCIONAIS.some((c) => c in campos) && ehColunaAusente(error, 'column')) {
@@ -281,6 +281,40 @@ export function escutarOpcoes(onMudanca) {
   const reload = async () => { try { onMudanca(await fetchOpcoes()) } catch {} }
   const canal = supabase.channel('ch_opcoes_' + Math.random().toString(36).slice(2))
     .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_opcoes' }, reload)
+    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
+  return () => supabase.removeChannel(canal)
+}
+
+// ════════════════════════════════════════════════════════════
+//  Setores de cozinha (migration 041) — CRUD + Realtime (tolerante)
+// ════════════════════════════════════════════════════════════
+function dbParaSetor(r) {
+  return { id: r.id, lojaId: r.loja_id, nome: r.nome, descricao: r.descricao ?? "", ordem: r.ordem ?? 0, ativo: r.ativo !== false }
+}
+export async function fetchSetoresCozinha(lojaId = null) {
+  let q = supabase.from('tab_setores_cozinha').select('*').order('ordem', { ascending: true })
+  if (lojaId != null) q = q.eq('loja_id', lojaId)
+  const { data, error } = await q
+  if (error || !data) return []
+  return data.map(dbParaSetor)
+}
+export async function inserirSetorCozinha(s) {
+  const { data, error } = await supabase.from('tab_setores_cozinha').insert([{ loja_id: s.lojaId ?? null, nome: s.nome, descricao: s.descricao || null, ordem: s.ordem ?? 0 }]).select().single()
+  if (error) throw error
+  return dbParaSetor(data)
+}
+export async function atualizarSetorCozinha(id, s) {
+  const { error } = await supabase.from('tab_setores_cozinha').update({ nome: s.nome, descricao: s.descricao || null, ativo: s.ativo !== false, ordem: s.ordem ?? 0, atualizado_em: new Date().toISOString() }).eq('id', id)
+  if (error) throw error
+}
+export async function excluirSetorCozinha(id) {
+  const { error } = await supabase.from('tab_setores_cozinha').delete().eq('id', id)
+  if (error) throw error
+}
+export function escutarSetoresCozinha(onMudanca) {
+  const reload = async () => { try { onMudanca(await fetchSetoresCozinha()) } catch {} }
+  const canal = supabase.channel('ch_setores_' + Math.random().toString(36).slice(2))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_setores_cozinha' }, reload)
     .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
   return () => supabase.removeChannel(canal)
 }
@@ -783,6 +817,7 @@ function dbParaProduto(r) {
     featuredOrder:    r.featured_order ?? 0,
     showOnHome:       r.show_on_home !== false,
     disponivel:       r.disponivel !== false,
+    setorId:          r.setor_id ?? null,
   }
 }
 
