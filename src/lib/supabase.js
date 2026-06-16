@@ -97,20 +97,40 @@ export function escutarProdutos(onMudanca) {
   return () => supabase.removeChannel(canal)
 }
 
-// Baixa de estoque: subtrai quantidades vendidas (por nome do produto)
-export async function baixarEstoque(itensVendidos) {
+// Baixa de estoque: subtrai a quantidade vendida de cada produto (casando por
+// nome DENTRO da loja, evitando atingir produtos homônimos de outra empresa) e
+// registra a movimentação (estoque antes/depois) para o relatório gerencial.
+export async function baixarEstoque(itensVendidos, lojaId = null, comandas = []) {
   // itensVendidos: [{ name, quantity }]
-  const { data: produtos } = await supabase.from('tab_produtos').select('id,nome,estoque')
-  if (!produtos) return
-  // Soma quantidades por nome
+  let q = supabase.from('tab_produtos').select('id,nome,estoque,loja_id')
+  if (lojaId != null) q = q.eq('loja_id', lojaId)
+  const { data: produtos } = await q
+  if (!produtos) return []
+  // Soma quantidades por nome (um produto pode aparecer em vários pedidos)
   const somas = {}
   itensVendidos.forEach((it) => { somas[it.name] = (somas[it.name] || 0) + it.quantity })
+  const movimentos = []
+  const comandasTxt = Array.isArray(comandas) ? comandas.join(', ') : (comandas || null)
   await Promise.all(Object.entries(somas).map(async ([nome, qtd]) => {
     const p = produtos.find((x) => x.nome === nome)
     if (!p) return
-    const novo = Math.max(0, (p.estoque ?? 0) - qtd)
-    await supabase.from('tab_produtos').update({ estoque: novo }).eq('id', p.id)
+    const antes = p.estoque ?? 0
+    const depois = Math.max(0, antes - qtd)
+    await supabase.from('tab_produtos').update({ estoque: depois }).eq('id', p.id)
+    movimentos.push({ loja_id: p.loja_id ?? lojaId ?? null, produto_id: p.id, produto_nome: nome, quantidade: qtd, estoque_antes: antes, estoque_depois: depois, comandas: comandasTxt })
   }))
+  // Registra as movimentações (tolerante: ignora se a tabela ainda não existir)
+  if (movimentos.length) { try { await supabase.from('tab_estoque_mov').insert(movimentos) } catch {} }
+  return movimentos
+}
+
+// Histórico de movimentações de estoque (tolerante: [] se a tabela não existir)
+export async function fetchMovimentosEstoque(lojaId = null) {
+  let q = supabase.from('tab_estoque_mov').select('*').order('criado_em', { ascending: false }).limit(2000)
+  if (lojaId != null) q = q.eq('loja_id', lojaId)
+  const { data, error } = await q
+  if (error || !data) return []
+  return data.map((r) => ({ id: r.id, lojaId: r.loja_id, produtoId: r.produto_id, produtoNome: r.produto_nome, quantidade: r.quantidade, estoqueAntes: r.estoque_antes, estoqueDepois: r.estoque_depois, comandas: r.comandas, origem: r.origem, criadoEmISO: r.criado_em }))
 }
 
 // ════════════════════════════════════════════════════════════

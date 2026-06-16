@@ -1097,7 +1097,7 @@ export default function RestaurantePedidoApp() {
     if (dbReady) {
       try {
         await Promise.all(alvo.map((o) => atualizarPedido(o.id, { status_pagamento: "pago", status: "entregue" })));
-        await baixarEstoque(itensVendidos);            // baixa de estoque
+        await baixarEstoque(itensVendidos, lojaAtual, comandas); // baixa correta por loja + registro
         if (info) await registrarPagamento({ ...info, comandas }); // histórico de pagamento
       } catch (err) { console.error("Erro ao finalizar pagamento:", err); }
     }
@@ -5302,6 +5302,36 @@ function RelatoriosAdmin({ orders, products, lojaInfo }) {
   // Cupons (pedidos pagos) que contêm um determinado produto
   const cuponsDoProduto = (nome) => filtrados.filter((o) => o.paymentStatus === "paid" && o.items.some((it) => it.name === nome));
 
+  // ── Relatório de estoque (anterior x posterior conforme as vendas) ──
+  // Estoque ATUAL = posterior (já refletindo as baixas). Reconstrói o estoque
+  // ANTERIOR ao período somando o que foi vendido no intervalo selecionado.
+  const vendidoPorProduto = (() => {
+    const m = {};
+    filtrados.filter((o) => o.paymentStatus === "paid" && o.status !== "cancelled")
+      .forEach((o) => o.items.forEach((it) => { m[it.name] = (m[it.name] || 0) + it.quantity; }));
+    return m;
+  })();
+  const linhasEstoque = products.map((p) => {
+    const vendido = vendidoPorProduto[p.name] || 0;
+    const posterior = p.estoque ?? 0;          // estoque atual (após as vendas)
+    const anterior = posterior + vendido;       // estoque no início do período
+    const minimo = p.estoqueMinimo ?? 0;
+    return { nome: p.name, categoria: p.category, anterior, vendido, posterior, minimo, baixo: posterior <= minimo && minimo > 0, zerado: posterior <= 0, ativo: p.active !== false };
+  }).sort((x, y) => y.vendido - x.vendido || y.posterior - x.posterior);
+  const produtosAtivos = products.filter((p) => p.active !== false);
+  const maiorEstoque = produtosAtivos.reduce((acc, p) => (acc == null || (p.estoque ?? 0) > (acc.estoque ?? 0) ? p : acc), null);
+  const menorEstoque = produtosAtivos.reduce((acc, p) => (acc == null || (p.estoque ?? 0) < (acc.estoque ?? 0) ? p : acc), null);
+  const totalVendidoPeriodo = Object.values(vendidoPorProduto).reduce((s, v) => s + v, 0);
+  const totalEmEstoque = produtosAtivos.reduce((s, p) => s + (p.estoque ?? 0), 0);
+  const zeradosCount = produtosAtivos.filter((p) => (p.estoque ?? 0) <= 0).length;
+  const baixoCount = produtosAtivos.filter((p) => (p.estoque ?? 0) > 0 && (p.estoque ?? 0) <= (p.estoqueMinimo ?? 0) && (p.estoqueMinimo ?? 0) > 0).length;
+  function exportarEstoqueCSV() {
+    let csv = "Produto;Categoria;Estoque anterior;Vendido no periodo;Estoque atual;Estoque minimo\n";
+    linhasEstoque.forEach((l) => { csv += `${l.nome};${l.categoria || ""};${l.anterior};${l.vendido};${l.posterior};${l.minimo}\n`; });
+    csv += `\nTotal em estoque (atual);;;;${totalEmEstoque};\n`;
+    baixarArquivo("﻿" + csv, `relatorio-estoque-${periodo}.csv`, "text/csv;charset=utf-8");
+  }
+
   // ── Exportações ──
   function baixarArquivo(conteudo, nome, tipo) {
     const blob = new Blob([conteudo], { type: tipo });
@@ -5436,7 +5466,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo }) {
 
       {/* Sub-abas de relatório */}
       <div className="flex flex-wrap gap-2">
-        {[{ id: "vendas", label: "Vendas" }, { id: "cupom", label: "Cupom / Mesa / Comanda" }, { id: "permanencia", label: "Permanência" }].map((t) => (
+        {[{ id: "vendas", label: "Vendas" }, { id: "cupom", label: "Cupom / Mesa / Comanda" }, { id: "estoque", label: "Estoque" }, { id: "permanencia", label: "Permanência" }].map((t) => (
           <button key={t.id} onClick={() => setAba(t.id)}
             className={`font-display rounded-xl px-4 py-2.5 text-sm font-bold transition ${aba === t.id ? "bg-gold-400 text-blue-950 shadow-lg shadow-gold-900/20" : "border border-white/10 bg-white/[0.04] text-slate-300 hover:bg-white/[0.08]"}`}>
             {t.label}
@@ -5483,6 +5513,54 @@ function RelatoriosAdmin({ orders, products, lojaInfo }) {
       )}
 
       {aba === "cupom" && <RelatorioCupom pedidos={filtrados} lojaInfo={lojaInfo} />}
+
+      {aba === "estoque" && (
+        <>
+          <div className="flex flex-wrap gap-2">
+            <button onClick={exportarEstoqueCSV} className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-2.5 text-sm font-bold text-emerald-300 hover:bg-emerald-500/20 transition">📊 Exportar Excel (CSV)</button>
+          </div>
+
+          {/* Destaques: maior x menor estoque + totais */}
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-[1.5rem] border border-emerald-400/25 bg-emerald-500/[0.07] p-5">
+              <p className="text-[11px] font-bold uppercase tracking-widest text-emerald-300/80">📈 Maior estoque</p>
+              <p className="page-title mt-2 truncate text-lg font-bold text-white">{maiorEstoque ? maiorEstoque.name : "—"}</p>
+              <p className="mt-0.5 text-sm font-black text-emerald-400">{maiorEstoque ? `${maiorEstoque.estoque ?? 0} un` : "Sem produtos"}</p>
+            </div>
+            <div className="rounded-[1.5rem] border border-red-400/25 bg-red-500/[0.07] p-5">
+              <p className="text-[11px] font-bold uppercase tracking-widest text-red-300/80">📉 Menor estoque</p>
+              <p className="page-title mt-2 truncate text-lg font-bold text-white">{menorEstoque ? menorEstoque.name : "—"}</p>
+              <p className="mt-0.5 text-sm font-black text-red-300">{menorEstoque ? `${menorEstoque.estoque ?? 0} un` : "Sem produtos"}</p>
+            </div>
+            <CardMetrica titulo="Itens baixados no período" valor={totalVendidoPeriodo} sub="unidades vendidas/pagas" cor="text-white" />
+            <CardMetrica titulo="Total em estoque (atual)" valor={`${totalEmEstoque} un`} sub={`${zeradosCount} zerado(s) · ${baixoCount} baixo(s)`} cor="text-gold-400" />
+          </div>
+
+          {/* Tabela: estoque anterior x posterior conforme as vendas */}
+          <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.04]">
+            <div className="flex items-center justify-between border-b border-gold-400/15 px-5 py-3">
+              <h3 className="page-title text-sm font-bold uppercase tracking-wider text-white">Estoque anterior x posterior (por venda)</h3>
+              <span className="text-[11px] text-slate-500">Anterior = atual + vendido no período</span>
+            </div>
+            <div className="hidden grid-cols-[2fr_1fr_1fr_1fr] bg-white/[0.03] px-5 py-2.5 text-[11px] font-bold uppercase tracking-widest text-gold-400/70 sm:grid">
+              <span>Produto</span><span className="text-center">Estoque anterior</span><span className="text-center">Vendido</span><span className="text-right">Estoque atual</span>
+            </div>
+            {linhasEstoque.length === 0 && <p className="px-5 py-6 text-center text-sm text-slate-500">Nenhum produto cadastrado.</p>}
+            {linhasEstoque.map((l) => (
+              <div key={l.nome} className="grid grid-cols-[2fr_1fr_1fr] sm:grid-cols-[2fr_1fr_1fr_1fr] items-center gap-2 border-t border-white/5 px-5 py-3 text-sm">
+                <div className="min-w-0">
+                  <p className="truncate font-bold text-white">{l.nome}</p>
+                  <p className="truncate text-[11px] text-slate-500">{l.categoria || "—"}{l.zerado ? " • zerado" : l.baixo ? " • estoque baixo" : ""}</p>
+                </div>
+                <span className="hidden text-center font-mono font-bold text-slate-300 sm:block">{l.anterior}</span>
+                <span className="text-center font-mono font-black text-gold-400">{l.vendido > 0 ? `−${l.vendido}` : "0"}</span>
+                <span className={`text-right font-mono font-black ${l.zerado ? "text-red-400" : l.baixo ? "text-amber-300" : "text-emerald-400"}`}>{l.posterior}{(l.zerado || l.baixo) ? " ⚠" : ""}</span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
       {aba === "permanencia" && <RelatorioPermanencia pedidos={filtrados} />}
 
       {/* Drill-down: cupons de um produto */}
