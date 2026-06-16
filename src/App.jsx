@@ -17,12 +17,13 @@ import {
   uploadImagemProduto, validarImagemProduto,
   registrarDispositivo, fetchDispositivos, escutarDispositivos, renomearDispositivo, removerDispositivo,
   fetchPlanos, fetchAssinaturas, fetchPlanoModulos, escutarAssinaturas, salvarAssinatura,
+  fetchPromocoes, inserirPromocao, atualizarPromocao, excluirPromocao, escutarPromocoes,
 } from "./lib/supabase";
 import { statusAssinatura, getCurrentCompanyPlan, modulosDoPlano, MODULOS_LABEL, canAccessModule, getBlockedModuleMessage } from "./lib/plans";
 import { GeradorComandas } from "./components/QRComandas";
 import { QRScannerModal  } from "./components/QRScanner";
 import { LogoPP } from "./components/BrandLogo";
-import { IconDashboard, IconRelatorios, IconCrm, IconProdutos, IconCategorias, IconMesas, IconPagamento, IconQr, IconCardapio, IconEmpresas, IconUsuarios, IconCargos, IconPermissoes, IconLink, IconLicencas, IconVersoes, IconEmpresa, IconBusca, IconConfig } from "./components/PrimeIcons";
+import { IconDashboard, IconRelatorios, IconCrm, IconProdutos, IconCategorias, IconMesas, IconPagamento, IconQr, IconCardapio, IconEmpresas, IconUsuarios, IconCargos, IconPermissoes, IconLink, IconLicencas, IconVersoes, IconEmpresa, IconBusca, IconConfig, IconPromocao } from "./components/PrimeIcons";
 import { obterTema, aplicarTema } from "./lib/theme";
 import { PageHeader, PrimeButton } from "./components/Prime";
 
@@ -602,6 +603,7 @@ export default function RestaurantePedidoApp() {
   const [planos, setPlanos] = useState([]);                // catálogo de planos (migration 037)
   const [assinaturas, setAssinaturas] = useState([]);      // assinatura por empresa
   const [planoModulos, setPlanoModulos] = useState([]);    // vínculo plano × módulo
+  const [promocoes, setPromocoes] = useState([]);          // promoções por empresa (migration 039)
   const [lojaContexto, setLojaContexto] = useState(null); // super admin: empresa em foco para cadastros
   const [dbReady, setDbReady] = useState(false);
   const [loading, setLoading]     = useState(true);
@@ -634,6 +636,7 @@ export default function RestaurantePedidoApp() {
         try { setPlanos(await fetchPlanos()); } catch { /* migration 037 pendente */ }
         try { setAssinaturas(await fetchAssinaturas()); } catch { /* migration 037 pendente */ }
         try { setPlanoModulos(await fetchPlanoModulos()); } catch { /* migration 037 pendente */ }
+        try { setPromocoes(await fetchPromocoes()); } catch { /* migration 039 pendente */ }
         setDbReady(true);
         setLoading(false);
 
@@ -653,6 +656,7 @@ export default function RestaurantePedidoApp() {
         try { unsubs.push(escutarDispositivos(setDispositivos)); } catch {}
         try { unsubs.push(escutarComandas(setComandas)); } catch {}
         try { unsubs.push(escutarAssinaturas(setAssinaturas)); } catch {}
+        try { unsubs.push(escutarPromocoes(setPromocoes)); } catch {}
       } catch (err) {
         console.warn("Supabase indisponível — usando fallback local:", err.message);
         setProducts(initialProducts);
@@ -1276,6 +1280,36 @@ export default function RestaurantePedidoApp() {
     } catch (err) { notify("error", "Erro ao salvar assinatura: " + (err.message || err)); }
   }
 
+  // ── Promoções (migration 039) ──────────────────────────────
+  async function addPromocao(dados) {
+    if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
+    if (!dados.nome?.trim()) return notify("error", "Informe o nome da promoção.");
+    const nova = { ...dados, lojaId: lojaAtual };
+    if (dbReady) { try { const r = await inserirPromocao(nova); setPromocoes((cur) => [r, ...cur]); } catch (e) { return notify("error", "Erro ao criar promoção: " + (e.message || e)); } }
+    else setPromocoes((cur) => [{ ...nova, id: Date.now() }, ...cur]);
+    notify("success", "Promoção criada.");
+    return true;
+  }
+  async function editarPromocao(id, dados) {
+    if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
+    setPromocoes((cur) => cur.map((p) => p.id === id ? { ...p, ...dados } : p));
+    if (dbReady) try { await atualizarPromocao(id, { ...dados, lojaId: lojaAtual }); } catch (e) { return notify("error", "Erro ao salvar: " + (e.message || e)); }
+    notify("success", "Promoção atualizada.");
+    return true;
+  }
+  async function togglePromocao(id) {
+    const p = promocoes.find((x) => x.id === id);
+    const ativo = !p?.ativo;
+    setPromocoes((cur) => cur.map((x) => x.id === id ? { ...x, ativo } : x));
+    if (dbReady) try { await atualizarPromocao(id, { ...p, ativo, lojaId: p?.lojaId ?? lojaAtual }); } catch {}
+  }
+  async function removerPromocao(id) {
+    if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
+    setPromocoes((cur) => cur.filter((p) => p.id !== id));
+    if (dbReady) try { await excluirPromocao(id); } catch (e) { notify("error", "Erro ao excluir: " + (e.message || e)); return; }
+    notify("success", "Promoção excluída.");
+  }
+
   // ── Licença de uso por empresa (somente administrador geral) ──
   // Define/remove a validade da licença (migration 031) e registra no histórico
   async function setValidadeLicenca(id, dataISO) {
@@ -1732,6 +1766,7 @@ export default function RestaurantePedidoApp() {
         {activeTab === "tablet" && canAccess(currentUser, "tablet") && (
           <>
             <TabletView
+              promocoes={filtraLoja(promocoes).filter((p) => p.ativo && p.mostrarTablet && promocaoVigente(p))}
               products={products} categories={categories}
               filteredItems={filteredItems} selectedCategory={selectedCategory} setSelectedCategory={setSelectedCategory}
               search={search} setSearch={setSearch}
@@ -1775,7 +1810,7 @@ export default function RestaurantePedidoApp() {
         )}
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} products={products} lojaInfo={lojaInfo} />}
         {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierView orders={orders} baixarComandas={baixarComandas} baixarPedidos={baixarPedidos} formasPagamento={formasPagamentoLoja} onSair={logout} lojaInfo={lojaInfo} />}
-        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} />}
+        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} promocoes={filtraLoja(promocoes)} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} />}
 
       </div>
     </div>
@@ -1786,6 +1821,7 @@ export default function RestaurantePedidoApp() {
 //  TabletView — tela cheia para pedidos do cliente
 // ════════════════════════════════════════════════════════════
 function TabletView({
+  promocoes = [],
   products, categories, filteredItems, selectedCategory, setSelectedCategory,
   search, setSearch, cart, tableNumber, setTableNumber,
   customerName, setCustomerName, commandCode, setCommandCode,
@@ -2132,6 +2168,20 @@ function TabletView({
 
           {/* Seções da vitrine */}
           <div className="flex-1 overflow-y-auto p-5">
+            {/* Faixa de ofertas vigentes (promoções) */}
+            {promocoes.length > 0 && (
+              <div className="mb-5 flex gap-3 overflow-x-auto pb-1">
+                {promocoes.map((p) => (
+                  <div key={p.id} className="flex min-w-[200px] shrink-0 items-center gap-3 rounded-2xl border border-gold-400/40 bg-gradient-to-br from-gold-400/15 to-gold-400/[0.04] px-4 py-3">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gold-400/20 text-gold-300">🏷️</span>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-black text-[var(--ord-text)]">{p.nome}</p>
+                      <p className="text-xs font-black text-gold-400">{promoResumoDesconto(p)}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
             {filteredItems.length === 0 ? (
               <div className="flex h-full flex-col items-center justify-center gap-3 opacity-40">
                 <span className="text-5xl"><IconBusca /></span>
@@ -4660,7 +4710,7 @@ function ComboEmpresaFoco({ lojas = [], valor, onChange }) {
   );
 }
 
-function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, definirAcoesUsuario, toggleUserStatus, toggleAccessStatus, usersLoja, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], addLoja, toggleLoja, editarLoja, removerLoja, setLicencaEmpresa = async()=>{}, setValidadeLicenca = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, setModoUsoEmpresa = async()=>{}, salvarConfigExterno = async()=>{}, mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, clientes = [], planoAtual = null, assinaturaAtual = null, planos = [], planoModulos = [], definirAssinatura = async()=>{} }) {
+function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, definirAcoesUsuario, toggleUserStatus, toggleAccessStatus, usersLoja, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], addLoja, toggleLoja, editarLoja, removerLoja, setLicencaEmpresa = async()=>{}, setValidadeLicenca = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, setModoUsoEmpresa = async()=>{}, salvarConfigExterno = async()=>{}, mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, clientes = [], planoAtual = null, assinaturaAtual = null, planos = [], planoModulos = [], definirAssinatura = async()=>{}, promocoes = [], addPromocao = async()=>{}, editarPromocao = async()=>{}, togglePromocao = async()=>{}, removerPromocao = async()=>{} }) {
   // Menu reorganizado por contexto (SaaS premium) — mesmos ids e permissões de antes
   const menu = [
     { grupo: "Visão Geral", itens: [
@@ -4675,6 +4725,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
     { grupo: "Cardápio", itens: [
       { id: "products", icon: <IconProdutos />, label: "Produtos" },
       { id: "categorias", icon: <IconCategorias />, label: "Categorias" },
+      { id: "promocoes", icon: <IconPromocao />, label: "Promoções" },
       { id: "cardapioext", icon: <IconCardapio />, label: "Cardápio Externo" },
     ]},
     { grupo: "Configurações", itens: [
@@ -4844,6 +4895,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           {ativo === "pagamento"  && (precisaEmpresa ? avisoEmpresa : <PagamentoAdmin formasPagamento={formasPagamento} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} />)}
           {ativo === "config"     && <ConfiguracoesAdmin />}
           {ativo === "plano"      && <MeuPlanoAdmin planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} lojaInfo={lojaInfo} isSuperAdmin={isSuperAdmin} lojaAtual={lojaInfo?.id} definirAssinatura={definirAssinatura} />}
+          {ativo === "promocoes"  && (precisaEmpresa ? avisoEmpresa : <PromocoesAdmin promocoes={promocoes} produtos={products} categoriasDb={categoriasDb} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} />)}
           {ativo === "lojas"      && <LojaAdmin lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} lojaInfo={lojaInfo} criarEmpresa={criarEmpresa} cargos={cargos} />}
           {ativo === "licencas"   && <LicencaAdmin lojas={lojas} usuarios={users} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} />}
           {ativo === "versoes"    && <VersoesAdmin lojas={lojas} lojaFiltro={isSuperAdmin ? null : (lojaInfo?.id ?? null)} />}
@@ -7993,6 +8045,237 @@ function MeuPlanoAdmin({ planoAtual, assinaturaAtual, planos = [], planoModulos 
         </div>
       )}
     </main>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+//  Admin — Promoções (migration 039)
+// ════════════════════════════════════════════════════════════
+const PROMO_TIPOS = [
+  { id: "percentual", label: "Percentual", icon: "％" },
+  { id: "valor", label: "Valor fixo", icon: "R$" },
+  { id: "combo", label: "Combo", icon: "🍔" },
+  { id: "destaque", label: "Destaque", icon: "⭐" },
+  { id: "horario", label: "Por horário", icon: "⏰" },
+];
+const PROMO_DIAS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+function promoLabelTipo(t) { return PROMO_TIPOS.find((x) => x.id === t)?.label || t; }
+export function promoResumoDesconto(p) {
+  if (p.tipo === "percentual" && p.descontoPercent) return `${p.descontoPercent}% OFF`;
+  if (p.tipo === "valor" && p.descontoValor) return `− ${formatCurrency(p.descontoValor)}`;
+  return promoLabelTipo(p.tipo);
+}
+// Promoção está vigente agora? (data + horário + dia da semana)
+export function promocaoVigente(p, agora = new Date()) {
+  if (!p || p.ativo === false) return false;
+  const hojeISO = agora.toISOString().slice(0, 10);
+  if (p.dataInicio && hojeISO < p.dataInicio) return false;
+  if (p.dataFim && hojeISO > p.dataFim) return false;
+  if (Array.isArray(p.diasSemana) && p.diasSemana.length > 0 && !p.diasSemana.includes(agora.getDay())) return false;
+  if (p.horaInicio || p.horaFim) {
+    const hm = agora.toTimeString().slice(0, 5);
+    if (p.horaInicio && hm < p.horaInicio.slice(0, 5)) return false;
+    if (p.horaFim && hm > p.horaFim.slice(0, 5)) return false;
+  }
+  return true;
+}
+
+function PromocoesAdmin({ promocoes = [], produtos = [], categoriasDb = [], addPromocao, editarPromocao, togglePromocao, removerPromocao }) {
+  const [fStatus, setFStatus] = useState("todas"); // todas | ativas | inativas
+  const [fTipo, setFTipo] = useState("todos");
+  const [editando, setEditando] = useState(null);  // promo | "novo"
+  const [confirmar, setConfirmar] = useState(null); // promo a excluir
+
+  const lista = promocoes.filter((p) =>
+    (fStatus === "todas" || (fStatus === "ativas" ? p.ativo : !p.ativo)) &&
+    (fTipo === "todos" || p.tipo === fTipo)
+  );
+  const nomeProduto = (id) => produtos.find((x) => x.id === id)?.name || null;
+  const nomeCategoria = (id) => categoriasDb.find((x) => x.id === id)?.nome || null;
+
+  return (
+    <main className="space-y-5">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <PageHeader icone={<IconPromocao />} titulo="Promoções" descricao="Crie campanhas para aumentar as vendas — exibidas no cardápio e no tablet." />
+        <PrimeButton onClick={() => setEditando("novo")}><span className="text-lg leading-none">+</span> Nova promoção</PrimeButton>
+      </div>
+
+      {/* Filtros */}
+      <div className="flex flex-wrap items-center gap-2">
+        {[["todas", "Todas"], ["ativas", "Ativas"], ["inativas", "Inativas"]].map(([v, t]) => (
+          <button key={v} onClick={() => setFStatus(v)} className={`rounded-xl px-3.5 py-2 text-xs font-black transition ${fStatus === v ? "bg-gold-400 text-blue-950" : "border border-white/10 bg-white/[0.04] text-slate-300 hover:bg-white/[0.08]"}`}>{t}</button>
+        ))}
+        <span className="mx-1 h-5 w-px bg-white/10" />
+        <select value={fTipo} onChange={(e) => setFTipo(e.target.value)} className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white outline-none focus:border-gold-400/60">
+          <option value="todos">Todos os tipos</option>
+          {PROMO_TIPOS.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+        </select>
+      </div>
+
+      {/* Lista */}
+      {lista.length === 0 ? (
+        <div className="rounded-[2rem] border border-white/10 bg-white/[0.03] py-14 text-center">
+          <span className="text-4xl">🏷️</span>
+          <p className="mt-2 font-black text-white">Nenhuma promoção {fStatus !== "todas" ? "neste filtro" : "cadastrada"}.</p>
+          <p className="text-sm text-slate-500">Crie sua primeira campanha para destacar ofertas no cardápio.</p>
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {lista.map((p) => (
+            <div key={p.id} className={`flex flex-col rounded-[1.5rem] border p-5 transition ${p.ativo ? "border-gold-400/30 bg-gold-400/[0.05]" : "border-white/10 bg-white/[0.03] opacity-70"}`}>
+              <div className="flex items-start justify-between gap-2">
+                <span className="rounded-full border border-gold-400/30 bg-gold-400/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-gold-300">{promoLabelTipo(p.tipo)}</span>
+                <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ${p.ativo ? "bg-emerald-500/15 text-emerald-300" : "bg-slate-700/40 text-slate-400"}`}>{p.ativo ? "Ativa" : "Inativa"}</span>
+              </div>
+              <h3 className="page-title mt-3 text-lg font-bold tracking-tight text-white">{p.nome}</h3>
+              <p className="mt-1 text-2xl font-black text-gold-400">{promoResumoDesconto(p)}</p>
+              {p.descricao && <p className="mt-1 line-clamp-2 text-xs text-slate-400">{p.descricao}</p>}
+              <div className="mt-3 space-y-1 text-[11px] text-slate-400">
+                {(p.dataInicio || p.dataFim) && <p>📅 {p.dataInicio ? new Date(p.dataInicio).toLocaleDateString("pt-BR") : "—"} → {p.dataFim ? new Date(p.dataFim).toLocaleDateString("pt-BR") : "—"}</p>}
+                {(p.horaInicio || p.horaFim) && <p>⏰ {p.horaInicio || "—"} às {p.horaFim || "—"}</p>}
+                {Array.isArray(p.diasSemana) && p.diasSemana.length > 0 && p.diasSemana.length < 7 && <p>🗓️ {p.diasSemana.map((d) => PROMO_DIAS[d]).join(", ")}</p>}
+                {nomeProduto(p.produtoId) && <p>🍽️ {nomeProduto(p.produtoId)}</p>}
+                {nomeCategoria(p.categoriaId) && <p>📂 {nomeCategoria(p.categoriaId)}</p>}
+                <p className="text-slate-500">{[p.mostrarCardapio && "Cardápio", p.mostrarTablet && "Tablet"].filter(Boolean).join(" · ") || "Oculta"}</p>
+              </div>
+              <div className="mt-4 flex gap-2 border-t border-white/10 pt-3">
+                <button onClick={() => togglePromocao(p.id)} className="flex-1 rounded-xl border border-white/10 bg-white/[0.05] py-2 text-xs font-black text-slate-300 hover:bg-white/10 transition">{p.ativo ? "Pausar" : "Ativar"}</button>
+                <button onClick={() => setEditando(p)} className="flex-1 rounded-xl border border-gold-400/30 bg-gold-400/10 py-2 text-xs font-black text-gold-200 hover:bg-gold-400/20 transition">Editar</button>
+                <button onClick={() => setConfirmar(p)} className="rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-2 text-xs font-black text-red-300 hover:bg-red-500/20 transition">🗑️</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {editando && (
+        <PromocaoModal promocao={editando === "novo" ? null : editando} produtos={produtos} categoriasDb={categoriasDb}
+          onFechar={() => setEditando(null)}
+          onSalvar={async (dados) => { const ok = editando === "novo" ? await addPromocao(dados) : await editarPromocao(editando.id, dados); if (ok) setEditando(null); }} />
+      )}
+      {confirmar && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" onClick={() => setConfirmar(null)}>
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm rounded-[2rem] border border-red-400/20 bg-slate-900 p-6 text-center shadow-2xl">
+            <span className="text-4xl">🗑️</span>
+            <h3 className="mt-2 text-lg font-black text-white">Excluir promoção?</h3>
+            <p className="mt-1 text-sm text-slate-400">“{confirmar.nome}” será removida permanentemente.</p>
+            <div className="mt-5 flex gap-3">
+              <button onClick={() => setConfirmar(null)} className="flex-1 rounded-2xl border border-white/10 bg-white/[0.06] py-3 text-sm font-black text-slate-300 hover:bg-white/10">Cancelar</button>
+              <button onClick={() => { removerPromocao(confirmar.id); setConfirmar(null); }} className="flex-1 rounded-2xl bg-red-500 py-3 text-sm font-black text-white hover:bg-red-400 transition active:scale-95">Excluir</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </main>
+  );
+}
+
+function PromocaoModal({ promocao, produtos = [], categoriasDb = [], onSalvar, onFechar }) {
+  const [f, setF] = useState({
+    nome: promocao?.nome || "", descricao: promocao?.descricao || "", tipo: promocao?.tipo || "percentual",
+    descontoPercent: promocao?.descontoPercent ?? "", descontoValor: promocao?.descontoValor ?? "",
+    produtoId: promocao?.produtoId || "", categoriaId: promocao?.categoriaId || "",
+    dataInicio: promocao?.dataInicio || "", dataFim: promocao?.dataFim || "", horaInicio: promocao?.horaInicio || "", horaFim: promocao?.horaFim || "",
+    diasSemana: Array.isArray(promocao?.diasSemana) ? promocao.diasSemana : [],
+    mostrarCardapio: promocao?.mostrarCardapio !== false, mostrarTablet: promocao?.mostrarTablet !== false, ativo: promocao?.ativo !== false,
+  });
+  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-gold-400/60 transition";
+  const lbl = "mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500";
+  const valido = f.nome.trim();
+  const toggleDia = (d) => setF((s) => ({ ...s, diasSemana: s.diasSemana.includes(d) ? s.diasSemana.filter((x) => x !== d) : [...s.diasSemana, d].sort() }));
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onFechar}>
+      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-lg flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl max-h-[92vh]">
+        <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-gold-400/15 text-gold-300"><IconPromocao /></span>
+            <h2 className="page-title text-lg font-bold tracking-tight text-white">{promocao ? "Editar promoção" : "Nova promoção"}</h2>
+          </div>
+          <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20">✕</button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+          <div>
+            <span className={lbl}>Nome da promoção *</span>
+            <input autoFocus value={f.nome} onChange={(e) => setF({ ...f, nome: e.target.value })} placeholder="Ex.: Terça do Hambúrguer" className={inp} />
+          </div>
+          <div>
+            <span className={lbl}>Descrição</span>
+            <input value={f.descricao} onChange={(e) => setF({ ...f, descricao: e.target.value })} placeholder="Detalhes da oferta" className={inp} />
+          </div>
+          <div>
+            <span className={lbl}>Tipo de promoção</span>
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+              {PROMO_TIPOS.map((t) => (
+                <button key={t.id} type="button" onClick={() => setF({ ...f, tipo: t.id })}
+                  className={`rounded-xl border px-2 py-2.5 text-center transition ${f.tipo === t.id ? "border-gold-400/60 bg-gold-400/10" : "border-white/10 bg-slate-950/40 hover:bg-white/[0.06]"}`}>
+                  <p className="text-base leading-none">{t.icon}</p>
+                  <p className={`mt-1 text-[10px] font-black ${f.tipo === t.id ? "text-gold-300" : "text-slate-400"}`}>{t.label}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+          {(f.tipo === "percentual" || f.tipo === "valor") && (
+            <div className="grid grid-cols-2 gap-3">
+              {f.tipo === "percentual" ? (
+                <div><span className={lbl}>Desconto (%)</span><input inputMode="numeric" value={f.descontoPercent} onChange={(e) => setF({ ...f, descontoPercent: e.target.value.replace(/[^\d.]/g, "") })} placeholder="10" className={inp} /></div>
+              ) : (
+                <div><span className={lbl}>Desconto (R$)</span><input inputMode="decimal" value={f.descontoValor} onChange={(e) => setF({ ...f, descontoValor: e.target.value.replace(/[^\d.,]/g, "") })} placeholder="5,00" className={inp} /></div>
+              )}
+            </div>
+          )}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <span className={lbl}>Produto vinculado (opcional)</span>
+              <select value={f.produtoId} onChange={(e) => setF({ ...f, produtoId: e.target.value ? Number(e.target.value) : "" })} className={inp}>
+                <option value="">— Nenhum —</option>
+                {produtos.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <span className={lbl}>Categoria vinculada (opcional)</span>
+              <select value={f.categoriaId} onChange={(e) => setF({ ...f, categoriaId: e.target.value ? Number(e.target.value) : "" })} className={inp}>
+                <option value="">— Nenhuma —</option>
+                {categoriasDb.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><span className={lbl}>Início</span><input type="date" value={f.dataInicio || ""} onChange={(e) => setF({ ...f, dataInicio: e.target.value })} className={inp} /></div>
+            <div><span className={lbl}>Fim</span><input type="date" value={f.dataFim || ""} onChange={(e) => setF({ ...f, dataFim: e.target.value })} className={inp} /></div>
+            <div><span className={lbl}>Hora início</span><input type="time" value={f.horaInicio || ""} onChange={(e) => setF({ ...f, horaInicio: e.target.value })} className={inp} /></div>
+            <div><span className={lbl}>Hora fim</span><input type="time" value={f.horaFim || ""} onChange={(e) => setF({ ...f, horaFim: e.target.value })} className={inp} /></div>
+          </div>
+          <div>
+            <span className={lbl}>Dias da semana válidos</span>
+            <div className="flex flex-wrap gap-2">
+              {PROMO_DIAS.map((d, i) => (
+                <button key={i} type="button" onClick={() => toggleDia(i)}
+                  className={`h-10 w-12 rounded-xl border text-xs font-black transition ${f.diasSemana.includes(i) ? "border-gold-400 bg-gold-400 text-blue-950" : "border-white/10 bg-white/[0.04] text-slate-400 hover:bg-white/10"}`}>{d}</button>
+              ))}
+            </div>
+            <p className="mt-1 text-[11px] text-slate-500">Nenhum selecionado = todos os dias.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {[["mostrarCardapio", "📱 Exibir no cardápio externo"], ["mostrarTablet", "📲 Exibir no tablet"]].map(([k, t]) => (
+              <button key={k} type="button" onClick={() => setF({ ...f, [k]: !f[k] })}
+                className={`rounded-xl border px-3 py-2 text-xs font-bold transition ${f[k] ? "border-gold-400/60 bg-gold-400/10 text-gold-200" : "border-white/10 bg-white/[0.03] text-slate-500"}`}>
+                <span className={`mr-1.5 ${f[k] ? "" : "opacity-40"}`}>{f[k] ? "✓" : "○"}</span>{t}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="shrink-0 border-t border-white/10 px-6 py-4 flex gap-3">
+          <button onClick={onFechar} className="flex-1 rounded-2xl border border-white/10 bg-white/[0.06] py-3.5 text-sm font-black text-slate-300 hover:bg-white/10">Cancelar</button>
+          <button onClick={() => valido && onSalvar(f)} disabled={!valido}
+            className="font-display flex-[2] rounded-2xl bg-gold-400 py-3.5 text-sm font-bold text-blue-950 hover:bg-gold-300 transition active:scale-95 shadow-lg shadow-gold-900/30 disabled:opacity-50">
+            {promocao ? "Salvar alterações" : "+ Criar promoção"}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 

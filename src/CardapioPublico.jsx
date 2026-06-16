@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  fetchLojas, fetchProdutos, fetchCategorias,
+  fetchLojas, fetchProdutos, fetchCategorias, fetchPromocoes,
   inserirPedido, atualizarPedido, escutarPedidos,
   buscarClientePorTelefone, upsertCliente,
 } from "./lib/supabase";
 import {
   ProdutoModal, formatCurrency, fallbackImage, statusMap, STATUS_TABLET_LABEL, isValidCommand,
+  promocaoVigente, promoResumoDesconto,
 } from "./App";
 import { LogoPP } from "./components/BrandLogo";
 
@@ -22,6 +23,7 @@ export default function CardapioPublico() {
   const [loja, setLoja]           = useState(undefined); // undefined=carregando, null=não achou
   const [produtos, setProdutos]   = useState([]);
   const [categorias, setCategorias] = useState([]);
+  const [promocoes, setPromocoes] = useState([]);
   const [orders, setOrders]       = useState([]);
   const [cat, setCat]             = useState("Todos");
   const [busca, setBusca]         = useState("");
@@ -42,7 +44,7 @@ export default function CardapioPublico() {
     let vivo = true;
     (async () => {
       try {
-        const [lojas, prods, cats] = await Promise.all([fetchLojas(), fetchProdutos(), fetchCategorias()]);
+        const [lojas, prods, cats, promos] = await Promise.all([fetchLojas(), fetchProdutos(), fetchCategorias(), fetchPromocoes().catch(() => [])]);
         if (!vivo) return;
         const l = lojas.find((x) => x.prefixo === prefixo) || null;
         setLoja(l);
@@ -51,6 +53,7 @@ export default function CardapioPublico() {
           const canalOk = (p) => mesaURL ? (p.visivelQr !== false) : (p.visivelExterno !== false);
           setProdutos(prods.filter((p) => (p.lojaId == null || p.lojaId === l.id) && p.active && canalOk(p)));
           setCategorias(cats.filter((c) => (c.lojaId == null || c.lojaId === l.id) && c.active !== false));
+          setPromocoes((promos || []).filter((p) => p.lojaId === l.id && p.ativo && p.mostrarCardapio && promocaoVigente(p)));
         }
       } catch { if (vivo) setLoja(null); }
     })();
@@ -179,6 +182,18 @@ export default function CardapioPublico() {
           <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="🔍 Buscar no cardápio…"
             className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none focus:border-blue-400 placeholder:text-slate-500" />
         </div>
+
+        {/* Ofertas vigentes */}
+        {promocoes.length > 0 && (
+          <div className="mb-4 flex gap-3 overflow-x-auto pb-1">
+            {promocoes.map((p) => (
+              <div key={p.id} className="flex min-w-[180px] shrink-0 items-center gap-3 rounded-2xl border border-gold-400/40 bg-gradient-to-br from-gold-400/15 to-gold-400/[0.04] px-4 py-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gold-400/20 text-gold-300">🏷️</span>
+                <div className="min-w-0"><p className="truncate text-sm font-black text-white">{p.nome}</p><p className="text-xs font-black text-gold-400">{promoResumoDesconto(p)}</p></div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Grade de produtos */}
         <div className="grid gap-4 pb-6 sm:grid-cols-2">

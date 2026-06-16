@@ -173,6 +173,53 @@ export function escutarAssinaturas(onMudanca) {
     .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
   return () => supabase.removeChannel(canal)
 }
+// ════════════════════════════════════════════════════════════
+//  Promoções (migration 039) — CRUD + Realtime (tolerante)
+// ════════════════════════════════════════════════════════════
+function dbParaPromocao(r) {
+  return { id: r.id, lojaId: r.loja_id, nome: r.nome, descricao: r.descricao ?? "", tipo: r.tipo ?? "percentual",
+    descontoPercent: r.desconto_percent != null ? Number(r.desconto_percent) : null,
+    descontoValor: r.desconto_valor != null ? Number(r.desconto_valor) : null,
+    produtoId: r.produto_id ?? null, categoriaId: r.categoria_id ?? null,
+    dataInicio: r.data_inicio, dataFim: r.data_fim, horaInicio: r.hora_inicio, horaFim: r.hora_fim,
+    diasSemana: Array.isArray(r.dias_semana) ? r.dias_semana : null,
+    mostrarCardapio: r.mostrar_cardapio !== false, mostrarTablet: r.mostrar_tablet !== false, ativo: r.ativo !== false }
+}
+function promocaoParaDb(p) {
+  return { loja_id: p.lojaId ?? null, nome: p.nome, descricao: p.descricao || null, tipo: p.tipo || 'percentual',
+    desconto_percent: p.descontoPercent != null && p.descontoPercent !== "" ? Number(p.descontoPercent) : null,
+    desconto_valor: p.descontoValor != null && p.descontoValor !== "" ? Number(p.descontoValor) : null,
+    produto_id: p.produtoId || null, categoria_id: p.categoriaId || null,
+    data_inicio: p.dataInicio || null, data_fim: p.dataFim || null, hora_inicio: p.horaInicio || null, hora_fim: p.horaFim || null,
+    dias_semana: Array.isArray(p.diasSemana) ? p.diasSemana : null,
+    mostrar_cardapio: p.mostrarCardapio !== false, mostrar_tablet: p.mostrarTablet !== false, ativo: p.ativo !== false }
+}
+export async function fetchPromocoes() {
+  const { data, error } = await supabase.from('tab_promocoes').select('*').order('criado_em', { ascending: false })
+  if (error || !data) return []
+  return data.map(dbParaPromocao)
+}
+export async function inserirPromocao(p) {
+  const { data, error } = await supabase.from('tab_promocoes').insert([promocaoParaDb(p)]).select().single()
+  if (error) throw error
+  return dbParaPromocao(data)
+}
+export async function atualizarPromocao(id, p) {
+  const { error } = await supabase.from('tab_promocoes').update({ ...promocaoParaDb(p), atualizado_em: new Date().toISOString() }).eq('id', id)
+  if (error) throw error
+}
+export async function excluirPromocao(id) {
+  const { error } = await supabase.from('tab_promocoes').delete().eq('id', id)
+  if (error) throw error
+}
+export function escutarPromocoes(onMudanca) {
+  const reload = async () => { try { onMudanca(await fetchPromocoes()) } catch {} }
+  const canal = supabase.channel('ch_promocoes_' + Math.random().toString(36).slice(2))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_promocoes' }, reload)
+    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
+  return () => supabase.removeChannel(canal)
+}
+
 // Cria/atualiza a assinatura de uma loja (super admin). Upsert por loja_id.
 export async function salvarAssinatura(lojaId, campos) {
   const payload = { loja_id: lojaId, atualizado_em: new Date().toISOString() }
