@@ -429,6 +429,39 @@ export function escutarFidelidadeTransacoes(onMudanca) {
   return () => supabase.removeChannel(canal)
 }
 
+// ════════════════════════════════════════════════════════════
+//  Chamados de mesa (migration 044) — CRUD + Realtime (tolerante)
+// ════════════════════════════════════════════════════════════
+function dbParaChamado(r) {
+  return { id: r.id, lojaId: r.loja_id, mesa: r.mesa ?? "", comanda: r.comanda ?? "", tipo: r.tipo ?? "garcom", status: r.status ?? "pendente", criadoEmISO: r.criado_em, atendidoEmISO: r.atendido_em, atendidoPor: r.atendido_por ?? null }
+}
+export async function fetchChamados(lojaId) {
+  let q = supabase.from('tab_chamados').select('*').order('criado_em', { ascending: false }).limit(200)
+  if (lojaId != null) q = q.eq('loja_id', lojaId)
+  const { data, error } = await q
+  if (error || !data) return []
+  return data.map(dbParaChamado)
+}
+export async function criarChamado(c) {
+  const { data, error } = await supabase.from('tab_chamados').insert([{ loja_id: c.lojaId ?? null, mesa: c.mesa || null, comanda: c.comanda || null, tipo: c.tipo || 'garcom', status: 'pendente' }]).select().single()
+  if (error) throw error
+  return dbParaChamado(data)
+}
+export async function atualizarChamado(id, { status, atendidoPor }) {
+  const campos = { status }
+  if (status === 'atendido') campos.atendido_em = new Date().toISOString()
+  if (atendidoPor != null) campos.atendido_por = atendidoPor
+  const { error } = await supabase.from('tab_chamados').update(campos).eq('id', id)
+  if (error) throw error
+}
+export function escutarChamados(onMudanca) {
+  const reload = async () => { try { onMudanca(await fetchChamados(null)) } catch {} }
+  const canal = supabase.channel('ch_chamados_' + Math.random().toString(36).slice(2))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_chamados' }, reload)
+    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
+  return () => supabase.removeChannel(canal)
+}
+
 // Cria/atualiza a assinatura de uma loja (super admin). Upsert por loja_id.
 export async function salvarAssinatura(lojaId, campos) {
   const payload = { loja_id: lojaId, atualizado_em: new Date().toISOString() }

@@ -22,6 +22,7 @@ import {
   fetchSetoresCozinha, inserirSetorCozinha, atualizarSetorCozinha, excluirSetorCozinha, escutarSetoresCozinha,
   fetchCaixaAberto, fetchCaixas, fetchMovimentosCaixa, abrirCaixa, registrarMovimentoCaixa, fecharCaixa, escutarCaixas,
   fetchFidelidadeRegras, salvarFidelidadeRegra, fetchFidelidadeRecompensas, inserirRecompensa, excluirRecompensa, fetchFidelidadeTransacoes, lancarFidelidadeTransacao, escutarFidelidadeTransacoes,
+  fetchChamados, criarChamado, atualizarChamado, escutarChamados,
 } from "./lib/supabase";
 import { statusAssinatura, getCurrentCompanyPlan, modulosDoPlano, MODULOS_LABEL, canAccessModule, getBlockedModuleMessage } from "./lib/plans";
 import { GeradorComandas } from "./components/QRComandas";
@@ -615,6 +616,7 @@ export default function RestaurantePedidoApp() {
   const [fidRegras, setFidRegras] = useState([]);          // fidelidade: regras (migration 043)
   const [fidRecompensas, setFidRecompensas] = useState([]); // fidelidade: recompensas
   const [fidTransacoes, setFidTransacoes] = useState([]);  // fidelidade: transações de pontos
+  const [chamados, setChamados] = useState([]);            // chamados de mesa (migration 044)
   const [lojaContexto, setLojaContexto] = useState(null); // super admin: empresa em foco para cadastros
   const [dbReady, setDbReady] = useState(false);
   const [loading, setLoading]     = useState(true);
@@ -655,6 +657,7 @@ export default function RestaurantePedidoApp() {
         try { setFidRegras(await fetchFidelidadeRegras()); } catch { /* migration 043 pendente */ }
         try { setFidRecompensas(await fetchFidelidadeRecompensas()); } catch { /* migration 043 pendente */ }
         try { setFidTransacoes(await fetchFidelidadeTransacoes(null)); } catch { /* migration 043 pendente */ }
+        try { setChamados(await fetchChamados(null)); } catch { /* migration 044 pendente */ }
         setDbReady(true);
         setLoading(false);
 
@@ -680,6 +683,7 @@ export default function RestaurantePedidoApp() {
         try { unsubs.push(escutarSetoresCozinha(setSetoresCozinha)); } catch {}
         try { unsubs.push(escutarCaixas(setCaixas)); } catch {}
         try { unsubs.push(escutarFidelidadeTransacoes(setFidTransacoes)); } catch {}
+        try { unsubs.push(escutarChamados(setChamados)); } catch {}
       } catch (err) {
         console.warn("Supabase indisponível — usando fallback local:", err.message);
         setProducts(initialProducts);
@@ -1113,7 +1117,19 @@ export default function RestaurantePedidoApp() {
       await Promise.all(currentTableOrders.map((o) => atualizarPedido(o.id, { status_pagamento: "solicitado" })));
     } catch {}
     if (canAccess(currentUser, "cashier")) setActiveTab("cashier");
+    registrarChamadoFn("conta");
     notify("success", "Conta solicitada ao caixa. Aguarde a conferência dos itens da mesa.");
+  }
+
+  // ── Chamados de mesa (migration 044) ────────────────────────
+  async function registrarChamadoFn(tipo) {
+    if (!dbReady) return;
+    try { const c = await criarChamado({ lojaId: lojaAtual, mesa: currentTable, comanda: commandCode || "", tipo }); setChamados((cur) => [c, ...cur]); }
+    catch {}
+  }
+  async function atenderChamadoFn(id) {
+    setChamados((cur) => cur.map((c) => c.id === id ? { ...c, status: "atendido" } : c));
+    if (dbReady) try { await atualizarChamado(id, { status: "atendido", atendidoPor: currentUser?.id ?? null }); } catch {}
   }
 
   async function closePayment() {
@@ -1900,7 +1916,7 @@ export default function RestaurantePedidoApp() {
           <>
             <TabletView
               promocoes={filtraLoja(promocoes).filter((p) => p.ativo && p.mostrarTablet && promocaoVigente(p))}
-              gruposOpcoes={filtraLoja(gruposOpcoes)} opcoes={filtraLoja(opcoes)}
+              gruposOpcoes={filtraLoja(gruposOpcoes)} opcoes={filtraLoja(opcoes)} onChamarGarcom={() => registrarChamadoFn("garcom")}
               products={products} categories={categories}
               filteredItems={filteredItems} selectedCategory={selectedCategory} setSelectedCategory={setSelectedCategory}
               search={search} setSearch={setSearch}
@@ -1944,7 +1960,7 @@ export default function RestaurantePedidoApp() {
         )}
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} products={products} lojaInfo={lojaInfo} />}
         {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierView orders={orders} baixarComandas={baixarComandas} baixarPedidos={baixarPedidos} formasPagamento={formasPagamentoLoja} onSair={logout} lojaInfo={lojaInfo} />}
-        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} promocoes={filtraLoja(promocoes)} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} opcoesApi={{ grupos: filtraLoja(gruposOpcoes), opcoes: filtraLoja(opcoes), addGrupo: addGrupoOpcoes, editarGrupo: editarGrupoOpcoes, removerGrupo: removerGrupoOpcoes, addOpcao, editarOpcao, removerOpcao }} setores={filtraLoja(setoresCozinha)} setoresApi={{ add: addSetorCozinha, editar: editarSetorCozinha, remover: removerSetorCozinha }} caixaAberto={caixaAberto} caixasLoja={filtraLoja(caixas)} caixaApi={{ abrir: abrirCaixaFn, movimentar: movimentarCaixaFn, fechar: fecharCaixaFn, fetchMovimentos: fetchMovimentosCaixa }} fidRegra={fidRegraAtual} fidRecompensas={filtraLoja(fidRecompensas)} fidTransacoes={filtraLoja(fidTransacoes)} fidApi={{ salvarRegra: salvarRegraFid, addRecompensa: addRecompensaFid, removerRecompensa: removerRecompensaFid, lancarPontos }} />}
+        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} promocoes={filtraLoja(promocoes)} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} opcoesApi={{ grupos: filtraLoja(gruposOpcoes), opcoes: filtraLoja(opcoes), addGrupo: addGrupoOpcoes, editarGrupo: editarGrupoOpcoes, removerGrupo: removerGrupoOpcoes, addOpcao, editarOpcao, removerOpcao }} setores={filtraLoja(setoresCozinha)} setoresApi={{ add: addSetorCozinha, editar: editarSetorCozinha, remover: removerSetorCozinha }} caixaAberto={caixaAberto} caixasLoja={filtraLoja(caixas)} caixaApi={{ abrir: abrirCaixaFn, movimentar: movimentarCaixaFn, fechar: fecharCaixaFn, fetchMovimentos: fetchMovimentosCaixa }} fidRegra={fidRegraAtual} fidRecompensas={filtraLoja(fidRecompensas)} fidTransacoes={filtraLoja(fidTransacoes)} fidApi={{ salvarRegra: salvarRegraFid, addRecompensa: addRecompensaFid, removerRecompensa: removerRecompensaFid, lancarPontos }} chamados={filtraLoja(chamados)} atenderChamado={atenderChamadoFn} />}
 
       </div>
     </div>
@@ -1955,7 +1971,7 @@ export default function RestaurantePedidoApp() {
 //  TabletView — tela cheia para pedidos do cliente
 // ════════════════════════════════════════════════════════════
 function TabletView({
-  promocoes = [], gruposOpcoes = [], opcoes = [],
+  promocoes = [], gruposOpcoes = [], opcoes = [], onChamarGarcom = () => {},
   products, categories, filteredItems, selectedCategory, setSelectedCategory,
   search, setSearch, cart, tableNumber, setTableNumber,
   customerName, setCustomerName, commandCode, setCommandCode,
@@ -2137,6 +2153,7 @@ function TabletView({
   const [garcomChamado, setGarcomChamado] = useState(false);   // feedback do botão "Chamar garçom"
   function chamarGarcom() {
     setGarcomChamado(true);
+    onChamarGarcom();
     setTimeout(() => setGarcomChamado(false), 4000);
   }
 
@@ -4927,7 +4944,7 @@ function ComboEmpresaFoco({ lojas = [], valor, onChange }) {
   );
 }
 
-function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, definirAcoesUsuario, toggleUserStatus, toggleAccessStatus, usersLoja, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], addLoja, toggleLoja, editarLoja, removerLoja, setLicencaEmpresa = async()=>{}, setValidadeLicenca = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, setModoUsoEmpresa = async()=>{}, salvarConfigExterno = async()=>{}, mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, clientes = [], planoAtual = null, assinaturaAtual = null, planos = [], planoModulos = [], definirAssinatura = async()=>{}, promocoes = [], addPromocao = async()=>{}, editarPromocao = async()=>{}, togglePromocao = async()=>{}, removerPromocao = async()=>{}, opcoesApi = null, setores = [], setoresApi = null, caixaAberto = null, caixasLoja = [], caixaApi = null, fidRegra = null, fidRecompensas = [], fidTransacoes = [], fidApi = null }) {
+function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, definirAcoesUsuario, toggleUserStatus, toggleAccessStatus, usersLoja, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], addLoja, toggleLoja, editarLoja, removerLoja, setLicencaEmpresa = async()=>{}, setValidadeLicenca = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, setModoUsoEmpresa = async()=>{}, salvarConfigExterno = async()=>{}, mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, clientes = [], planoAtual = null, assinaturaAtual = null, planos = [], planoModulos = [], definirAssinatura = async()=>{}, promocoes = [], addPromocao = async()=>{}, editarPromocao = async()=>{}, togglePromocao = async()=>{}, removerPromocao = async()=>{}, opcoesApi = null, setores = [], setoresApi = null, caixaAberto = null, caixasLoja = [], caixaApi = null, fidRegra = null, fidRecompensas = [], fidTransacoes = [], fidApi = null, chamados = [], atenderChamado = async()=>{} }) {
   // Menu reorganizado por contexto (SaaS premium) — mesmos ids e permissões de antes
   const menu = [
     { grupo: "Visão Geral", itens: [
@@ -4939,6 +4956,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
     { grupo: "Operação", itens: [
       { id: "mesas", icon: <IconMesas />, label: "Mesas" },
       { id: "comandas", icon: <IconQr />, label: "Comandas e QR Code" },
+      { id: "chamados", icon: <IconMesas />, label: "Chamados de Mesa" },
       { id: "setores", icon: <IconCategorias />, label: "Setores de Cozinha" },
     ]},
     { grupo: "Cardápio", itens: [
@@ -5107,6 +5125,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           {ativo === "fidelidade" && (precisaEmpresa ? avisoEmpresa : <FidelidadeAdmin regra={fidRegra} recompensas={fidRecompensas} transacoes={fidTransacoes} clientes={clientes} api={fidApi} />)}
           {ativo === "products"   && (precisaEmpresa ? avisoEmpresa : <ProductAdmin   products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} editarProduto={editarProduto} removerProduto={removerProduto} lojaId={lojaInfo?.id} opcoesApi={opcoesApi} setores={setores} />)}
           {ativo === "setores"    && (precisaEmpresa ? avisoEmpresa : <SetoresCozinhaAdmin setores={setores} produtos={products} api={setoresApi} />)}
+          {ativo === "chamados"   && <ChamadosPainel chamados={chamados} atenderChamado={atenderChamado} />}
           {ativo === "caixa"      && (precisaEmpresa ? avisoEmpresa : <CaixaSessaoAdmin caixaAberto={caixaAberto} caixas={caixasLoja} api={caixaApi} formasPagamento={formasPagamento} currentUser={currentUser} />)}
           {ativo === "users"      && <UserAdmin      users={isSuperAdmin ? users : (usersLoja ?? users)} userForm={userForm} setUserForm={setUserForm} addUser={addUser} toggleUserStatus={toggleUserStatus} editarUsuario={editarUsuario} removerUsuario={removerUsuario} lojaInfo={lojaInfo} lojas={lojas} isSuperAdmin={isSuperAdmin} cargos={cargos} />}
           {ativo === "cargos"     && <CargoAdmin     cargos={cargos} users={isSuperAdmin ? users : (usersLoja ?? users)} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} />}
@@ -8911,6 +8930,62 @@ function FidelidadeAdmin({ regra, recompensas = [], transacoes = [], clientes = 
           </div>
         ))}
       </div>
+    </main>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+//  Admin — Painel de Chamados de Mesa (migration 044)
+// ════════════════════════════════════════════════════════════
+const CHAMADO_TIPOS = { garcom: { label: "Garçom", icon: "🔔", cls: "border-blue-400/30 bg-blue-500/10 text-blue-300" }, conta: { label: "Conta", icon: "🧾", cls: "border-gold-400/30 bg-gold-400/10 text-gold-300" }, ajuda: { label: "Ajuda", icon: "🆘", cls: "border-red-400/30 bg-red-500/10 text-red-300" }, limpeza: { label: "Limpeza", icon: "🧹", cls: "border-emerald-400/30 bg-emerald-500/10 text-emerald-300" } };
+function ChamadosPainel({ chamados = [], atenderChamado }) {
+  const pendentes = chamados.filter((c) => c.status === "pendente").sort((a, b) => new Date(a.criadoEmISO) - new Date(b.criadoEmISO));
+  const atendidos = chamados.filter((c) => c.status === "atendido").slice(0, 12);
+  return (
+    <main className="space-y-5">
+      <PageHeader icone={<IconMesas />} titulo="Chamados de Mesa" descricao="Solicitações dos clientes em tempo real — garçom, conta, ajuda e limpeza." />
+
+      <div className="flex items-center gap-2">
+        <span className={`rounded-full px-3 py-1.5 text-sm font-black ${pendentes.length > 0 ? "bg-red-500/15 text-red-300 animate-pulse" : "bg-emerald-500/15 text-emerald-300"}`}>
+          {pendentes.length > 0 ? `🔔 ${pendentes.length} chamado(s) pendente(s)` : "✓ Nenhum chamado pendente"}
+        </span>
+      </div>
+
+      {pendentes.length > 0 && (
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {pendentes.map((c) => {
+            const t = CHAMADO_TIPOS[c.tipo] || CHAMADO_TIPOS.garcom;
+            return (
+              <div key={c.id} className="rounded-[1.5rem] border border-red-400/30 bg-red-500/[0.06] p-5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ${t.cls}`}>{t.icon} {t.label}</span>
+                  <span className="text-[11px] font-bold text-slate-400">{tempoRelativo(c.criadoEmISO)}</span>
+                </div>
+                <p className="page-title mt-3 text-xl font-bold text-white">{c.mesa || "Mesa —"}</p>
+                {c.comanda && <p className="text-xs text-slate-400">Comanda {c.comanda}</p>}
+                <button onClick={() => atenderChamado(c.id)} className="mt-4 w-full rounded-xl bg-gold-400 py-2.5 text-sm font-black text-blue-950 hover:bg-gold-300 transition active:scale-95">✓ Marcar como atendido</button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {atendidos.length > 0 && (
+        <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.04]">
+          <div className="border-b border-gold-400/15 px-5 py-3"><h3 className="page-title text-sm font-bold uppercase tracking-wider text-white">Atendidos recentemente</h3></div>
+          {atendidos.map((c) => {
+            const t = CHAMADO_TIPOS[c.tipo] || CHAMADO_TIPOS.garcom;
+            return (
+              <div key={c.id} className="flex items-center gap-3 border-t border-white/5 px-5 py-2.5 text-sm">
+                <span className="shrink-0">{t.icon}</span>
+                <span className="font-bold text-slate-200">{c.mesa || "—"}</span>
+                <span className="text-slate-500">{t.label}</span>
+                <span className="ml-auto text-[11px] text-slate-500">{c.atendidoEmISO ? new Date(c.atendidoEmISO).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : ""}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </main>
   );
 }
