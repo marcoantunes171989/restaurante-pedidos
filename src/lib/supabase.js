@@ -508,6 +508,14 @@ export async function loginSupabaseAuth(email, senha) {
 export async function logoutSupabaseAuth() {
   try { await supabase.auth.signOut() } catch {}
 }
+// Garante que a sessão (JWT) já esteja anexada antes de carregar os dados.
+export async function aguardarSessao() {
+  try { const { data } = await supabase.auth.getSession(); return data?.session ?? null } catch { return null }
+}
+// E-mail do usuário da sessão atual (para restaurar o login após reload).
+export async function getSessionEmail() {
+  try { const { data } = await supabase.auth.getSession(); return data?.session?.user?.email ?? null } catch { return null }
+}
 
 // ════════════════════════════════════════════════════════════
 //  Auditoria (migration 045) — trilha de ações (tolerante)

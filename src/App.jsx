@@ -24,7 +24,7 @@ import {
   fetchFidelidadeRegras, salvarFidelidadeRegra, fetchFidelidadeRecompensas, inserirRecompensa, excluirRecompensa, fetchFidelidadeTransacoes, lancarFidelidadeTransacao, escutarFidelidadeTransacoes,
   fetchChamados, criarChamado, atualizarChamado, escutarChamados,
   fetchAuditoria, registrarAuditoria, escutarAuditoria,
-  loginSupabaseAuth, logoutSupabaseAuth,
+  loginSupabaseAuth, logoutSupabaseAuth, aguardarSessao, getSessionEmail,
 } from "./lib/supabase";
 import { usandoSupabaseAuth } from "./lib/authMode";
 import { statusAssinatura, getCurrentCompanyPlan, modulosDoPlano, MODULOS_LABEL, canAccessModule, getBlockedModuleMessage } from "./lib/plans";
@@ -633,6 +633,9 @@ export default function RestaurantePedidoApp() {
 
     async function iniciar() {
       try {
+        // Sob Supabase Auth, garante que a sessão (JWT) esteja anexada ANTES de
+        // carregar os dados — assim, com RLS estrita, vêm os dados da empresa.
+        if (usandoSupabaseAuth()) { try { await aguardarSessao(); } catch {} }
         // Carrega tudo em paralelo
         const [prods, usrs, accs, ords] = await Promise.all([
           fetchProdutos(), fetchUsuarios(), fetchAcessos(), fetchPedidos(),
@@ -705,6 +708,20 @@ export default function RestaurantePedidoApp() {
     iniciar();
     return () => unsubs.forEach((fn) => fn && fn());
   }, []);
+
+  // ── Restaura o login após reload (modo Supabase Auth) ───────
+  // Ao logar no modo supabase, a página recarrega e inicializa autenticada;
+  // aqui reassociamos o currentUser a partir da sessão ativa + dados já carregados.
+  const restaurouSessaoRef = useRef(false);
+  useEffect(() => {
+    if (!usandoSupabaseAuth() || !dbReady || currentUser || restaurouSessaoRef.current) return;
+    (async () => {
+      const email = await getSessionEmail();
+      if (!email) return;
+      const u = users.find((x) => (x.email || "").toLowerCase() === email.toLowerCase());
+      if (u) { restaurouSessaoRef.current = true; aplicarLogin(u, { silencioso: true }); }
+    })();
+  }, [dbReady, users, currentUser]);
 
   // ── Atualização quase imediata na cozinha e painel ──────────
   // Realtime (WebSocket) cobre o instantâneo; este polling de 1.5s
@@ -836,43 +853,39 @@ export default function RestaurantePedidoApp() {
   function notify(type, text) { setMessage({ type, text }); }
   function clearMessage() { setMessage({ type: "", text: "" }); }
 
+  // Aplica o usuário autenticado: checa licença/atividade, define currentUser e
+  // a aba inicial. Usado pelo login legacy e pela restauração de sessão (supabase).
+  function aplicarLogin(credOk, { silencioso = false } = {}) {
+    const lojaDoUser = lojas.find((l) => l.id === credOk.lojaId);
+    if (!credOk.superAdmin && lojaDoUser && lojaDoUser.licencaBloqueada === true) {
+      notify("error", "Licença suspensa, entre em contato com o administrador do sistema."); return false;
+    }
+    if (!credOk.active || (lojaDoUser && lojaDoUser.active === false)) {
+      notify("error", "Usuário inativo, entre em contato com o administrador do sistema."); return false;
+    }
+    setCurrentUser(credOk);
+    auditar("login", "usuario", credOk.id, { email: credOk.email }, credOk);
+    const acessosAtivos = (id) => credOk.accessIds.includes(id) && accesses.some((a) => a.id === id && a.active);
+    const primeira = acessosAtivos("admin") ? "admin" : ordemMenu.find((id) => acessosAtivos(id));
+    setActiveTab(primeira || "blocked");
+    if (!silencioso) notify("success", `Acesso liberado para ${credOk.name}.`);
+    return true;
+  }
+
   async function login(credsOverride) {
     const creds = (credsOverride && credsOverride.email) ? credsOverride : loginForm;
-    let credOk;
     if (usandoSupabaseAuth()) {
-      // Modo Supabase Auth (transição p/ RLS): a senha é validada pelo Auth.
+      // Modo Supabase Auth (transição p/ RLS): valida a senha no Auth e recarrega
+      // para o app inicializar JÁ AUTENTICADO (os dados carregam com o JWT/RLS).
       const r = await loginSupabaseAuth(creds.email, creds.password);
       if (!r.ok) return notify("error", r.error || "Usuário ou senha inválidos.");
-      credOk = users.find((u) => u.email.toLowerCase() === creds.email.toLowerCase());
-      if (!credOk) return notify("error", "Autenticado, mas sem cadastro vinculado a este e-mail.");
-    } else {
-      // Modo legacy (padrão): compara contra tab_usuarios.
-      credOk = users.find((u) => u.email.toLowerCase() === creds.email.toLowerCase() && u.password === creds.password);
-      if (!credOk) return notify("error", "Usuário ou senha inválidos.");
+      window.location.reload();
+      return;
     }
-    const lojaDoUser = lojas.find((l) => l.id === credOk.lojaId);
-    // Licença da empresa suspensa — bloqueia o acesso de todos os usuários da empresa.
-    // (O administrador geral do sistema — superAdmin — nunca é bloqueado.)
-    if (!credOk.superAdmin && lojaDoUser && lojaDoUser.licencaBloqueada === true) {
-      return notify("error", "Licença suspensa, entre em contato com o administrador do sistema.");
-    }
-    // Usuário inativo (ou de empresa inativa) — bloqueia com mensagem específica
-    if (!credOk.active || (lojaDoUser && lojaDoUser.active === false)) {
-      return notify("error", "Usuário inativo, entre em contato com o administrador do sistema.");
-    }
-    const found = credOk;
-    setCurrentUser(found);
-    auditar("login", "usuario", found.id, { email: found.email }, found);
-    // Aba inicial: admin abre no Administrativo; demais seguem a ordem do menu
-    const acessosAtivos = (id) => found.accessIds.includes(id) && accesses.some((a) => a.id === id && a.active);
-    let primeira;
-    if (acessosAtivos("admin")) {
-      primeira = "admin";
-    } else {
-      primeira = ordemMenu.find((id) => acessosAtivos(id));
-    }
-    setActiveTab(primeira || "blocked");
-    notify("success", `Acesso liberado para ${found.name}.`);
+    // Modo legacy (padrão): compara contra tab_usuarios.
+    const credOk = users.find((u) => u.email.toLowerCase() === creds.email.toLowerCase() && u.password === creds.password);
+    if (!credOk) return notify("error", "Usuário ou senha inválidos.");
+    aplicarLogin(credOk);
   }
 
   function logout() {
