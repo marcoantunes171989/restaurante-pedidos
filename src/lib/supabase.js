@@ -462,6 +462,34 @@ export function escutarChamados(onMudanca) {
   return () => supabase.removeChannel(canal)
 }
 
+// ════════════════════════════════════════════════════════════
+//  Auditoria (migration 045) — trilha de ações (tolerante)
+// ════════════════════════════════════════════════════════════
+function dbParaAuditoria(r) {
+  return { id: r.id, lojaId: r.loja_id, usuarioId: r.usuario_id, usuarioNome: r.usuario_nome ?? "", acao: r.acao, entidade: r.entidade ?? "", entidadeId: r.entidade_id ?? null, dados: r.dados ?? null, userAgent: r.user_agent ?? "", criadoEmISO: r.criado_em }
+}
+export async function fetchAuditoria(lojaId, limite = 500) {
+  let q = supabase.from('tab_auditoria').select('*').order('criado_em', { ascending: false }).limit(limite)
+  if (lojaId != null) q = q.eq('loja_id', lojaId)
+  const { data, error } = await q
+  if (error || !data) return []
+  return data.map(dbParaAuditoria)
+}
+export async function registrarAuditoria(a) {
+  try {
+    const { data, error } = await supabase.from('tab_auditoria').insert([{ loja_id: a.lojaId ?? null, usuario_id: a.usuarioId ?? null, usuario_nome: a.usuarioNome || null, acao: a.acao, entidade: a.entidade || null, entidade_id: a.entidadeId ?? null, dados: a.dados ?? null, user_agent: a.userAgent || null }]).select().single()
+    if (error) return null
+    return dbParaAuditoria(data)
+  } catch { return null }
+}
+export function escutarAuditoria(onMudanca) {
+  const reload = async () => { try { onMudanca(await fetchAuditoria(null)) } catch {} }
+  const canal = supabase.channel('ch_auditoria_' + Math.random().toString(36).slice(2))
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'tab_auditoria' }, reload)
+    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
+  return () => supabase.removeChannel(canal)
+}
+
 // Cria/atualiza a assinatura de uma loja (super admin). Upsert por loja_id.
 export async function salvarAssinatura(lojaId, campos) {
   const payload = { loja_id: lojaId, atualizado_em: new Date().toISOString() }

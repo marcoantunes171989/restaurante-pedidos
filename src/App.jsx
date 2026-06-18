@@ -23,6 +23,7 @@ import {
   fetchCaixaAberto, fetchCaixas, fetchMovimentosCaixa, abrirCaixa, registrarMovimentoCaixa, fecharCaixa, escutarCaixas,
   fetchFidelidadeRegras, salvarFidelidadeRegra, fetchFidelidadeRecompensas, inserirRecompensa, excluirRecompensa, fetchFidelidadeTransacoes, lancarFidelidadeTransacao, escutarFidelidadeTransacoes,
   fetchChamados, criarChamado, atualizarChamado, escutarChamados,
+  fetchAuditoria, registrarAuditoria, escutarAuditoria,
 } from "./lib/supabase";
 import { statusAssinatura, getCurrentCompanyPlan, modulosDoPlano, MODULOS_LABEL, canAccessModule, getBlockedModuleMessage } from "./lib/plans";
 import { GeradorComandas } from "./components/QRComandas";
@@ -617,6 +618,7 @@ export default function RestaurantePedidoApp() {
   const [fidRecompensas, setFidRecompensas] = useState([]); // fidelidade: recompensas
   const [fidTransacoes, setFidTransacoes] = useState([]);  // fidelidade: transações de pontos
   const [chamados, setChamados] = useState([]);            // chamados de mesa (migration 044)
+  const [auditoria, setAuditoria] = useState([]);          // trilha de auditoria (migration 045)
   const [lojaContexto, setLojaContexto] = useState(null); // super admin: empresa em foco para cadastros
   const [dbReady, setDbReady] = useState(false);
   const [loading, setLoading]     = useState(true);
@@ -658,6 +660,7 @@ export default function RestaurantePedidoApp() {
         try { setFidRecompensas(await fetchFidelidadeRecompensas()); } catch { /* migration 043 pendente */ }
         try { setFidTransacoes(await fetchFidelidadeTransacoes(null)); } catch { /* migration 043 pendente */ }
         try { setChamados(await fetchChamados(null)); } catch { /* migration 044 pendente */ }
+        try { setAuditoria(await fetchAuditoria(null)); } catch { /* migration 045 pendente */ }
         setDbReady(true);
         setLoading(false);
 
@@ -684,6 +687,7 @@ export default function RestaurantePedidoApp() {
         try { unsubs.push(escutarCaixas(setCaixas)); } catch {}
         try { unsubs.push(escutarFidelidadeTransacoes(setFidTransacoes)); } catch {}
         try { unsubs.push(escutarChamados(setChamados)); } catch {}
+        try { unsubs.push(escutarAuditoria(setAuditoria)); } catch {}
       } catch (err) {
         console.warn("Supabase indisponível — usando fallback local:", err.message);
         setProducts(initialProducts);
@@ -846,6 +850,7 @@ export default function RestaurantePedidoApp() {
     }
     const found = credOk;
     setCurrentUser(found);
+    auditar("login", "usuario", found.id, { email: found.email }, found);
     // Aba inicial: admin abre no Administrativo; demais seguem a ordem do menu
     const acessosAtivos = (id) => found.accessIds.includes(id) && accesses.some((a) => a.id === id && a.active);
     let primeira;
@@ -908,6 +913,7 @@ export default function RestaurantePedidoApp() {
       const cargo = cargos.find((c) => c.id === Number(dados.cargoId));
       const { loja, email } = await cadastrarEmpresa({ ...dados, logoUrl: dados.logoUrl || "", cargoId: cargo?.id || null, cargoNome: cargo?.nome || "Gestor" });
       setLojas((cur) => [...cur, { ...loja, logoUrl: dados.logoUrl || null }]);
+      auditar("criar", "empresa", loja.id, { nome: loja.nome, prefixo: loja.prefixo });
       // O usuário gestor é cadastrado depois, na tela "Usuários" (este modal trata só dos dados da empresa)
       if (email) {
         const novoUser = { id: Date.now(), name: dados.nomeResponsavel, email, password: dados.senha, role: cargo?.nome || "Gestor", cargoId: cargo?.id || null, active: true, accessIds: ["tablet","kitchen","panel","cashier","admin"], lojaId: loja.id };
@@ -1085,6 +1091,7 @@ export default function RestaurantePedidoApp() {
       try { await atualizarPedido(oid, { status: "cancelado", motivo_cancelamento: motivo }); }
       catch (err) { console.error("Erro ao cancelar pedido:", err); }
     }
+    auditar("cancelar", "pedido", null, { pedido: oid, motivo });
     notify("success", `Pedido cancelado (${motivo}).`);
   }
 
@@ -1119,6 +1126,15 @@ export default function RestaurantePedidoApp() {
     if (canAccess(currentUser, "cashier")) setActiveTab("cashier");
     registrarChamadoFn("conta");
     notify("success", "Conta solicitada ao caixa. Aguarde a conferência dos itens da mesa.");
+  }
+
+  // ── Auditoria (migration 045) — registra ação relevante (tolerante) ──
+  function auditar(acao, entidade, entidadeId = null, dados = null, usuario = null) {
+    if (!dbReady) return;
+    const u = usuario || currentUser;
+    registrarAuditoria({ lojaId: lojaAtual, usuarioId: u?.id ?? null, usuarioNome: u?.name || u?.email || "—", acao, entidade, entidadeId, dados, userAgent: (navigator.userAgent || "").slice(0, 200) })
+      .then((row) => { if (row) setAuditoria((cur) => [row, ...cur].slice(0, 500)); })
+      .catch(() => {});
   }
 
   // ── Chamados de mesa (migration 044) ────────────────────────
@@ -1335,6 +1351,7 @@ export default function RestaurantePedidoApp() {
     try {
       const nova = await salvarAssinatura(lojaId, campos);
       setAssinaturas((cur) => { const resto = cur.filter((a) => a.lojaId !== lojaId); return [...resto, nova]; });
+      auditar("alterar_plano", "plano", lojaId, { status: campos.status, planoId: campos.planoId });
       notify("success", "Plano/assinatura atualizado.");
       return true;
     } catch (err) { notify("error", "Erro ao salvar assinatura: " + (err.message || err)); }
@@ -1397,7 +1414,7 @@ export default function RestaurantePedidoApp() {
     if (!canAccess(currentUser, "cashier") && !canAccess(currentUser, "admin")) return notify("error", "Sem permissão para abrir o caixa.");
     if (caixaAberto) return notify("error", "Já existe um caixa aberto.");
     if (!dbReady) return notify("error", "Sistema offline.");
-    try { const c = await abrirCaixa({ lojaId: lojaAtual, valorAbertura, abertoPor: currentUser?.id ?? null }); setCaixas((cur) => [c, ...cur]); notify("success", "Caixa aberto."); return c; }
+    try { const c = await abrirCaixa({ lojaId: lojaAtual, valorAbertura, abertoPor: currentUser?.id ?? null }); setCaixas((cur) => [c, ...cur]); auditar("abrir_caixa", "caixa", c.id, { abertura: valorAbertura }); notify("success", "Caixa aberto."); return c; }
     catch (e) { notify("error", "Erro ao abrir caixa: " + (e.message || e)); }
   }
   async function movimentarCaixaFn(tipo, valor, descricao) {
@@ -1408,7 +1425,7 @@ export default function RestaurantePedidoApp() {
   }
   async function fecharCaixaFn(valorContado, esperado, diferenca) {
     if (!caixaAberto) return notify("error", "Nenhum caixa aberto.");
-    try { const c = await fecharCaixa(caixaAberto.id, { valorFechamento: valorContado, valorEsperado: esperado, diferenca, fechadoPor: currentUser?.id ?? null }); setCaixas((cur) => cur.map((x) => x.id === c.id ? c : x)); notify("success", "Caixa fechado."); return true; }
+    try { const c = await fecharCaixa(caixaAberto.id, { valorFechamento: valorContado, valorEsperado: esperado, diferenca, fechadoPor: currentUser?.id ?? null }); setCaixas((cur) => cur.map((x) => x.id === c.id ? c : x)); auditar("fechar_caixa", "caixa", c.id, { contado: valorContado, esperado, diferenca }); notify("success", "Caixa fechado."); return true; }
     catch (e) { notify("error", "Erro ao fechar caixa: " + (e.message || e)); }
   }
 
@@ -1481,6 +1498,7 @@ export default function RestaurantePedidoApp() {
     catch (err) { notify("error", "Erro ao salvar licença: " + err.message); return; }
     // Trilha de auditoria da licença (migration 031) — falha silenciosa se indisponível
     if (dbReady) try { await registrarLicencaHistorico({ lojaId: id, acao: bloquear ? "suspensa" : "liberada", motivo: motivo || null, usuarioEmail: currentUser?.email || null }); } catch {}
+    auditar("alterar_licenca", "licenca", id, { empresa: l?.nome, bloqueada: bloquear, motivo: motivo || null });
     notify("success", bloquear
       ? `Licença da empresa "${l?.nome || ""}" SUSPENSA. Acessos bloqueados.`
       : `Licença da empresa "${l?.nome || ""}" LIBERADA. Acessos reativados.`);
@@ -1577,6 +1595,7 @@ export default function RestaurantePedidoApp() {
       setProducts((cur) => [saved, ...cur]);
     } catch { setProducts((cur) => [{ ...np, id: Date.now() }, ...cur]); }
     setAdminForm({ name: "", category: "Pratos principais", price: "", cost: "", time: "15-25 min", imageUrl: "", ingredientsText: "", description: "" });
+    auditar("criar", "produto", null, { nome: np.name });
     notify("success", "Produto cadastrado com sucesso no administrativo.");
     return true;
   }
@@ -1624,12 +1643,15 @@ export default function RestaurantePedidoApp() {
         ...(dados.setorId !== undefined ? { setor_id: dados.setorId || null } : {}),
       });
     } catch (e) { notify("error", "Erro ao salvar: " + e.message); }
+    auditar("editar", "produto", pid, { nome: dados.name });
     notify("success", "Produto atualizado.");
   }
   async function removerProduto(pid) {
     if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
+    const alvo = products.find((p) => p.id === pid);
     setProducts((cur) => cur.filter((p) => p.id !== pid));
     if (dbReady) try { await excluirProduto(pid); } catch (e) { notify("error", "Erro ao excluir: " + e.message); return; }
+    auditar("excluir", "produto", pid, { nome: alvo?.name });
     notify("success", "Produto excluído.");
   }
 
@@ -1673,6 +1695,7 @@ export default function RestaurantePedidoApp() {
       setUsers((cur) => [saved, ...cur]);
     } catch { setUsers((cur) => [{ ...nu, id: Date.now() }, ...cur]); }
     setUserForm({ name: "", email: "", password: "", role: "", cargoId: "", lojaId: isSuperAdmin ? "" : lojaAtual });
+    auditar("criar", "usuario", null, { nome: nu.name, email: nu.email, cargo: nu.role });
     notify("success", "Usuário cadastrado. Agora vincule os acessos na tela Usuário x Acesso.");
     return true;
   }
@@ -1960,7 +1983,7 @@ export default function RestaurantePedidoApp() {
         )}
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} products={products} lojaInfo={lojaInfo} />}
         {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierView orders={orders} baixarComandas={baixarComandas} baixarPedidos={baixarPedidos} formasPagamento={formasPagamentoLoja} onSair={logout} lojaInfo={lojaInfo} />}
-        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} promocoes={filtraLoja(promocoes)} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} opcoesApi={{ grupos: filtraLoja(gruposOpcoes), opcoes: filtraLoja(opcoes), addGrupo: addGrupoOpcoes, editarGrupo: editarGrupoOpcoes, removerGrupo: removerGrupoOpcoes, addOpcao, editarOpcao, removerOpcao }} setores={filtraLoja(setoresCozinha)} setoresApi={{ add: addSetorCozinha, editar: editarSetorCozinha, remover: removerSetorCozinha }} caixaAberto={caixaAberto} caixasLoja={filtraLoja(caixas)} caixaApi={{ abrir: abrirCaixaFn, movimentar: movimentarCaixaFn, fechar: fecharCaixaFn, fetchMovimentos: fetchMovimentosCaixa }} fidRegra={fidRegraAtual} fidRecompensas={filtraLoja(fidRecompensas)} fidTransacoes={filtraLoja(fidTransacoes)} fidApi={{ salvarRegra: salvarRegraFid, addRecompensa: addRecompensaFid, removerRecompensa: removerRecompensaFid, lancarPontos }} chamados={filtraLoja(chamados)} atenderChamado={atenderChamadoFn} />}
+        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} promocoes={filtraLoja(promocoes)} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} opcoesApi={{ grupos: filtraLoja(gruposOpcoes), opcoes: filtraLoja(opcoes), addGrupo: addGrupoOpcoes, editarGrupo: editarGrupoOpcoes, removerGrupo: removerGrupoOpcoes, addOpcao, editarOpcao, removerOpcao }} setores={filtraLoja(setoresCozinha)} setoresApi={{ add: addSetorCozinha, editar: editarSetorCozinha, remover: removerSetorCozinha }} caixaAberto={caixaAberto} caixasLoja={filtraLoja(caixas)} caixaApi={{ abrir: abrirCaixaFn, movimentar: movimentarCaixaFn, fechar: fecharCaixaFn, fetchMovimentos: fetchMovimentosCaixa }} fidRegra={fidRegraAtual} fidRecompensas={filtraLoja(fidRecompensas)} fidTransacoes={filtraLoja(fidTransacoes)} fidApi={{ salvarRegra: salvarRegraFid, addRecompensa: addRecompensaFid, removerRecompensa: removerRecompensaFid, lancarPontos }} chamados={filtraLoja(chamados)} atenderChamado={atenderChamadoFn} auditoria={filtraLoja(auditoria)} />}
 
       </div>
     </div>
@@ -4944,7 +4967,7 @@ function ComboEmpresaFoco({ lojas = [], valor, onChange }) {
   );
 }
 
-function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, definirAcoesUsuario, toggleUserStatus, toggleAccessStatus, usersLoja, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], addLoja, toggleLoja, editarLoja, removerLoja, setLicencaEmpresa = async()=>{}, setValidadeLicenca = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, setModoUsoEmpresa = async()=>{}, salvarConfigExterno = async()=>{}, mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, clientes = [], planoAtual = null, assinaturaAtual = null, planos = [], planoModulos = [], definirAssinatura = async()=>{}, promocoes = [], addPromocao = async()=>{}, editarPromocao = async()=>{}, togglePromocao = async()=>{}, removerPromocao = async()=>{}, opcoesApi = null, setores = [], setoresApi = null, caixaAberto = null, caixasLoja = [], caixaApi = null, fidRegra = null, fidRecompensas = [], fidTransacoes = [], fidApi = null, chamados = [], atenderChamado = async()=>{} }) {
+function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, definirAcoesUsuario, toggleUserStatus, toggleAccessStatus, usersLoja, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], addLoja, toggleLoja, editarLoja, removerLoja, setLicencaEmpresa = async()=>{}, setValidadeLicenca = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, setModoUsoEmpresa = async()=>{}, salvarConfigExterno = async()=>{}, mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, clientes = [], planoAtual = null, assinaturaAtual = null, planos = [], planoModulos = [], definirAssinatura = async()=>{}, promocoes = [], addPromocao = async()=>{}, editarPromocao = async()=>{}, togglePromocao = async()=>{}, removerPromocao = async()=>{}, opcoesApi = null, setores = [], setoresApi = null, caixaAberto = null, caixasLoja = [], caixaApi = null, fidRegra = null, fidRecompensas = [], fidTransacoes = [], fidApi = null, chamados = [], atenderChamado = async()=>{}, auditoria = [] }) {
   // Menu reorganizado por contexto (SaaS premium) — mesmos ids e permissões de antes
   const menu = [
     { grupo: "Visão Geral", itens: [
@@ -4982,6 +5005,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
         { id: "cargos", icon: <IconCargos />, label: "Cargos / Perfis" },
         { id: "access", icon: <IconPermissoes />, label: "Permissões" },
         { id: "link", icon: <IconLink />, label: "Usuário x Acesso" },
+        { id: "auditoria", icon: <IconPermissoes />, label: "Auditoria" },
       ]},
       { grupo: "Plataforma", itens: [
         { id: "lojas", icon: <IconEmpresas />, label: "Empresas" },
@@ -5126,6 +5150,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           {ativo === "products"   && (precisaEmpresa ? avisoEmpresa : <ProductAdmin   products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} editarProduto={editarProduto} removerProduto={removerProduto} lojaId={lojaInfo?.id} opcoesApi={opcoesApi} setores={setores} />)}
           {ativo === "setores"    && (precisaEmpresa ? avisoEmpresa : <SetoresCozinhaAdmin setores={setores} produtos={products} api={setoresApi} />)}
           {ativo === "chamados"   && <ChamadosPainel chamados={chamados} atenderChamado={atenderChamado} />}
+          {ativo === "auditoria"  && <AuditoriaAdmin logs={auditoria} />}
           {ativo === "caixa"      && (precisaEmpresa ? avisoEmpresa : <CaixaSessaoAdmin caixaAberto={caixaAberto} caixas={caixasLoja} api={caixaApi} formasPagamento={formasPagamento} currentUser={currentUser} />)}
           {ativo === "users"      && <UserAdmin      users={isSuperAdmin ? users : (usersLoja ?? users)} userForm={userForm} setUserForm={setUserForm} addUser={addUser} toggleUserStatus={toggleUserStatus} editarUsuario={editarUsuario} removerUsuario={removerUsuario} lojaInfo={lojaInfo} lojas={lojas} isSuperAdmin={isSuperAdmin} cargos={cargos} />}
           {ativo === "cargos"     && <CargoAdmin     cargos={cargos} users={isSuperAdmin ? users : (usersLoja ?? users)} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} />}
@@ -8986,6 +9011,66 @@ function ChamadosPainel({ chamados = [], atenderChamado }) {
           })}
         </div>
       )}
+    </main>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+//  Admin — Auditoria de ações (migration 045)
+// ════════════════════════════════════════════════════════════
+const AUDIT_ACAO = { login: { l: "Login", ic: "🔑", c: "text-blue-300" }, criar: { l: "Criar", ic: "➕", c: "text-emerald-300" }, editar: { l: "Editar", ic: "✏️", c: "text-amber-300" }, excluir: { l: "Excluir", ic: "🗑️", c: "text-red-300" }, cancelar: { l: "Cancelar", ic: "✖️", c: "text-red-300" }, abrir_caixa: { l: "Abrir caixa", ic: "🔓", c: "text-emerald-300" }, fechar_caixa: { l: "Fechar caixa", ic: "🔒", c: "text-gold-300" }, alterar_plano: { l: "Alterar plano", ic: "💳", c: "text-gold-300" }, alterar_licenca: { l: "Alterar licença", ic: "🛡️", c: "text-amber-300" } };
+function AuditoriaAdmin({ logs = [] }) {
+  const [busca, setBusca] = useState("");
+  const [fAcao, setFAcao] = useState("todas");
+  const [fEnt, setFEnt] = useState("todas");
+  const [ini, setIni] = useState("");
+  const [fim, setFim] = useState("");
+  const acoes = [...new Set(logs.map((l) => l.acao))];
+  const entidades = [...new Set(logs.map((l) => l.entidade).filter(Boolean))];
+  const termo = busca.trim().toLowerCase();
+  const filtrados = logs.filter((l) => {
+    if (fAcao !== "todas" && l.acao !== fAcao) return false;
+    if (fEnt !== "todas" && l.entidade !== fEnt) return false;
+    if (ini && new Date(l.criadoEmISO) < new Date(`${ini}T00:00:00`)) return false;
+    if (fim && new Date(l.criadoEmISO) > new Date(`${fim}T23:59:59`)) return false;
+    if (termo && !`${l.usuarioNome} ${l.acao} ${l.entidade} ${JSON.stringify(l.dados || {})}`.toLowerCase().includes(termo)) return false;
+    return true;
+  });
+  const inp = "rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-2.5 text-sm text-white outline-none focus:border-gold-400/60";
+
+  return (
+    <main className="space-y-5">
+      <PageHeader icone={<IconPermissoes />} titulo="Auditoria" descricao="Trilha das ações relevantes: login, cadastros, exclusões, caixa, plano e licença." />
+
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative min-w-[220px] flex-1">
+          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"><IconBusca /></span>
+          <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por usuário, ação, dados..." className={`${inp} w-full pl-10`} />
+        </div>
+        <select value={fAcao} onChange={(e) => setFAcao(e.target.value)} className={inp}><option value="todas">Todas as ações</option>{acoes.map((a) => <option key={a} value={a}>{AUDIT_ACAO[a]?.l || a}</option>)}</select>
+        <select value={fEnt} onChange={(e) => setFEnt(e.target.value)} className={inp}><option value="todas">Todas as entidades</option>{entidades.map((e) => <option key={e} value={e}>{e}</option>)}</select>
+        <input type="date" value={ini} onChange={(e) => setIni(e.target.value)} className={inp} />
+        <input type="date" value={fim} onChange={(e) => setFim(e.target.value)} className={inp} />
+      </div>
+
+      <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.04]">
+        <div className="hidden grid-cols-[1fr_1.2fr_1fr_2fr_0.8fr] bg-white/[0.03] px-5 py-2.5 text-[11px] font-bold uppercase tracking-widest text-gold-400/70 lg:grid">
+          <span>Ação</span><span>Usuário</span><span>Entidade</span><span>Dados</span><span className="text-right">Quando</span>
+        </div>
+        {filtrados.length === 0 && <p className="px-5 py-8 text-center text-sm text-slate-500">{logs.length === 0 ? "Nenhum registro de auditoria ainda." : "Nenhum registro para este filtro."}</p>}
+        {filtrados.slice(0, 300).map((l) => {
+          const a = AUDIT_ACAO[l.acao] || { l: l.acao, ic: "•", c: "text-slate-300" };
+          return (
+            <div key={l.id} className="grid grid-cols-2 gap-1 border-t border-white/5 px-5 py-3 text-sm lg:grid-cols-[1fr_1.2fr_1fr_2fr_0.8fr] lg:items-center">
+              <span className={`font-black ${a.c}`}>{a.ic} {a.l}</span>
+              <span className="truncate text-slate-200">{l.usuarioNome || "—"}</span>
+              <span className="truncate text-slate-400">{l.entidade || "—"}{l.entidadeId ? ` #${l.entidadeId}` : ""}</span>
+              <span className="truncate text-[12px] text-slate-500">{l.dados ? Object.entries(l.dados).map(([k, v]) => `${k}: ${v}`).join(" · ") : "—"}</span>
+              <span className="text-right text-[11px] text-slate-500">{l.criadoEmISO ? new Date(l.criadoEmISO).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : ""}</span>
+            </div>
+          );
+        })}
+      </div>
     </main>
   );
 }
