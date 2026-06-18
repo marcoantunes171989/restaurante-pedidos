@@ -57,6 +57,32 @@ Auth**. Sem isso, ligar RLS restritiva derruba o app inteiro.
 - [ ] Escrita (pedido/caixa/produto) OK no modo supabase.
 - [ ] Plano de rollback (049) testado na branch.
 
+## Runbook de PRODUÇÃO (ordem estrita — evita derrubar o sistema)
+
+> ⚠️ Quem aplica o SQL é você (o assistente não tem acesso ao seu projeto de
+> produção). A `048` é o **último** passo: rodá-la fora de ordem trava o login
+> de todos, mesmo sem ninguém online.
+
+1. **`047`** no banco de produção (seguro — só funções).
+2. **Registrar o hook** em Authentication → Hooks → Custom Access Token →
+   `public.custom_access_token_hook`.
+3. **Criar usuários no Auth**: `node scripts/criar-auth-users.mjs`
+   (com `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY`). Idempotente.
+4. **RPCs públicas do cardápio** (pré-requisito — ver abaixo): sem elas, o
+   `/cardapio` anônimo (ver menu e **fazer pedido sem login**) para de funcionar
+   após o enforce. **Não rode a 048 antes disto.**
+5. **Flip + deploy:** `AUTH_MODE = 'supabase'` e publicar.
+6. **Login de teste** (gestor, operador, super admin) — policies ainda permissivas.
+7. **`048`** (enforce). Reteste isolamento por empresa + pedido pelo cardápio.
+8. Qualquer falha → **`049`** + `AUTH_MODE='legacy'` + redeploy. Sem perda de dados.
+
+## ⛔ Gate antes da 048 — cardápio público anônimo
+O `/cardapio` é usado por clientes **sem login** (anon). Sob RLS estrita o anon
+perde o read do menu e o insert do pedido. **Antes do enforce** é preciso liberar
+**leitura pública** do menu e expor **criar/acompanhar pedido** por **RPC
+`security definer`**. Esse pacote (`050_*` + ajustes no `CardapioPublico.jsx`) é a
+**próxima entrega** desta branch — só depois dele a `048` fica segura.
+
 ## Observações
 - A `048` cobre as tabelas com `loja_id`, `tab_lojas` (por `id`) e mantém os
   **catálogos** (`tab_planos`, `tab_modulos`, `tab_plano_modulos`, `tab_cargos`,
