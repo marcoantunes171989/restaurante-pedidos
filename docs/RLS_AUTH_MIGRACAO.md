@@ -64,24 +64,29 @@ Auth**. Sem isso, ligar RLS restritiva derruba o app inteiro.
 > de todos, mesmo sem ninguém online.
 
 1. **`047`** no banco de produção (seguro — só funções).
-2. **Registrar o hook** em Authentication → Hooks → Custom Access Token →
+2. **`050`** no banco de produção (seguro — só policies de SELECT público do
+   menu + RPCs `security definer`). Destrava o cardápio anônimo sob RLS.
+3. **Registrar o hook** em Authentication → Hooks → Custom Access Token →
    `public.custom_access_token_hook`.
-3. **Criar usuários no Auth**: `node scripts/criar-auth-users.mjs`
+4. **Criar usuários no Auth**: `node scripts/criar-auth-users.mjs`
    (com `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY`). Idempotente.
-4. **RPCs públicas do cardápio** (pré-requisito — ver abaixo): sem elas, o
-   `/cardapio` anônimo (ver menu e **fazer pedido sem login**) para de funcionar
-   após o enforce. **Não rode a 048 antes disto.**
-5. **Flip + deploy:** `AUTH_MODE = 'supabase'` e publicar.
-6. **Login de teste** (gestor, operador, super admin) — policies ainda permissivas.
-7. **`048`** (enforce). Reteste isolamento por empresa + pedido pelo cardápio.
-8. Qualquer falha → **`049`** + `AUTH_MODE='legacy'` + redeploy. Sem perda de dados.
+5. **Flip + deploy:** em `src/lib/authMode.js` ligue **as duas flags**
+   `AUTH_MODE = 'supabase'` **e** `CARDAPIO_PUBLICO_VIA_RPC = true`; publique.
+6. **Login de teste** (gestor, operador, super admin) e **pedido pelo cardápio**
+   — ainda com policies permissivas (nada deve quebrar).
+7. **`048`** (enforce). Reteste: isolamento por empresa + pedido/acompanhamento
+   pelo `/cardapio` (mesa e externo).
+8. Qualquer falha → **`049`** + `AUTH_MODE='legacy'` + `CARDAPIO_PUBLICO_VIA_RPC=false`
+   + redeploy. Sem perda de dados.
 
-## ⛔ Gate antes da 048 — cardápio público anônimo
-O `/cardapio` é usado por clientes **sem login** (anon). Sob RLS estrita o anon
-perde o read do menu e o insert do pedido. **Antes do enforce** é preciso liberar
-**leitura pública** do menu e expor **criar/acompanhar pedido** por **RPC
-`security definer`**. Esse pacote (`050_*` + ajustes no `CardapioPublico.jsx`) é a
-**próxima entrega** desta branch — só depois dele a `048` fica segura.
+## ✅ Gate resolvido — cardápio público anônimo
+Entregue na **`050`** + `CardapioPublico.jsx` (atrás da flag `CARDAPIO_PUBLICO_VIA_RPC`):
+- **leitura pública** do menu (loja/produtos/categorias/promoções/opções);
+- **criar/acompanhar pedido, conta e chamado** por **RPC `security definer`**
+  (o anônimo não ganha leitura de pedidos/clientes de ninguém);
+- acompanhamento por **polling** (4s) quando a flag está ligada (o realtime
+  anônimo não funciona sob RLS).
+Com a flag **desligada** (padrão), o cardápio segue idêntico ao atual.
 
 ## Observações
 - A `048` cobre as tabelas com `loja_id`, `tab_lojas` (por `id`) e mantém os
