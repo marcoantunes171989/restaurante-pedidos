@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   fetchLojas, fetchProdutos, fetchCategorias, fetchPromocoes, fetchGruposOpcoes, fetchOpcoes,
   inserirPedido, atualizarPedido, escutarPedidos,
-  buscarClientePorTelefone, upsertCliente,
+  buscarClientePorTelefone, upsertCliente, criarChamado,
 } from "./lib/supabase";
 import {
   ProdutoModal, formatCurrency, fallbackImage, statusMap, STATUS_TABLET_LABEL, isValidCommand,
@@ -112,6 +112,13 @@ export default function CardapioPublico() {
   function addConfigurado(item) { setCart((c) => [...c, { ...item, _uid: Date.now() + Math.random() }]); setDetalhe(null); }
   function removerItem(uid) { setCart((c) => c.filter((i) => i._uid !== uid)); }
 
+  // Chamados de mesa (garçom/ajuda/limpeza) — só no modo mesa (QR na mesa)
+  async function chamar(tipo, rotulo) {
+    if (!loja) return;
+    try { await criarChamado({ lojaId: loja.id, mesa: mesa ? `Mesa ${String(mesa).padStart(2, "0")}` : "", comanda: comanda || "", tipo }); setMsg({ t: "success", m: `${rotulo} — a equipe foi avisada.` }); }
+    catch { setMsg({ t: "error", m: "Não foi possível enviar o chamado agora." }); }
+  }
+
   async function enviar() {
     if (cart.length === 0) return;
     const itens = cart.map((i) => ({ name: i.name, quantity: i.quantity, price: i.price, selectedIngredients: i.selectedIngredients, removedIngredients: i.removedIngredients, extraIngredients: i.extraIngredients, selectedOptions: i.selectedOptions || [], observation: i.observation }));
@@ -171,6 +178,15 @@ export default function CardapioPublico() {
             <p className="text-xs text-slate-400">{currentTable ? `${currentTable}${comanda ? " · " + comanda : ""}` : "Cardápio digital"}</p>
           </div>
         </div>
+        {/* Chamados — só no modo mesa (QR na mesa) */}
+        {!modoExterno && mesa && (
+          <div className="mx-auto mt-2 flex max-w-3xl gap-2 overflow-x-auto">
+            {[["garcom", "🔔 Garçom"], ["ajuda", "🆘 Ajuda"], ["limpeza", "🧹 Limpeza"]].map(([t, l]) => (
+              <button key={t} onClick={() => chamar(t, l.replace(/^\S+\s/, ""))}
+                className="shrink-0 rounded-full border border-gold-400/40 bg-gold-400/10 px-3.5 py-1.5 text-xs font-black text-gold-200 hover:bg-gold-400/20 transition active:scale-95">{l}</button>
+            ))}
+          </div>
+        )}
       </header>
 
       <main className="mx-auto max-w-3xl px-4">
