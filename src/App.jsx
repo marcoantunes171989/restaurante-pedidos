@@ -24,7 +24,9 @@ import {
   fetchFidelidadeRegras, salvarFidelidadeRegra, fetchFidelidadeRecompensas, inserirRecompensa, excluirRecompensa, fetchFidelidadeTransacoes, lancarFidelidadeTransacao, escutarFidelidadeTransacoes,
   fetchChamados, criarChamado, atualizarChamado, escutarChamados,
   fetchAuditoria, registrarAuditoria, escutarAuditoria,
+  loginSupabaseAuth, logoutSupabaseAuth,
 } from "./lib/supabase";
+import { usandoSupabaseAuth } from "./lib/authMode";
 import { statusAssinatura, getCurrentCompanyPlan, modulosDoPlano, MODULOS_LABEL, canAccessModule, getBlockedModuleMessage } from "./lib/plans";
 import { GeradorComandas } from "./components/QRComandas";
 import { QRScannerModal  } from "./components/QRScanner";
@@ -834,10 +836,20 @@ export default function RestaurantePedidoApp() {
   function notify(type, text) { setMessage({ type, text }); }
   function clearMessage() { setMessage({ type: "", text: "" }); }
 
-  function login(credsOverride) {
+  async function login(credsOverride) {
     const creds = (credsOverride && credsOverride.email) ? credsOverride : loginForm;
-    const credOk = users.find((u) => u.email.toLowerCase() === creds.email.toLowerCase() && u.password === creds.password);
-    if (!credOk) return notify("error", "Usuário ou senha inválidos.");
+    let credOk;
+    if (usandoSupabaseAuth()) {
+      // Modo Supabase Auth (transição p/ RLS): a senha é validada pelo Auth.
+      const r = await loginSupabaseAuth(creds.email, creds.password);
+      if (!r.ok) return notify("error", r.error || "Usuário ou senha inválidos.");
+      credOk = users.find((u) => u.email.toLowerCase() === creds.email.toLowerCase());
+      if (!credOk) return notify("error", "Autenticado, mas sem cadastro vinculado a este e-mail.");
+    } else {
+      // Modo legacy (padrão): compara contra tab_usuarios.
+      credOk = users.find((u) => u.email.toLowerCase() === creds.email.toLowerCase() && u.password === creds.password);
+      if (!credOk) return notify("error", "Usuário ou senha inválidos.");
+    }
     const lojaDoUser = lojas.find((l) => l.id === credOk.lojaId);
     // Licença da empresa suspensa — bloqueia o acesso de todos os usuários da empresa.
     // (O administrador geral do sistema — superAdmin — nunca é bloqueado.)
@@ -867,6 +879,7 @@ export default function RestaurantePedidoApp() {
     // Ao sair, libera a mesa fixa deste aparelho para que o próximo login
     // peça a seleção da mesa novamente (e libere a mesa para outros).
     try { localStorage.removeItem("pp_tablet_mesa"); } catch {}
+    if (usandoSupabaseAuth()) logoutSupabaseAuth();
     setTableNumber("");
     setCurrentUser(null); setActiveTab("tablet"); setMessage({ type: "", text: "" });
   }

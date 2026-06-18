@@ -463,6 +463,21 @@ export function escutarChamados(onMudanca) {
 }
 
 // ════════════════════════════════════════════════════════════
+//  Supabase Auth (transição para RLS real) — usado só quando o
+//  AUTH_MODE = 'supabase' (src/lib/authMode.js). Inerte no modo legacy.
+// ════════════════════════════════════════════════════════════
+export async function loginSupabaseAuth(email, senha) {
+  try {
+    const { data, error } = await supabase.auth.signInWithPassword({ email: (email || '').trim(), password: senha || '' })
+    if (error) return { ok: false, error: error.message }
+    return { ok: true, session: data?.session ?? null }
+  } catch (e) { return { ok: false, error: e?.message || 'Falha na autenticação.' } }
+}
+export async function logoutSupabaseAuth() {
+  try { await supabase.auth.signOut() } catch {}
+}
+
+// ════════════════════════════════════════════════════════════
 //  Auditoria (migration 045) — trilha de ações (tolerante)
 // ════════════════════════════════════════════════════════════
 function dbParaAuditoria(r) {
