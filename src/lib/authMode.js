@@ -15,12 +15,12 @@
 //  A RLS restritiva (migration 048) só deve ser aplicada após o login
 //  'supabase' estar 100% validado. Rollback: migration 049 + voltar a flag.
 // ════════════════════════════════════════════════════════════
-export const AUTH_MODE = "legacy"; // 'legacy' | 'supabase'
+export const AUTH_MODE = "supabase"; // 'legacy' | 'supabase'
 
 export const usandoSupabaseAuth = () => AUTH_MODE === "supabase";
 
 // Cardápio público via RPC (necessário quando a RLS estrita estiver ligada —
 // migration 048). DESLIGADO por padrão: até lá o /cardapio usa o acesso direto
 // atual (que continua funcionando no modo permissivo). Ligue junto com o enforce.
-export const CARDAPIO_PUBLICO_VIA_RPC = false;
+export const CARDAPIO_PUBLICO_VIA_RPC = true;
 export const cardapioViaRpc = () => CARDAPIO_PUBLICO_VIA_RPC === true;
