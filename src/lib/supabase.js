@@ -463,6 +463,38 @@ export function escutarChamados(onMudanca) {
 }
 
 // ════════════════════════════════════════════════════════════
+//  Cardápio público via RPC (migration 050) — usado só quando
+//  CARDAPIO_PUBLICO_VIA_RPC = true (após o enforce da RLS).
+// ════════════════════════════════════════════════════════════
+export async function rpcCriarPedidoPublico({ lojaId, mesa, comanda, cliente, telefone, itens }) {
+  const { data, error } = await supabase.rpc('pub_criar_pedido', { p_loja_id: lojaId, p_mesa: mesa || null, p_comanda: comanda || null, p_cliente: cliente || null, p_telefone: telefone || null, p_itens: itens || [] })
+  if (error) throw error
+  return data
+}
+export async function rpcUpsertClientePublico({ lojaId, nome, telefone }) {
+  const { error } = await supabase.rpc('pub_upsert_cliente', { p_loja_id: lojaId, p_nome: nome || null, p_telefone: telefone || null })
+  if (error) throw error
+}
+export async function rpcPedidosComanda({ lojaId, comanda }) {
+  const { data, error } = await supabase.rpc('pub_pedidos_comanda', { p_loja_id: lojaId, p_comanda: comanda })
+  if (error || !data) return []
+  return data.map(dbParaPedido)
+}
+export async function rpcPedidosCliente({ lojaId, telefone }) {
+  const { data, error } = await supabase.rpc('pub_pedidos_cliente', { p_loja_id: lojaId, p_telefone: telefone })
+  if (error || !data) return []
+  return data.map(dbParaPedido)
+}
+export async function rpcSolicitarContaPublico({ lojaId, comanda }) {
+  const { error } = await supabase.rpc('pub_solicitar_conta', { p_loja_id: lojaId, p_comanda: comanda })
+  if (error) throw error
+}
+export async function rpcCriarChamadoPublico({ lojaId, mesa, comanda, tipo }) {
+  const { error } = await supabase.rpc('pub_criar_chamado', { p_loja_id: lojaId, p_mesa: mesa || null, p_comanda: comanda || null, p_tipo: tipo || 'garcom' })
+  if (error) throw error
+}
+
+// ════════════════════════════════════════════════════════════
 //  Supabase Auth (transição para RLS real) — usado só quando o
 //  AUTH_MODE = 'supabase' (src/lib/authMode.js). Inerte no modo legacy.
 // ════════════════════════════════════════════════════════════

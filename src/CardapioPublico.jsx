@@ -3,7 +3,9 @@ import {
   fetchLojas, fetchProdutos, fetchCategorias, fetchPromocoes, fetchGruposOpcoes, fetchOpcoes,
   inserirPedido, atualizarPedido, escutarPedidos,
   buscarClientePorTelefone, upsertCliente, criarChamado,
+  rpcCriarPedidoPublico, rpcUpsertClientePublico, rpcPedidosComanda, rpcPedidosCliente, rpcSolicitarContaPublico, rpcCriarChamadoPublico,
 } from "./lib/supabase";
+import { cardapioViaRpc } from "./lib/authMode";
 import {
   ProdutoModal, formatCurrency, fallbackImage, statusMap, STATUS_TABLET_LABEL, isValidCommand,
   promocaoVigente, promoResumoDesconto,
@@ -64,12 +66,30 @@ export default function CardapioPublico() {
     return () => { vivo = false; };
   }, [prefixo]);
 
-  // Realtime dos pedidos (acompanhamento)
+  // Acompanhamento dos pedidos.
+  //  • Modo legacy: realtime direto (atual).
+  //  • Modo RPC (RLS estrita): polling via RPC security definer, por comanda
+  //    (mesa) ou por telefone (externo).
   useEffect(() => {
     if (!loja) return;
+    if (cardapioViaRpc()) {
+      let vivo = true;
+      const tel = (telefone || "").replace(/\D/g, "");
+      const buscar = async () => {
+        try {
+          const lista = modoExterno
+            ? (tel.length >= 10 ? await rpcPedidosCliente({ lojaId: loja.id, telefone: tel }) : [])
+            : (comanda ? await rpcPedidosComanda({ lojaId: loja.id, comanda }) : []);
+          if (vivo) setOrders(lista);
+        } catch {}
+      };
+      buscar();
+      const iv = setInterval(buscar, 4000);
+      return () => { vivo = false; clearInterval(iv); };
+    }
     const off = escutarPedidos((all) => setOrders(all.filter((o) => o.lojaId === loja.id)));
     return () => off && off();
-  }, [loja?.id]);
+  }, [loja?.id, modoExterno, comanda, telefone]);
 
   useEffect(() => { if (!msg) return; const t = setTimeout(() => setMsg(null), 3500); return () => clearTimeout(t); }, [msg]);
 
@@ -115,7 +135,8 @@ export default function CardapioPublico() {
   // Chamados de mesa (garçom/ajuda/limpeza) — só no modo mesa (QR na mesa)
   async function chamar(tipo, rotulo) {
     if (!loja) return;
-    try { await criarChamado({ lojaId: loja.id, mesa: mesa ? `Mesa ${String(mesa).padStart(2, "0")}` : "", comanda: comanda || "", tipo }); setMsg({ t: "success", m: `${rotulo} — a equipe foi avisada.` }); }
+    const args = { lojaId: loja.id, mesa: mesa ? `Mesa ${String(mesa).padStart(2, "0")}` : "", comanda: comanda || "", tipo };
+    try { await (cardapioViaRpc() ? rpcCriarChamadoPublico(args) : criarChamado(args)); setMsg({ t: "success", m: `${rotulo} — a equipe foi avisada.` }); }
     catch { setMsg({ t: "error", m: "Não foi possível enviar o chamado agora." }); }
   }
 
@@ -128,7 +149,7 @@ export default function CardapioPublico() {
       if (!cliente.trim()) return setMsg({ t: "error", m: "Informe o seu nome." });
       if (telDig.length < 10) return setMsg({ t: "error", m: "Informe um telefone válido (com DDD)." });
       setEnviando(true);
-      try { await upsertCliente({ nome: cliente.trim(), telefone: telDig, lojaId: loja.id }); } catch {}
+      try { await (cardapioViaRpc() ? rpcUpsertClientePublico({ lojaId: loja.id, nome: cliente.trim(), telefone: telDig }) : upsertCliente({ nome: cliente.trim(), telefone: telDig, lojaId: loja.id })); } catch {}
       novo = {
         id: `PED-${Date.now().toString().slice(-7)}${Math.floor(Math.random() * 90 + 10)}`,
         table: "Externo", command: `EXT-${telDig.slice(-6)}`, customer: cliente.trim(), clienteTelefone: telDig,
@@ -150,15 +171,25 @@ export default function CardapioPublico() {
         items: itens, lojaId: loja.id,
       };
     }
-    try { await inserirPedido(novo); setCart([]); setAba("conta"); setMsg({ t: "success", m: "✅ Pedido enviado para a cozinha!" }); }
-    catch { setMsg({ t: "error", m: "Erro ao enviar o pedido. Tente novamente." }); }
+    try {
+      if (cardapioViaRpc()) await rpcCriarPedidoPublico({ lojaId: loja.id, mesa: novo.table, comanda: novo.command, cliente: novo.customer, telefone: novo.clienteTelefone || "", itens });
+      else await inserirPedido(novo);
+      setCart([]); setAba("conta"); setMsg({ t: "success", m: "✅ Pedido enviado para a cozinha!" });
+    } catch { setMsg({ t: "error", m: "Erro ao enviar o pedido. Tente novamente." }); }
     finally { setEnviando(false); }
   }
 
   async function solicitarConta() {
     if (!podeFechar) return setMsg({ t: "error", m: "Aguarde a entrega de todos os pedidos para solicitar a conta." });
-    try { await Promise.all(meusPedidos.map((o) => atualizarPedido(o.id, { status_pagamento: "solicitado" }))); setMsg({ t: "success", m: "🧾 Conta solicitada ao caixa." }); }
-    catch { setMsg({ t: "error", m: "Erro ao solicitar a conta." }); }
+    try {
+      if (cardapioViaRpc()) {
+        const comandas = [...new Set(meusPedidos.map((o) => o.command).filter(Boolean))];
+        await Promise.all(comandas.map((c) => rpcSolicitarContaPublico({ lojaId: loja.id, comanda: c })));
+      } else {
+        await Promise.all(meusPedidos.map((o) => atualizarPedido(o.id, { status_pagamento: "solicitado" })));
+      }
+      setMsg({ t: "success", m: "🧾 Conta solicitada ao caixa." });
+    } catch { setMsg({ t: "error", m: "Erro ao solicitar a conta." }); }
   }
 
   // ── Estados de carregamento/erro ───────────────────────────

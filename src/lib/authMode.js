@@ -18,3 +18,9 @@
 export const AUTH_MODE = "legacy"; // 'legacy' | 'supabase'
 
 export const usandoSupabaseAuth = () => AUTH_MODE === "supabase";
+
+// Cardápio público via RPC (necessário quando a RLS estrita estiver ligada —
+// migration 048). DESLIGADO por padrão: até lá o /cardapio usa o acesso direto
+// atual (que continua funcionando no modo permissivo). Ligue junto com o enforce.
+export const CARDAPIO_PUBLICO_VIA_RPC = false;
+export const cardapioViaRpc = () => CARDAPIO_PUBLICO_VIA_RPC === true;
