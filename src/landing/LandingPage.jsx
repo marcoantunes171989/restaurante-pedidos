@@ -106,6 +106,13 @@ const FEATURES = [
   { icon: "🛒", title: "Controle de produtos", desc: "Preço, custo, margem, estoque, ingredientes, adicionais e visibilidade por canal." },
   { icon: "🏪", title: "Multiempresa", desc: "Uma plataforma SaaS para várias empresas, cada uma com cardápio, equipe e dados isolados." },
   { icon: "🔐", title: "Licenças e permissões", desc: "Controle por cargo e por tela, com liberação e suspensão de licença por empresa." },
+  { icon: "🏷️", title: "Promoções e destaques", desc: "Campanhas por horário, dia da semana, produto ou categoria — exibidas no tablet e no cardápio." },
+  { icon: "🍔", title: "Adicionais e variações", desc: "Tamanhos, ponto da carne, bordas, combos e adicionais com grupos obrigatórios — ideal para pizza, burger e japonês." },
+  { icon: "🍳", title: "Setores de cozinha", desc: "Direcione cada produto para bar, pizzaria, chapa ou sobremesa e filtre o painel por setor." },
+  { icon: "💰", title: "Fechamento de caixa", desc: "Abertura, suprimento, sangria e conferência com diferença — vendas por forma de pagamento e histórico." },
+  { icon: "⭐", title: "Fidelidade", desc: "Pontos por compra creditados automaticamente, recompensas e ranking de clientes." },
+  { icon: "🔔", title: "Chamados de mesa", desc: "Cliente chama garçom, pede a conta, ajuda ou limpeza pelo tablet ou pelo QR — a equipe vê em tempo real." },
+  { icon: "🛡️", title: "Auditoria de ações", desc: "Trilha de segurança: login, alterações de produtos, usuários, caixa, plano e licença, com filtros." },
 ];
 
 const GESTAO = [
