@@ -13,11 +13,26 @@
 //  Dica: rode primeiro numa BRANCH do Supabase para validar.
 // ════════════════════════════════════════════════════════════
 import { createClient } from "@supabase/supabase-js";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+
+// Carrega scripts/.env (NÃO versionado) se existir — facilita rodar sem mexer no shell.
+(() => {
+  try {
+    const aqui = dirname(fileURLToPath(import.meta.url));
+    const txt = readFileSync(join(aqui, ".env"), "utf8");
+    for (const linha of txt.split(/\r?\n/)) {
+      const m = linha.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
+      if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["']|["']$/g, "");
+    }
+  } catch { /* sem arquivo .env — usa o ambiente */ }
+})();
 
 const url = process.env.SUPABASE_URL;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!url || !serviceKey) {
-  console.error("Defina SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY no ambiente.");
+  console.error("Defina SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY (em scripts/.env ou no ambiente).");
   process.exit(1);
 }
 
