@@ -5143,7 +5143,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           {!canAccessModule(ativo, { assinatura: assinaturaAtual, plano: planoAtual, planoModulos, isSuperAdmin }) ? (
             <ModuloBloqueado slug={ativo} lojaInfo={lojaInfo} onVerPlanos={() => setAdminSection("plano")} />
           ) : (<>
-          {ativo === "dashboard"  && <DashboardAdmin orders={orders} products={products} />}
+          {ativo === "dashboard"  && <DashboardAdmin orders={orders} products={products} comandas={comandasRegistradas} clientes={clientes} />}
           {ativo === "relatorios" && <RelatoriosAdmin orders={orders} products={products} lojaInfo={lojaInfo} />}
           {ativo === "crm"        && <CrmAdmin clientes={clientes} orders={orders} fidTransacoes={fidTransacoes} fidRecompensas={fidRecompensas} lancarPontos={fidApi?.lancarPontos} />}
           {ativo === "fidelidade" && (precisaEmpresa ? avisoEmpresa : <FidelidadeAdmin regra={fidRegra} recompensas={fidRecompensas} transacoes={fidTransacoes} clientes={clientes} api={fidApi} />)}
@@ -5476,7 +5476,7 @@ function BarrasVerticais({ dados, sufixo = "R$" }) {
   );
 }
 
-function DashboardAdmin({ orders, products }) {
+function DashboardAdmin({ orders, products, comandas = [], clientes = [] }) {
   const [periodo, setPeriodo] = useState("hoje");
   const [ini, setIni] = useState("");
   const [fim, setFim] = useState("");
@@ -5506,6 +5506,12 @@ function DashboardAdmin({ orders, products }) {
     .filter((d) => d.valor > 0);
 
   const catDonut = a.categorias.slice(0, 6).map((c) => ({ label: c.categoria, valor: c.valor }));
+
+  // Indicadores operacionais (linha extra)
+  const mesasAbertas = new Set(abertos.map((o) => o.table).filter(Boolean)).size;
+  const comandasAtivas = comandas.filter((c) => c.ativo !== false).length;
+  const clientesPeriodo = new Set(filtrados.map((o) => o.clienteTelefone).filter(Boolean)).size;
+  const produtoTop = a.topProdutos[0] || null;
 
   // Comparativo com o intervalo imediatamente anterior (hoje x ontem, semana x semana...)
   const comparativo = (() => {
@@ -5553,6 +5559,14 @@ function DashboardAdmin({ orders, products }) {
         <button onClick={() => setModal({ titulo: "Todos os pedidos do período", pedidos: filtrados })} className="text-left">
           <CardMetrica titulo="Total de pedidos" valor={a.totalPedidos} sub="ver detalhes" icon="📦" variacao={comparativo?.pedidos} />
         </button>
+      </div>
+
+      {/* Indicadores operacionais */}
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <CardMetrica titulo="Mesas abertas" valor={mesasAbertas} sub="com pedido em aberto" cor="text-white" icon="🪑" />
+        <CardMetrica titulo="Comandas ativas" valor={comandasAtivas} sub="disponíveis no sistema" cor="text-white" icon="🎫" />
+        <CardMetrica titulo="Clientes no período" valor={clientesPeriodo} sub={`de ${clientes.length} cadastrados`} cor="text-blue-400" icon="👥" />
+        <CardMetrica titulo="Produto mais vendido" valor={produtoTop ? produtoTop.nome : "—"} sub={produtoTop ? `${produtoTop.qtd} un vendida(s)` : "sem vendas"} cor="text-gold-400" icon="🏆" />
       </div>
 
       {modal && <ModalDetalhePedidos titulo={modal.titulo} pedidos={modal.pedidos} onFechar={() => setModal(null)} />}
