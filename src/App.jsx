@@ -5204,7 +5204,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           {ativo === "users"      && <UserAdmin      users={isSuperAdmin ? users : (usersLoja ?? users)} userForm={userForm} setUserForm={setUserForm} addUser={addUser} toggleUserStatus={toggleUserStatus} editarUsuario={editarUsuario} removerUsuario={removerUsuario} lojaInfo={lojaInfo} lojas={lojas} isSuperAdmin={isSuperAdmin} cargos={cargos} />}
           {ativo === "cargos"     && <CargoAdmin     cargos={cargos} users={isSuperAdmin ? users : (usersLoja ?? users)} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} />}
           {ativo === "access"     && <AccessAdmin    accesses={accesses} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleAccessStatus={toggleAccessStatus} />}
-          {ativo === "link"       && <UserAccessAdmin users={isSuperAdmin ? users : (usersLoja ?? users)} accesses={accesses} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} lojas={lojas} isSuperAdmin={isSuperAdmin} />}
+          {ativo === "link"       && <UserAccessAdmin users={isSuperAdmin ? users : (usersLoja ?? users)} accesses={accesses} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} lojaInfo={lojaInfo} lojas={lojas} isSuperAdmin={isSuperAdmin} />}
           {ativo === "categorias" && (precisaEmpresa ? avisoEmpresa : <CategoriaAdmin categoriasDb={categoriasDb} produtos={products} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} />)}
           {ativo === "mesas"      && (precisaEmpresa ? avisoEmpresa : <MesaAdmin mesas={mesas} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} orders={orders} />)}
           {ativo === "comandas"   && (precisaEmpresa ? avisoEmpresa : <GeradorComandas prefixoLoja={lojaInfo?.prefixo || "CMD"} empresa={lojaInfo?.nome || "Restaurante"} onGerar={registrarComandas} comandasRegistradas={comandasRegistradas} orders={orders} onExcluirComanda={excluirComandaFn} onRenomearComanda={renomearComandaFn} onToggleComanda={toggleComandaFn} lojaId={lojaInfo?.id} logoSalvo={lojaInfo?.logoUrl || ""} onSalvarLogo={(url) => salvarLogoEmpresa(lojaInfo?.id, url)} onIrCardapioExterno={() => setAdminSection("cardapioext")} />)}
@@ -10664,9 +10664,8 @@ function PermissaoCadastroModal({ accessForm, setAccessForm, onSalvar, onFechar 
   );
 }
 
-function UserAccessAdmin({ users, accesses, toggleUserAccess, definirAcessos, definirAcoesUsuario = async()=>{}, lojas = [], isSuperAdmin = false }) {
+function UserAccessAdmin({ users, accesses, toggleUserAccess, definirAcessos, definirAcoesUsuario = async()=>{}, lojaInfo = null, lojas = [], isSuperAdmin = false }) {
   const [busca, setBusca]     = useState("");
-  const [lojaSel, setLojaSel] = useState(""); // filtro por empresa (id) — só super admin
   const [editandoId, setEditandoId] = useState(null); // usuário aberto no modal
   const [pagina, setPagina]   = useState(1);
   const POR_PAGINA = 10;
@@ -10674,18 +10673,22 @@ function UserAccessAdmin({ users, accesses, toggleUserAccess, definirAcessos, de
   const prefLoja = (id) => lojas.find((l) => l.id === id)?.prefixo || "—";
   const acessosAtivos = accesses.filter((a) => a.active !== false);
 
+  // Lista sempre da EMPRESA EM FOCO (seletor da lateral esquerda). Para o super
+  // admin, restringe pela empresa em foco; sem foco definido, mostra todas.
+  const baseUsuarios = (isSuperAdmin && lojaInfo)
+    ? users.filter((u) => String(u.lojaId ?? "") === String(lojaInfo.id))
+    : users;
   const termo = busca.trim().toLowerCase();
-  const filtrados = users.filter((u) => {
-    if (lojaSel && String(u.lojaId ?? "") !== String(lojaSel)) return false;
+  const filtrados = baseUsuarios.filter((u) => {
     if (!termo) return true;
     return `${u.name} ${u.email} ${u.role} ${nomeLoja(u.lojaId)} ${prefLoja(u.lojaId)}`.toLowerCase().includes(termo);
   });
-  const comAcesso = users.filter((u) => u.accessIds.length > 0).length;
+  const comAcesso = baseUsuarios.filter((u) => u.accessIds.length > 0).length;
   const editando = users.find((u) => u.id === editandoId) || null; // live (reflete toggles)
 
   // Paginação: 10 registros por página
   const totalPaginas = Math.max(1, Math.ceil(filtrados.length / POR_PAGINA));
-  useEffect(() => { setPagina(1); }, [busca, lojaSel, users.length]);
+  useEffect(() => { setPagina(1); }, [busca, baseUsuarios.length]);
   const paginaAtual = Math.min(pagina, totalPaginas);
   const visiveis = filtrados.slice((paginaAtual - 1) * POR_PAGINA, paginaAtual * POR_PAGINA);
 
@@ -10697,27 +10700,20 @@ function UserAccessAdmin({ users, accesses, toggleUserAccess, definirAcessos, de
         titulo="Usuário × Acesso"
         descricao="Clique em um usuário para liberar as telas que ele pode acessar. O menu de cada usuário é montado apenas com as telas liberadas aqui."
         indicadores={[
-          { valor: users.length, rotulo: users.length === 1 ? "usuário" : "usuários" },
+          { valor: baseUsuarios.length, rotulo: baseUsuarios.length === 1 ? "usuário" : "usuários" },
           { valor: comAcesso, rotulo: "com acesso liberado", tom: "ok" },
-          { valor: users.length - comAcesso, rotulo: "sem acessos", tom: users.length - comAcesso > 0 ? "alerta" : undefined },
+          { valor: baseUsuarios.length - comAcesso, rotulo: "sem acessos", tom: baseUsuarios.length - comAcesso > 0 ? "alerta" : undefined },
         ]}
       />
 
       {/* ── Busca + lista (largura total — padrão do projeto) ── */}
       <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
-        <div className="mb-4 flex flex-col gap-2 sm:flex-row">
+        <div className="mb-4">
           <div className="relative flex-1">
             <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"><IconBusca /></span>
             <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar usuário por nome, e-mail ou cargo..."
               className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-blue-400" />
           </div>
-          {isSuperAdmin && (
-            <select value={lojaSel} onChange={(e) => setLojaSel(e.target.value)}
-              className="rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none focus:border-blue-400 sm:w-64">
-              <option value="">Todas as empresas</option>
-              {lojas.map((l) => <option key={l.id} value={l.id}>{l.nome} ({l.prefixo})</option>)}
-            </select>
-          )}
         </div>
 
         <div className="space-y-2">
