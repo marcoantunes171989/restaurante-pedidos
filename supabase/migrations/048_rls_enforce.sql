@@ -89,3 +89,23 @@ begin
     execute format('create policy %I on public.%I for all using (public.app_is_super()) with check (public.app_is_super())', 'rls_'||t||'_write', t);
   end loop;
 end $$;
+
+-- 4) IMPORTANTE: re-adiciona as policies que o passo (1) apagou e que são
+--    essenciais — sem elas o hook não lê tab_usuarios (JWT sem loja_id) e o
+--    cardápio anônimo para. Mantém o enforce por empresa.
+grant usage  on schema public       to supabase_auth_admin;
+grant select on public.tab_usuarios to supabase_auth_admin;
+drop policy if exists "auth_admin_read" on public.tab_usuarios;
+create policy "auth_admin_read" on public.tab_usuarios for select to supabase_auth_admin using (true);
+
+do $$
+declare t text; tabelas text[] := array[
+  'tab_lojas','tab_produtos','tab_categorias','tab_promocoes','tab_grupos_opcoes','tab_opcoes'
+];
+begin
+  foreach t in array tabelas loop
+    if to_regclass('public.'||t) is null then continue; end if;
+    execute format('drop policy if exists %I on public.%I', 'pub_read_'||t, t);
+    execute format('create policy %I on public.%I for select using (true)', 'pub_read_'||t, t);
+  end loop;
+end $$;
