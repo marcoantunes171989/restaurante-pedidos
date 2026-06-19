@@ -715,11 +715,18 @@ export default function RestaurantePedidoApp() {
   const restaurouSessaoRef = useRef(false);
   useEffect(() => {
     if (!usandoSupabaseAuth() || !dbReady || currentUser || restaurouSessaoRef.current) return;
+    restaurouSessaoRef.current = true;
     (async () => {
+      // Restaura a sessão SOMENTE no reload imediato após o login (flag one-shot).
+      // Em qualquer outra visita/refresh, mostra a tela de login e encerra uma
+      // eventual sessão remanescente (comportamento de "sempre pedir login").
+      let posLogin = false;
+      try { posLogin = sessionStorage.getItem("pp_restore_once") === "1"; sessionStorage.removeItem("pp_restore_once"); } catch {}
       const email = await getSessionEmail();
+      if (!posLogin) { if (email) { try { await logoutSupabaseAuth(); } catch {} } return; }
       if (!email) return;
       const u = users.find((x) => (x.email || "").toLowerCase() === email.toLowerCase());
-      if (u) { restaurouSessaoRef.current = true; aplicarLogin(u, { silencioso: true }); }
+      if (u) aplicarLogin(u, { silencioso: true });
     })();
   }, [dbReady, users, currentUser]);
 
@@ -879,6 +886,9 @@ export default function RestaurantePedidoApp() {
       // para o app inicializar JÁ AUTENTICADO (os dados carregam com o JWT/RLS).
       const r = await loginSupabaseAuth(creds.email, creds.password);
       if (!r.ok) return notify("error", r.error || "Usuário ou senha inválidos.");
+      // Marca que o PRÓXIMO carregamento é o reload pós-login (restaura a sessão
+      // só uma vez). Em visitas/refresh normais a /login, a tela de login aparece.
+      try { sessionStorage.setItem("pp_restore_once", "1"); } catch {}
       window.location.reload();
       return;
     }
