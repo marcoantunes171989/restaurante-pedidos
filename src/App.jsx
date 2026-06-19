@@ -23,7 +23,7 @@ import {
   fetchCaixaAberto, fetchCaixas, fetchMovimentosCaixa, abrirCaixa, registrarMovimentoCaixa, fecharCaixa, escutarCaixas,
   fetchFidelidadeRegras, salvarFidelidadeRegra, fetchFidelidadeRecompensas, inserirRecompensa, excluirRecompensa, fetchFidelidadeTransacoes, lancarFidelidadeTransacao, escutarFidelidadeTransacoes,
   fetchChamados, criarChamado, atualizarChamado, escutarChamados,
-  fetchAuditoria, registrarAuditoria, escutarAuditoria,
+  fetchAuditoria, registrarAuditoria, escutarAuditoria, marcarAuditoriaAnalisada,
   loginSupabaseAuth, logoutSupabaseAuth, aguardarSessao, getSessionEmail,
 } from "./lib/supabase";
 import { usandoSupabaseAuth } from "./lib/authMode";
@@ -34,7 +34,7 @@ import { QRScannerModal  } from "./components/QRScanner";
 import { LogoPP } from "./components/BrandLogo";
 import { IconDashboard, IconRelatorios, IconCrm, IconProdutos, IconCategorias, IconMesas, IconPagamento, IconQr, IconCardapio, IconEmpresas, IconUsuarios, IconCargos, IconPermissoes, IconLink, IconLicencas, IconVersoes, IconEmpresa, IconBusca, IconConfig, IconPromocao } from "./components/PrimeIcons";
 import { obterTema, aplicarTema } from "./lib/theme";
-import { PageHeader, PrimeButton } from "./components/Prime";
+import { PageHeader, PrimeButton, EmptyState } from "./components/Prime";
 
 export const fallbackImage = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=900&q=80";
 
@@ -5199,7 +5199,15 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           {ativo === "products"   && (precisaEmpresa ? avisoEmpresa : <ProductAdmin   products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} editarProduto={editarProduto} removerProduto={removerProduto} lojaId={lojaInfo?.id} opcoesApi={opcoesApi} setores={setores} />)}
           {ativo === "setores"    && (precisaEmpresa ? avisoEmpresa : <SetoresCozinhaAdmin setores={setores} produtos={products} api={setoresApi} />)}
           {ativo === "chamados"   && <ChamadosPainel chamados={chamados} atenderChamado={atenderChamado} />}
-          {ativo === "auditoria"  && <AuditoriaAdmin logs={auditoria} />}
+          {ativo === "auditoria"  && <AuditoriaAdmin
+            logs={auditoria} lojas={lojas}
+            onAtualizar={async () => { try { setAuditoria(await fetchAuditoria(null)); } catch { throw new Error("falha"); } }}
+            onMarcarAnalisado={async (id) => {
+              const ok = await marcarAuditoriaAnalisada(id);
+              setAuditoria((cur) => cur.map((l) => (l.id === id ? { ...l, analisado: true, statusAnalise: "Analisado" } : l)));
+              return ok;
+            }}
+          />}
           {ativo === "caixa"      && (precisaEmpresa ? avisoEmpresa : <CaixaSessaoAdmin caixaAberto={caixaAberto} caixas={caixasLoja} api={caixaApi} formasPagamento={formasPagamento} currentUser={currentUser} />)}
           {ativo === "users"      && <UserAdmin      users={isSuperAdmin ? users : (usersLoja ?? users)} userForm={userForm} setUserForm={setUserForm} addUser={addUser} toggleUserStatus={toggleUserStatus} editarUsuario={editarUsuario} removerUsuario={removerUsuario} lojaInfo={lojaInfo} lojas={lojas} isSuperAdmin={isSuperAdmin} cargos={cargos} />}
           {ativo === "cargos"     && <CargoAdmin     cargos={cargos} users={isSuperAdmin ? users : (usersLoja ?? users)} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} />}
@@ -9082,61 +9090,558 @@ function ChamadosPainel({ chamados = [], atenderChamado }) {
 }
 
 // ════════════════════════════════════════════════════════════
-//  Admin — Auditoria de ações (migration 045)
+//  Admin — Auditoria Gerencial (migrations 045 + 053)
+//  Central de rastreabilidade, segurança e controle administrativo.
 // ════════════════════════════════════════════════════════════
-const AUDIT_ACAO = { login: { l: "Login", ic: "🔑", c: "text-blue-300" }, criar: { l: "Criar", ic: "➕", c: "text-emerald-300" }, editar: { l: "Editar", ic: "✏️", c: "text-amber-300" }, excluir: { l: "Excluir", ic: "🗑️", c: "text-red-300" }, cancelar: { l: "Cancelar", ic: "✖️", c: "text-red-300" }, abrir_caixa: { l: "Abrir caixa", ic: "🔓", c: "text-emerald-300" }, fechar_caixa: { l: "Fechar caixa", ic: "🔒", c: "text-gold-300" }, alterar_plano: { l: "Alterar plano", ic: "💳", c: "text-gold-300" }, alterar_licenca: { l: "Alterar licença", ic: "🛡️", c: "text-amber-300" } };
-function AuditoriaAdmin({ logs = [] }) {
+const AUDIT_ACAO = { login: { l: "Login realizado" }, logout: { l: "Logout realizado" }, criar: { l: "Cadastro criado" }, editar: { l: "Registro alterado" }, excluir: { l: "Exclusão" }, cancelar: { l: "Cancelamento" }, abrir_caixa: { l: "Caixa aberto" }, fechar_caixa: { l: "Caixa fechado" }, alterar_plano: { l: "Plano alterado" }, alterar_licenca: { l: "Alteração de licença" } };
+
+// Níveis de risco e suas cores (verde / dourado / laranja / vermelho)
+const AUDIT_RISCO = {
+  baixo:   { label: "Baixo",   classes: "border-emerald-400/30 bg-emerald-500/10 text-emerald-300", dot: "bg-emerald-400" },
+  medio:   { label: "Médio",   classes: "border-gold-400/40 bg-gold-400/10 text-gold-300",          dot: "bg-gold-400" },
+  alto:    { label: "Alto",    classes: "border-orange-400/40 bg-orange-500/10 text-orange-300",     dot: "bg-orange-400" },
+  critico: { label: "Crítico", classes: "border-red-400/40 bg-red-500/10 text-red-300",              dot: "bg-red-400" },
+};
+const RISCO_PESO = { baixo: 0, medio: 1, alto: 2, critico: 3 };
+
+// Classificação automática de risco a partir do texto da ação/entidade/dados
+function classificarRisco(texto = "") {
+  const s = ("" + texto).toLowerCase();
+  const tem = (...ks) => ks.some((k) => s.includes(k));
+  if (
+    tem("permiss", "perfil admin", "alterar_plano", "plano alterad", "licença removid", "licenca removid",
+        "licença modific", "licenca modific", "tentativa", "suspeit", "config crít", "configuração crít") ||
+    (tem("exclu", "remov", "excluir") && tem("usuári", "usuario", "perfil"))
+  ) return "critico";
+  if (tem("cancel", "fechar_caixa", "caixa fechad", "reabert", "abrir_caixa", "exclus", "excluir",
+          "remov", "preço", "preco", "estoque", "pagamento", "valor financ", "financeir")) return "alto";
+  if (tem("cadastro", "criar", "novo", "produto alterad", "cliente alterad", "editar", "cadastra",
+          "licença ativ", "licenca ativ", "alterar_licenca", "alteração de licença", "atualiz")) return "medio";
+  if (tem("login", "logout", "consulta", "visualiz", "acesso", "sessão", "sessao")) return "baixo";
+  return "medio";
+}
+
+// Deriva dispositivo/navegador a partir do user-agent
+function dispositivoDoUA(ua = "") {
+  const s = ("" + ua).toLowerCase();
+  let dispositivo = "Desktop";
+  if (/mobile|iphone|android.*mobile/.test(s)) dispositivo = "Mobile";
+  else if (/ipad|tablet/.test(s)) dispositivo = "Tablet";
+  let navegador = "—";
+  if (s.includes("edg")) navegador = "Edge";
+  else if (s.includes("chrome")) navegador = "Chrome";
+  else if (s.includes("firefox")) navegador = "Firefox";
+  else if (s.includes("safari")) navegador = "Safari";
+  return { dispositivo, navegador };
+}
+
+function resumoAuditoria(log) {
+  if (log.resumoDados) return log.resumoDados;
+  if (log.dadosNovos && log.dadosAnteriores && typeof log.dadosNovos === "object") {
+    const campos = Object.keys(log.dadosNovos);
+    return campos.map((k) => `${k} alterado de ${log.dadosAnteriores?.[k] ?? "—"} para ${log.dadosNovos[k]}`).join(" · ");
+  }
+  if (log.dados && typeof log.dados === "object") return Object.entries(log.dados).map(([k, v]) => `${k}: ${v}`).join(" · ");
+  return "—";
+}
+
+function codigoAuditoria(log) {
+  if (log.codigoEvento) return log.codigoEvento;
+  const ano = (log.criadoEmISO ? new Date(log.criadoEmISO) : new Date()).getFullYear();
+  const num = ("" + (log.id ?? "")).replace(/\D/g, "") || "0";
+  return `EVT-${ano}-${num.padStart(6, "0").slice(-6)}`;
+}
+
+// Converte um registro do banco no modelo de exibição da Auditoria Gerencial
+function mapearEvento(log, lojas = []) {
+  const acaoTxt = AUDIT_ACAO[log.acao]?.l || log.acao || "Ação";
+  const resumo = resumoAuditoria(log);
+  const risco = log.nivelRisco && AUDIT_RISCO[log.nivelRisco]
+    ? log.nivelRisco
+    : classificarRisco(`${log.acao} ${acaoTxt} ${log.entidade} ${resumo}`);
+  const dev = (log.dispositivo || log.navegador)
+    ? { dispositivo: log.dispositivo || "—", navegador: log.navegador || "—" }
+    : dispositivoDoUA(log.userAgent);
+  const loja = lojas.find((l) => l.id === log.lojaId);
+  return {
+    id: log.id,
+    codigo: codigoAuditoria(log),
+    acaoKey: log.acao,
+    acao: acaoTxt,
+    risco,
+    usuarioNome: log.usuarioNome || "—",
+    usuarioEmail: log.usuarioEmail || "",
+    perfil: log.usuarioPerfil || "—",
+    entidade: log.entidade || "—",
+    entidadeId: log.entidadeId,
+    entidadeLabel: `${log.entidade || "—"}${log.entidadeId ? ` #${log.entidadeId}` : ""}`,
+    resumo,
+    dadosAnteriores: log.dadosAnteriores,
+    dadosNovos: log.dadosNovos,
+    origem: log.origem || "Sistema Web",
+    ip: log.ipOrigem || "—",
+    dispositivo: dev.dispositivo,
+    navegador: dev.navegador,
+    quandoISO: log.criadoEmISO,
+    analisado: !!log.analisado,
+    statusAnalise: log.statusAnalise || (log.analisado ? "Analisado" : "Pendente"),
+    lojaNome: loja?.nome || "",
+  };
+}
+
+// Dados de demonstração — usados quando ainda não há registros reais no Supabase,
+// para que a tela já exiba o layout gerencial completo.
+const AUDIT_DEMO = [
+  { id: "d1", codigo: "EVT-2026-001248", acaoKey: "permissao", acao: "Permissão alterada", risco: "critico", usuarioNome: "Administrador", usuarioEmail: "admin@restaurante.com", perfil: "Admin", entidade: "Usuário", entidadeId: 27, entidadeLabel: "Usuário #27", resumo: "perfil alterado de Garçom para Gerente", dadosAnteriores: { perfil: "Garçom" }, dadosNovos: { perfil: "Gerente" }, origem: "Administração", ip: "192.168.0.10", dispositivo: "Desktop", navegador: "Chrome 126.0.0.0", quandoISO: "2026-06-19T10:42:18", analisado: false, statusAnalise: "Pendente" },
+  { id: "d2", codigo: "EVT-2026-001247", acaoKey: "cancelar", acao: "Pedido cancelado", risco: "alto", usuarioNome: "Caixa Burger Station", usuarioEmail: "caixa.hamburgueria@demo.com", perfil: "Caixa", entidade: "Pedido", entidadeId: 1042, entidadeLabel: "Pedido #1042", resumo: "status alterado de aberto para cancelado", dadosAnteriores: { status: "aberto" }, dadosNovos: { status: "cancelado" }, origem: "Painel Caixa", ip: "192.168.0.21", dispositivo: "Desktop", navegador: "Chrome", quandoISO: "2026-06-19T11:20:00", analisado: false, statusAnalise: "Pendente" },
+  { id: "d3", codigo: "EVT-2026-001246", acaoKey: "editar", acao: "Produto alterado", risco: "medio", usuarioNome: "Gerente", usuarioEmail: "gerente@restaurante.com", perfil: "Gerente", entidade: "Produto", entidadeId: 35, entidadeLabel: "Produto #35", resumo: "preço alterado de R$ 29,90 para R$ 34,90", dadosAnteriores: { preco: "R$ 29,90" }, dadosNovos: { preco: "R$ 34,90" }, origem: "Administração", ip: "—", dispositivo: "Notebook", navegador: "Edge", quandoISO: "2026-06-18T16:18:00", analisado: false, statusAnalise: "Pendente" },
+  { id: "d4", codigo: "EVT-2026-001245", acaoKey: "login", acao: "Login realizado", risco: "baixo", usuarioNome: "Administrador", usuarioEmail: "admin@restaurante.com", perfil: "Admin", entidade: "Usuário", entidadeId: 1, entidadeLabel: "Usuário #1", resumo: "email: admin@restaurante.com", dadosAnteriores: null, dadosNovos: null, origem: "Sistema Web", ip: "—", dispositivo: "Desktop", navegador: "Chrome", quandoISO: "2026-06-19T12:37:00", analisado: false, statusAnalise: "Pendente" },
+  { id: "d5", codigo: "EVT-2026-001244", acaoKey: "fechar_caixa", acao: "Caixa reaberto", risco: "alto", usuarioNome: "Gerente Matriz", usuarioEmail: "gerente.matriz@demo.com", perfil: "Gerente", entidade: "Caixa", entidadeId: 8, entidadeLabel: "Caixa #8", resumo: "caixa reaberto após fechamento", dadosAnteriores: { status: "fechado" }, dadosNovos: { status: "reaberto" }, origem: "Painel Caixa", ip: "192.168.0.45", dispositivo: "Desktop", navegador: "Chrome", quandoISO: "2026-06-18T21:10:00", analisado: false, statusAnalise: "Pendente" },
+  { id: "d6", codigo: "EVT-2026-001243", acaoKey: "alterar_plano", acao: "Plano alterado", risco: "critico", usuarioNome: "Administrador", usuarioEmail: "admin@restaurante.com", perfil: "Admin", entidade: "Plano", entidadeId: 3, entidadeLabel: "Plano #3", resumo: "plano alterado de Profissional para Enterprise", dadosAnteriores: { plano: "Profissional" }, dadosNovos: { plano: "Enterprise" }, origem: "Administração", ip: "—", dispositivo: "Desktop", navegador: "Chrome", quandoISO: "2026-06-18T14:05:00", analisado: false, statusAnalise: "Pendente" },
+  { id: "d7", codigo: "EVT-2026-001242", acaoKey: "criar", acao: "Cadastro criado", risco: "medio", usuarioNome: "Painel Burger Station", usuarioEmail: "painel.hamburgueria@demo.com", perfil: "Operação", entidade: "Usuário", entidadeId: 54, entidadeLabel: "Usuário #54", resumo: "novo cliente cadastrado", dadosAnteriores: null, dadosNovos: { cliente: "novo" }, origem: "Administração", ip: "—", dispositivo: "Tablet", navegador: "Chrome", quandoISO: "2026-06-18T09:55:00", analisado: false, statusAnalise: "Pendente" },
+  { id: "d8", codigo: "EVT-2026-001241", acaoKey: "excluir", acao: "Exclusão de produto", risco: "alto", usuarioNome: "Gerente", usuarioEmail: "gerente@restaurante.com", perfil: "Gerente", entidade: "Produto", entidadeId: 12, entidadeLabel: "Produto #12", resumo: "produto removido do cardápio", dadosAnteriores: { ativo: true }, dadosNovos: { ativo: false }, origem: "Administração", ip: "—", dispositivo: "Desktop", navegador: "Edge", quandoISO: "2026-06-17T18:30:00", analisado: false, statusAnalise: "Pendente" },
+  { id: "d9", codigo: "EVT-2026-001240", acaoKey: "alterar_licenca", acao: "Alteração de licença", risco: "medio", usuarioNome: "Administrador", usuarioEmail: "admin@restaurante.com", perfil: "Admin", entidade: "Licença", entidadeId: 8, entidadeLabel: "Licença #8", resumo: "licença ativada para novo estabelecimento", dadosAnteriores: { status: "inativa" }, dadosNovos: { status: "ativa" }, origem: "Administração", ip: "—", dispositivo: "Desktop", navegador: "Chrome", quandoISO: "2026-06-17T15:12:00", analisado: false, statusAnalise: "Pendente" },
+  { id: "d10", codigo: "EVT-2026-001239", acaoKey: "logout", acao: "Logout realizado", risco: "baixo", usuarioNome: "Caixa Burger Station", usuarioEmail: "caixa.hamburgueria@demo.com", perfil: "Caixa", entidade: "Usuário", entidadeId: 27, entidadeLabel: "Usuário #27", resumo: "sessão encerrada pelo usuário", dadosAnteriores: null, dadosNovos: null, origem: "Sistema Web", ip: "192.168.0.21", dispositivo: "Desktop", navegador: "Chrome", quandoISO: "2026-06-17T12:45:00", analisado: false, statusAnalise: "Pendente" },
+];
+
+// Ícones SVG inline (sem libs externas) ──────────────────────────────
+const svAud = { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.7, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true };
+const IcoEscudo    = (p) => (<svg {...svAud} {...p}><path d="M12 3 5 6v5c0 4.4 2.9 8 7 10 4.1-2 7-5.6 7-10V6l-7-3Z" /><path d="m9 12 2 2 4-4.5" /></svg>);
+const IcoDoc       = (p) => (<svg {...svAud} {...p}><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M6 3h8l5 5v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" /><path d="M8 13h8M8 17h6" /></svg>);
+const IcoUserAud   = (p) => (<svg {...svAud} {...p}><circle cx="12" cy="8" r="3.4" /><path d="M5.5 20c.7-3.3 3.2-5 6.5-5s5.8 1.7 6.5 5" /></svg>);
+const IcoUsersAud  = (p) => (<svg {...svAud} {...p}><circle cx="9" cy="8" r="3" /><path d="M3.5 19c.6-2.9 2.8-4.5 5.5-4.5S13.9 16.1 14.5 19" /><path d="M16 6.2a3 3 0 0 1 0 5.6" /><path d="M17.2 14.6c2.1.4 3.6 1.8 4.1 4" /></svg>);
+const IcoAlertaEsc = (p) => (<svg {...svAud} {...p}><path d="M12 3 5 6v5c0 4.4 2.9 8 7 10 4.1-2 7-5.6 7-10V6l-7-3Z" /><path d="M12 9v4M12 16h.01" /></svg>);
+const IcoTriangulo = (p) => (<svg {...svAud} {...p}><path d="M12 4 2.5 20h19L12 4Z" /><path d="M12 10v4M12 17h.01" /></svg>);
+const IcoRelogioAud= (p) => (<svg {...svAud} {...p}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>);
+const IcoRefresh   = (p) => (<svg {...svAud} {...p}><path d="M20.5 12a8.5 8.5 0 1 1-2.4-5.9" /><path d="M20.5 4v4h-4" /></svg>);
+const IcoDownload  = (p) => (<svg {...svAud} {...p}><path d="M12 4v10m0 0 4-4m-4 4-4-4" /><path d="M5 19h14" /></svg>);
+const IcoFechar    = (p) => (<svg {...svAud} {...p}><path d="m6 6 12 12M18 6 6 18" /></svg>);
+const IcoCheckAud  = (p) => (<svg {...svAud} {...p}><path d="m5 12 4.5 4.5L19 7" /></svg>);
+const IcoCopiar    = (p) => (<svg {...svAud} {...p}><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V5a2 2 0 0 1 2-2h8" /></svg>);
+const IcoInfoAud   = (p) => (<svg {...svAud} {...p}><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></svg>);
+
+function fmtDataHora(iso) {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+// Selo de risco colorido
+function RiscoBadge({ risco }) {
+  const r = AUDIT_RISCO[risco] || AUDIT_RISCO.medio;
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${r.classes}`}>
+      <span className={`h-1.5 w-1.5 rounded-full ${r.dot}`} />{r.label}
+    </span>
+  );
+}
+
+// Card de indicador (KPI) da auditoria
+function KpiCard({ titulo, valor, sub = null, delta = null, deltaTom = "good", icone, iconeTom = "gold" }) {
+  const iconBg =
+    iconeTom === "red" ? "border-red-400/30 bg-red-500/10 text-red-300"
+    : iconeTom === "orange" ? "border-orange-400/30 bg-orange-500/10 text-orange-300"
+    : iconeTom === "blue" ? "border-blue-400/30 bg-blue-500/10 text-blue-200"
+    : iconeTom === "emerald" ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-300"
+    : "border-gold-400/30 bg-gold-400/10 text-gold-300";
+  const up = delta != null && delta >= 0;
+  const deltaCor = delta == null ? "" : (deltaTom === "bad" ? (up ? "text-red-400" : "text-emerald-400") : (up ? "text-emerald-400" : "text-red-400"));
+  return (
+    <div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-4 shadow-lg shadow-black/20">
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{titulo}</p>
+        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border [&>svg]:h-5 [&>svg]:w-5 ${iconBg}`}>{icone}</span>
+      </div>
+      <p className="page-title mt-2 truncate text-2xl font-bold text-white">{valor}</p>
+      {delta != null
+        ? <p className={`mt-1 text-[11px] font-semibold ${deltaCor}`}>{up ? "▲ +" : "▼ "}{Math.abs(delta)}% vs período anterior</p>
+        : (sub && <p className="mt-1 truncate text-[11px] text-slate-500">{sub}</p>)}
+    </div>
+  );
+}
+
+function AuditoriaAdmin({ logs = [], lojas = [], onAtualizar = null, onMarcarAnalisado = null }) {
   const [busca, setBusca] = useState("");
   const [fAcao, setFAcao] = useState("todas");
   const [fEnt, setFEnt] = useState("todas");
+  const [fUser, setFUser] = useState("todos");
+  const [fRisco, setFRisco] = useState("todos");
   const [ini, setIni] = useState("");
   const [fim, setFim] = useState("");
-  const acoes = [...new Set(logs.map((l) => l.acao))];
-  const entidades = [...new Set(logs.map((l) => l.entidade).filter(Boolean))];
+  const [pagina, setPagina] = useState(1);
+  const [porPagina, setPorPagina] = useState(10);
+  const [ordCol, setOrdCol] = useState("quando");
+  const [ordDir, setOrdDir] = useState("desc");
+  const [selId, setSelId] = useState(null);
+  const [atualizando, setAtualizando] = useState(false);
+  const [erro, setErro] = useState(false);
+  const [marcando, setMarcando] = useState(false);
+  const [copiado, setCopiado] = useState(false);
+  const [analisadosLocais, setAnalisadosLocais] = useState(() => new Set());
+  const [ultimaAtt, setUltimaAtt] = useState(() => new Date());
+
+  // Base: dados reais (mapeados) ou demonstração quando ainda não há registros
+  const eventos = useMemo(() => {
+    const base = (logs && logs.length) ? logs.map((l) => mapearEvento(l, lojas)) : AUDIT_DEMO;
+    return base.map((e) => (analisadosLocais.has(e.id) ? { ...e, analisado: true, statusAnalise: "Analisado" } : e));
+  }, [logs, lojas, analisadosLocais]);
+
+  const acoes = useMemo(() => [...new Set(eventos.map((e) => e.acao))].sort(), [eventos]);
+  const entidades = useMemo(() => [...new Set(eventos.map((e) => e.entidade).filter(Boolean))].sort(), [eventos]);
+  const usuarios = useMemo(() => [...new Set(eventos.map((e) => e.usuarioNome).filter(Boolean))].sort(), [eventos]);
   const termo = busca.trim().toLowerCase();
-  const filtrados = logs.filter((l) => {
-    if (fAcao !== "todas" && l.acao !== fAcao) return false;
-    if (fEnt !== "todas" && l.entidade !== fEnt) return false;
-    if (ini && new Date(l.criadoEmISO) < new Date(`${ini}T00:00:00`)) return false;
-    if (fim && new Date(l.criadoEmISO) > new Date(`${fim}T23:59:59`)) return false;
-    if (termo && !`${l.usuarioNome} ${l.acao} ${l.entidade} ${JSON.stringify(l.dados || {})}`.toLowerCase().includes(termo)) return false;
+
+  // Filtro completo (todos os critérios) — usado nos cards e na tabela
+  const passaFiltrosBase = (e) => {
+    if (fAcao !== "todas" && e.acao !== fAcao) return false;
+    if (fEnt !== "todas" && e.entidade !== fEnt) return false;
+    if (fUser !== "todos" && e.usuarioNome !== fUser) return false;
+    if (fRisco !== "todos" && e.risco !== fRisco) return false;
+    if (termo) {
+      const alvo = `${e.usuarioNome} ${e.usuarioEmail} ${e.acao} ${e.entidadeLabel} ${e.ip} ${e.dispositivo} ${e.resumo} ${e.origem}`.toLowerCase();
+      if (!alvo.includes(termo)) return false;
+    }
     return true;
+  };
+  const noPeriodo = (e, a, b) => { const t = new Date(e.quandoISO).getTime(); return t >= a && t <= b; };
+
+  const filtrados = useMemo(() => eventos.filter((e) => {
+    if (!passaFiltrosBase(e)) return false;
+    if (ini && new Date(e.quandoISO) < new Date(`${ini}T00:00:00`)) return false;
+    if (fim && new Date(e.quandoISO) > new Date(`${fim}T23:59:59`)) return false;
+    return true;
+  }), [eventos, fAcao, fEnt, fUser, fRisco, termo, ini, fim]);
+
+  // Ordenação
+  const ordenados = useMemo(() => {
+    const arr = [...filtrados];
+    const dir = ordDir === "asc" ? 1 : -1;
+    arr.sort((a, b) => {
+      let va, vb;
+      if (ordCol === "risco") { va = RISCO_PESO[a.risco]; vb = RISCO_PESO[b.risco]; }
+      else if (ordCol === "acao") { va = a.acao; vb = b.acao; }
+      else if (ordCol === "usuario") { va = a.usuarioNome; vb = b.usuarioNome; }
+      else if (ordCol === "entidade") { va = a.entidade; vb = b.entidade; }
+      else { va = new Date(a.quandoISO).getTime(); vb = new Date(b.quandoISO).getTime(); }
+      if (va < vb) return -1 * dir;
+      if (va > vb) return 1 * dir;
+      return 0;
+    });
+    return arr;
+  }, [filtrados, ordCol, ordDir]);
+
+  // KPIs e variação vs período anterior ───────────────────────────
+  const conta = (lista) => ({
+    total: lista.length,
+    logins: lista.filter((e) => e.acaoKey === "login" || /login/.test(e.acao.toLowerCase())).length,
+    criticas: lista.filter((e) => e.risco === "critico").length,
+    usuarios: new Set(lista.map((e) => e.usuarioNome)).size,
+    suspeitas: lista.filter((e) => /tentativa|suspeit|falha|negad/.test(`${e.acao} ${e.resumo}`.toLowerCase())).length,
   });
+  const kpis = useMemo(() => {
+    const agora = Date.now();
+    const fimW = fim ? new Date(`${fim}T23:59:59`).getTime() : agora;
+    const iniW = ini ? new Date(`${ini}T00:00:00`).getTime() : (fimW - 15 * 864e5);
+    const dur = Math.max(1, fimW - iniW);
+    const semData = eventos.filter(passaFiltrosBase);
+    const atual = conta(semData.filter((e) => noPeriodo(e, iniW, fimW)));
+    const prev = conta(semData.filter((e) => noPeriodo(e, iniW - dur, iniW)));
+    const pct = (c, p) => (p > 0 ? Math.round(((c - p) / p) * 100) : (c > 0 ? 100 : 0));
+    const cur = conta(filtrados);
+    const ultimo = ordenados.length ? [...ordenados].sort((a, b) => new Date(b.quandoISO) - new Date(a.quandoISO))[0] : null;
+    return {
+      total: cur.total,
+      logins: cur.logins, dLogins: pct(atual.logins, prev.logins),
+      criticas: cur.criticas, dCriticas: pct(atual.criticas, prev.criticas),
+      usuarios: cur.usuarios, dUsuarios: pct(atual.usuarios, prev.usuarios),
+      suspeitas: cur.suspeitas, dSuspeitas: pct(atual.suspeitas, prev.suspeitas),
+      ultimo,
+    };
+  }, [eventos, filtrados, ordenados, fAcao, fEnt, fUser, fRisco, termo, ini, fim]);
+
+  // Paginação
+  const totalPaginas = Math.max(1, Math.ceil(ordenados.length / porPagina));
+  useEffect(() => { setPagina(1); }, [fAcao, fEnt, fUser, fRisco, termo, ini, fim, porPagina, ordCol, ordDir]);
+  const paginaAtual = Math.min(pagina, totalPaginas);
+  const visiveis = ordenados.slice((paginaAtual - 1) * porPagina, paginaAtual * porPagina);
+  const inicio = ordenados.length ? (paginaAtual - 1) * porPagina + 1 : 0;
+  const fimReg = Math.min(paginaAtual * porPagina, ordenados.length);
+
+  const selecionado = selId != null ? eventos.find((e) => e.id === selId) || null : null;
+
+  // Ações ───────────────────────────────────────────────────────
+  async function atualizar() {
+    if (!onAtualizar) { setUltimaAtt(new Date()); return; }
+    setAtualizando(true); setErro(false);
+    try { await onAtualizar(); setUltimaAtt(new Date()); }
+    catch { setErro(true); }
+    finally { setAtualizando(false); }
+  }
+  function limpar() {
+    setBusca(""); setFAcao("todas"); setFEnt("todas"); setFUser("todos"); setFRisco("todos");
+    setIni(""); setFim(""); setPagina(1);
+  }
+  async function marcar(e) {
+    setMarcando(true);
+    try { if (onMarcarAnalisado) await onMarcarAnalisado(e.id); } catch { /* tolerante */ }
+    setAnalisadosLocais((s) => new Set(s).add(e.id));
+    setMarcando(false);
+  }
+  async function copiar(e) {
+    const txt = [
+      `Código: ${e.codigo}`, `Data/Hora: ${fmtDataHora(e.quandoISO)}`, `Risco: ${AUDIT_RISCO[e.risco]?.label}`,
+      `Usuário: ${e.usuarioNome} (${e.perfil})`, `Ação: ${e.acao}`, `Entidade: ${e.entidadeLabel}`,
+      `Dados: ${e.resumo}`, `Origem: ${e.origem}`, `IP: ${e.ip}`, `Dispositivo: ${e.dispositivo}`, `Navegador: ${e.navegador}`,
+    ].join("\n");
+    try { await navigator.clipboard.writeText(txt); setCopiado(true); setTimeout(() => setCopiado(false), 1500); } catch { /* sem permissão */ }
+  }
+  function exportar() {
+    const cols = ["Código", "Risco", "Ação", "Usuário", "Perfil", "E-mail", "Entidade", "Dados", "Origem", "IP", "Dispositivo", "Navegador", "Quando", "Status"];
+    const linhas = ordenados.map((e) => [e.codigo, AUDIT_RISCO[e.risco]?.label, e.acao, e.usuarioNome, e.perfil, e.usuarioEmail, e.entidadeLabel, e.resumo, e.origem, e.ip, e.dispositivo, e.navegador, fmtDataHora(e.quandoISO), e.statusAnalise]);
+    const csv = [cols, ...linhas].map((r) => r.map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`).join(";")).join("\n");
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `auditoria_${new Date().toISOString().slice(0, 10)}.csv`; a.click();
+    URL.revokeObjectURL(url);
+  }
+  function ordenar(col) {
+    if (ordCol === col) setOrdDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setOrdCol(col); setOrdDir(col === "quando" ? "desc" : "asc"); }
+  }
+
   const inp = "rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-2.5 text-sm text-white outline-none focus:border-gold-400/60";
+  const Seta = ({ col }) => (
+    <span className={`ml-1 inline-block text-[9px] transition ${ordCol === col ? "text-gold-300" : "text-slate-600"}`}>{ordCol === col ? (ordDir === "asc" ? "▲" : "▼") : "↕"}</span>
+  );
+  const Th = ({ children, col = null, right = false }) => (
+    <th className={`whitespace-nowrap px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-slate-400 ${right ? "text-right" : "text-left"}`}>
+      {col ? <button onClick={() => ordenar(col)} className="inline-flex items-center hover:text-gold-300">{children}<Seta col={col} /></button> : children}
+    </th>
+  );
 
   return (
     <main className="space-y-5">
-      <PageHeader icone={<IconPermissoes />} titulo="Auditoria" descricao="Trilha das ações relevantes: login, cadastros, exclusões, caixa, plano e licença." />
-
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative min-w-[220px] flex-1">
-          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"><IconBusca /></span>
-          <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por usuário, ação, dados..." className={`${inp} w-full pl-10`} />
-        </div>
-        <select value={fAcao} onChange={(e) => setFAcao(e.target.value)} className={inp}><option value="todas">Todas as ações</option>{acoes.map((a) => <option key={a} value={a}>{AUDIT_ACAO[a]?.l || a}</option>)}</select>
-        <select value={fEnt} onChange={(e) => setFEnt(e.target.value)} className={inp}><option value="todas">Todas as entidades</option>{entidades.map((e) => <option key={e} value={e}>{e}</option>)}</select>
-        <input type="date" value={ini} onChange={(e) => setIni(e.target.value)} className={inp} />
-        <input type="date" value={fim} onChange={(e) => setFim(e.target.value)} className={inp} />
-      </div>
-
-      <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.04]">
-        <div className="hidden grid-cols-[1fr_1.2fr_1fr_2fr_0.8fr] bg-white/[0.03] px-5 py-2.5 text-[11px] font-bold uppercase tracking-widest text-gold-400/70 lg:grid">
-          <span>Ação</span><span>Usuário</span><span>Entidade</span><span>Dados</span><span className="text-right">Quando</span>
-        </div>
-        {filtrados.length === 0 && <p className="px-5 py-8 text-center text-sm text-slate-500">{logs.length === 0 ? "Nenhum registro de auditoria ainda." : "Nenhum registro para este filtro."}</p>}
-        {filtrados.slice(0, 300).map((l) => {
-          const a = AUDIT_ACAO[l.acao] || { l: l.acao, ic: "•", c: "text-slate-300" };
-          return (
-            <div key={l.id} className="grid grid-cols-2 gap-1 border-t border-white/5 px-5 py-3 text-sm lg:grid-cols-[1fr_1.2fr_1fr_2fr_0.8fr] lg:items-center">
-              <span className={`font-black ${a.c}`}>{a.ic} {a.l}</span>
-              <span className="truncate text-slate-200">{l.usuarioNome || "—"}</span>
-              <span className="truncate text-slate-400">{l.entidade || "—"}{l.entidadeId ? ` #${l.entidadeId}` : ""}</span>
-              <span className="truncate text-[12px] text-slate-500">{l.dados ? Object.entries(l.dados).map(([k, v]) => `${k}: ${v}`).join(" · ") : "—"}</span>
-              <span className="text-right text-[11px] text-slate-500">{l.criadoEmISO ? new Date(l.criadoEmISO).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : ""}</span>
+      {/* ── Cabeçalho ─────────────────────────────────────── */}
+      <div className="rounded-[2rem] border border-white/10 bg-blue-950/40 p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="flex items-start gap-3">
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-gold-400/40 bg-gold-400/10 text-gold-300 [&>svg]:h-6 [&>svg]:w-6"><IcoEscudo /></span>
+            <div className="min-w-0">
+              <h3 className="page-title text-xl font-bold tracking-tight text-white sm:text-2xl">Auditoria Gerencial</h3>
+              <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-400">Acompanhe acessos, alterações, exclusões, caixa, plano, licença e permissões em tempo real.</p>
             </div>
-          );
-        })}
+          </div>
+          <div className="flex flex-col items-stretch gap-2 sm:items-end">
+            <div className="flex flex-wrap gap-2 sm:justify-end">
+              <button onClick={atualizar} disabled={atualizando}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-white/10 disabled:opacity-50 [&>svg]:h-4 [&>svg]:w-4">
+                <span className={atualizando ? "animate-spin" : ""}><IcoRefresh /></span> Atualizar dados
+              </button>
+              <button onClick={exportar}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gold-400 px-4 py-2.5 text-sm font-bold text-blue-950 shadow-lg shadow-gold-900/30 transition hover:bg-gold-300 [&>svg]:h-4 [&>svg]:w-4">
+                <IcoDownload /> Exportar relatório
+              </button>
+            </div>
+            <p className="text-[11px] text-slate-500">Última atualização: {fmtDataHora(ultimaAtt.toISOString())}</p>
+          </div>
+        </div>
       </div>
+
+      {/* ── KPIs ──────────────────────────────────────────── */}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <KpiCard titulo="Total de eventos" valor={kpis.total} sub="No período selecionado" icone={<IcoDoc />} iconeTom="gold" />
+        <KpiCard titulo="Logins realizados" valor={kpis.logins} delta={kpis.dLogins} deltaTom="good" icone={<IcoUserAud />} iconeTom="blue" />
+        <KpiCard titulo="Ações críticas" valor={kpis.criticas} delta={kpis.dCriticas} deltaTom="bad" icone={<IcoAlertaEsc />} iconeTom="red" />
+        <KpiCard titulo="Usuários ativos" valor={kpis.usuarios} delta={kpis.dUsuarios} deltaTom="good" icone={<IcoUsersAud />} iconeTom="gold" />
+        <KpiCard titulo="Tentativas suspeitas" valor={kpis.suspeitas} delta={kpis.dSuspeitas} deltaTom="bad" icone={<IcoTriangulo />} iconeTom="orange" />
+        <KpiCard titulo="Última ação" valor={kpis.ultimo ? `${kpis.ultimo.usuarioNome.split(" ")[0]} • ${kpis.ultimo.acao}` : "—"} sub={kpis.ultimo ? fmtDataHora(kpis.ultimo.quandoISO) : "Sem eventos"} icone={<IcoRelogioAud />} iconeTom="emerald" />
+      </div>
+
+      {/* ── Filtros ───────────────────────────────────────── */}
+      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+        <div className="grid gap-3 lg:grid-cols-[2fr_1fr_1fr_1fr_1fr]">
+          <div className="relative">
+            <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"><IconBusca /></span>
+            <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por usuário, e-mail, ação, entidade, IP ou dados alterados..." className={`${inp} w-full pl-11`} />
+          </div>
+          <select value={fAcao} onChange={(e) => setFAcao(e.target.value)} className={inp}><option value="todas">Todas as ações</option>{acoes.map((a) => <option key={a} value={a}>{a}</option>)}</select>
+          <select value={fEnt} onChange={(e) => setFEnt(e.target.value)} className={inp}><option value="todas">Todas as entidades</option>{entidades.map((e) => <option key={e} value={e}>{e}</option>)}</select>
+          <select value={fUser} onChange={(e) => setFUser(e.target.value)} className={inp}><option value="todos">Todos os usuários</option>{usuarios.map((u) => <option key={u} value={u}>{u}</option>)}</select>
+          <select value={fRisco} onChange={(e) => setFRisco(e.target.value)} className={inp}><option value="todos">Todos os riscos</option>{Object.entries(AUDIT_RISCO).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</select>
+        </div>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_auto_auto]">
+          <label className="flex flex-col gap-1"><span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Data inicial</span><input type="date" value={ini} onChange={(e) => setIni(e.target.value)} className={inp} /></label>
+          <label className="flex flex-col gap-1"><span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Data final</span><input type="date" value={fim} onChange={(e) => setFim(e.target.value)} className={inp} /></label>
+          <button onClick={() => setPagina(1)} className="self-end rounded-2xl bg-gold-400 px-5 py-2.5 text-sm font-bold text-blue-950 transition hover:bg-gold-300">Aplicar filtros</button>
+          <button onClick={limpar} className="self-end rounded-2xl border border-white/10 bg-white/[0.06] px-5 py-2.5 text-sm font-bold text-slate-300 transition hover:bg-white/10">Limpar</button>
+        </div>
+      </div>
+
+      {/* ── Tabela / cards ────────────────────────────────── */}
+      <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.04]">
+        {erro ? (
+          <div className="px-5 py-12 text-center">
+            <p className="text-sm font-semibold text-red-300">Não foi possível carregar os registros de auditoria.</p>
+            <button onClick={atualizar} className="mt-3 rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-2 text-sm font-bold text-slate-200 hover:bg-white/10">Tentar novamente</button>
+          </div>
+        ) : atualizando ? (
+          <div className="space-y-2 p-5">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-12 animate-pulse rounded-xl bg-white/[0.04]" />)}</div>
+        ) : ordenados.length === 0 ? (
+          <EmptyState icone={<IcoEscudo />} titulo="Nenhum registro de auditoria encontrado para os filtros selecionados." dica="Ajuste os filtros, o período ou limpe a busca para ver mais eventos." />
+        ) : (
+          <>
+            {/* Desktop / tablet — tabela com rolagem horizontal */}
+            <div className="hidden overflow-x-auto lg:block">
+              <table className="w-full min-w-[1120px] border-collapse text-sm">
+                <thead className="sticky top-0 z-10 bg-blue-950/80 backdrop-blur">
+                  <tr className="border-b border-white/10">
+                    <Th col="risco">Risco</Th>
+                    <Th col="acao">Ação</Th>
+                    <Th col="usuario">Usuário</Th>
+                    <Th>Perfil</Th>
+                    <Th col="entidade">Entidade</Th>
+                    <Th>Dados da alteração</Th>
+                    <Th>Origem</Th>
+                    <Th>IP / Dispositivo</Th>
+                    <Th col="quando">Quando</Th>
+                    <Th right>Ações</Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visiveis.map((e) => (
+                    <tr key={e.id} className={`border-b border-white/5 transition hover:bg-white/[0.04] ${e.risco === "critico" ? "bg-red-500/[0.04]" : ""}`}>
+                      <td className="px-3 py-3"><RiscoBadge risco={e.risco} /></td>
+                      <td className="whitespace-nowrap px-3 py-3 font-semibold text-white">{e.acao}</td>
+                      <td className="whitespace-nowrap px-3 py-3 text-slate-200">{e.usuarioNome}</td>
+                      <td className="whitespace-nowrap px-3 py-3 text-slate-400">{e.perfil}</td>
+                      <td className="whitespace-nowrap px-3 py-3 text-slate-300">{e.entidadeLabel}</td>
+                      <td className="max-w-[240px] truncate px-3 py-3 text-slate-400" title={e.resumo}>{e.resumo}</td>
+                      <td className="whitespace-nowrap px-3 py-3 text-slate-400">{e.origem}</td>
+                      <td className="whitespace-nowrap px-3 py-3 text-slate-400">{e.ip} • {e.dispositivo}</td>
+                      <td className="whitespace-nowrap px-3 py-3 text-[12px] text-slate-400">{fmtDataHora(e.quandoISO)}</td>
+                      <td className="whitespace-nowrap px-3 py-3 text-right">
+                        <button onClick={() => setSelId(e.id)} className="rounded-xl border border-gold-400/30 bg-gold-400/10 px-3 py-1.5 text-xs font-bold text-gold-300 transition hover:bg-gold-400/20">Ver detalhes</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile — cards */}
+            <div className="space-y-2 p-3 lg:hidden">
+              {visiveis.map((e) => (
+                <div key={e.id} className={`rounded-2xl border p-3 ${e.risco === "critico" ? "border-red-400/20 bg-red-500/[0.05]" : "border-white/10 bg-slate-950/40"}`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <RiscoBadge risco={e.risco} />
+                    <span className="text-[11px] text-slate-500">{fmtDataHora(e.quandoISO)}</span>
+                  </div>
+                  <p className="mt-2 font-bold text-white">{e.acao}</p>
+                  <p className="text-[12px] text-slate-400">{e.usuarioNome} • {e.perfil} • {e.entidadeLabel}</p>
+                  <p className="mt-1 line-clamp-2 text-[12px] text-slate-500">{e.resumo}</p>
+                  <div className="mt-2 flex items-center justify-between gap-2">
+                    <span className="truncate text-[11px] text-slate-500">{e.origem} • {e.ip} • {e.dispositivo}</span>
+                    <button onClick={() => setSelId(e.id)} className="shrink-0 rounded-xl border border-gold-400/30 bg-gold-400/10 px-3 py-1.5 text-xs font-bold text-gold-300">Ver detalhes</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Paginação */}
+            <div className="flex flex-col items-center justify-between gap-3 border-t border-white/10 px-5 py-4 lg:flex-row">
+              <div className="flex items-center gap-2 text-xs text-slate-400">
+                <span>Exibir</span>
+                <select value={porPagina} onChange={(e) => setPorPagina(Number(e.target.value))} className="rounded-xl border border-white/10 bg-slate-950/70 px-2 py-1.5 text-xs text-white outline-none focus:border-gold-400/60">
+                  {[10, 25, 50, 100].map((n) => <option key={n} value={n}>{n}</option>)}
+                </select>
+                <span>por página</span>
+              </div>
+              <p className="text-xs text-slate-400"><b className="text-white">{inicio}–{fimReg}</b> de <b className="text-white">{ordenados.length}</b> eventos</p>
+              <div className="flex flex-wrap items-center justify-center gap-1">
+                <button disabled={paginaAtual <= 1} onClick={() => setPagina(paginaAtual - 1)} className="min-w-9 rounded-xl border border-white/10 bg-white/[0.06] px-3 py-2 text-xs font-black text-slate-300 transition hover:bg-white/10 disabled:opacity-30">‹</button>
+                {(() => {
+                  const nums = []; const add = (n) => { if (n >= 1 && n <= totalPaginas && !nums.includes(n)) nums.push(n); };
+                  add(1); for (let i = paginaAtual - 1; i <= paginaAtual + 1; i++) add(i); add(totalPaginas); nums.sort((a, b) => a - b);
+                  return nums.map((n, i) => (
+                    <span key={n} className="flex items-center gap-1">
+                      {i > 0 && n - nums[i - 1] > 1 && <span className="px-1 text-slate-600">…</span>}
+                      <button onClick={() => setPagina(n)} className={`min-w-9 rounded-xl px-3 py-2 text-xs font-black transition ${n === paginaAtual ? "bg-gold-400 text-blue-950" : "border border-white/10 bg-white/[0.06] text-slate-300 hover:bg-white/10"}`}>{n}</button>
+                    </span>
+                  ));
+                })()}
+                <button disabled={paginaAtual >= totalPaginas} onClick={() => setPagina(paginaAtual + 1)} className="min-w-9 rounded-xl border border-white/10 bg-white/[0.06] px-3 py-2 text-xs font-black text-slate-300 transition hover:bg-white/10 disabled:opacity-30">›</button>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* ── Rodapé gerencial ──────────────────────────────── */}
+      {!erro && ordenados.length > 0 && (
+        <div className="flex items-start gap-3 rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-gold-400/30 bg-gold-400/10 text-gold-300 [&>svg]:h-5 [&>svg]:w-5"><IcoInfoAud /></span>
+          <p className="text-sm leading-6 text-slate-400">
+            Foram encontrados <b className="text-gold-300">{ordenados.length}</b> evento(s){(ini || fim) ? ` no período de ${ini ? new Date(`${ini}T00:00:00`).toLocaleDateString("pt-BR") : "início"} a ${fim ? new Date(`${fim}T00:00:00`).toLocaleDateString("pt-BR") : "hoje"}` : ""}.
+            {" "}Deste total, <b className="text-red-400">{kpis.criticas}</b> ação(ões) foram classificadas como <b className="text-red-300">críticas</b> e precisam de análise gerencial.
+          </p>
+        </div>
+      )}
+
+      {/* ── Painel lateral de detalhes ────────────────────── */}
+      {selecionado && (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          <button aria-label="Fechar" onClick={() => setSelId(null)} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+          <aside className="relative flex h-full w-full flex-col border-l border-white/10 bg-blue-950 shadow-2xl sm:max-w-md">
+            <div className="flex items-center justify-between gap-3 border-b border-white/10 px-5 py-4">
+              <div className="flex items-center gap-2.5">
+                <h4 className="page-title text-lg font-bold text-white">Detalhes da Auditoria</h4>
+                <RiscoBadge risco={selecionado.risco} />
+              </div>
+              <button onClick={() => setSelId(null)} className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-slate-300 hover:bg-white/10 [&>svg]:h-4 [&>svg]:w-4"><IcoFechar /></button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-5 py-4">
+              <dl className="divide-y divide-white/5">
+                {[
+                  ["Código do evento", selecionado.codigo],
+                  ["Data e hora", fmtDataHora(selecionado.quandoISO)],
+                  ["Usuário responsável", selecionado.usuarioNome],
+                  ["Perfil", selecionado.perfil],
+                  ["Ação", selecionado.acao],
+                  ["Entidade", selecionado.entidadeLabel],
+                  ["Dados anteriores", selecionado.dadosAnteriores ? Object.entries(selecionado.dadosAnteriores).map(([k, v]) => `${k}: ${v}`).join(", ") : "—"],
+                  ["Dados novos", selecionado.dadosNovos ? Object.entries(selecionado.dadosNovos).map(([k, v]) => `${k}: ${v}`).join(", ") : "—"],
+                  ["Resumo", selecionado.resumo],
+                  ["IP", selecionado.ip],
+                  ["Dispositivo", selecionado.dispositivo],
+                  ["Navegador", selecionado.navegador],
+                  ["Origem", selecionado.origem],
+                ].map(([label, valor]) => (
+                  <div key={label} className="grid grid-cols-[130px_1fr] gap-3 py-2.5">
+                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</dt>
+                    <dd className="break-words text-sm text-white">{valor}</dd>
+                  </div>
+                ))}
+                <div className="grid grid-cols-[130px_1fr] gap-3 py-2.5">
+                  <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Status da análise</dt>
+                  <dd>
+                    {selecionado.analisado
+                      ? <span className="inline-flex items-center gap-1 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-bold text-emerald-300">Analisado</span>
+                      : <span className="inline-flex items-center gap-1 rounded-full border border-gold-400/40 bg-gold-400/10 px-2.5 py-0.5 text-[10px] font-bold text-gold-300">Pendente</span>}
+                  </dd>
+                </div>
+              </dl>
+            </div>
+            <div className="flex flex-col gap-2 border-t border-white/10 px-5 py-4 sm:flex-row">
+              <button onClick={() => marcar(selecionado)} disabled={selecionado.analisado || marcando}
+                className="flex-1 rounded-2xl bg-gold-400 px-4 py-2.5 text-sm font-bold text-blue-950 transition hover:bg-gold-300 disabled:opacity-40">
+                {selecionado.analisado ? "Analisado" : marcando ? "Salvando…" : "Marcar como analisado"}
+              </button>
+              <button onClick={() => copiar(selecionado)} className="flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-2.5 text-sm font-bold text-slate-200 transition hover:bg-white/10 [&>svg]:h-4 [&>svg]:w-4"><IcoCopiar /> {copiado ? "Copiado!" : "Copiar registro"}</button>
+              <button onClick={() => setSelId(null)} className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-2.5 text-sm font-bold text-slate-200 transition hover:bg-white/10">Fechar</button>
+            </div>
+          </aside>
+        </div>
+      )}
     </main>
   );
 }

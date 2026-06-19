@@ -521,7 +521,27 @@ export async function getSessionEmail() {
 //  Auditoria (migration 045) — trilha de ações (tolerante)
 // ════════════════════════════════════════════════════════════
 function dbParaAuditoria(r) {
-  return { id: r.id, lojaId: r.loja_id, usuarioId: r.usuario_id, usuarioNome: r.usuario_nome ?? "", acao: r.acao, entidade: r.entidade ?? "", entidadeId: r.entidade_id ?? null, dados: r.dados ?? null, userAgent: r.user_agent ?? "", criadoEmISO: r.criado_em }
+  return {
+    id: r.id, lojaId: r.loja_id, usuarioId: r.usuario_id, usuarioNome: r.usuario_nome ?? "",
+    acao: r.acao, entidade: r.entidade ?? "", entidadeId: r.entidade_id ?? null,
+    dados: r.dados ?? null, userAgent: r.user_agent ?? "", criadoEmISO: r.criado_em,
+    // Campos da Auditoria Gerencial (migration 053) — tolerantes (null se ausentes)
+    codigoEvento: r.codigo_evento ?? null, nivelRisco: r.nivel_risco ?? null,
+    usuarioEmail: r.usuario_email ?? null, usuarioPerfil: r.usuario_perfil ?? null,
+    dadosAnteriores: r.dados_anteriores ?? null, dadosNovos: r.dados_novos ?? null,
+    resumoDados: r.resumo_dados ?? null, origem: r.origem ?? null,
+    ipOrigem: r.ip_origem ?? null, dispositivo: r.dispositivo ?? null, navegador: r.navegador ?? null,
+    analisado: r.analisado ?? false, statusAnalise: r.status_analise ?? null,
+  }
+}
+// Marca um evento como analisado (tolerante: se a migration 053 ainda não foi
+// aplicada, retorna false sem quebrar — a UI atualiza o estado local mesmo assim).
+export async function marcarAuditoriaAnalisada(id) {
+  try {
+    const { error } = await supabase.from('tab_auditoria')
+      .update({ analisado: true, status_analise: 'Analisado' }).eq('id', id)
+    return !error
+  } catch { return false }
 }
 export async function fetchAuditoria(lojaId, limite = 500) {
   let q = supabase.from('tab_auditoria').select('*').order('criado_em', { ascending: false }).limit(limite)
