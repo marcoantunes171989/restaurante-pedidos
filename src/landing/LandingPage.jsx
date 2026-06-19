@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { LogoPP } from "../components/BrandLogo";
 import { planosPedidoPrime } from "../config/pricing";
 
@@ -409,6 +409,111 @@ function DashboardMock() {
 }
 
 // ════════════════════════════════════════════════════════════
+//  Vídeo de divulgação — autoplay em loop infinito (mudo, exigência
+//  dos navegadores p/ autoplay). Toca enquanto o cliente está no site;
+//  o toque pausa/retoma e há um botão para ativar o som.
+// ════════════════════════════════════════════════════════════
+function VideoDivulgacao() {
+  const ref = useRef(null);
+  const [tocando, setTocando] = useState(true);
+  const [mudo, setMudo] = useState(true);
+  const [interagiu, setInteragiu] = useState(false); // esconde a dica após o 1º toque
+
+  // Garante mudo + início da reprodução. O atributo `muted` do JSX não seta a
+  // propriedade de forma confiável no React (bug conhecido), e sem mudo o
+  // autoplay é bloqueado pelos navegadores — então forçamos via ref.
+  useEffect(() => {
+    const v = ref.current;
+    if (!v) return;
+    v.muted = true;
+    v.play().catch(() => {});
+  }, []);
+
+  function alternar() {
+    const v = ref.current;
+    if (!v) return;
+    setInteragiu(true);
+    if (v.paused) { v.play().catch(() => {}); setTocando(true); }
+    else { v.pause(); setTocando(false); }
+  }
+
+  function alternarSom(e) {
+    e.stopPropagation(); // não dispara o pausar/retomar do clique no vídeo
+    const v = ref.current;
+    if (!v) return;
+    const novo = !v.muted;
+    v.muted = novo;
+    setMudo(novo);
+    if (novo === false && v.paused) { v.play().catch(() => {}); setTocando(true); }
+  }
+
+  return (
+    <section className="bg-[#070B16] py-14 sm:py-20">
+      <div className="mx-auto max-w-5xl px-5">
+        <TituloSecao
+          tag="Veja em ação"
+          titulo="Conheça o Pedido Prime em poucos segundos"
+          subtitulo="Toque no vídeo para pausar ou continuar quando quiser."
+        />
+        <div className="mt-9 overflow-hidden rounded-3xl border border-gold-400/25 bg-black shadow-2xl shadow-black/40 ring-1 ring-white/5">
+          <div
+            className="group relative cursor-pointer"
+            onClick={alternar}
+            role="button"
+            tabIndex={0}
+            aria-label={tocando ? "Pausar vídeo" : "Reproduzir vídeo"}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); alternar(); } }}
+          >
+            <video
+              ref={ref}
+              className="block aspect-video w-full bg-black"
+              src="/divulgacao.mp4"
+              autoPlay
+              loop
+              muted
+              playsInline
+              preload="metadata"
+            />
+
+            {/* Indicador central de play/pause */}
+            <div className={`pointer-events-none absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${tocando ? "opacity-0 group-hover:opacity-100" : "opacity-100"}`}>
+              <span className="flex h-16 w-16 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm ring-1 ring-white/20">
+                {tocando ? (
+                  <svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor" aria-hidden="true"><rect x="6.5" y="5" width="3.6" height="14" rx="1" /><rect x="13.9" y="5" width="3.6" height="14" rx="1" /></svg>
+                ) : (
+                  <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor" aria-hidden="true"><path d="M8 5.2v13.6c0 .8.9 1.3 1.6.8l10-6.8a1 1 0 0 0 0-1.6l-10-6.8c-.7-.5-1.6 0-1.6.8Z" /></svg>
+                )}
+              </span>
+            </div>
+
+            {/* Dica inicial (some após o primeiro toque) */}
+            {!interagiu && (
+              <div className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-black/55 px-3.5 py-1.5 text-[11px] font-semibold text-white/90 backdrop-blur-sm ring-1 ring-white/15">
+                Toque para pausar
+              </div>
+            )}
+
+            {/* Botão de som (mudo/ativar) */}
+            <button
+              type="button"
+              onClick={alternarSom}
+              aria-label={mudo ? "Ativar som" : "Desativar som"}
+              className="absolute bottom-3 right-3 flex h-10 w-10 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm ring-1 ring-white/20 transition hover:bg-black/75"
+            >
+              {mudo ? (
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5Z" /><path d="m16 9 5 6M21 9l-5 6" /></svg>
+              ) : (
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5Z" /><path d="M15.5 8.5a5 5 0 0 1 0 7M18 6a8.5 8.5 0 0 1 0 12" /></svg>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
 //  Página
 // ════════════════════════════════════════════════════════════
 export default function LandingPage({ navigate }) {
@@ -546,6 +651,9 @@ export default function LandingPage({ navigate }) {
           </div>
         </div>
       </section>
+
+      {/* ── Vídeo de divulgação ───────────────────────────── */}
+      <VideoDivulgacao />
 
       {/* ── Dores e solução ───────────────────────────────── */}
       <section className="bg-[#0A1424] py-16 sm:py-20">
