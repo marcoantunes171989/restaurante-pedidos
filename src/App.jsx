@@ -10333,7 +10333,6 @@ function UserAdmin({ users, userForm, setUserForm, addUser, toggleUserStatus, ed
   const [excluir, setExcluir]   = useState(null);
   const [criando, setCriando]   = useState(false);
   const [busca, setBusca]       = useState("");
-  const [lojaSel, setLojaSel]   = useState("");
   const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400 placeholder:text-slate-600";
   const lbl = "mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500";
   const lojasAtivas = lojas.filter((l) => l.active !== false);
@@ -10346,9 +10345,13 @@ function UserAdmin({ users, userForm, setUserForm, addUser, toggleUserStatus, ed
     userForm.name.trim() && userForm.email.trim() &&
     (userForm.password || "").length >= 4 && userForm.cargoId;
 
+  // Lista sempre da EMPRESA EM FOCO (seletor da lateral esquerda). Para o super
+  // admin, restringe pela empresa em foco; sem foco definido, mostra todas.
+  const baseUsuarios = (isSuperAdmin && lojaInfo)
+    ? users.filter((u) => String(u.lojaId ?? "") === String(lojaInfo.id))
+    : users;
   const termo = busca.trim().toLowerCase();
-  const usuariosFiltrados = users.filter((u) => {
-    if (lojaSel && String(u.lojaId ?? "") !== String(lojaSel)) return false;
+  const usuariosFiltrados = baseUsuarios.filter((u) => {
     if (!termo) return true;
     return `${u.name} ${u.email} ${u.role} ${lojaDoUser(u)?.nome || ""}`.toLowerCase().includes(termo);
   });
@@ -10370,29 +10373,23 @@ function UserAdmin({ users, userForm, setUserForm, addUser, toggleUserStatus, ed
         titulo="Usuários"
         descricao={!isSuperAdmin && lojaInfo ? `Equipe com acesso ao sistema — novos usuários ficam vinculados a ${lojaInfo.nome}.` : "Equipe com acesso ao sistema, com cargo, empresa e telas liberadas por permissão."}
         indicadores={[
-          { valor: users.length, rotulo: users.length === 1 ? "usuário" : "usuários" },
-          { valor: users.filter((u) => u.active).length, rotulo: "ativos", tom: "ok" },
-          { valor: users.filter((u) => !u.active).length, rotulo: "inativos" },
+          { valor: baseUsuarios.length, rotulo: baseUsuarios.length === 1 ? "usuário" : "usuários" },
+          { valor: baseUsuarios.filter((u) => u.active).length, rotulo: "ativos", tom: "ok" },
+          { valor: baseUsuarios.filter((u) => !u.active).length, rotulo: "inativos" },
         ]}
         acao={<PrimeButton onClick={abrirCadastro}><span className="text-lg leading-none">+</span> Cadastrar usuário</PrimeButton>}
       />
 
       {/* Busca + filtro + lista */}
       <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
-        <div className={`mb-4 grid gap-3 ${isSuperAdmin ? "sm:grid-cols-[1fr_220px]" : ""}`}>
+        <div className="mb-4">
           <div className="relative">
             <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"><IconBusca /></span>
             <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por nome, e-mail, cargo ou empresa..."
               className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-blue-400" />
           </div>
-          {isSuperAdmin && (
-            <select value={lojaSel} onChange={(e) => setLojaSel(e.target.value)} className={inp}>
-              <option value="">Todas as empresas</option>
-              {lojas.map((l) => <option key={l.id} value={l.id}>{l.nome} ({l.prefixo})</option>)}
-            </select>
-          )}
         </div>
-        <p className="mb-3 text-xs text-slate-500">{usuariosFiltrados.length} de {users.length} usuário(s)</p>
+        <p className="mb-3 text-xs text-slate-500">{usuariosFiltrados.length} de {baseUsuarios.length} usuário(s)</p>
         <div className="space-y-2">
           {users.length === 0 && (
             <div className="py-10 text-center">
