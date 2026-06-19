@@ -28,6 +28,7 @@ import {
 } from "./lib/supabase";
 import { usandoSupabaseAuth } from "./lib/authMode";
 import { statusAssinatura, getCurrentCompanyPlan, modulosDoPlano, MODULOS_LABEL, canAccessModule, getBlockedModuleMessage } from "./lib/plans";
+import { useUpgradeModais } from "./components/upgrade/UpgradeModais";
 import { GeradorComandas } from "./components/QRComandas";
 import { QRScannerModal  } from "./components/QRScanner";
 import { LogoPP } from "./components/BrandLogo";
@@ -8221,9 +8222,11 @@ const TIPOS_PAGAMENTO = [
 //  Admin — Configurações (aparência / tema das telas do cliente)
 // ════════════════════════════════════════════════════════════
 // Tela elegante exibida quando o módulo não está incluso no plano contratado.
-function ModuloBloqueado({ slug, lojaInfo, onVerPlanos = () => {} }) {
+function ModuloBloqueado({ slug, lojaInfo, onVerPlanos }) {
   const msg = getBlockedModuleMessage(slug);
-  function falar() { window.open(`https://wa.me/5518981465499?text=${encodeURIComponent(`Olá! Sou da empresa ${lojaInfo?.nome || ""} e quero liberar o módulo "${MODULOS_LABEL[slug] || slug}" no Pedido Prime.`)}`, "_blank"); }
+  const moduloNome = MODULOS_LABEL[slug] || slug;
+  // Telas padrão reutilizáveis (Falar com consultor / Ver planos)
+  const up = useUpgradeModais(moduloNome);
   return (
     <main className="flex min-h-[60vh] items-center justify-center">
       <div className="w-full max-w-lg rounded-[2rem] border border-gold-400/30 bg-gold-400/[0.05] p-8 text-center shadow-2xl">
@@ -8233,10 +8236,11 @@ function ModuloBloqueado({ slug, lojaInfo, onVerPlanos = () => {} }) {
         <h2 className="page-title mt-4 text-2xl font-bold tracking-tight text-white">{msg.titulo}</h2>
         <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-400">{msg.descricao}</p>
         <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
-          <button onClick={falar} className="font-display rounded-2xl bg-gold-400 px-6 py-3 text-sm font-bold text-blue-950 hover:bg-gold-300 transition active:scale-95 shadow-lg shadow-gold-900/30">Falar com consultor</button>
-          <button onClick={onVerPlanos} className="rounded-2xl border border-gold-400/40 bg-gold-400/10 px-6 py-3 text-sm font-black text-gold-200 hover:bg-gold-400/20 transition">Ver planos</button>
+          <button onClick={() => up.abrirConsultor(`Quero contratar o módulo ${moduloNome}`)} className="font-display rounded-2xl bg-gold-400 px-6 py-3 text-sm font-bold text-blue-950 hover:bg-gold-300 transition active:scale-95 shadow-lg shadow-gold-900/30">Falar com consultor</button>
+          <button onClick={up.abrirPlanos} className="rounded-2xl border border-gold-400/40 bg-gold-400/10 px-6 py-3 text-sm font-black text-gold-200 hover:bg-gold-400/20 transition">Ver planos</button>
         </div>
       </div>
+      {up.modais}
     </main>
   );
 }
