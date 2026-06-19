@@ -712,19 +712,16 @@ export default function RestaurantePedidoApp() {
   // ── Restaura o login após reload (modo Supabase Auth) ───────
   // Ao logar no modo supabase, a página recarrega e inicializa autenticada;
   // aqui reassociamos o currentUser a partir da sessão ativa + dados já carregados.
+  // Mantém o usuário logado ao atualizar a página: se houver sessão Supabase
+  // ativa, reassocia o currentUser. O retorno à tela de login acontece SOMENTE
+  // quando o usuário clica em "Sair" (logout encerra a sessão).
   const restaurouSessaoRef = useRef(false);
   useEffect(() => {
     if (!usandoSupabaseAuth() || !dbReady || currentUser || restaurouSessaoRef.current) return;
     restaurouSessaoRef.current = true;
     (async () => {
-      // Restaura a sessão SOMENTE no reload imediato após o login (flag one-shot).
-      // Em qualquer outra visita/refresh, mostra a tela de login e encerra uma
-      // eventual sessão remanescente (comportamento de "sempre pedir login").
-      let posLogin = false;
-      try { posLogin = sessionStorage.getItem("pp_restore_once") === "1"; sessionStorage.removeItem("pp_restore_once"); } catch {}
       const email = await getSessionEmail();
-      if (!posLogin) { if (email) { try { await logoutSupabaseAuth(); } catch {} } return; }
-      if (!email) return;
+      if (!email) return; // sem sessão (ex.: após "Sair") → mostra a tela de login
       const u = users.find((x) => (x.email || "").toLowerCase() === email.toLowerCase());
       if (u) aplicarLogin(u, { silencioso: true });
     })();
@@ -886,9 +883,8 @@ export default function RestaurantePedidoApp() {
       // para o app inicializar JÁ AUTENTICADO (os dados carregam com o JWT/RLS).
       const r = await loginSupabaseAuth(creds.email, creds.password);
       if (!r.ok) return notify("error", r.error || "Usuário ou senha inválidos.");
-      // Marca que o PRÓXIMO carregamento é o reload pós-login (restaura a sessão
-      // só uma vez). Em visitas/refresh normais a /login, a tela de login aparece.
-      try { sessionStorage.setItem("pp_restore_once", "1"); } catch {}
+      // Recarrega para inicializar já autenticado; a sessão fica salva e o
+      // usuário permanece logado ao atualizar a página (sai só pelo "Sair").
       window.location.reload();
       return;
     }
