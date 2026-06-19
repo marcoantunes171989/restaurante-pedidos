@@ -773,6 +773,74 @@ export default function RestaurantePedidoApp() {
   const [userForm, setUserForm] = useState({ name: "", email: "", password: "", role: "", cargoId: "", lojaId: "" });
   const [accessForm, setAccessForm] = useState({ id: "", label: "", desc: "", type: "Operacional" });
 
+  // ── Navegação SPA com histórico real (URL ↔ tela interna) ───────────
+  // O projeto não usa React Router: a navegação é por estado. Aqui espelhamos
+  // a tela atual na URL (History API) para que VOLTAR/AVANÇAR do navegador
+  // funcionem entre telas internas e NÃO joguem o usuário autenticado na landing.
+  const popstateRef = useRef(false);      // true = mudança veio do "voltar" (não re-empilha)
+  const primeiraSyncRef = useRef(true);   // 1ª sincronização usa replaceState (entrada base)
+  function rotaDoEstado(tab, section, setorId) {
+    if (tab === "admin") return `/admin/${section || "dashboard"}`;
+    if (tab === "kitchen") return `/admin/cozinha${setorId != null ? `?setorId=${setorId}` : ""}`;
+    if (tab === "panel") return "/app/painel";
+    if (tab === "cashier") return "/app/caixa";
+    if (tab === "tablet") return "/app/tablet";
+    return "/login";
+  }
+  function aplicarRota(pathname, search) {
+    const adminMatch = pathname.match(/^\/admin\/([^/?]+)/);
+    if (adminMatch) {
+      const seg = adminMatch[1];
+      if (seg === "cozinha") {
+        const sid = new URLSearchParams(search || "").get("setorId");
+        setCozinhaSetorInicial(sid != null && sid !== "" ? (isNaN(Number(sid)) ? sid : Number(sid)) : null);
+        setActiveTab("kitchen");
+      } else { setAdminSection(seg); setActiveTab("admin"); }
+      return;
+    }
+    const appMatch = pathname.match(/^\/app\/([^/?]+)/);
+    if (appMatch) {
+      const seg = appMatch[1];
+      setActiveTab(seg === "painel" ? "panel" : seg === "caixa" ? "cashier" : "tablet");
+    }
+    // /login ou rota não reconhecida → mantém a tela atual
+  }
+  // Espelha a tela atual na URL (replace na 1ª vez; push nas seguintes)
+  useEffect(() => {
+    if (!currentUser) return;
+    if (popstateRef.current) { popstateRef.current = false; return; }
+    const novoPath = rotaDoEstado(activeTab, adminSection, cozinhaSetorInicial);
+    const atual = window.location.pathname + window.location.search;
+    if (primeiraSyncRef.current) {
+      primeiraSyncRef.current = false;
+      window.history.replaceState({}, "", novoPath); // normaliza a entrada base (ex.: /login → /admin/dashboard)
+      return;
+    }
+    if (novoPath !== atual) window.history.pushState({}, "", novoPath);
+  }, [activeTab, adminSection, cozinhaSetorInicial, currentUser]);
+  // Refs para o handler de popstate enxergar os valores atuais sem recriar o listener
+  const currentUserRef = useRef(null);
+  const activeTabRef = useRef("tablet");
+  const adminSectionRef = useRef("dashboard");
+  useEffect(() => { currentUserRef.current = currentUser; activeTabRef.current = activeTab; adminSectionRef.current = adminSection; });
+  // Voltar/Avançar do navegador → restaura a tela correspondente
+  useEffect(() => {
+    const onPop = () => {
+      popstateRef.current = true;
+      const { pathname, search } = window.location;
+      if (/^\/(admin|app)\//.test(pathname)) aplicarRota(pathname, search);
+      else if (currentUserRef.current) {
+        // Autenticado tentando sair para landing/login pelo voltar → mantém no app
+        window.history.replaceState({}, "", rotaDoEstado(activeTabRef.current, adminSectionRef.current, null));
+        popstateRef.current = false;
+      }
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+  // Sinaliza sessão ativa para o Root (main.jsx) impedir landing pelo "voltar"
+  useEffect(() => { try { if (currentUser) sessionStorage.setItem("pp_sessao_ativa", "1"); } catch {} }, [currentUser]);
+
   // ── Multi-loja: filtra todos os dados pela loja do usuário logado ──
   const isSuperAdmin = !!currentUser?.superAdmin;
   // O super admin não tem empresa fixa: escolhe uma "empresa em foco" para gerenciar os cadastros
@@ -916,6 +984,9 @@ export default function RestaurantePedidoApp() {
     // peça a seleção da mesa novamente (e libere a mesa para outros).
     try { localStorage.removeItem("pp_tablet_mesa"); } catch {}
     try { sessionStorage.removeItem("pp_restore_once"); } catch {}
+    try { sessionStorage.removeItem("pp_sessao_ativa"); } catch {} // libera o acesso à landing/login
+    try { window.history.replaceState({}, "", "/login"); } catch {}
+    primeiraSyncRef.current = true; // próxima sessão recomeça normalizando a URL
     if (usandoSupabaseAuth()) logoutSupabaseAuth();
     setTableNumber("");
     setCurrentUser(null); setActiveTab("tablet"); setMessage({ type: "", text: "" });
