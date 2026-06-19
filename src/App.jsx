@@ -5273,7 +5273,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           {!canAccessModule(ativo, { assinatura: assinaturaAtual, plano: planoAtual, planoModulos, isSuperAdmin }) ? (
             <ModuloBloqueado slug={ativo} lojaInfo={lojaInfo} onVerPlanos={() => setAdminSection("plano")} />
           ) : (<>
-          {ativo === "dashboard"  && <DashboardAdmin orders={orders} products={products} comandas={comandasRegistradas} clientes={clientes} />}
+          {ativo === "dashboard"  && <DashboardAdmin orders={orders} products={products} comandas={comandasRegistradas} clientes={clientes} setores={setores} irParaMesas={() => setAdminSection("mesas")} />}
           {ativo === "relatorios" && <RelatoriosAdmin orders={orders} products={products} lojaInfo={lojaInfo} />}
           {ativo === "crm"        && <CrmAdmin clientes={clientes} orders={orders} fidTransacoes={fidTransacoes} fidRecompensas={fidRecompensas} lancarPontos={fidApi?.lancarPontos} />}
           {ativo === "fidelidade" && (precisaEmpresa ? avisoEmpresa : <FidelidadeAdmin regra={fidRegra} recompensas={fidRecompensas} transacoes={fidTransacoes} clientes={clientes} api={fidApi} />)}
@@ -5614,154 +5614,376 @@ function BarrasVerticais({ dados, sufixo = "R$" }) {
   );
 }
 
-function DashboardAdmin({ orders, products, comandas = [], clientes = [] }) {
-  const [periodo, setPeriodo] = useState("hoje");
+// Grupo de filtros em formato "pill" (turno, canal, status)
+function GrupoPill({ titulo, valor, setValor, opcoes }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="text-[10px] font-bold uppercase tracking-widest text-slate-600">{titulo}</span>
+      <div className="flex flex-wrap gap-1">
+        {opcoes.map((op) => (
+          <button key={op.id} onClick={() => setValor(op.id)}
+            className={`rounded-full px-2.5 py-1 text-[11px] font-bold transition ${valor === op.id ? "bg-gold-400 text-blue-950" : "border border-white/10 bg-white/[0.05] text-slate-300 hover:bg-white/10"}`}>{op.label}</button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Gráfico de barras por horário com destaque dourado no melhor horário
+function BarrasHora({ dados }) {
+  const max = Math.max(1, ...dados.map((d) => d.valor));
+  const maxVal = Math.max(...dados.map((d) => d.valor));
+  return (
+    <div className="flex items-end justify-between gap-1.5 overflow-x-auto" style={{ height: 200 }}>
+      {dados.map((d, i) => {
+        const destaque = d.valor === maxVal && maxVal > 0;
+        return (
+          <div key={i} className="flex min-w-[28px] flex-1 flex-col items-center justify-end gap-1">
+            <span className="w-full truncate text-center font-bold leading-none text-slate-300" style={{ fontSize: 9 }}>{d.valor > 0 ? formatCurrency(d.valor).replace("R$", "").trim() : ""}</span>
+            <div className={`w-full rounded-t-md transition-all ${destaque ? "bg-gradient-to-t from-gold-500 to-gold-300" : "bg-gradient-to-t from-blue-600 to-blue-400"}`} style={{ height: `${(d.valor / max) * 150}px`, minHeight: d.valor > 0 ? 4 : 0 }} />
+            <span className="w-full truncate text-center leading-none text-slate-500" style={{ fontSize: 9 }}>{d.label}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// Card de painel padrão do dashboard
+function Painel({ titulo, acao = null, children, className = "" }) {
+  return (
+    <div className={`rounded-[2rem] border border-white/10 bg-white/[0.04] p-5 ${className}`}>
+      <div className="mb-4 flex items-center justify-between gap-2">
+        <h3 className="page-title text-base font-bold text-white">{titulo}</h3>
+        {acao}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function DashboardAdmin({ orders, products, comandas = [], clientes = [], setores = [], irParaMesas = () => {} }) {
+  const [periodo, setPeriodo] = useState("30");
   const [ini, setIni] = useState("");
   const [fim, setFim] = useState("");
+  const [turno, setTurno] = useState("todos");
+  const [canal, setCanal] = useState("todos"); // visual: pedidos não têm canal de origem
+  const [statusF, setStatusF] = useState("todos");
   const [modal, setModal] = useState(null);
 
-  const filtrados = filtrarPedidosPorPeriodo(orders, periodo, ini, fim);
-  const a = analisarVendas(filtrados, products);
-  const maxProd = Math.max(1, ...a.topProdutos.map((p) => p.qtd));
-  const semEstoque = products.filter((p) => (p.estoque ?? 0) <= 5);
+  const horaDe = (o) => (o.createdAtISO ? new Date(o.createdAtISO).getHours() : (o.hour ?? null));
+  const base0 = filtrarPedidosPorPeriodo(orders, periodo, ini, fim);
+  const filtrados = base0.filter((o) => {
+    const h = horaDe(o);
+    if (turno === "almoco" && !(h != null && h >= 11 && h <= 16)) return false;
+    if (turno === "jantar" && !(h != null && h >= 18 && h <= 23)) return false;
+    if (statusF === "pago" && !(o.paymentStatus === "paid" && o.status !== "cancelled")) return false;
+    if (statusF === "aberto" && !(o.paymentStatus !== "paid" && o.status !== "cancelled")) return false;
+    if (statusF === "cancelado" && o.status !== "cancelled") return false;
+    return true; // "canal" não filtra: o pedido não armazena origem (preparado p/ futuro)
+  });
 
+  const a = analisarVendas(filtrados, products);
   const pagos = filtrados.filter((o) => o.paymentStatus === "paid" && o.status !== "cancelled");
   const abertos = filtrados.filter((o) => o.paymentStatus !== "paid" && o.status !== "cancelled");
+  const cancelados = filtrados.filter((o) => o.status === "cancelled");
+  const previsto = a.faturamento + a.emAberto;
+  const produtoTop = a.topProdutos[0] || null;
+  const maxProd = Math.max(1, ...a.topProdutos.map((p) => p.qtd));
+  const semEstoque = products.filter((p) => p.controlaEstoque && (p.estoque ?? 0) <= (p.estoqueMinimo ?? 5));
 
-  // Faturamento por hora do dia (gráfico de barras)
-  const vendasPorHora = (() => {
-    const horas = Array.from({ length: 24 }, (_, h) => ({ label: `${h}h`, valor: 0 }));
-    pagos.forEach((o) => {
-      if (o.createdAtISO) { const h = new Date(o.createdAtISO).getHours(); horas[h].valor += orderTotal(o) * 1.1; }
-    });
-    // mostra apenas faixa de funcionamento (10h–23h)
-    return horas.slice(10, 24);
-  })();
+  // Faturamento por horário (10h → 01h), destaque no pico
+  const horas24 = Array.from({ length: 24 }, (_, h) => ({ h, label: `${String(h).padStart(2, "0")}h`, valor: 0 }));
+  pagos.forEach((o) => { const h = horaDe(o); if (h != null) horas24[h].valor += orderTotal(o) * 1.1; });
+  const vendasPorHora = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 0, 1].map((h) => horas24[h]);
+  const melhorHora = vendasPorHora.reduce((b, d) => (d.valor > b.valor ? d : b), { valor: -1, label: "—" });
 
-  // Distribuição de status dos pedidos
-  const statusDist = ["received", "preparing", "ready", "delivered", "cancelled"]
+  // Donut categorias e status
+  const catDonut = a.categorias.slice(0, 6).map((c) => ({ label: c.categoria, valor: c.valor }));
+  const statusDist = ["received", "preparing", "ready", "delivered"]
     .map((s) => ({ label: statusMap[s]?.label || s, valor: filtrados.filter((o) => o.status === s).length }))
     .filter((d) => d.valor > 0);
+  const naoCancelados = filtrados.filter((o) => o.status !== "cancelled").length;
+  const entregues = filtrados.filter((o) => o.status === "delivered").length;
+  const taxaEntrega = naoCancelados ? Math.round((entregues / naoCancelados) * 100) : 0;
 
-  const catDonut = a.categorias.slice(0, 6).map((c) => ({ label: c.categoria, valor: c.valor }));
+  // Desempenho da cozinha (preparoEmISO → prontoEmISO)
+  const preps = filtrados.filter((o) => o.preparoEmISO && o.prontoEmISO)
+    .map((o) => (new Date(o.prontoEmISO) - new Date(o.preparoEmISO)) / 60000).filter((m) => m >= 0);
+  const tempoMedioPrep = preps.length ? Math.round(preps.reduce((s, m) => s + m, 0) / preps.length) : null;
+  const tempoMaxPrep = preps.length ? Math.round(Math.max(...preps)) : null;
+  const setorPorProduto = {}; products.forEach((p) => { if (p.setorId) setorPorProduto[p.name] = p.setorId; });
+  const contagemSetor = {}; filtrados.forEach((o) => (o.items || []).forEach((it) => { const sid = setorPorProduto[it.name]; if (sid != null) contagemSetor[sid] = (contagemSetor[sid] || 0) + it.quantity; }));
+  const setorTopId = Object.entries(contagemSetor).sort((x, y) => y[1] - x[1])[0]?.[0];
+  const setorMaisAcionado = setorTopId != null ? (setores.find((s) => String(s.id) === String(setorTopId))?.nome || "—") : "—";
 
-  // Indicadores operacionais (linha extra)
-  const mesasAbertas = new Set(abertos.map((o) => o.table).filter(Boolean)).size;
-  const comandasAtivas = comandas.filter((c) => c.ativo !== false).length;
+  // Mesas/comandas em atenção (pedidos em aberto agrupados por mesa)
+  const agora = Date.now();
+  const porMesa = {};
+  abertos.forEach((o) => {
+    const t = o.table; if (!t) return;
+    const ms = o.createdAtISO ? new Date(o.createdAtISO).getTime() : agora;
+    if (!porMesa[t]) porMesa[t] = { mesa: t, valor: 0, inicio: ms, preparo: false };
+    porMesa[t].valor += orderTotal(o) * 1.1;
+    if (ms < porMesa[t].inicio) porMesa[t].inicio = ms;
+    if (o.status === "preparing" || o.status === "received") porMesa[t].preparo = true;
+  });
+  const mesasAtencao = Object.values(porMesa).map((m) => ({ ...m, mins: Math.round((agora - m.inicio) / 60000) })).sort((x, y) => y.mins - x.mins);
+  const mesasAbertas = mesasAtencao.length;
+  const tempoMedioMesa = mesasAbertas ? Math.round(mesasAtencao.reduce((s, m) => s + m.mins, 0) / mesasAbertas) : 0;
+  const fmtTempo = (mins) => (mins >= 60 ? `${Math.floor(mins / 60)}h${String(mins % 60).padStart(2, "0")}min` : `${mins}min`);
+  const situacaoMesa = (m) => m.preparo ? { label: "Pedido em preparo", cls: "border-orange-400/30 bg-orange-500/10 text-orange-300" } : { label: "Aguardando pagamento", cls: "border-red-400/30 bg-red-500/10 text-red-300" };
+
+  // Cancelamentos e perdas
+  const valorPerdido = cancelados.reduce((s, o) => s + orderTotal(o) * 1.1, 0);
+  const motivos = {}; cancelados.forEach((o) => { const m = (o.cancelReason || "Não informado").trim(); motivos[m] = (motivos[m] || 0) + 1; });
+  const motivoPrincipal = Object.entries(motivos).sort((x, y) => y[1] - x[1])[0]?.[0] || "—";
+
+  // Clientes
   const clientesPeriodo = new Set(filtrados.map((o) => o.clienteTelefone).filter(Boolean)).size;
-  const produtoTop = a.topProdutos[0] || null;
+  const ticketPorCliente = clientesPeriodo ? a.faturamento / clientesPeriodo : 0;
 
-  // Comparativo com o intervalo imediatamente anterior (hoje x ontem, semana x semana...)
+  // Comparativo com o período anterior (mesma duração)
   const comparativo = (() => {
     if (periodo === "tudo") return null;
     const [a0, b0] = intervaloPeriodo(periodo, ini, fim);
     if (!a0 || a0.getTime() <= 0) return null;
     const dur = b0.getTime() - a0.getTime();
-    const aPrev = new Date(a0.getTime() - dur - 1);
-    const bPrev = new Date(a0.getTime() - 1);
-    const anteriores = orders.filter((o) => { if (!o.createdAtISO) return false; const d = new Date(o.createdAtISO); return d >= aPrev && d <= bPrev; });
+    const anteriores = orders.filter((o) => { if (!o.createdAtISO) return false; const d = new Date(o.createdAtISO); return d >= new Date(a0.getTime() - dur - 1) && d <= new Date(a0.getTime() - 1); });
     if (anteriores.length === 0) return null;
     const ant = analisarVendas(anteriores, products);
-    const varPct = (atual, anterior) => anterior > 0 ? ((atual - anterior) / anterior) * 100 : (atual > 0 ? 100 : null);
-    return {
-      faturamento: varPct(a.faturamento, ant.faturamento),
-      ticket: varPct(a.ticket, ant.ticket),
-      pedidos: varPct(a.totalPedidos, ant.totalPedidos),
-    };
+    const varPct = (at, an) => (an > 0 ? ((at - an) / an) * 100 : (at > 0 ? 100 : null));
+    return { faturamento: varPct(a.faturamento, ant.faturamento), ticket: varPct(a.ticket, ant.ticket), pedidos: varPct(a.totalPedidos, ant.totalPedidos) };
   })();
+
+  // Alertas gerenciais (derivados dos dados reais)
+  const mesasCriticas = mesasAtencao.filter((m) => m.mins >= 40).length;
+  const alertas = [
+    a.emAberto > 0
+      ? { tom: "red", titulo: "Atenção", desc: `${formatCurrency(a.emAberto)} em aberto no período.` }
+      : { tom: "emerald", titulo: "Sem pendências", desc: "Nenhum valor em aberto." },
+    melhorHora.valor > 0
+      ? { tom: "gold", titulo: "Horário de maior venda", desc: `${melhorHora.label} com ${formatCurrency(melhorHora.valor)}.` }
+      : { tom: "gold", titulo: "Horário de maior venda", desc: "Sem vendas no período." },
+    mesasCriticas > 0
+      ? { tom: "orange", titulo: `${mesasCriticas} mesa(s) aberta(s)`, desc: "há mais de 40 minutos." }
+      : { tom: "emerald", titulo: "Mesas em dia", desc: "Nenhuma mesa parada há muito tempo." },
+    semEstoque.length === 0
+      ? { tom: "emerald", titulo: "Todos os produtos", desc: "com estoque adequado." }
+      : { tom: "red", titulo: `${semEstoque.length} produto(s)`, desc: "abaixo do estoque mínimo." },
+  ];
+  const tomCls = { red: "border-red-400/30 bg-red-500/10 text-red-300", gold: "border-gold-400/30 bg-gold-400/10 text-gold-300", orange: "border-orange-400/30 bg-orange-500/10 text-orange-300", emerald: "border-emerald-400/30 bg-emerald-500/10 text-emerald-300" };
+
+  // Recomendações (parcialmente dinâmicas)
+  const recomendacoes = [
+    produtoTop ? `Criar combo de ${produtoTop.nome} + bebida + acompanhamento.` : "Criar combos para elevar o ticket médio.",
+    "Incentivar o cadastro de clientes no caixa.",
+    mesasCriticas > 0 ? "Monitorar mesas abertas há mais de 40 minutos." : "Manter o giro das mesas sob controle.",
+    melhorHora.valor > 0 ? `Reforçar a equipe de atendimento às ${melhorHora.label}.` : "Acompanhar os horários de pico.",
+    abertos.length > 0 ? "Conferir comandas em aberto antes do fechamento." : "Fechamento de caixa sem pendências.",
+  ];
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      {/* Cabeçalho + período */}
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h2 className="page-title flex items-center gap-2.5 text-2xl font-bold tracking-tight text-white">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gold-400/30 bg-gold-400/10 text-gold-300"><IconDashboard /></span>
-            Dashboard gerencial
+            Dashboard Gerencial
           </h2>
-          <p className="mt-1 text-sm text-slate-400">Análise de vendas — clique nos cards para detalhar.</p>
+          <p className="mt-1 max-w-2xl text-sm text-slate-400">Visão estratégica de vendas, operação, produtos, clientes e desempenho financeiro.</p>
         </div>
         <SeletorPeriodo periodo={periodo} setPeriodo={setPeriodo} ini={ini} setIni={setIni} fim={fim} setFim={setFim} />
       </div>
 
-      {/* Métricas principais (clicáveis) */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <button onClick={() => setModal({ titulo: "Faturamento — pedidos pagos", pedidos: pagos })} className="text-left">
-          <CardMetrica titulo="Faturamento (pago)" valor={formatCurrency(a.faturamento)} sub={`${a.pagos.length} pedido(s) • ver detalhes`} cor="text-emerald-400" icon="💰" variacao={comparativo?.faturamento} />
-        </button>
-        <button onClick={() => setModal({ titulo: "Pedidos em aberto", pedidos: abertos })} className="text-left">
-          <CardMetrica titulo="Em aberto" valor={formatCurrency(a.emAberto)} sub="ver detalhes" cor="text-amber-400" icon="⏳" />
-        </button>
-        <button onClick={() => setModal({ titulo: "Pedidos pagos (ticket médio)", pedidos: pagos })} className="text-left">
-          <CardMetrica titulo="Ticket médio" valor={formatCurrency(a.ticket)} sub="por pedido pago" cor="text-blue-400" icon="🎫" variacao={comparativo?.ticket} />
-        </button>
-        <button onClick={() => setModal({ titulo: "Todos os pedidos do período", pedidos: filtrados })} className="text-left">
-          <CardMetrica titulo="Total de pedidos" valor={a.totalPedidos} sub="ver detalhes" icon="📦" variacao={comparativo?.pedidos} />
-        </button>
+      {/* Filtros secundários */}
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+        <GrupoPill titulo="Turno" valor={turno} setValor={setTurno} opcoes={[{ id: "todos", label: "Todos" }, { id: "almoco", label: "Almoço" }, { id: "jantar", label: "Jantar" }]} />
+        <GrupoPill titulo="Canal" valor={canal} setValor={setCanal} opcoes={[{ id: "todos", label: "Todos" }, { id: "mesa", label: "Mesa" }, { id: "qr", label: "QR Code" }, { id: "balcao", label: "Balcão" }, { id: "delivery", label: "Delivery" }]} />
+        <GrupoPill titulo="Status" valor={statusF} setValor={setStatusF} opcoes={[{ id: "todos", label: "Todos" }, { id: "pago", label: "Pago" }, { id: "aberto", label: "Em aberto" }, { id: "cancelado", label: "Cancelado" }]} />
       </div>
 
-      {/* Indicadores operacionais */}
+      {/* KPIs (8) */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <CardMetrica titulo="Mesas abertas" valor={mesasAbertas} sub="com pedido em aberto" cor="text-white" icon="🪑" />
-        <CardMetrica titulo="Comandas ativas" valor={comandasAtivas} sub="disponíveis no sistema" cor="text-white" icon="🎫" />
+        <button onClick={() => setModal({ titulo: "Faturamento — pedidos pagos", pedidos: pagos })} className="text-left">
+          <CardMetrica titulo="Faturamento pago" valor={formatCurrency(a.faturamento)} sub={`${pagos.length} pedidos pagos • ver detalhes`} cor="text-emerald-400" icon="💰" variacao={comparativo?.faturamento} />
+        </button>
+        <button onClick={() => setModal({ titulo: "Valores em aberto", pedidos: abertos })} className="text-left">
+          <CardMetrica titulo="Valores em aberto" valor={formatCurrency(a.emAberto)} sub={`${abertos.length} comandas pendentes`} cor="text-gold-400" icon="⏳" />
+        </button>
+        <CardMetrica titulo="Faturamento previsto" valor={formatCurrency(previsto)} sub="pago + em aberto" cor="text-blue-400" icon="📈" />
+        <CardMetrica titulo="Ticket médio" valor={formatCurrency(a.ticket)} sub="meta sugerida: R$ 45,00" cor="text-violet-300" icon="🎫" variacao={comparativo?.ticket} />
+        <button onClick={() => setModal({ titulo: "Todos os pedidos do período", pedidos: filtrados })} className="text-left">
+          <CardMetrica titulo="Total de pedidos" valor={a.totalPedidos} sub={`${pagos.length} pagos | ${abertos.length} em aberto`} cor="text-violet-300" icon="📦" variacao={comparativo?.pedidos} />
+        </button>
+        <CardMetrica titulo="Produto mais vendido" valor={produtoTop ? produtoTop.nome : "—"} sub={produtoTop ? `${produtoTop.qtd} unidades vendidas` : "sem vendas"} cor="text-gold-400" icon="🏆" />
+        <CardMetrica titulo="Mesas abertas" valor={mesasAbertas} sub={mesasAbertas ? `tempo médio aberto: ${tempoMedioMesa} min` : "nenhuma mesa aberta"} cor="text-emerald-400" icon="🪑" />
         <CardMetrica titulo="Clientes no período" valor={clientesPeriodo} sub={`de ${clientes.length} cadastrados`} cor="text-blue-400" icon="👥" />
-        <CardMetrica titulo="Produto mais vendido" valor={produtoTop ? produtoTop.nome : "—"} sub={produtoTop ? `${produtoTop.qtd} un vendida(s)` : "sem vendas"} cor="text-gold-400" icon="🏆" />
+      </div>
+
+      {/* Alertas gerenciais */}
+      <div>
+        <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">Alertas gerenciais</h3>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {alertas.map((al, i) => (
+            <div key={i} className={`rounded-2xl border px-4 py-3 ${tomCls[al.tom]}`}>
+              <p className="text-sm font-bold">{al.titulo}</p>
+              <p className="mt-0.5 text-xs opacity-90">{al.desc}</p>
+            </div>
+          ))}
+        </div>
       </div>
 
       {modal && <ModalDetalhePedidos titulo={modal.titulo} pedidos={modal.pedidos} onFechar={() => setModal(null)} />}
 
-      {/* Faturamento por hora */}
-      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
-        <h3 className="mb-4 text-lg font-black text-white">📈 Faturamento por horário</h3>
-        <BarrasVerticais dados={vendasPorHora} sufixo="R$" />
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Donut categorias */}
-        <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
-          <h3 className="mb-4 text-lg font-black text-white">🍽️ Vendas por categoria</h3>
-          <DonutChart dados={catDonut} label="Categorias" />
+      {/* Faturamento por horário */}
+      <Painel titulo="Faturamento por Horário">
+        <BarrasHora dados={vendasPorHora} />
+        <div className="mt-4 flex flex-wrap gap-2">
+          <span className="rounded-full border border-gold-400/30 bg-gold-400/10 px-3 py-1 text-xs font-bold text-gold-300">★ Melhor horário de venda: {melhorHora.label}</span>
+          <span className="rounded-full border border-blue-400/30 bg-blue-500/10 px-3 py-1 text-xs font-bold text-blue-200">Oportunidade: elevar o ticket médio nos horários de menor venda.</span>
         </div>
+      </Painel>
 
-        {/* Top produtos */}
-        <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
-          <h3 className="mb-4 text-lg font-black text-white">🏆 Produtos mais vendidos</h3>
+      {/* Painéis analíticos */}
+      <div className="grid gap-5 lg:grid-cols-2 xl:grid-cols-3">
+        <Painel titulo="Vendas por Categoria"><DonutChart dados={catDonut} label="Categorias" /></Painel>
+
+        <Painel titulo="Produtos Mais Vendidos">
           <div className="space-y-3">
-            {a.topProdutos.length === 0 && (
-              <div className="py-4 text-center">
-                <p className="text-sm font-semibold text-slate-400">Nenhuma venda encontrada para este período.</p>
-                <p className="mt-0.5 text-xs text-slate-500">Altere o filtro de datas ou aguarde novas movimentações.</p>
-              </div>
-            )}
-            {a.topProdutos.map((p) => (
-              <BarraHorizontal key={p.nome} label={p.nome} valor={p.qtd} max={maxProd} sufixo=" un" cor="bg-blue-500" />
+            {a.topProdutos.length === 0 && <p className="py-4 text-center text-sm text-slate-500">Nenhuma venda no período.</p>}
+            {a.topProdutos.map((p, i) => (
+              <BarraHorizontal key={p.nome} label={p.nome} valor={p.qtd} max={maxProd} sufixo=" un" cor={i === 0 ? "bg-gold-400" : "bg-blue-500"} />
             ))}
           </div>
-        </div>
+        </Painel>
+
+        <Painel titulo="Status dos Pedidos">
+          <DonutChart dados={statusDist} label="Status" />
+          <p className="mt-3 text-center text-xs text-slate-400">Taxa de entrega concluída: <b className="text-emerald-300">{taxaEntrega}%</b></p>
+        </Painel>
+
+        <Painel titulo="Desempenho da Cozinha">
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              { r: "Tempo médio de preparo", v: tempoMedioPrep != null ? `${tempoMedioPrep} min` : "—" },
+              { r: "Pedido mais demorado", v: tempoMaxPrep != null ? `${tempoMaxPrep} min` : "—" },
+              { r: "Setor mais acionado", v: setorMaisAcionado },
+            ].map((c) => (
+              <div key={c.r} className="rounded-2xl border border-white/10 bg-slate-950/40 p-3 text-center">
+                <p className="page-title text-lg font-bold text-white">{c.v}</p>
+                <p className="mt-1 text-[10px] leading-tight text-slate-500">{c.r}</p>
+              </div>
+            ))}
+          </div>
+          {tempoMedioPrep == null && <p className="mt-3 text-center text-[11px] text-slate-500">Sem registros de preparo finalizados no período.</p>}
+        </Painel>
+
+        <Painel titulo="Formas de Pagamento">
+          <div className="space-y-3">
+            <BarraHorizontal label="Recebido (pago)" valor={a.faturamento} max={Math.max(1, previsto)} sufixo="R$" cor="bg-emerald-500" />
+            <BarraHorizontal label="Pendente (em aberto)" valor={a.emAberto} max={Math.max(1, previsto)} sufixo="R$" cor="bg-orange-500" />
+          </div>
+          <p className="mt-3 text-[11px] text-slate-500">Detalhamento por forma (Pix, crédito, débito, dinheiro) disponível em <b className="text-slate-300">Fechamento de Caixa</b>.</p>
+        </Painel>
+
+        <Painel titulo="Clientes no Período">
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              { r: "Clientes no período", v: clientesPeriodo },
+              { r: "Cadastrados (total)", v: clientes.length },
+              { r: "Pedidos por cliente", v: clientesPeriodo ? (filtrados.length / clientesPeriodo).toFixed(1) : "0" },
+              { r: "Ticket médio/cliente", v: formatCurrency(ticketPorCliente) },
+            ].map((c) => (
+              <div key={c.r} className="rounded-2xl border border-white/10 bg-slate-950/40 p-3">
+                <p className="page-title text-lg font-bold text-white">{c.v}</p>
+                <p className="mt-0.5 text-[11px] text-slate-500">{c.r}</p>
+              </div>
+            ))}
+          </div>
+        </Painel>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Status dos pedidos (donut) */}
-        <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
-          <h3 className="mb-4 text-lg font-black text-white">📋 Status dos pedidos</h3>
-          <DonutChart dados={statusDist} label="Status" />
-        </div>
+      {/* Painéis de ação gerencial */}
+      <div className="grid gap-5 lg:grid-cols-2 xl:grid-cols-3">
+        <Painel titulo="Mesas e Comandas em Atenção" className="xl:col-span-2"
+          acao={<button onClick={irParaMesas} className="rounded-xl border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs font-bold text-slate-200 transition hover:bg-white/10">Ver todas as mesas e comandas</button>}>
+          {mesasAtencao.length === 0 ? (
+            <p className="py-4 text-center text-sm text-emerald-400">✅ Nenhuma mesa em aberto no momento.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[460px] text-sm">
+                <thead><tr className="border-b border-white/10 text-left text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                  <th className="py-2 pr-3">Mesa</th><th className="py-2 pr-3">Tempo aberta</th><th className="py-2 pr-3 text-right">Valor</th><th className="py-2 pl-3">Situação</th>
+                </tr></thead>
+                <tbody>
+                  {mesasAtencao.slice(0, 8).map((m) => {
+                    const sit = situacaoMesa(m);
+                    return (
+                      <tr key={m.mesa} className="border-b border-white/5">
+                        <td className="py-2.5 pr-3 font-bold text-white">{m.mesa}</td>
+                        <td className={`py-2.5 pr-3 ${m.mins >= 40 ? "text-red-300" : "text-slate-300"}`}>{fmtTempo(m.mins)}</td>
+                        <td className="py-2.5 pr-3 text-right font-semibold text-slate-200">{formatCurrency(m.valor)}</td>
+                        <td className="py-2.5 pl-3"><span className={`inline-flex rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${sit.cls}`}>{sit.label}</span></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Painel>
 
-        {/* Estoque baixo */}
-        <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
-          <h3 className="mb-4 text-lg font-black text-white">📉 Estoque baixo (≤ 5 un)</h3>
+        <Painel titulo="Estoque Baixo">
           {semEstoque.length === 0 ? (
-            <p className="text-sm text-emerald-400">✅ Todos os produtos com estoque adequado.</p>
+            <div className="flex items-center gap-2 rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3 text-sm font-semibold text-emerald-300"><span>✅</span> Todos os produtos com estoque adequado.</div>
           ) : (
             <div className="space-y-2">
               {semEstoque.map((p) => (
                 <div key={p.id} className="flex items-center justify-between rounded-2xl border border-red-400/20 bg-red-500/5 px-4 py-2.5">
-                  <span className="text-sm font-bold text-white truncate">{p.name}</span>
+                  <span className="truncate text-sm font-bold text-white">{p.name}</span>
                   <span className="text-sm font-black text-red-300">{p.estoque ?? 0} un</span>
                 </div>
               ))}
             </div>
           )}
-        </div>
+        </Painel>
+
+        <Painel titulo="Cancelamentos e Perdas">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between"><span className="text-sm text-slate-400">Cancelamentos</span><span className="page-title text-lg font-bold text-white">{cancelados.length}</span></div>
+            <div className="flex items-center justify-between"><span className="text-sm text-slate-400">Valor perdido</span><span className="page-title text-lg font-bold text-red-300">{formatCurrency(valorPerdido)}</span></div>
+            <div className="flex items-center justify-between gap-2"><span className="text-sm text-slate-400">Motivo principal</span><span className="truncate text-sm font-semibold text-slate-200">{motivoPrincipal}</span></div>
+          </div>
+        </Painel>
+
+        <Painel titulo="Comparativo com Período Anterior">
+          {comparativo ? (
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { r: "Faturamento", v: comparativo.faturamento },
+                { r: "Pedidos", v: comparativo.pedidos },
+                { r: "Ticket médio", v: comparativo.ticket },
+              ].map((c) => (
+                <div key={c.r} className="rounded-2xl border border-white/10 bg-slate-950/40 p-3 text-center">
+                  <p className={`page-title text-lg font-bold ${c.v == null ? "text-slate-400" : c.v >= 0 ? "text-emerald-400" : "text-red-400"}`}>{c.v == null ? "—" : `${c.v >= 0 ? "+" : ""}${c.v.toFixed(0)}%`}</p>
+                  <p className="mt-1 text-[10px] leading-tight text-slate-500">{c.r}<br />vs período anterior</p>
+                </div>
+              ))}
+            </div>
+          ) : <p className="py-4 text-center text-sm text-slate-500">Sem período anterior para comparar.</p>}
+        </Painel>
+
+        <Painel titulo="Recomendações para o Gestor" className="xl:col-span-3">
+          <ul className="grid gap-2 sm:grid-cols-2">
+            {recomendacoes.map((r, i) => (
+              <li key={i} className="flex items-start gap-2 rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-2.5 text-sm text-slate-300">
+                <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-gold-400/20 text-[10px] font-black text-gold-300">✓</span>{r}
+              </li>
+            ))}
+          </ul>
+        </Painel>
       </div>
     </div>
   );
