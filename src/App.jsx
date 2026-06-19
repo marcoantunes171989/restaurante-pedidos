@@ -710,17 +710,30 @@ export default function RestaurantePedidoApp() {
     return () => unsubs.forEach((fn) => fn && fn());
   }, []);
 
-  // ── Restaura o login após reload (modo Supabase Auth) ───────
-  // Ao logar no modo supabase, a página recarrega e inicializa autenticada;
-  // aqui reassociamos o currentUser a partir da sessão ativa + dados já carregados.
-  // Mantém o usuário logado ao atualizar a página: se houver sessão Supabase
-  // ativa, reassocia o currentUser. O retorno à tela de login acontece SOMENTE
-  // quando o usuário clica em "Sair" (logout encerra a sessão).
+  // ── Restaura o login SOMENTE no reload imediato pós-login ───────
+  // Ao logar no modo supabase, a página recarrega e inicializa autenticada.
+  // Para EXIGIR login a cada carregamento (F5 ou nova aba), usamos um flag de
+  // uso único ("pp_restore_once"): ele é gravado no momento do login, logo antes
+  // do reload, e consumido aqui. Assim:
+  //   • reload imediato pós-login → flag presente → reassocia o currentUser;
+  //   • F5 / nova aba / acesso direto → sem flag → encerra a sessão persistida
+  //     e mostra a tela de login.
   const restaurouSessaoRef = useRef(false);
   useEffect(() => {
     if (!usandoSupabaseAuth() || !dbReady || currentUser || restaurouSessaoRef.current) return;
+    let restaurar = false;
+    try { restaurar = sessionStorage.getItem("pp_restore_once") === "1"; } catch {}
+    // Para reassociar precisamos da lista de usuários já carregada; aguarda.
+    if (restaurar && users.length === 0) return;
     restaurouSessaoRef.current = true;
     (async () => {
+      if (!restaurar) {
+        // Sem flag → carregamento "limpo": encerra qualquer sessão persistida
+        // para que o login seja realmente solicitado novamente.
+        try { await logoutSupabaseAuth(); } catch {}
+        return;
+      }
+      try { sessionStorage.removeItem("pp_restore_once"); } catch {}
       const email = await getSessionEmail();
       if (!email) return; // sem sessão (ex.: após "Sair") → mostra a tela de login
       const u = users.find((x) => (x.email || "").toLowerCase() === email.toLowerCase());
@@ -884,8 +897,10 @@ export default function RestaurantePedidoApp() {
       // para o app inicializar JÁ AUTENTICADO (os dados carregam com o JWT/RLS).
       const r = await loginSupabaseAuth(creds.email, creds.password);
       if (!r.ok) return notify("error", r.error || "Usuário ou senha inválidos.");
-      // Recarrega para inicializar já autenticado; a sessão fica salva e o
-      // usuário permanece logado ao atualizar a página (sai só pelo "Sair").
+      // Recarrega para inicializar já autenticado. O flag de uso único autoriza
+      // a reassociação APENAS neste reload pós-login; em F5/nova aba o login é
+      // solicitado novamente.
+      try { sessionStorage.setItem("pp_restore_once", "1"); } catch {}
       window.location.reload();
       return;
     }
@@ -899,6 +914,7 @@ export default function RestaurantePedidoApp() {
     // Ao sair, libera a mesa fixa deste aparelho para que o próximo login
     // peça a seleção da mesa novamente (e libere a mesa para outros).
     try { localStorage.removeItem("pp_tablet_mesa"); } catch {}
+    try { sessionStorage.removeItem("pp_restore_once"); } catch {}
     if (usandoSupabaseAuth()) logoutSupabaseAuth();
     setTableNumber("");
     setCurrentUser(null); setActiveTab("tablet"); setMessage({ type: "", text: "" });
