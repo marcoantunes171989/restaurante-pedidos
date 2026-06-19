@@ -5274,7 +5274,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
             <ModuloBloqueado slug={ativo} lojaInfo={lojaInfo} onVerPlanos={() => setAdminSection("plano")} />
           ) : (<>
           {ativo === "dashboard"  && <DashboardAdmin orders={orders} products={products} comandas={comandasRegistradas} clientes={clientes} setores={setores} irParaMesas={() => setAdminSection("mesas")} />}
-          {ativo === "relatorios" && <RelatoriosAdmin orders={orders} products={products} lojaInfo={lojaInfo} />}
+          {ativo === "relatorios" && <RelatoriosAdmin orders={orders} products={products} lojaInfo={lojaInfo} irParaMesas={() => setAdminSection("mesas")} />}
           {ativo === "crm"        && <CrmAdmin clientes={clientes} orders={orders} fidTransacoes={fidTransacoes} fidRecompensas={fidRecompensas} lancarPontos={fidApi?.lancarPontos} />}
           {ativo === "fidelidade" && (precisaEmpresa ? avisoEmpresa : <FidelidadeAdmin regra={fidRegra} recompensas={fidRecompensas} transacoes={fidTransacoes} clientes={clientes} api={fidApi} />)}
           {ativo === "products"   && (precisaEmpresa ? avisoEmpresa : <ProductAdmin   products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} editarProduto={editarProduto} removerProduto={removerProduto} lojaId={lojaInfo?.id} opcoesApi={opcoesApi} setores={setores} />)}
@@ -5646,6 +5646,29 @@ function BarrasHora({ dados }) {
         );
       })}
     </div>
+  );
+}
+
+// Gráfico de linha/área (evolução do faturamento) — SVG, sem biblioteca
+function LinhaFaturamento({ dados }) {
+  if (!dados.length) return <div className="flex h-40 items-center justify-center text-sm text-slate-500">Sem vendas no período.</div>;
+  const max = Math.max(1, ...dados.map((d) => d.valor));
+  const W = 640, H = 170, P = 26, n = dados.length;
+  const x = (i) => P + (n > 1 ? (i / (n - 1)) * (W - 2 * P) : (W - 2 * P) / 2);
+  const y = (v) => H - P - (v / max) * (H - 2 * P);
+  const pts = dados.map((d, i) => [x(i), y(d.valor)]);
+  const linha = pts.map((p, i) => `${i ? "L" : "M"}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ");
+  const area = `${linha} L${x(n - 1).toFixed(1)},${H - P} L${x(0).toFixed(1)},${H - P} Z`;
+  const idxs = n <= 5 ? dados.map((_, i) => i) : [0, Math.round(n / 4), Math.round(n / 2), Math.round((3 * n) / 4), n - 1];
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 180 }}>
+      <defs><linearGradient id="gradFat" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#f1c75b" stopOpacity="0.35" /><stop offset="100%" stopColor="#f1c75b" stopOpacity="0" /></linearGradient></defs>
+      {[0, 0.25, 0.5, 0.75, 1].map((f, i) => (<line key={i} x1={P} x2={W - P} y1={y(max * f)} y2={y(max * f)} stroke="rgba(255,255,255,0.07)" />))}
+      <path d={area} fill="url(#gradFat)" />
+      <path d={linha} fill="none" stroke="#d9aa3f" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+      {pts.map((p, i) => (<circle key={i} cx={p[0]} cy={p[1]} r="3" fill="#f1c75b" />))}
+      {idxs.map((i) => (<text key={i} x={x(i)} y={H - 8} textAnchor="middle" fill="#64748b" style={{ fontSize: 9 }}>{dados[i].label}</text>))}
+    </svg>
   );
 }
 
@@ -6035,11 +6058,11 @@ function ModalDetalhePedidos({ titulo, pedidos, onFechar }) {
 // ════════════════════════════════════════════════════════════
 //  Relatórios de vendas — filtros + exportação (Excel/PDF/imprimir)
 // ════════════════════════════════════════════════════════════
-function RelatoriosAdmin({ orders, products, lojaInfo }) {
+function RelatoriosAdmin({ orders, products, lojaInfo, irParaMesas = () => {} }) {
   const [periodo, setPeriodo] = useState("7");
   const [ini, setIni] = useState("");
   const [fim, setFim] = useState("");
-  const [aba, setAba] = useState("vendas"); // vendas | cupom | permanencia
+  const [aba, setAba] = useState("geral"); // geral | vendas | cupom | estoque | clientes | permanencia
   const [drill, setDrill] = useState(null);  // produto clicado → cupons
 
   const filtrados = filtrarPedidosPorPeriodo(orders, periodo, ini, fim);
@@ -6066,6 +6089,63 @@ function RelatoriosAdmin({ orders, products, lojaInfo }) {
 
   // Cupons (pedidos pagos) que contêm um determinado produto
   const cuponsDoProduto = (nome) => filtrados.filter((o) => o.paymentStatus === "paid" && o.items.some((it) => it.name === nome));
+
+  // ── Visão geral: evolução diária, horário, mesas e clientes (dados reais) ──
+  const pagosG = filtrados.filter((o) => o.paymentStatus === "paid" && o.status !== "cancelled");
+  const itensVendidos = a.topProdutos.reduce((s, p) => s + p.qtd, 0);
+  const margemPct = a.faturamento > 0 ? (margemEstimada / a.faturamento) * 100 : 0;
+  // Custo por nome p/ margem por produto
+  const margemDoProduto = (nome, valor, qtd) => valor - (custoPorNome[nome] ?? 0) * qtd;
+  // Evolução do faturamento por dia
+  const porDia = {};
+  pagosG.forEach((o) => { if (!o.createdAtISO) return; const k = new Date(o.createdAtISO).toISOString().slice(0, 10); porDia[k] = (porDia[k] || 0) + orderTotal(o) * 1.1; });
+  const evolucao = Object.entries(porDia).sort(([x], [y]) => (x < y ? -1 : 1)).map(([k, v]) => ({ dia: k, valor: v, label: new Date(`${k}T00:00:00`).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) }));
+  const diasAtivos = evolucao.length;
+  const [a0g, b0g] = intervaloPeriodo(periodo, ini, fim) || [];
+  const totalDiasPeriodo = (a0g && b0g && a0g.getTime() > 0) ? Math.max(1, Math.round((b0g - a0g) / 864e5)) : diasAtivos;
+  const mediaDiaria = totalDiasPeriodo ? a.faturamento / totalDiasPeriodo : 0;
+  const semanaNomes = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
+  const porSemana = Array.from({ length: 7 }, (_, i) => ({ dia: semanaNomes[i], valor: 0 }));
+  pagosG.forEach((o) => { if (o.createdAtISO) porSemana[new Date(o.createdAtISO).getDay()].valor += orderTotal(o) * 1.1; });
+  const semanaComVenda = porSemana.filter((d) => d.valor > 0);
+  const maiorDiaSemana = semanaComVenda.length ? semanaComVenda.reduce((b, d) => (d.valor > b.valor ? d : b)) : null;
+  const menorDiaSemana = semanaComVenda.length ? semanaComVenda.reduce((b, d) => (d.valor < b.valor ? d : b)) : null;
+  // Faturamento por horário (10h → 01h)
+  const horas24R = Array.from({ length: 24 }, (_, h) => ({ h, label: `${String(h).padStart(2, "0")}h`, valor: 0 }));
+  pagosG.forEach((o) => { if (o.createdAtISO) horas24R[new Date(o.createdAtISO).getHours()].valor += orderTotal(o) * 1.1; });
+  const horarioGeral = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 0, 1].map((h) => horas24R[h]);
+  const catDonutR = a.categorias.slice(0, 6).map((c) => ({ label: c.categoria, valor: c.valor }));
+  // Mesas com maior faturamento
+  const porMesaR = {};
+  pagosG.forEach((o) => { const t = o.table || "—"; if (!porMesaR[t]) porMesaR[t] = { mesa: t, faturamento: 0, pedidos: 0 }; porMesaR[t].faturamento += orderTotal(o) * 1.1; porMesaR[t].pedidos += 1; });
+  const mesasFaturamento = Object.values(porMesaR).map((m) => ({ ...m, ticket: m.pedidos ? m.faturamento / m.pedidos : 0 })).sort((x, y) => y.faturamento - x.faturamento);
+  // Clientes (identificados x não identificados)
+  const porClienteR = {};
+  filtrados.filter((o) => o.status !== "cancelled").forEach((o) => {
+    const ident = !!(o.customer || o.clienteTelefone);
+    const c = o.customer || o.clienteTelefone || "Cliente não identificado";
+    if (!porClienteR[c]) porClienteR[c] = { cliente: c, pedidos: 0, faturamento: 0, ultimo: null, identificado: ident };
+    porClienteR[c].pedidos += 1;
+    if (o.paymentStatus === "paid") porClienteR[c].faturamento += orderTotal(o) * 1.1;
+    const d = o.createdAtISO ? new Date(o.createdAtISO) : null;
+    if (d && (!porClienteR[c].ultimo || d > porClienteR[c].ultimo)) porClienteR[c].ultimo = d;
+  });
+  const clientesLista = Object.values(porClienteR).map((c) => ({ ...c, ticket: c.pedidos ? c.faturamento / c.pedidos : 0 })).sort((x, y) => y.faturamento - x.faturamento);
+  const clientesIdentificados = clientesLista.filter((c) => c.identificado).length;
+  const naoIdent = clientesLista.filter((c) => !c.identificado);
+  const pedidosSemId = naoIdent.reduce((s, c) => s + c.pedidos, 0);
+  const fatSemId = naoIdent.reduce((s, c) => s + c.faturamento, 0);
+  const taxaPagamento = a.totalPedidos ? Math.round((a.pagos.length / a.totalPedidos) * 100) : 0;
+  const fmtDataBR = (d) => (d ? d.toLocaleDateString("pt-BR") : "—");
+  const maxMesa = Math.max(1, ...mesasFaturamento.map((m) => m.faturamento));
+
+  // Botões de exportação (reutilizados em várias abas)
+  const BotoesExport = () => (
+    <div className="flex flex-wrap gap-2">
+      <button onClick={exportarCSV} className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-2.5 text-sm font-bold text-emerald-300 hover:bg-emerald-500/20 transition">📊 Exportar Excel (CSV)</button>
+      <button onClick={imprimirRelatorio} className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-2.5 text-sm font-bold text-slate-200 hover:bg-white/10 transition">📄 PDF / Imprimir</button>
+    </div>
+  );
 
   // ── Relatório de estoque (anterior x posterior conforme as vendas) ──
   // Estoque ATUAL = posterior (já refletindo as baixas). Reconstrói o estoque
@@ -6224,14 +6304,14 @@ function RelatoriosAdmin({ orders, products, lojaInfo }) {
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gold-400/30 bg-gold-400/10 text-gold-300"><IconRelatorios /></span>
             Relatórios de vendas
           </h2>
-          <p className="mt-1 text-sm text-slate-400">Análise gerencial: vendas, cupons e tempo de permanência por período.</p>
+          <p className="mt-1 text-sm text-slate-400">Análise gerencial: vendas, cupons, estoque, clientes e tempo de permanência.</p>
         </div>
         <SeletorPeriodo periodo={periodo} setPeriodo={setPeriodo} ini={ini} setIni={setIni} fim={fim} setFim={setFim} />
       </div>
 
       {/* Sub-abas de relatório */}
       <div className="flex flex-wrap gap-2">
-        {[{ id: "vendas", label: "Vendas" }, { id: "cupom", label: "Cupom / Mesa / Comanda" }, { id: "estoque", label: "Estoque" }, { id: "permanencia", label: "Permanência" }].map((t) => (
+        {[{ id: "geral", label: "Visão geral" }, { id: "vendas", label: "Vendas" }, { id: "cupom", label: "Cupom / Mesa / Comanda" }, { id: "estoque", label: "Estoque" }, { id: "clientes", label: "Clientes" }, { id: "permanencia", label: "Permanência" }].map((t) => (
           <button key={t.id} onClick={() => setAba(t.id)}
             className={`font-display rounded-xl px-4 py-2.5 text-sm font-bold transition ${aba === t.id ? "bg-gold-400 text-blue-950 shadow-lg shadow-gold-900/20" : "border border-white/10 bg-white/[0.04] text-slate-300 hover:bg-white/[0.08]"}`}>
             {t.label}
@@ -6239,12 +6319,139 @@ function RelatoriosAdmin({ orders, products, lojaInfo }) {
         ))}
       </div>
 
+      {aba === "geral" && (
+        <>
+          <BotoesExport />
+          {/* 6 KPIs */}
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+            <CardMetrica titulo="Faturamento total" valor={formatCurrency(a.faturamento)} cor="text-emerald-400" icon="💰" variacao={comparativo?.faturamento} />
+            <CardMetrica titulo="Subtotal vendido" valor={formatCurrency(a.faturamentoSemTaxa)} cor="text-white" icon="📈" />
+            <CardMetrica titulo="Ticket médio" valor={formatCurrency(a.ticket)} cor="text-blue-400" icon="🎫" variacao={comparativo?.ticket} />
+            <CardMetrica titulo="Itens vendidos" valor={itensVendidos} cor="text-white" icon="🛍️" />
+            <CardMetrica titulo="Pedidos" valor={a.totalPedidos} cor="text-violet-300" icon="📋" variacao={comparativo?.pedidos} />
+            <CardMetrica titulo="Margem estimada" valor={formatCurrency(margemEstimada)} sub={`${margemPct.toFixed(1)}% sobre faturamento`} cor="text-gold-400" icon="🧮" />
+          </div>
+
+          {/* Evolução + categoria + horário */}
+          <div className="grid gap-5 xl:grid-cols-3">
+            <Painel titulo="Evolução do faturamento" className="xl:col-span-2">
+              <LinhaFaturamento dados={evolucao} />
+              <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {[
+                  { r: "Maior dia", v: maiorDiaSemana ? maiorDiaSemana.dia.split("-")[0] : "—", s: maiorDiaSemana ? formatCurrency(maiorDiaSemana.valor) : "—" },
+                  { r: "Menor dia", v: menorDiaSemana ? menorDiaSemana.dia.split("-")[0] : "—", s: menorDiaSemana ? formatCurrency(menorDiaSemana.valor) : "—" },
+                  { r: "Média diária", v: formatCurrency(mediaDiaria), s: "no período" },
+                  { r: "Dias ativos", v: `${diasAtivos}`, s: `de ${totalDiasPeriodo}` },
+                ].map((c) => (
+                  <div key={c.r} className="rounded-2xl border border-white/10 bg-slate-950/40 p-3">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{c.r}</p>
+                    <p className="page-title mt-1 truncate text-base font-bold text-white">{c.v}</p>
+                    <p className="truncate text-[11px] text-gold-300">{c.s}</p>
+                  </div>
+                ))}
+              </div>
+            </Painel>
+            <Painel titulo="Faturamento por categoria"><DonutChart dados={catDonutR} label="Categorias" /></Painel>
+          </div>
+
+          <Painel titulo="Faturamento por Horário"><BarrasHora dados={horarioGeral} /></Painel>
+
+          {/* Tabelas: produtos, mesas */}
+          <div className="grid gap-5 xl:grid-cols-2">
+            <Painel titulo="Produtos mais vendidos" acao={<button onClick={() => setAba("vendas")} className="text-xs font-bold text-gold-300 hover:underline">Ver todos →</button>}>
+              <div className="space-y-2.5">
+                {a.topProdutos.length === 0 && <p className="py-4 text-center text-sm text-slate-500">Nenhuma venda no período.</p>}
+                {a.topProdutos.map((p, i) => (
+                  <div key={p.nome}>
+                    <div className="flex items-center justify-between gap-2 text-sm">
+                      <span className="flex min-w-0 items-center gap-2 font-semibold text-white"><span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-gold-400/15 text-[10px] font-black text-gold-300">{i + 1}</span><span className="truncate">{p.nome}</span></span>
+                      <span className="shrink-0 text-slate-300">{p.qtd} un · <b className="text-emerald-300">{formatCurrency(p.valor)}</b> · {a.faturamentoSemTaxa ? ((p.valor / a.faturamentoSemTaxa) * 100).toFixed(1) : 0}%</span>
+                    </div>
+                    <div className="mt-1 h-2 overflow-hidden rounded-full bg-white/10"><div className={`h-full rounded-full ${i === 0 ? "bg-gold-400" : "bg-blue-500"}`} style={{ width: `${a.faturamentoSemTaxa ? (p.valor / a.faturamentoSemTaxa) * 100 : 0}%` }} /></div>
+                  </div>
+                ))}
+              </div>
+            </Painel>
+            <Painel titulo="Mesas com maior faturamento" acao={<button onClick={irParaMesas} className="text-xs font-bold text-gold-300 hover:underline">Ver mapa →</button>}>
+              {mesasFaturamento.length === 0 ? <p className="py-4 text-center text-sm text-slate-500">Nenhuma venda no período.</p> : (
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[360px] text-sm">
+                    <thead><tr className="border-b border-white/10 text-left text-[10px] font-bold uppercase tracking-widest text-slate-500"><th className="py-2 pr-3">Mesa</th><th className="py-2 pr-3 text-right">Faturamento</th><th className="py-2 pr-3 text-center">Pedidos</th><th className="py-2 text-right">Ticket médio</th></tr></thead>
+                    <tbody>{mesasFaturamento.slice(0, 8).map((m) => (
+                      <tr key={m.mesa} className="border-b border-white/5"><td className="py-2.5 pr-3 font-bold text-white">{m.mesa}</td><td className="py-2.5 pr-3 text-right font-semibold text-emerald-300">{formatCurrency(m.faturamento)}</td><td className="py-2.5 pr-3 text-center text-slate-300">{m.pedidos}</td><td className="py-2.5 text-right text-slate-300">{formatCurrency(m.ticket)}</td></tr>
+                    ))}</tbody>
+                  </table>
+                </div>
+              )}
+            </Painel>
+          </div>
+
+          {/* Complementares */}
+          <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+            <Painel titulo="Conversão / Pagamento">
+              <p className="page-title text-3xl font-bold text-white">{taxaPagamento}%</p>
+              <p className="mt-1 text-xs text-slate-500">pedidos pagos de {a.totalPedidos}</p>
+            </Painel>
+            <Painel titulo="Clientes no período">
+              <p className="page-title text-3xl font-bold text-white">{clientesLista.length}</p>
+              <p className="mt-1 text-xs text-slate-500">{clientesIdentificados} identificado(s)</p>
+            </Painel>
+            <Painel titulo="Estoque">
+              <div className="flex gap-4">
+                <div><p className="page-title text-2xl font-bold text-amber-300">{baixoCount}</p><p className="text-[11px] text-slate-500">abaixo do mínimo</p></div>
+                <div><p className="page-title text-2xl font-bold text-red-300">{zeradosCount}</p><p className="text-[11px] text-slate-500">zerados</p></div>
+              </div>
+              <button onClick={() => setAba("estoque")} className="mt-3 text-xs font-bold text-gold-300 hover:underline">Ver relatório de estoque →</button>
+            </Painel>
+            <Painel titulo="Permanência">
+              <button onClick={() => setAba("permanencia")} className="text-sm font-bold text-gold-300 hover:underline">Ver tempo de permanência →</button>
+              <p className="mt-2 text-xs text-slate-500">Análise do tempo entre abertura e pagamento das comandas.</p>
+            </Painel>
+          </div>
+        </>
+      )}
+
+      {aba === "clientes" && (
+        <>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <CardMetrica titulo="Clientes identificados" valor={clientesIdentificados} cor="text-emerald-400" icon="🧑" />
+            <CardMetrica titulo="Não identificados" valor={`${pedidosSemId} pedidos`} cor="text-white" icon="❓" />
+            <CardMetrica titulo="Faturamento sem identificação" valor={formatCurrency(fatSemId)} cor="text-gold-400" icon="💸" />
+            <CardMetrica titulo="Oportunidade de fidelização" valor={pedidosSemId > a.totalPedidos / 2 ? "Alta" : pedidosSemId > 0 ? "Média" : "Baixa"} cor="text-blue-400" icon="⭐" />
+          </div>
+          <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.04]">
+            <div className="border-b border-gold-400/15 px-5 py-3"><h3 className="page-title text-sm font-bold uppercase tracking-wider text-white">Clientes do período</h3></div>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[640px] text-sm">
+                <thead><tr className="bg-white/[0.03] text-left text-[10px] font-bold uppercase tracking-widest text-gold-400/70"><th className="px-5 py-2.5">Cliente</th><th className="px-3 py-2.5 text-center">Pedidos</th><th className="px-3 py-2.5 text-right">Faturamento</th><th className="px-3 py-2.5 text-right">Ticket médio</th><th className="px-3 py-2.5 text-right">Último pedido</th><th className="px-5 py-2.5">Status</th></tr></thead>
+                <tbody>
+                  {clientesLista.length === 0 && <tr><td colSpan={6} className="px-5 py-6 text-center text-sm text-slate-500">Nenhum pedido no período.</td></tr>}
+                  {clientesLista.map((c) => (
+                    <tr key={c.cliente} className="border-t border-white/5">
+                      <td className="px-5 py-3 font-semibold text-white">{c.cliente}</td>
+                      <td className="px-3 py-3 text-center text-slate-300">{c.pedidos}</td>
+                      <td className="px-3 py-3 text-right font-semibold text-emerald-300">{formatCurrency(c.faturamento)}</td>
+                      <td className="px-3 py-3 text-right text-slate-300">{formatCurrency(c.ticket)}</td>
+                      <td className="px-3 py-3 text-right text-slate-400">{fmtDataBR(c.ultimo)}</td>
+                      <td className="px-5 py-3"><span className={`inline-flex rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${c.identificado ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-300" : "border-white/15 bg-white/[0.06] text-slate-400"}`}>{c.identificado ? "Identificado" : "Sem cadastro"}</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          {pedidosSemId > 0 && (
+            <div className="rounded-[2rem] border border-gold-400/25 bg-gold-400/[0.05] p-5">
+              <h3 className="page-title text-sm font-bold text-gold-300">💡 Recomendação gerencial</h3>
+              <p className="mt-2 text-sm leading-6 text-slate-300">A maior parte dos pedidos está sem identificação do cliente. Considere incentivar o cadastro no tablet, oferecer benefício de fidelidade ou solicitar o telefone no fechamento da comanda para melhorar campanhas futuras.</p>
+            </div>
+          )}
+        </>
+      )}
+
       {aba === "vendas" && (
         <>
-          <div className="flex flex-wrap gap-2">
-            <button onClick={exportarCSV} className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-2.5 text-sm font-bold text-emerald-300 hover:bg-emerald-500/20 transition">📊 Exportar Excel (CSV)</button>
-            <button onClick={imprimirRelatorio} className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-2.5 text-sm font-bold text-slate-200 hover:bg-white/10 transition">📄 PDF / Imprimir</button>
-          </div>
+          <BotoesExport />
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             <CardMetrica titulo="Subtotal vendido" valor={formatCurrency(a.faturamentoSemTaxa)} cor="text-white" />
             <CardMetrica titulo="Faturamento + taxa" valor={formatCurrency(a.faturamento)} cor="text-emerald-400" variacao={comparativo?.faturamento} />
