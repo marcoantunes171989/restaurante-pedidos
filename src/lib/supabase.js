@@ -304,7 +304,14 @@ export async function inserirSetorCozinha(s) {
   return dbParaSetor(data)
 }
 export async function atualizarSetorCozinha(id, s) {
-  const { error } = await supabase.from('tab_setores_cozinha').update({ nome: s.nome, descricao: s.descricao || null, ativo: s.ativo !== false, ordem: s.ordem ?? 0, atualizado_em: new Date().toISOString() }).eq('id', id)
+  // Atualização PARCIAL: só toca nos campos enviados (evita zerar descricao/ordem
+  // ao alternar apenas o "ativo", por exemplo).
+  const campos = { atualizado_em: new Date().toISOString() }
+  if (s.nome !== undefined) campos.nome = s.nome
+  if (s.descricao !== undefined) campos.descricao = s.descricao || null
+  if (s.ativo !== undefined) campos.ativo = s.ativo !== false
+  if (s.ordem !== undefined) campos.ordem = s.ordem ?? 0
+  const { error } = await supabase.from('tab_setores_cozinha').update(campos).eq('id', id)
   if (error) throw error
 }
 export async function excluirSetorCozinha(id) {

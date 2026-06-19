@@ -598,6 +598,7 @@ export default function RestaurantePedidoApp() {
   const [currentUser, setCurrentUser] = useState(null);
   const [loginForm, setLoginForm] = useState({ email: "", password: "" });
   const [activeTab, setActiveTab] = useState("tablet");
+  const [cozinhaSetorInicial, setCozinhaSetorInicial] = useState(null); // "Filtrar cozinha" (tela de Setores → painel)
   const [productsAll, setProducts] = useState([]); // todas as lojas — filtrado em `products`
   const [ordersAll, setOrders] = useState([]);     // todas as lojas — filtrado em `orders`
   const [formasPagamento, setFormasPagamento] = useState([]);
@@ -1695,6 +1696,13 @@ export default function RestaurantePedidoApp() {
     auditar("editar", "produto", pid, { nome: dados.name });
     notify("success", "Produto atualizado.");
   }
+  // Vincula/desvincula um produto a um setor de cozinha (atualiza só setor_id,
+  // sem exigir os demais campos — usado pela tela de Setores de Cozinha)
+  async function vincularProdutoSetor(pid, setorId) {
+    if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
+    setProducts((cur) => cur.map((p) => p.id === pid ? { ...p, setorId: setorId ?? null } : p));
+    if (dbReady) try { await atualizarProduto(pid, { setor_id: setorId || null }); } catch (e) { notify("error", "Erro ao vincular produto: " + (e.message || e)); }
+  }
   async function removerProduto(pid) {
     if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
     const alvo = products.find((p) => p.id === pid);
@@ -2028,11 +2036,11 @@ export default function RestaurantePedidoApp() {
         )}
 
         {activeTab === "kitchen" && canAccess(currentUser, "kitchen") && (
-          <KitchenView groupedOrders={groupedOrders} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} cancelarPedido={cancelarPedido} onSair={logout} currentUser={currentUser} lojaInfo={lojaInfo} setores={filtraLoja(setoresCozinha)} produtos={products} />
+          <KitchenView groupedOrders={groupedOrders} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} cancelarPedido={cancelarPedido} onSair={logout} currentUser={currentUser} lojaInfo={lojaInfo} setores={filtraLoja(setoresCozinha)} produtos={products} setorInicial={cozinhaSetorInicial} />
         )}
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} products={products} lojaInfo={lojaInfo} />}
         {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierView orders={orders} baixarComandas={baixarComandas} baixarPedidos={baixarPedidos} formasPagamento={formasPagamentoLoja} onSair={logout} lojaInfo={lojaInfo} />}
-        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} promocoes={filtraLoja(promocoes)} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} opcoesApi={{ grupos: filtraLoja(gruposOpcoes), opcoes: filtraLoja(opcoes), addGrupo: addGrupoOpcoes, editarGrupo: editarGrupoOpcoes, removerGrupo: removerGrupoOpcoes, addOpcao, editarOpcao, removerOpcao }} setores={filtraLoja(setoresCozinha)} setoresApi={{ add: addSetorCozinha, editar: editarSetorCozinha, remover: removerSetorCozinha }} caixaAberto={caixaAberto} caixasLoja={filtraLoja(caixas)} caixaApi={{ abrir: abrirCaixaFn, movimentar: movimentarCaixaFn, fechar: fecharCaixaFn, fetchMovimentos: fetchMovimentosCaixa }} fidRegra={fidRegraAtual} fidRecompensas={filtraLoja(fidRecompensas)} fidTransacoes={filtraLoja(fidTransacoes)} fidApi={{ salvarRegra: salvarRegraFid, addRecompensa: addRecompensaFid, removerRecompensa: removerRecompensaFid, lancarPontos }} chamados={filtraLoja(chamados)} atenderChamado={atenderChamadoFn} auditoria={filtraLoja(auditoria)} />}
+        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} promocoes={filtraLoja(promocoes)} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} opcoesApi={{ grupos: filtraLoja(gruposOpcoes), opcoes: filtraLoja(opcoes), addGrupo: addGrupoOpcoes, editarGrupo: editarGrupoOpcoes, removerGrupo: removerGrupoOpcoes, addOpcao, editarOpcao, removerOpcao }} setores={filtraLoja(setoresCozinha)} setoresApi={{ add: addSetorCozinha, editar: editarSetorCozinha, remover: removerSetorCozinha }} vincularProdutoSetor={vincularProdutoSetor} irParaCozinha={(setorId) => { setCozinhaSetorInicial(setorId ?? null); if (canAccess(currentUser, "kitchen")) setActiveTab("kitchen"); else notify("error", "Sem permissão para acessar o painel da cozinha."); }} caixaAberto={caixaAberto} caixasLoja={filtraLoja(caixas)} caixaApi={{ abrir: abrirCaixaFn, movimentar: movimentarCaixaFn, fechar: fecharCaixaFn, fetchMovimentos: fetchMovimentosCaixa }} fidRegra={fidRegraAtual} fidRecompensas={filtraLoja(fidRecompensas)} fidTransacoes={filtraLoja(fidTransacoes)} fidApi={{ salvarRegra: salvarRegraFid, addRecompensa: addRecompensaFid, removerRecompensa: removerRecompensaFid, lancarPontos }} chamados={filtraLoja(chamados)} atenderChamado={atenderChamadoFn} auditoria={filtraLoja(auditoria)} />}
 
       </div>
     </div>
@@ -3255,9 +3263,11 @@ const kitchenCols = [
   { key: "ready",     label: "Finalizado", sub: "Pronto p/ retirada",dot: "bg-emerald-400", header: "border-emerald-500/40 bg-emerald-500/10", card: "border-emerald-500/20" },
 ];
 
-function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, cancelarPedido, onSair, currentUser, lojaInfo, setores = [], produtos = [] }) {
+function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, cancelarPedido, onSair, currentUser, lojaInfo, setores = [], produtos = [], setorInicial = null }) {
   const [cancelando, setCancelando] = useState(null); // pedido a cancelar
-  const [setorFiltro, setSetorFiltro] = useState(null); // null = todos
+  const [setorFiltro, setSetorFiltro] = useState(setorInicial); // null = todos
+  // "Filtrar cozinha" (vindo da tela de Setores) define o setor inicial
+  useEffect(() => { if (setorInicial != null) setSetorFiltro(setorInicial); }, [setorInicial]);
   // Mapa nome do produto → setor (itens do pedido referenciam por nome)
   const setorDoProduto = useMemo(() => { const m = {}; produtos.forEach((p) => { if (p.setorId) m[p.name] = p.setorId; }); return m; }, [produtos]);
   const setoresAtivos = setores.filter((s) => s.ativo !== false);
@@ -5016,7 +5026,7 @@ function ComboEmpresaFoco({ lojas = [], valor, onChange }) {
   );
 }
 
-function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, definirAcoesUsuario, toggleUserStatus, toggleAccessStatus, usersLoja, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], addLoja, toggleLoja, editarLoja, removerLoja, setLicencaEmpresa = async()=>{}, setValidadeLicenca = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, setModoUsoEmpresa = async()=>{}, salvarConfigExterno = async()=>{}, mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, clientes = [], planoAtual = null, assinaturaAtual = null, planos = [], planoModulos = [], definirAssinatura = async()=>{}, promocoes = [], addPromocao = async()=>{}, editarPromocao = async()=>{}, togglePromocao = async()=>{}, removerPromocao = async()=>{}, opcoesApi = null, setores = [], setoresApi = null, caixaAberto = null, caixasLoja = [], caixaApi = null, fidRegra = null, fidRecompensas = [], fidTransacoes = [], fidApi = null, chamados = [], atenderChamado = async()=>{}, auditoria = [] }) {
+function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, definirAcoesUsuario, toggleUserStatus, toggleAccessStatus, usersLoja, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], addLoja, toggleLoja, editarLoja, removerLoja, setLicencaEmpresa = async()=>{}, setValidadeLicenca = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, setModoUsoEmpresa = async()=>{}, salvarConfigExterno = async()=>{}, mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, clientes = [], planoAtual = null, assinaturaAtual = null, planos = [], planoModulos = [], definirAssinatura = async()=>{}, promocoes = [], addPromocao = async()=>{}, editarPromocao = async()=>{}, togglePromocao = async()=>{}, removerPromocao = async()=>{}, opcoesApi = null, setores = [], setoresApi = null, vincularProdutoSetor = async () => {}, irParaCozinha = () => {}, caixaAberto = null, caixasLoja = [], caixaApi = null, fidRegra = null, fidRecompensas = [], fidTransacoes = [], fidApi = null, chamados = [], atenderChamado = async()=>{}, auditoria = [] }) {
   // Menu reorganizado por contexto (SaaS premium) — mesmos ids e permissões de antes
   const menu = [
     { grupo: "Visão Geral", itens: [
@@ -5197,7 +5207,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           {ativo === "crm"        && <CrmAdmin clientes={clientes} orders={orders} fidTransacoes={fidTransacoes} fidRecompensas={fidRecompensas} lancarPontos={fidApi?.lancarPontos} />}
           {ativo === "fidelidade" && (precisaEmpresa ? avisoEmpresa : <FidelidadeAdmin regra={fidRegra} recompensas={fidRecompensas} transacoes={fidTransacoes} clientes={clientes} api={fidApi} />)}
           {ativo === "products"   && (precisaEmpresa ? avisoEmpresa : <ProductAdmin   products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} editarProduto={editarProduto} removerProduto={removerProduto} lojaId={lojaInfo?.id} opcoesApi={opcoesApi} setores={setores} />)}
-          {ativo === "setores"    && (precisaEmpresa ? avisoEmpresa : <SetoresCozinhaAdmin setores={setores} produtos={products} api={setoresApi} />)}
+          {ativo === "setores"    && (precisaEmpresa ? avisoEmpresa : <SetoresCozinhaAdmin setores={setores} produtos={products} orders={orders} api={setoresApi} vincularProduto={vincularProdutoSetor} irParaCozinha={irParaCozinha} />)}
           {ativo === "chamados"   && <ChamadosPainel chamados={chamados} atenderChamado={atenderChamado} />}
           {ativo === "auditoria"  && <AuditoriaAdmin
             logs={auditoria} lojas={lojas}
@@ -8724,57 +8734,358 @@ function GruposOpcoesModal({ produto, api, onFechar }) {
 // ════════════════════════════════════════════════════════════
 //  Admin — Setores de Cozinha (migration 041)
 // ════════════════════════════════════════════════════════════
-function SetoresCozinhaAdmin({ setores = [], produtos = [], api }) {
+// ════════════════════════════════════════════════════════════
+//  Admin — Setores de Cozinha (tab_setores_cozinha + produtos.setor_id)
+//  Cadastro, gestão e controle das áreas de preparo da cozinha.
+// ════════════════════════════════════════════════════════════
+const svSet = { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.7, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true };
+const IcoChef    = (p) => (<svg {...svSet} {...p}><path d="M7 21h10M6 11a4 4 0 0 1 1-7.5 4 4 0 0 1 10 0A4 4 0 0 1 18 11" /><path d="M6 11h12v6a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-6Z" /></svg>);
+const IcoLayers  = (p) => (<svg {...svSet} {...p}><path d="m12 3 9 5-9 5-9-5 9-5Z" /><path d="m3 12 9 5 9-5M3 16l9 5 9-5" /></svg>);
+const IcoBox     = (p) => (<svg {...svSet} {...p}><path d="M21 8 12 3 3 8v8l9 5 9-5V8Z" /><path d="m3 8 9 5 9-5M12 13v8" /></svg>);
+const IcoFogo    = (p) => (<svg {...svSet} {...p}><path d="M12 3c1 3.5-2 4.5-2 7a2 2 0 0 0 4 0c0-.7-.2-1.2-.4-1.7C16 10 17 12.5 17 15a5 5 0 0 1-10 0c0-3.5 3-6 5-12Z" /></svg>);
+const IcoBulb    = (p) => (<svg {...svSet} {...p}><path d="M9 18h6M10 21h4" /><path d="M12 3a6 6 0 0 0-3.5 10.9c.5.4.5.9.5 1.6h6c0-.7 0-1.2.5-1.6A6 6 0 0 0 12 3Z" /></svg>);
+const IcoEditSet = (p) => (<svg {...svSet} {...p}><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" /></svg>);
+const IcoLinkSet = (p) => (<svg {...svSet} {...p}><path d="M10 13a5 5 0 0 0 7 0l2-2a5 5 0 0 0-7-7l-1 1" /><path d="M14 11a5 5 0 0 0-7 0l-2 2a5 5 0 0 0 7 7l1-1" /></svg>);
+const IcoFiltro  = (p) => (<svg {...svSet} {...p}><path d="M3 5h18l-7 8v6l-4-2v-4L3 5Z" /></svg>);
+const IcoPower   = (p) => (<svg {...svSet} {...p}><path d="M12 4v8" /><path d="M6.3 7.3a8 8 0 1 0 11.4 0" /></svg>);
+const IcoFechaSet= (p) => (<svg {...svSet} {...p}><path d="m6 6 12 12M18 6 6 18" /></svg>);
+
+function brl(v) { return `R$ ${(Number(v) || 0).toFixed(2).replace(".", ",")}`; }
+
+function SetoresCozinhaAdmin({ setores = [], produtos = [], orders = [], api, vincularProduto = async () => {}, irParaCozinha = () => {} }) {
+  // Formulário de novo setor
   const [nome, setNome] = useState("");
-  const [editId, setEditId] = useState(null);
-  const [editNome, setEditNome] = useState("");
-  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-gold-400/60 transition";
-  const contar = (sid) => produtos.filter((p) => p.setorId === sid).length;
+  const [descricao, setDescricao] = useState("");
+  const [ativoNovo, setAtivoNovo] = useState(true);
+  const [salvando, setSalvando] = useState(false);
+  const [msg, setMsg] = useState(null); // { tipo, texto }
+  const nomeRef = useRef(null);
+  // Busca + modais
+  const [busca, setBusca] = useState("");
+  const [editando, setEditando] = useState(null);   // setor em edição (modal)
+  const [confirmar, setConfirmar] = useState(null);  // setor a inativar (modal)
+  const [vinculando, setVinculando] = useState(null);// setor p/ vincular produtos (modal)
+
+  const aviso = (tipo, texto) => { setMsg({ tipo, texto }); setTimeout(() => setMsg(null), 3500); };
+
+  // Mapa nome do produto → setorId (itens de pedido referenciam por nome)
+  const setorPorNome = useMemo(() => { const m = {}; produtos.forEach((p) => { if (p.setorId) m[p.name] = p.setorId; }); return m; }, [produtos]);
+  const contarProdutos = (sid) => produtos.filter((p) => p.setorId === sid).length;
+  const pedidosEmPreparo = (sid) => orders.filter((o) => o.status === "preparing" && (o.items || []).some((it) => setorPorNome[it.name] === sid)).length;
+
+  // Indicadores gerenciais
+  const totalSetores = setores.length;
+  const setoresAtivos = setores.filter((s) => s.ativo !== false).length;
+  const pctAtivos = totalSetores ? Math.round((setoresAtivos / totalSetores) * 100) : 0;
+  const produtosVinculados = produtos.filter((p) => p.setorId).length;
+  const pedidosPreparoTotal = orders.filter((o) => o.status === "preparing").length;
+
+  // Duplicidade (case-insensitive, por estabelecimento já filtrado em `setores`)
+  const nomeDuplicado = (n, exceto = null) => setores.some((s) => s.id !== exceto && (s.nome || "").trim().toLowerCase() === n.trim().toLowerCase());
+
   const lista = [...setores].sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
+  const termo = busca.trim().toLowerCase();
+  const filtrados = termo ? lista.filter((s) => `${s.nome} ${s.descricao || ""}`.toLowerCase().includes(termo)) : lista;
+
+  async function criar() {
+    const n = nome.trim();
+    if (!n) { aviso("erro", "Informe o nome do setor."); nomeRef.current?.focus(); return; }
+    if (nomeDuplicado(n)) { aviso("erro", "Já existe um setor com esse nome."); return; }
+    setSalvando(true);
+    try {
+      await api?.add({ nome: n, descricao: descricao.trim(), ativo: ativoNovo, ordem: setores.length });
+      setNome(""); setDescricao(""); setAtivoNovo(true);
+      aviso("ok", "Setor criado com sucesso.");
+    } catch { aviso("erro", "Não foi possível criar o setor."); }
+    finally { setSalvando(false); }
+  }
+  function limpar() { setNome(""); setDescricao(""); setAtivoNovo(true); setMsg(null); }
+  function focarNome() { nomeRef.current?.focus(); nomeRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }); }
+
+  async function salvarEdicao() {
+    const n = (editando.nome || "").trim();
+    if (!n) { aviso("erro", "O nome do setor não pode ficar vazio."); return; }
+    if (nomeDuplicado(n, editando.id)) { aviso("erro", "Já existe um setor com esse nome."); return; }
+    try {
+      await api?.editar(editando.id, { nome: n, descricao: (editando.descricao || "").trim(), ativo: editando.ativo !== false, ordem: editando.ordem ?? 0 });
+      setEditando(null); aviso("ok", "Setor atualizado.");
+    } catch { aviso("erro", "Não foi possível salvar o setor."); }
+  }
+  async function alternarAtivo(s, ativo) {
+    try { await api?.editar(s.id, { nome: s.nome, descricao: s.descricao || "", ativo, ordem: s.ordem ?? 0 }); aviso("ok", ativo ? "Setor reativado." : "Setor inativado."); }
+    catch { aviso("erro", "Não foi possível alterar o status."); }
+    setConfirmar(null);
+  }
+
+  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-gold-400/60 transition placeholder:text-slate-600";
 
   return (
     <main className="space-y-5">
-      <PageHeader icone={<IconCategorias />} titulo="Setores de Cozinha" descricao="Direcione produtos para setores (bar, pizzaria, chapa, sobremesa) e filtre o painel da cozinha." />
+      {/* Toast de feedback */}
+      {msg && (
+        <div className={`fixed right-5 top-5 z-[60] rounded-2xl border px-4 py-3 text-sm font-bold shadow-xl ${msg.tipo === "ok" ? "border-emerald-400/30 bg-emerald-500/15 text-emerald-200" : "border-red-400/30 bg-red-500/15 text-red-200"}`}>{msg.texto}</div>
+      )}
 
-      {/* Novo setor */}
-      <div className="flex gap-2">
-        <input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: Bar, Pizzaria, Chapa, Sobremesa…" className={`${inp} flex-1`} onKeyDown={(e) => { if (e.key === "Enter" && nome.trim()) { api?.add({ nome: nome.trim(), ordem: setores.length }); setNome(""); } }} />
-        <PrimeButton onClick={() => { if (nome.trim()) { api?.add({ nome: nome.trim(), ordem: setores.length }); setNome(""); } }}><span className="text-lg leading-none">+</span> Criar setor</PrimeButton>
+      {/* ── Cabeçalho ─────────────────────────────────────── */}
+      <div className="relative overflow-hidden rounded-[2rem] border border-gold-400/25 bg-gradient-to-br from-blue-950 via-blue-950 to-[#0A1424] p-6">
+        <span className="pointer-events-none absolute -right-6 -top-6 text-gold-400/10 [&>svg]:h-44 [&>svg]:w-44"><IcoChef /></span>
+        <div className="relative flex items-start gap-4">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-gold-400/40 bg-gold-400/10 text-gold-300 [&>svg]:h-6 [&>svg]:w-6"><IcoChef /></span>
+          <div className="min-w-0">
+            <h3 className="page-title text-xl font-bold tracking-tight text-white sm:text-2xl">Setores de Cozinha</h3>
+            <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-400">Organize o preparo dos pedidos por área e direcione cada produto para o setor responsável.</p>
+          </div>
+        </div>
       </div>
 
-      {lista.length === 0 ? (
-        <div className="rounded-[2rem] border border-white/10 bg-white/[0.03] py-12 text-center">
-          <span className="text-4xl">🍳</span>
-          <p className="mt-2 font-black text-white">Nenhum setor cadastrado.</p>
-          <p className="text-sm text-slate-500">Crie setores para organizar o preparo e filtrar a cozinha.</p>
-        </div>
-      ) : (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {lista.map((s) => (
-            <div key={s.id} className={`rounded-2xl border p-4 ${s.ativo !== false ? "border-white/10 bg-white/[0.04]" : "border-white/10 bg-white/[0.02] opacity-70"}`}>
-              {editId === s.id ? (
-                <div className="flex gap-2">
-                  <input value={editNome} onChange={(e) => setEditNome(e.target.value)} className={`${inp} flex-1`} autoFocus />
-                  <button onClick={() => { api?.editar(s.id, { nome: editNome.trim() || s.nome }); setEditId(null); }} className="rounded-xl bg-gold-400 px-3 text-sm font-black text-blue-950">✓</button>
-                </div>
-              ) : (
-                <div className="flex items-center justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="page-title truncate text-base font-bold text-white">{s.nome}</p>
-                    <p className="text-[11px] text-slate-500">{contar(s.id)} produto(s)</p>
-                  </div>
-                  <div className="flex shrink-0 gap-1.5">
-                    <button onClick={() => api?.editar(s.id, { ativo: s.ativo === false })} className={`rounded-lg px-2.5 py-1.5 text-xs font-black transition ${s.ativo !== false ? "bg-emerald-500/15 text-emerald-300" : "bg-slate-700/40 text-slate-400"}`}>{s.ativo !== false ? "Ativo" : "Inativo"}</button>
-                    <button onClick={() => { setEditId(s.id); setEditNome(s.nome); }} className="rounded-lg border border-blue-400/20 bg-blue-500/10 px-2.5 py-1.5 text-xs font-black text-blue-300">✏️</button>
-                    <button onClick={() => api?.remover(s.id)} className="rounded-lg border border-red-400/20 bg-red-500/10 px-2.5 py-1.5 text-xs font-black text-red-300">🗑️</button>
-                  </div>
-                </div>
-              )}
+      {/* ── Cards de resumo ───────────────────────────────── */}
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {[
+          { rotulo: "Total de setores", valor: totalSetores, sub: "Setores cadastrados", icone: <IcoLayers />, tom: "gold" },
+          { rotulo: "Setores ativos", valor: setoresAtivos, sub: `${pctAtivos}% dos setores ativos`, icone: <IcoChef />, tom: "emerald" },
+          { rotulo: "Produtos vinculados", valor: produtosVinculados, sub: "Em todos os setores", icone: <IcoBox />, tom: "blue" },
+          { rotulo: "Pedidos em preparo", valor: pedidosPreparoTotal, sub: "Agora na cozinha", icone: <IcoFogo />, tom: "orange" },
+        ].map((c) => (
+          <div key={c.rotulo} className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-4 shadow-lg shadow-black/20">
+            <div className="flex items-start justify-between gap-3">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{c.rotulo}</p>
+              <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border [&>svg]:h-5 [&>svg]:w-5 ${c.tom === "emerald" ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-300" : c.tom === "blue" ? "border-blue-400/30 bg-blue-500/10 text-blue-200" : c.tom === "orange" ? "border-orange-400/30 bg-orange-500/10 text-orange-300" : "border-gold-400/30 bg-gold-400/10 text-gold-300"}`}>{c.icone}</span>
             </div>
-          ))}
+            <p className="page-title mt-2 text-2xl font-bold text-white">{c.valor}</p>
+            <p className="mt-1 text-[11px] text-slate-500">{c.sub}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid gap-5 lg:grid-cols-[360px_1fr]">
+        {/* ── Coluna esquerda: novo setor + dicas ─────────── */}
+        <div className="space-y-4">
+          <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+            <h4 className="page-title text-base font-bold text-white">Novo setor</h4>
+            <p className="mt-0.5 text-xs text-slate-500">Crie um novo setor para organizar sua cozinha.</p>
+            <div className="mt-4 space-y-3">
+              <div>
+                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-slate-500">Nome do setor</label>
+                <input ref={nomeRef} value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: Pizzaria, Chapa, Bar..." className={inp} onKeyDown={(e) => { if (e.key === "Enter") criar(); }} />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-slate-500">Descrição do setor</label>
+                <textarea value={descricao} maxLength={120} onChange={(e) => setDescricao(e.target.value)} rows={3} placeholder="Descreva a função ou os tipos de preparo deste setor..." className={`${inp} resize-none`} />
+                <p className="mt-1 text-right text-[10px] text-slate-600">{descricao.length}/120</p>
+              </div>
+              <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-3">
+                <span className="text-sm font-semibold text-slate-300">Status</span>
+                <button type="button" onClick={() => setAtivoNovo((v) => !v)} className={`relative h-6 w-11 rounded-full transition ${ativoNovo ? "bg-emerald-500" : "bg-slate-600"}`}>
+                  <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${ativoNovo ? "left-[22px]" : "left-0.5"}`} />
+                </button>
+                <span className={`w-14 text-right text-xs font-bold ${ativoNovo ? "text-emerald-300" : "text-slate-400"}`}>{ativoNovo ? "Ativo" : "Inativo"}</span>
+              </div>
+              <div className="flex gap-2 pt-1">
+                <PrimeButton onClick={criar} disabled={salvando} className="flex-1"><span className="text-lg leading-none">+</span> {salvando ? "Criando…" : "Criar setor"}</PrimeButton>
+                <button onClick={limpar} className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-bold text-slate-300 transition hover:bg-white/10">Limpar campos</button>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-[2rem] border border-gold-400/25 bg-gold-400/[0.05] p-5">
+            <div className="flex items-center gap-2 text-gold-300">
+              <span className="[&>svg]:h-5 [&>svg]:w-5"><IcoBulb /></span>
+              <h4 className="page-title text-sm font-bold">Dicas de uso</h4>
+            </div>
+            <p className="mt-2 text-xs leading-5 text-slate-300">Crie setores de acordo com as áreas da sua cozinha, como Bar, Pizzaria, Chapa, Cozinha e Sobremesas. Depois, vincule os produtos corretamente para otimizar o fluxo de preparo.</p>
+            <p className="mt-2 text-xs leading-5 text-slate-400">Isso ajuda a organizar os pedidos e melhorar o tempo de produção.</p>
+          </div>
+        </div>
+
+        {/* ── Coluna direita: listagem ────────────────────── */}
+        <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h4 className="page-title text-base font-bold text-white">Setores cadastrados</h4>
+              <p className="text-xs text-slate-500">Gerencie os setores da sua cozinha.</p>
+            </div>
+            <span className="text-xs font-semibold text-slate-400">{filtrados.length} de {totalSetores} setor(es)</span>
+          </div>
+
+          <div className="relative mt-4">
+            <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"><IconBusca /></span>
+            <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar setor..." className={`${inp} pl-11`} />
+          </div>
+
+          {lista.length === 0 ? (
+            <div className="mt-4 rounded-2xl border border-dashed border-white/15 bg-white/[0.02] py-12 text-center">
+              <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-gold-400/30 bg-gold-400/10 text-gold-300 [&>svg]:h-7 [&>svg]:w-7"><IcoChef /></span>
+              <p className="mt-3 font-bold text-white">Nenhum setor cadastrado ainda.</p>
+              <p className="mx-auto mt-1 max-w-md text-sm text-slate-500">Crie setores para organizar o preparo dos pedidos e facilitar o controle da cozinha.</p>
+              <p className="mt-1 text-xs text-slate-600">Exemplos: Bar, Pizzaria, Chapa, Cozinha, Sobremesas e Bebidas.</p>
+              <button onClick={focarNome} className="mt-4 rounded-2xl bg-gold-400 px-5 py-2.5 text-sm font-bold text-blue-950 transition hover:bg-gold-300">Criar primeiro setor</button>
+            </div>
+          ) : filtrados.length === 0 ? (
+            <p className="mt-6 py-8 text-center text-sm text-slate-500">Nenhum setor encontrado para "{busca}".</p>
+          ) : (
+            <div className="mt-4 space-y-3">
+              {filtrados.map((s) => {
+                const ativo = s.ativo !== false;
+                return (
+                  <div key={s.id} className={`rounded-2xl border p-4 transition ${ativo ? "border-white/10 bg-slate-950/40 hover:bg-slate-950/60" : "border-white/10 bg-white/[0.02] opacity-75"}`}>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="flex min-w-0 items-start gap-3">
+                        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-gold-400/25 bg-gold-400/10 text-gold-300 [&>svg]:h-5 [&>svg]:w-5"><IcoChef /></span>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="page-title truncate text-base font-bold text-white">{s.nome}</p>
+                            <span className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold ${ativo ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-300" : "border-white/15 bg-white/[0.06] text-slate-400"}`}>{ativo ? "Ativo" : "Inativo"}</span>
+                          </div>
+                          <p className="mt-0.5 line-clamp-2 text-xs text-slate-400">{s.descricao || "Sem descrição."}</p>
+                          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-500">
+                            <span><b className="text-slate-300">{contarProdutos(s.id)}</b> produto(s) vinculado(s)</span>
+                            <span><b className="text-orange-300">{pedidosEmPreparo(s.id)}</b> pedido(s) em preparo</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex shrink-0 flex-wrap gap-1.5">
+                        <button onClick={() => setEditando({ ...s })} className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs font-bold text-slate-200 transition hover:bg-white/10 [&>svg]:h-3.5 [&>svg]:w-3.5"><IcoEditSet /> Editar</button>
+                        <button onClick={() => setVinculando(s)} className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs font-bold text-slate-200 transition hover:bg-white/10 [&>svg]:h-3.5 [&>svg]:w-3.5"><IcoLinkSet /> Vincular produtos</button>
+                        <button onClick={() => irParaCozinha(s.id)} className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs font-bold text-slate-200 transition hover:bg-white/10 [&>svg]:h-3.5 [&>svg]:w-3.5"><IcoFiltro /> Filtrar cozinha</button>
+                        {ativo
+                          ? <button onClick={() => setConfirmar(s)} className="inline-flex items-center gap-1.5 rounded-xl border border-red-400/25 bg-red-500/10 px-3 py-1.5 text-xs font-bold text-red-300 transition hover:bg-red-500/20 [&>svg]:h-3.5 [&>svg]:w-3.5"><IcoPower /> Inativar</button>
+                          : <button onClick={() => alternarAtivo(s, true)} className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-400/25 bg-emerald-500/10 px-3 py-1.5 text-xs font-bold text-emerald-300 transition hover:bg-emerald-500/20 [&>svg]:h-3.5 [&>svg]:w-3.5"><IcoPower /> Ativar</button>}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Modal: editar setor ───────────────────────────── */}
+      {editando && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <button aria-label="Fechar" onClick={() => setEditando(null)} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+          <div className="relative w-full max-w-md rounded-[2rem] border border-white/10 bg-blue-950 p-6 shadow-2xl">
+            <div className="flex items-center justify-between">
+              <h4 className="page-title text-lg font-bold text-white">Editar setor</h4>
+              <button onClick={() => setEditando(null)} className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-slate-300 hover:bg-white/10 [&>svg]:h-4 [&>svg]:w-4"><IcoFechaSet /></button>
+            </div>
+            <div className="mt-4 space-y-3">
+              <div>
+                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-slate-500">Nome do setor</label>
+                <input value={editando.nome} onChange={(e) => setEditando({ ...editando, nome: e.target.value })} className={inp} autoFocus />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-slate-500">Descrição</label>
+                <textarea value={editando.descricao || ""} maxLength={120} rows={3} onChange={(e) => setEditando({ ...editando, descricao: e.target.value })} className={`${inp} resize-none`} />
+              </div>
+              <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-3">
+                <span className="text-sm font-semibold text-slate-300">Status</span>
+                <button type="button" onClick={() => setEditando({ ...editando, ativo: editando.ativo === false })} className={`relative h-6 w-11 rounded-full transition ${editando.ativo !== false ? "bg-emerald-500" : "bg-slate-600"}`}>
+                  <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${editando.ativo !== false ? "left-[22px]" : "left-0.5"}`} />
+                </button>
+                <span className={`w-14 text-right text-xs font-bold ${editando.ativo !== false ? "text-emerald-300" : "text-slate-400"}`}>{editando.ativo !== false ? "Ativo" : "Inativo"}</span>
+              </div>
+            </div>
+            <div className="mt-5 flex gap-2">
+              <button onClick={salvarEdicao} className="flex-1 rounded-2xl bg-gold-400 px-4 py-2.5 text-sm font-bold text-blue-950 transition hover:bg-gold-300">Salvar alterações</button>
+              <button onClick={() => setEditando(null)} className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-2.5 text-sm font-bold text-slate-300 transition hover:bg-white/10">Cancelar</button>
+            </div>
+          </div>
         </div>
       )}
+
+      {/* ── Modal: confirmar inativação ───────────────────── */}
+      {confirmar && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <button aria-label="Fechar" onClick={() => setConfirmar(null)} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+          <div className="relative w-full max-w-md rounded-[2rem] border border-white/10 bg-blue-950 p-6 shadow-2xl">
+            <h4 className="page-title text-lg font-bold text-white">Deseja realmente inativar este setor?</h4>
+            <p className="mt-2 text-sm leading-6 text-slate-400">Setores inativos não aparecerão como opção principal no painel da cozinha, mas permanecerão no histórico do sistema.</p>
+            <p className="mt-3 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-bold text-white">{confirmar.nome}</p>
+            <div className="mt-5 flex gap-2">
+              <button onClick={() => alternarAtivo(confirmar, false)} className="flex-1 rounded-2xl border border-red-400/30 bg-red-500/15 px-4 py-2.5 text-sm font-bold text-red-200 transition hover:bg-red-500/25">Confirmar inativação</button>
+              <button onClick={() => setConfirmar(null)} className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-2.5 text-sm font-bold text-slate-300 transition hover:bg-white/10">Cancelar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: vincular produtos ──────────────────────── */}
+      {vinculando && (
+        <VincularProdutosModal setor={vinculando} produtos={produtos} onFechar={() => setVinculando(null)}
+          onSalvar={async (alteracoes) => {
+            try { for (const [pid, sid] of alteracoes) await vincularProduto(pid, sid); aviso("ok", "Vínculos atualizados."); }
+            catch { aviso("erro", "Não foi possível salvar os vínculos."); }
+            setVinculando(null);
+          }} />
+      )}
     </main>
+  );
+}
+
+// Modal de vínculo produto → setor de cozinha
+function VincularProdutosModal({ setor, produtos = [], onFechar, onSalvar }) {
+  const [busca, setBusca] = useState("");
+  const [sel, setSel] = useState(() => new Set(produtos.filter((p) => p.setorId === setor.id).map((p) => p.id)));
+  const [salvando, setSalvando] = useState(false);
+  const termo = busca.trim().toLowerCase();
+  const lista = termo ? produtos.filter((p) => `${p.name} ${p.category || ""}`.toLowerCase().includes(termo)) : produtos;
+  const toggle = (id) => setSel((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  async function salvar() {
+    // Calcula só os produtos que mudaram de vínculo em relação a ESTE setor
+    const alteracoes = [];
+    produtos.forEach((p) => {
+      const marcado = sel.has(p.id);
+      if (marcado && p.setorId !== setor.id) alteracoes.push([p.id, setor.id]);
+      else if (!marcado && p.setorId === setor.id) alteracoes.push([p.id, null]);
+    });
+    setSalvando(true);
+    await onSalvar(alteracoes);
+    setSalvando(false);
+  }
+  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-gold-400/60";
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <button aria-label="Fechar" onClick={onFechar} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+      <div className="relative flex max-h-[85vh] w-full max-w-lg flex-col rounded-[2rem] border border-white/10 bg-blue-950 shadow-2xl">
+        <div className="border-b border-white/10 px-6 py-4">
+          <div className="flex items-center justify-between">
+            <h4 className="page-title text-lg font-bold text-white">Vincular produtos ao setor</h4>
+            <button onClick={onFechar} className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-slate-300 hover:bg-white/10 [&>svg]:h-4 [&>svg]:w-4"><IcoFechaSet /></button>
+          </div>
+          <p className="mt-0.5 text-xs text-slate-500">Selecione os produtos que devem ser preparados em <b className="text-gold-300">{setor.nome}</b>.</p>
+          <div className="relative mt-3">
+            <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"><IconBusca /></span>
+            <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar produto..." className={`${inp} pl-11`} />
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto px-6 py-3">
+          {lista.length === 0 ? (
+            <p className="py-8 text-center text-sm text-slate-500">Nenhum produto encontrado.</p>
+          ) : lista.map((p) => {
+            const marcado = sel.has(p.id);
+            const noutroSetor = p.setorId && p.setorId !== setor.id;
+            return (
+              <button key={p.id} onClick={() => toggle(p.id)} className={`flex w-full items-center gap-3 border-b border-white/5 py-2.5 text-left transition hover:bg-white/[0.03]`}>
+                <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${marcado ? "border-gold-400 bg-gold-400 text-blue-950" : "border-white/20"}`}>{marcado && <span className="text-[11px] font-black">✓</span>}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-semibold text-white">{p.name}</span>
+                  <span className="block truncate text-[11px] text-slate-500">{p.category || "Sem categoria"} · {brl(p.price)}{noutroSetor ? " · já vinculado a outro setor" : ""}</span>
+                </span>
+                <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${p.active !== false ? "bg-emerald-500/10 text-emerald-300" : "bg-white/[0.06] text-slate-400"}`}>{p.active !== false ? "Ativo" : "Inativo"}</span>
+              </button>
+            );
+          })}
+        </div>
+        <div className="flex items-center justify-between gap-2 border-t border-white/10 px-6 py-4">
+          <span className="text-xs text-slate-400"><b className="text-white">{sel.size}</b> selecionado(s)</span>
+          <div className="flex gap-2">
+            <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-2.5 text-sm font-bold text-slate-300 transition hover:bg-white/10">Cancelar</button>
+            <button onClick={salvar} disabled={salvando} className="rounded-2xl bg-gold-400 px-5 py-2.5 text-sm font-bold text-blue-950 transition hover:bg-gold-300 disabled:opacity-50">{salvando ? "Salvando…" : "Salvar vínculos"}</button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
