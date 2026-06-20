@@ -2139,7 +2139,7 @@ export default function RestaurantePedidoApp() {
         )}
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} products={products} lojaInfo={lojaInfo} />}
         {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierView orders={orders} baixarComandas={baixarComandas} baixarPedidos={baixarPedidos} formasPagamento={formasPagamentoLoja} onSair={logout} lojaInfo={lojaInfo} />}
-        {activeTab === "opmobile" && (canAccess(currentUser, "kitchen") || canAccess(currentUser, "cashier")) && <OperacaoMobileView orders={orders} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} products={products} setores={filtraLoja(setoresCozinha)} formasPagamento={formasPagamentoLoja} lojaInfo={lojaInfo} podeCaixa={canAccess(currentUser, "cashier")} podeCozinha={canAccess(currentUser, "kitchen")} />}
+        {activeTab === "opmobile" && (canAccess(currentUser, "kitchen") || canAccess(currentUser, "cashier")) && <OperacaoMobileView orders={orders} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} products={products} setores={filtraLoja(setoresCozinha)} formasPagamento={formasPagamentoLoja} lojaInfo={lojaInfo} podeCaixa={canAccess(currentUser, "cashier")} podeCozinha={canAccess(currentUser, "kitchen")} onFechar={() => setActiveTab(allowedTabs[0]?.id || "tablet")} />}
         {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} promocoes={filtraLoja(promocoes)} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} opcoesApi={{ grupos: filtraLoja(gruposOpcoes), opcoes: filtraLoja(opcoes), addGrupo: addGrupoOpcoes, editarGrupo: editarGrupoOpcoes, removerGrupo: removerGrupoOpcoes, addOpcao, editarOpcao, removerOpcao }} setores={filtraLoja(setoresCozinha)} setoresApi={{ add: addSetorCozinha, editar: editarSetorCozinha, remover: removerSetorCozinha }} vincularProdutoSetor={vincularProdutoSetor} irParaCozinha={(setorId) => { setCozinhaSetorInicial(setorId ?? null); if (canAccess(currentUser, "kitchen")) setActiveTab("kitchen"); else notify("error", "Sem permissão para acessar o painel da cozinha."); }} caixaAberto={caixaAberto} caixasLoja={filtraLoja(caixas)} caixaApi={{ abrir: abrirCaixaFn, movimentar: movimentarCaixaFn, fechar: fecharCaixaFn, fetchMovimentos: fetchMovimentosCaixa }} fidRegra={fidRegraAtual} fidRecompensas={filtraLoja(fidRecompensas)} fidTransacoes={filtraLoja(fidTransacoes)} fidApi={{ salvarRegra: salvarRegraFid, addRecompensa: addRecompensaFid, removerRecompensa: removerRecompensaFid, lancarPontos }} chamados={filtraLoja(chamados)} atenderChamado={atenderChamadoFn} auditoria={filtraLoja(auditoria)} />}
 
       </div>
@@ -5309,7 +5309,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           {ativo === "fidelidade" && (precisaEmpresa ? avisoEmpresa : <FidelidadeAdmin regra={fidRegra} recompensas={fidRecompensas} transacoes={fidTransacoes} clientes={clientes} api={fidApi} />)}
           {ativo === "products"   && (precisaEmpresa ? avisoEmpresa : <ProductAdmin   products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} editarProduto={editarProduto} removerProduto={removerProduto} lojaId={lojaInfo?.id} opcoesApi={opcoesApi} setores={setores} />)}
           {ativo === "setores"    && (precisaEmpresa ? avisoEmpresa : <SetoresCozinhaAdmin setores={setores} produtos={products} orders={orders} api={setoresApi} vincularProduto={vincularProdutoSetor} irParaCozinha={irParaCozinha} />)}
-          {ativo === "operacaomobile" && <OperacaoMobileView orders={orders} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} products={products} setores={setores} formasPagamento={formasPagamento} lojaInfo={lojaInfo} podeCaixa podeCozinha />}
+          {ativo === "operacaomobile" && <OperacaoMobileView orders={orders} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} products={products} setores={setores} formasPagamento={formasPagamento} lojaInfo={lojaInfo} podeCaixa podeCozinha onFechar={() => setAdminSection("dashboard")} />}
           {ativo === "chamados"   && <ChamadosPainel chamados={chamados} atenderChamado={atenderChamado} />}
           {ativo === "auditoria"  && <AuditoriaAdmin
             logs={auditoria} lojas={lojas}
@@ -5650,7 +5650,7 @@ function BarrasVerticais({ dados, sufixo = "R$" }) {
 //  Reaproveita os pedidos + ações existentes (status, baixa, caixa).
 //  Visual de aplicativo para pequenos estabelecimentos no celular.
 // ════════════════════════════════════════════════════════════
-function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, marcarSetorPronto = async () => {}, baixarComandas, products = [], setores = [], formasPagamento = [], lojaInfo, podeCaixa = false, podeCozinha = false }) {
+function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, marcarSetorPronto = async () => {}, baixarComandas, products = [], setores = [], formasPagamento = [], lojaInfo, podeCaixa = false, podeCozinha = false, onFechar = null }) {
   const [tab, setTab] = useState(podeCozinha ? "pedidos" : "caixa");
   const setorPorNome = useMemo(() => { const m = {}; products.forEach((p) => { if (p.setorId != null) m[p.name] = p.setorId; }); return m; }, [products]);
   const catPorNome = useMemo(() => { const m = {}; products.forEach((p) => { m[p.name] = p.category; }); return m; }, [products]);
@@ -5686,10 +5686,12 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, ma
   const titulo = tab === "pedidos" ? "Central de Pedidos" : tab === "cozinha" ? "Cozinha" : tab === "bar" ? "Bar" : "Caixa";
 
   return (
-    <div className="mx-auto max-w-md pb-24">
+    <div className="fixed inset-0 z-[60] overflow-y-auto bg-slate-950" style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "calc(env(safe-area-inset-bottom) + 64px)" }}>
+    <div className="mx-auto max-w-md px-3 pt-3">
       <div className="mb-3 flex items-center gap-3 rounded-3xl border border-white/10 bg-white/[0.04] p-4">
         {lojaInfo?.logoUrl ? <img src={lojaInfo.logoUrl} alt="" className="h-10 w-10 rounded-2xl object-cover" /> : <LogoPP size={40} />}
-        <div className="min-w-0"><p className="page-title text-base font-bold text-white">{titulo}</p><p className="truncate text-xs text-slate-400">{lojaInfo?.nome || "Operação da loja"}</p></div>
+        <div className="min-w-0 flex-1"><p className="page-title text-base font-bold text-white">{titulo}</p><p className="truncate text-xs text-slate-400">{lojaInfo?.nome || "Operação da loja"}</p></div>
+        {onFechar && <button onClick={onFechar} className="shrink-0 rounded-2xl border border-white/10 bg-white/[0.06] px-3 py-2 text-xs font-black text-slate-300 hover:bg-white/10">✕ Sair</button>}
       </div>
 
       {tab === "pedidos" && (<>
@@ -5771,6 +5773,7 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, ma
           ))}
         </div>
       </div>
+    </div>
     </div>
   );
 }
