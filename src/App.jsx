@@ -784,6 +784,7 @@ export default function RestaurantePedidoApp() {
     if (tab === "kitchen") return `/admin/cozinha${setorId != null ? `?setorId=${setorId}` : ""}`;
     if (tab === "panel") return "/app/painel";
     if (tab === "cashier") return "/app/caixa";
+    if (tab === "opmobile") return "/app/operacao";
     if (tab === "tablet") return "/app/tablet";
     return "/login";
   }
@@ -801,7 +802,7 @@ export default function RestaurantePedidoApp() {
     const appMatch = pathname.match(/^\/app\/([^/?]+)/);
     if (appMatch) {
       const seg = appMatch[1];
-      setActiveTab(seg === "painel" ? "panel" : seg === "caixa" ? "cashier" : "tablet");
+      setActiveTab(seg === "painel" ? "panel" : seg === "caixa" ? "cashier" : seg === "operacao" ? "opmobile" : "tablet");
     }
     // /login ou rota não reconhecida → mantém a tela atual
   }
@@ -2058,6 +2059,12 @@ export default function RestaurantePedidoApp() {
               <p className="mt-1 text-xs opacity-75">{tab.desc}</p>
             </button>
           ))}
+          {(canAccess(currentUser, "kitchen") || canAccess(currentUser, "cashier")) && (
+            <button onClick={() => { setActiveTab("opmobile"); clearMessage(); }} className={`rounded-3xl border p-4 text-left transition ${activeTab === "opmobile" ? "border-gold-400 bg-gold-400 text-blue-950 shadow-xl shadow-gold-900/30" : "border-gold-400/30 bg-gold-400/10 text-gold-200 hover:bg-gold-400/20"}`}>
+              <p className="text-sm font-black">📱 Operação Mobile</p>
+              <p className="mt-1 text-xs opacity-75">Central de pedidos, cozinha, bar e caixa no celular</p>
+            </button>
+          )}
           <button onClick={logout} className="rounded-3xl border border-red-400/20 bg-red-500/10 p-4 text-left text-red-100 transition hover:bg-red-500/20"><p className="text-sm font-black">Sair</p><p className="mt-1 text-xs opacity-75">Encerrar sessão</p></button>
         </section>
 
@@ -2111,7 +2118,8 @@ export default function RestaurantePedidoApp() {
         )}
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} products={products} lojaInfo={lojaInfo} />}
         {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierView orders={orders} baixarComandas={baixarComandas} baixarPedidos={baixarPedidos} formasPagamento={formasPagamentoLoja} onSair={logout} lojaInfo={lojaInfo} />}
-        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} promocoes={filtraLoja(promocoes)} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} opcoesApi={{ grupos: filtraLoja(gruposOpcoes), opcoes: filtraLoja(opcoes), addGrupo: addGrupoOpcoes, editarGrupo: editarGrupoOpcoes, removerGrupo: removerGrupoOpcoes, addOpcao, editarOpcao, removerOpcao }} setores={filtraLoja(setoresCozinha)} setoresApi={{ add: addSetorCozinha, editar: editarSetorCozinha, remover: removerSetorCozinha }} vincularProdutoSetor={vincularProdutoSetor} irParaCozinha={(setorId) => { setCozinhaSetorInicial(setorId ?? null); if (canAccess(currentUser, "kitchen")) setActiveTab("kitchen"); else notify("error", "Sem permissão para acessar o painel da cozinha."); }} caixaAberto={caixaAberto} caixasLoja={filtraLoja(caixas)} caixaApi={{ abrir: abrirCaixaFn, movimentar: movimentarCaixaFn, fechar: fecharCaixaFn, fetchMovimentos: fetchMovimentosCaixa }} fidRegra={fidRegraAtual} fidRecompensas={filtraLoja(fidRecompensas)} fidTransacoes={filtraLoja(fidTransacoes)} fidApi={{ salvarRegra: salvarRegraFid, addRecompensa: addRecompensaFid, removerRecompensa: removerRecompensaFid, lancarPontos }} chamados={filtraLoja(chamados)} atenderChamado={atenderChamadoFn} auditoria={filtraLoja(auditoria)} />}
+        {activeTab === "opmobile" && (canAccess(currentUser, "kitchen") || canAccess(currentUser, "cashier")) && <OperacaoMobileView orders={orders} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} baixarComandas={baixarComandas} products={products} setores={filtraLoja(setoresCozinha)} formasPagamento={formasPagamentoLoja} lojaInfo={lojaInfo} podeCaixa={canAccess(currentUser, "cashier")} podeCozinha={canAccess(currentUser, "kitchen")} />}
+        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} baixarComandas={baixarComandas} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} promocoes={filtraLoja(promocoes)} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} opcoesApi={{ grupos: filtraLoja(gruposOpcoes), opcoes: filtraLoja(opcoes), addGrupo: addGrupoOpcoes, editarGrupo: editarGrupoOpcoes, removerGrupo: removerGrupoOpcoes, addOpcao, editarOpcao, removerOpcao }} setores={filtraLoja(setoresCozinha)} setoresApi={{ add: addSetorCozinha, editar: editarSetorCozinha, remover: removerSetorCozinha }} vincularProdutoSetor={vincularProdutoSetor} irParaCozinha={(setorId) => { setCozinhaSetorInicial(setorId ?? null); if (canAccess(currentUser, "kitchen")) setActiveTab("kitchen"); else notify("error", "Sem permissão para acessar o painel da cozinha."); }} caixaAberto={caixaAberto} caixasLoja={filtraLoja(caixas)} caixaApi={{ abrir: abrirCaixaFn, movimentar: movimentarCaixaFn, fechar: fecharCaixaFn, fetchMovimentos: fetchMovimentosCaixa }} fidRegra={fidRegraAtual} fidRecompensas={filtraLoja(fidRecompensas)} fidTransacoes={filtraLoja(fidTransacoes)} fidApi={{ salvarRegra: salvarRegraFid, addRecompensa: addRecompensaFid, removerRecompensa: removerRecompensaFid, lancarPontos }} chamados={filtraLoja(chamados)} atenderChamado={atenderChamadoFn} auditoria={filtraLoja(auditoria)} />}
 
       </div>
     </div>
@@ -5097,7 +5105,7 @@ function ComboEmpresaFoco({ lojas = [], valor, onChange }) {
   );
 }
 
-function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, definirAcoesUsuario, toggleUserStatus, toggleAccessStatus, usersLoja, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], addLoja, toggleLoja, editarLoja, removerLoja, setLicencaEmpresa = async()=>{}, setValidadeLicenca = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, setModoUsoEmpresa = async()=>{}, salvarConfigExterno = async()=>{}, mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, clientes = [], planoAtual = null, assinaturaAtual = null, planos = [], planoModulos = [], definirAssinatura = async()=>{}, promocoes = [], addPromocao = async()=>{}, editarPromocao = async()=>{}, togglePromocao = async()=>{}, removerPromocao = async()=>{}, opcoesApi = null, setores = [], setoresApi = null, vincularProdutoSetor = async () => {}, irParaCozinha = () => {}, caixaAberto = null, caixasLoja = [], caixaApi = null, fidRegra = null, fidRecompensas = [], fidTransacoes = [], fidApi = null, chamados = [], atenderChamado = async()=>{}, auditoria = [] }) {
+function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, definirAcoesUsuario, toggleUserStatus, toggleAccessStatus, usersLoja, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], addLoja, toggleLoja, editarLoja, removerLoja, setLicencaEmpresa = async()=>{}, setValidadeLicenca = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, updateOrderStatus = async()=>{}, marcarEntregue = async()=>{}, baixarComandas = async()=>{}, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, setModoUsoEmpresa = async()=>{}, salvarConfigExterno = async()=>{}, mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, clientes = [], planoAtual = null, assinaturaAtual = null, planos = [], planoModulos = [], definirAssinatura = async()=>{}, promocoes = [], addPromocao = async()=>{}, editarPromocao = async()=>{}, togglePromocao = async()=>{}, removerPromocao = async()=>{}, opcoesApi = null, setores = [], setoresApi = null, vincularProdutoSetor = async () => {}, irParaCozinha = () => {}, caixaAberto = null, caixasLoja = [], caixaApi = null, fidRegra = null, fidRecompensas = [], fidTransacoes = [], fidApi = null, chamados = [], atenderChamado = async()=>{}, auditoria = [] }) {
   // Menu reorganizado por contexto (SaaS premium) — mesmos ids e permissões de antes
   const menu = [
     { grupo: "Visão Geral", itens: [
@@ -5111,6 +5119,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
       { id: "comandas", icon: <IconQr />, label: "Comandas e QR Code" },
       { id: "chamados", icon: <IconMesas />, label: "Chamados de Mesa" },
       { id: "setores", icon: <IconCategorias />, label: "Setores de Cozinha" },
+      { id: "operacaomobile", icon: <IconQr />, label: "Operação Mobile" },
     ]},
     { grupo: "Cardápio", itens: [
       { id: "products", icon: <IconProdutos />, label: "Produtos" },
@@ -5279,6 +5288,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           {ativo === "fidelidade" && (precisaEmpresa ? avisoEmpresa : <FidelidadeAdmin regra={fidRegra} recompensas={fidRecompensas} transacoes={fidTransacoes} clientes={clientes} api={fidApi} />)}
           {ativo === "products"   && (precisaEmpresa ? avisoEmpresa : <ProductAdmin   products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} editarProduto={editarProduto} removerProduto={removerProduto} lojaId={lojaInfo?.id} opcoesApi={opcoesApi} setores={setores} />)}
           {ativo === "setores"    && (precisaEmpresa ? avisoEmpresa : <SetoresCozinhaAdmin setores={setores} produtos={products} orders={orders} api={setoresApi} vincularProduto={vincularProdutoSetor} irParaCozinha={irParaCozinha} />)}
+          {ativo === "operacaomobile" && <OperacaoMobileView orders={orders} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} baixarComandas={baixarComandas} products={products} setores={setores} formasPagamento={formasPagamento} lojaInfo={lojaInfo} podeCaixa podeCozinha />}
           {ativo === "chamados"   && <ChamadosPainel chamados={chamados} atenderChamado={atenderChamado} />}
           {ativo === "auditoria"  && <AuditoriaAdmin
             logs={auditoria} lojas={lojas}
@@ -5611,6 +5621,172 @@ function BarrasVerticais({ dados, sufixo = "R$" }) {
         </div>
       ))}
     </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+//  Operação Mobile — central de pedidos / cozinha / bar / caixa
+//  Reaproveita os pedidos + ações existentes (status, baixa, caixa).
+//  Visual de aplicativo para pequenos estabelecimentos no celular.
+// ════════════════════════════════════════════════════════════
+function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, baixarComandas, products = [], setores = [], formasPagamento = [], lojaInfo, podeCaixa = false, podeCozinha = false }) {
+  const [tab, setTab] = useState(podeCozinha ? "pedidos" : "caixa");
+  const setorPorNome = useMemo(() => { const m = {}; products.forEach((p) => { if (p.setorId != null) m[p.name] = p.setorId; }); return m; }, [products]);
+  const catPorNome = useMemo(() => { const m = {}; products.forEach((p) => { m[p.name] = p.category; }); return m; }, [products]);
+  const barSetor = useMemo(() => setores.find((s) => /bar|bebida|drink/i.test(s.nome)) || null, [setores]);
+  const itemEhBar = (it) => (barSetor && setorPorNome[it.name] === barSetor.id) || /bebida|drink|suco|refri/i.test(catPorNome[it.name] || "");
+  const itensDoSetor = (o, bar) => (o.items || []).filter((it) => (bar ? itemEhBar(it) : !itemEhBar(it)));
+
+  const ativos = orders.filter((o) => o.status !== "cancelled" && o.paymentStatus !== "paid" && o.status !== "delivered");
+  const aguardando = orders.filter((o) => o.status !== "cancelled" && o.paymentStatus !== "paid" && (o.status === "delivered" || o.paymentStatus === "requested"));
+  const minutos = (o) => o.createdAtISO ? Math.max(0, Math.floor((Date.now() - new Date(o.createdAtISO).getTime()) / 60000)) : null;
+  const haTxt = (o) => { const m = minutos(o); return m == null ? "" : (m < 1 ? "agora" : m < 60 ? `há ${m} min` : `há ${Math.floor(m / 60)}h${String(m % 60).padStart(2, "0")}`); };
+  const totalCom = (o) => orderTotal(o) * 1.1;
+  const novos = ativos.filter((o) => o.status === "received");
+  const emPreparo = ativos.filter((o) => o.status === "preparing");
+  const prontos = ativos.filter((o) => o.status === "ready");
+
+  const badge = (o) =>
+    o.status === "received" ? { l: "NOVO", c: "border-blue-400/30 bg-blue-500/15 text-blue-300" }
+    : o.status === "preparing" ? { l: "EM PREPARO", c: "border-amber-400/30 bg-amber-500/15 text-amber-300" }
+    : o.status === "ready" ? { l: "PRONTO", c: "border-emerald-400/30 bg-emerald-500/15 text-emerald-300" }
+    : { l: "AGUARDANDO PGTO", c: "border-gold-400/30 bg-gold-400/15 text-gold-300" };
+  const acaoPrincipal = (o) =>
+    o.status === "received" ? { l: "Aceitar", fn: () => updateOrderStatus(o.id, "preparing"), c: "bg-gold-400 text-blue-950" }
+    : o.status === "preparing" ? { l: "Marcar pronto", fn: () => updateOrderStatus(o.id, "ready"), c: "bg-emerald-500 text-white" }
+    : o.status === "ready" ? { l: "Entregue", fn: () => marcarEntregue(o.id), c: "bg-blue-500 text-white" }
+    : null;
+  const resumoItens = (items) => (items || []).map((it) => `${it.quantity}× ${it.name}`).join(" • ");
+  const titulo = tab === "pedidos" ? "Central de Pedidos" : tab === "cozinha" ? "Cozinha" : tab === "bar" ? "Bar" : "Caixa";
+
+  return (
+    <div className="mx-auto max-w-md pb-24">
+      <div className="mb-3 flex items-center gap-3 rounded-3xl border border-white/10 bg-white/[0.04] p-4">
+        {lojaInfo?.logoUrl ? <img src={lojaInfo.logoUrl} alt="" className="h-10 w-10 rounded-2xl object-cover" /> : <LogoPP size={40} />}
+        <div className="min-w-0"><p className="page-title text-base font-bold text-white">{titulo}</p><p className="truncate text-xs text-slate-400">{lojaInfo?.nome || "Operação da loja"}</p></div>
+      </div>
+
+      {tab === "pedidos" && (<>
+        <div className="mb-3 grid grid-cols-2 gap-2">
+          {[{ l: "Novos", v: novos.length, c: "text-blue-300" }, { l: "Em preparo", v: emPreparo.length, c: "text-amber-300" }, { l: "Prontos", v: prontos.length, c: "text-emerald-300" }, { l: "Aguardando pgto", v: aguardando.length, c: "text-gold-300" }].map((k) => (
+            <div key={k.l} className="rounded-2xl border border-white/10 bg-slate-950/40 px-3 py-2.5"><p className={`page-title text-2xl font-bold ${k.c}`}>{k.v}</p><p className="text-[11px] text-slate-500">{k.l}</p></div>
+          ))}
+        </div>
+        <div className="space-y-2">
+          {ativos.length === 0 && <p className="py-10 text-center text-sm text-slate-500">Nenhum pedido ativo.</p>}
+          {ativos.map((o) => { const b = badge(o); const a = acaoPrincipal(o); const setoresDoPedido = [itensDoSetor(o, false).length > 0 && "Cozinha", itensDoSetor(o, true).length > 0 && "Bar"].filter(Boolean);
+            return (
+              <div key={o.id} className="rounded-3xl border border-white/10 bg-slate-950/40 p-3.5">
+                <div className="flex items-center justify-between gap-2"><span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-black ${b.c}`}>{b.l}</span><span className="text-[11px] text-slate-500">{haTxt(o)}</span></div>
+                <p className="mt-1.5 font-black text-white">{o.id} · {o.table}</p>
+                <p className="text-xs text-slate-400">{o.customer || "Cliente"}</p>
+                <p className="mt-1.5 line-clamp-2 text-xs text-slate-300">{resumoItens(o.items)}</p>
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                  {setoresDoPedido.map((s) => <span key={s} className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] font-bold text-slate-300">{s}</span>)}
+                  <span className="ml-auto text-sm font-black text-emerald-300">{formatCurrency(totalCom(o))}</span>
+                </div>
+                {a && <button onClick={a.fn} className={`mt-2.5 w-full rounded-2xl py-2.5 text-sm font-black transition active:scale-95 ${a.c}`}>{a.l}</button>}
+              </div>
+            );
+          })}
+        </div>
+      </>)}
+
+      {(tab === "cozinha" || tab === "bar") && (() => {
+        const bar = tab === "bar";
+        const comItens = ativos.filter((o) => itensDoSetor(o, bar).length > 0);
+        return (<>
+          <div className="mb-3 flex gap-2">
+            {[["Novos", novos], ["Em preparo", emPreparo], ["Prontos", prontos]].map(([l, arr]) => {
+              const n = arr.filter((o) => itensDoSetor(o, bar).length > 0).length;
+              return <div key={l} className="flex-1 rounded-2xl border border-white/10 bg-slate-950/40 py-2 text-center"><span className="page-title block text-lg font-bold text-white">{n}</span><span className="text-[10px] text-slate-500">{l}</span></div>;
+            })}
+          </div>
+          <div className="space-y-2">
+            {comItens.length === 0 && <p className="py-10 text-center text-sm text-slate-500">Nenhum pedido para {bar ? "o bar" : "a cozinha"}.</p>}
+            {comItens.map((o) => { const b = badge(o); const its = itensDoSetor(o, bar);
+              return (
+                <div key={o.id} className="rounded-3xl border border-white/10 bg-slate-950/40 p-3.5">
+                  <div className="flex items-center justify-between gap-2"><span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-black ${b.c}`}>{b.l}</span><span className="text-[11px] text-slate-500">{haTxt(o)} · {o.table}</span></div>
+                  <p className="mt-1.5 text-xs text-slate-400">{o.customer || "Cliente"}</p>
+                  <div className="mt-2 space-y-1.5">
+                    {its.map((it, i) => (
+                      <div key={i} className="rounded-2xl border border-white/10 bg-white/[0.03] p-2">
+                        <p className="text-sm font-bold text-white">{it.quantity}× {it.name}</p>
+                        {(it.removedIngredients?.length > 0 || it.extraIngredients?.length > 0 || it.observation) && (
+                          <p className="text-[11px] text-amber-300">{[...(it.removedIngredients || []).map((x) => "− " + x), ...(it.extraIngredients || []).map((x) => "+ " + x), it.observation].filter(Boolean).join(" · ")}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-2.5">
+                    {o.status === "received" && <button onClick={() => updateOrderStatus(o.id, "preparing")} className="w-full rounded-2xl bg-gold-400 py-2.5 text-sm font-black text-blue-950 active:scale-95">Aceitar</button>}
+                    {o.status === "preparing" && <button onClick={() => updateOrderStatus(o.id, "ready")} className="w-full rounded-2xl bg-emerald-500 py-2.5 text-sm font-black text-white active:scale-95">Marcar pronto</button>}
+                    {o.status === "ready" && <button onClick={() => marcarEntregue(o.id)} className="w-full rounded-2xl bg-blue-500 py-2.5 text-sm font-black text-white active:scale-95">Baixa / entregue</button>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>);
+      })()}
+
+      {tab === "caixa" && <CaixaMobile aguardando={aguardando} totalCom={totalCom} baixarComandas={baixarComandas} lojaInfo={lojaInfo} haTxt={haTxt} />}
+
+      {/* Bottom nav */}
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-slate-900/95 backdrop-blur-xl" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
+        <div className="mx-auto flex max-w-md items-stretch">
+          {[["pedidos", "🧾", "Pedidos", podeCozinha], ["cozinha", "👨‍🍳", "Cozinha", podeCozinha], ["bar", "🍹", "Bar", podeCozinha], ["caixa", "💳", "Caixa", podeCaixa]].filter(([, , , ok]) => ok).map(([k, ic, l]) => (
+            <button key={k} onClick={() => setTab(k)} className={`flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[11px] font-bold transition ${tab === k ? "text-gold-300" : "text-slate-500"}`}><span className="text-lg">{ic}</span>{l}</button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Sub-tela de caixa (Operação Mobile) — finaliza contas aguardando pagamento
+function CaixaMobile({ aguardando, totalCom, baixarComandas, lojaInfo, haTxt }) {
+  const [forma, setForma] = useState({});
+  const [pagando, setPagando] = useState(null);
+  const totalAberto = aguardando.reduce((s, o) => s + totalCom(o), 0);
+  async function finalizar(o) {
+    setPagando(o.id);
+    try { await baixarComandas([o.command], { forma: forma[o.id] || "Dinheiro", valor: totalCom(o), mesa: o.table, lojaId: lojaInfo?.id }); } catch {}
+    setPagando(null);
+  }
+  return (
+    <>
+      <div className="mb-3 grid grid-cols-2 gap-2">
+        <div className="rounded-2xl border border-gold-400/25 bg-gold-400/[0.06] px-3 py-2.5"><p className="page-title text-2xl font-bold text-gold-300">{aguardando.length}</p><p className="text-[11px] text-slate-500">Aguardando pagamento</p></div>
+        <div className="rounded-2xl border border-white/10 bg-slate-950/40 px-3 py-2.5"><p className="page-title text-2xl font-bold text-white">{formatCurrency(totalAberto)}</p><p className="text-[11px] text-slate-500">Em aberto</p></div>
+      </div>
+      <div className="space-y-2">
+        {aguardando.length === 0 && <p className="py-10 text-center text-sm text-slate-500">Nenhuma conta aguardando pagamento.</p>}
+        {aguardando.map((o) => { const sub = orderTotal(o); const taxa = sub * 0.1;
+          return (
+            <div key={o.id} className="rounded-3xl border border-gold-400/25 bg-slate-950/40 p-3.5">
+              <div className="flex items-center justify-between"><p className="font-black text-white">{o.table} · {o.id}</p><span className="text-[11px] text-slate-500">{haTxt(o)}</span></div>
+              <p className="text-xs text-slate-400">{o.customer || "Cliente"}</p>
+              <div className="mt-2 space-y-0.5 border-t border-white/10 pt-2">
+                {o.items.map((it, i) => (<div key={i} className="flex justify-between text-sm"><span className="text-slate-300">{it.quantity}× {it.name}</span><span className="font-bold text-white">{formatCurrency(it.price * it.quantity)}</span></div>))}
+              </div>
+              <div className="mt-2 space-y-0.5 border-t border-white/10 pt-2 text-sm">
+                <div className="flex justify-between text-slate-400"><span>Subtotal</span><span className="text-white">{formatCurrency(sub)}</span></div>
+                <div className="flex justify-between text-slate-400"><span>Taxa de serviço (10%)</span><span className="text-white">{formatCurrency(taxa)}</span></div>
+                <div className="flex justify-between text-base font-black"><span className="text-white">Total</span><span className="text-emerald-400">{formatCurrency(sub + taxa)}</span></div>
+              </div>
+              <div className="mt-2 flex gap-1.5">
+                {["Pix", "Cartão", "Dinheiro"].map((f) => (
+                  <button key={f} onClick={() => setForma((s) => ({ ...s, [o.id]: f }))} className={`flex-1 rounded-xl border px-2 py-1.5 text-xs font-bold transition ${(forma[o.id] || "") === f ? "border-gold-400 bg-gold-400 text-blue-950" : "border-white/10 bg-white/[0.05] text-slate-300"}`}>{f}</button>
+                ))}
+              </div>
+              <button onClick={() => finalizar(o)} disabled={pagando === o.id} className="mt-2.5 w-full rounded-2xl bg-emerald-500 py-2.5 text-sm font-black text-white active:scale-95 disabled:opacity-50">{pagando === o.id ? "Finalizando…" : "Finalizar conta"}</button>
+            </div>
+          );
+        })}
+      </div>
+    </>
   );
 }
 
