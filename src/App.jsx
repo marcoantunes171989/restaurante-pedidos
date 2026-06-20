@@ -5652,6 +5652,8 @@ function BarrasVerticais({ dados, sufixo = "R$" }) {
 // ════════════════════════════════════════════════════════════
 function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, marcarSetorPronto = async () => {}, baixarComandas, products = [], setores = [], formasPagamento = [], lojaInfo, podeCaixa = false, podeCozinha = false, onFechar = null }) {
   const [tab, setTab] = useState(podeCozinha ? "pedidos" : "caixa");
+  const [filtroCentral, setFiltroCentral] = useState("todos"); // todos | cozinha | bar
+  const origemDe = (o) => (o.table === "Externo" || /^EXT-/.test(o.command || "")) ? { l: "Delivery", ic: "🛵" } : { l: "Mesa / QR", ic: "🍽️" };
   const setorPorNome = useMemo(() => { const m = {}; products.forEach((p) => { if (p.setorId != null) m[p.name] = p.setorId; }); return m; }, [products]);
   const catPorNome = useMemo(() => { const m = {}; products.forEach((p) => { m[p.name] = p.category; }); return m; }, [products]);
   const barSetor = useMemo(() => setores.find((s) => /bar|bebida|drink/i.test(s.nome)) || null, [setores]);
@@ -5694,18 +5696,30 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, ma
         {onFechar && <button onClick={onFechar} className="shrink-0 rounded-2xl border border-white/10 bg-white/[0.06] px-3 py-2 text-xs font-black text-slate-300 hover:bg-white/10">✕ Sair</button>}
       </div>
 
-      {tab === "pedidos" && (<>
+      {tab === "pedidos" && (() => {
+        const ativosFiltrados = ativos.filter((o) =>
+          filtroCentral === "todos" ? true
+          : filtroCentral === "cozinha" ? itensDoSetor(o, false).length > 0
+          : filtroCentral === "bar" ? itensDoSetor(o, true).length > 0
+          : true);
+        return (<>
+        <div className="mb-3 flex gap-1.5 overflow-x-auto">
+          {[["todos", "Todos"], ["cozinha", "Cozinha"], ["bar", "Bar"], ["caixa", "Caixa"]].map(([k, l]) => (
+            <button key={k} onClick={() => (k === "caixa" ? setTab("caixa") : setFiltroCentral(k))}
+              className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-bold transition ${filtroCentral === k ? "bg-gold-400 text-blue-950" : "border border-white/10 bg-white/[0.05] text-slate-300"}`}>{l}</button>
+          ))}
+        </div>
         <div className="mb-3 grid grid-cols-2 gap-2">
           {[{ l: "Novos", v: novos.length, c: "text-blue-300" }, { l: "Em preparo", v: emPreparo.length, c: "text-amber-300" }, { l: "Prontos", v: prontos.length, c: "text-emerald-300" }, { l: "Aguardando pgto", v: aguardando.length, c: "text-gold-300" }].map((k) => (
             <div key={k.l} className="rounded-2xl border border-white/10 bg-slate-950/40 px-3 py-2.5"><p className={`page-title text-2xl font-bold ${k.c}`}>{k.v}</p><p className="text-[11px] text-slate-500">{k.l}</p></div>
           ))}
         </div>
         <div className="space-y-2">
-          {ativos.length === 0 && <p className="py-10 text-center text-sm text-slate-500">Nenhum pedido ativo.</p>}
-          {ativos.map((o) => { const b = badge(o); const a = acaoPrincipal(o); const setoresDoPedido = [itensDoSetor(o, false).length > 0 && "Cozinha", itensDoSetor(o, true).length > 0 && "Bar"].filter(Boolean);
+          {ativosFiltrados.length === 0 && <p className="py-10 text-center text-sm text-slate-500">Nenhum pedido ativo{filtroCentral !== "todos" ? ` para ${filtroCentral}` : ""}.</p>}
+          {ativosFiltrados.map((o) => { const b = badge(o); const a = acaoPrincipal(o); const setoresDoPedido = [itensDoSetor(o, false).length > 0 && "Cozinha", itensDoSetor(o, true).length > 0 && "Bar"].filter(Boolean); const org = origemDe(o);
             return (
               <div key={o.id} className="rounded-3xl border border-white/10 bg-slate-950/40 p-3.5">
-                <div className="flex items-center justify-between gap-2"><span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-black ${b.c}`}>{b.l}</span><span className="text-[11px] text-slate-500">{haTxt(o)}</span></div>
+                <div className="flex items-center justify-between gap-2"><span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-black ${b.c}`}>{b.l}</span><span className="text-[11px] text-slate-500">{org.ic} {org.l} · {haTxt(o)}</span></div>
                 <p className="mt-1.5 font-black text-white">{o.id} · {o.table}</p>
                 <p className="text-xs text-slate-400">{o.customer || "Cliente"}</p>
                 <p className="mt-1.5 line-clamp-2 text-xs text-slate-300">{resumoItens(o.items)}</p>
@@ -5718,7 +5732,8 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, ma
             );
           })}
         </div>
-      </>)}
+      </>);
+      })()}
 
       {(tab === "cozinha" || tab === "bar") && (() => {
         const bar = tab === "bar";
