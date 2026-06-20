@@ -562,7 +562,12 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
           <span>🔒</span> Acesso controlado por usuário e permissão
         </p>
         <div className="mt-3 text-center">
-          <button onClick={() => { window.location.href = "/"; }}
+          <button onClick={() => {
+              // Limpa o marcador de sessão para que "/" renderize a LANDING
+              // (sem isso, o Root mantém o app aberto pela flag pp_sessao_ativa).
+              try { sessionStorage.removeItem("pp_sessao_ativa"); sessionStorage.removeItem("pp_restore_once"); } catch {}
+              window.location.href = "/";
+            }}
             className="text-xs font-bold text-slate-500 transition hover:text-blue-400">← Voltar ao site</button>
         </div>
       </div>
