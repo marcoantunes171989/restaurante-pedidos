@@ -3,7 +3,7 @@ import {
   fetchLojas, fetchProdutos, fetchCategorias, fetchPromocoes, fetchGruposOpcoes, fetchOpcoes, fetchSetoresCozinha,
   inserirPedido, atualizarPedido, escutarPedidos,
   buscarClientePorTelefone, upsertCliente, criarChamado,
-  rpcCriarPedidoPublico, rpcUpsertClientePublico, rpcPedidosComanda, rpcPedidosCliente, rpcSolicitarContaPublico, rpcCriarChamadoPublico,
+  rpcCriarPedidoPublico, rpcUpsertClientePublico, rpcBuscarClientePublico, rpcPedidosComanda, rpcPedidosCliente, rpcSolicitarContaPublico, rpcCriarChamadoPublico,
 } from "./lib/supabase";
 import { cardapioViaRpc } from "./lib/authMode";
 import {
@@ -16,6 +16,19 @@ import { LogoPP } from "./components/BrandLogo";
 //  Cardápio digital PÚBLICO (cliente, externo) — ver + pedir + acompanhar
 //  URL: /cardapio?e=PREFIXO[&mesa=NN][&c=COMANDA]
 // ════════════════════════════════════════════════════════════
+// Máscara de WhatsApp: 11987654321 → (11) 98765-4321 (progressiva, até 11 dígitos)
+function mascararTelefone(valor) {
+  const n = String(valor || "").replace(/\D/g, "").slice(0, 11);
+  if (n.length <= 2) return n;
+  if (n.length <= 6) return `(${n.slice(0, 2)}) ${n.slice(2)}`;
+  if (n.length <= 10) return `(${n.slice(0, 2)}) ${n.slice(2, 6)}-${n.slice(6)}`;
+  return `(${n.slice(0, 2)}) ${n.slice(2, 7)}-${n.slice(7)}`;
+}
+// Primeira letra de cada palavra do nome em maiúscula (preserva acentos/espaços)
+function capitalizarNome(valor) {
+  return String(valor || "").replace(/(^|\s)([\p{L}])/gu, (_, sep, ch) => sep + ch.toUpperCase());
+}
+
 export default function CardapioPublico() {
   const params = new URLSearchParams(window.location.search);
   const prefixo  = (params.get("e") || "").toUpperCase();
@@ -112,17 +125,33 @@ export default function CardapioPublico() {
   }, [produtos, cat, busca]);
 
   const telDig = telefone.replace(/\D/g, "");
-  // Busca cliente pelo telefone (auto-carrega o nome no próximo pedido)
+  // Identifica o cliente pelo telefone e auto-carrega o nome (via RPC no modo
+  // RLS estrito; SELECT direto no modo legacy).
   useEffect(() => {
     if (!modoExterno || !loja || telDig.length < 10) { setClienteSalvo(false); return; }
     let vivo = true;
     const t = setTimeout(async () => {
-      const c = await buscarClientePorTelefone(loja.id, telDig);
+      const c = cardapioViaRpc()
+        ? await rpcBuscarClientePublico({ lojaId: loja.id, telefone: telDig })
+        : await buscarClientePorTelefone(loja.id, telDig);
       if (!vivo) return;
-      if (c) { setCliente(c.nome); setClienteSalvo(true); } else { setClienteSalvo(false); }
+      if (c && c.nome) { setCliente(capitalizarNome(c.nome)); setClienteSalvo(true); } else { setClienteSalvo(false); }
     }, 500);
     return () => { vivo = false; clearTimeout(t); };
   }, [telDig, modoExterno, loja?.id]);
+
+  // Cadastra/atualiza o cliente do estabelecimento assim que NOME + TELEFONE
+  // forem informados (sem esperar o pedido) — alimenta o CRM da empresa.
+  useEffect(() => {
+    if (!modoExterno || !loja || telDig.length < 10 || cliente.trim().length < 2) return;
+    let vivo = true;
+    const t = setTimeout(async () => {
+      try { await (cardapioViaRpc() ? rpcUpsertClientePublico({ lojaId: loja.id, nome: cliente.trim(), telefone: telDig }) : upsertCliente({ nome: cliente.trim(), telefone: telDig, lojaId: loja.id })); }
+      catch {}
+      if (vivo) setClienteSalvo(true);
+    }, 900);
+    return () => { vivo = false; clearTimeout(t); };
+  }, [telDig, cliente, modoExterno, loja?.id]);
 
   const currentTable = mesa ? `Mesa ${String(mesa).padStart(2, "0")}` : "";
   const meusPedidos = modoExterno
@@ -410,10 +439,10 @@ export default function CardapioPublico() {
             <div className="mt-4 space-y-3">
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <label><span className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-amber-500">⚠ Telefone (WhatsApp) *</span>
-                  <input type="tel" inputMode="numeric" value={telefone} onChange={(e) => setTelefone(e.target.value.replace(/\D/g, "").slice(0, 11))} placeholder="(DDD) número"
+                  <input type="tel" inputMode="numeric" value={mascararTelefone(telefone)} onChange={(e) => setTelefone(e.target.value.replace(/\D/g, "").slice(0, 11))} placeholder="(11) 98765-4321" maxLength={16}
                     className="w-full rounded-2xl border border-amber-400/40 bg-slate-800 px-3 py-2.5 text-sm font-black text-white outline-none" /></label>
                 <label><span className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-amber-500">⚠ Seu nome *</span>
-                  <input value={cliente} onChange={(e) => setCliente(e.target.value)} placeholder="Nome completo"
+                  <input value={cliente} onChange={(e) => setCliente(capitalizarNome(e.target.value))} placeholder="Nome completo"
                     className="w-full rounded-2xl border border-amber-400/40 bg-slate-800 px-3 py-2.5 text-sm text-white outline-none" /></label>
               </div>
               {clienteSalvo && <p className="rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-3 py-1.5 text-xs font-bold text-emerald-200">✓ Cliente já cadastrado — bem-vindo(a) de volta, {cliente}!</p>}
@@ -425,7 +454,7 @@ export default function CardapioPublico() {
                   <input type="tel" inputMode="numeric" value={mesa} onChange={(e) => setMesa(e.target.value.replace(/\D/g, "").slice(0, 2))} placeholder="Nº" disabled={!!mesaURL}
                     className="w-full rounded-2xl border border-amber-400/40 bg-slate-800 px-3 py-2.5 text-sm font-black text-white outline-none disabled:opacity-70" /></label>
                 <label><span className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-slate-500">Seu nome (opcional)</span>
-                  <input value={cliente} onChange={(e) => setCliente(e.target.value)} placeholder="Nome" className="w-full rounded-2xl border border-white/10 bg-slate-800 px-3 py-2.5 text-sm text-white outline-none" /></label>
+                  <input value={cliente} onChange={(e) => setCliente(capitalizarNome(e.target.value))} placeholder="Nome" className="w-full rounded-2xl border border-white/10 bg-slate-800 px-3 py-2.5 text-sm text-white outline-none" /></label>
               </div>
               {!comURL && (
                 <div className="mt-3"><span className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-amber-500">⚠ Comanda *</span>

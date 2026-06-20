@@ -482,6 +482,17 @@ export async function rpcUpsertClientePublico({ lojaId, nome, telefone }) {
   const { error } = await supabase.rpc('pub_upsert_cliente', { p_loja_id: lojaId, p_nome: nome || null, p_telefone: telefone || null })
   if (error) throw error
 }
+// Identifica o cliente pelo telefone (migration 057). Tolerante: retorna null
+// se a RPC ainda não existir ou não houver cadastro.
+export async function rpcBuscarClientePublico({ lojaId, telefone }) {
+  const tel = String(telefone || '').replace(/\D/g, '')
+  if (!tel) return null
+  try {
+    const { data, error } = await supabase.rpc('pub_buscar_cliente', { p_loja_id: lojaId, p_telefone: tel })
+    if (error) return null
+    return data ? { nome: data } : null
+  } catch { return null }
+}
 export async function rpcPedidosComanda({ lojaId, comanda }) {
   const { data, error } = await supabase.rpc('pub_pedidos_comanda', { p_loja_id: lojaId, p_comanda: comanda })
   if (error || !data) return []
