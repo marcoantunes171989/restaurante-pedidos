@@ -194,6 +194,29 @@ function canAccess(user, accessId) {
   return Boolean(user && user.active && user.accessIds.includes(accessId));
 }
 
+// IDs reservados de acesso operacional (Central Operacional / Operação Mobile)
+const OP_MODULOS = [
+  { id: "pedidos", acesso: "op_pedidos", label: "Pedidos", ic: "🧾", desc: "Acompanhar pedidos em aberto, novos pedidos e status de atendimento." },
+  { id: "cozinha", acesso: "op_cozinha", label: "Cozinha", ic: "👨‍🍳", desc: "Visualizar pedidos enviados para preparo na cozinha." },
+  { id: "bar",     acesso: "op_bar",     label: "Bar",     ic: "🍹", desc: "Visualizar bebidas e itens direcionados ao bar." },
+  { id: "caixa",   acesso: "op_caixa",   label: "Caixa",   ic: "💳", desc: "Controlar pagamentos, fechamento de conta e baixas." },
+];
+// Resolve as permissões operacionais do usuário (compatível com o legado:
+// admin/superAdmin = acesso total; sem op_* específico → deriva de kitchen/cashier).
+function acessosOperacionais(user) {
+  const vazio = { pedidos: false, cozinha: false, bar: false, caixa: false, total: false };
+  if (!user || !user.active) return vazio;
+  const has = (id) => (user.accessIds || []).includes(id);
+  const total = !!user.superAdmin || has("admin") || OP_MODULOS.every((m) => has(m.acesso));
+  if (total) return { pedidos: true, cozinha: true, bar: true, caixa: true, total: true };
+  // "op_managed" = o admin já configurou os acessos operacionais deste usuário
+  // explicitamente (mesmo que todos off) → não usa o fallback legado.
+  const temOpEspecifico = has("op_managed") || OP_MODULOS.some((m) => has(m.acesso));
+  if (temOpEspecifico) return { pedidos: has("op_pedidos"), cozinha: has("op_cozinha"), bar: has("op_bar"), caixa: has("op_caixa"), total: false };
+  // Legado: quem tinha "kitchen" via Pedidos/Cozinha/Bar; "cashier" via Caixa.
+  return { pedidos: has("kitchen"), cozinha: has("kitchen"), bar: has("kitchen"), caixa: has("cashier"), total: false };
+}
+
 // Ações configuráveis por módulo (briefing item 23 — migration 032)
 const ACOES_MODULO = [
   ["ver", "Visualizar"], ["incluir", "Incluir"], ["alterar", "Alterar"],
@@ -2091,7 +2114,7 @@ export default function RestaurantePedidoApp() {
               <p className="mt-1 text-xs opacity-75">{tab.desc}</p>
             </button>
           ))}
-          {(canAccess(currentUser, "kitchen") || canAccess(currentUser, "cashier")) && (
+          {["pedidos", "cozinha", "bar", "caixa"].some((k) => acessosOperacionais(currentUser)[k]) && (
             <button onClick={() => { setActiveTab("opmobile"); clearMessage(); }} className={`rounded-3xl border p-4 text-left transition ${activeTab === "opmobile" ? "border-gold-400 bg-gold-400 text-blue-950 shadow-xl shadow-gold-900/30" : "border-gold-400/30 bg-gold-400/10 text-gold-200 hover:bg-gold-400/20"}`}>
               <p className="text-sm font-black">📱 Operação Mobile</p>
               <p className="mt-1 text-xs opacity-75">Central de pedidos, cozinha, bar e caixa no celular</p>
@@ -2150,7 +2173,7 @@ export default function RestaurantePedidoApp() {
         )}
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} products={products} lojaInfo={lojaInfo} />}
         {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierView orders={orders} baixarComandas={baixarComandas} baixarPedidos={baixarPedidos} formasPagamento={formasPagamentoLoja} onSair={logout} lojaInfo={lojaInfo} />}
-        {activeTab === "opmobile" && (canAccess(currentUser, "kitchen") || canAccess(currentUser, "cashier")) && <OperacaoMobileView orders={orders} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} products={products} setores={filtraLoja(setoresCozinha)} formasPagamento={formasPagamentoLoja} lojaInfo={lojaInfo} podeCaixa={canAccess(currentUser, "cashier")} podeCozinha={canAccess(currentUser, "kitchen")} onFechar={() => setActiveTab(allowedTabs[0]?.id || "tablet")} />}
+        {activeTab === "opmobile" && <OperacaoMobileView orders={orders} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} products={products} setores={filtraLoja(setoresCozinha)} formasPagamento={formasPagamentoLoja} lojaInfo={lojaInfo} perms={acessosOperacionais(currentUser)} usuarioNome={currentUser?.name || ""} onFechar={() => setActiveTab(allowedTabs[0]?.id || "tablet")} />}
         {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} promocoes={filtraLoja(promocoes)} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} opcoesApi={{ grupos: filtraLoja(gruposOpcoes), opcoes: filtraLoja(opcoes), addGrupo: addGrupoOpcoes, editarGrupo: editarGrupoOpcoes, removerGrupo: removerGrupoOpcoes, addOpcao, editarOpcao, removerOpcao }} setores={filtraLoja(setoresCozinha)} setoresApi={{ add: addSetorCozinha, editar: editarSetorCozinha, remover: removerSetorCozinha }} vincularProdutoSetor={vincularProdutoSetor} salvarProdutoQr={salvarProdutoQr} irParaCozinha={(setorId) => { setCozinhaSetorInicial(setorId ?? null); if (canAccess(currentUser, "kitchen")) setActiveTab("kitchen"); else notify("error", "Sem permissão para acessar o painel da cozinha."); }} caixaAberto={caixaAberto} caixasLoja={filtraLoja(caixas)} caixaApi={{ abrir: abrirCaixaFn, movimentar: movimentarCaixaFn, fechar: fecharCaixaFn, fetchMovimentos: fetchMovimentosCaixa }} fidRegra={fidRegraAtual} fidRecompensas={filtraLoja(fidRecompensas)} fidTransacoes={filtraLoja(fidTransacoes)} fidApi={{ salvarRegra: salvarRegraFid, addRecompensa: addRecompensaFid, removerRecompensa: removerRecompensaFid, lancarPontos }} chamados={filtraLoja(chamados)} atenderChamado={atenderChamadoFn} auditoria={filtraLoja(auditoria)} />}
 
       </div>
@@ -5152,6 +5175,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
       { id: "chamados", icon: <IconMesas />, label: "Chamados de Mesa" },
       { id: "setores", icon: <IconCategorias />, label: "Setores de Cozinha" },
       { id: "operacaomobile", icon: <IconQr />, label: "Operação Mobile" },
+      { id: "acessosop", icon: <IconPermissoes />, label: "Acessos Operacionais" },
     ]},
     { grupo: "Cardápio", itens: [
       { id: "products", icon: <IconProdutos />, label: "Produtos" },
@@ -5321,8 +5345,9 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           {ativo === "fidelidade" && (precisaEmpresa ? avisoEmpresa : <FidelidadeAdmin regra={fidRegra} recompensas={fidRecompensas} transacoes={fidTransacoes} clientes={clientes} api={fidApi} />)}
           {ativo === "products"   && (precisaEmpresa ? avisoEmpresa : <ProductAdmin   products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} editarProduto={editarProduto} removerProduto={removerProduto} lojaId={lojaInfo?.id} opcoesApi={opcoesApi} setores={setores} />)}
           {ativo === "setores"    && (precisaEmpresa ? avisoEmpresa : <SetoresCozinhaAdmin setores={setores} produtos={products} orders={orders} api={setoresApi} vincularProduto={vincularProdutoSetor} irParaCozinha={irParaCozinha} />)}
-          {ativo === "operacaomobile" && <OperacaoMobileView orders={orders} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} products={products} setores={setores} formasPagamento={formasPagamento} lojaInfo={lojaInfo} podeCaixa podeCozinha onFechar={() => setAdminSection("dashboard")} />}
+          {ativo === "operacaomobile" && <OperacaoMobileView orders={orders} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} products={products} setores={setores} formasPagamento={formasPagamento} lojaInfo={lojaInfo} perms={acessosOperacionais(currentUser)} usuarioNome={currentUser?.name || ""} onFechar={() => setAdminSection("dashboard")} />}
           {ativo === "cardapioqr"  && (precisaEmpresa ? avisoEmpresa : <CardapioQrConfigAdmin products={products} setores={setores} salvarProdutoQr={salvarProdutoQr} irParaProdutos={() => setAdminSection("products")} />)}
+          {ativo === "acessosop"   && <AcessosOperacionaisAdmin users={isSuperAdmin ? users : (usersLoja ?? users)} definirAcessos={definirAcessos} isSuperAdmin={isSuperAdmin} />}
           {ativo === "chamados"   && <ChamadosPainel chamados={chamados} atenderChamado={atenderChamado} />}
           {ativo === "auditoria"  && <AuditoriaAdmin
             logs={auditoria} lojas={lojas}
@@ -5659,6 +5684,79 @@ function BarrasVerticais({ dados, sufixo = "R$" }) {
 }
 
 // ════════════════════════════════════════════════════════════
+//  Gestão de Acessos Operacionais — libera Pedidos/Cozinha/Bar/Caixa
+//  por usuário (reaproveita ids_acesso; sem tabela nova). Marcador
+//  "op_managed" sinaliza usuário configurado explicitamente.
+// ════════════════════════════════════════════════════════════
+function AcessosOperacionaisAdmin({ users = [], definirAcessos = async () => {}, isSuperAdmin = false }) {
+  const [busca, setBusca] = useState("");
+  const elegiveis = users.filter((u) => !u.superAdmin);
+  const termo = busca.trim().toLowerCase();
+  const lista = (termo ? elegiveis.filter((u) => `${u.name} ${u.email} ${u.role}`.toLowerCase().includes(termo)) : elegiveis)
+    .sort((a, b) => String(a.name).localeCompare(String(b.name), "pt-BR"));
+
+  // Aplica um novo conjunto de permissões efetivas, materializando os op_*
+  function aplicar(user, eff) {
+    const base = (user.accessIds || []).filter((id) => id !== "op_managed" && !id.startsWith("op_"));
+    const opIds = OP_MODULOS.filter((m) => eff[m.id]).map((m) => m.acesso);
+    definirAcessos(user.id, [...base, "op_managed", ...opIds]);
+  }
+  const setModulo = (user, modId, val) => aplicar(user, { ...acessosOperacionais(user), [modId]: val });
+  const setTotal = (user, val) => aplicar(user, { pedidos: val, cozinha: val, bar: val, caixa: val });
+  function restaurarPadrao(user) {
+    // Remove a configuração operacional → volta ao comportamento legado (acessos do usuário).
+    definirAcessos(user.id, (user.accessIds || []).filter((id) => id !== "op_managed" && !id.startsWith("op_")));
+  }
+
+  return (
+    <main className="space-y-5">
+      <PageHeader icone={<IconPermissoes />} titulo="Acessos Operacionais"
+        descricao="Libere Pedidos, Cozinha, Bar e Caixa para cada usuário. Acesso total libera todos os módulos. Use individual para operadores de um único setor."
+        indicadores={[{ valor: elegiveis.length, rotulo: elegiveis.length === 1 ? "usuário" : "usuários" }]}
+      />
+      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+        <div className="relative mb-4">
+          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"><IconBusca /></span>
+          <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar usuário..." className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-gold-400/60" />
+        </div>
+        {lista.length === 0 && <p className="py-8 text-center text-sm text-slate-500">Nenhum usuário encontrado.</p>}
+        <div className="space-y-2">
+          {lista.map((u) => {
+            const eff = acessosOperacionais(u);
+            const admin = !!u.superAdmin || (u.accessIds || []).includes("admin");
+            return (
+              <div key={u.id} className="rounded-2xl border border-white/10 bg-slate-950/40 p-3.5">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-blue-500/15 text-base font-black uppercase text-blue-300">{(u.name || "?").charAt(0)}</span>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2"><p className="truncate font-bold text-white">{u.name}</p>{!u.active && <span className="rounded-full border border-white/15 bg-white/[0.06] px-2 py-0.5 text-[9px] font-bold text-slate-400">Inativo</span>}</div>
+                      <p className="truncate text-[11px] text-slate-500">{u.role || "Operador"}{u.email ? ` · ${u.email}` : ""}</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {admin ? (
+                      <span className="rounded-full border border-gold-400/40 bg-gold-400/10 px-3 py-1.5 text-xs font-black text-gold-300">⭐ Acesso total (admin)</span>
+                    ) : (<>
+                      <button onClick={() => setTotal(u, !eff.total)} className={`rounded-xl px-3 py-1.5 text-xs font-black transition ${eff.total ? "bg-gold-400 text-blue-950" : "border border-white/10 bg-white/[0.05] text-slate-300 hover:bg-white/10"}`}>Acesso total</button>
+                      {OP_MODULOS.map((m) => (
+                        <button key={m.id} onClick={() => setModulo(u, m.id, !eff[m.id])} className={`rounded-xl px-3 py-1.5 text-xs font-bold transition ${eff[m.id] ? "bg-emerald-500/20 text-emerald-300" : "border border-white/10 bg-white/[0.05] text-slate-400 hover:bg-white/10"}`}>{eff[m.id] ? "✓ " : ""}{m.ic} {m.label}</button>
+                      ))}
+                      <button onClick={() => restaurarPadrao(u)} title="Restaurar acesso padrão (legado)" className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-bold text-slate-400 hover:bg-white/10">↺ Padrão</button>
+                    </>)}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <p className="mt-3 text-[11px] text-slate-500">💡 Operadores com <b className="text-slate-300">apenas 1 módulo</b> entram direto nele ao abrir a Operação Mobile; com mais de um, veem a <b className="text-slate-300">Central Operacional</b>. Usuários nunca configurados aqui seguem os acessos atuais (Cozinha = quem tem "Cozinha"; Caixa = quem tem "Pagamento").</p>
+      </div>
+    </main>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
 //  Cardápio QR — configuração por produto (seção 18 do briefing)
 //  Reaproveita campos existentes do produto (visivel_qr, setor_id,
 //  featured_order, ingredients, adicionais, categoria) — sem schema novo.
@@ -5751,9 +5849,13 @@ function CardapioQrConfigAdmin({ products = [], setores = [], salvarProdutoQr = 
 //  Reaproveita os pedidos + ações existentes (status, baixa, caixa).
 //  Visual de aplicativo para pequenos estabelecimentos no celular.
 // ════════════════════════════════════════════════════════════
-function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, marcarSetorPronto = async () => {}, baixarComandas, products = [], setores = [], formasPagamento = [], lojaInfo, podeCaixa = false, podeCozinha = false, onFechar = null }) {
-  const [tab, setTab] = useState(podeCozinha ? "pedidos" : "caixa");
+function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, marcarSetorPronto = async () => {}, baixarComandas, products = [], setores = [], formasPagamento = [], lojaInfo, perms = { pedidos: true, cozinha: true, bar: true, caixa: true, total: true }, usuarioNome = "", onFechar = null }) {
+  // Módulos liberados para este usuário (ordem fixa)
+  const liberados = OP_MODULOS.filter((m) => perms[m.id]);
+  // Tela inicial: 1 módulo → entra direto; >1 → Central Operacional
+  const [tab, setTab] = useState(liberados.length === 1 ? liberados[0].id : "central");
   const [filtroCentral, setFiltroCentral] = useState("todos"); // todos | cozinha | bar
+  const permitido = (t) => t === "central" || (perms[t] === true);
   const origemDe = (o) => (o.table === "Externo" || /^EXT-/.test(o.command || "")) ? { l: "Delivery", ic: "🛵" } : { l: "Mesa / QR", ic: "🍽️" };
   const setorPorNome = useMemo(() => { const m = {}; products.forEach((p) => { if (p.setorId != null) m[p.name] = p.setorId; }); return m; }, [products]);
   const catPorNome = useMemo(() => { const m = {}; products.forEach((p) => { m[p.name] = p.category; }); return m; }, [products]);
@@ -5786,18 +5888,52 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, ma
     : o.status === "ready" ? { l: "Entregue", fn: () => marcarEntregue(o.id), c: "bg-blue-500 text-white" }
     : null;
   const resumoItens = (items) => (items || []).map((it) => `${it.quantity}× ${it.name}`).join(" • ");
-  const titulo = tab === "pedidos" ? "Central de Pedidos" : tab === "cozinha" ? "Cozinha" : tab === "bar" ? "Bar" : "Caixa";
+  const titulo = tab === "central" ? "Central Operacional" : tab === "pedidos" ? "Central de Pedidos" : tab === "cozinha" ? "Cozinha" : tab === "bar" ? "Bar" : "Caixa";
 
   return (
     <div className="fixed inset-0 z-[60] overflow-y-auto bg-slate-950" style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "calc(env(safe-area-inset-bottom) + 64px)" }}>
     <div className="mx-auto max-w-md px-3 pt-3">
       <div className="mb-3 flex items-center gap-3 rounded-3xl border border-white/10 bg-white/[0.04] p-4">
         {lojaInfo?.logoUrl ? <img src={lojaInfo.logoUrl} alt="" className="h-10 w-10 rounded-2xl object-cover" /> : <LogoPP size={40} />}
-        <div className="min-w-0 flex-1"><p className="page-title text-base font-bold text-white">{titulo}</p><p className="truncate text-xs text-slate-400">{lojaInfo?.nome || "Operação da loja"}</p></div>
+        <div className="min-w-0 flex-1"><p className="page-title text-base font-bold text-white">{titulo}</p><p className="truncate text-xs text-slate-400">{lojaInfo?.nome || "Operação da loja"}{usuarioNome ? ` · ${usuarioNome}` : ""}</p></div>
         {onFechar && <button onClick={onFechar} className="shrink-0 rounded-2xl border border-white/10 bg-white/[0.06] px-3 py-2 text-xs font-black text-slate-300 hover:bg-white/10">✕ Sair</button>}
       </div>
 
-      {tab === "pedidos" && (() => {
+      {/* Acesso não autorizado (guard por módulo) */}
+      {!permitido(tab) && (
+        <div className="rounded-[2rem] border border-red-400/25 bg-red-500/[0.06] p-6 text-center">
+          <p className="text-3xl">🔒</p>
+          <p className="mt-2 page-title text-lg font-bold text-white">Acesso não autorizado</p>
+          <p className="mx-auto mt-1 max-w-xs text-sm text-slate-400">Você não possui permissão para acessar este módulo. Entre em contato com o administrador do estabelecimento.</p>
+          <button onClick={() => setTab("central")} className="mt-4 rounded-2xl bg-gold-400 px-5 py-2.5 text-sm font-black text-blue-950">Voltar para a Central</button>
+        </div>
+      )}
+
+      {/* Central Operacional — cards dos módulos liberados */}
+      {tab === "central" && permitido("central") && (
+        <div>
+          <p className="mb-2 px-1 text-xs font-bold uppercase tracking-widest text-slate-500">Acessos liberados</p>
+          {liberados.length === 0 ? (
+            <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6 text-center">
+              <p className="text-2xl">🚫</p>
+              <p className="mt-2 text-sm font-bold text-slate-300">Nenhum acesso operacional foi liberado para este usuário.</p>
+              <p className="mt-1 text-xs text-slate-500">Peça ao administrador para liberar Pedidos, Cozinha, Bar ou Caixa.</p>
+            </div>
+          ) : (
+            <div className="space-y-2.5">
+              {liberados.map((m) => (
+                <button key={m.id} onClick={() => setTab(m.id)} className="flex w-full items-center gap-3 rounded-3xl border border-gold-400/20 bg-white/[0.04] p-4 text-left transition active:scale-[0.98] hover:bg-white/[0.07]">
+                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-gold-400/30 bg-gold-400/10 text-2xl">{m.ic}</span>
+                  <span className="min-w-0 flex-1"><span className="block font-black text-white">{m.label}</span><span className="block text-xs leading-5 text-slate-400">{m.desc}</span></span>
+                  <span className="shrink-0 text-gold-300">›</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab === "pedidos" && permitido("pedidos") && (() => {
         const ativosFiltrados = ativos.filter((o) =>
           filtroCentral === "todos" ? true
           : filtroCentral === "cozinha" ? itensDoSetor(o, false).length > 0
@@ -5836,7 +5972,7 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, ma
       </>);
       })()}
 
-      {(tab === "cozinha" || tab === "bar") && (() => {
+      {(tab === "cozinha" || tab === "bar") && permitido(tab) && (() => {
         const bar = tab === "bar";
         const comItens = ativos.filter((o) => itensDoSetor(o, bar).length > 0);
         return (<>
@@ -5879,13 +6015,16 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, ma
         </>);
       })()}
 
-      {tab === "caixa" && <CaixaMobile aguardando={aguardando} totalCom={totalCom} baixarComandas={baixarComandas} lojaInfo={lojaInfo} haTxt={haTxt} />}
+      {tab === "caixa" && permitido("caixa") && <CaixaMobile aguardando={aguardando} totalCom={totalCom} baixarComandas={baixarComandas} lojaInfo={lojaInfo} haTxt={haTxt} />}
 
       {/* Bottom nav */}
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-slate-900/95 backdrop-blur-xl" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
         <div className="mx-auto flex max-w-md items-stretch">
-          {[["pedidos", "🧾", "Pedidos", podeCozinha], ["cozinha", "👨‍🍳", "Cozinha", podeCozinha], ["bar", "🍹", "Bar", podeCozinha], ["caixa", "💳", "Caixa", podeCaixa]].filter(([, , , ok]) => ok).map(([k, ic, l]) => (
-            <button key={k} onClick={() => setTab(k)} className={`flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[11px] font-bold transition ${tab === k ? "text-gold-300" : "text-slate-500"}`}><span className="text-lg">{ic}</span>{l}</button>
+          {liberados.length > 1 && (
+            <button onClick={() => setTab("central")} className={`flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[11px] font-bold transition ${tab === "central" ? "text-gold-300" : "text-slate-500"}`}><span className="text-lg">🏠</span>Central</button>
+          )}
+          {liberados.map((m) => (
+            <button key={m.id} onClick={() => setTab(m.id)} className={`flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[11px] font-bold transition ${tab === m.id ? "text-gold-300" : "text-slate-500"}`}><span className="text-lg">{m.ic}</span>{m.label}</button>
           ))}
         </div>
       </div>

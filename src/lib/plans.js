@@ -12,7 +12,7 @@
 export const BLOQUEIO_PLANO_ATIVO = true;
 
 // Módulos que nunca são bloqueados (operação mínima + caminho de upgrade).
-export const MODULOS_SEMPRE_LIVRES = ["config", "plano", "minhaempresa", "operacaomobile", "cardapioqr"];
+export const MODULOS_SEMPRE_LIVRES = ["config", "plano", "minhaempresa", "operacaomobile", "cardapioqr", "acessosop"];
 
 // Rótulos amigáveis dos módulos (espelha o seed da migration 037).
 export const MODULOS_LABEL = {
