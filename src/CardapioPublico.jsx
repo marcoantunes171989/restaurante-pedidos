@@ -205,7 +205,7 @@ export default function CardapioPublico() {
       if (cardapioViaRpc()) await rpcCriarPedidoPublico({ lojaId: loja.id, mesa: novo.table, comanda: novo.command, cliente: novo.customer, telefone: novo.clienteTelefone || "", itens });
       else await inserirPedido(novo);
       setCart([]); setAba("conta"); setMsg({ t: "success", m: "✅ Pedido enviado para a cozinha!" });
-    } catch { setMsg({ t: "error", m: "Erro ao enviar o pedido. Tente novamente." }); }
+    } catch (e) { console.error("Erro ao criar pedido:", e); setMsg({ t: "error", m: "Erro ao enviar o pedido. Tente novamente." }); }
     finally { setEnviando(false); }
   }
 
