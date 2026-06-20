@@ -1118,6 +1118,7 @@ function dbParaPedido(r) {
     cancelReason:  r.motivo_cancelamento ?? null,
     lojaId:        r.loja_id ?? null,
     clienteTelefone: r.cliente_telefone ?? null,
+    setorStatus:   r.setor_status ?? {},   // status por setor (migration 055, tolerante)
   }
 }
 
