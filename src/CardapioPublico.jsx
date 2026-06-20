@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  fetchLojas, fetchProdutos, fetchCategorias, fetchPromocoes, fetchGruposOpcoes, fetchOpcoes,
+  fetchLojas, fetchProdutos, fetchCategorias, fetchPromocoes, fetchGruposOpcoes, fetchOpcoes, fetchSetoresCozinha,
   inserirPedido, atualizarPedido, escutarPedidos,
   buscarClientePorTelefone, upsertCliente, criarChamado,
   rpcCriarPedidoPublico, rpcUpsertClientePublico, rpcPedidosComanda, rpcPedidosCliente, rpcSolicitarContaPublico, rpcCriarChamadoPublico,
@@ -28,6 +28,7 @@ export default function CardapioPublico() {
   const [promocoes, setPromocoes] = useState([]);
   const [gruposOpcoes, setGruposOpcoes] = useState([]);
   const [opcoes, setOpcoes] = useState([]);
+  const [setores, setSetores] = useState([]);
   const [orders, setOrders]       = useState([]);
   const [cat, setCat]             = useState("Todos");
   const [busca, setBusca]         = useState("");
@@ -52,13 +53,14 @@ export default function CardapioPublico() {
     let vivo = true;
     (async () => {
       try {
-        const [lojas, prods, cats, promos, grps, ops] = await Promise.all([fetchLojas(), fetchProdutos(), fetchCategorias(), fetchPromocoes().catch(() => []), fetchGruposOpcoes().catch(() => []), fetchOpcoes().catch(() => [])]);
+        const [lojas, prods, cats, promos, grps, ops, sets] = await Promise.all([fetchLojas(), fetchProdutos(), fetchCategorias(), fetchPromocoes().catch(() => []), fetchGruposOpcoes().catch(() => []), fetchOpcoes().catch(() => []), fetchSetoresCozinha().catch(() => [])]);
         if (!vivo) return;
         const l = lojas.find((x) => x.prefixo === prefixo) || null;
         setLoja(l);
         if (l) {
           setGruposOpcoes((grps || []).filter((g) => g.lojaId === l.id));
           setOpcoes((ops || []).filter((o) => o.lojaId === l.id));
+          setSetores((sets || []).filter((s) => s.lojaId == null || s.lojaId === l.id));
           // Modo mesa (QR) respeita visivelQr; link geral respeita visivelExterno (migration 034)
           const canalOk = (p) => mesaURL ? (p.visivelQr !== false) : (p.visivelExterno !== false);
           setProdutos(prods.filter((p) => (p.lojaId == null || p.lojaId === l.id) && p.active && canalOk(p)));
@@ -136,6 +138,15 @@ export default function CardapioPublico() {
   // Categoria de bebidas (para a sugestão automática "complete com uma bebida")
   const nomeCatBebida = useMemo(() => (categorias.find((c) => /bebida|drink|suco/i.test(c.nome))?.nome) || "Bebidas", [categorias]);
   const bebidas = useMemo(() => produtos.filter((p) => p.category === nomeCatBebida && p.disponivel !== false).slice(0, 6), [produtos, nomeCatBebida]);
+  // Roteamento por setor (cozinha/bar) — para o acompanhamento por setor
+  const setorPorNomeProd = useMemo(() => { const m = {}; produtos.forEach((p) => { if (p.setorId != null) m[p.name] = p.setorId; }); return m; }, [produtos]);
+  const barSetor = useMemo(() => setores.find((s) => /bar|bebida|drink/i.test(s.nome)) || null, [setores]);
+  const itemNoBar = (it) => {
+    if (barSetor && setorPorNomeProd[it.name] === barSetor.id) return true;
+    const cat = produtos.find((p) => p.name === it.name)?.category || "";
+    return /bebida|drink|suco|refri/i.test(cat);
+  };
+  const setoresDoPedido = (o) => [(o.items || []).some((it) => !itemNoBar(it)) && "cozinha", (o.items || []).some((it) => itemNoBar(it)) && "bar"].filter(Boolean);
   const ehBebida = (item) => item?.category === nomeCatBebida || bebidas.some((b) => b.name === item?.name);
   const carrinhoTemBebida = cart.some(ehBebida);
 
@@ -441,7 +452,7 @@ export default function CardapioPublico() {
                 <div key={o.id} className="rounded-2xl border border-white/10 bg-slate-950/40 p-3">
                   <div className="mb-2 flex items-center justify-between"><span className="text-xs font-bold uppercase tracking-widest text-slate-500">{o.id} • {o.createdAt}</span>
                     <span className={`rounded-full border px-3 py-1 text-xs font-black ${statusMap[o.status]?.chip}`}>{STATUS_TABLET_LABEL[o.status] || statusMap[o.status]?.label}</span></div>
-                  <TimelinePedido status={o.status} />
+                  <TimelinePedido status={o.status} setorStatus={o.setorStatus} setoresPedido={setoresDoPedido(o)} />
                   <div className="mt-2 border-t border-white/10 pt-2">
                     {o.items.map((it, idx) => <div key={idx} className="flex justify-between text-sm py-0.5"><span className="text-slate-300"><b className="text-white">{it.quantity}×</b> {it.name}</span><span className="font-bold text-white">{formatCurrency(it.price * it.quantity)}</span></div>)}
                   </div>
@@ -474,29 +485,33 @@ function Centro({ children }) {
 }
 function Spinner() { return <div className="h-10 w-10 animate-spin rounded-full border-4 border-blue-500/30 border-t-blue-500" />; }
 
-// Linha do tempo do status do pedido (recebido → preparo → pronto → entregue)
-function TimelinePedido({ status }) {
-  const ordem = ["received", "preparing", "ready", "delivered"];
-  const passos = [
-    { k: "received", ic: "✅", l: "Pedido recebido" },
-    { k: "preparing", ic: "👨‍🍳", l: "Em preparo na cozinha" },
-    { k: "ready", ic: "🛎️", l: "Pronto — saindo para a mesa" },
-    { k: "delivered", ic: "🍽️", l: "Entregue" },
-  ];
+// Linha do tempo do status do pedido — recebido → (cozinha / bar) → mesa → entregue
+function TimelinePedido({ status, setorStatus = {}, setoresPedido = [] }) {
   if (status === "cancelled") return <p className="rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-300">Pedido cancelado.</p>;
-  const atual = Math.max(0, ordem.indexOf(status));
+  const ordem = ["received", "preparing", "ready", "delivered"];
+  const idx = Math.max(0, ordem.indexOf(status));
+  const linha = ({ feito, ativo, ic, l, sub }) => (
+    <div className="flex items-center gap-2.5">
+      <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] ${feito ? "bg-emerald-500/20 text-emerald-300" : "bg-white/[0.06] text-slate-600"}`}>{feito ? ic : "•"}</span>
+      <span className={`text-xs font-bold ${ativo ? "text-gold-300" : feito ? "text-slate-200" : "text-slate-600"}`}>{l}</span>
+      {sub && <span className="ml-auto rounded-full border border-white/10 bg-white/[0.05] px-2 py-0.5 text-[10px] font-bold text-slate-300">{sub}</span>}
+    </div>
+  );
+  // Status de um setor: pronto (setorStatus) → senão deriva do status geral
+  const stSetor = (s) => {
+    if (setorStatus?.[s] === "ready") return { feito: true, ativo: false, sub: "Pronto" };
+    if (status === "received") return { feito: false, ativo: false, sub: "Na fila" };
+    if (status === "preparing") return { feito: false, ativo: true, sub: "Em preparo" };
+    return { feito: true, ativo: false, sub: "Pronto" }; // ready/delivered
+  };
+  const presentes = setoresPedido.length ? setoresPedido : ["cozinha"];
   return (
     <div className="space-y-1.5">
-      {passos.map((p, i) => {
-        const feito = i <= atual;
-        const ativo = i === atual;
-        return (
-          <div key={p.k} className="flex items-center gap-2.5">
-            <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] ${feito ? "bg-emerald-500/20 text-emerald-300" : "bg-white/[0.06] text-slate-600"}`}>{feito ? p.ic : "•"}</span>
-            <span className={`text-xs font-bold ${ativo ? "text-gold-300" : feito ? "text-slate-200" : "text-slate-600"}`}>{p.l}{ativo ? " · agora" : ""}</span>
-          </div>
-        );
-      })}
+      {linha({ feito: idx >= 0, ativo: status === "received", ic: "✅", l: "Pedido recebido" })}
+      {presentes.includes("cozinha") && linha({ ...stSetor("cozinha"), ic: "👨‍🍳", l: "Em preparo na cozinha" })}
+      {presentes.includes("bar") && linha({ ...stSetor("bar"), ic: "🍹", l: "Bebidas no bar" })}
+      {linha({ feito: idx >= 2, ativo: status === "ready", ic: "🛎️", l: "Pronto — saindo para a mesa" })}
+      {linha({ feito: idx >= 3, ativo: status === "delivered", ic: "🍽️", l: "Entregue" })}
     </div>
   );
 }
