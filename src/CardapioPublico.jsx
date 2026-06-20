@@ -452,7 +452,7 @@ export default function CardapioPublico() {
                 <div key={o.id} className="rounded-2xl border border-white/10 bg-slate-950/40 p-3">
                   <div className="mb-2 flex items-center justify-between"><span className="text-xs font-bold uppercase tracking-widest text-slate-500">{o.id} • {o.createdAt}</span>
                     <span className={`rounded-full border px-3 py-1 text-xs font-black ${statusMap[o.status]?.chip}`}>{STATUS_TABLET_LABEL[o.status] || statusMap[o.status]?.label}</span></div>
-                  <TimelinePedido status={o.status} setorStatus={o.setorStatus} setoresPedido={setoresDoPedido(o)} />
+                  <TimelinePedido status={o.status} setorStatus={o.setorStatus} setoresPedido={setoresDoPedido(o)} externo={modoExterno || o.table === "Externo"} />
                   <div className="mt-2 border-t border-white/10 pt-2">
                     {o.items.map((it, idx) => <div key={idx} className="flex justify-between text-sm py-0.5"><span className="text-slate-300"><b className="text-white">{it.quantity}×</b> {it.name}</span><span className="font-bold text-white">{formatCurrency(it.price * it.quantity)}</span></div>)}
                   </div>
@@ -486,7 +486,7 @@ function Centro({ children }) {
 function Spinner() { return <div className="h-10 w-10 animate-spin rounded-full border-4 border-blue-500/30 border-t-blue-500" />; }
 
 // Linha do tempo do status do pedido — recebido → (cozinha / bar) → mesa → entregue
-function TimelinePedido({ status, setorStatus = {}, setoresPedido = [] }) {
+function TimelinePedido({ status, setorStatus = {}, setoresPedido = [], externo = false }) {
   if (status === "cancelled") return <p className="rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-300">Pedido cancelado.</p>;
   const ordem = ["received", "preparing", "ready", "delivered"];
   const idx = Math.max(0, ordem.indexOf(status));
@@ -510,8 +510,8 @@ function TimelinePedido({ status, setorStatus = {}, setoresPedido = [] }) {
       {linha({ feito: idx >= 0, ativo: status === "received", ic: "✅", l: "Pedido recebido" })}
       {presentes.includes("cozinha") && linha({ ...stSetor("cozinha"), ic: "👨‍🍳", l: "Em preparo na cozinha" })}
       {presentes.includes("bar") && linha({ ...stSetor("bar"), ic: "🍹", l: "Bebidas no bar" })}
-      {linha({ feito: idx >= 2, ativo: status === "ready", ic: "🛎️", l: "Pronto — saindo para a mesa" })}
-      {linha({ feito: idx >= 3, ativo: status === "delivered", ic: "🍽️", l: "Entregue" })}
+      {linha({ feito: idx >= 2, ativo: status === "ready", ic: externo ? "🛍️" : "🛎️", l: externo ? "Pronto — liberado para retirada no balcão" : "Pronto — saindo para a mesa" })}
+      {linha({ feito: idx >= 3, ativo: status === "delivered", ic: externo ? "🛍️" : "🍽️", l: externo ? "Retirado" : "Entregue" })}
     </div>
   );
 }
