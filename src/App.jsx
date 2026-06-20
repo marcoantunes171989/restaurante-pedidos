@@ -622,6 +622,7 @@ export default function RestaurantePedidoApp() {
   const [loginForm, setLoginForm] = useState({ email: "", password: "" });
   const [activeTab, setActiveTab] = useState("tablet");
   const [cozinhaSetorInicial, setCozinhaSetorInicial] = useState(null); // "Filtrar cozinha" (tela de Setores → painel)
+  const [opmobileTab, setOpmobileTab] = useState("central"); // sub-aba da Operação Mobile (rotas /operacional/*)
   const [productsAll, setProducts] = useState([]); // todas as lojas — filtrado em `products`
   const [ordersAll, setOrders] = useState([]);     // todas as lojas — filtrado em `orders`
   const [formasPagamento, setFormasPagamento] = useState([]);
@@ -807,7 +808,7 @@ export default function RestaurantePedidoApp() {
     if (tab === "kitchen") return `/admin/cozinha${setorId != null ? `?setorId=${setorId}` : ""}`;
     if (tab === "panel") return "/app/painel";
     if (tab === "cashier") return "/app/caixa";
-    if (tab === "opmobile") return "/app/operacao";
+    if (tab === "opmobile") return `/operacional${opmobileTab && opmobileTab !== "central" ? `/${opmobileTab}` : ""}`;
     if (tab === "tablet") return "/app/tablet";
     return "/login";
   }
@@ -822,6 +823,13 @@ export default function RestaurantePedidoApp() {
       } else { setAdminSection(seg); setActiveTab("admin"); }
       return;
     }
+    const opMatch = pathname.match(/^\/operacional(?:\/([^/?]+))?/);
+    if (opMatch) {
+      const sub = opMatch[1];
+      setOpmobileTab(["pedidos", "cozinha", "bar", "caixa"].includes(sub) ? sub : "central");
+      setActiveTab("opmobile");
+      return;
+    }
     const appMatch = pathname.match(/^\/app\/([^/?]+)/);
     if (appMatch) {
       const seg = appMatch[1];
@@ -829,6 +837,15 @@ export default function RestaurantePedidoApp() {
     }
     // /login ou rota não reconhecida → mantém a tela atual
   }
+  // Deep-link: aplica a rota da URL UMA vez após autenticar (ex.: abrir direto
+  // /operacional/cozinha). A sincronização seguinte normaliza a URL.
+  const rotaInicialRef = useRef(false);
+  useEffect(() => {
+    if (!currentUser || rotaInicialRef.current) return;
+    rotaInicialRef.current = true;
+    const { pathname, search } = window.location;
+    if (/^\/(admin|app|operacional)(\/|$)/.test(pathname)) { popstateRef.current = true; aplicarRota(pathname, search); }
+  }, [currentUser]);
   // Espelha a tela atual na URL (replace na 1ª vez; push nas seguintes)
   useEffect(() => {
     if (!currentUser) return;
@@ -841,7 +858,7 @@ export default function RestaurantePedidoApp() {
       return;
     }
     if (novoPath !== atual) window.history.pushState({}, "", novoPath);
-  }, [activeTab, adminSection, cozinhaSetorInicial, currentUser]);
+  }, [activeTab, adminSection, cozinhaSetorInicial, opmobileTab, currentUser]);
   // Refs para o handler de popstate enxergar os valores atuais sem recriar o listener
   const currentUserRef = useRef(null);
   const activeTabRef = useRef("tablet");
@@ -852,7 +869,7 @@ export default function RestaurantePedidoApp() {
     const onPop = () => {
       popstateRef.current = true;
       const { pathname, search } = window.location;
-      if (/^\/(admin|app)\//.test(pathname)) aplicarRota(pathname, search);
+      if (/^\/(admin|app|operacional)(\/|$)/.test(pathname)) aplicarRota(pathname, search);
       else if (currentUserRef.current) {
         // Autenticado tentando sair para landing/login pelo voltar → mantém no app
         window.history.replaceState({}, "", rotaDoEstado(activeTabRef.current, adminSectionRef.current, null));
@@ -2173,7 +2190,7 @@ export default function RestaurantePedidoApp() {
         )}
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} products={products} lojaInfo={lojaInfo} />}
         {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierView orders={orders} baixarComandas={baixarComandas} baixarPedidos={baixarPedidos} formasPagamento={formasPagamentoLoja} onSair={logout} lojaInfo={lojaInfo} />}
-        {activeTab === "opmobile" && <OperacaoMobileView orders={orders} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} products={products} setores={filtraLoja(setoresCozinha)} formasPagamento={formasPagamentoLoja} lojaInfo={lojaInfo} perms={acessosOperacionais(currentUser)} usuarioNome={currentUser?.name || ""} onFechar={() => setActiveTab(allowedTabs[0]?.id || "tablet")} />}
+        {activeTab === "opmobile" && <OperacaoMobileView orders={orders} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} products={products} setores={filtraLoja(setoresCozinha)} formasPagamento={formasPagamentoLoja} lojaInfo={lojaInfo} perms={acessosOperacionais(currentUser)} usuarioNome={currentUser?.name || ""} tabInicial={opmobileTab} onTabChange={setOpmobileTab} onFechar={() => setActiveTab(allowedTabs[0]?.id || "tablet")} />}
         {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} promocoes={filtraLoja(promocoes)} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} opcoesApi={{ grupos: filtraLoja(gruposOpcoes), opcoes: filtraLoja(opcoes), addGrupo: addGrupoOpcoes, editarGrupo: editarGrupoOpcoes, removerGrupo: removerGrupoOpcoes, addOpcao, editarOpcao, removerOpcao }} setores={filtraLoja(setoresCozinha)} setoresApi={{ add: addSetorCozinha, editar: editarSetorCozinha, remover: removerSetorCozinha }} vincularProdutoSetor={vincularProdutoSetor} salvarProdutoQr={salvarProdutoQr} irParaCozinha={(setorId) => { setCozinhaSetorInicial(setorId ?? null); if (canAccess(currentUser, "kitchen")) setActiveTab("kitchen"); else notify("error", "Sem permissão para acessar o painel da cozinha."); }} caixaAberto={caixaAberto} caixasLoja={filtraLoja(caixas)} caixaApi={{ abrir: abrirCaixaFn, movimentar: movimentarCaixaFn, fechar: fecharCaixaFn, fetchMovimentos: fetchMovimentosCaixa }} fidRegra={fidRegraAtual} fidRecompensas={filtraLoja(fidRecompensas)} fidTransacoes={filtraLoja(fidTransacoes)} fidApi={{ salvarRegra: salvarRegraFid, addRecompensa: addRecompensaFid, removerRecompensa: removerRecompensaFid, lancarPontos }} chamados={filtraLoja(chamados)} atenderChamado={atenderChamadoFn} auditoria={filtraLoja(auditoria)} />}
 
       </div>
@@ -5849,13 +5866,17 @@ function CardapioQrConfigAdmin({ products = [], setores = [], salvarProdutoQr = 
 //  Reaproveita os pedidos + ações existentes (status, baixa, caixa).
 //  Visual de aplicativo para pequenos estabelecimentos no celular.
 // ════════════════════════════════════════════════════════════
-function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, marcarSetorPronto = async () => {}, baixarComandas, products = [], setores = [], formasPagamento = [], lojaInfo, perms = { pedidos: true, cozinha: true, bar: true, caixa: true, total: true }, usuarioNome = "", onFechar = null }) {
+function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, marcarSetorPronto = async () => {}, baixarComandas, products = [], setores = [], formasPagamento = [], lojaInfo, perms = { pedidos: true, cozinha: true, bar: true, caixa: true, total: true }, usuarioNome = "", tabInicial = null, onTabChange = null, onFechar = null }) {
   // Módulos liberados para este usuário (ordem fixa)
   const liberados = OP_MODULOS.filter((m) => perms[m.id]);
-  // Tela inicial: 1 módulo → entra direto; >1 → Central Operacional
-  const [tab, setTab] = useState(liberados.length === 1 ? liberados[0].id : "central");
-  const [filtroCentral, setFiltroCentral] = useState("todos"); // todos | cozinha | bar
   const permitido = (t) => t === "central" || (perms[t] === true);
+  // Tela inicial: rota (tabInicial) tem prioridade; senão 1 módulo → direto, >1 → Central
+  const tabValida = (t) => t && (t === "central" || permitido(t));
+  const [tab, setTabState] = useState(tabValida(tabInicial) ? tabInicial : (liberados.length === 1 ? liberados[0].id : "central"));
+  const setTab = (t) => { setTabState(t); onTabChange?.(t); };
+  // Sincroniza com a rota (voltar/avançar do navegador → /operacional/:sub)
+  useEffect(() => { if (tabValida(tabInicial) && tabInicial !== tab) setTabState(tabInicial); /* eslint-disable-next-line */ }, [tabInicial]);
+  const [filtroCentral, setFiltroCentral] = useState("todos"); // todos | cozinha | bar
   const origemDe = (o) => (o.table === "Externo" || /^EXT-/.test(o.command || "")) ? { l: "Delivery", ic: "🛵" } : { l: "Mesa / QR", ic: "🍽️" };
   const setorPorNome = useMemo(() => { const m = {}; products.forEach((p) => { if (p.setorId != null) m[p.name] = p.setorId; }); return m; }, [products]);
   const catPorNome = useMemo(() => { const m = {}; products.forEach((p) => { m[p.name] = p.category; }); return m; }, [products]);

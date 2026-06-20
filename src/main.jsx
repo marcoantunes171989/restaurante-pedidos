@@ -181,7 +181,7 @@ function Root() {
   const [path, setPath]         = useState(window.location.pathname)
   const [swAtivado, setSwAtivado] = useState(false)
   const notifiedRef             = useRef(false)
-  const ehSistema               = /^\/(login|app|sistema|admin)(\/|$)/.test(path)
+  const ehSistema               = /^\/(login|app|sistema|admin|operacional)(\/|$)/.test(path)
   const ehCardapio              = /^\/cardapio(\/|$)/.test(path)
   // Usuário autenticado nunca cai na landing pelo "voltar": qualquer rota
   // (inclusive "/") com sessão ativa renderiza o App (que mantém a tela atual).
