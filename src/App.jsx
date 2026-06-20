@@ -216,6 +216,16 @@ function acessosOperacionais(user) {
   // Legado: quem tinha "kitchen" via Pedidos/Cozinha/Bar; "cashier" via Caixa.
   return { pedidos: has("kitchen"), cozinha: has("kitchen"), bar: has("kitchen"), caixa: has("cashier"), total: false };
 }
+const temAcessoOperacional = (user) => { const p = acessosOperacionais(user); return p.pedidos || p.cozinha || p.bar || p.caixa; };
+
+// Tipo de dispositivo por LARGURA da tela (prioridade sobre user-agent):
+// celular ≤767px → "mobile"; 768–1024px → "tablet"; >1024px → "desktop".
+function identificarTipoDispositivo() {
+  const largura = (typeof window !== "undefined") ? window.innerWidth : 1280;
+  if (largura <= 767) return "mobile";
+  if (largura <= 1024) return "tablet";
+  return "desktop";
+}
 
 // Ações configuráveis por módulo (briefing item 23 — migration 032)
 const ACOES_MODULO = [
@@ -999,8 +1009,14 @@ export default function RestaurantePedidoApp() {
     setCurrentUser(credOk);
     auditar("login", "usuario", credOk.id, { email: credOk.email }, credOk);
     const acessosAtivos = (id) => credOk.accessIds.includes(id) && accesses.some((a) => a.id === id && a.active);
-    const primeira = acessosAtivos("admin") ? "admin" : ordemMenu.find((id) => acessosAtivos(id));
-    setActiveTab(primeira || "blocked");
+    // Regra por resolução: SÓ celular (≤767px) abre direto a Operação Mobile
+    // (se o usuário tiver acesso operacional). Tablet/desktop → layout padrão.
+    if (identificarTipoDispositivo() === "mobile" && temAcessoOperacional(credOk)) {
+      setActiveTab("opmobile");
+    } else {
+      const primeira = acessosAtivos("admin") ? "admin" : ordemMenu.find((id) => acessosAtivos(id));
+      setActiveTab(primeira || "blocked");
+    }
     if (!silencioso) notify("success", `Acesso liberado para ${credOk.name}.`);
     return true;
   }
