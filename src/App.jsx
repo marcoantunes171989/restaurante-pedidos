@@ -1796,6 +1796,17 @@ export default function RestaurantePedidoApp() {
     setProducts((cur) => cur.map((p) => p.id === pid ? { ...p, setorId: setorId ?? null } : p));
     if (dbReady) try { await atualizarProduto(pid, { setor_id: setorId || null }); } catch (e) { notify("error", "Erro ao vincular produto: " + (e.message || e)); }
   }
+  // Salva campos QR do produto (visibilidade no QR, setor, ordem) sem exigir os
+  // demais campos — usado pela tela "Cardápio QR". Reaproveita colunas existentes.
+  async function salvarProdutoQr(pid, campos) {
+    if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
+    setProducts((cur) => cur.map((p) => p.id === pid ? { ...p, ...campos } : p));
+    const db = {};
+    if (campos.visivelQr !== undefined) db.visivel_qr = !!campos.visivelQr;
+    if (campos.setorId !== undefined) db.setor_id = campos.setorId || null;
+    if (campos.featuredOrder !== undefined) db.featured_order = Number(campos.featuredOrder) || 0;
+    if (dbReady && Object.keys(db).length) try { await atualizarProduto(pid, db); } catch (e) { notify("error", "Erro ao salvar: " + (e.message || e)); }
+  }
   async function removerProduto(pid) {
     if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
     const alvo = products.find((p) => p.id === pid);
@@ -2140,7 +2151,7 @@ export default function RestaurantePedidoApp() {
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} products={products} lojaInfo={lojaInfo} />}
         {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierView orders={orders} baixarComandas={baixarComandas} baixarPedidos={baixarPedidos} formasPagamento={formasPagamentoLoja} onSair={logout} lojaInfo={lojaInfo} />}
         {activeTab === "opmobile" && (canAccess(currentUser, "kitchen") || canAccess(currentUser, "cashier")) && <OperacaoMobileView orders={orders} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} products={products} setores={filtraLoja(setoresCozinha)} formasPagamento={formasPagamentoLoja} lojaInfo={lojaInfo} podeCaixa={canAccess(currentUser, "cashier")} podeCozinha={canAccess(currentUser, "kitchen")} onFechar={() => setActiveTab(allowedTabs[0]?.id || "tablet")} />}
-        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} promocoes={filtraLoja(promocoes)} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} opcoesApi={{ grupos: filtraLoja(gruposOpcoes), opcoes: filtraLoja(opcoes), addGrupo: addGrupoOpcoes, editarGrupo: editarGrupoOpcoes, removerGrupo: removerGrupoOpcoes, addOpcao, editarOpcao, removerOpcao }} setores={filtraLoja(setoresCozinha)} setoresApi={{ add: addSetorCozinha, editar: editarSetorCozinha, remover: removerSetorCozinha }} vincularProdutoSetor={vincularProdutoSetor} irParaCozinha={(setorId) => { setCozinhaSetorInicial(setorId ?? null); if (canAccess(currentUser, "kitchen")) setActiveTab("kitchen"); else notify("error", "Sem permissão para acessar o painel da cozinha."); }} caixaAberto={caixaAberto} caixasLoja={filtraLoja(caixas)} caixaApi={{ abrir: abrirCaixaFn, movimentar: movimentarCaixaFn, fechar: fecharCaixaFn, fetchMovimentos: fetchMovimentosCaixa }} fidRegra={fidRegraAtual} fidRecompensas={filtraLoja(fidRecompensas)} fidTransacoes={filtraLoja(fidTransacoes)} fidApi={{ salvarRegra: salvarRegraFid, addRecompensa: addRecompensaFid, removerRecompensa: removerRecompensaFid, lancarPontos }} chamados={filtraLoja(chamados)} atenderChamado={atenderChamadoFn} auditoria={filtraLoja(auditoria)} />}
+        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} promocoes={filtraLoja(promocoes)} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} opcoesApi={{ grupos: filtraLoja(gruposOpcoes), opcoes: filtraLoja(opcoes), addGrupo: addGrupoOpcoes, editarGrupo: editarGrupoOpcoes, removerGrupo: removerGrupoOpcoes, addOpcao, editarOpcao, removerOpcao }} setores={filtraLoja(setoresCozinha)} setoresApi={{ add: addSetorCozinha, editar: editarSetorCozinha, remover: removerSetorCozinha }} vincularProdutoSetor={vincularProdutoSetor} salvarProdutoQr={salvarProdutoQr} irParaCozinha={(setorId) => { setCozinhaSetorInicial(setorId ?? null); if (canAccess(currentUser, "kitchen")) setActiveTab("kitchen"); else notify("error", "Sem permissão para acessar o painel da cozinha."); }} caixaAberto={caixaAberto} caixasLoja={filtraLoja(caixas)} caixaApi={{ abrir: abrirCaixaFn, movimentar: movimentarCaixaFn, fechar: fecharCaixaFn, fetchMovimentos: fetchMovimentosCaixa }} fidRegra={fidRegraAtual} fidRecompensas={filtraLoja(fidRecompensas)} fidTransacoes={filtraLoja(fidTransacoes)} fidApi={{ salvarRegra: salvarRegraFid, addRecompensa: addRecompensaFid, removerRecompensa: removerRecompensaFid, lancarPontos }} chamados={filtraLoja(chamados)} atenderChamado={atenderChamadoFn} auditoria={filtraLoja(auditoria)} />}
 
       </div>
     </div>
@@ -5126,7 +5137,7 @@ function ComboEmpresaFoco({ lojas = [], valor, onChange }) {
   );
 }
 
-function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, definirAcoesUsuario, toggleUserStatus, toggleAccessStatus, usersLoja, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], addLoja, toggleLoja, editarLoja, removerLoja, setLicencaEmpresa = async()=>{}, setValidadeLicenca = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, updateOrderStatus = async()=>{}, marcarEntregue = async()=>{}, marcarSetorPronto = async()=>{}, baixarComandas = async()=>{}, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, setModoUsoEmpresa = async()=>{}, salvarConfigExterno = async()=>{}, mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, clientes = [], planoAtual = null, assinaturaAtual = null, planos = [], planoModulos = [], definirAssinatura = async()=>{}, promocoes = [], addPromocao = async()=>{}, editarPromocao = async()=>{}, togglePromocao = async()=>{}, removerPromocao = async()=>{}, opcoesApi = null, setores = [], setoresApi = null, vincularProdutoSetor = async () => {}, irParaCozinha = () => {}, caixaAberto = null, caixasLoja = [], caixaApi = null, fidRegra = null, fidRecompensas = [], fidTransacoes = [], fidApi = null, chamados = [], atenderChamado = async()=>{}, auditoria = [] }) {
+function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, definirAcoesUsuario, toggleUserStatus, toggleAccessStatus, usersLoja, adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], addLoja, toggleLoja, editarLoja, removerLoja, setLicencaEmpresa = async()=>{}, setValidadeLicenca = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, updateOrderStatus = async()=>{}, marcarEntregue = async()=>{}, marcarSetorPronto = async()=>{}, baixarComandas = async()=>{}, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, setModoUsoEmpresa = async()=>{}, salvarConfigExterno = async()=>{}, mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, clientes = [], planoAtual = null, assinaturaAtual = null, planos = [], planoModulos = [], definirAssinatura = async()=>{}, promocoes = [], addPromocao = async()=>{}, editarPromocao = async()=>{}, togglePromocao = async()=>{}, removerPromocao = async()=>{}, opcoesApi = null, setores = [], setoresApi = null, vincularProdutoSetor = async () => {}, salvarProdutoQr = async () => {}, irParaCozinha = () => {}, caixaAberto = null, caixasLoja = [], caixaApi = null, fidRegra = null, fidRecompensas = [], fidTransacoes = [], fidApi = null, chamados = [], atenderChamado = async()=>{}, auditoria = [] }) {
   // Menu reorganizado por contexto (SaaS premium) — mesmos ids e permissões de antes
   const menu = [
     { grupo: "Visão Geral", itens: [
@@ -5146,6 +5157,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
       { id: "products", icon: <IconProdutos />, label: "Produtos" },
       { id: "categorias", icon: <IconCategorias />, label: "Categorias" },
       { id: "promocoes", icon: <IconPromocao />, label: "Promoções" },
+      { id: "cardapioqr", icon: <IconQr />, label: "Cardápio QR" },
       { id: "cardapioext", icon: <IconCardapio />, label: "Cardápio Externo" },
     ]},
     { grupo: "Configurações", itens: [
@@ -5310,6 +5322,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           {ativo === "products"   && (precisaEmpresa ? avisoEmpresa : <ProductAdmin   products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} editarProduto={editarProduto} removerProduto={removerProduto} lojaId={lojaInfo?.id} opcoesApi={opcoesApi} setores={setores} />)}
           {ativo === "setores"    && (precisaEmpresa ? avisoEmpresa : <SetoresCozinhaAdmin setores={setores} produtos={products} orders={orders} api={setoresApi} vincularProduto={vincularProdutoSetor} irParaCozinha={irParaCozinha} />)}
           {ativo === "operacaomobile" && <OperacaoMobileView orders={orders} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} products={products} setores={setores} formasPagamento={formasPagamento} lojaInfo={lojaInfo} podeCaixa podeCozinha onFechar={() => setAdminSection("dashboard")} />}
+          {ativo === "cardapioqr"  && (precisaEmpresa ? avisoEmpresa : <CardapioQrConfigAdmin products={products} setores={setores} salvarProdutoQr={salvarProdutoQr} irParaProdutos={() => setAdminSection("products")} />)}
           {ativo === "chamados"   && <ChamadosPainel chamados={chamados} atenderChamado={atenderChamado} />}
           {ativo === "auditoria"  && <AuditoriaAdmin
             logs={auditoria} lojas={lojas}
@@ -5642,6 +5655,94 @@ function BarrasVerticais({ dados, sufixo = "R$" }) {
         </div>
       ))}
     </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+//  Cardápio QR — configuração por produto (seção 18 do briefing)
+//  Reaproveita campos existentes do produto (visivel_qr, setor_id,
+//  featured_order, ingredients, adicionais, categoria) — sem schema novo.
+// ════════════════════════════════════════════════════════════
+function CardapioQrConfigAdmin({ products = [], setores = [], salvarProdutoQr = async () => {}, irParaProdutos = () => {} }) {
+  const [busca, setBusca] = useState("");
+  const [filtro, setFiltro] = useState("todos"); // todos | qr | foraqr | semsetor
+  const setoresAtivos = setores.filter((s) => s.ativo !== false);
+  const ehBebida = (p) => /bebida|drink|suco/i.test(p.category || "");
+  const termo = busca.trim().toLowerCase();
+  const lista = products
+    .filter((p) => (termo ? `${p.name} ${p.category}`.toLowerCase().includes(termo) : true))
+    .filter((p) => filtro === "todos" ? true : filtro === "qr" ? p.visivelQr !== false : filtro === "foraqr" ? p.visivelQr === false : filtro === "semsetor" ? !p.setorId : true)
+    .sort((a, b) => (a.featuredOrder ?? 0) - (b.featuredOrder ?? 0) || String(a.name).localeCompare(String(b.name), "pt-BR"));
+  const noQr = products.filter((p) => p.visivelQr !== false).length;
+  const comSetor = products.filter((p) => p.setorId).length;
+  const sugBebidas = products.filter(ehBebida).length;
+  const nomeSetor = (id) => setores.find((s) => s.id === id)?.nome || "—";
+  const inp = "rounded-2xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white outline-none focus:border-gold-400/60";
+
+  return (
+    <main className="space-y-5">
+      <PageHeader icone={<IconQr />} titulo="Cardápio QR — Configuração"
+        descricao="Defina o que aparece no QR Code da mesa, o setor responsável e a personalização de cada produto. Ingredientes e adicionais são gerenciados em Produtos."
+        indicadores={[
+          { valor: noQr, rotulo: "no QR", tom: "ok" },
+          { valor: comSetor, rotulo: "com setor", tom: "gold" },
+          { valor: sugBebidas, rotulo: "bebidas (sugestão)" },
+        ]}
+        acao={<PrimeButton variante="ghost" onClick={irParaProdutos}>Editar produtos</PrimeButton>}
+      />
+
+      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="relative flex-1">
+            <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"><IconBusca /></span>
+            <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar produto..." className={`${inp} w-full pl-11`} />
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {[["todos", "Todos"], ["qr", "No QR"], ["foraqr", "Fora do QR"], ["semsetor", "Sem setor"]].map(([k, l]) => (
+              <button key={k} onClick={() => setFiltro(k)} className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${filtro === k ? "bg-gold-400 text-blue-950" : "border border-white/10 bg-white/[0.05] text-slate-300 hover:bg-white/10"}`}>{l}</button>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-4 space-y-2">
+          {lista.length === 0 && <p className="py-8 text-center text-sm text-slate-500">Nenhum produto encontrado.</p>}
+          {lista.map((p) => {
+            const noQrP = p.visivelQr !== false;
+            const removivel = (p.ingredients || []).length > 0;
+            const temExtras = (p.adicionais || []).length > 0;
+            return (
+              <div key={p.id} className={`rounded-2xl border p-3 transition ${noQrP ? "border-white/10 bg-slate-950/40" : "border-white/10 bg-white/[0.02] opacity-70"}`}>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <img src={p.imageUrl || fallbackImage} alt="" className="h-11 w-11 shrink-0 rounded-2xl object-cover" />
+                    <div className="min-w-0">
+                      <p className="truncate font-bold text-white">{p.name}</p>
+                      <p className="truncate text-[11px] text-slate-500">{p.category || "Sem categoria"} · <b className="text-gold-300">{formatCurrency(p.price)}</b></p>
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {removivel && <span className="rounded-full border border-blue-400/25 bg-blue-500/10 px-2 py-0.5 text-[9px] font-bold text-blue-300">remove ingredientes</span>}
+                        {temExtras && <span className="rounded-full border border-emerald-400/25 bg-emerald-500/10 px-2 py-0.5 text-[9px] font-bold text-emerald-300">adicionais</span>}
+                        {ehBebida(p) && <span className="rounded-full border border-gold-400/30 bg-gold-400/10 px-2 py-0.5 text-[9px] font-bold text-gold-300">sugestão bebida</span>}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 flex-wrap items-center gap-2">
+                    <select value={p.setorId ?? ""} onChange={(e) => salvarProdutoQr(p.id, { setorId: e.target.value ? Number(e.target.value) : null })} className={inp} title="Setor responsável">
+                      <option value="">Sem setor</option>
+                      {setoresAtivos.map((s) => <option key={s.id} value={s.id}>{s.nome}</option>)}
+                    </select>
+                    <button onClick={() => salvarProdutoQr(p.id, { visivelQr: !noQrP })}
+                      className={`rounded-xl px-3 py-2 text-xs font-black transition ${noQrP ? "bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25" : "bg-slate-700/40 text-slate-400 hover:bg-slate-700/60"}`}>
+                      {noQrP ? "✓ No QR" : "Fora do QR"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <p className="mt-3 text-[11px] text-slate-500">💡 "Remove ingredientes", "adicionais" e "sugestão de bebida" são derivados do cadastro do produto (ingredientes, adicionais e categoria). Ajuste-os em <b className="text-slate-300">Produtos</b>.</p>
+      </div>
+    </main>
   );
 }
 
