@@ -7392,8 +7392,15 @@ function formatarTelefone(t) {
 function CrmAdmin({ clientes = [], orders = [], fidTransacoes = [], fidRecompensas = [], lancarPontos = null }) {
   const saldoPorCliente = useMemo(() => { const m = {}; fidTransacoes.forEach((t) => { if (t.clienteId != null) m[t.clienteId] = (m[t.clienteId] || 0) + t.pontos; }); return m; }, [fidTransacoes]);
   const [busca, setBusca] = useState("");
-  const [ordem, setOrdem] = useState("pedidos"); // pedidos | valor | recente | nome
+  const [ordem, setOrdem] = useState("pedidos"); // pedidos | valor | ticket | recente | vip | inativo | nome
   const [aberto, setAberto] = useState(null);    // telefone expandido
+  // Segmentação avançada + visualização
+  const [segmento, setSegmento] = useState("todos");
+  const [origemF, setOrigemF] = useState("todos");
+  const [freqF, setFreqF] = useState("todos");
+  const [fatF, setFatF] = useState("todos");
+  const [viewMode, setViewMode] = useState("lista"); // lista | ranking
+  const [filtrosAbertos, setFiltrosAbertos] = useState(false);
 
   // ── Período de análise (presets + intervalo personalizado) ──
   const [preset, setPreset]   = useState("todos"); // hoje | 7d | 30d | 90d | todos | custom
@@ -7432,36 +7439,130 @@ function CrmAdmin({ clientes = [], orders = [], fidTransacoes = [], fidRecompens
         .sort((a, b) => new Date(b.createdAtISO) - new Date(a.createdAtISO));
       const total  = peds.reduce((s, o) => s + o.items.reduce((a, i) => a + i.price * i.quantity, 0), 0);
       const ultimo = peds[0]?.createdAtISO || null;
+      const primeiro = peds[peds.length - 1]?.createdAtISO || null;
       // Produto favorito (mais pedido pelo cliente)
       const cont = {};
       peds.forEach((o) => o.items.forEach((i) => { cont[i.name] = (cont[i.name] || 0) + i.quantity; }));
       const fav = Object.entries(cont).sort((a, b) => b[1] - a[1])[0] || null;
+      // Horário de compra mais frequente (Manhã/Tarde/Noite)
+      const baldesHora = { Manhã: 0, Tarde: 0, Noite: 0 };
+      peds.forEach((o) => { if (!o.createdAtISO) return; const h = new Date(o.createdAtISO).getHours(); baldesHora[h < 12 ? "Manhã" : h < 18 ? "Tarde" : "Noite"]++; });
+      const horario = peds.length ? Object.entries(baldesHora).sort((a, b) => b[1] - a[1])[0][0] : "—";
+      // Canal principal (deriva de mesa/comanda — pedido não armazena origem)
+      const canal = peds.some((o) => o.command) ? "Mesa / QR Code" : peds.some((o) => o.table) ? "Mesa" : "—";
+      // Dias desde o último pedido + intervalo médio entre pedidos
+      const diasSemComprar = ultimo ? Math.floor((Date.now() - new Date(ultimo).getTime()) / 86400000) : null;
+      let intervaloMedio = null;
+      if (peds.length >= 2 && ultimo && primeiro) intervaloMedio = Math.round(((new Date(ultimo) - new Date(primeiro)) / 86400000) / (peds.length - 1));
       return {
-        ...c, pedidos: peds, qtd: peds.length, total, ultimo,
+        ...c, pedidos: peds, qtd: peds.length, total, ultimo, primeiro,
         ticket: peds.length ? total / peds.length : 0,
         favorito: fav ? { nome: fav[0], qtd: fav[1] } : null,
+        horario, canal, diasSemComprar, intervaloMedio,
         pontos: saldoPorCliente[c.id] || 0,
       };
     });
   }, [clientes, pedidosPeriodo, saldoPorCliente]);
 
-  const ordenados = useMemo(() => {
-    const l = [...dados];
-    if (ordem === "valor")        l.sort((a, b) => b.total - a.total);
-    else if (ordem === "recente") l.sort((a, b) => new Date(b.ultimo || b.criadoEm || 0) - new Date(a.ultimo || a.criadoEm || 0));
-    else if (ordem === "nome")    l.sort((a, b) => String(a.nome || "").localeCompare(String(b.nome || ""), "pt-BR"));
-    else                          l.sort((a, b) => b.qtd - a.qtd || b.total - a.total);
-    return l;
-  }, [dados, ordem]);
-
-  const termo = busca.trim().toLowerCase();
-  const filtrados = termo ? ordenados.filter((c) => `${c.nome} ${c.telefone}`.toLowerCase().includes(termo)) : ordenados;
-
-  // Indicadores do período selecionado
+  // Indicadores gerais do período
   const totalGeral   = dados.reduce((s, c) => s + c.total, 0);
   const totalPedidos = dados.reduce((s, c) => s + c.qtd, 0);
   const comPedidos   = dados.filter((c) => c.qtd > 0).length;
   const ticketGeral  = totalPedidos > 0 ? totalGeral / totalPedidos : 0;
+  const ticketMedioBase = comPedidos > 0 ? dados.filter((c) => c.qtd > 0).reduce((s, c) => s + c.ticket, 0) / comPedidos : 0;
+
+  // Classificação automática (VIP / Recorrente / Novo / Inativo / Alto-Baixo ticket / Risco)
+  const ehVip = (c) => c.qtd >= 5 || c.total >= 200;
+  const ehInativo = (c) => c.qtd > 0 && c.diasSemComprar != null && c.diasSemComprar > 30;
+  const ehRisco = (c) => c.qtd >= 2 && !ehInativo(c) && c.intervaloMedio != null && c.diasSemComprar != null && c.diasSemComprar > c.intervaloMedio * 1.5;
+  const segmentosDoCliente = (c) => {
+    const tags = [];
+    if (c.qtd === 0) return [{ t: "Sem pedidos", cls: "border-white/10 bg-white/[0.06] text-slate-400" }];
+    if (ehVip(c)) tags.push({ t: "⭐ VIP", cls: "border-gold-400/40 bg-gold-400/15 text-gold-300", key: "vip" });
+    if (ehInativo(c)) tags.push({ t: "💤 Inativo", cls: "border-red-400/30 bg-red-500/15 text-red-300", key: "inativo" });
+    else if (ehRisco(c)) tags.push({ t: "⚠ Em risco", cls: "border-orange-400/30 bg-orange-500/15 text-orange-300", key: "risco" });
+    if (c.qtd >= 2 && !ehVip(c)) tags.push({ t: "🔁 Recorrente", cls: "border-blue-400/30 bg-blue-500/15 text-blue-300", key: "recorrente" });
+    if (c.qtd === 1) tags.push({ t: "🆕 Novo", cls: "border-emerald-400/30 bg-emerald-500/15 text-emerald-300", key: "novo" });
+    if (c.ticket >= ticketMedioBase && ticketMedioBase > 0) tags.push({ t: "↑ Alto ticket", cls: "border-emerald-400/30 bg-emerald-500/10 text-emerald-300", key: "alto" });
+    else if (c.qtd > 0) tags.push({ t: "↓ Baixo ticket", cls: "border-white/15 bg-white/[0.06] text-slate-400", key: "baixo" });
+    return tags;
+  };
+  const acaoSugerida = (c) => {
+    if (c.qtd === 0) return "Convidar para o primeiro pedido.";
+    if (ehInativo(c)) return "Enviar cupom de retorno com oferta especial.";
+    if (ehRisco(c)) return "Reativar com mensagem personalizada.";
+    if (ehVip(c)) return "Enviar oferta de fidelidade exclusiva.";
+    if (c.ticket < ticketMedioBase) return "Incentivar adicionais, bebidas e sobremesas.";
+    if (c.qtd === 1) return "Estimular a segunda compra com benefício.";
+    return "Inserir em programa de fidelidade.";
+  };
+
+  // Segmentação avançada + busca + ordenação
+  const termo = busca.trim().toLowerCase();
+  const filtrados = useMemo(() => {
+    let l = dados.filter((c) => {
+      if (segmento !== "todos") {
+        if (segmento === "vip" && !ehVip(c)) return false;
+        if (segmento === "recorrente" && !(c.qtd >= 2)) return false;
+        if (segmento === "novo" && c.qtd !== 1) return false;
+        if (segmento === "inativo" && !ehInativo(c)) return false;
+        if (segmento === "alto" && !(c.ticket >= ticketMedioBase && ticketMedioBase > 0)) return false;
+        if (segmento === "baixo" && !(c.ticket < ticketMedioBase && c.qtd > 0)) return false;
+        if (segmento === "risco" && !ehRisco(c)) return false;
+      }
+      if (origemF !== "todos") {
+        const temComanda = c.pedidos.some((o) => o.command);
+        if (origemF === "qr" && !temComanda) return false;
+        if (origemF === "mesa" && temComanda) return false;
+      }
+      if (freqF !== "todos") {
+        if (freqF === "1" && c.qtd !== 1) return false;
+        if (freqF === "2-3" && !(c.qtd >= 2 && c.qtd <= 3)) return false;
+        if (freqF === "4-6" && !(c.qtd >= 4 && c.qtd <= 6)) return false;
+        if (freqF === "6+" && !(c.qtd > 6)) return false;
+      }
+      if (fatF !== "todos") {
+        if (fatF === "ate50" && !(c.total <= 50)) return false;
+        if (fatF === "50-150" && !(c.total > 50 && c.total <= 150)) return false;
+        if (fatF === "150-300" && !(c.total > 150 && c.total <= 300)) return false;
+        if (fatF === "300+" && !(c.total > 300)) return false;
+      }
+      if (termo && !`${c.nome} ${c.telefone}`.toLowerCase().includes(termo)) return false;
+      return true;
+    });
+    if (ordem === "valor")        l.sort((a, b) => b.total - a.total);
+    else if (ordem === "ticket")  l.sort((a, b) => b.ticket - a.ticket);
+    else if (ordem === "recente") l.sort((a, b) => new Date(b.ultimo || b.criadoEm || 0) - new Date(a.ultimo || a.criadoEm || 0));
+    else if (ordem === "vip")     l.sort((a, b) => (ehVip(b) ? 1 : 0) - (ehVip(a) ? 1 : 0) || b.total - a.total);
+    else if (ordem === "inativo") l.sort((a, b) => (b.diasSemComprar || 0) - (a.diasSemComprar || 0));
+    else if (ordem === "nome")    l.sort((a, b) => String(a.nome || "").localeCompare(String(b.nome || ""), "pt-BR"));
+    else                          l.sort((a, b) => b.qtd - a.qtd || b.total - a.total);
+    return l;
+  }, [dados, segmento, origemF, freqF, fatF, termo, ordem, ticketMedioBase]);
+
+  // KPIs gerenciais
+  const recorrentes = dados.filter((c) => c.qtd >= 2).length;
+  const vips = dados.filter((c) => ehVip(c)).length;
+  const inativos = dados.filter((c) => ehInativo(c)).length;
+  const emRisco = dados.filter((c) => ehRisco(c)).length;
+  const novos = dados.filter((c) => c.qtd === 1).length;
+  const maiorCliente = dados.reduce((acc, c) => (c.total > (acc?.total || 0) ? c : acc), null);
+  const retornaram = dados.filter((c) => c.qtd >= 2).length;
+  const taxaRecorrencia = comPedidos > 0 ? Math.round((retornaram / comPedidos) * 100) : 0;
+  const intervalos = dados.filter((c) => c.intervaloMedio != null).map((c) => c.intervaloMedio);
+  const tempoMedioEntrePedidos = intervalos.length ? Math.round(intervalos.reduce((s, v) => s + v, 0) / intervalos.length) : null;
+  const recuperaveis = dados.filter((c) => ehInativo(c) && c.qtd >= 2).length;
+
+  // Resumo inteligente (insights automáticos sobre os dados calculados)
+  const ticketTop = dados.filter((c) => c.qtd >= 2).reduce((acc, c) => (c.ticket > (acc?.ticket || 0) ? c : acc), null);
+  const insights = [
+    maiorCliente && maiorCliente.total > 0 && { cat: "Faturamento", cls: "border-emerald-400/30 text-emerald-300", txt: `${maiorCliente.nome} é o cliente com maior faturamento: ${formatCurrency(maiorCliente.total)} em ${maiorCliente.qtd} pedido(s).` },
+    ticketTop && { cat: "Ticket médio", cls: "border-gold-400/30 text-gold-300", txt: `${ticketTop.nome} tem um dos maiores tickets médios entre os recorrentes (${formatCurrency(ticketTop.ticket)}).` },
+    inativos > 0 && { cat: "Retenção", cls: "border-red-400/30 text-red-300", txt: `${inativos} cliente(s) sem comprar há mais de 30 dias — considere uma campanha de retorno.` },
+    recorrentes > 0 && { cat: "Recorrência", cls: "border-blue-400/30 text-blue-300", txt: `${recorrentes} cliente(s) com comportamento recorrente podem receber campanhas de fidelidade.` },
+    ticketGeral > 0 && { cat: "Oportunidade", cls: "border-violet-400/30 text-violet-300", txt: `Ticket médio geral de ${formatCurrency(ticketGeral)} — aumente com combos, adicionais e ofertas personalizadas.` },
+  ].filter(Boolean);
+
   const rotuloPeriodo = preset === "todos" ? "todo o histórico"
     : preset === "hoje" ? "hoje"
     : preset === "7d" ? "últimos 7 dias"
@@ -7469,24 +7570,37 @@ function CrmAdmin({ clientes = [], orders = [], fidTransacoes = [], fidRecompens
     : preset === "90d" ? "últimos 90 dias"
     : `${dataIni ? new Date(`${dataIni}T00:00:00`).toLocaleDateString("pt-BR") : "início"} → ${dataFim ? new Date(`${dataFim}T00:00:00`).toLocaleDateString("pt-BR") : "hoje"}`;
 
-  // Classificação por recorrência
-  const classif = (c) =>
-    c.qtd >= 5 ? { t: "⭐ VIP",        cls: "border-amber-400/30 bg-amber-500/15 text-amber-300" }
-    : c.qtd >= 2 ? { t: "🔁 Recorrente", cls: "border-blue-400/30 bg-blue-500/15 text-blue-300" }
-    : c.qtd === 1 ? { t: "🆕 Novo",      cls: "border-emerald-400/30 bg-emerald-500/15 text-emerald-300" }
-    : { t: "Sem pedidos", cls: "border-white/10 bg-white/[0.06] text-slate-400" };
-
   const linkWhats = (tel) => `https://wa.me/55${String(tel || "").replace(/\D/g, "")}`;
+  const SEG_OPC = [["todos", "Todos"], ["vip", "VIP"], ["recorrente", "Recorrentes"], ["novo", "Novos"], ["inativo", "Inativos"], ["risco", "Em risco"], ["alto", "Alto ticket"], ["baixo", "Baixo ticket"]];
+
+  // Exportar clientes (CSV)
+  function exportarClientesCSV() {
+    let csv = "Nome;Telefone;Pedidos;Faturamento;Ticket medio;Ultimo pedido;Produto favorito;Horario;Canal\n";
+    filtrados.forEach((c) => { csv += `${c.nome};${formatarTelefone(c.telefone)};${c.qtd};${c.total.toFixed(2)};${c.ticket.toFixed(2)};${c.ultimo ? new Date(c.ultimo).toLocaleDateString("pt-BR") : "-"};${c.favorito?.nome || "-"};${c.horario};${c.canal}\n`; });
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob); const link = document.createElement("a");
+    link.href = url; link.download = `crm-clientes-${preset}.csv`; link.click(); URL.revokeObjectURL(url);
+  }
 
   return (
     <main className="space-y-5">
       {/* Cabeçalho */}
       <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
-        <h3 className="page-title flex items-center gap-2.5 text-xl font-bold tracking-tight text-white">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gold-400/30 bg-gold-400/10 text-gold-300"><IconCrm /></span>
-          CRM — Clientes
-        </h3>
-        <p className="mt-0.5 text-sm text-slate-400">Clientes identificados nos pedidos do cardápio digital (nome + telefone). Clique em um cliente para ver o histórico completo.</p>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0">
+            <h3 className="page-title flex items-center gap-2.5 text-xl font-bold tracking-tight text-white">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gold-400/30 bg-gold-400/10 text-gold-300"><IconCrm /></span>
+              CRM — Clientes
+            </h3>
+            <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-400">Clientes identificados nos pedidos do cardápio digital. Analise frequência, consumo, faturamento, recorrência e oportunidades de relacionamento para aumentar vendas e fidelização.</p>
+          </div>
+          <div className="flex flex-wrap gap-2 lg:justify-end">
+            <button onClick={exportarClientesCSV} className="rounded-2xl border border-white/10 bg-white/[0.06] px-3.5 py-2.5 text-xs font-bold text-slate-200 transition hover:bg-white/10">📤 Exportar clientes</button>
+            <button onClick={() => alert("Criação de campanhas: em breve. Os clientes segmentados já podem ser exportados para uso em campanhas de WhatsApp/e-mail.")} className="rounded-2xl bg-gold-400 px-3.5 py-2.5 text-xs font-bold text-blue-950 transition hover:bg-gold-300">✨ Criar campanha</button>
+            <button onClick={() => { setSegmento("inativo"); setFiltrosAbertos(true); }} className="rounded-2xl border border-red-400/25 bg-red-500/10 px-3.5 py-2.5 text-xs font-bold text-red-300 transition hover:bg-red-500/20">💤 Clientes inativos</button>
+            <button onClick={() => alert("Configurações do CRM (regras de VIP, inatividade e campanhas) — em breve.")} className="rounded-2xl border border-white/10 bg-white/[0.06] px-3.5 py-2.5 text-xs font-bold text-slate-200 transition hover:bg-white/10">⚙ Configurar CRM</button>
+          </div>
+        </div>
 
         {/* Período de análise */}
         <div className="mt-4 rounded-2xl border border-white/[0.06] bg-slate-950/40 p-3">
@@ -7521,21 +7635,105 @@ function CrmAdmin({ clientes = [], orders = [], fidTransacoes = [], fidRecompens
           </div>
         </div>
 
-        {/* Indicadores do período */}
+        {/* Segmentação avançada (recolhível) */}
+        <div className="mt-3 rounded-2xl border border-white/[0.06] bg-slate-950/40 p-3">
+          <button onClick={() => setFiltrosAbertos((v) => !v)} className="flex w-full items-center justify-between text-[10px] font-bold uppercase tracking-widest text-slate-500">
+            <span>🎯 Segmentação avançada</span><span className={`transition-transform ${filtrosAbertos ? "rotate-180" : ""}`}>▾</span>
+          </button>
+          {filtrosAbertos && (
+            <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              {[
+                { lbl: "Segmento", val: segmento, set: setSegmento, ops: SEG_OPC },
+                { lbl: "Origem do pedido", val: origemF, set: setOrigemF, ops: [["todos", "Todos"], ["mesa", "Mesa"], ["qr", "QR Code / Comanda"]] },
+                { lbl: "Frequência", val: freqF, set: setFreqF, ops: [["todos", "Todas"], ["1", "1 pedido"], ["2-3", "2 a 3"], ["4-6", "4 a 6"], ["6+", "Acima de 6"]] },
+                { lbl: "Faixa de faturamento", val: fatF, set: setFatF, ops: [["todos", "Todas"], ["ate50", "Até R$ 50"], ["50-150", "R$ 50–150"], ["150-300", "R$ 150–300"], ["300+", "Acima de R$ 300"]] },
+              ].map((f) => (
+                <label key={f.lbl} className="flex flex-col gap-1">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{f.lbl}</span>
+                  <select value={f.val} onChange={(e) => f.set(e.target.value)} className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white outline-none focus:border-blue-400">
+                    {f.ops.map(([v, t]) => <option key={v} value={v}>{t}</option>)}
+                  </select>
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Indicadores gerenciais (8 cards) */}
         <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
           {[
-            { t: "Clientes",            v: String(dados.length),        ic: "👥", c: "text-white" },
-            { t: "Com pedidos",         v: String(comPedidos),          ic: "🔥", c: "text-blue-300" },
-            { t: "Faturamento",         v: formatCurrency(totalGeral),  ic: "💰", c: "text-emerald-300" },
-            { t: "Ticket médio",        v: formatCurrency(ticketGeral), ic: "🧾", c: "text-amber-300" },
+            { t: "Clientes identificados", v: String(dados.length),        ic: "👥", c: "text-white" },
+            { t: "Com pedidos",           v: String(comPedidos),          ic: "🔥", c: "text-blue-300" },
+            { t: "Faturamento",           v: formatCurrency(totalGeral),  ic: "💰", c: "text-emerald-300" },
+            { t: "Ticket médio",          v: formatCurrency(ticketGeral), ic: "🧾", c: "text-gold-300" },
+            { t: "Recorrentes",           v: String(recorrentes),         ic: "🔁", c: "text-blue-300" },
+            { t: "VIP",                   v: String(vips),                ic: "⭐", c: "text-gold-300" },
+            { t: "Inativos",              v: String(inativos),            ic: "💤", c: "text-red-300" },
+            { t: "Maior cliente",         v: maiorCliente && maiorCliente.total > 0 ? maiorCliente.nome : "—", sub: maiorCliente && maiorCliente.total > 0 ? `${formatCurrency(maiorCliente.total)} · ${maiorCliente.qtd} ped.` : "sem vendas", ic: "🏆", c: "text-emerald-300", small: true },
           ].map((k) => (
             <div key={k.t} className="rounded-2xl border border-white/[0.06] bg-slate-950/40 px-4 py-3">
               <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{k.ic} {k.t}</p>
-              <p className={`mt-0.5 text-lg font-black ${k.c}`}>{k.v}</p>
+              <p className={`mt-0.5 font-black ${k.small ? "truncate text-base" : "text-lg"} ${k.c}`}>{k.v}</p>
+              {k.sub && <p className="truncate text-[10px] text-slate-500">{k.sub}</p>}
             </div>
           ))}
         </div>
         <p className="mt-2 text-[11px] text-slate-500">Indicadores e histórico calculados sobre: <b className="text-slate-300">{rotuloPeriodo}</b> · {totalPedidos} pedido(s) no período.</p>
+      </div>
+
+      {/* Resumo inteligente */}
+      {insights.length > 0 && (
+        <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+          <h3 className="page-title text-base font-bold text-white">🧠 Resumo inteligente</h3>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+            {insights.map((ins, i) => (
+              <div key={i} className={`rounded-2xl border bg-slate-950/40 p-3 ${ins.cls}`}>
+                <p className="text-[10px] font-bold uppercase tracking-widest opacity-80">{ins.cat}</p>
+                <p className="mt-1 text-xs leading-5 text-slate-300">{ins.txt}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Retenção + oportunidades */}
+      <div className="grid gap-5 lg:grid-cols-2">
+        <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+          <h3 className="page-title text-base font-bold text-white">📊 Retenção de clientes</h3>
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {[
+              { t: "Taxa de recorrência", v: `${taxaRecorrencia}%`, c: "text-blue-300" },
+              { t: "Tempo médio entre pedidos", v: tempoMedioEntrePedidos != null ? `${tempoMedioEntrePedidos} dias` : "—", c: "text-white" },
+              { t: "Em risco", v: String(emRisco), c: "text-orange-300" },
+              { t: "Recuperáveis", v: String(recuperaveis), c: "text-gold-300" },
+            ].map((k) => (
+              <div key={k.t} className="rounded-2xl border border-white/[0.06] bg-slate-950/40 px-3 py-2.5">
+                <p className={`page-title text-xl font-bold ${k.c}`}>{k.v}</p>
+                <p className="mt-0.5 text-[10px] leading-tight text-slate-500">{k.t}</p>
+              </div>
+            ))}
+          </div>
+          <p className="mt-3 text-[11px] text-slate-500">Novos no período: <b className="text-emerald-300">{novos}</b> · Retornaram: <b className="text-blue-300">{retornaram}</b>.</p>
+        </div>
+        <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+          <h3 className="page-title text-base font-bold text-white">🎯 Oportunidades identificadas</h3>
+          <ul className="mt-3 space-y-2 text-sm">
+            {[
+              { ic: "⭐", t: `${vips} VIP(s)`, d: "Criar campanha exclusiva para os clientes de maior frequência.", seg: "vip" },
+              { ic: "💤", t: `${inativos} inativo(s)`, d: "Enviar mensagem de retorno com oferta especial.", seg: "inativo" },
+              { ic: "↑", t: "Alto ticket", d: "Oferecer combos premium e produtos adicionais.", seg: "alto" },
+              { ic: "↓", t: "Baixo ticket", d: "Incentivar adicionais, bebidas e sobremesas.", seg: "baixo" },
+              { ic: "🔁", t: `${recorrentes} recorrente(s)`, d: "Inserir no programa de fidelidade.", seg: "recorrente" },
+            ].map((o) => (
+              <li key={o.t}>
+                <button onClick={() => { setSegmento(o.seg); setFiltrosAbertos(true); }} className="flex w-full items-start gap-2 rounded-2xl border border-white/10 bg-slate-950/40 px-3 py-2.5 text-left transition hover:bg-white/[0.04]">
+                  <span className="mt-0.5 shrink-0">{o.ic}</span>
+                  <span><b className="text-white">{o.t}</b> <span className="text-slate-400">— {o.d}</span></span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
 
       <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
@@ -7549,17 +7747,25 @@ function CrmAdmin({ clientes = [], orders = [], fidTransacoes = [], fidRecompens
           <select value={ordem} onChange={(e) => setOrdem(e.target.value)}
             className="rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none focus:border-blue-400">
             <option value="pedidos">Mais pedidos</option>
-            <option value="valor">Maior valor gasto</option>
-            <option value="recente">Pedido mais recente</option>
+            <option value="valor">Maior faturamento</option>
+            <option value="ticket">Maior ticket médio</option>
+            <option value="recente">Último pedido</option>
+            <option value="vip">Clientes VIP</option>
+            <option value="inativo">Clientes inativos</option>
             <option value="nome">Nome (A–Z)</option>
           </select>
+          <div className="flex shrink-0 rounded-2xl border border-white/10 bg-slate-950/70 p-1">
+            {[["lista", "Lista"], ["ranking", "Ranking"]].map(([v, t]) => (
+              <button key={v} onClick={() => setViewMode(v)} className={`rounded-xl px-3 py-2 text-xs font-bold transition ${viewMode === v ? "bg-gold-400 text-blue-950" : "text-slate-300 hover:bg-white/10"}`}>{t}</button>
+            ))}
+          </div>
         </div>
 
         {/* Vazio: orienta de onde vêm os clientes */}
         {filtrados.length === 0 && (
           <div className="py-12 text-center">
             <p className="text-4xl">👤</p>
-            <p className="mt-2 text-sm font-bold text-slate-400">{clientes.length === 0 ? "Nenhum cliente registrado ainda." : "Nenhum cliente encontrado para esta busca."}</p>
+            <p className="mt-2 text-sm font-bold text-slate-400">{clientes.length === 0 ? "Ainda não existem pedidos identificados para este período." : (termo ? "Nenhum cliente encontrado com esse nome ou telefone." : "Nenhum cliente encontrado para os filtros selecionados.")}</p>
             {clientes.length === 0 && (
               <p className="mx-auto mt-1 max-w-md text-xs text-slate-500">
                 Os clientes entram aqui automaticamente quando pedem pelo <b className="text-slate-300">cardápio digital externo</b> informando nome e telefone. Divulgue o link em <b className="text-slate-300">Cadastros → Cardápio externo</b>.
@@ -7568,10 +7774,35 @@ function CrmAdmin({ clientes = [], orders = [], fidTransacoes = [], fidRecompens
           </div>
         )}
 
-        <div className="space-y-2">
+        {/* Ranking de clientes */}
+        {viewMode === "ranking" && filtrados.length > 0 && (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[640px] text-sm">
+              <thead><tr className="border-b border-white/10 text-left text-[10px] font-bold uppercase tracking-widest text-gold-400/70"><th className="px-3 py-2.5">#</th><th className="px-3 py-2.5">Cliente</th><th className="px-3 py-2.5 text-center">Pedidos</th><th className="px-3 py-2.5 text-right">Faturamento</th><th className="px-3 py-2.5 text-right">Ticket médio</th><th className="px-3 py-2.5 text-right">Último pedido</th><th className="px-3 py-2.5">Classificação</th></tr></thead>
+              <tbody>
+                {filtrados.map((c, i) => {
+                  const tag = segmentosDoCliente(c)[0];
+                  return (
+                    <tr key={c.telefone + c.id} className="cursor-pointer border-b border-white/5 hover:bg-white/[0.04]" onClick={() => { setViewMode("lista"); setAberto(c.telefone); }}>
+                      <td className="px-3 py-2.5 font-black text-gold-300">{i + 1}º</td>
+                      <td className="px-3 py-2.5 font-bold text-white">{c.nome}</td>
+                      <td className="px-3 py-2.5 text-center text-slate-300">{c.qtd}</td>
+                      <td className="px-3 py-2.5 text-right font-semibold text-emerald-300">{formatCurrency(c.total)}</td>
+                      <td className="px-3 py-2.5 text-right text-slate-300">{formatCurrency(c.ticket)}</td>
+                      <td className="px-3 py-2.5 text-right text-slate-400">{c.ultimo ? tempoRelativo(c.ultimo) : "—"}</td>
+                      <td className="px-3 py-2.5"><span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-black ${tag.cls}`}>{tag.t}</span></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        <div className={`space-y-2 ${viewMode === "ranking" ? "hidden" : ""}`}>
           {filtrados.map((c) => {
             const exp = aberto === c.telefone;
-            const cl = classif(c);
+            const tags = segmentosDoCliente(c);
             return (
               <div key={c.telefone + c.id} className="rounded-3xl border border-white/10 bg-slate-950/40 overflow-hidden">
                 <button onClick={() => setAberto(exp ? null : c.telefone)} className="flex w-full items-center gap-3 p-3.5 text-left hover:bg-white/[0.04] transition">
@@ -7580,14 +7811,19 @@ function CrmAdmin({ clientes = [], orders = [], fidTransacoes = [], fidRecompens
                     {(c.nome || "?").trim().charAt(0)}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-1.5">
                       <p className="truncate font-black text-white">{c.nome}</p>
-                      <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[9px] font-black ${cl.cls}`}>{cl.t}</span>
+                      {tags.map((t, i) => <span key={i} className={`shrink-0 rounded-full border px-2 py-0.5 text-[9px] font-black ${t.cls}`}>{t.t}</span>)}
                     </div>
                     <p className="truncate text-xs text-slate-400">
                       📱 {formatarTelefone(c.telefone)}
                       {c.ultimo ? ` · último pedido ${tempoRelativo(c.ultimo)}` : (c.criadoEm ? ` · cadastrado em ${new Date(c.criadoEm).toLocaleDateString("pt-BR")}` : "")}
                     </p>
+                    {c.qtd > 0 && (
+                      <p className="mt-0.5 hidden truncate text-[11px] text-slate-500 sm:block">
+                        {c.favorito ? `❤️ ${c.favorito.nome}` : ""}{c.favorito ? " · " : ""}🕒 {c.horario} · 📍 {c.canal}
+                      </p>
+                    )}
                   </div>
                   <div className="hidden shrink-0 text-right sm:block">
                     <p className="text-xs text-slate-500">Ticket médio</p>
@@ -7619,6 +7855,21 @@ function CrmAdmin({ clientes = [], orders = [], fidTransacoes = [], fidRecompens
                         💬 Chamar no WhatsApp
                       </a>
                     </div>
+                    {/* Análise do cliente + ação sugerida */}
+                    {c.qtd > 0 && (
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3 text-xs text-slate-300">
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Análise</p>
+                          <p className="mt-1">Faturamento: <b className="text-emerald-300">{formatCurrency(c.total)}</b> · Ticket médio: <b className="text-gold-300">{formatCurrency(c.ticket)}</b></p>
+                          <p>Frequência: {c.intervaloMedio != null ? <b className="text-white">compra a cada ~{c.intervaloMedio} dia(s)</b> : "—"}{c.diasSemComprar != null ? ` · há ${c.diasSemComprar} dia(s) sem comprar` : ""}</p>
+                          <p>Horário: <b className="text-white">{c.horario}</b> · Origem: <b className="text-white">{c.canal}</b></p>
+                        </div>
+                        <div className="rounded-2xl border border-gold-400/25 bg-gold-400/[0.06] p-3">
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-gold-300/80">💡 Ação sugerida</p>
+                          <p className="mt-1 text-sm leading-5 text-slate-200">{acaoSugerida(c)}</p>
+                        </div>
+                      </div>
+                    )}
                     {/* Fidelidade — saldo + lançar/resgatar pontos */}
                     {lancarPontos && (
                       <FidelidadePainelCliente cliente={c} pontos={c.pontos} recompensas={fidRecompensas} lancarPontos={lancarPontos} />
