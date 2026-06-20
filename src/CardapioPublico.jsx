@@ -42,6 +42,10 @@ export default function CardapioPublico() {
   const [aba, setAba]             = useState(null); // null | 'carrinho' | 'conta'
   const [enviando, setEnviando]   = useState(false);
   const [msg, setMsg]             = useState(null);
+  // Restyle app-mesa: tela de boas-vindas + sugestão de bebida
+  const [etapa, setEtapa]         = useState(mesaURL ? "welcome" : "cardapio"); // welcome | cardapio
+  const [sugBebida, setSugBebida] = useState(false);  // mostra sugestão de bebida
+  const [sugFechada, setSugFechada] = useState(false); // usuário dispensou a sugestão
 
   // Carrega empresa (por prefixo) + produtos + categorias
   useEffect(() => {
@@ -129,7 +133,22 @@ export default function CardapioPublico() {
   const podeFechar = meusPedidos.length > 0 && meusPedidos.every((o) => o.status === "delivered");
   const contaSolicitada = meusPedidos.some((o) => o.paymentStatus === "requested");
 
-  function addConfigurado(item) { setCart((c) => [...c, { ...item, _uid: Date.now() + Math.random() }]); setDetalhe(null); }
+  // Categoria de bebidas (para a sugestão automática "complete com uma bebida")
+  const nomeCatBebida = useMemo(() => (categorias.find((c) => /bebida|drink|suco/i.test(c.nome))?.nome) || "Bebidas", [categorias]);
+  const bebidas = useMemo(() => produtos.filter((p) => p.category === nomeCatBebida && p.disponivel !== false).slice(0, 6), [produtos, nomeCatBebida]);
+  const ehBebida = (item) => item?.category === nomeCatBebida || bebidas.some((b) => b.name === item?.name);
+  const carrinhoTemBebida = cart.some(ehBebida);
+
+  function addConfigurado(item) {
+    setCart((c) => [...c, { ...item, _uid: Date.now() + Math.random() }]);
+    setDetalhe(null);
+    // Sugere bebida ao adicionar comida (não repete se já dispensou ou já há bebida no carrinho)
+    if (!ehBebida(item) && !carrinhoTemBebida && !sugFechada && bebidas.length > 0) setSugBebida(true);
+  }
+  function addBebida(b) {
+    setCart((c) => [...c, { name: b.name, price: b.price, quantity: 1, category: b.category, removedIngredients: [], extraIngredients: [], selectedOptions: [], observation: "", _uid: Date.now() + Math.random() }]);
+    setSugBebida(false);
+  }
   function removerItem(uid) { setCart((c) => c.filter((i) => i._uid !== uid)); }
 
   // Chamados de mesa (garçom/ajuda/limpeza) — só no modo mesa (QR na mesa)
@@ -197,6 +216,38 @@ export default function CardapioPublico() {
   if (loja === null) return <Centro><span className="text-5xl">🔍</span><p className="mt-3 font-black text-white">Empresa não encontrada</p><p className="mt-1 text-sm text-slate-500">Verifique o link/QR do cardápio.</p></Centro>;
   if (!podeExterno) return <Centro><span className="text-5xl">📵</span><p className="mt-3 font-black text-white">Cardápio externo indisponível</p><p className="mt-1 text-sm text-slate-500">Esta empresa não habilitou o cardápio digital para o cliente.</p></Centro>;
 
+  // ── Tela de boas-vindas (somente no modo mesa via QR) ──────────
+  if (etapa === "welcome") {
+    return (
+      <div className="flex min-h-screen flex-col bg-gradient-to-b from-blue-950 via-slate-950 to-black px-6 text-slate-100"
+        style={{ minHeight: "100dvh", paddingTop: "calc(env(safe-area-inset-top) + 2rem)", paddingBottom: "calc(env(safe-area-inset-bottom) + 2rem)" }}>
+        <div className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center text-center">
+          {loja.logoUrl ? <img src={loja.logoUrl} alt="" className="h-20 w-20 rounded-3xl object-cover shadow-2xl shadow-black/50" /> : <LogoPP size={80} />}
+          <h1 className="page-title mt-5 text-2xl font-bold tracking-tight text-white">{loja.nome}</h1>
+          {currentTable && <span className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-gold-400/40 bg-gold-400/10 px-4 py-1.5 text-sm font-bold text-gold-300">📍 {currentTable}</span>}
+          <p className="mt-6 text-lg font-bold text-white">Bem-vindo! 👋</p>
+          <p className="mt-1 text-sm leading-6 text-slate-400">Faça seu pedido de forma rápida e prática direto pelo celular.</p>
+          <div className="mt-8 w-full space-y-3">
+            <button onClick={() => setEtapa("cardapio")} className="w-full rounded-2xl bg-gold-400 py-4 text-base font-black text-blue-950 shadow-lg shadow-gold-900/30 transition active:scale-95 hover:bg-gold-300">Iniciar pedido</button>
+            <button onClick={() => setEtapa("cardapio")} className="w-full rounded-2xl border border-white/15 bg-white/[0.06] py-4 text-base font-bold text-slate-200 transition active:scale-95 hover:bg-white/10">Ver cardápio</button>
+          </div>
+          {!modoExterno && mesa && (
+            <div className="mt-8 w-full">
+              <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Precisa de algo?</p>
+              <div className="mt-2 flex justify-center gap-2">
+                {[["garcom", "🔔 Garçom"], ["ajuda", "🆘 Ajuda"], ["limpeza", "🧹 Limpeza"]].map(([t, l]) => (
+                  <button key={t} onClick={() => chamar(t, l.replace(/^\S+\s/, ""))}
+                    className="flex-1 rounded-2xl border border-gold-400/30 bg-gold-400/10 py-2.5 text-xs font-black text-gold-200 transition active:scale-95 hover:bg-gold-400/20">{l}</button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+        {msg && <div className="mx-auto w-full max-w-md"><div className={`rounded-2xl border px-4 py-2.5 text-center text-sm font-bold ${msg.t === "error" ? "border-red-400/30 bg-red-500/15 text-red-200" : "border-emerald-400/30 bg-emerald-500/15 text-emerald-200"}`}>{msg.m}</div></div>}
+      </div>
+    );
+  }
+
   const podeEnviar = cart.length > 0;
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100" style={{ minHeight: "100dvh", paddingBottom: "calc(env(safe-area-inset-bottom) + 88px)" }}>
@@ -246,36 +297,67 @@ export default function CardapioPublico() {
           </div>
         )}
 
-        {/* Grade de produtos */}
-        <div className="grid gap-4 pb-6 sm:grid-cols-2">
+        {/* Aviso de personalização */}
+        <div className="mb-3 flex items-center gap-2 rounded-2xl border border-gold-400/25 bg-gold-400/[0.06] px-4 py-2.5">
+          <span className="text-lg">✨</span>
+          <p className="text-xs font-bold text-gold-200">Personalize do seu jeito! <span className="font-normal text-slate-300">Adicione ou remova ingredientes.</span></p>
+        </div>
+
+        {/* Grade de produtos — 2 colunas no celular (estilo app) */}
+        <div className="grid grid-cols-2 gap-3 pb-6">
           {itens.length === 0 && <p className="col-span-full py-10 text-center text-sm text-slate-500">Nenhum produto encontrado.</p>}
           {itens.map((item) => {
             const indisponivel = item.disponivel === false;
             const etiqueta = (item.isFeatured && item.featuredLabel) || item.badge;
+            const personalizavel = (item.ingredients || []).length > 0;
             return (
             <article key={item.id} className={`flex h-full flex-col overflow-hidden rounded-3xl border bg-slate-900 shadow-xl ${item.isFeatured && !indisponivel ? "border-gold-400/50" : "border-white/10"}`}>
-              <button onClick={() => !indisponivel && setDetalhe(item)} disabled={indisponivel} className="relative block h-40 w-full overflow-hidden bg-slate-800 text-left disabled:cursor-not-allowed">
+              <button onClick={() => !indisponivel && setDetalhe(item)} disabled={indisponivel} className="relative block h-28 w-full overflow-hidden bg-slate-800 text-left disabled:cursor-not-allowed">
                 <img src={item.imageUrl || fallbackImage} alt={item.name} className={`h-full w-full object-cover ${indisponivel ? "grayscale opacity-50" : ""}`} />
-                <span className="absolute bottom-2 left-2 rounded-2xl bg-black/60 px-3 py-1 text-base font-black text-gold-400 backdrop-blur-sm">{formatCurrency(item.price)}</span>
-                {etiqueta && !indisponivel && <span className="absolute left-2 top-2 rounded-md bg-gold-400 px-2 py-1 text-[9px] font-black uppercase tracking-wider text-blue-950 shadow-lg">{etiqueta}</span>}
-                {indisponivel && <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/70 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-slate-200">Indisponível</span>}
+                {etiqueta && !indisponivel && <span className="absolute left-1.5 top-1.5 rounded-md bg-gold-400 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider text-blue-950 shadow-lg">{etiqueta}</span>}
+                {personalizavel && !indisponivel && !etiqueta && <span className="absolute left-1.5 top-1.5 rounded-md bg-blue-500/80 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider text-white">Personalizável</span>}
+                {indisponivel && <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/70 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-slate-200">Indisponível</span>}
               </button>
-              <div className="flex flex-1 flex-col p-4">
-                <p className="text-xs font-bold uppercase tracking-widest text-gold-400">{item.category}</p>
-                <h3 className="mt-1 text-base font-black text-white leading-tight">{item.name}</h3>
-                <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-400">{item.description}</p>
-                {indisponivel ? (
-                  <div className="mt-auto pt-3"><span className="block w-full rounded-2xl border border-white/10 bg-white/[0.04] py-3 text-center text-sm font-bold text-slate-500">Indisponível no momento</span></div>
-                ) : (
-                <button onClick={() => setDetalhe(item)} className="mt-auto pt-3">
-                  <span className="block w-full rounded-2xl bg-gold-400 py-3 text-center text-sm font-black text-blue-950 hover:bg-gold-300 transition shadow-lg shadow-gold-900/20">+ Adicionar</span>
-                </button>
-                )}
+              <div className="flex flex-1 flex-col p-3">
+                <h3 className="text-sm font-black leading-tight text-white line-clamp-2">{item.name}</h3>
+                <p className="mt-0.5 line-clamp-2 text-[11px] leading-4 text-slate-400">{item.description}</p>
+                <div className="mt-auto flex items-center justify-between gap-2 pt-2.5">
+                  <span className="text-sm font-black text-gold-400">{formatCurrency(item.price)}</span>
+                  {indisponivel
+                    ? <span className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-slate-600">✕</span>
+                    : <button onClick={() => setDetalhe(item)} aria-label="Adicionar" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gold-400 text-lg font-black text-blue-950 shadow-lg shadow-gold-900/20 transition active:scale-90 hover:bg-gold-300">+</button>}
+                </div>
               </div>
             </article>
           );})}
         </div>
       </main>
+
+      {/* Sugestão de bebida (após adicionar comida) */}
+      {sugBebida && !carrinhoTemBebida && bebidas.length > 0 && (
+        <div className="fixed inset-x-0 z-40" style={{ bottom: "calc(env(safe-area-inset-bottom) + 72px)" }}>
+          <div className="mx-auto max-w-3xl px-3">
+            <div className="rounded-3xl border border-gold-400/30 bg-slate-900/98 p-3 shadow-2xl shadow-black/50 backdrop-blur-xl">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-black text-white">🥤 Quer completar com uma bebida?</p>
+                <button onClick={() => { setSugBebida(false); setSugFechada(true); }} className="rounded-full border border-white/10 bg-white/[0.06] px-2 py-0.5 text-xs font-black text-slate-400">✕</button>
+              </div>
+              <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+                {bebidas.map((b) => (
+                  <div key={b.id} className="flex w-32 shrink-0 flex-col rounded-2xl border border-white/10 bg-slate-950/50 p-2">
+                    <img src={b.imageUrl || fallbackImage} alt="" className="h-16 w-full rounded-xl object-cover" />
+                    <p className="mt-1 truncate text-[11px] font-bold text-white">{b.name}</p>
+                    <div className="mt-1 flex items-center justify-between">
+                      <span className="text-xs font-black text-gold-400">{formatCurrency(b.price)}</span>
+                      <button onClick={() => addBebida(b)} className="flex h-6 w-6 items-center justify-center rounded-full bg-gold-400 text-sm font-black text-blue-950">+</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Barra inferior fixa */}
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-slate-900/95 backdrop-blur-xl" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
@@ -283,8 +365,8 @@ export default function CardapioPublico() {
           <button onClick={() => setAba("conta")} disabled={meusPedidos.length === 0}
             className="shrink-0 rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-black text-slate-300 disabled:opacity-40">👁️ Acompanhar</button>
           <button onClick={() => setAba("carrinho")} disabled={cart.length === 0}
-            className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-emerald-500 px-4 py-3.5 text-sm font-black text-white disabled:opacity-40">
-            🛒 {qtdCart > 0 ? `${qtdCart} item(ns) · ${formatCurrency(totalCart)}` : "Carrinho vazio"}
+            className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-gold-400 px-4 py-3.5 text-sm font-black text-blue-950 shadow-lg shadow-gold-900/20 transition active:scale-95 disabled:opacity-40 disabled:bg-white/[0.06] disabled:text-slate-500">
+            🛒 {qtdCart > 0 ? `Ver carrinho · ${qtdCart} item(ns) · ${formatCurrency(totalCart)}` : "Carrinho vazio"}
           </button>
         </div>
       </div>
@@ -357,9 +439,12 @@ export default function CardapioPublico() {
             <div className="space-y-2">
               {meusPedidos.map((o) => (
                 <div key={o.id} className="rounded-2xl border border-white/10 bg-slate-950/40 p-3">
-                  <div className="mb-1.5 flex items-center justify-between"><span className="text-xs font-bold uppercase tracking-widest text-slate-500">{o.id} • {o.createdAt}</span>
+                  <div className="mb-2 flex items-center justify-between"><span className="text-xs font-bold uppercase tracking-widest text-slate-500">{o.id} • {o.createdAt}</span>
                     <span className={`rounded-full border px-3 py-1 text-xs font-black ${statusMap[o.status]?.chip}`}>{STATUS_TABLET_LABEL[o.status] || statusMap[o.status]?.label}</span></div>
-                  {o.items.map((it, idx) => <div key={idx} className="flex justify-between text-sm py-0.5"><span className="text-slate-300"><b className="text-white">{it.quantity}×</b> {it.name}</span><span className="font-bold text-white">{formatCurrency(it.price * it.quantity)}</span></div>)}
+                  <TimelinePedido status={o.status} />
+                  <div className="mt-2 border-t border-white/10 pt-2">
+                    {o.items.map((it, idx) => <div key={idx} className="flex justify-between text-sm py-0.5"><span className="text-slate-300"><b className="text-white">{it.quantity}×</b> {it.name}</span><span className="font-bold text-white">{formatCurrency(it.price * it.quantity)}</span></div>)}
+                  </div>
                 </div>
               ))}
             </div>
@@ -388,6 +473,33 @@ function Centro({ children }) {
   return <div className="flex min-h-screen flex-col items-center justify-center bg-slate-950 px-6 text-center text-slate-100" style={{ minHeight: "100dvh" }}>{children}</div>;
 }
 function Spinner() { return <div className="h-10 w-10 animate-spin rounded-full border-4 border-blue-500/30 border-t-blue-500" />; }
+
+// Linha do tempo do status do pedido (recebido → preparo → pronto → entregue)
+function TimelinePedido({ status }) {
+  const ordem = ["received", "preparing", "ready", "delivered"];
+  const passos = [
+    { k: "received", ic: "✅", l: "Pedido recebido" },
+    { k: "preparing", ic: "👨‍🍳", l: "Em preparo na cozinha" },
+    { k: "ready", ic: "🛎️", l: "Pronto — saindo para a mesa" },
+    { k: "delivered", ic: "🍽️", l: "Entregue" },
+  ];
+  if (status === "cancelled") return <p className="rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-300">Pedido cancelado.</p>;
+  const atual = Math.max(0, ordem.indexOf(status));
+  return (
+    <div className="space-y-1.5">
+      {passos.map((p, i) => {
+        const feito = i <= atual;
+        const ativo = i === atual;
+        return (
+          <div key={p.k} className="flex items-center gap-2.5">
+            <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] ${feito ? "bg-emerald-500/20 text-emerald-300" : "bg-white/[0.06] text-slate-600"}`}>{feito ? p.ic : "•"}</span>
+            <span className={`text-xs font-bold ${ativo ? "text-gold-300" : feito ? "text-slate-200" : "text-slate-600"}`}>{p.l}{ativo ? " · agora" : ""}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 function Gaveta({ titulo, onFechar, children }) {
   return (
     <div className="fixed inset-0 z-[110] flex items-end justify-center bg-black/70 backdrop-blur-sm" onClick={onFechar}>
