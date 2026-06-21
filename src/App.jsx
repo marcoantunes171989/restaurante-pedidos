@@ -5922,10 +5922,27 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
   const setorPorNome = useMemo(() => { const m = {}; products.forEach((p) => { if (p.setorId != null) m[p.name] = p.setorId; }); return m; }, [products]);
   const catPorNome = useMemo(() => { const m = {}; products.forEach((p) => { m[p.name] = p.category; }); return m; }, [products]);
   const barSetor = useMemo(() => setores.find((s) => /bar|bebida|drink/i.test(s.nome)) || null, [setores]);
-  const itemEhBar = (it) => (barSetor && setorPorNome[it.name] === barSetor.id) || /bebida|drink|suco|refri/i.test(catPorNome[it.name] || "");
-  const itensDoSetor = (o, bar) => (o.items || []).filter((it) => (bar ? itemEhBar(it) : !itemEhBar(it)));
+  const sobremesaSetor = useMemo(() => setores.find((s) => /sobremesa|doce|sweet/i.test(s.nome)) || null, [setores]);
+  // Classifica cada item em UM setor operacional: bar, sobremesa ou cozinha.
+  // O vínculo explícito do produto (setorId) tem prioridade; sem vínculo, cai na heurística por categoria.
+  const setorDoItem = (it) => {
+    const sid = setorPorNome[it.name];
+    if (sid != null) {
+      if (barSetor && sid === barSetor.id) return "bar";
+      if (sobremesaSetor && sid === sobremesaSetor.id) return "sobremesa";
+      return "cozinha";
+    }
+    const cat = catPorNome[it.name] || "";
+    if (/bebida|drink|suco|refri/i.test(cat)) return "bar";
+    if (/sobremesa|doce|bolo|sweet/i.test(cat)) return "sobremesa";
+    return "cozinha";
+  };
+  const SETOR_META = { cozinha: { label: "Cozinha", ic: "👨‍🍳" }, bar: { label: "Bar", ic: "🍹" }, sobremesa: { label: "Sobremesa", ic: "🍰" } };
+  const ORDEM_SETORES = ["cozinha", "sobremesa", "bar"];
+  const itensDoSetor = (o, setor) => (o.items || []).filter((it) => setorDoItem(it) === setor);
+  const qtdItens = (o, setor) => itensDoSetor(o, setor).reduce((s, it) => s + it.quantity, 0);
   // Status por setor
-  const setoresPresentes = (o) => [itensDoSetor(o, false).length > 0 && "cozinha", itensDoSetor(o, true).length > 0 && "bar"].filter(Boolean);
+  const setoresPresentes = (o) => ORDEM_SETORES.filter((s) => itensDoSetor(o, s).length > 0);
   const setorPronto = (o, s) => (o.setorStatus || {})[s] === "ready";
   const parcial = (o) => { const ps = setoresPresentes(o); return ps.length > 1 && ps.some((s) => setorPronto(o, s)) && !ps.every((s) => setorPronto(o, s)); };
 
@@ -6013,19 +6030,18 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
       )}
 
       {tab === "pedidos" && permitido("pedidos") && (() => {
-        const ativosFiltrados = ativos.filter((o) =>
-          filtroCentral === "todos" ? true
-          : filtroCentral === "cozinha" ? itensDoSetor(o, false).length > 0
-          : filtroCentral === "bar" ? itensDoSetor(o, true).length > 0
-          : true)
+        const setorFiltrado = ["cozinha", "bar", "sobremesa"].includes(filtroCentral) ? filtroCentral : null;
+        const ativosFiltrados = ativos.filter((o) => setorFiltrado ? itensDoSetor(o, setorFiltrado).length > 0 : true)
           // Fila em ordem cronológica fixa: o mais antigo no topo (#1, #2, #3…),
           // para o atendimento seguir a ordem de chegada sem pedido novo "pular".
           .sort((a, b) => new Date(a.createdAtISO || 0) - new Date(b.createdAtISO || 0));
+        // Contagem de itens de sobremesa em aberto (balão no chip)
+        const totalSobremesa = ativos.reduce((acc, o) => acc + qtdItens(o, "sobremesa"), 0);
         return (<>
         <div className="mb-3 flex gap-1.5 overflow-x-auto">
-          {[["todos", "Todos"], ["cozinha", "Cozinha"], ["bar", "Bar"], ["caixa", "Caixa"]].map(([k, l]) => (
+          {[["todos", "Todos"], ["cozinha", "Cozinha"], ["bar", "Bar"], ["sobremesa", "Sobremesa"], ["caixa", "Caixa"]].map(([k, l]) => (
             <button key={k} onClick={() => (k === "caixa" ? setTab("caixa") : setFiltroCentral(k))}
-              className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-bold transition ${filtroCentral === k ? "bg-gold-400 text-blue-950" : "border border-white/10 bg-white/[0.05] text-slate-300"}`}>{l}</button>
+              className={`relative shrink-0 rounded-full px-3.5 py-1.5 text-xs font-bold transition ${filtroCentral === k ? "bg-gold-400 text-blue-950" : "border border-white/10 bg-white/[0.05] text-slate-300"}`}>{l}{k === "sobremesa" && totalSobremesa > 0 && <span className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-black ${filtroCentral === k ? "bg-blue-950/20 text-blue-950" : "bg-gold-400 text-blue-950"}`}>{totalSobremesa}</span>}</button>
           ))}
         </div>
         <div className="mb-3 grid grid-cols-2 gap-2">
@@ -6044,11 +6060,11 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
                 <p className="text-xs text-slate-400">{o.customer || "Cliente"}</p>
                 {telMascarado(o.clienteTelefone) && <p className="text-[11px] text-slate-500">📞 {telMascarado(o.clienteTelefone)}</p>}
                 <div className="mt-2 space-y-2">
-                  {setoresPresentes(o).map((sk) => { const its = itensDoSetor(o, sk === "bar"); const liberado = setorPronto(o, sk) && parcial(o);
+                  {setoresPresentes(o).filter((sk) => !setorFiltrado || sk === setorFiltrado).map((sk) => { const its = itensDoSetor(o, sk); const liberado = setorPronto(o, sk) && parcial(o);
                     return (
                       <div key={sk}>
                         <div className="flex items-center gap-1.5">
-                          <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">{sk === "bar" ? "🍹 Bar" : "👨‍🍳 Cozinha"}</span>
+                          <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">{SETOR_META[sk].ic} {SETOR_META[sk].label}</span>
                           {liberado && <span className="rounded-full border border-emerald-400/30 bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-bold text-emerald-300">✓ liberado</span>}
                         </div>
                         <div className="mt-0.5 space-y-0.5">
@@ -6070,40 +6086,57 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
       })()}
 
       {(tab === "cozinha" || tab === "bar") && permitido(tab) && (() => {
-        const bar = tab === "bar";
-        const comItens = ativos.filter((o) => itensDoSetor(o, bar).length > 0);
+        // A Cozinha cobre cozinha + sobremesa; o Bar cobre bar. Cada setor tem seu próprio "pronto".
+        const setoresTab = tab === "bar" ? ["bar"] : ["cozinha", "sobremesa"];
+        const temNaTab = (o) => setoresTab.some((s) => itensDoSetor(o, s).length > 0);
+        const comItens = ativos.filter(temNaTab).sort((a, b) => new Date(a.createdAtISO || 0) - new Date(b.createdAtISO || 0));
+        const totalSobremesa = tab === "cozinha" ? comItens.reduce((acc, o) => acc + qtdItens(o, "sobremesa"), 0) : 0;
         return (<>
           <div className="mb-3 flex gap-2">
             {[["Novos", novos], ["Em preparo", emPreparo], ["Prontos", prontos]].map(([l, arr]) => {
-              const n = arr.filter((o) => itensDoSetor(o, bar).length > 0).length;
+              const n = arr.filter(temNaTab).length;
               return <div key={l} className="flex-1 rounded-2xl border border-white/10 bg-slate-950/40 py-2 text-center"><span className="page-title block text-lg font-bold text-white">{n}</span><span className="text-[10px] text-slate-500">{l}</span></div>;
             })}
           </div>
+          {tab === "cozinha" && totalSobremesa > 0 && (
+            <div className="mb-3 flex items-center justify-between rounded-2xl border border-pink-400/25 bg-pink-500/[0.07] px-3 py-2">
+              <span className="text-sm font-bold text-pink-200">🍰 Sobremesas a preparar</span>
+              <span className="rounded-full bg-pink-400 px-2.5 py-0.5 text-xs font-black text-blue-950">{totalSobremesa}</span>
+            </div>
+          )}
           <div className="space-y-2">
-            {comItens.length === 0 && <p className="py-10 text-center text-sm text-slate-500">Nenhum pedido para {bar ? "o bar" : "a cozinha"}.</p>}
-            {comItens.map((o) => { const b = badge(o); const its = itensDoSetor(o, bar);
+            {comItens.length === 0 && <p className="py-10 text-center text-sm text-slate-500">Nenhum pedido para {tab === "bar" ? "o bar" : "a cozinha"}.</p>}
+            {comItens.map((o) => { const b = badge(o); const setoresNoPedido = setoresTab.filter((s) => itensDoSetor(o, s).length > 0);
               return (
                 <div key={o.id} className="rounded-3xl border border-white/10 bg-slate-950/40 p-3.5">
-                  <div className="flex items-center justify-between gap-2"><span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-black ${b.c}`}>{b.l}</span><span className="text-[11px] text-slate-500">{haTxt(o)} · {o.table}</span></div>
+                  <div className="flex items-center justify-between gap-2"><span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-black ${b.c}`}>{b.l}</span><span className="text-[11px] text-slate-500">Pedido #{numeroPedido[o.id] ?? "—"} · {haTxt(o)} · {o.table}</span></div>
                   <p className="mt-1.5 text-xs text-slate-400">{o.customer || "Cliente"}</p>
-                  <div className="mt-2 space-y-1.5">
-                    {its.map((it, i) => (
-                      <div key={i} className="rounded-2xl border border-white/10 bg-white/[0.03] p-2">
-                        <p className="text-sm font-bold text-white">{it.quantity}× {it.name}</p>
-                        {(it.removedIngredients?.length > 0 || it.extraIngredients?.length > 0 || it.observation) && (
-                          <p className="text-[11px] text-amber-300">{[...(it.removedIngredients || []).map((x) => "− " + x), ...(it.extraIngredients || []).map((x) => "+ " + x), it.observation].filter(Boolean).join(" · ")}</p>
-                        )}
+                  {setoresNoPedido.map((sk) => { const its = itensDoSetor(o, sk);
+                    return (
+                      <div key={sk} className="mt-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">{SETOR_META[sk].ic} {SETOR_META[sk].label}</span>
+                          {o.status === "preparing" && (setorPronto(o, sk)
+                            ? <span className="rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-300">✓ pronto</span>
+                            : <button onClick={() => marcarSetorPronto(o.id, sk, setoresPresentes(o))} className="rounded-lg bg-emerald-500 px-2.5 py-1 text-[11px] font-black text-white active:scale-95">Marcar pronto</button>)}
+                        </div>
+                        <div className="mt-1 space-y-1.5">
+                          {its.map((it, i) => (
+                            <div key={i} className="rounded-2xl border border-white/10 bg-white/[0.03] p-2">
+                              <p className="text-sm font-bold text-white">{it.quantity}× {it.name}</p>
+                              {(it.removedIngredients?.length > 0 || it.extraIngredients?.length > 0 || it.observation) && (
+                                <p className="text-[11px] text-amber-300">{[...(it.removedIngredients || []).map((x) => "− " + x), ...(it.extraIngredients || []).map((x) => "+ " + x), it.observation].filter(Boolean).join(" · ")}</p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    ))}
-                  </div>
+                    );
+                  })}
                   <div className="mt-2.5">
-                    {(() => {
-                      const sk = bar ? "bar" : "cozinha";
-                      if (o.status === "received") return <button onClick={() => updateOrderStatus(o.id, "preparing")} className="w-full rounded-2xl bg-gold-400 py-2.5 text-sm font-black text-blue-950 active:scale-95">Aceitar</button>;
-                      if (o.status === "ready") return <button onClick={() => marcarEntregue(o.id)} className="w-full rounded-2xl bg-blue-500 py-2.5 text-sm font-black text-white active:scale-95">Baixa / entregue</button>;
-                      if (setorPronto(o, sk)) return <p className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 py-2.5 text-center text-sm font-bold text-emerald-300">✓ {bar ? "Bar" : "Cozinha"} pronto{setoresPresentes(o).length > 1 ? " · aguardando o outro setor" : ""}</p>;
-                      return <button onClick={() => marcarSetorPronto(o.id, sk, setoresPresentes(o))} className="w-full rounded-2xl bg-emerald-500 py-2.5 text-sm font-black text-white active:scale-95">Marcar {bar ? "bar" : "cozinha"} pronto</button>;
-                    })()}
+                    {o.status === "received" && <button onClick={() => updateOrderStatus(o.id, "preparing")} className="w-full rounded-2xl bg-gold-400 py-2.5 text-sm font-black text-blue-950 active:scale-95">Aceitar para preparação</button>}
+                    {o.status === "ready" && <button onClick={() => marcarEntregue(o.id)} className="w-full rounded-2xl bg-blue-500 py-2.5 text-sm font-black text-white active:scale-95">Baixa / entregue</button>}
+                    {o.status === "preparing" && setoresNoPedido.every((s) => setorPronto(o, s)) && setoresPresentes(o).length > setoresNoPedido.length && <p className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 py-2.5 text-center text-sm font-bold text-emerald-300">✓ {tab === "bar" ? "Bar" : "Cozinha"} pronto · aguardando o outro setor</p>}
                   </div>
                 </div>
               );

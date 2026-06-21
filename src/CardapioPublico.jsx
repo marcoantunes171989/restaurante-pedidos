@@ -173,12 +173,21 @@ export default function CardapioPublico() {
   // Roteamento por setor (cozinha/bar) — para o acompanhamento por setor
   const setorPorNomeProd = useMemo(() => { const m = {}; produtos.forEach((p) => { if (p.setorId != null) m[p.name] = p.setorId; }); return m; }, [produtos]);
   const barSetor = useMemo(() => setores.find((s) => /bar|bebida|drink/i.test(s.nome)) || null, [setores]);
-  const itemNoBar = (it) => {
-    if (barSetor && setorPorNomeProd[it.name] === barSetor.id) return true;
+  const sobremesaSetor = useMemo(() => setores.find((s) => /sobremesa|doce|sweet/i.test(s.nome)) || null, [setores]);
+  // Classifica o item em um setor (mesma regra da operação): bar, sobremesa ou cozinha.
+  const setorDoItemCli = (it) => {
+    const sid = setorPorNomeProd[it.name];
+    if (sid != null) {
+      if (barSetor && sid === barSetor.id) return "bar";
+      if (sobremesaSetor && sid === sobremesaSetor.id) return "sobremesa";
+      return "cozinha";
+    }
     const cat = produtos.find((p) => p.name === it.name)?.category || "";
-    return /bebida|drink|suco|refri/i.test(cat);
+    if (/bebida|drink|suco|refri/i.test(cat)) return "bar";
+    if (/sobremesa|doce|bolo|sweet/i.test(cat)) return "sobremesa";
+    return "cozinha";
   };
-  const setoresDoPedido = (o) => [(o.items || []).some((it) => !itemNoBar(it)) && "cozinha", (o.items || []).some((it) => itemNoBar(it)) && "bar"].filter(Boolean);
+  const setoresDoPedido = (o) => ["cozinha", "sobremesa", "bar"].filter((s) => (o.items || []).some((it) => setorDoItemCli(it) === s));
   const ehBebida = (item) => item?.category === nomeCatBebida || bebidas.some((b) => b.name === item?.name);
   const carrinhoTemBebida = cart.some(ehBebida);
 
@@ -540,6 +549,7 @@ function TimelinePedido({ status, paymentStatus = "open", setorStatus = {}, seto
     <div className="space-y-1.5">
       {linha({ feito: idx >= 0, ativo: status === "received", ic: "✅", l: "Pedido recebido" })}
       {presentes.includes("cozinha") && linha({ ...stSetor("cozinha"), ic: "👨‍🍳", l: "Em preparo na cozinha" })}
+      {presentes.includes("sobremesa") && linha({ ...stSetor("sobremesa"), ic: "🍰", l: "Sobremesa em preparo" })}
       {presentes.includes("bar") && linha({ ...stSetor("bar"), ic: "🍹", l: "Bebidas no bar" })}
       {linha({ feito: idx >= 2, ativo: status === "ready", ic: externo ? "🛍️" : "🛎️", l: externo ? "Pronto — liberado para retirada no balcão" : "Pronto — saindo para a mesa" })}
       {linha({ feito: idx >= 3, ativo: status === "delivered", ic: externo ? "🛍️" : "🍽️", l: externo ? "Retirado" : "Entregue" })}
