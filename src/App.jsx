@@ -6107,7 +6107,7 @@ function CaixaMobile({ contas, totalCom, baixarComandas, formasPagamento = [], l
   async function finalizar(o, linhas, total) {
     setPagando(o.id);
     try {
-      const detalhes = linhas.map((l) => ({ forma: l.forma, valor: parseFloat(l.valor) || 0 }));
+      const detalhes = linhas.map((l) => ({ forma: l.forma, valor: Number(l.valor) || 0 }));
       await baixarComandas([o.command], { forma: detalhes.map((d) => d.forma).join(" + "), total, valor: total, detalhes, mesa: o.table, lojaId: lojaInfo?.id }, { manterStatus: true, somenteId: o.id });
     } catch {}
     setPagando(null);
@@ -6144,16 +6144,19 @@ function ContaPaga({ o, haTxt }) {
 function ContaCaixa({ o, opcoes, pagando, onFinalizar, haTxt }) {
   const sub = orderTotal(o); const taxa = sub * 0.1; const total = Math.round((sub + taxa) * 100) / 100;
   const [linhas, setLinhas] = useState([]); // [{ forma, valor }]
-  const soma = Math.round(linhas.reduce((s, l) => s + (parseFloat(l.valor) || 0), 0) * 100) / 100;
+  const soma = Math.round(linhas.reduce((s, l) => s + (Number(l.valor) || 0), 0) * 100) / 100;
   const restante = Math.round((total - soma) * 100) / 100;
-  const valido = linhas.length > 0 && linhas.every((l) => (parseFloat(l.valor) || 0) > 0) && Math.abs(restante) < 0.01;
+  const valido = linhas.length > 0 && linhas.every((l) => (Number(l.valor) || 0) > 0) && Math.abs(restante) < 0.01;
+  // Máscara de moeda: o valor é guardado como número (reais); o input mostra "1.234,56"
+  // e ao digitar preenche da direita p/ esquerda (cada dígito entra como centavo).
+  const fmtMoeda = (n) => (Number(n) || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const toggleForma = (f) => setLinhas((cur) => {
     if (cur.some((l) => l.forma === f)) return cur.filter((l) => l.forma !== f);
-    const pagoAtual = cur.reduce((s, l) => s + (parseFloat(l.valor) || 0), 0);
+    const pagoAtual = cur.reduce((s, l) => s + (Number(l.valor) || 0), 0);
     const falta = Math.max(0, Math.round((total - pagoAtual) * 100) / 100);
-    return [...cur, { forma: f, valor: falta.toFixed(2) }];
+    return [...cur, { forma: f, valor: falta }];
   });
-  const editarValor = (f, v) => setLinhas((cur) => cur.map((l) => l.forma === f ? { ...l, valor: v.replace(",", ".").replace(/[^\d.]/g, "") } : l));
+  const editarValor = (f, raw) => setLinhas((cur) => cur.map((l) => l.forma === f ? { ...l, valor: parseInt(String(raw).replace(/\D/g, "") || "0", 10) / 100 } : l));
   return (
     <div className="rounded-3xl border border-gold-400/25 bg-slate-950/40 p-3.5">
       <div className="flex items-center justify-between"><p className="font-black text-white">{o.table} · {o.id}</p><span className="text-[11px] text-slate-500">{haTxt(o)}</span></div>
@@ -6178,7 +6181,7 @@ function ContaCaixa({ o, opcoes, pagando, onFinalizar, haTxt }) {
             <div key={l.forma} className="flex items-center gap-2">
               <span className="w-24 shrink-0 truncate text-xs font-bold text-gold-300">{l.forma}</span>
               <span className="text-xs text-slate-500">R$</span>
-              <input inputMode="decimal" value={l.valor} onChange={(e) => editarValor(l.forma, e.target.value)} className="w-full rounded-lg border border-white/10 bg-slate-950/70 px-2 py-1 text-sm text-white outline-none focus:border-gold-400/60" />
+              <input inputMode="numeric" value={fmtMoeda(l.valor)} onChange={(e) => editarValor(l.forma, e.target.value)} className="w-full rounded-lg border border-white/10 bg-slate-950/70 px-2 py-1 text-right text-sm font-bold text-white outline-none focus:border-gold-400/60" />
             </div>
           ))}
           <div className="flex items-center justify-between text-[11px]">
