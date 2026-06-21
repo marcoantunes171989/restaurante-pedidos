@@ -5916,10 +5916,10 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, ma
   const parcial = (o) => { const ps = setoresPresentes(o); return ps.length > 1 && ps.some((s) => setorPronto(o, s)) && !ps.every((s) => setorPronto(o, s)); };
 
   const ativos = orders.filter((o) => o.status !== "cancelled" && o.paymentStatus !== "paid" && o.status !== "delivered");
-  const aguardando = orders.filter((o) => o.status !== "cancelled" && o.paymentStatus !== "paid" && (o.status === "delivered" || o.paymentStatus === "requested"));
   // Contas do Caixa: todo pedido ativo aparece imediatamente (pode pagar a qualquer momento);
   // sai da lista só quando estiver pago E retirado.
   const contas = orders.filter((o) => o.status !== "cancelled" && !(o.paymentStatus === "paid" && o.status === "delivered"));
+  const contasAbertas = contas.filter((o) => o.paymentStatus !== "paid"); // contas ainda não pagas (badge da Central)
   const minutos = (o) => o.createdAtISO ? Math.max(0, Math.floor((Date.now() - new Date(o.createdAtISO).getTime()) / 60000)) : null;
   const haTxt = (o) => { const m = minutos(o); return m == null ? "" : (m < 1 ? "agora" : m < 60 ? `há ${m} min` : `há ${Math.floor(m / 60)}h${String(m % 60).padStart(2, "0")}`); };
   const totalCom = (o) => orderTotal(o) * 1.1;
@@ -5998,7 +5998,7 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, ma
           ))}
         </div>
         <div className="mb-3 grid grid-cols-2 gap-2">
-          {[{ l: "Novos", v: novos.length, c: "text-blue-300" }, { l: "Em preparo", v: emPreparo.length, c: "text-amber-300" }, { l: "Prontos", v: prontos.length, c: "text-emerald-300" }, { l: "Aguardando pgto", v: aguardando.length, c: "text-gold-300" }].map((k) => (
+          {[{ l: "Novos", v: novos.length, c: "text-blue-300" }, { l: "Em preparo", v: emPreparo.length, c: "text-amber-300" }, { l: "Prontos", v: prontos.length, c: "text-emerald-300" }, { l: "Aguardando pgto", v: contasAbertas.length, c: "text-gold-300" }].map((k) => (
             <div key={k.l} className="rounded-2xl border border-white/10 bg-slate-950/40 px-3 py-2.5"><p className={`page-title text-2xl font-bold ${k.c}`}>{k.v}</p><p className="text-[11px] text-slate-500">{k.l}</p></div>
           ))}
         </div>
