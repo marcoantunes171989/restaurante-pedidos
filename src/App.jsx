@@ -5937,6 +5937,16 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
   const haTxt = (o) => { const m = minutos(o); return m == null ? "" : (m < 1 ? "agora" : m < 60 ? `há ${m} min` : `há ${Math.floor(m / 60)}h${String(m % 60).padStart(2, "0")}`); };
   // Telefone mascarado: oculta tudo menos os 4 últimos dígitos (privacidade na operação)
   const telMascarado = (t) => { const d = String(t || "").replace(/\D/g, ""); return d.length >= 4 ? `****-${d.slice(-4)}` : ""; };
+  // Número curto e sequencial por dia (1, 2, 3…) na ordem cronológica de criação.
+  const numeroPedido = useMemo(() => {
+    const porDia = {}; const map = {};
+    [...orders].filter((o) => o.createdAtISO).sort((a, b) => new Date(a.createdAtISO) - new Date(b.createdAtISO)).forEach((o) => {
+      const dia = new Date(o.createdAtISO).toLocaleDateString("pt-BR");
+      porDia[dia] = (porDia[dia] || 0) + 1;
+      map[o.id] = porDia[dia];
+    });
+    return map;
+  }, [orders]);
   const totalCom = (o) => orderTotal(o) * 1.1;
   const novos = ativos.filter((o) => o.status === "received");
   const emPreparo = ativos.filter((o) => o.status === "preparing");
@@ -6023,7 +6033,8 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
             return (
               <div key={o.id} className="rounded-3xl border border-white/10 bg-slate-950/40 p-3.5">
                 <div className="flex items-center justify-between gap-2"><div className="flex items-center gap-1.5"><span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-black ${b.c}`}>{b.l}</span>{o.paymentStatus === "paid" && <span className="rounded-full border border-emerald-400/30 bg-emerald-500/15 px-2 py-0.5 text-[10px] font-black text-emerald-300">✓ PAGO</span>}</div><span className="text-[11px] text-slate-500">{org.ic} {org.l} · {haTxt(o)}</span></div>
-                <p className="mt-1.5 font-black text-white">{o.id} · {o.table}</p>
+                <p className="mt-1.5 font-black text-white">Pedido #{numeroPedido[o.id] ?? "—"} · {o.table}</p>
+                <p className="text-[10px] text-slate-600">{o.id}</p>
                 <p className="text-xs text-slate-400">{o.customer || "Cliente"}</p>
                 {telMascarado(o.clienteTelefone) && <p className="text-[11px] text-slate-500">📞 {telMascarado(o.clienteTelefone)}</p>}
                 <div className="mt-2 space-y-2">
