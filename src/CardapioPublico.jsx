@@ -53,6 +53,8 @@ export default function CardapioPublico() {
   const [clienteSalvo, setClienteSalvo] = useState(false); // telefone já tem cadastro
   const modoExterno = !mesaURL; // link geral (divulgação) → pedido externo (delivery/retirada)
   const [aba, setAba]             = useState(null); // null | 'carrinho' | 'conta'
+  const [qrModal, setQrModal]     = useState(null); // dataURL do QR do cardápio (botão "Ver QR")
+  const [ocultarIndisp, setOcultarIndisp] = useState(false); // botão "Filtros": ocultar indisponíveis
   const [enviando, setEnviando]   = useState(false);
   const [msg, setMsg]             = useState(null);
   // Restyle app-mesa: tela de boas-vindas + sugestão de bebida
@@ -114,19 +116,20 @@ export default function CardapioPublico() {
   const podeExterno = loja && (loja.modoUso === "externo" || loja.modoUso === "ambos");
   // Durante a busca, lista achatada (filtrada). Sem busca, agrupamos por categoria
   // para dividir os grupos e permitir o "scroll-spy" (header acompanha o grupo na tela).
+  const visiveis = useMemo(() => ocultarIndisp ? produtos.filter((p) => p.disponivel !== false) : produtos, [produtos, ocultarIndisp]);
   const itensBusca = useMemo(() => {
     const norm = (s) => (s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
     const termo = norm(busca);
     if (!termo) return [];
-    return produtos.filter((p) => norm(`${p.name} ${p.description} ${p.category} ${(p.ingredients || []).join(" ")}`).includes(termo));
-  }, [produtos, busca]);
+    return visiveis.filter((p) => norm(`${p.name} ${p.description} ${p.category} ${(p.ingredients || []).join(" ")}`).includes(termo));
+  }, [visiveis, busca]);
   const grupos = useMemo(() => {
     const porCat = {};
-    produtos.forEach((p) => { const c = p.category || "Outros"; (porCat[c] = porCat[c] || []).push(p); });
+    visiveis.forEach((p) => { const c = p.category || "Outros"; (porCat[c] = porCat[c] || []).push(p); });
     const ordem = categorias.map((c) => c.nome);
     const nomes = [...ordem.filter((n) => porCat[n]?.length), ...Object.keys(porCat).filter((n) => !ordem.includes(n))];
     return nomes.map((nome) => ({ nome, produtos: porCat[nome] }));
-  }, [produtos, categorias]);
+  }, [visiveis, categorias]);
   const cats = useMemo(() => ["Todos", ...grupos.map((g) => g.nome)], [grupos]);
 
   // Scroll-spy: destaca no header o grupo atualmente visível na tela.
@@ -169,28 +172,38 @@ export default function CardapioPublico() {
   };
   const renderProduto = (item) => {
     const indisponivel = item.disponivel === false;
-    const etiqueta = (item.isFeatured && item.featuredLabel) || item.badge;
     const personalizavel = (item.ingredients || []).length > 0;
     return (
-      <article key={item.id} className={`flex h-full flex-col overflow-hidden rounded-3xl border bg-slate-900 shadow-xl ${item.isFeatured && !indisponivel ? "border-gold-400/50" : "border-white/10"}`}>
-        <button onClick={() => !indisponivel && setDetalhe(item)} disabled={indisponivel} className="relative block h-28 w-full overflow-hidden bg-slate-800 text-left disabled:cursor-not-allowed">
-          <img src={item.imageUrl || fallbackImage} alt={item.name} className={`h-full w-full object-cover ${indisponivel ? "grayscale opacity-50" : ""}`} />
-          {etiqueta && !indisponivel && <span className="absolute left-1.5 top-1.5 rounded-md bg-gold-400 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider text-blue-950 shadow-lg">{etiqueta}</span>}
-          {personalizavel && !indisponivel && !etiqueta && <span className="absolute left-1.5 top-1.5 rounded-md bg-blue-500/80 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider text-white">Personalizável</span>}
-          {indisponivel && <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/70 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-slate-200">Indisponível</span>}
-        </button>
-        <div className="flex flex-1 flex-col p-3">
-          <h3 className="text-sm font-black leading-tight text-white line-clamp-2">{item.name}</h3>
-          <p className="mt-0.5 line-clamp-2 text-[11px] leading-4 text-slate-400">{item.description}</p>
-          <div className="mt-auto flex items-center justify-between gap-2 pt-2.5">
-            <span className="text-sm font-black text-gold-400">{formatCurrency(item.price)}</span>
-            {indisponivel
-              ? <span className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-slate-600">✕</span>
-              : <button onClick={() => setDetalhe(item)} aria-label="Adicionar" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gold-400 text-lg font-black text-blue-950 shadow-lg shadow-gold-900/20 transition active:scale-90 hover:bg-gold-300">+</button>}
+      <article key={item.id} className={`flex h-full flex-col rounded-[1.5rem] border bg-slate-900/70 ${item.isFeatured && !indisponivel ? "border-gold-400/50" : "border-white/10"}`}>
+        <div className="flex gap-3 p-3">
+          <div className="relative shrink-0">
+            <button onClick={() => !indisponivel && setDetalhe(item)} disabled={indisponivel} className="block h-[88px] w-[88px] overflow-hidden rounded-2xl bg-slate-800">
+              <img src={item.imageUrl || fallbackImage} alt={item.name} className={`h-full w-full object-cover ${indisponivel ? "grayscale opacity-50" : ""}`} />
+            </button>
+            {personalizavel && !indisponivel && (
+              <button onClick={() => setDetalhe(item)} aria-label="Personalizar" title="Personalizar" className="absolute left-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-full border border-gold-400/40 bg-slate-950/85 text-gold-300 shadow-lg">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/><circle cx="9" cy="7" r="2" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="2" fill="currentColor" stroke="none"/><circle cx="8" cy="17" r="2" fill="currentColor" stroke="none"/></svg>
+              </button>
+            )}
+            {indisponivel && <span className="absolute left-1/2 top-1/2 w-max -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/75 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-slate-200">Indisponível</span>}
           </div>
+          <div className="min-w-0 flex-1">
+            <h3 className="text-[15px] font-black leading-tight text-white line-clamp-1">{item.name}</h3>
+            <p className="mt-1 line-clamp-3 text-[11px] leading-4 text-slate-400">{item.description}</p>
+          </div>
+        </div>
+        <div className="mt-auto flex items-center justify-between px-3 pb-3">
+          <span className="text-base font-black text-gold-400">{formatCurrency(item.price)}</span>
+          {indisponivel
+            ? <span className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-slate-600">✕</span>
+            : <button onClick={() => setDetalhe(item)} aria-label="Adicionar" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gold-400 text-xl font-black text-blue-950 shadow-lg shadow-gold-900/30 transition active:scale-90 hover:bg-gold-300">+</button>}
         </div>
       </article>
     );
+  };
+  // "Ver QR": gera o QR do link deste cardápio (para o cliente compartilhar a mesa).
+  const abrirQr = async () => {
+    try { const QRCode = (await import("qrcode")).default; const u = await QRCode.toDataURL(window.location.href, { width: 600, margin: 1, color: { dark: "#0f172a", light: "#ffffff" } }); setQrModal(u); } catch {}
   };
 
   const telDig = telefone.replace(/\D/g, "");
@@ -372,22 +385,28 @@ export default function CardapioPublico() {
 
   const podeEnviar = cart.length > 0;
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100" style={{ minHeight: "100dvh", paddingBottom: "calc(env(safe-area-inset-bottom) + 88px)" }}>
+    <div className="min-h-screen bg-slate-950 text-slate-100" style={{ minHeight: "100dvh", paddingBottom: `calc(env(safe-area-inset-bottom) + ${cart.length > 0 ? 168 : 96}px)` }}>
       {/* Cabeçalho */}
-      <header className="sticky top-0 z-30 border-b border-white/10 bg-slate-900/95 px-4 py-3 backdrop-blur-xl" style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)" }}>
+      <header className="sticky top-0 z-30 border-b border-white/10 bg-slate-900/95 px-4 pb-3 backdrop-blur-xl" style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)" }}>
         <div className="mx-auto flex max-w-3xl items-center gap-3">
-          {loja.logoUrl ? <img src={loja.logoUrl} alt="" className="h-10 w-10 rounded-2xl object-cover" /> : <LogoPP size={40} />}
+          {loja.logoUrl ? <img src={loja.logoUrl} alt="" className="h-12 w-12 rounded-2xl object-cover" /> : <LogoPP size={48} />}
           <div className="min-w-0 flex-1">
-            <p className="truncate text-base font-black text-white leading-tight">{loja.nome}</p>
-            <p className="text-xs text-slate-400">{currentTable ? `${currentTable}${comanda ? " · " + comanda : ""}` : "Cardápio digital"}</p>
+            <p className="truncate text-lg font-black text-white leading-tight">{loja.nome}</p>
+            <p className="text-sm text-slate-400">{currentTable ? `${currentTable}${comanda ? " · " + comanda : ""}` : "Cardápio digital"}</p>
           </div>
+          {!modoExterno && mesa && (
+            <button onClick={abrirQr} className="flex shrink-0 items-center gap-1.5 rounded-full border border-gold-400/40 bg-gold-400/[0.08] px-3.5 py-2 text-xs font-black text-gold-200 transition active:scale-95 hover:bg-gold-400/15">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><line x1="14" y1="14" x2="14" y2="21"/><line x1="18" y1="14" x2="18" y2="18"/><line x1="21" y1="14" x2="21" y2="21"/></svg>
+              Ver QR
+            </button>
+          )}
         </div>
         {/* Chamados — só no modo mesa (QR na mesa) */}
         {!modoExterno && mesa && (
-          <div className="mx-auto mt-2 flex max-w-3xl gap-2 overflow-x-auto">
-            {[["garcom", "🔔 Garçom"], ["ajuda", "🆘 Ajuda"], ["limpeza", "🧹 Limpeza"]].map(([t, l]) => (
-              <button key={t} onClick={() => chamar(t, l.replace(/^\S+\s/, ""))}
-                className="shrink-0 rounded-full border border-gold-400/40 bg-gold-400/10 px-3.5 py-1.5 text-xs font-black text-gold-200 hover:bg-gold-400/20 transition active:scale-95">{l}</button>
+          <div className="mx-auto mt-3 flex max-w-3xl gap-2">
+            {[["garcom", "🔔", "Garçom"], ["ajuda", "🆘", "Ajuda"], ["limpeza", "🧹", "Limpeza"]].map(([t, ic, l]) => (
+              <button key={t} onClick={() => chamar(t, l)}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl border border-gold-400/30 bg-gold-400/[0.07] py-2.5 text-sm font-black text-gold-200 transition active:scale-95 hover:bg-gold-400/15"><span className="text-base">{ic}</span>{l}</button>
             ))}
           </div>
         )}
@@ -403,11 +422,19 @@ export default function CardapioPublico() {
           })}
         </div>
 
-        {/* Busca — oculta no cardápio de acesso por link externo */}
+        {/* Busca + Filtros — oculta no cardápio de acesso por link externo */}
         {!modoExterno && (
-          <div className="py-3">
-            <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="🔍 Buscar no cardápio…"
-              className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none focus:border-blue-400 placeholder:text-slate-500" />
+          <div className="flex items-center gap-2 py-3">
+            <div className="relative flex-1">
+              <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">🔍</span>
+              <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar produtos..."
+                className="w-full rounded-2xl border border-white/10 bg-slate-900 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-gold-400/60 placeholder:text-slate-500" />
+            </div>
+            <button onClick={() => setOcultarIndisp((v) => !v)} title="Ocultar indisponíveis"
+              className={`flex shrink-0 items-center gap-1.5 rounded-2xl border px-4 py-3 text-sm font-bold transition ${ocultarIndisp ? "border-gold-400 bg-gold-400 text-blue-950" : "border-white/10 bg-slate-900 text-slate-300"}`}>
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="10" y1="18" x2="14" y2="18"/></svg>
+              Filtros
+            </button>
           </div>
         )}
 
@@ -484,15 +511,29 @@ export default function CardapioPublico() {
         </div>
       )}
 
-      {/* Barra inferior fixa */}
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-slate-900/95 backdrop-blur-xl" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
-        <div className="mx-auto flex max-w-3xl items-center gap-2 p-3">
-          <button onClick={() => setAba("conta")} disabled={meusPedidos.length === 0}
-            className="shrink-0 rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-black text-slate-300 disabled:opacity-40">👁️ Acompanhar</button>
-          <button onClick={() => setAba("carrinho")} disabled={cart.length === 0}
-            className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-gold-400 px-4 py-3.5 text-sm font-black text-blue-950 shadow-lg shadow-gold-900/20 transition active:scale-95 disabled:opacity-40 disabled:bg-white/[0.06] disabled:text-slate-500">
-            🛒 {qtdCart > 0 ? "Ver Carrinho" : "Carrinho vazio"}
-          </button>
+      {/* Barra inferior fixa — resumo/Finalizar + Acompanhar/Carrinho */}
+      <div className="fixed inset-x-0 bottom-0 z-40" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
+        <div className="mx-auto max-w-3xl space-y-2 px-3 pb-2 pt-1">
+          {cart.length > 0 && (
+            <div className="flex items-center justify-between gap-3 rounded-3xl border border-gold-400/40 bg-slate-900/95 p-3 shadow-2xl shadow-black/50 backdrop-blur-xl">
+              <button onClick={() => setAba("carrinho")} className="flex min-w-0 items-center gap-3 text-left">
+                <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gold-400/15 text-lg text-gold-300">🛒<span className="absolute -right-1 -top-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-gold-400 px-1 text-[11px] font-black text-blue-950">{qtdCart}</span></span>
+                <span className="min-w-0"><span className="block text-sm font-black text-white">Ver carrinho</span><span className="block text-xs text-slate-400">{qtdCart} {qtdCart === 1 ? "item" : "itens"} · {formatCurrency(totalCart)}</span></span>
+              </button>
+              <button onClick={() => setAba("carrinho")} className="flex shrink-0 items-center gap-1 rounded-2xl bg-gold-400 px-4 py-3 text-sm font-black text-blue-950 shadow-lg shadow-gold-900/30 transition active:scale-95">Finalizar pedido ›</button>
+            </div>
+          )}
+          <div className="flex items-stretch gap-2 rounded-3xl border border-white/10 bg-slate-900/95 p-2 shadow-2xl shadow-black/50 backdrop-blur-xl">
+            <button onClick={() => setAba("conta")} disabled={meusPedidos.length === 0}
+              className="flex flex-1 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] py-3 text-sm font-black text-slate-300 transition active:scale-95 disabled:opacity-40">👁️ Acompanhar</button>
+            <button onClick={() => setAba("carrinho")} disabled={cart.length === 0}
+              className="flex flex-[1.4] items-center justify-center gap-2 rounded-2xl bg-emerald-500 py-2.5 text-sm font-black text-white transition active:scale-95 disabled:bg-white/[0.06] disabled:text-slate-500">
+              <span className="text-lg">🛒</span>
+              {qtdCart > 0
+                ? <span className="text-left leading-tight"><span className="block">Carrinho · {qtdCart} {qtdCart === 1 ? "item" : "itens"}</span><span className="block text-[11px] font-bold text-white/80">{formatCurrency(totalCart)}</span></span>
+                : <span>Carrinho vazio</span>}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -505,6 +546,18 @@ export default function CardapioPublico() {
 
       {/* Modal de produto (reutilizado) */}
       {detalhe && <ProdutoModal produto={detalhe} grupos={gruposOpcoes} opcoes={opcoes} onFechar={() => setDetalhe(null)} onAdicionar={addConfigurado} />}
+
+      {/* Modal "Ver QR" — QR do link deste cardápio */}
+      {qrModal && (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/75 p-6 backdrop-blur-sm" onClick={() => setQrModal(null)}>
+          <div className="w-full max-w-xs rounded-3xl border border-white/10 bg-slate-900 p-5 text-center" onClick={(e) => e.stopPropagation()}>
+            <p className="mb-3 text-sm font-black text-white">{currentTable || loja.nome}</p>
+            <img src={qrModal} alt="QR do cardápio" className="mx-auto w-full rounded-2xl bg-white p-2" />
+            <p className="mt-3 text-xs text-slate-400">Aponte a câmera para abrir este cardápio</p>
+            <button onClick={() => setQrModal(null)} className="mt-4 w-full rounded-2xl border border-white/10 bg-white/[0.06] py-2.5 text-sm font-black text-slate-300">Fechar</button>
+          </div>
+        </div>
+      )}
 
       {/* Gaveta: Carrinho */}
       {aba === "carrinho" && (
