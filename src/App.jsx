@@ -3436,7 +3436,7 @@ export function ProdutoModal({ produto, onFechar, onAdicionar, grupos = [], opco
             <button onClick={confirmar} disabled={!podeAdicionar}
               title={!podeAdicionar ? `Escolha: ${grupoFaltando?.nome}` : undefined}
               className="flex flex-1 items-center justify-between gap-2 rounded-xl bg-gold-400 px-5 py-4 text-sm font-semibold text-blue-950 hover:bg-gold-300 transition active:scale-95 shadow-lg shadow-gold-900/30 disabled:opacity-40 disabled:cursor-not-allowed">
-              <span>{podeAdicionar ? "Adicionar ao pedido" : `Escolha: ${grupoFaltando?.nome}`}</span>
+              <span>{podeAdicionar ? "Adicionar" : `Escolha: ${grupoFaltando?.nome}`}</span>
               <span>{formatCurrency(totalItem)}</span>
             </button>
           </div>
