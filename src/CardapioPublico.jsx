@@ -401,11 +401,13 @@ export default function CardapioPublico() {
           })}
         </div>
 
-        {/* Busca */}
-        <div className="py-3">
-          <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="🔍 Buscar no cardápio…"
-            className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none focus:border-blue-400 placeholder:text-slate-500" />
-        </div>
+        {/* Busca — oculta no cardápio de acesso por link externo */}
+        {!modoExterno && (
+          <div className="py-3">
+            <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="🔍 Buscar no cardápio…"
+              className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none focus:border-blue-400 placeholder:text-slate-500" />
+          </div>
+        )}
 
         {/* Ofertas vigentes */}
         {promocoes.length > 0 && (
