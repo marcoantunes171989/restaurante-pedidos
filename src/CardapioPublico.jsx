@@ -547,7 +547,7 @@ export default function CardapioPublico() {
           <div className="mt-4 flex items-center justify-between border-t border-white/10 pt-3"><span className="text-sm text-slate-400">Total</span><span className="text-xl font-black text-emerald-400">{formatCurrency(totalCart)}</span></div>
           <button onClick={enviar} disabled={!podeEnviar || enviando}
             className="mt-3 w-full rounded-2xl bg-emerald-500 py-4 text-sm font-black text-white hover:bg-emerald-400 transition active:scale-95 disabled:opacity-40">
-            {enviando ? "Enviando…" : "🚀 Enviar pedido para a cozinha"}
+            {enviando ? "Enviando…" : "🚀 Enviar pedido"}
           </button>
         </Gaveta>
       )}
