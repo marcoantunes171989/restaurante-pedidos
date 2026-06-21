@@ -10282,7 +10282,7 @@ function SetoresCozinhaAdmin({ setores = [], produtos = [], orders = [], api, vi
 
       {/* ── Modal: vincular produtos ──────────────────────── */}
       {vinculando && (
-        <VincularProdutosModal setor={vinculando} produtos={produtos} onFechar={() => setVinculando(null)}
+        <VincularProdutosModal setor={vinculando} produtos={produtos} setores={setores} onFechar={() => setVinculando(null)}
           onSalvar={async (alteracoes) => {
             try { for (const [pid, sid] of alteracoes) await vincularProduto(pid, sid); aviso("ok", "Vínculos atualizados."); }
             catch { aviso("erro", "Não foi possível salvar os vínculos."); }
@@ -10294,18 +10294,24 @@ function SetoresCozinhaAdmin({ setores = [], produtos = [], orders = [], api, vi
 }
 
 // Modal de vínculo produto → setor de cozinha
-function VincularProdutosModal({ setor, produtos = [], onFechar, onSalvar }) {
+function VincularProdutosModal({ setor, produtos = [], setores = [], onFechar, onSalvar }) {
   const [busca, setBusca] = useState("");
   const [sel, setSel] = useState(() => new Set(produtos.filter((p) => p.setorId === setor.id).map((p) => p.id)));
   const [salvando, setSalvando] = useState(false);
   const termo = busca.trim().toLowerCase();
-  const lista = termo ? produtos.filter((p) => `${p.name} ${p.category || ""}`.toLowerCase().includes(termo)) : produtos;
+  const nomeSetor = (sid) => setores.find((s) => s.id === sid)?.nome || "Outro setor";
+  // Regra: 1 produto = 1 setor. Mostra só produtos sem vínculo (ou já deste setor);
+  // os que já pertencem a outro setor ficam fora da lista de seleção.
+  const disponiveis = produtos.filter((p) => !p.setorId || p.setorId === setor.id);
+  const lista = termo ? disponiveis.filter((p) => `${p.name} ${p.category || ""}`.toLowerCase().includes(termo)) : disponiveis;
   const toggle = (id) => setSel((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
   async function salvar() {
     // Calcula só os produtos que mudaram de vínculo em relação a ESTE setor
     const alteracoes = [];
     produtos.forEach((p) => {
       const marcado = sel.has(p.id);
+      // Validação interna: nunca revincular um produto já preso a OUTRO setor
+      if (marcado && p.setorId && p.setorId !== setor.id) return;
       if (marcado && p.setorId !== setor.id) alteracoes.push([p.id, setor.id]);
       else if (!marcado && p.setorId === setor.id) alteracoes.push([p.id, null]);
     });
@@ -10331,18 +10337,21 @@ function VincularProdutosModal({ setor, produtos = [], onFechar, onSalvar }) {
         </div>
         <div className="flex-1 overflow-y-auto px-6 py-3">
           {lista.length === 0 ? (
-            <p className="py-8 text-center text-sm text-slate-500">Nenhum produto encontrado.</p>
+            <p className="py-8 text-center text-sm text-slate-500">{termo ? "Nenhum produto encontrado." : "Nenhum produto disponível — os demais já estão vinculados a outros setores."}</p>
           ) : lista.map((p) => {
             const marcado = sel.has(p.id);
-            const noutroSetor = p.setorId && p.setorId !== setor.id;
+            const vinculado = p.setorId === setor.id;
             return (
               <button key={p.id} onClick={() => toggle(p.id)} className={`flex w-full items-center gap-3 border-b border-white/5 py-2.5 text-left transition hover:bg-white/[0.03]`}>
                 <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${marcado ? "border-gold-400 bg-gold-400 text-blue-950" : "border-white/20"}`}>{marcado && <span className="text-[11px] font-black">✓</span>}</span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-semibold text-white">{p.name}</span>
-                  <span className="block truncate text-[11px] text-slate-500">{p.category || "Sem categoria"} · {brl(p.price)}{noutroSetor ? " · já vinculado a outro setor" : ""}</span>
+                  <span className="block truncate text-[11px] text-slate-500">{p.category || "Sem categoria"} · {brl(p.price)}</span>
                 </span>
-                <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${p.active !== false ? "bg-emerald-500/10 text-emerald-300" : "bg-white/[0.06] text-slate-400"}`}>{p.active !== false ? "Ativo" : "Inativo"}</span>
+                <span className="flex shrink-0 flex-col items-end gap-1">
+                  {vinculado && <span className="rounded-full bg-gold-400/15 px-2 py-0.5 text-[10px] font-bold text-gold-300">{nomeSetor(p.setorId)}</span>}
+                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${p.active !== false ? "bg-emerald-500/10 text-emerald-300" : "bg-white/[0.06] text-slate-400"}`}>{p.active !== false ? "Ativo" : "Inativo"}</span>
+                </span>
               </button>
             );
           })}
