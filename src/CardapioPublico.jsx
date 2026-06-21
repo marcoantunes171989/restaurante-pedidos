@@ -445,7 +445,6 @@ export default function CardapioPublico() {
                   <input value={cliente} onChange={(e) => setCliente(capitalizarNome(e.target.value))} placeholder="Nome completo"
                     className="w-full rounded-2xl border border-amber-400/40 bg-slate-800 px-3 py-2.5 text-sm text-white outline-none" /></label>
               </div>
-              {clienteSalvo && <p className="rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-3 py-1.5 text-xs font-bold text-emerald-200">✓ Cliente já cadastrado — bem-vindo(a) de volta, {cliente}!</p>}
             </div>
           ) : (
             <>
