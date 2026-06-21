@@ -5320,7 +5320,9 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
                   const sel = ativo === it.id;
                   const bloq = !canAccessModule(it.id, { assinatura: assinaturaAtual, plano: planoAtual, planoModulos, isSuperAdmin });
                   return (
-                    <button key={it.id} onClick={() => setAdminSection(it.id)} title={bloq ? "Disponível em outro plano" : undefined}
+                    <button key={it.id} onClick={() => (it.id === "operacaomobile" && window.innerWidth >= 768)
+                        ? window.open(`${window.location.origin}/operacional`, "_blank", "noopener")
+                        : setAdminSection(it.id)} title={bloq ? "Disponível em outro plano" : (it.id === "operacaomobile" ? "Abre em nova aba (tela cheia), como o link externo" : undefined)}
                       className={`group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold transition ${sel ? "bg-gold-400/10 text-gold-300" : "text-slate-300 hover:bg-white/[0.05] hover:text-white"}`}>
                       {/* Barra de destaque dourada do item ativo */}
                       <span className={`absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 rounded-full bg-gold-400 transition-opacity ${sel ? "opacity-100" : "opacity-0"}`} />
