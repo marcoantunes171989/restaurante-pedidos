@@ -482,10 +482,7 @@ export default function CardapioPublico() {
               {meusPedidos.map((o) => (
                 <div key={o.id} className="rounded-2xl border border-white/10 bg-slate-950/40 p-3">
                   <div className="mb-2 flex items-center justify-between gap-2"><span className="text-xs font-bold uppercase tracking-widest text-slate-500">{o.id} • {o.createdAt}</span>
-                    <div className="flex items-center gap-1.5">
-                      {o.paymentStatus === "paid" && <span className="rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2 py-1 text-[10px] font-black text-emerald-300">✓ Pago</span>}
-                      <span className={`rounded-full border px-3 py-1 text-xs font-black ${statusMap[o.status]?.chip}`}>{STATUS_TABLET_LABEL[o.status] || statusMap[o.status]?.label}</span>
-                    </div></div>
+                    <span className={`rounded-full border px-3 py-1 text-xs font-black ${statusMap[o.status]?.chip}`}>{STATUS_TABLET_LABEL[o.status] || statusMap[o.status]?.label}</span></div>
                   <TimelinePedido status={o.status} paymentStatus={o.paymentStatus} setorStatus={o.setorStatus} setoresPedido={setoresDoPedido(o)} externo={modoExterno || o.table === "Externo"} />
                   <div className="mt-2 border-t border-white/10 pt-2">
                     {o.items.map((it, idx) => <div key={idx} className="flex justify-between text-sm py-0.5"><span className="text-slate-300"><b className="text-white">{it.quantity}×</b> {it.name}</span><span className="font-bold text-white">{formatCurrency(it.price * it.quantity)}</span></div>)}
