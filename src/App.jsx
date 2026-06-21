@@ -5935,6 +5935,8 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
   const contasAbertas = contas.filter((o) => o.paymentStatus !== "paid"); // contas ainda não pagas (badge da Central)
   const minutos = (o) => o.createdAtISO ? Math.max(0, Math.floor((Date.now() - new Date(o.createdAtISO).getTime()) / 60000)) : null;
   const haTxt = (o) => { const m = minutos(o); return m == null ? "" : (m < 1 ? "agora" : m < 60 ? `há ${m} min` : `há ${Math.floor(m / 60)}h${String(m % 60).padStart(2, "0")}`); };
+  // Telefone mascarado: oculta tudo menos os 4 últimos dígitos (privacidade na operação)
+  const telMascarado = (t) => { const d = String(t || "").replace(/\D/g, ""); return d.length >= 4 ? `****-${d.slice(-4)}` : ""; };
   const totalCom = (o) => orderTotal(o) * 1.1;
   const novos = ativos.filter((o) => o.status === "received");
   const emPreparo = ativos.filter((o) => o.status === "preparing");
@@ -6023,6 +6025,7 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
                 <div className="flex items-center justify-between gap-2"><div className="flex items-center gap-1.5"><span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-black ${b.c}`}>{b.l}</span>{o.paymentStatus === "paid" && <span className="rounded-full border border-emerald-400/30 bg-emerald-500/15 px-2 py-0.5 text-[10px] font-black text-emerald-300">✓ PAGO</span>}</div><span className="text-[11px] text-slate-500">{org.ic} {org.l} · {haTxt(o)}</span></div>
                 <p className="mt-1.5 font-black text-white">{o.id} · {o.table}</p>
                 <p className="text-xs text-slate-400">{o.customer || "Cliente"}</p>
+                {telMascarado(o.clienteTelefone) && <p className="text-[11px] text-slate-500">📞 {telMascarado(o.clienteTelefone)}</p>}
                 <div className="mt-2 space-y-2">
                   {setoresPresentes(o).map((sk) => { const its = itensDoSetor(o, sk === "bar"); const liberado = setorPronto(o, sk) && parcial(o);
                     return (
