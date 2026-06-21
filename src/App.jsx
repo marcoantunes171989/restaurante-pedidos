@@ -5928,26 +5928,29 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
   const setorPorNome = useMemo(() => { const m = {}; products.forEach((p) => { if (p.setorId != null) m[p.name] = p.setorId; }); return m; }, [products]);
   const catPorNome = useMemo(() => { const m = {}; products.forEach((p) => { m[p.name] = p.category; }); return m; }, [products]);
   const setorNomePorId = useMemo(() => { const m = {}; setores.forEach((s) => { if (s.id != null) m[s.id] = s.nome; }); return m; }, [setores]);
-  // Classifica cada item em UM setor operacional: bar, sobremesa ou cozinha.
-  // Usa o NOME do setor a que o produto está vinculado (robusto a vários setores);
-  // sem vínculo, cai na heurística por categoria.
+  // Ordem dos setores = ordem de cadastro (setores ativos).
+  const ordemSetores = useMemo(() => setores.filter((s) => s.ativo !== false).map((s) => s.nome), [setores]);
+  const iconeSetor = (nome) => /bar|bebida|drink/i.test(nome) ? "🍹" : /sobremesa|doce|sweet|confeit/i.test(nome) ? "🍰" : "👨‍🍳";
+  const metaSetor = (nome) => ({ label: nome, ic: iconeSetor(nome) });
+  const barLike = (nome) => /bar|bebida|drink/i.test(nome);
+  // Setor REAL do item: o setor CADASTRADO a que o produto está vinculado (dinâmico).
+  // Sem vínculo, cai na heurística por categoria (Bar/Sobremesa/Cozinha).
   const setorDoItem = (it) => {
     const sid = setorPorNome[it.name];
-    const nomeSetor = sid != null ? (setorNomePorId[sid] || "") : "";
-    if (/bar|bebida|drink/i.test(nomeSetor)) return "bar";
-    if (/sobremesa|doce|sweet|confeit/i.test(nomeSetor)) return "sobremesa";
-    if (nomeSetor) return "cozinha";
+    const nome = sid != null ? (setorNomePorId[sid] || "") : "";
+    if (nome) return nome;
     const cat = catPorNome[it.name] || "";
-    if (/bebida|drink|suco|refri/i.test(cat)) return "bar";
-    if (/sobremesa|doce|bolo|sweet/i.test(cat)) return "sobremesa";
-    return "cozinha";
+    if (/bebida|drink|suco|refri/i.test(cat)) return "Bar";
+    if (/sobremesa|doce|bolo|sweet/i.test(cat)) return "Sobremesa";
+    return "Cozinha";
   };
-  const SETOR_META = { cozinha: { label: "Cozinha", ic: "👨‍🍳" }, bar: { label: "Bar", ic: "🍹" }, sobremesa: { label: "Sobremesa", ic: "🍰" } };
-  const ORDEM_SETORES = ["cozinha", "sobremesa", "bar"];
   const itensDoSetor = (o, setor) => (o.items || []).filter((it) => setorDoItem(it) === setor);
   const qtdItens = (o, setor) => itensDoSetor(o, setor).reduce((s, it) => s + it.quantity, 0);
-  // Status por setor
-  const setoresPresentes = (o) => ORDEM_SETORES.filter((s) => itensDoSetor(o, s).length > 0);
+  // Setores presentes no pedido, na ordem de cadastro (extras ao fim).
+  const setoresPresentes = (o) => {
+    const pres = [...new Set((o.items || []).map(setorDoItem))];
+    return [...ordemSetores.filter((n) => pres.includes(n)), ...pres.filter((n) => !ordemSetores.includes(n))];
+  };
   const setorPronto = (o, s) => (o.setorStatus || {})[s] === "ready";
   const parcial = (o) => { const ps = setoresPresentes(o); return ps.length > 1 && ps.some((s) => setorPronto(o, s)) && !ps.every((s) => setorPronto(o, s)); };
 
@@ -6040,19 +6043,22 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
       )}
 
       {tab === "pedidos" && permitido("pedidos") && (() => {
-        const setorFiltrado = ["cozinha", "bar", "sobremesa"].includes(filtroCentral) ? filtroCentral : null;
+        // Setores DINÂMICOS: cadastrados (ativos) que têm produtos ativos vinculados.
+        const setoresChip = setores.filter((s) => s.ativo !== false && products.some((p) => p.setorId === s.id && p.active !== false)).map((s) => s.nome);
+        const setorFiltrado = (filtroCentral !== "todos" && filtroCentral !== "caixa") ? filtroCentral : null;
         const ativosFiltrados = ativos.filter((o) => setorFiltrado ? itensDoSetor(o, setorFiltrado).length > 0 : true)
           // Fila em ordem cronológica fixa: o mais antigo no topo (#1, #2, #3…),
           // para o atendimento seguir a ordem de chegada sem pedido novo "pular".
           .sort((a, b) => new Date(a.createdAtISO || 0) - new Date(b.createdAtISO || 0));
-        // Contagem de itens de sobremesa em aberto (balão no chip)
-        const totalSobremesa = ativos.reduce((acc, o) => acc + qtdItens(o, "sobremesa"), 0);
+        const qtdSetorAtivos = (nome) => ativos.reduce((acc, o) => acc + qtdItens(o, nome), 0);
         return (<>
         <div className="mb-3 flex gap-1.5 overflow-x-auto">
-          {[["todos", "Todos"], ["cozinha", "Cozinha"], ["bar", "Bar"], ["sobremesa", "Sobremesa"], ["caixa", "Caixa"]].map(([k, l]) => (
-            <button key={k} onClick={() => (k === "caixa" ? setTab("caixa") : setFiltroCentral(k))}
-              className={`relative shrink-0 rounded-full px-3.5 py-1.5 text-xs font-bold transition ${filtroCentral === k ? "bg-gold-400 text-blue-950" : "border border-white/10 bg-white/[0.05] text-slate-300"}`}>{l}{k === "sobremesa" && totalSobremesa > 0 && <span className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-black ${filtroCentral === k ? "bg-blue-950/20 text-blue-950" : "bg-gold-400 text-blue-950"}`}>{totalSobremesa}</span>}</button>
-          ))}
+          {[["todos", "Todos"], ...setoresChip.map((n) => [n, n]), ["caixa", "Caixa"]].map(([k, l]) => { const cnt = (k !== "todos" && k !== "caixa") ? qtdSetorAtivos(k) : 0;
+            return (
+              <button key={k} onClick={() => (k === "caixa" ? setTab("caixa") : setFiltroCentral(k))}
+                className={`relative flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-bold transition ${filtroCentral === k ? "bg-gold-400 text-blue-950" : "border border-white/10 bg-white/[0.05] text-slate-300"}`}>{l}{cnt > 0 && <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-black ${filtroCentral === k ? "bg-blue-950/20 text-blue-950" : "bg-gold-400 text-blue-950"}`}>{cnt}</span>}</button>
+            );
+          })}
         </div>
         <div className="mb-3 grid grid-cols-2 gap-2">
           {[{ l: "Novos", v: novos.length, c: "text-blue-300" }, { l: "Em preparo", v: emPreparo.length, c: "text-amber-300" }, { l: "Prontos", v: prontos.length, c: "text-emerald-300" }, { l: "Aguardando pgto", v: contasAbertas.length, c: "text-gold-300" }].map((k) => (
@@ -6074,7 +6080,7 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
                     return (
                       <div key={sk}>
                         <div className="flex items-center gap-1.5">
-                          <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">{SETOR_META[sk].ic} {SETOR_META[sk].label}</span>
+                          <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">{metaSetor(sk).ic} {metaSetor(sk).label}</span>
                           {liberado && <span className="rounded-full border border-emerald-400/30 bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-bold text-emerald-300">✓ liberado</span>}
                         </div>
                         <div className="mt-0.5 space-y-0.5">
@@ -6096,11 +6102,11 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
       })()}
 
       {(tab === "cozinha" || tab === "bar") && permitido(tab) && (() => {
-        // A Cozinha cobre cozinha + sobremesa; o Bar cobre bar. Cada setor tem seu próprio "pronto".
-        const setoresTab = tab === "bar" ? ["bar"] : ["cozinha", "sobremesa"];
-        const temNaTab = (o) => setoresTab.some((s) => itensDoSetor(o, s).length > 0);
+        // Bar = setores "bar/bebida"; Cozinha = os demais (cozinha, sobremesa, e quaisquer
+        // outros setores cadastrados). Cada setor tem seu próprio "pronto".
+        const naTab = (nome) => tab === "bar" ? barLike(nome) : !barLike(nome);
+        const temNaTab = (o) => setoresPresentes(o).some(naTab);
         const comItens = ativos.filter(temNaTab).sort((a, b) => new Date(a.createdAtISO || 0) - new Date(b.createdAtISO || 0));
-        const totalSobremesa = tab === "cozinha" ? comItens.reduce((acc, o) => acc + qtdItens(o, "sobremesa"), 0) : 0;
         return (<>
           <div className="mb-3 flex gap-2">
             {[["Novos", novos], ["Em preparo", emPreparo], ["Prontos", prontos]].map(([l, arr]) => {
@@ -6108,15 +6114,9 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
               return <div key={l} className="flex-1 rounded-2xl border border-white/10 bg-slate-950/40 py-2 text-center"><span className="page-title block text-lg font-bold text-white">{n}</span><span className="text-[10px] text-slate-500">{l}</span></div>;
             })}
           </div>
-          {tab === "cozinha" && totalSobremesa > 0 && (
-            <div className="mb-3 flex items-center justify-between rounded-2xl border border-pink-400/25 bg-pink-500/[0.07] px-3 py-2">
-              <span className="text-sm font-bold text-pink-200">🍰 Sobremesas a preparar</span>
-              <span className="rounded-full bg-pink-400 px-2.5 py-0.5 text-xs font-black text-blue-950">{totalSobremesa}</span>
-            </div>
-          )}
           <div className="space-y-2">
             {comItens.length === 0 && <p className="py-10 text-center text-sm text-slate-500">Nenhum pedido para {tab === "bar" ? "o bar" : "a cozinha"}.</p>}
-            {comItens.map((o) => { const b = badge(o); const setoresNoPedido = setoresTab.filter((s) => itensDoSetor(o, s).length > 0);
+            {comItens.map((o) => { const b = badge(o); const setoresNoPedido = setoresPresentes(o).filter(naTab);
               return (
                 <div key={o.id} className="rounded-3xl border border-white/10 bg-slate-950/40 p-3.5">
                   <div className="flex items-center justify-between gap-2"><span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-black ${b.c}`}>{b.l}</span><span className="text-[11px] text-slate-500">Pedido #{numeroPedido[o.id] ?? "—"} · {haTxt(o)} · {o.table}</span></div>
@@ -6125,7 +6125,7 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
                     return (
                       <div key={sk} className="mt-2">
                         <div className="flex items-center justify-between gap-2">
-                          <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">{SETOR_META[sk].ic} {SETOR_META[sk].label}</span>
+                          <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">{metaSetor(sk).ic} {metaSetor(sk).label}</span>
                           {o.status === "preparing" && (setorPronto(o, sk)
                             ? <span className="rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-300">✓ pronto</span>
                             : <button onClick={() => marcarSetorPronto(o.id, sk, setoresPresentes(o))} className="rounded-lg bg-emerald-500 px-2.5 py-1 text-[11px] font-black text-white active:scale-95">Marcar pronto</button>)}

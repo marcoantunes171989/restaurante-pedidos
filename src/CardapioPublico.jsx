@@ -242,20 +242,22 @@ export default function CardapioPublico() {
   // Roteamento por setor (cozinha/bar) — para o acompanhamento por setor
   const setorPorNomeProd = useMemo(() => { const m = {}; produtos.forEach((p) => { if (p.setorId != null) m[p.name] = p.setorId; }); return m; }, [produtos]);
   const setorNomePorId = useMemo(() => { const m = {}; setores.forEach((s) => { if (s.id != null) m[s.id] = s.nome; }); return m; }, [setores]);
-  // Classifica o item em um setor (mesma regra da operação): pelo NOME do setor vinculado;
-  // sem vínculo, cai na heurística por categoria.
+  // Setor REAL do item: o setor CADASTRADO vinculado ao produto (mesma regra da operação).
+  // Sem vínculo, cai na heurística por categoria.
   const setorDoItemCli = (it) => {
     const sid = setorPorNomeProd[it.name];
-    const nomeSetor = sid != null ? (setorNomePorId[sid] || "") : "";
-    if (/bar|bebida|drink/i.test(nomeSetor)) return "bar";
-    if (/sobremesa|doce|sweet|confeit/i.test(nomeSetor)) return "sobremesa";
-    if (nomeSetor) return "cozinha";
+    const nome = sid != null ? (setorNomePorId[sid] || "") : "";
+    if (nome) return nome;
     const cat = produtos.find((p) => p.name === it.name)?.category || "";
-    if (/bebida|drink|suco|refri/i.test(cat)) return "bar";
-    if (/sobremesa|doce|bolo|sweet/i.test(cat)) return "sobremesa";
-    return "cozinha";
+    if (/bebida|drink|suco|refri/i.test(cat)) return "Bar";
+    if (/sobremesa|doce|bolo|sweet/i.test(cat)) return "Sobremesa";
+    return "Cozinha";
   };
-  const setoresDoPedido = (o) => ["cozinha", "sobremesa", "bar"].filter((s) => (o.items || []).some((it) => setorDoItemCli(it) === s));
+  const ordemSetoresCli = useMemo(() => setores.filter((s) => s.ativo !== false).map((s) => s.nome), [setores]);
+  const setoresDoPedido = (o) => {
+    const pres = [...new Set((o.items || []).map(setorDoItemCli))];
+    return [...ordemSetoresCli.filter((n) => pres.includes(n)), ...pres.filter((n) => !ordemSetoresCli.includes(n))];
+  };
   const ehBebida = (item) => item?.category === nomeCatBebida || bebidas.some((b) => b.name === item?.name);
   const carrinhoTemBebida = cart.some(ehBebida);
 
@@ -615,13 +617,12 @@ function TimelinePedido({ status, paymentStatus = "open", setorStatus = {}, seto
     if (status === "preparing") return { feito: false, ativo: true, sub: "Em preparo" };
     return { feito: true, ativo: false, sub: "Pronto" }; // ready/delivered
   };
-  const presentes = setoresPedido.length ? setoresPedido : ["cozinha"];
+  const presentes = setoresPedido.length ? setoresPedido : ["Cozinha"];
+  const iconeSetor = (s) => /bar|bebida|drink/i.test(s) ? "🍹" : /sobremesa|doce|sweet|confeit/i.test(s) ? "🍰" : "👨‍🍳";
   return (
     <div className="space-y-1.5">
       {linha({ feito: idx >= 0, ativo: status === "received", ic: "✅", l: "Pedido recebido" })}
-      {presentes.includes("cozinha") && linha({ ...stSetor("cozinha"), ic: "👨‍🍳", l: "Em preparo na cozinha" })}
-      {presentes.includes("sobremesa") && linha({ ...stSetor("sobremesa"), ic: "🍰", l: "Sobremesa em preparo" })}
-      {presentes.includes("bar") && linha({ ...stSetor("bar"), ic: "🍹", l: "Bebidas no bar" })}
+      {presentes.map((s) => <div key={s}>{linha({ ...stSetor(s), ic: iconeSetor(s), l: `Preparo · ${s}` })}</div>)}
       {linha({ feito: idx >= 2, ativo: status === "ready", ic: externo ? "🛍️" : "🛎️", l: externo ? "Pronto — liberado para retirada no balcão" : "Pronto — saindo para a mesa" })}
       {linha({ feito: idx >= 3, ativo: status === "delivered", ic: externo ? "🛍️" : "🍽️", l: externo ? "Retirado" : "Entregue" })}
       {linha({ feito: paymentStatus === "paid", ativo: paymentStatus === "requested", ic: "💳", l: paymentStatus === "paid" ? "Pagamento confirmado" : paymentStatus === "requested" ? "Pagamento — aguardando no caixa" : "Pagamento pendente" })}
