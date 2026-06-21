@@ -489,7 +489,7 @@ export default function CardapioPublico() {
             <div className="space-y-2">
               {meusPedidos.map((o) => (
                 <div key={o.id} className="rounded-2xl border border-white/10 bg-slate-950/40 p-3">
-                  <div className="mb-2 flex items-center justify-between gap-2"><span className="text-xs font-bold uppercase tracking-widest text-slate-500">{o.id} • {o.createdAt}</span>
+                  <div className="mb-2 flex items-center justify-between gap-2"><span className="text-xs font-bold uppercase tracking-widest text-slate-500">Pedido nº {String(o.id || "").replace(/\D/g, "").slice(-4)} • {o.createdAt}</span>
                     <span className={`rounded-full border px-3 py-1 text-xs font-black ${statusMap[o.status]?.chip}`}>{STATUS_TABLET_LABEL[o.status] || statusMap[o.status]?.label}</span></div>
                   <TimelinePedido status={o.status} paymentStatus={o.paymentStatus} setorStatus={o.setorStatus} setoresPedido={setoresDoPedido(o)} externo={modoExterno || o.table === "Externo"} />
                   <div className="mt-2 border-t border-white/10 pt-2">
