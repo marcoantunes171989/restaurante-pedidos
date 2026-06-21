@@ -6257,18 +6257,18 @@ function ContaCaixa({ o, opcoes, pagando, onFinalizar, haTxt, numeroPedido = {},
         <div className="flex justify-between text-base font-black"><span className="text-white">Total</span><span className="text-emerald-400">{formatCurrency(total)}</span></div>
       </div>
       <p className="mt-2 text-[10px] font-bold uppercase tracking-wide text-slate-500">Forma(s) de pagamento</p>
-      <div className="mt-1 flex flex-wrap gap-1.5">
+      <div className="mt-1 grid grid-cols-2 gap-1.5">
         {opcoes.map((f) => { const on = linhas.some((l) => l.forma === f);
-          return <button key={f} onClick={() => toggleForma(f)} className={`rounded-xl border px-2.5 py-1.5 text-xs font-bold transition ${on ? "border-gold-400 bg-gold-400 text-blue-950" : "border-white/10 bg-white/[0.05] text-slate-300"}`}>{on ? "✓ " : ""}{f}</button>;
+          return <button key={f} onClick={() => toggleForma(f)} className={`flex items-center justify-center gap-1 rounded-xl border px-2 py-1.5 text-center text-xs font-bold transition ${on ? "border-gold-400 bg-gold-400 text-blue-950" : "border-white/10 bg-white/[0.05] text-slate-300"}`}>{on && <span>✓</span>}<span className="truncate">{f}</span></button>;
         })}
       </div>
       {linhas.length > 0 && (
         <div className="mt-2 space-y-1.5">
           {linhas.map((l) => (
             <div key={l.forma} className="flex items-center gap-2">
-              <span className="w-24 shrink-0 truncate text-xs font-bold text-gold-300">{l.forma}</span>
-              <span className="text-xs text-slate-500">R$</span>
-              <input inputMode="numeric" value={fmtMoeda(l.valor)} onChange={(e) => editarValor(l.forma, e.target.value)} className="w-full rounded-lg border border-white/10 bg-slate-950/70 px-2 py-1 text-right text-sm font-bold text-white outline-none focus:border-gold-400/60" />
+              <span className="min-w-0 flex-1 text-xs font-bold leading-tight text-gold-300">{l.forma}</span>
+              <span className="shrink-0 text-xs text-slate-500">R$</span>
+              <input inputMode="numeric" value={fmtMoeda(l.valor)} onChange={(e) => editarValor(l.forma, e.target.value)} className="w-24 shrink-0 rounded-lg border border-white/10 bg-slate-950/70 px-2 py-1 text-right text-sm font-bold text-white outline-none focus:border-gold-400/60" />
             </div>
           ))}
           <div className="flex items-center justify-between text-[11px]">
