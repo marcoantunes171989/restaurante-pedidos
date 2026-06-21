@@ -5921,17 +5921,16 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
   const origemDe = (o) => (o.table === "Externo" || /^EXT-/.test(o.command || "")) ? { l: "Delivery", ic: "🛵" } : { l: "Mesa / QR", ic: "🍽️" };
   const setorPorNome = useMemo(() => { const m = {}; products.forEach((p) => { if (p.setorId != null) m[p.name] = p.setorId; }); return m; }, [products]);
   const catPorNome = useMemo(() => { const m = {}; products.forEach((p) => { m[p.name] = p.category; }); return m; }, [products]);
-  const barSetor = useMemo(() => setores.find((s) => /bar|bebida|drink/i.test(s.nome)) || null, [setores]);
-  const sobremesaSetor = useMemo(() => setores.find((s) => /sobremesa|doce|sweet/i.test(s.nome)) || null, [setores]);
+  const setorNomePorId = useMemo(() => { const m = {}; setores.forEach((s) => { if (s.id != null) m[s.id] = s.nome; }); return m; }, [setores]);
   // Classifica cada item em UM setor operacional: bar, sobremesa ou cozinha.
-  // O vínculo explícito do produto (setorId) tem prioridade; sem vínculo, cai na heurística por categoria.
+  // Usa o NOME do setor a que o produto está vinculado (robusto a vários setores);
+  // sem vínculo, cai na heurística por categoria.
   const setorDoItem = (it) => {
     const sid = setorPorNome[it.name];
-    if (sid != null) {
-      if (barSetor && sid === barSetor.id) return "bar";
-      if (sobremesaSetor && sid === sobremesaSetor.id) return "sobremesa";
-      return "cozinha";
-    }
+    const nomeSetor = sid != null ? (setorNomePorId[sid] || "") : "";
+    if (/bar|bebida|drink/i.test(nomeSetor)) return "bar";
+    if (/sobremesa|doce|sweet|confeit/i.test(nomeSetor)) return "sobremesa";
+    if (nomeSetor) return "cozinha";
     const cat = catPorNome[it.name] || "";
     if (/bebida|drink|suco|refri/i.test(cat)) return "bar";
     if (/sobremesa|doce|bolo|sweet/i.test(cat)) return "sobremesa";

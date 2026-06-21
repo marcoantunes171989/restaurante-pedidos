@@ -172,16 +172,15 @@ export default function CardapioPublico() {
   const bebidas = useMemo(() => produtos.filter((p) => p.category === nomeCatBebida && p.disponivel !== false).slice(0, 6), [produtos, nomeCatBebida]);
   // Roteamento por setor (cozinha/bar) — para o acompanhamento por setor
   const setorPorNomeProd = useMemo(() => { const m = {}; produtos.forEach((p) => { if (p.setorId != null) m[p.name] = p.setorId; }); return m; }, [produtos]);
-  const barSetor = useMemo(() => setores.find((s) => /bar|bebida|drink/i.test(s.nome)) || null, [setores]);
-  const sobremesaSetor = useMemo(() => setores.find((s) => /sobremesa|doce|sweet/i.test(s.nome)) || null, [setores]);
-  // Classifica o item em um setor (mesma regra da operação): bar, sobremesa ou cozinha.
+  const setorNomePorId = useMemo(() => { const m = {}; setores.forEach((s) => { if (s.id != null) m[s.id] = s.nome; }); return m; }, [setores]);
+  // Classifica o item em um setor (mesma regra da operação): pelo NOME do setor vinculado;
+  // sem vínculo, cai na heurística por categoria.
   const setorDoItemCli = (it) => {
     const sid = setorPorNomeProd[it.name];
-    if (sid != null) {
-      if (barSetor && sid === barSetor.id) return "bar";
-      if (sobremesaSetor && sid === sobremesaSetor.id) return "sobremesa";
-      return "cozinha";
-    }
+    const nomeSetor = sid != null ? (setorNomePorId[sid] || "") : "";
+    if (/bar|bebida|drink/i.test(nomeSetor)) return "bar";
+    if (/sobremesa|doce|sweet|confeit/i.test(nomeSetor)) return "sobremesa";
+    if (nomeSetor) return "cozinha";
     const cat = produtos.find((p) => p.name === it.name)?.category || "";
     if (/bebida|drink|suco|refri/i.test(cat)) return "bar";
     if (/sobremesa|doce|bolo|sweet/i.test(cat)) return "sobremesa";
