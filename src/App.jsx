@@ -5908,9 +5908,12 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
   // Módulos liberados para este usuário (ordem fixa)
   const liberados = OP_MODULOS.filter((m) => perms[m.id]);
   const permitido = (t) => t === "central" || (perms[t] === true);
-  // Tela inicial: rota (tabInicial) tem prioridade; senão 1 módulo → direto, >1 → Central
+  // Tela inicial: rota (tabInicial) tem prioridade. Senão: acesso a TODOS os módulos → Central;
+  // acesso parcial → abre direto no primeiro módulo que o usuário tem.
   const tabValida = (t) => t && (t === "central" || permitido(t));
-  const [tab, setTabState] = useState(tabValida(tabInicial) ? tabInicial : (liberados.length === 1 ? liberados[0].id : "central"));
+  const temTodos = liberados.length === OP_MODULOS.length;
+  const tabPadrao = temTodos ? "central" : (liberados[0]?.id || "central");
+  const [tab, setTabState] = useState(tabValida(tabInicial) ? tabInicial : tabPadrao);
   const setTab = (t) => { setTabState(t); onTabChange?.(t); };
   // Sincroniza com a rota (voltar/avançar do navegador → /operacional/:sub)
   useEffect(() => { if (tabValida(tabInicial) && tabInicial !== tab) setTabState(tabInicial); /* eslint-disable-next-line */ }, [tabInicial]);
