@@ -6145,7 +6145,7 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
         </>);
       })()}
 
-      {tab === "caixa" && permitido("caixa") && <CaixaMobile contas={contas} totalCom={totalCom} baixarComandas={baixarComandas} confirmarRetirada={confirmarRetirada} formasPagamento={formasPagamento} lojaInfo={lojaInfo} haTxt={haTxt} />}
+      {tab === "caixa" && permitido("caixa") && <CaixaMobile contas={contas} totalCom={totalCom} baixarComandas={baixarComandas} confirmarRetirada={confirmarRetirada} formasPagamento={formasPagamento} lojaInfo={lojaInfo} haTxt={haTxt} numeroPedido={numeroPedido} telMascarado={telMascarado} />}
 
       {/* Bottom nav */}
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-slate-900/95 backdrop-blur-xl" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
@@ -6165,7 +6165,7 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
 
 // Sub-tela de caixa (Operação Mobile) — todo pedido aparece de imediato; o cliente
 // pode pagar a qualquer momento (inclusive antes da retirada) e com várias formas.
-function CaixaMobile({ contas, totalCom, baixarComandas, confirmarRetirada = async () => {}, formasPagamento = [], lojaInfo, haTxt }) {
+function CaixaMobile({ contas, totalCom, baixarComandas, confirmarRetirada = async () => {}, formasPagamento = [], lojaInfo, haTxt, numeroPedido = {}, telMascarado = () => "" }) {
   const [pagando, setPagando] = useState(null);
   const [retirando, setRetirando] = useState(null);
   async function retirar(o) { setRetirando(o.id); try { await confirmarRetirada(o.id); } catch {} setRetirando(null); }
@@ -6189,8 +6189,8 @@ function CaixaMobile({ contas, totalCom, baixarComandas, confirmarRetirada = asy
       <div className="space-y-2">
         {contas.length === 0 && <p className="py-10 text-center text-sm text-slate-500">Nenhuma conta no momento.</p>}
         {contas.map((o) => o.paymentStatus === "paid"
-          ? <ContaPaga key={o.id} o={o} haTxt={haTxt} onRetirar={retirar} retirando={retirando === o.id} />
-          : <ContaCaixa key={o.id} o={o} opcoes={opcoes} pagando={pagando === o.id} onFinalizar={finalizar} haTxt={haTxt} />)}
+          ? <ContaPaga key={o.id} o={o} haTxt={haTxt} onRetirar={retirar} retirando={retirando === o.id} numeroPedido={numeroPedido} telMascarado={telMascarado} />
+          : <ContaCaixa key={o.id} o={o} opcoes={opcoes} pagando={pagando === o.id} onFinalizar={finalizar} haTxt={haTxt} numeroPedido={numeroPedido} telMascarado={telMascarado} />)}
       </div>
     </>
   );
@@ -6199,12 +6199,14 @@ function CaixaMobile({ contas, totalCom, baixarComandas, confirmarRetirada = asy
 // Conta já paga, aguardando o cliente retirar o produto. A mensagem "aguardando
 // retirada" só existe enquanto NÃO foi confirmada a retirada; ao confirmar, o pedido
 // vira pago+entregue e some da lista de contas imediatamente.
-function ContaPaga({ o, haTxt, onRetirar, retirando }) {
+function ContaPaga({ o, haTxt, onRetirar, retirando, numeroPedido = {}, telMascarado = () => "" }) {
   const total = orderTotal(o) * 1.1;
   return (
     <div className="rounded-3xl border border-emerald-400/25 bg-emerald-500/[0.06] p-3.5">
-      <div className="flex items-center justify-between"><p className="font-black text-white">{o.table} · {o.id}</p><span className="text-[11px] text-slate-500">{haTxt(o)}</span></div>
+      <div className="flex items-center justify-between gap-2"><p className="font-black text-white">Pedido #{numeroPedido[o.id] ?? "—"} · {o.table}</p><span className="text-[11px] text-slate-500">{haTxt(o)}</span></div>
+      <p className="text-[10px] text-slate-600">{o.id}</p>
       <p className="text-xs text-slate-400">{o.customer || "Cliente"}</p>
+      {telMascarado(o.clienteTelefone) && <p className="text-[11px] text-slate-500">📞 {telMascarado(o.clienteTelefone)}</p>}
       <p className="mt-2 rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-3 py-2 text-center text-sm font-bold text-emerald-300">✓ Pago {formatCurrency(total)} · aguardando retirada do produto</p>
       <button onClick={() => onRetirar(o)} disabled={retirando} className="mt-2 w-full rounded-2xl bg-emerald-500 py-2.5 text-sm font-black text-white transition active:scale-95 disabled:opacity-50">{retirando ? "Confirmando…" : "Confirmar retirada do produto"}</button>
     </div>
@@ -6212,7 +6214,7 @@ function ContaPaga({ o, haTxt, onRetirar, retirando }) {
 }
 
 // Conta em aberto — pagamento com 1 ou mais formas, com validação do valor
-function ContaCaixa({ o, opcoes, pagando, onFinalizar, haTxt }) {
+function ContaCaixa({ o, opcoes, pagando, onFinalizar, haTxt, numeroPedido = {}, telMascarado = () => "" }) {
   const sub = orderTotal(o); const taxa = sub * 0.1; const total = Math.round((sub + taxa) * 100) / 100;
   const [linhas, setLinhas] = useState([]); // [{ forma, valor }]
   const soma = Math.round(linhas.reduce((s, l) => s + (Number(l.valor) || 0), 0) * 100) / 100;
@@ -6230,8 +6232,10 @@ function ContaCaixa({ o, opcoes, pagando, onFinalizar, haTxt }) {
   const editarValor = (f, raw) => setLinhas((cur) => cur.map((l) => l.forma === f ? { ...l, valor: parseInt(String(raw).replace(/\D/g, "") || "0", 10) / 100 } : l));
   return (
     <div className="rounded-3xl border border-gold-400/25 bg-slate-950/40 p-3.5">
-      <div className="flex items-center justify-between"><p className="font-black text-white">{o.table} · {o.id}</p><span className="text-[11px] text-slate-500">{haTxt(o)}</span></div>
+      <div className="flex items-center justify-between gap-2"><p className="font-black text-white">Pedido #{numeroPedido[o.id] ?? "—"} · {o.table}</p><span className="text-[11px] text-slate-500">{haTxt(o)}</span></div>
+      <p className="text-[10px] text-slate-600">{o.id}</p>
       <p className="text-xs text-slate-400">{o.customer || "Cliente"}</p>
+      {telMascarado(o.clienteTelefone) && <p className="text-[11px] text-slate-500">📞 {telMascarado(o.clienteTelefone)}</p>}
       <div className="mt-2 space-y-0.5 border-t border-white/10 pt-2">
         {o.items.map((it, i) => (<div key={i} className="flex justify-between text-sm"><span className="text-slate-300">{it.quantity}× {it.name}</span><span className="font-bold text-white">{formatCurrency(it.price * it.quantity)}</span></div>))}
       </div>
