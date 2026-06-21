@@ -1257,6 +1257,10 @@ export default function RestaurantePedidoApp() {
 
   async function marcarEntregue(oid) {
     if (!canAccess(currentUser, "kitchen")) return notify("error", "Usuário sem permissão.");
+    // Pedido externo (delivery/retirada) só é liberado para entrega após pagamento total.
+    const ped = orders.find((o) => o.id === oid);
+    if (ped && (ped.table === "Externo" || /^EXT-/.test(ped.command || "")) && ped.paymentStatus !== "paid")
+      return notify("error", "Pagamento pendente — finalize o pagamento antes de liberar a entrega.");
     // Remove da view ativa imediatamente (UI responsiva)
     setOrders((cur) => cur.map((o) => o.id === oid ? { ...o, status: "delivered" } : o));
     // Salva no banco como "entregue" — mantido para relatórios
@@ -5977,10 +5981,15 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
     : o.status === "preparing" ? { l: "EM PREPARO", c: "border-amber-400/30 bg-amber-500/15 text-amber-300" }
     : o.status === "ready" ? { l: "PRONTO", c: "border-emerald-400/30 bg-emerald-500/15 text-emerald-300" }
     : { l: "AGUARDANDO PGTO", c: "border-gold-400/30 bg-gold-400/15 text-gold-300" };
+  // Pedido externo (delivery/retirada) deve estar PAGO antes de liberar a entrega.
+  const ehExterno = (o) => o.table === "Externo" || /^EXT-/.test(o.command || "");
+  const bloqueadoPorPagamento = (o) => ehExterno(o) && o.paymentStatus !== "paid";
   const acaoPrincipal = (o) =>
     o.status === "received" ? { l: "Aceitar", fn: () => updateOrderStatus(o.id, "preparing"), c: "bg-gold-400 text-blue-950" }
     : o.status === "preparing" ? { l: "Marcar pronto", fn: () => updateOrderStatus(o.id, "ready"), c: "bg-emerald-500 text-white" }
-    : o.status === "ready" ? { l: "Entregue", fn: () => marcarEntregue(o.id), c: "bg-blue-500 text-white" }
+    : o.status === "ready" ? (bloqueadoPorPagamento(o)
+        ? { l: "🔒 Aguardando pagamento", fn: null, c: "bg-white/[0.06] text-slate-400", disabled: true }
+        : { l: "Entregue", fn: () => marcarEntregue(o.id), c: "bg-blue-500 text-white" })
     : null;
   const resumoItens = (items) => (items || []).map((it) => `${it.quantity}× ${it.name}`).join(" • ");
   const titulo = tab === "central" ? "Central Operacional" : tab === "pedidos" ? "Central de Pedidos" : tab === "cozinha" ? "Cozinha" : tab === "bar" ? "Bar" : "Caixa";
@@ -6076,7 +6085,7 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
                 <div className="mt-2 flex items-center justify-end">
                   <span className="text-sm font-black text-emerald-300">{formatCurrency(totalCom(o))}</span>
                 </div>
-                {a && <button onClick={a.fn} className={`mt-2.5 w-full rounded-2xl py-2.5 text-sm font-black transition active:scale-95 ${a.c}`}>{a.l}</button>}
+                {a && <button onClick={a.fn || undefined} disabled={a.disabled} className={`mt-2.5 w-full rounded-2xl py-2.5 text-sm font-black transition ${a.disabled ? "cursor-not-allowed" : "active:scale-95"} ${a.c}`}>{a.l}</button>}
               </div>
             );
           })}
@@ -6134,7 +6143,9 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
                   })}
                   <div className="mt-2.5">
                     {o.status === "received" && <button onClick={() => updateOrderStatus(o.id, "preparing")} className="w-full rounded-2xl bg-gold-400 py-2.5 text-sm font-black text-blue-950 active:scale-95">Aceitar para preparação</button>}
-                    {o.status === "ready" && <button onClick={() => marcarEntregue(o.id)} className="w-full rounded-2xl bg-blue-500 py-2.5 text-sm font-black text-white active:scale-95">Baixa / entregue</button>}
+                    {o.status === "ready" && (bloqueadoPorPagamento(o)
+                      ? <p className="rounded-2xl border border-gold-400/20 bg-gold-400/10 py-2.5 text-center text-sm font-bold text-gold-300">🔒 Aguardando pagamento para liberar</p>
+                      : <button onClick={() => marcarEntregue(o.id)} className="w-full rounded-2xl bg-blue-500 py-2.5 text-sm font-black text-white active:scale-95">Baixa / entregue</button>)}
                     {o.status === "preparing" && setoresNoPedido.every((s) => setorPronto(o, s)) && setoresPresentes(o).length > setoresNoPedido.length && <p className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 py-2.5 text-center text-sm font-bold text-emerald-300">✓ {tab === "bar" ? "Bar" : "Cozinha"} pronto · aguardando o outro setor</p>}
                   </div>
                 </div>
