@@ -195,6 +195,28 @@ function Root() {
 
   useEffect(() => {
     if (!import.meta.env.PROD) return
+    // Cardápio público (cliente externo via link/QR): NÃO registrar service worker.
+    // Cliente seguindo um link de divulgação não deve instalar PWA/cache — isso fazia
+    // o navegador normal servir uma versão antiga (ex.: categoria não carregava), enquanto
+    // o modo anônimo (sem SW) funcionava. Aqui ainda removemos qualquer SW/cache já preso.
+    if (ehCardapio) {
+      if ('serviceWorker' in navigator && navigator.serviceWorker.getRegistrations) {
+        navigator.serviceWorker.getRegistrations().then((regs) => {
+          const tinhaControle = regs.length > 0 && !!navigator.serviceWorker.controller
+          return Promise.all(regs.map((r) => r.unregister())).then(() => {
+            if (window.caches?.keys) caches.keys().then((ks) => Promise.all(ks.map((k) => caches.delete(k)))).catch(() => {})
+            // Recupera quem já estava preso a uma versão velha: recarrega UMA vez.
+            try {
+              if (tinhaControle && !sessionStorage.getItem('pp_cardapio_sw_limpo')) {
+                sessionStorage.setItem('pp_cardapio_sw_limpo', '1')
+                window.location.reload()
+              }
+            } catch {}
+          })
+        }).catch(() => {})
+      }
+      return
+    }
     iniciarSW(() => {
       if (notifiedRef.current) return
       notifiedRef.current = true
