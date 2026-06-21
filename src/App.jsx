@@ -1266,6 +1266,17 @@ export default function RestaurantePedidoApp() {
     }
   }
 
+  // Confirma a retirada do produto no balcão a partir do financeiro (Caixa).
+  // Conclui o pedido já pago; o caixa OU a cozinha podem confirmar.
+  async function confirmarRetirada(oid) {
+    if (!(canAccess(currentUser, "cashier") || canAccess(currentUser, "kitchen"))) return notify("error", "Usuário sem permissão.");
+    setOrders((cur) => cur.map((o) => o.id === oid ? { ...o, status: "delivered" } : o));
+    if (dbReady) {
+      try { await atualizarPedido(oid, { status: "entregue" }); }
+      catch (err) { console.error("Erro ao confirmar retirada:", err); }
+    }
+  }
+
   // Marca o setor (cozinha/bar) de um pedido como pronto. O status GERAL só
   // avança para "pronto" quando TODOS os setores com itens estão prontos —
   // até lá fica "preparing" (a Operação Mobile mostra "parcialmente pronto").
@@ -2217,7 +2228,7 @@ export default function RestaurantePedidoApp() {
         )}
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} products={products} lojaInfo={lojaInfo} />}
         {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierView orders={orders} baixarComandas={baixarComandas} baixarPedidos={baixarPedidos} formasPagamento={formasPagamentoLoja} onSair={logout} lojaInfo={lojaInfo} />}
-        {activeTab === "opmobile" && <OperacaoMobileView orders={orders} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} products={products} setores={filtraLoja(setoresCozinha)} formasPagamento={formasPagamentoLoja} lojaInfo={lojaInfo} perms={acessosOperacionais(currentUser)} usuarioNome={currentUser?.name || ""} tabInicial={opmobileTab} onTabChange={setOpmobileTab} onFechar={() => setActiveTab(allowedTabs[0]?.id || "tablet")} />}
+        {activeTab === "opmobile" && <OperacaoMobileView orders={orders} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} confirmarRetirada={confirmarRetirada} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} products={products} setores={filtraLoja(setoresCozinha)} formasPagamento={formasPagamentoLoja} lojaInfo={lojaInfo} perms={acessosOperacionais(currentUser)} usuarioNome={currentUser?.name || ""} tabInicial={opmobileTab} onTabChange={setOpmobileTab} onFechar={() => setActiveTab(allowedTabs[0]?.id || "tablet")} />}
         {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} promocoes={filtraLoja(promocoes)} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} opcoesApi={{ grupos: filtraLoja(gruposOpcoes), opcoes: filtraLoja(opcoes), addGrupo: addGrupoOpcoes, editarGrupo: editarGrupoOpcoes, removerGrupo: removerGrupoOpcoes, addOpcao, editarOpcao, removerOpcao }} setores={filtraLoja(setoresCozinha)} setoresApi={{ add: addSetorCozinha, editar: editarSetorCozinha, remover: removerSetorCozinha }} vincularProdutoSetor={vincularProdutoSetor} salvarProdutoQr={salvarProdutoQr} irParaCozinha={(setorId) => { setCozinhaSetorInicial(setorId ?? null); if (canAccess(currentUser, "kitchen")) setActiveTab("kitchen"); else notify("error", "Sem permissão para acessar o painel da cozinha."); }} caixaAberto={caixaAberto} caixasLoja={filtraLoja(caixas)} caixaApi={{ abrir: abrirCaixaFn, movimentar: movimentarCaixaFn, fechar: fecharCaixaFn, fetchMovimentos: fetchMovimentosCaixa }} fidRegra={fidRegraAtual} fidRecompensas={filtraLoja(fidRecompensas)} fidTransacoes={filtraLoja(fidTransacoes)} fidApi={{ salvarRegra: salvarRegraFid, addRecompensa: addRecompensaFid, removerRecompensa: removerRecompensaFid, lancarPontos }} chamados={filtraLoja(chamados)} atenderChamado={atenderChamadoFn} auditoria={filtraLoja(auditoria)} />}
 
       </div>
@@ -5389,7 +5400,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           {ativo === "fidelidade" && (precisaEmpresa ? avisoEmpresa : <FidelidadeAdmin regra={fidRegra} recompensas={fidRecompensas} transacoes={fidTransacoes} clientes={clientes} api={fidApi} />)}
           {ativo === "products"   && (precisaEmpresa ? avisoEmpresa : <ProductAdmin   products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} editarProduto={editarProduto} removerProduto={removerProduto} lojaId={lojaInfo?.id} opcoesApi={opcoesApi} setores={setores} />)}
           {ativo === "setores"    && (precisaEmpresa ? avisoEmpresa : <SetoresCozinhaAdmin setores={setores} produtos={products} orders={orders} api={setoresApi} vincularProduto={vincularProdutoSetor} irParaCozinha={irParaCozinha} />)}
-          {ativo === "operacaomobile" && <OperacaoMobileView orders={orders} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} products={products} setores={setores} formasPagamento={formasPagamento} lojaInfo={lojaInfo} perms={acessosOperacionais(currentUser)} usuarioNome={currentUser?.name || ""} onFechar={() => setAdminSection("dashboard")} />}
+          {ativo === "operacaomobile" && <OperacaoMobileView orders={orders} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} confirmarRetirada={confirmarRetirada} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} products={products} setores={setores} formasPagamento={formasPagamento} lojaInfo={lojaInfo} perms={acessosOperacionais(currentUser)} usuarioNome={currentUser?.name || ""} onFechar={() => setAdminSection("dashboard")} />}
           {ativo === "cardapioqr"  && (precisaEmpresa ? avisoEmpresa : <CardapioQrConfigAdmin products={products} setores={setores} salvarProdutoQr={salvarProdutoQr} irParaProdutos={() => setAdminSection("products")} />)}
           {ativo === "acessosop"   && <AcessosOperacionaisAdmin users={isSuperAdmin ? users : (usersLoja ?? users)} definirAcessos={definirAcessos} isSuperAdmin={isSuperAdmin} />}
           {ativo === "chamados"   && <ChamadosPainel chamados={chamados} atenderChamado={atenderChamado} />}
@@ -5893,7 +5904,7 @@ function CardapioQrConfigAdmin({ products = [], setores = [], salvarProdutoQr = 
 //  Reaproveita os pedidos + ações existentes (status, baixa, caixa).
 //  Visual de aplicativo para pequenos estabelecimentos no celular.
 // ════════════════════════════════════════════════════════════
-function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, marcarSetorPronto = async () => {}, baixarComandas, products = [], setores = [], formasPagamento = [], lojaInfo, perms = { pedidos: true, cozinha: true, bar: true, caixa: true, total: true }, usuarioNome = "", tabInicial = null, onTabChange = null, onFechar = null }) {
+function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, confirmarRetirada = async () => {}, marcarSetorPronto = async () => {}, baixarComandas, products = [], setores = [], formasPagamento = [], lojaInfo, perms = { pedidos: true, cozinha: true, bar: true, caixa: true, total: true }, usuarioNome = "", tabInicial = null, onTabChange = null, onFechar = null }) {
   // Módulos liberados para este usuário (ordem fixa)
   const liberados = OP_MODULOS.filter((m) => perms[m.id]);
   const permitido = (t) => t === "central" || (perms[t] === true);
@@ -6079,7 +6090,7 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, ma
         </>);
       })()}
 
-      {tab === "caixa" && permitido("caixa") && <CaixaMobile contas={contas} totalCom={totalCom} baixarComandas={baixarComandas} formasPagamento={formasPagamento} lojaInfo={lojaInfo} haTxt={haTxt} />}
+      {tab === "caixa" && permitido("caixa") && <CaixaMobile contas={contas} totalCom={totalCom} baixarComandas={baixarComandas} confirmarRetirada={confirmarRetirada} formasPagamento={formasPagamento} lojaInfo={lojaInfo} haTxt={haTxt} />}
 
       {/* Bottom nav */}
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-slate-900/95 backdrop-blur-xl" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
@@ -6099,8 +6110,10 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, ma
 
 // Sub-tela de caixa (Operação Mobile) — todo pedido aparece de imediato; o cliente
 // pode pagar a qualquer momento (inclusive antes da retirada) e com várias formas.
-function CaixaMobile({ contas, totalCom, baixarComandas, formasPagamento = [], lojaInfo, haTxt }) {
+function CaixaMobile({ contas, totalCom, baixarComandas, confirmarRetirada = async () => {}, formasPagamento = [], lojaInfo, haTxt }) {
   const [pagando, setPagando] = useState(null);
+  const [retirando, setRetirando] = useState(null);
+  async function retirar(o) { setRetirando(o.id); try { await confirmarRetirada(o.id); } catch {} setRetirando(null); }
   const opcoes = (() => { const a = formasPagamento.filter((f) => f.active !== false).map((f) => f.nome).filter(Boolean); return a.length ? a : ["Pix", "Cartão", "Dinheiro"]; })();
   const abertas = contas.filter((o) => o.paymentStatus !== "paid");
   const totalAberto = abertas.reduce((s, o) => s + totalCom(o), 0);
@@ -6121,21 +6134,24 @@ function CaixaMobile({ contas, totalCom, baixarComandas, formasPagamento = [], l
       <div className="space-y-2">
         {contas.length === 0 && <p className="py-10 text-center text-sm text-slate-500">Nenhuma conta no momento.</p>}
         {contas.map((o) => o.paymentStatus === "paid"
-          ? <ContaPaga key={o.id} o={o} haTxt={haTxt} />
+          ? <ContaPaga key={o.id} o={o} haTxt={haTxt} onRetirar={retirar} retirando={retirando === o.id} />
           : <ContaCaixa key={o.id} o={o} opcoes={opcoes} pagando={pagando === o.id} onFinalizar={finalizar} haTxt={haTxt} />)}
       </div>
     </>
   );
 }
 
-// Conta já paga, aguardando o cliente retirar o produto
-function ContaPaga({ o, haTxt }) {
+// Conta já paga, aguardando o cliente retirar o produto. A mensagem "aguardando
+// retirada" só existe enquanto NÃO foi confirmada a retirada; ao confirmar, o pedido
+// vira pago+entregue e some da lista de contas imediatamente.
+function ContaPaga({ o, haTxt, onRetirar, retirando }) {
   const total = orderTotal(o) * 1.1;
   return (
     <div className="rounded-3xl border border-emerald-400/25 bg-emerald-500/[0.06] p-3.5">
       <div className="flex items-center justify-between"><p className="font-black text-white">{o.table} · {o.id}</p><span className="text-[11px] text-slate-500">{haTxt(o)}</span></div>
       <p className="text-xs text-slate-400">{o.customer || "Cliente"}</p>
       <p className="mt-2 rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-3 py-2 text-center text-sm font-bold text-emerald-300">✓ Pago {formatCurrency(total)} · aguardando retirada do produto</p>
+      <button onClick={() => onRetirar(o)} disabled={retirando} className="mt-2 w-full rounded-2xl bg-emerald-500 py-2.5 text-sm font-black text-white transition active:scale-95 disabled:opacity-50">{retirando ? "Confirmando…" : "Confirmar retirada do produto"}</button>
     </div>
   );
 }
