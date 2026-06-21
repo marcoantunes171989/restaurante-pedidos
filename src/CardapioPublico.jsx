@@ -485,31 +485,6 @@ export default function CardapioPublico() {
         )}
       </main>
 
-      {/* Sugestão de bebida (após adicionar comida) */}
-      {sugBebida && !carrinhoTemBebida && bebidas.length > 0 && (
-        <div className="fixed inset-x-0 z-40" style={{ bottom: "calc(env(safe-area-inset-bottom) + 72px)" }}>
-          <div className="mx-auto max-w-3xl px-3">
-            <div className="rounded-3xl border border-gold-400/30 bg-slate-900/98 p-3 shadow-2xl shadow-black/50 backdrop-blur-xl">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-black text-white">🥤 Quer completar com uma bebida?</p>
-                <button onClick={() => { setSugBebida(false); setSugFechada(true); }} className="rounded-full border border-white/10 bg-white/[0.06] px-2 py-0.5 text-xs font-black text-slate-400">✕</button>
-              </div>
-              <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
-                {bebidas.map((b) => (
-                  <div key={b.id} className="flex w-32 shrink-0 flex-col rounded-2xl border border-white/10 bg-slate-950/50 p-2">
-                    <img src={b.imageUrl || fallbackImage} alt="" className="h-16 w-full rounded-xl object-cover" />
-                    <p className="mt-1 truncate text-[11px] font-bold text-white">{b.name}</p>
-                    <div className="mt-1 flex items-center justify-between">
-                      <span className="text-xs font-black text-gold-400">{formatCurrency(b.price)}</span>
-                      <button onClick={() => addBebida(b)} className="flex h-6 w-6 items-center justify-center rounded-full bg-gold-400 text-sm font-black text-blue-950">+</button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Barra inferior fixa — resumo/Finalizar + Acompanhar/Carrinho */}
       <div className="fixed inset-x-0 bottom-0 z-40" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
