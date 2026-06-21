@@ -552,10 +552,10 @@ export default function CardapioPublico() {
             <div className="mt-4 space-y-3">
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <label><span className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-amber-500">⚠ Telefone (WhatsApp) *</span>
-                  <input type="tel" inputMode="numeric" value={mascararTelefone(telefone)} onChange={(e) => setTelefone(e.target.value.replace(/\D/g, "").slice(0, 11))} placeholder="(11) 98765-4321" maxLength={16}
+                  <input type="tel" inputMode="numeric" autoComplete="tel" value={mascararTelefone(telefone)} onChange={(e) => setTelefone(e.target.value.replace(/\D/g, "").slice(0, 11))} placeholder="(11) 98765-4321" maxLength={16}
                     className="w-full rounded-2xl border border-amber-400/40 bg-slate-800 px-3 py-2.5 text-sm font-black text-white outline-none" /></label>
                 <label><span className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-amber-500">⚠ Seu nome *</span>
-                  <input value={cliente} onChange={(e) => setCliente(capitalizarNome(e.target.value))} placeholder="Nome completo"
+                  <input autoComplete="name" value={cliente} onChange={(e) => setCliente(capitalizarNome(e.target.value))} placeholder="Nome completo"
                     className="w-full rounded-2xl border border-amber-400/40 bg-slate-800 px-3 py-2.5 text-sm text-white outline-none" /></label>
               </div>
             </div>
@@ -658,11 +658,26 @@ function TimelinePedido({ status, paymentStatus = "open", setorStatus = {}, seto
   );
 }
 function Gaveta({ titulo, onFechar, children }) {
+  // Acompanha o "visual viewport" (área visível) para a gaveta sentar ACIMA do teclado
+  // do celular — assim o campo focado nunca fica escondido.
+  const [vp, setVp] = useState(null);
+  useEffect(() => {
+    const vv = typeof window !== "undefined" ? window.visualViewport : null;
+    if (!vv) return;
+    const upd = () => setVp({ h: Math.round(vv.height), top: Math.round(vv.offsetTop) });
+    upd();
+    vv.addEventListener("resize", upd);
+    vv.addEventListener("scroll", upd);
+    return () => { vv.removeEventListener("resize", upd); vv.removeEventListener("scroll", upd); };
+  }, []);
+  const overlayStyle = vp ? { top: vp.top, height: vp.h, bottom: "auto" } : undefined;
+  const sheetMax = vp ? `${vp.h - 8}px` : "88dvh";
+  const bodyMax = vp ? `${vp.h - 72}px` : "calc(88dvh - 64px)";
   return (
-    <div className="fixed inset-0 z-[110] flex items-end justify-center bg-black/70 backdrop-blur-sm" onClick={onFechar}>
-      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-3xl rounded-t-[2rem] border border-white/10 bg-slate-900 shadow-2xl" style={{ maxHeight: "88dvh" }}>
+    <div className="fixed inset-x-0 top-0 z-[110] flex items-end justify-center bg-black/70 backdrop-blur-sm" style={overlayStyle} onClick={onFechar}>
+      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-3xl rounded-t-[2rem] border border-white/10 bg-slate-900 shadow-2xl" style={{ maxHeight: sheetMax }}>
         <div className="flex items-center justify-between border-b border-white/10 px-5 py-4"><h2 className="text-lg font-black text-white">{titulo}</h2><button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300">Fechar ✕</button></div>
-        <div className="overflow-y-auto px-5 py-4" style={{ maxHeight: "calc(88dvh - 64px)" }}>{children}</div>
+        <div className="overflow-y-auto px-5 py-4" style={{ maxHeight: bodyMax }}>{children}</div>
       </div>
     </div>
   );

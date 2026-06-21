@@ -224,6 +224,20 @@ function Root() {
     })
   }, [])
 
+  // ── Campo focado sempre visível acima do teclado (todo o projeto) ───────────
+  // Ao focar qualquer input/textarea/select, rola o campo para a área visível
+  // (centralizado), evitando que o teclado do celular o esconda.
+  useEffect(() => {
+    const onFocus = (e) => {
+      const el = e.target
+      if (!el || typeof el.matches !== 'function' || !el.matches('input, textarea, select')) return
+      if (el.dataset && el.dataset.noScroll === '1') return
+      setTimeout(() => { try { el.scrollIntoView({ block: 'center', behavior: 'smooth' }) } catch {} }, 280)
+    }
+    window.addEventListener('focusin', onFocus)
+    return () => window.removeEventListener('focusin', onFocus)
+  }, [])
+
   // ── Tela cheia PERSISTENTE no app instalado (desktop) ───────
   // O app deve abrir e permanecer em tela cheia em TODAS as telas, reentrando
   // após navegações/recarregamentos (no próximo gesto, sem oscilar). Só sai de
