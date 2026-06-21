@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   fetchLojas, fetchProdutos, fetchCategorias, fetchPromocoes, fetchGruposOpcoes, fetchOpcoes, fetchSetoresCozinha,
   inserirPedido, atualizarPedido, escutarPedidos,
@@ -43,7 +43,6 @@ export default function CardapioPublico() {
   const [opcoes, setOpcoes] = useState([]);
   const [setores, setSetores] = useState([]);
   const [orders, setOrders]       = useState([]);
-  const [cat, setCat]             = useState("Todos");
   const [busca, setBusca]         = useState("");
   const [cart, setCart]           = useState([]);
   const [detalhe, setDetalhe]     = useState(null);
@@ -113,16 +112,86 @@ export default function CardapioPublico() {
   useEffect(() => { if (!msg) return; const t = setTimeout(() => setMsg(null), 3500); return () => clearTimeout(t); }, [msg]);
 
   const podeExterno = loja && (loja.modoUso === "externo" || loja.modoUso === "ambos");
-  const cats = useMemo(() => ["Todos", ...categorias.map((c) => c.nome)], [categorias]);
-  const itens = useMemo(() => {
+  // Durante a busca, lista achatada (filtrada). Sem busca, agrupamos por categoria
+  // para dividir os grupos e permitir o "scroll-spy" (header acompanha o grupo na tela).
+  const itensBusca = useMemo(() => {
     const norm = (s) => (s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
     const termo = norm(busca);
-    return produtos.filter((p) => {
-      const catOk = cat === "Todos" || p.category === cat;
-      const txt = norm(`${p.name} ${p.description} ${p.category} ${(p.ingredients || []).join(" ")}`);
-      return catOk && (termo === "" || txt.includes(termo));
-    });
-  }, [produtos, cat, busca]);
+    if (!termo) return [];
+    return produtos.filter((p) => norm(`${p.name} ${p.description} ${p.category} ${(p.ingredients || []).join(" ")}`).includes(termo));
+  }, [produtos, busca]);
+  const grupos = useMemo(() => {
+    const porCat = {};
+    produtos.forEach((p) => { const c = p.category || "Outros"; (porCat[c] = porCat[c] || []).push(p); });
+    const ordem = categorias.map((c) => c.nome);
+    const nomes = [...ordem.filter((n) => porCat[n]?.length), ...Object.keys(porCat).filter((n) => !ordem.includes(n))];
+    return nomes.map((nome) => ({ nome, produtos: porCat[nome] }));
+  }, [produtos, categorias]);
+  const cats = useMemo(() => ["Todos", ...grupos.map((g) => g.nome)], [grupos]);
+
+  // Scroll-spy: destaca no header o grupo atualmente visível na tela.
+  const secRefs = useRef({});
+  const chipRefs = useRef({});
+  const [catAtiva, setCatAtiva] = useState("Todos");
+  useEffect(() => {
+    if (busca || !grupos.length) return;
+    // Calcula o grupo atual: o último cujo cabeçalho passou da "linha" (abaixo dos
+    // headers fixos). Determinístico e correto mesmo com seções curtas.
+    const calc = () => {
+      const linha = 140;
+      let atual = grupos[0]?.nome;
+      for (const g of grupos) {
+        const el = secRefs.current[g.nome];
+        if (el && el.getBoundingClientRect().top - linha <= 0) atual = g.nome;
+      }
+      setCatAtiva((cur) => (cur === atual ? cur : atual));
+    };
+    // IntersectionObserver dispara de forma confiável durante a rolagem (inclusive
+    // onde o evento 'scroll' não é emitido); o scroll/resize servem de reforço.
+    const obs = new IntersectionObserver(calc, { threshold: [0, 0.5, 1], rootMargin: "-100px 0px 0px 0px" });
+    Object.values(secRefs.current).forEach((el) => el && obs.observe(el));
+    calc();
+    window.addEventListener("scroll", calc, { passive: true });
+    window.addEventListener("resize", calc);
+    return () => { obs.disconnect(); window.removeEventListener("scroll", calc); window.removeEventListener("resize", calc); };
+  }, [busca, grupos]);
+  // Mantém o chip ativo visível na barra horizontal
+  useEffect(() => {
+    const el = chipRefs.current[catAtiva];
+    if (el) el.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+  }, [catAtiva]);
+  const irParaCategoria = (nome) => {
+    setBusca("");
+    setCatAtiva(nome);
+    if (nome === "Todos") { window.scrollTo({ top: 0, behavior: "smooth" }); return; }
+    const alvo = secRefs.current[nome];
+    if (alvo) window.scrollTo({ top: alvo.getBoundingClientRect().top + window.scrollY - 108, behavior: "smooth" });
+  };
+  const renderProduto = (item) => {
+    const indisponivel = item.disponivel === false;
+    const etiqueta = (item.isFeatured && item.featuredLabel) || item.badge;
+    const personalizavel = (item.ingredients || []).length > 0;
+    return (
+      <article key={item.id} className={`flex h-full flex-col overflow-hidden rounded-3xl border bg-slate-900 shadow-xl ${item.isFeatured && !indisponivel ? "border-gold-400/50" : "border-white/10"}`}>
+        <button onClick={() => !indisponivel && setDetalhe(item)} disabled={indisponivel} className="relative block h-28 w-full overflow-hidden bg-slate-800 text-left disabled:cursor-not-allowed">
+          <img src={item.imageUrl || fallbackImage} alt={item.name} className={`h-full w-full object-cover ${indisponivel ? "grayscale opacity-50" : ""}`} />
+          {etiqueta && !indisponivel && <span className="absolute left-1.5 top-1.5 rounded-md bg-gold-400 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider text-blue-950 shadow-lg">{etiqueta}</span>}
+          {personalizavel && !indisponivel && !etiqueta && <span className="absolute left-1.5 top-1.5 rounded-md bg-blue-500/80 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider text-white">Personalizável</span>}
+          {indisponivel && <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/70 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-slate-200">Indisponível</span>}
+        </button>
+        <div className="flex flex-1 flex-col p-3">
+          <h3 className="text-sm font-black leading-tight text-white line-clamp-2">{item.name}</h3>
+          <p className="mt-0.5 line-clamp-2 text-[11px] leading-4 text-slate-400">{item.description}</p>
+          <div className="mt-auto flex items-center justify-between gap-2 pt-2.5">
+            <span className="text-sm font-black text-gold-400">{formatCurrency(item.price)}</span>
+            {indisponivel
+              ? <span className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-slate-600">✕</span>
+              : <button onClick={() => setDetalhe(item)} aria-label="Adicionar" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gold-400 text-lg font-black text-blue-950 shadow-lg shadow-gold-900/20 transition active:scale-90 hover:bg-gold-300">+</button>}
+          </div>
+        </div>
+      </article>
+    );
+  };
 
   const telDig = telefone.replace(/\D/g, "");
   // Identifica o cliente pelo telefone e auto-carrega o nome (via RPC no modo
@@ -323,11 +392,13 @@ export default function CardapioPublico() {
       </header>
 
       <main className="mx-auto max-w-3xl px-4">
-        {/* Categorias */}
+        {/* Categorias — clique rola até o grupo; ao rolar, o grupo atual é destacado */}
         <div className="sticky top-[64px] z-20 -mx-4 flex gap-2 overflow-x-auto border-b border-white/10 bg-slate-950/90 px-4 py-3 backdrop-blur">
-          {cats.map((c) => (
-            <button key={c} onClick={() => setCat(c)} className={`shrink-0 rounded-full border px-4 py-1.5 text-sm font-bold transition ${cat === c ? "border-gold-400 bg-gold-400 text-blue-950 shadow-lg shadow-gold-600/20" : "border-white/10 bg-white/[0.05] text-slate-300"}`}>{cat === c ? "★ " : ""}{c}</button>
-          ))}
+          {cats.map((c) => { const ativo = !busca && catAtiva === c;
+            return (
+              <button key={c} ref={(el) => (chipRefs.current[c] = el)} onClick={() => irParaCategoria(c)} className={`shrink-0 rounded-full border px-4 py-1.5 text-sm font-bold transition ${ativo ? "border-gold-400 bg-gold-400 text-blue-950 shadow-lg shadow-gold-600/20" : "border-white/10 bg-white/[0.05] text-slate-300"}`}>{ativo ? "★ " : ""}{c}</button>
+            );
+          })}
         </div>
 
         {/* Busca */}
@@ -354,34 +425,33 @@ export default function CardapioPublico() {
           <p className="text-xs font-bold text-gold-200">Personalize do seu jeito! <span className="font-normal text-slate-300">Adicione ou remova ingredientes.</span></p>
         </div>
 
-        {/* Grade de produtos — 2 colunas no celular (estilo app) */}
-        <div className="grid grid-cols-2 gap-3 pb-6">
-          {itens.length === 0 && <p className="col-span-full py-10 text-center text-sm text-slate-500">Nenhum produto encontrado.</p>}
-          {itens.map((item) => {
-            const indisponivel = item.disponivel === false;
-            const etiqueta = (item.isFeatured && item.featuredLabel) || item.badge;
-            const personalizavel = (item.ingredients || []).length > 0;
-            return (
-            <article key={item.id} className={`flex h-full flex-col overflow-hidden rounded-3xl border bg-slate-900 shadow-xl ${item.isFeatured && !indisponivel ? "border-gold-400/50" : "border-white/10"}`}>
-              <button onClick={() => !indisponivel && setDetalhe(item)} disabled={indisponivel} className="relative block h-28 w-full overflow-hidden bg-slate-800 text-left disabled:cursor-not-allowed">
-                <img src={item.imageUrl || fallbackImage} alt={item.name} className={`h-full w-full object-cover ${indisponivel ? "grayscale opacity-50" : ""}`} />
-                {etiqueta && !indisponivel && <span className="absolute left-1.5 top-1.5 rounded-md bg-gold-400 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider text-blue-950 shadow-lg">{etiqueta}</span>}
-                {personalizavel && !indisponivel && !etiqueta && <span className="absolute left-1.5 top-1.5 rounded-md bg-blue-500/80 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider text-white">Personalizável</span>}
-                {indisponivel && <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/70 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-slate-200">Indisponível</span>}
-              </button>
-              <div className="flex flex-1 flex-col p-3">
-                <h3 className="text-sm font-black leading-tight text-white line-clamp-2">{item.name}</h3>
-                <p className="mt-0.5 line-clamp-2 text-[11px] leading-4 text-slate-400">{item.description}</p>
-                <div className="mt-auto flex items-center justify-between gap-2 pt-2.5">
-                  <span className="text-sm font-black text-gold-400">{formatCurrency(item.price)}</span>
-                  {indisponivel
-                    ? <span className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-slate-600">✕</span>
-                    : <button onClick={() => setDetalhe(item)} aria-label="Adicionar" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gold-400 text-lg font-black text-blue-950 shadow-lg shadow-gold-900/20 transition active:scale-90 hover:bg-gold-300">+</button>}
+        {/* Resultados da busca — lista achatada (sem divisão por grupo) */}
+        {busca ? (
+          <div className="grid grid-cols-2 gap-3 pb-6">
+            {itensBusca.length === 0 && <p className="col-span-full py-10 text-center text-sm text-slate-500">Nenhum produto encontrado.</p>}
+            {itensBusca.map(renderProduto)}
+          </div>
+        ) : (
+          /* Cardápio dividido por grupo — cada seção é âncora do scroll-spy */
+          <div className="pb-6">
+            {grupos.length === 0 && <p className="py-10 text-center text-sm text-slate-500">Nenhum produto disponível.</p>}
+            {grupos.map((g) => (
+              <section key={g.nome} ref={(el) => (secRefs.current[g.nome] = el)} data-cat={g.nome} className="scroll-mt-28">
+                <div className="sticky top-[116px] z-10 -mx-4 mb-3 mt-1 flex items-center gap-2 bg-slate-950/85 px-4 py-1.5 backdrop-blur">
+                  <span className="h-4 w-1 rounded-full bg-gold-400" />
+                  <h2 className="text-sm font-black uppercase tracking-wide text-white">{g.nome}</h2>
+                  <span className="text-[11px] font-bold text-slate-500">{g.produtos.length} {g.produtos.length === 1 ? "item" : "itens"}</span>
                 </div>
-              </div>
-            </article>
-          );})}
-        </div>
+                <div className="grid grid-cols-2 gap-3">
+                  {g.produtos.map(renderProduto)}
+                </div>
+              </section>
+            ))}
+            {/* Espaçador: garante que qualquer grupo (inclusive o último, curto) alcance
+                o topo ao rolar, para o destaque do header refletir o grupo correto. */}
+            <div aria-hidden className="min-h-[55vh]" />
+          </div>
+        )}
       </main>
 
       {/* Sugestão de bebida (após adicionar comida) */}
