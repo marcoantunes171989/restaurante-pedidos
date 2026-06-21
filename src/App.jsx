@@ -5926,7 +5926,9 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
   const setorPronto = (o, s) => (o.setorStatus || {})[s] === "ready";
   const parcial = (o) => { const ps = setoresPresentes(o); return ps.length > 1 && ps.some((s) => setorPronto(o, s)) && !ps.every((s) => setorPronto(o, s)); };
 
-  const ativos = orders.filter((o) => o.status !== "cancelled" && o.paymentStatus !== "paid" && o.status !== "delivered");
+  // Fluxo operacional independe do pagamento: o pedido continua na Cozinha/Bar/Pedidos
+  // até ser ENTREGUE (mesmo já pago). Só conclui com pago E entregue.
+  const ativos = orders.filter((o) => o.status !== "cancelled" && o.status !== "delivered");
   // Contas do Caixa: todo pedido ativo aparece imediatamente (pode pagar a qualquer momento);
   // sai da lista só quando estiver pago E retirado.
   const contas = orders.filter((o) => o.status !== "cancelled" && !(o.paymentStatus === "paid" && o.status === "delivered"));
@@ -6018,7 +6020,7 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
           {ativosFiltrados.map((o) => { const b = badge(o); const a = acaoPrincipal(o); const org = origemDe(o);
             return (
               <div key={o.id} className="rounded-3xl border border-white/10 bg-slate-950/40 p-3.5">
-                <div className="flex items-center justify-between gap-2"><span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-black ${b.c}`}>{b.l}</span><span className="text-[11px] text-slate-500">{org.ic} {org.l} · {haTxt(o)}</span></div>
+                <div className="flex items-center justify-between gap-2"><div className="flex items-center gap-1.5"><span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-black ${b.c}`}>{b.l}</span>{o.paymentStatus === "paid" && <span className="rounded-full border border-emerald-400/30 bg-emerald-500/15 px-2 py-0.5 text-[10px] font-black text-emerald-300">✓ PAGO</span>}</div><span className="text-[11px] text-slate-500">{org.ic} {org.l} · {haTxt(o)}</span></div>
                 <p className="mt-1.5 font-black text-white">{o.id} · {o.table}</p>
                 <p className="text-xs text-slate-400">{o.customer || "Cliente"}</p>
                 <div className="mt-2 space-y-2">

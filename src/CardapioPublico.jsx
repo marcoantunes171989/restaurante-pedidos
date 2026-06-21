@@ -154,9 +154,12 @@ export default function CardapioPublico() {
   }, [telDig, cliente, modoExterno, loja?.id]);
 
   const currentTable = mesa ? `Mesa ${String(mesa).padStart(2, "0")}` : "";
+  // O pedido só deixa de ser acompanhado quando estiver CONCLUÍDO: pago E entregue/retirado.
+  // Enquanto faltar uma das duas, continua aparecendo com o status do estágio atual.
+  const concluido = (o) => o.paymentStatus === "paid" && o.status === "delivered";
   const meusPedidos = modoExterno
-    ? orders.filter((o) => telDig && o.clienteTelefone === telDig && o.paymentStatus !== "paid" && o.status !== "cancelled")
-    : orders.filter((o) => o.table === currentTable && o.command === comanda && o.paymentStatus !== "paid" && o.status !== "cancelled");
+    ? orders.filter((o) => telDig && o.clienteTelefone === telDig && o.status !== "cancelled" && !concluido(o))
+    : orders.filter((o) => o.table === currentTable && o.command === comanda && o.status !== "cancelled" && !concluido(o));
   const subtotal = meusPedidos.reduce((s, o) => s + o.items.reduce((a, i) => a + i.price * i.quantity, 0), 0);
   const totalMesa = subtotal * 1.1;
   const totalCart = cart.reduce((s, i) => s + i.price * i.quantity, 0);
@@ -478,9 +481,12 @@ export default function CardapioPublico() {
             <div className="space-y-2">
               {meusPedidos.map((o) => (
                 <div key={o.id} className="rounded-2xl border border-white/10 bg-slate-950/40 p-3">
-                  <div className="mb-2 flex items-center justify-between"><span className="text-xs font-bold uppercase tracking-widest text-slate-500">{o.id} • {o.createdAt}</span>
-                    <span className={`rounded-full border px-3 py-1 text-xs font-black ${statusMap[o.status]?.chip}`}>{STATUS_TABLET_LABEL[o.status] || statusMap[o.status]?.label}</span></div>
-                  <TimelinePedido status={o.status} setorStatus={o.setorStatus} setoresPedido={setoresDoPedido(o)} externo={modoExterno || o.table === "Externo"} />
+                  <div className="mb-2 flex items-center justify-between gap-2"><span className="text-xs font-bold uppercase tracking-widest text-slate-500">{o.id} • {o.createdAt}</span>
+                    <div className="flex items-center gap-1.5">
+                      {o.paymentStatus === "paid" && <span className="rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2 py-1 text-[10px] font-black text-emerald-300">✓ Pago</span>}
+                      <span className={`rounded-full border px-3 py-1 text-xs font-black ${statusMap[o.status]?.chip}`}>{STATUS_TABLET_LABEL[o.status] || statusMap[o.status]?.label}</span>
+                    </div></div>
+                  <TimelinePedido status={o.status} paymentStatus={o.paymentStatus} setorStatus={o.setorStatus} setoresPedido={setoresDoPedido(o)} externo={modoExterno || o.table === "Externo"} />
                   <div className="mt-2 border-t border-white/10 pt-2">
                     {o.items.map((it, idx) => <div key={idx} className="flex justify-between text-sm py-0.5"><span className="text-slate-300"><b className="text-white">{it.quantity}×</b> {it.name}</span><span className="font-bold text-white">{formatCurrency(it.price * it.quantity)}</span></div>)}
                   </div>
@@ -514,7 +520,7 @@ function Centro({ children }) {
 function Spinner() { return <div className="h-10 w-10 animate-spin rounded-full border-4 border-blue-500/30 border-t-blue-500" />; }
 
 // Linha do tempo do status do pedido — recebido → (cozinha / bar) → mesa → entregue
-function TimelinePedido({ status, setorStatus = {}, setoresPedido = [], externo = false }) {
+function TimelinePedido({ status, paymentStatus = "open", setorStatus = {}, setoresPedido = [], externo = false }) {
   if (status === "cancelled") return <p className="rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-300">Pedido cancelado.</p>;
   const ordem = ["received", "preparing", "ready", "delivered"];
   const idx = Math.max(0, ordem.indexOf(status));
@@ -540,6 +546,7 @@ function TimelinePedido({ status, setorStatus = {}, setoresPedido = [], externo 
       {presentes.includes("bar") && linha({ ...stSetor("bar"), ic: "🍹", l: "Bebidas no bar" })}
       {linha({ feito: idx >= 2, ativo: status === "ready", ic: externo ? "🛍️" : "🛎️", l: externo ? "Pronto — liberado para retirada no balcão" : "Pronto — saindo para a mesa" })}
       {linha({ feito: idx >= 3, ativo: status === "delivered", ic: externo ? "🛍️" : "🍽️", l: externo ? "Retirado" : "Entregue" })}
+      {linha({ feito: paymentStatus === "paid", ativo: paymentStatus === "requested", ic: "💳", l: paymentStatus === "paid" ? "Pagamento confirmado" : paymentStatus === "requested" ? "Pagamento — aguardando no caixa" : "Pagamento pendente" })}
     </div>
   );
 }
