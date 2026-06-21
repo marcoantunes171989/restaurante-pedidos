@@ -2,6 +2,14 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Rolagem: nunca "vaza" para a tela de baixo ─────────────────
+   overscroll-behavior evita o scroll-chaining/bounce ao chegar no
+   fim de uma área rolável. .pp-scroll-locked congela o fundo
+   enquanto há um overlay (gaveta/modal) na frente. */
+html, body { overscroll-behavior: none; }
+body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflow: hidden; }
+.pp-overscroll-contain { overscroll-behavior: contain; }
+
 /* ── Design tokens Pedido Prime (paleta premium) ────────────── */
 :root {
   --prime-bg-dark: #070B16;

@@ -6,6 +6,7 @@ import {
   rpcCriarPedidoPublico, rpcUpsertClientePublico, rpcBuscarClientePublico, rpcPedidosComanda, rpcPedidosCliente, rpcSolicitarContaPublico, rpcCriarChamadoPublico,
 } from "./lib/supabase";
 import { cardapioViaRpc } from "./lib/authMode";
+import { useScrollLock } from "./lib/scrollLock";
 import {
   ProdutoModal, formatCurrency, fallbackImage, statusMap, STATUS_TABLET_LABEL, isValidCommand,
   promocaoVigente, promoResumoDesconto,
@@ -658,6 +659,7 @@ function TimelinePedido({ status, paymentStatus = "open", setorStatus = {}, seto
   );
 }
 function Gaveta({ titulo, onFechar, children }) {
+  useScrollLock(); // trava a rolagem do fundo enquanto a gaveta está aberta
   // Acompanha o "visual viewport" (área visível) para a gaveta sentar ACIMA do teclado
   // do celular — assim o campo focado nunca fica escondido.
   const [vp, setVp] = useState(null);
@@ -677,7 +679,7 @@ function Gaveta({ titulo, onFechar, children }) {
     <div className="fixed inset-x-0 top-0 z-[110] flex items-end justify-center bg-black/70 backdrop-blur-sm" style={overlayStyle} onClick={onFechar}>
       <div onClick={(e) => e.stopPropagation()} className="w-full max-w-3xl rounded-t-[2rem] border border-white/10 bg-slate-900 shadow-2xl" style={{ maxHeight: sheetMax }}>
         <div className="flex items-center justify-between border-b border-white/10 px-5 py-4"><h2 className="text-lg font-black text-white">{titulo}</h2><button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300">Fechar ✕</button></div>
-        <div className="overflow-y-auto px-5 py-4" style={{ maxHeight: bodyMax }}>{children}</div>
+        <div className="pp-overscroll-contain overflow-y-auto px-5 py-4" style={{ maxHeight: bodyMax }}>{children}</div>
       </div>
     </div>
   );

@@ -27,6 +27,7 @@ import {
   loginSupabaseAuth, logoutSupabaseAuth, aguardarSessao, getSessionEmail,
 } from "./lib/supabase";
 import { usandoSupabaseAuth } from "./lib/authMode";
+import { useScrollLock } from "./lib/scrollLock";
 import { statusAssinatura, getCurrentCompanyPlan, modulosDoPlano, MODULOS_LABEL, canAccessModule, getBlockedModuleMessage } from "./lib/plans";
 import { useUpgradeModais } from "./components/upgrade/UpgradeModais";
 import { GeradorComandas } from "./components/QRComandas";
@@ -3242,6 +3243,7 @@ function TabletView({
 //  Modal de detalhes/personalização do produto
 // ════════════════════════════════════════════════════════════
 export function ProdutoModal({ produto, onFechar, onAdicionar, grupos = [], opcoes = [] }) {
+  useScrollLock(); // trava a rolagem do fundo enquanto o modal está aberto
   const [quantidade, setQuantidade]   = useState(1);
   const [selecionados, setSelecionados] = useState([...(produto.ingredients || [])]);
   const [removidos, setRemovidos]       = useState([]);
@@ -4880,6 +4882,7 @@ function numeroParaMoeda(num) {
 //  Modal de pagamento — múltiplas formas, máscara BRL, troco só dinheiro
 // ════════════════════════════════════════════════════════════
 function PagamentoModal({ total, formasPagamento, onConfirmar, onCancelar }) {
+  useScrollLock(); // trava a rolagem do fundo enquanto o modal está aberto
   const [linhas, setLinhas] = useState([]); // mais recentes no topo (ordem decrescente)
 
   // Soma atual já preenchida
@@ -10444,6 +10447,7 @@ function SetoresCozinhaAdmin({ setores = [], produtos = [], orders = [], api, vi
 
 // Modal de vínculo produto → setor de cozinha
 function VincularProdutosModal({ setor, produtos = [], setores = [], onFechar, onSalvar }) {
+  useScrollLock(); // trava a rolagem do fundo enquanto o modal está aberto
   const [busca, setBusca] = useState("");
   const [sel, setSel] = useState(() => new Set(produtos.filter((p) => p.setorId === setor.id).map((p) => p.id)));
   const [salvando, setSalvando] = useState(false);
