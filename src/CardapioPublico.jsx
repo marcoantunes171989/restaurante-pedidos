@@ -147,6 +147,9 @@ export default function CardapioPublico() {
         const el = secRefs.current[g.nome];
         if (el && el.getBoundingClientRect().top - linha <= 0) atual = g.nome;
       }
+      // Ao chegar no fim da página (sem espaço vazio extra), o último grupo é o ativo —
+      // a rolagem para exatamente quando o último grupo é selecionado.
+      if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4) atual = grupos[grupos.length - 1].nome;
       setCatAtiva((cur) => (cur === atual ? cur : atual));
     };
     // IntersectionObserver dispara de forma confiável durante a rolagem (inclusive
@@ -478,9 +481,6 @@ export default function CardapioPublico() {
                 </div>
               </section>
             ))}
-            {/* Espaçador: garante que qualquer grupo (inclusive o último, curto) alcance
-                o topo ao rolar, para o destaque do header refletir o grupo correto. */}
-            <div aria-hidden className="min-h-[55vh]" />
           </div>
         )}
       </main>
