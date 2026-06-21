@@ -1364,17 +1364,23 @@ export default function RestaurantePedidoApp() {
 
   // Baixa das comandas após pagamento: marca pedidos NÃO PAGOS como pago + entregue (libera comanda)
   // Baixa completa: pagamento + estoque + registro. info = { mesa, total, troco, detalhes }
-  async function baixarComandas(comandas, info = null) {
+  async function baixarComandas(comandas, info = null, opts = {}) {
+    // manterStatus: registra o pagamento SEM concluir a entrega (cliente pagou antes
+    // de retirar — pedido continua aguardando o produto). Usado pela Operação Mobile.
+    const { manterStatus = false, somenteId = null } = opts;
     if (!canAccess(currentUser, "cashier")) return notify("error", "Usuário sem permissão para finalizar pagamento.");
-    const alvo = orders.filter((o) => comandas.includes(o.command) && o.paymentStatus !== "paid");
+    // somenteId: paga exatamente UM pedido (preciso, mesmo sem comanda — caso de delivery externo);
+    // senão, fecha todos os pedidos das comandas informadas.
+    const ehAlvo = (o) => somenteId ? o.id === somenteId : comandas.includes(o.command);
+    const alvo = orders.filter((o) => ehAlvo(o) && o.paymentStatus !== "paid");
     if (alvo.length === 0) return notify("error", "Nenhum pedido em aberto para essas comandas.");
     // Itens vendidos (para baixa de estoque)
     const itensVendidos = alvo.flatMap((o) => o.items.map((it) => ({ name: it.name, quantity: it.quantity })));
-    setOrders((cur) => cur.map((o) => (comandas.includes(o.command) && o.paymentStatus !== "paid") ? { ...o, paymentStatus: "paid", status: "delivered" } : o));
+    setOrders((cur) => cur.map((o) => (ehAlvo(o) && o.paymentStatus !== "paid") ? { ...o, paymentStatus: "paid", ...(manterStatus ? {} : { status: "delivered" }) } : o));
     let alertasEstoque = [];
     if (dbReady) {
       try {
-        await Promise.all(alvo.map((o) => atualizarPedido(o.id, { status_pagamento: "pago", status: "entregue" })));
+        await Promise.all(alvo.map((o) => atualizarPedido(o.id, { status_pagamento: "pago", ...(manterStatus ? {} : { status: "entregue" }) })));
         const r = await baixarEstoque(itensVendidos, lojaAtual, comandas); // baixa correta por loja + registro
         alertasEstoque = r?.alertas || [];
         if (info) await registrarPagamento({ ...info, comandas }); // histórico de pagamento
@@ -1399,7 +1405,7 @@ export default function RestaurantePedidoApp() {
         }
       } catch (err) { console.error("Erro ao finalizar pagamento:", err); }
     }
-    notify("success", `✅ Pagamento finalizado! ${comandas.length} comanda(s) baixada(s), estoque atualizado.`);
+    notify("success", manterStatus ? "✅ Pagamento registrado · aguardando retirada do produto." : `✅ Pagamento finalizado! ${comandas.length} comanda(s) baixada(s), estoque atualizado.`);
     return { alertas: alertasEstoque };
   }
 
@@ -5911,6 +5917,9 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, ma
 
   const ativos = orders.filter((o) => o.status !== "cancelled" && o.paymentStatus !== "paid" && o.status !== "delivered");
   const aguardando = orders.filter((o) => o.status !== "cancelled" && o.paymentStatus !== "paid" && (o.status === "delivered" || o.paymentStatus === "requested"));
+  // Contas do Caixa: todo pedido ativo aparece imediatamente (pode pagar a qualquer momento);
+  // sai da lista só quando estiver pago E retirado.
+  const contas = orders.filter((o) => o.status !== "cancelled" && !(o.paymentStatus === "paid" && o.status === "delivered"));
   const minutos = (o) => o.createdAtISO ? Math.max(0, Math.floor((Date.now() - new Date(o.createdAtISO).getTime()) / 60000)) : null;
   const haTxt = (o) => { const m = minutos(o); return m == null ? "" : (m < 1 ? "agora" : m < 60 ? `há ${m} min` : `há ${Math.floor(m / 60)}h${String(m % 60).padStart(2, "0")}`); };
   const totalCom = (o) => orderTotal(o) * 1.1;
@@ -6070,7 +6079,7 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, ma
         </>);
       })()}
 
-      {tab === "caixa" && permitido("caixa") && <CaixaMobile aguardando={aguardando} totalCom={totalCom} baixarComandas={baixarComandas} lojaInfo={lojaInfo} haTxt={haTxt} />}
+      {tab === "caixa" && permitido("caixa") && <CaixaMobile contas={contas} totalCom={totalCom} baixarComandas={baixarComandas} formasPagamento={formasPagamento} lojaInfo={lojaInfo} haTxt={haTxt} />}
 
       {/* Bottom nav */}
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-slate-900/95 backdrop-blur-xl" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
@@ -6088,48 +6097,98 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, ma
   );
 }
 
-// Sub-tela de caixa (Operação Mobile) — finaliza contas aguardando pagamento
-function CaixaMobile({ aguardando, totalCom, baixarComandas, lojaInfo, haTxt }) {
-  const [forma, setForma] = useState({});
+// Sub-tela de caixa (Operação Mobile) — todo pedido aparece de imediato; o cliente
+// pode pagar a qualquer momento (inclusive antes da retirada) e com várias formas.
+function CaixaMobile({ contas, totalCom, baixarComandas, formasPagamento = [], lojaInfo, haTxt }) {
   const [pagando, setPagando] = useState(null);
-  const totalAberto = aguardando.reduce((s, o) => s + totalCom(o), 0);
-  async function finalizar(o) {
+  const opcoes = (() => { const a = formasPagamento.filter((f) => f.active !== false).map((f) => f.nome).filter(Boolean); return a.length ? a : ["Pix", "Cartão", "Dinheiro"]; })();
+  const abertas = contas.filter((o) => o.paymentStatus !== "paid");
+  const totalAberto = abertas.reduce((s, o) => s + totalCom(o), 0);
+  async function finalizar(o, linhas, total) {
     setPagando(o.id);
-    try { await baixarComandas([o.command], { forma: forma[o.id] || "Dinheiro", valor: totalCom(o), mesa: o.table, lojaId: lojaInfo?.id }); } catch {}
+    try {
+      const detalhes = linhas.map((l) => ({ forma: l.forma, valor: parseFloat(l.valor) || 0 }));
+      await baixarComandas([o.command], { forma: detalhes.map((d) => d.forma).join(" + "), total, valor: total, detalhes, mesa: o.table, lojaId: lojaInfo?.id }, { manterStatus: true, somenteId: o.id });
+    } catch {}
     setPagando(null);
   }
   return (
     <>
       <div className="mb-3 grid grid-cols-2 gap-2">
-        <div className="rounded-2xl border border-gold-400/25 bg-gold-400/[0.06] px-3 py-2.5"><p className="page-title text-2xl font-bold text-gold-300">{aguardando.length}</p><p className="text-[11px] text-slate-500">Aguardando pagamento</p></div>
+        <div className="rounded-2xl border border-gold-400/25 bg-gold-400/[0.06] px-3 py-2.5"><p className="page-title text-2xl font-bold text-gold-300">{abertas.length}</p><p className="text-[11px] text-slate-500">Aguardando pagamento</p></div>
         <div className="rounded-2xl border border-white/10 bg-slate-950/40 px-3 py-2.5"><p className="page-title text-2xl font-bold text-white">{formatCurrency(totalAberto)}</p><p className="text-[11px] text-slate-500">Em aberto</p></div>
       </div>
       <div className="space-y-2">
-        {aguardando.length === 0 && <p className="py-10 text-center text-sm text-slate-500">Nenhuma conta aguardando pagamento.</p>}
-        {aguardando.map((o) => { const sub = orderTotal(o); const taxa = sub * 0.1;
-          return (
-            <div key={o.id} className="rounded-3xl border border-gold-400/25 bg-slate-950/40 p-3.5">
-              <div className="flex items-center justify-between"><p className="font-black text-white">{o.table} · {o.id}</p><span className="text-[11px] text-slate-500">{haTxt(o)}</span></div>
-              <p className="text-xs text-slate-400">{o.customer || "Cliente"}</p>
-              <div className="mt-2 space-y-0.5 border-t border-white/10 pt-2">
-                {o.items.map((it, i) => (<div key={i} className="flex justify-between text-sm"><span className="text-slate-300">{it.quantity}× {it.name}</span><span className="font-bold text-white">{formatCurrency(it.price * it.quantity)}</span></div>))}
-              </div>
-              <div className="mt-2 space-y-0.5 border-t border-white/10 pt-2 text-sm">
-                <div className="flex justify-between text-slate-400"><span>Subtotal</span><span className="text-white">{formatCurrency(sub)}</span></div>
-                <div className="flex justify-between text-slate-400"><span>Taxa de serviço (10%)</span><span className="text-white">{formatCurrency(taxa)}</span></div>
-                <div className="flex justify-between text-base font-black"><span className="text-white">Total</span><span className="text-emerald-400">{formatCurrency(sub + taxa)}</span></div>
-              </div>
-              <div className="mt-2 flex gap-1.5">
-                {["Pix", "Cartão", "Dinheiro"].map((f) => (
-                  <button key={f} onClick={() => setForma((s) => ({ ...s, [o.id]: f }))} className={`flex-1 rounded-xl border px-2 py-1.5 text-xs font-bold transition ${(forma[o.id] || "") === f ? "border-gold-400 bg-gold-400 text-blue-950" : "border-white/10 bg-white/[0.05] text-slate-300"}`}>{f}</button>
-                ))}
-              </div>
-              <button onClick={() => finalizar(o)} disabled={pagando === o.id} className="mt-2.5 w-full rounded-2xl bg-emerald-500 py-2.5 text-sm font-black text-white active:scale-95 disabled:opacity-50">{pagando === o.id ? "Finalizando…" : "Finalizar conta"}</button>
-            </div>
-          );
-        })}
+        {contas.length === 0 && <p className="py-10 text-center text-sm text-slate-500">Nenhuma conta no momento.</p>}
+        {contas.map((o) => o.paymentStatus === "paid"
+          ? <ContaPaga key={o.id} o={o} haTxt={haTxt} />
+          : <ContaCaixa key={o.id} o={o} opcoes={opcoes} pagando={pagando === o.id} onFinalizar={finalizar} haTxt={haTxt} />)}
       </div>
     </>
+  );
+}
+
+// Conta já paga, aguardando o cliente retirar o produto
+function ContaPaga({ o, haTxt }) {
+  const total = orderTotal(o) * 1.1;
+  return (
+    <div className="rounded-3xl border border-emerald-400/25 bg-emerald-500/[0.06] p-3.5">
+      <div className="flex items-center justify-between"><p className="font-black text-white">{o.table} · {o.id}</p><span className="text-[11px] text-slate-500">{haTxt(o)}</span></div>
+      <p className="text-xs text-slate-400">{o.customer || "Cliente"}</p>
+      <p className="mt-2 rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-3 py-2 text-center text-sm font-bold text-emerald-300">✓ Pago {formatCurrency(total)} · aguardando retirada do produto</p>
+    </div>
+  );
+}
+
+// Conta em aberto — pagamento com 1 ou mais formas, com validação do valor
+function ContaCaixa({ o, opcoes, pagando, onFinalizar, haTxt }) {
+  const sub = orderTotal(o); const taxa = sub * 0.1; const total = Math.round((sub + taxa) * 100) / 100;
+  const [linhas, setLinhas] = useState([]); // [{ forma, valor }]
+  const soma = Math.round(linhas.reduce((s, l) => s + (parseFloat(l.valor) || 0), 0) * 100) / 100;
+  const restante = Math.round((total - soma) * 100) / 100;
+  const valido = linhas.length > 0 && linhas.every((l) => (parseFloat(l.valor) || 0) > 0) && Math.abs(restante) < 0.01;
+  const toggleForma = (f) => setLinhas((cur) => {
+    if (cur.some((l) => l.forma === f)) return cur.filter((l) => l.forma !== f);
+    const pagoAtual = cur.reduce((s, l) => s + (parseFloat(l.valor) || 0), 0);
+    const falta = Math.max(0, Math.round((total - pagoAtual) * 100) / 100);
+    return [...cur, { forma: f, valor: falta.toFixed(2) }];
+  });
+  const editarValor = (f, v) => setLinhas((cur) => cur.map((l) => l.forma === f ? { ...l, valor: v.replace(",", ".").replace(/[^\d.]/g, "") } : l));
+  return (
+    <div className="rounded-3xl border border-gold-400/25 bg-slate-950/40 p-3.5">
+      <div className="flex items-center justify-between"><p className="font-black text-white">{o.table} · {o.id}</p><span className="text-[11px] text-slate-500">{haTxt(o)}</span></div>
+      <p className="text-xs text-slate-400">{o.customer || "Cliente"}</p>
+      <div className="mt-2 space-y-0.5 border-t border-white/10 pt-2">
+        {o.items.map((it, i) => (<div key={i} className="flex justify-between text-sm"><span className="text-slate-300">{it.quantity}× {it.name}</span><span className="font-bold text-white">{formatCurrency(it.price * it.quantity)}</span></div>))}
+      </div>
+      <div className="mt-2 space-y-0.5 border-t border-white/10 pt-2 text-sm">
+        <div className="flex justify-between text-slate-400"><span>Subtotal</span><span className="text-white">{formatCurrency(sub)}</span></div>
+        <div className="flex justify-between text-slate-400"><span>Taxa de serviço (10%)</span><span className="text-white">{formatCurrency(taxa)}</span></div>
+        <div className="flex justify-between text-base font-black"><span className="text-white">Total</span><span className="text-emerald-400">{formatCurrency(total)}</span></div>
+      </div>
+      <p className="mt-2 text-[10px] font-bold uppercase tracking-wide text-slate-500">Forma(s) de pagamento</p>
+      <div className="mt-1 flex flex-wrap gap-1.5">
+        {opcoes.map((f) => { const on = linhas.some((l) => l.forma === f);
+          return <button key={f} onClick={() => toggleForma(f)} className={`rounded-xl border px-2.5 py-1.5 text-xs font-bold transition ${on ? "border-gold-400 bg-gold-400 text-blue-950" : "border-white/10 bg-white/[0.05] text-slate-300"}`}>{on ? "✓ " : ""}{f}</button>;
+        })}
+      </div>
+      {linhas.length > 0 && (
+        <div className="mt-2 space-y-1.5">
+          {linhas.map((l) => (
+            <div key={l.forma} className="flex items-center gap-2">
+              <span className="w-24 shrink-0 truncate text-xs font-bold text-gold-300">{l.forma}</span>
+              <span className="text-xs text-slate-500">R$</span>
+              <input inputMode="decimal" value={l.valor} onChange={(e) => editarValor(l.forma, e.target.value)} className="w-full rounded-lg border border-white/10 bg-slate-950/70 px-2 py-1 text-sm text-white outline-none focus:border-gold-400/60" />
+            </div>
+          ))}
+          <div className="flex items-center justify-between text-[11px]">
+            <span className={Math.abs(restante) < 0.01 ? "font-bold text-emerald-300" : restante > 0 ? "font-bold text-amber-300" : "font-bold text-red-300"}>{Math.abs(restante) < 0.01 ? "Valor confere ✓" : restante > 0 ? `Falta ${formatCurrency(restante)}` : `Excede ${formatCurrency(-restante)}`}</span>
+            <span className="text-slate-400">Pago {formatCurrency(soma)} / {formatCurrency(total)}</span>
+          </div>
+        </div>
+      )}
+      <button onClick={() => onFinalizar(o, linhas, total)} disabled={!valido || pagando} className="mt-2.5 w-full rounded-2xl bg-emerald-500 py-2.5 text-sm font-black text-white transition active:scale-95 disabled:cursor-not-allowed disabled:bg-emerald-500/30 disabled:text-white/60">{pagando ? "Registrando…" : linhas.length === 0 ? "Selecione a forma de pagamento" : !valido ? "Confirme o valor" : "Finalizar pagamento"}</button>
+    </div>
   );
 }
 
