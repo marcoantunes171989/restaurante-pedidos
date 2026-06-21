@@ -422,7 +422,7 @@ export default function CardapioPublico() {
         )}
 
         {/* Aviso de personalização */}
-        <div className="mb-3 flex items-center gap-2 rounded-2xl border border-gold-400/25 bg-gold-400/[0.06] px-4 py-2.5">
+        <div className="mb-3 mt-4 flex items-center gap-2 rounded-2xl border border-gold-400/25 bg-gold-400/[0.06] px-4 py-2.5">
           <span className="text-lg">✨</span>
           <p className="text-xs font-bold text-gold-200">Personalize do seu jeito! <span className="font-normal text-slate-300">Adicione ou remova ingredientes.</span></p>
         </div>
