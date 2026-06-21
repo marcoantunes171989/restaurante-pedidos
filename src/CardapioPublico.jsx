@@ -487,7 +487,7 @@ export default function CardapioPublico() {
             className="shrink-0 rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-black text-slate-300 disabled:opacity-40">👁️ Acompanhar</button>
           <button onClick={() => setAba("carrinho")} disabled={cart.length === 0}
             className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-gold-400 px-4 py-3.5 text-sm font-black text-blue-950 shadow-lg shadow-gold-900/20 transition active:scale-95 disabled:opacity-40 disabled:bg-white/[0.06] disabled:text-slate-500">
-            🛒 {qtdCart > 0 ? `Ver carrinho · ${qtdCart} item(ns) · ${formatCurrency(totalCart)}` : "Carrinho vazio"}
+            🛒 {qtdCart > 0 ? "Ver Carrinho" : "Carrinho vazio"}
           </button>
         </div>
       </div>
