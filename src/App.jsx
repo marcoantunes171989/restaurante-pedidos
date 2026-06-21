@@ -6017,7 +6017,10 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
           filtroCentral === "todos" ? true
           : filtroCentral === "cozinha" ? itensDoSetor(o, false).length > 0
           : filtroCentral === "bar" ? itensDoSetor(o, true).length > 0
-          : true);
+          : true)
+          // Fila em ordem cronológica fixa: o mais antigo no topo (#1, #2, #3…),
+          // para o atendimento seguir a ordem de chegada sem pedido novo "pular".
+          .sort((a, b) => new Date(a.createdAtISO || 0) - new Date(b.createdAtISO || 0));
         return (<>
         <div className="mb-3 flex gap-1.5 overflow-x-auto">
           {[["todos", "Todos"], ["cozinha", "Cozinha"], ["bar", "Bar"], ["caixa", "Caixa"]].map(([k, l]) => (
