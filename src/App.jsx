@@ -5995,16 +5995,29 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, ma
         </div>
         <div className="space-y-2">
           {ativosFiltrados.length === 0 && <p className="py-10 text-center text-sm text-slate-500">Nenhum pedido ativo{filtroCentral !== "todos" ? ` para ${filtroCentral}` : ""}.</p>}
-          {ativosFiltrados.map((o) => { const b = badge(o); const a = acaoPrincipal(o); const setoresDoPedido = [itensDoSetor(o, false).length > 0 && "Cozinha", itensDoSetor(o, true).length > 0 && "Bar"].filter(Boolean); const org = origemDe(o);
+          {ativosFiltrados.map((o) => { const b = badge(o); const a = acaoPrincipal(o); const org = origemDe(o);
             return (
               <div key={o.id} className="rounded-3xl border border-white/10 bg-slate-950/40 p-3.5">
                 <div className="flex items-center justify-between gap-2"><span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-black ${b.c}`}>{b.l}</span><span className="text-[11px] text-slate-500">{org.ic} {org.l} · {haTxt(o)}</span></div>
                 <p className="mt-1.5 font-black text-white">{o.id} · {o.table}</p>
                 <p className="text-xs text-slate-400">{o.customer || "Cliente"}</p>
-                <p className="mt-1.5 line-clamp-2 text-xs text-slate-300">{resumoItens(o.items)}</p>
-                <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                  {setoresDoPedido.map((s) => <span key={s} className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] font-bold text-slate-300">{s}</span>)}
-                  <span className="ml-auto text-sm font-black text-emerald-300">{formatCurrency(totalCom(o))}</span>
+                <div className="mt-2 space-y-2">
+                  {setoresPresentes(o).map((sk) => { const its = itensDoSetor(o, sk === "bar"); const liberado = setorPronto(o, sk) && parcial(o);
+                    return (
+                      <div key={sk}>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">{sk === "bar" ? "🍹 Bar" : "👨‍🍳 Cozinha"}</span>
+                          {liberado && <span className="rounded-full border border-emerald-400/30 bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-bold text-emerald-300">✓ liberado</span>}
+                        </div>
+                        <div className="mt-0.5 space-y-0.5">
+                          {its.map((it, i) => <p key={i} className={`text-xs ${liberado ? "text-slate-500 line-through decoration-emerald-400/60" : "text-slate-300"}`}>{it.quantity}× {it.name}</p>)}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="mt-2 flex items-center justify-end">
+                  <span className="text-sm font-black text-emerald-300">{formatCurrency(totalCom(o))}</span>
                 </div>
                 {a && <button onClick={a.fn} className={`mt-2.5 w-full rounded-2xl py-2.5 text-sm font-black transition active:scale-95 ${a.c}`}>{a.l}</button>}
               </div>
