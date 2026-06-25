@@ -28,7 +28,7 @@ import {
 } from "./lib/supabase";
 import { usandoSupabaseAuth } from "./lib/authMode";
 import { useScrollLock } from "./lib/scrollLock";
-import { statusAssinatura, getCurrentCompanyPlan, modulosDoPlano, MODULOS_LABEL, canAccessModule, getBlockedModuleMessage, bloqueioAcessoEmpresa, diasRestantesTrial } from "./lib/plans";
+import { statusAssinatura, getCurrentCompanyPlan, modulosDoPlano, MODULOS_LABEL, canAccessModule, getBlockedModuleMessage, bloqueioAcessoEmpresa, diasRestantesTrial, avisoPagamentoPendente } from "./lib/plans";
 import { useUpgradeModais } from "./components/upgrade/UpgradeModais";
 import { GeradorComandas } from "./components/QRComandas";
 import { QRScannerModal  } from "./components/QRScanner";
@@ -2133,8 +2133,15 @@ export default function RestaurantePedidoApp() {
     );
   }
 
+  // Aviso (não bloqueia): pagamento pendente dentro da carência de 7 dias.
+  const avisoOverdue = avisoPagamentoPendente(assinaturaAtual, isSuperAdmin);
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
+      {avisoOverdue && (
+        <div className="sticky top-0 z-[80] border-b border-amber-400/30 bg-amber-500/15 px-4 py-2.5 text-center backdrop-blur-xl">
+          <p className="text-sm font-bold text-amber-100">⚠ Pagamento pendente — seu acesso será bloqueado em <b className="text-white">{Math.max(0, avisoOverdue.dias)} dia(s)</b> se o pagamento não for regularizado.{avisoOverdue.obs ? ` Motivo: ${avisoOverdue.obs}.` : ""} Entre em contato com o suporte.</p>
+        </div>
+      )}
       {precisaNomear && (
         <NomearDispositivoModal
           lojas={lojas}
@@ -9749,9 +9756,9 @@ function MeuPlanoAdmin({ planoAtual, assinaturaAtual, planos = [], planoModulos 
   // Edição (somente super admin)
   const [form, setForm] = useState({
     planoId: assinaturaAtual?.planoId ?? "", status: assinaturaAtual?.status ?? "active",
-    dataFim: assinaturaAtual?.dataFim ?? "", dataTrialFim: assinaturaAtual?.dataTrialFim ?? "", precoMensal: assinaturaAtual?.precoMensal ?? "",
+    dataFim: assinaturaAtual?.dataFim ?? "", dataTrialFim: assinaturaAtual?.dataTrialFim ?? "", precoMensal: assinaturaAtual?.precoMensal ?? "", observacoes: assinaturaAtual?.observacoes ?? "",
   });
-  useEffect(() => { setForm({ planoId: assinaturaAtual?.planoId ?? "", status: assinaturaAtual?.status ?? "active", dataFim: assinaturaAtual?.dataFim ?? "", dataTrialFim: assinaturaAtual?.dataTrialFim ?? "", precoMensal: assinaturaAtual?.precoMensal ?? "" }); }, [assinaturaAtual?.id, lojaAtual]);
+  useEffect(() => { setForm({ planoId: assinaturaAtual?.planoId ?? "", status: assinaturaAtual?.status ?? "active", dataFim: assinaturaAtual?.dataFim ?? "", dataTrialFim: assinaturaAtual?.dataTrialFim ?? "", precoMensal: assinaturaAtual?.precoMensal ?? "", observacoes: assinaturaAtual?.observacoes ?? "" }); }, [assinaturaAtual?.id, lojaAtual]);
   const [erroForm, setErroForm] = useState("");
   // Plano selecionado → o Valor Mensal vem dele (somente leitura).
   const planoSel = planos.find((p) => p.id === form.planoId) || null;
@@ -9779,6 +9786,7 @@ function MeuPlanoAdmin({ planoAtual, assinaturaAtual, planos = [], planoModulos 
       dataFim: form.status === "trial" ? (form.dataTrialFim || null) : (form.dataFim || null),
       dataTrialFim: form.dataTrialFim || null,
       precoMensal: valorPlano, // valor mensal = preço do plano (somente leitura)
+      observacoes: form.observacoes || "",
     });
   }
   const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-gold-400/60 transition";
@@ -9864,6 +9872,11 @@ function MeuPlanoAdmin({ planoAtual, assinaturaAtual, planos = [], planoModulos 
               <input type="text" readOnly disabled value={valorPlano != null ? formatCurrency(valorPlano) : "—"} className={`${inp} cursor-not-allowed opacity-70`} />
             </div>
           </div>
+          <div className="mt-4">
+            <span className={lbl}>Observação {(form.status === "overdue" || form.status === "blocked") && <span className="text-[10px] font-bold text-slate-500">(motivo do bloqueio)</span>}</span>
+            <textarea rows={2} value={form.observacoes || ""} onChange={(e) => setForm({ ...form, observacoes: e.target.value })} placeholder="Descreva o motivo do bloqueio / pagamento pendente (visível ao cliente na mensagem)." className={`${inp} resize-none`} />
+          </div>
+          {form.status === "overdue" && <p className="mt-2 text-[11px] font-bold text-amber-300">⏳ Ao salvar como "Em atraso", a empresa terá <b className="text-white">7 dias</b> com aviso aos usuários; após esse prazo o acesso é bloqueado automaticamente.</p>}
           {erroForm && <p className="mt-3 rounded-2xl border border-red-400/30 bg-red-500/10 px-4 py-2.5 text-sm font-bold text-red-200">⚠ {erroForm}</p>}
           <div className="mt-4">
             <PrimeButton onClick={salvar}>Salvar assinatura</PrimeButton>

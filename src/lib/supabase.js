@@ -164,7 +164,7 @@ export async function fetchAssinaturas() {
   return data.map(dbParaAssinatura)
 }
 function dbParaAssinatura(r) {
-  return { id: r.id, lojaId: r.loja_id, planoId: r.plano_id, status: r.status ?? 'active', dataInicio: r.data_inicio, dataFim: r.data_fim, dataTrialFim: r.data_trial_fim, precoMensal: r.preco_mensal != null ? Number(r.preco_mensal) : null, observacoes: r.observacoes }
+  return { id: r.id, lojaId: r.loja_id, planoId: r.plano_id, status: r.status ?? 'active', dataInicio: r.data_inicio, dataFim: r.data_fim, dataTrialFim: r.data_trial_fim, precoMensal: r.preco_mensal != null ? Number(r.preco_mensal) : null, observacoes: r.observacoes ?? '', atualizadoEm: r.atualizado_em }
 }
 export function escutarAssinaturas(onMudanca) {
   const reload = async () => { try { onMudanca(await fetchAssinaturas()) } catch {} }

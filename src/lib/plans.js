@@ -85,23 +85,51 @@ export function diasRestantesTrial(assinatura) {
   return Math.round((fim - hoje) / 86400000);
 }
 
+// Pagamento pendente (overdue): janela de carência de 7 dias a partir da data em que
+// o status foi gravado (atualizadoEm). Retorna os dias restantes (negativo = venceu) ou null.
+export const DIAS_GRACA_OVERDUE = 7;
+export function diasGracaOverdue(assinatura) {
+  if (!assinatura || assinatura.status !== "overdue") return null;
+  const ref = assinatura.atualizadoEm ? new Date(assinatura.atualizadoEm) : new Date();
+  ref.setHours(0, 0, 0, 0);
+  const limite = new Date(ref); limite.setDate(limite.getDate() + DIAS_GRACA_OVERDUE);
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+  return Math.round((limite - hoje) / 86400000);
+}
+
 // Bloqueio TOTAL de acesso da empresa (todos os usuários — exceto super admin).
-// Trial vencido → bloqueia com a mensagem do modo trial; status "blocked" também bloqueia.
-// Retorna { titulo, descricao } quando bloqueado, ou null quando liberado.
+// Trial vencido / overdue vencido / status "blocked" bloqueiam. A observação (motivo)
+// é anexada à mensagem quando houver. Retorna { titulo, descricao } ou null.
 export function bloqueioAcessoEmpresa(assinatura, isSuperAdmin = false) {
   if (isSuperAdmin || !assinatura) return null;
+  const obs = (assinatura.observacoes || "").trim();
+  const comMotivo = (d) => obs ? `${d}\n\nMotivo: ${obs}` : d;
   const dias = diasRestantesTrial(assinatura);
   if (dias != null && dias < 0) return {
     motivo: "trial_vencido",
     titulo: "Período de teste encerrado",
-    descricao: "Seu período de teste (Trial) do Pedido Prime chegou ao fim. Para continuar utilizando o sistema, entre em contato com o seu consultor ou com o suporte para ativar o seu plano.",
+    descricao: comMotivo("Seu período de teste (Trial) do Pedido Prime chegou ao fim. Para continuar utilizando o sistema, entre em contato com o seu consultor ou com o suporte para ativar o seu plano."),
+  };
+  const grace = diasGracaOverdue(assinatura);
+  if (grace != null && grace < 0) return {
+    motivo: "pagamento_pendente",
+    titulo: "Acesso bloqueado — pagamento pendente",
+    descricao: comMotivo("O pagamento da assinatura está pendente e o prazo foi excedido. Para reativar o acesso ao Pedido Prime, entre em contato com o seu consultor ou com o suporte e regularize o pagamento."),
   };
   if (assinatura.status === "blocked") return {
     motivo: "bloqueado",
     titulo: "Acesso bloqueado",
-    descricao: "O acesso da sua empresa ao Pedido Prime está bloqueado. Entre em contato com o seu consultor ou com o suporte para regularizar.",
+    descricao: comMotivo("O acesso da sua empresa ao Pedido Prime está bloqueado. Entre em contato com o seu consultor ou com o suporte para regularizar."),
   };
   return null;
+}
+
+// Aviso (não bloqueia) durante a carência do overdue: mostra os dias restantes.
+export function avisoPagamentoPendente(assinatura, isSuperAdmin = false) {
+  if (isSuperAdmin || !assinatura || assinatura.status !== "overdue") return null;
+  const dias = diasGracaOverdue(assinatura);
+  if (dias == null || dias < 0) return null; // já bloqueado (cobre em bloqueioAcessoEmpresa)
+  return { dias, titulo: "Pagamento pendente", obs: (assinatura.observacoes || "").trim() };
 }
 
 // Resumo do status da assinatura (para badge e tela "Meu Plano").
