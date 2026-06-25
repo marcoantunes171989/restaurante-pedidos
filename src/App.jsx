@@ -9801,7 +9801,7 @@ function MeuPlanoAdmin({ planoAtual, assinaturaAtual, planos = [], planoModulos 
             <div>
               <span className={lbl}>Status</span>
               <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className={inp}>
-                {["active", "trial", "overdue", "blocked", "canceled"].map((s) => <option key={s} value={s}>{s}</option>)}
+                {[["active", "Ativa"], ["trial", "Período de teste"], ["overdue", "Em atraso"], ["blocked", "Bloqueada"], ["canceled", "Cancelada"]].map(([s, l]) => <option key={s} value={s}>{l}</option>)}
               </select>
             </div>
             <div>
