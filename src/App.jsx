@@ -9762,6 +9762,12 @@ function MeuPlanoAdmin({ planoAtual, assinaturaAtual, planos = [], planoModulos 
   function salvar() {
     if (!form.planoId) { setErroForm("Selecione um plano antes de salvar."); return; }
     if (form.status === "trial" && !form.dataTrialFim) { setErroForm("Informe a data de fim do período de teste (Trial)."); return; }
+    if (form.status === "active") {
+      if (!form.dataFim) { setErroForm("Informe a data de vencimento."); return; }
+      const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+      const venc = new Date(form.dataFim); venc.setHours(0, 0, 0, 0);
+      if (venc <= hoje) { setErroForm("A data de vencimento deve ser maior que a data atual."); return; }
+    }
     setErroForm("");
     definirAssinatura(lojaAtual, {
       planoId: form.planoId || null,
@@ -9843,12 +9849,12 @@ function MeuPlanoAdmin({ planoAtual, assinaturaAtual, planos = [], planoModulos 
             </div>
             <div>
               <span className={lbl}>Fim do trial {form.status === "trial" && <span className="text-red-300">*</span>}</span>
-              <input type="date" value={form.dataTrialFim || ""} onChange={(e) => setForm({ ...form, dataTrialFim: e.target.value })} className={inp} />
+              <input type="date" disabled={form.status !== "trial"} value={form.dataTrialFim || ""} onChange={(e) => setForm({ ...form, dataTrialFim: e.target.value })} className={`${inp} ${form.status !== "trial" ? "cursor-not-allowed opacity-60" : ""}`} />
               {diasFormTrial != null && <p className={`mt-1 text-[11px] font-bold ${diasFormTrial < 0 ? "text-red-300" : diasFormTrial <= 7 ? "text-amber-300" : "text-emerald-300"}`}>{diasFormTrial < 0 ? `Trial vencido há ${Math.abs(diasFormTrial)} dia(s) — acesso bloqueado` : `Faltam ${diasFormTrial} dia(s) para o vencimento`}</p>}
             </div>
             <div>
-              <span className={lbl}>Vencimento {form.status === "trial" && <span className="text-[10px] font-bold text-slate-500">(= fim do trial)</span>}</span>
-              <input type="date" disabled value={(form.status === "trial" ? form.dataTrialFim : form.dataFim) || ""} className={`${inp} cursor-not-allowed opacity-60`} />
+              <span className={lbl}>Vencimento {form.status === "active" && <span className="text-red-300">*</span>}{form.status === "trial" && <span className="text-[10px] font-bold text-slate-500">(= fim do trial)</span>}</span>
+              <input type="date" disabled={form.status === "trial"} value={(form.status === "trial" ? form.dataTrialFim : form.dataFim) || ""} onChange={(e) => setForm({ ...form, dataFim: e.target.value })} className={`${inp} ${form.status === "trial" ? "cursor-not-allowed opacity-60" : ""}`} />
             </div>
             <div>
               <span className={lbl}>Valor mensal (R$)</span>
