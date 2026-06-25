@@ -482,6 +482,25 @@ export async function rpcUpsertClientePublico({ lojaId, nome, telefone }) {
   const { error } = await supabase.rpc('pub_upsert_cliente', { p_loja_id: lojaId, p_nome: nome || null, p_telefone: telefone || null })
   if (error) throw error
 }
+// Pesquisa de satisfação (migration 059) — vinculada ao pedido. on conflict (pedido_id)
+// do nothing evita duplicidade. Via RPC pública (modo RLS) ou insert direto (legado).
+export async function rpcPesquisaSatisfacao({ pedidoId, lojaId, telefone, mesa, origem, notas, comentario }) {
+  const { error } = await supabase.rpc('pub_pesquisa_satisfacao', {
+    p_pedido_id: pedidoId || null, p_loja_id: lojaId, p_telefone: telefone || null,
+    p_mesa: mesa || null, p_origem: origem || null, p_notas: notas || {}, p_comentario: comentario || null,
+  })
+  if (error) throw error
+}
+export async function inserirPesquisaSatisfacao({ pedidoId, lojaId, telefone, mesa, origem, notas, comentario }) {
+  const n = notas || {}
+  const { error } = await supabase.from('tab_pesquisa_satisfacao').insert([{
+    pedido_id: pedidoId || null, loja_id: lojaId, cliente_telefone: telefone || null, mesa: mesa || null, origem: origem || null,
+    exp_geral: n.exp_geral ?? null, facilidade: n.facilidade ?? null, tempo: n.tempo ?? null, qualidade: n.qualidade ?? null,
+    cardapio: n.cardapio ?? null, atendimento: n.atendimento ?? null, status_pedido: n.status_pedido ?? null, recomendacao: n.recomendacao ?? null,
+    comentario: comentario || null,
+  }])
+  if (error) throw error
+}
 // Identifica o cliente pelo telefone (migration 057). Tolerante: retorna null
 // se a RPC ainda não existir ou não houver cadastro.
 export async function rpcBuscarClientePublico({ lojaId, telefone }) {

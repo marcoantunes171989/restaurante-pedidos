@@ -4,9 +4,11 @@ import {
   inserirPedido, atualizarPedido, escutarPedidos,
   buscarClientePorTelefone, upsertCliente, criarChamado,
   rpcCriarPedidoPublico, rpcUpsertClientePublico, rpcBuscarClientePublico, rpcPedidosComanda, rpcPedidosCliente, rpcSolicitarContaPublico, rpcCriarChamadoPublico,
+  rpcPesquisaSatisfacao, inserirPesquisaSatisfacao,
 } from "./lib/supabase";
 import { cardapioViaRpc } from "./lib/authMode";
 import { useScrollLock } from "./lib/scrollLock";
+import SatisfactionSurvey from "./components/SatisfactionSurvey";
 import {
   ProdutoModal, formatCurrency, fallbackImage, statusMap, STATUS_TABLET_LABEL, isValidCommand,
   promocaoVigente, promoResumoDesconto,
@@ -55,6 +57,7 @@ export default function CardapioPublico() {
   const modoExterno = !mesaURL; // link geral (divulgação) → pedido externo (delivery/retirada)
   const [aba, setAba]             = useState(null); // null | 'carrinho' | 'conta'
   const [qrModal, setQrModal]     = useState(null); // dataURL do QR do cardápio (botão "Ver QR")
+  const [survey, setSurvey]       = useState(null); // pesquisa de satisfação na finalização: { pedidoId, mesa, origem }
   const [ocultarIndisp, setOcultarIndisp] = useState(false); // botão "Filtros": ocultar indisponíveis
   const [enviando, setEnviando]   = useState(false);
   const [msg, setMsg]             = useState(null);
@@ -356,11 +359,35 @@ export default function CardapioPublico() {
       };
     }
     try {
-      if (cardapioViaRpc()) await rpcCriarPedidoPublico({ lojaId: loja.id, mesa: novo.table, comanda: novo.command, cliente: novo.customer, telefone: novo.clienteTelefone || "", itens });
+      let pedidoId = novo.id;
+      if (cardapioViaRpc()) { const r = await rpcCriarPedidoPublico({ lojaId: loja.id, mesa: novo.table, comanda: novo.command, cliente: novo.customer, telefone: novo.clienteTelefone || "", itens }); if (r) pedidoId = r; }
       else await inserirPedido(novo);
-      setCart([]); setAba("conta"); setMsg({ t: "success", m: "✅ Pedido enviado para a cozinha!" });
+      // Pedido criado → abre a Pesquisa de Satisfação antes de concluir o fluxo.
+      setCart([]); setAba(null);
+      setSurvey({ pedidoId, mesa: novo.table, origem: modoExterno ? "externo" : "mesa" });
     } catch (e) { console.error("Erro ao criar pedido:", e); setMsg({ t: "error", m: "Erro ao enviar o pedido. Tente novamente." }); }
     finally { setEnviando(false); }
+  }
+
+  // Grava a pesquisa de satisfação (tolerante: falha NÃO impede a finalização).
+  async function salvarPesquisa({ notas, comentario }) {
+    if (!survey) return;
+    const dados = { pedidoId: survey.pedidoId, lojaId: loja.id, telefone: telDig || "", mesa: survey.mesa, origem: survey.origem, notas, comentario: (comentario || "").trim() };
+    try { await (cardapioViaRpc() ? rpcPesquisaSatisfacao(dados) : inserirPesquisaSatisfacao(dados)); }
+    catch (e) { console.error("Falha ao salvar a pesquisa de satisfação (pedido finalizado mesmo assim):", e); }
+  }
+  // "Enviar avaliação e finalizar": grava se houver nota/comentário; senão trata como sem avaliação.
+  async function finalizarComPesquisa({ notas, comentario }) {
+    const temNota = Object.values(notas || {}).some((v) => Number(v) > 0);
+    const temComentario = (comentario || "").trim().length > 0;
+    if (temNota || temComentario) await salvarPesquisa({ notas, comentario });
+    setSurvey(null); setAba("conta");
+    setMsg({ t: "success", m: (temNota || temComentario) ? "Pedido finalizado com sucesso! Obrigado pela sua avaliação." : "Pedido finalizado com sucesso!" });
+  }
+  // "Finalizar sem avaliar"
+  function finalizarSemPesquisa() {
+    setSurvey(null); setAba("conta");
+    setMsg({ t: "success", m: "Pedido finalizado com sucesso!" });
   }
 
   async function solicitarConta() {
@@ -547,6 +574,9 @@ export default function CardapioPublico() {
           <div className={`rounded-2xl border px-4 py-2.5 text-sm font-bold shadow-xl ${msg.t === "error" ? "border-red-400/30 bg-red-500/15 text-red-200" : "border-emerald-400/30 bg-emerald-500/15 text-emerald-200"}`}>{msg.m}</div>
         </div>
       )}
+
+      {/* Pesquisa de Satisfação (na finalização do pedido) */}
+      {survey && <SatisfactionSurvey onEnviar={finalizarComPesquisa} onPular={finalizarSemPesquisa} />}
 
       {/* Modal de produto (reutilizado) */}
       {detalhe && <ProdutoModal produto={detalhe} grupos={gruposOpcoes} opcoes={opcoes} onFechar={() => setDetalhe(null)} onAdicionar={addConfigurado} />}
