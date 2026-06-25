@@ -151,7 +151,9 @@ export default function CardapioPublico() {
         const el = secRefs.current[g.nome];
         if (el && el.getBoundingClientRect().top - linha <= 0) atual = g.nome;
       }
-      if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4) atual = grupos[grupos.length - 1].nome;
+      // (sem override por "fim de página" — dependia de innerHeight e fazia o grupo
+      //  "voltar" quando a barra do navegador aparecia/sumia ao rolar. O espaçador
+      //  dinâmico já garante que o último grupo alcance a linha.)
       setCatAtiva((cur) => (cur === atual ? cur : atual));
     };
     // rAF-throttle: o destaque acompanha a rolagem sem travar (mais fluido em iOS/Android).
@@ -168,17 +170,23 @@ export default function CardapioPublico() {
   useEffect(() => {
     if (busca || !grupos.length) { setSpacerH(0); return; }
     const ultimo = grupos[grupos.length - 1].nome;
-    // Desconta a barra de categorias (~116px) + a folga inferior das barras do carrinho,
-    // para o último grupo pousar logo abaixo do header — sem vazio extra.
-    const medir = () => { const el = secRefs.current[ultimo]; if (el) setSpacerH(Math.max(0, Math.round(window.innerHeight - el.getBoundingClientRect().height - 200))); };
+    // Altura de referência ESTÁVEL: não acompanha o toggle da barra do navegador
+    // (que muda só a altura). Assim o scrollHeight não encolhe ao rolar e a tela
+    // não "volta" para um grupo anterior. Só atualiza em rotação (muda a largura).
+    let vh = window.innerHeight;
+    let lastW = window.innerWidth;
+    // Desconta a barra de categorias + a folga das barras do carrinho, para o último
+    // grupo pousar logo abaixo do header — sem vazio extra.
+    const medir = () => { const el = secRefs.current[ultimo]; if (el) setSpacerH(Math.max(0, Math.round(vh - el.getBoundingClientRect().height - 200))); };
+    const onResize = () => { if (window.innerWidth === lastW) return; lastW = window.innerWidth; vh = window.innerHeight; medir(); };
     medir();
     const t = setTimeout(medir, 350);
     const el = secRefs.current[ultimo];
     const ro = (typeof ResizeObserver !== "undefined" && el) ? new ResizeObserver(medir) : null;
     if (ro && el) ro.observe(el);
-    window.addEventListener("resize", medir);
+    window.addEventListener("resize", onResize);
     window.addEventListener("load", medir);
-    return () => { clearTimeout(t); if (ro) ro.disconnect(); window.removeEventListener("resize", medir); window.removeEventListener("load", medir); };
+    return () => { clearTimeout(t); if (ro) ro.disconnect(); window.removeEventListener("resize", onResize); window.removeEventListener("load", medir); };
   }, [busca, grupos]);
   // Mantém o chip ativo visível na barra horizontal
   useEffect(() => {
