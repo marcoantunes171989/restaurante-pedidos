@@ -137,6 +137,9 @@ export default function CardapioPublico() {
   const secRefs = useRef({});
   const chipRefs = useRef({});
   const [catAtiva, setCatAtiva] = useState("Todos");
+  // Espaçador dinâmico ao fim: exatamente o necessário para o ÚLTIMO grupo encostar
+  // no topo ao rolar — sem sobra extra (não deixa "passar do topo").
+  const [spacerH, setSpacerH] = useState(0);
   useEffect(() => {
     if (busca || !grupos.length) return;
     // Calcula o grupo atual: o último cujo cabeçalho passou da "linha" (abaixo dos
@@ -148,19 +151,34 @@ export default function CardapioPublico() {
         const el = secRefs.current[g.nome];
         if (el && el.getBoundingClientRect().top - linha <= 0) atual = g.nome;
       }
-      // Ao chegar no fim da página (sem espaço vazio extra), o último grupo é o ativo —
-      // a rolagem para exatamente quando o último grupo é selecionado.
       if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4) atual = grupos[grupos.length - 1].nome;
       setCatAtiva((cur) => (cur === atual ? cur : atual));
     };
-    // IntersectionObserver dispara de forma confiável durante a rolagem (inclusive
-    // onde o evento 'scroll' não é emitido); o scroll/resize servem de reforço.
-    const obs = new IntersectionObserver(calc, { threshold: [0, 0.5, 1], rootMargin: "-100px 0px 0px 0px" });
+    // rAF-throttle: o destaque acompanha a rolagem sem travar (mais fluido em iOS/Android).
+    let raf = 0;
+    const onScroll = () => { if (raf) return; raf = requestAnimationFrame(() => { raf = 0; calc(); }); };
+    const obs = new IntersectionObserver(onScroll, { threshold: [0, 0.5, 1], rootMargin: "-100px 0px 0px 0px" });
     Object.values(secRefs.current).forEach((el) => el && obs.observe(el));
     calc();
-    window.addEventListener("scroll", calc, { passive: true });
-    window.addEventListener("resize", calc);
-    return () => { obs.disconnect(); window.removeEventListener("scroll", calc); window.removeEventListener("resize", calc); };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => { obs.disconnect(); cancelAnimationFrame(raf); window.removeEventListener("scroll", onScroll); window.removeEventListener("resize", onScroll); };
+  }, [busca, grupos]);
+  // Mede a altura do último grupo p/ dimensionar o espaçador (recalcula ao carregar imagens/redimensionar).
+  useEffect(() => {
+    if (busca || !grupos.length) { setSpacerH(0); return; }
+    const ultimo = grupos[grupos.length - 1].nome;
+    // Desconta a barra de categorias (~116px) + a folga inferior das barras do carrinho,
+    // para o último grupo pousar logo abaixo do header — sem vazio extra.
+    const medir = () => { const el = secRefs.current[ultimo]; if (el) setSpacerH(Math.max(0, Math.round(window.innerHeight - el.getBoundingClientRect().height - 200))); };
+    medir();
+    const t = setTimeout(medir, 350);
+    const el = secRefs.current[ultimo];
+    const ro = (typeof ResizeObserver !== "undefined" && el) ? new ResizeObserver(medir) : null;
+    if (ro && el) ro.observe(el);
+    window.addEventListener("resize", medir);
+    window.addEventListener("load", medir);
+    return () => { clearTimeout(t); if (ro) ro.disconnect(); window.removeEventListener("resize", medir); window.removeEventListener("load", medir); };
   }, [busca, grupos]);
   // Mantém o chip ativo visível na barra horizontal
   useEffect(() => {
@@ -482,6 +500,8 @@ export default function CardapioPublico() {
                 </div>
               </section>
             ))}
+            {/* Espaçador mínimo: deixa o último grupo encostar no topo ao rolar, sem sobra. */}
+            <div aria-hidden style={{ height: spacerH }} />
           </div>
         )}
       </main>

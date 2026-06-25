@@ -7,8 +7,12 @@
    fim de uma área rolável. .pp-scroll-locked congela o fundo
    enquanto há um overlay (gaveta/modal) na frente. */
 html, body { overscroll-behavior: none; }
+/* Rolagem suave (cliques de categoria) + inércia/momentum em iOS e Android */
+html { scroll-behavior: smooth; }
+body { -webkit-overflow-scrolling: touch; }
 body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflow: hidden; }
-.pp-overscroll-contain { overscroll-behavior: contain; }
+.pp-overscroll-contain { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
 
 /* ── Design tokens Pedido Prime (paleta premium) ────────────── */
 :root {
