@@ -121,6 +121,11 @@ export function bloqueioAcessoEmpresa(assinatura, isSuperAdmin = false) {
     titulo: "Acesso temporariamente indisponível",
     descricao: comMotivo("Olá! No momento o acesso da sua empresa ao Pedido Prime está temporariamente indisponível. Por gentileza, entre em contato com o setor administrativo para regularizar a liberação do sistema. Estamos à disposição para ajudar."),
   };
+  if (assinatura.status === "canceled") return {
+    motivo: "cancelado",
+    titulo: "Assinatura cancelada",
+    descricao: comMotivo("Olá! A assinatura da sua empresa no Pedido Prime está cancelada e, por isso, o acesso ao sistema está suspenso. Para reativar e liberar novamente o acesso, entre em contato com o setor administrativo — teremos prazer em analisar e ajudar."),
+  };
   return null;
 }
 
