@@ -77,6 +77,33 @@ export function getBlockedModuleMessage(slug) {
   };
 }
 
+// Dias restantes até o fim do trial (negativo = já venceu). null se não houver data.
+export function diasRestantesTrial(assinatura) {
+  if (!assinatura || assinatura.status !== "trial" || !assinatura.dataTrialFim) return null;
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+  const fim = new Date(assinatura.dataTrialFim); fim.setHours(0, 0, 0, 0);
+  return Math.round((fim - hoje) / 86400000);
+}
+
+// Bloqueio TOTAL de acesso da empresa (todos os usuários — exceto super admin).
+// Trial vencido → bloqueia com a mensagem do modo trial; status "blocked" também bloqueia.
+// Retorna { titulo, descricao } quando bloqueado, ou null quando liberado.
+export function bloqueioAcessoEmpresa(assinatura, isSuperAdmin = false) {
+  if (isSuperAdmin || !assinatura) return null;
+  const dias = diasRestantesTrial(assinatura);
+  if (dias != null && dias < 0) return {
+    motivo: "trial_vencido",
+    titulo: "Período de teste encerrado",
+    descricao: "Seu período de teste (Trial) do Pedido Prime chegou ao fim. Para continuar utilizando o sistema, entre em contato com o seu consultor ou com o suporte para ativar o seu plano.",
+  };
+  if (assinatura.status === "blocked") return {
+    motivo: "bloqueado",
+    titulo: "Acesso bloqueado",
+    descricao: "O acesso da sua empresa ao Pedido Prime está bloqueado. Entre em contato com o seu consultor ou com o suporte para regularizar.",
+  };
+  return null;
+}
+
 // Resumo do status da assinatura (para badge e tela "Meu Plano").
 export function statusAssinatura(assinatura) {
   if (!assinatura) return { rotulo: "Sem assinatura", tom: "neutro", diasTrial: null, status: "none" };

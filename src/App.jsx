@@ -28,7 +28,7 @@ import {
 } from "./lib/supabase";
 import { usandoSupabaseAuth } from "./lib/authMode";
 import { useScrollLock } from "./lib/scrollLock";
-import { statusAssinatura, getCurrentCompanyPlan, modulosDoPlano, MODULOS_LABEL, canAccessModule, getBlockedModuleMessage } from "./lib/plans";
+import { statusAssinatura, getCurrentCompanyPlan, modulosDoPlano, MODULOS_LABEL, canAccessModule, getBlockedModuleMessage, bloqueioAcessoEmpresa, diasRestantesTrial } from "./lib/plans";
 import { useUpgradeModais } from "./components/upgrade/UpgradeModais";
 import { GeradorComandas } from "./components/QRComandas";
 import { QRScannerModal  } from "./components/QRScanner";
@@ -2114,6 +2114,23 @@ export default function RestaurantePedidoApp() {
 
   if (!currentUser) {
     return <TelaLogin loginForm={loginForm} setLoginForm={setLoginForm} login={login} message={message} users={users} />;
+  }
+
+  // Bloqueio total da empresa: trial vencido (ou status "blocked"). Super admin nunca bloqueia.
+  const bloqueioEmpresa = bloqueioAcessoEmpresa(assinaturaAtual, isSuperAdmin);
+  if (bloqueioEmpresa) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-950 px-6 text-slate-100" style={{ minHeight: "100dvh" }}>
+        <div className="w-full max-w-md rounded-[2rem] border border-red-400/25 bg-red-500/[0.06] p-7 text-center shadow-2xl">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-red-500/15 text-3xl">🔒</div>
+          <h1 className="page-title text-xl font-black text-white">{bloqueioEmpresa.titulo}</h1>
+          <p className="mt-3 text-sm leading-6 text-slate-300">{bloqueioEmpresa.descricao}</p>
+          <a href={`https://wa.me/${PLANO_WHATS}?text=${encodeURIComponent(`Olá! Sou da empresa ${lojaInfo?.nome || ""} e preciso liberar o acesso ao Pedido Prime (${bloqueioEmpresa.titulo}).`)}`} target="_blank" rel="noopener noreferrer"
+            className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-500 py-3.5 text-sm font-black text-white transition active:scale-95 hover:bg-emerald-400">💬 Falar com o consultor / suporte</a>
+          <button onClick={logout} className="mt-2 w-full rounded-2xl border border-white/10 bg-white/[0.06] py-3 text-sm font-black text-slate-300 transition hover:bg-white/10">Sair</button>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -9735,6 +9752,26 @@ function MeuPlanoAdmin({ planoAtual, assinaturaAtual, planos = [], planoModulos 
     dataFim: assinaturaAtual?.dataFim ?? "", dataTrialFim: assinaturaAtual?.dataTrialFim ?? "", precoMensal: assinaturaAtual?.precoMensal ?? "",
   });
   useEffect(() => { setForm({ planoId: assinaturaAtual?.planoId ?? "", status: assinaturaAtual?.status ?? "active", dataFim: assinaturaAtual?.dataFim ?? "", dataTrialFim: assinaturaAtual?.dataTrialFim ?? "", precoMensal: assinaturaAtual?.precoMensal ?? "" }); }, [assinaturaAtual?.id, lojaAtual]);
+  const [erroForm, setErroForm] = useState("");
+  // Data (YYYY-MM-DD) hoje + N meses — usada para preencher o fim do trial automaticamente.
+  const emMeses = (n) => { const d = new Date(); d.setMonth(d.getMonth() + n); return d.toISOString().slice(0, 10); };
+  // Ao escolher "Período de teste", preenche o fim do trial com 3 meses (se vazio) — editável.
+  const mudarStatus = (novo) => setForm((f) => ({ ...f, status: novo, dataTrialFim: (novo === "trial" && !f.dataTrialFim) ? emMeses(3) : f.dataTrialFim }));
+  // Dias restantes com base na data atual e no fim do trial informado no formulário.
+  const diasFormTrial = (() => { if (form.status !== "trial" || !form.dataTrialFim) return null; const hoje = new Date(); hoje.setHours(0, 0, 0, 0); const fim = new Date(form.dataTrialFim); fim.setHours(0, 0, 0, 0); return Math.round((fim - hoje) / 86400000); })();
+  function salvar() {
+    if (!form.planoId) { setErroForm("Selecione um plano antes de salvar."); return; }
+    if (form.status === "trial" && !form.dataTrialFim) { setErroForm("Informe a data de fim do período de teste (Trial)."); return; }
+    setErroForm("");
+    definirAssinatura(lojaAtual, {
+      planoId: form.planoId || null,
+      status: form.status,
+      // No modo Trial, o vencimento segue o fim do trial; nos demais, mantém o campo.
+      dataFim: form.status === "trial" ? (form.dataTrialFim || null) : (form.dataFim || null),
+      dataTrialFim: form.dataTrialFim || null,
+      precoMensal: form.precoMensal === "" ? null : Number(String(form.precoMensal).replace(",", ".")) || 0,
+    });
+  }
   const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-gold-400/60 transition";
   const lbl = "mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500";
 
@@ -9800,27 +9837,27 @@ function MeuPlanoAdmin({ planoAtual, assinaturaAtual, planos = [], planoModulos 
             </div>
             <div>
               <span className={lbl}>Status</span>
-              <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className={inp}>
+              <select value={form.status} onChange={(e) => mudarStatus(e.target.value)} className={inp}>
                 {[["active", "Ativa"], ["trial", "Período de teste"], ["overdue", "Em atraso"], ["blocked", "Bloqueada"], ["canceled", "Cancelada"]].map(([s, l]) => <option key={s} value={s}>{l}</option>)}
               </select>
             </div>
             <div>
-              <span className={lbl}>Fim do trial</span>
+              <span className={lbl}>Fim do trial {form.status === "trial" && <span className="text-red-300">*</span>}</span>
               <input type="date" value={form.dataTrialFim || ""} onChange={(e) => setForm({ ...form, dataTrialFim: e.target.value })} className={inp} />
+              {diasFormTrial != null && <p className={`mt-1 text-[11px] font-bold ${diasFormTrial < 0 ? "text-red-300" : diasFormTrial <= 7 ? "text-amber-300" : "text-emerald-300"}`}>{diasFormTrial < 0 ? `Trial vencido há ${Math.abs(diasFormTrial)} dia(s) — acesso bloqueado` : `Faltam ${diasFormTrial} dia(s) para o vencimento`}</p>}
             </div>
             <div>
-              <span className={lbl}>Vencimento</span>
-              <input type="date" value={form.dataFim || ""} onChange={(e) => setForm({ ...form, dataFim: e.target.value })} className={inp} />
+              <span className={lbl}>Vencimento {form.status === "trial" && <span className="text-[10px] font-bold text-slate-500">(= fim do trial)</span>}</span>
+              <input type="date" disabled value={(form.status === "trial" ? form.dataTrialFim : form.dataFim) || ""} className={`${inp} cursor-not-allowed opacity-60`} />
             </div>
             <div>
               <span className={lbl}>Valor mensal (R$)</span>
               <input inputMode="decimal" value={form.precoMensal ?? ""} onChange={(e) => setForm({ ...form, precoMensal: e.target.value })} placeholder="0,00" className={inp} />
             </div>
           </div>
+          {erroForm && <p className="mt-3 rounded-2xl border border-red-400/30 bg-red-500/10 px-4 py-2.5 text-sm font-bold text-red-200">⚠ {erroForm}</p>}
           <div className="mt-4">
-            <PrimeButton onClick={() => definirAssinatura(lojaAtual, { planoId: form.planoId || null, status: form.status, dataFim: form.dataFim || null, dataTrialFim: form.dataTrialFim || null, precoMensal: form.precoMensal === "" ? null : Number(String(form.precoMensal).replace(",", ".")) || 0 })}>
-              Salvar assinatura
-            </PrimeButton>
+            <PrimeButton onClick={salvar}>Salvar assinatura</PrimeButton>
           </div>
         </div>
       )}
