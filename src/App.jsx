@@ -5456,7 +5456,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           {ativo === "comandas"   && (precisaEmpresa ? avisoEmpresa : <GeradorComandas prefixoLoja={lojaInfo?.prefixo || "CMD"} empresa={lojaInfo?.nome || "Restaurante"} onGerar={registrarComandas} comandasRegistradas={comandasRegistradas} orders={orders} onExcluirComanda={excluirComandaFn} onRenomearComanda={renomearComandaFn} onToggleComanda={toggleComandaFn} lojaId={lojaInfo?.id} logoSalvo={lojaInfo?.logoUrl || ""} onSalvarLogo={(url) => salvarLogoEmpresa(lojaInfo?.id, url)} onIrCardapioExterno={() => setAdminSection("cardapioext")} />)}
           {ativo === "pagamento"  && (precisaEmpresa ? avisoEmpresa : <PagamentoAdmin formasPagamento={formasPagamento} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} />)}
           {ativo === "config"     && <ConfiguracoesAdmin />}
-          {ativo === "plano"      && <MeuPlanoAdmin planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} lojaInfo={lojaInfo} isSuperAdmin={isSuperAdmin} lojaAtual={lojaInfo?.id} definirAssinatura={definirAssinatura} />}
+          {ativo === "plano"      && <MeuPlanoAdmin planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} lojaInfo={lojaInfo} isSuperAdmin={isSuperAdmin} lojaAtual={lojaInfo?.id} definirAssinatura={definirAssinatura} assinaturas={assinaturas} lojas={lojas} />}
           {ativo === "promocoes"  && (precisaEmpresa ? avisoEmpresa : <PromocoesAdmin promocoes={promocoes} produtos={products} categoriasDb={categoriasDb} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} />)}
           {ativo === "lojas"      && <LojaAdmin lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} lojaInfo={lojaInfo} criarEmpresa={criarEmpresa} cargos={cargos} />}
           {ativo === "licencas"   && <LicencaAdmin lojas={lojas} usuarios={users} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} />}
@@ -9744,7 +9744,7 @@ function TrialBadge({ assinatura }) {
 }
 
 const PLANO_WHATS = "5518981465499"; // contato comercial Pedido Prime
-function MeuPlanoAdmin({ planoAtual, assinaturaAtual, planos = [], planoModulos = [], lojaInfo, isSuperAdmin = false, lojaAtual, definirAssinatura = async () => {} }) {
+function MeuPlanoAdmin({ planoAtual, assinaturaAtual, planos = [], planoModulos = [], lojaInfo, isSuperAdmin = false, lojaAtual, definirAssinatura = async () => {}, assinaturas = [], lojas = [] }) {
   const st = statusAssinatura(assinaturaAtual);
   const permitidos = modulosDoPlano(planoAtual, planoModulos); // null = todos
   const todos = Object.keys(MODULOS_LABEL);
@@ -9760,6 +9760,27 @@ function MeuPlanoAdmin({ planoAtual, assinaturaAtual, planos = [], planoModulos 
   });
   useEffect(() => { setForm({ planoId: assinaturaAtual?.planoId ?? "", status: assinaturaAtual?.status ?? "active", dataFim: assinaturaAtual?.dataFim ?? "", dataTrialFim: assinaturaAtual?.dataTrialFim ?? "", precoMensal: assinaturaAtual?.precoMensal ?? "", observacoes: assinaturaAtual?.observacoes ?? "" }); }, [assinaturaAtual?.id, lojaAtual]);
   const [erroForm, setErroForm] = useState("");
+  // ── Grade analítica de clientes (assinaturas) — filtro por data de vencimento ──
+  const [gFiltroIni, setGFiltroIni] = useState("");
+  const [gFiltroFim, setGFiltroFim] = useState("");
+  const STATUS_PT = { active: "Ativa", trial: "Período de teste", overdue: "Em atraso", blocked: "Bloqueada", canceled: "Cancelada" };
+  const nomeLojaDe = (id) => lojas.find((l) => l.id === id)?.nome || `Empresa #${id}`;
+  const nomePlanoDe = (id) => planos.find((p) => p.id === id)?.nome || "—";
+  const permanenciaTxt = (inicio) => {
+    if (!inicio) return "—";
+    const d = new Date(inicio); const hoje = new Date();
+    const dias = Math.floor((hoje - d) / 86400000); if (dias < 0) return "—";
+    if (dias < 30) return `${dias} dia(s)`;
+    const meses = (hoje.getFullYear() - d.getFullYear()) * 12 + (hoje.getMonth() - d.getMonth());
+    const anos = Math.floor(meses / 12); const m = meses % 12;
+    return anos > 0 ? `${anos} ano(s)${m ? ` ${m} mês(es)` : ""}` : `${meses} mês(es)`;
+  };
+  const linhasGrade = assinaturas
+    .map((a) => ({ ...a, inicio: a.dataInicio || a.atualizadoEm || null }))
+    .filter((a) => { if (gFiltroIni && (!a.dataFim || a.dataFim < gFiltroIni)) return false; if (gFiltroFim && (!a.dataFim || a.dataFim > gFiltroFim)) return false; return true; })
+    .sort((x, y) => new Date(x.inicio || 0) - new Date(y.inicio || 0));
+  const gAtivos = linhasGrade.filter((a) => a.status === "active" || a.status === "trial").length;
+  const gMrr = linhasGrade.filter((a) => a.status === "active").reduce((s, a) => s + (a.precoMensal || 0), 0);
   // Plano selecionado → o Valor Mensal vem dele (somente leitura).
   const planoSel = planos.find((p) => p.id === form.planoId) || null;
   const valorPlano = planoSel?.precoBase ?? null;
@@ -9895,6 +9916,61 @@ function MeuPlanoAdmin({ planoAtual, assinaturaAtual, planos = [], planoModulos 
           {erroForm && <p className="mt-3 rounded-2xl border border-red-400/30 bg-red-500/10 px-4 py-2.5 text-sm font-bold text-red-200">⚠ {erroForm}</p>}
           <div className="mt-4">
             <PrimeButton onClick={salvar}>Salvar assinatura</PrimeButton>
+          </div>
+        </div>
+      )}
+
+      {/* Análise gerencial dos clientes (assinaturas) — só super admin */}
+      {isSuperAdmin && (
+        <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h3 className="page-title text-base font-bold tracking-tight text-white">Recorrência e permanência dos clientes</h3>
+              <p className="mt-1 text-sm text-slate-400">Desde quando cada empresa usa o sistema, recorrência e próximo vencimento — filtre por data de pagamento (vencimento).</p>
+            </div>
+            <div className="flex items-end gap-2">
+              <label className="text-left"><span className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-slate-500">Vencimento de</span>
+                <input type="date" value={gFiltroIni} onChange={(e) => setGFiltroIni(e.target.value)} className={inp} /></label>
+              <label className="text-left"><span className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-slate-500">até</span>
+                <input type="date" value={gFiltroFim} onChange={(e) => setGFiltroFim(e.target.value)} className={inp} /></label>
+              {(gFiltroIni || gFiltroFim) && <button onClick={() => { setGFiltroIni(""); setGFiltroFim(""); }} className="rounded-2xl border border-white/10 bg-white/[0.06] px-3 py-2.5 text-xs font-bold text-slate-300 hover:bg-white/10">Limpar</button>}
+            </div>
+          </div>
+
+          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {[["Clientes", linhasGrade.length, "text-white"], ["Ativos / Trial", gAtivos, "text-emerald-300"], ["Receita mensal (ativos)", formatCurrency(gMrr), "text-gold-400"], ["Recorrência", "Mensal", "text-blue-300"]].map(([l, v, c]) => (
+              <div key={l} className="rounded-2xl border border-white/10 bg-slate-950/40 px-3 py-2.5"><p className={`page-title text-xl font-bold ${c}`}>{v}</p><p className="text-[11px] text-slate-500">{l}</p></div>
+            ))}
+          </div>
+
+          <div className="mt-4 overflow-x-auto rounded-2xl border border-white/10">
+            <table className="w-full min-w-[760px] text-left text-sm">
+              <thead className="bg-white/[0.04] text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                <tr>
+                  <th className="px-4 py-3">Empresa</th><th className="px-4 py-3">Plano</th><th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">Cliente desde</th><th className="px-4 py-3">Permanência</th><th className="px-4 py-3">Recorrência</th>
+                  <th className="px-4 py-3 text-right">Valor/mês</th><th className="px-4 py-3">Próx. vencimento</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {linhasGrade.length === 0 && <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-500">Nenhuma assinatura no período selecionado.</td></tr>}
+                {linhasGrade.map((a) => {
+                  const tom = a.status === "active" ? "text-emerald-300" : a.status === "trial" ? "text-gold-300" : a.status === "overdue" ? "text-amber-300" : "text-red-300";
+                  return (
+                    <tr key={a.id} className="text-slate-200 hover:bg-white/[0.02]">
+                      <td className="px-4 py-3 font-bold text-white">{nomeLojaDe(a.lojaId)}</td>
+                      <td className="px-4 py-3">{nomePlanoDe(a.planoId)}</td>
+                      <td className={`px-4 py-3 font-bold ${tom}`}>{STATUS_PT[a.status] || a.status}</td>
+                      <td className="px-4 py-3">{a.inicio ? new Date(a.inicio).toLocaleDateString("pt-BR") : "—"}</td>
+                      <td className="px-4 py-3 font-bold text-white">{permanenciaTxt(a.inicio)}</td>
+                      <td className="px-4 py-3">Mensal</td>
+                      <td className="px-4 py-3 text-right font-bold text-gold-300">{a.precoMensal != null ? formatCurrency(a.precoMensal) : "—"}</td>
+                      <td className="px-4 py-3">{a.dataFim ? new Date(a.dataFim).toLocaleDateString("pt-BR") : "—"}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
