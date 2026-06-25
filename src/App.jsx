@@ -2124,7 +2124,7 @@ export default function RestaurantePedidoApp() {
         <div className="w-full max-w-md rounded-[2rem] border border-red-400/25 bg-red-500/[0.06] p-7 text-center shadow-2xl">
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-red-500/15 text-3xl">🔒</div>
           <h1 className="page-title text-xl font-black text-white">{bloqueioEmpresa.titulo}</h1>
-          <p className="mt-3 text-sm leading-6 text-slate-300">{bloqueioEmpresa.descricao}</p>
+          <p className="mt-3 whitespace-pre-line text-sm leading-6 text-slate-300">{bloqueioEmpresa.descricao}</p>
           <a href={`https://wa.me/${PLANO_WHATS}?text=${encodeURIComponent(`Olá! Sou da empresa ${lojaInfo?.nome || ""} e preciso liberar o acesso ao Pedido Prime (${bloqueioEmpresa.titulo}).`)}`} target="_blank" rel="noopener noreferrer"
             className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-500 py-3.5 text-sm font-black text-white transition active:scale-95 hover:bg-emerald-400">💬 Falar com o consultor / suporte</a>
           <button onClick={logout} className="mt-2 w-full rounded-2xl border border-white/10 bg-white/[0.06] py-3 text-sm font-black text-slate-300 transition hover:bg-white/10">Sair</button>
@@ -9769,6 +9769,9 @@ function MeuPlanoAdmin({ planoAtual, assinaturaAtual, planos = [], planoModulos 
   const mudarStatus = (novo) => setForm((f) => ({ ...f, status: novo, dataTrialFim: (novo === "trial" && !f.dataTrialFim) ? emMeses(3) : f.dataTrialFim }));
   // Dias restantes com base na data atual e no fim do trial informado no formulário.
   const diasFormTrial = (() => { if (form.status !== "trial" || !form.dataTrialFim) return null; const hoje = new Date(); hoje.setHours(0, 0, 0, 0); const fim = new Date(form.dataTrialFim); fim.setHours(0, 0, 0, 0); return Math.round((fim - hoje) / 86400000); })();
+  // Bloqueio: data em que a assinatura ficou "blocked" (atualizadoEm) e há quantos dias.
+  const bloqueadoDesde = (assinaturaAtual?.status === "blocked" && assinaturaAtual?.atualizadoEm) ? new Date(assinaturaAtual.atualizadoEm) : null;
+  const diasBloqueado = bloqueadoDesde ? Math.max(0, Math.floor((Date.now() - bloqueadoDesde.getTime()) / 86400000)) : null;
   function salvar() {
     if (!form.planoId) { setErroForm("Selecione um plano antes de salvar."); return; }
     if (form.status === "trial" && !form.dataTrialFim) { setErroForm("Informe a data de fim do período de teste (Trial)."); return; }
@@ -9871,6 +9874,18 @@ function MeuPlanoAdmin({ planoAtual, assinaturaAtual, planos = [], planoModulos 
               <span className={lbl}>Valor mensal (R$) <span className="text-[10px] font-bold text-slate-500">(do plano)</span></span>
               <input type="text" readOnly disabled value={valorPlano != null ? formatCurrency(valorPlano) : "—"} className={`${inp} cursor-not-allowed opacity-70`} />
             </div>
+            {form.status === "blocked" && (
+              <>
+                <div>
+                  <span className={lbl}>Data de bloqueio</span>
+                  <input type="text" readOnly disabled value={bloqueadoDesde ? bloqueadoDesde.toLocaleDateString("pt-BR") : "Registrada ao salvar"} className={`${inp} cursor-not-allowed opacity-70`} />
+                </div>
+                <div>
+                  <span className={lbl}>Dias bloqueado</span>
+                  <input type="text" readOnly disabled value={diasBloqueado != null ? `${diasBloqueado} dia(s)` : "—"} className={`${inp} cursor-not-allowed opacity-70`} />
+                </div>
+              </>
+            )}
           </div>
           <div className="mt-4">
             <span className={lbl}>Observação {(form.status === "overdue" || form.status === "blocked") && <span className="text-[10px] font-bold text-slate-500">(motivo do bloqueio)</span>}</span>

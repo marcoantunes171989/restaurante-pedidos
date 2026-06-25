@@ -118,8 +118,8 @@ export function bloqueioAcessoEmpresa(assinatura, isSuperAdmin = false) {
   };
   if (assinatura.status === "blocked") return {
     motivo: "bloqueado",
-    titulo: "Acesso bloqueado",
-    descricao: comMotivo("O acesso da sua empresa ao Pedido Prime está bloqueado. Entre em contato com o seu consultor ou com o suporte para regularizar."),
+    titulo: "Acesso temporariamente indisponível",
+    descricao: comMotivo("Olá! No momento o acesso da sua empresa ao Pedido Prime está temporariamente indisponível. Por gentileza, entre em contato com o setor administrativo para regularizar a liberação do sistema. Estamos à disposição para ajudar."),
   };
   return null;
 }
