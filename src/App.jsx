@@ -9753,6 +9753,9 @@ function MeuPlanoAdmin({ planoAtual, assinaturaAtual, planos = [], planoModulos 
   });
   useEffect(() => { setForm({ planoId: assinaturaAtual?.planoId ?? "", status: assinaturaAtual?.status ?? "active", dataFim: assinaturaAtual?.dataFim ?? "", dataTrialFim: assinaturaAtual?.dataTrialFim ?? "", precoMensal: assinaturaAtual?.precoMensal ?? "" }); }, [assinaturaAtual?.id, lojaAtual]);
   const [erroForm, setErroForm] = useState("");
+  // Plano selecionado → o Valor Mensal vem dele (somente leitura).
+  const planoSel = planos.find((p) => p.id === form.planoId) || null;
+  const valorPlano = planoSel?.precoBase ?? null;
   // Data (YYYY-MM-DD) hoje + N meses — usada para preencher o fim do trial automaticamente.
   const emMeses = (n) => { const d = new Date(); d.setMonth(d.getMonth() + n); return d.toISOString().slice(0, 10); };
   // Ao escolher "Período de teste", preenche o fim do trial com 3 meses (se vazio) — editável.
@@ -9775,7 +9778,7 @@ function MeuPlanoAdmin({ planoAtual, assinaturaAtual, planos = [], planoModulos 
       // No modo Trial, o vencimento segue o fim do trial; nos demais, mantém o campo.
       dataFim: form.status === "trial" ? (form.dataTrialFim || null) : (form.dataFim || null),
       dataTrialFim: form.dataTrialFim || null,
-      precoMensal: form.precoMensal === "" ? null : Number(String(form.precoMensal).replace(",", ".")) || 0,
+      precoMensal: valorPlano, // valor mensal = preço do plano (somente leitura)
     });
   }
   const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-gold-400/60 transition";
@@ -9857,8 +9860,8 @@ function MeuPlanoAdmin({ planoAtual, assinaturaAtual, planos = [], planoModulos 
               <input type="date" disabled={form.status === "trial"} value={(form.status === "trial" ? form.dataTrialFim : form.dataFim) || ""} onChange={(e) => setForm({ ...form, dataFim: e.target.value })} className={`${inp} ${form.status === "trial" ? "cursor-not-allowed opacity-60" : ""}`} />
             </div>
             <div>
-              <span className={lbl}>Valor mensal (R$)</span>
-              <input inputMode="decimal" value={form.precoMensal ?? ""} onChange={(e) => setForm({ ...form, precoMensal: e.target.value })} placeholder="0,00" className={inp} />
+              <span className={lbl}>Valor mensal (R$) <span className="text-[10px] font-bold text-slate-500">(do plano)</span></span>
+              <input type="text" readOnly disabled value={valorPlano != null ? formatCurrency(valorPlano) : "—"} className={`${inp} cursor-not-allowed opacity-70`} />
             </div>
           </div>
           {erroForm && <p className="mt-3 rounded-2xl border border-red-400/30 bg-red-500/10 px-4 py-2.5 text-sm font-bold text-red-200">⚠ {erroForm}</p>}
