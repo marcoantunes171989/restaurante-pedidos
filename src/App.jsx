@@ -7753,32 +7753,93 @@ function EstrelasMedia({ nota }) {
   );
 }
 function RelatorioSatisfacao({ pesquisas = [] }) {
+  const [buscaCli, setBuscaCli] = useState(""); // filtro por cliente (telefone)
+  const termo = buscaCli.replace(/\D/g, "");
+  const lista = termo ? pesquisas.filter((q) => (q.clienteTelefone || "").replace(/\D/g, "").includes(termo)) : pesquisas;
+
   const medias = SATISF_PERGUNTAS.map((p) => {
-    const vals = pesquisas.map((q) => q.notas?.[p.key]).filter((v) => v != null && v > 0);
-    return { ...p, media: vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : 0, n: vals.length };
+    const vals = lista.map((q) => q.notas?.[p.key]).filter((v) => v != null && v > 0);
+    return { ...p, media: vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : 0, n: vals.length, dist: [1, 2, 3, 4, 5].map((n) => vals.filter((v) => v === n).length) };
   });
-  const todasNotas = pesquisas.flatMap((q) => Object.values(q.notas || {}).filter((v) => v != null && v > 0));
+  const todasNotas = lista.flatMap((q) => Object.values(q.notas || {}).filter((v) => v != null && v > 0));
   const mediaGeral = todasNotas.length ? todasNotas.reduce((s, v) => s + v, 0) / todasNotas.length : 0;
-  const recVals = pesquisas.map((q) => q.notas?.recomendacao).filter((v) => v != null && v > 0);
+  const recVals = lista.map((q) => q.notas?.recomendacao).filter((v) => v != null && v > 0);
   const promotores = recVals.filter((v) => v >= 4).length;
   const detratores = recVals.filter((v) => v <= 2).length;
   const nps = recVals.length ? Math.round(((promotores - detratores) / recVals.length) * 100) : null;
-  const comentarios = pesquisas.filter((q) => (q.comentario || "").trim());
+  const comentarios = lista.filter((q) => (q.comentario || "").trim());
   const origemTxt = (o) => o === "externo" ? "🛵 Delivery" : o === "mesa" ? "🍽️ Mesa" : (o || "—");
+  const telMasc = (t) => { const d = String(t || "").replace(/\D/g, ""); return d.length >= 4 ? `****-${d.slice(-4)}` : "—"; };
+  const CORES_NOTA = ["bg-red-500", "bg-orange-500", "bg-amber-400", "bg-lime-500", "bg-emerald-500"];
+
+  function exportarCSV() {
+    const cab = ["Data", "Pedido", "Origem", "Mesa", "Telefone", "Exp. geral", "Facilidade", "Tempo", "Qualidade", "Cardápio", "Atendimento", "Status pedido", "Recomendação", "Comentário"];
+    const esc = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const linhas = lista.map((q) => [
+      q.criadoEmISO ? new Date(q.criadoEmISO).toLocaleString("pt-BR") : "", q.pedidoId || "", q.origem || "", q.mesa || "", q.clienteTelefone || "",
+      q.notas?.exp_geral ?? "", q.notas?.facilidade ?? "", q.notas?.tempo ?? "", q.notas?.qualidade ?? "",
+      q.notas?.cardapio ?? "", q.notas?.atendimento ?? "", q.notas?.status_pedido ?? "", q.notas?.recomendacao ?? "",
+      (q.comentario || "").replace(/[\r\n]+/g, " "),
+    ].map(esc).join(";"));
+    const csv = "﻿" + [cab.map(esc).join(";"), ...linhas].join("\r\n"); // BOM p/ acentos no Excel
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = `pesquisa-satisfacao-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click(); URL.revokeObjectURL(url);
+  }
 
   return (
     <div className="space-y-5">
+      {/* Filtro por cliente + exportação */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative flex-1 min-w-[200px]">
+          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">🔎</span>
+          <input value={buscaCli} onChange={(e) => setBuscaCli(e.target.value)} placeholder="Filtrar por cliente (telefone)…"
+            className="w-full rounded-2xl border border-white/10 bg-slate-950/40 py-2.5 pl-9 pr-3 text-sm text-white outline-none focus:border-gold-400/60 placeholder:text-slate-500" />
+        </div>
+        {termo && <button onClick={() => setBuscaCli("")} className="rounded-2xl border border-white/10 bg-white/[0.06] px-3 py-2.5 text-xs font-bold text-slate-300 hover:bg-white/10">Limpar</button>}
+        <button onClick={exportarCSV} disabled={lista.length === 0} className="rounded-2xl bg-gold-400 px-4 py-2.5 text-sm font-black text-blue-950 transition hover:bg-gold-300 active:scale-95 disabled:opacity-40">⬇ Exportar CSV</button>
+      </div>
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <CardMetrica titulo="Respostas" valor={pesquisas.length} sub="no período" cor="text-white" icon="📝" />
+        <CardMetrica titulo="Respostas" valor={lista.length} sub={termo ? "do cliente filtrado" : "no período"} cor="text-white" icon="📝" />
         <CardMetrica titulo="Média geral" valor={mediaGeral ? mediaGeral.toFixed(1) : "—"} sub="de 1 a 5 estrelas" cor="text-gold-400" icon="⭐" />
         <CardMetrica titulo="Recomendação (NPS)" valor={nps != null ? `${nps}` : "—"} sub={`${promotores} promotor(es) · ${detratores} detrator(es)`} cor={nps != null && nps >= 0 ? "text-emerald-300" : "text-red-300"} icon="👍" />
         <CardMetrica titulo="Com comentário" valor={comentarios.length} sub="opiniões abertas" cor="text-blue-300" icon="💬" />
       </div>
 
+      {/* Distribuição de notas (1–5) por pergunta */}
+      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <h3 className="page-title text-base font-bold tracking-tight text-white">Distribuição das notas por pergunta</h3>
+          <div className="flex flex-wrap gap-2 text-[10px] font-bold text-slate-400">
+            {["1 Muito ruim", "2 Ruim", "3 Regular", "4 Bom", "5 Excelente"].map((l, i) => (
+              <span key={l} className="flex items-center gap-1"><span className={`h-2.5 w-2.5 rounded-sm ${CORES_NOTA[i]}`} />{l}</span>
+            ))}
+          </div>
+        </div>
+        {lista.length === 0 ? <p className="text-sm text-slate-500">Nenhuma avaliação no filtro selecionado.</p> : (
+          <div className="space-y-3">
+            {medias.map((m) => { const tot = m.dist.reduce((s, v) => s + v, 0);
+              return (
+                <div key={m.key}>
+                  <div className="mb-1 flex items-center justify-between text-sm"><span className="font-medium text-slate-200">{m.label}</span><span className="text-xs font-bold text-slate-400">{tot} resposta(s)</span></div>
+                  <div className="flex h-6 overflow-hidden rounded-lg bg-white/[0.04]">
+                    {m.dist.map((c, i) => c > 0 && (
+                      <div key={i} className={`flex items-center justify-center ${CORES_NOTA[i]} text-[10px] font-black text-blue-950`} style={{ width: `${(c / tot) * 100}%` }} title={`${i + 1}★: ${c}`}>{(c / tot) >= 0.08 ? c : ""}</div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
       {/* Média por pergunta */}
       <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
         <h3 className="page-title mb-4 text-base font-bold tracking-tight text-white">Média por pergunta</h3>
-        {pesquisas.length === 0 ? <p className="text-sm text-slate-500">Nenhuma avaliação no período selecionado.</p> : (
+        {lista.length === 0 ? <p className="text-sm text-slate-500">Nenhuma avaliação no filtro selecionado.</p> : (
           <div className="space-y-3.5">
             {medias.map((m) => (
               <div key={m.key}>
@@ -7802,7 +7863,7 @@ function RelatorioSatisfacao({ pesquisas = [] }) {
         {comentarios.map((q) => (
           <div key={q.id} className="border-t border-white/[0.06] px-5 py-3.5">
             <div className="flex items-center justify-between gap-2 text-[11px] text-slate-500">
-              <span>{origemTxt(q.origem)}{q.mesa && q.origem === "mesa" ? ` · ${q.mesa}` : ""}</span>
+              <span>{origemTxt(q.origem)}{q.mesa && q.origem === "mesa" ? ` · ${q.mesa}` : ""}{q.clienteTelefone ? ` · 📞 ${telMasc(q.clienteTelefone)}` : ""}</span>
               <span>{q.criadoEmISO ? new Date(q.criadoEmISO).toLocaleDateString("pt-BR") : ""}{q.notas?.exp_geral ? ` · ${q.notas.exp_geral}★` : ""}</span>
             </div>
             <p className="mt-1 text-sm text-slate-200">“{q.comentario}”</p>
