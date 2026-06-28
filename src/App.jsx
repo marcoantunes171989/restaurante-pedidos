@@ -8268,6 +8268,7 @@ function CrmAdmin({ clientes = [], orders = [], fidTransacoes = [], fidRecompens
   const [fatF, setFatF] = useState("todos");
   const [viewMode, setViewMode] = useState("lista"); // lista | ranking
   const [filtrosAbertos, setFiltrosAbertos] = useState(false);
+  const [campanhaAberta, setCampanhaAberta] = useState(false);
 
   // ── Período de análise (presets + intervalo personalizado) ──
   const [preset, setPreset]   = useState("todos"); // hoje | 7d | 30d | 90d | todos | custom
@@ -8463,7 +8464,7 @@ function CrmAdmin({ clientes = [], orders = [], fidTransacoes = [], fidRecompens
           </div>
           <div className="flex flex-wrap gap-2 lg:justify-end">
             <button onClick={exportarClientesCSV} className="rounded-2xl border border-white/10 bg-white/[0.06] px-3.5 py-2.5 text-xs font-bold text-slate-200 transition hover:bg-white/10">📤 Exportar clientes</button>
-            <button onClick={() => alert("Criação de campanhas: em breve. Os clientes segmentados já podem ser exportados para uso em campanhas de WhatsApp/e-mail.")} className="rounded-2xl bg-gold-400 px-3.5 py-2.5 text-xs font-bold text-blue-950 transition hover:bg-gold-300">✨ Criar campanha</button>
+            <button onClick={() => setCampanhaAberta(true)} className="rounded-2xl bg-gold-400 px-3.5 py-2.5 text-xs font-bold text-blue-950 transition hover:bg-gold-300">✨ Criar campanha</button>
             <button onClick={() => { setSegmento("inativo"); setFiltrosAbertos(true); }} className="rounded-2xl border border-red-400/25 bg-red-500/10 px-3.5 py-2.5 text-xs font-bold text-red-300 transition hover:bg-red-500/20">💤 Clientes inativos</button>
             <button onClick={() => alert("Configurações do CRM (regras de VIP, inatividade e campanhas) — em breve.")} className="rounded-2xl border border-white/10 bg-white/[0.06] px-3.5 py-2.5 text-xs font-bold text-slate-200 transition hover:bg-white/10">⚙ Configurar CRM</button>
           </div>
@@ -8773,7 +8774,91 @@ function CrmAdmin({ clientes = [], orders = [], fidTransacoes = [], fidRecompens
           })}
         </div>
       </div>
+
+      {campanhaAberta && <CampanhaModal clientes={filtrados} rotuloSegmento={(SEG_OPC.find((s) => s[0] === segmento) || [, "Todos"])[1]} onFechar={() => setCampanhaAberta(false)} />}
     </main>
+  );
+}
+
+// Modal de criação de campanha (WhatsApp / e-mail) para os clientes segmentados do CRM.
+function CampanhaModal({ clientes = [], rotuloSegmento = "Todos", onFechar }) {
+  useScrollLock();
+  const TEMPLATES = [
+    { t: "🔁 Retorno", m: "Olá {nome}! Sentimos sua falta por aqui 😊 Volte a pedir e aproveite um mimo especial no seu próximo pedido. Estamos te esperando!" },
+    { t: "⭐ Fidelidade (VIP)", m: "Oi {nome}! Você é um cliente muito especial pra gente 💛 Preparamos uma oferta exclusiva. Faça seu pedido pelo nosso cardápio digital!" },
+    { t: "🍔 Novidade", m: "Olá {nome}! Chegaram novidades no nosso cardápio 🎉 Dá uma olhada e peça já o seu favorito!" },
+    { t: "🏷️ Promoção", m: "{nome}, promoção especial só hoje! Aproveite e faça seu pedido com desconto. Corre que é por tempo limitado ⏰" },
+  ];
+  const [msg, setMsg] = useState(TEMPLATES[0].m);
+  const [enviados, setEnviados] = useState(() => new Set());
+  const [copiado, setCopiado] = useState(false);
+  const comTel = clientes.filter((c) => String(c.telefone || "").replace(/\D/g, "").length >= 10);
+  const primeiroNome = (nome) => (String(nome || "").trim().split(/\s+/)[0] || "cliente");
+  const personalizar = (nome) => msg.replace(/\{nome\}/g, primeiroNome(nome));
+  const abrirWhats = (c) => {
+    const tel = String(c.telefone).replace(/\D/g, "");
+    window.open(`https://wa.me/55${tel}?text=${encodeURIComponent(personalizar(c.nome))}`, "_blank", "noopener");
+    setEnviados((s) => { const n = new Set(s); n.add(c.telefone); return n; });
+  };
+  const copiarMsg = () => { try { navigator.clipboard?.writeText(msg); setCopiado(true); setTimeout(() => setCopiado(false), 1500); } catch {} };
+  const exportarContatos = () => {
+    let csv = "Nome;Telefone;Mensagem\n";
+    comTel.forEach((c) => { csv += `${c.nome};${formatarTelefone(c.telefone)};"${personalizar(c.nome).replace(/"/g, '""')}"\n`; });
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `campanha-contatos.csv`; a.click(); URL.revokeObjectURL(url);
+  };
+  const telMasc = (t) => { const d = String(t || "").replace(/\D/g, ""); return d.length >= 4 ? `****-${d.slice(-4)}` : "—"; };
+
+  return (
+    <div className="fixed inset-0 z-[120] flex items-end justify-center bg-black/75 backdrop-blur-sm sm:items-center sm:p-6">
+      <div className="flex max-h-[92dvh] w-full max-w-2xl flex-col rounded-t-[2rem] border border-white/10 bg-slate-950 shadow-2xl sm:rounded-[2rem]">
+        <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+          <div>
+            <h2 className="page-title text-lg font-black text-white">✨ Criar campanha</h2>
+            <p className="text-xs text-slate-400">Segmento: <b className="text-gold-300">{rotuloSegmento}</b> · {comTel.length} cliente(s) com WhatsApp</p>
+          </div>
+          <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300">Fechar ✕</button>
+        </div>
+
+        <div className="pp-overscroll-contain flex-1 overflow-y-auto px-5 py-4">
+          <p className="mb-2 text-[11px] font-bold uppercase tracking-widest text-slate-500">Modelos prontos</p>
+          <div className="mb-3 flex flex-wrap gap-1.5">
+            {TEMPLATES.map((t) => <button key={t.t} onClick={() => setMsg(t.m)} className={`rounded-full border px-3 py-1.5 text-xs font-bold transition ${msg === t.m ? "border-gold-400 bg-gold-400 text-blue-950" : "border-white/10 bg-white/[0.05] text-slate-300 hover:bg-white/10"}`}>{t.t}</button>)}
+          </div>
+
+          <p className="text-[11px] font-bold uppercase tracking-widest text-slate-500">Mensagem <span className="font-normal normal-case text-slate-500">(use <code className="rounded bg-white/10 px-1 text-gold-300">{"{nome}"}</code> para personalizar)</span></p>
+          <textarea value={msg} onChange={(e) => setMsg(e.target.value)} rows={4} className="mt-1 w-full resize-none rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none focus:border-gold-400/60" />
+          <div className="mt-2 flex items-center justify-between gap-2">
+            <p className="text-[11px] text-slate-500">Pré-visualização: <span className="text-slate-300">“{personalizar(comTel[0]?.nome || "Maria Silva")}”</span></p>
+            <button onClick={copiarMsg} className="shrink-0 rounded-xl border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs font-bold text-slate-200 hover:bg-white/10">{copiado ? "Copiado ✓" : "Copiar mensagem"}</button>
+          </div>
+
+          <div className="mt-4 flex items-center justify-between">
+            <p className="text-[11px] font-bold uppercase tracking-widest text-slate-500">Destinatários ({comTel.length})</p>
+            <button onClick={exportarContatos} disabled={comTel.length === 0} className="rounded-xl border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs font-bold text-slate-200 hover:bg-white/10 disabled:opacity-40">📤 Exportar lista</button>
+          </div>
+          <div className="mt-2 space-y-1.5">
+            {comTel.length === 0 && <p className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-6 text-center text-sm text-slate-500">Nenhum cliente com telefone neste segmento. Ajuste os filtros do CRM antes de criar a campanha.</p>}
+            {comTel.map((c) => {
+              const jaEnviado = enviados.has(c.telefone);
+              return (
+                <div key={c.telefone} className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-slate-900/50 px-4 py-2.5">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-bold text-white">{c.nome || "Cliente"}</p>
+                    <p className="text-[11px] text-slate-500">📞 {telMasc(c.telefone)} · {c.qtd} pedido(s)</p>
+                  </div>
+                  <button onClick={() => abrirWhats(c)} className={`shrink-0 rounded-xl px-3 py-2 text-xs font-black transition active:scale-95 ${jaEnviado ? "border border-emerald-400/30 bg-emerald-500/10 text-emerald-300" : "bg-emerald-500 text-white hover:bg-emerald-400"}`}>{jaEnviado ? "✓ Enviado" : "💬 Enviar"}</button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="border-t border-white/10 px-5 py-3" style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 0.75rem)" }}>
+          <p className="text-center text-[11px] text-slate-500">💡 O WhatsApp abre uma conversa por vez (limitação do navegador). Clique em “Enviar” para cada cliente — a mensagem já vai personalizada com o nome.</p>
+        </div>
+      </div>
+    </div>
   );
 }
 
