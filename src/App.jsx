@@ -8784,10 +8784,10 @@ function CrmAdmin({ clientes = [], orders = [], fidTransacoes = [], fidRecompens
 function CampanhaModal({ clientes = [], rotuloSegmento = "Todos", onFechar }) {
   useScrollLock();
   const TEMPLATES = [
-    { t: "🔁 Retorno", m: "Olá {nome}! Sentimos sua falta por aqui 😊 Volte a pedir e aproveite um mimo especial no seu próximo pedido. Estamos te esperando!" },
-    { t: "⭐ Fidelidade (VIP)", m: "Oi {nome}! Você é um cliente muito especial pra gente 💛 Preparamos uma oferta exclusiva. Faça seu pedido pelo nosso cardápio digital!" },
-    { t: "🍔 Novidade", m: "Olá {nome}! Chegaram novidades no nosso cardápio 🎉 Dá uma olhada e peça já o seu favorito!" },
-    { t: "🏷️ Promoção", m: "{nome}, promoção especial só hoje! Aproveite e faça seu pedido com desconto. Corre que é por tempo limitado ⏰" },
+    { t: "Retorno", m: "Olá {nome}! Sentimos sua falta por aqui. Volte a pedir e aproveite um mimo especial no seu próximo pedido. Estamos te esperando!" },
+    { t: "Fidelidade (VIP)", m: "Oi {nome}! Você é um cliente muito especial pra gente. Preparamos uma oferta exclusiva. Faça seu pedido pelo nosso cardápio digital!" },
+    { t: "Novidade", m: "Olá {nome}! Chegaram novidades no nosso cardápio. Dá uma olhada e peça já o seu favorito!" },
+    { t: "Promoção", m: "{nome}, promoção especial só hoje! Aproveite e faça seu pedido com desconto. Corre que é por tempo limitado!" },
   ];
   const [msg, setMsg] = useState(TEMPLATES[0].m);
   const [enviados, setEnviados] = useState(() => new Set());
