@@ -491,6 +491,25 @@ export async function rpcPesquisaSatisfacao({ pedidoId, lojaId, telefone, mesa, 
   })
   if (error) throw error
 }
+function dbParaPesquisa(r) {
+  return { id: r.id, pedidoId: r.pedido_id, lojaId: r.loja_id, clienteTelefone: r.cliente_telefone ?? null, mesa: r.mesa ?? null, origem: r.origem ?? null,
+    notas: { exp_geral: r.exp_geral, facilidade: r.facilidade, tempo: r.tempo, qualidade: r.qualidade, cardapio: r.cardapio, atendimento: r.atendimento, status_pedido: r.status_pedido, recomendacao: r.recomendacao },
+    comentario: r.comentario ?? "", criadoEmISO: r.criado_em }
+}
+export async function fetchPesquisas() {
+  try {
+    const { data, error } = await supabase.from('tab_pesquisa_satisfacao').select('*').order('criado_em', { ascending: false }).limit(5000)
+    if (error || !data) return []
+    return data.map(dbParaPesquisa)
+  } catch { return [] }
+}
+export function escutarPesquisas(onMudanca) {
+  const reload = async () => { onMudanca(await fetchPesquisas()) }
+  const canal = supabase.channel('ch_pesquisas_' + Math.random().toString(36).slice(2))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_pesquisa_satisfacao' }, reload)
+    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
+  return () => supabase.removeChannel(canal)
+}
 export async function inserirPesquisaSatisfacao({ pedidoId, lojaId, telefone, mesa, origem, notas, comentario }) {
   const n = notas || {}
   const { error } = await supabase.from('tab_pesquisa_satisfacao').insert([{

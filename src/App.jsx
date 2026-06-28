@@ -22,6 +22,7 @@ import {
   fetchSetoresCozinha, inserirSetorCozinha, atualizarSetorCozinha, excluirSetorCozinha, escutarSetoresCozinha,
   fetchCaixaAberto, fetchCaixas, fetchMovimentosCaixa, abrirCaixa, registrarMovimentoCaixa, fecharCaixa, escutarCaixas,
   fetchFidelidadeRegras, salvarFidelidadeRegra, fetchFidelidadeRecompensas, inserirRecompensa, excluirRecompensa, fetchFidelidadeTransacoes, lancarFidelidadeTransacao, escutarFidelidadeTransacoes,
+  fetchPesquisas, escutarPesquisas,
   fetchChamados, criarChamado, atualizarChamado, escutarChamados,
   fetchAuditoria, registrarAuditoria, escutarAuditoria, marcarAuditoriaAnalisada,
   loginSupabaseAuth, logoutSupabaseAuth, aguardarSessao, getSessionEmail,
@@ -661,6 +662,7 @@ export default function RestaurantePedidoApp() {
   const [fidRegras, setFidRegras] = useState([]);          // fidelidade: regras (migration 043)
   const [fidRecompensas, setFidRecompensas] = useState([]); // fidelidade: recompensas
   const [fidTransacoes, setFidTransacoes] = useState([]);  // fidelidade: transações de pontos
+  const [pesquisas, setPesquisas] = useState([]);          // pesquisas de satisfação (migration 059)
   const [chamados, setChamados] = useState([]);            // chamados de mesa (migration 044)
   const [auditoria, setAuditoria] = useState([]);          // trilha de auditoria (migration 045)
   const [lojaContexto, setLojaContexto] = useState(null); // super admin: empresa em foco para cadastros
@@ -733,6 +735,7 @@ export default function RestaurantePedidoApp() {
         try { unsubs.push(escutarSetoresCozinha(setSetoresCozinha)); } catch {}
         try { unsubs.push(escutarCaixas(setCaixas)); } catch {}
         try { unsubs.push(escutarFidelidadeTransacoes(setFidTransacoes)); } catch {}
+        try { unsubs.push(escutarPesquisas(setPesquisas)); } catch {}
         try { unsubs.push(escutarChamados(setChamados)); } catch {}
         try { unsubs.push(escutarAuditoria(setAuditoria)); } catch {}
       } catch (err) {
@@ -5428,7 +5431,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
             <ModuloBloqueado slug={ativo} lojaInfo={lojaInfo} onVerPlanos={() => setAdminSection("plano")} />
           ) : (<>
           {ativo === "dashboard"  && <DashboardAdmin orders={orders} products={products} comandas={comandasRegistradas} clientes={clientes} setores={setores} irParaMesas={() => setAdminSection("mesas")} />}
-          {ativo === "relatorios" && <RelatoriosAdmin orders={orders} products={products} lojaInfo={lojaInfo} irParaMesas={() => setAdminSection("mesas")} />}
+          {ativo === "relatorios" && <RelatoriosAdmin orders={orders} products={products} lojaInfo={lojaInfo} pesquisas={filtraLoja(pesquisas)} irParaMesas={() => setAdminSection("mesas")} />}
           {ativo === "crm"        && <CrmAdmin clientes={clientes} orders={orders} fidTransacoes={fidTransacoes} fidRecompensas={fidRecompensas} lancarPontos={fidApi?.lancarPontos} />}
           {ativo === "fidelidade" && (precisaEmpresa ? avisoEmpresa : <FidelidadeAdmin regra={fidRegra} recompensas={fidRecompensas} transacoes={fidTransacoes} clientes={clientes} api={fidApi} />)}
           {ativo === "products"   && (precisaEmpresa ? avisoEmpresa : <ProductAdmin   products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} editarProduto={editarProduto} removerProduto={removerProduto} lojaId={lojaInfo?.id} opcoesApi={opcoesApi} setores={setores} />)}
@@ -5508,6 +5511,11 @@ function filtrarPedidosPorPeriodo(orders, periodo, ini, fim) {
     const d = new Date(o.createdAtISO);
     return d >= a && d <= b;
   });
+}
+function filtrarPesquisasPorPeriodo(pesquisas, periodo, ini, fim) {
+  if (periodo === "tudo") return pesquisas;
+  const [a, b] = intervaloPeriodo(periodo, ini, fim);
+  return pesquisas.filter((p) => { if (!p.criadoEmISO) return true; const d = new Date(p.criadoEmISO); return d >= a && d <= b; });
 }
 
 // ── Helpers de data (YYYY-MM-DD) ─────────────────────────────
@@ -6753,7 +6761,7 @@ function ModalDetalhePedidos({ titulo, pedidos, onFechar }) {
 // ════════════════════════════════════════════════════════════
 //  Relatórios de vendas — filtros + exportação (Excel/PDF/imprimir)
 // ════════════════════════════════════════════════════════════
-function RelatoriosAdmin({ orders, products, lojaInfo, irParaMesas = () => {} }) {
+function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMesas = () => {} }) {
   const [periodo, setPeriodo] = useState("7");
   const [ini, setIni] = useState("");
   const [fim, setFim] = useState("");
@@ -7006,7 +7014,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, irParaMesas = () => {} })
 
       {/* Sub-abas de relatório */}
       <div className="flex flex-wrap gap-2">
-        {[{ id: "geral", label: "Visão geral" }, { id: "vendas", label: "Vendas" }, { id: "cupom", label: "Cupom / Mesa / Comanda" }, { id: "estoque", label: "Estoque" }, { id: "clientes", label: "Clientes" }, { id: "permanencia", label: "Permanência" }].map((t) => (
+        {[{ id: "geral", label: "Visão geral" }, { id: "vendas", label: "Vendas" }, { id: "cupom", label: "Cupom / Mesa / Comanda" }, { id: "estoque", label: "Estoque" }, { id: "clientes", label: "Clientes" }, { id: "permanencia", label: "Permanência" }, { id: "satisfacao", label: "⭐ Satisfação" }].map((t) => (
           <button key={t.id} onClick={() => setAba(t.id)}
             className={`font-display rounded-xl px-4 py-2.5 text-sm font-bold transition ${aba === t.id ? "bg-gold-400 text-blue-950 shadow-lg shadow-gold-900/20" : "border border-white/10 bg-white/[0.04] text-slate-300 hover:bg-white/[0.08]"}`}>
             {t.label}
@@ -7229,6 +7237,8 @@ function RelatoriosAdmin({ orders, products, lojaInfo, irParaMesas = () => {} })
       )}
 
       {aba === "permanencia" && <RelatorioPermanencia pedidos={filtrados} />}
+
+      {aba === "satisfacao" && <RelatorioSatisfacao pesquisas={filtrarPesquisasPorPeriodo(pesquisas, periodo, ini, fim)} />}
 
       {/* Drill-down: cupons de um produto */}
       {drill && <CuponsProdutoModal nome={drill.nome} cupons={drill.cupons} lojaInfo={lojaInfo} onFechar={() => setDrill(null)} />}
@@ -7717,6 +7727,85 @@ function RelatorioPermanencia({ pedidos }) {
             <span className="text-slate-300">{c.mesa}</span>
             <span className="text-xs text-slate-400">{new Date(c.inicio).toLocaleTimeString("pt-BR")} → {new Date(c.fim).toLocaleTimeString("pt-BR")}</span>
             <span className="font-semibold text-gold-300 sm:text-right">{fmtDur(c.ms)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Relatório de Pesquisa de Satisfação (migration 059) ──────────────
+const SATISF_PERGUNTAS = [
+  { key: "exp_geral", label: "Experiência geral" },
+  { key: "facilidade", label: "Facilidade do pedido" },
+  { key: "tempo", label: "Tempo de atendimento" },
+  { key: "qualidade", label: "Qualidade dos produtos" },
+  { key: "cardapio", label: "Clareza do cardápio" },
+  { key: "atendimento", label: "Atendimento da equipe" },
+  { key: "status_pedido", label: "Comunicação do status" },
+  { key: "recomendacao", label: "Recomendaria o local" },
+];
+function EstrelasMedia({ nota }) {
+  return (
+    <span className="whitespace-nowrap text-base leading-none">
+      {[1, 2, 3, 4, 5].map((n) => <span key={n} className={n <= Math.round(nota) ? "text-gold-400" : "text-slate-600"}>★</span>)}
+    </span>
+  );
+}
+function RelatorioSatisfacao({ pesquisas = [] }) {
+  const medias = SATISF_PERGUNTAS.map((p) => {
+    const vals = pesquisas.map((q) => q.notas?.[p.key]).filter((v) => v != null && v > 0);
+    return { ...p, media: vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : 0, n: vals.length };
+  });
+  const todasNotas = pesquisas.flatMap((q) => Object.values(q.notas || {}).filter((v) => v != null && v > 0));
+  const mediaGeral = todasNotas.length ? todasNotas.reduce((s, v) => s + v, 0) / todasNotas.length : 0;
+  const recVals = pesquisas.map((q) => q.notas?.recomendacao).filter((v) => v != null && v > 0);
+  const promotores = recVals.filter((v) => v >= 4).length;
+  const detratores = recVals.filter((v) => v <= 2).length;
+  const nps = recVals.length ? Math.round(((promotores - detratores) / recVals.length) * 100) : null;
+  const comentarios = pesquisas.filter((q) => (q.comentario || "").trim());
+  const origemTxt = (o) => o === "externo" ? "🛵 Delivery" : o === "mesa" ? "🍽️ Mesa" : (o || "—");
+
+  return (
+    <div className="space-y-5">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <CardMetrica titulo="Respostas" valor={pesquisas.length} sub="no período" cor="text-white" icon="📝" />
+        <CardMetrica titulo="Média geral" valor={mediaGeral ? mediaGeral.toFixed(1) : "—"} sub="de 1 a 5 estrelas" cor="text-gold-400" icon="⭐" />
+        <CardMetrica titulo="Recomendação (NPS)" valor={nps != null ? `${nps}` : "—"} sub={`${promotores} promotor(es) · ${detratores} detrator(es)`} cor={nps != null && nps >= 0 ? "text-emerald-300" : "text-red-300"} icon="👍" />
+        <CardMetrica titulo="Com comentário" valor={comentarios.length} sub="opiniões abertas" cor="text-blue-300" icon="💬" />
+      </div>
+
+      {/* Média por pergunta */}
+      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
+        <h3 className="page-title mb-4 text-base font-bold tracking-tight text-white">Média por pergunta</h3>
+        {pesquisas.length === 0 ? <p className="text-sm text-slate-500">Nenhuma avaliação no período selecionado.</p> : (
+          <div className="space-y-3.5">
+            {medias.map((m) => (
+              <div key={m.key}>
+                <div className="mb-1 flex items-center justify-between gap-2 text-sm">
+                  <span className="font-medium text-slate-200">{m.label}</span>
+                  <span className="flex items-center gap-2"><EstrelasMedia nota={m.media} /><span className="w-8 text-right font-bold text-white">{m.media ? m.media.toFixed(1) : "—"}</span></span>
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-white/[0.06]">
+                  <div className="h-full rounded-full bg-gradient-to-r from-gold-500 to-gold-300" style={{ width: `${(m.media / 5) * 100}%` }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Comentários */}
+      <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.04]">
+        <div className="border-b border-gold-400/15 px-5 py-3"><h3 className="page-title text-sm font-bold uppercase tracking-wider text-white">Comentários dos clientes</h3></div>
+        {comentarios.length === 0 && <p className="px-5 py-6 text-center text-sm text-slate-500">Nenhum comentário no período.</p>}
+        {comentarios.map((q) => (
+          <div key={q.id} className="border-t border-white/[0.06] px-5 py-3.5">
+            <div className="flex items-center justify-between gap-2 text-[11px] text-slate-500">
+              <span>{origemTxt(q.origem)}{q.mesa && q.origem === "mesa" ? ` · ${q.mesa}` : ""}</span>
+              <span>{q.criadoEmISO ? new Date(q.criadoEmISO).toLocaleDateString("pt-BR") : ""}{q.notas?.exp_geral ? ` · ${q.notas.exp_geral}★` : ""}</span>
+            </div>
+            <p className="mt-1 text-sm text-slate-200">“{q.comentario}”</p>
           </div>
         ))}
       </div>
