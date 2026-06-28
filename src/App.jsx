@@ -8783,11 +8783,13 @@ function CrmAdmin({ clientes = [], orders = [], fidTransacoes = [], fidRecompens
 // Modal de criação de campanha (WhatsApp / e-mail) para os clientes segmentados do CRM.
 function CampanhaModal({ clientes = [], rotuloSegmento = "Todos", onFechar }) {
   useScrollLock();
+  // Emojis via codepoint (não digitamos o caractere no arquivo p/ a pipeline não corromper).
+  const E = (cp) => String.fromCodePoint(cp);
   const TEMPLATES = [
-    { t: "Retorno", m: "Olá {nome}! Sentimos sua falta por aqui. Volte a pedir e aproveite um mimo especial no seu próximo pedido. Estamos te esperando!" },
-    { t: "Fidelidade (VIP)", m: "Oi {nome}! Você é um cliente muito especial pra gente. Preparamos uma oferta exclusiva. Faça seu pedido pelo nosso cardápio digital!" },
-    { t: "Novidade", m: "Olá {nome}! Chegaram novidades no nosso cardápio. Dá uma olhada e peça já o seu favorito!" },
-    { t: "Promoção", m: "{nome}, promoção especial só hoje! Aproveite e faça seu pedido com desconto. Corre que é por tempo limitado!" },
+    { t: `${E(0x1F501)} Retorno`, m: `Olá {nome}! Sentimos sua falta por aqui ${E(0x1F60A)} Volte a pedir e aproveite um mimo especial no seu próximo pedido. Estamos te esperando!` },
+    { t: `${E(0x2B50)} Fidelidade (VIP)`, m: `Oi {nome}! Você é um cliente muito especial pra gente ${E(0x1F49B)} Preparamos uma oferta exclusiva. Faça seu pedido pelo nosso cardápio digital!` },
+    { t: `${E(0x1F354)} Novidade`, m: `Olá {nome}! Chegaram novidades no nosso cardápio ${E(0x1F389)} Dá uma olhada e peça já o seu favorito!` },
+    { t: `${E(0x1F3F7)} Promoção`, m: `{nome}, promoção especial só hoje! Aproveite e faça seu pedido com desconto. Corre que é por tempo limitado ${E(0x23F0)}` },
   ];
   const [msg, setMsg] = useState(TEMPLATES[0].m);
   const [enviados, setEnviados] = useState(() => new Set());
