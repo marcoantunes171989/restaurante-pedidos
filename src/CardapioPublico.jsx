@@ -32,6 +32,14 @@ function capitalizarNome(valor) {
   return String(valor || "").replace(/(^|\s)([\p{L}])/gu, (_, sep, ch) => sep + ch.toUpperCase());
 }
 
+// Pesquisa de satisfação: controle por localStorage (sobrevive a reload, evita repetição).
+//  - PEND: pedidos feitos pelo cliente, aguardando CONCLUSÃO (pago + retirado) p/ pesquisar.
+//  - DONE: pedidos já pesquisados/dispensados → nunca mais aparecem.
+const SURVEY_PEND_KEY = "pp_survey_pend";
+const SURVEY_DONE_KEY = "pp_survey_done";
+function lerSetLS(k) { try { return new Set(JSON.parse(localStorage.getItem(k) || "[]")); } catch { return new Set(); } }
+function salvarSetLS(k, set) { try { localStorage.setItem(k, JSON.stringify([...set].slice(-200))); } catch {} }
+
 export default function CardapioPublico() {
   const params = new URLSearchParams(window.location.search);
   const prefixo  = (params.get("e") || "").toUpperCase();
@@ -275,6 +283,17 @@ export default function CardapioPublico() {
   const meusPedidos = modoExterno
     ? orders.filter((o) => telDig && o.clienteTelefone === telDig && o.status !== "cancelled" && !concluido(o))
     : orders.filter((o) => o.table === currentTable && o.command === comanda && o.status !== "cancelled" && !concluido(o));
+  // Pesquisa de Satisfação SÓ no fim: quando um pedido feito por este aparelho CONCLUIR
+  // (pago + retirado/entregue). Mostra uma vez por pedido.
+  useEffect(() => {
+    if (survey) return;
+    const pend = lerSetLS(SURVEY_PEND_KEY);
+    if (pend.size === 0) return;
+    const done = lerSetLS(SURVEY_DONE_KEY);
+    const alvo = orders.find((o) => pend.has(o.id) && !done.has(o.id) && o.paymentStatus === "paid" && o.status === "delivered");
+    if (alvo) setSurvey({ pedidoId: alvo.id, mesa: alvo.table, origem: (alvo.table === "Externo" || /^EXT-/.test(alvo.command || "")) ? "externo" : "mesa" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orders, survey]);
   const subtotal = meusPedidos.reduce((s, o) => s + o.items.reduce((a, i) => a + i.price * i.quantity, 0), 0);
   const totalMesa = subtotal * 1.1;
   const totalCart = cart.reduce((s, i) => s + i.price * i.quantity, 0);
@@ -362,9 +381,10 @@ export default function CardapioPublico() {
       let pedidoId = novo.id;
       if (cardapioViaRpc()) { const r = await rpcCriarPedidoPublico({ lojaId: loja.id, mesa: novo.table, comanda: novo.command, cliente: novo.customer, telefone: novo.clienteTelefone || "", itens }); if (r) pedidoId = r; }
       else await inserirPedido(novo);
-      // Pedido criado → abre a Pesquisa de Satisfação antes de concluir o fluxo.
-      setCart([]); setAba(null);
-      setSurvey({ pedidoId, mesa: novo.table, origem: modoExterno ? "externo" : "mesa" });
+      // A Pesquisa de Satisfação NÃO aparece agora — só quando o pedido CONCLUIR
+      // (pago + retirado/entregue). Registra o pedido como pendente de pesquisa.
+      try { const pend = lerSetLS(SURVEY_PEND_KEY); pend.add(pedidoId); salvarSetLS(SURVEY_PEND_KEY, pend); } catch {}
+      setCart([]); setAba("conta"); setMsg({ t: "success", m: "✅ Pedido enviado para a cozinha!" });
     } catch (e) { console.error("Erro ao criar pedido:", e); setMsg({ t: "error", m: "Erro ao enviar o pedido. Tente novamente." }); }
     finally { setEnviando(false); }
   }
@@ -376,18 +396,25 @@ export default function CardapioPublico() {
     try { await (cardapioViaRpc() ? rpcPesquisaSatisfacao(dados) : inserirPesquisaSatisfacao(dados)); }
     catch (e) { console.error("Falha ao salvar a pesquisa de satisfação (pedido finalizado mesmo assim):", e); }
   }
-  // "Enviar avaliação e finalizar": grava se houver nota/comentário; senão trata como sem avaliação.
+  function marcarPesquisaConcluida(id) {
+    if (!id) return;
+    const pend = lerSetLS(SURVEY_PEND_KEY); pend.delete(id); salvarSetLS(SURVEY_PEND_KEY, pend);
+    const done = lerSetLS(SURVEY_DONE_KEY); done.add(id); salvarSetLS(SURVEY_DONE_KEY, done);
+  }
+  // "Enviar avaliação": grava se houver nota/comentário; senão trata como sem avaliação.
   async function finalizarComPesquisa({ notas, comentario }) {
     const temNota = Object.values(notas || {}).some((v) => Number(v) > 0);
     const temComentario = (comentario || "").trim().length > 0;
     if (temNota || temComentario) await salvarPesquisa({ notas, comentario });
-    setSurvey(null); setAba("conta");
-    setMsg({ t: "success", m: (temNota || temComentario) ? "Pedido finalizado com sucesso! Obrigado pela sua avaliação." : "Pedido finalizado com sucesso!" });
+    marcarPesquisaConcluida(survey?.pedidoId);
+    setSurvey(null);
+    setMsg({ t: "success", m: (temNota || temComentario) ? "Obrigado pela sua avaliação! 💛" : "Tudo certo, obrigado!" });
   }
   // "Finalizar sem avaliar"
   function finalizarSemPesquisa() {
-    setSurvey(null); setAba("conta");
-    setMsg({ t: "success", m: "Pedido finalizado com sucesso!" });
+    marcarPesquisaConcluida(survey?.pedidoId);
+    setSurvey(null);
+    setMsg({ t: "success", m: "Tudo certo, obrigado! 👋" });
   }
 
   async function solicitarConta() {
