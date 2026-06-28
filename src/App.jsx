@@ -5429,7 +5429,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
         <div key={`ctx-${lojaContexto ?? "geral"}`} className="tema-claro-area flex-1 overflow-y-auto p-6">
           {!canAccessModule(ativo, { assinatura: assinaturaAtual, plano: planoAtual, planoModulos, isSuperAdmin }) ? (
             <ModuloBloqueado slug={ativo} lojaInfo={lojaInfo} onVerPlanos={() => setAdminSection("plano")} />
-          ) : (<>
+          ) : (<SecaoErrorBoundary key={ativo}>
           {ativo === "dashboard"  && <DashboardAdmin orders={orders} products={products} comandas={comandasRegistradas} clientes={clientes} setores={setores} irParaMesas={() => setAdminSection("mesas")} />}
           {ativo === "relatorios" && <RelatoriosAdmin orders={orders} products={products} lojaInfo={lojaInfo} pesquisas={filtraLoja(pesquisas)} irParaMesas={() => setAdminSection("mesas")} />}
           {ativo === "crm"        && <CrmAdmin clientes={clientes} orders={orders} fidTransacoes={fidTransacoes} fidRecompensas={fidRecompensas} lancarPontos={fidApi?.lancarPontos} />}
@@ -5476,7 +5476,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
               orders={orders}
             />
           )}
-          </>)}
+          </SecaoErrorBoundary>)}
         </div>
       </div>
     </div>
@@ -6761,6 +6761,28 @@ function ModalDetalhePedidos({ titulo, pedidos, onFechar }) {
 // ════════════════════════════════════════════════════════════
 //  Relatórios de vendas — filtros + exportação (Excel/PDF/imprimir)
 // ════════════════════════════════════════════════════════════
+// Limite de erro por seção: um crash em uma tela do admin mostra um aviso contido
+// (com a mensagem do erro) em vez de derrubar o app inteiro (tela preta).
+class SecaoErrorBoundary extends React.Component {
+  constructor(p) { super(p); this.state = { erro: null }; }
+  static getDerivedStateFromError(erro) { return { erro }; }
+  componentDidCatch(erro, info) { console.error("Erro ao renderizar a seção do admin:", erro, info); }
+  render() {
+    if (this.state.erro) {
+      return (
+        <div className="rounded-[2rem] border border-red-400/25 bg-red-500/[0.06] p-8 text-center">
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-red-500/15 text-2xl">⚠️</div>
+          <h2 className="page-title text-lg font-black text-white">Não foi possível abrir esta tela</h2>
+          <p className="mt-2 text-sm text-slate-300">Ocorreu um erro ao carregar esta seção. Tente novamente; se persistir, avise o suporte.</p>
+          <p className="mt-2 break-words text-xs text-red-300/80">{String(this.state.erro?.message || this.state.erro)}</p>
+          <button onClick={() => this.setState({ erro: null })} className="mt-4 rounded-2xl bg-gold-400 px-5 py-2.5 text-sm font-black text-blue-950 hover:bg-gold-300">Tentar novamente</button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMesas = () => {} }) {
   const [periodo, setPeriodo] = useState("7");
   const [ini, setIni] = useState("");
