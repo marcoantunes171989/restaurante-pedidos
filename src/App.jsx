@@ -8256,6 +8256,11 @@ function formatarTelefone(t) {
   if (d.length === 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
   return t || "—";
 }
+// Regras configuráveis do CRM (VIP / inatividade) — persistidas por navegador.
+const CRM_CFG_PADRAO = { vipPedidos: 5, vipValor: 200, inatividadeDias: 30 };
+function carregarCfgCrm() { try { return { ...CRM_CFG_PADRAO, ...JSON.parse(localStorage.getItem("pp_crm_cfg") || "{}") }; } catch { return { ...CRM_CFG_PADRAO }; } }
+function salvarCfgCrm(c) { try { localStorage.setItem("pp_crm_cfg", JSON.stringify(c)); } catch {} }
+
 function CrmAdmin({ clientes = [], orders = [], fidTransacoes = [], fidRecompensas = [], lancarPontos = null }) {
   const saldoPorCliente = useMemo(() => { const m = {}; fidTransacoes.forEach((t) => { if (t.clienteId != null) m[t.clienteId] = (m[t.clienteId] || 0) + t.pontos; }); return m; }, [fidTransacoes]);
   const [busca, setBusca] = useState("");
@@ -8269,6 +8274,8 @@ function CrmAdmin({ clientes = [], orders = [], fidTransacoes = [], fidRecompens
   const [viewMode, setViewMode] = useState("lista"); // lista | ranking
   const [filtrosAbertos, setFiltrosAbertos] = useState(false);
   const [campanhaAberta, setCampanhaAberta] = useState(false);
+  const [configAberta, setConfigAberta] = useState(false);
+  const [cfgCrm, setCfgCrm] = useState(carregarCfgCrm);
 
   // ── Período de análise (presets + intervalo personalizado) ──
   const [preset, setPreset]   = useState("todos"); // hoje | 7d | 30d | 90d | todos | custom
@@ -8340,8 +8347,8 @@ function CrmAdmin({ clientes = [], orders = [], fidTransacoes = [], fidRecompens
   const ticketMedioBase = comPedidos > 0 ? dados.filter((c) => c.qtd > 0).reduce((s, c) => s + c.ticket, 0) / comPedidos : 0;
 
   // Classificação automática (VIP / Recorrente / Novo / Inativo / Alto-Baixo ticket / Risco)
-  const ehVip = (c) => c.qtd >= 5 || c.total >= 200;
-  const ehInativo = (c) => c.qtd > 0 && c.diasSemComprar != null && c.diasSemComprar > 30;
+  const ehVip = (c) => c.qtd >= cfgCrm.vipPedidos || c.total >= cfgCrm.vipValor;
+  const ehInativo = (c) => c.qtd > 0 && c.diasSemComprar != null && c.diasSemComprar > cfgCrm.inatividadeDias;
   const ehRisco = (c) => c.qtd >= 2 && !ehInativo(c) && c.intervaloMedio != null && c.diasSemComprar != null && c.diasSemComprar > c.intervaloMedio * 1.5;
   const segmentosDoCliente = (c) => {
     const tags = [];
@@ -8466,7 +8473,7 @@ function CrmAdmin({ clientes = [], orders = [], fidTransacoes = [], fidRecompens
             <button onClick={exportarClientesCSV} className="rounded-2xl border border-white/10 bg-white/[0.06] px-3.5 py-2.5 text-xs font-bold text-slate-200 transition hover:bg-white/10">📤 Exportar clientes</button>
             <button onClick={() => setCampanhaAberta(true)} className="rounded-2xl bg-gold-400 px-3.5 py-2.5 text-xs font-bold text-blue-950 transition hover:bg-gold-300">✨ Criar campanha</button>
             <button onClick={() => { setSegmento("inativo"); setFiltrosAbertos(true); }} className="rounded-2xl border border-red-400/25 bg-red-500/10 px-3.5 py-2.5 text-xs font-bold text-red-300 transition hover:bg-red-500/20">💤 Clientes inativos</button>
-            <button onClick={() => alert("Configurações do CRM (regras de VIP, inatividade e campanhas) — em breve.")} className="rounded-2xl border border-white/10 bg-white/[0.06] px-3.5 py-2.5 text-xs font-bold text-slate-200 transition hover:bg-white/10">⚙ Configurar CRM</button>
+            <button onClick={() => setConfigAberta(true)} className="rounded-2xl border border-white/10 bg-white/[0.06] px-3.5 py-2.5 text-xs font-bold text-slate-200 transition hover:bg-white/10">⚙ Configurar CRM</button>
           </div>
         </div>
 
@@ -8776,7 +8783,55 @@ function CrmAdmin({ clientes = [], orders = [], fidTransacoes = [], fidRecompens
       </div>
 
       {campanhaAberta && <CampanhaModal clientes={filtrados} rotuloSegmento={(SEG_OPC.find((s) => s[0] === segmento) || [, "Todos"])[1]} onFechar={() => setCampanhaAberta(false)} />}
+      {configAberta && <ConfigCrmModal cfg={cfgCrm} onSalvar={(c) => { setCfgCrm(c); salvarCfgCrm(c); setConfigAberta(false); }} onFechar={() => setConfigAberta(false)} />}
     </main>
+  );
+}
+
+// Configurações do CRM — regras de classificação (VIP / inatividade).
+function ConfigCrmModal({ cfg, onSalvar, onFechar }) {
+  useScrollLock();
+  const [f, setF] = useState({ vipPedidos: cfg.vipPedidos, vipValor: cfg.vipValor, inatividadeDias: cfg.inatividadeDias });
+  const num = (v, min = 1) => Math.max(min, Math.round(Number(String(v).replace(/\D/g, "")) || 0));
+  const inp = "w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-2.5 text-sm font-bold text-white outline-none focus:border-gold-400/60";
+  return (
+    <div className="fixed inset-0 z-[120] flex items-end justify-center bg-black/75 backdrop-blur-sm sm:items-center sm:p-6">
+      <div className="flex max-h-[92dvh] w-full max-w-lg flex-col rounded-t-[2rem] border border-white/10 bg-slate-950 shadow-2xl sm:rounded-[2rem]">
+        <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+          <h2 className="page-title text-lg font-black text-white">⚙ Configurar CRM</h2>
+          <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300">Fechar ✕</button>
+        </div>
+        <div className="pp-overscroll-contain flex-1 space-y-5 overflow-y-auto px-5 py-4">
+          <p className="text-sm text-slate-400">Ajuste as regras que classificam os clientes. As mudanças refletem na segmentação, nos indicadores e nas campanhas.</p>
+
+          <div className="rounded-2xl border border-gold-400/25 bg-gold-400/[0.05] p-4">
+            <p className="text-sm font-black text-gold-200">⭐ Cliente VIP</p>
+            <p className="mt-0.5 text-xs text-slate-400">É VIP quando atingir <b className="text-white">qualquer</b> um dos critérios:</p>
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              <label><span className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-slate-500">Nº de pedidos ≥</span>
+                <input inputMode="numeric" value={f.vipPedidos} onChange={(e) => setF({ ...f, vipPedidos: num(e.target.value) })} className={inp} /></label>
+              <label><span className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-slate-500">Faturamento (R$) ≥</span>
+                <input inputMode="numeric" value={f.vipValor} onChange={(e) => setF({ ...f, vipValor: num(e.target.value) })} className={inp} /></label>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-red-400/25 bg-red-500/[0.05] p-4">
+            <p className="text-sm font-black text-red-200">💤 Cliente inativo</p>
+            <p className="mt-0.5 text-xs text-slate-400">É inativo quando estiver sem comprar há mais de:</p>
+            <label className="mt-3 block">
+              <span className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-slate-500">Dias sem comprar &gt;</span>
+              <input inputMode="numeric" value={f.inatividadeDias} onChange={(e) => setF({ ...f, inatividadeDias: num(e.target.value) })} className={inp} />
+            </label>
+          </div>
+
+          <button onClick={() => setF({ ...CRM_CFG_PADRAO })} className="text-xs font-bold text-slate-400 underline hover:text-slate-200">↺ Restaurar padrão (5 pedidos · R$ 200 · 30 dias)</button>
+        </div>
+        <div className="flex items-center justify-end gap-2 border-t border-white/10 px-5 py-4" style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 1rem)" }}>
+          <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-2.5 text-sm font-bold text-slate-300 hover:bg-white/10">Cancelar</button>
+          <button onClick={() => onSalvar({ vipPedidos: num(f.vipPedidos), vipValor: num(f.vipValor), inatividadeDias: num(f.inatividadeDias) })} className="rounded-2xl bg-gold-400 px-5 py-2.5 text-sm font-black text-blue-950 hover:bg-gold-300">Salvar regras</button>
+        </div>
+      </div>
+    </div>
   );
 }
 
