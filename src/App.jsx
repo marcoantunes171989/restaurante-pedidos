@@ -9082,17 +9082,22 @@ function CardapioExternoAdmin({ lojaInfo, setModoUsoEmpresa = async () => {}, sa
       <div className="grid gap-5 lg:grid-cols-[1fr_auto]">
         <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
           <p className="text-[11px] font-bold uppercase tracking-widest text-slate-500">Link geral (divulgação)</p>
-          <input readOnly value={link} onClick={(e) => e.target.select()}
-            className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 font-mono text-xs text-emerald-200 outline-none" />
+          <input readOnly disabled={!ativo} value={ativo ? link : "Disponível apenas nos modos Externo ou Ambos"} onClick={ativo ? (e) => e.target.select() : undefined}
+            className={`mt-2 w-full rounded-2xl border border-white/10 px-4 py-3 font-mono text-xs outline-none ${ativo ? "bg-slate-950/70 text-emerald-200" : "cursor-not-allowed select-none bg-slate-900/50 text-slate-500 opacity-60"}`} />
           <div className="mt-2 flex gap-2">
             <button onClick={copiar} disabled={!ativo} className={`rounded-2xl px-4 py-2.5 text-xs font-black transition ${ativo ? "border border-emerald-400/30 bg-emerald-500/15 text-emerald-200 hover:bg-emerald-500/25" : "border border-white/10 bg-white/[0.06] text-slate-400 pointer-events-none opacity-50"}`}>{copiado ? "✓ Copiado" : "Copiar link"}</button>
             <a href={link} target="_blank" rel="noreferrer" className={`rounded-2xl px-4 py-2.5 text-xs font-black transition ${ativo ? "bg-blue-500 text-white hover:bg-blue-400" : "border border-white/10 bg-white/[0.06] text-slate-400 pointer-events-none opacity-50"}`}>🔗 Abrir cardápio</a>
           </div>
           <p className="mt-3 text-xs text-slate-400">Por mesa: acrescente <code className="rounded bg-white/10 px-1 text-emerald-300">&amp;mesa=NN&amp;c=COMANDA</code> ao link (ex.: pedido já vinculado à comanda da mesa).</p>
         </div>
-        <div className="flex flex-col items-center justify-center rounded-[2rem] border border-white/10 bg-white p-5">
-          {qr ? <img src={qr} alt="QR do cardápio" className="h-44 w-44" /> : <div className="flex h-44 w-44 items-center justify-center text-xs text-slate-400">gerando QR…</div>}
-          <p className="mt-2 text-[11px] font-black text-slate-600">Aponte a câmera no cardápio</p>
+        <div className={`flex flex-col items-center justify-center rounded-[2rem] border border-white/10 p-5 ${ativo ? "bg-white" : "bg-white/[0.04]"}`}>
+          {!ativo ? (
+            <div className="flex h-44 w-44 flex-col items-center justify-center gap-2 text-slate-500">
+              <span className="text-3xl">🔒</span>
+              <span className="px-3 text-center text-[11px] font-bold">QR indisponível no modo Interno</span>
+            </div>
+          ) : qr ? <img src={qr} alt="QR do cardápio" className="h-44 w-44" /> : <div className="flex h-44 w-44 items-center justify-center text-xs text-slate-400">gerando QR…</div>}
+          <p className={`mt-2 text-[11px] font-black ${ativo ? "text-slate-600" : "text-slate-500"}`}>{ativo ? "Aponte a câmera no cardápio" : "Ative Externo ou Ambos para gerar"}</p>
         </div>
       </div>
       )}
