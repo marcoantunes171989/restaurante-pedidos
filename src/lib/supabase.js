@@ -186,10 +186,19 @@ function dbParaPromocao(r) {
     diasSemana: Array.isArray(r.dias_semana) ? r.dias_semana : null,
     mostrarCardapio: r.mostrar_cardapio !== false, mostrarTablet: r.mostrar_tablet !== false, ativo: r.ativo !== false }
 }
+// Converte número em formato BR ("49,99" / "1.299,90" / "49.99" / 49.99) para Number, ou null.
+function numBR(v) {
+  if (v == null || v === '') return null
+  let s = String(v).replace(/[^\d.,]/g, '')
+  if (!s) return null
+  if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.') // vírgula = decimal; ponto = milhar
+  const n = parseFloat(s)
+  return isFinite(n) ? n : null
+}
 function promocaoParaDb(p) {
   return { loja_id: p.lojaId ?? null, nome: p.nome, descricao: p.descricao || null, tipo: p.tipo || 'percentual',
-    desconto_percent: p.descontoPercent != null && p.descontoPercent !== "" ? Number(p.descontoPercent) : null,
-    desconto_valor: p.descontoValor != null && p.descontoValor !== "" ? Number(p.descontoValor) : null,
+    desconto_percent: numBR(p.descontoPercent),
+    desconto_valor: numBR(p.descontoValor),
     produto_id: (Array.isArray(p.produtoIds) && p.produtoIds.length ? p.produtoIds[0] : p.produtoId) || null,
     produto_ids: Array.isArray(p.produtoIds) ? p.produtoIds : (p.produtoId ? [p.produtoId] : []),
     categoria_id: p.categoriaId || null,
