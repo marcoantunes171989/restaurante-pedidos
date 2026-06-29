@@ -9027,16 +9027,26 @@ function CardapioExternoAdmin({ lojaInfo, setModoUsoEmpresa = async () => {}, sa
   const CFG_PADRAO = {
     aceitaPedidoExterno: true, consumoLocal: true, entrega: false, retirada: true, pedidoMinimo: "",
     pagOnline: false, pagEntrega: true, pagRetirada: true, pagPix: true, pagCartao: true, pagDinheiro: true,
-    taxaEntrega: "", tempoEntregaMin: "", areaAtendimento: "", obsEntrega: "",
+    taxaEntrega: "", tempoEntregaMin: "", areaAtendimento: "", areasAtendimento: [], obsEntrega: "",
     horarios: { seg: "", ter: "", qua: "", qui: "", sex: "", sab: "", dom: "" }, bloquearForaHorario: false,
   };
   const [aba, setAba] = useState("link"); // link | qrmesa | pedido | pagamento | entrega | horarios
-  const montarCfg = () => { const ext = lojaInfo?.configExterno || {}; return { ...CFG_PADRAO, ...ext, pedidoMinimo: normalizaMoedaReais(ext.pedidoMinimo), horarios: { ...CFG_PADRAO.horarios, ...(ext.horarios || {}) } }; };
+  const [novaArea, setNovaArea] = useState(""); // input do cadastro de áreas de atendimento
+  const montarCfg = () => {
+    const ext = lojaInfo?.configExterno || {};
+    const areas = Array.isArray(ext.areasAtendimento) ? ext.areasAtendimento
+      : (ext.areaAtendimento ? String(ext.areaAtendimento).split(",").map((s) => s.trim()).filter(Boolean) : []);
+    return { ...CFG_PADRAO, ...ext, pedidoMinimo: normalizaMoedaReais(ext.pedidoMinimo), taxaEntrega: normalizaMoedaReais(ext.taxaEntrega), areasAtendimento: areas, horarios: { ...CFG_PADRAO.horarios, ...(ext.horarios || {}) } };
+  };
   const [cfg, setCfg] = useState(montarCfg);
   const [salvandoCfg, setSalvandoCfg] = useState(false);
   useEffect(() => { setCfg(montarCfg()); /* eslint-disable-next-line */ }, [lojaInfo?.id]);
   const setC = (k, v) => setCfg((c) => ({ ...c, [k]: v }));
-  async function salvarCfg() { setSalvandoCfg(true); await salvarConfigExterno(lojaInfo?.id, cfg); setSalvandoCfg(false); }
+  // Cadastro de áreas de atendimento (chips)
+  const addArea = () => { const v = novaArea.trim(); if (!v) return; setCfg((c) => ({ ...c, areasAtendimento: [...(c.areasAtendimento || []), v] })); setNovaArea(""); };
+  const removerArea = (i) => setCfg((c) => ({ ...c, areasAtendimento: (c.areasAtendimento || []).filter((_, idx) => idx !== i) }));
+  // Salva sincronizando a string legada areaAtendimento com a lista de áreas
+  async function salvarCfg() { setSalvandoCfg(true); await salvarConfigExterno(lojaInfo?.id, { ...cfg, areaAtendimento: (cfg.areasAtendimento || []).join(", ") }); setSalvandoCfg(false); }
 
   const Toggle = ({ on, onClick, label, hint }) => (
     <button type="button" onClick={onClick} className="flex w-full items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-left transition hover:bg-white/[0.05]">
@@ -9220,20 +9230,41 @@ function CardapioExternoAdmin({ lojaInfo, setModoUsoEmpresa = async () => {}, sa
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <label className={lblCfg}>Taxa de entrega (R$)</label>
-              <input value={cfg.taxaEntrega} onChange={(e) => setC("taxaEntrega", e.target.value.replace(/[^\d.,]/g, ""))} placeholder="Ex.: 8" className={inpCfg} />
+              <div className="relative">
+                <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">R$</span>
+                <input inputMode="numeric" value={cfg.taxaEntrega} onChange={(e) => setC("taxaEntrega", fmtMoedaDigitando(e.target.value))} placeholder="0,00" className={`${inpCfg} pl-11`} />
+              </div>
             </div>
             <div>
               <label className={lblCfg}>Tempo médio de entrega (min)</label>
-              <input value={cfg.tempoEntregaMin} onChange={(e) => setC("tempoEntregaMin", e.target.value.replace(/\D/g, ""))} placeholder="Ex.: 45" className={inpCfg} />
+              <input inputMode="numeric" value={cfg.tempoEntregaMin} onChange={(e) => setC("tempoEntregaMin", e.target.value.replace(/[^\d-]/g, "").slice(0, 7))} placeholder="Ex.: 45 ou 30-45" className={inpCfg} />
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {["20", "30", "40", "45", "60", "30-45", "45-60"].map((t) => (
+                  <button key={t} type="button" onClick={() => setC("tempoEntregaMin", t)}
+                    className={`rounded-full border px-2.5 py-1 text-[11px] font-bold transition ${cfg.tempoEntregaMin === t ? "border-gold-400/60 bg-gold-400/15 text-gold-200" : "border-white/10 bg-white/[0.04] text-slate-300 hover:bg-white/10"}`}>{t} min</button>
+                ))}
+              </div>
             </div>
           </div>
           <div>
             <label className={lblCfg}>Área de atendimento</label>
-            <input value={cfg.areaAtendimento} onChange={(e) => setC("areaAtendimento", e.target.value)} placeholder="Ex.: Centro e bairros vizinhos" className={inpCfg} />
+            <div className="flex gap-2">
+              <input value={novaArea} onChange={(e) => setNovaArea(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addArea(); } }} placeholder="Ex.: Centro" className={inpCfg} />
+              <button type="button" onClick={addArea} disabled={!novaArea.trim()} className="shrink-0 rounded-2xl bg-gold-400 px-4 text-sm font-black text-blue-950 transition hover:bg-gold-300 disabled:opacity-40">+ Adicionar</button>
+            </div>
+            {(cfg.areasAtendimento || []).length > 0 ? (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {(cfg.areasAtendimento || []).map((a, i) => (
+                  <span key={i} className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-xs font-bold text-slate-200">📍 {a}
+                    <button type="button" onClick={() => removerArea(i)} className="text-red-300 hover:text-red-200">✕</button></span>
+                ))}
+              </div>
+            ) : <p className="mt-1.5 text-[11px] text-slate-500">Cadastre os bairros/regiões atendidos. Digite e clique em “Adicionar” (ou Enter).</p>}
           </div>
           <div>
             <label className={lblCfg}>Observações de entrega</label>
-            <textarea value={cfg.obsEntrega} onChange={(e) => setC("obsEntrega", e.target.value)} rows={2} placeholder="Ex.: Não entregamos em condomínios fechados após 22h" className={`${inpCfg} resize-none`} />
+            <textarea value={cfg.obsEntrega} onChange={(e) => setC("obsEntrega", e.target.value)} rows={3} maxLength={500} placeholder="Texto livre — ex.: Não entregamos em condomínios fechados após 22h. Pedido mínimo para bairros distantes." className={`${inpCfg} resize-y`} />
+            <p className="mt-1 text-right text-[10px] text-slate-600">{(cfg.obsEntrega || "").length}/500</p>
           </div>
           <BotaoSalvarCfg />
         </div>
