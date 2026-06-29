@@ -10471,7 +10471,8 @@ function PromocoesAdmin({ promocoes = [], produtos = [], categoriasDb = [], addP
                 {(p.dataInicio || p.dataFim) && <p>📅 {p.dataInicio ? new Date(p.dataInicio).toLocaleDateString("pt-BR") : "—"} → {p.dataFim ? new Date(p.dataFim).toLocaleDateString("pt-BR") : "—"}</p>}
                 {(p.horaInicio || p.horaFim) && <p>⏰ {p.horaInicio || "—"} às {p.horaFim || "—"}</p>}
                 {Array.isArray(p.diasSemana) && p.diasSemana.length > 0 && p.diasSemana.length < 7 && <p>🗓️ {p.diasSemana.map((d) => PROMO_DIAS[d]).join(", ")}</p>}
-                {nomeProduto(p.produtoId) && <p>🍽️ {nomeProduto(p.produtoId)}</p>}
+                {(Array.isArray(p.produtoIds) && p.produtoIds.length ? p.produtoIds : (p.produtoId ? [p.produtoId] : [])).map((id) => nomeProduto(id)).filter(Boolean).length > 0 &&
+                  <p>🍽️ {(Array.isArray(p.produtoIds) && p.produtoIds.length ? p.produtoIds : [p.produtoId]).map((id) => nomeProduto(id)).filter(Boolean).join(", ")}</p>}
                 {nomeCategoria(p.categoriaId) && <p>📂 {nomeCategoria(p.categoriaId)}</p>}
                 <p className="text-slate-500">{[p.mostrarCardapio && "Cardápio", p.mostrarTablet && "Tablet"].filter(Boolean).join(" · ") || "Oculta"}</p>
               </div>
@@ -10511,19 +10512,25 @@ function PromocaoModal({ promocao, produtos = [], categoriasDb = [], onSalvar, o
   const [f, setF] = useState({
     nome: promocao?.nome || "", descricao: promocao?.descricao || "", tipo: promocao?.tipo || "percentual",
     descontoPercent: promocao?.descontoPercent ?? "", descontoValor: promocao?.descontoValor ?? "",
-    produtoId: promocao?.produtoId || "", categoriaId: promocao?.categoriaId || "",
+    produtoIds: Array.isArray(promocao?.produtoIds) && promocao.produtoIds.length ? promocao.produtoIds : (promocao?.produtoId ? [promocao.produtoId] : []),
+    categoriaId: promocao?.categoriaId || "",
     dataInicio: promocao?.dataInicio || "", dataFim: promocao?.dataFim || "", horaInicio: promocao?.horaInicio || "", horaFim: promocao?.horaFim || "",
     diasSemana: Array.isArray(promocao?.diasSemana) ? promocao.diasSemana : [],
     mostrarCardapio: promocao?.mostrarCardapio !== false, mostrarTablet: promocao?.mostrarTablet !== false, ativo: promocao?.ativo !== false,
   });
+  const [addProd, setAddProd] = useState(""); // select temporário p/ adicionar produto
   const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-gold-400/60 transition";
   const lbl = "mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500";
   const valido = f.nome.trim();
   const toggleDia = (d) => setF((s) => ({ ...s, diasSemana: s.diasSemana.includes(d) ? s.diasSemana.filter((x) => x !== d) : [...s.diasSemana, d].sort() }));
+  const adicionarProduto = (id) => { const pid = Number(id); if (!pid || f.produtoIds.includes(pid)) return; setF((s) => ({ ...s, produtoIds: [...s.produtoIds, pid] })); };
+  const removerProduto = (id) => setF((s) => ({ ...s, produtoIds: s.produtoIds.filter((x) => x !== id) }));
+  const nomeProd = (id) => produtos.find((p) => p.id === id)?.name || `#${id}`;
+  const produtosDisponiveis = produtos.filter((p) => !f.produtoIds.includes(p.id));
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onFechar}>
-      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-lg flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl max-h-[92vh]">
+      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-3xl flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl max-h-[92vh]">
         <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
           <div className="flex items-center gap-2.5">
             <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-gold-400/15 text-gold-300"><IconPromocao /></span>
@@ -10532,14 +10539,16 @@ function PromocaoModal({ promocao, produtos = [], categoriasDb = [], onSalvar, o
           <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20">✕</button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
-          <div>
-            <span className={lbl}>Nome da promoção *</span>
-            <input autoFocus value={f.nome} onChange={(e) => setF({ ...f, nome: e.target.value })} placeholder="Ex.: Terça do Hambúrguer" className={inp} />
-          </div>
-          <div>
-            <span className={lbl}>Descrição</span>
-            <input value={f.descricao} onChange={(e) => setF({ ...f, descricao: e.target.value })} placeholder="Detalhes da oferta" className={inp} />
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <span className={lbl}>Nome da promoção *</span>
+              <input autoFocus value={f.nome} onChange={(e) => setF({ ...f, nome: e.target.value })} placeholder="Ex.: Terça do Hambúrguer" className={inp} />
+            </div>
+            <div>
+              <span className={lbl}>Descrição</span>
+              <input value={f.descricao} onChange={(e) => setF({ ...f, descricao: e.target.value })} placeholder="Detalhes da oferta" className={inp} />
+            </div>
           </div>
           <div>
             <span className={lbl}>Tipo de promoção</span>
@@ -10562,21 +10571,30 @@ function PromocaoModal({ promocao, produtos = [], categoriasDb = [], onSalvar, o
               )}
             </div>
           )}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div>
-              <span className={lbl}>Produto vinculado (opcional)</span>
-              <select value={f.produtoId} onChange={(e) => setF({ ...f, produtoId: e.target.value ? Number(e.target.value) : "" })} className={inp}>
-                <option value="">— Nenhum —</option>
-                {produtos.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          <div>
+            <span className={lbl}>Produtos da oferta (opcional)</span>
+            <div className="flex gap-2">
+              <select value={addProd} onChange={(e) => { adicionarProduto(e.target.value); setAddProd(""); }} className={inp}>
+                <option value="">{produtosDisponiveis.length ? "+ Adicionar produto…" : "Todos os produtos já adicionados"}</option>
+                {produtosDisponiveis.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
             </div>
-            <div>
-              <span className={lbl}>Categoria vinculada (opcional)</span>
-              <select value={f.categoriaId} onChange={(e) => setF({ ...f, categoriaId: e.target.value ? Number(e.target.value) : "" })} className={inp}>
-                <option value="">— Nenhuma —</option>
-                {categoriasDb.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
-              </select>
-            </div>
+            {f.produtoIds.length > 0 ? (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {f.produtoIds.map((id) => (
+                  <span key={id} className="inline-flex items-center gap-1.5 rounded-full border border-gold-400/30 bg-gold-400/10 px-3 py-1 text-xs font-bold text-gold-100">🍽️ {nomeProd(id)}
+                    <button type="button" onClick={() => removerProduto(id)} className="text-red-300 hover:text-red-200">✕</button></span>
+                ))}
+                <button type="button" onClick={() => setF({ ...f, produtoIds: [] })} className="rounded-full px-2 py-1 text-[11px] font-bold text-slate-400 underline hover:text-slate-200">limpar</button>
+              </div>
+            ) : <p className="mt-1.5 text-[11px] text-slate-500">Selecione um ou mais produtos. Deixe vazio para a oferta valer no geral.</p>}
+          </div>
+          <div>
+            <span className={lbl}>Categoria vinculada (opcional)</span>
+            <select value={f.categoriaId} onChange={(e) => setF({ ...f, categoriaId: e.target.value ? Number(e.target.value) : "" })} className={inp}>
+              <option value="">— Nenhuma —</option>
+              {categoriasDb.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
+            </select>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div><span className={lbl}>Início</span><input type="date" value={f.dataInicio || ""} onChange={(e) => setF({ ...f, dataInicio: e.target.value })} className={inp} /></div>

@@ -181,6 +181,7 @@ function dbParaPromocao(r) {
     descontoPercent: r.desconto_percent != null ? Number(r.desconto_percent) : null,
     descontoValor: r.desconto_valor != null ? Number(r.desconto_valor) : null,
     produtoId: r.produto_id ?? null, categoriaId: r.categoria_id ?? null,
+    produtoIds: Array.isArray(r.produto_ids) && r.produto_ids.length ? r.produto_ids : (r.produto_id ? [r.produto_id] : []),
     dataInicio: r.data_inicio, dataFim: r.data_fim, horaInicio: r.hora_inicio, horaFim: r.hora_fim,
     diasSemana: Array.isArray(r.dias_semana) ? r.dias_semana : null,
     mostrarCardapio: r.mostrar_cardapio !== false, mostrarTablet: r.mostrar_tablet !== false, ativo: r.ativo !== false }
@@ -189,7 +190,9 @@ function promocaoParaDb(p) {
   return { loja_id: p.lojaId ?? null, nome: p.nome, descricao: p.descricao || null, tipo: p.tipo || 'percentual',
     desconto_percent: p.descontoPercent != null && p.descontoPercent !== "" ? Number(p.descontoPercent) : null,
     desconto_valor: p.descontoValor != null && p.descontoValor !== "" ? Number(p.descontoValor) : null,
-    produto_id: p.produtoId || null, categoria_id: p.categoriaId || null,
+    produto_id: (Array.isArray(p.produtoIds) && p.produtoIds.length ? p.produtoIds[0] : p.produtoId) || null,
+    produto_ids: Array.isArray(p.produtoIds) ? p.produtoIds : (p.produtoId ? [p.produtoId] : []),
+    categoria_id: p.categoriaId || null,
     data_inicio: p.dataInicio || null, data_fim: p.dataFim || null, hora_inicio: p.horaInicio || null, hora_fim: p.horaFim || null,
     dias_semana: Array.isArray(p.diasSemana) ? p.diasSemana : null,
     mostrar_cardapio: p.mostrarCardapio !== false, mostrar_tablet: p.mostrarTablet !== false, ativo: p.ativo !== false }
@@ -199,13 +202,25 @@ export async function fetchPromocoes() {
   if (error || !data) return []
   return data.map(dbParaPromocao)
 }
+// Detecta erro de coluna inexistente (migration 062 ainda não aplicada).
+const semColunaProdutoIds = (e) => e && (e.code === 'PGRST204' || /produto_ids/i.test(e.message || ''))
 export async function inserirPromocao(p) {
-  const { data, error } = await supabase.from('tab_promocoes').insert([promocaoParaDb(p)]).select().single()
+  const linha = promocaoParaDb(p)
+  let { data, error } = await supabase.from('tab_promocoes').insert([linha]).select().single()
+  if (error && semColunaProdutoIds(error)) {
+    const { produto_ids, ...semIds } = linha
+    ;({ data, error } = await supabase.from('tab_promocoes').insert([semIds]).select().single())
+  }
   if (error) throw error
   return dbParaPromocao(data)
 }
 export async function atualizarPromocao(id, p) {
-  const { error } = await supabase.from('tab_promocoes').update({ ...promocaoParaDb(p), atualizado_em: new Date().toISOString() }).eq('id', id)
+  const linha = { ...promocaoParaDb(p), atualizado_em: new Date().toISOString() }
+  let { error } = await supabase.from('tab_promocoes').update(linha).eq('id', id)
+  if (error && semColunaProdutoIds(error)) {
+    const { produto_ids, ...semIds } = linha
+    ;({ error } = await supabase.from('tab_promocoes').update(semIds).eq('id', id))
+  }
   if (error) throw error
 }
 export async function excluirPromocao(id) {
