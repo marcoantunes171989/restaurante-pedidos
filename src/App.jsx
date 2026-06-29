@@ -2229,6 +2229,7 @@ export default function RestaurantePedidoApp() {
           <>
             <TabletView
               promocoes={filtraLoja(promocoes).filter((p) => p.ativo && p.mostrarTablet && promocaoVigente(p))}
+              categoriasDb={categoriasDbLoja} economiaCart={economiaCart}
               gruposOpcoes={filtraLoja(gruposOpcoes)} opcoes={filtraLoja(opcoes)} onChamarGarcom={() => registrarChamadoFn("garcom")}
               products={products} categories={categories}
               filteredItems={filteredItems} selectedCategory={selectedCategory} setSelectedCategory={setSelectedCategory}
@@ -2285,7 +2286,7 @@ export default function RestaurantePedidoApp() {
 //  TabletView — tela cheia para pedidos do cliente
 // ════════════════════════════════════════════════════════════
 function TabletView({
-  promocoes = [], gruposOpcoes = [], opcoes = [], onChamarGarcom = () => {},
+  promocoes = [], categoriasDb = [], economiaCart = 0, gruposOpcoes = [], opcoes = [], onChamarGarcom = () => {},
   products, categories, filteredItems, selectedCategory, setSelectedCategory,
   search, setSearch, cart, tableNumber, setTableNumber,
   customerName, setCustomerName, commandCode, setCommandCode,
@@ -2500,13 +2501,14 @@ function TabletView({
     return "🍴";
   };
   const TAGS_DESTAQUE = ["MAIS VENDIDO", "CHEF RECOMENDA", "NOVO", "ESPECIAL DA CASA"];
-  // Promoções vigentes no tablet interno (mesma lógica do cardápio do cliente)
-  const promosTabletVigentes = promocoes.filter((p) => (lojaAtual == null || p.lojaId == null || p.lojaId === lojaAtual) && p.ativo !== false && p.mostrarTablet !== false && promocaoVigente(p));
-  const catNomePorIdTablet = {}; categoriasDb.forEach((c) => (catNomePorIdTablet[c.id] = c.nome));
+  // Promoções vigentes no tablet — `promocoes` já vem filtrado por loja + ativo + mostrarTablet + vigência (call site)
+  const promosTabletVigentes = promocoes;
+  const catNomePorIdTablet = {}; (categoriasDb || []).forEach((c) => (catNomePorIdTablet[c.id] = c.nome));
   const promoDoProdutoTablet = (item) => {
     const base = Number(item?.price) || 0; if (!base) return null;
     let melhor = null;
     for (const p of promosTabletVigentes) {
+      if (p.tipo === "combo") continue; // combos não descontam por produto
       const ids = Array.isArray(p.produtoIds) && p.produtoIds.length ? p.produtoIds : (p.produtoId ? [p.produtoId] : []);
       const temAlvo = ids.length > 0 || p.categoriaId != null;
       const alvoP = ids.includes(item.id);
