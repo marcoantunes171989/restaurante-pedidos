@@ -8931,6 +8931,22 @@ function CampanhaModal({ clientes = [], rotuloSegmento = "Todos", onFechar }) {
 // ════════════════════════════════════════════════════════════
 //  Cardápio externo (tela admin) — link + QR + ativar modo
 // ════════════════════════════════════════════════════════════
+// Máscara de moeda enquanto digita: preenche centavos da direita (ex.: "2000" → "20,00").
+function fmtMoedaDigitando(v) {
+  const d = String(v ?? "").replace(/\D/g, "");
+  if (!d) return "";
+  return (parseInt(d, 10) / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+// Normaliza um valor já salvo (ex.: "20", "20.5", "20,00") para o formato pt-BR "20,00".
+function normalizaMoedaReais(v) {
+  if (v == null || v === "") return "";
+  let s = String(v).replace(/[^\d.,]/g, "");
+  if (!s) return "";
+  if (s.includes(",")) s = s.replace(/\./g, "").replace(",", ".");
+  const num = parseFloat(s);
+  if (!isFinite(num)) return "";
+  return num.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
 function CardapioExternoAdmin({ lojaInfo, setModoUsoEmpresa = async () => {}, salvarConfigExterno = async () => {}, comandas = [], mesas = [] }) {
   const [qr, setQr] = useState("");
   const [copiado, setCopiado] = useState(false);
@@ -9010,9 +9026,10 @@ function CardapioExternoAdmin({ lojaInfo, setModoUsoEmpresa = async () => {}, sa
     horarios: { seg: "", ter: "", qua: "", qui: "", sex: "", sab: "", dom: "" }, bloquearForaHorario: false,
   };
   const [aba, setAba] = useState("link"); // link | qrmesa | pedido | pagamento | entrega | horarios
-  const [cfg, setCfg] = useState({ ...CFG_PADRAO, ...(lojaInfo?.configExterno || {}), horarios: { ...CFG_PADRAO.horarios, ...((lojaInfo?.configExterno || {}).horarios || {}) } });
+  const montarCfg = () => { const ext = lojaInfo?.configExterno || {}; return { ...CFG_PADRAO, ...ext, pedidoMinimo: normalizaMoedaReais(ext.pedidoMinimo), horarios: { ...CFG_PADRAO.horarios, ...(ext.horarios || {}) } }; };
+  const [cfg, setCfg] = useState(montarCfg);
   const [salvandoCfg, setSalvandoCfg] = useState(false);
-  useEffect(() => { setCfg({ ...CFG_PADRAO, ...(lojaInfo?.configExterno || {}), horarios: { ...CFG_PADRAO.horarios, ...((lojaInfo?.configExterno || {}).horarios || {}) } }); /* eslint-disable-next-line */ }, [lojaInfo?.id]);
+  useEffect(() => { setCfg(montarCfg()); /* eslint-disable-next-line */ }, [lojaInfo?.id]);
   const setC = (k, v) => setCfg((c) => ({ ...c, [k]: v }));
   async function salvarCfg() { setSalvandoCfg(true); await salvarConfigExterno(lojaInfo?.id, cfg); setSalvandoCfg(false); }
 
@@ -9160,7 +9177,10 @@ function CardapioExternoAdmin({ lojaInfo, setModoUsoEmpresa = async () => {}, sa
           <Toggle on={cfg.entrega} onClick={() => setC("entrega", !cfg.entrega)} label="Aceita entrega" hint="Delivery na área de atendimento" />
           <div>
             <label className={lblCfg}>Pedido mínimo (R$)</label>
-            <input value={cfg.pedidoMinimo} onChange={(e) => setC("pedidoMinimo", e.target.value.replace(/[^\d.,]/g, ""))} placeholder="Ex.: 20" className={inpCfg} />
+            <div className="relative">
+              <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">R$</span>
+              <input inputMode="numeric" value={cfg.pedidoMinimo} onChange={(e) => setC("pedidoMinimo", fmtMoedaDigitando(e.target.value))} placeholder="0,00" className={`${inpCfg} pl-11`} />
+            </div>
           </div>
           <BotaoSalvarCfg />
         </div>
