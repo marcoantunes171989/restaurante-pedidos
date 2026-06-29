@@ -3658,6 +3658,7 @@ function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, cancela
                       <div>
                         <p className="text-xs font-bold uppercase tracking-widest text-slate-500">{order.id} • {order.createdAt}</p>
                         <p className="mt-0.5 font-mono text-sm font-black text-blue-300">{order.command}</p>
+                        {order.pagamentoForma && <p className="mt-0.5 text-[11px] font-bold text-amber-300">💳 {order.pagamentoForma}{order.pagamentoMomento ? ` · ${order.pagamentoMomento}` : ""}</p>}
                       </div>
                       <div className="flex flex-col items-end gap-1">
                         <StatusChip status={order.status} />
@@ -6122,6 +6123,7 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
                 <p className="text-[10px] text-slate-600">{o.id}</p>
                 <p className="text-xs text-slate-400">{o.customer || "Cliente"}</p>
                 {telMascarado(o.clienteTelefone) && <p className="text-[11px] text-slate-500">📞 {telMascarado(o.clienteTelefone)}</p>}
+                {o.pagamentoForma && <p className="text-[11px] font-bold text-amber-300">💳 {o.pagamentoForma}{o.pagamentoMomento ? ` · ${o.pagamentoMomento}` : ""}</p>}
                 <div className="mt-2 space-y-2">
                   {setoresPresentes(o).filter((sk) => !setorFiltrado || sk === setorFiltrado).map((sk) => { const its = itensDoSetor(o, sk); const liberado = setorPronto(o, sk) && parcial(o);
                     return (
@@ -6168,6 +6170,7 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
                 <div key={o.id} className="rounded-3xl border border-white/10 bg-slate-950/40 p-3.5">
                   <div className="flex items-center justify-between gap-2"><span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-black ${b.c}`}>{b.l}</span><span className="text-[11px] text-slate-500">Pedido #{numeroPedido[o.id] ?? "—"} · {haTxt(o)} · {o.table}</span></div>
                   <p className="mt-1.5 text-xs text-slate-400">{o.customer || "Cliente"}</p>
+                  {o.pagamentoForma && <p className="text-[11px] font-bold text-amber-300">💳 {o.pagamentoForma}{o.pagamentoMomento ? ` · ${o.pagamentoMomento}` : ""}</p>}
                   {setoresNoPedido.map((sk) => { const its = itensDoSetor(o, sk);
                     return (
                       <div key={sk} className="mt-2">
@@ -6266,6 +6269,7 @@ function ContaPaga({ o, haTxt, onRetirar, retirando, numeroPedido = {}, telMasca
       <p className="text-[10px] text-slate-600">{o.id}</p>
       <p className="text-xs text-slate-400">{o.customer || "Cliente"}</p>
       {telMascarado(o.clienteTelefone) && <p className="text-[11px] text-slate-500">📞 {telMascarado(o.clienteTelefone)}</p>}
+      {o.pagamentoForma && <p className="text-[11px] font-bold text-amber-300">💳 {o.pagamentoForma}{o.pagamentoMomento ? ` · ${o.pagamentoMomento}` : ""}</p>}
       <p className="mt-2 rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-3 py-2 text-center text-sm font-bold text-emerald-300">✓ Pago {formatCurrency(total)} · aguardando retirada do produto</p>
       <button onClick={() => onRetirar(o)} disabled={retirando} className="mt-2 w-full rounded-2xl bg-emerald-500 py-2.5 text-sm font-black text-white transition active:scale-95 disabled:opacity-50">{retirando ? "Confirmando…" : "Confirmar retirada do produto"}</button>
     </div>
@@ -6295,6 +6299,7 @@ function ContaCaixa({ o, opcoes, pagando, onFinalizar, haTxt, numeroPedido = {},
       <p className="text-[10px] text-slate-600">{o.id}</p>
       <p className="text-xs text-slate-400">{o.customer || "Cliente"}</p>
       {telMascarado(o.clienteTelefone) && <p className="text-[11px] text-slate-500">📞 {telMascarado(o.clienteTelefone)}</p>}
+      {o.pagamentoForma && <p className="text-[11px] font-bold text-amber-300">💳 Cliente quer pagar: {o.pagamentoForma}{o.pagamentoMomento ? ` · ${o.pagamentoMomento}` : ""}</p>}
       <div className="mt-2 space-y-0.5 border-t border-white/10 pt-2">
         {o.items.map((it, i) => (<div key={i} className="flex justify-between text-sm"><span className="text-slate-300">{it.quantity}× {it.name}</span><span className="font-bold text-white">{formatCurrency(it.price * it.quantity)}</span></div>))}
       </div>
