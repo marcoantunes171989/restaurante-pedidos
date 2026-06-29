@@ -505,7 +505,7 @@ export default function CardapioPublico() {
     aceitaExterno && opcoesEntrega.length > 0 && opcoesEntrega.some((o) => o.id === tipoPedido) && minimoFalta <= 0
   ));
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100" style={{ minHeight: "100dvh", paddingBottom: `calc(env(safe-area-inset-bottom) + ${cart.length > 0 ? 168 : 96}px)` }}>
+    <div className="min-h-screen bg-slate-950 text-slate-100" style={{ minHeight: "100dvh", paddingBottom: `calc(env(safe-area-inset-bottom) + ${cart.length > 0 ? 150 : 92}px)` }}>
       {/* Cabeçalho */}
       <header className="sticky top-0 z-30 border-b border-white/10 bg-slate-900/95 px-4 pb-3 backdrop-blur-xl" style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)" }}>
         <div className="mx-auto flex max-w-3xl items-center gap-3">
@@ -617,17 +617,19 @@ export default function CardapioPublico() {
               <button onClick={() => setAba("carrinho")} className="flex shrink-0 items-center gap-1 rounded-2xl bg-gold-400 px-4 py-3 text-sm font-black text-blue-950 shadow-lg shadow-gold-900/30 transition active:scale-95">Finalizar pedido ›</button>
             </div>
           )}
-          <div className="flex items-stretch gap-2 rounded-3xl border border-white/10 bg-slate-900/95 p-2 shadow-2xl shadow-black/50 backdrop-blur-xl">
+          {cart.length === 0 ? (
+            // Carrinho vazio: dá acesso direto ao carrinho + acompanhar
+            <div className="flex items-stretch gap-2 rounded-3xl border border-white/10 bg-slate-900/95 p-2 shadow-2xl shadow-black/50 backdrop-blur-xl">
+              <button onClick={() => setAba("conta")} disabled={meusPedidos.length === 0}
+                className="flex flex-1 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] py-3 text-sm font-black text-slate-300 transition active:scale-95 disabled:opacity-40">👁️ Acompanhar pedido</button>
+              <button onClick={() => setAba("carrinho")}
+                className="flex flex-1 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] py-3 text-sm font-black text-slate-400 transition active:scale-95">🛒 Carrinho vazio</button>
+            </div>
+          ) : (
+            // Com itens: o carrinho já está na barra dourada acima — aqui só acompanhar
             <button onClick={() => setAba("conta")} disabled={meusPedidos.length === 0}
-              className="flex flex-1 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] py-3 text-sm font-black text-slate-300 transition active:scale-95 disabled:opacity-40">👁️ Acompanhar</button>
-            <button onClick={() => setAba("carrinho")} disabled={cart.length === 0}
-              className="flex flex-[1.4] items-center justify-center gap-2 rounded-2xl bg-emerald-500 py-2.5 text-sm font-black text-white transition active:scale-95 disabled:bg-white/[0.06] disabled:text-slate-500">
-              <span className="text-lg">🛒</span>
-              {qtdCart > 0
-                ? <span className="text-left leading-tight"><span className="block">Carrinho · {qtdCart} {qtdCart === 1 ? "item" : "itens"}</span><span className="block text-[11px] font-bold text-white/80">{formatCurrency(totalCart)}</span></span>
-                : <span>Carrinho vazio</span>}
-            </button>
-          </div>
+              className="flex w-full items-center justify-center gap-2 rounded-3xl border border-white/10 bg-slate-900/95 py-3.5 text-sm font-black text-slate-300 shadow-2xl shadow-black/50 backdrop-blur-xl transition active:scale-95 disabled:opacity-40">👁️ Acompanhar pedido</button>
+          )}
         </div>
       </div>
 
