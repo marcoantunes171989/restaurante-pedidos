@@ -116,7 +116,7 @@ export default function CardapioPublico() {
           const canalOk = (p) => mesaURL ? (p.visivelQr !== false) : (p.visivelExterno !== false);
           setProdutos(prods.filter((p) => (p.lojaId == null || p.lojaId === l.id) && p.active && canalOk(p)));
           setCategorias(cats.filter((c) => (c.lojaId == null || c.lojaId === l.id) && c.active !== false));
-          setPromocoes((promos || []).filter((p) => p.lojaId === l.id && p.ativo && p.mostrarCardapio && promocaoVigente(p)));
+          setPromocoes((promos || []).filter((p) => p.lojaId === l.id && p.ativo && p.mostrarCardapio));
         }
       } catch { if (vivo) setLoja(null); }
     })();
@@ -175,6 +175,30 @@ export default function CardapioPublico() {
   // Horários de funcionamento (aba "Horários") — reavaliado ao vivo via `agora`
   const abertoAgora = lojaAbertaAgora(cfgExt.horarios, agora);
   const bloqueioHorario = cfgExt.bloquearForaHorario === true && !abertoAgora; // fechado e bloqueando
+  // Promoções vigentes AGORA (reavaliado pelo relógio — happy hour ativa/desativa sozinho)
+  const promosVigentes = useMemo(() => promocoes.filter((p) => promocaoVigente(p, agora)), [promocoes, agora]);
+  const catNomePorId = useMemo(() => { const m = {}; categorias.forEach((c) => (m[c.id] = c.nome)); return m; }, [categorias]);
+  // Melhor desconto aplicável a um produto (via produtos vinculados, categoria, ou geral).
+  // Retorna { preco, original, label, nome } ou null.
+  const promoDoProduto = (item) => {
+    const base = Number(item?.price) || 0;
+    if (!base) return null;
+    let melhor = null;
+    for (const p of promosVigentes) {
+      const ids = Array.isArray(p.produtoIds) && p.produtoIds.length ? p.produtoIds : (p.produtoId ? [p.produtoId] : []);
+      const temAlvo = ids.length > 0 || p.categoriaId != null;
+      const alvoProduto = ids.includes(item.id);
+      const alvoCategoria = p.categoriaId != null && catNomePorId[p.categoriaId] === item.category;
+      if (temAlvo ? !(alvoProduto || alvoCategoria) : false) continue; // tem alvo mas não bate → pula; sem alvo → geral
+      let preco = base, label = null;
+      if (p.descontoPercent != null && p.descontoPercent > 0) { preco = base * (1 - p.descontoPercent / 100); label = `-${p.descontoPercent}%`; }
+      else if (p.descontoValor != null && p.descontoValor > 0) { preco = Math.max(0, base - p.descontoValor); label = `-${formatCurrency(p.descontoValor)}`; }
+      else continue; // promo sem desconto numérico (combo/destaque) não altera preço
+      preco = Math.round(preco * 100) / 100;
+      if (preco < base && (melhor == null || preco < melhor.preco)) melhor = { preco, original: base, label, nome: p.nome };
+    }
+    return melhor;
+  };
   // Formas de pagamento permitidas (aba "Pagamento" — config_externo)
   const formasPagto = [
     cfgExt.pagPix      !== false && { id: "pix",      label: "PIX",      icon: "📱" },
@@ -288,18 +312,22 @@ export default function CardapioPublico() {
   const renderProduto = (item) => {
     const indisponivel = item.disponivel === false;
     const personalizavel = (item.ingredients || []).length > 0;
+    const promo = promoDoProduto(item);
+    // Abre o modal com o produto já no preço promocional (carrinho/total refletem o desconto)
+    const abrir = () => setDetalhe(promo ? { ...item, price: promo.preco, precoOriginal: promo.original } : item);
     return (
-      <article key={item.id} className={`flex h-full flex-col rounded-[1.5rem] border bg-slate-900/70 ${item.isFeatured && !indisponivel ? "border-gold-400/50" : "border-white/10"}`}>
+      <article key={item.id} className={`flex h-full flex-col rounded-[1.5rem] border bg-slate-900/70 ${promo ? "border-emerald-400/40" : item.isFeatured && !indisponivel ? "border-gold-400/50" : "border-white/10"}`}>
         <div className="flex gap-3 p-3">
           <div className="relative shrink-0">
-            <button onClick={() => !indisponivel && setDetalhe(item)} disabled={indisponivel} className="block h-[88px] w-[88px] overflow-hidden rounded-2xl bg-slate-800">
+            <button onClick={() => !indisponivel && abrir()} disabled={indisponivel} className="block h-[88px] w-[88px] overflow-hidden rounded-2xl bg-slate-800">
               <img src={item.imageUrl || fallbackImage} alt={item.name} className={`h-full w-full object-cover ${indisponivel ? "grayscale opacity-50" : ""}`} />
             </button>
             {personalizavel && !indisponivel && (
-              <button onClick={() => setDetalhe(item)} aria-label="Personalizar" title="Personalizar" className="absolute left-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-full border border-gold-400/40 bg-slate-950/85 text-gold-300 shadow-lg">
+              <button onClick={abrir} aria-label="Personalizar" title="Personalizar" className="absolute left-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-full border border-gold-400/40 bg-slate-950/85 text-gold-300 shadow-lg">
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/><circle cx="9" cy="7" r="2" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="2" fill="currentColor" stroke="none"/><circle cx="8" cy="17" r="2" fill="currentColor" stroke="none"/></svg>
               </button>
             )}
+            {promo && !indisponivel && <span className="absolute right-1.5 top-1.5 rounded-full bg-emerald-500 px-1.5 py-0.5 text-[9px] font-black text-white shadow-lg">{promo.label}</span>}
             {indisponivel && <span className="absolute left-1/2 top-1/2 w-max -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/75 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-slate-200">Indisponível</span>}
           </div>
           <div className="min-w-0 flex-1">
@@ -308,10 +336,12 @@ export default function CardapioPublico() {
           </div>
         </div>
         <div className="mt-auto flex items-center justify-between px-3 pb-3">
-          <span className="text-base font-black text-gold-400">{formatCurrency(item.price)}</span>
+          {promo
+            ? <span className="flex flex-col leading-none"><span className="text-[11px] font-bold text-slate-500 line-through">{formatCurrency(promo.original)}</span><span className="text-base font-black text-emerald-400">{formatCurrency(promo.preco)}</span></span>
+            : <span className="text-base font-black text-gold-400">{formatCurrency(item.price)}</span>}
           {indisponivel
             ? <span className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-slate-600">✕</span>
-            : <button onClick={() => setDetalhe(item)} aria-label="Adicionar" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gold-400 text-xl font-black text-blue-950 shadow-lg shadow-gold-900/30 transition active:scale-90 hover:bg-gold-300">+</button>}
+            : <button onClick={abrir} aria-label="Adicionar" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gold-400 text-xl font-black text-blue-950 shadow-lg shadow-gold-900/30 transition active:scale-90 hover:bg-gold-300">+</button>}
         </div>
       </article>
     );
@@ -407,7 +437,8 @@ export default function CardapioPublico() {
     if (!ehBebida(item) && !carrinhoTemBebida && !sugFechada && bebidas.length > 0) setSugBebida(true);
   }
   function addBebida(b) {
-    setCart((c) => [...c, { name: b.name, price: b.price, quantity: 1, category: b.category, removedIngredients: [], extraIngredients: [], selectedOptions: [], observation: "", _uid: Date.now() + Math.random() }]);
+    const pb = promoDoProduto(b);
+    setCart((c) => [...c, { name: b.name, price: pb ? pb.preco : b.price, quantity: 1, category: b.category, removedIngredients: [], extraIngredients: [], selectedOptions: [], observation: "", _uid: Date.now() + Math.random() }]);
     setSugBebida(false);
   }
   function removerItem(uid) { setCart((c) => c.filter((i) => i._uid !== uid)); }
@@ -621,9 +652,9 @@ export default function CardapioPublico() {
         )}
 
         {/* Ofertas vigentes */}
-        {promocoes.length > 0 && (
+        {promosVigentes.length > 0 && (
           <div className="mb-4 flex gap-3 overflow-x-auto pb-1">
-            {promocoes.map((p) => (
+            {promosVigentes.map((p) => (
               <div key={p.id} className="flex min-w-[180px] shrink-0 items-center gap-3 rounded-2xl border border-gold-400/40 bg-gradient-to-br from-gold-400/15 to-gold-400/[0.04] px-4 py-3">
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gold-400/20 text-gold-300">🏷️</span>
                 <div className="min-w-0"><p className="truncate text-sm font-black text-white">{p.nome}</p><p className="text-xs font-black text-gold-400">{promoResumoDesconto(p)}</p></div>
