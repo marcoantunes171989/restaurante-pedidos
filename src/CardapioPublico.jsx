@@ -314,7 +314,7 @@ export default function CardapioPublico() {
     const personalizavel = (item.ingredients || []).length > 0;
     const promo = promoDoProduto(item);
     // Abre o modal com o produto já no preço promocional (carrinho/total refletem o desconto)
-    const abrir = () => setDetalhe(promo ? { ...item, price: promo.preco, precoOriginal: promo.original } : item);
+    const abrir = () => setDetalhe(promo ? { ...item, price: promo.preco, precoOriginal: promo.original, economiaUnit: promo.original - promo.preco } : item);
     return (
       <article key={item.id} className={`flex h-full flex-col rounded-[1.5rem] border bg-slate-900/70 ${promo ? "border-emerald-400/40" : item.isFeatured && !indisponivel ? "border-gold-400/50" : "border-white/10"}`}>
         <div className="flex gap-3 p-3">
@@ -401,6 +401,7 @@ export default function CardapioPublico() {
   const subtotal = meusPedidos.reduce((s, o) => s + o.items.reduce((a, i) => a + i.price * i.quantity, 0), 0);
   const totalMesa = subtotal * 1.1;
   const totalCart = cart.reduce((s, i) => s + i.price * i.quantity, 0);
+  const economiaCart = cart.reduce((s, i) => s + (Number(i.economiaUnit) || 0) * i.quantity, 0);
   const qtdCart = cart.reduce((s, i) => s + i.quantity, 0);
   const podeFechar = meusPedidos.length > 0 && meusPedidos.every((o) => o.status === "delivered");
   const contaSolicitada = meusPedidos.some((o) => o.paymentStatus === "requested");
@@ -438,7 +439,7 @@ export default function CardapioPublico() {
   }
   function addBebida(b) {
     const pb = promoDoProduto(b);
-    setCart((c) => [...c, { name: b.name, price: pb ? pb.preco : b.price, quantity: 1, category: b.category, removedIngredients: [], extraIngredients: [], selectedOptions: [], observation: "", _uid: Date.now() + Math.random() }]);
+    setCart((c) => [...c, { name: b.name, price: pb ? pb.preco : b.price, economiaUnit: pb ? (pb.original - pb.preco) : 0, quantity: 1, category: b.category, removedIngredients: [], extraIngredients: [], selectedOptions: [], observation: "", _uid: Date.now() + Math.random() }]);
     setSugBebida(false);
   }
   function removerItem(uid) { setCart((c) => c.filter((i) => i._uid !== uid)); }
@@ -834,7 +835,10 @@ export default function CardapioPublico() {
               <p className="mt-1.5 text-[11px] text-slate-500">Pagamento: <span className="font-bold text-slate-300">{momentoPagto}</span>.</p>
             </div>
           )}
-          <div className="mt-4 flex items-center justify-between border-t border-white/10 pt-3"><span className="text-sm text-slate-400">Total</span><span className="text-xl font-black text-emerald-400">{formatCurrency(totalCart)}</span></div>
+          {economiaCart > 0 && (
+            <div className="mt-3 flex items-center justify-center gap-1.5 rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 text-sm font-black text-emerald-300">💚 Você economizou {formatCurrency(economiaCart)} nesta compra!</div>
+          )}
+          <div className="mt-3 flex items-center justify-between border-t border-white/10 pt-3"><span className="text-sm text-slate-400">Total</span><span className="text-xl font-black text-emerald-400">{formatCurrency(totalCart)}</span></div>
           {modoExterno && minimoExterno > 0 && (
             <p className={`mt-2 text-xs font-bold ${minimoFalta > 0 ? "text-amber-300" : "text-emerald-400"}`}>
               {minimoFalta > 0 ? `Pedido mínimo de ${formatCurrency(minimoExterno)} — faltam ${formatCurrency(minimoFalta)}.` : `✓ Pedido mínimo de ${formatCurrency(minimoExterno)} atingido.`}

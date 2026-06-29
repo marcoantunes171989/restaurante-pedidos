@@ -973,6 +973,7 @@ export default function RestaurantePedidoApp() {
   const serviceFee = subtotal * 0.1;
   const total = subtotal + serviceFee;
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
+  const economiaCart = cart.reduce((s, i) => s + (Number(i.economiaUnit) || 0) * i.quantity, 0);
   // Conta da mesa = apenas pedidos NÃO PAGOS (após baixa no caixa, somem imediatamente)
   // Conta da mesa: não pagos E não cancelados
   const currentTableOrders = orders.filter((o) => o.table === currentTable && o.paymentStatus !== "paid" && o.status !== "cancelled");
@@ -2499,17 +2500,43 @@ function TabletView({
     return "🍴";
   };
   const TAGS_DESTAQUE = ["MAIS VENDIDO", "CHEF RECOMENDA", "NOVO", "ESPECIAL DA CASA"];
+  // Promoções vigentes no tablet interno (mesma lógica do cardápio do cliente)
+  const promosTabletVigentes = promocoes.filter((p) => (lojaAtual == null || p.lojaId == null || p.lojaId === lojaAtual) && p.ativo !== false && p.mostrarTablet !== false && promocaoVigente(p));
+  const catNomePorIdTablet = {}; categoriasDb.forEach((c) => (catNomePorIdTablet[c.id] = c.nome));
+  const promoDoProdutoTablet = (item) => {
+    const base = Number(item?.price) || 0; if (!base) return null;
+    let melhor = null;
+    for (const p of promosTabletVigentes) {
+      const ids = Array.isArray(p.produtoIds) && p.produtoIds.length ? p.produtoIds : (p.produtoId ? [p.produtoId] : []);
+      const temAlvo = ids.length > 0 || p.categoriaId != null;
+      const alvoP = ids.includes(item.id);
+      const alvoC = p.categoriaId != null && catNomePorIdTablet[p.categoriaId] === item.category;
+      if (temAlvo ? !(alvoP || alvoC) : false) continue;
+      let preco = base, label = null;
+      if (p.descontoPercent != null && p.descontoPercent > 0) { preco = base * (1 - p.descontoPercent / 100); label = `-${p.descontoPercent}%`; }
+      else if (p.descontoValor != null && p.descontoValor > 0) { preco = Math.max(0, base - p.descontoValor); label = `-${formatCurrency(p.descontoValor)}`; }
+      else continue;
+      preco = Math.round(preco * 100) / 100;
+      if (preco < base && (melhor == null || preco < melhor.preco)) melhor = { preco, original: base, label };
+    }
+    return melhor;
+  };
+  const abrirProdutoComPromo = (item) => { const promo = promoDoProdutoTablet(item); setProdutoDetalhe(promo ? { ...item, price: promo.preco, precoOriginal: promo.original, economiaUnit: promo.original - promo.preco } : item); };
   const cardGourmet = (item, tagAuto = null) => {
+    const promoCard = promoDoProdutoTablet(item);
     const noCarrinho = cart.find((c) => c.id === item.id);
     const etiqueta = (item.isFeatured && item.featuredLabel) || item.badge || tagAuto;
     const indisponivel = item.disponivel === false;
     return (
       <article key={item.id} className={`group flex h-full flex-col overflow-hidden rounded-2xl border bg-[var(--ord-card)] shadow-xl transition-all hover:-translate-y-1 hover:shadow-2xl ${noCarrinho ? "border-gold-400/60 ring-2 ring-gold-400/20" : "border-[var(--ord-border)] hover:border-gold-400/40"}`}>
-        <button onClick={() => !indisponivel && setProdutoDetalhe(item)} disabled={indisponivel} className="relative block h-36 w-full overflow-hidden bg-[var(--ord-elev)] text-left disabled:cursor-not-allowed">
+        <button onClick={() => !indisponivel && abrirProdutoComPromo(item)} disabled={indisponivel} className="relative block h-36 w-full overflow-hidden bg-[var(--ord-elev)] text-left disabled:cursor-not-allowed">
           <img src={item.imageUrl || fallbackImage} alt={item.name} className={`h-full w-full object-cover transition-transform duration-500 group-hover:scale-105 ${indisponivel ? "grayscale opacity-50" : ""}`} />
           <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-transparent" />
           {etiqueta && !indisponivel && (
             <span className="absolute left-2.5 top-2.5 rounded-md bg-gold-400 px-2 py-1 text-[9px] font-black uppercase tracking-wider text-blue-950 shadow-lg">{etiqueta}</span>
+          )}
+          {promoCard && !indisponivel && (
+            <span className="absolute bottom-2.5 left-2.5 rounded-md bg-emerald-500 px-2 py-1 text-[9px] font-black uppercase tracking-wider text-white shadow-lg">🏷️ {promoCard.label}</span>
           )}
           {indisponivel && (
             <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/70 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-slate-200">Indisponível no momento</span>
@@ -2522,17 +2549,19 @@ function TabletView({
           <h3 className="text-lg font-semibold tracking-tight leading-tight text-[var(--ord-text)]">{item.name}</h3>
           <p className="mt-1 text-xs font-light leading-5 line-clamp-3 text-[var(--ord-text-soft)]">{item.description}</p>
           <div className="mt-auto pt-3">
-            <p className="text-lg font-semibold text-gold-400">{formatCurrency(item.price)}</p>
+            {promoCard
+              ? <p className="flex items-baseline gap-2"><span className="text-sm font-semibold text-[var(--ord-text-muted)] line-through">{formatCurrency(promoCard.original)}</span><span className="text-lg font-black text-emerald-400">{formatCurrency(promoCard.preco)}</span></p>
+              : <p className="text-lg font-semibold text-gold-400">{formatCurrency(item.price)}</p>}
             {indisponivel ? (
               <div className="mt-2 w-full rounded-xl border border-[var(--ord-border)] bg-[var(--ord-elev)] px-3.5 py-2.5 text-center text-sm font-bold text-[var(--ord-text-muted)]">Indisponível no momento</div>
             ) : noCarrinho ? (
               <div className="mt-2 flex items-center justify-between gap-1 rounded-xl border border-gold-400/40 bg-gold-400/10 p-1">
                 <button onClick={() => removeFromCart(item.id)} className="h-9 flex-1 rounded-lg bg-slate-800 font-black text-white hover:bg-slate-700 transition active:scale-95">−</button>
                 <span className="w-10 text-center text-base font-black text-white">{noCarrinho.quantity}</span>
-                <button onClick={() => setProdutoDetalhe(item)} title="Personalizar / adicionar mais" className="h-9 flex-1 rounded-lg bg-gold-400 font-black text-blue-950 hover:bg-gold-300 transition active:scale-95">+</button>
+                <button onClick={() => abrirProdutoComPromo(item)} title="Personalizar / adicionar mais" className="h-9 flex-1 rounded-lg bg-gold-400 font-black text-blue-950 hover:bg-gold-300 transition active:scale-95">+</button>
               </div>
             ) : (
-              <button onClick={() => setProdutoDetalhe(item)} className="mt-2 flex w-full items-center justify-between rounded-xl bg-gold-400 px-3.5 py-2.5 text-sm font-semibold text-blue-950 hover:bg-gold-300 transition active:scale-95 shadow-lg shadow-gold-900/20">
+              <button onClick={() => abrirProdutoComPromo(item)} className="mt-2 flex w-full items-center justify-between rounded-xl bg-gold-400 px-3.5 py-2.5 text-sm font-semibold text-blue-950 hover:bg-gold-300 transition active:scale-95 shadow-lg shadow-gold-900/20">
                 <span>Adicionar</span><span className="text-base leading-none">+</span>
               </button>
             )}
@@ -2633,9 +2662,9 @@ function TabletView({
           {/* Seções da vitrine */}
           <div className="flex-1 overflow-y-auto p-5">
             {/* Faixa de ofertas vigentes (promoções) */}
-            {promocoes.length > 0 && (
+            {promosTabletVigentes.length > 0 && (
               <div className="mb-5 flex gap-3 overflow-x-auto pb-1">
-                {promocoes.map((p) => (
+                {promosTabletVigentes.map((p) => (
                   <div key={p.id} className="flex min-w-[200px] shrink-0 items-center gap-3 rounded-2xl border border-gold-400/40 bg-gradient-to-br from-gold-400/15 to-gold-400/[0.04] px-4 py-3">
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gold-400/20 text-gold-300">🏷️</span>
                     <div className="min-w-0">
@@ -2869,6 +2898,7 @@ function TabletView({
             <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] px-4 py-3 space-y-1.5 text-sm">
               <div className="flex justify-between text-slate-400"><span>Subtotal</span><span className="font-bold text-slate-200">{formatCurrency(subtotal)}</span></div>
               <div className="flex justify-between text-slate-400"><span>Taxa de serviço (10%)</span><span className="font-bold text-slate-200">{formatCurrency(serviceFee)}</span></div>
+              {economiaCart > 0 && <div className="flex justify-between text-emerald-300"><span>💚 Economia (promoções)</span><span className="font-bold">− {formatCurrency(economiaCart)}</span></div>}
               <div className="h-px bg-white/10" />
               <div className="flex items-center justify-between"><span className="font-display text-base font-bold text-white">Total</span><span className="font-display text-lg font-bold text-gold-400">{formatCurrency(total)}</span></div>
             </div>
