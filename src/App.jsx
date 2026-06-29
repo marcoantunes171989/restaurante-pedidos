@@ -10430,6 +10430,7 @@ function promoLabelTipo(t) { return PROMO_TIPOS.find((x) => x.id === t)?.label |
 export function promoResumoDesconto(p) {
   if (p.tipo === "percentual" && p.descontoPercent) return `${p.descontoPercent}% OFF`;
   if (p.tipo === "valor" && p.descontoValor) return `− ${formatCurrency(p.descontoValor)}`;
+  if (p.tipo === "combo" && p.descontoValor) return `Combo ${formatCurrency(p.descontoValor)}`;
   return promoLabelTipo(p.tipo);
 }
 // Promoção está vigente agora? (data + horário + dia da semana)
@@ -10599,6 +10600,13 @@ function PromocaoModal({ promocao, produtos = [], categoriasDb = [], onSalvar, o
               ) : (
                 <div><span className={lbl}>Desconto (R$)</span><input inputMode="decimal" value={f.descontoValor} onChange={(e) => setF({ ...f, descontoValor: e.target.value.replace(/[^\d.,]/g, "") })} placeholder="5,00" className={inp} /></div>
               )}
+            </div>
+          )}
+          {f.tipo === "combo" && (
+            <div>
+              <span className={lbl}>Preço do combo (R$) *</span>
+              <input inputMode="decimal" value={f.descontoValor} onChange={(e) => setF({ ...f, descontoValor: e.target.value.replace(/[^\d.,]/g, "") })} placeholder="49,90" className={inp} />
+              <p className="mt-1 text-[11px] text-slate-500">Preço fechado do combo. Selecione abaixo os <b className="text-slate-300">produtos que compõem o combo</b> — o cliente adiciona todos de uma vez por este valor.</p>
             </div>
           )}
           <div>

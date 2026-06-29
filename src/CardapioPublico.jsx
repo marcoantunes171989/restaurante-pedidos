@@ -98,6 +98,7 @@ export default function CardapioPublico() {
   const [tipoPedido, setTipoPedido] = useState(""); // pedido externo: local | retirada | entrega (config_externo)
   const [formaPagto, setFormaPagto] = useState(""); // forma de pagamento: pix | cartao | dinheiro (config_externo)
   const [agora, setAgora] = useState(() => new Date()); // relógio p/ reavaliar aberto/fechado ao vivo
+  const [comboRemover, setComboRemover] = useState(null); // item de combo aguardando confirmação de remoção
 
   // Carrega empresa (por prefixo) + produtos + categorias
   useEffect(() => {
@@ -185,6 +186,7 @@ export default function CardapioPublico() {
     if (!base) return null;
     let melhor = null;
     for (const p of promosVigentes) {
+      if (p.tipo === "combo") continue; // combos são tratados como pacote (ver combosVigentes)
       const ids = Array.isArray(p.produtoIds) && p.produtoIds.length ? p.produtoIds : (p.produtoId ? [p.produtoId] : []);
       const temAlvo = ids.length > 0 || p.categoriaId != null;
       const alvoProduto = ids.includes(item.id);
@@ -199,6 +201,48 @@ export default function CardapioPublico() {
     }
     return melhor;
   };
+  // Combos vigentes (tipo "combo" com preço fechado e produtos definidos).
+  // Cada combo vira um conjunto de produtos com preço distribuído proporcionalmente.
+  const combosVigentes = useMemo(() => promosVigentes
+    .filter((p) => p.tipo === "combo" && Number(p.descontoValor) > 0)
+    .map((p) => {
+      const ids = Array.isArray(p.produtoIds) && p.produtoIds.length ? p.produtoIds : (p.produtoId ? [p.produtoId] : []);
+      const itens = ids.map((id) => produtos.find((x) => x.id === id)).filter(Boolean);
+      const somaOriginal = itens.reduce((s, it) => s + (Number(it.price) || 0), 0);
+      return { promo: p, itens, somaOriginal, precoCombo: Number(p.descontoValor) };
+    })
+    .filter((c) => c.itens.length >= 1 && c.somaOriginal > 0), [promosVigentes, produtos]);
+
+  function adicionarCombo(combo) {
+    const inst = `${combo.promo.id}-${Date.now()}`;
+    const fator = combo.precoCombo / combo.somaOriginal; // distribui o preço fechado proporcionalmente
+    const nItens = combo.itens.length;
+    let acumulado = 0;
+    const novos = combo.itens.map((it, idx) => {
+      const original = Number(it.price) || 0;
+      // último item ajusta o arredondamento para a soma bater exatamente no preço do combo
+      let preco = idx === nItens - 1 ? Math.round((combo.precoCombo - acumulado) * 100) / 100 : Math.round(original * fator * 100) / 100;
+      acumulado += preco;
+      return { name: it.name, price: preco, precoOriginal: original, economiaUnit: Math.max(0, original - preco), quantity: 1, category: it.category,
+        comboId: inst, comboNome: combo.promo.nome, removedIngredients: [], extraIngredients: [], selectedOptions: [], observation: "", _uid: Date.now() + Math.random() + idx };
+    });
+    setCart((c) => [...c, ...novos]);
+    setMsg({ t: "success", m: `🍔 Combo "${combo.promo.nome}" adicionado!` });
+  }
+  // Remoção: se o item faz parte de um combo, avisa e desfaz o combo (demais itens voltam ao preço normal).
+  function pedirRemover(item) {
+    if (item.comboId) { setComboRemover(item); return; }
+    removerItem(item._uid);
+  }
+  function desfazerCombo(item) {
+    setCart((c) => c
+      .filter((i) => i._uid !== item._uid) // remove o item escolhido
+      .map((i) => i.comboId === item.comboId
+        ? { ...i, price: Number(i.precoOriginal) || i.price, economiaUnit: 0, comboId: undefined, comboNome: undefined } // demais voltam ao normal
+        : i));
+    setComboRemover(null);
+    setMsg({ t: "success", m: "Combo desfeito — itens restantes voltaram ao preço normal." });
+  }
   // Formas de pagamento permitidas (aba "Pagamento" — config_externo)
   const formasPagto = [
     cfgExt.pagPix      !== false && { id: "pix",      label: "PIX",      icon: "📱" },
@@ -664,6 +708,28 @@ export default function CardapioPublico() {
           </div>
         )}
 
+        {/* Combos — pacotes com preço fechado (adiciona todos os produtos de uma vez) */}
+        {combosVigentes.length > 0 && (
+          <div className="mb-4 space-y-2">
+            {combosVigentes.map((c) => (
+              <div key={c.promo.id} className="rounded-2xl border border-emerald-400/30 bg-gradient-to-br from-emerald-500/10 to-emerald-500/[0.03] p-3.5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="flex items-center gap-1.5 text-sm font-black text-white">🍔 {c.promo.nome} <span className="rounded-full bg-emerald-500 px-1.5 py-0.5 text-[9px] font-black text-white">COMBO</span></p>
+                    {c.promo.descricao && <p className="mt-0.5 text-[11px] text-slate-400">{c.promo.descricao}</p>}
+                    <p className="mt-1 text-[11px] text-slate-300">{c.itens.map((i) => i.name).join(" + ")}</p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    {c.precoCombo < c.somaOriginal && <p className="text-[11px] font-bold text-slate-500 line-through">{formatCurrency(c.somaOriginal)}</p>}
+                    <p className="text-lg font-black text-emerald-400">{formatCurrency(c.precoCombo)}</p>
+                  </div>
+                </div>
+                <button onClick={() => adicionarCombo(c)} className="mt-2.5 w-full rounded-xl bg-emerald-500 py-2.5 text-sm font-black text-white transition active:scale-95 hover:bg-emerald-400">+ Adicionar combo</button>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Aviso de personalização */}
         <div className="mb-3 mt-4 flex items-center gap-2 rounded-2xl border border-gold-400/25 bg-gold-400/[0.06] px-4 py-2.5">
           <span className="text-lg">✨</span>
@@ -740,6 +806,21 @@ export default function CardapioPublico() {
       {/* Modal de produto (reutilizado) */}
       {detalhe && <ProdutoModal produto={detalhe} grupos={gruposOpcoes} opcoes={opcoes} onFechar={() => setDetalhe(null)} onAdicionar={addConfigurado} />}
 
+      {/* Confirmação ao remover item de combo */}
+      {comboRemover && (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/75 p-6 backdrop-blur-sm" onClick={() => setComboRemover(null)}>
+          <div className="w-full max-w-sm rounded-3xl border border-white/10 bg-slate-900 p-5 text-center" onClick={(e) => e.stopPropagation()}>
+            <p className="text-3xl">🍔</p>
+            <p className="mt-2 text-base font-black text-white">Sair do combo?</p>
+            <p className="mt-1 text-sm text-slate-400">Ao remover <b className="text-white">{comboRemover.name}</b>, o combo <b className="text-emerald-300">{comboRemover.comboNome}</b> será desfeito. Os demais itens deixam a regra do combo e <b className="text-amber-300">voltam ao preço normal</b>.</p>
+            <div className="mt-4 flex gap-2">
+              <button onClick={() => setComboRemover(null)} className="flex-1 rounded-2xl border border-white/10 bg-white/[0.06] py-3 text-sm font-black text-slate-300 hover:bg-white/10">Manter combo</button>
+              <button onClick={() => desfazerCombo(comboRemover)} className="flex-1 rounded-2xl bg-red-500 py-3 text-sm font-black text-white hover:bg-red-400">Remover assim mesmo</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal "Ver QR" — QR do link deste cardápio */}
       {qrModal && (
         <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/75 p-6 backdrop-blur-sm" onClick={() => setQrModal(null)}>
@@ -763,9 +844,13 @@ export default function CardapioPublico() {
           {cart.length === 0 ? <p className="py-8 text-center text-sm text-slate-500">Carrinho vazio.</p> : (
             <div className="space-y-2">
               {cart.map((i) => (
-                <div key={i._uid} className="flex items-center justify-between gap-2 rounded-2xl border border-white/10 bg-slate-950/40 p-3">
-                  <div className="min-w-0"><p className="truncate text-sm font-black text-white">{i.quantity}× {i.name}</p>{(i.removedIngredients?.length > 0 || i.extraIngredients?.length > 0 || i.observation) && <p className="truncate text-[11px] text-amber-300">{[...(i.removedIngredients || []).map((x) => "− " + x), ...(i.extraIngredients || []).map((x) => "+ " + x), i.observation].filter(Boolean).join(" · ")}</p>}</div>
-                  <div className="flex items-center gap-2"><span className="text-sm font-bold text-white">{formatCurrency(i.price * i.quantity)}</span><button onClick={() => removerItem(i._uid)} className="rounded-lg border border-red-400/20 bg-red-500/10 px-2 py-1 text-xs font-black text-red-300">✕</button></div>
+                <div key={i._uid} className={`flex items-center justify-between gap-2 rounded-2xl border bg-slate-950/40 p-3 ${i.comboId ? "border-emerald-400/30" : "border-white/10"}`}>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-black text-white">{i.quantity}× {i.name}</p>
+                    {i.comboId && <p className="truncate text-[11px] font-bold text-emerald-300">🍔 Combo: {i.comboNome}</p>}
+                    {(i.removedIngredients?.length > 0 || i.extraIngredients?.length > 0 || i.observation) && <p className="truncate text-[11px] text-amber-300">{[...(i.removedIngredients || []).map((x) => "− " + x), ...(i.extraIngredients || []).map((x) => "+ " + x), i.observation].filter(Boolean).join(" · ")}</p>}
+                  </div>
+                  <div className="flex items-center gap-2"><span className="text-sm font-bold text-white">{formatCurrency(i.price * i.quantity)}</span><button onClick={() => pedirRemover(i)} className="rounded-lg border border-red-400/20 bg-red-500/10 px-2 py-1 text-xs font-black text-red-300">✕</button></div>
                 </div>
               ))}
             </div>
