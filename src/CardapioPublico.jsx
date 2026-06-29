@@ -39,6 +39,15 @@ const SURVEY_PEND_KEY = "pp_survey_pend";
 const SURVEY_DONE_KEY = "pp_survey_done";
 function lerSetLS(k) { try { return new Set(JSON.parse(localStorage.getItem(k) || "[]")); } catch { return new Set(); } }
 function salvarSetLS(k, set) { try { localStorage.setItem(k, JSON.stringify([...set].slice(-200))); } catch {} }
+// Converte o pedido mínimo salvo ("20,00" / "20" / "20.00") em número de reais.
+function parseMoedaBR(v) {
+  if (v == null || v === "") return 0;
+  let s = String(v).replace(/[^\d.,]/g, "");
+  if (!s) return 0;
+  if (s.includes(",")) s = s.replace(/\./g, "").replace(",", ".");
+  const n = parseFloat(s);
+  return isFinite(n) ? n : 0;
+}
 
 export default function CardapioPublico() {
   const params = new URLSearchParams(window.location.search);
@@ -73,6 +82,7 @@ export default function CardapioPublico() {
   const [etapa, setEtapa]         = useState(mesaURL ? "welcome" : "cardapio"); // welcome | cardapio
   const [sugBebida, setSugBebida] = useState(false);  // mostra sugestão de bebida
   const [sugFechada, setSugFechada] = useState(false); // usuário dispensou a sugestão
+  const [tipoPedido, setTipoPedido] = useState(""); // pedido externo: local | retirada | entrega (config_externo)
 
   // Carrega empresa (por prefixo) + produtos + categorias
   useEffect(() => {
@@ -126,6 +136,22 @@ export default function CardapioPublico() {
   useEffect(() => { if (!msg) return; const t = setTimeout(() => setMsg(null), 3500); return () => clearTimeout(t); }, [msg]);
 
   const podeExterno = loja && (loja.modoUso === "externo" || loja.modoUso === "ambos");
+  // Configurações do pedido externo (aba "Pedido externo" — config_externo)
+  const cfgExt = loja?.configExterno || {};
+  const aceitaExterno = cfgExt.aceitaPedidoExterno !== false; // padrão: aceita
+  const opcoesEntrega = [
+    cfgExt.consumoLocal !== false && { id: "local",    label: "Consumir no local", icon: "🍽️" },
+    cfgExt.retirada     !== false && { id: "retirada", label: "Retirada no balcão", icon: "🛍️" },
+    cfgExt.entrega      === true  && { id: "entrega",  label: "Entrega (delivery)", icon: "🛵" },
+  ].filter(Boolean);
+  const minimoExterno = parseMoedaBR(cfgExt.pedidoMinimo); // número em reais (0 = sem mínimo)
+  // Tipo de pedido externo: garante uma opção válida selecionada
+  useEffect(() => {
+    if (!modoExterno) return;
+    if (opcoesEntrega.length === 0) { if (tipoPedido) setTipoPedido(""); return; }
+    if (!opcoesEntrega.some((o) => o.id === tipoPedido)) setTipoPedido(opcoesEntrega[0].id);
+    /* eslint-disable-next-line */
+  }, [loja?.id, modoExterno, cfgExt.consumoLocal, cfgExt.retirada, cfgExt.entrega]);
   // Durante a busca, lista achatada (filtrada). Sem busca, agrupamos por categoria
   // para dividir os grupos e permitir o "scroll-spy" (header acompanha o grupo na tela).
   const visiveis = useMemo(() => ocultarIndisp ? produtos.filter((p) => p.disponivel !== false) : produtos, [produtos, ocultarIndisp]);
@@ -351,14 +377,21 @@ export default function CardapioPublico() {
     const itens = cart.map((i) => ({ name: i.name, quantity: i.quantity, price: i.price, selectedIngredients: i.selectedIngredients, removedIngredients: i.removedIngredients, extraIngredients: i.extraIngredients, selectedOptions: i.selectedOptions || [], observation: i.observation }));
     let novo;
     if (modoExterno) {
+      // Aplica as regras configuradas pela empresa (aba "Pedido externo")
+      if (!aceitaExterno) return setMsg({ t: "error", m: "Esta empresa não está aceitando pedidos pelo cardápio no momento." });
+      if (opcoesEntrega.length === 0) return setMsg({ t: "error", m: "Nenhuma forma de pedido (consumo, retirada ou entrega) está disponível no momento." });
+      const opc = opcoesEntrega.find((o) => o.id === tipoPedido);
+      if (!opc) return setMsg({ t: "error", m: "Escolha como deseja receber o pedido." });
+      if (minimoExterno > 0 && totalCart < minimoExterno) return setMsg({ t: "error", m: `Pedido mínimo de ${formatCurrency(minimoExterno)}. Faltam ${formatCurrency(minimoExterno - totalCart)}.` });
       // Pedido externo (link de divulgação): exige NOME + TELEFONE
       if (!cliente.trim()) return setMsg({ t: "error", m: "Informe o seu nome." });
       if (telDig.length < 10) return setMsg({ t: "error", m: "Informe um telefone válido (com DDD)." });
       setEnviando(true);
       try { await (cardapioViaRpc() ? rpcUpsertClientePublico({ lojaId: loja.id, nome: cliente.trim(), telefone: telDig }) : upsertCliente({ nome: cliente.trim(), telefone: telDig, lojaId: loja.id })); } catch {}
+      const rotuloTipo = { local: "Consumo no local", retirada: "Retirada", entrega: "Entrega" }[opc.id] || "Externo";
       novo = {
         id: `PED-${Date.now().toString().slice(-7)}${Math.floor(Math.random() * 90 + 10)}`,
-        table: "Externo", command: `EXT-${telDig.slice(-6)}`, customer: cliente.trim(), clienteTelefone: telDig,
+        table: `Externo · ${rotuloTipo}`, command: `EXT-${telDig.slice(-6)}`, customer: cliente.trim(), clienteTelefone: telDig,
         status: "received", paymentStatus: "open",
         createdAt: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
         items: itens, lojaId: loja.id,
@@ -467,7 +500,10 @@ export default function CardapioPublico() {
     );
   }
 
-  const podeEnviar = cart.length > 0;
+  const minimoFalta = modoExterno && minimoExterno > 0 ? Math.max(0, minimoExterno - totalCart) : 0;
+  const podeEnviar = cart.length > 0 && (!modoExterno || (
+    aceitaExterno && opcoesEntrega.length > 0 && opcoesEntrega.some((o) => o.id === tipoPedido) && minimoFalta <= 0
+  ));
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100" style={{ minHeight: "100dvh", paddingBottom: `calc(env(safe-area-inset-bottom) + ${cart.length > 0 ? 168 : 96}px)` }}>
       {/* Cabeçalho */}
@@ -634,8 +670,29 @@ export default function CardapioPublico() {
             </div>
           )}
           {modoExterno ? (
-            // Pedido externo (link de divulgação) — nome + telefone obrigatórios
+            // Pedido externo (link de divulgação) — regras da empresa + nome + telefone
             <div className="mt-4 space-y-3">
+              {!aceitaExterno ? (
+                <div className="rounded-2xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm font-bold text-amber-200">
+                  🚫 Esta empresa não está aceitando pedidos pelo cardápio no momento.
+                </div>
+              ) : opcoesEntrega.length === 0 ? (
+                <div className="rounded-2xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm font-bold text-amber-200">
+                  Nenhuma forma de pedido disponível no momento.
+                </div>
+              ) : (
+                <div>
+                  <span className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-amber-500">⚠ Como deseja receber? *</span>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                    {opcoesEntrega.map((o) => (
+                      <button key={o.id} type="button" onClick={() => setTipoPedido(o.id)}
+                        className={`flex items-center justify-center gap-1.5 rounded-2xl border px-3 py-2.5 text-sm font-black transition ${tipoPedido === o.id ? "border-emerald-400 bg-emerald-500/15 text-emerald-200" : "border-white/10 bg-slate-800 text-slate-300"}`}>
+                        <span>{o.icon}</span><span>{o.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <label><span className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-amber-500">⚠ Telefone (WhatsApp) *</span>
                   <input type="tel" inputMode="numeric" autoComplete="tel" value={mascararTelefone(telefone)} onChange={(e) => setTelefone(e.target.value.replace(/\D/g, "").slice(0, 11))} placeholder="(11) 98765-4321" maxLength={16}
@@ -663,6 +720,11 @@ export default function CardapioPublico() {
             </>
           )}
           <div className="mt-4 flex items-center justify-between border-t border-white/10 pt-3"><span className="text-sm text-slate-400">Total</span><span className="text-xl font-black text-emerald-400">{formatCurrency(totalCart)}</span></div>
+          {modoExterno && minimoExterno > 0 && (
+            <p className={`mt-2 text-xs font-bold ${minimoFalta > 0 ? "text-amber-300" : "text-emerald-400"}`}>
+              {minimoFalta > 0 ? `Pedido mínimo de ${formatCurrency(minimoExterno)} — faltam ${formatCurrency(minimoFalta)}.` : `✓ Pedido mínimo de ${formatCurrency(minimoExterno)} atingido.`}
+            </p>
+          )}
           <button onClick={enviar} disabled={!podeEnviar || enviando}
             className="mt-3 w-full rounded-2xl bg-emerald-500 py-4 text-sm font-black text-white hover:bg-emerald-400 transition active:scale-95 disabled:opacity-40">
             {enviando ? "Enviando…" : "🚀 Enviar pedido"}
