@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   fetchLojas, fetchProdutos, fetchCategorias, fetchPromocoes, fetchGruposOpcoes, fetchOpcoes, fetchSetoresCozinha,
-  inserirPedido, atualizarPedido, escutarPedidos,
+  escutarLojas, inserirPedido, atualizarPedido, escutarPedidos,
   buscarClientePorTelefone, upsertCliente, criarChamado,
   rpcCriarPedidoPublico, rpcUpsertClientePublico, rpcBuscarClientePublico, rpcPedidosComanda, rpcPedidosCliente, rpcSolicitarContaPublico, rpcCriarChamadoPublico,
   rpcPesquisaSatisfacao, inserirPesquisaSatisfacao,
@@ -39,6 +39,19 @@ const SURVEY_PEND_KEY = "pp_survey_pend";
 const SURVEY_DONE_KEY = "pp_survey_done";
 function lerSetLS(k) { try { return new Set(JSON.parse(localStorage.getItem(k) || "[]")); } catch { return new Set(); } }
 function salvarSetLS(k, set) { try { localStorage.setItem(k, JSON.stringify([...set].slice(-200))); } catch {} }
+// Verdadeiro se a loja está aberta AGORA conforme os horários { seg..dom: "HH:MM–HH:MM" }.
+// Trata faixa que vira a meia-noite (ex.: "18:00–02:00"). Dia sem faixa = fechado.
+function lojaAbertaAgora(horarios, agora = new Date()) {
+  const dias = ["dom", "seg", "ter", "qua", "qui", "sex", "sab"];
+  const faixa = (horarios || {})[dias[agora.getDay()]];
+  if (!faixa || !/\d/.test(String(faixa))) return false;
+  const [abre, fecha] = String(faixa).split("–").map((s) => (s || "").trim());
+  if (!/^\d{1,2}:\d{2}$/.test(abre || "") || !/^\d{1,2}:\d{2}$/.test(fecha || "")) return false;
+  const min = (hm) => { const [h, m] = hm.split(":").map(Number); return h * 60 + (m || 0); };
+  const nowMin = agora.getHours() * 60 + agora.getMinutes();
+  const aMin = min(abre), fMin = min(fecha);
+  return fMin > aMin ? (nowMin >= aMin && nowMin < fMin) : (nowMin >= aMin || nowMin < fMin);
+}
 // Converte o pedido mínimo salvo ("20,00" / "20" / "20.00") em número de reais.
 function parseMoedaBR(v) {
   if (v == null || v === "") return 0;
@@ -84,6 +97,7 @@ export default function CardapioPublico() {
   const [sugFechada, setSugFechada] = useState(false); // usuário dispensou a sugestão
   const [tipoPedido, setTipoPedido] = useState(""); // pedido externo: local | retirada | entrega (config_externo)
   const [formaPagto, setFormaPagto] = useState(""); // forma de pagamento: pix | cartao | dinheiro (config_externo)
+  const [agora, setAgora] = useState(() => new Date()); // relógio p/ reavaliar aberto/fechado ao vivo
 
   // Carrega empresa (por prefixo) + produtos + categorias
   useEffect(() => {
@@ -107,6 +121,18 @@ export default function CardapioPublico() {
       } catch { if (vivo) setLoja(null); }
     })();
     return () => { vivo = false; };
+  }, [prefixo]);
+
+  // Relógio: reavalia aberto/fechado a cada 30s (fecha sozinho quando passa do horário).
+  useEffect(() => { const iv = setInterval(() => setAgora(new Date()), 30000); return () => clearInterval(iv); }, []);
+
+  // Atualização AO VIVO da config da empresa (modo de uso, horários, pagamento, etc.):
+  // se o admin alterar e salvar, o cardápio do cliente reflete sem recarregar.
+  useEffect(() => {
+    if (!prefixo) return;
+    let off;
+    try { off = escutarLojas((lojas) => { const l = (lojas || []).find((x) => x.prefixo === prefixo); if (l) setLoja(l); }); } catch {}
+    return () => { try { off && off(); } catch {} };
   }, [prefixo]);
 
   // Acompanhamento dos pedidos.
@@ -146,6 +172,9 @@ export default function CardapioPublico() {
     cfgExt.entrega      === true  && { id: "entrega",  label: "Entrega (delivery)", icon: "🛵" },
   ].filter(Boolean);
   const minimoExterno = parseMoedaBR(cfgExt.pedidoMinimo); // número em reais (0 = sem mínimo)
+  // Horários de funcionamento (aba "Horários") — reavaliado ao vivo via `agora`
+  const abertoAgora = lojaAbertaAgora(cfgExt.horarios, agora);
+  const bloqueioHorario = cfgExt.bloquearForaHorario === true && !abertoAgora; // fechado e bloqueando
   // Formas de pagamento permitidas (aba "Pagamento" — config_externo)
   const formasPagto = [
     cfgExt.pagPix      !== false && { id: "pix",      label: "PIX",      icon: "📱" },
@@ -393,6 +422,7 @@ export default function CardapioPublico() {
 
   async function enviar() {
     if (cart.length === 0) return;
+    if (bloqueioHorario) return setMsg({ t: "error", m: "Estabelecimento fechado no momento. Confira os horários de funcionamento." });
     const itens = cart.map((i) => ({ name: i.name, quantity: i.quantity, price: i.price, selectedIngredients: i.selectedIngredients, removedIngredients: i.removedIngredients, extraIngredients: i.extraIngredients, selectedOptions: i.selectedOptions || [], observation: i.observation }));
     // Forma de pagamento (aba "Pagamento" — vale para pedido interno e externo)
     if (formasPagto.length === 0) return setMsg({ t: "error", m: "Nenhuma forma de pagamento está disponível no momento." });
@@ -527,7 +557,7 @@ export default function CardapioPublico() {
 
   const minimoFalta = modoExterno && minimoExterno > 0 ? Math.max(0, minimoExterno - totalCart) : 0;
   const pagtoOk = formasPagto.length > 0 && formasPagto.some((f) => f.id === formaPagto);
-  const podeEnviar = cart.length > 0 && pagtoOk && (!modoExterno || (
+  const podeEnviar = cart.length > 0 && pagtoOk && !bloqueioHorario && (!modoExterno || (
     aceitaExterno && opcoesEntrega.length > 0 && opcoesEntrega.some((o) => o.id === tipoPedido) && minimoFalta <= 0
   ));
   return (
@@ -557,6 +587,12 @@ export default function CardapioPublico() {
           </div>
         )}
       </header>
+
+      {bloqueioHorario && (
+        <div className="mx-auto max-w-3xl px-4 pt-3">
+          <div className="rounded-2xl border border-red-400/30 bg-red-500/10 px-4 py-2.5 text-center text-sm font-bold text-red-200">🌙 Fechado no momento — pedidos indisponíveis fora do horário de funcionamento.</div>
+        </div>
+      )}
 
       <main className="mx-auto max-w-3xl px-4">
         {/* Categorias — clique rola até o grupo; ao rolar, o grupo atual é destacado */}
@@ -687,6 +723,11 @@ export default function CardapioPublico() {
       {/* Gaveta: Carrinho */}
       {aba === "carrinho" && (
         <Gaveta titulo="🛒 Seu pedido" onFechar={() => setAba(null)}>
+          {bloqueioHorario && (
+            <div className="mb-3 rounded-2xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-center text-sm font-bold text-red-200">
+              🌙 Estabelecimento fechado no momento.<br /><span className="text-xs font-normal text-red-200/80">Pedidos só podem ser enviados dentro do horário de funcionamento.</span>
+            </div>
+          )}
           {cart.length === 0 ? <p className="py-8 text-center text-sm text-slate-500">Carrinho vazio.</p> : (
             <div className="space-y-2">
               {cart.map((i) => (
@@ -770,7 +811,7 @@ export default function CardapioPublico() {
           )}
           <button onClick={enviar} disabled={!podeEnviar || enviando}
             className="mt-3 w-full rounded-2xl bg-emerald-500 py-4 text-sm font-black text-white hover:bg-emerald-400 transition active:scale-95 disabled:opacity-40">
-            {enviando ? "Enviando…" : "🚀 Enviar pedido"}
+            {enviando ? "Enviando…" : bloqueioHorario ? "🌙 Fechado no momento" : "🚀 Enviar pedido"}
           </button>
         </Gaveta>
       )}
