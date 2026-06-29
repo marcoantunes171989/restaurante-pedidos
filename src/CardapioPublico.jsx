@@ -83,6 +83,7 @@ export default function CardapioPublico() {
   const [sugBebida, setSugBebida] = useState(false);  // mostra sugestão de bebida
   const [sugFechada, setSugFechada] = useState(false); // usuário dispensou a sugestão
   const [tipoPedido, setTipoPedido] = useState(""); // pedido externo: local | retirada | entrega (config_externo)
+  const [formaPagto, setFormaPagto] = useState(""); // forma de pagamento: pix | cartao | dinheiro (config_externo)
 
   // Carrega empresa (por prefixo) + produtos + categorias
   useEffect(() => {
@@ -145,6 +146,18 @@ export default function CardapioPublico() {
     cfgExt.entrega      === true  && { id: "entrega",  label: "Entrega (delivery)", icon: "🛵" },
   ].filter(Boolean);
   const minimoExterno = parseMoedaBR(cfgExt.pedidoMinimo); // número em reais (0 = sem mínimo)
+  // Formas de pagamento permitidas (aba "Pagamento" — config_externo)
+  const formasPagto = [
+    cfgExt.pagPix      !== false && { id: "pix",      label: "PIX",      icon: "📱" },
+    cfgExt.pagCartao   !== false && { id: "cartao",   label: "Cartão",   icon: "💳" },
+    cfgExt.pagDinheiro !== false && { id: "dinheiro", label: "Dinheiro", icon: "💵" },
+  ].filter(Boolean);
+  // Momento do pagamento conforme o tipo de pedido + toggles da empresa
+  const momentoPagto = !modoExterno ? "No caixa"
+    : tipoPedido === "entrega"  ? "Na entrega"
+    : tipoPedido === "retirada" ? "Na retirada"
+    : tipoPedido === "local"    ? "No local"
+    : (cfgExt.pagOnline ? "Online" : "No atendimento");
   // Tipo de pedido externo: garante uma opção válida selecionada
   useEffect(() => {
     if (!modoExterno) return;
@@ -152,6 +165,12 @@ export default function CardapioPublico() {
     if (!opcoesEntrega.some((o) => o.id === tipoPedido)) setTipoPedido(opcoesEntrega[0].id);
     /* eslint-disable-next-line */
   }, [loja?.id, modoExterno, cfgExt.consumoLocal, cfgExt.retirada, cfgExt.entrega]);
+  // Forma de pagamento: garante uma opção válida selecionada
+  useEffect(() => {
+    if (formasPagto.length === 0) { if (formaPagto) setFormaPagto(""); return; }
+    if (!formasPagto.some((f) => f.id === formaPagto)) setFormaPagto(formasPagto[0].id);
+    /* eslint-disable-next-line */
+  }, [loja?.id, cfgExt.pagPix, cfgExt.pagCartao, cfgExt.pagDinheiro]);
   // Durante a busca, lista achatada (filtrada). Sem busca, agrupamos por categoria
   // para dividir os grupos e permitir o "scroll-spy" (header acompanha o grupo na tela).
   const visiveis = useMemo(() => ocultarIndisp ? produtos.filter((p) => p.disponivel !== false) : produtos, [produtos, ocultarIndisp]);
@@ -375,6 +394,10 @@ export default function CardapioPublico() {
   async function enviar() {
     if (cart.length === 0) return;
     const itens = cart.map((i) => ({ name: i.name, quantity: i.quantity, price: i.price, selectedIngredients: i.selectedIngredients, removedIngredients: i.removedIngredients, extraIngredients: i.extraIngredients, selectedOptions: i.selectedOptions || [], observation: i.observation }));
+    // Forma de pagamento (aba "Pagamento" — vale para pedido interno e externo)
+    if (formasPagto.length === 0) return setMsg({ t: "error", m: "Nenhuma forma de pagamento está disponível no momento." });
+    const formaSel = formasPagto.find((f) => f.id === formaPagto);
+    if (!formaSel) return setMsg({ t: "error", m: "Escolha a forma de pagamento." });
     let novo;
     if (modoExterno) {
       // Aplica as regras configuradas pela empresa (aba "Pedido externo")
@@ -395,6 +418,7 @@ export default function CardapioPublico() {
         status: "received", paymentStatus: "open",
         createdAt: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
         items: itens, lojaId: loja.id,
+        pagamentoForma: formaSel.label, pagamentoMomento: momentoPagto,
       };
     } else {
       // Pedido na mesa (QR da mesa): exige mesa + comanda
@@ -408,11 +432,12 @@ export default function CardapioPublico() {
         status: "received", paymentStatus: "open",
         createdAt: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
         items: itens, lojaId: loja.id,
+        pagamentoForma: formaSel.label, pagamentoMomento: momentoPagto,
       };
     }
     try {
       let pedidoId = novo.id;
-      if (cardapioViaRpc()) { const r = await rpcCriarPedidoPublico({ lojaId: loja.id, mesa: novo.table, comanda: novo.command, cliente: novo.customer, telefone: novo.clienteTelefone || "", itens }); if (r) pedidoId = r; }
+      if (cardapioViaRpc()) { const r = await rpcCriarPedidoPublico({ lojaId: loja.id, mesa: novo.table, comanda: novo.command, cliente: novo.customer, telefone: novo.clienteTelefone || "", itens, pagForma: formaSel.label, pagMomento: momentoPagto }); if (r) pedidoId = r; }
       else await inserirPedido(novo);
       // A Pesquisa de Satisfação NÃO aparece agora — só quando o pedido CONCLUIR
       // (pago + retirado/entregue). Registra o pedido como pendente de pesquisa.
@@ -501,7 +526,8 @@ export default function CardapioPublico() {
   }
 
   const minimoFalta = modoExterno && minimoExterno > 0 ? Math.max(0, minimoExterno - totalCart) : 0;
-  const podeEnviar = cart.length > 0 && (!modoExterno || (
+  const pagtoOk = formasPagto.length > 0 && formasPagto.some((f) => f.id === formaPagto);
+  const podeEnviar = cart.length > 0 && pagtoOk && (!modoExterno || (
     aceitaExterno && opcoesEntrega.length > 0 && opcoesEntrega.some((o) => o.id === tipoPedido) && minimoFalta <= 0
   ));
   return (
@@ -720,6 +746,21 @@ export default function CardapioPublico() {
                   <p className="mt-1 text-[11px] text-slate-500">Escaneie o QR Code da mesa ou digite a comanda.</p></div>
               )}
             </>
+          )}
+          {/* Forma de pagamento (aba "Pagamento") — pedido interno e externo */}
+          {formasPagto.length > 0 && (
+            <div className="mt-4">
+              <span className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-amber-500">⚠ Forma de pagamento *</span>
+              <div className="grid grid-cols-3 gap-2">
+                {formasPagto.map((f) => (
+                  <button key={f.id} type="button" onClick={() => setFormaPagto(f.id)}
+                    className={`flex items-center justify-center gap-1.5 rounded-2xl border px-2 py-2.5 text-sm font-black transition ${formaPagto === f.id ? "border-emerald-400 bg-emerald-500/15 text-emerald-200" : "border-white/10 bg-slate-800 text-slate-300"}`}>
+                    <span>{f.icon}</span><span>{f.label}</span>
+                  </button>
+                ))}
+              </div>
+              <p className="mt-1.5 text-[11px] text-slate-500">Pagamento: <span className="font-bold text-slate-300">{momentoPagto}</span>.</p>
+            </div>
           )}
           <div className="mt-4 flex items-center justify-between border-t border-white/10 pt-3"><span className="text-sm text-slate-400">Total</span><span className="text-xl font-black text-emerald-400">{formatCurrency(totalCart)}</span></div>
           {modoExterno && minimoExterno > 0 && (
