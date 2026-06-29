@@ -10554,7 +10554,9 @@ function PromocaoModal({ promocao, produtos = [], categoriasDb = [], onSalvar, o
   const [addProd, setAddProd] = useState(""); // select temporário p/ adicionar produto
   const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-gold-400/60 transition";
   const lbl = "mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500";
-  const valido = f.nome.trim();
+  const dataInvalida = f.dataInicio && f.dataFim && f.dataFim < f.dataInicio;
+  const horaInvalida = f.horaInicio && f.horaFim && f.horaFim < f.horaInicio;
+  const valido = f.nome.trim() && !dataInvalida && !horaInvalida;
   const toggleDia = (d) => setF((s) => ({ ...s, diasSemana: s.diasSemana.includes(d) ? s.diasSemana.filter((x) => x !== d) : [...s.diasSemana, d].sort() }));
   const adicionarProduto = (id) => { const pid = Number(id); if (!pid || f.produtoIds.includes(pid)) return; setF((s) => ({ ...s, produtoIds: [...s.produtoIds, pid] })); };
   const removerProduto = (id) => setF((s) => ({ ...s, produtoIds: s.produtoIds.filter((x) => x !== id) }));
@@ -10638,10 +10640,12 @@ function PromocaoModal({ promocao, produtos = [], categoriasDb = [], onSalvar, o
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div><span className={lbl}>Início</span><input type="date" value={f.dataInicio || ""} onChange={(e) => setF({ ...f, dataInicio: e.target.value })} className={inp} /></div>
-            <div><span className={lbl}>Fim</span><input type="date" value={f.dataFim || ""} onChange={(e) => setF({ ...f, dataFim: e.target.value })} className={inp} /></div>
+            <div><span className={lbl}>Fim</span><input type="date" value={f.dataFim || ""} onChange={(e) => setF({ ...f, dataFim: e.target.value })} className={`${inp} ${dataInvalida ? "!border-red-400/70" : ""}`} /></div>
             <div><span className={lbl}>Hora início</span><input type="time" value={f.horaInicio || ""} onChange={(e) => setF({ ...f, horaInicio: e.target.value })} className={inp} /></div>
-            <div><span className={lbl}>Hora fim</span><input type="time" value={f.horaFim || ""} onChange={(e) => setF({ ...f, horaFim: e.target.value })} className={inp} /></div>
+            <div><span className={lbl}>Hora fim</span><input type="time" value={f.horaFim || ""} onChange={(e) => setF({ ...f, horaFim: e.target.value })} className={`${inp} ${horaInvalida ? "!border-red-400/70" : ""}`} /></div>
           </div>
+          {dataInvalida && <p className="rounded-xl border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-200">⚠ A data <b>Fim</b> é anterior à data <b>Início</b>. Assim a promoção nunca fica vigente — ajuste para salvar.</p>}
+          {horaInvalida && <p className="rounded-xl border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-200">⚠ A <b>Hora fim</b> é anterior à <b>Hora início</b>. Para promoção que vira a madrugada, deixe a hora fim em branco.</p>}
           <div>
             <span className={lbl}>Dias da semana válidos</span>
             <div className="flex flex-wrap gap-2">
