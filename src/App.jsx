@@ -6539,6 +6539,86 @@ function Painel({ titulo, acao = null, children, className = "" }) {
   );
 }
 
+// ════════════════════════════════════════════════════════════
+//  Copiloto de Gestão (IA Gerencial) — análise heurística dos dados
+//  reais (vendas, CRM, operação, riscos) → resumo + insights + ações.
+//  100% local (sem enviar dados a terceiros), determinístico e instantâneo.
+// ════════════════════════════════════════════════════════════
+const META_TICKET_IA = 45;
+function analisarGestaoIA(ctx) {
+  const { fat, emAberto, ticket, totalPedidos, comparativo, produtoTop, melhorHora, semEstoque = [],
+    cancelados = [], valorPerdido = 0, motivoPrincipal = "—", clientesPeriodo = 0, clientesCadastrados = 0,
+    mesasCriticas = 0, tempoMedioPrep = null, taxaEntrega = 0, pctIdentificado = 0,
+    vips = [], inativos = [], novosClientes = 0, produtosParados = [], periodoLabel = "período" } = ctx;
+  const fmt = formatCurrency;
+  const insights = []; const acoes = [];
+  const addIns = (cat, sev, texto, acao) => insights.push({ cat, sev, texto, acao });
+  const addAct = (prio, texto, motivo) => acoes.push({ prio, texto, motivo });
+
+  // ── VENDAS ──────────────────────────────────────────────
+  if (comparativo?.faturamento != null) {
+    const v = Math.round(comparativo.faturamento);
+    if (v >= 10) addIns("Vendas", "pos", `Faturamento ${v >= 0 ? "+" : ""}${v}% vs. período anterior — tendência de alta.`);
+    else if (v <= -10) { addIns("Vendas", "crit", `Faturamento ${v}% vs. período anterior — queda relevante.`); addAct("alta", "Ativar promoção/combo e campanha de retorno para reverter a queda de vendas.", `Faturamento caiu ${v}%.`); }
+    else addIns("Vendas", "info", `Faturamento estável (${v >= 0 ? "+" : ""}${v}%) frente ao período anterior.`);
+  }
+  if (ticket > 0 && ticket < META_TICKET_IA) { addIns("Vendas", "warn", `Ticket médio ${fmt(ticket)} abaixo da meta (${fmt(META_TICKET_IA)}).`); addAct("alta", produtoTop ? `Criar combo do "${produtoTop.nome}" + bebida/acompanhamento para elevar o ticket.` : "Criar combos e sugestões de acompanhamento para elevar o ticket.", `Ticket ${fmt(ticket)} < meta ${fmt(META_TICKET_IA)}.`); }
+  else if (ticket >= META_TICKET_IA) addIns("Vendas", "pos", `Ticket médio ${fmt(ticket)} acima da meta — bom aproveitamento por pedido.`);
+  if (produtoTop) addIns("Vendas", "info", `Carro-chefe: ${produtoTop.nome} (${produtoTop.qtd} un.). Use como âncora de combos e destaques.`);
+  if (produtosParados.length > 0) { addIns("Vendas", "warn", `${produtosParados.length} produto(s) ativo(s) sem vendas no ${periodoLabel}.`); addAct("media", `Dar destaque/promoção aos produtos parados: ${produtosParados.slice(0, 3).join(", ")}${produtosParados.length > 3 ? "…" : ""}.`, "Itens encalhados imobilizam cardápio e estoque."); }
+  if (melhorHora?.valor > 0) { addIns("Operação", "info", `Pico de vendas às ${melhorHora.label} (${fmt(melhorHora.valor)}).`); addAct("media", `Reforçar equipe e estoque no horário de pico (${melhorHora.label}).`, "Concentração de demanda no pico."); }
+
+  // ── CLIENTES / CRM ─────────────────────────────────────
+  if (pctIdentificado < 0.6 && totalPedidos > 0) { addIns("Clientes", "warn", `Apenas ${Math.round(pctIdentificado * 100)}% dos pedidos têm cliente identificado.`); addAct("alta", "Incentivar o cadastro (nome + telefone) no caixa/tablet — base de CRM para campanhas.", "Sem identificação não há CRM nem recompra dirigida."); }
+  else if (totalPedidos > 0) addIns("Clientes", "pos", `${Math.round(pctIdentificado * 100)}% dos pedidos identificam o cliente — boa base de CRM.`);
+  if (inativos.length > 0) { addIns("Clientes", "warn", `${inativos.length} cliente(s) inativo(s) (sem comprar há +30 dias).`); addAct("alta", `Disparar campanha de retorno (CRM) para os ${inativos.length} inativos com um mimo/cupom.`, "Reativar inativos custa menos que captar novos."); }
+  if (vips.length > 0) { addIns("Clientes", "pos", `${vips.length} cliente(s) VIP. Top: ${vips[0].nome || "cliente"} (${fmt(vips[0].total)}).`); addAct("media", "Programa de fidelidade/benefício exclusivo para os VIPs reterem e elevarem o gasto.", "VIPs concentram boa parte do faturamento."); }
+  if (novosClientes > 0) addIns("Clientes", "pos", `${novosClientes} novo(s) cliente(s) cadastrado(s) no ${periodoLabel}.`);
+  if (clientesCadastrados > 0 && clientesPeriodo > 0) addIns("Clientes", "info", `${clientesPeriodo} de ${clientesCadastrados} clientes compraram no ${periodoLabel} (${Math.round((clientesPeriodo / clientesCadastrados) * 100)}% da base ativa).`);
+
+  // ── RISCOS / OPERAÇÃO ──────────────────────────────────
+  const pctAberto = fat + emAberto > 0 ? emAberto / (fat + emAberto) : 0;
+  if (emAberto > 0 && pctAberto >= 0.1) { addIns("Riscos", "warn", `${fmt(emAberto)} em aberto (${Math.round(pctAberto * 100)}% do previsto).`); addAct("alta", "Revisar comandas em aberto e cobrar/fechar antes do fim do expediente.", "Valores em aberto viram inadimplência/perda."); }
+  if (semEstoque.length > 0) { addIns("Riscos", "crit", `${semEstoque.length} produto(s) abaixo do estoque mínimo.`); addAct("alta", `Repor estoque: ${semEstoque.slice(0, 3).map((p) => p.name).join(", ")}${semEstoque.length > 3 ? "…" : ""}.`, "Ruptura de estoque = venda perdida."); }
+  const taxaCancel = totalPedidos > 0 ? cancelados.length / totalPedidos : 0;
+  if (taxaCancel >= 0.05) { addIns("Riscos", "crit", `Cancelamentos em ${Math.round(taxaCancel * 100)}% (${fmt(valorPerdido)} perdidos). Motivo principal: ${motivoPrincipal}.`); addAct("alta", `Atacar a causa dos cancelamentos (${motivoPrincipal}).`, `Perda de ${fmt(valorPerdido)} no ${periodoLabel}.`); }
+  if (mesasCriticas > 0) addIns("Operação", "warn", `${mesasCriticas} mesa(s) aberta(s) há +40 min — risco de giro lento.`);
+  if (tempoMedioPrep != null && tempoMedioPrep > 25) { addIns("Operação", "warn", `Tempo médio de preparo alto: ${tempoMedioPrep} min.`); addAct("media", "Revisar fluxo da cozinha/mise en place no pico para reduzir o tempo de preparo.", "Espera longa reduz satisfação e giro."); }
+  if (taxaEntrega > 0 && taxaEntrega < 80) addIns("Operação", "info", `Taxa de conclusão dos pedidos em ${taxaEntrega}%.`);
+
+  // ── SCORE DE SAÚDE ─────────────────────────────────────
+  let score = 72;
+  if (comparativo?.faturamento != null) score += comparativo.faturamento > 0 ? 10 : (comparativo.faturamento < -10 ? -12 : 0);
+  if (pctAberto >= 0.15) score -= 10; else if (pctAberto >= 0.1) score -= 5;
+  if (semEstoque.length > 0) score -= Math.min(10, semEstoque.length * 3);
+  if (taxaCancel >= 0.05) score -= 10;
+  if (ticket > 0 && ticket < META_TICKET_IA) score -= 6; else if (ticket >= META_TICKET_IA) score += 4;
+  if (mesasCriticas > 0) score -= 5;
+  if (pctIdentificado >= 0.6) score += 4; else if (totalPedidos > 0) score -= 4;
+  if (inativos.length > 0) score -= 3;
+  score = Math.max(5, Math.min(100, Math.round(score)));
+  const nivel = score >= 80 ? "Excelente" : score >= 60 ? "Saudável" : score >= 40 ? "Atenção" : "Crítico";
+
+  // ── RESUMO (linguagem natural) ─────────────────────────
+  const tend = comparativo?.faturamento == null ? "" : comparativo.faturamento > 5 ? ` (${comparativo.faturamento >= 0 ? "+" : ""}${Math.round(comparativo.faturamento)}% vs. anterior, em alta)` : comparativo.faturamento < -5 ? ` (${Math.round(comparativo.faturamento)}% vs. anterior, em queda)` : " (estável vs. anterior)";
+  const partes = [];
+  partes.push(`No ${periodoLabel}, o faturamento pago foi ${fmt(fat)}${tend}, em ${totalPedidos} pedido(s), ticket médio ${fmt(ticket)}.`);
+  if (produtoTop) partes.push(`O ${produtoTop.nome} é o carro-chefe.`);
+  if (melhorHora?.valor > 0) partes.push(`O pico de vendas é às ${melhorHora.label}.`);
+  const riscos = [];
+  if (emAberto > 0) riscos.push(`${fmt(emAberto)} em aberto`);
+  if (semEstoque.length) riscos.push(`${semEstoque.length} item(ns) com estoque baixo`);
+  if (inativos.length) riscos.push(`${inativos.length} cliente(s) inativo(s)`);
+  if (riscos.length) partes.push(`Atenção a: ${riscos.join(", ")}.`);
+  const acaoTop = acoes.find((x) => x.prio === "alta") || acoes[0];
+  if (acaoTop) partes.push(`Prioridade agora: ${acaoTop.texto}`);
+  const resumo = partes.join(" ");
+
+  const ordPrio = { alta: 0, media: 1, baixa: 2 };
+  acoes.sort((x, y) => ordPrio[x.prio] - ordPrio[y.prio]);
+  return { score, nivel, resumo, insights, acoes: acoes.slice(0, 6) };
+}
+
 function DashboardAdmin({ orders, products, comandas = [], clientes = [], setores = [], irParaMesas = () => {} }) {
   const [periodo, setPeriodo] = useState("30");
   const [ini, setIni] = useState("");
@@ -6660,6 +6740,33 @@ function DashboardAdmin({ orders, products, comandas = [], clientes = [], setore
     abertos.length > 0 ? "Conferir comandas em aberto antes do fechamento." : "Fechamento de caixa sem pendências.",
   ];
 
+  // ── Dados de CRM (agregados de TODO o histórico) + entradas para a IA ──
+  const porCli = {};
+  orders.forEach((o) => {
+    if (o.status === "cancelled") return;
+    const tel = o.clienteTelefone; if (!tel) return;
+    const val = orderTotal(o) * 1.1;
+    const d = o.createdAtISO ? new Date(o.createdAtISO).getTime() : 0;
+    if (!porCli[tel]) porCli[tel] = { tel, nome: o.customer, qtd: 0, total: 0, ultimo: 0 };
+    porCli[tel].qtd += 1; porCli[tel].total += val; if (d > porCli[tel].ultimo) porCli[tel].ultimo = d;
+  });
+  const arrCli = Object.values(porCli);
+  const inativos = arrCli.filter((c) => c.ultimo && (agora - c.ultimo) / 86400000 > 30);
+  const vips = arrCli.filter((c) => c.qtd >= 5 || c.total >= 200).sort((x, y) => y.total - x.total);
+  const novosClientes = (() => { try { const [a0, b0] = intervaloPeriodo(periodo, ini, fim); if (!a0) return 0; return (clientes || []).filter((c) => c.criadoEm && new Date(c.criadoEm) >= a0 && new Date(c.criadoEm) <= (b0 || new Date())).length; } catch { return 0; } })();
+  const pedidosComCliente = pagos.filter((o) => o.clienteTelefone).length;
+  const pctIdentificado = pagos.length ? pedidosComCliente / pagos.length : 0;
+  const vendidosNomes = new Set();
+  filtrados.forEach((o) => { if (o.status !== "cancelled") (o.items || []).forEach((it) => vendidosNomes.add(it.name)); });
+  const produtosParados = products.filter((p) => p.active !== false && !vendidosNomes.has(p.name)).map((p) => p.name);
+  const periodoLabel = ({ hoje: "dia", ontem: "dia", "7": "últimos 7 dias", "15": "últimos 15 dias", "30": "período", tudo: "histórico" })[periodo] || "período";
+  const ia = analisarGestaoIA({
+    fat: a.faturamento, emAberto: a.emAberto, ticket: a.ticket, totalPedidos: a.totalPedidos, comparativo,
+    produtoTop, melhorHora, semEstoque, cancelados, valorPerdido, motivoPrincipal,
+    clientesPeriodo, clientesCadastrados: (clientes || []).length, mesasCriticas, tempoMedioPrep, taxaEntrega,
+    pctIdentificado, vips, inativos, novosClientes, produtosParados, periodoLabel,
+  });
+
   return (
     <div className="space-y-6">
       {/* Cabeçalho + período */}
@@ -6698,6 +6805,70 @@ function DashboardAdmin({ orders, products, comandas = [], clientes = [], setore
         <CardMetrica titulo="Mesas abertas" valor={mesasAbertas} sub={mesasAbertas ? `tempo médio aberto: ${tempoMedioMesa} min` : "nenhuma mesa aberta"} cor="text-emerald-400" icon="🪑" />
         <CardMetrica titulo="Clientes no período" valor={clientesPeriodo} sub={`de ${clientes.length} cadastrados`} cor="text-blue-400" icon="👥" />
       </div>
+
+      {/* Copiloto de Gestão (IA Gerencial) */}
+      {(() => {
+        const sevCls = { pos: "border-emerald-400/30 bg-emerald-500/10 text-emerald-200", info: "border-blue-400/30 bg-blue-500/10 text-blue-200", warn: "border-amber-400/30 bg-amber-500/10 text-amber-200", crit: "border-red-400/30 bg-red-500/10 text-red-200" };
+        const sevIc = { pos: "✅", info: "ℹ️", warn: "⚠️", crit: "🔴" };
+        const nivelCls = ia.score >= 80 ? "text-emerald-400" : ia.score >= 60 ? "text-gold-400" : ia.score >= 40 ? "text-amber-400" : "text-red-400";
+        const nivelRing = ia.score >= 80 ? "#34d399" : ia.score >= 60 ? "#fbbf24" : ia.score >= 40 ? "#f59e0b" : "#f87171";
+        const prioCls = { alta: "border-red-400/40 bg-red-500/10 text-red-200", media: "border-amber-400/40 bg-amber-500/10 text-amber-200", baixa: "border-white/10 bg-white/[0.04] text-slate-300" };
+        const prioLbl = { alta: "Alta", media: "Média", baixa: "Baixa" };
+        const cats = [...new Set(ia.insights.map((x) => x.cat))];
+        return (
+          <div className="rounded-[2rem] border border-gold-400/25 bg-gradient-to-br from-gold-400/[0.07] to-transparent p-5">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
+              <div className="flex items-center gap-3">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gold-400/15 text-2xl">🤖</span>
+                <div>
+                  <h3 className="page-title text-lg font-black text-white">Copiloto de Gestão <span className="ml-1 rounded-full border border-gold-400/30 bg-gold-400/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-gold-300">IA</span></h3>
+                  <p className="text-xs text-slate-400">Análise automática de vendas, clientes e operação para apoiar suas decisões.</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 lg:ml-auto">
+                <div className="relative h-16 w-16 shrink-0" style={{ background: `conic-gradient(${nivelRing} ${ia.score * 3.6}deg, rgba(255,255,255,0.08) 0deg)`, borderRadius: "9999px" }}>
+                  <div className="absolute inset-[5px] flex flex-col items-center justify-center rounded-full bg-slate-950">
+                    <span className={`text-lg font-black leading-none ${nivelCls}`}>{ia.score}</span>
+                    <span className="text-[8px] font-bold uppercase tracking-wider text-slate-500">saúde</span>
+                  </div>
+                </div>
+                <div><p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Diagnóstico</p><p className={`text-base font-black ${nivelCls}`}>{ia.nivel}</p></div>
+              </div>
+            </div>
+
+            <p className="mt-4 rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-3 text-sm leading-relaxed text-slate-200">💬 {ia.resumo}</p>
+
+            {ia.insights.length > 0 && (
+              <div className="mt-4">
+                <p className="mb-2 text-[11px] font-black uppercase tracking-widest text-slate-500">Insights</p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {ia.insights.map((it, i) => (
+                    <div key={i} className={`flex items-start gap-2 rounded-2xl border px-3.5 py-2.5 text-xs font-bold ${sevCls[it.sev]}`}>
+                      <span className="shrink-0">{sevIc[it.sev]}</span>
+                      <span className="min-w-0"><span className="mr-1 rounded bg-black/20 px-1 py-0.5 text-[9px] font-black uppercase tracking-wide opacity-80">{it.cat}</span>{it.texto}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {ia.acoes.length > 0 && (
+              <div className="mt-4">
+                <p className="mb-2 text-[11px] font-black uppercase tracking-widest text-slate-500">Ações recomendadas (priorizadas)</p>
+                <div className="space-y-2">
+                  {ia.acoes.map((ac, i) => (
+                    <div key={i} className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2.5">
+                      <span className={`mt-0.5 shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-black uppercase ${prioCls[ac.prio]}`}>{prioLbl[ac.prio]}</span>
+                      <div className="min-w-0"><p className="text-sm font-bold text-white">{ac.texto}</p>{ac.motivo && <p className="text-[11px] text-slate-500">Porquê: {ac.motivo}</p>}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            <p className="mt-3 text-[10px] text-slate-600">Análise local e instantânea, baseada nos dados do período selecionado e do histórico — nenhum dado é enviado para fora do sistema.</p>
+          </div>
+        );
+      })()}
 
       {/* Alertas gerenciais */}
       <div>
