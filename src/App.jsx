@@ -1124,8 +1124,8 @@ export default function RestaurantePedidoApp() {
   function addToCart(product) {
     clearMessage();
     setCart((cur) => {
-      const ex = cur.find((i) => i.id === product.id);
-      if (ex) return cur.map((i) => i.id === product.id ? { ...i, quantity: i.quantity + 1 } : i);
+      const ex = cur.find((i) => i.id === product.id && !i.comboId);
+      if (ex) return cur.map((i) => (i.id === product.id && !i.comboId) ? { ...i, quantity: i.quantity + 1 } : i);
       return [...cur, createCartItem(product)];
     });
   }
@@ -1134,10 +1134,10 @@ export default function RestaurantePedidoApp() {
   function addConfiguredToCart(configurado) {
     clearMessage();
     setCart((cur) => {
-      const ex = cur.find((i) => i.id === configurado.id);
+      const ex = cur.find((i) => i.id === configurado.id && !i.comboId);
       if (ex) {
-        // Já existe — soma a quantidade e mantém a personalização mais recente
-        return cur.map((i) => i.id === configurado.id
+        // Já existe (fora de combo) — soma a quantidade e mantém a personalização mais recente
+        return cur.map((i) => (i.id === configurado.id && !i.comboId)
           ? { ...configurado, quantity: i.quantity + configurado.quantity }
           : i);
       }
@@ -1146,7 +1146,32 @@ export default function RestaurantePedidoApp() {
   }
 
   function removeFromCart(pid) {
-    setCart((cur) => cur.map((i) => i.id === pid ? { ...i, quantity: i.quantity - 1 } : i).filter((i) => i.quantity > 0));
+    setCart((cur) => cur.map((i) => (i.id === pid && !i.comboId) ? { ...i, quantity: i.quantity - 1 } : i).filter((i) => i.quantity > 0));
+  }
+
+  // ── Combos no tablet — adiciona todos os produtos do combo de uma vez, com
+  //    preço fechado distribuído proporcionalmente (mesma regra do cardápio do cliente).
+  const [comboRemoverTablet, setComboRemoverTablet] = useState(null);
+  function adicionarComboTablet(combo) {
+    clearMessage();
+    const inst = `${combo.promo.id}-${Date.now()}`;
+    const fator = combo.somaOriginal > 0 ? combo.precoCombo / combo.somaOriginal : 1;
+    let acumulado = 0; const n = combo.itens.length;
+    const novos = combo.itens.map((it, idx) => {
+      const original = Number(it.price) || 0;
+      const preco = idx === n - 1 ? Math.round((combo.precoCombo - acumulado) * 100) / 100 : Math.round(original * fator * 100) / 100;
+      acumulado += preco;
+      return { ...createCartItem(it), price: preco, precoOriginal: original, economiaUnit: Math.max(0, original - preco), comboId: inst, comboNome: combo.promo.nome, _uid: Date.now() + Math.random() + idx };
+    });
+    setCart((cur) => [...cur, ...novos]);
+    notify("success", `Combo "${combo.promo.nome}" adicionado!`);
+  }
+  function desfazerComboTablet(item) {
+    setCart((cur) => cur
+      .filter((i) => i._uid !== item._uid)
+      .map((i) => i.comboId === item.comboId ? { ...i, price: Number(i.precoOriginal) || i.price, economiaUnit: 0, comboId: undefined, comboNome: undefined } : i));
+    setComboRemoverTablet(null);
+    notify("success", "Combo desfeito — os itens restantes voltaram ao preço normal.");
   }
 
   function updateCartItem(pid, patch) {
@@ -2230,6 +2255,7 @@ export default function RestaurantePedidoApp() {
             <TabletView
               promocoes={filtraLoja(promocoes).filter((p) => p.ativo && p.mostrarTablet && promocaoVigente(p))}
               categoriasDb={categoriasDbLoja} economiaCart={economiaCart}
+              onAdicionarCombo={adicionarComboTablet} onRemoverComboItem={setComboRemoverTablet}
               gruposOpcoes={filtraLoja(gruposOpcoes)} opcoes={filtraLoja(opcoes)} onChamarGarcom={() => registrarChamadoFn("garcom")}
               products={products} categories={categories}
               filteredItems={filteredItems} selectedCategory={selectedCategory} setSelectedCategory={setSelectedCategory}
@@ -2266,6 +2292,19 @@ export default function RestaurantePedidoApp() {
                 lojaNome={lojaInfo?.nome || ""}
               />
             )}
+            {comboRemoverTablet && (
+              <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/75 p-6 backdrop-blur-sm" onClick={() => setComboRemoverTablet(null)}>
+                <div className="w-full max-w-sm rounded-3xl border border-white/10 bg-slate-900 p-5 text-center" onClick={(e) => e.stopPropagation()}>
+                  <span className="text-4xl">🍔</span>
+                  <p className="mt-2 text-base font-black text-white">Sair do combo?</p>
+                  <p className="mt-1 text-sm text-slate-400">Ao remover <b className="text-white">{comboRemoverTablet.name}</b>, o combo <b className="text-emerald-300">{comboRemoverTablet.comboNome}</b> será desfeito. Os demais itens deixam a regra do combo e <b className="text-amber-300">voltam ao preço normal</b>.</p>
+                  <div className="mt-4 flex gap-2">
+                    <button onClick={() => setComboRemoverTablet(null)} className="flex-1 rounded-2xl border border-white/10 bg-white/[0.06] py-3 text-sm font-black text-slate-300 hover:bg-white/10">Manter combo</button>
+                    <button onClick={() => desfazerComboTablet(comboRemoverTablet)} className="flex-1 rounded-2xl bg-red-500 py-3 text-sm font-black text-white hover:bg-red-400">Remover assim mesmo</button>
+                  </div>
+                </div>
+              </div>
+            )}
           </>
         )}
 
@@ -2286,7 +2325,7 @@ export default function RestaurantePedidoApp() {
 //  TabletView — tela cheia para pedidos do cliente
 // ════════════════════════════════════════════════════════════
 function TabletView({
-  promocoes = [], categoriasDb = [], economiaCart = 0, gruposOpcoes = [], opcoes = [], onChamarGarcom = () => {},
+  promocoes = [], categoriasDb = [], economiaCart = 0, onAdicionarCombo = () => {}, onRemoverComboItem = () => {}, gruposOpcoes = [], opcoes = [], onChamarGarcom = () => {},
   products, categories, filteredItems, selectedCategory, setSelectedCategory,
   search, setSearch, cart, tableNumber, setTableNumber,
   customerName, setCustomerName, commandCode, setCommandCode,
@@ -2524,6 +2563,16 @@ function TabletView({
     return melhor;
   };
   const abrirProdutoComPromo = (item) => { const promo = promoDoProdutoTablet(item); setProdutoDetalhe(promo ? { ...item, price: promo.preco, precoOriginal: promo.original, economiaUnit: promo.original - promo.preco } : item); };
+  // Combos vigentes do tablet — pacote com preço fechado e produtos definidos
+  const combosTablet = promosTabletVigentes
+    .filter((p) => p.tipo === "combo" && Number(p.descontoValor) > 0)
+    .map((p) => {
+      const ids = Array.isArray(p.produtoIds) && p.produtoIds.length ? p.produtoIds : (p.produtoId ? [p.produtoId] : []);
+      const itens = ids.map((id) => (products || []).find((x) => x.id === id)).filter(Boolean);
+      const somaOriginal = itens.reduce((s, it) => s + (Number(it.price) || 0), 0);
+      return { promo: p, itens, somaOriginal, precoCombo: Number(p.descontoValor) };
+    })
+    .filter((c) => c.itens.length >= 1 && c.somaOriginal > 0);
   const cardGourmet = (item, tagAuto = null) => {
     const promoCard = promoDoProdutoTablet(item);
     const noCarrinho = cart.find((c) => c.id === item.id);
@@ -2677,7 +2726,28 @@ function TabletView({
                 ))}
               </div>
             )}
-            {filteredItems.length === 0 ? (
+            {/* Combos — pacote com preço fechado (adiciona todos os produtos de uma vez) */}
+            {combosTablet.length > 0 && (
+              <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {combosTablet.map((c) => (
+                  <div key={c.promo.id} className="flex flex-col rounded-2xl border border-emerald-400/40 bg-gradient-to-br from-emerald-500/10 to-emerald-500/[0.03] p-4">
+                    <div className="flex items-center gap-2">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500/20 text-lg">🍔</span>
+                      <div className="min-w-0"><p className="truncate text-sm font-black text-[var(--ord-text)]">{c.promo.nome}</p><p className="text-[11px] font-bold uppercase tracking-widest text-emerald-300">Combo</p></div>
+                    </div>
+                    <p className="mt-2 text-xs text-[var(--ord-text-soft)]">{c.itens.map((it) => it.name).join(" + ")}</p>
+                    <div className="mt-2 flex items-end justify-between">
+                      <div className="leading-none">
+                        {c.precoCombo < c.somaOriginal && <p className="text-[11px] font-bold text-[var(--ord-text-muted)] line-through">{formatCurrency(c.somaOriginal)}</p>}
+                        <p className="text-lg font-black text-emerald-400">{formatCurrency(c.precoCombo)}</p>
+                      </div>
+                    </div>
+                    <button onClick={() => onAdicionarCombo(c)} className="mt-3 w-full rounded-xl bg-emerald-500 py-2.5 text-sm font-black text-white transition active:scale-95 hover:bg-emerald-400">+ Adicionar combo</button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {filteredItems.length === 0 && combosTablet.length === 0 ? (
               <div className="flex h-full flex-col items-center justify-center gap-3 opacity-40">
                 <span className="text-5xl"><IconBusca /></span>
                 <p className="text-base font-black text-slate-300">Nenhum produto encontrado</p>
@@ -2867,15 +2937,20 @@ function TabletView({
                 <p className="text-sm text-slate-400">Carrinho vazio</p>
               </div>
             ) : cart.map((item) => (
-              <div key={item.id} className="rounded-2xl border border-white/10 bg-white/[0.04] p-3">
+              <div key={item._uid || item.id} className={`rounded-2xl border bg-white/[0.04] p-3 ${item.comboId ? "border-emerald-400/30" : "border-white/10"}`}>
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-sm font-semibold text-white leading-tight">{item.name}</p>
-                  <div className="flex items-center gap-1 rounded-xl bg-white/[0.06] p-0.5">
-                    <button onClick={() => removeFromCart(item.id)} className="h-7 w-7 rounded-lg bg-white/10 font-black text-white text-xs hover:bg-white/20">−</button>
-                    <span className="w-5 text-center text-sm font-black text-white">{item.quantity}</span>
-                    <button onClick={() => addToCart(item)} className="h-7 w-7 rounded-lg bg-gold-400 font-black text-blue-950 text-xs hover:bg-gold-300">+</button>
-                  </div>
+                  {item.comboId ? (
+                    <button onClick={() => onRemoverComboItem(item)} title="Sair do combo" className="shrink-0 rounded-lg border border-red-400/20 bg-red-500/10 px-2 py-1 text-xs font-black text-red-300 hover:bg-red-500/20">✕</button>
+                  ) : (
+                    <div className="flex items-center gap-1 rounded-xl bg-white/[0.06] p-0.5">
+                      <button onClick={() => removeFromCart(item.id)} className="h-7 w-7 rounded-lg bg-white/10 font-black text-white text-xs hover:bg-white/20">−</button>
+                      <span className="w-5 text-center text-sm font-black text-white">{item.quantity}</span>
+                      <button onClick={() => addToCart(item)} className="h-7 w-7 rounded-lg bg-gold-400 font-black text-blue-950 text-xs hover:bg-gold-300">+</button>
+                    </div>
+                  )}
                 </div>
+                {item.comboId && <p className="mt-0.5 text-[11px] font-bold text-emerald-300">🍔 Combo: {item.comboNome}</p>}
                 <p className="mt-0.5 text-xs text-slate-400">{formatCurrency(item.price)} cada • <span className="font-semibold text-gold-400">{formatCurrency(item.price * item.quantity)}</span></p>
 
                 {/* Resumo limpo: a lista de ingredientes padrão não é exibida aqui.
@@ -10554,9 +10629,14 @@ function PromocaoModal({ promocao, produtos = [], categoriasDb = [], onSalvar, o
   const [addProd, setAddProd] = useState(""); // select temporário p/ adicionar produto
   const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-gold-400/60 transition";
   const lbl = "mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500";
+  const hojeISO = new Date().toISOString().slice(0, 10);
+  const horaAgora = new Date().toTimeString().slice(0, 5);
   const dataInvalida = f.dataInicio && f.dataFim && f.dataFim < f.dataInicio;
   const horaInvalida = f.horaInicio && f.horaFim && f.horaFim < f.horaInicio;
-  const valido = f.nome.trim() && !dataInvalida && !horaInvalida;
+  // Não permite início retroativo (data/hora no passado). Ao EDITAR, mantém o início original (grandfather).
+  const inicioRetroativo = f.dataInicio && f.dataInicio < hojeISO && f.dataInicio !== (promocao?.dataInicio || "");
+  const horaRetroativa = !inicioRetroativo && f.dataInicio === hojeISO && f.horaInicio && f.horaInicio < horaAgora && f.horaInicio !== (promocao?.horaInicio || "");
+  const valido = f.nome.trim() && !dataInvalida && !horaInvalida && !inicioRetroativo && !horaRetroativa;
   const toggleDia = (d) => setF((s) => ({ ...s, diasSemana: s.diasSemana.includes(d) ? s.diasSemana.filter((x) => x !== d) : [...s.diasSemana, d].sort() }));
   const adicionarProduto = (id) => { const pid = Number(id); if (!pid || f.produtoIds.includes(pid)) return; setF((s) => ({ ...s, produtoIds: [...s.produtoIds, pid] })); };
   const removerProduto = (id) => setF((s) => ({ ...s, produtoIds: s.produtoIds.filter((x) => x !== id) }));
@@ -10639,11 +10719,13 @@ function PromocaoModal({ promocao, produtos = [], categoriasDb = [], onSalvar, o
             </select>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div><span className={lbl}>Início</span><input type="date" value={f.dataInicio || ""} onChange={(e) => setF({ ...f, dataInicio: e.target.value })} className={inp} /></div>
-            <div><span className={lbl}>Fim</span><input type="date" value={f.dataFim || ""} onChange={(e) => setF({ ...f, dataFim: e.target.value })} className={`${inp} ${dataInvalida ? "!border-red-400/70" : ""}`} /></div>
-            <div><span className={lbl}>Hora início</span><input type="time" value={f.horaInicio || ""} onChange={(e) => setF({ ...f, horaInicio: e.target.value })} className={inp} /></div>
+            <div><span className={lbl}>Início</span><input type="date" min={promocao ? undefined : hojeISO} value={f.dataInicio || ""} onChange={(e) => setF({ ...f, dataInicio: e.target.value })} className={`${inp} ${inicioRetroativo ? "!border-red-400/70" : ""}`} /></div>
+            <div><span className={lbl}>Fim</span><input type="date" min={f.dataInicio || hojeISO} value={f.dataFim || ""} onChange={(e) => setF({ ...f, dataFim: e.target.value })} className={`${inp} ${dataInvalida ? "!border-red-400/70" : ""}`} /></div>
+            <div><span className={lbl}>Hora início</span><input type="time" value={f.horaInicio || ""} onChange={(e) => setF({ ...f, horaInicio: e.target.value })} className={`${inp} ${horaRetroativa ? "!border-red-400/70" : ""}`} /></div>
             <div><span className={lbl}>Hora fim</span><input type="time" value={f.horaFim || ""} onChange={(e) => setF({ ...f, horaFim: e.target.value })} className={`${inp} ${horaInvalida ? "!border-red-400/70" : ""}`} /></div>
           </div>
+          {inicioRetroativo && <p className="rounded-xl border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-200">⚠ A data de <b>Início</b> não pode ser retroativa. Use a data de hoje ({new Date(hojeISO + "T00:00").toLocaleDateString("pt-BR")}) ou futura.</p>}
+          {horaRetroativa && <p className="rounded-xl border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-200">⚠ Como o início é hoje, a <b>Hora início</b> não pode ser anterior ao horário atual ({horaAgora}).</p>}
           {dataInvalida && <p className="rounded-xl border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-200">⚠ A data <b>Fim</b> é anterior à data <b>Início</b>. Assim a promoção nunca fica vigente — ajuste para salvar.</p>}
           {horaInvalida && <p className="rounded-xl border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-200">⚠ A <b>Hora fim</b> é anterior à <b>Hora início</b>. Para promoção que vira a madrugada, deixe a hora fim em branco.</p>}
           <div>
