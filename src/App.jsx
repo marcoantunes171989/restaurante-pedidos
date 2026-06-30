@@ -2573,6 +2573,23 @@ function TabletView({
       return { promo: p, itens, somaOriginal, precoCombo: Number(p.descontoValor) };
     })
     .filter((c) => c.itens.length >= 1 && c.somaOriginal > 0);
+  // Faixa "Ofertas de hoje" — ícone/validade por tipo + clique (combo rola ao card, categoria filtra)
+  const combosRefTablet = useRef(null);
+  const DIAS_CURTOS_T = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+  const fmtHoraT = (h) => { if (!h) return ""; const hh = h.slice(0, 2), mm = h.slice(3, 5); return mm === "00" ? `${hh}h` : `${hh}h${mm}`; };
+  const iconeOfertaT = (p) => p.tipo === "combo" ? "🍔" : p.tipo === "horario" ? "⏰" : p.tipo === "destaque" ? "⭐" : p.tipo === "valor" ? "💰" : "🏷️";
+  const validadeOfertaT = (p) => {
+    const partes = [];
+    if (Array.isArray(p.diasSemana) && p.diasSemana.length > 0 && p.diasSemana.length < 7) partes.push(p.diasSemana.map((d) => DIAS_CURTOS_T[d]).join(", "));
+    if (p.horaInicio || p.horaFim) partes.push(`${fmtHoraT(p.horaInicio) || "…"}–${fmtHoraT(p.horaFim) || "…"}`);
+    return partes.join(" · ");
+  };
+  const clicarOfertaT = (p) => {
+    if (p.tipo === "combo") { combosRefTablet.current?.scrollIntoView({ behavior: "smooth", block: "start" }); return; }
+    const catNome = p.categoriaId != null ? catNomePorIdTablet[p.categoriaId] : null;
+    if (catNome && (categories || []).includes(catNome)) { setSelectedCategory(catNome); setSearch(""); return; }
+    setSelectedCategory("Todos"); setSearch("");
+  };
   const cardGourmet = (item, tagAuto = null) => {
     const promoCard = promoDoProdutoTablet(item);
     const noCarrinho = cart.find((c) => c.id === item.id);
@@ -2714,21 +2731,31 @@ function TabletView({
           <div className="flex-1 overflow-y-auto p-5">
             {/* Faixa de ofertas vigentes (promoções) */}
             {promosTabletVigentes.length > 0 && (
-              <div className="mb-5 flex gap-3 overflow-x-auto pb-1">
-                {promosTabletVigentes.map((p) => (
-                  <div key={p.id} className="flex min-w-[200px] shrink-0 items-center gap-3 rounded-2xl border border-gold-400/40 bg-gradient-to-br from-gold-400/15 to-gold-400/[0.04] px-4 py-3">
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gold-400/20 text-gold-300">🏷️</span>
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-black text-[var(--ord-text)]">{p.nome}</p>
-                      <p className="text-xs font-black text-gold-400">{promoResumoDesconto(p)}</p>
-                    </div>
-                  </div>
-                ))}
+              <div className="mb-5">
+                <p className="mb-2 flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-gold-300">🔥 Ofertas de hoje</p>
+                <div className="-mx-1 flex gap-2.5 overflow-x-auto px-1 pb-1">
+                  {promosTabletVigentes.map((p) => {
+                    const ehCombo = p.tipo === "combo";
+                    const val = validadeOfertaT(p);
+                    return (
+                      <button key={p.id} type="button" onClick={() => clicarOfertaT(p)}
+                        className={`group flex min-w-[210px] shrink-0 items-center gap-3 rounded-2xl border px-3.5 py-3 text-left transition active:scale-[0.97] ${ehCombo ? "border-emerald-400/40 bg-gradient-to-br from-emerald-500/15 to-emerald-500/[0.04] hover:from-emerald-500/25" : "border-gold-400/40 bg-gradient-to-br from-gold-400/15 to-gold-400/[0.04] hover:from-gold-400/25"}`}>
+                        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-lg ${ehCombo ? "bg-emerald-500/20" : "bg-gold-400/20"}`}>{iconeOfertaT(p)}</span>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-black text-[var(--ord-text)]">{p.nome}</p>
+                          <p className={`truncate text-xs font-black ${ehCombo ? "text-emerald-300" : "text-gold-400"}`}>{promoResumoDesconto(p)}</p>
+                          {val && <p className="truncate text-[10px] font-bold text-[var(--ord-text-muted)]">📅 {val}</p>}
+                        </div>
+                        <span className="shrink-0 text-[var(--ord-text-muted)] transition group-hover:translate-x-0.5">›</span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             )}
             {/* Combos — pacote com preço fechado (adiciona todos os produtos de uma vez) */}
             {combosTablet.length > 0 && (
-              <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <div ref={combosRefTablet} className="mb-5 grid gap-3 scroll-mt-4 sm:grid-cols-2 lg:grid-cols-3">
                 {combosTablet.map((c) => (
                   <div key={c.promo.id} className="flex flex-col rounded-2xl border border-emerald-400/40 bg-gradient-to-br from-emerald-500/10 to-emerald-500/[0.03] p-4">
                     <div className="flex items-center gap-2">
