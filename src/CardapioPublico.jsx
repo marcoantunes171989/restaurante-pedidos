@@ -353,6 +353,23 @@ export default function CardapioPublico() {
     const alvo = secRefs.current[nome];
     if (alvo) window.scrollTo({ top: alvo.getBoundingClientRect().top + window.scrollY - 108, behavior: "smooth" });
   };
+  // Ofertas: ícone/resumo/validade por tipo + clique leva ao combo/categoria
+  const combosRef = useRef(null);
+  const DIAS_CURTOS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+  const fmtHora = (h) => { if (!h) return ""; const hh = h.slice(0, 2), mm = h.slice(3, 5); return mm === "00" ? `${hh}h` : `${hh}h${mm}`; };
+  const iconeOferta = (p) => p.tipo === "combo" ? "🍔" : p.tipo === "horario" ? "⏰" : p.tipo === "destaque" ? "⭐" : p.tipo === "valor" ? "💰" : "🏷️";
+  const validadeOferta = (p) => {
+    const partes = [];
+    if (Array.isArray(p.diasSemana) && p.diasSemana.length > 0 && p.diasSemana.length < 7) partes.push(p.diasSemana.map((d) => DIAS_CURTOS[d]).join(", "));
+    if (p.horaInicio || p.horaFim) partes.push(`${fmtHora(p.horaInicio) || "…"}–${fmtHora(p.horaFim) || "…"}`);
+    return partes.join(" · ");
+  };
+  const clicarOferta = (p) => {
+    if (p.tipo === "combo") { combosRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }); return; }
+    const catNome = p.categoriaId != null ? catNomePorId[p.categoriaId] : null;
+    if (catNome && secRefs.current[catNome]) { irParaCategoria(catNome); return; }
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
   const renderProduto = (item) => {
     const indisponivel = item.disponivel === false;
     const personalizavel = (item.ingredients || []).length > 0;
@@ -698,19 +715,32 @@ export default function CardapioPublico() {
 
         {/* Ofertas vigentes */}
         {promosVigentes.length > 0 && (
-          <div className="mb-4 flex gap-3 overflow-x-auto pb-1">
-            {promosVigentes.map((p) => (
-              <div key={p.id} className="flex min-w-[180px] shrink-0 items-center gap-3 rounded-2xl border border-gold-400/40 bg-gradient-to-br from-gold-400/15 to-gold-400/[0.04] px-4 py-3">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gold-400/20 text-gold-300">🏷️</span>
-                <div className="min-w-0"><p className="truncate text-sm font-black text-white">{p.nome}</p><p className="text-xs font-black text-gold-400">{promoResumoDesconto(p)}</p></div>
-              </div>
-            ))}
+          <div className="mb-4">
+            <p className="mb-2 flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-gold-300">🔥 Ofertas de hoje</p>
+            <div className="-mx-1 flex gap-2.5 overflow-x-auto px-1 pb-1">
+              {promosVigentes.map((p) => {
+                const ehCombo = p.tipo === "combo";
+                const val = validadeOferta(p);
+                return (
+                  <button key={p.id} type="button" onClick={() => clicarOferta(p)}
+                    className={`group flex min-w-[200px] shrink-0 items-center gap-3 rounded-2xl border px-3.5 py-3 text-left transition active:scale-[0.97] ${ehCombo ? "border-emerald-400/40 bg-gradient-to-br from-emerald-500/15 to-emerald-500/[0.04] hover:from-emerald-500/25" : "border-gold-400/40 bg-gradient-to-br from-gold-400/15 to-gold-400/[0.04] hover:from-gold-400/25"}`}>
+                    <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-lg ${ehCombo ? "bg-emerald-500/20" : "bg-gold-400/20"}`}>{iconeOferta(p)}</span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-black text-white">{p.nome}</p>
+                      <p className={`truncate text-xs font-black ${ehCombo ? "text-emerald-300" : "text-gold-400"}`}>{promoResumoDesconto(p)}</p>
+                      {val && <p className="truncate text-[10px] font-bold text-slate-400">📅 {val}</p>}
+                    </div>
+                    <span className="shrink-0 text-slate-500 transition group-hover:translate-x-0.5">›</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
 
         {/* Combos — pacotes com preço fechado (adiciona todos os produtos de uma vez) */}
         {combosVigentes.length > 0 && (
-          <div className="mb-4 space-y-2">
+          <div ref={combosRef} className="mb-4 space-y-2 scroll-mt-28">
             {combosVigentes.map((c) => (
               <div key={c.promo.id} className="rounded-2xl border border-emerald-400/30 bg-gradient-to-br from-emerald-500/10 to-emerald-500/[0.03] p-3.5">
                 <div className="flex items-start justify-between gap-3">
