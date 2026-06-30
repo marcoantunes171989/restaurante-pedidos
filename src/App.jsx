@@ -5402,6 +5402,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
   const menu = [
     { grupo: "Visão Geral", itens: [
       { id: "dashboard", icon: <IconDashboard />, label: "Dashboard" },
+      { id: "copiloto", icon: <span className="text-base leading-none">🤖</span>, label: "Copiloto IA" },
       { id: "relatorios", icon: <IconRelatorios />, label: "Relatórios" },
       { id: "crm", icon: <IconCrm />, label: "CRM / Clientes" },
       { id: "fidelidade", icon: <IconLicencas />, label: "Fidelidade" },
@@ -5579,6 +5580,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
             <ModuloBloqueado slug={ativo} lojaInfo={lojaInfo} onVerPlanos={() => setAdminSection("plano")} />
           ) : (<SecaoErrorBoundary key={ativo}>
           {ativo === "dashboard"  && <DashboardAdmin orders={orders} products={products} comandas={comandasRegistradas} clientes={clientes} setores={setores} irParaMesas={() => setAdminSection("mesas")} />}
+          {ativo === "copiloto"   && <DashboardAdmin orders={orders} products={products} comandas={comandasRegistradas} clientes={clientes} setores={setores} soCopiloto />}
           {ativo === "relatorios" && <RelatoriosAdmin orders={orders} products={products} lojaInfo={lojaInfo} pesquisas={filtraLoja(pesquisas)} irParaMesas={() => setAdminSection("mesas")} />}
           {ativo === "crm"        && <CrmAdmin clientes={clientes} orders={orders} fidTransacoes={fidTransacoes} fidRecompensas={fidRecompensas} lancarPontos={fidApi?.lancarPontos} configCrm={lojaInfo?.configCrm || {}} salvarConfigCrm={salvarConfigCrm} />}
           {ativo === "fidelidade" && (precisaEmpresa ? avisoEmpresa : <FidelidadeAdmin regra={fidRegra} recompensas={fidRecompensas} transacoes={fidTransacoes} clientes={clientes} api={fidApi} />)}
@@ -6620,7 +6622,7 @@ function analisarGestaoIA(ctx) {
   return { score, nivel, resumo, insights, acoes: acoes.slice(0, 6) };
 }
 
-function DashboardAdmin({ orders, products, comandas = [], clientes = [], setores = [], irParaMesas = () => {} }) {
+function DashboardAdmin({ orders, products, comandas = [], clientes = [], setores = [], irParaMesas = () => {}, soCopiloto = false }) {
   const [periodo, setPeriodo] = useState("30");
   const [ini, setIni] = useState("");
   const [fim, setFim] = useState("");
@@ -6811,10 +6813,10 @@ function DashboardAdmin({ orders, products, comandas = [], clientes = [], setore
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h2 className="page-title flex items-center gap-2.5 text-2xl font-bold tracking-tight text-white">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gold-400/30 bg-gold-400/10 text-gold-300"><IconDashboard /></span>
-            Dashboard Gerencial
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gold-400/30 bg-gold-400/10 text-gold-300">{soCopiloto ? "🤖" : <IconDashboard />}</span>
+            {soCopiloto ? "Copiloto IA" : "Dashboard Gerencial"}
           </h2>
-          <p className="mt-1 max-w-2xl text-sm text-slate-400">Visão estratégica de vendas, operação, produtos, clientes e desempenho financeiro.</p>
+          <p className="mt-1 max-w-2xl text-sm text-slate-400">{soCopiloto ? "Assistente de gestão por IA: análise automática + chat para apoiar suas decisões." : "Visão estratégica de vendas, operação, produtos, clientes e desempenho financeiro."}</p>
         </div>
         <SeletorPeriodo periodo={periodo} setPeriodo={setPeriodo} ini={ini} setIni={setIni} fim={fim} setFim={setFim} />
       </div>
@@ -6826,6 +6828,7 @@ function DashboardAdmin({ orders, products, comandas = [], clientes = [], setore
         <GrupoPill titulo="Status" valor={statusF} setValor={setStatusF} opcoes={[{ id: "todos", label: "Todos" }, { id: "pago", label: "Pago" }, { id: "aberto", label: "Em aberto" }, { id: "cancelado", label: "Cancelado" }]} />
       </div>
 
+      {!soCopiloto && (<>
       {/* KPIs (8) */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <button onClick={() => setModal({ titulo: "Faturamento — pedidos pagos", pedidos: pagos })} className="text-left">
@@ -6844,8 +6847,10 @@ function DashboardAdmin({ orders, products, comandas = [], clientes = [], setore
         <CardMetrica titulo="Clientes no período" valor={clientesPeriodo} sub={`de ${clientes.length} cadastrados`} cor="text-blue-400" icon="👥" />
       </div>
 
-      {/* Copiloto de Gestão (IA Gerencial) */}
-      {(() => {
+      </>)}
+
+      {/* Copiloto de Gestão (IA) — só na tela dedicada do menu "Copiloto IA" */}
+      {soCopiloto && (() => {
         const sevCls = { pos: "border-emerald-400/30 bg-emerald-500/10 text-emerald-200", info: "border-blue-400/30 bg-blue-500/10 text-blue-200", warn: "border-amber-400/30 bg-amber-500/10 text-amber-200", crit: "border-red-400/30 bg-red-500/10 text-red-200" };
         const sevIc = { pos: "✅", info: "ℹ️", warn: "⚠️", crit: "🔴" };
         const nivelCls = ia.score >= 80 ? "text-emerald-400" : ia.score >= 60 ? "text-gold-400" : ia.score >= 40 ? "text-amber-400" : "text-red-400";
@@ -6936,6 +6941,7 @@ function DashboardAdmin({ orders, products, comandas = [], clientes = [], setore
         );
       })()}
 
+      {!soCopiloto && (<>
       {/* Alertas gerenciais */}
       <div>
         <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">Alertas gerenciais</h3>
@@ -7099,6 +7105,7 @@ function DashboardAdmin({ orders, products, comandas = [], clientes = [], setore
           </ul>
         </Painel>
       </div>
+      </>)}
     </div>
   );
 }
