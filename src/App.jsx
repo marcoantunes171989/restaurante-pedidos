@@ -24,6 +24,7 @@ import {
   fetchFidelidadeRegras, salvarFidelidadeRegra, fetchFidelidadeRecompensas, inserirRecompensa, excluirRecompensa, fetchFidelidadeTransacoes, lancarFidelidadeTransacao, escutarFidelidadeTransacoes,
   fetchPesquisas, escutarPesquisas,
   fetchChamados, criarChamado, atualizarChamado, escutarChamados,
+  perguntarCopilotoIA,
   fetchAuditoria, registrarAuditoria, escutarAuditoria, marcarAuditoriaAnalisada,
   loginSupabaseAuth, logoutSupabaseAuth, aguardarSessao, getSessionEmail,
 } from "./lib/supabase";
@@ -6627,6 +6628,11 @@ function DashboardAdmin({ orders, products, comandas = [], clientes = [], setore
   const [canal, setCanal] = useState("todos"); // visual: pedidos não têm canal de origem
   const [statusF, setStatusF] = useState("todos");
   const [modal, setModal] = useState(null);
+  // Chat "Pergunte ao Copiloto" (IA via Edge Function, com fallback no motor local)
+  const [chatMsgs, setChatMsgs] = useState([]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatErro, setChatErro] = useState("");
 
   const horaDe = (o) => (o.createdAtISO ? new Date(o.createdAtISO).getHours() : (o.hour ?? null));
   const base0 = filtrarPedidosPorPeriodo(orders, periodo, ini, fim);
@@ -6767,6 +6773,38 @@ function DashboardAdmin({ orders, products, comandas = [], clientes = [], setore
     pctIdentificado, vips, inativos, novosClientes, produtosParados, periodoLabel,
   });
 
+  // Monta um resumo textual dos dados do período para a IA raciocinar em cima
+  function montarResumoIA() {
+    return [
+      ia.resumo,
+      `Faturamento pago: ${formatCurrency(a.faturamento)} | Em aberto: ${formatCurrency(a.emAberto)} | Ticket médio: ${formatCurrency(a.ticket)} | Pedidos: ${a.totalPedidos} | Cancelados: ${cancelados.length}.`,
+      comparativo?.faturamento != null ? `Variação de faturamento vs. período anterior: ${Math.round(comparativo.faturamento)}%.` : "",
+      produtoTop ? `Produto mais vendido: ${produtoTop.nome} (${produtoTop.qtd} un).` : "",
+      produtosParados.length ? `Produtos sem vendas no período: ${produtosParados.slice(0, 10).join(", ")}.` : "",
+      melhorHora.valor > 0 ? `Horário de pico: ${melhorHora.label} (${formatCurrency(melhorHora.valor)}).` : "",
+      `Clientes que compraram: ${clientesPeriodo} de ${(clientes || []).length} cadastrados | Pedidos com cliente identificado: ${Math.round(pctIdentificado * 100)}%.`,
+      vips.length ? `Clientes VIP: ${vips.length} (maior: ${vips[0].nome || "cliente"} ${formatCurrency(vips[0].total)}).` : "",
+      inativos.length ? `Clientes inativos (+30 dias sem comprar): ${inativos.length}.` : "",
+      semEstoque.length ? `Produtos com estoque baixo: ${semEstoque.map((p) => p.name).slice(0, 10).join(", ")}.` : "",
+      cancelados.length ? `Perda por cancelamentos: ${formatCurrency(valorPerdido)} | Motivo principal: ${motivoPrincipal}.` : "",
+      tempoMedioPrep != null ? `Tempo médio de preparo: ${tempoMedioPrep} min.` : "",
+      ia.acoes.length ? `Ações que o sistema já sugeriu: ${ia.acoes.map((x) => x.texto).join(" | ")}.` : "",
+    ].filter(Boolean).join("\n");
+  }
+  async function enviarPerguntaIA(perguntaOverride) {
+    const q = (perguntaOverride ?? chatInput).trim();
+    if (!q || chatLoading) return;
+    setChatInput(""); setChatErro("");
+    setChatMsgs((h) => [...h, { role: "user", content: q }]);
+    setChatLoading(true);
+    try {
+      const resposta = await perguntarCopilotoIA({ resumoDados: montarResumoIA(), pergunta: q, historico: chatMsgs.slice(-8) });
+      setChatMsgs((h) => [...h, { role: "assistant", content: resposta || "(sem resposta)" }]);
+    } catch (e) {
+      setChatErro("IA indisponível: " + ((e && e.message) || e) + ". Publique a Edge Function 'copiloto-ia' e defina o secret ANTHROPIC_API_KEY no Supabase. Enquanto isso, use a análise local acima.");
+    } finally { setChatLoading(false); }
+  }
+
   return (
     <div className="space-y-6">
       {/* Cabeçalho + período */}
@@ -6865,7 +6903,35 @@ function DashboardAdmin({ orders, products, comandas = [], clientes = [], setore
                 </div>
               </div>
             )}
-            <p className="mt-3 text-[10px] text-slate-600">Análise local e instantânea, baseada nos dados do período selecionado e do histórico — nenhum dado é enviado para fora do sistema.</p>
+            {/* Chat "Pergunte ao Copiloto" — IA (Claude) com fallback no motor local */}
+            <div className="mt-4 border-t border-white/10 pt-4">
+              <p className="mb-2 flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-slate-500">💬 Pergunte ao Copiloto</p>
+              {chatMsgs.length > 0 && (
+                <div className="mb-2 max-h-72 space-y-2 overflow-y-auto rounded-2xl border border-white/10 bg-slate-950/40 p-3">
+                  {chatMsgs.map((m, i) => (
+                    <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+                      <div className={`max-w-[88%] whitespace-pre-wrap rounded-2xl px-3.5 py-2 text-sm leading-relaxed ${m.role === "user" ? "bg-gold-400/15 text-gold-100" : "border border-white/10 bg-white/[0.05] text-slate-200"}`}>{m.content}</div>
+                    </div>
+                  ))}
+                  {chatLoading && <div className="flex justify-start"><div className="rounded-2xl border border-white/10 bg-white/[0.05] px-3.5 py-2 text-sm text-slate-400">🤖 Pensando…</div></div>}
+                </div>
+              )}
+              {chatErro && <p className="mb-2 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-[11px] font-bold text-amber-200">{chatErro}</p>}
+              <div className="flex gap-2">
+                <input value={chatInput} onChange={(e) => setChatInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") enviarPerguntaIA(); }}
+                  placeholder="Ex.: Como aumentar o ticket médio neste período?"
+                  className="flex-1 rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-2.5 text-sm text-white outline-none focus:border-gold-400/60 placeholder:text-slate-600" />
+                <button onClick={() => enviarPerguntaIA()} disabled={chatLoading || !chatInput.trim()}
+                  className="shrink-0 rounded-2xl bg-gold-400 px-5 py-2.5 text-sm font-black text-blue-950 transition hover:bg-gold-300 disabled:opacity-40">Enviar</button>
+              </div>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {["Como aumentar o ticket médio?", "Quais clientes devo reativar?", "O que está puxando as vendas pra baixo?", "Onde estou perdendo dinheiro?"].map((s) => (
+                  <button key={s} type="button" onClick={() => enviarPerguntaIA(s)} disabled={chatLoading}
+                    className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] font-bold text-slate-300 transition hover:bg-white/10 disabled:opacity-40">{s}</button>
+                ))}
+              </div>
+            </div>
+            <p className="mt-3 text-[10px] text-slate-600">Insights e ações: análise local instantânea (nenhum dado sai do sistema). O chat usa IA (Claude) via função segura no servidor — se não estiver configurada, oriente-se pela análise local acima.</p>
           </div>
         );
       })()}

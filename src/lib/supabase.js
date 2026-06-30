@@ -478,6 +478,16 @@ export async function criarChamado(c) {
   if (error) throw error
   return dbParaChamado(data)
 }
+
+// "Pergunte ao Copiloto" — chama a Edge Function copiloto-ia (Claude/Anthropic).
+// A chave da API fica só no servidor. Lança erro se a função não estiver publicada
+// ou falhar, para o front cair no motor de análise local (tolerante).
+export async function perguntarCopilotoIA({ resumoDados = '', pergunta, historico = [] }) {
+  const { data, error } = await supabase.functions.invoke('copiloto-ia', { body: { resumoDados, pergunta, historico } })
+  if (error) throw error
+  if (data?.error) throw new Error(data.error)
+  return data?.resposta || ''
+}
 export async function atualizarChamado(id, { status, atendidoPor }) {
   const campos = { status }
   if (status === 'atendido') campos.atendido_em = new Date().toISOString()
