@@ -470,10 +470,10 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
   );
 
   return (
-    <div className="relative flex items-center justify-center overflow-hidden px-4 text-slate-100"
+    <div className="tema-claro-area relative flex items-center justify-center overflow-hidden px-4 text-admin-text"
       style={{
         minHeight: "100dvh",
-        backgroundColor: "#000000",
+        backgroundColor: "#F8F9FA",
         fontFamily: "'Inter','Poppins',sans-serif",
         // Topo e rodapé com o MESMO tratamento (safe-area + respiro), fundo
         // sólido escuro de ponta a ponta — sem faixa/linha clara no topo.
@@ -507,7 +507,7 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
         {/* Card */}
         <form onSubmit={(e) => { e.preventDefault(); if (podeEntrar) login(); }}
           autoComplete="off"
-          className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6 shadow-2xl backdrop-blur-xl space-y-4">
+          className="rounded-[2rem] border border-admin-border bg-white p-6 shadow-admin space-y-4">
           {/* Campos isca ocultos: absorvem o autofill do navegador (Chrome/Edge/Safari) */}
           <input type="text" name="username" autoComplete="username" tabIndex={-1} aria-hidden="true"
             className="absolute h-0 w-0 opacity-0 pointer-events-none" />
@@ -2126,10 +2126,10 @@ export default function RestaurantePedidoApp() {
   // ── Tela de carregamento inicial (elegante e minimalista) ────
   if (loading) {
     return (
-      <div className="relative flex items-center justify-center overflow-hidden px-4 text-slate-100"
+      <div className="tema-claro-area relative flex items-center justify-center overflow-hidden px-4 text-admin-text"
         style={{
           minHeight: "100dvh",
-          backgroundColor: "#020617",
+          backgroundColor: "#F8F9FA",
           paddingTop: "env(safe-area-inset-top)",
           paddingBottom: "env(safe-area-inset-bottom)",
           backgroundImage:

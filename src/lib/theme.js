@@ -7,7 +7,9 @@
 const CHAVE = "pp-tema";
 
 export function obterTema() {
-  try { return localStorage.getItem(CHAVE) === "light" ? "light" : "dark"; } catch { return "dark"; }
+  // Padrão OFICIAL: claro (mesmo padrão do painel administrativo).
+  // Só retorna "dark" se o usuário tiver explicitamente escolhido escuro.
+  try { return localStorage.getItem(CHAVE) === "dark" ? "dark" : "light"; } catch { return "light"; }
 }
 
 export function aplicarTema(tema) {

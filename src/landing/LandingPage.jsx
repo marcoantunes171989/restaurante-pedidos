@@ -477,7 +477,7 @@ function VideoDivulgacao() {
 
             {/* Indicador central de play/pause */}
             <div className={`pointer-events-none absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${tocando ? "opacity-0 group-hover:opacity-100" : "opacity-100"}`}>
-              <span className="flex h-16 w-16 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm ring-1 ring-white/20">
+              <span className="flex h-16 w-16 items-center justify-center rounded-full bg-black/55 text-[#fff] backdrop-blur-sm ring-1 ring-white/20">
                 {tocando ? (
                   <svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor" aria-hidden="true"><rect x="6.5" y="5" width="3.6" height="14" rx="1" /><rect x="13.9" y="5" width="3.6" height="14" rx="1" /></svg>
                 ) : (
@@ -498,7 +498,7 @@ function VideoDivulgacao() {
               type="button"
               onClick={alternarSom}
               aria-label={mudo ? "Ativar som" : "Desativar som"}
-              className="absolute bottom-3 right-3 flex h-10 w-10 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm ring-1 ring-white/20 transition hover:bg-black/75"
+              className="absolute bottom-3 right-3 flex h-10 w-10 items-center justify-center rounded-full bg-black/55 text-[#fff] backdrop-blur-sm ring-1 ring-white/20 transition hover:bg-black/75"
             >
               {mudo ? (
                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5Z" /><path d="m16 9 5 6M21 9l-5 6" /></svg>
@@ -555,7 +555,7 @@ export default function LandingPage({ navigate }) {
   }
 
   return (
-    <div className="min-h-screen bg-[#070B16] text-slate-100 antialiased">
+    <div className="tema-claro-area min-h-screen bg-admin-bg text-admin-text antialiased">
       {/* ── Header sticky ─────────────────────────────────── */}
       {/* paddingTop: app instalado em tela cheia — afasta o conteúdo da barra de status (safe area) */}
       <header className="sticky top-0 z-50 border-b border-gold-400/20 bg-blue-950/90 backdrop-blur-xl" style={{ paddingTop: "env(safe-area-inset-top)" }}>
@@ -989,10 +989,10 @@ export default function LandingPage({ navigate }) {
       {/* ── CTA ───────────────────────────────────────────── */}
       <section className="bg-blue-950 py-16 sm:py-20">
         <div className="mx-auto max-w-5xl px-5">
-          <div className="relative overflow-hidden rounded-[2.5rem] border border-gold-400/40 bg-gradient-to-br from-blue-800 to-blue-950 p-10 text-center shadow-2xl sm:p-14">
+          <div className="relative overflow-hidden rounded-[2.5rem] border border-gold-400/40 bg-gradient-to-br from-white to-[#EDF3FB] p-10 text-center shadow-admin sm:p-14">
             <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-gold-400/10 blur-3xl" />
             <h2 className="relative text-3xl font-black tracking-tight text-white sm:text-4xl">Tudo isso e muito mais — tudo no <span className="text-gold-400">{NOME_SISTEMA}</span></h2>
-            <p className="relative mx-auto mt-3 max-w-2xl text-base leading-7 text-blue-100">Pedidos por tablet, controle de mesas, comandas QR, cardápio externo, dashboard, relatórios, usuários e permissões. Digitalize a operação e gerencie com dados.</p>
+            <p className="relative mx-auto mt-3 max-w-2xl text-base leading-7 text-slate-500">Pedidos por tablet, controle de mesas, comandas QR, cardápio externo, dashboard, relatórios, usuários e permissões. Digitalize a operação e gerencie com dados.</p>
             <div className="relative mt-8 flex flex-col justify-center gap-3 sm:flex-row">
               <Botao variant="gold" onClick={() => goTo("contato")}>Solicitar Demonstração</Botao>
               <Botao variant="ghost" onClick={acessar}>Acessar Sistema →</Botao>

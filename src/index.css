@@ -138,6 +138,11 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
 [data-theme="light"] .tema-claro-area .bg-white\/10 { background-color: rgba(15, 23, 42, 0.045) !important; }
 /* Textos neutros → escuros (gold e cores semânticas preservados) — paleta oficial */
 [data-theme="light"] .tema-claro-area .text-white { color: #2B2D42 !important; }
+/* Tons de texto quase-brancos (feitos p/ fundo escuro) → legíveis no claro */
+[data-theme="light"] .tema-claro-area .text-slate-100,
+[data-theme="light"] .tema-claro-area .text-slate-200,
+[data-theme="light"] .tema-claro-area .text-blue-50,
+[data-theme="light"] .tema-claro-area .text-blue-100 { color: #2B2D42 !important; }
 [data-theme="light"] .tema-claro-area .text-slate-300 { color: #4B5563 !important; }
 [data-theme="light"] .tema-claro-area .text-slate-400 { color: #6C757D !important; }
 [data-theme="light"] .tema-claro-area .text-slate-500 { color: #6C757D !important; }
@@ -235,8 +240,9 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
 /* Cabeçalhos de tabela sticky em azul-marinho translúcido → cabeçalho
    claro coeso. (bg-white/[0.03] e bg-white/[0.04] já viram cinza sutil
    pela regra acima, servindo bem como fundo de cabeçalho.) */
+[data-theme="light"] .tema-claro-area .bg-blue-950\/90,
 [data-theme="light"] .tema-claro-area .bg-blue-950\/80,
-[data-theme="light"] .tema-claro-area .bg-blue-950\/70 { background-color: #F1F5F9 !important; }
+[data-theme="light"] .tema-claro-area .bg-blue-950\/70 { background-color: rgba(248,249,250,0.92) !important; }
 
 /* Placeholder mais escuro no fundo claro */
 [data-theme="light"] .tema-claro-area .placeholder\:text-slate-600::placeholder { color: #94A3B8 !important; }
