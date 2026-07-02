@@ -64,38 +64,44 @@ export function Badge({ children, tone = "neutral", className }) {
     success: "bg-[#DCFCE7] text-[#15803D]",
     warning: "bg-[#FFF7E6] text-[#B45309]",
     danger:  "bg-[#FEE2E2] text-[#B91C1C]",
+    dangerDark: "bg-[#FEE2E2] text-[#991B1B]",
     info:    "bg-[#EFF6FF] text-[#2563EB]",
     accent:  "bg-[#FFEDD5] text-[#C2410C]",
     navy:    "bg-[#0B1F33]/8 text-[#0B1F33]",
+    petrol:  "bg-[#123A4A]/10 text-[#123A4A]",
   };
   return <span className={cx("inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-bold", tones[tone] || tones.neutral, className)}>{children}</span>;
 }
 
-// Mapa oficial de status → { tom, rótulo }. Cobre pedido, financeiro e mesa.
+// Mapa oficial de status → { tom, rótulo, dot } (cor sólida p/ pontos/bordas).
+// Cobre pedido/comanda, financeiro e mesa — cores da identidade food service.
 export const STATUS_MAP = {
   // Pedido / comanda
-  novo: { tone: "info", label: "Novo" },
-  recebido: { tone: "info", label: "Recebido" },
-  aberta: { tone: "accent", label: "Aberta" },
-  em_preparo: { tone: "warning", label: "Em preparo" },
-  preparando: { tone: "warning", label: "Preparando" },
-  pronto: { tone: "success", label: "Pronto" },
-  entregue: { tone: "success", label: "Entregue" },
-  aguardando_pagamento: { tone: "info", label: "Aguardando pagamento" },
-  finalizado: { tone: "navy", label: "Finalizado" },
-  finalizada: { tone: "navy", label: "Finalizada" },
-  cancelado: { tone: "danger", label: "Cancelado" },
-  cancelada: { tone: "danger", label: "Cancelada" },
-  atrasado: { tone: "danger", label: "Atrasado" },
+  nova: { tone: "info", label: "Nova", dot: "#2563EB" },
+  novo: { tone: "info", label: "Novo", dot: "#2563EB" },
+  recebido: { tone: "info", label: "Recebido", dot: "#2563EB" },
+  aberta: { tone: "accent", label: "Aberta", dot: "#F97316" },
+  em_preparo: { tone: "warning", label: "Em preparo", dot: "#F59E0B" },
+  preparando: { tone: "warning", label: "Preparando", dot: "#F59E0B" },
+  pronto: { tone: "success", label: "Pronto", dot: "#16A34A" },
+  pronta: { tone: "success", label: "Pronta", dot: "#16A34A" },
+  entregue: { tone: "success", label: "Entregue", dot: "#16A34A" },
+  aguardando_pagamento: { tone: "info", label: "Aguardando pagamento", dot: "#2563EB" },
+  finalizado: { tone: "petrol", label: "Finalizado", dot: "#123A4A" },
+  finalizada: { tone: "petrol", label: "Finalizada", dot: "#123A4A" },
+  cancelado: { tone: "danger", label: "Cancelado", dot: "#DC2626" },
+  cancelada: { tone: "danger", label: "Cancelada", dot: "#DC2626" },
+  atrasado: { tone: "dangerDark", label: "Atrasado", dot: "#B91C1C" },
+  atrasada: { tone: "dangerDark", label: "Atrasada", dot: "#B91C1C" },
   // Financeiro
-  pendente: { tone: "warning", label: "Pendente" },
-  pago: { tone: "success", label: "Pago" },
-  parcial: { tone: "info", label: "Parcial" },
-  estornado: { tone: "danger", label: "Estornado" },
+  pendente: { tone: "warning", label: "Pendente", dot: "#F59E0B" },
+  pago: { tone: "success", label: "Pago", dot: "#16A34A" },
+  parcial: { tone: "info", label: "Parcial", dot: "#2563EB" },
+  estornado: { tone: "danger", label: "Estornado", dot: "#DC2626" },
   // Mesa
-  livre: { tone: "success", label: "Livre" },
-  ocupada: { tone: "warning", label: "Ocupada" },
-  em_atendimento: { tone: "accent", label: "Em atendimento" },
+  livre: { tone: "success", label: "Livre", dot: "#16A34A" },
+  ocupada: { tone: "warning", label: "Ocupada", dot: "#F59E0B" },
+  em_atendimento: { tone: "accent", label: "Em atendimento", dot: "#F97316" },
 };
 export function StatusBadge({ status, children, className }) {
   const key = String(status || "").toLowerCase().replace(/\s+/g, "_");
