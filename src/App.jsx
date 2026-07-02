@@ -474,7 +474,7 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
       style={{
         minHeight: "100dvh",
         backgroundColor: "#000000",
-        fontFamily: "'Inter','Sora',sans-serif",
+        fontFamily: "'Inter','Poppins',sans-serif",
         // Topo e rodapé com o MESMO tratamento (safe-area + respiro), fundo
         // sólido escuro de ponta a ponta — sem faixa/linha clara no topo.
         paddingTop: "calc(env(safe-area-inset-top) + 2.5rem)",
@@ -2646,7 +2646,7 @@ function TabletView({
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col overflow-hidden bg-[var(--ord-bg)]"
-      style={{ height: "100dvh", paddingTop: "calc(env(safe-area-inset-top) + 24px)", paddingBottom: "env(safe-area-inset-bottom)", fontFamily: "'Inter','Sora',sans-serif" }}>
+      style={{ height: "100dvh", paddingTop: "calc(env(safe-area-inset-top) + 24px)", paddingBottom: "env(safe-area-inset-bottom)", fontFamily: "'Inter','Poppins',sans-serif" }}>
 
       {/* ── Cabeçalho gourmet: marca · MESA em destaque · ações ── */}
       <header className="grid shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-3 border-b border-gold-400/15 bg-black/90 px-5 py-2.5 backdrop-blur-xl">
@@ -3304,7 +3304,7 @@ function TabletView({
           role="button"
           tabIndex={0}
           onClick={() => { entrarTelaCheia(); setDescansoAtivo(false); setPorInatividade(false); }}
-          style={{ height: "100dvh", fontFamily: "'Inter','Sora',sans-serif" }}
+          style={{ height: "100dvh", fontFamily: "'Inter','Poppins',sans-serif" }}
           className="fixed inset-0 z-[120] block w-full cursor-pointer overflow-hidden bg-black text-left">
           {/* Imagens dos produtos em modo fosco (passando) */}
           <div className="absolute inset-0">
@@ -3483,7 +3483,7 @@ export function ProdutoModal({ produto, onFechar, onAdicionar, grupos = [], opco
 
   return (
     <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm p-0 sm:p-4"
-      style={{ fontFamily: "'Inter','Sora',sans-serif" }} onClick={onFechar}>
+      style={{ fontFamily: "'Inter','Poppins',sans-serif" }} onClick={onFechar}>
       <div onClick={(e) => e.stopPropagation()}
         className="tema-claro-area flex w-full max-w-md flex-col overflow-hidden rounded-t-[1.6rem] sm:rounded-[1.6rem] border border-gold-400/25 bg-[#0d0d0d] shadow-2xl max-h-[92vh]">
 

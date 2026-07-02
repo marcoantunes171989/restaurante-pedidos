@@ -9,7 +9,7 @@ export default {
     extend: {
       fontFamily: {
         sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'Arial', 'sans-serif'],
-        display: ['Sora', 'Inter', 'sans-serif'],
+        display: ['Poppins', 'Inter', 'sans-serif'],
       },
       colors: {
         blue: {
@@ -25,13 +25,15 @@ export default {
           900: "#0B1B33",
           950: "#070B16",
         },
+        // Escala dourada alinhada ao dourado OFICIAL (#D99A21 principal /
+        // #F2B544 claro p/ hover). Vale em telas claras E escuras.
         gold: {
           50:  "#FCF8EC",
           100: "#F8EECD",
-          200: "#F2DBA0",
-          300: "#F0C76A",
-          400: "#D6A84F",
-          500: "#C29440",
+          200: "#F5DFA6",
+          300: "#F2B544",  // dourado claro oficial (hover/destaque)
+          400: "#D99A21",  // dourado principal oficial (ações)
+          500: "#C0871A",  // dourado pressionado (mais escuro)
           600: "#A97923",
           700: "#8A6118",
           800: "#684910",

@@ -48,6 +48,36 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
   --ord-text-soft: #CBD5E1;   /* texto secundário */
   --ord-text-muted: #64748B;  /* texto sutil */
   --ord-border: rgba(255,255,255,0.10);
+
+  /* ══════════════════════════════════════════════════════════════
+     PALETA OFICIAL PEDIDO PRIME — fonte única de verdade.
+     Use estes tokens em QUALQUER tela nova (var(--color-*)) para
+     manter a identidade padronizada. Não crie cores fora daqui;
+     se precisar de uma variação, adicione-a aqui primeiro.
+     ══════════════════════════════════════════════════════════════ */
+  --color-primary: #14213D;        /* azul-marinho principal (menus, títulos) */
+  --color-primary-dark: #1F2A44;   /* azul escuro secundário (hover de menu) */
+  --color-accent: #D99A21;         /* dourado principal (ações) */
+  --color-accent-hover: #F2B544;   /* dourado claro (hover/destaque) */
+
+  --color-bg: #F8F9FA;             /* fundo geral claro */
+  --color-surface: #FFFFFF;        /* cards/blocos/áreas internas */
+  --color-bg-dark: #050505;        /* fundo escuro (operacional/cardápio premium) */
+  --color-bg-dark-secondary: #0B0F1A;
+
+  --color-text: #2B2D42;           /* texto principal */
+  --color-text-muted: #6C757D;     /* texto secundário */
+  --color-text-light: #FFFFFF;     /* texto claro sobre fundo escuro */
+  --color-text-light-muted: #CBD5E1;
+
+  --color-border: #E5E7EB;         /* borda clara */
+  --color-border-dark: rgba(255,255,255,0.08);
+  --color-border-gold: rgba(217,154,33,0.35);
+
+  --color-success: #2E7D32;  --color-success-bg: #E8F5E9;
+  --color-warning: #F59E0B;  --color-warning-bg: #FFF7E6;
+  --color-danger:  #D32F2F;  --color-danger-bg:  #FDECEC;
+  --color-info:    #14213D;  --color-info-bg:    #EDF3FB;
 }
 
 /* Tema CLARO das telas do cliente (menus laterais permanecem escuros) */
@@ -230,9 +260,9 @@ body {
   font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
 }
 
-/* Sora para títulos, marca, botões de destaque e cabeçalhos de página */
+/* Poppins (fonte de destaque oficial) para títulos, marca, KPIs e cabeçalhos */
 h1, h2, h3, .brand-title, .page-title, .font-display {
-  font-family: 'Sora', 'Inter', sans-serif;
+  font-family: 'Poppins', 'Inter', sans-serif;
 }
 
 /* ── Responsividade global: ajusta a todas as resoluções ────── */
