@@ -452,8 +452,11 @@ function CardGerarComandas() {
 function TelaLogin({ loginForm, setLoginForm, login, message }) {
   const [verSenha, setVerSenha] = useState(false);
   const [scanLogin, setScanLogin] = useState(false); // scanner de QR de login
-  const labelCls = "mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-slate-500";
-  const inputCls = "w-full rounded-2xl border border-white/10 bg-slate-950/60 py-3.5 pl-11 pr-4 text-[15px] text-white outline-none transition focus:border-blue-400/70 focus:bg-slate-950/90 focus:ring-2 focus:ring-blue-500/20 placeholder:text-slate-600";
+  const [entrando, setEntrando] = useState(false);   // estado visual "Entrando..."
+  // Reseta o loading quando chega uma mensagem (ex.: erro de credenciais).
+  useEffect(() => { if (message && message.text) setEntrando(false); }, [message]);
+  const labelCls = "mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-[#14213D]";
+  const inputCls = "w-full rounded-2xl border border-[#E5E7EB] bg-white py-3.5 pl-11 pr-4 text-[15px] text-[#1F2937] outline-none transition focus:border-[#D99A21] focus:ring-2 focus:ring-[#D99A21]/20 placeholder:text-[#9CA3AF]";
   const podeEntrar = loginForm.email.trim() && loginForm.password;
 
   // Ícones (SVG inline — leves e elegantes)
@@ -469,122 +472,179 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px]"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" /></svg>
   );
 
+  const voltarAoSite = () => {
+    // Limpa o marcador de sessão para que "/" renderize a LANDING.
+    try { sessionStorage.removeItem("pp_sessao_ativa"); sessionStorage.removeItem("pp_restore_once"); } catch {}
+    window.location.href = "/";
+  };
+
   return (
-    <div data-theme="light">
-    <div className="tema-claro-area relative flex items-center justify-center overflow-hidden px-4 text-admin-text"
-      style={{
-        minHeight: "100dvh",
-        backgroundColor: "#F8F9FA",
-        fontFamily: "'Inter','Poppins',sans-serif",
-        // Topo e rodapé com o MESMO tratamento (safe-area + respiro), fundo
-        // sólido escuro de ponta a ponta — sem faixa/linha clara no topo.
-        paddingTop: "calc(env(safe-area-inset-top) + 2.5rem)",
-        paddingBottom: "calc(env(safe-area-inset-bottom) + 2.5rem)",
-        // Brilhos via radial-gradient no fundo (sem div desfocada clipada, que
-        // gerava uma linha clara no topo ao ser cortada pelo overflow-hidden).
-        backgroundImage:
-          "radial-gradient(32rem 32rem at -6rem -6rem, rgba(43,97,174,0.16), transparent 70%), radial-gradient(32rem 32rem at calc(100% + 6rem) calc(100% + 6rem), rgba(212,160,23,0.10), transparent 70%)",
-      }}>
-      {/* Trama de pontos sutil */}
-      <div className="pointer-events-none absolute inset-0 opacity-[0.06]"
-        style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)", backgroundSize: "32px 32px" }} />
+    <div className="relative flex min-h-[100dvh] w-full bg-[#F8F9FA]" style={{ fontFamily: "'Inter','Poppins',sans-serif" }}>
+      {/* ══ Painel institucional (desktop) ══ */}
+      <aside className="pp-anim-left relative hidden w-[46%] shrink-0 flex-col justify-between overflow-hidden p-10 text-white xl:p-14 lg:flex"
+        style={{ backgroundImage: "linear-gradient(160deg, #050505 0%, #0B0F1A 46%, #14213D 100%)" }}>
+        {/* brilhos e trama */}
+        <div className="pointer-events-none absolute -right-24 -top-24 h-80 w-80 rounded-full" style={{ background: "radial-gradient(closest-side, rgba(217,154,33,0.20), transparent)" }} />
+        <div className="pointer-events-none absolute -bottom-28 -left-16 h-80 w-80 rounded-full" style={{ background: "radial-gradient(closest-side, rgba(31,42,68,0.85), transparent)" }} />
+        <div className="pointer-events-none absolute inset-0 opacity-[0.05]" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)", backgroundSize: "30px 30px" }} />
 
-      {/* Versão do sistema — exibida somente nesta tela (login) */}
-      <div className="pointer-events-none absolute left-0 select-none px-2.5 py-[2px] leading-none"
-        style={{ top: "calc(env(safe-area-inset-top) + 6px)" }}>
-        <span className="font-mono text-[11px] leading-none tracking-wide text-slate-500">
-          Versão: {(typeof __APP_VERSION__ !== "undefined") ? __APP_VERSION__ : "local"}
-        </span>
-      </div>
-
-      <div className="relative w-full max-w-[380px]">
         {/* Marca */}
-        <div className="mb-7 text-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center"><LogoPP size={64} /></div>
-          <h1 className="mt-4 text-2xl font-black tracking-tight"><span className="text-white">Pedido</span> <span className="text-gold-400">Prime</span></h1>
-          <p className="mt-1 text-sm text-slate-400">Bem-vindo de volta — faça login para continuar</p>
+        <div className="relative flex items-center gap-2.5">
+          <LogoPP size={40} />
+          <span className="font-display text-lg font-bold tracking-tight"><span className="text-white">PEDIDO</span> <span className="text-[#D99A21]">PRIME</span></span>
         </div>
 
-        {/* Card */}
-        <form onSubmit={(e) => { e.preventDefault(); if (podeEntrar) login(); }}
-          autoComplete="off"
-          className="rounded-[2rem] border border-admin-border bg-white p-6 shadow-admin space-y-4">
-          {/* Campos isca ocultos: absorvem o autofill do navegador (Chrome/Edge/Safari) */}
-          <input type="text" name="username" autoComplete="username" tabIndex={-1} aria-hidden="true"
-            className="absolute h-0 w-0 opacity-0 pointer-events-none" />
-          <input type="password" name="password" autoComplete="current-password" tabIndex={-1} aria-hidden="true"
-            className="absolute h-0 w-0 opacity-0 pointer-events-none" />
-          {/* E-mail */}
-          <div>
-            <label className={labelCls}>E-mail</label>
-            <div className="relative">
-              <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500">{IconeMail}</span>
-              <input autoFocus type="email" inputMode="email"
-                autoComplete="off" name="login_email_nofill" data-lpignore="true" data-form-type="other"
-                value={loginForm.email}
-                onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
-                placeholder="seu@email.com" className={inputCls} />
-            </div>
+        {/* Pitch + mockup */}
+        <div className="relative">
+          <h2 className="font-display max-w-md text-3xl font-black leading-tight xl:text-4xl">Controle seu restaurante em <span className="text-[#D99A21]">tempo real</span></h2>
+          <p className="mt-4 max-w-md text-sm leading-7 text-[#CBD5E1]">Acesse pedidos, mesas, cozinha, caixa, financeiro e relatórios em uma única plataforma inteligente para food service.</p>
+          <div className="mt-6 grid max-w-md grid-cols-2 gap-x-6 gap-y-3">
+            {["Pedidos digitais", "Cozinha em tempo real", "Caixa e financeiro", "Relatórios gerenciais"].map((b) => (
+              <div key={b} className="flex items-center gap-2 text-sm font-medium text-[#E5E7EB]">
+                <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="#F2B544" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>{b}
+              </div>
+            ))}
           </div>
 
-          {/* Senha */}
-          <div>
-            <label className={labelCls}>Senha</label>
-            <div className="relative">
-              <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500">{IconeLock}</span>
-              <input type={verSenha ? "text" : "password"}
-                autoComplete="new-password" name="login_senha_nofill" data-lpignore="true" data-form-type="other"
-                value={loginForm.password}
-                onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-                placeholder="••••••••" className={`${inputCls} pr-11`} />
-              <button type="button" onClick={() => setVerSenha((v) => !v)}
-                title={verSenha ? "Ocultar senha" : "Mostrar senha"}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-slate-500 hover:bg-white/10 hover:text-slate-200 transition">
-                {IconeOlho}
-              </button>
+          {/* Mini mockup */}
+          <div className="mt-8 max-w-sm rounded-2xl border border-white/10 bg-white/[0.05] p-4 backdrop-blur-sm">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/10 text-base">🍽️</span>
+                <div>
+                  <p className="font-display text-sm font-bold leading-none">Mesa 12</p>
+                  <p className="mt-1 text-[10px] text-white/50">Comanda #087</p>
+                </div>
+              </div>
+              <span className="rounded-full bg-[#F59E0B]/20 px-2.5 py-1 text-[10px] font-bold text-[#F59E0B]">Em preparo</span>
+            </div>
+            <div className="mt-3 space-y-1.5">
+              {[["1x", "Risoto de camarão", "58,00"], ["2x", "Suco natural", "12,00"]].map((i) => (
+                <div key={i[1]} className="flex items-center justify-between rounded-lg bg-white/[0.04] px-3 py-2 text-xs">
+                  <span className="text-[#E5E7EB]"><b className="text-white">{i[0]}</b> {i[1]}</span>
+                  <span className="font-display font-bold text-white">R$ {i[2]}</span>
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 flex items-center gap-1.5">
+              {["Recebido", "Preparando", "Pronto"].map((s, i) => (
+                <div key={s} className="flex-1 text-center">
+                  <div className={`h-1 rounded-full ${i <= 1 ? "bg-[#D99A21]" : "bg-white/15"}`} />
+                  <p className={`mt-1 text-[8px] font-bold ${i <= 1 ? "text-[#F2B544]" : "text-white/40"}`}>{s}</p>
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 flex items-center justify-between border-t border-white/10 pt-3">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-white/50">Total</span>
+              <span className="font-display text-base font-black text-[#D99A21]">R$ 82,00</span>
             </div>
           </div>
+        </div>
 
-          {/* Mensagem */}
-          {message.text && (
-            <div className={`flex items-start gap-2 rounded-2xl border p-3 text-sm ${message.type === "error" ? "border-red-400/30 bg-red-500/10 text-red-200" : "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"}`}>
-              <span className="mt-0.5 shrink-0">{message.type === "error" ? "⚠️" : "✅"}</span>
-              <span>{message.text}</span>
+        {/* Rodapé do painel */}
+        <p className="relative flex items-center gap-2 text-xs text-white/50">
+          <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="11" width="16" height="9" rx="2.5" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>
+          Plataforma segura · acesso por usuário e permissão
+        </p>
+      </aside>
+
+      {/* ══ Formulário ══ */}
+      <main className="relative flex w-full flex-1 flex-col items-center justify-center px-5"
+        style={{ paddingTop: "calc(env(safe-area-inset-top) + 2rem)", paddingBottom: "calc(env(safe-area-inset-bottom) + 2.5rem)" }}>
+        <div className="pointer-events-none absolute -top-10 right-4 h-64 w-64 rounded-full lg:hidden" style={{ background: "radial-gradient(closest-side, rgba(217,154,33,0.14), transparent)" }} />
+
+        <div className="pp-anim-up relative w-full max-w-[440px]">
+          {/* Marca / título */}
+          <div className="mb-6 text-center">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center"><LogoPP size={60} /></div>
+            <h1 className="font-display mt-4 text-2xl font-black tracking-tight"><span className="text-[#14213D]">Pedido</span> <span className="text-[#D99A21]">Prime</span></h1>
+            <p className="mt-1 text-sm text-[#6C757D]">Acesse sua conta para continuar</p>
+          </div>
+
+          {/* Card */}
+          <form onSubmit={(e) => { e.preventDefault(); if (podeEntrar && !entrando) { setEntrando(true); login(); } }}
+            autoComplete="off"
+            className="relative overflow-hidden rounded-[1.75rem] border border-[#E5E7EB] bg-white p-6 shadow-[0_24px_60px_-24px_rgba(20,33,61,0.28)] sm:p-7 space-y-4">
+            <span className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#D99A21] to-[#F2B544]" />
+            {/* Campos isca ocultos: absorvem o autofill do navegador */}
+            <input type="text" name="username" autoComplete="username" tabIndex={-1} aria-hidden="true" className="absolute h-0 w-0 opacity-0 pointer-events-none" />
+            <input type="password" name="password" autoComplete="current-password" tabIndex={-1} aria-hidden="true" className="absolute h-0 w-0 opacity-0 pointer-events-none" />
+
+            {/* E-mail */}
+            <div>
+              <label htmlFor="login-email" className={labelCls}>E-mail</label>
+              <div className="relative">
+                <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9CA3AF]">{IconeMail}</span>
+                <input id="login-email" autoFocus type="email" inputMode="email"
+                  autoComplete="email" name="login_email_nofill" data-lpignore="true" data-form-type="other"
+                  value={loginForm.email}
+                  onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
+                  placeholder="seu@email.com" className={inputCls} />
+              </div>
             </div>
-          )}
 
-          {/* Entrar */}
-          <button type="submit" disabled={!podeEntrar}
-            className="mt-1 w-full rounded-2xl bg-gold-400 px-5 py-4 text-sm font-black text-blue-950 transition hover:bg-gold-300 active:scale-[0.98] shadow-lg shadow-gold-900/40 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100">
-            Entrar →
-          </button>
-        </form>
+            {/* Senha */}
+            <div>
+              <label htmlFor="login-senha" className={labelCls}>Senha</label>
+              <div className="relative">
+                <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9CA3AF]">{IconeLock}</span>
+                <input id="login-senha" type={verSenha ? "text" : "password"}
+                  autoComplete="current-password" name="login_senha_nofill" data-lpignore="true" data-form-type="other"
+                  value={loginForm.password}
+                  onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                  placeholder="••••••••" className={`${inputCls} pr-11`} />
+                <button type="button" onClick={() => setVerSenha((v) => !v)}
+                  aria-label={verSenha ? "Ocultar senha" : "Mostrar senha"} title={verSenha ? "Ocultar senha" : "Mostrar senha"}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-[#9CA3AF] transition hover:bg-[#FFF8EC] hover:text-[#14213D]">
+                  {IconeOlho}
+                </button>
+              </div>
+            </div>
 
-        {/* Entrar com QR Code — opção discreta e minimalista */}
-        <div className="mt-4 flex items-center gap-3">
-          <span className="h-px flex-1 bg-white/10" />
+            {/* Mensagem */}
+            {message.text && (
+              <div className={`pp-anim-fade flex items-start gap-2 rounded-2xl border p-3 text-sm ${message.type === "error" ? "border-[#D32F2F]/25 bg-[#FDECEC] text-[#D32F2F]" : "border-[#2E7D32]/25 bg-[#E8F5E9] text-[#2E7D32]"}`}>
+                <span className="mt-0.5 shrink-0">{message.type === "error" ? "⚠️" : "✅"}</span>
+                <span>{message.text}</span>
+              </div>
+            )}
+
+            {/* Entrar */}
+            <button type="submit" disabled={!podeEntrar || entrando}
+              className="mt-1 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#D99A21] px-5 py-4 text-sm font-black text-[#14213D] shadow-lg shadow-[#D99A21]/30 transition hover:bg-[#F2B544] active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100">
+              {entrando
+                ? <><span className="h-4 w-4 animate-spin rounded-full border-2 border-[#14213D]/30 border-t-[#14213D]" /> Entrando...</>
+                : <>Entrar →</>}
+            </button>
+          </form>
+
+          {/* Divisor + QR Code */}
+          <div className="my-4 flex items-center gap-3">
+            <span className="h-px flex-1 bg-[#E5E7EB]" />
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[#9CA3AF]">ou</span>
+            <span className="h-px flex-1 bg-[#E5E7EB]" />
+          </div>
           <button type="button" onClick={() => setScanLogin(true)}
-            className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500 transition hover:text-blue-300">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-[14px] w-[14px]"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M14 14h3v3M21 14v.01M14 21h.01M21 21v.01M17.5 21H21v-3.5"/></svg>
+            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-[#E5E7EB] bg-white py-3 text-sm font-bold text-[#14213D] transition hover:border-[#D99A21]/40 hover:bg-[#FFF8EC]">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-[16px] w-[16px]"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M14 14h3v3M21 14v.01M14 21h.01M21 21v.01M17.5 21H21v-3.5"/></svg>
             Entrar com QR Code
           </button>
-          <span className="h-px flex-1 bg-white/10" />
+
+          {/* Segurança */}
+          <p className="mt-5 flex items-center justify-center gap-1.5 text-center text-[11px] text-[#6C757D]">
+            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="11" width="16" height="9" rx="2.5" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>
+            Acesso controlado por usuário e permissão
+          </p>
+          <div className="mt-3 text-center">
+            <button onClick={voltarAoSite} className="text-xs font-bold text-[#14213D] transition hover:text-[#D99A21]">← Voltar ao site</button>
+          </div>
         </div>
 
-        {/* Rodapé */}
-        <p className="mt-6 flex items-center justify-center gap-1.5 text-center text-[11px] text-slate-600">
-          <span>🔒</span> Acesso controlado por usuário e permissão
+        {/* Versão do sistema — discreta, no rodapé */}
+        <p className="absolute left-0 right-0 text-center font-mono text-[10px] tracking-wide text-[#9CA3AF]" style={{ bottom: "calc(env(safe-area-inset-bottom) + 8px)" }}>
+          Versão {(typeof __APP_VERSION__ !== "undefined") ? __APP_VERSION__ : "local"}
         </p>
-        <div className="mt-3 text-center">
-          <button onClick={() => {
-              // Limpa o marcador de sessão para que "/" renderize a LANDING
-              // (sem isso, o Root mantém o app aberto pela flag pp_sessao_ativa).
-              try { sessionStorage.removeItem("pp_sessao_ativa"); sessionStorage.removeItem("pp_restore_once"); } catch {}
-              window.location.href = "/";
-            }}
-            className="text-xs font-bold text-slate-500 transition hover:text-blue-400">← Voltar ao site</button>
-        </div>
-      </div>
+      </main>
 
       {/* Scanner do QR de login */}
       {scanLogin && (
@@ -600,7 +660,6 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
           onCancelar={() => setScanLogin(false)}
         />
       )}
-    </div>
     </div>
   );
 }
