@@ -3,527 +3,329 @@ import { LogoPP } from "../components/BrandLogo";
 import { planosPedidoPrime } from "../config/pricing";
 
 // ════════════════════════════════════════════════════════════
-//  Landing page institucional/comercial — Pedido Prime
-//  Tecnologias: React + Tailwind (sem libs de ícones / imagens externas)
-//  Recebe `navigate(rota)` para abrir o sistema interno (ex.: "/login").
+//  Landing page comercial — Pedido Prime (SaaS food service)
+//  React + Tailwind, light-native (paleta oficial explícita).
+//  Animações: CSS + IntersectionObserver (sem libs pesadas).
+//  Recebe `navigate(rota)` para abrir o sistema (ex.: "/login").
 // ════════════════════════════════════════════════════════════
 
 const NOME_SISTEMA = "Pedido Prime";
-// WhatsApp comercial (formato internacional, só números): DDI + DDD + número.
-// (18) 98146-5499 → 55 + 18 + 981465499
+// WhatsApp comercial (DDI+DDD+número): (18) 98146-5499 → 55 18 981465499
 const WHATSAPP_COMERCIAL = "5518981465499";
+const INSTAGRAM = "https://instagram.com";
 
-// ── Dados (reutilizáveis) ────────────────────────────────────
+// ── Paleta oficial da landing (referência p/ leitura) ──
+// navy #14213D · gold #D99A21 · goldHover #F2B544 · cream #FFF8EC
+// gelo #F8F9FA · texto #1F2937 · secundário #6C757D · borda #E5E7EB
+// dark premium #050505 · sucesso #2E7D32 · whatsapp #22C55E · alerta #F59E0B
+
 const NAV = [
   { label: "Funcionalidades", id: "funcionalidades" },
-  { label: "2 formas de usar", id: "formas" },
   { label: "Como funciona", id: "como-funciona" },
+  { label: "Soluções", id: "solucoes" },
   { label: "Gestão", id: "gestao" },
   { label: "Planos", id: "planos" },
   { label: "FAQ", id: "faq" },
   { label: "Contato", id: "contato" },
 ];
 
-// ── Planos / tabela de preços (escolha dinâmica pelo cliente) ──
-// Planos: fonte única em src/config/pricing.js (consumida também pela tela "Ver planos")
 const PLANOS = planosPedidoPrime;
 
-const PROBLEMAS = [
-  "Demora no atendimento e filas no salão",
-  "Erros na anotação de pedidos",
-  "Falta de comunicação entre salão e cozinha",
-  "Cliente chamando o garçom várias vezes",
-  "Gerente sem visão das vendas em tempo real",
-  "Sem controle de quem acessa o quê no sistema",
-  "Lentidão no fechamento da conta",
-];
-const SOLUCOES = [
-  "Pedido pelo tablet, direto na mesa",
-  "Envio automático para a cozinha",
-  "Controle de mesas e comandas por QR Code",
-  "Acompanhamento do pedido em tempo real",
-  "Dashboard e relatórios de vendas para o gerente",
-  "Usuários, cargos e permissões por tela",
-  "Solicitação de conta e caixa integrado",
+const DORES = [
+  { icon: "📝", title: "Pedido anotado errado", desc: "Comanda no papel gera troca de item, retrabalho e prejuízo no fim do dia." },
+  { icon: "🍳", title: "Cozinha sem organização", desc: "Pedidos soltos, sem ordem nem prioridade — e o cliente esperando mais do que devia." },
+  { icon: "🏃", title: "Garçom sobrecarregado", desc: "Correria entre mesas, cozinha e caixa, anotando tudo à mão e perdendo o timing." },
+  { icon: "⏳", title: "Cliente esperando atendimento", desc: "Mão levantada para chamar o garçom, pedir de novo e aguardar a conta demorada." },
+  { icon: "💳", title: "Caixa sem visão da conta", desc: "Difícil saber o que cada mesa consumiu, dividir a conta ou fechar com segurança." },
+  { icon: "📉", title: "Gestor sem relatórios", desc: "Sem números confiáveis de vendas, ticket médio e desempenho para decidir." },
 ];
 
 const FEATURES = [
-  { icon: "📲", title: "Pedidos por tablet", desc: "O cliente pede sozinho, direto da mesa — com fotos, adicionais e observações, sem esperar o atendente." },
-  { icon: "🎫", title: "QR Code por mesa", desc: "Comandas e QR Codes impressos com a identidade da empresa — o tablet escaneia e vincula o pedido à mesa." },
-  { icon: "📱", title: "Link externo", desc: "Cardápio digital no celular do cliente, por QR na mesa ou link de divulgação — sem instalar nada." },
-  { icon: "👨‍🍳", title: "Cozinha em tempo real", desc: "Pedidos em colunas (aguardando, preparando, pronto) com tempo decorrido e destaque para atrasados." },
-  { icon: "📺", title: "Painel TV", desc: "Acompanhamento dos pedidos em telão, com fonte ampliada e atualização em tempo real." },
-  { icon: "💳", title: "Financeiro / Caixa", desc: "Conta inteira, dividida ou parcial por item, alerta de conta solicitada, troco e cupom." },
-  { icon: "👤", title: "CRM de clientes", desc: "Classificação VIP/recorrente, ticket médio, produto favorito e histórico por período." },
-  { icon: "📊", title: "Dashboard gerencial", desc: "Faturamento, ticket médio e pedidos com comparativo automático contra o período anterior." },
-  { icon: "📈", title: "Relatórios de vendas", desc: "Vendas por produto, categoria, comanda e forma de pagamento — prontos para decisão." },
-  { icon: "🛒", title: "Controle de produtos", desc: "Preço, custo, margem, estoque, ingredientes, adicionais e visibilidade por canal." },
-  { icon: "🏪", title: "Multiempresa", desc: "Uma plataforma SaaS para várias empresas, cada uma com cardápio, equipe e dados isolados." },
-  { icon: "🔐", title: "Licenças e permissões", desc: "Controle por cargo e por tela, com liberação e suspensão de licença por empresa." },
-  { icon: "🏷️", title: "Promoções e destaques", desc: "Campanhas por horário, dia da semana, produto ou categoria — exibidas no tablet e no cardápio." },
-  { icon: "🍔", title: "Adicionais e variações", desc: "Tamanhos, ponto da carne, bordas, combos e adicionais com grupos obrigatórios — ideal para pizza, burger e japonês." },
-  { icon: "🍳", title: "Setores de cozinha", desc: "Direcione cada produto para bar, pizzaria, chapa ou sobremesa e filtre o painel por setor." },
-  { icon: "💰", title: "Fechamento de caixa", desc: "Abertura, suprimento, sangria e conferência com diferença — vendas por forma de pagamento e histórico." },
-  { icon: "⭐", title: "Fidelidade", desc: "Pontos por compra creditados automaticamente, recompensas e ranking de clientes." },
-  { icon: "🔔", title: "Chamados de mesa", desc: "Cliente chama garçom, pede a conta, ajuda ou limpeza pelo tablet ou pelo QR — a equipe vê em tempo real." },
-  { icon: "🛡️", title: "Auditoria de ações", desc: "Trilha de segurança: login, alterações de produtos, usuários, caixa, plano e licença, com filtros." },
+  { icon: "📲", title: "Pedidos por tablet", desc: "O cliente pede direto da mesa — com fotos, adicionais e observações, sem depender do atendimento manual." },
+  { icon: "🎫", title: "QR Code por mesa", desc: "O cliente acessa o cardápio pelo próprio celular, vinculado à mesa ou comanda." },
+  { icon: "🔗", title: "Link externo", desc: "Compartilhe o cardápio digital por link para pedidos externos, divulgação e atendimento rápido." },
+  { icon: "👨‍🍳", title: "Cozinha em tempo real", desc: "Pedidos organizados por status: aguardando, preparando, pronto e entregue." },
+  { icon: "📺", title: "Painel TV", desc: "Acompanhe os pedidos em telão, com fonte ampliada e atualização em tempo real." },
+  { icon: "💳", title: "Financeiro e caixa", desc: "Conta inteira ou parcial por item, pagamentos, fechamento e solicitação de conta." },
+  { icon: "👤", title: "CRM de clientes", desc: "Acompanhe clientes, recorrência, histórico de pedidos e oportunidades de relacionamento." },
+  { icon: "📊", title: "Dashboard gerencial", desc: "Indicadores de vendas, pedidos, ticket médio, horários de pico e desempenho do restaurante." },
+  { icon: "📈", title: "Relatórios de vendas", desc: "Dados claros para decidir melhor sobre produtos, equipe e faturamento." },
 ];
 
-const GESTAO = [
-  { icon: "📊", title: "Dashboard para análise gerencial", desc: "Visão ao vivo do faturamento, dos pedidos e da operação — tudo em uma tela, direto do administrativo." },
-  { icon: "📈", title: "Relatórios de vendas", desc: "Faturamento por período, ticket médio, produtos mais vendidos e vendas por categoria." },
-  { icon: "🧑‍💼", title: "Gerenciamento de vendas por gerentes", desc: "O gerente acompanha o salão, os fechamentos e o desempenho da equipe sem depender de planilhas." },
-  { icon: "🪑", title: "Mesas e comandas sob controle", desc: "Mesas livres e ocupadas em tempo real, comandas QR ativas/inativas e histórico preservado." },
-  { icon: "👥", title: "Usuários e cargos", desc: "Cada colaborador com seu login, cargo e perfil — do garçom ao gestor." },
-  { icon: "🔐", title: "Permissões por tela", desc: "Controle fino do que cada cargo acessa: cozinha vê cozinha, caixa vê caixa, gestor vê tudo." },
+const OPERACIONAL = [
+  { icon: "📱", title: "Cardápio no tablet", desc: "Pedido direto na mesa, com fotos e adicionais." },
+  { icon: "🎫", title: "QR Code na mesa", desc: "Cliente pede pelo próprio celular, sem app." },
+  { icon: "🧑‍🍳", title: "Tela do garçom", desc: "Mesas, comandas e ações rápidas de atendimento." },
+  { icon: "👨‍🍳", title: "Cozinha em tempo real", desc: "Fila por status com tempo e prioridade." },
+  { icon: "🍹", title: "Bar e bebidas", desc: "Setor próprio para o preparo de bebidas." },
+  { icon: "💰", title: "Caixa e fechamento", desc: "Conta, divisão, pagamento e conferência." },
+  { icon: "🖥️", title: "Painel administrativo", desc: "Produtos, preços, usuários e permissões." },
+  { icon: "📊", title: "Relatórios gerenciais", desc: "Vendas, produtos e desempenho por período." },
+  { icon: "🧾", title: "Financeiro", desc: "Recebimentos, formas de pagamento e caixa." },
+  { icon: "👥", title: "CRM de clientes", desc: "Recorrência, histórico e relacionamento." },
 ];
 
 const PASSOS = [
-  { n: 1, title: "Cliente acessa", desc: "Pelo tablet da mesa, QR Code ou link externo — sem instalar nada." },
-  { n: 2, title: "Pedido vai para a cozinha", desc: "Enviado automaticamente, digitado e sem ruído de comunicação." },
-  { n: 3, title: "Cozinha altera o status", desc: "Aguardando, preparando e pronto — com destaque para atrasados." },
-  { n: 4, title: "Cliente acompanha", desc: "O andamento do pedido aparece em tempo real na mesa." },
-  { n: 5, title: "Caixa fecha a comanda", desc: "Conta inteira, dividida ou parcial, com alerta de conta solicitada." },
-  { n: 6, title: "Gestor acompanha os resultados", desc: "Dashboard, relatórios e CRM atualizados a cada venda." },
+  { n: 1, icon: "📲", title: "Cliente acessa o cardápio", desc: "Pelo tablet da mesa, QR Code ou link externo — sem instalar nada." },
+  { n: 2, icon: "🛒", title: "Escolhe produtos e adicionais", desc: "Com fotos, personalização e observações, do jeito que quiser." },
+  { n: 3, icon: "👨‍🍳", title: "Pedido vai para cozinha ou bar", desc: "Enviado automaticamente, digitado e sem ruído de comunicação." },
+  { n: 4, icon: "⏱️", title: "Equipe acompanha o preparo", desc: "Status em tempo real: aguardando, preparando e pronto." },
+  { n: 5, icon: "💳", title: "Caixa fecha a conta", desc: "Conta inteira, dividida ou parcial, com alerta de conta solicitada." },
+  { n: 6, icon: "📈", title: "Gestor acompanha relatórios", desc: "Dashboard, relatórios e CRM atualizados a cada venda." },
+];
+
+const INDICADORES = [
+  { label: "Vendas do dia", valor: "R$ 4.860", cor: "#2E7D32", sub: "+12% vs. ontem" },
+  { label: "Pedidos realizados", valor: "138", cor: "#14213D", sub: "hoje" },
+  { label: "Ticket médio", valor: "R$ 42,90", cor: "#D99A21", sub: "+4%" },
+  { label: "Clientes recorrentes", valor: "63%", cor: "#14213D", sub: "base ativa" },
+  { label: "Cancelamentos", valor: "1,2%", cor: "#D32F2F", sub: "-0,3%" },
+  { label: "Pix / Cartão / Dinheiro", valor: "58% · 34% · 8%", cor: "#14213D", sub: "formas de pagamento" },
 ];
 
 const SEGMENTOS = [
-  { icon: "🍣", label: "Restaurante japonês" },
-  { icon: "🍕", label: "Pizzaria" },
-  { icon: "🍔", label: "Hamburgueria" },
-  { icon: "🥪", label: "Lanchonete" },
-  { icon: "🍽️", label: "Restaurante tradicional" },
-  { icon: "☕", label: "Cafeteria" },
-  { icon: "🍺", label: "Choperia" },
-  { icon: "🎪", label: "Food park" },
-  { icon: "🍨", label: "Sorveteria" },
-  { icon: "🥟", label: "Pastelaria" },
-  { icon: "🫐", label: "Açaiteria" },
-  { icon: "🥐", label: "Padaria com consumo local" },
+  { icon: "🍽️", label: "Restaurantes" },
+  { icon: "🍔", label: "Hamburguerias" },
+  { icon: "🍕", label: "Pizzarias" },
+  { icon: "🍣", label: "Sushi houses" },
+  { icon: "☕", label: "Cafeterias" },
+  { icon: "🍺", label: "Bares" },
+  { icon: "🥪", label: "Lanchonetes" },
+  { icon: "🥐", label: "Padarias" },
+  { icon: "🚚", label: "Food trucks" },
+  { icon: "🍻", label: "Choperias" },
+  { icon: "🍢", label: "Espetarias" },
+  { icon: "🫐", label: "Açaiterias" },
 ];
 
-const BENEFICIOS = [
-  { icon: "🏪", title: "SaaS multiempresa", desc: "Várias empresas em uma só plataforma, cada uma com dados, equipe e cardápio isolados." },
-  { icon: "🔐", title: "Controle por perfil", desc: "Cargos e permissões por tela: cada colaborador vê apenas o que precisa." },
-  { icon: "✨", title: "Experiência premium", desc: "Visual gourmet no tablet e identidade profissional em todas as telas." },
-  { icon: "⚡", title: "Operação em tempo real", desc: "Salão, cozinha, painel e caixa sincronizados a cada segundo." },
-  { icon: "📱", title: "Cardápio digital completo", desc: "Tablet na mesa, QR Code e link externo no celular do cliente." },
-  { icon: "📊", title: "Gestão com dados", desc: "Dashboard com comparativos, relatórios de vendas e CRM estratégico." },
-  { icon: "🔑", title: "Controle de licença", desc: "Liberação e suspensão de acesso por empresa, direto da plataforma." },
-];
-
-const PERFIS = [
-  { icon: "📲", title: "Cliente / Tablet", desc: "Vê o cardápio, faz o pedido, acompanha o status e solicita a conta — sempre vinculado à mesa e à comanda." },
-  { icon: "👨‍🍳", title: "Cozinha", desc: "Vê apenas os pedidos: recebidos, em preparo, prontos e entregues." },
-  { icon: "💳", title: "Caixa / Pagamento", desc: "Vê a conta da mesa, os itens consumidos e realiza o fechamento." },
-  { icon: "🧑‍💼", title: "Gerente / Gestor", desc: "Dashboard, relatórios de vendas, mesas, comandas e o dia a dia da operação." },
-  { icon: "🔐", title: "Administrativo", desc: "Gerencia produtos, preços, imagens, categorias, usuários, cargos e permissões." },
-  { icon: "📺", title: "Painel geral", desc: "Exibe os pedidos por status para acompanhamento operacional do salão." },
+const TABLETS = [
+  { icon: "📱", title: "Cardápio no tablet", desc: "O cliente navega, personaliza e envia o pedido direto da mesa." },
+  { icon: "👨‍🍳", title: "Cozinha em tempo real", desc: "Cada pedido aparece na fila por status, com tempo e prioridade." },
+  { icon: "💳", title: "Acompanhar e fechar a conta", desc: "Conta da mesa, itens consumidos e fechamento com poucos toques." },
 ];
 
 const FAQ = [
-  { q: "O Pedido Prime funciona com tablet?", a: "Sim. O tablet fica vinculado a uma mesa (selecionada no login) e o cliente pede sozinho, acompanha o preparo e solicita a conta direto da mesa." },
-  { q: "Posso usar QR Code nas mesas?", a: "Sim. O sistema gera e imprime QR Codes por mesa e comandas QR com a identidade da sua empresa, validados por empresa no envio do pedido." },
-  { q: "O cliente pode pedir pelo celular?", a: "Sim. Pelo QR da mesa ou pelo link de divulgação, o cliente abre o cardápio digital no navegador, pede e acompanha — sem instalar nada." },
-  { q: "O sistema possui cozinha integrada?", a: "Sim. O pedido chega na cozinha em tempo real, em colunas por status, com tempo decorrido e destaque automático para pedidos atrasados." },
-  { q: "Consigo controlar várias empresas?", a: "Sim. O Pedido Prime é um SaaS multiempresa: cada empresa tem cardápio, equipe, mesas, comandas e dados totalmente isolados." },
-  { q: "Existe controle de permissões?", a: "Sim. Usuários, cargos e permissões por tela definem exatamente o que cada colaborador acessa: tablet, cozinha, caixa, painel ou administrativo." },
-  { q: "É possível bloquear empresa por licença?", a: "Sim. O administrador da plataforma libera ou suspende a licença de cada empresa — usuários de empresa suspensa não conseguem acessar até a regularização." },
+  { q: "O Pedido Prime funciona em tablet?", a: "Sim. O tablet fica vinculado a uma mesa e o cliente pede sozinho, acompanha o preparo e solicita a conta direto da mesa. Também funciona no tablet da cozinha e do caixa." },
+  { q: "Precisa instalar aplicativo?", a: "Não. Tudo roda no navegador. Pelo QR Code ou link, o cliente abre o cardápio digital no próprio celular, sem instalar nada." },
+  { q: "O cliente pode pedir pelo QR Code?", a: "Sim. Cada mesa tem seu QR Code; o cliente escaneia, acessa o cardápio vinculado à mesa/comanda e envia o pedido." },
+  { q: "O pedido vai direto para a cozinha?", a: "Sim. O pedido sai da mesa e chega na cozinha em tempo real, em colunas por status, com tempo decorrido e destaque para atrasados." },
+  { q: "Consigo controlar caixa e financeiro?", a: "Sim. Conta inteira ou parcial por item, formas de pagamento, fechamento de caixa com conferência e solicitação de conta pela mesa." },
+  { q: "Tem relatórios gerenciais?", a: "Sim. Dashboard com vendas, ticket médio, produtos mais vendidos, horários de pico, cancelamentos e desempenho por período." },
+  { q: "Funciona para hamburgueria, pizzaria e restaurante?", a: "Sim. Foi criado para food service em geral, com adicionais, variações, combos e setores de preparo — ideal para burger, pizza, japonês e mais." },
+  { q: "Posso usar em mais de uma unidade?", a: "Sim. É um SaaS multiempresa: cada unidade tem cardápio, equipe e dados isolados, com gestão centralizada nos planos avançados." },
+  { q: "O sistema funciona em celular?", a: "Sim. É totalmente responsivo — cliente, garçom e gestor acessam pelo celular, tablet ou desktop." },
+  { q: "Como solicitar uma demonstração?", a: "Clique em “Solicitar demonstração” ou fale no WhatsApp. Nossa equipe mostra o sistema na prática e ajuda na configuração." },
 ];
 
-// ── Helpers de UI reutilizáveis ──────────────────────────────
+const SEGMENTOS_FORM = ["Restaurante", "Hamburgueria", "Pizzaria", "Sushi house", "Cafeteria", "Bar", "Lanchonete", "Padaria", "Food truck", "Outro"];
+
+// ── Helpers ──────────────────────────────────────────────────
 function goTo(id) {
   const el = document.getElementById(id);
   if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
-function Botao({ children, variant = "primary", onClick, className = "" }) {
-  const base = "font-display inline-flex items-center justify-center gap-2 rounded-2xl px-6 py-3.5 text-sm font-bold transition active:scale-95";
-  const styles = {
-    primary: "bg-blue-500 text-white hover:bg-blue-400 shadow-lg shadow-blue-950/40",
-    secondary: "bg-gold-400 text-blue-950 hover:bg-gold-300 shadow-lg shadow-gold-900/30",
-    ghost: "bg-white/10 text-white hover:bg-white/20 border border-white/15",
-    light: "border border-gold-400/40 bg-gold-400/10 text-gold-200 hover:bg-gold-400/20",
-    gold: "bg-gold-400 text-blue-950 hover:bg-gold-300 shadow-lg shadow-gold-900/30",
-  };
-  return <button onClick={onClick} className={`${base} ${styles[variant]} ${className}`}>{children}</button>;
+// Revela o conteúdo com fade/slide ao entrar na viewport.
+function Reveal({ children, className = "", delay = 0, as: Tag = "div" }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      (entries) => entries.forEach((e) => { if (e.isIntersecting) { el.classList.add("pp-in"); io.unobserve(el); } }),
+      { threshold: 0.12, rootMargin: "0px 0px -8% 0px" }
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+  return <Tag ref={ref} style={delay ? { transitionDelay: `${delay}ms` } : undefined} className={`pp-reveal ${className}`}>{children}</Tag>;
 }
 
-// Marca oficial: logo + PEDIDO (branco) PRIME (dourado)
-function Marca({ claro = true }) {
+// Carrossel horizontal com scroll-snap, setas e autoplay (pausa no hover).
+function Carrossel({ children, auto = true, className = "" }) {
+  const ref = useRef(null);
+  const mover = (dir) => { const el = ref.current; if (el) el.scrollBy({ left: dir * Math.max(240, el.clientWidth * 0.8), behavior: "smooth" }); };
+  useEffect(() => {
+    if (!auto) return;
+    const el = ref.current; if (!el) return;
+    let pausado = false;
+    const enter = () => (pausado = true), leave = () => (pausado = false);
+    el.addEventListener("mouseenter", enter); el.addEventListener("mouseleave", leave);
+    el.addEventListener("touchstart", enter, { passive: true });
+    const t = setInterval(() => {
+      const e2 = ref.current; if (!e2 || pausado) return;
+      if (e2.scrollLeft + e2.clientWidth >= e2.scrollWidth - 8) e2.scrollTo({ left: 0, behavior: "smooth" });
+      else e2.scrollBy({ left: 260, behavior: "smooth" });
+    }, 3200);
+    return () => { clearInterval(t); el.removeEventListener("mouseenter", enter); el.removeEventListener("mouseleave", leave); el.removeEventListener("touchstart", enter); };
+  }, [auto]);
+  return (
+    <div className={`relative ${className}`}>
+      <div ref={ref} className="pp-noscrollbar flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth pb-2">
+        {children}
+      </div>
+      <button type="button" aria-label="Anterior" onClick={() => mover(-1)}
+        className="absolute -left-3 top-1/2 hidden -translate-y-1/2 rounded-full border border-[#E5E7EB] bg-white p-2.5 text-[#14213D] shadow-md transition hover:bg-[#FFF8EC] sm:flex">
+        <IcoSeta dir="left" />
+      </button>
+      <button type="button" aria-label="Próximo" onClick={() => mover(1)}
+        className="absolute -right-3 top-1/2 hidden -translate-y-1/2 rounded-full border border-[#E5E7EB] bg-white p-2.5 text-[#14213D] shadow-md transition hover:bg-[#FFF8EC] sm:flex">
+        <IcoSeta dir="right" />
+      </button>
+    </div>
+  );
+}
+
+function IcoSeta({ dir = "right" }) {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+      {dir === "left" ? <polyline points="15 18 9 12 15 6" /> : <polyline points="9 18 15 12 9 6" />}
+    </svg>
+  );
+}
+
+// Botões globais da landing.
+function Botao({ children, variant = "gold", onClick, type = "button", className = "" }) {
+  const base = "font-display inline-flex items-center justify-center gap-2 rounded-2xl px-6 py-3.5 text-sm font-bold transition active:scale-[0.97]";
+  const styles = {
+    gold: "bg-[#D99A21] text-[#14213D] hover:bg-[#F2B544] shadow-lg shadow-[#D99A21]/25",
+    navy: "bg-[#14213D] text-white hover:bg-[#1F2A44] shadow-lg shadow-[#14213D]/20",
+    outline: "border border-[#14213D]/15 bg-white text-[#14213D] hover:bg-[#FFF8EC]",
+    onDark: "border border-white/20 bg-white/5 text-white hover:bg-white/10",
+    whatsapp: "bg-[#22C55E] text-white hover:bg-[#1eb257] shadow-lg shadow-[#22C55E]/30",
+  };
+  return <button type={type} onClick={onClick} className={`${base} ${styles[variant]} ${className}`}>{children}</button>;
+}
+
+function Marca({ escuro = false }) {
   return (
     <div className="flex shrink-0 items-center gap-2.5">
       <LogoPP size={38} />
       <span className="font-display whitespace-nowrap text-lg font-bold leading-none tracking-tight">
-        <span className={claro ? "text-white" : "text-blue-950"}>PEDIDO</span>{" "}
-        <span className="text-gold-400">PRIME</span>
+        <span className={escuro ? "text-white" : "text-[#14213D]"}>PEDIDO</span>{" "}
+        <span className="text-[#D99A21]">PRIME</span>
       </span>
     </div>
   );
 }
 
-function TituloSecao({ tag, titulo, subtitulo }) {
+function Badge({ children }) {
   return (
-    <div className="mx-auto max-w-2xl text-center">
-      {tag && <span className="inline-block rounded-full border border-gold-400/40 bg-gold-400/10 px-3 py-1 text-xs font-black uppercase tracking-widest text-gold-300">{tag}</span>}
-      <h2 className="font-display mt-4 text-3xl font-bold tracking-tight text-white sm:text-4xl">{titulo}</h2>
-      {subtitulo && <p className="mt-3 text-base leading-7 text-slate-400">{subtitulo}</p>}
-    </div>
+    <span className="inline-flex items-center gap-2 rounded-full border border-[#D99A21]/30 bg-[#FFF8EC] px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-wider text-[#B27A16]">
+      <span className="h-1.5 w-1.5 rounded-full bg-[#D99A21]" />{children}
+    </span>
   );
 }
 
-function FeatureCard({ icon, title, desc }) {
+// Selo/ícone redondo creme com emoji.
+function IconBadge({ children, tom = "cream" }) {
+  const tons = {
+    cream: "border-[#F0DFB8] bg-[#FFF8EC] text-[#B27A16]",
+    dark: "border-white/10 bg-white/[0.06] text-[#F2B544]",
+  };
+  return <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border text-xl ${tons[tom]}`}>{children}</span>;
+}
+
+function Check({ tom = "gold" }) {
+  const c = tom === "gold" ? "#D99A21" : "#2E7D32";
   return (
-    <div className="group rounded-2xl border border-white/10 bg-white/[0.04] p-5 transition hover:-translate-y-0.5 hover:border-gold-400/30 hover:bg-white/[0.06]">
-      <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-gold-400/10 text-xl">{icon}</span>
-      <h3 className="font-display mt-3 text-base font-bold text-white">{title}</h3>
-      <p className="mt-1 text-sm leading-6 text-slate-400">{desc}</p>
-    </div>
+    <svg viewBox="0 0 24 24" className="mt-0.5 h-4 w-4 shrink-0" fill="none" stroke={c} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 6 9 17l-5-5" />
+    </svg>
   );
 }
 
-// ── Ícones de linha (planos) — SVG próprios, herdam currentColor ──
-const svgBase = { fill: "none", stroke: "currentColor", strokeWidth: 1.7, strokeLinecap: "round", strokeLinejoin: "round", viewBox: "0 0 24 24", "aria-hidden": true };
-function PlanoIcone({ tipo, className = "h-7 w-7" }) {
-  const p = { ...svgBase, className };
-  if (tipo === "bars") return (<svg {...p}><rect x="4" y="13" width="3.5" height="7" rx="1" /><rect x="10.25" y="8" width="3.5" height="12" rx="1" /><rect x="16.5" y="4" width="3.5" height="16" rx="1" /></svg>);
-  if (tipo === "handshake") return (<svg {...p}><path d="m11 17 2 2a1.5 1.5 0 0 0 2.5-1.1" /><path d="M13.5 19.4 16 17a1.5 1.5 0 0 0 2.4.4l.6-.6" /><path d="m19 17 2-2-4-6-3 1-2-1-2 1-3 4 2 2 3-2 3 3" /><path d="m3 9 4-6" /><path d="m21 9-2-3" /></svg>);
-  // phone (smartphone) — padrão
-  return (<svg {...p}><rect x="6.5" y="3" width="11" height="18" rx="2.4" /><path d="M11 18h2" /></svg>);
-}
-function CtaIcone({ tipo, className = "h-4 w-4" }) {
-  const p = { ...svgBase, className };
-  if (tipo === "crown") return (<svg {...p}><path d="m3 8 3.5 3L12 5l5.5 6L21 8l-1.5 10h-15L3 8Z" /><path d="M4.5 18h15" /></svg>);
-  if (tipo === "bars") return (<svg {...p}><rect x="4" y="13" width="3.5" height="7" rx="1" /><rect x="10.25" y="8" width="3.5" height="12" rx="1" /><rect x="16.5" y="4" width="3.5" height="16" rx="1" /></svg>);
-  if (tipo === "person") return (<svg {...p}><circle cx="12" cy="8" r="3.4" /><path d="M5.5 20c.7-3.3 3.2-5 6.5-5s5.8 1.7 6.5 5" /></svg>);
-  // rocket — padrão
-  return (<svg {...p}><path d="M5 15c-1.2.6-2 2-2 4 2 0 3.4-.8 4-2" /><path d="M9 17c-1.5-.6-3-2.1-3.6-3.6 0-5 3-9 9.6-10.4C16.4 9.6 12.4 12.6 9 17Z" /><path d="M9 13.5 7 12m4.5 4.5L13 15" /></svg>);
-}
-function CheckCircle({ className = "h-[18px] w-[18px]" }) {
-  return (<svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="m8.5 12 2.3 2.3L15.5 9.6" /></svg>);
-}
-function GarantiaIcone({ tipo, className = "h-5 w-5" }) {
-  const p = { ...svgBase, className };
-  if (tipo === "headset") return (<svg {...p}><path d="M4 13v-1a8 8 0 0 1 16 0v1" /><path d="M4 13h2.5a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-4Z" /><path d="M20 13h-2.5a1 1 0 0 0-1 1v3a1 1 0 0 0 1 1H19a1 1 0 0 0 1-1v-4Z" /><path d="M20 17v1a3 3 0 0 1-3 3h-3" /></svg>);
-  if (tipo === "cap") return (<svg {...p}><path d="m12 4 10 5-10 5L2 9l10-5Z" /><path d="M6 11v4c0 1.4 2.7 3 6 3s6-1.6 6-3v-4" /><path d="M22 9v5" /></svg>);
-  if (tipo === "cloud") return (<svg {...p}><path d="M7 18a4 4 0 0 1-.5-7.97A6 6 0 0 1 18 9.5a3.5 3.5 0 0 1-.5 8.5H7Z" /><path d="M12 11v6M9.5 14.5 12 17l2.5-2.5" /></svg>);
-  // shield — padrão
-  return (<svg {...p}><path d="M12 3 5 6v5c0 4.4 2.9 8 7 10 4.1-2 7-5.6 7-10V6l-7-3Z" /><path d="m9 12 2 2 4-4.5" /></svg>);
-}
-
-// Mockup de uma "tela do app" dentro de um frame de tablet (para o anúncio do app)
-function MockTela({ titulo, legenda, children }) {
-  return (
-    <div className="flex flex-col items-center">
-      <div className="w-full max-w-[300px] rounded-[2rem] border border-white/10 bg-slate-900 p-2.5 shadow-2xl ring-1 ring-white/5">
-        <div className="overflow-hidden rounded-[1.4rem] bg-slate-950">
-          <div className="flex items-center gap-2 border-b border-white/10 bg-blue-950/80 px-4 py-2.5">
-            <LogoPP size={18} />
-            <span className="text-xs font-black"><span className="text-white">PEDIDO</span> <span className="text-gold-400">PRIME</span></span>
-            <span className="ml-auto h-2 w-2 rounded-full bg-gold-400" />
-          </div>
-          <div className="space-y-2 p-3" style={{ minHeight: 220 }}>{children}</div>
-        </div>
-      </div>
-      <h3 className="mt-5 text-base font-black text-white">{titulo}</h3>
-      <p className="mt-1 max-w-[280px] text-center text-sm leading-6 text-slate-400">{legenda}</p>
-    </div>
-  );
-}
-function LinhaProduto({ nome, preco, img }) {
-  return (
-    <div className="flex items-center gap-2.5 rounded-xl border border-white/10 bg-white/[0.04] p-2">
-      <img src={img} alt="" className="h-10 w-10 shrink-0 rounded-lg object-cover" />
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-[11px] font-black text-white">{nome}</p>
-        <p className="text-[10px] font-bold text-emerald-300">{preco}</p>
-      </div>
-      <span className="shrink-0 rounded-lg bg-gold-400 px-2 py-1 text-[10px] font-black text-blue-950">+ Add</span>
-    </div>
-  );
-}
-
-function FAQItem({ q, a, aberto, onToggle }) {
-  return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.04]">
-      <button onClick={onToggle} className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left">
-        <span className="font-display text-sm font-semibold text-white sm:text-base">{q}</span>
-        <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gold-400/15 text-gold-300 transition-transform ${aberto ? "rotate-45" : ""}`}>+</span>
-      </button>
-      {aberto && <p className="px-5 pb-5 text-sm leading-6 text-slate-400">{a}</p>}
-    </div>
-  );
-}
-
-// QR decorativo (matriz fixa, sem imagem externa)
-function FakeQR() {
-  const m = [
-    "111111101011111110",
-    "100000101100000010",
-    "101110100110111010",
-    "101110101010111010",
-    "101110100110111010",
-    "100000101100000010",
-    "111111101011111110",
-    "000000001000000000",
-    "110101111011010110",
-    "001011010010110100",
-    "110010101101001010",
-    "000000001011110110",
-    "111111101001010010",
-    "100000100110101100",
-    "101110101111011010",
-    "101110100010101100",
-    "100000101101010010",
-    "111111101011110110",
+// ── Mockups (SVG/divs) ───────────────────────────────────────
+function MockupTablet() {
+  const itens = [
+    { q: 1, nome: "Pizza Margherita", preco: "42,90" },
+    { q: 1, nome: "Pizza Calabresa", preco: "44,90" },
+    { q: 2, nome: "Refrigerante 2L", preco: "14,90" },
   ];
   return (
-    <div className="grid grid-cols-[repeat(18,1fr)] gap-px rounded-lg bg-white p-2" style={{ width: 96, height: 96 }}>
-      {m.flatMap((row, y) => row.split("").map((c, x) => (
-        <div key={`${x}-${y}`} className={c === "1" ? "bg-slate-900" : "bg-white"} />
-      )))}
-    </div>
-  );
-}
-
-// Mock de tablet do cliente (apenas HTML/CSS/Tailwind)
-function TabletMock() {
-  return (
     <div className="relative mx-auto w-full max-w-md">
-      <div className="pointer-events-none absolute -inset-6 rounded-[3rem] bg-blue-500/20 blur-3xl" />
-      <div className="relative overflow-hidden rounded-[2.2rem] border border-white/15 bg-slate-900 p-4 shadow-2xl">
-        {/* Topo */}
-        <div className="flex items-center justify-between rounded-2xl bg-slate-800/70 px-4 py-3">
-          <div className="flex items-center gap-2">
-            <span className="text-lg">🍽️</span>
+      <div className="pp-float rounded-[2rem] border border-[#E5E7EB] bg-white p-4 shadow-[0_30px_80px_-30px_rgba(20,33,61,0.35)]">
+        <div className="flex items-center justify-between rounded-2xl bg-[#14213D] px-4 py-3 text-white">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/10 text-base">🍕</span>
             <div>
-              <p className="text-sm font-black leading-none text-white">Forno &amp; Lenha</p>
-              <p className="text-[10px] text-slate-400">Mesa 08 • Comanda PIZ-000008</p>
+              <p className="font-display text-sm font-bold leading-none">Forno &amp; Lenha</p>
+              <p className="mt-1 text-[10px] text-white/60">Mesa 07 · Comanda #124</p>
             </div>
           </div>
-          <span className="rounded-full bg-amber-500/20 px-2 py-1 text-[10px] font-black text-amber-300">Em preparo</span>
+          <span className="rounded-full bg-[#F59E0B]/20 px-2.5 py-1 text-[10px] font-bold text-[#F59E0B]">Em preparo</span>
         </div>
-
-        {/* Itens */}
         <div className="mt-3 space-y-2">
-          {[
-            { n: "Pizza Margherita", p: "R$ 42,90", q: "1x" },
-            { n: "Pizza Calabresa", p: "R$ 44,90", q: "1x" },
-            { n: "Refrigerante 2L", p: "R$ 14,90", q: "1x" },
-          ].map((it) => (
-            <div key={it.n} className="flex items-center justify-between rounded-xl border border-white/5 bg-slate-800/40 px-3 py-2.5">
-              <span className="text-sm text-slate-200"><b className="text-white">{it.q}</b> {it.n}</span>
-              <span className="text-sm font-bold text-white">{it.p}</span>
+          {itens.map((i) => (
+            <div key={i.nome} className="flex items-center justify-between rounded-xl border border-[#E5E7EB] px-3.5 py-2.5">
+              <span className="text-sm text-[#1F2937]"><b className="text-[#14213D]">{i.q}x</b> {i.nome}</span>
+              <span className="font-display text-sm font-bold text-[#14213D]">R$ {i.preco}</span>
             </div>
           ))}
         </div>
-
-        {/* Status timeline */}
         <div className="mt-3 flex items-center gap-1.5">
           {["Recebido", "Preparando", "Pronto", "Entregue"].map((s, i) => (
-            <div key={s} className="flex-1">
-              <div className={`h-1.5 rounded-full ${i <= 1 ? "bg-blue-500" : "bg-slate-700"}`} />
-              <p className={`mt-1 text-center text-[9px] font-bold ${i <= 1 ? "text-blue-300" : "text-slate-500"}`}>{s}</p>
+            <div key={s} className="flex-1 text-center">
+              <div className={`h-1.5 rounded-full ${i <= 1 ? "bg-[#D99A21]" : "bg-[#E5E7EB]"}`} />
+              <p className={`mt-1 text-[9px] font-bold ${i <= 1 ? "text-[#B27A16]" : "text-[#9AA1AB]"}`}>{s}</p>
             </div>
           ))}
         </div>
-
-        {/* Rodapé: QR + total + botão */}
-        <div className="mt-3 flex items-center gap-3 rounded-2xl bg-slate-800/70 p-3">
-          <FakeQR />
-          <div className="flex-1">
-            <p className="text-[10px] uppercase tracking-widest text-slate-400">Total parcial</p>
-            <p className="text-xl font-black text-white">R$ 102,70</p>
-            <button className="mt-2 w-full rounded-xl bg-gold-500 py-2 text-xs font-black text-white">🧾 Solicitar conta</button>
+        <div className="mt-3 flex items-center justify-between rounded-2xl bg-[#FFF8EC] px-4 py-3">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-[#6C757D]">Total parcial</p>
+            <p className="font-display text-xl font-black text-[#14213D]">R$ 117,60</p>
           </div>
+          <span className="rounded-xl bg-[#D99A21] px-3.5 py-2 text-xs font-bold text-[#14213D]">Solicitar conta</span>
         </div>
+      </div>
+      {/* brilho dourado atrás */}
+      <div className="pointer-events-none absolute -inset-6 -z-10 rounded-[3rem] bg-[radial-gradient(closest-side,rgba(217,154,33,0.18),transparent)]" />
+    </div>
+  );
+}
+
+function MockupDashboard() {
+  const barras = [42, 68, 55, 90, 74, 60, 85];
+  return (
+    <div className="rounded-[2rem] border border-[#E5E7EB] bg-white p-5 shadow-[0_30px_80px_-40px_rgba(20,33,61,0.4)]">
+      <div className="flex items-center justify-between">
+        <p className="font-display text-sm font-bold text-[#14213D]">Faturamento por horário</p>
+        <span className="rounded-full bg-[#E8F5E9] px-2.5 py-1 text-[10px] font-bold text-[#2E7D32]">+12% hoje</span>
+      </div>
+      <div className="mt-4 flex items-end justify-between gap-2" style={{ height: 120 }}>
+        {barras.map((h, i) => (
+          <div key={i} className="flex-1">
+            <div className={`w-full rounded-t-md ${i === 3 ? "bg-[#D99A21]" : "bg-[#14213D]"}`} style={{ height: `${h}%` }} />
+          </div>
+        ))}
+      </div>
+      <div className="mt-4 grid grid-cols-3 gap-2.5">
+        {[
+          { l: "Ticket médio", v: "R$ 42,90" },
+          { l: "Pedidos", v: "138" },
+          { l: "Mesas ativas", v: "12" },
+        ].map((c) => (
+          <div key={c.l} className="rounded-xl border border-[#E5E7EB] bg-[#F8F9FA] p-3">
+            <p className="text-[9px] font-bold uppercase tracking-wider text-[#6C757D]">{c.l}</p>
+            <p className="font-display mt-1 text-base font-black text-[#14213D]">{c.v}</p>
+          </div>
+        ))}
       </div>
     </div>
   );
 }
 
-// Mock do dashboard gerencial (apenas HTML/CSS/Tailwind)
-function DashboardMock() {
-  const barras = [42, 58, 35, 72, 64, 88, 95];
-  const dias = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
-  return (
-    <div className="relative mx-auto w-full max-w-md">
-      <div className="pointer-events-none absolute -inset-6 rounded-[3rem] bg-emerald-500/15 blur-3xl" />
-      <div className="relative overflow-hidden rounded-[2.2rem] border border-white/15 bg-slate-900 p-4 shadow-2xl">
-        {/* Topo */}
-        <div className="flex items-center justify-between rounded-2xl bg-slate-800/70 px-4 py-3">
-          <div className="flex items-center gap-2">
-            <span className="text-lg">📊</span>
-            <div>
-              <p className="text-sm font-black leading-none text-white">Dashboard</p>
-              <p className="text-[10px] text-slate-400">Visão gerencial • hoje</p>
-            </div>
-          </div>
-          <span className="rounded-full bg-emerald-500/20 px-2 py-1 text-[10px] font-black text-emerald-300">● Ao vivo</span>
-        </div>
-
-        {/* Indicadores */}
-        <div className="mt-3 grid grid-cols-3 gap-2">
-          {[
-            { t: "Faturamento", v: "R$ 4.380", c: "text-emerald-400" },
-            { t: "Pedidos", v: "127", c: "text-white" },
-            { t: "Ticket médio", v: "R$ 34,50", c: "text-blue-300" },
-          ].map((k) => (
-            <div key={k.t} className="rounded-xl border border-white/5 bg-slate-800/40 px-2.5 py-2 text-center">
-              <p className="text-[9px] uppercase tracking-wider text-slate-400">{k.t}</p>
-              <p className={`text-sm font-black ${k.c}`}>{k.v}</p>
-            </div>
-          ))}
-        </div>
-
-        {/* Vendas da semana */}
-        <div className="mt-3 rounded-2xl border border-white/5 bg-slate-800/40 p-3">
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Vendas da semana</p>
-          <div className="mt-2 flex h-24 items-end gap-1.5">
-            {barras.map((h, i) => (
-              <div key={i} className="flex flex-1 flex-col items-center gap-1">
-                <div className={`w-full rounded-t-md ${i === 6 ? "bg-emerald-400" : "bg-blue-500/70"}`} style={{ height: `${h}%` }} />
-                <span className="text-[8px] font-bold text-slate-500">{dias[i]}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Mais vendidos */}
-        <div className="mt-3 rounded-2xl border border-white/5 bg-slate-800/40 p-3 space-y-1.5">
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Mais vendidos</p>
-          {[
-            { n: "1º Burger Artesanal", q: "38 un." },
-            { n: "2º Pizza Calabresa", q: "29 un." },
-            { n: "3º Suco Natural", q: "24 un." },
-          ].map((p) => (
-            <div key={p.n} className="flex items-center justify-between text-[11px]">
-              <span className="font-bold text-slate-200">{p.n}</span>
-              <span className="font-black text-emerald-300">{p.q}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ════════════════════════════════════════════════════════════
-//  Vídeo de divulgação — autoplay em loop infinito (mudo, exigência
-//  dos navegadores p/ autoplay). Toca enquanto o cliente está no site;
-//  o toque pausa/retoma e há um botão para ativar o som.
-// ════════════════════════════════════════════════════════════
-function VideoDivulgacao() {
-  const ref = useRef(null);
-  const [tocando, setTocando] = useState(true);
-  const [mudo, setMudo] = useState(true);
-  const [interagiu, setInteragiu] = useState(false); // esconde a dica após o 1º toque
-
-  // Garante mudo + início da reprodução. O atributo `muted` do JSX não seta a
-  // propriedade de forma confiável no React (bug conhecido), e sem mudo o
-  // autoplay é bloqueado pelos navegadores — então forçamos via ref.
-  useEffect(() => {
-    const v = ref.current;
-    if (!v) return;
-    v.muted = true;
-    v.play().catch(() => {});
-  }, []);
-
-  function alternar() {
-    const v = ref.current;
-    if (!v) return;
-    setInteragiu(true);
-    if (v.paused) { v.play().catch(() => {}); setTocando(true); }
-    else { v.pause(); setTocando(false); }
-  }
-
-  function alternarSom(e) {
-    e.stopPropagation(); // não dispara o pausar/retomar do clique no vídeo
-    const v = ref.current;
-    if (!v) return;
-    const novo = !v.muted;
-    v.muted = novo;
-    setMudo(novo);
-    if (novo === false && v.paused) { v.play().catch(() => {}); setTocando(true); }
-  }
-
-  return (
-    <section className="bg-[#070B16] py-14 sm:py-20">
-      <div className="mx-auto max-w-5xl px-5">
-        <TituloSecao
-          tag="Veja em ação"
-          titulo="Conheça o Pedido Prime em poucos segundos"
-          subtitulo="Toque no vídeo para pausar ou continuar quando quiser."
-        />
-        <div className="mt-9 overflow-hidden rounded-3xl border border-gold-400/25 bg-black shadow-2xl shadow-black/40 ring-1 ring-white/5">
-          <div
-            className="group relative cursor-pointer"
-            onClick={alternar}
-            role="button"
-            tabIndex={0}
-            aria-label={tocando ? "Pausar vídeo" : "Reproduzir vídeo"}
-            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); alternar(); } }}
-          >
-            <video
-              ref={ref}
-              className="block aspect-video w-full bg-black"
-              src="/divulgacao.mp4"
-              autoPlay
-              loop
-              muted
-              playsInline
-              preload="metadata"
-            />
-
-            {/* Indicador central de play/pause */}
-            <div className={`pointer-events-none absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${tocando ? "opacity-0 group-hover:opacity-100" : "opacity-100"}`}>
-              <span className="flex h-16 w-16 items-center justify-center rounded-full bg-black/55 text-[#fff] backdrop-blur-sm ring-1 ring-white/20">
-                {tocando ? (
-                  <svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor" aria-hidden="true"><rect x="6.5" y="5" width="3.6" height="14" rx="1" /><rect x="13.9" y="5" width="3.6" height="14" rx="1" /></svg>
-                ) : (
-                  <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor" aria-hidden="true"><path d="M8 5.2v13.6c0 .8.9 1.3 1.6.8l10-6.8a1 1 0 0 0 0-1.6l-10-6.8c-.7-.5-1.6 0-1.6.8Z" /></svg>
-                )}
-              </span>
-            </div>
-
-            {/* Dica inicial (some após o primeiro toque) */}
-            {!interagiu && (
-              <div className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-black/55 px-3.5 py-1.5 text-[11px] font-semibold text-white/90 backdrop-blur-sm ring-1 ring-white/15">
-                Toque para pausar
-              </div>
-            )}
-
-            {/* Botão de som (mudo/ativar) */}
-            <button
-              type="button"
-              onClick={alternarSom}
-              aria-label={mudo ? "Ativar som" : "Desativar som"}
-              className="absolute bottom-3 right-3 flex h-10 w-10 items-center justify-center rounded-full bg-black/55 text-[#fff] backdrop-blur-sm ring-1 ring-white/20 transition hover:bg-black/75"
-            >
-              {mudo ? (
-                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5Z" /><path d="m16 9 5 6M21 9l-5 6" /></svg>
-              ) : (
-                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5Z" /><path d="M15.5 8.5a5 5 0 0 1 0 7M18 6a8.5 8.5 0 0 1 0 12" /></svg>
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-// ════════════════════════════════════════════════════════════
-//  Página
 // ════════════════════════════════════════════════════════════
 export default function LandingPage({ navigate }) {
   const acessar = () => (navigate ? navigate("/login") : (window.location.href = "/login"));
   const [menuAberto, setMenuAberto] = useState(false);
   const [faqAberto, setFaqAberto] = useState(-1);
   const [enviado, setEnviado] = useState(false);
-  const [planoEscolhido, setPlanoEscolhido] = useState(null); // plano selecionado dinamicamente
+  const [planoEscolhido, setPlanoEscolhido] = useState(null);
 
-  // Cliente escolhe o plano → marca, leva ao contato e já fala com vendas no WhatsApp
+  function irPara(id) { setMenuAberto(false); goTo(id); }
+
   function escolherPlano(plano) {
     setPlanoEscolhido(plano.id);
     const precoTxt = plano.preco ? `R$ ${plano.preco}${plano.periodo}` : (plano.precoTexto || "Sob consulta");
@@ -537,8 +339,7 @@ export default function LandingPage({ navigate }) {
     const v = (k) => (f.get(k) || "").toString().trim();
     const planoSel = PLANOS.find((p) => p.id === planoEscolhido);
     const linhas = [
-      `*Solicitação de demonstração — ${NOME_SISTEMA}*`,
-      "",
+      `*Solicitação de demonstração — ${NOME_SISTEMA}*`, "",
       `Nome: ${v("nome") || "-"}`,
       `Estabelecimento: ${v("estabelecimento") || "-"}`,
       `WhatsApp: ${v("whatsapp") || "-"}`,
@@ -548,605 +349,480 @@ export default function LandingPage({ navigate }) {
       planoSel ? `Plano de interesse: ${planoSel.nome}${planoSel.preco ? ` (R$ ${planoSel.preco}${planoSel.periodo})` : ""}` : "",
       v("mensagem") ? `\nMensagem: ${v("mensagem")}` : "",
     ];
-    const texto = linhas.filter(Boolean).join("\n");
-    // Abre o WhatsApp comercial com a mensagem pré-montada (preparado p/ CRM no futuro)
-    window.open(`https://wa.me/${WHATSAPP_COMERCIAL}?text=${encodeURIComponent(texto)}`, "_blank");
+    window.open(`https://wa.me/${WHATSAPP_COMERCIAL}?text=${encodeURIComponent(linhas.filter(Boolean).join("\n"))}`, "_blank");
     setEnviado(true);
   }
 
   return (
-    <div data-theme="light">
-    <div className="tema-claro-area min-h-screen bg-admin-bg text-admin-text antialiased">
-      {/* ── Header sticky ─────────────────────────────────── */}
-      {/* paddingTop: app instalado em tela cheia — afasta o conteúdo da barra de status (safe area) */}
-      <header className="sticky top-0 z-50 border-b border-gold-400/20 bg-blue-950/90 backdrop-blur-xl" style={{ paddingTop: "env(safe-area-inset-top)" }}>
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-5 py-3.5">
-          <button onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className="shrink-0"><Marca claro /></button>
-          {/* Menu completo só quando cabe em uma linha (xl); abaixo disso, hambúrguer */}
-          <nav className="hidden min-w-0 items-center gap-3 xl:flex 2xl:gap-4">
+    <div className="min-h-screen bg-[#F8F9FA] font-sans text-[#1F2937] antialiased" style={{ fontFamily: "'Inter','Poppins',sans-serif" }}>
+      {/* ══ HEADER ══ */}
+      <header className="sticky top-0 z-50 border-b border-[#E5E7EB] bg-white/85 backdrop-blur-xl" style={{ paddingTop: "env(safe-area-inset-top)" }}>
+        <nav className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-3.5">
+          <button onClick={() => irPara("topo")} className="cursor-pointer" aria-label="Início"><Marca /></button>
+          <div className="hidden items-center gap-1 lg:flex">
             {NAV.map((n) => (
-              <button key={n.id} onClick={() => goTo(n.id)} className="whitespace-nowrap text-[13px] font-bold text-slate-300 transition hover:text-white 2xl:text-sm">{n.label}</button>
+              <button key={n.id} onClick={() => irPara(n.id)}
+                className="rounded-lg px-3 py-2 text-sm font-semibold text-[#374151] transition hover:bg-[#FFF8EC] hover:text-[#14213D]">
+                {n.label}
+              </button>
             ))}
-          </nav>
-          <div className="flex shrink-0 items-center gap-2">
-            <button onClick={() => goTo("contato")}
-              className="font-display hidden whitespace-nowrap rounded-xl bg-gold-400 px-4 py-2.5 text-xs font-bold text-blue-950 shadow-lg shadow-gold-600/25 transition hover:bg-gold-300 active:scale-95 xl:inline-flex">
-              Solicitar Demonstração
-            </button>
-            <button onClick={acessar}
-              className="font-display hidden whitespace-nowrap rounded-xl bg-blue-500 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-blue-600/25 transition hover:bg-blue-400 active:scale-95 sm:inline-flex">
-              Acessar Sistema
-            </button>
-            <button onClick={() => setMenuAberto((v) => !v)} className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/15 bg-white/10 text-white xl:hidden">☰</button>
           </div>
-        </div>
-        {/* Menu mobile */}
+          <div className="hidden items-center gap-2 md:flex">
+            <Botao variant="outline" onClick={() => irPara("contato")} className="!px-4 !py-2.5 !text-[13px]">Solicitar demonstração</Botao>
+            <Botao variant="navy" onClick={acessar} className="!px-4 !py-2.5 !text-[13px]">Acessar sistema</Botao>
+          </div>
+          <button onClick={() => setMenuAberto((a) => !a)} aria-label="Menu"
+            className="flex items-center justify-center rounded-xl border border-[#E5E7EB] bg-white p-2.5 text-[#14213D] lg:hidden">
+            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
+              {menuAberto ? <><path d="M6 6l12 12" /><path d="M18 6 6 18" /></> : <><path d="M4 7h16" /><path d="M4 12h16" /><path d="M4 17h16" /></>}
+            </svg>
+          </button>
+        </nav>
+        {/* Drawer mobile */}
         {menuAberto && (
-          <div className="border-t border-white/10 bg-blue-950 px-5 py-4 xl:hidden">
+          <div className="border-t border-[#E5E7EB] bg-white px-5 pb-5 pt-2 lg:hidden">
             <div className="grid gap-1">
               {NAV.map((n) => (
-                <button key={n.id} onClick={() => { goTo(n.id); setMenuAberto(false); }} className="rounded-xl px-3 py-2.5 text-left text-sm font-bold text-slate-300 hover:bg-white/[0.06]">{n.label}</button>
+                <button key={n.id} onClick={() => irPara(n.id)}
+                  className="rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-[#374151] transition hover:bg-[#FFF8EC] hover:text-[#14213D]">
+                  {n.label}
+                </button>
               ))}
-              <Botao variant="primary" onClick={acessar} className="mt-2 w-full">Acessar Sistema</Botao>
+            </div>
+            <div className="mt-3 grid gap-2">
+              <Botao variant="outline" onClick={() => irPara("contato")} className="w-full">Solicitar demonstração</Botao>
+              <Botao variant="navy" onClick={acessar} className="w-full">Acessar sistema</Botao>
             </div>
           </div>
         )}
       </header>
 
-      {/* ── Hero (layout do banner oficial) ───────────────── */}
-      <section className="relative overflow-hidden bg-blue-950">
-        <div className="pointer-events-none absolute -left-40 -top-40 h-96 w-96 rounded-full bg-blue-500/25 blur-[120px]" />
-        <div className="pointer-events-none absolute -right-40 bottom-0 h-96 w-96 rounded-full bg-gold-500/10 blur-[120px]" />
-        <div className="relative mx-auto max-w-6xl px-5 py-16 lg:py-20">
-          <div className="grid items-center gap-12 lg:grid-cols-2">
+      <main id="topo">
+        {/* ══ HERO ══ */}
+        <section className="relative overflow-hidden">
+          <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-b from-[#FFF8EC] via-[#F8F9FA] to-[#F8F9FA]" />
+          <div className="pointer-events-none absolute -right-24 -top-24 -z-10 h-96 w-96 rounded-full bg-[radial-gradient(closest-side,rgba(217,154,33,0.20),transparent)]" />
+          <div className="mx-auto grid max-w-7xl items-center gap-12 px-5 py-16 sm:py-24 lg:grid-cols-2">
             <div>
-              <span className="inline-flex items-center gap-2 rounded-full border border-gold-400/30 bg-gold-400/10 px-3 py-1.5 text-xs font-bold text-gold-300">
-                <span className="h-2 w-2 rounded-full bg-gold-400" /> Plataforma inteligente para atendimento, comandas e gestão
-              </span>
-              <h1 className="mt-5 text-4xl font-black leading-tight tracking-tight text-white sm:text-5xl">
-                Transforme o atendimento do seu restaurante com <span className="text-gold-400">pedidos digitais em tempo real</span>
-              </h1>
-              <p className="mt-5 max-w-xl text-base leading-7 text-slate-300 sm:text-lg">
-                Controle mesas, comandas, pedidos, cozinha, financeiro, relatórios e dashboards em uma única plataforma SaaS para restaurantes. Tudo isso e muito mais, tudo no {NOME_SISTEMA}.
+              <Reveal><Badge>Plataforma inteligente para atendimento, comandas e gestão food service</Badge></Reveal>
+              <Reveal delay={80}>
+                <h1 className="font-display mt-5 text-4xl font-black leading-[1.08] tracking-tight text-[#14213D] sm:text-5xl">
+                  Transforme o atendimento do seu restaurante com <span className="text-[#D99A21]">pedidos digitais em tempo real</span>
+                </h1>
+              </Reveal>
+              <Reveal delay={160}>
+                <p className="mt-5 max-w-xl text-base leading-7 text-[#4B5563] sm:text-lg">
+                  Controle mesas, comandas, cardápio digital, cozinha, caixa, financeiro e relatórios em uma única plataforma criada para restaurantes que querem <b className="text-[#14213D]">vender mais, errar menos e atender melhor</b>.
+                </p>
+              </Reveal>
+              <Reveal delay={240}>
+                <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                  <Botao variant="gold" onClick={() => irPara("contato")}>Solicitar demonstração</Botao>
+                  <Botao variant="outline" onClick={() => irPara("funcionalidades")}>Ver funcionalidades →</Botao>
+                </div>
+              </Reveal>
+              <Reveal delay={320}>
+                <div className="mt-8 grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:max-w-lg">
+                  {["Mais agilidade no atendimento", "Menos erros nos pedidos", "Mais controle para o gestor", "Melhor experiência para o cliente"].map((b) => (
+                    <div key={b} className="flex items-center gap-2 font-semibold text-[#374151]"><Check /> {b}</div>
+                  ))}
+                </div>
+              </Reveal>
+            </div>
+            <Reveal delay={160} className="lg:pl-6"><MockupTablet /></Reveal>
+          </div>
+        </section>
+
+        {/* ══ PROBLEMA ══ */}
+        <section className="bg-white py-16 sm:py-20">
+          <div className="mx-auto max-w-7xl px-5">
+            <Reveal className="mx-auto max-w-3xl text-center">
+              <h2 className="font-display text-3xl font-black tracking-tight text-[#14213D] sm:text-4xl">Seu restaurante ainda perde tempo com pedidos no papel?</h2>
+              <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-[#6C757D]">
+                Com o Pedido Prime, o pedido sai da mesa direto para a cozinha, reduzindo falhas de comunicação, atrasos, retrabalho e perda de controle no atendimento.
               </p>
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                <button onClick={() => goTo("contato")}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gold-400 px-6 py-3.5 text-sm font-black text-blue-950 transition hover:bg-gold-300 active:scale-95 shadow-lg shadow-gold-600/30">
-                  Solicitar demonstração
-                </button>
-                <Botao variant="ghost" onClick={() => goTo("funcionalidades")}>Ver funcionalidades →</Botao>
-              </div>
-              {/* Diferenciais rápidos */}
-              <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs font-bold text-slate-300">
-                <span>⏱️ Mais agilidade</span><span>🎯 Menos erros</span><span>📊 Mais controle</span><span>⭐ Melhor experiência para o cliente</span>
-              </div>
-            </div>
-            <TabletMock />
-          </div>
-
-          {/* Faixa de recursos (estilo banner) */}
-          <div className="mt-12 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-            {[
-              ["📲", "Tablet", "na mesa"],
-              ["🔳", "QR Code", "cardápio digital"],
-              ["👨‍🍳", "Cozinha", "integrada"],
-              ["📺", "Painel", "de pedidos"],
-              ["💳", "Caixa", "controle total"],
-            ].map(([ic, t, d]) => (
-              <div key={t} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
-                <span className="text-xl">{ic}</span>
-                <div className="leading-tight">
-                  <p className="text-sm font-black uppercase tracking-wide text-white">{t}</p>
-                  <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">{d}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Ribbon dourado */}
-          <div className="mt-8 flex justify-center">
-            <div className="inline-flex flex-col items-start gap-0.5 rounded-2xl border border-gold-400/50 bg-gold-400/10 px-6 py-3.5 sm:flex-row sm:items-center sm:gap-3">
-              <span className="text-base font-black uppercase tracking-wide text-gold-300">🚀 Moderno, completo e fácil de usar</span>
-              <span className="text-sm font-bold text-slate-300">— seu restaurante em outro nível</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ── Vídeo de divulgação ───────────────────────────── */}
-      <VideoDivulgacao />
-
-      {/* ── Dores e solução ───────────────────────────────── */}
-      <section className="bg-[#0A1424] py-16 sm:py-20">
-        <div className="mx-auto max-w-6xl px-5">
-          <TituloSecao tag="O problema → a solução" titulo="Atendimento manual gera filas, erros e gestão no escuro" subtitulo="Veja as principais dores que o sistema elimina no dia a dia do seu estabelecimento — do salão ao escritório." />
-          <div className="mt-10 grid gap-6 lg:grid-cols-2">
-            <div className="rounded-2xl border border-red-400/20 bg-red-500/[0.06] p-6">
-              <h3 className="text-base font-black text-red-600">😣 Sem o {NOME_SISTEMA}</h3>
-              <ul className="mt-4 space-y-2.5">
-                {PROBLEMAS.map((p) => (
-                  <li key={p} className="flex items-start gap-2 text-sm text-slate-300"><span className="mt-0.5 text-red-400">✕</span> {p}</li>
-                ))}
-              </ul>
-            </div>
-            <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/[0.06] p-6">
-              <h3 className="text-base font-black text-emerald-600">🚀 Com o {NOME_SISTEMA}</h3>
-              <ul className="mt-4 space-y-2.5">
-                {SOLUCOES.map((s) => (
-                  <li key={s} className="flex items-start gap-2 text-sm text-slate-300"><span className="mt-0.5 text-emerald-500">✓</span> {s}</li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ── Funcionalidades ───────────────────────────────── */}
-      <section id="funcionalidades" className="scroll-mt-24 bg-[#070B16] py-16 sm:py-20">
-        <div className="mx-auto max-w-6xl px-5">
-          <TituloSecao tag="Funcionalidades" titulo="Tudo que o seu estabelecimento precisa, em uma só plataforma" subtitulo="Do pedido no tablet da mesa ao relatório de vendas do gerente — com a cozinha e o caixa sincronizados em tempo real." />
-          <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {FEATURES.map((f) => <FeatureCard key={f.title} {...f} />)}
-          </div>
-          <p className="mt-10 text-center text-base font-bold text-slate-300">Tudo isso e muito mais — tudo no <span className="text-gold-400">{NOME_SISTEMA}</span>. 🚀</p>
-        </div>
-      </section>
-
-      {/* ── 2 formas de usar: Interno x Externo ───────────── */}
-      <section id="formas" className="scroll-mt-24 bg-[#0A1424] py-16 sm:py-20">
-        <div className="mx-auto max-w-6xl px-5">
-          <TituloSecao tag="2 formas de usar"
-            titulo="Atendimento no tablet (interno) e cardápio no celular do cliente (externo)"
-            subtitulo="Use do jeito que o seu negócio precisa — só interno, só externo, ou os dois ao mesmo tempo. Mais agilidade no salão e mais conversão fora dele." />
-          <div className="mt-10 grid gap-6 lg:grid-cols-2">
-            {/* Interno */}
-            <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-7">
-              <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gold-400/10 text-2xl">📲</span>
-              <h3 className="font-display mt-4 text-xl font-bold text-white">Interno — tablet na mesa</h3>
-              <p className="mt-1 text-sm leading-6 text-slate-500">O cliente pede sozinho pelo tablet da mesa. Agilidade no salão, menos fila e menos erros de anotação.</p>
-              <ul className="mt-4 space-y-2 text-sm text-slate-300">
-                {["Pedido direto na mesa, sem esperar o garçom","Tablet vinculado à mesa — só mesas livres aparecem","Comanda por QR Code validada por empresa","Cozinha recebe o pedido na hora","Acompanhamento e conta pelo próprio tablet","Funciona como app instalado (Android), em tela cheia"].map((t) => (
-                  <li key={t} className="flex items-start gap-2"><span className="mt-0.5 text-blue-500">✓</span> {t}</li>
-                ))}
-              </ul>
-            </div>
-            {/* Externo */}
-            <div className="rounded-3xl border border-emerald-400/20 bg-emerald-500/[0.05] p-7">
-              <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-2xl">📱</span>
-              <h3 className="font-display mt-4 text-xl font-bold text-white">Externo — celular do cliente</h3>
-              <p className="mt-1 text-sm leading-6 text-slate-500">O cliente acessa o cardápio digital pelo próprio celular — na mesa (QR) ou de qualquer lugar pelo link. Faz o pedido e acompanha sem instalar nada.</p>
-              <ul className="mt-4 space-y-2 text-sm text-slate-300">
-                {["QR na mesa: aponta a câmera e já pede","Link/QR geral para redes sociais e fachada","Pedido cai direto na cozinha, em tempo real","Acompanha o status (na fila → preparando → pronto)","Solicita a conta pelo celular","Sem app, sem download — abre no navegador"].map((t) => (
-                  <li key={t} className="flex items-start gap-2"><span className="mt-0.5 text-emerald-500">✓</span> {t}</li>
-                ))}
-              </ul>
-            </div>
-          </div>
-          <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-            <Botao variant="primary" onClick={() => goTo("app")}>📲 Conhecer o app</Botao>
-            <Botao variant="light" onClick={acessar}>Acessar Sistema →</Botao>
-          </div>
-        </div>
-      </section>
-
-      {/* ── Anúncio do APP (download Android) ──────────────── */}
-      <section id="app" className="scroll-mt-24 relative overflow-hidden bg-blue-950 py-16 sm:py-20">
-        <div className="pointer-events-none absolute inset-0"
-          style={{ backgroundImage: "radial-gradient(34rem 34rem at 10% -10%, rgba(37,99,235,.18), transparent 70%), radial-gradient(34rem 34rem at 110% 120%, rgba(16,185,129,.14), transparent 70%)" }} />
-        <div className="relative mx-auto max-w-6xl px-5">
-          <TituloSecao claro tag="📲 Aplicativo Android"
-            titulo="Leve o Pedido Prime no tablet do restaurante"
-            subtitulo="Baixe o aplicativo para Android e use direto no tablet da mesa, da cozinha ou do caixa — tudo sincronizado em tempo real." />
-
-          {/* Mockups das funcionalidades */}
-          <div className="mt-12 grid gap-10 sm:grid-cols-2 lg:grid-cols-3">
-            <MockTela titulo="Cardápio no tablet" legenda="O cliente pede sozinho, com fotos, adicionais e busca por item.">
-              <LinhaProduto nome="Risoto de Filé" preco="R$ 58,90" img="https://images.unsplash.com/photo-1476124369491-e7addf5db371?w=120&q=60" />
-              <LinhaProduto nome="Burger Artesanal" preco="R$ 34,90" img="https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=120&q=60" />
-              <LinhaProduto nome="Suco Natural" preco="R$ 12,90" img="https://images.unsplash.com/photo-1622597467836-f3285f2131b8?w=120&q=60" />
-              <div className="mt-1 rounded-xl bg-emerald-500 py-2 text-center text-[11px] font-black text-white">🚀 Enviar para a cozinha</div>
-            </MockTela>
-
-            <MockTela titulo="Cozinha em tempo real" legenda="Pedidos por mesa em colunas: na fila, preparando e finalizado.">
-              <div className="grid grid-cols-3 gap-1.5 text-center">
-                <span className="rounded-lg bg-blue-500/15 py-1 text-[9px] font-black text-blue-300">Aguardando</span>
-                <span className="rounded-lg bg-amber-500/15 py-1 text-[9px] font-black text-amber-300">Preparando</span>
-                <span className="rounded-lg bg-emerald-500/15 py-1 text-[9px] font-black text-emerald-300">Finalizado</span>
-              </div>
-              <div className="rounded-xl border border-white/10 bg-white/[0.04] p-2">
-                <p className="text-[10px] font-black text-white">🍽️ Mesa 12 · HAM-000026</p>
-                <p className="mt-1 text-[10px] text-slate-300">1× Cheeseburger</p>
-                <p className="text-[10px] text-slate-300">1× Milkshake</p>
-                <div className="mt-1.5 grid grid-cols-2 gap-1">
-                  <span className="rounded-md bg-amber-500/20 py-1 text-center text-[9px] font-black text-amber-300">👨‍🍳 Preparar</span>
-                  <span className="rounded-md bg-emerald-500/20 py-1 text-center text-[9px] font-black text-emerald-300">✅ Finalizar</span>
-                </div>
-              </div>
-            </MockTela>
-
-            <MockTela titulo="Acompanhar e fechar a conta" legenda="O cliente acompanha o status e solicita a conta pela própria mesa.">
-              <div className="rounded-xl border border-white/10 bg-white/[0.04] p-2.5 space-y-1.5">
-                <div className="flex items-center justify-between"><span className="text-[10px] text-slate-300">Cheeseburger</span><span className="rounded-md bg-amber-50 px-1.5 text-[9px] font-black text-amber-700">Preparando</span></div>
-                <div className="flex items-center justify-between"><span className="text-[10px] text-slate-300">Milkshake</span><span className="rounded-md bg-emerald-50 px-1.5 text-[9px] font-black text-emerald-700">Finalizado</span></div>
-              </div>
-              <div className="rounded-xl border border-white/10 bg-white/[0.04] p-2.5">
-                <div className="flex justify-between text-[10px] text-slate-400"><span>Subtotal</span><span className="text-white">R$ 47,80</span></div>
-                <div className="flex justify-between text-[11px] font-black text-white"><span>Total</span><span className="text-emerald-400">R$ 52,58</span></div>
-              </div>
-              <div className="rounded-xl bg-gold-500 py-2 text-center text-[11px] font-black text-white">🧾 Solicitar conta</div>
-            </MockTela>
-          </div>
-
-          {/* Botão de download */}
-          <div className="mt-12 flex flex-col items-center gap-3">
-            <a href="/baixar.html"
-              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gold-400 px-8 py-4 text-base font-black text-blue-950 transition hover:bg-gold-300 active:scale-95 shadow-xl shadow-gold-600/30">
-              ⬇️ Baixar aplicativo (APK Android)
-            </a>
-            <p className="text-xs text-slate-400">Grátis · instala no tablet · sincroniza com o sistema em tempo real</p>
-          </div>
-        </div>
-      </section>
-
-      {/* ── Como funciona ─────────────────────────────────── */}
-      <section id="como-funciona" className="scroll-mt-24 bg-[#0A1424] py-16 sm:py-20">
-        <div className="mx-auto max-w-6xl px-5">
-          <TituloSecao tag="Como funciona" titulo="Do pedido ao resultado em 6 passos" subtitulo="Um fluxo simples, digital e sincronizado entre cliente, cozinha, caixa e gestão." />
-          <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {PASSOS.map((p) => (
-              <div key={p.n} className="relative rounded-2xl border border-white/10 bg-white/[0.04] p-5">
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gold-400 text-base font-black text-blue-950 shadow-lg shadow-gold-900/25">{p.n}</span>
-                <h3 className="mt-3 font-display text-base font-bold text-white">{p.title}</h3>
-                <p className="mt-1 text-sm leading-6 text-slate-500">{p.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── Gestão: dashboard, relatórios, usuários e permissões ── */}
-      <section id="gestao" className="scroll-mt-24 relative overflow-hidden bg-blue-950 py-16 sm:py-20">
-        <div className="pointer-events-none absolute inset-0"
-          style={{ backgroundImage: "radial-gradient(34rem 34rem at -10% 110%, rgba(16,185,129,.12), transparent 70%), radial-gradient(34rem 34rem at 110% -10%, rgba(37,99,235,.16), transparent 70%)" }} />
-        <div className="relative mx-auto max-w-6xl px-5">
-          <TituloSecao claro tag="📊 Gestão"
-            titulo="Gestão completa para gerentes e donos"
-            subtitulo="Enquanto o salão atende, a gestão acompanha tudo: vendas, mesas, equipe e resultados — em tempo real, sem planilhas." />
-          <div className="mt-12 grid items-center gap-12 lg:grid-cols-2">
-            <DashboardMock />
-            <div className="grid gap-4 sm:grid-cols-2">
-              {GESTAO.map((g) => (
-                <div key={g.title} className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
-                  <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/[0.08] text-xl">{g.icon}</span>
-                  <h3 className="mt-3 text-base font-black text-white">{g.title}</h3>
-                  <p className="mt-1 text-sm leading-6 text-slate-400">{g.desc}</p>
-                </div>
+            </Reveal>
+            <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {DORES.map((d, i) => (
+                <Reveal as="article" key={d.title} delay={i * 60}
+                  className="rounded-3xl border border-[#E5E7EB] bg-[#F8F9FA] p-6 transition hover:-translate-y-1 hover:border-[#D99A21]/40 hover:shadow-lg">
+                  <IconBadge>{d.icon}</IconBadge>
+                  <h3 className="font-display mt-4 text-lg font-bold text-[#14213D]">{d.title}</h3>
+                  <p className="mt-1.5 text-sm leading-6 text-[#6C757D]">{d.desc}</p>
+                </Reveal>
               ))}
             </div>
           </div>
-          <div className="relative mt-10 flex justify-center">
-            <Botao variant="ghost" onClick={acessar}>Conhecer o painel administrativo →</Botao>
-          </div>
-        </div>
-      </section>
+        </section>
 
-      {/* ── Segmentos ─────────────────────────────────────── */}
-      <section id="segmentos" className="scroll-mt-24 bg-[#070B16] py-16 sm:py-20">
-        <div className="mx-auto max-w-6xl px-5">
-          <TituloSecao tag="Segmentos atendidos" titulo="Feito para vários modelos de operação" subtitulo="Uma solução flexível para diferentes modelos de atendimento, cardápio, mesa, comanda e operação." />
-          <div className="mt-10 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-            {SEGMENTOS.map((s) => (
-              <div key={s.label} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-4 transition hover:border-gold-400/30 hover:bg-white/[0.06]">
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gold-400/10 text-xl">{s.icon}</span>
-                <span className="text-sm font-semibold text-slate-200">{s.label}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── Benefícios ────────────────────────────────────── */}
-      <section id="beneficios" className="scroll-mt-24 bg-[#0A1424] py-16 sm:py-20">
-        <div className="mx-auto max-w-6xl px-5">
-          <TituloSecao tag="Diferenciais" titulo="Por que escolher o Pedido Prime" subtitulo="Uma plataforma SaaS pensada para operação em tempo real e gestão profissional." />
-          <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {BENEFICIOS.map((b) => (
-              <div key={b.title} className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
-                <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500/15 text-xl">{b.icon}</span>
-                <h3 className="mt-3 font-display text-base font-bold text-white">{b.title}</h3>
-                <p className="mt-1 text-sm leading-6 text-slate-500">{b.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── Planos / tabela de preços ─────────────────────── */}
-      <section id="planos" className="scroll-mt-24 relative overflow-hidden bg-[#060912] py-16 sm:py-24">
-        <div className="pointer-events-none absolute inset-0"
-          style={{ backgroundImage: "radial-gradient(40rem 30rem at 100% -10%, rgba(217,154,33,.14), transparent 65%), radial-gradient(36rem 30rem at -10% 110%, rgba(217,154,33,.08), transparent 70%)" }} />
-        <div className="relative mx-auto max-w-7xl px-5">
-          {/* Título no padrão do anexo */}
-          <div className="text-center">
-            <h2 className="font-display text-3xl font-black uppercase leading-tight tracking-tight text-white sm:text-5xl">
-              Planos para o <span className="text-gold-400">seu restaurante</span>
-            </h2>
-            <p className="mx-auto mt-3 max-w-2xl text-sm leading-7 text-slate-300 sm:text-base">
-              Escolha o plano ideal e transforme a experiência dos seus clientes com o {NOME_SISTEMA}.
-            </p>
-          </div>
-
-          <div className="mt-14 grid gap-5 lg:grid-cols-4">
-            {PLANOS.map((p) => {
-              const sel = planoEscolhido === p.id;
-              const filled = p.id !== "start"; // Start = contorno; demais = dourado preenchido
-              return (
-                <div key={p.id}
-                  className={`relative flex flex-col rounded-[1.6rem] border bg-[#0B0F1A] p-6 transition ${p.destaque ? "border-gold-400/70 shadow-[0_0_0_1px_rgba(217,154,33,.4),0_18px_50px_-12px_rgba(217,154,33,.35)]" : "border-gold-400/15"} ${sel ? "ring-2 ring-gold-400 ring-offset-2 ring-offset-[#060912]" : ""}`}>
-                  {p.destaque && (
-                    <span className="absolute -top-3 left-1/2 -translate-x-1/2 inline-flex items-center gap-1 rounded-full bg-gold-400 px-3.5 py-1 text-[10px] font-black uppercase tracking-wider text-blue-950 shadow-lg">★ Mais escolhido</span>
-                  )}
-                  {/* Ícone em anel + nome */}
-                  <div className="text-center">
-                    <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border-2 border-gold-400/50 text-gold-400">
-                      <PlanoIcone tipo={p.ico} />
-                    </span>
-                    <h3 className="font-display mt-3 text-2xl font-black uppercase tracking-tight text-gold-400">{p.nome}</h3>
-                    <p className="mx-auto mt-1.5 min-h-[56px] max-w-[15rem] text-xs leading-5 text-slate-400">{p.desc}</p>
-                  </div>
-                  {/* Preço */}
-                  <div className="mt-2 border-t border-gold-400/15 pt-4 text-center">
-                    <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400">A partir de</p>
-                    {p.preco ? (
-                      <p className="font-display mt-1 leading-none">
-                        <span className="align-top text-base font-bold text-gold-400">R$ </span>
-                        <span className="text-5xl font-black text-gold-400">{p.preco}</span>
-                        <span className="ml-1 text-sm font-medium text-slate-400">{p.periodo}</span>
-                      </p>
-                    ) : (
-                      <p className="font-display mt-1 text-2xl font-black uppercase text-gold-400">{p.precoTexto}</p>
-                    )}
-                  </div>
-                  {/* Recursos */}
-                  <ul className="mt-5 flex-1 space-y-2.5">
-                    {p.recursos.map((r) => (
-                      <li key={r} className="flex items-start gap-2.5 text-[13px] leading-snug text-slate-200">
-                        <span className="mt-px shrink-0 text-gold-400"><CheckCircle /></span> {r}
-                      </li>
-                    ))}
-                  </ul>
-                  {p.obs && (
-                    <div className="mt-4 flex items-start gap-2.5 rounded-xl border border-gold-400/30 bg-gold-400/[0.05] px-3 py-2.5">
-                      <svg className="mt-0.5 h-4 w-4 shrink-0 text-gold-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></svg>
-                      <div>
-                        <p className="text-[10px] font-black uppercase tracking-wider text-gold-300">Observação importante</p>
-                        <p className="mt-0.5 text-[10.5px] leading-snug text-slate-300">{p.obs}</p>
-                      </div>
-                    </div>
-                  )}
-                  {/* Indicado para */}
-                  <div className="mt-4">
-                    <p className="text-[11px] font-black uppercase tracking-widest text-gold-400">Indicado para</p>
-                    <p className="mt-1 text-[11.5px] leading-snug text-slate-400">{p.indicado}</p>
-                  </div>
-                  {/* CTA — seleção dinâmica */}
-                  <button onClick={() => escolherPlano(p)}
-                    className={`font-display mt-6 flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3.5 text-sm font-black uppercase tracking-wide transition active:scale-95 ${filled ? "bg-gradient-to-b from-gold-300 to-gold-500 text-blue-950 hover:from-gold-200 hover:to-gold-400 shadow-lg shadow-gold-900/30" : "border-2 border-gold-400/60 text-gold-300 hover:bg-gold-400/10"}`}>
-                    <CtaIcone tipo={p.ctaIco} /> {p.cta}
-                  </button>
-                  {sel && <p className="mt-2 text-center text-[10px] font-bold text-gold-300">✓ Plano selecionado</p>}
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Faixa "todos a partir deste valor" */}
-          <div className="mt-10 flex items-start gap-4 rounded-2xl border-2 border-gold-400/50 bg-gold-400/[0.05] px-6 py-5">
-            <span className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 border-gold-400/50 text-gold-400 sm:flex">
-              <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 11V5a1 1 0 0 1 1-1h6l9 9-7 7-9-9Z" /><circle cx="8" cy="8" r="1.3" fill="currentColor" stroke="none" /></svg>
-            </span>
-            <div>
-              <p className="font-display text-lg font-black uppercase tracking-wide text-gold-300">Todos os planos são a partir deste valor!</p>
-              <p className="mt-1 max-w-4xl text-sm leading-relaxed text-slate-300">Os valores podem variar conforme a quantidade de mesas, tablets, unidades, personalizações, integrações e nível de implantação necessário.</p>
+        {/* ══ FUNCIONALIDADES ══ */}
+        <section id="funcionalidades" className="scroll-mt-24 bg-[#FFF8EC] py-16 sm:py-24">
+          <div className="mx-auto max-w-7xl px-5">
+            <Reveal className="mx-auto max-w-3xl text-center">
+              <Badge>Funcionalidades</Badge>
+              <h2 className="font-display mt-4 text-3xl font-black tracking-tight text-[#14213D] sm:text-4xl">Tudo que seu restaurante precisa para atender melhor e gerenciar com mais controle</h2>
+              <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-[#6C757D]">Do pedido no tablet da mesa ao relatório de vendas do gerente, tudo conectado em tempo real.</p>
+            </Reveal>
+            <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {FEATURES.map((f, i) => (
+                <Reveal as="article" key={f.title} delay={(i % 3) * 80}
+                  className="group rounded-3xl border border-[#E5E7EB] bg-white p-6 transition hover:-translate-y-1 hover:border-[#D99A21]/50 hover:shadow-xl">
+                  <IconBadge>{f.icon}</IconBadge>
+                  <h3 className="font-display mt-4 text-lg font-bold text-[#14213D]">{f.title}</h3>
+                  <p className="mt-1.5 text-sm leading-6 text-[#6C757D]">{f.desc}</p>
+                </Reveal>
+              ))}
             </div>
           </div>
+        </section>
 
-          {/* Garantias */}
-          <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              ["shield", "Segurança e confiabilidade", "Seus dados protegidos com tecnologia moderna e backups diários."],
-              ["headset", "Suporte especializado", "Atendimento humanizado e suporte técnico de qualidade."],
-              ["cap", "Treinamento incluso", "Capacitação da sua equipe para aproveitar todo o potencial do sistema."],
-              ["cloud", "Atualizações constantes", "Novas funcionalidades e melhorias sempre para o seu negócio."],
-            ].map(([ic, t, d]) => (
-              <div key={t} className="flex items-start gap-3">
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 border-gold-400/50 text-gold-400"><GarantiaIcone tipo={ic} /></span>
-                <div>
-                  <p className="font-display text-sm font-black uppercase tracking-wide text-gold-300">{t}</p>
-                  <p className="mt-0.5 text-[12px] leading-snug text-slate-400">{d}</p>
-                </div>
-              </div>
-            ))}
+        {/* ══ CARROSSEL OPERACIONAL ══ */}
+        <section className="bg-white py-16 sm:py-20">
+          <div className="mx-auto max-w-7xl px-5">
+            <Reveal className="mx-auto max-w-3xl text-center">
+              <h2 className="font-display text-3xl font-black tracking-tight text-[#14213D] sm:text-4xl">Uma plataforma completa para cada etapa do atendimento</h2>
+              <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-[#6C757D]">Módulos integrados, do salão à gestão — todos em tempo real.</p>
+            </Reveal>
+            <Reveal className="mt-10">
+              <Carrossel>
+                {OPERACIONAL.map((o) => (
+                  <article key={o.title} className="snap-start shrink-0 basis-[75%] rounded-3xl border border-[#E5E7EB] bg-[#F8F9FA] p-6 sm:basis-[38%] lg:basis-[23%]">
+                    <IconBadge>{o.icon}</IconBadge>
+                    <h3 className="font-display mt-4 text-base font-bold text-[#14213D]">{o.title}</h3>
+                    <p className="mt-1.5 text-sm leading-6 text-[#6C757D]">{o.desc}</p>
+                  </article>
+                ))}
+              </Carrossel>
+            </Reveal>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* ── Perfis de acesso ──────────────────────────────── */}
-      <section className="bg-[#070B16] py-16 sm:py-20">
-        <div className="mx-auto max-w-6xl px-5">
-          <TituloSecao tag="Perfis de acesso" titulo="Cada usuário vê apenas o que precisa" subtitulo="Usuários, cargos e permissões por tela garantem segurança e organização entre salão, cozinha, caixa e gestão." />
-          <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {PERFIS.map((p) => (
-              <div key={p.title} className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
-                <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-gold-400/10 text-xl">{p.icon}</span>
-                <h3 className="mt-3 font-display text-base font-bold text-white">{p.title}</h3>
-                <p className="mt-1 text-sm leading-6 text-slate-500">{p.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── CTA ───────────────────────────────────────────── */}
-      <section className="bg-blue-950 py-16 sm:py-20">
-        <div className="mx-auto max-w-5xl px-5">
-          <div className="relative overflow-hidden rounded-[2.5rem] border border-gold-400/40 bg-gradient-to-br from-white to-[#EDF3FB] p-10 text-center shadow-admin sm:p-14">
-            <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-gold-400/10 blur-3xl" />
-            <h2 className="relative text-3xl font-black tracking-tight text-white sm:text-4xl">Tudo isso e muito mais — tudo no <span className="text-gold-400">{NOME_SISTEMA}</span></h2>
-            <p className="relative mx-auto mt-3 max-w-2xl text-base leading-7 text-slate-500">Pedidos por tablet, controle de mesas, comandas QR, cardápio externo, dashboard, relatórios, usuários e permissões. Digitalize a operação e gerencie com dados.</p>
-            <div className="relative mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-              <Botao variant="gold" onClick={() => goTo("contato")}>Solicitar Demonstração</Botao>
-              <Botao variant="ghost" onClick={acessar}>Acessar Sistema →</Botao>
+        {/* ══ 2 FORMAS DE USAR ══ */}
+        <section id="solucoes" className="scroll-mt-24 bg-[#FFF8EC] py-16 sm:py-24">
+          <div className="mx-auto max-w-7xl px-5">
+            <Reveal className="mx-auto max-w-3xl text-center">
+              <Badge>Soluções</Badge>
+              <h2 className="font-display mt-4 text-3xl font-black tracking-tight text-[#14213D] sm:text-4xl">Escolha a melhor forma de atendimento para o seu restaurante</h2>
+            </Reveal>
+            <div className="mt-12 grid gap-6 lg:grid-cols-2">
+              <Reveal as="article" className="rounded-[2rem] border border-[#E5E7EB] bg-white p-8 shadow-sm">
+                <IconBadge>📲</IconBadge>
+                <h3 className="font-display mt-4 text-2xl font-bold text-[#14213D]">Pedido por tablet na mesa</h3>
+                <p className="mt-2 text-sm leading-7 text-[#6C757D]">Ideal para restaurantes que querem oferecer uma experiência moderna, onde o cliente escolhe, personaliza e envia o pedido direto para a cozinha.</p>
+                <ul className="mt-5 space-y-2.5">
+                  {["Pedido direto da mesa", "Fotos dos produtos", "Adicionais e observações", "Menos espera", "Mais autonomia para o cliente"].map((b) => (
+                    <li key={b} className="flex items-start gap-2 text-sm font-medium text-[#374151]"><Check /> {b}</li>
+                  ))}
+                </ul>
+              </Reveal>
+              <Reveal as="article" delay={120} className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-[#050505] p-8 shadow-2xl">
+                <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-[radial-gradient(closest-side,rgba(217,154,33,0.22),transparent)]" />
+                <IconBadge tom="dark">🎫</IconBadge>
+                <h3 className="font-display mt-4 text-2xl font-bold text-white">Cardápio por QR Code</h3>
+                <p className="mt-2 text-sm leading-7 text-[#CBD5E1]">Perfeito para atendimento pelo celular do cliente, sem instalar aplicativo, com acesso rápido ao cardápio digital da mesa.</p>
+                <ul className="mt-5 space-y-2.5">
+                  {["Acesso por QR Code", "Sem instalação", "Vinculado à mesa ou comanda", "Fácil divulgação", "Reduz atendimento manual"].map((b) => (
+                    <li key={b} className="flex items-start gap-2 text-sm font-medium text-[#E5E7EB]">
+                      <svg viewBox="0 0 24 24" className="mt-0.5 h-4 w-4 shrink-0" fill="none" stroke="#F2B544" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg> {b}
+                    </li>
+                  ))}
+                </ul>
+              </Reveal>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* ── FAQ ───────────────────────────────────────────── */}
-      <section id="faq" className="scroll-mt-24 bg-[#0A1424] py-16 sm:py-20">
-        <div className="mx-auto max-w-3xl px-5">
-          <TituloSecao tag="FAQ" titulo="Perguntas frequentes" subtitulo="Tire as principais dúvidas sobre o funcionamento do sistema." />
-          <div className="mt-10 space-y-3">
-            {FAQ.map((f, i) => (
-              <FAQItem key={i} q={f.q} a={f.a} aberto={faqAberto === i} onToggle={() => setFaqAberto(faqAberto === i ? -1 : i)} />
-            ))}
+        {/* ══ COMO FUNCIONA ══ */}
+        <section id="como-funciona" className="scroll-mt-24 bg-white py-16 sm:py-24">
+          <div className="mx-auto max-w-7xl px-5">
+            <Reveal className="mx-auto max-w-3xl text-center">
+              <Badge>Como funciona</Badge>
+              <h2 className="font-display mt-4 text-3xl font-black tracking-tight text-[#14213D] sm:text-4xl">Do pedido à gestão, tudo acontece em tempo real</h2>
+            </Reveal>
+            <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {PASSOS.map((p, i) => (
+                <Reveal as="article" key={p.n} delay={(i % 3) * 80}
+                  className="relative rounded-3xl border border-[#E5E7EB] bg-[#F8F9FA] p-6">
+                  <span className="font-display absolute right-5 top-4 text-4xl font-black text-[#D99A21]/20">{p.n}</span>
+                  <IconBadge>{p.icon}</IconBadge>
+                  <h3 className="font-display mt-4 text-lg font-bold text-[#14213D]">{p.title}</h3>
+                  <p className="mt-1.5 text-sm leading-6 text-[#6C757D]">{p.desc}</p>
+                </Reveal>
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* ── Contato ───────────────────────────────────────── */}
-      <section id="contato" className="scroll-mt-24 bg-[#070B16] py-16 sm:py-20">
-        <div className="mx-auto max-w-6xl px-5">
-          <div className="grid gap-10 lg:grid-cols-[1fr_1.1fr]">
-            <div>
-              <TituloSecao tag="Contato" titulo="Solicite uma demonstração" subtitulo="" />
-              <div className="mt-6 space-y-4">
-                {[
-                  { icon: "🎯", t: "Solicite uma demonstração", d: "Conheça o sistema na prática, sem compromisso." },
-                  { icon: "🛠️", t: "Atendimento para implantação", d: "Apoiamos a configuração do cardápio, das mesas e da equipe." },
-                  { icon: "🍽️", t: "Diversos segmentos alimentares", d: "Restaurantes, pizzarias, hamburguerias, cafeterias e mais." },
-                  { icon: "🧩", t: "Operação completa", d: "Tablet, cozinha, caixa, painel e administrativo com gestão de vendas." },
-                ].map((b) => (
-                  <div key={b.t} className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gold-400/10 text-lg">{b.icon}</span>
-                    <div>
-                      <p className="font-display text-sm font-bold text-white">{b.t}</p>
-                      <p className="text-sm text-slate-500">{b.d}</p>
+        {/* ══ GESTÃO E RELATÓRIOS ══ */}
+        <section id="gestao" className="scroll-mt-24 bg-[#FFF8EC] py-16 sm:py-24">
+          <div className="mx-auto max-w-7xl px-5">
+            <div className="grid items-center gap-12 lg:grid-cols-2">
+              <Reveal>
+                <Badge>Gestão</Badge>
+                <h2 className="font-display mt-4 text-3xl font-black tracking-tight text-[#14213D] sm:text-4xl">Mais do que pedidos: gestão para tomar decisões melhores</h2>
+                <p className="mt-4 max-w-xl text-base leading-7 text-[#6C757D]">
+                  Acompanhe vendas, produtos mais pedidos, ticket médio, horários de pico, cancelamentos e desempenho da operação em tempo real.
+                </p>
+                <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  {INDICADORES.map((k) => (
+                    <div key={k.label} className="rounded-2xl border border-[#E5E7EB] bg-white p-4">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-[#6C757D]">{k.label}</p>
+                      <p className="font-display mt-1 text-lg font-black leading-tight" style={{ color: k.cor }}>{k.valor}</p>
+                      <p className="mt-0.5 text-[10px] font-semibold text-[#9AA1AB]">{k.sub}</p>
                     </div>
+                  ))}
+                </div>
+              </Reveal>
+              <Reveal delay={140}><MockupDashboard /></Reveal>
+            </div>
+          </div>
+        </section>
+
+        {/* ══ SEGMENTOS (carrossel) ══ */}
+        <section className="bg-white py-16 sm:py-20">
+          <div className="mx-auto max-w-7xl px-5">
+            <Reveal className="mx-auto max-w-3xl text-center">
+              <h2 className="font-display text-3xl font-black tracking-tight text-[#14213D] sm:text-4xl">Criado para diferentes tipos de operação food service</h2>
+              <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-[#6C757D]">Do burger ao sushi, da cafeteria ao food truck — o Pedido Prime se adapta ao seu negócio.</p>
+            </Reveal>
+            <Reveal className="mt-10">
+              <Carrossel>
+                {SEGMENTOS.map((s) => (
+                  <article key={s.label} className="snap-start flex shrink-0 basis-[45%] flex-col items-center gap-3 rounded-3xl border border-[#E5E7EB] bg-[#F8F9FA] p-6 text-center sm:basis-[28%] lg:basis-[15.5%]">
+                    <span className="flex h-14 w-14 items-center justify-center rounded-2xl border border-[#F0DFB8] bg-[#FFF8EC] text-2xl">{s.icon}</span>
+                    <p className="text-sm font-bold text-[#14213D]">{s.label}</p>
+                  </article>
+                ))}
+              </Carrossel>
+            </Reveal>
+          </div>
+        </section>
+
+        {/* ══ TABLET ══ */}
+        <section className="bg-[#FFF8EC] py-16 sm:py-24">
+          <div className="mx-auto max-w-7xl px-5">
+            <Reveal className="mx-auto max-w-3xl text-center">
+              <Badge>No tablet</Badge>
+              <h2 className="font-display mt-4 text-3xl font-black tracking-tight text-[#14213D] sm:text-4xl">Leve o Pedido Prime para o tablet do restaurante</h2>
+              <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-[#6C757D]">Use no tablet da mesa, cozinha ou caixa, com tudo sincronizado em tempo real para agilizar o atendimento e reduzir erros.</p>
+            </Reveal>
+            <div className="mt-12 grid gap-6 sm:grid-cols-3">
+              {TABLETS.map((t, i) => (
+                <Reveal as="article" key={t.title} delay={i * 100}
+                  className="rounded-[2rem] border border-[#E5E7EB] bg-white p-6 text-center shadow-sm">
+                  <div className="mx-auto flex h-40 items-center justify-center rounded-2xl border-2 border-[#14213D]/10 bg-[#F8F9FA]">
+                    <span className="text-5xl">{t.icon}</span>
                   </div>
+                  <h3 className="font-display mt-5 text-lg font-bold text-[#14213D]">{t.title}</h3>
+                  <p className="mt-1.5 text-sm leading-6 text-[#6C757D]">{t.desc}</p>
+                </Reveal>
+              ))}
+            </div>
+            <Reveal className="mt-10 text-center">
+              <Botao variant="navy" onClick={acessar}>Acessar sistema →</Botao>
+            </Reveal>
+          </div>
+        </section>
+
+        {/* ══ PLANOS ══ */}
+        <section id="planos" className="scroll-mt-24 bg-white py-16 sm:py-24">
+          <div className="mx-auto max-w-7xl px-5">
+            <Reveal className="mx-auto max-w-3xl text-center">
+              <Badge>Planos</Badge>
+              <h2 className="font-display mt-4 text-3xl font-black tracking-tight text-[#14213D] sm:text-4xl">Planos pensados para o tamanho da sua operação</h2>
+              <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-[#6C757D]">Comece com o essencial e evolua conforme o crescimento do seu restaurante.</p>
+            </Reveal>
+            <div className="mt-12 grid gap-5 lg:grid-cols-4 md:grid-cols-2">
+              {PLANOS.map((p, i) => {
+                const destaque = p.destaque;
+                return (
+                  <Reveal as="article" key={p.id} delay={i * 70}
+                    className={`relative flex flex-col rounded-[1.6rem] border bg-white p-6 transition hover:-translate-y-1 ${destaque ? "border-[#D99A21] shadow-[0_20px_50px_-20px_rgba(217,154,33,0.5)]" : "border-[#E5E7EB] hover:shadow-lg"}`}>
+                    {destaque && <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[#D99A21] px-3 py-1 text-[10px] font-black uppercase tracking-wider text-[#14213D]">★ Mais escolhido</span>}
+                    <h3 className="font-display text-xl font-black uppercase tracking-tight text-[#14213D]">{p.nome}</h3>
+                    <p className="mt-2 min-h-[40px] text-[13px] leading-5 text-[#6C757D]">{p.desc}</p>
+                    <div className="mt-4 flex items-end gap-1">
+                      {p.preco
+                        ? <><span className="text-sm font-bold text-[#6C757D]">R$</span><span className="font-display text-3xl font-black text-[#14213D]">{p.preco}</span><span className="text-sm font-semibold text-[#6C757D]">{p.periodo}</span></>
+                        : <span className="font-display text-2xl font-black text-[#D99A21]">{p.precoTexto}</span>}
+                    </div>
+                    <ul className="mt-5 flex-1 space-y-2">
+                      {p.recursos.map((r) => (
+                        <li key={r} className="flex items-start gap-2 text-[13px] leading-5 text-[#374151]"><Check /> {r}</li>
+                      ))}
+                    </ul>
+                    <button onClick={() => escolherPlano(p)}
+                      className={`font-display mt-6 w-full rounded-xl px-4 py-3 text-sm font-bold transition active:scale-95 ${destaque ? "bg-[#D99A21] text-[#14213D] hover:bg-[#F2B544]" : "border border-[#14213D]/20 text-[#14213D] hover:bg-[#FFF8EC]"}`}>
+                      Falar com consultor
+                    </button>
+                  </Reveal>
+                );
+              })}
+            </div>
+            <Reveal className="mt-6 text-center"><p className="text-xs text-[#9AA1AB]">* Valores de referência. Fale com um consultor para a proposta ideal para a sua operação.</p></Reveal>
+          </div>
+        </section>
+
+        {/* ══ FAQ ══ */}
+        <section id="faq" className="scroll-mt-24 bg-[#FFF8EC] py-16 sm:py-24">
+          <div className="mx-auto max-w-3xl px-5">
+            <Reveal className="text-center">
+              <Badge>FAQ</Badge>
+              <h2 className="font-display mt-4 text-3xl font-black tracking-tight text-[#14213D] sm:text-4xl">Perguntas frequentes</h2>
+            </Reveal>
+            <div className="mt-10 space-y-3">
+              {FAQ.map((item, i) => {
+                const aberto = faqAberto === i;
+                return (
+                  <Reveal key={item.q} delay={(i % 4) * 50}>
+                    <div className="overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white">
+                      <button onClick={() => setFaqAberto(aberto ? -1 : i)}
+                        className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left">
+                        <span className="font-display text-sm font-bold text-[#14213D] sm:text-base">{item.q}</span>
+                        <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[#E5E7EB] text-[#D99A21] transition ${aberto ? "rotate-45 bg-[#FFF8EC]" : ""}`}>
+                          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
+                        </span>
+                      </button>
+                      {aberto && <p className="px-5 pb-5 text-sm leading-6 text-[#6C757D]">{item.a}</p>}
+                    </div>
+                  </Reveal>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+
+        {/* ══ CTA FINAL (dark premium) ══ */}
+        <section className="bg-white py-16 sm:py-20">
+          <div className="mx-auto max-w-6xl px-5">
+            <Reveal className="relative overflow-hidden rounded-[2.5rem] border border-[#D99A21]/30 bg-[#050505] p-10 text-center shadow-2xl sm:p-16">
+              <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-[radial-gradient(closest-side,rgba(217,154,33,0.18),transparent)]" />
+              <div className="pointer-events-none absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-[radial-gradient(closest-side,rgba(20,33,61,0.5),transparent)]" />
+              <h2 className="font-display relative text-3xl font-black tracking-tight text-white sm:text-4xl">Pronto para modernizar o atendimento do seu restaurante?</h2>
+              <p className="relative mx-auto mt-4 max-w-2xl text-base leading-7 text-[#CBD5E1]">
+                Veja como o Pedido Prime pode ajudar sua operação a vender mais, atender melhor e ter mais controle todos os dias.
+              </p>
+              <div className="relative mt-8 flex flex-col justify-center gap-3 sm:flex-row">
+                <Botao variant="gold" onClick={() => irPara("contato")}>Solicitar demonstração</Botao>
+                <a href={`https://wa.me/${WHATSAPP_COMERCIAL}?text=${encodeURIComponent(`Olá! Tenho interesse no ${NOME_SISTEMA} e gostaria de uma demonstração.`)}`} target="_blank" rel="noopener noreferrer"
+                  className="font-display inline-flex items-center justify-center gap-2 rounded-2xl bg-[#22C55E] px-6 py-3.5 text-sm font-bold text-white shadow-lg shadow-[#22C55E]/30 transition hover:bg-[#1eb257] active:scale-[0.97]">
+                  Falar no WhatsApp
+                </a>
+              </div>
+            </Reveal>
+          </div>
+        </section>
+
+        {/* ══ CONTATO ══ */}
+        <section id="contato" className="scroll-mt-24 bg-[#FFF8EC] py-16 sm:py-24">
+          <div className="mx-auto max-w-3xl px-5">
+            <Reveal className="text-center">
+              <Badge>Contato</Badge>
+              <h2 className="font-display mt-4 text-3xl font-black tracking-tight text-[#14213D] sm:text-4xl">Solicite uma demonstração</h2>
+              <p className="mx-auto mt-4 max-w-xl text-base leading-7 text-[#6C757D]">Conheça o sistema na prática, sem compromisso. Preencha e continue a conversa no WhatsApp.</p>
+            </Reveal>
+
+            {enviado ? (
+              <Reveal className="mt-10 rounded-[2rem] border border-[#2E7D32]/30 bg-[#E8F5E9] p-8 text-center">
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#2E7D32] text-2xl text-white">✓</div>
+                <h3 className="font-display mt-4 text-xl font-black text-[#14213D]">Solicitação enviada!</h3>
+                <p className="mt-2 text-sm text-[#6C757D]">Recebemos seus dados. Em breve entraremos em contato para a demonstração.</p>
+              </Reveal>
+            ) : (
+              <Reveal as="form" className="mt-10 rounded-[2rem] border border-[#E5E7EB] bg-white p-6 shadow-sm sm:p-8" onSubmit={enviarContato}>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Campo name="nome" label="Nome" placeholder="Seu nome" required />
+                  <Campo name="estabelecimento" label="Estabelecimento" placeholder="Nome do estabelecimento" />
+                  <Campo name="whatsapp" label="WhatsApp" placeholder="(00) 00000-0000" />
+                  <Campo name="email" label="E-mail" type="email" placeholder="voce@email.com" />
+                  <div>
+                    <label className={LBL}>Segmento</label>
+                    <select name="segmento" className={INP} defaultValue="">
+                      <option value="" disabled>Selecione...</option>
+                      {SEGMENTOS_FORM.map((s) => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
+                  <Campo name="mesas" label="Mesas (aprox.)" placeholder="Ex.: 20" />
+                </div>
+                <div className="mt-4">
+                  <label className={LBL}>Mensagem (opcional)</label>
+                  <textarea name="mensagem" rows={3} placeholder="Conte um pouco sobre a sua operação..." className={INP} />
+                </div>
+                <button type="submit" className="font-display mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#22C55E] py-3.5 text-sm font-bold text-white shadow-lg shadow-[#22C55E]/30 transition hover:bg-[#1eb257] active:scale-[0.98]">
+                  💬 Enviar pelo WhatsApp
+                </button>
+                <p className="mt-3 text-center text-xs text-[#9AA1AB]">Ao enviar, abriremos o WhatsApp comercial com a sua mensagem pronta.</p>
+              </Reveal>
+            )}
+          </div>
+        </section>
+      </main>
+
+      {/* ══ FOOTER ══ */}
+      <footer className="border-t border-[#E5E7EB] bg-white">
+        <div className="mx-auto max-w-7xl px-5 py-12">
+          <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="lg:col-span-2">
+              <Marca />
+              <p className="mt-4 max-w-md text-sm leading-6 text-[#6C757D]">
+                Pedido Prime — Plataforma inteligente para pedidos digitais, atendimento e gestão de restaurantes. Cardápio digital, pedido por tablet e QR Code, cozinha em tempo real e relatórios gerenciais.
+              </p>
+            </div>
+            <div>
+              <p className="font-display text-sm font-bold text-[#14213D]">Navegação</p>
+              <div className="mt-3 grid gap-2">
+                {NAV.slice(0, 5).map((n) => (
+                  <button key={n.id} onClick={() => irPara(n.id)} className="text-left text-sm text-[#6C757D] transition hover:text-[#D99A21]">{n.label}</button>
                 ))}
               </div>
             </div>
-
-            {/* Formulário (visual; pronto para integração) */}
-            <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6 sm:p-8">
-              {enviado ? (
-                <div className="flex h-full min-h-[320px] flex-col items-center justify-center text-center">
-                  <span className="text-5xl">✅</span>
-                  <h3 className="font-display mt-4 text-xl font-bold text-white">Solicitação enviada!</h3>
-                  <p className="mt-2 text-sm text-slate-500">Recebemos seus dados. Em breve entraremos em contato para a demonstração.</p>
-                  <Botao variant="light" onClick={() => setEnviado(false)} className="mt-5">Enviar nova solicitação</Botao>
-                </div>
-              ) : (
-                <form onSubmit={enviarContato} className="space-y-3">
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <Campo name="nome" label="Nome" placeholder="Seu nome" required />
-                    <Campo name="estabelecimento" label="Estabelecimento" placeholder="Nome do estabelecimento" required />
-                  </div>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <Campo name="whatsapp" label="WhatsApp" placeholder="(00) 00000-0000" />
-                    <Campo name="email" label="E-mail" type="email" placeholder="voce@email.com" required />
-                  </div>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div>
-                      <label className={LBL}>Segmento</label>
-                      <select name="segmento" className={INP} defaultValue="">
-                        <option value="" disabled>Selecione…</option>
-                        {SEGMENTOS.map((s) => <option key={s.label}>{s.label}</option>)}
-                        <option>Outro</option>
-                      </select>
-                    </div>
-                    <Campo name="mesas" label="Mesas (aprox.)" placeholder="Ex.: 20" />
-                  </div>
-                  <div>
-                    <label className={LBL}>Mensagem</label>
-                    <textarea name="mensagem" rows={3} placeholder="Conte um pouco sobre a sua operação..." className={`${INP} resize-none`} />
-                  </div>
-                  <button type="submit" className="font-display w-full rounded-2xl bg-gold-400 py-3.5 text-sm font-bold text-blue-950 transition hover:bg-gold-300 active:scale-95 shadow-lg shadow-gold-900/30">💬 Enviar pelo WhatsApp</button>
-                  <p className="text-center text-[11px] text-slate-400">Abre o WhatsApp com a sua solicitação pronta para envio.</p>
-                </form>
-              )}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ── Footer ────────────────────────────────────────── */}
-      <footer className="border-t border-gold-400/20 bg-blue-950 py-12 text-slate-400">
-        <div className="mx-auto max-w-6xl px-5">
-          <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="sm:col-span-2 lg:col-span-1">
-              <Marca claro />
-              <p className="mt-3 max-w-xs text-sm leading-6">Plataforma de pedidos por tablet e QR Code com controle de mesas, cardápio externo, dashboard e relatórios de vendas, usuários e permissões — para diversos segmentos alimentares.</p>
-            </div>
-            <FooterCol titulo="Produto" itens={[{ t: "Funcionalidades", id: "funcionalidades" }, { t: "Como funciona", id: "como-funciona" }, { t: "Gestão", id: "gestao" }, { t: "Segmentos", id: "segmentos" }, { t: "Benefícios", id: "beneficios" }]} />
-            <FooterCol titulo="Suporte" itens={[{ t: "FAQ", id: "faq" }, { t: "Contato", id: "contato" }]} />
             <div>
-              <p className="text-sm font-black text-white">Acesso</p>
-              <Botao variant="primary" onClick={acessar} className="mt-3 w-full">Acessar Sistema</Botao>
+              <p className="font-display text-sm font-bold text-[#14213D]">Contato</p>
+              <div className="mt-3 grid gap-2 text-sm">
+                <a href={`https://wa.me/${WHATSAPP_COMERCIAL}`} target="_blank" rel="noopener noreferrer" className="text-[#6C757D] transition hover:text-[#22C55E]">WhatsApp comercial</a>
+                <a href={INSTAGRAM} target="_blank" rel="noopener noreferrer" className="text-[#6C757D] transition hover:text-[#D99A21]">Instagram</a>
+                <button onClick={acessar} className="text-left text-[#6C757D] transition hover:text-[#14213D]">Acessar sistema</button>
+                <button onClick={() => irPara("contato")} className="text-left text-[#6C757D] transition hover:text-[#14213D]">Solicitar demonstração</button>
+              </div>
             </div>
           </div>
-          <div className="mt-10 flex flex-col items-center justify-between gap-2 border-t border-white/10 pt-6 text-xs sm:flex-row">
-            <span>© 2026 {NOME_SISTEMA}. Todos os direitos reservados.</span>
+          <div className="mt-10 flex flex-col items-center justify-between gap-3 border-t border-[#E5E7EB] pt-6 text-center sm:flex-row sm:text-left">
+            <p className="text-xs text-[#9AA1AB]">© {new Date().getFullYear()} {NOME_SISTEMA}. Todos os direitos reservados.</p>
+            <p className="text-xs text-[#9AA1AB]">Sistema para restaurante · Cardápio digital · Pedido por QR Code e tablet · Gestão food service</p>
           </div>
         </div>
       </footer>
 
-      {/* Botão flutuante de WhatsApp */}
       <BotaoWhatsApp />
-    </div>
     </div>
   );
 }
 
 // classes utilitárias do formulário
-const INP = "w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none transition focus:border-gold-400/60 placeholder:text-slate-500";
-const LBL = "mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-400";
+const INP = "w-full rounded-2xl border border-[#E5E7EB] bg-[#F8F9FA] px-4 py-3 text-sm text-[#1F2937] outline-none transition focus:border-[#D99A21] focus:bg-white focus:ring-2 focus:ring-[#D99A21]/20 placeholder:text-[#9AA1AB]";
+const LBL = "mb-1.5 block text-xs font-bold uppercase tracking-widest text-[#6C757D]";
 
 function Campo({ name, label, type = "text", placeholder, required }) {
   return (
     <div>
-      <label className={LBL}>{label}</label>
+      <label className={LBL}>{label}{required && <span className="text-[#D32F2F]"> *</span>}</label>
       <input name={name} type={type} placeholder={placeholder} required={required} className={INP} />
     </div>
   );
 }
 
-// Botão flutuante de WhatsApp (fixo no canto inferior direito)
+// Botão flutuante de WhatsApp (canto inferior direito).
 function BotaoWhatsApp() {
   const texto = encodeURIComponent(`Olá! Tenho interesse no ${NOME_SISTEMA} e gostaria de uma demonstração.`);
   return (
     <a href={`https://wa.me/${WHATSAPP_COMERCIAL}?text=${texto}`} target="_blank" rel="noopener noreferrer"
       aria-label="Falar no WhatsApp"
-      className="group fixed bottom-5 right-5 z-[60] flex items-center gap-2 rounded-full bg-[#25D366] px-4 py-3.5 font-black text-white shadow-2xl shadow-emerald-900/30 transition hover:bg-[#1ebe5b] active:scale-95">
-      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#25D366] opacity-20" />
+      className="group fixed bottom-5 right-5 z-[60] flex items-center gap-2 rounded-full bg-[#22C55E] px-4 py-3.5 font-bold text-white shadow-2xl shadow-[#22C55E]/30 transition hover:bg-[#1eb257] active:scale-95">
+      <span className="pp-pulse-ring absolute inline-flex h-full w-full rounded-full bg-[#22C55E]" />
       <svg viewBox="0 0 32 32" className="relative h-7 w-7 fill-white" aria-hidden="true">
-        <path d="M16 3C9.4 3 4 8.4 4 15c0 2.1.6 4.1 1.6 5.9L4 29l8.3-1.6c1.7.9 3.6 1.4 5.7 1.4 6.6 0 12-5.4 12-12S22.6 3 16 3zm0 21.8c-1.8 0-3.5-.5-5-1.4l-.4-.2-3.6.7.7-3.5-.2-.4c-1-1.6-1.5-3.4-1.5-5.3C5.5 9.3 10.2 4.7 16 4.7S26.5 9.3 26.5 15 21.8 24.8 16 24.8zm5.7-7.4c-.3-.2-1.8-.9-2.1-1-.3-.1-.5-.2-.7.2-.2.3-.8 1-.9 1.2-.2.2-.3.2-.6.1-1.8-.9-3-1.6-4.2-3.6-.3-.5.3-.5.8-1.5.1-.2 0-.4 0-.5 0-.2-.7-1.7-1-2.3-.3-.6-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4-.3.3-1 1-1 2.5s1.1 2.9 1.2 3.1c.2.2 2.1 3.3 5.2 4.6 2.6 1.1 3.1.9 3.7.8.6-.1 1.8-.7 2-1.4.3-.7.3-1.3.2-1.4-.1-.2-.3-.2-.6-.4z"/>
+        <path d="M16 3C9.4 3 4 8.4 4 15c0 2.1.6 4.1 1.6 5.9L4 29l8.3-1.6c1.7.9 3.6 1.4 5.7 1.4 6.6 0 12-5.4 12-12S22.6 3 16 3zm0 21.8c-1.8 0-3.5-.5-5-1.4l-.4-.2-3.6.7.7-3.5-.2-.4c-1-1.6-1.5-3.4-1.5-5.3C5.5 9.3 10.2 4.7 16 4.7S26.5 9.3 26.5 15 21.8 24.8 16 24.8zm5.7-7.4c-.3-.2-1.8-.9-2.1-1-.3-.1-.5-.2-.7.2-.2.3-.8 1-.9 1.2-.2.2-.3.2-.6.1-1.8-.9-3-1.6-4.2-3.6-.3-.5.3-.5.8-1.5.1-.2 0-.4 0-.5 0-.2-.7-1.7-1-2.3-.3-.6-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4-.3.3-1 1-1 2.5s1.1 2.9 1.2 3.1c.2.2 2.1 3.3 5.2 4.6 2.6 1.1 3.1.9 3.7.8.6-.1 1.8-.7 2-1.4.3-.7.3-1.3.2-1.4-.1-.2-.3-.2-.6-.4z" />
       </svg>
       <span className="relative hidden pr-1 text-sm sm:inline">Fale no WhatsApp</span>
     </a>
-  );
-}
-
-function FooterCol({ titulo, itens }) {
-  return (
-    <div>
-      <p className="text-sm font-black text-white">{titulo}</p>
-      <div className="mt-3 grid gap-2">
-        {itens.map((i) => (
-          <button key={i.t} onClick={() => goTo(i.id)} className="text-left text-sm text-slate-400 transition hover:text-white">{i.t}</button>
-        ))}
-      </div>
-    </div>
   );
 }

@@ -2,6 +2,22 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Landing Pedido Prime: animações leves + carrossel ──────────
+   Fade/slide ao entrar na viewport (via IntersectionObserver que
+   adiciona .pp-in). Respeita prefers-reduced-motion. */
+.pp-reveal { opacity: 0; transform: translateY(24px); transition: opacity .6s cubic-bezier(.16,1,.3,1), transform .6s cubic-bezier(.16,1,.3,1); will-change: opacity, transform; }
+.pp-reveal.pp-in { opacity: 1; transform: none; }
+.pp-noscrollbar::-webkit-scrollbar { display: none; }
+.pp-noscrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+@keyframes pp-pulse-ring { 0% { transform: scale(.85); opacity: .55; } 70% { transform: scale(1.5); opacity: 0; } 100% { opacity: 0; } }
+.pp-pulse-ring { animation: pp-pulse-ring 2s ease-out infinite; }
+@keyframes pp-float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+.pp-float { animation: pp-float 6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .pp-reveal { opacity: 1; transform: none; transition: none; }
+  .pp-pulse-ring, .pp-float { animation: none; }
+}
+
 /* ── Rolagem: nunca "vaza" para a tela de baixo ─────────────────
    overscroll-behavior evita o scroll-chaining/bounce ao chegar no
    fim de uma área rolável. .pp-scroll-locked congela o fundo
