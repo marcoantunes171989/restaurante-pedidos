@@ -479,14 +479,14 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
   };
 
   return (
-    <div className="relative flex min-h-[100dvh] w-full bg-[#F8F9FA]" style={{ fontFamily: "'Inter','Poppins',sans-serif" }}>
+    <div className="relative flex min-h-[100dvh] w-full overflow-hidden text-white" style={{ fontFamily: "'Inter','Poppins',sans-serif", backgroundImage: "linear-gradient(135deg, #0B0F1A 0%, #14213D 55%, #1F2A44 100%)" }}>
+      {/* Camadas de profundidade — tela inteira (fundo escuro contínuo) */}
+      <div className="pointer-events-none absolute inset-0 opacity-[0.05]" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)", backgroundSize: "30px 30px" }} />
+      <div className="pointer-events-none absolute -top-24 right-0 h-[34rem] w-[34rem] rounded-full" style={{ background: "radial-gradient(closest-side, rgba(217,154,33,0.16), transparent)" }} />
+      <div className="pointer-events-none absolute -bottom-28 -left-20 h-[28rem] w-[28rem] rounded-full" style={{ background: "radial-gradient(closest-side, rgba(31,42,68,0.9), transparent)" }} />
+
       {/* ══ Painel institucional (desktop) ══ */}
-      <aside className="pp-anim-left relative hidden w-[46%] shrink-0 flex-col justify-between overflow-hidden p-10 text-white xl:p-14 lg:flex"
-        style={{ backgroundImage: "linear-gradient(160deg, #0B1B33 0%, #14213D 55%, #1F2A44 100%)" }}>
-        {/* brilhos e trama */}
-        <div className="pointer-events-none absolute -right-24 -top-24 h-80 w-80 rounded-full" style={{ background: "radial-gradient(closest-side, rgba(217,154,33,0.20), transparent)" }} />
-        <div className="pointer-events-none absolute -bottom-28 -left-16 h-80 w-80 rounded-full" style={{ background: "radial-gradient(closest-side, rgba(31,42,68,0.85), transparent)" }} />
-        <div className="pointer-events-none absolute inset-0 opacity-[0.05]" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)", backgroundSize: "30px 30px" }} />
+      <aside className="pp-anim-left relative z-10 hidden w-[46%] shrink-0 flex-col justify-between overflow-hidden border-r border-white/10 p-10 text-white xl:p-14 lg:flex">
 
         {/* Marca */}
         <div className="relative flex items-center gap-2.5">
@@ -549,23 +549,20 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
       </aside>
 
       {/* ══ Formulário ══ */}
-      <main className="relative flex w-full flex-1 flex-col items-center justify-center px-5"
+      <main className="relative z-10 flex w-full flex-1 flex-col items-center justify-center px-5"
         style={{ paddingTop: "calc(env(safe-area-inset-top) + 2rem)", paddingBottom: "calc(env(safe-area-inset-bottom) + 2.5rem)" }}>
-        <div className="pointer-events-none absolute -top-10 right-4 h-64 w-64 rounded-full lg:hidden" style={{ background: "radial-gradient(closest-side, rgba(217,154,33,0.14), transparent)" }} />
-
         <div className="pp-anim-up relative w-full max-w-[440px]">
-          {/* Marca / título */}
-          <div className="mb-6 text-center">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center"><LogoPP size={60} /></div>
-            <h1 className="font-display mt-4 text-2xl font-black tracking-tight"><span className="text-[#14213D]">Pedido</span> <span className="text-[#D99A21]">Prime</span></h1>
-            <p className="mt-1 text-sm text-[#6C757D]">Acesse sua conta para continuar</p>
-          </div>
-
           {/* Card */}
           <form onSubmit={(e) => { e.preventDefault(); if (podeEntrar && !entrando) { setEntrando(true); login(); } }}
             autoComplete="off"
-            className="relative overflow-hidden rounded-[1.75rem] border border-[#E5E7EB] bg-white p-6 shadow-[0_24px_60px_-24px_rgba(20,33,61,0.28)] sm:p-7 space-y-4">
+            className="relative overflow-hidden rounded-[1.75rem] border border-white/10 bg-white p-6 shadow-[0_30px_70px_-20px_rgba(0,0,0,0.55)] ring-1 ring-black/5 sm:p-7 space-y-4">
             <span className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#D99A21] to-[#F2B544]" />
+            {/* Marca / título (dentro do card, sobre fundo claro) */}
+            <div className="mb-1 text-center">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center"><LogoPP size={56} /></div>
+              <h1 className="font-display mt-3 text-2xl font-black tracking-tight"><span className="text-[#14213D]">Pedido</span> <span className="text-[#D99A21]">Prime</span></h1>
+              <p className="mt-1 text-sm text-[#6C757D]">Acesse sua conta para continuar</p>
+            </div>
             {/* Campos isca ocultos: absorvem o autofill do navegador */}
             <input type="text" name="username" autoComplete="username" tabIndex={-1} aria-hidden="true" className="absolute h-0 w-0 opacity-0 pointer-events-none" />
             <input type="password" name="password" autoComplete="current-password" tabIndex={-1} aria-hidden="true" className="absolute h-0 w-0 opacity-0 pointer-events-none" />
@@ -620,9 +617,9 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
 
           {/* Divisor + QR Code */}
           <div className="my-4 flex items-center gap-3">
-            <span className="h-px flex-1 bg-[#E5E7EB]" />
-            <span className="text-[11px] font-bold uppercase tracking-wider text-[#9CA3AF]">ou</span>
-            <span className="h-px flex-1 bg-[#E5E7EB]" />
+            <span className="h-px flex-1 bg-white/15" />
+            <span className="text-[11px] font-bold uppercase tracking-wider text-white/50">ou</span>
+            <span className="h-px flex-1 bg-white/15" />
           </div>
           <button type="button" onClick={() => setScanLogin(true)}
             className="flex w-full items-center justify-center gap-2 rounded-2xl border border-[#E5E7EB] bg-white py-3 text-sm font-bold text-[#14213D] transition hover:border-[#D99A21]/40 hover:bg-[#FFF8EC]">
@@ -631,12 +628,12 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
           </button>
 
           {/* Segurança */}
-          <p className="mt-5 flex items-center justify-center gap-1.5 text-center text-[11px] text-[#6C757D]">
+          <p className="mt-5 flex items-center justify-center gap-1.5 text-center text-[11px] text-[#CBD5E1]">
             <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="11" width="16" height="9" rx="2.5" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>
             Acesso controlado por usuário e permissão
           </p>
           <div className="mt-3 text-center">
-            <button onClick={voltarAoSite} className="text-xs font-bold text-[#14213D] transition hover:text-[#D99A21]">← Voltar ao site</button>
+            <button onClick={voltarAoSite} className="text-xs font-bold text-[#CBD5E1] transition hover:text-[#D99A21]">← Voltar ao site</button>
           </div>
         </div>
 
