@@ -6803,7 +6803,7 @@ function DashboardAdmin({ orders, products, comandas = [], clientes = [], setore
       const resposta = await perguntarCopilotoIA({ resumoDados: montarResumoIA(), pergunta: q, historico: chatMsgs.slice(-8) });
       setChatMsgs((h) => [...h, { role: "assistant", content: resposta || "(sem resposta)" }]);
     } catch (e) {
-      setChatErro("IA indisponível: " + ((e && e.message) || e) + ". Publique a Edge Function 'copiloto-ia' e defina o secret ANTHROPIC_API_KEY no Supabase. Enquanto isso, use a análise local acima.");
+      setChatErro("IA indisponível: " + ((e && e.message) || e) + ". Defina a variável ANTHROPIC_API_KEY em Vercel → Settings → Environment Variables e refaça o deploy. Enquanto isso, use a análise local acima.");
     } finally { setChatLoading(false); }
   }
 

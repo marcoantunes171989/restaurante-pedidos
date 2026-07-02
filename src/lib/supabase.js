@@ -479,13 +479,19 @@ export async function criarChamado(c) {
   return dbParaChamado(data)
 }
 
-// "Pergunte ao Copiloto" — chama a Edge Function copiloto-ia (Claude/Anthropic).
-// A chave da API fica só no servidor. Lança erro se a função não estiver publicada
-// ou falhar, para o front cair no motor de análise local (tolerante).
+// "Pergunte ao Copiloto" — chama a Serverless Function /api/copiloto-ia (mesma
+// origem, na Vercel). A chave da API (ANTHROPIC_API_KEY) fica só no servidor.
+// Lança erro se a função/chave não estiver ativa, para o front cair no motor
+// de análise local (tolerante).
 export async function perguntarCopilotoIA({ resumoDados = '', pergunta, historico = [] }) {
-  const { data, error } = await supabase.functions.invoke('copiloto-ia', { body: { resumoDados, pergunta, historico } })
-  if (error) throw error
-  if (data?.error) throw new Error(data.error)
+  const r = await fetch('/api/copiloto-ia', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ resumoDados, pergunta, historico }),
+  })
+  let data = {}
+  try { data = await r.json() } catch { /* resposta não-JSON */ }
+  if (!r.ok || data?.error) throw new Error(data?.error || `Erro ${r.status} ao consultar a IA.`)
   return data?.resposta || ''
 }
 export async function atualizarChamado(id, { status, atendidoPor }) {
