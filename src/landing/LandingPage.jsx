@@ -15,9 +15,9 @@ const WHATSAPP_COMERCIAL = "5518981465499";
 const INSTAGRAM = "https://instagram.com";
 
 // ── Paleta oficial da landing (referência p/ leitura) ──
-// navy #14213D · gold #D99A21 · goldHover #F2B544 · cream #FFF8EC
-// gelo #F8F9FA · texto #1F2937 · secundário #6C757D · borda #E5E7EB
-// dark premium navy #14213D→#0B1B33 · sucesso #2E7D32 · whatsapp #22C55E · alerta #F59E0B
+// navy #0B1F33 · gold #F97316 · goldHover #FB923C · cream #FFF7ED
+// gelo #F8FAFC · texto #1E293B · secundário #64748B · borda #E5E7EB
+// dark premium navy #0B1F33→#071726 · sucesso #16A34A · whatsapp #22C55E · alerta #F59E0B
 
 const NAV = [
   { label: "Funcionalidades", id: "funcionalidades" },
@@ -75,12 +75,12 @@ const PASSOS = [
 ];
 
 const INDICADORES = [
-  { label: "Vendas do dia", valor: "R$ 4.860", cor: "#2E7D32", sub: "+12% vs. ontem" },
-  { label: "Pedidos realizados", valor: "138", cor: "#14213D", sub: "hoje" },
-  { label: "Ticket médio", valor: "R$ 42,90", cor: "#D99A21", sub: "+4%" },
-  { label: "Clientes recorrentes", valor: "63%", cor: "#14213D", sub: "base ativa" },
-  { label: "Cancelamentos", valor: "1,2%", cor: "#D32F2F", sub: "-0,3%" },
-  { label: "Pix / Cartão / Dinheiro", valor: "58% · 34% · 8%", cor: "#14213D", sub: "formas de pagamento" },
+  { label: "Vendas do dia", valor: "R$ 4.860", cor: "#16A34A", sub: "+12% vs. ontem" },
+  { label: "Pedidos realizados", valor: "138", cor: "#0B1F33", sub: "hoje" },
+  { label: "Ticket médio", valor: "R$ 42,90", cor: "#F97316", sub: "+4%" },
+  { label: "Clientes recorrentes", valor: "63%", cor: "#0B1F33", sub: "base ativa" },
+  { label: "Cancelamentos", valor: "1,2%", cor: "#DC2626", sub: "-0,3%" },
+  { label: "Pix / Cartão / Dinheiro", valor: "58% · 34% · 8%", cor: "#0B1F33", sub: "formas de pagamento" },
 ];
 
 const SEGMENTOS = [
@@ -159,9 +159,9 @@ function Carrossel({ children, duracao = 55, className = "" }) {
 function Botao({ children, variant = "gold", onClick, type = "button", className = "" }) {
   const base = "font-display inline-flex items-center justify-center gap-2 rounded-2xl px-6 py-3.5 text-sm font-bold transition active:scale-[0.97]";
   const styles = {
-    gold: "bg-[#D99A21] text-[#14213D] hover:bg-[#F2B544] shadow-lg shadow-[#D99A21]/25",
-    navy: "bg-[#14213D] text-white hover:bg-[#1F2A44] shadow-lg shadow-[#14213D]/20",
-    outline: "border border-[#14213D]/15 bg-white text-[#14213D] hover:bg-[#FFF8EC]",
+    gold: "bg-[#F97316] text-[#0B1F33] hover:bg-[#FB923C] shadow-lg shadow-[#F97316]/25",
+    navy: "bg-[#0B1F33] text-white hover:bg-[#123A4A] shadow-lg shadow-[#0B1F33]/20",
+    outline: "border border-[#0B1F33]/15 bg-white text-[#0B1F33] hover:bg-[#FFF7ED]",
     onDark: "border border-white/20 bg-white/5 text-white hover:bg-white/10",
     whatsapp: "bg-[#22C55E] text-white hover:bg-[#1eb257] shadow-lg shadow-[#22C55E]/30",
   };
@@ -173,8 +173,8 @@ function Marca({ escuro = false }) {
     <div className="flex shrink-0 items-center gap-2.5">
       <LogoPP size={38} />
       <span className="font-display whitespace-nowrap text-lg font-bold leading-none tracking-tight">
-        <span className={escuro ? "text-white" : "text-[#14213D]"}>PEDIDO</span>{" "}
-        <span className="text-[#D99A21]">PRIME</span>
+        <span className={escuro ? "text-white" : "text-[#0B1F33]"}>PEDIDO</span>{" "}
+        <span className="text-[#F97316]">PRIME</span>
       </span>
     </div>
   );
@@ -182,8 +182,8 @@ function Marca({ escuro = false }) {
 
 function Badge({ children }) {
   return (
-    <span className="inline-flex items-center gap-2 rounded-full border border-[#D99A21]/30 bg-[#FFF8EC] px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-wider text-[#B27A16]">
-      <span className="h-1.5 w-1.5 rounded-full bg-[#D99A21]" />{children}
+    <span className="inline-flex items-center gap-2 rounded-full border border-[#F97316]/30 bg-[#FFF7ED] px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-wider text-[#C2410C]">
+      <span className="h-1.5 w-1.5 rounded-full bg-[#F97316]" />{children}
     </span>
   );
 }
@@ -191,14 +191,14 @@ function Badge({ children }) {
 // Selo/ícone redondo creme com emoji.
 function IconBadge({ children, tom = "cream" }) {
   const tons = {
-    cream: "border-[#F0DFB8] bg-[#FFF8EC] text-[#B27A16]",
-    dark: "border-white/10 bg-white/[0.06] text-[#F2B544]",
+    cream: "border-[#FBD9AE] bg-[#FFF7ED] text-[#C2410C]",
+    dark: "border-white/10 bg-white/[0.06] text-[#FB923C]",
   };
   return <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border text-xl ${tons[tom]}`}>{children}</span>;
 }
 
 function Check({ tom = "gold" }) {
-  const c = tom === "gold" ? "#D99A21" : "#2E7D32";
+  const c = tom === "gold" ? "#F97316" : "#16A34A";
   return (
     <svg viewBox="0 0 24 24" className="mt-0.5 h-4 w-4 shrink-0" fill="none" stroke={c} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
       <path d="M20 6 9 17l-5-5" />
@@ -215,8 +215,8 @@ function MockupTablet() {
   ];
   return (
     <div className="relative mx-auto w-full max-w-md">
-      <div className="pp-float rounded-[2rem] border border-[#E5E7EB] bg-white p-4 shadow-[0_30px_80px_-30px_rgba(20,33,61,0.35)]">
-        <div className="flex items-center justify-between rounded-2xl bg-[#14213D] px-4 py-3 text-white">
+      <div className="pp-float rounded-[2rem] border border-[#E5E7EB] bg-white p-4 shadow-[0_30px_80px_-30px_rgba(11,31,51,0.35)]">
+        <div className="flex items-center justify-between rounded-2xl bg-[#0B1F33] px-4 py-3 text-white">
           <div className="flex items-center gap-2.5">
             <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/10 text-base">🍕</span>
             <div>
@@ -229,29 +229,29 @@ function MockupTablet() {
         <div className="mt-3 space-y-2">
           {itens.map((i) => (
             <div key={i.nome} className="flex items-center justify-between rounded-xl border border-[#E5E7EB] px-3.5 py-2.5">
-              <span className="text-sm text-[#1F2937]"><b className="text-[#14213D]">{i.q}x</b> {i.nome}</span>
-              <span className="font-display text-sm font-bold text-[#14213D]">R$ {i.preco}</span>
+              <span className="text-sm text-[#1E293B]"><b className="text-[#0B1F33]">{i.q}x</b> {i.nome}</span>
+              <span className="font-display text-sm font-bold text-[#0B1F33]">R$ {i.preco}</span>
             </div>
           ))}
         </div>
         <div className="mt-3 flex items-center gap-1.5">
           {["Recebido", "Preparando", "Pronto", "Entregue"].map((s, i) => (
             <div key={s} className="flex-1 text-center">
-              <div className={`h-1.5 rounded-full ${i <= 1 ? "bg-[#D99A21]" : "bg-[#E5E7EB]"}`} />
-              <p className={`mt-1 text-[9px] font-bold ${i <= 1 ? "text-[#B27A16]" : "text-[#9AA1AB]"}`}>{s}</p>
+              <div className={`h-1.5 rounded-full ${i <= 1 ? "bg-[#F97316]" : "bg-[#E5E7EB]"}`} />
+              <p className={`mt-1 text-[9px] font-bold ${i <= 1 ? "text-[#C2410C]" : "text-[#9AA1AB]"}`}>{s}</p>
             </div>
           ))}
         </div>
-        <div className="mt-3 flex items-center justify-between rounded-2xl bg-[#FFF8EC] px-4 py-3">
+        <div className="mt-3 flex items-center justify-between rounded-2xl bg-[#FFF7ED] px-4 py-3">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-[#6C757D]">Total parcial</p>
-            <p className="font-display text-xl font-black text-[#14213D]">R$ 117,60</p>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-[#64748B]">Total parcial</p>
+            <p className="font-display text-xl font-black text-[#0B1F33]">R$ 117,60</p>
           </div>
-          <span className="rounded-xl bg-[#D99A21] px-3.5 py-2 text-xs font-bold text-[#14213D]">Solicitar conta</span>
+          <span className="rounded-xl bg-[#F97316] px-3.5 py-2 text-xs font-bold text-[#0B1F33]">Solicitar conta</span>
         </div>
       </div>
       {/* brilho dourado atrás */}
-      <div className="pointer-events-none absolute -inset-6 -z-10 rounded-[3rem] bg-[radial-gradient(closest-side,rgba(217,154,33,0.18),transparent)]" />
+      <div className="pointer-events-none absolute -inset-6 -z-10 rounded-[3rem] bg-[radial-gradient(closest-side,rgba(249,115,22,0.18),transparent)]" />
     </div>
   );
 }
@@ -274,22 +274,22 @@ function MockupDashboard() {
   const totalDia = horas.reduce((s, x) => s + x.v, 0);
   const fmt = (n) => `R$ ${n.toLocaleString("pt-BR")}`;
   return (
-    <div className="rounded-[2rem] border border-[#E5E7EB] bg-white p-5 shadow-[0_30px_80px_-40px_rgba(20,33,61,0.4)]">
+    <div className="rounded-[2rem] border border-[#E5E7EB] bg-white p-5 shadow-[0_30px_80px_-40px_rgba(11,31,51,0.4)]">
       <div className="flex items-start justify-between">
         <div>
-          <p className="font-display text-sm font-bold text-[#14213D]">Faturamento por faixa de hora</p>
-          <p className="mt-0.5 text-[11px] text-[#6C757D]">Hoje · {fmt(totalDia)}</p>
+          <p className="font-display text-sm font-bold text-[#0B1F33]">Faturamento por faixa de hora</p>
+          <p className="mt-0.5 text-[11px] text-[#64748B]">Hoje · {fmt(totalDia)}</p>
         </div>
-        <span className="rounded-full bg-[#E8F5E9] px-2.5 py-1 text-[10px] font-bold text-[#2E7D32]">+12% vs. ontem</span>
+        <span className="rounded-full bg-[#DCFCE7] px-2.5 py-1 text-[10px] font-bold text-[#16A34A]">+12% vs. ontem</span>
       </div>
       <div className="mt-5 flex items-end justify-between gap-1.5" style={{ height: ALT + 18 }}>
         {horas.map((x) => {
           const pico = x.v === max;
           return (
             <div key={x.h} className="flex flex-1 flex-col items-center justify-end gap-1">
-              <span className={`text-[8px] font-bold leading-none ${pico ? "text-[#B27A16]" : "text-[#9CA3AF]"}`}>{Math.round(x.v / 100) / 10}k</span>
-              <div className={`w-full rounded-t-md transition-all ${pico ? "bg-gradient-to-t from-[#B8811A] to-[#F2B544]" : "bg-[#14213D]"}`} style={{ height: Math.max(6, (x.v / max) * ALT) }} />
-              <span className="text-[8px] font-semibold leading-none text-[#6C757D]">{x.h}</span>
+              <span className={`text-[8px] font-bold leading-none ${pico ? "text-[#C2410C]" : "text-[#9CA3AF]"}`}>{Math.round(x.v / 100) / 10}k</span>
+              <div className={`w-full rounded-t-md transition-all ${pico ? "bg-gradient-to-t from-[#EA580C] to-[#FB923C]" : "bg-[#0B1F33]"}`} style={{ height: Math.max(6, (x.v / max) * ALT) }} />
+              <span className="text-[8px] font-semibold leading-none text-[#64748B]">{x.h}</span>
             </div>
           );
         })}
@@ -300,9 +300,9 @@ function MockupDashboard() {
           { l: "Pedidos", v: "138" },
           { l: "Pico às", v: "20h" },
         ].map((c) => (
-          <div key={c.l} className="rounded-xl border border-[#E5E7EB] bg-[#F8F9FA] p-3">
-            <p className="text-[9px] font-bold uppercase tracking-wider text-[#6C757D]">{c.l}</p>
-            <p className="font-display mt-1 text-base font-black text-[#14213D]">{c.v}</p>
+          <div key={c.l} className="rounded-xl border border-[#E5E7EB] bg-[#F8FAFC] p-3">
+            <p className="text-[9px] font-bold uppercase tracking-wider text-[#64748B]">{c.l}</p>
+            <p className="font-display mt-1 text-base font-black text-[#0B1F33]">{c.v}</p>
           </div>
         ))}
       </div>
@@ -348,7 +348,7 @@ export default function LandingPage({ navigate }) {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] font-sans text-[#1F2937] antialiased" style={{ fontFamily: "'Inter','Poppins',sans-serif" }}>
+    <div className="min-h-screen bg-[#F8FAFC] font-sans text-[#1E293B] antialiased" style={{ fontFamily: "'Inter','Poppins',sans-serif" }}>
       {/* ══ HEADER ══ */}
       <header className="sticky top-0 z-50 border-b border-[#E5E7EB] bg-white/85 backdrop-blur-xl" style={{ paddingTop: "env(safe-area-inset-top)" }}>
         <nav className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-3.5">
@@ -356,7 +356,7 @@ export default function LandingPage({ navigate }) {
           <div className="hidden items-center gap-1 lg:flex">
             {NAV.map((n) => (
               <button key={n.id} onClick={() => irPara(n.id)}
-                className="rounded-lg px-3 py-2 text-sm font-semibold text-[#374151] transition hover:bg-[#FFF8EC] hover:text-[#14213D]">
+                className="rounded-lg px-3 py-2 text-sm font-semibold text-[#374151] transition hover:bg-[#FFF7ED] hover:text-[#0B1F33]">
                 {n.label}
               </button>
             ))}
@@ -366,7 +366,7 @@ export default function LandingPage({ navigate }) {
             <Botao variant="navy" onClick={acessar} className="!px-4 !py-2.5 !text-[13px]">Acessar sistema</Botao>
           </div>
           <button onClick={() => setMenuAberto((a) => !a)} aria-label="Menu"
-            className="flex items-center justify-center rounded-xl border border-[#E5E7EB] bg-white p-2.5 text-[#14213D] lg:hidden">
+            className="flex items-center justify-center rounded-xl border border-[#E5E7EB] bg-white p-2.5 text-[#0B1F33] lg:hidden">
             <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
               {menuAberto ? <><path d="M6 6l12 12" /><path d="M18 6 6 18" /></> : <><path d="M4 7h16" /><path d="M4 12h16" /><path d="M4 17h16" /></>}
             </svg>
@@ -378,7 +378,7 @@ export default function LandingPage({ navigate }) {
             <div className="grid gap-1">
               {NAV.map((n) => (
                 <button key={n.id} onClick={() => irPara(n.id)}
-                  className="rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-[#374151] transition hover:bg-[#FFF8EC] hover:text-[#14213D]">
+                  className="rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-[#374151] transition hover:bg-[#FFF7ED] hover:text-[#0B1F33]">
                   {n.label}
                 </button>
               ))}
@@ -394,19 +394,19 @@ export default function LandingPage({ navigate }) {
       <main id="topo">
         {/* ══ HERO ══ */}
         <section className="relative overflow-hidden">
-          <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-b from-[#FFF8EC] via-[#F8F9FA] to-[#F8F9FA]" />
-          <div className="pointer-events-none absolute -right-24 -top-24 -z-10 h-96 w-96 rounded-full bg-[radial-gradient(closest-side,rgba(217,154,33,0.20),transparent)]" />
+          <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-b from-[#FFF7ED] via-[#F8FAFC] to-[#F8FAFC]" />
+          <div className="pointer-events-none absolute -right-24 -top-24 -z-10 h-96 w-96 rounded-full bg-[radial-gradient(closest-side,rgba(249,115,22,0.20),transparent)]" />
           <div className="mx-auto grid max-w-7xl items-center gap-12 px-5 py-16 sm:py-24 lg:grid-cols-2">
             <div>
               <Reveal><Badge>Plataforma inteligente para atendimento, comandas e gestão food service</Badge></Reveal>
               <Reveal delay={80}>
-                <h1 className="font-display mt-5 text-4xl font-black leading-[1.08] tracking-tight text-[#14213D] sm:text-5xl">
-                  Transforme o atendimento do seu restaurante com <span className="text-[#D99A21]">pedidos digitais em tempo real</span>
+                <h1 className="font-display mt-5 text-4xl font-black leading-[1.08] tracking-tight text-[#0B1F33] sm:text-5xl">
+                  Transforme o atendimento do seu restaurante com <span className="text-[#F97316]">pedidos digitais em tempo real</span>
                 </h1>
               </Reveal>
               <Reveal delay={160}>
                 <p className="mt-5 max-w-xl text-base leading-7 text-[#4B5563] sm:text-lg">
-                  Controle mesas, comandas, cardápio digital, cozinha, caixa, financeiro e relatórios em uma única plataforma criada para restaurantes que querem <b className="text-[#14213D]">vender mais, errar menos e atender melhor</b>.
+                  Controle mesas, comandas, cardápio digital, cozinha, caixa, financeiro e relatórios em uma única plataforma criada para restaurantes que querem <b className="text-[#0B1F33]">vender mais, errar menos e atender melhor</b>.
                 </p>
               </Reveal>
               <Reveal delay={240}>
@@ -431,18 +431,18 @@ export default function LandingPage({ navigate }) {
         <section className="bg-white py-16 sm:py-20">
           <div className="mx-auto max-w-7xl px-5">
             <Reveal className="mx-auto max-w-3xl text-center">
-              <h2 className="font-display text-3xl font-black tracking-tight text-[#14213D] sm:text-4xl">Seu restaurante ainda perde tempo com pedidos no papel?</h2>
-              <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-[#6C757D]">
+              <h2 className="font-display text-3xl font-black tracking-tight text-[#0B1F33] sm:text-4xl">Seu restaurante ainda perde tempo com pedidos no papel?</h2>
+              <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-[#64748B]">
                 Com o Pedido Prime, o pedido sai da mesa direto para a cozinha, reduzindo falhas de comunicação, atrasos, retrabalho e perda de controle no atendimento.
               </p>
             </Reveal>
             <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {DORES.map((d, i) => (
                 <Reveal as="article" key={d.title} delay={i * 60}
-                  className="rounded-3xl border border-[#E5E7EB] bg-[#F8F9FA] p-6 transition hover:-translate-y-1 hover:border-[#D99A21]/40 hover:shadow-lg">
+                  className="rounded-3xl border border-[#E5E7EB] bg-[#F8FAFC] p-6 transition hover:-translate-y-1 hover:border-[#F97316]/40 hover:shadow-lg">
                   <IconBadge>{d.icon}</IconBadge>
-                  <h3 className="font-display mt-4 text-lg font-bold text-[#14213D]">{d.title}</h3>
-                  <p className="mt-1.5 text-sm leading-6 text-[#6C757D]">{d.desc}</p>
+                  <h3 className="font-display mt-4 text-lg font-bold text-[#0B1F33]">{d.title}</h3>
+                  <p className="mt-1.5 text-sm leading-6 text-[#64748B]">{d.desc}</p>
                 </Reveal>
               ))}
             </div>
@@ -450,20 +450,20 @@ export default function LandingPage({ navigate }) {
         </section>
 
         {/* ══ FUNCIONALIDADES ══ */}
-        <section id="funcionalidades" className="scroll-mt-24 bg-[#FFF8EC] py-16 sm:py-24">
+        <section id="funcionalidades" className="scroll-mt-24 bg-[#FFF7ED] py-16 sm:py-24">
           <div className="mx-auto max-w-7xl px-5">
             <Reveal className="mx-auto max-w-3xl text-center">
               <Badge>Funcionalidades</Badge>
-              <h2 className="font-display mt-4 text-3xl font-black tracking-tight text-[#14213D] sm:text-4xl">Tudo que seu restaurante precisa para atender melhor e gerenciar com mais controle</h2>
-              <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-[#6C757D]">Do pedido no tablet da mesa ao relatório de vendas do gerente, tudo conectado em tempo real.</p>
+              <h2 className="font-display mt-4 text-3xl font-black tracking-tight text-[#0B1F33] sm:text-4xl">Tudo que seu restaurante precisa para atender melhor e gerenciar com mais controle</h2>
+              <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-[#64748B]">Do pedido no tablet da mesa ao relatório de vendas do gerente, tudo conectado em tempo real.</p>
             </Reveal>
             <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {FEATURES.map((f, i) => (
                 <Reveal as="article" key={f.title} delay={(i % 3) * 80}
-                  className="group rounded-3xl border border-[#E5E7EB] bg-white p-6 transition hover:-translate-y-1 hover:border-[#D99A21]/50 hover:shadow-xl">
+                  className="group rounded-3xl border border-[#E5E7EB] bg-white p-6 transition hover:-translate-y-1 hover:border-[#F97316]/50 hover:shadow-xl">
                   <IconBadge>{f.icon}</IconBadge>
-                  <h3 className="font-display mt-4 text-lg font-bold text-[#14213D]">{f.title}</h3>
-                  <p className="mt-1.5 text-sm leading-6 text-[#6C757D]">{f.desc}</p>
+                  <h3 className="font-display mt-4 text-lg font-bold text-[#0B1F33]">{f.title}</h3>
+                  <p className="mt-1.5 text-sm leading-6 text-[#64748B]">{f.desc}</p>
                 </Reveal>
               ))}
             </div>
@@ -474,16 +474,16 @@ export default function LandingPage({ navigate }) {
         <section className="bg-white py-16 sm:py-20">
           <div className="mx-auto max-w-7xl px-5">
             <Reveal className="mx-auto max-w-3xl text-center">
-              <h2 className="font-display text-3xl font-black tracking-tight text-[#14213D] sm:text-4xl">Uma plataforma completa para cada etapa do atendimento</h2>
-              <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-[#6C757D]">Módulos integrados, do salão à gestão — todos em tempo real.</p>
+              <h2 className="font-display text-3xl font-black tracking-tight text-[#0B1F33] sm:text-4xl">Uma plataforma completa para cada etapa do atendimento</h2>
+              <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-[#64748B]">Módulos integrados, do salão à gestão — todos em tempo real.</p>
             </Reveal>
             <Reveal className="mt-10">
               <Carrossel duracao={60}>
                 {OPERACIONAL.map((o) => (
-                  <article key={o.title} className="w-[240px] shrink-0 rounded-3xl border border-[#E5E7EB] bg-[#F8F9FA] p-6 sm:w-[260px]">
+                  <article key={o.title} className="w-[240px] shrink-0 rounded-3xl border border-[#E5E7EB] bg-[#F8FAFC] p-6 sm:w-[260px]">
                     <IconBadge>{o.icon}</IconBadge>
-                    <h3 className="font-display mt-4 text-base font-bold text-[#14213D]">{o.title}</h3>
-                    <p className="mt-1.5 text-sm leading-6 text-[#6C757D]">{o.desc}</p>
+                    <h3 className="font-display mt-4 text-base font-bold text-[#0B1F33]">{o.title}</h3>
+                    <p className="mt-1.5 text-sm leading-6 text-[#64748B]">{o.desc}</p>
                   </article>
                 ))}
               </Carrossel>
@@ -492,32 +492,32 @@ export default function LandingPage({ navigate }) {
         </section>
 
         {/* ══ 2 FORMAS DE USAR ══ */}
-        <section id="solucoes" className="scroll-mt-24 bg-[#FFF8EC] py-16 sm:py-24">
+        <section id="solucoes" className="scroll-mt-24 bg-[#FFF7ED] py-16 sm:py-24">
           <div className="mx-auto max-w-7xl px-5">
             <Reveal className="mx-auto max-w-3xl text-center">
               <Badge>Soluções</Badge>
-              <h2 className="font-display mt-4 text-3xl font-black tracking-tight text-[#14213D] sm:text-4xl">Escolha a melhor forma de atendimento para o seu restaurante</h2>
+              <h2 className="font-display mt-4 text-3xl font-black tracking-tight text-[#0B1F33] sm:text-4xl">Escolha a melhor forma de atendimento para o seu restaurante</h2>
             </Reveal>
             <div className="mt-12 grid gap-6 lg:grid-cols-2">
               <Reveal as="article" className="rounded-[2rem] border border-[#E5E7EB] bg-white p-8 shadow-sm">
                 <IconBadge>📲</IconBadge>
-                <h3 className="font-display mt-4 text-2xl font-bold text-[#14213D]">Pedido por tablet na mesa</h3>
-                <p className="mt-2 text-sm leading-7 text-[#6C757D]">Ideal para restaurantes que querem oferecer uma experiência moderna, onde o cliente escolhe, personaliza e envia o pedido direto para a cozinha.</p>
+                <h3 className="font-display mt-4 text-2xl font-bold text-[#0B1F33]">Pedido por tablet na mesa</h3>
+                <p className="mt-2 text-sm leading-7 text-[#64748B]">Ideal para restaurantes que querem oferecer uma experiência moderna, onde o cliente escolhe, personaliza e envia o pedido direto para a cozinha.</p>
                 <ul className="mt-5 space-y-2.5">
                   {["Pedido direto da mesa", "Fotos dos produtos", "Adicionais e observações", "Menos espera", "Mais autonomia para o cliente"].map((b) => (
                     <li key={b} className="flex items-start gap-2 text-sm font-medium text-[#374151]"><Check /> {b}</li>
                   ))}
                 </ul>
               </Reveal>
-              <Reveal as="article" delay={120} className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-gradient-to-br from-[#14213D] to-[#0B1B33] p-8 shadow-2xl">
-                <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-[radial-gradient(closest-side,rgba(217,154,33,0.22),transparent)]" />
+              <Reveal as="article" delay={120} className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-gradient-to-br from-[#0B1F33] to-[#071726] p-8 shadow-2xl">
+                <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-[radial-gradient(closest-side,rgba(249,115,22,0.22),transparent)]" />
                 <IconBadge tom="dark">🎫</IconBadge>
                 <h3 className="font-display mt-4 text-2xl font-bold text-white">Cardápio por QR Code</h3>
                 <p className="mt-2 text-sm leading-7 text-[#CBD5E1]">Perfeito para atendimento pelo celular do cliente, sem instalar aplicativo, com acesso rápido ao cardápio digital da mesa.</p>
                 <ul className="mt-5 space-y-2.5">
                   {["Acesso por QR Code", "Sem instalação", "Vinculado à mesa ou comanda", "Fácil divulgação", "Reduz atendimento manual"].map((b) => (
                     <li key={b} className="flex items-start gap-2 text-sm font-medium text-[#E5E7EB]">
-                      <svg viewBox="0 0 24 24" className="mt-0.5 h-4 w-4 shrink-0" fill="none" stroke="#F2B544" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg> {b}
+                      <svg viewBox="0 0 24 24" className="mt-0.5 h-4 w-4 shrink-0" fill="none" stroke="#FB923C" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg> {b}
                     </li>
                   ))}
                 </ul>
@@ -531,16 +531,16 @@ export default function LandingPage({ navigate }) {
           <div className="mx-auto max-w-7xl px-5">
             <Reveal className="mx-auto max-w-3xl text-center">
               <Badge>Como funciona</Badge>
-              <h2 className="font-display mt-4 text-3xl font-black tracking-tight text-[#14213D] sm:text-4xl">Do pedido à gestão, tudo acontece em tempo real</h2>
+              <h2 className="font-display mt-4 text-3xl font-black tracking-tight text-[#0B1F33] sm:text-4xl">Do pedido à gestão, tudo acontece em tempo real</h2>
             </Reveal>
             <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {PASSOS.map((p, i) => (
                 <Reveal as="article" key={p.n} delay={(i % 3) * 80}
-                  className="relative rounded-3xl border border-[#E5E7EB] bg-[#F8F9FA] p-6">
-                  <span className="font-display absolute right-5 top-4 text-4xl font-black text-[#D99A21]/20">{p.n}</span>
+                  className="relative rounded-3xl border border-[#E5E7EB] bg-[#F8FAFC] p-6">
+                  <span className="font-display absolute right-5 top-4 text-4xl font-black text-[#F97316]/20">{p.n}</span>
                   <IconBadge>{p.icon}</IconBadge>
-                  <h3 className="font-display mt-4 text-lg font-bold text-[#14213D]">{p.title}</h3>
-                  <p className="mt-1.5 text-sm leading-6 text-[#6C757D]">{p.desc}</p>
+                  <h3 className="font-display mt-4 text-lg font-bold text-[#0B1F33]">{p.title}</h3>
+                  <p className="mt-1.5 text-sm leading-6 text-[#64748B]">{p.desc}</p>
                 </Reveal>
               ))}
             </div>
@@ -548,19 +548,19 @@ export default function LandingPage({ navigate }) {
         </section>
 
         {/* ══ GESTÃO E RELATÓRIOS ══ */}
-        <section id="gestao" className="scroll-mt-24 bg-[#FFF8EC] py-16 sm:py-24">
+        <section id="gestao" className="scroll-mt-24 bg-[#FFF7ED] py-16 sm:py-24">
           <div className="mx-auto max-w-7xl px-5">
             <div className="grid items-center gap-12 lg:grid-cols-2">
               <Reveal>
                 <Badge>Gestão</Badge>
-                <h2 className="font-display mt-4 text-3xl font-black tracking-tight text-[#14213D] sm:text-4xl">Mais do que pedidos: gestão para tomar decisões melhores</h2>
-                <p className="mt-4 max-w-xl text-base leading-7 text-[#6C757D]">
+                <h2 className="font-display mt-4 text-3xl font-black tracking-tight text-[#0B1F33] sm:text-4xl">Mais do que pedidos: gestão para tomar decisões melhores</h2>
+                <p className="mt-4 max-w-xl text-base leading-7 text-[#64748B]">
                   Acompanhe vendas, produtos mais pedidos, ticket médio, horários de pico, cancelamentos e desempenho da operação em tempo real.
                 </p>
                 <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3">
                   {INDICADORES.map((k) => (
                     <div key={k.label} className="rounded-2xl border border-[#E5E7EB] bg-white p-4">
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-[#6C757D]">{k.label}</p>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-[#64748B]">{k.label}</p>
                       <p className="font-display mt-1 text-lg font-black leading-tight" style={{ color: k.cor }}>{k.valor}</p>
                       <p className="mt-0.5 text-[10px] font-semibold text-[#9AA1AB]">{k.sub}</p>
                     </div>
@@ -576,15 +576,15 @@ export default function LandingPage({ navigate }) {
         <section className="bg-white py-16 sm:py-20">
           <div className="mx-auto max-w-7xl px-5">
             <Reveal className="mx-auto max-w-3xl text-center">
-              <h2 className="font-display text-3xl font-black tracking-tight text-[#14213D] sm:text-4xl">Criado para diferentes tipos de operação food service</h2>
-              <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-[#6C757D]">Do burger ao sushi, da cafeteria ao food truck — o Pedido Prime se adapta ao seu negócio.</p>
+              <h2 className="font-display text-3xl font-black tracking-tight text-[#0B1F33] sm:text-4xl">Criado para diferentes tipos de operação food service</h2>
+              <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-[#64748B]">Do burger ao sushi, da cafeteria ao food truck — o Pedido Prime se adapta ao seu negócio.</p>
             </Reveal>
             <Reveal className="mt-10">
               <Carrossel duracao={48}>
                 {SEGMENTOS.map((s) => (
-                  <article key={s.label} className="flex w-[150px] shrink-0 flex-col items-center gap-3 rounded-3xl border border-[#E5E7EB] bg-[#F8F9FA] p-6 text-center">
-                    <span className="flex h-14 w-14 items-center justify-center rounded-2xl border border-[#F0DFB8] bg-[#FFF8EC] text-2xl">{s.icon}</span>
-                    <p className="text-sm font-bold text-[#14213D]">{s.label}</p>
+                  <article key={s.label} className="flex w-[150px] shrink-0 flex-col items-center gap-3 rounded-3xl border border-[#E5E7EB] bg-[#F8FAFC] p-6 text-center">
+                    <span className="flex h-14 w-14 items-center justify-center rounded-2xl border border-[#FBD9AE] bg-[#FFF7ED] text-2xl">{s.icon}</span>
+                    <p className="text-sm font-bold text-[#0B1F33]">{s.label}</p>
                   </article>
                 ))}
               </Carrossel>
@@ -593,22 +593,22 @@ export default function LandingPage({ navigate }) {
         </section>
 
         {/* ══ TABLET ══ */}
-        <section className="bg-[#FFF8EC] py-16 sm:py-24">
+        <section className="bg-[#FFF7ED] py-16 sm:py-24">
           <div className="mx-auto max-w-7xl px-5">
             <Reveal className="mx-auto max-w-3xl text-center">
               <Badge>No tablet</Badge>
-              <h2 className="font-display mt-4 text-3xl font-black tracking-tight text-[#14213D] sm:text-4xl">Leve o Pedido Prime para o tablet do restaurante</h2>
-              <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-[#6C757D]">Use no tablet da mesa, cozinha ou caixa, com tudo sincronizado em tempo real para agilizar o atendimento e reduzir erros.</p>
+              <h2 className="font-display mt-4 text-3xl font-black tracking-tight text-[#0B1F33] sm:text-4xl">Leve o Pedido Prime para o tablet do restaurante</h2>
+              <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-[#64748B]">Use no tablet da mesa, cozinha ou caixa, com tudo sincronizado em tempo real para agilizar o atendimento e reduzir erros.</p>
             </Reveal>
             <div className="mt-12 grid gap-6 sm:grid-cols-3">
               {TABLETS.map((t, i) => (
                 <Reveal as="article" key={t.title} delay={i * 100}
                   className="rounded-[2rem] border border-[#E5E7EB] bg-white p-6 text-center shadow-sm">
-                  <div className="mx-auto flex h-40 items-center justify-center rounded-2xl border-2 border-[#14213D]/10 bg-[#F8F9FA]">
+                  <div className="mx-auto flex h-40 items-center justify-center rounded-2xl border-2 border-[#0B1F33]/10 bg-[#F8FAFC]">
                     <span className="text-5xl">{t.icon}</span>
                   </div>
-                  <h3 className="font-display mt-5 text-lg font-bold text-[#14213D]">{t.title}</h3>
-                  <p className="mt-1.5 text-sm leading-6 text-[#6C757D]">{t.desc}</p>
+                  <h3 className="font-display mt-5 text-lg font-bold text-[#0B1F33]">{t.title}</h3>
+                  <p className="mt-1.5 text-sm leading-6 text-[#64748B]">{t.desc}</p>
                 </Reveal>
               ))}
             </div>
@@ -623,22 +623,22 @@ export default function LandingPage({ navigate }) {
           <div className="mx-auto max-w-7xl px-5">
             <Reveal className="mx-auto max-w-3xl text-center">
               <Badge>Planos</Badge>
-              <h2 className="font-display mt-4 text-3xl font-black tracking-tight text-[#14213D] sm:text-4xl">Planos pensados para o tamanho da sua operação</h2>
-              <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-[#6C757D]">Comece com o essencial e evolua conforme o crescimento do seu restaurante.</p>
+              <h2 className="font-display mt-4 text-3xl font-black tracking-tight text-[#0B1F33] sm:text-4xl">Planos pensados para o tamanho da sua operação</h2>
+              <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-[#64748B]">Comece com o essencial e evolua conforme o crescimento do seu restaurante.</p>
             </Reveal>
             <div className="mt-12 grid gap-5 lg:grid-cols-4 md:grid-cols-2">
               {PLANOS.map((p, i) => {
                 const destaque = p.destaque;
                 return (
                   <Reveal as="article" key={p.id} delay={i * 70}
-                    className={`relative flex flex-col rounded-[1.6rem] border bg-white p-6 transition hover:-translate-y-1 ${destaque ? "border-[#D99A21] shadow-[0_20px_50px_-20px_rgba(217,154,33,0.5)]" : "border-[#E5E7EB] hover:shadow-lg"}`}>
-                    {destaque && <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[#D99A21] px-3 py-1 text-[10px] font-black uppercase tracking-wider text-[#14213D]">★ Mais escolhido</span>}
-                    <h3 className="font-display text-xl font-black uppercase tracking-tight text-[#14213D]">{p.nome}</h3>
-                    <p className="mt-2 min-h-[40px] text-[13px] leading-5 text-[#6C757D]">{p.desc}</p>
+                    className={`relative flex flex-col rounded-[1.6rem] border bg-white p-6 transition hover:-translate-y-1 ${destaque ? "border-[#F97316] shadow-[0_20px_50px_-20px_rgba(249,115,22,0.5)]" : "border-[#E5E7EB] hover:shadow-lg"}`}>
+                    {destaque && <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[#F97316] px-3 py-1 text-[10px] font-black uppercase tracking-wider text-[#0B1F33]">★ Mais escolhido</span>}
+                    <h3 className="font-display text-xl font-black uppercase tracking-tight text-[#0B1F33]">{p.nome}</h3>
+                    <p className="mt-2 min-h-[40px] text-[13px] leading-5 text-[#64748B]">{p.desc}</p>
                     <div className="mt-4 flex items-end gap-1">
                       {p.preco
-                        ? <><span className="text-sm font-bold text-[#6C757D]">R$</span><span className="font-display text-3xl font-black text-[#14213D]">{p.preco}</span><span className="text-sm font-semibold text-[#6C757D]">{p.periodo}</span></>
-                        : <span className="font-display text-2xl font-black text-[#D99A21]">{p.precoTexto}</span>}
+                        ? <><span className="text-sm font-bold text-[#64748B]">R$</span><span className="font-display text-3xl font-black text-[#0B1F33]">{p.preco}</span><span className="text-sm font-semibold text-[#64748B]">{p.periodo}</span></>
+                        : <span className="font-display text-2xl font-black text-[#F97316]">{p.precoTexto}</span>}
                     </div>
                     <ul className="mt-5 flex-1 space-y-2">
                       {p.recursos.map((r) => (
@@ -646,7 +646,7 @@ export default function LandingPage({ navigate }) {
                       ))}
                     </ul>
                     <button onClick={() => escolherPlano(p)}
-                      className={`font-display mt-6 w-full rounded-xl px-4 py-3 text-sm font-bold transition active:scale-95 ${destaque ? "bg-[#D99A21] text-[#14213D] hover:bg-[#F2B544]" : "border border-[#14213D]/20 text-[#14213D] hover:bg-[#FFF8EC]"}`}>
+                      className={`font-display mt-6 w-full rounded-xl px-4 py-3 text-sm font-bold transition active:scale-95 ${destaque ? "bg-[#F97316] text-[#0B1F33] hover:bg-[#FB923C]" : "border border-[#0B1F33]/20 text-[#0B1F33] hover:bg-[#FFF7ED]"}`}>
                       Falar com consultor
                     </button>
                   </Reveal>
@@ -658,11 +658,11 @@ export default function LandingPage({ navigate }) {
         </section>
 
         {/* ══ FAQ ══ */}
-        <section id="faq" className="scroll-mt-24 bg-[#FFF8EC] py-16 sm:py-24">
+        <section id="faq" className="scroll-mt-24 bg-[#FFF7ED] py-16 sm:py-24">
           <div className="mx-auto max-w-3xl px-5">
             <Reveal className="text-center">
               <Badge>FAQ</Badge>
-              <h2 className="font-display mt-4 text-3xl font-black tracking-tight text-[#14213D] sm:text-4xl">Perguntas frequentes</h2>
+              <h2 className="font-display mt-4 text-3xl font-black tracking-tight text-[#0B1F33] sm:text-4xl">Perguntas frequentes</h2>
             </Reveal>
             <div className="mt-10 space-y-3">
               {FAQ.map((item, i) => {
@@ -672,12 +672,12 @@ export default function LandingPage({ navigate }) {
                     <div className="overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white">
                       <button onClick={() => setFaqAberto(aberto ? -1 : i)}
                         className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left">
-                        <span className="font-display text-sm font-bold text-[#14213D] sm:text-base">{item.q}</span>
-                        <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[#E5E7EB] text-[#D99A21] transition ${aberto ? "rotate-45 bg-[#FFF8EC]" : ""}`}>
+                        <span className="font-display text-sm font-bold text-[#0B1F33] sm:text-base">{item.q}</span>
+                        <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[#E5E7EB] text-[#F97316] transition ${aberto ? "rotate-45 bg-[#FFF7ED]" : ""}`}>
                           <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
                         </span>
                       </button>
-                      {aberto && <p className="px-5 pb-5 text-sm leading-6 text-[#6C757D]">{item.a}</p>}
+                      {aberto && <p className="px-5 pb-5 text-sm leading-6 text-[#64748B]">{item.a}</p>}
                     </div>
                   </Reveal>
                 );
@@ -689,9 +689,9 @@ export default function LandingPage({ navigate }) {
         {/* ══ CTA FINAL (dark premium) ══ */}
         <section className="bg-white py-16 sm:py-20">
           <div className="mx-auto max-w-6xl px-5">
-            <Reveal className="relative overflow-hidden rounded-[2.5rem] border border-[#D99A21]/30 bg-gradient-to-br from-[#14213D] to-[#0B1B33] p-10 text-center shadow-2xl sm:p-16">
-              <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-[radial-gradient(closest-side,rgba(217,154,33,0.18),transparent)]" />
-              <div className="pointer-events-none absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-[radial-gradient(closest-side,rgba(20,33,61,0.5),transparent)]" />
+            <Reveal className="relative overflow-hidden rounded-[2.5rem] border border-[#F97316]/30 bg-gradient-to-br from-[#0B1F33] to-[#071726] p-10 text-center shadow-2xl sm:p-16">
+              <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-[radial-gradient(closest-side,rgba(249,115,22,0.18),transparent)]" />
+              <div className="pointer-events-none absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-[radial-gradient(closest-side,rgba(11,31,51,0.5),transparent)]" />
               <h2 className="font-display relative text-3xl font-black tracking-tight text-white sm:text-4xl">Pronto para modernizar o atendimento do seu restaurante?</h2>
               <p className="relative mx-auto mt-4 max-w-2xl text-base leading-7 text-[#CBD5E1]">
                 Veja como o Pedido Prime pode ajudar sua operação a vender mais, atender melhor e ter mais controle todos os dias.
@@ -708,19 +708,19 @@ export default function LandingPage({ navigate }) {
         </section>
 
         {/* ══ CONTATO ══ */}
-        <section id="contato" className="scroll-mt-24 bg-[#FFF8EC] py-16 sm:py-24">
+        <section id="contato" className="scroll-mt-24 bg-[#FFF7ED] py-16 sm:py-24">
           <div className="mx-auto max-w-3xl px-5">
             <Reveal className="text-center">
               <Badge>Contato</Badge>
-              <h2 className="font-display mt-4 text-3xl font-black tracking-tight text-[#14213D] sm:text-4xl">Solicite uma demonstração</h2>
-              <p className="mx-auto mt-4 max-w-xl text-base leading-7 text-[#6C757D]">Conheça o sistema na prática, sem compromisso. Preencha e continue a conversa no WhatsApp.</p>
+              <h2 className="font-display mt-4 text-3xl font-black tracking-tight text-[#0B1F33] sm:text-4xl">Solicite uma demonstração</h2>
+              <p className="mx-auto mt-4 max-w-xl text-base leading-7 text-[#64748B]">Conheça o sistema na prática, sem compromisso. Preencha e continue a conversa no WhatsApp.</p>
             </Reveal>
 
             {enviado ? (
-              <Reveal className="mt-10 rounded-[2rem] border border-[#2E7D32]/30 bg-[#E8F5E9] p-8 text-center">
-                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#2E7D32] text-2xl text-white">✓</div>
-                <h3 className="font-display mt-4 text-xl font-black text-[#14213D]">Solicitação enviada!</h3>
-                <p className="mt-2 text-sm text-[#6C757D]">Recebemos seus dados. Em breve entraremos em contato para a demonstração.</p>
+              <Reveal className="mt-10 rounded-[2rem] border border-[#16A34A]/30 bg-[#DCFCE7] p-8 text-center">
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#16A34A] text-2xl text-white">✓</div>
+                <h3 className="font-display mt-4 text-xl font-black text-[#0B1F33]">Solicitação enviada!</h3>
+                <p className="mt-2 text-sm text-[#64748B]">Recebemos seus dados. Em breve entraremos em contato para a demonstração.</p>
               </Reveal>
             ) : (
               <Reveal as="form" className="mt-10 rounded-[2rem] border border-[#E5E7EB] bg-white p-6 shadow-sm sm:p-8" onSubmit={enviarContato}>
@@ -758,25 +758,25 @@ export default function LandingPage({ navigate }) {
           <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
             <div className="lg:col-span-2">
               <Marca />
-              <p className="mt-4 max-w-md text-sm leading-6 text-[#6C757D]">
+              <p className="mt-4 max-w-md text-sm leading-6 text-[#64748B]">
                 Pedido Prime — Plataforma inteligente para pedidos digitais, atendimento e gestão de restaurantes. Cardápio digital, pedido por tablet e QR Code, cozinha em tempo real e relatórios gerenciais.
               </p>
             </div>
             <div>
-              <p className="font-display text-sm font-bold text-[#14213D]">Navegação</p>
+              <p className="font-display text-sm font-bold text-[#0B1F33]">Navegação</p>
               <div className="mt-3 grid gap-2">
                 {NAV.slice(0, 5).map((n) => (
-                  <button key={n.id} onClick={() => irPara(n.id)} className="text-left text-sm text-[#6C757D] transition hover:text-[#D99A21]">{n.label}</button>
+                  <button key={n.id} onClick={() => irPara(n.id)} className="text-left text-sm text-[#64748B] transition hover:text-[#F97316]">{n.label}</button>
                 ))}
               </div>
             </div>
             <div>
-              <p className="font-display text-sm font-bold text-[#14213D]">Contato</p>
+              <p className="font-display text-sm font-bold text-[#0B1F33]">Contato</p>
               <div className="mt-3 grid gap-2 text-sm">
-                <a href={`https://wa.me/${WHATSAPP_COMERCIAL}`} target="_blank" rel="noopener noreferrer" className="text-[#6C757D] transition hover:text-[#22C55E]">WhatsApp comercial</a>
-                <a href={INSTAGRAM} target="_blank" rel="noopener noreferrer" className="text-[#6C757D] transition hover:text-[#D99A21]">Instagram</a>
-                <button onClick={acessar} className="text-left text-[#6C757D] transition hover:text-[#14213D]">Acessar sistema</button>
-                <button onClick={() => irPara("contato")} className="text-left text-[#6C757D] transition hover:text-[#14213D]">Solicitar demonstração</button>
+                <a href={`https://wa.me/${WHATSAPP_COMERCIAL}`} target="_blank" rel="noopener noreferrer" className="text-[#64748B] transition hover:text-[#22C55E]">WhatsApp comercial</a>
+                <a href={INSTAGRAM} target="_blank" rel="noopener noreferrer" className="text-[#64748B] transition hover:text-[#F97316]">Instagram</a>
+                <button onClick={acessar} className="text-left text-[#64748B] transition hover:text-[#0B1F33]">Acessar sistema</button>
+                <button onClick={() => irPara("contato")} className="text-left text-[#64748B] transition hover:text-[#0B1F33]">Solicitar demonstração</button>
               </div>
             </div>
           </div>
@@ -793,13 +793,13 @@ export default function LandingPage({ navigate }) {
 }
 
 // classes utilitárias do formulário
-const INP = "w-full rounded-2xl border border-[#E5E7EB] bg-[#F8F9FA] px-4 py-3 text-sm text-[#1F2937] outline-none transition focus:border-[#D99A21] focus:bg-white focus:ring-2 focus:ring-[#D99A21]/20 placeholder:text-[#9AA1AB]";
-const LBL = "mb-1.5 block text-xs font-bold uppercase tracking-widest text-[#6C757D]";
+const INP = "w-full rounded-2xl border border-[#E5E7EB] bg-[#F8FAFC] px-4 py-3 text-sm text-[#1E293B] outline-none transition focus:border-[#F97316] focus:bg-white focus:ring-2 focus:ring-[#F97316]/20 placeholder:text-[#9AA1AB]";
+const LBL = "mb-1.5 block text-xs font-bold uppercase tracking-widest text-[#64748B]";
 
 function Campo({ name, label, type = "text", placeholder, required }) {
   return (
     <div>
-      <label className={LBL}>{label}{required && <span className="text-[#D32F2F]"> *</span>}</label>
+      <label className={LBL}>{label}{required && <span className="text-[#DC2626]"> *</span>}</label>
       <input name={name} type={type} placeholder={placeholder} required={required} className={INP} />
     </div>
   );

@@ -15,7 +15,7 @@ const cx = (...c) => c.filter(Boolean).join(" ");
             | danger | success | premium(âmbar)
    size: sm | md | lg   ·   full, loading, icon */
 const BTN_VARIANTS = {
-  primary:   "bg-[#F97316] text-white hover:bg-[#FB923C] shadow-sm shadow-[#F97316]/30",
+  primary:   "bg-[#F97316] text-[#0B1F33] hover:bg-[#FB923C] shadow-sm shadow-[#F97316]/30",
   secondary: "bg-[#0B1F33] text-white hover:bg-[#123A4A] shadow-sm shadow-[#0B1F33]/20",
   outline:   "border border-[#E5E7EB] bg-white text-[#0B1F33] hover:bg-[#FFF7ED] hover:border-[#F97316]/40",
   ghost:     "bg-transparent text-[#0B1F33] hover:bg-[#0B1F33]/5",
