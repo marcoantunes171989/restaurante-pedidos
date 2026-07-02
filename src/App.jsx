@@ -12728,8 +12728,7 @@ function AdicionaisEditor({ value = [], onChange }) {
   function add() {
     const n = nome.trim();
     // Preço opcional: vazio = R$ 0,00 (adicional sem custo / grátis)
-    const limpo = String(preco).replace(/[^\d,.-]/g, "").replace(",", ".");
-    const p = limpo.trim() === "" ? 0 : parseFloat(limpo);
+    const p = moedaParaNum(String(preco));
     if (!n || isNaN(p) || p < 0) return;
     if (value.some((a) => a.nome.toLowerCase() === n.toLowerCase())) { setNome(""); setPreco(""); return; }
     onChange([...(value || []), { nome: n, preco: p }]);
@@ -12740,8 +12739,8 @@ function AdicionaisEditor({ value = [], onChange }) {
       <div className="flex gap-2">
         <input value={nome} onChange={(e) => setNome(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
           placeholder="Adicional (ex.: Bacon)" className={`${inp} flex-1`} />
-        <input value={preco} onChange={(e) => setPreco(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
-          inputMode="decimal" placeholder="R$ 0,00" className={`${inp} w-28`} />
+        <input value={preco} onChange={(e) => { const { display } = handleMoeda(e); setPreco(display); }} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
+          inputMode="numeric" placeholder="R$ 0,00" className={`${inp} w-28`} />
         <button type="button" onClick={add} className="shrink-0 rounded-2xl bg-blue-500 px-4 text-sm font-black text-white hover:bg-blue-400">+</button>
       </div>
       {(value || []).length > 0 && (
