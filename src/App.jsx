@@ -13133,10 +13133,10 @@ function SeletorCategoria({ valor, aoMudar, categorias }) {
           <button key={c} type="button" onClick={() => aoMudar(c)}
             className={`group inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-bold tracking-tight transition active:scale-95 ${
               ativo
-                ? "border-amber-300/50 bg-gradient-to-br from-amber-400/20 to-amber-600/[0.08] text-amber-100 shadow-[0_0_0_1px_rgba(251,191,36,0.12),0_4px_16px_-6px_rgba(251,191,36,0.4)]"
-                : "border-white/10 bg-white/[0.04] text-slate-300 hover:border-amber-300/30 hover:bg-white/[0.07] hover:text-amber-100/90"
+                ? "border-[#E0B84A] bg-[#FDF3D8] text-[#7A5512] shadow-[0_0_0_1px_rgba(217,154,33,0.18),0_4px_16px_-6px_rgba(217,154,33,0.4)]"
+                : "border-white/10 bg-white/[0.04] text-slate-300 hover:border-[#E0B84A]/60 hover:bg-white/[0.07] hover:text-[#7A5512]"
             }`}>
-            <span className={`h-1.5 w-1.5 rounded-full transition ${ativo ? "bg-amber-300 shadow-[0_0_6px_1px_rgba(251,191,36,0.7)]" : "bg-slate-600 group-hover:bg-amber-300/50"}`} />
+            <span className={`h-1.5 w-1.5 rounded-full transition ${ativo ? "bg-[#D99A21] shadow-[0_0_6px_1px_rgba(217,154,33,0.6)]" : "bg-slate-600 group-hover:bg-[#D99A21]/60"}`} />
             {c}
           </button>
         );
