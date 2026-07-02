@@ -327,7 +327,7 @@ class RootErrorBoundary extends Component {
             <h1 style={{ fontSize: 20, fontWeight: 800, color: '#fff', margin: '8px 0' }}>Ops! Algo deu errado ao abrir esta tela</h1>
             <p style={{ fontSize: 14, color: '#cbd5e1' }}>Tente recarregar. Se continuar, envie a mensagem abaixo ao suporte.</p>
             <pre style={{ marginTop: 12, textAlign: 'left', whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 12, color: '#fca5a5', background: 'rgba(0,0,0,.3)', borderRadius: 12, padding: 12, maxHeight: 200, overflow: 'auto' }}>{String(this.state.erro?.stack || this.state.erro?.message || this.state.erro)}</pre>
-            <button onClick={() => window.location.reload()} style={{ marginTop: 16, background: '#D99A21', color: '#0A1424', fontWeight: 800, border: 'none', borderRadius: 16, padding: '12px 20px', cursor: 'pointer' }}>Recarregar</button>
+            <button onClick={() => window.location.reload()} style={{ marginTop: 16, background: '#F97316', color: '#0A1424', fontWeight: 800, border: 'none', borderRadius: 16, padding: '12px 20px', cursor: 'pointer' }}>Recarregar</button>
           </div>
         </div>
       )
