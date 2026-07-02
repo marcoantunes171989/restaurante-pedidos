@@ -257,25 +257,48 @@ function MockupTablet() {
 }
 
 function MockupDashboard() {
-  const barras = [42, 68, 55, 90, 74, 60, 85];
+  // Faturamento fictício por faixa de hora (pico no jantar às 20h).
+  const horas = [
+    { h: "11h", v: 420 },
+    { h: "12h", v: 980 },
+    { h: "13h", v: 760 },
+    { h: "15h", v: 340 },
+    { h: "18h", v: 690 },
+    { h: "19h", v: 1180 },
+    { h: "20h", v: 1460 },
+    { h: "21h", v: 1050 },
+    { h: "22h", v: 520 },
+  ];
+  const max = Math.max(...horas.map((x) => x.v));
+  const ALT = 96; // altura máxima da barra em px
+  const totalDia = horas.reduce((s, x) => s + x.v, 0);
+  const fmt = (n) => `R$ ${n.toLocaleString("pt-BR")}`;
   return (
     <div className="rounded-[2rem] border border-[#E5E7EB] bg-white p-5 shadow-[0_30px_80px_-40px_rgba(20,33,61,0.4)]">
-      <div className="flex items-center justify-between">
-        <p className="font-display text-sm font-bold text-[#14213D]">Faturamento por horário</p>
-        <span className="rounded-full bg-[#E8F5E9] px-2.5 py-1 text-[10px] font-bold text-[#2E7D32]">+12% hoje</span>
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="font-display text-sm font-bold text-[#14213D]">Faturamento por faixa de hora</p>
+          <p className="mt-0.5 text-[11px] text-[#6C757D]">Hoje · {fmt(totalDia)}</p>
+        </div>
+        <span className="rounded-full bg-[#E8F5E9] px-2.5 py-1 text-[10px] font-bold text-[#2E7D32]">+12% vs. ontem</span>
       </div>
-      <div className="mt-4 flex items-end justify-between gap-2" style={{ height: 120 }}>
-        {barras.map((h, i) => (
-          <div key={i} className="flex-1">
-            <div className={`w-full rounded-t-md ${i === 3 ? "bg-[#D99A21]" : "bg-[#14213D]"}`} style={{ height: `${h}%` }} />
-          </div>
-        ))}
+      <div className="mt-5 flex items-end justify-between gap-1.5" style={{ height: ALT + 18 }}>
+        {horas.map((x) => {
+          const pico = x.v === max;
+          return (
+            <div key={x.h} className="flex flex-1 flex-col items-center justify-end gap-1">
+              <span className={`text-[8px] font-bold leading-none ${pico ? "text-[#B27A16]" : "text-[#9CA3AF]"}`}>{Math.round(x.v / 100) / 10}k</span>
+              <div className={`w-full rounded-t-md transition-all ${pico ? "bg-gradient-to-t from-[#B8811A] to-[#F2B544]" : "bg-[#14213D]"}`} style={{ height: Math.max(6, (x.v / max) * ALT) }} />
+              <span className="text-[8px] font-semibold leading-none text-[#6C757D]">{x.h}</span>
+            </div>
+          );
+        })}
       </div>
       <div className="mt-4 grid grid-cols-3 gap-2.5">
         {[
           { l: "Ticket médio", v: "R$ 42,90" },
           { l: "Pedidos", v: "138" },
-          { l: "Mesas ativas", v: "12" },
+          { l: "Pico às", v: "20h" },
         ].map((c) => (
           <div key={c.l} className="rounded-xl border border-[#E5E7EB] bg-[#F8F9FA] p-3">
             <p className="text-[9px] font-bold uppercase tracking-wider text-[#6C757D]">{c.l}</p>
