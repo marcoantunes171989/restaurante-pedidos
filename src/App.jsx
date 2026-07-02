@@ -11222,7 +11222,7 @@ function SetoresCozinhaAdmin({ setores = [], produtos = [], orders = [], api, vi
       )}
 
       {/* ── Cabeçalho ─────────────────────────────────────── */}
-      <div className="relative overflow-hidden rounded-[2rem] border border-gold-400/25 bg-gradient-to-br from-blue-950 via-blue-950 to-[#0A1424] p-6">
+      <div className="relative overflow-hidden rounded-[2rem] border border-gold-400/25 bg-gradient-to-br from-white to-[#EDF3FB] p-6">
         <span className="pointer-events-none absolute -right-6 -top-6 text-gold-400/10 [&>svg]:h-44 [&>svg]:w-44"><IcoChef /></span>
         <div className="relative flex items-start gap-4">
           <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-gold-400/40 bg-gold-400/10 text-gold-300 [&>svg]:h-6 [&>svg]:w-6"><IcoChef /></span>

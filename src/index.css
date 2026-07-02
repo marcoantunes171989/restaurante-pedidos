@@ -180,6 +180,33 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
 [data-theme="light"] .tema-claro-area .text-amber-200,
 [data-theme="light"] .tema-claro-area .text-amber-300,
 [data-theme="light"] .tema-claro-area .text-orange-300 { color: #B45309 !important; }
+
+/* ── FASE 5 — Revisão fina (contraste tela a tela) ──────────────
+   O dourado vivo #D99A21 sobre branco tem contraste insuficiente para
+   TEXTO (~2.3:1). Aqui escurecemos apenas o dourado-texto para um tom
+   legível (gold-700 #8A6118, ~4.5:1) — os FUNDOS/ícones dourados
+   continuam vivos (regras acima). */
+[data-theme="light"] .tema-claro-area .text-gold-200,
+[data-theme="light"] .tema-claro-area .text-gold-300,
+[data-theme="light"] .tema-claro-area .text-gold-400,
+[data-theme="light"] .tema-claro-area .text-gold-500,
+[data-theme="light"] .tema-claro-area .text-gold-300\/80,
+[data-theme="light"] .tema-claro-area .text-gold-400\/80,
+[data-theme="light"] .tema-claro-area .text-gold-400\/70,
+[data-theme="light"] .tema-claro-area .text-gold-400\/60 { color: #8A6118 !important; }
+
+/* Separadores de linhas em listas/tabelas (divide-*) — o padrão branco
+   fica invisível no fundo claro. Remapeia para a borda suave da paleta. */
+[data-theme="light"] .tema-claro-area .divide-white\/5 > :not([hidden]) ~ :not([hidden]),
+[data-theme="light"] .tema-claro-area .divide-white\/10 > :not([hidden]) ~ :not([hidden]),
+[data-theme="light"] .tema-claro-area .divide-white\/\[0\.08\] > :not([hidden]) ~ :not([hidden]) { border-color: #E5E7EB !important; }
+
+/* Cabeçalhos de tabela sticky em azul-marinho translúcido → cabeçalho
+   claro coeso. (bg-white/[0.03] e bg-white/[0.04] já viram cinza sutil
+   pela regra acima, servindo bem como fundo de cabeçalho.) */
+[data-theme="light"] .tema-claro-area .bg-blue-950\/80,
+[data-theme="light"] .tema-claro-area .bg-blue-950\/70 { background-color: #F1F5F9 !important; }
+
 /* Placeholder mais escuro no fundo claro */
 [data-theme="light"] .tema-claro-area .placeholder\:text-slate-600::placeholder { color: #94A3B8 !important; }
 /* Mantém texto branco nos botões sólidos coloridos (legibilidade) */
