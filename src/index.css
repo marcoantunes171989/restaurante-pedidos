@@ -177,6 +177,7 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
 [data-theme="light"] .tema-claro-area .text-red-200,
 [data-theme="light"] .tema-claro-area .text-red-300,
 [data-theme="light"] .tema-claro-area .text-red-400 { color: #D32F2F !important; }
+[data-theme="light"] .tema-claro-area .text-amber-100,
 [data-theme="light"] .tema-claro-area .text-amber-200,
 [data-theme="light"] .tema-claro-area .text-amber-300,
 [data-theme="light"] .tema-claro-area .text-orange-300 { color: #B45309 !important; }
