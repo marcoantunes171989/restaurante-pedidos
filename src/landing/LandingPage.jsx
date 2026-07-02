@@ -141,46 +141,17 @@ function Reveal({ children, className = "", delay = 0, as: Tag = "div" }) {
   return <Tag ref={ref} style={delay ? { transitionDelay: `${delay}ms` } : undefined} className={`pp-reveal ${className}`}>{children}</Tag>;
 }
 
-// Carrossel horizontal com scroll-snap, setas e autoplay (pausa no hover).
-function Carrossel({ children, auto = true, className = "" }) {
-  const ref = useRef(null);
-  const mover = (dir) => { const el = ref.current; if (el) el.scrollBy({ left: dir * Math.max(240, el.clientWidth * 0.8), behavior: "smooth" }); };
-  useEffect(() => {
-    if (!auto) return;
-    const el = ref.current; if (!el) return;
-    let pausado = false;
-    const enter = () => (pausado = true), leave = () => (pausado = false);
-    el.addEventListener("mouseenter", enter); el.addEventListener("mouseleave", leave);
-    el.addEventListener("touchstart", enter, { passive: true });
-    const t = setInterval(() => {
-      const e2 = ref.current; if (!e2 || pausado) return;
-      if (e2.scrollLeft + e2.clientWidth >= e2.scrollWidth - 8) e2.scrollTo({ left: 0, behavior: "smooth" });
-      else e2.scrollBy({ left: 260, behavior: "smooth" });
-    }, 3200);
-    return () => { clearInterval(t); el.removeEventListener("mouseenter", enter); el.removeEventListener("mouseleave", leave); el.removeEventListener("touchstart", enter); };
-  }, [auto]);
+// Carrossel infinito (marquee): rolagem contínua, lenta e constante.
+// Duplica os itens; o trilho desliza -50% em loop linear. Pausa no hover.
+function Carrossel({ children, duracao = 55, className = "" }) {
+  const fade = "linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent)";
   return (
-    <div className={`relative ${className}`}>
-      <div ref={ref} className="pp-noscrollbar flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth pb-2">
-        {children}
+    <div className={`pp-marquee relative overflow-hidden ${className}`} style={{ maskImage: fade, WebkitMaskImage: fade }}>
+      <div className="pp-marquee-track flex w-max" style={{ animationDuration: `${duracao}s` }}>
+        <div className="flex shrink-0 gap-4 pr-4">{children}</div>
+        <div className="flex shrink-0 gap-4 pr-4" aria-hidden="true">{children}</div>
       </div>
-      <button type="button" aria-label="Anterior" onClick={() => mover(-1)}
-        className="absolute -left-3 top-1/2 hidden -translate-y-1/2 rounded-full border border-[#E5E7EB] bg-white p-2.5 text-[#14213D] shadow-md transition hover:bg-[#FFF8EC] sm:flex">
-        <IcoSeta dir="left" />
-      </button>
-      <button type="button" aria-label="Próximo" onClick={() => mover(1)}
-        className="absolute -right-3 top-1/2 hidden -translate-y-1/2 rounded-full border border-[#E5E7EB] bg-white p-2.5 text-[#14213D] shadow-md transition hover:bg-[#FFF8EC] sm:flex">
-        <IcoSeta dir="right" />
-      </button>
     </div>
-  );
-}
-
-function IcoSeta({ dir = "right" }) {
-  return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-      {dir === "left" ? <polyline points="15 18 9 12 15 6" /> : <polyline points="9 18 15 12 9 6" />}
-    </svg>
   );
 }
 
@@ -484,9 +455,9 @@ export default function LandingPage({ navigate }) {
               <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-[#6C757D]">Módulos integrados, do salão à gestão — todos em tempo real.</p>
             </Reveal>
             <Reveal className="mt-10">
-              <Carrossel>
+              <Carrossel duracao={60}>
                 {OPERACIONAL.map((o) => (
-                  <article key={o.title} className="snap-start shrink-0 basis-[75%] rounded-3xl border border-[#E5E7EB] bg-[#F8F9FA] p-6 sm:basis-[38%] lg:basis-[23%]">
+                  <article key={o.title} className="w-[240px] shrink-0 rounded-3xl border border-[#E5E7EB] bg-[#F8F9FA] p-6 sm:w-[260px]">
                     <IconBadge>{o.icon}</IconBadge>
                     <h3 className="font-display mt-4 text-base font-bold text-[#14213D]">{o.title}</h3>
                     <p className="mt-1.5 text-sm leading-6 text-[#6C757D]">{o.desc}</p>
@@ -586,9 +557,9 @@ export default function LandingPage({ navigate }) {
               <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-[#6C757D]">Do burger ao sushi, da cafeteria ao food truck — o Pedido Prime se adapta ao seu negócio.</p>
             </Reveal>
             <Reveal className="mt-10">
-              <Carrossel>
+              <Carrossel duracao={48}>
                 {SEGMENTOS.map((s) => (
-                  <article key={s.label} className="snap-start flex shrink-0 basis-[45%] flex-col items-center gap-3 rounded-3xl border border-[#E5E7EB] bg-[#F8F9FA] p-6 text-center sm:basis-[28%] lg:basis-[15.5%]">
+                  <article key={s.label} className="flex w-[150px] shrink-0 flex-col items-center gap-3 rounded-3xl border border-[#E5E7EB] bg-[#F8F9FA] p-6 text-center">
                     <span className="flex h-14 w-14 items-center justify-center rounded-2xl border border-[#F0DFB8] bg-[#FFF8EC] text-2xl">{s.icon}</span>
                     <p className="text-sm font-bold text-[#14213D]">{s.label}</p>
                   </article>
