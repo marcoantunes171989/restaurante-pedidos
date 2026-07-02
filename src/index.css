@@ -126,6 +126,60 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
 [data-theme="light"] .tema-claro-area .rounded-3xl {
   box-shadow: 0 1px 2px rgba(20,33,61,0.04), 0 4px 14px rgba(20,33,61,0.05);
 }
+/* ── Botões e cores semânticas na paleta oficial (Fase 2) ──────
+   Padroniza os fundos sólidos de ação/estado para os hexes exatos da
+   paleta, mantendo a legibilidade dos textos já definidos. */
+/* Primário dourado: #D99A21 (hover #F2B544) */
+[data-theme="light"] .tema-claro-area .bg-gold-400,
+[data-theme="light"] .tema-claro-area .bg-gold-500 { background-color: #D99A21 !important; }
+[data-theme="light"] .tema-claro-area .hover\:bg-gold-300:hover,
+[data-theme="light"] .tema-claro-area .hover\:bg-gold-400:hover,
+[data-theme="light"] .tema-claro-area .hover\:bg-gold-500:hover { background-color: #F2B544 !important; }
+/* Perigo/erro/cancelar: #D32F2F */
+[data-theme="light"] .tema-claro-area .bg-red-500,
+[data-theme="light"] .tema-claro-area .bg-red-600 { background-color: #D32F2F !important; }
+[data-theme="light"] .tema-claro-area .hover\:bg-red-400:hover,
+[data-theme="light"] .tema-claro-area .hover\:bg-red-500:hover { background-color: #E4573C !important; }
+/* Sucesso/confirmar/ativar: #2E7D32 */
+[data-theme="light"] .tema-claro-area .bg-emerald-500,
+[data-theme="light"] .tema-claro-area .bg-emerald-600,
+[data-theme="light"] .tema-claro-area .bg-green-500,
+[data-theme="light"] .tema-claro-area .bg-green-600 { background-color: #2E7D32 !important; }
+[data-theme="light"] .tema-claro-area .hover\:bg-emerald-400:hover,
+[data-theme="light"] .tema-claro-area .hover\:bg-emerald-500:hover,
+[data-theme="light"] .tema-claro-area .hover\:bg-green-400:hover { background-color: #3E9142 !important; }
+/* Alerta/atenção/pendência: #F59E0B */
+[data-theme="light"] .tema-claro-area .bg-amber-500,
+[data-theme="light"] .tema-claro-area .bg-orange-500 { background-color: #F59E0B !important; }
+/* Foco de campo com borda dourada oficial */
+[data-theme="light"] .tema-claro-area .focus\:border-gold-400\/60:focus,
+[data-theme="light"] .tema-claro-area .focus\:border-gold-400:focus { border-color: #D99A21 !important; }
+/* ── Badges de status: fundos suaves oficiais (Fase 3) ────────── */
+[data-theme="light"] .tema-claro-area .bg-emerald-500\/10,
+[data-theme="light"] .tema-claro-area .bg-emerald-500\/15,
+[data-theme="light"] .tema-claro-area .bg-emerald-500\/20,
+[data-theme="light"] .tema-claro-area .bg-green-500\/10,
+[data-theme="light"] .tema-claro-area .bg-green-500\/15 { background-color: #E8F5E9 !important; }
+[data-theme="light"] .tema-claro-area .bg-amber-500\/10,
+[data-theme="light"] .tema-claro-area .bg-amber-500\/15,
+[data-theme="light"] .tema-claro-area .bg-amber-500\/20,
+[data-theme="light"] .tema-claro-area .bg-orange-500\/10,
+[data-theme="light"] .tema-claro-area .bg-orange-500\/15 { background-color: #FFF7E6 !important; }
+[data-theme="light"] .tema-claro-area .bg-red-500\/10,
+[data-theme="light"] .tema-claro-area .bg-red-500\/15,
+[data-theme="light"] .tema-claro-area .bg-red-500\/20 { background-color: #FDECEC !important; }
+/* Texto das cores de status → tons legíveis no fundo claro/suave */
+[data-theme="light"] .tema-claro-area .text-emerald-200,
+[data-theme="light"] .tema-claro-area .text-emerald-300,
+[data-theme="light"] .tema-claro-area .text-emerald-400,
+[data-theme="light"] .tema-claro-area .text-green-300,
+[data-theme="light"] .tema-claro-area .text-green-400 { color: #2E7D32 !important; }
+[data-theme="light"] .tema-claro-area .text-red-200,
+[data-theme="light"] .tema-claro-area .text-red-300,
+[data-theme="light"] .tema-claro-area .text-red-400 { color: #D32F2F !important; }
+[data-theme="light"] .tema-claro-area .text-amber-200,
+[data-theme="light"] .tema-claro-area .text-amber-300,
+[data-theme="light"] .tema-claro-area .text-orange-300 { color: #B45309 !important; }
 /* Placeholder mais escuro no fundo claro */
 [data-theme="light"] .tema-claro-area .placeholder\:text-slate-600::placeholder { color: #94A3B8 !important; }
 /* Mantém texto branco nos botões sólidos coloridos (legibilidade) */
