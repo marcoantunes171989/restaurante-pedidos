@@ -5959,7 +5959,7 @@ function DonutChart({ dados, label = "" }) {
           acc += dash;
           return el;
         })}
-        <text x="90" y="90" className="rotate-90" textAnchor="middle" dominantBaseline="middle" fill="#14213D" style={{ transform: "rotate(90deg)", transformOrigin: "90px 90px", fontSize: "13px", fontWeight: "900" }}>{label}</text>
+        <text x="90" y="90" className="rotate-90" textAnchor="middle" dominantBaseline="middle" fill="#0B1F33" style={{ transform: "rotate(90deg)", transformOrigin: "90px 90px", fontSize: "13px", fontWeight: "900" }}>{label}</text>
       </svg>
       <div className="space-y-1.5">
         {dados.map((d, i) => (
@@ -5982,7 +5982,7 @@ function BarrasVerticais({ dados, sufixo = "R$" }) {
       {dados.map((d, i) => (
         <div key={i} className="flex min-w-0 flex-1 flex-col items-center justify-end gap-1">
           <span className="w-full truncate text-center font-black leading-none text-white" style={{ fontSize: 8 }}>{d.valor > 0 ? (sufixo === "R$" ? formatCurrency(d.valor).replace("R$", "").trim() : d.valor) : ""}</span>
-          <div className="w-full rounded-t-lg bg-gradient-to-t from-[#14213D] to-[#2E3E66] transition-all" style={{ height: `${(d.valor / max) * 140}px`, minHeight: d.valor > 0 ? 4 : 0 }} />
+          <div className="w-full rounded-t-lg bg-gradient-to-t from-[#0B1F33] to-[#123A4A] transition-all" style={{ height: `${(d.valor / max) * 140}px`, minHeight: d.valor > 0 ? 4 : 0 }} />
           <span className="w-full truncate text-center leading-none text-slate-500" style={{ fontSize: 9 }}>{d.label}</span>
         </div>
       ))}
@@ -13192,10 +13192,10 @@ function SeletorCategoria({ valor, aoMudar, categorias }) {
           <button key={c} type="button" onClick={() => aoMudar(c)}
             className={`group inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-bold tracking-tight transition active:scale-95 ${
               ativo
-                ? "border-[#E0B84A] bg-[#FDF3D8] text-[#7A5512] shadow-[0_0_0_1px_rgba(249,115,22,0.18),0_4px_16px_-6px_rgba(249,115,22,0.4)]"
-                : "border-white/10 bg-white/[0.04] text-slate-300 hover:border-[#E0B84A]/60 hover:bg-white/[0.07] hover:text-[#7A5512]"
+                ? "border-[#FDBA74] bg-[#FFEDD5] text-[#C2410C] shadow-[0_0_0_1px_rgba(249,115,22,0.18),0_4px_16px_-6px_rgba(249,115,22,0.4)]"
+                : "border-white/10 bg-white/[0.04] text-slate-300 hover:border-[#FDBA74]/60 hover:bg-white/[0.07] hover:text-[#C2410C]"
             }`}>
-            <span className={`h-1.5 w-1.5 rounded-full transition ${ativo ? "bg-[#D99A21] shadow-[0_0_6px_1px_rgba(249,115,22,0.6)]" : "bg-slate-600 group-hover:bg-[#D99A21]/60"}`} />
+            <span className={`h-1.5 w-1.5 rounded-full transition ${ativo ? "bg-[#F97316] shadow-[0_0_6px_1px_rgba(249,115,22,0.6)]" : "bg-slate-600 group-hover:bg-[#F97316]/60"}`} />
             {c}
           </button>
         );
