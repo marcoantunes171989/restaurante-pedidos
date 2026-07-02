@@ -555,6 +555,7 @@ export default function LandingPage({ navigate }) {
   }
 
   return (
+    <div data-theme="light">
     <div className="tema-claro-area min-h-screen bg-admin-bg text-admin-text antialiased">
       {/* ── Header sticky ─────────────────────────────────── */}
       {/* paddingTop: app instalado em tela cheia — afasta o conteúdo da barra de status (safe area) */}
@@ -1103,6 +1104,7 @@ export default function LandingPage({ navigate }) {
 
       {/* Botão flutuante de WhatsApp */}
       <BotaoWhatsApp />
+    </div>
     </div>
   );
 }

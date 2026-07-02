@@ -470,6 +470,7 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
   );
 
   return (
+    <div data-theme="light">
     <div className="tema-claro-area relative flex items-center justify-center overflow-hidden px-4 text-admin-text"
       style={{
         minHeight: "100dvh",
@@ -599,6 +600,7 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
           onCancelar={() => setScanLogin(false)}
         />
       )}
+    </div>
     </div>
   );
 }
@@ -2126,6 +2128,7 @@ export default function RestaurantePedidoApp() {
   // ── Tela de carregamento inicial (elegante e minimalista) ────
   if (loading) {
     return (
+      <div data-theme="light">
       <div className="tema-claro-area relative flex items-center justify-center overflow-hidden px-4 text-admin-text"
         style={{
           minHeight: "100dvh",
@@ -2150,6 +2153,7 @@ export default function RestaurantePedidoApp() {
             <span className="text-sm font-bold text-slate-300">Inicializando sistema...</span>
           </div>
         </div>
+      </div>
       </div>
     );
   }
