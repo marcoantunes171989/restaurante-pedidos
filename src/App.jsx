@@ -5471,10 +5471,10 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
     </main>
   );
   return (
-    <div className="fixed inset-0 z-50 flex bg-slate-950 overflow-hidden" style={{ paddingTop: "calc(env(safe-area-inset-top) + 24px)" }}>
+    <div data-theme="light" className="fixed inset-0 z-50 flex bg-admin-navy overflow-hidden" style={{ paddingTop: "calc(env(safe-area-inset-top) + 24px)" }}>
 
-      {/* ── Menu lateral esquerdo (fixo) ─────────────────────── */}
-      <aside className="hidden md:flex w-64 shrink-0 flex-col border-r border-gold-400/15 bg-blue-950">
+      {/* ── Menu lateral esquerdo (fixo) — azul-marinho + dourado ─ */}
+      <aside className="hidden md:flex w-64 shrink-0 flex-col border-r border-white/10 bg-admin-navy">
         <div className="flex items-center gap-3 border-b border-gold-400/15 px-5 py-4">
           <LogoPP size={40} />
           <div className="min-w-0">
@@ -5502,9 +5502,9 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
                     <button key={it.id} onClick={() => (it.id === "operacaomobile" && window.innerWidth >= 768)
                         ? window.open(`${window.location.origin}/operacional`, "_blank", "noopener")
                         : setAdminSection(it.id)} title={bloq ? "Disponível em outro plano" : (it.id === "operacaomobile" ? "Abre em nova aba (tela cheia), como o link externo" : undefined)}
-                      className={`group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold transition ${sel ? "bg-gold-400/10 text-gold-300" : "text-slate-300 hover:bg-white/[0.05] hover:text-white"}`}>
-                      {/* Barra de destaque dourada do item ativo */}
-                      <span className={`absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 rounded-full bg-gold-400 transition-opacity ${sel ? "opacity-100" : "opacity-0"}`} />
+                      className={`group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold transition ${sel ? "bg-admin-gold text-white shadow-sm shadow-black/20" : "text-slate-200 hover:bg-admin-navy2 hover:text-white"}`}>
+                      {/* Destaque lateral (some sob o fundo dourado do item ativo) */}
+                      <span className={`absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 rounded-full bg-admin-goldhover transition-opacity ${sel ? "opacity-0" : "opacity-0"}`} />
                       <span className={`text-base transition ${sel ? "grayscale-0" : "opacity-80 group-hover:opacity-100"} ${bloq ? "opacity-40" : ""}`}>{it.icon}</span>
                       <span className={`truncate ${bloq ? "opacity-50" : ""}`}>{it.label}</span>
                       {bloq && <span className="ml-auto shrink-0 text-gold-400/70" title="Disponível em outro plano">🔒</span>}
@@ -5521,7 +5521,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
         {currentUser && (
           <div className="shrink-0 border-t border-white/10 p-3 space-y-2">
             {/* Avatar + nome + cargo */}
-            <div className="flex items-center gap-2.5 rounded-2xl bg-white/[0.04] px-3 py-2.5">
+            <div className="flex items-center gap-2.5 rounded-2xl bg-admin-navy2 px-3 py-2.5">
               {/* Avatar com inicial */}
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-500/20 text-sm font-black text-blue-300 uppercase select-none">
                 {(currentUser.name || "U").charAt(0)}
@@ -5555,7 +5555,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
       {/* ── Conteúdo ─────────────────────────────────────────── */}
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Cabeçalho mobile com abas (md:hidden) */}
-        <div className="md:hidden flex shrink-0 items-center justify-between gap-3 border-b border-gold-400/15 bg-blue-950/90 px-4 py-3">
+        <div className="md:hidden flex shrink-0 items-center justify-between gap-3 border-b border-white/10 bg-admin-navy px-4 py-3">
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <LogoPP size={28} />
             <div className="min-w-0">

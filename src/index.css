@@ -70,8 +70,8 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
    preservando os acentos dourados e as cores semânticas (verde, âmbar,
    vermelho, azul). Ativo apenas com [data-theme="light"]. */
 [data-theme="light"] .tema-claro-area {
-  background-color: #F1F4F9 !important;
-  color: #0F172A;
+  background-color: #F8F9FA !important; /* fundo geral (paleta oficial admin) */
+  color: #2B2D42;                       /* texto principal */
 }
 /* Superfícies sólidas escuras → branco (cards/painéis) */
 [data-theme="light"] .tema-claro-area.bg-black,
@@ -106,19 +106,26 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
 [data-theme="light"] .tema-claro-area .bg-white\/\[0\.08\],
 [data-theme="light"] .tema-claro-area .bg-white\/5,
 [data-theme="light"] .tema-claro-area .bg-white\/10 { background-color: rgba(15, 23, 42, 0.045) !important; }
-/* Textos neutros → escuros (gold e cores semânticas preservados) */
-[data-theme="light"] .tema-claro-area .text-white { color: #0F172A !important; }
-[data-theme="light"] .tema-claro-area .text-slate-300 { color: #334155 !important; }
-[data-theme="light"] .tema-claro-area .text-slate-400 { color: #475569 !important; }
-[data-theme="light"] .tema-claro-area .text-slate-500 { color: #64748B !important; }
-[data-theme="light"] .tema-claro-area .text-slate-600 { color: #94A3B8 !important; }
+/* Textos neutros → escuros (gold e cores semânticas preservados) — paleta oficial */
+[data-theme="light"] .tema-claro-area .text-white { color: #2B2D42 !important; }
+[data-theme="light"] .tema-claro-area .text-slate-300 { color: #4B5563 !important; }
+[data-theme="light"] .tema-claro-area .text-slate-400 { color: #6C757D !important; }
+[data-theme="light"] .tema-claro-area .text-slate-500 { color: #6C757D !important; }
+[data-theme="light"] .tema-claro-area .text-slate-600 { color: #9AA1AB !important; }
+/* page-title / títulos principais em azul-marinho da marca */
+[data-theme="light"] .tema-claro-area .page-title { color: #14213D !important; }
 [data-theme="light"] .tema-claro-area .text-blue-200,
 [data-theme="light"] .tema-claro-area .text-blue-300 { color: #1D4ED8 !important; }
 /* Bordas neutras → claras */
 [data-theme="light"] .tema-claro-area .border-white\/5,
 [data-theme="light"] .tema-claro-area .border-white\/10,
 [data-theme="light"] .tema-claro-area .border-white\/20,
-[data-theme="light"] .tema-claro-area .border-white\/\[0\.08\] { border-color: #E2E8F0 !important; }
+[data-theme="light"] .tema-claro-area .border-white\/\[0\.08\] { border-color: #E5E7EB !important; }
+/* Sombra leve e elegante nos cards/painéis principais (superfícies brancas) */
+[data-theme="light"] .tema-claro-area .rounded-\[2rem\],
+[data-theme="light"] .tema-claro-area .rounded-3xl {
+  box-shadow: 0 1px 2px rgba(20,33,61,0.04), 0 4px 14px rgba(20,33,61,0.05);
+}
 /* Placeholder mais escuro no fundo claro */
 [data-theme="light"] .tema-claro-area .placeholder\:text-slate-600::placeholder { color: #94A3B8 !important; }
 /* Mantém texto branco nos botões sólidos coloridos (legibilidade) */

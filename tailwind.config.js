@@ -37,6 +37,30 @@ export default {
           800: "#684910",
           900: "#45300A",
         },
+        // Paleta oficial do PAINEL ADMINISTRATIVO (tema claro premium).
+        // Namespace próprio para não afetar tablet/cardápio (que seguem escuros).
+        admin: {
+          navy:      "#14213D", // azul-marinho principal (menu, títulos)
+          navy2:     "#1F2A44", // azul escuro secundário (hover menu)
+          gold:      "#D99A21", // dourado principal (ações)
+          goldhover: "#F2B544", // dourado claro (hover/destaque)
+          bg:        "#F8F9FA", // fundo geral das telas
+          card:      "#FFFFFF", // cards e áreas internas
+          text:      "#2B2D42", // texto principal
+          soft:      "#6C757D", // texto secundário
+          border:    "#E5E7EB", // bordas suaves
+          success:   "#2E7D32",
+          successbg: "#E8F5E9",
+          warn:      "#F59E0B",
+          warnbg:    "#FFF7E6",
+          danger:    "#D32F2F",
+          dangerbg:  "#FDECEC",
+          info:      "#14213D",
+          infobg:    "#EDF3FB",
+        },
+      },
+      boxShadow: {
+        admin: "0 1px 2px rgba(20,33,61,0.04), 0 4px 16px rgba(20,33,61,0.06)",
       },
     },
   },
