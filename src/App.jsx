@@ -5874,7 +5874,8 @@ function CardMetrica({ titulo, valor, sub, cor = "text-white", icon, variacao = 
 //  Dashboard gerencial
 // ════════════════════════════════════════════════════════════
 // ── Gráfico de rosca (donut) em SVG, sem biblioteca ──
-const CORES_GRAF = ["#3b82f6", "#10b981", "#f59e0b", "#a855f7", "#ef4444", "#06b6d4", "#ec4899", "#84cc16"];
+// Paleta de gráficos padronizada: azul-marinho e dourado à frente (identidade), demais para categorias extras.
+const CORES_GRAF = ["#14213D", "#D99A21", "#2E7D32", "#3B82F6", "#D32F2F", "#06b6d4", "#a855f7", "#F59E0B"];
 function DonutChart({ dados, label = "" }) {
   const total = dados.reduce((s, d) => s + d.valor, 0);
   if (total === 0) return (
@@ -5898,7 +5899,7 @@ function DonutChart({ dados, label = "" }) {
           acc += dash;
           return el;
         })}
-        <text x="90" y="90" className="rotate-90" textAnchor="middle" dominantBaseline="middle" fill="#fff" style={{ transform: "rotate(90deg)", transformOrigin: "90px 90px", fontSize: "13px", fontWeight: "900" }}>{label}</text>
+        <text x="90" y="90" className="rotate-90" textAnchor="middle" dominantBaseline="middle" fill="#14213D" style={{ transform: "rotate(90deg)", transformOrigin: "90px 90px", fontSize: "13px", fontWeight: "900" }}>{label}</text>
       </svg>
       <div className="space-y-1.5">
         {dados.map((d, i) => (
@@ -5921,7 +5922,7 @@ function BarrasVerticais({ dados, sufixo = "R$" }) {
       {dados.map((d, i) => (
         <div key={i} className="flex min-w-0 flex-1 flex-col items-center justify-end gap-1">
           <span className="w-full truncate text-center font-black leading-none text-white" style={{ fontSize: 8 }}>{d.valor > 0 ? (sufixo === "R$" ? formatCurrency(d.valor).replace("R$", "").trim() : d.valor) : ""}</span>
-          <div className="w-full rounded-t-lg bg-gradient-to-t from-blue-600 to-blue-400 transition-all" style={{ height: `${(d.valor / max) * 140}px`, minHeight: d.valor > 0 ? 4 : 0 }} />
+          <div className="w-full rounded-t-lg bg-gradient-to-t from-[#14213D] to-[#2E3E66] transition-all" style={{ height: `${(d.valor / max) * 140}px`, minHeight: d.valor > 0 ? 4 : 0 }} />
           <span className="w-full truncate text-center leading-none text-slate-500" style={{ fontSize: 9 }}>{d.label}</span>
         </div>
       ))}
@@ -6497,7 +6498,7 @@ function BarrasHora({ dados }) {
         return (
           <div key={i} className="flex min-w-[28px] flex-1 flex-col items-center justify-end gap-1">
             <span className="w-full truncate text-center font-bold leading-none text-slate-300" style={{ fontSize: 9 }}>{d.valor > 0 ? formatCurrency(d.valor).replace("R$", "").trim() : ""}</span>
-            <div className={`w-full rounded-t-md transition-all ${destaque ? "bg-gradient-to-t from-gold-500 to-gold-300" : "bg-gradient-to-t from-blue-600 to-blue-400"}`} style={{ height: `${(d.valor / max) * 150}px`, minHeight: d.valor > 0 ? 4 : 0 }} />
+            <div className={`w-full rounded-t-md transition-all ${destaque ? "bg-gradient-to-t from-[#B8811A] to-[#F2B544]" : "bg-gradient-to-t from-[#14213D] to-[#2E3E66]"}`} style={{ height: `${(d.valor / max) * 150}px`, minHeight: d.valor > 0 ? 4 : 0 }} />
             <span className="w-full truncate text-center leading-none text-slate-500" style={{ fontSize: 9 }}>{d.label}</span>
           </div>
         );
@@ -6520,7 +6521,7 @@ function LinhaFaturamento({ dados }) {
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 180 }}>
       <defs><linearGradient id="gradFat" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#f1c75b" stopOpacity="0.35" /><stop offset="100%" stopColor="#f1c75b" stopOpacity="0" /></linearGradient></defs>
-      {[0, 0.25, 0.5, 0.75, 1].map((f, i) => (<line key={i} x1={P} x2={W - P} y1={y(max * f)} y2={y(max * f)} stroke="rgba(255,255,255,0.07)" />))}
+      {[0, 0.25, 0.5, 0.75, 1].map((f, i) => (<line key={i} x1={P} x2={W - P} y1={y(max * f)} y2={y(max * f)} stroke="rgba(20,33,61,0.10)" />))}
       <path d={area} fill="url(#gradFat)" />
       <path d={linha} fill="none" stroke="#d9aa3f" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
       {pts.map((p, i) => (<circle key={i} cx={p[0]} cy={p[1]} r="3" fill="#f1c75b" />))}
@@ -6869,7 +6870,7 @@ function DashboardAdmin({ orders, products, comandas = [], clientes = [], setore
                 </div>
               </div>
               <div className="flex items-center gap-3 lg:ml-auto">
-                <div className="relative h-16 w-16 shrink-0" style={{ background: `conic-gradient(${nivelRing} ${ia.score * 3.6}deg, rgba(255,255,255,0.08) 0deg)`, borderRadius: "9999px" }}>
+                <div className="relative h-16 w-16 shrink-0" style={{ background: `conic-gradient(${nivelRing} ${ia.score * 3.6}deg, rgba(20,33,61,0.12) 0deg)`, borderRadius: "9999px" }}>
                   <div className="absolute inset-[5px] flex flex-col items-center justify-center rounded-full bg-slate-950">
                     <span className={`text-lg font-black leading-none ${nivelCls}`}>{ia.score}</span>
                     <span className="text-[8px] font-bold uppercase tracking-wider text-slate-500">saúde</span>
