@@ -17,7 +17,7 @@ const INSTAGRAM = "https://instagram.com";
 // ── Paleta oficial da landing (referência p/ leitura) ──
 // navy #14213D · gold #D99A21 · goldHover #F2B544 · cream #FFF8EC
 // gelo #F8F9FA · texto #1F2937 · secundário #6C757D · borda #E5E7EB
-// dark premium #050505 · sucesso #2E7D32 · whatsapp #22C55E · alerta #F59E0B
+// dark premium navy #14213D→#0B1B33 · sucesso #2E7D32 · whatsapp #22C55E · alerta #F59E0B
 
 const NAV = [
   { label: "Funcionalidades", id: "funcionalidades" },
@@ -509,7 +509,7 @@ export default function LandingPage({ navigate }) {
                   ))}
                 </ul>
               </Reveal>
-              <Reveal as="article" delay={120} className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-[#050505] p-8 shadow-2xl">
+              <Reveal as="article" delay={120} className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-gradient-to-br from-[#14213D] to-[#0B1B33] p-8 shadow-2xl">
                 <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-[radial-gradient(closest-side,rgba(217,154,33,0.22),transparent)]" />
                 <IconBadge tom="dark">🎫</IconBadge>
                 <h3 className="font-display mt-4 text-2xl font-bold text-white">Cardápio por QR Code</h3>
@@ -689,7 +689,7 @@ export default function LandingPage({ navigate }) {
         {/* ══ CTA FINAL (dark premium) ══ */}
         <section className="bg-white py-16 sm:py-20">
           <div className="mx-auto max-w-6xl px-5">
-            <Reveal className="relative overflow-hidden rounded-[2.5rem] border border-[#D99A21]/30 bg-[#050505] p-10 text-center shadow-2xl sm:p-16">
+            <Reveal className="relative overflow-hidden rounded-[2.5rem] border border-[#D99A21]/30 bg-gradient-to-br from-[#14213D] to-[#0B1B33] p-10 text-center shadow-2xl sm:p-16">
               <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-[radial-gradient(closest-side,rgba(217,154,33,0.18),transparent)]" />
               <div className="pointer-events-none absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-[radial-gradient(closest-side,rgba(20,33,61,0.5),transparent)]" />
               <h2 className="font-display relative text-3xl font-black tracking-tight text-white sm:text-4xl">Pronto para modernizar o atendimento do seu restaurante?</h2>

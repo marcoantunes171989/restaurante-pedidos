@@ -482,7 +482,7 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
     <div className="relative flex min-h-[100dvh] w-full bg-[#F8F9FA]" style={{ fontFamily: "'Inter','Poppins',sans-serif" }}>
       {/* ══ Painel institucional (desktop) ══ */}
       <aside className="pp-anim-left relative hidden w-[46%] shrink-0 flex-col justify-between overflow-hidden p-10 text-white xl:p-14 lg:flex"
-        style={{ backgroundImage: "linear-gradient(160deg, #050505 0%, #0B0F1A 46%, #14213D 100%)" }}>
+        style={{ backgroundImage: "linear-gradient(160deg, #0B1B33 0%, #14213D 55%, #1F2A44 100%)" }}>
         {/* brilhos e trama */}
         <div className="pointer-events-none absolute -right-24 -top-24 h-80 w-80 rounded-full" style={{ background: "radial-gradient(closest-side, rgba(217,154,33,0.20), transparent)" }} />
         <div className="pointer-events-none absolute -bottom-28 -left-16 h-80 w-80 rounded-full" style={{ background: "radial-gradient(closest-side, rgba(31,42,68,0.85), transparent)" }} />
