@@ -6520,11 +6520,11 @@ function LinhaFaturamento({ dados }) {
   const idxs = n <= 5 ? dados.map((_, i) => i) : [0, Math.round(n / 4), Math.round(n / 2), Math.round((3 * n) / 4), n - 1];
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 180 }}>
-      <defs><linearGradient id="gradFat" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#f1c75b" stopOpacity="0.35" /><stop offset="100%" stopColor="#f1c75b" stopOpacity="0" /></linearGradient></defs>
+      <defs><linearGradient id="gradFat" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#F2B544" stopOpacity="0.35" /><stop offset="100%" stopColor="#F2B544" stopOpacity="0" /></linearGradient></defs>
       {[0, 0.25, 0.5, 0.75, 1].map((f, i) => (<line key={i} x1={P} x2={W - P} y1={y(max * f)} y2={y(max * f)} stroke="rgba(20,33,61,0.10)" />))}
       <path d={area} fill="url(#gradFat)" />
-      <path d={linha} fill="none" stroke="#d9aa3f" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
-      {pts.map((p, i) => (<circle key={i} cx={p[0]} cy={p[1]} r="3" fill="#f1c75b" />))}
+      <path d={linha} fill="none" stroke="#D99A21" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+      {pts.map((p, i) => (<circle key={i} cx={p[0]} cy={p[1]} r="3" fill="#D99A21" />))}
       {idxs.map((i) => (<text key={i} x={x(i)} y={H - 8} textAnchor="middle" fill="#64748b" style={{ fontSize: 9 }}>{dados[i].label}</text>))}
     </svg>
   );

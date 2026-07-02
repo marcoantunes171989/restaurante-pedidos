@@ -863,7 +863,7 @@ export default function LandingPage({ navigate }) {
       {/* ── Planos / tabela de preços ─────────────────────── */}
       <section id="planos" className="scroll-mt-24 relative overflow-hidden bg-[#060912] py-16 sm:py-24">
         <div className="pointer-events-none absolute inset-0"
-          style={{ backgroundImage: "radial-gradient(40rem 30rem at 100% -10%, rgba(214,168,79,.14), transparent 65%), radial-gradient(36rem 30rem at -10% 110%, rgba(214,168,79,.08), transparent 70%)" }} />
+          style={{ backgroundImage: "radial-gradient(40rem 30rem at 100% -10%, rgba(217,154,33,.14), transparent 65%), radial-gradient(36rem 30rem at -10% 110%, rgba(217,154,33,.08), transparent 70%)" }} />
         <div className="relative mx-auto max-w-7xl px-5">
           {/* Título no padrão do anexo */}
           <div className="text-center">
@@ -881,7 +881,7 @@ export default function LandingPage({ navigate }) {
               const filled = p.id !== "start"; // Start = contorno; demais = dourado preenchido
               return (
                 <div key={p.id}
-                  className={`relative flex flex-col rounded-[1.6rem] border bg-[#0B0F1A] p-6 transition ${p.destaque ? "border-gold-400/70 shadow-[0_0_0_1px_rgba(214,168,79,.4),0_18px_50px_-12px_rgba(214,168,79,.35)]" : "border-gold-400/15"} ${sel ? "ring-2 ring-gold-400 ring-offset-2 ring-offset-[#060912]" : ""}`}>
+                  className={`relative flex flex-col rounded-[1.6rem] border bg-[#0B0F1A] p-6 transition ${p.destaque ? "border-gold-400/70 shadow-[0_0_0_1px_rgba(217,154,33,.4),0_18px_50px_-12px_rgba(217,154,33,.35)]" : "border-gold-400/15"} ${sel ? "ring-2 ring-gold-400 ring-offset-2 ring-offset-[#060912]" : ""}`}>
                   {p.destaque && (
                     <span className="absolute -top-3 left-1/2 -translate-x-1/2 inline-flex items-center gap-1 rounded-full bg-gold-400 px-3.5 py-1 text-[10px] font-black uppercase tracking-wider text-blue-950 shadow-lg">★ Mais escolhido</span>
                   )}
