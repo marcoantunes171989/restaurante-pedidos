@@ -5457,6 +5457,68 @@ function ComboEmpresaFoco({ lojas = [], valor, onChange }) {
   );
 }
 
+// ── Command Palette (Ctrl/Cmd + K) — navegação rápida do admin ──
+// Aditivo: só navega pelas seções existentes (setAdminSection) e Sair.
+function CommandPalette({ open, onClose, sections = [], onNavigate, onSair }) {
+  const [q, setQ] = useState("");
+  const [idx, setIdx] = useState(0);
+  const inputRef = useRef(null);
+  const listRef = useRef(null);
+  const base = [...sections, ...(onSair ? [{ id: "__sair", label: "Sair do sistema", grupo: "Ações", sair: true }] : [])];
+  const query = q.trim().toLowerCase();
+  const itens = query ? base.filter((s) => s.label.toLowerCase().includes(query) || (s.grupo || "").toLowerCase().includes(query)) : base;
+  useEffect(() => { if (open) { setQ(""); setIdx(0); const t = setTimeout(() => inputRef.current?.focus(), 20); return () => clearTimeout(t); } }, [open]);
+  useEffect(() => { setIdx(0); }, [q]);
+  useEffect(() => { const el = listRef.current?.querySelector('[data-on="1"]'); el?.scrollIntoView({ block: "nearest" }); }, [idx, q]);
+  if (!open) return null;
+  const escolher = (item) => { if (!item) return; if (item.sair) { onClose(); onSair?.(); return; } onNavigate?.(item.id); };
+  const onKey = (e) => {
+    if (e.key === "ArrowDown") { e.preventDefault(); setIdx((i) => Math.min(itens.length - 1, i + 1)); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); setIdx((i) => Math.max(0, i - 1)); }
+    else if (e.key === "Enter") { e.preventDefault(); escolher(itens[idx]); }
+    else if (e.key === "Escape") { e.preventDefault(); onClose(); }
+  };
+  return (
+    <div className="fixed inset-0 z-[120] flex items-start justify-center bg-[#061A2E]/45 px-4 pt-[14vh] backdrop-blur-sm" onClick={onClose} onKeyDown={onKey} style={{ fontFamily: "'Inter','Sora',sans-serif" }}>
+      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-xl overflow-hidden rounded-2xl border border-[#E7E1D8] bg-white shadow-2xl">
+        <div className="flex items-center gap-3 border-b border-[#E7E1D8] px-4 py-3.5">
+          <svg viewBox="0 0 24 24" className="h-5 w-5 shrink-0 text-[#98A2B3]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
+          <input ref={inputRef} value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={onKey}
+            placeholder="Buscar telas e ações…  (ex.: produtos, caixa, clientes)"
+            className="w-full bg-transparent text-[15px] text-[#111827] outline-none placeholder:text-[#98A2B3]" />
+          <span className="shrink-0 rounded-md border border-[#E7E1D8] px-1.5 py-0.5 text-[10px] font-bold text-[#98A2B3]">ESC</span>
+        </div>
+        <div ref={listRef} className="max-h-[52vh] overflow-y-auto p-2">
+          {itens.length === 0 ? (
+            <p className="px-3 py-10 text-center text-sm text-[#667085]">Nada encontrado para “{q}”.</p>
+          ) : itens.map((it, i) => {
+            const on = i === idx;
+            return (
+              <button key={it.id + i} data-on={on ? "1" : "0"} onMouseEnter={() => setIdx(i)} onClick={() => escolher(it)}
+                className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition ${on ? "bg-[#F8F6F0]" : "hover:bg-[#F8F6F0]/60"}`}>
+                <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border ${on ? "border-[#C99A2E]/40 bg-[#C99A2E]/10 text-[#8A6A12]" : "border-[#E7E1D8] bg-white text-[#667085]"}`}>
+                  {it.sair
+                    ? <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="m16 17 5-5-5-5" /><path d="M21 12H9" /></svg>
+                    : <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 6 15 12 9 18" /></svg>}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-semibold text-[#111827]">{it.label}</span>
+                  {it.grupo && <span className="block text-[11px] text-[#98A2B3]">{it.grupo}</span>}
+                </span>
+                {on && <span className="shrink-0 text-[11px] font-bold text-[#C99A2E]">Abrir ↵</span>}
+              </button>
+            );
+          })}
+        </div>
+        <div className="flex items-center justify-between border-t border-[#E7E1D8] bg-[#F8F6F0] px-4 py-2.5 text-[11px] text-[#667085]">
+          <span className="font-semibold">Pedido <span className="text-[#C99A2E]">Prime</span> · navegação rápida</span>
+          <span>↑↓ navegar · ↵ abrir · Ctrl K abrir/fechar</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Controle de Comandas (visão gerencial · SOMENTE LEITURA) ──
 // Agrupa os pedidos por comanda e mostra situação, valor e tempo em aberto.
 // Não altera dados: apenas lista/filtra/busca (ações ficam no Caixa/Operacional).
@@ -5639,6 +5701,14 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
   ];
   const itensValidos = menu.flatMap((g) => g.itens).map((i) => i.id);
   const ativo = itensValidos.includes(adminSection) ? adminSection : "dashboard";
+  // Command Palette (Ctrl/Cmd + K) — navegação rápida (aditivo)
+  const [cmdOpen, setCmdOpen] = useState(false);
+  const cmdSections = menu.flatMap((g) => g.itens.map((i) => ({ id: i.id, label: i.label, grupo: g.grupo })));
+  useEffect(() => {
+    const h = (e) => { if ((e.ctrlKey || e.metaKey) && (e.key === "k" || e.key === "K")) { e.preventDefault(); setCmdOpen((o) => !o); } };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, []);
   // Super admin precisa escolher "Empresa em foco" para gerenciar cadastros de uma empresa
   const precisaEmpresa = isSuperAdmin && !lojaInfo;
   const avisoEmpresa = (
@@ -5662,6 +5732,9 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
   return (
     <div data-theme="light" className="fixed inset-0 z-50 flex bg-admin-navy overflow-hidden" style={{ paddingTop: "calc(env(safe-area-inset-top) + 24px)" }}>
 
+      <CommandPalette open={cmdOpen} onClose={() => setCmdOpen(false)} sections={cmdSections}
+        onNavigate={(id) => { setAdminSection(id); setCmdOpen(false); }} onSair={onSair} />
+
       {/* ── Menu lateral esquerdo (fixo) — azul-marinho + dourado ─ */}
       <aside className="hidden md:flex w-64 shrink-0 flex-col border-r border-white/10 bg-admin-navy">
         <div className="flex items-center gap-3 border-b border-gold-400/15 px-5 py-4">
@@ -5672,6 +5745,14 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
               {isSuperAdmin ? "Administrador geral" : (lojaInfo ? lojaInfo.nome : "Painel gerencial")}
             </p>
           </div>
+        </div>
+        <div className="border-b border-gold-400/15 px-3 py-3">
+          <button onClick={() => setCmdOpen(true)} aria-label="Abrir busca rápida (Ctrl K)"
+            className="flex w-full items-center gap-2 rounded-xl border border-white/10 bg-white/[0.05] px-3 py-2 text-left text-[13px] text-slate-300 transition hover:bg-white/10">
+            <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-gold-400/80" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
+            <span className="flex-1 truncate">Buscar telas…</span>
+            <span className="shrink-0 rounded-md border border-white/15 px-1.5 py-0.5 text-[10px] font-bold text-slate-400">Ctrl K</span>
+          </button>
         </div>
         {isSuperAdmin && (
           <div className="border-b border-gold-400/15 px-4 py-3">
