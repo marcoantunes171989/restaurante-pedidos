@@ -378,19 +378,19 @@ function CardGerarComandas() {
           <input value={prefixo}
             onChange={(e) => setPrefixo(e.target.value.toUpperCase().replace(/[^A-Z]/g,"").slice(0,3))}
             maxLength={3}
-            className="w-full rounded-xl border border-white/10 bg-slate-950 px-2 py-2.5 font-mono text-base font-black text-white outline-none focus:border-blue-400 text-center" />
+            className="w-full rounded-xl border border-white/10 bg-slate-950 px-2 py-2.5 font-mono text-base font-black text-white outline-none focus:border-gold-400/60 text-center" />
         </label>
         <label>
           <span className="mb-1.5 block font-bold uppercase tracking-widest text-slate-500">Início</span>
           <input type="number" min={1} max={999999} value={inicio}
             onChange={(e) => setInicio(Math.max(1, Number(e.target.value)))}
-            className="w-full rounded-xl border border-white/10 bg-slate-950 px-2 py-2.5 text-white outline-none focus:border-blue-400 text-center" />
+            className="w-full rounded-xl border border-white/10 bg-slate-950 px-2 py-2.5 text-white outline-none focus:border-gold-400/60 text-center" />
         </label>
         <label>
           <span className="mb-1.5 block font-bold uppercase tracking-widest text-slate-500">Qtde</span>
           <input type="number" min={1} max={100} value={quantidade}
             onChange={(e) => setQuantidade(Math.min(100, Math.max(1, Number(e.target.value))))}
-            className="w-full rounded-xl border border-white/10 bg-slate-950 px-2 py-2.5 text-white outline-none focus:border-blue-400 text-center" />
+            className="w-full rounded-xl border border-white/10 bg-slate-950 px-2 py-2.5 text-white outline-none focus:border-gold-400/60 text-center" />
         </label>
       </div>
 
@@ -4913,7 +4913,7 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
                   onChange={(e) => setConsultaInput(e.target.value.toUpperCase())}
                   onKeyDown={(e) => { if (e.key === "Enter") lerComandaConsulta(consultaInput); }}
                   placeholder={`Ex.: ${lojaInfo?.prefixo || "CMD"}-000123`}
-                  className="flex-1 rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm font-mono font-black text-white outline-none focus:border-blue-400 placeholder:text-slate-600" />
+                  className="flex-1 rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm font-mono font-black text-white outline-none focus:border-gold-400/60 placeholder:text-slate-600" />
                 <button onClick={() => lerComandaConsulta(consultaInput)} disabled={!consultaInput.trim()}
                   className="rounded-2xl bg-blue-500 px-4 py-3 text-sm font-black text-white hover:bg-blue-400 transition disabled:opacity-40">
                   Consultar
@@ -5077,7 +5077,7 @@ function ReimpressaoCupons({ cupons, lojaInfo, onSelecionar, onFechar }) {
         </div>
         <div className="border-b border-white/10 px-6 py-3">
           <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="🔍 Buscar por cupom, comanda, mesa ou cliente…"
-            className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none focus:border-blue-400 placeholder:text-slate-600" />
+            className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none focus:border-gold-400/60 placeholder:text-slate-600" />
         </div>
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-2">
           {cupons.length === 0 && <p className="py-10 text-center text-sm text-slate-500">Nenhum cupom pago hoje. Finalize uma venda para reimprimir aqui.</p>}
@@ -5192,7 +5192,7 @@ function PagamentoModal({ total, formasPagamento, onConfirmar, onCancelar }) {
                   value={numeroParaMoeda(l.valor)}
                   onChange={(e) => setValor(l.uid, e.target.value)}
                   onFocus={(e) => e.target.select()}
-                  className="flex-1 rounded-xl border border-white/10 bg-slate-900 px-3 py-2.5 text-right text-lg font-black text-white outline-none focus:border-blue-400" />
+                  className="flex-1 rounded-xl border border-white/10 bg-slate-900 px-3 py-2.5 text-right text-lg font-black text-white outline-none focus:border-gold-400/60" />
               </div>
             </div>
           ))}
@@ -5649,7 +5649,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           <select
             value={lojaContexto ?? ""}
             onChange={(e) => setLojaContexto(e.target.value ? Number(e.target.value) : null)}
-            className="mt-4 w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400">
+            className="mt-4 w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-gold-400/60">
             <option value="">Selecione a empresa…</option>
             {lojas.map((l) => <option key={l.id} value={l.id}>{l.nome} ({l.prefixo})</option>)}
           </select>
@@ -8525,7 +8525,7 @@ function LicencaAdmin({ lojas = [], usuarios = [], setLicencaEmpresa, setValidad
         <div className="relative mb-4">
           <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"><IconBusca /></span>
           <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar empresa..."
-            className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-blue-400" />
+            className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-gold-400/60" />
         </div>
 
         {filtradas.length === 0 && <p className="py-8 text-center text-sm text-slate-500">Nenhuma empresa encontrada.</p>}
@@ -8661,7 +8661,7 @@ function NomearDispositivoModal({ lojas = [], onSalvar }) {
     setSalvando(true);
     await onSalvar(`${empresa.nome} — ${ref.trim()}`, empresa.id);
   }
-  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none focus:border-blue-400 placeholder:text-slate-600";
+  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none focus:border-gold-400/60 placeholder:text-slate-600";
   const lbl = "mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-slate-500";
   return (
     <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
@@ -8789,7 +8789,7 @@ function VersoesAdmin({ lojas = [], lojaFiltro = null }) {
                     <div className="flex gap-2">
                       <input autoFocus value={editNome} onChange={(e) => setEditNome(e.target.value)} placeholder="Nome do aparelho (ex.: Tablet Mesa 1)"
                         onKeyDown={(e) => { if (e.key === "Enter") salvarNome(d.deviceId); }}
-                        className="w-full rounded-xl border border-white/10 bg-slate-950/70 px-3 py-1.5 text-sm text-white outline-none focus:border-blue-400" />
+                        className="w-full rounded-xl border border-white/10 bg-slate-950/70 px-3 py-1.5 text-sm text-white outline-none focus:border-gold-400/60" />
                       <button onClick={() => salvarNome(d.deviceId)} className="shrink-0 rounded-xl bg-blue-500 px-3 py-1.5 text-xs font-black text-white">Salvar</button>
                     </div>
                   ) : (
@@ -9076,12 +9076,12 @@ function CrmAdmin({ clientes = [], orders = [], fidTransacoes = [], fidRecompens
               <label className="flex items-center gap-1.5 text-xs font-bold text-slate-400">
                 De
                 <input type="date" value={dataIni} onChange={(e) => { setDataIni(e.target.value); setPreset("custom"); }}
-                  className={`rounded-xl border bg-slate-950/70 px-2.5 py-2 text-xs text-white outline-none focus:border-blue-400 ${preset === "custom" ? "border-blue-400/50" : "border-white/10"}`} />
+                  className={`rounded-xl border bg-slate-950/70 px-2.5 py-2 text-xs text-white outline-none focus:border-gold-400/60 ${preset === "custom" ? "border-blue-400/50" : "border-white/10"}`} />
               </label>
               <label className="flex items-center gap-1.5 text-xs font-bold text-slate-400">
                 Até
                 <input type="date" value={dataFim} onChange={(e) => { setDataFim(e.target.value); setPreset("custom"); }}
-                  className={`rounded-xl border bg-slate-950/70 px-2.5 py-2 text-xs text-white outline-none focus:border-blue-400 ${preset === "custom" ? "border-blue-400/50" : "border-white/10"}`} />
+                  className={`rounded-xl border bg-slate-950/70 px-2.5 py-2 text-xs text-white outline-none focus:border-gold-400/60 ${preset === "custom" ? "border-blue-400/50" : "border-white/10"}`} />
               </label>
               {preset === "custom" && (dataIni || dataFim) && (
                 <button onClick={() => { setDataIni(""); setDataFim(""); setPreset("todos"); }}
@@ -9108,7 +9108,7 @@ function CrmAdmin({ clientes = [], orders = [], fidTransacoes = [], fidRecompens
               ].map((f) => (
                 <label key={f.lbl} className="flex flex-col gap-1">
                   <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{f.lbl}</span>
-                  <select value={f.val} onChange={(e) => f.set(e.target.value)} className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white outline-none focus:border-blue-400">
+                  <select value={f.val} onChange={(e) => f.set(e.target.value)} className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white outline-none focus:border-gold-400/60">
                     {f.ops.map(([v, t]) => <option key={v} value={v}>{t}</option>)}
                   </select>
                 </label>
@@ -9200,10 +9200,10 @@ function CrmAdmin({ clientes = [], orders = [], fidTransacoes = [], fidRecompens
           <div className="relative flex-1">
             <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"><IconBusca /></span>
             <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por nome ou telefone..."
-              className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-blue-400" />
+              className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-gold-400/60" />
           </div>
           <select value={ordem} onChange={(e) => setOrdem(e.target.value)}
-            className="rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none focus:border-blue-400">
+            className="rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none focus:border-gold-400/60">
             <option value="pedidos">Mais pedidos</option>
             <option value="valor">Maior faturamento</option>
             <option value="ticket">Maior ticket médio</option>
@@ -9717,7 +9717,7 @@ function CardapioExternoAdmin({ lojaInfo, setModoUsoEmpresa = async () => {}, sa
               <label className="flex-1">
                 <span className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-slate-500">Adicionar mesa</span>
                 <select value={addNum} onChange={(e) => adicionar(e.target.value)} disabled={disponiveis.length === 0}
-                  className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-2.5 text-sm text-white outline-none focus:border-blue-400 disabled:opacity-50">
+                  className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-2.5 text-sm text-white outline-none focus:border-gold-400/60 disabled:opacity-50">
                   <option value="">{disponiveis.length === 0 ? "Todas as mesas já selecionadas" : "Selecione uma mesa…"}</option>
                   {disponiveis.map((m) => <option key={m.numero} value={m.numero}>Mesa {String(m.numero).padStart(2, "0")}{m.nome ? ` — ${m.nome}` : ""}</option>)}
                 </select>
@@ -10144,7 +10144,7 @@ function LojaAdmin({ lojas, addLoja, toggleLoja, editarLoja, removerLoja, lojaIn
         <div className="relative mb-4">
           <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"><IconBusca /></span>
           <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por nome ou prefixo..."
-            className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-blue-400" />
+            className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-gold-400/60" />
         </div>
         <div className="space-y-2">
           {lojas.length === 0 && (
@@ -10490,7 +10490,7 @@ function CategoriaAdmin({ categoriasDb, produtos, addCategoria, toggleCategoria,
         <div className="relative mb-4">
           <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"><IconBusca /></span>
           <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar categoria..."
-            className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-blue-400" />
+            className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-gold-400/60" />
         </div>
         <div className="space-y-2">
           {categoriasDb.length === 0 && (
@@ -10550,7 +10550,7 @@ function CategoriaAdmin({ categoriasDb, produtos, addCategoria, toggleCategoria,
 // Modal de edição de categoria + lista de produtos vinculados
 function CategoriaEditModal({ categoria, produtos, onSalvar, onToggle, onFechar }) {
   const [nome, setNome] = useState(categoria.nome);
-  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400 placeholder:text-slate-600";
+  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-gold-400/60 placeholder:text-slate-600";
   const lbl = "mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500";
   const valido = nome.trim().length > 0;
   const ativa = categoria.active !== false;
@@ -10630,7 +10630,7 @@ function CategoriaEditModal({ categoria, produtos, onSalvar, onToggle, onFechar 
 // Modal de cadastro de nova categoria (mesmo padrão do produto)
 function CategoriaCadastroModal({ onSalvar, onFechar }) {
   const [nome, setNome] = useState("");
-  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400 placeholder:text-slate-600";
+  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-gold-400/60 placeholder:text-slate-600";
   const lbl = "mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500";
   const valido = nome.trim().length > 0;
   return (
@@ -12645,7 +12645,7 @@ function PagamentoAdmin({ formasPagamento, addFormaPagamento, toggleFormaPagamen
         <div className="relative mb-4">
           <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"><IconBusca /></span>
           <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar forma de pagamento..."
-            className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-blue-400" />
+            className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-gold-400/60" />
         </div>
         <div className="space-y-2">
           {formasPagamento.length === 0 && (
@@ -12701,7 +12701,7 @@ function PagamentoAdmin({ formasPagamento, addFormaPagamento, toggleFormaPagamen
 // Modal de edição de forma de pagamento
 function FormaPagamentoEditModal({ forma, onSalvar, onToggle, onFechar }) {
   const [f, setF] = useState({ nome: forma.nome, tipo: forma.tipo || "outro", permiteTroco: !!forma.permiteTroco });
-  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400 placeholder:text-slate-600";
+  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-gold-400/60 placeholder:text-slate-600";
   const lbl = "mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500";
   const valido = f.nome.trim().length > 0;
   const ativa = forma.active !== false;
@@ -12774,7 +12774,7 @@ function FormaPagamentoEditModal({ forma, onSalvar, onToggle, onFechar }) {
 // Modal de cadastro de forma de pagamento (mesmo padrão dos demais)
 function FormaPagamentoCadastroModal({ onSalvar, onFechar }) {
   const [form, setForm] = useState({ nome: "", tipo: "outro", permiteTroco: false });
-  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400 placeholder:text-slate-600";
+  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-gold-400/60 placeholder:text-slate-600";
   const lbl = "mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500";
   const valido = form.nome.trim().length > 0;
   return (
@@ -12880,7 +12880,7 @@ function Paginacao({ pagina, totalPaginas, total, porPagina = 10, onMudar, rotul
 // Campo de tags reutilizável (ingredientes, etc.)
 function TagsInput({ tags, setTags, placeholder = "Adicionar + Enter" }) {
   const [input, setInput] = useState("");
-  const inp = "flex-1 rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400";
+  const inp = "flex-1 rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-gold-400/60";
   function add() {
     const novos = input.split(",").map((s) => s.trim()).filter((s) => s && !tags.includes(s));
     if (novos.length) setTags([...tags, ...novos]);
@@ -12912,7 +12912,7 @@ function TagsInput({ tags, setTags, placeholder = "Adicionar + Enter" }) {
 function AdicionaisEditor({ value = [], onChange }) {
   const [nome, setNome] = useState("");
   const [preco, setPreco] = useState("");
-  const inp = "rounded-2xl border border-white/10 bg-slate-950/70 px-3 py-2.5 text-white outline-none focus:border-blue-400 text-sm";
+  const inp = "rounded-2xl border border-white/10 bg-slate-950/70 px-3 py-2.5 text-white outline-none focus:border-gold-400/60 text-sm";
   function add() {
     const n = nome.trim();
     // Preço opcional: vazio = R$ 0,00 (adicional sem custo / grátis)
@@ -13001,7 +13001,7 @@ function ProductAdmin({ products, categories, adminForm, setAdminForm, addProduc
         <div className="relative mb-3">
           <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"><IconBusca /></span>
           <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar produto por nome ou categoria..."
-            className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-blue-400" />
+            className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-gold-400/60" />
         </div>
         <div className="flex flex-wrap gap-2">
           {["Todos", ...cats].map((c) => (
@@ -13149,7 +13149,7 @@ function SeletorImagem({ urlAtual, onImageUrl, onFileChange, uploading = false, 
               value={previa ? "" : (urlAtual || "")}
               onChange={(e) => { setPrevia(""); onFileChange(null); onImageUrl(e.target.value); }}
               placeholder="ou cole uma URL de imagem..."
-              className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-2.5 pl-8 pr-3 text-xs text-white outline-none focus:border-blue-400 placeholder:text-slate-600"
+              className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-2.5 pl-8 pr-3 text-xs text-white outline-none focus:border-gold-400/60 placeholder:text-slate-600"
             />
           </div>
         </div>
@@ -13161,7 +13161,7 @@ function SeletorImagem({ urlAtual, onImageUrl, onFileChange, uploading = false, 
 }
 
 function ProdutoCadastroModal({ adminForm, setAdminForm, cats, onSalvar, onFechar, lojaId }) {
-  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400 placeholder:text-slate-600";
+  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-gold-400/60 placeholder:text-slate-600";
   const lbl = "mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500";
   const set = (k, v) => setAdminForm({ ...adminForm, [k]: v });
   const tagsAtuais = adminForm.ingredientsText ? adminForm.ingredientsText.split(",").map((s) => s.trim()).filter(Boolean) : [];
@@ -13364,7 +13364,7 @@ function ProdutoEditModal({ produto, cats, onSalvar, onFechar, lojaId, setores =
   const [arquivoImg, setArquivoImg] = React.useState(null);
   const [uploadando, setUploadando] = React.useState(false);
   const [erroUpload, setErroUpload] = React.useState("");
-  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400";
+  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-gold-400/60";
   const lbl = "mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500";
   const precoNum = moedaParaNum(String(f.price));
   const custoNum = moedaParaNum(String(f.cost));
@@ -13634,7 +13634,7 @@ function CargoAdmin({ cargos = [], users = [], addCargo, editarCargo, toggleCarg
         <div className="relative mb-4">
           <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"><IconBusca /></span>
           <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar cargo..."
-            className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-blue-400" />
+            className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-gold-400/60" />
         </div>
         <div className="space-y-2">
           {cargos.length === 0 && (
@@ -13676,7 +13676,7 @@ function CargoAdmin({ cargos = [], users = [], addCargo, editarCargo, toggleCarg
 // Modal de cadastro de cargo (mesmo padrão dos demais)
 function CargoCadastroModal({ onSalvar, onFechar }) {
   const [form, setForm] = useState({ nome: "", descricao: "" });
-  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400 placeholder:text-slate-600";
+  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-gold-400/60 placeholder:text-slate-600";
   const lbl = "mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500";
   const valido = form.nome.trim().length > 0;
   return (
@@ -13717,7 +13717,7 @@ function CargoCadastroModal({ onSalvar, onFechar }) {
 function CargoEditModal({ cargo, onSalvar, onFechar }) {
   const [nome, setNome] = useState(cargo.nome || "");
   const [descricao, setDescricao] = useState(cargo.descricao || "");
-  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400";
+  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-gold-400/60";
   const lbl = "mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500";
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onFechar}>
@@ -13741,7 +13741,7 @@ function UserAdmin({ users, userForm, setUserForm, addUser, toggleUserStatus, ed
   const [excluir, setExcluir]   = useState(null);
   const [criando, setCriando]   = useState(false);
   const [busca, setBusca]       = useState("");
-  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400 placeholder:text-slate-600";
+  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-gold-400/60 placeholder:text-slate-600";
   const lbl = "mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500";
   const lojasAtivas = lojas.filter((l) => l.active !== false);
   const cargosAtivos = cargos.filter((c) => c.active !== false);
@@ -13794,7 +13794,7 @@ function UserAdmin({ users, userForm, setUserForm, addUser, toggleUserStatus, ed
           <div className="relative">
             <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"><IconBusca /></span>
             <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por nome, e-mail, cargo ou empresa..."
-              className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-blue-400" />
+              className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-gold-400/60" />
           </div>
         </div>
         <p className="mb-3 text-xs text-slate-500">{usuariosFiltrados.length} de {baseUsuarios.length} usuário(s)</p>
@@ -13845,7 +13845,7 @@ function UserAdmin({ users, userForm, setUserForm, addUser, toggleUserStatus, ed
 // Modal de cadastro de usuário (empresa em chips p/ super admin + cargo em chips)
 function UsuarioCadastroModal({ userForm, setUserForm, onSalvar, onFechar, cargos = [], lojas = [], isSuperAdmin, lojaInfo, formValido }) {
   const [verSenha, setVerSenha] = useState(false);
-  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400 placeholder:text-slate-600";
+  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-gold-400/60 placeholder:text-slate-600";
   const lbl = "mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500";
   const chip = (sel) => `flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-black transition active:scale-95 ${sel ? "border-blue-400 bg-blue-500 text-white shadow-lg shadow-blue-950/40" : "border-white/10 bg-white/[0.04] text-slate-300 hover:border-white/25 hover:bg-white/10"}`;
 
@@ -13923,7 +13923,7 @@ function UsuarioCadastroModal({ userForm, setUserForm, onSalvar, onFechar, cargo
 function UsuarioEditModal({ usuario, cargos = [], onSalvar, onFechar }) {
   const [f, setF] = useState({ name: usuario.name, email: usuario.email, password: usuario.password, role: usuario.role, cargoId: usuario.cargoId ?? "" });
   const [verSenha, setVerSenha] = useState(false);
-  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400";
+  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-gold-400/60";
   const lbl = "mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500";
   const valido = f.name.trim() && f.email.trim() && (f.password || "").length >= 4 && f.cargoId;
   return (
@@ -13993,7 +13993,7 @@ function AccessAdmin({ accesses, accessForm, setAccessForm, addAccess, toggleAcc
         <div className="relative mb-4">
           <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"><IconBusca /></span>
           <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar permissão..."
-            className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-blue-400" />
+            className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-gold-400/60" />
         </div>
         <div className="space-y-2">
           {accesses.length === 0 && (
@@ -14026,7 +14026,7 @@ function AccessAdmin({ accesses, accessForm, setAccessForm, addAccess, toggleAcc
 
 // Modal de cadastro de permissão de acesso (mesmo padrão dos demais)
 function PermissaoCadastroModal({ accessForm, setAccessForm, onSalvar, onFechar }) {
-  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400 placeholder:text-slate-600";
+  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-gold-400/60 placeholder:text-slate-600";
   const lbl = "mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500";
   const valido = (accessForm.id || "").trim() && (accessForm.label || "").trim();
   return (
@@ -14120,7 +14120,7 @@ function UserAccessAdmin({ users, accesses, toggleUserAccess, definirAcessos, de
           <div className="relative flex-1">
             <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"><IconBusca /></span>
             <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar usuário por nome, e-mail ou cargo..."
-              className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-blue-400" />
+              className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-gold-400/60" />
           </div>
         </div>
 
@@ -14409,7 +14409,7 @@ function QRLoginCardModal({ usuario, nomeEmpresa, onFechar }) {
             <p className="text-[11px] font-bold uppercase tracking-widest text-slate-500">Imagem (opcional) — PNG/JPEG, máx. 2 MB</p>
             <div className="flex gap-2">
               <input value={urlInput} onChange={(e) => setUrlInput(e.target.value)} placeholder="Cole uma URL https://…"
-                className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-3 py-2.5 text-xs text-white outline-none focus:border-blue-400 placeholder:text-slate-600" />
+                className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-3 py-2.5 text-xs text-white outline-none focus:border-gold-400/60 placeholder:text-slate-600" />
               <button onClick={aplicarUrl} className="shrink-0 rounded-2xl border border-white/10 bg-white/[0.06] px-3 py-2.5 text-xs font-black text-slate-200 hover:bg-white/10">Usar</button>
             </div>
             <label className="flex cursor-pointer items-center justify-center gap-2 rounded-2xl border border-blue-400/30 bg-blue-500/10 px-3 py-2.5 text-xs font-black text-blue-200 hover:bg-blue-500/20 transition">
@@ -14479,7 +14479,7 @@ function MesaAdmin({ mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, o
         <div className="relative mb-4">
           <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"><IconBusca /></span>
           <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por número ou nome..."
-            className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-blue-400" />
+            className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-gold-400/60" />
         </div>
         <div className="space-y-2">
           {mesas.length === 0 && (
@@ -14539,7 +14539,7 @@ function MesaAdmin({ mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, o
 
 function MesaCadastroModal({ onSalvar, onFechar }) {
   const [form, setForm] = useState({ numero: "", nome: "", capacidade: "", localizacao: "" });
-  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400 placeholder:text-slate-600";
+  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-gold-400/60 placeholder:text-slate-600";
   const lbl = "mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500";
   const valido = parseInt(form.numero, 10) > 0;
   return (
@@ -14594,7 +14594,7 @@ function MesaCadastroModal({ onSalvar, onFechar }) {
 
 function MesaEditModal({ mesa, onSalvar, onFechar }) {
   const [form, setForm] = useState({ numero: String(mesa.numero), nome: mesa.nome || "", capacidade: mesa.capacidade ? String(mesa.capacidade) : "" });
-  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-blue-400 placeholder:text-slate-600";
+  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-gold-400/60 placeholder:text-slate-600";
   const lbl = "mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500";
   const valido = parseInt(form.numero, 10) > 0;
   return (
