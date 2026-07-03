@@ -3688,7 +3688,7 @@ export function ProdutoModal({ produto, onFechar, onAdicionar, grupos = [], opco
 
 const kitchenCols = [
   { key: "received",  label: "Aguardando", sub: "Na fila",           dot: "bg-blue-400",    header: "border-blue-500/40 bg-blue-500/10",    card: "border-blue-500/20"  },
-  { key: "preparing", label: "Preparando", sub: "Em produção",       dot: "bg-amber-400",   header: "border-amber-500/40 bg-amber-500/10",  card: "border-amber-500/20" },
+  { key: "preparing", label: "Preparando", sub: "Em produção",       dot: "bg-gold-400",    header: "border-gold-400/40 bg-gold-400/10",    card: "border-gold-400/25" },
   { key: "ready",     label: "Finalizado", sub: "Pronto p/ retirada",dot: "bg-emerald-400", header: "border-emerald-500/40 bg-emerald-500/10", card: "border-emerald-500/20" },
 ];
 
@@ -3997,7 +3997,7 @@ function CancelarModal({ pedido, onConfirmar, onFechar }) {
 
 const panelStatusConfig = {
   received:  { col: "border-blue-500/40 bg-blue-500/10",       num: "bg-blue-500",    bar: "bg-blue-500",    icon: "⏳", progress: 25  },
-  preparing: { col: "border-amber-500/40 bg-amber-500/10",     num: "bg-amber-500",   bar: "bg-amber-500",   icon: "👨‍🍳", progress: 65  },
+  preparing: { col: "border-gold-400/40 bg-gold-400/10",       num: "bg-gold-400",    bar: "bg-gold-400",    icon: "👨‍🍳", progress: 65  },
   ready:     { col: "border-emerald-500/40 bg-emerald-500/10", num: "bg-emerald-500", bar: "bg-emerald-500", icon: "✅", progress: 100 },
 };
 
