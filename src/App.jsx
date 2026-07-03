@@ -13106,6 +13106,21 @@ function ProductAdmin({ products, categories, adminForm, setAdminForm, addProduc
         acao={<PrimeButton onClick={abrirCadastro}><span className="text-lg leading-none">+</span> Cadastrar produto</PrimeButton>}
       />
 
+      {/* ── Cards de resumo ──────────────────────────────── */}
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {[
+          { l: "Total de produtos", v: products.length, tom: "text-white" },
+          { l: "Ativos", v: products.filter((p) => p.active).length, tom: "text-emerald-400" },
+          { l: "Indisponíveis", v: products.filter((p) => !p.active).length, tom: "text-amber-400" },
+          { l: "Sem imagem", v: products.filter((p) => !p.imageUrl).length, tom: "text-slate-300" },
+        ].map((c) => (
+          <div key={c.l} className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{c.l}</p>
+            <p className={`page-title mt-1.5 text-2xl font-black ${c.tom}`}>{c.v}</p>
+          </div>
+        ))}
+      </div>
+
       {/* ── Busca + filtro por categoria ─────────────────── */}
       <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
         <div className="relative mb-3">
@@ -13116,7 +13131,7 @@ function ProductAdmin({ products, categories, adminForm, setAdminForm, addProduc
         <div className="flex flex-wrap gap-2">
           {["Todos", ...cats].map((c) => (
             <button key={c} onClick={() => setFiltroCat(c)}
-              className={`rounded-full border px-3 py-1.5 text-xs font-black transition ${filtroCat === c ? "border-blue-400 bg-blue-500 text-white" : "border-white/10 bg-white/[0.06] text-slate-300 hover:bg-white/10"}`}>
+              className={`rounded-full border px-3 py-1.5 text-xs font-black transition ${filtroCat === c ? "border-gold-400 bg-gold-400 text-[#061A2E]" : "border-white/10 bg-white/[0.06] text-slate-300 hover:bg-white/10"}`}>
               {c}
             </button>
           ))}
