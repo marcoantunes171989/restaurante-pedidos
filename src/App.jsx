@@ -5457,6 +5457,70 @@ function ComboEmpresaFoco({ lojas = [], valor, onChange }) {
   );
 }
 
+// ── Visão Financeira (SOMENTE LEITURA) — consolida dados existentes ──
+// Não cria lançamentos/contas: só agrega receitas, em aberto e formas de
+// pagamento a partir dos pedidos (orders). Aditivo, sem novas tabelas.
+function FinanceiroVisaoAdmin({ orders = [] }) {
+  const [preset, setPreset] = useState("30d");
+  const agora = Date.now();
+  const dias = { hoje: 1, "7d": 7, "30d": 30, tudo: null };
+  const filtrados = orders.filter((o) => {
+    if (preset === "tudo") return true;
+    if (!o.createdAtISO) return false;
+    if (preset === "hoje") return new Date(o.createdAtISO).toDateString() === new Date().toDateString();
+    return (agora - new Date(o.createdAtISO).getTime()) / 86400000 <= dias[preset];
+  });
+  const pagos = filtrados.filter((o) => o.paymentStatus === "paid");
+  const abertos = filtrados.filter((o) => o.paymentStatus !== "paid" && o.status !== "cancelled");
+  const receita = pagos.reduce((s, o) => s + orderTotal(o), 0);
+  const emAberto = abertos.reduce((s, o) => s + orderTotal(o), 0);
+  const ticket = pagos.length ? receita / pagos.length : 0;
+  const porForma = {};
+  pagos.forEach((o) => { const f = (o.pagamentoForma || "Não informado"); porForma[f] = (porForma[f] || 0) + orderTotal(o); });
+  const formas = Object.entries(porForma).map(([nome, valor]) => ({ nome, valor })).sort((a, b) => b.valor - a.valor);
+  const maxForma = Math.max(1, ...formas.map((f) => f.valor));
+  const CHIPS = [["hoje", "Hoje"], ["7d", "7 dias"], ["30d", "30 dias"], ["tudo", "Tudo"]];
+  return (
+    <main className="space-y-5">
+      <PageHeader icone={<IconPagamento />} titulo="Visão Financeira"
+        descricao="Receitas, valores em aberto e formas de pagamento — consolidados dos pedidos do período." />
+      <div className="flex flex-wrap gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+        {CHIPS.map(([id, l]) => (
+          <button key={id} onClick={() => setPreset(id)}
+            className={`rounded-full border px-3.5 py-1.5 text-xs font-bold transition ${preset === id ? "border-gold-400 bg-gold-400 text-[#061A2E]" : "border-white/10 bg-white/[0.06] text-slate-300 hover:bg-white/10"}`}>{l}</button>
+        ))}
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <CardMetrica titulo="Receitas (pago)" valor={formatCurrency(receita)} sub={`${pagos.length} pedidos pagos`} cor="text-emerald-400" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="12" rx="2" /><circle cx="12" cy="12" r="2.5" /></svg>} />
+        <CardMetrica titulo="Valores em aberto" valor={formatCurrency(emAberto)} sub={`${abertos.length} comandas pendentes`} cor="text-gold-400" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>} />
+        <CardMetrica titulo="Saldo previsto" valor={formatCurrency(receita + emAberto)} sub="pago + em aberto" cor="text-blue-400" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 17l6-6 4 4 8-8" /><path d="M17 7h4v4" /></svg>} />
+        <CardMetrica titulo="Ticket médio" valor={formatCurrency(ticket)} sub="por pedido pago" cor="text-violet-300" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z" /><path d="M9 8h6M9 12h6" /></svg>} />
+      </div>
+      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+        <h3 className="page-title text-base font-bold text-white">Receita por forma de pagamento</h3>
+        {formas.length === 0 ? (
+          <EmptyState titulo="Sem receitas no período" dica="Não há pedidos pagos no período selecionado." />
+        ) : (
+          <div className="mt-4 space-y-3">
+            {formas.map((f) => (
+              <div key={f.nome}>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="font-semibold text-white">{f.nome}</span>
+                  <span className="font-black text-gold-300">{formatCurrency(f.valor)}</span>
+                </div>
+                <div className="mt-1 h-2 overflow-hidden rounded-full bg-white/[0.06]">
+                  <div className="h-full rounded-full bg-gradient-to-r from-gold-500 to-gold-400" style={{ width: `${(f.valor / maxForma) * 100}%` }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        <p className="mt-4 text-[11px] text-slate-500">Visão consolidada dos pedidos. Lançamentos e contas a pagar/receber não fazem parte do módulo atual.</p>
+      </div>
+    </main>
+  );
+}
+
 // ── Command Palette (Ctrl/Cmd + K) — navegação rápida do admin ──
 // Aditivo: só navega pelas seções existentes (setAdminSection) e Sair.
 function CommandPalette({ open, onClose, sections = [], onNavigate, onSair }) {
@@ -5672,6 +5736,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
       { id: "cardapioext", icon: <IconCardapio />, label: "Cardápio Externo" },
     ]},
     { grupo: "Financeiro", itens: [
+      { id: "financeiro", icon: <IconPagamento />, label: "Visão Financeira" },
       { id: "caixa", icon: <IconPagamento />, label: "Fechamento de Caixa" },
       { id: "pagamento", icon: <IconPagamento />, label: "Formas de Pagamento" },
     ]},
@@ -5869,6 +5934,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
               return ok;
             }}
           />}
+          {ativo === "financeiro" && (precisaEmpresa ? avisoEmpresa : <FinanceiroVisaoAdmin orders={filtraLoja(orders)} />)}
           {ativo === "caixa"      && (precisaEmpresa ? avisoEmpresa : <CaixaSessaoAdmin caixaAberto={caixaAberto} caixas={caixasLoja} api={caixaApi} formasPagamento={formasPagamento} currentUser={currentUser} />)}
           {ativo === "users"      && <UserAdmin      users={filtraLoja(users)} userForm={userForm} setUserForm={setUserForm} addUser={addUser} toggleUserStatus={toggleUserStatus} editarUsuario={editarUsuario} removerUsuario={removerUsuario} lojaInfo={lojaInfo} lojas={lojas} isSuperAdmin={isSuperAdmin} cargos={cargos} />}
           {ativo === "cargos"     && <CargoAdmin     cargos={filtraLoja(cargos)} users={filtraLoja(users)} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} />}
