@@ -1,8 +1,8 @@
 // ════════════════════════════════════════════════════════════
 //  UI KIT — Pedido Prime (Design System global · ETAPA 2)
 //  Componentes reutilizáveis na paleta oficial food service:
-//    navy #0B1F33 · petróleo #123A4A · laranja(ação) #F97316
-//    âmbar premium #F5B041 · gelo #F8FAFC · creme #FFF7ED
+//    navy #071B33 · petróleo #0B2745 · laranja(ação) #C9951A
+//    âmbar premium #E6BC58 · gelo #FAF7F0 · creme #FFFDF8
 //  Fontes: Inter (corpo) + Poppins (.font-display, títulos).
 //  Regra: use estes componentes/tokens; não espalhe hex solto.
 // ════════════════════════════════════════════════════════════
@@ -15,13 +15,13 @@ const cx = (...c) => c.filter(Boolean).join(" ");
             | danger | success | premium(âmbar)
    size: sm | md | lg   ·   full, loading, icon */
 const BTN_VARIANTS = {
-  primary:   "bg-[#F97316] text-[#0B1F33] hover:bg-[#FB923C] shadow-sm shadow-[#F97316]/30",
-  secondary: "bg-[#0B1F33] text-white hover:bg-[#123A4A] shadow-sm shadow-[#0B1F33]/20",
-  outline:   "border border-[#E5E7EB] bg-white text-[#0B1F33] hover:bg-[#FFF7ED] hover:border-[#F97316]/40",
-  ghost:     "bg-transparent text-[#0B1F33] hover:bg-[#0B1F33]/5",
+  primary:   "bg-[#C9951A] text-[#071B33] hover:bg-[#E6BC58] shadow-sm shadow-[#C9951A]/30",
+  secondary: "bg-[#071B33] text-white hover:bg-[#0B2745] shadow-sm shadow-[#071B33]/20",
+  outline:   "border border-[#E8E2D8] bg-white text-[#071B33] hover:bg-[#FFFDF8] hover:border-[#C9951A]/40",
+  ghost:     "bg-transparent text-[#071B33] hover:bg-[#071B33]/5",
   danger:    "bg-[#DC2626] text-white hover:bg-[#EF4444] shadow-sm shadow-[#DC2626]/25",
   success:   "bg-[#16A34A] text-white hover:bg-[#22C55E] shadow-sm shadow-[#16A34A]/25",
-  premium:   "bg-[#F5B041] text-[#0B1F33] hover:bg-[#FBD38D]",
+  premium:   "bg-[#E6BC58] text-[#071B33] hover:bg-[#F0DCA6]",
 };
 const BTN_SIZES = {
   sm: "px-3.5 py-2 text-[13px] rounded-xl gap-1.5",
@@ -44,12 +44,12 @@ export function Button({ children, variant = "primary", size = "md", full, loadi
    tone: light(branco) | cream | dark(navy) */
 export function Card({ children, tone = "light", className, hover, ...rest }) {
   const tones = {
-    light: "border-[#E5E7EB] bg-white text-[#1E293B]",
-    cream: "border-[#F5E6CF] bg-[#FFF7ED] text-[#1E293B]",
-    dark:  "border-white/10 bg-gradient-to-br from-[#0B1F33] to-[#071726] text-white",
+    light: "border-[#E8E2D8] bg-white text-[#111827]",
+    cream: "border-[#F5E6CF] bg-[#FFFDF8] text-[#111827]",
+    dark:  "border-white/10 bg-gradient-to-br from-[#071B33] to-[#04101F] text-white",
   };
   return (
-    <div className={cx("rounded-2xl border shadow-[0_1px_2px_rgba(11,31,51,0.05),0_6px_20px_rgba(11,31,51,0.06)]",
+    <div className={cx("rounded-2xl border shadow-[0_1px_2px_rgba(7,27,51,0.05),0_6px_20px_rgba(7,27,51,0.06)]",
       tones[tone] || tones.light, hover && "transition hover:-translate-y-0.5 hover:shadow-lg", className)} {...rest}>
       {children}
     </div>
@@ -62,13 +62,13 @@ export function Badge({ children, tone = "neutral", className }) {
   const tones = {
     neutral: "bg-[#F1F5F9] text-[#475569]",
     success: "bg-[#DCFCE7] text-[#15803D]",
-    warning: "bg-[#FFF7E6] text-[#B45309]",
+    warning: "bg-[#FEF3C7] text-[#B45309]",
     danger:  "bg-[#FEE2E2] text-[#B91C1C]",
     dangerDark: "bg-[#FEE2E2] text-[#991B1B]",
-    info:    "bg-[#EFF6FF] text-[#2563EB]",
-    accent:  "bg-[#FFEDD5] text-[#C2410C]",
-    navy:    "bg-[#0B1F33]/8 text-[#0B1F33]",
-    petrol:  "bg-[#123A4A]/10 text-[#123A4A]",
+    info:    "bg-[#DBEAFE] text-[#2563EB]",
+    accent:  "bg-[#FAF0D6] text-[#8A6A12]",
+    navy:    "bg-[#071B33]/8 text-[#071B33]",
+    petrol:  "bg-[#0B2745]/10 text-[#0B2745]",
   };
   return <span className={cx("inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-bold", tones[tone] || tones.neutral, className)}>{children}</span>;
 }
@@ -80,28 +80,28 @@ export const STATUS_MAP = {
   nova: { tone: "info", label: "Nova", dot: "#2563EB" },
   novo: { tone: "info", label: "Novo", dot: "#2563EB" },
   recebido: { tone: "info", label: "Recebido", dot: "#2563EB" },
-  aberta: { tone: "accent", label: "Aberta", dot: "#F97316" },
-  em_preparo: { tone: "warning", label: "Em preparo", dot: "#F59E0B" },
-  preparando: { tone: "warning", label: "Preparando", dot: "#F59E0B" },
+  aberta: { tone: "accent", label: "Aberta", dot: "#C9951A" },
+  em_preparo: { tone: "warning", label: "Em preparo", dot: "#F2B84B" },
+  preparando: { tone: "warning", label: "Preparando", dot: "#F2B84B" },
   pronto: { tone: "success", label: "Pronto", dot: "#16A34A" },
   pronta: { tone: "success", label: "Pronta", dot: "#16A34A" },
   entregue: { tone: "success", label: "Entregue", dot: "#16A34A" },
   aguardando_pagamento: { tone: "info", label: "Aguardando pagamento", dot: "#2563EB" },
-  finalizado: { tone: "petrol", label: "Finalizado", dot: "#123A4A" },
-  finalizada: { tone: "petrol", label: "Finalizada", dot: "#123A4A" },
+  finalizado: { tone: "petrol", label: "Finalizado", dot: "#0B2745" },
+  finalizada: { tone: "petrol", label: "Finalizada", dot: "#0B2745" },
   cancelado: { tone: "danger", label: "Cancelado", dot: "#DC2626" },
   cancelada: { tone: "danger", label: "Cancelada", dot: "#DC2626" },
   atrasado: { tone: "dangerDark", label: "Atrasado", dot: "#B91C1C" },
   atrasada: { tone: "dangerDark", label: "Atrasada", dot: "#B91C1C" },
   // Financeiro
-  pendente: { tone: "warning", label: "Pendente", dot: "#F59E0B" },
+  pendente: { tone: "warning", label: "Pendente", dot: "#F2B84B" },
   pago: { tone: "success", label: "Pago", dot: "#16A34A" },
   parcial: { tone: "info", label: "Parcial", dot: "#2563EB" },
   estornado: { tone: "danger", label: "Estornado", dot: "#DC2626" },
   // Mesa
   livre: { tone: "success", label: "Livre", dot: "#16A34A" },
-  ocupada: { tone: "warning", label: "Ocupada", dot: "#F59E0B" },
-  em_atendimento: { tone: "accent", label: "Em atendimento", dot: "#F97316" },
+  ocupada: { tone: "warning", label: "Ocupada", dot: "#F2B84B" },
+  em_atendimento: { tone: "accent", label: "Em atendimento", dot: "#C9951A" },
 };
 export function StatusBadge({ status, children, className }) {
   const key = String(status || "").toLowerCase().replace(/\s+/g, "_");
@@ -110,15 +110,15 @@ export function StatusBadge({ status, children, className }) {
 }
 
 /* ── Campos de formulário ───────────────────────────────────*/
-const FIELD = "w-full rounded-2xl border border-[#E5E7EB] bg-white px-4 py-3 text-sm text-[#1E293B] outline-none transition focus:border-[#F97316] focus:ring-2 focus:ring-[#F97316]/20 placeholder:text-[#9CA3AF] disabled:bg-[#F8FAFC] disabled:text-[#94A3B8]";
-const LABEL = "mb-1.5 block text-xs font-bold uppercase tracking-wide text-[#0B1F33]";
+const FIELD = "w-full rounded-2xl border border-[#E8E2D8] bg-white px-4 py-3 text-sm text-[#111827] outline-none transition focus:border-[#C9951A] focus:ring-2 focus:ring-[#C9951A]/20 placeholder:text-[#9CA3AF] disabled:bg-[#FAF7F0] disabled:text-[#94A3B8]";
+const LABEL = "mb-1.5 block text-xs font-bold uppercase tracking-wide text-[#071B33]";
 function Field({ label, required, error, hint, children }) {
   return (
     <div>
       {label && <label className={LABEL}>{label}{required && <span className="text-[#DC2626]"> *</span>}</label>}
       {children}
       {error ? <p className="mt-1 text-xs font-medium text-[#DC2626]">{error}</p>
-        : hint ? <p className="mt-1 text-xs text-[#64748B]">{hint}</p> : null}
+        : hint ? <p className="mt-1 text-xs text-[#6B7280]">{hint}</p> : null}
     </div>
   );
 }
@@ -149,12 +149,12 @@ export function Select({ label, required, error, hint, className, children, ...r
 
 /* ── MetricCard (KPI) ───────────────────────────────────────*/
 export function MetricCard({ label, value, sub, icon, tone = "navy" }) {
-  const cor = { navy: "#0B1F33", accent: "#F97316", success: "#16A34A", danger: "#DC2626", info: "#2563EB", amber: "#F5B041" }[tone] || "#0B1F33";
+  const cor = { navy: "#071B33", accent: "#C9951A", success: "#16A34A", danger: "#DC2626", info: "#2563EB", amber: "#E6BC58" }[tone] || "#071B33";
   return (
     <Card className="p-4">
       <div className="flex items-start justify-between gap-3">
-        <p className="text-[10px] font-bold uppercase tracking-wider text-[#64748B]">{label}</p>
-        {icon && <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#FFF7ED] text-[#F97316]">{icon}</span>}
+        <p className="text-[10px] font-bold uppercase tracking-wider text-[#6B7280]">{label}</p>
+        {icon && <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#FFFDF8] text-[#C9951A]">{icon}</span>}
       </div>
       <p className="font-display mt-2 text-2xl font-black leading-tight" style={{ color: cor }}>{value}</p>
       {sub && <p className="mt-0.5 text-[11px] font-medium text-[#94A3B8]">{sub}</p>}
@@ -169,17 +169,17 @@ export function Spinner({ className }) {
 export function LoadingState({ label = "Carregando..." }) {
   return (
     <div className="flex flex-col items-center justify-center gap-3 py-14 text-center">
-      <Spinner className="h-7 w-7 text-[#F97316]" />
-      <p className="text-sm font-medium text-[#64748B]">{label}</p>
+      <Spinner className="h-7 w-7 text-[#C9951A]" />
+      <p className="text-sm font-medium text-[#6B7280]">{label}</p>
     </div>
   );
 }
 export function EmptyState({ icon = "📋", title = "Nada por aqui ainda", desc, action }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-[#E5E7EB] bg-[#F8FAFC] px-6 py-14 text-center">
+    <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-[#E8E2D8] bg-[#FAF7F0] px-6 py-14 text-center">
       <span className="text-4xl">{icon}</span>
-      <p className="font-display text-base font-bold text-[#0B1F33]">{title}</p>
-      {desc && <p className="max-w-sm text-sm text-[#64748B]">{desc}</p>}
+      <p className="font-display text-base font-bold text-[#071B33]">{title}</p>
+      {desc && <p className="max-w-sm text-sm text-[#6B7280]">{desc}</p>}
       {action && <div className="mt-2">{action}</div>}
     </div>
   );
@@ -189,9 +189,9 @@ export function EmptyState({ icon = "📋", title = "Nada por aqui ainda", desc,
 export function Alert({ tone = "info", children, className }) {
   const tones = {
     success: "border-[#16A34A]/25 bg-[#DCFCE7] text-[#15803D]",
-    warning: "border-[#F59E0B]/25 bg-[#FFF7E6] text-[#B45309]",
+    warning: "border-[#F2B84B]/25 bg-[#FEF3C7] text-[#B45309]",
     danger:  "border-[#DC2626]/25 bg-[#FEE2E2] text-[#B91C1C]",
-    info:    "border-[#2563EB]/25 bg-[#EFF6FF] text-[#1D4ED8]",
+    info:    "border-[#2563EB]/25 bg-[#DBEAFE] text-[#1D4ED8]",
   };
   const ic = { success: "✅", warning: "⚠️", danger: "⚠️", info: "ℹ️" }[tone];
   return (

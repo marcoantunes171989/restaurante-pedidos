@@ -692,7 +692,7 @@ export default function CardapioPublico() {
         <div className="sticky top-[64px] z-20 -mx-4 flex gap-2 overflow-x-auto border-b border-white/10 bg-slate-950/90 px-4 py-4 backdrop-blur">
           {cats.map((c) => { const ativo = !busca && catAtiva === c;
             return (
-              <button key={c} ref={(el) => (chipRefs.current[c] = el)} onClick={() => irParaCategoria(c)} className={`shrink-0 rounded-full border px-4 py-1.5 text-sm font-bold transition ${ativo ? "border-[#F5B041] bg-[#F5B041] text-[#0B1F33] shadow-lg shadow-[#F5B041]/25" : "border-white/10 bg-white/[0.05] text-slate-300"}`}>{ativo ? "★ " : ""}{c}</button>
+              <button key={c} ref={(el) => (chipRefs.current[c] = el)} onClick={() => irParaCategoria(c)} className={`shrink-0 rounded-full border px-4 py-1.5 text-sm font-bold transition ${ativo ? "border-[#E6BC58] bg-[#E6BC58] text-[#071B33] shadow-lg shadow-[#E6BC58]/25" : "border-white/10 bg-white/[0.05] text-slate-300"}`}>{ativo ? "★ " : ""}{c}</button>
             );
           })}
         </div>

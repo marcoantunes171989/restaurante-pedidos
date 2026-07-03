@@ -455,8 +455,8 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
   const [entrando, setEntrando] = useState(false);   // estado visual "Entrando..."
   // Reseta o loading quando chega uma mensagem (ex.: erro de credenciais).
   useEffect(() => { if (message && message.text) setEntrando(false); }, [message]);
-  const labelCls = "mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-[#0B1F33]";
-  const inputCls = "w-full rounded-2xl border border-[#E5E7EB] bg-white py-3.5 pl-11 pr-4 text-[15px] text-[#1E293B] outline-none transition focus:border-[#F97316] focus:ring-2 focus:ring-[#F97316]/20 placeholder:text-[#9CA3AF]";
+  const labelCls = "mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-[#071B33]";
+  const inputCls = "w-full rounded-2xl border border-[#E8E2D8] bg-white py-3.5 pl-11 pr-4 text-[15px] text-[#111827] outline-none transition focus:border-[#C9951A] focus:ring-2 focus:ring-[#C9951A]/20 placeholder:text-[#9CA3AF]";
   const podeEntrar = loginForm.email.trim() && loginForm.password;
 
   // Ícones (SVG inline — leves e elegantes)
@@ -479,10 +479,10 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
   };
 
   return (
-    <div className="relative flex min-h-[100dvh] w-full overflow-hidden text-white" style={{ fontFamily: "'Inter','Poppins',sans-serif", backgroundImage: "linear-gradient(135deg, #071726 0%, #0B1F33 55%, #123A4A 100%)" }}>
+    <div className="relative flex min-h-[100dvh] w-full overflow-hidden text-white" style={{ fontFamily: "'Inter','Poppins',sans-serif", backgroundImage: "linear-gradient(135deg, #04101F 0%, #071B33 55%, #0B2745 100%)" }}>
       {/* Camadas de profundidade — tela inteira (fundo escuro contínuo) */}
       <div className="pointer-events-none absolute inset-0 opacity-[0.05]" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)", backgroundSize: "30px 30px" }} />
-      <div className="pointer-events-none absolute -top-24 right-0 h-[34rem] w-[34rem] rounded-full" style={{ background: "radial-gradient(closest-side, rgba(249,115,22,0.16), transparent)" }} />
+      <div className="pointer-events-none absolute -top-24 right-0 h-[34rem] w-[34rem] rounded-full" style={{ background: "radial-gradient(closest-side, rgba(201,149,26,0.16), transparent)" }} />
       <div className="pointer-events-none absolute -bottom-28 -left-20 h-[28rem] w-[28rem] rounded-full" style={{ background: "radial-gradient(closest-side, rgba(31,42,68,0.9), transparent)" }} />
 
       {/* ══ Painel institucional (desktop) ══ */}
@@ -491,17 +491,17 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
         {/* Marca */}
         <div className="relative flex items-center gap-2.5">
           <LogoPP size={40} />
-          <span className="font-display text-lg font-bold tracking-tight"><span className="text-white">PEDIDO</span> <span className="text-[#F97316]">PRIME</span></span>
+          <span className="font-display text-lg font-bold tracking-tight"><span className="text-white">PEDIDO</span> <span className="text-[#C9951A]">PRIME</span></span>
         </div>
 
         {/* Pitch + mockup */}
         <div className="relative">
-          <h2 className="font-display max-w-md text-3xl font-black leading-tight xl:text-4xl">Controle seu restaurante em <span className="text-[#F97316]">tempo real</span></h2>
+          <h2 className="font-display max-w-md text-3xl font-black leading-tight xl:text-4xl">Controle seu restaurante em <span className="text-[#C9951A]">tempo real</span></h2>
           <p className="mt-4 max-w-md text-sm leading-7 text-[#CBD5E1]">Acesse pedidos, mesas, cozinha, caixa, financeiro e relatórios em uma única plataforma inteligente para food service.</p>
           <div className="mt-6 grid max-w-md grid-cols-2 gap-x-6 gap-y-3">
             {["Pedidos digitais", "Cozinha em tempo real", "Caixa e financeiro", "Relatórios gerenciais"].map((b) => (
-              <div key={b} className="flex items-center gap-2 text-sm font-medium text-[#E5E7EB]">
-                <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="#FB923C" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>{b}
+              <div key={b} className="flex items-center gap-2 text-sm font-medium text-[#E8E2D8]">
+                <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="#E6BC58" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>{b}
               </div>
             ))}
           </div>
@@ -516,12 +516,12 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
                   <p className="mt-1 text-[10px] text-white/50">Comanda #087</p>
                 </div>
               </div>
-              <span className="rounded-full bg-[#F59E0B]/20 px-2.5 py-1 text-[10px] font-bold text-[#F59E0B]">Em preparo</span>
+              <span className="rounded-full bg-[#F2B84B]/20 px-2.5 py-1 text-[10px] font-bold text-[#F2B84B]">Em preparo</span>
             </div>
             <div className="mt-3 space-y-1.5">
               {[["1x", "Risoto de camarão", "58,00"], ["2x", "Suco natural", "12,00"]].map((i) => (
                 <div key={i[1]} className="flex items-center justify-between rounded-lg bg-white/[0.04] px-3 py-2 text-xs">
-                  <span className="text-[#E5E7EB]"><b className="text-white">{i[0]}</b> {i[1]}</span>
+                  <span className="text-[#E8E2D8]"><b className="text-white">{i[0]}</b> {i[1]}</span>
                   <span className="font-display font-bold text-white">R$ {i[2]}</span>
                 </div>
               ))}
@@ -529,14 +529,14 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
             <div className="mt-3 flex items-center gap-1.5">
               {["Recebido", "Preparando", "Pronto"].map((s, i) => (
                 <div key={s} className="flex-1 text-center">
-                  <div className={`h-1 rounded-full ${i <= 1 ? "bg-[#F97316]" : "bg-white/15"}`} />
-                  <p className={`mt-1 text-[8px] font-bold ${i <= 1 ? "text-[#FB923C]" : "text-white/40"}`}>{s}</p>
+                  <div className={`h-1 rounded-full ${i <= 1 ? "bg-[#C9951A]" : "bg-white/15"}`} />
+                  <p className={`mt-1 text-[8px] font-bold ${i <= 1 ? "text-[#E6BC58]" : "text-white/40"}`}>{s}</p>
                 </div>
               ))}
             </div>
             <div className="mt-3 flex items-center justify-between border-t border-white/10 pt-3">
               <span className="text-[10px] font-bold uppercase tracking-wider text-white/50">Total</span>
-              <span className="font-display text-base font-black text-[#F97316]">R$ 82,00</span>
+              <span className="font-display text-base font-black text-[#C9951A]">R$ 82,00</span>
             </div>
           </div>
         </div>
@@ -556,12 +556,12 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
           <form onSubmit={(e) => { e.preventDefault(); if (podeEntrar && !entrando) { setEntrando(true); login(); } }}
             autoComplete="off"
             className="relative overflow-hidden rounded-[1.75rem] border border-white/10 bg-white p-6 shadow-[0_30px_70px_-20px_rgba(0,0,0,0.55)] ring-1 ring-black/5 sm:p-7 space-y-4">
-            <span className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#F97316] to-[#FB923C]" />
+            <span className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#C9951A] to-[#E6BC58]" />
             {/* Marca / título (dentro do card, sobre fundo claro) */}
             <div className="mb-1 text-center">
               <div className="mx-auto flex h-14 w-14 items-center justify-center"><LogoPP size={56} /></div>
-              <h1 className="font-display mt-3 text-2xl font-black tracking-tight"><span className="text-[#0B1F33]">Pedido</span> <span className="text-[#F97316]">Prime</span></h1>
-              <p className="mt-1 text-sm text-[#64748B]">Acesse sua conta para continuar</p>
+              <h1 className="font-display mt-3 text-2xl font-black tracking-tight"><span className="text-[#071B33]">Pedido</span> <span className="text-[#C9951A]">Prime</span></h1>
+              <p className="mt-1 text-sm text-[#6B7280]">Acesse sua conta para continuar</p>
             </div>
             {/* Campos isca ocultos: absorvem o autofill do navegador */}
             <input type="text" name="username" autoComplete="username" tabIndex={-1} aria-hidden="true" className="absolute h-0 w-0 opacity-0 pointer-events-none" />
@@ -592,7 +592,7 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
                   placeholder="••••••••" className={`${inputCls} pr-11`} />
                 <button type="button" onClick={() => setVerSenha((v) => !v)}
                   aria-label={verSenha ? "Ocultar senha" : "Mostrar senha"} title={verSenha ? "Ocultar senha" : "Mostrar senha"}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-[#9CA3AF] transition hover:bg-[#FFF7ED] hover:text-[#0B1F33]">
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-[#9CA3AF] transition hover:bg-[#FFFDF8] hover:text-[#071B33]">
                   {IconeOlho}
                 </button>
               </div>
@@ -608,9 +608,9 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
 
             {/* Entrar */}
             <button type="submit" disabled={!podeEntrar || entrando}
-              className="mt-1 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#F97316] px-5 py-4 text-sm font-black text-[#0B1F33] shadow-lg shadow-[#F97316]/30 transition hover:bg-[#FB923C] active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100">
+              className="mt-1 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#C9951A] px-5 py-4 text-sm font-black text-[#071B33] shadow-lg shadow-[#C9951A]/30 transition hover:bg-[#E6BC58] active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100">
               {entrando
-                ? <><span className="h-4 w-4 animate-spin rounded-full border-2 border-[#0B1F33]/30 border-t-[#0B1F33]" /> Entrando...</>
+                ? <><span className="h-4 w-4 animate-spin rounded-full border-2 border-[#071B33]/30 border-t-[#071B33]" /> Entrando...</>
                 : <>Entrar →</>}
             </button>
           </form>
@@ -622,7 +622,7 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
             <span className="h-px flex-1 bg-white/15" />
           </div>
           <button type="button" onClick={() => setScanLogin(true)}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-[#E5E7EB] bg-white py-3 text-sm font-bold text-[#0B1F33] transition hover:border-[#F97316]/40 hover:bg-[#FFF7ED]">
+            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-[#E8E2D8] bg-white py-3 text-sm font-bold text-[#071B33] transition hover:border-[#C9951A]/40 hover:bg-[#FFFDF8]">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-[16px] w-[16px]"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M14 14h3v3M21 14v.01M14 21h.01M21 21v.01M17.5 21H21v-3.5"/></svg>
             Entrar com QR Code
           </button>
@@ -633,7 +633,7 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
             Acesso controlado por usuário e permissão
           </p>
           <div className="mt-3 text-center">
-            <button onClick={voltarAoSite} className="text-xs font-bold text-[#CBD5E1] transition hover:text-[#F97316]">← Voltar ao site</button>
+            <button onClick={voltarAoSite} className="text-xs font-bold text-[#CBD5E1] transition hover:text-[#C9951A]">← Voltar ao site</button>
           </div>
         </div>
 
@@ -2188,7 +2188,7 @@ export default function RestaurantePedidoApp() {
       <div className="tema-claro-area relative flex items-center justify-center overflow-hidden px-4 text-admin-text"
         style={{
           minHeight: "100dvh",
-          backgroundColor: "#F8F9FA",
+          backgroundColor: "#FAF7F0",
           paddingTop: "env(safe-area-inset-top)",
           paddingBottom: "env(safe-area-inset-bottom)",
           backgroundImage:
@@ -6063,7 +6063,7 @@ function CardMetrica({ titulo, valor, sub, cor = "text-white", icon, variacao = 
 // ════════════════════════════════════════════════════════════
 // ── Gráfico de rosca (donut) em SVG, sem biblioteca ──
 // Paleta de gráficos padronizada: azul-marinho e dourado à frente (identidade), demais para categorias extras.
-const CORES_GRAF = ["#0B1F33", "#F97316", "#16A34A", "#2563EB", "#DC2626", "#06b6d4", "#a855f7", "#F5B041"];
+const CORES_GRAF = ["#071B33", "#C9951A", "#16A34A", "#2563EB", "#DC2626", "#06b6d4", "#a855f7", "#E6BC58"];
 function DonutChart({ dados, label = "" }) {
   const total = dados.reduce((s, d) => s + d.valor, 0);
   if (total === 0) return (
@@ -6087,7 +6087,7 @@ function DonutChart({ dados, label = "" }) {
           acc += dash;
           return el;
         })}
-        <text x="90" y="90" className="rotate-90" textAnchor="middle" dominantBaseline="middle" fill="#0B1F33" style={{ transform: "rotate(90deg)", transformOrigin: "90px 90px", fontSize: "13px", fontWeight: "900" }}>{label}</text>
+        <text x="90" y="90" className="rotate-90" textAnchor="middle" dominantBaseline="middle" fill="#071B33" style={{ transform: "rotate(90deg)", transformOrigin: "90px 90px", fontSize: "13px", fontWeight: "900" }}>{label}</text>
       </svg>
       <div className="space-y-1.5">
         {dados.map((d, i) => (
@@ -6110,7 +6110,7 @@ function BarrasVerticais({ dados, sufixo = "R$" }) {
       {dados.map((d, i) => (
         <div key={i} className="flex min-w-0 flex-1 flex-col items-center justify-end gap-1">
           <span className="w-full truncate text-center font-black leading-none text-white" style={{ fontSize: 8 }}>{d.valor > 0 ? (sufixo === "R$" ? formatCurrency(d.valor).replace("R$", "").trim() : d.valor) : ""}</span>
-          <div className="w-full rounded-t-lg bg-gradient-to-t from-[#0B1F33] to-[#123A4A] transition-all" style={{ height: `${(d.valor / max) * 140}px`, minHeight: d.valor > 0 ? 4 : 0 }} />
+          <div className="w-full rounded-t-lg bg-gradient-to-t from-[#071B33] to-[#0B2745] transition-all" style={{ height: `${(d.valor / max) * 140}px`, minHeight: d.valor > 0 ? 4 : 0 }} />
           <span className="w-full truncate text-center leading-none text-slate-500" style={{ fontSize: 9 }}>{d.label}</span>
         </div>
       ))}
@@ -6686,7 +6686,7 @@ function BarrasHora({ dados }) {
         return (
           <div key={i} className="flex min-w-[28px] flex-1 flex-col items-center justify-end gap-1">
             <span className="w-full truncate text-center font-bold leading-none text-slate-300" style={{ fontSize: 9 }}>{d.valor > 0 ? formatCurrency(d.valor).replace("R$", "").trim() : ""}</span>
-            <div className={`w-full rounded-t-md transition-all ${destaque ? "bg-gradient-to-t from-[#EA580C] to-[#FB923C]" : "bg-gradient-to-t from-[#0B1F33] to-[#123A4A]"}`} style={{ height: `${(d.valor / max) * 150}px`, minHeight: d.valor > 0 ? 4 : 0 }} />
+            <div className={`w-full rounded-t-md transition-all ${destaque ? "bg-gradient-to-t from-[#A87A12] to-[#E6BC58]" : "bg-gradient-to-t from-[#071B33] to-[#0B2745]"}`} style={{ height: `${(d.valor / max) * 150}px`, minHeight: d.valor > 0 ? 4 : 0 }} />
             <span className="w-full truncate text-center leading-none text-slate-500" style={{ fontSize: 9 }}>{d.label}</span>
           </div>
         );
@@ -6708,12 +6708,12 @@ function LinhaFaturamento({ dados }) {
   const idxs = n <= 5 ? dados.map((_, i) => i) : [0, Math.round(n / 4), Math.round(n / 2), Math.round((3 * n) / 4), n - 1];
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 180 }}>
-      <defs><linearGradient id="gradFat" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#FB923C" stopOpacity="0.35" /><stop offset="100%" stopColor="#FB923C" stopOpacity="0" /></linearGradient></defs>
-      {[0, 0.25, 0.5, 0.75, 1].map((f, i) => (<line key={i} x1={P} x2={W - P} y1={y(max * f)} y2={y(max * f)} stroke="rgba(11,31,51,0.10)" />))}
+      <defs><linearGradient id="gradFat" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#E6BC58" stopOpacity="0.35" /><stop offset="100%" stopColor="#E6BC58" stopOpacity="0" /></linearGradient></defs>
+      {[0, 0.25, 0.5, 0.75, 1].map((f, i) => (<line key={i} x1={P} x2={W - P} y1={y(max * f)} y2={y(max * f)} stroke="rgba(7,27,51,0.10)" />))}
       <path d={area} fill="url(#gradFat)" />
-      <path d={linha} fill="none" stroke="#F97316" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
-      {pts.map((p, i) => (<circle key={i} cx={p[0]} cy={p[1]} r="3" fill="#F97316" />))}
-      {idxs.map((i) => (<text key={i} x={x(i)} y={H - 8} textAnchor="middle" fill="#64748b" style={{ fontSize: 9 }}>{dados[i].label}</text>))}
+      <path d={linha} fill="none" stroke="#C9951A" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+      {pts.map((p, i) => (<circle key={i} cx={p[0]} cy={p[1]} r="3" fill="#C9951A" />))}
+      {idxs.map((i) => (<text key={i} x={x(i)} y={H - 8} textAnchor="middle" fill="#6B7280" style={{ fontSize: 9 }}>{dados[i].label}</text>))}
     </svg>
   );
 }
@@ -7043,7 +7043,7 @@ function DashboardAdmin({ orders, products, comandas = [], clientes = [], setore
         const sevCls = { pos: "border-emerald-400/30 bg-emerald-500/10 text-emerald-200", info: "border-blue-400/30 bg-blue-500/10 text-blue-200", warn: "border-amber-400/30 bg-amber-500/10 text-amber-200", crit: "border-red-400/30 bg-red-500/10 text-red-200" };
         const sevIc = { pos: "✅", info: "ℹ️", warn: "⚠️", crit: "🔴" };
         const nivelCls = ia.score >= 80 ? "text-emerald-400" : ia.score >= 60 ? "text-gold-400" : ia.score >= 40 ? "text-amber-400" : "text-red-400";
-        const nivelRing = ia.score >= 80 ? "#34d399" : ia.score >= 60 ? "#fbbf24" : ia.score >= 40 ? "#f59e0b" : "#f87171";
+        const nivelRing = ia.score >= 80 ? "#34d399" : ia.score >= 60 ? "#fbbf24" : ia.score >= 40 ? "#F2B84B" : "#f87171";
         const prioCls = { alta: "border-red-400/40 bg-red-500/10 text-red-200", media: "border-amber-400/40 bg-amber-500/10 text-amber-200", baixa: "border-white/10 bg-white/[0.04] text-slate-300" };
         const prioLbl = { alta: "Alta", media: "Média", baixa: "Baixa" };
         const cats = [...new Set(ia.insights.map((x) => x.cat))];
@@ -7058,7 +7058,7 @@ function DashboardAdmin({ orders, products, comandas = [], clientes = [], setore
                 </div>
               </div>
               <div className="flex items-center gap-3 lg:ml-auto">
-                <div className="relative h-16 w-16 shrink-0" style={{ background: `conic-gradient(${nivelRing} ${ia.score * 3.6}deg, rgba(11,31,51,0.12) 0deg)`, borderRadius: "9999px" }}>
+                <div className="relative h-16 w-16 shrink-0" style={{ background: `conic-gradient(${nivelRing} ${ia.score * 3.6}deg, rgba(7,27,51,0.12) 0deg)`, borderRadius: "9999px" }}>
                   <div className="absolute inset-[5px] flex flex-col items-center justify-center rounded-full bg-slate-950">
                     <span className={`text-lg font-black leading-none ${nivelCls}`}>{ia.score}</span>
                     <span className="text-[8px] font-bold uppercase tracking-wider text-slate-500">saúde</span>
@@ -7536,12 +7536,12 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
       .head .sub { font-size:12px; color:#475569; margin-top:2px; }
       .head .doc { text-align:right; }
       .head .doc .t { font-size:15px; font-weight:800; color:#2563eb; }
-      .head .doc .m { font-size:11px; color:#64748b; }
+      .head .doc .m { font-size:11px; color:#6B7280; }
       .meta { display:flex; gap:18px; flex-wrap:wrap; margin:12px 0 4px; font-size:12px; color:#475569; }
       .meta b { color:#0f172a; }
       .kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin:16px 0; }
-      .kpi { border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; background:#f8fafc; }
-      .kpi .l { font-size:10px; text-transform:uppercase; letter-spacing:.08em; color:#64748b; font-weight:700; }
+      .kpi { border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; background:#FAF7F0; }
+      .kpi .l { font-size:10px; text-transform:uppercase; letter-spacing:.08em; color:#6B7280; font-weight:700; }
       .kpi .v { font-size:18px; font-weight:800; margin-top:3px; }
       .kpi .v.green { color:#059669; } .kpi .v.blue { color:#2563eb; }
       h2 { font-size:14px; margin:18px 0 6px; color:#0f172a; }
@@ -7549,10 +7549,10 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
       thead th { background:#0f172a; color:#fff; text-align:left; padding:8px 10px; font-size:11px; }
       thead th.r, td.r { text-align:right; }
       tbody td { padding:7px 10px; border-bottom:1px solid #e2e8f0; }
-      tbody tr:nth-child(even) td { background:#f8fafc; }
+      tbody tr:nth-child(even) td { background:#FAF7F0; }
       td.rank { color:#2563eb; font-weight:800; width:26px; }
       td.b, .b { font-weight:800; }
-      tfoot td { padding:9px 10px; font-weight:800; border-top:2px solid #0f172a; background:#eff6ff; }
+      tfoot td { padding:9px 10px; font-weight:800; border-top:2px solid #0f172a; background:#DBEAFE; }
       .bar { height:8px; background:#e2e8f0; border-radius:99px; overflow:hidden; min-width:90px; }
       .fill { height:100%; background:#3b82f6; } .fill.cat { background:#10b981; }
       .foot { margin-top:22px; padding-top:10px; border-top:1px solid #e2e8f0; font-size:10px; color:#94a3b8; display:flex; justify-content:space-between; }
@@ -7982,27 +7982,27 @@ function CupomNaoFiscalModal({ pedido, lojaInfo, onFechar }) {
   .logo{width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,#3b82f6,#1e3a8a);color:#fff;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:800}
   .emp{flex:1}
   .emp h1{font-size:24px;font-weight:800;letter-spacing:-.5px;line-height:1.1}
-  .emp p{font-size:12px;color:#64748b;margin-top:2px}
-  .pill{align-self:flex-start;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:999px;padding:6px 14px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px}
+  .emp p{font-size:12px;color:#6B7280;margin-top:2px}
+  .pill{align-self:flex-start;background:#DBEAFE;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:999px;padding:6px 14px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px}
   .info{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:20px 0}
-  .card{border:1px solid #e2e8f0;border-radius:12px;padding:10px 12px;background:#f8fafc}
+  .card{border:1px solid #e2e8f0;border-radius:12px;padding:10px 12px;background:#FAF7F0}
   .card .l{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1.2px;color:#94a3b8}
   .card .v{font-size:14px;font-weight:700;margin-top:3px;word-break:break-word}
   table{width:100%;border-collapse:collapse;margin-top:6px}
-  thead th{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#64748b;text-align:left;padding:10px 8px;border-bottom:2px solid #e2e8f0}
+  thead th{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#6B7280;text-align:left;padding:10px 8px;border-bottom:2px solid #e2e8f0}
   thead th.r,tbody td.un,tbody td.tt{text-align:right}
   tbody td{padding:11px 8px;border-bottom:1px solid #f1f5f9;vertical-align:top;font-size:13px}
-  tbody tr.alt td{background:#f8fafc}
+  tbody tr.alt td{background:#FAF7F0}
   td.qt{font-weight:800;color:#2563eb;width:48px}
   .np{font-weight:700;display:block}
-  .dt{display:block;font-size:11px;color:#64748b;margin-top:2px}
-  td.un{color:#64748b}
+  .dt{display:block;font-size:11px;color:#6B7280;margin-top:2px}
+  td.un{color:#6B7280}
   td.tt{font-weight:800}
   .tot{margin-top:18px;display:flex;justify-content:flex-end}
   .totbox{width:300px}
   .tr{display:flex;justify-content:space-between;padding:7px 0;font-size:13px;color:#475569}
   .tr.grand{margin-top:6px;padding:14px 16px;background:linear-gradient(135deg,#2563eb,#1e3a8a);color:#fff;border-radius:14px;font-size:18px;font-weight:800}
-  .ft{margin-top:26px;border-top:1px dashed #cbd5e1;padding-top:16px;text-align:center;color:#64748b}
+  .ft{margin-top:26px;border-top:1px dashed #cbd5e1;padding-top:16px;text-align:center;color:#6B7280}
   .ft .ty{font-size:15px;font-weight:800;color:#0f172a}
   .ft .nf{font-size:10px;text-transform:uppercase;letter-spacing:1px;margin-top:6px}
 </style></head><body>
@@ -8134,22 +8134,22 @@ function CuponsProdutoModal({ nome, cupons, lojaInfo, onFechar }) {
   .doc{max-width:720px;margin:0 auto}
   .top{display:flex;align-items:center;gap:16px;border-bottom:3px solid #2563eb;padding-bottom:16px}
   .logo{width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,#3b82f6,#1e3a8a);color:#fff;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:800}
-  .emp{flex:1}.emp h1{font-size:22px;font-weight:800;letter-spacing:-.5px}.emp p{font-size:12px;color:#64748b;margin-top:2px}
-  .pill{align-self:flex-start;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:999px;padding:6px 14px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px}
+  .emp{flex:1}.emp h1{font-size:22px;font-weight:800;letter-spacing:-.5px}.emp p{font-size:12px;color:#6B7280;margin-top:2px}
+  .pill{align-self:flex-start;background:#DBEAFE;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:999px;padding:6px 14px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px}
   .info{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:20px 0}
-  .card{border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;background:#f8fafc}
+  .card{border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;background:#FAF7F0}
   .card .l{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1.2px;color:#94a3b8}
   .card .v{font-size:16px;font-weight:800;margin-top:3px}
   table{width:100%;border-collapse:collapse;margin-top:6px}
-  thead th{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#64748b;text-align:left;padding:10px 8px;border-bottom:2px solid #e2e8f0}
+  thead th{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#6B7280;text-align:left;padding:10px 8px;border-bottom:2px solid #e2e8f0}
   thead th.qt,thead th.tt,tbody td.qt,tbody td.tt{text-align:right}
   tbody td{padding:11px 8px;border-bottom:1px solid #f1f5f9;vertical-align:top;font-size:12px}
-  tbody tr.alt td{background:#f8fafc}
+  tbody tr.alt td{background:#FAF7F0}
   .np{font-weight:800;display:block}.dt{display:block;font-size:10px;color:#94a3b8;margin-top:2px}
-  td.dh{color:#64748b}td.qt{font-weight:800;color:#2563eb}td.tt{font-weight:800}
+  td.dh{color:#6B7280}td.qt{font-weight:800;color:#2563eb}td.tt{font-weight:800}
   tfoot td{padding:14px 8px;font-size:14px;font-weight:800;border-top:2px solid #0f172a}
   tfoot td.tt{text-align:right;color:#1d4ed8;font-size:16px}
-  .ft{margin-top:24px;border-top:1px dashed #cbd5e1;padding-top:14px;text-align:center;color:#64748b;font-size:10px;text-transform:uppercase;letter-spacing:1px}
+  .ft{margin-top:24px;border-top:1px dashed #cbd5e1;padding-top:14px;text-align:center;color:#6B7280;font-size:10px;text-transform:uppercase;letter-spacing:1px}
 </style></head><body>
   <div class="doc">
     <div class="top">
@@ -13320,10 +13320,10 @@ function SeletorCategoria({ valor, aoMudar, categorias }) {
           <button key={c} type="button" onClick={() => aoMudar(c)}
             className={`group inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-bold tracking-tight transition active:scale-95 ${
               ativo
-                ? "border-[#FDBA74] bg-[#FFEDD5] text-[#C2410C] shadow-[0_0_0_1px_rgba(249,115,22,0.18),0_4px_16px_-6px_rgba(249,115,22,0.4)]"
-                : "border-white/10 bg-white/[0.04] text-slate-300 hover:border-[#FDBA74]/60 hover:bg-white/[0.07] hover:text-[#C2410C]"
+                ? "border-[#EBCE86] bg-[#FAF0D6] text-[#8A6A12] shadow-[0_0_0_1px_rgba(201,149,26,0.18),0_4px_16px_-6px_rgba(201,149,26,0.4)]"
+                : "border-white/10 bg-white/[0.04] text-slate-300 hover:border-[#EBCE86]/60 hover:bg-white/[0.07] hover:text-[#8A6A12]"
             }`}>
-            <span className={`h-1.5 w-1.5 rounded-full transition ${ativo ? "bg-[#F97316] shadow-[0_0_6px_1px_rgba(249,115,22,0.6)]" : "bg-slate-600 group-hover:bg-[#F97316]/60"}`} />
+            <span className={`h-1.5 w-1.5 rounded-full transition ${ativo ? "bg-[#C9951A] shadow-[0_0_6px_1px_rgba(201,149,26,0.6)]" : "bg-slate-600 group-hover:bg-[#C9951A]/60"}`} />
             {c}
           </button>
         );
@@ -14359,7 +14359,7 @@ function QRLoginCardModal({ usuario, nomeEmpresa, onFechar }) {
         .sub{margin:2px 0 0;color:#475569;font-size:13px;font-weight:700}
         .qr{margin:14px auto 6px;width:240px;height:240px}
         .qr img{width:100%;height:100%}
-        .rodape{margin-top:8px;color:#64748b;font-size:11px;font-weight:700}
+        .rodape{margin-top:8px;color:#6B7280;font-size:11px;font-weight:700}
         .marca{margin-top:4px;color:#94a3b8;font-size:10px}
       </style></head><body>
       <div class="card">

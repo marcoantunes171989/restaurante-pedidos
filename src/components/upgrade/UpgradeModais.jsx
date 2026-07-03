@@ -26,7 +26,7 @@ const IcoHandshake = (p) => (<svg {...sv} {...p}><path d="m11 17 2 2a1.5 1.5 0 0
 const ICONE_PLANO = { phone: IcoPhone, bars: IcoBars, handshake: IcoHandshake };
 
 const overlay = "fixed inset-0 z-[120] flex items-center justify-center bg-black/75 backdrop-blur-sm p-3 sm:p-4";
-const cardModal = "flex w-full flex-col overflow-hidden rounded-[2rem] border border-gold-400/20 bg-[#071726] shadow-2xl max-h-[94vh]";
+const cardModal = "flex w-full flex-col overflow-hidden rounded-[2rem] border border-gold-400/20 bg-[#04101F] shadow-2xl max-h-[94vh]";
 const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none focus:border-gold-400/60 placeholder:text-slate-600 transition";
 const lbl = "mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500";
 const btnFechar = "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-sm font-bold text-slate-300 hover:bg-white/15 transition";
@@ -136,7 +136,7 @@ export function PlanosModal({ onFechar, onEscolherPlano, onFalarConsultor }) {
               const Icone = ICONE_PLANO[p.ico] || IcoGema;
               const filled = p.id !== "start";
               return (
-                <div key={p.id} className={`relative flex flex-col rounded-[1.6rem] border bg-[#0B1F33] p-5 transition ${p.destaque ? "border-gold-400/70 shadow-[0_0_0_1px_rgba(249,115,22,.4),0_16px_44px_-12px_rgba(249,115,22,.3)]" : "border-gold-400/15"}`}>
+                <div key={p.id} className={`relative flex flex-col rounded-[1.6rem] border bg-[#071B33] p-5 transition ${p.destaque ? "border-gold-400/70 shadow-[0_0_0_1px_rgba(201,149,26,.4),0_16px_44px_-12px_rgba(201,149,26,.3)]" : "border-gold-400/15"}`}>
                   {p.destaque && <span className="absolute -top-3 left-1/2 -translate-x-1/2 inline-flex items-center gap-1 rounded-full bg-gold-400 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-blue-950 shadow-lg">★ Mais escolhido</span>}
                   <div className="text-center">
                     <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border-2 border-gold-400/50 text-gold-400"><Icone className="h-6 w-6" /></span>
