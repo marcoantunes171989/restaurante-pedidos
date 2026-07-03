@@ -5457,6 +5457,132 @@ function ComboEmpresaFoco({ lojas = [], valor, onChange }) {
   );
 }
 
+// ── Controle de Comandas (visão gerencial · SOMENTE LEITURA) ──
+// Agrupa os pedidos por comanda e mostra situação, valor e tempo em aberto.
+// Não altera dados: apenas lista/filtra/busca (ações ficam no Caixa/Operacional).
+const SIT_COMANDA = {
+  aberta:               { label: "Aberta",               cls: "border-gold-400/30 bg-gold-400/10 text-gold-300" },
+  em_preparo:           { label: "Em preparo",           cls: "border-amber-400/30 bg-amber-500/10 text-amber-300" },
+  pronta:               { label: "Pronta",               cls: "border-emerald-400/30 bg-emerald-500/10 text-emerald-300" },
+  aguardando_pagamento: { label: "Aguardando pagamento", cls: "border-blue-400/30 bg-blue-500/10 text-blue-300" },
+  finalizada:           { label: "Finalizada",           cls: "border-white/10 bg-white/[0.06] text-slate-300" },
+  cancelada:            { label: "Cancelada",            cls: "border-red-400/30 bg-red-500/10 text-red-300" },
+};
+function situacaoComanda(pedidos) {
+  if (!pedidos.length) return "aberta";
+  const ativos = pedidos.filter((o) => o.status !== "cancelled");
+  if (!ativos.length) return "cancelada";
+  if (ativos.some((o) => o.paymentStatus === "requested")) return "aguardando_pagamento";
+  if (ativos.every((o) => o.paymentStatus === "paid")) return "finalizada";
+  if (ativos.some((o) => o.status === "preparing")) return "em_preparo";
+  if (ativos.every((o) => o.status === "ready" || o.status === "delivered")) return "pronta";
+  return "aberta";
+}
+function ComandasGestaoAdmin({ orders = [] }) {
+  const [busca, setBusca] = useState("");
+  const [filtro, setFiltro] = useState("todas");
+  const agora = Date.now();
+
+  const grupos = useMemo(() => {
+    const map = {};
+    for (const o of orders) {
+      const key = String(o.command || o.table || o.id);
+      if (!map[key]) map[key] = { chave: key, comanda: o.command, mesa: o.table, cliente: o.customer, telefone: o.clienteTelefone, pedidos: [], iso: o.createdAtISO };
+      const g = map[key];
+      g.pedidos.push(o);
+      if (o.customer && !g.cliente) g.cliente = o.customer;
+      if (o.createdAtISO && (!g.iso || o.createdAtISO < g.iso)) g.iso = o.createdAtISO;
+    }
+    return Object.values(map).map((g) => {
+      const total = g.pedidos.reduce((s, o) => s + orderTotal(o), 0);
+      const itens = g.pedidos.reduce((s, o) => s + o.items.reduce((a, it) => a + (it.quantity || 0), 0), 0);
+      const mins = g.iso ? Math.max(0, Math.round((agora - new Date(g.iso).getTime()) / 60000)) : 0;
+      return { ...g, total, itens, mins, sit: situacaoComanda(g.pedidos) };
+    }).sort((a, b) => {
+      const fim = (s) => (s === "finalizada" || s === "cancelada" ? 1 : 0);
+      return fim(a.sit) - fim(b.sit) || b.mins - a.mins;
+    });
+  }, [orders, agora]);
+
+  const q = busca.trim().toLowerCase();
+  const abertasKeys = ["aberta", "em_preparo", "pronta", "aguardando_pagamento"];
+  const filtradas = grupos.filter((g) => {
+    const okFiltro = filtro === "todas" || g.sit === filtro;
+    const okBusca = !q || `${g.comanda || ""} ${g.mesa || ""} ${g.cliente || ""} ${g.telefone || ""}`.toLowerCase().includes(q);
+    return okFiltro && okBusca;
+  });
+  const nAbertas = grupos.filter((g) => abertasKeys.includes(g.sit)).length;
+  const nPagto = grupos.filter((g) => g.sit === "aguardando_pagamento").length;
+  const totalAberto = grupos.filter((g) => abertasKeys.includes(g.sit)).reduce((s, g) => s + g.total, 0);
+
+  const CHIPS = [
+    { id: "todas", label: "Todas" }, { id: "aberta", label: "Abertas" }, { id: "em_preparo", label: "Em preparo" },
+    { id: "pronta", label: "Prontas" }, { id: "aguardando_pagamento", label: "Aguard. pagamento" },
+    { id: "finalizada", label: "Finalizadas" }, { id: "cancelada", label: "Canceladas" },
+  ];
+
+  return (
+    <main className="space-y-5">
+      <PageHeader icone={<IconQr />} titulo="Controle de Comandas"
+        descricao="Acompanhe as comandas por status, valor e tempo em aberto — visão gerencial em tempo real."
+        indicadores={[
+          { valor: nAbertas, rotulo: "abertas", tom: "gold" },
+          { valor: nPagto, rotulo: "aguardando pagamento", tom: "alerta" },
+          { valor: formatCurrency(totalAberto), rotulo: "em aberto", tom: "ok" },
+        ]} />
+
+      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap gap-2">
+            {CHIPS.map((c) => (
+              <button key={c.id} onClick={() => setFiltro(c.id)}
+                className={`rounded-full border px-3.5 py-1.5 text-xs font-bold transition ${filtro === c.id ? "border-gold-400 bg-gold-400/15 text-gold-300" : "border-white/10 bg-white/[0.03] text-slate-400 hover:bg-white/[0.06]"}`}>
+                {c.label}
+              </button>
+            ))}
+          </div>
+          <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar comanda, mesa, cliente ou telefone..."
+            className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-white outline-none transition focus:border-gold-400 placeholder:text-slate-600 sm:w-72" />
+        </div>
+      </div>
+
+      {filtradas.length === 0 ? (
+        <EmptyState titulo="Nenhuma comanda encontrada" dica="Ajuste os filtros ou aguarde novas movimentações no salão." />
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {filtradas.map((g) => {
+            const sit = SIT_COMANDA[g.sit] || SIT_COMANDA.aberta;
+            const atrasada = abertasKeys.includes(g.sit) && g.mins >= 40;
+            return (
+              <article key={g.chave} className="flex flex-col rounded-3xl border border-white/10 bg-white/[0.03] p-5 shadow-lg shadow-black/10">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-display truncate text-base font-bold text-white">{g.comanda ? `Comanda ${g.comanda}` : `Mesa ${g.mesa || "—"}`}</p>
+                    <p className="mt-0.5 truncate text-xs text-slate-400">{g.mesa ? `Mesa ${g.mesa}` : "Sem mesa"}{g.cliente ? ` · ${g.cliente}` : ""}</p>
+                  </div>
+                  <span className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${sit.cls}`}>{sit.label}</span>
+                </div>
+                <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+                  {[["Pedidos", g.pedidos.length], ["Itens", g.itens], ["Aberta há", `${g.mins}min`]].map(([l, v], i) => (
+                    <div key={l} className="rounded-xl border border-white/[0.07] bg-white/[0.03] py-2">
+                      <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500">{l}</p>
+                      <p className={`page-title text-sm font-black ${i === 2 && atrasada ? "text-red-400" : "text-white"}`}>{v}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-4 flex items-center justify-between border-t border-white/10 pt-3">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Total</span>
+                  <span className="font-display text-lg font-black text-gold-300">{formatCurrency(g.total)}</span>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      )}
+    </main>
+  );
+}
+
 function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, definirAcoesUsuario, toggleUserStatus, toggleAccessStatus, usersLoja, filtraLoja = (a) => a, pesquisas = [], adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], addLoja, toggleLoja, editarLoja, removerLoja, setLicencaEmpresa = async()=>{}, setValidadeLicenca = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, updateOrderStatus = async()=>{}, marcarEntregue = async()=>{}, marcarSetorPronto = async()=>{}, baixarComandas = async()=>{}, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, setModoUsoEmpresa = async()=>{}, salvarConfigExterno = async()=>{}, salvarConfigCrm = async()=>{}, mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, clientes = [], planoAtual = null, assinaturaAtual = null, assinaturas = [], planos = [], planoModulos = [], definirAssinatura = async()=>{}, promocoes = [], addPromocao = async()=>{}, editarPromocao = async()=>{}, togglePromocao = async()=>{}, removerPromocao = async()=>{}, opcoesApi = null, setores = [], setoresApi = null, vincularProdutoSetor = async () => {}, salvarProdutoQr = async () => {}, irParaCozinha = () => {}, caixaAberto = null, caixasLoja = [], caixaApi = null, fidRegra = null, fidRecompensas = [], fidTransacoes = [], fidApi = null, chamados = [], atenderChamado = async()=>{}, auditoria = [] }) {
   // Menu reorganizado por contexto (SaaS premium) — mesmos ids e permissões de antes
   const menu = [
@@ -5469,6 +5595,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
     ]},
     { grupo: "Operação", itens: [
       { id: "mesas", icon: <IconMesas />, label: "Mesas" },
+      { id: "comandas-gestao", icon: <IconQr />, label: "Controle de Comandas" },
       { id: "comandas", icon: <IconQr />, label: "Comandas e QR Code" },
       { id: "chamados", icon: <IconMesas />, label: "Chamados de Mesa" },
       { id: "setores", icon: <IconCategorias />, label: "Setores de Cozinha" },
@@ -5666,6 +5793,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           {ativo === "link"       && <UserAccessAdmin users={filtraLoja(users)} accesses={accesses} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} lojaInfo={lojaInfo} lojas={lojas} isSuperAdmin={isSuperAdmin} />}
           {ativo === "categorias" && (precisaEmpresa ? avisoEmpresa : <CategoriaAdmin categoriasDb={categoriasDb} produtos={products} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} />)}
           {ativo === "mesas"      && (precisaEmpresa ? avisoEmpresa : <MesaAdmin mesas={mesas} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} orders={orders} />)}
+          {ativo === "comandas-gestao" && (precisaEmpresa ? avisoEmpresa : <ComandasGestaoAdmin orders={filtraLoja(orders)} />)}
           {ativo === "comandas"   && (precisaEmpresa ? avisoEmpresa : <GeradorComandas prefixoLoja={lojaInfo?.prefixo || "CMD"} empresa={lojaInfo?.nome || "Restaurante"} onGerar={registrarComandas} comandasRegistradas={comandasRegistradas} orders={orders} onExcluirComanda={excluirComandaFn} onRenomearComanda={renomearComandaFn} onToggleComanda={toggleComandaFn} lojaId={lojaInfo?.id} logoSalvo={lojaInfo?.logoUrl || ""} onSalvarLogo={(url) => salvarLogoEmpresa(lojaInfo?.id, url)} onIrCardapioExterno={() => setAdminSection("cardapioext")} />)}
           {ativo === "pagamento"  && (precisaEmpresa ? avisoEmpresa : <PagamentoAdmin formasPagamento={formasPagamento} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} />)}
           {ativo === "config"     && <ConfiguracoesAdmin />}
