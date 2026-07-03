@@ -7131,19 +7131,19 @@ function DashboardAdmin({ orders, products, comandas = [], clientes = [], setore
       {/* KPIs (8) */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <button onClick={() => setModal({ titulo: "Faturamento — pedidos pagos", pedidos: pagos })} className="text-left">
-          <CardMetrica titulo="Faturamento pago" valor={formatCurrency(a.faturamento)} sub={`${pagos.length} pedidos pagos • ver detalhes`} cor="text-emerald-400" icon="💰" variacao={comparativo?.faturamento} />
+          <CardMetrica titulo="Faturamento pago" valor={formatCurrency(a.faturamento)} sub={`${pagos.length} pedidos pagos • ver detalhes`} cor="text-emerald-400" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="12" rx="2" /><circle cx="12" cy="12" r="2.5" /><path d="M6 12h.01M18 12h.01" /></svg>} variacao={comparativo?.faturamento} />
         </button>
         <button onClick={() => setModal({ titulo: "Valores em aberto", pedidos: abertos })} className="text-left">
-          <CardMetrica titulo="Valores em aberto" valor={formatCurrency(a.emAberto)} sub={`${abertos.length} comandas pendentes`} cor="text-gold-400" icon="⏳" />
+          <CardMetrica titulo="Valores em aberto" valor={formatCurrency(a.emAberto)} sub={`${abertos.length} comandas pendentes`} cor="text-gold-400" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>} />
         </button>
-        <CardMetrica titulo="Faturamento previsto" valor={formatCurrency(previsto)} sub="pago + em aberto" cor="text-blue-400" icon="📈" />
-        <CardMetrica titulo="Ticket médio" valor={formatCurrency(a.ticket)} sub="meta sugerida: R$ 45,00" cor="text-violet-300" icon="🎫" variacao={comparativo?.ticket} />
+        <CardMetrica titulo="Faturamento previsto" valor={formatCurrency(previsto)} sub="pago + em aberto" cor="text-blue-400" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 17l6-6 4 4 8-8" /><path d="M17 7h4v4" /></svg>} />
+        <CardMetrica titulo="Ticket médio" valor={formatCurrency(a.ticket)} sub="meta sugerida: R$ 45,00" cor="text-violet-300" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z" /><path d="M9 8h6M9 12h6" /></svg>} variacao={comparativo?.ticket} />
         <button onClick={() => setModal({ titulo: "Todos os pedidos do período", pedidos: filtrados })} className="text-left">
-          <CardMetrica titulo="Total de pedidos" valor={a.totalPedidos} sub={`${pagos.length} pagos | ${abertos.length} em aberto`} cor="text-violet-300" icon="📦" variacao={comparativo?.pedidos} />
+          <CardMetrica titulo="Total de pedidos" valor={a.totalPedidos} sub={`${pagos.length} pagos | ${abertos.length} em aberto`} cor="text-violet-300" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8l-9-5-9 5 9 5 9-5z" /><path d="M3 8v8l9 5 9-5V8" /><path d="M12 13v8" /></svg>} variacao={comparativo?.pedidos} />
         </button>
-        <CardMetrica titulo="Produto mais vendido" valor={produtoTop ? produtoTop.nome : "—"} sub={produtoTop ? `${produtoTop.qtd} unidades vendidas` : "sem vendas"} cor="text-gold-400" icon="🏆" />
-        <CardMetrica titulo="Mesas abertas" valor={mesasAbertas} sub={mesasAbertas ? `tempo médio aberto: ${tempoMedioMesa} min` : "nenhuma mesa aberta"} cor="text-emerald-400" icon="🪑" />
-        <CardMetrica titulo="Clientes no período" valor={clientesPeriodo} sub={`de ${clientes.length} cadastrados`} cor="text-blue-400" icon="👥" />
+        <CardMetrica titulo="Produto mais vendido" valor={produtoTop ? produtoTop.nome : "—"} sub={produtoTop ? `${produtoTop.qtd} unidades vendidas` : "sem vendas"} cor="text-gold-400" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="9" r="5" /><path d="M9 13.5 8 21l4-2 4 2-1-7.5" /></svg>} />
+        <CardMetrica titulo="Mesas abertas" valor={mesasAbertas} sub={mesasAbertas ? `tempo médio aberto: ${tempoMedioMesa} min` : "nenhuma mesa aberta"} cor="text-emerald-400" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></svg>} />
+        <CardMetrica titulo="Clientes no período" valor={clientesPeriodo} sub={`de ${clientes.length} cadastrados`} cor="text-blue-400" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 20v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="8" r="3.5" /><path d="M22 20v-2a4 4 0 0 0-3-3.8" /><path d="M16 4.2a4 4 0 0 1 0 7.6" /></svg>} />
       </div>
 
       </>)}
@@ -7743,7 +7743,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
           <BotoesExport />
           {/* 6 KPIs */}
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
-            <CardMetrica titulo="Faturamento total" valor={formatCurrency(a.faturamento)} cor="text-emerald-400" icon="💰" variacao={comparativo?.faturamento} />
+            <CardMetrica titulo="Faturamento total" valor={formatCurrency(a.faturamento)} cor="text-emerald-400" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="12" rx="2" /><circle cx="12" cy="12" r="2.5" /><path d="M6 12h.01M18 12h.01" /></svg>} variacao={comparativo?.faturamento} />
             <CardMetrica titulo="Subtotal vendido" valor={formatCurrency(a.faturamentoSemTaxa)} cor="text-white" icon="📈" />
             <CardMetrica titulo="Ticket médio" valor={formatCurrency(a.ticket)} cor="text-blue-400" icon="🎫" variacao={comparativo?.ticket} />
             <CardMetrica titulo="Itens vendidos" valor={itensVendidos} cor="text-white" icon="🛍️" />
