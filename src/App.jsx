@@ -4887,7 +4887,7 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
             {/* Passo 2 — pagamento (parcial ou total) */}
             <button onClick={() => setPagamentoAberto(true)} disabled={!podePagar || aPagar <= 0}
               title={!podePagar ? "Aguarde todos os pedidos serem finalizados/entregues" : ""}
-              className="w-full rounded-2xl bg-gold-400 py-4 text-sm font-black text-blue-950 hover:bg-gold-300 transition active:scale-95 shadow-lg shadow-gold-900/30 disabled:opacity-40 disabled:cursor-not-allowed">
+              className="w-full rounded-2xl bg-[#16A34A] py-4 text-sm font-black text-white hover:bg-[#22C55E] transition active:scale-95 shadow-lg shadow-[#16A34A]/30 disabled:opacity-40 disabled:cursor-not-allowed">
               {jaPago > 0
                 ? `💰 Pagar ${formatCurrency(aPagar)} (resta ${formatCurrency(restanteGeral)})`
                 : modoItens && aPagar < restanteGeral - 0.01
@@ -4964,7 +4964,7 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
                       </div>
                     )}
                     <button onClick={() => setConsultaPagamento(true)} disabled={!consultaPodePagar}
-                      className="mt-1 w-full rounded-2xl bg-gold-400 py-4 text-sm font-black text-blue-950 hover:bg-gold-300 transition active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed">
+                      className="mt-1 w-full rounded-2xl bg-[#16A34A] py-4 text-sm font-black text-white hover:bg-[#22C55E] transition active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed">
                       💰 Dar baixa / Finalizar pagamento
                     </button>
                   </div>
