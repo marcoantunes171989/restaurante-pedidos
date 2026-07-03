@@ -2918,7 +2918,7 @@ function TabletView({
               <span className="text-lg font-black text-gold-400">{formatCurrency(totalComServico)}</span>
             </div>
             <button onClick={() => setCarrinhoAberto(true)} disabled={cart.length === 0}
-              className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-gold-400 px-4 py-3.5 text-sm font-black text-blue-950 hover:bg-gold-300 transition active:scale-95 shadow-lg shadow-gold-900/30 disabled:opacity-40 disabled:cursor-not-allowed">
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-[#16A34A] px-4 py-3.5 text-sm font-black text-white hover:bg-[#22C55E] transition active:scale-95 shadow-lg shadow-[#16A34A]/30 disabled:opacity-40 disabled:cursor-not-allowed">
               Enviar pedido para a cozinha ✈️
             </button>
             <button onClick={() => setVerConta(true)} disabled={!temConta}
@@ -2946,7 +2946,7 @@ function TabletView({
             👁️ Conta
           </button>
           <button onClick={() => setCarrinhoAberto(true)} disabled={cart.length === 0}
-            className="flex flex-1 basis-full items-center justify-center gap-2 rounded-2xl bg-gold-400 px-4 py-3.5 text-sm font-black text-blue-950 hover:bg-gold-300 transition active:scale-95 shadow-lg shadow-gold-900/30 disabled:opacity-40 disabled:cursor-not-allowed sm:basis-0">
+            className="flex flex-1 basis-full items-center justify-center gap-2 rounded-2xl bg-[#16A34A] px-4 py-3.5 text-sm font-black text-white hover:bg-[#22C55E] transition active:scale-95 shadow-lg shadow-[#16A34A]/30 disabled:opacity-40 disabled:cursor-not-allowed sm:basis-0">
             <span className="truncate">Enviar pedido para a cozinha ✈️</span>
           </button>
         </div>
@@ -3092,7 +3092,7 @@ function TabletView({
             ) : (
               <button onClick={() => { handleSendOrder(); setCarrinhoAberto(false); }}
                 disabled={cart.length === 0}
-                className="font-display w-full rounded-2xl bg-gold-400 py-4 text-sm font-bold text-blue-950 hover:bg-gold-300 transition active:scale-95 shadow-lg shadow-gold-900/30 disabled:opacity-40 disabled:cursor-not-allowed">
+                className="font-display w-full rounded-2xl bg-[#16A34A] py-4 text-sm font-bold text-white hover:bg-[#22C55E] transition active:scale-95 shadow-lg shadow-[#16A34A]/30 disabled:opacity-40 disabled:cursor-not-allowed">
                 🚀 Confirmar e enviar para a cozinha
               </button>
             )}
