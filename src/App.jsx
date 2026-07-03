@@ -9120,6 +9120,7 @@ function CrmAdmin({ clientes = [], orders = [], fidTransacoes = [], fidRecompens
   const intervalos = dados.filter((c) => c.intervaloMedio != null).map((c) => c.intervaloMedio);
   const tempoMedioEntrePedidos = intervalos.length ? Math.round(intervalos.reduce((s, v) => s + v, 0) / intervalos.length) : null;
   const recuperaveis = dados.filter((c) => ehInativo(c) && c.qtd >= 2).length;
+  const pontosDistribuidos = (fidTransacoes || []).filter((t) => t.tipo === "earn").reduce((s, t) => s + (Number(t.pontos) || 0), 0);
 
   // Resumo inteligente (insights automáticos sobre os dados calculados)
   const ticketTop = dados.filter((c) => c.qtd >= 2).reduce((acc, c) => (c.ticket > (acc?.ticket || 0) ? c : acc), null);
@@ -9237,6 +9238,7 @@ function CrmAdmin({ clientes = [], orders = [], fidTransacoes = [], fidRecompens
             { t: "Recorrentes",           v: String(recorrentes),         ic: "🔁", c: "text-blue-300" },
             { t: "VIP",                   v: String(vips),                ic: "⭐", c: "text-gold-300" },
             { t: "Inativos",              v: String(inativos),            ic: "💤", c: "text-red-300" },
+            { t: "Pontos distribuídos",   v: pontosDistribuidos.toLocaleString("pt-BR"), sub: "fidelidade (créditos)", ic: "⭐", c: "text-gold-300", small: true },
             { t: "Maior cliente",         v: maiorCliente && maiorCliente.total > 0 ? maiorCliente.nome : "—", sub: maiorCliente && maiorCliente.total > 0 ? `${formatCurrency(maiorCliente.total)} · ${maiorCliente.qtd} ped.` : "sem vendas", ic: "🏆", c: "text-emerald-300", small: true },
           ].map((k) => (
             <div key={k.t} className="rounded-2xl border border-white/[0.06] bg-slate-950/40 px-4 py-3">
