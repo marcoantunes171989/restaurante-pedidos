@@ -9163,16 +9163,16 @@ function CrmAdmin({ clientes = [], orders = [], fidTransacoes = [], fidRecompens
             <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-400">Clientes identificados nos pedidos do cardápio digital. Analise frequência, consumo, faturamento, recorrência e oportunidades de relacionamento para aumentar vendas e fidelização.</p>
           </div>
           <div className="flex flex-wrap gap-2 lg:justify-end">
-            <button onClick={exportarClientesCSV} className="rounded-2xl border border-white/10 bg-white/[0.06] px-3.5 py-2.5 text-xs font-bold text-slate-200 transition hover:bg-white/10">📤 Exportar clientes</button>
-            <button onClick={() => setCampanhaAberta(true)} className="rounded-2xl bg-gold-400 px-3.5 py-2.5 text-xs font-bold text-blue-950 transition hover:bg-gold-300">✨ Criar campanha</button>
-            <button onClick={() => { setSegmento("inativo"); setFiltrosAbertos(true); }} className="rounded-2xl border border-red-400/25 bg-red-500/10 px-3.5 py-2.5 text-xs font-bold text-red-300 transition hover:bg-red-500/20">💤 Clientes inativos</button>
-            <button onClick={() => setConfigAberta(true)} className="rounded-2xl border border-white/10 bg-white/[0.06] px-3.5 py-2.5 text-xs font-bold text-slate-200 transition hover:bg-white/10">⚙ Configurar CRM</button>
+            <button onClick={exportarClientesCSV} className="rounded-2xl border border-white/10 bg-white/[0.06] px-3.5 py-2.5 text-xs font-bold text-slate-200 transition hover:bg-white/10">Exportar clientes</button>
+            <button onClick={() => setCampanhaAberta(true)} className="rounded-2xl bg-gold-400 px-3.5 py-2.5 text-xs font-bold text-[#061A2E] transition hover:bg-gold-300">Criar campanha</button>
+            <button onClick={() => { setSegmento("inativo"); setFiltrosAbertos(true); }} className="rounded-2xl border border-red-400/25 bg-red-500/10 px-3.5 py-2.5 text-xs font-bold text-red-300 transition hover:bg-red-500/20">Clientes inativos</button>
+            <button onClick={() => setConfigAberta(true)} className="rounded-2xl border border-white/10 bg-white/[0.06] px-3.5 py-2.5 text-xs font-bold text-slate-200 transition hover:bg-white/10">Configurar CRM</button>
           </div>
         </div>
 
         {/* Período de análise */}
         <div className="mt-4 rounded-2xl border border-white/[0.06] bg-slate-950/40 p-3">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">📅 Período de análise</p>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Período de análise</p>
           <div className="mt-2 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex flex-wrap gap-1.5">
               {[["hoje", "Hoje"], ["7d", "7 dias"], ["30d", "30 dias"], ["90d", "90 dias"], ["todos", "Tudo"]].map(([v, t]) => (
@@ -9240,7 +9240,7 @@ function CrmAdmin({ clientes = [], orders = [], fidTransacoes = [], fidRecompens
             { t: "Maior cliente",         v: maiorCliente && maiorCliente.total > 0 ? maiorCliente.nome : "—", sub: maiorCliente && maiorCliente.total > 0 ? `${formatCurrency(maiorCliente.total)} · ${maiorCliente.qtd} ped.` : "sem vendas", ic: "🏆", c: "text-emerald-300", small: true },
           ].map((k) => (
             <div key={k.t} className="rounded-2xl border border-white/[0.06] bg-slate-950/40 px-4 py-3">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{k.ic} {k.t}</p>
+              <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-500"><span className="h-1 w-1 shrink-0 rounded-full bg-gold-400/70" />{k.t}</p>
               <p className={`mt-0.5 font-black ${k.small ? "truncate text-base" : "text-lg"} ${k.c}`}>{k.v}</p>
               {k.sub && <p className="truncate text-[10px] text-slate-500">{k.sub}</p>}
             </div>
@@ -9252,7 +9252,7 @@ function CrmAdmin({ clientes = [], orders = [], fidTransacoes = [], fidRecompens
       {/* Resumo inteligente */}
       {insights.length > 0 && (
         <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
-          <h3 className="page-title text-base font-bold text-white">🧠 Resumo inteligente</h3>
+          <h3 className="page-title text-base font-bold text-white">Resumo inteligente</h3>
           <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
             {insights.map((ins, i) => (
               <div key={i} className={`rounded-2xl border bg-slate-950/40 p-3 ${ins.cls}`}>
