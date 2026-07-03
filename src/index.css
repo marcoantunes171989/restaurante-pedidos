@@ -191,7 +191,7 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
 /* Sombra leve e elegante nos cards/painéis principais (superfícies brancas) */
 [data-theme="light"] .tema-claro-area .rounded-\[2rem\],
 [data-theme="light"] .tema-claro-area .rounded-3xl {
-  box-shadow: 0 1px 2px rgba(20,33,61,0.04), 0 4px 14px rgba(20,33,61,0.05);
+  box-shadow: 0 1px 2px rgba(11,31,51,0.04), 0 4px 14px rgba(11,31,51,0.05);
 }
 /* ── Botões e cores semânticas na paleta oficial (Fase 2) ──────
    Padroniza os fundos sólidos de ação/estado para os hexes exatos da

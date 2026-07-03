@@ -6709,7 +6709,7 @@ function LinhaFaturamento({ dados }) {
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 180 }}>
       <defs><linearGradient id="gradFat" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#FB923C" stopOpacity="0.35" /><stop offset="100%" stopColor="#FB923C" stopOpacity="0" /></linearGradient></defs>
-      {[0, 0.25, 0.5, 0.75, 1].map((f, i) => (<line key={i} x1={P} x2={W - P} y1={y(max * f)} y2={y(max * f)} stroke="rgba(20,33,61,0.10)" />))}
+      {[0, 0.25, 0.5, 0.75, 1].map((f, i) => (<line key={i} x1={P} x2={W - P} y1={y(max * f)} y2={y(max * f)} stroke="rgba(11,31,51,0.10)" />))}
       <path d={area} fill="url(#gradFat)" />
       <path d={linha} fill="none" stroke="#F97316" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
       {pts.map((p, i) => (<circle key={i} cx={p[0]} cy={p[1]} r="3" fill="#F97316" />))}
@@ -7058,7 +7058,7 @@ function DashboardAdmin({ orders, products, comandas = [], clientes = [], setore
                 </div>
               </div>
               <div className="flex items-center gap-3 lg:ml-auto">
-                <div className="relative h-16 w-16 shrink-0" style={{ background: `conic-gradient(${nivelRing} ${ia.score * 3.6}deg, rgba(20,33,61,0.12) 0deg)`, borderRadius: "9999px" }}>
+                <div className="relative h-16 w-16 shrink-0" style={{ background: `conic-gradient(${nivelRing} ${ia.score * 3.6}deg, rgba(11,31,51,0.12) 0deg)`, borderRadius: "9999px" }}>
                   <div className="absolute inset-[5px] flex flex-col items-center justify-center rounded-full bg-slate-950">
                     <span className={`text-lg font-black leading-none ${nivelCls}`}>{ia.score}</span>
                     <span className="text-[8px] font-bold uppercase tracking-wider text-slate-500">saúde</span>
