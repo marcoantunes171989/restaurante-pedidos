@@ -6128,7 +6128,7 @@ function CardMetrica({ titulo, valor, sub, cor = "text-white", icon, variacao = 
     <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
       <div className="flex items-center justify-between">
         <p className="text-xs font-bold uppercase tracking-widest text-slate-500">{titulo}</p>
-        {icon && <span className="text-xl">{icon}</span>}
+        {icon && <span className="flex h-8 w-8 items-center justify-center rounded-xl border border-gold-400/25 bg-gold-400/[0.08] text-sm text-gold-300 [&>svg]:h-[16px] [&>svg]:w-[16px]">{icon}</span>}
       </div>
       <p className={`page-title mt-2 text-3xl font-bold ${cor}`}>{valor}</p>
       {variacao != null && (
@@ -7101,6 +7101,33 @@ function DashboardAdmin({ orders, products, comandas = [], clientes = [], setore
       </div>
 
       {!soCopiloto && (<>
+      {/* Resumo inteligente — insights automáticos (usa dados já calculados) */}
+      {(() => {
+        const meta = 45;
+        const estoqueBaixo = (products || []).filter((p) => p.controlaEstoque && (Number(p.estoque) || 0) <= (Number(p.estoqueMinimo) || 0)).length;
+        const pills = [
+          melhorHora?.valor > 0 && { dot: "bg-gold-400", txt: <>Melhor horário: <b className="font-bold text-white">{melhorHora.label}</b></> },
+          produtoTop && { dot: "bg-blue-400", txt: <>Destaque: <b className="font-bold text-white">{produtoTop.nome}</b></> },
+          { dot: a.ticket >= meta ? "bg-emerald-400" : "bg-amber-400", txt: <>Ticket médio {a.ticket >= meta ? "acima" : "abaixo"} da meta</> },
+          { dot: abertos.length === 0 ? "bg-emerald-400" : "bg-amber-400", txt: abertos.length === 0 ? "Sem pendências financeiras" : <>{abertos.length} comanda(s) em aberto</> },
+          { dot: estoqueBaixo === 0 ? "bg-emerald-400" : "bg-red-400", txt: estoqueBaixo === 0 ? "Estoque sem alertas" : <>{estoqueBaixo} produto(s) sem estoque</> },
+        ].filter(Boolean);
+        return (
+          <div className="flex flex-wrap items-center gap-2.5 rounded-2xl border border-gold-400/20 bg-gold-400/[0.04] px-4 py-3">
+            <span className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-gold-300">
+              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor"><path d="M12 2l2.4 6.9H22l-6 4.3 2.3 7L12 16l-6.3 4.2 2.3-7-6-4.3h7.6z" /></svg>
+              Resumo inteligente
+            </span>
+            <span className="hidden h-4 w-px bg-white/10 sm:block" />
+            {pills.map((p, i) => (
+              <span key={i} className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-semibold text-slate-300">
+                <span className={`h-1.5 w-1.5 rounded-full ${p.dot}`} />{p.txt}
+              </span>
+            ))}
+          </div>
+        );
+      })()}
+
       {/* KPIs (8) */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <button onClick={() => setModal({ titulo: "Faturamento — pedidos pagos", pedidos: pagos })} className="text-left">
