@@ -1233,6 +1233,47 @@ export async function excluirUsuario(id) {
   if (error) throw error
 }
 
+// ── Financeiro — lançamentos (migration 063). Front TOLERANTE. ──
+function dbParaLancamento(r) {
+  return {
+    id: r.id, lojaId: r.loja_id, data: r.data, vencimento: r.vencimento ?? null,
+    descricao: r.descricao ?? "", tipo: r.tipo ?? "despesa", categoria: r.categoria ?? "",
+    valor: Number(r.valor) || 0, status: r.status ?? "pendente",
+    formaPagamento: r.forma_pagamento ?? "", observacao: r.observacao ?? "", criadoEmISO: r.criado_em,
+  }
+}
+function lancamentoParaDb(l) {
+  return {
+    loja_id: l.lojaId ?? null, data: l.data || null, vencimento: l.vencimento || null,
+    descricao: l.descricao, tipo: l.tipo || "despesa", categoria: l.categoria || null,
+    valor: Number(l.valor) || 0, status: l.status || "pendente",
+    forma_pagamento: l.formaPagamento || null, observacao: l.observacao || null,
+  }
+}
+export async function fetchLancamentos(lojaId = null) {
+  try {
+    let q = supabase.from('tab_lancamentos').select('*').order('data', { ascending: false })
+    if (lojaId != null) q = q.eq('loja_id', lojaId)
+    const { data, error } = await q
+    if (error) return []
+    return (data || []).map(dbParaLancamento)
+  } catch { return [] }
+}
+export async function inserirLancamento(l) {
+  const { data, error } = await supabase.from('tab_lancamentos').insert([lancamentoParaDb(l)]).select().single()
+  if (error) throw error
+  return dbParaLancamento(data)
+}
+export async function atualizarLancamento(id, l) {
+  const { data, error } = await supabase.from('tab_lancamentos').update({ ...lancamentoParaDb(l), atualizado_em: new Date().toISOString() }).eq('id', id).select().single()
+  if (error) throw error
+  return dbParaLancamento(data)
+}
+export async function excluirLancamento(id) {
+  const { error } = await supabase.from('tab_lancamentos').delete().eq('id', id)
+  if (error) throw error
+}
+
 // ════════════════════════════════════════════════════════════
 //  Mapeadores: App → DB
 // ════════════════════════════════════════════════════════════

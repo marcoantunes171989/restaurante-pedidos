@@ -27,6 +27,7 @@ import {
   perguntarCopilotoIA,
   fetchAuditoria, registrarAuditoria, escutarAuditoria, marcarAuditoriaAnalisada,
   loginSupabaseAuth, logoutSupabaseAuth, aguardarSessao, getSessionEmail,
+  fetchLancamentos, inserirLancamento, atualizarLancamento, excluirLancamento,
 } from "./lib/supabase";
 import { usandoSupabaseAuth } from "./lib/authMode";
 import { useScrollLock } from "./lib/scrollLock";
@@ -5521,6 +5522,179 @@ function FinanceiroVisaoAdmin({ orders = [] }) {
   );
 }
 
+// ── Financeiro → Lançamentos (CRUD) — migration 063, front tolerante ──
+function LancamentoModal({ inicial, onFechar, onSalvar, salvando }) {
+  const [f, setF] = useState(inicial);
+  const set = (k, v) => setF((c) => ({ ...c, [k]: v }));
+  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none focus:border-gold-400/60 placeholder:text-slate-600";
+  const lbl = "mb-1 block text-[11px] font-bold uppercase tracking-widest text-slate-500";
+  const valido = f.descricao.trim() && Number(f.valor) > 0 && f.data;
+  return (
+    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/70 p-4" onClick={onFechar}>
+      <div onClick={(e) => e.stopPropagation()} className="tema-claro-area flex w-full max-w-lg flex-col overflow-hidden rounded-[1.75rem] border border-white/10 bg-slate-900 shadow-2xl max-h-[92vh]">
+        <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+          <h3 className="page-title text-lg font-bold text-white">{f.id ? "Editar lançamento" : "Novo lançamento"}</h3>
+          <button onClick={onFechar} className="rounded-lg p-1.5 text-slate-400 hover:bg-white/10">✕</button>
+        </div>
+        <div className="grid gap-3 overflow-y-auto p-6 sm:grid-cols-2">
+          <div className="sm:col-span-2"><label className={lbl}>Descrição *</label><input autoFocus value={f.descricao} onChange={(e) => set("descricao", e.target.value)} placeholder="Ex.: Compra de insumos" className={inp} /></div>
+          <div><label className={lbl}>Tipo *</label><select value={f.tipo} onChange={(e) => set("tipo", e.target.value)} className={inp}><option value="despesa">Despesa</option><option value="receita">Receita</option></select></div>
+          <div><label className={lbl}>Valor (R$) *</label><input type="number" step="0.01" min="0" value={f.valor} onChange={(e) => set("valor", e.target.value)} placeholder="0,00" className={inp} /></div>
+          <div><label className={lbl}>Data *</label><input type="date" value={f.data} onChange={(e) => set("data", e.target.value)} className={inp} /></div>
+          <div><label className={lbl}>Vencimento</label><input type="date" value={f.vencimento || ""} onChange={(e) => set("vencimento", e.target.value)} className={inp} /></div>
+          <div><label className={lbl}>Status</label><select value={f.status} onChange={(e) => set("status", e.target.value)} className={inp}><option value="pendente">Pendente</option><option value="pago">Pago</option><option value="cancelado">Cancelado</option></select></div>
+          <div><label className={lbl}>Categoria</label><input value={f.categoria} onChange={(e) => set("categoria", e.target.value)} placeholder="Ex.: Insumos, Aluguel" className={inp} /></div>
+          <div className="sm:col-span-2"><label className={lbl}>Forma de pagamento</label><input value={f.formaPagamento} onChange={(e) => set("formaPagamento", e.target.value)} placeholder="PIX, Cartão, Dinheiro…" className={inp} /></div>
+        </div>
+        <div className="flex justify-end gap-2 border-t border-white/10 px-6 py-4">
+          <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.06] px-5 py-2.5 text-sm font-bold text-slate-200 hover:bg-white/10">Cancelar</button>
+          <button onClick={() => valido && onSalvar(f)} disabled={!valido || salvando} className="rounded-2xl bg-gold-400 px-5 py-2.5 text-sm font-black text-[#061A2E] transition hover:bg-gold-300 disabled:opacity-40">{salvando ? "Salvando…" : "Salvar"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+function LancamentosAdmin({ lojaId = null }) {
+  const [lista, setLista] = useState([]);
+  const [carregando, setCarregando] = useState(true);
+  const [msg, setMsg] = useState(null);
+  const [filtroTipo, setFiltroTipo] = useState("todos");
+  const [filtroStatus, setFiltroStatus] = useState("todos");
+  const [busca, setBusca] = useState("");
+  const [modal, setModal] = useState(null);
+  const [salvando, setSalvando] = useState(false);
+
+  useEffect(() => {
+    let vivo = true; setCarregando(true);
+    fetchLancamentos(lojaId).then((l) => { if (vivo) { setLista(l); setCarregando(false); } }).catch(() => { if (vivo) { setLista([]); setCarregando(false); } });
+    return () => { vivo = false; };
+  }, [lojaId]);
+
+  const flash = (t, m) => { setMsg({ t, m }); setTimeout(() => setMsg(null), 4000); };
+  async function salvar(form) {
+    setSalvando(true);
+    try {
+      if (form.id) { const up = await atualizarLancamento(form.id, form); setLista((c) => c.map((x) => x.id === up.id ? up : x)); flash("success", "Lançamento atualizado."); }
+      else { const novo = await inserirLancamento({ ...form, lojaId }); setLista((c) => [novo, ...c]); flash("success", "Lançamento adicionado."); }
+      setModal(null);
+    } catch { flash("error", "Não foi possível salvar. Verifique se a migration 063 foi aplicada no Supabase."); }
+    setSalvando(false);
+  }
+  async function mudarStatus(l, status) {
+    try { const up = await atualizarLancamento(l.id, { ...l, status }); setLista((c) => c.map((x) => x.id === up.id ? up : x)); }
+    catch { flash("error", "Não foi possível atualizar o status."); }
+  }
+  async function remover(l) {
+    if (typeof window !== "undefined" && !window.confirm("Excluir este lançamento?")) return;
+    try { await excluirLancamento(l.id); setLista((c) => c.filter((x) => x.id !== l.id)); flash("success", "Lançamento excluído."); }
+    catch { flash("error", "Não foi possível excluir."); }
+  }
+
+  const hoje = new Date().toISOString().slice(0, 10);
+  const ativos = lista.filter((l) => l.status !== "cancelado");
+  const receitasPagas = ativos.filter((l) => l.tipo === "receita" && l.status === "pago").reduce((s, l) => s + l.valor, 0);
+  const despesasPagas = ativos.filter((l) => l.tipo === "despesa" && l.status === "pago").reduce((s, l) => s + l.valor, 0);
+  const aReceber = ativos.filter((l) => l.tipo === "receita" && l.status === "pendente").reduce((s, l) => s + l.valor, 0);
+  const aPagar = ativos.filter((l) => l.tipo === "despesa" && l.status === "pendente").reduce((s, l) => s + l.valor, 0);
+  const vencidas = ativos.filter((l) => l.status === "pendente" && l.vencimento && l.vencimento < hoje).length;
+
+  const q = busca.trim().toLowerCase();
+  const filtrada = lista.filter((l) => {
+    const okTipo = filtroTipo === "todos" || l.tipo === filtroTipo;
+    const okStatus = filtroStatus === "todos" ? true
+      : filtroStatus === "vencidas" ? (l.status === "pendente" && l.vencimento && l.vencimento < hoje)
+      : l.status === filtroStatus;
+    const okBusca = !q || `${l.descricao} ${l.categoria}`.toLowerCase().includes(q);
+    return okTipo && okStatus && okBusca;
+  });
+
+  function exportarCSV() {
+    let csv = "Data;Descricao;Tipo;Categoria;Valor;Status;Forma;Vencimento\n";
+    filtrada.forEach((l) => { csv += `${l.data};${l.descricao};${l.tipo};${l.categoria};${l.valor.toFixed(2)};${l.status};${l.formaPagamento};${l.vencimento || ""}\n`; });
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = "lancamentos.csv"; a.click(); URL.revokeObjectURL(url);
+  }
+  const novoVazio = () => ({ descricao: "", tipo: "despesa", valor: "", data: hoje, vencimento: "", status: "pendente", categoria: "", formaPagamento: "" });
+  const badgeStatus = { pendente: "bg-amber-500/15 text-amber-300", pago: "bg-emerald-500/15 text-emerald-300", cancelado: "bg-slate-700 text-slate-300" };
+  const CARDS = [
+    { l: "Receitas (pago)", v: formatCurrency(receitasPagas), c: "text-emerald-400" },
+    { l: "Despesas (pago)", v: formatCurrency(despesasPagas), c: "text-red-400" },
+    { l: "Saldo", v: formatCurrency(receitasPagas - despesasPagas), c: "text-white" },
+    { l: "A receber", v: formatCurrency(aReceber), c: "text-blue-400" },
+    { l: "A pagar", v: formatCurrency(aPagar), c: "text-gold-400" },
+    { l: "Contas vencidas", v: String(vencidas), c: vencidas > 0 ? "text-red-400" : "text-slate-300" },
+  ];
+
+  return (
+    <main className="space-y-5">
+      <PageHeader icone={<IconPagamento />} titulo="Lançamentos"
+        descricao="Receitas, despesas e contas a pagar/receber da empresa."
+        acao={<PrimeButton onClick={() => setModal(novoVazio())}><span className="text-lg leading-none">+</span> Novo lançamento</PrimeButton>} />
+
+      {msg && <div className={`rounded-2xl border px-4 py-2.5 text-sm font-bold ${msg.t === "error" ? "border-red-400/30 bg-red-500/10 text-red-300" : "border-emerald-400/30 bg-emerald-500/10 text-emerald-300"}`}>{msg.m}</div>}
+
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+        {CARDS.map((c) => (
+          <div key={c.l} className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{c.l}</p>
+            <p className={`page-title mt-1.5 text-xl font-black ${c.c}`}>{c.v}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-wrap gap-2">
+          {[["todos", "Todos"], ["receita", "Receitas"], ["despesa", "Despesas"]].map(([id, l]) => (
+            <button key={id} onClick={() => setFiltroTipo(id)} className={`rounded-full border px-3.5 py-1.5 text-xs font-bold transition ${filtroTipo === id ? "border-gold-400 bg-gold-400 text-[#061A2E]" : "border-white/10 bg-white/[0.06] text-slate-300 hover:bg-white/10"}`}>{l}</button>
+          ))}
+          <span className="mx-1 h-6 w-px self-center bg-white/10" />
+          {[["todos", "Todos"], ["pendente", "Pendentes"], ["pago", "Pagos"], ["vencidas", "Vencidas"], ["cancelado", "Cancelados"]].map(([id, l]) => (
+            <button key={id} onClick={() => setFiltroStatus(id)} className={`rounded-full border px-3.5 py-1.5 text-xs font-bold transition ${filtroStatus === id ? "border-blue-400 bg-blue-500 text-white" : "border-white/10 bg-white/[0.06] text-slate-300 hover:bg-white/10"}`}>{l}</button>
+          ))}
+        </div>
+        <div className="flex gap-2">
+          <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar descrição ou categoria…" className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-2 text-sm text-white outline-none focus:border-gold-400/60 placeholder:text-slate-600 lg:w-56" />
+          <button onClick={exportarCSV} disabled={filtrada.length === 0} className="shrink-0 rounded-2xl border border-white/10 bg-white/[0.06] px-3.5 py-2 text-xs font-bold text-slate-200 hover:bg-white/10 disabled:opacity-40">Exportar CSV</button>
+        </div>
+      </div>
+
+      <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.04]">
+        {carregando ? (
+          <p className="py-14 text-center text-sm text-slate-500">Carregando lançamentos…</p>
+        ) : filtrada.length === 0 ? (
+          <EmptyState titulo="Nenhum lançamento" dica={lista.length === 0 ? "Cadastre o primeiro lançamento. (Requer a migration 063 aplicada no Supabase.)" : "Ajuste os filtros para ver os lançamentos."} acao={<PrimeButton onClick={() => setModal(novoVazio())}>+ Novo lançamento</PrimeButton>} />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[720px] text-sm">
+              <thead><tr className="border-b border-white/10 text-left text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                <th className="px-5 py-3">Data</th><th className="px-3 py-3">Descrição</th><th className="px-3 py-3">Categoria</th><th className="px-3 py-3 text-right">Valor</th><th className="px-3 py-3">Status</th><th className="px-5 py-3 text-right">Ações</th>
+              </tr></thead>
+              <tbody className="divide-y divide-white/5">
+                {filtrada.map((l) => (
+                  <tr key={l.id} className="hover:bg-white/[0.03]">
+                    <td className="whitespace-nowrap px-5 py-3 text-slate-300">{l.data ? new Date(`${l.data}T00:00:00`).toLocaleDateString("pt-BR") : "—"}{l.vencimento && l.status === "pendente" && l.vencimento < hoje && <span className="ml-1.5 rounded-full bg-red-500/15 px-1.5 py-0.5 text-[9px] font-bold text-red-300">vencida</span>}</td>
+                    <td className="px-3 py-3"><span className="font-bold text-white">{l.descricao}</span><span className={`ml-2 rounded-full px-1.5 py-0.5 text-[9px] font-bold ${l.tipo === "receita" ? "bg-emerald-500/15 text-emerald-300" : "bg-slate-700/60 text-slate-300"}`}>{l.tipo}</span></td>
+                    <td className="px-3 py-3 text-slate-400">{l.categoria || "—"}</td>
+                    <td className={`whitespace-nowrap px-3 py-3 text-right font-black ${l.tipo === "receita" ? "text-emerald-300" : "text-red-300"}`}>{l.tipo === "receita" ? "+" : "−"} {formatCurrency(l.valor)}</td>
+                    <td className="px-3 py-3"><span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${badgeStatus[l.status] || badgeStatus.pendente}`}>{l.status}</span></td>
+                    <td className="whitespace-nowrap px-5 py-3 text-right">
+                      {l.status === "pendente" && <button onClick={() => mudarStatus(l, "pago")} className="mr-1.5 rounded-lg bg-emerald-500/15 px-2.5 py-1 text-[11px] font-bold text-emerald-300 hover:bg-emerald-500/25">Baixar</button>}
+                      <button onClick={() => setModal({ ...l })} className="mr-1.5 rounded-lg border border-white/10 bg-white/[0.06] px-2.5 py-1 text-[11px] font-bold text-slate-200 hover:bg-white/10">Editar</button>
+                      <button onClick={() => remover(l)} className="rounded-lg bg-red-500/15 px-2.5 py-1 text-[11px] font-bold text-red-300 hover:bg-red-500/25">Excluir</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {modal && <LancamentoModal inicial={modal} salvando={salvando} onFechar={() => setModal(null)} onSalvar={salvar} />}
+    </main>
+  );
+}
+
 // ── Command Palette (Ctrl/Cmd + K) — navegação rápida do admin ──
 // Aditivo: só navega pelas seções existentes (setAdminSection) e Sair.
 function CommandPalette({ open, onClose, sections = [], onNavigate, onSair }) {
@@ -5737,6 +5911,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
     ]},
     { grupo: "Financeiro", itens: [
       { id: "financeiro", icon: <IconPagamento />, label: "Visão Financeira" },
+      { id: "lancamentos", icon: <IconPagamento />, label: "Lançamentos" },
       { id: "caixa", icon: <IconPagamento />, label: "Fechamento de Caixa" },
       { id: "pagamento", icon: <IconPagamento />, label: "Formas de Pagamento" },
     ]},
@@ -5935,6 +6110,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
             }}
           />}
           {ativo === "financeiro" && (precisaEmpresa ? avisoEmpresa : <FinanceiroVisaoAdmin orders={filtraLoja(orders)} />)}
+          {ativo === "lancamentos" && (precisaEmpresa ? avisoEmpresa : <LancamentosAdmin lojaId={lojaInfo?.id} />)}
           {ativo === "caixa"      && (precisaEmpresa ? avisoEmpresa : <CaixaSessaoAdmin caixaAberto={caixaAberto} caixas={caixasLoja} api={caixaApi} formasPagamento={formasPagamento} currentUser={currentUser} />)}
           {ativo === "users"      && <UserAdmin      users={filtraLoja(users)} userForm={userForm} setUserForm={setUserForm} addUser={addUser} toggleUserStatus={toggleUserStatus} editarUsuario={editarUsuario} removerUsuario={removerUsuario} lojaInfo={lojaInfo} lojas={lojas} isSuperAdmin={isSuperAdmin} cargos={cargos} />}
           {ativo === "cargos"     && <CargoAdmin     cargos={filtraLoja(cargos)} users={filtraLoja(users)} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} />}
