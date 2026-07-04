@@ -5524,11 +5524,12 @@ function FinanceiroVisaoAdmin({ orders = [] }) {
 
 // ── Financeiro → Lançamentos (CRUD) — migration 063, front tolerante ──
 function LancamentoModal({ inicial, onFechar, onSalvar, salvando }) {
-  const [f, setF] = useState(inicial);
+  const [f, setF] = useState(() => ({ ...inicial, valor: (inicial.valor !== "" && inicial.valor != null) ? rawParaMoeda(String(Math.round(Number(inicial.valor) * 100))) : "" }));
   const set = (k, v) => setF((c) => ({ ...c, [k]: v }));
   const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none focus:border-gold-400/60 placeholder:text-slate-600";
   const lbl = "mb-1 block text-[11px] font-bold uppercase tracking-widest text-slate-500";
-  const valido = f.descricao.trim() && Number(f.valor) > 0 && f.data;
+  const catsSugeridas = f.tipo === "receita" ? ["Vendas", "Serviços", "Gorjetas", "Outros"] : ["Insumos", "Aluguel", "Salários", "Energia", "Água", "Marketing", "Manutenção", "Impostos", "Outros"];
+  const valido = f.descricao.trim() && moedaParaNum(String(f.valor)) > 0 && f.data;
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/70 p-4" onClick={onFechar}>
       <div onClick={(e) => e.stopPropagation()} className="tema-claro-area flex w-full max-w-lg flex-col overflow-hidden rounded-[1.75rem] border border-white/10 bg-slate-900 shadow-2xl max-h-[92vh]">
@@ -5539,16 +5540,25 @@ function LancamentoModal({ inicial, onFechar, onSalvar, salvando }) {
         <div className="grid gap-3 overflow-y-auto p-6 sm:grid-cols-2">
           <div className="sm:col-span-2"><label className={lbl}>Descrição *</label><input autoFocus value={f.descricao} onChange={(e) => set("descricao", e.target.value)} placeholder="Ex.: Compra de insumos" className={inp} /></div>
           <div><label className={lbl}>Tipo *</label><select value={f.tipo} onChange={(e) => set("tipo", e.target.value)} className={inp}><option value="despesa">Despesa</option><option value="receita">Receita</option></select></div>
-          <div><label className={lbl}>Valor (R$) *</label><input type="number" step="0.01" min="0" value={f.valor} onChange={(e) => set("valor", e.target.value)} placeholder="0,00" className={inp} /></div>
+          <div><label className={lbl}>Valor (R$) *</label><input inputMode="numeric" value={f.valor} onChange={(e) => { const { display } = handleMoeda(e); set("valor", display); }} placeholder="R$ 0,00" className={inp} /></div>
           <div><label className={lbl}>Data *</label><input type="date" value={f.data} onChange={(e) => set("data", e.target.value)} className={inp} /></div>
           <div><label className={lbl}>Vencimento</label><input type="date" value={f.vencimento || ""} onChange={(e) => set("vencimento", e.target.value)} className={inp} /></div>
           <div><label className={lbl}>Status</label><select value={f.status} onChange={(e) => set("status", e.target.value)} className={inp}><option value="pendente">Pendente</option><option value="pago">Pago</option><option value="cancelado">Cancelado</option></select></div>
-          <div><label className={lbl}>Categoria</label><input value={f.categoria} onChange={(e) => set("categoria", e.target.value)} placeholder="Ex.: Insumos, Aluguel" className={inp} /></div>
+          <div className="sm:col-span-2">
+            <label className={lbl}>Categoria</label>
+            <input value={f.categoria} onChange={(e) => set("categoria", e.target.value)} placeholder="Ex.: Insumos, Aluguel" className={inp} />
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {catsSugeridas.map((cat) => (
+                <button key={cat} type="button" onClick={() => set("categoria", cat)}
+                  className={`rounded-full border px-2.5 py-1 text-[11px] font-bold transition ${f.categoria === cat ? "border-gold-400 bg-gold-400 text-[#061A2E]" : "border-white/10 bg-white/[0.06] text-slate-300 hover:bg-white/10"}`}>{cat}</button>
+              ))}
+            </div>
+          </div>
           <div className="sm:col-span-2"><label className={lbl}>Forma de pagamento</label><input value={f.formaPagamento} onChange={(e) => set("formaPagamento", e.target.value)} placeholder="PIX, Cartão, Dinheiro…" className={inp} /></div>
         </div>
         <div className="flex justify-end gap-2 border-t border-white/10 px-6 py-4">
           <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.06] px-5 py-2.5 text-sm font-bold text-slate-200 hover:bg-white/10">Cancelar</button>
-          <button onClick={() => valido && onSalvar(f)} disabled={!valido || salvando} className="rounded-2xl bg-gold-400 px-5 py-2.5 text-sm font-black text-[#061A2E] transition hover:bg-gold-300 disabled:opacity-40">{salvando ? "Salvando…" : "Salvar"}</button>
+          <button onClick={() => valido && onSalvar({ ...f, valor: moedaParaNum(String(f.valor)) })} disabled={!valido || salvando} className="rounded-2xl bg-gold-400 px-5 py-2.5 text-sm font-black text-[#061A2E] transition hover:bg-gold-300 disabled:opacity-40">{salvando ? "Salvando…" : "Salvar"}</button>
         </div>
       </div>
     </div>
