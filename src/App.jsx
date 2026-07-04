@@ -5554,7 +5554,7 @@ function LancamentoModal({ inicial, onFechar, onSalvar, salvando }) {
     </div>
   );
 }
-function LancamentosAdmin({ lojaId = null }) {
+function LancamentosAdmin({ lojaId = null, orders = [] }) {
   const [lista, setLista] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [msg, setMsg] = useState(null);
@@ -5563,6 +5563,7 @@ function LancamentosAdmin({ lojaId = null }) {
   const [busca, setBusca] = useState("");
   const [modal, setModal] = useState(null);
   const [salvando, setSalvando] = useState(false);
+  const [mostrarVendas, setMostrarVendas] = useState(false);
 
   useEffect(() => {
     let vivo = true; setCarregando(true);
@@ -5598,8 +5599,19 @@ function LancamentosAdmin({ lojaId = null }) {
   const aPagar = ativos.filter((l) => l.tipo === "despesa" && l.status === "pendente").reduce((s, l) => s + l.valor, 0);
   const vencidas = ativos.filter((l) => l.status === "pendente" && l.vencimento && l.vencimento < hoje).length;
 
+  // Vendas (pedidos pagos) — receita AUTOMÁTICA, virtual/somente-leitura (não gravada).
+  const pedidosPagos = orders.filter((o) => o.paymentStatus === "paid");
+  const vendasPagas = pedidosPagos.reduce((s, o) => s + orderTotal(o), 0);
+  const autoRows = pedidosPagos.map((o) => ({
+    id: `venda-${o.id}`, auto: true, data: (o.createdAtISO ? o.createdAtISO.slice(0, 10) : hoje),
+    descricao: `Venda ${o.command || o.table || ""}`.trim(), tipo: "receita", categoria: "Vendas",
+    valor: orderTotal(o), status: "pago", formaPagamento: o.pagamentoForma || "", vencimento: null,
+  }));
+  const saldo = receitasPagas + vendasPagas - despesasPagas;
+
   const q = busca.trim().toLowerCase();
-  const filtrada = lista.filter((l) => {
+  const base = mostrarVendas ? [...autoRows, ...lista] : lista;
+  const filtrada = base.filter((l) => {
     const okTipo = filtroTipo === "todos" || l.tipo === filtroTipo;
     const okStatus = filtroStatus === "todos" ? true
       : filtroStatus === "vencidas" ? (l.status === "pendente" && l.vencimento && l.vencimento < hoje)
@@ -5617,12 +5629,12 @@ function LancamentosAdmin({ lojaId = null }) {
   const novoVazio = () => ({ descricao: "", tipo: "despesa", valor: "", data: hoje, vencimento: "", status: "pendente", categoria: "", formaPagamento: "" });
   const badgeStatus = { pendente: "bg-amber-500/15 text-amber-300", pago: "bg-emerald-500/15 text-emerald-300", cancelado: "bg-slate-700 text-slate-300" };
   const CARDS = [
-    { l: "Receitas (pago)", v: formatCurrency(receitasPagas), c: "text-emerald-400" },
+    { l: "Vendas (pedidos)", v: formatCurrency(vendasPagas), c: "text-emerald-400" },
+    { l: "Receitas manuais", v: formatCurrency(receitasPagas), c: "text-emerald-400" },
     { l: "Despesas (pago)", v: formatCurrency(despesasPagas), c: "text-red-400" },
-    { l: "Saldo", v: formatCurrency(receitasPagas - despesasPagas), c: "text-white" },
+    { l: "Saldo", v: formatCurrency(saldo), c: saldo < 0 ? "text-red-400" : "text-white" },
     { l: "A receber", v: formatCurrency(aReceber), c: "text-blue-400" },
     { l: "A pagar", v: formatCurrency(aPagar), c: "text-gold-400" },
-    { l: "Contas vencidas", v: String(vencidas), c: vencidas > 0 ? "text-red-400" : "text-slate-300" },
   ];
 
   return (
@@ -5653,7 +5665,9 @@ function LancamentosAdmin({ lojaId = null }) {
           ))}
         </div>
         <div className="flex gap-2">
-          <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar descrição ou categoria…" className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-2 text-sm text-white outline-none focus:border-gold-400/60 placeholder:text-slate-600 lg:w-56" />
+          <button onClick={() => setMostrarVendas((v) => !v)} title="Listar as vendas dos pedidos pagos (sempre somadas ao saldo)"
+            className={`shrink-0 rounded-2xl border px-3.5 py-2 text-xs font-bold transition ${mostrarVendas ? "border-emerald-400 bg-emerald-500/15 text-emerald-300" : "border-white/10 bg-white/[0.06] text-slate-300 hover:bg-white/10"}`}>{mostrarVendas ? "Vendas: on" : "Vendas: off"}</button>
+          <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar descrição ou categoria…" className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-2 text-sm text-white outline-none focus:border-gold-400/60 placeholder:text-slate-600 lg:w-48" />
           <button onClick={exportarCSV} disabled={filtrada.length === 0} className="shrink-0 rounded-2xl border border-white/10 bg-white/[0.06] px-3.5 py-2 text-xs font-bold text-slate-200 hover:bg-white/10 disabled:opacity-40">Exportar CSV</button>
         </div>
       </div>
@@ -5678,9 +5692,13 @@ function LancamentosAdmin({ lojaId = null }) {
                     <td className={`whitespace-nowrap px-3 py-3 text-right font-black ${l.tipo === "receita" ? "text-emerald-300" : "text-red-300"}`}>{l.tipo === "receita" ? "+" : "−"} {formatCurrency(l.valor)}</td>
                     <td className="px-3 py-3"><span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${badgeStatus[l.status] || badgeStatus.pendente}`}>{l.status}</span></td>
                     <td className="whitespace-nowrap px-5 py-3 text-right">
-                      {l.status === "pendente" && <button onClick={() => mudarStatus(l, "pago")} className="mr-1.5 rounded-lg bg-emerald-500/15 px-2.5 py-1 text-[11px] font-bold text-emerald-300 hover:bg-emerald-500/25">Baixar</button>}
-                      <button onClick={() => setModal({ ...l })} className="mr-1.5 rounded-lg border border-white/10 bg-white/[0.06] px-2.5 py-1 text-[11px] font-bold text-slate-200 hover:bg-white/10">Editar</button>
-                      <button onClick={() => remover(l)} className="rounded-lg bg-red-500/15 px-2.5 py-1 text-[11px] font-bold text-red-300 hover:bg-red-500/25">Excluir</button>
+                      {l.auto ? (
+                        <span className="rounded-full border border-emerald-400/25 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-bold text-emerald-300/90">venda automática</span>
+                      ) : (<>
+                        {l.status === "pendente" && <button onClick={() => mudarStatus(l, "pago")} className="mr-1.5 rounded-lg bg-emerald-500/15 px-2.5 py-1 text-[11px] font-bold text-emerald-300 hover:bg-emerald-500/25">Baixar</button>}
+                        <button onClick={() => setModal({ ...l })} className="mr-1.5 rounded-lg border border-white/10 bg-white/[0.06] px-2.5 py-1 text-[11px] font-bold text-slate-200 hover:bg-white/10">Editar</button>
+                        <button onClick={() => remover(l)} className="rounded-lg bg-red-500/15 px-2.5 py-1 text-[11px] font-bold text-red-300 hover:bg-red-500/25">Excluir</button>
+                      </>)}
                     </td>
                   </tr>
                 ))}
@@ -6110,7 +6128,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
             }}
           />}
           {ativo === "financeiro" && (precisaEmpresa ? avisoEmpresa : <FinanceiroVisaoAdmin orders={filtraLoja(orders)} />)}
-          {ativo === "lancamentos" && (precisaEmpresa ? avisoEmpresa : <LancamentosAdmin lojaId={lojaInfo?.id} />)}
+          {ativo === "lancamentos" && (precisaEmpresa ? avisoEmpresa : <LancamentosAdmin lojaId={lojaInfo?.id} orders={filtraLoja(orders)} />)}
           {ativo === "caixa"      && (precisaEmpresa ? avisoEmpresa : <CaixaSessaoAdmin caixaAberto={caixaAberto} caixas={caixasLoja} api={caixaApi} formasPagamento={formasPagamento} currentUser={currentUser} />)}
           {ativo === "users"      && <UserAdmin      users={filtraLoja(users)} userForm={userForm} setUserForm={setUserForm} addUser={addUser} toggleUserStatus={toggleUserStatus} editarUsuario={editarUsuario} removerUsuario={removerUsuario} lojaInfo={lojaInfo} lojas={lojas} isSuperAdmin={isSuperAdmin} cargos={cargos} />}
           {ativo === "cargos"     && <CargoAdmin     cargos={filtraLoja(cargos)} users={filtraLoja(users)} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} />}
