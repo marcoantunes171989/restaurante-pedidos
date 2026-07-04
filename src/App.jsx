@@ -5612,6 +5612,14 @@ function LancamentosAdmin({ lojaId = null, orders = [], modo = "todos" }) {
   }));
   const saldo = receitasPagas + vendasPagas - despesasPagas;
 
+  // Receitas × Despesas por mês (últimos 6) — para o gráfico
+  const meses = (() => { const arr = []; const now = new Date(); for (let i = 5; i >= 0; i--) { const d = new Date(now.getFullYear(), now.getMonth() - i, 1); arr.push({ key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`, label: d.toLocaleDateString("pt-BR", { month: "short" }), rec: 0, desp: 0 }); } return arr; })();
+  const mesMap = Object.fromEntries(meses.map((m) => [m.key, m]));
+  lista.filter((l) => l.status === "pago").forEach((l) => { const k = (l.data || "").slice(0, 7); if (mesMap[k]) { if (l.tipo === "receita") mesMap[k].rec += l.valor; else mesMap[k].desp += l.valor; } });
+  pedidosPagos.forEach((o) => { const k = (o.createdAtISO || "").slice(0, 7); if (mesMap[k]) mesMap[k].rec += orderTotal(o); });
+  const maxMes = Math.max(1, ...meses.flatMap((m) => [m.rec, m.desp]));
+  const barH = (v) => Math.max(v > 0 ? 3 : 0, Math.round((v / maxMes) * 120));
+
   const q = busca.trim().toLowerCase();
   const base = mostrarVendas ? [...autoRows, ...lista] : lista;
   const filtrada = base.filter((l) => {
@@ -5709,6 +5717,29 @@ function LancamentosAdmin({ lojaId = null, orders = [], modo = "todos" }) {
           </div>
         )}
       </div>
+
+      {modo === "todos" && (
+        <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="page-title text-base font-bold text-white">Receitas × Despesas — últimos 6 meses</h3>
+            <div className="flex items-center gap-4 text-[11px] text-slate-400">
+              <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-emerald-400" /> Receitas (com vendas)</span>
+              <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-red-400" /> Despesas</span>
+            </div>
+          </div>
+          <div className="mt-5 flex items-end justify-between gap-2" style={{ height: 148 }}>
+            {meses.map((m) => (
+              <div key={m.key} className="flex flex-1 flex-col items-center justify-end gap-1.5">
+                <div className="flex items-end justify-center gap-1">
+                  <div style={{ height: barH(m.rec) }} className="w-3.5 rounded-t bg-gradient-to-t from-emerald-600 to-emerald-400" title={`Receitas: ${formatCurrency(m.rec)}`} />
+                  <div style={{ height: barH(m.desp) }} className="w-3.5 rounded-t bg-gradient-to-t from-red-600 to-red-400" title={`Despesas: ${formatCurrency(m.desp)}`} />
+                </div>
+                <span className="text-[10px] font-bold uppercase text-slate-400">{m.label.replace(".", "")}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {modal && <LancamentoModal inicial={modal} salvando={salvando} onFechar={() => setModal(null)} onSalvar={salvar} />}
     </main>
