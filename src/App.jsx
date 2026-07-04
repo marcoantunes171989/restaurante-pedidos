@@ -14641,10 +14641,12 @@ function MesaAdmin({ mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, o
     : mesas;
   const mesasOrdenadas = [...filtradas].sort((a, b) => a.numero - b.numero);
 
-  const pedidosAbertos = (mesa) => {
+  const abertosDaMesa = (mesa) => {
     const label = `Mesa ${String(mesa.numero).padStart(2, "0")}`;
-    return orders.filter((o) => o.table === label && o.paymentStatus !== "paid" && o.status !== "cancelled").length;
+    return orders.filter((o) => o.table === label && o.paymentStatus !== "paid" && o.status !== "cancelled");
   };
+  const pedidosAbertos = (mesa) => abertosDaMesa(mesa).length;
+  const valorMesa = (mesa) => abertosDaMesa(mesa).reduce((s, o) => s + orderTotal(o), 0);
 
   async function salvarNova(form) {
     const ok = await addMesa(form);
@@ -14666,6 +14668,21 @@ function MesaAdmin({ mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, o
         ]}
         acao={<PrimeButton onClick={() => setCriando(true)}><span className="text-lg leading-none">+</span> Cadastrar mesa</PrimeButton>}
       />
+
+      {/* Cards de resumo */}
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {[
+          { l: "Total de mesas", v: mesas.length, tom: "text-white" },
+          { l: "Disponíveis", v: mesas.filter((m) => m.active !== false && pedidosAbertos(m) === 0).length, tom: "text-emerald-400" },
+          { l: "Ocupadas", v: mesas.filter((m) => m.active !== false && pedidosAbertos(m) > 0).length, tom: "text-amber-400" },
+          { l: "Inativas", v: mesas.filter((m) => m.active === false).length, tom: "text-slate-300" },
+        ].map((c) => (
+          <div key={c.l} className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{c.l}</p>
+            <p className={`page-title mt-1.5 text-2xl font-black ${c.tom}`}>{c.v}</p>
+          </div>
+        ))}
+      </div>
 
       {/* Busca + lista */}
       <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
@@ -14694,7 +14711,7 @@ function MesaAdmin({ mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, o
                   <p className="text-xs text-slate-400">
                     {m.capacidade ? `${m.capacidade} lugares` : "Capacidade não definida"}
                     {m.localizacao && <span className="text-slate-500"> · 📍 {m.localizacao}</span>}
-                    {abertos > 0 && <span className="ml-2 rounded-full bg-amber-500/20 px-1.5 py-0.5 text-amber-300">{abertos} pedido(s) aberto(s)</span>}
+                    {abertos > 0 && <span className="ml-2 rounded-full bg-amber-500/20 px-1.5 py-0.5 font-bold text-amber-300">{abertos} pedido(s) · {formatCurrency(valorMesa(m))}</span>}
                   </p>
                 </div>
                 {/* Status operacional (briefing item 16): ocupada > inativa > disponível */}
