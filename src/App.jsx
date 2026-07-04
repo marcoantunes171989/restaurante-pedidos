@@ -5554,12 +5554,15 @@ function LancamentoModal({ inicial, onFechar, onSalvar, salvando }) {
     </div>
   );
 }
-function LancamentosAdmin({ lojaId = null, orders = [] }) {
+function LancamentosAdmin({ lojaId = null, orders = [], modo = "todos" }) {
+  const meta = modo === "receber" ? { t: "Contas a Receber", d: "Receitas pendentes de recebimento da empresa." }
+    : modo === "pagar" ? { t: "Contas a Pagar", d: "Despesas pendentes de pagamento da empresa." }
+    : { t: "Lançamentos", d: "Receitas, despesas e contas a pagar/receber da empresa." };
   const [lista, setLista] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [msg, setMsg] = useState(null);
-  const [filtroTipo, setFiltroTipo] = useState("todos");
-  const [filtroStatus, setFiltroStatus] = useState("todos");
+  const [filtroTipo, setFiltroTipo] = useState(modo === "receber" ? "receita" : modo === "pagar" ? "despesa" : "todos");
+  const [filtroStatus, setFiltroStatus] = useState(modo === "todos" ? "todos" : "pendente");
   const [busca, setBusca] = useState("");
   const [modal, setModal] = useState(null);
   const [salvando, setSalvando] = useState(false);
@@ -5626,7 +5629,7 @@ function LancamentosAdmin({ lojaId = null, orders = [] }) {
     const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = "lancamentos.csv"; a.click(); URL.revokeObjectURL(url);
   }
-  const novoVazio = () => ({ descricao: "", tipo: "despesa", valor: "", data: hoje, vencimento: "", status: "pendente", categoria: "", formaPagamento: "" });
+  const novoVazio = () => ({ descricao: "", tipo: modo === "receber" ? "receita" : "despesa", valor: "", data: hoje, vencimento: "", status: "pendente", categoria: "", formaPagamento: "" });
   const badgeStatus = { pendente: "bg-amber-500/15 text-amber-300", pago: "bg-emerald-500/15 text-emerald-300", cancelado: "bg-slate-700 text-slate-300" };
   const CARDS = [
     { l: "Vendas (pedidos)", v: formatCurrency(vendasPagas), c: "text-emerald-400" },
@@ -5639,8 +5642,7 @@ function LancamentosAdmin({ lojaId = null, orders = [] }) {
 
   return (
     <main className="space-y-5">
-      <PageHeader icone={<IconPagamento />} titulo="Lançamentos"
-        descricao="Receitas, despesas e contas a pagar/receber da empresa."
+      <PageHeader icone={<IconPagamento />} titulo={meta.t} descricao={meta.d}
         acao={<PrimeButton onClick={() => setModal(novoVazio())}><span className="text-lg leading-none">+</span> Novo lançamento</PrimeButton>} />
 
       {msg && <div className={`rounded-2xl border px-4 py-2.5 text-sm font-bold ${msg.t === "error" ? "border-red-400/30 bg-red-500/10 text-red-300" : "border-emerald-400/30 bg-emerald-500/10 text-emerald-300"}`}>{msg.m}</div>}
@@ -5930,6 +5932,8 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
     { grupo: "Financeiro", itens: [
       { id: "financeiro", icon: <IconPagamento />, label: "Visão Financeira" },
       { id: "lancamentos", icon: <IconPagamento />, label: "Lançamentos" },
+      { id: "contas-receber", icon: <IconPagamento />, label: "Contas a Receber" },
+      { id: "contas-pagar", icon: <IconPagamento />, label: "Contas a Pagar" },
       { id: "caixa", icon: <IconPagamento />, label: "Fechamento de Caixa" },
       { id: "pagamento", icon: <IconPagamento />, label: "Formas de Pagamento" },
     ]},
@@ -6129,6 +6133,8 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           />}
           {ativo === "financeiro" && (precisaEmpresa ? avisoEmpresa : <FinanceiroVisaoAdmin orders={filtraLoja(orders)} />)}
           {ativo === "lancamentos" && (precisaEmpresa ? avisoEmpresa : <LancamentosAdmin lojaId={lojaInfo?.id} orders={filtraLoja(orders)} />)}
+          {ativo === "contas-receber" && (precisaEmpresa ? avisoEmpresa : <LancamentosAdmin lojaId={lojaInfo?.id} orders={filtraLoja(orders)} modo="receber" />)}
+          {ativo === "contas-pagar" && (precisaEmpresa ? avisoEmpresa : <LancamentosAdmin lojaId={lojaInfo?.id} orders={filtraLoja(orders)} modo="pagar" />)}
           {ativo === "caixa"      && (precisaEmpresa ? avisoEmpresa : <CaixaSessaoAdmin caixaAberto={caixaAberto} caixas={caixasLoja} api={caixaApi} formasPagamento={formasPagamento} currentUser={currentUser} />)}
           {ativo === "users"      && <UserAdmin      users={filtraLoja(users)} userForm={userForm} setUserForm={setUserForm} addUser={addUser} toggleUserStatus={toggleUserStatus} editarUsuario={editarUsuario} removerUsuario={removerUsuario} lojaInfo={lojaInfo} lojas={lojas} isSuperAdmin={isSuperAdmin} cargos={cargos} />}
           {ativo === "cargos"     && <CargoAdmin     cargos={filtraLoja(cargos)} users={filtraLoja(users)} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} />}
