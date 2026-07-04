@@ -7627,8 +7627,8 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
   // Botões de exportação (reutilizados em várias abas)
   const BotoesExport = () => (
     <div className="flex flex-wrap gap-2">
-      <button onClick={exportarCSV} className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-2.5 text-sm font-bold text-emerald-300 hover:bg-emerald-500/20 transition">📊 Exportar Excel (CSV)</button>
-      <button onClick={imprimirRelatorio} className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-2.5 text-sm font-bold text-slate-200 hover:bg-white/10 transition">📄 PDF / Imprimir</button>
+      <button onClick={exportarCSV} className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-2.5 text-sm font-bold text-emerald-300 hover:bg-emerald-500/20 transition">Exportar Excel (CSV)</button>
+      <button onClick={imprimirRelatorio} className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-2.5 text-sm font-bold text-slate-200 hover:bg-white/10 transition">PDF / Imprimir</button>
     </div>
   );
 
@@ -7974,18 +7974,18 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
       {aba === "estoque" && (
         <>
           <div className="flex flex-wrap gap-2">
-            <button onClick={exportarEstoqueCSV} className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-2.5 text-sm font-bold text-emerald-300 hover:bg-emerald-500/20 transition">📊 Exportar Excel (CSV)</button>
+            <button onClick={exportarEstoqueCSV} className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-2.5 text-sm font-bold text-emerald-300 hover:bg-emerald-500/20 transition">Exportar Excel (CSV)</button>
           </div>
 
           {/* Destaques: maior x menor estoque + totais */}
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <div className="rounded-[1.5rem] border border-emerald-400/25 bg-emerald-500/[0.07] p-5">
-              <p className="text-[11px] font-bold uppercase tracking-widest text-emerald-300/80">📈 Maior estoque</p>
+              <p className="text-[11px] font-bold uppercase tracking-widest text-emerald-300/80">Maior estoque</p>
               <p className="page-title mt-2 truncate text-lg font-bold text-white">{maiorEstoque ? maiorEstoque.name : "—"}</p>
               <p className="mt-0.5 text-sm font-black text-emerald-400">{maiorEstoque ? `${maiorEstoque.estoque ?? 0} un` : "Sem produtos"}</p>
             </div>
             <div className="rounded-[1.5rem] border border-red-400/25 bg-red-500/[0.07] p-5">
-              <p className="text-[11px] font-bold uppercase tracking-widest text-red-300/80">📉 Menor estoque</p>
+              <p className="text-[11px] font-bold uppercase tracking-widest text-red-300/80">Menor estoque</p>
               <p className="page-title mt-2 truncate text-lg font-bold text-white">{menorEstoque ? menorEstoque.name : "—"}</p>
               <p className="mt-0.5 text-sm font-black text-red-300">{menorEstoque ? `${menorEstoque.estoque ?? 0} un` : "Sem produtos"}</p>
             </div>
@@ -8580,7 +8580,7 @@ function RelatorioSatisfacao({ pesquisas = [] }) {
             className="w-full rounded-2xl border border-white/10 bg-slate-950/40 py-2.5 pl-9 pr-3 text-sm text-white outline-none focus:border-gold-400/60 placeholder:text-slate-500" />
         </div>
         {termo && <button onClick={() => setBuscaCli("")} className="rounded-2xl border border-white/10 bg-white/[0.06] px-3 py-2.5 text-xs font-bold text-slate-300 hover:bg-white/10">Limpar</button>}
-        <button onClick={exportarCSV} disabled={lista.length === 0} className="rounded-2xl bg-gold-400 px-4 py-2.5 text-sm font-black text-blue-950 transition hover:bg-gold-300 active:scale-95 disabled:opacity-40">⬇ Exportar CSV</button>
+        <button onClick={exportarCSV} disabled={lista.length === 0} className="rounded-2xl bg-gold-400 px-4 py-2.5 text-sm font-black text-blue-950 transition hover:bg-gold-300 active:scale-95 disabled:opacity-40">Exportar CSV</button>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
