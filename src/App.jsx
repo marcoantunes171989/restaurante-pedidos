@@ -880,6 +880,10 @@ export default function RestaurantePedidoApp() {
   // O projeto não usa React Router: a navegação é por estado. Aqui espelhamos
   // a tela atual na URL (History API) para que VOLTAR/AVANÇAR do navegador
   // funcionem entre telas internas e NÃO joguem o usuário autenticado na landing.
+  // Trava de idempotência da baixa/pagamento: evita registrar financeiro/estoque em
+  // duplicidade se baixarComandas for chamada 2x para o mesmo alvo (duplo clique,
+  // re-render, callback repetido) antes da 1ª chamada concluir.
+  const processandoBaixaRef = useRef(new Set());
   const popstateRef = useRef(false);      // true = mudança veio do "voltar" (não re-empilha)
   const primeiraSyncRef = useRef(true);   // 1ª sincronização usa replaceState (entrada base)
   function rotaDoEstado(tab, section, setorId) {
@@ -1531,41 +1535,51 @@ export default function RestaurantePedidoApp() {
     // somenteId: paga exatamente UM pedido (preciso, mesmo sem comanda — caso de delivery externo);
     // senão, fecha todos os pedidos das comandas informadas.
     const ehAlvo = (o) => somenteId ? o.id === somenteId : comandas.includes(o.command);
+    // Trava de idempotência por chave do alvo: 2ª chamada concorrente para o MESMO
+    // pedido/comanda (duplo clique, re-render, callback repetido) é ignorada enquanto
+    // a 1ª ainda está em andamento — evita duplicar baixa/estoque/financeiro.
+    const chave = somenteId != null ? `id:${somenteId}` : `cmd:${[...comandas].sort().join(",")}`;
+    if (processandoBaixaRef.current.has(chave)) return notify("error", "Pagamento já está sendo processado.");
     const alvo = orders.filter((o) => ehAlvo(o) && o.paymentStatus !== "paid");
     if (alvo.length === 0) return notify("error", "Nenhum pedido em aberto para essas comandas.");
-    // Itens vendidos (para baixa de estoque)
-    const itensVendidos = alvo.flatMap((o) => o.items.map((it) => ({ name: it.name, quantity: it.quantity })));
-    setOrders((cur) => cur.map((o) => (ehAlvo(o) && o.paymentStatus !== "paid") ? { ...o, paymentStatus: "paid", ...(manterStatus ? {} : { status: "delivered" }) } : o));
-    let alertasEstoque = [];
-    if (dbReady) {
-      try {
-        await Promise.all(alvo.map((o) => atualizarPedido(o.id, { status_pagamento: "pago", ...(manterStatus ? {} : { status: "entregue" }) })));
-        const r = await baixarEstoque(itensVendidos, lojaAtual, comandas); // baixa correta por loja + registro
-        alertasEstoque = r?.alertas || [];
-        if (info) await registrarPagamento({ ...info, comandas }); // histórico de pagamento
-        // Caixa aberto: registra a venda como movimento (por forma de pagamento). Tolerante.
-        if (info && caixaAberto) {
-          try {
-            const formas = Array.isArray(info.detalhes) && info.detalhes.length ? info.detalhes : [{ forma: "Pagamento", valor: info.total }];
-            await Promise.all(formas.map((d) => registrarMovimentoCaixa({ caixaId: caixaAberto.id, lojaId: lojaAtual, tipo: "venda", valor: d.valor, descricao: `Venda ${d.forma || ""} · ${info.mesa || ""}`.trim(), usuarioId: currentUser?.id ?? null })));
-          } catch {}
-        }
-        // Fidelidade: concede pontos ao cliente identificado (por telefone). Tolerante.
-        if (fidRegraAtual && fidRegraAtual.valorPorPonto > 0) {
-          try {
-            const porCliente = {};
-            alvo.forEach((o) => { if (o.clienteTelefone) porCliente[o.clienteTelefone] = (porCliente[o.clienteTelefone] || 0) + orderTotal(o); });
-            for (const [tel, valor] of Object.entries(porCliente)) {
-              const cli = clientes.find((c) => c.telefone === tel && (c.lojaId == null || c.lojaId === lojaAtual));
-              const pts = Math.floor(valor / fidRegraAtual.valorPorPonto);
-              if (cli && pts > 0) { const t = await lancarFidelidadeTransacao({ lojaId: lojaAtual, clienteId: cli.id, pontos: pts, tipo: "earn", descricao: `Compra ${formatCurrency(valor)}` }); setFidTransacoes((cur) => [t, ...cur]); }
-            }
-          } catch {}
-        }
-      } catch (err) { console.error("Erro ao finalizar pagamento:", err); }
+    processandoBaixaRef.current.add(chave);
+    try {
+      // Itens vendidos (para baixa de estoque)
+      const itensVendidos = alvo.flatMap((o) => o.items.map((it) => ({ name: it.name, quantity: it.quantity })));
+      setOrders((cur) => cur.map((o) => (ehAlvo(o) && o.paymentStatus !== "paid") ? { ...o, paymentStatus: "paid", ...(manterStatus ? {} : { status: "delivered" }) } : o));
+      let alertasEstoque = [];
+      if (dbReady) {
+        try {
+          await Promise.all(alvo.map((o) => atualizarPedido(o.id, { status_pagamento: "pago", ...(manterStatus ? {} : { status: "entregue" }) })));
+          const r = await baixarEstoque(itensVendidos, lojaAtual, comandas); // baixa correta por loja + registro
+          alertasEstoque = r?.alertas || [];
+          if (info) await registrarPagamento({ ...info, comandas }); // histórico de pagamento
+          // Caixa aberto: registra a venda como movimento (por forma de pagamento). Tolerante.
+          if (info && caixaAberto) {
+            try {
+              const formas = Array.isArray(info.detalhes) && info.detalhes.length ? info.detalhes : [{ forma: "Pagamento", valor: info.total }];
+              await Promise.all(formas.map((d) => registrarMovimentoCaixa({ caixaId: caixaAberto.id, lojaId: lojaAtual, tipo: "venda", valor: d.valor, descricao: `Venda ${d.forma || ""} · ${info.mesa || ""}`.trim(), usuarioId: currentUser?.id ?? null })));
+            } catch {}
+          }
+          // Fidelidade: concede pontos ao cliente identificado (por telefone). Tolerante.
+          if (fidRegraAtual && fidRegraAtual.valorPorPonto > 0) {
+            try {
+              const porCliente = {};
+              alvo.forEach((o) => { if (o.clienteTelefone) porCliente[o.clienteTelefone] = (porCliente[o.clienteTelefone] || 0) + orderTotal(o); });
+              for (const [tel, valor] of Object.entries(porCliente)) {
+                const cli = clientes.find((c) => c.telefone === tel && (c.lojaId == null || c.lojaId === lojaAtual));
+                const pts = Math.floor(valor / fidRegraAtual.valorPorPonto);
+                if (cli && pts > 0) { const t = await lancarFidelidadeTransacao({ lojaId: lojaAtual, clienteId: cli.id, pontos: pts, tipo: "earn", descricao: `Compra ${formatCurrency(valor)}` }); setFidTransacoes((cur) => [t, ...cur]); }
+              }
+            } catch {}
+          }
+        } catch (err) { console.error("Erro ao finalizar pagamento:", err); }
+      }
+      notify("success", manterStatus ? "✅ Pagamento registrado · aguardando retirada do produto." : `✅ Pagamento finalizado! ${comandas.length} comanda(s) baixada(s), estoque atualizado.`);
+      return { alertas: alertasEstoque };
+    } finally {
+      processandoBaixaRef.current.delete(chave);
     }
-    notify("success", manterStatus ? "✅ Pagamento registrado · aguardando retirada do produto." : `✅ Pagamento finalizado! ${comandas.length} comanda(s) baixada(s), estoque atualizado.`);
-    return { alertas: alertasEstoque };
   }
 
   // ── Comandas geradas (registro para validação) ──────────────
@@ -6965,8 +6979,17 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
   const setorPorNome = useMemo(() => { const m = {}; products.forEach((p) => { if (p.setorId != null) m[p.name] = p.setorId; }); return m; }, [products]);
   const catPorNome = useMemo(() => { const m = {}; products.forEach((p) => { m[p.name] = p.category; }); return m; }, [products]);
   const setorNomePorId = useMemo(() => { const m = {}; setores.forEach((s) => { if (s.id != null) m[s.id] = s.nome; }); return m; }, [setores]);
-  // Ordem dos setores = ordem de cadastro (setores ativos).
-  const ordemSetores = useMemo(() => setores.filter((s) => s.ativo !== false).map((s) => s.nome), [setores]);
+  // Ordem dos setores = ordem de cadastro (setores ativos), sem duplicar por nome
+  // (defensivo: evita setor repetido no filtro/agrupamento se a origem tiver duplicidade).
+  const normSetor = (s) => String(s || "").trim().toLowerCase();
+  const ordemSetores = useMemo(() => {
+    const vistos = new Set(); const out = [];
+    setores.filter((s) => s.ativo !== false).forEach((s) => {
+      const k = normSetor(s.nome);
+      if (k && !vistos.has(k)) { vistos.add(k); out.push(s.nome); }
+    });
+    return out;
+  }, [setores]);
   const iconeSetor = (nome) => /bar|bebida|drink/i.test(nome) ? "🍹" : /sobremesa|doce|sweet|confeit/i.test(nome) ? "🍰" : "👨‍🍳";
   const metaSetor = (nome) => ({ label: nome, ic: iconeSetor(nome) });
   const barLike = (nome) => /bar|bebida|drink/i.test(nome);
@@ -7081,7 +7104,14 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
 
       {tab === "pedidos" && permitido("pedidos") && (() => {
         // Setores DINÂMICOS: cadastrados (ativos) que têm produtos ativos vinculados.
-        const setoresChip = setores.filter((s) => s.ativo !== false && products.some((p) => p.setorId === s.id && p.active !== false)).map((s) => s.nome);
+        const setoresChip = (() => {
+          const vistos = new Set(); const out = [];
+          setores.filter((s) => s.ativo !== false && products.some((p) => p.setorId === s.id && p.active !== false)).forEach((s) => {
+            const k = normSetor(s.nome);
+            if (k && !vistos.has(k)) { vistos.add(k); out.push(s.nome); }
+          });
+          return out;
+        })();
         const setorFiltrado = (filtroCentral !== "todos" && filtroCentral !== "caixa") ? filtroCentral : null;
         const ativosFiltrados = ativos.filter((o) => setorFiltrado ? itensDoSetor(o, setorFiltrado).length > 0 : true)
           // Fila em ordem cronológica fixa: o mais antigo no topo (#1, #2, #3…),
@@ -7113,15 +7143,15 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
                 <p className="text-xs text-[#475467]">{o.customer || "Cliente"}</p>
                 {telMascarado(o.clienteTelefone) && <p className="text-[11px] text-[#667085]">📞 {telMascarado(o.clienteTelefone)}</p>}
                 {o.pagamentoForma && <p className="text-[11px] font-bold text-[#9A6A00]">💳 {o.pagamentoForma}{o.pagamentoMomento ? ` · ${o.pagamentoMomento}` : ""}</p>}
-                <div className="mt-2 space-y-2">
-                  {setoresPresentes(o).filter((sk) => !setorFiltrado || sk === setorFiltrado).map((sk) => { const its = itensDoSetor(o, sk); const liberado = setorPronto(o, sk) && parcial(o);
+                <div className="mt-2">
+                  {setoresPresentes(o).filter((sk) => !setorFiltrado || sk === setorFiltrado).map((sk, idx) => { const its = itensDoSetor(o, sk); const liberado = setorPronto(o, sk) && parcial(o);
                     return (
-                      <div key={sk}>
+                      <div key={sk} className={idx > 0 ? "mt-3 border-t border-[#E5E7EB] pt-2.5" : ""}>
                         <div className="flex items-center gap-1.5">
-                          <span className="text-[10px] font-bold uppercase tracking-wide text-[#667085]">{metaSetor(sk).ic} {metaSetor(sk).label}</span>
+                          <span className="text-[10px] font-bold uppercase tracking-wide text-[#9A6A00]">{metaSetor(sk).ic} {metaSetor(sk).label}</span>
                           {liberado && <span className="rounded-full border border-[#B7E4C7] bg-[#ECFDF3] px-1.5 py-0.5 text-[9px] font-bold text-[#147A4A]">✓ liberado</span>}
                         </div>
-                        <div className="mt-0.5 space-y-0.5">
+                        <div className="mt-1 space-y-0.5">
                           {its.map((it, i) => <p key={i} className={`text-xs ${liberado ? "text-[#98A2B3] line-through decoration-[#B7E4C7]" : "text-[#475467]"}`}>{it.quantity}× {it.name}</p>)}
                         </div>
                       </div>
@@ -7219,16 +7249,30 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
 function CaixaMobile({ contas, totalCom, baixarComandas, confirmarRetirada = async () => {}, formasPagamento = [], lojaInfo, haTxt, numeroPedido = {}, telMascarado = () => "" }) {
   const [pagando, setPagando] = useState(null);
   const [retirando, setRetirando] = useState(null);
+  // Trava síncrona (ref) contra clique duplo antes do re-render aplicar o "disabled".
+  const pagandoIdsRef = useRef(new Set());
   async function retirar(o) { setRetirando(o.id); try { await confirmarRetirada(o.id); } catch {} setRetirando(null); }
-  const opcoes = (() => { const a = formasPagamento.filter((f) => f.active !== false).map((f) => f.nome).filter(Boolean); return a.length ? a : ["Pix", "Cartão", "Dinheiro"]; })();
+  // Lista única de formas de pagamento (dedup por nome normalizado — evita botão
+  // repetido se a origem trouxer o mesmo nome mais de uma vez).
+  const opcoes = (() => {
+    const vistos = new Set(); const out = [];
+    formasPagamento.filter((f) => f.active !== false).forEach((f) => {
+      const nome = (f.nome || "").trim(); const k = nome.toLowerCase();
+      if (nome && !vistos.has(k)) { vistos.add(k); out.push(nome); }
+    });
+    return out.length ? out : ["Pix", "Cartão", "Dinheiro"];
+  })();
   const abertas = contas.filter((o) => o.paymentStatus !== "paid");
   const totalAberto = abertas.reduce((s, o) => s + totalCom(o), 0);
   async function finalizar(o, linhas, total) {
+    if (pagandoIdsRef.current.has(o.id)) return; // clique duplo antes do re-render desabilitar o botão
+    pagandoIdsRef.current.add(o.id);
     setPagando(o.id);
     try {
       const detalhes = linhas.map((l) => ({ forma: l.forma, valor: Number(l.valor) || 0 }));
       await baixarComandas([o.command], { forma: detalhes.map((d) => d.forma).join(" + "), total, valor: total, detalhes, mesa: o.table, lojaId: lojaInfo?.id }, { manterStatus: true, somenteId: o.id });
     } catch {}
+    pagandoIdsRef.current.delete(o.id);
     setPagando(null);
   }
   return (
