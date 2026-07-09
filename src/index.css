@@ -160,12 +160,21 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
 [data-theme="light"] .tema-claro-area .bg-slate-950\/60,
 [data-theme="light"] .tema-claro-area .bg-slate-950\/50,
 [data-theme="light"] .tema-claro-area .bg-slate-950\/40,
+[data-theme="light"] .tema-claro-area .bg-slate-950\/30,
+[data-theme="light"] .tema-claro-area .bg-slate-900\/95,
 [data-theme="light"] .tema-claro-area .bg-slate-900\/90,
-[data-theme="light"] .tema-claro-area .bg-slate-900\/80 { background-color: #FFFFFF !important; }
+[data-theme="light"] .tema-claro-area .bg-slate-900\/80,
+[data-theme="light"] .tema-claro-area .bg-slate-900\/70,
+[data-theme="light"] .tema-claro-area .bg-slate-900\/60,
+[data-theme="light"] .tema-claro-area .bg-slate-900\/50,
+[data-theme="light"] .tema-claro-area .bg-blue-950\/60,
+[data-theme="light"] .tema-claro-area .bg-blue-950\/40,
+[data-theme="light"] .tema-claro-area .bg-blue-950\/20 { background-color: #FFFFFF !important; }
 /* Cartões aninhados (slate-800) → off-white para diferenciar do branco */
 [data-theme="light"] .tema-claro-area .bg-slate-800,
 [data-theme="light"] .tema-claro-area .bg-slate-800\/60,
-[data-theme="light"] .tema-claro-area .bg-slate-800\/40 { background-color: #F1F5F9 !important; }
+[data-theme="light"] .tema-claro-area .bg-slate-800\/50,
+[data-theme="light"] .tema-claro-area .bg-slate-800\/40 { background-color: #F3F4F6 !important; }
 /* Superfícies elevadas translúcidas (white/x) → cinza claro sutil e visível */
 [data-theme="light"] .tema-claro-area .bg-white\/\[0\.02\],
 [data-theme="light"] .tema-claro-area .bg-white\/\[0\.03\],

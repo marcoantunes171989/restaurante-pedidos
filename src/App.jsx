@@ -456,8 +456,8 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
   const [entrando, setEntrando] = useState(false);   // estado visual "Entrando..."
   // Reseta o loading quando chega uma mensagem (ex.: erro de credenciais).
   useEffect(() => { if (message && message.text) setEntrando(false); }, [message]);
-  const labelCls = "mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-[#061A2E]";
-  const inputCls = "w-full rounded-2xl border border-[#E7E1D8] bg-white py-3.5 pl-11 pr-4 text-[15px] text-[#111827] outline-none transition focus:border-[#C99A2E] focus:ring-2 focus:ring-[#C99A2E]/20 placeholder:text-[#98A2B3]";
+  const labelCls = "mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-[#344054]";
+  const inputCls = "w-full rounded-2xl border border-[#D0D5DD] bg-white py-3.5 pl-11 pr-4 text-[15px] text-[#182230] outline-none transition focus:border-[#2563EB] focus:ring-2 focus:ring-[#BFDBFE] placeholder:text-[#98A2B3]";
   const podeEntrar = loginForm.email.trim() && loginForm.password;
 
   // Ícones (SVG inline — leves e elegantes)
@@ -480,70 +480,70 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
   };
 
   return (
-    <div className="relative flex min-h-[100dvh] w-full overflow-hidden text-white" style={{ fontFamily: "'Inter','Poppins',sans-serif", backgroundImage: "linear-gradient(135deg, #03101C 0%, #061A2E 55%, #0B2A3D 100%)" }}>
-      {/* Camadas de profundidade — tela inteira (fundo escuro contínuo) */}
-      <div className="pointer-events-none absolute inset-0 opacity-[0.05]" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)", backgroundSize: "30px 30px" }} />
-      <div className="pointer-events-none absolute -top-24 right-0 h-[34rem] w-[34rem] rounded-full" style={{ background: "radial-gradient(closest-side, rgba(201,154,46,0.16), transparent)" }} />
-      <div className="pointer-events-none absolute -bottom-28 -left-20 h-[28rem] w-[28rem] rounded-full" style={{ background: "radial-gradient(closest-side, rgba(31,42,68,0.9), transparent)" }} />
+    <div data-theme="light" className="tema-claro-area relative flex min-h-[100dvh] w-full overflow-hidden text-[#182230]" style={{ fontFamily: "'Inter','Poppins',sans-serif", backgroundColor: "#F7F8FA" }}>
+      {/* Camadas de profundidade — tela inteira (fundo claro contínuo) */}
+      <div className="pointer-events-none absolute inset-0 opacity-[0.05]" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #182230 1px, transparent 0)", backgroundSize: "30px 30px" }} />
+      <div className="pointer-events-none absolute -top-24 right-0 h-[34rem] w-[34rem] rounded-full" style={{ background: "radial-gradient(closest-side, rgba(217,164,65,0.14), transparent)" }} />
+      <div className="pointer-events-none absolute -bottom-28 -left-20 h-[28rem] w-[28rem] rounded-full" style={{ background: "radial-gradient(closest-side, rgba(37,99,235,0.07), transparent)" }} />
 
       {/* ══ Painel institucional (desktop) ══ */}
-      <aside className="pp-anim-left relative z-10 hidden w-[46%] shrink-0 flex-col justify-between overflow-hidden border-r border-white/10 p-10 text-white xl:p-14 lg:flex">
+      <aside className="pp-anim-left relative z-10 hidden w-[46%] shrink-0 flex-col justify-between overflow-hidden border-r border-[#E5E7EB] p-10 text-[#182230] xl:p-14 lg:flex">
 
         {/* Marca */}
         <div className="relative flex items-center gap-2.5">
           <LogoPP size={40} />
-          <span className="font-display text-lg font-bold tracking-tight"><span className="text-white">PEDIDO</span> <span className="text-[#C99A2E]">PRIME</span></span>
+          <span className="font-display text-lg font-bold tracking-tight"><span className="text-[#182230]">PEDIDO</span> <span className="text-[#D9A441]">PRIME</span></span>
         </div>
 
         {/* Pitch + mockup */}
         <div className="relative">
-          <h2 className="font-display max-w-md text-3xl font-black leading-tight xl:text-4xl">Controle seu restaurante em <span className="text-[#C99A2E]">tempo real</span></h2>
-          <p className="mt-4 max-w-md text-sm leading-7 text-[#CBD5E1]">Acesse pedidos, mesas, cozinha, caixa, financeiro e relatórios em uma única plataforma inteligente para food service.</p>
+          <h2 className="font-display max-w-md text-3xl font-black leading-tight xl:text-4xl">Controle seu restaurante em <span className="text-[#D9A441]">tempo real</span></h2>
+          <p className="mt-4 max-w-md text-sm leading-7 text-[#475467]">Acesse pedidos, mesas, cozinha, caixa, financeiro e relatórios em uma única plataforma inteligente para food service.</p>
           <div className="mt-6 grid max-w-md grid-cols-2 gap-x-6 gap-y-3">
             {["Pedidos digitais", "Cozinha em tempo real", "Caixa e financeiro", "Relatórios gerenciais"].map((b) => (
-              <div key={b} className="flex items-center gap-2 text-sm font-medium text-[#E7E1D8]">
-                <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="#E7C873" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>{b}
+              <div key={b} className="flex items-center gap-2 text-sm font-medium text-[#475467]">
+                <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="#D9A441" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>{b}
               </div>
             ))}
           </div>
 
           {/* Mini mockup */}
-          <div className="mt-8 max-w-sm rounded-2xl border border-white/10 bg-white/[0.05] p-4 backdrop-blur-sm">
+          <div className="mt-8 max-w-sm rounded-2xl border border-[#E5E7EB] bg-white p-4 shadow-[0_8px_24px_rgba(16,24,40,0.06)]">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/10 text-base">🍽️</span>
+                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#F3F4F6] text-base">🍽️</span>
                 <div>
-                  <p className="font-display text-sm font-bold leading-none">Mesa 12</p>
-                  <p className="mt-1 text-[10px] text-white/50">Comanda #087</p>
+                  <p className="font-display text-sm font-bold leading-none text-[#182230]">Mesa 12</p>
+                  <p className="mt-1 text-[10px] text-[#98A2B3]">Comanda #087</p>
                 </div>
               </div>
-              <span className="rounded-full bg-[#D97706]/20 px-2.5 py-1 text-[10px] font-bold text-[#D97706]">Em preparo</span>
+              <span className="rounded-full bg-[#FFF4E5] px-2.5 py-1 text-[10px] font-bold text-[#B45309]">Em preparo</span>
             </div>
             <div className="mt-3 space-y-1.5">
               {[["1x", "Risoto de camarão", "58,00"], ["2x", "Suco natural", "12,00"]].map((i) => (
-                <div key={i[1]} className="flex items-center justify-between rounded-lg bg-white/[0.04] px-3 py-2 text-xs">
-                  <span className="text-[#E7E1D8]"><b className="text-white">{i[0]}</b> {i[1]}</span>
-                  <span className="font-display font-bold text-white">R$ {i[2]}</span>
+                <div key={i[1]} className="flex items-center justify-between rounded-lg bg-[#F9FAFB] px-3 py-2 text-xs">
+                  <span className="text-[#475467]"><b className="text-[#182230]">{i[0]}</b> {i[1]}</span>
+                  <span className="font-display font-bold text-[#182230]">R$ {i[2]}</span>
                 </div>
               ))}
             </div>
             <div className="mt-3 flex items-center gap-1.5">
               {["Recebido", "Preparando", "Pronto"].map((s, i) => (
                 <div key={s} className="flex-1 text-center">
-                  <div className={`h-1 rounded-full ${i <= 1 ? "bg-[#C99A2E]" : "bg-white/15"}`} />
-                  <p className={`mt-1 text-[8px] font-bold ${i <= 1 ? "text-[#E7C873]" : "text-white/40"}`}>{s}</p>
+                  <div className={`h-1 rounded-full ${i <= 1 ? "bg-[#D9A441]" : "bg-[#E5E7EB]"}`} />
+                  <p className={`mt-1 text-[8px] font-bold ${i <= 1 ? "text-[#9A6A00]" : "text-[#98A2B3]"}`}>{s}</p>
                 </div>
               ))}
             </div>
-            <div className="mt-3 flex items-center justify-between border-t border-white/10 pt-3">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-white/50">Total</span>
-              <span className="font-display text-base font-black text-[#C99A2E]">R$ 82,00</span>
+            <div className="mt-3 flex items-center justify-between border-t border-[#E5E7EB] pt-3">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#667085]">Total</span>
+              <span className="font-display text-base font-black text-[#D9A441]">R$ 82,00</span>
             </div>
           </div>
         </div>
 
         {/* Rodapé do painel */}
-        <p className="relative flex items-center gap-2 text-xs text-white/50">
+        <p className="relative flex items-center gap-2 text-xs text-[#667085]">
           <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="11" width="16" height="9" rx="2.5" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>
           Plataforma segura · acesso por usuário e permissão
         </p>
@@ -556,12 +556,12 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
           {/* Card */}
           <form onSubmit={(e) => { e.preventDefault(); if (podeEntrar && !entrando) { setEntrando(true); login(); } }}
             autoComplete="off"
-            className="relative overflow-hidden rounded-[1.75rem] border border-white/10 bg-white p-6 shadow-[0_30px_70px_-20px_rgba(0,0,0,0.55)] ring-1 ring-black/5 sm:p-7 space-y-4">
-            <span className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#C99A2E] to-[#E7C873]" />
+            className="relative overflow-hidden rounded-[1.75rem] border border-[#E5E7EB] bg-white p-6 shadow-[0_8px_24px_rgba(16,24,40,0.08)] sm:p-7 space-y-4">
+            <span className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#D9A441] to-[#C7922F]" />
             {/* Marca / título (dentro do card, sobre fundo claro) */}
             <div className="mb-1 text-center">
               <div className="mx-auto flex h-14 w-14 items-center justify-center"><LogoPP size={56} /></div>
-              <h1 className="font-display mt-3 text-2xl font-black tracking-tight"><span className="text-[#061A2E]">Pedido</span> <span className="text-[#C99A2E]">Prime</span></h1>
+              <h1 className="font-display mt-3 text-2xl font-black tracking-tight"><span className="text-[#182230]">Pedido</span> <span className="text-[#D9A441]">Prime</span></h1>
               <p className="mt-1 text-sm text-[#667085]">Acesse sua conta para continuar</p>
             </div>
             {/* Campos isca ocultos: absorvem o autofill do navegador */}
@@ -593,7 +593,7 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
                   placeholder="••••••••" className={`${inputCls} pr-11`} />
                 <button type="button" onClick={() => setVerSenha((v) => !v)}
                   aria-label={verSenha ? "Ocultar senha" : "Mostrar senha"} title={verSenha ? "Ocultar senha" : "Mostrar senha"}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-[#98A2B3] transition hover:bg-[#FFFDF8] hover:text-[#061A2E]">
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-[#98A2B3] transition hover:bg-[#F9FAFB] hover:text-[#182230]">
                   {IconeOlho}
                 </button>
               </div>
@@ -601,7 +601,7 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
 
             {/* Mensagem */}
             {message.text && (
-              <div className={`pp-anim-fade flex items-start gap-2 rounded-2xl border p-3 text-sm ${message.type === "error" ? "border-[#DC2626]/25 bg-[#FEE2E2] text-[#DC2626]" : "border-[#16A34A]/25 bg-[#DCFCE7] text-[#16A34A]"}`}>
+              <div className={`pp-anim-fade flex items-start gap-2 rounded-2xl border p-3 text-sm ${message.type === "error" ? "border-[#E5484D]/25 bg-[#FFF1F2] text-[#B42318]" : "border-[#22A06B]/25 bg-[#EAFBF2] text-[#147A4A]"}`}>
                 <span className="mt-0.5 shrink-0">{message.type === "error" ? "⚠️" : "✅"}</span>
                 <span>{message.text}</span>
               </div>
@@ -609,32 +609,32 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
 
             {/* Entrar */}
             <button type="submit" disabled={!podeEntrar || entrando}
-              className="mt-1 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#C99A2E] px-5 py-4 text-sm font-black text-[#061A2E] shadow-lg shadow-[#C99A2E]/30 transition hover:bg-[#E7C873] active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100">
+              className="mt-1 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#D9A441] px-5 py-4 text-sm font-black text-[#182230] shadow-lg shadow-[#D9A441]/25 transition hover:bg-[#C7922F] active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100">
               {entrando
-                ? <><span className="h-4 w-4 animate-spin rounded-full border-2 border-[#061A2E]/30 border-t-[#061A2E]" /> Entrando...</>
+                ? <><span className="h-4 w-4 animate-spin rounded-full border-2 border-[#182230]/30 border-t-[#182230]" /> Entrando...</>
                 : <>Entrar →</>}
             </button>
           </form>
 
           {/* Divisor + QR Code */}
           <div className="my-4 flex items-center gap-3">
-            <span className="h-px flex-1 bg-white/15" />
-            <span className="text-[11px] font-bold uppercase tracking-wider text-white/50">ou</span>
-            <span className="h-px flex-1 bg-white/15" />
+            <span className="h-px flex-1 bg-[#E5E7EB]" />
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[#98A2B3]">ou</span>
+            <span className="h-px flex-1 bg-[#E5E7EB]" />
           </div>
           <button type="button" onClick={() => setScanLogin(true)}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-[#E7E1D8] bg-white py-3 text-sm font-bold text-[#061A2E] transition hover:border-[#C99A2E]/40 hover:bg-[#FFFDF8]">
+            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-[#D0D5DD] bg-white py-3 text-sm font-bold text-[#182230] transition hover:border-[#D9A441]/40 hover:bg-[#F9FAFB]">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-[16px] w-[16px]"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M14 14h3v3M21 14v.01M14 21h.01M21 21v.01M17.5 21H21v-3.5"/></svg>
             Entrar com QR Code
           </button>
 
           {/* Segurança */}
-          <p className="mt-5 flex items-center justify-center gap-1.5 text-center text-[11px] text-[#CBD5E1]">
+          <p className="mt-5 flex items-center justify-center gap-1.5 text-center text-[11px] text-[#667085]">
             <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="11" width="16" height="9" rx="2.5" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>
             Acesso controlado por usuário e permissão
           </p>
           <div className="mt-3 text-center">
-            <button onClick={voltarAoSite} className="text-xs font-bold text-[#CBD5E1] transition hover:text-[#C99A2E]">← Voltar ao site</button>
+            <button onClick={voltarAoSite} className="text-xs font-bold text-[#667085] transition hover:text-[#D9A441]">← Voltar ao site</button>
           </div>
         </div>
 
@@ -2223,14 +2223,14 @@ export default function RestaurantePedidoApp() {
   const bloqueioEmpresa = bloqueioAcessoEmpresa(assinaturaAtual, isSuperAdmin);
   if (bloqueioEmpresa) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950 px-6 text-slate-100" style={{ minHeight: "100dvh" }}>
-        <div className="w-full max-w-md rounded-[2rem] border border-red-400/25 bg-red-500/[0.06] p-7 text-center shadow-2xl">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-red-500/15 text-3xl">🔒</div>
-          <h1 className="page-title text-xl font-black text-white">{bloqueioEmpresa.titulo}</h1>
-          <p className="mt-3 whitespace-pre-line text-sm leading-6 text-slate-300">{bloqueioEmpresa.descricao}</p>
+      <div data-theme="light" className="tema-claro-area flex min-h-screen items-center justify-center bg-[#F7F8FA] px-6 text-[#182230]" style={{ minHeight: "100dvh" }}>
+        <div className="w-full max-w-md rounded-[2rem] border border-[#FECDD3] bg-[#FFF1F2] p-7 text-center shadow-[0_8px_24px_rgba(16,24,40,0.06)]">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#FFE4E6] text-3xl">🔒</div>
+          <h1 className="page-title text-xl font-black text-[#182230]">{bloqueioEmpresa.titulo}</h1>
+          <p className="mt-3 whitespace-pre-line text-sm leading-6 text-[#475467]">{bloqueioEmpresa.descricao}</p>
           <a href={`https://wa.me/${PLANO_WHATS}?text=${encodeURIComponent(`Olá! Sou da empresa ${lojaInfo?.nome || ""} e preciso liberar o acesso ao Pedido Prime (${bloqueioEmpresa.titulo}).`)}`} target="_blank" rel="noopener noreferrer"
-            className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-500 py-3.5 text-sm font-black text-white transition active:scale-95 hover:bg-emerald-400">💬 Falar com o consultor / suporte</a>
-          <button onClick={logout} className="mt-2 w-full rounded-2xl border border-white/10 bg-white/[0.06] py-3 text-sm font-black text-slate-300 transition hover:bg-white/10">Sair</button>
+            className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#22A06B] py-3.5 text-sm font-black text-white transition active:scale-95 hover:bg-[#2DBE7E]">💬 Falar com o consultor / suporte</a>
+          <button onClick={logout} className="mt-2 w-full rounded-2xl border border-[#E5E7EB] bg-white py-3 text-sm font-black text-[#475467] transition hover:bg-[#F9FAFB]">Sair</button>
         </div>
       </div>
     );
@@ -2239,7 +2239,7 @@ export default function RestaurantePedidoApp() {
   // Aviso (não bloqueia): pagamento pendente dentro da carência de 7 dias.
   const avisoOverdue = avisoPagamentoPendente(assinaturaAtual, isSuperAdmin);
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100">
+    <div data-theme="light" className="tema-claro-area min-h-screen bg-[#F7F8FA] text-[#182230]">
       {avisoOverdue && (
         <div className="sticky top-0 z-[80] border-b border-amber-400/30 bg-amber-500/15 px-4 py-2.5 text-center backdrop-blur-xl">
           <p className="text-sm font-bold text-amber-100">⚠ Pagamento pendente — seu acesso será bloqueado em <b className="text-white">{Math.max(0, avisoOverdue.dias)} dia(s)</b> se o pagamento não for regularizado.{avisoOverdue.obs ? ` Motivo: ${avisoOverdue.obs}.` : ""} Entre em contato com o suporte.</p>
