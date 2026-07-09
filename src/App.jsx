@@ -480,7 +480,7 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
   };
 
   return (
-    <div data-theme="light" className="tema-claro-area relative flex min-h-[100dvh] w-full overflow-x-hidden text-[#182230]" style={{ fontFamily: "'Inter','Poppins',sans-serif", backgroundColor: "#F7F8FA", boxSizing: "border-box" }}>
+    <div data-theme="light" className="tema-claro-area relative flex min-h-[100dvh] w-full max-w-[100vw] overflow-x-hidden text-[#182230]" style={{ fontFamily: "'Inter','Poppins',sans-serif", backgroundColor: "#F7F8FA", boxSizing: "border-box" }}>
       {/* Camadas de profundidade — tela inteira (fundo claro contínuo) */}
       <div className="pointer-events-none absolute inset-0 opacity-[0.05]" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #182230 1px, transparent 0)", backgroundSize: "30px 30px" }} />
       <div className="pointer-events-none absolute -top-24 right-0 h-[34rem] w-[34rem] rounded-full" style={{ background: "radial-gradient(closest-side, rgba(217,164,65,0.14), transparent)" }} />

@@ -374,9 +374,10 @@ html, body, #root {
   min-height: 100vh;
   min-height: 100dvh;               /* altura real do viewport (mobile) */
   background-color: #070B16;        /* garante fundo escuro de ponta a ponta */
-}
-body {
-  overflow-x: hidden;               /* nunca rola lateralmente em telas pequenas */
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;                /* nunca rola lateralmente em nenhuma resolução */
+  box-sizing: border-box;
 }
 /* Mídia/QR e imagens nunca estouram a largura do container */
 img, svg, video, canvas { max-width: 100%; }
