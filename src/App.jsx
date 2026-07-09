@@ -480,7 +480,7 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
   };
 
   return (
-    <div data-theme="light" className="tema-claro-area relative flex min-h-[100dvh] w-full max-w-[100vw] overflow-x-hidden text-[#182230]" style={{ fontFamily: "'Inter','Poppins',sans-serif", backgroundColor: "#F7F8FA", boxSizing: "border-box" }}>
+    <div data-theme="light" className="tema-claro-area relative flex min-h-dvh w-full max-w-[100vw] items-stretch overflow-x-hidden text-[#182230]" style={{ fontFamily: "'Inter','Poppins',sans-serif", backgroundColor: "#F7F8FA", boxSizing: "border-box", margin: 0 }}>
       {/* Camadas de profundidade — tela inteira (fundo claro contínuo) */}
       <div className="pointer-events-none absolute inset-0 opacity-[0.05]" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #182230 1px, transparent 0)", backgroundSize: "30px 30px" }} />
       <div className="pointer-events-none absolute -top-24 right-0 h-[34rem] w-[34rem] rounded-full" style={{ background: "radial-gradient(closest-side, rgba(217,164,65,0.14), transparent)" }} />
@@ -550,8 +550,8 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
       </aside>
 
       {/* ══ Formulário ══ */}
-      <main className="relative z-10 flex w-full flex-1 flex-col items-center justify-center px-5"
-        style={{ paddingTop: "calc(env(safe-area-inset-top) + 2rem)", paddingBottom: "calc(env(safe-area-inset-bottom) + 2.5rem)" }}>
+      <main className="relative z-10 flex w-full flex-1 flex-col items-center justify-center px-5 py-6"
+        style={{ paddingTop: "calc(env(safe-area-inset-top) + 1rem)", paddingBottom: "calc(env(safe-area-inset-bottom) + 1.5rem)" }}>
         <div className="pp-anim-up relative w-full max-w-[440px]">
           {/* Card */}
           <form onSubmit={(e) => { e.preventDefault(); if (podeEntrar && !entrando) { setEntrando(true); login(); } }}

@@ -371,11 +371,14 @@ html {
   background-color: #070B16;
 }
 html, body, #root {
+  height: 100%;
   min-height: 100vh;
   min-height: 100dvh;               /* altura real do viewport (mobile) */
   background-color: #070B16;        /* garante fundo escuro de ponta a ponta */
   width: 100%;
   max-width: 100%;
+  margin: 0;
+  padding: 0;
   overflow-x: hidden;                /* nunca rola lateralmente em nenhuma resolução */
   box-sizing: border-box;
 }
