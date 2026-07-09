@@ -4370,6 +4370,17 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
   const [consultaInput, setConsultaInput] = useState("");            // digitação manual
   const [consultaPagamento, setConsultaPagamento] = useState(false); // modal de pagamento da consulta
   const [consultaComprovante, setConsultaComprovante] = useState(null);
+  // ── Consulta por número da mesa (teclado numérico) — reaproveita carregarMesa() ──
+  const [mesaDigitada, setMesaDigitada] = useState("");
+  const [mesaErro, setMesaErro] = useState("");
+  function buscarMesaPorNumero() {
+    if (!mesaDigitada) return;
+    const alvo = `Mesa ${mesaDigitada.padStart(2, "0")}`;
+    const comandasDaMesa = [...new Set(orders.filter((o) => o.table === alvo && o.paymentStatus !== "paid" && o.status !== "cancelled").map((o) => o.command))];
+    if (comandasDaMesa.length === 0) { setMesaErro(`Nenhum pedido em aberto para a ${alvo}.`); return; }
+    carregarMesa(comandasDaMesa);
+    setMesaDigitada(""); setMesaErro("");
+  }
 
   // Cupons fiscais PAGOS do dia atual (para reimpressão sem usar o relatório)
   const ehHoje = (o) => {
@@ -4664,46 +4675,46 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-slate-950 overflow-hidden" style={{ paddingTop: "calc(env(safe-area-inset-top) + 24px)" }}>
+    <div className="fixed inset-0 z-50 flex flex-col bg-[#F7F8FA] overflow-hidden" style={{ paddingTop: "calc(env(safe-area-inset-top) + 24px)" }}>
       {/* Cabeçalho */}
-      <header className="flex shrink-0 items-center justify-between border-b border-white/10 bg-slate-900/90 px-6 py-3 backdrop-blur-xl">
+      <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-[#E5E7EB] bg-white px-6 py-3">
         <div className="flex items-center gap-3">
           <LogoPP size={36} />
           <div>
-            <p className="text-lg font-black text-white leading-tight">💳 Caixa / Pagamento{lojaInfo && <span className="ml-2 text-sm font-bold text-gold-300">· {lojaInfo.nome}</span>}</p>
-            <p className="text-xs text-slate-500">{modoCaixa === "consulta" ? "Consulte uma comanda e dê baixa" : "Leia as comandas para fechar a conta"}</p>
+            <p className="text-lg font-black text-[#182230] leading-tight">💳 Caixa / Pagamento{lojaInfo && <span className="ml-2 text-sm font-bold text-[#9A6A00]">· {lojaInfo.nome}</span>}</p>
+            <p className="text-xs text-[#667085]">Consulte mesas, comandas e finalize contas</p>
           </div>
         </div>
         {/* Alternador de modo: Caixa x Consultar comanda */}
-        <div className="flex items-center gap-1 rounded-2xl border border-white/10 bg-white/[0.04] p-1">
+        <div className="flex items-center gap-1 rounded-2xl border border-[#E5E7EB] bg-[#F8FAFC] p-1">
           <button onClick={() => setModoCaixa("caixa")}
-            className={`rounded-xl px-3 py-2 text-sm font-black transition ${modoCaixa === "caixa" ? "bg-gold-400 text-blue-950" : "text-slate-300 hover:bg-white/5"}`}>
+            className={`rounded-xl px-3 py-2 text-sm font-black transition duration-200 ${modoCaixa === "caixa" ? "bg-[#FFF7E0] text-[#182230] border border-[#F4D27A]" : "text-[#475467] hover:bg-white"}`}>
             💳 Caixa
           </button>
           <button onClick={() => setModoCaixa("consulta")}
-            className={`rounded-xl px-3 py-2 text-sm font-black transition ${modoCaixa === "consulta" ? "bg-blue-500 text-white" : "text-slate-300 hover:bg-white/5"}`}>
+            className={`rounded-xl px-3 py-2 text-sm font-black transition duration-200 ${modoCaixa === "consulta" ? "bg-[#EFF6FF] text-[#1D4ED8] border border-[#BFDBFE]" : "text-[#475467] hover:bg-white"}`}>
             🔍 Consultar comanda
           </button>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => setReimpressaoAberta(true)} title="Reimprimir cupons de hoje"
-            className="rounded-2xl border border-blue-400/30 bg-blue-500/15 px-4 py-2 text-sm font-black text-blue-200 hover:bg-blue-500/25 transition">
-            🧾 Reimprimir cupom{cuponsDoDia.length > 0 && <span className="ml-1.5 rounded-full bg-blue-500 px-1.5 py-0.5 text-[10px] text-white">{cuponsDoDia.length}</span>}
+            className="rounded-2xl border border-[#BFDBFE] bg-[#EFF6FF] px-4 py-2 text-sm font-black text-[#1D4ED8] hover:bg-[#DBEAFE] transition duration-200">
+            🧾 Reimprimir cupom{cuponsDoDia.length > 0 && <span className="ml-1.5 rounded-full bg-[#2563EB] px-1.5 py-0.5 text-[10px] text-white">{cuponsDoDia.length}</span>}
           </button>
         </div>
       </header>
 
       {/* ── Alerta destacado: mesas aguardando fechamento ────── */}
       {modoCaixa === "caixa" && solicitacoes.some((s) => !s.comandas.every((c) => comandasLidas.includes(c))) && (
-        <div className="shrink-0 border-b border-amber-400/30 bg-amber-500/15 px-6 py-2.5">
+        <div className="shrink-0 border-b border-[#FDE1B0] bg-[#FFF4E5] px-6 py-2.5">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
-            <span className="flex items-center gap-2 text-sm font-black text-amber-200">
-              <span className="relative flex h-2.5 w-2.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400/70" /><span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-amber-400" /></span>
+            <span className="flex items-center gap-2 text-sm font-black text-[#B45309]">
+              <span className="relative flex h-2.5 w-2.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#F59E0B]/60" /><span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#F59E0B]" /></span>
               🔔 {solicitacoes.filter((s) => !s.comandas.every((c) => comandasLidas.includes(c))).map((s) => s.mesa).join(", ")} solicitou fechamento da conta
             </span>
             {solicitacoes.filter((s) => !s.comandas.every((c) => comandasLidas.includes(c))).map((s) => (
               <button key={s.mesa} onClick={() => carregarMesa(s.comandas)}
-                className="rounded-full border border-amber-400/50 bg-amber-500/20 px-3 py-1 text-xs font-black text-amber-100 hover:bg-amber-400 hover:text-blue-950 transition">
+                className="rounded-full border border-[#F4D27A] bg-white px-3 py-1 text-xs font-black text-[#9A6A00] hover:bg-[#FFF7E0] transition duration-200">
                 Carregar {s.mesa} · {formatCurrency(s.total)}
               </button>
             ))}
@@ -4765,10 +4776,23 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
           )}
 
           {comandasLidas.length === 0 ? (
-            <div className="flex h-64 flex-col items-center justify-center gap-3 opacity-30">
-              <span className="text-5xl">🧾</span>
-              <p className="font-black text-slate-300">Nenhuma comanda lida</p>
-              <p className="text-sm text-slate-500">Escaneie a comanda do cliente para ver os gastos</p>
+            <div className="mx-auto max-w-sm rounded-[24px] border border-[#E5E7EB] bg-white p-6 shadow-[0_8px_24px_rgba(16,24,40,0.06)]">
+              <p className="text-center text-lg font-black text-[#182230]">Selecione a mesa</p>
+              <p className="mt-1 text-center text-xs text-[#667085]">Digite o número da mesa para acompanhar pedidos ou gerar fechamento.</p>
+              <input inputMode="numeric" autoFocus value={mesaDigitada}
+                onChange={(e) => { setMesaDigitada(e.target.value.replace(/\D/g, "").slice(0, 2)); setMesaErro(""); }}
+                onKeyDown={(e) => e.key === "Enter" && buscarMesaPorNumero()}
+                placeholder="Digite o número da mesa"
+                className="mt-4 w-full rounded-2xl border border-[#E5E7EB] bg-[#F8FAFC] px-4 py-3 text-center text-2xl font-black text-[#182230] outline-none focus:border-[#D9A441] focus:ring-2 focus:ring-[#D9A441]/20 placeholder:text-sm placeholder:font-normal placeholder:text-[#98A2B3]" />
+              {mesaErro && <p className="mt-2 text-center text-xs font-semibold text-[#DC2626]">{mesaErro}</p>}
+              <div className="mt-4 grid grid-cols-3 gap-2">
+                {["1","2","3","4","5","6","7","8","9","Limpar","0","Buscar"].map((k) => {
+                  if (k === "Limpar") return <button key={k} onClick={() => { setMesaDigitada(""); setMesaErro(""); }} className="rounded-2xl border border-[#E5E7EB] bg-white py-3.5 text-sm font-black text-[#475467] hover:bg-[#F8FAFC] transition duration-200">Limpar</button>;
+                  if (k === "Buscar") return <button key={k} onClick={buscarMesaPorNumero} className="rounded-2xl bg-[#D9A441] py-3.5 text-sm font-black text-[#182230] hover:bg-[#C7922F] transition duration-200">Buscar</button>;
+                  return <button key={k} onClick={() => { setMesaDigitada((c) => (c + k).slice(0, 2)); setMesaErro(""); }} className="rounded-2xl border border-[#E5E7EB] bg-white py-3.5 text-lg font-black text-[#182230] hover:bg-[#F8FAFC] transition duration-200">{k}</button>;
+                })}
+              </div>
+              <p className="mt-4 text-center text-xs text-[#98A2B3]">ou escaneie/leia a comanda do cliente para ver os gastos</p>
             </div>
           ) : porComanda.map(({ comanda, pedidos: peds, subtotal: sub }) => (
             <div key={comanda} className="mb-4 overflow-hidden rounded-3xl border border-white/10 bg-slate-900">
