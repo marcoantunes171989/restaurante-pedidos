@@ -1079,9 +1079,18 @@ export default function RestaurantePedidoApp() {
     setCurrentUser(credOk);
     auditar("login", "usuario", credOk.id, { email: credOk.email }, credOk);
     const acessosAtivos = (id) => credOk.accessIds.includes(id) && accesses.some((a) => a.id === id && a.active);
+    // Respeita link direto (ex.: /admin/copiloto) já presente na URL — evita
+    // que o login sempre force a aba padrão e derrube o deep-link do usuário.
+    const deepAdmin = window.location.pathname.match(/^\/admin\/([^/?]+)/);
+    if (deepAdmin && deepAdmin[1] === "cozinha" && canAccess(credOk, "kitchen")) {
+      setActiveTab("kitchen");
+    } else if (deepAdmin && deepAdmin[1] !== "cozinha" && acessosAtivos("admin")) {
+      setActiveTab("admin");
+      setAdminSection(deepAdmin[1]);
+    }
     // Regra por resolução: SÓ celular (≤767px) abre direto a Operação Mobile
     // (se o usuário tiver acesso operacional). Tablet/desktop → layout padrão.
-    if (identificarTipoDispositivo() === "mobile" && temAcessoOperacional(credOk)) {
+    else if (identificarTipoDispositivo() === "mobile" && temAcessoOperacional(credOk)) {
       setActiveTab("opmobile");
     } else {
       const primeira = acessosAtivos("admin") ? "admin" : ordemMenu.find((id) => acessosAtivos(id));
