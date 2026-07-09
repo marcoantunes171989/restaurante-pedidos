@@ -5340,24 +5340,24 @@ function PagamentoModal({ total, formasPagamento, onConfirmar, onCancelar }) {
   const podeConfirmar = pago >= total - 0.001 && !excedeNaoDinheiro && (troco === 0 || temDinheiro) && linhas.length > 0;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onCancelar}>
-      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-md flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl max-h-[92vh]">
-        <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[rgba(15,23,42,0.5)] backdrop-blur-sm p-4" onClick={onCancelar}>
+      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-[480px] flex-col overflow-hidden rounded-[24px] border border-[#E5E7EB] bg-white shadow-[0_20px_60px_rgba(16,24,40,0.16)] max-h-[92vh]" style={{ width: "calc(100% - 24px)" }}>
+        <div className="flex items-center justify-between border-b border-[#E5E7EB] px-6 py-4">
           <div>
-            <h2 className="text-lg font-black text-white">💰 Pagamento</h2>
-            <p className="text-xs text-slate-400">Total a pagar: <span className="font-black text-emerald-400">{formatCurrency(total)}</span></p>
+            <h2 className="text-lg font-black text-[#182230]">💰 Pagamento</h2>
+            <p className="mt-0.5 text-xs text-[#667085]">Total a pagar: <span className="font-black text-[#182230]">{formatCurrency(total)}</span></p>
           </div>
-          <button onClick={onCancelar} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20">✕</button>
+          <button onClick={onCancelar} className="shrink-0 rounded-full border border-[#E5E7EB] bg-[#F8FAFC] px-4 py-2 text-sm font-black text-[#475467] hover:bg-[#F1F5F9] transition duration-200">✕</button>
         </div>
 
         {/* Formas disponíveis */}
-        <div className="border-b border-white/10 px-6 py-3">
-          <p className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">Adicionar forma de pagamento</p>
+        <div className="border-b border-[#E5E7EB] px-6 py-3">
+          <p className="mb-2 text-xs font-bold uppercase tracking-widest text-[#667085]">Adicionar forma de pagamento</p>
           <div className="flex flex-wrap gap-2">
-            {formasPagamento.length === 0 && <p className="text-xs text-slate-500">Nenhuma forma ativa. Cadastre no Administrativo → Formas de pagamento.</p>}
+            {formasPagamento.length === 0 && <p className="text-xs text-[#667085]">Nenhuma forma ativa. Cadastre no Administrativo → Formas de pagamento.</p>}
             {formasPagamento.map((f) => (
               <button key={f.id} onClick={() => addLinha(f)}
-                className="rounded-full border border-blue-400/30 bg-blue-500/10 px-3 py-1.5 text-sm font-bold text-blue-200 hover:bg-blue-500/20 transition">
+                className="rounded-full border border-[#BFDBFE] bg-white px-3 py-1.5 text-sm font-bold text-[#2563EB] hover:bg-[#EFF6FF] transition duration-200">
                 + {f.nome}
               </button>
             ))}
@@ -5367,40 +5367,40 @@ function PagamentoModal({ total, formasPagamento, onConfirmar, onCancelar }) {
         {/* Linhas de pagamento (ordem decrescente — mais recente no topo) */}
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
           {linhas.length === 0 ? (
-            <div className="flex h-28 flex-col items-center justify-center gap-2 opacity-30">
+            <div className="flex h-28 flex-col items-center justify-center gap-2 opacity-70">
               <span className="text-3xl">💳</span>
-              <p className="text-sm text-slate-400">Toque numa forma acima — o valor já vem preenchido</p>
+              <p className="text-sm text-[#98A2B3]">Selecione uma forma de pagamento para continuar</p>
             </div>
           ) : linhas.map((l) => (
-            <div key={l.uid} className="rounded-2xl border border-white/10 bg-slate-800/60 p-3">
+            <div key={l.uid} className="rounded-2xl border border-[#E5E7EB] bg-white p-3 shadow-sm">
               <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-black text-white">{l.nome}{l.permiteTroco && <span className="ml-2 rounded-full bg-emerald-500/20 px-2 py-0.5 text-xs text-emerald-300">troco</span>}</p>
-                <button onClick={() => removerLinha(l.uid)} className="rounded-lg bg-white/5 px-2 py-1 text-xs text-slate-400 hover:bg-red-500/20 hover:text-red-300">✕</button>
+                <p className="text-sm font-black text-[#182230]">{l.nome}{l.permiteTroco && <span className="ml-2 rounded-full bg-[#EAFBF2] px-2 py-0.5 text-xs font-bold text-[#147A4A]">troco</span>}</p>
+                <button onClick={() => removerLinha(l.uid)} className="rounded-lg px-2 py-1 text-xs font-bold text-[#98A2B3] hover:bg-[#FFF1F2] hover:text-[#DC2626] transition duration-200">✕ remover</button>
               </div>
               <div className="mt-2 flex items-center gap-2">
-                <span className="text-sm font-bold text-slate-400">R$</span>
+                <span className="text-sm font-bold text-[#667085]">R$</span>
                 <input
                   inputMode="numeric"
                   value={numeroParaMoeda(l.valor)}
                   onChange={(e) => setValor(l.uid, e.target.value)}
                   onFocus={(e) => e.target.select()}
-                  className="flex-1 rounded-xl border border-white/10 bg-slate-900 px-3 py-2.5 text-right text-lg font-black text-white outline-none focus:border-gold-400/60" />
+                  className="flex-1 rounded-xl border border-[#E5E7EB] bg-[#F8FAFC] px-3 py-2.5 text-right text-lg font-black text-[#182230] outline-none focus:border-[#D9A441] focus:ring-2 focus:ring-[#D9A441]/20" />
               </div>
             </div>
           ))}
         </div>
 
         {/* Resumo */}
-        <div className="shrink-0 border-t border-white/10 px-6 py-4 space-y-2">
-          <div className="flex justify-between text-sm text-slate-400"><span>Total</span><span className="font-bold text-white">{formatCurrency(total)}</span></div>
-          <div className="flex justify-between text-sm text-slate-400"><span>Pago</span><span className="font-bold text-white">{formatCurrency(pago)}</span></div>
-          {restante > 0 && <div className="flex justify-between text-sm"><span className="text-amber-400">Falta</span><span className="font-black text-amber-400">{formatCurrency(restante)}</span></div>}
-          {troco > 0 && <div className="flex justify-between text-sm"><span className="text-emerald-400">Troco</span><span className="font-black text-emerald-400">{formatCurrency(troco)}</span></div>}
-          {excedeNaoDinheiro && <p className="text-xs text-red-400">⚠ Cartão/PIX não pode ultrapassar o total. Use dinheiro para troco.</p>}
-          {troco > 0 && !temDinheiro && <p className="text-xs text-red-400">⚠ Troco só é permitido com pagamento em dinheiro.</p>}
+        <div className="shrink-0 border-t border-[#E5E7EB] bg-[#F7F8FA] px-6 py-4 space-y-2">
+          <div className="flex justify-between text-sm text-[#667085]"><span>Total</span><span className="font-bold text-[#182230]">{formatCurrency(total)}</span></div>
+          <div className="flex justify-between text-sm text-[#667085]"><span>Pago</span><span className="font-bold text-[#16A34A]">{formatCurrency(pago)}</span></div>
+          {restante > 0 && <div className="flex justify-between text-sm"><span className="text-[#9A6A00]">Falta</span><span className="font-black text-[#9A6A00]">{formatCurrency(restante)}</span></div>}
+          {troco > 0 && <div className="flex justify-between text-sm"><span className="text-[#2563EB]">Troco</span><span className="font-black text-[#2563EB]">{formatCurrency(troco)}</span></div>}
+          {excedeNaoDinheiro && <p className="text-xs font-semibold text-[#DC2626]">⚠ Cartão/PIX não pode ultrapassar o total. Use dinheiro para troco.</p>}
+          {troco > 0 && !temDinheiro && <p className="text-xs font-semibold text-[#DC2626]">⚠ Troco só é permitido com pagamento em dinheiro.</p>}
           <button onClick={() => onConfirmar({ detalhes: linhas.map((l) => ({ forma: l.nome, valor: l.valor })), troco })}
             disabled={!podeConfirmar}
-            className="mt-2 w-full rounded-2xl bg-emerald-500 py-4 text-sm font-black text-white hover:bg-emerald-400 transition active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed">
+            className="mt-2 w-full rounded-2xl bg-[#16A34A] py-4 text-sm font-black text-white hover:bg-[#15803D] transition duration-200 active:scale-95 shadow-lg shadow-[#16A34A]/25 disabled:bg-[#E5E7EB] disabled:text-[#98A2B3] disabled:shadow-none disabled:cursor-not-allowed">
             ✅ Confirmar pagamento e dar baixa
           </button>
         </div>
