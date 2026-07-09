@@ -6305,28 +6305,34 @@ function CalendarioMinimalista({ valor, onChange, max, min, placeholder = "Selec
     });
   }
 
+  const IconCalendario = ({ className = "h-3.5 w-3.5" }) => (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="3" y="4.5" width="18" height="16" rx="3" /><path d="M3 9.5h18M8 2.5v4M16 2.5v4" />
+    </svg>
+  );
+
   return (
     <div ref={ref} className="relative">
       <button type="button" onClick={() => setAberto((a) => !a)}
-        className={`flex items-center gap-2 rounded-xl border bg-slate-950/70 px-3 py-1.5 text-xs font-bold outline-none transition ${aberto ? "border-blue-400 text-white" : "border-white/10 text-slate-200 hover:border-white/20"}`}>
-        <span className="text-slate-400">📅</span>
-        <span className={valor ? "" : "text-slate-500"}>{valor ? formatarDataBR(valor) : placeholder}</span>
+        className={`flex h-[30px] items-center gap-2 rounded-full border bg-white px-3 text-xs font-bold outline-none transition ${aberto ? "border-[#BFDBFE] text-[#1D4ED8]" : "border-[#E5E7EB] text-[#475467] hover:bg-[#F8FAFC] hover:border-[#D0D5DD]"}`}>
+        <span className={aberto ? "text-[#2563EB]" : "text-[#2563EB]/70"}><IconCalendario /></span>
+        <span className={valor ? "" : "text-[#98A2B3]"}>{valor ? formatarDataBR(valor) : placeholder}</span>
       </button>
 
       {aberto && (
-        <div className={`absolute top-full z-[120] mt-2 w-64 rounded-2xl border border-white/10 bg-slate-900 p-3 shadow-2xl ${alinhar === "direita" ? "right-0" : "left-0"}`}>
+        <div className={`absolute top-full z-[120] mt-2 w-64 rounded-2xl border border-[#E5E7EB] bg-white p-3 shadow-[0_12px_32px_rgba(16,24,40,0.10)] ${alinhar === "direita" ? "right-0" : "left-0"}`}>
           {/* Cabeçalho do mês */}
           <div className="mb-2 flex items-center justify-between">
             <button type="button" onClick={() => navegar(-1)}
-              className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-300 hover:bg-white/10 transition">‹</button>
-            <span className="text-sm font-black text-white">{meses[vista.mes]} {vista.ano}</span>
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-[#667085] hover:bg-[#F3F4F6] transition">‹</button>
+            <span className="text-sm font-black text-[#182230]">{meses[vista.mes]} {vista.ano}</span>
             <button type="button" onClick={() => podeProximo && navegar(1)} disabled={!podeProximo}
-              className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-300 hover:bg-white/10 transition disabled:opacity-25 disabled:cursor-not-allowed">›</button>
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-[#667085] hover:bg-[#F3F4F6] transition disabled:opacity-25 disabled:cursor-not-allowed">›</button>
           </div>
           {/* Dias da semana */}
           <div className="mb-1 grid grid-cols-7 gap-0.5 text-center">
             {diasSemana.map((d, i) => (
-              <span key={i} className="py-1 text-[10px] font-black uppercase text-slate-600">{d}</span>
+              <span key={i} className="py-1 text-[10px] font-black uppercase text-[#98A2B3]">{d}</span>
             ))}
           </div>
           {/* Grade de dias */}
@@ -6339,9 +6345,9 @@ function CalendarioMinimalista({ valor, onChange, max, min, placeholder = "Selec
               return (
                 <button key={dia} type="button" disabled={off} onClick={() => selecionar(dia)}
                   className={`flex h-8 items-center justify-center rounded-lg text-xs font-bold transition ${
-                    sel ? "bg-blue-500 text-white"
-                    : off ? "text-slate-700 cursor-not-allowed"
-                    : "text-slate-200 hover:bg-white/10"}`}>
+                    sel ? "border border-[#BFDBFE] bg-[#EFF6FF] text-[#1D4ED8]"
+                    : off ? "text-[#D0D5DD] cursor-not-allowed"
+                    : "text-[#475467] hover:bg-[#F3F4F6]"}`}>
                   {dia}
                 </button>
               );
@@ -6360,17 +6366,17 @@ function SeletorPeriodo({ periodo, setPeriodo, ini, setIni, fim, setFim }) {
     { id: "tudo", label: "Tudo" }, { id: "periodo", label: "Período" },
   ];
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-wrap items-center justify-end gap-2 max-w-full">
       {opcoes.map((o) => (
         <button key={o.id} onClick={() => setPeriodo(o.id)}
-          className={`rounded-full border px-3 py-1.5 text-xs font-black transition ${periodo === o.id ? "border-[#2563EB] bg-[#2563EB] text-white" : "border-[#E5E7EB] bg-white text-[#475467] hover:bg-[#F9FAFB]"}`}>
+          className={`h-[30px] shrink-0 rounded-full border px-3 text-xs font-black transition ${periodo === o.id ? "border-[#BFDBFE] bg-[#EFF6FF] text-[#1D4ED8]" : "border-[#E5E7EB] bg-white text-[#475467] hover:bg-[#F8FAFC] hover:border-[#D0D5DD]"}`}>
           {o.label}
         </button>
       ))}
       {periodo === "periodo" && (
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <CalendarioMinimalista valor={ini} onChange={setIni} max={dataHojeStr()} placeholder="Data inicial" />
-          <span className="text-xs text-slate-500">até</span>
+          <span className="text-xs text-[#667085]">até</span>
           <CalendarioMinimalista valor={fim} onChange={setFim} max={dataHojeStr()} min={ini || undefined} placeholder="Data final" alinhar="direita" />
         </div>
       )}
