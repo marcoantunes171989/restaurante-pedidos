@@ -487,7 +487,7 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
       <div className="pointer-events-none absolute -bottom-28 -left-20 h-[28rem] w-[28rem] rounded-full" style={{ background: "radial-gradient(closest-side, rgba(37,99,235,0.07), transparent)" }} />
 
       {/* ══ Painel institucional (desktop) ══ */}
-      <aside className="pp-anim-left relative z-10 hidden w-[42%] shrink-0 flex-col justify-between overflow-hidden border-r border-[#E5E7EB] p-10 text-[#182230] xl:flex xl:w-[46%] xl:p-14">
+      <aside className="pp-anim-left relative z-10 hidden w-[42%] shrink-0 flex-col justify-center gap-10 overflow-hidden border-r border-[#E5E7EB] p-10 text-[#182230] xl:flex xl:w-[46%] xl:p-14">
 
         {/* Marca */}
         <div className="relative flex items-center gap-2.5">
