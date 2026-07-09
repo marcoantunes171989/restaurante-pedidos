@@ -2886,7 +2886,8 @@ function TabletView({
               const marcados = filteredItems.filter((i) => i.isFeatured && i.showOnHome !== false).sort((a, b) => (a.featuredOrder ?? 0) - (b.featuredOrder ?? 0));
               const comTag = filteredItems.filter((i) => i.badge);
               const destaques = (marcados.length > 0 ? marcados : comTag).slice(0, 8);
-              const idsDestaque = new Set(destaques.map((i) => i.id));
+              // Destaque é só uma vitrine adicional: o produto continua aparecendo
+              // na sua categoria de origem também (não remover/deduplicar entre seções).
               const cabSecao = (titulo, qtd) => (
                 <div className="mb-4 flex items-center gap-3">
                   <h2 className="shrink-0 text-lg font-bold uppercase tracking-[0.14em] text-[#182230]">{titulo}</h2>
@@ -2906,7 +2907,7 @@ function TabletView({
                     </section>
                   )}
                   {categoriasVisiveis.filter((c) => c !== "Todos").map((c) => {
-                    const itens = filteredItems.filter((i) => i.category === c && !idsDestaque.has(i.id));
+                    const itens = filteredItems.filter((i) => i.category === c);
                     if (itens.length === 0) return null;
                     return (
                       <section key={c} id={`cat-${c}`} data-cat-section={c} className="scroll-mt-4">
