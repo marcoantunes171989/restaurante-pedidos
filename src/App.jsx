@@ -3366,16 +3366,16 @@ function TabletView({
           tabIndex={0}
           onClick={() => { entrarTelaCheia(); setDescansoAtivo(false); setPorInatividade(false); }}
           style={{ height: "100dvh", fontFamily: "'Inter','Poppins',sans-serif" }}
-          className="fixed inset-0 z-[120] block w-full cursor-pointer overflow-hidden bg-black text-left">
+          className="fixed inset-0 z-[120] block w-full cursor-pointer overflow-hidden bg-gradient-to-br from-white via-[#F7F8FA] to-[#FFF7E0] text-left">
           {/* Imagens dos produtos em modo fosco (passando) */}
           <div className="absolute inset-0">
             {imagensDescanso.map((src, i) => (
               <img key={src} src={src} alt=""
                 className="absolute inset-0 h-full w-full object-cover transition-opacity duration-1000"
-                style={{ opacity: i === descansoIdx ? 1 : 0, filter: "blur(8px) brightness(0.45) saturate(1.1)", transform: "scale(1.08)" }} />
+                style={{ opacity: i === descansoIdx ? 1 : 0, filter: "blur(14px) brightness(1.05) saturate(1.05)", transform: "scale(1.08)" }} />
             ))}
-            {/* Camada fosca/escura por cima */}
-            <div className="absolute inset-0 bg-gradient-to-b from-slate-950/70 via-slate-950/55 to-slate-950/80 backdrop-blur-[2px]" />
+            {/* Camada clara por cima (overlay light) */}
+            <div className="absolute inset-0 bg-[rgba(255,255,255,0.78)] backdrop-blur-[2px]" />
           </div>
 
           {/* Faixa de miniaturas dos produtos (segmentos) */}
@@ -3391,26 +3391,27 @@ function TabletView({
 
           {/* Aviso de inatividade (elegante) — só quando entrou por 5 min ocioso */}
           {porInatividade && (
-            <div className="absolute left-1/2 top-8 z-[3] flex -translate-x-1/2 items-center gap-3 rounded-full border border-amber-300/30 bg-amber-500/10 px-5 py-2.5 shadow-xl backdrop-blur-md">
+            <div className="absolute left-1/2 top-8 z-[3] flex -translate-x-1/2 items-center gap-3 rounded-full border border-[#FDE1B0] bg-[#FFF4E5] px-5 py-2.5 shadow-lg">
               <span className="flex h-2.5 w-2.5 items-center justify-center">
-                <span className="absolute h-2.5 w-2.5 animate-ping rounded-full bg-amber-400/60" />
-                <span className="h-2.5 w-2.5 rounded-full bg-amber-400" />
+                <span className="absolute h-2.5 w-2.5 animate-ping rounded-full bg-[#F59E0B]/60" />
+                <span className="h-2.5 w-2.5 rounded-full bg-[#F59E0B]" />
               </span>
-              <span className="text-sm font-black text-amber-200">Inativo por {INATIVIDADE_MIN} minutos</span>
+              <span className="text-sm font-black text-[#B45309]">Inativo por {INATIVIDADE_MIN} minutos</span>
             </div>
           )}
 
           {/* Cartão de boas-vindas gourmet */}
-          <div className="relative z-[2] flex h-full flex-col items-center justify-center px-6 text-center">
-            <div className="flex w-full max-w-sm flex-col items-center rounded-[2rem] border border-gold-400/30 bg-black/80 px-8 py-9 shadow-2xl backdrop-blur-xl">
+          <div className="relative z-[2] flex h-full flex-col items-center justify-center px-4 text-center">
+            <div className="pointer-events-none absolute h-72 w-72 rounded-full bg-[radial-gradient(closest-side,rgba(217,164,65,0.18),transparent)]" />
+            <div className="relative flex w-full max-w-[420px] flex-col items-center rounded-[28px] border border-[#E5E7EB] bg-white px-8 py-9 shadow-[0_20px_60px_rgba(16,24,40,0.12)]" style={{ width: "calc(100% - 32px)" }}>
               {/* Logo do estabelecimento (quando cadastrada) — destaque para o cliente */}
               {lojaInfo?.logoUrl ? (
                 <>
-                  <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-2xl border border-gold-400/40 bg-black/40 p-1.5 shadow-lg">
+                  <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-2xl border border-[#E5E7EB] bg-[#F7F8FA] p-1.5 shadow-sm">
                     <img src={lojaInfo.logoUrl} alt={lojaInfo?.nome || "Logo"} className="h-full w-full object-contain" />
                   </div>
-                  <p className="font-display mt-3 text-xl font-bold tracking-tight text-white">{lojaInfo?.nome}</p>
-                  <p className="mt-1.5 flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.3em] text-slate-500">
+                  <p className="font-display mt-3 text-xl font-bold tracking-tight text-[#182230]">{lojaInfo?.nome}</p>
+                  <p className="mt-1.5 flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.3em] text-[#98A2B3]">
                     <LogoPP size={14} /> Pedido Prime
                   </p>
                 </>
@@ -3418,26 +3419,26 @@ function TabletView({
                 <>
                   {/* Marca da plataforma (fallback quando não há logo da empresa) */}
                   <LogoPP size={56} />
-                  <p className="mt-3 text-lg font-black leading-none tracking-tight"><span className="text-white">PEDIDO</span> <span className="text-gold-400">PRIME</span></p>
-                  <p className="mt-1.5 text-[9px] font-bold uppercase tracking-[0.35em] text-slate-500">{lojaInfo?.nome || "Sistema para restaurantes"}</p>
+                  <p className="mt-3 text-lg font-black leading-none tracking-tight"><span className="text-[#182230]">PEDIDO</span> <span className="text-[#D9A441]">PRIME</span></p>
+                  <p className="mt-1.5 text-[9px] font-bold uppercase tracking-[0.35em] text-[#98A2B3]">{lojaInfo?.nome || "Sistema para restaurantes"}</p>
                 </>
               )}
 
               {/* Divisor com cloche dourada */}
               <div className="mt-5 flex w-full items-center gap-3">
-                <div className="h-px flex-1 bg-gold-400/30" />
+                <div className="h-px flex-1 bg-[#E5E7EB]" />
                 <svg width="34" height="26" viewBox="0 0 34 26" fill="none" aria-hidden="true">
-                  <path d="M3 19h28" stroke="#E0B135" strokeWidth="2" strokeLinecap="round" />
-                  <path d="M6 19a11 11 0 0 1 22 0" stroke="#E0B135" strokeWidth="2" strokeLinecap="round" />
-                  <circle cx="17" cy="5.5" r="2" stroke="#E0B135" strokeWidth="2" />
+                  <path d="M3 19h28" stroke="#D9A441" strokeWidth="2" strokeLinecap="round" />
+                  <path d="M6 19a11 11 0 0 1 22 0" stroke="#D9A441" strokeWidth="2" strokeLinecap="round" />
+                  <circle cx="17" cy="5.5" r="2" stroke="#D9A441" strokeWidth="2" />
                 </svg>
-                <div className="h-px flex-1 bg-gold-400/30" />
+                <div className="h-px flex-1 bg-[#E5E7EB]" />
               </div>
 
               {/* Mesa em destaque */}
-              <p className="mt-5 text-sm font-bold text-slate-300">{porInatividade ? "Que bom ter você de volta à" : "Bem-vindo à"}</p>
-              <p className="mt-1 text-5xl font-black tracking-tight text-gold-400">{dadosCompletos ? `Mesa ${String(tableNumber).padStart(2, "0")}` : (lojaInfo?.nome || "nossa casa")}</p>
-              <p className="mt-4 max-w-xs text-sm leading-6 text-slate-300">
+              <p className="mt-5 text-sm font-bold text-[#475467]">{porInatividade ? "Que bom ter você de volta à" : "Bem-vindo à"}</p>
+              <p className="mt-1 text-5xl font-black tracking-tight text-[#D9A441]">{dadosCompletos ? `Mesa ${String(tableNumber).padStart(2, "0")}` : (lojaInfo?.nome || "nossa casa")}</p>
+              <p className="mt-4 max-w-xs text-sm leading-6 text-[#667085]">
                 {porInatividade
                   ? "A tela entrou em descanso por inatividade. Seu pedido foi preservado — continue de onde parou."
                   : "Explore nosso cardápio digital, escolha seus produtos favoritos e envie seu pedido diretamente para a cozinha."}
@@ -3446,21 +3447,21 @@ function TabletView({
               {/* Ações */}
               <button type="button"
                 onClick={() => { entrarTelaCheia(); setDescansoAtivo(false); setPorInatividade(false); }}
-                className="mt-6 w-full rounded-xl bg-gold-400 py-3.5 text-sm font-black text-blue-950 shadow-lg shadow-gold-900/40 hover:bg-gold-300 transition active:scale-95 animate-pulse">
+                className="mt-6 w-full rounded-2xl bg-[#D9A441] py-3.5 text-sm font-black text-[#182230] shadow-lg shadow-[#D9A441]/30 hover:bg-[#C7922F] transition duration-200 active:scale-95">
                 {porInatividade ? "👆 Continuar pedido" : "👆 Iniciar pedido"}
               </button>
               <div className="mt-2.5 grid w-full grid-cols-2 gap-2.5">
                 <button type="button" onClick={() => setSelectedCategory("Todos")}
-                  className="rounded-xl border border-white/15 bg-white/[0.05] py-3 text-xs font-black text-slate-200 hover:bg-white/10 transition">
+                  className="rounded-2xl border border-[#E5E7EB] bg-white py-3 text-xs font-black text-[#182230] shadow-sm hover:bg-[#F8FAFC] hover:-translate-y-0.5 transition duration-200">
                   Ver destaques
                 </button>
                 <button type="button" onClick={chamarGarcom}
-                  className="rounded-xl border border-white/15 bg-white/[0.05] py-3 text-xs font-black text-slate-200 hover:bg-white/10 transition">
+                  className="rounded-2xl border border-[#E5E7EB] bg-white py-3 text-xs font-black text-[#182230] shadow-sm hover:bg-[#F8FAFC] hover:-translate-y-0.5 transition duration-200">
                   Chamar garçom
                 </button>
               </div>
             </div>
-            <p className="mt-6 text-xs text-slate-400">{totalCartItems > 0 ? `Seu pedido foi mantido — ${totalCartItems} ${totalCartItems === 1 ? "item" : "itens"} no carrinho` : "Toque em qualquer ponto para começar"}</p>
+            <p className="relative mt-6 text-xs text-[#667085]">{totalCartItems > 0 ? `Seu pedido foi mantido — ${totalCartItems} ${totalCartItems === 1 ? "item" : "itens"} no carrinho` : "Toque em qualquer ponto para começar"}</p>
             {iosSemApp && (
               <p className="mt-3 max-w-xs text-[11px] leading-4 text-slate-500">
                 📱 iPhone/iPad: para tela cheia, toque em <span className="font-bold text-slate-300">Compartilhar ⬆️</span> e depois <span className="font-bold text-slate-300">“Adicionar à Tela de Início”</span>.
