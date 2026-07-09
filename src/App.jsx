@@ -3511,8 +3511,22 @@ export function ProdutoModal({ produto, onFechar, onAdicionar, grupos = [], opco
   const [removidos, setRemovidos]       = useState([]);
   const [extras, setExtras]             = useState([]); // nomes dos adicionais selecionados
   const [observacao, setObservacao]     = useState("");
-  const [favorito, setFavorito]         = useState(false); // coração (visual, por sessão)
   const [escolhas, setEscolhas]         = useState({});    // { [grupoId]: [opcaoId, ...] } — variações/adicionais estruturados
+
+  // Favorito — persistido localmente por empresa/dispositivo (sem tabela nova)
+  const FAV_KEY = `pedidoPrime:favoritos:${produto.lojaId || produto.empresaId || "geral"}`;
+  const lerFavoritos = () => { try { return new Set(JSON.parse(localStorage.getItem(FAV_KEY) || "[]")); } catch { return new Set(); } };
+  const [favorito, setFavorito] = useState(() => lerFavoritos().has(produto.id));
+  const [toastFav, setToastFav] = useState("");
+  useEffect(() => { if (!toastFav) return; const t = setTimeout(() => setToastFav(""), 1800); return () => clearTimeout(t); }, [toastFav]);
+  function toggleFavorito() {
+    const set = lerFavoritos();
+    const novo = !favorito;
+    if (novo) set.add(produto.id); else set.delete(produto.id);
+    try { localStorage.setItem(FAV_KEY, JSON.stringify([...set])); } catch {}
+    setFavorito(novo);
+    setToastFav(novo ? "Produto adicionado aos favoritos" : "Produto removido dos favoritos");
+  }
 
   // Adicionais cadastrados e vinculados ao produto: [{ nome, preco }]
   const adicionais = (produto.adicionais || []).filter((a) => a && a.nome);
@@ -3570,36 +3584,43 @@ export function ProdutoModal({ produto, onFechar, onAdicionar, grupos = [], opco
   const totalItem = (produto.price + extrasTotal + opcoesTotal) * quantidade;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm p-0 sm:p-4"
+    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-[rgba(15,23,42,0.5)] backdrop-blur-sm p-0 sm:p-4"
       style={{ fontFamily: "'Inter','Poppins',sans-serif" }} onClick={onFechar}>
       <div onClick={(e) => e.stopPropagation()}
-        className="tema-claro-area flex w-full max-w-md flex-col overflow-hidden rounded-t-[1.6rem] sm:rounded-[1.6rem] border border-gold-400/25 bg-[#0d0d0d] shadow-2xl max-h-[92vh]">
+        className="relative flex w-full max-w-[520px] flex-col overflow-hidden rounded-t-[28px] sm:rounded-[28px] border border-[#E5E7EB] bg-white shadow-[0_20px_60px_rgba(16,24,40,0.16)] max-h-[92vh]"
+        style={{ width: "calc(100% - 24px)" }}>
+
+        {/* Feedback discreto de favorito */}
+        {toastFav && (
+          <div className="absolute left-1/2 top-3 z-20 -translate-x-1/2 rounded-full border border-[#F4D27A] bg-white px-3.5 py-1.5 text-xs font-bold text-[#9A6A00] shadow-md">{toastFav}</div>
+        )}
 
         {/* Imagem grande — voltar e favorito */}
-        <div className="relative h-52 shrink-0 overflow-hidden bg-[#1a1a1a]">
+        <div className="relative h-[220px] sm:h-[250px] shrink-0 overflow-hidden bg-[#F7F8FA]">
           <img src={produto.imageUrl || fallbackImage} alt={produto.name} className="h-full w-full object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#0d0d0d] via-transparent to-black/30" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-transparent" />
           <button onClick={onFechar} title="Voltar"
-            className="absolute left-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-lg font-bold text-white backdrop-blur-sm hover:bg-black/80 transition">
+            className="absolute left-4 top-4 flex h-9 w-9 items-center justify-center rounded-full border border-[#E5E7EB] bg-[rgba(255,255,255,0.92)] text-lg font-bold text-[#182230] shadow-sm hover:bg-[#F8FAFC] transition duration-200">
             ←
           </button>
-          <button onClick={() => setFavorito((f) => !f)} title="Favoritar"
-            className={`absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full backdrop-blur-sm transition ${favorito ? "bg-gold-400 text-blue-950" : "bg-black/60 text-white hover:bg-black/80"}`}>
+          <button onClick={toggleFavorito} title="Favoritar"
+            className={`absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full border shadow-sm transition duration-200 ${favorito ? "border-[#D9A441] bg-[#FFF7E0] text-[#D9A441]" : "border-[#E5E7EB] bg-[rgba(255,255,255,0.92)] text-[#475467] hover:bg-[#F8FAFC]"}`}>
             {favorito ? "♥" : "♡"}
           </button>
           {produto.badge && (
-            <span className="absolute left-4 bottom-4 rounded-md bg-gold-400 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-blue-950 shadow-lg">{produto.badge}</span>
+            <span className="absolute left-4 bottom-4 rounded-md bg-[#D9A441] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[#182230] shadow-lg">{produto.badge}</span>
           )}
         </div>
 
         {/* Título + preço (padrão gourmet) */}
         <div className="shrink-0 px-5 pt-4">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.25em] text-gold-400/80">{produto.category} • ⏱ {produto.time}</p>
-          <div className="mt-1 flex items-start justify-between gap-3">
-            <h2 className="text-xl font-semibold tracking-tight text-white leading-tight">{produto.name}</h2>
-            <span className="shrink-0 text-xl font-semibold text-gold-400">{formatCurrency(produto.price)}</span>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.25em] text-[#9A6A00]">{produto.category} • ⏱ {produto.time}</p>
+          <div className="mt-1.5 flex items-start justify-between gap-3">
+            <h2 className="text-xl font-bold tracking-tight text-[#182230] leading-tight">{produto.name}</h2>
+            <span className="shrink-0 text-xl font-bold text-[#D9A441]">{formatCurrency(produto.price)}</span>
           </div>
-          <p className="mt-1.5 text-xs font-light leading-5 text-slate-300">{produto.description}</p>
+          <p className="mt-1.5 text-xs leading-5 text-[#667085]">{produto.description}</p>
+          <p className="mt-3 text-[11px] font-bold uppercase tracking-widest text-[#475467]">Personalize seu pedido</p>
         </div>
 
         {/* Corpo rolável */}
@@ -3611,27 +3632,25 @@ export function ProdutoModal({ produto, onFechar, onAdicionar, grupos = [], opco
             return (
               <div key={g.id}>
                 <div className="mb-2 flex items-center justify-between gap-2">
-                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-gold-400">{g.nome}</p>
-                  <span className={`rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${g.obrigatorio ? (faltam ? "bg-red-500/15 text-red-300" : "bg-emerald-500/15 text-emerald-300") : "bg-white/[0.06] text-slate-400"}`}>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#9A6A00]">{g.nome}</p>
+                  <span className={`rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${g.obrigatorio ? (faltam ? "bg-[#FFF1F2] text-[#B42318]" : "bg-[#EAFBF2] text-[#147A4A]") : "bg-[#F2F4F7] text-[#667085]"}`}>
                     {g.obrigatorio ? (faltam ? "Obrigatório" : "✓ Ok") : "Opcional"}{(g.maxSelect ?? 1) > 1 ? ` · até ${g.maxSelect}` : ""}
                   </span>
                 </div>
-                <div className="space-y-1.5">
+                <div className="flex flex-wrap gap-2">
                   {opcoesDoGrupo(g.id).map((o) => {
                     const on = sel.includes(o.id);
                     const unico = (g.maxSelect ?? 1) <= 1;
                     return (
                       <button key={o.id} type="button" onClick={() => toggleOpcao(g, o.id)}
-                        className={`flex w-full items-center justify-between gap-3 rounded-xl border px-3.5 py-2.5 text-left transition ${on ? "border-gold-400/60 bg-gold-400/10" : "border-white/10 bg-white/[0.03] hover:border-white/25"}`}>
-                        <span className="flex items-center gap-2.5 text-sm font-medium text-white">
-                          <span className={`flex h-5 w-5 items-center justify-center border text-[11px] transition ${unico ? "rounded-full" : "rounded-md"} ${on ? "border-gold-400 bg-gold-400 text-blue-950" : "border-white/25 text-transparent"}`}>{unico ? "●" : "✓"}</span>
-                          {o.nome}
-                        </span>
-                        <span className={`text-sm font-semibold ${on ? "text-gold-300" : "text-gold-400/70"}`}>{o.precoDelta > 0 ? `+ ${formatCurrency(o.precoDelta)}` : (o.precoDelta < 0 ? formatCurrency(o.precoDelta) : "Grátis")}</span>
+                        className={`flex items-center gap-2 rounded-full border px-3.5 py-2 text-left text-sm font-medium transition duration-200 ${on ? "border-[#D9A441] bg-[#FFF7E0] text-[#182230]" : "border-[#E5E7EB] bg-[#F8FAFC] text-[#475467] hover:bg-[#F1F5F9]"}`}>
+                        <span className={`flex h-5 w-5 items-center justify-center border text-[11px] transition ${unico ? "rounded-full" : "rounded-md"} ${on ? "border-[#D9A441] bg-[#D9A441] text-[#182230]" : "border-[#D0D5DD] text-transparent"}`}>{unico ? "●" : "✓"}</span>
+                        {o.nome}
+                        <span className={`text-xs font-semibold ${on ? "text-[#9A6A00]" : "text-[#98A2B3]"}`}>{o.precoDelta > 0 ? `+ ${formatCurrency(o.precoDelta)}` : (o.precoDelta < 0 ? formatCurrency(o.precoDelta) : "Grátis")}</span>
                       </button>
                     );
                   })}
-                  {opcoesDoGrupo(g.id).length === 0 && <p className="text-xs text-slate-500">Sem opções cadastradas.</p>}
+                  {opcoesDoGrupo(g.id).length === 0 && <p className="text-xs text-[#667085]">Sem opções cadastradas.</p>}
                 </div>
               </div>
             );
@@ -3640,18 +3659,16 @@ export function ProdutoModal({ produto, onFechar, onAdicionar, grupos = [], opco
           {/* Adicionais (selecionáveis, com preço dourado) */}
           {adicionais.length > 0 && (
             <div>
-              <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.18em] text-gold-400">Adicionais</p>
-              <div className="space-y-1.5">
+              <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.18em] text-[#9A6A00]">Adicionais</p>
+              <div className="flex flex-wrap gap-2">
                 {adicionais.map((a) => {
                   const sel = extras.includes(a.nome);
                   return (
                     <button key={a.nome} type="button" onClick={() => toggleExtra(a.nome)}
-                      className={`flex w-full items-center justify-between gap-3 rounded-xl border px-3.5 py-2.5 text-left transition ${sel ? "border-gold-400/60 bg-gold-400/10" : "border-white/10 bg-white/[0.03] hover:border-white/25"}`}>
-                      <span className="flex items-center gap-2.5 text-sm font-medium text-white">
-                        <span className={`flex h-5 w-5 items-center justify-center rounded-md border text-[11px] transition ${sel ? "border-gold-400 bg-gold-400 text-blue-950" : "border-white/25 text-transparent"}`}>✓</span>
-                        {a.nome}
-                      </span>
-                      <span className={`text-sm font-semibold ${sel ? "text-gold-300" : "text-gold-400/70"}`}>{(Number(a.preco) || 0) > 0 ? `+ ${formatCurrency(Number(a.preco))}` : "Grátis"}</span>
+                      className={`flex items-center gap-2 rounded-full border px-3.5 py-2 text-left text-sm font-medium transition duration-200 ${sel ? "border-[#D9A441] bg-[#FFF7E0] text-[#182230]" : "border-[#E5E7EB] bg-[#F8FAFC] text-[#475467] hover:bg-[#F1F5F9]"}`}>
+                      <span className={`flex h-5 w-5 items-center justify-center rounded-md border text-[11px] transition ${sel ? "border-[#D9A441] bg-[#D9A441] text-[#182230]" : "border-[#D0D5DD] text-transparent"}`}>✓</span>
+                      {a.nome}
+                      <span className={`text-xs font-semibold ${sel ? "text-[#9A6A00]" : "text-[#98A2B3]"}`}>{(Number(a.preco) || 0) > 0 ? `+ ${formatCurrency(Number(a.preco))}` : "Grátis"}</span>
                     </button>
                   );
                 })}
@@ -3660,50 +3677,53 @@ export function ProdutoModal({ produto, onFechar, onAdicionar, grupos = [], opco
           )}
 
           {/* Remover ingredientes — "Sem X" compacto, como no padrão gourmet */}
-          {(produto.ingredients || []).length > 0 && (
-            <div>
-              <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.18em] text-gold-400">Remover ingredientes</p>
-              <div className="flex flex-wrap gap-2">
-                {(produto.ingredients || []).map((ing) => {
-                  const removido = removidos.includes(ing);
-                  return (
-                    <button key={ing} type="button" onClick={() => toggleIngrediente(ing)}
-                      className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-left text-xs font-medium transition ${removido ? "border-gold-400/60 bg-gold-400/10 text-white" : "border-white/10 bg-white/[0.03] text-slate-300 hover:border-white/25"}`}>
-                      <span className={`flex h-4 w-4 items-center justify-center rounded border text-[10px] transition ${removido ? "border-gold-400 bg-gold-400 text-blue-950" : "border-white/25 text-transparent"}`}>✓</span>
-                      Sem {ing}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+          <div>
+            <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.18em] text-[#9A6A00]">Remover ingredientes</p>
+            {(produto.ingredients || []).length > 0 ? (
+              <>
+                <p className="mb-2 text-xs text-[#667085]">Selecione os itens que deseja remover do produto.</p>
+                <div className="flex flex-wrap gap-2">
+                  {(produto.ingredients || []).map((ing) => {
+                    const removido = removidos.includes(ing);
+                    return (
+                      <button key={ing} type="button" onClick={() => toggleIngrediente(ing)}
+                        className={`flex items-center gap-2 rounded-full border px-3.5 py-2 text-left text-xs font-medium transition duration-200 ${removido ? "border-[#D9A441] bg-[#FFF7E0] text-[#182230]" : "border-[#E5E7EB] bg-[#F8FAFC] text-[#475467] hover:bg-[#F1F5F9]"}`}>
+                        <span className={`flex h-4 w-4 items-center justify-center rounded border text-[10px] transition ${removido ? "border-[#D9A441] bg-[#D9A441] text-[#182230]" : "border-[#D0D5DD] text-transparent"}`}>✓</span>
+                        Sem {ing}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            ) : <p className="text-xs text-[#667085]">Nenhum ingrediente disponível para remoção.</p>}
+          </div>
 
           {/* Observação */}
           <div>
-            <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.18em] text-gold-400">Observação</p>
+            <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.18em] text-[#9A6A00]">Observação</p>
             <textarea value={observacao}
               onChange={(e) => setObservacao(e.target.value)}
               rows={2}
-              placeholder="Ex.: Ponto da carne, alergias, etc."
-              className="w-full resize-none rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-sm font-light text-white outline-none placeholder:text-slate-500 focus:border-gold-400/60" />
+              placeholder="Ex.: ponto da carne, alergias, retirar molho..."
+              className="w-full resize-none rounded-xl border border-[#E5E7EB] bg-[#F8FAFC] px-3.5 py-2.5 text-sm text-[#182230] outline-none placeholder:text-[#98A2B3] focus:border-[#D9A441] focus:ring-2 focus:ring-[#D9A441]/20 transition duration-200" />
           </div>
         </div>
 
         {/* Rodapé fixo — quantidade + adicionar ao pedido */}
-        <div className="shrink-0 border-t border-gold-400/15 bg-white/[0.03] px-5 py-4">
+        <div className="shrink-0 border-t border-[#E5E7EB] bg-white px-5 py-4">
           <div className="flex items-center gap-3">
             {/* Seletor de quantidade */}
-            <div className="flex items-center gap-1 rounded-xl border border-white/15 bg-white/[0.03] p-1">
+            <div className="flex items-center gap-1 rounded-xl border border-[#E5E7EB] bg-[#F8FAFC] p-1">
               <button onClick={() => setQuantidade((q) => Math.max(1, q - 1))}
-                className="h-11 w-11 rounded-lg text-xl font-semibold text-white hover:bg-white/10 transition active:scale-95">−</button>
-              <span className="w-10 text-center text-xl font-semibold text-white">{quantidade}</span>
+                className="h-11 w-11 rounded-lg text-xl font-semibold text-[#182230] hover:bg-white transition duration-200 active:scale-95">−</button>
+              <span className="w-10 text-center text-xl font-semibold text-[#182230]">{quantidade}</span>
               <button onClick={() => setQuantidade((q) => q + 1)}
-                className="h-11 w-11 rounded-lg text-xl font-semibold text-gold-400 hover:bg-gold-400/10 transition active:scale-95">+</button>
+                className="h-11 w-11 rounded-lg text-xl font-semibold text-[#182230] hover:bg-white transition duration-200 active:scale-95">+</button>
             </div>
             {/* Botão adicionar */}
             <button onClick={confirmar} disabled={!podeAdicionar}
               title={!podeAdicionar ? `Escolha: ${grupoFaltando?.nome}` : undefined}
-              className="flex flex-1 items-center justify-between gap-2 rounded-xl bg-gold-400 px-5 py-4 text-sm font-semibold text-blue-950 hover:bg-gold-300 transition active:scale-95 shadow-lg shadow-gold-900/30 disabled:opacity-40 disabled:cursor-not-allowed">
+              className="flex flex-1 items-center justify-between gap-2 rounded-xl bg-[#D9A441] px-5 py-4 text-sm font-semibold text-[#182230] hover:bg-[#C7922F] transition duration-200 active:scale-95 shadow-lg shadow-[#D9A441]/30 disabled:bg-[#E5E7EB] disabled:text-[#98A2B3] disabled:shadow-none disabled:cursor-not-allowed">
               <span>{podeAdicionar ? "Adicionar" : `Escolha: ${grupoFaltando?.nome}`}</span>
               <span>{formatCurrency(totalItem)}</span>
             </button>
