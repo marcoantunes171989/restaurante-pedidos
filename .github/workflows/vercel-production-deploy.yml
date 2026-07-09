@@ -1,0 +1,41 @@
+name: Vercel Production Deploy
+
+# ATENÇÃO: a branch de produção deste repositório é "master" (não "main").
+# Se a Vercel já estiver com a integração Git nativa ativa e a "Production
+# Branch" corretamente configurada como "master", este workflow é redundante
+# — a própria Vercel já faz o deploy a cada push. Use este workflow apenas
+# se quiser o deploy condicionado a rodar o build no CI antes de publicar,
+# ou como alternativa caso desative a integração automática da Vercel.
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build project
+        run: npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+
+      - name: Deploy to Vercel Production
+        run: npx vercel --prod --yes --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
