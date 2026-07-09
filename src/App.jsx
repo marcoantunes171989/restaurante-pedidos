@@ -3145,17 +3145,17 @@ function TabletView({
 
       {/* ── Modal de visualização da conta ─────────────────── */}
       {verConta && (
-        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="tema-claro-area w-full max-w-lg rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-[rgba(15,23,42,0.5)] backdrop-blur-sm p-0 sm:p-4">
+          <div className="flex w-full max-w-[560px] flex-col overflow-hidden rounded-t-[28px] sm:rounded-[28px] border border-[#E5E7EB] bg-white shadow-[0_20px_60px_rgba(16,24,40,0.16)] max-h-[90vh]" style={{ width: "calc(100% - 24px)" }}>
 
             {/* Header */}
-            <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+            <div className="flex items-center justify-between border-b border-[#E5E7EB] px-6 py-4">
               <div>
-                <h2 className="text-lg font-black text-white">🧾 Conta — Mesa {tableNumber.padStart(2,"0")}</h2>
-                <p className="text-xs text-slate-400">{currentTableOrders.length} pedido(s) • acompanhe o status de cada um</p>
+                <h2 className="text-lg font-black text-[#182230]">🧾 Conta — Mesa {tableNumber.padStart(2,"0")}</h2>
+                <p className="mt-0.5 text-xs text-[#667085]">Acompanhe seus pedidos e o status de cada comanda</p>
               </div>
               <button onClick={() => setVerConta(false)}
-                className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20 transition">
+                className="shrink-0 rounded-full border border-[#E5E7EB] bg-[#F8FAFC] px-4 py-2 text-sm font-black text-[#475467] hover:bg-[#F1F5F9] transition duration-200">
                 Fechar ✕
               </button>
             </div>
@@ -3164,45 +3164,45 @@ function TabletView({
             <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
               {/* Estado vazio: nenhuma comanda/pedido na mesa ainda */}
               {currentTableOrders.length === 0 && currentTableCancelled.length === 0 && (
-                <div className="flex h-48 flex-col items-center justify-center gap-2 text-center opacity-50">
+                <div className="flex h-48 flex-col items-center justify-center gap-2 text-center opacity-70">
                   <span className="text-4xl">🧾</span>
-                  <p className="font-black text-slate-300">Nenhum pedido na mesa ainda</p>
-                  <p className="text-xs text-slate-500">Envie um pedido para que a conta seja exibida aqui.</p>
+                  <p className="font-black text-[#182230]">Nenhum pedido na mesa ainda</p>
+                  <p className="text-xs text-[#667085]">Envie um pedido para que a conta seja exibida aqui.</p>
                 </div>
               )}
               {/* Por comanda */}
               {Object.values(porComanda).map(({ comanda, pedidos, subtotal: subCmd }) => (
-                <div key={comanda} className="rounded-3xl border border-white/10 bg-slate-800/60 overflow-hidden">
+                <div key={comanda} className="rounded-[20px] border border-[#E5E7EB] bg-[#F8FAFC] overflow-hidden shadow-sm">
                   {/* Cabeçalho da comanda */}
-                  <div className="flex items-center justify-between border-b border-white/10 bg-white/[0.04] px-4 py-3">
+                  <div className="flex items-center justify-between border-b border-[#E5E7EB] bg-white px-4 py-3">
                     <div className="flex items-center gap-2">
-                      <span className="rounded-xl bg-blue-500/20 border border-blue-400/30 px-2.5 py-1 font-mono text-xs font-black text-blue-300">
+                      <span className="rounded-xl bg-[#EFF6FF] border border-[#BFDBFE] px-2.5 py-1 font-mono text-xs font-black text-[#1D4ED8]">
                         {comanda}
                       </span>
-                      <span className="text-xs text-slate-400">{pedidos.length} pedido(s)</span>
+                      <span className="text-xs text-[#667085]">{pedidos.length} pedido(s)</span>
                     </div>
-                    <span className="text-sm font-black text-white">{formatCurrency(subCmd)}</span>
+                    <span className="text-sm font-black text-[#182230]">{formatCurrency(subCmd)}</span>
                   </div>
                   {/* Itens da comanda */}
-                  <div className="divide-y divide-white/5">
+                  <div className="divide-y divide-[#E5E7EB]">
                     {pedidos.map((order) => (
                       <div key={order.id} className="px-4 py-3">
-                        <div className="flex items-center justify-between mb-1.5">
-                          <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">{order.id} • {order.createdAt}</span>
+                        <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
+                          <span className="text-xs font-bold text-[#98A2B3] uppercase tracking-widest">{order.id} • {order.createdAt}</span>
                           <StatusChip status={order.status} labels={STATUS_TABLET_LABEL} />
                         </div>
                         {order.items.map((item, idx) => (
-                          <div key={idx} className="flex justify-between text-sm py-0.5">
-                            <span className="text-slate-300">
-                              <span className="font-black text-white">{item.quantity}×</span> {item.name}
+                          <div key={idx} className="flex justify-between gap-3 text-sm py-0.5">
+                            <span className="text-[#475467] break-words">
+                              <span className="font-black text-[#182230]">{item.quantity}×</span> {item.name}
                             </span>
-                            <span className="font-bold text-white">{formatCurrency(item.price * item.quantity)}</span>
+                            <span className="shrink-0 font-bold text-[#182230]">{formatCurrency(item.price * item.quantity)}</span>
                           </div>
                         ))}
                         {/* Cancelar pelo cliente — só na fila/preparando */}
                         {(order.status === "received" || order.status === "preparing") && (
                           <button onClick={() => setCancelandoPedido(order)}
-                            className="mt-2 w-full rounded-xl border border-red-400/30 bg-red-500/10 py-2 text-xs font-black text-red-300 hover:bg-red-500/20 transition">
+                            className="mt-2 w-full rounded-xl border border-[#FDA4AF] bg-[#FFF1F2] py-2 text-xs font-black text-[#B42318] hover:bg-[#FFE4E6] transition duration-200">
                             ✕ Cancelar este pedido
                           </button>
                         )}
@@ -3214,28 +3214,28 @@ function TabletView({
 
               {/* Pedidos cancelados pela cozinha (status + justificativa). Não entram no total. */}
               {currentTableCancelled.length > 0 && (
-                <div className="rounded-3xl border border-red-400/20 bg-red-500/[0.06] overflow-hidden">
-                  <div className="flex items-center justify-between border-b border-red-400/20 bg-red-500/10 px-4 py-3">
-                    <span className="text-sm font-black text-red-300">✕ Pedidos cancelados</span>
-                    <span className="text-xs font-bold text-red-300/80">{currentTableCancelled.length} pedido(s)</span>
+                <div className="rounded-[20px] border border-[#FECDD3] bg-[#FFF1F2] overflow-hidden">
+                  <div className="flex items-center justify-between border-b border-[#FECDD3] px-4 py-3">
+                    <span className="text-sm font-black text-[#B42318]">✕ Pedidos cancelados</span>
+                    <span className="text-xs font-bold text-[#B42318]/80">{currentTableCancelled.length} pedido(s)</span>
                   </div>
-                  <div className="divide-y divide-white/5">
+                  <div className="divide-y divide-[#FECDD3]">
                     {currentTableCancelled.map((order) => (
                       <div key={order.id} className="px-4 py-3">
-                        <div className="flex items-center justify-between mb-1.5">
-                          <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">{order.id} • {order.command} • {order.createdAt}</span>
+                        <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
+                          <span className="text-xs font-bold text-[#98A2B3] uppercase tracking-widest">{order.id} • {order.command} • {order.createdAt}</span>
                           <StatusChip status="cancelled" labels={STATUS_TABLET_LABEL} />
                         </div>
                         {order.items.map((item, idx) => (
-                          <div key={idx} className="flex justify-between text-sm py-0.5">
-                            <span className="text-slate-400 line-through">
+                          <div key={idx} className="flex justify-between gap-3 text-sm py-0.5">
+                            <span className="text-[#98A2B3] line-through break-words">
                               <span className="font-black">{item.quantity}×</span> {item.name}
                             </span>
-                            <span className="font-bold text-slate-500 line-through">{formatCurrency(item.price * item.quantity)}</span>
+                            <span className="shrink-0 font-bold text-[#98A2B3] line-through">{formatCurrency(item.price * item.quantity)}</span>
                           </div>
                         ))}
                         {order.cancelReason && (
-                          <p className="mt-1.5 rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-200">
+                          <p className="mt-1.5 rounded-xl border border-[#FECDD3] bg-white px-3 py-1.5 text-xs font-semibold text-[#B42318]">
                             Justificativa: <span className="font-black">{order.cancelReason}</span>
                           </p>
                         )}
@@ -3247,36 +3247,36 @@ function TabletView({
             </div>
 
             {/* Totais finais */}
-            <div className="border-t border-white/10 bg-slate-950/60 px-6 py-4 space-y-2">
-              <div className="flex justify-between text-sm text-slate-400">
+            <div className="border-t border-[#E5E7EB] bg-[#F7F8FA] px-6 py-4 space-y-2">
+              <div className="flex justify-between text-sm text-[#667085]">
                 <span>Subtotal</span>
-                <span className="font-bold text-white">{formatCurrency(currentTableSubtotal)}</span>
+                <span className="font-bold text-[#475467]">{formatCurrency(currentTableSubtotal)}</span>
               </div>
-              <div className="flex justify-between text-sm text-slate-400">
+              <div className="flex justify-between text-sm text-[#667085]">
                 <span>Taxa de serviço (10%)</span>
-                <span className="font-bold text-white">{formatCurrency(currentTableSubtotal * 0.1)}</span>
+                <span className="font-bold text-[#475467]">{formatCurrency(currentTableSubtotal * 0.1)}</span>
               </div>
-              <div className="h-px bg-white/10" />
-              <div className="flex justify-between text-lg font-black text-white">
+              <div className="h-px bg-[#E5E7EB]" />
+              <div className="flex justify-between text-lg font-black text-[#182230]">
                 <span>Total da mesa</span>
-                <span className="text-emerald-400">{formatCurrency(currentTableTotal)}</span>
+                <span className="text-[#16A34A]">{formatCurrency(currentTableTotal)}</span>
               </div>
               {Object.keys(porComanda).length > 1 && (
-                <p className="text-xs text-slate-500 text-center">
+                <p className="text-xs text-[#667085] text-center">
                   {Object.keys(porComanda).length} comandas na mesa • Total dividido: {formatCurrency(currentTableTotal / Object.keys(porComanda).length)} por comanda
                 </p>
               )}
               <button onClick={() => { setVerConta(false); setConfirmarConta(true); }}
                 disabled={!podeFecharConta}
                 title={!podeFecharConta ? "Disponível somente quando todos os pedidos forem entregues pela cozinha" : ""}
-                className={`mt-2 w-full rounded-2xl py-4 text-sm font-black transition active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed ${contaSolicitada ? "bg-amber-500 text-blue-950 hover:bg-amber-400" : "bg-gold-400 text-blue-950 hover:bg-gold-300"}`}>
+                className={`mt-2 w-full rounded-2xl py-4 text-sm font-black transition duration-200 active:scale-95 disabled:bg-[#F3F4F6] disabled:text-[#98A2B3] disabled:border disabled:border-[#E5E7EB] disabled:cursor-not-allowed ${contaSolicitada ? "bg-[#FFF4E5] text-[#B45309] hover:bg-[#FDE1B0]" : "bg-[#D9A441] text-[#182230] hover:bg-[#C7922F]"}`}>
                 {contaSolicitada ? "🔁 Reenviar conta ao caixa" : "🧾 Solicitar fechamento ao caixa"}
               </button>
               {!podeFecharConta && currentTableOrders.length > 0 && (
-                <p className="text-center text-xs text-slate-500">Aguardando a cozinha entregar todos os pedidos para liberar o fechamento.</p>
+                <p className="text-center text-xs text-[#667085]">Aguardando a cozinha entregar todos os pedidos para liberar o fechamento.</p>
               )}
               {!(currentTableTotal > 0) && (
-                <p className="text-center text-xs text-slate-500">O fechamento é liberado quando a mesa tiver um total maior que zero.</p>
+                <p className="text-center text-xs text-[#667085]">O fechamento é liberado quando a mesa tiver um total maior que zero.</p>
               )}
             </div>
           </div>
