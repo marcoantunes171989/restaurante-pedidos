@@ -7567,35 +7567,6 @@ function DashboardAdmin({ orders, products, comandas = [], clientes = [], setore
                 </div>
               </div>
             )}
-            {/* Chat "Pergunte ao Copiloto" — IA (Claude) com fallback no motor local */}
-            <div className="mt-4 border-t border-white/10 pt-4">
-              <p className="mb-2 flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-slate-500">💬 Pergunte ao Copiloto</p>
-              {chatMsgs.length > 0 && (
-                <div className="mb-2 max-h-72 space-y-2 overflow-y-auto rounded-2xl border border-white/10 bg-slate-950/40 p-3">
-                  {chatMsgs.map((m, i) => (
-                    <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                      <div className={`max-w-[88%] whitespace-pre-wrap rounded-2xl px-3.5 py-2 text-sm leading-relaxed ${m.role === "user" ? "bg-gold-400/15 text-gold-100" : "border border-white/10 bg-white/[0.05] text-slate-200"}`}>{m.content}</div>
-                    </div>
-                  ))}
-                  {chatLoading && <div className="flex justify-start"><div className="rounded-2xl border border-white/10 bg-white/[0.05] px-3.5 py-2 text-sm text-slate-400">🤖 Pensando…</div></div>}
-                </div>
-              )}
-              {chatErro && <p className="mb-2 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-[11px] font-bold text-amber-200">{chatErro}</p>}
-              <div className="flex gap-2">
-                <input value={chatInput} onChange={(e) => setChatInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") enviarPerguntaIA(); }}
-                  placeholder="Ex.: Como aumentar o ticket médio neste período?"
-                  className="flex-1 rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-2.5 text-sm text-white outline-none focus:border-gold-400/60 placeholder:text-slate-600" />
-                <button onClick={() => enviarPerguntaIA()} disabled={chatLoading || !chatInput.trim()}
-                  className="shrink-0 rounded-2xl bg-gold-400 px-5 py-2.5 text-sm font-black text-blue-950 transition hover:bg-gold-300 disabled:opacity-40">Enviar</button>
-              </div>
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {["Como aumentar o ticket médio?", "Quais clientes devo reativar?", "O que está puxando as vendas pra baixo?", "Onde estou perdendo dinheiro?"].map((s) => (
-                  <button key={s} type="button" onClick={() => enviarPerguntaIA(s)} disabled={chatLoading}
-                    className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] font-bold text-slate-300 transition hover:bg-white/10 disabled:opacity-40">{s}</button>
-                ))}
-              </div>
-            </div>
-            <p className="mt-3 text-[10px] text-slate-600">Insights e ações: análise local instantânea (nenhum dado sai do sistema). O chat usa IA (Claude) via função segura no servidor — se não estiver configurada, oriente-se pela análise local acima.</p>
           </div>
         );
       })()}
