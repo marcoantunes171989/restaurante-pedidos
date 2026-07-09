@@ -23,6 +23,7 @@ const NAV = [
   { label: "Funcionalidades", id: "funcionalidades" },
   { label: "Como funciona", id: "como-funciona" },
   { label: "Soluções", id: "solucoes" },
+  { label: "Cardápio QR", id: "cardapio-qr" },
   { label: "Gestão", id: "gestao" },
   { label: "Planos", id: "planos" },
   { label: "FAQ", id: "faq" },
@@ -31,25 +32,49 @@ const NAV = [
 
 const PLANOS = planosPedidoPrime;
 
-const DORES = [
-  { icon: "📝", title: "Pedido anotado errado", desc: "Comanda no papel gera troca de item, retrabalho e prejuízo no fim do dia." },
-  { icon: "🍳", title: "Cozinha sem organização", desc: "Pedidos soltos, sem ordem nem prioridade — e o cliente esperando mais do que devia." },
-  { icon: "🏃", title: "Garçom sobrecarregado", desc: "Correria entre mesas, cozinha e caixa, anotando tudo à mão e perdendo o timing." },
-  { icon: "⏳", title: "Cliente esperando atendimento", desc: "Mão levantada para chamar o garçom, pedir de novo e aguardar a conta demorada." },
-  { icon: "💳", title: "Caixa sem visão da conta", desc: "Difícil saber o que cada mesa consumiu, dividir a conta ou fechar com segurança." },
-  { icon: "📉", title: "Gestor sem relatórios", desc: "Sem números confiáveis de vendas, ticket médio e desempenho para decidir." },
+const BENEFICIOS = [
+  { icon: "✅", title: "Menos erros nos pedidos", desc: "Pedido digital direto da mesa até a cozinha, sem ruído de comunicação." },
+  { icon: "⚡", title: "Atendimento mais rápido", desc: "Menos espera, mais giro de mesa e cliente satisfeito." },
+  { icon: "📡", title: "Gestão em tempo real", desc: "Vendas, mesas e cozinha acompanhadas ao vivo, de qualquer lugar." },
+  { icon: "🎫", title: "Cardápio digital por QR Code", desc: "Cliente acessa o cardápio pelo celular, sem instalar nada." },
+  { icon: "🍽️", title: "Controle de mesas e comandas", desc: "Visão clara do que cada mesa consumiu e do status de cada pedido." },
+  { icon: "📈", title: "Relatórios para decisão", desc: "Números confiáveis de vendas, ticket médio e desempenho." },
+  { icon: "💰", title: "Mais controle financeiro", desc: "Caixa, formas de pagamento e contas a pagar/receber organizados." },
+  { icon: "✨", title: "Experiência moderna", desc: "Atendimento digital que passa profissionalismo ao cliente." },
 ];
 
 const FEATURES = [
-  { icon: "📲", title: "Pedidos por tablet", desc: "O cliente pede direto da mesa — com fotos, adicionais e observações, sem depender do atendimento manual." },
-  { icon: "🎫", title: "QR Code por mesa", desc: "O cliente acessa o cardápio pelo próprio celular, vinculado à mesa ou comanda." },
-  { icon: "🔗", title: "Link externo", desc: "Compartilhe o cardápio digital por link para pedidos externos, divulgação e atendimento rápido." },
-  { icon: "👨‍🍳", title: "Cozinha em tempo real", desc: "Pedidos organizados por status: aguardando, preparando, pronto e entregue." },
-  { icon: "📺", title: "Painel TV", desc: "Acompanhe os pedidos em telão, com fonte ampliada e atualização em tempo real." },
-  { icon: "💳", title: "Financeiro e caixa", desc: "Conta inteira ou parcial por item, pagamentos, fechamento e solicitação de conta." },
-  { icon: "👤", title: "CRM de clientes", desc: "Acompanhe clientes, recorrência, histórico de pedidos e oportunidades de relacionamento." },
-  { icon: "📊", title: "Dashboard gerencial", desc: "Indicadores de vendas, pedidos, ticket médio, horários de pico e desempenho do restaurante." },
-  { icon: "📈", title: "Relatórios de vendas", desc: "Dados claros para decidir melhor sobre produtos, equipe e faturamento." },
+  { icon: "📊", title: "Dashboard Gerencial", desc: "Indicadores de vendas, ticket médio e desempenho em tempo real." },
+  { icon: "🤖", title: "Copiloto IA", desc: "Assistente inteligente com insights e sugestões para o negócio." },
+  { icon: "📈", title: "Relatórios", desc: "Vendas, produtos, clientes e desempenho por período." },
+  { icon: "🍽️", title: "Mesas", desc: "Controle de status, ocupação e tempo de cada mesa." },
+  { icon: "🎫", title: "Comandas", desc: "Abertura, consumo e fechamento de comandas." },
+  { icon: "📱", title: "QR Code", desc: "Cardápio digital acessível direto do celular do cliente." },
+  { icon: "🔔", title: "Chamados", desc: "Cliente chama o garçom direto pelo app da mesa." },
+  { icon: "👨‍🍳", title: "Setores de Produção", desc: "Organização da cozinha e bar por setor de preparo." },
+  { icon: "📲", title: "Operação Mobile", desc: "Opere pedidos, cozinha e caixa direto do celular." },
+  { icon: "🔑", title: "Acessos Operacionais", desc: "Defina o que cada operador pode acessar no dia a dia." },
+  { icon: "📦", title: "Produtos", desc: "Cadastro completo com fotos, preços e variações." },
+  { icon: "🏷️", title: "Categorias", desc: "Organização do cardápio por categoria." },
+  { icon: "🎁", title: "Promoções", desc: "Combos e ofertas para vender mais." },
+  { icon: "👤", title: "Clientes / CRM", desc: "Histórico, recorrência e relacionamento com o cliente." },
+  { icon: "⭐", title: "Fidelidade", desc: "Programa de pontos e recompensas para clientes." },
+  { icon: "🎫", title: "Cardápio QR", desc: "Configuração do cardápio acessado por QR Code." },
+  { icon: "🔗", title: "Cardápio Externo", desc: "Link público do cardápio para divulgação." },
+  { icon: "💳", title: "Visão Financeira", desc: "Panorama consolidado do financeiro do estabelecimento." },
+  { icon: "🧾", title: "Lançamentos", desc: "Receitas e despesas registradas e organizadas." },
+  { icon: "📥", title: "Contas a Receber", desc: "Controle do que ainda vai entrar no caixa." },
+  { icon: "📤", title: "Contas a Pagar", desc: "Controle de despesas e vencimentos." },
+  { icon: "🔒", title: "Fechamento de Caixa", desc: "Conferência e fechamento com segurança." },
+  { icon: "💳", title: "Formas de Pagamento", desc: "Configure Pix, cartão, dinheiro e outros." },
+  { icon: "🧑‍💼", title: "Usuários", desc: "Cadastro da equipe com acesso individual." },
+  { icon: "🏷️", title: "Cargos / Perfis", desc: "Perfis de acesso para cada função da equipe." },
+  { icon: "🛡️", title: "Permissões", desc: "Controle fino do que cada perfil pode fazer." },
+  { icon: "🔗", title: "Usuário x Acesso", desc: "Vincule usuários aos acessos liberados." },
+  { icon: "📋", title: "Auditoria", desc: "Histórico de ações realizadas no sistema." },
+  { icon: "🏢", title: "Empresas", desc: "Gestão multiempresa em um só painel." },
+  { icon: "📄", title: "Licenças de Uso", desc: "Controle de licenças e vigência do plano." },
+  { icon: "🧩", title: "Controle de Versões", desc: "Acompanhe as atualizações do sistema." },
 ];
 
 const OPERACIONAL = [
@@ -66,12 +91,16 @@ const OPERACIONAL = [
 ];
 
 const PASSOS = [
-  { n: 1, icon: "📲", title: "Cliente acessa o cardápio", desc: "Pelo tablet da mesa, QR Code ou link externo — sem instalar nada." },
-  { n: 2, icon: "🛒", title: "Escolhe produtos e adicionais", desc: "Com fotos, personalização e observações, do jeito que quiser." },
-  { n: 3, icon: "👨‍🍳", title: "Pedido vai para cozinha ou bar", desc: "Enviado automaticamente, digitado e sem ruído de comunicação." },
-  { n: 4, icon: "⏱️", title: "Equipe acompanha o preparo", desc: "Status em tempo real: aguardando, preparando e pronto." },
-  { n: 5, icon: "💳", title: "Caixa fecha a conta", desc: "Conta inteira, dividida ou parcial, com alerta de conta solicitada." },
-  { n: 6, icon: "📈", title: "Gestor acompanha relatórios", desc: "Dashboard, relatórios e CRM atualizados a cada venda." },
+  { n: 1, icon: "🏢", title: "Cadastre sua empresa", desc: "Configure seu estabelecimento no sistema em poucos minutos." },
+  { n: 2, icon: "📦", title: "Configure produtos e cardápio", desc: "Cadastre produtos, categorias e monte seu cardápio digital." },
+  { n: 3, icon: "🎫", title: "Gere o QR Code", desc: "Disponibilize o cardápio para os clientes acessarem pelo celular." },
+  { n: 4, icon: "📊", title: "Acompanhe pelo painel", desc: "Veja pedidos, vendas e relatórios em tempo real." },
+];
+
+const CARDAPIO_QR = [
+  "QR Code para acesso ao cardápio", "Visualização dos produtos", "Organização por categorias",
+  "Modelo de cardápio em PDF", "Link externo para consulta", "Layout responsivo para celular",
+  "Sem necessidade de aplicativo", "Base inicial para evoluir para pedidos online",
 ];
 
 const INDICADORES = [
@@ -401,19 +430,26 @@ export default function LandingPage({ navigate }) {
               <Reveal><Badge>Plataforma inteligente para atendimento, comandas e gestão food service</Badge></Reveal>
               <Reveal delay={80}>
                 <h1 className="font-display mt-5 text-4xl font-black leading-[1.08] tracking-tight text-[#182230] sm:text-5xl">
-                  Transforme o atendimento do seu restaurante com <span className="text-[#D9A441]">pedidos digitais em tempo real</span>
+                  Automatize seu restaurante com o <span className="text-[#D9A441]">Pedido Prime</span>
                 </h1>
               </Reveal>
               <Reveal delay={160}>
                 <p className="mt-5 max-w-xl text-base leading-7 text-[#4B5563] sm:text-lg">
-                  Controle mesas, comandas, cardápio digital, cozinha, caixa, financeiro e relatórios em uma única plataforma criada para restaurantes que querem <b className="text-[#182230]">vender mais, errar menos e atender melhor</b>.
+                  Controle pedidos, mesas, comandas, cardápio digital, QR Code, caixa, financeiro, CRM e relatórios em uma plataforma moderna, simples e completa.
+                </p>
+              </Reveal>
+              <Reveal delay={220}>
+                <p className="mt-4 flex flex-wrap items-baseline gap-2">
+                  <span className="font-display text-2xl font-black text-[#D9A441]">A partir de R$ 79,99/mês</span>
                 </p>
               </Reveal>
               <Reveal delay={240}>
-                <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                  <Botao variant="gold" onClick={() => irPara("contato")}>Solicitar demonstração</Botao>
+                <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                  <Botao variant="gold" onClick={acessar}>Começar agora</Botao>
+                  <Botao variant="outline" onClick={() => irPara("contato")}>Falar com consultor</Botao>
                   <Botao variant="outline" onClick={() => irPara("funcionalidades")}>Ver funcionalidades →</Botao>
                 </div>
+                <p className="mt-3 text-sm text-[#667085]">Entre em contato e automatize seu restaurante hoje mesmo.</p>
               </Reveal>
               <Reveal delay={320}>
                 <div className="mt-8 grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:max-w-lg">
@@ -427,17 +463,18 @@ export default function LandingPage({ navigate }) {
           </div>
         </section>
 
-        {/* ══ PROBLEMA ══ */}
+        {/* ══ BENEFÍCIOS ══ */}
         <section className="bg-white py-16 sm:py-20">
           <div className="mx-auto max-w-7xl px-5">
             <Reveal className="mx-auto max-w-3xl text-center">
-              <h2 className="font-display text-3xl font-black tracking-tight text-[#182230] sm:text-4xl">Seu restaurante ainda perde tempo com pedidos no papel?</h2>
+              <Badge>Benefícios</Badge>
+              <h2 className="font-display mt-4 text-3xl font-black tracking-tight text-[#182230] sm:text-4xl">Por que restaurantes escolhem o Pedido Prime</h2>
               <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-[#667085]">
-                Com o Pedido Prime, o pedido sai da mesa direto para a cozinha, reduzindo falhas de comunicação, atrasos, retrabalho e perda de controle no atendimento.
+                Menos erros, mais agilidade e controle total da operação — do pedido ao relatório.
               </p>
             </Reveal>
-            <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {DORES.map((d, i) => (
+            <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {BENEFICIOS.map((d, i) => (
                 <Reveal as="article" key={d.title} delay={i * 60}
                   className="rounded-3xl border border-[#E5E7EB] bg-[#F7F8FA] p-6 transition hover:-translate-y-1 hover:border-[#D9A441]/40 hover:shadow-lg">
                   <IconBadge>{d.icon}</IconBadge>
@@ -521,6 +558,31 @@ export default function LandingPage({ navigate }) {
                     </li>
                   ))}
                 </ul>
+              </Reveal>
+            </div>
+          </div>
+        </section>
+
+        {/* ══ CARDÁPIO QR CODE / PDF ══ */}
+        <section id="cardapio-qr" className="scroll-mt-24 bg-white py-16 sm:py-24">
+          <div className="mx-auto max-w-7xl px-5">
+            <div className="grid items-center gap-12 lg:grid-cols-2">
+              <Reveal>
+                <Badge>Cardápio QR Code / PDF</Badge>
+                <h2 className="font-display mt-4 text-3xl font-black tracking-tight text-[#182230] sm:text-4xl">Cardápio por QR Code e modelo em PDF</h2>
+                <p className="mt-4 max-w-xl text-base leading-7 text-[#667085]">
+                  Disponibilize seus produtos para o cliente visualizar pelo celular através de QR Code. Ideal para iniciar a automação do atendimento sem complicação.
+                </p>
+                <ul className="mt-6 grid gap-2.5 sm:grid-cols-2">
+                  {CARDAPIO_QR.map((b) => (
+                    <li key={b} className="flex items-start gap-2 text-sm font-medium text-[#374151]"><Check /> {b}</li>
+                  ))}
+                </ul>
+              </Reveal>
+              <Reveal delay={120} className="rounded-[2rem] border border-[#E5E7EB] bg-[#F7F8FA] p-8 text-center">
+                <IconBadge>🎫</IconBadge>
+                <h3 className="font-display mt-4 text-lg font-bold text-[#182230]">Comece simples e evolua sua operação</h3>
+                <p className="mt-2 text-sm leading-6 text-[#667085]">O Pedido Prime permite iniciar com cardápio digital e gestão básica, evoluindo para controle completo de mesas, comandas, caixa, cozinha, CRM, financeiro e relatórios.</p>
               </Reveal>
             </div>
           </div>
@@ -624,7 +686,8 @@ export default function LandingPage({ navigate }) {
             <Reveal className="mx-auto max-w-3xl text-center">
               <Badge>Planos</Badge>
               <h2 className="font-display mt-4 text-3xl font-black tracking-tight text-[#182230] sm:text-4xl">Planos pensados para o tamanho da sua operação</h2>
-              <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-[#667085]">Comece com o essencial e evolua conforme o crescimento do seu restaurante.</p>
+              <p className="mx-auto mt-3 text-2xl font-black text-[#D9A441]">A partir de R$ 79,99/mês</p>
+              <p className="mx-auto mt-3 max-w-2xl text-base leading-7 text-[#667085]">Entre em contato e automatize seu restaurante hoje mesmo.</p>
             </Reveal>
             <div className="mt-12 grid gap-5 lg:grid-cols-4 md:grid-cols-2">
               {PLANOS.map((p, i) => {
@@ -692,12 +755,13 @@ export default function LandingPage({ navigate }) {
             <Reveal className="relative overflow-hidden rounded-[2.5rem] border border-[#D9A441]/30 bg-gradient-to-br from-[#182230] to-[#03101C] p-10 text-center shadow-2xl sm:p-16">
               <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-[radial-gradient(closest-side,rgba(201,154,46,0.18),transparent)]" />
               <div className="pointer-events-none absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-[radial-gradient(closest-side,rgba(6,26,46,0.5),transparent)]" />
-              <h2 className="font-display relative text-3xl font-black tracking-tight text-white sm:text-4xl">Pronto para modernizar o atendimento do seu restaurante?</h2>
+              <h2 className="font-display relative text-3xl font-black tracking-tight text-white sm:text-4xl">Pronto para automatizar seu restaurante?</h2>
               <p className="relative mx-auto mt-4 max-w-2xl text-base leading-7 text-[#CBD5E1]">
-                Veja como o Pedido Prime pode ajudar sua operação a vender mais, atender melhor e ter mais controle todos os dias.
+                Fale com o Pedido Prime e veja como transformar sua operação com mais controle, agilidade e profissionalismo.
               </p>
               <div className="relative mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-                <Botao variant="gold" onClick={() => irPara("contato")}>Solicitar demonstração</Botao>
+                <Botao variant="gold" onClick={() => irPara("contato")}>Falar com consultor</Botao>
+                <Botao variant="onDark" onClick={acessar}>Começar agora</Botao>
                 <a href={`https://wa.me/${WHATSAPP_COMERCIAL}?text=${encodeURIComponent(`Olá! Tenho interesse no ${NOME_SISTEMA} e gostaria de uma demonstração.`)}`} target="_blank" rel="noopener noreferrer"
                   className="font-display inline-flex items-center justify-center gap-2 rounded-2xl bg-[#22C55E] px-6 py-3.5 text-sm font-bold text-white shadow-lg shadow-[#22C55E]/30 transition hover:bg-[#1eb257] active:scale-[0.97]">
                   Falar no WhatsApp
