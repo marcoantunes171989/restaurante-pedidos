@@ -3295,42 +3295,42 @@ function TabletView({
 
       {/* Seleção da mesa do tablet — obrigatória após o login; ou ao trocar */}
       {(precisaMesa || trocarMesaAberto) && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/85 backdrop-blur-md p-4" style={{ fontFamily: "'Poppins','Inter',sans-serif" }}>
-          <div className="w-full max-w-md overflow-hidden rounded-[2rem] border border-gold-400/20 bg-black shadow-2xl">
-            <div className="flex items-center justify-between gap-3 border-b border-gold-400/15 px-6 py-4">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm p-4" style={{ fontFamily: "'Poppins','Inter',sans-serif" }}>
+          <div className="w-full max-w-lg overflow-hidden rounded-[24px] border border-[#E5E7EB] bg-white shadow-[0_20px_60px_-20px_rgba(16,24,40,0.25)]">
+            <div className="flex items-center justify-between gap-3 border-b border-[#E5E7EB] px-6 py-4">
               <div className="flex items-center gap-2.5">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gold-400/30 bg-gold-400/10 text-gold-300">🍽️</span>
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#FFF7E0] text-[#D9A441]">🍽️</span>
                 <div>
-                  <h2 className="font-display text-lg font-bold tracking-tight text-white">Selecione a mesa deste tablet</h2>
-                  <p className="mt-0.5 text-xs text-slate-400">Escolha a mesa que este tablet atende. Fica salva no aparelho.</p>
+                  <h2 className="font-display text-lg font-bold tracking-tight text-[#182230]">Selecione a mesa deste tablet</h2>
+                  <p className="mt-0.5 text-xs text-[#667085]">Escolha a mesa que este tablet atende. Fica salva no aparelho.</p>
                 </div>
               </div>
-              {!precisaMesa && <button onClick={() => setTrocarMesaAberto(false)} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-sm font-bold text-slate-300 hover:bg-white/15">✕</button>}
+              {!precisaMesa && <button onClick={() => setTrocarMesaAberto(false)} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#E5E7EB] bg-white text-sm font-bold text-[#667085] hover:bg-[#F8FAFC]">✕</button>}
             </div>
-            <div className="max-h-[60vh] overflow-y-auto px-6 py-5">
+            <div className="max-h-[65vh] overflow-y-auto px-6 py-5">
               {mesas.length > 0 ? (
                 <>
                   {/* Legenda de status */}
-                  <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] font-bold">
-                    <span className="flex items-center gap-1.5 text-emerald-300"><span className="h-2.5 w-2.5 rounded-full bg-emerald-400" /> Disponível</span>
-                    <span className="flex items-center gap-1.5 text-red-300"><span className="h-2.5 w-2.5 rounded-full bg-red-500" /> Ocupada (outro aparelho)</span>
+                  <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] font-bold">
+                    <span className="flex items-center gap-1.5 text-[#065F46]"><span className="h-2.5 w-2.5 rounded-full bg-[#22A06B]" /> Disponível</span>
+                    <span className="flex items-center gap-1.5 text-[#991B1B]"><span className="h-2.5 w-2.5 rounded-full bg-[#E5484D]" /> Ocupada (outro aparelho)</span>
                   </div>
-                  <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                  <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))" }}>
                     {[...mesas].sort((a, b) => a.numero - b.numero).map((m) => {
                       const ocupada = mesasOcupadas.has(String(m.numero)) && String(m.numero) !== String(tableNumber);
                       const atual = String(m.numero) === String(tableNumber);
                       // atual = a mesa deste tablet (dourado) · ocupada = vermelho · disponível = verde
                       const estilo = atual
-                        ? "border border-gold-400 bg-gold-400/15 text-gold-200"
+                        ? "border-2 border-[#D9A441] bg-[#FFF7E0] text-[#182230]"
                         : ocupada
-                          ? "cursor-not-allowed border border-red-500/40 bg-red-500/10 text-red-300/70"
-                          : "border border-emerald-500/40 bg-emerald-500/10 text-emerald-100 hover:bg-emerald-500/20";
+                          ? "cursor-not-allowed border border-[#FDA4AF] bg-[#FFF1F2] text-[#991B1B]"
+                          : "border border-[#86EFAC] bg-[#ECFDF3] text-[#065F46] hover:bg-[#DCFCE7]";
                       return (
                         <button key={m.id} type="button" disabled={ocupada} onClick={() => !ocupada && definirMesaTablet(m.numero)}
-                          className={`relative flex flex-col items-center justify-center rounded-2xl py-3 transition active:scale-95 ${estilo}`}>
-                          <span className="text-base font-black">{String(m.numero).padStart(2, "0")}</span>
-                          {m.nome && <span className="mt-0.5 w-full truncate px-1 text-center text-[10px] opacity-80">{m.nome}</span>}
-                          <span className={`mt-0.5 text-[8px] font-black uppercase tracking-wide ${atual ? "text-gold-300" : ocupada ? "text-red-400" : "text-emerald-400"}`}>
+                          className={`relative flex min-h-[92px] flex-col items-center justify-center gap-0.5 rounded-2xl py-3 shadow-sm transition active:scale-95 ${estilo}`}>
+                          <span className="text-xl font-black leading-none">{String(m.numero).padStart(2, "0")}</span>
+                          {m.nome && <span className="w-full truncate px-1 text-center text-[11px] font-semibold opacity-90">{m.nome}</span>}
+                          <span className={`mt-1 rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wide ${atual ? "bg-[#D9A441] text-[#182230]" : ocupada ? "bg-[#FECDD3] text-[#991B1B]" : "bg-[#BBF7D0] text-[#065F46]"}`}>
                             {atual ? "Este tablet" : ocupada ? "Ocupada" : "Disponível"}
                           </span>
                         </button>
@@ -3340,14 +3340,14 @@ function TabletView({
                 </>
               ) : (
                 <div className="space-y-3">
-                  <p className="text-xs text-slate-400">Nenhuma mesa cadastrada. Informe o número da mesa deste tablet:</p>
+                  <p className="text-xs text-[#667085]">Nenhuma mesa cadastrada. Informe o número da mesa deste tablet:</p>
                   <input autoFocus type="tel" inputMode="numeric" value={mesaManual}
                     onChange={(e) => setMesaManual(e.target.value.replace(/\D/g, "").slice(0, 2))}
                     onKeyDown={(e) => { if (e.key === "Enter" && Number(mesaManual) > 0) definirMesaTablet(mesaManual); }}
                     placeholder="Nº da mesa"
-                    className="w-full rounded-2xl border border-gold-400/40 bg-white/[0.04] px-4 py-3 text-center text-lg font-black text-white outline-none focus:border-gold-400 placeholder:text-slate-600" />
+                    className="w-full rounded-2xl border border-[#D0D5DD] bg-white px-4 py-3 text-center text-lg font-black text-[#182230] outline-none focus:border-[#D9A441] placeholder:text-[#98A2B3]" />
                   <button onClick={() => Number(mesaManual) > 0 && definirMesaTablet(mesaManual)} disabled={!(Number(mesaManual) > 0)}
-                    className="font-display w-full rounded-2xl bg-gold-400 py-3.5 text-sm font-bold text-blue-950 hover:bg-gold-300 transition active:scale-95 disabled:opacity-40">
+                    className="font-display w-full rounded-2xl bg-[#D9A441] py-3.5 text-sm font-bold text-[#182230] hover:bg-[#C7922F] transition active:scale-95 disabled:opacity-40">
                     Confirmar mesa
                   </button>
                 </div>
