@@ -2406,6 +2406,24 @@ function TabletView({
   const [trocarMesaAberto, setTrocarMesaAberto] = useState(false); // reabrir seleção de mesa
   const [mesaManual, setMesaManual] = useState(""); // input manual quando não há mesas cadastradas
 
+  // Categoria em destaque no menu lateral (scroll-spy) — não filtra os produtos,
+  // apenas indica visualmente qual grupo está visível enquanto o cliente rola.
+  const [categoriaAtiva, setCategoriaAtiva] = useState("Todos");
+  useEffect(() => {
+    const els = Array.from(document.querySelectorAll("[data-cat-section]"));
+    if (!els.length) return;
+    const io = new IntersectionObserver((entries) => {
+      const visiveis = entries.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+      if (visiveis[0]) setCategoriaAtiva(visiveis[0].target.getAttribute("data-cat-section"));
+    }, { rootMargin: "-88px 0px -70% 0px", threshold: 0 });
+    els.forEach((el) => io.observe(el));
+    return () => io.disconnect();
+  }, [filteredItems, categories]);
+  function irParaCategoriaTablet(c) {
+    setCategoriaAtiva(c);
+    document.getElementById(`cat-${c}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
   // Mesa do tablet por SESSÃO: a cada login (tableNumber vazio) o tablet pede a
   // seleção da mesa. Mantida apenas em memória — NÃO persiste entre logins, para
   // sempre abrir a seleção após o login e liberar a mesa para outros aparelhos.
@@ -2685,13 +2703,13 @@ function TabletView({
             {indisponivel ? (
               <div className="mt-2 w-full rounded-xl border border-[var(--ord-border)] bg-[var(--ord-elev)] px-3.5 py-2.5 text-center text-sm font-bold text-[var(--ord-text-muted)]">Indisponível no momento</div>
             ) : noCarrinho ? (
-              <div className="mt-2 flex items-center justify-between gap-1 rounded-xl border border-gold-400/40 bg-gold-400/10 p-1">
-                <button onClick={() => removeFromCart(item.id)} className="h-9 flex-1 rounded-lg bg-slate-800 font-black text-white hover:bg-slate-700 transition active:scale-95">−</button>
-                <span className="w-10 text-center text-base font-black text-white">{noCarrinho.quantity}</span>
-                <button onClick={() => abrirProdutoComPromo(item)} title="Personalizar / adicionar mais" className="h-9 flex-1 rounded-lg bg-gold-400 font-black text-blue-950 hover:bg-gold-300 transition active:scale-95">+</button>
+              <div className="mt-2 flex items-center justify-between gap-1 rounded-xl border border-[#F4D27A] bg-[#FFF7E0] p-1">
+                <button onClick={() => removeFromCart(item.id)} className="h-9 flex-1 rounded-lg border border-[#E5E7EB] bg-white font-black text-[#182230] hover:bg-[#F8FAFC] transition active:scale-95">−</button>
+                <span className="w-10 text-center text-base font-black text-[#182230]">{noCarrinho.quantity}</span>
+                <button onClick={() => abrirProdutoComPromo(item)} title="Personalizar / adicionar mais" className="h-9 flex-1 rounded-lg bg-[#D9A441] font-black text-[#182230] hover:bg-[#C7922F] transition active:scale-95">+</button>
               </div>
             ) : (
-              <button onClick={() => abrirProdutoComPromo(item)} className="mt-2 flex w-full items-center justify-between rounded-xl bg-gold-400 px-3.5 py-2.5 text-sm font-semibold text-blue-950 hover:bg-gold-300 transition active:scale-95 shadow-lg shadow-gold-900/20">
+              <button onClick={() => abrirProdutoComPromo(item)} className="mt-2 flex w-full items-center justify-between rounded-xl bg-[#D9A441] px-3.5 py-2.5 text-sm font-semibold text-[#182230] hover:bg-[#C7922F] transition active:scale-95 shadow-lg shadow-[#D9A441]/20">
                 <span>Adicionar</span><span className="text-base leading-none">+</span>
               </button>
             )}
@@ -2710,43 +2728,43 @@ function TabletView({
       style={{ height: "100dvh", paddingTop: "calc(env(safe-area-inset-top) + 24px)", paddingBottom: "env(safe-area-inset-bottom)", fontFamily: "'Inter','Poppins',sans-serif" }}>
 
       {/* ── Cabeçalho gourmet: marca · MESA em destaque · ações ── */}
-      <header className="grid shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-3 border-b border-gold-400/15 bg-black/90 px-5 py-2.5 backdrop-blur-xl">
+      <header className="grid shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-3 border-b border-[#E5E7EB] bg-white px-5 py-2.5">
         {/* Marca */}
         <div className="flex min-w-0 items-center gap-3">
           <LogoPP size={42} />
           <div className="min-w-0">
-            <p className="text-base font-black leading-none tracking-tight"><span className="text-white">PEDIDO</span> <span className="text-gold-400">PRIME</span></p>
-            <p className="mt-1 truncate text-[9px] font-bold uppercase tracking-[0.28em] text-slate-500">{lojaInfo?.nome || "Sistema para restaurantes"}</p>
+            <p className="text-base font-black leading-none tracking-tight"><span className="text-[#182230]">PEDIDO</span> <span className="text-[#D9A441]">PRIME</span></p>
+            <p className="mt-1 truncate text-[9px] font-bold uppercase tracking-[0.28em] text-[#98A2B3]">{lojaInfo?.nome || "Sistema para restaurantes"}</p>
           </div>
         </div>
         {/* Mesa em destaque (centro) */}
-        <div className="text-center leading-none">
-          <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-400">Mesa</p>
-          <p className="text-3xl font-black tabular-nums text-gold-400">{dadosCompletos ? String(tableNumber).padStart(2, "0") : "--"}</p>
+        <div className="rounded-2xl bg-[#FFF7E0] px-5 py-1.5 text-center leading-none">
+          <p className="text-[10px] font-black uppercase tracking-[0.4em] text-[#9A6A00]">Mesa</p>
+          <p className="text-3xl font-black tabular-nums text-[#D9A441]">{dadosCompletos ? String(tableNumber).padStart(2, "0") : "--"}</p>
           {(() => {
             const mesaAtual = (mesas || []).find((m) => String(m.numero) === String(tableNumber));
-            if (mesaAtual?.capacidade) return <p className="mt-0.5 text-[10px] font-bold text-slate-400">👤 {mesaAtual.capacidade} pessoas</p>;
-            return currentTableOrders.length > 0 ? <p className="mt-0.5 text-[10px] font-bold text-slate-500">👤 {currentTableOrders.length} pedido(s) na mesa</p> : null;
+            if (mesaAtual?.capacidade) return <p className="mt-0.5 text-[10px] font-bold text-[#9A6A00]">👤 {mesaAtual.capacidade} pessoas</p>;
+            return currentTableOrders.length > 0 ? <p className="mt-0.5 text-[10px] font-bold text-[#9A6A00]">👤 {currentTableOrders.length} pedido(s) na mesa</p> : null;
           })()}
         </div>
         {/* Ações */}
         <div className="flex items-center justify-end gap-2">
           <button onClick={chamarGarcom}
-            className="hidden sm:flex flex-col items-center rounded-xl px-2.5 py-1.5 text-slate-300 hover:bg-white/[0.06] transition">
+            className="hidden sm:flex flex-col items-center rounded-xl border border-[#E5E7EB] px-2.5 py-1.5 text-[#475467] hover:bg-[#F8FAFC] transition">
             <span className="text-lg leading-none">🔔</span>
             <span className="mt-1 text-[9px] font-bold leading-none">Chamar<br/>garçom</span>
           </button>
           <button onClick={() => setVerConta(true)} disabled={!temConta}
-            className="hidden sm:flex flex-col items-center rounded-xl px-2.5 py-1.5 text-slate-300 hover:bg-white/[0.06] transition disabled:opacity-40 disabled:cursor-not-allowed">
+            className="hidden sm:flex flex-col items-center rounded-xl border border-[#E5E7EB] px-2.5 py-1.5 text-[#475467] hover:bg-[#F8FAFC] transition disabled:opacity-40 disabled:cursor-not-allowed">
             <span className="text-lg leading-none">🧾</span>
             <span className="mt-1 text-[9px] font-bold leading-none">Solicitar<br/>conta</span>
           </button>
           <button onClick={() => setCarrinhoAberto(true)}
-            className="flex items-center gap-2 rounded-xl border border-gold-400/50 bg-gold-400/10 px-3.5 py-2 text-gold-300 hover:bg-gold-400/20 transition">
+            className="flex items-center gap-2 rounded-xl bg-[#D9A441] px-3.5 py-2 text-[#182230] hover:bg-[#C7922F] transition">
             <span className="text-base">🛒</span>
             <span className="text-left leading-none">
               <span className="block text-xs font-black">Meu pedido</span>
-              <span className="mt-0.5 block text-[10px] font-bold text-slate-400">{totalCartItems} {totalCartItems === 1 ? "item" : "itens"}</span>
+              <span className="mt-0.5 block text-[10px] font-bold text-[#182230]/70">{totalCartItems} {totalCartItems === 1 ? "item" : "itens"}</span>
             </span>
           </button>
         </div>
@@ -2756,13 +2774,14 @@ function TabletView({
       <div className="flex flex-1 overflow-hidden">
 
         {/* Menu gourmet lateral (categorias) */}
-        <aside className="hidden md:flex w-48 lg:w-52 shrink-0 flex-col border-r border-gold-400/10 bg-black">
+        <aside className="hidden md:flex w-48 lg:w-52 shrink-0 flex-col border-r border-[#E5E7EB] bg-white">
           <nav className="scrollbar-none flex-1 space-y-1 overflow-y-auto p-3">
             {categories.map((c) => {
-              const sel = selectedCategory === c;
+              const sel = categoriaAtiva === c;
               return (
-                <button key={c} onClick={() => setSelectedCategory(c)}
-                  className={`flex w-full items-center gap-3 rounded-2xl border px-3.5 py-3 text-left text-sm font-medium tracking-wide transition ${sel ? "border-gold-400 bg-gold-400/10 font-semibold text-gold-300" : "border-white/10 bg-white/[0.02] text-slate-200 hover:border-white/25 hover:bg-white/[0.05] hover:text-white"}`}>
+                <button key={c} onClick={() => irParaCategoriaTablet(c)}
+                  className={`relative flex w-full items-center gap-3 rounded-2xl border px-3.5 py-3 text-left text-sm font-medium tracking-wide transition ${sel ? "border-[#D9A441] bg-[#FFF7E0] font-semibold text-[#182230]" : "border-[#E5E7EB] bg-white text-[#475467] hover:bg-[#F8FAFC]"}`}>
+                  {sel && <span className="absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-full bg-[#D9A441]" />}
                   <span className="text-base">{iconeCategoria(c)}</span>
                   <span className="truncate">{c === "Todos" ? "Destaques" : c}</span>
                 </button>
@@ -2770,20 +2789,20 @@ function TabletView({
             })}
           </nav>
           {/* Experiência Prime */}
-          <button onClick={() => { setSelectedCategory("Todos"); setSearch(""); }}
-            className="m-3 rounded-2xl border border-gold-400/40 bg-gold-400/[0.06] p-3.5 text-left hover:bg-gold-400/10 transition">
-            <p className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-gold-400">💎 Experiência Prime</p>
-            <p className="mt-1 text-[10px] leading-4 text-slate-400">Veja nossas sugestões especiais para você</p>
+          <button onClick={() => { irParaCategoriaTablet("Todos"); setSearch(""); }}
+            className="m-3 rounded-2xl border border-[#F4D27A] bg-[#FFF7E0] p-3.5 text-left hover:bg-[#F4D27A]/30 transition">
+            <p className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-[#9A6A00]">💎 Experiência Prime</p>
+            <p className="mt-1 text-[10px] leading-4 text-[#667085]">Veja nossas sugestões especiais para você</p>
           </button>
         </aside>
 
         {/* Vitrine central */}
         <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
           {/* Categorias (telas sem o menu lateral) */}
-          <div className="md:hidden shrink-0 flex items-center gap-2 overflow-x-auto border-b border-white/10 bg-black/50 px-4 py-2.5">
+          <div className="md:hidden shrink-0 flex items-center gap-2 overflow-x-auto border-b border-[#E5E7EB] bg-white px-4 py-2.5">
             {categories.map((c) => (
-              <button key={c} onClick={() => setSelectedCategory(c)}
-                className={`shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-bold transition ${selectedCategory === c ? "border-gold-400 bg-gold-400 text-blue-950" : "border-white/10 bg-white/[0.05] text-slate-300"}`}>
+              <button key={c} onClick={() => irParaCategoriaTablet(c)}
+                className={`shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-bold transition ${categoriaAtiva === c ? "border-[#D9A441] bg-[#FFF7E0] text-[#182230]" : "border-[#E5E7EB] bg-white text-[#475467]"}`}>
                 {iconeCategoria(c)} {c === "Todos" ? "Destaques" : c}
               </button>
             ))}
@@ -2837,46 +2856,49 @@ function TabletView({
               </div>
             )}
             {filteredItems.length === 0 && combosTablet.length === 0 ? (
-              <div className="flex h-full flex-col items-center justify-center gap-3 opacity-40">
+              <div className="flex h-full flex-col items-center justify-center gap-3 opacity-60">
                 <span className="text-5xl"><IconBusca /></span>
-                <p className="text-base font-black text-slate-300">Nenhum produto encontrado</p>
-                <p className="text-sm text-slate-500">Tente outra busca ou categoria</p>
+                <p className="text-base font-black text-[#182230]">Nenhum produto encontrado</p>
+                <p className="text-sm text-[#667085]">Tente outra busca ou categoria</p>
               </div>
             ) : (() => {
-              const emDestaques = selectedCategory === "Todos";
               // Prioriza produtos marcados como destaque (migration 038); senão, cai
               // no comportamento anterior (com badge / primeiros itens).
               const marcados = filteredItems.filter((i) => i.isFeatured && i.showOnHome !== false).sort((a, b) => (a.featuredOrder ?? 0) - (b.featuredOrder ?? 0));
               const comTag = filteredItems.filter((i) => i.badge);
               const base = marcados.length > 0 ? marcados : (comTag.length > 0 ? comTag : filteredItems.slice(0, 4));
-              const destaques = emDestaques ? base.slice(0, 8) : [];
-              const demais = emDestaques ? filteredItems.filter((i) => !destaques.includes(i)) : filteredItems;
-              const cabSecao = (titulo) => (
-                <div className="mb-4 flex items-center gap-4">
-                  <h2 className="shrink-0 text-lg font-bold uppercase tracking-[0.14em] text-gold-400">{titulo}</h2>
-                  <div className="h-px flex-1 bg-gold-400/25" />
-                  <span className="shrink-0 text-xs font-black text-gold-400">Ver todos →</span>
+              const destaques = base.slice(0, 8);
+              const idsDestaque = new Set(destaques.map((i) => i.id));
+              const cabSecao = (titulo, qtd) => (
+                <div className="mb-4 flex items-center gap-3">
+                  <h2 className="shrink-0 text-lg font-bold uppercase tracking-[0.14em] text-[#182230]">{titulo}</h2>
+                  <span className="shrink-0 text-xs font-bold text-[#98A2B3]">{qtd} {qtd === 1 ? "item" : "itens"}</span>
+                  <div className="h-px flex-1 bg-[#E5E7EB]" />
                 </div>
               );
               const grade = { gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 205px), 1fr))" };
               return (
                 <div className="space-y-8">
-                  {emDestaques && destaques.length > 0 && (
-                    <section>
-                      {cabSecao("Destaques da casa")}
+                  {destaques.length > 0 && (
+                    <section id="cat-Todos" data-cat-section="Todos" className="scroll-mt-4">
+                      {cabSecao("Destaques da casa", destaques.length)}
                       <div className="grid gap-4" style={grade}>
                         {destaques.map((item, i) => cardGourmet(item, TAGS_DESTAQUE[i % TAGS_DESTAQUE.length]))}
                       </div>
                     </section>
                   )}
-                  {demais.length > 0 && (
-                    <section>
-                      {cabSecao(emDestaques ? "Mais pedidos" : selectedCategory)}
-                      <div className="grid gap-4" style={grade}>
-                        {demais.map((item) => cardGourmet(item))}
-                      </div>
-                    </section>
-                  )}
+                  {categories.filter((c) => c !== "Todos").map((c) => {
+                    const itens = filteredItems.filter((i) => i.category === c && !idsDestaque.has(i.id));
+                    if (itens.length === 0) return null;
+                    return (
+                      <section key={c} id={`cat-${c}`} data-cat-section={c} className="scroll-mt-4">
+                        {cabSecao(c, itens.length)}
+                        <div className="grid gap-4" style={grade}>
+                          {itens.map((item) => cardGourmet(item))}
+                        </div>
+                      </section>
+                    );
+                  })}
                 </div>
               );
             })()}
@@ -2884,46 +2906,46 @@ function TabletView({
         </main>
 
         {/* ── Meu pedido (lateral fixa) ─────────────────────── */}
-        <aside className="hidden lg:flex w-72 xl:w-80 shrink-0 flex-col border-l border-gold-400/10 bg-[var(--ord-bg)]">
-          <div className="shrink-0 border-b border-gold-400/15 px-4 py-3.5">
-            <p className="text-sm font-black uppercase tracking-[0.22em] text-[var(--ord-text)]">Meu pedido</p>
+        <aside className="hidden lg:flex w-72 xl:w-80 shrink-0 flex-col border-l border-[#E5E7EB] bg-white">
+          <div className="shrink-0 border-b border-[#E5E7EB] px-4 py-3.5">
+            <p className="text-sm font-black uppercase tracking-[0.22em] text-[#182230]">Meu pedido</p>
           </div>
           <div className="scrollbar-none flex-1 space-y-2 overflow-y-auto p-3">
             {cart.length === 0 && (
-              <div className="flex h-full flex-col items-center justify-center gap-2 opacity-40">
+              <div className="flex h-full flex-col items-center justify-center gap-2 opacity-70">
                 <span className="text-4xl">🛒</span>
-                <p className="text-xs font-bold text-[var(--ord-text-muted)]">Seu pedido aparece aqui</p>
+                <p className="text-xs font-bold text-[#667085]">Seu pedido aparecerá aqui</p>
               </div>
             )}
             {cart.map((c) => (
-              <div key={c._uid || c.id} className="rounded-xl border border-[var(--ord-border)] bg-[var(--ord-elev)] p-2.5">
+              <div key={c._uid || c.id} className="rounded-xl border border-[#E5E7EB] bg-white p-2.5">
                 <div className="flex items-start gap-2.5">
                   <img src={c.imageUrl || fallbackImage} alt="" className="h-10 w-10 shrink-0 rounded-lg object-cover" />
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-black leading-tight text-[var(--ord-text)]">{c.quantity}x {c.name}</p>
-                    {(c.removedIngredients || []).map((r) => <p key={r} className="text-[10px] text-slate-500">Sem {r}</p>)}
-                    {(c.extraIngredients || []).map((e) => <p key={e?.nome || e} className="text-[10px] text-slate-500">+ {e?.nome || e}</p>)}
-                    {c.observation && <p className="truncate text-[10px] italic text-slate-500">"{c.observation}"</p>}
-                    <p className="mt-1 text-xs font-black text-gold-400">{formatCurrency(c.price * c.quantity)}</p>
+                    <p className="text-xs font-black leading-tight text-[#182230]">{c.quantity}x {c.name}</p>
+                    {(c.removedIngredients || []).map((r) => <p key={r} className="text-[10px] text-[#667085]">Sem {r}</p>)}
+                    {(c.extraIngredients || []).map((e) => <p key={e?.nome || e} className="text-[10px] text-[#667085]">+ {e?.nome || e}</p>)}
+                    {c.observation && <p className="truncate text-[10px] italic text-[#667085]">"{c.observation}"</p>}
+                    <p className="mt-1 text-xs font-black text-[#D9A441]">{formatCurrency(c.price * c.quantity)}</p>
                   </div>
-                  <button onClick={() => removeFromCart(c.id)} title="Remover" className="shrink-0 rounded-lg p-1 text-slate-500 hover:bg-red-500/10 hover:text-red-300 transition">🗑️</button>
+                  <button onClick={() => removeFromCart(c.id)} title="Remover" className="shrink-0 rounded-lg p-1 text-[#98A2B3] hover:bg-[#FFF1F2] hover:text-[#E5484D] transition">🗑️</button>
                 </div>
               </div>
             ))}
           </div>
-          <div className="shrink-0 border-t border-gold-400/15 p-4">
-            <div className="flex justify-between text-xs text-slate-400"><span>Subtotal</span><span className="font-bold text-slate-200">{formatCurrency(total)}</span></div>
-            <div className="mt-1 flex justify-between text-xs text-slate-400"><span>Serviço (10%)</span><span className="font-bold text-slate-200">{formatCurrency(servicoCart)}</span></div>
-            <div className="mt-2 flex items-center justify-between border-t border-[var(--ord-border)] pt-2">
-              <span className="text-sm font-black uppercase tracking-wider text-[var(--ord-text)]">Total</span>
-              <span className="text-lg font-black text-gold-400">{formatCurrency(totalComServico)}</span>
+          <div className="shrink-0 border-t border-[#E5E7EB] p-4">
+            <div className="flex justify-between text-xs text-[#667085]"><span>Subtotal</span><span className="font-bold text-[#475467]">{formatCurrency(total)}</span></div>
+            <div className="mt-1 flex justify-between text-xs text-[#667085]"><span>Serviço (10%)</span><span className="font-bold text-[#475467]">{formatCurrency(servicoCart)}</span></div>
+            <div className="mt-2 flex items-center justify-between border-t border-[#E5E7EB] pt-2">
+              <span className="text-sm font-black uppercase tracking-wider text-[#182230]">Total</span>
+              <span className="text-lg font-black text-[#D9A441]">{formatCurrency(totalComServico)}</span>
             </div>
             <button onClick={() => setCarrinhoAberto(true)} disabled={cart.length === 0}
-              className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-[#16A34A] px-4 py-3.5 text-sm font-black text-white hover:bg-[#22C55E] transition active:scale-95 shadow-lg shadow-[#16A34A]/30 disabled:opacity-40 disabled:cursor-not-allowed">
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-[#16A34A] px-4 py-3.5 text-sm font-black text-white hover:bg-[#22C55E] transition active:scale-95 shadow-lg shadow-[#16A34A]/30 disabled:bg-[#E5E7EB] disabled:text-[#98A2B3] disabled:shadow-none disabled:cursor-not-allowed">
               Enviar pedido para a cozinha ✈️
             </button>
             <button onClick={() => setVerConta(true)} disabled={!temConta}
-              className="mt-2 w-full rounded-xl border border-gold-400/45 bg-gold-400/[0.07] py-2.5 text-xs font-black text-[var(--ord-text-soft)] hover:bg-gold-400/15 hover:border-gold-400/70 transition disabled:opacity-40 disabled:cursor-not-allowed">
+              className="mt-2 w-full rounded-xl border border-[#F4D27A] bg-[#FFF7E0] py-2.5 text-xs font-black text-[#9A6A00] hover:bg-[#F4D27A]/40 transition disabled:opacity-40 disabled:cursor-not-allowed">
               👁️ Conta / Acompanhar pedidos
             </button>
           </div>
@@ -2931,23 +2953,23 @@ function TabletView({
       </div>
 
       {/* ── Rodapé (somente telas sem a lateral "Meu pedido") ── */}
-      <footer className="lg:hidden shrink-0 border-t border-gold-400/15 bg-black/95 backdrop-blur-xl px-4 py-3">
+      <footer className="lg:hidden shrink-0 border-t border-[#E5E7EB] bg-white px-4 py-3">
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-gold-400/40 bg-gold-400/10 text-xl">🛒</div>
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#FFF7E0] text-xl">🛒</div>
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{totalCartItems} {totalCartItems === 1 ? "item" : "itens"} · serviço incluso</p>
-              <p className="text-lg font-black text-gold-400">{formatCurrency(totalComServico)}</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-[#667085]">{totalCartItems} {totalCartItems === 1 ? "item" : "itens"} · serviço incluso</p>
+              <p className="text-lg font-black text-[#D9A441]">{formatCurrency(totalComServico)}</p>
             </div>
           </div>
           <button onClick={() => setVerConta(true)}
             disabled={!temConta}
             title={!temConta ? "Disponível após lançar um pedido na mesa" : "Ver conta e acompanhar o status dos pedidos"}
-            className="shrink-0 rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-black text-slate-300 hover:bg-white/10 transition disabled:opacity-40 disabled:cursor-not-allowed">
+            className="shrink-0 rounded-2xl border border-[#E5E7EB] bg-white px-4 py-3 text-sm font-black text-[#475467] hover:bg-[#F8FAFC] transition disabled:opacity-40 disabled:cursor-not-allowed">
             👁️ Conta
           </button>
           <button onClick={() => setCarrinhoAberto(true)} disabled={cart.length === 0}
-            className="flex flex-1 basis-full items-center justify-center gap-2 rounded-2xl bg-[#16A34A] px-4 py-3.5 text-sm font-black text-white hover:bg-[#22C55E] transition active:scale-95 shadow-lg shadow-[#16A34A]/30 disabled:opacity-40 disabled:cursor-not-allowed sm:basis-0">
+            className="flex flex-1 basis-full items-center justify-center gap-2 rounded-2xl bg-[#16A34A] px-4 py-3.5 text-sm font-black text-white hover:bg-[#22C55E] transition active:scale-95 shadow-lg shadow-[#16A34A]/30 disabled:bg-[#E5E7EB] disabled:text-[#98A2B3] disabled:shadow-none disabled:cursor-not-allowed sm:basis-0">
             <span className="truncate">Enviar pedido para a cozinha ✈️</span>
           </button>
         </div>
@@ -2955,9 +2977,9 @@ function TabletView({
 
       {/* Toast: garçom chamado */}
       {garcomChamado && (
-        <div className="fixed left-1/2 top-24 z-[120] -translate-x-1/2 rounded-2xl border border-gold-400/50 bg-slate-900/95 px-5 py-3 text-center shadow-2xl backdrop-blur-xl">
-          <p className="text-sm font-black text-gold-300">🔔 Garçom chamado!</p>
-          <p className="mt-0.5 text-xs text-slate-400">Aguarde — alguém virá até a {dadosCompletos ? `Mesa ${String(tableNumber).padStart(2, "0")}` : "sua mesa"}.</p>
+        <div className="fixed left-1/2 top-24 z-[120] -translate-x-1/2 rounded-2xl border border-[#F4D27A] bg-white px-5 py-3 text-center shadow-[0_12px_32px_rgba(16,24,40,0.14)]">
+          <p className="text-sm font-black text-[#9A6A00]">🔔 Garçom chamado!</p>
+          <p className="mt-0.5 text-xs text-[#667085]">Aguarde — alguém virá até a {dadosCompletos ? `Mesa ${String(tableNumber).padStart(2, "0")}` : "sua mesa"}.</p>
         </div>
       )}
 
