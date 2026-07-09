@@ -891,19 +891,39 @@ export default function RestaurantePedidoApp() {
     if (tab === "tablet") return "/app/tablet";
     return "/login";
   }
-  function aplicarRota(pathname, search) {
+  // Fallback seguro por perfil (mesma prioridade usada em aplicarLogin): usado
+  // quando a URL aponta para uma tela que o usuário logado não tem permissão de
+  // acessar (ex.: Admin caindo em /app/tablet por link/estado antigo no navegador).
+  function rotaSeguraFallback(user) {
+    if (canAccess(user, "admin")) return "admin";
+    if (temAcessoOperacional(user)) return "opmobile";
+    return ordemMenu.find((id) => canAccess(user, id)) || "blocked";
+  }
+  // Aplica o fallback seguro na tela E normaliza a seção do admin p/ "dashboard"
+  // quando o pouso for no admin — evita reaproveitar uma adminSection antiga.
+  function irParaFallbackSeguro(user) {
+    const alvo = rotaSeguraFallback(user);
+    if (alvo === "admin") setAdminSection("dashboard");
+    setActiveTab(alvo);
+  }
+  function aplicarRota(pathname, search, user) {
     const adminMatch = pathname.match(/^\/admin\/([^/?]+)/);
     if (adminMatch) {
       const seg = adminMatch[1];
       if (seg === "cozinha") {
+        if (!canAccess(user, "kitchen")) { irParaFallbackSeguro(user); return; }
         const sid = new URLSearchParams(search || "").get("setorId");
         setCozinhaSetorInicial(sid != null && sid !== "" ? (isNaN(Number(sid)) ? sid : Number(sid)) : null);
         setActiveTab("kitchen");
-      } else { setAdminSection(seg); setActiveTab("admin"); }
+      } else {
+        if (!canAccess(user, "admin")) { irParaFallbackSeguro(user); return; }
+        setAdminSection(seg); setActiveTab("admin");
+      }
       return;
     }
     const opMatch = pathname.match(/^\/operacional(?:\/([^/?]+))?/);
     if (opMatch) {
+      if (!temAcessoOperacional(user)) { irParaFallbackSeguro(user); return; }
       const sub = opMatch[1];
       setOpmobileTab(["pedidos", "cozinha", "bar", "caixa"].includes(sub) ? sub : "central");
       setActiveTab("opmobile");
@@ -912,7 +932,16 @@ export default function RestaurantePedidoApp() {
     const appMatch = pathname.match(/^\/app\/([^/?]+)/);
     if (appMatch) {
       const seg = appMatch[1];
-      setActiveTab(seg === "painel" ? "panel" : seg === "caixa" ? "cashier" : seg === "operacao" ? "opmobile" : "tablet");
+      const alvo = seg === "painel" ? "panel" : seg === "caixa" ? "cashier" : seg === "operacao" ? "opmobile" : "tablet";
+      // "tablet" é o perfil/dispositivo dedicado à mesa (cliente). Mesmo que a conta
+      // também tenha o acesso técnico "tablet" marcado (ex.: dono/gestor com todos os
+      // acessos), a navegação AUTOMÁTICA (deep-link/voltar) nunca deve levar quem tem
+      // acesso admin para essa tela — só entra manualmente pelo menu, se quiser.
+      const liberado = alvo === "opmobile" ? temAcessoOperacional(user)
+        : alvo === "tablet" ? (canAccess(user, "tablet") && !canAccess(user, "admin"))
+        : canAccess(user, alvo);
+      if (!liberado) { irParaFallbackSeguro(user); return; }
+      setActiveTab(alvo);
     }
     // /login ou rota não reconhecida → mantém a tela atual
   }
@@ -925,7 +954,7 @@ export default function RestaurantePedidoApp() {
     const { pathname, search } = window.location;
     if (/^\/(admin|app|operacional)(\/|$)/.test(pathname)) {
       popstateRef.current = true;
-      aplicarRota(pathname, search);
+      aplicarRota(pathname, search, currentUser);
       // Se o estado já bater com a URL (ex.: aplicarLogin já aplicou o mesmo
       // deep-link), nenhum setState novo dispara o efeito que consome a flag
       // — reseta de forma assíncrona para não deixá-la presa em "true".
@@ -955,7 +984,7 @@ export default function RestaurantePedidoApp() {
     const onPop = () => {
       popstateRef.current = true;
       const { pathname, search } = window.location;
-      if (/^\/(admin|app|operacional)(\/|$)/.test(pathname)) aplicarRota(pathname, search);
+      if (/^\/(admin|app|operacional)(\/|$)/.test(pathname)) aplicarRota(pathname, search, currentUserRef.current);
       else if (currentUserRef.current) {
         // Autenticado tentando sair para landing/login pelo voltar → mantém no app
         window.history.replaceState({}, "", rotaDoEstado(activeTabRef.current, adminSectionRef.current, null));
