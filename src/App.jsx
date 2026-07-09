@@ -2189,7 +2189,7 @@ export default function RestaurantePedidoApp() {
       <div className="tema-claro-area relative flex items-center justify-center overflow-hidden px-4 text-admin-text"
         style={{
           minHeight: "100dvh",
-          backgroundColor: "#F8F6F0",
+          backgroundColor: "#F7F8FA",
           paddingTop: "env(safe-area-inset-top)",
           paddingBottom: "env(safe-area-inset-bottom)",
           backgroundImage:
@@ -6033,40 +6033,40 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
     </main>
   );
   return (
-    <div data-theme="light" className="fixed inset-0 z-50 flex bg-admin-navy overflow-hidden" style={{ paddingTop: "calc(env(safe-area-inset-top) + 24px)" }}>
+    <div data-theme="light" className="fixed inset-0 z-50 flex bg-[#F7F8FA] overflow-hidden" style={{ paddingTop: "calc(env(safe-area-inset-top) + 24px)" }}>
 
       <CommandPalette open={cmdOpen} onClose={() => setCmdOpen(false)} sections={cmdSections}
         onNavigate={(id) => { setAdminSection(id); setCmdOpen(false); }} onSair={onSair} />
 
-      {/* ── Menu lateral esquerdo (fixo) — azul-marinho + dourado ─ */}
-      <aside className="hidden md:flex w-64 shrink-0 flex-col border-r border-white/10 bg-admin-navy">
-        <div className="flex items-center gap-3 border-b border-gold-400/15 px-5 py-4">
+      {/* ── Menu lateral esquerdo (fixo) — light premium (branco + dourado) ─ */}
+      <aside className="hidden md:flex w-64 shrink-0 flex-col border-r border-[#E5E7EB] bg-white">
+        <div className="flex items-center gap-3 border-b border-[#ECEFF3] px-5 py-4">
           <LogoPP size={40} />
           <div className="min-w-0">
-            <p className="text-sm font-black leading-tight truncate"><span className="text-white">PEDIDO</span> <span className="text-gold-400">PRIME</span></p>
-            <p className="text-[11px] text-slate-400 truncate">
+            <p className="text-sm font-black leading-tight truncate"><span className="text-[#182230]">PEDIDO</span> <span className="text-[#D9A441]">PRIME</span></p>
+            <p className="text-[11px] text-[#667085] truncate">
               {isSuperAdmin ? "Administrador geral" : (lojaInfo ? lojaInfo.nome : "Painel gerencial")}
             </p>
           </div>
         </div>
-        <div className="border-b border-gold-400/15 px-3 py-3">
+        <div className="border-b border-[#ECEFF3] px-3 py-3">
           <button onClick={() => setCmdOpen(true)} aria-label="Abrir busca rápida (Ctrl K)"
-            className="flex w-full items-center gap-2 rounded-xl border border-white/10 bg-white/[0.05] px-3 py-2 text-left text-[13px] text-slate-300 transition hover:bg-white/10">
-            <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-gold-400/80" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
+            className="flex w-full items-center gap-2 rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-3 py-2 text-left text-[13px] text-[#475467] transition hover:bg-[#F3F4F6]">
+            <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-[#D9A441]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
             <span className="flex-1 truncate">Buscar telas…</span>
-            <span className="shrink-0 rounded-md border border-white/15 px-1.5 py-0.5 text-[10px] font-bold text-slate-400">Ctrl K</span>
+            <span className="shrink-0 rounded-md border border-[#E5E7EB] px-1.5 py-0.5 text-[10px] font-bold text-[#98A2B3]">Ctrl K</span>
           </button>
         </div>
         {isSuperAdmin && (
-          <div className="border-b border-gold-400/15 px-4 py-3">
-            <label className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-gold-400/80">Empresa em foco</label>
+          <div className="border-b border-[#ECEFF3] px-4 py-3">
+            <label className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-[#9A6A00]">Empresa em foco</label>
             <ComboEmpresaFoco lojas={lojas} valor={lojaContexto} onChange={setLojaContexto} />
           </div>
         )}
         <nav className="scrollbar-none flex-1 overflow-y-auto px-3 py-4 space-y-5">
           {menu.map((g) => (
             <div key={g.grupo}>
-              <p className="px-3 mb-1.5 text-[11px] font-bold uppercase tracking-widest text-gold-400/60">{g.grupo}</p>
+              <p className="px-3 mb-1.5 text-[11px] font-bold uppercase tracking-widest text-[#98A2B3]">{g.grupo}</p>
               <div className="space-y-1">
                 {g.itens.map((it) => {
                   const sel = ativo === it.id;
@@ -6075,12 +6075,12 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
                     <button key={it.id} onClick={() => (it.id === "operacaomobile" && window.innerWidth >= 768)
                         ? window.open(`${window.location.origin}/operacional`, "_blank", "noopener")
                         : setAdminSection(it.id)} title={bloq ? "Disponível em outro plano" : (it.id === "operacaomobile" ? "Abre em nova aba (tela cheia), como o link externo" : undefined)}
-                      className={`group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold transition ${sel ? "bg-admin-gold text-white shadow-sm shadow-black/20" : "text-slate-200 hover:bg-admin-navy2 hover:text-white"}`}>
-                      {/* Destaque lateral (some sob o fundo dourado do item ativo) */}
-                      <span className={`absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 rounded-full bg-admin-goldhover transition-opacity ${sel ? "opacity-0" : "opacity-0"}`} />
+                      className={`group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold transition ${sel ? "bg-[#FFF7E0] text-[#182230]" : "text-[#475467] hover:bg-[#F3F4F6] hover:text-[#182230]"}`}>
+                      {/* Destaque lateral (aparece só no item ativo) */}
+                      <span className={`absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 rounded-full bg-[#D9A441] transition-opacity ${sel ? "opacity-100" : "opacity-0"}`} />
                       <span className={`text-base transition ${sel ? "grayscale-0" : "opacity-80 group-hover:opacity-100"} ${bloq ? "opacity-40" : ""}`}>{it.icon}</span>
                       <span className={`truncate ${bloq ? "opacity-50" : ""}`}>{it.label}</span>
-                      {bloq && <span className="ml-auto shrink-0 text-gold-400/70" title="Disponível em outro plano">🔒</span>}
+                      {bloq && <span className="ml-auto shrink-0 text-[#98A2B3]" title="Disponível em outro plano">🔒</span>}
                     </button>
                   );
                 })}
@@ -6092,56 +6092,56 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
         <TrialBadge assinatura={assinaturaAtual} />
         {/* ── Card do usuário logado (fixo no rodapé da sidebar) ── */}
         {currentUser && (
-          <div className="shrink-0 border-t border-white/10 p-3 space-y-2">
+          <div className="shrink-0 border-t border-[#ECEFF3] p-3 space-y-2">
             {/* Avatar + nome + cargo */}
-            <div className="flex items-center gap-2.5 rounded-2xl bg-admin-navy2 px-3 py-2.5">
+            <div className="flex items-center gap-2.5 rounded-2xl bg-[#F8FAFC] px-3 py-2.5">
               {/* Avatar com inicial */}
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-500/20 text-sm font-black text-blue-300 uppercase select-none">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#EFF6FF] text-sm font-black text-[#2563EB] uppercase select-none">
                 {(currentUser.name || "U").charAt(0)}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-black text-white leading-tight">{currentUser.name}</p>
-                <p className="truncate text-[11px] text-slate-400 leading-tight">{currentUser.role || "Usuário"}</p>
+                <p className="truncate text-sm font-black text-[#182230] leading-tight">{currentUser.name}</p>
+                <p className="truncate text-[11px] text-[#667085] leading-tight">{currentUser.role || "Usuário"}</p>
                 {currentUser.email && (
-                  <p className="truncate text-[10px] text-slate-600 leading-tight mt-0.5">{currentUser.email}</p>
+                  <p className="truncate text-[10px] text-[#98A2B3] leading-tight mt-0.5">{currentUser.email}</p>
                 )}
               </div>
               {/* Badge: super admin ou empresa */}
               {isSuperAdmin ? (
-                <span className="shrink-0 rounded-full bg-gold-500/20 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-gold-300">Admin</span>
+                <span className="shrink-0 rounded-full bg-[#FFF7E0] px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-[#9A6A00]">Admin</span>
               ) : lojaInfo ? (
-                <span className="shrink-0 rounded-full bg-blue-500/20 px-1.5 py-0.5 font-mono text-[9px] font-black text-blue-300">{lojaInfo.prefixo}</span>
+                <span className="shrink-0 rounded-full bg-[#EFF6FF] px-1.5 py-0.5 font-mono text-[9px] font-black text-[#1D4ED8]">{lojaInfo.prefixo}</span>
               ) : null}
             </div>
             {/* Botão Sair */}
             <button onClick={onSair}
-              className="w-full rounded-2xl border border-red-400/20 bg-red-500/10 py-2.5 text-sm font-black text-red-300 hover:bg-red-500/20 transition active:scale-95">
+              className="w-full rounded-2xl border border-[#FECDD3] bg-[#FFF1F2] py-2.5 text-sm font-black text-[#B42318] hover:bg-[#FFE4E6] transition active:scale-95">
               ← Sair
             </button>
           </div>
         )}
         {!currentUser && (
-          <button onClick={onSair} className="m-3 rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm font-black text-red-300 hover:bg-red-500/20 transition">Sair</button>
+          <button onClick={onSair} className="m-3 rounded-2xl border border-[#FECDD3] bg-[#FFF1F2] px-4 py-3 text-sm font-black text-[#B42318] hover:bg-[#FFE4E6] transition">Sair</button>
         )}
       </aside>
 
       {/* ── Conteúdo ─────────────────────────────────────────── */}
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Cabeçalho mobile com abas (md:hidden) */}
-        <div className="md:hidden flex shrink-0 items-center justify-between gap-3 border-b border-white/10 bg-admin-navy px-4 py-3">
+        <div className="md:hidden flex shrink-0 items-center justify-between gap-3 border-b border-[#E5E7EB] bg-white px-4 py-3">
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <LogoPP size={28} />
             <div className="min-w-0">
-              <p className="truncate text-sm font-black leading-tight"><span className="text-white">PEDIDO</span> <span className="text-gold-400">PRIME</span></p>
-              {currentUser?.role && <p className="truncate text-[10px] text-slate-400 leading-tight">{currentUser.role}{lojaInfo ? ` · ${lojaInfo.nome}` : ""}</p>}
+              <p className="truncate text-sm font-black leading-tight"><span className="text-[#182230]">PEDIDO</span> <span className="text-[#D9A441]">PRIME</span></p>
+              {currentUser?.role && <p className="truncate text-[10px] text-[#667085] leading-tight">{currentUser.role}{lojaInfo ? ` · ${lojaInfo.nome}` : ""}</p>}
             </div>
           </div>
-          <button onClick={onSair} className="shrink-0 rounded-2xl border border-red-400/20 bg-red-500/10 px-3 py-1.5 text-xs font-black text-red-300">Sair</button>
+          <button onClick={onSair} className="shrink-0 rounded-2xl border border-[#FECDD3] bg-[#FFF1F2] px-3 py-1.5 text-xs font-black text-[#B42318]">Sair</button>
         </div>
-        <div className="md:hidden shrink-0 flex gap-2 overflow-x-auto border-b border-gold-400/15 bg-blue-950/50 px-4 py-2">
+        <div className="md:hidden shrink-0 flex gap-2 overflow-x-auto border-b border-[#ECEFF3] bg-[#F9FAFB] px-4 py-2">
           {menu.flatMap((g) => g.itens).map((it) => (
             <button key={it.id} onClick={() => setAdminSection(it.id)}
-              className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-black transition ${ativo === it.id ? "border-gold-400 bg-gold-400 text-blue-950" : "border-white/10 bg-white/[0.06] text-slate-300"}`}>
+              className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-black transition ${ativo === it.id ? "border-[#F4D27A] bg-[#FFF7E0] text-[#9A6A00]" : "border-[#E5E7EB] bg-[#F2F4F7] text-[#475467]"}`}>
               {it.icon} {it.label}
             </button>
           ))}
@@ -6453,7 +6453,7 @@ function CardMetrica({ titulo, valor, sub, cor = "text-white", icon, variacao = 
 // ════════════════════════════════════════════════════════════
 // ── Gráfico de rosca (donut) em SVG, sem biblioteca ──
 // Paleta de gráficos padronizada: azul-marinho e dourado à frente (identidade), demais para categorias extras.
-const CORES_GRAF = ["#061A2E", "#C99A2E", "#16A34A", "#2563EB", "#DC2626", "#06b6d4", "#a855f7", "#E7C873"];
+const CORES_GRAF = ["#4F8EF7", "#D9A441", "#35B779", "#F28C82", "#8B7CF6", "#2FBF9A", "#94A3B8", "#C7922F"];
 function DonutChart({ dados, label = "" }) {
   const total = dados.reduce((s, d) => s + d.valor, 0);
   if (total === 0) return (
@@ -6477,7 +6477,7 @@ function DonutChart({ dados, label = "" }) {
           acc += dash;
           return el;
         })}
-        <text x="90" y="90" className="rotate-90" textAnchor="middle" dominantBaseline="middle" fill="#061A2E" style={{ transform: "rotate(90deg)", transformOrigin: "90px 90px", fontSize: "13px", fontWeight: "900" }}>{label}</text>
+        <text x="90" y="90" className="rotate-90" textAnchor="middle" dominantBaseline="middle" fill="#182230" style={{ transform: "rotate(90deg)", transformOrigin: "90px 90px", fontSize: "13px", fontWeight: "900" }}>{label}</text>
       </svg>
       <div className="space-y-1.5">
         {dados.map((d, i) => (
@@ -6500,7 +6500,7 @@ function BarrasVerticais({ dados, sufixo = "R$" }) {
       {dados.map((d, i) => (
         <div key={i} className="flex min-w-0 flex-1 flex-col items-center justify-end gap-1">
           <span className="w-full truncate text-center font-black leading-none text-white" style={{ fontSize: 8 }}>{d.valor > 0 ? (sufixo === "R$" ? formatCurrency(d.valor).replace("R$", "").trim() : d.valor) : ""}</span>
-          <div className="w-full rounded-t-lg bg-gradient-to-t from-[#061A2E] to-[#0B2A3D] transition-all" style={{ height: `${(d.valor / max) * 140}px`, minHeight: d.valor > 0 ? 4 : 0 }} />
+          <div className="w-full rounded-t-lg bg-gradient-to-t from-[#4F8EF7] to-[#3B76E0] transition-all" style={{ height: `${(d.valor / max) * 140}px`, minHeight: d.valor > 0 ? 4 : 0 }} />
           <span className="w-full truncate text-center leading-none text-slate-500" style={{ fontSize: 9 }}>{d.label}</span>
         </div>
       ))}
@@ -7076,7 +7076,7 @@ function BarrasHora({ dados }) {
         return (
           <div key={i} className="flex min-w-[28px] flex-1 flex-col items-center justify-end gap-1">
             <span className="w-full truncate text-center font-bold leading-none text-slate-300" style={{ fontSize: 9 }}>{d.valor > 0 ? formatCurrency(d.valor).replace("R$", "").trim() : ""}</span>
-            <div className={`w-full rounded-t-md transition-all ${destaque ? "bg-gradient-to-t from-[#A87A12] to-[#E7C873]" : "bg-gradient-to-t from-[#061A2E] to-[#0B2A3D]"}`} style={{ height: `${(d.valor / max) * 150}px`, minHeight: d.valor > 0 ? 4 : 0 }} />
+            <div className={`w-full rounded-t-md transition-all ${destaque ? "bg-gradient-to-t from-[#C7922F] to-[#D9A441]" : "bg-gradient-to-t from-[#4F8EF7] to-[#3B76E0]"}`} style={{ height: `${(d.valor / max) * 150}px`, minHeight: d.valor > 0 ? 4 : 0 }} />
             <span className="w-full truncate text-center leading-none text-slate-500" style={{ fontSize: 9 }}>{d.label}</span>
           </div>
         );
@@ -7098,11 +7098,11 @@ function LinhaFaturamento({ dados }) {
   const idxs = n <= 5 ? dados.map((_, i) => i) : [0, Math.round(n / 4), Math.round(n / 2), Math.round((3 * n) / 4), n - 1];
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 180 }}>
-      <defs><linearGradient id="gradFat" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#E7C873" stopOpacity="0.35" /><stop offset="100%" stopColor="#E7C873" stopOpacity="0" /></linearGradient></defs>
-      {[0, 0.25, 0.5, 0.75, 1].map((f, i) => (<line key={i} x1={P} x2={W - P} y1={y(max * f)} y2={y(max * f)} stroke="rgba(6,26,46,0.10)" />))}
+      <defs><linearGradient id="gradFat" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#D9A441" stopOpacity="0.35" /><stop offset="100%" stopColor="#D9A441" stopOpacity="0" /></linearGradient></defs>
+      {[0, 0.25, 0.5, 0.75, 1].map((f, i) => (<line key={i} x1={P} x2={W - P} y1={y(max * f)} y2={y(max * f)} stroke="#E5E7EB" />))}
       <path d={area} fill="url(#gradFat)" />
-      <path d={linha} fill="none" stroke="#C99A2E" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
-      {pts.map((p, i) => (<circle key={i} cx={p[0]} cy={p[1]} r="3" fill="#C99A2E" />))}
+      <path d={linha} fill="none" stroke="#D9A441" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+      {pts.map((p, i) => (<circle key={i} cx={p[0]} cy={p[1]} r="3" fill="#D9A441" />))}
       {idxs.map((i) => (<text key={i} x={x(i)} y={H - 8} textAnchor="middle" fill="#667085" style={{ fontSize: 9 }}>{dados[i].label}</text>))}
     </svg>
   );

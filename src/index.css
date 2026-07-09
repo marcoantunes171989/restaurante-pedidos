@@ -84,32 +84,39 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
      manter a identidade padronizada. Não crie cores fora daqui;
      se precisar de uma variação, adicione-a aqui primeiro.
      ══════════════════════════════════════════════════════════════ */
-  --color-primary: #061A2E;        /* azul-marinho principal (menus, títulos) */
-  --color-primary-light: #0B2A3D;  /* azul petróleo (cards/detalhes premium) */
-  --color-primary-dark: #03101C;   /* navy mais escuro */
-  --color-accent: #C99A2E;         /* laranja food principal (AÇÕES) */
-  --color-accent-hover: #E7C873;   /* laranja claro (hover) */
-  --color-gold: #E7C873;           /* âmbar premium (detalhes/badges) */
-  --color-cream: #FFFDF8;          /* creme acolhedor (comercial/cardápio) */
+  --color-primary: #2563EB;        /* azul principal premium (destaques, links, botões) */
+  --color-primary-light: #4F8EF7;  /* azul médio (hover/gráficos) */
+  --color-primary-dark: #1D4ED8;   /* azul pressionado */
+  --color-accent: #D9A441;         /* dourado premium principal (ações/detalhes) */
+  --color-accent-hover: #C7922F;   /* dourado pressionado (hover) */
+  --color-gold: #D9A441;           /* âmbar premium (detalhes/badges) */
+  --color-cream: #FAFAF8;          /* superfície suave */
 
-  --color-bg: #F8F6F0;             /* fundo geral (gelo) */
+  --color-bg: #F7F8FA;             /* fundo geral (light premium) */
+  --color-bg-secondary: #F3F4F6;   /* fundo secundário */
   --color-surface: #FFFFFF;        /* cards/blocos/áreas internas */
-  --color-bg-dark: #061A2E;        /* fundo escuro (operacional) */
+  --color-bg-dark: #061A2E;        /* fundo escuro (telas operacionais dark-by-design) */
   --color-bg-dark-secondary: #111827;
 
-  --color-text: #111827;           /* texto principal */
-  --color-text-muted: #667085;     /* texto secundário */
+  --color-text: #182230;           /* texto principal */
+  --color-text-secondary: #475467; /* texto secundário */
+  --color-text-muted: #667085;     /* texto auxiliar */
+  --color-text-disabled: #98A2B3;  /* texto desabilitado */
   --color-text-light: #FFFFFF;     /* texto claro sobre fundo escuro */
   --color-text-light-muted: #CBD5E1;
 
-  --color-border: #E7E1D8;         /* borda clara */
+  --color-border: #E5E7EB;         /* borda clara */
+  --color-divider: #ECEFF3;        /* divisores (tabelas, listas) */
   --color-border-dark: rgba(255,255,255,0.08);
-  --color-border-accent: rgba(201,154,46,0.35);
+  --color-border-accent: rgba(217,164,65,0.35);
 
-  --color-success: #16A34A;  --color-success-bg: #DCFCE7;
-  --color-warning: #D97706;  --color-warning-bg: #FEF3C7;
-  --color-danger:  #DC2626;  --color-danger-bg:  #FEE2E2;
-  --color-info:    #2563EB;  --color-info-bg:    #DBEAFE;
+  --color-success: #22A06B;  --color-success-bg: #EAFBF2;
+  --color-warning: #F59E0B;  --color-warning-bg: #FFF4E5;
+  --color-danger:  #E5484D;  --color-danger-bg:  #FFF1F2;
+  --color-info:    #2563EB;  --color-info-bg:    #EFF6FF;
+
+  --shadow-card: 0 8px 24px rgba(16, 24, 40, 0.06);
+  --shadow-card-hover: 0 12px 32px rgba(16, 24, 40, 0.08);
 }
 
 /* Tema CLARO das telas do cliente (menus laterais permanecem escuros) */
@@ -132,8 +139,8 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
    preservando os acentos dourados e as cores semânticas (verde, âmbar,
    vermelho, azul). Ativo apenas com [data-theme="light"]. */
 [data-theme="light"] .tema-claro-area {
-  background-color: #F8F6F0 !important; /* fundo geral (paleta oficial admin) */
-  color: #111827;                       /* texto principal */
+  background-color: #F7F8FA !important; /* fundo geral (paleta oficial admin) */
+  color: #182230;                       /* texto principal */
 }
 /* Superfícies sólidas escuras → branco (cards/painéis) */
 [data-theme="light"] .tema-claro-area.bg-black,
@@ -167,83 +174,83 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
 [data-theme="light"] .tema-claro-area .bg-white\/\[0\.06\],
 [data-theme="light"] .tema-claro-area .bg-white\/\[0\.08\],
 [data-theme="light"] .tema-claro-area .bg-white\/5,
-[data-theme="light"] .tema-claro-area .bg-white\/10 { background-color: rgba(15, 23, 42, 0.045) !important; }
+[data-theme="light"] .tema-claro-area .bg-white\/10 { background-color: #F3F4F6 !important; }
 /* Textos neutros → escuros (gold e cores semânticas preservados) — paleta oficial */
-[data-theme="light"] .tema-claro-area .text-white { color: #111827 !important; }
+[data-theme="light"] .tema-claro-area .text-white { color: #182230 !important; }
 /* Tons de texto quase-brancos (feitos p/ fundo escuro) → legíveis no claro */
 [data-theme="light"] .tema-claro-area .text-slate-100,
 [data-theme="light"] .tema-claro-area .text-slate-200,
 [data-theme="light"] .tema-claro-area .text-blue-50,
-[data-theme="light"] .tema-claro-area .text-blue-100 { color: #111827 !important; }
-[data-theme="light"] .tema-claro-area .text-slate-300 { color: #4B5563 !important; }
+[data-theme="light"] .tema-claro-area .text-blue-100 { color: #182230 !important; }
+[data-theme="light"] .tema-claro-area .text-slate-300 { color: #475467 !important; }
 [data-theme="light"] .tema-claro-area .text-slate-400 { color: #667085 !important; }
 [data-theme="light"] .tema-claro-area .text-slate-500 { color: #667085 !important; }
 [data-theme="light"] .tema-claro-area .text-slate-600 { color: #98A2B3 !important; }
-/* page-title / títulos principais em azul-marinho da marca */
-[data-theme="light"] .tema-claro-area .page-title { color: #061A2E !important; }
+/* page-title / títulos principais em texto premium */
+[data-theme="light"] .tema-claro-area .page-title { color: #182230 !important; }
 [data-theme="light"] .tema-claro-area .text-blue-200,
 [data-theme="light"] .tema-claro-area .text-blue-300 { color: #2563EB !important; }
 /* Bordas neutras → claras */
 [data-theme="light"] .tema-claro-area .border-white\/5,
 [data-theme="light"] .tema-claro-area .border-white\/10,
 [data-theme="light"] .tema-claro-area .border-white\/20,
-[data-theme="light"] .tema-claro-area .border-white\/\[0\.08\] { border-color: #E7E1D8 !important; }
+[data-theme="light"] .tema-claro-area .border-white\/\[0\.08\] { border-color: #E5E7EB !important; }
 /* Sombra leve e elegante nos cards/painéis principais (superfícies brancas) */
 [data-theme="light"] .tema-claro-area .rounded-\[2rem\],
 [data-theme="light"] .tema-claro-area .rounded-3xl {
-  box-shadow: 0 1px 2px rgba(6,26,46,0.04), 0 4px 14px rgba(6,26,46,0.05);
+  box-shadow: 0 8px 24px rgba(16, 24, 40, 0.06);
 }
 /* ── Botões e cores semânticas na paleta oficial (Fase 2) ──────
    Padroniza os fundos sólidos de ação/estado para os hexes exatos da
    paleta, mantendo a legibilidade dos textos já definidos. */
-/* Primário dourado: #C99A2E (hover #E7C873) */
+/* Primário dourado premium: #D9A441 (hover #C7922F) */
 [data-theme="light"] .tema-claro-area .bg-gold-400,
-[data-theme="light"] .tema-claro-area .bg-gold-500 { background-color: #C99A2E !important; }
+[data-theme="light"] .tema-claro-area .bg-gold-500 { background-color: #D9A441 !important; }
 [data-theme="light"] .tema-claro-area .hover\:bg-gold-300:hover,
 [data-theme="light"] .tema-claro-area .hover\:bg-gold-400:hover,
-[data-theme="light"] .tema-claro-area .hover\:bg-gold-500:hover { background-color: #E7C873 !important; }
-/* Perigo/erro/cancelar: #DC2626 */
+[data-theme="light"] .tema-claro-area .hover\:bg-gold-500:hover { background-color: #C7922F !important; }
+/* Perigo/erro/cancelar: #E5484D */
 [data-theme="light"] .tema-claro-area .bg-red-500,
-[data-theme="light"] .tema-claro-area .bg-red-600 { background-color: #DC2626 !important; }
+[data-theme="light"] .tema-claro-area .bg-red-600 { background-color: #E5484D !important; }
 [data-theme="light"] .tema-claro-area .hover\:bg-red-400:hover,
 [data-theme="light"] .tema-claro-area .hover\:bg-red-500:hover { background-color: #EF4444 !important; }
-/* Sucesso/confirmar/ativar: #16A34A */
+/* Sucesso/confirmar/ativar: #22A06B */
 [data-theme="light"] .tema-claro-area .bg-emerald-500,
 [data-theme="light"] .tema-claro-area .bg-emerald-600,
 [data-theme="light"] .tema-claro-area .bg-green-500,
-[data-theme="light"] .tema-claro-area .bg-green-600 { background-color: #16A34A !important; }
+[data-theme="light"] .tema-claro-area .bg-green-600 { background-color: #22A06B !important; }
 [data-theme="light"] .tema-claro-area .hover\:bg-emerald-400:hover,
 [data-theme="light"] .tema-claro-area .hover\:bg-emerald-500:hover,
-[data-theme="light"] .tema-claro-area .hover\:bg-green-400:hover { background-color: #22C55E !important; }
-/* Alerta/atenção/pendência: #D97706 */
+[data-theme="light"] .tema-claro-area .hover\:bg-green-400:hover { background-color: #2DBE7E !important; }
+/* Alerta/atenção/pendência: #F59E0B */
 [data-theme="light"] .tema-claro-area .bg-amber-500,
-[data-theme="light"] .tema-claro-area .bg-orange-500 { background-color: #D97706 !important; }
+[data-theme="light"] .tema-claro-area .bg-orange-500 { background-color: #F59E0B !important; }
 /* Foco de campo com borda dourada oficial */
 [data-theme="light"] .tema-claro-area .focus\:border-gold-400\/60:focus,
-[data-theme="light"] .tema-claro-area .focus\:border-gold-400:focus { border-color: #C99A2E !important; }
+[data-theme="light"] .tema-claro-area .focus\:border-gold-400:focus { border-color: #D9A441 !important; }
 /* ── Badges de status: fundos suaves oficiais (Fase 3) ────────── */
 [data-theme="light"] .tema-claro-area .bg-emerald-500\/10,
 [data-theme="light"] .tema-claro-area .bg-emerald-500\/15,
 [data-theme="light"] .tema-claro-area .bg-emerald-500\/20,
 [data-theme="light"] .tema-claro-area .bg-green-500\/10,
-[data-theme="light"] .tema-claro-area .bg-green-500\/15 { background-color: #DCFCE7 !important; }
+[data-theme="light"] .tema-claro-area .bg-green-500\/15 { background-color: #EAFBF2 !important; }
 [data-theme="light"] .tema-claro-area .bg-amber-500\/10,
 [data-theme="light"] .tema-claro-area .bg-amber-500\/15,
 [data-theme="light"] .tema-claro-area .bg-amber-500\/20,
 [data-theme="light"] .tema-claro-area .bg-orange-500\/10,
-[data-theme="light"] .tema-claro-area .bg-orange-500\/15 { background-color: #FEF3C7 !important; }
+[data-theme="light"] .tema-claro-area .bg-orange-500\/15 { background-color: #FFF4E5 !important; }
 [data-theme="light"] .tema-claro-area .bg-red-500\/10,
 [data-theme="light"] .tema-claro-area .bg-red-500\/15,
-[data-theme="light"] .tema-claro-area .bg-red-500\/20 { background-color: #FEE2E2 !important; }
+[data-theme="light"] .tema-claro-area .bg-red-500\/20 { background-color: #FFF1F2 !important; }
 /* Texto das cores de status → tons legíveis no fundo claro/suave */
 [data-theme="light"] .tema-claro-area .text-emerald-200,
 [data-theme="light"] .tema-claro-area .text-emerald-300,
 [data-theme="light"] .tema-claro-area .text-emerald-400,
 [data-theme="light"] .tema-claro-area .text-green-300,
-[data-theme="light"] .tema-claro-area .text-green-400 { color: #16A34A !important; }
+[data-theme="light"] .tema-claro-area .text-green-400 { color: #147A4A !important; }
 [data-theme="light"] .tema-claro-area .text-red-200,
 [data-theme="light"] .tema-claro-area .text-red-300,
-[data-theme="light"] .tema-claro-area .text-red-400 { color: #DC2626 !important; }
+[data-theme="light"] .tema-claro-area .text-red-400 { color: #B42318 !important; }
 [data-theme="light"] .tema-claro-area .text-amber-100,
 [data-theme="light"] .tema-claro-area .text-amber-200,
 [data-theme="light"] .tema-claro-area .text-amber-300,
@@ -261,20 +268,20 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
 [data-theme="light"] .tema-claro-area .text-gold-300\/80,
 [data-theme="light"] .tema-claro-area .text-gold-400\/80,
 [data-theme="light"] .tema-claro-area .text-gold-400\/70,
-[data-theme="light"] .tema-claro-area .text-gold-400\/60 { color: #8A6A12 !important; }
+[data-theme="light"] .tema-claro-area .text-gold-400\/60 { color: #9A6A00 !important; }
 
 /* Separadores de linhas em listas/tabelas (divide-*) — o padrão branco
-   fica invisível no fundo claro. Remapeia para a borda suave da paleta. */
+   fica invisível no fundo claro. Remapeia para o divisor suave da paleta. */
 [data-theme="light"] .tema-claro-area .divide-white\/5 > :not([hidden]) ~ :not([hidden]),
 [data-theme="light"] .tema-claro-area .divide-white\/10 > :not([hidden]) ~ :not([hidden]),
-[data-theme="light"] .tema-claro-area .divide-white\/\[0\.08\] > :not([hidden]) ~ :not([hidden]) { border-color: #E7E1D8 !important; }
+[data-theme="light"] .tema-claro-area .divide-white\/\[0\.08\] > :not([hidden]) ~ :not([hidden]) { border-color: #ECEFF3 !important; }
 
 /* Cabeçalhos de tabela sticky em azul-marinho translúcido → cabeçalho
    claro coeso. (bg-white/[0.03] e bg-white/[0.04] já viram cinza sutil
    pela regra acima, servindo bem como fundo de cabeçalho.) */
 [data-theme="light"] .tema-claro-area .bg-blue-950\/90,
 [data-theme="light"] .tema-claro-area .bg-blue-950\/80,
-[data-theme="light"] .tema-claro-area .bg-blue-950\/70 { background-color: rgba(248,249,250,0.92) !important; }
+[data-theme="light"] .tema-claro-area .bg-blue-950\/70 { background-color: rgba(249,250,251,0.92) !important; }
 
 /* Placeholder mais escuro no fundo claro */
 [data-theme="light"] .tema-claro-area .placeholder\:text-slate-600::placeholder { color: #94A3B8 !important; }
@@ -290,6 +297,44 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
   -webkit-box-shadow: 0 0 0 1000px #FFFFFF inset !important;
   box-shadow: 0 0 0 1000px #FFFFFF inset !important;
 }
+
+/* ── Classes utilitárias premium (design system light) ──────────
+   Disponíveis para uso incremental nas telas (não substituem o que
+   já existe, apenas padronizam o que for novo ou refatorado). */
+.card-premium {
+  background-color: #FFFFFF;
+  border: 1px solid #E5E7EB;
+  border-radius: 20px;
+  box-shadow: var(--shadow-card);
+  transition: box-shadow .2s ease, transform .2s ease;
+}
+.card-premium:hover { transform: translateY(-1px); box-shadow: var(--shadow-card-hover); }
+.button-primary {
+  background-color: #D9A441; color: #182230; border-radius: 12px; font-weight: 700;
+  transition: background-color .15s ease;
+}
+.button-primary:hover { background-color: #C7922F; }
+.button-secondary {
+  background-color: #FFFFFF; color: #344054; border: 1px solid #D0D5DD; border-radius: 12px; font-weight: 700;
+  transition: background-color .15s ease;
+}
+.button-secondary:hover { background-color: #F9FAFB; }
+.badge-soft { display: inline-flex; align-items: center; gap: 4px; border-radius: 9999px; padding: 2px 10px; font-size: 11px; font-weight: 700; }
+.input-premium {
+  width: 100%; background-color: #FFFFFF; border: 1px solid #D0D5DD; border-radius: 16px;
+  padding: 12px 16px; color: #182230; outline: none; transition: border-color .15s ease, box-shadow .15s ease;
+}
+.input-premium:focus { border-color: #2563EB; box-shadow: 0 0 0 3px #BFDBFE; }
+.table-premium thead { background-color: #F9FAFB; color: #475467; }
+.table-premium tbody tr { border-bottom: 1px solid #E5E7EB; }
+.table-premium tbody tr:hover { background-color: #F9FAFB; }
+.sidebar-item {
+  display: flex; align-items: center; gap: 12px; border-radius: 12px; padding: 10px 12px;
+  font-weight: 700; color: #475467; transition: background-color .15s ease, color .15s ease;
+}
+.sidebar-item:hover { background-color: #F3F4F6; color: #182230; }
+.sidebar-item.active { background-color: #FFF7E0; color: #182230; }
+.chart-container { background-color: #FFFFFF; border-radius: 20px; }
 
 body {
   margin: 0;
