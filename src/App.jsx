@@ -4044,9 +4044,9 @@ function CancelarModal({ pedido, onConfirmar, onFechar }) {
 }
 
 const panelStatusConfig = {
-  received:  { col: "border-blue-500/40 bg-blue-500/10",       num: "bg-blue-500",    bar: "bg-blue-500",    icon: "⏳", progress: 25  },
-  preparing: { col: "border-gold-400/40 bg-gold-400/10",       num: "bg-gold-400",    bar: "bg-gold-400",    icon: "👨‍🍳", progress: 65  },
-  ready:     { col: "border-emerald-500/40 bg-emerald-500/10", num: "bg-emerald-500", bar: "bg-emerald-500", icon: "✅", progress: 100 },
+  received:  { col: "border-[#BFDBFE] bg-[#EFF6FF]", text: "text-[#1D4ED8]", num: "bg-[#2563EB]", bar: "bg-[#2563EB]", icon: "⏳",   progress: 25  },
+  preparing: { col: "border-[#F4D27A] bg-[#FFF7E0]", text: "text-[#9A6A00]", num: "bg-[#D9A441]", bar: "bg-[#D9A441]", icon: "👨‍🍳", progress: 65  },
+  ready:     { col: "border-[#86EFAC] bg-[#ECFDF3]", text: "text-[#047857]", num: "bg-[#16A34A]", bar: "bg-[#16A34A]", icon: "✅",   progress: 100 },
 };
 
 function entrarTelaCheia() {
@@ -4140,24 +4140,24 @@ function PanelView({ groupedOrders, products = [], lojaInfo }) {
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-slate-950 overflow-hidden" style={{ fontSize: "clamp(10px, 1.2vw, 16px)", paddingTop: "calc(env(safe-area-inset-top) + 24px)" }}>
+    <div className="fixed inset-0 z-50 flex flex-col bg-[#F7F8FA] overflow-hidden" style={{ fontSize: "clamp(10px, 1.2vw, 16px)", paddingTop: "calc(env(safe-area-inset-top) + 24px)" }}>
 
       {/* ── Cabeçalho ─────────────────────────────────────────── */}
-      <header className="flex shrink-0 items-center justify-between border-b border-white/10 bg-slate-900/90 px-[2vw] py-[1vh] backdrop-blur-xl">
+      <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-[#E5E7EB] bg-white px-[2vw] py-[1vh]">
         <div className="flex items-center gap-[1vw]">
           <div className="flex items-center justify-center"
             style={{ width: "clamp(36px,4vw,60px)", height: "clamp(36px,4vw,60px)" }}>
             <LogoPP size={60} className="h-full w-full" />
           </div>
           <div>
-            <p className="font-black uppercase tracking-[0.25em] text-gold-400 leading-none" style={{ fontSize: "clamp(8px,0.85vw,13px)" }}>
+            <p className="font-black uppercase tracking-[0.25em] text-[#D9A441] leading-none" style={{ fontSize: "clamp(8px,0.85vw,13px)" }}>
               Painel de Pedidos
             </p>
-            <h1 className="font-black tracking-tight text-white leading-tight"
+            <h1 className="font-black tracking-tight text-[#182230] leading-tight"
               style={{ fontSize: "clamp(14px,2vw,28px)" }}>
               {lojaInfo?.nome || "Pedido Prime"}
             </h1>
-            <p className="text-slate-400 font-semibold" style={{ fontSize: "clamp(9px,0.9vw,13px)" }}>
+            <p className="text-[#667085] font-semibold" style={{ fontSize: "clamp(9px,0.9vw,13px)" }}>
               Acompanhe o status do seu pedido em tempo real
             </p>
           </div>
@@ -4165,41 +4165,41 @@ function PanelView({ groupedOrders, products = [], lojaInfo }) {
 
         <div className="flex items-center gap-[2vw]">
           {/* Legenda inline no header (telas pequenas ficam visíveis) */}
-          <p className="hidden sm:block text-slate-500 font-semibold" style={{ fontSize: "clamp(8px,0.75vw,11px)" }}>
+          <p className="hidden sm:block text-[#98A2B3] font-semibold" style={{ fontSize: "clamp(8px,0.75vw,11px)" }}>
             🔢 Nº = ordem de liberação — menor número, mais próximo da retirada
           </p>
           {/* Relógio */}
-          <div className="text-right">
-            <p className="font-bold uppercase tracking-widest text-slate-500" style={{ fontSize: "clamp(7px,0.65vw,10px)" }}>Horário</p>
-            <p className="font-black tabular-nums text-white" style={{ fontSize: "clamp(18px,3vw,42px)" }}>{hora}</p>
+          <div className="rounded-2xl bg-[#F8FAFC] text-right" style={{ padding: "clamp(4px,0.6vw,10px) clamp(8px,1vw,16px)" }}>
+            <p className="font-bold uppercase tracking-widest text-[#667085]" style={{ fontSize: "clamp(7px,0.65vw,10px)" }}>Horário</p>
+            <p className="font-black tabular-nums text-[#182230]" style={{ fontSize: "clamp(18px,3vw,42px)" }}>{hora}</p>
           </div>
           {/* Total */}
-          <div className="rounded-[1vw] border border-emerald-400/30 bg-emerald-500/10 text-center"
+          <div className="rounded-[1vw] border border-[#86EFAC] bg-[#ECFDF3] text-center"
             style={{ padding: "clamp(4px,0.8vw,12px) clamp(8px,1.2vw,20px)" }}>
-            <p className="font-bold text-emerald-400" style={{ fontSize: "clamp(7px,0.65vw,10px)" }}>Total ativo</p>
-            <p className="font-black text-emerald-300" style={{ fontSize: "clamp(18px,2.5vw,36px)" }}>{total}</p>
+            <p className="font-bold text-[#047857]" style={{ fontSize: "clamp(7px,0.65vw,10px)" }}>Total ativo</p>
+            <p className="font-black text-[#16A34A]" style={{ fontSize: "clamp(18px,2.5vw,36px)" }}>{total}</p>
           </div>
         </div>
       </header>
 
       {/* ── Colunas ───────────────────────────────────────────── */}
-      <div className="tema-claro-area flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-x-auto overflow-y-hidden">
         {colunas.map(({ key, titulo, sub }) => {
           const cfg = panelStatusConfig[key];
           const lista = groupedOrders[key] || [];
           const isReady = key === "ready";
 
           return (
-            <div key={key} className="flex flex-1 flex-col border-r border-white/10 last:border-r-0 min-w-0">
+            <div key={key} className="flex flex-1 flex-col border-r border-[#E5E7EB] last:border-r-0 min-w-[260px]">
 
               {/* Cabeçalho da coluna */}
-              <div className={`shrink-0 border-b border-white/10 ${cfg.col}`}
+              <div className={`shrink-0 border-b ${cfg.col}`}
                 style={{ padding: "clamp(8px,1.2vh,18px) clamp(8px,1.5vw,24px)" }}>
                 <div className="flex items-center justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="font-bold uppercase tracking-widest text-slate-400 truncate"
+                    <p className={`font-bold uppercase tracking-widest truncate ${cfg.text}/80`}
                       style={{ fontSize: "clamp(7px,0.65vw,10px)" }}>{sub}</p>
-                    <h2 className="font-black text-white leading-tight"
+                    <h2 className={`font-black leading-tight ${cfg.text}`}
                       style={{ fontSize: "clamp(13px,1.8vw,26px)" }}>
                       {cfg.icon} {titulo}
                     </h2>
@@ -4209,41 +4209,41 @@ function PanelView({ groupedOrders, products = [], lojaInfo }) {
                     {lista.length}
                   </span>
                 </div>
-                <div className="mt-[0.8vh] overflow-hidden rounded-full bg-white/10" style={{ height: "clamp(3px,0.4vh,6px)" }}>
+                <div className="mt-[0.8vh] overflow-hidden rounded-full bg-white/60" style={{ height: "clamp(3px,0.4vh,6px)" }}>
                   <div className={`h-full rounded-full transition-all duration-700 ${cfg.bar}`}
                     style={{ width: lista.length ? "100%" : "0%" }} />
                 </div>
               </div>
 
               {/* Cards */}
-              <div className="flex-1 overflow-y-auto" style={{ padding: "clamp(6px,1vh,16px) clamp(6px,1vw,16px)", gap: "clamp(6px,1vh,14px)", display: "flex", flexDirection: "column" }}>
+              <div className="flex-1 overflow-y-auto bg-[#F7F8FA]" style={{ padding: "clamp(6px,1vh,16px) clamp(6px,1vw,16px)", gap: "clamp(6px,1vh,14px)", display: "flex", flexDirection: "column" }}>
                 {lista.length === 0 && (
-                  <div className="flex flex-1 flex-col items-center justify-center gap-2 opacity-25">
+                  <div className="flex flex-1 flex-col items-center justify-center gap-2 opacity-70">
                     <span style={{ fontSize: "clamp(24px,4vw,56px)" }}>🕐</span>
-                    <p className="font-bold text-slate-400" style={{ fontSize: "clamp(9px,0.9vw,13px)" }}>Nenhum pedido</p>
+                    <p className="font-bold text-[#98A2B3]" style={{ fontSize: "clamp(9px,0.9vw,13px)" }}>Nenhum pedido no momento</p>
                   </div>
                 )}
                 {lista.map((order) => {
                   const num = ordemMap[order.id];
                   return (
                     <article key={order.id}
-                      className={`relative flex-shrink-0 overflow-hidden rounded-[1.5vw] border transition-all duration-300 ${cfg.col} ${isReady ? "ring-2 ring-emerald-500/60 shadow-xl shadow-emerald-950/50" : ""}`}
+                      className={`relative flex-shrink-0 overflow-hidden rounded-[1.5vw] border border-[#E5E7EB] bg-white transition-all duration-300 shadow-[0_8px_24px_rgba(16,24,40,0.06)] ${isReady ? "ring-2 ring-[#16A34A]/50" : ""}`}
                       style={{ padding: "clamp(8px,1.2vh,18px) clamp(8px,1.2vw,18px)" }}>
 
                       {/* Linha superior: número + id + badge RETIRAR */}
                       <div className="mb-[1vh] flex items-center gap-[1vw]">
-                        <div className={`shrink-0 flex items-center justify-center rounded-[0.8vw] font-black text-white shadow-lg ${cfg.num}`}
+                        <div className={`shrink-0 flex items-center justify-center rounded-[0.8vw] font-black text-white shadow-sm ${cfg.num}`}
                           style={{ width: "clamp(32px,4vw,64px)", height: "clamp(32px,4vw,64px)", fontSize: "clamp(14px,2vw,32px)" }}>
                           {num}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="font-bold uppercase tracking-widest text-slate-400 truncate"
+                          <p className="font-bold uppercase tracking-widest text-[#98A2B3] truncate"
                             style={{ fontSize: "clamp(6px,0.6vw,9px)" }}>Ordem de liberação</p>
-                          <p className="text-slate-500 truncate"
+                          <p className="text-[#667085] truncate"
                             style={{ fontSize: "clamp(7px,0.65vw,10px)" }}>{order.id} • {order.createdAt}</p>
                         </div>
                         {isReady && (
-                          <span className="shrink-0 animate-pulse rounded-full bg-emerald-500 font-black text-white"
+                          <span className="shrink-0 animate-pulse rounded-full bg-[#16A34A] font-black text-white"
                             style={{ padding: "clamp(2px,0.4vh,6px) clamp(6px,0.8vw,12px)", fontSize: "clamp(7px,0.7vw,11px)" }}>
                             RETIRAR
                           </span>
@@ -4253,21 +4253,21 @@ function PanelView({ groupedOrders, products = [], lojaInfo }) {
                       {/* Mesa + cliente */}
                       <div className="mb-[0.8vh] flex items-end justify-between gap-2">
                         <div className="min-w-0">
-                          <p className="font-bold uppercase tracking-widest text-slate-400"
+                          <p className="font-bold uppercase tracking-widest text-[#98A2B3]"
                             style={{ fontSize: "clamp(6px,0.6vw,9px)" }}>Mesa</p>
-                          <p className="font-black leading-none text-white"
-                            style={{ fontSize: "clamp(28px,5.5vw,88px)" }}>
+                          <p className="font-black leading-none text-[#182230]"
+                            style={{ fontSize: "clamp(24px,4vw,64px)" }}>
                             {order.table.replace("Mesa ", "")}
                           </p>
                           {order.customer && (
-                            <p className="mt-[0.3vh] font-bold text-blue-300 truncate"
+                            <p className="mt-[0.3vh] font-bold text-[#2563EB] truncate"
                               style={{ fontSize: "clamp(9px,1vw,15px)" }}>👤 {order.customer}</p>
                           )}
                         </div>
                         <div className="text-right shrink-0">
-                          <p className="font-bold uppercase tracking-widest text-slate-500"
+                          <p className="font-bold uppercase tracking-widest text-[#98A2B3]"
                             style={{ fontSize: "clamp(6px,0.55vw,9px)" }}>Comanda</p>
-                          <p className="font-mono font-bold text-slate-300"
+                          <p className="font-mono font-bold text-[#475467]"
                             style={{ fontSize: "clamp(8px,0.8vw,12px)" }}>{order.command}</p>
                         </div>
                       </div>
@@ -4275,8 +4275,8 @@ function PanelView({ groupedOrders, products = [], lojaInfo }) {
                       {/* Itens */}
                       <div className="mb-[0.8vh]" style={{ display: "flex", flexDirection: "column", gap: "clamp(1px,0.3vh,4px)" }}>
                         {order.items.map((item, i) => (
-                          <p key={i} className="text-slate-400 truncate" style={{ fontSize: "clamp(8px,0.75vw,11px)" }}>
-                            <span className="font-black text-slate-300">{item.quantity}x</span> {item.name}
+                          <p key={i} className="text-[#667085] truncate" style={{ fontSize: "clamp(8px,0.75vw,11px)" }}>
+                            <span className="font-black text-[#475467]">{item.quantity}x</span> {item.name}
                           </p>
                         ))}
                       </div>
@@ -4290,11 +4290,11 @@ function PanelView({ groupedOrders, products = [], lojaInfo }) {
                           const dentro = decorrido <= estMs;
                           const restante = estMs - decorrido;
                           return (
-                            <div className={`mb-[0.8vh] flex items-center justify-between rounded-[0.8vw] px-[1vw] py-[0.5vh] ${dentro ? "bg-amber-500/15 border border-amber-400/30" : "bg-red-500/15 border border-red-400/30"}`}>
-                              <span className="font-bold uppercase tracking-widest" style={{ fontSize: "clamp(6px,0.6vw,9px)", color: dentro ? "#fcd34d" : "#fca5a5" }}>
+                            <div className={`mb-[0.8vh] flex items-center justify-between rounded-[0.8vw] px-[1vw] py-[0.5vh] border ${dentro ? "bg-[#FFF7E0] border-[#F4D27A]" : "bg-[#FFF1F2] border-[#FDA4AF]"}`}>
+                              <span className="font-bold uppercase tracking-widest" style={{ fontSize: "clamp(6px,0.6vw,9px)", color: dentro ? "#9A6A00" : "#B42318" }}>
                                 ⏱ {dentro ? "No prazo" : "Atrasado"} {estMin > 0 && `• média ${estMin}min`}
                               </span>
-                              <span className="font-black tabular-nums" style={{ fontSize: "clamp(12px,1.5vw,22px)", color: dentro ? "#fcd34d" : "#fca5a5" }}>
+                              <span className="font-black tabular-nums" style={{ fontSize: "clamp(12px,1.5vw,22px)", color: dentro ? "#9A6A00" : "#B42318" }}>
                                 {dentro && restante > 0 ? `falta ${fmtTimer(restante)}` : fmtTimer(decorrido)}
                               </span>
                             </div>
@@ -4302,9 +4302,9 @@ function PanelView({ groupedOrders, products = [], lojaInfo }) {
                         }
                         if (key === "received") {
                           return (
-                            <div className="mb-[0.8vh] flex items-center justify-between rounded-[0.8vw] border border-blue-400/30 bg-blue-500/10 px-[1vw] py-[0.5vh]">
-                              <span className="font-bold uppercase tracking-widest text-blue-200" style={{ fontSize: "clamp(6px,0.6vw,9px)" }}>⏳ Na fila</span>
-                              {estMin > 0 && <span className="font-black text-blue-200" style={{ fontSize: "clamp(9px,1vw,14px)" }}>~{estMin}min preparo</span>}
+                            <div className="mb-[0.8vh] flex items-center justify-between rounded-[0.8vw] border border-[#BFDBFE] bg-[#EFF6FF] px-[1vw] py-[0.5vh]">
+                              <span className="font-bold uppercase tracking-widest text-[#1D4ED8]" style={{ fontSize: "clamp(6px,0.6vw,9px)" }}>⏳ Na fila</span>
+                              {estMin > 0 && <span className="font-black text-[#1D4ED8]" style={{ fontSize: "clamp(9px,1vw,14px)" }}>~{estMin}min preparo</span>}
                             </div>
                           );
                         }
@@ -4312,8 +4312,8 @@ function PanelView({ groupedOrders, products = [], lojaInfo }) {
                           const realMs = new Date(order.prontoEmISO).getTime() - new Date(order.preparoEmISO).getTime();
                           const noPrazo = realMs <= estMs;
                           return (
-                            <div className="mb-[0.8vh] flex items-center justify-between rounded-[0.8vw] border border-emerald-400/30 bg-emerald-500/10 px-[1vw] py-[0.5vh]">
-                              <span className="font-bold uppercase tracking-widest text-emerald-200" style={{ fontSize: "clamp(6px,0.6vw,9px)" }}>
+                            <div className="mb-[0.8vh] flex items-center justify-between rounded-[0.8vw] border border-[#86EFAC] bg-[#ECFDF3] px-[1vw] py-[0.5vh]">
+                              <span className="font-bold uppercase tracking-widest text-[#047857]" style={{ fontSize: "clamp(6px,0.6vw,9px)" }}>
                                 ✅ Pronto em {fmtTimer(realMs)} {estMin > 0 && (noPrazo ? "• no prazo" : "• acima da média")}
                               </span>
                             </div>
@@ -4323,7 +4323,7 @@ function PanelView({ groupedOrders, products = [], lojaInfo }) {
                       })()}
 
                       {/* Barra de progresso */}
-                      <div className="overflow-hidden rounded-full bg-black/30" style={{ height: "clamp(3px,0.5vh,7px)" }}>
+                      <div className="overflow-hidden rounded-full bg-[#E5E7EB]" style={{ height: "clamp(3px,0.5vh,7px)" }}>
                         <div className={`h-full rounded-full transition-all duration-1000 ${cfg.bar}`}
                           style={{ width: `${cfg.progress}%` }} />
                       </div>
@@ -4337,11 +4337,11 @@ function PanelView({ groupedOrders, products = [], lojaInfo }) {
       </div>
 
       {/* ── Rodapé ────────────────────────────────────────────── */}
-      <footer className="shrink-0 flex items-center justify-between border-t border-white/10 bg-slate-900/60 px-[2vw] backdrop-blur"
+      <footer className="shrink-0 flex flex-wrap items-center justify-between gap-1 border-t border-[#E5E7EB] bg-white px-[2vw]"
         style={{ paddingTop: "clamp(4px,0.8vh,10px)", paddingBottom: "clamp(4px,0.8vh,10px)" }}>
-        <span className="text-slate-500" style={{ fontSize: "clamp(7px,0.65vw,10px)" }}>🔄 Atualização automática a cada 15s</span>
-        <span className="text-slate-500" style={{ fontSize: "clamp(7px,0.65vw,10px)" }}>Pedidos prontos → retire no balcão</span>
-        <span className="text-slate-500" style={{ fontSize: "clamp(7px,0.65vw,10px)" }}>Sistema Restaurante — Painel Público</span>
+        <span className="text-[#667085]" style={{ fontSize: "clamp(7px,0.65vw,10px)" }}>🔄 Atualização automática a cada 15s</span>
+        <span className="text-[#667085]" style={{ fontSize: "clamp(7px,0.65vw,10px)" }}>Pedidos prontos → retire no balcão</span>
+        <span className="text-[#667085]" style={{ fontSize: "clamp(7px,0.65vw,10px)" }}>Sistema Restaurante — Painel Público</span>
       </footer>
     </div>
   );
