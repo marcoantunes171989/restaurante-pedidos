@@ -4376,6 +4376,10 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
   const SERVICE_FEE_CONFIG = { enabled: true, percent: 10, mode: "opcional", partialStrategy: "proporcional_itens" };
   const [taxaIncluida, setTaxaIncluida] = useState(SERVICE_FEE_CONFIG.mode !== "nao_aplicar" && SERVICE_FEE_CONFIG.enabled);
   const [taxaManualValor, setTaxaManualValor] = useState(0); // usado só quando partialStrategy === "manual"
+  // ── Divisão por pessoas: quantas já pagaram sua parte desta seleção ──
+  // TODO: hoje é só estado local da sessão do caixa; persistir por parcela
+  // quando existir uma tabela de "pagamentos individuais" no backend.
+  const [pessoasPagas, setPessoasPagas] = useState(0);
   // ── Consulta por número da mesa (teclado numérico) — reaproveita carregarMesa() ──
   const [mesaDigitada, setMesaDigitada] = useState("");
   const [mesaErro, setMesaErro] = useState("");
@@ -4461,8 +4465,21 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
   const restanteGeral = Math.max(0, totalGeral - jaPago);
   // Quanto será cobrado AGORA: seleção (parcial) ou todo o restante (conta inteira)
   const aPagar = modoItens ? Math.min(totalSelecao, restanteGeral) : restanteGeral;
-  const total = aPagar;                          // o modal de pagamento cobra este valor
+  const total = aPagar;                          // valor total desta cobrança (seleção ou conta inteira)
   const porPessoa = total / Math.max(1, pessoas);
+
+  // Quando dividido por mais de 1 pessoa, cada clique em "Pagar" cobra só a
+  // parte de 1 pessoa por vez — não o total da seleção. Ajusta o centavo de
+  // arredondamento na última pessoa para fechar exatamente o valor total.
+  useEffect(() => { setPessoasPagas(0); }, [pessoas, subtotal, modoItens]);
+  const pessoasRestantes = Math.max(0, pessoas - pessoasPagas);
+  const ehUltimaPessoa = pessoas > 1 && pessoasRestantes <= 1;
+  const valorIndividualBase = pessoas > 1 ? Math.round((total / pessoas) * 100) / 100 : total;
+  const valorPagoAgora = pessoas > 1
+    ? (ehUltimaPessoa ? Math.max(0, Math.round((total - valorIndividualBase * (pessoas - 1)) * 100) / 100) : valorIndividualBase)
+    : total;
+  const totalPagoSelecao = pessoas > 1 ? Math.min(total, valorIndividualBase * pessoasPagas) : jaPago;
+  const restanteSelecao = Math.max(0, total - totalPagoSelecao);
 
   // Pedidos totalmente cobertos nesta seleção (todos os itens incluídos e sem divisão) → baixa
   const pedidosCobertos = pedidos.filter((o) => o.items.every((it, idx) => {
@@ -4580,18 +4597,61 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
     janela.document.close();
   }
 
+  // Cupom individual — emitido a cada pessoa paga quando a conta/seleção está
+  // dividida por mais de 1 (mesmo padrão visual do cupom principal, resumido).
+  function imprimirCupomIndividual(valorPagoIndividual, numeroPessoa, totalPessoas) {
+    const agora = new Date();
+    const data = agora.toLocaleDateString("pt-BR");
+    const hora = agora.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    const doc = String(Math.floor(100000 + Math.random() * 899999));
+    const janela = window.open("", "_blank", "width=400,height=560");
+    if (!janela) return;
+    janela.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Cupom ${doc}</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  @page{size:80mm auto;margin:0}
+  body{font-family:'Courier New',Consolas,monospace;font-size:12px;line-height:1.4;color:#000;background:#fff;width:80mm;padding:4mm 3mm}
+  .c{text-align:center}.b{font-weight:bold}
+  .sep{border-top:1px dashed #000;margin:5px 0}
+  .sep2{border-top:2px solid #000;margin:5px 0}
+  .row{display:flex;justify-content:space-between;gap:6px}
+  h1{font-size:15px;letter-spacing:0.5px;margin:2px 0}
+  .xs{font-size:10px}.sm{font-size:11px}.lg{font-size:16px}
+</style></head><body>
+  <div class="c"><h1 class="b">CUPOM NAO FISCAL</h1><p class="xs">PAGAMENTO INDIVIDUAL</p></div>
+  <div class="sep2"></div>
+  <div class="row xs"><span>Doc.: ${doc}</span><span>${data} ${hora}</span></div>
+  <div class="row xs"><span>Mesa(s): ${mesas.join(", ") || "-"}</span><span>Comanda(s): ${comandasLidas.join(", ") || "-"}</span></div>
+  <div class="sep"></div>
+  <div class="row sm"><span>Total da seleção</span><span class="b">${formatCurrency(total)}</span></div>
+  <div class="row sm"><span>${taxaIncluida ? `Taxa de servico (${SERVICE_FEE_CONFIG.percent}%)` : "Taxa de servico: removida/opcional"}</span><span>${formatCurrency(taxa)}</span></div>
+  <div class="row sm"><span>Dividido entre</span><span>${totalPessoas} pessoas</span></div>
+  <div class="row sm"><span>Pessoa</span><span>${numeroPessoa} de ${totalPessoas}</span></div>
+  <div class="sep2"></div>
+  <div class="row b lg"><span>VALOR PAGO AGORA</span><span>${formatCurrency(valorPagoIndividual)}</span></div>
+  <div class="sep"></div>
+  <p class="c xs">Taxa de servico opcional conforme configuracao do estabelecimento.</p>
+  <p class="c sm b" style="margin-top:4px">OBRIGADO PELA PREFERENCIA!</p>
+  <script>window.onload=function(){window.print();setTimeout(function(){window.close()},300)}<\/script>
+</body></html>`);
+    janela.document.close();
+  }
+
   // Chamado pelo modal de pagamento ao confirmar
   async function confirmarPagamento({ detalhes, troco }) {
-    const valorPago = aPagar; // valor cobrado neste pagamento
+    const valorPago = valorPagoAgora; // valor cobrado neste pagamento (parte individual, se dividido)
+    const finalizaSelecao = pessoas <= 1 || ehUltimaPessoa; // última (ou única) parte desta divisão
     const hora = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-    // Itens marcados como PAGOS nesta parcela (apenas no modo de seleção por item)
-    const itensDaParcela = modoItens
+    // Itens só são marcados como PAGOS (baixa) quando a divisão desta seleção
+    // foi totalmente quitada — enquanto restarem pessoas a pagar, os itens
+    // continuam "em aberto" (regra: não baixar até fechar o total selecionado).
+    const itensDaParcela = modoItens && finalizaSelecao
       ? itensPagosAgora
           .filter((it) => (it.dividir || 1) === 1) // só marca PAGO itens cobrados integralmente
           .map((it) => ({ key: it.key, oid: it.oid, comanda: it.comanda, name: it.name, quantity: it.quantity, valor: it.valor }))
       : [];
     const parcelaId = Date.now();
-    const novosPagamentos = [...pagamentosFeitos, { id: parcelaId, valor: valorPago, troco, detalhes, hora, itens: itensDaParcela, taxaAplicada: taxa, taxaIncluida }];
+    const novosPagamentos = [...pagamentosFeitos, { id: parcelaId, valor: valorPago, troco, detalhes, hora, itens: itensDaParcela, taxaAplicada: taxa, taxaIncluida, pessoaNumero: pessoas > 1 ? pessoasPagas + 1 : null, pessoasTotal: pessoas > 1 ? pessoas : null }];
     // Log financeiro: parcela paga
     setLogFinanceiro((cur) => [
       ...cur,
@@ -4601,13 +4661,22 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
         itens: itensDaParcela.map((it) => `${it.quantity}x ${it.name}`),
       },
     ]);
+    if (pessoas > 1) imprimirCupomIndividual(valorPago, pessoasPagas + 1, pessoas);
     const totalPagoAgora = jaPago + valorPago;
     const quitado = totalPagoAgora >= totalGeral - 0.01;
 
     setPagamentoAberto(false);
+    if (!finalizaSelecao) {
+      // Ainda faltam pessoas pagando a mesma seleção: mantém itens/pessoas
+      // selecionados e só avança o contador — não reseta a tela.
+      setPagamentosFeitos(novosPagamentos);
+      setPessoasPagas((n) => n + 1);
+      return;
+    }
     setPessoas(1);
     setModoItens(false);
     setSelecao({});
+    setPessoasPagas(0);
 
     if (quitado) {
       // QUITADO → baixa todas as comandas + comprovante fiscal final (com todos os pagamentos)
@@ -4976,6 +5045,15 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
                   <p className="text-lg font-black text-emerald-400">{formatCurrency(porPessoa)}<span className="text-xs text-slate-500">/cada</span></p>
                 </div>
               </div>
+              {pessoas > 1 && (
+                <div className="mt-3 space-y-1 border-t border-white/10 pt-3 text-xs">
+                  <div className="flex justify-between text-slate-400"><span>Total selecionado</span><span className="font-bold text-slate-200">{formatCurrency(total)}</span></div>
+                  <div className="flex justify-between text-slate-400"><span>Valor por pessoa</span><span className="font-bold text-slate-200">{formatCurrency(valorIndividualBase)}</span></div>
+                  <div className="flex justify-between text-emerald-400"><span>Pago</span><span className="font-bold">{formatCurrency(totalPagoSelecao)}</span></div>
+                  <div className="flex justify-between text-amber-300"><span>Restante</span><span className="font-bold">{formatCurrency(restanteSelecao)}</span></div>
+                  {pessoasRestantes > 0 && <p className="pt-1 text-[11px] font-bold text-amber-300">{pessoasRestantes} pagamento(s) pendente(s)</p>}
+                </div>
+              )}
             </div>
           </div>
 
@@ -5000,7 +5078,9 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
             <button onClick={() => setPagamentoAberto(true)} disabled={!podePagar || aPagar <= 0}
               title={!podePagar ? "Aguarde todos os pedidos serem finalizados/entregues" : ""}
               className="w-full rounded-2xl bg-[#16A34A] py-4 text-sm font-black text-white hover:bg-[#22C55E] transition active:scale-95 shadow-lg shadow-[#16A34A]/30 disabled:opacity-40 disabled:cursor-not-allowed">
-              {jaPago > 0
+              {pessoas > 1
+                ? `💰 Pagar 1 pessoa ${formatCurrency(valorPagoAgora)}`
+                : jaPago > 0
                 ? `💰 Pagar ${formatCurrency(aPagar)} (resta ${formatCurrency(restanteGeral)})`
                 : modoItens && aPagar < restanteGeral - 0.01
                 ? `💰 Pagar seleção ${formatCurrency(aPagar)}`
@@ -5132,7 +5212,7 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
       {/* Modal de pagamento */}
       {pagamentoAberto && (
         <PagamentoModal
-          total={total} formasPagamento={formasPagamento.filter((f) => f.active !== false)}
+          total={valorPagoAgora} formasPagamento={formasPagamento.filter((f) => f.active !== false)}
           onConfirmar={confirmarPagamento}
           onCancelar={() => setPagamentoAberto(false)}
         />
