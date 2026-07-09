@@ -1045,9 +1045,14 @@ export default function RestaurantePedidoApp() {
   // Pedidos ativos = excluindo os já entregues (apenas para exibição na cozinha/painel)
   const activeOrders = orders.filter((o) => o.status !== "delivered" && o.status !== "cancelled");
 
+  // Ordenação estável: grupo de status, depois timestamp completo (não só
+  // "HH:MM"), com id como desempate final — evita pedidos trocando de posição
+  // a cada reload do realtime quando caem no mesmo minuto (flicker no painel/cozinha).
   const sortedOrders = [...activeOrders].sort((a, b) => {
     const diff = (statusMap[a.status]?.order ?? 9) - (statusMap[b.status]?.order ?? 9);
-    return diff !== 0 ? diff : a.createdAt.localeCompare(b.createdAt);
+    if (diff !== 0) return diff;
+    const t = (a.createdAtISO || "").localeCompare(b.createdAtISO || "");
+    return t !== 0 ? t : String(a.id).localeCompare(String(b.id));
   });
 
   const groupedOrders = {

@@ -1120,9 +1120,16 @@ export async function atualizarPedido(id, campos) {
 }
 
 export function escutarPedidos(onMudanca) {
+  // Guard de sequência: se dois reloads ficam em voo (ex.: INSERT e UPDATE
+  // quase simultâneos), a resposta mais lenta não pode sobrescrever a mais
+  // recente — aplica só o resultado do último reload disparado (evita
+  // pedidos "piscando"/voltando de estado por resposta fora de ordem).
+  let seq = 0
   const reload = async () => {
+    const minha = ++seq
     const { data, error } = await supabase
       .from('tab_pedidos').select('*').order('criado_em', { ascending: false })
+    if (minha !== seq) return // resposta obsoleta — já existe um reload mais novo
     if (!error && data) onMudanca(data.map(dbParaPedido))
   }
   const canal = supabase.channel('ch_pedidos_'+Math.random().toString(36).slice(2))
