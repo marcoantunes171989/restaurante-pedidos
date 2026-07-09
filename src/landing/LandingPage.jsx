@@ -21,11 +21,8 @@ const INSTAGRAM = "https://instagram.com";
 
 const NAV = [
   { label: "Funcionalidades", id: "funcionalidades" },
-  { label: "Como funciona", id: "como-funciona" },
-  { label: "Soluções", id: "solucoes" },
   { label: "Cardápio QR", id: "cardapio-qr" },
-  { label: "Gestão", id: "gestao" },
-  { label: "Planos", id: "planos" },
+  { label: "Como funciona", id: "como-funciona" },
   { label: "FAQ", id: "faq" },
   { label: "Contato", id: "contato" },
 ];
@@ -33,48 +30,50 @@ const NAV = [
 const PLANOS = planosPedidoPrime;
 
 const BENEFICIOS = [
-  { icon: "✅", title: "Menos erros nos pedidos", desc: "Pedido digital direto da mesa até a cozinha, sem ruído de comunicação." },
-  { icon: "⚡", title: "Atendimento mais rápido", desc: "Menos espera, mais giro de mesa e cliente satisfeito." },
-  { icon: "📡", title: "Gestão em tempo real", desc: "Vendas, mesas e cozinha acompanhadas ao vivo, de qualquer lugar." },
-  { icon: "🎫", title: "Cardápio digital por QR Code", desc: "Cliente acessa o cardápio pelo celular, sem instalar nada." },
-  { icon: "🍽️", title: "Controle de mesas e comandas", desc: "Visão clara do que cada mesa consumiu e do status de cada pedido." },
-  { icon: "📈", title: "Relatórios para decisão", desc: "Números confiáveis de vendas, ticket médio e desempenho." },
-  { icon: "💰", title: "Mais controle financeiro", desc: "Caixa, formas de pagamento e contas a pagar/receber organizados." },
-  { icon: "✨", title: "Experiência moderna", desc: "Atendimento digital que passa profissionalismo ao cliente." },
+  { icon: "✅", title: "Reduza erros nos pedidos", desc: "Pedido digital direto da mesa até a cozinha, sem ruído de comunicação." },
+  { icon: "⚡", title: "Ganhe velocidade no atendimento", desc: "Menos espera, mais giro de mesa e cliente satisfeito." },
+  { icon: "🍽️", title: "Controle mesas e comandas", desc: "Visão clara do que cada mesa consumiu e do status de cada pedido." },
+  { icon: "🎫", title: "Venda com cardápio QR Code", desc: "Cliente acessa o cardápio pelo celular, sem instalar nada." },
+  { icon: "📈", title: "Acompanhe relatórios em tempo real", desc: "Números confiáveis de vendas, ticket médio e desempenho." },
+  { icon: "💰", title: "Organize financeiro, CRM e fidelidade", desc: "Caixa, contas, clientes e recompensas em um só lugar." },
 ];
 
-const FEATURES = [
-  { icon: "📊", title: "Dashboard Gerencial", desc: "Indicadores de vendas, ticket médio e desempenho em tempo real." },
-  { icon: "🤖", title: "Copiloto IA", desc: "Assistente inteligente com insights e sugestões para o negócio." },
-  { icon: "📈", title: "Relatórios", desc: "Vendas, produtos, clientes e desempenho por período." },
-  { icon: "🍽️", title: "Mesas", desc: "Controle de status, ocupação e tempo de cada mesa." },
-  { icon: "🎫", title: "Comandas", desc: "Abertura, consumo e fechamento de comandas." },
-  { icon: "📱", title: "QR Code", desc: "Cardápio digital acessível direto do celular do cliente." },
-  { icon: "🔔", title: "Chamados", desc: "Cliente chama o garçom direto pelo app da mesa." },
-  { icon: "👨‍🍳", title: "Setores de Produção", desc: "Organização da cozinha e bar por setor de preparo." },
-  { icon: "📲", title: "Operação Mobile", desc: "Opere pedidos, cozinha e caixa direto do celular." },
-  { icon: "🔑", title: "Acessos Operacionais", desc: "Defina o que cada operador pode acessar no dia a dia." },
-  { icon: "📦", title: "Produtos", desc: "Cadastro completo com fotos, preços e variações." },
-  { icon: "🏷️", title: "Categorias", desc: "Organização do cardápio por categoria." },
-  { icon: "🎁", title: "Promoções", desc: "Combos e ofertas para vender mais." },
-  { icon: "👤", title: "Clientes / CRM", desc: "Histórico, recorrência e relacionamento com o cliente." },
-  { icon: "⭐", title: "Fidelidade", desc: "Programa de pontos e recompensas para clientes." },
-  { icon: "🎫", title: "Cardápio QR", desc: "Configuração do cardápio acessado por QR Code." },
-  { icon: "🔗", title: "Cardápio Externo", desc: "Link público do cardápio para divulgação." },
-  { icon: "💳", title: "Visão Financeira", desc: "Panorama consolidado do financeiro do estabelecimento." },
-  { icon: "🧾", title: "Lançamentos", desc: "Receitas e despesas registradas e organizadas." },
-  { icon: "📥", title: "Contas a Receber", desc: "Controle do que ainda vai entrar no caixa." },
-  { icon: "📤", title: "Contas a Pagar", desc: "Controle de despesas e vencimentos." },
-  { icon: "🔒", title: "Fechamento de Caixa", desc: "Conferência e fechamento com segurança." },
-  { icon: "💳", title: "Formas de Pagamento", desc: "Configure Pix, cartão, dinheiro e outros." },
-  { icon: "🧑‍💼", title: "Usuários", desc: "Cadastro da equipe com acesso individual." },
-  { icon: "🏷️", title: "Cargos / Perfis", desc: "Perfis de acesso para cada função da equipe." },
-  { icon: "🛡️", title: "Permissões", desc: "Controle fino do que cada perfil pode fazer." },
-  { icon: "🔗", title: "Usuário x Acesso", desc: "Vincule usuários aos acessos liberados." },
-  { icon: "📋", title: "Auditoria", desc: "Histórico de ações realizadas no sistema." },
-  { icon: "🏢", title: "Empresas", desc: "Gestão multiempresa em um só painel." },
-  { icon: "📄", title: "Licenças de Uso", desc: "Controle de licenças e vigência do plano." },
-  { icon: "🧩", title: "Controle de Versões", desc: "Acompanhe as atualizações do sistema." },
+const FUNC_GRUPOS = [
+  { titulo: "Operação", itens: [
+    { icon: "🍽️", title: "Mesas", desc: "Controle de status, ocupação e tempo de cada mesa." },
+    { icon: "🎫", title: "Comandas", desc: "Abertura, consumo e fechamento de comandas." },
+    { icon: "📱", title: "QR Code", desc: "Cardápio digital acessível direto do celular do cliente." },
+    { icon: "📲", title: "Operação Mobile", desc: "Opere pedidos, cozinha e caixa direto do celular." },
+    { icon: "👨‍🍳", title: "Setores de Produção", desc: "Organização da cozinha e bar por setor de preparo." },
+    { icon: "🔔", title: "Chamados", desc: "Cliente chama o garçom direto pelo app da mesa." },
+  ]},
+  { titulo: "Gestão", itens: [
+    { icon: "📊", title: "Dashboard Gerencial", desc: "Indicadores de vendas, ticket médio e desempenho em tempo real." },
+    { icon: "📈", title: "Relatórios", desc: "Vendas, produtos, clientes e desempenho por período." },
+    { icon: "🤖", title: "Copiloto IA", desc: "Assistente inteligente com insights para o negócio." },
+    { icon: "📦", title: "Produtos", desc: "Cadastro completo com fotos, preços e variações." },
+    { icon: "🏷️", title: "Categorias", desc: "Organização do cardápio por categoria." },
+    { icon: "🎁", title: "Promoções", desc: "Combos e ofertas para vender mais." },
+    { icon: "👤", title: "Clientes / CRM", desc: "Histórico, recorrência e relacionamento com o cliente." },
+    { icon: "⭐", title: "Fidelidade", desc: "Programa de pontos e recompensas para clientes." },
+  ]},
+  { titulo: "Financeiro", itens: [
+    { icon: "💳", title: "Visão Financeira", desc: "Panorama consolidado do financeiro do estabelecimento." },
+    { icon: "🧾", title: "Lançamentos", desc: "Receitas e despesas registradas e organizadas." },
+    { icon: "📥", title: "Contas a Receber", desc: "Controle do que ainda vai entrar no caixa." },
+    { icon: "📤", title: "Contas a Pagar", desc: "Controle de despesas e vencimentos." },
+    { icon: "🔒", title: "Fechamento de Caixa", desc: "Conferência e fechamento com segurança." },
+    { icon: "💰", title: "Formas de Pagamento", desc: "Configure Pix, cartão, dinheiro e outros." },
+  ]},
+  { titulo: "Administração", itens: [
+    { icon: "🧑‍💼", title: "Usuários", desc: "Cadastro da equipe com acesso individual." },
+    { icon: "🏷️", title: "Cargos / Perfis", desc: "Perfis de acesso para cada função da equipe." },
+    { icon: "🛡️", title: "Permissões", desc: "Controle fino do que cada perfil pode fazer." },
+    { icon: "📋", title: "Auditoria", desc: "Histórico de ações realizadas no sistema." },
+    { icon: "🏢", title: "Empresas", desc: "Gestão multiempresa em um só painel." },
+    { icon: "📄", title: "Licenças", desc: "Controle de licenças e vigência do plano." },
+    { icon: "🧩", title: "Controle de Versões", desc: "Acompanhe as atualizações do sistema." },
+  ]},
 ];
 
 const OPERACIONAL = [
@@ -98,9 +97,8 @@ const PASSOS = [
 ];
 
 const CARDAPIO_QR = [
-  "QR Code para acesso ao cardápio", "Visualização dos produtos", "Organização por categorias",
-  "Modelo de cardápio em PDF", "Link externo para consulta", "Layout responsivo para celular",
-  "Sem necessidade de aplicativo", "Base inicial para evoluir para pedidos online",
+  "QR Code para acesso", "Visualização de produtos", "Categorias organizadas",
+  "Modelo PDF", "Link externo", "Base para pedidos online",
 ];
 
 const INDICADORES = [
@@ -189,9 +187,9 @@ function Botao({ children, variant = "gold", onClick, type = "button", className
   const base = "font-display inline-flex items-center justify-center gap-2 rounded-2xl px-6 py-3.5 text-sm font-bold transition active:scale-[0.97]";
   const styles = {
     gold: "bg-[#D9A441] text-[#182230] hover:bg-[#C7922F] shadow-lg shadow-[#D9A441]/25",
-    navy: "bg-[#182230] text-white hover:bg-[#101822] shadow-lg shadow-[#182230]/20",
-    outline: "border border-[#182230]/15 bg-white text-[#182230] hover:bg-[#FAFAF8]",
-    onDark: "border border-white/20 bg-white/5 text-white hover:bg-white/10",
+    navy: "bg-[#2563EB] text-white hover:bg-[#1D4ED8] shadow-lg shadow-[#2563EB]/25",
+    outline: "border border-[#E5E7EB] bg-white text-[#182230] hover:bg-[#F8FAFC]",
+    onDark: "border border-[#E5E7EB] bg-white text-[#182230] hover:bg-[#F8FAFC]",
     whatsapp: "bg-[#22C55E] text-white hover:bg-[#1eb257] shadow-lg shadow-[#22C55E]/30",
   };
   return <button type={type} onClick={onClick} className={`${base} ${styles[variant]} ${className}`}>{children}</button>;
@@ -317,7 +315,7 @@ function MockupDashboard() {
           return (
             <div key={x.h} className="flex flex-1 flex-col items-center justify-end gap-1">
               <span className={`text-[8px] font-bold leading-none ${pico ? "text-[#9A6A00]" : "text-[#98A2B3]"}`}>{Math.round(x.v / 100) / 10}k</span>
-              <div className={`w-full rounded-t-md transition-all ${pico ? "bg-gradient-to-t from-[#A87A12] to-[#C7922F]" : "bg-[#182230]"}`} style={{ height: Math.max(6, (x.v / max) * ALT) }} />
+              <div className={`w-full rounded-t-md transition-all ${pico ? "bg-gradient-to-t from-[#C7922F] to-[#D9A441]" : "bg-[#4F8EF7]"}`} style={{ height: Math.max(6, (x.v / max) * ALT) }} />
               <span className="text-[8px] font-semibold leading-none text-[#667085]">{x.h}</span>
             </div>
           );
@@ -430,26 +428,26 @@ export default function LandingPage({ navigate }) {
               <Reveal><Badge>Plataforma inteligente para atendimento, comandas e gestão food service</Badge></Reveal>
               <Reveal delay={80}>
                 <h1 className="font-display mt-5 text-4xl font-black leading-[1.08] tracking-tight text-[#182230] sm:text-5xl">
-                  Automatize seu restaurante com o <span className="text-[#D9A441]">Pedido Prime</span>
+                  Automatize seu restaurante com uma plataforma <span className="text-[#D9A441]">simples, moderna e completa</span>
                 </h1>
               </Reveal>
               <Reveal delay={160}>
                 <p className="mt-5 max-w-xl text-base leading-7 text-[#4B5563] sm:text-lg">
-                  Controle pedidos, mesas, comandas, cardápio digital, QR Code, caixa, financeiro, CRM e relatórios em uma plataforma moderna, simples e completa.
+                  Pedidos, mesas, comandas, cardápio QR, operação mobile, financeiro, CRM, relatórios e gestão em tempo real em um só lugar.
                 </p>
               </Reveal>
               <Reveal delay={220}>
                 <p className="mt-4 flex flex-wrap items-baseline gap-2">
-                  <span className="font-display text-2xl font-black text-[#D9A441]">A partir de R$ 79,99/mês</span>
+                  <span className="font-display text-2xl font-black text-[#D9A441]">A partir de R$ 79,90/mês</span>
                 </p>
               </Reveal>
               <Reveal delay={240}>
                 <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-                  <Botao variant="gold" onClick={acessar}>Começar agora</Botao>
+                  <Botao variant="gold" onClick={() => irPara("contato")}>Solicitar demonstração</Botao>
                   <Botao variant="outline" onClick={() => irPara("contato")}>Falar com consultor</Botao>
                   <Botao variant="outline" onClick={() => irPara("funcionalidades")}>Ver funcionalidades →</Botao>
                 </div>
-                <p className="mt-3 text-sm text-[#667085]">Entre em contato e automatize seu restaurante hoje mesmo.</p>
+                <p className="mt-3 text-sm text-[#667085]">Comece com cardápio digital e evolua para a automação completa da sua operação.</p>
               </Reveal>
               <Reveal delay={320}>
                 <div className="mt-8 grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:max-w-lg">
@@ -467,13 +465,13 @@ export default function LandingPage({ navigate }) {
         <section className="bg-white py-16 sm:py-20">
           <div className="mx-auto max-w-7xl px-5">
             <Reveal className="mx-auto max-w-3xl text-center">
-              <Badge>Benefícios</Badge>
+              <Badge>Prova de valor</Badge>
               <h2 className="font-display mt-4 text-3xl font-black tracking-tight text-[#182230] sm:text-4xl">Por que restaurantes escolhem o Pedido Prime</h2>
               <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-[#667085]">
                 Menos erros, mais agilidade e controle total da operação — do pedido ao relatório.
               </p>
             </Reveal>
-            <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {BENEFICIOS.map((d, i) => (
                 <Reveal as="article" key={d.title} delay={i * 60}
                   className="rounded-3xl border border-[#E5E7EB] bg-[#F7F8FA] p-6 transition hover:-translate-y-1 hover:border-[#D9A441]/40 hover:shadow-lg">
@@ -494,14 +492,21 @@ export default function LandingPage({ navigate }) {
               <h2 className="font-display mt-4 text-3xl font-black tracking-tight text-[#182230] sm:text-4xl">Tudo que seu restaurante precisa para atender melhor e gerenciar com mais controle</h2>
               <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-[#667085]">Do pedido no tablet da mesa ao relatório de vendas do gerente, tudo conectado em tempo real.</p>
             </Reveal>
-            <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {FEATURES.map((f, i) => (
-                <Reveal as="article" key={f.title} delay={(i % 3) * 80}
-                  className="group rounded-3xl border border-[#E5E7EB] bg-white p-6 transition hover:-translate-y-1 hover:border-[#D9A441]/50 hover:shadow-xl">
-                  <IconBadge>{f.icon}</IconBadge>
-                  <h3 className="font-display mt-4 text-lg font-bold text-[#182230]">{f.title}</h3>
-                  <p className="mt-1.5 text-sm leading-6 text-[#667085]">{f.desc}</p>
-                </Reveal>
+            <div className="mt-12 space-y-10">
+              {FUNC_GRUPOS.map((g) => (
+                <div key={g.titulo}>
+                  <h3 className="font-display mb-4 text-sm font-black uppercase tracking-widest text-[#9A6A00]">{g.titulo}</h3>
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {g.itens.map((f, i) => (
+                      <Reveal as="article" key={f.title} delay={(i % 3) * 60}
+                        className="group rounded-3xl border border-[#E5E7EB] bg-white p-6 transition hover:-translate-y-1 hover:border-[#D9A441]/50 hover:shadow-xl">
+                        <IconBadge>{f.icon}</IconBadge>
+                        <h4 className="font-display mt-4 text-lg font-bold text-[#182230]">{f.title}</h4>
+                        <p className="mt-1.5 text-sm leading-6 text-[#667085]">{f.desc}</p>
+                      </Reveal>
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
           </div>
@@ -546,16 +551,14 @@ export default function LandingPage({ navigate }) {
                   ))}
                 </ul>
               </Reveal>
-              <Reveal as="article" delay={120} className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-gradient-to-br from-[#182230] to-[#03101C] p-8 shadow-2xl">
-                <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-[radial-gradient(closest-side,rgba(201,154,46,0.22),transparent)]" />
-                <IconBadge tom="dark">🎫</IconBadge>
-                <h3 className="font-display mt-4 text-2xl font-bold text-white">Cardápio por QR Code</h3>
-                <p className="mt-2 text-sm leading-7 text-[#CBD5E1]">Perfeito para atendimento pelo celular do cliente, sem instalar aplicativo, com acesso rápido ao cardápio digital da mesa.</p>
+              <Reveal as="article" delay={120} className="relative overflow-hidden rounded-[2rem] border border-[#F4D27A] bg-[#FAFAF8] p-8 shadow-sm">
+                <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-[radial-gradient(closest-side,rgba(201,154,46,0.18),transparent)]" />
+                <IconBadge>🎫</IconBadge>
+                <h3 className="font-display mt-4 text-2xl font-bold text-[#182230]">Cardápio por QR Code</h3>
+                <p className="mt-2 text-sm leading-7 text-[#667085]">Perfeito para atendimento pelo celular do cliente, sem instalar aplicativo, com acesso rápido ao cardápio digital da mesa.</p>
                 <ul className="mt-5 space-y-2.5">
                   {["Acesso por QR Code", "Sem instalação", "Vinculado à mesa ou comanda", "Fácil divulgação", "Reduz atendimento manual"].map((b) => (
-                    <li key={b} className="flex items-start gap-2 text-sm font-medium text-[#E5E7EB]">
-                      <svg viewBox="0 0 24 24" className="mt-0.5 h-4 w-4 shrink-0" fill="none" stroke="#C7922F" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg> {b}
-                    </li>
+                    <li key={b} className="flex items-start gap-2 text-sm font-medium text-[#374151]"><Check /> {b}</li>
                   ))}
                 </ul>
               </Reveal>
@@ -569,9 +572,9 @@ export default function LandingPage({ navigate }) {
             <div className="grid items-center gap-12 lg:grid-cols-2">
               <Reveal>
                 <Badge>Cardápio QR Code / PDF</Badge>
-                <h2 className="font-display mt-4 text-3xl font-black tracking-tight text-[#182230] sm:text-4xl">Cardápio por QR Code e modelo em PDF</h2>
+                <h2 className="font-display mt-4 text-3xl font-black tracking-tight text-[#182230] sm:text-4xl">Comece pelo Cardápio QR</h2>
                 <p className="mt-4 max-w-xl text-base leading-7 text-[#667085]">
-                  Disponibilize seus produtos para o cliente visualizar pelo celular através de QR Code. Ideal para iniciar a automação do atendimento sem complicação.
+                  Disponibilize seus produtos por QR Code e PDF para o cliente visualizar no celular, sem aplicativo. Uma forma simples de iniciar a automação do atendimento.
                 </p>
                 <ul className="mt-6 grid gap-2.5 sm:grid-cols-2">
                   {CARDAPIO_QR.map((b) => (
@@ -680,43 +683,20 @@ export default function LandingPage({ navigate }) {
           </div>
         </section>
 
-        {/* ══ PLANOS ══ */}
+        {/* ══ CHAMADA COMERCIAL ══ */}
         <section id="planos" className="scroll-mt-24 bg-white py-16 sm:py-24">
-          <div className="mx-auto max-w-7xl px-5">
-            <Reveal className="mx-auto max-w-3xl text-center">
-              <Badge>Planos</Badge>
-              <h2 className="font-display mt-4 text-3xl font-black tracking-tight text-[#182230] sm:text-4xl">Planos pensados para o tamanho da sua operação</h2>
-              <p className="mx-auto mt-3 text-2xl font-black text-[#D9A441]">A partir de R$ 79,99/mês</p>
-              <p className="mx-auto mt-3 max-w-2xl text-base leading-7 text-[#667085]">Entre em contato e automatize seu restaurante hoje mesmo.</p>
+          <div className="mx-auto max-w-4xl px-5">
+            <Reveal className="relative overflow-hidden rounded-[2.5rem] border border-[#F4D27A] bg-[#FAFAF8] p-10 text-center shadow-[0_20px_60px_-25px_rgba(201,154,46,0.4)] sm:p-14">
+              <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-[radial-gradient(closest-side,rgba(201,154,46,0.22),transparent)]" />
+              <div className="pointer-events-none absolute -bottom-20 -left-20 h-64 w-64 rounded-full bg-[radial-gradient(closest-side,rgba(37,99,235,0.12),transparent)]" />
+              <Badge>Plano comercial</Badge>
+              <h2 className="font-display relative mt-4 text-3xl font-black tracking-tight text-[#182230] sm:text-4xl">Automatize seu restaurante a partir de R$ 79,90/mês</h2>
+              <p className="relative mx-auto mt-4 max-w-xl text-base leading-7 text-[#667085]">Escolha os recursos ideais para sua operação e comece com uma solução simples, moderna e escalável.</p>
+              <div className="relative mt-8 flex flex-col justify-center gap-3 sm:flex-row">
+                <Botao variant="gold" onClick={() => irPara("contato")}>Falar com consultor</Botao>
+                <Botao variant="outline" onClick={() => irPara("contato")}>Solicitar demonstração</Botao>
+              </div>
             </Reveal>
-            <div className="mt-12 grid gap-5 lg:grid-cols-4 md:grid-cols-2">
-              {PLANOS.map((p, i) => {
-                const destaque = p.destaque;
-                return (
-                  <Reveal as="article" key={p.id} delay={i * 70}
-                    className={`relative flex flex-col rounded-[1.6rem] border bg-white p-6 transition hover:-translate-y-1 ${destaque ? "border-[#D9A441] shadow-[0_20px_50px_-20px_rgba(201,154,46,0.5)]" : "border-[#E5E7EB] hover:shadow-lg"}`}>
-                    {destaque && <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[#D9A441] px-3 py-1 text-[10px] font-black uppercase tracking-wider text-[#182230]">★ Mais escolhido</span>}
-                    <h3 className="font-display text-xl font-black uppercase tracking-tight text-[#182230]">{p.nome}</h3>
-                    <p className="mt-2 min-h-[40px] text-[13px] leading-5 text-[#667085]">{p.desc}</p>
-                    <div className="mt-4 flex items-end gap-1">
-                      {p.preco
-                        ? <><span className="text-sm font-bold text-[#667085]">R$</span><span className="font-display text-3xl font-black text-[#182230]">{p.preco}</span><span className="text-sm font-semibold text-[#667085]">{p.periodo}</span></>
-                        : <span className="font-display text-2xl font-black text-[#D9A441]">{p.precoTexto}</span>}
-                    </div>
-                    <ul className="mt-5 flex-1 space-y-2">
-                      {p.recursos.map((r) => (
-                        <li key={r} className="flex items-start gap-2 text-[13px] leading-5 text-[#374151]"><Check /> {r}</li>
-                      ))}
-                    </ul>
-                    <button onClick={() => escolherPlano(p)}
-                      className={`font-display mt-6 w-full rounded-xl px-4 py-3 text-sm font-bold transition active:scale-95 ${destaque ? "bg-[#D9A441] text-[#182230] hover:bg-[#C7922F]" : "border border-[#182230]/20 text-[#182230] hover:bg-[#FAFAF8]"}`}>
-                      Falar com consultor
-                    </button>
-                  </Reveal>
-                );
-              })}
-            </div>
-            <Reveal className="mt-6 text-center"><p className="text-xs text-[#9AA1AB]">* Valores de referência. Fale com um consultor para a proposta ideal para a sua operação.</p></Reveal>
           </div>
         </section>
 
@@ -749,19 +729,19 @@ export default function LandingPage({ navigate }) {
           </div>
         </section>
 
-        {/* ══ CTA FINAL (dark premium) ══ */}
+        {/* ══ CTA FINAL ══ */}
         <section className="bg-white py-16 sm:py-20">
           <div className="mx-auto max-w-6xl px-5">
-            <Reveal className="relative overflow-hidden rounded-[2.5rem] border border-[#D9A441]/30 bg-gradient-to-br from-[#182230] to-[#03101C] p-10 text-center shadow-2xl sm:p-16">
-              <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-[radial-gradient(closest-side,rgba(201,154,46,0.18),transparent)]" />
-              <div className="pointer-events-none absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-[radial-gradient(closest-side,rgba(6,26,46,0.5),transparent)]" />
-              <h2 className="font-display relative text-3xl font-black tracking-tight text-white sm:text-4xl">Pronto para automatizar seu restaurante?</h2>
-              <p className="relative mx-auto mt-4 max-w-2xl text-base leading-7 text-[#CBD5E1]">
-                Fale com o Pedido Prime e veja como transformar sua operação com mais controle, agilidade e profissionalismo.
+            <Reveal className="relative overflow-hidden rounded-[2.5rem] border border-[#E5E7EB] bg-[#F7F8FA] p-10 text-center shadow-[0_20px_60px_-30px_rgba(16,24,40,0.25)] sm:p-16">
+              <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-[radial-gradient(closest-side,rgba(201,154,46,0.20),transparent)]" />
+              <div className="pointer-events-none absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-[radial-gradient(closest-side,rgba(37,99,235,0.14),transparent)]" />
+              <h2 className="font-display relative text-3xl font-black tracking-tight text-[#182230] sm:text-4xl">Seu restaurante pronto para vender mais e operar melhor</h2>
+              <p className="relative mx-auto mt-4 max-w-2xl text-base leading-7 text-[#475467]">
+                Fale com o Pedido Prime e veja como transformar sua operação com mais controle, velocidade e profissionalismo.
               </p>
               <div className="relative mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-                <Botao variant="gold" onClick={() => irPara("contato")}>Falar com consultor</Botao>
-                <Botao variant="onDark" onClick={acessar}>Começar agora</Botao>
+                <Botao variant="gold" onClick={acessar}>Automatizar agora</Botao>
+                <Botao variant="outline" onClick={() => irPara("contato")}>Entrar em contato</Botao>
                 <a href={`https://wa.me/${WHATSAPP_COMERCIAL}?text=${encodeURIComponent(`Olá! Tenho interesse no ${NOME_SISTEMA} e gostaria de uma demonstração.`)}`} target="_blank" rel="noopener noreferrer"
                   className="font-display inline-flex items-center justify-center gap-2 rounded-2xl bg-[#22C55E] px-6 py-3.5 text-sm font-bold text-white shadow-lg shadow-[#22C55E]/30 transition hover:bg-[#1eb257] active:scale-[0.97]">
                   Falar no WhatsApp
