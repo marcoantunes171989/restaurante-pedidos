@@ -6989,60 +6989,60 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
   const prontos = ativos.filter((o) => o.status === "ready");
 
   const badge = (o) =>
-    o.status === "received" ? { l: "NOVO", c: "border-blue-400/30 bg-blue-500/15 text-blue-300" }
-    : o.status === "preparing" && parcial(o) ? { l: "PARCIAL. PRONTO", c: "border-gold-400/30 bg-gold-400/15 text-gold-300" }
-    : o.status === "preparing" ? { l: "EM PREPARO", c: "border-amber-400/30 bg-amber-500/15 text-amber-300" }
-    : o.status === "ready" ? { l: "PRONTO", c: "border-emerald-400/30 bg-emerald-500/15 text-emerald-300" }
-    : { l: "AGUARDANDO PGTO", c: "border-gold-400/30 bg-gold-400/15 text-gold-300" };
+    o.status === "received" ? { l: "NOVO", c: "border-[#BFDBFE] bg-[#EFF6FF] text-[#1D4ED8]" }
+    : o.status === "preparing" && parcial(o) ? { l: "PARCIAL. PRONTO", c: "border-[#F4D27A] bg-[#FFF7E0] text-[#9A6A00]" }
+    : o.status === "preparing" ? { l: "EM PREPARO", c: "border-[#F4D27A] bg-[#FFF7E0] text-[#9A6A00]" }
+    : o.status === "ready" ? { l: "PRONTO", c: "border-[#B7E4C7] bg-[#ECFDF3] text-[#147A4A]" }
+    : { l: "AGUARDANDO PGTO", c: "border-[#F4D27A] bg-[#FFF7E0] text-[#9A6A00]" };
   // Pedido externo (delivery/retirada) deve estar PAGO antes de liberar a entrega.
   const ehExterno = (o) => o.table === "Externo" || /^EXT-/.test(o.command || "");
   const bloqueadoPorPagamento = (o) => ehExterno(o) && o.paymentStatus !== "paid";
   const acaoPrincipal = (o) =>
-    o.status === "received" ? { l: "Aceitar", fn: () => updateOrderStatus(o.id, "preparing"), c: "bg-gold-400 text-blue-950" }
-    : o.status === "preparing" ? { l: "Marcar pronto", fn: () => updateOrderStatus(o.id, "ready"), c: "bg-emerald-500 text-white" }
+    o.status === "received" ? { l: "Aceitar", fn: () => updateOrderStatus(o.id, "preparing"), c: "bg-[#D9A441] text-[#182230]" }
+    : o.status === "preparing" ? { l: "Marcar pronto", fn: () => updateOrderStatus(o.id, "ready"), c: "bg-[#16A34A] text-white" }
     : o.status === "ready" ? (bloqueadoPorPagamento(o)
-        ? { l: "🔒 Aguardando pagamento", fn: null, c: "bg-white/[0.06] text-slate-400", disabled: true }
-        : { l: "Entregue", fn: () => marcarEntregue(o.id), c: "bg-blue-500 text-white" })
+        ? { l: "🔒 Aguardando pagamento", fn: null, c: "bg-[#F3F4F6] text-[#98A2B3]", disabled: true }
+        : { l: "Entregue", fn: () => marcarEntregue(o.id), c: "bg-[#2563EB] text-white" })
     : null;
   const resumoItens = (items) => (items || []).map((it) => `${it.quantity}× ${it.name}`).join(" • ");
   const titulo = tab === "central" ? "Central Operacional" : tab === "pedidos" ? "Central de Pedidos" : tab === "cozinha" ? "Cozinha" : tab === "bar" ? "Bar" : "Caixa";
 
   return (
-    <div className="fixed inset-0 z-[60] overflow-y-auto bg-slate-950" style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "calc(env(safe-area-inset-bottom) + 64px)" }}>
-    <div className="mx-auto max-w-md px-3 pt-3">
-      <div className="mb-3 flex items-center gap-3 rounded-3xl border border-white/10 bg-white/[0.04] p-4">
+    <div className="tema-claro-area fixed inset-0 z-[60] w-full max-w-[100vw] overflow-x-hidden overflow-y-auto bg-[#F7F8FA]" data-theme="light" style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "calc(env(safe-area-inset-bottom) + 76px)" }}>
+    <div className="mx-auto w-full max-w-md px-4 pt-4 sm:max-w-2xl sm:px-6 lg:max-w-4xl">
+      <div className="mb-4 flex items-center gap-3 rounded-3xl border border-[#E5E7EB] bg-white p-4 shadow-[0_8px_24px_rgba(16,24,40,.06)]">
         {lojaInfo?.logoUrl ? <img src={lojaInfo.logoUrl} alt="" className="h-10 w-10 rounded-2xl object-cover" /> : <LogoPP size={40} />}
-        <div className="min-w-0 flex-1"><p className="page-title text-base font-bold text-white">{titulo}</p><p className="truncate text-xs text-slate-400">{lojaInfo?.nome || "Operação da loja"}{usuarioNome ? ` · ${usuarioNome}` : ""}</p></div>
-        {onFechar && <button onClick={onFechar} className="shrink-0 rounded-2xl border border-white/10 bg-white/[0.06] px-3 py-2 text-xs font-black text-slate-300 hover:bg-white/10">✕ Sair</button>}
+        <div className="min-w-0 flex-1"><p className="page-title text-base font-bold text-[#182230]">{titulo}</p><p className="truncate text-xs text-[#667085]">{lojaInfo?.nome || "Operação da loja"}{usuarioNome ? ` · ${usuarioNome}` : ""}</p></div>
+        {onFechar && <button onClick={onFechar} className="min-h-[44px] shrink-0 rounded-2xl border border-[#FDA4AF] bg-[#FFF1F2] px-3.5 text-xs font-black text-[#B42318] transition hover:bg-[#FEE2E2]">✕ Sair</button>}
       </div>
 
       {/* Acesso não autorizado (guard por módulo) */}
       {!permitido(tab) && (
-        <div className="rounded-[2rem] border border-red-400/25 bg-red-500/[0.06] p-6 text-center">
+        <div className="rounded-[2rem] border border-[#FDA4AF] bg-[#FFF1F2] p-6 text-center">
           <p className="text-3xl">🔒</p>
-          <p className="mt-2 page-title text-lg font-bold text-white">Acesso não autorizado</p>
-          <p className="mx-auto mt-1 max-w-xs text-sm text-slate-400">Você não possui permissão para acessar este módulo. Entre em contato com o administrador do estabelecimento.</p>
-          <button onClick={() => setTab("central")} className="mt-4 rounded-2xl bg-gold-400 px-5 py-2.5 text-sm font-black text-blue-950">Voltar para a Central</button>
+          <p className="mt-2 page-title text-lg font-bold text-[#182230]">Acesso não autorizado</p>
+          <p className="mx-auto mt-1 max-w-xs text-sm text-[#475467]">Você não possui permissão para acessar este módulo. Entre em contato com o administrador do estabelecimento.</p>
+          <button onClick={() => setTab("central")} className="button-primary mt-4 min-h-[44px] px-5 py-2.5 text-sm">Voltar para a Central</button>
         </div>
       )}
 
       {/* Central Operacional — cards dos módulos liberados */}
       {tab === "central" && permitido("central") && (
         <div>
-          <p className="mb-2 px-1 text-xs font-bold uppercase tracking-widest text-slate-500">Acessos liberados</p>
+          <p className="mb-2 px-1 text-xs font-bold uppercase tracking-widest text-[#667085]">Acessos liberados</p>
           {liberados.length === 0 ? (
-            <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6 text-center">
+            <div className="rounded-[2rem] border border-[#E5E7EB] bg-white p-6 text-center shadow-[0_8px_24px_rgba(16,24,40,.06)]">
               <p className="text-2xl">🚫</p>
-              <p className="mt-2 text-sm font-bold text-slate-300">Nenhum acesso operacional foi liberado para este usuário.</p>
-              <p className="mt-1 text-xs text-slate-500">Peça ao administrador para liberar Pedidos, Cozinha, Bar ou Caixa.</p>
+              <p className="mt-2 text-sm font-bold text-[#182230]">Nenhum acesso operacional foi liberado para este usuário.</p>
+              <p className="mt-1 text-xs text-[#667085]">Peça ao administrador para liberar Pedidos, Cozinha, Bar ou Caixa.</p>
             </div>
           ) : (
-            <div className="space-y-2.5">
+            <div className="grid gap-2.5 sm:grid-cols-2">
               {liberados.map((m) => (
-                <button key={m.id} onClick={() => setTab(m.id)} className="flex w-full items-center gap-3 rounded-3xl border border-gold-400/20 bg-white/[0.04] p-4 text-left transition active:scale-[0.98] hover:bg-white/[0.07]">
-                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-gold-400/30 bg-gold-400/10 text-2xl">{m.ic}</span>
-                  <span className="min-w-0 flex-1"><span className="block font-black text-white">{m.label}</span><span className="block text-xs leading-5 text-slate-400">{m.desc}</span></span>
-                  <span className="shrink-0 text-gold-300">›</span>
+                <button key={m.id} onClick={() => setTab(m.id)} className="flex min-h-[44px] w-full items-center gap-3 rounded-3xl border border-[#E5E7EB] bg-white p-4 text-left shadow-[0_8px_24px_rgba(16,24,40,.06)] transition active:scale-[0.98] hover:border-[#D9A441] hover:bg-[#FFF7E0]">
+                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[#F4D27A] bg-[#FFF7E0] text-2xl">{m.ic}</span>
+                  <span className="min-w-0 flex-1"><span className="block font-black text-[#182230]">{m.label}</span><span className="block text-xs leading-5 text-[#667085]">{m.desc}</span></span>
+                  <span className="shrink-0 text-[#D9A441]">›</span>
                 </button>
               ))}
             </div>
@@ -7064,45 +7064,45 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
           {[["todos", "Todos"], ...setoresChip.map((n) => [n, n]), ["caixa", "Caixa"]].map(([k, l]) => { const cnt = (k !== "todos" && k !== "caixa") ? qtdSetorAtivos(k) : 0;
             return (
               <button key={k} onClick={() => (k === "caixa" ? setTab("caixa") : setFiltroCentral(k))}
-                className={`relative flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-bold transition ${filtroCentral === k ? "bg-gold-400 text-blue-950" : "border border-white/10 bg-white/[0.05] text-slate-300"}`}>{l}{cnt > 0 && <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-black ${filtroCentral === k ? "bg-blue-950/20 text-blue-950" : "bg-gold-400 text-blue-950"}`}>{cnt}</span>}</button>
+                className={`relative flex min-h-[36px] shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-bold transition ${filtroCentral === k ? "bg-[#D9A441] text-[#182230]" : "border border-[#E5E7EB] bg-white text-[#475467] hover:bg-[#F9FAFB]"}`}>{l}{cnt > 0 && <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-black ${filtroCentral === k ? "bg-white/50 text-[#182230]" : "bg-[#D9A441] text-white"}`}>{cnt}</span>}</button>
             );
           })}
         </div>
-        <div className="mb-3 grid grid-cols-2 gap-2">
-          {[{ l: "Novos", v: novos.length, c: "text-blue-300" }, { l: "Em preparo", v: emPreparo.length, c: "text-amber-300" }, { l: "Prontos", v: prontos.length, c: "text-emerald-300" }, { l: "Aguardando pgto", v: contasAbertas.length, c: "text-gold-300" }].map((k) => (
-            <div key={k.l} className="rounded-2xl border border-white/10 bg-slate-950/40 px-3 py-2.5"><p className={`page-title text-2xl font-bold ${k.c}`}>{k.v}</p><p className="text-[11px] text-slate-500">{k.l}</p></div>
+        <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {[{ l: "Novos", v: novos.length, c: "text-[#2563EB]" }, { l: "Em preparo", v: emPreparo.length, c: "text-[#9A6A00]" }, { l: "Prontos", v: prontos.length, c: "text-[#147A4A]" }, { l: "Aguardando pgto", v: contasAbertas.length, c: "text-[#9A6A00]" }].map((k) => (
+            <div key={k.l} className="rounded-2xl border border-[#E5E7EB] bg-white px-3 py-2.5 shadow-[0_8px_24px_rgba(16,24,40,.06)]"><p className={`page-title text-2xl font-bold ${k.c}`}>{k.v}</p><p className="text-[11px] text-[#667085]">{k.l}</p></div>
           ))}
         </div>
-        <div className="space-y-2">
-          {ativosFiltrados.length === 0 && <p className="py-10 text-center text-sm text-slate-500">Nenhum pedido ativo{filtroCentral !== "todos" ? ` para ${filtroCentral}` : ""}.</p>}
+        <div className="space-y-2 sm:grid sm:grid-cols-2 sm:gap-3 sm:space-y-0">
+          {ativosFiltrados.length === 0 && <p className="py-10 text-center text-sm text-[#667085] sm:col-span-2">Nenhum pedido ativo{filtroCentral !== "todos" ? ` para ${filtroCentral}` : ""}.</p>}
           {ativosFiltrados.map((o) => { const b = badge(o); const a = acaoPrincipal(o); const org = origemDe(o);
             return (
-              <div key={o.id} className="rounded-3xl border border-white/10 bg-slate-950/40 p-3.5">
-                <div className="flex items-center justify-between gap-2"><div className="flex items-center gap-1.5"><span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-black ${b.c}`}>{b.l}</span>{o.paymentStatus === "paid" && <span className="rounded-full border border-emerald-400/30 bg-emerald-500/15 px-2 py-0.5 text-[10px] font-black text-emerald-300">✓ PAGO</span>}</div><span className="text-[11px] text-slate-500">{org.ic} {org.l} · {haTxt(o)}</span></div>
-                <p className="mt-1.5 font-black text-white">Pedido #{numeroPedido[o.id] ?? "—"} · {o.table}</p>
-                <p className="text-[10px] text-slate-600">{o.id}</p>
-                <p className="text-xs text-slate-400">{o.customer || "Cliente"}</p>
-                {telMascarado(o.clienteTelefone) && <p className="text-[11px] text-slate-500">📞 {telMascarado(o.clienteTelefone)}</p>}
-                {o.pagamentoForma && <p className="text-[11px] font-bold text-amber-300">💳 {o.pagamentoForma}{o.pagamentoMomento ? ` · ${o.pagamentoMomento}` : ""}</p>}
+              <div key={o.id} className="rounded-3xl border border-[#E5E7EB] bg-white p-3.5 shadow-[0_8px_24px_rgba(16,24,40,.06)]">
+                <div className="flex items-center justify-between gap-2"><div className="flex items-center gap-1.5"><span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-black ${b.c}`}>{b.l}</span>{o.paymentStatus === "paid" && <span className="rounded-full border border-[#B7E4C7] bg-[#ECFDF3] px-2 py-0.5 text-[10px] font-black text-[#147A4A]">✓ PAGO</span>}</div><span className="text-[11px] text-[#667085]">{org.ic} {org.l} · {haTxt(o)}</span></div>
+                <p className="mt-1.5 font-black text-[#182230]">Pedido #{numeroPedido[o.id] ?? "—"} · {o.table}</p>
+                <p className="text-[10px] text-[#98A2B3]">{o.id}</p>
+                <p className="text-xs text-[#475467]">{o.customer || "Cliente"}</p>
+                {telMascarado(o.clienteTelefone) && <p className="text-[11px] text-[#667085]">📞 {telMascarado(o.clienteTelefone)}</p>}
+                {o.pagamentoForma && <p className="text-[11px] font-bold text-[#9A6A00]">💳 {o.pagamentoForma}{o.pagamentoMomento ? ` · ${o.pagamentoMomento}` : ""}</p>}
                 <div className="mt-2 space-y-2">
                   {setoresPresentes(o).filter((sk) => !setorFiltrado || sk === setorFiltrado).map((sk) => { const its = itensDoSetor(o, sk); const liberado = setorPronto(o, sk) && parcial(o);
                     return (
                       <div key={sk}>
                         <div className="flex items-center gap-1.5">
-                          <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">{metaSetor(sk).ic} {metaSetor(sk).label}</span>
-                          {liberado && <span className="rounded-full border border-emerald-400/30 bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-bold text-emerald-300">✓ liberado</span>}
+                          <span className="text-[10px] font-bold uppercase tracking-wide text-[#667085]">{metaSetor(sk).ic} {metaSetor(sk).label}</span>
+                          {liberado && <span className="rounded-full border border-[#B7E4C7] bg-[#ECFDF3] px-1.5 py-0.5 text-[9px] font-bold text-[#147A4A]">✓ liberado</span>}
                         </div>
                         <div className="mt-0.5 space-y-0.5">
-                          {its.map((it, i) => <p key={i} className={`text-xs ${liberado ? "text-slate-500 line-through decoration-emerald-400/60" : "text-slate-300"}`}>{it.quantity}× {it.name}</p>)}
+                          {its.map((it, i) => <p key={i} className={`text-xs ${liberado ? "text-[#98A2B3] line-through decoration-[#B7E4C7]" : "text-[#475467]"}`}>{it.quantity}× {it.name}</p>)}
                         </div>
                       </div>
                     );
                   })}
                 </div>
                 <div className="mt-2 flex items-center justify-end">
-                  <span className="text-sm font-black text-emerald-300">{formatCurrency(totalCom(o))}</span>
+                  <span className="text-sm font-black text-[#147A4A]">{formatCurrency(totalCom(o))}</span>
                 </div>
-                {a && <button onClick={a.fn || undefined} disabled={a.disabled} className={`mt-2.5 w-full rounded-2xl py-2.5 text-sm font-black transition ${a.disabled ? "cursor-not-allowed" : "active:scale-95"} ${a.c}`}>{a.l}</button>}
+                {a && <button onClick={a.fn || undefined} disabled={a.disabled} className={`mt-2.5 w-full min-h-[44px] rounded-2xl py-2.5 text-sm font-black transition ${a.disabled ? "cursor-not-allowed" : "active:scale-95"} ${a.c}`}>{a.l}</button>}
               </div>
             );
           })}
@@ -7120,32 +7120,32 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
           <div className="mb-3 flex gap-2">
             {[["Novos", novos], ["Em preparo", emPreparo], ["Prontos", prontos]].map(([l, arr]) => {
               const n = arr.filter(temNaTab).length;
-              return <div key={l} className="flex-1 rounded-2xl border border-white/10 bg-slate-950/40 py-2 text-center"><span className="page-title block text-lg font-bold text-white">{n}</span><span className="text-[10px] text-slate-500">{l}</span></div>;
+              return <div key={l} className="flex-1 rounded-2xl border border-[#E5E7EB] bg-white py-2 text-center shadow-[0_8px_24px_rgba(16,24,40,.06)]"><span className="page-title block text-lg font-bold text-[#182230]">{n}</span><span className="text-[10px] text-[#667085]">{l}</span></div>;
             })}
           </div>
-          <div className="space-y-2">
-            {comItens.length === 0 && <p className="py-10 text-center text-sm text-slate-500">Nenhum pedido para {tab === "bar" ? "o bar" : "a cozinha"}.</p>}
+          <div className="space-y-2 sm:grid sm:grid-cols-2 sm:gap-3 sm:space-y-0">
+            {comItens.length === 0 && <p className="py-10 text-center text-sm text-[#667085] sm:col-span-2">Nenhum pedido para {tab === "bar" ? "o bar" : "a cozinha"}.</p>}
             {comItens.map((o) => { const b = badge(o); const setoresNoPedido = setoresPresentes(o).filter(naTab);
               return (
-                <div key={o.id} className="rounded-3xl border border-white/10 bg-slate-950/40 p-3.5">
-                  <div className="flex items-center justify-between gap-2"><span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-black ${b.c}`}>{b.l}</span><span className="text-[11px] text-slate-500">Pedido #{numeroPedido[o.id] ?? "—"} · {haTxt(o)} · {o.table}</span></div>
-                  <p className="mt-1.5 text-xs text-slate-400">{o.customer || "Cliente"}</p>
-                  {o.pagamentoForma && <p className="text-[11px] font-bold text-amber-300">💳 {o.pagamentoForma}{o.pagamentoMomento ? ` · ${o.pagamentoMomento}` : ""}</p>}
+                <div key={o.id} className="rounded-3xl border border-[#E5E7EB] bg-white p-3.5 shadow-[0_8px_24px_rgba(16,24,40,.06)]">
+                  <div className="flex items-center justify-between gap-2"><span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-black ${b.c}`}>{b.l}</span><span className="text-[11px] text-[#667085]">Pedido #{numeroPedido[o.id] ?? "—"} · {haTxt(o)} · {o.table}</span></div>
+                  <p className="mt-1.5 text-xs text-[#475467]">{o.customer || "Cliente"}</p>
+                  {o.pagamentoForma && <p className="text-[11px] font-bold text-[#9A6A00]">💳 {o.pagamentoForma}{o.pagamentoMomento ? ` · ${o.pagamentoMomento}` : ""}</p>}
                   {setoresNoPedido.map((sk) => { const its = itensDoSetor(o, sk);
                     return (
                       <div key={sk} className="mt-2">
                         <div className="flex items-center justify-between gap-2">
-                          <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">{metaSetor(sk).ic} {metaSetor(sk).label}</span>
+                          <span className="text-[10px] font-bold uppercase tracking-wide text-[#667085]">{metaSetor(sk).ic} {metaSetor(sk).label}</span>
                           {o.status === "preparing" && (setorPronto(o, sk)
-                            ? <span className="rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-300">✓ pronto</span>
-                            : <button onClick={() => marcarSetorPronto(o.id, sk, setoresPresentes(o))} className="rounded-lg bg-emerald-500 px-2.5 py-1 text-[11px] font-black text-white active:scale-95">Marcar pronto</button>)}
+                            ? <span className="rounded-full border border-[#B7E4C7] bg-[#ECFDF3] px-2 py-0.5 text-[10px] font-bold text-[#147A4A]">✓ pronto</span>
+                            : <button onClick={() => marcarSetorPronto(o.id, sk, setoresPresentes(o))} className="min-h-[32px] rounded-lg bg-[#16A34A] px-2.5 py-1 text-[11px] font-black text-white active:scale-95">Marcar pronto</button>)}
                         </div>
                         <div className="mt-1 space-y-1.5">
                           {its.map((it, i) => (
-                            <div key={i} className="rounded-2xl border border-white/10 bg-white/[0.03] p-2">
-                              <p className="text-sm font-bold text-white">{it.quantity}× {it.name}</p>
+                            <div key={i} className="rounded-2xl border border-[#E5E7EB] bg-[#F7F8FA] p-2">
+                              <p className="text-sm font-bold text-[#182230]">{it.quantity}× {it.name}</p>
                               {(it.removedIngredients?.length > 0 || it.extraIngredients?.length > 0 || it.observation) && (
-                                <p className="text-[11px] text-amber-300">{[...(it.removedIngredients || []).map((x) => "− " + x), ...(it.extraIngredients || []).map((x) => "+ " + x), it.observation].filter(Boolean).join(" · ")}</p>
+                                <p className="text-[11px] text-[#9A6A00]">{[...(it.removedIngredients || []).map((x) => "− " + x), ...(it.extraIngredients || []).map((x) => "+ " + x), it.observation].filter(Boolean).join(" · ")}</p>
                               )}
                             </div>
                           ))}
@@ -7154,11 +7154,11 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
                     );
                   })}
                   <div className="mt-2.5">
-                    {o.status === "received" && <button onClick={() => updateOrderStatus(o.id, "preparing")} className="w-full rounded-2xl bg-gold-400 py-2.5 text-sm font-black text-blue-950 active:scale-95">Aceitar para preparação</button>}
+                    {o.status === "received" && <button onClick={() => updateOrderStatus(o.id, "preparing")} className="w-full min-h-[44px] rounded-2xl bg-[#D9A441] py-2.5 text-sm font-black text-[#182230] active:scale-95">Aceitar para preparação</button>}
                     {o.status === "ready" && (bloqueadoPorPagamento(o)
-                      ? <p className="rounded-2xl border border-gold-400/20 bg-gold-400/10 py-2.5 text-center text-sm font-bold text-gold-300">🔒 Aguardando pagamento para liberar</p>
-                      : <button onClick={() => marcarEntregue(o.id)} className="w-full rounded-2xl bg-blue-500 py-2.5 text-sm font-black text-white active:scale-95">Baixa / entregue</button>)}
-                    {o.status === "preparing" && setoresNoPedido.every((s) => setorPronto(o, s)) && setoresPresentes(o).length > setoresNoPedido.length && <p className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 py-2.5 text-center text-sm font-bold text-emerald-300">✓ {tab === "bar" ? "Bar" : "Cozinha"} pronto · aguardando o outro setor</p>}
+                      ? <p className="rounded-2xl border border-[#F4D27A] bg-[#FFF7E0] py-2.5 text-center text-sm font-bold text-[#9A6A00]">🔒 Aguardando pagamento para liberar</p>
+                      : <button onClick={() => marcarEntregue(o.id)} className="w-full min-h-[44px] rounded-2xl bg-[#2563EB] py-2.5 text-sm font-black text-white active:scale-95">Baixa / entregue</button>)}
+                    {o.status === "preparing" && setoresNoPedido.every((s) => setorPronto(o, s)) && setoresPresentes(o).length > setoresNoPedido.length && <p className="rounded-2xl border border-[#B7E4C7] bg-[#ECFDF3] py-2.5 text-center text-sm font-bold text-[#147A4A]">✓ {tab === "bar" ? "Bar" : "Cozinha"} pronto · aguardando o outro setor</p>}
                   </div>
                 </div>
               );
@@ -7170,13 +7170,13 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
       {tab === "caixa" && permitido("caixa") && <CaixaMobile contas={contas} totalCom={totalCom} baixarComandas={baixarComandas} confirmarRetirada={confirmarRetirada} formasPagamento={formasPagamento} lojaInfo={lojaInfo} haTxt={haTxt} numeroPedido={numeroPedido} telMascarado={telMascarado} />}
 
       {/* Bottom nav */}
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-slate-900/95 backdrop-blur-xl" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
-        <div className="mx-auto flex max-w-md items-stretch">
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-[#E5E7EB] bg-white shadow-[0_-8px_24px_rgba(16,24,40,.06)]" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
+        <div className="mx-auto flex max-w-md items-stretch sm:max-w-2xl lg:max-w-4xl">
           {liberados.length > 1 && (
-            <button onClick={() => setTab("central")} className={`flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[11px] font-bold transition ${tab === "central" ? "text-gold-300" : "text-slate-500"}`}><span className="text-lg">🏠</span>Central</button>
+            <button onClick={() => setTab("central")} className={`relative flex min-h-[56px] flex-1 flex-col items-center justify-center gap-0.5 py-2.5 text-[11px] font-bold transition ${tab === "central" ? "text-[#D9A441]" : "text-[#667085]"}`}>{tab === "central" && <span className="absolute top-0 h-0.5 w-8 rounded-full bg-[#D9A441]" />}<span className="text-lg">🏠</span>Central</button>
           )}
           {liberados.map((m) => (
-            <button key={m.id} onClick={() => setTab(m.id)} className={`flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[11px] font-bold transition ${tab === m.id ? "text-gold-300" : "text-slate-500"}`}><span className="text-lg">{m.ic}</span>{m.label}</button>
+            <button key={m.id} onClick={() => setTab(m.id)} className={`relative flex min-h-[56px] flex-1 flex-col items-center justify-center gap-0.5 py-2.5 text-[11px] font-bold transition ${tab === m.id ? "text-[#D9A441]" : "text-[#667085]"}`}>{tab === m.id && <span className="absolute top-0 h-0.5 w-8 rounded-full bg-[#D9A441]" />}<span className="text-lg">{m.ic}</span>{m.label}</button>
           ))}
         </div>
       </div>
@@ -7205,11 +7205,11 @@ function CaixaMobile({ contas, totalCom, baixarComandas, confirmarRetirada = asy
   return (
     <>
       <div className="mb-3 grid grid-cols-2 gap-2">
-        <div className="rounded-2xl border border-gold-400/25 bg-gold-400/[0.06] px-3 py-2.5"><p className="page-title text-2xl font-bold text-gold-300">{abertas.length}</p><p className="text-[11px] text-slate-500">Aguardando pagamento</p></div>
-        <div className="rounded-2xl border border-white/10 bg-slate-950/40 px-3 py-2.5"><p className="page-title text-2xl font-bold text-white">{formatCurrency(totalAberto)}</p><p className="text-[11px] text-slate-500">Em aberto</p></div>
+        <div className="rounded-2xl border border-[#F4D27A] bg-[#FFF7E0] px-3 py-2.5"><p className="page-title text-2xl font-bold text-[#9A6A00]">{abertas.length}</p><p className="text-[11px] text-[#667085]">Aguardando pagamento</p></div>
+        <div className="rounded-2xl border border-[#E5E7EB] bg-white px-3 py-2.5 shadow-[0_8px_24px_rgba(16,24,40,.06)]"><p className="page-title text-2xl font-bold text-[#182230]">{formatCurrency(totalAberto)}</p><p className="text-[11px] text-[#667085]">Em aberto</p></div>
       </div>
-      <div className="space-y-2">
-        {contas.length === 0 && <p className="py-10 text-center text-sm text-slate-500">Nenhuma conta no momento.</p>}
+      <div className="space-y-2 sm:grid sm:grid-cols-2 sm:gap-3 sm:space-y-0">
+        {contas.length === 0 && <p className="py-10 text-center text-sm text-[#667085] sm:col-span-2">Nenhuma conta no momento.</p>}
         {contas.map((o) => o.paymentStatus === "paid"
           ? <ContaPaga key={o.id} o={o} haTxt={haTxt} onRetirar={retirar} retirando={retirando === o.id} numeroPedido={numeroPedido} telMascarado={telMascarado} />
           : <ContaCaixa key={o.id} o={o} opcoes={opcoes} pagando={pagando === o.id} onFinalizar={finalizar} haTxt={haTxt} numeroPedido={numeroPedido} telMascarado={telMascarado} />)}
@@ -7224,14 +7224,14 @@ function CaixaMobile({ contas, totalCom, baixarComandas, confirmarRetirada = asy
 function ContaPaga({ o, haTxt, onRetirar, retirando, numeroPedido = {}, telMascarado = () => "" }) {
   const total = orderTotal(o) * 1.1;
   return (
-    <div className="rounded-3xl border border-emerald-400/25 bg-emerald-500/[0.06] p-3.5">
-      <div className="flex items-center justify-between gap-2"><p className="font-black text-white">Pedido #{numeroPedido[o.id] ?? "—"} · {o.table}</p><span className="text-[11px] text-slate-500">{haTxt(o)}</span></div>
-      <p className="text-[10px] text-slate-600">{o.id}</p>
-      <p className="text-xs text-slate-400">{o.customer || "Cliente"}</p>
-      {telMascarado(o.clienteTelefone) && <p className="text-[11px] text-slate-500">📞 {telMascarado(o.clienteTelefone)}</p>}
-      {o.pagamentoForma && <p className="text-[11px] font-bold text-amber-300">💳 {o.pagamentoForma}{o.pagamentoMomento ? ` · ${o.pagamentoMomento}` : ""}</p>}
-      <p className="mt-2 rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-3 py-2 text-center text-sm font-bold text-emerald-300">✓ Pago {formatCurrency(total)} · aguardando retirada do produto</p>
-      <button onClick={() => onRetirar(o)} disabled={retirando} className="mt-2 w-full rounded-2xl bg-emerald-500 py-2.5 text-sm font-black text-white transition active:scale-95 disabled:opacity-50">{retirando ? "Confirmando…" : "Confirmar retirada do produto"}</button>
+    <div className="rounded-3xl border border-[#B7E4C7] bg-[#ECFDF3] p-3.5">
+      <div className="flex items-center justify-between gap-2"><p className="font-black text-[#182230]">Pedido #{numeroPedido[o.id] ?? "—"} · {o.table}</p><span className="text-[11px] text-[#667085]">{haTxt(o)}</span></div>
+      <p className="text-[10px] text-[#98A2B3]">{o.id}</p>
+      <p className="text-xs text-[#475467]">{o.customer || "Cliente"}</p>
+      {telMascarado(o.clienteTelefone) && <p className="text-[11px] text-[#667085]">📞 {telMascarado(o.clienteTelefone)}</p>}
+      {o.pagamentoForma && <p className="text-[11px] font-bold text-[#9A6A00]">💳 {o.pagamentoForma}{o.pagamentoMomento ? ` · ${o.pagamentoMomento}` : ""}</p>}
+      <p className="mt-2 rounded-xl border border-[#B7E4C7] bg-white px-3 py-2 text-center text-sm font-bold text-[#147A4A]">✓ Pago {formatCurrency(total)} · aguardando retirada do produto</p>
+      <button onClick={() => onRetirar(o)} disabled={retirando} className="mt-2 w-full min-h-[44px] rounded-2xl bg-[#16A34A] py-2.5 text-sm font-black text-white transition active:scale-95 disabled:opacity-50">{retirando ? "Confirmando…" : "Confirmar retirada do produto"}</button>
     </div>
   );
 }
@@ -7254,42 +7254,42 @@ function ContaCaixa({ o, opcoes, pagando, onFinalizar, haTxt, numeroPedido = {},
   });
   const editarValor = (f, raw) => setLinhas((cur) => cur.map((l) => l.forma === f ? { ...l, valor: parseInt(String(raw).replace(/\D/g, "") || "0", 10) / 100 } : l));
   return (
-    <div className="rounded-3xl border border-gold-400/25 bg-slate-950/40 p-3.5">
-      <div className="flex items-center justify-between gap-2"><p className="font-black text-white">Pedido #{numeroPedido[o.id] ?? "—"} · {o.table}</p><span className="text-[11px] text-slate-500">{haTxt(o)}</span></div>
-      <p className="text-[10px] text-slate-600">{o.id}</p>
-      <p className="text-xs text-slate-400">{o.customer || "Cliente"}</p>
-      {telMascarado(o.clienteTelefone) && <p className="text-[11px] text-slate-500">📞 {telMascarado(o.clienteTelefone)}</p>}
-      {o.pagamentoForma && <p className="text-[11px] font-bold text-amber-300">💳 Cliente quer pagar: {o.pagamentoForma}{o.pagamentoMomento ? ` · ${o.pagamentoMomento}` : ""}</p>}
-      <div className="mt-2 space-y-0.5 border-t border-white/10 pt-2">
-        {o.items.map((it, i) => (<div key={i} className="flex justify-between text-sm"><span className="text-slate-300">{it.quantity}× {it.name}</span><span className="font-bold text-white">{formatCurrency(it.price * it.quantity)}</span></div>))}
+    <div className="rounded-3xl border border-[#F4D27A] bg-white p-3.5 shadow-[0_8px_24px_rgba(16,24,40,.06)]">
+      <div className="flex items-center justify-between gap-2"><p className="font-black text-[#182230]">Pedido #{numeroPedido[o.id] ?? "—"} · {o.table}</p><span className="text-[11px] text-[#667085]">{haTxt(o)}</span></div>
+      <p className="text-[10px] text-[#98A2B3]">{o.id}</p>
+      <p className="text-xs text-[#475467]">{o.customer || "Cliente"}</p>
+      {telMascarado(o.clienteTelefone) && <p className="text-[11px] text-[#667085]">📞 {telMascarado(o.clienteTelefone)}</p>}
+      {o.pagamentoForma && <p className="text-[11px] font-bold text-[#9A6A00]">💳 Cliente quer pagar: {o.pagamentoForma}{o.pagamentoMomento ? ` · ${o.pagamentoMomento}` : ""}</p>}
+      <div className="mt-2 space-y-0.5 border-t border-[#E5E7EB] pt-2">
+        {o.items.map((it, i) => (<div key={i} className="flex justify-between text-sm"><span className="text-[#475467]">{it.quantity}× {it.name}</span><span className="font-bold text-[#182230]">{formatCurrency(it.price * it.quantity)}</span></div>))}
       </div>
-      <div className="mt-2 space-y-0.5 border-t border-white/10 pt-2 text-sm">
-        <div className="flex justify-between text-slate-400"><span>Subtotal</span><span className="text-white">{formatCurrency(sub)}</span></div>
-        <div className="flex justify-between text-slate-400"><span>Taxa de serviço (10%)</span><span className="text-white">{formatCurrency(taxa)}</span></div>
-        <div className="flex justify-between text-base font-black"><span className="text-white">Total</span><span className="text-emerald-400">{formatCurrency(total)}</span></div>
+      <div className="mt-2 space-y-0.5 border-t border-[#E5E7EB] pt-2 text-sm">
+        <div className="flex justify-between text-[#475467]"><span>Subtotal</span><span className="text-[#182230]">{formatCurrency(sub)}</span></div>
+        <div className="flex justify-between text-[#475467]"><span>Taxa de serviço (10%)</span><span className="text-[#182230]">{formatCurrency(taxa)}</span></div>
+        <div className="flex justify-between text-base font-black"><span className="text-[#182230]">Total</span><span className="text-[#147A4A]">{formatCurrency(total)}</span></div>
       </div>
-      <p className="mt-2 text-[10px] font-bold uppercase tracking-wide text-slate-500">Forma(s) de pagamento</p>
+      <p className="mt-2 text-[10px] font-bold uppercase tracking-wide text-[#667085]">Forma(s) de pagamento</p>
       <div className="mt-1 grid grid-cols-2 gap-1.5">
         {opcoes.map((f) => { const on = linhas.some((l) => l.forma === f);
-          return <button key={f} onClick={() => toggleForma(f)} className={`flex items-center justify-center gap-1 rounded-xl border px-2 py-1.5 text-center text-xs font-bold transition ${on ? "border-gold-400 bg-gold-400 text-blue-950" : "border-white/10 bg-white/[0.05] text-slate-300"}`}>{on && <span>✓</span>}<span className="truncate">{f}</span></button>;
+          return <button key={f} onClick={() => toggleForma(f)} className={`flex min-h-[40px] items-center justify-center gap-1 rounded-xl border px-2 py-1.5 text-center text-xs font-bold transition ${on ? "border-[#D9A441] bg-[#D9A441] text-[#182230]" : "border-[#E5E7EB] bg-white text-[#475467] hover:bg-[#F9FAFB]"}`}>{on && <span>✓</span>}<span className="truncate">{f}</span></button>;
         })}
       </div>
       {linhas.length > 0 && (
         <div className="mt-2 space-y-1.5">
           {linhas.map((l) => (
             <div key={l.forma} className="flex items-center gap-2">
-              <span className="min-w-0 flex-1 text-xs font-bold leading-tight text-gold-300">{l.forma}</span>
-              <span className="shrink-0 text-xs text-slate-500">R$</span>
-              <input inputMode="numeric" value={fmtMoeda(l.valor)} onChange={(e) => editarValor(l.forma, e.target.value)} className="w-24 shrink-0 rounded-lg border border-white/10 bg-slate-950/70 px-2 py-1 text-right text-sm font-bold text-white outline-none focus:border-gold-400/60" />
+              <span className="min-w-0 flex-1 text-xs font-bold leading-tight text-[#9A6A00]">{l.forma}</span>
+              <span className="shrink-0 text-xs text-[#667085]">R$</span>
+              <input inputMode="numeric" value={fmtMoeda(l.valor)} onChange={(e) => editarValor(l.forma, e.target.value)} className="w-24 shrink-0 rounded-lg border border-[#D0D5DD] bg-white px-2 py-1 text-right text-sm font-bold text-[#182230] outline-none focus:border-[#2563EB]" />
             </div>
           ))}
           <div className="flex items-center justify-between text-[11px]">
-            <span className={Math.abs(restante) < 0.01 ? "font-bold text-emerald-300" : restante > 0 ? "font-bold text-amber-300" : "font-bold text-red-300"}>{Math.abs(restante) < 0.01 ? "Valor confere ✓" : restante > 0 ? `Falta ${formatCurrency(restante)}` : `Excede ${formatCurrency(-restante)}`}</span>
-            <span className="text-slate-400">Pago {formatCurrency(soma)} / {formatCurrency(total)}</span>
+            <span className={Math.abs(restante) < 0.01 ? "font-bold text-[#147A4A]" : restante > 0 ? "font-bold text-[#9A6A00]" : "font-bold text-[#B42318]"}>{Math.abs(restante) < 0.01 ? "Valor confere ✓" : restante > 0 ? `Falta ${formatCurrency(restante)}` : `Excede ${formatCurrency(-restante)}`}</span>
+            <span className="text-[#667085]">Pago {formatCurrency(soma)} / {formatCurrency(total)}</span>
           </div>
         </div>
       )}
-      <button onClick={() => onFinalizar(o, linhas, total)} disabled={!valido || pagando} className="mt-2.5 w-full rounded-2xl bg-emerald-500 py-2.5 text-sm font-black text-white transition active:scale-95 disabled:cursor-not-allowed disabled:bg-emerald-500/30 disabled:text-white/60">{pagando ? "Registrando…" : linhas.length === 0 ? "Selecione a forma de pagamento" : !valido ? "Confirme o valor" : "Finalizar pagamento"}</button>
+      <button onClick={() => onFinalizar(o, linhas, total)} disabled={!valido || pagando} className="mt-2.5 w-full min-h-[44px] rounded-2xl bg-[#16A34A] py-2.5 text-sm font-black text-white transition active:scale-95 disabled:cursor-not-allowed disabled:bg-[#E5E7EB] disabled:text-[#98A2B3]">{pagando ? "Registrando…" : linhas.length === 0 ? "Selecione a forma de pagamento" : !valido ? "Confirme o valor" : "Finalizar pagamento"}</button>
     </div>
   );
 }
