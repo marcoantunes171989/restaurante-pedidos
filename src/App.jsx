@@ -2989,57 +2989,57 @@ function TabletView({
 
       {/* ── Gaveta do carrinho (desliza da direita) ──────────── */}
       {carrinhoAberto && (
-        <div className="fixed inset-0 z-[90] flex justify-end bg-black/60 backdrop-blur-sm" onClick={() => setCarrinhoAberto(false)}>
-        <aside onClick={(e) => e.stopPropagation()} className="tema-claro-area flex w-full max-w-md flex-col border-l border-gold-400/15 bg-black shadow-2xl" style={{ fontFamily: "'Poppins','Inter',sans-serif" }}>
+        <div className="fixed inset-0 z-[90] flex justify-end bg-[rgba(15,23,42,0.5)] backdrop-blur-sm" onClick={() => setCarrinhoAberto(false)}>
+        <aside onClick={(e) => e.stopPropagation()} className="flex w-full max-w-md flex-col border-l border-[#E5E7EB] bg-white shadow-[0_20px_60px_rgba(16,24,40,0.16)]" style={{ fontFamily: "'Poppins','Inter',sans-serif" }}>
           {/* Cabeçalho carrinho */}
-          <div className="flex items-center justify-between border-b border-gold-400/15 px-5 py-4">
+          <div className="flex items-center justify-between border-b border-[#E5E7EB] px-5 py-4">
             <div className="flex items-center gap-2.5">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gold-400/30 bg-gold-400/10 text-gold-300">🛒</span>
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#FFF7E0] text-[#D9A441]">🛒</span>
               <div>
-                <p className="font-display text-lg font-bold tracking-tight text-white">Resumo do pedido</p>
-                <p className="text-xs text-slate-500">Personalize e envie para a cozinha</p>
+                <p className="font-display text-lg font-bold tracking-tight text-[#182230]">Resumo do pedido</p>
+                <p className="text-xs text-[#667085]">Personalize e envie para a cozinha</p>
               </div>
             </div>
             <button onClick={() => setCarrinhoAberto(false)}
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-sm font-bold text-slate-300 hover:bg-white/15 transition">✕</button>
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-[#E5E7EB] bg-white text-sm font-bold text-[#475467] hover:bg-[#F8FAFC] transition duration-200">✕</button>
           </div>
 
           {/* Campos mesa / cliente / comanda */}
-          <div className="shrink-0 space-y-3 border-b border-gold-400/15 px-5 py-4">
+          <div className="shrink-0 space-y-3 border-b border-[#E5E7EB] px-5 py-4">
             {/* Mesa do tablet — apenas informativo (escolhida após o login). */}
             <div>
-              <span className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500">🍽️ Mesa deste tablet</span>
-              <div className="flex items-center justify-between rounded-2xl border border-gold-400/30 bg-gold-400/10 px-4 py-2.5">
-                <span className="text-sm font-black text-gold-200">
+              <span className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-[#667085]">🍽️ Mesa deste tablet</span>
+              <div className="flex items-center justify-between rounded-2xl border border-[#F4D27A] bg-[#FFF7E0] px-4 py-2.5">
+                <span className="text-sm font-black text-[#182230]">
                   {mesaSelecionada ? `Mesa ${String(mesaSelecionada.numero).padStart(2, "0")}${mesaSelecionada.nome ? ` — ${mesaSelecionada.nome}` : ""}` : (tableNumber ? `Mesa ${String(tableNumber).padStart(2, "0")}` : "Mesa não definida")}
                 </span>
-                <button type="button" onClick={() => setTrocarMesaAberto(true)} className="shrink-0 rounded-xl border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs font-black text-slate-200 hover:bg-white/10">Trocar</button>
+                <button type="button" onClick={() => setTrocarMesaAberto(true)} className="shrink-0 rounded-xl border border-[#E5E7EB] bg-white px-3 py-1.5 text-xs font-black text-[#182230] hover:bg-[#F8FAFC] transition duration-200">Trocar</button>
               </div>
             </div>
             <div className="grid grid-cols-1 gap-3">
               <label>
-                <span className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500">Cliente (opcional)</span>
+                <span className="mb-1 block text-xs font-bold uppercase tracking-widest text-[#667085]">Cliente (opcional)</span>
                 <input value={customerName} onChange={(e) => setCustomerName(e.target.value)}
                   placeholder="Nome do cliente"
-                  className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2.5 text-white outline-none text-sm transition focus:border-gold-400/60 placeholder:text-slate-600" />
+                  className="w-full rounded-2xl border border-[#E5E7EB] bg-[#F8FAFC] px-3 py-2.5 text-[#182230] outline-none text-sm transition focus:border-[#D9A441] focus:ring-2 focus:ring-[#D9A441]/20 placeholder:text-[#98A2B3]" />
               </label>
             </div>
             <div>
-              <span className="mb-1 block text-xs font-bold uppercase tracking-widest text-gold-400">⚠ Comanda obrigatória — leia o QR Code</span>
-              <div className="flex gap-2">
+              <span className="mb-1.5 flex items-center gap-1.5 rounded-xl bg-[#FFF7E0] px-3 py-1.5 text-xs font-bold text-[#9A6A00]">⚠ Comanda obrigatória — leia o QR Code</span>
+              <div className="mt-2 flex items-center gap-2">
                 <input value={commandCode} readOnly
                   placeholder={`Escaneie o QR (${lojaInfo?.prefixo || "CMD"}-000001)`}
-                  className={`flex-1 rounded-2xl border bg-white/[0.04] px-3 py-2.5 font-mono text-white outline-none text-sm transition cursor-default placeholder:text-slate-600
-                    ${comandaValida ? "border-emerald-400/50" : "border-gold-400/30"}`} />
+                  className={`flex-1 rounded-2xl border bg-[#F8FAFC] px-3 py-2.5 font-mono text-[#182230] outline-none text-sm transition cursor-default placeholder:text-[#98A2B3]
+                    ${comandaValida ? "border-[#86EFAC]" : "border-[#E5E7EB]"}`} />
                 <button onClick={onAbrirScanner}
                   disabled={!podeEscanear}
                   title={!podeEscanear ? "Informe a mesa e adicione itens" : "Escanear QR Code da comanda"}
-                  className="shrink-0 rounded-2xl border border-gold-400/30 bg-gold-400/10 px-3 py-2.5 text-gold-300 hover:bg-gold-400/20 transition text-lg disabled:opacity-40 disabled:cursor-not-allowed">
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#D9A441] bg-[#FFF7E0] text-[#D9A441] hover:bg-[#F4D27A]/40 transition duration-200 text-lg disabled:opacity-40 disabled:cursor-not-allowed">
                   📷
                 </button>
               </div>
               {comandaValida && (
-                <p className="mt-1 text-xs text-emerald-400 font-semibold">✅ Comanda válida: {commandCode}</p>
+                <p className="mt-1.5 text-xs text-[#147A4A] font-semibold">✅ Comanda válida: {commandCode}</p>
               )}
             </div>
           </div>
@@ -3047,64 +3047,64 @@ function TabletView({
           {/* Itens do carrinho */}
           <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
             {cart.length === 0 ? (
-              <div className="flex h-32 flex-col items-center justify-center gap-2 opacity-30">
+              <div className="flex h-32 flex-col items-center justify-center gap-2 opacity-60">
                 <span className="text-3xl">🛒</span>
-                <p className="text-sm text-slate-400">Carrinho vazio</p>
+                <p className="text-sm text-[#667085]">Carrinho vazio</p>
               </div>
             ) : cart.map((item) => (
-              <div key={item._uid || item.id} className={`rounded-2xl border bg-white/[0.04] p-3 ${item.comboId ? "border-emerald-400/30" : "border-white/10"}`}>
+              <div key={item._uid || item.id} className={`rounded-2xl border bg-white p-3 shadow-sm ${item.comboId ? "border-[#86EFAC]" : "border-[#E5E7EB]"}`}>
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm font-semibold text-white leading-tight">{item.name}</p>
+                  <p className="text-sm font-semibold text-[#182230] leading-tight">{item.name}</p>
                   {item.comboId ? (
-                    <button onClick={() => onRemoverComboItem(item)} title="Sair do combo" className="shrink-0 rounded-lg border border-red-400/20 bg-red-500/10 px-2 py-1 text-xs font-black text-red-300 hover:bg-red-500/20">✕</button>
+                    <button onClick={() => onRemoverComboItem(item)} title="Sair do combo" className="shrink-0 rounded-lg border border-[#FECDD3] bg-[#FFF1F2] px-2 py-1 text-xs font-black text-[#DC2626] hover:bg-[#FFE4E6] transition duration-200">✕</button>
                   ) : (
-                    <div className="flex items-center gap-1 rounded-xl bg-white/[0.06] p-0.5">
-                      <button onClick={() => removeFromCart(item.id)} className="h-7 w-7 rounded-lg bg-white/10 font-black text-white text-xs hover:bg-white/20">−</button>
-                      <span className="w-5 text-center text-sm font-black text-white">{item.quantity}</span>
-                      <button onClick={() => addToCart(item)} className="h-7 w-7 rounded-lg bg-gold-400 font-black text-blue-950 text-xs hover:bg-gold-300">+</button>
+                    <div className="flex items-center gap-1 rounded-xl border border-[#E5E7EB] bg-[#F8FAFC] p-0.5">
+                      <button onClick={() => removeFromCart(item.id)} className="h-7 w-7 rounded-lg font-black text-[#182230] text-xs hover:bg-white transition duration-200">−</button>
+                      <span className="w-5 text-center text-sm font-black text-[#182230]">{item.quantity}</span>
+                      <button onClick={() => addToCart(item)} className="h-7 w-7 rounded-lg bg-[#D9A441] font-black text-[#182230] text-xs hover:bg-[#C7922F] transition duration-200">+</button>
                     </div>
                   )}
                 </div>
-                {item.comboId && <p className="mt-0.5 text-[11px] font-bold text-emerald-300">🍔 Combo: {item.comboNome}</p>}
-                <p className="mt-0.5 text-xs text-slate-400">{formatCurrency(item.price)} cada • <span className="font-semibold text-gold-400">{formatCurrency(item.price * item.quantity)}</span></p>
+                {item.comboId && <p className="mt-0.5 text-[11px] font-bold text-[#147A4A]">🍔 Combo: {item.comboNome}</p>}
+                <p className="mt-0.5 text-xs text-[#667085]">{formatCurrency(item.price)} cada • <span className="font-semibold text-[#D9A441]">{formatCurrency(item.price * item.quantity)}</span></p>
 
                 {/* Resumo limpo: a lista de ingredientes padrão não é exibida aqui.
                     Mantém apenas as modificações relevantes para a cozinha. */}
                 {(item.selectedOptions || []).length > 0 && (
-                  <p className="mt-1 text-xs text-gold-300">{item.selectedOptions.map((o) => o.nome).join(", ")}</p>
+                  <p className="mt-1 text-xs text-[#9A6A00]">{item.selectedOptions.map((o) => o.nome).join(", ")}</p>
                 )}
                 {item.removedIngredients.length > 0 && (
-                  <p className="mt-1 text-xs text-red-300">Sem: {item.removedIngredients.join(", ")}</p>
+                  <p className="mt-1 text-xs text-[#DC2626]">Sem: {item.removedIngredients.join(", ")}</p>
                 )}
                 {item.extraIngredients.length > 0 && (
-                  <p className="mt-1 text-xs text-gold-300">Adicionais: {item.extraIngredients.join(", ")}</p>
+                  <p className="mt-1 text-xs text-[#9A6A00]">Adicionais: {item.extraIngredients.join(", ")}</p>
                 )}
-                {item.observation && <p className="mt-1 text-xs text-amber-300">📝 {item.observation}</p>}
+                {item.observation && <p className="mt-1 text-xs text-[#B45309]">📝 {item.observation}</p>}
               </div>
             ))}
           </div>
 
           {/* Total + Ações */}
-          <div className="shrink-0 border-t border-gold-400/15 px-5 py-4 space-y-3">
+          <div className="shrink-0 border-t border-[#E5E7EB] bg-[#F7F8FA] px-5 py-4 space-y-3">
             {/* Totais */}
-            <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] px-4 py-3 space-y-1.5 text-sm">
-              <div className="flex justify-between text-slate-400"><span>Subtotal</span><span className="font-bold text-slate-200">{formatCurrency(subtotal)}</span></div>
-              <div className="flex justify-between text-slate-400"><span>Taxa de serviço (10%)</span><span className="font-bold text-slate-200">{formatCurrency(serviceFee)}</span></div>
-              {economiaCart > 0 && <div className="flex justify-between text-emerald-300"><span>💚 Economia (promoções)</span><span className="font-bold">− {formatCurrency(economiaCart)}</span></div>}
-              <div className="h-px bg-white/10" />
-              <div className="flex items-center justify-between"><span className="font-display text-base font-bold text-white">Total</span><span className="font-display text-lg font-bold text-gold-400">{formatCurrency(total)}</span></div>
+            <div className="rounded-2xl border border-[#E5E7EB] bg-white px-4 py-3 space-y-1.5 text-sm shadow-sm">
+              <div className="flex justify-between text-[#667085]"><span>Subtotal</span><span className="font-bold text-[#475467]">{formatCurrency(subtotal)}</span></div>
+              <div className="flex justify-between text-[#667085]"><span>Taxa de serviço (10%)</span><span className="font-bold text-[#475467]">{formatCurrency(serviceFee)}</span></div>
+              {economiaCart > 0 && <div className="flex justify-between text-[#147A4A]"><span>💚 Economia (promoções)</span><span className="font-bold">− {formatCurrency(economiaCart)}</span></div>}
+              <div className="h-px bg-[#E5E7EB]" />
+              <div className="flex items-center justify-between"><span className="font-display text-base font-bold text-[#182230]">Total</span><span className="font-display text-lg font-bold text-[#D9A441]">{formatCurrency(total)}</span></div>
             </div>
 
             {/* Mensagem feedback */}
             {message.text && (
-              <div className={`rounded-2xl border p-3 text-xs font-semibold ${message.type === "error" ? "border-red-400/30 bg-red-500/10 text-red-200" : "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"}`}>
+              <div className={`rounded-2xl border p-3 text-xs font-semibold ${message.type === "error" ? "border-[#FECDD3] bg-[#FFF1F2] text-[#B42318]" : "border-[#B7E4C7] bg-[#EAFBF2] text-[#147A4A]"}`}>
                 {message.text}
               </div>
             )}
 
             {/* Aviso de dados obrigatórios */}
             {cart.length > 0 && !dadosCompletos && (
-              <div className="rounded-2xl border border-amber-400/30 bg-amber-500/10 p-3 text-xs font-semibold text-amber-200">
+              <div className="rounded-2xl border border-[#FDE1B0] bg-[#FFF4E5] p-3 text-xs font-semibold text-[#B45309]">
                 ⚠ Informe a <b>mesa</b> e leia o <b>QR Code da comanda</b> para enviar o pedido.
               </div>
             )}
@@ -3113,13 +3113,13 @@ function TabletView({
             {!comandaValida ? (
               <button onClick={onAbrirScanner}
                 disabled={!podeEscanear}
-                className="font-display w-full rounded-2xl bg-gold-400 py-4 text-sm font-bold text-blue-950 hover:bg-gold-300 transition active:scale-95 shadow-lg shadow-gold-900/30 disabled:opacity-40 disabled:cursor-not-allowed">
+                className="font-display w-full rounded-2xl bg-[#D9A441] py-4 text-sm font-bold text-[#182230] hover:bg-[#C7922F] transition duration-200 active:scale-95 shadow-lg shadow-[#D9A441]/30 disabled:bg-[#E5E7EB] disabled:text-[#98A2B3] disabled:shadow-none disabled:cursor-not-allowed">
                 📷 Escanear comanda e enviar pedido
               </button>
             ) : (
               <button onClick={() => { handleSendOrder(); setCarrinhoAberto(false); }}
                 disabled={cart.length === 0}
-                className="font-display w-full rounded-2xl bg-[#16A34A] py-4 text-sm font-bold text-white hover:bg-[#22C55E] transition active:scale-95 shadow-lg shadow-[#16A34A]/30 disabled:opacity-40 disabled:cursor-not-allowed">
+                className="font-display w-full rounded-2xl bg-[#16A34A] py-4 text-sm font-bold text-white hover:bg-[#22C55E] transition duration-200 active:scale-95 shadow-lg shadow-[#16A34A]/30 disabled:bg-[#E5E7EB] disabled:text-[#98A2B3] disabled:shadow-none disabled:cursor-not-allowed">
                 🚀 Confirmar e enviar para a cozinha
               </button>
             )}
@@ -3129,14 +3129,14 @@ function TabletView({
               onClick={() => setConfirmarConta(true)}
               disabled={!podeFecharConta}
               title={!podeFecharConta ? "Disponível quando os pedidos forem entregues" : (contaSolicitada ? "Reenviar a conta ao caixa" : "Solicitar fechamento ao caixa")}
-              className={`w-full rounded-2xl border py-3 text-xs font-black transition disabled:opacity-30 disabled:cursor-not-allowed ${contaSolicitada ? "border-amber-400/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20" : "border-gold-400/30 bg-gold-500/10 text-gold-300 hover:bg-gold-500/20"}`}>
+              className={`w-full rounded-2xl border py-3 text-xs font-black transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${contaSolicitada ? "border-[#FDE1B0] bg-[#FFF4E5] text-[#B45309] hover:bg-[#FDE1B0]/50" : "border-[#E5E7EB] bg-white text-[#667085] hover:bg-[#F8FAFC]"}`}>
               {contaSolicitada ? "🔁 Reenviar conta ao caixa" : "🧾 Fechar conta da mesa"}
             </button>
             {contaSolicitada && (
-              <p className="text-center text-xs text-amber-300/80">✅ Conta já enviada ao caixa — reenvie se necessário</p>
+              <p className="text-center text-xs text-[#B45309]">✅ Conta já enviada ao caixa — reenvie se necessário</p>
             )}
             {temPedidoNaMesa && !podeFecharConta && (
-              <p className="text-center text-xs text-slate-600">Aguardando entrega dos pedidos para fechar a conta</p>
+              <p className="text-center text-xs text-[#98A2B3]">Aguardando entrega dos pedidos para fechar a conta</p>
             )}
           </div>
         </aside>
