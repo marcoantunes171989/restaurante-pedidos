@@ -5400,56 +5400,57 @@ function ComboEmpresaFoco({ lojas = [], valor, onChange }) {
   const termo = busca.trim().toLowerCase();
   const lista = termo ? lojas.filter((l) => `${l.nome} ${l.prefixo}`.toLowerCase().includes(termo)) : lojas;
   const escolher = (id) => { onChange(id); setAberto(false); setBusca(""); };
-  const item = (sel) => `flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-sm transition ${sel ? "bg-gold-400/10 text-gold-200 ring-1 ring-gold-400/30" : "text-slate-300 hover:bg-white/[0.06]"}`;
+  const item = (sel) => `flex w-full items-center gap-2.5 rounded-xl border px-2.5 py-2 text-left text-sm transition ${sel ? "border-[#D9A441] bg-[#FFF7E0] text-[#182230]" : "border-transparent text-[#475467] hover:bg-[#F9FAFB]"}`;
+  const avatar = (sel) => `flex h-7 w-7 shrink-0 items-center justify-center rounded-md border ${sel ? "border-[#F4D27A] bg-[#FFF7E0] text-[#D9A441]" : "border-[#E5E7EB] bg-[#F3F4F6] text-[#667085]"}`;
   const Globo = ({ className = "h-4 w-4" }) => (<svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c2.5 2.5 3.8 5.7 3.8 9S14.5 18.5 12 21c-2.5-2.5-3.8-5.7-3.8-9S9.5 5.5 12 3Z" /></svg>);
 
   return (
     <div className="relative">
       <button onClick={() => setAberto((o) => !o)}
-        className={`flex w-full items-center gap-2.5 rounded-xl border bg-blue-950/60 px-2.5 py-2 text-left transition ${aberto ? "border-gold-400/60 ring-1 ring-gold-400/20" : "border-gold-400/15 hover:border-gold-400/40"}`}>
-        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition ${atual ? "border-gold-400/30 bg-gold-400/10 text-gold-300" : "border-white/10 bg-white/[0.06] text-slate-300"}`}>
+        className={`flex w-full items-center gap-2.5 rounded-xl border bg-white px-2.5 py-2 text-left transition ${aberto ? "border-[#D9A441] ring-1 ring-[#D9A441]/25" : "border-[#E5E7EB] hover:border-[#D9A441]/50"}`}>
+        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition ${atual ? "border-[#F4D27A] bg-[#FFF7E0] text-[#D9A441]" : "border-[#E5E7EB] bg-[#F3F4F6] text-[#667085]"}`}>
           {atual ? <IconEmpresa /> : <Globo />}
         </span>
         <div className="min-w-0 flex-1">
-          <p className="font-display truncate text-sm font-bold text-white">{atual ? atual.nome : "Visão geral"}</p>
-          <p className="truncate text-[10px] font-medium text-gold-400/70">{atual ? `Comandas: ${atual.prefixo}` : "Todas as empresas"}</p>
+          <p className="font-display truncate text-sm font-bold text-[#182230]">{atual ? atual.nome : "Visão geral"}</p>
+          <p className="truncate text-[10px] font-medium text-[#667085]">{atual ? `Comandas: ${atual.prefixo}` : "Todas as empresas"}</p>
         </div>
-        <svg className={`h-3.5 w-3.5 shrink-0 text-gold-400/80 transition-transform ${aberto ? "rotate-180" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
+        <svg className={`h-3.5 w-3.5 shrink-0 text-[#D9A441] transition-transform ${aberto ? "rotate-180" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
       </button>
 
       {aberto && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setAberto(false)} />
-          <div className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-2xl border border-gold-400/20 bg-blue-950 shadow-2xl shadow-black/60">
+          <div className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-[18px] border border-[#E5E7EB] bg-white shadow-[0_12px_32px_rgba(16,24,40,0.10)]">
             {lojas.length > 6 && (
-              <div className="border-b border-gold-400/15 p-2">
-                <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-slate-950/70 px-3 py-1.5 focus-within:border-gold-400/60 transition">
-                  <span className="shrink-0 text-gold-400/70"><IconBusca /></span>
+              <div className="border-b border-[#E5E7EB] p-2">
+                <div className="flex items-center gap-2 rounded-lg border border-[#E5E7EB] bg-[#F8FAFC] px-3 py-1.5 focus-within:border-[#D9A441] transition">
+                  <span className="shrink-0 text-[#98A2B3]"><IconBusca /></span>
                   <input autoFocus value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar empresa..."
-                    className="w-full bg-transparent text-xs text-white outline-none placeholder:text-slate-500" />
+                    className="w-full bg-transparent text-xs text-[#182230] outline-none placeholder:text-[#98A2B3]" />
                 </div>
               </div>
             )}
             <div className="scrollbar-none max-h-64 space-y-0.5 overflow-y-auto p-1.5">
               <button onClick={() => escolher(null)} className={item(valor == null)}>
-                <span className={`flex h-7 w-7 items-center justify-center rounded-md border ${valor == null ? "border-gold-400/30 bg-gold-400/10 text-gold-300" : "border-white/10 bg-white/[0.06] text-slate-300"}`}><Globo /></span>
+                <span className={avatar(valor == null)}><Globo /></span>
                 <span className="flex-1 truncate font-bold">Visão geral (todas)</span>
-                {valor == null && <span className="shrink-0 text-gold-400">✓</span>}
+                {valor == null && <span className="shrink-0 text-[#D9A441]">✓</span>}
               </button>
               {lista.map((l) => {
                 const sel = valor === l.id;
                 return (
                   <button key={l.id} onClick={() => escolher(l.id)} className={item(sel)}>
-                    <span className={`flex h-7 w-7 items-center justify-center rounded-md border ${sel ? "border-gold-400/30 bg-gold-400/10 text-gold-300" : "border-white/10 bg-white/[0.06] text-slate-300"}`}><IconEmpresa /></span>
+                    <span className={avatar(sel)}><IconEmpresa /></span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate font-bold">{l.nome}</span>
-                      <span className="block truncate text-[10px] text-gold-400/60">{l.prefixo}{l.active === false ? " • inativa" : ""}</span>
+                      <span className="block truncate text-[10px] text-[#667085]">{l.prefixo}{l.active === false ? " • inativa" : ""}</span>
                     </span>
-                    {sel && <span className="shrink-0 text-gold-400">✓</span>}
+                    {sel && <span className="shrink-0 text-[#D9A441]">✓</span>}
                   </button>
                 );
               })}
-              {lista.length === 0 && <p className="px-2 py-3 text-center text-xs text-slate-500">Nenhuma empresa.</p>}
+              {lista.length === 0 && <p className="px-2 py-3 text-center text-xs text-[#667085]">Nenhuma empresa.</p>}
             </div>
           </div>
         </>
