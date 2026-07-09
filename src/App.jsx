@@ -4370,6 +4370,12 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
   const [consultaInput, setConsultaInput] = useState("");            // digitação manual
   const [consultaPagamento, setConsultaPagamento] = useState(false); // modal de pagamento da consulta
   const [consultaComprovante, setConsultaComprovante] = useState(null);
+  // ── Taxa de serviço — parametrização do estabelecimento ──
+  // TODO: mover para configuração persistida da empresa (lojaInfo.config) quando existir
+  // um local de settings; por ora, fallback local seguro (mesmo comportamento de hoje: 10%).
+  const SERVICE_FEE_CONFIG = { enabled: true, percent: 10, mode: "opcional", partialStrategy: "proporcional_itens" };
+  const [taxaIncluida, setTaxaIncluida] = useState(SERVICE_FEE_CONFIG.mode !== "nao_aplicar" && SERVICE_FEE_CONFIG.enabled);
+  const [taxaManualValor, setTaxaManualValor] = useState(0); // usado só quando partialStrategy === "manual"
   // ── Consulta por número da mesa (teclado numérico) — reaproveita carregarMesa() ──
   const [mesaDigitada, setMesaDigitada] = useState("");
   const [mesaErro, setMesaErro] = useState("");
@@ -4437,12 +4443,20 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
       itensPagosAgora.push({ key, oid: o.id, comanda: o.command, name: it.name, quantity: it.quantity, valor, dividir: s.dividir || 1 });
     }
   }));
-  const taxa = subtotal * 0.1;
+  // Taxa de serviço: opcional (toggle do caixa) e, no parcial, conforme a
+  // estratégia de rateio parametrizada (default: proporcional aos itens
+  // selecionados — matematicamente igual a "proporcional ao valor" aqui,
+  // já que não há taxa diferenciada por item).
+  const taxa = !taxaIncluida ? 0
+    : (modoItens && SERVICE_FEE_CONFIG.partialStrategy === "nao_ratear") ? 0
+    : (modoItens && SERVICE_FEE_CONFIG.partialStrategy === "manual") ? taxaManualValor
+    : subtotal * SERVICE_FEE_CONFIG.percent / 100;
   const totalSelecao = subtotal + taxa;          // total da seleção atual
   const mesas = [...new Set(pedidos.map((o) => o.table))];
 
   // ── Total geral das comandas e acúmulo de pagamentos ──
-  const totalGeral = pedidos.reduce((s, o) => s + orderTotal(o), 0) * 1.1; // todos os itens + taxa
+  const subtotalGeralBruto = pedidos.reduce((s, o) => s + orderTotal(o), 0);
+  const totalGeral = subtotalGeralBruto + (taxaIncluida ? subtotalGeralBruto * SERVICE_FEE_CONFIG.percent / 100 : 0);
   const jaPago = pagamentosFeitos.reduce((s, p) => s + p.valor, 0);
   const restanteGeral = Math.max(0, totalGeral - jaPago);
   // Quanto será cobrado AGORA: seleção (parcial) ou todo o restante (conta inteira)
@@ -4547,7 +4561,7 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
   `).join("")}
   <div class="sep2"></div>
   <div class="row sm"><span class="l">Subtotal geral</span><span>${formatCurrency(subtotal)}</span></div>
-  <div class="row sm"><span class="l">Taxa de servico (10%)</span><span>${formatCurrency(taxa)}</span></div>
+  <div class="row sm"><span class="l">${taxaIncluida ? `Taxa de servico (${SERVICE_FEE_CONFIG.percent}%)` : "Taxa de servico: removida/opcional"}</span><span>${formatCurrency(taxa)}</span></div>
   <div class="sep"></div>
   <div class="row b lg"><span class="l">TOTAL A PAGAR</span><span>${formatCurrency(total)}</span></div>
   ${pessoas > 1 ? `
@@ -4555,6 +4569,7 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
   <div class="row sm"><span class="l">Dividido por ${pessoas} pessoas</span><span class="b">${formatCurrency(porPessoa)}</span></div>
   <p class="xs c">(valor por pessoa)</p>` : ""}
   <div class="sep2"></div>
+  <p class="c xs">Taxa de servico opcional conforme configuracao do estabelecimento.</p>
   <p class="c xs">Pagamento na mesa com o garcom</p>
   <p class="c sm b" style="margin-top:4px">OBRIGADO PELA PREFERENCIA!</p>
   <p class="c xs" style="margin-top:6px">${data} ${hora}</p>
@@ -4576,7 +4591,7 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
           .map((it) => ({ key: it.key, oid: it.oid, comanda: it.comanda, name: it.name, quantity: it.quantity, valor: it.valor }))
       : [];
     const parcelaId = Date.now();
-    const novosPagamentos = [...pagamentosFeitos, { id: parcelaId, valor: valorPago, troco, detalhes, hora, itens: itensDaParcela }];
+    const novosPagamentos = [...pagamentosFeitos, { id: parcelaId, valor: valorPago, troco, detalhes, hora, itens: itensDaParcela, taxaAplicada: taxa, taxaIncluida }];
     // Log financeiro: parcela paga
     setLogFinanceiro((cur) => [
       ...cur,
@@ -4862,6 +4877,28 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
                 <div className="flex justify-between text-xl"><span className="font-black">{jaPago > 0 ? "Restante" : "Total"}</span><strong className={jaPago > 0 ? "text-amber-600" : ""}>{formatCurrency(restanteGeral)}</strong></div>
               </div>
             </div>
+
+            {/* Taxa de serviço — opcional/parametrizável */}
+            {pedidos.length > 0 && (
+              <div className="rounded-3xl border border-[#E5E7EB] bg-white p-4 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-[#475467]">Subtotal selecionado</span>
+                  <strong className="text-[#182230]">{formatCurrency(subtotal)}</strong>
+                </div>
+                <label className="mt-2 flex items-center justify-between gap-2 cursor-pointer">
+                  <span className="text-[#475467]">Incluir taxa de serviço ({SERVICE_FEE_CONFIG.percent}%)</span>
+                  <input type="checkbox" checked={taxaIncluida} onChange={(e) => setTaxaIncluida(e.target.checked)} className="h-5 w-5 accent-[#D9A441]" />
+                </label>
+                {SERVICE_FEE_CONFIG.partialStrategy === "manual" && modoItens && taxaIncluida && (
+                  <input type="number" min="0" step="0.01" value={taxaManualValor}
+                    onChange={(e) => setTaxaManualValor(Math.max(0, Number(e.target.value) || 0))}
+                    className="mt-2 w-full rounded-xl border border-[#E5E7EB] bg-[#F8FAFC] px-3 py-2 text-sm text-[#182230] outline-none focus:border-[#D9A441]" placeholder="Valor manual da taxa" />
+                )}
+                <div className="mt-1 flex justify-between"><span className="text-[#475467]">Taxa aplicada</span><strong className="text-[#182230]">{formatCurrency(taxa)}</strong></div>
+                <div className="mt-2 flex justify-between border-t border-[#E5E7EB] pt-2 text-base"><span className="font-black text-[#182230]">Total a pagar</span><strong className="text-[#D9A441]">{formatCurrency(aPagar)}</strong></div>
+                <p className="mt-2 text-[11px] text-[#98A2B3]">Taxa de serviço opcional e configurável pelo estabelecimento.</p>
+              </div>
+            )}
 
             {/* Histórico de pagamentos parciais */}
             {pagamentosFeitos.length > 0 && (
