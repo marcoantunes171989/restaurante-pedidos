@@ -4373,8 +4373,11 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
   // ── Taxa de serviço — parametrização do estabelecimento ──
   // TODO: mover para configuração persistida da empresa (lojaInfo.config) quando existir
   // um local de settings; por ora, fallback local seguro (mesmo comportamento de hoje: 10%).
-  const SERVICE_FEE_CONFIG = { enabled: true, percent: 10, mode: "opcional", partialStrategy: "proporcional_itens" };
-  const [taxaIncluida, setTaxaIncluida] = useState(SERVICE_FEE_CONFIG.mode !== "nao_aplicar" && SERVICE_FEE_CONFIG.enabled);
+  const SERVICE_FEE_CONFIG = lerConfigTaxaServico(lojaInfo?.id);
+  const taxaFixa = SERVICE_FEE_CONFIG.enabled && SERVICE_FEE_CONFIG.chargingRule === "fixa";
+  const taxaBloqueadaOff = !SERVICE_FEE_CONFIG.enabled || SERVICE_FEE_CONFIG.chargingRule === "nao_cobrar";
+  const [taxaIncluida, setTaxaIncluida] = useState(!taxaBloqueadaOff);
+  useEffect(() => { setTaxaIncluida(taxaFixa ? true : taxaBloqueadaOff ? false : taxaIncluida); }, [taxaFixa, taxaBloqueadaOff]); // eslint-disable-line react-hooks/exhaustive-deps
   const [taxaManualValor, setTaxaManualValor] = useState(0); // usado só quando partialStrategy === "manual"
   // ── Divisão por pessoas: quantas já pagaram sua parte desta seleção ──
   // TODO: hoje é só estado local da sessão do caixa; persistir por parcela
@@ -4447,20 +4450,22 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
       itensPagosAgora.push({ key, oid: o.id, comanda: o.command, name: it.name, quantity: it.quantity, valor, dividir: s.dividir || 1 });
     }
   }));
-  // Taxa de serviço: opcional (toggle do caixa) e, no parcial, conforme a
-  // estratégia de rateio parametrizada (default: proporcional aos itens
-  // selecionados — matematicamente igual a "proporcional ao valor" aqui,
-  // já que não há taxa diferenciada por item).
+  // ── Total geral das comandas (base para "proporcional ao valor") ──
+  const subtotalGeralBruto = pedidos.reduce((s, o) => s + orderTotal(o), 0);
+  const taxaTotalMesaBruta = subtotalGeralBruto * SERVICE_FEE_CONFIG.percent / 100;
+
+  // Taxa de serviço: bloqueada (fixa/não cobrar) ou opcional (toggle do
+  // caixa) e, no parcial, conforme a estratégia de rateio parametrizada.
   const taxa = !taxaIncluida ? 0
     : (modoItens && SERVICE_FEE_CONFIG.partialStrategy === "nao_ratear") ? 0
     : (modoItens && SERVICE_FEE_CONFIG.partialStrategy === "manual") ? taxaManualValor
-    : subtotal * SERVICE_FEE_CONFIG.percent / 100;
+    : (modoItens && SERVICE_FEE_CONFIG.partialStrategy === "proporcional_valor") ? (subtotalGeralBruto > 0 ? taxaTotalMesaBruta * (subtotal / subtotalGeralBruto) : 0)
+    : subtotal * SERVICE_FEE_CONFIG.percent / 100; // proporcional_itens (default)
   const totalSelecao = subtotal + taxa;          // total da seleção atual
   const mesas = [...new Set(pedidos.map((o) => o.table))];
 
   // ── Total geral das comandas e acúmulo de pagamentos ──
-  const subtotalGeralBruto = pedidos.reduce((s, o) => s + orderTotal(o), 0);
-  const totalGeral = subtotalGeralBruto + (taxaIncluida ? subtotalGeralBruto * SERVICE_FEE_CONFIG.percent / 100 : 0);
+  const totalGeral = subtotalGeralBruto + (taxaIncluida ? taxaTotalMesaBruta : 0);
   const jaPago = pagamentosFeitos.reduce((s, p) => s + p.valor, 0);
   const restanteGeral = Math.max(0, totalGeral - jaPago);
   // Quanto será cobrado AGORA: seleção (parcial) ou todo o restante (conta inteira)
@@ -4553,7 +4558,7 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
     <p class="xs">Tel: (00) 0000-0000</p>
   </div>
   <div class="sep2"></div>
-  <p class="c b sm">CUPOM NAO FISCAL</p>
+  <p class="c b sm">CUPOM NAO FISCAL${modoItens ? " - PAGAMENTO PARCIAL" : ""}</p>
   <p class="c xs">*** SEM VALOR FISCAL ***</p>
   <p class="c xs">Documento auxiliar de venda</p>
   <div class="sep"></div>
@@ -4956,10 +4961,19 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
                   <span className="text-[#475467]">Subtotal selecionado</span>
                   <strong className="text-[#182230]">{formatCurrency(subtotal)}</strong>
                 </div>
-                <label className="mt-2 flex items-center justify-between gap-2 cursor-pointer">
-                  <span className="text-[#475467]">Incluir taxa de serviço ({SERVICE_FEE_CONFIG.percent}%)</span>
-                  <input type="checkbox" checked={taxaIncluida} onChange={(e) => setTaxaIncluida(e.target.checked)} className="h-5 w-5 accent-[#D9A441]" />
-                </label>
+                {!taxaBloqueadaOff ? (
+                  <label className={`mt-2 flex items-center justify-between gap-2 ${taxaFixa ? "" : "cursor-pointer"}`}>
+                    <span className="text-[#475467]">Incluir taxa de serviço ({SERVICE_FEE_CONFIG.percent}%)</span>
+                    <input type="checkbox" checked={taxaIncluida} disabled={taxaFixa}
+                      onChange={(e) => !taxaFixa && setTaxaIncluida(e.target.checked)}
+                      className="h-5 w-5 accent-[#D9A441] disabled:opacity-70" />
+                  </label>
+                ) : (
+                  <p className="mt-2 text-[#98A2B3]">Taxa de serviço: não cobrada (configuração da empresa)</p>
+                )}
+                <span className={`mt-1.5 inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide ${taxaFixa ? "bg-[#FFF7E0] text-[#9A6A00]" : taxaBloqueadaOff ? "bg-[#F2F4F7] text-[#667085]" : "bg-[#EFF6FF] text-[#1D4ED8]"}`}>
+                  {taxaFixa ? "Taxa fixa pela empresa" : taxaBloqueadaOff ? "Não cobrar (empresa)" : "Taxa opcional"}
+                </span>
                 {SERVICE_FEE_CONFIG.partialStrategy === "manual" && modoItens && taxaIncluida && (
                   <input type="number" min="0" step="0.01" value={taxaManualValor}
                     onChange={(e) => setTaxaManualValor(Math.max(0, Number(e.target.value) || 0))}
@@ -6381,7 +6395,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           {ativo === "comandas-gestao" && (precisaEmpresa ? avisoEmpresa : <ComandasGestaoAdmin orders={filtraLoja(orders)} />)}
           {ativo === "comandas"   && (precisaEmpresa ? avisoEmpresa : <GeradorComandas prefixoLoja={lojaInfo?.prefixo || "CMD"} empresa={lojaInfo?.nome || "Restaurante"} onGerar={registrarComandas} comandasRegistradas={comandasRegistradas} orders={orders} onExcluirComanda={excluirComandaFn} onRenomearComanda={renomearComandaFn} onToggleComanda={toggleComandaFn} lojaId={lojaInfo?.id} logoSalvo={lojaInfo?.logoUrl || ""} onSalvarLogo={(url) => salvarLogoEmpresa(lojaInfo?.id, url)} onIrCardapioExterno={() => setAdminSection("cardapioext")} />)}
           {ativo === "pagamento"  && (precisaEmpresa ? avisoEmpresa : <PagamentoAdmin formasPagamento={formasPagamento} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} />)}
-          {ativo === "config"     && <ConfiguracoesAdmin />}
+          {ativo === "config"     && <ConfiguracoesAdmin lojaInfo={lojaInfo} />}
           {ativo === "plano"      && <MeuPlanoAdmin planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} lojaInfo={lojaInfo} isSuperAdmin={isSuperAdmin} lojaAtual={lojaInfo?.id} definirAssinatura={definirAssinatura} assinaturas={assinaturas} lojas={lojas} />}
           {ativo === "promocoes"  && (precisaEmpresa ? avisoEmpresa : <PromocoesAdmin promocoes={promocoes} produtos={products} categoriasDb={categoriasDb} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} />)}
           {ativo === "lojas"      && <LojaAdmin lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} lojaInfo={lojaInfo} criarEmpresa={criarEmpresa} cargos={cargos} />}
@@ -13187,9 +13201,26 @@ function AuditoriaAdmin({ logs = [], lojas = [], onAtualizar = null, onMarcarAna
   );
 }
 
-function ConfiguracoesAdmin() {
+// ── Taxa de serviço — parametrização por empresa ──
+// TODO: mover para coluna própria em `tab_lojas` (JSONB) quando existir
+// migration para isso; por ora, persistida localmente por empresa (mesmo
+// padrão dos favoritos), sem exigir alteração de banco.
+const TAXA_SERVICO_DEFAULT = { enabled: true, percent: 10, chargingRule: "opcional", partialStrategy: "proporcional_itens" };
+function lerConfigTaxaServico(lojaId) {
+  try { return { ...TAXA_SERVICO_DEFAULT, ...JSON.parse(localStorage.getItem(`pedidoPrime:taxaServico:${lojaId || "geral"}`) || "{}") }; }
+  catch { return TAXA_SERVICO_DEFAULT; }
+}
+function salvarConfigTaxaServico(lojaId, cfg) {
+  try { localStorage.setItem(`pedidoPrime:taxaServico:${lojaId || "geral"}`, JSON.stringify(cfg)); } catch {}
+}
+
+function ConfiguracoesAdmin({ lojaInfo }) {
   const [tema, setTema] = useState(() => obterTema());
   function escolher(t) { setTema(aplicarTema(t)); }
+  const [taxaCfg, setTaxaCfg] = useState(() => lerConfigTaxaServico(lojaInfo?.id));
+  function atualizarTaxa(patch) {
+    setTaxaCfg((cur) => { const novo = { ...cur, ...patch }; salvarConfigTaxaServico(lojaInfo?.id, novo); return novo; });
+  }
   return (
     <main className="space-y-5">
       <PageHeader
@@ -13197,6 +13228,40 @@ function ConfiguracoesAdmin() {
         titulo="Configurações"
         descricao="Preferências de aparência do sistema. As alterações ficam salvas neste aparelho."
       />
+
+      {/* Taxa de serviço */}
+      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
+        <h3 className="page-title text-base font-bold tracking-tight text-white">Taxa de serviço</h3>
+        <p className="mt-1 text-sm text-slate-400">Configure como a taxa de serviço será sugerida/cobrada no caixa. A regra definida aqui será aplicada automaticamente no fechamento.</p>
+        <label className="mt-4 flex items-center justify-between gap-2 cursor-pointer">
+          <span className="text-sm font-bold text-slate-200">Cobrar taxa de serviço</span>
+          <input type="checkbox" checked={taxaCfg.enabled} onChange={(e) => atualizarTaxa({ enabled: e.target.checked })} className="h-5 w-5 accent-gold-400" />
+        </label>
+        <label className="mt-3 block">
+          <span className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500">Percentual da taxa</span>
+          <input type="number" min="0" max="100" step="1" value={taxaCfg.percent}
+            onChange={(e) => atualizarTaxa({ percent: Math.max(0, Number(e.target.value) || 0) })}
+            className="w-32 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-white outline-none focus:border-gold-400/60" />
+        </label>
+        <div className="mt-3">
+          <span className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500">Regra de cobrança</span>
+          <div className="flex flex-wrap gap-2">
+            {[["fixa", "Fixa"], ["opcional", "Opcional"], ["nao_cobrar", "Não cobrar"]].map(([id, label]) => (
+              <button key={id} onClick={() => atualizarTaxa({ chargingRule: id })}
+                className={`rounded-full border px-3.5 py-1.5 text-xs font-black transition ${taxaCfg.chargingRule === id ? "border-gold-400 bg-gold-400 text-blue-950" : "border-white/10 bg-white/[0.05] text-slate-300 hover:bg-white/10"}`}>{label}</button>
+            ))}
+          </div>
+        </div>
+        <div className="mt-3">
+          <span className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500">Estratégia no pagamento parcial</span>
+          <div className="flex flex-wrap gap-2">
+            {[["proporcional_itens", "Proporcional aos itens"], ["proporcional_valor", "Proporcional ao valor"], ["manual", "Manual"], ["nao_ratear", "Não ratear"]].map(([id, label]) => (
+              <button key={id} onClick={() => atualizarTaxa({ partialStrategy: id })}
+                className={`rounded-full border px-3.5 py-1.5 text-xs font-black transition ${taxaCfg.partialStrategy === id ? "border-gold-400 bg-gold-400 text-blue-950" : "border-white/10 bg-white/[0.05] text-slate-300 hover:bg-white/10"}`}>{label}</button>
+            ))}
+          </div>
+        </div>
+      </div>
 
       {/* Aparência — tema das telas do cliente */}
       <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
