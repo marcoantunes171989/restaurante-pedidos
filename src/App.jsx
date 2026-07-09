@@ -923,7 +923,14 @@ export default function RestaurantePedidoApp() {
     if (!currentUser || rotaInicialRef.current) return;
     rotaInicialRef.current = true;
     const { pathname, search } = window.location;
-    if (/^\/(admin|app|operacional)(\/|$)/.test(pathname)) { popstateRef.current = true; aplicarRota(pathname, search); }
+    if (/^\/(admin|app|operacional)(\/|$)/.test(pathname)) {
+      popstateRef.current = true;
+      aplicarRota(pathname, search);
+      // Se o estado já bater com a URL (ex.: aplicarLogin já aplicou o mesmo
+      // deep-link), nenhum setState novo dispara o efeito que consome a flag
+      // — reseta de forma assíncrona para não deixá-la presa em "true".
+      setTimeout(() => { popstateRef.current = false; }, 0);
+    }
   }, [currentUser]);
   // Espelha a tela atual na URL (replace na 1ª vez; push nas seguintes)
   useEffect(() => {
@@ -952,8 +959,12 @@ export default function RestaurantePedidoApp() {
       else if (currentUserRef.current) {
         // Autenticado tentando sair para landing/login pelo voltar → mantém no app
         window.history.replaceState({}, "", rotaDoEstado(activeTabRef.current, adminSectionRef.current, null));
-        popstateRef.current = false;
       }
+      // Garante que a flag nunca fique "presa" em true — se aplicarRota não mudar
+      // nenhum estado (ex.: voltar para a mesma seção), o efeito de espelhamento da
+      // URL nunca dispara para consumi-la, e o próximo clique no menu ficaria sem
+      // atualizar a URL. Reseta de forma assíncrona, após o commit dos setState.
+      setTimeout(() => { popstateRef.current = false; }, 0);
     };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
