@@ -3735,9 +3735,9 @@ export function ProdutoModal({ produto, onFechar, onAdicionar, grupos = [], opco
 }
 
 const kitchenCols = [
-  { key: "received",  label: "Aguardando", sub: "Na fila",           dot: "bg-blue-400",    header: "border-blue-500/40 bg-blue-500/10",    card: "border-blue-500/20"  },
-  { key: "preparing", label: "Preparando", sub: "Em produção",       dot: "bg-gold-400",    header: "border-gold-400/40 bg-gold-400/10",    card: "border-gold-400/25" },
-  { key: "ready",     label: "Finalizado", sub: "Pronto p/ retirada",dot: "bg-emerald-400", header: "border-emerald-500/40 bg-emerald-500/10", card: "border-emerald-500/20" },
+  { key: "received",  label: "Aguardando", sub: "Na fila",           dot: "bg-[#2563EB]", text: "text-[#1D4ED8]", header: "border-[#BFDBFE] bg-[#EFF6FF]", card: "border-[#E5E7EB]" },
+  { key: "preparing", label: "Preparando", sub: "Em produção",       dot: "bg-[#D9A441]", text: "text-[#9A6A00]", header: "border-[#F4D27A] bg-[#FFF7E0]", card: "border-[#E5E7EB]" },
+  { key: "ready",     label: "Finalizado", sub: "Pronto p/ retirada",dot: "bg-[#16A34A]", text: "text-[#047857]", header: "border-[#86EFAC] bg-[#ECFDF3]", card: "border-[#E5E7EB]" },
 ];
 
 function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, cancelarPedido, onSair, currentUser, lojaInfo, setores = [], produtos = [], setorInicial = null }) {
@@ -3786,54 +3786,54 @@ function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, cancela
   const totalGeral   = totalAtivo + totalFinal;
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-slate-950 overflow-hidden" style={{ paddingTop: "calc(env(safe-area-inset-top) + 24px)" }}>
+    <div className="fixed inset-0 z-50 flex flex-col bg-[#F7F8FA] overflow-hidden" style={{ paddingTop: "calc(env(safe-area-inset-top) + 24px)" }}>
 
       {/* ── Cabeçalho mínimo ──────────────────────────────────── */}
-      <header className="flex shrink-0 items-center justify-between border-b border-white/10 bg-slate-900/90 px-6 py-3 backdrop-blur-xl">
+      <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-[#E5E7EB] bg-white px-6 py-3">
         <div className="flex items-center gap-3">
           <LogoPP size={36} />
           <div>
-            <p className="text-lg font-black text-white leading-tight">👨‍🍳 Cozinha{lojaInfo && <span className="ml-2 text-sm font-bold text-gold-300">· {lojaInfo.nome}</span>}</p>
-            <p className="text-xs text-slate-500">{currentUser?.name}</p>
+            <p className="text-lg font-black text-[#182230] leading-tight">👨‍🍳 Cozinha{lojaInfo && <span className="ml-2 text-sm font-bold text-[#9A6A00]">· {lojaInfo.nome}</span>}</p>
+            <p className="text-xs text-[#667085]">{currentUser?.name}</p>
           </div>
         </div>
 
         {/* Métricas centrais */}
         <div className="flex items-center gap-3">
-          <div className="rounded-2xl border border-amber-400/30 bg-amber-500/10 px-4 py-1.5 text-center">
-            <p className="text-xs font-bold text-amber-400">Em aberto</p>
-            <p className="text-xl font-black text-amber-300">{totalAtivo}</p>
+          <div className="rounded-2xl border border-[#F4D27A] bg-[#FFF7E0] px-4 py-1.5 text-center">
+            <p className="text-xs font-bold text-[#9A6A00]">Em aberto</p>
+            <p className="text-xl font-black text-[#9A6A00]">{totalAtivo}</p>
           </div>
-          <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-1.5 text-center">
-            <p className="text-xs font-bold text-emerald-400">Finalizados</p>
-            <p className="text-xl font-black text-emerald-300">{totalFinal}</p>
+          <div className="rounded-2xl border border-[#86EFAC] bg-[#ECFDF3] px-4 py-1.5 text-center">
+            <p className="text-xs font-bold text-[#047857]">Finalizados</p>
+            <p className="text-xl font-black text-[#047857]">{totalFinal}</p>
           </div>
-          <div className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-1.5 text-center">
-            <p className="text-xs font-bold text-slate-400">Total</p>
-            <p className="text-xl font-black text-white">{totalGeral}</p>
+          <div className="rounded-2xl border border-[#E5E7EB] bg-[#F8FAFC] px-4 py-1.5 text-center">
+            <p className="text-xs font-bold text-[#667085]">Total</p>
+            <p className="text-xl font-black text-[#182230]">{totalGeral}</p>
           </div>
         </div>
 
         {/* Relógio */}
         <div className="flex items-center gap-3">
-          <p className="font-black tabular-nums text-white text-xl">{hora}</p>
+          <p className="font-black tabular-nums text-[#182230] text-xl">{hora}</p>
         </div>
       </header>
 
       {/* Filtro por setor de cozinha (migration 041) */}
       {setoresAtivos.length > 0 && (
-        <div className="shrink-0 flex items-center gap-2 overflow-x-auto border-b border-white/10 bg-slate-900/70 px-6 py-2">
-          <span className="shrink-0 text-[11px] font-bold uppercase tracking-widest text-slate-500">Setor:</span>
-          <button onClick={() => setSetorFiltro(null)} className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-black transition ${setorFiltro == null ? "border-gold-400 bg-gold-400 text-blue-950" : "border-white/10 bg-white/[0.05] text-slate-300 hover:bg-white/10"}`}>Todos</button>
+        <div className="shrink-0 flex items-center gap-2 overflow-x-auto border-b border-[#E5E7EB] bg-white px-6 py-2">
+          <span className="shrink-0 text-[11px] font-bold uppercase tracking-widest text-[#667085]">Setor:</span>
+          <button onClick={() => setSetorFiltro(null)} className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-black transition duration-200 ${setorFiltro == null ? "border-[#D9A441] bg-[#FFF7E0] text-[#182230]" : "border-[#E5E7EB] bg-white text-[#475467] hover:bg-[#F8FAFC]"}`}>Todos</button>
           {setoresAtivos.map((s) => (
-            <button key={s.id} onClick={() => setSetorFiltro(s.id)} className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-black transition ${setorFiltro === s.id ? "border-gold-400 bg-gold-400 text-blue-950" : "border-white/10 bg-white/[0.05] text-slate-300 hover:bg-white/10"}`}>{s.nome}</button>
+            <button key={s.id} onClick={() => setSetorFiltro(s.id)} className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-black transition duration-200 ${setorFiltro === s.id ? "border-[#D9A441] bg-[#FFF7E0] text-[#182230]" : "border-[#E5E7EB] bg-white text-[#475467] hover:bg-[#F8FAFC]"}`}>{s.nome}</button>
           ))}
         </div>
       )}
 
       {/* ── 3 Colunas de pedidos ──────────────────────────────── */}
-      <div className="tema-claro-area flex flex-1 overflow-hidden">
-        {kitchenCols.map(({ key, label, sub, dot, header, card }) => {
+      <div className="flex flex-1 overflow-x-auto overflow-y-hidden">
+        {kitchenCols.map(({ key, label, sub, dot, text, header, card }) => {
           const lista = groupedOrders[key] || [];
           // Agrupa os pedidos da coluna por MESA (mantendo a ordem de chegada).
           // Cada grupo reúne os pedidos da mesma mesa (e suas comandas).
@@ -3847,17 +3847,17 @@ function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, cancela
             return Array.from(mapa, ([mesa, pedidos]) => ({ mesa, pedidos }));
           })();
           return (
-            <div key={key} className={`flex flex-1 flex-col border-r border-white/10 last:border-r-0`}>
+            <div key={key} className={`flex flex-1 flex-col border-r border-[#E5E7EB] last:border-r-0 min-w-[280px] bg-[#F7F8FA]`}>
 
               {/* Cabeçalho da coluna */}
-              <div className={`shrink-0 border-b border-white/10 px-5 py-3 ${header} border-t-0 border-x-0`}>
+              <div className={`shrink-0 border-b px-5 py-3 ${header}`}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className={`h-3 w-3 rounded-full ${dot} shadow-sm`} />
-                    <h2 className="text-base font-black text-white">{label}</h2>
-                    <span className="text-xs text-slate-400">— {sub}</span>
+                    <h2 className={`text-base font-black ${text}`}>{label}</h2>
+                    <span className={`text-xs ${text}/70`}>— {sub}</span>
                   </div>
-                  <span className="rounded-full border border-white/10 bg-white/[0.08] px-3 py-0.5 text-xs font-black text-white">
+                  <span className={`rounded-full border border-white bg-white/70 px-3 py-0.5 text-xs font-black ${text}`}>
                     {lista.length}
                   </span>
                 </div>
@@ -3866,24 +3866,24 @@ function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, cancela
               {/* Cards */}
               <div className="flex-1 overflow-y-auto space-y-3 p-4">
                 {lista.length === 0 && (
-                  <div className="mt-6 flex flex-col items-center justify-center gap-2 opacity-25">
+                  <div className="mt-6 flex flex-col items-center justify-center gap-2 opacity-70">
                     <span className="text-4xl">🕐</span>
-                    <p className="text-sm font-bold text-slate-400">Nenhum pedido</p>
+                    <p className="text-sm font-bold text-[#98A2B3]">Nenhum pedido no momento</p>
                   </div>
                 )}
                 {grupos.map(({ mesa, pedidos }) => {
                   const totalItensMesa = pedidos.reduce((s, p) => s + p.items.reduce((a, it) => a + it.quantity, 0), 0);
                   return (
-                  <section key={mesa} className="overflow-hidden rounded-3xl border border-white/10 bg-slate-900/60">
+                  <section key={mesa} className="overflow-hidden rounded-3xl border border-[#E5E7EB] bg-white shadow-[0_8px_24px_rgba(16,24,40,0.06)]">
                     {/* Cabeçalho da MESA (agrupa as comandas/pedidos) */}
-                    <div className="flex items-center justify-between gap-3 border-b border-white/10 bg-white/[0.04] px-4 py-2.5">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E5E7EB] bg-[#F8FAFC] px-4 py-2.5">
                       <div className="flex items-center gap-2">
                         <span className="text-lg">🍽️</span>
-                        <h3 className="text-xl font-black leading-tight text-white">{mesa}</h3>
+                        <h3 className="text-xl font-black leading-tight text-[#182230]">{mesa}</h3>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="rounded-full border border-white/10 bg-white/[0.06] px-2.5 py-0.5 text-[11px] font-black text-slate-300">{pedidos.length} pedido(s)</span>
-                        <span className="rounded-full border border-blue-400/20 bg-blue-500/10 px-2.5 py-0.5 text-[11px] font-black text-blue-300">{totalItensMesa} item(ns)</span>
+                        <span className="rounded-full border border-[#E5E7EB] bg-white px-2.5 py-0.5 text-[11px] font-black text-[#475467]">{pedidos.length} pedido(s)</span>
+                        <span className="rounded-full border border-[#BFDBFE] bg-[#EFF6FF] px-2.5 py-0.5 text-[11px] font-black text-[#1D4ED8]">{totalItensMesa} item(ns)</span>
                       </div>
                     </div>
 
@@ -3894,19 +3894,19 @@ function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, cancela
                   const minutos = order.createdAtISO ? Math.max(0, Math.floor((Date.now() - new Date(order.createdAtISO).getTime()) / 60000)) : null;
                   const atrasado = minutos != null && minutos >= 20 && (order.status === "received" || order.status === "preparing");
                   return (
-                  <article key={order.id} className={`overflow-hidden rounded-2xl border bg-slate-900/90 ${card} ${key === "ready" ? "ring-1 ring-emerald-500/30" : ""} ${atrasado ? "!border-red-500/70 ring-2 ring-red-500/30" : ""}`}>
+                  <article key={order.id} className={`overflow-hidden rounded-2xl border bg-white ${card} ${key === "ready" ? "ring-1 ring-[#16A34A]/30" : ""} ${atrasado ? "!border-[#FDA4AF] ring-2 ring-[#FDA4AF]/40" : ""}`}>
 
                     {/* Topo do card */}
-                    <div className="flex items-start justify-between gap-3 border-b border-white/10 px-4 py-2.5">
+                    <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[#E5E7EB] px-4 py-2.5">
                       <div>
-                        <p className="text-xs font-bold uppercase tracking-widest text-slate-500">{order.id} • {order.createdAt}</p>
-                        <p className="mt-0.5 font-mono text-sm font-black text-blue-300">{order.command}</p>
-                        {order.pagamentoForma && <p className="mt-0.5 text-[11px] font-bold text-amber-300">💳 {order.pagamentoForma}{order.pagamentoMomento ? ` · ${order.pagamentoMomento}` : ""}</p>}
+                        <p className="text-xs font-bold uppercase tracking-widest text-[#98A2B3]">{order.id} • {order.createdAt}</p>
+                        <p className="mt-0.5 font-mono text-sm font-black text-[#1D4ED8]">{order.command}</p>
+                        {order.pagamentoForma && <p className="mt-0.5 text-[11px] font-bold text-[#9A6A00]">💳 {order.pagamentoForma}{order.pagamentoMomento ? ` · ${order.pagamentoMomento}` : ""}</p>}
                       </div>
                       <div className="flex flex-col items-end gap-1">
                         <StatusChip status={order.status} />
                         {minutos != null && (
-                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-black tabular-nums ${atrasado ? "animate-pulse bg-red-500 text-white" : "border border-white/10 bg-white/[0.06] text-slate-300"}`}>
+                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-black tabular-nums ${atrasado ? "bg-[#DC2626] text-white" : "border border-[#E5E7EB] bg-[#F8FAFC] text-[#475467]"}`}>
                             {atrasado ? "⚠ ATRASADO · " : "⏱ "}{minutos} min
                           </span>
                         )}
@@ -3916,37 +3916,35 @@ function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, cancela
                     {/* Itens */}
                     <div className="space-y-2 px-4 py-3">
                       {order.items.map((item, idx) => (
-                        <div key={`${order.id}-${idx}`} className="rounded-2xl bg-white/[0.05] px-3 py-2">
-                          <p className="text-sm font-black text-white">{item.quantity}x {item.name}</p>
+                        <div key={`${order.id}-${idx}`} className="rounded-2xl bg-[#F8FAFC] px-3 py-2">
+                          <p className="text-sm font-black text-[#182230] break-words">{item.quantity}x {item.name}</p>
                           {itemDetails(item) && (
-                            <p className="mt-0.5 text-xs leading-5 text-amber-200">{itemDetails(item)}</p>
+                            <p className="mt-0.5 text-xs leading-5 text-[#DC2626]">{itemDetails(item)}</p>
                           )}
                         </div>
                       ))}
                     </div>
 
                     {/* Botões de status */}
-                    <div className="border-t border-white/10 px-4 py-3 space-y-2">
+                    <div className="border-t border-[#E5E7EB] px-4 py-3 space-y-2">
                       {/* Preparar + Finalizar */}
                       <div className="grid grid-cols-2 gap-2">
                         <button
                           onClick={() => updateOrderStatus(order.id, "preparing")}
                           disabled={order.status === "ready"}
-                          className={`rounded-2xl py-3 text-sm font-black transition active:scale-95
-                            ${order.status === "preparing"
-                              ? "bg-amber-500 text-white ring-2 ring-amber-400/40"
-                              : order.status === "ready"
-                              ? "cursor-not-allowed bg-white/5 text-slate-600"
-                              : "bg-amber-500/20 text-amber-300 hover:bg-amber-500 hover:text-white"}`}>
+                          className={`rounded-2xl border py-3 text-sm font-black transition duration-200 active:scale-95
+                            ${order.status === "ready"
+                              ? "cursor-not-allowed border-[#E5E7EB] bg-[#F3F4F6] text-[#98A2B3]"
+                              : "border-[#F4D27A] bg-[#FFF7E0] text-[#9A6A00] hover:bg-[#F4D27A]/50"}`}>
                           👨‍🍳 Preparar
                         </button>
                         <button
                           onClick={() => updateOrderStatus(order.id, "ready")}
                           disabled={order.status === "ready"}
-                          className={`rounded-2xl py-3 text-sm font-black transition active:scale-95
+                          className={`rounded-2xl border py-3 text-sm font-black transition duration-200 active:scale-95
                             ${order.status === "ready"
-                              ? "bg-emerald-500 text-white ring-2 ring-emerald-400/40"
-                              : "bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500 hover:text-white"}`}>
+                              ? "cursor-not-allowed border-[#E5E7EB] bg-[#F3F4F6] text-[#98A2B3]"
+                              : "border-[#86EFAC] bg-[#ECFDF3] text-[#047857] hover:bg-[#86EFAC]/40"}`}>
                           ✅ Finalizar
                         </button>
                       </div>
@@ -3955,7 +3953,7 @@ function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, cancela
                       {order.status === "ready" && (
                         <button
                           onClick={() => marcarEntregue(order.id)}
-                          className="w-full rounded-2xl border border-gold-400/40 bg-gold-500/15 py-3 text-sm font-black text-gold-300 hover:bg-gold-400 hover:text-blue-950 transition active:scale-95 shadow-lg shadow-gold-900/20">
+                          className="w-full rounded-2xl border border-[#D9A441] bg-[#D9A441] py-3 text-sm font-black text-[#182230] hover:bg-[#C7922F] transition duration-200 active:scale-95 shadow-sm">
                           🛎️ Marcar como Entregue
                         </button>
                       )}
@@ -3964,7 +3962,7 @@ function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, cancela
                       {order.status !== "delivered" && (
                         <button
                           onClick={() => setCancelando(order)}
-                          className="w-full rounded-2xl border border-red-400/30 bg-red-500/10 py-2.5 text-xs font-black text-red-300 hover:bg-red-500/20 transition">
+                          className="w-full rounded-2xl border border-[#FDA4AF] bg-[#FFF1F2] py-2.5 text-xs font-black text-[#B42318] hover:bg-[#FFE4E6] transition duration-200">
                           ✕ Cancelar pedido
                         </button>
                       )}
@@ -3992,10 +3990,10 @@ function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, cancela
       )}
 
       {/* ── Rodapé ────────────────────────────────────────────── */}
-      <footer className="shrink-0 flex items-center justify-between border-t border-white/10 bg-slate-900/60 px-6 py-2 backdrop-blur">
-        <span className="text-xs text-slate-500">⚡ Atualização em tempo real via Supabase</span>
-        <span className="text-xs text-slate-500">Pedidos salvos automaticamente no banco de dados</span>
-        <span className="text-xs text-slate-500">Sistema Restaurante — Cozinha</span>
+      <footer className="shrink-0 flex flex-wrap items-center justify-between gap-1 border-t border-[#E5E7EB] bg-white px-6 py-2">
+        <span className="text-xs text-[#667085]">⚡ Atualização em tempo real via Supabase</span>
+        <span className="text-xs text-[#667085]">Pedidos salvos automaticamente no banco de dados</span>
+        <span className="text-xs text-[#667085]">Sistema Restaurante — Cozinha</span>
       </footer>
     </div>
   );
@@ -4009,32 +4007,32 @@ function CancelarModal({ pedido, onConfirmar, onFechar }) {
   const [motivo, setMotivo] = useState("DESISTÊNCIA");
   const [obs, setObs] = useState("");
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onFechar}>
-      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl">
-        <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[rgba(15,23,42,0.5)] backdrop-blur-sm p-4" onClick={onFechar}>
+      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm rounded-[24px] border border-[#E5E7EB] bg-white shadow-[0_20px_60px_rgba(16,24,40,0.16)]">
+        <div className="flex items-center justify-between border-b border-[#E5E7EB] px-6 py-4">
           <div>
-            <h2 className="text-lg font-black text-white">✕ Cancelar pedido</h2>
-            <p className="text-xs text-slate-400">{pedido.id} • {pedido.table} • {pedido.command}</p>
+            <h2 className="text-lg font-black text-[#182230]">✕ Cancelar pedido</h2>
+            <p className="text-xs text-[#667085]">{pedido.id} • {pedido.table} • {pedido.command}</p>
           </div>
-          <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20">✕</button>
+          <button onClick={onFechar} className="rounded-full border border-[#E5E7EB] bg-[#F8FAFC] px-4 py-2 text-sm font-black text-[#475467] hover:bg-[#F1F5F9] transition duration-200">✕</button>
         </div>
         <div className="px-6 py-4 space-y-3">
-          <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Justificativa do cancelamento</p>
+          <p className="text-xs font-bold uppercase tracking-widest text-[#667085]">Justificativa do cancelamento</p>
           <div className="grid grid-cols-2 gap-2">
             {motivos.map((m) => (
               <button key={m} onClick={() => setMotivo(m)}
-                className={`rounded-2xl border px-3 py-2.5 text-xs font-black transition ${motivo === m ? "border-red-400 bg-red-500 text-white" : "border-white/10 bg-white/[0.06] text-slate-300 hover:bg-white/10"}`}>
+                className={`rounded-2xl border px-3 py-2.5 text-xs font-black transition duration-200 ${motivo === m ? "border-[#DC2626] bg-[#FFF1F2] text-[#B42318]" : "border-[#E5E7EB] bg-white text-[#475467] hover:bg-[#F8FAFC]"}`}>
                 {m}
               </button>
             ))}
           </div>
           {motivo === "Outro" && (
             <input value={obs} onChange={(e) => setObs(e.target.value)} placeholder="Descreva o motivo..."
-              className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-red-400" />
+              className="w-full rounded-2xl border border-[#E5E7EB] bg-[#F8FAFC] px-4 py-3 text-[#182230] outline-none focus:border-[#DC2626] focus:ring-2 focus:ring-[#DC2626]/15" />
           )}
           <button
             onClick={() => onConfirmar(motivo === "Outro" ? (obs.trim() || "Outro") : motivo)}
-            className="mt-1 w-full rounded-2xl bg-red-500 py-4 text-sm font-black text-white hover:bg-red-400 transition active:scale-95">
+            className="mt-1 w-full rounded-2xl bg-[#DC2626] py-4 text-sm font-black text-white hover:bg-[#C81E1E] transition duration-200 active:scale-95">
             Confirmar cancelamento
           </button>
         </div>
