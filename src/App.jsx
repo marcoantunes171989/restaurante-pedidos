@@ -2423,6 +2423,11 @@ function TabletView({
     setCategoriaAtiva(c);
     document.getElementById(`cat-${c}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
+  // Categorias exibidas no menu lateral: só as que têm produto ativo/visível
+  // vinculado (filteredItems já é a base de produtos ativos da mesa/empresa).
+  // "Destaques" só aparece se houver produto realmente marcado como destaque.
+  const temDestaquesReais = filteredItems.some((i) => (i.isFeatured && i.showOnHome !== false) || i.badge);
+  const categoriasVisiveis = categories.filter((c) => c === "Todos" ? temDestaquesReais : filteredItems.some((i) => i.category === c));
 
   // Mesa do tablet por SESSÃO: a cada login (tableNumber vazio) o tablet pede a
   // seleção da mesa. Mantida apenas em memória — NÃO persiste entre logins, para
@@ -2776,7 +2781,7 @@ function TabletView({
         {/* Menu gourmet lateral (categorias) */}
         <aside className="hidden md:flex w-48 lg:w-52 shrink-0 flex-col border-r border-[#E5E7EB] bg-white">
           <nav className="scrollbar-none flex-1 space-y-1 overflow-y-auto p-3">
-            {categories.map((c) => {
+            {categoriasVisiveis.map((c) => {
               const sel = categoriaAtiva === c;
               return (
                 <button key={c} onClick={() => irParaCategoriaTablet(c)}
@@ -2800,7 +2805,7 @@ function TabletView({
         <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
           {/* Categorias (telas sem o menu lateral) */}
           <div className="md:hidden shrink-0 flex items-center gap-2 overflow-x-auto border-b border-[#E5E7EB] bg-white px-4 py-2.5">
-            {categories.map((c) => (
+            {categoriasVisiveis.map((c) => (
               <button key={c} onClick={() => irParaCategoriaTablet(c)}
                 className={`shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-bold transition ${categoriaAtiva === c ? "border-[#D9A441] bg-[#FFF7E0] text-[#182230]" : "border-[#E5E7EB] bg-white text-[#475467]"}`}>
                 {iconeCategoria(c)} {c === "Todos" ? "Destaques" : c}
@@ -2866,8 +2871,7 @@ function TabletView({
               // no comportamento anterior (com badge / primeiros itens).
               const marcados = filteredItems.filter((i) => i.isFeatured && i.showOnHome !== false).sort((a, b) => (a.featuredOrder ?? 0) - (b.featuredOrder ?? 0));
               const comTag = filteredItems.filter((i) => i.badge);
-              const base = marcados.length > 0 ? marcados : (comTag.length > 0 ? comTag : filteredItems.slice(0, 4));
-              const destaques = base.slice(0, 8);
+              const destaques = (marcados.length > 0 ? marcados : comTag).slice(0, 8);
               const idsDestaque = new Set(destaques.map((i) => i.id));
               const cabSecao = (titulo, qtd) => (
                 <div className="mb-4 flex items-center gap-3">
@@ -2887,7 +2891,7 @@ function TabletView({
                       </div>
                     </section>
                   )}
-                  {categories.filter((c) => c !== "Todos").map((c) => {
+                  {categoriasVisiveis.filter((c) => c !== "Todos").map((c) => {
                     const itens = filteredItems.filter((i) => i.category === c && !idsDestaque.has(i.id));
                     if (itens.length === 0) return null;
                     return (
