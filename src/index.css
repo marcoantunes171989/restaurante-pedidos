@@ -278,6 +278,11 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
 [data-theme="light"] .tema-claro-area .text-gold-400\/80,
 [data-theme="light"] .tema-claro-area .text-gold-400\/70,
 [data-theme="light"] .tema-claro-area .text-gold-400\/60 { color: #9A6A00 !important; }
+/* Dourado claro como TEXTO (gold-200/300, sem opacidade) tem contraste
+   insuficiente sobre fundo branco — escurece só o texto (fundos/ícones
+   dourados vivos continuam intactos via as regras de bg-gold-*). */
+[data-theme="light"] .tema-claro-area .text-gold-200,
+[data-theme="light"] .tema-claro-area .text-gold-300 { color: #9A6A00 !important; }
 
 /* Separadores de linhas em listas/tabelas (divide-*) — o padrão branco
    fica invisível no fundo claro. Remapeia para o divisor suave da paleta. */

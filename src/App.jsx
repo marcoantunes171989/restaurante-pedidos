@@ -6362,7 +6362,7 @@ function SeletorPeriodo({ periodo, setPeriodo, ini, setIni, fim, setFim }) {
     <div className="flex flex-wrap items-center gap-2">
       {opcoes.map((o) => (
         <button key={o.id} onClick={() => setPeriodo(o.id)}
-          className={`rounded-full border px-3 py-1.5 text-xs font-black transition ${periodo === o.id ? "border-blue-400 bg-blue-500 text-white" : "border-white/10 bg-white/[0.06] text-slate-300 hover:bg-white/10"}`}>
+          className={`rounded-full border px-3 py-1.5 text-xs font-black transition ${periodo === o.id ? "border-[#2563EB] bg-[#2563EB] text-white" : "border-[#E5E7EB] bg-white text-[#475467] hover:bg-[#F9FAFB]"}`}>
           {o.label}
         </button>
       ))}
@@ -6430,20 +6430,28 @@ function BarraHorizontal({ label, valor, max, sufixo = "", cor = "bg-blue-500" }
   );
 }
 
-function CardMetrica({ titulo, valor, sub, cor = "text-white", icon, variacao = null }) {
+const CARD_METRICA_TONES = {
+  green:  { bg: "#EAFBF2", fg: "#16A34A" },
+  rose:   { bg: "#FFF1F2", fg: "#E5484D" },
+  blue:   { bg: "#EFF6FF", fg: "#2563EB" },
+  gold:   { bg: "#FFF7E0", fg: "#D9A441" },
+  violet: { bg: "#F5F3FF", fg: "#7C3AED" },
+};
+function CardMetrica({ titulo, valor, sub, cor = "text-[#182230]", icon, variacao = null, tone = "gold" }) {
+  const t = CARD_METRICA_TONES[tone] || CARD_METRICA_TONES.gold;
   return (
-    <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
+    <div className="rounded-3xl border border-[#E5E7EB] bg-white p-5">
       <div className="flex items-center justify-between">
-        <p className="text-xs font-bold uppercase tracking-widest text-slate-500">{titulo}</p>
-        {icon && <span className="flex h-8 w-8 items-center justify-center rounded-xl border border-gold-400/25 bg-gold-400/[0.08] text-sm text-gold-300 [&>svg]:h-[16px] [&>svg]:w-[16px]">{icon}</span>}
+        <p className="text-xs font-bold uppercase tracking-widest text-[#667085]">{titulo}</p>
+        {icon && <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm [&>svg]:h-[18px] [&>svg]:w-[18px]" style={{ background: t.bg, color: t.fg }}>{icon}</span>}
       </div>
       <p className={`page-title mt-2 text-3xl font-bold ${cor}`}>{valor}</p>
       {variacao != null && (
-        <p className={`mt-1 text-[11px] font-semibold ${variacao >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+        <p className={`mt-1 text-[11px] font-semibold ${variacao >= 0 ? "text-[#16A34A]" : "text-[#E5484D]"}`}>
           {variacao >= 0 ? "▲ +" : "▼ "}{variacao.toFixed(0)}% em relação ao período anterior
         </p>
       )}
-      {sub && <p className="mt-1 text-xs text-slate-500">{sub}</p>}
+      {sub && <p className="mt-1 text-xs text-[#667085]">{sub}</p>}
     </div>
   );
 }
@@ -7054,18 +7062,20 @@ function ContaCaixa({ o, opcoes, pagando, onFinalizar, haTxt, numeroPedido = {},
 function GrupoPill({ titulo, valor, setValor, opcoes }) {
   return (
     <div className="flex items-center gap-1.5">
-      <span className="text-[10px] font-bold uppercase tracking-widest text-slate-600">{titulo}</span>
+      <span className="text-[10px] font-bold uppercase tracking-widest text-[#667085]">{titulo}</span>
       <div className="flex flex-wrap gap-1">
         {opcoes.map((op) => (
           <button key={op.id} onClick={() => setValor(op.id)}
-            className={`rounded-full px-2.5 py-1 text-[11px] font-bold transition ${valor === op.id ? "bg-gold-400 text-blue-950" : "border border-white/10 bg-white/[0.05] text-slate-300 hover:bg-white/10"}`}>{op.label}</button>
+            className={`rounded-full px-2.5 py-1 text-[11px] font-bold transition ${valor === op.id ? "bg-[#D9A441] text-[#182230]" : "border border-[#E5E7EB] bg-white text-[#475467] hover:bg-[#F9FAFB]"}`}>{op.label}</button>
         ))}
       </div>
     </div>
   );
 }
 
-// Gráfico de barras por horário com destaque dourado no melhor horário
+// Gráfico de barras por horário — paleta média cíclica, com destaque
+// dourado no melhor horário (mantém o insight visual do pico de vendas).
+const CORES_BARRA_HORA = ["#4F8EF7", "#35B779", "#F28C82", "#A78BFA"];
 function BarrasHora({ dados }) {
   const max = Math.max(1, ...dados.map((d) => d.valor));
   const maxVal = Math.max(...dados.map((d) => d.valor));
@@ -7073,11 +7083,12 @@ function BarrasHora({ dados }) {
     <div className="flex items-end justify-between gap-1.5 overflow-x-auto" style={{ height: 200 }}>
       {dados.map((d, i) => {
         const destaque = d.valor === maxVal && maxVal > 0;
+        const cor = destaque ? "#D9A441" : CORES_BARRA_HORA[i % CORES_BARRA_HORA.length];
         return (
           <div key={i} className="flex min-w-[28px] flex-1 flex-col items-center justify-end gap-1">
-            <span className="w-full truncate text-center font-bold leading-none text-slate-300" style={{ fontSize: 9 }}>{d.valor > 0 ? formatCurrency(d.valor).replace("R$", "").trim() : ""}</span>
-            <div className={`w-full rounded-t-md transition-all ${destaque ? "bg-gradient-to-t from-[#C7922F] to-[#D9A441]" : "bg-gradient-to-t from-[#4F8EF7] to-[#3B76E0]"}`} style={{ height: `${(d.valor / max) * 150}px`, minHeight: d.valor > 0 ? 4 : 0 }} />
-            <span className="w-full truncate text-center leading-none text-slate-500" style={{ fontSize: 9 }}>{d.label}</span>
+            <span className="w-full truncate text-center font-bold leading-none text-[#475467]" style={{ fontSize: 9 }}>{d.valor > 0 ? formatCurrency(d.valor).replace("R$", "").trim() : ""}</span>
+            <div className="w-full rounded-t-md transition-all" style={{ height: `${(d.valor / max) * 150}px`, minHeight: d.valor > 0 ? 4 : 0, backgroundColor: cor }} />
+            <span className="w-full truncate text-center leading-none text-[#98A2B3]" style={{ fontSize: 9 }}>{d.label}</span>
           </div>
         );
       })}
@@ -7111,9 +7122,9 @@ function LinhaFaturamento({ dados }) {
 // Card de painel padrão do dashboard
 function Painel({ titulo, acao = null, children, className = "" }) {
   return (
-    <div className={`rounded-[2rem] border border-white/10 bg-white/[0.04] p-5 ${className}`}>
+    <div className={`rounded-[20px] border border-[#E5E7EB] bg-white p-5 shadow-[0_8px_24px_rgba(16,24,40,0.06)] ${className}`}>
       <div className="mb-4 flex items-center justify-between gap-2">
-        <h3 className="page-title text-base font-bold text-white">{titulo}</h3>
+        <h3 className="page-title text-base font-bold text-[#182230]">{titulo}</h3>
         {acao}
       </div>
       {children}
@@ -7316,7 +7327,12 @@ function DashboardAdmin({ orders, products, comandas = [], clientes = [], setore
       ? { tom: "emerald", titulo: "Todos os produtos", desc: "com estoque adequado." }
       : { tom: "red", titulo: `${semEstoque.length} produto(s)`, desc: "abaixo do estoque mínimo." },
   ];
-  const tomCls = { red: "border-red-400/30 bg-red-500/10 text-red-300", gold: "border-gold-400/30 bg-gold-400/10 text-gold-300", orange: "border-orange-400/30 bg-orange-500/10 text-orange-300", emerald: "border-emerald-400/30 bg-emerald-500/10 text-emerald-300" };
+  const tomCls = {
+    red: "border-[#FECDD3] bg-[#FFF1F2] text-[#B42318]",
+    gold: "border-[#F4D27A] bg-[#FFF7E0] text-[#9A6A00]",
+    orange: "border-[#FDE1B0] bg-[#FFF4E5] text-[#B45309]",
+    emerald: "border-[#B7E4C7] bg-[#EAFBF2] text-[#147A4A]",
+  };
 
   // Recomendações (parcialmente dinâmicas)
   const recomendacoes = [
@@ -7391,17 +7407,17 @@ function DashboardAdmin({ orders, products, comandas = [], clientes = [], setore
       {/* Cabeçalho + período */}
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h2 className="page-title flex items-center gap-2.5 text-2xl font-bold tracking-tight text-white">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gold-400/30 bg-gold-400/10 text-gold-300">{soCopiloto ? "🤖" : <IconDashboard />}</span>
+          <h2 className="page-title flex items-center gap-2.5 text-2xl font-bold tracking-tight text-[#182230]">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#FFF7E0] text-[#D9A441]">{soCopiloto ? "🤖" : <IconDashboard />}</span>
             {soCopiloto ? "Copiloto IA" : "Dashboard Gerencial"}
           </h2>
-          <p className="mt-1 max-w-2xl text-sm text-slate-400">{soCopiloto ? "Assistente de gestão por IA: análise automática + chat para apoiar suas decisões." : "Visão estratégica de vendas, operação, produtos, clientes e desempenho financeiro."}</p>
+          <p className="mt-1 max-w-2xl text-sm text-[#667085]">{soCopiloto ? "Assistente de gestão por IA: análise automática + chat para apoiar suas decisões." : "Visão estratégica de vendas, operação, produtos, clientes e desempenho financeiro."}</p>
         </div>
         <SeletorPeriodo periodo={periodo} setPeriodo={setPeriodo} ini={ini} setIni={setIni} fim={fim} setFim={setFim} />
       </div>
 
       {/* Filtros secundários */}
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-2xl border border-[#E5E7EB] bg-white px-4 py-3">
         <GrupoPill titulo="Turno" valor={turno} setValor={setTurno} opcoes={[{ id: "todos", label: "Todos" }, { id: "almoco", label: "Almoço" }, { id: "jantar", label: "Jantar" }]} />
         <GrupoPill titulo="Canal" valor={canal} setValor={setCanal} opcoes={[{ id: "todos", label: "Todos" }, { id: "mesa", label: "Mesa" }, { id: "qr", label: "QR Code" }, { id: "balcao", label: "Balcão" }, { id: "delivery", label: "Delivery" }]} />
         <GrupoPill titulo="Status" valor={statusF} setValor={setStatusF} opcoes={[{ id: "todos", label: "Todos" }, { id: "pago", label: "Pago" }, { id: "aberto", label: "Em aberto" }, { id: "cancelado", label: "Cancelado" }]} />
@@ -7420,14 +7436,14 @@ function DashboardAdmin({ orders, products, comandas = [], clientes = [], setore
           { dot: estoqueBaixo === 0 ? "bg-emerald-400" : "bg-red-400", txt: estoqueBaixo === 0 ? "Estoque sem alertas" : <>{estoqueBaixo} produto(s) sem estoque</> },
         ].filter(Boolean);
         return (
-          <div className="flex flex-wrap items-center gap-2.5 rounded-2xl border border-gold-400/20 bg-gold-400/[0.04] px-4 py-3">
-            <span className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-gold-300">
+          <div className="flex flex-wrap items-center gap-2.5 rounded-2xl border border-[#F4D27A]/60 bg-white px-4 py-3">
+            <span className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-[#9A6A00]">
               <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor"><path d="M12 2l2.4 6.9H22l-6 4.3 2.3 7L12 16l-6.3 4.2 2.3-7-6-4.3h7.6z" /></svg>
               Resumo inteligente
             </span>
-            <span className="hidden h-4 w-px bg-white/10 sm:block" />
+            <span className="hidden h-4 w-px bg-[#E5E7EB] sm:block" />
             {pills.map((p, i) => (
-              <span key={i} className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-semibold text-slate-300">
+              <span key={i} className="inline-flex items-center gap-2 rounded-full border border-[#E5E7EB] bg-[#F9FAFB] px-3 py-1.5 text-xs font-semibold text-[#475467]">
                 <span className={`h-1.5 w-1.5 rounded-full ${p.dot}`} />{p.txt}
               </span>
             ))}
@@ -7438,19 +7454,19 @@ function DashboardAdmin({ orders, products, comandas = [], clientes = [], setore
       {/* KPIs (8) */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <button onClick={() => setModal({ titulo: "Faturamento — pedidos pagos", pedidos: pagos })} className="text-left">
-          <CardMetrica titulo="Faturamento pago" valor={formatCurrency(a.faturamento)} sub={`${pagos.length} pedidos pagos • ver detalhes`} cor="text-emerald-400" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="12" rx="2" /><circle cx="12" cy="12" r="2.5" /><path d="M6 12h.01M18 12h.01" /></svg>} variacao={comparativo?.faturamento} />
+          <CardMetrica titulo="Faturamento pago" valor={formatCurrency(a.faturamento)} sub={`${pagos.length} pedidos pagos • ver detalhes`} tone="green" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="12" rx="2" /><circle cx="12" cy="12" r="2.5" /><path d="M6 12h.01M18 12h.01" /></svg>} variacao={comparativo?.faturamento} />
         </button>
         <button onClick={() => setModal({ titulo: "Valores em aberto", pedidos: abertos })} className="text-left">
-          <CardMetrica titulo="Valores em aberto" valor={formatCurrency(a.emAberto)} sub={`${abertos.length} comandas pendentes`} cor="text-gold-400" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>} />
+          <CardMetrica titulo="Valores em aberto" valor={formatCurrency(a.emAberto)} sub={`${abertos.length} comandas pendentes`} tone="rose" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>} />
         </button>
-        <CardMetrica titulo="Faturamento previsto" valor={formatCurrency(previsto)} sub="pago + em aberto" cor="text-blue-400" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 17l6-6 4 4 8-8" /><path d="M17 7h4v4" /></svg>} />
-        <CardMetrica titulo="Ticket médio" valor={formatCurrency(a.ticket)} sub="meta sugerida: R$ 45,00" cor="text-violet-300" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z" /><path d="M9 8h6M9 12h6" /></svg>} variacao={comparativo?.ticket} />
+        <CardMetrica titulo="Faturamento previsto" valor={formatCurrency(previsto)} sub="pago + em aberto" cor="text-[#2563EB]" tone="blue" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 17l6-6 4 4 8-8" /><path d="M17 7h4v4" /></svg>} />
+        <CardMetrica titulo="Ticket médio" valor={formatCurrency(a.ticket)} sub="meta sugerida: R$ 45,00" tone="green" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z" /><path d="M9 8h6M9 12h6" /></svg>} variacao={comparativo?.ticket} />
         <button onClick={() => setModal({ titulo: "Todos os pedidos do período", pedidos: filtrados })} className="text-left">
-          <CardMetrica titulo="Total de pedidos" valor={a.totalPedidos} sub={`${pagos.length} pagos | ${abertos.length} em aberto`} cor="text-violet-300" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8l-9-5-9 5 9 5 9-5z" /><path d="M3 8v8l9 5 9-5V8" /><path d="M12 13v8" /></svg>} variacao={comparativo?.pedidos} />
+          <CardMetrica titulo="Total de pedidos" valor={a.totalPedidos} sub={`${pagos.length} pagos | ${abertos.length} em aberto`} tone="blue" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8l-9-5-9 5 9 5 9-5z" /><path d="M3 8v8l9 5 9-5V8" /><path d="M12 13v8" /></svg>} variacao={comparativo?.pedidos} />
         </button>
-        <CardMetrica titulo="Produto mais vendido" valor={produtoTop ? produtoTop.nome : "—"} sub={produtoTop ? `${produtoTop.qtd} unidades vendidas` : "sem vendas"} cor="text-gold-400" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="9" r="5" /><path d="M9 13.5 8 21l4-2 4 2-1-7.5" /></svg>} />
-        <CardMetrica titulo="Mesas abertas" valor={mesasAbertas} sub={mesasAbertas ? `tempo médio aberto: ${tempoMedioMesa} min` : "nenhuma mesa aberta"} cor="text-emerald-400" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></svg>} />
-        <CardMetrica titulo="Clientes no período" valor={clientesPeriodo} sub={`de ${clientes.length} cadastrados`} cor="text-blue-400" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 20v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="8" r="3.5" /><path d="M22 20v-2a4 4 0 0 0-3-3.8" /><path d="M16 4.2a4 4 0 0 1 0 7.6" /></svg>} />
+        <CardMetrica titulo="Produto mais vendido" valor={produtoTop ? produtoTop.nome : "—"} sub={produtoTop ? `${produtoTop.qtd} unidades vendidas` : "sem vendas"} cor="text-[#D9A441]" tone="gold" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="9" r="5" /><path d="M9 13.5 8 21l4-2 4 2-1-7.5" /></svg>} />
+        <CardMetrica titulo="Mesas abertas" valor={mesasAbertas} sub={mesasAbertas ? `tempo médio aberto: ${tempoMedioMesa} min` : "nenhuma mesa aberta"} tone="violet" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></svg>} />
+        <CardMetrica titulo="Clientes no período" valor={clientesPeriodo} sub={`de ${clientes.length} cadastrados`} tone="violet" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 20v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="8" r="3.5" /><path d="M22 20v-2a4 4 0 0 0-3-3.8" /><path d="M16 4.2a4 4 0 0 1 0 7.6" /></svg>} />
       </div>
 
       </>)}
@@ -7567,8 +7583,8 @@ function DashboardAdmin({ orders, products, comandas = [], clientes = [], setore
       <Painel titulo="Faturamento por Horário">
         <BarrasHora dados={vendasPorHora} />
         <div className="mt-4 flex flex-wrap gap-2">
-          <span className="rounded-full border border-gold-400/30 bg-gold-400/10 px-3 py-1 text-xs font-bold text-gold-300">★ Melhor horário de venda: {melhorHora.label}</span>
-          <span className="rounded-full border border-blue-400/30 bg-blue-500/10 px-3 py-1 text-xs font-bold text-blue-200">Oportunidade: elevar o ticket médio nos horários de menor venda.</span>
+          <span className="rounded-full border border-[#F4D27A] bg-[#FFF7E0] px-3 py-1 text-xs font-bold text-[#9A6A00]">★ Melhor horário de venda: {melhorHora.label}</span>
+          <span className="rounded-full border border-[#BFDBFE] bg-[#EFF6FF] px-3 py-1 text-xs font-bold text-[#1D4ED8]">Oportunidade: elevar o ticket médio nos horários de menor venda.</span>
         </div>
       </Painel>
 
