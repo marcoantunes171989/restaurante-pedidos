@@ -881,20 +881,30 @@ export default function CardapioPublico() {
       {aba === "carrinho" && (
         <Gaveta titulo="🛒 Seu pedido" onFechar={() => setAba(null)}>
           {bloqueioHorario && (
-            <div className="mb-3 rounded-2xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-center text-sm font-bold text-red-200">
-              🌙 Estabelecimento fechado no momento.<br /><span className="text-xs font-normal text-red-200/80">Pedidos só podem ser enviados dentro do horário de funcionamento.</span>
+            <div className="mb-3 rounded-2xl border border-[#FDA4AF] bg-[#FFF1F2] px-4 py-3 text-center">
+              <p className="text-sm font-bold text-[#B42318]">🌙 Estabelecimento fechado no momento</p>
+              <p className="mt-0.5 text-xs font-medium text-[#7F1D1D]">Pedidos só podem ser enviados dentro do horário de funcionamento.</p>
             </div>
           )}
-          {cart.length === 0 ? <p className="py-8 text-center text-sm text-slate-500">Carrinho vazio.</p> : (
-            <div className="space-y-2">
+          {cart.length === 0 ? <p className="py-8 text-center text-sm text-[#667085]">Carrinho vazio.</p> : (
+            <div className="space-y-2.5">
               {cart.map((i) => (
-                <div key={i._uid} className={`flex items-center justify-between gap-2 rounded-2xl border bg-slate-950/40 p-3 ${i.comboId ? "border-emerald-400/30" : "border-white/10"}`}>
+                <div key={i._uid} className={`flex items-center justify-between gap-3 rounded-2xl border bg-white p-3.5 shadow-[0_8px_24px_rgba(16,24,40,.06)] ${i.comboId ? "border-[#B7E4C7]" : "border-[#E5E7EB]"}`}>
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-black text-white">{i.quantity}× {i.name}</p>
-                    {i.comboId && <p className="truncate text-[11px] font-bold text-emerald-300">🍔 Combo: {i.comboNome}</p>}
-                    {(i.removedIngredients?.length > 0 || i.extraIngredients?.length > 0 || i.observation) && <p className="truncate text-[11px] text-amber-300">{[...(i.removedIngredients || []).map((x) => "− " + x), ...(i.extraIngredients || []).map((x) => "+ " + x), i.observation].filter(Boolean).join(" · ")}</p>}
+                    <p className="text-sm font-black leading-snug text-[#182230]">{i.quantity}× {i.name}</p>
+                    {i.comboId && <p className="mt-0.5 truncate text-[11px] font-bold text-[#147A4A]">🍔 Combo: {i.comboNome}</p>}
+                    {(i.removedIngredients?.length > 0 || i.extraIngredients?.length > 0 || i.observation) && (
+                      <p className="mt-1 text-[11px] leading-4 text-[#9A6A00]">
+                        {i.removedIngredients?.length > 0 && <>Sem: {i.removedIngredients.join(", ")}<br /></>}
+                        {i.extraIngredients?.length > 0 && <>Com: {i.extraIngredients.join(", ")}<br /></>}
+                        {i.observation}
+                      </p>
+                    )}
                   </div>
-                  <div className="flex items-center gap-2"><span className="text-sm font-bold text-white">{formatCurrency(i.price * i.quantity)}</span><button onClick={() => pedirRemover(i)} className="rounded-lg border border-red-400/20 bg-red-500/10 px-2 py-1 text-xs font-black text-red-300">✕</button></div>
+                  <div className="flex shrink-0 flex-col items-end gap-1.5">
+                    <span className="text-sm font-bold text-[#182230]">{formatCurrency(i.price * i.quantity)}</span>
+                    <button onClick={() => pedirRemover(i)} className="min-h-[32px] rounded-lg border border-[#FDA4AF] bg-[#FFF1F2] px-2.5 py-1 text-xs font-black text-[#B42318] transition hover:bg-[#FEE2E2]">Remover</button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -903,20 +913,20 @@ export default function CardapioPublico() {
             // Pedido externo (link de divulgação) — regras da empresa + nome + telefone
             <div className="mt-4 space-y-3">
               {!aceitaExterno ? (
-                <div className="rounded-2xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm font-bold text-amber-200">
+                <div className="rounded-2xl border border-[#FDE1B0] bg-[#FFF4E5] px-4 py-3 text-sm font-bold text-[#B45309]">
                   🚫 Esta empresa não está aceitando pedidos pelo cardápio no momento.
                 </div>
               ) : opcoesEntrega.length === 0 ? (
-                <div className="rounded-2xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm font-bold text-amber-200">
+                <div className="rounded-2xl border border-[#FDE1B0] bg-[#FFF4E5] px-4 py-3 text-sm font-bold text-[#B45309]">
                   Nenhuma forma de pedido disponível no momento.
                 </div>
               ) : (
                 <div>
-                  <span className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-amber-500">⚠ Como deseja receber? *</span>
+                  <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-[#667085]">Como deseja receber? <span className="text-[#B45309]">*</span></span>
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                     {opcoesEntrega.map((o) => (
                       <button key={o.id} type="button" onClick={() => setTipoPedido(o.id)}
-                        className={`flex items-center justify-center gap-1.5 rounded-2xl border px-3 py-2.5 text-sm font-black transition ${tipoPedido === o.id ? "border-emerald-400 bg-emerald-500/15 text-emerald-200" : "border-white/10 bg-slate-800 text-slate-300"}`}>
+                        className={`flex min-h-[44px] items-center justify-center gap-1.5 rounded-2xl border px-3 py-2.5 text-sm font-black transition ${tipoPedido === o.id ? "border-[#16A34A] bg-[#ECFDF3] text-[#047857]" : "border-[#E5E7EB] bg-white text-[#475467] hover:bg-[#F8FAFC]"}`}>
                         <span>{o.icon}</span><span>{o.label}</span>
                       </button>
                     ))}
@@ -924,58 +934,58 @@ export default function CardapioPublico() {
                 </div>
               )}
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <label><span className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-amber-500">⚠ Telefone (WhatsApp) *</span>
+                <label><span className="mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-[#667085]">Telefone (WhatsApp) <span className="text-[#B45309]">*</span></span>
                   <input type="tel" inputMode="numeric" autoComplete="tel" value={mascararTelefone(telefone)} onChange={(e) => setTelefone(e.target.value.replace(/\D/g, "").slice(0, 11))} placeholder="(11) 98765-4321" maxLength={16}
-                    className="w-full rounded-2xl border border-amber-400/40 bg-slate-800 px-3 py-2.5 text-sm font-black text-white outline-none" /></label>
-                <label><span className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-amber-500">⚠ Seu nome *</span>
+                    className="w-full min-h-[44px] rounded-2xl border border-[#E5E7EB] bg-white px-3 py-2.5 text-sm font-black text-[#182230] outline-none transition focus:border-[#D9A441] placeholder:font-normal placeholder:text-[#98A2B3]" /></label>
+                <label><span className="mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-[#667085]">Seu nome <span className="text-[#B45309]">*</span></span>
                   <input autoComplete="name" value={cliente} onChange={(e) => setCliente(capitalizarNome(e.target.value))} placeholder="Nome completo"
-                    className="w-full rounded-2xl border border-amber-400/40 bg-slate-800 px-3 py-2.5 text-sm text-white outline-none" /></label>
+                    className="w-full min-h-[44px] rounded-2xl border border-[#E5E7EB] bg-white px-3 py-2.5 text-sm text-[#182230] outline-none transition focus:border-[#D9A441] placeholder:text-[#98A2B3]" /></label>
               </div>
             </div>
           ) : (
             <>
               <div className="mt-4 grid grid-cols-2 gap-3">
-                <label><span className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-amber-500">⚠ Mesa *</span>
+                <label><span className="mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-[#667085]">Mesa <span className="text-[#B45309]">*</span></span>
                   <input type="tel" inputMode="numeric" value={mesa} onChange={(e) => setMesa(e.target.value.replace(/\D/g, "").slice(0, 2))} placeholder="Nº" disabled={!!mesaURL}
-                    className="w-full rounded-2xl border border-amber-400/40 bg-slate-800 px-3 py-2.5 text-sm font-black text-white outline-none disabled:opacity-70" /></label>
-                <label><span className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-slate-500">Seu nome (opcional)</span>
-                  <input value={cliente} onChange={(e) => setCliente(capitalizarNome(e.target.value))} placeholder="Nome" className="w-full rounded-2xl border border-white/10 bg-slate-800 px-3 py-2.5 text-sm text-white outline-none" /></label>
+                    className="w-full min-h-[44px] rounded-2xl border border-[#E5E7EB] bg-white px-3 py-2.5 text-sm font-black text-[#182230] outline-none transition focus:border-[#D9A441] disabled:bg-[#F8FAFC] disabled:text-[#667085]" /></label>
+                <label><span className="mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-[#667085]">Seu nome (opcional)</span>
+                  <input value={cliente} onChange={(e) => setCliente(capitalizarNome(e.target.value))} placeholder="Nome" className="w-full min-h-[44px] rounded-2xl border border-[#E5E7EB] bg-white px-3 py-2.5 text-sm text-[#182230] outline-none transition focus:border-[#D9A441] placeholder:text-[#98A2B3]" /></label>
               </div>
               {!comURL && (
-                <div className="mt-3"><span className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-amber-500">⚠ Comanda *</span>
+                <div className="mt-3"><span className="mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-[#667085]">Comanda <span className="text-[#B45309]">*</span></span>
                   <input value={comanda} onChange={(e) => setComanda(e.target.value.toUpperCase())} placeholder={`Ex.: ${loja.prefixo}-000001`}
-                    className="w-full rounded-2xl border border-amber-400/40 bg-slate-800 px-3 py-2.5 font-mono text-sm font-black tracking-widest text-white outline-none" />
-                  <p className="mt-1 text-[11px] text-slate-500">Escaneie o QR Code da mesa ou digite a comanda.</p></div>
+                    className="w-full min-h-[44px] rounded-2xl border border-[#E5E7EB] bg-white px-3 py-2.5 font-mono text-sm font-black tracking-widest text-[#182230] outline-none transition focus:border-[#D9A441] placeholder:font-sans placeholder:font-normal placeholder:text-[#98A2B3]" />
+                  <p className="mt-1 text-[11px] text-[#667085]">Escaneie o QR Code da mesa ou digite a comanda.</p></div>
               )}
             </>
           )}
           {/* Forma de pagamento (aba "Pagamento") — pedido interno e externo */}
           {formasPagto.length > 0 && (
             <div className="mt-4">
-              <span className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-amber-500">⚠ Forma de pagamento *</span>
+              <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-[#667085]">Forma de pagamento <span className="text-[#B45309]">*</span></span>
               <div className="grid grid-cols-3 gap-2">
                 {formasPagto.map((f) => (
                   <button key={f.id} type="button" onClick={() => setFormaPagto(f.id)}
-                    className={`flex items-center justify-center gap-1.5 rounded-2xl border px-2 py-2.5 text-sm font-black transition ${formaPagto === f.id ? "border-emerald-400 bg-emerald-500/15 text-emerald-200" : "border-white/10 bg-slate-800 text-slate-300"}`}>
+                    className={`flex min-h-[44px] items-center justify-center gap-1.5 rounded-2xl border px-2 py-2.5 text-sm font-black transition ${formaPagto === f.id ? "border-[#16A34A] bg-[#ECFDF3] text-[#047857]" : "border-[#E5E7EB] bg-white text-[#475467] hover:bg-[#F8FAFC]"}`}>
                     <span>{f.icon}</span><span>{f.label}</span>
                   </button>
                 ))}
               </div>
-              <p className="mt-1.5 text-[11px] text-slate-500">Pagamento: <span className="font-bold text-slate-300">{momentoPagto}</span>.</p>
+              <p className="mt-1.5 text-[11px] text-[#667085]">Pagamento: <span className="font-bold text-[#475467]">{momentoPagto}</span>.</p>
             </div>
           )}
           {economiaCart > 0 && (
-            <div className="mt-3 flex items-center justify-center gap-1.5 rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 text-sm font-black text-emerald-300">💚 Você economizou {formatCurrency(economiaCart)} nesta compra!</div>
+            <div className="mt-3 flex items-center justify-center gap-1.5 rounded-2xl border border-[#B7E4C7] bg-[#ECFDF3] px-3 py-2 text-sm font-black text-[#147A4A]">💚 Você economizou {formatCurrency(economiaCart)} nesta compra!</div>
           )}
-          <div className="mt-3 flex items-center justify-between border-t border-white/10 pt-3"><span className="text-sm text-slate-400">Total</span><span className="text-xl font-black text-emerald-400">{formatCurrency(totalCart)}</span></div>
+          <div className="mt-3 flex items-center justify-between border-t border-[#E5E7EB] pt-3"><span className="text-sm text-[#475467]">Total</span><span className="text-xl font-black text-[#9A6A00]">{formatCurrency(totalCart)}</span></div>
           {modoExterno && minimoExterno > 0 && (
-            <p className={`mt-2 text-xs font-bold ${minimoFalta > 0 ? "text-amber-300" : "text-emerald-400"}`}>
+            <p className={`mt-2 text-xs font-bold ${minimoFalta > 0 ? "text-[#B45309]" : "text-[#147A4A]"}`}>
               {minimoFalta > 0 ? `Pedido mínimo de ${formatCurrency(minimoExterno)} — faltam ${formatCurrency(minimoFalta)}.` : `✓ Pedido mínimo de ${formatCurrency(minimoExterno)} atingido.`}
             </p>
           )}
           <button onClick={enviar} disabled={!podeEnviar || enviando}
-            className="mt-3 w-full rounded-2xl bg-emerald-500 py-4 text-sm font-black text-white hover:bg-emerald-400 transition active:scale-95 disabled:opacity-40">
-            {enviando ? "Enviando…" : bloqueioHorario ? "🌙 Fechado no momento" : "🚀 Enviar pedido"}
+            className={`mt-3 w-full min-h-[44px] rounded-2xl py-4 text-sm font-black transition active:scale-95 ${(!podeEnviar || enviando) ? "bg-[#F3F4F6] text-[#98A2B3]" : "bg-[#D9A441] text-[#182230] hover:bg-[#C7922F]"}`}>
+            {enviando ? "Enviando…" : bloqueioHorario ? "Pedido indisponível no momento" : "🚀 Enviar pedido"}
           </button>
         </Gaveta>
       )}
@@ -1071,10 +1081,10 @@ function Gaveta({ titulo, onFechar, children }) {
   const sheetMax = vp ? `${vp.h - 8}px` : "88dvh";
   const bodyMax = vp ? `${vp.h - 72}px` : "calc(88dvh - 64px)";
   return (
-    <div className="fixed inset-x-0 top-0 z-[110] flex items-end justify-center bg-black/70 backdrop-blur-sm" style={overlayStyle} onClick={onFechar}>
-      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-3xl rounded-t-[2rem] border border-white/10 bg-slate-900 shadow-2xl" style={{ maxHeight: sheetMax }}>
-        <div className="flex items-center justify-between border-b border-white/10 px-5 py-4"><h2 className="text-lg font-black text-white">{titulo}</h2><button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300">Fechar ✕</button></div>
-        <div className="pp-overscroll-contain overflow-y-auto px-5 py-4" style={{ maxHeight: bodyMax }}>{children}</div>
+    <div data-theme="light" className="tema-claro-area fixed inset-x-0 top-0 z-[110] flex w-full max-w-[100vw] items-end justify-center overflow-x-hidden bg-black/60 backdrop-blur-sm" style={overlayStyle} onClick={onFechar}>
+      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-3xl rounded-t-[24px] border border-[#E5E7EB] bg-white shadow-[0_8px_24px_rgba(16,24,40,.08)]" style={{ maxHeight: sheetMax, paddingBottom: "env(safe-area-inset-bottom)" }}>
+        <div className="sticky top-0 z-10 flex items-center justify-between rounded-t-[24px] border-b border-[#E5E7EB] bg-white px-5 py-4"><h2 className="text-lg font-black text-[#182230]">{titulo}</h2><button onClick={onFechar} className="min-h-[44px] rounded-2xl border border-[#E5E7EB] bg-[#F8FAFC] px-4 py-2 text-sm font-black text-[#475467] transition hover:bg-[#F3F4F6]">Fechar ✕</button></div>
+        <div className="pp-overscroll-contain overflow-y-auto px-4 py-4 sm:px-5" style={{ maxHeight: bodyMax }}>{children}</div>
       </div>
     </div>
   );
