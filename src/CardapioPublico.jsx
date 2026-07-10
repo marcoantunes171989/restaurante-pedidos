@@ -377,32 +377,32 @@ export default function CardapioPublico() {
     // Abre o modal com o produto já no preço promocional (carrinho/total refletem o desconto)
     const abrir = () => setDetalhe(promo ? { ...item, price: promo.preco, precoOriginal: promo.original, economiaUnit: promo.original - promo.preco } : item);
     return (
-      <article key={item.id} className={`flex h-full flex-col rounded-[1.5rem] border bg-slate-900/70 ${promo ? "border-emerald-400/40" : item.isFeatured && !indisponivel ? "border-gold-400/50" : "border-white/10"}`}>
+      <article key={item.id} className={`flex h-full flex-col rounded-[1.25rem] border bg-white shadow-[0_8px_24px_rgba(16,24,40,.06)] ${promo ? "border-[#B7E4C7]" : item.isFeatured && !indisponivel ? "border-[#F4D27A]" : "border-[#E5E7EB]"}`}>
         <div className="flex gap-3 p-3">
           <div className="relative shrink-0">
-            <button onClick={() => !indisponivel && abrir()} disabled={indisponivel} className="block h-[88px] w-[88px] overflow-hidden rounded-2xl bg-slate-800">
+            <button onClick={() => !indisponivel && abrir()} disabled={indisponivel} className="block h-[88px] w-[88px] overflow-hidden rounded-2xl bg-[#F3F4F6]">
               <img src={item.imageUrl || fallbackImage} alt={item.name} className={`h-full w-full object-cover ${indisponivel ? "grayscale opacity-50" : ""}`} />
             </button>
             {personalizavel && !indisponivel && (
-              <button onClick={abrir} aria-label="Personalizar" title="Personalizar" className="absolute left-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-full border border-gold-400/40 bg-slate-950/85 text-gold-300 shadow-lg">
+              <button onClick={abrir} aria-label="Personalizar" title="Personalizar" className="absolute left-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-full border border-[#F4D27A] bg-white text-[#9A6A00] shadow-[0_4px_12px_rgba(16,24,40,.1)]">
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/><circle cx="9" cy="7" r="2" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="2" fill="currentColor" stroke="none"/><circle cx="8" cy="17" r="2" fill="currentColor" stroke="none"/></svg>
               </button>
             )}
-            {promo && !indisponivel && <span className="absolute right-1.5 top-1.5 rounded-full bg-emerald-500 px-1.5 py-0.5 text-[9px] font-black text-white shadow-lg">{promo.label}</span>}
-            {indisponivel && <span className="absolute left-1/2 top-1/2 w-max -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/75 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-slate-200">Indisponível</span>}
+            {promo && !indisponivel && <span className="absolute right-1.5 top-1.5 rounded-full bg-[#16A34A] px-1.5 py-0.5 text-[9px] font-black text-white shadow-[0_4px_12px_rgba(16,24,40,.1)]">{promo.label}</span>}
+            {indisponivel && <span className="absolute left-1/2 top-1/2 w-max -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#E5E7EB] bg-white/90 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-[#667085]">Indisponível</span>}
           </div>
           <div className="min-w-0 flex-1">
-            <h3 className="text-[15px] font-black leading-tight text-white line-clamp-1">{item.name}</h3>
-            <p className="mt-1 line-clamp-3 text-[11px] leading-4 text-slate-400">{item.description}</p>
+            <h3 className="text-[15px] font-black leading-tight text-[#182230] line-clamp-1">{item.name}</h3>
+            <p className="mt-1 line-clamp-3 text-[11px] leading-4 text-[#667085]">{item.description}</p>
           </div>
         </div>
         <div className="mt-auto flex items-center justify-between px-3 pb-3">
           {promo
-            ? <span className="flex flex-col leading-none"><span className="text-[11px] font-bold text-slate-500 line-through">{formatCurrency(promo.original)}</span><span className="text-base font-black text-emerald-400">{formatCurrency(promo.preco)}</span></span>
-            : <span className="text-base font-black text-gold-400">{formatCurrency(item.price)}</span>}
+            ? <span className="flex flex-col leading-none"><span className="text-[11px] font-bold text-[#98A2B3] line-through">{formatCurrency(promo.original)}</span><span className="text-base font-black text-[#147A4A]">{formatCurrency(promo.preco)}</span></span>
+            : <span className="text-base font-black text-[#9A6A00]">{formatCurrency(item.price)}</span>}
           {indisponivel
-            ? <span className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-slate-600">✕</span>
-            : <button onClick={abrir} aria-label="Adicionar" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gold-400 text-xl font-black text-blue-950 shadow-lg shadow-gold-900/30 transition active:scale-90 hover:bg-gold-300">+</button>}
+            ? <span className="flex h-9 w-9 items-center justify-center rounded-full border border-[#E5E7EB] bg-[#F3F4F6] text-[#98A2B3]">✕</span>
+            : <button onClick={abrir} aria-label="Adicionar" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#D9A441] text-xl font-black text-[#182230] shadow-[0_4px_12px_rgba(16,24,40,.1)] transition active:scale-90 hover:bg-[#C7922F]">+</button>}
         </div>
       </article>
     );
@@ -619,31 +619,31 @@ export default function CardapioPublico() {
   // ── Tela de boas-vindas (somente no modo mesa via QR) ──────────
   if (etapa === "welcome") {
     return (
-      <div className="flex min-h-screen flex-col bg-gradient-to-b from-blue-950 via-slate-950 to-black px-6 text-slate-100"
+      <div data-theme="light" className="tema-claro-area flex min-h-screen w-full max-w-[100vw] flex-col overflow-x-hidden bg-[#F7F8FA] px-6 text-[#182230]"
         style={{ minHeight: "100dvh", paddingTop: "calc(env(safe-area-inset-top) + 2rem)", paddingBottom: "calc(env(safe-area-inset-bottom) + 2rem)" }}>
         <div className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center text-center">
-          {loja.logoUrl ? <img src={loja.logoUrl} alt="" className="h-20 w-20 rounded-3xl object-cover shadow-2xl shadow-black/50" /> : <LogoPP size={80} />}
-          <h1 className="page-title mt-5 text-2xl font-bold tracking-tight text-white">{loja.nome}</h1>
-          {currentTable && <span className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-gold-400/40 bg-gold-400/10 px-4 py-1.5 text-sm font-bold text-gold-300">📍 {currentTable}</span>}
-          <p className="mt-6 text-lg font-bold text-white">Bem-vindo! 👋</p>
-          <p className="mt-1 text-sm leading-6 text-slate-400">Faça seu pedido de forma rápida e prática direto pelo celular.</p>
+          {loja.logoUrl ? <img src={loja.logoUrl} alt="" className="h-20 w-20 rounded-3xl border border-[#E5E7EB] object-cover shadow-[0_8px_24px_rgba(16,24,40,.08)]" /> : <LogoPP size={80} />}
+          <h1 className="page-title mt-5 text-2xl font-bold tracking-tight text-[#182230]">{loja.nome}</h1>
+          {currentTable && <span className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-[#F4D27A] bg-[#FFF7E0] px-4 py-1.5 text-sm font-bold text-[#9A6A00]">📍 {currentTable}</span>}
+          <p className="mt-6 text-lg font-bold text-[#182230]">Bem-vindo! 👋</p>
+          <p className="mt-1 text-sm leading-6 text-[#667085]">Faça seu pedido de forma rápida e prática direto pelo celular.</p>
           <div className="mt-8 w-full space-y-3">
-            <button onClick={() => setEtapa("cardapio")} className="w-full rounded-2xl bg-gold-400 py-4 text-base font-black text-blue-950 shadow-lg shadow-gold-900/30 transition active:scale-95 hover:bg-gold-300">Iniciar pedido</button>
-            <button onClick={() => setEtapa("cardapio")} className="w-full rounded-2xl border border-white/15 bg-white/[0.06] py-4 text-base font-bold text-slate-200 transition active:scale-95 hover:bg-white/10">Ver cardápio</button>
+            <button onClick={() => setEtapa("cardapio")} className="w-full min-h-[44px] rounded-2xl bg-[#D9A441] py-4 text-base font-black text-[#182230] shadow-[0_8px_24px_rgba(16,24,40,.08)] transition active:scale-95 hover:bg-[#C7922F]">Iniciar pedido</button>
+            <button onClick={() => setEtapa("cardapio")} className="w-full min-h-[44px] rounded-2xl border border-[#E5E7EB] bg-white py-4 text-base font-bold text-[#475467] transition active:scale-95 hover:bg-[#F9FAFB]">Ver cardápio</button>
           </div>
           {!modoExterno && mesa && (
             <div className="mt-8 w-full">
-              <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Precisa de algo?</p>
+              <p className="text-xs font-bold uppercase tracking-widest text-[#667085]">Precisa de algo?</p>
               <div className="mt-2 flex justify-center gap-2">
                 {[["garcom", "🔔 Garçom"], ["ajuda", "🆘 Ajuda"], ["limpeza", "🧹 Limpeza"]].map(([t, l]) => (
                   <button key={t} onClick={() => chamar(t, l.replace(/^\S+\s/, ""))}
-                    className="flex-1 rounded-2xl border border-gold-400/30 bg-gold-400/10 py-2.5 text-xs font-black text-gold-200 transition active:scale-95 hover:bg-gold-400/20">{l}</button>
+                    className="min-h-[44px] flex-1 rounded-2xl border border-[#F4D27A] bg-[#FFF7E0] py-2.5 text-xs font-black text-[#9A6A00] transition active:scale-95 hover:bg-[#FDECC8]">{l}</button>
                 ))}
               </div>
             </div>
           )}
         </div>
-        {msg && <div className="mx-auto w-full max-w-md"><div className={`rounded-2xl border px-4 py-2.5 text-center text-sm font-bold ${msg.t === "error" ? "border-red-400/30 bg-red-500/15 text-red-200" : "border-emerald-400/30 bg-emerald-500/15 text-emerald-200"}`}>{msg.m}</div></div>}
+        {msg && <div className="mx-auto w-full max-w-md"><div className={`rounded-2xl border px-4 py-2.5 text-center text-sm font-bold ${msg.t === "error" ? "border-[#FDA4AF] bg-[#FFF1F2] text-[#B42318]" : "border-[#B7E4C7] bg-[#ECFDF3] text-[#147A4A]"}`}>{msg.m}</div></div>}
       </div>
     );
   }
@@ -654,17 +654,17 @@ export default function CardapioPublico() {
     aceitaExterno && opcoesEntrega.length > 0 && opcoesEntrega.some((o) => o.id === tipoPedido) && minimoFalta <= 0
   ));
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100" style={{ minHeight: "100dvh", paddingBottom: `calc(env(safe-area-inset-bottom) + ${cart.length > 0 ? 150 : 92}px)` }}>
+    <div data-theme="light" className="tema-claro-area min-h-screen w-full max-w-[100vw] overflow-x-hidden bg-[#F7F8FA] text-[#182230]" style={{ minHeight: "100dvh", paddingBottom: `calc(env(safe-area-inset-bottom) + ${cart.length > 0 ? 150 : 92}px)` }}>
       {/* Cabeçalho */}
-      <header className="sticky top-0 z-30 border-b border-white/10 bg-slate-900/95 px-4 pb-3 backdrop-blur-xl" style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)" }}>
+      <header className="sticky top-0 z-30 border-b border-[#E5E7EB] bg-white px-4 pb-3 backdrop-blur-xl" style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)" }}>
         <div className="mx-auto flex max-w-3xl items-center gap-3">
           {loja.logoUrl ? <img src={loja.logoUrl} alt="" className="h-12 w-12 rounded-2xl object-cover" /> : <LogoPP size={48} />}
           <div className="min-w-0 flex-1">
-            <p className="truncate text-lg font-black text-white leading-tight">{loja.nome}</p>
-            <p className="text-sm text-slate-400">{currentTable ? `${currentTable}${comanda ? " · " + comanda : ""}` : "Cardápio digital"}</p>
+            <p className="truncate text-lg font-black text-[#182230] leading-tight">{loja.nome}</p>
+            <p className="text-sm text-[#667085]">{currentTable ? `${currentTable}${comanda ? " · " + comanda : ""}` : "Cardápio digital"}</p>
           </div>
           {!modoExterno && mesa && (
-            <button onClick={abrirQr} className="flex shrink-0 items-center gap-1.5 rounded-full border border-gold-400/40 bg-gold-400/[0.08] px-3.5 py-2 text-xs font-black text-gold-200 transition active:scale-95 hover:bg-gold-400/15">
+            <button onClick={abrirQr} className="flex min-h-[40px] shrink-0 items-center gap-1.5 rounded-full border border-[#F4D27A] bg-[#FFF7E0] px-3.5 py-2 text-xs font-black text-[#9A6A00] transition active:scale-95 hover:bg-[#FDECC8]">
               <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><line x1="14" y1="14" x2="14" y2="21"/><line x1="18" y1="14" x2="18" y2="18"/><line x1="21" y1="14" x2="21" y2="21"/></svg>
               Ver QR
             </button>
@@ -675,7 +675,7 @@ export default function CardapioPublico() {
           <div className="mx-auto mt-3 flex max-w-3xl gap-2">
             {[["garcom", "🔔", "Garçom"], ["ajuda", "🆘", "Ajuda"], ["limpeza", "🧹", "Limpeza"]].map(([t, ic, l]) => (
               <button key={t} onClick={() => chamar(t, l)}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl border border-gold-400/30 bg-gold-400/[0.07] py-2.5 text-sm font-black text-gold-200 transition active:scale-95 hover:bg-gold-400/15"><span className="text-base">{ic}</span>{l}</button>
+                className="flex min-h-[40px] flex-1 items-center justify-center gap-1.5 rounded-2xl border border-[#F4D27A] bg-[#FFF7E0] py-2.5 text-sm font-black text-[#9A6A00] transition active:scale-95 hover:bg-[#FDECC8]"><span className="text-base">{ic}</span>{l}</button>
             ))}
           </div>
         )}
@@ -683,16 +683,16 @@ export default function CardapioPublico() {
 
       {bloqueioHorario && (
         <div className="mx-auto max-w-3xl px-4 pt-3">
-          <div className="rounded-2xl border border-red-400/30 bg-red-500/10 px-4 py-2.5 text-center text-sm font-bold text-red-200">🌙 Fechado no momento — pedidos indisponíveis fora do horário de funcionamento.</div>
+          <div className="rounded-2xl border border-[#FDA4AF] bg-[#FFF1F2] px-4 py-2.5 text-center text-sm font-bold text-[#B42318]">🌙 Fechado no momento — pedidos indisponíveis fora do horário de funcionamento.</div>
         </div>
       )}
 
       <main className="mx-auto max-w-3xl px-4">
         {/* Categorias — clique rola até o grupo; ao rolar, o grupo atual é destacado */}
-        <div className="sticky top-[64px] z-20 -mx-4 flex gap-2 overflow-x-auto border-b border-white/10 bg-slate-950/90 px-4 py-4 backdrop-blur">
+        <div className="sticky top-[64px] z-20 -mx-4 flex gap-2 overflow-x-auto border-b border-[#E5E7EB] bg-[#F7F8FA]/95 px-4 py-4 backdrop-blur">
           {cats.map((c) => { const ativo = !busca && catAtiva === c;
             return (
-              <button key={c} ref={(el) => (chipRefs.current[c] = el)} onClick={() => irParaCategoria(c)} className={`shrink-0 rounded-full border px-4 py-1.5 text-sm font-bold transition ${ativo ? "border-[#E7C873] bg-[#E7C873] text-[#061A2E] shadow-lg shadow-[#E7C873]/25" : "border-white/10 bg-white/[0.05] text-slate-300"}`}>{ativo ? "★ " : ""}{c}</button>
+              <button key={c} ref={(el) => (chipRefs.current[c] = el)} onClick={() => irParaCategoria(c)} className={`shrink-0 rounded-full border px-4 py-1.5 text-sm font-bold transition ${ativo ? "border-[#D9A441] bg-[#FFF7E0] text-[#182230]" : "border-[#E5E7EB] bg-white text-[#475467] hover:bg-[#F9FAFB]"}`}>{ativo ? "★ " : ""}{c}</button>
             );
           })}
         </div>
@@ -701,12 +701,12 @@ export default function CardapioPublico() {
         {!modoExterno && (
           <div className="flex items-center gap-2 py-3">
             <div className="relative flex-1">
-              <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">🔍</span>
+              <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#98A2B3]">🔍</span>
               <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar produtos..."
-                className="w-full rounded-2xl border border-white/10 bg-slate-900 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-gold-400/60 placeholder:text-slate-500" />
+                className="w-full rounded-2xl border border-[#E5E7EB] bg-white py-3 pl-11 pr-4 text-sm text-[#182230] outline-none focus:border-[#D9A441] placeholder:text-[#98A2B3]" />
             </div>
             <button onClick={() => setOcultarIndisp((v) => !v)} title="Ocultar indisponíveis"
-              className={`flex shrink-0 items-center gap-1.5 rounded-2xl border px-4 py-3 text-sm font-bold transition ${ocultarIndisp ? "border-gold-400 bg-gold-400 text-blue-950" : "border-white/10 bg-slate-900 text-slate-300"}`}>
+              className={`flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-2xl border px-4 py-3 text-sm font-bold transition ${ocultarIndisp ? "border-[#D9A441] bg-[#D9A441] text-[#182230]" : "border-[#E5E7EB] bg-white text-[#475467]"}`}>
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="10" y1="18" x2="14" y2="18"/></svg>
               Filtros
             </button>
@@ -716,21 +716,21 @@ export default function CardapioPublico() {
         {/* Ofertas vigentes */}
         {promosVigentes.length > 0 && (
           <div className="mb-4">
-            <p className="mb-2 flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-gold-300">🔥 Ofertas de hoje</p>
+            <p className="mb-2 flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-[#9A6A00]">🔥 Ofertas de hoje</p>
             <div className="-mx-1 flex gap-2.5 overflow-x-auto px-1 pb-1">
               {promosVigentes.map((p) => {
                 const ehCombo = p.tipo === "combo";
                 const val = validadeOferta(p);
                 return (
                   <button key={p.id} type="button" onClick={() => clicarOferta(p)}
-                    className={`group flex min-w-[200px] shrink-0 items-center gap-3 rounded-2xl border px-3.5 py-3 text-left transition active:scale-[0.97] ${ehCombo ? "border-emerald-400/40 bg-gradient-to-br from-emerald-500/15 to-emerald-500/[0.04] hover:from-emerald-500/25" : "border-gold-400/40 bg-gradient-to-br from-gold-400/15 to-gold-400/[0.04] hover:from-gold-400/25"}`}>
-                    <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-lg ${ehCombo ? "bg-emerald-500/20" : "bg-gold-400/20"}`}>{iconeOferta(p)}</span>
+                    className={`group flex min-w-[200px] shrink-0 items-center gap-3 rounded-2xl border px-3.5 py-3 text-left shadow-[0_8px_24px_rgba(16,24,40,.06)] transition active:scale-[0.97] ${ehCombo ? "border-[#B7E4C7] bg-[#ECFDF3]" : "border-[#F4D27A] bg-[#FFF7E0]"}`}>
+                    <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-lg ${ehCombo ? "bg-white" : "bg-white"}`}>{iconeOferta(p)}</span>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-black text-white">{p.nome}</p>
-                      <p className={`truncate text-xs font-black ${ehCombo ? "text-emerald-300" : "text-gold-400"}`}>{promoResumoDesconto(p)}</p>
-                      {val && <p className="truncate text-[10px] font-bold text-slate-400">📅 {val}</p>}
+                      <p className="truncate text-sm font-black text-[#182230]">{p.nome}</p>
+                      <p className={`truncate text-xs font-black ${ehCombo ? "text-[#147A4A]" : "text-[#9A6A00]"}`}>{promoResumoDesconto(p)}</p>
+                      {val && <p className="truncate text-[10px] font-bold text-[#667085]">📅 {val}</p>}
                     </div>
-                    <span className="shrink-0 text-slate-500 transition group-hover:translate-x-0.5">›</span>
+                    <span className="shrink-0 text-[#98A2B3] transition group-hover:translate-x-0.5">›</span>
                   </button>
                 );
               })}
@@ -742,46 +742,46 @@ export default function CardapioPublico() {
         {combosVigentes.length > 0 && (
           <div ref={combosRef} className="mb-4 space-y-2 scroll-mt-28">
             {combosVigentes.map((c) => (
-              <div key={c.promo.id} className="rounded-2xl border border-emerald-400/30 bg-gradient-to-br from-emerald-500/10 to-emerald-500/[0.03] p-3.5">
+              <div key={c.promo.id} className="rounded-2xl border border-[#B7E4C7] bg-[#ECFDF3] p-3.5">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="flex items-center gap-1.5 text-sm font-black text-white">🍔 {c.promo.nome} <span className="rounded-full bg-emerald-500 px-1.5 py-0.5 text-[9px] font-black text-white">COMBO</span></p>
-                    {c.promo.descricao && <p className="mt-0.5 text-[11px] text-slate-400">{c.promo.descricao}</p>}
-                    <p className="mt-1 text-[11px] text-slate-300">{c.itens.map((i) => i.name).join(" + ")}</p>
+                    <p className="flex items-center gap-1.5 text-sm font-black text-[#182230]">🍔 {c.promo.nome} <span className="rounded-full bg-[#16A34A] px-1.5 py-0.5 text-[9px] font-black text-white">COMBO</span></p>
+                    {c.promo.descricao && <p className="mt-0.5 text-[11px] text-[#667085]">{c.promo.descricao}</p>}
+                    <p className="mt-1 text-[11px] text-[#475467]">{c.itens.map((i) => i.name).join(" + ")}</p>
                   </div>
                   <div className="shrink-0 text-right">
-                    {c.precoCombo < c.somaOriginal && <p className="text-[11px] font-bold text-slate-500 line-through">{formatCurrency(c.somaOriginal)}</p>}
-                    <p className="text-lg font-black text-emerald-400">{formatCurrency(c.precoCombo)}</p>
+                    {c.precoCombo < c.somaOriginal && <p className="text-[11px] font-bold text-[#98A2B3] line-through">{formatCurrency(c.somaOriginal)}</p>}
+                    <p className="text-lg font-black text-[#147A4A]">{formatCurrency(c.precoCombo)}</p>
                   </div>
                 </div>
-                <button onClick={() => adicionarCombo(c)} className="mt-2.5 w-full rounded-xl bg-emerald-500 py-2.5 text-sm font-black text-white transition active:scale-95 hover:bg-emerald-400">+ Adicionar combo</button>
+                <button onClick={() => adicionarCombo(c)} className="mt-2.5 w-full min-h-[44px] rounded-xl bg-[#16A34A] py-2.5 text-sm font-black text-white transition active:scale-95 hover:bg-[#128A3E]">+ Adicionar combo</button>
               </div>
             ))}
           </div>
         )}
 
         {/* Aviso de personalização */}
-        <div className="mb-3 mt-4 flex items-center gap-2 rounded-2xl border border-gold-400/25 bg-gold-400/[0.06] px-4 py-2.5">
+        <div className="mb-3 mt-4 flex items-center gap-2 rounded-2xl border border-[#F4D27A] bg-[#FFF7E0] px-4 py-2.5">
           <span className="text-lg">✨</span>
-          <p className="text-xs font-bold text-gold-200">Personalize do seu jeito! <span className="font-normal text-slate-300">Adicione ou remova ingredientes.</span></p>
+          <p className="text-xs font-bold text-[#9A6A00]">Personalize do seu jeito! <span className="font-normal text-[#475467]">Adicione ou remova ingredientes.</span></p>
         </div>
 
         {/* Resultados da busca — lista achatada (sem divisão por grupo) */}
         {busca ? (
           <div className="grid grid-cols-2 gap-3 pb-6">
-            {itensBusca.length === 0 && <p className="col-span-full py-10 text-center text-sm text-slate-500">Nenhum produto encontrado.</p>}
+            {itensBusca.length === 0 && <p className="col-span-full py-10 text-center text-sm text-[#667085]">Nenhum produto encontrado.</p>}
             {itensBusca.map(renderProduto)}
           </div>
         ) : (
           /* Cardápio dividido por grupo — cada seção é âncora do scroll-spy */
           <div className="pb-6">
-            {grupos.length === 0 && <p className="py-10 text-center text-sm text-slate-500">Nenhum produto disponível.</p>}
+            {grupos.length === 0 && <p className="py-10 text-center text-sm text-[#667085]">Nenhum produto disponível.</p>}
             {grupos.map((g) => (
               <section key={g.nome} ref={(el) => (secRefs.current[g.nome] = el)} data-cat={g.nome} className="scroll-mt-28">
-                <div className="sticky top-[116px] z-10 -mx-4 mb-3 mt-1 flex items-center gap-2 bg-slate-950/85 px-4 py-1.5 backdrop-blur">
-                  <span className="h-4 w-1 rounded-full bg-gold-400" />
-                  <h2 className="text-sm font-black uppercase tracking-wide text-white">{g.nome}</h2>
-                  <span className="text-[11px] font-bold text-slate-500">{g.produtos.length} {g.produtos.length === 1 ? "item" : "itens"}</span>
+                <div className="sticky top-[116px] z-10 -mx-4 mb-3 mt-1 flex items-center gap-2 bg-[#F7F8FA]/95 px-4 py-1.5 backdrop-blur">
+                  <span className="h-4 w-1 rounded-full bg-[#D9A441]" />
+                  <h2 className="text-sm font-black uppercase tracking-wide text-[#182230]">{g.nome}</h2>
+                  <span className="text-[11px] font-bold text-[#98A2B3]">{g.produtos.length} {g.produtos.length === 1 ? "item" : "itens"}</span>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   {g.produtos.map(renderProduto)}
@@ -799,26 +799,26 @@ export default function CardapioPublico() {
       <div className="fixed inset-x-0 bottom-0 z-40" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
         <div className="mx-auto max-w-3xl space-y-2 px-3 pb-2 pt-1">
           {cart.length > 0 && (
-            <div className="flex items-center justify-between gap-3 rounded-3xl border border-gold-400/40 bg-slate-900/95 p-3 shadow-2xl shadow-black/50 backdrop-blur-xl">
+            <div className="flex items-center justify-between gap-3 rounded-3xl border border-[#F4D27A] bg-white p-3 shadow-[0_8px_24px_rgba(16,24,40,.1)] backdrop-blur-xl">
               <button onClick={() => setAba("carrinho")} className="flex min-w-0 items-center gap-3 text-left">
-                <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gold-400/15 text-lg text-gold-300">🛒<span className="absolute -right-1 -top-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-gold-400 px-1 text-[11px] font-black text-blue-950">{qtdCart}</span></span>
-                <span className="min-w-0"><span className="block text-sm font-black text-white">Ver carrinho</span><span className="block text-xs text-slate-400">{qtdCart} {qtdCart === 1 ? "item" : "itens"} · {formatCurrency(totalCart)}</span></span>
+                <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#FFF7E0] text-lg text-[#9A6A00]">🛒<span className="absolute -right-1 -top-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#D9A441] px-1 text-[11px] font-black text-[#182230]">{qtdCart}</span></span>
+                <span className="min-w-0"><span className="block text-sm font-black text-[#182230]">Ver carrinho</span><span className="block text-xs text-[#667085]">{qtdCart} {qtdCart === 1 ? "item" : "itens"} · {formatCurrency(totalCart)}</span></span>
               </button>
-              <button onClick={() => setAba("carrinho")} className="flex shrink-0 items-center gap-1 rounded-2xl bg-gold-400 px-4 py-3 text-sm font-black text-blue-950 shadow-lg shadow-gold-900/30 transition active:scale-95">Finalizar pedido ›</button>
+              <button onClick={() => setAba("carrinho")} className="flex min-h-[44px] shrink-0 items-center gap-1 rounded-2xl bg-[#D9A441] px-4 py-3 text-sm font-black text-[#182230] transition active:scale-95 hover:bg-[#C7922F]">Finalizar pedido ›</button>
             </div>
           )}
           {cart.length === 0 ? (
             // Carrinho vazio: dá acesso direto ao carrinho + acompanhar
-            <div className="flex items-stretch gap-2 rounded-3xl border border-white/10 bg-slate-900/95 p-2 shadow-2xl shadow-black/50 backdrop-blur-xl">
+            <div className="flex items-stretch gap-2 rounded-3xl border border-[#E5E7EB] bg-white p-2 shadow-[0_8px_24px_rgba(16,24,40,.1)] backdrop-blur-xl">
               <button onClick={() => setAba("conta")} disabled={meusPedidos.length === 0}
-                className="flex flex-1 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] py-3 text-sm font-black text-slate-300 transition active:scale-95 disabled:opacity-40">👁️ Acompanhar pedido</button>
+                className={`flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-2xl border border-[#E5E7EB] py-3 text-sm font-black transition active:scale-95 ${meusPedidos.length === 0 ? "bg-[#F3F4F6] text-[#98A2B3]" : "bg-white text-[#2563EB]"}`}>👁️ Acompanhar pedido</button>
               <button onClick={() => setAba("carrinho")}
-                className="flex flex-1 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] py-3 text-sm font-black text-slate-400 transition active:scale-95">🛒 Carrinho vazio</button>
+                className="flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-2xl border border-[#E5E7EB] bg-[#F3F4F6] py-3 text-sm font-black text-[#98A2B3] transition active:scale-95">🛒 Carrinho vazio</button>
             </div>
           ) : (
             // Com itens: o carrinho já está na barra dourada acima — aqui só acompanhar
             <button onClick={() => setAba("conta")} disabled={meusPedidos.length === 0}
-              className="flex w-full items-center justify-center gap-2 rounded-3xl border border-white/10 bg-slate-900/95 py-3.5 text-sm font-black text-slate-300 shadow-2xl shadow-black/50 backdrop-blur-xl transition active:scale-95 disabled:opacity-40">👁️ Acompanhar pedido</button>
+              className={`flex min-h-[44px] w-full items-center justify-center gap-2 rounded-3xl border border-[#E5E7EB] py-3.5 text-sm font-black shadow-[0_8px_24px_rgba(16,24,40,.1)] backdrop-blur-xl transition active:scale-95 ${meusPedidos.length === 0 ? "bg-[#F3F4F6] text-[#98A2B3]" : "bg-white text-[#2563EB]"}`}>👁️ Acompanhar pedido</button>
           )}
         </div>
       </div>
@@ -826,7 +826,7 @@ export default function CardapioPublico() {
       {/* Mensagem */}
       {msg && (
         <div className={`fixed inset-x-0 z-[120] flex justify-center px-4`} style={{ bottom: "96px" }}>
-          <div className={`rounded-2xl border px-4 py-2.5 text-sm font-bold shadow-xl ${msg.t === "error" ? "border-red-400/30 bg-red-500/15 text-red-200" : "border-emerald-400/30 bg-emerald-500/15 text-emerald-200"}`}>{msg.m}</div>
+          <div className={`rounded-2xl border px-4 py-2.5 text-sm font-bold shadow-xl ${msg.t === "error" ? "border-[#FDA4AF] bg-[#FFF1F2] text-[#B42318]" : "border-[#B7E4C7] bg-[#ECFDF3] text-[#147A4A]"}`}>{msg.m}</div>
         </div>
       )}
 
@@ -1004,7 +1004,7 @@ export default function CardapioPublico() {
 }
 
 function Centro({ children }) {
-  return <div className="flex min-h-screen flex-col items-center justify-center bg-slate-950 px-6 text-center text-slate-100" style={{ minHeight: "100dvh" }}>{children}</div>;
+  return <div data-theme="light" className="tema-claro-area flex min-h-screen w-full max-w-[100vw] flex-col items-center justify-center overflow-x-hidden bg-[#F7F8FA] px-6 text-center text-[#182230]" style={{ minHeight: "100dvh" }}>{children}</div>;
 }
 function Spinner() { return <div className="h-10 w-10 animate-spin rounded-full border-4 border-blue-500/30 border-t-blue-500" />; }
 
