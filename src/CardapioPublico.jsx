@@ -289,6 +289,7 @@ export default function CardapioPublico() {
   // Scroll-spy: destaca no header o grupo atualmente visível na tela.
   const secRefs = useRef({});
   const chipRefs = useRef({});
+  const catBarRef = useRef(null); // barra sticky de categorias — usada p/ calcular offset real
   const [catAtiva, setCatAtiva] = useState("Todos");
   // Espaçador dinâmico ao fim: exatamente o necessário para o ÚLTIMO grupo encostar
   // no topo ao rolar — sem sobra extra (não deixa "passar do topo").
@@ -309,7 +310,8 @@ export default function CardapioPublico() {
         setCatAtiva((cur) => (cur === ultimo ? cur : ultimo));
         return;
       }
-      const linha = 140;
+      // Linha de deteção = base real da barra sticky de categorias (fallback 140px).
+      const linha = (catBarRef.current?.getBoundingClientRect().bottom || 140) + 8;
       let atual = grupos[0]?.nome;
       for (const g of grupos) {
         const el = secRefs.current[g.nome];
@@ -359,7 +361,11 @@ export default function CardapioPublico() {
     setCatAtiva(nome);
     if (nome === "Todos") { window.scrollTo({ top: 0, behavior: "smooth" }); return; }
     const alvo = secRefs.current[nome];
-    if (alvo) window.scrollTo({ top: alvo.getBoundingClientRect().top + window.scrollY - 108, behavior: "smooth" });
+    if (!alvo) return;
+    // Offset = altura real da barra sticky (header + categorias) + folga, para o
+    // título do agrupamento não ficar escondido atrás dela.
+    const offset = (catBarRef.current?.getBoundingClientRect().bottom || 108) + 12;
+    window.scrollTo({ top: alvo.getBoundingClientRect().top + window.scrollY - offset, behavior: "smooth" });
   };
   // Ofertas: ícone/resumo/validade por tipo + clique leva ao combo/categoria
   const combosRef = useRef(null);
@@ -697,7 +703,7 @@ export default function CardapioPublico() {
 
       <main className="mx-auto max-w-3xl px-4">
         {/* Categorias — clique rola até o grupo; ao rolar, o grupo atual é destacado */}
-        <div className="sticky top-[64px] z-20 -mx-4 flex gap-2 overflow-x-auto border-b border-[#E5E7EB] bg-[#F7F8FA]/95 px-4 py-4 backdrop-blur">
+        <div ref={catBarRef} className="sticky top-[64px] z-20 -mx-4 flex gap-2 overflow-x-auto border-b border-[#E5E7EB] bg-white/96 px-4 py-4 backdrop-blur">
           {cats.map((c) => { const ativo = !busca && catAtiva === c;
             return (
               <button key={c} ref={(el) => (chipRefs.current[c] = el)} onClick={() => irParaCategoria(c)} className={`shrink-0 rounded-full border px-4 py-1.5 text-sm font-bold transition ${ativo ? "border-[#D9A441] bg-[#FFF7E0] text-[#182230]" : "border-[#E5E7EB] bg-white text-[#475467] hover:bg-[#F9FAFB]"}`}>{ativo ? "★ " : ""}{c}</button>
