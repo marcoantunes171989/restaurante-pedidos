@@ -6719,7 +6719,7 @@ const CARD_METRICA_TONES = {
 function CardMetrica({ titulo, valor, sub, cor = "text-[#182230]", icon, variacao = null, tone = "gold" }) {
   const t = CARD_METRICA_TONES[tone] || CARD_METRICA_TONES.gold;
   return (
-    <div className="rounded-3xl border border-[#E5E7EB] bg-white p-5">
+    <div className="h-full rounded-3xl border border-[#E5E7EB] bg-white p-5">
       <div className="flex items-center justify-between">
         <p className="text-xs font-bold uppercase tracking-widest text-[#667085]">{titulo}</p>
         {icon && <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm [&>svg]:h-[18px] [&>svg]:w-[18px]" style={{ background: t.bg, color: t.fg }}>{icon}</span>}
@@ -7762,15 +7762,15 @@ function DashboardAdmin({ orders, products, comandas = [], clientes = [], setore
 
       {/* KPIs (8) */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <button onClick={() => setModal({ titulo: "Faturamento — pedidos pagos", pedidos: pagos })} className="text-left">
+        <button onClick={() => setModal({ titulo: "Faturamento — pedidos pagos", pedidos: pagos })} className="block h-full w-full text-left">
           <CardMetrica titulo="Faturamento pago" valor={formatCurrency(a.faturamento)} sub={`${pagos.length} pedidos pagos • ver detalhes`} tone="green" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="12" rx="2" /><circle cx="12" cy="12" r="2.5" /><path d="M6 12h.01M18 12h.01" /></svg>} variacao={comparativo?.faturamento} />
         </button>
-        <button onClick={() => setModal({ titulo: "Valores em aberto", pedidos: abertos })} className="text-left">
+        <button onClick={() => setModal({ titulo: "Valores em aberto", pedidos: abertos })} className="block h-full w-full text-left">
           <CardMetrica titulo="Valores em aberto" valor={formatCurrency(a.emAberto)} sub={`${abertos.length} comandas pendentes`} tone="rose" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>} />
         </button>
         <CardMetrica titulo="Faturamento previsto" valor={formatCurrency(previsto)} sub="pago + em aberto" cor="text-[#2563EB]" tone="blue" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 17l6-6 4 4 8-8" /><path d="M17 7h4v4" /></svg>} />
         <CardMetrica titulo="Ticket médio" valor={formatCurrency(a.ticket)} sub="meta sugerida: R$ 45,00" tone="green" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z" /><path d="M9 8h6M9 12h6" /></svg>} variacao={comparativo?.ticket} />
-        <button onClick={() => setModal({ titulo: "Todos os pedidos do período", pedidos: filtrados })} className="text-left">
+        <button onClick={() => setModal({ titulo: "Todos os pedidos do período", pedidos: filtrados })} className="block h-full w-full text-left">
           <CardMetrica titulo="Total de pedidos" valor={a.totalPedidos} sub={`${pagos.length} pagos | ${abertos.length} em aberto`} tone="blue" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8l-9-5-9 5 9 5 9-5z" /><path d="M3 8v8l9 5 9-5V8" /><path d="M12 13v8" /></svg>} variacao={comparativo?.pedidos} />
         </button>
         <CardMetrica titulo="Produto mais vendido" valor={produtoTop ? produtoTop.nome : "—"} sub={produtoTop ? `${produtoTop.qtd} unidades vendidas` : "sem vendas"} cor="text-[#D9A441]" tone="gold" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="9" r="5" /><path d="M9 13.5 8 21l4-2 4 2-1-7.5" /></svg>} />
