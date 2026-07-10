@@ -298,15 +298,23 @@ export default function CardapioPublico() {
     // Calcula o grupo atual: o último cujo cabeçalho passou da "linha" (abaixo dos
     // headers fixos). Determinístico e correto mesmo com seções curtas.
     const calc = () => {
+      // Perto do fim da página: força o ÚLTIMO grupo, mesmo que o cabeçalho dele
+      // não tenha alcançado a "linha" (seção curta / cardápio pequeno).
+      const doc = document.documentElement;
+      const scrollTop = window.scrollY || doc.scrollTop || 0;
+      const scrollHeight = doc.scrollHeight;
+      const clientHeight = window.innerHeight;
+      if (scrollTop + clientHeight >= scrollHeight - 80) {
+        const ultimo = grupos[grupos.length - 1]?.nome;
+        setCatAtiva((cur) => (cur === ultimo ? cur : ultimo));
+        return;
+      }
       const linha = 140;
       let atual = grupos[0]?.nome;
       for (const g of grupos) {
         const el = secRefs.current[g.nome];
         if (el && el.getBoundingClientRect().top - linha <= 0) atual = g.nome;
       }
-      // (sem override por "fim de página" — dependia de innerHeight e fazia o grupo
-      //  "voltar" quando a barra do navegador aparecia/sumia ao rolar. O espaçador
-      //  dinâmico já garante que o último grupo alcance a linha.)
       setCatAtiva((cur) => (cur === atual ? cur : atual));
     };
     // rAF-throttle: o destaque acompanha a rolagem sem travar (mais fluido em iOS/Android).
@@ -392,8 +400,8 @@ export default function CardapioPublico() {
             {indisponivel && <span className="absolute left-1/2 top-1/2 w-max -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#E5E7EB] bg-white/90 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-[#667085]">Indisponível</span>}
           </div>
           <div className="min-w-0 flex-1">
-            <h3 className="text-[15px] font-black leading-tight text-[#182230] line-clamp-1">{item.name}</h3>
-            <p className="mt-1 line-clamp-3 text-[11px] leading-4 text-[#667085]">{item.description}</p>
+            <h3 className="text-[15px] font-black leading-tight text-[#182230] line-clamp-2">{item.name}</h3>
+            <p className="mt-1 text-[11px] leading-4 text-[#667085]">{item.description}</p>
           </div>
         </div>
         <div className="mt-auto flex items-center justify-between px-3 pb-3">
