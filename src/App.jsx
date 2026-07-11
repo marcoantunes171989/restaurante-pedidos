@@ -6212,7 +6212,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
             </button>
             <LogoPP size={28} />
             <div className="min-w-0">
-              <p className="truncate text-sm font-black leading-tight"><span className="text-[#182230]">PEDIDO</span> <span className="text-[#D9A441]">PRIME</span></p>
+              <p className="truncate text-sm font-black leading-tight"><span className="text-[#182230]">PEDIDO</span> <span className="text-[#C4322B]">PRIME</span></p>
               {currentUser?.role && <p className="truncate text-[10px] text-[#667085] leading-tight">{currentUser.role}{lojaInfo ? ` · ${lojaInfo.nome}` : ""}</p>}
             </div>
           </div>
@@ -7493,7 +7493,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], irParaM
   ];
   const tomCls = {
     red: "border-brand-danger/30 bg-brand-dangerSoft text-brand-danger",
-    gold: "border-[#F4D27A] bg-[#FFF7E0] text-[#9A6A00]",
+    gold: "border-brand-primary/30 bg-brand-primarySoft text-brand-primary",
     orange: "border-brand-warning/30 bg-brand-warningSoft text-brand-warning",
     emerald: "border-brand-success/30 bg-brand-successSoft text-brand-success",
   };
@@ -7572,7 +7572,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], irParaM
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h2 className="page-title flex items-center gap-2.5 text-2xl font-bold tracking-tight text-brand-ink">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#FFF7E0] text-[#D9A441]">{soCopiloto ? "🤖" : <IconDashboard />}</span>
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#FFF1F2] text-[#C4322B]">{soCopiloto ? "🤖" : <IconDashboard />}</span>
             {soCopiloto ? "Copiloto IA" : "Dashboard Gerencial"}
           </h2>
           <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 max-w-2xl text-sm text-brand-inkSoft">
@@ -7603,15 +7603,15 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], irParaM
         const meta = 45;
         const estoqueBaixo = (products || []).filter((p) => p.controlaEstoque && (Number(p.estoque) || 0) <= (Number(p.estoqueMinimo) || 0)).length;
         const pills = [
-          melhorHora?.valor > 0 && { dot: "bg-gold-400", txt: <>Melhor horário: <b className="font-bold text-white">{melhorHora.label}</b></> },
+          melhorHora?.valor > 0 && { dot: "bg-[#C4322B]", txt: <>Melhor horário: <b className="font-bold text-white">{melhorHora.label}</b></> },
           produtoTop && { dot: "bg-blue-400", txt: <>Destaque: <b className="font-bold text-white">{produtoTop.nome}</b></> },
           { dot: a.ticket >= meta ? "bg-emerald-400" : "bg-amber-400", txt: <>Ticket médio {a.ticket >= meta ? "acima" : "abaixo"} da meta</> },
           { dot: abertos.length === 0 ? "bg-emerald-400" : "bg-amber-400", txt: abertos.length === 0 ? "Sem pendências financeiras" : <>{abertos.length} comanda(s) em aberto</> },
           { dot: estoqueBaixo === 0 ? "bg-emerald-400" : "bg-red-400", txt: estoqueBaixo === 0 ? "Estoque sem alertas" : <>{estoqueBaixo} produto(s) sem estoque</> },
         ].filter(Boolean);
         return (
-          <div className="mt-4 flex flex-wrap items-center gap-2.5 rounded-2xl border border-[#F4D27A]/60 bg-white px-4 py-3">
-            <span className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-[#9A6A00]">
+          <div className="mt-4 flex flex-wrap items-center gap-2.5 rounded-2xl border border-[#FECDD3] bg-white px-4 py-3">
+            <span className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-[#B42318]">
               <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor"><path d="M12 2l2.4 6.9H22l-6 4.3 2.3 7L12 16l-6.3 4.2 2.3-7-6-4.3h7.6z" /></svg>
               Resumo inteligente
             </span>
@@ -7638,7 +7638,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], irParaM
         <button onClick={() => setModal({ titulo: "Todos os pedidos do período", pedidos: filtrados })} className="block h-full w-full text-left">
           <CardMetrica titulo="Total de pedidos" valor={a.totalPedidos} sub={`${pagos.length} pagos | ${abertos.length} em aberto`} tone="blue" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8l-9-5-9 5 9 5 9-5z" /><path d="M3 8v8l9 5 9-5V8" /><path d="M12 13v8" /></svg>} variacao={comparativo?.pedidos} />
         </button>
-        <CardMetrica titulo="Produto mais vendido" valor={produtoTop ? produtoTop.nome : "—"} sub={produtoTop ? `${produtoTop.qtd} unidades vendidas` : "sem vendas"} cor="text-[#D9A441]" tone="gold" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="9" r="5" /><path d="M9 13.5 8 21l4-2 4 2-1-7.5" /></svg>} />
+        <CardMetrica titulo="Produto mais vendido" valor={produtoTop ? produtoTop.nome : "—"} sub={produtoTop ? `${produtoTop.qtd} unidades vendidas` : "sem vendas"} cor="text-brand-primary" tone="rose" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="9" r="5" /><path d="M9 13.5 8 21l4-2 4 2-1-7.5" /></svg>} />
         <CardMetrica titulo="Mesas abertas" valor={mesasAbertas} sub={mesasAbertas ? `tempo médio aberto: ${tempoMedioMesa} min` : "nenhuma mesa aberta"} tone="violet" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></svg>} />
         <CardMetrica titulo="Clientes no período" valor={clientesPeriodo} sub={`de ${clientes.length} cadastrados`} tone="violet" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 20v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="8" r="3.5" /><path d="M22 20v-2a4 4 0 0 0-3-3.8" /><path d="M16 4.2a4 4 0 0 1 0 7.6" /></svg>} />
       </div>
@@ -7654,12 +7654,12 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], irParaM
         const prioCls = { alta: "border-red-400/40 bg-red-500/10 text-red-200", media: "border-amber-400/40 bg-amber-500/10 text-amber-200", baixa: "border-white/10 bg-white/[0.04] text-slate-300" };
         const prioLbl = { alta: "Alta", media: "Média", baixa: "Baixa" };
         return (
-          <div className="rounded-[2rem] border border-gold-400/25 bg-gradient-to-br from-gold-400/[0.07] to-transparent p-5">
+          <div className="rounded-[2rem] border border-red-400/25 bg-gradient-to-br from-red-400/[0.07] to-transparent p-5">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
               <div className="flex items-center gap-3">
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gold-400/15 text-2xl">🤖</span>
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-red-400/15 text-2xl">🤖</span>
                 <div>
-                  <h3 className="page-title text-lg font-black text-white">Copiloto de Gestão <span className="ml-1 rounded-full border border-gold-400/30 bg-gold-400/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-gold-300">IA</span></h3>
+                  <h3 className="page-title text-lg font-black text-white">Copiloto de Gestão <span className="ml-1 rounded-full border border-red-400/30 bg-red-400/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-red-300">IA</span></h3>
                   <p className="text-xs text-slate-400">Análise automática de vendas, clientes e operação para apoiar suas decisões.</p>
                 </div>
               </div>
@@ -7681,7 +7681,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], irParaM
                 <div className="mb-2 max-h-72 space-y-2 overflow-y-auto rounded-2xl border border-white/10 bg-slate-950/40 p-3">
                   {chatMsgs.map((m, i) => (
                     <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                      <div className={`max-w-[88%] whitespace-pre-wrap rounded-2xl px-3.5 py-2 text-sm leading-relaxed ${m.role === "user" ? "bg-gold-400/15 text-gold-100" : "border border-white/10 bg-white/[0.05] text-slate-200"}`}>{m.content}</div>
+                      <div className={`max-w-[88%] whitespace-pre-wrap rounded-2xl px-3.5 py-2 text-sm leading-relaxed ${m.role === "user" ? "bg-red-400/15 text-red-100" : "border border-white/10 bg-white/[0.05] text-slate-200"}`}>{m.content}</div>
                     </div>
                   ))}
                   {chatLoading && <div className="flex justify-start"><div className="rounded-2xl border border-white/10 bg-white/[0.05] px-3.5 py-2 text-sm text-slate-400">🤖 Pensando…</div></div>}
@@ -7691,9 +7691,9 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], irParaM
               <div className="flex gap-2">
                 <input value={chatInput} onChange={(e) => setChatInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") enviarPerguntaIA(); }}
                   placeholder="Ex.: Como aumentar o ticket médio neste período?"
-                  className="flex-1 rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-2.5 text-sm text-white outline-none focus:border-gold-400/60 placeholder:text-slate-600" />
+                  className="flex-1 rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-2.5 text-sm text-white outline-none focus:border-red-400/60 placeholder:text-slate-600" />
                 <button onClick={() => enviarPerguntaIA()} disabled={chatLoading || !chatInput.trim()}
-                  className="shrink-0 rounded-2xl bg-gold-400 px-5 py-2.5 text-sm font-black text-blue-950 transition hover:bg-gold-300 disabled:opacity-40">Enviar</button>
+                  className="shrink-0 rounded-2xl bg-red-400 px-5 py-2.5 text-sm font-black text-blue-950 transition hover:bg-red-300 disabled:opacity-40">Enviar</button>
               </div>
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {["Como aumentar o ticket médio?", "Quais clientes devo reativar?", "O que está puxando as vendas pra baixo?", "Onde estou perdendo dinheiro?"].map((s) => (
@@ -7906,7 +7906,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], irParaM
           <ul className="grid gap-2 sm:grid-cols-2">
             {recomendacoes.map((r, i) => (
               <li key={i} className="flex items-start gap-2 rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-2.5 text-sm text-slate-300">
-                <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-gold-400/20 text-[10px] font-black text-gold-300">✓</span>{r}
+                <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-red-400/20 text-[10px] font-black text-red-300">✓</span>{r}
               </li>
             ))}
           </ul>
