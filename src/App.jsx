@@ -7475,23 +7475,90 @@ function GrupoPill({ titulo, valor, setValor, opcoes }) {
 
 // Gráfico de barras por horário — paleta média cíclica, com destaque
 // dourado no melhor horário (mantém o insight visual do pico de vendas).
-const CORES_BARRA_HORA = ["#315A7D", "#3F7D5A", "#7CA1BF", "#94A3B8"];
+// Abrevia valores grandes em BRL ("R$ 1,2 mil"); mantém formato cheio abaixo de R$ 1.000.
+function formatarMoedaAbrev(v) {
+  if (v >= 1000) {
+    const mil = v / 1000;
+    const casas = mil < 10 ? 1 : 0;
+    return `R$ ${mil.toLocaleString("pt-BR", { minimumFractionDigits: casas, maximumFractionDigits: casas })} mil`;
+  }
+  return formatCurrency(v);
+}
+// Gráfico "Faturamento por horário" — barras com tooltip acessível (hover, foco
+// por teclado ou toque, sem depender de hover) e cor semântica por barra:
+// cinza = sem venda, terracota = melhor horário, verde = acima da média,
+// azul = padrão. Ver Design System (chart tokens) — nenhuma cor aleatória.
+const ALTURA_TRACK_HORA = 150;
 function BarrasHora({ dados }) {
+  const [ativo, setAtivo] = useState(null);
+  const comVendas = dados.filter((d) => d.valor > 0);
+  if (comVendas.length === 0) {
+    return (
+      <div className="flex h-[200px] flex-col items-center justify-center gap-1 text-center">
+        <p className="text-sm font-semibold text-[#64748B]">Nenhum faturamento encontrado para o período selecionado.</p>
+      </div>
+    );
+  }
   const max = Math.max(1, ...dados.map((d) => d.valor));
   const maxVal = Math.max(...dados.map((d) => d.valor));
+  const media = comVendas.reduce((s, d) => s + d.valor, 0) / comVendas.length;
+  const corDe = (d) => {
+    if (d.valor <= 0) return "#94A3B8";
+    if (d.valor === maxVal) return "#C4322B";
+    if (d.valor >= media) return "#3F7D5A";
+    return "#315A7D";
+  };
+  const melhorLabel = dados.find((d) => d.valor === maxVal)?.label || "";
   return (
-    <div className="flex items-end justify-between gap-1.5 overflow-x-auto" style={{ height: 200 }}>
-      {dados.map((d, i) => {
-        const destaque = d.valor === maxVal && maxVal > 0;
-        const cor = destaque ? "#C4322B" : CORES_BARRA_HORA[i % CORES_BARRA_HORA.length];
-        return (
-          <div key={i} className="flex min-w-[28px] flex-1 flex-col items-center justify-end gap-1">
-            <span className="w-full truncate text-center font-bold leading-none text-[#475467]" style={{ fontSize: 9 }}>{d.valor > 0 ? formatCurrency(d.valor).replace("R$", "").trim() : ""}</span>
-            <div className="w-full rounded-t-md transition-all" style={{ height: `${(d.valor / max) * 150}px`, minHeight: d.valor > 0 ? 4 : 0, backgroundColor: cor }} />
-            <span className="w-full truncate text-center leading-none text-[#98A2B3]" style={{ fontSize: 9 }}>{d.label}</span>
-          </div>
-        );
-      })}
+    <div>
+      {/* Valores acima das barras — ocultos em telas muito estreitas p/ evitar colisão; dado continua no tooltip/aria-label */}
+      <div className="flex items-end justify-between gap-1 sm:gap-1.5">
+        {dados.map((d, i) => (
+          <span key={i} className="hidden w-full truncate text-center font-bold leading-none text-[#475467] sm:block" style={{ fontSize: 9 }}>
+            {d.valor > 0 ? formatarMoedaAbrev(d.valor) : ""}
+          </span>
+        ))}
+      </div>
+      {/* Trilho das barras — altura fixa, grid horizontal discreto + tooltip por barra */}
+      <div className="relative mt-1 flex items-end justify-between gap-1 sm:gap-1.5" style={{ height: ALTURA_TRACK_HORA }}>
+        <div className="pointer-events-none absolute inset-0 flex flex-col justify-between" aria-hidden="true">
+          {[0, 1, 2, 3].map((i) => <div key={i} className="border-t border-[#E5E7EB]" />)}
+        </div>
+        {dados.map((d, i) => {
+          const alturaPx = d.valor > 0 ? Math.max(4, (d.valor / max) * ALTURA_TRACK_HORA) : 0;
+          const aberto = ativo === i;
+          const diffPct = d.valor > 0 && media > 0 ? Math.round(((d.valor - media) / media) * 100) : null;
+          return (
+            <div key={i} className="relative min-w-[16px] flex-1" style={{ height: ALTURA_TRACK_HORA }}>
+              <button type="button"
+                className="absolute bottom-0 left-0 right-0 rounded-t-md transition-[height] duration-200 ease-out motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C4322B]"
+                style={{ height: alturaPx, backgroundColor: corDe(d) }}
+                onMouseEnter={() => setAtivo(i)} onMouseLeave={() => setAtivo((c) => (c === i ? null : c))}
+                onFocus={() => setAtivo(i)} onBlur={() => setAtivo((c) => (c === i ? null : c))}
+                onClick={() => setAtivo(i)}
+                aria-label={`${d.label}: ${d.valor > 0 ? formatCurrency(d.valor) : "sem faturamento"}${d.qtd ? `, ${d.qtd} pedido${d.qtd > 1 ? "s" : ""}` : ""}`}>
+                {aberto && (
+                  <div role="tooltip" className="pointer-events-none absolute bottom-[calc(100%+8px)] left-1/2 z-10 w-max max-w-[180px] -translate-x-1/2 rounded-xl bg-[#172033] px-3 py-2 text-left text-[11px] leading-snug text-white shadow-[0_8px_20px_rgba(23,32,51,0.28)]">
+                    <p className="font-bold">{d.label}</p>
+                    <p className="mt-0.5 font-black">{d.valor > 0 ? formatCurrency(d.valor) : "Sem faturamento"}</p>
+                    {d.qtd > 0 && <p className="mt-0.5 text-white/75">{d.qtd} pedido{d.qtd > 1 ? "s" : ""} · ticket médio {formatCurrency(d.valor / d.qtd)}</p>}
+                    {diffPct != null && (
+                      <p className={`mt-0.5 font-semibold ${diffPct >= 0 ? "text-[#8FD4AE]" : "text-[#F3B4AE]"}`}>{diffPct >= 0 ? "▲" : "▼"} {Math.abs(diffPct)}% vs. média do período</p>
+                    )}
+                  </div>
+                )}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+      {/* Horários — no mobile mostra alternado para não colidir; dado completo segue no aria-label/tooltip */}
+      <div className="mt-1 flex justify-between gap-1 sm:gap-1.5">
+        {dados.map((d, i) => (
+          <span key={i} className={`w-full truncate text-center leading-none text-[#64748B] ${i % 2 !== 0 ? "hidden sm:block" : ""}`} style={{ fontSize: 9 }}>{d.label}</span>
+        ))}
+      </div>
+      <p className="sr-only">Melhor horário de venda: {melhorLabel}, {formatCurrency(maxVal)}.</p>
     </div>
   );
 }
@@ -7519,12 +7586,15 @@ function LinhaFaturamento({ dados }) {
   );
 }
 
-// Card de painel padrão do dashboard
-function Painel({ titulo, acao = null, children, className = "" }) {
+// Card de painel padrão do dashboard (título + descrição curta opcional + ação)
+function Painel({ titulo, descricao = null, acao = null, children, className = "" }) {
   return (
     <div className={`rounded-[20px] border border-[#E5E7EB] bg-white p-5 shadow-[0_8px_24px_rgba(16,24,40,0.06)] ${className}`}>
-      <div className="mb-4 flex items-center justify-between gap-2">
-        <h3 className="page-title text-base font-bold text-[#182230]">{titulo}</h3>
+      <div className="mb-4 flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <h3 className="page-title text-base font-bold text-[#172033]">{titulo}</h3>
+          {descricao && <p className="mt-0.5 text-xs text-[#64748B]">{descricao}</p>}
+        </div>
         {acao}
       </div>
       {children}
@@ -7648,8 +7718,8 @@ function DashboardAdmin({ orders, products, comandas = [], clientes = [], setore
   const semEstoque = products.filter((p) => p.controlaEstoque && (p.estoque ?? 0) <= (p.estoqueMinimo ?? 5));
 
   // Faturamento por horário (10h → 01h), destaque no pico
-  const horas24 = Array.from({ length: 24 }, (_, h) => ({ h, label: `${String(h).padStart(2, "0")}h`, valor: 0 }));
-  pagos.forEach((o) => { const h = horaDe(o); if (h != null) horas24[h].valor += orderTotal(o) * 1.1; });
+  const horas24 = Array.from({ length: 24 }, (_, h) => ({ h, label: `${String(h).padStart(2, "0")}h`, valor: 0, qtd: 0 }));
+  pagos.forEach((o) => { const h = horaDe(o); if (h != null) { horas24[h].valor += orderTotal(o) * 1.1; horas24[h].qtd += 1; } });
   const vendasPorHora = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 0, 1].map((h) => horas24[h]);
   const melhorHora = vendasPorHora.reduce((b, d) => (d.valor > b.valor ? d : b), { valor: -1, label: "—" });
 
@@ -7991,12 +8061,20 @@ function DashboardAdmin({ orders, products, comandas = [], clientes = [], setore
       {modal && <ModalDetalhePedidos titulo={modal.titulo} pedidos={modal.pedidos} onFechar={() => setModal(null)} />}
 
       {/* Faturamento por horário */}
-      <Painel titulo="Faturamento por Horário">
+      <Painel titulo="Faturamento por horário" descricao="Distribuição das vendas ao longo do período selecionado"
+        acao={a.faturamento > 0 ? (
+          <span className="shrink-0 text-right">
+            <span className="block text-[10px] font-bold uppercase tracking-wider text-[#64748B]">Total do período</span>
+            <span className="block text-sm font-black text-[#172033]">{formatCurrency(a.faturamento)}</span>
+          </span>
+        ) : null}>
         <BarrasHora dados={vendasPorHora} />
-        <div className="mt-4 flex flex-wrap gap-2">
-          <span className="rounded-full border border-[#F4D27A] bg-[#FFF7E0] px-3 py-1 text-xs font-bold text-[#9A6A00]">★ Melhor horário de venda: {melhorHora.label}</span>
-          <span className="rounded-full border border-[#BFDBFE] bg-[#EFF6FF] px-3 py-1 text-xs font-bold text-[#1D4ED8]">Oportunidade: elevar o ticket médio nos horários de menor venda.</span>
-        </div>
+        {melhorHora.valor > 0 && (
+          <div className="mt-4 flex flex-wrap gap-2">
+            <span className="rounded-full bg-[#C4322B]/10 px-3 py-1.5 text-xs font-bold text-[#C4322B]">★ Melhor horário: {melhorHora.label} — {formatCurrency(melhorHora.valor)}</span>
+            <span className="rounded-full bg-[#EFF6FF] px-3 py-1.5 text-xs font-bold text-[#2563EB]">Oportunidade: estimular vendas nos horários de menor movimento.</span>
+          </div>
+        )}
       </Painel>
 
       {/* Painéis analíticos */}
@@ -8264,8 +8342,8 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
   const maiorDiaSemana = semanaComVenda.length ? semanaComVenda.reduce((b, d) => (d.valor > b.valor ? d : b)) : null;
   const menorDiaSemana = semanaComVenda.length ? semanaComVenda.reduce((b, d) => (d.valor < b.valor ? d : b)) : null;
   // Faturamento por horário (10h → 01h)
-  const horas24R = Array.from({ length: 24 }, (_, h) => ({ h, label: `${String(h).padStart(2, "0")}h`, valor: 0 }));
-  pagosG.forEach((o) => { if (o.createdAtISO) horas24R[new Date(o.createdAtISO).getHours()].valor += orderTotal(o) * 1.1; });
+  const horas24R = Array.from({ length: 24 }, (_, h) => ({ h, label: `${String(h).padStart(2, "0")}h`, valor: 0, qtd: 0 }));
+  pagosG.forEach((o) => { if (o.createdAtISO) { const h = new Date(o.createdAtISO).getHours(); horas24R[h].valor += orderTotal(o) * 1.1; horas24R[h].qtd += 1; } });
   const horarioGeral = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 0, 1].map((h) => horas24R[h]);
   const catDonutR = a.categorias.slice(0, 6).map((c) => ({ label: c.categoria, valor: c.valor }));
   // Mesas com maior faturamento
@@ -8504,7 +8582,15 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
             <Painel titulo="Faturamento por categoria"><DonutChart dados={catDonutR} label="Categorias" /></Painel>
           </div>
 
-          <Painel titulo="Faturamento por Horário"><BarrasHora dados={horarioGeral} /></Painel>
+          <Painel titulo="Faturamento por horário" descricao="Distribuição das vendas ao longo do período selecionado"
+            acao={a.faturamento > 0 ? (
+              <span className="shrink-0 text-right">
+                <span className="block text-[10px] font-bold uppercase tracking-wider text-[#64748B]">Total do período</span>
+                <span className="block text-sm font-black text-[#172033]">{formatCurrency(a.faturamento)}</span>
+              </span>
+            ) : null}>
+            <BarrasHora dados={horarioGeral} />
+          </Painel>
 
           {/* Tabelas: produtos, mesas */}
           <div className="grid gap-5 xl:grid-cols-2">
