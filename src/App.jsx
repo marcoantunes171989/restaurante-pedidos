@@ -6217,6 +6217,80 @@ function ComandasGestaoAdmin({ orders = [] }) {
   );
 }
 
+// Itens de navegação do menu administrativo — compartilhado entre a sidebar
+// fixa (desktop) e o drawer mobile, para não duplicar a navegação em dois
+// componentes (rótulos, ícones e regra de bloqueio por plano ficam num só lugar).
+function SidebarNavItems({ menu, ativo, setAdminSection, canAccessModule, assinaturaAtual, planoAtual, planoModulos, isSuperAdmin, onNavigate }) {
+  return (
+    <nav className="scrollbar-none flex-1 overflow-y-auto px-3 py-4 space-y-5" aria-label="Navegação principal">
+      {menu.map((g) => (
+        <div key={g.grupo}>
+          <p className="px-3 mb-1.5 text-[11px] font-bold uppercase tracking-widest text-[#8993A8]">{g.grupo}</p>
+          <div className="space-y-1">
+            {g.itens.map((it) => {
+              const sel = ativo === it.id;
+              const bloq = !canAccessModule(it.id, { assinatura: assinaturaAtual, plano: planoAtual, planoModulos, isSuperAdmin });
+              return (
+                <button key={it.id} onClick={() => {
+                    if (it.id === "operacaomobile" && window.innerWidth >= 768) window.open(`${window.location.origin}/operacional`, "_blank", "noopener");
+                    else setAdminSection(it.id);
+                    onNavigate?.();
+                  }}
+                  title={bloq ? "Disponível em outro plano" : (it.id === "operacaomobile" ? "Abre em nova aba (tela cheia), como o link externo" : undefined)}
+                  aria-current={sel ? "page" : undefined}
+                  className={`group relative flex min-h-[44px] w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C4322B] ${sel ? "bg-[#263248] text-white" : "text-[#B6BECD] hover:bg-white/[0.06] hover:text-white"}`}>
+                  {/* Indicador lateral do item ativo — reforça o estado além da cor de fundo */}
+                  <span className={`absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 rounded-full bg-[#C4322B] transition-opacity ${sel ? "opacity-100" : "opacity-0"}`} aria-hidden="true" />
+                  <span className="text-base shrink-0" aria-hidden="true">{it.icon}</span>
+                  <span className={`truncate ${bloq ? "opacity-50" : ""}`}>{it.label}</span>
+                  {bloq && <span className="ml-auto shrink-0" aria-label="Disponível em outro plano" title="Disponível em outro plano">🔒</span>}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </nav>
+  );
+}
+
+// Drawer de navegação mobile — substitui o menu fixo por um painel deslizante
+// com foco preso dentro dele (Tab/Shift+Tab não escapam), Esc fecha, clique no
+// backdrop fecha, e o foco retorna ao botão que abriu ao fechar.
+function MobileAdminDrawer({ open, onClose, triggerRef, children, titulo }) {
+  useScrollLock(open);
+  const panelRef = useRef(null);
+  useEffect(() => {
+    if (!open) return;
+    const painel = panelRef.current;
+    const foco = painel?.querySelector("button, a, input, select, [tabindex]:not([tabindex='-1'])");
+    foco?.focus();
+    const onKeyDown = (e) => {
+      if (e.key === "Escape") { e.preventDefault(); onClose(); return; }
+      if (e.key !== "Tab" || !painel) return;
+      const focáveis = painel.querySelectorAll("button, a, input, select, [tabindex]:not([tabindex='-1'])");
+      if (focáveis.length === 0) return;
+      const primeiro = focáveis[0], ultimo = focáveis[focáveis.length - 1];
+      if (e.shiftKey && document.activeElement === primeiro) { e.preventDefault(); ultimo.focus(); }
+      else if (!e.shiftKey && document.activeElement === ultimo) { e.preventDefault(); primeiro.focus(); }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      triggerRef?.current?.focus(); // restaura o foco ao botão que abriu o drawer
+    };
+  }, [open]);
+  if (!open) return null;
+  return (
+    <div id="drawer-admin-mobile" className="fixed inset-0 z-[70] flex md:hidden" role="dialog" aria-modal="true" aria-label={titulo || "Menu de navegação"}>
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden="true" />
+      <div ref={panelRef} className="pp-anim-left relative flex h-full w-[280px] max-w-[85vw] flex-col bg-[#172033] shadow-2xl" style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
 function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, definirAcoesUsuario, toggleUserStatus, toggleAccessStatus, usersLoja, filtraLoja = (a) => a, pesquisas = [], adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], addLoja, toggleLoja, editarLoja, removerLoja, setLicencaEmpresa = async()=>{}, setValidadeLicenca = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, updateOrderStatus = async()=>{}, marcarEntregue = async()=>{}, marcarSetorPronto = async()=>{}, baixarComandas = async()=>{}, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, setModoUsoEmpresa = async()=>{}, salvarConfigExterno = async()=>{}, salvarConfigCrm = async()=>{}, mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, clientes = [], planoAtual = null, assinaturaAtual = null, assinaturas = [], planos = [], planoModulos = [], definirAssinatura = async()=>{}, promocoes = [], addPromocao = async()=>{}, editarPromocao = async()=>{}, togglePromocao = async()=>{}, removerPromocao = async()=>{}, opcoesApi = null, setores = [], setoresApi = null, vincularProdutoSetor = async () => {}, salvarProdutoQr = async () => {}, irParaCozinha = () => {}, caixaAberto = null, caixasLoja = [], caixaApi = null, fidRegra = null, fidRecompensas = [], fidTransacoes = [], fidApi = null, chamados = [], atenderChamado = async()=>{}, auditoria = [] }) {
   // Menu reorganizado por contexto (SaaS premium) — mesmos ids e permissões de antes
   const menu = [
@@ -6277,6 +6351,10 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
   ];
   const itensValidos = menu.flatMap((g) => g.itens).map((i) => i.id);
   const ativo = itensValidos.includes(adminSection) ? adminSection : "dashboard";
+  // Drawer de navegação mobile (substitui o menu fixo em telas pequenas)
+  const [menuMobileAberto, setMenuMobileAberto] = useState(false);
+  const botaoMenuRef = useRef(null);
+  useEffect(() => { setMenuMobileAberto(false); }, [adminSection]); // fecha ao navegar
   // Command Palette (Ctrl/Cmd + K) — navegação rápida (aditivo)
   const [cmdOpen, setCmdOpen] = useState(false);
   const cmdSections = menu.flatMap((g) => g.itens.map((i) => ({ id: i.id, label: i.label, grupo: g.grupo })));
@@ -6311,98 +6389,106 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
       <CommandPalette open={cmdOpen} onClose={() => setCmdOpen(false)} sections={cmdSections}
         onNavigate={(id) => { setAdminSection(id); setCmdOpen(false); }} onSair={onSair} />
 
-      {/* ── Menu lateral esquerdo (fixo) — light premium (branco + dourado) ─ */}
-      <aside className="hidden md:flex w-64 shrink-0 flex-col border-r border-[#E5E7EB] bg-white">
-        <div className="flex items-center gap-3 border-b border-[#ECEFF3] px-5 py-4">
+      {/* ── Menu lateral esquerdo (fixo) — azul-marinho, item ativo evidente ─ */}
+      <aside className="hidden md:flex w-64 shrink-0 flex-col bg-[#172033]">
+        <div className="flex items-center gap-3 border-b border-white/10 px-5 py-4">
           <LogoPP size={40} />
           <div className="min-w-0">
-            <p className="text-sm font-black leading-tight truncate"><span className="text-[#182230]">PEDIDO</span> <span className="text-[#D9A441]">PRIME</span></p>
-            <p className="text-[11px] text-[#667085] truncate">
+            <p className="text-sm font-black leading-tight truncate"><span className="text-[#E7EAF0]">PEDIDO</span> <span className="text-[#E8756B]">PRIME</span></p>
+            <p className="text-[11px] text-[#8993A8] truncate">
               {isSuperAdmin ? "Administrador geral" : (lojaInfo ? lojaInfo.nome : "Painel gerencial")}
             </p>
           </div>
         </div>
-        <div className="border-b border-[#ECEFF3] px-3 py-3">
+        <div className="border-b border-white/10 px-3 py-3">
           <button onClick={() => setCmdOpen(true)} aria-label="Abrir busca rápida (Ctrl K)"
-            className="flex w-full items-center gap-2 rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-3 py-2 text-left text-[13px] text-[#475467] transition hover:bg-[#F3F4F6]">
-            <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-[#D9A441]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
+            className="flex min-h-[40px] w-full items-center gap-2 rounded-xl border border-white/10 bg-white/[0.05] px-3 py-2 text-left text-[13px] text-[#B6BECD] transition hover:bg-white/[0.08] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C4322B]">
+            <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-[#8993A8]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
             <span className="flex-1 truncate">Buscar telas…</span>
-            <span className="shrink-0 rounded-md border border-[#E5E7EB] px-1.5 py-0.5 text-[10px] font-bold text-[#98A2B3]">Ctrl K</span>
+            <span className="shrink-0 rounded-md border border-white/10 px-1.5 py-0.5 text-[10px] font-bold text-[#8993A8]">Ctrl K</span>
           </button>
         </div>
         {isSuperAdmin && (
-          <div className="border-b border-[#ECEFF3] px-4 py-3">
-            <label className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-[#9A6A00]">Empresa em foco</label>
+          <div className="border-b border-white/10 px-4 py-3">
+            <label className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-[#8993A8]">Empresa em foco</label>
             <ComboEmpresaFoco lojas={lojas} valor={lojaContexto} onChange={setLojaContexto} />
           </div>
         )}
-        <nav className="scrollbar-none flex-1 overflow-y-auto px-3 py-4 space-y-5">
-          {menu.map((g) => (
-            <div key={g.grupo}>
-              <p className="px-3 mb-1.5 text-[11px] font-bold uppercase tracking-widest text-[#98A2B3]">{g.grupo}</p>
-              <div className="space-y-1">
-                {g.itens.map((it) => {
-                  const sel = ativo === it.id;
-                  const bloq = !canAccessModule(it.id, { assinatura: assinaturaAtual, plano: planoAtual, planoModulos, isSuperAdmin });
-                  return (
-                    <button key={it.id} onClick={() => (it.id === "operacaomobile" && window.innerWidth >= 768)
-                        ? window.open(`${window.location.origin}/operacional`, "_blank", "noopener")
-                        : setAdminSection(it.id)} title={bloq ? "Disponível em outro plano" : (it.id === "operacaomobile" ? "Abre em nova aba (tela cheia), como o link externo" : undefined)}
-                      className={`group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold transition ${sel ? "bg-[#FFF7E0] text-[#182230]" : "text-[#475467] hover:bg-[#F3F4F6] hover:text-[#182230]"}`}>
-                      {/* Destaque lateral (aparece só no item ativo) */}
-                      <span className={`absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 rounded-full bg-[#D9A441] transition-opacity ${sel ? "opacity-100" : "opacity-0"}`} />
-                      <span className={`text-base transition ${sel ? "grayscale-0" : "opacity-80 group-hover:opacity-100"} ${bloq ? "opacity-40" : ""}`}>{it.icon}</span>
-                      <span className={`truncate ${bloq ? "opacity-50" : ""}`}>{it.label}</span>
-                      {bloq && <span className="ml-auto shrink-0 text-[#98A2B3]" title="Disponível em outro plano">🔒</span>}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </nav>
+        <SidebarNavItems menu={menu} ativo={ativo} setAdminSection={setAdminSection} canAccessModule={canAccessModule}
+          assinaturaAtual={assinaturaAtual} planoAtual={planoAtual} planoModulos={planoModulos} isSuperAdmin={isSuperAdmin} />
         {/* Selo do status da assinatura (some quando não há assinatura) */}
         <TrialBadge assinatura={assinaturaAtual} />
         {/* ── Card do usuário logado (fixo no rodapé da sidebar) ── */}
         {currentUser && (
-          <div className="shrink-0 border-t border-[#ECEFF3] p-3 space-y-2">
+          <div className="shrink-0 border-t border-white/10 p-3 space-y-2">
             {/* Avatar + nome + cargo */}
-            <div className="flex items-center gap-2.5 rounded-2xl bg-[#F8FAFC] px-3 py-2.5">
+            <div className="flex items-center gap-2.5 rounded-2xl bg-white/[0.05] px-3 py-2.5">
               {/* Avatar com inicial */}
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#EFF6FF] text-sm font-black text-[#2563EB] uppercase select-none">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/10 text-sm font-black text-[#E7EAF0] uppercase select-none">
                 {(currentUser.name || "U").charAt(0)}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-black text-[#182230] leading-tight">{currentUser.name}</p>
-                <p className="truncate text-[11px] text-[#667085] leading-tight">{currentUser.role || "Usuário"}</p>
+                <p className="truncate text-sm font-black text-[#E7EAF0] leading-tight">{currentUser.name}</p>
+                <p className="truncate text-[11px] text-[#8993A8] leading-tight">{currentUser.role || "Usuário"}</p>
                 {currentUser.email && (
-                  <p className="truncate text-[10px] text-[#98A2B3] leading-tight mt-0.5">{currentUser.email}</p>
+                  <p className="truncate text-[10px] text-[#6B7690] leading-tight mt-0.5">{currentUser.email}</p>
                 )}
               </div>
               {/* Badge: super admin ou empresa */}
               {isSuperAdmin ? (
-                <span className="shrink-0 rounded-full bg-[#FFF7E0] px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-[#9A6A00]">Admin</span>
+                <span className="shrink-0 rounded-full bg-[#C4322B]/15 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-[#E8756B]">Admin</span>
               ) : lojaInfo ? (
-                <span className="shrink-0 rounded-full bg-[#EFF6FF] px-1.5 py-0.5 font-mono text-[9px] font-black text-[#1D4ED8]">{lojaInfo.prefixo}</span>
+                <span className="shrink-0 rounded-full bg-white/10 px-1.5 py-0.5 font-mono text-[9px] font-black text-[#B6BECD]">{lojaInfo.prefixo}</span>
               ) : null}
             </div>
             {/* Botão Sair */}
             <button onClick={onSair}
-              className="w-full rounded-2xl border border-[#FECDD3] bg-[#FFF1F2] py-2.5 text-sm font-black text-[#B42318] hover:bg-[#FFE4E6] transition active:scale-95">
+              className="w-full min-h-[44px] rounded-2xl border border-[#C4322B]/35 bg-transparent py-2.5 text-sm font-black text-[#E8756B] hover:bg-[#C4322B]/10 transition active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E8756B]">
               ← Sair
             </button>
           </div>
         )}
         {!currentUser && (
-          <button onClick={onSair} className="m-3 rounded-2xl border border-[#FECDD3] bg-[#FFF1F2] px-4 py-3 text-sm font-black text-[#B42318] hover:bg-[#FFE4E6] transition">Sair</button>
+          <button onClick={onSair} className="m-3 min-h-[44px] rounded-2xl border border-[#C4322B]/35 bg-transparent px-4 py-3 text-sm font-black text-[#E8756B] hover:bg-[#C4322B]/10 transition">Sair</button>
         )}
       </aside>
 
+      {/* ── Drawer de navegação mobile (substitui o menu fixo) ── */}
+      <MobileAdminDrawer open={menuMobileAberto} onClose={() => setMenuMobileAberto(false)} triggerRef={botaoMenuRef} titulo="Menu Pedido Prime">
+        <div className="flex items-center gap-3 border-b border-white/10 px-5 py-4">
+          <LogoPP size={36} />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-black leading-tight truncate"><span className="text-[#E7EAF0]">PEDIDO</span> <span className="text-[#E8756B]">PRIME</span></p>
+            <p className="text-[11px] text-[#8993A8] truncate">{isSuperAdmin ? "Administrador geral" : (lojaInfo ? lojaInfo.nome : "Painel gerencial")}</p>
+          </div>
+          <button onClick={() => setMenuMobileAberto(false)} aria-label="Fechar menu"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.06] text-[#B6BECD] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C4322B]">✕</button>
+        </div>
+        {isSuperAdmin && (
+          <div className="border-b border-white/10 px-4 py-3">
+            <label className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-[#8993A8]">Empresa em foco</label>
+            <ComboEmpresaFoco lojas={lojas} valor={lojaContexto} onChange={setLojaContexto} />
+          </div>
+        )}
+        <SidebarNavItems menu={menu} ativo={ativo} setAdminSection={setAdminSection} canAccessModule={canAccessModule}
+          assinaturaAtual={assinaturaAtual} planoAtual={planoAtual} planoModulos={planoModulos} isSuperAdmin={isSuperAdmin}
+          onNavigate={() => setMenuMobileAberto(false)} />
+        {currentUser && (
+          <div className="shrink-0 border-t border-white/10 p-3">
+            <button onClick={onSair} className="w-full min-h-[44px] rounded-2xl border border-[#C4322B]/35 bg-transparent py-2.5 text-sm font-black text-[#E8756B] hover:bg-[#C4322B]/10 transition active:scale-95">← Sair</button>
+          </div>
+        )}
+      </MobileAdminDrawer>
+
       {/* ── Conteúdo ─────────────────────────────────────────── */}
       <div className="flex flex-1 flex-col overflow-hidden">
-        {/* Cabeçalho mobile com abas (md:hidden) */}
+        {/* Cabeçalho mobile — botão de menu abre o drawer de navegação (md:hidden) */}
         <div className="md:hidden flex shrink-0 items-center justify-between gap-3 border-b border-[#E5E7EB] bg-white px-4 py-3">
           <div className="flex min-w-0 flex-1 items-center gap-2">
+            <button ref={botaoMenuRef} onClick={() => setMenuMobileAberto(true)} aria-label="Abrir menu de navegação" aria-expanded={menuMobileAberto} aria-controls="drawer-admin-mobile"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#E5E7EB] bg-white text-[#182230] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C4322B]">
+              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M4 7h16" /><path d="M4 12h16" /><path d="M4 17h16" /></svg>
+            </button>
             <LogoPP size={28} />
             <div className="min-w-0">
               <p className="truncate text-sm font-black leading-tight"><span className="text-[#182230]">PEDIDO</span> <span className="text-[#D9A441]">PRIME</span></p>
@@ -6410,14 +6496,6 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
             </div>
           </div>
           <button onClick={onSair} className="shrink-0 rounded-2xl border border-[#FECDD3] bg-[#FFF1F2] px-3 py-1.5 text-xs font-black text-[#B42318]">Sair</button>
-        </div>
-        <div className="md:hidden shrink-0 flex gap-2 overflow-x-auto border-b border-[#ECEFF3] bg-[#F9FAFB] px-4 py-2">
-          {menu.flatMap((g) => g.itens).map((it) => (
-            <button key={it.id} onClick={() => setAdminSection(it.id)}
-              className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-black transition ${ativo === it.id ? "border-[#F4D27A] bg-[#FFF7E0] text-[#9A6A00]" : "border-[#E5E7EB] bg-[#F2F4F7] text-[#475467]"}`}>
-              {it.icon} {it.label}
-            </button>
-          ))}
         </div>
 
         {/* Conteúdo rolável — remonta ao trocar a "Empresa em foco" para refletir a empresa selecionada em todas as telas */}
@@ -6640,8 +6718,8 @@ function SeletorPeriodo({ periodo, setPeriodo, ini, setIni, fim, setFim }) {
   return (
     <div className="flex flex-wrap items-center justify-end gap-2 max-w-full">
       {opcoes.map((o) => (
-        <button key={o.id} onClick={() => setPeriodo(o.id)}
-          className={`h-[30px] shrink-0 rounded-full border px-3 text-xs font-black transition ${periodo === o.id ? "border-[#BFDBFE] bg-[#EFF6FF] text-[#1D4ED8]" : "border-[#E5E7EB] bg-white text-[#475467] hover:bg-[#F8FAFC] hover:border-[#D0D5DD]"}`}>
+        <button key={o.id} onClick={() => setPeriodo(o.id)} aria-pressed={periodo === o.id}
+          className={`h-[30px] shrink-0 rounded-full border px-3 text-xs font-black transition ${periodo === o.id ? "border-[#F1B8B2] bg-[#FEF2F2] text-[#B91C1C]" : "border-[#E5E7EB] bg-white text-[#475467] hover:bg-[#F8FAFC] hover:border-[#D0D5DD]"}`}>
           {o.label}
         </button>
       ))}
@@ -6710,10 +6788,10 @@ function BarraHorizontal({ label, valor, max, sufixo = "", cor = "bg-blue-500" }
 }
 
 const CARD_METRICA_TONES = {
-  green:  { bg: "#EAFBF2", fg: "#16A34A" },
-  rose:   { bg: "#FFF1F2", fg: "#E5484D" },
+  green:  { bg: "#F0FDF4", fg: "#15803D" },
+  rose:   { bg: "#FEF2F2", fg: "#B91C1C" },
   blue:   { bg: "#EFF6FF", fg: "#2563EB" },
-  gold:   { bg: "#FFF7E0", fg: "#D9A441" },
+  gold:   { bg: "#FFF7E0", fg: "#9A6A00" },
   violet: { bg: "#F5F3FF", fg: "#7C3AED" },
 };
 function CardMetrica({ titulo, valor, sub, cor = "text-[#182230]", icon, variacao = null, tone = "gold" }) {
@@ -6740,7 +6818,7 @@ function CardMetrica({ titulo, valor, sub, cor = "text-[#182230]", icon, variaca
 // ════════════════════════════════════════════════════════════
 // ── Gráfico de rosca (donut) em SVG, sem biblioteca ──
 // Paleta de gráficos padronizada: azul-marinho e dourado à frente (identidade), demais para categorias extras.
-const CORES_GRAF = ["#4F8EF7", "#D9A441", "#35B779", "#F28C82", "#8B7CF6", "#2FBF9A", "#94A3B8", "#C7922F"];
+const CORES_GRAF = ["#315A7D", "#C4322B", "#3F7D5A", "#C28135", "#7CA1BF", "#94A3B8"];
 function DonutChart({ dados, label = "" }) {
   const total = dados.reduce((s, d) => s + d.valor, 0);
   if (total === 0) return (
@@ -6775,22 +6853,6 @@ function DonutChart({ dados, label = "" }) {
           </div>
         ))}
       </div>
-    </div>
-  );
-}
-
-// ── Gráfico de barras verticais (vendas por período) ──
-function BarrasVerticais({ dados, sufixo = "R$" }) {
-  const max = Math.max(1, ...dados.map((d) => d.valor));
-  return (
-    <div className="flex items-end justify-between gap-1" style={{ height: 180 }}>
-      {dados.map((d, i) => (
-        <div key={i} className="flex min-w-0 flex-1 flex-col items-center justify-end gap-1">
-          <span className="w-full truncate text-center font-black leading-none text-white" style={{ fontSize: 8 }}>{d.valor > 0 ? (sufixo === "R$" ? formatCurrency(d.valor).replace("R$", "").trim() : d.valor) : ""}</span>
-          <div className="w-full rounded-t-lg bg-gradient-to-t from-[#4F8EF7] to-[#3B76E0] transition-all" style={{ height: `${(d.valor / max) * 140}px`, minHeight: d.valor > 0 ? 4 : 0 }} />
-          <span className="w-full truncate text-center leading-none text-slate-500" style={{ fontSize: 9 }}>{d.label}</span>
-        </div>
-      ))}
     </div>
   );
 }
@@ -7384,7 +7446,7 @@ function GrupoPill({ titulo, valor, setValor, opcoes }) {
 
 // Gráfico de barras por horário — paleta média cíclica, com destaque
 // dourado no melhor horário (mantém o insight visual do pico de vendas).
-const CORES_BARRA_HORA = ["#4F8EF7", "#35B779", "#F28C82", "#A78BFA"];
+const CORES_BARRA_HORA = ["#315A7D", "#3F7D5A", "#7CA1BF", "#94A3B8"];
 function BarrasHora({ dados }) {
   const max = Math.max(1, ...dados.map((d) => d.valor));
   const maxVal = Math.max(...dados.map((d) => d.valor));
@@ -7392,7 +7454,7 @@ function BarrasHora({ dados }) {
     <div className="flex items-end justify-between gap-1.5 overflow-x-auto" style={{ height: 200 }}>
       {dados.map((d, i) => {
         const destaque = d.valor === maxVal && maxVal > 0;
-        const cor = destaque ? "#D9A441" : CORES_BARRA_HORA[i % CORES_BARRA_HORA.length];
+        const cor = destaque ? "#C4322B" : CORES_BARRA_HORA[i % CORES_BARRA_HORA.length];
         return (
           <div key={i} className="flex min-w-[28px] flex-1 flex-col items-center justify-end gap-1">
             <span className="w-full truncate text-center font-bold leading-none text-[#475467]" style={{ fontSize: 9 }}>{d.valor > 0 ? formatCurrency(d.valor).replace("R$", "").trim() : ""}</span>
@@ -7418,11 +7480,11 @@ function LinhaFaturamento({ dados }) {
   const idxs = n <= 5 ? dados.map((_, i) => i) : [0, Math.round(n / 4), Math.round(n / 2), Math.round((3 * n) / 4), n - 1];
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 180 }}>
-      <defs><linearGradient id="gradFat" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#D9A441" stopOpacity="0.35" /><stop offset="100%" stopColor="#D9A441" stopOpacity="0" /></linearGradient></defs>
+      <defs><linearGradient id="gradFat" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#315A7D" stopOpacity="0.30" /><stop offset="100%" stopColor="#315A7D" stopOpacity="0" /></linearGradient></defs>
       {[0, 0.25, 0.5, 0.75, 1].map((f, i) => (<line key={i} x1={P} x2={W - P} y1={y(max * f)} y2={y(max * f)} stroke="#E5E7EB" />))}
       <path d={area} fill="url(#gradFat)" />
-      <path d={linha} fill="none" stroke="#D9A441" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
-      {pts.map((p, i) => (<circle key={i} cx={p[0]} cy={p[1]} r="3" fill="#D9A441" />))}
+      <path d={linha} fill="none" stroke="#315A7D" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+      {pts.map((p, i) => (<circle key={i} cx={p[0]} cy={p[1]} r="3" fill="#315A7D" />))}
       {idxs.map((i) => (<text key={i} x={x(i)} y={H - 8} textAnchor="middle" fill="#667085" style={{ fontSize: 9 }}>{dados[i].label}</text>))}
     </svg>
   );
@@ -7637,10 +7699,10 @@ function DashboardAdmin({ orders, products, comandas = [], clientes = [], setore
       : { tom: "red", titulo: `${semEstoque.length} produto(s)`, desc: "abaixo do estoque mínimo." },
   ];
   const tomCls = {
-    red: "border-[#FECDD3] bg-[#FFF1F2] text-[#B42318]",
+    red: "border-[#FECACA] bg-[#FEF2F2] text-[#B91C1C]",
     gold: "border-[#F4D27A] bg-[#FFF7E0] text-[#9A6A00]",
-    orange: "border-[#FDE1B0] bg-[#FFF4E5] text-[#B45309]",
-    emerald: "border-[#B7E4C7] bg-[#EAFBF2] text-[#147A4A]",
+    orange: "border-[#FED7AA] bg-[#FFF7ED] text-[#B45309]",
+    emerald: "border-[#BBF7D0] bg-[#F0FDF4] text-[#15803D]",
   };
 
   // Recomendações (parcialmente dinâmicas)
@@ -7720,7 +7782,15 @@ function DashboardAdmin({ orders, products, comandas = [], clientes = [], setore
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#FFF7E0] text-[#D9A441]">{soCopiloto ? "🤖" : <IconDashboard />}</span>
             {soCopiloto ? "Copiloto IA" : "Dashboard Gerencial"}
           </h2>
-          <p className="mt-1 max-w-2xl text-sm text-[#667085]">{soCopiloto ? "Assistente de gestão por IA: análise automática + chat para apoiar suas decisões." : "Visão estratégica de vendas, operação, produtos, clientes e desempenho financeiro."}</p>
+          <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 max-w-2xl text-sm text-[#667085]">
+            <span>{soCopiloto ? "Assistente de gestão por IA: análise automática + chat para apoiar suas decisões." : "Visão estratégica de vendas, operação, produtos, clientes e desempenho financeiro."}</span>
+            {!soCopiloto && (
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-[#15803D]" title="Os dados são atualizados automaticamente em tempo real">
+                <span className="relative flex h-1.5 w-1.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#15803D] opacity-60 motion-reduce:animate-none" /><span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#15803D]" /></span>
+                Dados em tempo real
+              </span>
+            )}
+          </p>
         </div>
         <SeletorPeriodo periodo={periodo} setPeriodo={setPeriodo} ini={ini} setIni={setIni} fim={fim} setFim={setFim} />
       </div>
