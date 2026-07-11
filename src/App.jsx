@@ -6815,28 +6815,31 @@ function BarraHorizontal({ label, valor, max, sufixo = "", cor = "bg-blue-500" }
   );
 }
 
+// Tons do ícone de KPI — green/rose/blue já usam os tokens brand.* oficiais
+// (success/danger/info); gold/violet seguem em hex fixo até existir token
+// dedicado para acento dourado premium e violeta (ver relatório de migração).
 const CARD_METRICA_TONES = {
-  green:  { bg: "#F0FDF4", fg: "#15803D" },
-  rose:   { bg: "#FEF2F2", fg: "#B91C1C" },
-  blue:   { bg: "#EFF6FF", fg: "#2563EB" },
-  gold:   { bg: "#FFF7E0", fg: "#9A6A00" },
-  violet: { bg: "#F5F3FF", fg: "#7C3AED" },
+  green:  "bg-brand-successSoft text-brand-success",
+  rose:   "bg-brand-dangerSoft text-brand-danger",
+  blue:   "bg-brand-infoSoft text-brand-info",
+  gold:   "bg-[#FFF7E0] text-[#9A6A00]",
+  violet: "bg-[#F5F3FF] text-[#7C3AED]",
 };
-function CardMetrica({ titulo, valor, sub, cor = "text-[#182230]", icon, variacao = null, tone = "gold" }) {
-  const t = CARD_METRICA_TONES[tone] || CARD_METRICA_TONES.gold;
+function CardMetrica({ titulo, valor, sub, cor = "text-brand-ink", icon, variacao = null, tone = "gold" }) {
+  const toneCls = CARD_METRICA_TONES[tone] || CARD_METRICA_TONES.gold;
   return (
-    <div className="h-full rounded-3xl border border-[#E5E7EB] bg-white p-5">
+    <div className="h-full rounded-3xl border border-brand-border bg-white p-5">
       <div className="flex items-center justify-between">
-        <p className="text-xs font-bold uppercase tracking-widest text-[#667085]">{titulo}</p>
-        {icon && <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm [&>svg]:h-[18px] [&>svg]:w-[18px]" style={{ background: t.bg, color: t.fg }}>{icon}</span>}
+        <p className="text-xs font-bold uppercase tracking-widest text-brand-inkMuted">{titulo}</p>
+        {icon && <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm [&>svg]:h-[18px] [&>svg]:w-[18px] ${toneCls}`}>{icon}</span>}
       </div>
       <p className={`page-title mt-2 text-3xl font-bold ${cor}`}>{valor}</p>
       {variacao != null && (
-        <p className={`mt-1 text-[11px] font-semibold ${variacao >= 0 ? "text-[#16A34A]" : "text-[#E5484D]"}`}>
+        <p className={`mt-1 text-[11px] font-semibold ${variacao >= 0 ? "text-brand-success" : "text-brand-danger"}`}>
           {variacao >= 0 ? "▲ +" : "▼ "}{variacao.toFixed(0)}% em relação ao período anterior
         </p>
       )}
-      {sub && <p className="mt-1 text-xs text-[#667085]">{sub}</p>}
+      {sub && <p className="mt-1 text-xs text-brand-inkMuted">{sub}</p>}
     </div>
   );
 }
@@ -7462,8 +7465,8 @@ function ContaCaixa({ o, opcoes, pagando, onFinalizar, haTxt, numeroPedido = {},
 // de filtro (Turno, Canal, Status); nenhum CSS próprio além do container.
 function GrupoPill({ titulo, valor, setValor, opcoes }) {
   return (
-    <div className="rounded-2xl border border-[#E5E7EB] bg-white p-4">
-      <p className="mb-2.5 text-[11px] font-bold uppercase tracking-widest text-[#667085]">{titulo}</p>
+    <div className="rounded-2xl border border-brand-border bg-white p-4">
+      <p className="mb-2.5 text-[11px] font-bold uppercase tracking-widest text-brand-inkMuted">{titulo}</p>
       <div className="flex flex-wrap gap-2">
         {opcoes.map((op) => (
           <FilterChip key={op.id} size="sm" selected={valor === op.id} label={op.label} onClick={() => setValor(op.id)} />
@@ -7589,11 +7592,11 @@ function LinhaFaturamento({ dados }) {
 // Card de painel padrão do dashboard (título + descrição curta opcional + ação)
 function Painel({ titulo, descricao = null, acao = null, children, className = "" }) {
   return (
-    <div className={`rounded-[20px] border border-[#E5E7EB] bg-white p-5 shadow-[0_8px_24px_rgba(16,24,40,0.06)] ${className}`}>
+    <div className={`rounded-[20px] border border-brand-border bg-white p-5 shadow-[0_8px_24px_rgba(16,24,40,0.06)] ${className}`}>
       <div className="mb-4 flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <h3 className="page-title text-base font-bold text-[#172033]">{titulo}</h3>
-          {descricao && <p className="mt-0.5 text-xs text-[#64748B]">{descricao}</p>}
+          <h3 className="page-title text-base font-bold text-brand-ink">{titulo}</h3>
+          {descricao && <p className="mt-0.5 text-xs text-brand-inkSoft">{descricao}</p>}
         </div>
         {acao}
       </div>
@@ -7798,10 +7801,10 @@ function DashboardAdmin({ orders, products, comandas = [], clientes = [], setore
       : { tom: "red", titulo: `${semEstoque.length} produto(s)`, desc: "abaixo do estoque mínimo." },
   ];
   const tomCls = {
-    red: "border-[#FECACA] bg-[#FEF2F2] text-[#B91C1C]",
+    red: "border-brand-danger/30 bg-brand-dangerSoft text-brand-danger",
     gold: "border-[#F4D27A] bg-[#FFF7E0] text-[#9A6A00]",
-    orange: "border-[#FED7AA] bg-[#FFF7ED] text-[#B45309]",
-    emerald: "border-[#BBF7D0] bg-[#F0FDF4] text-[#15803D]",
+    orange: "border-brand-warning/30 bg-brand-warningSoft text-brand-warning",
+    emerald: "border-brand-success/30 bg-brand-successSoft text-brand-success",
   };
 
   // Recomendações (parcialmente dinâmicas)
@@ -7877,15 +7880,15 @@ function DashboardAdmin({ orders, products, comandas = [], clientes = [], setore
       {/* Cabeçalho + período */}
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h2 className="page-title flex items-center gap-2.5 text-2xl font-bold tracking-tight text-[#182230]">
+          <h2 className="page-title flex items-center gap-2.5 text-2xl font-bold tracking-tight text-brand-ink">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#FFF7E0] text-[#D9A441]">{soCopiloto ? "🤖" : <IconDashboard />}</span>
             {soCopiloto ? "Copiloto IA" : "Dashboard Gerencial"}
           </h2>
-          <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 max-w-2xl text-sm text-[#667085]">
+          <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 max-w-2xl text-sm text-brand-inkSoft">
             <span>{soCopiloto ? "Assistente de gestão por IA: análise automática + chat para apoiar suas decisões." : "Visão estratégica de vendas, operação, produtos, clientes e desempenho financeiro."}</span>
             {!soCopiloto && (
-              <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-[#15803D]" title="Os dados são atualizados automaticamente em tempo real">
-                <span className="relative flex h-1.5 w-1.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#15803D] opacity-60 motion-reduce:animate-none" /><span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#15803D]" /></span>
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-brand-success" title="Os dados são atualizados automaticamente em tempo real">
+                <span className="relative flex h-1.5 w-1.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand-success opacity-60 motion-reduce:animate-none" /><span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-brand-success" /></span>
                 Dados em tempo real
               </span>
             )}
@@ -7921,9 +7924,9 @@ function DashboardAdmin({ orders, products, comandas = [], clientes = [], setore
               <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor"><path d="M12 2l2.4 6.9H22l-6 4.3 2.3 7L12 16l-6.3 4.2 2.3-7-6-4.3h7.6z" /></svg>
               Resumo inteligente
             </span>
-            <span className="hidden h-4 w-px bg-[#E5E7EB] sm:block" />
+            <span className="hidden h-4 w-px bg-brand-border sm:block" />
             {pills.map((p, i) => (
-              <span key={i} className="inline-flex items-center gap-2 rounded-full border border-[#E5E7EB] bg-[#F9FAFB] px-3 py-1.5 text-xs font-semibold text-[#475467]">
+              <span key={i} className="inline-flex items-center gap-2 rounded-full border border-brand-border bg-[#F9FAFB] px-3 py-1.5 text-xs font-semibold text-brand-inkSoft">
                 <span className={`h-1.5 w-1.5 rounded-full ${p.dot}`} />{p.txt}
               </span>
             ))}
@@ -7939,7 +7942,7 @@ function DashboardAdmin({ orders, products, comandas = [], clientes = [], setore
         <button onClick={() => setModal({ titulo: "Valores em aberto", pedidos: abertos })} className="block h-full w-full text-left">
           <CardMetrica titulo="Valores em aberto" valor={formatCurrency(a.emAberto)} sub={`${abertos.length} comandas pendentes`} tone="rose" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>} />
         </button>
-        <CardMetrica titulo="Faturamento previsto" valor={formatCurrency(previsto)} sub="pago + em aberto" cor="text-[#2563EB]" tone="blue" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 17l6-6 4 4 8-8" /><path d="M17 7h4v4" /></svg>} />
+        <CardMetrica titulo="Faturamento previsto" valor={formatCurrency(previsto)} sub="pago + em aberto" cor="text-brand-info" tone="blue" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 17l6-6 4 4 8-8" /><path d="M17 7h4v4" /></svg>} />
         <CardMetrica titulo="Ticket médio" valor={formatCurrency(a.ticket)} sub="meta sugerida: R$ 45,00" tone="green" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z" /><path d="M9 8h6M9 12h6" /></svg>} variacao={comparativo?.ticket} />
         <button onClick={() => setModal({ titulo: "Todos os pedidos do período", pedidos: filtrados })} className="block h-full w-full text-left">
           <CardMetrica titulo="Total de pedidos" valor={a.totalPedidos} sub={`${pagos.length} pagos | ${abertos.length} em aberto`} tone="blue" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8l-9-5-9 5 9 5 9-5z" /><path d="M3 8v8l9 5 9-5V8" /><path d="M12 13v8" /></svg>} variacao={comparativo?.pedidos} />
@@ -8047,7 +8050,7 @@ function DashboardAdmin({ orders, products, comandas = [], clientes = [], setore
       {!soCopiloto && (<>
       {/* Alertas gerenciais */}
       <div>
-        <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">Alertas gerenciais</h3>
+        <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-brand-inkMuted">Alertas gerenciais</h3>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {alertas.map((al, i) => (
             <div key={i} className={`rounded-2xl border px-4 py-3 ${tomCls[al.tom]}`}>
@@ -8064,15 +8067,15 @@ function DashboardAdmin({ orders, products, comandas = [], clientes = [], setore
       <Painel titulo="Faturamento por horário" descricao="Distribuição das vendas ao longo do período selecionado"
         acao={a.faturamento > 0 ? (
           <span className="shrink-0 text-right">
-            <span className="block text-[10px] font-bold uppercase tracking-wider text-[#64748B]">Total do período</span>
-            <span className="block text-sm font-black text-[#172033]">{formatCurrency(a.faturamento)}</span>
+            <span className="block text-[10px] font-bold uppercase tracking-wider text-brand-inkSoft">Total do período</span>
+            <span className="block text-sm font-black text-brand-ink">{formatCurrency(a.faturamento)}</span>
           </span>
         ) : null}>
         <BarrasHora dados={vendasPorHora} />
         {melhorHora.valor > 0 && (
           <div className="mt-4 flex flex-wrap gap-2">
-            <span className="rounded-full bg-[#C4322B]/10 px-3 py-1.5 text-xs font-bold text-[#C4322B]">★ Melhor horário: {melhorHora.label} — {formatCurrency(melhorHora.valor)}</span>
-            <span className="rounded-full bg-[#EFF6FF] px-3 py-1.5 text-xs font-bold text-[#2563EB]">Oportunidade: estimular vendas nos horários de menor movimento.</span>
+            <span className="rounded-full bg-brand-primary/10 px-3 py-1.5 text-xs font-bold text-brand-primary">★ Melhor horário: {melhorHora.label} — {formatCurrency(melhorHora.valor)}</span>
+            <span className="rounded-full bg-brand-infoSoft px-3 py-1.5 text-xs font-bold text-brand-info">Oportunidade: estimular vendas nos horários de menor movimento.</span>
           </div>
         )}
       </Painel>
