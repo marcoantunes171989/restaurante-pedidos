@@ -6068,7 +6068,7 @@ function CommandPalette({ open, onClose, sections = [], onNavigate, onSair }) {
             return (
               <button key={it.id + i} data-on={on ? "1" : "0"} onMouseEnter={() => setIdx(i)} onClick={() => escolher(it)}
                 className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition ${on ? "bg-[#F8F6F0]" : "hover:bg-[#F8F6F0]/60"}`}>
-                <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border ${on ? "border-[#C99A2E]/40 bg-[#C99A2E]/10 text-[#8A6A12]" : "border-[#E7E1D8] bg-white text-[#667085]"}`}>
+                <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border ${on ? "border-[#C4322B]/40 bg-[#C4322B]/10 text-[#C4322B]" : "border-[#E7E1D8] bg-white text-[#667085]"}`}>
                   {it.sair
                     ? <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="m16 17 5-5-5-5" /><path d="M21 12H9" /></svg>
                     : <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 6 15 12 9 18" /></svg>}
@@ -6077,13 +6077,13 @@ function CommandPalette({ open, onClose, sections = [], onNavigate, onSair }) {
                   <span className="block truncate text-sm font-semibold text-[#111827]">{it.label}</span>
                   {it.grupo && <span className="block text-[11px] text-[#98A2B3]">{it.grupo}</span>}
                 </span>
-                {on && <span className="shrink-0 text-[11px] font-bold text-[#C99A2E]">Abrir ↵</span>}
+                {on && <span className="shrink-0 text-[11px] font-bold text-[#C4322B]">Abrir ↵</span>}
               </button>
             );
           })}
         </div>
         <div className="flex items-center justify-between border-t border-[#E7E1D8] bg-[#F8F6F0] px-4 py-2.5 text-[11px] text-[#667085]">
-          <span className="font-semibold">Pedido <span className="text-[#C99A2E]">Prime</span> · navegação rápida</span>
+          <span className="font-semibold">Pedido <span className="text-[#C4322B]">Prime</span> · navegação rápida</span>
           <span>↑↓ navegar · ↵ abrir · Ctrl K abrir/fechar</span>
         </div>
       </div>
