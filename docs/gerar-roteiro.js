@@ -13,12 +13,6 @@ const AZUL = "#2563eb", ESCURO = "#0f172a", CINZA = "#475569",
 
 const W = doc.page.width, M = doc.page.margins.left, CW = W - M * 2;
 
-function chip(txt, x, y, cor) {
-  const w = doc.widthOfString(txt) + 16;
-  doc.roundedRect(x, y, w, 18, 9).fill(cor);
-  doc.fillColor("#fff").fontSize(9).font("Helvetica-Bold").text(txt, x + 8, y + 5);
-  return w;
-}
 function h1(txt, cor = ESCURO) {
   doc.moveDown(0.6);
   doc.fillColor(cor).font("Helvetica-Bold").fontSize(16).text(txt);

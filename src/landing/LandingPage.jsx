@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect } from "react";
 import { LogoPP } from "../components/BrandLogo";
-import { planosPedidoPrime } from "../config/pricing";
 
 // ════════════════════════════════════════════════════════════
 //  Landing page comercial — Pedido Prime (SaaS food service)
@@ -26,8 +25,6 @@ const NAV = [
   { label: "FAQ", id: "faq" },
   { label: "Contato", id: "contato" },
 ];
-
-const PLANOS = planosPedidoPrime;
 
 const BENEFICIOS = [
   { icon: "✅", title: "Reduza erros nos pedidos", desc: "Pedido digital direto da mesa até a cozinha, sem ruído de comunicação." },
@@ -343,22 +340,13 @@ export default function LandingPage({ navigate }) {
   const [menuAberto, setMenuAberto] = useState(false);
   const [faqAberto, setFaqAberto] = useState(-1);
   const [enviado, setEnviado] = useState(false);
-  const [planoEscolhido, setPlanoEscolhido] = useState(null);
 
   function irPara(id) { setMenuAberto(false); goTo(id); }
-
-  function escolherPlano(plano) {
-    setPlanoEscolhido(plano.id);
-    const precoTxt = plano.preco ? `R$ ${plano.preco}${plano.periodo}` : (plano.precoTexto || "Sob consulta");
-    const texto = `*Tenho interesse no plano ${plano.nome.toUpperCase()} (${precoTxt}) — ${NOME_SISTEMA}*\n\nGostaria de mais informações para contratar este plano para o meu estabelecimento.`;
-    window.open(`https://wa.me/${WHATSAPP_COMERCIAL}?text=${encodeURIComponent(texto)}`, "_blank");
-  }
 
   function enviarContato(e) {
     e.preventDefault();
     const f = new FormData(e.target);
     const v = (k) => (f.get(k) || "").toString().trim();
-    const planoSel = PLANOS.find((p) => p.id === planoEscolhido);
     const linhas = [
       `*Solicitação de demonstração — ${NOME_SISTEMA}*`, "",
       `Nome: ${v("nome") || "-"}`,
@@ -367,7 +355,6 @@ export default function LandingPage({ navigate }) {
       `E-mail: ${v("email") || "-"}`,
       `Segmento: ${v("segmento") || "-"}`,
       `Mesas (aprox.): ${v("mesas") || "-"}`,
-      planoSel ? `Plano de interesse: ${planoSel.nome}${planoSel.preco ? ` (R$ ${planoSel.preco}${planoSel.periodo})` : ""}` : "",
       v("mensagem") ? `\nMensagem: ${v("mensagem")}` : "",
     ];
     window.open(`https://wa.me/${WHATSAPP_COMERCIAL}?text=${encodeURIComponent(linhas.filter(Boolean).join("\n"))}`, "_blank");

@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useCallback, useRef } from "react";
+import React, { useMemo, useState, useEffect, useRef } from "react";
 import {
   fetchProdutos,  inserirProduto,  atualizarProduto,  escutarProdutos,
   fetchUsuarios,  inserirUsuario,  atualizarUsuario,  atualizarUsuariosPorLoja,  escutarUsuarios,
@@ -6,7 +6,7 @@ import {
   fetchPedidos,   inserirPedido,   atualizarPedido,   escutarPedidos,
   fetchFormasPagamento, inserirFormaPagamento, atualizarFormaPagamento, escutarFormasPagamento,
   fetchCategorias, inserirCategoria, atualizarCategoria, excluirCategoria, escutarCategorias,
-  fetchLojas, inserirLoja, atualizarLoja, excluirLoja, escutarLojas, cadastrarEmpresa, registrarLicencaHistorico,
+  fetchLojas, atualizarLoja, escutarLojas, cadastrarEmpresa, registrarLicencaHistorico,
   fetchComandas, inserirComandas, escutarComandas, excluirComanda, renomearComanda, toggleComandaAtivo,
   fetchCargos, inserirCargo, atualizarCargo, excluirCargo, escutarCargos,
   fetchMesas, inserirMesa, atualizarMesa, excluirMesa, escutarMesas,
@@ -20,9 +20,9 @@ import {
   fetchPromocoes, inserirPromocao, atualizarPromocao, excluirPromocao, escutarPromocoes,
   fetchGruposOpcoes, fetchOpcoes, inserirGrupoOpcoes, atualizarGrupoOpcoes, excluirGrupoOpcoes, inserirOpcao, atualizarOpcao, excluirOpcao, escutarGruposOpcoes, escutarOpcoes,
   fetchSetoresCozinha, inserirSetorCozinha, atualizarSetorCozinha, excluirSetorCozinha, escutarSetoresCozinha,
-  fetchCaixaAberto, fetchCaixas, fetchMovimentosCaixa, abrirCaixa, registrarMovimentoCaixa, fecharCaixa, escutarCaixas,
+  fetchCaixas, fetchMovimentosCaixa, abrirCaixa, registrarMovimentoCaixa, fecharCaixa, escutarCaixas,
   fetchFidelidadeRegras, salvarFidelidadeRegra, fetchFidelidadeRecompensas, inserirRecompensa, excluirRecompensa, fetchFidelidadeTransacoes, lancarFidelidadeTransacao, escutarFidelidadeTransacoes,
-  fetchPesquisas, escutarPesquisas,
+  escutarPesquisas,
   fetchChamados, criarChamado, atualizarChamado, escutarChamados,
   perguntarCopilotoIA,
   fetchAuditoria, registrarAuditoria, escutarAuditoria, marcarAuditoriaAnalisada,
@@ -31,7 +31,7 @@ import {
 } from "./lib/supabase";
 import { usandoSupabaseAuth } from "./lib/authMode";
 import { useScrollLock } from "./lib/scrollLock";
-import { statusAssinatura, getCurrentCompanyPlan, modulosDoPlano, MODULOS_LABEL, canAccessModule, getBlockedModuleMessage, bloqueioAcessoEmpresa, diasRestantesTrial, avisoPagamentoPendente } from "./lib/plans";
+import { statusAssinatura, getCurrentCompanyPlan, modulosDoPlano, MODULOS_LABEL, canAccessModule, getBlockedModuleMessage, bloqueioAcessoEmpresa, avisoPagamentoPendente } from "./lib/plans";
 import { useUpgradeModais } from "./components/upgrade/UpgradeModais";
 import { GeradorComandas } from "./components/QRComandas";
 import { QRScannerModal  } from "./components/QRScanner";
@@ -95,8 +95,6 @@ export const statusMap = {
   delivered: { label: "Entregue",     title: "Pedido entregue",    order: 4, progress: 100, dot: "bg-slate-500",  chip: "bg-slate-100 text-slate-600 border-slate-200" },
   cancelled: { label: "Cancelado",    title: "Pedido cancelado",   order: 5, progress: 0,   dot: "bg-red-500",    chip: "bg-red-50 text-red-700 border-red-100" },
 };
-
-const paymentStatusMap = { open: "Conta aberta", requested: "Fechamento solicitado", paid: "Conta paga" };
 
 export function formatCurrency(value) {
   return Number(value || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -243,17 +241,6 @@ const ACOES_MODULO = [
   ["ver", "Visualizar"], ["incluir", "Incluir"], ["alterar", "Alterar"],
   ["excluir", "Excluir"], ["inativar", "Inativar"], ["exportar", "Exportar"],
 ];
-// Verdadeiro se o usuário pode executar a ação no módulo. Retrocompatível:
-// se o módulo não estiver no mapa, todas as ações são permitidas.
-function temAcao(user, moduloId, acao) {
-  if (!user) return false;
-  if (user.superAdmin) return true;
-  const mapa = user.permissoesAcoes || {};
-  const lista = mapa[moduloId];
-  if (!Array.isArray(lista)) return true; // módulo não configurado → liberado
-  return lista.includes(acao);
-}
-
 function runSelfTests() {
   const sample = createCartItem(initialProducts[0]);
   console.assert(sample.quantity === 1, "Novo item deve iniciar com quantidade 1");
@@ -273,189 +260,7 @@ if (typeof window !== "undefined") runSelfTests();
 // STATUS_APP_PARA_DB importado de ./lib/supabase
 
 // ════════════════════════════════════════════════════════════
-//  Card inline de geração de comandas (tela de login)
-// ════════════════════════════════════════════════════════════
-function CardGerarComandas() {
-  const [aberto, setAberto]         = useState(false);
-  const [prefixo, setPrefixo]       = useState("CMD");
-  const [inicio, setInicio]         = useState(1);
-  const [quantidade, setQuantidade] = useState(12);
-  const [comandas, setComandas]     = useState([]);
-  const [gerando, setGerando]       = useState(false);
-
-  async function gerar() {
-    if (prefixo.length < 1) return;
-    setGerando(true);
-    const QRCode = (await import("qrcode")).default;
-    const lista = [];
-    for (let i = 0; i < quantidade; i++) {
-      const codigo = `${prefixo}-${String(inicio + i).padStart(6, "0")}`;
-      const qrUrl  = await QRCode.toDataURL(codigo, {
-        width: 400, margin: 2,
-        color: { dark: "#000000", light: "#ffffff" },
-        errorCorrectionLevel: "H",
-      });
-      lista.push({ codigo, qrUrl });
-    }
-    setComandas(lista);
-    setGerando(false);
-  }
-
-  function imprimir() {
-    const janela = window.open("", "_blank");
-    janela.document.write(`<!DOCTYPE html><html lang="pt-BR">
-<head>
-  <meta charset="UTF-8"/>
-  <title>Comandas — ${prefixo}</title>
-  <style>
-    *{box-sizing:border-box;margin:0;padding:0}
-    body{background:#fff;font-family:Arial,sans-serif}
-    .grade{
-      display:grid;
-      grid-template-columns:repeat(2,1fr);
-      gap:0;
-    }
-    .comanda{
-      display:flex;flex-direction:column;
-      align-items:center;justify-content:center;
-      padding:16px 12px;
-      border:1px dashed #ccc;
-      break-inside:avoid;
-      page-break-inside:avoid;
-    }
-    .comanda img{width:200px;height:200px;display:block}
-    .comanda .codigo{
-      margin-top:8px;
-      font-size:16px;font-weight:900;
-      letter-spacing:3px;color:#111;
-      text-align:center;font-family:monospace;
-    }
-    .comanda .label{
-      font-size:10px;color:#888;
-      margin-top:3px;text-align:center;
-      text-transform:uppercase;letter-spacing:1px;
-    }
-    @media print{
-      body{margin:0}
-      .grade{grid-template-columns:repeat(2,1fr)}
-    }
-  </style>
-</head>
-<body>
-  <div class="grade">
-    ${comandas.map(({ codigo, qrUrl }) => `
-      <div class="comanda">
-        <img src="${qrUrl}" alt="${codigo}"/>
-        <p class="codigo">${codigo}</p>
-        <p class="label">Comanda do cliente</p>
-      </div>`).join("")}
-  </div>
-  <script>window.onload=()=>{window.print();window.close()}<\/script>
-</body></html>`);
-    janela.document.close();
-  }
-
-  if (!aberto) {
-    return (
-      <button
-        onClick={() => setAberto(true)}
-        className="flex h-full min-h-[100px] w-full flex-col items-center justify-center gap-2 rounded-3xl border border-dashed border-blue-400/40 bg-blue-500/5 p-4 text-center transition hover:bg-blue-500/10 hover:border-blue-400/70 active:scale-95">
-        <span className="text-3xl">🎫</span>
-        <p className="text-sm font-black text-blue-300">Gerar Comandas</p>
-        <p className="text-xs text-slate-500">Clique para gerar QR Codes</p>
-      </button>
-    );
-  }
-
-  return (
-    <div className="rounded-3xl border border-blue-400/30 bg-slate-900/80 p-4">
-      {/* Cabeçalho do card */}
-      <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-xl">🎫</span>
-          <p className="font-black text-white">Gerar Comandas QR</p>
-        </div>
-        <button onClick={() => { setAberto(false); setComandas([]); }}
-          className="rounded-xl border border-white/10 bg-white/[0.06] px-2.5 py-1.5 text-xs text-slate-400 hover:text-white hover:bg-white/10 transition">✕</button>
-      </div>
-
-      {/* Configuração */}
-      <div className="grid grid-cols-3 gap-2 text-xs">
-        <label>
-          <span className="mb-1.5 block font-bold uppercase tracking-widest text-slate-500">Prefixo</span>
-          <input value={prefixo}
-            onChange={(e) => setPrefixo(e.target.value.toUpperCase().replace(/[^A-Z]/g,"").slice(0,3))}
-            maxLength={3}
-            className="w-full rounded-xl border border-white/10 bg-slate-950 px-2 py-2.5 font-mono text-base font-black text-white outline-none focus:border-gold-400/60 text-center" />
-        </label>
-        <label>
-          <span className="mb-1.5 block font-bold uppercase tracking-widest text-slate-500">Início</span>
-          <input type="number" min={1} max={999999} value={inicio}
-            onChange={(e) => setInicio(Math.max(1, Number(e.target.value)))}
-            className="w-full rounded-xl border border-white/10 bg-slate-950 px-2 py-2.5 text-white outline-none focus:border-gold-400/60 text-center" />
-        </label>
-        <label>
-          <span className="mb-1.5 block font-bold uppercase tracking-widest text-slate-500">Qtde</span>
-          <input type="number" min={1} max={100} value={quantidade}
-            onChange={(e) => setQuantidade(Math.min(100, Math.max(1, Number(e.target.value))))}
-            className="w-full rounded-xl border border-white/10 bg-slate-950 px-2 py-2.5 text-white outline-none focus:border-gold-400/60 text-center" />
-        </label>
-      </div>
-
-      {/* Exemplo do código gerado */}
-      <div className="mt-3 rounded-xl border border-white/10 bg-slate-950/60 py-2 text-center">
-        <span className="text-xs text-slate-500">Exemplo: </span>
-        <span className="font-mono text-sm font-black text-blue-300">
-          {prefixo || "CMD"}-{String(inicio).padStart(6,"0")}
-        </span>
-        <span className="text-xs text-slate-500"> até </span>
-        <span className="font-mono text-sm font-black text-blue-300">
-          {prefixo || "CMD"}-{String(inicio + quantidade - 1).padStart(6,"0")}
-        </span>
-      </div>
-
-      {/* Botões de ação */}
-      <div className="mt-3 flex gap-2">
-        <button onClick={gerar} disabled={gerando || prefixo.length < 1}
-          className="flex-1 rounded-xl bg-blue-500 py-3 text-sm font-black text-white hover:bg-blue-400 disabled:opacity-40 transition active:scale-95">
-          {gerando ? "⏳ Gerando..." : "⚡ Gerar QR Codes"}
-        </button>
-        {comandas.length > 0 && (
-          <button onClick={imprimir}
-            className="flex-1 rounded-xl border border-emerald-400/30 bg-emerald-500/10 py-3 text-sm font-black text-emerald-300 hover:bg-emerald-500/20 transition active:scale-95">
-            🖨️ Imprimir
-          </button>
-        )}
-      </div>
-
-      {/* Prévia — 2 por linha, QR grande */}
-      {comandas.length > 0 && (
-        <div className="mt-4">
-          <div className="mb-2 flex items-center justify-between">
-            <p className="text-xs font-bold text-slate-400">
-              {comandas.length} comanda(s) gerada(s)
-            </p>
-            <p className="font-mono text-xs text-slate-500">
-              {comandas[0].codigo} → {comandas[comandas.length-1].codigo}
-            </p>
-          </div>
-          <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto rounded-2xl border border-white/10 bg-black/30 p-2">
-            {comandas.map(({ codigo, qrUrl }) => (
-              <div key={codigo} className="flex flex-col items-center rounded-2xl bg-white p-3 shadow">
-                <img src={qrUrl} alt={codigo} className="h-28 w-28" />
-                <p className="mt-2 font-mono text-xs font-black text-slate-800 text-center tracking-wider leading-tight">{codigo}</p>
-                <p className="text-[10px] text-slate-500 mt-0.5">Comanda</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ════════════════════════════════════════════════════════════
-//  Tela de Login com card de comandas embutido
+//  Tela de Login
 // ════════════════════════════════════════════════════════════
 function TelaLogin({ loginForm, setLoginForm, login, message }) {
   const [verSenha, setVerSenha] = useState(false);
@@ -863,7 +668,7 @@ export default function RestaurantePedidoApp() {
       try {
         const ords = await fetchPedidos();
         if (ativo) setOrders(ords);
-      } catch (e) { /* silencioso — Realtime cobre */ }
+      } catch { /* silencioso — Realtime cobre */ }
     }
     atualizar(); // dispara imediatamente ao entrar na tela
     const intervalo = setInterval(atualizar, 1500);
@@ -877,7 +682,6 @@ export default function RestaurantePedidoApp() {
   const [commandCode, setCommandCode] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [message, setMessage] = useState({ type: "", text: "" });
-  const [rawJsonOpen, setRawJsonOpen] = useState(false);
   const [adminSection, setAdminSection] = useState("dashboard");
   const [adminForm, setAdminForm] = useState({ name: "", category: "Pratos principais", price: "", cost: "", time: "15-25 min", imageUrl: "", ingredientsText: "", description: "" });
   const [userForm, setUserForm] = useState({ name: "", email: "", password: "", role: "", cargoId: "", lojaId: "" });
@@ -1112,8 +916,6 @@ export default function RestaurantePedidoApp() {
     ready:     sortedOrders.filter((o) => o.status === "ready"),
   };
 
-  const rawPayload = { mesa: currentTable, comanda: commandCode || "Aguardando leitura", cliente: customerName, carrinho: cart, pedidosDaMesa: currentTableOrders, usuarioLogado: currentUser, resumo: { totalItems, subtotal, serviceFee, total } };
-
   function notify(type, text) { setMessage({ type, text }); }
   function clearMessage() { setMessage({ type: "", text: "" }); }
 
@@ -1297,37 +1099,6 @@ export default function RestaurantePedidoApp() {
       .map((i) => i.comboId === item.comboId ? { ...i, price: Number(i.precoOriginal) || i.price, economiaUnit: 0, comboId: undefined, comboNome: undefined } : i));
     setComboRemoverTablet(null);
     notify("success", "Combo desfeito — os itens restantes voltaram ao preço normal.");
-  }
-
-  function updateCartItem(pid, patch) {
-    setCart((cur) => cur.map((i) => i.id === pid ? { ...i, ...patch } : i));
-  }
-
-  function removeIngredient(pid, ing) {
-    setCart((cur) => cur.map((i) => {
-      if (i.id !== pid || !i.selectedIngredients.includes(ing)) return i;
-      return { ...i, selectedIngredients: i.selectedIngredients.filter((v) => v !== ing), removedIngredients: [...i.removedIngredients, ing] };
-    }));
-  }
-
-  function restoreIngredient(pid, ing) {
-    setCart((cur) => cur.map((i) => {
-      if (i.id !== pid || !i.removedIngredients.includes(ing)) return i;
-      return { ...i, selectedIngredients: [...i.selectedIngredients, ing], removedIngredients: i.removedIngredients.filter((v) => v !== ing) };
-    }));
-  }
-
-  function addExtraIngredient(pid) {
-    setCart((cur) => cur.map((i) => {
-      if (i.id !== pid) return i;
-      const v = i.extraIngredientInput.trim();
-      if (!v || i.extraIngredients.includes(v)) return { ...i, extraIngredientInput: "" };
-      return { ...i, extraIngredients: [...i.extraIngredients, v], extraIngredientInput: "" };
-    }));
-  }
-
-  function removeExtraIngredient(pid, ing) {
-    setCart((cur) => cur.map((i) => i.id === pid ? { ...i, extraIngredients: i.extraIngredients.filter((v) => v !== ing) } : i));
   }
 
   // codigoOverride: passado pelo scanner para evitar problema de estado async
@@ -1522,16 +1293,6 @@ export default function RestaurantePedidoApp() {
     if (dbReady) try { await atualizarChamado(id, { status: "atendido", atendidoPor: currentUser?.id ?? null }); } catch {}
   }
 
-  async function closePayment() {
-    if (!canAccess(currentUser, "cashier")) return notify("error", "Usuário sem permissão para finalizar pagamento.");
-    if (currentTableOrders.length === 0) return notify("error", "Nenhuma conta encontrada para fechamento nesta mesa.");
-    setOrders((cur) => cur.map((o) => o.table === currentTable ? { ...o, paymentStatus: "paid" } : o));
-    if (dbReady) try {
-      await Promise.all(currentTableOrders.map((o) => atualizarPedido(o.id, { status_pagamento: "pago" })));
-    } catch {}
-    notify("success", "Conta finalizada com sucesso no caixa.");
-  }
-
   // Baixa das comandas após pagamento: marca pedidos NÃO PAGOS como pago + entregue (libera comanda)
   // Baixa completa: pagamento + estoque + registro. info = { mesa, total, troco, detalhes }
   async function baixarComandas(comandas, info = null, opts = {}) {
@@ -1669,18 +1430,6 @@ export default function RestaurantePedidoApp() {
   }
 
   // ── Lojas (multi-empresa) ───────────────────────────────────
-  async function addLoja(loja) {
-    if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
-    const nome = loja.nome.trim(); const prefixo = loja.prefixo.trim().toUpperCase();
-    if (!nome || !prefixo) return notify("error", "Informe o nome e o prefixo (iniciais) da loja.");
-    if (!/^[A-Z]{2,5}$/.test(prefixo)) return notify("error", "O prefixo deve ter de 2 a 5 letras (ex.: PZB).");
-    if (lojas.some((l) => l.prefixo === prefixo)) return notify("error", "Já existe loja com este prefixo.");
-    try {
-      const nova = dbReady ? await inserirLoja({ nome, prefixo }) : { id: Date.now(), nome, prefixo, active: true };
-      setLojas((cur) => [...cur, nova]);
-      notify("success", `Loja "${nome}" cadastrada (comandas: ${prefixo}-000000).`);
-    } catch (err) { notify("error", "Erro ao cadastrar loja: " + err.message); }
-  }
   async function toggleLoja(id) {
     if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
     const l = lojas.find((x) => x.id === id);
@@ -1925,14 +1674,6 @@ export default function RestaurantePedidoApp() {
     }
     notify("success", `Empresa "${nome}" atualizada.`);
   }
-  async function removerLoja(id) {
-    if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
-    const l = lojas.find((x) => x.id === id);
-    setLojas((cur) => cur.filter((x) => x.id !== id));
-    if (dbReady) try { await excluirLoja(id); } catch (err) { notify("error", "Erro ao excluir: " + err.message); return; }
-    notify("success", `Empresa "${l?.nome || ""}" excluída.`);
-  }
-
   async function addFormaPagamento(forma) {
     if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
     if (!forma.nome.trim()) return notify("error", "Informe o nome da forma de pagamento.");
@@ -1963,25 +1704,6 @@ export default function RestaurantePedidoApp() {
     return true;
   }
 
-  // Baixa de PEDIDOS específicos (pagamento parcial/por item no caixa)
-  async function baixarPedidos(orderIds, info = null) {
-    if (!canAccess(currentUser, "cashier")) return notify("error", "Usuário sem permissão.");
-    const alvo = orders.filter((o) => orderIds.includes(o.id) && o.paymentStatus !== "paid");
-    const itensVendidos = alvo.flatMap((o) => o.items.map((it) => ({ name: it.name, quantity: it.quantity })));
-    if (alvo.length > 0) {
-      setOrders((cur) => cur.map((o) => orderIds.includes(o.id) ? { ...o, paymentStatus: "paid", status: "delivered" } : o));
-      if (dbReady) {
-        try {
-          await Promise.all(alvo.map((o) => atualizarPedido(o.id, { status_pagamento: "pago", status: "entregue" })));
-          await baixarEstoque(itensVendidos, lojaAtual, [...new Set(alvo.map((o) => o.command).filter(Boolean))]);
-        } catch (err) { console.error("Erro na baixa por pedido:", err); }
-      }
-    }
-    // Registra o pagamento mesmo que seja parcial (sem fechar pedidos)
-    if (dbReady && info) { try { await registrarPagamento(info); } catch {} }
-    notify("success", `✅ Pagamento registrado! ${alvo.length} pedido(s) baixado(s).`);
-  }
-
   async function addProduct(overrideImageUrl) {
     if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
     if (!adminForm.name.trim()) return notify("error", "Informe o nome do produto.");
@@ -2000,13 +1722,6 @@ export default function RestaurantePedidoApp() {
     auditar("criar", "produto", null, { nome: np.name });
     notify("success", "Produto cadastrado com sucesso no administrativo.");
     return true;
-  }
-
-  async function updateProductPrice(pid, value) {
-    if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
-    const price = Number(value || 0);
-    setProducts((cur) => cur.map((p) => p.id === pid ? { ...p, price } : p));
-    if (dbReady) try { await atualizarProduto(pid, { preco: price }); } catch {}
   }
 
   async function toggleProduct(pid) {
@@ -2360,7 +2075,7 @@ export default function RestaurantePedidoApp() {
 
         <section className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           {allowedTabs.map((tab) => (
-            <button key={tab.id} onClick={(e) => {
+            <button key={tab.id} onClick={() => {
               // Fullscreen chamado ANTES de qualquer setState — precisa ser gesto direto
               if (tab.id === "panel" || tab.id === "tablet") {
                 const el = document.documentElement;
@@ -2395,23 +2110,21 @@ export default function RestaurantePedidoApp() {
               onAdicionarCombo={adicionarComboTablet} onRemoverComboItem={setComboRemoverTablet}
               gruposOpcoes={filtraLoja(gruposOpcoes)} opcoes={filtraLoja(opcoes)} onChamarGarcom={() => registrarChamadoFn("garcom")}
               products={products} categories={categories}
-              filteredItems={filteredItems} selectedCategory={selectedCategory} setSelectedCategory={setSelectedCategory}
-              search={search} setSearch={setSearch}
+              filteredItems={filteredItems} setSelectedCategory={setSelectedCategory}
+              setSearch={setSearch}
               cart={cart} tableNumber={tableNumber} setTableNumber={setTableNumber}
               customerName={customerName} setCustomerName={setCustomerName}
               commandCode={commandCode} setCommandCode={setCommandCode}
-              addToCart={addToCart} removeFromCart={removeFromCart} updateCartItem={updateCartItem}
+              addToCart={addToCart} removeFromCart={removeFromCart}
               addConfiguredToCart={addConfiguredToCart}
-              removeIngredient={removeIngredient} restoreIngredient={restoreIngredient}
-              addExtraIngredient={addExtraIngredient} removeExtraIngredient={removeExtraIngredient}
-              subtotal={subtotal} serviceFee={serviceFee} total={total} totalItems={totalItems}
+              subtotal={subtotal} serviceFee={serviceFee} total={total}
               handleSendOrder={handleSendOrder} requestBill={requestBill}
               currentTableOrders={currentTableOrders}
               currentTableCancelled={currentTableCancelled}
               cancelarPedidoTablet={cancelarPedidoTablet}
               currentTableSubtotal={currentTableSubtotal}
               currentTableTotal={currentTableTotal}
-              message={message} onSair={logout}
+              message={message}
               onAbrirScanner={() => setScannerAberto(true)}
               lojaInfo={lojaInfo}
               mesas={filtraLoja(mesas).filter((m) => m.active)}
@@ -2446,12 +2159,12 @@ export default function RestaurantePedidoApp() {
         )}
 
         {activeTab === "kitchen" && canAccess(currentUser, "kitchen") && (
-          <KitchenView groupedOrders={groupedOrders} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} cancelarPedido={cancelarPedido} onSair={logout} currentUser={currentUser} lojaInfo={lojaInfo} setores={filtraLoja(setoresCozinha)} produtos={products} setorInicial={cozinhaSetorInicial} />
+          <KitchenView groupedOrders={groupedOrders} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} cancelarPedido={cancelarPedido} currentUser={currentUser} lojaInfo={lojaInfo} setores={filtraLoja(setoresCozinha)} produtos={products} setorInicial={cozinhaSetorInicial} />
         )}
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} products={products} lojaInfo={lojaInfo} />}
-        {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierView orders={orders} baixarComandas={baixarComandas} baixarPedidos={baixarPedidos} formasPagamento={formasPagamentoLoja} onSair={logout} lojaInfo={lojaInfo} />}
+        {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierView orders={orders} baixarComandas={baixarComandas} formasPagamento={formasPagamentoLoja} lojaInfo={lojaInfo} />}
         {activeTab === "opmobile" && <OperacaoMobileView orders={orders} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} confirmarRetirada={confirmarRetirada} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} products={products} setores={filtraLoja(setoresCozinha)} formasPagamento={formasPagamentoLoja} lojaInfo={lojaInfo} perms={acessosOperacionais(currentUser)} usuarioNome={currentUser?.name || ""} tabInicial={opmobileTab} onTabChange={setOpmobileTab} onFechar={() => setActiveTab(allowedTabs[0]?.id || "tablet")} />}
-        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} updateProductPrice={updateProductPrice} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} filtraLoja={filtraLoja} pesquisas={pesquisas} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} salvarConfigCrm={salvarConfigCrm} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} assinaturas={assinaturas} promocoes={filtraLoja(promocoes)} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} opcoesApi={{ grupos: filtraLoja(gruposOpcoes), opcoes: filtraLoja(opcoes), addGrupo: addGrupoOpcoes, editarGrupo: editarGrupoOpcoes, removerGrupo: removerGrupoOpcoes, addOpcao, editarOpcao, removerOpcao }} setores={filtraLoja(setoresCozinha)} setoresApi={{ add: addSetorCozinha, editar: editarSetorCozinha, remover: removerSetorCozinha }} vincularProdutoSetor={vincularProdutoSetor} salvarProdutoQr={salvarProdutoQr} irParaCozinha={(setorId) => { setCozinhaSetorInicial(setorId ?? null); if (canAccess(currentUser, "kitchen")) setActiveTab("kitchen"); else notify("error", "Sem permissão para acessar o painel da cozinha."); }} caixaAberto={caixaAberto} caixasLoja={filtraLoja(caixas)} caixaApi={{ abrir: abrirCaixaFn, movimentar: movimentarCaixaFn, fechar: fecharCaixaFn, fetchMovimentos: fetchMovimentosCaixa }} fidRegra={fidRegraAtual} fidRecompensas={filtraLoja(fidRecompensas)} fidTransacoes={filtraLoja(fidTransacoes)} fidApi={{ salvarRegra: salvarRegraFid, addRecompensa: addRecompensaFid, removerRecompensa: removerRecompensaFid, lancarPontos }} chamados={filtraLoja(chamados)} atenderChamado={atenderChamadoFn} auditoria={filtraLoja(auditoria)} />}
+        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} toggleLoja={toggleLoja} editarLoja={editarLoja} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} filtraLoja={filtraLoja} pesquisas={pesquisas} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} salvarConfigCrm={salvarConfigCrm} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} assinaturas={assinaturas} promocoes={filtraLoja(promocoes)} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} opcoesApi={{ grupos: filtraLoja(gruposOpcoes), opcoes: filtraLoja(opcoes), addGrupo: addGrupoOpcoes, editarGrupo: editarGrupoOpcoes, removerGrupo: removerGrupoOpcoes, addOpcao, editarOpcao, removerOpcao }} setores={filtraLoja(setoresCozinha)} setoresApi={{ add: addSetorCozinha, editar: editarSetorCozinha, remover: removerSetorCozinha }} vincularProdutoSetor={vincularProdutoSetor} salvarProdutoQr={salvarProdutoQr} irParaCozinha={(setorId) => { setCozinhaSetorInicial(setorId ?? null); if (canAccess(currentUser, "kitchen")) setActiveTab("kitchen"); else notify("error", "Sem permissão para acessar o painel da cozinha."); }} caixaAberto={caixaAberto} caixasLoja={filtraLoja(caixas)} caixaApi={{ abrir: abrirCaixaFn, movimentar: movimentarCaixaFn, fechar: fecharCaixaFn, fetchMovimentos: fetchMovimentosCaixa }} fidRegra={fidRegraAtual} fidRecompensas={filtraLoja(fidRecompensas)} fidTransacoes={filtraLoja(fidTransacoes)} fidApi={{ salvarRegra: salvarRegraFid, addRecompensa: addRecompensaFid, removerRecompensa: removerRecompensaFid, lancarPontos }} chamados={filtraLoja(chamados)} atenderChamado={atenderChamadoFn} auditoria={filtraLoja(auditoria)} />}
 
       </div>
     </div>
@@ -2463,21 +2176,18 @@ export default function RestaurantePedidoApp() {
 // ════════════════════════════════════════════════════════════
 function TabletView({
   promocoes = [], categoriasDb = [], economiaCart = 0, onAdicionarCombo = () => {}, onRemoverComboItem = () => {}, gruposOpcoes = [], opcoes = [], onChamarGarcom = () => {},
-  products, categories, filteredItems, selectedCategory, setSelectedCategory,
-  search, setSearch, cart, tableNumber, setTableNumber,
+  products, categories, filteredItems, setSelectedCategory,
+  setSearch, cart, tableNumber, setTableNumber,
   customerName, setCustomerName, commandCode, setCommandCode,
-  addToCart, removeFromCart, updateCartItem, addConfiguredToCart,
-  removeIngredient, restoreIngredient,
-  addExtraIngredient, removeExtraIngredient,
-  subtotal, serviceFee, total, totalItems,
-  handleSendOrder, requestBill, message, onSair, onAbrirScanner,
+  addToCart, removeFromCart, addConfiguredToCart,
+  subtotal, serviceFee, total,
+  handleSendOrder, requestBill, message, onAbrirScanner,
   currentTableOrders = [], currentTableCancelled = [], cancelarPedidoTablet = () => {}, currentTableSubtotal = 0, currentTableTotal = 0,
   lojaInfo, mesas = [], dispositivos = [],
 }) {
   const [verConta, setVerConta]         = useState(false);
   const [carrinhoAberto, setCarrinhoAberto] = useState(false); // gaveta do carrinho
   const [produtoDetalhe, setProdutoDetalhe] = useState(null); // produto aberto no modal
-  const [isFullscreen, setIsFullscreen] = useState(!!document.fullscreenElement);
   const [trocarMesaAberto, setTrocarMesaAberto] = useState(false); // reabrir seleção de mesa
   const [mesaManual, setMesaManual] = useState(""); // input manual quando não há mesas cadastradas
 
@@ -2530,16 +2240,6 @@ function TabletView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispositivos, meuDeviceId]);
 
-  // Detecta mudanças de tela cheia (Esc/F11) para atualizar o botão e o aviso
-  useEffect(() => {
-    const onChange = () => setIsFullscreen(!!document.fullscreenElement);
-    document.addEventListener("fullscreenchange", onChange);
-    document.addEventListener("webkitfullscreenchange", onChange);
-    return () => {
-      document.removeEventListener("fullscreenchange", onChange);
-      document.removeEventListener("webkitfullscreenchange", onChange);
-    };
-  }, []);
   // Sai da tela cheia ao trocar de tela (desmontar o tablet)
   useEffect(() => () => sairTelaCheia(), []);
   // Tela do cliente (kiosk): oculta o badge "Versão" do topo enquanto no tablet
@@ -3816,7 +3516,7 @@ const kitchenCols = [
   { key: "ready",     label: "Finalizado", sub: "Pronto p/ retirada",dot: "bg-[#16A34A]", text: "text-[#047857]", header: "border-[#86EFAC] bg-[#ECFDF3]", card: "border-[#E5E7EB]" },
 ];
 
-function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, cancelarPedido, onSair, currentUser, lojaInfo, setores = [], produtos = [], setorInicial = null }) {
+function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, cancelarPedido, currentUser, lojaInfo, setores = [], produtos = [], setorInicial = null }) {
   const [cancelando, setCancelando] = useState(null); // pedido a cancelar
   const [setorFiltro, setSetorFiltro] = useState(setorInicial); // null = todos
   // "Filtrar cozinha" (vindo da tela de Setores) define o setor inicial
@@ -3834,7 +3534,6 @@ function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, cancela
   const [hora, setHora] = useState(() =>
     new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
   );
-  const [isFullscreen, setIsFullscreen] = useState(!!document.fullscreenElement);
 
   useEffect(() => {
     const tick = () => setHora(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
@@ -3844,16 +3543,6 @@ function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, cancela
     return () => { clearTimeout(t); clearInterval(iv); };
   }, []);
 
-  // Detecta mudanças de fullscreen (ESC, F11, etc.)
-  useEffect(() => {
-    const onChange = () => setIsFullscreen(!!document.fullscreenElement);
-    document.addEventListener("fullscreenchange", onChange);
-    document.addEventListener("webkitfullscreenchange", onChange);
-    return () => {
-      document.removeEventListener("fullscreenchange", onChange);
-      document.removeEventListener("webkitfullscreenchange", onChange);
-    };
-  }, []);
   // Sai do fullscreen ao trocar de tela
   useEffect(() => () => sairTelaCheia(), []);
 
@@ -4421,7 +4110,7 @@ function PanelView({ groupedOrders, products = [], lojaInfo }) {
   );
 }
 
-function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = [], onSair, lojaInfo }) {
+function CashierView({ orders, baixarComandas, formasPagamento = [], lojaInfo }) {
   const [comandasLidas, setComandasLidas] = useState([]); // comandas escaneadas
   const [pessoas, setPessoas]   = useState(1);            // divisão da conta
   const [scannerAberto, setScannerAberto] = useState(false);
@@ -4556,11 +4245,6 @@ function CashierView({ orders, baixarComandas, baixarPedidos, formasPagamento = 
     : total;
   const totalPagoSelecao = pessoas > 1 ? Math.min(total, valorIndividualBase * pessoasPagas) : jaPago;
   const restanteSelecao = Math.max(0, total - totalPagoSelecao);
-
-  // Pedidos totalmente cobertos nesta seleção (todos os itens incluídos e sem divisão) → baixa
-  const pedidosCobertos = pedidos.filter((o) => o.items.every((it, idx) => {
-    const s = selDe(o.id, idx); return (modoItens ? s.incluir : true) && (s.dividir || 1) === 1;
-  })).map((o) => o.id);
 
   // ── Solicitações de fechamento das mesas (pagamento "requested", não pago) ──
   const solicitacoes = (() => {
@@ -5891,7 +5575,6 @@ function LancamentosAdmin({ lojaId = null, orders = [], modo = "todos" }) {
   const despesasPagas = ativos.filter((l) => l.tipo === "despesa" && l.status === "pago").reduce((s, l) => s + l.valor, 0);
   const aReceber = ativos.filter((l) => l.tipo === "receita" && l.status === "pendente").reduce((s, l) => s + l.valor, 0);
   const aPagar = ativos.filter((l) => l.tipo === "despesa" && l.status === "pendente").reduce((s, l) => s + l.valor, 0);
-  const vencidas = ativos.filter((l) => l.status === "pendente" && l.vencimento && l.vencimento < hoje).length;
 
   // Vendas (pedidos pagos) — receita AUTOMÁTICA, virtual/somente-leitura (não gravada).
   const pedidosPagos = orders.filter((o) => o.paymentStatus === "paid");
@@ -6275,7 +5958,7 @@ function SidebarUserCompact({ currentUser, isSuperAdmin, lojaInfo }) {
 // Item de navegação — ÚNICO componente oficial para itens de menu lateral.
 // Estados: normal (transparente), hover (branco 5%), selecionado (fundo
 // #263248 + borda esquerda 4px terracota, texto/ícone brancos, peso 700).
-const SidebarItem = React.memo(function SidebarItem({ id, icon, label, selected, blocked, title, onClick }) {
+const SidebarItem = React.memo(function SidebarItem({ icon, label, selected, blocked, title, onClick }) {
   return (
     <button onClick={onClick} title={title} aria-current={selected ? "page" : undefined}
       className={cxSidebar(
@@ -6327,7 +6010,7 @@ function SidebarNavItems({ menu, ativo, setAdminSection, canAccessModule, assina
             const sel = ativo === it.id;
             const bloq = !canAccessModule(it.id, { assinatura: assinaturaAtual, plano: planoAtual, planoModulos, isSuperAdmin });
             return (
-              <SidebarItem key={it.id} id={it.id} icon={it.icon} label={it.label} selected={sel} blocked={bloq}
+              <SidebarItem key={it.id} icon={it.icon} label={it.label} selected={sel} blocked={bloq}
                 title={bloq ? "Disponível em outro plano" : (it.id === "operacaomobile" ? "Abre em nova aba (tela cheia), como o link externo" : undefined)}
                 onClick={() => {
                   if (it.id === "operacaomobile" && window.innerWidth >= 768) window.open(`${window.location.origin}/operacional`, "_blank", "noopener");
@@ -6379,7 +6062,7 @@ function MobileAdminDrawer({ open, onClose, triggerRef, children, titulo }) {
   );
 }
 
-function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, updateProductPrice, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, definirAcoesUsuario, toggleUserStatus, toggleAccessStatus, usersLoja, filtraLoja = (a) => a, pesquisas = [], adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], addLoja, toggleLoja, editarLoja, removerLoja, setLicencaEmpresa = async()=>{}, setValidadeLicenca = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, updateOrderStatus = async()=>{}, marcarEntregue = async()=>{}, marcarSetorPronto = async()=>{}, baixarComandas = async()=>{}, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, setModoUsoEmpresa = async()=>{}, salvarConfigExterno = async()=>{}, salvarConfigCrm = async()=>{}, mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, clientes = [], planoAtual = null, assinaturaAtual = null, assinaturas = [], planos = [], planoModulos = [], definirAssinatura = async()=>{}, promocoes = [], addPromocao = async()=>{}, editarPromocao = async()=>{}, togglePromocao = async()=>{}, removerPromocao = async()=>{}, opcoesApi = null, setores = [], setoresApi = null, vincularProdutoSetor = async () => {}, salvarProdutoQr = async () => {}, irParaCozinha = () => {}, caixaAberto = null, caixasLoja = [], caixaApi = null, fidRegra = null, fidRecompensas = [], fidTransacoes = [], fidApi = null, chamados = [], atenderChamado = async()=>{}, auditoria = [] }) {
+function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, definirAcoesUsuario, toggleUserStatus, toggleAccessStatus, usersLoja, filtraLoja = (a) => a, pesquisas = [], adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], toggleLoja, editarLoja, setLicencaEmpresa = async()=>{}, setValidadeLicenca = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, updateOrderStatus = async()=>{}, marcarEntregue = async()=>{}, marcarSetorPronto = async()=>{}, baixarComandas = async()=>{}, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, setModoUsoEmpresa = async()=>{}, salvarConfigExterno = async()=>{}, salvarConfigCrm = async()=>{}, mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, clientes = [], planoAtual = null, assinaturaAtual = null, assinaturas = [], planos = [], planoModulos = [], definirAssinatura = async()=>{}, promocoes = [], addPromocao = async()=>{}, editarPromocao = async()=>{}, togglePromocao = async()=>{}, removerPromocao = async()=>{}, opcoesApi = null, setores = [], setoresApi = null, vincularProdutoSetor = async () => {}, salvarProdutoQr = async () => {}, irParaCozinha = () => {}, caixaAberto = null, caixasLoja = [], caixaApi = null, fidRegra = null, fidRecompensas = [], fidTransacoes = [], fidApi = null, chamados = [], atenderChamado = async()=>{}, auditoria = [] }) {
   // Menu reorganizado por contexto (SaaS premium) — mesmos ids e permissões de antes
   const menu = [
     { grupo: "Visão Geral", itens: [
@@ -6539,10 +6222,10 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
         {/* Conteúdo rolável — remonta ao trocar a "Empresa em foco" para refletir a empresa selecionada em todas as telas */}
         <div key={`ctx-${lojaContexto ?? "geral"}`} className="tema-claro-area flex-1 overflow-y-auto p-6">
           {!canAccessModule(ativo, { assinatura: assinaturaAtual, plano: planoAtual, planoModulos, isSuperAdmin }) ? (
-            <ModuloBloqueado slug={ativo} lojaInfo={lojaInfo} onVerPlanos={() => setAdminSection("plano")} />
+            <ModuloBloqueado slug={ativo} />
           ) : (<SecaoErrorBoundary key={ativo}>
-          {ativo === "dashboard"  && <DashboardAdmin orders={orders} products={products} comandas={comandasRegistradas} clientes={clientes} setores={setores} irParaMesas={() => setAdminSection("mesas")} />}
-          {ativo === "copiloto"   && <DashboardAdmin orders={orders} products={products} comandas={comandasRegistradas} clientes={clientes} setores={setores} soCopiloto />}
+          {ativo === "dashboard"  && <DashboardAdmin orders={orders} products={products} clientes={clientes} setores={setores} irParaMesas={() => setAdminSection("mesas")} />}
+          {ativo === "copiloto"   && <DashboardAdmin orders={orders} products={products} clientes={clientes} setores={setores} soCopiloto />}
           {ativo === "relatorios" && <RelatoriosAdmin orders={orders} products={products} lojaInfo={lojaInfo} pesquisas={filtraLoja(pesquisas)} irParaMesas={() => setAdminSection("mesas")} />}
           {ativo === "crm"        && <CrmAdmin clientes={clientes} orders={orders} fidTransacoes={fidTransacoes} fidRecompensas={fidRecompensas} lancarPontos={fidApi?.lancarPontos} configCrm={lojaInfo?.configCrm || {}} salvarConfigCrm={salvarConfigCrm} />}
           {ativo === "fidelidade" && (precisaEmpresa ? avisoEmpresa : <FidelidadeAdmin regra={fidRegra} recompensas={fidRecompensas} transacoes={fidTransacoes} clientes={clientes} api={fidApi} />)}
@@ -6550,7 +6233,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           {ativo === "setores"    && (precisaEmpresa ? avisoEmpresa : <SetoresCozinhaAdmin setores={setores} produtos={products} orders={orders} api={setoresApi} vincularProduto={vincularProdutoSetor} irParaCozinha={irParaCozinha} />)}
           {ativo === "operacaomobile" && <OperacaoMobileView orders={orders} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} confirmarRetirada={confirmarRetirada} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} products={products} setores={setores} formasPagamento={formasPagamento} lojaInfo={lojaInfo} perms={acessosOperacionais(currentUser)} usuarioNome={currentUser?.name || ""} onFechar={() => setAdminSection("dashboard")} />}
           {ativo === "cardapioqr"  && (precisaEmpresa ? avisoEmpresa : <CardapioQrConfigAdmin products={products} setores={setores} salvarProdutoQr={salvarProdutoQr} irParaProdutos={() => setAdminSection("products")} />)}
-          {ativo === "acessosop"   && <AcessosOperacionaisAdmin users={filtraLoja(users)} definirAcessos={definirAcessos} isSuperAdmin={isSuperAdmin} />}
+          {ativo === "acessosop"   && <AcessosOperacionaisAdmin users={filtraLoja(users)} definirAcessos={definirAcessos} />}
           {ativo === "chamados"   && <ChamadosPainel chamados={chamados} atenderChamado={atenderChamado} />}
           {ativo === "auditoria"  && <AuditoriaAdmin
             logs={auditoria} lojas={lojas}
@@ -6565,7 +6248,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           {ativo === "lancamentos" && (precisaEmpresa ? avisoEmpresa : <LancamentosAdmin lojaId={lojaInfo?.id} orders={filtraLoja(orders)} />)}
           {ativo === "contas-receber" && (precisaEmpresa ? avisoEmpresa : <LancamentosAdmin lojaId={lojaInfo?.id} orders={filtraLoja(orders)} modo="receber" />)}
           {ativo === "contas-pagar" && (precisaEmpresa ? avisoEmpresa : <LancamentosAdmin lojaId={lojaInfo?.id} orders={filtraLoja(orders)} modo="pagar" />)}
-          {ativo === "caixa"      && (precisaEmpresa ? avisoEmpresa : <CaixaSessaoAdmin caixaAberto={caixaAberto} caixas={caixasLoja} api={caixaApi} formasPagamento={formasPagamento} currentUser={currentUser} />)}
+          {ativo === "caixa"      && (precisaEmpresa ? avisoEmpresa : <CaixaSessaoAdmin caixaAberto={caixaAberto} caixas={caixasLoja} api={caixaApi} />)}
           {ativo === "users"      && <UserAdmin      users={filtraLoja(users)} userForm={userForm} setUserForm={setUserForm} addUser={addUser} toggleUserStatus={toggleUserStatus} editarUsuario={editarUsuario} removerUsuario={removerUsuario} lojaInfo={lojaInfo} lojas={lojas} isSuperAdmin={isSuperAdmin} cargos={cargos} />}
           {ativo === "cargos"     && <CargoAdmin     cargos={filtraLoja(cargos)} users={filtraLoja(users)} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} />}
           {ativo === "access"     && <AccessAdmin    accesses={accesses} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleAccessStatus={toggleAccessStatus} />}
@@ -6578,10 +6261,10 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           {ativo === "config"     && <ConfiguracoesAdmin lojaInfo={lojaInfo} />}
           {ativo === "plano"      && <MeuPlanoAdmin planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} lojaInfo={lojaInfo} isSuperAdmin={isSuperAdmin} lojaAtual={lojaInfo?.id} definirAssinatura={definirAssinatura} assinaturas={assinaturas} lojas={lojas} />}
           {ativo === "promocoes"  && (precisaEmpresa ? avisoEmpresa : <PromocoesAdmin promocoes={promocoes} produtos={products} categoriasDb={categoriasDb} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} />)}
-          {ativo === "lojas"      && <LojaAdmin lojas={lojas} addLoja={addLoja} toggleLoja={toggleLoja} editarLoja={editarLoja} removerLoja={removerLoja} lojaInfo={lojaInfo} criarEmpresa={criarEmpresa} cargos={cargos} />}
+          {ativo === "lojas"      && <LojaAdmin lojas={lojas} toggleLoja={toggleLoja} editarLoja={editarLoja} lojaInfo={lojaInfo} criarEmpresa={criarEmpresa} />}
           {ativo === "licencas"   && <LicencaAdmin lojas={lojas} usuarios={users} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} />}
           {ativo === "versoes"    && <VersoesAdmin lojas={lojas} lojaFiltro={isSuperAdmin ? null : (lojaInfo?.id ?? null)} />}
-          {ativo === "cardapioext" && (precisaEmpresa ? avisoEmpresa : <CardapioExternoAdmin lojaInfo={lojaInfo} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} comandas={comandasRegistradas} mesas={mesas} />)}
+          {ativo === "cardapioext" && (precisaEmpresa ? avisoEmpresa : <CardapioExternoAdmin lojaInfo={lojaInfo} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} mesas={mesas} />)}
           {ativo === "minhaempresa" && (
             <MinhaEmpresa
               lojaInfo={lojaInfo}
@@ -6900,7 +6583,7 @@ function DonutChart({ dados, label = "" }) {
 //  por usuário (reaproveita ids_acesso; sem tabela nova). Marcador
 //  "op_managed" sinaliza usuário configurado explicitamente.
 // ════════════════════════════════════════════════════════════
-function AcessosOperacionaisAdmin({ users = [], definirAcessos = async () => {}, isSuperAdmin = false }) {
+function AcessosOperacionaisAdmin({ users = [], definirAcessos = async () => {} }) {
   const [busca, setBusca] = useState("");
   const elegiveis = users.filter((u) => !u.superAdmin);
   const termo = busca.trim().toLowerCase();
@@ -6986,7 +6669,6 @@ function CardapioQrConfigAdmin({ products = [], setores = [], salvarProdutoQr = 
   const noQr = products.filter((p) => p.visivelQr !== false).length;
   const comSetor = products.filter((p) => p.setorId).length;
   const sugBebidas = products.filter(ehBebida).length;
-  const nomeSetor = (id) => setores.find((s) => s.id === id)?.nome || "—";
   const inp = "rounded-2xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white outline-none focus:border-gold-400/60";
 
   return (
@@ -7156,7 +6838,6 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
         ? { l: "🔒 Aguardando pagamento", fn: null, c: "bg-[#F3F4F6] text-[#98A2B3]", disabled: true }
         : { l: "Entregue", fn: () => marcarEntregue(o.id), c: "bg-[#2563EB] text-white" })
     : null;
-  const resumoItens = (items) => (items || []).map((it) => `${it.quantity}× ${it.name}`).join(" • ");
   const titulo = tab === "central" ? "Central Operacional" : tab === "pedidos" ? "Central de Pedidos" : tab === "cozinha" ? "Cozinha" : tab === "bar" ? "Bar" : "Caixa";
 
   return (
@@ -7692,7 +7373,7 @@ function analisarGestaoIA(ctx) {
   return { score, nivel, resumo, insights, acoes: acoes.slice(0, 6) };
 }
 
-function DashboardAdmin({ orders, products, comandas = [], clientes = [], setores = [], irParaMesas = () => {}, soCopiloto = false }) {
+function DashboardAdmin({ orders, products, clientes = [], setores = [], irParaMesas = () => {}, soCopiloto = false }) {
   const [periodo, setPeriodo] = useState("30");
   const [ini, setIni] = useState("");
   const [fim, setFim] = useState("");
@@ -7972,7 +7653,6 @@ function DashboardAdmin({ orders, products, comandas = [], clientes = [], setore
         const nivelRing = ia.score >= 80 ? "#34d399" : ia.score >= 60 ? "#fbbf24" : ia.score >= 40 ? "#D97706" : "#f87171";
         const prioCls = { alta: "border-red-400/40 bg-red-500/10 text-red-200", media: "border-amber-400/40 bg-amber-500/10 text-amber-200", baixa: "border-white/10 bg-white/[0.04] text-slate-300" };
         const prioLbl = { alta: "Alta", media: "Média", baixa: "Baixa" };
-        const cats = [...new Set(ia.insights.map((x) => x.cat))];
         return (
           <div className="rounded-[2rem] border border-gold-400/25 bg-gradient-to-br from-gold-400/[0.07] to-transparent p-5">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
@@ -8341,8 +8021,6 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
   const pagosG = filtrados.filter((o) => o.paymentStatus === "paid" && o.status !== "cancelled");
   const itensVendidos = a.topProdutos.reduce((s, p) => s + p.qtd, 0);
   const margemPct = a.faturamento > 0 ? (margemEstimada / a.faturamento) * 100 : 0;
-  // Custo por nome p/ margem por produto
-  const margemDoProduto = (nome, valor, qtd) => valor - (custoPorNome[nome] ?? 0) * qtd;
   // Evolução do faturamento por dia
   const porDia = {};
   pagosG.forEach((o) => { if (!o.createdAtISO) return; const k = new Date(o.createdAtISO).toISOString().slice(0, 10); porDia[k] = (porDia[k] || 0) + orderTotal(o) * 1.1; });
@@ -8384,7 +8062,6 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
   const fatSemId = naoIdent.reduce((s, c) => s + c.faturamento, 0);
   const taxaPagamento = a.totalPedidos ? Math.round((a.pagos.length / a.totalPedidos) * 100) : 0;
   const fmtDataBR = (d) => (d ? d.toLocaleDateString("pt-BR") : "—");
-  const maxMesa = Math.max(1, ...mesasFaturamento.map((m) => m.faturamento));
 
   // Botões de exportação (reutilizados em várias abas)
   const BotoesExport = () => (
@@ -10464,7 +10141,7 @@ function normalizaMoedaReais(v) {
   if (!isFinite(num)) return "";
   return num.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
-function CardapioExternoAdmin({ lojaInfo, setModoUsoEmpresa = async () => {}, salvarConfigExterno = async () => {}, comandas = [], mesas = [] }) {
+function CardapioExternoAdmin({ lojaInfo, setModoUsoEmpresa = async () => {}, salvarConfigExterno = async () => {}, mesas = [] }) {
   const [qr, setQr] = useState("");
   const [copiado, setCopiado] = useState(false);
   const origem = (typeof window !== "undefined") ? window.location.origin : "";
@@ -11052,8 +10729,7 @@ function MinhaEmpresa({ lojaInfo, usuarios = [], produtos = [], formasPagamento 
 // ════════════════════════════════════════════════════════════
 //  Admin — Lojas (multi-empresa) — somente super admin
 // ════════════════════════════════════════════════════════════
-function LojaAdmin({ lojas, addLoja, toggleLoja, editarLoja, removerLoja, lojaInfo, criarEmpresa, cargos = [] }) {
-  const cargosAtivos = cargos.filter((c) => c.active !== false);
+function LojaAdmin({ lojas, toggleLoja, editarLoja, lojaInfo, criarEmpresa }) {
   const [editando, setEditando] = useState(null); // loja em edição
   const [inativar, setInativar] = useState(null); // loja a inativar (confirmação)
   const [criando, setCriando]   = useState(false); // modal de nova empresa
@@ -11618,7 +11294,7 @@ const TIPOS_PAGAMENTO = [
 //  Admin — Configurações (aparência / tema das telas do cliente)
 // ════════════════════════════════════════════════════════════
 // Tela elegante exibida quando o módulo não está incluso no plano contratado.
-function ModuloBloqueado({ slug, lojaInfo, onVerPlanos }) {
+function ModuloBloqueado({ slug }) {
   const msg = getBlockedModuleMessage(slug);
   const moduloNome = MODULOS_LABEL[slug] || slug;
   // Telas padrão reutilizáveis (Falar com consultor / Ver planos)
@@ -12627,7 +12303,7 @@ function VincularProdutosModal({ setor, produtos = [], setores = [], onFechar, o
 // ════════════════════════════════════════════════════════════
 //  Admin — Fechamento de Caixa (migration 042)
 // ════════════════════════════════════════════════════════════
-function CaixaSessaoAdmin({ caixaAberto, caixas = [], api, formasPagamento = [], currentUser }) {
+function CaixaSessaoAdmin({ caixaAberto, caixas = [], api }) {
   const [movs, setMovs] = useState([]);
   const [abrindo, setAbrindo] = useState("");      // valor de abertura (string moeda)
   const [opTipo, setOpTipo] = useState(null);      // 'suprimento' | 'sangria'
@@ -13062,7 +12738,6 @@ const IcoRelogioAud= (p) => (<svg {...svAud} {...p}><circle cx="12" cy="12" r="9
 const IcoRefresh   = (p) => (<svg {...svAud} {...p}><path d="M20.5 12a8.5 8.5 0 1 1-2.4-5.9" /><path d="M20.5 4v4h-4" /></svg>);
 const IcoDownload  = (p) => (<svg {...svAud} {...p}><path d="M12 4v10m0 0 4-4m-4 4-4-4" /><path d="M5 19h14" /></svg>);
 const IcoFechar    = (p) => (<svg {...svAud} {...p}><path d="m6 6 12 12M18 6 6 18" /></svg>);
-const IcoCheckAud  = (p) => (<svg {...svAud} {...p}><path d="m5 12 4.5 4.5L19 7" /></svg>);
 const IcoCopiar    = (p) => (<svg {...svAud} {...p}><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V5a2 2 0 0 1 2-2h8" /></svg>);
 const IcoInfoAud   = (p) => (<svg {...svAud} {...p}><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></svg>);
 
@@ -13696,7 +13371,6 @@ function FormaPagamentoEditModal({ forma, onSalvar, onToggle, onFechar }) {
   const lbl = "mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500";
   const valido = f.nome.trim().length > 0;
   const ativa = forma.active !== false;
-  const labelTipo = (id) => TIPOS_PAGAMENTO.find((t) => t.id === id)?.label || id;
   const alterado = f.nome.trim() !== forma.nome || f.tipo !== (forma.tipo || "outro") || f.permiteTroco !== !!forma.permiteTroco;
 
   return (
@@ -14741,8 +14415,6 @@ function UserAdmin({ users, userForm, setUserForm, addUser, toggleUserStatus, ed
   const [excluir, setExcluir]   = useState(null);
   const [criando, setCriando]   = useState(false);
   const [busca, setBusca]       = useState("");
-  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-gold-400/60 placeholder:text-slate-600";
-  const lbl = "mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500";
   const lojasAtivas = lojas.filter((l) => l.active !== false);
   const cargosAtivos = cargos.filter((c) => c.active !== false);
   const lojaDoUser = (u) => lojas.find((l) => l.id === u.lojaId);
@@ -15156,7 +14828,6 @@ function UserAccessAdmin({ users, accesses, toggleUserAccess, definirAcessos, de
         <UserAccessModal
           usuario={editando}
           acessosAtivos={acessosAtivos}
-          isSuperAdmin={isSuperAdmin}
           nomeLoja={nomeLoja}
           toggleUserAccess={toggleUserAccess}
           definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario}
@@ -15169,7 +14840,7 @@ function UserAccessAdmin({ users, accesses, toggleUserAccess, definirAcessos, de
 }
 
 // Modal de gestão de acessos de um usuário (padrão de modal do projeto)
-function UserAccessModal({ usuario, acessosAtivos = [], isSuperAdmin = false, nomeLoja, toggleUserAccess, definirAcessos, definirAcoesUsuario = async () => {}, outrosUsuarios = [], onFechar }) {
+function UserAccessModal({ usuario, acessosAtivos = [], nomeLoja, toggleUserAccess, definirAcessos, definirAcoesUsuario = async () => {}, outrosUsuarios = [], onFechar }) {
   const liberadas = usuario.accessIds.length;
   const total = acessosAtivos.length;
   const [qrAberto, setQrAberto] = useState(false);

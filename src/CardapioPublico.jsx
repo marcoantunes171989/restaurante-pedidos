@@ -83,7 +83,7 @@ export default function CardapioPublico() {
   const [comanda, setComanda]     = useState(comURL);
   const [cliente, setCliente]     = useState("");
   const [telefone, setTelefone]   = useState("");
-  const [clienteSalvo, setClienteSalvo] = useState(false); // telefone já tem cadastro
+  const clienteSalvoRef = useRef(false); // telefone já tem cadastro (write-only, não usado na renderização)
   const modoExterno = !mesaURL; // link geral (divulgação) → pedido externo (delivery/retirada)
   const [aba, setAba]             = useState(null); // null | 'carrinho' | 'conta'
   const [qrModal, setQrModal]     = useState(null); // dataURL do QR do cardápio (botão "Ver QR")
@@ -91,10 +91,7 @@ export default function CardapioPublico() {
   const [ocultarIndisp, setOcultarIndisp] = useState(false); // botão "Filtros": ocultar indisponíveis
   const [enviando, setEnviando]   = useState(false);
   const [msg, setMsg]             = useState(null);
-  // Restyle app-mesa: tela de boas-vindas + sugestão de bebida
   const [etapa, setEtapa]         = useState(mesaURL ? "welcome" : "cardapio"); // welcome | cardapio
-  const [sugBebida, setSugBebida] = useState(false);  // mostra sugestão de bebida
-  const [sugFechada, setSugFechada] = useState(false); // usuário dispensou a sugestão
   const [tipoPedido, setTipoPedido] = useState(""); // pedido externo: local | retirada | entrega (config_externo)
   const [formaPagto, setFormaPagto] = useState(""); // forma de pagamento: pix | cartao | dinheiro (config_externo)
   const [agora, setAgora] = useState(() => new Date()); // relógio p/ reavaliar aberto/fechado ao vivo
@@ -430,14 +427,14 @@ export default function CardapioPublico() {
   // Identifica o cliente pelo telefone e auto-carrega o nome (via RPC no modo
   // RLS estrito; SELECT direto no modo legacy).
   useEffect(() => {
-    if (!modoExterno || !loja || telDig.length < 10) { setClienteSalvo(false); return; }
+    if (!modoExterno || !loja || telDig.length < 10) { clienteSalvoRef.current = false; return; }
     let vivo = true;
     const t = setTimeout(async () => {
       const c = cardapioViaRpc()
         ? await rpcBuscarClientePublico({ lojaId: loja.id, telefone: telDig })
         : await buscarClientePorTelefone(loja.id, telDig);
       if (!vivo) return;
-      if (c && c.nome) { setCliente(capitalizarNome(c.nome)); setClienteSalvo(true); } else { setClienteSalvo(false); }
+      if (c && c.nome) { setCliente(capitalizarNome(c.nome)); clienteSalvoRef.current = true; } else { clienteSalvoRef.current = false; }
     }, 500);
     return () => { vivo = false; clearTimeout(t); };
   }, [telDig, modoExterno, loja?.id]);
@@ -450,7 +447,7 @@ export default function CardapioPublico() {
     const t = setTimeout(async () => {
       try { await (cardapioViaRpc() ? rpcUpsertClientePublico({ lojaId: loja.id, nome: cliente.trim(), telefone: telDig }) : upsertCliente({ nome: cliente.trim(), telefone: telDig, lojaId: loja.id })); }
       catch {}
-      if (vivo) setClienteSalvo(true);
+      if (vivo) clienteSalvoRef.current = true;
     }, 900);
     return () => { vivo = false; clearTimeout(t); };
   }, [telDig, cliente, modoExterno, loja?.id]);
@@ -481,9 +478,6 @@ export default function CardapioPublico() {
   const podeFechar = meusPedidos.length > 0 && meusPedidos.every((o) => o.status === "delivered");
   const contaSolicitada = meusPedidos.some((o) => o.paymentStatus === "requested");
 
-  // Categoria de bebidas (para a sugestão automática "complete com uma bebida")
-  const nomeCatBebida = useMemo(() => (categorias.find((c) => /bebida|drink|suco/i.test(c.nome))?.nome) || "Bebidas", [categorias]);
-  const bebidas = useMemo(() => produtos.filter((p) => p.category === nomeCatBebida && p.disponivel !== false).slice(0, 6), [produtos, nomeCatBebida]);
   // Roteamento por setor (cozinha/bar) — para o acompanhamento por setor
   const setorPorNomeProd = useMemo(() => { const m = {}; produtos.forEach((p) => { if (p.setorId != null) m[p.name] = p.setorId; }); return m; }, [produtos]);
   const setorNomePorId = useMemo(() => { const m = {}; setores.forEach((s) => { if (s.id != null) m[s.id] = s.nome; }); return m; }, [setores]);
@@ -503,19 +497,9 @@ export default function CardapioPublico() {
     const pres = [...new Set((o.items || []).map(setorDoItemCli))];
     return [...ordemSetoresCli.filter((n) => pres.includes(n)), ...pres.filter((n) => !ordemSetoresCli.includes(n))];
   };
-  const ehBebida = (item) => item?.category === nomeCatBebida || bebidas.some((b) => b.name === item?.name);
-  const carrinhoTemBebida = cart.some(ehBebida);
-
   function addConfigurado(item) {
     setCart((c) => [...c, { ...item, _uid: Date.now() + Math.random() }]);
     setDetalhe(null);
-    // Sugere bebida ao adicionar comida (não repete se já dispensou ou já há bebida no carrinho)
-    if (!ehBebida(item) && !carrinhoTemBebida && !sugFechada && bebidas.length > 0) setSugBebida(true);
-  }
-  function addBebida(b) {
-    const pb = promoDoProduto(b);
-    setCart((c) => [...c, { name: b.name, price: pb ? pb.preco : b.price, economiaUnit: pb ? (pb.original - pb.preco) : 0, quantity: 1, category: b.category, removedIngredients: [], extraIngredients: [], selectedOptions: [], observation: "", _uid: Date.now() + Math.random() }]);
-    setSugBebida(false);
   }
   function removerItem(uid) { setCart((c) => c.filter((i) => i._uid !== uid)); }
 
