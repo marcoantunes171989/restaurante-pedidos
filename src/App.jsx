@@ -6283,7 +6283,7 @@ const SidebarItem = React.memo(function SidebarItem({ id, icon, label, selected,
         "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C4322B]",
         selected
           ? "border-l-[#C4322B] bg-[#263248] font-bold text-[#FFFFFF]"
-          : "border-l-transparent font-medium text-[#D6DBE5] hover:bg-white/[0.05] hover:text-[#FFFFFF]"
+          : "border-l-transparent font-medium text-[#D6DBE5] hover:bg-[#21304A] hover:text-[#FFFFFF]"
       )}>
       <span className={cxSidebar("text-base shrink-0 transition-colors duration-[180ms]", selected ? "text-[#FFFFFF]" : "text-[#A8B1C4] group-hover:text-[#FFFFFF]", blocked && "opacity-40")} aria-hidden="true">{icon}</span>
       <span className={cxSidebar("truncate", blocked && "opacity-50")}>{label}</span>
