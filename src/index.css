@@ -66,6 +66,19 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
   --prime-text-muted: #94A3B8;
   --prime-text-soft: #CBD5E1;
 
+  /* ── FilterChip (componente oficial de filtros/chips/segment-buttons) ──
+     Único ponto de verdade para as cores do FilterChip — nunca repetir
+     estes hex diretamente nas telas. Ver src/components/ui.jsx. */
+  --filter-chip-bg: #FFFFFF;
+  --filter-chip-selected: #C4322B;
+  --filter-chip-selected-hover: #A62B24;
+  --filter-chip-hover-bg: #FEF2F2;
+  --filter-chip-border: #E5E7EB;
+  --filter-chip-text: #172033;
+  --filter-chip-text-selected: #FFFFFF;
+  --filter-chip-disabled-bg: #F1F5F9;
+  --filter-chip-disabled-text: #94A3B8;
+
   /* ── Tema das telas do cliente (tablet/pedido) — escuro por padrão ──
      Trocado para claro via [data-theme="light"]. Os menus laterais NÃO
      usam estas variáveis (ficam sempre escuros). */

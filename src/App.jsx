@@ -38,7 +38,7 @@ import { QRScannerModal  } from "./components/QRScanner";
 import { LogoPP } from "./components/BrandLogo";
 import { IconDashboard, IconRelatorios, IconCrm, IconProdutos, IconCategorias, IconMesas, IconPagamento, IconQr, IconCardapio, IconEmpresas, IconUsuarios, IconCargos, IconPermissoes, IconLink, IconLicencas, IconVersoes, IconEmpresa, IconBusca, IconConfig, IconPromocao } from "./components/PrimeIcons";
 import { obterTema, aplicarTema } from "./lib/theme";
-import { PageHeader, PrimeButton, EmptyState } from "./components/Prime";
+import { PageHeader, PrimeButton, EmptyState, FilterChip } from "./components/Prime";
 
 export const fallbackImage = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=900&q=80";
 
@@ -5760,8 +5760,7 @@ function FinanceiroVisaoAdmin({ orders = [] }) {
         descricao="Receitas, valores em aberto e formas de pagamento — consolidados dos pedidos do período." />
       <div className="flex flex-wrap gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
         {CHIPS.map(([id, l]) => (
-          <button key={id} onClick={() => setPreset(id)}
-            className={`rounded-full border px-3.5 py-1.5 text-xs font-bold transition ${preset === id ? "border-gold-400 bg-gold-400 text-[#061A2E]" : "border-white/10 bg-white/[0.06] text-slate-300 hover:bg-white/10"}`}>{l}</button>
+          <FilterChip key={id} size="sm" selected={preset === id} label={l} onClick={() => setPreset(id)} />
         ))}
       </div>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -5822,8 +5821,7 @@ function LancamentoModal({ inicial, onFechar, onSalvar, salvando }) {
             <input value={f.categoria} onChange={(e) => set("categoria", e.target.value)} placeholder="Ex.: Insumos, Aluguel" className={inp} />
             <div className="mt-2 flex flex-wrap gap-1.5">
               {catsSugeridas.map((cat) => (
-                <button key={cat} type="button" onClick={() => set("categoria", cat)}
-                  className={`rounded-full border px-2.5 py-1 text-[11px] font-bold transition ${f.categoria === cat ? "border-gold-400 bg-gold-400 text-[#061A2E]" : "border-white/10 bg-white/[0.06] text-slate-300 hover:bg-white/10"}`}>{cat}</button>
+                <FilterChip key={cat} size="sm" selected={f.categoria === cat} label={cat} onClick={() => set("categoria", cat)} />
               ))}
             </div>
           </div>
@@ -5950,16 +5948,15 @@ function LancamentosAdmin({ lojaId = null, orders = [], modo = "todos" }) {
       <div className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-wrap gap-2">
           {[["todos", "Todos"], ["receita", "Receitas"], ["despesa", "Despesas"]].map(([id, l]) => (
-            <button key={id} onClick={() => setFiltroTipo(id)} className={`rounded-full border px-3.5 py-1.5 text-xs font-bold transition ${filtroTipo === id ? "border-gold-400 bg-gold-400 text-[#061A2E]" : "border-white/10 bg-white/[0.06] text-slate-300 hover:bg-white/10"}`}>{l}</button>
+            <FilterChip key={id} size="sm" selected={filtroTipo === id} label={l} onClick={() => setFiltroTipo(id)} />
           ))}
           <span className="mx-1 h-6 w-px self-center bg-white/10" />
           {[["todos", "Todos"], ["pendente", "Pendentes"], ["pago", "Pagos"], ["vencidas", "Vencidas"], ["cancelado", "Cancelados"]].map(([id, l]) => (
-            <button key={id} onClick={() => setFiltroStatus(id)} className={`rounded-full border px-3.5 py-1.5 text-xs font-bold transition ${filtroStatus === id ? "border-blue-400 bg-blue-500 text-white" : "border-white/10 bg-white/[0.06] text-slate-300 hover:bg-white/10"}`}>{l}</button>
+            <FilterChip key={id} size="sm" selected={filtroStatus === id} label={l} onClick={() => setFiltroStatus(id)} />
           ))}
         </div>
         <div className="flex gap-2">
-          <button onClick={() => setMostrarVendas((v) => !v)} title="Listar as vendas dos pedidos pagos (sempre somadas ao saldo)"
-            className={`shrink-0 rounded-2xl border px-3.5 py-2 text-xs font-bold transition ${mostrarVendas ? "border-emerald-400 bg-emerald-500/15 text-emerald-300" : "border-white/10 bg-white/[0.06] text-slate-300 hover:bg-white/10"}`}>{mostrarVendas ? "Vendas: on" : "Vendas: off"}</button>
+          <FilterChip selected={mostrarVendas} label={mostrarVendas ? "Vendas: on" : "Vendas: off"} onClick={() => setMostrarVendas((v) => !v)} tooltip="Listar as vendas dos pedidos pagos (sempre somadas ao saldo)" />
           <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar descrição ou categoria…" className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-2 text-sm text-white outline-none focus:border-gold-400/60 placeholder:text-slate-600 lg:w-48" />
           <button onClick={exportarCSV} disabled={filtrada.length === 0} className="shrink-0 rounded-2xl border border-white/10 bg-white/[0.06] px-3.5 py-2 text-xs font-bold text-slate-200 hover:bg-white/10 disabled:opacity-40">Exportar CSV</button>
         </div>
@@ -6169,10 +6166,7 @@ function ComandasGestaoAdmin({ orders = [] }) {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap gap-2">
             {CHIPS.map((c) => (
-              <button key={c.id} onClick={() => setFiltro(c.id)}
-                className={`rounded-full border px-3.5 py-1.5 text-xs font-bold transition ${filtro === c.id ? "border-gold-400 bg-gold-400/15 text-gold-300" : "border-white/10 bg-white/[0.03] text-slate-400 hover:bg-white/[0.06]"}`}>
-                {c.label}
-              </button>
+              <FilterChip key={c.id} size="sm" selected={filtro === c.id} label={c.label} onClick={() => setFiltro(c.id)} />
             ))}
           </div>
           <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar comanda, mesa, cliente ou telefone..."
@@ -6718,10 +6712,7 @@ function SeletorPeriodo({ periodo, setPeriodo, ini, setIni, fim, setFim }) {
   return (
     <div className="flex flex-wrap items-center justify-end gap-2 max-w-full">
       {opcoes.map((o) => (
-        <button key={o.id} onClick={() => setPeriodo(o.id)} aria-pressed={periodo === o.id}
-          className={`h-[30px] shrink-0 rounded-full border px-3 text-xs font-black transition ${periodo === o.id ? "border-[#F1B8B2] bg-[#FEF2F2] text-[#B91C1C]" : "border-[#E5E7EB] bg-white text-[#475467] hover:bg-[#F8FAFC] hover:border-[#D0D5DD]"}`}>
-          {o.label}
-        </button>
+        <FilterChip key={o.id} size="sm" selected={periodo === o.id} label={o.label} onClick={() => setPeriodo(o.id)} />
       ))}
       {periodo === "periodo" && (
         <div className="flex flex-wrap items-center gap-2">
@@ -6912,9 +6903,9 @@ function AcessosOperacionaisAdmin({ users = [], definirAcessos = async () => {},
                     {admin ? (
                       <span className="rounded-full border border-gold-400/40 bg-gold-400/10 px-3 py-1.5 text-xs font-black text-gold-300">⭐ Acesso total (admin)</span>
                     ) : (<>
-                      <button onClick={() => setTotal(u, !eff.total)} className={`rounded-xl px-3 py-1.5 text-xs font-black transition ${eff.total ? "bg-gold-400 text-blue-950" : "border border-white/10 bg-white/[0.05] text-slate-300 hover:bg-white/10"}`}>Acesso total</button>
+                      <FilterChip size="sm" selected={eff.total} label="Acesso total" onClick={() => setTotal(u, !eff.total)} />
                       {OP_MODULOS.map((m) => (
-                        <button key={m.id} onClick={() => setModulo(u, m.id, !eff[m.id])} className={`rounded-xl px-3 py-1.5 text-xs font-bold transition ${eff[m.id] ? "bg-emerald-500/20 text-emerald-300" : "border border-white/10 bg-white/[0.05] text-slate-400 hover:bg-white/10"}`}>{eff[m.id] ? "✓ " : ""}{m.ic} {m.label}</button>
+                        <FilterChip key={m.id} size="sm" selected={eff[m.id]} icon={m.ic} label={m.label} onClick={() => setModulo(u, m.id, !eff[m.id])} />
                       ))}
                       <button onClick={() => restaurarPadrao(u)} title="Restaurar acesso padrão (legado)" className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-bold text-slate-400 hover:bg-white/10">↺ Padrão</button>
                     </>)}
@@ -6971,7 +6962,7 @@ function CardapioQrConfigAdmin({ products = [], setores = [], salvarProdutoQr = 
           </div>
           <div className="flex flex-wrap gap-1.5">
             {[["todos", "Todos"], ["qr", "No QR"], ["foraqr", "Fora do QR"], ["semsetor", "Sem setor"]].map(([k, l]) => (
-              <button key={k} onClick={() => setFiltro(k)} className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${filtro === k ? "bg-gold-400 text-blue-950" : "border border-white/10 bg-white/[0.05] text-slate-300 hover:bg-white/10"}`}>{l}</button>
+              <FilterChip key={k} size="sm" selected={filtro === k} label={l} onClick={() => setFiltro(k)} />
             ))}
           </div>
         </div>
@@ -7184,8 +7175,8 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
         <div className="mb-3 flex gap-1.5 overflow-x-auto">
           {[["todos", "Todos"], ...setoresChip.map((n) => [n, n]), ["caixa", "Caixa"]].map(([k, l]) => { const cnt = (k !== "todos" && k !== "caixa") ? qtdSetorAtivos(k) : 0;
             return (
-              <button key={k} onClick={() => (k === "caixa" ? setTab("caixa") : setFiltroCentral(k))}
-                className={`relative flex min-h-[36px] shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-bold transition ${filtroCentral === k ? "bg-[#D9A441] text-[#182230]" : "border border-[#E5E7EB] bg-white text-[#475467] hover:bg-[#F9FAFB]"}`}>{l}{cnt > 0 && <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-black ${filtroCentral === k ? "bg-white/50 text-[#182230]" : "bg-[#D9A441] text-white"}`}>{cnt}</span>}</button>
+              <FilterChip key={k} size="sm" selected={filtroCentral === k} label={l} badge={cnt > 0 ? cnt : null}
+                onClick={() => (k === "caixa" ? setTab("caixa") : setFiltroCentral(k))} />
             );
           })}
         </div>
@@ -7432,12 +7423,11 @@ function ContaCaixa({ o, opcoes, pagando, onFinalizar, haTxt, numeroPedido = {},
 // Grupo de filtros em formato "pill" (turno, canal, status)
 function GrupoPill({ titulo, valor, setValor, opcoes }) {
   return (
-    <div className="flex items-center gap-1.5">
+    <div className="flex flex-wrap items-center gap-1.5">
       <span className="text-[10px] font-bold uppercase tracking-widest text-[#667085]">{titulo}</span>
-      <div className="flex flex-wrap gap-1">
+      <div className="flex flex-wrap gap-1.5">
         {opcoes.map((op) => (
-          <button key={op.id} onClick={() => setValor(op.id)}
-            className={`rounded-full px-2.5 py-1 text-[11px] font-bold transition ${valor === op.id ? "bg-[#D9A441] text-[#182230]" : "border border-[#E5E7EB] bg-white text-[#475467] hover:bg-[#F9FAFB]"}`}>{op.label}</button>
+          <FilterChip key={op.id} size="sm" selected={valor === op.id} label={op.label} onClick={() => setValor(op.id)} />
         ))}
       </div>
     </div>
@@ -8434,10 +8424,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
       {/* Sub-abas de relatório */}
       <div className="flex flex-wrap gap-2">
         {[{ id: "geral", label: "Visão geral" }, { id: "vendas", label: "Vendas" }, { id: "cupom", label: "Cupom / Mesa / Comanda" }, { id: "estoque", label: "Estoque" }, { id: "clientes", label: "Clientes" }, { id: "permanencia", label: "Permanência" }, { id: "satisfacao", label: "⭐ Satisfação" }].map((t) => (
-          <button key={t.id} onClick={() => setAba(t.id)}
-            className={`font-display rounded-xl px-4 py-2.5 text-sm font-bold transition ${aba === t.id ? "bg-gold-400 text-blue-950 shadow-lg shadow-gold-900/20" : "border border-white/10 bg-white/[0.04] text-slate-300 hover:bg-white/[0.08]"}`}>
-            {t.label}
-          </button>
+          <FilterChip key={t.id} selected={aba === t.id} label={t.label} onClick={() => setAba(t.id)} />
         ))}
       </div>
 
@@ -10027,9 +10014,9 @@ function CrmAdmin({ clientes = [], orders = [], fidTransacoes = [], fidRecompens
             <option value="inativo">Clientes inativos</option>
             <option value="nome">Nome (A–Z)</option>
           </select>
-          <div className="flex shrink-0 rounded-2xl border border-white/10 bg-slate-950/70 p-1">
+          <div className="flex shrink-0 gap-1.5">
             {[["lista", "Lista"], ["ranking", "Ranking"]].map(([v, t]) => (
-              <button key={v} onClick={() => setViewMode(v)} className={`rounded-xl px-3 py-2 text-xs font-bold transition ${viewMode === v ? "bg-gold-400 text-blue-950" : "text-slate-300 hover:bg-white/10"}`}>{t}</button>
+              <FilterChip key={v} size="sm" selected={viewMode === v} label={t} onClick={() => setViewMode(v)} />
             ))}
           </div>
         </div>
@@ -10276,7 +10263,7 @@ function CampanhaModal({ clientes = [], rotuloSegmento = "Todos", onFechar }) {
         <div className="pp-overscroll-contain flex-1 overflow-y-auto px-5 py-4">
           <p className="mb-2 text-[11px] font-bold uppercase tracking-widest text-slate-500">Modelos prontos</p>
           <div className="mb-3 flex flex-wrap gap-1.5">
-            {TEMPLATES.map((t) => <button key={t.t} onClick={() => setMsg(t.m)} className={`rounded-full border px-3 py-1.5 text-xs font-bold transition ${msg === t.m ? "border-gold-400 bg-gold-400 text-blue-950" : "border-white/10 bg-white/[0.05] text-slate-300 hover:bg-white/10"}`}>{t.t}</button>)}
+            {TEMPLATES.map((t) => <FilterChip key={t.t} size="sm" selected={msg === t.m} label={t.t} onClick={() => setMsg(t.m)} />)}
           </div>
 
           <p className="text-[11px] font-bold uppercase tracking-widest text-slate-500">Mensagem <span className="font-normal normal-case text-slate-500">(use <code className="rounded bg-white/10 px-1 text-gold-300">{"{nome}"}</code> para personalizar)</span></p>
@@ -10482,12 +10469,9 @@ function CardapioExternoAdmin({ lojaInfo, setModoUsoEmpresa = async () => {}, sa
       </div>
 
       {/* ── Abas (item 19) ─────────────────────────────────── */}
-      <div className="flex items-center gap-1.5 overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.04] p-1.5">
+      <div className="flex items-center gap-1.5 overflow-x-auto">
         {ABAS.map(([id, label]) => (
-          <button key={id} onClick={() => setAba(id)}
-            className={`shrink-0 rounded-xl px-4 py-2 text-sm font-bold transition ${aba === id ? "bg-gold-400 text-blue-950" : "text-slate-300 hover:bg-white/5"}`}>
-            {label}
-          </button>
+          <FilterChip key={id} selected={aba === id} label={label} onClick={() => setAba(id)} />
         ))}
       </div>
 
@@ -11823,7 +11807,7 @@ function PromocoesAdmin({ promocoes = [], produtos = [], categoriasDb = [], addP
       {/* Filtros */}
       <div className="flex flex-wrap items-center gap-2">
         {[["todas", "Todas"], ["ativas", "Ativas"], ["inativas", "Inativas"]].map(([v, t]) => (
-          <button key={v} onClick={() => setFStatus(v)} className={`rounded-xl px-3.5 py-2 text-xs font-black transition ${fStatus === v ? "bg-gold-400 text-blue-950" : "border border-white/10 bg-white/[0.04] text-slate-300 hover:bg-white/[0.08]"}`}>{t}</button>
+          <FilterChip key={v} size="sm" selected={fStatus === v} label={t} onClick={() => setFStatus(v)} />
         ))}
         <span className="mx-1 h-5 w-px bg-white/10" />
         <select value={fTipo} onChange={(e) => setFTipo(e.target.value)} className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white outline-none focus:border-gold-400/60">
@@ -13411,8 +13395,7 @@ function ConfiguracoesAdmin({ lojaInfo }) {
           <span className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500">Regra de cobrança</span>
           <div className="flex flex-wrap gap-2">
             {[["fixa", "Fixa"], ["opcional", "Opcional"], ["nao_cobrar", "Não cobrar"]].map(([id, label]) => (
-              <button key={id} onClick={() => atualizarTaxa({ chargingRule: id })}
-                className={`rounded-full border px-3.5 py-1.5 text-xs font-black transition ${taxaCfg.chargingRule === id ? "border-gold-400 bg-gold-400 text-blue-950" : "border-white/10 bg-white/[0.05] text-slate-300 hover:bg-white/10"}`}>{label}</button>
+              <FilterChip key={id} size="sm" selected={taxaCfg.chargingRule === id} label={label} onClick={() => atualizarTaxa({ chargingRule: id })} />
             ))}
           </div>
         </div>
@@ -13420,8 +13403,7 @@ function ConfiguracoesAdmin({ lojaInfo }) {
           <span className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500">Estratégia no pagamento parcial</span>
           <div className="flex flex-wrap gap-2">
             {[["proporcional_itens", "Proporcional aos itens"], ["proporcional_valor", "Proporcional ao valor"], ["manual", "Manual"], ["nao_ratear", "Não ratear"]].map(([id, label]) => (
-              <button key={id} onClick={() => atualizarTaxa({ partialStrategy: id })}
-                className={`rounded-full border px-3.5 py-1.5 text-xs font-black transition ${taxaCfg.partialStrategy === id ? "border-gold-400 bg-gold-400 text-blue-950" : "border-white/10 bg-white/[0.05] text-slate-300 hover:bg-white/10"}`}>{label}</button>
+              <FilterChip key={id} size="sm" selected={taxaCfg.partialStrategy === id} label={label} onClick={() => atualizarTaxa({ partialStrategy: id })} />
             ))}
           </div>
         </div>
@@ -13886,10 +13868,7 @@ function ProductAdmin({ products, categories, adminForm, setAdminForm, addProduc
         </div>
         <div className="flex flex-wrap gap-2">
           {["Todos", ...cats].map((c) => (
-            <button key={c} onClick={() => setFiltroCat(c)}
-              className={`rounded-full border px-3 py-1.5 text-xs font-black transition ${filtroCat === c ? "border-gold-400 bg-gold-400 text-[#061A2E]" : "border-white/10 bg-white/[0.06] text-slate-300 hover:bg-white/10"}`}>
-              {c}
-            </button>
+            <FilterChip key={c} size="sm" selected={filtroCat === c} label={c} onClick={() => setFiltroCat(c)} />
           ))}
         </div>
 
@@ -14416,10 +14395,7 @@ function ProdutoEditModal({ produto, cats, onSalvar, onFechar, lojaId, setores =
                 <span className={lbl}>Etiqueta do destaque</span>
                 <div className="flex flex-wrap gap-2">
                   {["Mais vendido", "Sugestão do chef", "Novo", "Especial da casa", "Promoção", "Destaque"].map((lab) => (
-                    <button key={lab} type="button" onClick={() => setF({ ...f, featuredLabel: lab })}
-                      className={`rounded-full border px-3 py-1.5 text-xs font-bold transition ${f.featuredLabel === lab ? "border-gold-400 bg-gold-400 text-blue-950" : "border-white/10 bg-white/[0.04] text-slate-300 hover:bg-white/10"}`}>
-                      {lab}
-                    </button>
+                    <FilterChip key={lab} size="sm" selected={f.featuredLabel === lab} label={lab} onClick={() => setF({ ...f, featuredLabel: lab })} />
                   ))}
                 </div>
               </div>

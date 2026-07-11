@@ -2,6 +2,50 @@
 //  Componentes globais Pedido Prime — padrão visual SaaS premium
 //  Reutilizáveis em todas as telas administrativas.
 // ════════════════════════════════════════════════════════════
+import { memo } from "react";
+
+// ── FilterChip ────────────────────────────────────────────────
+// Componente OFICIAL de filtro/chip/segment-button/aba de filtro do
+// Pedido Prime. Toda tela administrativa com filtros, abas de período,
+// status, turno, canal, categoria etc. deve usar ESTE componente —
+// nenhum filtro deve ter CSS próprio (tokens filter-chip-* em src/index.css).
+// size: sm | md | lg. color: primary (única cor oficial hoje).
+const FILTER_CHIP_SIZES = {
+  sm: "min-h-11 sm:min-h-[36px] px-3 py-2 text-[13px]",
+  md: "min-h-11 sm:min-h-[38px] px-4 py-2 text-sm",
+  lg: "min-h-11 sm:min-h-[40px] px-5 py-2.5 text-[15px]",
+};
+export const FilterChip = memo(function FilterChip({
+  selected = false, disabled = false, icon = null, label, badge = null, loading = false,
+  onClick, size = "md", color = "primary", fullWidth = false, className = "", tooltip,
+}) {
+  const bloqueado = disabled || loading;
+  const cls = [
+    "filter-chip inline-flex shrink-0 items-center justify-center gap-2 whitespace-normal rounded-full border text-center transition-all duration-200 ease-out",
+    FILTER_CHIP_SIZES[size] || FILTER_CHIP_SIZES.md,
+    fullWidth ? "w-full" : "",
+    disabled
+      ? "cursor-not-allowed border-[var(--filter-chip-border)] bg-[var(--filter-chip-disabled-bg)] font-medium text-[var(--filter-chip-disabled-text)]"
+      : selected
+        ? "border-[var(--filter-chip-selected)] bg-[var(--filter-chip-selected)] font-semibold text-[var(--filter-chip-text-selected)] hover:border-[var(--filter-chip-selected-hover)] hover:bg-[var(--filter-chip-selected-hover)]"
+        : "border-[var(--filter-chip-border)] bg-[var(--filter-chip-bg)] font-medium text-[var(--filter-chip-text)] hover:border-[var(--filter-chip-selected)] hover:bg-[var(--filter-chip-hover-bg)] hover:text-[var(--filter-chip-selected)]",
+    !disabled ? "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--filter-chip-selected)]" : "",
+    className,
+  ].filter(Boolean).join(" ");
+  return (
+    <button type="button" onClick={bloqueado ? undefined : onClick} disabled={disabled}
+      aria-pressed={selected} aria-selected={selected} title={tooltip} data-color={color} className={cls}>
+      {loading ? <span className="h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-current border-r-transparent" aria-label="Carregando" />
+        : (icon && <span className="shrink-0" aria-hidden="true">{icon}</span>)}
+      <span>{label}</span>
+      {badge != null && (
+        <span className={`ml-0.5 inline-flex min-w-[18px] shrink-0 items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none ${selected ? "bg-white/25 text-white" : "bg-[#F1F5F9] text-[#475569]"}`}>
+          {badge}
+        </span>
+      )}
+    </button>
+  );
+});
 
 // Cabeçalho de página: título (Sora), descrição curta, indicadores e ação principal
 export function PageHeader({ icone = null, titulo, descricao, indicadores = [], acao = null }) {
