@@ -7458,11 +7458,13 @@ function ContaCaixa({ o, opcoes, pagando, onFinalizar, haTxt, numeroPedido = {},
 }
 
 // Grupo de filtros em formato "pill" (turno, canal, status)
+// Grupo de filtros — cartão independente (rótulo + chips). Um por contexto
+// de filtro (Turno, Canal, Status); nenhum CSS próprio além do container.
 function GrupoPill({ titulo, valor, setValor, opcoes }) {
   return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      <span className="text-[10px] font-bold uppercase tracking-widest text-[#667085]">{titulo}</span>
-      <div className="flex flex-wrap gap-1.5">
+    <div className="rounded-2xl border border-[#E5E7EB] bg-white p-4">
+      <p className="mb-2.5 text-[11px] font-bold uppercase tracking-widest text-[#667085]">{titulo}</p>
+      <div className="flex flex-wrap gap-2">
         {opcoes.map((op) => (
           <FilterChip key={op.id} size="sm" selected={valor === op.id} label={op.label} onClick={() => setValor(op.id)} />
         ))}
@@ -7822,15 +7824,17 @@ function DashboardAdmin({ orders, products, comandas = [], clientes = [], setore
         <SeletorPeriodo periodo={periodo} setPeriodo={setPeriodo} ini={ini} setIni={setIni} fim={fim} setFim={setFim} />
       </div>
 
-      {/* Filtros secundários */}
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-2xl border border-[#E5E7EB] bg-white px-4 py-3">
+      {/* Filtros secundários — um agrupamento independente por contexto (Turno,
+          Canal, Status): 1 coluna no mobile, 2 no tablet, 3 lado a lado no desktop. */}
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
         <GrupoPill titulo="Turno" valor={turno} setValor={setTurno} opcoes={[{ id: "todos", label: "Todos" }, { id: "almoco", label: "Almoço" }, { id: "jantar", label: "Jantar" }]} />
         <GrupoPill titulo="Canal" valor={canal} setValor={setCanal} opcoes={[{ id: "todos", label: "Todos" }, { id: "mesa", label: "Mesa" }, { id: "qr", label: "QR Code" }, { id: "balcao", label: "Balcão" }, { id: "delivery", label: "Delivery" }]} />
         <GrupoPill titulo="Status" valor={statusF} setValor={setStatusF} opcoes={[{ id: "todos", label: "Todos" }, { id: "pago", label: "Pago" }, { id: "aberto", label: "Em aberto" }, { id: "cancelado", label: "Cancelado" }]} />
       </div>
 
       {!soCopiloto && (<>
-      {/* Resumo inteligente — insights automáticos (usa dados já calculados) */}
+      {/* Resumo inteligente — insights automáticos (usa dados já calculados).
+          Espaçamento extra (mt-4) para não competir visualmente com os filtros acima. */}
       {(() => {
         const meta = 45;
         const estoqueBaixo = (products || []).filter((p) => p.controlaEstoque && (Number(p.estoque) || 0) <= (Number(p.estoqueMinimo) || 0)).length;
@@ -7842,7 +7846,7 @@ function DashboardAdmin({ orders, products, comandas = [], clientes = [], setore
           { dot: estoqueBaixo === 0 ? "bg-emerald-400" : "bg-red-400", txt: estoqueBaixo === 0 ? "Estoque sem alertas" : <>{estoqueBaixo} produto(s) sem estoque</> },
         ].filter(Boolean);
         return (
-          <div className="flex flex-wrap items-center gap-2.5 rounded-2xl border border-[#F4D27A]/60 bg-white px-4 py-3">
+          <div className="mt-4 flex flex-wrap items-center gap-2.5 rounded-2xl border border-[#F4D27A]/60 bg-white px-4 py-3">
             <span className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-[#9A6A00]">
               <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor"><path d="M12 2l2.4 6.9H22l-6 4.3 2.3 7L12 16l-6.3 4.2 2.3-7-6-4.3h7.6z" /></svg>
               Resumo inteligente
