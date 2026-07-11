@@ -102,6 +102,13 @@ export function formatCurrency(value) {
   return Number(value || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
+// Formata duração em minutos de forma humana (helper global — evita reimplementar
+// em cada tela): 42 → "42min" · 2788 → "46h28min" · 3713 → "61h53min".
+export function formatarDuracaoMin(mins) {
+  const m = Math.max(0, Math.round(Number(mins) || 0));
+  return m >= 60 ? `${Math.floor(m / 60)}h${String(m % 60).padStart(2, "0")}min` : `${m}min`;
+}
+
 export function isValidCommand(code) {
   // Aceita qualquer prefixo de 1-5 letras + hífen + 4-8 números (ex: CMD-000001, RST-0001)
   return /^[A-Z]{1,5}-\d{4,8}$/.test(String(code || "").trim().toUpperCase());
@@ -6867,7 +6874,7 @@ function DonutChart({ dados, label = "" }) {
           const frac = d.valor / total;
           const dash = frac * C;
           const el = (
-            <circle key={i} cx="90" cy="90" r={R} fill="none" stroke={CORES_GRAF[i % CORES_GRAF.length]} strokeWidth="26"
+            <circle key={i} cx="90" cy="90" r={R} fill="none" stroke={d.cor || CORES_GRAF[i % CORES_GRAF.length]} strokeWidth="26"
               strokeDasharray={`${dash} ${C - dash}`} strokeDashoffset={-acc} />
           );
           acc += dash;
@@ -6878,7 +6885,7 @@ function DonutChart({ dados, label = "" }) {
       <div className="space-y-1.5">
         {dados.map((d, i) => (
           <div key={i} className="flex items-center gap-2 text-sm">
-            <span className="h-3 w-3 rounded-sm" style={{ background: CORES_GRAF[i % CORES_GRAF.length] }} />
+            <span className="h-3 w-3 rounded-sm" style={{ background: d.cor || CORES_GRAF[i % CORES_GRAF.length] }} />
             <span className="text-slate-300">{d.label}</span>
             <span className="font-black text-white">{((d.valor / total) * 100).toFixed(0)}%</span>
           </div>
@@ -7728,8 +7735,11 @@ function DashboardAdmin({ orders, products, comandas = [], clientes = [], setore
 
   // Donut categorias e status
   const catDonut = a.categorias.slice(0, 6).map((c) => ({ label: c.categoria, valor: c.valor }));
+  // Cor semântica por status (não cíclica): aguardando=âmbar, em preparo=azul,
+  // pronto=azul claro (chart secundário), entregue=verde. Nunca terracota aqui.
+  const CORES_STATUS_PEDIDO = { received: "#C28135", preparing: "#315A7D", ready: "#7CA1BF", delivered: "#3F7D5A" };
   const statusDist = ["received", "preparing", "ready", "delivered"]
-    .map((s) => ({ label: statusMap[s]?.label || s, valor: filtrados.filter((o) => o.status === s).length }))
+    .map((s) => ({ label: statusMap[s]?.label || s, valor: filtrados.filter((o) => o.status === s).length, cor: CORES_STATUS_PEDIDO[s] }))
     .filter((d) => d.valor > 0);
   const naoCancelados = filtrados.filter((o) => o.status !== "cancelled").length;
   const entregues = filtrados.filter((o) => o.status === "delivered").length;
@@ -7759,7 +7769,7 @@ function DashboardAdmin({ orders, products, comandas = [], clientes = [], setore
   const mesasAtencao = Object.values(porMesa).map((m) => ({ ...m, mins: Math.round((agora - m.inicio) / 60000) })).sort((x, y) => y.mins - x.mins);
   const mesasAbertas = mesasAtencao.length;
   const tempoMedioMesa = mesasAbertas ? Math.round(mesasAtencao.reduce((s, m) => s + m.mins, 0) / mesasAbertas) : 0;
-  const fmtTempo = (mins) => (mins >= 60 ? `${Math.floor(mins / 60)}h${String(mins % 60).padStart(2, "0")}min` : `${mins}min`);
+  const fmtTempo = formatarDuracaoMin; // helper global — mesmo formato em toda a tela
   const situacaoMesa = (m) => m.preparo ? { label: "Pedido em preparo", cls: "border-orange-400/30 bg-orange-500/10 text-orange-300" } : { label: "Aguardando pagamento", cls: "border-red-400/30 bg-red-500/10 text-red-300" };
 
   // Cancelamentos e perdas
@@ -8088,7 +8098,7 @@ function DashboardAdmin({ orders, products, comandas = [], clientes = [], setore
           <div className="space-y-3">
             {a.topProdutos.length === 0 && <p className="py-4 text-center text-sm text-slate-500">Nenhuma venda no período.</p>}
             {a.topProdutos.map((p, i) => (
-              <BarraHorizontal key={p.nome} label={p.nome} valor={p.qtd} max={maxProd} sufixo=" un" cor={i === 0 ? "bg-gold-400" : "bg-blue-500"} />
+              <BarraHorizontal key={p.nome} label={p.nome} valor={p.qtd} max={maxProd} sufixo=" un" cor={i === 0 ? "bg-brand-primary" : "bg-brand-info"} />
             ))}
           </div>
         </Painel>
@@ -8101,8 +8111,8 @@ function DashboardAdmin({ orders, products, comandas = [], clientes = [], setore
         <Painel titulo="Desempenho da Cozinha">
           <div className="grid grid-cols-3 gap-2">
             {[
-              { r: "Tempo médio de preparo", v: tempoMedioPrep != null ? `${tempoMedioPrep} min` : "—" },
-              { r: "Pedido mais demorado", v: tempoMaxPrep != null ? `${tempoMaxPrep} min` : "—" },
+              { r: "Tempo médio de preparo", v: tempoMedioPrep != null ? formatarDuracaoMin(tempoMedioPrep) : "—" },
+              { r: "Pedido mais demorado", v: tempoMaxPrep != null ? formatarDuracaoMin(tempoMaxPrep) : "—" },
               { r: "Setor mais acionado", v: setorMaisAcionado },
             ].map((c) => (
               <div key={c.r} className="rounded-2xl border border-white/10 bg-slate-950/40 p-3 text-center">
@@ -8116,8 +8126,8 @@ function DashboardAdmin({ orders, products, comandas = [], clientes = [], setore
 
         <Painel titulo="Formas de Pagamento">
           <div className="space-y-3">
-            <BarraHorizontal label="Recebido (pago)" valor={a.faturamento} max={Math.max(1, previsto)} sufixo="R$" cor="bg-emerald-500" />
-            <BarraHorizontal label="Pendente (em aberto)" valor={a.emAberto} max={Math.max(1, previsto)} sufixo="R$" cor="bg-orange-500" />
+            <BarraHorizontal label="Recebido (pago)" valor={a.faturamento} max={Math.max(1, previsto)} sufixo="R$" cor="bg-brand-success" />
+            <BarraHorizontal label="Pendente (em aberto)" valor={a.emAberto} max={Math.max(1, previsto)} sufixo="R$" cor="bg-brand-warning" />
           </div>
           <p className="mt-3 text-[11px] text-slate-500">Detalhamento por forma (Pix, crédito, débito, dinheiro) disponível em <b className="text-slate-300">Fechamento de Caixa</b>.</p>
         </Painel>
@@ -8175,9 +8185,12 @@ function DashboardAdmin({ orders, products, comandas = [], clientes = [], setore
           ) : (
             <div className="space-y-2">
               {semEstoque.map((p) => (
-                <div key={p.id} className="flex items-center justify-between rounded-2xl border border-red-400/20 bg-red-500/5 px-4 py-2.5">
-                  <span className="truncate text-sm font-bold text-white">{p.name}</span>
-                  <span className="text-sm font-black text-red-300">{p.estoque ?? 0} un</span>
+                <div key={p.id} className="flex items-center justify-between gap-2 rounded-2xl border border-red-400/20 bg-red-500/5 px-4 py-2.5">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-bold text-white">{p.name}</p>
+                    <p className="text-[11px] text-red-300/80">Abaixo do mínimo{p.estoqueMinimo != null ? ` (${p.estoqueMinimo} un)` : ""}</p>
+                  </div>
+                  <span className="shrink-0 text-sm font-black text-red-300">{p.estoque ?? 0} un</span>
                 </div>
               ))}
             </div>
@@ -8201,7 +8214,7 @@ function DashboardAdmin({ orders, products, comandas = [], clientes = [], setore
                 { r: "Ticket médio", v: comparativo.ticket },
               ].map((c) => (
                 <div key={c.r} className="rounded-2xl border border-white/10 bg-slate-950/40 p-3 text-center">
-                  <p className={`page-title text-lg font-bold ${c.v == null ? "text-slate-400" : c.v >= 0 ? "text-emerald-400" : "text-red-400"}`}>{c.v == null ? "—" : `${c.v >= 0 ? "+" : ""}${c.v.toFixed(0)}%`}</p>
+                  <p className={`page-title text-lg font-bold ${c.v == null ? "text-slate-400" : c.v >= 0 ? "text-brand-success" : "text-brand-danger"}`}>{c.v == null ? "—" : `${c.v >= 0 ? "+" : ""}${c.v.toFixed(0)}%`}</p>
                   <p className="mt-1 text-[10px] leading-tight text-slate-500">{c.r}<br />vs período anterior</p>
                 </div>
               ))}
