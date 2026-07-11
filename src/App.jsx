@@ -5675,7 +5675,7 @@ function CompanySelector({ lojas = [], valor, onChange }) {
   const termo = busca.trim().toLowerCase();
   const lista = termo ? lojas.filter((l) => `${l.nome} ${l.prefixo}`.toLowerCase().includes(termo)) : lojas;
   const escolher = (id) => { onChange(id); setAberto(false); setBusca(""); };
-  const item = (sel) => `flex w-full items-center gap-2.5 rounded-xl border px-2.5 py-2 text-left text-sm transition ${sel ? "border-[#C4322B] bg-[rgba(196,50,43,.10)] text-white" : "border-transparent text-[#D6DBE5] hover:bg-white/[0.05]"}`;
+  const item = (sel) => `flex w-full items-center gap-2.5 rounded-xl border px-2.5 py-2 text-left text-sm transition ${sel ? "border-[#C4322B] bg-[rgba(196,50,43,.10)] text-[#FFFFFF]" : "border-transparent text-[#D6DBE5] hover:bg-white/[0.05]"}`;
   const avatar = (sel) => `flex h-7 w-7 shrink-0 items-center justify-center rounded-md border ${sel ? "border-[#C4322B]/50 bg-[rgba(196,50,43,.12)] text-[#E8756B]" : "border-white/10 bg-white/[0.05] text-white/70"}`;
   const Globo = ({ className = "h-4 w-4" }) => (<svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c2.5 2.5 3.8 5.7 3.8 9S14.5 18.5 12 21c-2.5-2.5-3.8-5.7-3.8-9S9.5 5.5 12 3Z" /></svg>);
 
@@ -5687,7 +5687,7 @@ function CompanySelector({ lojas = [], valor, onChange }) {
           {atual ? <IconEmpresa /> : <Globo />}
         </span>
         <div className="min-w-0 flex-1">
-          <p className="font-display truncate text-sm font-bold text-white">{atual ? atual.nome : "Visão geral"}</p>
+          <p className="font-display truncate text-sm font-bold text-[#FFFFFF]">{atual ? atual.nome : "Visão geral"}</p>
           <p className="truncate text-[10px] font-medium text-[#B6BECF]">{atual ? `Comandas: ${atual.prefixo}` : "Todas as empresas"}</p>
         </div>
         <svg className={`h-3.5 w-3.5 shrink-0 text-[#C4322B] transition-transform duration-200 ${aberto ? "rotate-180" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
@@ -5702,7 +5702,7 @@ function CompanySelector({ lojas = [], valor, onChange }) {
                 <div className="flex items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.05] px-3 py-1.5 focus-within:border-[#C4322B]/60 transition">
                   <span className="shrink-0 text-[#8993A8]"><IconBusca /></span>
                   <input autoFocus value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar empresa..."
-                    className="w-full bg-transparent text-xs text-white outline-none placeholder:text-[#8993A8]" />
+                    className="w-full bg-transparent text-xs text-[#FFFFFF] outline-none placeholder:text-[#8993A8]" />
                 </div>
               </div>
             )}
@@ -6275,10 +6275,10 @@ const SidebarItem = React.memo(function SidebarItem({ id, icon, label, selected,
         "group relative flex min-h-[44px] w-full items-center gap-3 rounded-2xl border-l-4 p-4 text-sm transition-all duration-[180ms] ease-out",
         "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C4322B]",
         selected
-          ? "border-l-[#C4322B] bg-[#263248] font-bold text-white"
-          : "border-l-transparent font-medium text-[#D6DBE5] hover:bg-white/[0.05] hover:text-white"
+          ? "border-l-[#C4322B] bg-[#263248] font-bold text-[#FFFFFF]"
+          : "border-l-transparent font-medium text-[#D6DBE5] hover:bg-white/[0.05] hover:text-[#FFFFFF]"
       )}>
-      <span className={cxSidebar("text-base shrink-0 transition-colors duration-[180ms]", selected ? "text-white" : "text-[#A8B1C4] group-hover:text-white", blocked && "opacity-40")} aria-hidden="true">{icon}</span>
+      <span className={cxSidebar("text-base shrink-0 transition-colors duration-[180ms]", selected ? "text-[#FFFFFF]" : "text-[#A8B1C4] group-hover:text-[#FFFFFF]", blocked && "opacity-40")} aria-hidden="true">{icon}</span>
       <span className={cxSidebar("truncate", blocked && "opacity-50")}>{label}</span>
       {blocked && <span className="ml-auto shrink-0" aria-label="Disponível em outro plano" title="Disponível em outro plano">🔒</span>}
     </button>
