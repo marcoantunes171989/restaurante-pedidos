@@ -457,7 +457,7 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
   // Reseta o loading quando chega uma mensagem (ex.: erro de credenciais).
   useEffect(() => { if (message && message.text) setEntrando(false); }, [message]);
   const labelCls = "mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-[#344054]";
-  const inputCls = "w-full rounded-2xl border border-[#D0D5DD] bg-white py-3.5 pl-11 pr-4 text-[15px] text-[#182230] outline-none transition focus:border-[#2563EB] focus:ring-2 focus:ring-[#BFDBFE] placeholder:text-[#98A2B3]";
+  const inputCls = "w-full rounded-2xl border border-[#D0D5DD] bg-white py-3.5 pl-11 pr-4 text-[15px] text-[#172033] outline-none transition focus:border-[#C83F2A] focus:ring-2 focus:ring-[#C83F2A]/20 placeholder:text-[#98A2B3]";
   const podeEntrar = loginForm.email.trim() && loginForm.password;
 
   // Ícones (SVG inline — leves e elegantes)
@@ -480,11 +480,11 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
   };
 
   return (
-    <div data-theme="light" className="tema-claro-area relative flex min-h-dvh w-full max-w-[100vw] items-stretch overflow-x-hidden text-[#182230]" style={{ fontFamily: "'Inter','Poppins',sans-serif", backgroundColor: "#F7F8FA", boxSizing: "border-box", margin: 0 }}>
+    <div data-theme="light" className="tema-claro-area pp-brand-manrope relative flex min-h-dvh w-full max-w-[100vw] items-stretch overflow-x-hidden text-[#172033]" style={{ fontFamily: "'Inter','Poppins',sans-serif", backgroundColor: "#FFFDFB", boxSizing: "border-box", margin: 0 }}>
       {/* Camadas de profundidade — tela inteira (fundo claro contínuo) */}
-      <div className="pointer-events-none absolute inset-0 opacity-[0.05]" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #182230 1px, transparent 0)", backgroundSize: "30px 30px" }} />
-      <div className="pointer-events-none absolute -top-24 right-0 h-[34rem] w-[34rem] rounded-full" style={{ background: "radial-gradient(closest-side, rgba(217,164,65,0.14), transparent)" }} />
-      <div className="pointer-events-none absolute -bottom-28 -left-20 h-[28rem] w-[28rem] rounded-full" style={{ background: "radial-gradient(closest-side, rgba(37,99,235,0.07), transparent)" }} />
+      <div className="pointer-events-none absolute inset-0 opacity-[0.05]" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #172033 1px, transparent 0)", backgroundSize: "30px 30px" }} />
+      <div className="pointer-events-none absolute -top-24 right-0 h-[34rem] w-[34rem] rounded-full" style={{ background: "radial-gradient(closest-side, rgba(200,63,42,0.10), transparent)" }} />
+      <div className="pointer-events-none absolute -bottom-28 -left-20 h-[28rem] w-[28rem] rounded-full" style={{ background: "radial-gradient(closest-side, rgba(31,42,68,0.06), transparent)" }} />
 
       {/* ══ Painel institucional (desktop) ══ */}
       <aside className="pp-anim-left relative z-10 hidden w-[42%] shrink-0 flex-col justify-center gap-10 overflow-hidden border-r border-[#E5E7EB] p-10 text-[#182230] xl:flex xl:w-[46%] xl:p-14">
@@ -492,17 +492,17 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
         {/* Marca */}
         <div className="relative flex items-center gap-2.5">
           <LogoPP size={40} />
-          <span className="font-display text-lg font-bold tracking-tight"><span className="text-[#182230]">PEDIDO</span> <span className="text-[#D9A441]">PRIME</span></span>
+          <span className="font-display text-lg font-bold tracking-tight"><span className="text-[#172033]">PEDIDO</span> <span className="text-[#C83F2A]">PRIME</span></span>
         </div>
 
         {/* Pitch + mockup */}
         <div className="relative">
-          <h2 className="font-display max-w-md text-3xl font-black leading-tight xl:text-4xl">Controle seu restaurante em <span className="text-[#D9A441]">tempo real</span></h2>
+          <h2 className="font-display max-w-md text-3xl font-black leading-tight xl:text-4xl">Controle seu restaurante em <span className="text-[#C83F2A]">tempo real</span></h2>
           <p className="mt-4 max-w-md text-sm leading-7 text-[#475467]">Acesse pedidos, mesas, cozinha, caixa, financeiro e relatórios em uma única plataforma inteligente para food service.</p>
           <div className="mt-6 grid max-w-md grid-cols-2 gap-x-6 gap-y-3">
             {["Pedidos digitais", "Cozinha em tempo real", "Caixa e financeiro", "Relatórios gerenciais"].map((b) => (
               <div key={b} className="flex items-center gap-2 text-sm font-medium text-[#475467]">
-                <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="#D9A441" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>{b}
+                <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="#2E7D5B" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>{b}
               </div>
             ))}
           </div>
@@ -556,12 +556,12 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
           {/* Card */}
           <form onSubmit={(e) => { e.preventDefault(); if (podeEntrar && !entrando) { setEntrando(true); login(); } }}
             autoComplete="off"
-            className="relative overflow-hidden rounded-[1.75rem] border border-[#E5E7EB] bg-white p-6 shadow-[0_8px_24px_rgba(16,24,40,0.08)] sm:p-7 space-y-4">
-            <span className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#D9A441] to-[#C7922F]" />
+            className="relative overflow-hidden rounded-[1.75rem] border border-[#E4E7EC] bg-white p-6 shadow-[0_8px_24px_rgba(16,24,40,0.08)] sm:p-7 space-y-4">
+            <span className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#C83F2A] to-[#B43221]" />
             {/* Marca / título (dentro do card, sobre fundo claro) */}
             <div className="mb-1 text-center">
               <div className="mx-auto flex h-14 w-14 items-center justify-center"><LogoPP size={56} /></div>
-              <h1 className="font-display mt-3 text-2xl font-black tracking-tight"><span className="text-[#182230]">Pedido</span> <span className="text-[#D9A441]">Prime</span></h1>
+              <h1 className="font-display mt-3 text-2xl font-black tracking-tight"><span className="text-[#172033]">Pedido</span> <span className="text-[#C83F2A]">Prime</span></h1>
               <p className="mt-1 text-sm text-[#667085]">Acesse sua conta para continuar</p>
             </div>
             {/* Campos isca ocultos: absorvem o autofill do navegador */}
@@ -609,21 +609,21 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
 
             {/* Entrar */}
             <button type="submit" disabled={!podeEntrar || entrando}
-              className="mt-1 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#D9A441] px-5 py-4 text-sm font-black text-[#182230] shadow-lg shadow-[#D9A441]/25 transition hover:bg-[#C7922F] active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100">
+              className="mt-1 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#C83F2A] px-5 py-4 text-sm font-black text-white shadow-lg shadow-[#C83F2A]/25 transition hover:bg-[#B43221] active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100">
               {entrando
-                ? <><span className="h-4 w-4 animate-spin rounded-full border-2 border-[#182230]/30 border-t-[#182230]" /> Entrando...</>
+                ? <><span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" /> Entrando...</>
                 : <>Entrar →</>}
             </button>
           </form>
 
           {/* Divisor + QR Code */}
           <div className="my-4 flex items-center gap-3">
-            <span className="h-px flex-1 bg-[#E5E7EB]" />
+            <span className="h-px flex-1 bg-[#E4E7EC]" />
             <span className="text-[11px] font-bold uppercase tracking-wider text-[#98A2B3]">ou</span>
-            <span className="h-px flex-1 bg-[#E5E7EB]" />
+            <span className="h-px flex-1 bg-[#E4E7EC]" />
           </div>
           <button type="button" onClick={() => setScanLogin(true)}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-[#D0D5DD] bg-white py-3 text-sm font-bold text-[#182230] transition hover:border-[#D9A441]/40 hover:bg-[#F9FAFB]">
+            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-[#D0D5DD] bg-white py-3 text-sm font-bold text-[#172033] transition hover:border-[#C83F2A]/40 hover:bg-[#F9FAFB]">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-[16px] w-[16px]"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M14 14h3v3M21 14v.01M14 21h.01M21 21v.01M17.5 21H21v-3.5"/></svg>
             Entrar com QR Code
           </button>
@@ -634,7 +634,7 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
             Acesso controlado por usuário e permissão
           </p>
           <div className="mt-3 text-center">
-            <button onClick={voltarAoSite} className="text-xs font-bold text-[#667085] transition hover:text-[#D9A441]">← Voltar ao site</button>
+            <button onClick={voltarAoSite} className="text-xs font-bold text-[#667085] transition hover:text-[#C83F2A]">← Voltar ao site</button>
           </div>
         </div>
 

@@ -13,6 +13,26 @@ export default {
         display: ['Poppins', 'Inter', 'sans-serif'],
       },
       colors: {
+        // ── Novo sistema de marca (rebrand 2026) — namespace `brand`, isolado
+        // das escalas legadas (gold/blue/admin) para não afetar telas ainda não
+        // migradas. Vermelho-terra = ação/CTA; dourado passa a ser só destaque
+        // premium; azul-marinho = navegação/institucional.
+        brand: {
+          primary:      "#C83F2A",
+          primaryHover: "#B43221",
+          primarySoft:  "#FFF0EB",
+          navy:         "#1F2A44",
+          ink:          "#172033",
+          inkSoft:      "#667085",
+          bgPublic:     "#FFFDFB",
+          bgAdmin:      "#F6F7F9",
+          surface:      "#FFFFFF",
+          border:       "#E4E7EC",
+          gold:         "#F4A62A",
+          success:      "#2E7D5B",
+          warning:      "#D98516",
+          danger:       "#C43D3D",
+        },
         // Família azul-marinho da marca (#061A2E principal / #03101C escuro).
         blue: {
           50:  "#EDF3FB",

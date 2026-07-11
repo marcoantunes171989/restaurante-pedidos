@@ -183,13 +183,13 @@ function Carrossel({ children, duracao = 55, className = "" }) {
 }
 
 // Botões globais da landing.
-function Botao({ children, variant = "gold", onClick, type = "button", className = "" }) {
+function Botao({ children, variant = "primary", onClick, type = "button", className = "" }) {
   const base = "font-display inline-flex items-center justify-center gap-2 rounded-2xl px-6 py-3.5 text-sm font-bold transition active:scale-[0.97]";
   const styles = {
-    gold: "bg-[#D9A441] text-[#182230] hover:bg-[#C7922F] shadow-lg shadow-[#D9A441]/25",
-    navy: "bg-[#2563EB] text-white hover:bg-[#1D4ED8] shadow-lg shadow-[#2563EB]/25",
-    outline: "border border-[#E5E7EB] bg-white text-[#182230] hover:bg-[#F8FAFC]",
-    onDark: "border border-[#E5E7EB] bg-white text-[#182230] hover:bg-[#F8FAFC]",
+    primary: "bg-[#C83F2A] text-white hover:bg-[#B43221] shadow-lg shadow-[#C83F2A]/25",
+    navy: "bg-[#1F2A44] text-white hover:bg-[#16213A] shadow-lg shadow-[#1F2A44]/20",
+    outline: "border border-[#E4E7EC] bg-white text-[#172033] hover:bg-[#F8FAFC]",
+    onDark: "border border-[#E4E7EC] bg-white text-[#172033] hover:bg-[#F8FAFC]",
     whatsapp: "bg-[#22C55E] text-white hover:bg-[#1eb257] shadow-lg shadow-[#22C55E]/30",
   };
   return <button type={type} onClick={onClick} className={`${base} ${styles[variant]} ${className}`}>{children}</button>;
@@ -200,8 +200,8 @@ function Marca({ escuro = false }) {
     <div className="flex shrink-0 items-center gap-2.5">
       <LogoPP size={38} />
       <span className="font-display whitespace-nowrap text-lg font-bold leading-none tracking-tight">
-        <span className={escuro ? "text-white" : "text-[#182230]"}>PEDIDO</span>{" "}
-        <span className="text-[#D9A441]">PRIME</span>
+        <span className={escuro ? "text-white" : "text-[#172033]"}>PEDIDO</span>{" "}
+        <span className="text-[#C83F2A]">PRIME</span>
       </span>
     </div>
   );
@@ -224,8 +224,8 @@ function IconBadge({ children, tom = "cream" }) {
   return <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border text-xl ${tons[tom]}`}>{children}</span>;
 }
 
-function Check({ tom = "gold" }) {
-  const c = tom === "gold" ? "#D9A441" : "#22A06B";
+function Check({ tom = "success" }) {
+  const c = tom === "gold" ? "#F4A62A" : "#2E7D5B";
   return (
     <svg viewBox="0 0 24 24" className="mt-0.5 h-4 w-4 shrink-0" fill="none" stroke={c} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
       <path d="M20 6 9 17l-5-5" />
@@ -375,7 +375,7 @@ export default function LandingPage({ navigate }) {
   }
 
   return (
-    <div className="min-h-screen bg-[#F7F8FA] font-sans text-[#182230] antialiased" style={{ fontFamily: "'Inter','Poppins',sans-serif" }}>
+    <div className="pp-brand-manrope min-h-screen bg-[#FFFDFB] font-sans text-[#172033] antialiased" style={{ fontFamily: "'Inter','Poppins',sans-serif" }}>
       {/* ══ HEADER ══ */}
       <header className="sticky top-0 z-50 border-b border-[#E5E7EB] bg-white/85 backdrop-blur-xl" style={{ paddingTop: "env(safe-area-inset-top)" }}>
         <nav className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-3.5">
@@ -421,14 +421,14 @@ export default function LandingPage({ navigate }) {
       <main id="topo">
         {/* ══ HERO ══ */}
         <section className="relative overflow-hidden">
-          <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-b from-[#FAFAF8] via-[#F7F8FA] to-[#F7F8FA]" />
-          <div className="pointer-events-none absolute -right-24 -top-24 -z-10 h-96 w-96 rounded-full bg-[radial-gradient(closest-side,rgba(201,154,46,0.20),transparent)]" />
+          <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-b from-[#FFFDFB] via-[#FFFDFB] to-[#FFFDFB]" />
+          <div className="pointer-events-none absolute -right-24 -top-24 -z-10 h-96 w-96 rounded-full bg-[radial-gradient(closest-side,rgba(200,63,42,0.14),transparent)]" />
           <div className="mx-auto grid max-w-7xl items-center gap-12 px-5 py-16 sm:py-24 lg:grid-cols-2">
             <div>
               <Reveal><Badge>Plataforma inteligente para atendimento, comandas e gestão food service</Badge></Reveal>
               <Reveal delay={80}>
-                <h1 className="font-display mt-5 text-4xl font-black leading-[1.08] tracking-tight text-[#182230] sm:text-5xl">
-                  Automatize seu restaurante com uma plataforma <span className="text-[#D9A441]">simples, moderna e completa</span>
+                <h1 className="font-display mt-5 text-4xl font-black leading-[1.08] tracking-tight text-[#172033] sm:text-5xl">
+                  Automatize seu restaurante com uma plataforma <span className="text-[#C83F2A]">simples, moderna e completa</span>
                 </h1>
               </Reveal>
               <Reveal delay={160}>
@@ -438,12 +438,12 @@ export default function LandingPage({ navigate }) {
               </Reveal>
               <Reveal delay={220}>
                 <p className="mt-4 flex flex-wrap items-baseline gap-2">
-                  <span className="font-display text-2xl font-black text-[#D9A441]">A partir de R$ 79,90/mês</span>
+                  <span className="font-display text-2xl font-black text-[#C83F2A]">A partir de R$ 79,90/mês</span>
                 </p>
               </Reveal>
               <Reveal delay={240}>
                 <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-                  <Botao variant="gold" onClick={() => irPara("contato")}>Solicitar demonstração</Botao>
+                  <Botao variant="primary" onClick={() => irPara("contato")}>Solicitar demonstração</Botao>
                   <Botao variant="outline" onClick={() => irPara("contato")}>Falar com consultor</Botao>
                   <Botao variant="outline" onClick={() => irPara("funcionalidades")}>Ver funcionalidades →</Botao>
                 </div>
@@ -551,8 +551,8 @@ export default function LandingPage({ navigate }) {
                   ))}
                 </ul>
               </Reveal>
-              <Reveal as="article" delay={120} className="relative overflow-hidden rounded-[2rem] border border-[#F4D27A] bg-[#FAFAF8] p-8 shadow-sm">
-                <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-[radial-gradient(closest-side,rgba(201,154,46,0.18),transparent)]" />
+              <Reveal as="article" delay={120} className="relative overflow-hidden rounded-[2rem] border border-[#F4A62A]/40 bg-[#FAFAF8] p-8 shadow-sm">
+                <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-[radial-gradient(closest-side,rgba(200,63,42,0.12),transparent)]" />
                 <IconBadge>🎫</IconBadge>
                 <h3 className="font-display mt-4 text-2xl font-bold text-[#182230]">Cardápio por QR Code</h3>
                 <p className="mt-2 text-sm leading-7 text-[#667085]">Perfeito para atendimento pelo celular do cliente, sem instalar aplicativo, com acesso rápido ao cardápio digital da mesa.</p>
@@ -686,14 +686,14 @@ export default function LandingPage({ navigate }) {
         {/* ══ CHAMADA COMERCIAL ══ */}
         <section id="planos" className="scroll-mt-24 bg-white py-16 sm:py-24">
           <div className="mx-auto max-w-4xl px-5">
-            <Reveal className="relative overflow-hidden rounded-[2.5rem] border border-[#F4D27A] bg-[#FAFAF8] p-10 text-center shadow-[0_20px_60px_-25px_rgba(201,154,46,0.4)] sm:p-14">
-              <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-[radial-gradient(closest-side,rgba(201,154,46,0.22),transparent)]" />
-              <div className="pointer-events-none absolute -bottom-20 -left-20 h-64 w-64 rounded-full bg-[radial-gradient(closest-side,rgba(37,99,235,0.12),transparent)]" />
+            <Reveal className="relative overflow-hidden rounded-[2.5rem] border border-[#F4A62A]/40 bg-[#FAFAF8] p-10 text-center shadow-[0_20px_60px_-25px_rgba(200,63,42,0.28)] sm:p-14">
+              <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-[radial-gradient(closest-side,rgba(200,63,42,0.16),transparent)]" />
+              <div className="pointer-events-none absolute -bottom-20 -left-20 h-64 w-64 rounded-full bg-[radial-gradient(closest-side,rgba(31,42,68,0.10),transparent)]" />
               <Badge>Plano comercial</Badge>
-              <h2 className="font-display relative mt-4 text-3xl font-black tracking-tight text-[#182230] sm:text-4xl">Automatize seu restaurante a partir de R$ 79,90/mês</h2>
+              <h2 className="font-display relative mt-4 text-3xl font-black tracking-tight text-[#172033] sm:text-4xl">Automatize seu restaurante a partir de R$ 79,90/mês</h2>
               <p className="relative mx-auto mt-4 max-w-xl text-base leading-7 text-[#667085]">Escolha os recursos ideais para sua operação e comece com uma solução simples, moderna e escalável.</p>
               <div className="relative mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-                <Botao variant="gold" onClick={() => irPara("contato")}>Falar com consultor</Botao>
+                <Botao variant="primary" onClick={() => irPara("contato")}>Falar com consultor</Botao>
                 <Botao variant="outline" onClick={() => irPara("contato")}>Solicitar demonstração</Botao>
               </div>
             </Reveal>
@@ -716,7 +716,7 @@ export default function LandingPage({ navigate }) {
                       <button onClick={() => setFaqAberto(aberto ? -1 : i)}
                         className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left">
                         <span className="font-display text-sm font-bold text-[#182230] sm:text-base">{item.q}</span>
-                        <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[#E5E7EB] text-[#D9A441] transition ${aberto ? "rotate-45 bg-[#FAFAF8]" : ""}`}>
+                        <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[#E4E7EC] text-[#C83F2A] transition ${aberto ? "rotate-45 bg-[#FFF0EB]" : ""}`}>
                           <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
                         </span>
                       </button>
@@ -732,15 +732,15 @@ export default function LandingPage({ navigate }) {
         {/* ══ CTA FINAL ══ */}
         <section className="bg-white py-16 sm:py-20">
           <div className="mx-auto max-w-6xl px-5">
-            <Reveal className="relative overflow-hidden rounded-[2.5rem] border border-[#E5E7EB] bg-[#F7F8FA] p-10 text-center shadow-[0_20px_60px_-30px_rgba(16,24,40,0.25)] sm:p-16">
-              <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-[radial-gradient(closest-side,rgba(201,154,46,0.20),transparent)]" />
-              <div className="pointer-events-none absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-[radial-gradient(closest-side,rgba(37,99,235,0.14),transparent)]" />
-              <h2 className="font-display relative text-3xl font-black tracking-tight text-[#182230] sm:text-4xl">Seu restaurante pronto para vender mais e operar melhor</h2>
+            <Reveal className="relative overflow-hidden rounded-[2.5rem] border border-[#E4E7EC] bg-[#F7F8FA] p-10 text-center shadow-[0_20px_60px_-30px_rgba(16,24,40,0.25)] sm:p-16">
+              <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-[radial-gradient(closest-side,rgba(200,63,42,0.14),transparent)]" />
+              <div className="pointer-events-none absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-[radial-gradient(closest-side,rgba(31,42,68,0.10),transparent)]" />
+              <h2 className="font-display relative text-3xl font-black tracking-tight text-[#172033] sm:text-4xl">Seu restaurante pronto para vender mais e operar melhor</h2>
               <p className="relative mx-auto mt-4 max-w-2xl text-base leading-7 text-[#475467]">
                 Fale com o Pedido Prime e veja como transformar sua operação com mais controle, velocidade e profissionalismo.
               </p>
               <div className="relative mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-                <Botao variant="gold" onClick={acessar}>Automatizar agora</Botao>
+                <Botao variant="primary" onClick={acessar}>Automatizar agora</Botao>
                 <Botao variant="outline" onClick={() => irPara("contato")}>Entrar em contato</Botao>
                 <a href={`https://wa.me/${WHATSAPP_COMERCIAL}?text=${encodeURIComponent(`Olá! Tenho interesse no ${NOME_SISTEMA} e gostaria de uma demonstração.`)}`} target="_blank" rel="noopener noreferrer"
                   className="font-display inline-flex items-center justify-center gap-2 rounded-2xl bg-[#22C55E] px-6 py-3.5 text-sm font-bold text-white shadow-lg shadow-[#22C55E]/30 transition hover:bg-[#1eb257] active:scale-[0.97]">
@@ -810,7 +810,7 @@ export default function LandingPage({ navigate }) {
               <p className="font-display text-sm font-bold text-[#182230]">Navegação</p>
               <div className="mt-3 grid gap-2">
                 {NAV.slice(0, 5).map((n) => (
-                  <button key={n.id} onClick={() => irPara(n.id)} className="text-left text-sm text-[#667085] transition hover:text-[#D9A441]">{n.label}</button>
+                  <button key={n.id} onClick={() => irPara(n.id)} className="text-left text-sm text-[#667085] transition hover:text-[#C83F2A]">{n.label}</button>
                 ))}
               </div>
             </div>
@@ -818,7 +818,7 @@ export default function LandingPage({ navigate }) {
               <p className="font-display text-sm font-bold text-[#182230]">Contato</p>
               <div className="mt-3 grid gap-2 text-sm">
                 <a href={`https://wa.me/${WHATSAPP_COMERCIAL}`} target="_blank" rel="noopener noreferrer" className="text-[#667085] transition hover:text-[#22C55E]">WhatsApp comercial</a>
-                <a href={INSTAGRAM} target="_blank" rel="noopener noreferrer" className="text-[#667085] transition hover:text-[#D9A441]">Instagram</a>
+                <a href={INSTAGRAM} target="_blank" rel="noopener noreferrer" className="text-[#667085] transition hover:text-[#C83F2A]">Instagram</a>
                 <button onClick={acessar} className="text-left text-[#667085] transition hover:text-[#182230]">Acessar sistema</button>
                 <button onClick={() => irPara("contato")} className="text-left text-[#667085] transition hover:text-[#182230]">Solicitar demonstração</button>
               </div>
@@ -837,7 +837,7 @@ export default function LandingPage({ navigate }) {
 }
 
 // classes utilitárias do formulário
-const INP = "w-full rounded-2xl border border-[#E5E7EB] bg-[#F7F8FA] px-4 py-3 text-sm text-[#182230] outline-none transition focus:border-[#D9A441] focus:bg-white focus:ring-2 focus:ring-[#D9A441]/20 placeholder:text-[#9AA1AB]";
+const INP = "w-full rounded-2xl border border-[#E4E7EC] bg-[#F7F8FA] px-4 py-3 text-sm text-[#172033] outline-none transition focus:border-[#C83F2A] focus:bg-white focus:ring-2 focus:ring-[#C83F2A]/20 placeholder:text-[#9AA1AB]";
 const LBL = "mb-1.5 block text-xs font-bold uppercase tracking-widest text-[#667085]";
 
 function Campo({ name, label, type = "text", placeholder, required }) {
