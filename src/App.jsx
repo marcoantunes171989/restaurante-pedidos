@@ -5665,64 +5665,67 @@ function CupomModal({ blocos, mesas, comandas, subtotal, taxa, total, pessoas, p
 }
 
 // Combo "Empresa em foco" (menu lateral do super admin) — identidade navy + dourado
-function ComboEmpresaFoco({ lojas = [], valor, onChange }) {
+// CompanySelector — seletor de "Empresa em foco" (super admin). Integrado à
+// identidade navy/terracota do Sidebar: nenhuma superfície branca, contraste
+// suave com o menu (antes era um combo branco/dourado destoando do fundo escuro).
+function CompanySelector({ lojas = [], valor, onChange }) {
   const [aberto, setAberto] = useState(false);
   const [busca, setBusca]   = useState("");
   const atual = lojas.find((l) => l.id === valor) || null;
   const termo = busca.trim().toLowerCase();
   const lista = termo ? lojas.filter((l) => `${l.nome} ${l.prefixo}`.toLowerCase().includes(termo)) : lojas;
   const escolher = (id) => { onChange(id); setAberto(false); setBusca(""); };
-  const item = (sel) => `flex w-full items-center gap-2.5 rounded-xl border px-2.5 py-2 text-left text-sm transition ${sel ? "border-[#D9A441] bg-[#FFF7E0] text-[#182230]" : "border-transparent text-[#475467] hover:bg-[#F9FAFB]"}`;
-  const avatar = (sel) => `flex h-7 w-7 shrink-0 items-center justify-center rounded-md border ${sel ? "border-[#F4D27A] bg-[#FFF7E0] text-[#D9A441]" : "border-[#E5E7EB] bg-[#F3F4F6] text-[#667085]"}`;
+  const item = (sel) => `flex w-full items-center gap-2.5 rounded-xl border px-2.5 py-2 text-left text-sm transition ${sel ? "border-[#C4322B] bg-[rgba(196,50,43,.10)] text-white" : "border-transparent text-[#D6DBE5] hover:bg-white/[0.05]"}`;
+  const avatar = (sel) => `flex h-7 w-7 shrink-0 items-center justify-center rounded-md border ${sel ? "border-[#C4322B]/50 bg-[rgba(196,50,43,.12)] text-[#E8756B]" : "border-white/10 bg-white/[0.05] text-white/70"}`;
   const Globo = ({ className = "h-4 w-4" }) => (<svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c2.5 2.5 3.8 5.7 3.8 9S14.5 18.5 12 21c-2.5-2.5-3.8-5.7-3.8-9S9.5 5.5 12 3Z" /></svg>);
 
   return (
     <div className="relative">
-      <button onClick={() => setAberto((o) => !o)}
-        className={`flex w-full items-center gap-2.5 rounded-xl border bg-white px-2.5 py-2 text-left transition ${aberto ? "border-[#D9A441] ring-1 ring-[#D9A441]/25" : "border-[#E5E7EB] hover:border-[#D9A441]/50"}`}>
-        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition ${atual ? "border-[#F4D27A] bg-[#FFF7E0] text-[#D9A441]" : "border-[#E5E7EB] bg-[#F3F4F6] text-[#667085]"}`}>
+      <button onClick={() => setAberto((o) => !o)} aria-haspopup="listbox" aria-expanded={aberto}
+        className={`flex min-h-[44px] w-full items-center gap-2.5 rounded-[18px] border px-3.5 py-3 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C4322B] ${aberto ? "border-[#C4322B]/60 bg-white/[0.08]" : "border-white/[0.08] bg-white/[0.06] hover:bg-white/[0.08]"}`}>
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/[0.05] text-white/85">
           {atual ? <IconEmpresa /> : <Globo />}
         </span>
         <div className="min-w-0 flex-1">
-          <p className="font-display truncate text-sm font-bold text-[#182230]">{atual ? atual.nome : "Visão geral"}</p>
-          <p className="truncate text-[10px] font-medium text-[#667085]">{atual ? `Comandas: ${atual.prefixo}` : "Todas as empresas"}</p>
+          <p className="font-display truncate text-sm font-bold text-white">{atual ? atual.nome : "Visão geral"}</p>
+          <p className="truncate text-[10px] font-medium text-[#B6BECF]">{atual ? `Comandas: ${atual.prefixo}` : "Todas as empresas"}</p>
         </div>
-        <svg className={`h-3.5 w-3.5 shrink-0 text-[#D9A441] transition-transform ${aberto ? "rotate-180" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
+        <svg className={`h-3.5 w-3.5 shrink-0 text-[#C4322B] transition-transform duration-200 ${aberto ? "rotate-180" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
       </button>
 
       {aberto && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setAberto(false)} />
-          <div className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-[18px] border border-[#E5E7EB] bg-white shadow-[0_12px_32px_rgba(16,24,40,0.10)]">
+          <div role="listbox" className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-[18px] border border-white/[0.08] bg-[#1F2A3D] shadow-2xl">
             {lojas.length > 6 && (
-              <div className="border-b border-[#E5E7EB] p-2">
-                <div className="flex items-center gap-2 rounded-lg border border-[#E5E7EB] bg-[#F8FAFC] px-3 py-1.5 focus-within:border-[#D9A441] transition">
-                  <span className="shrink-0 text-[#98A2B3]"><IconBusca /></span>
+              <div className="border-b border-white/[0.08] p-2">
+                <div className="flex items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.05] px-3 py-1.5 focus-within:border-[#C4322B]/60 transition">
+                  <span className="shrink-0 text-[#8993A8]"><IconBusca /></span>
                   <input autoFocus value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar empresa..."
-                    className="w-full bg-transparent text-xs text-[#182230] outline-none placeholder:text-[#98A2B3]" />
+                    className="w-full bg-transparent text-xs text-white outline-none placeholder:text-[#8993A8]" />
                 </div>
               </div>
             )}
             <div className="scrollbar-none max-h-64 space-y-0.5 overflow-y-auto p-1.5">
-              <button onClick={() => escolher(null)} className={item(valor == null)}>
+              <button onClick={() => escolher(null)} className={item(valor == null)} role="option" aria-selected={valor == null}>
                 <span className={avatar(valor == null)}><Globo /></span>
                 <span className="flex-1 truncate font-bold">Visão geral (todas)</span>
-                {valor == null && <span className="shrink-0 text-[#D9A441]">✓</span>}
+                {valor == null && <span className="shrink-0 text-[#C4322B]">✓</span>}
               </button>
               {lista.map((l) => {
                 const sel = valor === l.id;
                 return (
-                  <button key={l.id} onClick={() => escolher(l.id)} className={item(sel)}>
+                  <button key={l.id} onClick={() => escolher(l.id)} className={item(sel)} role="option" aria-selected={sel}>
                     <span className={avatar(sel)}><IconEmpresa /></span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate font-bold">{l.nome}</span>
-                      <span className="block truncate text-[10px] text-[#667085]">{l.prefixo}{l.active === false ? " • inativa" : ""}</span>
+                      <span className="block truncate text-[10px] text-[#8993A8]">{l.prefixo}{l.active === false ? " • inativa" : ""}</span>
                     </span>
-                    {sel && <span className="shrink-0 text-[#D9A441]">✓</span>}
+                    {sel && <span className="shrink-0 text-[#C4322B]">✓</span>}
                   </button>
                 );
               })}
-              {lista.length === 0 && <p className="px-2 py-3 text-center text-xs text-[#667085]">Nenhuma empresa.</p>}
+              {lista.length === 0 && <p className="px-2 py-3 text-center text-xs text-[#8993A8]">Nenhuma empresa.</p>}
             </div>
           </div>
         </>
@@ -6214,35 +6217,119 @@ function ComandasGestaoAdmin({ orders = [] }) {
 // Itens de navegação do menu administrativo — compartilhado entre a sidebar
 // fixa (desktop) e o drawer mobile, para não duplicar a navegação em dois
 // componentes (rótulos, ícones e regra de bloqueio por plano ficam num só lugar).
+// ════════════════════════════════════════════════════════════
+//  Design System do Sidebar administrativo — componentes oficiais.
+//  Todo menu lateral do Pedido Prime deve usar exclusivamente estes
+//  componentes (SidebarHeader, SidebarUserCompact, CompanySelector,
+//  SidebarSection, SidebarItem, SidebarFooter). Nenhum CSS próprio
+//  fora daqui — tokens de cor centralizados nestes componentes.
+// ════════════════════════════════════════════════════════════
+
+// Cabeçalho: marca + subtítulo de contexto. `onClose` (opcional) mostra o
+// botão de fechar — usado só no drawer mobile.
+function SidebarHeader({ subtitulo, onClose }) {
+  return (
+    <div className="flex items-center gap-3 border-b border-white/10 px-5 py-4">
+      <LogoPP size={40} />
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-black leading-tight truncate"><span className="text-[#E7EAF0]">PEDIDO</span> <span className="text-[#E8756B]">PRIME</span></p>
+        <p className="text-[11px] text-[#8993A8] truncate">{subtitulo}</p>
+      </div>
+      {onClose && (
+        <button onClick={onClose} aria-label="Fechar menu"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.06] text-[#B6BECD] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C4322B]">✕</button>
+      )}
+    </div>
+  );
+}
+
+// Identidade do usuário logado — bloco compacto, logo abaixo do header
+// (hierarquia oficial: Logo → Usuário → Empresa → Menu → Rodapé → Sair).
+function SidebarUserCompact({ currentUser, isSuperAdmin, lojaInfo }) {
+  if (!currentUser) return null;
+  return (
+    <div className="flex items-center gap-2.5 border-b border-white/10 px-5 py-3.5">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/10 text-sm font-black text-[#E7EAF0] uppercase select-none" aria-hidden="true">
+        {(currentUser.name || "U").charAt(0)}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-black text-[#E7EAF0] leading-tight">{currentUser.name}</p>
+        <p className="truncate text-[11px] text-[#8993A8] leading-tight">{currentUser.role || "Usuário"}</p>
+      </div>
+      {isSuperAdmin ? (
+        <span className="shrink-0 rounded-full bg-[#C4322B]/15 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-[#E8756B]">Admin</span>
+      ) : lojaInfo ? (
+        <span className="shrink-0 rounded-full bg-white/10 px-1.5 py-0.5 font-mono text-[9px] font-black text-[#B6BECD]">{lojaInfo.prefixo}</span>
+      ) : null}
+    </div>
+  );
+}
+
+// Item de navegação — ÚNICO componente oficial para itens de menu lateral.
+// Estados: normal (transparente), hover (branco 5%), selecionado (fundo
+// #263248 + borda esquerda 4px terracota, texto/ícone brancos, peso 700).
+const SidebarItem = React.memo(function SidebarItem({ id, icon, label, selected, blocked, title, onClick }) {
+  return (
+    <button onClick={onClick} title={title} aria-current={selected ? "page" : undefined}
+      className={cxSidebar(
+        "group relative flex min-h-[44px] w-full items-center gap-3 rounded-2xl border-l-4 p-4 text-sm transition-all duration-[180ms] ease-out",
+        "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C4322B]",
+        selected
+          ? "border-l-[#C4322B] bg-[#263248] font-bold text-white"
+          : "border-l-transparent font-medium text-[#D6DBE5] hover:bg-white/[0.05] hover:text-white"
+      )}>
+      <span className={cxSidebar("text-base shrink-0 transition-colors duration-[180ms]", selected ? "text-white" : "text-[#A8B1C4] group-hover:text-white", blocked && "opacity-40")} aria-hidden="true">{icon}</span>
+      <span className={cxSidebar("truncate", blocked && "opacity-50")}>{label}</span>
+      {blocked && <span className="ml-auto shrink-0" aria-label="Disponível em outro plano" title="Disponível em outro plano">🔒</span>}
+    </button>
+  );
+});
+const cxSidebar = (...c) => c.filter(Boolean).join(" ");
+
+// Grupo de itens com rótulo — usado dentro do menu (Visão Geral, Operação…).
+function SidebarSection({ titulo, children }) {
+  return (
+    <div>
+      <p className="px-4 mb-1.5 text-[11px] font-bold uppercase tracking-widest text-[#8993A8]">{titulo}</p>
+      <div className="space-y-1">{children}</div>
+    </div>
+  );
+}
+
+// Rodapé — selo de assinatura + ação de sair (fim da hierarquia do Sidebar).
+function SidebarFooter({ assinaturaAtual, onSair }) {
+  return (
+    <div className="shrink-0 border-t border-white/10 p-3 space-y-2">
+      <TrialBadge assinatura={assinaturaAtual} />
+      <button onClick={onSair}
+        className="w-full min-h-[44px] rounded-2xl border border-[#C4322B]/35 bg-transparent py-2.5 text-sm font-black text-[#E8756B] hover:bg-[#C4322B]/10 transition active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E8756B]">
+        ← Sair
+      </button>
+    </div>
+  );
+}
+
+// Menu de navegação — monta as seções a partir de SidebarSection + SidebarItem
+// (nenhum outro componente deve renderizar itens de menu fora deste par).
 function SidebarNavItems({ menu, ativo, setAdminSection, canAccessModule, assinaturaAtual, planoAtual, planoModulos, isSuperAdmin, onNavigate }) {
   return (
     <nav className="scrollbar-none flex-1 overflow-y-auto px-3 py-4 space-y-5" aria-label="Navegação principal">
       {menu.map((g) => (
-        <div key={g.grupo}>
-          <p className="px-3 mb-1.5 text-[11px] font-bold uppercase tracking-widest text-[#8993A8]">{g.grupo}</p>
-          <div className="space-y-1">
-            {g.itens.map((it) => {
-              const sel = ativo === it.id;
-              const bloq = !canAccessModule(it.id, { assinatura: assinaturaAtual, plano: planoAtual, planoModulos, isSuperAdmin });
-              return (
-                <button key={it.id} onClick={() => {
-                    if (it.id === "operacaomobile" && window.innerWidth >= 768) window.open(`${window.location.origin}/operacional`, "_blank", "noopener");
-                    else setAdminSection(it.id);
-                    onNavigate?.();
-                  }}
-                  title={bloq ? "Disponível em outro plano" : (it.id === "operacaomobile" ? "Abre em nova aba (tela cheia), como o link externo" : undefined)}
-                  aria-current={sel ? "page" : undefined}
-                  className={`group relative flex min-h-[44px] w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C4322B] ${sel ? "bg-[#263248] text-white" : "text-[#B6BECD] hover:bg-white/[0.06] hover:text-white"}`}>
-                  {/* Indicador lateral do item ativo — reforça o estado além da cor de fundo */}
-                  <span className={`absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 rounded-full bg-[#C4322B] transition-opacity ${sel ? "opacity-100" : "opacity-0"}`} aria-hidden="true" />
-                  <span className="text-base shrink-0" aria-hidden="true">{it.icon}</span>
-                  <span className={`truncate ${bloq ? "opacity-50" : ""}`}>{it.label}</span>
-                  {bloq && <span className="ml-auto shrink-0" aria-label="Disponível em outro plano" title="Disponível em outro plano">🔒</span>}
-                </button>
-              );
-            })}
-          </div>
-        </div>
+        <SidebarSection key={g.grupo} titulo={g.grupo}>
+          {g.itens.map((it) => {
+            const sel = ativo === it.id;
+            const bloq = !canAccessModule(it.id, { assinatura: assinaturaAtual, plano: planoAtual, planoModulos, isSuperAdmin });
+            return (
+              <SidebarItem key={it.id} id={it.id} icon={it.icon} label={it.label} selected={sel} blocked={bloq}
+                title={bloq ? "Disponível em outro plano" : (it.id === "operacaomobile" ? "Abre em nova aba (tela cheia), como o link externo" : undefined)}
+                onClick={() => {
+                  if (it.id === "operacaomobile" && window.innerWidth >= 768) window.open(`${window.location.origin}/operacional`, "_blank", "noopener");
+                  else setAdminSection(it.id);
+                  onNavigate?.();
+                }} />
+            );
+          })}
+        </SidebarSection>
       ))}
     </nav>
   );
@@ -6383,95 +6470,45 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
       <CommandPalette open={cmdOpen} onClose={() => setCmdOpen(false)} sections={cmdSections}
         onNavigate={(id) => { setAdminSection(id); setCmdOpen(false); }} onSair={onSair} />
 
-      {/* ── Menu lateral esquerdo (fixo) — azul-marinho, item ativo evidente ─ */}
+      {/* ── Menu lateral esquerdo (fixo) — hierarquia oficial: Logo → Usuário
+          → Empresa → Menu (protagonista) → Rodapé → Sair ── */}
       <aside className="hidden md:flex w-64 shrink-0 flex-col bg-[#172033]">
-        <div className="flex items-center gap-3 border-b border-white/10 px-5 py-4">
-          <LogoPP size={40} />
-          <div className="min-w-0">
-            <p className="text-sm font-black leading-tight truncate"><span className="text-[#E7EAF0]">PEDIDO</span> <span className="text-[#E8756B]">PRIME</span></p>
-            <p className="text-[11px] text-[#8993A8] truncate">
-              {isSuperAdmin ? "Administrador geral" : (lojaInfo ? lojaInfo.nome : "Painel gerencial")}
-            </p>
+        <SidebarHeader subtitulo={isSuperAdmin ? "Administrador geral" : (lojaInfo ? lojaInfo.nome : "Painel gerencial")} />
+        <SidebarUserCompact currentUser={currentUser} isSuperAdmin={isSuperAdmin} lojaInfo={lojaInfo} />
+        {isSuperAdmin && (
+          <div className="border-b border-white/10 px-4 py-3">
+            <label className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-[#8993A8]">Empresa em foco</label>
+            <CompanySelector lojas={lojas} valor={lojaContexto} onChange={setLojaContexto} />
           </div>
-        </div>
+        )}
         <div className="border-b border-white/10 px-3 py-3">
           <button onClick={() => setCmdOpen(true)} aria-label="Abrir busca rápida (Ctrl K)"
-            className="flex min-h-[40px] w-full items-center gap-2 rounded-xl border border-white/10 bg-white/[0.05] px-3 py-2 text-left text-[13px] text-[#B6BECD] transition hover:bg-white/[0.08] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C4322B]">
+            className="flex min-h-[44px] w-full items-center gap-2 rounded-xl border border-white/10 bg-white/[0.05] px-3 py-2 text-left text-[13px] text-[#B6BECD] transition hover:bg-white/[0.08] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C4322B]">
             <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-[#8993A8]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
             <span className="flex-1 truncate">Buscar telas…</span>
             <span className="shrink-0 rounded-md border border-white/10 px-1.5 py-0.5 text-[10px] font-bold text-[#8993A8]">Ctrl K</span>
           </button>
         </div>
-        {isSuperAdmin && (
-          <div className="border-b border-white/10 px-4 py-3">
-            <label className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-[#8993A8]">Empresa em foco</label>
-            <ComboEmpresaFoco lojas={lojas} valor={lojaContexto} onChange={setLojaContexto} />
-          </div>
-        )}
         <SidebarNavItems menu={menu} ativo={ativo} setAdminSection={setAdminSection} canAccessModule={canAccessModule}
           assinaturaAtual={assinaturaAtual} planoAtual={planoAtual} planoModulos={planoModulos} isSuperAdmin={isSuperAdmin} />
-        {/* Selo do status da assinatura (some quando não há assinatura) */}
-        <TrialBadge assinatura={assinaturaAtual} />
-        {/* ── Card do usuário logado (fixo no rodapé da sidebar) ── */}
-        {currentUser && (
-          <div className="shrink-0 border-t border-white/10 p-3 space-y-2">
-            {/* Avatar + nome + cargo */}
-            <div className="flex items-center gap-2.5 rounded-2xl bg-white/[0.05] px-3 py-2.5">
-              {/* Avatar com inicial */}
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/10 text-sm font-black text-[#E7EAF0] uppercase select-none">
-                {(currentUser.name || "U").charAt(0)}
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-black text-[#E7EAF0] leading-tight">{currentUser.name}</p>
-                <p className="truncate text-[11px] text-[#8993A8] leading-tight">{currentUser.role || "Usuário"}</p>
-                {currentUser.email && (
-                  <p className="truncate text-[10px] text-[#6B7690] leading-tight mt-0.5">{currentUser.email}</p>
-                )}
-              </div>
-              {/* Badge: super admin ou empresa */}
-              {isSuperAdmin ? (
-                <span className="shrink-0 rounded-full bg-[#C4322B]/15 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-[#E8756B]">Admin</span>
-              ) : lojaInfo ? (
-                <span className="shrink-0 rounded-full bg-white/10 px-1.5 py-0.5 font-mono text-[9px] font-black text-[#B6BECD]">{lojaInfo.prefixo}</span>
-              ) : null}
-            </div>
-            {/* Botão Sair */}
-            <button onClick={onSair}
-              className="w-full min-h-[44px] rounded-2xl border border-[#C4322B]/35 bg-transparent py-2.5 text-sm font-black text-[#E8756B] hover:bg-[#C4322B]/10 transition active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E8756B]">
-              ← Sair
-            </button>
-          </div>
-        )}
-        {!currentUser && (
-          <button onClick={onSair} className="m-3 min-h-[44px] rounded-2xl border border-[#C4322B]/35 bg-transparent px-4 py-3 text-sm font-black text-[#E8756B] hover:bg-[#C4322B]/10 transition">Sair</button>
-        )}
+        <SidebarFooter assinaturaAtual={assinaturaAtual} onSair={onSair} />
       </aside>
 
-      {/* ── Drawer de navegação mobile (substitui o menu fixo) ── */}
+      {/* ── Drawer de navegação mobile (substitui o menu fixo) — mesma
+          hierarquia e mesmos componentes oficiais do Sidebar desktop ── */}
       <MobileAdminDrawer open={menuMobileAberto} onClose={() => setMenuMobileAberto(false)} triggerRef={botaoMenuRef} titulo="Menu Pedido Prime">
-        <div className="flex items-center gap-3 border-b border-white/10 px-5 py-4">
-          <LogoPP size={36} />
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-black leading-tight truncate"><span className="text-[#E7EAF0]">PEDIDO</span> <span className="text-[#E8756B]">PRIME</span></p>
-            <p className="text-[11px] text-[#8993A8] truncate">{isSuperAdmin ? "Administrador geral" : (lojaInfo ? lojaInfo.nome : "Painel gerencial")}</p>
-          </div>
-          <button onClick={() => setMenuMobileAberto(false)} aria-label="Fechar menu"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.06] text-[#B6BECD] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C4322B]">✕</button>
-        </div>
+        <SidebarHeader subtitulo={isSuperAdmin ? "Administrador geral" : (lojaInfo ? lojaInfo.nome : "Painel gerencial")} onClose={() => setMenuMobileAberto(false)} />
+        <SidebarUserCompact currentUser={currentUser} isSuperAdmin={isSuperAdmin} lojaInfo={lojaInfo} />
         {isSuperAdmin && (
           <div className="border-b border-white/10 px-4 py-3">
             <label className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-[#8993A8]">Empresa em foco</label>
-            <ComboEmpresaFoco lojas={lojas} valor={lojaContexto} onChange={setLojaContexto} />
+            <CompanySelector lojas={lojas} valor={lojaContexto} onChange={setLojaContexto} />
           </div>
         )}
         <SidebarNavItems menu={menu} ativo={ativo} setAdminSection={setAdminSection} canAccessModule={canAccessModule}
           assinaturaAtual={assinaturaAtual} planoAtual={planoAtual} planoModulos={planoModulos} isSuperAdmin={isSuperAdmin}
           onNavigate={() => setMenuMobileAberto(false)} />
-        {currentUser && (
-          <div className="shrink-0 border-t border-white/10 p-3">
-            <button onClick={onSair} className="w-full min-h-[44px] rounded-2xl border border-[#C4322B]/35 bg-transparent py-2.5 text-sm font-black text-[#E8756B] hover:bg-[#C4322B]/10 transition active:scale-95">← Sair</button>
-          </div>
-        )}
+        <SidebarFooter assinaturaAtual={assinaturaAtual} onSair={onSair} />
       </MobileAdminDrawer>
 
       {/* ── Conteúdo ─────────────────────────────────────────── */}
