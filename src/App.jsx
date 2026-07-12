@@ -7774,7 +7774,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], irParaM
             <span className="block text-sm font-black text-brand-ink">{formatCurrency(a.faturamento)}</span>
           </span>
         ) : null}>
-        <BarrasHora dados={vendasPorHora} paleta={{ semVenda: "#CBD5E1", pico: "#F59E0B", acimaMedia: "#10B981", padrao: "#2563EB", foco: "#2563EB", grade: "#E2E8F0", texto: "#64748B", textoValor: "#64748B", tooltipBg: "#0D1B2A" }} />
+        <BarrasHora dados={vendasPorHora} paleta={{ semVenda: "#2563EB", pico: "#F59E0B", acimaMedia: "#2563EB", padrao: "#2563EB", foco: "#2563EB", grade: "#E2E8F0", texto: "#64748B", textoValor: "#64748B", tooltipBg: "#0D1B2A" }} />
         {melhorHora.valor > 0 && (
           <div className="mt-4 flex flex-wrap gap-2">
             <span className="rounded-full bg-amber-500/10 px-3 py-1.5 text-xs font-bold text-amber-500">★ Melhor horário: {melhorHora.label} — {formatCurrency(melhorHora.valor)}</span>
