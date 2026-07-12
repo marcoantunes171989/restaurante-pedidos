@@ -6226,7 +6226,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
             <ModuloBloqueado slug={ativo} />
           ) : (<SecaoErrorBoundary key={ativo}>
           {ativo === "dashboard"  && <DashboardAdmin orders={orders} products={products} clientes={clientes} setores={setores} irParaMesas={() => setAdminSection("mesas")} />}
-          {ativo === "copiloto"   && <DashboardAdmin orders={orders} products={products} clientes={clientes} setores={setores} soCopiloto />}
+          {ativo === "copiloto"   && (precisaEmpresa ? avisoEmpresa : <DashboardAdmin orders={orders} products={products} clientes={clientes} setores={setores} irPara={setAdminSection} soCopiloto />)}
           {ativo === "relatorios" && <RelatoriosAdmin orders={orders} products={products} lojaInfo={lojaInfo} pesquisas={filtraLoja(pesquisas)} irParaMesas={() => setAdminSection("mesas")} />}
           {ativo === "crm"        && <CrmAdmin clientes={clientes} orders={orders} fidTransacoes={fidTransacoes} fidRecompensas={fidRecompensas} lancarPontos={fidApi?.lancarPontos} configCrm={lojaInfo?.configCrm || {}} salvarConfigCrm={salvarConfigCrm} />}
           {ativo === "fidelidade" && (precisaEmpresa ? avisoEmpresa : <FidelidadeAdmin regra={fidRegra} recompensas={fidRecompensas} transacoes={fidTransacoes} clientes={clientes} api={fidApi} />)}
@@ -7317,39 +7317,59 @@ function analisarGestaoIA(ctx) {
     vips = [], inativos = [], novosClientes = 0, produtosParados = [], periodoLabel = "período" } = ctx;
   const fmt = formatCurrency;
   const insights = []; const acoes = [];
-  const addIns = (cat, sev, texto, acao) => insights.push({ cat, sev, texto, acao });
-  const addAct = (prio, texto, motivo) => acoes.push({ prio, texto, motivo });
+  // impacto é inferido da severidade (crit/warn = alto/médio impacto de negócio; pos/info = baixo,
+  // são leitura de contexto). acaoId (opcional) é a seção do admin para o link "Ver detalhes".
+  const IMPACTO_POR_SEV = { crit: "alto", warn: "médio", pos: "baixo", info: "baixo" };
+  const addIns = (cat, sev, texto, acaoId = null) => insights.push({ cat, sev, texto, impacto: IMPACTO_POR_SEV[sev], acaoId });
+  const addAct = (prio, texto, motivo, area) => acoes.push({ prio, texto, motivo, area, impacto: prio === "alta" ? "Alto" : prio === "media" ? "Médio" : "Baixo" });
 
   // ── VENDAS ──────────────────────────────────────────────
   if (comparativo?.faturamento != null) {
     const v = Math.round(comparativo.faturamento);
     if (v >= 10) addIns("Vendas", "pos", `Faturamento ${v >= 0 ? "+" : ""}${v}% vs. período anterior — tendência de alta.`);
-    else if (v <= -10) { addIns("Vendas", "crit", `Faturamento ${v}% vs. período anterior — queda relevante.`); addAct("alta", "Ativar promoção/combo e campanha de retorno para reverter a queda de vendas.", `Faturamento caiu ${v}%.`); }
+    else if (v <= -10) { addIns("Vendas", "crit", `Faturamento ${v}% vs. período anterior — queda relevante.`); addAct("alta", "Ativar promoção/combo e campanha de retorno para reverter a queda de vendas.", `Faturamento caiu ${v}%.`, "Vendas"); }
     else addIns("Vendas", "info", `Faturamento estável (${v >= 0 ? "+" : ""}${v}%) frente ao período anterior.`);
   }
-  if (ticket > 0 && ticket < META_TICKET_IA) { addIns("Vendas", "warn", `Ticket médio ${fmt(ticket)} abaixo da meta (${fmt(META_TICKET_IA)}).`); addAct("alta", produtoTop ? `Criar combo do "${produtoTop.nome}" + bebida/acompanhamento para elevar o ticket.` : "Criar combos e sugestões de acompanhamento para elevar o ticket.", `Ticket ${fmt(ticket)} < meta ${fmt(META_TICKET_IA)}.`); }
+  if (ticket > 0 && ticket < META_TICKET_IA) { addIns("Vendas", "warn", `Ticket médio ${fmt(ticket)} abaixo da meta (${fmt(META_TICKET_IA)}).`); addAct("alta", produtoTop ? `Criar combo do "${produtoTop.nome}" + bebida/acompanhamento para elevar o ticket.` : "Criar combos e sugestões de acompanhamento para elevar o ticket.", `Ticket ${fmt(ticket)} < meta ${fmt(META_TICKET_IA)}.`, "Vendas"); }
   else if (ticket >= META_TICKET_IA) addIns("Vendas", "pos", `Ticket médio ${fmt(ticket)} acima da meta — bom aproveitamento por pedido.`);
-  if (produtoTop) addIns("Vendas", "info", `Carro-chefe: ${produtoTop.nome} (${produtoTop.qtd} un.). Use como âncora de combos e destaques.`);
-  if (produtosParados.length > 0) { addIns("Vendas", "warn", `${produtosParados.length} produto(s) ativo(s) sem vendas no ${periodoLabel}.`); addAct("media", `Dar destaque/promoção aos produtos parados: ${produtosParados.slice(0, 3).join(", ")}${produtosParados.length > 3 ? "…" : ""}.`, "Itens encalhados imobilizam cardápio e estoque."); }
-  if (melhorHora?.valor > 0) { addIns("Operação", "info", `Pico de vendas às ${melhorHora.label} (${fmt(melhorHora.valor)}).`); addAct("media", `Reforçar equipe e estoque no horário de pico (${melhorHora.label}).`, "Concentração de demanda no pico."); }
+
+  // ── PRODUTOS ────────────────────────────────────────────
+  if (produtoTop) addIns("Produtos", "info", `Carro-chefe: ${produtoTop.nome} (${produtoTop.qtd} un.). Use como âncora de combos e destaques.`, "products");
+  if (produtosParados.length > 0) { addIns("Produtos", "warn", `${produtosParados.length} produto(s) ativo(s) sem vendas no ${periodoLabel}.`, "products"); addAct("media", `Dar destaque/promoção aos produtos parados: ${produtosParados.slice(0, 3).join(", ")}${produtosParados.length > 3 ? "…" : ""}.`, "Itens encalhados imobilizam cardápio e estoque.", "Produtos"); }
+
+  // ── OPERAÇÃO ────────────────────────────────────────────
+  if (melhorHora?.valor > 0) { addIns("Operação", "info", `Pico de vendas às ${melhorHora.label} (${fmt(melhorHora.valor)}).`); addAct("media", `Reforçar equipe e estoque no horário de pico (${melhorHora.label}).`, "Concentração de demanda no pico.", "Operação"); }
+  if (mesasCriticas > 0) addIns("Operação", "warn", `${mesasCriticas} mesa(s) aberta(s) há +40 min — risco de giro lento.`, "mesas");
+  if (tempoMedioPrep != null && tempoMedioPrep > 25) { addIns("Operação", "warn", `Tempo médio de preparo alto: ${tempoMedioPrep} min.`); addAct("media", "Revisar fluxo da cozinha/mise en place no pico para reduzir o tempo de preparo.", "Espera longa reduz satisfação e giro.", "Operação"); }
+  if (taxaEntrega > 0 && taxaEntrega < 80) addIns("Operação", "info", `Taxa de conclusão dos pedidos em ${taxaEntrega}%.`);
 
   // ── CLIENTES / CRM ─────────────────────────────────────
-  if (pctIdentificado < 0.6 && totalPedidos > 0) { addIns("Clientes", "warn", `Apenas ${Math.round(pctIdentificado * 100)}% dos pedidos têm cliente identificado.`); addAct("alta", "Incentivar o cadastro (nome + telefone) no caixa/tablet — base de CRM para campanhas.", "Sem identificação não há CRM nem recompra dirigida."); }
+  if (pctIdentificado < 0.6 && totalPedidos > 0) { addIns("Clientes", "warn", `Apenas ${Math.round(pctIdentificado * 100)}% dos pedidos têm cliente identificado.`, "crm"); addAct("alta", "Incentivar o cadastro (nome + telefone) no caixa/tablet — base de CRM para campanhas.", "Sem identificação não há CRM nem recompra dirigida.", "Clientes"); }
   else if (totalPedidos > 0) addIns("Clientes", "pos", `${Math.round(pctIdentificado * 100)}% dos pedidos identificam o cliente — boa base de CRM.`);
-  if (inativos.length > 0) { addIns("Clientes", "warn", `${inativos.length} cliente(s) inativo(s) (sem comprar há +30 dias).`); addAct("alta", `Disparar campanha de retorno (CRM) para os ${inativos.length} inativos com um mimo/cupom.`, "Reativar inativos custa menos que captar novos."); }
-  if (vips.length > 0) { addIns("Clientes", "pos", `${vips.length} cliente(s) VIP. Top: ${vips[0].nome || "cliente"} (${fmt(vips[0].total)}).`); addAct("media", "Programa de fidelidade/benefício exclusivo para os VIPs reterem e elevarem o gasto.", "VIPs concentram boa parte do faturamento."); }
+  if (inativos.length > 0) { addIns("Clientes", "warn", `${inativos.length} cliente(s) inativo(s) (sem comprar há +30 dias).`, "crm"); addAct("alta", `Disparar campanha de retorno (CRM) para os ${inativos.length} inativos com um mimo/cupom.`, "Reativar inativos custa menos que captar novos.", "Clientes"); }
+  if (vips.length > 0) { addIns("Clientes", "pos", `${vips.length} cliente(s) VIP. Top: ${vips[0].nome || "cliente"} (${fmt(vips[0].total)}).`, "crm"); addAct("media", "Programa de fidelidade/benefício exclusivo para os VIPs reterem e elevarem o gasto.", "VIPs concentram boa parte do faturamento.", "Clientes"); }
   if (novosClientes > 0) addIns("Clientes", "pos", `${novosClientes} novo(s) cliente(s) cadastrado(s) no ${periodoLabel}.`);
   if (clientesCadastrados > 0 && clientesPeriodo > 0) addIns("Clientes", "info", `${clientesPeriodo} de ${clientesCadastrados} clientes compraram no ${periodoLabel} (${Math.round((clientesPeriodo / clientesCadastrados) * 100)}% da base ativa).`);
 
-  // ── RISCOS / OPERAÇÃO ──────────────────────────────────
+  // ── ESTOQUE ─────────────────────────────────────────────
+  if (semEstoque.length > 0) { addIns("Estoque", "crit", `${semEstoque.length} produto(s) abaixo do estoque mínimo.`, "products"); addAct("alta", `Repor estoque: ${semEstoque.slice(0, 3).map((p) => p.name).join(", ")}${semEstoque.length > 3 ? "…" : ""}.`, "Ruptura de estoque = venda perdida.", "Estoque"); }
+  else addIns("Estoque", "pos", "Todos os produtos com estoque adequado.");
+
+  // ── FINANCEIRO ──────────────────────────────────────────
   const pctAberto = fat + emAberto > 0 ? emAberto / (fat + emAberto) : 0;
-  if (emAberto > 0 && pctAberto >= 0.1) { addIns("Riscos", "warn", `${fmt(emAberto)} em aberto (${Math.round(pctAberto * 100)}% do previsto).`); addAct("alta", "Revisar comandas em aberto e cobrar/fechar antes do fim do expediente.", "Valores em aberto viram inadimplência/perda."); }
-  if (semEstoque.length > 0) { addIns("Riscos", "crit", `${semEstoque.length} produto(s) abaixo do estoque mínimo.`); addAct("alta", `Repor estoque: ${semEstoque.slice(0, 3).map((p) => p.name).join(", ")}${semEstoque.length > 3 ? "…" : ""}.`, "Ruptura de estoque = venda perdida."); }
+  if (emAberto > 0 && pctAberto >= 0.1) { addIns("Financeiro", "warn", `${fmt(emAberto)} em aberto (${Math.round(pctAberto * 100)}% do previsto).`, "caixa"); addAct("alta", "Revisar comandas em aberto e cobrar/fechar antes do fim do expediente.", "Valores em aberto viram inadimplência/perda.", "Financeiro"); }
   const taxaCancel = totalPedidos > 0 ? cancelados.length / totalPedidos : 0;
-  if (taxaCancel >= 0.05) { addIns("Riscos", "crit", `Cancelamentos em ${Math.round(taxaCancel * 100)}% (${fmt(valorPerdido)} perdidos). Motivo principal: ${motivoPrincipal}.`); addAct("alta", `Atacar a causa dos cancelamentos (${motivoPrincipal}).`, `Perda de ${fmt(valorPerdido)} no ${periodoLabel}.`); }
-  if (mesasCriticas > 0) addIns("Operação", "warn", `${mesasCriticas} mesa(s) aberta(s) há +40 min — risco de giro lento.`);
-  if (tempoMedioPrep != null && tempoMedioPrep > 25) { addIns("Operação", "warn", `Tempo médio de preparo alto: ${tempoMedioPrep} min.`); addAct("media", "Revisar fluxo da cozinha/mise en place no pico para reduzir o tempo de preparo.", "Espera longa reduz satisfação e giro."); }
-  if (taxaEntrega > 0 && taxaEntrega < 80) addIns("Operação", "info", `Taxa de conclusão dos pedidos em ${taxaEntrega}%.`);
+  if (taxaCancel >= 0.05) { addIns("Financeiro", "crit", `Cancelamentos em ${Math.round(taxaCancel * 100)}% (${fmt(valorPerdido)} perdidos). Motivo principal: ${motivoPrincipal}.`); addAct("alta", `Atacar a causa dos cancelamentos (${motivoPrincipal}).`, `Perda de ${fmt(valorPerdido)} no ${periodoLabel}.`, "Financeiro"); }
+
+  // ── ALERTAS CRÍTICOS (separados dos insights — só os riscos reais) ──
+  const alertasCriticos = [];
+  const addAlerta = (titulo, desc, sev = "crit") => alertasCriticos.push({ titulo, desc, sev });
+  if (comparativo?.faturamento != null && Math.round(comparativo.faturamento) <= -10) addAlerta("Queda relevante de vendas", `Faturamento ${Math.round(comparativo.faturamento)}% vs. período anterior.`);
+  if (semEstoque.length > 0) addAlerta("Estoque abaixo do mínimo", `${semEstoque.length} produto(s): ${semEstoque.slice(0, 3).map((p) => p.name).join(", ")}${semEstoque.length > 3 ? "…" : ""}.`);
+  if (tempoMedioPrep != null && tempoMedioPrep > 25) addAlerta("Tempo de preparo elevado", `Média de ${tempoMedioPrep} min por pedido no ${periodoLabel}.`, "warn");
+  if (mesasCriticas > 0) addAlerta("Comandas abertas há muito tempo", `${mesasCriticas} mesa(s) aberta(s) há mais de 40 minutos.`, "warn");
+  if (produtosParados.length > 0) addAlerta("Produtos sem venda", `${produtosParados.length} produto(s) ativo(s) sem nenhuma venda no ${periodoLabel}.`, "warn");
+  if (inativos.length > 0) addAlerta("Clientes inativos", `${inativos.length} cliente(s) sem comprar há mais de 30 dias.`, "warn");
 
   // ── SCORE DE SAÚDE ─────────────────────────────────────
   let score = 72;
@@ -7362,7 +7382,8 @@ function analisarGestaoIA(ctx) {
   if (pctIdentificado >= 0.6) score += 4; else if (totalPedidos > 0) score -= 4;
   if (inativos.length > 0) score -= 3;
   score = Math.max(5, Math.min(100, Math.round(score)));
-  const nivel = score >= 80 ? "Excelente" : score >= 60 ? "Saudável" : score >= 40 ? "Atenção" : "Crítico";
+  // Diagnóstico em 3 níveis (Saudável/Atenção/Crítico), conforme padrão da tela.
+  const nivel = score >= 60 ? "Saudável" : score >= 40 ? "Atenção" : "Crítico";
 
   // ── RESUMO (linguagem natural) ─────────────────────────
   const tend = comparativo?.faturamento == null ? "" : comparativo.faturamento > 5 ? ` (${comparativo.faturamento >= 0 ? "+" : ""}${Math.round(comparativo.faturamento)}% vs. anterior, em alta)` : comparativo.faturamento < -5 ? ` (${Math.round(comparativo.faturamento)}% vs. anterior, em queda)` : " (estável vs. anterior)";
@@ -7381,10 +7402,57 @@ function analisarGestaoIA(ctx) {
 
   const ordPrio = { alta: 0, media: 1, baixa: 2 };
   acoes.sort((x, y) => ordPrio[x.prio] - ordPrio[y.prio]);
-  return { score, nivel, resumo, insights, acoes: acoes.slice(0, 6) };
+  return { score, nivel, resumo, insights, acoes: acoes.slice(0, 8), alertasCriticos };
 }
 
-function DashboardAdmin({ orders, products, clientes = [], setores = [], irParaMesas = () => {}, soCopiloto = false }) {
+// Card de indicador do Copiloto IA — fundo sempre branco, cor só na borda
+// lateral e no badge de status (evita "card colorido"), conforme padrão visual.
+const KPI_COPILOTO_TONS = {
+  blue:    { borda: "border-l-blue-500",    badge: "bg-blue-50 text-blue-600" },
+  emerald: { borda: "border-l-emerald-500", badge: "bg-emerald-50 text-emerald-600" },
+  amber:   { borda: "border-l-amber-500",   badge: "bg-amber-50 text-amber-600" },
+  violet:  { borda: "border-l-violet-500",  badge: "bg-violet-50 text-violet-600" },
+  red:     { borda: "border-l-red-500",     badge: "bg-red-50 text-red-600" },
+};
+function KpiCardCopiloto({ titulo, valor, variacao, desc, tom = "blue", status }) {
+  const t = KPI_COPILOTO_TONS[tom] || KPI_COPILOTO_TONS.blue;
+  return (
+    <div className={`rounded-2xl border border-slate-200 ${t.borda} border-l-4 bg-white p-4`}>
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-[11px] font-bold uppercase tracking-widest text-slate-500">{titulo}</p>
+        {status && <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-black uppercase ${t.badge}`}>{status}</span>}
+      </div>
+      <p className="mt-1.5 text-2xl font-black text-[#0D1B2A]">{valor}</p>
+      {variacao != null && (
+        <p className={`mt-1 text-[11px] font-bold ${variacao >= 0 ? "text-emerald-600" : "text-red-600"}`}>{variacao >= 0 ? "▲" : "▼"} {Math.abs(Math.round(variacao))}% vs. período anterior</p>
+      )}
+      {desc && <p className="mt-1 text-xs leading-snug text-slate-500">{desc}</p>}
+    </div>
+  );
+}
+
+// Card de oportunidade do Copiloto IA — lista curta com render por item.
+function OportunidadeCard({ titulo, itens, vazio, render }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4">
+      <p className="mb-2 text-xs font-black uppercase tracking-wide text-slate-500">{titulo}</p>
+      {(!itens || itens.length === 0) ? (
+        <p className="text-xs text-slate-400">{vazio}</p>
+      ) : (
+        <ul className="space-y-1.5">
+          {itens.map((it, i) => (
+            <li key={i} className="flex items-start gap-2 text-xs text-[#334155]">
+              <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />
+              <span className="min-w-0">{render(it)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function DashboardAdmin({ orders, products, clientes = [], setores = [], irParaMesas = () => {}, irPara = () => {}, soCopiloto = false }) {
   const [periodo, setPeriodo] = useState("30");
   const [ini, setIni] = useState("");
   const [fim, setFim] = useState("");
@@ -7397,6 +7465,11 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], irParaM
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
   const [chatErro, setChatErro] = useState("");
+  const [chatCopiadoIdx, setChatCopiadoIdx] = useState(null);
+  // "Criar ação" (Copiloto IA) — modal local, sem persistência própria (não há
+  // estrutura de tarefas no sistema; ver observação no resumo da tarefa).
+  const [modalAcao, setModalAcao] = useState(null);
+  const [toastAcao, setToastAcao] = useState("");
 
   const horaDe = (o) => (o.createdAtISO ? new Date(o.createdAtISO).getHours() : (o.hour ?? null));
   const base0 = filtrarPedidosPorPeriodo(orders, periodo, ini, fim);
@@ -7476,18 +7549,6 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], irParaM
   const ticketPorCliente = clientesPeriodo ? a.faturamento / clientesPeriodo : 0;
 
   // Comparativo com o período anterior (mesma duração)
-  const comparativo = (() => {
-    if (periodo === "tudo") return null;
-    const [a0, b0] = intervaloPeriodo(periodo, ini, fim);
-    if (!a0 || a0.getTime() <= 0) return null;
-    const dur = b0.getTime() - a0.getTime();
-    const anteriores = orders.filter((o) => { if (!o.createdAtISO) return false; const d = new Date(o.createdAtISO); return d >= new Date(a0.getTime() - dur - 1) && d <= new Date(a0.getTime() - 1); });
-    if (anteriores.length === 0) return null;
-    const ant = analisarVendas(anteriores, products);
-    const varPct = (at, an) => (an > 0 ? ((at - an) / an) * 100 : (at > 0 ? 100 : null));
-    return { faturamento: varPct(a.faturamento, ant.faturamento), ticket: varPct(a.ticket, ant.ticket), pedidos: varPct(a.totalPedidos, ant.totalPedidos) };
-  })();
-
   // Alertas gerenciais (derivados dos dados reais)
   const mesasCriticas = mesasAtencao.filter((m) => m.mins >= 40).length;
   const alertas = [
@@ -7540,12 +7601,57 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], irParaM
   filtrados.forEach((o) => { if (o.status !== "cancelled") (o.items || []).forEach((it) => vendidosNomes.add(it.name)); });
   const produtosParados = products.filter((p) => p.active !== false && !vendidosNomes.has(p.name)).map((p) => p.name);
   const periodoLabel = ({ hoje: "dia", ontem: "dia", "7": "últimos 7 dias", "15": "últimos 15 dias", "30": "período", tudo: "histórico" })[periodo] || "período";
+
+  // Comparativo com o período anterior (mesma duração) — inclui os extras usados
+  // pelos cards do Copiloto IA (tempo de preparo, % identificado, produtos parados).
+  const comparativo = (() => {
+    if (periodo === "tudo") return null;
+    const [a0, b0] = intervaloPeriodo(periodo, ini, fim);
+    if (!a0 || a0.getTime() <= 0) return null;
+    const dur = b0.getTime() - a0.getTime();
+    const anteriores = orders.filter((o) => { if (!o.createdAtISO) return false; const d = new Date(o.createdAtISO); return d >= new Date(a0.getTime() - dur - 1) && d <= new Date(a0.getTime() - 1); });
+    if (anteriores.length === 0) return null;
+    const ant = analisarVendas(anteriores, products);
+    const varPct = (at, an) => (an > 0 ? ((at - an) / an) * 100 : (at > 0 ? 100 : null));
+    const antPctIdent = ant.pagos.length ? ant.pagos.filter((o) => o.clienteTelefone).length / ant.pagos.length : 0;
+    const antPreps = anteriores.filter((o) => o.preparoEmISO && o.prontoEmISO).map((o) => (new Date(o.prontoEmISO) - new Date(o.preparoEmISO)) / 60000).filter((m) => m >= 0);
+    const antTempoPrep = antPreps.length ? antPreps.reduce((s, m) => s + m, 0) / antPreps.length : null;
+    const antVendidos = new Set(); anteriores.forEach((o) => { if (o.status !== "cancelled") (o.items || []).forEach((it) => antVendidos.add(it.name)); });
+    const antParados = products.filter((p) => p.active !== false && !antVendidos.has(p.name)).length;
+    return {
+      faturamento: varPct(a.faturamento, ant.faturamento), ticket: varPct(a.ticket, ant.ticket), pedidos: varPct(a.totalPedidos, ant.totalPedidos),
+      pctIdentificado: varPct(pctIdentificado * 100, antPctIdent * 100),
+      tempoMedioPrep: (tempoMedioPrep != null && antTempoPrep != null) ? varPct(tempoMedioPrep, antTempoPrep) : null,
+      produtosParados: varPct(produtosParados.length, antParados),
+    };
+  })();
+
   const ia = analisarGestaoIA({
     fat: a.faturamento, emAberto: a.emAberto, ticket: a.ticket, totalPedidos: a.totalPedidos, comparativo,
     produtoTop, melhorHora, semEstoque, cancelados, valorPerdido, motivoPrincipal,
     clientesPeriodo, clientesCadastrados: (clientes || []).length, mesasCriticas, tempoMedioPrep, taxaEntrega,
     pctIdentificado, vips, inativos, novosClientes, produtosParados, periodoLabel,
   });
+
+  // ── Oportunidades (Copiloto IA) — produtos p/ promoção, clientes p/ reativar,
+  // horários de baixa venda, combo sugerido, produtos mais rentáveis e itens
+  // com alta venda + estoque baixo. Só usa dados já calculados acima (sem consulta nova).
+  const oportunidades = {
+    promocao: produtosParados.slice(0, 5),
+    reativacao: [...inativos].sort((x, y) => y.total - x.total).slice(0, 5),
+    horariosBaixa: vendasPorHora.filter((d) => d.valor > 0).sort((x, y) => x.valor - y.valor).slice(0, 3),
+    combos: a.topProdutos.length >= 2 ? [{ principal: a.topProdutos[0].nome, complemento: a.topProdutos[1].nome }] : [],
+    rentaveis: products
+      .filter((p) => p.active !== false && Number(p.price) > 0)
+      .map((p) => ({ nome: p.name, margemPct: ((Number(p.price) - Number(p.cost || 0)) / Number(p.price)) * 100 }))
+      .sort((x, y) => y.margemPct - x.margemPct).slice(0, 5),
+    altaVendaEstoqueBaixo: (() => {
+      const qtdPorNome = {}; a.topProdutos.forEach((p) => { qtdPorNome[p.nome] = p.qtd; });
+      return semEstoque.filter((p) => qtdPorNome[p.name] > 0)
+        .map((p) => ({ nome: p.name, qtd: qtdPorNome[p.name], estoque: p.estoque ?? 0 }))
+        .sort((x, y) => y.qtd - x.qtd).slice(0, 5);
+    })(),
+  };
 
   // Monta um resumo textual dos dados do período para a IA raciocinar em cima
   function montarResumoIA() {
@@ -7575,7 +7681,10 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], irParaM
       const resposta = await perguntarCopilotoIA({ resumoDados: montarResumoIA(), pergunta: q, historico: chatMsgs.slice(-8) });
       setChatMsgs((h) => [...h, { role: "assistant", content: resposta || "(sem resposta)" }]);
     } catch (e) {
-      setChatErro("IA indisponível: " + ((e && e.message) || e) + ". Defina a variável ANTHROPIC_API_KEY em Vercel → Settings → Environment Variables e refaça o deploy. Enquanto isso, use a análise local acima.");
+      const msg = (e && e.message) || String(e);
+      if (/ANTHROPIC_API_KEY/i.test(msg)) setChatErro("IA indisponível: " + msg + " Enquanto isso, use a análise, os indicadores e as recomendações desta tela.");
+      else if (/sessão|401/i.test(msg)) setChatErro("Sessão expirada: " + msg);
+      else setChatErro("Erro ao consultar a IA: " + msg + " Tente novamente em instantes.");
     } finally { setChatLoading(false); }
   }
 
@@ -7589,11 +7698,17 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], irParaM
             {soCopiloto ? "Copiloto IA" : "Dashboard Gerencial"}
           </h2>
           <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 max-w-2xl text-sm text-brand-inkSoft">
-            <span>{soCopiloto ? "Assistente de gestão por IA: análise automática + chat para apoiar suas decisões." : "Visão estratégica de vendas, operação, produtos, clientes e desempenho financeiro."}</span>
+            <span>{soCopiloto ? "Inteligência gerencial para transformar dados em decisões." : "Visão estratégica de vendas, operação, produtos, clientes e desempenho financeiro."}</span>
             {!soCopiloto && (
               <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-brand-success" title="Os dados são atualizados automaticamente em tempo real">
                 <span className="relative flex h-1.5 w-1.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand-success opacity-60 motion-reduce:animate-none" /><span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-brand-success" /></span>
                 Dados em tempo real
+              </span>
+            )}
+            {soCopiloto && (
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-500" title="Os dados são atualizados automaticamente em tempo real">
+                <span className="relative flex h-1.5 w-1.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-60 motion-reduce:animate-none" /><span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" /></span>
+                Dados atualizados agora
               </span>
             )}
           </p>
@@ -7662,89 +7777,262 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], irParaM
 
       {/* Copiloto de Gestão (IA) — só na tela dedicada do menu "Copiloto IA" */}
       {soCopiloto && (() => {
-        const sevCls = { pos: "border-emerald-400/30 bg-emerald-500/10 text-emerald-200", info: "border-blue-400/30 bg-blue-500/10 text-blue-200", warn: "border-amber-400/30 bg-amber-500/10 text-amber-200", crit: "border-red-400/30 bg-red-500/10 text-red-200" };
+        const NIVEL_TOM = { "Saudável": "emerald", "Atenção": "amber", "Crítico": "red" };
+        const tomNivel = NIVEL_TOM[ia.nivel] || "amber";
+        const nivelCorTexto = { emerald: "text-emerald-500", amber: "text-amber-500", red: "text-red-500" }[tomNivel];
+        const nivelCorAnel = { emerald: "#10B981", amber: "#F59E0B", red: "#EF4444" }[tomNivel];
+        const nivelBadgeCls = { emerald: "border-emerald-200 bg-emerald-50 text-emerald-700", amber: "border-amber-200 bg-amber-50 text-amber-700", red: "border-red-200 bg-red-50 text-red-700" }[tomNivel];
+        const sevCls = { pos: "border-emerald-200 bg-emerald-50 text-emerald-700", info: "border-violet-200 bg-violet-50 text-violet-700", warn: "border-amber-200 bg-amber-50 text-amber-700", crit: "border-red-200 bg-red-50 text-red-700" };
         const sevIc = { pos: "✅", info: "ℹ️", warn: "⚠️", crit: "🔴" };
-        const nivelCls = ia.score >= 80 ? "text-emerald-400" : ia.score >= 60 ? "text-gold-400" : ia.score >= 40 ? "text-amber-400" : "text-red-400";
-        const nivelRing = ia.score >= 80 ? "#34d399" : ia.score >= 60 ? "#fbbf24" : ia.score >= 40 ? "#D97706" : "#f87171";
-        const prioCls = { alta: "border-red-400/40 bg-red-500/10 text-red-200", media: "border-amber-400/40 bg-amber-500/10 text-amber-200", baixa: "border-white/10 bg-white/[0.04] text-slate-300" };
+        const prioCls = { alta: "border-red-200 bg-red-50 text-red-700", media: "border-amber-200 bg-amber-50 text-amber-700", baixa: "border-slate-200 bg-slate-50 text-slate-600" };
         const prioLbl = { alta: "Alta", media: "Média", baixa: "Baixa" };
+        const semDados = a.totalPedidos === 0;
+        const CATEGORIAS_INSIGHT = ["Vendas", "Clientes", "Produtos", "Estoque", "Operação", "Financeiro"];
+        const insightsPorCategoria = CATEGORIAS_INSIGHT.map((cat) => ({ cat, itens: ia.insights.filter((it) => it.cat === cat) })).filter((g) => g.itens.length > 0);
+        const copiarResposta = async (texto, idx) => {
+          try { await navigator.clipboard.writeText(texto); setChatCopiadoIdx(idx); setTimeout(() => setChatCopiadoIdx((c) => (c === idx ? null : c)), 1500); } catch { /* clipboard indisponível */ }
+        };
+        const kpis = [
+          { id: "faturamento", titulo: "Faturamento", valor: formatCurrency(a.faturamento), variacao: comparativo?.faturamento, desc: `${pagos.length} pedido(s) pago(s)`, tom: "blue" },
+          { id: "ticket", titulo: "Ticket médio", valor: formatCurrency(a.ticket), variacao: comparativo?.ticket, desc: a.ticket >= META_TICKET_IA ? "Acima da meta" : `Meta: ${formatCurrency(META_TICKET_IA)}`, tom: "blue" },
+          { id: "pedidos", titulo: "Pedidos", valor: String(a.totalPedidos), variacao: comparativo?.pedidos, desc: `${abertos.length} em aberto`, tom: "blue" },
+          { id: "clientesId", titulo: "Clientes identificados", valor: String(clientesPeriodo), variacao: comparativo?.pctIdentificado, desc: `${Math.round(pctIdentificado * 100)}% dos pedidos pagos`, tom: "violet" },
+          { id: "produtosParados", titulo: "Produtos sem venda", valor: String(produtosParados.length), variacao: comparativo?.produtosParados != null ? -comparativo.produtosParados : null, desc: produtosParados.length ? "Ativos sem nenhuma venda" : "Todos venderam no período", tom: produtosParados.length ? "amber" : "emerald", status: produtosParados.length ? "Atenção" : "OK" },
+          { id: "estoqueCritico", titulo: "Estoque crítico", valor: String(semEstoque.length), variacao: null, desc: semEstoque.length ? "Abaixo do mínimo" : "Estoque adequado", tom: semEstoque.length ? "red" : "emerald", status: semEstoque.length ? "Crítico" : "OK" },
+          { id: "tempoPreparo", titulo: "Tempo médio de preparo", valor: tempoMedioPrep != null ? fmtTempo(tempoMedioPrep) : "—", variacao: comparativo?.tempoMedioPrep != null ? -comparativo.tempoMedioPrep : null, desc: tempoMedioPrep != null && tempoMedioPrep > 25 ? "Acima do ideal" : "Dentro do esperado", tom: tempoMedioPrep != null && tempoMedioPrep > 25 ? "amber" : "blue" },
+          { id: "clientesInativos", titulo: "Clientes inativos", valor: String(inativos.length), variacao: null, desc: inativos.length ? "+30 dias sem comprar" : "Base ativa em dia", tom: inativos.length ? "amber" : "emerald", status: inativos.length ? "Atenção" : "OK" },
+        ];
         return (
-          <div className="rounded-[2rem] border border-red-400/25 bg-gradient-to-br from-red-400/[0.07] to-transparent p-5">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
-              <div className="flex items-center gap-3">
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-red-400/15 text-2xl">🤖</span>
-                <div>
-                  <h3 className="page-title text-lg font-black text-white">Copiloto de Gestão <span className="ml-1 rounded-full border border-red-400/30 bg-red-400/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-red-300">IA</span></h3>
-                  <p className="text-xs text-slate-400">Análise automática de vendas, clientes e operação para apoiar suas decisões.</p>
-                </div>
+          <div className="space-y-6">
+            {toastAcao && (
+              <div className="fixed inset-x-0 top-4 z-[150] flex justify-center px-4">
+                <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-bold text-emerald-700 shadow-lg">✅ {toastAcao}</div>
               </div>
-              <div className="flex items-center gap-3 lg:ml-auto">
-                <div className="relative h-16 w-16 shrink-0" style={{ background: `conic-gradient(${nivelRing} ${ia.score * 3.6}deg, rgba(6,26,46,0.12) 0deg)`, borderRadius: "9999px" }}>
-                  <div className="absolute inset-[5px] flex flex-col items-center justify-center rounded-full bg-slate-950">
-                    <span className={`text-lg font-black leading-none ${nivelCls}`}>{ia.score}</span>
-                    <span className="text-[8px] font-bold uppercase tracking-wider text-slate-500">saúde</span>
+            )}
+            {/* Resumo executivo */}
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+              <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="relative h-20 w-20 shrink-0" style={{ background: `conic-gradient(${nivelCorAnel} ${ia.score * 3.6}deg, #E2E8F0 0deg)`, borderRadius: "9999px" }}>
+                    <div className="absolute inset-[6px] flex flex-col items-center justify-center rounded-full bg-white">
+                      <span className={`text-2xl font-black leading-none ${nivelCorTexto}`}>{ia.score}</span>
+                      <span className="mt-0.5 text-[9px] font-bold uppercase tracking-wider text-slate-500">/100</span>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-widest text-slate-500">Diagnóstico do negócio</p>
+                    <span className={`mt-1 inline-flex rounded-full border px-3 py-1 text-sm font-black ${nivelBadgeCls}`}>{ia.nivel}</span>
+                    {comparativo?.faturamento != null && (
+                      <p className={`mt-1.5 text-xs font-bold ${comparativo.faturamento >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                        {comparativo.faturamento >= 0 ? "▲" : "▼"} {Math.abs(Math.round(comparativo.faturamento))}% de faturamento vs. período anterior
+                      </p>
+                    )}
                   </div>
                 </div>
-                <div><p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Diagnóstico</p><p className={`text-base font-black ${nivelCls}`}>{ia.nivel}</p></div>
+                <div className="flex-1 lg:max-w-xl">
+                  <p className="text-[11px] font-bold uppercase tracking-widest text-slate-500">Resumo do cenário</p>
+                  <p className="mt-1 text-sm leading-relaxed text-[#334155]">{semDados ? "Sem pedidos no período e filtros selecionados — ajuste os filtros acima para ver a análise." : ia.resumo}</p>
+                </div>
               </div>
+              {!semDados && ia.acoes.length > 0 && (
+                <div className="mt-5 border-t border-slate-200 pt-4">
+                  <p className="mb-2 text-[11px] font-black uppercase tracking-widest text-[#0D1B2A]">Três prioridades agora</p>
+                  <div className="grid gap-2 sm:grid-cols-3">
+                    {ia.acoes.slice(0, 3).map((ac, i) => (
+                      <div key={i} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                        <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-black uppercase ${prioCls[ac.prio]}`}>{prioLbl[ac.prio]}</span>
+                        <p className="mt-1.5 text-xs font-semibold leading-snug text-[#334155]">{ac.texto}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Chat "Pergunte ao Copiloto" — IA (Claude) com fallback no motor local */}
-            <div className="mt-4 border-t border-white/10 pt-4">
-              <p className="mb-2 flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-slate-500">💬 Pergunte ao Copiloto</p>
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+              <div className="flex items-center justify-between gap-2">
+                <p className="flex items-center gap-2 text-sm font-black text-[#0D1B2A]"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-violet-50 text-violet-500">🤖</span>Pergunte ao Copiloto</p>
+                {chatMsgs.length > 0 && (
+                  <button onClick={() => { setChatMsgs([]); setChatErro(""); }} className="shrink-0 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-bold text-slate-500 transition hover:border-blue-500 hover:text-blue-500">Limpar conversa</button>
+                )}
+              </div>
+              {chatMsgs.length === 0 && !chatLoading && (
+                <p className="mt-3 rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-xs text-slate-500">Nenhuma pergunta ainda nesta sessão. Use uma sugestão abaixo ou escreva a sua pergunta.</p>
+              )}
               {chatMsgs.length > 0 && (
-                <div className="mb-2 max-h-72 space-y-2 overflow-y-auto rounded-2xl border border-white/10 bg-slate-950/40 p-3">
+                <div className="mt-3 max-h-80 space-y-2 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50 p-3">
                   {chatMsgs.map((m, i) => (
                     <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                      <div className={`max-w-[88%] whitespace-pre-wrap rounded-2xl px-3.5 py-2 text-sm leading-relaxed ${m.role === "user" ? "bg-red-400/15 text-red-100" : "border border-white/10 bg-white/[0.05] text-slate-200"}`}>{m.content}</div>
+                      <div className={`max-w-[88%] whitespace-pre-wrap rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${m.role === "user" ? "bg-blue-500 text-white" : "border border-slate-200 bg-white text-[#334155]"}`}>
+                        {m.content}
+                        {m.role === "assistant" && m.content && (
+                          <button onClick={() => copiarResposta(m.content, i)} className="mt-1.5 block text-[10px] font-bold text-blue-500 hover:underline">{chatCopiadoIdx === i ? "Copiado ✓" : "Copiar resposta"}</button>
+                        )}
+                      </div>
                     </div>
                   ))}
-                  {chatLoading && <div className="flex justify-start"><div className="rounded-2xl border border-white/10 bg-white/[0.05] px-3.5 py-2 text-sm text-slate-400">🤖 Pensando…</div></div>}
+                  {chatLoading && <div className="flex justify-start"><div className="rounded-2xl border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-500">🤖 Pensando…</div></div>}
                 </div>
               )}
-              {chatErro && <p className="mb-2 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-[11px] font-bold text-amber-200">{chatErro}</p>}
-              <div className="flex gap-2">
-                <input value={chatInput} onChange={(e) => setChatInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") enviarPerguntaIA(); }}
-                  placeholder="Ex.: Como aumentar o ticket médio neste período?"
-                  className="flex-1 rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-2.5 text-sm text-white outline-none focus:border-red-400/60 placeholder:text-slate-600" />
+              {chatErro && (
+                <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[12px] font-semibold text-amber-700">⚠️ {chatErro}</div>
+              )}
+              <div className="mt-3 flex gap-2">
+                <textarea value={chatInput} onChange={(e) => setChatInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); enviarPerguntaIA(); } }}
+                  rows={2} placeholder="Ex.: Como aumentar o ticket médio neste período? (Enter envia, Shift+Enter quebra linha)"
+                  className="flex-1 resize-none rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-[#334155] outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/25 placeholder:text-slate-400" />
                 <button onClick={() => enviarPerguntaIA()} disabled={chatLoading || !chatInput.trim()}
-                  className="shrink-0 rounded-2xl bg-red-400 px-5 py-2.5 text-sm font-black text-blue-950 transition hover:bg-red-300 disabled:opacity-40">Enviar</button>
+                  className="shrink-0 self-end rounded-xl bg-blue-500 px-5 py-2.5 text-sm font-black text-white transition hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-40">Enviar</button>
               </div>
               <div className="mt-2 flex flex-wrap gap-1.5">
-                {["Como aumentar o ticket médio?", "Quais clientes devo reativar?", "O que está puxando as vendas pra baixo?", "Onde estou perdendo dinheiro?"].map((s) => (
+                {["Como aumentar o faturamento?", "Quais produtos devo promover?", "Onde estou perdendo dinheiro?", "Quais clientes devo reativar?", "Como reduzir o tempo de preparo?"].map((s) => (
                   <button key={s} type="button" onClick={() => enviarPerguntaIA(s)} disabled={chatLoading}
-                    className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] font-bold text-slate-300 transition hover:bg-white/10 disabled:opacity-40">{s}</button>
+                    className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-bold text-slate-600 transition hover:border-blue-500 hover:text-blue-500 disabled:opacity-40">{s}</button>
                 ))}
               </div>
-              <p className="mt-3 text-[10px] text-slate-600">Insights e ações: análise local instantânea (nenhum dado sai do sistema). O chat usa IA (Claude) via função segura no servidor — se não estiver configurada, oriente-se pela análise local abaixo.</p>
+              <p className="mt-3 text-[10px] text-slate-400">Respostas usam somente os dados reais do período e filtros ativos — o Copiloto não inventa números. Chat via IA (Claude) por função segura no servidor; sem chave configurada, use a análise local desta tela.</p>
             </div>
 
-            <p className="mt-4 rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-3 text-sm leading-relaxed text-slate-200">💬 {ia.resumo}</p>
+            {/* Indicadores gerenciais */}
+            <div>
+              <p className="mb-2 text-[11px] font-black uppercase tracking-widest text-[#0D1B2A]">Indicadores gerenciais</p>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {kpis.map((k) => <KpiCardCopiloto key={k.id} {...k} />)}
+              </div>
+            </div>
 
-            {ia.insights.length > 0 && (
-              <div className="mt-4">
-                <p className="mb-2 text-[11px] font-black uppercase tracking-widest text-slate-500">Insights</p>
+            {/* Alertas críticos — separados dos insights comuns */}
+            <div>
+              <p className="mb-2 text-[11px] font-black uppercase tracking-widest text-[#0D1B2A]">Alertas críticos</p>
+              {ia.alertasCriticos.length === 0 ? (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">✅ Nenhum alerta crítico no momento.</div>
+              ) : (
                 <div className="grid gap-2 sm:grid-cols-2">
-                  {ia.insights.map((it, i) => (
-                    <div key={i} className={`flex items-start gap-2 rounded-2xl border px-3.5 py-2.5 text-xs font-bold ${sevCls[it.sev]}`}>
-                      <span className="shrink-0">{sevIc[it.sev]}</span>
-                      <span className="min-w-0"><span className="mr-1 rounded bg-black/20 px-1 py-0.5 text-[9px] font-black uppercase tracking-wide opacity-80">{it.cat}</span>{it.texto}</span>
+                  {ia.alertasCriticos.map((al, i) => (
+                    <div key={i} className={`flex items-start gap-2 rounded-xl border-l-4 bg-white py-3 pl-3.5 pr-4 shadow-sm ${al.sev === "crit" ? "border-l-red-500" : "border-l-amber-500"}`}>
+                      <span className="shrink-0">{al.sev === "crit" ? "🔴" : "⚠️"}</span>
+                      <div className="min-w-0"><p className={`text-sm font-bold ${al.sev === "crit" ? "text-red-700" : "text-amber-700"}`}>{al.titulo}</p><p className="text-xs text-slate-500">{al.desc}</p></div>
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
+              )}
+            </div>
 
-            {ia.acoes.length > 0 && (
-              <div className="mt-4">
-                <p className="mb-2 text-[11px] font-black uppercase tracking-widest text-slate-500">Ações recomendadas (priorizadas)</p>
-                <div className="space-y-2">
-                  {ia.acoes.map((ac, i) => (
-                    <div key={i} className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2.5">
-                      <span className={`mt-0.5 shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-black uppercase ${prioCls[ac.prio]}`}>{prioLbl[ac.prio]}</span>
-                      <div className="min-w-0"><p className="text-sm font-bold text-white">{ac.texto}</p>{ac.motivo && <p className="text-[11px] text-slate-500">Porquê: {ac.motivo}</p>}</div>
+            {/* Insights agrupados por área */}
+            <div>
+              <p className="mb-2 text-[11px] font-black uppercase tracking-widest text-[#0D1B2A]">Insights por área</p>
+              {insightsPorCategoria.length === 0 ? (
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">{semDados ? "Dados insuficientes no período para gerar insights." : "Nenhum insight relevante no momento."}</div>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2">
+                  {insightsPorCategoria.map((g) => (
+                    <div key={g.cat} className="rounded-2xl border border-slate-200 bg-white p-4">
+                      <p className="mb-2 text-xs font-black uppercase tracking-wide text-slate-500">{g.cat}</p>
+                      <div className="space-y-2">
+                        {g.itens.map((it, i) => (
+                          <div key={i} className={`rounded-xl border px-3.5 py-2.5 text-xs font-semibold ${sevCls[it.sev]}`}>
+                            <div className="flex items-start gap-2">
+                              <span className="shrink-0">{sevIc[it.sev]}</span>
+                              <span className="min-w-0 flex-1">{it.texto}</span>
+                            </div>
+                            <div className="mt-1.5 flex items-center gap-2 pl-5">
+                              <span className="text-[10px] font-black uppercase opacity-70">Impacto {it.impacto}</span>
+                              {it.acaoId && <button onClick={() => irPara(it.acaoId)} className="text-[10px] font-black underline decoration-dotted underline-offset-2 hover:opacity-70">Ver detalhes →</button>}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   ))}
+                </div>
+              )}
+            </div>
+
+            {/* Ações recomendadas */}
+            <div>
+              <p className="mb-2 text-[11px] font-black uppercase tracking-widest text-[#0D1B2A]">Ações recomendadas</p>
+              {ia.acoes.length === 0 ? (
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">Nenhuma recomendação disponível no momento.</div>
+              ) : (
+                <div className="space-y-2">
+                  {ia.acoes.map((ac, i) => (
+                    <div key={i} className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex items-start gap-3 min-w-0">
+                        <span className={`mt-0.5 shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-black uppercase ${prioCls[ac.prio]}`}>{prioLbl[ac.prio]}</span>
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-[#0D1B2A]">{ac.texto}</p>
+                          <p className="text-[11px] text-slate-500">{ac.motivo}{ac.area ? ` · Área: ${ac.area}` : ""}{ac.impacto ? ` · Impacto esperado: ${ac.impacto}` : ""}</p>
+                        </div>
+                      </div>
+                      <button onClick={() => setModalAcao({ titulo: ac.texto, responsavel: "", prazo: "", prioridade: ac.prio, observacao: ac.motivo || "" })}
+                        className="shrink-0 self-start rounded-lg border border-blue-500 bg-white px-3 py-1.5 text-xs font-black text-blue-500 transition hover:bg-blue-50 sm:self-center">Criar ação</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Oportunidades */}
+            <div>
+              <p className="mb-2 text-[11px] font-black uppercase tracking-widest text-[#0D1B2A]">Oportunidades</p>
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                <OportunidadeCard titulo="Produtos para promoção" itens={oportunidades.promocao} vazio="Nenhum produto parado no período." render={(nome) => nome} />
+                <OportunidadeCard titulo="Clientes para reativação" itens={oportunidades.reativacao} vazio="Nenhum cliente inativo no momento." render={(c) => `${c.nome || "Cliente"} · ${formatCurrency(c.total)}`} />
+                <OportunidadeCard titulo="Horários de baixa venda" itens={oportunidades.horariosBaixa} vazio="Dados insuficientes no período." render={(d) => `${d.label} · ${formatCurrency(d.valor)}`} />
+                <OportunidadeCard titulo="Combo sugerido" itens={oportunidades.combos} vazio="Sem produtos suficientes para sugerir combo." render={(c) => `${c.principal} + ${c.complemento}`} />
+                <OportunidadeCard titulo="Produtos mais rentáveis" itens={oportunidades.rentaveis} vazio="Sem dados de custo cadastrados." render={(p) => `${p.nome} · ${p.margemPct.toFixed(0)}% de margem`} />
+                <OportunidadeCard titulo="Alta venda + estoque baixo" itens={oportunidades.altaVendaEstoqueBaixo} vazio="Nenhum item nessa situação." render={(p) => `${p.nome} · ${p.qtd} vendido(s), ${p.estoque} em estoque`} />
+              </div>
+            </div>
+
+            {/* Modal "Criar ação" — reaproveita o padrão de modal já usado nas telas
+                administrativas (overlay + card branco). Sem backend próprio: o
+                sistema ainda não tem uma estrutura de tarefas, e criar uma tabela
+                nova para isso seria uma arquitetura paralela (fora do pedido). */}
+            {modalAcao && (
+              <div className="fixed inset-0 z-[140] flex items-center justify-center bg-[#0D1B2A]/50 p-4 backdrop-blur-sm" onClick={() => setModalAcao(null)}>
+                <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-xl">
+                  <p className="text-base font-black text-[#0D1B2A]">Criar ação</p>
+                  <div className="mt-4 space-y-3">
+                    <div>
+                      <label className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-slate-500">Título</label>
+                      <input value={modalAcao.titulo} onChange={(e) => setModalAcao({ ...modalAcao, titulo: e.target.value })}
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-[#334155] outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/25" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-slate-500">Responsável</label>
+                        <input value={modalAcao.responsavel} onChange={(e) => setModalAcao({ ...modalAcao, responsavel: e.target.value })} placeholder="Nome"
+                          className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-[#334155] outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/25" />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-slate-500">Prazo</label>
+                        <input type="date" value={modalAcao.prazo} onChange={(e) => setModalAcao({ ...modalAcao, prazo: e.target.value })}
+                          className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-[#334155] outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/25" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-slate-500">Prioridade</label>
+                      <div className="flex gap-2">
+                        {["alta", "media", "baixa"].map((p) => (
+                          <button key={p} type="button" onClick={() => setModalAcao({ ...modalAcao, prioridade: p })}
+                            className={`flex-1 rounded-lg border px-3 py-2 text-xs font-black uppercase transition ${modalAcao.prioridade === p ? "border-blue-500 bg-blue-500 text-white" : "border-slate-200 bg-white text-[#334155] hover:border-blue-500 hover:text-blue-500"}`}>{prioLbl[p]}</button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-slate-500">Observação</label>
+                      <textarea value={modalAcao.observacao} onChange={(e) => setModalAcao({ ...modalAcao, observacao: e.target.value })} rows={3}
+                        className="w-full resize-none rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-[#334155] outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/25" />
+                    </div>
+                  </div>
+                  <div className="mt-5 flex justify-end gap-2">
+                    <button onClick={() => setModalAcao(null)} className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-600 transition hover:bg-slate-50">Cancelar</button>
+                    <button onClick={() => { setToastAcao(`Ação "${modalAcao.titulo}" registrada para ${modalAcao.responsavel || "a equipe"}.`); setModalAcao(null); setTimeout(() => setToastAcao(""), 4000); }}
+                      className="rounded-xl bg-blue-500 px-4 py-2 text-sm font-black text-white transition hover:bg-blue-600">Salvar ação</button>
+                  </div>
                 </div>
               </div>
             )}

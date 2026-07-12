@@ -484,9 +484,12 @@ export async function criarChamado(c) {
 // Lança erro se a função/chave não estiver ativa, para o front cair no motor
 // de análise local (tolerante).
 export async function perguntarCopilotoIA({ resumoDados = '', pergunta, historico = [] }) {
+  const { data: sess } = await supabase.auth.getSession()
+  const token = sess?.session?.access_token
+  if (!token) throw new Error('Sessão inválida — faça login novamente.')
   const r = await fetch('/api/copiloto-ia', {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
     body: JSON.stringify({ resumoDados, pergunta, historico }),
   })
   let data = {}
