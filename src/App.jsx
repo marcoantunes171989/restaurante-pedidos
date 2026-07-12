@@ -5366,22 +5366,22 @@ function CompanySelector({ lojas = [], valor, onChange }) {
   const termo = busca.trim().toLowerCase();
   const lista = termo ? lojas.filter((l) => `${l.nome} ${l.prefixo}`.toLowerCase().includes(termo)) : lojas;
   const escolher = (id) => { onChange(id); setAberto(false); setBusca(""); };
-  const item = (sel) => `flex w-full items-center gap-2.5 rounded-xl border px-2.5 py-2 text-left text-sm transition ${sel ? "border-[#C4322B] bg-[rgba(196,50,43,.10)] text-[#FFFFFF]" : "border-transparent text-[#D6DBE5] hover:bg-white/[0.05]"}`;
-  const avatar = (sel) => `flex h-7 w-7 shrink-0 items-center justify-center rounded-md border ${sel ? "border-[#C4322B]/50 bg-[rgba(196,50,43,.12)] text-[#E8756B]" : "border-white/10 bg-white/[0.05] text-white/70"}`;
+  const item = (sel) => `group flex w-full items-center gap-2.5 rounded-xl border px-2.5 py-2 text-left text-sm transition duration-150 ${sel ? "border-[#2563EB] bg-[rgba(37,99,235,0.14)] text-[#F8DAFC]" : "border-transparent text-[#F8DAFC] hover:border-[#2563EB] hover:bg-[rgba(37,99,235,0.10)]"}`;
+  const avatar = (sel) => `flex h-7 w-7 shrink-0 items-center justify-center rounded-md border transition-colors duration-150 ${sel ? "border-[#2563EB]/50 bg-[rgba(37,99,235,0.16)] text-[#2563EB]" : "border-white/10 bg-white/[0.05] text-[#F8DAFC]/70 group-hover:text-[#2563EB]"}`;
   const Globo = ({ className = "h-4 w-4" }) => (<svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c2.5 2.5 3.8 5.7 3.8 9S14.5 18.5 12 21c-2.5-2.5-3.8-5.7-3.8-9S9.5 5.5 12 3Z" /></svg>);
 
   return (
     <div className="relative">
       <button onClick={() => setAberto((o) => !o)} aria-haspopup="listbox" aria-expanded={aberto}
-        className={`flex min-h-[44px] w-full items-center gap-2.5 rounded-[18px] border px-3.5 py-3 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C4322B] ${aberto ? "border-[#C4322B]/60 bg-white/[0.08]" : "border-white/[0.08] bg-white/[0.06] hover:bg-white/[0.08]"}`}>
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/[0.05] text-white/85">
+        className={`group flex min-h-[44px] w-full items-center gap-2.5 rounded-[18px] border px-3.5 py-3 text-left transition duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563EB] ${aberto ? "border-[#2563EB] bg-[rgba(37,99,235,0.10)]" : "border-white/[0.08] bg-white/[0.06] hover:border-[#2563EB] hover:bg-[rgba(37,99,235,0.10)]"}`}>
+        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/[0.05] transition-colors duration-150 ${aberto ? "text-[#2563EB]" : "text-[#F8DAFC] group-hover:text-[#2563EB]"}`}>
           {atual ? <IconEmpresa /> : <Globo />}
         </span>
         <div className="min-w-0 flex-1">
-          <p className="font-display truncate text-sm font-bold text-[#FFFFFF]">{atual ? atual.nome : "Visão geral"}</p>
-          <p className="truncate text-[10px] font-medium text-[#B6BECF]">{atual ? `Comandas: ${atual.prefixo}` : "Todas as empresas"}</p>
+          <p className="font-display truncate text-sm font-bold text-[#F8DAFC]">{atual ? atual.nome : "Visão geral"}</p>
+          <p className="truncate text-[10px] font-medium text-[#F8DAFC]/70">{atual ? `Comandas: ${atual.prefixo}` : "Todas as empresas"}</p>
         </div>
-        <svg className={`h-3.5 w-3.5 shrink-0 text-[#C4322B] transition-transform duration-200 ${aberto ? "rotate-180" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
+        <svg className={`h-3.5 w-3.5 shrink-0 transition-transform duration-200 ${aberto ? "rotate-180 text-[#2563EB]" : "text-[#F8DAFC] group-hover:text-[#2563EB]"}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
       </button>
 
       {aberto && (
@@ -5390,10 +5390,10 @@ function CompanySelector({ lojas = [], valor, onChange }) {
           <div role="listbox" className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-[18px] border border-white/[0.08] bg-[#1F2A3D] shadow-2xl">
             {lojas.length > 6 && (
               <div className="border-b border-white/[0.08] p-2">
-                <div className="flex items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.05] px-3 py-1.5 focus-within:border-[#C4322B]/60 transition">
-                  <span className="shrink-0 text-[#8993A8]"><IconBusca /></span>
+                <div className="flex items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.05] px-3 py-1.5 transition duration-150 focus-within:border-[#2563EB] focus-within:ring-2 focus-within:ring-[rgba(37,99,235,0.25)]">
+                  <span className="shrink-0 text-[#F8DAFC]/60"><IconBusca /></span>
                   <input autoFocus value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar empresa..."
-                    className="w-full bg-transparent text-xs text-[#FFFFFF] outline-none placeholder:text-[#8993A8]" />
+                    className="w-full bg-transparent text-xs text-[#F8DAFC] outline-none placeholder:text-[#F8DAFC]/40" />
                 </div>
               </div>
             )}
@@ -5401,7 +5401,7 @@ function CompanySelector({ lojas = [], valor, onChange }) {
               <button onClick={() => escolher(null)} className={item(valor == null)} role="option" aria-selected={valor == null}>
                 <span className={avatar(valor == null)}><Globo /></span>
                 <span className="flex-1 truncate font-bold">Visão geral (todas)</span>
-                {valor == null && <span className="shrink-0 text-[#C4322B]">✓</span>}
+                {valor == null && <span className="shrink-0 text-[#2563EB]">✓</span>}
               </button>
               {lista.map((l) => {
                 const sel = valor === l.id;
@@ -5410,13 +5410,13 @@ function CompanySelector({ lojas = [], valor, onChange }) {
                     <span className={avatar(sel)}><IconEmpresa /></span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate font-bold">{l.nome}</span>
-                      <span className="block truncate text-[10px] text-[#8993A8]">{l.prefixo}{l.active === false ? " • inativa" : ""}</span>
+                      <span className="block truncate text-[10px] text-[#F8DAFC]/60">{l.prefixo}{l.active === false ? " • inativa" : ""}</span>
                     </span>
-                    {sel && <span className="shrink-0 text-[#C4322B]">✓</span>}
+                    {sel && <span className="shrink-0 text-[#2563EB]">✓</span>}
                   </button>
                 );
               })}
-              {lista.length === 0 && <p className="px-2 py-3 text-center text-xs text-[#8993A8]">Nenhuma empresa.</p>}
+              {lista.length === 0 && <p className="px-2 py-3 text-center text-xs text-[#F8DAFC]/60">Nenhuma empresa.</p>}
             </div>
           </div>
         </>
