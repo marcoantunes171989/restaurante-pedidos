@@ -5922,12 +5922,12 @@ function SidebarHeader({ subtitulo, onClose }) {
     <div className="flex items-center gap-3 border-b border-white/10 px-5 py-4">
       <LogoPP size={40} />
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-black leading-tight truncate"><span className="text-[#E7EAF0]">PEDIDO</span> <span className="text-[#E8756B]">PRIME</span></p>
-        <p className="text-[11px] text-[#8993A8] truncate">{subtitulo}</p>
+        <p className="text-sm font-black leading-tight truncate"><span className="text-[#F8DAFC]">PEDIDO</span> <span className="text-[#E8756B]">PRIME</span></p>
+        <p className="text-[11px] text-[#F8DAFC] truncate">{subtitulo}</p>
       </div>
       {onClose && (
         <button onClick={onClose} aria-label="Fechar menu"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.06] text-[#B6BECD] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C4322B]">✕</button>
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.06] text-[#F8DAFC] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563EB]">✕</button>
       )}
     </div>
   );
@@ -5939,12 +5939,12 @@ function SidebarUserCompact({ currentUser, isSuperAdmin, lojaInfo }) {
   if (!currentUser) return null;
   return (
     <div className="flex items-center gap-2.5 border-b border-white/10 px-5 py-3.5">
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/10 text-sm font-black text-[#E7EAF0] uppercase select-none" aria-hidden="true">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/10 text-sm font-black text-[#F8DAFC] uppercase select-none" aria-hidden="true">
         {(currentUser.name || "U").charAt(0)}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-black text-[#E7EAF0] leading-tight">{currentUser.name}</p>
-        <p className="truncate text-[11px] text-[#8993A8] leading-tight">{currentUser.role || "Usuário"}</p>
+        <p className="truncate text-sm font-black text-[#F8DAFC] leading-tight">{currentUser.name}</p>
+        <p className="truncate text-[11px] text-[#F8DAFC]/70 leading-tight">{currentUser.role || "Usuário"}</p>
       </div>
       {isSuperAdmin ? (
         <span className="shrink-0 rounded-full bg-[#C4322B]/15 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-[#E8756B]">Admin</span>
@@ -5956,19 +5956,20 @@ function SidebarUserCompact({ currentUser, isSuperAdmin, lojaInfo }) {
 }
 
 // Item de navegação — ÚNICO componente oficial para itens de menu lateral.
-// Estados: normal (transparente), hover (branco 5%), selecionado (fundo
-// #263248 + borda esquerda 4px terracota, texto/ícone brancos, peso 700).
+// Estados: normal (transparente, texto/ícone #F8DAFC), hover (fundo azul
+// suave rgba(37,99,235,.10)), selecionado (fundo rgba(37,99,235,.16) +
+// borda esquerda 3px #2563EB, texto/ícone #2563EB, peso 700).
 const SidebarItem = React.memo(function SidebarItem({ icon, label, selected, blocked, title, onClick }) {
   return (
     <button onClick={onClick} title={title} aria-current={selected ? "page" : undefined}
       className={cxSidebar(
-        "group relative flex min-h-[44px] w-full items-center gap-3 rounded-2xl border-l-4 p-4 text-sm transition-all duration-[180ms] ease-out",
-        "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C4322B]",
+        "group relative flex min-h-[44px] w-full items-center gap-3 rounded-2xl border-l-[3px] p-4 text-sm transition-all duration-200 ease-out",
+        "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563EB]",
         selected
-          ? "border-l-[#C4322B] bg-[#263248] font-bold text-[#FFFFFF]"
-          : "border-l-transparent font-medium text-[#D6DBE5] hover:bg-[#21304A] hover:text-[#FFFFFF]"
+          ? "border-l-[#2563EB] bg-[rgba(37,99,235,0.16)] font-bold text-[#2563EB]"
+          : "border-l-transparent font-medium text-[#F8DAFC] hover:bg-[rgba(37,99,235,0.10)] hover:text-[#2563EB]"
       )}>
-      <span className={cxSidebar("text-base shrink-0 transition-colors duration-[180ms]", selected ? "text-[#FFFFFF]" : "text-[#A8B1C4] group-hover:text-[#FFFFFF]", blocked && "opacity-40")} aria-hidden="true">{icon}</span>
+      <span className={cxSidebar("text-base shrink-0 transition-colors duration-200", selected ? "text-[#2563EB]" : "text-[#F8DAFC] group-hover:text-[#2563EB]", blocked && "opacity-40")} aria-hidden="true">{icon}</span>
       <span className={cxSidebar("truncate", blocked && "opacity-50")}>{label}</span>
       {blocked && <span className="ml-auto shrink-0" aria-label="Disponível em outro plano" title="Disponível em outro plano">🔒</span>}
     </button>
@@ -5980,7 +5981,7 @@ const cxSidebar = (...c) => c.filter(Boolean).join(" ");
 function SidebarSection({ titulo, children }) {
   return (
     <div>
-      <p className="px-4 mb-1.5 text-[11px] font-bold uppercase tracking-widest text-[#8993A8]">{titulo}</p>
+      <p className="px-4 mb-1.5 text-[11px] font-bold uppercase tracking-widest text-[#F8DAFC]/70">{titulo}</p>
       <div className="space-y-1">{children}</div>
     </div>
   );
@@ -6055,7 +6056,7 @@ function MobileAdminDrawer({ open, onClose, triggerRef, children, titulo }) {
   return (
     <div id="drawer-admin-mobile" className="fixed inset-0 z-[70] flex md:hidden" role="dialog" aria-modal="true" aria-label={titulo || "Menu de navegação"}>
       <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden="true" />
-      <div ref={panelRef} className="pp-anim-left relative flex h-full w-[280px] max-w-[85vw] flex-col bg-[#172033] shadow-2xl" style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}>
+      <div ref={panelRef} className="pp-anim-left relative flex h-full w-[280px] max-w-[85vw] flex-col overflow-hidden bg-[#0D1B2A] shadow-2xl" style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}>
         {children}
       </div>
     </div>
@@ -6155,28 +6156,28 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
     </main>
   );
   return (
-    <div data-theme="light" className="fixed inset-0 z-50 flex bg-[#F7F8FA] overflow-hidden" style={{ paddingTop: "calc(env(safe-area-inset-top) + 24px)" }}>
+    <div data-theme="light" className="fixed inset-0 z-50 flex bg-[#F7F8FA] overflow-hidden">
 
       <CommandPalette open={cmdOpen} onClose={() => setCmdOpen(false)} sections={cmdSections}
         onNavigate={(id) => { setAdminSection(id); setCmdOpen(false); }} onSair={onSair} />
 
       {/* ── Menu lateral esquerdo (fixo) — hierarquia oficial: Logo → Usuário
           → Empresa → Menu (protagonista) → Rodapé → Sair ── */}
-      <aside className="hidden md:flex w-64 shrink-0 flex-col bg-[#172033]">
+      <aside className="hidden md:flex h-full w-64 shrink-0 flex-col overflow-hidden bg-[#0D1B2A]">
         <SidebarHeader subtitulo={isSuperAdmin ? "Administrador geral" : (lojaInfo ? lojaInfo.nome : "Painel gerencial")} />
         <SidebarUserCompact currentUser={currentUser} isSuperAdmin={isSuperAdmin} lojaInfo={lojaInfo} />
         {isSuperAdmin && (
           <div className="border-b border-white/10 px-4 py-3">
-            <label className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-[#8993A8]">Empresa em foco</label>
+            <label className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-[#F8DAFC]">Empresa em foco</label>
             <CompanySelector lojas={lojas} valor={lojaContexto} onChange={setLojaContexto} />
           </div>
         )}
         <div className="border-b border-white/10 px-3 py-3">
           <button onClick={() => setCmdOpen(true)} aria-label="Abrir busca rápida (Ctrl K)"
-            className="flex min-h-[44px] w-full items-center gap-2 rounded-xl border border-white/10 bg-white/[0.05] px-3 py-2 text-left text-[13px] text-[#B6BECD] transition hover:bg-white/[0.08] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C4322B]">
-            <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-[#8993A8]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
+            className="flex min-h-[44px] w-full items-center gap-2 rounded-xl border border-white/10 bg-white/[0.05] px-3 py-2 text-left text-[13px] text-[#F8DAFC] transition hover:bg-white/[0.08] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563EB]">
+            <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-[#F8DAFC]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
             <span className="flex-1 truncate">Buscar telas…</span>
-            <span className="shrink-0 rounded-md border border-white/10 px-1.5 py-0.5 text-[10px] font-bold text-[#8993A8]">Ctrl K</span>
+            <span className="shrink-0 rounded-md border border-white/10 px-1.5 py-0.5 text-[10px] font-bold text-[#F8DAFC]">Ctrl K</span>
           </button>
         </div>
         <SidebarNavItems menu={menu} ativo={ativo} setAdminSection={setAdminSection} canAccessModule={canAccessModule}
@@ -6191,7 +6192,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
         <SidebarUserCompact currentUser={currentUser} isSuperAdmin={isSuperAdmin} lojaInfo={lojaInfo} />
         {isSuperAdmin && (
           <div className="border-b border-white/10 px-4 py-3">
-            <label className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-[#8993A8]">Empresa em foco</label>
+            <label className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-[#F8DAFC]">Empresa em foco</label>
             <CompanySelector lojas={lojas} valor={lojaContexto} onChange={setLojaContexto} />
           </div>
         )}
@@ -6204,7 +6205,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
       {/* ── Conteúdo ─────────────────────────────────────────── */}
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Cabeçalho mobile — botão de menu abre o drawer de navegação (md:hidden) */}
-        <div className="md:hidden flex shrink-0 items-center justify-between gap-3 border-b border-[#E5E7EB] bg-white px-4 py-3">
+        <div className="md:hidden flex shrink-0 items-center justify-between gap-3 border-b border-[#E5E7EB] bg-white px-4 py-3" style={{ paddingTop: "calc(env(safe-area-inset-top) + 12px)" }}>
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <button ref={botaoMenuRef} onClick={() => setMenuMobileAberto(true)} aria-label="Abrir menu de navegação" aria-expanded={menuMobileAberto} aria-controls="drawer-admin-mobile"
               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#E5E7EB] bg-white text-[#182230] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C4322B]">
