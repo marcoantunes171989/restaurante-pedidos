@@ -7598,12 +7598,14 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], irParaM
             )}
           </p>
         </div>
-        <SeletorPeriodo periodo={periodo} setPeriodo={setPeriodo} ini={ini} setIni={setIni} fim={fim} setFim={setFim} />
+        <div className="pp-dash-filtros">
+          <SeletorPeriodo periodo={periodo} setPeriodo={setPeriodo} ini={ini} setIni={setIni} fim={fim} setFim={setFim} />
+        </div>
       </div>
 
       {/* Filtros secundários — um agrupamento independente por contexto (Turno,
           Canal, Status): 1 coluna no mobile, 2 no tablet, 3 lado a lado no desktop. */}
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+      <div className="pp-dash-filtros grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
         <GrupoPill titulo="Turno" valor={turno} setValor={setTurno} opcoes={[{ id: "todos", label: "Todos" }, { id: "almoco", label: "Almoço" }, { id: "jantar", label: "Jantar" }]} />
         <GrupoPill titulo="Canal" valor={canal} setValor={setCanal} opcoes={[{ id: "todos", label: "Todos" }, { id: "mesa", label: "Mesa" }, { id: "qr", label: "QR Code" }, { id: "balcao", label: "Balcão" }, { id: "delivery", label: "Delivery" }]} />
         <GrupoPill titulo="Status" valor={statusF} setValor={setStatusF} opcoes={[{ id: "todos", label: "Todos" }, { id: "pago", label: "Pago" }, { id: "aberto", label: "Em aberto" }, { id: "cancelado", label: "Cancelado" }]} />
