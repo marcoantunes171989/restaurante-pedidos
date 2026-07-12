@@ -129,6 +129,15 @@ export default {
           teal:   "#2FBF9A",
           gray:   "#94A3B8",
         },
+        // Dashboard Gerencial — paleta dedicada (padronização visual). O resto
+        // da paleta pedida já existe nas escalas padrão do Tailwind e é reaproveitado
+        // diretamente: primária azul-500 (#2563EB), sucesso emerald-500 (#10B981),
+        // aviso amber-500 (#F59E0B), informação violet-500 (#8B5CF6), apoio gráfico
+        // cyan-500 (#06B6D4), erro red-500 (#EF4444), cinza/texto secundário
+        // slate-500 (#64748B), fundos slate-50/100, bordas slate-200/300.
+        dash: {
+          navy: "#0D1B2A", // texto principal / títulos / valores dos KPIs
+        },
       },
       boxShadow: {
         admin: "0 1px 2px rgba(6,26,46,0.05), 0 6px 20px rgba(6,26,46,0.08)",

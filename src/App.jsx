@@ -6496,10 +6496,10 @@ function BarraHorizontal({ label, valor, max, sufixo = "", cor = "bg-blue-500" }
   return (
     <div>
       <div className="mb-1 flex items-center justify-between text-sm">
-        <span className="text-slate-300 truncate pr-2">{label}</span>
-        <span className="font-black text-white shrink-0">{sufixo === "R$" ? formatCurrency(valor) : `${valor}${sufixo}`}</span>
+        <span className="text-slate-500 truncate pr-2">{label}</span>
+        <span className="font-black text-dash-navy shrink-0">{sufixo === "R$" ? formatCurrency(valor) : `${valor}${sufixo}`}</span>
       </div>
-      <div className="h-2.5 overflow-hidden rounded-full bg-white/10">
+      <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
         <div className={`h-full rounded-full ${cor} transition-all duration-700`} style={{ width: `${pct}%` }} />
       </div>
     </div>
@@ -6515,6 +6515,12 @@ const CARD_METRICA_TONES = {
   blue:   "bg-brand-infoSoft text-brand-info",
   gold:   "bg-[#FFF7E0] text-[#9A6A00]",
   violet: "bg-[#F5F3FF] text-[#7C3AED]",
+  // Paleta exclusiva do Dashboard Gerencial (aditivo — não altera os tons acima)
+  dashPrimary: "bg-blue-500/10 text-blue-500",
+  dashSuccess: "bg-emerald-500/10 text-emerald-500",
+  dashWarning: "bg-amber-500/10 text-amber-500",
+  dashInfo:    "bg-violet-500/10 text-violet-500",
+  dashDanger:  "bg-red-500/10 text-red-500",
 };
 function CardMetrica({ titulo, valor, sub, cor = "text-brand-ink", icon, variacao = null, tone = "gold" }) {
   const toneCls = CARD_METRICA_TONES[tone] || CARD_METRICA_TONES.gold;
@@ -6570,8 +6576,8 @@ function DonutChart({ dados, label = "" }) {
         {dados.map((d, i) => (
           <div key={i} className="flex items-center gap-2 text-sm">
             <span className="h-3 w-3 rounded-sm" style={{ background: d.cor || CORES_GRAF[i % CORES_GRAF.length] }} />
-            <span className="text-slate-300">{d.label}</span>
-            <span className="font-black text-white">{((d.valor / total) * 100).toFixed(0)}%</span>
+            <span className="text-slate-500">{d.label}</span>
+            <span className="font-black text-dash-navy">{((d.valor / total) * 100).toFixed(0)}%</span>
           </div>
         ))}
       </div>
@@ -7181,8 +7187,12 @@ function formatarMoedaAbrev(v) {
 // cinza = sem venda, terracota = melhor horário, verde = acima da média,
 // azul = padrão. Ver Design System (chart tokens) — nenhuma cor aleatória.
 const ALTURA_TRACK_HORA = 150;
-function BarrasHora({ dados }) {
+// paleta: opcional — sobrescreve as cores padrão sem afetar quem não a passa
+// (ex.: Relatórios). O Dashboard Gerencial injeta a paleta oficial da tela.
+const PALETA_BARRAS_HORA_PADRAO = { semVenda: "#94A3B8", pico: "#C4322B", acimaMedia: "#3F7D5A", padrao: "#315A7D", foco: "#C4322B", grade: "#E5E7EB", texto: "#64748B", textoValor: "#475467", tooltipBg: "#172033" };
+function BarrasHora({ dados, paleta = PALETA_BARRAS_HORA_PADRAO }) {
   const [ativo, setAtivo] = useState(null);
+  const p = { ...PALETA_BARRAS_HORA_PADRAO, ...paleta };
   const comVendas = dados.filter((d) => d.valor > 0);
   if (comVendas.length === 0) {
     return (
@@ -7195,10 +7205,10 @@ function BarrasHora({ dados }) {
   const maxVal = Math.max(...dados.map((d) => d.valor));
   const media = comVendas.reduce((s, d) => s + d.valor, 0) / comVendas.length;
   const corDe = (d) => {
-    if (d.valor <= 0) return "#94A3B8";
-    if (d.valor === maxVal) return "#C4322B";
-    if (d.valor >= media) return "#3F7D5A";
-    return "#315A7D";
+    if (d.valor <= 0) return p.semVenda;
+    if (d.valor === maxVal) return p.pico;
+    if (d.valor >= media) return p.acimaMedia;
+    return p.padrao;
   };
   const melhorLabel = dados.find((d) => d.valor === maxVal)?.label || "";
   return (
@@ -7206,7 +7216,7 @@ function BarrasHora({ dados }) {
       {/* Valores acima das barras — ocultos em telas muito estreitas p/ evitar colisão; dado continua no tooltip/aria-label */}
       <div className="flex items-end justify-between gap-1 sm:gap-1.5">
         {dados.map((d, i) => (
-          <span key={i} className="hidden w-full truncate text-center font-bold leading-none text-[#475467] sm:block" style={{ fontSize: 9 }}>
+          <span key={i} className="hidden w-full truncate text-center font-bold leading-none sm:block" style={{ fontSize: 9, color: p.textoValor }}>
             {d.valor > 0 ? formatarMoedaAbrev(d.valor) : ""}
           </span>
         ))}
@@ -7214,7 +7224,7 @@ function BarrasHora({ dados }) {
       {/* Trilho das barras — altura fixa, grid horizontal discreto + tooltip por barra */}
       <div className="relative mt-1 flex items-end justify-between gap-1 sm:gap-1.5" style={{ height: ALTURA_TRACK_HORA }}>
         <div className="pointer-events-none absolute inset-0 flex flex-col justify-between" aria-hidden="true">
-          {[0, 1, 2, 3].map((i) => <div key={i} className="border-t border-[#E5E7EB]" />)}
+          {[0, 1, 2, 3].map((i) => <div key={i} className="border-t" style={{ borderColor: p.grade }} />)}
         </div>
         {dados.map((d, i) => {
           const alturaPx = d.valor > 0 ? Math.max(4, (d.valor / max) * ALTURA_TRACK_HORA) : 0;
@@ -7223,19 +7233,19 @@ function BarrasHora({ dados }) {
           return (
             <div key={i} className="relative min-w-[16px] flex-1" style={{ height: ALTURA_TRACK_HORA }}>
               <button type="button"
-                className="absolute bottom-0 left-0 right-0 rounded-t-md transition-[height] duration-200 ease-out motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C4322B]"
-                style={{ height: alturaPx, backgroundColor: corDe(d) }}
+                className="absolute bottom-0 left-0 right-0 rounded-t-md transition-[height] duration-200 ease-out motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                style={{ height: alturaPx, backgroundColor: corDe(d), outlineColor: p.foco }}
                 onMouseEnter={() => setAtivo(i)} onMouseLeave={() => setAtivo((c) => (c === i ? null : c))}
                 onFocus={() => setAtivo(i)} onBlur={() => setAtivo((c) => (c === i ? null : c))}
                 onClick={() => setAtivo(i)}
                 aria-label={`${d.label}: ${d.valor > 0 ? formatCurrency(d.valor) : "sem faturamento"}${d.qtd ? `, ${d.qtd} pedido${d.qtd > 1 ? "s" : ""}` : ""}`}>
                 {aberto && (
-                  <div role="tooltip" className="pointer-events-none absolute bottom-[calc(100%+8px)] left-1/2 z-10 w-max max-w-[180px] -translate-x-1/2 rounded-xl bg-[#172033] px-3 py-2 text-left text-[11px] leading-snug text-white shadow-[0_8px_20px_rgba(23,32,51,0.28)]">
+                  <div role="tooltip" className="pointer-events-none absolute bottom-[calc(100%+8px)] left-1/2 z-10 w-max max-w-[180px] -translate-x-1/2 rounded-xl px-3 py-2 text-left text-[11px] leading-snug text-white shadow-[0_8px_20px_rgba(23,32,51,0.28)]" style={{ backgroundColor: p.tooltipBg }}>
                     <p className="font-bold">{d.label}</p>
                     <p className="mt-0.5 font-black">{d.valor > 0 ? formatCurrency(d.valor) : "Sem faturamento"}</p>
                     {d.qtd > 0 && <p className="mt-0.5 text-white/75">{d.qtd} pedido{d.qtd > 1 ? "s" : ""} · ticket médio {formatCurrency(d.valor / d.qtd)}</p>}
                     {diffPct != null && (
-                      <p className={`mt-0.5 font-semibold ${diffPct >= 0 ? "text-[#8FD4AE]" : "text-[#F3B4AE]"}`}>{diffPct >= 0 ? "▲" : "▼"} {Math.abs(diffPct)}% vs. média do período</p>
+                      <p className={`mt-0.5 font-semibold ${diffPct >= 0 ? "text-emerald-300" : "text-red-300"}`}>{diffPct >= 0 ? "▲" : "▼"} {Math.abs(diffPct)}% vs. média do período</p>
                     )}
                   </div>
                 )}
@@ -7247,7 +7257,7 @@ function BarrasHora({ dados }) {
       {/* Horários — no mobile mostra alternado para não colidir; dado completo segue no aria-label/tooltip */}
       <div className="mt-1 flex justify-between gap-1 sm:gap-1.5">
         {dados.map((d, i) => (
-          <span key={i} className={`w-full truncate text-center leading-none text-[#64748B] ${i % 2 !== 0 ? "hidden sm:block" : ""}`} style={{ fontSize: 9 }}>{d.label}</span>
+          <span key={i} className={`w-full truncate text-center leading-none ${i % 2 !== 0 ? "hidden sm:block" : ""}`} style={{ fontSize: 9, color: p.texto }}>{d.label}</span>
         ))}
       </div>
       <p className="sr-only">Melhor horário de venda: {melhorLabel}, {formatCurrency(maxVal)}.</p>
@@ -7415,11 +7425,13 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], irParaM
   const vendasPorHora = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 0, 1].map((h) => horas24[h]);
   const melhorHora = vendasPorHora.reduce((b, d) => (d.valor > b.valor ? d : b), { valor: -1, label: "—" });
 
-  // Donut categorias e status
-  const catDonut = a.categorias.slice(0, 6).map((c) => ({ label: c.categoria, valor: c.valor }));
-  // Cor semântica por status (não cíclica): aguardando=âmbar, em preparo=azul,
-  // pronto=azul claro (chart secundário), entregue=verde. Nunca terracota aqui.
-  const CORES_STATUS_PEDIDO = { received: "#C28135", preparing: "#315A7D", ready: "#7CA1BF", delivered: "#3F7D5A" };
+  // Donut categorias e status — paleta oficial do Dashboard Gerencial, na
+  // ordem definida: azul, verde, âmbar, violeta, ciano, vermelho, cinza.
+  const PALETA_SERIES_DASHBOARD = ["#2563EB", "#10B981", "#F59E0B", "#8B5CF6", "#06B6D4", "#EF4444", "#64748B"];
+  const catDonut = a.categorias.slice(0, 6).map((c, i) => ({ label: c.categoria, valor: c.valor, cor: PALETA_SERIES_DASHBOARD[i % PALETA_SERIES_DASHBOARD.length] }));
+  // Cor semântica por status (não cíclica): aguardando=âmbar (pendência), em
+  // preparo=azul (padrão), pronto=ciano (apoio gráfico), entregue=verde (sucesso).
+  const CORES_STATUS_PEDIDO = { received: "#F59E0B", preparing: "#2563EB", ready: "#06B6D4", delivered: "#10B981" };
   const statusDist = ["received", "preparing", "ready", "delivered"]
     .map((s) => ({ label: statusMap[s]?.label || s, valor: filtrados.filter((o) => o.status === s).length, cor: CORES_STATUS_PEDIDO[s] }))
     .filter((d) => d.valor > 0);
@@ -7452,7 +7464,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], irParaM
   const mesasAbertas = mesasAtencao.length;
   const tempoMedioMesa = mesasAbertas ? Math.round(mesasAtencao.reduce((s, m) => s + m.mins, 0) / mesasAbertas) : 0;
   const fmtTempo = formatarDuracaoMin; // helper global — mesmo formato em toda a tela
-  const situacaoMesa = (m) => m.preparo ? { label: "Pedido em preparo", cls: "border-orange-400/30 bg-orange-500/10 text-orange-300" } : { label: "Aguardando pagamento", cls: "border-red-400/30 bg-red-500/10 text-red-300" };
+  const situacaoMesa = (m) => m.preparo ? { label: "Pedido em preparo", cls: "border-blue-500/30 bg-blue-500/10 text-blue-500" } : { label: "Aguardando pagamento", cls: "border-amber-500/30 bg-amber-500/10 text-amber-500" };
 
   // Cancelamentos e perdas
   const valorPerdido = cancelados.reduce((s, o) => s + orderTotal(o) * 1.1, 0);
@@ -7480,23 +7492,23 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], irParaM
   const mesasCriticas = mesasAtencao.filter((m) => m.mins >= 40).length;
   const alertas = [
     a.emAberto > 0
-      ? { tom: "red", titulo: "Atenção", desc: `${formatCurrency(a.emAberto)} em aberto no período.` }
-      : { tom: "emerald", titulo: "Sem pendências", desc: "Nenhum valor em aberto." },
+      ? { tom: "warning", titulo: "Atenção", desc: `${formatCurrency(a.emAberto)} em aberto no período.` }
+      : { tom: "success", titulo: "Sem pendências", desc: "Nenhum valor em aberto." },
     melhorHora.valor > 0
-      ? { tom: "gold", titulo: "Horário de maior venda", desc: `${melhorHora.label} com ${formatCurrency(melhorHora.valor)}.` }
-      : { tom: "gold", titulo: "Horário de maior venda", desc: "Sem vendas no período." },
+      ? { tom: "info", titulo: "Horário de maior venda", desc: `${melhorHora.label} com ${formatCurrency(melhorHora.valor)}.` }
+      : { tom: "info", titulo: "Horário de maior venda", desc: "Sem vendas no período." },
     mesasCriticas > 0
-      ? { tom: "orange", titulo: `${mesasCriticas} mesa(s) aberta(s)`, desc: "há mais de 40 minutos." }
-      : { tom: "emerald", titulo: "Mesas em dia", desc: "Nenhuma mesa parada há muito tempo." },
+      ? { tom: "warning", titulo: `${mesasCriticas} mesa(s) aberta(s)`, desc: "há mais de 40 minutos." }
+      : { tom: "success", titulo: "Mesas em dia", desc: "Nenhuma mesa parada há muito tempo." },
     semEstoque.length === 0
-      ? { tom: "emerald", titulo: "Todos os produtos", desc: "com estoque adequado." }
-      : { tom: "red", titulo: `${semEstoque.length} produto(s)`, desc: "abaixo do estoque mínimo." },
+      ? { tom: "success", titulo: "Todos os produtos", desc: "com estoque adequado." }
+      : { tom: "danger", titulo: `${semEstoque.length} produto(s)`, desc: "abaixo do estoque mínimo." },
   ];
   const tomCls = {
-    red: "border-brand-danger/30 bg-brand-dangerSoft text-brand-danger",
-    gold: "border-brand-primary/30 bg-brand-primarySoft text-brand-primary",
-    orange: "border-brand-warning/30 bg-brand-warningSoft text-brand-warning",
-    emerald: "border-brand-success/30 bg-brand-successSoft text-brand-success",
+    danger:  "border-[rgba(239,68,68,0.30)] bg-[rgba(239,68,68,0.08)] text-red-500",
+    warning: "border-[rgba(245,158,11,0.30)] bg-[rgba(245,158,11,0.08)] text-amber-500",
+    info:    "border-[rgba(139,92,246,0.30)] bg-[rgba(139,92,246,0.08)] text-violet-500",
+    success: "border-[rgba(16,185,129,0.30)] bg-[rgba(16,185,129,0.08)] text-emerald-500",
   };
 
   // Recomendações (parcialmente dinâmicas)
@@ -7573,7 +7585,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], irParaM
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h2 className="page-title flex items-center gap-2.5 text-2xl font-bold tracking-tight text-brand-ink">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#FFF1F2] text-[#C4322B]">{soCopiloto ? "🤖" : <IconDashboard />}</span>
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-500/10 text-blue-500">{soCopiloto ? "🤖" : <IconDashboard />}</span>
             {soCopiloto ? "Copiloto IA" : "Dashboard Gerencial"}
           </h2>
           <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 max-w-2xl text-sm text-brand-inkSoft">
@@ -7604,21 +7616,21 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], irParaM
         const meta = 45;
         const estoqueBaixo = (products || []).filter((p) => p.controlaEstoque && (Number(p.estoque) || 0) <= (Number(p.estoqueMinimo) || 0)).length;
         const pills = [
-          melhorHora?.valor > 0 && { dot: "bg-[#C4322B]", txt: <>Melhor horário: <b className="font-bold text-white">{melhorHora.label}</b></> },
-          produtoTop && { dot: "bg-blue-400", txt: <>Destaque: <b className="font-bold text-white">{produtoTop.nome}</b></> },
-          { dot: a.ticket >= meta ? "bg-emerald-400" : "bg-amber-400", txt: <>Ticket médio {a.ticket >= meta ? "acima" : "abaixo"} da meta</> },
-          { dot: abertos.length === 0 ? "bg-emerald-400" : "bg-amber-400", txt: abertos.length === 0 ? "Sem pendências financeiras" : <>{abertos.length} comanda(s) em aberto</> },
-          { dot: estoqueBaixo === 0 ? "bg-emerald-400" : "bg-red-400", txt: estoqueBaixo === 0 ? "Estoque sem alertas" : <>{estoqueBaixo} produto(s) sem estoque</> },
+          melhorHora?.valor > 0 && { dot: "bg-amber-500", txt: <>Melhor horário: <b className="font-bold text-dash-navy">{melhorHora.label}</b></> },
+          produtoTop && { dot: "bg-blue-500", txt: <>Destaque: <b className="font-bold text-dash-navy">{produtoTop.nome}</b></> },
+          { dot: a.ticket >= meta ? "bg-emerald-500" : "bg-amber-500", txt: <>Ticket médio {a.ticket >= meta ? "acima" : "abaixo"} da meta</> },
+          { dot: abertos.length === 0 ? "bg-emerald-500" : "bg-amber-500", txt: abertos.length === 0 ? "Sem pendências financeiras" : <>{abertos.length} comanda(s) em aberto</> },
+          { dot: estoqueBaixo === 0 ? "bg-emerald-500" : "bg-red-500", txt: estoqueBaixo === 0 ? "Estoque sem alertas" : <>{estoqueBaixo} produto(s) sem estoque</> },
         ].filter(Boolean);
         return (
-          <div className="mt-4 flex flex-wrap items-center gap-2.5 rounded-2xl border border-[#FECDD3] bg-white px-4 py-3">
-            <span className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-[#B42318]">
+          <div className="mt-4 flex flex-wrap items-center gap-2.5 rounded-2xl border border-blue-500/25 bg-white px-4 py-3">
+            <span className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-blue-500">
               <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor"><path d="M12 2l2.4 6.9H22l-6 4.3 2.3 7L12 16l-6.3 4.2 2.3-7-6-4.3h7.6z" /></svg>
               Resumo inteligente
             </span>
-            <span className="hidden h-4 w-px bg-brand-border sm:block" />
+            <span className="hidden h-4 w-px bg-slate-200 sm:block" />
             {pills.map((p, i) => (
-              <span key={i} className="inline-flex items-center gap-2 rounded-full border border-brand-border bg-[#F9FAFB] px-3 py-1.5 text-xs font-semibold text-brand-inkSoft">
+              <span key={i} className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-500">
                 <span className={`h-1.5 w-1.5 rounded-full ${p.dot}`} />{p.txt}
               </span>
             ))}
@@ -7629,19 +7641,19 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], irParaM
       {/* KPIs (8) */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <button onClick={() => setModal({ titulo: "Faturamento — pedidos pagos", pedidos: pagos })} className="block h-full w-full text-left">
-          <CardMetrica titulo="Faturamento pago" valor={formatCurrency(a.faturamento)} sub={`${pagos.length} pedidos pagos • ver detalhes`} tone="green" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="12" rx="2" /><circle cx="12" cy="12" r="2.5" /><path d="M6 12h.01M18 12h.01" /></svg>} variacao={comparativo?.faturamento} />
+          <CardMetrica titulo="Faturamento pago" valor={formatCurrency(a.faturamento)} sub={`${pagos.length} pedidos pagos • ver detalhes`} cor="text-dash-navy" tone="dashSuccess" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="12" rx="2" /><circle cx="12" cy="12" r="2.5" /><path d="M6 12h.01M18 12h.01" /></svg>} variacao={comparativo?.faturamento} />
         </button>
         <button onClick={() => setModal({ titulo: "Valores em aberto", pedidos: abertos })} className="block h-full w-full text-left">
-          <CardMetrica titulo="Valores em aberto" valor={formatCurrency(a.emAberto)} sub={`${abertos.length} comandas pendentes`} tone="rose" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>} />
+          <CardMetrica titulo="Valores em aberto" valor={formatCurrency(a.emAberto)} sub={`${abertos.length} comandas pendentes`} cor="text-dash-navy" tone="dashWarning" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>} />
         </button>
-        <CardMetrica titulo="Faturamento previsto" valor={formatCurrency(previsto)} sub="pago + em aberto" cor="text-brand-info" tone="blue" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 17l6-6 4 4 8-8" /><path d="M17 7h4v4" /></svg>} />
-        <CardMetrica titulo="Ticket médio" valor={formatCurrency(a.ticket)} sub="meta sugerida: R$ 45,00" tone="green" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z" /><path d="M9 8h6M9 12h6" /></svg>} variacao={comparativo?.ticket} />
+        <CardMetrica titulo="Faturamento previsto" valor={formatCurrency(previsto)} sub="pago + em aberto" cor="text-dash-navy" tone="dashPrimary" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 17l6-6 4 4 8-8" /><path d="M17 7h4v4" /></svg>} />
+        <CardMetrica titulo="Ticket médio" valor={formatCurrency(a.ticket)} sub="meta sugerida: R$ 45,00" cor="text-dash-navy" tone="dashSuccess" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z" /><path d="M9 8h6M9 12h6" /></svg>} variacao={comparativo?.ticket} />
         <button onClick={() => setModal({ titulo: "Todos os pedidos do período", pedidos: filtrados })} className="block h-full w-full text-left">
-          <CardMetrica titulo="Total de pedidos" valor={a.totalPedidos} sub={`${pagos.length} pagos | ${abertos.length} em aberto`} tone="blue" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8l-9-5-9 5 9 5 9-5z" /><path d="M3 8v8l9 5 9-5V8" /><path d="M12 13v8" /></svg>} variacao={comparativo?.pedidos} />
+          <CardMetrica titulo="Total de pedidos" valor={a.totalPedidos} sub={`${pagos.length} pagos | ${abertos.length} em aberto`} cor="text-dash-navy" tone="dashPrimary" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8l-9-5-9 5 9 5 9-5z" /><path d="M3 8v8l9 5 9-5V8" /><path d="M12 13v8" /></svg>} variacao={comparativo?.pedidos} />
         </button>
-        <CardMetrica titulo="Produto mais vendido" valor={produtoTop ? produtoTop.nome : "—"} sub={produtoTop ? `${produtoTop.qtd} unidades vendidas` : "sem vendas"} cor="text-brand-primary" tone="rose" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="9" r="5" /><path d="M9 13.5 8 21l4-2 4 2-1-7.5" /></svg>} />
-        <CardMetrica titulo="Mesas abertas" valor={mesasAbertas} sub={mesasAbertas ? `tempo médio aberto: ${tempoMedioMesa} min` : "nenhuma mesa aberta"} tone="violet" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></svg>} />
-        <CardMetrica titulo="Clientes no período" valor={clientesPeriodo} sub={`de ${clientes.length} cadastrados`} tone="violet" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 20v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="8" r="3.5" /><path d="M22 20v-2a4 4 0 0 0-3-3.8" /><path d="M16 4.2a4 4 0 0 1 0 7.6" /></svg>} />
+        <CardMetrica titulo="Produto mais vendido" valor={produtoTop ? produtoTop.nome : "—"} sub={produtoTop ? `${produtoTop.qtd} unidades vendidas` : "sem vendas"} cor="text-dash-navy" tone="dashSuccess" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="9" r="5" /><path d="M9 13.5 8 21l4-2 4 2-1-7.5" /></svg>} />
+        <CardMetrica titulo="Mesas abertas" valor={mesasAbertas} sub={mesasAbertas ? `tempo médio aberto: ${tempoMedioMesa} min` : "nenhuma mesa aberta"} cor="text-dash-navy" tone="dashInfo" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></svg>} />
+        <CardMetrica titulo="Clientes no período" valor={clientesPeriodo} sub={`de ${clientes.length} cadastrados`} cor="text-dash-navy" tone="dashInfo" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 20v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="8" r="3.5" /><path d="M22 20v-2a4 4 0 0 0-3-3.8" /><path d="M16 4.2a4 4 0 0 1 0 7.6" /></svg>} />
       </div>
 
       </>)}
@@ -7762,11 +7774,11 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], irParaM
             <span className="block text-sm font-black text-brand-ink">{formatCurrency(a.faturamento)}</span>
           </span>
         ) : null}>
-        <BarrasHora dados={vendasPorHora} />
+        <BarrasHora dados={vendasPorHora} paleta={{ semVenda: "#CBD5E1", pico: "#F59E0B", acimaMedia: "#10B981", padrao: "#2563EB", foco: "#2563EB", grade: "#E2E8F0", texto: "#64748B", textoValor: "#64748B", tooltipBg: "#0D1B2A" }} />
         {melhorHora.valor > 0 && (
           <div className="mt-4 flex flex-wrap gap-2">
-            <span className="rounded-full bg-brand-primary/10 px-3 py-1.5 text-xs font-bold text-brand-primary">★ Melhor horário: {melhorHora.label} — {formatCurrency(melhorHora.valor)}</span>
-            <span className="rounded-full bg-brand-infoSoft px-3 py-1.5 text-xs font-bold text-brand-info">Oportunidade: estimular vendas nos horários de menor movimento.</span>
+            <span className="rounded-full bg-amber-500/10 px-3 py-1.5 text-xs font-bold text-amber-500">★ Melhor horário: {melhorHora.label} — {formatCurrency(melhorHora.valor)}</span>
+            <span className="rounded-full bg-violet-500/10 px-3 py-1.5 text-xs font-bold text-violet-500">Oportunidade: estimular vendas nos horários de menor movimento.</span>
           </div>
         )}
       </Painel>
@@ -7779,14 +7791,14 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], irParaM
           <div className="space-y-3">
             {a.topProdutos.length === 0 && <p className="py-4 text-center text-sm text-slate-500">Nenhuma venda no período.</p>}
             {a.topProdutos.map((p, i) => (
-              <BarraHorizontal key={p.nome} label={p.nome} valor={p.qtd} max={maxProd} sufixo=" un" cor={i === 0 ? "bg-brand-primary" : "bg-brand-info"} />
+              <BarraHorizontal key={p.nome} label={p.nome} valor={p.qtd} max={maxProd} sufixo=" un" cor={i === 0 ? "bg-emerald-500" : "bg-blue-500"} />
             ))}
           </div>
         </Painel>
 
         <Painel titulo="Status dos Pedidos">
           <DonutChart dados={statusDist} label="Status" />
-          <p className="mt-3 text-center text-xs text-slate-400">Taxa de entrega concluída: <b className="text-emerald-300">{taxaEntrega}%</b></p>
+          <p className="mt-3 text-center text-xs text-slate-500">Taxa de entrega concluída: <b className="text-emerald-500">{taxaEntrega}%</b></p>
         </Painel>
 
         <Painel titulo="Desempenho da Cozinha">
@@ -7796,8 +7808,8 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], irParaM
               { r: "Pedido mais demorado", v: tempoMaxPrep != null ? formatarDuracaoMin(tempoMaxPrep) : "—" },
               { r: "Setor mais acionado", v: setorMaisAcionado },
             ].map((c) => (
-              <div key={c.r} className="rounded-2xl border border-white/10 bg-slate-950/40 p-3 text-center">
-                <p className="page-title text-lg font-bold text-white">{c.v}</p>
+              <div key={c.r} className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-center">
+                <p className="page-title text-lg font-bold text-dash-navy">{c.v}</p>
                 <p className="mt-1 text-[10px] leading-tight text-slate-500">{c.r}</p>
               </div>
             ))}
@@ -7807,10 +7819,10 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], irParaM
 
         <Painel titulo="Formas de Pagamento">
           <div className="space-y-3">
-            <BarraHorizontal label="Recebido (pago)" valor={a.faturamento} max={Math.max(1, previsto)} sufixo="R$" cor="bg-brand-success" />
-            <BarraHorizontal label="Pendente (em aberto)" valor={a.emAberto} max={Math.max(1, previsto)} sufixo="R$" cor="bg-brand-warning" />
+            <BarraHorizontal label="Recebido (pago)" valor={a.faturamento} max={Math.max(1, previsto)} sufixo="R$" cor="bg-emerald-500" />
+            <BarraHorizontal label="Pendente (em aberto)" valor={a.emAberto} max={Math.max(1, previsto)} sufixo="R$" cor="bg-amber-500" />
           </div>
-          <p className="mt-3 text-[11px] text-slate-500">Detalhamento por forma (Pix, crédito, débito, dinheiro) disponível em <b className="text-slate-300">Fechamento de Caixa</b>.</p>
+          <p className="mt-3 text-[11px] text-slate-500">Detalhamento por forma (Pix, crédito, débito, dinheiro) disponível em <b className="text-dash-navy">Fechamento de Caixa</b>.</p>
         </Painel>
 
         <Painel titulo="Clientes no Período">
@@ -7821,8 +7833,8 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], irParaM
               { r: "Pedidos por cliente", v: clientesPeriodo ? (filtrados.length / clientesPeriodo).toFixed(1) : "0" },
               { r: "Ticket médio/cliente", v: formatCurrency(ticketPorCliente) },
             ].map((c) => (
-              <div key={c.r} className="rounded-2xl border border-white/10 bg-slate-950/40 p-3">
-                <p className="page-title text-lg font-bold text-white">{c.v}</p>
+              <div key={c.r} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                <p className="page-title text-lg font-bold text-dash-navy">{c.v}</p>
                 <p className="mt-0.5 text-[11px] text-slate-500">{c.r}</p>
               </div>
             ))}
@@ -7833,23 +7845,23 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], irParaM
       {/* Painéis de ação gerencial */}
       <div className="grid gap-5 lg:grid-cols-2 xl:grid-cols-3">
         <Painel titulo="Mesas e Comandas em Atenção" className="xl:col-span-2"
-          acao={<button onClick={irParaMesas} className="rounded-xl border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs font-bold text-slate-200 transition hover:bg-white/10">Ver todas as mesas e comandas</button>}>
+          acao={<button onClick={irParaMesas} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-bold text-dash-navy transition hover:bg-slate-100">Ver todas as mesas e comandas</button>}>
           {mesasAtencao.length === 0 ? (
-            <p className="py-4 text-center text-sm text-emerald-400">✅ Nenhuma mesa em aberto no momento.</p>
+            <p className="py-4 text-center text-sm text-emerald-500">✅ Nenhuma mesa em aberto no momento.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[460px] text-sm">
-                <thead><tr className="border-b border-white/10 text-left text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                <thead><tr className="border-b border-slate-200 text-left text-[10px] font-bold uppercase tracking-widest text-slate-500">
                   <th className="py-2 pr-3">Mesa</th><th className="py-2 pr-3">Tempo aberta</th><th className="py-2 pr-3 text-right">Valor</th><th className="py-2 pl-3">Situação</th>
                 </tr></thead>
                 <tbody>
                   {mesasAtencao.slice(0, 8).map((m) => {
                     const sit = situacaoMesa(m);
                     return (
-                      <tr key={m.mesa} className="border-b border-white/5">
-                        <td className="py-2.5 pr-3 font-bold text-white">{m.mesa}</td>
-                        <td className={`py-2.5 pr-3 ${m.mins >= 40 ? "text-red-300" : "text-slate-300"}`}>{fmtTempo(m.mins)}</td>
-                        <td className="py-2.5 pr-3 text-right font-semibold text-slate-200">{formatCurrency(m.valor)}</td>
+                      <tr key={m.mesa} className="border-b border-slate-100">
+                        <td className="py-2.5 pr-3 font-bold text-dash-navy">{m.mesa}</td>
+                        <td className={`py-2.5 pr-3 ${m.mins >= 40 ? "text-amber-500 font-semibold" : "text-slate-500"}`}>{fmtTempo(m.mins)}</td>
+                        <td className="py-2.5 pr-3 text-right font-semibold text-dash-navy">{formatCurrency(m.valor)}</td>
                         <td className="py-2.5 pl-3"><span className={`inline-flex rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${sit.cls}`}>{sit.label}</span></td>
                       </tr>
                     );
@@ -7862,16 +7874,16 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], irParaM
 
         <Painel titulo="Estoque Baixo">
           {semEstoque.length === 0 ? (
-            <div className="flex items-center gap-2 rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3 text-sm font-semibold text-emerald-300"><span>✅</span> Todos os produtos com estoque adequado.</div>
+            <div className="flex items-center gap-2 rounded-2xl border border-[rgba(16,185,129,0.30)] bg-[rgba(16,185,129,0.08)] px-4 py-3 text-sm font-semibold text-emerald-500"><span>✅</span> Todos os produtos com estoque adequado.</div>
           ) : (
             <div className="space-y-2">
               {semEstoque.map((p) => (
-                <div key={p.id} className="flex items-center justify-between gap-2 rounded-2xl border border-red-400/20 bg-red-500/5 px-4 py-2.5">
+                <div key={p.id} className="flex items-center justify-between gap-2 rounded-2xl border border-[rgba(239,68,68,0.30)] bg-[rgba(239,68,68,0.08)] px-4 py-2.5">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-bold text-white">{p.name}</p>
-                    <p className="text-[11px] text-red-300/80">Abaixo do mínimo{p.estoqueMinimo != null ? ` (${p.estoqueMinimo} un)` : ""}</p>
+                    <p className="truncate text-sm font-bold text-dash-navy">{p.name}</p>
+                    <p className="text-[11px] text-red-500/80">Abaixo do mínimo{p.estoqueMinimo != null ? ` (${p.estoqueMinimo} un)` : ""}</p>
                   </div>
-                  <span className="shrink-0 text-sm font-black text-red-300">{p.estoque ?? 0} un</span>
+                  <span className="shrink-0 text-sm font-black text-red-500">{p.estoque ?? 0} un</span>
                 </div>
               ))}
             </div>
@@ -7880,9 +7892,9 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], irParaM
 
         <Painel titulo="Cancelamentos e Perdas">
           <div className="space-y-2">
-            <div className="flex items-center justify-between"><span className="text-sm text-slate-400">Cancelamentos</span><span className="page-title text-lg font-bold text-white">{cancelados.length}</span></div>
-            <div className="flex items-center justify-between"><span className="text-sm text-slate-400">Valor perdido</span><span className="page-title text-lg font-bold text-red-300">{formatCurrency(valorPerdido)}</span></div>
-            <div className="flex items-center justify-between gap-2"><span className="text-sm text-slate-400">Motivo principal</span><span className="truncate text-sm font-semibold text-slate-200">{motivoPrincipal}</span></div>
+            <div className="flex items-center justify-between"><span className="text-sm text-slate-500">Cancelamentos</span><span className="page-title text-lg font-bold text-dash-navy">{cancelados.length}</span></div>
+            <div className="flex items-center justify-between"><span className="text-sm text-slate-500">Valor perdido</span><span className="page-title text-lg font-bold text-red-500">{formatCurrency(valorPerdido)}</span></div>
+            <div className="flex items-center justify-between gap-2"><span className="text-sm text-slate-500">Motivo principal</span><span className="truncate text-sm font-semibold text-dash-navy">{motivoPrincipal}</span></div>
           </div>
         </Painel>
 
@@ -7894,8 +7906,8 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], irParaM
                 { r: "Pedidos", v: comparativo.pedidos },
                 { r: "Ticket médio", v: comparativo.ticket },
               ].map((c) => (
-                <div key={c.r} className="rounded-2xl border border-white/10 bg-slate-950/40 p-3 text-center">
-                  <p className={`page-title text-lg font-bold ${c.v == null ? "text-slate-400" : c.v >= 0 ? "text-brand-success" : "text-brand-danger"}`}>{c.v == null ? "—" : `${c.v >= 0 ? "+" : ""}${c.v.toFixed(0)}%`}</p>
+                <div key={c.r} className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-center">
+                  <p className={`page-title text-lg font-bold ${c.v == null ? "text-slate-400" : c.v >= 0 ? "text-emerald-500" : "text-red-500"}`}>{c.v == null ? "—" : `${c.v >= 0 ? "+" : ""}${c.v.toFixed(0)}%`}</p>
                   <p className="mt-1 text-[10px] leading-tight text-slate-500">{c.r}<br />vs período anterior</p>
                 </div>
               ))}
@@ -7906,8 +7918,8 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], irParaM
         <Painel titulo="Recomendações para o Gestor" className="xl:col-span-3">
           <ul className="grid gap-2 sm:grid-cols-2">
             {recomendacoes.map((r, i) => (
-              <li key={i} className="flex items-start gap-2 rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-2.5 text-sm text-slate-300">
-                <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-red-400/20 text-[10px] font-black text-red-300">✓</span>{r}
+              <li key={i} className="flex items-start gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-600">
+                <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-[10px] font-black text-emerald-500">✓</span>{r}
               </li>
             ))}
           </ul>
