@@ -6054,9 +6054,9 @@ function MobileAdminDrawer({ open, onClose, triggerRef, children, titulo }) {
   }, [open]);
   if (!open) return null;
   return (
-    <div id="drawer-admin-mobile" className="fixed inset-0 z-[70] flex md:hidden" role="dialog" aria-modal="true" aria-label={titulo || "Menu de navegação"}>
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden="true" />
-      <div ref={panelRef} className="pp-anim-left relative flex h-full w-[280px] max-w-[85vw] flex-col overflow-hidden bg-[#0D1B2A] shadow-2xl" style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}>
+    <div id="drawer-admin-mobile" className="fixed inset-0 z-[70] flex lg:hidden" role="dialog" aria-modal="true" aria-label={titulo || "Menu de navegação"}>
+      <div className="absolute inset-0 bg-black/50 animate-[pp-fade-in_220ms_ease-out_both]" onClick={onClose} aria-hidden="true" />
+      <div ref={panelRef} className="pp-anim-left relative flex h-full w-[280px] max-w-[85vw] flex-col overflow-hidden bg-[#0D1B2A] shadow-2xl" style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)", animationDuration: "220ms" }}>
         {children}
       </div>
     </div>
@@ -6163,7 +6163,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
 
       {/* ── Menu lateral esquerdo (fixo) — hierarquia oficial: Logo → Usuário
           → Empresa → Menu (protagonista) → Rodapé → Sair ── */}
-      <aside className="hidden md:flex h-full w-64 shrink-0 flex-col overflow-hidden bg-[#0D1B2A]">
+      <aside className="hidden lg:flex h-full w-64 shrink-0 flex-col overflow-hidden bg-[#0D1B2A]">
         <SidebarHeader subtitulo={isSuperAdmin ? "Administrador geral" : (lojaInfo ? lojaInfo.nome : "Painel gerencial")} />
         <SidebarUserCompact currentUser={currentUser} isSuperAdmin={isSuperAdmin} lojaInfo={lojaInfo} />
         {isSuperAdmin && (
@@ -6204,11 +6204,11 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
 
       {/* ── Conteúdo ─────────────────────────────────────────── */}
       <div className="flex flex-1 flex-col overflow-hidden">
-        {/* Cabeçalho mobile — botão de menu abre o drawer de navegação (md:hidden) */}
-        <div className="md:hidden flex shrink-0 items-center justify-between gap-3 border-b border-[#E5E7EB] bg-white px-4 py-3" style={{ paddingTop: "calc(env(safe-area-inset-top) + 12px)" }}>
+        {/* Cabeçalho mobile/tablet — botão de menu abre o drawer de navegação (lg:hidden) */}
+        <div className="lg:hidden flex shrink-0 items-center justify-between gap-3 border-b border-[#E5E7EB] bg-white px-4 py-3" style={{ paddingTop: "calc(env(safe-area-inset-top) + 12px)" }}>
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <button ref={botaoMenuRef} onClick={() => setMenuMobileAberto(true)} aria-label="Abrir menu de navegação" aria-expanded={menuMobileAberto} aria-controls="drawer-admin-mobile"
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#E5E7EB] bg-white text-[#182230] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C4322B]">
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#E5E7EB] bg-white text-[#182230] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C4322B]">
               <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M4 7h16" /><path d="M4 12h16" /><path d="M4 17h16" /></svg>
             </button>
             <LogoPP size={28} />
