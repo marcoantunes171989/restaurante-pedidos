@@ -5743,7 +5743,7 @@ function CommandPalette({ open, onClose, sections = [], onNavigate, onSair }) {
   return (
     <div className="fixed inset-0 z-[120] flex items-start justify-center bg-[#061A2E]/45 px-4 pt-[14vh] backdrop-blur-sm" onClick={onClose} onKeyDown={onKey} style={{ fontFamily: "'Inter','Sora',sans-serif" }}>
       <div onClick={(e) => e.stopPropagation()} className="w-full max-w-xl overflow-hidden rounded-2xl border border-[#E7E1D8] bg-white shadow-2xl">
-        <div className="flex items-center gap-3 border-b border-[#E7E1D8] px-4 py-3.5">
+        <div className="flex items-center gap-3 border-b border-[#E7E1D8] px-4 py-3.5 transition-colors duration-150 focus-within:border-[#2563EB]">
           <svg viewBox="0 0 24 24" className="h-5 w-5 shrink-0 text-[#98A2B3]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
           <input ref={inputRef} value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={onKey}
             placeholder="Buscar telas e ações…  (ex.: produtos, caixa, clientes)"
@@ -5757,23 +5757,23 @@ function CommandPalette({ open, onClose, sections = [], onNavigate, onSair }) {
             const on = i === idx;
             return (
               <button key={it.id + i} data-on={on ? "1" : "0"} onMouseEnter={() => setIdx(i)} onClick={() => escolher(it)}
-                className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition ${on ? "bg-[#F8F6F0]" : "hover:bg-[#F8F6F0]/60"}`}>
-                <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border ${on ? "border-[#C4322B]/40 bg-[#C4322B]/10 text-[#C4322B]" : "border-[#E7E1D8] bg-white text-[#667085]"}`}>
+                className={`flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563EB] ${on ? "border-[#2563EB] bg-[rgba(37,99,235,0.14)]" : "border-transparent hover:border-[#2563EB] hover:bg-[rgba(37,99,235,0.10)]"}`}>
+                <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition-colors duration-150 ${on ? "border-[#2563EB]/40 bg-[rgba(37,99,235,0.10)] text-[#2563EB]" : "border-[#E7E1D8] bg-white text-[#667085]"}`}>
                   {it.sair
                     ? <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="m16 17 5-5-5-5" /><path d="M21 12H9" /></svg>
                     : <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 6 15 12 9 18" /></svg>}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-semibold text-[#111827]">{it.label}</span>
+                  <span className={`block truncate text-sm font-semibold ${on ? "text-[#2563EB]" : "text-[#111827]"}`}>{it.label}</span>
                   {it.grupo && <span className="block text-[11px] text-[#98A2B3]">{it.grupo}</span>}
                 </span>
-                {on && <span className="shrink-0 text-[11px] font-bold text-[#C4322B]">Abrir ↵</span>}
+                {on && <span className="shrink-0 text-[11px] font-bold text-[#2563EB]">Abrir ↵</span>}
               </button>
             );
           })}
         </div>
         <div className="flex items-center justify-between border-t border-[#E7E1D8] bg-[#F8F6F0] px-4 py-2.5 text-[11px] text-[#667085]">
-          <span className="font-semibold">Pedido <span className="text-[#C4322B]">Prime</span> · navegação rápida</span>
+          <span className="font-semibold">Pedido <span className="text-[#2563EB]">Prime</span> · navegação rápida</span>
           <span>↑↓ navegar · ↵ abrir · Ctrl K abrir/fechar</span>
         </div>
       </div>
