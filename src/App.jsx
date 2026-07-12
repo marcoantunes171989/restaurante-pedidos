@@ -5741,7 +5741,7 @@ function CommandPalette({ open, onClose, sections = [], onNavigate, onSair }) {
     else if (e.key === "Escape") { e.preventDefault(); onClose(); }
   };
   return (
-    <div className="fixed inset-0 z-[120] flex items-start justify-center bg-[#061A2E]/45 px-4 pt-[14vh] backdrop-blur-sm" onClick={onClose} onKeyDown={onKey} style={{ fontFamily: "'Inter','Sora',sans-serif" }}>
+    <div className="fixed inset-0 z-[120] flex items-start justify-center bg-[#061A2E]/45 px-4 pt-[14vh] backdrop-blur-sm" onClick={onClose} onKeyDown={onKey} style={{ fontFamily: "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif" }}>
       <div onClick={(e) => e.stopPropagation()} className="w-full max-w-xl overflow-hidden rounded-2xl border border-[#E7E1D8] bg-white shadow-2xl">
         <div className="flex items-center gap-3 border-b border-[#E7E1D8] px-4 py-3.5 transition-colors duration-150 focus-within:border-[#2563EB]">
           <svg viewBox="0 0 24 24" className="h-5 w-5 shrink-0 text-[#98A2B3]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
@@ -6156,7 +6156,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
     </main>
   );
   return (
-    <div data-theme="light" className="fixed inset-0 z-50 flex bg-[#F7F8FA] overflow-hidden">
+    <div data-theme="light" className="pp-admin-module fixed inset-0 z-50 flex bg-[#F7F8FA] overflow-hidden">
 
       <CommandPalette open={cmdOpen} onClose={() => setCmdOpen(false)} sections={cmdSections}
         onNavigate={(id) => { setAdminSection(id); setCmdOpen(false); }} onSair={onSair} />
