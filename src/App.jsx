@@ -8363,39 +8363,32 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], irParaM
 function ModalDetalhePedidos({ titulo, pedidos, onFechar }) {
   const total = pedidos.reduce((s, o) => s + orderTotal(o) * 1.1, 0);
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onFechar}>
-      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-2xl flex-col overflow-hidden rounded-[2rem] border border-gold-400/15 bg-blue-950 shadow-2xl max-h-[88vh]">
-        <div className="flex items-center justify-between gap-3 border-b border-gold-400/15 px-6 py-4">
-          <div>
-            <h2 className="page-title text-lg font-bold tracking-tight text-white">{titulo}</h2>
-            <p className="mt-0.5 text-xs text-slate-400">{pedidos.length} pedido(s) • Total <span className="font-semibold text-emerald-300">{formatCurrency(total)}</span></p>
-          </div>
-          <button onClick={onFechar} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-sm font-bold text-slate-300 hover:bg-white/15 transition">✕</button>
-        </div>
-        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
-          {pedidos.length === 0 && <p className="py-8 text-center text-sm text-slate-500">Nenhum pedido no período.</p>}
-          {pedidos.map((o) => (
-            <div key={o.id} className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-[11px] font-bold uppercase tracking-widest text-slate-500">{o.id} • {o.table} • {o.command}</p>
-                  <p className="mt-0.5 text-xs text-slate-400">{o.createdAtISO ? new Date(o.createdAtISO).toLocaleString("pt-BR") : o.createdAt}</p>
-                </div>
-                <span className="page-title shrink-0 text-base font-bold text-emerald-300">{formatCurrency(orderTotal(o) * 1.1)}</span>
+    <PainelDetalhe aberto ariaLabel={titulo} onFechar={onFechar} titulo={titulo}
+      subtitulo={<>{pedidos.length} pedido(s) • Total <span className="font-semibold text-[#10B981]">{formatCurrency(total)}</span></>}
+      rodape={null}>
+      {pedidos.length === 0 && <p className="py-8 text-center text-sm text-[#64748B]">Nenhum pedido no período.</p>}
+      <div className="space-y-3">
+        {pedidos.map((o) => (
+          <div key={o.id} className="rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate text-[11px] font-bold uppercase tracking-widest text-[#64748B]">{o.id} • {o.table} • {o.command}</p>
+                <p className="mt-0.5 text-xs text-[#94A3B8]">{o.createdAtISO ? new Date(o.createdAtISO).toLocaleString("pt-BR") : o.createdAt}</p>
               </div>
-              <div className="mt-2 space-y-0.5">
-                {o.items.map((it, i) => (
-                  <div key={i} className="flex justify-between gap-3 text-sm">
-                    <span className="text-slate-200"><b className="font-semibold text-white">{it.quantity}x</b> {it.name}</span>
-                    <span className="shrink-0 font-medium text-slate-300">{formatCurrency(it.price * it.quantity)}</span>
-                  </div>
-                ))}
-              </div>
+              <span className="shrink-0 text-base font-black text-[#10B981]">{formatCurrency(orderTotal(o) * 1.1)}</span>
             </div>
-          ))}
-        </div>
+            <div className="mt-2 space-y-0.5">
+              {o.items.map((it, i) => (
+                <div key={i} className="flex justify-between gap-3 text-sm">
+                  <span className="text-[#334155]"><b className="font-semibold text-[#0D1B2A]">{it.quantity}x</b> {it.name}</span>
+                  <span className="shrink-0 font-medium text-[#64748B]">{formatCurrency(it.price * it.quantity)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
-    </div>
+    </PainelDetalhe>
   );
 }
 
@@ -10169,43 +10162,107 @@ function BadgeEstoque({ status }) {
   return <span className="rounded-full px-2 py-0.5 text-[10px] font-black" style={{ background: `${s.cor}1A`, color: s.cor }}>{s.label}</span>;
 }
 
+// ── Painel/drawer de detalhes — componente base único e compartilhado ──
+// Usado por TODOS os painéis de detalhe do projeto (Comanda, Cliente,
+// Cupom/venda, Produto de estoque, listas de cupons/pedidos). Concentra o
+// "chrome" comum: fundo, geometria responsiva (560–680px desktop / 75vw
+// tablet / 100% mobile), foco preso, Esc, clique fora, scroll-lock
+// (useScrollLock) e cabeçalho/rodapé fixos com o conteúdo rolando por
+// dentro. Cada tela só configura título/subtítulo/badges/ações/rodapé/
+// largura e passa o conteúdo específico (children) — nenhuma regra de
+// negócio, consulta ou dado fica aqui. titulo/subtitulo/badges/acoes/
+// rodape aceitam qualquer ReactNode: o componente não assume um layout
+// fixo de botões, então cada tela mantém suas particularidades (ex.:
+// seletor de formato 80mm/A4, avatar do cliente, tooltip em ação
+// desabilitada) livremente.
+function PainelDetalhe({
+  aberto, ariaLabel, icone, titulo, badges, subtitulo, statsLinha, acoes, rodape,
+  largura = "lg:w-[620px] lg:max-w-[620px]", onFechar, children,
+}) {
+  const painelRef = useRef(null);
+  const focoAnteriorRef = useRef(null);
+
+  useEffect(() => {
+    if (!aberto) return undefined;
+    focoAnteriorRef.current = document.activeElement;
+    const painel = painelRef.current;
+    const primeiro = painel?.querySelector("button, a, input, [tabindex]:not([tabindex='-1'])");
+    primeiro?.focus();
+    function aoTeclado(e) {
+      if (e.key === "Escape") { e.preventDefault(); onFechar(); return; }
+      if (e.key !== "Tab" || !painel) return;
+      const focaveis = painel.querySelectorAll("button, a, input, [tabindex]:not([tabindex='-1'])");
+      if (focaveis.length === 0) return;
+      const primeiroF = focaveis[0], ultimoF = focaveis[focaveis.length - 1];
+      if (e.shiftKey && document.activeElement === primeiroF) { e.preventDefault(); ultimoF.focus(); }
+      else if (!e.shiftKey && document.activeElement === ultimoF) { e.preventDefault(); primeiroF.focus(); }
+    }
+    document.addEventListener("keydown", aoTeclado);
+    return () => {
+      document.removeEventListener("keydown", aoTeclado);
+      focoAnteriorRef.current?.focus?.();
+    };
+  }, [aberto, onFechar]);
+  useScrollLock(!!aberto);
+
+  if (!aberto) return null;
+  return (
+    <div className="fixed inset-0 z-[110] flex items-stretch justify-end bg-[#0D1B2A]/60 backdrop-blur-sm" onClick={onFechar} role="presentation">
+      <div ref={painelRef} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={ariaLabel}
+        className={`pp-anim-fade flex h-full w-full flex-col overflow-hidden border-l border-[#E2E8F0] bg-white shadow-2xl sm:w-[75vw] sm:max-w-[75vw] ${largura}`}>
+        <div className="shrink-0 border-b border-[#E2E8F0] px-5 py-4 sm:px-6">
+          <div className="flex items-center justify-between gap-3">
+            {icone}
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="truncate text-base font-black text-[#0D1B2A]">{titulo}</h2>
+                {badges}
+              </div>
+              {subtitulo && <p className="mt-1 truncate text-xs text-[#64748B]">{subtitulo}</p>}
+            </div>
+            <button onClick={onFechar} title="Fechar" aria-label="Fechar" className="shrink-0 rounded-xl border border-[#E2E8F0] px-3 py-2 text-sm font-black text-[#64748B] transition hover:bg-[#F1F5F9]">✕</button>
+          </div>
+          {statsLinha && <div className="mt-3 flex flex-wrap items-center gap-4 text-xs">{statsLinha}</div>}
+          {acoes && <div className="mt-3 flex flex-wrap gap-2">{acoes}</div>}
+        </div>
+        <div className="flex-1 overflow-y-auto px-5 py-5 sm:px-6 space-y-6">
+          {children}
+        </div>
+        {rodape !== null && (
+          <div className="shrink-0 border-t border-[#E2E8F0] px-5 py-3.5 sm:px-6">
+            {rodape || <button onClick={onFechar} className="w-full rounded-xl border border-[#E2E8F0] py-2.5 text-sm font-bold text-[#334155] transition hover:bg-[#F1F5F9]">Fechar</button>}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // Detalhe do produto (aba Estoque) — visualização, ao clicar na linha da
 // tabela. Só os campos já calculados por linha (linhasEstoqueEnriquecidas);
-// nenhuma consulta nova.
+// nenhuma consulta nova. Usa o painel de detalhes compartilhado (PainelDetalhe).
 function ModalDetalheProdutoEstoque({ produto, onFechar, onAbrirCadastro }) {
   if (!produto) return null;
   const l = produto;
   return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-[#0D1B2A]/70 backdrop-blur-sm p-4" onClick={onFechar}>
-      <div onClick={(e) => e.stopPropagation()} className="pp-anim-up w-full max-w-md overflow-hidden rounded-[1.75rem] border border-[#E2E8F0] bg-white shadow-2xl">
-        <div className="flex items-center justify-between border-b border-[#E2E8F0] px-6 py-4">
-          <div className="min-w-0">
-            <h2 className="truncate text-base font-black text-[#0D1B2A]">{l.nome}</h2>
-            <p className="mt-0.5 text-xs text-[#64748B]">{l.categoria || "Sem categoria"}</p>
+    <PainelDetalhe aberto={!!produto} ariaLabel={`Detalhe do produto ${l.nome}`} titulo={l.nome}
+      badges={<BadgeEstoque status={l.status} />} subtitulo={l.categoria || "Sem categoria"}
+      onFechar={onFechar}
+      rodape={<button onClick={onAbrirCadastro} className="w-full rounded-xl bg-[#2563EB] py-2.5 text-sm font-bold text-white transition hover:bg-[#1D4ED8]">Abrir cadastro do produto</button>}>
+      <div className="grid grid-cols-2 gap-2.5">
+        {[
+          ["Estoque anterior", `${l.anterior} un.`], ["Vendido no período", `${l.vendido} un.`],
+          ["Estoque atual", `${l.posterior} un.`], ["Estoque mínimo", `${l.minimo} un.`],
+          ["Custo unitário", formatCurrency(l.custoUnit)], ["Valor em estoque", formatCurrency(l.valorEstoque)],
+          ["Cobertura estimada", l.cobertura != null ? `${l.cobertura.toFixed(1)} dia(s)` : "—"], ["Status", ESTOQUE_STATUS[l.status]?.label || l.status],
+        ].map(([r, v]) => (
+          <div key={r} className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
+            <p className="text-[9px] font-bold uppercase tracking-widest text-[#64748B]">{r}</p>
+            <p className="mt-0.5 truncate text-sm font-black text-[#0D1B2A]">{v}</p>
           </div>
-          <button onClick={onFechar} className="shrink-0 rounded-xl border border-[#E2E8F0] px-3 py-2 text-sm font-black text-[#64748B] hover:bg-[#F1F5F9]">✕</button>
-        </div>
-        <div className="space-y-4 px-6 py-5">
-          <BadgeEstoque status={l.status} />
-          <div className="grid grid-cols-2 gap-2.5">
-            {[
-              ["Estoque anterior", `${l.anterior} un.`], ["Vendido no período", `${l.vendido} un.`],
-              ["Estoque atual", `${l.posterior} un.`], ["Estoque mínimo", `${l.minimo} un.`],
-              ["Custo unitário", formatCurrency(l.custoUnit)], ["Valor em estoque", formatCurrency(l.valorEstoque)],
-              ["Cobertura estimada", l.cobertura != null ? `${l.cobertura.toFixed(1)} dia(s)` : "—"], ["Status", ESTOQUE_STATUS[l.status]?.label || l.status],
-            ].map(([r, v]) => (
-              <div key={r} className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
-                <p className="text-[9px] font-bold uppercase tracking-widest text-[#64748B]">{r}</p>
-                <p className="mt-0.5 truncate text-sm font-black text-[#0D1B2A]">{v}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div className="border-t border-[#E2E8F0] px-6 py-4">
-          <button onClick={onAbrirCadastro} className="w-full rounded-xl bg-[#2563EB] py-2.5 text-sm font-bold text-white transition hover:bg-[#1D4ED8]">Abrir cadastro do produto</button>
-        </div>
+        ))}
       </div>
-    </div>
+    </PainelDetalhe>
   );
 }
 
@@ -10262,34 +10319,10 @@ function IconAcaoCliente({ icone, label, onClick, disabled = false, carregando =
 // useScrollLock (já usado por outros modais do projeto) e o mesmo padrão de
 // foco preso/Esc/restaura-foco já usado em MobileAdminDrawer.
 function ClientePerfilPainel({ cliente, onFechar, onWhatsApp, onCopiarTelefone, onAbrirCupom, onExportarHistorico }) {
-  useScrollLock(!!cliente);
-  const painelRef = useRef(null);
   const contatoRef = useRef(null);
   const historicoRef = useRef(null);
-  const focoAnteriorRef = useRef(null);
   const [verTodosPedidos, setVerTodosPedidos] = useState(false);
-
-  useEffect(() => {
-    if (!cliente) { setVerTodosPedidos(false); return; }
-    focoAnteriorRef.current = document.activeElement;
-    const painel = painelRef.current;
-    const primeiro = painel?.querySelector("button, a, input, [tabindex]:not([tabindex='-1'])");
-    primeiro?.focus();
-    function aoTeclado(e) {
-      if (e.key === "Escape") { e.preventDefault(); onFechar(); return; }
-      if (e.key !== "Tab" || !painel) return;
-      const focaveis = painel.querySelectorAll("button, a, input, [tabindex]:not([tabindex='-1'])");
-      if (focaveis.length === 0) return;
-      const primeiroF = focaveis[0], ultimoF = focaveis[focaveis.length - 1];
-      if (e.shiftKey && document.activeElement === primeiroF) { e.preventDefault(); ultimoF.focus(); }
-      else if (!e.shiftKey && document.activeElement === ultimoF) { e.preventDefault(); primeiroF.focus(); }
-    }
-    document.addEventListener("keydown", aoTeclado);
-    return () => {
-      document.removeEventListener("keydown", aoTeclado);
-      focoAnteriorRef.current?.focus?.();
-    };
-  }, [cliente, onFechar]);
+  useEffect(() => { if (!cliente) setVerTodosPedidos(false); }, [cliente]);
 
   if (!cliente) return null;
   const c = cliente;
@@ -10304,30 +10337,26 @@ function ClientePerfilPainel({ cliente, onFechar, onWhatsApp, onCopiarTelefone, 
     : "Nenhuma ação urgente identificada";
 
   return (
-    <div className="fixed inset-0 z-[110] flex items-stretch justify-end bg-[#0D1B2A]/60 backdrop-blur-sm" onClick={onFechar} role="presentation">
-      <div ref={painelRef} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={`Perfil de ${c.cliente}`}
-        className="pp-anim-fade flex h-full w-full flex-col overflow-hidden border-l border-[#E2E8F0] bg-white shadow-2xl sm:w-[70vw] sm:max-w-[70vw] lg:w-[520px] lg:max-w-[520px]">
-        {/* 1. Cabeçalho — fixo (fora do container com rolagem) */}
-        <div className="flex items-center gap-3 border-b border-[#E2E8F0] px-5 py-4 sm:px-6">
-          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#2563EB]/10 text-base font-black text-[#2563EB]" aria-hidden="true">{iniciais}</span>
-          <div className="min-w-0 flex-1">
-            <h2 className="truncate text-base font-black text-[#0D1B2A]" title={c.cliente}>{c.cliente}</h2>
-            <div className="mt-1 flex flex-wrap gap-1">
-              {c.classificacao === "vip" && <BadgeCliente mapa={CLIENTE_TIER} chave="vip" />}
-              <BadgeCliente mapa={CLIENTE_STATUS} chave={c.status} />
-              {c.frequente && <BadgeCliente mapa={{ frequente: { label: "Frequente", cor: "#10B981" } }} chave="frequente" />}
-            </div>
-          </div>
-          <div className="flex shrink-0 items-center gap-1.5">
-            <IconAcaoCliente icone="💬" label={c.telefone ? "Enviar WhatsApp" : "Sem telefone válido cadastrado"} disabled={!telefoneValidoParaBadgeE(c.telefone)} onClick={() => onWhatsApp(c)} />
-            <IconAcaoCliente icone="📋" label={c.telefone ? "Copiar telefone" : "Sem telefone válido cadastrado"} disabled={!telefoneValidoParaBadgeE(c.telefone)} onClick={() => onCopiarTelefone(c)} />
-            <IconAcaoCliente icone="🪪" label="Ver dados de cadastro" onClick={() => contatoRef.current?.scrollIntoView({ block: "nearest" })} />
-            <IconAcaoCliente icone="✕" label="Fechar" onClick={onFechar} />
-          </div>
+    <PainelDetalhe aberto={!!cliente} ariaLabel={`Perfil de ${c.cliente}`} onFechar={onFechar} largura="lg:w-[560px] lg:max-w-[560px]"
+      icone={<span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#2563EB]/10 text-base font-black text-[#2563EB]" aria-hidden="true">{iniciais}</span>}
+      titulo={<span title={c.cliente}>{c.cliente}</span>}
+      badges={<>
+        {c.classificacao === "vip" && <BadgeCliente mapa={CLIENTE_TIER} chave="vip" />}
+        <BadgeCliente mapa={CLIENTE_STATUS} chave={c.status} />
+        {c.frequente && <BadgeCliente mapa={{ frequente: { label: "Frequente", cor: "#10B981" } }} chave="frequente" />}
+      </>}
+      acoes={<>
+        <IconAcaoCliente icone="💬" label={c.telefone ? "Enviar WhatsApp" : "Sem telefone válido cadastrado"} disabled={!telefoneValidoParaBadgeE(c.telefone)} onClick={() => onWhatsApp(c)} />
+        <IconAcaoCliente icone="📋" label={c.telefone ? "Copiar telefone" : "Sem telefone válido cadastrado"} disabled={!telefoneValidoParaBadgeE(c.telefone)} onClick={() => onCopiarTelefone(c)} />
+        <IconAcaoCliente icone="🪪" label="Ver dados de cadastro" onClick={() => contatoRef.current?.scrollIntoView({ block: "nearest" })} />
+      </>}
+      rodape={
+        <div className="flex items-center gap-2 sm:hidden">
+          <button onClick={() => onWhatsApp(c)} className="flex-1 rounded-xl bg-[#2563EB] py-2.5 text-xs font-bold text-white transition hover:bg-[#1D4ED8]">💬 WhatsApp</button>
+          <button onClick={() => onCopiarTelefone(c)} className="flex-1 rounded-xl border border-[#E2E8F0] py-2.5 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">📋 Copiar telefone</button>
         </div>
-
-        <div className="flex-1 overflow-y-auto px-5 py-5 sm:px-6 space-y-6 pb-24 sm:pb-5">
-          {/* 3. Score de relacionamento */}
+      }>
+      {/* 3. Score de relacionamento */}
           <div className="rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-4">
             <div className="flex items-center justify-between gap-2">
               <p className="text-[10px] font-black uppercase tracking-widest text-[#64748B]">Score de relacionamento</p>
@@ -10465,16 +10494,8 @@ function ClientePerfilPainel({ cliente, onFechar, onWhatsApp, onCopiarTelefone, 
                 )}
               </>
             )}
-          </div>
-        </div>
-
-        {/* Rodapé de ações fixo — só mobile */}
-        <div className="flex shrink-0 items-center gap-2 border-t border-[#E2E8F0] bg-white px-5 py-3 sm:hidden">
-          <button onClick={() => onWhatsApp(c)} className="flex-1 rounded-xl bg-[#2563EB] py-2.5 text-xs font-bold text-white transition hover:bg-[#1D4ED8]">💬 WhatsApp</button>
-          <button onClick={() => onCopiarTelefone(c)} className="flex-1 rounded-xl border border-[#E2E8F0] py-2.5 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">📋 Copiar telefone</button>
-        </div>
       </div>
-    </div>
+    </PainelDetalhe>
   );
 }
 function telefoneValidoParaBadgeE(telefone) {
@@ -10541,16 +10562,13 @@ function ModalVisualizarCupom({ pedido, lojaInfo, custoPorNome, anomalias = [], 
   const margemPct = subtotal > 0 ? (lucroBruto / subtotal) * 100 : 0;
   const canal = pedido.command ? "Mesa / QR Code" : pedido.table ? "Mesa" : "Balcão / Delivery";
   return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-[#0D1B2A]/70 backdrop-blur-sm p-4" onClick={onFechar}>
-      <div onClick={(e) => e.stopPropagation()} className="pp-anim-up flex w-full max-w-2xl flex-col overflow-hidden rounded-[1.75rem] border border-[#E2E8F0] bg-white shadow-2xl max-h-[92vh]">
-        <div className="flex items-center justify-between border-b border-[#E2E8F0] px-6 py-4">
-          <div>
-            <h2 className="text-base font-black text-[#0D1B2A]">🧾 Cupom {pedido.id} · Resumo da venda</h2>
-            <p className="mt-0.5 text-xs text-[#64748B]">{lojaInfo?.nome || "Restaurante"} · {pedido.createdAtISO ? new Date(pedido.createdAtISO).toLocaleString("pt-BR") : pedido.createdAt}</p>
-          </div>
-          <button onClick={onFechar} className="rounded-xl border border-[#E2E8F0] px-3 py-2 text-sm font-black text-[#64748B] hover:bg-[#F1F5F9]">✕</button>
-        </div>
-        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+    <PainelDetalhe aberto={!!pedido} ariaLabel={`Cupom ${pedido.id}`} onFechar={onFechar}
+      titulo={`🧾 Cupom ${pedido.id} · Resumo da venda`}
+      subtitulo={`${lojaInfo?.nome || "Restaurante"} · ${pedido.createdAtISO ? new Date(pedido.createdAtISO).toLocaleString("pt-BR") : pedido.createdAt}`}
+      rodape={<div className="flex items-center gap-2">
+        <button onClick={onReimprimir} className="flex-1 rounded-xl border border-[#E2E8F0] py-2.5 text-sm font-bold text-[#334155] transition hover:bg-[#F1F5F9]">🖨️ Ir para impressão</button>
+        <button onClick={onEnviar} className="flex-1 rounded-xl border border-[#E2E8F0] py-2.5 text-sm font-bold text-[#334155] transition hover:bg-[#F1F5F9]">💬 Ir para envio</button>
+      </div>}>
           {anomalias.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
               {anomalias.map((a, i) => <BadgeAnomalia key={i} cor={a.cor}>{a.texto}</BadgeAnomalia>)}
@@ -10634,13 +10652,7 @@ function ModalVisualizarCupom({ pedido, lojaInfo, custoPorNome, anomalias = [], 
             </div>
             <p className="mt-1.5 text-[10px] text-[#94A3B8]">Reimpressão/envio registrados nesta sessão do navegador — não há coluna de auditoria por pedido no banco hoje.</p>
           </div>
-        </div>
-        <div className="flex shrink-0 items-center gap-2 border-t border-[#E2E8F0] px-6 py-4">
-          <button onClick={onReimprimir} className="flex-1 rounded-xl border border-[#E2E8F0] py-2.5 text-sm font-bold text-[#334155] transition hover:bg-[#F1F5F9]">🖨️ Ir para impressão</button>
-          <button onClick={onEnviar} className="flex-1 rounded-xl border border-[#E2E8F0] py-2.5 text-sm font-bold text-[#334155] transition hover:bg-[#F1F5F9]">💬 Ir para envio</button>
-        </div>
-      </div>
-    </div>
+    </PainelDetalhe>
   );
 }
 
@@ -11815,51 +11827,44 @@ function CuponsProdutoModal({ nome, cupons, lojaInfo, onFechar }) {
   }
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#0D1B2A]/60 backdrop-blur-sm p-4" onClick={onFechar}>
-      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-2xl flex-col overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-2xl max-h-[88vh]">
-        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-          <div>
-            <h2 className="text-lg font-black text-dash-navy">🧾 Cupons — {nome}</h2>
-            <p className="text-xs text-slate-500">{cupons.length} cupom(ns) • {totalQtd} un • {formatCurrency(totalValor)}</p>
+    <>
+      <PainelDetalhe aberto ariaLabel={`Cupons do produto ${nome}`} onFechar={onFechar}
+        titulo={`🧾 Cupons — ${nome}`} subtitulo={`${cupons.length} cupom(ns) • ${totalQtd} un • ${formatCurrency(totalValor)}`}
+        acoes={<>
+          <div className="flex items-center gap-1 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-1">
+            <button onClick={() => setFormato("80mm")}
+              className={`rounded-lg px-2.5 py-1.5 text-xs font-black transition ${formato === "80mm" ? "bg-[#2563EB] text-white" : "text-[#64748B] hover:bg-white"}`}>🧾 80mm</button>
+            <button onClick={() => setFormato("a4")}
+              className={`rounded-lg px-2.5 py-1.5 text-xs font-black transition ${formato === "a4" ? "bg-[#2563EB] text-white" : "text-[#64748B] hover:bg-white"}`}>📄 A4</button>
           </div>
-          <div className="flex items-center gap-2">
-            {/* Seletor de formato */}
-            <div className="flex items-center gap-1 rounded-2xl border border-slate-200 bg-slate-50 p-1">
-              <button onClick={() => setFormato("80mm")}
-                className={`rounded-xl px-2.5 py-1.5 text-xs font-black transition ${formato === "80mm" ? "bg-blue-500 text-white" : "text-slate-500 hover:bg-slate-100"}`}>🧾 80mm</button>
-              <button onClick={() => setFormato("a4")}
-                className={`rounded-xl px-2.5 py-1.5 text-xs font-black transition ${formato === "a4" ? "bg-blue-500 text-white" : "text-slate-500 hover:bg-slate-100"}`}>📄 A4</button>
-            </div>
-            <button onClick={imprimirRelatorio} className="rounded-2xl bg-blue-500 px-4 py-2 text-sm font-black text-white transition hover:bg-blue-600">🖨️ Imprimir</button>
-            <button onClick={onFechar} className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-500 transition hover:bg-slate-100">✕</button>
-          </div>
-        </div>
-        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-2">
-          {cupons.length === 0 && <p className="py-8 text-center text-sm text-slate-500">Nenhum cupom pago com este produto no período.</p>}
+          <button onClick={imprimirRelatorio} className="rounded-xl bg-[#2563EB] px-4 py-2 text-xs font-black text-white transition hover:bg-[#1D4ED8]">🖨️ Imprimir</button>
+        </>}
+        rodape={null}>
+        {cupons.length === 0 && <p className="py-8 text-center text-sm text-[#64748B]">Nenhum cupom pago com este produto no período.</p>}
+        <div className="space-y-2">
           {cupons.map((o) => {
             const its = o.items.filter((it) => it.name === nome);
             const q = its.reduce((x, it) => x + it.quantity, 0);
             const v = its.reduce((x, it) => x + it.price * it.quantity, 0);
             return (
-              <div key={o.id} className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <div key={o.id} className="flex items-center gap-3 rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-3">
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-bold uppercase tracking-widest text-slate-500">{o.id} • {o.table} • {o.command}</p>
-                  <p className="text-sm text-dash-navy">👤 {o.customer || "-"} • {o.createdAtISO ? new Date(o.createdAtISO).toLocaleString("pt-BR") : o.createdAt}</p>
+                  <p className="truncate text-xs font-bold uppercase tracking-widest text-[#64748B]">{o.id} • {o.table} • {o.command}</p>
+                  <p className="truncate text-sm text-[#0D1B2A]">👤 {o.customer || "-"} • {o.createdAtISO ? new Date(o.createdAtISO).toLocaleString("pt-BR") : o.createdAt}</p>
                 </div>
                 <div className="text-right shrink-0">
-                  <p className="text-sm font-black text-dash-navy">{q} un</p>
-                  <p className="text-sm font-black text-emerald-600">{formatCurrency(v)}</p>
+                  <p className="text-sm font-black text-[#0D1B2A]">{q} un</p>
+                  <p className="text-sm font-black text-[#10B981]">{formatCurrency(v)}</p>
                 </div>
                 <button onClick={() => setCupomSel(o)} title="Ver cupom não fiscal (imprimir / WhatsApp)"
-                  className="shrink-0 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-black text-blue-600 transition hover:bg-blue-100">🧾 Cupom</button>
+                  className="shrink-0 rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs font-black text-[#2563EB] transition hover:bg-[#EFF6FF]">🧾 Cupom</button>
               </div>
             );
           })}
         </div>
-      </div>
-
+      </PainelDetalhe>
       {cupomSel && <CupomNaoFiscalModal pedido={cupomSel} lojaInfo={lojaInfo} onFechar={() => setCupomSel(null)} />}
-    </div>
+    </>
   );
 }
 
@@ -11901,32 +11906,6 @@ function ModalDetalheComanda({
   mediaTempoAtePagamentoGeral = null, horarioReferencia = null, custoPorNome = {}, historicoCliente = null,
   onFechar, onVerCupom, onImprimirCompartilhar,
 }) {
-  const painelRef = useRef(null);
-  const focoAnteriorRef = useRef(null);
-
-  useEffect(() => {
-    if (!comanda) return undefined;
-    focoAnteriorRef.current = document.activeElement;
-    const painel = painelRef.current;
-    const primeiro = painel?.querySelector("button, a, input, [tabindex]:not([tabindex='-1'])");
-    primeiro?.focus();
-    function aoTeclado(e) {
-      if (e.key === "Escape") { e.preventDefault(); onFechar(); return; }
-      if (e.key !== "Tab" || !painel) return;
-      const focaveis = painel.querySelectorAll("button, a, input, [tabindex]:not([tabindex='-1'])");
-      if (focaveis.length === 0) return;
-      const primeiroF = focaveis[0], ultimoF = focaveis[focaveis.length - 1];
-      if (e.shiftKey && document.activeElement === primeiroF) { e.preventDefault(); ultimoF.focus(); }
-      else if (!e.shiftKey && document.activeElement === ultimoF) { e.preventDefault(); primeiroF.focus(); }
-    }
-    document.addEventListener("keydown", aoTeclado);
-    return () => {
-      document.removeEventListener("keydown", aoTeclado);
-      focoAnteriorRef.current?.focus?.();
-    };
-  }, [comanda, onFechar]);
-  useScrollLock(!!comanda);
-
   if (!comanda) return null;
   const c = comanda;
   const variacaoPct = mediaGeralMinutos > 0 ? ((c.minutos - mediaGeralMinutos) / mediaGeralMinutos) * 100 : null;
@@ -11978,34 +11957,19 @@ function ModalDetalheComanda({
   const itensComanda = c.pedidos.flatMap((o) => o.items.map((it, i) => ({ ...it, statusPedido: o.status, chave: `${o.id}-${i}` })));
 
   return (
-    <div className="fixed inset-0 z-[110] flex items-stretch justify-end bg-[#0D1B2A]/60 backdrop-blur-sm" onClick={onFechar} role="presentation">
-      <div ref={painelRef} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={`Detalhe da comanda ${c.comanda}`}
-        className="pp-anim-fade flex h-full w-full flex-col overflow-hidden border-l border-[#E2E8F0] bg-white shadow-2xl sm:w-[70vw] sm:max-w-[70vw] lg:w-[600px] lg:max-w-[600px]">
-        {/* 1. Cabeçalho premium — fixo */}
-        <div className="shrink-0 border-b border-[#E2E8F0] px-5 py-4 sm:px-6">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="truncate text-base font-black text-[#0D1B2A]">Comanda {c.comanda}</h2>
-                <BadgeEstoque status={c.status} />
-              </div>
-              <p className="mt-1 text-xs text-[#64748B]">{c.mesa || "Balcão"} · {c.canal} · {statusMap[ultimoPedido.status]?.label || ultimoPedido.status}</p>
-            </div>
-            <button onClick={onFechar} title="Fechar" aria-label="Fechar" className="shrink-0 rounded-xl border border-[#E2E8F0] px-3 py-2 text-sm font-black text-[#64748B] transition hover:bg-[#F1F5F9]">✕</button>
-          </div>
-          <div className="mt-3 flex flex-wrap items-center gap-4 text-xs">
-            <span className="text-[#64748B]">Permanência: <b className="text-[#0D1B2A]">{formatarDuracaoMin(c.minutos)}</b></span>
-            <span className="text-[#64748B]">Valor total: <b className="text-[#0D1B2A]">{formatCurrency(c.valor)}</b></span>
-          </div>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <button onClick={() => onVerCupom?.(ultimoPedido)} title="Ver o cupom do pedido mais recente desta comanda" className="rounded-xl border border-[#E2E8F0] px-3 py-2 text-xs font-bold text-[#2563EB] transition hover:bg-[#EFF6FF]">🧾 Ver cupom</button>
-            <button onClick={() => onImprimirCompartilhar?.(ultimoPedido)} title="Imprimir o cupom do pedido mais recente" className="rounded-xl border border-[#E2E8F0] px-3 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">🖨️ Imprimir</button>
-            <button onClick={() => onImprimirCompartilhar?.(ultimoPedido)} title="Compartilhar o cupom por WhatsApp" className="rounded-xl border border-[#E2E8F0] px-3 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">💬 Compartilhar</button>
-          </div>
-          {c.pedidos.length > 1 && <p className="mt-2 text-[10px] text-[#94A3B8]">Esta comanda agrupa {c.pedidos.length} pedidos — as ações acima usam o cupom do pedido mais recente ({ultimoPedido.id}), pois não existe um cupom único por comanda no modelo de dados.</p>}
-        </div>
-
-        <div className="flex-1 overflow-y-auto px-5 py-5 sm:px-6 space-y-6">
+    <PainelDetalhe aberto={!!comanda} ariaLabel={`Detalhe da comanda ${c.comanda}`} onFechar={onFechar} largura="lg:w-[600px] lg:max-w-[600px]"
+      titulo={`Comanda ${c.comanda}`} badges={<BadgeEstoque status={c.status} />}
+      subtitulo={`${c.mesa || "Balcão"} · ${c.canal} · ${statusMap[ultimoPedido.status]?.label || ultimoPedido.status}`}
+      statsLinha={<>
+        <span className="text-[#64748B]">Permanência: <b className="text-[#0D1B2A]">{formatarDuracaoMin(c.minutos)}</b></span>
+        <span className="text-[#64748B]">Valor total: <b className="text-[#0D1B2A]">{formatCurrency(c.valor)}</b></span>
+      </>}
+      acoes={<>
+        <button onClick={() => onVerCupom?.(ultimoPedido)} title="Ver o cupom do pedido mais recente desta comanda" className="rounded-xl border border-[#E2E8F0] px-3 py-2 text-xs font-bold text-[#2563EB] transition hover:bg-[#EFF6FF]">🧾 Ver cupom</button>
+        <button onClick={() => onImprimirCompartilhar?.(ultimoPedido)} title="Imprimir o cupom do pedido mais recente" className="rounded-xl border border-[#E2E8F0] px-3 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">🖨️ Imprimir</button>
+        <button onClick={() => onImprimirCompartilhar?.(ultimoPedido)} title="Compartilhar o cupom por WhatsApp" className="rounded-xl border border-[#E2E8F0] px-3 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">💬 Compartilhar</button>
+      </>}>
+      {c.pedidos.length > 1 && <p className="-mt-3 text-[10px] text-[#94A3B8]">Esta comanda agrupa {c.pedidos.length} pedidos — as ações acima usam o cupom do pedido mais recente ({ultimoPedido.id}), pois não existe um cupom único por comanda no modelo de dados.</p>}
           {/* Indicadores inteligentes */}
           {indicadores.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
@@ -12121,14 +12085,7 @@ function ModalDetalheComanda({
               </div>
             </div>
           )}
-        </div>
-
-        {/* Rodapé fixo */}
-        <div className="shrink-0 border-t border-[#E2E8F0] px-5 py-3.5 sm:px-6">
-          <button onClick={onFechar} className="w-full rounded-xl border border-[#E2E8F0] py-2.5 text-sm font-bold text-[#334155] transition hover:bg-[#F1F5F9]">Fechar</button>
-        </div>
-      </div>
-    </div>
+    </PainelDetalhe>
   );
 }
 
