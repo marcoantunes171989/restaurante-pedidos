@@ -7221,6 +7221,17 @@ function formatarMoedaAbrev(v) {
   }
   return formatCurrency(v);
 }
+// Tooltip único, tema claro — reutilizado por todos os gráficos do projeto
+// que exibem um balão de detalhe (hoje: BarrasHora). Mesmo raio/sombra dos
+// cards do sistema (ver Painel), fundo branco, borda e paleta oficiais.
+function GraficoTooltip({ children, className = "" }) {
+  return (
+    <div role="tooltip" className={`rounded-xl border border-[#E2E8F0] bg-white px-4 py-3 text-left text-[11px] leading-snug text-[#334155] shadow-[0_8px_24px_rgba(16,24,40,0.06)] ${className}`}>
+      {children}
+    </div>
+  );
+}
+
 // Gráfico "Faturamento por horário" — barras com tooltip acessível (hover, foco
 // por teclado ou toque, sem depender de hover) e cor semântica por barra:
 // cinza = sem venda, terracota = melhor horário, verde = acima da média,
@@ -7228,7 +7239,7 @@ function formatarMoedaAbrev(v) {
 const ALTURA_TRACK_HORA = 150;
 // paleta: opcional — sobrescreve as cores padrão sem afetar quem não a passa
 // (ex.: Relatórios). O Dashboard Gerencial injeta a paleta oficial da tela.
-const PALETA_BARRAS_HORA_PADRAO = { semVenda: "#94A3B8", pico: "#C4322B", acimaMedia: "#3F7D5A", padrao: "#315A7D", foco: "#C4322B", grade: "#E5E7EB", texto: "#64748B", textoValor: "#475467", tooltipBg: "#172033" };
+const PALETA_BARRAS_HORA_PADRAO = { semVenda: "#94A3B8", pico: "#C4322B", acimaMedia: "#3F7D5A", padrao: "#315A7D", foco: "#C4322B", grade: "#E5E7EB", texto: "#64748B", textoValor: "#475467" };
 function BarrasHora({ dados, paleta = PALETA_BARRAS_HORA_PADRAO }) {
   const [ativo, setAtivo] = useState(null);
   const p = { ...PALETA_BARRAS_HORA_PADRAO, ...paleta };
@@ -7279,14 +7290,14 @@ function BarrasHora({ dados, paleta = PALETA_BARRAS_HORA_PADRAO }) {
                 onClick={() => setAtivo(i)}
                 aria-label={`${d.label}: ${d.valor > 0 ? formatCurrency(d.valor) : "sem faturamento"}${d.qtd ? `, ${d.qtd} pedido${d.qtd > 1 ? "s" : ""}` : ""}`}>
                 {aberto && (
-                  <div role="tooltip" className="pointer-events-none absolute bottom-[calc(100%+8px)] left-1/2 z-10 w-max max-w-[180px] -translate-x-1/2 rounded-xl px-3 py-2 text-left text-[11px] leading-snug text-white shadow-[0_8px_20px_rgba(23,32,51,0.28)]" style={{ backgroundColor: p.tooltipBg }}>
-                    <p className="font-bold">{d.label}</p>
-                    <p className="mt-0.5 font-black">{d.valor > 0 ? formatCurrency(d.valor) : "Sem faturamento"}</p>
-                    {d.qtd > 0 && <p className="mt-0.5 text-white/75">{d.qtd} pedido{d.qtd > 1 ? "s" : ""} · ticket médio {formatCurrency(d.valor / d.qtd)}</p>}
+                  <GraficoTooltip className="pointer-events-none absolute bottom-[calc(100%+8px)] left-1/2 z-10 w-max max-w-[180px] -translate-x-1/2">
+                    <p className="font-bold" style={{ color: "#0D1B2A" }}>{d.label}</p>
+                    <p className="mt-0.5 font-black" style={{ color: d.valor > 0 ? "#2563EB" : "#64748B" }}>{d.valor > 0 ? formatCurrency(d.valor) : "Sem faturamento"}</p>
+                    {d.qtd > 0 && <p className="mt-0.5" style={{ color: "#64748B" }}>{d.qtd} pedido{d.qtd > 1 ? "s" : ""} · ticket médio {formatCurrency(d.valor / d.qtd)}</p>}
                     {diffPct != null && (
-                      <p className={`mt-0.5 font-semibold ${diffPct >= 0 ? "text-emerald-300" : "text-red-300"}`}>{diffPct >= 0 ? "▲" : "▼"} {Math.abs(diffPct)}% vs. média do período</p>
+                      <p className="mt-0.5 font-semibold" style={{ color: diffPct >= 0 ? "#10B981" : "#64748B" }}>{diffPct >= 0 ? "▲" : "▼"} {Math.abs(diffPct)}% vs. média do período</p>
                     )}
-                  </div>
+                  </GraficoTooltip>
                 )}
               </button>
             </div>
@@ -8133,7 +8144,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], irParaM
             <span className="block text-sm font-black text-brand-ink">{formatCurrency(a.faturamento)}</span>
           </span>
         ) : null}>
-        <BarrasHora dados={vendasPorHora} paleta={{ semVenda: "#2563EB", pico: "#F59E0B", acimaMedia: "#2563EB", padrao: "#2563EB", foco: "#2563EB", grade: "#E2E8F0", texto: "#64748B", textoValor: "#64748B", tooltipBg: "#0D1B2A" }} />
+        <BarrasHora dados={vendasPorHora} paleta={{ semVenda: "#2563EB", pico: "#F59E0B", acimaMedia: "#2563EB", padrao: "#2563EB", foco: "#2563EB", grade: "#E2E8F0", texto: "#64748B", textoValor: "#64748B" }} />
         {melhorHora.valor > 0 && (
           <div className="mt-4 flex flex-wrap gap-2">
             <span className="rounded-full bg-amber-500/10 px-3 py-1.5 text-xs font-bold text-amber-500">★ Melhor horário: {melhorHora.label} — {formatCurrency(melhorHora.valor)}</span>
@@ -8675,7 +8686,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
                 <span className="block text-sm font-black text-[#172033]">{formatCurrency(a.faturamento)}</span>
               </span>
             ) : null}>
-            <BarrasHora dados={horarioGeral} paleta={{ semVenda: "#2563EB", pico: "#F59E0B", acimaMedia: "#2563EB", padrao: "#2563EB", foco: "#2563EB", grade: "#E2E8F0", texto: "#64748B", textoValor: "#64748B", tooltipBg: "#0D1B2A" }} />
+            <BarrasHora dados={horarioGeral} paleta={{ semVenda: "#2563EB", pico: "#F59E0B", acimaMedia: "#2563EB", padrao: "#2563EB", foco: "#2563EB", grade: "#E2E8F0", texto: "#64748B", textoValor: "#64748B" }} />
           </Painel>
 
           {/* Tabelas: produtos, mesas */}
