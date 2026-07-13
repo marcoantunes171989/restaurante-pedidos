@@ -6561,13 +6561,16 @@ function CardMetrica({ titulo, valor, sub, cor = "text-brand-ink", icon, variaca
 //  Dashboard gerencial
 // ════════════════════════════════════════════════════════════
 // ── Gráfico de rosca (donut) em SVG, sem biblioteca ──
-// Paleta de gráficos padronizada: azul-marinho e dourado à frente (identidade), demais para categorias extras.
-const CORES_GRAF = ["#315A7D", "#C4322B", "#3F7D5A", "#C28135", "#7CA1BF", "#94A3B8"];
-// corCentral/legendaColorida/interativo são opcionais e retrocompatíveis:
-// sem passá-los, o gráfico se comporta exatamente como antes (usado no
-// Dashboard e demais telas). Relatórios de Vendas usa as 3 opções para
-// seguir a paleta oficial e ter legenda/tooltip coloridos por série.
-function DonutChart({ dados, label = "", corCentral = "#182230", legendaColorida = false, interativo = false }) {
+// Componente único, reutilizado por TODOS os donuts/pizza do projeto (Dashboard
+// "Vendas por Categoria"/"Status dos Pedidos" e Relatórios "Faturamento por
+// categoria" — varredura confirmou não existir nenhum outro donut no projeto).
+// Paleta padrão dentro da lista oficial; vermelho fica reservado para
+// erro/cancelado/crítico e não entra no ciclo automático.
+const CORES_GRAF = ["#2563EB", "#10B981", "#F59E0B", "#8B5CF6", "#06B6D4", "#64748B"];
+// corCentral/legendaColorida/interativo têm o padrão de referência (usado por
+// todos os donuts); ainda são sobrescrevíveis caso uma tela futura precise de
+// um comportamento diferente, sem duplicar a configuração em cada chamada.
+function DonutChart({ dados, label = "", corCentral = "#0D1B2A", legendaColorida = true, interativo = true }) {
   const [ativo, setAtivo] = useState(null);
   const total = dados.reduce((s, d) => s + d.valor, 0);
   if (total === 0) return (
@@ -7563,9 +7566,10 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], irParaM
   const vendasPorHora = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 0, 1].map((h) => horas24[h]);
   const melhorHora = vendasPorHora.reduce((b, d) => (d.valor > b.valor ? d : b), { valor: -1, label: "—" });
 
-  // Donut categorias e status — paleta oficial do Dashboard Gerencial, na
-  // ordem definida: azul, verde, âmbar, violeta, ciano, vermelho, cinza.
-  const PALETA_SERIES_DASHBOARD = ["#2563EB", "#10B981", "#F59E0B", "#8B5CF6", "#06B6D4", "#EF4444", "#64748B"];
+  // Donut categorias e status — paleta oficial única de donuts do projeto, na
+  // ordem definida: azul, verde, âmbar, violeta, ciano, cinza. Vermelho fica
+  // reservado para erro/cancelado/crítico (não entra no ciclo de categorias).
+  const PALETA_SERIES_DASHBOARD = ["#2563EB", "#10B981", "#F59E0B", "#8B5CF6", "#06B6D4", "#64748B"];
   const catDonut = a.categorias.slice(0, 6).map((c, i) => ({ label: c.categoria, valor: c.valor, cor: PALETA_SERIES_DASHBOARD[i % PALETA_SERIES_DASHBOARD.length] }));
   // Cor semântica por status (não cíclica): aguardando=âmbar (pendência), em
   // preparo=azul (padrão), pronto=ciano (apoio gráfico), entregue=verde (sucesso).
@@ -8413,8 +8417,8 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
   const horas24R = Array.from({ length: 24 }, (_, h) => ({ h, label: `${String(h).padStart(2, "0")}h`, valor: 0, qtd: 0 }));
   pagosG.forEach((o) => { if (o.createdAtISO) { const h = new Date(o.createdAtISO).getHours(); horas24R[h].valor += orderTotal(o) * 1.1; horas24R[h].qtd += 1; } });
   const horarioGeral = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 0, 1].map((h) => horas24R[h]);
-  // Paleta oficial de gráficos desta tela (só estas 5 cores, na ordem definida).
-  const PALETA_GRAF_RELATORIOS = ["#2563EB", "#10B981", "#F59E0B", "#8B5CF6", "#64748B", "#0D1B2A"];
+  // Paleta oficial única de donuts do projeto (mesma do Dashboard Gerencial).
+  const PALETA_GRAF_RELATORIOS = ["#2563EB", "#10B981", "#F59E0B", "#8B5CF6", "#06B6D4", "#64748B"];
   const catDonutR = a.categorias.slice(0, 6).map((c, i) => ({ label: c.categoria, valor: c.valor, cor: PALETA_GRAF_RELATORIOS[i % PALETA_GRAF_RELATORIOS.length] }));
   // Mesas com maior faturamento
   const porMesaR = {};
@@ -8661,7 +8665,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
                 ))}
               </div>
             </Painel>
-            <Painel titulo="Faturamento por categoria"><DonutChart dados={catDonutR} label="Categorias" corCentral="#0D1B2A" legendaColorida interativo /></Painel>
+            <Painel titulo="Faturamento por categoria"><DonutChart dados={catDonutR} label="Categorias" /></Painel>
           </div>
 
           <Painel titulo="Faturamento por horário" descricao="Distribuição das vendas ao longo do período selecionado"
