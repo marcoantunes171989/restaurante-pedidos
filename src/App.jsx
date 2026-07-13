@@ -8490,6 +8490,9 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
   const [compararPeriodoClientesE, setCompararPeriodoClientesE] = useState(false);
   const [atualizadoEmClientesE, setAtualizadoEmClientesE] = useState(() => new Date());
   const [toastClientesE, setToastClientesE] = useState("");
+  const [toastClientesTipoE, setToastClientesTipoE] = useState("success"); // "success" | "error"
+  const [carregandoAcaoE, setCarregandoAcaoE] = useState(null); // "telefone:<cliente>" | "cadastro:<cliente>" | null
+  const [cupomSelClienteE, setCupomSelClienteE] = useState(null); // pedido aberto a partir do histórico do perfil
   // Aba Vendas — busca/ordenação/paginação do ranking de produtos, toggle de
   // comparação com o período anterior e ações rápidas (compartilhar/atualizar).
   const [buscaProdV, setBuscaProdV] = useState("");
@@ -9043,7 +9046,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
     const horaTop = top(contagemHora);
     const temposPermanencia = pagos.map((o) => minutosEntreISO(o.createdAtISO, o.updatedAtISO)).filter((v) => v != null);
     const ultimosPedidos = [...hist.pedidos].sort((x, y) => new Date(y.createdAtISO || 0) - new Date(x.createdAtISO || 0)).slice(0, 8)
-      .map((o) => ({ id: o.id, quando: o.createdAtISO ? new Date(o.createdAtISO) : null, valor: orderTotal(o) * 1.1, status: o.status, pago: o.paymentStatus === "paid" }));
+      .map((o) => ({ id: o.id, quando: o.createdAtISO ? new Date(o.createdAtISO) : null, valor: orderTotal(o) * 1.1, status: o.status, pago: o.paymentStatus === "paid", pedidoObj: o }));
     return {
       telefone: hist.telefone, totalPedidosVida: hist.pedidos.length, primeira, ultima, penultima, diasSemComprar,
       faturamentoTotal, ticketMedioVida, maiorCompra, lucroGerado,
@@ -9228,23 +9231,57 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
     { label: "Inativos", valor: clientesInativosCountE, cor: "#EF4444" },
   ];
 
-  // ── Ações rápidas ──
-  function copiarTelefoneClienteE(c) {
-    if (!c.telefone) { setToastClientesE("Cliente sem telefone cadastrado."); setTimeout(() => setToastClientesE(""), 3000); return; }
-    navigator.clipboard?.writeText(c.telefone);
-    setToastClientesE("Telefone copiado.");
-    setTimeout(() => setToastClientesE(""), 3000);
+  // ── Ações rápidas por cliente ──
+  // Telefone "válido" = DDD + número (10 ou 11 dígitos, padrão BR), depois de
+  // remover tudo que não é dígito — mesma normalização já usada para o
+  // WhatsApp em outras telas do projeto (RelatorioCupom, CupomNaoFiscalModal).
+  function telefoneValidoE(telefone) {
+    const digitos = String(telefone || "").replace(/\D/g, "");
+    return digitos.length >= 10 && digitos.length <= 11 ? digitos : null;
   }
-  function copiarCadastroClienteE(c) {
-    const texto = `${c.cliente}${c.telefone ? ` · ${c.telefone}` : ""} · ${c.totalPedidosVida} pedido(s) · ${formatCurrency(c.faturamentoTotal)}`;
-    navigator.clipboard?.writeText(texto);
-    setToastClientesE("Cadastro copiado.");
-    setTimeout(() => setToastClientesE(""), 3000);
+  function avisarClienteE(msg, tipo = "success") {
+    setToastClientesTipoE(tipo);
+    setToastClientesE(msg);
+    setTimeout(() => setToastClientesE(""), 3500);
+  }
+  async function copiarTelefoneClienteE(c) {
+    const digitos = telefoneValidoE(c.telefone);
+    if (!digitos) { avisarClienteE("Cliente sem telefone válido cadastrado.", "error"); return; }
+    setCarregandoAcaoE(`telefone:${c.cliente}`);
+    try {
+      await navigator.clipboard.writeText(c.telefone);
+      avisarClienteE("Telefone copiado.", "success");
+    } catch {
+      avisarClienteE("Não foi possível copiar o telefone. Copie manualmente: " + c.telefone, "error");
+    } finally {
+      setCarregandoAcaoE(null);
+    }
+  }
+  async function copiarCadastroClienteE(c) {
+    const texto = [
+      `Nome: ${c.cliente}`,
+      `Telefone: ${c.telefone || "—"}`,
+      `Total de pedidos: ${c.totalPedidosVida}`,
+      `Faturamento: ${formatCurrency(c.faturamentoTotal)}`,
+      `Ticket médio: ${formatCurrency(c.ticketMedioVida)}`,
+      `Última compra: ${c.ultima ? c.ultima.toLocaleDateString("pt-BR") : "—"}`,
+      `Status: ${CLIENTE_STATUS[c.status]?.label || c.status}`,
+    ].join("\n");
+    setCarregandoAcaoE(`cadastro:${c.cliente}`);
+    try {
+      await navigator.clipboard.writeText(texto);
+      avisarClienteE("Cadastro copiado.", "success");
+    } catch {
+      avisarClienteE("Não foi possível copiar o cadastro.", "error");
+    } finally {
+      setCarregandoAcaoE(null);
+    }
   }
   function abrirWhatsAppClienteE(c) {
-    if (!c.telefone) { setToastClientesE("Cliente sem telefone cadastrado."); setTimeout(() => setToastClientesE(""), 3000); return; }
-    const num = String(c.telefone).replace(/\D/g, "");
-    window.open(`https://wa.me/55${num}`, "_blank");
+    const digitos = telefoneValidoE(c.telefone);
+    if (!digitos) { avisarClienteE("Cliente sem telefone válido cadastrado.", "error"); return; }
+    const mensagem = `Olá, ${c.cliente}. Tudo bem? Estamos entrando em contato pelo Pedido Prime.`;
+    window.open(`https://wa.me/55${digitos}?text=${encodeURIComponent(mensagem)}`, "_blank");
   }
   function exportarClientesExcelE() {
     let csv = "Cliente;Telefone;Pedidos;Faturamento;Ticket medio;Lucro gerado;Ultima compra;Primeira compra;Status;Classificacao\n";
@@ -9395,7 +9432,15 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
             </div>
             <p className="text-[11px] text-[#94A3B8]">Atualizado às {atualizadoEmClientesE.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</p>
           </div>
-          {toastClientesE && <p className="pp-anim-fade rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-2.5 text-xs text-[#334155]">{toastClientesE}</p>}
+          {/* Toast fixo — sempre visível, independente da rolagem da tabela
+              (o antigo aviso ficava preso no topo da aba e "sumia" quando o
+              usuário copiava algo com a tabela rolada para baixo). */}
+          {toastClientesE && (
+            <div className="pp-anim-fade fixed bottom-5 left-1/2 z-[200] w-[calc(100%-2.5rem)] max-w-sm -translate-x-1/2 rounded-xl border px-4 py-3 text-xs font-semibold shadow-[0_12px_32px_rgba(13,27,42,0.16)]"
+              style={toastClientesTipoE === "error" ? { background: "#FFFFFF", borderColor: "#EF4444", color: "#EF4444" } : { background: "#FFFFFF", borderColor: "#10B981", color: "#10B981" }} role="status" aria-live="polite">
+              {toastClientesTipoE === "error" ? "⚠️ " : "✅ "}{toastClientesE}
+            </div>
+          )}
 
           {/* 1. Resumo executivo */}
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
@@ -9578,16 +9623,21 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
             {clientesVisiveisE.length > 0 && (
               <div className="border-t border-[#F1F5F9] px-5 py-3">
                 <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-[#64748B]">Ações rápidas por cliente</p>
-                <div className="flex flex-wrap gap-2">
-                  {clientesVisiveisE.slice(0, 3).map((c) => (
-                    <div key={c.cliente} className="flex items-center gap-1 rounded-xl border border-[#E2E8F0] px-2 py-1.5">
-                      <span className="max-w-[100px] truncate text-[11px] font-semibold text-[#334155]">{c.cliente}</span>
-                      <button onClick={(e) => { e.stopPropagation(); setClienteSelecionadoE(c); }} title="Visualizar" className="rounded-lg px-1.5 py-1 text-[11px] hover:bg-[#F1F5F9]">👁️</button>
-                      <button onClick={(e) => { e.stopPropagation(); abrirWhatsAppClienteE(c); }} title="WhatsApp" className="rounded-lg px-1.5 py-1 text-[11px] hover:bg-[#F1F5F9]">💬</button>
-                      <button onClick={(e) => { e.stopPropagation(); copiarTelefoneClienteE(c); }} title="Copiar telefone" className="rounded-lg px-1.5 py-1 text-[11px] hover:bg-[#F1F5F9]">📋</button>
-                      <button onClick={(e) => { e.stopPropagation(); copiarCadastroClienteE(c); }} title="Copiar cadastro" className="rounded-lg px-1.5 py-1 text-[11px] hover:bg-[#F1F5F9]">📇</button>
-                    </div>
-                  ))}
+                <div className="space-y-1.5">
+                  {clientesVisiveisE.map((c) => {
+                    const temTelefone = !!telefoneValidoE(c.telefone);
+                    return (
+                      <div key={c.cliente} className="flex items-center justify-between gap-2 rounded-xl border border-[#E2E8F0] px-3 py-2">
+                        <span className="min-w-0 truncate text-xs font-semibold text-[#334155]">{c.cliente}</span>
+                        <div className="flex shrink-0 items-center gap-1.5">
+                          <IconAcaoCliente icone="👁️" label="Visualizar perfil completo" onClick={() => setClienteSelecionadoE(c)} />
+                          <IconAcaoCliente icone="💬" label={temTelefone ? "Enviar WhatsApp" : "Sem telefone válido cadastrado"} disabled={!temTelefone} onClick={() => abrirWhatsAppClienteE(c)} />
+                          <IconAcaoCliente icone="📋" label={temTelefone ? "Copiar telefone" : "Sem telefone válido cadastrado"} disabled={!temTelefone} carregando={carregandoAcaoE === `telefone:${c.cliente}`} onClick={() => copiarTelefoneClienteE(c)} />
+                          <IconAcaoCliente icone="📇" label="Copiar cadastro" carregando={carregandoAcaoE === `cadastro:${c.cliente}`} onClick={() => copiarCadastroClienteE(c)} />
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
                 <p className="mt-2 text-[10px] text-[#94A3B8]">As mesmas ações (Visualizar, WhatsApp, Copiar telefone, Copiar cadastro) também ficam disponíveis ao clicar em qualquer linha da tabela.</p>
               </div>
@@ -9606,8 +9656,9 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
           {/* 4. Perfil do cliente */}
           {clienteSelecionadoE && (
             <ClientePerfilPainel cliente={clienteSelecionadoE} onFechar={() => setClienteSelecionadoE(null)}
-              onWhatsApp={abrirWhatsAppClienteE} onCopiarTelefone={copiarTelefoneClienteE} />
+              onWhatsApp={abrirWhatsAppClienteE} onCopiarTelefone={copiarTelefoneClienteE} onAbrirCupom={setCupomSelClienteE} />
           )}
+          {cupomSelClienteE && <CupomNaoFiscalModal pedido={cupomSelClienteE} lojaInfo={lojaInfo} onFechar={() => setCupomSelClienteE(null)} />}
         </>
       )}
 
@@ -10061,10 +10112,27 @@ function BadgeCliente({ mapa, chave }) {
   return <span className="rounded-full px-2 py-0.5 text-[10px] font-black" style={{ background: `${s.cor}1A`, color: s.cor }}>{s.label}</span>;
 }
 
+// Botão de ação rápida por cliente (32px) — único e reutilizado por todos
+// os ícones da seção "Ações rápidas por cliente" e do perfil lateral.
+// e.stopPropagation() sempre impede que o clique também dispare a linha da
+// tabela (abrir o perfil duas vezes / duas ações ao mesmo tempo).
+function IconAcaoCliente({ icone, label, onClick, disabled = false, carregando = false }) {
+  return (
+    <button type="button" title={label} aria-label={label} disabled={disabled || carregando}
+      onClick={(e) => { e.stopPropagation(); if (!disabled && !carregando) onClick(e); }}
+      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB] focus-visible:ring-offset-1 ${
+        disabled ? "cursor-not-allowed border-[#E2E8F0] bg-white text-[#64748B] opacity-40"
+          : "cursor-pointer border-[#E2E8F0] bg-white text-[#64748B] hover:bg-[#F1F5F9] hover:text-[#2563EB]"
+      }`}>
+      {carregando ? <span className="h-3 w-3 animate-spin rounded-full border-2 border-[#E2E8F0] border-t-[#2563EB]" /> : icone}
+    </button>
+  );
+}
+
 // Painel lateral de perfil do cliente — só campos calculáveis a partir dos
 // pedidos já carregados; cidade/aniversário/observações/responsável não
 // existem no cadastro (tab_clientes só tem nome/telefone) e aparecem "—".
-function ClientePerfilPainel({ cliente, onFechar, onWhatsApp, onCopiarTelefone }) {
+function ClientePerfilPainel({ cliente, onFechar, onWhatsApp, onCopiarTelefone, onAbrirCupom }) {
   if (!cliente) return null;
   const c = cliente;
   const iniciais = c.cliente.split(" ").filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join("") || "?";
@@ -10143,9 +10211,12 @@ function ClientePerfilPainel({ cliente, onFechar, onWhatsApp, onCopiarTelefone }
               <div className="space-y-1.5">
                 {c.ultimosPedidos.map((p, i) => (
                   <div key={i} className="flex items-center justify-between gap-2 rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs">
-                    <span className="text-[#64748B]">{p.quando ? p.quando.toLocaleDateString("pt-BR") : "—"} · Cupom {p.id}</span>
-                    <span className="font-bold text-[#0D1B2A]">{formatCurrency(p.valor)}</span>
-                    <span className={`rounded-full border px-2 py-0.5 text-[9px] font-black ${statusMap[p.status]?.chip}`}>{statusMap[p.status]?.label}</span>
+                    <span className="min-w-0 truncate text-[#64748B]">{p.quando ? p.quando.toLocaleDateString("pt-BR") : "—"} · Cupom {p.id}</span>
+                    <span className="shrink-0 font-bold text-[#0D1B2A]">{formatCurrency(p.valor)}</span>
+                    <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[9px] font-black ${statusMap[p.status]?.chip}`}>{statusMap[p.status]?.label}</span>
+                    {onAbrirCupom && (
+                      <IconAcaoCliente icone="🧾" label="Ver cupom deste pedido" onClick={() => onAbrirCupom(p.pedidoObj)} />
+                    )}
                   </div>
                 ))}
               </div>
