@@ -6244,7 +6244,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           ) : (<SecaoErrorBoundary key={ativo}>
           {ativo === "dashboard"  && <DashboardAdmin orders={orders} products={products} clientes={clientes} setores={setores} irParaMesas={() => setAdminSection("mesas")} />}
           {ativo === "copiloto"   && (precisaEmpresa ? avisoEmpresa : <DashboardAdmin orders={orders} products={products} clientes={clientes} setores={setores} irPara={setAdminSection} soCopiloto />)}
-          {ativo === "relatorios" && <RelatoriosAdmin orders={orders} products={products} lojaInfo={lojaInfo} pesquisas={filtraLoja(pesquisas)} irParaMesas={() => setAdminSection("mesas")} currentUser={currentUser} />}
+          {ativo === "relatorios" && <RelatoriosAdmin orders={orders} products={products} lojaInfo={lojaInfo} pesquisas={filtraLoja(pesquisas)} irParaMesas={() => setAdminSection("mesas")} irParaProdutos={() => setAdminSection("products")} currentUser={currentUser} />}
           {ativo === "crm"        && <CrmAdmin clientes={clientes} orders={orders} fidTransacoes={fidTransacoes} fidRecompensas={fidRecompensas} lancarPontos={fidApi?.lancarPontos} configCrm={lojaInfo?.configCrm || {}} salvarConfigCrm={salvarConfigCrm} />}
           {ativo === "fidelidade" && (precisaEmpresa ? avisoEmpresa : <FidelidadeAdmin regra={fidRegra} recompensas={fidRecompensas} transacoes={fidTransacoes} clientes={clientes} api={fidApi} />)}
           {ativo === "products"   && (precisaEmpresa ? avisoEmpresa : <ProductAdmin   products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} editarProduto={editarProduto} removerProduto={removerProduto} lojaId={lojaInfo?.id} opcoesApi={opcoesApi} setores={setores} />)}
@@ -8403,9 +8403,9 @@ function KpiExecutivo({ titulo, valor, variacao, desc, icon, tendencia }) {
 
 // Card de ranking compacto ("Top N") — Categorias, Clientes, Mesas, produtos
 // sem venda/baixo estoque/maior margem/faturamento, forma de pagamento, canal…
-function TopLista({ titulo, icon, itens, render, vazio = "Sem dados no período.", acao }) {
+function TopLista({ titulo, icon, itens, render, vazio = "Sem dados no período.", acao, className = "" }) {
   return (
-    <div className="h-full rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-[0_1px_2px_rgba(13,27,42,0.04)]">
+    <div className={`h-full rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-[0_1px_2px_rgba(13,27,42,0.04)] ${className}`}>
       <div className="mb-2.5 flex items-center justify-between gap-2">
         <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-[#64748B]">{icon && <span aria-hidden="true">{icon}</span>}{titulo}</p>
         {acao}
@@ -8446,7 +8446,7 @@ function InsightCardVendas({ tom = "info", titulo, texto, acaoLabel, onAcao }) {
   );
 }
 
-function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMesas = () => {}, currentUser = null }) {
+function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMesas = () => {}, irParaProdutos = () => {}, currentUser = null }) {
   const [periodo, setPeriodo] = useState("7");
   const [ini, setIni] = useState("");
   const [fim, setFim] = useState("");
@@ -8455,6 +8455,19 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
   // Paginação da tabela "Estoque anterior x posterior" (aba Estoque)
   const [paginaEstoque, setPaginaEstoque] = useState(1);
   const [porPaginaEstoque, setPorPaginaEstoque] = useState(10);
+  // Aba Estoque — busca/ordenação/filtros da tabela gerencial, comparação com
+  // o período anterior, "somente críticos" e detalhe do produto ao clicar na linha.
+  const [buscaEstoque, setBuscaEstoque] = useState("");
+  const [ordenacaoEstoque, setOrdenacaoEstoque] = useState({ campo: "vendido", dir: "desc" });
+  const [fCategoriaEstoque, setFCategoriaEstoque] = useState("todas");
+  const [fStatusEstoque, setFStatusEstoque] = useState("todos");
+  const [fEstoqueMin, setFEstoqueMin] = useState("");
+  const [fEstoqueMax, setFEstoqueMax] = useState("");
+  const [somenteCriticosEstoque, setSomenteCriticosEstoque] = useState(false);
+  const [mostrarFiltrosEstoque, setMostrarFiltrosEstoque] = useState(false);
+  const [compararPeriodoEstoque, setCompararPeriodoEstoque] = useState(false);
+  const [atualizadoEmEstoque, setAtualizadoEmEstoque] = useState(() => new Date());
+  const [produtoDetalheEstoque, setProdutoDetalheEstoque] = useState(null);
   // Paginação da tabela "Clientes do período" (aba Clientes)
   const [paginaClientes, setPaginaClientes] = useState(1);
   const [porPaginaClientes, setPorPaginaClientes] = useState(10);
@@ -8582,12 +8595,6 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
     const minimo = p.estoqueMinimo ?? 0;
     return { nome: p.name, categoria: p.category, anterior, vendido, posterior, minimo, baixo: posterior <= minimo && minimo > 0, zerado: posterior <= 0, ativo: p.active !== false };
   }).sort((x, y) => y.vendido - x.vendido || y.posterior - x.posterior);
-  // Volta para a página 1 ao trocar período ou a quantidade por página
-  // (a ordenação/dados completos de linhasEstoque não mudam com a paginação).
-  useEffect(() => { setPaginaEstoque(1); }, [periodo, ini, fim, porPaginaEstoque]);
-  const totalPaginasEstoque = Math.max(1, Math.ceil(linhasEstoque.length / porPaginaEstoque));
-  const paginaEstoqueAtual = Math.min(paginaEstoque, totalPaginasEstoque);
-  const linhasEstoqueVisiveis = linhasEstoque.slice((paginaEstoqueAtual - 1) * porPaginaEstoque, paginaEstoqueAtual * porPaginaEstoque);
   const produtosAtivos = products.filter((p) => p.active !== false);
   const maiorEstoque = produtosAtivos.reduce((acc, p) => (acc == null || (p.estoque ?? 0) > (acc.estoque ?? 0) ? p : acc), null);
   const menorEstoque = produtosAtivos.reduce((acc, p) => (acc == null || (p.estoque ?? 0) < (acc.estoque ?? 0) ? p : acc), null);
@@ -8595,6 +8602,183 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
   const totalEmEstoque = produtosAtivos.reduce((s, p) => s + (p.estoque ?? 0), 0);
   const zeradosCount = produtosAtivos.filter((p) => (p.estoque ?? 0) <= 0).length;
   const baixoCount = produtosAtivos.filter((p) => (p.estoque ?? 0) > 0 && (p.estoque ?? 0) <= (p.estoqueMinimo ?? 0) && (p.estoqueMinimo ?? 0) > 0).length;
+
+  // ── Aba Estoque: painel gerencial premium — tudo derivado do que já está
+  // carregado (products/linhasEstoque/orders), nenhuma consulta nova. Não
+  // há tabela de entradas/ajustes de estoque preenchida no banco hoje (só
+  // existe um ledger de baixas por venda, não utilizado pelo app) — por
+  // isso "anterior" é reconstruído como posterior + vendido (mesma regra já
+  // usada por linhasEstoque) e as colunas "Entradas"/"Ajustes" não entram
+  // na tabela (sem dado real para preencher).
+  const custoUnitDe = (nome) => custoPorNome[nome] ?? 0;
+  const valorEstoqueTotal = produtosAtivos.reduce((s, p) => s + (p.estoque ?? 0) * custoUnitDe(p.name), 0);
+  const custoVendidoTotal = Object.entries(vendidoPorProduto).reduce((s, [nome, qtd]) => s + qtd * custoUnitDe(nome), 0);
+  const mediaDiariaDe = (vendido) => (totalDiasPeriodo > 0 ? vendido / totalDiasPeriodo : 0);
+  // Cobertura (dias de estoque no ritmo atual) só quando há venda real no
+  // período — sem inventar previsão para produtos sem nenhuma saída.
+  const coberturaDe = (l) => (l.vendido > 0 && totalDiasPeriodo > 0) ? l.posterior / (l.vendido / totalDiasPeriodo) : null;
+  const statusDe = (l) => {
+    if (l.zerado) return "critico";
+    if (l.baixo) return "atencao";
+    const cob = coberturaDe(l);
+    if (cob != null && cob > 90) return "excesso";
+    if (l.vendido === 0) return "semMovimento";
+    return "normal";
+  };
+  const linhasEstoqueEnriquecidas = linhasEstoque.map((l) => {
+    const custoUnit = custoUnitDe(l.nome);
+    return { ...l, custoUnit, valorEstoque: l.posterior * custoUnit, cobertura: coberturaDe(l), status: statusDe(l) };
+  });
+
+  // Comparativo com o período anterior (mesmo intervalo, mesma duração) —
+  // só para métricas que dependem do período (itens vendidos, custo do
+  // vendido); estoque atual/mínimo são pontuais, sem "período anterior".
+  const comparativoEstoqueE = (() => {
+    if (periodo === "tudo") return null;
+    const [a0, b0] = intervaloPeriodo(periodo, ini, fim);
+    if (!a0 || a0.getTime() <= 0) return null;
+    const dur = b0.getTime() - a0.getTime();
+    const anterioresE = orders.filter((o) => { if (!o.createdAtISO) return false; const d = new Date(o.createdAtISO); return d >= new Date(a0.getTime() - dur - 1) && d <= new Date(a0.getTime() - 1); });
+    if (anterioresE.length === 0) return null;
+    const vendidoAnteriorPorProduto = {};
+    anterioresE.filter((o) => o.paymentStatus === "paid" && o.status !== "cancelled")
+      .forEach((o) => o.items.forEach((it) => { vendidoAnteriorPorProduto[it.name] = (vendidoAnteriorPorProduto[it.name] || 0) + it.quantity; }));
+    const totalVendidoAnterior = Object.values(vendidoAnteriorPorProduto).reduce((s, v) => s + v, 0);
+    const custoVendidoAnterior = Object.entries(vendidoAnteriorPorProduto).reduce((s, [nome, qtd]) => s + qtd * custoUnitDe(nome), 0);
+    const varPct = (at, an) => an > 0 ? ((at - an) / an) * 100 : (at > 0 ? 100 : null);
+    return { vendidoAnteriorPorProduto, itensVendidos: varPct(totalVendidoPeriodo, totalVendidoAnterior), custoVendido: varPct(custoVendidoTotal, custoVendidoAnterior) };
+  })();
+
+  const coberturasValidas = linhasEstoqueEnriquecidas.filter((l) => l.cobertura != null).map((l) => l.cobertura);
+  const coberturaMediaDias = coberturasValidas.length ? coberturasValidas.reduce((s, v) => s + v, 0) / coberturasValidas.length : null;
+  const produtosParadosEstoqueE = linhasEstoqueEnriquecidas.filter((l) => l.ativo && l.vendido === 0);
+  const produtosSemCustoEstoque = produtosAtivos.filter((p) => !(Number(p.cost) > 0));
+
+  // ── Alertas de estoque — só os tipos com dado real disponível. ──
+  const alertasEstoque = [];
+  linhasEstoqueEnriquecidas.forEach((l) => {
+    if (!l.ativo) return;
+    if (l.zerado) {
+      alertasEstoque.push({ produto: l.nome, nivel: "critico", tipo: "Estoque zerado", evidencia: `${l.posterior} un. em estoque`, acao: "Repor imediatamente ou pausar a venda do item." });
+    } else if (l.baixo) {
+      alertasEstoque.push({ produto: l.nome, nivel: "atencao", tipo: "Abaixo do mínimo", evidencia: `${l.posterior} un. (mínimo ${l.minimo})`, acao: `Repor ${Math.max(0, l.minimo - l.posterior)} un. para atingir o mínimo cadastrado.` });
+    }
+    const qtdProdutosComVenda = Math.max(1, Object.keys(vendidoPorProduto).length);
+    const mediaVendaGeral = totalVendidoPeriodo / qtdProdutosComVenda;
+    if ((l.baixo || l.zerado) && l.vendido > 0 && l.vendido >= mediaVendaGeral) {
+      alertasEstoque.push({ produto: l.nome, nivel: "critico", tipo: "Alta venda com estoque baixo", evidencia: `${l.vendido} un. vendidas no período, restam ${l.posterior}`, acao: "Priorizar reposição — saída acima da média com estoque baixo." });
+    }
+    const vendidoAnteriorL = comparativoEstoqueE?.vendidoAnteriorPorProduto?.[l.nome] || 0;
+    if (comparativoEstoqueE && vendidoAnteriorL > 0 && l.vendido > vendidoAnteriorL * 2) {
+      alertasEstoque.push({ produto: l.nome, nivel: "atencao", tipo: "Queda anormal de estoque", evidencia: `${l.vendido} un. vendidas vs. ${vendidoAnteriorL} no período anterior`, acao: "Confirmar se a demanda subiu de fato ou se houve erro de baixa." });
+    }
+    if (l.status === "excesso") {
+      alertasEstoque.push({ produto: l.nome, nivel: "oportunidade", tipo: "Estoque excessivo", evidencia: `Cobertura de ${Math.round(l.cobertura)} dia(s) no ritmo atual`, acao: "Avaliar promoção ou combo para girar o estoque parado." });
+    }
+    if (!(Number(products.find((p) => p.name === l.nome)?.cost) > 0)) {
+      alertasEstoque.push({ produto: l.nome, nivel: "atencao", tipo: "Custo sem cadastro", evidencia: "Custo não cadastrado no produto", acao: "Cadastrar o custo para cálculos de margem e valor em estoque ficarem corretos." });
+    }
+    if (l.vendido > 0 && l.cobertura != null && l.cobertura < 7) {
+      alertasEstoque.push({ produto: l.nome, nivel: "critico", tipo: "Possível ruptura", evidencia: `Cobertura de ${l.cobertura.toFixed(1)} dia(s) no ritmo atual`, acao: "Repor com urgência — o estoque deve acabar em menos de uma semana." });
+    }
+  });
+  produtosParadosEstoqueE.forEach((l) => {
+    alertasEstoque.push({ produto: l.nome, nivel: "oportunidade", tipo: "Produto parado", evidencia: "Nenhuma venda no período", acao: "Avaliar promoção, combo ou revisão do cardápio para este item." });
+  });
+  const ordemNivel = { critico: 0, atencao: 1, oportunidade: 2 };
+  alertasEstoque.sort((a, b) => ordemNivel[a.nivel] - ordemNivel[b.nivel]);
+
+  // ── Novas análises (Top N) ──
+  const produtosComGiro = linhasEstoqueEnriquecidas.filter((l) => l.ativo && (l.anterior + l.posterior) > 0).map((l) => ({ ...l, giro: l.vendido / (((l.anterior + l.posterior) / 2) || 1) }));
+  const maiorGiro = [...produtosComGiro].sort((a, b) => b.giro - a.giro).slice(0, 5);
+  const menorGiro = [...produtosComGiro].filter((l) => l.vendido > 0).sort((a, b) => a.giro - b.giro).slice(0, 5);
+  const maiorValorImobilizado = [...linhasEstoqueEnriquecidas].filter((l) => l.ativo).sort((a, b) => b.valorEstoque - a.valorEstoque).slice(0, 5);
+  const riscoRuptura = linhasEstoqueEnriquecidas.filter((l) => l.ativo && l.vendido > 0 && l.cobertura != null && l.cobertura < 7).sort((a, b) => a.cobertura - b.cobertura).slice(0, 5);
+  const consumoPorCategoria = (() => {
+    const m = {};
+    linhasEstoqueEnriquecidas.forEach((l) => { if (!l.ativo) return; const c = l.categoria || "Outros"; m[c] = (m[c] || 0) + l.vendido; });
+    return Object.entries(m).map(([categoria, vendido]) => ({ categoria, vendido })).filter((c) => c.vendido > 0).sort((a, b) => b.vendido - a.vendido).slice(0, 5);
+  })();
+  // Sugestão de reposição: só a diferença real até o mínimo cadastrado +
+  // a média de saída/dia do próprio período, lado a lado — sem projetar
+  // quantidade "ideal" nem inventar um horizonte de dias.
+  const sugestoesReposicao = linhasEstoqueEnriquecidas
+    .filter((l) => l.ativo && (l.baixo || l.zerado) && l.minimo > l.posterior)
+    .map((l) => ({ ...l, sugestaoQtd: l.minimo - l.posterior, mediaDiaria: mediaDiariaDe(l.vendido) }))
+    .sort((a, b) => b.sugestaoQtd - a.sugestaoQtd)
+    .slice(0, 8);
+
+  // ── Tabela principal: busca + ordenação (todas as colunas) + filtros
+  // (categoria/status/faixa de estoque) — reaproveita o mesmo estado de
+  // paginação (paginaEstoque/porPaginaEstoque) já existente. ──
+  const categoriasEstoqueDisponiveis = Array.from(new Set(linhasEstoqueEnriquecidas.filter((l) => l.ativo).map((l) => l.categoria || "Outros"))).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  const buscaEstoqueLower = buscaEstoque.trim().toLowerCase();
+  const linhasEstoqueFiltradas = linhasEstoqueEnriquecidas.filter((l) => {
+    if (!l.ativo) return false;
+    if (buscaEstoqueLower && !`${l.nome} ${l.categoria || ""}`.toLowerCase().includes(buscaEstoqueLower)) return false;
+    if (fCategoriaEstoque !== "todas" && (l.categoria || "Outros") !== fCategoriaEstoque) return false;
+    if (fStatusEstoque !== "todos" && l.status !== fStatusEstoque) return false;
+    if (somenteCriticosEstoque && l.status !== "critico" && l.status !== "atencao") return false;
+    if (fEstoqueMin.trim() && l.posterior < Number(fEstoqueMin)) return false;
+    if (fEstoqueMax.trim() && l.posterior > Number(fEstoqueMax)) return false;
+    return true;
+  });
+  const linhasEstoqueOrdenadas = [...linhasEstoqueFiltradas].sort((x, y) => {
+    const dir = ordenacaoEstoque.dir === "asc" ? 1 : -1;
+    const campo = ordenacaoEstoque.campo;
+    if (campo === "nome" || campo === "categoria" || campo === "status") return dir * String(x[campo] ?? "").localeCompare(String(y[campo] ?? ""), "pt-BR");
+    const vx = x[campo], vy = y[campo];
+    if (vx == null && vy == null) return 0;
+    if (vx == null) return 1;
+    if (vy == null) return -1;
+    return dir * (vx - vy);
+  });
+  function alternarOrdemEstoque(campo) {
+    setOrdenacaoEstoque((o) => (o.campo === campo ? { campo, dir: o.dir === "desc" ? "asc" : "desc" } : { campo, dir: "desc" }));
+  }
+  function limparFiltrosEstoque() {
+    setFCategoriaEstoque("todas"); setFStatusEstoque("todos"); setFEstoqueMin(""); setFEstoqueMax(""); setSomenteCriticosEstoque(false);
+  }
+  const filtrosEstoqueAtivos = fCategoriaEstoque !== "todas" || fStatusEstoque !== "todos" || !!fEstoqueMin || !!fEstoqueMax || somenteCriticosEstoque;
+
+  // Volta para a página 1 ao trocar período, busca, filtro, ordenação ou a
+  // quantidade por página (reaproveita o mesmo estado de paginação já usado
+  // antes por esta tabela).
+  useEffect(() => { setPaginaEstoque(1); }, [periodo, ini, fim, porPaginaEstoque, buscaEstoque, fCategoriaEstoque, fStatusEstoque, fEstoqueMin, fEstoqueMax, somenteCriticosEstoque, ordenacaoEstoque]);
+  const totalPaginasEstoque = Math.max(1, Math.ceil(linhasEstoqueOrdenadas.length / porPaginaEstoque));
+  const paginaEstoqueAtual = Math.min(paginaEstoque, totalPaginasEstoque);
+  const linhasEstoqueVisiveis = linhasEstoqueOrdenadas.slice((paginaEstoqueAtual - 1) * porPaginaEstoque, paginaEstoqueAtual * porPaginaEstoque);
+
+  function exportarEstoquePDF() {
+    const empresa = lojaInfo?.nome || "Restaurante";
+    const linhasHtml = linhasEstoqueOrdenadas.map((l) => `<tr><td>${l.nome}</td><td>${l.categoria || "—"}</td><td class="r">${l.anterior}</td><td class="r">${l.vendido}</td><td class="r">${l.posterior}</td><td class="r">${l.minimo}</td><td class="r">${formatCurrency(l.valorEstoque)}</td><td>${ESTOQUE_STATUS[l.status]?.label || l.status}</td></tr>`).join("");
+    const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Estoque — ${empresa}</title>
+    <style>
+      @page { size: A4; margin: 14mm; }
+      * { box-sizing: border-box; }
+      body { font-family: 'Segoe UI', Arial, sans-serif; color:#0f172a; margin:0; }
+      h1 { font-size: 18px; margin-bottom: 4px; }
+      p.sub { color:#64748b; font-size: 11px; margin-bottom: 16px; }
+      table { width: 100%; border-collapse: collapse; font-size: 10px; }
+      th { text-align: left; text-transform: uppercase; letter-spacing: .5px; font-size: 8px; color: #64748b; border-bottom: 2px solid #e2e8f0; padding: 6px 6px; }
+      td { padding: 6px 6px; border-bottom: 1px solid #f1f5f9; }
+      td.r, th.r { text-align: right; }
+    </style></head><body>
+      <h1>Relatório de Estoque — ${empresa}</h1>
+      <p class="sub">${linhasEstoqueOrdenadas.length} produto(s) · Valor em estoque ${formatCurrency(valorEstoqueTotal)}</p>
+      <table><thead><tr><th>Produto</th><th>Categoria</th><th class="r">Anterior</th><th class="r">Vendido</th><th class="r">Atual</th><th class="r">Mínimo</th><th class="r">Valor</th><th>Status</th></tr></thead>
+      <tbody>${linhasHtml}</tbody></table>
+      <script>window.onload=function(){window.print();}<\/script>
+    </body></html>`;
+    const j = window.open("", "_blank", "width=1000,height=1000");
+    if (!j) return;
+    j.document.write(html);
+    j.document.close();
+  }
+  function atualizarEstoqueVisao() { setAtualizadoEmEstoque(new Date()); }
+  const inputClsEstoque = "w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs text-[#334155] outline-none transition focus:border-[#2563EB]";
+  const labelClsEstoque = "mb-1 block text-[10px] font-bold uppercase tracking-widest text-[#64748B]";
+
   function exportarEstoqueCSV() {
     let csv = "Produto;Categoria;Estoque anterior;Vendido no periodo;Estoque atual;Estoque minimo\n";
     linhasEstoque.forEach((l) => { csv += `${l.nome};${l.categoria || ""};${l.anterior};${l.vendido};${l.posterior};${l.minimo}\n`; });
@@ -9143,51 +9327,166 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
 
       {aba === "estoque" && (
         <>
-          <div className="flex flex-wrap gap-2">
-            <button onClick={exportarEstoqueCSV} className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-[#334155] transition hover:bg-slate-100">📊 Exportar Excel (CSV)</button>
+          {/* 6. Ações rápidas */}
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#E2E8F0] bg-white p-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <button onClick={exportarEstoqueCSV} className="rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">📊 Exportar Excel</button>
+              <button onClick={exportarEstoquePDF} className="rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">📄 Exportar PDF</button>
+              <button onClick={() => setCompararPeriodoEstoque((v) => !v)}
+                className={`rounded-xl border px-3.5 py-2 text-xs font-bold transition ${compararPeriodoEstoque ? "border-[#2563EB] bg-[#EFF6FF] text-[#2563EB]" : "border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9]"}`}>📅 Comparar período</button>
+              <button onClick={() => setSomenteCriticosEstoque((v) => !v)}
+                className={`rounded-xl border px-3.5 py-2 text-xs font-bold transition ${somenteCriticosEstoque ? "border-[#EF4444] bg-[#EF4444]/10 text-[#EF4444]" : "border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9]"}`}>🚨 Ver somente críticos</button>
+              <button onClick={atualizarEstoqueVisao} className="rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">🔄 Atualizar</button>
+              <button onClick={irParaProdutos} className="rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">📦 Abrir cadastro do produto</button>
+            </div>
+            <p className="text-[11px] text-[#94A3B8]">Atualizado às {atualizadoEmEstoque.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</p>
           </div>
 
-          {/* Destaques: maior x menor estoque + totais */}
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <div className="rounded-[1.5rem] border border-emerald-200 bg-emerald-50 p-5">
-              <p className="text-[11px] font-bold uppercase tracking-widest text-emerald-700/80">Maior estoque</p>
-              <p className="page-title mt-2 truncate text-lg font-bold text-dash-navy">{maiorEstoque ? maiorEstoque.name : "—"}</p>
-              <p className="mt-0.5 text-sm font-black text-emerald-600">{maiorEstoque ? `${maiorEstoque.estoque ?? 0} un` : "Sem produtos"}</p>
-            </div>
-            <div className="rounded-[1.5rem] border border-amber-200 bg-amber-50 p-5">
-              <p className="text-[11px] font-bold uppercase tracking-widest text-amber-700/80">Menor estoque</p>
-              <p className="page-title mt-2 truncate text-lg font-bold text-dash-navy">{menorEstoque ? menorEstoque.name : "—"}</p>
-              <p className="mt-0.5 text-sm font-black text-amber-600">{menorEstoque ? `${menorEstoque.estoque ?? 0} un` : "Sem produtos"}</p>
-            </div>
-            <CardMetrica titulo="Itens baixados no período" valor={totalVendidoPeriodo} sub="unidades vendidas/pagas" cor="text-dash-navy" />
-            <CardMetrica titulo="Total em estoque (atual)" valor={`${totalEmEstoque} un`} sub={`${zeradosCount} zerado(s) · ${baixoCount} baixo(s)`} cor="text-dash-navy" tone="dashWarning" />
+          {/* 1. Resumo executivo */}
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
+            <KpiExecutivo titulo="Estoque total atual" valor={`${totalEmEstoque} un.`} desc="Soma de todos os produtos ativos" icon="📦" />
+            <KpiExecutivo titulo="Itens vendidos no período" valor={`${totalVendidoPeriodo} un.`} variacao={compararPeriodoEstoque ? comparativoEstoqueE?.itensVendidos : null} desc="Unidades baixadas por venda paga" icon="🧾" />
+            <KpiExecutivo titulo="Maior estoque" valor={maiorEstoque ? maiorEstoque.name : "—"} desc={maiorEstoque ? `${maiorEstoque.estoque ?? 0} un.` : "Sem produtos"} icon="🔝" />
+            <KpiExecutivo titulo="Menor estoque" valor={menorEstoque ? menorEstoque.name : "—"} desc={menorEstoque ? `${menorEstoque.estoque ?? 0} un.` : "Sem produtos"} icon="🔻" />
+            <KpiExecutivo titulo="Produtos zerados" valor={zeradosCount} desc="Estoque atual igual a zero" icon="⛔" />
+            <KpiExecutivo titulo="Abaixo do mínimo" valor={baixoCount} desc="Estoque atual ≤ mínimo cadastrado" icon="⚠️" />
+            <KpiExecutivo titulo="Sem movimentação" valor={produtosParadosEstoqueE.length} desc="Nenhuma venda no período" icon="😴" />
+            <KpiExecutivo titulo="Valor estimado em estoque" valor={formatCurrency(valorEstoqueTotal)} desc="Estoque atual × custo cadastrado" icon="💰" />
+            <KpiExecutivo titulo="Custo dos itens vendidos" valor={formatCurrency(custoVendidoTotal)} variacao={compararPeriodoEstoque ? comparativoEstoqueE?.custoVendido : null} desc="CMV do período (custo cadastrado)" icon="🧮" />
+            <KpiExecutivo titulo="Cobertura média" valor={coberturaMediaDias != null ? `${coberturaMediaDias.toFixed(0)} dia(s)` : "—"} desc={coberturaMediaDias != null ? "Entre produtos com venda no período" : "Sem produtos com venda para calcular"} icon="⏳" />
           </div>
 
-          {/* Tabela: estoque anterior x posterior conforme as vendas */}
-          <div className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white">
-            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3">
-              <h3 className="page-title text-sm font-bold uppercase tracking-wider text-dash-navy">Estoque anterior x posterior (por venda)</h3>
-              <span className="text-[11px] text-slate-500">Anterior = atual + vendido no período</span>
-            </div>
-            <div className="hidden grid-cols-[2fr_1fr_1fr_1fr] bg-slate-50 px-5 py-2.5 text-[11px] font-bold uppercase tracking-widest text-slate-500 sm:grid">
-              <span>Produto</span><span className="text-center">Estoque anterior</span><span className="text-center">Vendido</span><span className="text-right">Estoque atual</span>
-            </div>
-            {linhasEstoque.length === 0 && <p className="px-5 py-6 text-center text-sm text-slate-500">Nenhum produto cadastrado.</p>}
-            {linhasEstoqueVisiveis.map((l) => (
-              <div key={l.nome} className="grid grid-cols-[2fr_1fr_1fr] sm:grid-cols-[2fr_1fr_1fr_1fr] items-center gap-2 border-t border-slate-100 px-5 py-3 text-sm">
-                <div className="min-w-0">
-                  <p className="truncate font-bold text-dash-navy">{l.nome}</p>
-                  <p className="truncate text-[11px] text-slate-500">{l.categoria || "—"}{l.zerado ? " • zerado" : l.baixo ? " • estoque baixo" : ""}</p>
-                </div>
-                <span className="hidden text-center font-mono font-bold text-slate-500 sm:block">{l.anterior}</span>
-                <span className="text-center font-mono font-black text-blue-500">{l.vendido > 0 ? `−${l.vendido}` : "0"}</span>
-                <span className={`text-right font-mono font-black ${l.zerado ? "text-red-500" : l.baixo ? "text-amber-500" : "text-emerald-500"}`}>{l.posterior}{(l.zerado || l.baixo) ? " ⚠" : ""}</span>
+          {/* 2. Alertas de estoque */}
+          <div>
+            <h3 className="page-title mb-3 text-base font-bold text-[#0D1B2A]">Alertas de estoque</h3>
+            {alertasEstoque.length === 0 ? (
+              <p className="rounded-2xl border border-[#E2E8F0] bg-white px-5 py-6 text-center text-sm text-[#64748B]">Nenhum alerta no momento — estoque dentro do esperado para o período.</p>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {(somenteCriticosEstoque ? alertasEstoque.filter((a) => a.nivel === "critico") : alertasEstoque).slice(0, 12).map((a, i) => (
+                  <InsightCardVendas key={i} tom={a.nivel === "critico" ? "danger" : a.nivel === "atencao" ? "warning" : "violet"}
+                    titulo={`${a.tipo} · ${a.produto}`} texto={`${a.evidencia}. ${a.acao}`}
+                    acaoLabel="Ver produto" onAcao={() => { const l = linhasEstoqueEnriquecidas.find((x) => x.nome === a.produto); if (l) setProdutoDetalheEstoque(l); }} />
+                ))}
               </div>
-            ))}
+            )}
           </div>
 
-          <Paginacao pagina={paginaEstoqueAtual} totalPaginas={totalPaginasEstoque} total={linhasEstoque.length} porPagina={porPaginaEstoque}
-            onMudar={setPaginaEstoque} rotulo="produto(s)" tema="claro" porPaginaOpcoes={[10, 20, 50, 100]} onMudarPorPagina={setPorPaginaEstoque} />
+          {/* 3. Tabela principal — busca, ordenação por coluna, filtros, paginação */}
+          <div className="rounded-2xl border border-[#E2E8F0] bg-white p-3.5">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <input value={buscaEstoque} onChange={(e) => setBuscaEstoque(e.target.value)} placeholder="🔎 Buscar por produto ou categoria…"
+                className="min-w-[220px] flex-1 rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2.5 text-sm text-[#334155] outline-none transition focus:border-[#2563EB]" />
+              <button onClick={() => setMostrarFiltrosEstoque((v) => !v)}
+                className={`rounded-xl border px-3.5 py-2.5 text-xs font-bold transition ${mostrarFiltrosEstoque || filtrosEstoqueAtivos ? "border-[#2563EB] bg-[#EFF6FF] text-[#2563EB]" : "border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9]"}`}>
+                ⚙️ Filtros{filtrosEstoqueAtivos ? " •" : ""}
+              </button>
+            </div>
+            {mostrarFiltrosEstoque && (
+              <div className="pp-anim-fade mt-3 grid gap-3 border-t border-[#F1F5F9] pt-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div>
+                  <label className={labelClsEstoque}>Categoria</label>
+                  <DropdownSelect ariaLabel="Categoria" valor={fCategoriaEstoque} onSelecionar={setFCategoriaEstoque} className={`${inputClsEstoque} flex items-center justify-between text-left`}
+                    opcoes={[{ valor: "todas", rotulo: "Todas" }, ...categoriasEstoqueDisponiveis.map((c) => ({ valor: c, rotulo: c }))]} />
+                </div>
+                <div>
+                  <label className={labelClsEstoque}>Status</label>
+                  <DropdownSelect ariaLabel="Status" valor={fStatusEstoque} onSelecionar={setFStatusEstoque} className={`${inputClsEstoque} flex items-center justify-between text-left`}
+                    opcoes={[{ valor: "todos", rotulo: "Todos" }, ...Object.keys(ESTOQUE_STATUS).map((s) => ({ valor: s, rotulo: ESTOQUE_STATUS[s].label }))]} />
+                </div>
+                <div><label className={labelClsEstoque}>Estoque mínimo (faixa)</label><input value={fEstoqueMin} onChange={(e) => setFEstoqueMin(e.target.value.replace(/[^\d]/g, ""))} placeholder="0" inputMode="numeric" className={inputClsEstoque} /></div>
+                <div><label className={labelClsEstoque}>Estoque máximo (faixa)</label><input value={fEstoqueMax} onChange={(e) => setFEstoqueMax(e.target.value.replace(/[^\d]/g, ""))} placeholder="999" inputMode="numeric" className={inputClsEstoque} /></div>
+                {filtrosEstoqueAtivos && (
+                  <button onClick={limparFiltrosEstoque} className="self-end text-left text-[11px] font-bold text-[#2563EB] hover:text-[#1D4ED8] sm:col-span-2 lg:col-span-4">✕ Limpar filtros</button>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="overflow-hidden rounded-[1.75rem] border border-[#E2E8F0] bg-white">
+            <div className="border-b border-[#E2E8F0] px-5 py-3.5">
+              <h3 className="page-title text-sm font-bold uppercase tracking-wider text-[#0D1B2A]">Estoque anterior x posterior (por venda)</h3>
+              <p className="mt-0.5 text-[11px] text-[#64748B]">Anterior = atual + vendido no período · não considera restock manual feito fora deste período · {linhasEstoqueOrdenadas.length} produto(s)</p>
+            </div>
+            {/* Rolagem interna com cabeçalho fixo */}
+            <div className="max-h-[520px] overflow-auto">
+              <table className="w-full min-w-[820px] border-collapse text-sm">
+                <thead className="sticky top-0 z-10 bg-[#F8FAFC]">
+                  <tr className="text-[10px] font-bold uppercase tracking-widest text-[#64748B]">
+                    {[
+                      ["nome", "Produto"], ["categoria", "Categoria"], ["anterior", "Anterior"], ["vendido", "Vendido"],
+                      ["posterior", "Atual"], ["minimo", "Mínimo"], ["cobertura", "Cobertura"], ["custoUnit", "Custo un."], ["valorEstoque", "Valor"], ["status", "Status"],
+                    ].map(([campo, rotulo]) => (
+                      <th key={campo} className="whitespace-nowrap border-b border-[#E2E8F0] px-3 py-2.5 text-left">
+                        <button onClick={() => alternarOrdemEstoque(campo)} className="flex items-center gap-1 transition hover:text-[#2563EB]">
+                          {rotulo}{ordenacaoEstoque.campo === campo ? (ordenacaoEstoque.dir === "desc" ? " ▼" : " ▲") : ""}
+                        </button>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {linhasEstoqueVisiveis.length === 0 && (
+                    <tr><td colSpan={10} className="px-5 py-8 text-center text-sm text-[#64748B]">
+                      {linhasEstoqueEnriquecidas.length === 0 ? "Nenhum produto cadastrado." : "Nenhum produto encontrado para os filtros aplicados."}
+                    </td></tr>
+                  )}
+                  {linhasEstoqueVisiveis.map((l) => (
+                    <tr key={l.nome} onClick={() => setProdutoDetalheEstoque(l)} className="cursor-pointer border-b border-[#F1F5F9] transition hover:bg-[#F8FAFC]">
+                      <td className="max-w-[220px] truncate px-3 py-2.5 font-semibold text-[#0D1B2A]">{l.nome}</td>
+                      <td className="px-3 py-2.5 text-[#64748B]">{l.categoria || "—"}</td>
+                      <td className="px-3 py-2.5 font-mono text-[#64748B]">{l.anterior}</td>
+                      <td className="px-3 py-2.5 font-mono font-semibold text-[#2563EB]">{l.vendido}</td>
+                      <td className="px-3 py-2.5 font-mono font-bold text-[#0D1B2A]">{l.posterior}</td>
+                      <td className="px-3 py-2.5 font-mono text-[#64748B]">{l.minimo}</td>
+                      <td className="px-3 py-2.5 text-[#64748B]">{l.cobertura != null ? `${l.cobertura.toFixed(0)}d` : "—"}</td>
+                      <td className="px-3 py-2.5 text-[#64748B]">{formatCurrency(l.custoUnit)}</td>
+                      <td className="px-3 py-2.5 font-semibold text-[#0D1B2A]">{formatCurrency(l.valorEstoque)}</td>
+                      <td className="px-3 py-2.5"><BadgeEstoque status={l.status} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <Paginacao pagina={paginaEstoqueAtual} totalPaginas={totalPaginasEstoque} total={linhasEstoqueOrdenadas.length} porPagina={porPaginaEstoque}
+            onMudar={setPaginaEstoque} rotulo="produto(s)" tema="claro" porPaginaOpcoes={[10, 20, 50, 100]} onMudarPorPagina={setPorPaginaEstoque} mostrarExtremos />
+
+          {/* 5. Novas análises */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <TopLista titulo="Maior giro" icon="🔁" itens={maiorGiro} vazio="Sem dados de giro no período."
+              render={(l) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[#334155]">{l.nome}</span><span className="shrink-0 font-bold text-[#0D1B2A]">{l.giro.toFixed(2)}x</span></div>)} />
+            <TopLista titulo="Menor giro" icon="🐌" itens={menorGiro} vazio="Sem produtos com giro baixo (excluindo parados)."
+              render={(l) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[#334155]">{l.nome}</span><span className="shrink-0 font-bold text-[#F59E0B]">{l.giro.toFixed(2)}x</span></div>)} />
+            <TopLista titulo="Produtos parados" icon="😴" itens={produtosParadosEstoqueE.slice(0, 5)} vazio="Todos os produtos ativos venderam no período."
+              acao={produtosParadosEstoqueE.length > 5 ? <span className="text-[11px] text-[#64748B]">+{produtosParadosEstoqueE.length - 5}</span> : null}
+              render={(l) => <span className="block truncate text-sm text-[#334155]">{l.nome}</span>} />
+            <TopLista titulo="Maior valor imobilizado" icon="🏦" itens={maiorValorImobilizado} vazio="Sem dados de valor em estoque."
+              render={(l) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[#334155]">{l.nome}</span><span className="shrink-0 font-bold text-[#0D1B2A]">{formatCurrency(l.valorEstoque)}</span></div>)} />
+            <TopLista titulo="Risco de ruptura" icon="🚨" itens={riscoRuptura} vazio="Nenhum produto com risco de ruptura identificado."
+              render={(l) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[#334155]">{l.nome}</span><span className="shrink-0 font-bold text-[#EF4444]">{l.cobertura.toFixed(1)}d</span></div>)} />
+            <TopLista titulo="Categorias com maior consumo" icon="🏷️" itens={consumoPorCategoria} vazio="Sem categorias com consumo no período."
+              render={(c) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[#334155]">{c.categoria}</span><span className="shrink-0 font-bold text-[#0D1B2A]">{c.vendido} un.</span></div>)} />
+            <TopLista titulo="Sugestão de reposição" icon="📋" itens={sugestoesReposicao} vazio="Nenhum produto abaixo do mínimo no momento." className="sm:col-span-2"
+              render={(l) => (
+                <div className="flex items-center justify-between gap-2 text-sm">
+                  <span className="min-w-0 truncate text-[#334155]">{l.nome}</span>
+                  <span className="shrink-0 text-right">
+                    <span className="font-bold text-[#2563EB]">+{l.sugestaoQtd} un. até o mínimo</span>
+                    <span className="ml-2 text-[11px] text-[#64748B]">média {l.mediaDiaria.toFixed(1)} un./dia</span>
+                  </span>
+                </div>
+              )} />
+          </div>
+
+          {produtosSemCustoEstoque.length > 0 && (
+            <p className="text-[11px] text-[#94A3B8]">{produtosSemCustoEstoque.length} produto(s) sem custo cadastrado — valor em estoque e CMV podem estar subestimados para esses itens.</p>
+          )}
+
+          {produtoDetalheEstoque && (
+            <ModalDetalheProdutoEstoque produto={produtoDetalheEstoque} onFechar={() => setProdutoDetalheEstoque(null)}
+              onAbrirCadastro={() => { setProdutoDetalheEstoque(null); irParaProdutos(); }} />
+          )}
         </>
       )}
 
@@ -9214,6 +9513,61 @@ const ANOMALIA_CORES = { azul: "#2563EB", laranja: "#F59E0B", vermelho: "#EF4444
 function BadgeAnomalia({ cor, children }) {
   const hex = ANOMALIA_CORES[cor] || ANOMALIA_CORES.laranja;
   return <span className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-black" style={{ background: `${hex}1A`, color: hex }}><span className="h-1.5 w-1.5 rounded-full" style={{ background: hex }} />{children}</span>;
+}
+
+// Status de estoque — paleta oficial restrita a estas 5 cores (a 6ª,
+// #2563EB, é usada à parte pelo BadgeCupom tipo="fiscal" para o caso
+// "informativo": custo sem cadastro, que não é um nível de estoque).
+const ESTOQUE_STATUS = {
+  normal: { label: "Normal", cor: "#10B981" },
+  atencao: { label: "Atenção", cor: "#F59E0B" },
+  critico: { label: "Crítico", cor: "#EF4444" },
+  excesso: { label: "Excesso", cor: "#8B5CF6" },
+  semMovimento: { label: "Sem movimento", cor: "#64748B" },
+};
+function BadgeEstoque({ status }) {
+  const s = ESTOQUE_STATUS[status] || ESTOQUE_STATUS.normal;
+  return <span className="rounded-full px-2 py-0.5 text-[10px] font-black" style={{ background: `${s.cor}1A`, color: s.cor }}>{s.label}</span>;
+}
+
+// Detalhe do produto (aba Estoque) — visualização, ao clicar na linha da
+// tabela. Só os campos já calculados por linha (linhasEstoqueEnriquecidas);
+// nenhuma consulta nova.
+function ModalDetalheProdutoEstoque({ produto, onFechar, onAbrirCadastro }) {
+  if (!produto) return null;
+  const l = produto;
+  return (
+    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-[#0D1B2A]/70 backdrop-blur-sm p-4" onClick={onFechar}>
+      <div onClick={(e) => e.stopPropagation()} className="pp-anim-up w-full max-w-md overflow-hidden rounded-[1.75rem] border border-[#E2E8F0] bg-white shadow-2xl">
+        <div className="flex items-center justify-between border-b border-[#E2E8F0] px-6 py-4">
+          <div className="min-w-0">
+            <h2 className="truncate text-base font-black text-[#0D1B2A]">{l.nome}</h2>
+            <p className="mt-0.5 text-xs text-[#64748B]">{l.categoria || "Sem categoria"}</p>
+          </div>
+          <button onClick={onFechar} className="shrink-0 rounded-xl border border-[#E2E8F0] px-3 py-2 text-sm font-black text-[#64748B] hover:bg-[#F1F5F9]">✕</button>
+        </div>
+        <div className="space-y-4 px-6 py-5">
+          <BadgeEstoque status={l.status} />
+          <div className="grid grid-cols-2 gap-2.5">
+            {[
+              ["Estoque anterior", `${l.anterior} un.`], ["Vendido no período", `${l.vendido} un.`],
+              ["Estoque atual", `${l.posterior} un.`], ["Estoque mínimo", `${l.minimo} un.`],
+              ["Custo unitário", formatCurrency(l.custoUnit)], ["Valor em estoque", formatCurrency(l.valorEstoque)],
+              ["Cobertura estimada", l.cobertura != null ? `${l.cobertura.toFixed(1)} dia(s)` : "—"], ["Status", ESTOQUE_STATUS[l.status]?.label || l.status],
+            ].map(([r, v]) => (
+              <div key={r} className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
+                <p className="text-[9px] font-bold uppercase tracking-widest text-[#64748B]">{r}</p>
+                <p className="mt-0.5 truncate text-sm font-black text-[#0D1B2A]">{v}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="border-t border-[#E2E8F0] px-6 py-4">
+          <button onClick={onAbrirCadastro} className="w-full rounded-xl bg-[#2563EB] py-2.5 text-sm font-bold text-white transition hover:bg-[#1D4ED8]">Abrir cadastro do produto</button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function minutosEntreISO(a, b) { if (!a || !b) return null; const ms = new Date(b) - new Date(a); return ms > 0 ? ms / 60000 : null; }
