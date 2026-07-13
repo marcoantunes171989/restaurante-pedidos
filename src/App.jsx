@@ -8587,7 +8587,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
                 <span className="block text-sm font-black text-[#172033]">{formatCurrency(a.faturamento)}</span>
               </span>
             ) : null}>
-            <BarrasHora dados={horarioGeral} />
+            <BarrasHora dados={horarioGeral} paleta={{ semVenda: "#2563EB", pico: "#F59E0B", acimaMedia: "#2563EB", padrao: "#2563EB", foco: "#2563EB", grade: "#E2E8F0", texto: "#64748B", textoValor: "#64748B", tooltipBg: "#0D1B2A" }} />
           </Painel>
 
           {/* Tabelas: produtos, mesas */}
