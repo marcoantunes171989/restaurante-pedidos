@@ -8297,6 +8297,9 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
   // Paginação da tabela "Estoque anterior x posterior" (aba Estoque)
   const [paginaEstoque, setPaginaEstoque] = useState(1);
   const [porPaginaEstoque, setPorPaginaEstoque] = useState(10);
+  // Paginação da tabela "Clientes do período" (aba Clientes)
+  const [paginaClientes, setPaginaClientes] = useState(1);
+  const [porPaginaClientes, setPorPaginaClientes] = useState(10);
 
   const filtrados = filtrarPedidosPorPeriodo(orders, periodo, ini, fim);
   const a = analisarVendas(filtrados, products);
@@ -8364,6 +8367,11 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
     if (d && (!porClienteR[c].ultimo || d > porClienteR[c].ultimo)) porClienteR[c].ultimo = d;
   });
   const clientesLista = Object.values(porClienteR).map((c) => ({ ...c, ticket: c.pedidos ? c.faturamento / c.pedidos : 0 })).sort((x, y) => y.faturamento - x.faturamento);
+  // Volta para a página 1 ao trocar período, aba ou a quantidade por página.
+  useEffect(() => { setPaginaClientes(1); }, [periodo, ini, fim, aba, porPaginaClientes]);
+  const totalPaginasClientes = Math.max(1, Math.ceil(clientesLista.length / porPaginaClientes));
+  const paginaClientesAtual = Math.min(paginaClientes, totalPaginasClientes);
+  const clientesListaVisivel = clientesLista.slice((paginaClientesAtual - 1) * porPaginaClientes, paginaClientesAtual * porPaginaClientes);
   const clientesIdentificados = clientesLista.filter((c) => c.identificado).length;
   const naoIdent = clientesLista.filter((c) => !c.identificado);
   const pedidosSemId = naoIdent.reduce((s, c) => s + c.pedidos, 0);
@@ -8671,7 +8679,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
                 <thead><tr className="bg-slate-50 text-left text-[10px] font-bold uppercase tracking-widest text-slate-500"><th className="px-5 py-2.5">Cliente</th><th className="px-3 py-2.5 text-center">Pedidos</th><th className="px-3 py-2.5 text-right">Faturamento</th><th className="px-3 py-2.5 text-right">Ticket médio</th><th className="px-3 py-2.5 text-right">Último pedido</th><th className="px-5 py-2.5">Status</th></tr></thead>
                 <tbody>
                   {clientesLista.length === 0 && <tr><td colSpan={6} className="px-5 py-6 text-center text-sm text-slate-500">Nenhum pedido no período.</td></tr>}
-                  {clientesLista.map((c) => (
+                  {clientesListaVisivel.map((c) => (
                     <tr key={c.cliente} className="border-t border-slate-100">
                       <td className="px-5 py-3 font-semibold text-dash-navy">{c.cliente}</td>
                       <td className="px-3 py-3 text-center text-slate-500">{c.pedidos}</td>
@@ -8685,6 +8693,10 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
               </table>
             </div>
           </div>
+
+          <Paginacao pagina={paginaClientesAtual} totalPaginas={totalPaginasClientes} total={clientesLista.length} porPagina={porPaginaClientes}
+            onMudar={setPaginaClientes} rotulo="registro(s)" tema="claro" porPaginaOpcoes={[10, 20, 50, 100]} onMudarPorPagina={setPorPaginaClientes} />
+
           {pedidosSemId > 0 && (
             <div className="rounded-[2rem] border border-violet-200 bg-violet-50 p-5">
               <h3 className="page-title text-sm font-bold text-violet-700">💡 Recomendação gerencial</h3>
@@ -8781,7 +8793,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
         </>
       )}
 
-      {aba === "permanencia" && <RelatorioPermanencia pedidos={filtrados} />}
+      {aba === "permanencia" && <RelatorioPermanencia pedidos={filtrados} periodo={periodo} ini={ini} fim={fim} />}
 
       {aba === "satisfacao" && <RelatorioSatisfacao pesquisas={filtrarPesquisasPorPeriodo(pesquisas, periodo, ini, fim)} />}
 
@@ -9209,7 +9221,9 @@ function CuponsProdutoModal({ nome, cupons, lojaInfo, onFechar }) {
   );
 }
 
-function RelatorioPermanencia({ pedidos }) {
+function RelatorioPermanencia({ pedidos, periodo, ini, fim }) {
+  const [pagina, setPagina] = useState(1);
+  const [porPagina, setPorPagina] = useState(10);
   // Agrupa por comanda: primeiro pedido (início) e último pagamento (fim)
   const porComanda = {};
   pedidos.filter((o) => o.paymentStatus === "paid" && o.createdAtISO && o.updatedAtISO).forEach((o) => {
@@ -9226,6 +9240,15 @@ function RelatorioPermanencia({ pedidos }) {
   });
 
   const mediaGeral = lista.length ? lista.reduce((s, c) => s + c.ms, 0) / lista.length : 0;
+
+  // Paginação do "Detalhe por comanda" — volta para a página 1 ao trocar
+  // período ou a quantidade por página (a troca de aba já remonta o
+  // componente, o que já reinicia a página sozinho).
+  useEffect(() => { setPagina(1); }, [periodo, ini, fim, porPagina]);
+  const listaOrdenada = [...lista].sort((a, b) => b.ms - a.ms);
+  const totalPaginas = Math.max(1, Math.ceil(listaOrdenada.length / porPagina));
+  const paginaAtual = Math.min(pagina, totalPaginas);
+  const listaVisivel = listaOrdenada.slice((paginaAtual - 1) * porPagina, paginaAtual * porPagina);
 
   // Por dia da semana
   const porDia = {};
@@ -9277,7 +9300,7 @@ function RelatorioPermanencia({ pedidos }) {
           <span>Comanda</span><span>Mesa</span><span>Período</span><span className="text-right">Permanência</span>
         </div>
         {lista.length === 0 && <p className="px-5 py-6 text-center text-sm text-slate-500">Nenhuma comanda paga no período.</p>}
-        {lista.sort((a,b)=>b.ms-a.ms).map((c, i) => (
+        {listaVisivel.map((c, i) => (
           <div key={i} className="grid gap-1 border-t border-slate-100 px-5 py-3 text-sm sm:grid-cols-[1fr_1fr_1.5fr_1fr] sm:items-center">
             <span className="font-mono font-semibold text-dash-navy">{c.comanda}</span>
             <span className="text-slate-500">{c.mesa}</span>
@@ -9286,6 +9309,9 @@ function RelatorioPermanencia({ pedidos }) {
           </div>
         ))}
       </div>
+
+      <Paginacao pagina={paginaAtual} totalPaginas={totalPaginas} total={listaOrdenada.length} porPagina={porPagina}
+        onMudar={setPagina} rotulo="registro(s)" tema="claro" porPaginaOpcoes={[10, 20, 50, 100]} onMudarPorPagina={setPorPagina} />
     </div>
   );
 }
