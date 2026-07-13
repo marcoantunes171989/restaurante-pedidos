@@ -8492,7 +8492,8 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
   const [toastClientesE, setToastClientesE] = useState("");
   const [toastClientesTipoE, setToastClientesTipoE] = useState("success"); // "success" | "error"
   const [carregandoAcaoE, setCarregandoAcaoE] = useState(null); // "telefone:<cliente>" | "cadastro:<cliente>" | null
-  const [cupomSelClienteE, setCupomSelClienteE] = useState(null); // pedido aberto a partir do histórico do perfil
+  const [pedidoVisualizarClienteE, setPedidoVisualizarClienteE] = useState(null); // "Ver cupom" no histórico do perfil → ModalVisualizarCupom
+  const [cupomSelClienteE, setCupomSelClienteE] = useState(null); // "Ir para impressão/envio" a partir do ModalVisualizarCupom → CupomNaoFiscalModal
   // Aba Vendas — busca/ordenação/paginação do ranking de produtos, toggle de
   // comparação com o período anterior e ações rápidas (compartilhar/atualizar).
   const [buscaProdV, setBuscaProdV] = useState("");
@@ -9045,11 +9046,28 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
     const top = (obj) => Object.entries(obj).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
     const horaTop = top(contagemHora);
     const temposPermanencia = pagos.map((o) => minutosEntreISO(o.createdAtISO, o.updatedAtISO)).filter((v) => v != null);
-    const ultimosPedidos = [...hist.pedidos].sort((x, y) => new Date(y.createdAtISO || 0) - new Date(x.createdAtISO || 0)).slice(0, 8)
+    // Até 50 pedidos (histórico + "Ver todos"); a lista renderiza só 5 por
+    // padrão. Mantém o objeto do pedido completo para abrir o cupom real.
+    const ultimosPedidos = [...hist.pedidos].sort((x, y) => new Date(y.createdAtISO || 0) - new Date(x.createdAtISO || 0)).slice(0, 50)
       .map((o) => ({ id: o.id, quando: o.createdAtISO ? new Date(o.createdAtISO) : null, valor: orderTotal(o) * 1.1, status: o.status, pago: o.paymentStatus === "paid", pedidoObj: o }));
+    // Frequência de compra — pedidos por mês, considerando o tempo de vida do
+    // cliente (primeira compra até agora); "—" quando só há 1 compra (sem
+    // intervalo real para medir).
+    const diasVida = primeira ? Math.max(1, (agoraClientesE - primeira.getTime()) / 864e5) : null;
+    const frequenciaMensal = (diasVida && hist.pedidos.length > 1) ? (hist.pedidos.length / (diasVida / 30)) : null;
+    // Combinação de produtos mais comprada junto (só deste cliente)
+    const paresContagem = {};
+    pagos.forEach((o) => {
+      const nomesUnicos = Array.from(new Set(o.items.map((it) => it.name)));
+      for (let i = 0; i < nomesUnicos.length; i++) for (let j = i + 1; j < nomesUnicos.length; j++) {
+        const chavePar = [nomesUnicos[i], nomesUnicos[j]].sort().join(" + ");
+        paresContagem[chavePar] = (paresContagem[chavePar] || 0) + 1;
+      }
+    });
+    const parFavorito = Object.entries(paresContagem).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
     return {
       telefone: hist.telefone, totalPedidosVida: hist.pedidos.length, primeira, ultima, penultima, diasSemComprar,
-      faturamentoTotal, ticketMedioVida, maiorCompra, lucroGerado,
+      faturamentoTotal, ticketMedioVida, maiorCompra, lucroGerado, frequenciaMensal, parFavorito,
       produtoFavorito: top(contagemProduto), categoriaFavorita: top(contagemCategoria),
       horarioPreferido: horaTop != null ? `${String(horaTop).padStart(2, "0")}h` : null,
       formaPagamentoFavorita: top(contagemForma), mesaFavorita: top(contagemMesa),
@@ -9100,7 +9118,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
     const analise = analisarClienteE(c.cliente);
     return {
       cliente: c.cliente, pedidosPeriodo: c.pedidos, faturamentoPeriodo: c.faturamento, ticketPeriodo: c.ticket, ultimaCompraPeriodo: c.ultimo,
-      ...(analise || { telefone: null, totalPedidosVida: c.pedidos, primeira: null, ultima: c.ultimo, penultima: null, diasSemComprar: null, faturamentoTotal: c.faturamento, ticketMedioVida: c.ticket, maiorCompra: 0, lucroGerado: 0, produtoFavorito: null, categoriaFavorita: null, horarioPreferido: null, formaPagamentoFavorita: null, mesaFavorita: null, canalPredominante: "—", tempoMedioPermanencia: null, ultimosPedidos: [] }),
+      ...(analise || { telefone: null, totalPedidosVida: c.pedidos, primeira: null, ultima: c.ultimo, penultima: null, diasSemComprar: null, faturamentoTotal: c.faturamento, ticketMedioVida: c.ticket, maiorCompra: 0, lucroGerado: 0, frequenciaMensal: null, parFavorito: null, produtoFavorito: null, categoriaFavorita: null, horarioPreferido: null, formaPagamentoFavorita: null, mesaFavorita: null, canalPredominante: "—", tempoMedioPermanencia: null, ultimosPedidos: [] }),
     };
   });
   const clientesPorValorE = [...clientesRankingBase].sort((a, b) => b.faturamentoTotal - a.faturamentoTotal);
@@ -9110,6 +9128,29 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
     const pct = nClientesE ? (i + 1) / nClientesE : 1;
     tierPorClienteE[c.cliente] = pct <= 0.1 ? "vip" : pct <= 0.3 ? "ouro" : pct <= 0.6 ? "prata" : "bronze";
   });
+  // Score de relacionamento (0–100) — só com dados já disponíveis: recência
+  // (dias sem comprar), recorrência (pedidos na vida), ticket (vs. a média
+  // geral do período) e valor acumulado (vs. o maior faturamento entre os
+  // clientes identificados). 25 pontos cada; "—" quando não há nenhuma
+  // compra paga (nada para medir).
+  const maxFaturamentoClienteE = clientesPorValorE[0]?.faturamentoTotal || 0;
+  function scoreRelacionamentoE(c) {
+    if (!c.totalPedidosVida || c.diasSemComprar == null) return null;
+    const recencia = c.diasSemComprar <= 7 ? 25 : c.diasSemComprar >= 60 ? 0 : Math.round(25 * (1 - (c.diasSemComprar - 7) / 53));
+    const frequencia = Math.min(25, c.totalPedidosVida * 5);
+    const ticketScore = a.ticket > 0 ? Math.min(25, Math.round((c.ticketMedioVida / a.ticket) * 12.5)) : 0;
+    const valorScore = maxFaturamentoClienteE > 0 ? Math.min(25, Math.round((c.faturamentoTotal / maxFaturamentoClienteE) * 25)) : 0;
+    return Math.max(0, Math.min(100, recencia + frequencia + ticketScore + valorScore));
+  }
+  function classificacaoScoreE(score, status) {
+    if (score == null) return null;
+    if (status === "inativo") return "Inativo";
+    if (score >= 80) return "VIP";
+    if (score >= 60) return "Frequente";
+    if (score >= 40) return "Em crescimento";
+    if (score >= 20) return "Em risco";
+    return "Inativo";
+  }
   const clientesRankingE = clientesRankingBase.map((c) => {
     const ant = comparativoClientesE?.[c.cliente] || null;
     const ticketAnterior = ant && ant.pedidos ? ant.faturamento / ant.pedidos : null;
@@ -9118,7 +9159,9 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
     const status = statusDeClienteE(c);
     const classificacao = tierPorClienteE[c.cliente] || "bronze";
     const frequente = c.pedidosPeriodo >= 3;
-    return { ...c, ticketAnterior, variacaoFaturamento, variacaoPedidos, status, classificacao, frequente };
+    const score = scoreRelacionamentoE(c);
+    const scoreClassificacao = classificacaoScoreE(score, status);
+    return { ...c, ticketAnterior, variacaoFaturamento, variacaoPedidos, status, classificacao, frequente, score, scoreClassificacao };
   });
 
   // ── Filtros + busca + ordenação (todas as colunas) — reaproveita o
@@ -9282,6 +9325,23 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
     if (!digitos) { avisarClienteE("Cliente sem telefone válido cadastrado.", "error"); return; }
     const mensagem = `Olá, ${c.cliente}. Tudo bem? Estamos entrando em contato pelo Pedido Prime.`;
     window.open(`https://wa.me/55${digitos}?text=${encodeURIComponent(mensagem)}`, "_blank");
+  }
+  // Exporta o histórico de pedidos deste cliente (já carregado no perfil,
+  // nenhuma consulta nova) — ação "Exportar histórico" do drawer.
+  function exportarHistoricoClienteE(c) {
+    if (!c.ultimosPedidos || c.ultimosPedidos.length === 0) { avisarClienteE("Este cliente não tem pedidos para exportar.", "error"); return; }
+    let csv = "Cupom;Data;Valor;Status;Mesa/Canal;Itens;Forma de pagamento\n";
+    c.ultimosPedidos.forEach((p) => {
+      const qtdItens = p.pedidoObj?.items?.reduce((s, it) => s + it.quantity, 0) || 0;
+      const canalMesa = p.pedidoObj?.table || (p.pedidoObj?.command ? "QR Code" : "Balcão");
+      csv += `${p.id};${p.quando ? p.quando.toLocaleString("pt-BR") : ""};${p.valor.toFixed(2)};${statusMap[p.status]?.label || p.status};${canalMesa};${qtdItens};${p.pedidoObj?.pagamentoForma || ""}\n`;
+    });
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url; link.download = `historico-${c.cliente.replace(/[^a-z0-9]+/gi, "-")}.csv`; link.click();
+    URL.revokeObjectURL(url);
+    avisarClienteE("Histórico exportado.", "success");
   }
   function exportarClientesExcelE() {
     let csv = "Cliente;Telefone;Pedidos;Faturamento;Ticket medio;Lucro gerado;Ultima compra;Primeira compra;Status;Classificacao\n";
@@ -9656,7 +9716,17 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
           {/* 4. Perfil do cliente */}
           {clienteSelecionadoE && (
             <ClientePerfilPainel cliente={clienteSelecionadoE} onFechar={() => setClienteSelecionadoE(null)}
-              onWhatsApp={abrirWhatsAppClienteE} onCopiarTelefone={copiarTelefoneClienteE} onAbrirCupom={setCupomSelClienteE} />
+              onWhatsApp={abrirWhatsAppClienteE} onCopiarTelefone={copiarTelefoneClienteE}
+              onAbrirCupom={setPedidoVisualizarClienteE} onExportarHistorico={exportarHistoricoClienteE} />
+          )}
+          {/* 6. Detalhe do pedido — reaproveita o mesmo modal de detalhe já
+              usado na aba Cupom/Mesa/Comanda (itens, adicionais, observações,
+              financeiro e timeline da venda). */}
+          {pedidoVisualizarClienteE && (
+            <ModalVisualizarCupom pedido={pedidoVisualizarClienteE} lojaInfo={lojaInfo} custoPorNome={custoPorNome}
+              onFechar={() => setPedidoVisualizarClienteE(null)}
+              onReimprimir={() => { setCupomSelClienteE(pedidoVisualizarClienteE); setPedidoVisualizarClienteE(null); }}
+              onEnviar={() => { setCupomSelClienteE(pedidoVisualizarClienteE); setPedidoVisualizarClienteE(null); }} />
           )}
           {cupomSelClienteE && <CupomNaoFiscalModal pedido={cupomSelClienteE} lojaInfo={lojaInfo} onFechar={() => setCupomSelClienteE(null)} />}
         </>
@@ -10107,6 +10177,10 @@ const CLIENTE_STATUS = {
   ativo: { label: "Ativo", cor: "#64748B" },
   semDados: { label: "—", cor: "#64748B" },
 };
+// Classificação do score de relacionamento (0–100) — cor só do indicador.
+const SCORE_CLASSIFICACAO_CORES = {
+  VIP: "#8B5CF6", Frequente: "#10B981", "Em crescimento": "#2563EB", "Em risco": "#F59E0B", Inativo: "#EF4444",
+};
 function BadgeCliente({ mapa, chave }) {
   const s = mapa[chave] || { label: chave, cor: "#64748B" };
   return <span className="rounded-full px-2 py-0.5 text-[10px] font-black" style={{ background: `${s.cor}1A`, color: s.cor }}>{s.label}</span>;
@@ -10132,100 +10206,229 @@ function IconAcaoCliente({ icone, label, onClick, disabled = false, carregando =
 // Painel lateral de perfil do cliente — só campos calculáveis a partir dos
 // pedidos já carregados; cidade/aniversário/observações/responsável não
 // existem no cadastro (tab_clientes só tem nome/telefone) e aparecem "—".
-function ClientePerfilPainel({ cliente, onFechar, onWhatsApp, onCopiarTelefone, onAbrirCupom }) {
+// Painel/drawer lateral de perfil do cliente — CRM premium. Só altera este
+// componente e diretos (IconAcaoCliente, BadgeCliente); reutiliza
+// useScrollLock (já usado por outros modais do projeto) e o mesmo padrão de
+// foco preso/Esc/restaura-foco já usado em MobileAdminDrawer.
+function ClientePerfilPainel({ cliente, onFechar, onWhatsApp, onCopiarTelefone, onAbrirCupom, onExportarHistorico }) {
+  useScrollLock(!!cliente);
+  const painelRef = useRef(null);
+  const contatoRef = useRef(null);
+  const historicoRef = useRef(null);
+  const focoAnteriorRef = useRef(null);
+  const [verTodosPedidos, setVerTodosPedidos] = useState(false);
+
+  useEffect(() => {
+    if (!cliente) { setVerTodosPedidos(false); return; }
+    focoAnteriorRef.current = document.activeElement;
+    const painel = painelRef.current;
+    const primeiro = painel?.querySelector("button, a, input, [tabindex]:not([tabindex='-1'])");
+    primeiro?.focus();
+    function aoTeclado(e) {
+      if (e.key === "Escape") { e.preventDefault(); onFechar(); return; }
+      if (e.key !== "Tab" || !painel) return;
+      const focaveis = painel.querySelectorAll("button, a, input, [tabindex]:not([tabindex='-1'])");
+      if (focaveis.length === 0) return;
+      const primeiroF = focaveis[0], ultimoF = focaveis[focaveis.length - 1];
+      if (e.shiftKey && document.activeElement === primeiroF) { e.preventDefault(); ultimoF.focus(); }
+      else if (!e.shiftKey && document.activeElement === ultimoF) { e.preventDefault(); primeiroF.focus(); }
+    }
+    document.addEventListener("keydown", aoTeclado);
+    return () => {
+      document.removeEventListener("keydown", aoTeclado);
+      focoAnteriorRef.current?.focus?.();
+    };
+  }, [cliente, onFechar]);
+
   if (!cliente) return null;
   const c = cliente;
   const iniciais = c.cliente.split(" ").filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join("") || "?";
+  const corScore = c.score != null ? (SCORE_CLASSIFICACAO_CORES[c.scoreClassificacao] || "#64748B") : "#CBD5E1";
+  const pedidosExibidos = verTodosPedidos ? (c.ultimosPedidos || []) : (c.ultimosPedidos || []).slice(0, 5);
+
+  const proximaAcao = c.status === "inativo" ? "Enviar oferta de reativação"
+    : c.status === "risco" ? "Fazer contato antes que o cliente fique inativo"
+    : c.classificacao === "vip" ? "Manter relacionamento próximo — cliente âncora"
+    : c.status === "novo" ? "Dar boas-vindas e incentivar a segunda compra"
+    : "Nenhuma ação urgente identificada";
+
   return (
-    <div className="fixed inset-0 z-[110] flex items-stretch justify-end bg-[#0D1B2A]/60 backdrop-blur-sm" onClick={onFechar}>
-      <div onClick={(e) => e.stopPropagation()} className="pp-anim-fade flex h-full w-full max-w-md flex-col overflow-hidden border-l border-[#E2E8F0] bg-white shadow-2xl">
-        <div className="flex items-center gap-3 border-b border-[#E2E8F0] px-6 py-4">
-          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#2563EB]/10 text-base font-black text-[#2563EB]">{iniciais}</span>
+    <div className="fixed inset-0 z-[110] flex items-stretch justify-end bg-[#0D1B2A]/60 backdrop-blur-sm" onClick={onFechar} role="presentation">
+      <div ref={painelRef} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={`Perfil de ${c.cliente}`}
+        className="pp-anim-fade flex h-full w-full flex-col overflow-hidden border-l border-[#E2E8F0] bg-white shadow-2xl sm:w-[70vw] sm:max-w-[70vw] lg:w-[520px] lg:max-w-[520px]">
+        {/* 1. Cabeçalho — fixo (fora do container com rolagem) */}
+        <div className="flex items-center gap-3 border-b border-[#E2E8F0] px-5 py-4 sm:px-6">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#2563EB]/10 text-base font-black text-[#2563EB]" aria-hidden="true">{iniciais}</span>
           <div className="min-w-0 flex-1">
-            <h2 className="truncate text-base font-black text-[#0D1B2A]">{c.cliente}</h2>
+            <h2 className="truncate text-base font-black text-[#0D1B2A]" title={c.cliente}>{c.cliente}</h2>
             <div className="mt-1 flex flex-wrap gap-1">
-              <BadgeCliente mapa={CLIENTE_TIER} chave={c.classificacao} />
+              {c.classificacao === "vip" && <BadgeCliente mapa={CLIENTE_TIER} chave="vip" />}
               <BadgeCliente mapa={CLIENTE_STATUS} chave={c.status} />
               {c.frequente && <BadgeCliente mapa={{ frequente: { label: "Frequente", cor: "#10B981" } }} chave="frequente" />}
             </div>
           </div>
-          <button onClick={onFechar} className="shrink-0 rounded-xl border border-[#E2E8F0] px-3 py-2 text-sm font-black text-[#64748B] hover:bg-[#F1F5F9]">✕</button>
-        </div>
-        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
-          <div className="flex flex-wrap gap-2">
-            <button onClick={() => onWhatsApp(c)} className="rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">💬 WhatsApp</button>
-            <button onClick={() => onCopiarTelefone(c)} className="rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">📋 Copiar telefone</button>
+          <div className="flex shrink-0 items-center gap-1.5">
+            <IconAcaoCliente icone="💬" label={c.telefone ? "Enviar WhatsApp" : "Sem telefone válido cadastrado"} disabled={!telefoneValidoParaBadgeE(c.telefone)} onClick={() => onWhatsApp(c)} />
+            <IconAcaoCliente icone="📋" label={c.telefone ? "Copiar telefone" : "Sem telefone válido cadastrado"} disabled={!telefoneValidoParaBadgeE(c.telefone)} onClick={() => onCopiarTelefone(c)} />
+            <IconAcaoCliente icone="🪪" label="Ver dados de cadastro" onClick={() => contatoRef.current?.scrollIntoView({ block: "nearest" })} />
+            <IconAcaoCliente icone="✕" label="Fechar" onClick={onFechar} />
           </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-5 py-5 sm:px-6 space-y-6 pb-24 sm:pb-5">
+          {/* 3. Score de relacionamento */}
+          <div className="rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-4">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[10px] font-black uppercase tracking-widest text-[#64748B]">Score de relacionamento</p>
+              {c.scoreClassificacao && <span className="rounded-full px-2 py-0.5 text-[10px] font-black" style={{ background: `${corScore}1A`, color: corScore }}>{c.scoreClassificacao}</span>}
+            </div>
+            {c.score == null ? (
+              <p className="mt-2 text-xs text-[#94A3B8]">Sem dados suficientes para calcular o score (nenhuma compra paga registrada).</p>
+            ) : (
+              <>
+                <div className="mt-2 flex items-end gap-2">
+                  <span className="text-2xl font-black text-[#0D1B2A]">{c.score}</span>
+                  <span className="mb-1 text-xs text-[#64748B]">/ 100</span>
+                </div>
+                <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-[#E2E8F0]">
+                  <div className="h-full rounded-full transition-all" style={{ width: `${c.score}%`, background: corScore }} />
+                </div>
+                <p className="mt-1.5 text-[10px] text-[#94A3B8]">Baseado em recência, recorrência, ticket e valor acumulado — dados reais deste cliente.</p>
+              </>
+            )}
+          </div>
+
+          {/* 2. Resumo do cliente */}
           <div>
+            <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-[#64748B]">Resumo do cliente</p>
+            <div className="grid grid-cols-2 gap-2.5">
+              {[
+                ["Total de pedidos", `${c.totalPedidosVida}`], ["Faturamento acumulado", formatCurrency(c.faturamentoTotal)],
+                ["Ticket médio", formatCurrency(c.ticketMedioVida)], ["Última compra", c.ultima ? c.ultima.toLocaleDateString("pt-BR") : "—"],
+                ["Frequência de compra", c.frequenciaMensal != null ? `${c.frequenciaMensal.toFixed(1)}/mês` : "—"], ["Dias sem comprar", c.diasSemComprar != null ? `${c.diasSemComprar} dia(s)` : "—"],
+                ["Tempo médio de permanência", c.tempoMedioPermanencia != null ? formatarDuracaoMin(c.tempoMedioPermanencia) : "—"], ["Canal predominante", c.canalPredominante || "—"],
+                ["Mesa mais utilizada", c.mesaFavorita || "—"], ["Forma de pagamento favorita", c.formaPagamentoFavorita || "—"],
+              ].map(([r, v]) => (
+                <div key={r} className="rounded-xl border border-[#E2E8F0] bg-white p-3">
+                  <p className="text-[9px] font-bold uppercase tracking-widest text-[#64748B]">{r}</p>
+                  <p className="mt-0.5 truncate text-sm font-bold text-[#0D1B2A]" title={v}>{v}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Dados de contato */}
+          <div ref={contatoRef}>
             <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-[#64748B]">Dados de contato</p>
             <div className="grid grid-cols-2 gap-2.5">
               {[
                 ["Telefone", c.telefone || "—"], ["WhatsApp", c.telefone || "—"],
                 ["Aniversário", "—"], ["Cidade", "—"],
-                ["Data de cadastro", "—"], ["Observações", "—"],
+                ["Data de cadastro", "—"], ["Maior compra", formatCurrency(c.maiorCompra)],
               ].map(([r, v]) => (
-                <div key={r} className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
+                <div key={r} className="rounded-xl border border-[#E2E8F0] bg-white p-3">
                   <p className="text-[9px] font-bold uppercase tracking-widest text-[#64748B]">{r}</p>
-                  <p className="mt-0.5 truncate text-sm font-bold text-[#0D1B2A]">{v}</p>
+                  <p className="mt-0.5 truncate text-sm font-bold text-[#0D1B2A]" title={v}>{v}</p>
                 </div>
               ))}
             </div>
+            <p className="mt-1.5 text-[10px] text-[#94A3B8]">Aniversário, cidade e data de cadastro não existem no cadastro do cliente hoje (só nome e telefone) — aparecem como "—".</p>
           </div>
-          <div>
-            <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-[#64748B]">Compras</p>
-            <div className="grid grid-cols-2 gap-2.5">
-              {[
-                ["Primeira compra", c.primeira ? c.primeira.toLocaleDateString("pt-BR") : "—"], ["Última compra", c.ultima ? c.ultima.toLocaleDateString("pt-BR") : "—"],
-                ["Total de pedidos", `${c.totalPedidosVida}`], ["Total gasto", formatCurrency(c.faturamentoTotal)],
-                ["Ticket médio", formatCurrency(c.ticketMedioVida)], ["Maior compra", formatCurrency(c.maiorCompra)],
-                ["Dias sem comprar", c.diasSemComprar != null ? `${c.diasSemComprar} dia(s)` : "—"], ["Lucro gerado", formatCurrency(c.lucroGerado)],
-              ].map(([r, v]) => (
-                <div key={r} className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
-                  <p className="text-[9px] font-bold uppercase tracking-widest text-[#64748B]">{r}</p>
-                  <p className="mt-0.5 truncate text-sm font-bold text-[#0D1B2A]">{v}</p>
-                </div>
-              ))}
-            </div>
-          </div>
+
+          {/* 4. Preferências */}
           <div>
             <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-[#64748B]">Preferências</p>
             <div className="grid grid-cols-2 gap-2.5">
               {[
                 ["Produto favorito", c.produtoFavorito || "—"], ["Categoria favorita", c.categoriaFavorita || "—"],
-                ["Horário preferido", c.horarioPreferido || "—"], ["Forma de pagamento favorita", c.formaPagamentoFavorita || "—"],
-                ["Canal predominante", c.canalPredominante || "—"], ["Mesa favorita", c.mesaFavorita || "—"],
-                ["Tempo médio de permanência", c.tempoMedioPermanencia != null ? formatarDuracaoMin(c.tempoMedioPermanencia) : "—"],
+                ["Horário preferido", c.horarioPreferido || "—"], ["Combinação mais comprada", c.parFavorito || "—"],
+                ["Observações", "—"],
               ].map(([r, v]) => (
-                <div key={r} className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
+                <div key={r} className="rounded-xl border border-[#E2E8F0] bg-white p-3">
+                  <p className="text-[9px] font-bold uppercase tracking-widest text-[#64748B]">{r}</p>
+                  <p className="mt-0.5 truncate text-sm font-bold text-[#0D1B2A]" title={v}>{v}</p>
+                </div>
+              ))}
+            </div>
+            <p className="mt-1.5 text-[10px] text-[#94A3B8]">Não há campo de observações no cadastro do cliente — sem estrutura existente para adicionar uma nota aqui.</p>
+          </div>
+
+          {/* 7. Insights e oportunidades */}
+          <div>
+            <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-[#64748B]">💡 Insights e oportunidades</p>
+            <div className="grid grid-cols-2 gap-2.5">
+              {[
+                c.status === "risco" && ["Apto para campanha", "Sim — em risco, ainda recuperável"],
+                ["Ticket vs. média geral", c.ticketMedioVida > 0 ? (c.ticketMedioVida > c.ticketPeriodo ? "Acima da média" : "Dentro/abaixo da média") : "—"],
+                c.diasSemComprar != null && c.diasSemComprar > 30 && ["Sem retorno", `${c.diasSemComprar} dia(s)`],
+                c.produtoFavorito && ["Produto p/ oferta", c.produtoFavorito],
+                c.horarioPreferido && ["Melhor horário p/ contato", c.horarioPreferido],
+              ].filter(Boolean).map(([r, v]) => (
+                <div key={r} className="rounded-xl border border-[#E2E8F0] bg-white p-3">
                   <p className="text-[9px] font-bold uppercase tracking-widest text-[#64748B]">{r}</p>
                   <p className="mt-0.5 truncate text-sm font-bold text-[#0D1B2A]">{v}</p>
                 </div>
               ))}
             </div>
+            <p className="mt-2 rounded-xl bg-[#2563EB]/10 px-3 py-2 text-xs font-semibold text-[#2563EB]">Próxima ação recomendada: {proximaAcao}</p>
           </div>
-          <div>
-            <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-[#64748B]">Últimos pedidos (histórico)</p>
+
+          {/* 5/6. Histórico de pedidos */}
+          <div ref={historicoRef}>
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <p className="text-[10px] font-black uppercase tracking-widest text-[#64748B]">Histórico de pedidos</p>
+              {onExportarHistorico && (
+                <button onClick={() => onExportarHistorico(c)} className="text-[11px] font-bold text-[#2563EB] transition hover:text-[#1D4ED8]">📤 Exportar</button>
+              )}
+            </div>
             {(!c.ultimosPedidos || c.ultimosPedidos.length === 0) ? (
               <p className="text-xs text-[#94A3B8]">Nenhum pedido encontrado.</p>
             ) : (
-              <div className="space-y-1.5">
-                {c.ultimosPedidos.map((p, i) => (
-                  <div key={i} className="flex items-center justify-between gap-2 rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs">
-                    <span className="min-w-0 truncate text-[#64748B]">{p.quando ? p.quando.toLocaleDateString("pt-BR") : "—"} · Cupom {p.id}</span>
-                    <span className="shrink-0 font-bold text-[#0D1B2A]">{formatCurrency(p.valor)}</span>
-                    <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[9px] font-black ${statusMap[p.status]?.chip}`}>{statusMap[p.status]?.label}</span>
-                    {onAbrirCupom && (
-                      <IconAcaoCliente icone="🧾" label="Ver cupom deste pedido" onClick={() => onAbrirCupom(p.pedidoObj)} />
-                    )}
-                  </div>
-                ))}
-              </div>
+              <>
+                <div className="space-y-1.5">
+                  {pedidosExibidos.map((p, i) => {
+                    const qtdItens = p.pedidoObj?.items?.reduce((s, it) => s + it.quantity, 0) || 0;
+                    const canalMesa = p.pedidoObj?.table || (p.pedidoObj?.command ? "QR Code" : "Balcão");
+                    return (
+                      <div key={i} className="rounded-xl border border-[#E2E8F0] bg-white px-3 py-2.5 text-xs">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="min-w-0 truncate font-semibold text-[#0D1B2A]" title={p.quando ? p.quando.toLocaleString("pt-BR") : ""}>{p.quando ? p.quando.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—"} · Cupom {p.id}</span>
+                          <span className="shrink-0 font-bold text-[#0D1B2A]">{formatCurrency(p.valor)}</span>
+                        </div>
+                        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[#64748B]">
+                          <span className={`rounded-full border px-2 py-0.5 text-[9px] font-black ${statusMap[p.status]?.chip}`}>{statusMap[p.status]?.label}</span>
+                          <span>📍 {canalMesa}</span>
+                          <span>📦 {qtdItens} item(ns)</span>
+                          <span>💳 {p.pedidoObj?.pagamentoForma || "Não informado"}</span>
+                          {onAbrirCupom && (
+                            <button onClick={() => onAbrirCupom(p.pedidoObj)} title="Ver cupom" aria-label="Ver detalhe deste cupom"
+                              className="ml-auto rounded-lg border border-[#E2E8F0] px-2 py-1 text-[10px] font-bold text-[#2563EB] transition hover:bg-[#EFF6FF]">🧾 Ver cupom</button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                {!verTodosPedidos && c.ultimosPedidos.length > 5 && (
+                  <button onClick={() => setVerTodosPedidos(true)} className="mt-2 w-full rounded-xl border border-[#E2E8F0] py-2 text-xs font-bold text-[#2563EB] transition hover:bg-[#EFF6FF]">Ver todos ({c.ultimosPedidos.length})</button>
+                )}
+              </>
             )}
           </div>
+        </div>
+
+        {/* Rodapé de ações fixo — só mobile */}
+        <div className="flex shrink-0 items-center gap-2 border-t border-[#E2E8F0] bg-white px-5 py-3 sm:hidden">
+          <button onClick={() => onWhatsApp(c)} className="flex-1 rounded-xl bg-[#2563EB] py-2.5 text-xs font-bold text-white transition hover:bg-[#1D4ED8]">💬 WhatsApp</button>
+          <button onClick={() => onCopiarTelefone(c)} className="flex-1 rounded-xl border border-[#E2E8F0] py-2.5 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">📋 Copiar telefone</button>
         </div>
       </div>
     </div>
   );
+}
+function telefoneValidoParaBadgeE(telefone) {
+  const digitos = String(telefone || "").replace(/\D/g, "");
+  return digitos.length >= 10 && digitos.length <= 11;
 }
 
 function minutosEntreISO(a, b) { if (!a || !b) return null; const ms = new Date(b) - new Date(a); return ms > 0 ? ms / 60000 : null; }
