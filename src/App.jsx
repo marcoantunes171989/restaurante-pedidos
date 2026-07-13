@@ -8294,6 +8294,9 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
   const [fim, setFim] = useState("");
   const [aba, setAba] = useState("geral"); // geral | vendas | cupom | estoque | clientes | permanencia
   const [drill, setDrill] = useState(null);  // produto clicado → cupons
+  // Paginação da tabela "Estoque anterior x posterior" (aba Estoque)
+  const [paginaEstoque, setPaginaEstoque] = useState(1);
+  const [porPaginaEstoque, setPorPaginaEstoque] = useState(10);
 
   const filtrados = filtrarPedidosPorPeriodo(orders, periodo, ini, fim);
   const a = analisarVendas(filtrados, products);
@@ -8392,6 +8395,12 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
     const minimo = p.estoqueMinimo ?? 0;
     return { nome: p.name, categoria: p.category, anterior, vendido, posterior, minimo, baixo: posterior <= minimo && minimo > 0, zerado: posterior <= 0, ativo: p.active !== false };
   }).sort((x, y) => y.vendido - x.vendido || y.posterior - x.posterior);
+  // Volta para a página 1 ao trocar período ou a quantidade por página
+  // (a ordenação/dados completos de linhasEstoque não mudam com a paginação).
+  useEffect(() => { setPaginaEstoque(1); }, [periodo, ini, fim, porPaginaEstoque]);
+  const totalPaginasEstoque = Math.max(1, Math.ceil(linhasEstoque.length / porPaginaEstoque));
+  const paginaEstoqueAtual = Math.min(paginaEstoque, totalPaginasEstoque);
+  const linhasEstoqueVisiveis = linhasEstoque.slice((paginaEstoqueAtual - 1) * porPaginaEstoque, paginaEstoqueAtual * porPaginaEstoque);
   const produtosAtivos = products.filter((p) => p.active !== false);
   const maiorEstoque = produtosAtivos.reduce((acc, p) => (acc == null || (p.estoque ?? 0) > (acc.estoque ?? 0) ? p : acc), null);
   const menorEstoque = produtosAtivos.reduce((acc, p) => (acc == null || (p.estoque ?? 0) < (acc.estoque ?? 0) ? p : acc), null);
@@ -8754,7 +8763,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
               <span>Produto</span><span className="text-center">Estoque anterior</span><span className="text-center">Vendido</span><span className="text-right">Estoque atual</span>
             </div>
             {linhasEstoque.length === 0 && <p className="px-5 py-6 text-center text-sm text-slate-500">Nenhum produto cadastrado.</p>}
-            {linhasEstoque.map((l) => (
+            {linhasEstoqueVisiveis.map((l) => (
               <div key={l.nome} className="grid grid-cols-[2fr_1fr_1fr] sm:grid-cols-[2fr_1fr_1fr_1fr] items-center gap-2 border-t border-slate-100 px-5 py-3 text-sm">
                 <div className="min-w-0">
                   <p className="truncate font-bold text-dash-navy">{l.nome}</p>
@@ -8766,6 +8775,9 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
               </div>
             ))}
           </div>
+
+          <Paginacao pagina={paginaEstoqueAtual} totalPaginas={totalPaginasEstoque} total={linhasEstoque.length} porPagina={porPaginaEstoque}
+            onMudar={setPaginaEstoque} rotulo="produto(s)" tema="claro" porPaginaOpcoes={[10, 20, 50, 100]} onMudarPorPagina={setPorPaginaEstoque} />
         </>
       )}
 
