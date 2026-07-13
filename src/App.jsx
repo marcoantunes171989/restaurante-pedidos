@@ -10129,7 +10129,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
         </>
       )}
 
-      {aba === "permanencia" && <RelatorioPermanencia pedidos={filtrados} orders={orders} periodo={periodo} ini={ini} fim={fim} lojaInfo={lojaInfo} />}
+      {aba === "permanencia" && <RelatorioPermanencia pedidos={filtrados} orders={orders} products={products} periodo={periodo} ini={ini} fim={fim} lojaInfo={lojaInfo} />}
 
       {aba === "satisfacao" && <RelatorioSatisfacao pesquisas={filtrarPesquisasPorPeriodo(pesquisas, periodo, ini, fim)} />}
 
@@ -11863,62 +11863,276 @@ function CuponsProdutoModal({ nome, cupons, lojaInfo, onFechar }) {
   );
 }
 
-// Detalhe da comanda (aba Permanência) — visualização, ao clicar em "Ver
-// detalhes". Reaproveita ESTOQUE_STATUS/BadgeEstoque (mesmos rótulos e
-// cores Normal/Atenção/Crítico já usados na aba Estoque) e abre o cupom de
-// um pedido específico via CupomNaoFiscalModal (já usado em outras abas).
-function ModalDetalheComanda({ comanda, mediaGeralMinutos, onFechar, onAbrirPedido }) {
+// Detalhe da comanda (aba Permanência) — drawer premium padrão ERP/PDV, ao
+// clicar em "Ver detalhes". Reaproveita ESTOQUE_STATUS/BadgeEstoque (mesmos
+// rótulos e cores Normal/Atenção/Crítico já usados na aba Estoque),
+// TimelineVenda (mesma linha do tempo do cupom) e o mesmo padrão de
+// drawer/focus-trap/scroll-lock já usado em ClientePerfilPainel. Abre o
+// cupom de um pedido específico via ModalVisualizarCupom (visualização) ou
+// diretamente via CupomNaoFiscalModal (imprimir/compartilhar) — os dois já
+// usados em outras abas, nenhum modal novo foi criado.
+function ItemComandaDetalheE({ item }) {
+  const [aberto, setAberto] = useState(false);
+  const temDetalhe = item.removedIngredients?.length > 0 || item.extraIngredients?.length > 0 || !!item.observation;
+  return (
+    <div className="rounded-xl border border-[#E2E8F0]">
+      <button type="button" onClick={() => temDetalhe && setAberto((v) => !v)}
+        className={`grid w-full grid-cols-[1fr_auto_auto_auto] items-center gap-2 px-3 py-2.5 text-left text-xs sm:grid-cols-[1fr_60px_70px_80px_90px] ${temDetalhe ? "cursor-pointer hover:bg-[#F8FAFC]" : "cursor-default"}`}>
+        <span className="min-w-0 truncate font-semibold text-[#0D1B2A]">{temDetalhe ? (aberto ? "▾ " : "▸ ") : ""}{item.name}</span>
+        <span className="hidden text-right text-[#64748B] sm:block">{item.quantity}x</span>
+        <span className="hidden text-right text-[#64748B] sm:block">{formatCurrency(item.price)}</span>
+        <span className="text-right font-bold text-[#0D1B2A]">{formatCurrency(item.price * item.quantity)}</span>
+        <span className="hidden justify-self-end sm:block"><span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${statusMap[item.statusPedido]?.chip || "border-slate-200 bg-slate-100 text-slate-600"}`}>{statusMap[item.statusPedido]?.label || item.statusPedido}</span></span>
+      </button>
+      <p className="px-3 pb-2 text-[10px] text-[#94A3B8] sm:hidden">{item.quantity}x · un. {formatCurrency(item.price)} · {statusMap[item.statusPedido]?.label || item.statusPedido}</p>
+      {aberto && temDetalhe && (
+        <div className="space-y-0.5 border-t border-[#F1F5F9] bg-[#F8FAFC] px-3 py-2 text-[11px] text-[#64748B]">
+          {item.removedIngredients?.length > 0 && <p>Ingredientes removidos: {item.removedIngredients.join(", ")}</p>}
+          {item.extraIngredients?.length > 0 && <p>Adicionais: {item.extraIngredients.join(", ")}</p>}
+          {item.observation && <p>Observações: {item.observation}</p>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ModalDetalheComanda({
+  comanda, mediaGeralMinutos, mediaTicketGeral = 0, mediaItensGeral = 0, mediaPreparoGeral = null,
+  mediaTempoAtePagamentoGeral = null, horarioReferencia = null, custoPorNome = {}, historicoCliente = null,
+  onFechar, onVerCupom, onImprimirCompartilhar,
+}) {
+  const painelRef = useRef(null);
+  const focoAnteriorRef = useRef(null);
+
+  useEffect(() => {
+    if (!comanda) return undefined;
+    focoAnteriorRef.current = document.activeElement;
+    const painel = painelRef.current;
+    const primeiro = painel?.querySelector("button, a, input, [tabindex]:not([tabindex='-1'])");
+    primeiro?.focus();
+    function aoTeclado(e) {
+      if (e.key === "Escape") { e.preventDefault(); onFechar(); return; }
+      if (e.key !== "Tab" || !painel) return;
+      const focaveis = painel.querySelectorAll("button, a, input, [tabindex]:not([tabindex='-1'])");
+      if (focaveis.length === 0) return;
+      const primeiroF = focaveis[0], ultimoF = focaveis[focaveis.length - 1];
+      if (e.shiftKey && document.activeElement === primeiroF) { e.preventDefault(); ultimoF.focus(); }
+      else if (!e.shiftKey && document.activeElement === ultimoF) { e.preventDefault(); primeiroF.focus(); }
+    }
+    document.addEventListener("keydown", aoTeclado);
+    return () => {
+      document.removeEventListener("keydown", aoTeclado);
+      focoAnteriorRef.current?.focus?.();
+    };
+  }, [comanda, onFechar]);
+  useScrollLock(!!comanda);
+
   if (!comanda) return null;
   const c = comanda;
   const variacaoPct = mediaGeralMinutos > 0 ? ((c.minutos - mediaGeralMinutos) / mediaGeralMinutos) * 100 : null;
+  const pedidosOrdenados = [...c.pedidos].sort((a, b) => new Date(a.createdAtISO) - new Date(b.createdAtISO));
+  const ultimoPedido = pedidosOrdenados[pedidosOrdenados.length - 1];
+  const prontos = pedidosOrdenados.map((o) => o.prontoEmISO).filter(Boolean);
+  const preparos = pedidosOrdenados.map((o) => o.preparoEmISO).filter(Boolean);
+  const pedidoTimelineSintetico = {
+    status: ultimoPedido.status, paymentStatus: "paid",
+    createdAtISO: c.inicio, preparoEmISO: preparos[0] || null, prontoEmISO: prontos[prontos.length - 1] || null, updatedAtISO: c.fim,
+  };
+  const temCusto = Object.keys(custoPorNome).length > 0;
+  const lucroEstimado = temCusto ? c.pedidos.reduce((s, o) => s + o.items.reduce((x, it) => x + ((it.price || 0) - (custoPorNome[it.name] ?? 0)) * it.quantity, 0), 0) : null;
+  const margemPct = temCusto && c.valor > 0 ? (lucroEstimado / c.valor) * 100 : null;
+
+  const cardsResumo = [
+    ["📅", "Abertura", new Date(c.inicio).toLocaleString("pt-BR"), "Início do atendimento"],
+    ["🏁", "Fechamento", new Date(c.fim).toLocaleString("pt-BR"), "Encerramento / pagamento"],
+    ["⏱️", "Permanência", formatarDuracaoMin(c.minutos), "Tempo total na mesa"],
+    ["💰", "Valor total", formatCurrency(c.valor), "Já com taxa de serviço (10%)"],
+    ["🎯", "Ticket médio", formatCurrency(c.ticketMedio), "Por pedido da comanda"],
+    ["📦", "Qtde itens", `${c.itens}`, "Itens consumidos"],
+    ["💳", "Forma de pagamento", c.formaPagamento || "Não informado", "Registrada no pedido"],
+    ["🧑‍💼", "Operador", "—", "Não disponível no cadastro atual"],
+    ["🧍", "Garçom", "—", "Não disponível no cadastro atual"],
+    ["👨‍🍳", "Cozinha responsável", "—", "Não disponível no cadastro atual"],
+    ["📊", "Comparação com a média", variacaoPct != null ? `${variacaoPct >= 0 ? "+" : ""}${variacaoPct.toFixed(0)}%` : "—", "Frente à média do período"],
+    ["📈", "Lucro estimado", lucroEstimado != null ? `${formatCurrency(lucroEstimado)} · ${margemPct.toFixed(0)}%` : "—", temCusto ? "Preço − custo cadastrado" : "Nenhum produto com custo cadastrado"],
+  ];
+
+  // ── Indicadores inteligentes — só quando o dado real sustenta o badge ──
+  const indicadores = [];
+  if (variacaoPct != null && variacaoPct > 0) indicadores.push({ texto: "Permanência acima da média", cor: "#F59E0B" });
+  if (mediaTicketGeral > 0 && c.ticketMedio > mediaTicketGeral * 1.5) indicadores.push({ texto: "Ticket alto", cor: "#10B981" });
+  if (historicoCliente && historicoCliente.totalPedidos >= 10) indicadores.push({ texto: "Cliente frequente", cor: "#8B5CF6" });
+  const temposPreparoComanda = pedidosOrdenados.filter((o) => o.preparoEmISO && o.prontoEmISO).map((o) => minutosEntreISO(o.preparoEmISO, o.prontoEmISO));
+  const mediaPreparoComanda = temposPreparoComanda.length ? temposPreparoComanda.reduce((s, v) => s + v, 0) / temposPreparoComanda.length : null;
+  if (mediaPreparoComanda != null && mediaPreparoGeral > 0 && mediaPreparoComanda > mediaPreparoGeral * 1.3) indicadores.push({ texto: "Tempo de preparo elevado", cor: "#EF4444" });
+  if (mediaItensGeral > 0 && c.itens > mediaItensGeral * 1.5) indicadores.push({ texto: "Comanda longa", cor: "#2563EB" });
+
+  // ── Insights — apenas comparações com dados já calculados no período ──
+  const insights = [];
+  if (variacaoPct != null && variacaoPct > 20) insights.push(`Tempo acima da média do período (+${variacaoPct.toFixed(0)}%).`);
+  if (c.tempoAtePagamento != null && mediaTempoAtePagamentoGeral > 0 && c.tempoAtePagamento > mediaTempoAtePagamentoGeral * 1.3) insights.push("Fluxo lento no fechamento — tempo entre o pedido pronto e o pagamento acima da média.");
+  if (historicoCliente && historicoCliente.totalPedidos > 1) insights.push(`Cliente recorrente — ${historicoCliente.totalPedidos} pedido(s) no histórico.`);
+  if (mediaTicketGeral > 0 && c.ticketMedio > mediaTicketGeral * 1.3) insights.push("Ticket superior à média do período.");
+  if (horarioReferencia && c.horaIni === horarioReferencia.hora) insights.push(`Maior permanência do período costuma ocorrer às ${String(c.horaIni).padStart(2, "0")}h — mesmo horário desta comanda.`);
+
+  const itensComanda = c.pedidos.flatMap((o) => o.items.map((it, i) => ({ ...it, statusPedido: o.status, chave: `${o.id}-${i}` })));
+
   return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-[#0D1B2A]/70 backdrop-blur-sm p-4" onClick={onFechar}>
-      <div onClick={(e) => e.stopPropagation()} className="pp-anim-up flex w-full max-w-md flex-col overflow-hidden rounded-[1.75rem] border border-[#E2E8F0] bg-white shadow-2xl max-h-[92vh]">
-        <div className="flex items-center justify-between border-b border-[#E2E8F0] px-6 py-4">
-          <div className="min-w-0">
-            <h2 className="truncate text-base font-black text-[#0D1B2A]">Comanda {c.comanda}</h2>
-            <p className="mt-0.5 text-xs text-[#64748B]">{c.mesa || "Balcão"} · {c.canal}</p>
-          </div>
-          <button onClick={onFechar} className="shrink-0 rounded-xl border border-[#E2E8F0] px-3 py-2 text-sm font-black text-[#64748B] hover:bg-[#F1F5F9]">✕</button>
-        </div>
-        <div className="flex-1 overflow-y-auto space-y-4 px-6 py-5">
-          <BadgeEstoque status={c.status} />
-          <div className="grid grid-cols-2 gap-2.5">
-            {[
-              ["Abertura", new Date(c.inicio).toLocaleString("pt-BR")], ["Fechamento", new Date(c.fim).toLocaleString("pt-BR")],
-              ["Permanência", formatarDuracaoMin(c.minutos)], ["Valor", formatCurrency(c.valor)],
-              ["Ticket médio", formatCurrency(c.ticketMedio)], ["Itens", `${c.itens}`],
-              ["Forma de pagamento", c.formaPagamento || "Não informado"], ["Responsável", "—"],
-              ["Comparação com a média", variacaoPct != null ? `${variacaoPct >= 0 ? "+" : ""}${variacaoPct.toFixed(0)}%` : "—"],
-            ].map(([r, v]) => (
-              <div key={r} className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
-                <p className="text-[9px] font-bold uppercase tracking-widest text-[#64748B]">{r}</p>
-                <p className="mt-0.5 truncate text-sm font-black text-[#0D1B2A]">{v}</p>
+    <div className="fixed inset-0 z-[110] flex items-stretch justify-end bg-[#0D1B2A]/60 backdrop-blur-sm" onClick={onFechar} role="presentation">
+      <div ref={painelRef} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={`Detalhe da comanda ${c.comanda}`}
+        className="pp-anim-fade flex h-full w-full flex-col overflow-hidden border-l border-[#E2E8F0] bg-white shadow-2xl sm:w-[70vw] sm:max-w-[70vw] lg:w-[600px] lg:max-w-[600px]">
+        {/* 1. Cabeçalho premium — fixo */}
+        <div className="shrink-0 border-b border-[#E2E8F0] px-5 py-4 sm:px-6">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="truncate text-base font-black text-[#0D1B2A]">Comanda {c.comanda}</h2>
+                <BadgeEstoque status={c.status} />
               </div>
-            ))}
+              <p className="mt-1 text-xs text-[#64748B]">{c.mesa || "Balcão"} · {c.canal} · {statusMap[ultimoPedido.status]?.label || ultimoPedido.status}</p>
+            </div>
+            <button onClick={onFechar} title="Fechar" aria-label="Fechar" className="shrink-0 rounded-xl border border-[#E2E8F0] px-3 py-2 text-sm font-black text-[#64748B] transition hover:bg-[#F1F5F9]">✕</button>
           </div>
+          <div className="mt-3 flex flex-wrap items-center gap-4 text-xs">
+            <span className="text-[#64748B]">Permanência: <b className="text-[#0D1B2A]">{formatarDuracaoMin(c.minutos)}</b></span>
+            <span className="text-[#64748B]">Valor total: <b className="text-[#0D1B2A]">{formatCurrency(c.valor)}</b></span>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button onClick={() => onVerCupom?.(ultimoPedido)} title="Ver o cupom do pedido mais recente desta comanda" className="rounded-xl border border-[#E2E8F0] px-3 py-2 text-xs font-bold text-[#2563EB] transition hover:bg-[#EFF6FF]">🧾 Ver cupom</button>
+            <button onClick={() => onImprimirCompartilhar?.(ultimoPedido)} title="Imprimir o cupom do pedido mais recente" className="rounded-xl border border-[#E2E8F0] px-3 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">🖨️ Imprimir</button>
+            <button onClick={() => onImprimirCompartilhar?.(ultimoPedido)} title="Compartilhar o cupom por WhatsApp" className="rounded-xl border border-[#E2E8F0] px-3 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">💬 Compartilhar</button>
+          </div>
+          {c.pedidos.length > 1 && <p className="mt-2 text-[10px] text-[#94A3B8]">Esta comanda agrupa {c.pedidos.length} pedidos — as ações acima usam o cupom do pedido mais recente ({ultimoPedido.id}), pois não existe um cupom único por comanda no modelo de dados.</p>}
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-5 py-5 sm:px-6 space-y-6">
+          {/* Indicadores inteligentes */}
+          {indicadores.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {indicadores.map((ind, i) => (
+                <span key={i} className="rounded-full px-2.5 py-1 text-[10px] font-bold" style={{ background: `${ind.cor}1A`, color: ind.cor }}>✔ {ind.texto}</span>
+              ))}
+            </div>
+          )}
+
+          {/* 3. Timeline da venda */}
+          <div className="rounded-2xl border border-[#E2E8F0] p-4">
+            <p className="mb-3 text-[10px] font-black uppercase tracking-widest text-[#64748B]">Linha do tempo</p>
+            <TimelineVenda pedido={pedidoTimelineSintetico} />
+          </div>
+
+          {/* 2. Cards resumo */}
           <div>
-            <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-[#64748B]">Pedidos desta comanda</p>
-            <div className="space-y-1.5">
-              {c.pedidos.map((o) => (
-                <div key={o.id} className="flex items-center justify-between gap-2 rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs">
-                  <span className="min-w-0 truncate text-[#64748B]">Cupom {o.id}</span>
-                  <span className="shrink-0 font-bold text-[#0D1B2A]">{formatCurrency(orderTotal(o) * 1.1)}</span>
-                  {onAbrirPedido && (
-                    <button onClick={() => onAbrirPedido(o)} title="Ver cupom" aria-label="Ver cupom deste pedido"
-                      className="shrink-0 rounded-lg border border-[#E2E8F0] px-2 py-1 text-[10px] font-bold text-[#2563EB] transition hover:bg-[#EFF6FF]">🧾 Ver cupom</button>
-                  )}
+            <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-[#64748B]">Resumo</p>
+            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+              {cardsResumo.map(([icone, titulo, valor, desc]) => (
+                <div key={titulo} className="rounded-2xl border border-[#E2E8F0] bg-white p-3 shadow-sm">
+                  <span className="text-sm" aria-hidden="true">{icone}</span>
+                  <p className="mt-1 text-[9px] font-bold uppercase tracking-widest text-[#64748B]">{titulo}</p>
+                  <p className="mt-0.5 truncate text-sm font-black text-[#0D1B2A]" title={valor}>{valor}</p>
+                  <p className="mt-0.5 truncate text-[10px] text-[#94A3B8]" title={desc}>{desc}</p>
                 </div>
               ))}
             </div>
           </div>
+
+          {/* 4. Produtos da comanda */}
+          <div>
+            <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-[#64748B]">Produtos da comanda</p>
+            <div className="hidden grid-cols-[1fr_60px_70px_80px_90px] gap-2 px-3 pb-1 text-[9px] font-bold uppercase tracking-widest text-[#94A3B8] sm:grid">
+              <span>Produto</span><span className="text-right">Qtd.</span><span className="text-right">Unitário</span><span className="text-right">Total</span><span className="justify-self-end">Status</span>
+            </div>
+            <div className="space-y-1.5">
+              {itensComanda.map((it) => <ItemComandaDetalheE key={it.chave} item={it} />)}
+            </div>
+          </div>
+
+          {/* 5. Resumo financeiro */}
+          <div>
+            <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-[#64748B]">Resumo financeiro</p>
+            <div className="divide-y divide-[#F1F5F9] rounded-2xl border border-[#E2E8F0]">
+              {[
+                ["Subtotal", formatCurrency(c.valor / 1.1)], ["Desconto", "—"], ["Acréscimos", "—"],
+                ["Taxa de serviço (10%)", formatCurrency(c.valor - c.valor / 1.1)], ["Taxa de entrega", "—"],
+              ].map(([r, v]) => (
+                <div key={r} className="flex items-center justify-between px-3.5 py-2 text-sm">
+                  <span className="text-[#64748B]">{r}</span><span className="font-semibold text-[#334155]">{v}</span>
+                </div>
+              ))}
+              <div className="flex items-center justify-between bg-[#F8FAFC] px-3.5 py-2.5">
+                <span className="text-sm font-black text-[#0D1B2A]">Total</span><span className="text-base font-black text-[#0D1B2A]">{formatCurrency(c.valor)}</span>
+              </div>
+              <div className="flex items-center justify-between px-3.5 py-2 text-sm">
+                <span className="text-[#64748B]">Lucro estimado</span>
+                <span className={`font-bold ${lucroEstimado == null ? "text-[#94A3B8]" : lucroEstimado >= 0 ? "text-[#10B981]" : "text-[#EF4444]"}`}>{lucroEstimado != null ? formatCurrency(lucroEstimado) : "—"}</span>
+              </div>
+              <div className="flex items-center justify-between px-3.5 py-2 text-sm">
+                <span className="text-[#64748B]">Margem</span>
+                <span className="font-bold text-[#334155]">{margemPct != null ? `${margemPct.toFixed(0)}%` : "—"}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* 6. Auditoria */}
+          <div>
+            <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-[#64748B]">Auditoria</p>
+            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+              {[
+                ["Criado por", "—"], ["Alterado por", "—"], ["Cancelado por", "—"],
+                ["Reimpresso por", "—"], ["Última alteração", new Date(c.fim).toLocaleString("pt-BR")], ["Qtde. reimpressões", "—"],
+              ].map(([r, v]) => (
+                <div key={r} className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-2.5">
+                  <p className="text-[9px] font-bold uppercase tracking-widest text-[#64748B]">{r}</p>
+                  <p className="mt-0.5 truncate text-xs font-bold text-[#0D1B2A]">{v}</p>
+                </div>
+              ))}
+            </div>
+            <p className="mt-1.5 text-[10px] text-[#94A3B8]">Não há coluna de operador/reimpressões por pedido no banco hoje — campos exibidos como "—" não foram inventados.</p>
+          </div>
+
+          {/* 8. Histórico do cliente */}
+          {historicoCliente && (
+            <div>
+              <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-[#64748B]">Histórico do cliente · {historicoCliente.nome}</p>
+              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+                {[
+                  ["Total de pedidos", `${historicoCliente.totalPedidos}`], ["Total gasto", formatCurrency(historicoCliente.totalGasto)],
+                  ["Ticket médio", formatCurrency(historicoCliente.ticketMedio)], ["Frequência", `${historicoCliente.frequenciaMensal.toFixed(1)}/mês`],
+                  ["Última visita", historicoCliente.ultimaVisita ? new Date(historicoCliente.ultimaVisita).toLocaleDateString("pt-BR") : "—"],
+                  ["Produto favorito", historicoCliente.produtoFavorito || "—"],
+                ].map(([r, v]) => (
+                  <div key={r} className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-2.5">
+                    <p className="text-[9px] font-bold uppercase tracking-widest text-[#64748B]">{r}</p>
+                    <p className="mt-0.5 truncate text-xs font-bold text-[#0D1B2A]">{v}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 9. Insights */}
+          {insights.length > 0 && (
+            <div>
+              <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-[#64748B]">Insights</p>
+              <div className="space-y-1.5">
+                {insights.map((txt, i) => (
+                  <p key={i} className="rounded-xl bg-[#8B5CF6]/10 px-3 py-2 text-xs font-semibold text-[#8B5CF6]">{txt}</p>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Rodapé fixo */}
+        <div className="shrink-0 border-t border-[#E2E8F0] px-5 py-3.5 sm:px-6">
+          <button onClick={onFechar} className="w-full rounded-xl border border-[#E2E8F0] py-2.5 text-sm font-bold text-[#334155] transition hover:bg-[#F1F5F9]">Fechar</button>
         </div>
       </div>
     </div>
   );
 }
 
-function RelatorioPermanencia({ pedidos, orders = [], periodo, ini, fim, lojaInfo }) {
+function RelatorioPermanencia({ pedidos, orders = [], products = [], periodo, ini, fim, lojaInfo }) {
   const [pagina, setPagina] = useState(1);
   const [porPagina, setPorPagina] = useState(10);
   const [buscaPermE, setBuscaPermE] = useState("");
@@ -11933,6 +12147,8 @@ function RelatorioPermanencia({ pedidos, orders = [], periodo, ini, fim, lojaInf
   const [atualizadoEmPermE, setAtualizadoEmPermE] = useState(() => new Date());
   const [comandaDetalheE, setComandaDetalheE] = useState(null);
   const [cupomSelPermE, setCupomSelPermE] = useState(null);
+  const [pedidoVisualizarPermE, setPedidoVisualizarPermE] = useState(null);
+  const custoPorNomePermE = Object.fromEntries(products.map((p) => [p.name, Number(p.cost) || 0]));
 
   // Agrupa por comanda: primeiro pedido (início) e último pagamento (fim) —
   // mesma regra já existente, agora também acumulando os pedidos da comanda
@@ -11967,6 +12183,32 @@ function RelatorioPermanencia({ pedidos, orders = [], periodo, ini, fim, lojaInf
     return "normal";
   }
   const lista = listaBase.map((c) => ({ ...c, status: statusPermDe(c.minutos), variacaoMedia: mediaGeralMinutos > 0 ? ((c.minutos - mediaGeralMinutos) / mediaGeralMinutos) * 100 : null }));
+  const mediaTicketGeralPermE = lista.length ? lista.reduce((s, c) => s + c.ticketMedio, 0) / lista.length : 0;
+  const mediaItensGeralPermE = lista.length ? lista.reduce((s, c) => s + c.itens, 0) / lista.length : 0;
+  const temposPreparoGeraisPermE = pedidos.filter((o) => o.preparoEmISO && o.prontoEmISO).map((o) => minutosEntreISO(o.preparoEmISO, o.prontoEmISO));
+  const mediaPreparoGeralPermE = temposPreparoGeraisPermE.length ? temposPreparoGeraisPermE.reduce((s, v) => s + v, 0) / temposPreparoGeraisPermE.length : null;
+
+  // ── Histórico do cliente da comanda aberta no drawer — computado só
+  // quando o drawer está aberto (carregamento sob demanda, sem consulta
+  // nova: reaproveita o "orders" completo já recebido por esta aba). ──
+  const clienteChaveDetalheE = comandaDetalheE?.pedidos?.[0]?.customer || comandaDetalheE?.pedidos?.[0]?.clienteTelefone || null;
+  const historicoClienteDetalheE = useMemo(() => {
+    if (!clienteChaveDetalheE) return null;
+    const doCliente = orders.filter((o) => (o.customer || o.clienteTelefone) === clienteChaveDetalheE && o.paymentStatus === "paid");
+    if (doCliente.length === 0) return null;
+    const totalGasto = doCliente.reduce((s, o) => s + orderTotal(o) * 1.1, 0);
+    const datas = doCliente.map((o) => o.createdAtISO).filter(Boolean).sort();
+    const ultimaVisita = datas[datas.length - 1] || null;
+    const primeiraVisita = datas[0] || null;
+    const mesesAtivo = primeiraVisita && ultimaVisita ? Math.max(1, (new Date(ultimaVisita) - new Date(primeiraVisita)) / (1000 * 60 * 60 * 24 * 30)) : 1;
+    const contagemProdutos = {};
+    doCliente.forEach((o) => o.items.forEach((it) => { contagemProdutos[it.name] = (contagemProdutos[it.name] || 0) + it.quantity; }));
+    const produtoFavorito = Object.entries(contagemProdutos).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+    return {
+      nome: doCliente[0].customer || "Cliente", totalPedidos: doCliente.length, totalGasto,
+      ticketMedio: totalGasto / doCliente.length, frequenciaMensal: doCliente.length / mesesAtivo, ultimaVisita, produtoFavorito,
+    };
+  }, [clienteChaveDetalheE, orders]);
 
   // ── Comparativo com o período anterior (mesma técnica já usada nas
   // demais abas: filtra o orders completo pelo intervalo anterior de mesma
@@ -12334,7 +12576,15 @@ function RelatorioPermanencia({ pedidos, orders = [], periodo, ini, fim, lojaInf
         onMudar={setPagina} rotulo="comanda(s)" tema="claro" porPaginaOpcoes={[10, 20, 50, 100]} onMudarPorPagina={setPorPagina} mostrarExtremos />
 
       {comandaDetalheE && (
-        <ModalDetalheComanda comanda={comandaDetalheE} mediaGeralMinutos={mediaGeralMinutos} onFechar={() => setComandaDetalheE(null)} onAbrirPedido={setCupomSelPermE} />
+        <ModalDetalheComanda comanda={comandaDetalheE} mediaGeralMinutos={mediaGeralMinutos} mediaTicketGeral={mediaTicketGeralPermE}
+          mediaItensGeral={mediaItensGeralPermE} mediaPreparoGeral={mediaPreparoGeralPermE} mediaTempoAtePagamentoGeral={tempoMedioAtePagamentoE}
+          horarioReferencia={horarioMaiorPermanenciaE} custoPorNome={custoPorNomePermE} historicoCliente={historicoClienteDetalheE}
+          onFechar={() => setComandaDetalheE(null)} onVerCupom={setPedidoVisualizarPermE} onImprimirCompartilhar={setCupomSelPermE} />
+      )}
+      {pedidoVisualizarPermE && (
+        <ModalVisualizarCupom pedido={pedidoVisualizarPermE} lojaInfo={lojaInfo} custoPorNome={custoPorNomePermE} onFechar={() => setPedidoVisualizarPermE(null)}
+          onReimprimir={() => { setCupomSelPermE(pedidoVisualizarPermE); setPedidoVisualizarPermE(null); }}
+          onEnviar={() => { setCupomSelPermE(pedidoVisualizarPermE); setPedidoVisualizarPermE(null); }} />
       )}
       {cupomSelPermE && <CupomNaoFiscalModal pedido={cupomSelPermE} lojaInfo={lojaInfo} onFechar={() => setCupomSelPermE(null)} />}
     </div>
