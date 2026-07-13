@@ -8369,6 +8369,79 @@ class SecaoErrorBoundary extends React.Component {
   }
 }
 
+// ── Componentes exclusivos do painel executivo da aba Vendas (Relatórios) ──
+// Não reaproveitam CardMetrica (compartilhado por 40+ telas) para não alterar
+// o visual padrão dele em nenhuma outra tela — mesmo princípio já usado em
+// KpiCardCopiloto/OportunidadeCard (Copiloto IA).
+function KpiExecutivo({ titulo, valor, variacao, desc, icon, tendencia }) {
+  const max = tendencia && tendencia.length ? Math.max(1, ...tendencia) : 1;
+  return (
+    <div className="h-full rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-[0_1px_2px_rgba(13,27,42,0.04)]">
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-[11px] font-bold uppercase tracking-widest text-[#64748B]">{titulo}</p>
+        {icon && <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#2563EB]/10 text-sm">{icon}</span>}
+      </div>
+      <p className="page-title mt-1.5 text-2xl font-black text-[#0D1B2A]">{valor}</p>
+      <div className="mt-1 flex items-center gap-2">
+        {variacao != null && (
+          <span className={`text-[11px] font-bold ${variacao >= 0 ? "text-[#10B981]" : "text-[#F59E0B]"}`}>{variacao >= 0 ? "▲" : "▼"} {Math.abs(Math.round(variacao))}%</span>
+        )}
+        {tendencia && tendencia.length > 1 && (
+          <span className="flex h-4 items-end gap-[2px]" aria-hidden="true">
+            {tendencia.slice(-8).map((v, i) => (<span key={i} className="w-[3px] rounded-sm bg-[#2563EB]/35" style={{ height: `${Math.max(15, (v / max) * 100)}%` }} />))}
+          </span>
+        )}
+      </div>
+      {desc && <p className="mt-1 text-xs leading-snug text-[#64748B]">{desc}</p>}
+    </div>
+  );
+}
+
+// Card de ranking compacto ("Top N") — Categorias, Clientes, Mesas, produtos
+// sem venda/baixo estoque/maior margem/faturamento, forma de pagamento, canal…
+function TopLista({ titulo, icon, itens, render, vazio = "Sem dados no período.", acao }) {
+  return (
+    <div className="h-full rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-[0_1px_2px_rgba(13,27,42,0.04)]">
+      <div className="mb-2.5 flex items-center justify-between gap-2">
+        <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-[#64748B]">{icon && <span aria-hidden="true">{icon}</span>}{titulo}</p>
+        {acao}
+      </div>
+      {(!itens || itens.length === 0) ? (
+        <p className="py-2 text-xs text-[#94A3B8]">{vazio}</p>
+      ) : (
+        <ul className="space-y-2">
+          {itens.map((it, i) => (<li key={i}>{render(it, i)}</li>))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+// Painel de insights — ícone + cor semântica (só azul/verde/laranja/violeta/
+// vermelho — vermelho reservado ao caso realmente crítico: estoque zerado).
+const INSIGHT_TONS_VENDAS = {
+  success: { icon: "📈", bg: "bg-[#10B981]/10" },
+  warning: { icon: "⚠️", bg: "bg-[#F59E0B]/10" },
+  info:    { icon: "💡", bg: "bg-[#2563EB]/10" },
+  violet:  { icon: "✨", bg: "bg-[#8B5CF6]/10" },
+  danger:  { icon: "🔴", bg: "bg-[#EF4444]/10" },
+};
+function InsightCardVendas({ tom = "info", titulo, texto, acaoLabel, onAcao }) {
+  const t = INSIGHT_TONS_VENDAS[tom] || INSIGHT_TONS_VENDAS.info;
+  return (
+    <div className="flex h-full items-start gap-3 rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-[0_1px_2px_rgba(13,27,42,0.04)]">
+      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-base ${t.bg}`} aria-hidden="true">{t.icon}</span>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-bold text-[#0D1B2A]">{titulo}</p>
+        <p className="mt-0.5 text-xs leading-relaxed text-[#334155]">{texto}</p>
+        {acaoLabel && onAcao && (
+          <button onClick={onAcao} className="mt-1.5 text-[11px] font-bold text-[#2563EB] transition hover:text-[#1D4ED8]">{acaoLabel} →</button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMesas = () => {} }) {
   const [periodo, setPeriodo] = useState("7");
   const [ini, setIni] = useState("");
@@ -8381,6 +8454,15 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
   // Paginação da tabela "Clientes do período" (aba Clientes)
   const [paginaClientes, setPaginaClientes] = useState(1);
   const [porPaginaClientes, setPorPaginaClientes] = useState(10);
+  // Aba Vendas — busca/ordenação/paginação do ranking de produtos, toggle de
+  // comparação com o período anterior e ações rápidas (compartilhar/atualizar).
+  const [buscaProdV, setBuscaProdV] = useState("");
+  const [ordemProdV, setOrdemProdV] = useState({ campo: "valor", dir: "desc" });
+  const [paginaProdV, setPaginaProdV] = useState(1);
+  const [porPaginaProdV, setPorPaginaProdV] = useState(10);
+  const [compararPeriodo, setCompararPeriodo] = useState(false);
+  const [atualizadoEm, setAtualizadoEm] = useState(() => new Date());
+  const [toastVendas, setToastVendas] = useState("");
 
   const filtrados = filtrarPedidosPorPeriodo(orders, periodo, ini, fim);
   const a = analisarVendas(filtrados, products);
@@ -8401,7 +8483,19 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
     if (anteriores.length === 0) return null;
     const ant = analisarVendas(anteriores, products);
     const varPct = (at, an) => an > 0 ? ((at - an) / an) * 100 : (at > 0 ? 100 : null);
-    return { faturamento: varPct(a.faturamento, ant.faturamento), ticket: varPct(a.ticket, ant.ticket), pedidos: varPct(a.totalPedidos, ant.totalPedidos) };
+    // Variação por categoria — usada pelo painel de insights da aba Vendas
+    // (categoria em crescimento/queda) e pelo toggle "Comparar período".
+    const catAntPorNome = Object.fromEntries(ant.categorias.map((c) => [c.categoria, c.valor]));
+    const categoriaDeltas = a.categorias
+      .map((c) => ({ categoria: c.categoria, valor: c.valor, variacao: varPct(c.valor, catAntPorNome[c.categoria] || 0) }))
+      .filter((c) => c.variacao != null);
+    const catCrescimento = categoriaDeltas.length ? categoriaDeltas.reduce((b, c) => (c.variacao > b.variacao ? c : b)) : null;
+    const catQueda = categoriaDeltas.length ? categoriaDeltas.reduce((b, c) => (c.variacao < b.variacao ? c : b)) : null;
+    return {
+      faturamento: varPct(a.faturamento, ant.faturamento), ticket: varPct(a.ticket, ant.ticket), pedidos: varPct(a.totalPedidos, ant.totalPedidos),
+      faturamentoAnterior: ant.faturamento, ticketAnterior: ant.ticket, pedidosAnterior: ant.totalPedidos,
+      catCrescimento, catQueda,
+    };
   })();
 
   // Cupons (pedidos pagos) que contêm um determinado produto
@@ -8503,6 +8597,81 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
     csv += `\nTotal em estoque (atual);;;;${totalEmEstoque};\n`;
     baixarArquivo("﻿" + csv, `relatorio-estoque-${periodo}.csv`, "text/csv;charset=utf-8");
   }
+
+  // ── Aba Vendas: painel executivo premium — tudo derivado do que já está
+  // carregado (filtrados/pagosG/products/linhasEstoque/clientesLista/
+  // mesasFaturamento/catDonutR), nenhuma consulta nova. ──
+  const melhorHoraV = horarioGeral.reduce((b, d) => (d.valor > b.valor ? d : b), { valor: -1, label: "—" });
+  const piorHoraComVendaV = (() => {
+    const comV = horarioGeral.filter((d) => d.valor > 0);
+    return comV.length ? comV.reduce((b, d) => (d.valor < b.valor ? d : b)) : null;
+  })();
+  // Forma de pagamento — mesma agregação já usada na Visão Financeira (o.pagamentoForma)
+  const porFormaV = {};
+  pagosG.forEach((o) => { const f = o.pagamentoForma || "Não informado"; porFormaV[f] = (porFormaV[f] || 0) + orderTotal(o) * 1.1; });
+  const formasPagamentoV = Object.entries(porFormaV).map(([nome, valor]) => ({ nome, valor })).sort((x, y) => y.valor - x.valor);
+  // Canal de venda — mesma heurística já usada no CRM do Dashboard Gerencial
+  // (comanda → Mesa/QR Code; mesa sem comanda → Mesa; nenhum dos dois → Balcão/Delivery)
+  const porCanalV = {};
+  pagosG.forEach((o) => { const c = o.command ? "Mesa / QR Code" : o.table ? "Mesa" : "Balcão / Delivery"; porCanalV[c] = (porCanalV[c] || 0) + orderTotal(o) * 1.1; });
+  const canalVendaV = Object.entries(porCanalV).map(([nome, valor]) => ({ nome, valor })).sort((x, y) => y.valor - x.valor);
+  // Ranking completo de produtos (não limitado a 6) — mesma regra de
+  // analisarVendas (só pedidos pagos, preço × quantidade), enriquecido com
+  // %/ticket médio/margem para a tabela de ranking e os cards Top produto.
+  const produtosCompletosV = (() => {
+    const catPorNome = {}; products.forEach((p) => { catPorNome[p.name] = p.category; });
+    const m = {};
+    pagosG.forEach((o) => o.items.forEach((it) => {
+      if (!m[it.name]) m[it.name] = { nome: it.name, categoria: catPorNome[it.name] || "Outros", qtd: 0, valor: 0 };
+      m[it.name].qtd += it.quantity;
+      m[it.name].valor += it.price * it.quantity;
+    }));
+    return Object.values(m).map((p) => ({
+      ...p,
+      margem: p.valor - (custoPorNome[p.nome] ?? 0) * p.qtd,
+      ticket: p.qtd ? p.valor / p.qtd : 0,
+      pct: a.faturamentoSemTaxa > 0 ? (p.valor / a.faturamentoSemTaxa) * 100 : 0,
+    }));
+  })();
+  const produtosPorMargemV = [...produtosCompletosV].sort((x, y) => y.margem - x.margem);
+  const produtosPorFaturamentoV = [...produtosCompletosV].sort((x, y) => y.valor - x.valor);
+  const produtosSemVendaV = products.filter((p) => p.active !== false && !vendidoPorProduto[p.name]);
+  const produtosBaixoEstoqueV = linhasEstoque.filter((l) => l.baixo || l.zerado);
+  // Busca + ordenação + paginação do ranking "Produtos mais vendidos"
+  useEffect(() => { setPaginaProdV(1); }, [periodo, ini, fim, aba, buscaProdV, ordemProdV, porPaginaProdV]);
+  const produtosFiltradosV = produtosCompletosV.filter((p) => !buscaProdV.trim() || p.nome.toLowerCase().includes(buscaProdV.trim().toLowerCase()));
+  const produtosOrdenadosV = [...produtosFiltradosV].sort((x, y) => {
+    const dir = ordemProdV.dir === "asc" ? 1 : -1;
+    const campo = ordemProdV.campo;
+    if (campo === "nome" || campo === "categoria") return dir * String(x[campo]).localeCompare(String(y[campo]), "pt-BR");
+    return dir * ((x[campo] ?? 0) - (y[campo] ?? 0));
+  });
+  const totalPaginasProdV = Math.max(1, Math.ceil(produtosOrdenadosV.length / porPaginaProdV));
+  const paginaProdVAtual = Math.min(paginaProdV, totalPaginasProdV);
+  const produtosVisiveisV = produtosOrdenadosV.slice((paginaProdVAtual - 1) * porPaginaProdV, paginaProdVAtual * porPaginaProdV);
+  const maxQtdV = Math.max(1, ...produtosCompletosV.map((p) => p.qtd));
+  function alternarOrdemV(campo) {
+    setOrdemProdV((o) => (o.campo === campo ? { campo, dir: o.dir === "desc" ? "asc" : "desc" } : { campo, dir: "desc" }));
+  }
+  // Ações rápidas — Exportar/Imprimir reaproveitam BotoesExport (abaixo);
+  // Compartilhar usa a Web Share API do navegador, com cópia para a área de
+  // transferência como alternativa; Atualizar apenas confirma o horário, já
+  // que os dados chegam ao vivo via Realtime (não há uma nova consulta a disparar).
+  async function compartilharRelatorioV() {
+    const labelsPeriodo = { hoje: "Hoje", ontem: "Ontem", "7": "Últimos 7 dias", "15": "Últimos 15 dias", "30": "Últimos 30 dias", tudo: "Todo o período", periodo: `${ini || "—"} a ${fim || "—"}` };
+    const texto = `Relatório de vendas — ${labelsPeriodo[periodo] || periodo}\nFaturamento: ${formatCurrency(a.faturamento)}\nPedidos: ${a.totalPedidos}\nTicket médio: ${formatCurrency(a.ticket)}`;
+    try {
+      if (navigator.share) { await navigator.share({ title: "Relatório de vendas", text: texto }); return; }
+    } catch { return; } // usuário cancelou o compartilhamento nativo
+    try {
+      await navigator.clipboard.writeText(texto);
+      setToastVendas("Resumo copiado para a área de transferência.");
+    } catch {
+      setToastVendas("Não foi possível compartilhar automaticamente.");
+    }
+    setTimeout(() => setToastVendas(""), 3500);
+  }
+  function atualizarVisaoV() { setAtualizadoEm(new Date()); }
 
   // ── Exportações ──
   function baixarArquivo(conteudo, nome, tipo) {
@@ -8789,35 +8958,179 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
 
       {aba === "vendas" && (
         <>
-          <BotoesExport />
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            <CardMetrica titulo="Subtotal vendido" valor={formatCurrency(a.faturamentoSemTaxa)} cor="text-dash-navy" />
-            <CardMetrica titulo="Faturamento + taxa" valor={formatCurrency(a.faturamento)} cor="text-dash-navy" tone="dashSuccess" variacao={comparativo?.faturamento} />
-            <CardMetrica titulo="Itens vendidos" valor={a.topProdutos.reduce((s, p) => s + p.qtd, 0)} cor="text-dash-navy" />
-            <CardMetrica titulo="Ticket médio" valor={formatCurrency(a.ticket)} sub="por pedido pago" cor="text-dash-navy" tone="dashPrimary" variacao={comparativo?.ticket} />
-            <CardMetrica titulo="Qtd. de pedidos" valor={a.totalPedidos} sub="no período" cor="text-dash-navy" variacao={comparativo?.pedidos} />
-            <CardMetrica titulo="Margem estimada" valor={formatCurrency(margemEstimada)} sub="preço − custo cadastrado (itens pagos)" cor="text-dash-navy" tone="dashWarning" />
+          {/* 8. Ações rápidas */}
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#E2E8F0] bg-white p-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <BotoesExport />
+              <button onClick={() => setCompararPeriodo((v) => !v)}
+                className={`rounded-2xl border px-4 py-2.5 text-sm font-bold transition ${compararPeriodo ? "border-[#2563EB] bg-[#EFF6FF] text-[#2563EB]" : "border-slate-200 bg-white text-[#334155] hover:bg-slate-100"}`}>📅 Comparar período</button>
+              <button onClick={compartilharRelatorioV} className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-[#334155] transition hover:bg-slate-100">🔗 Compartilhar</button>
+              <button onClick={atualizarVisaoV} className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-[#334155] transition hover:bg-slate-100">🔄 Atualizar</button>
+            </div>
+            <p className="text-[11px] text-[#94A3B8]">Atualizado às {atualizadoEm.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</p>
           </div>
-          <div className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white">
-            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3">
-              <h3 className="page-title text-sm font-bold uppercase tracking-wider text-dash-navy">Produtos mais vendidos</h3>
-              <span className="text-[11px] text-slate-500">👆 toque para ver os cupons</span>
-            </div>
-            <div className="hidden grid-cols-[2fr_1fr_1fr] bg-slate-50 px-5 py-2.5 text-[11px] font-bold uppercase tracking-widest text-slate-500 sm:grid">
-              <span>Produto</span><span className="text-center">Qtd vendida</span><span className="text-right">Faturamento</span>
-            </div>
-            {a.topProdutos.length === 0 && <p className="px-5 py-6 text-center text-sm text-slate-500">Nenhuma venda no período.</p>}
-            {a.topProdutos.map((p, i) => (
-              <button key={p.nome} onClick={() => setDrill({ nome: p.nome, cupons: cuponsDoProduto(p.nome) })}
-                className="grid w-full gap-1 border-t border-slate-100 px-5 py-3 text-left text-sm transition hover:bg-blue-50 sm:grid-cols-[2fr_1fr_1fr] sm:items-center">
-                <span className="flex items-center gap-2 font-semibold text-dash-navy">
-                  <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[10px] font-black ${i === 0 ? "bg-amber-50 text-amber-600" : "bg-blue-50 text-blue-600"}`}>{i + 1}</span>
-                  {p.nome} <span className="text-xs text-blue-500">▸</span>
+          {toastVendas && <p className="pp-anim-fade rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-2.5 text-xs text-[#334155]">{toastVendas}</p>}
+
+          {/* 1. Resumo executivo */}
+          <div className="rounded-[1.75rem] border border-[#E2E8F0] bg-white p-5 sm:p-6">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h3 className="page-title text-base font-bold text-[#0D1B2A]">Resumo executivo</h3>
+                <p className="mt-0.5 text-xs text-[#64748B]">Visão consolidada do período selecionado</p>
+              </div>
+              {comparativo && (
+                <span className={`rounded-full px-3 py-1.5 text-xs font-bold ${comparativo.faturamento >= 0 ? "bg-[#10B981]/10 text-[#10B981]" : "bg-[#F59E0B]/10 text-[#F59E0B]"}`}>
+                  {comparativo.faturamento >= 0 ? "▲" : "▼"} {Math.abs(Math.round(comparativo.faturamento))}% vs. período anterior
                 </span>
-                <span className="text-slate-500 sm:text-center">{p.qtd} un</span>
-                <span className="font-semibold text-emerald-600 sm:text-right">{formatCurrency(p.valor)}</span>
-              </button>
-            ))}
+              )}
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+              {[
+                { r: "Faturamento", v: formatCurrency(a.faturamento), s: compararPeriodo && comparativo ? `Antes: ${formatCurrency(comparativo.faturamentoAnterior)}` : "no período" },
+                { r: "Ticket médio", v: formatCurrency(a.ticket), s: compararPeriodo && comparativo ? `Antes: ${formatCurrency(comparativo.ticketAnterior)}` : "por pedido" },
+                { r: "Pedidos", v: a.totalPedidos, s: compararPeriodo && comparativo ? `Antes: ${comparativo.pedidosAnterior}` : "no período" },
+                { r: "Itens vendidos", v: itensVendidos, s: "unidades" },
+                { r: "Margem", v: formatCurrency(margemEstimada), s: `${margemPct.toFixed(0)}% do faturamento` },
+                { r: "Melhor horário", v: melhorHoraV.label, s: melhorHoraV.valor > 0 ? formatCurrency(melhorHoraV.valor) : "sem vendas" },
+                { r: "Melhor produto", v: a.topProdutos[0]?.nome || "—", s: a.topProdutos[0] ? `${a.topProdutos[0].qtd} un.` : "sem vendas" },
+                { r: "Melhor categoria", v: a.categorias[0]?.categoria || "—", s: a.categorias[0] ? formatCurrency(a.categorias[0].valor) : "sem vendas" },
+                { r: "Melhor forma de pagamento", v: formasPagamentoV[0]?.nome || "—", s: formasPagamentoV[0] ? formatCurrency(formasPagamentoV[0].valor) : "sem dados" },
+              ].map((c) => (
+                <div key={c.r} className="rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-3.5">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-[#64748B]">{c.r}</p>
+                  <p className="page-title mt-1 truncate text-base font-bold text-[#0D1B2A]">{c.v}</p>
+                  <p className="truncate text-[11px] font-semibold text-[#2563EB]">{c.s}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* 2. KPIs padronizados */}
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <KpiExecutivo titulo="Subtotal vendido" valor={formatCurrency(a.faturamentoSemTaxa)} desc="Antes da taxa de serviço (10%)" icon="💰" tendencia={evolucao.map((d) => d.valor)} />
+            <KpiExecutivo titulo="Faturamento + taxa" valor={formatCurrency(a.faturamento)} variacao={comparativo?.faturamento} desc="Com taxa de serviço" icon="📈" tendencia={evolucao.map((d) => d.valor)} />
+            <KpiExecutivo titulo="Ticket médio" valor={formatCurrency(a.ticket)} variacao={comparativo?.ticket} desc="Por pedido pago" icon="🎟️" />
+            <KpiExecutivo titulo="Qtd. de pedidos" valor={a.totalPedidos} variacao={comparativo?.pedidos} desc="No período selecionado" icon="🧾" />
+            <KpiExecutivo titulo="Itens vendidos" valor={itensVendidos} desc="Unidades nos pedidos pagos" icon="📦" />
+            <KpiExecutivo titulo="Margem estimada" valor={formatCurrency(margemEstimada)} desc={`${margemPct.toFixed(0)}% do faturamento · preço − custo cadastrado`} icon="📊" />
+          </div>
+
+          {/* 6. Gráficos padronizados (reaproveita os mesmos componentes/dados já usados na aba Visão geral) */}
+          <div className="grid gap-5 xl:grid-cols-3">
+            <Painel titulo="Evolução do faturamento" className="xl:col-span-2"><LinhaFaturamento dados={evolucao} /></Painel>
+            <Painel titulo="Vendas por categoria"><DonutChart dados={catDonutR} label="Categorias" /></Painel>
+          </div>
+          <Painel titulo="Faturamento por horário" descricao="Distribuição das vendas ao longo do período selecionado">
+            <BarrasHora dados={horarioGeral} paleta={{ semVenda: "#2563EB", pico: "#F59E0B", acimaMedia: "#2563EB", padrao: "#2563EB", grade: "#E2E8F0", texto: "#64748B", textoValor: "#64748B" }} />
+          </Painel>
+
+          {/* 3. Produtos mais vendidos — ranking profissional (busca, ordenação, paginação) */}
+          <div className="overflow-hidden rounded-[1.75rem] border border-[#E2E8F0] bg-white">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E2E8F0] px-5 py-3.5">
+              <div>
+                <h3 className="page-title text-sm font-bold uppercase tracking-wider text-[#0D1B2A]">Produtos mais vendidos</h3>
+                <p className="mt-0.5 text-[11px] text-[#64748B]">{produtosCompletosV.length} produto(s) com venda no período · toque para ver os cupons</p>
+              </div>
+              <input value={buscaProdV} onChange={(e) => setBuscaProdV(e.target.value)} placeholder="🔎 Buscar produto…"
+                className="w-full max-w-[220px] rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs text-[#334155] outline-none transition focus:border-[#2563EB]" />
+            </div>
+            <div className="hidden items-center justify-between border-b border-[#E2E8F0] bg-[#F8FAFC] px-5 py-2 text-[10px] font-bold uppercase tracking-widest text-[#64748B] sm:flex">
+              <span>#, Produto e categoria</span>
+              <span className="flex gap-3">
+                <button onClick={() => alternarOrdemV("qtd")} className="transition hover:text-[#2563EB]">Qtd{ordemProdV.campo === "qtd" ? (ordemProdV.dir === "desc" ? " ▼" : " ▲") : ""}</button>
+                <button onClick={() => alternarOrdemV("valor")} className="transition hover:text-[#2563EB]">Faturamento{ordemProdV.campo === "valor" ? (ordemProdV.dir === "desc" ? " ▼" : " ▲") : ""}</button>
+                <span>%</span><span>Ticket médio</span>
+                <button onClick={() => alternarOrdemV("margem")} className="transition hover:text-[#2563EB]">Margem{ordemProdV.campo === "margem" ? (ordemProdV.dir === "desc" ? " ▼" : " ▲") : ""}</button>
+              </span>
+            </div>
+            {produtosVisiveisV.length === 0 && (
+              <p className="px-5 py-6 text-center text-sm text-[#64748B]">Nenhum produto encontrado{buscaProdV ? " para essa busca" : " no período"}.</p>
+            )}
+            {produtosVisiveisV.map((p, i) => {
+              const rankGlobal = (paginaProdVAtual - 1) * porPaginaProdV + i + 1;
+              return (
+                <div key={p.nome} className="border-t border-[#F1F5F9] px-5 py-3.5 transition hover:bg-[#F8FAFC]">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-black ${rankGlobal === 1 ? "bg-[#F59E0B]/15 text-[#F59E0B]" : "bg-[#2563EB]/10 text-[#2563EB]"}`}>{rankGlobal}</span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-[#0D1B2A]">{p.nome}</p>
+                      <p className="truncate text-[11px] text-[#64748B]">{p.categoria}</p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-right text-xs">
+                      <span className="text-[#334155]"><b className="text-[#0D1B2A]">{p.qtd}</b> un</span>
+                      <span className="font-bold text-[#0D1B2A]">{formatCurrency(p.valor)}</span>
+                      <span className="text-[#64748B]">{p.pct.toFixed(1)}%</span>
+                      <span className="hidden text-[#64748B] sm:inline">tkt {formatCurrency(p.ticket)}</span>
+                      <span className="hidden font-semibold text-[#10B981] sm:inline">{formatCurrency(p.margem)}</span>
+                    </div>
+                    <button onClick={() => setDrill({ nome: p.nome, cupons: cuponsDoProduto(p.nome) })}
+                      className="shrink-0 rounded-lg border border-[#E2E8F0] px-2.5 py-1.5 text-[11px] font-bold text-[#2563EB] transition hover:bg-[#EFF6FF]">Ver detalhes</button>
+                  </div>
+                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#F1F5F9]"><div className="h-full rounded-full bg-[#2563EB]" style={{ width: `${(p.qtd / maxQtdV) * 100}%` }} /></div>
+                </div>
+              );
+            })}
+          </div>
+          <Paginacao pagina={paginaProdVAtual} totalPaginas={totalPaginasProdV} total={produtosOrdenadosV.length} porPagina={porPaginaProdV}
+            onMudar={setPaginaProdV} rotulo="produto(s)" tema="claro" porPaginaOpcoes={[10, 20, 50, 100]} onMudarPorPagina={setPorPaginaProdV} />
+
+          {/* 4. Novos cards — Top categorias/clientes/mesas, produtos sem venda/baixo estoque/maior margem/faturamento, horário de pico, forma de pagamento e canal */}
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <TopLista titulo="Top categorias" icon="🏷️" itens={a.categorias.slice(0, 5)} vazio="Sem categorias vendidas no período."
+              render={(c) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[#334155]">{c.categoria}</span><span className="shrink-0 font-bold text-[#0D1B2A]">{formatCurrency(c.valor)}</span></div>)} />
+            <TopLista titulo="Top clientes" icon="👤" itens={clientesLista.filter((c) => c.identificado).slice(0, 5)} vazio="Sem clientes identificados no período."
+              acao={<button onClick={() => setAba("clientes")} className="text-[11px] font-bold text-[#2563EB] transition hover:text-[#1D4ED8]">Ver todos →</button>}
+              render={(c) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[#334155]">{c.cliente}</span><span className="shrink-0 font-bold text-[#0D1B2A]">{formatCurrency(c.faturamento)}</span></div>)} />
+            <TopLista titulo="Top mesas" icon="🍽️" itens={mesasFaturamento.slice(0, 5)} vazio="Sem vendas por mesa no período."
+              render={(m) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[#334155]">{m.mesa}</span><span className="shrink-0 font-bold text-[#0D1B2A]">{formatCurrency(m.faturamento)}</span></div>)} />
+            <TopLista titulo="Produtos sem venda" icon="🚫" itens={produtosSemVendaV.slice(0, 5)} vazio="Todos os produtos ativos venderam no período."
+              acao={produtosSemVendaV.length > 5 ? <span className="text-[11px] text-[#64748B]">+{produtosSemVendaV.length - 5}</span> : null}
+              render={(p) => <span className="block truncate text-sm text-[#334155]">{p.name}</span>} />
+            <TopLista titulo="Produtos com baixo estoque" icon="📉" itens={produtosBaixoEstoqueV.slice(0, 5)} vazio="Nenhum produto em estoque crítico."
+              acao={<button onClick={() => setAba("estoque")} className="text-[11px] font-bold text-[#2563EB] transition hover:text-[#1D4ED8]">Ver estoque →</button>}
+              render={(l) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[#334155]">{l.nome}</span><span className={`shrink-0 font-bold ${l.zerado ? "text-[#EF4444]" : "text-[#F59E0B]"}`}>{l.posterior} un</span></div>)} />
+            <TopLista titulo="Maior margem" icon="💎" itens={produtosPorMargemV.slice(0, 5)} vazio="Sem dados de margem no período."
+              render={(p) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[#334155]">{p.nome}</span><span className="shrink-0 font-bold text-[#10B981]">{formatCurrency(p.margem)}</span></div>)} />
+            <TopLista titulo="Maior faturamento" icon="🏆" itens={produtosPorFaturamentoV.slice(0, 5)} vazio="Sem vendas no período."
+              render={(p) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[#334155]">{p.nome}</span><span className="shrink-0 font-bold text-[#0D1B2A]">{formatCurrency(p.valor)}</span></div>)} />
+            <TopLista titulo="Horário de pico" icon="⏰" itens={[...horarioGeral].filter((h) => h.valor > 0).sort((x, y) => y.valor - x.valor).slice(0, 5)} vazio="Sem vendas no período."
+              render={(h) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="text-[#334155]">{h.label}</span><span className="shrink-0 font-bold text-[#0D1B2A]">{formatCurrency(h.valor)}</span></div>)} />
+            <TopLista titulo="Forma de pagamento" icon="💳" itens={formasPagamentoV.slice(0, 5)} vazio="Sem dados de forma de pagamento."
+              render={(f) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[#334155]">{f.nome}</span><span className="shrink-0 font-bold text-[#0D1B2A]">{formatCurrency(f.valor)}</span></div>)} />
+            <TopLista titulo="Canal de venda" icon="📡" itens={canalVendaV} vazio="Sem dados de canal de venda."
+              render={(c) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[#334155]">{c.nome}</span><span className="shrink-0 font-bold text-[#0D1B2A]">{formatCurrency(c.valor)}</span></div>)} />
+          </div>
+
+          {/* 5. Insights */}
+          <div>
+            <h3 className="page-title mb-3 text-base font-bold text-[#0D1B2A]">Insights</h3>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              {a.topProdutos[0] && (
+                <InsightCardVendas tom="success" titulo="Produto destaque" texto={`${a.topProdutos[0].nome} lidera as vendas com ${a.topProdutos[0].qtd} un. (${formatCurrency(a.topProdutos[0].valor)}).`} />
+              )}
+              {produtosSemVendaV.length > 0 && (
+                <InsightCardVendas tom="warning" titulo="Produto parado" texto={`${produtosSemVendaV.length} produto(s) sem nenhuma venda no período, incluindo ${produtosSemVendaV[0].name}.`} acaoLabel="Ver estoque" onAcao={() => setAba("estoque")} />
+              )}
+              {comparativo?.catCrescimento && comparativo.catCrescimento.variacao > 0 && (
+                <InsightCardVendas tom="success" titulo="Categoria em crescimento" texto={`${comparativo.catCrescimento.categoria} cresceu ${comparativo.catCrescimento.variacao.toFixed(0)}% vs. o período anterior.`} />
+              )}
+              {comparativo?.catQueda && comparativo.catQueda.variacao < 0 && (
+                <InsightCardVendas tom="warning" titulo="Categoria em queda" texto={`${comparativo.catQueda.categoria} caiu ${Math.abs(comparativo.catQueda.variacao).toFixed(0)}% vs. o período anterior.`} />
+              )}
+              {comparativo?.ticket != null && (
+                <InsightCardVendas tom={comparativo.ticket >= 0 ? "success" : "warning"} titulo={comparativo.ticket >= 0 ? "Ticket acima da média" : "Ticket abaixo da média"}
+                  texto={`Ticket médio de ${formatCurrency(a.ticket)}, ${comparativo.ticket >= 0 ? "acima" : "abaixo"} do período anterior (${formatCurrency(comparativo.ticketAnterior)}).`} />
+              )}
+              {piorHoraComVendaV && (
+                <InsightCardVendas tom="violet" titulo="Oportunidade de venda" texto={`Horário de menor movimento: ${piorHoraComVendaV.label}. Considere promoções ou combos neste intervalo.`} />
+              )}
+              {produtosBaixoEstoqueV.length > 0 && (
+                <InsightCardVendas tom="danger" titulo="Estoque crítico" texto={`${produtosBaixoEstoqueV.length} produto(s) com estoque baixo ou zerado.`} acaoLabel="Ver estoque" onAcao={() => setAba("estoque")} />
+              )}
+              {a.topProdutos.length === 0 && produtosSemVendaV.length === 0 && !comparativo && produtosBaixoEstoqueV.length === 0 && (
+                <p className="sm:col-span-2 xl:col-span-4 rounded-2xl border border-[#E2E8F0] bg-white px-5 py-6 text-center text-sm text-[#64748B]">Nenhum insight disponível para o período selecionado.</p>
+              )}
+            </div>
           </div>
         </>
       )}
