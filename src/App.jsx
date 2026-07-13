@@ -9198,49 +9198,387 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
 }
 
 // ── Relatório analítico por cupom fiscal / mesa / comanda ────
+// Badge de indicador do cupom — paleta oficial restrita a estas 5 cores.
+const INDICADOR_CUPOM_CORES = { cancelada: "#EF4444", reimpressa: "#F59E0B", enviada: "#10B981", fiscal: "#2563EB", naoFiscal: "#64748B" };
+function BadgeCupom({ tipo, children }) {
+  const cor = INDICADOR_CUPOM_CORES[tipo] || INDICADOR_CUPOM_CORES.naoFiscal;
+  return <span className="rounded-full px-2 py-0.5 text-[10px] font-black" style={{ background: `${cor}1A`, color: cor }}>{children}</span>;
+}
+
 function RelatorioCupom({ pedidos, lojaInfo, periodo, ini, fim }) {
   const [cupomSel, setCupomSel] = useState(null);
   const [pagina, setPagina] = useState(1);
   const [porPagina, setPorPagina] = useState(10);
-  const pagos = pedidos.filter((o) => o.paymentStatus === "paid");
-  // Volta para a página 1 ao trocar período/filtro (periodo/ini/fim vêm da
-  // aba pai) ou a quantidade por página.
-  useEffect(() => { setPagina(1); }, [periodo, ini, fim, porPagina]);
-  const totalPaginas = Math.max(1, Math.ceil(pagos.length / porPagina));
-  const paginaAtual = Math.min(pagina, totalPaginas);
-  const visiveis = pagos.slice((paginaAtual - 1) * porPagina, paginaAtual * porPagina);
-  return (
-    <div className="space-y-3">
-      <p className="text-sm text-slate-500">{pagos.length} cupom(ns) fiscal(is) no período — itens detalhados por mesa e comanda. Toque em <b className="text-blue-600">🧾 Cupom</b> para reimprimir ou enviar ao cliente.</p>
-      {pagos.length === 0 && <p className="rounded-2xl border border-slate-200 bg-white px-5 py-6 text-center text-sm text-slate-500">Nenhum cupom pago no período.</p>}
-      {visiveis.map((o) => (
-        <div key={o.id} className="overflow-hidden rounded-3xl border border-slate-200 bg-white">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-slate-50 px-5 py-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-xl border border-blue-200 bg-blue-50 px-2.5 py-1 font-mono text-xs font-black text-blue-600">Cupom {o.id}</span>
-              <span className="rounded-xl bg-slate-100 px-2.5 py-1 text-xs font-bold text-dash-navy">{o.table}</span>
-              <span className="rounded-xl bg-slate-100 px-2.5 py-1 font-mono text-xs font-bold text-slate-500">{o.command}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="page-title text-sm font-bold text-emerald-600">{formatCurrency(orderTotal(o) * 1.1)}</span>
-              <button onClick={() => setCupomSel(o)} title="Cupom não fiscal (imprimir / WhatsApp)"
-                className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-black text-blue-600 transition hover:bg-blue-100">🧾 Cupom</button>
-            </div>
-          </div>
-          <div className="px-5 py-3">
-            <p className="mb-1 text-xs text-slate-500">{o.createdAtISO ? new Date(o.createdAtISO).toLocaleString("pt-BR") : o.createdAt}{o.customer ? ` • ${o.customer}` : ""}</p>
-            {o.items.map((it, i) => (
-              <div key={i} className="flex justify-between text-sm">
-                <span className="text-slate-500">{it.quantity}x {it.name}</span>
-                <span className="font-bold text-dash-navy">{formatCurrency(it.price * it.quantity)}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      ))}
+  const [busca, setBusca] = useState("");
+  const [mostrarFiltros, setMostrarFiltros] = useState(false);
+  const [fCliente, setFCliente] = useState("");
+  const [fMesa, setFMesa] = useState("");
+  const [fFormaPag, setFFormaPag] = useState("todas");
+  const [fStatus, setFStatus] = useState("todos");
+  const [fValorMin, setFValorMin] = useState("");
+  const [fValorMax, setFValorMax] = useState("");
+  const [fHoraIni, setFHoraIni] = useState("");
+  const [fHoraFim, setFHoraFim] = useState("");
+  const [ordenacao, setOrdenacao] = useState("recente");
+  const [expandidos, setExpandidos] = useState(() => new Set());
+  const [selecionados, setSelecionados] = useState(() => new Set());
+  const [reimpressos, setReimpressos] = useState(() => new Set());
+  const [enviados, setEnviados] = useState(() => new Set());
+  const [menuAberto, setMenuAberto] = useState(null);
+  const [toastCupom, setToastCupom] = useState("");
 
-      <Paginacao pagina={paginaAtual} totalPaginas={totalPaginas} total={pagos.length} porPagina={porPagina}
-        onMudar={setPagina} rotulo="cupom(ns)" tema="claro" porPaginaOpcoes={[10, 20, 50, 100]} onMudarPorPagina={setPorPagina} />
+  const pagos = pedidos.filter((o) => o.paymentStatus === "paid");
+
+  // ── Painel resumo (mesmos totais já usados no relatório, sem consulta nova) ──
+  const valores = pagos.map((o) => orderTotal(o) * 1.1);
+  const faturamentoCupons = valores.reduce((s, v) => s + v, 0);
+  const ticketMedioCupons = pagos.length ? faturamentoCupons / pagos.length : 0;
+  const maiorVendaCupom = valores.length ? Math.max(...valores) : 0;
+  const menorVendaCupom = valores.length ? Math.min(...valores) : 0;
+
+  // ── Busca + filtros + ordenação (tudo local, sobre os pedidos já carregados) ──
+  const formasDisponiveis = Array.from(new Set(pagos.map((o) => o.pagamentoForma || "Não informado"))).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  const buscaLower = busca.trim().toLowerCase();
+  const filtrados = pagos.filter((o) => {
+    if (buscaLower) {
+      const alvo = `${o.id} ${o.command || ""} ${o.customer || ""} ${(o.items || []).map((it) => it.name).join(" ")}`.toLowerCase();
+      if (!alvo.includes(buscaLower)) return false;
+    }
+    if (fCliente.trim() && !(o.customer || "").toLowerCase().includes(fCliente.trim().toLowerCase())) return false;
+    if (fMesa.trim() && !String(o.table || "").toLowerCase().includes(fMesa.trim().toLowerCase())) return false;
+    if (fFormaPag !== "todas" && (o.pagamentoForma || "Não informado") !== fFormaPag) return false;
+    if (fStatus !== "todos" && o.status !== fStatus) return false;
+    const valor = orderTotal(o) * 1.1;
+    if (fValorMin.trim() && valor < Number(fValorMin)) return false;
+    if (fValorMax.trim() && valor > Number(fValorMax)) return false;
+    if ((fHoraIni || fHoraFim) && o.createdAtISO) {
+      const hm = new Date(o.createdAtISO).toTimeString().slice(0, 5);
+      if (fHoraIni && hm < fHoraIni) return false;
+      if (fHoraFim && hm > fHoraFim) return false;
+    }
+    return true;
+  });
+  const ordenados = [...filtrados].sort((x, y) => {
+    const vx = orderTotal(x) * 1.1, vy = orderTotal(y) * 1.1;
+    if (ordenacao === "antigo") return new Date(x.createdAtISO || 0) - new Date(y.createdAtISO || 0);
+    if (ordenacao === "maior") return vy - vx;
+    if (ordenacao === "menor") return vx - vy;
+    return new Date(y.createdAtISO || 0) - new Date(x.createdAtISO || 0); // recente (padrão)
+  });
+
+  // Volta para a página 1 ao trocar período/filtro/busca/ordenação ou a
+  // quantidade por página.
+  useEffect(() => { setPagina(1); }, [periodo, ini, fim, porPagina, busca, fCliente, fMesa, fFormaPag, fStatus, fValorMin, fValorMax, fHoraIni, fHoraFim, ordenacao]);
+  const totalPaginas = Math.max(1, Math.ceil(ordenados.length / porPagina));
+  const paginaAtual = Math.min(pagina, totalPaginas);
+  const visiveis = ordenados.slice((paginaAtual - 1) * porPagina, paginaAtual * porPagina);
+
+  function limparFiltros() {
+    setFCliente(""); setFMesa(""); setFFormaPag("todas"); setFStatus("todos"); setFValorMin(""); setFValorMax(""); setFHoraIni(""); setFHoraFim("");
+  }
+  const filtrosAtivos = [fCliente, fMesa].some((v) => v.trim()) || fFormaPag !== "todas" || fStatus !== "todos" || fValorMin || fValorMax || fHoraIni || fHoraFim;
+
+  function alternar(setSet, id) { setSet((cur) => { const n = new Set(cur); n.has(id) ? n.delete(id) : n.add(id); return n; }); }
+  function avisar(msg) { setToastCupom(msg); setTimeout(() => setToastCupom(""), 3500); }
+
+  // ── Tempo/histórico — derivados dos timestamps já existentes no pedido
+  // (createdAtISO, preparoEmISO, prontoEmISO, updatedAtISO) — nenhum dado novo. ──
+  function minutosEntre(a, b) { if (!a || !b) return null; const ms = new Date(b) - new Date(a); return ms > 0 ? ms / 60000 : null; }
+  function tempoVenda(o) { return minutosEntre(o.createdAtISO, o.updatedAtISO); }
+  function tempoPreparoPedido(o) { return minutosEntre(o.preparoEmISO, o.prontoEmISO); }
+  function historicoDoPedido(o) {
+    const passos = [];
+    if (o.createdAtISO) passos.push({ rotulo: "Pedido criado", quando: o.createdAtISO });
+    if (o.preparoEmISO) passos.push({ rotulo: "Entrou em preparo", quando: o.preparoEmISO });
+    if (o.prontoEmISO) passos.push({ rotulo: "Ficou pronto", quando: o.prontoEmISO });
+    if (o.paymentStatus === "paid" && o.updatedAtISO) passos.push({ rotulo: "Pago / comanda fechada", quando: o.updatedAtISO });
+    if (o.status === "cancelled") passos.push({ rotulo: `Cancelado${o.cancelReason ? ` — ${o.cancelReason}` : ""}`, quando: o.updatedAtISO || null });
+    return passos.sort((a, b) => new Date(a.quando || 0) - new Date(b.quando || 0));
+  }
+
+  // ── Reimpressão rápida (bulk) — mesmo modelo 80mm do CupomNaoFiscalModal,
+  // versão compacta para não abrir o modal completo por item selecionado. ──
+  function imprimirCupomRapido(o) {
+    const empresa = lojaInfo?.nome || "Restaurante";
+    const dataStr = o.createdAtISO ? new Date(o.createdAtISO).toLocaleString("pt-BR") : o.createdAt;
+    const subtotalO = orderTotal(o);
+    const taxaO = subtotalO * 0.1;
+    const linhas = o.items.map((it) => `<div class="row"><span>${it.quantity}x ${it.name}</span><span>${formatCurrency(it.price * it.quantity)}</span></div>`).join("");
+    const corpo = `
+      <p class="c b big">${empresa}</p>
+      <p class="c">CUPOM NÃO FISCAL</p>
+      <p class="c sm mut">Documento sem valor fiscal</p>
+      <div class="hr2"></div>
+      <p>Cupom: ${o.id}</p>
+      <p>Data: ${dataStr}</p>
+      <p>${o.table || ""} &nbsp;•&nbsp; Comanda: ${o.command || ""}</p>
+      ${o.customer ? `<p>Cliente: ${o.customer}</p>` : ""}
+      <div class="hr"></div>
+      ${linhas}
+      <div class="hr"></div>
+      <div class="row"><span>Subtotal</span><span>${formatCurrency(subtotalO)}</span></div>
+      <div class="row"><span>Taxa serviço 10%</span><span>${formatCurrency(taxaO)}</span></div>
+      <div class="row b big"><span>TOTAL</span><span>${formatCurrency(subtotalO + taxaO)}</span></div>
+      <div class="hr2"></div>
+      <p class="c">Obrigado pela preferência!</p>`;
+    abrirImpressaoTermica(`Cupom ${o.id}`, corpo);
+  }
+  function reimprimirSelecionados() {
+    if (selecionados.size === 0) return;
+    const ids = Array.from(selecionados);
+    ids.forEach((id) => { const o = pagos.find((x) => x.id === id); if (o) imprimirCupomRapido(o); });
+    setReimpressos((cur) => new Set([...cur, ...ids]));
+    avisar(`${ids.length} cupom(ns) enviado(s) para impressão. Libere pop-ups se alguma janela não abrir.`);
+  }
+  function enviarSelecionadosWhatsApp() {
+    if (selecionados.size === 0) return;
+    const ids = Array.from(selecionados);
+    const itens = ids.map((id) => pagos.find((o) => o.id === id)).filter(Boolean);
+    if (itens.length === 0) return;
+    const texto = `Resumo de ${itens.length} cupom(ns):\n` + itens.map((o) => `Cupom ${o.id} — ${formatCurrency(orderTotal(o) * 1.1)}`).join("\n");
+    const fone = prompt("Telefone do destinatário (com DDD, ex.: 11999998888):");
+    if (!fone) return;
+    const num = fone.replace(/\D/g, "");
+    window.open(`https://wa.me/55${num}?text=${encodeURIComponent(texto)}`, "_blank");
+    setEnviados((cur) => new Set([...cur, ...ids]));
+  }
+  function exportarCupomPDF() {
+    const empresa = lojaInfo?.nome || "Restaurante";
+    const linhas = ordenados.map((o) => `<tr><td>${o.id}</td><td>${o.table || "—"}</td><td>${o.command || "—"}</td><td>${o.customer || "—"}</td><td>${o.createdAtISO ? new Date(o.createdAtISO).toLocaleString("pt-BR") : o.createdAt}</td><td>${statusMap[o.status]?.label || o.status}</td><td class="r">${formatCurrency(orderTotal(o) * 1.1)}</td></tr>`).join("");
+    const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Cupons — ${empresa}</title>
+    <style>
+      @page { size: A4; margin: 14mm; }
+      * { box-sizing: border-box; }
+      body { font-family: 'Segoe UI', Arial, sans-serif; color:#0f172a; margin:0; }
+      h1 { font-size: 18px; margin-bottom: 4px; }
+      p.sub { color:#64748b; font-size: 11px; margin-bottom: 16px; }
+      table { width: 100%; border-collapse: collapse; font-size: 11px; }
+      th { text-align: left; text-transform: uppercase; letter-spacing: .5px; font-size: 9px; color: #64748b; border-bottom: 2px solid #e2e8f0; padding: 6px 8px; }
+      td { padding: 7px 8px; border-bottom: 1px solid #f1f5f9; }
+      td.r, th.r { text-align: right; }
+    </style></head><body>
+      <h1>Relatório de Cupons — ${empresa}</h1>
+      <p class="sub">${ordenados.length} cupom(ns) · Faturamento ${formatCurrency(ordenados.reduce((s, o) => s + orderTotal(o) * 1.1, 0))}</p>
+      <table><thead><tr><th>Cupom</th><th>Mesa</th><th>Comanda</th><th>Cliente</th><th>Data/Hora</th><th>Status</th><th class="r">Valor</th></tr></thead>
+      <tbody>${linhas}</tbody></table>
+      <script>window.onload=function(){window.print();}<\/script>
+    </body></html>`;
+    const j = window.open("", "_blank", "width=900,height=1000");
+    if (!j) return;
+    j.document.write(html);
+    j.document.close();
+  }
+  function exportarCupomExcel() {
+    let csv = "Cupom;Mesa;Comanda;Cliente;Data;Status;Forma pagamento;Valor\n";
+    ordenados.forEach((o) => { csv += `${o.id};${o.table || ""};${o.command || ""};${o.customer || ""};${o.createdAtISO ? new Date(o.createdAtISO).toLocaleString("pt-BR") : o.createdAt};${statusMap[o.status]?.label || o.status};${o.pagamentoForma || ""};${(orderTotal(o) * 1.1).toFixed(2)}\n`; });
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url; link.download = `cupons-${periodo}.csv`; link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  const inputCls = "w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs text-[#334155] outline-none transition focus:border-[#2563EB]";
+  const labelCls = "mb-1 block text-[10px] font-bold uppercase tracking-widest text-[#64748B]";
+
+  return (
+    <div className="space-y-4">
+      {/* Painel resumo — cards padrão do Dashboard (CardMetrica) */}
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <CardMetrica titulo="Total de cupons" valor={pagos.length} cor="text-dash-navy" />
+        <CardMetrica titulo="Faturamento" valor={formatCurrency(faturamentoCupons)} cor="text-dash-navy" tone="dashSuccess" />
+        <CardMetrica titulo="Ticket médio" valor={formatCurrency(ticketMedioCupons)} cor="text-dash-navy" tone="dashPrimary" />
+        <CardMetrica titulo="Maior venda" valor={formatCurrency(maiorVendaCupom)} cor="text-dash-navy" tone="dashWarning" />
+        <CardMetrica titulo="Menor venda" valor={formatCurrency(menorVendaCupom)} cor="text-dash-navy" />
+      </div>
+
+      {/* Busca + ordenação + filtros avançados */}
+      <div className="rounded-2xl border border-[#E2E8F0] bg-white p-3.5">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="🔎 Buscar por cupom, comanda, produto ou cliente…"
+            className="min-w-[220px] flex-1 rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2.5 text-sm text-[#334155] outline-none transition focus:border-[#2563EB]" />
+          <select value={ordenacao} onChange={(e) => setOrdenacao(e.target.value)} className="rounded-xl border border-[#E2E8F0] bg-white px-3 py-2.5 text-xs font-bold text-[#334155] outline-none transition focus:border-[#2563EB]">
+            <option value="recente">Mais recente</option>
+            <option value="antigo">Mais antigo</option>
+            <option value="maior">Maior valor</option>
+            <option value="menor">Menor valor</option>
+          </select>
+          <button onClick={() => setMostrarFiltros((v) => !v)}
+            className={`rounded-xl border px-3.5 py-2.5 text-xs font-bold transition ${mostrarFiltros || filtrosAtivos ? "border-[#2563EB] bg-[#EFF6FF] text-[#2563EB]" : "border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9]"}`}>
+            ⚙️ Filtros{filtrosAtivos ? " •" : ""}
+          </button>
+        </div>
+        {mostrarFiltros && (
+          <div className="pp-anim-fade mt-3 grid gap-3 border-t border-[#F1F5F9] pt-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div><label className={labelCls}>Cliente</label><input value={fCliente} onChange={(e) => setFCliente(e.target.value)} placeholder="Nome do cliente" className={inputCls} /></div>
+            <div><label className={labelCls}>Mesa</label><input value={fMesa} onChange={(e) => setFMesa(e.target.value)} placeholder="Nº da mesa" className={inputCls} /></div>
+            <div>
+              <label className={labelCls}>Forma de pagamento</label>
+              <select value={fFormaPag} onChange={(e) => setFFormaPag(e.target.value)} className={inputCls}>
+                <option value="todas">Todas</option>
+                {formasDisponiveis.map((f) => <option key={f} value={f}>{f}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className={labelCls}>Status</label>
+              <select value={fStatus} onChange={(e) => setFStatus(e.target.value)} className={inputCls}>
+                <option value="todos">Todos</option>
+                {Object.keys(statusMap).map((s) => <option key={s} value={s}>{statusMap[s].label}</option>)}
+              </select>
+            </div>
+            <div><label className={labelCls}>Valor inicial</label><input value={fValorMin} onChange={(e) => setFValorMin(e.target.value.replace(/[^\d.,]/g, ""))} placeholder="R$ 0,00" inputMode="decimal" className={inputCls} /></div>
+            <div><label className={labelCls}>Valor final</label><input value={fValorMax} onChange={(e) => setFValorMax(e.target.value.replace(/[^\d.,]/g, ""))} placeholder="R$ 999,00" inputMode="decimal" className={inputCls} /></div>
+            <div><label className={labelCls}>Horário inicial</label><input type="time" value={fHoraIni} onChange={(e) => setFHoraIni(e.target.value)} className={inputCls} /></div>
+            <div><label className={labelCls}>Horário final</label><input type="time" value={fHoraFim} onChange={(e) => setFHoraFim(e.target.value)} className={inputCls} /></div>
+            {filtrosAtivos && (
+              <button onClick={limparFiltros} className="self-end text-left text-[11px] font-bold text-[#2563EB] hover:text-[#1D4ED8] sm:col-span-2 lg:col-span-4">✕ Limpar filtros</button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Ações rápidas */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#E2E8F0] bg-white p-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="flex items-center gap-1.5 text-xs font-bold text-[#334155]">
+            <input type="checkbox" checked={visiveis.length > 0 && visiveis.every((o) => selecionados.has(o.id))}
+              onChange={(e) => setSelecionados((cur) => { const n = new Set(cur); visiveis.forEach((o) => (e.target.checked ? n.add(o.id) : n.delete(o.id))); return n; })} />
+            Selecionar página {selecionados.size > 0 ? `(${selecionados.size})` : ""}
+          </label>
+          <button onClick={reimprimirSelecionados} disabled={selecionados.size === 0}
+            className="rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9] disabled:cursor-not-allowed disabled:opacity-40">🖨️ Reimprimir selecionados</button>
+          <button onClick={exportarCupomPDF} className="rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">📄 Exportar PDF</button>
+          <button onClick={exportarCupomExcel} className="rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">📊 Exportar Excel</button>
+          <button onClick={enviarSelecionadosWhatsApp} disabled={selecionados.size === 0}
+            className="rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9] disabled:cursor-not-allowed disabled:opacity-40">💬 Enviar WhatsApp</button>
+        </div>
+      </div>
+      {toastCupom && <p className="pp-anim-fade rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-2.5 text-xs text-[#334155]">{toastCupom}</p>}
+
+      {/* Listagem — cards expansíveis */}
+      {ordenados.length === 0 && (
+        <p className="rounded-2xl border border-[#E2E8F0] bg-white px-5 py-6 text-center text-sm text-[#64748B]">
+          {pagos.length === 0 ? "Nenhum cupom pago no período." : "Nenhum cupom encontrado para os filtros aplicados."}
+        </p>
+      )}
+      <div className="space-y-3">
+        {visiveis.map((o) => {
+          const aberto = expandidos.has(o.id);
+          const valor = orderTotal(o) * 1.1;
+          const tVenda = tempoVenda(o);
+          const tPreparo = tempoPreparoPedido(o);
+          const subtotalO = orderTotal(o);
+          const taxaO = subtotalO * 0.1;
+          return (
+            <div key={o.id} className="overflow-hidden rounded-2xl border border-[#E2E8F0] bg-white transition hover:shadow-[0_4px_16px_rgba(13,27,42,0.06)]">
+              {/* Cabeçalho do card */}
+              <div className="flex flex-wrap items-start gap-3 px-5 py-4">
+                <input type="checkbox" className="mt-1.5" checked={selecionados.has(o.id)} onChange={() => alternar(setSelecionados, o.id)} />
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="rounded-lg border border-[#2563EB]/25 bg-[#2563EB]/10 px-2.5 py-1 font-mono text-xs font-black text-[#2563EB]">Cupom {o.id}</span>
+                    <span className="rounded-lg bg-[#F1F5F9] px-2.5 py-1 text-xs font-bold text-[#0D1B2A]">{o.table || "Balcão"}</span>
+                    {o.command && <span className="rounded-lg bg-[#F1F5F9] px-2.5 py-1 font-mono text-xs font-bold text-[#64748B]">{o.command}</span>}
+                    <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-black ${statusMap[o.status]?.chip}`}>{statusMap[o.status]?.label}</span>
+                    {o.status === "cancelled" && <BadgeCupom tipo="cancelada">Cancelada</BadgeCupom>}
+                    {reimpressos.has(o.id) && <BadgeCupom tipo="reimpressa">Reimpressa</BadgeCupom>}
+                    {enviados.has(o.id) && <BadgeCupom tipo="enviada">Enviada</BadgeCupom>}
+                    <BadgeCupom tipo="naoFiscal">Não Fiscal</BadgeCupom>
+                  </div>
+                  <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-[#64748B] sm:grid-cols-3">
+                    <span>👤 {o.customer || "Cliente não identificado"}</span>
+                    <span>🕐 {o.createdAtISO ? new Date(o.createdAtISO).toLocaleString("pt-BR") : o.createdAt}</span>
+                    <span>⏱️ {tVenda != null ? formatarDuracaoMin(tVenda) : "—"}</span>
+                    <span>🧑‍💼 Operador: —</span>
+                    <span>💳 {o.pagamentoForma || "Não informado"}</span>
+                  </div>
+                </div>
+                <div className="flex shrink-0 flex-col items-end gap-2">
+                  <span className="page-title text-lg font-black text-[#0D1B2A]">{formatCurrency(valor)}</span>
+                  <div className="relative flex items-center gap-1.5">
+                    <button onClick={() => alternar(setExpandidos, o.id)} title="Visualizar"
+                      className="rounded-lg border border-[#E2E8F0] px-2.5 py-1.5 text-[11px] font-bold text-[#334155] transition hover:bg-[#F1F5F9]">{aberto ? "▲ Visualizar" : "▼ Visualizar"}</button>
+                    <button onClick={() => { setCupomSel(o); setReimpressos((cur) => new Set(cur).add(o.id)); }} title="Reimprimir"
+                      className="rounded-lg border border-[#E2E8F0] px-2.5 py-1.5 text-[11px] font-bold text-[#334155] transition hover:bg-[#F1F5F9]">🖨️</button>
+                    <button onClick={() => { setCupomSel(o); setEnviados((cur) => new Set(cur).add(o.id)); }} title="Enviar"
+                      className="rounded-lg border border-[#E2E8F0] px-2.5 py-1.5 text-[11px] font-bold text-[#334155] transition hover:bg-[#F1F5F9]">💬</button>
+                    <button onClick={() => setMenuAberto((cur) => (cur === o.id ? null : o.id))} title="Mais opções"
+                      className="rounded-lg border border-[#E2E8F0] px-2.5 py-1.5 text-[11px] font-bold text-[#334155] transition hover:bg-[#F1F5F9]">⋯</button>
+                    {menuAberto === o.id && (
+                      <>
+                        <div className="fixed inset-0 z-10" onClick={() => setMenuAberto(null)} />
+                        <div className="absolute right-0 top-full z-20 mt-1 w-48 rounded-xl border border-[#E2E8F0] bg-white p-1.5 shadow-[0_8px_24px_rgba(13,27,42,0.12)]">
+                          <button onClick={() => { navigator.clipboard?.writeText(`Cupom ${o.id} — ${o.table || "Balcão"} — ${formatCurrency(valor)}`); avisar("Resumo copiado."); setMenuAberto(null); }}
+                            className="block w-full rounded-lg px-3 py-2 text-left text-xs font-semibold text-[#334155] hover:bg-[#F1F5F9]">📋 Copiar resumo</button>
+                          <button onClick={() => { setExpandidos((cur) => new Set(cur).add(o.id)); setMenuAberto(null); }}
+                            className="block w-full rounded-lg px-3 py-2 text-left text-xs font-semibold text-[#334155] hover:bg-[#F1F5F9]">📜 Ver histórico da venda</button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Detalhes expandidos */}
+              {aberto && (
+                <div className="pp-anim-fade border-t border-[#F1F5F9] bg-[#F8FAFC] px-5 py-4">
+                  <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-[#64748B]">Itens vendidos</p>
+                  <div className="space-y-2">
+                    {o.items.map((it, i) => (
+                      <div key={i} className="rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2.5">
+                        <div className="flex items-center justify-between gap-2 text-sm">
+                          <span className="min-w-0 truncate font-semibold text-[#0D1B2A]">{it.quantity}x {it.name}</span>
+                          <span className="shrink-0 text-xs text-[#64748B]">un. {formatCurrency(it.price)}</span>
+                          <span className="shrink-0 font-bold text-[#0D1B2A]">{formatCurrency(it.price * it.quantity)}</span>
+                        </div>
+                        {(it.removedIngredients?.length > 0 || it.extraIngredients?.length > 0 || it.observation) && (
+                          <div className="mt-1 space-y-0.5 text-[11px] text-[#64748B]">
+                            {it.removedIngredients?.length > 0 && <p>Sem: {it.removedIngredients.join(", ")}</p>}
+                            {it.extraIngredients?.length > 0 && <p>Adicionais: {it.extraIngredients.join(", ")}</p>}
+                            {it.observation && <p>Obs: {it.observation}</p>}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+                    {[
+                      { r: "Desconto", v: "—" }, { r: "Acréscimos", v: "—" },
+                      { r: "Taxa de serviço (10%)", v: formatCurrency(taxaO) }, { r: "Forma de pagamento", v: o.pagamentoForma || "Não informado" },
+                      { r: "Recebimento", v: "—" }, { r: "Troco", v: "—" },
+                      { r: "Tempo de preparo", v: tPreparo != null ? formatarDuracaoMin(tPreparo) : "—" }, { r: "Tempo de fechamento", v: tVenda != null ? formatarDuracaoMin(tVenda) : "—" },
+                    ].map((c) => (
+                      <div key={c.r} className="rounded-xl border border-[#E2E8F0] bg-white p-2.5">
+                        <p className="text-[9px] font-bold uppercase tracking-widest text-[#64748B]">{c.r}</p>
+                        <p className="mt-0.5 truncate text-sm font-bold text-[#0D1B2A]">{c.v}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-2 flex items-center justify-between rounded-xl border border-[#E2E8F0] bg-white p-2.5">
+                    <span className="text-xs font-bold text-[#64748B]">Subtotal</span>
+                    <span className="text-sm font-bold text-[#0D1B2A]">{formatCurrency(subtotalO)}</span>
+                  </div>
+
+                  <p className="mb-2 mt-3 text-[10px] font-black uppercase tracking-widest text-[#64748B]">Histórico da venda</p>
+                  <div className="space-y-1.5">
+                    {historicoDoPedido(o).map((h, i) => (
+                      <div key={i} className="flex items-center gap-2 text-xs">
+                        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#2563EB]" />
+                        <span className="text-[#334155]">{h.rotulo}</span>
+                        <span className="text-[#94A3B8]">{h.quando ? new Date(h.quando).toLocaleString("pt-BR") : ""}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <Paginacao pagina={paginaAtual} totalPaginas={totalPaginas} total={ordenados.length} porPagina={porPagina}
+        onMudar={setPagina} rotulo="cupom(ns)" tema="claro" porPaginaOpcoes={[10, 20, 50, 100]} onMudarPorPagina={setPorPagina} mostrarExtremos />
 
       {cupomSel && <CupomNaoFiscalModal pedido={cupomSel} lojaInfo={lojaInfo} onFechar={() => setCupomSel(null)} />}
     </div>
@@ -9252,7 +9590,7 @@ function RelatorioCupom({ pedidos, lojaInfo, periodo, ini, fim }) {
 // ════════════════════════════════════════════════════════════
 //  Cupom não fiscal profissional (80mm) — impressão e WhatsApp
 // ════════════════════════════════════════════════════════════
-function CupomNaoFiscalModal({ pedido, lojaInfo, onFechar }) {
+function CupomNaoFiscalModal({ pedido, lojaInfo, onFechar, onAcao = () => {} }) {
   const [formato, setFormato] = useState("80mm"); // "80mm" | "a4"
   const empresa = lojaInfo?.nome || "Restaurante";
   const subtotal = orderTotal(pedido);
@@ -9287,6 +9625,7 @@ function CupomNaoFiscalModal({ pedido, lojaInfo, onFechar }) {
     if (!fone) return;
     const num = fone.replace(/\D/g, "");
     window.open(`https://wa.me/55${num}?text=${encodeURIComponent(texto)}`, "_blank");
+    onAcao("whatsapp");
   }
   function imprimir() {
     const linhas = pedido.items.map((it) =>
@@ -9396,7 +9735,7 @@ function CupomNaoFiscalModal({ pedido, lojaInfo, onFechar }) {
     j.document.close();
   }
 
-  function imprimirCupom() { formato === "a4" ? imprimirA4() : imprimir(); }
+  function imprimirCupom() { formato === "a4" ? imprimirA4() : imprimir(); onAcao("imprimir"); }
 
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={onFechar}>
@@ -14259,7 +14598,7 @@ function ConfirmModal({ titulo, mensagem, confirmar, onConfirmar, onCancelar, pe
 // porPaginaOpcoes + onMudarPorPagina (opcionais): exibe um seletor de
 // quantidade por página; quando presentes, o resumo "Mostrando X–Y de Z"
 // nunca é ocultado, mesmo com 1 página só.
-function Paginacao({ pagina, totalPaginas, total, porPagina = 10, onMudar, rotulo = "item(ns)", tema = "escuro", porPaginaOpcoes = null, onMudarPorPagina = null }) {
+function Paginacao({ pagina, totalPaginas, total, porPagina = 10, onMudar, rotulo = "item(ns)", tema = "escuro", porPaginaOpcoes = null, onMudarPorPagina = null, mostrarExtremos = false }) {
   const temSeletor = !!porPaginaOpcoes && !!onMudarPorPagina;
   if (total <= porPagina && !temSeletor) return null; // cabe em 1 página e sem seletor → não exibe
   const inicio = total ? (pagina - 1) * porPagina + 1 : 0;
@@ -14298,6 +14637,10 @@ function Paginacao({ pagina, totalPaginas, total, porPagina = 10, onMudar, rotul
       </div>
       {totalPaginas > 1 && (
         <div className="flex flex-wrap items-center justify-center gap-1">
+          {mostrarExtremos && (
+            <button disabled={pagina <= 1} onClick={() => onMudar(1)}
+              className={`${btn} ${btnCls}`}>« Primeira</button>
+          )}
           <button disabled={pagina <= 1} onClick={() => onMudar(pagina - 1)}
             className={`${btn} ${btnCls}`}>‹ Anterior</button>
           {nums.map((n, i) => {
@@ -14312,6 +14655,10 @@ function Paginacao({ pagina, totalPaginas, total, porPagina = 10, onMudar, rotul
           })}
           <button disabled={pagina >= totalPaginas} onClick={() => onMudar(pagina + 1)}
             className={`${btn} ${btnCls}`}>Próxima ›</button>
+          {mostrarExtremos && (
+            <button disabled={pagina >= totalPaginas} onClick={() => onMudar(totalPaginas)}
+              className={`${btn} ${btnCls}`}>Última »</button>
+          )}
         </div>
       )}
     </div>
