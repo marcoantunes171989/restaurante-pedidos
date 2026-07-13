@@ -34,14 +34,14 @@
 /* ── Foco/hover padronizado dos gráficos (barras, fatias de donut, pontos de
    linha) — configuração única e compartilhada por todos os gráficos do
    projeto. Nunca usa outline/contorno preto do navegador: o foco visível
-   usa apenas leve escala (~1.045) e, em elementos HTML, sombra suave na cor
-   oficial do sistema (azul). Ver App.jsx: BarrasHora, DonutChart,
-   LinhaFaturamento. */
+   usa apenas leve escala (máx. 1.01, nunca altera layout — transform é
+   compositor-only) e, em elementos HTML, sombra suave na cor oficial do
+   sistema (azul). Ver App.jsx: BarrasHora, DonutChart, LinhaFaturamento. */
 .pp-chart-focus { outline: none; -webkit-tap-highlight-color: transparent; }
 .pp-chart-focus:focus-visible {
-  transform: scale(1.045);
+  transform: scale(1.01);
   box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.22);
-  transition: transform 150ms ease, box-shadow 150ms ease;
+  transition: transform 150ms ease, box-shadow 150ms ease, opacity 150ms ease;
 }
 /* Variante para formas SVG (circle/g) — sem box-shadow (não é suportado em
    formas SVG básicas); precisa de transform-box para escalar a partir do
@@ -52,9 +52,27 @@
   transform-origin: center;
   transition: opacity 150ms ease, transform 150ms ease;
 }
-.pp-chart-focus-svg:focus-visible { transform: scale(1.045); }
+.pp-chart-focus-svg:focus-visible { transform: scale(1.01); }
 @media (prefers-reduced-motion: reduce) {
   .pp-chart-focus:focus-visible, .pp-chart-focus-svg:focus-visible { transform: none; }
+}
+
+/* ── Contêiner padrão de gráficos — raiz de TODOS os componentes de gráfico
+   do projeto (linha, barra, barra horizontal, donut/pizza, área e futuros
+   gráficos). Ponto único de configuração: garante que hover/clique/foco
+   nunca alterem largura, altura ou posição do gráfico, nunca disparem
+   scroll, e mantém o reflow contido dentro do próprio gráfico (não
+   propaga para o restante da página). Tooltips/painéis de detalhe usam
+   .pp-chart-tooltip-overlay (sempre position:absolute, fora do fluxo) —
+   nunca deslocam elementos vizinhos. */
+.pp-chart-container {
+  position: relative;
+  contain: layout;
+}
+.pp-chart-tooltip-overlay {
+  position: absolute;
+  pointer-events: none;
+  z-index: 20;
 }
 
 /* ── Rolagem: nunca "vaza" para a tela de baixo ─────────────────

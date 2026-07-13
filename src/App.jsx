@@ -6510,7 +6510,7 @@ function analisarVendas(orders, products) {
 function BarraHorizontal({ label, valor, max, sufixo = "", cor = "bg-blue-500" }) {
   const pct = max > 0 ? (valor / max) * 100 : 0;
   return (
-    <div>
+    <div className="pp-chart-container">
       <div className="mb-1 flex items-center justify-between text-sm">
         <span className="text-slate-500 truncate pr-2">{label}</span>
         <span className="font-black text-dash-navy shrink-0">{sufixo === "R$" ? formatCurrency(valor) : `${valor}${sufixo}`}</span>
@@ -6583,7 +6583,7 @@ function DonutChart({ dados, label = "", corCentral = "#0D1B2A", legendaColorida
   let acc = 0;
   const corDe = (d, i) => d.cor || CORES_GRAF[i % CORES_GRAF.length];
   return (
-    <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
+    <div className="pp-chart-container flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
       <svg viewBox="0 0 180 180" className="h-44 w-44 -rotate-90 overflow-visible">
         {dados.map((d, i) => {
           const frac = d.valor / total;
@@ -6602,7 +6602,10 @@ function DonutChart({ dados, label = "", corCentral = "#0D1B2A", legendaColorida
         })}
         <text x="90" y="90" className="rotate-90" textAnchor="middle" dominantBaseline="middle" fill={corCentral} style={{ transform: "rotate(90deg)", transformOrigin: "90px 90px", fontSize: "13px", fontWeight: "900" }}>{label}</text>
       </svg>
-      <div className="space-y-1.5">
+      {/* position:relative só na coluna da legenda — o painel de detalhe vira
+          overlay absoluto (pp-chart-tooltip-overlay) e nunca empurra a
+          legenda nem desalinha o donut ao lado (evita o "pulo" no hover). */}
+      <div className="relative space-y-1.5">
         {dados.map((d, i) => {
           const cor = corDe(d, i);
           return (
@@ -6615,10 +6618,10 @@ function DonutChart({ dados, label = "", corCentral = "#0D1B2A", legendaColorida
           );
         })}
         {interativo && ativo != null && dados[ativo] && (
-          <div className="mt-1 rounded-xl border px-3 py-2 text-xs" style={{ borderColor: "#E2E8F0", background: "#FFFFFF" }}>
+          <GraficoTooltip className="pp-chart-tooltip-overlay left-0 right-0 top-full mt-1.5">
             <p className="font-bold" style={{ color: "#334155" }}>{dados[ativo].label}</p>
             <p className="font-black" style={{ color: corDe(dados[ativo], ativo) }}>{formatCurrency(dados[ativo].valor)} · {((dados[ativo].valor / total) * 100).toFixed(0)}%</p>
-          </div>
+          </GraficoTooltip>
         )}
       </div>
     </div>
@@ -7263,7 +7266,7 @@ function BarrasHora({ dados, paleta = PALETA_BARRAS_HORA_PADRAO }) {
   };
   const melhorLabel = dados.find((d) => d.valor === maxVal)?.label || "";
   return (
-    <div>
+    <div className="pp-chart-container">
       {/* Valores acima das barras — ocultos em telas muito estreitas p/ evitar colisão; dado continua no tooltip/aria-label */}
       <div className="flex items-end justify-between gap-1 sm:gap-1.5">
         {dados.map((d, i) => (
@@ -7291,7 +7294,7 @@ function BarrasHora({ dados, paleta = PALETA_BARRAS_HORA_PADRAO }) {
                 onClick={() => setAtivo(i)}
                 aria-label={`${d.label}: ${d.valor > 0 ? formatCurrency(d.valor) : "sem faturamento"}${d.qtd ? `, ${d.qtd} pedido${d.qtd > 1 ? "s" : ""}` : ""}`}>
                 {aberto && (
-                  <GraficoTooltip className="pointer-events-none absolute bottom-[calc(100%+8px)] left-1/2 z-10 w-max max-w-[180px] -translate-x-1/2">
+                  <GraficoTooltip className="pp-chart-tooltip-overlay bottom-[calc(100%+8px)] left-1/2 w-max max-w-[180px] -translate-x-1/2">
                     <p className="font-bold" style={{ color: "#0D1B2A" }}>{d.label}</p>
                     <p className="mt-0.5 font-black" style={{ color: d.valor > 0 ? "#2563EB" : "#64748B" }}>{d.valor > 0 ? formatCurrency(d.valor) : "Sem faturamento"}</p>
                     {d.qtd > 0 && <p className="mt-0.5" style={{ color: "#64748B" }}>{d.qtd} pedido{d.qtd > 1 ? "s" : ""} · ticket médio {formatCurrency(d.valor / d.qtd)}</p>}
@@ -7337,7 +7340,7 @@ function LinhaFaturamento({ dados }) {
   const yMedia = y(media);
   const corPonto = (i) => (i === idxMax ? "#F59E0B" : i === idxMin ? "#8B5CF6" : "#2563EB");
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full overflow-visible" style={{ height: 180 }}>
+    <svg viewBox={`0 0 ${W} ${H}`} className="pp-chart-container w-full overflow-visible" style={{ height: 180 }}>
       {[0, 0.25, 0.5, 0.75, 1].map((f, i) => (<line key={i} x1={P} x2={W - P} y1={y(max * f)} y2={y(max * f)} stroke="#E2E8F0" />))}
       {n > 1 && <line x1={P} x2={W - P} y1={yMedia} y2={yMedia} stroke="#64748B" strokeWidth="1" strokeDasharray="4 3" />}
       <path d={area} fill="#2563EB" fillOpacity="0.08" />
