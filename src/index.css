@@ -31,6 +31,32 @@
   .pp-pulse-ring, .pp-float, .pp-anim-fade, .pp-anim-up, .pp-anim-left { animation: none; }
 }
 
+/* ── Foco/hover padronizado dos gráficos (barras, fatias de donut, pontos de
+   linha) — configuração única e compartilhada por todos os gráficos do
+   projeto. Nunca usa outline/contorno preto do navegador: o foco visível
+   usa apenas leve escala (~1.045) e, em elementos HTML, sombra suave na cor
+   oficial do sistema (azul). Ver App.jsx: BarrasHora, DonutChart,
+   LinhaFaturamento. */
+.pp-chart-focus { outline: none; -webkit-tap-highlight-color: transparent; }
+.pp-chart-focus:focus-visible {
+  transform: scale(1.045);
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.22);
+  transition: transform 150ms ease, box-shadow 150ms ease;
+}
+/* Variante para formas SVG (circle/g) — sem box-shadow (não é suportado em
+   formas SVG básicas); precisa de transform-box para escalar a partir do
+   próprio centro em vez do canto do viewBox. */
+.pp-chart-focus-svg {
+  outline: none;
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: opacity 150ms ease, transform 150ms ease;
+}
+.pp-chart-focus-svg:focus-visible { transform: scale(1.045); }
+@media (prefers-reduced-motion: reduce) {
+  .pp-chart-focus:focus-visible, .pp-chart-focus-svg:focus-visible { transform: none; }
+}
+
 /* ── Rolagem: nunca "vaza" para a tela de baixo ─────────────────
    overscroll-behavior evita o scroll-chaining/bounce ao chegar no
    fim de uma área rolável. .pp-scroll-locked congela o fundo

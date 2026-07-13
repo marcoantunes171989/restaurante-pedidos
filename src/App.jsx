@@ -6591,8 +6591,9 @@ function DonutChart({ dados, label = "", corCentral = "#0D1B2A", legendaColorida
           const el = (
             <circle key={i} cx="90" cy="90" r={R} fill="none" stroke={corDe(d, i)} strokeWidth="26"
               strokeDasharray={`${dash} ${C - dash}`} strokeDashoffset={-acc}
+              className={interativo ? "pp-chart-focus-svg" : undefined}
               tabIndex={interativo ? 0 : undefined} aria-label={interativo ? `${d.label}: ${formatCurrency(d.valor)} (${((d.valor / total) * 100).toFixed(0)}%)` : undefined}
-              style={interativo ? { cursor: "pointer", opacity: ativo == null || ativo === i ? 1 : 0.35, outline: "none", WebkitTapHighlightColor: "transparent", transition: "opacity 150ms" } : undefined}
+              style={interativo ? { cursor: "pointer", opacity: ativo == null || ativo === i ? 1 : 0.35 } : undefined}
               onMouseEnter={interativo ? () => setAtivo(i) : undefined} onMouseLeave={interativo ? () => setAtivo((c) => (c === i ? null : c)) : undefined}
               onFocus={interativo ? () => setAtivo(i) : undefined} onBlur={interativo ? () => setAtivo((c) => (c === i ? null : c)) : undefined} />
           );
@@ -7239,7 +7240,7 @@ function GraficoTooltip({ children, className = "" }) {
 const ALTURA_TRACK_HORA = 150;
 // paleta: opcional — sobrescreve as cores padrão sem afetar quem não a passa
 // (ex.: Relatórios). O Dashboard Gerencial injeta a paleta oficial da tela.
-const PALETA_BARRAS_HORA_PADRAO = { semVenda: "#94A3B8", pico: "#C4322B", acimaMedia: "#3F7D5A", padrao: "#315A7D", foco: "#C4322B", grade: "#E5E7EB", texto: "#64748B", textoValor: "#475467" };
+const PALETA_BARRAS_HORA_PADRAO = { semVenda: "#94A3B8", pico: "#C4322B", acimaMedia: "#3F7D5A", padrao: "#315A7D", grade: "#E5E7EB", texto: "#64748B", textoValor: "#475467" };
 function BarrasHora({ dados, paleta = PALETA_BARRAS_HORA_PADRAO }) {
   const [ativo, setAtivo] = useState(null);
   const p = { ...PALETA_BARRAS_HORA_PADRAO, ...paleta };
@@ -7283,8 +7284,8 @@ function BarrasHora({ dados, paleta = PALETA_BARRAS_HORA_PADRAO }) {
           return (
             <div key={i} className="relative min-w-[16px] flex-1" style={{ height: ALTURA_TRACK_HORA }}>
               <button type="button"
-                className="absolute bottom-0 left-0 right-0 rounded-t-md transition-[height] duration-200 ease-out motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
-                style={{ height: alturaPx, backgroundColor: corDe(d), outlineColor: p.foco }}
+                className="pp-chart-focus absolute bottom-0 left-0 right-0 rounded-t-md transition-[height] duration-200 ease-out motion-reduce:transition-none"
+                style={{ height: alturaPx, backgroundColor: corDe(d) }}
                 onMouseEnter={() => setAtivo(i)} onMouseLeave={() => setAtivo((c) => (c === i ? null : c))}
                 onFocus={() => setAtivo(i)} onBlur={() => setAtivo((c) => (c === i ? null : c))}
                 onClick={() => setAtivo(i)}
@@ -7342,7 +7343,7 @@ function LinhaFaturamento({ dados }) {
       <path d={area} fill="#2563EB" fillOpacity="0.08" />
       <path d={linha} fill="none" stroke="#2563EB" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
       {pts.map((p, i) => (
-        <g key={i} tabIndex={0} role="img" aria-label={`${dados[i].label}: ${formatCurrency(dados[i].valor)}`}
+        <g key={i} className="pp-chart-focus-svg" style={{ cursor: "pointer" }} tabIndex={0} role="img" aria-label={`${dados[i].label}: ${formatCurrency(dados[i].valor)}`}
           onMouseEnter={() => setAtivo(i)} onMouseLeave={() => setAtivo((c) => (c === i ? null : c))}
           onFocus={() => setAtivo(i)} onBlur={() => setAtivo((c) => (c === i ? null : c))}>
           <circle cx={p[0]} cy={p[1]} r="8" fill="transparent" />
@@ -8144,7 +8145,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], irParaM
             <span className="block text-sm font-black text-brand-ink">{formatCurrency(a.faturamento)}</span>
           </span>
         ) : null}>
-        <BarrasHora dados={vendasPorHora} paleta={{ semVenda: "#2563EB", pico: "#F59E0B", acimaMedia: "#2563EB", padrao: "#2563EB", foco: "#2563EB", grade: "#E2E8F0", texto: "#64748B", textoValor: "#64748B" }} />
+        <BarrasHora dados={vendasPorHora} paleta={{ semVenda: "#2563EB", pico: "#F59E0B", acimaMedia: "#2563EB", padrao: "#2563EB", grade: "#E2E8F0", texto: "#64748B", textoValor: "#64748B" }} />
         {melhorHora.valor > 0 && (
           <div className="mt-4 flex flex-wrap gap-2">
             <span className="rounded-full bg-amber-500/10 px-3 py-1.5 text-xs font-bold text-amber-500">★ Melhor horário: {melhorHora.label} — {formatCurrency(melhorHora.valor)}</span>
@@ -8686,7 +8687,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
                 <span className="block text-sm font-black text-[#172033]">{formatCurrency(a.faturamento)}</span>
               </span>
             ) : null}>
-            <BarrasHora dados={horarioGeral} paleta={{ semVenda: "#2563EB", pico: "#F59E0B", acimaMedia: "#2563EB", padrao: "#2563EB", foco: "#2563EB", grade: "#E2E8F0", texto: "#64748B", textoValor: "#64748B" }} />
+            <BarrasHora dados={horarioGeral} paleta={{ semVenda: "#2563EB", pico: "#F59E0B", acimaMedia: "#2563EB", padrao: "#2563EB", grade: "#E2E8F0", texto: "#64748B", textoValor: "#64748B" }} />
           </Painel>
 
           {/* Tabelas: produtos, mesas */}
