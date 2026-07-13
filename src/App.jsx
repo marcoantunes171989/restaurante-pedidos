@@ -6547,7 +6547,12 @@ function CardMetrica({ titulo, valor, sub, cor = "text-brand-ink", icon, variaca
 // ── Gráfico de rosca (donut) em SVG, sem biblioteca ──
 // Paleta de gráficos padronizada: azul-marinho e dourado à frente (identidade), demais para categorias extras.
 const CORES_GRAF = ["#315A7D", "#C4322B", "#3F7D5A", "#C28135", "#7CA1BF", "#94A3B8"];
-function DonutChart({ dados, label = "" }) {
+// corCentral/legendaColorida/interativo são opcionais e retrocompatíveis:
+// sem passá-los, o gráfico se comporta exatamente como antes (usado no
+// Dashboard e demais telas). Relatórios de Vendas usa as 3 opções para
+// seguir a paleta oficial e ter legenda/tooltip coloridos por série.
+function DonutChart({ dados, label = "", corCentral = "#182230", legendaColorida = false, interativo = false }) {
+  const [ativo, setAtivo] = useState(null);
   const total = dados.reduce((s, d) => s + d.valor, 0);
   if (total === 0) return (
     <div className="flex h-48 flex-col items-center justify-center gap-1 text-center">
@@ -6557,29 +6562,44 @@ function DonutChart({ dados, label = "" }) {
   );
   const R = 70, C = 2 * Math.PI * R;
   let acc = 0;
+  const corDe = (d, i) => d.cor || CORES_GRAF[i % CORES_GRAF.length];
   return (
     <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-      <svg viewBox="0 0 180 180" className="h-44 w-44 -rotate-90">
+      <svg viewBox="0 0 180 180" className="h-44 w-44 -rotate-90 overflow-visible">
         {dados.map((d, i) => {
           const frac = d.valor / total;
           const dash = frac * C;
           const el = (
-            <circle key={i} cx="90" cy="90" r={R} fill="none" stroke={d.cor || CORES_GRAF[i % CORES_GRAF.length]} strokeWidth="26"
-              strokeDasharray={`${dash} ${C - dash}`} strokeDashoffset={-acc} />
+            <circle key={i} cx="90" cy="90" r={R} fill="none" stroke={corDe(d, i)} strokeWidth="26"
+              strokeDasharray={`${dash} ${C - dash}`} strokeDashoffset={-acc}
+              tabIndex={interativo ? 0 : undefined} aria-label={interativo ? `${d.label}: ${formatCurrency(d.valor)} (${((d.valor / total) * 100).toFixed(0)}%)` : undefined}
+              style={interativo ? { cursor: "pointer", opacity: ativo == null || ativo === i ? 1 : 0.35, transition: "opacity 150ms" } : undefined}
+              onMouseEnter={interativo ? () => setAtivo(i) : undefined} onMouseLeave={interativo ? () => setAtivo((c) => (c === i ? null : c)) : undefined}
+              onFocus={interativo ? () => setAtivo(i) : undefined} onBlur={interativo ? () => setAtivo((c) => (c === i ? null : c)) : undefined} />
           );
           acc += dash;
           return el;
         })}
-        <text x="90" y="90" className="rotate-90" textAnchor="middle" dominantBaseline="middle" fill="#182230" style={{ transform: "rotate(90deg)", transformOrigin: "90px 90px", fontSize: "13px", fontWeight: "900" }}>{label}</text>
+        <text x="90" y="90" className="rotate-90" textAnchor="middle" dominantBaseline="middle" fill={corCentral} style={{ transform: "rotate(90deg)", transformOrigin: "90px 90px", fontSize: "13px", fontWeight: "900" }}>{label}</text>
       </svg>
       <div className="space-y-1.5">
-        {dados.map((d, i) => (
-          <div key={i} className="flex items-center gap-2 text-sm">
-            <span className="h-3 w-3 rounded-sm" style={{ background: d.cor || CORES_GRAF[i % CORES_GRAF.length] }} />
-            <span className="text-slate-500">{d.label}</span>
-            <span className="font-black text-dash-navy">{((d.valor / total) * 100).toFixed(0)}%</span>
+        {dados.map((d, i) => {
+          const cor = corDe(d, i);
+          return (
+            <div key={i} className={`flex items-center gap-2 text-sm ${interativo ? "cursor-pointer" : ""}`}
+              onMouseEnter={interativo ? () => setAtivo(i) : undefined} onMouseLeave={interativo ? () => setAtivo((c) => (c === i ? null : c)) : undefined}>
+              <span className="h-3 w-3 rounded-sm" style={{ background: cor }} />
+              <span className={legendaColorida ? "font-semibold" : "text-slate-500"} style={legendaColorida ? { color: cor } : undefined}>{d.label}</span>
+              <span className={`font-black ${legendaColorida ? "" : "text-dash-navy"}`} style={legendaColorida ? { color: cor } : undefined}>{((d.valor / total) * 100).toFixed(0)}%</span>
+            </div>
+          );
+        })}
+        {interativo && ativo != null && dados[ativo] && (
+          <div className="mt-1 rounded-xl border px-3 py-2 text-xs" style={{ borderColor: "#E2E8F0", background: "#FFFFFF" }}>
+            <p className="font-bold" style={{ color: "#334155" }}>{dados[ativo].label}</p>
+            <p className="font-black" style={{ color: corDe(dados[ativo], ativo) }}>{formatCurrency(dados[ativo].valor)} · {((dados[ativo].valor / total) * 100).toFixed(0)}%</p>
           </div>
-        ))}
+        )}
       </div>
     </div>
   );
@@ -7267,6 +7287,7 @@ function BarrasHora({ dados, paleta = PALETA_BARRAS_HORA_PADRAO }) {
 
 // Gráfico de linha/área (evolução do faturamento) — SVG, sem biblioteca
 function LinhaFaturamento({ dados }) {
+  const [ativo, setAtivo] = useState(null);
   if (!dados.length) return <div className="flex h-40 items-center justify-center text-sm text-slate-500">Sem vendas no período.</div>;
   const max = Math.max(1, ...dados.map((d) => d.valor));
   const W = 640, H = 170, P = 26, n = dados.length;
@@ -7276,14 +7297,42 @@ function LinhaFaturamento({ dados }) {
   const linha = pts.map((p, i) => `${i ? "L" : "M"}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ");
   const area = `${linha} L${x(n - 1).toFixed(1)},${H - P} L${x(0).toFixed(1)},${H - P} Z`;
   const idxs = n <= 5 ? dados.map((_, i) => i) : [0, Math.round(n / 4), Math.round(n / 2), Math.round((3 * n) / 4), n - 1];
+  // Destaques: maior valor (laranja), menor valor (roxo) e linha de média (cinza tracejada)
+  const valorMax = Math.max(...dados.map((d) => d.valor));
+  const valorMin = Math.min(...dados.map((d) => d.valor));
+  const idxMax = dados.findIndex((d) => d.valor === valorMax);
+  const idxMin = dados.findIndex((d) => d.valor === valorMin);
+  const media = dados.reduce((s, d) => s + d.valor, 0) / n;
+  const yMedia = y(media);
+  const corPonto = (i) => (i === idxMax ? "#F59E0B" : i === idxMin ? "#8B5CF6" : "#2563EB");
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 180 }}>
-      <defs><linearGradient id="gradFat" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#315A7D" stopOpacity="0.30" /><stop offset="100%" stopColor="#315A7D" stopOpacity="0" /></linearGradient></defs>
-      {[0, 0.25, 0.5, 0.75, 1].map((f, i) => (<line key={i} x1={P} x2={W - P} y1={y(max * f)} y2={y(max * f)} stroke="#E5E7EB" />))}
-      <path d={area} fill="url(#gradFat)" />
-      <path d={linha} fill="none" stroke="#315A7D" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
-      {pts.map((p, i) => (<circle key={i} cx={p[0]} cy={p[1]} r="3" fill="#315A7D" />))}
-      {idxs.map((i) => (<text key={i} x={x(i)} y={H - 8} textAnchor="middle" fill="#667085" style={{ fontSize: 9 }}>{dados[i].label}</text>))}
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full overflow-visible" style={{ height: 180 }}>
+      {[0, 0.25, 0.5, 0.75, 1].map((f, i) => (<line key={i} x1={P} x2={W - P} y1={y(max * f)} y2={y(max * f)} stroke="#E2E8F0" />))}
+      {n > 1 && <line x1={P} x2={W - P} y1={yMedia} y2={yMedia} stroke="#64748B" strokeWidth="1" strokeDasharray="4 3" />}
+      <path d={area} fill="#2563EB" fillOpacity="0.08" />
+      <path d={linha} fill="none" stroke="#2563EB" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+      {pts.map((p, i) => (
+        <g key={i} tabIndex={0} role="img" aria-label={`${dados[i].label}: ${formatCurrency(dados[i].valor)}`}
+          onMouseEnter={() => setAtivo(i)} onMouseLeave={() => setAtivo((c) => (c === i ? null : c))}
+          onFocus={() => setAtivo(i)} onBlur={() => setAtivo((c) => (c === i ? null : c))}>
+          <circle cx={p[0]} cy={p[1]} r="8" fill="transparent" />
+          <circle cx={p[0]} cy={p[1]} r={i === idxMax || i === idxMin ? 4 : 3} fill={corPonto(i)} />
+        </g>
+      ))}
+      {idxs.map((i) => (<text key={i} x={x(i)} y={H - 8} textAnchor="middle" fill="#64748B" style={{ fontSize: 9 }}>{dados[i].label}</text>))}
+      {ativo != null && (() => {
+        const p = pts[ativo]; const d = dados[ativo];
+        const boxW = 86, boxH = 34;
+        const bx = Math.min(Math.max(p[0] - boxW / 2, 2), W - boxW - 2);
+        const by = Math.max(p[1] - boxH - 10, 2);
+        return (
+          <g pointerEvents="none">
+            <rect x={bx} y={by} width={boxW} height={boxH} rx="6" fill="#FFFFFF" stroke="#E2E8F0" />
+            <text x={bx + boxW / 2} y={by + 14} textAnchor="middle" fill="#334155" style={{ fontSize: 9, fontWeight: 700 }}>{d.label}</text>
+            <text x={bx + boxW / 2} y={by + 27} textAnchor="middle" fill="#2563EB" style={{ fontSize: 10, fontWeight: 800 }}>{formatCurrency(d.valor)}</text>
+          </g>
+        );
+      })()}
     </svg>
   );
 }
@@ -8349,7 +8398,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
   pagosG.forEach((o) => { if (o.createdAtISO) { const h = new Date(o.createdAtISO).getHours(); horas24R[h].valor += orderTotal(o) * 1.1; horas24R[h].qtd += 1; } });
   const horarioGeral = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 0, 1].map((h) => horas24R[h]);
   // Paleta oficial de gráficos desta tela (só estas 5 cores, na ordem definida).
-  const PALETA_GRAF_RELATORIOS = ["#2563EB", "#10B981", "#F59E0B", "#8B5CF6", "#64748B"];
+  const PALETA_GRAF_RELATORIOS = ["#2563EB", "#10B981", "#F59E0B", "#8B5CF6", "#64748B", "#0D1B2A"];
   const catDonutR = a.categorias.slice(0, 6).map((c, i) => ({ label: c.categoria, valor: c.valor, cor: PALETA_GRAF_RELATORIOS[i % PALETA_GRAF_RELATORIOS.length] }));
   // Mesas com maior faturamento
   const porMesaR = {};
@@ -8583,20 +8632,20 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
               <LinhaFaturamento dados={evolucao} />
               <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {[
-                  { r: "Maior dia", v: maiorDiaSemana ? maiorDiaSemana.dia.split("-")[0] : "—", s: maiorDiaSemana ? formatCurrency(maiorDiaSemana.valor) : "—" },
-                  { r: "Menor dia", v: menorDiaSemana ? menorDiaSemana.dia.split("-")[0] : "—", s: menorDiaSemana ? formatCurrency(menorDiaSemana.valor) : "—" },
-                  { r: "Média diária", v: formatCurrency(mediaDiaria), s: "no período" },
-                  { r: "Dias ativos", v: `${diasAtivos}`, s: `de ${totalDiasPeriodo}` },
+                  { r: "Maior dia", v: maiorDiaSemana ? maiorDiaSemana.dia.split("-")[0] : "—", s: maiorDiaSemana ? formatCurrency(maiorDiaSemana.valor) : "—", cor: "text-amber-500" },
+                  { r: "Menor dia", v: menorDiaSemana ? menorDiaSemana.dia.split("-")[0] : "—", s: menorDiaSemana ? formatCurrency(menorDiaSemana.valor) : "—", cor: "text-violet-500" },
+                  { r: "Média diária", v: formatCurrency(mediaDiaria), s: "no período", cor: "text-blue-500" },
+                  { r: "Dias ativos", v: `${diasAtivos}`, s: `de ${totalDiasPeriodo}`, cor: "text-emerald-500" },
                 ].map((c) => (
                   <div key={c.r} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
                     <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{c.r}</p>
                     <p className="page-title mt-1 truncate text-base font-bold text-dash-navy">{c.v}</p>
-                    <p className="truncate text-[11px] text-blue-500">{c.s}</p>
+                    <p className={`truncate text-[11px] font-semibold ${c.cor}`}>{c.s}</p>
                   </div>
                 ))}
               </div>
             </Painel>
-            <Painel titulo="Faturamento por categoria"><DonutChart dados={catDonutR} label="Categorias" /></Painel>
+            <Painel titulo="Faturamento por categoria"><DonutChart dados={catDonutR} label="Categorias" corCentral="#0D1B2A" legendaColorida interativo /></Painel>
           </div>
 
           <Painel titulo="Faturamento por horário" descricao="Distribuição das vendas ao longo do período selecionado"
