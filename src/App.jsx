@@ -7237,6 +7237,57 @@ function GraficoTooltip({ children, className = "" }) {
   );
 }
 
+// Barras horizontais rankeadas com tooltip — reaproveita a mesma
+// configuração global de gráficos já usada por BarrasHora/DonutChart/
+// LinhaFaturamento (pp-chart-container, pp-chart-focus, GraficoTooltip):
+// sem outline preto, sem alterar layout no hover, overlay absoluto.
+// dados: [{ rotulo, valor, qtd, variacao }]; ordena do maior para o menor;
+// o maior valor fica em #F59E0B, os demais em #2563EB; linha vertical
+// cinza (#64748B) marca a média do conjunto.
+function BarrasRankeadas({ dados, formatarValor, sufixo = "" }) {
+  const [ativo, setAtivo] = useState(null);
+  if (!dados || dados.length === 0) return <div className="flex h-24 items-center justify-center text-sm text-[#64748B]">Sem dados no período.</div>;
+  const ordenados = [...dados].sort((a, b) => b.valor - a.valor);
+  const maxValor = Math.max(1, ...ordenados.map((d) => d.valor));
+  const media = ordenados.reduce((s, d) => s + d.valor, 0) / ordenados.length;
+  const pctMedia = Math.min(100, (media / maxValor) * 100);
+  return (
+    <div className="pp-chart-container space-y-3">
+      {ordenados.map((d, i) => {
+        const pct = (d.valor / maxValor) * 100;
+        const cor = i === 0 ? "#F59E0B" : "#2563EB";
+        return (
+          <div key={d.rotulo} className="relative">
+            <div className="mb-1 flex items-center justify-between gap-2 text-xs">
+              <span className="min-w-0 truncate font-semibold capitalize text-[#334155]">{d.rotulo}</span>
+              <span className="shrink-0 font-bold text-[#0D1B2A]">{formatarValor(d.valor)}{sufixo}</span>
+            </div>
+            <div className="relative h-3 rounded-full bg-[#F1F5F9]">
+              <div className="pp-chart-focus h-full rounded-full" tabIndex={0} role="img"
+                aria-label={`${d.rotulo}: ${formatarValor(d.valor)}${sufixo}`}
+                style={{ width: `${pct}%`, background: cor, transition: "width 300ms ease" }}
+                onMouseEnter={() => setAtivo(i)} onMouseLeave={() => setAtivo((c) => (c === i ? null : c))}
+                onFocus={() => setAtivo(i)} onBlur={() => setAtivo((c) => (c === i ? null : c))} />
+              <div className="pointer-events-none absolute -top-0.5 -bottom-0.5 w-px bg-[#64748B]" style={{ left: `${pctMedia}%` }} aria-hidden="true" />
+              {ativo === i && (
+                <GraficoTooltip className="pp-chart-tooltip-overlay left-0 top-full mt-1.5 w-max max-w-[220px]">
+                  <p className="font-bold capitalize" style={{ color: "#0D1B2A" }}>{d.rotulo}</p>
+                  <p className="mt-0.5 font-black" style={{ color: cor }}>{formatarValor(d.valor)}{sufixo}</p>
+                  {d.qtd != null && <p className="mt-0.5" style={{ color: "#64748B" }}>{d.qtd} comanda(s)</p>}
+                  {d.variacao != null && (
+                    <p className="mt-0.5 font-semibold" style={{ color: d.variacao >= 0 ? "#F59E0B" : "#10B981" }}>{d.variacao >= 0 ? "▲" : "▼"} {Math.abs(d.variacao).toFixed(0)}% vs. média</p>
+                  )}
+                </GraficoTooltip>
+              )}
+            </div>
+          </div>
+        );
+      })}
+      <p className="flex items-center gap-1.5 pt-1 text-[10px] text-[#64748B]"><span className="inline-block h-0.5 w-3 bg-[#64748B]" aria-hidden="true" /> Média do período: {formatarValor(media)}{sufixo}</p>
+    </div>
+  );
+}
+
 // Gráfico "Faturamento por horário" — barras com tooltip acessível (hover, foco
 // por teclado ou toque, sem depender de hover) e cor semântica por barra:
 // cinza = sem venda, terracota = melhor horário, verde = acima da média,
@@ -10078,7 +10129,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
         </>
       )}
 
-      {aba === "permanencia" && <RelatorioPermanencia pedidos={filtrados} periodo={periodo} ini={ini} fim={fim} />}
+      {aba === "permanencia" && <RelatorioPermanencia pedidos={filtrados} orders={orders} periodo={periodo} ini={ini} fim={fim} lojaInfo={lojaInfo} />}
 
       {aba === "satisfacao" && <RelatorioSatisfacao pesquisas={filtrarPesquisasPorPeriodo(pesquisas, periodo, ini, fim)} />}
 
@@ -11812,97 +11863,480 @@ function CuponsProdutoModal({ nome, cupons, lojaInfo, onFechar }) {
   );
 }
 
-function RelatorioPermanencia({ pedidos, periodo, ini, fim }) {
+// Detalhe da comanda (aba Permanência) — visualização, ao clicar em "Ver
+// detalhes". Reaproveita ESTOQUE_STATUS/BadgeEstoque (mesmos rótulos e
+// cores Normal/Atenção/Crítico já usados na aba Estoque) e abre o cupom de
+// um pedido específico via CupomNaoFiscalModal (já usado em outras abas).
+function ModalDetalheComanda({ comanda, mediaGeralMinutos, onFechar, onAbrirPedido }) {
+  if (!comanda) return null;
+  const c = comanda;
+  const variacaoPct = mediaGeralMinutos > 0 ? ((c.minutos - mediaGeralMinutos) / mediaGeralMinutos) * 100 : null;
+  return (
+    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-[#0D1B2A]/70 backdrop-blur-sm p-4" onClick={onFechar}>
+      <div onClick={(e) => e.stopPropagation()} className="pp-anim-up flex w-full max-w-md flex-col overflow-hidden rounded-[1.75rem] border border-[#E2E8F0] bg-white shadow-2xl max-h-[92vh]">
+        <div className="flex items-center justify-between border-b border-[#E2E8F0] px-6 py-4">
+          <div className="min-w-0">
+            <h2 className="truncate text-base font-black text-[#0D1B2A]">Comanda {c.comanda}</h2>
+            <p className="mt-0.5 text-xs text-[#64748B]">{c.mesa || "Balcão"} · {c.canal}</p>
+          </div>
+          <button onClick={onFechar} className="shrink-0 rounded-xl border border-[#E2E8F0] px-3 py-2 text-sm font-black text-[#64748B] hover:bg-[#F1F5F9]">✕</button>
+        </div>
+        <div className="flex-1 overflow-y-auto space-y-4 px-6 py-5">
+          <BadgeEstoque status={c.status} />
+          <div className="grid grid-cols-2 gap-2.5">
+            {[
+              ["Abertura", new Date(c.inicio).toLocaleString("pt-BR")], ["Fechamento", new Date(c.fim).toLocaleString("pt-BR")],
+              ["Permanência", formatarDuracaoMin(c.minutos)], ["Valor", formatCurrency(c.valor)],
+              ["Ticket médio", formatCurrency(c.ticketMedio)], ["Itens", `${c.itens}`],
+              ["Forma de pagamento", c.formaPagamento || "Não informado"], ["Responsável", "—"],
+              ["Comparação com a média", variacaoPct != null ? `${variacaoPct >= 0 ? "+" : ""}${variacaoPct.toFixed(0)}%` : "—"],
+            ].map(([r, v]) => (
+              <div key={r} className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
+                <p className="text-[9px] font-bold uppercase tracking-widest text-[#64748B]">{r}</p>
+                <p className="mt-0.5 truncate text-sm font-black text-[#0D1B2A]">{v}</p>
+              </div>
+            ))}
+          </div>
+          <div>
+            <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-[#64748B]">Pedidos desta comanda</p>
+            <div className="space-y-1.5">
+              {c.pedidos.map((o) => (
+                <div key={o.id} className="flex items-center justify-between gap-2 rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs">
+                  <span className="min-w-0 truncate text-[#64748B]">Cupom {o.id}</span>
+                  <span className="shrink-0 font-bold text-[#0D1B2A]">{formatCurrency(orderTotal(o) * 1.1)}</span>
+                  {onAbrirPedido && (
+                    <button onClick={() => onAbrirPedido(o)} title="Ver cupom" aria-label="Ver cupom deste pedido"
+                      className="shrink-0 rounded-lg border border-[#E2E8F0] px-2 py-1 text-[10px] font-bold text-[#2563EB] transition hover:bg-[#EFF6FF]">🧾 Ver cupom</button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RelatorioPermanencia({ pedidos, orders = [], periodo, ini, fim, lojaInfo }) {
   const [pagina, setPagina] = useState(1);
   const [porPagina, setPorPagina] = useState(10);
-  // Agrupa por comanda: primeiro pedido (início) e último pagamento (fim)
+  const [buscaPermE, setBuscaPermE] = useState("");
+  const [ordenacaoPermE, setOrdenacaoPermE] = useState({ campo: "minutos", dir: "desc" });
+  const [fMesaPermE, setFMesaPermE] = useState("");
+  const [fCanalPermE, setFCanalPermE] = useState("todos");
+  const [fStatusPermE, setFStatusPermE] = useState("todos");
+  const [fFaixaPermE, setFFaixaPermE] = useState("todas");
+  const [mostrarFiltrosPermE, setMostrarFiltrosPermE] = useState(false);
+  const [somenteAcimaMediaPermE, setSomenteAcimaMediaPermE] = useState(false);
+  const [compararPeriodoPermE, setCompararPeriodoPermE] = useState(false);
+  const [atualizadoEmPermE, setAtualizadoEmPermE] = useState(() => new Date());
+  const [comandaDetalheE, setComandaDetalheE] = useState(null);
+  const [cupomSelPermE, setCupomSelPermE] = useState(null);
+
+  // Agrupa por comanda: primeiro pedido (início) e último pagamento (fim) —
+  // mesma regra já existente, agora também acumulando os pedidos da comanda
+  // (para itens/valor/forma de pagamento/canal e o detalhe "Ver cupom").
   const porComanda = {};
   pedidos.filter((o) => o.paymentStatus === "paid" && o.createdAtISO && o.updatedAtISO).forEach((o) => {
     const k = o.command;
-    if (!porComanda[k]) porComanda[k] = { comanda: k, mesa: o.table, inicio: o.createdAtISO, fim: o.updatedAtISO };
+    if (!porComanda[k]) porComanda[k] = { comanda: k, mesa: o.table, inicio: o.createdAtISO, fim: o.updatedAtISO, pedidos: [] };
     if (new Date(o.createdAtISO) < new Date(porComanda[k].inicio)) porComanda[k].inicio = o.createdAtISO;
     if (new Date(o.updatedAtISO) > new Date(porComanda[k].fim)) porComanda[k].fim = o.updatedAtISO;
+    porComanda[k].pedidos.push(o);
   });
-  const lista = Object.values(porComanda).map((c) => {
+  const listaBase = Object.values(porComanda).map((c) => {
     const ms = new Date(c.fim) - new Date(c.inicio);
+    const minutos = Math.round(ms / 60000);
     const dia = new Date(c.inicio).toLocaleDateString("pt-BR", { weekday: "long" });
     const horaIni = new Date(c.inicio).getHours();
-    return { ...c, ms, minutos: Math.round(ms / 60000), dia, horaIni };
+    const valor = c.pedidos.reduce((s, o) => s + orderTotal(o) * 1.1, 0);
+    const itens = c.pedidos.reduce((s, o) => s + o.items.reduce((x, it) => x + it.quantity, 0), 0);
+    const ticketMedio = c.pedidos.length ? valor / c.pedidos.length : 0;
+    const prontos = c.pedidos.map((o) => o.prontoEmISO).filter(Boolean).sort();
+    const tempoAtePagamento = prontos.length ? minutosEntreISO(prontos[prontos.length - 1], c.fim) : null;
+    const canal = c.pedidos.some((o) => o.command) ? "Mesa / QR Code" : c.pedidos.some((o) => o.table) ? "Mesa" : "Balcão / Delivery";
+    const formaPagamento = c.pedidos.find((o) => o.pagamentoForma)?.pagamentoForma || null;
+    return { ...c, ms, minutos, dia, horaIni, valor, itens, ticketMedio, tempoAtePagamento, canal, formaPagamento };
   });
+  const mediaGeralMinutos = listaBase.length ? listaBase.reduce((s, c) => s + c.minutos, 0) / listaBase.length : 0;
+  function statusPermDe(minutos) {
+    if (mediaGeralMinutos <= 0) return "normal";
+    if (minutos > mediaGeralMinutos * 2) return "critico";
+    if (minutos > mediaGeralMinutos) return "atencao";
+    return "normal";
+  }
+  const lista = listaBase.map((c) => ({ ...c, status: statusPermDe(c.minutos), variacaoMedia: mediaGeralMinutos > 0 ? ((c.minutos - mediaGeralMinutos) / mediaGeralMinutos) * 100 : null }));
 
-  const mediaGeral = lista.length ? lista.reduce((s, c) => s + c.ms, 0) / lista.length : 0;
+  // ── Comparativo com o período anterior (mesma técnica já usada nas
+  // demais abas: filtra o orders completo pelo intervalo anterior de mesma
+  // duração — nenhuma consulta nova). ──
+  const comparativoPermE = (() => {
+    if (periodo === "tudo") return null;
+    const [a0, b0] = intervaloPeriodo(periodo, ini, fim);
+    if (!a0 || a0.getTime() <= 0) return null;
+    const dur = b0.getTime() - a0.getTime();
+    const anterioresP = orders.filter((o) => {
+      if (!(o.paymentStatus === "paid" && o.createdAtISO && o.updatedAtISO)) return false;
+      const d = new Date(o.createdAtISO);
+      return d >= new Date(a0.getTime() - dur - 1) && d <= new Date(a0.getTime() - 1);
+    });
+    if (anterioresP.length === 0) return null;
+    const porComandaAnt = {};
+    anterioresP.forEach((o) => {
+      const k = o.command;
+      if (!porComandaAnt[k]) porComandaAnt[k] = { inicio: o.createdAtISO, fim: o.updatedAtISO };
+      if (new Date(o.createdAtISO) < new Date(porComandaAnt[k].inicio)) porComandaAnt[k].inicio = o.createdAtISO;
+      if (new Date(o.updatedAtISO) > new Date(porComandaAnt[k].fim)) porComandaAnt[k].fim = o.updatedAtISO;
+    });
+    const listaAnt = Object.values(porComandaAnt).map((c) => Math.round((new Date(c.fim) - new Date(c.inicio)) / 60000));
+    const mediaAnt = listaAnt.length ? listaAnt.reduce((s, v) => s + v, 0) / listaAnt.length : 0;
+    const varPct = (at, an) => an > 0 ? ((at - an) / an) * 100 : (at > 0 ? 100 : null);
+    return { mediaAnterior: mediaAnt, comandasAnterior: listaAnt.length, variacaoMedia: varPct(mediaGeralMinutos, mediaAnt), variacaoComandas: varPct(lista.length, listaAnt.length) };
+  })();
 
-  // Paginação do "Detalhe por comanda" — volta para a página 1 ao trocar
-  // período ou a quantidade por página (a troca de aba já remonta o
-  // componente, o que já reinicia a página sozinho).
-  useEffect(() => { setPagina(1); }, [periodo, ini, fim, porPagina]);
-  const listaOrdenada = [...lista].sort((a, b) => b.ms - a.ms);
+  // ── 1. KPIs adicionais ──
+  const maiorPermanenciaE = lista.length ? [...lista].sort((a, b) => b.minutos - a.minutos)[0] : null;
+  const menorPermanenciaE = lista.length ? [...lista].sort((a, b) => a.minutos - b.minutos)[0] : null;
+  const comandasAcimaMediaE = lista.filter((c) => c.minutos > mediaGeralMinutos).length;
+  const mesasDistintasPermE = new Set(lista.map((c) => c.mesa).filter(Boolean));
+  const giroMedioMesasE = mesasDistintasPermE.size ? lista.length / mesasDistintasPermE.size : null;
+  // Tempo ocioso estimado: intervalo entre o fechamento de uma comanda e a
+  // abertura da próxima NA MESMA mesa (só quando a mesa teve 2+ comandas).
+  const tempoOciosoEstimadoE = (() => {
+    const porMesaOrd = {};
+    lista.forEach((c) => { if (!c.mesa) return; (porMesaOrd[c.mesa] ||= []).push(c); });
+    const gaps = [];
+    Object.values(porMesaOrd).forEach((doMesa) => {
+      const ord = [...doMesa].sort((a, b) => new Date(a.inicio) - new Date(b.inicio));
+      for (let i = 1; i < ord.length; i++) {
+        const gap = minutosEntreISO(ord[i - 1].fim, ord[i].inicio);
+        if (gap != null) gaps.push(gap);
+      }
+    });
+    return gaps.length ? gaps.reduce((s, v) => s + v, 0) / gaps.length : null;
+  })();
+  const porHoraPermE = {};
+  lista.forEach((c) => { (porHoraPermE[c.horaIni] ||= { soma: 0, n: 0 }); porHoraPermE[c.horaIni].soma += c.minutos; porHoraPermE[c.horaIni].n += 1; });
+  const horariosPermE = Object.entries(porHoraPermE).map(([h, v]) => ({ hora: Number(h), media: v.soma / v.n, n: v.n }));
+  const horarioMaiorPermanenciaE = horariosPermE.length ? horariosPermE.reduce((b, d) => (d.media > b.media ? d : b)) : null;
+  const temposAtePagamentoE = lista.map((c) => c.tempoAtePagamento).filter((v) => v != null);
+  const tempoMedioAtePagamentoE = temposAtePagamentoE.length ? temposAtePagamentoE.reduce((s, v) => s + v, 0) / temposAtePagamentoE.length : null;
+
+  // ── 2. Resumo inteligente — só com o que já foi calculado acima ──
+  const diaMaisCriticoE = (() => {
+    const porDiaCrit = {};
+    lista.forEach((c) => { (porDiaCrit[c.dia] ||= { soma: 0, n: 0 }); porDiaCrit[c.dia].soma += c.minutos; porDiaCrit[c.dia].n += 1; });
+    const arr = Object.entries(porDiaCrit).map(([dia, v]) => ({ dia, media: v.soma / v.n }));
+    return arr.length ? arr.reduce((b, d) => (d.media > b.media ? d : b)) : null;
+  })();
+  const resumoInteligenteE = lista.length === 0 ? null : {
+    diagnostico: mediaGeralMinutos <= 45 ? "Operação com giro saudável — permanência dentro do esperado." : mediaGeralMinutos <= 75 ? "Permanência moderada — atenção a mesas específicas." : "Permanência elevada — pode estar limitando o giro de mesas.",
+    gargalo: horarioMaiorPermanenciaE ? `Horário das ${String(horarioMaiorPermanenciaE.hora).padStart(2, "0")}h concentra a maior permanência média (${formatarDuracaoMin(Math.round(horarioMaiorPermanenciaE.media))}).` : "Sem dados suficientes.",
+    melhorResultado: menorPermanenciaE ? `Comanda ${menorPermanenciaE.comanda} finalizada em ${formatarDuracaoMin(menorPermanenciaE.minutos)} — ritmo ideal de atendimento.` : "Sem dados suficientes.",
+    diaCritico: diaMaisCriticoE ? `${diaMaisCriticoE.dia} tem a maior permanência média (${formatarDuracaoMin(Math.round(diaMaisCriticoE.media))}).` : "Sem dados suficientes.",
+    oportunidade: giroMedioMesasE != null ? `Giro médio de ${giroMedioMesasE.toFixed(1)} comanda(s) por mesa no período — reduzir a permanência das mesas acima da média pode aumentar o giro.` : "Sem dados suficientes.",
+    recomendacao: comandasAcimaMediaE > lista.length / 2 ? "Mais da metade das comandas está acima da média — revisar o fluxo de fechamento de conta." : "Permanência sob controle — manter o padrão atual de atendimento.",
+  };
+
+  // ── 3. Permanência por dia (gráfico) ──
+  const porDiaE = {};
+  lista.forEach((c) => { (porDiaE[c.dia] ||= { soma: 0, n: 0 }); porDiaE[c.dia].soma += c.minutos; porDiaE[c.dia].n += 1; });
+  const diasGraficoE = Object.entries(porDiaE).map(([dia, v]) => ({ rotulo: dia, valor: Math.round(v.soma / v.n), qtd: v.n, variacao: mediaGeralMinutos > 0 ? (((v.soma / v.n) - mediaGeralMinutos) / mediaGeralMinutos) * 100 : null }));
+
+  // ── 4. Distribuição por faixa ──
+  const FAIXAS_PERM_E = [
+    { rotulo: "Até 30 min", min: 0, max: 30, cor: "#10B981" },
+    { rotulo: "31–60 min", min: 31, max: 60, cor: "#2563EB" },
+    { rotulo: "61–90 min", min: 61, max: 90, cor: "#8B5CF6" },
+    { rotulo: "91–120 min", min: 91, max: 120, cor: "#F59E0B" },
+    { rotulo: "Acima de 120 min", min: 121, max: Infinity, cor: "#EF4444" },
+  ];
+  const distribuicaoFaixasE = FAIXAS_PERM_E.map((f) => ({ label: f.rotulo, valor: lista.filter((c) => c.minutos >= f.min && c.minutos <= f.max).length, cor: f.cor }));
+  function faixaDe(minutos) {
+    const f = FAIXAS_PERM_E.find((f) => minutos >= f.min && minutos <= f.max);
+    return f ? f.rotulo : "—";
+  }
+
+  // ── 5. Análise por horário ──
+  const horariosGraficoE = horariosPermE.map((h) => ({ rotulo: `${String(h.hora).padStart(2, "0")}h`, valor: Math.round(h.media), qtd: h.n, variacao: mediaGeralMinutos > 0 ? ((h.media - mediaGeralMinutos) / mediaGeralMinutos) * 100 : null }));
+  const faturamentoPorHoraE = {};
+  pedidos.filter((o) => o.paymentStatus === "paid" && o.createdAtISO).forEach((o) => { const h = new Date(o.createdAtISO).getHours(); faturamentoPorHoraE[h] = (faturamentoPorHoraE[h] || 0) + orderTotal(o) * 1.1; });
+  const horaPicoFaturamentoE = Object.entries(faturamentoPorHoraE).sort((a, b) => b[1] - a[1])[0]?.[0];
+  const relacaoPermanenciaFaturamentoE = (horaPicoFaturamentoE != null && horarioMaiorPermanenciaE)
+    ? (Number(horaPicoFaturamentoE) === horarioMaiorPermanenciaE.hora
+      ? `O horário de pico de faturamento (${String(horaPicoFaturamentoE).padStart(2, "0")}h) coincide com o de maior permanência — o giro de mesas nesse horário é o principal limitador de faturamento adicional.`
+      : `O horário de pico de faturamento (${String(horaPicoFaturamentoE).padStart(2, "0")}h) não coincide com o de maior permanência (${String(horarioMaiorPermanenciaE.hora).padStart(2, "0")}h) — a demora não parece limitar o horário mais forte de vendas.`)
+    : null;
+
+  // ── 6. Detalhe por comanda: busca + ordenação + filtros — reaproveita o
+  // mesmo estado de paginação já existente. ──
+  const mesasPermDisponiveisE = Array.from(new Set(lista.map((c) => c.mesa).filter(Boolean))).sort((a, b) => String(a).localeCompare(String(b), "pt-BR"));
+  const canaisPermDisponiveisE = Array.from(new Set(lista.map((c) => c.canal))).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  const buscaPermLowerE = buscaPermE.trim().toLowerCase();
+  const listaFiltradaE = lista.filter((c) => {
+    if (buscaPermLowerE && !`${c.comanda} ${c.mesa || ""}`.toLowerCase().includes(buscaPermLowerE)) return false;
+    if (fMesaPermE.trim() && String(c.mesa || "").toLowerCase() !== fMesaPermE.trim().toLowerCase()) return false;
+    if (fCanalPermE !== "todos" && c.canal !== fCanalPermE) return false;
+    if (fStatusPermE !== "todos" && c.status !== fStatusPermE) return false;
+    if (fFaixaPermE !== "todas" && faixaDe(c.minutos) !== fFaixaPermE) return false;
+    if (somenteAcimaMediaPermE && c.minutos <= mediaGeralMinutos) return false;
+    return true;
+  });
+  const listaOrdenada = [...listaFiltradaE].sort((x, y) => {
+    const dir = ordenacaoPermE.dir === "asc" ? 1 : -1;
+    const campo = ordenacaoPermE.campo;
+    if (campo === "comanda" || campo === "mesa" || campo === "canal" || campo === "status") return dir * String(x[campo] ?? "").localeCompare(String(y[campo] ?? ""), "pt-BR");
+    if (campo === "inicio" || campo === "fim") return dir * (new Date(x[campo]) - new Date(y[campo]));
+    return dir * ((x[campo] ?? 0) - (y[campo] ?? 0));
+  });
+  function alternarOrdemPermE(campo) {
+    setOrdenacaoPermE((o) => (o.campo === campo ? { campo, dir: o.dir === "desc" ? "asc" : "desc" } : { campo, dir: "desc" }));
+  }
+  function limparFiltrosPermE() {
+    setFMesaPermE(""); setFCanalPermE("todos"); setFStatusPermE("todos"); setFFaixaPermE("todas"); setSomenteAcimaMediaPermE(false);
+  }
+  const filtrosPermAtivosE = !!fMesaPermE || fCanalPermE !== "todos" || fStatusPermE !== "todos" || fFaixaPermE !== "todas" || somenteAcimaMediaPermE;
+
+  // Volta para a página 1 ao trocar período, busca, filtro ou ordenação
+  // (reaproveita o mesmo estado de paginação já existente).
+  useEffect(() => { setPagina(1); }, [periodo, ini, fim, porPagina, buscaPermE, fMesaPermE, fCanalPermE, fStatusPermE, fFaixaPermE, somenteAcimaMediaPermE, ordenacaoPermE]);
   const totalPaginas = Math.max(1, Math.ceil(listaOrdenada.length / porPagina));
   const paginaAtual = Math.min(pagina, totalPaginas);
   const listaVisivel = listaOrdenada.slice((paginaAtual - 1) * porPagina, paginaAtual * porPagina);
 
-  // Por dia da semana
-  const porDia = {};
-  lista.forEach((c) => {
-    if (!porDia[c.dia]) porDia[c.dia] = { dia: c.dia, soma: 0, n: 0 };
-    porDia[c.dia].soma += c.ms; porDia[c.dia].n += 1;
-  });
-  const dias = Object.values(porDia).map((d) => ({ ...d, media: d.soma / d.n }));
+  // ── 7. Insights operacionais ──
+  const insightsPermE = [];
+  if (maiorPermanenciaE) insightsPermE.push({ titulo: "Mesa com maior permanência", texto: `${maiorPermanenciaE.mesa || "Balcão"} (comanda ${maiorPermanenciaE.comanda}) ficou ${formatarDuracaoMin(maiorPermanenciaE.minutos)} aberta.`, tom: maiorPermanenciaE.status === "critico" ? "danger" : "warning", comanda: maiorPermanenciaE });
+  const comandaMaisDemoradaFechamentoE = [...lista].filter((c) => c.tempoAtePagamento != null).sort((a, b) => b.tempoAtePagamento - a.tempoAtePagamento)[0] || null;
+  if (comandaMaisDemoradaFechamentoE) insightsPermE.push({ titulo: "Demora no fechamento", texto: `Comanda ${comandaMaisDemoradaFechamentoE.comanda} levou ${formatarDuracaoMin(Math.round(comandaMaisDemoradaFechamentoE.tempoAtePagamento))} entre o pedido ficar pronto e o pagamento.`, tom: "warning", comanda: comandaMaisDemoradaFechamentoE });
+  if (diaMaisCriticoE) insightsPermE.push({ titulo: "Dia com baixa rotatividade", texto: `${diaMaisCriticoE.dia} tem a maior permanência média (${formatarDuracaoMin(Math.round(diaMaisCriticoE.media))}), indicando giro mais lento.`, tom: "warning" });
+  if (horarioMaiorPermanenciaE) insightsPermE.push({ titulo: "Horário de maior concentração", texto: `${String(horarioMaiorPermanenciaE.hora).padStart(2, "0")}h concentra ${horarioMaiorPermanenciaE.n} comanda(s) com permanência média de ${formatarDuracaoMin(Math.round(horarioMaiorPermanenciaE.media))}.`, tom: "info" });
+  if (comandasAcimaMediaE > 0) insightsPermE.push({ titulo: "Possível gargalo de atendimento", texto: `${comandasAcimaMediaE} comanda(s) ficaram acima da média do período (${formatarDuracaoMin(Math.round(mediaGeralMinutos))}).`, tom: comandasAcimaMediaE > lista.length / 2 ? "danger" : "warning" });
+  if (tempoOciosoEstimadoE != null) insightsPermE.push({ titulo: "Oportunidade de aumentar o giro", texto: `Tempo ocioso médio estimado entre comandas na mesma mesa: ${formatarDuracaoMin(Math.round(tempoOciosoEstimadoE))}. Reduzir esse intervalo aumenta o giro sem precisar de mais mesas.`, tom: "violet" });
 
-  function fmtDur(ms) {
-    const min = Math.floor(ms / 60000); const h = Math.floor(min / 60); const m = min % 60;
-    const s = Math.floor((ms % 60000) / 1000);
-    return h > 0 ? `${h}h ${m}min` : `${m}min ${s}s`;
+  // ── 8. Ações rápidas ──
+  function atualizarPermVisaoE() { setAtualizadoEmPermE(new Date()); }
+  function exportarPermExcelE() {
+    let csv = "Comanda;Mesa;Canal;Abertura;Fechamento;Permanencia (min);Valor;Ticket medio;Itens;Status\n";
+    listaOrdenada.forEach((c) => {
+      csv += `${c.comanda};${c.mesa || ""};${c.canal};${new Date(c.inicio).toLocaleString("pt-BR")};${new Date(c.fim).toLocaleString("pt-BR")};${c.minutos};${c.valor.toFixed(2)};${c.ticketMedio.toFixed(2)};${c.itens};${ESTOQUE_STATUS[c.status]?.label || c.status}\n`;
+    });
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url; link.download = `relatorio-permanencia-${periodo}.csv`; link.click();
+    URL.revokeObjectURL(url);
+  }
+  function exportarPermPDFE() {
+    const empresa = lojaInfo?.nome || "Restaurante";
+    const linhasHtml = listaOrdenada.map((c) => `<tr><td>${c.comanda}</td><td>${c.mesa || "—"}</td><td>${c.canal}</td><td>${formatarDuracaoMin(c.minutos)}</td><td class="r">${formatCurrency(c.valor)}</td><td>${ESTOQUE_STATUS[c.status]?.label || c.status}</td></tr>`).join("");
+    const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Permanência — ${empresa}</title>
+    <style>
+      @page { size: A4; margin: 14mm; }
+      * { box-sizing: border-box; }
+      body { font-family: 'Segoe UI', Arial, sans-serif; color:#0f172a; margin:0; }
+      h1 { font-size: 18px; margin-bottom: 4px; }
+      p.sub { color:#64748b; font-size: 11px; margin-bottom: 16px; }
+      table { width: 100%; border-collapse: collapse; font-size: 11px; }
+      th { text-align: left; text-transform: uppercase; letter-spacing: .5px; font-size: 9px; color: #64748b; border-bottom: 2px solid #e2e8f0; padding: 6px 8px; }
+      td { padding: 7px 8px; border-bottom: 1px solid #f1f5f9; }
+      td.r, th.r { text-align: right; }
+    </style></head><body>
+      <h1>Relatório de Permanência — ${empresa}</h1>
+      <p class="sub">${listaOrdenada.length} comanda(s) · Permanência média ${formatarDuracaoMin(Math.round(mediaGeralMinutos))}</p>
+      <table><thead><tr><th>Comanda</th><th>Mesa</th><th>Canal</th><th>Permanência</th><th class="r">Valor</th><th>Status</th></tr></thead>
+      <tbody>${linhasHtml}</tbody></table>
+      <script>window.onload=function(){window.print();}<\/script>
+    </body></html>`;
+    const j = window.open("", "_blank", "width=900,height=1000");
+    if (!j) return;
+    j.document.write(html);
+    j.document.close();
   }
 
-  const maxDia = Math.max(1, ...dias.map((d) => d.media));
+  const inputClsPermE = "w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs text-[#334155] outline-none transition focus:border-[#2563EB]";
+  const labelClsPermE = "mb-1 block text-[10px] font-bold uppercase tracking-widest text-[#64748B]";
+
   return (
-    <div className="space-y-5">
-      <div className="grid gap-4 sm:grid-cols-2">
-        <CardMetrica titulo="Permanência média" valor={fmtDur(mediaGeral)} sub={`${lista.length} comanda(s) analisada(s)`} cor="text-dash-navy" tone="dashPrimary" icon="⏱️" />
-        <CardMetrica titulo="Comandas finalizadas" valor={lista.length} sub="do pedido ao pagamento" cor="text-dash-navy" icon="🧾" />
+    <div className="space-y-6">
+      {/* 8. Ações rápidas */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#E2E8F0] bg-white p-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <button onClick={exportarPermExcelE} className="rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">📊 Exportar Excel</button>
+          <button onClick={exportarPermPDFE} className="rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">🖨️ PDF / Imprimir</button>
+          <button onClick={() => setCompararPeriodoPermE((v) => !v)}
+            className={`rounded-xl border px-3.5 py-2 text-xs font-bold transition ${compararPeriodoPermE ? "border-[#2563EB] bg-[#EFF6FF] text-[#2563EB]" : "border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9]"}`}>📅 Comparar períodos</button>
+          <button onClick={() => setSomenteAcimaMediaPermE((v) => !v)}
+            className={`rounded-xl border px-3.5 py-2 text-xs font-bold transition ${somenteAcimaMediaPermE ? "border-[#F59E0B] bg-[#F59E0B]/10 text-[#F59E0B]" : "border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9]"}`}>⚠️ Ver apenas acima da média</button>
+          <button onClick={atualizarPermVisaoE} className="rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">🔄 Atualizar</button>
+        </div>
+        <p className="text-[11px] text-[#94A3B8]">Atualizado às {atualizadoEmPermE.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</p>
       </div>
 
-      {/* Média por dia da semana — com barras de proporção */}
-      <div className="rounded-[2rem] border border-slate-200 bg-white p-6">
-        <h3 className="page-title mb-4 flex items-center gap-2 text-base font-bold tracking-tight text-dash-navy">📅 Permanência média por dia da semana</h3>
-        {dias.length === 0 ? <p className="text-sm text-slate-500">Sem dados suficientes (precisa de comandas pagas no período).</p> :
-          <div className="space-y-3.5">
-            {dias.sort((a, b) => b.media - a.media).map((d) => (
-              <div key={d.dia}>
-                <div className="mb-1 flex items-center justify-between text-sm">
-                  <span className="font-medium capitalize text-[#334155]">{d.dia}</span>
-                  <span className="font-semibold text-dash-navy">{fmtDur(d.media)} <span className="text-xs font-normal text-slate-500">({d.n} comanda{d.n === 1 ? "" : "s"})</span></span>
-                </div>
-                <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-                  <div className="h-full rounded-full bg-blue-500" style={{ width: `${(d.media / maxDia) * 100}%` }} />
-                </div>
+      {/* 1. KPIs */}
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
+        <KpiExecutivo titulo="Permanência média" valor={formatarDuracaoMin(Math.round(mediaGeralMinutos))} variacao={compararPeriodoPermE ? comparativoPermE?.variacaoMedia : null} desc={`${lista.length} comanda(s) analisada(s)`} icon="⏱️" />
+        <KpiExecutivo titulo="Comandas finalizadas" valor={lista.length} variacao={compararPeriodoPermE ? comparativoPermE?.variacaoComandas : null} desc="Do pedido ao pagamento" icon="🧾" />
+        <KpiExecutivo titulo="Tempo médio até pagamento" valor={tempoMedioAtePagamentoE != null ? formatarDuracaoMin(Math.round(tempoMedioAtePagamentoE)) : "—"} desc="Do pedido pronto ao pagamento" icon="💳" />
+        <KpiExecutivo titulo="Maior permanência" valor={maiorPermanenciaE ? formatarDuracaoMin(maiorPermanenciaE.minutos) : "—"} desc={maiorPermanenciaE ? `Comanda ${maiorPermanenciaE.comanda} · ${maiorPermanenciaE.mesa || "Balcão"}` : "Sem dados"} icon="🔺" />
+        <KpiExecutivo titulo="Menor permanência" valor={menorPermanenciaE ? formatarDuracaoMin(menorPermanenciaE.minutos) : "—"} desc={menorPermanenciaE ? `Comanda ${menorPermanenciaE.comanda} · ${menorPermanenciaE.mesa || "Balcão"}` : "Sem dados"} icon="🔻" />
+        <KpiExecutivo titulo="Mesas acima da média" valor={comandasAcimaMediaE} desc={`de ${lista.length} comanda(s) no período`} icon="⚠️" />
+        <KpiExecutivo titulo="Giro médio de mesas" valor={giroMedioMesasE != null ? `${giroMedioMesasE.toFixed(1)}x` : "—"} desc="Comandas por mesa no período" icon="🔁" />
+        <KpiExecutivo titulo="Tempo ocioso estimado" valor={tempoOciosoEstimadoE != null ? formatarDuracaoMin(Math.round(tempoOciosoEstimadoE)) : "—"} desc="Entre comandas na mesma mesa" icon="💤" />
+        <KpiExecutivo titulo="Horário de maior permanência" valor={horarioMaiorPermanenciaE ? `${String(horarioMaiorPermanenciaE.hora).padStart(2, "0")}h` : "—"} desc={horarioMaiorPermanenciaE ? formatarDuracaoMin(Math.round(horarioMaiorPermanenciaE.media)) : "Sem dados"} icon="🕐" />
+      </div>
+      <p className="text-[11px] text-[#94A3B8]">"Impacto estimado no faturamento" não está disponível — calcular um valor monetário exigiria supor quantos clientes a mais caberiam com um giro mais rápido, o que não é um dado real, apenas uma projeção.</p>
+
+      {/* 2. Resumo inteligente */}
+      {resumoInteligenteE && (
+        <div className="rounded-2xl border border-[#E2E8F0] bg-white p-5">
+          <h3 className="page-title mb-3 text-base font-bold text-[#0D1B2A]">Resumo inteligente do período</h3>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {[
+              ["Diagnóstico", resumoInteligenteE.diagnostico], ["Principal gargalo", resumoInteligenteE.gargalo],
+              ["Melhor resultado", resumoInteligenteE.melhorResultado], ["Dia mais crítico", resumoInteligenteE.diaCritico],
+              ["Oportunidade operacional", resumoInteligenteE.oportunidade], ["Recomendação", resumoInteligenteE.recomendacao],
+            ].map(([r, v]) => (
+              <div key={r} className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
+                <p className="text-[9px] font-bold uppercase tracking-widest text-[#64748B]">{r}</p>
+                <p className="mt-0.5 text-xs font-semibold leading-relaxed text-[#334155]">{v}</p>
               </div>
             ))}
-          </div>}
-      </div>
-
-      {/* Detalhe por comanda */}
-      <div className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white">
-        <div className="border-b border-slate-200 px-5 py-3">
-          <h3 className="page-title text-sm font-bold uppercase tracking-wider text-dash-navy">Detalhe por comanda</h3>
-        </div>
-        <div className="hidden grid-cols-[1fr_1fr_1.5fr_1fr] bg-slate-50 px-5 py-2.5 text-[11px] font-bold uppercase tracking-widest text-slate-500 sm:grid">
-          <span>Comanda</span><span>Mesa</span><span>Período</span><span className="text-right">Permanência</span>
-        </div>
-        {lista.length === 0 && <p className="px-5 py-6 text-center text-sm text-slate-500">Nenhuma comanda paga no período.</p>}
-        {listaVisivel.map((c, i) => (
-          <div key={i} className="grid gap-1 border-t border-slate-100 px-5 py-3 text-sm sm:grid-cols-[1fr_1fr_1.5fr_1fr] sm:items-center">
-            <span className="font-mono font-semibold text-dash-navy">{c.comanda}</span>
-            <span className="text-slate-500">{c.mesa}</span>
-            <span className="text-xs text-slate-400">{new Date(c.inicio).toLocaleTimeString("pt-BR")} → {new Date(c.fim).toLocaleTimeString("pt-BR")}</span>
-            <span className="font-semibold text-blue-600 sm:text-right">{fmtDur(c.ms)}</span>
           </div>
-        ))}
+        </div>
+      )}
+
+      <div className="grid gap-5 lg:grid-cols-2">
+        {/* 3. Permanência por dia */}
+        <div className="rounded-2xl border border-[#E2E8F0] bg-white p-5">
+          <h3 className="page-title mb-4 text-sm font-bold uppercase tracking-wider text-[#0D1B2A]">Permanência por dia da semana</h3>
+          <BarrasRankeadas dados={diasGraficoE} formatarValor={(v) => formatarDuracaoMin(v)} />
+        </div>
+        {/* 4. Distribuição por faixa */}
+        <div className="rounded-2xl border border-[#E2E8F0] bg-white p-5">
+          <h3 className="page-title mb-4 text-sm font-bold uppercase tracking-wider text-[#0D1B2A]">Distribuição por faixa de permanência</h3>
+          {lista.length === 0 ? <p className="text-sm text-[#64748B]">Sem dados no período.</p> : <DonutChart dados={distribuicaoFaixasE} label="Comandas" />}
+        </div>
       </div>
 
+      {/* 5. Análise por horário */}
+      <div className="rounded-2xl border border-[#E2E8F0] bg-white p-5">
+        <h3 className="page-title mb-4 text-sm font-bold uppercase tracking-wider text-[#0D1B2A]">Permanência média por horário</h3>
+        <BarrasRankeadas dados={horariosGraficoE} formatarValor={(v) => formatarDuracaoMin(v)} />
+        {relacaoPermanenciaFaturamentoE && <p className="mt-3 rounded-xl bg-[#8B5CF6]/10 px-3 py-2 text-xs font-semibold text-[#8B5CF6]">{relacaoPermanenciaFaturamentoE}</p>}
+      </div>
+
+      {/* 7. Insights operacionais */}
+      <div>
+        <h3 className="page-title mb-3 text-base font-bold text-[#0D1B2A]">Insights operacionais</h3>
+        {insightsPermE.length === 0 ? (
+          <p className="rounded-2xl border border-[#E2E8F0] bg-white px-5 py-6 text-center text-sm text-[#64748B]">Nenhum insight disponível para o período.</p>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {insightsPermE.map((ins, i) => (
+              <InsightCardVendas key={i} tom={ins.tom} titulo={ins.titulo} texto={ins.texto}
+                acaoLabel={ins.comanda ? "Ver detalhe" : undefined} onAcao={ins.comanda ? () => setComandaDetalheE(ins.comanda) : undefined} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Busca + filtros */}
+      <div className="rounded-2xl border border-[#E2E8F0] bg-white p-3.5">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <input value={buscaPermE} onChange={(e) => setBuscaPermE(e.target.value)} placeholder="🔎 Buscar por comanda ou mesa…"
+            className="min-w-[220px] flex-1 rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2.5 text-sm text-[#334155] outline-none transition focus:border-[#2563EB]" />
+          <button onClick={() => setMostrarFiltrosPermE((v) => !v)}
+            className={`rounded-xl border px-3.5 py-2.5 text-xs font-bold transition ${mostrarFiltrosPermE || filtrosPermAtivosE ? "border-[#2563EB] bg-[#EFF6FF] text-[#2563EB]" : "border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9]"}`}>
+            ⚙️ Filtros{filtrosPermAtivosE ? " •" : ""}
+          </button>
+        </div>
+        {mostrarFiltrosPermE && (
+          <div className="pp-anim-fade mt-3 grid gap-3 border-t border-[#F1F5F9] pt-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div>
+              <label className={labelClsPermE}>Mesa</label>
+              <DropdownSelect ariaLabel="Mesa" valor={fMesaPermE || "todas"} onSelecionar={(v) => setFMesaPermE(v === "todas" ? "" : v)} className={`${inputClsPermE} flex items-center justify-between text-left`}
+                opcoes={[{ valor: "todas", rotulo: "Todas" }, ...mesasPermDisponiveisE.map((m) => ({ valor: String(m), rotulo: String(m) }))]} />
+            </div>
+            <div>
+              <label className={labelClsPermE}>Canal</label>
+              <DropdownSelect ariaLabel="Canal" valor={fCanalPermE} onSelecionar={setFCanalPermE} className={`${inputClsPermE} flex items-center justify-between text-left`}
+                opcoes={[{ valor: "todos", rotulo: "Todos" }, ...canaisPermDisponiveisE.map((c) => ({ valor: c, rotulo: c }))]} />
+            </div>
+            <div>
+              <label className={labelClsPermE}>Status</label>
+              <DropdownSelect ariaLabel="Status" valor={fStatusPermE} onSelecionar={setFStatusPermE} className={`${inputClsPermE} flex items-center justify-between text-left`}
+                opcoes={[{ valor: "todos", rotulo: "Todos" }, { valor: "normal", rotulo: "Normal" }, { valor: "atencao", rotulo: "Atenção" }, { valor: "critico", rotulo: "Crítico" }]} />
+            </div>
+            <div>
+              <label className={labelClsPermE}>Faixa de permanência</label>
+              <DropdownSelect ariaLabel="Faixa de permanência" valor={fFaixaPermE} onSelecionar={setFFaixaPermE} className={`${inputClsPermE} flex items-center justify-between text-left`}
+                opcoes={[{ valor: "todas", rotulo: "Todas" }, ...FAIXAS_PERM_E.map((f) => ({ valor: f.rotulo, rotulo: f.rotulo }))]} />
+            </div>
+            {filtrosPermAtivosE && (
+              <button onClick={limparFiltrosPermE} className="self-end text-left text-[11px] font-bold text-[#2563EB] hover:text-[#1D4ED8] sm:col-span-2 lg:col-span-4">✕ Limpar filtros</button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* 6. Detalhe por comanda */}
+      <div className="overflow-hidden rounded-[1.75rem] border border-[#E2E8F0] bg-white">
+        <div className="border-b border-[#E2E8F0] px-5 py-3.5">
+          <h3 className="page-title text-sm font-bold uppercase tracking-wider text-[#0D1B2A]">Detalhe por comanda</h3>
+          <p className="mt-0.5 text-[11px] text-[#64748B]">{listaOrdenada.length} comanda(s) · "Responsável" não existe no modelo de dados atual</p>
+        </div>
+        <div className="max-h-[520px] overflow-auto">
+          <table className="w-full min-w-[900px] border-collapse text-sm">
+            <thead className="sticky top-0 z-10 bg-[#F8FAFC]">
+              <tr className="text-[10px] font-bold uppercase tracking-widest text-[#64748B]">
+                {[
+                  ["comanda", "Comanda"], ["mesa", "Mesa/Canal"], ["inicio", "Abertura"], ["fim", "Fechamento"],
+                  ["minutos", "Permanência"], ["valor", "Valor"], ["ticketMedio", "Ticket médio"], ["itens", "Itens"], ["status", "Status"],
+                ].map(([campo, rotulo]) => (
+                  <th key={campo} className="whitespace-nowrap border-b border-[#E2E8F0] px-3 py-2.5 text-left">
+                    <button onClick={() => alternarOrdemPermE(campo)} className="flex items-center gap-1 transition hover:text-[#2563EB]">
+                      {rotulo}{ordenacaoPermE.campo === campo ? (ordenacaoPermE.dir === "desc" ? " ▼" : " ▲") : ""}
+                    </button>
+                  </th>
+                ))}
+                <th className="border-b border-[#E2E8F0] px-3 py-2.5 text-left">Ação</th>
+              </tr>
+            </thead>
+            <tbody>
+              {listaVisivel.length === 0 && (
+                <tr><td colSpan={10} className="px-5 py-8 text-center text-sm text-[#64748B]">
+                  {lista.length === 0 ? "Nenhuma comanda paga no período." : "Nenhuma comanda encontrada para os filtros aplicados."}
+                </td></tr>
+              )}
+              {listaVisivel.map((c, i) => (
+                <tr key={i} onClick={() => setComandaDetalheE(c)} className="cursor-pointer border-b border-[#F1F5F9] transition hover:bg-[#F8FAFC]">
+                  <td className="px-3 py-2.5 font-mono font-semibold text-[#0D1B2A]">{c.comanda}</td>
+                  <td className="px-3 py-2.5 text-[#64748B]">{c.mesa || "Balcão"}</td>
+                  <td className="px-3 py-2.5 text-[#64748B]">{new Date(c.inicio).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</td>
+                  <td className="px-3 py-2.5 text-[#64748B]">{new Date(c.fim).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</td>
+                  <td className="px-3 py-2.5 font-bold" style={{ color: c.status === "critico" ? "#EF4444" : c.status === "atencao" ? "#F59E0B" : "#0D1B2A" }}>{formatarDuracaoMin(c.minutos)}</td>
+                  <td className="px-3 py-2.5 font-semibold text-[#0D1B2A]">{formatCurrency(c.valor)}</td>
+                  <td className="px-3 py-2.5 text-[#64748B]">{formatCurrency(c.ticketMedio)}</td>
+                  <td className="px-3 py-2.5 font-mono text-[#334155]">{c.itens}</td>
+                  <td className="px-3 py-2.5"><BadgeEstoque status={c.status} /></td>
+                  <td className="px-3 py-2.5">
+                    <button onClick={(e) => { e.stopPropagation(); setComandaDetalheE(c); }} className="rounded-lg border border-[#E2E8F0] px-2.5 py-1.5 text-[11px] font-bold text-[#2563EB] transition hover:bg-[#EFF6FF]">Ver detalhes</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
       <Paginacao pagina={paginaAtual} totalPaginas={totalPaginas} total={listaOrdenada.length} porPagina={porPagina}
-        onMudar={setPagina} rotulo="registro(s)" tema="claro" porPaginaOpcoes={[10, 20, 50, 100]} onMudarPorPagina={setPorPagina} />
+        onMudar={setPagina} rotulo="comanda(s)" tema="claro" porPaginaOpcoes={[10, 20, 50, 100]} onMudarPorPagina={setPorPagina} mostrarExtremos />
+
+      {comandaDetalheE && (
+        <ModalDetalheComanda comanda={comandaDetalheE} mediaGeralMinutos={mediaGeralMinutos} onFechar={() => setComandaDetalheE(null)} onAbrirPedido={setCupomSelPermE} />
+      )}
+      {cupomSelPermE && <CupomNaoFiscalModal pedido={cupomSelPermE} lojaInfo={lojaInfo} onFechar={() => setCupomSelPermE(null)} />}
     </div>
   );
 }
