@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import {
   fetchProdutos,  inserirProduto,  atualizarProduto,  escutarProdutos,
   fetchUsuarios,  inserirUsuario,  atualizarUsuario,  atualizarUsuariosPorLoja,  escutarUsuarios,
@@ -9377,6 +9378,97 @@ function ModalVisualizarCupom({ pedido, lojaInfo, custoPorNome, anomalias = [], 
   );
 }
 
+// ── Menu de ações "⋯" — componente único e reutilizável para qualquer menu
+// desse tipo no projeto (hoje usado só no card de cupom; varredura no
+// projeto não encontrou outro menu "..." equivalente). Renderiza via Portal
+// em document.body: nunca é cortado por overflow/z-index de um card
+// ancestral, calcula a própria posição a partir do botão-gatilho (âncora),
+// abre à direita/abaixo por padrão e inverte para cima quando falta espaço,
+// fecha ao clicar fora, Esc, rolar a página ou trocar de página/filtro, e
+// nunca desloca o layout (position:fixed, fora do fluxo do documento).
+// anchorsRef/anchorId (em vez de um elemento já resolvido): o valor de um
+// ref só pode ser lido dentro de efeitos/handlers, nunca durante o render —
+// ler diretamente no corpo do componente pai (num .map, por exemplo) quebra
+// essa regra. Aqui cada efeito resolve anchorsRef.current[anchorId] só na
+// hora de usar.
+function MenuAcoesCupom({ anchorsRef, anchorId, aberto, onFechar, itens }) {
+  const menuRef = useRef(null);
+  const [pos, setPos] = useState(null);
+
+  useEffect(() => {
+    const anchorEl = anchorsRef.current[anchorId];
+    if (!aberto || !anchorEl) { setPos(null); return; }
+    function calcularPosicao() {
+      const r = anchorEl.getBoundingClientRect();
+      const largura = 240;
+      const alturaEstimada = itens.length * 36 + 16;
+      const espacoAbaixo = window.innerHeight - r.bottom;
+      const abrirParaCima = espacoAbaixo < alturaEstimada + 12 && r.top > alturaEstimada;
+      const left = Math.max(8, Math.min(r.right - largura, window.innerWidth - largura - 8));
+      const top = abrirParaCima ? r.top - alturaEstimada - 6 : r.bottom + 6;
+      setPos({ top, left, largura });
+    }
+    calcularPosicao();
+    window.addEventListener("resize", calcularPosicao);
+    // Rolar a página fecha (em vez de reposicionar) — evita um menu
+    // flutuante "descolado" do botão que o abriu.
+    window.addEventListener("scroll", onFechar, true);
+    return () => {
+      window.removeEventListener("resize", calcularPosicao);
+      window.removeEventListener("scroll", onFechar, true);
+    };
+  }, [aberto, anchorsRef, anchorId, itens.length, onFechar]);
+
+  useEffect(() => {
+    if (!aberto) return;
+    const primeiro = menuRef.current?.querySelector("button:not(:disabled)");
+    primeiro?.focus();
+    function aoTeclado(e) {
+      if (e.key === "Escape") { onFechar(); anchorsRef.current[anchorId]?.focus(); return; }
+      if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+      if (!menuRef.current) return;
+      e.preventDefault();
+      const focaveis = Array.from(menuRef.current.querySelectorAll("button:not(:disabled)"));
+      const idx = focaveis.indexOf(document.activeElement);
+      const prox = e.key === "ArrowDown" ? focaveis[idx + 1] || focaveis[0] : focaveis[idx - 1] || focaveis[focaveis.length - 1];
+      prox?.focus();
+    }
+    document.addEventListener("keydown", aoTeclado);
+    return () => document.removeEventListener("keydown", aoTeclado);
+  }, [aberto, onFechar, anchorsRef, anchorId]);
+
+  useEffect(() => {
+    if (!aberto) return;
+    function aoClicarFora(e) {
+      if (menuRef.current?.contains(e.target) || anchorsRef.current[anchorId]?.contains(e.target)) return;
+      onFechar();
+    }
+    document.addEventListener("mousedown", aoClicarFora);
+    return () => document.removeEventListener("mousedown", aoClicarFora);
+  }, [aberto, onFechar, anchorsRef, anchorId]);
+
+  if (!aberto || !pos) return null;
+
+  return createPortal(
+    <div ref={menuRef} role="menu" aria-label="Mais ações do cupom"
+      style={{ position: "fixed", top: pos.top, left: pos.left, width: pos.largura, zIndex: 9999 }}
+      className="pp-anim-fade rounded-xl border border-[#E2E8F0] bg-white p-1.5 shadow-[0_12px_32px_rgba(13,27,42,0.16)]">
+      {itens.map((it, i) => (
+        <button key={i} type="button" role="menuitem" disabled={it.disabled} title={it.disabled ? it.motivo : undefined}
+          onClick={() => { if (it.disabled) return; onFechar(); it.onClick(); }}
+          className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold transition ${
+            it.disabled ? "cursor-not-allowed text-[#94A3B8]"
+              : it.perigo ? "text-[#EF4444] hover:bg-[#FEF2F2]"
+              : "text-[#334155] hover:bg-[#F1F5F9]"
+          }`}>
+          <span className="text-[#64748B]" aria-hidden="true">{it.icone}</span>{it.label}
+        </button>
+      ))}
+    </div>,
+    document.body
+  );
+}
+
 function RelatorioCupom({ pedidos, products = [], lojaInfo, periodo, ini, fim, currentUser = null }) {
   const [cupomSel, setCupomSel] = useState(null);
   const [cupomVisualizar, setCupomVisualizar] = useState(null);
@@ -9408,7 +9500,8 @@ function RelatorioCupom({ pedidos, products = [], lojaInfo, periodo, ini, fim, c
   const [arquivados, setArquivados] = useState(() => new Set());
   const [mostrarArquivados, setMostrarArquivados] = useState(false);
   const [acoesLog, setAcoesLog] = useState(() => new Map()); // id -> { reimpressoPor, reimpressoQuando, reimpressoCount, enviadoPor, enviadoQuando }
-  const [menuAberto, setMenuAberto] = useState(null);
+  const [menuAberto, setMenuAberto] = useState(null); // id do cupom com o menu "⋯" aberto (estado único por linha)
+  const menuAnchorsRef = useRef({}); // id -> elemento do botão "⋯", usado para ancorar o menu em Portal
   const [toastCupom, setToastCupom] = useState("");
 
   const pagos = pedidos.filter((o) => o.paymentStatus === "paid");
@@ -9581,6 +9674,10 @@ function RelatorioCupom({ pedidos, products = [], lojaInfo, periodo, ini, fim, c
   const paginaAtual = Math.min(pagina, totalPaginas);
   const visiveis = ordenados.slice((paginaAtual - 1) * porPagina, paginaAtual * porPagina);
 
+  // Fecha o menu "⋯" ao trocar de página ou qualquer filtro — nunca deixa um
+  // menu aberto ancorado a um botão que já não está mais na lista visível.
+  useEffect(() => { setMenuAberto(null); }, [paginaAtual, busca, fCliente, fMesa, fComanda, fCupomId, fProduto, fCategoria, fCanal, fFormaPag, fStatus, fValorMin, fValorMax, fLucroMin, fLucroMax, fTempoPrepMin, fTempoPrepMax, fHoraIni, fHoraFim, fSomenteReimpressos, ordenacao, mostrarArquivados]);
+
   function limparFiltros() {
     setFCliente(""); setFMesa(""); setFComanda(""); setFCupomId(""); setFProduto(""); setFCategoria("todas"); setFCanal("todos");
     setFFormaPag("todas"); setFStatus("todos"); setFValorMin(""); setFValorMax(""); setFLucroMin(""); setFLucroMax("");
@@ -9638,15 +9735,18 @@ function RelatorioCupom({ pedidos, products = [], lojaInfo, periodo, ini, fim, c
     window.open(`https://wa.me/55${num}?text=${encodeURIComponent(texto)}`, "_blank");
     ids.forEach((id) => registrarAcao(id, "enviado"));
   }
+  // lista: opcional — default é a seleção em lote; o menu "⋯" de um único
+  // cupom chama enviarCupomEmail([o]) diretamente, reaproveitando a mesma função.
+  function enviarCupomEmail(lista) {
+    if (!lista || lista.length === 0) return;
+    const assunto = `Resumo de ${lista.length} cupom(ns) — ${lojaInfo?.nome || "Restaurante"}`;
+    const corpo = lista.map((o) => `Cupom ${o.id} — ${o.table || "Balcão"} — ${formatCurrency(orderTotal(o) * 1.1)}`).join("\n");
+    window.open(`mailto:?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`, "_blank");
+    lista.forEach((o) => registrarAcao(o.id, "enviado"));
+  }
   function enviarSelecionadosEmail() {
     if (selecionados.size === 0) return;
-    const ids = Array.from(selecionados);
-    const itens = ids.map((id) => pagos.find((o) => o.id === id)).filter(Boolean);
-    if (itens.length === 0) return;
-    const assunto = `Resumo de ${itens.length} cupom(ns) — ${lojaInfo?.nome || "Restaurante"}`;
-    const corpo = itens.map((o) => `Cupom ${o.id} — ${o.table || "Balcão"} — ${formatCurrency(orderTotal(o) * 1.1)}`).join("\n");
-    window.open(`mailto:?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`, "_blank");
-    ids.forEach((id) => registrarAcao(id, "enviado"));
+    enviarCupomEmail(Array.from(selecionados).map((id) => pagos.find((o) => o.id === id)).filter(Boolean));
   }
   function arquivarSelecionados() {
     if (selecionados.size === 0) return;
@@ -9655,9 +9755,11 @@ function RelatorioCupom({ pedidos, products = [], lojaInfo, periodo, ini, fim, c
     setSelecionados(() => new Set());
     avisar(`${ids.length} cupom(ns) arquivado(s) nesta sessão. Use "Mostrar arquivados" para vê-los novamente.`);
   }
-  function exportarCupomPDF() {
+  // lista: opcional — default é a listagem filtrada/ordenada atual; o menu
+  // "⋯" de um único cupom chama exportarCupomPDF([o]) diretamente.
+  function exportarCupomPDF(lista = ordenados) {
     const empresa = lojaInfo?.nome || "Restaurante";
-    const linhas = ordenados.map((o) => `<tr><td>${o.id}</td><td>${o.table || "—"}</td><td>${o.command || "—"}</td><td>${o.customer || "—"}</td><td>${o.createdAtISO ? new Date(o.createdAtISO).toLocaleString("pt-BR") : o.createdAt}</td><td>${statusMap[o.status]?.label || o.status}</td><td class="r">${formatCurrency(orderTotal(o) * 1.1)}</td></tr>`).join("");
+    const linhas = lista.map((o) => `<tr><td>${o.id}</td><td>${o.table || "—"}</td><td>${o.command || "—"}</td><td>${o.customer || "—"}</td><td>${o.createdAtISO ? new Date(o.createdAtISO).toLocaleString("pt-BR") : o.createdAt}</td><td>${statusMap[o.status]?.label || o.status}</td><td class="r">${formatCurrency(orderTotal(o) * 1.1)}</td></tr>`).join("");
     const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Cupons — ${empresa}</title>
     <style>
       @page { size: A4; margin: 14mm; }
@@ -9671,7 +9773,7 @@ function RelatorioCupom({ pedidos, products = [], lojaInfo, periodo, ini, fim, c
       td.r, th.r { text-align: right; }
     </style></head><body>
       <h1>Relatório de Cupons — ${empresa}</h1>
-      <p class="sub">${ordenados.length} cupom(ns) · Faturamento ${formatCurrency(ordenados.reduce((s, o) => s + orderTotal(o) * 1.1, 0))}</p>
+      <p class="sub">${lista.length} cupom(ns) · Faturamento ${formatCurrency(lista.reduce((s, o) => s + orderTotal(o) * 1.1, 0))}</p>
       <table><thead><tr><th>Cupom</th><th>Mesa</th><th>Comanda</th><th>Cliente</th><th>Data/Hora</th><th>Status</th><th class="r">Valor</th></tr></thead>
       <tbody>${linhas}</tbody></table>
       <script>window.onload=function(){window.print();}<\/script>
@@ -9920,21 +10022,26 @@ function RelatorioCupom({ pedidos, products = [], lojaInfo, periodo, ini, fim, c
                       className="rounded-lg border border-[#E2E8F0] px-2.5 py-1.5 text-[11px] font-bold text-[#334155] transition hover:bg-[#F1F5F9]">🖨️</button>
                     <button onClick={() => { setCupomSel(o); registrarAcao(o.id, "enviado"); }} title="Enviar"
                       className="rounded-lg border border-[#E2E8F0] px-2.5 py-1.5 text-[11px] font-bold text-[#334155] transition hover:bg-[#F1F5F9]">💬</button>
-                    <button onClick={() => setMenuAberto((cur) => (cur === o.id ? null : o.id))} title="Mais opções"
+                    <button ref={(el) => { menuAnchorsRef.current[o.id] = el; }}
+                      onClick={() => setMenuAberto((cur) => (cur === o.id ? null : o.id))} title="Mais opções"
+                      aria-haspopup="menu" aria-expanded={menuAberto === o.id}
                       className="rounded-lg border border-[#E2E8F0] px-2.5 py-1.5 text-[11px] font-bold text-[#334155] transition hover:bg-[#F1F5F9]">⋯</button>
-                    {menuAberto === o.id && (
-                      <>
-                        <div className="fixed inset-0 z-10" onClick={() => setMenuAberto(null)} />
-                        <div className="absolute right-0 top-full z-20 mt-1 w-52 rounded-xl border border-[#E2E8F0] bg-white p-1.5 shadow-[0_8px_24px_rgba(13,27,42,0.12)]">
-                          <button onClick={() => { navigator.clipboard?.writeText(`Cupom ${o.id} — ${o.table || "Balcão"} — ${formatCurrency(valor)}`); avisar("Resumo copiado."); setMenuAberto(null); }}
-                            className="block w-full rounded-lg px-3 py-2 text-left text-xs font-semibold text-[#334155] hover:bg-[#F1F5F9]">📋 Copiar resumo</button>
-                          <button onClick={() => { setExpandidos((cur) => new Set(cur).add(o.id)); setMenuAberto(null); }}
-                            className="block w-full rounded-lg px-3 py-2 text-left text-xs font-semibold text-[#334155] hover:bg-[#F1F5F9]">📜 Ver histórico da venda</button>
-                          <button onClick={() => { alternar(setArquivados, o.id); setMenuAberto(null); }}
-                            className="block w-full rounded-lg px-3 py-2 text-left text-xs font-semibold text-[#334155] hover:bg-[#F1F5F9]">{arquivados.has(o.id) ? "↩️ Desarquivar" : "🗄️ Arquivar"}</button>
-                        </div>
-                      </>
-                    )}
+                    <MenuAcoesCupom anchorsRef={menuAnchorsRef} anchorId={o.id} aberto={menuAberto === o.id} onFechar={() => setMenuAberto(null)}
+                      itens={[
+                        { icone: "👁️", label: "Visualizar cupom", onClick: () => setCupomVisualizar(o) },
+                        { icone: "🖨️", label: "Reimprimir", onClick: () => { setCupomSel(o); registrarAcao(o.id, "reimpresso"); } },
+                        { icone: "📄", label: "Exportar PDF", onClick: () => exportarCupomPDF([o]) },
+                        { icone: "💬", label: "Enviar por WhatsApp", onClick: () => { setCupomSel(o); registrarAcao(o.id, "enviado"); } },
+                        { icone: "📧", label: "Enviar por e-mail", onClick: () => enviarCupomEmail([o]) },
+                        { icone: "📜", label: "Ver auditoria", onClick: () => setExpandidos((cur) => new Set(cur).add(o.id)) },
+                        {
+                          icone: arquivados.has(o.id) ? "↩️" : "🗄️", label: arquivados.has(o.id) ? "Desarquivar" : "Arquivar", perigo: !arquivados.has(o.id),
+                          onClick: () => {
+                            if (!arquivados.has(o.id) && !window.confirm(`Arquivar o cupom ${o.id}? Ele deixa de aparecer na listagem (nesta sessão), a menos que "Mostrar arquivados" esteja marcado.`)) return;
+                            alternar(setArquivados, o.id);
+                          },
+                        },
+                      ]} />
                   </div>
                 </div>
               </div>
