@@ -10124,7 +10124,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
 
       {aba === "permanencia" && <RelatorioPermanencia pedidos={filtrados} orders={orders} products={products} periodo={periodo} ini={ini} fim={fim} lojaInfo={lojaInfo} />}
 
-      {aba === "satisfacao" && <RelatorioSatisfacao pesquisas={filtrarPesquisasPorPeriodo(pesquisas, periodo, ini, fim)} />}
+      {aba === "satisfacao" && <RelatorioSatisfacao pesquisas={filtrarPesquisasPorPeriodo(pesquisas, periodo, ini, fim)} todasPesquisas={pesquisas} pedidos={filtrados} orders={orders} periodo={periodo} ini={ini} fim={fim} lojaInfo={lojaInfo} />}
 
       {/* Drill-down: cupons de um produto */}
       {drill && <CuponsProdutoModal nome={drill.nome} cupons={drill.cupons} lojaInfo={lojaInfo} onFechar={() => setDrill(null)} />}
@@ -12566,25 +12566,272 @@ function EstrelasMedia({ nota }) {
     </span>
   );
 }
-function RelatorioSatisfacao({ pesquisas = [] }) {
-  const [buscaCli, setBuscaCli] = useState(""); // filtro por cliente (telefone)
-  const termo = buscaCli.replace(/\D/g, "");
-  const lista = termo ? pesquisas.filter((q) => (q.clienteTelefone || "").replace(/\D/g, "").includes(termo)) : pesquisas;
+
+// Gráfico de linha genérico (média/NPS/volume ao longo do tempo) — mesma
+// técnica de LinhaFaturamento (SVG puro, sem libs), só que sem formatação
+// de moeda embutida, para reaproveitar em métricas não-monetárias. Suporta
+// uma segunda linha tracejada opcional (comparação com período anterior).
+function LinhaMetrica({ dados, formatarValor, sufixo = "" }) {
+  const [ativo, setAtivo] = useState(null);
+  if (!dados.length) return <div className="flex h-40 items-center justify-center text-sm text-[#64748B]">Sem dados no período.</div>;
+  const max = Math.max(1, ...dados.map((d) => d.valor), ...dados.map((d) => d.valorAnterior ?? 0));
+  const W = 640, H = 170, P = 26, n = dados.length;
+  const x = (i) => P + (n > 1 ? (i / (n - 1)) * (W - 2 * P) : (W - 2 * P) / 2);
+  const y = (v) => H - P - (v / max) * (H - 2 * P);
+  const pts = dados.map((d, i) => [x(i), y(d.valor)]);
+  const linha = pts.map((p, i) => `${i ? "L" : "M"}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ");
+  const area = `${linha} L${x(n - 1).toFixed(1)},${H - P} L${x(0).toFixed(1)},${H - P} Z`;
+  const idxs = n <= 5 ? dados.map((_, i) => i) : [0, Math.round(n / 4), Math.round(n / 2), Math.round((3 * n) / 4), n - 1];
+  const valorMax = Math.max(...dados.map((d) => d.valor));
+  const valorMin = Math.min(...dados.map((d) => d.valor));
+  const idxMax = dados.findIndex((d) => d.valor === valorMax);
+  const idxMin = dados.findIndex((d) => d.valor === valorMin);
+  const media = dados.reduce((s, d) => s + d.valor, 0) / n;
+  const yMedia = y(media);
+  const corPonto = (i) => (i === idxMax ? "#10B981" : i === idxMin ? "#F59E0B" : "#2563EB");
+  const temComparacao = dados.some((d) => d.valorAnterior != null);
+  const ptsAnt = temComparacao ? dados.map((d, i) => [x(i), y(d.valorAnterior ?? 0)]) : null;
+  const linhaAnt = ptsAnt ? ptsAnt.map((p, i) => `${i ? "L" : "M"}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ") : null;
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="pp-chart-container w-full overflow-visible" style={{ height: 190 }}>
+      {[0, 0.25, 0.5, 0.75, 1].map((f, i) => (<line key={i} x1={P} x2={W - P} y1={y(max * f)} y2={y(max * f)} stroke="#E2E8F0" />))}
+      {n > 1 && <line x1={P} x2={W - P} y1={yMedia} y2={yMedia} stroke="#64748B" strokeWidth="1" strokeDasharray="4 3" />}
+      {linhaAnt && <path d={linhaAnt} fill="none" stroke="#8B5CF6" strokeWidth="2" strokeDasharray="5 4" strokeLinejoin="round" strokeLinecap="round" />}
+      <path d={area} fill="#2563EB" fillOpacity="0.08" />
+      <path d={linha} fill="none" stroke="#2563EB" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+      {pts.map((p, i) => (
+        <g key={i} className="pp-chart-focus-svg" style={{ cursor: "pointer" }} tabIndex={0} role="img" aria-label={`${dados[i].label}: ${formatarValor(dados[i].valor)}${sufixo}`}
+          onMouseEnter={() => setAtivo(i)} onMouseLeave={() => setAtivo((c) => (c === i ? null : c))}
+          onFocus={() => setAtivo(i)} onBlur={() => setAtivo((c) => (c === i ? null : c))}>
+          <circle cx={p[0]} cy={p[1]} r="8" fill="transparent" />
+          <circle cx={p[0]} cy={p[1]} r={i === idxMax || i === idxMin ? 4 : 3} fill={corPonto(i)} />
+        </g>
+      ))}
+      {idxs.map((i) => (<text key={i} x={x(i)} y={H - 8} textAnchor="middle" fill="#64748B" style={{ fontSize: 9 }}>{dados[i].label}</text>))}
+      {ativo != null && (() => {
+        const p = pts[ativo]; const d = dados[ativo];
+        const linhas = [`${formatarValor(d.valor)}${sufixo}`];
+        if (d.nps != null) linhas.push(`NPS: ${d.nps}`);
+        if (d.volume != null) linhas.push(`${d.volume} resposta(s)`);
+        const boxW = 96, boxH = 14 + linhas.length * 13;
+        const bx = Math.min(Math.max(p[0] - boxW / 2, 2), W - boxW - 2);
+        const by = Math.max(p[1] - boxH - 10, 2);
+        return (
+          <g pointerEvents="none">
+            <rect x={bx} y={by} width={boxW} height={boxH} rx="6" fill="#FFFFFF" stroke="#E2E8F0" />
+            <text x={bx + boxW / 2} y={by + 13} textAnchor="middle" fill="#334155" style={{ fontSize: 9, fontWeight: 700 }}>{d.label}</text>
+            {linhas.map((l, li) => (
+              <text key={li} x={bx + boxW / 2} y={by + 26 + li * 13} textAnchor="middle" fill={li === 0 ? "#2563EB" : "#64748B"} style={{ fontSize: 9, fontWeight: li === 0 ? 800 : 600 }}>{l}</text>
+            ))}
+          </g>
+        );
+      })()}
+    </svg>
+  );
+}
+
+// Categorização de comentários por tema — regra local por palavras-chave
+// (sem IA/serviço externo, nenhum dado pessoal sai do navegador). Um
+// comentário pode pertencer a mais de um tema; sem correspondência cai em
+// "Outros".
+const TEMAS_SATISFACAO = [
+  { tema: "Atendimento", palavras: ["atendimento", "atenciosa", "atencioso", "educad", "grosseir", "simpátic", "simpatic", "garçom", "garçonete", "equipe", "funcionári"] },
+  { tema: "Tempo de espera", palavras: ["demora", "demorou", "lento", "devagar", "espera", "atraso", "atrasou", "rápido", "rapido", "agilidade", "demorad"] },
+  { tema: "Produto", palavras: ["produto", "prato", "porção", "porcao", "sabor", "gosto", "temperatura", "fria", "frio", "quente", "lanche"] },
+  { tema: "Qualidade", palavras: ["qualidade", "excelente", "ótimo", "otimo", "péssimo", "pessimo", "horrível", "horrivel", "maravilhos"] },
+  { tema: "Cardápio", palavras: ["cardápio", "cardapio", "opções", "opcoes", "variedade", "menu"] },
+  { tema: "Preço", palavras: ["preço", "preco", "caro", "barato", "valor", "custo"] },
+  { tema: "Ambiente", palavras: ["ambiente", "limpeza", "limpo", "suj", "barulho", "música", "musica", "decoração", "decoracao"] },
+  { tema: "Comunicação", palavras: ["comunicação", "comunicacao", "informou", "avisou", "acompanhamento", "status do pedido"] },
+];
+function categorizarComentario(texto) {
+  const t = (texto || "").toLowerCase();
+  const temas = TEMAS_SATISFACAO.filter((c) => c.palavras.some((p) => t.includes(p))).map((c) => c.tema);
+  return temas.length ? temas : ["Outros"];
+}
+function mediaNotasValidas(notas) {
+  const vals = Object.values(notas || {}).filter((v) => v != null && v > 0);
+  return vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : null;
+}
+function classificacaoMediaSatE(media) {
+  if (media == null) return null;
+  if (media >= 4.5) return { label: "Excelente", cor: "#10B981" };
+  if (media >= 3.5) return { label: "Bom", cor: "#2563EB" };
+  if (media >= 2.5) return { label: "Atenção", cor: "#F59E0B" };
+  return { label: "Crítico", cor: "#EF4444" };
+}
+
+function RelatorioSatisfacao({ pesquisas = [], todasPesquisas = [], pedidos = [], orders = [], periodo, ini, fim, lojaInfo }) {
+  const [buscaSatE, setBuscaSatE] = useState("");
+  const [fCanalSatE, setFCanalSatE] = useState("todos");
+  const [fNotaSatE, setFNotaSatE] = useState("todas");
+  const [fPerguntaSatE, setFPerguntaSatE] = useState("todas");
+  const [fComentarioSatE, setFComentarioSatE] = useState("todos");
+  const [mostrarFiltrosSatE, setMostrarFiltrosSatE] = useState(false);
+  const [somenteDetratoresSatE, setSomenteDetratoresSatE] = useState(false);
+  const [compararPeriodoSatE, setCompararPeriodoSatE] = useState(false);
+  const [ordenarNotasSatE, setOrdenarNotasSatE] = useState("piores");
+  const [ordenacaoComentariosSatE, setOrdenacaoComentariosSatE] = useState("recentes");
+  const [paginaSatE, setPaginaSatE] = useState(1);
+  const [porPaginaSatE, setPorPaginaSatE] = useState(10);
+  const [atualizadoEmSatE, setAtualizadoEmSatE] = useState(() => new Date());
+  const [avisoSatE, setAvisoSatE] = useState(null);
+  const [cupomSelSatE, setCupomSelSatE] = useState(null);
+  const comentariosRef = useRef(null);
+
+  const termo = buscaSatE.replace(/\D/g, "");
+  const termoTexto = buscaSatE.trim().toLowerCase();
+  const lista = pesquisas.filter((q) => {
+    if (termo && !(q.clienteTelefone || "").replace(/\D/g, "").includes(termo)) {
+      if (!(termoTexto && (q.pedidoId || "").toLowerCase().includes(termoTexto))) return false;
+    }
+    if (fCanalSatE !== "todos" && q.origem !== fCanalSatE) return false;
+    if (fComentarioSatE === "com" && !(q.comentario || "").trim()) return false;
+    if (fComentarioSatE === "sem" && (q.comentario || "").trim()) return false;
+    if (fNotaSatE !== "todas") {
+      const notaAlvo = fPerguntaSatE !== "todas" ? q.notas?.[fPerguntaSatE] : null;
+      if (fPerguntaSatE !== "todas") { if (notaAlvo !== Number(fNotaSatE)) return false; }
+      else if (!Object.values(q.notas || {}).some((v) => v === Number(fNotaSatE))) return false;
+    }
+    if (somenteDetratoresSatE && !(q.notas?.recomendacao != null && q.notas.recomendacao <= 2)) return false;
+    return true;
+  });
 
   const medias = SATISF_PERGUNTAS.map((p) => {
     const vals = lista.map((q) => q.notas?.[p.key]).filter((v) => v != null && v > 0);
     return { ...p, media: vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : 0, n: vals.length, dist: [1, 2, 3, 4, 5].map((n) => vals.filter((v) => v === n).length) };
   });
+  const perguntasComDados = medias.filter((m) => m.n > 0);
+  const melhorPergunta = perguntasComDados.length ? [...perguntasComDados].sort((a, b) => b.media - a.media)[0] : null;
+  const piorPergunta = perguntasComDados.length ? [...perguntasComDados].sort((a, b) => a.media - b.media)[0] : null;
   const todasNotas = lista.flatMap((q) => Object.values(q.notas || {}).filter((v) => v != null && v > 0));
   const mediaGeral = todasNotas.length ? todasNotas.reduce((s, v) => s + v, 0) / todasNotas.length : 0;
   const recVals = lista.map((q) => q.notas?.recomendacao).filter((v) => v != null && v > 0);
   const promotores = recVals.filter((v) => v >= 4).length;
+  const neutros = recVals.filter((v) => v === 3).length;
   const detratores = recVals.filter((v) => v <= 2).length;
   const nps = recVals.length ? Math.round(((promotores - detratores) / recVals.length) * 100) : null;
   const comentarios = lista.filter((q) => (q.comentario || "").trim());
+  const pedidosPagosPeriodo = pedidos.filter((o) => o.paymentStatus === "paid").length;
+  const taxaResposta = pedidosPagosPeriodo > 0 ? (lista.length / pedidosPagosPeriodo) * 100 : null;
   const origemTxt = (o) => o === "externo" ? "🛵 Delivery" : o === "mesa" ? "🍽️ Mesa" : (o || "—");
   const telMasc = (t) => { const d = String(t || "").replace(/\D/g, ""); return d.length >= 4 ? `****-${d.slice(-4)}` : "—"; };
-  const CORES_NOTA = ["bg-red-500", "bg-amber-500", "bg-slate-400", "bg-blue-500", "bg-emerald-500"];
+  const CORES_NOTA = ["#EF4444", "#F59E0B", "#64748B", "#2563EB", "#10B981"];
+
+  // ── Comparativo com o período anterior (mesma técnica das demais abas) ──
+  const comparativoSatE = (() => {
+    if (periodo === "tudo") return null;
+    const [a0, b0] = intervaloPeriodo(periodo, ini, fim);
+    if (!a0 || a0.getTime() <= 0) return null;
+    const dur = b0.getTime() - a0.getTime();
+    const anteriores = todasPesquisas.filter((q) => {
+      if (!q.criadoEmISO) return false;
+      const d = new Date(q.criadoEmISO);
+      return d >= new Date(a0.getTime() - dur - 1) && d <= new Date(a0.getTime() - 1);
+    });
+    if (anteriores.length === 0) return null;
+    const notasAnt = anteriores.flatMap((q) => Object.values(q.notas || {}).filter((v) => v != null && v > 0));
+    const mediaAnt = notasAnt.length ? notasAnt.reduce((s, v) => s + v, 0) / notasAnt.length : 0;
+    const recAnt = anteriores.map((q) => q.notas?.recomendacao).filter((v) => v != null && v > 0);
+    const promAnt = recAnt.filter((v) => v >= 4).length, detAnt = recAnt.filter((v) => v <= 2).length;
+    const npsAnt = recAnt.length ? Math.round(((promAnt - detAnt) / recAnt.length) * 100) : null;
+    const mediasPorPergunta = {};
+    SATISF_PERGUNTAS.forEach((p) => { const vals = anteriores.map((q) => q.notas?.[p.key]).filter((v) => v != null && v > 0); mediasPorPergunta[p.key] = vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : null; });
+    return {
+      respostas: anteriores.length, mediaGeral: mediaAnt, nps: npsAnt,
+      variacaoMedia: mediaAnt > 0 ? ((mediaGeral - mediaAnt) / mediaAnt) * 100 : null,
+      variacaoNps: npsAnt != null && nps != null ? nps - npsAnt : null,
+      variacaoRespostas: anteriores.length > 0 ? ((lista.length - anteriores.length) / anteriores.length) * 100 : null,
+      mediasPorPergunta,
+    };
+  })();
+
+  // ── Evolução da satisfação por dia ──
+  const porDiaSatE = {};
+  lista.forEach((q) => {
+    if (!q.criadoEmISO) return;
+    const chave = new Date(q.criadoEmISO).toISOString().slice(0, 10);
+    if (!porDiaSatE[chave]) porDiaSatE[chave] = { label: new Date(q.criadoEmISO).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }), notas: [], rec: [], respostas: 0 };
+    Object.values(q.notas || {}).forEach((v) => { if (v != null && v > 0) porDiaSatE[chave].notas.push(v); });
+    if (q.notas?.recomendacao != null) porDiaSatE[chave].rec.push(q.notas.recomendacao);
+    porDiaSatE[chave].respostas += 1;
+  });
+  const evolucaoSatE = Object.entries(porDiaSatE).sort((a, b) => a[0].localeCompare(b[0])).map(([, v]) => {
+    const media = v.notas.length ? v.notas.reduce((s, x) => s + x, 0) / v.notas.length : 0;
+    const prom = v.rec.filter((x) => x >= 4).length, det = v.rec.filter((x) => x <= 2).length;
+    return { label: v.label, valor: Number(media.toFixed(2)), volume: v.respostas, nps: v.rec.length ? Math.round(((prom - det) / v.rec.length) * 100) : null };
+  });
+
+  // ── Temas e causas (categorização por palavra-chave) ──
+  function temaMaisFrequente(coments) {
+    const contagem = {};
+    coments.forEach((q) => categorizarComentario(q.comentario).forEach((t) => { contagem[t] = (contagem[t] || 0) + 1; }));
+    const arr = Object.entries(contagem).sort((a, b) => b[1] - a[1]);
+    return { top: arr.length ? { tema: arr[0][0], n: arr[0][1] } : null, distribuicao: arr };
+  }
+  const temasComentariosSatE = temaMaisFrequente(comentarios);
+  const comentariosAltos = comentarios.filter((q) => { const m = mediaNotasValidas(q.notas); return m != null && m >= 4; });
+  const comentariosBaixos = comentarios.filter((q) => { const m = mediaNotasValidas(q.notas); return m != null && m <= 2.5; });
+  const elogioRecorrenteSatE = temaMaisFrequente(comentariosAltos).top;
+  const reclamacaoRecorrenteSatE = temaMaisFrequente(comentariosBaixos).top;
+  const distribuicaoTemasSatE = temasComentariosSatE.distribuicao.map(([tema, n]) => ({ label: tema, valor: n }));
+
+  // ── Insights — horário/canal com pior avaliação, produto ligado a notas baixas ──
+  const porHoraSatE = {};
+  lista.forEach((q) => { if (!q.criadoEmISO) return; const nv = Object.values(q.notas || {}).filter((v) => v != null && v > 0); if (!nv.length) return; const h = new Date(q.criadoEmISO).getHours(); (porHoraSatE[h] ||= []).push(...nv); });
+  const horariosMediaSatE = Object.entries(porHoraSatE).map(([h, vals]) => ({ hora: Number(h), media: vals.reduce((s, v) => s + v, 0) / vals.length, n: vals.length }));
+  const piorHorarioSatE = horariosMediaSatE.length ? horariosMediaSatE.reduce((b, d) => (d.media < b.media ? d : b)) : null;
+  const porCanalSatE = {};
+  lista.forEach((q) => { const nv = Object.values(q.notas || {}).filter((v) => v != null && v > 0); if (!nv.length) return; const c = q.origem || "outro"; (porCanalSatE[c] ||= []).push(...nv); });
+  const canaisMediaSatE = Object.entries(porCanalSatE).map(([c, vals]) => ({ canal: c, media: vals.reduce((s, v) => s + v, 0) / vals.length, n: vals.length }));
+  const piorCanalSatE = canaisMediaSatE.length > 1 ? canaisMediaSatE.reduce((b, d) => (d.media < b.media ? d : b)) : null;
+  const notasBaixasComPedido = lista.filter((q) => { const m = mediaNotasValidas(q.notas); return m != null && m <= 2.5 && q.pedidoId; });
+  const contagemProdutosBaixaSatE = {};
+  notasBaixasComPedido.forEach((q) => { const pedido = orders.find((o) => o.id === q.pedidoId); pedido?.items.forEach((it) => { contagemProdutosBaixaSatE[it.name] = (contagemProdutosBaixaSatE[it.name] || 0) + 1; }); });
+  const produtoMaisLigadoBaixaSatE = Object.entries(contagemProdutosBaixaSatE).sort((a, b) => b[1] - a[1])[0] || null;
+
+  const insightsSatE = [];
+  const perguntasAbaixoMeta = perguntasComDados.filter((m) => m.media < 3.5);
+  if (perguntasAbaixoMeta.length > 0) insightsSatE.push({ titulo: "Perguntas abaixo da meta", texto: `${perguntasAbaixoMeta.length} pergunta(s) com média abaixo de 3,5: ${perguntasAbaixoMeta.map((m) => m.label).join(", ")}.`, tom: "warning" });
+  if (comparativoSatE?.variacaoMedia != null && comparativoSatE.variacaoMedia <= -10) insightsSatE.push({ titulo: "Queda relevante de satisfação", texto: `Média geral caiu ${Math.abs(comparativoSatE.variacaoMedia).toFixed(0)}% frente ao período anterior.`, tom: "danger" });
+  if (elogioRecorrenteSatE) insightsSatE.push({ titulo: "Elogio recorrente", texto: `Tema "${elogioRecorrenteSatE.tema}" aparece em ${elogioRecorrenteSatE.n} comentário(s) com nota alta (4-5).`, tom: "success" });
+  if (reclamacaoRecorrenteSatE) insightsSatE.push({ titulo: "Reclamação recorrente", texto: `Tema "${reclamacaoRecorrenteSatE.tema}" aparece em ${reclamacaoRecorrenteSatE.n} comentário(s) com nota baixa (≤2,5).`, tom: "danger" });
+  if (piorHorarioSatE && horariosMediaSatE.length > 1) insightsSatE.push({ titulo: "Horário com pior avaliação", texto: `${String(piorHorarioSatE.hora).padStart(2, "0")}h tem a menor média (${piorHorarioSatE.media.toFixed(1)}★, ${piorHorarioSatE.n} resposta(s)).`, tom: "warning" });
+  if (piorCanalSatE) insightsSatE.push({ titulo: "Canal com pior avaliação", texto: `${origemTxt(piorCanalSatE.canal)} tem a menor média entre os canais (${piorCanalSatE.media.toFixed(1)}★).`, tom: "warning" });
+  if (produtoMaisLigadoBaixaSatE) insightsSatE.push({ titulo: "Produto ligado a notas baixas", texto: `"${produtoMaisLigadoBaixaSatE[0]}" apareceu em ${produtoMaisLigadoBaixaSatE[1]} pedido(s) com avaliação baixa.`, tom: "danger" });
+  if (nps != null && nps >= 50) insightsSatE.push({ titulo: "Oportunidade de fidelização", texto: `NPS de ${nps} indica boa base de promotores (${promotores}) — bom momento para incentivar indicações.`, tom: "violet" });
+
+  // ── Comentários: busca, ordenação, paginação ──
+  const comentariosFiltradosOrdenados = [...comentarios].sort((a, b) => {
+    if (ordenacaoComentariosSatE === "antigos") return new Date(a.criadoEmISO || 0) - new Date(b.criadoEmISO || 0);
+    if (ordenacaoComentariosSatE === "maiorNota") return (mediaNotasValidas(b.notas) ?? 0) - (mediaNotasValidas(a.notas) ?? 0);
+    if (ordenacaoComentariosSatE === "menorNota") return (mediaNotasValidas(a.notas) ?? 0) - (mediaNotasValidas(b.notas) ?? 0);
+    return new Date(b.criadoEmISO || 0) - new Date(a.criadoEmISO || 0);
+  });
+  useEffect(() => { setPaginaSatE(1); }, [periodo, ini, fim, porPaginaSatE, buscaSatE, fCanalSatE, fNotaSatE, fPerguntaSatE, fComentarioSatE, somenteDetratoresSatE, ordenacaoComentariosSatE]);
+  const totalPaginasSatE = Math.max(1, Math.ceil(comentariosFiltradosOrdenados.length / porPaginaSatE));
+  const paginaAtualSatE = Math.min(paginaSatE, totalPaginasSatE);
+  const comentariosVisiveisSatE = comentariosFiltradosOrdenados.slice((paginaAtualSatE - 1) * porPaginaSatE, paginaAtualSatE * porPaginaSatE);
+
+  // ── Chips de filtro ativo ──
+  const chipsAtivosSatE = [];
+  if (buscaSatE.trim()) chipsAtivosSatE.push({ label: `Busca: "${buscaSatE.trim()}"`, limpar: () => setBuscaSatE("") });
+  if (fCanalSatE !== "todos") chipsAtivosSatE.push({ label: `Canal: ${origemTxt(fCanalSatE)}`, limpar: () => setFCanalSatE("todos") });
+  if (fPerguntaSatE !== "todas") chipsAtivosSatE.push({ label: `Pergunta: ${SATISF_PERGUNTAS.find((p) => p.key === fPerguntaSatE)?.label}`, limpar: () => setFPerguntaSatE("todas") });
+  if (fNotaSatE !== "todas") chipsAtivosSatE.push({ label: `Nota: ${fNotaSatE}★`, limpar: () => setFNotaSatE("todas") });
+  if (fComentarioSatE !== "todos") chipsAtivosSatE.push({ label: fComentarioSatE === "com" ? "Com comentário" : "Sem comentário", limpar: () => setFComentarioSatE("todos") });
+  if (somenteDetratoresSatE) chipsAtivosSatE.push({ label: "Somente detratores", limpar: () => setSomenteDetratoresSatE(false) });
+  function limparFiltrosSatE() { setBuscaSatE(""); setFCanalSatE("todos"); setFPerguntaSatE("todas"); setFNotaSatE("todas"); setFComentarioSatE("todos"); setSomenteDetratoresSatE(false); }
+
+  function avisarSatE(msg) { setAvisoSatE(msg); setTimeout(() => setAvisoSatE(null), 2500); }
+  async function copiarComentarioSatE(texto) {
+    try { await navigator.clipboard.writeText(texto); avisarSatE("Comentário copiado"); } catch { avisarSatE("Não foi possível copiar"); }
+  }
+  function abrirPedidoRelacionadoSatE(pedidoId) {
+    const pedido = orders.find((o) => o.id === pedidoId);
+    if (!pedido) { avisarSatE("Pedido não encontrado"); return; }
+    setCupomSelSatE(pedido);
+  }
 
   function exportarCSV() {
     const cab = ["Data", "Pedido", "Origem", "Mesa", "Telefone", "Exp. geral", "Facilidade", "Tempo", "Qualidade", "Cardápio", "Atendimento", "Status pedido", "Recomendação", "Comentário"];
@@ -12601,89 +12848,282 @@ function RelatorioSatisfacao({ pesquisas = [] }) {
     const a = document.createElement("a"); a.href = url; a.download = `pesquisa-satisfacao-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click(); URL.revokeObjectURL(url);
   }
+  function exportarPDF() {
+    const empresa = lojaInfo?.nome || "Restaurante";
+    const linhasHtml = comentariosFiltradosOrdenados.map((q) => `<tr><td>${q.criadoEmISO ? new Date(q.criadoEmISO).toLocaleString("pt-BR") : "—"}</td><td>${mediaNotasValidas(q.notas)?.toFixed(1) ?? "—"}</td><td>${origemTxt(q.origem)}</td><td>${(q.comentario || "").replace(/</g, "&lt;")}</td></tr>`).join("");
+    const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Satisfação — ${empresa}</title>
+    <style>
+      @page { size: A4; margin: 14mm; } * { box-sizing: border-box; }
+      body { font-family: 'Segoe UI', Arial, sans-serif; color:#0f172a; margin:0; }
+      h1 { font-size: 18px; margin-bottom: 4px; } p.sub { color:#64748b; font-size: 11px; margin-bottom: 16px; }
+      table { width: 100%; border-collapse: collapse; font-size: 11px; }
+      th { text-align: left; text-transform: uppercase; letter-spacing: .5px; font-size: 9px; color: #64748b; border-bottom: 2px solid #e2e8f0; padding: 6px 8px; }
+      td { padding: 7px 8px; border-bottom: 1px solid #f1f5f9; }
+    </style></head><body>
+      <h1>Relatório de Satisfação — ${empresa}</h1>
+      <p class="sub">${lista.length} resposta(s) · Média geral ${mediaGeral.toFixed(1)} · NPS ${nps ?? "—"}</p>
+      <table><thead><tr><th>Data</th><th>Nota</th><th>Canal</th><th>Comentário</th></tr></thead><tbody>${linhasHtml}</tbody></table>
+      <script>window.onload=function(){window.print();}<\/script>
+    </body></html>`;
+    const j = window.open("", "_blank", "width=900,height=1000");
+    if (!j) return;
+    j.document.write(html); j.document.close();
+  }
+  function atualizarSatE() { setAtualizadoEmSatE(new Date()); }
+
+  const inputClsSatE = "w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs text-[#334155] outline-none transition focus:border-[#2563EB]";
+  const labelClsSatE = "mb-1 block text-[10px] font-bold uppercase tracking-widest text-[#64748B]";
+  const notasOrdenadas = [...medias].sort((a, b) => (ordenarNotasSatE === "piores" ? a.media - b.media : b.media - a.media));
 
   return (
-    <div className="space-y-5">
-      {/* Filtro por cliente + exportação */}
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative flex-1 min-w-[200px]">
-          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">🔎</span>
-          <input value={buscaCli} onChange={(e) => setBuscaCli(e.target.value)} placeholder="Filtrar por cliente (telefone)…"
-            className="w-full rounded-2xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm text-[#334155] outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/25 placeholder:text-slate-400" />
+    <div className="space-y-6">
+      {/* 11. Ações gerenciais */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#E2E8F0] bg-white p-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <button onClick={exportarCSV} disabled={lista.length === 0} className="rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9] disabled:opacity-40">📊 Exportar CSV</button>
+          <button onClick={exportarPDF} disabled={lista.length === 0} className="rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9] disabled:opacity-40">🖨️ PDF / Imprimir</button>
+          <button onClick={() => setCompararPeriodoSatE((v) => !v)}
+            className={`rounded-xl border px-3.5 py-2 text-xs font-bold transition ${compararPeriodoSatE ? "border-[#2563EB] bg-[#EFF6FF] text-[#2563EB]" : "border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9]"}`}>📅 Comparar períodos</button>
+          <button onClick={() => setSomenteDetratoresSatE((v) => !v)}
+            className={`rounded-xl border px-3.5 py-2 text-xs font-bold transition ${somenteDetratoresSatE ? "border-[#EF4444] bg-[#EF4444]/10 text-[#EF4444]" : "border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9]"}`}>⚠️ Ver apenas detratores</button>
+          <button onClick={() => comentariosRef.current?.scrollIntoView({ block: "start", behavior: "smooth" })} className="rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">💬 Ver comentários</button>
+          <button onClick={atualizarSatE} className="rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">🔄 Atualizar</button>
         </div>
-        {termo && <button onClick={() => setBuscaCli("")} className="rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-bold text-slate-500 transition hover:bg-slate-100">Limpar</button>}
-        <button onClick={exportarCSV} disabled={lista.length === 0} className="rounded-2xl bg-blue-500 px-4 py-2.5 text-sm font-black text-white transition hover:bg-blue-600 active:scale-95 disabled:opacity-40">Exportar CSV</button>
+        <p className="text-[11px] text-[#94A3B8]">Atualizado às {atualizadoEmSatE.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <CardMetrica titulo="Respostas" valor={lista.length} sub={termo ? "do cliente filtrado" : "no período"} cor="text-dash-navy" icon="📝" />
-        <CardMetrica titulo="Média geral" valor={mediaGeral ? mediaGeral.toFixed(1) : "—"} sub="de 1 a 5 estrelas" cor="text-dash-navy" tone="dashWarning" icon="⭐" />
-        <CardMetrica titulo="Recomendação (NPS)" valor={nps != null ? `${nps}` : "—"} sub={`${promotores} promotor(es) · ${detratores} detrator(es)`} cor={nps != null && nps >= 0 ? "text-emerald-600" : "text-red-600"} icon="👍" />
-        <CardMetrica titulo="Com comentário" valor={comentarios.length} sub="opiniões abertas" cor="text-dash-navy" tone="dashPrimary" icon="💬" />
-      </div>
-
-      {/* Distribuição de notas (1–5) por pergunta */}
-      <div className="rounded-[2rem] border border-slate-200 bg-white p-6">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-          <h3 className="page-title text-base font-bold tracking-tight text-dash-navy">Distribuição das notas por pergunta</h3>
-          <div className="flex flex-wrap gap-2 text-[10px] font-bold text-slate-500">
-            {["1 Muito ruim", "2 Ruim", "3 Regular", "4 Bom", "5 Excelente"].map((l, i) => (
-              <span key={l} className="flex items-center gap-1"><span className={`h-2.5 w-2.5 rounded-sm ${CORES_NOTA[i]}`} />{l}</span>
-            ))}
+      {/* 1. Filtros */}
+      <div className="rounded-2xl border border-[#E2E8F0] bg-white p-3.5">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <input value={buscaSatE} onChange={(e) => setBuscaSatE(e.target.value)} placeholder="🔎 Buscar por telefone ou nº do pedido…"
+            className="min-w-[220px] flex-1 rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2.5 text-sm text-[#334155] outline-none transition focus:border-[#2563EB]" />
+          <button onClick={() => setMostrarFiltrosSatE((v) => !v)}
+            className={`rounded-xl border px-3.5 py-2.5 text-xs font-bold transition ${mostrarFiltrosSatE || chipsAtivosSatE.length > 0 ? "border-[#2563EB] bg-[#EFF6FF] text-[#2563EB]" : "border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9]"}`}>
+            ⚙️ Filtros{chipsAtivosSatE.length > 0 ? ` • ${chipsAtivosSatE.length}` : ""}
+          </button>
+        </div>
+        {mostrarFiltrosSatE && (
+          <div className="pp-anim-fade mt-3 grid gap-3 border-t border-[#F1F5F9] pt-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div>
+              <label className={labelClsSatE}>Canal</label>
+              <DropdownSelect ariaLabel="Canal" valor={fCanalSatE} onSelecionar={setFCanalSatE} className={`${inputClsSatE} flex items-center justify-between text-left`}
+                opcoes={[{ valor: "todos", rotulo: "Todos" }, { valor: "mesa", rotulo: "🍽️ Mesa" }, { valor: "externo", rotulo: "🛵 Delivery" }]} />
+            </div>
+            <div>
+              <label className={labelClsSatE}>Pergunta</label>
+              <DropdownSelect ariaLabel="Pergunta" valor={fPerguntaSatE} onSelecionar={setFPerguntaSatE} className={`${inputClsSatE} flex items-center justify-between text-left`}
+                opcoes={[{ valor: "todas", rotulo: "Todas" }, ...SATISF_PERGUNTAS.map((p) => ({ valor: p.key, rotulo: p.label }))]} />
+            </div>
+            <div>
+              <label className={labelClsSatE}>Nota</label>
+              <DropdownSelect ariaLabel="Nota" valor={fNotaSatE} onSelecionar={setFNotaSatE} className={`${inputClsSatE} flex items-center justify-between text-left`}
+                opcoes={[{ valor: "todas", rotulo: "Todas" }, { valor: "1", rotulo: "1 ★" }, { valor: "2", rotulo: "2 ★" }, { valor: "3", rotulo: "3 ★" }, { valor: "4", rotulo: "4 ★" }, { valor: "5", rotulo: "5 ★" }]} />
+            </div>
+            <div>
+              <label className={labelClsSatE}>Comentário</label>
+              <DropdownSelect ariaLabel="Comentário" valor={fComentarioSatE} onSelecionar={setFComentarioSatE} className={`${inputClsSatE} flex items-center justify-between text-left`}
+                opcoes={[{ valor: "todos", rotulo: "Todos" }, { valor: "com", rotulo: "Com comentário" }, { valor: "sem", rotulo: "Sem comentário" }]} />
+            </div>
           </div>
-        </div>
-        {lista.length === 0 ? <p className="text-sm text-slate-500">Nenhuma avaliação no filtro selecionado.</p> : (
-          <div className="space-y-3">
-            {medias.map((m) => { const tot = m.dist.reduce((s, v) => s + v, 0);
-              return (
-                <div key={m.key}>
-                  <div className="mb-1 flex items-center justify-between text-sm"><span className="font-medium text-[#334155]">{m.label}</span><span className="text-xs font-bold text-slate-500">{tot} resposta(s)</span></div>
-                  <div className="flex h-6 overflow-hidden rounded-lg bg-slate-100">
-                    {m.dist.map((c, i) => c > 0 && (
-                      <div key={i} className={`flex items-center justify-center ${CORES_NOTA[i]} text-[10px] font-black text-white`} style={{ width: `${(c / tot) * 100}%` }} title={`${i + 1}★: ${c}`}>{(c / tot) >= 0.08 ? c : ""}</div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
+        )}
+        {chipsAtivosSatE.length > 0 && (
+          <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-[#F1F5F9] pt-3">
+            {chipsAtivosSatE.map((c, i) => (
+              <span key={i} className="flex items-center gap-1.5 rounded-full border border-[#2563EB] bg-[#EFF6FF] px-3 py-1 text-[11px] font-bold text-[#2563EB]">
+                {c.label}
+                <button onClick={c.limpar} title="Remover filtro" aria-label={`Remover filtro: ${c.label}`} className="text-[#2563EB] hover:text-[#1D4ED8]">✕</button>
+              </span>
+            ))}
+            <button onClick={limparFiltrosSatE} className="text-[11px] font-bold text-[#64748B] hover:text-[#334155]">Limpar todos</button>
           </div>
         )}
       </div>
 
-      {/* Média por pergunta */}
-      <div className="rounded-[2rem] border border-slate-200 bg-white p-6">
-        <h3 className="page-title mb-4 text-base font-bold tracking-tight text-dash-navy">Média por pergunta</h3>
-        {lista.length === 0 ? <p className="text-sm text-slate-500">Nenhuma avaliação no filtro selecionado.</p> : (
-          <div className="space-y-3.5">
-            {medias.map((m) => (
-              <div key={m.key}>
-                <div className="mb-1 flex items-center justify-between gap-2 text-sm">
-                  <span className="font-medium text-[#334155]">{m.label}</span>
-                  <span className="flex items-center gap-2"><EstrelasMedia nota={m.media} /><span className="w-8 text-right font-bold text-dash-navy">{m.media ? m.media.toFixed(1) : "—"}</span></span>
-                </div>
-                <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-                  <div className="h-full rounded-full bg-blue-500" style={{ width: `${(m.media / 5) * 100}%` }} />
-                </div>
+      {/* 2. KPIs executivos */}
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+        {[
+          { titulo: "Total de respostas", valor: lista.length, variacao: compararPeriodoSatE ? comparativoSatE?.variacaoRespostas : null, desc: "No período selecionado", icon: "📝" },
+          taxaResposta != null && { titulo: "Taxa de resposta", valor: `${taxaResposta.toFixed(0)}%`, desc: `${lista.length} de ${pedidosPagosPeriodo} pedido(s)`, icon: "📈" },
+          { titulo: "Média geral (CSAT)", valor: mediaGeral ? mediaGeral.toFixed(1) : "—", variacao: compararPeriodoSatE ? comparativoSatE?.variacaoMedia : null, desc: "De 1 a 5 estrelas", icon: "⭐" },
+          { titulo: "NPS", valor: nps != null ? `${nps}` : "—", variacao: compararPeriodoSatE ? comparativoSatE?.variacaoNps : null, desc: nps != null ? (classificacaoMediaSatE(mediaGeral)?.label || "—") : "Sem dados suficientes", icon: "👍" },
+          { titulo: "Promotores / Neutros / Detratores", valor: `${promotores} / ${neutros} / ${detratores}`, desc: "Pergunta: recomendaria o local", icon: "👥" },
+          { titulo: "Com comentário", valor: comentarios.length, desc: `${lista.length ? ((comentarios.length / lista.length) * 100).toFixed(0) : 0}% das respostas`, icon: "💬" },
+          melhorPergunta && { titulo: "Melhor pergunta", valor: melhorPergunta.media.toFixed(1), desc: melhorPergunta.label, icon: "🏆" },
+          piorPergunta && { titulo: "Pergunta com pior avaliação", valor: piorPergunta.media.toFixed(1), desc: piorPergunta.label, icon: "⚠️" },
+        ].filter(Boolean).map((k) => (
+          <div key={k.titulo} title={k.desc}><KpiExecutivo {...k} /></div>
+        ))}
+      </div>
+
+      {/* 3. Resumo inteligente */}
+      <div className="rounded-2xl border border-[#E2E8F0] bg-white p-5">
+        <h3 className="page-title mb-3 text-base font-bold text-[#0D1B2A]">Diagnóstico da experiência</h3>
+        {lista.length === 0 ? <p className="text-sm text-[#64748B]">Dados insuficientes para diagnóstico neste período.</p> : (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {[
+              ["Resultado geral", `${classificacaoMediaSatE(mediaGeral)?.label || "—"} — média ${mediaGeral.toFixed(1)} de 5${nps != null ? `, NPS ${nps}` : ""}.`],
+              ["Principal ponto positivo", melhorPergunta ? `${melhorPergunta.label} (${melhorPergunta.media.toFixed(1)})` : "Dados insuficientes"],
+              ["Maior ponto de atenção", piorPergunta ? `${piorPergunta.label} (${piorPergunta.media.toFixed(1)})` : "Dados insuficientes"],
+              ["Evolução vs. período anterior", comparativoSatE?.variacaoMedia != null ? `${comparativoSatE.variacaoMedia >= 0 ? "+" : ""}${comparativoSatE.variacaoMedia.toFixed(0)}% na média geral` : "Dados insuficientes"],
+              ["Recomendação", piorPergunta && piorPergunta.media < 3.5 ? `Priorizar ações sobre "${piorPergunta.label}", pergunta com menor média do período.` : "Nenhum ponto crítico identificado — manter o padrão atual."],
+            ].map(([r, v]) => (
+              <div key={r} className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
+                <p className="text-[9px] font-bold uppercase tracking-widest text-[#64748B]">{r}</p>
+                <p className="mt-0.5 text-xs font-semibold leading-relaxed text-[#334155]">{v}</p>
               </div>
             ))}
           </div>
         )}
       </div>
 
-      {/* Comentários */}
-      <div className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white">
-        <div className="border-b border-slate-200 px-5 py-3"><h3 className="page-title text-sm font-bold uppercase tracking-wider text-dash-navy">Comentários dos clientes</h3></div>
-        {comentarios.length === 0 && <p className="px-5 py-6 text-center text-sm text-slate-500">Nenhum comentário no período.</p>}
-        {comentarios.map((q) => (
-          <div key={q.id} className="border-t border-slate-100 px-5 py-3.5">
-            <div className="flex items-center justify-between gap-2 text-[11px] text-slate-500">
-              <span>{origemTxt(q.origem)}{q.mesa && q.origem === "mesa" ? ` · ${q.mesa}` : ""}{q.clienteTelefone ? ` · 📞 ${telMasc(q.clienteTelefone)}` : ""}</span>
-              <span>{q.criadoEmISO ? new Date(q.criadoEmISO).toLocaleDateString("pt-BR") : ""}{q.notas?.exp_geral ? ` · ${q.notas.exp_geral}★` : ""}</span>
+      {/* 10. Perfil NPS */}
+      <div className="rounded-2xl border border-[#E2E8F0] bg-white p-5">
+        <h3 className="page-title mb-4 text-base font-bold text-[#0D1B2A]">Perfil NPS</h3>
+        {recVals.length === 0 ? <p className="text-sm text-[#64748B]">Dados insuficientes (nenhuma resposta à pergunta "Recomendaria o local").</p> : (
+          <>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3"><p className="text-[9px] font-bold uppercase tracking-widest text-[#64748B]">Promotores (4-5)</p><p className="mt-0.5 text-xl font-black text-[#10B981]">{promotores} <span className="text-xs font-bold text-[#94A3B8]">({((promotores / recVals.length) * 100).toFixed(0)}%)</span></p></div>
+              <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3"><p className="text-[9px] font-bold uppercase tracking-widest text-[#64748B]">Neutros (3)</p><p className="mt-0.5 text-xl font-black text-[#64748B]">{neutros} <span className="text-xs font-bold text-[#94A3B8]">({((neutros / recVals.length) * 100).toFixed(0)}%)</span></p></div>
+              <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3"><p className="text-[9px] font-bold uppercase tracking-widest text-[#64748B]">Detratores (1-2)</p><p className="mt-0.5 text-xl font-black text-[#EF4444]">{detratores} <span className="text-xs font-bold text-[#94A3B8]">({((detratores / recVals.length) * 100).toFixed(0)}%)</span></p></div>
             </div>
-            <p className="mt-1 text-sm text-[#334155]">“{q.comentario}”</p>
-          </div>
-        ))}
+            <p className="mt-3 text-sm font-bold text-[#0D1B2A]">NPS calculado: <span className="text-[#2563EB]">{nps}</span>{comparativoSatE?.variacaoNps != null && <span className="ml-2 text-xs font-semibold text-[#64748B]">({comparativoSatE.variacaoNps >= 0 ? "+" : ""}{comparativoSatE.variacaoNps} vs. período anterior)</span>}</p>
+            <p className="mt-1.5 text-[10px] text-[#94A3B8]">Fórmula: ((promotores − detratores) ÷ respostas) × 100. A pesquisa usa escala de 1 a 5 (não a escala clássica de 0 a 10) — nota 4-5 conta como promotor, 1-2 como detrator, 3 como neutro.</p>
+          </>
+        )}
       </div>
+
+      <div className="grid gap-5 lg:grid-cols-2">
+        {/* 4. Distribuição das notas */}
+        <div className="rounded-2xl border border-[#E2E8F0] bg-white p-5">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <h3 className="page-title text-sm font-bold uppercase tracking-wider text-[#0D1B2A]">Distribuição das notas</h3>
+            <div className="flex items-center gap-1 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-1">
+              <button onClick={() => setOrdenarNotasSatE("piores")} className={`rounded-lg px-2.5 py-1 text-[10px] font-black transition ${ordenarNotasSatE === "piores" ? "bg-[#2563EB] text-white" : "text-[#64748B]"}`}>Piores primeiro</button>
+              <button onClick={() => setOrdenarNotasSatE("melhores")} className={`rounded-lg px-2.5 py-1 text-[10px] font-black transition ${ordenarNotasSatE === "melhores" ? "bg-[#2563EB] text-white" : "text-[#64748B]"}`}>Melhores primeiro</button>
+            </div>
+          </div>
+          <div className="mb-3 flex flex-wrap gap-2 text-[10px] font-bold text-[#64748B]">
+            {["1 Muito ruim", "2 Ruim", "3 Regular", "4 Bom", "5 Excelente"].map((l, i) => (
+              <span key={l} className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: CORES_NOTA[i] }} />{l}</span>
+            ))}
+          </div>
+          {lista.length === 0 ? <p className="text-sm text-[#64748B]">Nenhuma avaliação no filtro selecionado.</p> : (
+            <div className="space-y-3">
+              {notasOrdenadas.map((m) => { const tot = m.dist.reduce((s, v) => s + v, 0);
+                return (
+                  <div key={m.key}>
+                    <div className="mb-1 flex items-center justify-between text-xs"><span className="font-semibold text-[#334155]">{m.label}</span><span className="font-bold text-[#64748B]">{tot} resposta(s)</span></div>
+                    <div className="flex h-6 overflow-hidden rounded-lg bg-[#F1F5F9]">
+                      {m.dist.map((c, i) => c > 0 && (
+                        <div key={i} className="flex items-center justify-center text-[10px] font-black text-white" style={{ width: `${(c / tot) * 100}%`, background: CORES_NOTA[i] }} title={`${i + 1}★: ${c} (${((c / tot) * 100).toFixed(0)}%)`}>{(c / tot) >= 0.08 ? c : ""}</div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* 5. Média por pergunta */}
+        <div className="rounded-2xl border border-[#E2E8F0] bg-white p-5">
+          <h3 className="page-title mb-4 text-sm font-bold uppercase tracking-wider text-[#0D1B2A]">Média por pergunta</h3>
+          {lista.length === 0 ? <p className="text-sm text-[#64748B]">Nenhuma avaliação no filtro selecionado.</p> : (
+            <div className="space-y-3.5">
+              {medias.map((m) => {
+                const classe = classificacaoMediaSatE(m.n > 0 ? m.media : null);
+                const varAnt = comparativoSatE?.mediasPorPergunta?.[m.key];
+                const varPct = varAnt != null && varAnt > 0 && m.n > 0 ? ((m.media - varAnt) / varAnt) * 100 : null;
+                return (
+                  <div key={m.key}>
+                    <div className="mb-1 flex flex-wrap items-center justify-between gap-2 text-xs">
+                      <span className="font-semibold text-[#334155]">{m.label}</span>
+                      <span className="flex items-center gap-2">
+                        {classe && <span className="rounded-full px-2 py-0.5 text-[9px] font-black" style={{ background: `${classe.cor}1A`, color: classe.cor }}>{classe.label}</span>}
+                        <EstrelasMedia nota={m.media} /><span className="w-8 text-right font-bold text-[#0D1B2A]">{m.n ? m.media.toFixed(1) : "—"}</span>
+                      </span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-[#F1F5F9]">
+                      <div className="h-full rounded-full" style={{ width: `${(m.media / 5) * 100}%`, background: classe?.cor || "#2563EB" }} />
+                    </div>
+                    <p className="mt-0.5 text-[10px] text-[#94A3B8]">{m.n} resposta(s){compararPeriodoSatE && varPct != null ? ` · ${varPct >= 0 ? "+" : ""}${varPct.toFixed(0)}% vs. período anterior` : ""}</p>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 6. Evolução da satisfação */}
+      <div className="rounded-2xl border border-[#E2E8F0] bg-white p-5">
+        <h3 className="page-title mb-4 text-sm font-bold uppercase tracking-wider text-[#0D1B2A]">Evolução da satisfação</h3>
+        <LinhaMetrica dados={evolucaoSatE} formatarValor={(v) => v.toFixed(1)} />
+      </div>
+
+      {/* 8. Temas e causas */}
+      <div className="rounded-2xl border border-[#E2E8F0] bg-white p-5">
+        <h3 className="page-title mb-4 text-sm font-bold uppercase tracking-wider text-[#0D1B2A]">Temas e causas nos comentários</h3>
+        {comentarios.length === 0 ? <p className="text-sm text-[#64748B]">Nenhum comentário no filtro selecionado.</p> : <DonutChart dados={distribuicaoTemasSatE} label="Comentários" />}
+        <p className="mt-2 text-[10px] text-[#94A3B8]">Classificação por palavras-chave, processada localmente — nenhum comentário é enviado a serviços externos.</p>
+      </div>
+
+      {/* 9. Insights e oportunidades */}
+      <div>
+        <h3 className="page-title mb-3 text-base font-bold text-[#0D1B2A]">Insights e oportunidades</h3>
+        {insightsSatE.length === 0 ? (
+          <p className="rounded-2xl border border-[#E2E8F0] bg-white px-5 py-6 text-center text-sm text-[#64748B]">Nenhum insight disponível para o período.</p>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {insightsSatE.map((ins, i) => (
+              <InsightCardVendas key={i} tom={ins.tom} titulo={ins.titulo} texto={ins.texto}
+                acaoLabel="Ver comentários" onAcao={() => comentariosRef.current?.scrollIntoView({ block: "start", behavior: "smooth" })} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* 7. Comentários dos clientes */}
+      <div ref={comentariosRef} className="overflow-hidden rounded-[1.75rem] border border-[#E2E8F0] bg-white">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E2E8F0] px-5 py-3.5">
+          <div>
+            <h3 className="page-title text-sm font-bold uppercase tracking-wider text-[#0D1B2A]">Comentários dos clientes</h3>
+            <p className="mt-0.5 text-[11px] text-[#64748B]">{comentarios.length} comentário(s) · status de tratamento não disponível (sem coluna no banco hoje)</p>
+          </div>
+          <DropdownSelect ariaLabel="Ordenar comentários" valor={ordenacaoComentariosSatE} onSelecionar={setOrdenacaoComentariosSatE} className="flex items-center justify-between gap-2 rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs font-bold text-[#334155]"
+            opcoes={[{ valor: "recentes", rotulo: "Mais recentes" }, { valor: "antigos", rotulo: "Mais antigos" }, { valor: "maiorNota", rotulo: "Maior nota" }, { valor: "menorNota", rotulo: "Menor nota" }]} />
+        </div>
+        {comentariosVisiveisSatE.length === 0 && <p className="px-5 py-6 text-center text-sm text-[#64748B]">Nenhum comentário no filtro selecionado.</p>}
+        {comentariosVisiveisSatE.map((q) => {
+          const media = mediaNotasValidas(q.notas);
+          const pedidoEncontrado = q.pedidoId ? orders.some((o) => o.id === q.pedidoId) : false;
+          return (
+            <div key={q.id} className="border-t border-[#F1F5F9] px-5 py-3.5">
+              <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-[#64748B]">
+                <span>{origemTxt(q.origem)}{q.mesa && q.origem === "mesa" ? ` · ${q.mesa}` : ""}{q.clienteTelefone ? ` · 📞 ${telMasc(q.clienteTelefone)}` : ""}</span>
+                <span>{q.criadoEmISO ? new Date(q.criadoEmISO).toLocaleString("pt-BR") : ""}{media != null ? ` · ${media.toFixed(1)}★` : ""}</span>
+              </div>
+              {q.comentario && <p className="mt-1 text-sm text-[#334155]">"{q.comentario}"</p>}
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button onClick={() => abrirPedidoRelacionadoSatE(q.pedidoId)} disabled={!pedidoEncontrado} title={pedidoEncontrado ? "Ver pedido/cupom relacionado" : "Pedido não encontrado no histórico"}
+                  className="rounded-lg border border-[#E2E8F0] px-2 py-1 text-[10px] font-bold text-[#2563EB] transition hover:bg-[#EFF6FF] disabled:cursor-not-allowed disabled:text-[#94A3B8] disabled:opacity-60">🧾 Ver pedido</button>
+                {q.comentario && (
+                  <button onClick={() => copiarComentarioSatE(q.comentario)} title="Copiar comentário" className="rounded-lg border border-[#E2E8F0] px-2 py-1 text-[10px] font-bold text-[#334155] transition hover:bg-[#F1F5F9]">📋 Copiar</button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <Paginacao pagina={paginaAtualSatE} totalPaginas={totalPaginasSatE} total={comentariosFiltradosOrdenados.length} porPagina={porPaginaSatE}
+        onMudar={setPaginaSatE} rotulo="comentário(s)" tema="claro" porPaginaOpcoes={[10, 20, 50, 100]} onMudarPorPagina={setPorPaginaSatE} mostrarExtremos />
+
+      {cupomSelSatE && <CupomNaoFiscalModal pedido={cupomSelSatE} lojaInfo={lojaInfo} onFechar={() => setCupomSelSatE(null)} />}
+      {avisoSatE && (
+        <div className="fixed inset-x-0 bottom-6 z-[130] flex justify-center px-4" role="status" aria-live="polite">
+          <div className="rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm font-bold text-[#334155] shadow-2xl">{avisoSatE}</div>
+        </div>
+      )}
     </div>
   );
 }
