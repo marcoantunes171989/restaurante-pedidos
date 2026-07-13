@@ -6573,7 +6573,7 @@ function DonutChart({ dados, label = "", corCentral = "#182230", legendaColorida
             <circle key={i} cx="90" cy="90" r={R} fill="none" stroke={corDe(d, i)} strokeWidth="26"
               strokeDasharray={`${dash} ${C - dash}`} strokeDashoffset={-acc}
               tabIndex={interativo ? 0 : undefined} aria-label={interativo ? `${d.label}: ${formatCurrency(d.valor)} (${((d.valor / total) * 100).toFixed(0)}%)` : undefined}
-              style={interativo ? { cursor: "pointer", opacity: ativo == null || ativo === i ? 1 : 0.35, transition: "opacity 150ms" } : undefined}
+              style={interativo ? { cursor: "pointer", opacity: ativo == null || ativo === i ? 1 : 0.35, outline: "none", WebkitTapHighlightColor: "transparent", transition: "opacity 150ms" } : undefined}
               onMouseEnter={interativo ? () => setAtivo(i) : undefined} onMouseLeave={interativo ? () => setAtivo((c) => (c === i ? null : c)) : undefined}
               onFocus={interativo ? () => setAtivo(i) : undefined} onBlur={interativo ? () => setAtivo((c) => (c === i ? null : c)) : undefined} />
           );
