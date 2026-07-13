@@ -8720,7 +8720,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
         </>
       )}
 
-      {aba === "cupom" && <RelatorioCupom pedidos={filtrados} lojaInfo={lojaInfo} />}
+      {aba === "cupom" && <RelatorioCupom pedidos={filtrados} lojaInfo={lojaInfo} periodo={periodo} ini={ini} fim={fim} />}
 
       {aba === "estoque" && (
         <>
@@ -8780,14 +8780,22 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
 }
 
 // ── Relatório analítico por cupom fiscal / mesa / comanda ────
-function RelatorioCupom({ pedidos, lojaInfo }) {
+function RelatorioCupom({ pedidos, lojaInfo, periodo, ini, fim }) {
   const [cupomSel, setCupomSel] = useState(null);
+  const [pagina, setPagina] = useState(1);
+  const [porPagina, setPorPagina] = useState(10);
   const pagos = pedidos.filter((o) => o.paymentStatus === "paid");
+  // Volta para a página 1 ao trocar período/filtro (periodo/ini/fim vêm da
+  // aba pai) ou a quantidade por página.
+  useEffect(() => { setPagina(1); }, [periodo, ini, fim, porPagina]);
+  const totalPaginas = Math.max(1, Math.ceil(pagos.length / porPagina));
+  const paginaAtual = Math.min(pagina, totalPaginas);
+  const visiveis = pagos.slice((paginaAtual - 1) * porPagina, paginaAtual * porPagina);
   return (
     <div className="space-y-3">
       <p className="text-sm text-slate-500">{pagos.length} cupom(ns) fiscal(is) no período — itens detalhados por mesa e comanda. Toque em <b className="text-blue-600">🧾 Cupom</b> para reimprimir ou enviar ao cliente.</p>
       {pagos.length === 0 && <p className="rounded-2xl border border-slate-200 bg-white px-5 py-6 text-center text-sm text-slate-500">Nenhum cupom pago no período.</p>}
-      {pagos.map((o) => (
+      {visiveis.map((o) => (
         <div key={o.id} className="overflow-hidden rounded-3xl border border-slate-200 bg-white">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-slate-50 px-5 py-3">
             <div className="flex flex-wrap items-center gap-2">
@@ -8812,6 +8820,9 @@ function RelatorioCupom({ pedidos, lojaInfo }) {
           </div>
         </div>
       ))}
+
+      <Paginacao pagina={paginaAtual} totalPaginas={totalPaginas} total={pagos.length} porPagina={porPagina}
+        onMudar={setPagina} rotulo="cupom(ns)" tema="claro" porPaginaOpcoes={[10, 20, 50, 100]} onMudarPorPagina={setPorPagina} />
 
       {cupomSel && <CupomNaoFiscalModal pedido={cupomSel} lojaInfo={lojaInfo} onFechar={() => setCupomSel(null)} />}
     </div>
@@ -13810,10 +13821,16 @@ function ConfirmModal({ titulo, mensagem, confirmar, onConfirmar, onCancelar, pe
   );
 }
 
-// Paginação reutilizável (10 itens por página por padrão)
-function Paginacao({ pagina, totalPaginas, total, porPagina = 10, onMudar, rotulo = "item(ns)" }) {
-  if (total <= porPagina) return null; // cabe em 1 página → não exibe
-  const inicio = (pagina - 1) * porPagina + 1;
+// Paginação reutilizável (10 itens por página por padrão).
+// tema="claro": variante clara (paleta do Dashboard/Relatórios) — opcional,
+// não usada pelos chamadores antigos (permanecem no visual escuro de sempre).
+// porPaginaOpcoes + onMudarPorPagina (opcionais): exibe um seletor de
+// quantidade por página; quando presentes, o resumo "Mostrando X–Y de Z"
+// nunca é ocultado, mesmo com 1 página só.
+function Paginacao({ pagina, totalPaginas, total, porPagina = 10, onMudar, rotulo = "item(ns)", tema = "escuro", porPaginaOpcoes = null, onMudarPorPagina = null }) {
+  const temSeletor = !!porPaginaOpcoes && !!onMudarPorPagina;
+  if (total <= porPagina && !temSeletor) return null; // cabe em 1 página e sem seletor → não exibe
+  const inicio = total ? (pagina - 1) * porPagina + 1 : 0;
   const fim = Math.min(pagina * porPagina, total);
   // Janela de páginas: atual ±2, sempre com 1 e última
   const nums = [];
@@ -13822,29 +13839,49 @@ function Paginacao({ pagina, totalPaginas, total, porPagina = 10, onMudar, rotul
   for (let i = pagina - 2; i <= pagina + 2; i++) add(i);
   add(totalPaginas);
   nums.sort((a, b) => a - b);
+  const claro = tema === "claro";
+  const txt = claro ? "text-slate-500" : "text-slate-400";
+  const forte = claro ? "text-dash-navy" : "text-white";
+  const borda = claro ? "border-slate-200" : "border-white/10";
+  const btnCls = claro ? "border border-slate-200 bg-white text-slate-600 hover:bg-slate-100" : "border border-white/10 bg-white/[0.06] text-slate-300 hover:bg-white/10";
+  const selectCls = claro ? "border border-slate-200 bg-white text-[#334155] focus:border-blue-500" : "border border-white/10 bg-slate-950/70 text-white focus:border-gold-400/60";
   const btn = "min-w-9 rounded-xl px-3 py-2 text-xs font-black transition disabled:opacity-30 disabled:cursor-not-allowed";
 
   return (
-    <div className="mt-4 flex flex-col items-center justify-between gap-3 border-t border-white/10 pt-4 sm:flex-row">
-      <p className="text-xs text-slate-400">
-        Mostrando <b className="text-white">{inicio}–{fim}</b> de <b className="text-white">{total}</b> {rotulo} · página {pagina}/{totalPaginas}
-      </p>
-      <div className="flex flex-wrap items-center justify-center gap-1">
-        <button disabled={pagina <= 1} onClick={() => onMudar(pagina - 1)}
-          className={`${btn} border border-white/10 bg-white/[0.06] text-slate-300 hover:bg-white/10`}>‹ Anterior</button>
-        {nums.map((n, i) => {
-          const gap = i > 0 && n - nums[i - 1] > 1;
-          return (
-            <span key={n} className="flex items-center gap-1">
-              {gap && <span className="px-1 text-slate-600">…</span>}
-              <button onClick={() => onMudar(n)}
-                className={`${btn} ${n === pagina ? "bg-blue-500 text-white" : "border border-white/10 bg-white/[0.06] text-slate-300 hover:bg-white/10"}`}>{n}</button>
-            </span>
-          );
-        })}
-        <button disabled={pagina >= totalPaginas} onClick={() => onMudar(pagina + 1)}
-          className={`${btn} border border-white/10 bg-white/[0.06] text-slate-300 hover:bg-white/10`}>Próxima ›</button>
+    <div className={`mt-4 flex flex-col items-center justify-between gap-3 border-t ${borda} pt-4 sm:flex-row`}>
+      <div className="flex flex-wrap items-center justify-center gap-3">
+        <p className={`text-xs ${txt}`}>
+          {total > 0
+            ? <>Mostrando <b className={forte}>{inicio}–{fim}</b> de <b className={forte}>{total}</b> {rotulo} · página {pagina}/{totalPaginas}</>
+            : `Nenhum ${rotulo} encontrado.`}
+        </p>
+        {temSeletor && (
+          <label className={`flex items-center gap-1.5 text-xs ${txt}`}>
+            Por página:
+            <select value={porPagina} onChange={(e) => onMudarPorPagina(Number(e.target.value))} className={`rounded-lg ${selectCls} px-2 py-1 text-xs outline-none`}>
+              {porPaginaOpcoes.map((n) => <option key={n} value={n}>{n}</option>)}
+            </select>
+          </label>
+        )}
       </div>
+      {totalPaginas > 1 && (
+        <div className="flex flex-wrap items-center justify-center gap-1">
+          <button disabled={pagina <= 1} onClick={() => onMudar(pagina - 1)}
+            className={`${btn} ${btnCls}`}>‹ Anterior</button>
+          {nums.map((n, i) => {
+            const gap = i > 0 && n - nums[i - 1] > 1;
+            return (
+              <span key={n} className="flex items-center gap-1">
+                {gap && <span className={`px-1 ${claro ? "text-slate-400" : "text-slate-600"}`}>…</span>}
+                <button onClick={() => onMudar(n)}
+                  className={`${btn} ${n === pagina ? "bg-blue-500 text-white" : btnCls}`}>{n}</button>
+              </span>
+            );
+          })}
+          <button disabled={pagina >= totalPaginas} onClick={() => onMudar(pagina + 1)}
+            className={`${btn} ${btnCls}`}>Próxima ›</button>
+        </div>
+      )}
     </div>
   );
 }
