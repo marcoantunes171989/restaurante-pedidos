@@ -9469,6 +9469,109 @@ function MenuAcoesCupom({ anchorsRef, anchorId, aberto, onFechar, itens }) {
   );
 }
 
+// ── Dropdown de seleção único e reutilizável — substitui <select> nativo
+// nos filtros desta aba. O <select> nativo, sobretudo em mobile, pode focar
+// e rolar a página ao abrir (o navegador tenta "revelar" o elemento) —
+// aqui a lista abre num Portal em document.body (position:fixed, calculado
+// por getBoundingClientRect), então nunca ocupa espaço no fluxo, nunca
+// altera a largura/altura do botão-âncora e nunca desloca a página. Só um
+// dropdown fica aberto por vez (cada instância controla seu próprio
+// estado; nenhum estado é compartilhado entre filtros). Reutilizável para
+// qualquer filtro futuro do tipo "select".
+function DropdownSelect({ valor, opcoes, onSelecionar, ariaLabel, className = "" }) {
+  const [aberto, setAberto] = useState(false);
+  const btnRef = useRef(null);
+  const menuRef = useRef(null);
+  const [pos, setPos] = useState(null);
+  const atual = opcoes.find((o) => o.valor === valor);
+
+  useEffect(() => {
+    if (!aberto) { setPos(null); return; }
+    function calcular() {
+      const el = btnRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const largura = r.width;
+      const alturaEstimada = Math.min(opcoes.length * 34 + 10, 260);
+      const espacoAbaixo = window.innerHeight - r.bottom;
+      const abrirParaCima = espacoAbaixo < alturaEstimada + 8 && r.top > alturaEstimada;
+      const left = Math.max(8, Math.min(r.left, window.innerWidth - largura - 8));
+      const top = abrirParaCima ? r.top - alturaEstimada - 6 : r.bottom + 6;
+      setPos({ top, left, largura });
+    }
+    function fecharAoRolar() { setAberto(false); }
+    calcular();
+    window.addEventListener("resize", calcular);
+    // Rolar fecha (em vez de reposicionar) — evita um menu flutuante
+    // "descolado" do botão e nunca causa jump: a página não se move por
+    // causa do menu, o menu é que some se a página rolar por outro motivo.
+    window.addEventListener("scroll", fecharAoRolar, true);
+    return () => {
+      window.removeEventListener("resize", calcular);
+      window.removeEventListener("scroll", fecharAoRolar, true);
+    };
+  }, [aberto, opcoes.length]);
+
+  // Foca a opção selecionada ao abrir — preventScroll evita que o próprio
+  // foco programático role a página (equivalente a nunca usar scrollIntoView).
+  useEffect(() => {
+    if (!aberto || !pos || !menuRef.current) return;
+    const alvo = menuRef.current.querySelector('[data-selecionado="true"]') || menuRef.current.querySelector("button");
+    alvo?.focus({ preventScroll: true });
+  }, [aberto, pos]);
+
+  useEffect(() => {
+    if (!aberto) return;
+    function aoTeclado(e) {
+      if (e.key === "Escape") { setAberto(false); btnRef.current?.focus({ preventScroll: true }); return; }
+      if ((e.key !== "ArrowDown" && e.key !== "ArrowUp") || !menuRef.current) return;
+      e.preventDefault();
+      const focaveis = Array.from(menuRef.current.querySelectorAll("button"));
+      const idx = focaveis.indexOf(document.activeElement);
+      const prox = e.key === "ArrowDown" ? focaveis[idx + 1] || focaveis[0] : focaveis[idx - 1] || focaveis[focaveis.length - 1];
+      prox?.focus({ preventScroll: true });
+    }
+    document.addEventListener("keydown", aoTeclado);
+    return () => document.removeEventListener("keydown", aoTeclado);
+  }, [aberto]);
+
+  useEffect(() => {
+    if (!aberto) return;
+    function aoClicarFora(e) {
+      if (menuRef.current?.contains(e.target) || btnRef.current?.contains(e.target)) return;
+      setAberto(false);
+    }
+    document.addEventListener("mousedown", aoClicarFora);
+    return () => document.removeEventListener("mousedown", aoClicarFora);
+  }, [aberto]);
+
+  return (
+    <>
+      <button ref={btnRef} type="button" onClick={() => setAberto((v) => !v)}
+        aria-haspopup="listbox" aria-expanded={aberto} aria-label={ariaLabel} className={className}>
+        <span className="truncate">{atual?.rotulo || ""}</span>
+        <span aria-hidden="true" className="ml-1.5 shrink-0 text-[9px] text-[#64748B]">▾</span>
+      </button>
+      {aberto && pos && createPortal(
+        <div ref={menuRef} role="listbox" aria-label={ariaLabel}
+          style={{ position: "fixed", top: pos.top, left: pos.left, width: pos.largura, zIndex: 9999 }}
+          className="pp-anim-fade max-h-64 overflow-auto rounded-[10px] border border-[#E2E8F0] bg-white p-1 shadow-[0_12px_32px_rgba(13,27,42,0.16)]">
+          {opcoes.map((o) => (
+            <button key={o.valor} type="button" role="option" aria-selected={o.valor === valor} data-selecionado={o.valor === valor}
+              onClick={() => { setAberto(false); onSelecionar(o.valor); btnRef.current?.focus({ preventScroll: true }); }}
+              className={`block w-full truncate rounded-lg px-3 py-2 text-left text-xs font-semibold transition ${
+                o.valor === valor ? "bg-[#2563EB] text-white" : "text-[#334155] hover:bg-[#F1F5F9]"
+              }`}>
+              {o.rotulo}
+            </button>
+          ))}
+        </div>,
+        document.body
+      )}
+    </>
+  );
+}
+
 function RelatorioCupom({ pedidos, products = [], lojaInfo, periodo, ini, fim, currentUser = null }) {
   const [cupomSel, setCupomSel] = useState(null);
   const [cupomVisualizar, setCupomVisualizar] = useState(null);
@@ -9873,13 +9976,15 @@ function RelatorioCupom({ pedidos, products = [], lojaInfo, periodo, ini, fim, c
         <div className="flex flex-wrap items-center gap-2.5">
           <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="🔎 Buscar por cupom, comanda, produto ou cliente…"
             className="min-w-[220px] flex-1 rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2.5 text-sm text-[#334155] outline-none transition focus:border-[#2563EB]" />
-          <select value={ordenacao} onChange={(e) => setOrdenacao(e.target.value)} className="rounded-xl border border-[#E2E8F0] bg-white px-3 py-2.5 text-xs font-bold text-[#334155] outline-none transition focus:border-[#2563EB]">
-            <option value="recente">Mais recente</option>
-            <option value="antigo">Mais antigo</option>
-            <option value="maior">Maior valor</option>
-            <option value="menor">Menor valor</option>
-            <option value="maiorLucro">Maior lucro</option>
-          </select>
+          <DropdownSelect ariaLabel="Ordenar por" valor={ordenacao} onSelecionar={setOrdenacao}
+            className="flex items-center rounded-xl border border-[#E2E8F0] bg-white px-3 py-2.5 text-xs font-bold text-[#334155] outline-none transition hover:bg-[#F1F5F9] focus:border-[#2563EB]"
+            opcoes={[
+              { valor: "recente", rotulo: "Mais recente" },
+              { valor: "antigo", rotulo: "Mais antigo" },
+              { valor: "maior", rotulo: "Maior valor" },
+              { valor: "menor", rotulo: "Menor valor" },
+              { valor: "maiorLucro", rotulo: "Maior lucro" },
+            ]} />
           <button onClick={() => setMostrarFiltros((v) => !v)}
             className={`rounded-xl border px-3.5 py-2.5 text-xs font-bold transition ${mostrarFiltros || filtrosAtivos ? "border-[#2563EB] bg-[#EFF6FF] text-[#2563EB]" : "border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9]"}`}>
             ⚙️ Filtros{filtrosAtivos ? " •" : ""}
@@ -9898,33 +10003,28 @@ function RelatorioCupom({ pedidos, products = [], lojaInfo, periodo, ini, fim, c
             <div><label className={labelCls}>Produto</label><input value={fProduto} onChange={(e) => setFProduto(e.target.value)} placeholder="Nome do produto" className={inputCls} /></div>
             <div>
               <label className={labelCls}>Categoria</label>
-              <select value={fCategoria} onChange={(e) => setFCategoria(e.target.value)} className={inputCls}>
-                <option value="todas">Todas</option>
-                {categoriasDisponiveis.map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
+              <DropdownSelect ariaLabel="Categoria" valor={fCategoria} onSelecionar={setFCategoria} className={`${inputCls} flex items-center justify-between text-left`}
+                opcoes={[{ valor: "todas", rotulo: "Todas" }, ...categoriasDisponiveis.map((c) => ({ valor: c, rotulo: c }))]} />
             </div>
             <div>
               <label className={labelCls}>Canal / Origem</label>
-              <select value={fCanal} onChange={(e) => setFCanal(e.target.value)} className={inputCls}>
-                <option value="todos">Todos</option>
-                <option value="Mesa / QR Code">Mesa / QR Code</option>
-                <option value="Mesa">Mesa</option>
-                <option value="Balcão / Delivery">Balcão / Delivery</option>
-              </select>
+              <DropdownSelect ariaLabel="Canal / Origem" valor={fCanal} onSelecionar={setFCanal} className={`${inputCls} flex items-center justify-between text-left`}
+                opcoes={[
+                  { valor: "todos", rotulo: "Todos" },
+                  { valor: "Mesa / QR Code", rotulo: "Mesa / QR Code" },
+                  { valor: "Mesa", rotulo: "Mesa" },
+                  { valor: "Balcão / Delivery", rotulo: "Balcão / Delivery" },
+                ]} />
             </div>
             <div>
               <label className={labelCls}>Forma de pagamento</label>
-              <select value={fFormaPag} onChange={(e) => setFFormaPag(e.target.value)} className={inputCls}>
-                <option value="todas">Todas</option>
-                {formasDisponiveis.map((f) => <option key={f} value={f}>{f}</option>)}
-              </select>
+              <DropdownSelect ariaLabel="Forma de pagamento" valor={fFormaPag} onSelecionar={setFFormaPag} className={`${inputCls} flex items-center justify-between text-left`}
+                opcoes={[{ valor: "todas", rotulo: "Todas" }, ...formasDisponiveis.map((f) => ({ valor: f, rotulo: f }))]} />
             </div>
             <div>
               <label className={labelCls}>Status</label>
-              <select value={fStatus} onChange={(e) => setFStatus(e.target.value)} className={inputCls}>
-                <option value="todos">Todos</option>
-                {Object.keys(statusMap).map((s) => <option key={s} value={s}>{statusMap[s].label}</option>)}
-              </select>
+              <DropdownSelect ariaLabel="Status" valor={fStatus} onSelecionar={setFStatus} className={`${inputCls} flex items-center justify-between text-left`}
+                opcoes={[{ valor: "todos", rotulo: "Todos" }, ...Object.keys(statusMap).map((s) => ({ valor: s, rotulo: statusMap[s].label }))]} />
             </div>
             <div><label className={labelCls}>Valor inicial</label><input value={fValorMin} onChange={(e) => setFValorMin(e.target.value.replace(/[^\d.,]/g, ""))} placeholder="R$ 0,00" inputMode="decimal" className={inputCls} /></div>
             <div><label className={labelCls}>Valor final</label><input value={fValorMax} onChange={(e) => setFValorMax(e.target.value.replace(/[^\d.,]/g, ""))} placeholder="R$ 999,00" inputMode="decimal" className={inputCls} /></div>
