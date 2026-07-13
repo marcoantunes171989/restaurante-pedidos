@@ -8342,7 +8342,9 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
   const horas24R = Array.from({ length: 24 }, (_, h) => ({ h, label: `${String(h).padStart(2, "0")}h`, valor: 0, qtd: 0 }));
   pagosG.forEach((o) => { if (o.createdAtISO) { const h = new Date(o.createdAtISO).getHours(); horas24R[h].valor += orderTotal(o) * 1.1; horas24R[h].qtd += 1; } });
   const horarioGeral = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 0, 1].map((h) => horas24R[h]);
-  const catDonutR = a.categorias.slice(0, 6).map((c) => ({ label: c.categoria, valor: c.valor }));
+  // Paleta oficial de gráficos desta tela (só estas 5 cores, na ordem definida).
+  const PALETA_GRAF_RELATORIOS = ["#2563EB", "#10B981", "#F59E0B", "#8B5CF6", "#64748B"];
+  const catDonutR = a.categorias.slice(0, 6).map((c, i) => ({ label: c.categoria, valor: c.valor, cor: PALETA_GRAF_RELATORIOS[i % PALETA_GRAF_RELATORIOS.length] }));
   // Mesas com maior faturamento
   const porMesaR = {};
   pagosG.forEach((o) => { const t = o.table || "—"; if (!porMesaR[t]) porMesaR[t] = { mesa: t, faturamento: 0, pedidos: 0 }; porMesaR[t].faturamento += orderTotal(o) * 1.1; porMesaR[t].pedidos += 1; });
@@ -8369,8 +8371,8 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
   // Botões de exportação (reutilizados em várias abas)
   const BotoesExport = () => (
     <div className="flex flex-wrap gap-2">
-      <button onClick={exportarCSV} className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-2.5 text-sm font-bold text-emerald-300 hover:bg-emerald-500/20 transition">Exportar Excel (CSV)</button>
-      <button onClick={imprimirRelatorio} className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-2.5 text-sm font-bold text-slate-200 hover:bg-white/10 transition">PDF / Imprimir</button>
+      <button onClick={exportarCSV} className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-[#334155] transition hover:bg-slate-100">📊 Exportar Excel (CSV)</button>
+      <button onClick={imprimirRelatorio} className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-[#334155] transition hover:bg-slate-100">🖨️ PDF / Imprimir</button>
     </div>
   );
 
@@ -8527,11 +8529,11 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
     <div className="space-y-6">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h2 className="page-title flex items-center gap-2.5 text-2xl font-bold tracking-tight text-white">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gold-400/30 bg-gold-400/10 text-gold-300"><IconRelatorios /></span>
+          <h2 className="page-title flex items-center gap-2.5 text-2xl font-bold tracking-tight text-dash-navy">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-500/10 text-blue-500"><IconRelatorios /></span>
             Relatórios de vendas
           </h2>
-          <p className="mt-1 text-sm text-slate-400">Análise gerencial: vendas, cupons, estoque, clientes e tempo de permanência.</p>
+          <p className="mt-1 text-sm text-slate-500">Análise gerencial: vendas, cupons, estoque, clientes e tempo de permanência.</p>
         </div>
         <div className="pp-dash-filtros">
           <SeletorPeriodo periodo={periodo} setPeriodo={setPeriodo} ini={ini} setIni={setIni} fim={fim} setFim={setFim} />
@@ -8550,12 +8552,12 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
           <BotoesExport />
           {/* 6 KPIs */}
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
-            <CardMetrica titulo="Faturamento total" valor={formatCurrency(a.faturamento)} cor="text-emerald-400" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="12" rx="2" /><circle cx="12" cy="12" r="2.5" /><path d="M6 12h.01M18 12h.01" /></svg>} variacao={comparativo?.faturamento} />
-            <CardMetrica titulo="Subtotal vendido" valor={formatCurrency(a.faturamentoSemTaxa)} cor="text-white" icon="📈" />
-            <CardMetrica titulo="Ticket médio" valor={formatCurrency(a.ticket)} cor="text-blue-400" icon="🎫" variacao={comparativo?.ticket} />
-            <CardMetrica titulo="Itens vendidos" valor={itensVendidos} cor="text-white" icon="🛍️" />
-            <CardMetrica titulo="Pedidos" valor={a.totalPedidos} cor="text-violet-300" icon="📋" variacao={comparativo?.pedidos} />
-            <CardMetrica titulo="Margem estimada" valor={formatCurrency(margemEstimada)} sub={`${margemPct.toFixed(1)}% sobre faturamento`} cor="text-gold-400" icon="🧮" />
+            <CardMetrica titulo="Faturamento total" valor={formatCurrency(a.faturamento)} cor="text-dash-navy" tone="dashSuccess" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="12" rx="2" /><circle cx="12" cy="12" r="2.5" /><path d="M6 12h.01M18 12h.01" /></svg>} variacao={comparativo?.faturamento} />
+            <CardMetrica titulo="Subtotal vendido" valor={formatCurrency(a.faturamentoSemTaxa)} cor="text-dash-navy" icon="📈" />
+            <CardMetrica titulo="Ticket médio" valor={formatCurrency(a.ticket)} cor="text-dash-navy" tone="dashPrimary" icon="🎫" variacao={comparativo?.ticket} />
+            <CardMetrica titulo="Itens vendidos" valor={itensVendidos} cor="text-dash-navy" icon="🛍️" />
+            <CardMetrica titulo="Pedidos" valor={a.totalPedidos} cor="text-dash-navy" tone="dashInfo" icon="📋" variacao={comparativo?.pedidos} />
+            <CardMetrica titulo="Margem estimada" valor={formatCurrency(margemEstimada)} sub={`${margemPct.toFixed(1)}% sobre faturamento`} cor="text-dash-navy" tone="dashWarning" icon="🧮" />
           </div>
 
           {/* Evolução + categoria + horário */}
@@ -8569,10 +8571,10 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
                   { r: "Média diária", v: formatCurrency(mediaDiaria), s: "no período" },
                   { r: "Dias ativos", v: `${diasAtivos}`, s: `de ${totalDiasPeriodo}` },
                 ].map((c) => (
-                  <div key={c.r} className="rounded-2xl border border-white/10 bg-slate-950/40 p-3">
+                  <div key={c.r} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
                     <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{c.r}</p>
-                    <p className="page-title mt-1 truncate text-base font-bold text-white">{c.v}</p>
-                    <p className="truncate text-[11px] text-gold-300">{c.s}</p>
+                    <p className="page-title mt-1 truncate text-base font-bold text-dash-navy">{c.v}</p>
+                    <p className="truncate text-[11px] text-blue-500">{c.s}</p>
                   </div>
                 ))}
               </div>
@@ -8592,27 +8594,27 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
 
           {/* Tabelas: produtos, mesas */}
           <div className="grid gap-5 xl:grid-cols-2">
-            <Painel titulo="Produtos mais vendidos" acao={<button onClick={() => setAba("vendas")} className="text-xs font-bold text-gold-300 hover:underline">Ver todos →</button>}>
+            <Painel titulo="Produtos mais vendidos" acao={<button onClick={() => setAba("vendas")} className="text-xs font-bold text-blue-500 hover:underline">Ver todos →</button>}>
               <div className="space-y-2.5">
                 {a.topProdutos.length === 0 && <p className="py-4 text-center text-sm text-slate-500">Nenhuma venda no período.</p>}
                 {a.topProdutos.map((p, i) => (
                   <div key={p.nome}>
                     <div className="flex items-center justify-between gap-2 text-sm">
-                      <span className="flex min-w-0 items-center gap-2 font-semibold text-white"><span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-gold-400/15 text-[10px] font-black text-gold-300">{i + 1}</span><span className="truncate">{p.nome}</span></span>
-                      <span className="shrink-0 text-slate-300">{p.qtd} un · <b className="text-emerald-300">{formatCurrency(p.valor)}</b> · {a.faturamentoSemTaxa ? ((p.valor / a.faturamentoSemTaxa) * 100).toFixed(1) : 0}%</span>
+                      <span className="flex min-w-0 items-center gap-2 font-semibold text-dash-navy"><span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[10px] font-black ${i === 0 ? "bg-amber-50 text-amber-600" : "bg-blue-50 text-blue-600"}`}>{i + 1}</span><span className="truncate">{p.nome}</span></span>
+                      <span className="shrink-0 text-slate-500">{p.qtd} un · <b className="text-emerald-600">{formatCurrency(p.valor)}</b> · {a.faturamentoSemTaxa ? ((p.valor / a.faturamentoSemTaxa) * 100).toFixed(1) : 0}%</span>
                     </div>
-                    <div className="mt-1 h-2 overflow-hidden rounded-full bg-white/10"><div className={`h-full rounded-full ${i === 0 ? "bg-gold-400" : "bg-blue-500"}`} style={{ width: `${a.faturamentoSemTaxa ? (p.valor / a.faturamentoSemTaxa) * 100 : 0}%` }} /></div>
+                    <div className="mt-1 h-2 overflow-hidden rounded-full bg-slate-100"><div className={`h-full rounded-full ${i === 0 ? "bg-amber-500" : "bg-blue-500"}`} style={{ width: `${a.faturamentoSemTaxa ? (p.valor / a.faturamentoSemTaxa) * 100 : 0}%` }} /></div>
                   </div>
                 ))}
               </div>
             </Painel>
-            <Painel titulo="Mesas com maior faturamento" acao={<button onClick={irParaMesas} className="text-xs font-bold text-gold-300 hover:underline">Ver mapa →</button>}>
+            <Painel titulo="Mesas com maior faturamento" acao={<button onClick={irParaMesas} className="text-xs font-bold text-blue-500 hover:underline">Ver mapa →</button>}>
               {mesasFaturamento.length === 0 ? <p className="py-4 text-center text-sm text-slate-500">Nenhuma venda no período.</p> : (
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[360px] text-sm">
-                    <thead><tr className="border-b border-white/10 text-left text-[10px] font-bold uppercase tracking-widest text-slate-500"><th className="py-2 pr-3">Mesa</th><th className="py-2 pr-3 text-right">Faturamento</th><th className="py-2 pr-3 text-center">Pedidos</th><th className="py-2 text-right">Ticket médio</th></tr></thead>
+                    <thead><tr className="border-b border-slate-200 text-left text-[10px] font-bold uppercase tracking-widest text-slate-500"><th className="py-2 pr-3">Mesa</th><th className="py-2 pr-3 text-right">Faturamento</th><th className="py-2 pr-3 text-center">Pedidos</th><th className="py-2 text-right">Ticket médio</th></tr></thead>
                     <tbody>{mesasFaturamento.slice(0, 8).map((m) => (
-                      <tr key={m.mesa} className="border-b border-white/5"><td className="py-2.5 pr-3 font-bold text-white">{m.mesa}</td><td className="py-2.5 pr-3 text-right font-semibold text-emerald-300">{formatCurrency(m.faturamento)}</td><td className="py-2.5 pr-3 text-center text-slate-300">{m.pedidos}</td><td className="py-2.5 text-right text-slate-300">{formatCurrency(m.ticket)}</td></tr>
+                      <tr key={m.mesa} className="border-b border-slate-100"><td className="py-2.5 pr-3 font-bold text-dash-navy">{m.mesa}</td><td className="py-2.5 pr-3 text-right font-semibold text-emerald-600">{formatCurrency(m.faturamento)}</td><td className="py-2.5 pr-3 text-center text-slate-500">{m.pedidos}</td><td className="py-2.5 text-right text-slate-500">{formatCurrency(m.ticket)}</td></tr>
                     ))}</tbody>
                   </table>
                 </div>
@@ -8623,22 +8625,22 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
           {/* Complementares */}
           <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
             <Painel titulo="Conversão / Pagamento">
-              <p className="page-title text-3xl font-bold text-white">{taxaPagamento}%</p>
+              <p className="page-title text-3xl font-bold text-dash-navy">{taxaPagamento}%</p>
               <p className="mt-1 text-xs text-slate-500">pedidos pagos de {a.totalPedidos}</p>
             </Painel>
             <Painel titulo="Clientes no período">
-              <p className="page-title text-3xl font-bold text-white">{clientesLista.length}</p>
+              <p className="page-title text-3xl font-bold text-dash-navy">{clientesLista.length}</p>
               <p className="mt-1 text-xs text-slate-500">{clientesIdentificados} identificado(s)</p>
             </Painel>
             <Painel titulo="Estoque">
               <div className="flex gap-4">
-                <div><p className="page-title text-2xl font-bold text-amber-300">{baixoCount}</p><p className="text-[11px] text-slate-500">abaixo do mínimo</p></div>
-                <div><p className="page-title text-2xl font-bold text-red-300">{zeradosCount}</p><p className="text-[11px] text-slate-500">zerados</p></div>
+                <div><p className="page-title text-2xl font-bold text-amber-500">{baixoCount}</p><p className="text-[11px] text-slate-500">abaixo do mínimo</p></div>
+                <div><p className="page-title text-2xl font-bold text-red-500">{zeradosCount}</p><p className="text-[11px] text-slate-500">zerados</p></div>
               </div>
-              <button onClick={() => setAba("estoque")} className="mt-3 text-xs font-bold text-gold-300 hover:underline">Ver relatório de estoque →</button>
+              <button onClick={() => setAba("estoque")} className="mt-3 text-xs font-bold text-blue-500 hover:underline">Ver relatório de estoque →</button>
             </Painel>
             <Painel titulo="Permanência">
-              <button onClick={() => setAba("permanencia")} className="text-sm font-bold text-gold-300 hover:underline">Ver tempo de permanência →</button>
+              <button onClick={() => setAba("permanencia")} className="text-sm font-bold text-blue-500 hover:underline">Ver tempo de permanência →</button>
               <p className="mt-2 text-xs text-slate-500">Análise do tempo entre abertura e pagamento das comandas.</p>
             </Painel>
           </div>
@@ -8648,26 +8650,26 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
       {aba === "clientes" && (
         <>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <CardMetrica titulo="Clientes identificados" valor={clientesIdentificados} cor="text-emerald-400" icon="🧑" />
-            <CardMetrica titulo="Não identificados" valor={`${pedidosSemId} pedidos`} cor="text-white" icon="❓" />
-            <CardMetrica titulo="Faturamento sem identificação" valor={formatCurrency(fatSemId)} cor="text-gold-400" icon="💸" />
-            <CardMetrica titulo="Oportunidade de fidelização" valor={pedidosSemId > a.totalPedidos / 2 ? "Alta" : pedidosSemId > 0 ? "Média" : "Baixa"} cor="text-blue-400" icon="⭐" />
+            <CardMetrica titulo="Clientes identificados" valor={clientesIdentificados} cor="text-dash-navy" tone="dashSuccess" icon="🧑" />
+            <CardMetrica titulo="Não identificados" valor={`${pedidosSemId} pedidos`} cor="text-dash-navy" icon="❓" />
+            <CardMetrica titulo="Faturamento sem identificação" valor={formatCurrency(fatSemId)} cor="text-dash-navy" tone="dashWarning" icon="💸" />
+            <CardMetrica titulo="Oportunidade de fidelização" valor={pedidosSemId > a.totalPedidos / 2 ? "Alta" : pedidosSemId > 0 ? "Média" : "Baixa"} cor="text-dash-navy" tone="dashPrimary" icon="⭐" />
           </div>
-          <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.04]">
-            <div className="border-b border-gold-400/15 px-5 py-3"><h3 className="page-title text-sm font-bold uppercase tracking-wider text-white">Clientes do período</h3></div>
+          <div className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white">
+            <div className="border-b border-slate-200 px-5 py-3"><h3 className="page-title text-sm font-bold uppercase tracking-wider text-dash-navy">Clientes do período</h3></div>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[640px] text-sm">
-                <thead><tr className="bg-white/[0.03] text-left text-[10px] font-bold uppercase tracking-widest text-gold-400/70"><th className="px-5 py-2.5">Cliente</th><th className="px-3 py-2.5 text-center">Pedidos</th><th className="px-3 py-2.5 text-right">Faturamento</th><th className="px-3 py-2.5 text-right">Ticket médio</th><th className="px-3 py-2.5 text-right">Último pedido</th><th className="px-5 py-2.5">Status</th></tr></thead>
+                <thead><tr className="bg-slate-50 text-left text-[10px] font-bold uppercase tracking-widest text-slate-500"><th className="px-5 py-2.5">Cliente</th><th className="px-3 py-2.5 text-center">Pedidos</th><th className="px-3 py-2.5 text-right">Faturamento</th><th className="px-3 py-2.5 text-right">Ticket médio</th><th className="px-3 py-2.5 text-right">Último pedido</th><th className="px-5 py-2.5">Status</th></tr></thead>
                 <tbody>
                   {clientesLista.length === 0 && <tr><td colSpan={6} className="px-5 py-6 text-center text-sm text-slate-500">Nenhum pedido no período.</td></tr>}
                   {clientesLista.map((c) => (
-                    <tr key={c.cliente} className="border-t border-white/5">
-                      <td className="px-5 py-3 font-semibold text-white">{c.cliente}</td>
-                      <td className="px-3 py-3 text-center text-slate-300">{c.pedidos}</td>
-                      <td className="px-3 py-3 text-right font-semibold text-emerald-300">{formatCurrency(c.faturamento)}</td>
-                      <td className="px-3 py-3 text-right text-slate-300">{formatCurrency(c.ticket)}</td>
+                    <tr key={c.cliente} className="border-t border-slate-100">
+                      <td className="px-5 py-3 font-semibold text-dash-navy">{c.cliente}</td>
+                      <td className="px-3 py-3 text-center text-slate-500">{c.pedidos}</td>
+                      <td className="px-3 py-3 text-right font-semibold text-emerald-600">{formatCurrency(c.faturamento)}</td>
+                      <td className="px-3 py-3 text-right text-slate-500">{formatCurrency(c.ticket)}</td>
                       <td className="px-3 py-3 text-right text-slate-400">{fmtDataBR(c.ultimo)}</td>
-                      <td className="px-5 py-3"><span className={`inline-flex rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${c.identificado ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-300" : "border-white/15 bg-white/[0.06] text-slate-400"}`}>{c.identificado ? "Identificado" : "Sem cadastro"}</span></td>
+                      <td className="px-5 py-3"><span className={`inline-flex rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${c.identificado ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-slate-50 text-slate-500"}`}>{c.identificado ? "Identificado" : "Sem cadastro"}</span></td>
                     </tr>
                   ))}
                 </tbody>
@@ -8675,9 +8677,9 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
             </div>
           </div>
           {pedidosSemId > 0 && (
-            <div className="rounded-[2rem] border border-gold-400/25 bg-gold-400/[0.05] p-5">
-              <h3 className="page-title text-sm font-bold text-gold-300">💡 Recomendação gerencial</h3>
-              <p className="mt-2 text-sm leading-6 text-slate-300">A maior parte dos pedidos está sem identificação do cliente. Considere incentivar o cadastro no tablet, oferecer benefício de fidelidade ou solicitar o telefone no fechamento da comanda para melhorar campanhas futuras.</p>
+            <div className="rounded-[2rem] border border-violet-200 bg-violet-50 p-5">
+              <h3 className="page-title text-sm font-bold text-violet-700">💡 Recomendação gerencial</h3>
+              <p className="mt-2 text-sm leading-6 text-[#334155]">A maior parte dos pedidos está sem identificação do cliente. Considere incentivar o cadastro no tablet, oferecer benefício de fidelidade ou solicitar o telefone no fechamento da comanda para melhorar campanhas futuras.</p>
             </div>
           )}
         </>
@@ -8687,31 +8689,31 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
         <>
           <BotoesExport />
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            <CardMetrica titulo="Subtotal vendido" valor={formatCurrency(a.faturamentoSemTaxa)} cor="text-white" />
-            <CardMetrica titulo="Faturamento + taxa" valor={formatCurrency(a.faturamento)} cor="text-emerald-400" variacao={comparativo?.faturamento} />
-            <CardMetrica titulo="Itens vendidos" valor={a.topProdutos.reduce((s, p) => s + p.qtd, 0)} cor="text-white" />
-            <CardMetrica titulo="Ticket médio" valor={formatCurrency(a.ticket)} sub="por pedido pago" cor="text-gold-400" variacao={comparativo?.ticket} />
-            <CardMetrica titulo="Qtd. de pedidos" valor={a.totalPedidos} sub="no período" cor="text-white" variacao={comparativo?.pedidos} />
-            <CardMetrica titulo="Margem estimada" valor={formatCurrency(margemEstimada)} sub="preço − custo cadastrado (itens pagos)" cor="text-gold-400" />
+            <CardMetrica titulo="Subtotal vendido" valor={formatCurrency(a.faturamentoSemTaxa)} cor="text-dash-navy" />
+            <CardMetrica titulo="Faturamento + taxa" valor={formatCurrency(a.faturamento)} cor="text-dash-navy" tone="dashSuccess" variacao={comparativo?.faturamento} />
+            <CardMetrica titulo="Itens vendidos" valor={a.topProdutos.reduce((s, p) => s + p.qtd, 0)} cor="text-dash-navy" />
+            <CardMetrica titulo="Ticket médio" valor={formatCurrency(a.ticket)} sub="por pedido pago" cor="text-dash-navy" tone="dashPrimary" variacao={comparativo?.ticket} />
+            <CardMetrica titulo="Qtd. de pedidos" valor={a.totalPedidos} sub="no período" cor="text-dash-navy" variacao={comparativo?.pedidos} />
+            <CardMetrica titulo="Margem estimada" valor={formatCurrency(margemEstimada)} sub="preço − custo cadastrado (itens pagos)" cor="text-dash-navy" tone="dashWarning" />
           </div>
-          <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.04]">
-            <div className="flex items-center justify-between border-b border-gold-400/15 px-5 py-3">
-              <h3 className="page-title text-sm font-bold uppercase tracking-wider text-white">Produtos mais vendidos</h3>
+          <div className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white">
+            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3">
+              <h3 className="page-title text-sm font-bold uppercase tracking-wider text-dash-navy">Produtos mais vendidos</h3>
               <span className="text-[11px] text-slate-500">👆 toque para ver os cupons</span>
             </div>
-            <div className="hidden grid-cols-[2fr_1fr_1fr] bg-white/[0.03] px-5 py-2.5 text-[11px] font-bold uppercase tracking-widest text-gold-400/70 sm:grid">
+            <div className="hidden grid-cols-[2fr_1fr_1fr] bg-slate-50 px-5 py-2.5 text-[11px] font-bold uppercase tracking-widest text-slate-500 sm:grid">
               <span>Produto</span><span className="text-center">Qtd vendida</span><span className="text-right">Faturamento</span>
             </div>
             {a.topProdutos.length === 0 && <p className="px-5 py-6 text-center text-sm text-slate-500">Nenhuma venda no período.</p>}
             {a.topProdutos.map((p, i) => (
               <button key={p.nome} onClick={() => setDrill({ nome: p.nome, cupons: cuponsDoProduto(p.nome) })}
-                className="grid w-full gap-1 border-t border-white/[0.06] px-5 py-3 text-left text-sm transition hover:bg-gold-400/[0.06] sm:grid-cols-[2fr_1fr_1fr] sm:items-center">
-                <span className="flex items-center gap-2 font-semibold text-white">
-                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-gold-400/15 text-[10px] font-black text-gold-300">{i + 1}</span>
-                  {p.nome} <span className="text-xs text-gold-400">▸</span>
+                className="grid w-full gap-1 border-t border-slate-100 px-5 py-3 text-left text-sm transition hover:bg-blue-50 sm:grid-cols-[2fr_1fr_1fr] sm:items-center">
+                <span className="flex items-center gap-2 font-semibold text-dash-navy">
+                  <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[10px] font-black ${i === 0 ? "bg-amber-50 text-amber-600" : "bg-blue-50 text-blue-600"}`}>{i + 1}</span>
+                  {p.nome} <span className="text-xs text-blue-500">▸</span>
                 </span>
-                <span className="text-slate-300 sm:text-center">{p.qtd} un</span>
-                <span className="font-semibold text-emerald-300 sm:text-right">{formatCurrency(p.valor)}</span>
+                <span className="text-slate-500 sm:text-center">{p.qtd} un</span>
+                <span className="font-semibold text-emerald-600 sm:text-right">{formatCurrency(p.valor)}</span>
               </button>
             ))}
           </div>
@@ -8723,44 +8725,44 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
       {aba === "estoque" && (
         <>
           <div className="flex flex-wrap gap-2">
-            <button onClick={exportarEstoqueCSV} className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-2.5 text-sm font-bold text-emerald-300 hover:bg-emerald-500/20 transition">Exportar Excel (CSV)</button>
+            <button onClick={exportarEstoqueCSV} className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-[#334155] transition hover:bg-slate-100">📊 Exportar Excel (CSV)</button>
           </div>
 
           {/* Destaques: maior x menor estoque + totais */}
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <div className="rounded-[1.5rem] border border-emerald-400/25 bg-emerald-500/[0.07] p-5">
-              <p className="text-[11px] font-bold uppercase tracking-widest text-emerald-300/80">Maior estoque</p>
-              <p className="page-title mt-2 truncate text-lg font-bold text-white">{maiorEstoque ? maiorEstoque.name : "—"}</p>
-              <p className="mt-0.5 text-sm font-black text-emerald-400">{maiorEstoque ? `${maiorEstoque.estoque ?? 0} un` : "Sem produtos"}</p>
+            <div className="rounded-[1.5rem] border border-emerald-200 bg-emerald-50 p-5">
+              <p className="text-[11px] font-bold uppercase tracking-widest text-emerald-700/80">Maior estoque</p>
+              <p className="page-title mt-2 truncate text-lg font-bold text-dash-navy">{maiorEstoque ? maiorEstoque.name : "—"}</p>
+              <p className="mt-0.5 text-sm font-black text-emerald-600">{maiorEstoque ? `${maiorEstoque.estoque ?? 0} un` : "Sem produtos"}</p>
             </div>
-            <div className="rounded-[1.5rem] border border-red-400/25 bg-red-500/[0.07] p-5">
-              <p className="text-[11px] font-bold uppercase tracking-widest text-red-300/80">Menor estoque</p>
-              <p className="page-title mt-2 truncate text-lg font-bold text-white">{menorEstoque ? menorEstoque.name : "—"}</p>
-              <p className="mt-0.5 text-sm font-black text-red-300">{menorEstoque ? `${menorEstoque.estoque ?? 0} un` : "Sem produtos"}</p>
+            <div className="rounded-[1.5rem] border border-amber-200 bg-amber-50 p-5">
+              <p className="text-[11px] font-bold uppercase tracking-widest text-amber-700/80">Menor estoque</p>
+              <p className="page-title mt-2 truncate text-lg font-bold text-dash-navy">{menorEstoque ? menorEstoque.name : "—"}</p>
+              <p className="mt-0.5 text-sm font-black text-amber-600">{menorEstoque ? `${menorEstoque.estoque ?? 0} un` : "Sem produtos"}</p>
             </div>
-            <CardMetrica titulo="Itens baixados no período" valor={totalVendidoPeriodo} sub="unidades vendidas/pagas" cor="text-white" />
-            <CardMetrica titulo="Total em estoque (atual)" valor={`${totalEmEstoque} un`} sub={`${zeradosCount} zerado(s) · ${baixoCount} baixo(s)`} cor="text-gold-400" />
+            <CardMetrica titulo="Itens baixados no período" valor={totalVendidoPeriodo} sub="unidades vendidas/pagas" cor="text-dash-navy" />
+            <CardMetrica titulo="Total em estoque (atual)" valor={`${totalEmEstoque} un`} sub={`${zeradosCount} zerado(s) · ${baixoCount} baixo(s)`} cor="text-dash-navy" tone="dashWarning" />
           </div>
 
           {/* Tabela: estoque anterior x posterior conforme as vendas */}
-          <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.04]">
-            <div className="flex items-center justify-between border-b border-gold-400/15 px-5 py-3">
-              <h3 className="page-title text-sm font-bold uppercase tracking-wider text-white">Estoque anterior x posterior (por venda)</h3>
+          <div className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white">
+            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3">
+              <h3 className="page-title text-sm font-bold uppercase tracking-wider text-dash-navy">Estoque anterior x posterior (por venda)</h3>
               <span className="text-[11px] text-slate-500">Anterior = atual + vendido no período</span>
             </div>
-            <div className="hidden grid-cols-[2fr_1fr_1fr_1fr] bg-white/[0.03] px-5 py-2.5 text-[11px] font-bold uppercase tracking-widest text-gold-400/70 sm:grid">
+            <div className="hidden grid-cols-[2fr_1fr_1fr_1fr] bg-slate-50 px-5 py-2.5 text-[11px] font-bold uppercase tracking-widest text-slate-500 sm:grid">
               <span>Produto</span><span className="text-center">Estoque anterior</span><span className="text-center">Vendido</span><span className="text-right">Estoque atual</span>
             </div>
             {linhasEstoque.length === 0 && <p className="px-5 py-6 text-center text-sm text-slate-500">Nenhum produto cadastrado.</p>}
             {linhasEstoque.map((l) => (
-              <div key={l.nome} className="grid grid-cols-[2fr_1fr_1fr] sm:grid-cols-[2fr_1fr_1fr_1fr] items-center gap-2 border-t border-white/5 px-5 py-3 text-sm">
+              <div key={l.nome} className="grid grid-cols-[2fr_1fr_1fr] sm:grid-cols-[2fr_1fr_1fr_1fr] items-center gap-2 border-t border-slate-100 px-5 py-3 text-sm">
                 <div className="min-w-0">
-                  <p className="truncate font-bold text-white">{l.nome}</p>
+                  <p className="truncate font-bold text-dash-navy">{l.nome}</p>
                   <p className="truncate text-[11px] text-slate-500">{l.categoria || "—"}{l.zerado ? " • zerado" : l.baixo ? " • estoque baixo" : ""}</p>
                 </div>
-                <span className="hidden text-center font-mono font-bold text-slate-300 sm:block">{l.anterior}</span>
-                <span className="text-center font-mono font-black text-gold-400">{l.vendido > 0 ? `−${l.vendido}` : "0"}</span>
-                <span className={`text-right font-mono font-black ${l.zerado ? "text-red-400" : l.baixo ? "text-amber-300" : "text-emerald-400"}`}>{l.posterior}{(l.zerado || l.baixo) ? " ⚠" : ""}</span>
+                <span className="hidden text-center font-mono font-bold text-slate-500 sm:block">{l.anterior}</span>
+                <span className="text-center font-mono font-black text-blue-500">{l.vendido > 0 ? `−${l.vendido}` : "0"}</span>
+                <span className={`text-right font-mono font-black ${l.zerado ? "text-red-500" : l.baixo ? "text-amber-500" : "text-emerald-500"}`}>{l.posterior}{(l.zerado || l.baixo) ? " ⚠" : ""}</span>
               </div>
             ))}
           </div>
@@ -8783,28 +8785,28 @@ function RelatorioCupom({ pedidos, lojaInfo }) {
   const pagos = pedidos.filter((o) => o.paymentStatus === "paid");
   return (
     <div className="space-y-3">
-      <p className="text-sm text-slate-400">{pagos.length} cupom(ns) fiscal(is) no período — itens detalhados por mesa e comanda. Toque em <b className="text-gold-300">🧾 Cupom</b> para reimprimir ou enviar ao cliente.</p>
-      {pagos.length === 0 && <p className="rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-6 text-center text-sm text-slate-500">Nenhum cupom pago no período.</p>}
+      <p className="text-sm text-slate-500">{pagos.length} cupom(ns) fiscal(is) no período — itens detalhados por mesa e comanda. Toque em <b className="text-blue-600">🧾 Cupom</b> para reimprimir ou enviar ao cliente.</p>
+      {pagos.length === 0 && <p className="rounded-2xl border border-slate-200 bg-white px-5 py-6 text-center text-sm text-slate-500">Nenhum cupom pago no período.</p>}
       {pagos.map((o) => (
-        <div key={o.id} className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.04]">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gold-400/15 bg-white/[0.03] px-5 py-3">
+        <div key={o.id} className="overflow-hidden rounded-3xl border border-slate-200 bg-white">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-slate-50 px-5 py-3">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-xl border border-gold-400/30 bg-gold-400/10 px-2.5 py-1 font-mono text-xs font-black text-gold-300">Cupom {o.id}</span>
-              <span className="rounded-xl bg-white/10 px-2.5 py-1 text-xs font-bold text-white">{o.table}</span>
-              <span className="rounded-xl bg-white/10 px-2.5 py-1 font-mono text-xs font-bold text-slate-300">{o.command}</span>
+              <span className="rounded-xl border border-blue-200 bg-blue-50 px-2.5 py-1 font-mono text-xs font-black text-blue-600">Cupom {o.id}</span>
+              <span className="rounded-xl bg-slate-100 px-2.5 py-1 text-xs font-bold text-dash-navy">{o.table}</span>
+              <span className="rounded-xl bg-slate-100 px-2.5 py-1 font-mono text-xs font-bold text-slate-500">{o.command}</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="page-title text-sm font-bold text-emerald-300">{formatCurrency(orderTotal(o) * 1.1)}</span>
+              <span className="page-title text-sm font-bold text-emerald-600">{formatCurrency(orderTotal(o) * 1.1)}</span>
               <button onClick={() => setCupomSel(o)} title="Cupom não fiscal (imprimir / WhatsApp)"
-                className="rounded-xl border border-gold-400/30 bg-gold-400/10 px-3 py-1.5 text-xs font-black text-gold-200 hover:bg-gold-400/20 transition">🧾 Cupom</button>
+                className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-black text-blue-600 transition hover:bg-blue-100">🧾 Cupom</button>
             </div>
           </div>
           <div className="px-5 py-3">
             <p className="mb-1 text-xs text-slate-500">{o.createdAtISO ? new Date(o.createdAtISO).toLocaleString("pt-BR") : o.createdAt}{o.customer ? ` • ${o.customer}` : ""}</p>
             {o.items.map((it, i) => (
               <div key={i} className="flex justify-between text-sm">
-                <span className="text-slate-300">{it.quantity}x {it.name}</span>
-                <span className="font-bold text-white">{formatCurrency(it.price * it.quantity)}</span>
+                <span className="text-slate-500">{it.quantity}x {it.name}</span>
+                <span className="font-bold text-dash-navy">{formatCurrency(it.price * it.quantity)}</span>
               </div>
             ))}
           </div>
@@ -9136,23 +9138,23 @@ function CuponsProdutoModal({ nome, cupons, lojaInfo, onFechar }) {
   }
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onFechar}>
-      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-2xl flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl max-h-[88vh]">
-        <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#0D1B2A]/60 backdrop-blur-sm p-4" onClick={onFechar}>
+      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-2xl flex-col overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-2xl max-h-[88vh]">
+        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
           <div>
-            <h2 className="text-lg font-black text-white">🧾 Cupons — {nome}</h2>
-            <p className="text-xs text-slate-400">{cupons.length} cupom(ns) • {totalQtd} un • {formatCurrency(totalValor)}</p>
+            <h2 className="text-lg font-black text-dash-navy">🧾 Cupons — {nome}</h2>
+            <p className="text-xs text-slate-500">{cupons.length} cupom(ns) • {totalQtd} un • {formatCurrency(totalValor)}</p>
           </div>
           <div className="flex items-center gap-2">
             {/* Seletor de formato */}
-            <div className="flex items-center gap-1 rounded-2xl border border-white/10 bg-white/[0.04] p-1">
+            <div className="flex items-center gap-1 rounded-2xl border border-slate-200 bg-slate-50 p-1">
               <button onClick={() => setFormato("80mm")}
-                className={`rounded-xl px-2.5 py-1.5 text-xs font-black transition ${formato === "80mm" ? "bg-blue-500 text-white" : "text-slate-300 hover:bg-white/5"}`}>🧾 80mm</button>
+                className={`rounded-xl px-2.5 py-1.5 text-xs font-black transition ${formato === "80mm" ? "bg-blue-500 text-white" : "text-slate-500 hover:bg-slate-100"}`}>🧾 80mm</button>
               <button onClick={() => setFormato("a4")}
-                className={`rounded-xl px-2.5 py-1.5 text-xs font-black transition ${formato === "a4" ? "bg-blue-500 text-white" : "text-slate-300 hover:bg-white/5"}`}>📄 A4</button>
+                className={`rounded-xl px-2.5 py-1.5 text-xs font-black transition ${formato === "a4" ? "bg-blue-500 text-white" : "text-slate-500 hover:bg-slate-100"}`}>📄 A4</button>
             </div>
-            <button onClick={imprimirRelatorio} className="rounded-2xl bg-blue-500 px-4 py-2 text-sm font-black text-white hover:bg-blue-400">🖨️ Imprimir</button>
-            <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20">✕</button>
+            <button onClick={imprimirRelatorio} className="rounded-2xl bg-blue-500 px-4 py-2 text-sm font-black text-white transition hover:bg-blue-600">🖨️ Imprimir</button>
+            <button onClick={onFechar} className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-500 transition hover:bg-slate-100">✕</button>
           </div>
         </div>
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-2">
@@ -9162,17 +9164,17 @@ function CuponsProdutoModal({ nome, cupons, lojaInfo, onFechar }) {
             const q = its.reduce((x, it) => x + it.quantity, 0);
             const v = its.reduce((x, it) => x + it.price * it.quantity, 0);
             return (
-              <div key={o.id} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-slate-800/50 px-4 py-3">
+              <div key={o.id} className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
                 <div className="min-w-0 flex-1">
                   <p className="text-xs font-bold uppercase tracking-widest text-slate-500">{o.id} • {o.table} • {o.command}</p>
-                  <p className="text-sm text-white">👤 {o.customer || "-"} • {o.createdAtISO ? new Date(o.createdAtISO).toLocaleString("pt-BR") : o.createdAt}</p>
+                  <p className="text-sm text-dash-navy">👤 {o.customer || "-"} • {o.createdAtISO ? new Date(o.createdAtISO).toLocaleString("pt-BR") : o.createdAt}</p>
                 </div>
                 <div className="text-right shrink-0">
-                  <p className="text-sm font-black text-white">{q} un</p>
-                  <p className="text-sm font-black text-emerald-300">{formatCurrency(v)}</p>
+                  <p className="text-sm font-black text-dash-navy">{q} un</p>
+                  <p className="text-sm font-black text-emerald-600">{formatCurrency(v)}</p>
                 </div>
                 <button onClick={() => setCupomSel(o)} title="Ver cupom não fiscal (imprimir / WhatsApp)"
-                  className="shrink-0 rounded-xl border border-blue-400/30 bg-blue-500/15 px-3 py-2 text-xs font-black text-blue-200 hover:bg-blue-500/25 transition">🧾 Cupom</button>
+                  className="shrink-0 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-black text-blue-600 transition hover:bg-blue-100">🧾 Cupom</button>
               </div>
             );
           })}
@@ -9220,23 +9222,23 @@ function RelatorioPermanencia({ pedidos }) {
   return (
     <div className="space-y-5">
       <div className="grid gap-4 sm:grid-cols-2">
-        <CardMetrica titulo="Permanência média" valor={fmtDur(mediaGeral)} sub={`${lista.length} comanda(s) analisada(s)`} cor="text-gold-400" icon="⏱️" />
-        <CardMetrica titulo="Comandas finalizadas" valor={lista.length} sub="do pedido ao pagamento" cor="text-white" icon="🧾" />
+        <CardMetrica titulo="Permanência média" valor={fmtDur(mediaGeral)} sub={`${lista.length} comanda(s) analisada(s)`} cor="text-dash-navy" tone="dashPrimary" icon="⏱️" />
+        <CardMetrica titulo="Comandas finalizadas" valor={lista.length} sub="do pedido ao pagamento" cor="text-dash-navy" icon="🧾" />
       </div>
 
       {/* Média por dia da semana — com barras de proporção */}
-      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
-        <h3 className="page-title mb-4 flex items-center gap-2 text-base font-bold tracking-tight text-white">📅 Permanência média por dia da semana</h3>
+      <div className="rounded-[2rem] border border-slate-200 bg-white p-6">
+        <h3 className="page-title mb-4 flex items-center gap-2 text-base font-bold tracking-tight text-dash-navy">📅 Permanência média por dia da semana</h3>
         {dias.length === 0 ? <p className="text-sm text-slate-500">Sem dados suficientes (precisa de comandas pagas no período).</p> :
           <div className="space-y-3.5">
             {dias.sort((a, b) => b.media - a.media).map((d) => (
               <div key={d.dia}>
                 <div className="mb-1 flex items-center justify-between text-sm">
-                  <span className="font-medium capitalize text-slate-200">{d.dia}</span>
-                  <span className="font-semibold text-white">{fmtDur(d.media)} <span className="text-xs font-normal text-slate-500">({d.n} comanda{d.n === 1 ? "" : "s"})</span></span>
+                  <span className="font-medium capitalize text-[#334155]">{d.dia}</span>
+                  <span className="font-semibold text-dash-navy">{fmtDur(d.media)} <span className="text-xs font-normal text-slate-500">({d.n} comanda{d.n === 1 ? "" : "s"})</span></span>
                 </div>
-                <div className="h-2 overflow-hidden rounded-full bg-white/[0.06]">
-                  <div className="h-full rounded-full bg-gradient-to-r from-gold-500 to-gold-300" style={{ width: `${(d.media / maxDia) * 100}%` }} />
+                <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                  <div className="h-full rounded-full bg-blue-500" style={{ width: `${(d.media / maxDia) * 100}%` }} />
                 </div>
               </div>
             ))}
@@ -9244,20 +9246,20 @@ function RelatorioPermanencia({ pedidos }) {
       </div>
 
       {/* Detalhe por comanda */}
-      <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.04]">
-        <div className="border-b border-gold-400/15 px-5 py-3">
-          <h3 className="page-title text-sm font-bold uppercase tracking-wider text-white">Detalhe por comanda</h3>
+      <div className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white">
+        <div className="border-b border-slate-200 px-5 py-3">
+          <h3 className="page-title text-sm font-bold uppercase tracking-wider text-dash-navy">Detalhe por comanda</h3>
         </div>
-        <div className="hidden grid-cols-[1fr_1fr_1.5fr_1fr] bg-white/[0.03] px-5 py-2.5 text-[11px] font-bold uppercase tracking-widest text-gold-400/70 sm:grid">
+        <div className="hidden grid-cols-[1fr_1fr_1.5fr_1fr] bg-slate-50 px-5 py-2.5 text-[11px] font-bold uppercase tracking-widest text-slate-500 sm:grid">
           <span>Comanda</span><span>Mesa</span><span>Período</span><span className="text-right">Permanência</span>
         </div>
         {lista.length === 0 && <p className="px-5 py-6 text-center text-sm text-slate-500">Nenhuma comanda paga no período.</p>}
         {lista.sort((a,b)=>b.ms-a.ms).map((c, i) => (
-          <div key={i} className="grid gap-1 border-t border-white/[0.06] px-5 py-3 text-sm sm:grid-cols-[1fr_1fr_1.5fr_1fr] sm:items-center">
-            <span className="font-mono font-semibold text-white">{c.comanda}</span>
-            <span className="text-slate-300">{c.mesa}</span>
+          <div key={i} className="grid gap-1 border-t border-slate-100 px-5 py-3 text-sm sm:grid-cols-[1fr_1fr_1.5fr_1fr] sm:items-center">
+            <span className="font-mono font-semibold text-dash-navy">{c.comanda}</span>
+            <span className="text-slate-500">{c.mesa}</span>
             <span className="text-xs text-slate-400">{new Date(c.inicio).toLocaleTimeString("pt-BR")} → {new Date(c.fim).toLocaleTimeString("pt-BR")}</span>
-            <span className="font-semibold text-gold-300 sm:text-right">{fmtDur(c.ms)}</span>
+            <span className="font-semibold text-blue-600 sm:text-right">{fmtDur(c.ms)}</span>
           </div>
         ))}
       </div>
@@ -9279,7 +9281,7 @@ const SATISF_PERGUNTAS = [
 function EstrelasMedia({ nota }) {
   return (
     <span className="whitespace-nowrap text-base leading-none">
-      {[1, 2, 3, 4, 5].map((n) => <span key={n} className={n <= Math.round(nota) ? "text-gold-400" : "text-slate-600"}>★</span>)}
+      {[1, 2, 3, 4, 5].map((n) => <span key={n} className={n <= Math.round(nota) ? "text-amber-500" : "text-slate-300"}>★</span>)}
     </span>
   );
 }
@@ -9301,7 +9303,7 @@ function RelatorioSatisfacao({ pesquisas = [] }) {
   const comentarios = lista.filter((q) => (q.comentario || "").trim());
   const origemTxt = (o) => o === "externo" ? "🛵 Delivery" : o === "mesa" ? "🍽️ Mesa" : (o || "—");
   const telMasc = (t) => { const d = String(t || "").replace(/\D/g, ""); return d.length >= 4 ? `****-${d.slice(-4)}` : "—"; };
-  const CORES_NOTA = ["bg-red-500", "bg-orange-500", "bg-amber-400", "bg-lime-500", "bg-emerald-500"];
+  const CORES_NOTA = ["bg-red-500", "bg-amber-500", "bg-slate-400", "bg-blue-500", "bg-emerald-500"];
 
   function exportarCSV() {
     const cab = ["Data", "Pedido", "Origem", "Mesa", "Telefone", "Exp. geral", "Facilidade", "Tempo", "Qualidade", "Cardápio", "Atendimento", "Status pedido", "Recomendação", "Comentário"];
@@ -9326,24 +9328,24 @@ function RelatorioSatisfacao({ pesquisas = [] }) {
         <div className="relative flex-1 min-w-[200px]">
           <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">🔎</span>
           <input value={buscaCli} onChange={(e) => setBuscaCli(e.target.value)} placeholder="Filtrar por cliente (telefone)…"
-            className="w-full rounded-2xl border border-white/10 bg-slate-950/40 py-2.5 pl-9 pr-3 text-sm text-white outline-none focus:border-gold-400/60 placeholder:text-slate-500" />
+            className="w-full rounded-2xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm text-[#334155] outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/25 placeholder:text-slate-400" />
         </div>
-        {termo && <button onClick={() => setBuscaCli("")} className="rounded-2xl border border-white/10 bg-white/[0.06] px-3 py-2.5 text-xs font-bold text-slate-300 hover:bg-white/10">Limpar</button>}
-        <button onClick={exportarCSV} disabled={lista.length === 0} className="rounded-2xl bg-gold-400 px-4 py-2.5 text-sm font-black text-blue-950 transition hover:bg-gold-300 active:scale-95 disabled:opacity-40">Exportar CSV</button>
+        {termo && <button onClick={() => setBuscaCli("")} className="rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-bold text-slate-500 transition hover:bg-slate-100">Limpar</button>}
+        <button onClick={exportarCSV} disabled={lista.length === 0} className="rounded-2xl bg-blue-500 px-4 py-2.5 text-sm font-black text-white transition hover:bg-blue-600 active:scale-95 disabled:opacity-40">Exportar CSV</button>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <CardMetrica titulo="Respostas" valor={lista.length} sub={termo ? "do cliente filtrado" : "no período"} cor="text-white" icon="📝" />
-        <CardMetrica titulo="Média geral" valor={mediaGeral ? mediaGeral.toFixed(1) : "—"} sub="de 1 a 5 estrelas" cor="text-gold-400" icon="⭐" />
-        <CardMetrica titulo="Recomendação (NPS)" valor={nps != null ? `${nps}` : "—"} sub={`${promotores} promotor(es) · ${detratores} detrator(es)`} cor={nps != null && nps >= 0 ? "text-emerald-300" : "text-red-300"} icon="👍" />
-        <CardMetrica titulo="Com comentário" valor={comentarios.length} sub="opiniões abertas" cor="text-blue-300" icon="💬" />
+        <CardMetrica titulo="Respostas" valor={lista.length} sub={termo ? "do cliente filtrado" : "no período"} cor="text-dash-navy" icon="📝" />
+        <CardMetrica titulo="Média geral" valor={mediaGeral ? mediaGeral.toFixed(1) : "—"} sub="de 1 a 5 estrelas" cor="text-dash-navy" tone="dashWarning" icon="⭐" />
+        <CardMetrica titulo="Recomendação (NPS)" valor={nps != null ? `${nps}` : "—"} sub={`${promotores} promotor(es) · ${detratores} detrator(es)`} cor={nps != null && nps >= 0 ? "text-emerald-600" : "text-red-600"} icon="👍" />
+        <CardMetrica titulo="Com comentário" valor={comentarios.length} sub="opiniões abertas" cor="text-dash-navy" tone="dashPrimary" icon="💬" />
       </div>
 
       {/* Distribuição de notas (1–5) por pergunta */}
-      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
+      <div className="rounded-[2rem] border border-slate-200 bg-white p-6">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-          <h3 className="page-title text-base font-bold tracking-tight text-white">Distribuição das notas por pergunta</h3>
-          <div className="flex flex-wrap gap-2 text-[10px] font-bold text-slate-400">
+          <h3 className="page-title text-base font-bold tracking-tight text-dash-navy">Distribuição das notas por pergunta</h3>
+          <div className="flex flex-wrap gap-2 text-[10px] font-bold text-slate-500">
             {["1 Muito ruim", "2 Ruim", "3 Regular", "4 Bom", "5 Excelente"].map((l, i) => (
               <span key={l} className="flex items-center gap-1"><span className={`h-2.5 w-2.5 rounded-sm ${CORES_NOTA[i]}`} />{l}</span>
             ))}
@@ -9354,10 +9356,10 @@ function RelatorioSatisfacao({ pesquisas = [] }) {
             {medias.map((m) => { const tot = m.dist.reduce((s, v) => s + v, 0);
               return (
                 <div key={m.key}>
-                  <div className="mb-1 flex items-center justify-between text-sm"><span className="font-medium text-slate-200">{m.label}</span><span className="text-xs font-bold text-slate-400">{tot} resposta(s)</span></div>
-                  <div className="flex h-6 overflow-hidden rounded-lg bg-white/[0.04]">
+                  <div className="mb-1 flex items-center justify-between text-sm"><span className="font-medium text-[#334155]">{m.label}</span><span className="text-xs font-bold text-slate-500">{tot} resposta(s)</span></div>
+                  <div className="flex h-6 overflow-hidden rounded-lg bg-slate-100">
                     {m.dist.map((c, i) => c > 0 && (
-                      <div key={i} className={`flex items-center justify-center ${CORES_NOTA[i]} text-[10px] font-black text-blue-950`} style={{ width: `${(c / tot) * 100}%` }} title={`${i + 1}★: ${c}`}>{(c / tot) >= 0.08 ? c : ""}</div>
+                      <div key={i} className={`flex items-center justify-center ${CORES_NOTA[i]} text-[10px] font-black text-white`} style={{ width: `${(c / tot) * 100}%` }} title={`${i + 1}★: ${c}`}>{(c / tot) >= 0.08 ? c : ""}</div>
                     ))}
                   </div>
                 </div>
@@ -9368,18 +9370,18 @@ function RelatorioSatisfacao({ pesquisas = [] }) {
       </div>
 
       {/* Média por pergunta */}
-      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
-        <h3 className="page-title mb-4 text-base font-bold tracking-tight text-white">Média por pergunta</h3>
+      <div className="rounded-[2rem] border border-slate-200 bg-white p-6">
+        <h3 className="page-title mb-4 text-base font-bold tracking-tight text-dash-navy">Média por pergunta</h3>
         {lista.length === 0 ? <p className="text-sm text-slate-500">Nenhuma avaliação no filtro selecionado.</p> : (
           <div className="space-y-3.5">
             {medias.map((m) => (
               <div key={m.key}>
                 <div className="mb-1 flex items-center justify-between gap-2 text-sm">
-                  <span className="font-medium text-slate-200">{m.label}</span>
-                  <span className="flex items-center gap-2"><EstrelasMedia nota={m.media} /><span className="w-8 text-right font-bold text-white">{m.media ? m.media.toFixed(1) : "—"}</span></span>
+                  <span className="font-medium text-[#334155]">{m.label}</span>
+                  <span className="flex items-center gap-2"><EstrelasMedia nota={m.media} /><span className="w-8 text-right font-bold text-dash-navy">{m.media ? m.media.toFixed(1) : "—"}</span></span>
                 </div>
-                <div className="h-2 overflow-hidden rounded-full bg-white/[0.06]">
-                  <div className="h-full rounded-full bg-gradient-to-r from-gold-500 to-gold-300" style={{ width: `${(m.media / 5) * 100}%` }} />
+                <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                  <div className="h-full rounded-full bg-blue-500" style={{ width: `${(m.media / 5) * 100}%` }} />
                 </div>
               </div>
             ))}
@@ -9388,16 +9390,16 @@ function RelatorioSatisfacao({ pesquisas = [] }) {
       </div>
 
       {/* Comentários */}
-      <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.04]">
-        <div className="border-b border-gold-400/15 px-5 py-3"><h3 className="page-title text-sm font-bold uppercase tracking-wider text-white">Comentários dos clientes</h3></div>
+      <div className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white">
+        <div className="border-b border-slate-200 px-5 py-3"><h3 className="page-title text-sm font-bold uppercase tracking-wider text-dash-navy">Comentários dos clientes</h3></div>
         {comentarios.length === 0 && <p className="px-5 py-6 text-center text-sm text-slate-500">Nenhum comentário no período.</p>}
         {comentarios.map((q) => (
-          <div key={q.id} className="border-t border-white/[0.06] px-5 py-3.5">
+          <div key={q.id} className="border-t border-slate-100 px-5 py-3.5">
             <div className="flex items-center justify-between gap-2 text-[11px] text-slate-500">
               <span>{origemTxt(q.origem)}{q.mesa && q.origem === "mesa" ? ` · ${q.mesa}` : ""}{q.clienteTelefone ? ` · 📞 ${telMasc(q.clienteTelefone)}` : ""}</span>
               <span>{q.criadoEmISO ? new Date(q.criadoEmISO).toLocaleDateString("pt-BR") : ""}{q.notas?.exp_geral ? ` · ${q.notas.exp_geral}★` : ""}</span>
             </div>
-            <p className="mt-1 text-sm text-slate-200">“{q.comentario}”</p>
+            <p className="mt-1 text-sm text-[#334155]">“{q.comentario}”</p>
           </div>
         ))}
       </div>
