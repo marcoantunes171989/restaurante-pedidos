@@ -8533,11 +8533,13 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
           </h2>
           <p className="mt-1 text-sm text-slate-400">Análise gerencial: vendas, cupons, estoque, clientes e tempo de permanência.</p>
         </div>
-        <SeletorPeriodo periodo={periodo} setPeriodo={setPeriodo} ini={ini} setIni={setIni} fim={fim} setFim={setFim} />
+        <div className="pp-dash-filtros">
+          <SeletorPeriodo periodo={periodo} setPeriodo={setPeriodo} ini={ini} setIni={setIni} fim={fim} setFim={setFim} />
+        </div>
       </div>
 
       {/* Sub-abas de relatório */}
-      <div className="flex flex-wrap gap-2">
+      <div className="pp-dash-filtros flex flex-wrap gap-2">
         {[{ id: "geral", label: "Visão geral" }, { id: "vendas", label: "Vendas" }, { id: "cupom", label: "Cupom / Mesa / Comanda" }, { id: "estoque", label: "Estoque" }, { id: "clientes", label: "Clientes" }, { id: "permanencia", label: "Permanência" }, { id: "satisfacao", label: "⭐ Satisfação" }].map((t) => (
           <FilterChip key={t.id} selected={aba === t.id} label={t.label} onClick={() => setAba(t.id)} />
         ))}
