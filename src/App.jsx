@@ -8471,6 +8471,25 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
   // Paginação da tabela "Clientes do período" (aba Clientes)
   const [paginaClientes, setPaginaClientes] = useState(1);
   const [porPaginaClientes, setPorPaginaClientes] = useState(10);
+  // Aba Clientes — busca/ordenação/filtros do ranking, comparação com o
+  // período anterior, perfil lateral e ações rápidas.
+  const [buscaClientesE, setBuscaClientesE] = useState("");
+  const [ordenacaoClientesE, setOrdenacaoClientesE] = useState({ campo: "faturamentoPeriodo", dir: "desc" });
+  const [fStatusClienteE, setFStatusClienteE] = useState("todos");
+  const [fClassificacaoE, setFClassificacaoE] = useState("todas");
+  const [fCanalClienteE, setFCanalClienteE] = useState("todos");
+  const [fFormaPagClienteE, setFFormaPagClienteE] = useState("todas");
+  const [fValorGastoMinE, setFValorGastoMinE] = useState("");
+  const [fValorGastoMaxE, setFValorGastoMaxE] = useState("");
+  const [fTicketMinE, setFTicketMinE] = useState("");
+  const [fTicketMaxE, setFTicketMaxE] = useState("");
+  const [fPedidosMinE, setFPedidosMinE] = useState("");
+  const [fDiasSemComprarMinE, setFDiasSemComprarMinE] = useState("");
+  const [mostrarFiltrosClientesE, setMostrarFiltrosClientesE] = useState(false);
+  const [clienteSelecionadoE, setClienteSelecionadoE] = useState(null);
+  const [compararPeriodoClientesE, setCompararPeriodoClientesE] = useState(false);
+  const [atualizadoEmClientesE, setAtualizadoEmClientesE] = useState(() => new Date());
+  const [toastClientesE, setToastClientesE] = useState("");
   // Aba Vendas — busca/ordenação/paginação do ranking de produtos, toggle de
   // comparação com o período anterior e ações rápidas (compartilhar/atualizar).
   const [buscaProdV, setBuscaProdV] = useState("");
@@ -8559,17 +8578,11 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
     if (d && (!porClienteR[c].ultimo || d > porClienteR[c].ultimo)) porClienteR[c].ultimo = d;
   });
   const clientesLista = Object.values(porClienteR).map((c) => ({ ...c, ticket: c.pedidos ? c.faturamento / c.pedidos : 0 })).sort((x, y) => y.faturamento - x.faturamento);
-  // Volta para a página 1 ao trocar período, aba ou a quantidade por página.
-  useEffect(() => { setPaginaClientes(1); }, [periodo, ini, fim, aba, porPaginaClientes]);
-  const totalPaginasClientes = Math.max(1, Math.ceil(clientesLista.length / porPaginaClientes));
-  const paginaClientesAtual = Math.min(paginaClientes, totalPaginasClientes);
-  const clientesListaVisivel = clientesLista.slice((paginaClientesAtual - 1) * porPaginaClientes, paginaClientesAtual * porPaginaClientes);
   const clientesIdentificados = clientesLista.filter((c) => c.identificado).length;
   const naoIdent = clientesLista.filter((c) => !c.identificado);
   const pedidosSemId = naoIdent.reduce((s, c) => s + c.pedidos, 0);
   const fatSemId = naoIdent.reduce((s, c) => s + c.faturamento, 0);
   const taxaPagamento = a.totalPedidos ? Math.round((a.pagos.length / a.totalPedidos) * 100) : 0;
-  const fmtDataBR = (d) => (d ? d.toLocaleDateString("pt-BR") : "—");
 
   // Botões de exportação (reutilizados em várias abas)
   const BotoesExport = () => (
@@ -8980,6 +8993,274 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
     j.document.close();
   }
 
+  // ── Aba Clientes: Centro Inteligente de CRM Analítico — reaproveita
+  // orders (histórico completo já carregado) e products/custoPorNome;
+  // nenhuma consulta nova. clientesLista/porClienteR (acima) refletem só o
+  // período selecionado; aqui cruzamos com o histórico de vida de cada
+  // cliente (primeira/última compra, dias sem comprar etc.), usando o
+  // mesmo critério de identificação já existente (o.customer ||
+  // o.clienteTelefone) — sem alterar regra de negócio. Não há campos de
+  // cidade, aniversário, observação ou "responsável" no cadastro do
+  // cliente (tab_clientes só tem nome/telefone) — esses campos aparecem
+  // como "—" no perfil, sem inventar dado.
+  const catPorNomeProdutoE = Object.fromEntries(products.map((p) => [p.name, p.category]));
+  const clientesHistoricoE = (() => {
+    const m = {};
+    orders.filter((o) => o.status !== "cancelled" && (o.customer || o.clienteTelefone)).forEach((o) => {
+      const chave = o.customer || o.clienteTelefone;
+      if (!m[chave]) m[chave] = { cliente: chave, telefone: o.clienteTelefone || null, pedidos: [] };
+      m[chave].pedidos.push(o);
+      if (!m[chave].telefone && o.clienteTelefone) m[chave].telefone = o.clienteTelefone;
+    });
+    return m;
+  })();
+  const agoraClientesE = Date.now();
+  function analisarClienteE(chave) {
+    const hist = clientesHistoricoE[chave];
+    if (!hist) return null;
+    const pagos = hist.pedidos.filter((o) => o.paymentStatus === "paid");
+    const datas = hist.pedidos.map((o) => o.createdAtISO ? new Date(o.createdAtISO) : null).filter(Boolean).sort((a, b) => a - b);
+    const primeira = datas[0] || null;
+    const ultima = datas[datas.length - 1] || null;
+    const penultima = datas.length >= 2 ? datas[datas.length - 2] : null;
+    const faturamentoTotal = pagos.reduce((s, o) => s + orderTotal(o) * 1.1, 0);
+    const ticketMedioVida = pagos.length ? faturamentoTotal / pagos.length : 0;
+    const maiorCompra = pagos.length ? Math.max(...pagos.map((o) => orderTotal(o) * 1.1)) : 0;
+    const lucroGerado = pagos.reduce((s, o) => s + o.items.reduce((x, it) => x + ((it.price || 0) - (custoPorNome[it.name] ?? 0)) * it.quantity, 0), 0);
+    const diasSemComprar = ultima != null ? Math.floor((agoraClientesE - ultima.getTime()) / 864e5) : null;
+    const contagemProduto = {}, contagemCategoria = {}, contagemHora = {}, contagemForma = {}, contagemMesa = {};
+    pagos.forEach((o) => {
+      o.items.forEach((it) => {
+        contagemProduto[it.name] = (contagemProduto[it.name] || 0) + it.quantity;
+        const cat = catPorNomeProdutoE[it.name] || "Outros";
+        contagemCategoria[cat] = (contagemCategoria[cat] || 0) + it.quantity;
+      });
+      if (o.createdAtISO) { const h = new Date(o.createdAtISO).getHours(); contagemHora[h] = (contagemHora[h] || 0) + 1; }
+      const forma = o.pagamentoForma || "Não informado"; contagemForma[forma] = (contagemForma[forma] || 0) + 1;
+      if (o.table) contagemMesa[o.table] = (contagemMesa[o.table] || 0) + 1;
+    });
+    const top = (obj) => Object.entries(obj).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+    const horaTop = top(contagemHora);
+    const temposPermanencia = pagos.map((o) => minutosEntreISO(o.createdAtISO, o.updatedAtISO)).filter((v) => v != null);
+    const ultimosPedidos = [...hist.pedidos].sort((x, y) => new Date(y.createdAtISO || 0) - new Date(x.createdAtISO || 0)).slice(0, 8)
+      .map((o) => ({ id: o.id, quando: o.createdAtISO ? new Date(o.createdAtISO) : null, valor: orderTotal(o) * 1.1, status: o.status, pago: o.paymentStatus === "paid" }));
+    return {
+      telefone: hist.telefone, totalPedidosVida: hist.pedidos.length, primeira, ultima, penultima, diasSemComprar,
+      faturamentoTotal, ticketMedioVida, maiorCompra, lucroGerado,
+      produtoFavorito: top(contagemProduto), categoriaFavorita: top(contagemCategoria),
+      horarioPreferido: horaTop != null ? `${String(horaTop).padStart(2, "0")}h` : null,
+      formaPagamentoFavorita: top(contagemForma), mesaFavorita: top(contagemMesa),
+      canalPredominante: pagos.some((o) => o.command) ? "Mesa / QR Code" : pagos.some((o) => o.table) ? "Mesa" : "Balcão / Delivery",
+      tempoMedioPermanencia: temposPermanencia.length ? temposPermanencia.reduce((s, v) => s + v, 0) / temposPermanencia.length : null,
+      ultimosPedidos,
+    };
+  }
+
+  // Comparativo por cliente com o período anterior (mesmo intervalo, mesma
+  // duração) — usado nos alertas/insights de ticket e crescimento.
+  const comparativoClientesE = (() => {
+    if (periodo === "tudo") return null;
+    const [a0, b0] = intervaloPeriodo(periodo, ini, fim);
+    if (!a0 || a0.getTime() <= 0) return null;
+    const dur = b0.getTime() - a0.getTime();
+    const anterioresC = orders.filter((o) => { if (!o.createdAtISO || o.status === "cancelled") return false; const d = new Date(o.createdAtISO); return d >= new Date(a0.getTime() - dur - 1) && d <= new Date(a0.getTime() - 1); });
+    const m = {};
+    anterioresC.forEach((o) => {
+      const chave = o.customer || o.clienteTelefone; if (!chave) return;
+      if (!m[chave]) m[chave] = { pedidos: 0, faturamento: 0 };
+      m[chave].pedidos += 1;
+      if (o.paymentStatus === "paid") m[chave].faturamento += orderTotal(o) * 1.1;
+    });
+    return m;
+  })();
+  const [inicioPeriodoE, fimPeriodoE] = intervaloPeriodo(periodo, ini, fim) || [];
+  const periodoValidoE = !!(inicioPeriodoE && inicioPeriodoE.getTime() > 0 && fimPeriodoE);
+
+  function statusDeClienteE(c) {
+    const primeiraNoPeriodo = periodoValidoE && c.primeira && c.primeira >= inicioPeriodoE && c.primeira <= fimPeriodoE;
+    if (primeiraNoPeriodo) return "novo";
+    if (c.diasSemComprar == null) return "semDados";
+    if (c.totalPedidosVida >= 2 && c.penultima && c.ultima) {
+      const gapDias = (c.ultima.getTime() - c.penultima.getTime()) / 864e5;
+      const ultimaNoPeriodo = periodoValidoE && c.ultima >= inicioPeriodoE && c.ultima <= fimPeriodoE;
+      if (gapDias > 30 && ultimaNoPeriodo) return "recuperado";
+    }
+    if (c.diasSemComprar > 30) return "inativo";
+    if (c.diasSemComprar > 15) return "risco";
+    if (c.totalPedidosVida > 1) return "recorrente";
+    return "ativo";
+  }
+
+  // Ranking = período selecionado (clientesLista, já calculado acima) + o
+  // histórico de vida de cada cliente identificado.
+  const clientesRankingBase = clientesLista.filter((c) => c.identificado).map((c) => {
+    const analise = analisarClienteE(c.cliente);
+    return {
+      cliente: c.cliente, pedidosPeriodo: c.pedidos, faturamentoPeriodo: c.faturamento, ticketPeriodo: c.ticket, ultimaCompraPeriodo: c.ultimo,
+      ...(analise || { telefone: null, totalPedidosVida: c.pedidos, primeira: null, ultima: c.ultimo, penultima: null, diasSemComprar: null, faturamentoTotal: c.faturamento, ticketMedioVida: c.ticket, maiorCompra: 0, lucroGerado: 0, produtoFavorito: null, categoriaFavorita: null, horarioPreferido: null, formaPagamentoFavorita: null, mesaFavorita: null, canalPredominante: "—", tempoMedioPermanencia: null, ultimosPedidos: [] }),
+    };
+  });
+  const clientesPorValorE = [...clientesRankingBase].sort((a, b) => b.faturamentoTotal - a.faturamentoTotal);
+  const nClientesE = clientesPorValorE.length;
+  const tierPorClienteE = {};
+  clientesPorValorE.forEach((c, i) => {
+    const pct = nClientesE ? (i + 1) / nClientesE : 1;
+    tierPorClienteE[c.cliente] = pct <= 0.1 ? "vip" : pct <= 0.3 ? "ouro" : pct <= 0.6 ? "prata" : "bronze";
+  });
+  const clientesRankingE = clientesRankingBase.map((c) => {
+    const ant = comparativoClientesE?.[c.cliente] || null;
+    const ticketAnterior = ant && ant.pedidos ? ant.faturamento / ant.pedidos : null;
+    const variacaoFaturamento = ant ? (ant.faturamento > 0 ? ((c.faturamentoPeriodo - ant.faturamento) / ant.faturamento) * 100 : (c.faturamentoPeriodo > 0 ? 100 : null)) : null;
+    const variacaoPedidos = ant ? c.pedidosPeriodo - ant.pedidos : null;
+    const status = statusDeClienteE(c);
+    const classificacao = tierPorClienteE[c.cliente] || "bronze";
+    const frequente = c.pedidosPeriodo >= 3;
+    return { ...c, ticketAnterior, variacaoFaturamento, variacaoPedidos, status, classificacao, frequente };
+  });
+
+  // ── Filtros + busca + ordenação (todas as colunas) — reaproveita o
+  // estado de paginação já existente (paginaClientes/porPaginaClientes). ──
+  const canaisClientesDisponiveisE = Array.from(new Set(clientesRankingE.map((c) => c.canalPredominante).filter(Boolean))).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  const formasClientesDisponiveisE = Array.from(new Set(clientesRankingE.map((c) => c.formaPagamentoFavorita).filter(Boolean))).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  const buscaClientesLowerE = buscaClientesE.trim().toLowerCase();
+  const clientesFiltradosE = clientesRankingE.filter((c) => {
+    if (buscaClientesLowerE && !`${c.cliente} ${c.telefone || ""}`.toLowerCase().includes(buscaClientesLowerE)) return false;
+    if (fStatusClienteE !== "todos" && c.status !== fStatusClienteE) return false;
+    if (fClassificacaoE !== "todas" && c.classificacao !== fClassificacaoE) return false;
+    if (fCanalClienteE !== "todos" && c.canalPredominante !== fCanalClienteE) return false;
+    if (fFormaPagClienteE !== "todas" && c.formaPagamentoFavorita !== fFormaPagClienteE) return false;
+    if (fValorGastoMinE.trim() && c.faturamentoTotal < Number(fValorGastoMinE)) return false;
+    if (fValorGastoMaxE.trim() && c.faturamentoTotal > Number(fValorGastoMaxE)) return false;
+    if (fTicketMinE.trim() && c.ticketPeriodo < Number(fTicketMinE)) return false;
+    if (fTicketMaxE.trim() && c.ticketPeriodo > Number(fTicketMaxE)) return false;
+    if (fPedidosMinE.trim() && c.pedidosPeriodo < Number(fPedidosMinE)) return false;
+    if (fDiasSemComprarMinE.trim() && (c.diasSemComprar == null || c.diasSemComprar < Number(fDiasSemComprarMinE))) return false;
+    return true;
+  });
+  const clientesOrdenadosE = [...clientesFiltradosE].sort((x, y) => {
+    const dir = ordenacaoClientesE.dir === "asc" ? 1 : -1;
+    const campo = ordenacaoClientesE.campo;
+    if (campo === "cliente" || campo === "status" || campo === "classificacao") return dir * String(x[campo] ?? "").localeCompare(String(y[campo] ?? ""), "pt-BR");
+    if (campo === "recencia") return dir * ((x.ultima?.getTime() ?? 0) - (y.ultima?.getTime() ?? 0));
+    if (campo === "antiguidade") return dir * ((x.primeira?.getTime() ?? 0) - (y.primeira?.getTime() ?? 0));
+    const vx = x[campo], vy = y[campo];
+    if (vx == null && vy == null) return 0;
+    if (vx == null) return 1;
+    if (vy == null) return -1;
+    return dir * (vx - vy);
+  });
+  function alternarOrdemClientesE(campo) {
+    setOrdenacaoClientesE((o) => (o.campo === campo ? { campo, dir: o.dir === "desc" ? "asc" : "desc" } : { campo, dir: "desc" }));
+  }
+  function limparFiltrosClientesE() {
+    setFStatusClienteE("todos"); setFClassificacaoE("todas"); setFCanalClienteE("todos"); setFFormaPagClienteE("todas");
+    setFValorGastoMinE(""); setFValorGastoMaxE(""); setFTicketMinE(""); setFTicketMaxE(""); setFPedidosMinE(""); setFDiasSemComprarMinE("");
+  }
+  const filtrosClientesAtivosE = fStatusClienteE !== "todos" || fClassificacaoE !== "todas" || fCanalClienteE !== "todos" || fFormaPagClienteE !== "todas"
+    || !!fValorGastoMinE || !!fValorGastoMaxE || !!fTicketMinE || !!fTicketMaxE || !!fPedidosMinE || !!fDiasSemComprarMinE;
+
+  // Volta para a página 1 ao trocar período, aba, busca, filtro ou
+  // ordenação (reaproveita o mesmo estado já usado por esta tabela).
+  useEffect(() => { setPaginaClientes(1); }, [periodo, ini, fim, aba, porPaginaClientes, buscaClientesE, fStatusClienteE, fClassificacaoE, fCanalClienteE, fFormaPagClienteE, fValorGastoMinE, fValorGastoMaxE, fTicketMinE, fTicketMaxE, fPedidosMinE, fDiasSemComprarMinE, ordenacaoClientesE]);
+  const totalPaginasClientesE = Math.max(1, Math.ceil(clientesOrdenadosE.length / porPaginaClientes));
+  const paginaClientesAtualE = Math.min(paginaClientes, totalPaginasClientesE);
+  const clientesVisiveisE = clientesOrdenadosE.slice((paginaClientesAtualE - 1) * porPaginaClientes, paginaClientesAtualE * porPaginaClientes);
+
+  // ── Alertas gerenciais ──
+  const clientesAtivosIdentificadosE = clientesRankingE.length;
+  const alertasClientesE = [];
+  clientesRankingE.forEach((c) => {
+    if (c.diasSemComprar != null && c.diasSemComprar > 30) alertasClientesE.push({ cliente: c.cliente, nivel: "atencao", tipo: "Sem retorno há 30 dias", desc: `${c.diasSemComprar} dia(s) sem comprar`, motivo: "Cliente ficou inativo — risco de perda.", acao: "Enviar oferta de reativação." });
+    if (c.classificacao === "vip" && c.diasSemComprar != null && c.diasSemComprar > 30) alertasClientesE.push({ cliente: c.cliente, nivel: "critico", tipo: "Cliente VIP inativo", desc: `${c.diasSemComprar} dia(s) sem comprar · ${formatCurrency(c.faturamentoTotal)} no histórico`, motivo: "Cliente de alto valor parou de comprar.", acao: "Contato prioritário — atendimento pessoal." });
+    if (c.ticketAnterior != null && c.ticketPeriodo < c.ticketAnterior * 0.7) alertasClientesE.push({ cliente: c.cliente, nivel: "atencao", tipo: "Ticket caiu", desc: `${formatCurrency(c.ticketPeriodo)} vs. ${formatCurrency(c.ticketAnterior)} no período anterior`, motivo: "Queda relevante no valor médio das compras.", acao: "Entender o motivo e oferecer combo/upsell." });
+    if (c.status === "novo") alertasClientesE.push({ cliente: c.cliente, nivel: "oportunidade", tipo: "Cliente novo", desc: `Primeira compra no período · ${formatCurrency(c.faturamentoPeriodo)}`, motivo: "Início de relacionamento.", acao: "Dar boas-vindas e incentivar a segunda compra." });
+    if (c.frequente) alertasClientesE.push({ cliente: c.cliente, nivel: "oportunidade", tipo: "Alta frequência", desc: `${c.pedidosPeriodo} pedido(s) no período`, motivo: "Cliente com ritmo de compra acima do comum.", acao: "Considerar para programa de fidelidade." });
+  });
+  if (clientesRankingE[0]) alertasClientesE.push({ cliente: clientesRankingE.slice().sort((a, b) => b.faturamentoTotal - a.faturamentoTotal)[0].cliente, nivel: "oportunidade", tipo: "Maior faturamento", desc: formatCurrency(clientesRankingE.slice().sort((a, b) => b.faturamentoTotal - a.faturamentoTotal)[0].faturamentoTotal), motivo: "Cliente com maior valor acumulado.", acao: "Manter relacionamento próximo — cliente âncora." });
+  const clienteMaiorCrescimentoE = clientesRankingE.filter((c) => c.variacaoFaturamento != null).sort((a, b) => b.variacaoFaturamento - a.variacaoFaturamento)[0] || null;
+  if (clienteMaiorCrescimentoE && clienteMaiorCrescimentoE.variacaoFaturamento > 0) alertasClientesE.push({ cliente: clienteMaiorCrescimentoE.cliente, nivel: "oportunidade", tipo: "Maior crescimento", desc: `+${clienteMaiorCrescimentoE.variacaoFaturamento.toFixed(0)}% vs. período anterior`, motivo: "Cliente aumentando o consumo.", acao: "Aproveitar o momento para oferecer upgrade ou fidelidade." });
+  if (pedidosSemId > 0) alertasClientesE.push({ cliente: "Pedidos sem identificação", nivel: "atencao", tipo: "Cliente sem identificação", desc: `${pedidosSemId} pedido(s) · ${formatCurrency(fatSemId)}`, motivo: "Parte da base não é rastreável para CRM.", acao: "Incentivar cadastro no fechamento da comanda." });
+  const ordemNivelClienteE = { critico: 0, atencao: 1, oportunidade: 2 };
+  alertasClientesE.sort((a, b) => ordemNivelClienteE[a.nivel] - ordemNivelClienteE[b.nivel]);
+
+  // ── Insights (Oportunidades) — só dados existentes ──
+  const clientesUmaCompraE = clientesRankingE.filter((c) => c.totalPedidosVida === 1);
+  const clienteAumentouTicketE = clientesRankingE.filter((c) => c.ticketAnterior != null && c.ticketPeriodo > c.ticketAnterior).sort((a, b) => (b.ticketPeriodo - b.ticketAnterior) - (a.ticketPeriodo - a.ticketAnterior))[0] || null;
+  const clienteReduziuComprasE = clientesRankingE.filter((c) => c.variacaoPedidos != null && c.variacaoPedidos < 0).sort((a, b) => a.variacaoPedidos - b.variacaoPedidos)[0] || null;
+  const clienteEmRiscoAptoPromocaoE = clientesRankingE.filter((c) => c.status === "risco" && c.faturamentoTotal > 0).sort((a, b) => b.faturamentoTotal - a.faturamentoTotal)[0] || null;
+  const produtoFavoritoGeralE = (() => {
+    const m = {}; clientesRankingE.forEach((c) => { if (c.produtoFavorito) m[c.produtoFavorito] = (m[c.produtoFavorito] || 0) + 1; });
+    return Object.entries(m).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+  })();
+  const clienteMaiorLucroE = [...clientesRankingE].sort((a, b) => b.lucroGerado - a.lucroGerado)[0] || null;
+  const clienteMaiorPotencialE = clientesRankingE.filter((c) => c.classificacao === "ouro" || c.classificacao === "prata").sort((a, b) => (b.pedidosPeriodo) - (a.pedidosPeriodo))[0] || null;
+
+  // ── Dashboard CRM (Top N + distribuições) ──
+  const top10ClientesE = [...clientesRankingE].sort((a, b) => b.faturamentoTotal - a.faturamentoTotal).slice(0, 10);
+  const clientesPorCanalE = (() => {
+    const m = {}; clientesRankingE.forEach((c) => { m[c.canalPredominante] = (m[c.canalPredominante] || 0) + 1; });
+    return Object.entries(m).map(([label, valor], i) => ({ label, valor, cor: PALETA_GRAF_RELATORIOS[i % PALETA_GRAF_RELATORIOS.length] }));
+  })();
+  const clientesPorFormaE = (() => {
+    const m = {}; clientesRankingE.forEach((c) => { const f = c.formaPagamentoFavorita || "Não informado"; m[f] = (m[f] || 0) + 1; });
+    return Object.entries(m).map(([nome, qtd]) => ({ nome, qtd })).sort((a, b) => b.qtd - a.qtd).slice(0, 6);
+  })();
+  const clientesPorFrequenciaE = [
+    { faixa: "1 pedido", qtd: clientesRankingE.filter((c) => c.totalPedidosVida === 1).length },
+    { faixa: "2–4 pedidos", qtd: clientesRankingE.filter((c) => c.totalPedidosVida >= 2 && c.totalPedidosVida <= 4).length },
+    { faixa: "5–10 pedidos", qtd: clientesRankingE.filter((c) => c.totalPedidosVida >= 5 && c.totalPedidosVida <= 10).length },
+    { faixa: "11+ pedidos", qtd: clientesRankingE.filter((c) => c.totalPedidosVida > 10).length },
+  ];
+  const clientesPorTicketE = [
+    { faixa: "Até R$ 30", qtd: clientesRankingE.filter((c) => c.ticketMedioVida > 0 && c.ticketMedioVida <= 30).length },
+    { faixa: "R$ 30–70", qtd: clientesRankingE.filter((c) => c.ticketMedioVida > 30 && c.ticketMedioVida <= 70).length },
+    { faixa: "R$ 70–150", qtd: clientesRankingE.filter((c) => c.ticketMedioVida > 70 && c.ticketMedioVida <= 150).length },
+    { faixa: "Acima de R$ 150", qtd: clientesRankingE.filter((c) => c.ticketMedioVida > 150).length },
+  ];
+  const clientesPorHorarioE = (() => {
+    const m = {}; clientesRankingE.forEach((c) => { if (c.horarioPreferido) m[c.horarioPreferido] = (m[c.horarioPreferido] || 0) + 1; });
+    return Object.entries(m).map(([faixa, qtd]) => ({ faixa, qtd })).sort((a, b) => b.qtd - a.qtd).slice(0, 6);
+  })();
+  const clientesAtivosCountE = clientesRankingE.filter((c) => c.status !== "inativo").length;
+  const clientesInativosCountE = clientesRankingE.filter((c) => c.status === "inativo").length;
+  const clientesAtivoXInativoE = [
+    { label: "Ativos", valor: clientesAtivosCountE, cor: "#10B981" },
+    { label: "Inativos", valor: clientesInativosCountE, cor: "#EF4444" },
+  ];
+
+  // ── Ações rápidas ──
+  function copiarTelefoneClienteE(c) {
+    if (!c.telefone) { setToastClientesE("Cliente sem telefone cadastrado."); setTimeout(() => setToastClientesE(""), 3000); return; }
+    navigator.clipboard?.writeText(c.telefone);
+    setToastClientesE("Telefone copiado.");
+    setTimeout(() => setToastClientesE(""), 3000);
+  }
+  function copiarCadastroClienteE(c) {
+    const texto = `${c.cliente}${c.telefone ? ` · ${c.telefone}` : ""} · ${c.totalPedidosVida} pedido(s) · ${formatCurrency(c.faturamentoTotal)}`;
+    navigator.clipboard?.writeText(texto);
+    setToastClientesE("Cadastro copiado.");
+    setTimeout(() => setToastClientesE(""), 3000);
+  }
+  function abrirWhatsAppClienteE(c) {
+    if (!c.telefone) { setToastClientesE("Cliente sem telefone cadastrado."); setTimeout(() => setToastClientesE(""), 3000); return; }
+    const num = String(c.telefone).replace(/\D/g, "");
+    window.open(`https://wa.me/55${num}`, "_blank");
+  }
+  function exportarClientesExcelE() {
+    let csv = "Cliente;Telefone;Pedidos;Faturamento;Ticket medio;Lucro gerado;Ultima compra;Primeira compra;Status;Classificacao\n";
+    clientesOrdenadosE.forEach((c) => {
+      csv += `${c.cliente};${c.telefone || ""};${c.totalPedidosVida};${c.faturamentoTotal.toFixed(2)};${c.ticketMedioVida.toFixed(2)};${c.lucroGerado.toFixed(2)};${c.ultima ? c.ultima.toLocaleDateString("pt-BR") : ""};${c.primeira ? c.primeira.toLocaleDateString("pt-BR") : ""};${CLIENTE_STATUS[c.status]?.label || c.status};${CLIENTE_TIER[c.classificacao]?.label || c.classificacao}\n`;
+    });
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url; link.download = `relatorio-clientes-${periodo}.csv`; link.click();
+    URL.revokeObjectURL(url);
+  }
+  function atualizarClientesVisaoE() { setAtualizadoEmClientesE(new Date()); }
+  const inputClsClientesE = "w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs text-[#334155] outline-none transition focus:border-[#2563EB]";
+  const labelClsClientesE = "mb-1 block text-[10px] font-bold uppercase tracking-widest text-[#64748B]";
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -9104,42 +9385,228 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
 
       {aba === "clientes" && (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <CardMetrica titulo="Clientes identificados" valor={clientesIdentificados} cor="text-dash-navy" tone="dashSuccess" icon="🧑" />
-            <CardMetrica titulo="Não identificados" valor={`${pedidosSemId} pedidos`} cor="text-dash-navy" icon="❓" />
-            <CardMetrica titulo="Faturamento sem identificação" valor={formatCurrency(fatSemId)} cor="text-dash-navy" tone="dashWarning" icon="💸" />
-            <CardMetrica titulo="Oportunidade de fidelização" valor={pedidosSemId > a.totalPedidos / 2 ? "Alta" : pedidosSemId > 0 ? "Média" : "Baixa"} cor="text-dash-navy" tone="dashPrimary" icon="⭐" />
+          {/* 7. Ações rápidas */}
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#E2E8F0] bg-white p-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <button onClick={exportarClientesExcelE} className="rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">📊 Exportar</button>
+              <button onClick={() => setCompararPeriodoClientesE((v) => !v)}
+                className={`rounded-xl border px-3.5 py-2 text-xs font-bold transition ${compararPeriodoClientesE ? "border-[#2563EB] bg-[#EFF6FF] text-[#2563EB]" : "border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9]"}`}>📅 Comparar período</button>
+              <button onClick={atualizarClientesVisaoE} className="rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">🔄 Atualizar</button>
+            </div>
+            <p className="text-[11px] text-[#94A3B8]">Atualizado às {atualizadoEmClientesE.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</p>
           </div>
-          <div className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white">
-            <div className="border-b border-slate-200 px-5 py-3"><h3 className="page-title text-sm font-bold uppercase tracking-wider text-dash-navy">Clientes do período</h3></div>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[640px] text-sm">
-                <thead><tr className="bg-slate-50 text-left text-[10px] font-bold uppercase tracking-widest text-slate-500"><th className="px-5 py-2.5">Cliente</th><th className="px-3 py-2.5 text-center">Pedidos</th><th className="px-3 py-2.5 text-right">Faturamento</th><th className="px-3 py-2.5 text-right">Ticket médio</th><th className="px-3 py-2.5 text-right">Último pedido</th><th className="px-5 py-2.5">Status</th></tr></thead>
+          {toastClientesE && <p className="pp-anim-fade rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-2.5 text-xs text-[#334155]">{toastClientesE}</p>}
+
+          {/* 1. Resumo executivo */}
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
+            <KpiExecutivo titulo="Clientes identificados" valor={clientesIdentificados} desc="Com nome ou telefone no pedido" icon="🧑" />
+            <KpiExecutivo titulo="Clientes não identificados" valor={`${pedidosSemId} pedido(s)`} desc={formatCurrency(fatSemId)} icon="❓" />
+            <KpiExecutivo titulo="Ticket médio" valor={formatCurrency(a.ticket)} variacao={compararPeriodoClientesE ? comparativo?.ticket : null} desc="Por pedido pago no período" icon="🎟️" />
+            <KpiExecutivo titulo="Faturamento total" valor={formatCurrency(a.faturamento)} variacao={compararPeriodoClientesE ? comparativo?.faturamento : null} desc="No período selecionado" icon="💰" />
+            <KpiExecutivo titulo="Clientes novos" valor={clientesRankingE.filter((c) => c.status === "novo").length} desc="Primeira compra no período" icon="✨" />
+            <KpiExecutivo titulo="Clientes recorrentes" valor={clientesRankingE.filter((c) => c.status === "recorrente" || c.status === "recuperado").length} desc="Mais de uma compra na vida" icon="🔁" />
+            <KpiExecutivo titulo="Clientes VIP" valor={clientesRankingE.filter((c) => c.classificacao === "vip").length} desc="Top 10% em faturamento" icon="👑" />
+            <KpiExecutivo titulo="Clientes inativos" valor={clientesInativosCountE} desc="Sem comprar há mais de 30 dias" icon="💤" />
+            <KpiExecutivo titulo="Frequência média" valor={clientesAtivosIdentificadosE ? (clientesRankingE.reduce((s, c) => s + c.pedidosPeriodo, 0) / clientesAtivosIdentificadosE).toFixed(1) : "—"} desc="Pedidos por cliente no período" icon="📈" />
+            <KpiExecutivo titulo="Tempo médio entre compras" valor={(() => { const vals = clientesRankingE.filter((c) => c.totalPedidosVida > 1 && c.primeira && c.ultima).map((c) => (c.ultima - c.primeira) / 864e5 / (c.totalPedidosVida - 1)); return vals.length ? `${(vals.reduce((s, v) => s + v, 0) / vals.length).toFixed(0)} dia(s)` : "—"; })()} desc="Entre clientes com 2+ compras" icon="⏱️" />
+            <KpiExecutivo titulo="Valor médio por cliente" valor={clientesAtivosIdentificadosE ? formatCurrency(clientesRankingE.reduce((s, c) => s + c.faturamentoTotal, 0) / clientesAtivosIdentificadosE) : "—"} desc="Faturamento total ÷ clientes" icon="💳" />
+            <KpiExecutivo titulo="Índice de fidelização" valor={clientesAtivosIdentificadosE ? `${Math.round((clientesRankingE.filter((c) => c.totalPedidosVida > 1).length / clientesAtivosIdentificadosE) * 100)}%` : "—"} desc="Clientes com mais de 1 compra" icon="🏅" />
+            <KpiExecutivo titulo="Taxa de retorno" valor={clientesAtivosIdentificadosE ? `${Math.round((clientesRankingE.filter((c) => c.status !== "inativo").length / clientesAtivosIdentificadosE) * 100)}%` : "—"} desc="Clientes ativos (≤ 30 dias)" icon="🔄" />
+          </div>
+
+          {/* 2. Alertas gerenciais */}
+          <div>
+            <h3 className="page-title mb-3 text-base font-bold text-[#0D1B2A]">Alertas gerenciais</h3>
+            {alertasClientesE.length === 0 ? (
+              <p className="rounded-2xl border border-[#E2E8F0] bg-white px-5 py-6 text-center text-sm text-[#64748B]">Nenhum alerta no momento.</p>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {alertasClientesE.slice(0, 12).map((al, i) => (
+                  <InsightCardVendas key={i} tom={al.nivel === "critico" ? "danger" : al.nivel === "atencao" ? "warning" : "violet"}
+                    titulo={`${al.tipo} · ${al.cliente}`} texto={`${al.desc}. ${al.motivo} ${al.acao}`}
+                    acaoLabel={clientesRankingE.some((c) => c.cliente === al.cliente) ? "Ver cliente" : undefined}
+                    onAcao={clientesRankingE.some((c) => c.cliente === al.cliente) ? () => setClienteSelecionadoE(clientesRankingE.find((c) => c.cliente === al.cliente)) : undefined} />
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* 6. Insights (Oportunidades) */}
+          <div className="rounded-2xl border border-[#E2E8F0] bg-white p-4">
+            <p className="mb-3 text-[10px] font-black uppercase tracking-widest text-[#64748B]">💡 Oportunidades</p>
+            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4">
+              {[
+                clienteEmRiscoAptoPromocaoE && ["Cliente apto para promoção", clienteEmRiscoAptoPromocaoE.cliente, formatCurrency(clienteEmRiscoAptoPromocaoE.faturamentoTotal)],
+                clientesRankingE.filter((c) => c.diasSemComprar > 30)[0] && ["Cliente sem retorno", clientesRankingE.filter((c) => c.diasSemComprar > 30)[0].cliente, `${clientesRankingE.filter((c) => c.diasSemComprar > 30)[0].diasSemComprar} dia(s)`],
+                clientesUmaCompraE[0] && ["Comprou somente uma vez", clientesUmaCompraE[0].cliente, formatCurrency(clientesUmaCompraE[0].faturamentoTotal)],
+                clienteAumentouTicketE && ["Aumentou o ticket", clienteAumentouTicketE.cliente, `${formatCurrency(clienteAumentouTicketE.ticketPeriodo)} vs. ${formatCurrency(clienteAumentouTicketE.ticketAnterior)}`],
+                clienteReduziuComprasE && ["Reduziu compras", clienteReduziuComprasE.cliente, `${clienteReduziuComprasE.variacaoPedidos} pedido(s) vs. período anterior`],
+                produtoFavoritoGeralE && ["Produto favorito da base", produtoFavoritoGeralE, null],
+                melhorHoraV?.label && ["Melhor horário", melhorHoraV.label, melhorHoraV.valor > 0 ? formatCurrency(melhorHoraV.valor) : null],
+                clienteMaiorLucroE && ["Maior margem gerada", clienteMaiorLucroE.cliente, formatCurrency(clienteMaiorLucroE.lucroGerado)],
+                clienteMaiorPotencialE && ["Maior potencial de upgrade", clienteMaiorPotencialE.cliente, `${CLIENTE_TIER[clienteMaiorPotencialE.classificacao]?.label} · ${clienteMaiorPotencialE.pedidosPeriodo} pedido(s)`],
+              ].filter(Boolean).map(([r, v, sub]) => (
+                <div key={r} className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
+                  <p className="text-[9px] font-bold uppercase tracking-widest text-[#64748B]">{r}</p>
+                  <p className="mt-0.5 truncate text-sm font-black text-[#0D1B2A]">{v}</p>
+                  {sub && <p className="truncate text-[11px] font-semibold text-[#2563EB]">{sub}</p>}
+                </div>
+              ))}
+            </div>
+            <p className="mt-3 text-xs leading-relaxed text-[#334155]">💡 Campanha sugerida: {clientesRankingE.filter((c) => c.status === "risco").length > 0 ? `oferta de reativação para os ${clientesRankingE.filter((c) => c.status === "risco").length} cliente(s) em risco (15–30 dias sem comprar).` : clientesUmaCompraE.length > 0 ? `incentivo de segunda compra para os ${clientesUmaCompraE.length} cliente(s) que compraram apenas uma vez.` : "base de clientes estável no momento — sem campanha urgente identificada."}</p>
+          </div>
+
+          {/* 9. Dashboard CRM */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <TopLista titulo="Top 10 clientes" icon="🏆" itens={top10ClientesE} vazio="Sem clientes identificados no período."
+              render={(c) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[#334155]">{c.cliente}</span><span className="shrink-0 font-bold text-[#0D1B2A]">{formatCurrency(c.faturamentoTotal)}</span></div>)} />
+            <div className="h-full rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-[0_1px_2px_rgba(13,27,42,0.04)]">
+              <p className="mb-2.5 text-[11px] font-bold uppercase tracking-widest text-[#64748B]">Clientes ativos x inativos</p>
+              {clientesRankingE.length === 0 ? <p className="py-2 text-xs text-[#94A3B8]">Sem dados no período.</p> : <DonutChart dados={clientesAtivoXInativoE} label="Clientes" />}
+            </div>
+            <div className="h-full rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-[0_1px_2px_rgba(13,27,42,0.04)]">
+              <p className="mb-2.5 text-[11px] font-bold uppercase tracking-widest text-[#64748B]">Clientes por canal</p>
+              {clientesPorCanalE.length === 0 ? <p className="py-2 text-xs text-[#94A3B8]">Sem dados no período.</p> : <DonutChart dados={clientesPorCanalE} label="Canal" />}
+            </div>
+            <TopLista titulo="Clientes por forma de pagamento" icon="💳" itens={clientesPorFormaE} vazio="Sem dados no período."
+              render={(f) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[#334155]">{f.nome}</span><span className="shrink-0 font-bold text-[#0D1B2A]">{f.qtd}</span></div>)} />
+            <TopLista titulo="Clientes por frequência" icon="🔁" itens={clientesPorFrequenciaE} vazio="Sem dados no período."
+              render={(f) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[#334155]">{f.faixa}</span><span className="shrink-0 font-bold text-[#0D1B2A]">{f.qtd}</span></div>)} />
+            <TopLista titulo="Clientes por faixa de ticket" icon="🎟️" itens={clientesPorTicketE} vazio="Sem dados no período."
+              render={(f) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[#334155]">{f.faixa}</span><span className="shrink-0 font-bold text-[#0D1B2A]">{f.qtd}</span></div>)} />
+            <TopLista titulo="Clientes por horário preferido" icon="⏰" itens={clientesPorHorarioE} vazio="Sem dados no período."
+              render={(f) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[#334155]">{f.faixa}</span><span className="shrink-0 font-bold text-[#0D1B2A]">{f.qtd}</span></div>)} />
+          </div>
+          <p className="text-[11px] text-[#94A3B8]">"Clientes por Cidade" não está disponível — o cadastro de cliente não tem campo de cidade no modelo de dados atual.</p>
+
+          {/* 8. Filtros */}
+          <div className="rounded-2xl border border-[#E2E8F0] bg-white p-3.5">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <input value={buscaClientesE} onChange={(e) => setBuscaClientesE(e.target.value)} placeholder="🔎 Buscar por cliente ou telefone…"
+                className="min-w-[220px] flex-1 rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2.5 text-sm text-[#334155] outline-none transition focus:border-[#2563EB]" />
+              <button onClick={() => setMostrarFiltrosClientesE((v) => !v)}
+                className={`rounded-xl border px-3.5 py-2.5 text-xs font-bold transition ${mostrarFiltrosClientesE || filtrosClientesAtivosE ? "border-[#2563EB] bg-[#EFF6FF] text-[#2563EB]" : "border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9]"}`}>
+                ⚙️ Filtros{filtrosClientesAtivosE ? " •" : ""}
+              </button>
+            </div>
+            {mostrarFiltrosClientesE && (
+              <div className="pp-anim-fade mt-3 grid gap-3 border-t border-[#F1F5F9] pt-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div>
+                  <label className={labelClsClientesE}>Status</label>
+                  <DropdownSelect ariaLabel="Status" valor={fStatusClienteE} onSelecionar={setFStatusClienteE} className={`${inputClsClientesE} flex items-center justify-between text-left`}
+                    opcoes={[{ valor: "todos", rotulo: "Todos" }, ...Object.keys(CLIENTE_STATUS).map((s) => ({ valor: s, rotulo: CLIENTE_STATUS[s].label }))]} />
+                </div>
+                <div>
+                  <label className={labelClsClientesE}>Classificação</label>
+                  <DropdownSelect ariaLabel="Classificação" valor={fClassificacaoE} onSelecionar={setFClassificacaoE} className={`${inputClsClientesE} flex items-center justify-between text-left`}
+                    opcoes={[{ valor: "todas", rotulo: "Todas" }, ...Object.keys(CLIENTE_TIER).map((s) => ({ valor: s, rotulo: CLIENTE_TIER[s].label }))]} />
+                </div>
+                <div>
+                  <label className={labelClsClientesE}>Canal / Origem</label>
+                  <DropdownSelect ariaLabel="Canal / Origem" valor={fCanalClienteE} onSelecionar={setFCanalClienteE} className={`${inputClsClientesE} flex items-center justify-between text-left`}
+                    opcoes={[{ valor: "todos", rotulo: "Todos" }, ...canaisClientesDisponiveisE.map((c) => ({ valor: c, rotulo: c }))]} />
+                </div>
+                <div>
+                  <label className={labelClsClientesE}>Forma de pagamento</label>
+                  <DropdownSelect ariaLabel="Forma de pagamento" valor={fFormaPagClienteE} onSelecionar={setFFormaPagClienteE} className={`${inputClsClientesE} flex items-center justify-between text-left`}
+                    opcoes={[{ valor: "todas", rotulo: "Todas" }, ...formasClientesDisponiveisE.map((c) => ({ valor: c, rotulo: c }))]} />
+                </div>
+                <div><label className={labelClsClientesE}>Valor gasto mínimo</label><input value={fValorGastoMinE} onChange={(e) => setFValorGastoMinE(e.target.value.replace(/[^\d.,]/g, ""))} placeholder="R$ 0,00" inputMode="decimal" className={inputClsClientesE} /></div>
+                <div><label className={labelClsClientesE}>Valor gasto máximo</label><input value={fValorGastoMaxE} onChange={(e) => setFValorGastoMaxE(e.target.value.replace(/[^\d.,]/g, ""))} placeholder="R$ 999,00" inputMode="decimal" className={inputClsClientesE} /></div>
+                <div><label className={labelClsClientesE}>Ticket mínimo</label><input value={fTicketMinE} onChange={(e) => setFTicketMinE(e.target.value.replace(/[^\d.,]/g, ""))} placeholder="R$ 0,00" inputMode="decimal" className={inputClsClientesE} /></div>
+                <div><label className={labelClsClientesE}>Ticket máximo</label><input value={fTicketMaxE} onChange={(e) => setFTicketMaxE(e.target.value.replace(/[^\d.,]/g, ""))} placeholder="R$ 999,00" inputMode="decimal" className={inputClsClientesE} /></div>
+                <div><label className={labelClsClientesE}>Pedidos no período (mín.)</label><input value={fPedidosMinE} onChange={(e) => setFPedidosMinE(e.target.value.replace(/[^\d]/g, ""))} placeholder="0" inputMode="numeric" className={inputClsClientesE} /></div>
+                <div><label className={labelClsClientesE}>Dias sem comprar (mín.)</label><input value={fDiasSemComprarMinE} onChange={(e) => setFDiasSemComprarMinE(e.target.value.replace(/[^\d]/g, ""))} placeholder="0" inputMode="numeric" className={inputClsClientesE} /></div>
+                {filtrosClientesAtivosE && (
+                  <button onClick={limparFiltrosClientesE} className="self-end text-left text-[11px] font-bold text-[#2563EB] hover:text-[#1D4ED8] sm:col-span-2 lg:col-span-4">✕ Limpar filtros</button>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* 3. Ranking de clientes */}
+          <div className="overflow-hidden rounded-[1.75rem] border border-[#E2E8F0] bg-white">
+            <div className="border-b border-[#E2E8F0] px-5 py-3.5">
+              <h3 className="page-title text-sm font-bold uppercase tracking-wider text-[#0D1B2A]">Ranking de clientes</h3>
+              <p className="mt-0.5 text-[11px] text-[#64748B]">{clientesOrdenadosE.length} cliente(s) identificado(s) · "Responsável" e "Origem" (distinta de canal) não existem no cadastro atual</p>
+            </div>
+            <div className="max-h-[560px] overflow-auto">
+              <table className="w-full min-w-[1100px] border-collapse text-sm">
+                <thead className="sticky top-0 z-10 bg-[#F8FAFC]">
+                  <tr className="text-[10px] font-bold uppercase tracking-widest text-[#64748B]">
+                    {[
+                      ["cliente", "Cliente"], ["telefone", "Telefone"], ["pedidosPeriodo", "Pedidos"], ["faturamentoPeriodo", "Faturamento"],
+                      ["ticketPeriodo", "Ticket médio"], ["lucroGerado", "Lucro gerado"], ["recencia", "Última compra"], ["antiguidade", "Primeira compra"],
+                      ["totalPedidosVida", "Frequência"], ["diasSemComprar", "Dias sem comprar"], ["status", "Status"], ["classificacao", "Classif."],
+                      ["canalPredominante", "Canal"], ["formaPagamentoFavorita", "Forma pagto."],
+                    ].map(([campo, rotulo]) => (
+                      <th key={campo} className="whitespace-nowrap border-b border-[#E2E8F0] px-3 py-2.5 text-left">
+                        <button onClick={() => alternarOrdemClientesE(campo)} className="flex items-center gap-1 transition hover:text-[#2563EB]">
+                          {rotulo}{ordenacaoClientesE.campo === campo ? (ordenacaoClientesE.dir === "desc" ? " ▼" : " ▲") : ""}
+                        </button>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
                 <tbody>
-                  {clientesLista.length === 0 && <tr><td colSpan={6} className="px-5 py-6 text-center text-sm text-slate-500">Nenhum pedido no período.</td></tr>}
-                  {clientesListaVisivel.map((c) => (
-                    <tr key={c.cliente} className="border-t border-slate-100">
-                      <td className="px-5 py-3 font-semibold text-dash-navy">{c.cliente}</td>
-                      <td className="px-3 py-3 text-center text-slate-500">{c.pedidos}</td>
-                      <td className="px-3 py-3 text-right font-semibold text-emerald-600">{formatCurrency(c.faturamento)}</td>
-                      <td className="px-3 py-3 text-right text-slate-500">{formatCurrency(c.ticket)}</td>
-                      <td className="px-3 py-3 text-right text-slate-400">{fmtDataBR(c.ultimo)}</td>
-                      <td className="px-5 py-3"><span className={`inline-flex rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${c.identificado ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-slate-50 text-slate-500"}`}>{c.identificado ? "Identificado" : "Sem cadastro"}</span></td>
+                  {clientesVisiveisE.length === 0 && (
+                    <tr><td colSpan={14} className="px-5 py-8 text-center text-sm text-[#64748B]">
+                      {clientesRankingE.length === 0 ? "Nenhum cliente identificado no período." : "Nenhum cliente encontrado para os filtros aplicados."}
+                    </td></tr>
+                  )}
+                  {clientesVisiveisE.map((c) => (
+                    <tr key={c.cliente} onClick={() => setClienteSelecionadoE(c)} className="cursor-pointer border-b border-[#F1F5F9] transition hover:bg-[#F8FAFC]">
+                      <td className="max-w-[180px] truncate px-3 py-2.5 font-semibold text-[#0D1B2A]">{c.cliente}</td>
+                      <td className="px-3 py-2.5 text-[#64748B]">{c.telefone || "—"}</td>
+                      <td className="px-3 py-2.5 font-mono text-[#334155]">{c.pedidosPeriodo}</td>
+                      <td className="px-3 py-2.5 font-semibold text-[#0D1B2A]">{formatCurrency(c.faturamentoPeriodo)}</td>
+                      <td className="px-3 py-2.5 text-[#64748B]">{formatCurrency(c.ticketPeriodo)}</td>
+                      <td className="px-3 py-2.5 text-[#10B981]">{formatCurrency(c.lucroGerado)}</td>
+                      <td className="px-3 py-2.5 text-[#64748B]">{c.ultima ? c.ultima.toLocaleDateString("pt-BR") : "—"}</td>
+                      <td className="px-3 py-2.5 text-[#64748B]">{c.primeira ? c.primeira.toLocaleDateString("pt-BR") : "—"}</td>
+                      <td className="px-3 py-2.5 font-mono text-[#334155]">{c.totalPedidosVida}</td>
+                      <td className="px-3 py-2.5 text-[#64748B]">{c.diasSemComprar != null ? `${c.diasSemComprar}d` : "—"}</td>
+                      <td className="px-3 py-2.5"><BadgeCliente mapa={CLIENTE_STATUS} chave={c.status} /></td>
+                      <td className="px-3 py-2.5"><BadgeCliente mapa={CLIENTE_TIER} chave={c.classificacao} /></td>
+                      <td className="max-w-[140px] truncate px-3 py-2.5 text-[#64748B]">{c.canalPredominante}</td>
+                      <td className="max-w-[140px] truncate px-3 py-2.5 text-[#64748B]">{c.formaPagamentoFavorita || "—"}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
+            {clientesVisiveisE.length > 0 && (
+              <div className="border-t border-[#F1F5F9] px-5 py-3">
+                <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-[#64748B]">Ações rápidas por cliente</p>
+                <div className="flex flex-wrap gap-2">
+                  {clientesVisiveisE.slice(0, 3).map((c) => (
+                    <div key={c.cliente} className="flex items-center gap-1 rounded-xl border border-[#E2E8F0] px-2 py-1.5">
+                      <span className="max-w-[100px] truncate text-[11px] font-semibold text-[#334155]">{c.cliente}</span>
+                      <button onClick={(e) => { e.stopPropagation(); setClienteSelecionadoE(c); }} title="Visualizar" className="rounded-lg px-1.5 py-1 text-[11px] hover:bg-[#F1F5F9]">👁️</button>
+                      <button onClick={(e) => { e.stopPropagation(); abrirWhatsAppClienteE(c); }} title="WhatsApp" className="rounded-lg px-1.5 py-1 text-[11px] hover:bg-[#F1F5F9]">💬</button>
+                      <button onClick={(e) => { e.stopPropagation(); copiarTelefoneClienteE(c); }} title="Copiar telefone" className="rounded-lg px-1.5 py-1 text-[11px] hover:bg-[#F1F5F9]">📋</button>
+                      <button onClick={(e) => { e.stopPropagation(); copiarCadastroClienteE(c); }} title="Copiar cadastro" className="rounded-lg px-1.5 py-1 text-[11px] hover:bg-[#F1F5F9]">📇</button>
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-2 text-[10px] text-[#94A3B8]">As mesmas ações (Visualizar, WhatsApp, Copiar telefone, Copiar cadastro) também ficam disponíveis ao clicar em qualquer linha da tabela.</p>
+              </div>
+            )}
           </div>
-
-          <Paginacao pagina={paginaClientesAtual} totalPaginas={totalPaginasClientes} total={clientesLista.length} porPagina={porPaginaClientes}
-            onMudar={setPaginaClientes} rotulo="registro(s)" tema="claro" porPaginaOpcoes={[10, 20, 50, 100]} onMudarPorPagina={setPorPaginaClientes} />
+          <Paginacao pagina={paginaClientesAtualE} totalPaginas={totalPaginasClientesE} total={clientesOrdenadosE.length} porPagina={porPaginaClientes}
+            onMudar={setPaginaClientes} rotulo="cliente(s)" tema="claro" porPaginaOpcoes={[10, 20, 50, 100]} onMudarPorPagina={setPorPaginaClientes} mostrarExtremos />
 
           {pedidosSemId > 0 && (
-            <div className="rounded-[2rem] border border-violet-200 bg-violet-50 p-5">
-              <h3 className="page-title text-sm font-bold text-violet-700">💡 Recomendação gerencial</h3>
+            <div className="rounded-2xl border border-[#E2E8F0] bg-white p-5">
+              <h3 className="page-title text-sm font-bold text-[#8B5CF6]">💡 Recomendação gerencial</h3>
               <p className="mt-2 text-sm leading-6 text-[#334155]">A maior parte dos pedidos está sem identificação do cliente. Considere incentivar o cadastro no tablet, oferecer benefício de fidelidade ou solicitar o telefone no fechamento da comanda para melhorar campanhas futuras.</p>
             </div>
+          )}
+
+          {/* 4. Perfil do cliente */}
+          {clienteSelecionadoE && (
+            <ClientePerfilPainel cliente={clienteSelecionadoE} onFechar={() => setClienteSelecionadoE(null)}
+              onWhatsApp={abrirWhatsAppClienteE} onCopiarTelefone={copiarTelefoneClienteE} />
           )}
         </>
       )}
@@ -9564,6 +10031,126 @@ function ModalDetalheProdutoEstoque({ produto, onFechar, onAbrirCadastro }) {
         </div>
         <div className="border-t border-[#E2E8F0] px-6 py-4">
           <button onClick={onAbrirCadastro} className="w-full rounded-xl bg-[#2563EB] py-2.5 text-sm font-bold text-white transition hover:bg-[#1D4ED8]">Abrir cadastro do produto</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Classificação por valor (tier) e status comportamental do cliente — só
+// estas cores oficiais. "Ouro"/"Prata"/"Bronze" usam âmbar/cinza/slate como
+// aproximação semântica dentro da paleta permitida (não há dourado/prateado
+// na paleta oficial).
+const CLIENTE_TIER = {
+  vip: { label: "VIP", cor: "#8B5CF6" },
+  ouro: { label: "Ouro", cor: "#F59E0B" },
+  prata: { label: "Prata", cor: "#64748B" },
+  bronze: { label: "Bronze", cor: "#334155" },
+};
+const CLIENTE_STATUS = {
+  novo: { label: "Novo", cor: "#2563EB" },
+  recorrente: { label: "Recorrente", cor: "#10B981" },
+  recuperado: { label: "Recuperado", cor: "#10B981" },
+  risco: { label: "Em risco", cor: "#F59E0B" },
+  inativo: { label: "Inativo", cor: "#EF4444" },
+  ativo: { label: "Ativo", cor: "#64748B" },
+  semDados: { label: "—", cor: "#64748B" },
+};
+function BadgeCliente({ mapa, chave }) {
+  const s = mapa[chave] || { label: chave, cor: "#64748B" };
+  return <span className="rounded-full px-2 py-0.5 text-[10px] font-black" style={{ background: `${s.cor}1A`, color: s.cor }}>{s.label}</span>;
+}
+
+// Painel lateral de perfil do cliente — só campos calculáveis a partir dos
+// pedidos já carregados; cidade/aniversário/observações/responsável não
+// existem no cadastro (tab_clientes só tem nome/telefone) e aparecem "—".
+function ClientePerfilPainel({ cliente, onFechar, onWhatsApp, onCopiarTelefone }) {
+  if (!cliente) return null;
+  const c = cliente;
+  const iniciais = c.cliente.split(" ").filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join("") || "?";
+  return (
+    <div className="fixed inset-0 z-[110] flex items-stretch justify-end bg-[#0D1B2A]/60 backdrop-blur-sm" onClick={onFechar}>
+      <div onClick={(e) => e.stopPropagation()} className="pp-anim-fade flex h-full w-full max-w-md flex-col overflow-hidden border-l border-[#E2E8F0] bg-white shadow-2xl">
+        <div className="flex items-center gap-3 border-b border-[#E2E8F0] px-6 py-4">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#2563EB]/10 text-base font-black text-[#2563EB]">{iniciais}</span>
+          <div className="min-w-0 flex-1">
+            <h2 className="truncate text-base font-black text-[#0D1B2A]">{c.cliente}</h2>
+            <div className="mt-1 flex flex-wrap gap-1">
+              <BadgeCliente mapa={CLIENTE_TIER} chave={c.classificacao} />
+              <BadgeCliente mapa={CLIENTE_STATUS} chave={c.status} />
+              {c.frequente && <BadgeCliente mapa={{ frequente: { label: "Frequente", cor: "#10B981" } }} chave="frequente" />}
+            </div>
+          </div>
+          <button onClick={onFechar} className="shrink-0 rounded-xl border border-[#E2E8F0] px-3 py-2 text-sm font-black text-[#64748B] hover:bg-[#F1F5F9]">✕</button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+          <div className="flex flex-wrap gap-2">
+            <button onClick={() => onWhatsApp(c)} className="rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">💬 WhatsApp</button>
+            <button onClick={() => onCopiarTelefone(c)} className="rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">📋 Copiar telefone</button>
+          </div>
+          <div>
+            <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-[#64748B]">Dados de contato</p>
+            <div className="grid grid-cols-2 gap-2.5">
+              {[
+                ["Telefone", c.telefone || "—"], ["WhatsApp", c.telefone || "—"],
+                ["Aniversário", "—"], ["Cidade", "—"],
+                ["Data de cadastro", "—"], ["Observações", "—"],
+              ].map(([r, v]) => (
+                <div key={r} className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
+                  <p className="text-[9px] font-bold uppercase tracking-widest text-[#64748B]">{r}</p>
+                  <p className="mt-0.5 truncate text-sm font-bold text-[#0D1B2A]">{v}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div>
+            <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-[#64748B]">Compras</p>
+            <div className="grid grid-cols-2 gap-2.5">
+              {[
+                ["Primeira compra", c.primeira ? c.primeira.toLocaleDateString("pt-BR") : "—"], ["Última compra", c.ultima ? c.ultima.toLocaleDateString("pt-BR") : "—"],
+                ["Total de pedidos", `${c.totalPedidosVida}`], ["Total gasto", formatCurrency(c.faturamentoTotal)],
+                ["Ticket médio", formatCurrency(c.ticketMedioVida)], ["Maior compra", formatCurrency(c.maiorCompra)],
+                ["Dias sem comprar", c.diasSemComprar != null ? `${c.diasSemComprar} dia(s)` : "—"], ["Lucro gerado", formatCurrency(c.lucroGerado)],
+              ].map(([r, v]) => (
+                <div key={r} className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
+                  <p className="text-[9px] font-bold uppercase tracking-widest text-[#64748B]">{r}</p>
+                  <p className="mt-0.5 truncate text-sm font-bold text-[#0D1B2A]">{v}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div>
+            <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-[#64748B]">Preferências</p>
+            <div className="grid grid-cols-2 gap-2.5">
+              {[
+                ["Produto favorito", c.produtoFavorito || "—"], ["Categoria favorita", c.categoriaFavorita || "—"],
+                ["Horário preferido", c.horarioPreferido || "—"], ["Forma de pagamento favorita", c.formaPagamentoFavorita || "—"],
+                ["Canal predominante", c.canalPredominante || "—"], ["Mesa favorita", c.mesaFavorita || "—"],
+                ["Tempo médio de permanência", c.tempoMedioPermanencia != null ? formatarDuracaoMin(c.tempoMedioPermanencia) : "—"],
+              ].map(([r, v]) => (
+                <div key={r} className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
+                  <p className="text-[9px] font-bold uppercase tracking-widest text-[#64748B]">{r}</p>
+                  <p className="mt-0.5 truncate text-sm font-bold text-[#0D1B2A]">{v}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div>
+            <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-[#64748B]">Últimos pedidos (histórico)</p>
+            {(!c.ultimosPedidos || c.ultimosPedidos.length === 0) ? (
+              <p className="text-xs text-[#94A3B8]">Nenhum pedido encontrado.</p>
+            ) : (
+              <div className="space-y-1.5">
+                {c.ultimosPedidos.map((p, i) => (
+                  <div key={i} className="flex items-center justify-between gap-2 rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs">
+                    <span className="text-[#64748B]">{p.quando ? p.quando.toLocaleDateString("pt-BR") : "—"} · Cupom {p.id}</span>
+                    <span className="font-bold text-[#0D1B2A]">{formatCurrency(p.valor)}</span>
+                    <span className={`rounded-full border px-2 py-0.5 text-[9px] font-black ${statusMap[p.status]?.chip}`}>{statusMap[p.status]?.label}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
