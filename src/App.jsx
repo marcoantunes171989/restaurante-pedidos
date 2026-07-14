@@ -469,7 +469,7 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
 
             {/* Entrar */}
             <button type="submit" disabled={!podeEntrar || entrando}
-              className="flex h-[clamp(2.75rem,6vh,3rem)] w-full items-center justify-center gap-2 rounded-xl bg-[#2563EB] px-5 text-sm font-black text-white shadow-lg shadow-[#2563EB]/25 transition hover:bg-[#1D4ED8] active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100">
+              className="flex h-[clamp(2.75rem,6vh,3rem)] w-full items-center justify-center gap-2 rounded-xl bg-[#2563EB] px-5 text-sm font-black text-[#FFFFFF] shadow-lg shadow-[#2563EB]/25 transition hover:bg-[#1D4ED8] active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100">
               {entrando
                 ? <><span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" /> Entrando...</>
                 : <>Entrar →</>}
