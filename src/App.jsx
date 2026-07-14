@@ -7892,16 +7892,30 @@ function ModalCriarAcao({ acao, usuarios = [], onFechar, onConfirmar }) {
           <p className="text-xs text-[#64748B]">Esta ação será preparada para acompanhamento nesta recomendação.</p>
         </div>
 
-        {/* Rodapé fixo */}
-        <div className="flex shrink-0 items-center justify-end gap-2 border-t border-[#E2E8F0] px-6 py-4">
+        {/* Rodapé fixo — sombra superior separa do conteúdo rolável; empilha
+            "Confirmar plano" acima de "Cancelar" só em telas muito estreitas
+            (abaixo de 360px), lado a lado (Cancelar · Confirmar) do resto do
+            mobile em diante. */}
+        <div className="flex shrink-0 flex-col-reverse items-stretch justify-end gap-2 border-t border-[#E2E8F0] bg-white px-6 py-3 shadow-[0_-4px_12px_rgba(15,23,42,0.06)] min-[360px]:flex-row min-[360px]:items-center">
           <button type="button" onClick={onFechar} disabled={enviando}
-            className="min-h-[44px] rounded-xl border border-[#E2E8F0] px-4 py-2 text-sm font-bold text-[#0F172A] transition hover:bg-[#F8FAFC] disabled:opacity-50">Cancelar</button>
-          <button type="button" onClick={confirmar} disabled={enviando}
-            className={`min-h-[44px] rounded-xl px-5 py-2 text-sm font-black text-white transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 disabled:cursor-not-allowed ${erroEnvio ? "animate-pulse" : ""}`}
-            style={{ background: sucesso ? "#16A34A" : erroEnvio ? "#DC2626" : "#2563EB", opacity: enviando ? 0.85 : 1 }}>
-            {sucesso ? "✓ " + (TEM_PERSISTENCIA_ACOES ? "Ação criada" : "Plano confirmado")
+            className="inline-flex min-h-[48px] items-center justify-center rounded-[10px] border border-[#CBD5E1] bg-white px-5 py-2.5 text-sm font-semibold text-[#334155] transition hover:border-[#94A3B8] hover:bg-[#F8FAFC] active:bg-[#F1F5F9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/30 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-[44px]">
+            Cancelar
+          </button>
+          <button type="button" onClick={confirmar} disabled={enviando} aria-busy={enviando}
+            style={{
+              "--btn-bg": sucesso ? "#16A34A" : erroEnvio ? "#DC2626" : "#2563EB",
+              "--btn-bg-hover": sucesso ? "#16A34A" : erroEnvio ? "#DC2626" : "#1D4ED8",
+              "--btn-bg-active": sucesso ? "#16A34A" : erroEnvio ? "#DC2626" : "#1E40AF",
+              boxShadow: enviando ? "none" : "0 4px 10px rgba(37,99,235,0.20)",
+            }}
+            className={`inline-flex min-h-[48px] items-center justify-center gap-2 rounded-[10px] border border-transparent bg-[var(--btn-bg)] px-5 py-2.5 text-sm font-semibold text-white transition-colors active:translate-y-px focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[rgba(37,99,235,0.25)] disabled:translate-y-0 disabled:cursor-not-allowed sm:min-h-[44px]
+              ${!enviando && !sucesso && !erroEnvio ? "hover:bg-[var(--btn-bg-hover)] active:bg-[var(--btn-bg-active)]" : ""}
+              ${!enviando ? "disabled:bg-[#CBD5E1] disabled:text-[#64748B] disabled:shadow-none disabled:hover:bg-[#CBD5E1]" : ""}
+              ${erroEnvio ? "animate-pulse" : ""}`}>
+            {enviando && <span className="h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-white border-r-transparent" aria-hidden="true" />}
+            <span>{sucesso ? "✓ " + (TEM_PERSISTENCIA_ACOES ? "Ação criada" : "Plano confirmado")
               : enviando ? (TEM_PERSISTENCIA_ACOES ? "Criando ação…" : "Confirmando…")
-              : (TEM_PERSISTENCIA_ACOES ? "Criar ação" : "Confirmar plano")}
+              : (TEM_PERSISTENCIA_ACOES ? "Criar ação" : "Confirmar plano")}</span>
           </button>
         </div>
       </div>
