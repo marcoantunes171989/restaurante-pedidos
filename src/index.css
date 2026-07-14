@@ -378,12 +378,19 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
 [data-theme="light"] .tema-claro-area .bg-emerald-500.text-white,
 [data-theme="light"] .tema-claro-area .bg-green-500.text-white,
 [data-theme="light"] .tema-claro-area .bg-red-500.text-white { color: #FFFFFF !important; }
-/* Autofill claro dentro da área clara */
-[data-theme="light"] .tema-claro-area input:-webkit-autofill {
+/* Autofill claro dentro da área clara — cobre :hover/:focus/:active também
+   (o WebKit trata cada estado como seletor composto separado; sem os 4,
+   o navegador pode reverter para o autofill escuro genérico ao focar um
+   campo já preenchido) + transição longa para não piscar amarelo/cinza. */
+[data-theme="light"] .tema-claro-area input:-webkit-autofill,
+[data-theme="light"] .tema-claro-area input:-webkit-autofill:hover,
+[data-theme="light"] .tema-claro-area input:-webkit-autofill:focus,
+[data-theme="light"] .tema-claro-area input:-webkit-autofill:active {
   -webkit-text-fill-color: #0F172A !important;
-  caret-color: #0F172A;
+  caret-color: #2563EB;
   -webkit-box-shadow: 0 0 0 1000px #FFFFFF inset !important;
   box-shadow: 0 0 0 1000px #FFFFFF inset !important;
+  transition: background-color 9999s ease-out 0s;
 }
 
 /* ── Classes utilitárias premium (design system light) ──────────

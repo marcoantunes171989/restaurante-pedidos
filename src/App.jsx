@@ -299,7 +299,15 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
   const beneficios = ["Pedidos digitais", "QR Code", "Cozinha em tempo real", "Caixa integrado", "Financeiro", "Relatórios inteligentes"];
 
   return (
-    <div data-theme="light" className="tema-claro-area pp-brand-manrope relative flex min-h-dvh w-full max-w-[100vw] items-stretch overflow-x-hidden text-[#0D1B2A]" style={{ fontFamily: "'Inter','Poppins',sans-serif", backgroundColor: "#F8FAFC", boxSizing: "border-box", margin: 0 }}>
+    // Wrapper com data-theme="light" como ANCESTOR real de .tema-claro-area
+    // (não no mesmo elemento) — os seletores CSS globais de correção de tema
+    // claro (src/index.css, incl. o de input:-webkit-autofill) usam o
+    // combinador descendente `[data-theme="light"] .tema-claro-area`, que só
+    // casa quando os dois estão em elementos diferentes. Com os dois atributos
+    // no mesmo nó (como estava antes), a regra nunca era aplicada e o
+    // autofill escuro genérico (index.css) pintava o campo de e-mail.
+    <div data-theme="light">
+    <div className="tema-claro-area pp-brand-manrope relative flex min-h-dvh w-full max-w-[100vw] items-stretch overflow-x-hidden text-[#0D1B2A]" style={{ fontFamily: "'Inter','Poppins',sans-serif", backgroundColor: "#F8FAFC", boxSizing: "border-box", margin: 0 }}>
 
       {/* ══ Painel institucional (tablet/desktop) ══ */}
       <aside className="pp-anim-left relative hidden shrink-0 flex-col justify-center gap-8 overflow-hidden border-r border-[#E2E8F0] bg-[#F8FAFC] p-10 md:flex md:w-[45%] md:p-12 xl:w-1/2 xl:p-16">
@@ -397,6 +405,7 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
                   autoComplete="email" name="login_email_nofill" data-lpignore="true" data-form-type="other"
                   value={loginForm.email}
                   onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
+                  aria-invalid={message.type === "error"} aria-describedby="login-mensagem"
                   placeholder="seu@email.com" className={inputCls} />
               </div>
             </div>
@@ -405,7 +414,7 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
             <div>
               <div className="flex items-center justify-between">
                 <label htmlFor="login-senha" className={labelCls}>Senha</label>
-                <button type="button" onClick={() => setAvisoSenha((v) => !v)}
+                <button type="button" onClick={() => setAvisoSenha((v) => !v)} aria-expanded={avisoSenha} aria-controls="login-aviso-senha"
                   className="mb-1.5 text-[11px] font-bold text-[#2563EB] transition hover:text-[#1D4ED8]">Esqueci minha senha</button>
               </div>
               <div className="relative">
@@ -414,6 +423,7 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
                   autoComplete="current-password" name="login_senha_nofill" data-lpignore="true" data-form-type="other"
                   value={loginForm.password}
                   onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                  aria-invalid={message.type === "error"} aria-describedby="login-mensagem"
                   placeholder="••••••••" className={`${inputCls} pr-11`} />
                 <button type="button" onClick={() => setVerSenha((v) => !v)}
                   aria-label={verSenha ? "Ocultar senha" : "Mostrar senha"} title={verSenha ? "Ocultar senha" : "Mostrar senha"}
@@ -421,20 +431,26 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
                   {IconeOlho}
                 </button>
               </div>
-              {avisoSenha && (
-                <p className="pp-anim-fade mt-2 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-2.5 text-xs text-[#334155]">
-                  Entre em contato com o administrador do sistema para redefinir sua senha.
-                </p>
-              )}
+              {/* Sempre montado (min-height reservado) — evita que o formulário
+                  mude de altura ao abrir/fechar o aviso (causa real de "tela
+                  se move" nesta área). */}
+              <p id="login-aviso-senha" aria-hidden={!avisoSenha}
+                className={`mt-2 min-h-[52px] rounded-xl border p-2.5 text-xs transition-opacity duration-150 ${avisoSenha ? "border-[#E2E8F0] bg-[#F8FAFC] text-[#334155] opacity-100" : "border-transparent bg-transparent opacity-0"}`}>
+                Entre em contato com o administrador do sistema para redefinir sua senha.
+              </p>
             </div>
 
-            {/* Mensagem */}
-            {message.text && (
-              <div className={`pp-anim-fade flex items-start gap-2 rounded-2xl border p-3 text-sm ${message.type === "error" ? "border-[#EF4444]/25 bg-[#EF4444]/10 text-[#EF4444]" : "border-[#10B981]/25 bg-[#10B981]/10 text-[#10B981]"}`}>
-                <span className="mt-0.5 shrink-0">{message.type === "error" ? "⚠️" : "✅"}</span>
-                <span className="text-[#334155]">{message.text}</span>
-              </div>
-            )}
+            {/* Mensagem — mesmo motivo acima: contêiner sempre presente com
+                altura mínima reservada, só o conteúdo/opacidade mudam. */}
+            <div id="login-mensagem" role="alert" aria-live="polite" aria-hidden={!message.text}
+              className={`flex min-h-[52px] items-start gap-2 rounded-2xl border p-3 text-sm transition-opacity duration-150 ${message.text ? `opacity-100 ${message.type === "error" ? "border-[#EF4444]/25 bg-[#EF4444]/10 text-[#EF4444]" : "border-[#10B981]/25 bg-[#10B981]/10 text-[#10B981]"}` : "border-transparent bg-transparent opacity-0"}`}>
+              {message.text && (
+                <>
+                  <span className="mt-0.5 shrink-0">{message.type === "error" ? "⚠️" : "✅"}</span>
+                  <span className="text-[#334155]">{message.text}</span>
+                </>
+              )}
+            </div>
 
             {/* Entrar */}
             <button type="submit" disabled={!podeEntrar || entrando}
@@ -487,6 +503,7 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
           onCancelar={() => setScanLogin(false)}
         />
       )}
+    </div>
     </div>
   );
 }
