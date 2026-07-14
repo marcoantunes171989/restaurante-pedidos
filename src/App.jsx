@@ -271,7 +271,7 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
   // Reseta o loading quando chega uma mensagem (ex.: erro de credenciais).
   useEffect(() => { if (message && message.text) setEntrando(false); }, [message]);
   const labelCls = "mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-[#64748B]";
-  const inputCls = "w-full rounded-2xl border border-[#E2E8F0] bg-white py-3.5 pl-11 pr-4 text-[15px] text-[#0D1B2A] outline-none transition focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/15 placeholder:text-[#64748B]";
+  const inputCls = "box-border min-h-[52px] w-full rounded-2xl border border-[#CBD5E1] bg-white py-3.5 pl-11 pr-4 text-[15px] text-[#0F172A] caret-[#2563EB] outline-none transition-colors focus:border-[#2563EB] focus:bg-white focus:ring-[3px] focus:ring-[#2563EB]/15 placeholder:text-[#94A3B8]";
   const podeEntrar = loginForm.email.trim() && loginForm.password;
 
   // Ícones (SVG inline — leves e elegantes)
