@@ -176,20 +176,24 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
   --shadow-card-hover: 0 12px 32px rgba(16, 24, 40, 0.08);
 }
 
-/* ── Filtros do Dashboard Gerencial (/admin/dashboard) — Período, Turno,
-   Canal e Status. Sobrescreve as variáveis do FilterChip (componente
-   compartilhado, ver acima) só dentro de .pp-dash-filtros, sem alterar
-   a cor oficial (vermelho) usada pelo FilterChip nas demais telas. */
-.pp-dash-filtros {
+/* ── Painel de filtro oficial (FilterGroup, src/components/Prime.jsx) ──
+   Paleta azul dos grupos "Turno/Canal/Status" do Dashboard Gerencial —
+   aplicada automaticamente por QUALQUER FilterGroup (é a própria classe-raiz
+   do componente). Sobrescreve as variáveis do FilterChip (componente
+   compartilhado, ver acima) só dentro de .pp-filter-panel, sem alterar a
+   cor oficial (vermelho) usada pelo FilterChip nas demais telas (telas com
+   tema escuro legado, permissões, configurações, templates). */
+.pp-filter-panel {
   --filter-chip-bg: #FFFFFF;
   --filter-chip-selected: #2563EB;
   --filter-chip-selected-hover: #1D4ED8;
-  --filter-chip-hover-bg: #EFF6FF;
+  --filter-chip-hover-bg: #F1F5F9;
   --filter-chip-border: #E2E8F0;
   --filter-chip-text: #334155;
   --filter-chip-text-selected: #FFFFFF;
+  --filter-chip-selected-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
 }
-.pp-dash-filtros .filter-chip:focus-visible {
+.pp-filter-panel .filter-chip:focus-visible {
   box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.25);
 }
 

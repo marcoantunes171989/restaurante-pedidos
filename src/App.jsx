@@ -39,7 +39,7 @@ import { QRScannerModal  } from "./components/QRScanner";
 import { LogoPP } from "./components/BrandLogo";
 import { IconDashboard, IconRelatorios, IconCrm, IconProdutos, IconCategorias, IconMesas, IconPagamento, IconQr, IconCardapio, IconEmpresas, IconUsuarios, IconCargos, IconPermissoes, IconLink, IconLicencas, IconVersoes, IconEmpresa, IconBusca, IconConfig, IconPromocao } from "./components/PrimeIcons";
 import { obterTema, aplicarTema } from "./lib/theme";
-import { PageHeader, PrimeButton, EmptyState, FilterChip } from "./components/Prime";
+import { PageHeader, PrimeButton, EmptyState, FilterChip, FilterGroup, FiltersPanel, ActiveFiltersSummary } from "./components/Prime";
 
 export const fallbackImage = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=900&q=80";
 
@@ -7233,22 +7233,6 @@ function ContaCaixa({ o, opcoes, pagando, onFinalizar, haTxt, numeroPedido = {},
   );
 }
 
-// Grupo de filtros em formato "pill" (turno, canal, status)
-// Grupo de filtros — cartão independente (rótulo + chips). Um por contexto
-// de filtro (Turno, Canal, Status); nenhum CSS próprio além do container.
-function GrupoPill({ titulo, valor, setValor, opcoes }) {
-  return (
-    <div className="rounded-2xl border border-brand-border bg-white p-4">
-      <p className="mb-2.5 text-[11px] font-bold uppercase tracking-widest text-brand-inkMuted">{titulo}</p>
-      <div className="flex flex-wrap gap-2">
-        {opcoes.map((op) => (
-          <FilterChip key={op.id} size="sm" selected={valor === op.id} label={op.label} onClick={() => setValor(op.id)} />
-        ))}
-      </div>
-    </div>
-  );
-}
-
 // Gráfico de barras por horário — paleta média cíclica, com destaque
 // dourado no melhor horário (mantém o insight visual do pico de vendas).
 // Abrevia valores grandes em BRL ("R$ 1,2 mil"); mantém formato cheio abaixo de R$ 1.000.
@@ -8311,7 +8295,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
           {soCopiloto && (
             <button onClick={atualizarAnaliseCopiloto} className="shrink-0 rounded-xl border px-3.5 py-2.5 text-xs font-bold transition hover:bg-[#EFF6FF]" style={{ borderColor: "#E2E8F0", color: "#2563EB" }}>🔄 Atualizar análise</button>
           )}
-          <div className="pp-dash-filtros">
+          <div className="pp-filter-panel">
             <SeletorPeriodo periodo={periodo} setPeriodo={setPeriodo} ini={ini} setIni={setIni} fim={fim} setFim={setFim} />
           </div>
         </div>
@@ -8319,11 +8303,17 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
 
       {/* Filtros secundários — um agrupamento independente por contexto (Turno,
           Canal, Status): 1 coluna no mobile, 2 no tablet, 3 lado a lado no desktop. */}
-      <div className="pp-dash-filtros grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
-        <GrupoPill titulo="Turno" valor={turno} setValor={setTurno} opcoes={[{ id: "todos", label: "Todos" }, { id: "almoco", label: "Almoço" }, { id: "jantar", label: "Jantar" }]} />
-        <GrupoPill titulo="Canal" valor={canal} setValor={setCanal} opcoes={[{ id: "todos", label: "Todos" }, { id: "mesa_qr", label: "Mesa / QR Code" }, { id: "balcao_delivery", label: "Balcão / Delivery" }]} />
-        <GrupoPill titulo="Status" valor={statusF} setValor={setStatusF} opcoes={[{ id: "todos", label: "Todos" }, { id: "pago", label: "Pago" }, { id: "aberto", label: "Em aberto" }, { id: "cancelado", label: "Cancelado" }]} />
-      </div>
+      <FiltersPanel>
+        <FilterGroup titulo="Turno" valor={turno} onChange={setTurno}
+          opcoes={[{ id: "todos", label: "Todos" }, { id: "almoco", label: "Almoço" }, { id: "jantar", label: "Jantar" }]} />
+        <FilterGroup titulo="Canal" valor={canal} onChange={setCanal}
+          opcoes={[{ id: "todos", label: "Todos" }, { id: "mesa_qr", label: "Mesa / QR Code" }, { id: "balcao_delivery", label: "Balcão / Delivery" }]} />
+        <FilterGroup titulo="Status" valor={statusF} onChange={setStatusF}
+          opcoes={[{ id: "todos", label: "Todos" }, { id: "pago", label: "Pago", tone: "success" }, { id: "aberto", label: "Em aberto", tone: "warning" }, { id: "cancelado", label: "Cancelado", tone: "error" }]} />
+      </FiltersPanel>
+      <ActiveFiltersSummary
+        grupos={[{ valor: turno }, { valor: canal }, { valor: statusF }]}
+        onClearAll={() => { setTurno("todos"); setCanal("todos"); setStatusF("todos"); }} />
 
       {!soCopiloto && (<>
       {/* Resumo inteligente — insights automáticos (usa dados já calculados).
@@ -9904,13 +9894,13 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
           </h2>
           <p className="mt-1 text-sm text-slate-500">Análise gerencial: vendas, cupons, estoque, clientes e tempo de permanência.</p>
         </div>
-        <div className="pp-dash-filtros">
+        <div className="pp-filter-panel">
           <SeletorPeriodo periodo={periodo} setPeriodo={setPeriodo} ini={ini} setIni={setIni} fim={fim} setFim={setFim} />
         </div>
       </div>
 
       {/* Sub-abas de relatório */}
-      <div className="pp-dash-filtros flex flex-wrap gap-2">
+      <div className="pp-filter-panel flex flex-wrap gap-2">
         {[{ id: "geral", label: "Visão geral" }, { id: "vendas", label: "Vendas" }, { id: "cupom", label: "Cupom / Mesa / Comanda" }, { id: "estoque", label: "Estoque" }, { id: "clientes", label: "Clientes" }, { id: "permanencia", label: "Permanência" }, { id: "satisfacao", label: "⭐ Satisfação" }].map((t) => (
           <FilterChip key={t.id} selected={aba === t.id} label={t.label} onClick={() => setAba(t.id)} />
         ))}

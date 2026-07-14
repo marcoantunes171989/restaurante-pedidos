@@ -15,9 +15,15 @@ const FILTER_CHIP_SIZES = {
   md: "min-h-11 sm:min-h-[38px] px-4 py-2 text-sm",
   lg: "min-h-11 sm:min-h-[40px] px-5 py-2.5 text-[15px]",
 };
+// Cores semânticas opcionais (marcador, nunca o único indicador — o rótulo em
+// texto já diferencia a opção). Usadas por grupos como "Status" (pago/aberto/
+// cancelado) via a prop `tone`. Não alteram o fundo azul de "selecionado".
+const FILTER_CHIP_TONES = {
+  success: "#16A34A", warning: "#D97706", error: "#DC2626", info: "#7C3AED",
+};
 export const FilterChip = memo(function FilterChip({
   selected = false, disabled = false, icon = null, label, badge = null, loading = false,
-  onClick, size = "md", color = "primary", fullWidth = false, className = "", tooltip,
+  onClick, size = "md", color = "primary", tone = null, fullWidth = false, className = "", tooltip,
 }) {
   const bloqueado = disabled || loading;
   const cls = [
@@ -27,7 +33,7 @@ export const FilterChip = memo(function FilterChip({
     disabled
       ? "cursor-not-allowed border-[var(--filter-chip-border)] bg-[var(--filter-chip-disabled-bg)] font-medium text-[var(--filter-chip-disabled-text)]"
       : selected
-        ? "border-[var(--filter-chip-selected)] bg-[var(--filter-chip-selected)] font-semibold text-[var(--filter-chip-text-selected)] hover:border-[var(--filter-chip-selected-hover)] hover:bg-[var(--filter-chip-selected-hover)]"
+        ? "border-[var(--filter-chip-selected)] bg-[var(--filter-chip-selected)] font-semibold text-[var(--filter-chip-text-selected)] shadow-[var(--filter-chip-selected-shadow,none)] hover:border-[var(--filter-chip-selected-hover)] hover:bg-[var(--filter-chip-selected-hover)]"
         : "border-[var(--filter-chip-border)] bg-[var(--filter-chip-bg)] font-medium text-[var(--filter-chip-text)] hover:border-[var(--filter-chip-selected)] hover:bg-[var(--filter-chip-hover-bg)] hover:text-[var(--filter-chip-selected)]",
     !disabled ? "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--filter-chip-selected)]" : "",
     className,
@@ -37,6 +43,9 @@ export const FilterChip = memo(function FilterChip({
       aria-pressed={selected} aria-selected={selected} title={tooltip} data-color={color} className={cls}>
       {loading ? <span className="h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-current border-r-transparent" aria-label="Carregando" />
         : (icon && <span className="shrink-0" aria-hidden="true">{icon}</span>)}
+      {tone && FILTER_CHIP_TONES[tone] && (
+        <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: FILTER_CHIP_TONES[tone] }} aria-hidden="true" />
+      )}
       <span>{label}</span>
       {badge != null && (
         <span className={`ml-0.5 inline-flex min-w-[18px] shrink-0 items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none ${selected ? "bg-white/25 text-white" : "bg-[#F1F5F9] text-[#475569]"}`}>
@@ -46,6 +55,69 @@ export const FilterChip = memo(function FilterChip({
     </button>
   );
 });
+
+// ── FilterGroup ──────────────────────────────────────────────
+// Painel de filtro titulado — padrão OFICIAL para grupos como "Turno",
+// "Canal" e "Status" (Dashboard Gerencial), reutilizável em qualquer tela
+// administrativa que precise do mesmo formato: card branco + rótulo +
+// linha de FilterChip. Substitui implementações ad-hoc (divs soltas sem
+// título/card, ou botões próprios) — nenhuma tela deve estilizar isso por
+// conta própria. Aplica a paleta azul oficial de filtro (fundo branco,
+// selecionado #2563EB) via a classe `pp-filter-panel` (src/index.css),
+// sem afetar outros usos de FilterChip (permissões, config, templates
+// etc.), que continuam com a cor vermelha padrão do sistema.
+export const FilterGroup = memo(function FilterGroup({
+  titulo, icone = null, opcoes, valor, onChange, contagens = null,
+  disabled = false, className = "",
+}) {
+  return (
+    <div className={`pp-filter-panel rounded-[14px] border border-[#E2E8F0] bg-white p-4 shadow-[0_2px_8px_rgba(15,23,42,0.05)] ${className}`}>
+      <p className="mb-2.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-[#64748B]">
+        {icone && <span className="[&>svg]:h-3.5 [&>svg]:w-3.5" aria-hidden="true">{icone}</span>}
+        {titulo}
+      </p>
+      <div className="flex flex-wrap gap-2" role="group" aria-label={titulo}>
+        {opcoes.map((op) => (
+          <FilterChip key={op.id} size="sm" selected={valor === op.id} disabled={disabled || op.disabled}
+            label={op.label} tone={op.tone || null}
+            badge={contagens ? (contagens[op.id] ?? null) : (op.badge ?? null)}
+            onClick={() => onChange(op.id)} />
+        ))}
+      </div>
+    </div>
+  );
+});
+FilterGroup.PADRAO = "todos"; // convenção usada pelo sistema inteiro para a opção "Todos"
+
+// ── FiltersPanel ─────────────────────────────────────────────
+// Grade responsiva para exibir vários FilterGroup lado a lado (ex.: Turno +
+// Canal + Status). 1 coluna no mobile, 2 no tablet, 3 no desktop — mesmo
+// comportamento já validado no Dashboard Gerencial. Para telas com um único
+// grupo de filtro, use FilterGroup diretamente (sem este wrapper).
+export function FiltersPanel({ children, className = "" }) {
+  return <div className={`grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 ${className}`}>{children}</div>;
+}
+
+// ── ActiveFiltersSummary ─────────────────────────────────────
+// Contagem de filtros ativos + "Limpar filtros" — só aparece quando algum
+// grupo estiver fora do valor padrão (não polui a UI quando tudo está em
+// "Todos"). `grupos`: [{ valor, opcaoPadrao }]. `onClearAll` deve restaurar
+// cada grupo para seu respectivo padrão (a função chamadora decide como).
+export function ActiveFiltersSummary({ grupos, onClearAll, className = "" }) {
+  const ativos = grupos.filter((g) => g.valor !== (g.opcaoPadrao ?? FilterGroup.PADRAO));
+  if (ativos.length === 0) return null;
+  return (
+    <div className={`flex flex-wrap items-center gap-2 ${className}`}>
+      <span className="text-xs font-semibold text-[#64748B]">
+        {ativos.length} {ativos.length === 1 ? "filtro ativo" : "filtros ativos"}
+      </span>
+      <button type="button" onClick={onClearAll}
+        className="text-xs font-bold text-[#2563EB] transition hover:text-[#1D4ED8] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563EB]">
+        Limpar filtros
+      </button>
+    </div>
+  );
+}
 
 // Cabeçalho de página: título (Sora), descrição curta, indicadores e ação principal
 export function PageHeader({ icone = null, titulo, descricao, indicadores = [], acao = null }) {
