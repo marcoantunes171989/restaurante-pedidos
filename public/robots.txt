@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /login
+Disallow: /app/
+Disallow: /sistema/
+Disallow: /operacional/
+
+Sitemap: https://www.pedidoprime.com.br/sitemap.xml
