@@ -6243,7 +6243,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
             <ModuloBloqueado slug={ativo} />
           ) : (<SecaoErrorBoundary key={ativo}>
           {ativo === "dashboard"  && <DashboardAdmin orders={orders} products={products} clientes={clientes} setores={setores} irParaMesas={() => setAdminSection("mesas")} />}
-          {ativo === "copiloto"   && (precisaEmpresa ? avisoEmpresa : <DashboardAdmin orders={orders} products={products} clientes={clientes} setores={setores} irPara={setAdminSection} soCopiloto />)}
+          {ativo === "copiloto"   && (precisaEmpresa ? avisoEmpresa : <DashboardAdmin orders={orders} products={products} clientes={clientes} setores={setores} pesquisas={filtraLoja(pesquisas)} irPara={setAdminSection} soCopiloto />)}
           {ativo === "relatorios" && <RelatoriosAdmin orders={orders} products={products} lojaInfo={lojaInfo} pesquisas={filtraLoja(pesquisas)} irParaMesas={() => setAdminSection("mesas")} irParaProdutos={() => setAdminSection("products")} currentUser={currentUser} />}
           {ativo === "crm"        && <CrmAdmin clientes={clientes} orders={orders} fidTransacoes={fidTransacoes} fidRecompensas={fidRecompensas} lancarPontos={fidApi?.lancarPontos} configCrm={lojaInfo?.configCrm || {}} salvarConfigCrm={salvarConfigCrm} />}
           {ativo === "fidelidade" && (precisaEmpresa ? avisoEmpresa : <FidelidadeAdmin regra={fidRegra} recompensas={fidRecompensas} transacoes={fidTransacoes} clientes={clientes} api={fidApi} />)}
@@ -7449,45 +7449,46 @@ function analisarGestaoIA(ctx) {
   const { fat, emAberto, ticket, totalPedidos, comparativo, produtoTop, melhorHora, semEstoque = [],
     cancelados = [], valorPerdido = 0, motivoPrincipal = "—", clientesPeriodo = 0, clientesCadastrados = 0,
     mesasCriticas = 0, tempoMedioPrep = null, taxaEntrega = 0, pctIdentificado = 0,
-    vips = [], inativos = [], novosClientes = 0, produtosParados = [], periodoLabel = "período" } = ctx;
+    vips = [], inativos = [], novosClientes = 0, produtosParados = [], periodoLabel = "período",
+    margemPct = null, mediaSatisfacao = null, npsSatisfacao = null, respostasSatisfacao = 0 } = ctx;
   const fmt = formatCurrency;
   const insights = []; const acoes = [];
   // impacto é inferido da severidade (crit/warn = alto/médio impacto de negócio; pos/info = baixo,
-  // são leitura de contexto). acaoId (opcional) é a seção do admin para o link "Ver detalhes".
+  // são leitura de contexto). acaoId (opcional) é a seção do admin para o link "Ver detalhes"/o KPI relacionado.
   const IMPACTO_POR_SEV = { crit: "alto", warn: "médio", pos: "baixo", info: "baixo" };
   const addIns = (cat, sev, texto, acaoId = null) => insights.push({ cat, sev, texto, impacto: IMPACTO_POR_SEV[sev], acaoId });
-  const addAct = (prio, texto, motivo, area) => acoes.push({ prio, texto, motivo, area, impacto: prio === "alta" ? "Alto" : prio === "media" ? "Médio" : "Baixo" });
+  const addAct = (prio, texto, motivo, area, kpiId = null) => acoes.push({ prio, texto, motivo, area, kpiId, impacto: prio === "alta" ? "Alto" : prio === "media" ? "Médio" : "Baixo" });
 
   // ── VENDAS ──────────────────────────────────────────────
   if (comparativo?.faturamento != null) {
     const v = Math.round(comparativo.faturamento);
     if (v >= 10) addIns("Vendas", "pos", `Faturamento ${v >= 0 ? "+" : ""}${v}% vs. período anterior — tendência de alta.`);
-    else if (v <= -10) { addIns("Vendas", "crit", `Faturamento ${v}% vs. período anterior — queda relevante.`); addAct("alta", "Ativar promoção/combo e campanha de retorno para reverter a queda de vendas.", `Faturamento caiu ${v}%.`, "Vendas"); }
+    else if (v <= -10) { addIns("Vendas", "crit", `Faturamento ${v}% vs. período anterior — queda relevante.`); addAct("alta", "Ativar promoção/combo e campanha de retorno para reverter a queda de vendas.", `Faturamento caiu ${v}%.`, "Vendas", "faturamento"); }
     else addIns("Vendas", "info", `Faturamento estável (${v >= 0 ? "+" : ""}${v}%) frente ao período anterior.`);
   }
-  if (ticket > 0 && ticket < META_TICKET_IA) { addIns("Vendas", "warn", `Ticket médio ${fmt(ticket)} abaixo da meta (${fmt(META_TICKET_IA)}).`); addAct("alta", produtoTop ? `Criar combo do "${produtoTop.nome}" + bebida/acompanhamento para elevar o ticket.` : "Criar combos e sugestões de acompanhamento para elevar o ticket.", `Ticket ${fmt(ticket)} < meta ${fmt(META_TICKET_IA)}.`, "Vendas"); }
+  if (ticket > 0 && ticket < META_TICKET_IA) { addIns("Vendas", "warn", `Ticket médio ${fmt(ticket)} abaixo da meta (${fmt(META_TICKET_IA)}).`); addAct("alta", produtoTop ? `Criar combo do "${produtoTop.nome}" + bebida/acompanhamento para elevar o ticket.` : "Criar combos e sugestões de acompanhamento para elevar o ticket.", `Ticket ${fmt(ticket)} < meta ${fmt(META_TICKET_IA)}.`, "Vendas", "ticket"); }
   else if (ticket >= META_TICKET_IA) addIns("Vendas", "pos", `Ticket médio ${fmt(ticket)} acima da meta — bom aproveitamento por pedido.`);
 
   // ── PRODUTOS ────────────────────────────────────────────
   if (produtoTop) addIns("Produtos", "info", `Carro-chefe: ${produtoTop.nome} (${produtoTop.qtd} un.). Use como âncora de combos e destaques.`, "products");
-  if (produtosParados.length > 0) { addIns("Produtos", "warn", `${produtosParados.length} produto(s) ativo(s) sem vendas no ${periodoLabel}.`, "products"); addAct("media", `Dar destaque/promoção aos produtos parados: ${produtosParados.slice(0, 3).join(", ")}${produtosParados.length > 3 ? "…" : ""}.`, "Itens encalhados imobilizam cardápio e estoque.", "Produtos"); }
+  if (produtosParados.length > 0) { addIns("Produtos", "warn", `${produtosParados.length} produto(s) ativo(s) sem vendas no ${periodoLabel}.`, "products"); addAct("media", `Dar destaque/promoção aos produtos parados: ${produtosParados.slice(0, 3).join(", ")}${produtosParados.length > 3 ? "…" : ""}.`, "Itens encalhados imobilizam cardápio e estoque.", "Produtos", "produtosParados"); }
 
   // ── OPERAÇÃO ────────────────────────────────────────────
   if (melhorHora?.valor > 0) { addIns("Operação", "info", `Pico de vendas às ${melhorHora.label} (${fmt(melhorHora.valor)}).`); addAct("media", `Reforçar equipe e estoque no horário de pico (${melhorHora.label}).`, "Concentração de demanda no pico.", "Operação"); }
   if (mesasCriticas > 0) addIns("Operação", "warn", `${mesasCriticas} mesa(s) aberta(s) há +40 min — risco de giro lento.`, "mesas");
-  if (tempoMedioPrep != null && tempoMedioPrep > 25) { addIns("Operação", "warn", `Tempo médio de preparo alto: ${tempoMedioPrep} min.`); addAct("media", "Revisar fluxo da cozinha/mise en place no pico para reduzir o tempo de preparo.", "Espera longa reduz satisfação e giro.", "Operação"); }
+  if (tempoMedioPrep != null && tempoMedioPrep > 25) { addIns("Operação", "warn", `Tempo médio de preparo alto: ${tempoMedioPrep} min.`); addAct("media", "Revisar fluxo da cozinha/mise en place no pico para reduzir o tempo de preparo.", "Espera longa reduz satisfação e giro.", "Operação", "tempoPreparo"); }
   if (taxaEntrega > 0 && taxaEntrega < 80) addIns("Operação", "info", `Taxa de conclusão dos pedidos em ${taxaEntrega}%.`);
 
   // ── CLIENTES / CRM ─────────────────────────────────────
-  if (pctIdentificado < 0.6 && totalPedidos > 0) { addIns("Clientes", "warn", `Apenas ${Math.round(pctIdentificado * 100)}% dos pedidos têm cliente identificado.`, "crm"); addAct("alta", "Incentivar o cadastro (nome + telefone) no caixa/tablet — base de CRM para campanhas.", "Sem identificação não há CRM nem recompra dirigida.", "Clientes"); }
+  if (pctIdentificado < 0.6 && totalPedidos > 0) { addIns("Clientes", "warn", `Apenas ${Math.round(pctIdentificado * 100)}% dos pedidos têm cliente identificado.`, "crm"); addAct("alta", "Incentivar o cadastro (nome + telefone) no caixa/tablet — base de CRM para campanhas.", "Sem identificação não há CRM nem recompra dirigida.", "Clientes", "clientesId"); }
   else if (totalPedidos > 0) addIns("Clientes", "pos", `${Math.round(pctIdentificado * 100)}% dos pedidos identificam o cliente — boa base de CRM.`);
-  if (inativos.length > 0) { addIns("Clientes", "warn", `${inativos.length} cliente(s) inativo(s) (sem comprar há +30 dias).`, "crm"); addAct("alta", `Disparar campanha de retorno (CRM) para os ${inativos.length} inativos com um mimo/cupom.`, "Reativar inativos custa menos que captar novos.", "Clientes"); }
+  if (inativos.length > 0) { addIns("Clientes", "warn", `${inativos.length} cliente(s) inativo(s) (sem comprar há +30 dias).`, "crm"); addAct("alta", `Disparar campanha de retorno (CRM) para os ${inativos.length} inativos com um mimo/cupom.`, "Reativar inativos custa menos que captar novos.", "Clientes", "clientesInativos"); }
   if (vips.length > 0) { addIns("Clientes", "pos", `${vips.length} cliente(s) VIP. Top: ${vips[0].nome || "cliente"} (${fmt(vips[0].total)}).`, "crm"); addAct("media", "Programa de fidelidade/benefício exclusivo para os VIPs reterem e elevarem o gasto.", "VIPs concentram boa parte do faturamento.", "Clientes"); }
   if (novosClientes > 0) addIns("Clientes", "pos", `${novosClientes} novo(s) cliente(s) cadastrado(s) no ${periodoLabel}.`);
   if (clientesCadastrados > 0 && clientesPeriodo > 0) addIns("Clientes", "info", `${clientesPeriodo} de ${clientesCadastrados} clientes compraram no ${periodoLabel} (${Math.round((clientesPeriodo / clientesCadastrados) * 100)}% da base ativa).`);
 
   // ── ESTOQUE ─────────────────────────────────────────────
-  if (semEstoque.length > 0) { addIns("Estoque", "crit", `${semEstoque.length} produto(s) abaixo do estoque mínimo.`, "products"); addAct("alta", `Repor estoque: ${semEstoque.slice(0, 3).map((p) => p.name).join(", ")}${semEstoque.length > 3 ? "…" : ""}.`, "Ruptura de estoque = venda perdida.", "Estoque"); }
+  if (semEstoque.length > 0) { addIns("Estoque", "crit", `${semEstoque.length} produto(s) abaixo do estoque mínimo.`, "products"); addAct("alta", `Repor estoque: ${semEstoque.slice(0, 3).map((p) => p.name).join(", ")}${semEstoque.length > 3 ? "…" : ""}.`, "Ruptura de estoque = venda perdida.", "Estoque", "estoqueCritico"); }
   else addIns("Estoque", "pos", "Todos os produtos com estoque adequado.");
 
   // ── FINANCEIRO ──────────────────────────────────────────
@@ -7495,6 +7496,20 @@ function analisarGestaoIA(ctx) {
   if (emAberto > 0 && pctAberto >= 0.1) { addIns("Financeiro", "warn", `${fmt(emAberto)} em aberto (${Math.round(pctAberto * 100)}% do previsto).`, "caixa"); addAct("alta", "Revisar comandas em aberto e cobrar/fechar antes do fim do expediente.", "Valores em aberto viram inadimplência/perda.", "Financeiro"); }
   const taxaCancel = totalPedidos > 0 ? cancelados.length / totalPedidos : 0;
   if (taxaCancel >= 0.05) { addIns("Financeiro", "crit", `Cancelamentos em ${Math.round(taxaCancel * 100)}% (${fmt(valorPerdido)} perdidos). Motivo principal: ${motivoPrincipal}.`); addAct("alta", `Atacar a causa dos cancelamentos (${motivoPrincipal}).`, `Perda de ${fmt(valorPerdido)} no ${periodoLabel}.`, "Financeiro"); }
+  if (margemPct != null) {
+    if (margemPct < 20) { addIns("Financeiro", "warn", `Margem estimada de ${margemPct.toFixed(0)}% — abaixo do saudável para o setor.`, "products"); addAct("media", "Revisar preços/custo dos itens de menor margem ou priorizar os mais rentáveis nas vitrines.", `Margem estimada de ${margemPct.toFixed(0)}%.`, "Financeiro", "margem"); }
+    else addIns("Financeiro", "pos", `Margem estimada de ${margemPct.toFixed(0)}% no ${periodoLabel}.`, "products");
+  }
+
+  // ── SATISFAÇÃO ──────────────────────────────────────────
+  if (respostasSatisfacao > 0 && mediaSatisfacao != null) {
+    if (mediaSatisfacao < 3.5) { addIns("Satisfação", "crit", `Satisfação média de ${mediaSatisfacao.toFixed(1)}/5 em ${respostasSatisfacao} resposta(s) — abaixo do esperado.`, "satisfacao"); addAct("alta", "Investigar os comentários e perguntas com pior nota na aba Satisfação.", `Média de satisfação em ${mediaSatisfacao.toFixed(1)}/5.`, "Satisfação", "satisfacao"); }
+    else if (mediaSatisfacao < 4) addIns("Satisfação", "warn", `Satisfação média de ${mediaSatisfacao.toFixed(1)}/5 em ${respostasSatisfacao} resposta(s) — espaço para melhora.`, "satisfacao");
+    else addIns("Satisfação", "pos", `Satisfação média de ${mediaSatisfacao.toFixed(1)}/5 em ${respostasSatisfacao} resposta(s).`, "satisfacao");
+    if (npsSatisfacao != null && npsSatisfacao < 0) addIns("Satisfação", "warn", `NPS negativo (${npsSatisfacao}) — mais detratores que promotores.`, "satisfacao");
+  } else {
+    addIns("Satisfação", "info", "Sem pesquisas de satisfação respondidas no período.", "satisfacao");
+  }
 
   // ── ALERTAS CRÍTICOS (separados dos insights — só os riscos reais) ──
   const alertasCriticos = [];
@@ -7505,8 +7520,22 @@ function analisarGestaoIA(ctx) {
   if (mesasCriticas > 0) addAlerta("Comandas abertas há muito tempo", `${mesasCriticas} mesa(s) aberta(s) há mais de 40 minutos.`, "warn");
   if (produtosParados.length > 0) addAlerta("Produtos sem venda", `${produtosParados.length} produto(s) ativo(s) sem nenhuma venda no ${periodoLabel}.`, "warn");
   if (inativos.length > 0) addAlerta("Clientes inativos", `${inativos.length} cliente(s) sem comprar há mais de 30 dias.`, "warn");
+  if (respostasSatisfacao > 0 && mediaSatisfacao != null && mediaSatisfacao < 3.5) addAlerta("Satisfação abaixo do esperado", `Média de ${mediaSatisfacao.toFixed(1)}/5 em ${respostasSatisfacao} resposta(s) no ${periodoLabel}.`, "warn");
 
-  // ── SCORE DE SAÚDE ─────────────────────────────────────
+  // ── SCORE DE SAÚDE — regras locais, transparentes e determinísticas (a IA
+  // não participa deste cálculo; ela só interpreta o resultado já pronto). ──
+  const REGRAS_SCORE = [
+    { peso: 10, desc: "Faturamento em alta (+10) ou queda relevante (-12) vs. período anterior" },
+    { peso: -10, desc: "Valores em aberto ≥10% do previsto (-5 a -10)" },
+    { peso: -10, desc: "Produtos com estoque abaixo do mínimo (até -10)" },
+    { peso: -10, desc: "Taxa de cancelamento ≥5%" },
+    { peso: 6, desc: "Ticket médio acima (+4) ou abaixo (-6) da meta" },
+    { peso: -5, desc: "Mesas abertas há mais de 40 minutos" },
+    { peso: 4, desc: "% de pedidos com cliente identificado acima/abaixo de 60%" },
+    { peso: -3, desc: "Clientes inativos (+30 dias sem comprar)" },
+    { peso: 6, desc: "Margem estimada abaixo de 20% (-6), quando há custo cadastrado" },
+    { peso: 5, desc: "Satisfação média abaixo de 3,5/5, quando há respostas" },
+  ];
   let score = 72;
   if (comparativo?.faturamento != null) score += comparativo.faturamento > 0 ? 10 : (comparativo.faturamento < -10 ? -12 : 0);
   if (pctAberto >= 0.15) score -= 10; else if (pctAberto >= 0.1) score -= 5;
@@ -7516,11 +7545,13 @@ function analisarGestaoIA(ctx) {
   if (mesasCriticas > 0) score -= 5;
   if (pctIdentificado >= 0.6) score += 4; else if (totalPedidos > 0) score -= 4;
   if (inativos.length > 0) score -= 3;
+  if (margemPct != null && margemPct < 20) score -= 6;
+  if (respostasSatisfacao > 0 && mediaSatisfacao != null && mediaSatisfacao < 3.5) score -= 5;
   score = Math.max(5, Math.min(100, Math.round(score)));
   // Diagnóstico em 3 níveis (Saudável/Atenção/Crítico), conforme padrão da tela.
   const nivel = score >= 60 ? "Saudável" : score >= 40 ? "Atenção" : "Crítico";
 
-  // ── RESUMO (linguagem natural) ─────────────────────────
+  // ── RESUMO (linguagem natural) + resultado positivo/risco/oportunidade em destaque ──
   const tend = comparativo?.faturamento == null ? "" : comparativo.faturamento > 5 ? ` (${comparativo.faturamento >= 0 ? "+" : ""}${Math.round(comparativo.faturamento)}% vs. anterior, em alta)` : comparativo.faturamento < -5 ? ` (${Math.round(comparativo.faturamento)}% vs. anterior, em queda)` : " (estável vs. anterior)";
   const partes = [];
   partes.push(`No ${periodoLabel}, o faturamento pago foi ${fmt(fat)}${tend}, em ${totalPedidos} pedido(s), ticket médio ${fmt(ticket)}.`);
@@ -7535,33 +7566,51 @@ function analisarGestaoIA(ctx) {
   if (acaoTop) partes.push(`Prioridade agora: ${acaoTop.texto}`);
   const resumo = partes.join(" ");
 
+  const positivos = insights.filter((i) => i.sev === "pos");
+  const criticosOuAlerta = insights.filter((i) => i.sev === "crit" || i.sev === "warn");
+  const resultadoPositivo = positivos.sort((x, y) => (x.cat === "Vendas" ? -1 : 0) - (y.cat === "Vendas" ? -1 : 0))[0]?.texto || "Sem destaque positivo claro neste período.";
+  const principalRisco = alertasCriticos[0]?.desc ? `${alertasCriticos[0].titulo}: ${alertasCriticos[0].desc}` : (criticosOuAlerta[0]?.texto || "Nenhum risco relevante identificado.");
+  const principalOportunidade = (produtosParados.length > 0 && `Promover os ${produtosParados.length} produto(s) sem venda no ${periodoLabel}.`)
+    || (inativos.length > 0 && `Reativar os ${inativos.length} cliente(s) inativos.`)
+    || (ticket > 0 && ticket < META_TICKET_IA && "Elevar o ticket médio com combos e sugestões.")
+    || "Nenhuma oportunidade de alto impacto identificada além da operação atual.";
+
   const ordPrio = { alta: 0, media: 1, baixa: 2 };
   acoes.sort((x, y) => ordPrio[x.prio] - ordPrio[y.prio]);
-  return { score, nivel, resumo, insights, acoes: acoes.slice(0, 8), alertasCriticos };
+  return { score, nivel, resumo, resultadoPositivo, principalRisco, principalOportunidade, regrasScore: REGRAS_SCORE, insights, acoes: acoes.slice(0, 8), alertasCriticos };
 }
 
 // Card de indicador do Copiloto IA — fundo sempre branco, cor só na borda
-// lateral e no badge de status (evita "card colorido"), conforme padrão visual.
+// lateral e no badge de status (evita "card colorido"), conforme padrão visual
+// e paleta oficial (hex exatos, não classes genéricas do Tailwind). "Analisar"
+// preenche o chat com uma pergunta contextual sobre o indicador.
 const KPI_COPILOTO_TONS = {
-  blue:    { borda: "border-l-blue-500",    badge: "bg-blue-50 text-blue-600" },
-  emerald: { borda: "border-l-emerald-500", badge: "bg-emerald-50 text-emerald-600" },
-  amber:   { borda: "border-l-amber-500",   badge: "bg-amber-50 text-amber-600" },
-  violet:  { borda: "border-l-violet-500",  badge: "bg-violet-50 text-violet-600" },
-  red:     { borda: "border-l-red-500",     badge: "bg-red-50 text-red-600" },
+  blue: "#2563EB", emerald: "#10B981", amber: "#F59E0B", violet: "#8B5CF6", red: "#EF4444",
 };
-function KpiCardCopiloto({ titulo, valor, variacao, desc, tom = "blue", status }) {
-  const t = KPI_COPILOTO_TONS[tom] || KPI_COPILOTO_TONS.blue;
+// "Analisar" não recebe uma função por prop — o clique sobe até o container
+// do grid (elemento nativo) por delegação, que lê data-pergunta e chama o
+// chat. Evita passar uma closure que toca chatAbortRef como prop de um
+// componente customizado (o React Compiler não consegue provar que o filho
+// não a chamaria durante o próprio render, mesmo quando o filho só a usa
+// dentro do onClick do seu próprio botão — mesmo cuidado já aplicado ao
+// MenuAcoesCupom nesta sessão).
+function KpiCardCopiloto({ titulo, valor, variacao, desc, tom = "blue", status, pergunta }) {
+  const cor = KPI_COPILOTO_TONS[tom] || KPI_COPILOTO_TONS.blue;
   return (
-    <div className={`rounded-2xl border border-slate-200 ${t.borda} border-l-4 bg-white p-4`}>
+    <div className="rounded-2xl border bg-white p-4" style={{ borderColor: "#E2E8F0", borderLeftColor: cor, borderLeftWidth: 4 }}>
       <div className="flex items-start justify-between gap-2">
-        <p className="text-[11px] font-bold uppercase tracking-widest text-slate-500">{titulo}</p>
-        {status && <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-black uppercase ${t.badge}`}>{status}</span>}
+        <p className="text-[11px] font-bold uppercase tracking-widest text-[#64748B]">{titulo}</p>
+        {status && <span className="shrink-0 rounded-full px-2 py-0.5 text-[9px] font-black uppercase" style={{ background: `${cor}1A`, color: cor }}>{status}</span>}
       </div>
       <p className="mt-1.5 text-2xl font-black text-[#0D1B2A]">{valor}</p>
       {variacao != null && (
-        <p className={`mt-1 text-[11px] font-bold ${variacao >= 0 ? "text-emerald-600" : "text-red-600"}`}>{variacao >= 0 ? "▲" : "▼"} {Math.abs(Math.round(variacao))}% vs. período anterior</p>
+        <p className="mt-1 text-[11px] font-bold" style={{ color: variacao >= 0 ? "#10B981" : "#EF4444" }}>{variacao >= 0 ? "▲" : "▼"} {Math.abs(Math.round(variacao))}% vs. período anterior</p>
       )}
-      {desc && <p className="mt-1 text-xs leading-snug text-slate-500">{desc}</p>}
+      {desc && <p className="mt-1 text-xs leading-snug text-[#64748B]" title={desc}>{desc}</p>}
+      {pergunta && (
+        <button data-pergunta={pergunta} title={`Perguntar ao Copiloto sobre ${titulo.toLowerCase()}`} aria-label={`Analisar ${titulo}`}
+          className="mt-2.5 text-[11px] font-bold transition hover:opacity-70" style={{ color: cor }}>🔎 Analisar</button>
+      )}
     </div>
   );
 }
@@ -7569,15 +7618,15 @@ function KpiCardCopiloto({ titulo, valor, variacao, desc, tom = "blue", status }
 // Card de oportunidade do Copiloto IA — lista curta com render por item.
 function OportunidadeCard({ titulo, itens, vazio, render }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4">
-      <p className="mb-2 text-xs font-black uppercase tracking-wide text-slate-500">{titulo}</p>
+    <div className="rounded-2xl border border-[#E2E8F0] bg-white p-4">
+      <p className="mb-2 text-xs font-black uppercase tracking-wide text-[#64748B]">{titulo}</p>
       {(!itens || itens.length === 0) ? (
-        <p className="text-xs text-slate-400">{vazio}</p>
+        <p className="text-xs text-[#94A3B8]">{vazio}</p>
       ) : (
         <ul className="space-y-1.5">
           {itens.map((it, i) => (
             <li key={i} className="flex items-start gap-2 text-xs text-[#334155]">
-              <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />
+              <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-[#2563EB]" />
               <span className="min-w-0">{render(it)}</span>
             </li>
           ))}
@@ -7587,20 +7636,94 @@ function OportunidadeCard({ titulo, itens, vazio, render }) {
   );
 }
 
-function DashboardAdmin({ orders, products, clientes = [], setores = [], irParaMesas = () => {}, irPara = () => {}, soCopiloto = false }) {
+// Bolha de resposta estruturada do chat — segue o formato obrigatório em 6
+// partes (resposta direta, evidências, diagnóstico, ações, impacto,
+// limitações) mais riscos/oportunidades quando existirem, e o rodapé de
+// "grounding" (período analisado, confiança, quando foi gerada).
+const CONFIANCA_COR = { alta: "#10B981", media: "#F59E0B", baixa: "#64748B" };
+function RespostaCopilotoBubble({ resultado, modelo, dataPeriod, bloqueado, atualizadoEm, copiado, onCopiar, feedback, onFeedback }) {
+  if (!resultado) return null;
+  const corConfianca = CONFIANCA_COR[resultado.confidence] || "#64748B";
+  const textoParaCopiar = [
+    resultado.summary,
+    resultado.evidence?.length ? `Evidências: ${resultado.evidence.join("; ")}` : "",
+    resultado.diagnosis ? `Diagnóstico: ${resultado.diagnosis}` : "",
+    resultado.recommendations?.length ? `Ações recomendadas: ${resultado.recommendations.join("; ")}` : "",
+    resultado.impact ? `Impacto esperado: ${resultado.impact}` : "",
+    resultado.limitations?.length ? `Limitações: ${resultado.limitations.join("; ")}` : "",
+  ].filter(Boolean).join("\n");
+  return (
+    <div className="space-y-2">
+      <p className="font-semibold text-[#0D1B2A]">{resultado.summary}</p>
+      {resultado.evidence?.length > 0 && (
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-widest text-[#64748B]">Evidências</p>
+          <ul className="mt-0.5 list-disc space-y-0.5 pl-4">{resultado.evidence.map((e, i) => <li key={i}>{e}</li>)}</ul>
+        </div>
+      )}
+      {resultado.diagnosis && (
+        <div><p className="text-[10px] font-black uppercase tracking-widest text-[#64748B]">Diagnóstico</p><p>{resultado.diagnosis}</p></div>
+      )}
+      {resultado.recommendations?.length > 0 && (
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-widest text-[#64748B]">Ações recomendadas</p>
+          <ul className="mt-0.5 list-disc space-y-0.5 pl-4">{resultado.recommendations.map((r, i) => <li key={i}>{r}</li>)}</ul>
+        </div>
+      )}
+      {resultado.risks?.length > 0 && (
+        <div><p className="text-[10px] font-black uppercase tracking-widest text-[#EF4444]">Riscos</p><ul className="mt-0.5 list-disc space-y-0.5 pl-4">{resultado.risks.map((r, i) => <li key={i}>{r}</li>)}</ul></div>
+      )}
+      {resultado.opportunities?.length > 0 && (
+        <div><p className="text-[10px] font-black uppercase tracking-widest text-[#8B5CF6]">Oportunidades</p><ul className="mt-0.5 list-disc space-y-0.5 pl-4">{resultado.opportunities.map((r, i) => <li key={i}>{r}</li>)}</ul></div>
+      )}
+      {resultado.impact && (
+        <div><p className="text-[10px] font-black uppercase tracking-widest text-[#64748B]">Impacto esperado</p><p>{resultado.impact}</p></div>
+      )}
+      {resultado.limitations?.length > 0 && (
+        <div><p className="text-[10px] font-black uppercase tracking-widest text-[#64748B]">Limitações dos dados</p><ul className="mt-0.5 list-disc space-y-0.5 pl-4 text-[#64748B]">{resultado.limitations.map((l, i) => <li key={i}>{l}</li>)}</ul></div>
+      )}
+      {!bloqueado && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-[#F1F5F9] pt-2 text-[10px] text-[#94A3B8]">
+          <span>📅 Período analisado: {dataPeriod || "—"}</span>
+          <span className="flex items-center gap-1">Confiança: <b style={{ color: corConfianca }}>{resultado.confidence || "—"}</b></span>
+          {atualizadoEm && <span>🕐 {new Date(atualizadoEm).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span>}
+          {modelo && !resultado.fallback && <span title="Modelo de IA usado nesta resposta">🤖 {modelo}</span>}
+          {resultado.fallback && <span className="font-bold text-[#F59E0B]">⚠️ Diagnóstico local (sem IA externa)</span>}
+        </div>
+      )}
+      <div className="flex items-center gap-3 pt-1">
+        <button onClick={() => onCopiar(textoParaCopiar)} className="text-[10px] font-bold text-[#2563EB] hover:underline">{copiado ? "Copiado ✓" : "Copiar resposta"}</button>
+        {!bloqueado && (
+          <span className="flex items-center gap-1.5">
+            <button onClick={() => onFeedback("util")} title="Resposta útil" aria-label="Marcar como útil" className="text-xs" style={{ opacity: feedback === "util" ? 1 : 0.4 }}>👍</button>
+            <button onClick={() => onFeedback("naoUtil")} title="Resposta não útil" aria-label="Marcar como não útil" className="text-xs" style={{ opacity: feedback === "naoUtil" ? 1 : 0.4 }}>👎</button>
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquisas = [], irParaMesas = () => {}, irPara = () => {}, soCopiloto = false }) {
   const [periodo, setPeriodo] = useState("30");
   const [ini, setIni] = useState("");
   const [fim, setFim] = useState("");
   const [turno, setTurno] = useState("todos");
-  const [canal, setCanal] = useState("todos"); // visual: pedidos não têm canal de origem
+  const [canal, setCanal] = useState("todos"); // Mesa/QR Code vs. Balcão/Delivery (heurística por comanda, sem campo de origem)
   const [statusF, setStatusF] = useState("todos");
   const [modal, setModal] = useState(null);
-  // Chat "Pergunte ao Copiloto" (IA via Edge Function, com fallback no motor local)
+  // Chat "Pergunte ao Copiloto" (IA via função segura no servidor, com
+  // fallback no motor local determinístico — ver montarRespostaLocalFallback).
   const [chatMsgs, setChatMsgs] = useState([]);
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
   const [chatErro, setChatErro] = useState("");
   const [chatCopiadoIdx, setChatCopiadoIdx] = useState(null);
+  const [chatFeedback, setChatFeedback] = useState({}); // { [idx]: "util" | "naoUtil" }
+  const chatAbortRef = useRef(null);
+  const [mostrarSimulador, setMostrarSimulador] = useState(false);
+  const [atualizadoEmCopiloto, setAtualizadoEmCopiloto] = useState(() => new Date());
+  function atualizarAnaliseCopiloto() { setAtualizadoEmCopiloto(new Date()); setChatErro(""); }
   // "Criar ação" (Copiloto IA) — modal local, sem persistência própria (não há
   // estrutura de tarefas no sistema; ver observação no resumo da tarefa).
   const [modalAcao, setModalAcao] = useState(null);
@@ -7615,7 +7738,11 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], irParaM
     if (statusF === "pago" && !(o.paymentStatus === "paid" && o.status !== "cancelled")) return false;
     if (statusF === "aberto" && !(o.paymentStatus !== "paid" && o.status !== "cancelled")) return false;
     if (statusF === "cancelado" && o.status !== "cancelled") return false;
-    return true; // "canal" não filtra: o pedido não armazena origem (preparado p/ futuro)
+    // Canal real, mesma heurística usada em Relatórios (não há campo de origem
+    // no pedido): comanda presente = Mesa/QR Code; só mesa sem comanda = Balcão/Delivery.
+    if (canal === "mesa_qr" && !o.command) return false;
+    if (canal === "balcao_delivery" && o.command) return false;
+    return true;
   });
 
   const a = analisarVendas(filtrados, products);
@@ -7738,8 +7865,25 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], irParaM
   const produtosParados = products.filter((p) => p.active !== false && !vendidosNomes.has(p.name)).map((p) => p.name);
   const periodoLabel = ({ hoje: "dia", ontem: "dia", "7": "últimos 7 dias", "15": "últimos 15 dias", "30": "período", tudo: "histórico" })[periodo] || "período";
 
+  // Margem estimada (preço − custo cadastrado) — mesmo cálculo já usado em
+  // outras telas (custoPorNome recomputado localmente, sem consulta nova).
+  const custoPorNomeIA = Object.fromEntries(products.map((p) => [p.name, Number(p.cost) || 0]));
+  const temCustoIA = Object.values(custoPorNomeIA).some((c) => c > 0);
+  const custoTotalIA = pagos.reduce((s, o) => s + o.items.reduce((x, it) => x + (custoPorNomeIA[it.name] ?? 0) * it.quantity, 0), 0);
+  const margemValorIA = a.faturamento - custoTotalIA;
+  const margemPctIA = temCustoIA && a.faturamento > 0 ? (margemValorIA / a.faturamento) * 100 : null;
+
+  // Satisfação (mesma pesquisa de satisfação da aba Relatórios) — só quando a
+  // prop pesquisas é fornecida (hoje só na tela dedicada do Copiloto).
+  const pesquisasPeriodo = filtrarPesquisasPorPeriodo(pesquisas, periodo, ini, fim);
+  const notasPeriodoIA = pesquisasPeriodo.flatMap((q) => Object.values(q.notas || {}).filter((v) => v != null && v > 0));
+  const mediaSatisfacaoIA = notasPeriodoIA.length ? notasPeriodoIA.reduce((s, v) => s + v, 0) / notasPeriodoIA.length : null;
+  const recSatisfacaoIA = pesquisasPeriodo.map((q) => q.notas?.recomendacao).filter((v) => v != null && v > 0);
+  const npsSatisfacaoIA = recSatisfacaoIA.length ? Math.round(((recSatisfacaoIA.filter((v) => v >= 4).length - recSatisfacaoIA.filter((v) => v <= 2).length) / recSatisfacaoIA.length) * 100) : null;
+
   // Comparativo com o período anterior (mesma duração) — inclui os extras usados
-  // pelos cards do Copiloto IA (tempo de preparo, % identificado, produtos parados).
+  // pelos cards do Copiloto IA (tempo de preparo, % identificado, produtos parados,
+  // margem, satisfação).
   const comparativo = (() => {
     if (periodo === "tudo") return null;
     const [a0, b0] = intervaloPeriodo(periodo, ini, fim);
@@ -7754,17 +7898,26 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], irParaM
     const antTempoPrep = antPreps.length ? antPreps.reduce((s, m) => s + m, 0) / antPreps.length : null;
     const antVendidos = new Set(); anteriores.forEach((o) => { if (o.status !== "cancelled") (o.items || []).forEach((it) => antVendidos.add(it.name)); });
     const antParados = products.filter((p) => p.active !== false && !antVendidos.has(p.name)).length;
+    const antPagos = anteriores.filter((o) => o.paymentStatus === "paid" && o.status !== "cancelled");
+    const antCusto = antPagos.reduce((s, o) => s + o.items.reduce((x, it) => x + (custoPorNomeIA[it.name] ?? 0) * it.quantity, 0), 0);
+    const antMargemPct = temCustoIA && ant.faturamento > 0 ? ((ant.faturamento - antCusto) / ant.faturamento) * 100 : null;
+    const anterioresPesq = pesquisas.filter((q) => { if (!q.criadoEmISO) return false; const d = new Date(q.criadoEmISO); return d >= new Date(a0.getTime() - dur - 1) && d <= new Date(a0.getTime() - 1); });
+    const notasAntIA = anterioresPesq.flatMap((q) => Object.values(q.notas || {}).filter((v) => v != null && v > 0));
+    const mediaSatAnt = notasAntIA.length ? notasAntIA.reduce((s, v) => s + v, 0) / notasAntIA.length : null;
     return {
       faturamento: varPct(a.faturamento, ant.faturamento), ticket: varPct(a.ticket, ant.ticket), pedidos: varPct(a.totalPedidos, ant.totalPedidos),
       pctIdentificado: varPct(pctIdentificado * 100, antPctIdent * 100),
       tempoMedioPrep: (tempoMedioPrep != null && antTempoPrep != null) ? varPct(tempoMedioPrep, antTempoPrep) : null,
       produtosParados: varPct(produtosParados.length, antParados),
+      margem: (margemPctIA != null && antMargemPct != null) ? margemPctIA - antMargemPct : null,
+      satisfacao: (mediaSatisfacaoIA != null && mediaSatAnt != null) ? varPct(mediaSatisfacaoIA, mediaSatAnt) : null,
     };
   })();
 
   const ia = analisarGestaoIA({
     fat: a.faturamento, emAberto: a.emAberto, ticket: a.ticket, totalPedidos: a.totalPedidos, comparativo,
     produtoTop, melhorHora, semEstoque, cancelados, valorPerdido, motivoPrincipal,
+    margemPct: margemPctIA, mediaSatisfacao: mediaSatisfacaoIA, npsSatisfacao: npsSatisfacaoIA, respostasSatisfacao: pesquisasPeriodo.length,
     clientesPeriodo, clientesCadastrados: (clientes || []).length, mesasCriticas, tempoMedioPrep, taxaEntrega,
     pctIdentificado, vips, inativos, novosClientes, produtosParados, periodoLabel,
   });
@@ -7789,9 +7942,21 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], irParaM
     })(),
   };
 
+  // Rótulo dos filtros ativos — enviado à IA e mostrado no rodapé de cada
+  // resposta ("grounding"), para deixar claro o que exatamente foi analisado.
+  const filtrosAtivosTexto = [
+    periodoLabel,
+    turno !== "todos" ? (turno === "almoco" ? "turno almoço" : "turno jantar") : null,
+    canal !== "todos" ? (canal === "mesa_qr" ? "canal Mesa/QR Code" : "canal Balcão/Delivery") : null,
+    statusF !== "todos" ? `status ${statusF}` : null,
+  ].filter(Boolean).join(" · ");
+
   // Monta um resumo textual dos dados do período para a IA raciocinar em cima
+  // — é o "serviço de contexto gerencial": só dados já calculados nesta tela,
+  // isolados por empresa (props já filtradas por loja) e por período/filtros.
   function montarResumoIA() {
     return [
+      `Filtros analisados: ${filtrosAtivosTexto}.`,
       ia.resumo,
       `Faturamento pago: ${formatCurrency(a.faturamento)} | Em aberto: ${formatCurrency(a.emAberto)} | Ticket médio: ${formatCurrency(a.ticket)} | Pedidos: ${a.totalPedidos} | Cancelados: ${cancelados.length}.`,
       comparativo?.faturamento != null ? `Variação de faturamento vs. período anterior: ${Math.round(comparativo.faturamento)}%.` : "",
@@ -7804,25 +7969,65 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], irParaM
       semEstoque.length ? `Produtos com estoque baixo: ${semEstoque.map((p) => p.name).slice(0, 10).join(", ")}.` : "",
       cancelados.length ? `Perda por cancelamentos: ${formatCurrency(valorPerdido)} | Motivo principal: ${motivoPrincipal}.` : "",
       tempoMedioPrep != null ? `Tempo médio de preparo: ${tempoMedioPrep} min.` : "",
+      margemPctIA != null ? `Margem estimada (preço − custo cadastrado): ${margemPctIA.toFixed(0)}%.` : "Margem estimada: sem custo cadastrado para os produtos do período.",
+      "Desconto e acréscimo: não existem campos de desconto/acréscimo por pedido no sistema hoje — não citar esses valores.",
+      respostasSatisfacaoTexto,
       ia.acoes.length ? `Ações que o sistema já sugeriu: ${ia.acoes.map((x) => x.texto).join(" | ")}.` : "",
     ].filter(Boolean).join("\n");
   }
+  const respostasSatisfacaoTexto = pesquisasPeriodo.length
+    ? `Satisfação: média ${mediaSatisfacaoIA.toFixed(1)}/5 em ${pesquisasPeriodo.length} resposta(s)${npsSatisfacaoIA != null ? ` | NPS ${npsSatisfacaoIA}` : ""}.`
+    : "Satisfação: nenhuma pesquisa respondida no período.";
+
+  // Fallback local — usa só o motor determinístico (analisarGestaoIA), no
+  // mesmo formato estruturado da resposta da IA, para nunca deixar a tela
+  // vazia quando a IA está indisponível ou a resposta não passa na validação.
+  function montarRespostaLocalFallback(motivo) {
+    return {
+      summary: ia.resumo,
+      evidence: [
+        `Faturamento: ${formatCurrency(a.faturamento)} (${a.totalPedidos} pedido(s))`,
+        `Ticket médio: ${formatCurrency(a.ticket)}`,
+        margemPctIA != null ? `Margem estimada: ${margemPctIA.toFixed(0)}%` : null,
+      ].filter(Boolean),
+      diagnosis: `Diagnóstico local: ${ia.nivel} (score ${ia.score}/100).`,
+      recommendations: ia.acoes.slice(0, 3).map((x) => x.texto),
+      risks: ia.alertasCriticos.map((al) => `${al.titulo}: ${al.desc}`),
+      opportunities: [ia.principalOportunidade].filter(Boolean),
+      impact: "Estimativa qualitativa — sem chamada à IA externa nesta resposta.",
+      confidence: "media",
+      limitations: [motivo, "Resposta gerada pelo motor de regras local (sem IA externa)."],
+      fallback: true,
+    };
+  }
+
   async function enviarPerguntaIA(perguntaOverride) {
     const q = (perguntaOverride ?? chatInput).trim();
     if (!q || chatLoading) return;
     setChatInput(""); setChatErro("");
     setChatMsgs((h) => [...h, { role: "user", content: q }]);
     setChatLoading(true);
+    const ctrl = new AbortController();
+    chatAbortRef.current = ctrl;
     try {
-      const resposta = await perguntarCopilotoIA({ resumoDados: montarResumoIA(), pergunta: q, historico: chatMsgs.slice(-8) });
-      setChatMsgs((h) => [...h, { role: "assistant", content: resposta || "(sem resposta)" }]);
+      const { resultado, modelo, atualizadoEm, bloqueado } = await perguntarCopilotoIA({
+        resumoDados: montarResumoIA(), pergunta: q, historico: chatMsgs.slice(-8), dataPeriod: filtrosAtivosTexto, signal: ctrl.signal,
+      });
+      setChatMsgs((h) => [...h, { role: "assistant", resultado, modelo, atualizadoEm, bloqueado, dataPeriod: filtrosAtivosTexto }]);
     } catch (e) {
+      if (e?.name === "AbortError") { setChatMsgs((h) => [...h, { role: "assistant", resultado: montarRespostaLocalFallback("Resposta interrompida pelo usuário."), dataPeriod: filtrosAtivosTexto }]); return; }
       const msg = (e && e.message) || String(e);
-      if (/ANTHROPIC_API_KEY/i.test(msg)) setChatErro("IA indisponível: " + msg + " Enquanto isso, use a análise, os indicadores e as recomendações desta tela.");
+      if (/ANTHROPIC_API_KEY/i.test(msg)) { setChatErro("Análise avançada temporariamente indisponível — a IA externa não está configurada. Mostrando o diagnóstico local."); setChatMsgs((h) => [...h, { role: "assistant", resultado: montarRespostaLocalFallback("IA externa não configurada nesta instalação."), dataPeriod: filtrosAtivosTexto }]); }
       else if (/sessão|401/i.test(msg)) setChatErro("Sessão expirada: " + msg);
-      else setChatErro("Erro ao consultar a IA: " + msg + " Tente novamente em instantes.");
-    } finally { setChatLoading(false); }
+      else { setChatErro("Análise avançada temporariamente indisponível. Mostrando o diagnóstico local."); setChatMsgs((h) => [...h, { role: "assistant", resultado: montarRespostaLocalFallback("Erro ao consultar a IA: " + msg), dataPeriod: filtrosAtivosTexto }]); }
+    } finally { setChatLoading(false); chatAbortRef.current = null; }
   }
+  function interromperRespostaIA() { chatAbortRef.current?.abort(); }
+  function refazerAnaliseIA() {
+    const ultimaPergunta = [...chatMsgs].reverse().find((m) => m.role === "user");
+    if (ultimaPergunta) enviarPerguntaIA(ultimaPergunta.content);
+  }
+  function analisarIndicador(pergunta) { enviarPerguntaIA(pergunta); }
 
   return (
     <div className="space-y-6">
@@ -7830,11 +8035,11 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], irParaM
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h2 className="page-title flex items-center gap-2.5 text-2xl font-bold tracking-tight text-brand-ink">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-500/10 text-blue-500">{soCopiloto ? "🤖" : <IconDashboard />}</span>
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[#2563EB]" style={{ background: "#2563EB1A" }}>{soCopiloto ? "🤖" : <IconDashboard />}</span>
             {soCopiloto ? "Copiloto IA" : "Dashboard Gerencial"}
           </h2>
-          <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 max-w-2xl text-sm text-brand-inkSoft">
-            <span>{soCopiloto ? "Inteligência gerencial para transformar dados em decisões." : "Visão estratégica de vendas, operação, produtos, clientes e desempenho financeiro."}</span>
+          <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1.5 max-w-2xl text-sm text-brand-inkSoft">
+            <span>{soCopiloto ? "Inteligência gerencial baseada nos dados reais do seu negócio." : "Visão estratégica de vendas, operação, produtos, clientes e desempenho financeiro."}</span>
             {!soCopiloto && (
               <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-brand-success" title="Os dados são atualizados automaticamente em tempo real">
                 <span className="relative flex h-1.5 w-1.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand-success opacity-60 motion-reduce:animate-none" /><span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-brand-success" /></span>
@@ -7842,15 +8047,20 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], irParaM
               </span>
             )}
             {soCopiloto && (
-              <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-500" title="Os dados são atualizados automaticamente em tempo real">
-                <span className="relative flex h-1.5 w-1.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-60 motion-reduce:animate-none" /><span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" /></span>
-                Dados atualizados agora
-              </span>
+              <>
+                <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wider" style={{ background: "#10B9811A", color: "#10B981" }} title="Todos os números desta tela vêm dos dados reais da empresa logada — nada é inventado">✔ Dados reais</span>
+                <span className="text-[11px] text-[#64748B]">Última atualização: {atualizadoEmCopiloto.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span>
+              </>
             )}
           </p>
         </div>
-        <div className="pp-dash-filtros">
-          <SeletorPeriodo periodo={periodo} setPeriodo={setPeriodo} ini={ini} setIni={setIni} fim={fim} setFim={setFim} />
+        <div className="flex flex-wrap items-start gap-2">
+          {soCopiloto && (
+            <button onClick={atualizarAnaliseCopiloto} className="shrink-0 rounded-xl border px-3.5 py-2.5 text-xs font-bold transition hover:bg-[#EFF6FF]" style={{ borderColor: "#E2E8F0", color: "#2563EB" }}>🔄 Atualizar análise</button>
+          )}
+          <div className="pp-dash-filtros">
+            <SeletorPeriodo periodo={periodo} setPeriodo={setPeriodo} ini={ini} setIni={setIni} fim={fim} setFim={setFim} />
+          </div>
         </div>
       </div>
 
@@ -7858,7 +8068,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], irParaM
           Canal, Status): 1 coluna no mobile, 2 no tablet, 3 lado a lado no desktop. */}
       <div className="pp-dash-filtros grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
         <GrupoPill titulo="Turno" valor={turno} setValor={setTurno} opcoes={[{ id: "todos", label: "Todos" }, { id: "almoco", label: "Almoço" }, { id: "jantar", label: "Jantar" }]} />
-        <GrupoPill titulo="Canal" valor={canal} setValor={setCanal} opcoes={[{ id: "todos", label: "Todos" }, { id: "mesa", label: "Mesa" }, { id: "qr", label: "QR Code" }, { id: "balcao", label: "Balcão" }, { id: "delivery", label: "Delivery" }]} />
+        <GrupoPill titulo="Canal" valor={canal} setValor={setCanal} opcoes={[{ id: "todos", label: "Todos" }, { id: "mesa_qr", label: "Mesa / QR Code" }, { id: "balcao_delivery", label: "Balcão / Delivery" }]} />
         <GrupoPill titulo="Status" valor={statusF} setValor={setStatusF} opcoes={[{ id: "todos", label: "Todos" }, { id: "pago", label: "Pago" }, { id: "aberto", label: "Em aberto" }, { id: "cancelado", label: "Cancelado" }]} />
       </div>
 
@@ -7913,70 +8123,80 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], irParaM
 
       {/* Copiloto de Gestão (IA) — só na tela dedicada do menu "Copiloto IA" */}
       {soCopiloto && (() => {
-        const NIVEL_TOM = { "Saudável": "emerald", "Atenção": "amber", "Crítico": "red" };
-        const tomNivel = NIVEL_TOM[ia.nivel] || "amber";
-        const nivelCorTexto = { emerald: "text-emerald-500", amber: "text-amber-500", red: "text-red-500" }[tomNivel];
-        const nivelCorAnel = { emerald: "#10B981", amber: "#F59E0B", red: "#EF4444" }[tomNivel];
-        const nivelBadgeCls = { emerald: "border-emerald-200 bg-emerald-50 text-emerald-700", amber: "border-amber-200 bg-amber-50 text-amber-700", red: "border-red-200 bg-red-50 text-red-700" }[tomNivel];
-        const sevCls = { pos: "border-emerald-200 bg-emerald-50 text-emerald-700", info: "border-violet-200 bg-violet-50 text-violet-700", warn: "border-amber-200 bg-amber-50 text-amber-700", crit: "border-red-200 bg-red-50 text-red-700" };
+        const NIVEL_COR = { "Saudável": "#10B981", "Atenção": "#F59E0B", "Crítico": "#EF4444" };
+        const nivelCorAnel = NIVEL_COR[ia.nivel] || "#F59E0B";
+        const sevCor = { pos: "#10B981", info: "#8B5CF6", warn: "#F59E0B", crit: "#EF4444" };
         const sevIc = { pos: "✅", info: "ℹ️", warn: "⚠️", crit: "🔴" };
-        const prioCls = { alta: "border-red-200 bg-red-50 text-red-700", media: "border-amber-200 bg-amber-50 text-amber-700", baixa: "border-slate-200 bg-slate-50 text-slate-600" };
+        const prioCor = { alta: "#EF4444", media: "#F59E0B", baixa: "#64748B" };
         const prioLbl = { alta: "Alta", media: "Média", baixa: "Baixa" };
         const semDados = a.totalPedidos === 0;
-        const CATEGORIAS_INSIGHT = ["Vendas", "Clientes", "Produtos", "Estoque", "Operação", "Financeiro"];
+        const CATEGORIAS_INSIGHT = ["Vendas", "Clientes", "Produtos", "Estoque", "Operação", "Financeiro", "Satisfação"];
         const insightsPorCategoria = CATEGORIAS_INSIGHT.map((cat) => ({ cat, itens: ia.insights.filter((it) => it.cat === cat) })).filter((g) => g.itens.length > 0);
+        const KPI_ID_PARA_LABEL = { faturamento: "Faturamento", ticket: "Ticket médio", pedidos: "Pedidos", clientesId: "Clientes identificados", produtosParados: "Produtos sem venda", estoqueCritico: "Estoque crítico", tempoPreparo: "Tempo de preparo", permanencia: "Permanência", margem: "Margem", clientesInativos: "Clientes inativos", satisfacao: "Satisfação" };
         const copiarResposta = async (texto, idx) => {
           try { await navigator.clipboard.writeText(texto); setChatCopiadoIdx(idx); setTimeout(() => setChatCopiadoIdx((c) => (c === idx ? null : c)), 1500); } catch { /* clipboard indisponível */ }
         };
         const kpis = [
-          { id: "faturamento", titulo: "Faturamento", valor: formatCurrency(a.faturamento), variacao: comparativo?.faturamento, desc: `${pagos.length} pedido(s) pago(s)`, tom: "blue" },
-          { id: "ticket", titulo: "Ticket médio", valor: formatCurrency(a.ticket), variacao: comparativo?.ticket, desc: a.ticket >= META_TICKET_IA ? "Acima da meta" : `Meta: ${formatCurrency(META_TICKET_IA)}`, tom: "blue" },
-          { id: "pedidos", titulo: "Pedidos", valor: String(a.totalPedidos), variacao: comparativo?.pedidos, desc: `${abertos.length} em aberto`, tom: "blue" },
-          { id: "clientesId", titulo: "Clientes identificados", valor: String(clientesPeriodo), variacao: comparativo?.pctIdentificado, desc: `${Math.round(pctIdentificado * 100)}% dos pedidos pagos`, tom: "violet" },
-          { id: "produtosParados", titulo: "Produtos sem venda", valor: String(produtosParados.length), variacao: comparativo?.produtosParados != null ? -comparativo.produtosParados : null, desc: produtosParados.length ? "Ativos sem nenhuma venda" : "Todos venderam no período", tom: produtosParados.length ? "amber" : "emerald", status: produtosParados.length ? "Atenção" : "OK" },
-          { id: "estoqueCritico", titulo: "Estoque crítico", valor: String(semEstoque.length), variacao: null, desc: semEstoque.length ? "Abaixo do mínimo" : "Estoque adequado", tom: semEstoque.length ? "red" : "emerald", status: semEstoque.length ? "Crítico" : "OK" },
-          { id: "tempoPreparo", titulo: "Tempo médio de preparo", valor: tempoMedioPrep != null ? fmtTempo(tempoMedioPrep) : "—", variacao: comparativo?.tempoMedioPrep != null ? -comparativo.tempoMedioPrep : null, desc: tempoMedioPrep != null && tempoMedioPrep > 25 ? "Acima do ideal" : "Dentro do esperado", tom: tempoMedioPrep != null && tempoMedioPrep > 25 ? "amber" : "blue" },
-          { id: "clientesInativos", titulo: "Clientes inativos", valor: String(inativos.length), variacao: null, desc: inativos.length ? "+30 dias sem comprar" : "Base ativa em dia", tom: inativos.length ? "amber" : "emerald", status: inativos.length ? "Atenção" : "OK" },
+          { id: "faturamento", titulo: "Faturamento", valor: formatCurrency(a.faturamento), variacao: comparativo?.faturamento, desc: `${pagos.length} pedido(s) pago(s)`, tom: "blue", pergunta: "Como aumentar meu faturamento neste período?" },
+          { id: "ticket", titulo: "Ticket médio", valor: formatCurrency(a.ticket), variacao: comparativo?.ticket, desc: a.ticket >= META_TICKET_IA ? "Acima da meta" : `Meta: ${formatCurrency(META_TICKET_IA)}`, tom: "blue", status: a.ticket >= META_TICKET_IA ? "OK" : "Atenção", pergunta: "Como aumentar o ticket médio neste período?" },
+          { id: "pedidos", titulo: "Pedidos", valor: String(a.totalPedidos), variacao: comparativo?.pedidos, desc: `${abertos.length} em aberto`, tom: "blue", pergunta: "O que está influenciando o número de pedidos neste período?" },
+          { id: "clientesId", titulo: "Clientes identificados", valor: String(clientesPeriodo), variacao: comparativo?.pctIdentificado, desc: `${Math.round(pctIdentificado * 100)}% dos pedidos pagos`, tom: "violet", pergunta: "Como aumentar a identificação de clientes nos pedidos?" },
+          { id: "produtosParados", titulo: "Produtos sem venda", valor: String(produtosParados.length), variacao: comparativo?.produtosParados != null ? -comparativo.produtosParados : null, desc: produtosParados.length ? "Ativos sem nenhuma venda" : "Todos venderam no período", tom: produtosParados.length ? "amber" : "emerald", status: produtosParados.length ? "Atenção" : "OK", pergunta: "Quais produtos devo promover?" },
+          { id: "estoqueCritico", titulo: "Estoque crítico", valor: String(semEstoque.length), variacao: null, desc: semEstoque.length ? "Abaixo do mínimo" : "Estoque adequado", tom: semEstoque.length ? "red" : "emerald", status: semEstoque.length ? "Crítico" : "OK", pergunta: "Quais riscos de estoque exigem atenção agora?" },
+          { id: "tempoPreparo", titulo: "Tempo médio de preparo", valor: tempoMedioPrep != null ? fmtTempo(tempoMedioPrep) : "—", variacao: comparativo?.tempoMedioPrep != null ? -comparativo.tempoMedioPrep : null, desc: tempoMedioPrep != null && tempoMedioPrep > 25 ? "Acima do ideal" : "Dentro do esperado", tom: tempoMedioPrep != null && tempoMedioPrep > 25 ? "amber" : "blue", pergunta: "Como reduzir o tempo de preparo?" },
+          { id: "permanencia", titulo: "Permanência", valor: mesasAbertas ? fmtTempo(tempoMedioMesa) : "—", variacao: null, desc: mesasAbertas ? `${mesasAbertas} mesa(s) aberta(s) agora` : "Nenhuma mesa aberta agora", tom: mesasCriticas > 0 ? "amber" : "blue", pergunta: "Como reduzir a permanência das mesas e aumentar o giro?" },
+          { id: "margem", titulo: "Margem estimada", valor: margemPctIA != null ? `${margemPctIA.toFixed(0)}%` : "—", variacao: comparativo?.margem, desc: !temCustoIA ? "Sem custo cadastrado nos produtos" : (margemPctIA < 20 ? "Abaixo do saudável" : "Saudável"), tom: !temCustoIA ? "blue" : (margemPctIA < 20 ? "amber" : "emerald"), pergunta: "Onde estou perdendo dinheiro em margem?" },
+          { id: "satisfacao", titulo: "Satisfação", valor: mediaSatisfacaoIA != null ? `${mediaSatisfacaoIA.toFixed(1)}/5` : "—", variacao: comparativo?.satisfacao, desc: pesquisasPeriodo.length ? `${pesquisasPeriodo.length} resposta(s)${npsSatisfacaoIA != null ? ` · NPS ${npsSatisfacaoIA}` : ""}` : "Sem pesquisas no período", tom: !pesquisasPeriodo.length ? "blue" : (mediaSatisfacaoIA < 3.5 ? "red" : mediaSatisfacaoIA < 4 ? "amber" : "emerald"), pergunta: "Quais riscos de satisfação exigem atenção?" },
         ];
         return (
           <div className="space-y-6">
             {toastAcao && (
               <div className="fixed inset-x-0 top-4 z-[150] flex justify-center px-4">
-                <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-bold text-emerald-700 shadow-lg">✅ {toastAcao}</div>
+                <div className="flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-bold shadow-lg" style={{ borderColor: "#10B98133", background: "#10B9811A", color: "#10B981" }}>✅ {toastAcao}</div>
               </div>
             )}
-            {/* Resumo executivo */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+            {/* 4. Diagnóstico do negócio */}
+            <div className="rounded-2xl border border-[#E2E8F0] bg-white p-5 shadow-sm sm:p-6">
               <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
                 <div className="flex items-center gap-4">
                   <div className="relative h-20 w-20 shrink-0" style={{ background: `conic-gradient(${nivelCorAnel} ${ia.score * 3.6}deg, #E2E8F0 0deg)`, borderRadius: "9999px" }}>
                     <div className="absolute inset-[6px] flex flex-col items-center justify-center rounded-full bg-white">
-                      <span className={`text-2xl font-black leading-none ${nivelCorTexto}`}>{ia.score}</span>
-                      <span className="mt-0.5 text-[9px] font-bold uppercase tracking-wider text-slate-500">/100</span>
+                      <span className="text-2xl font-black leading-none" style={{ color: nivelCorAnel }}>{ia.score}</span>
+                      <span className="mt-0.5 text-[9px] font-bold uppercase tracking-wider text-[#64748B]">/100</span>
                     </div>
                   </div>
                   <div>
-                    <p className="text-[11px] font-bold uppercase tracking-widest text-slate-500">Diagnóstico do negócio</p>
-                    <span className={`mt-1 inline-flex rounded-full border px-3 py-1 text-sm font-black ${nivelBadgeCls}`}>{ia.nivel}</span>
+                    <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-[#64748B]">
+                      Diagnóstico do negócio
+                      <span tabIndex={0} title={`Como o score é calculado (regras locais, sem IA):\n${ia.regrasScore.map((r) => `• ${r.desc}`).join("\n")}`} aria-label="Como o score é calculado" className="cursor-help text-[#94A3B8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB] focus-visible:ring-offset-1 rounded-full">ⓘ</span>
+                    </p>
+                    <span className="mt-1 inline-flex rounded-full border px-3 py-1 text-sm font-black" style={{ borderColor: `${nivelCorAnel}4D`, background: `${nivelCorAnel}1A`, color: nivelCorAnel }}>{ia.nivel}</span>
                     {comparativo?.faturamento != null && (
-                      <p className={`mt-1.5 text-xs font-bold ${comparativo.faturamento >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                      <p className="mt-1.5 text-xs font-bold" style={{ color: comparativo.faturamento >= 0 ? "#10B981" : "#EF4444" }}>
                         {comparativo.faturamento >= 0 ? "▲" : "▼"} {Math.abs(Math.round(comparativo.faturamento))}% de faturamento vs. período anterior
                       </p>
                     )}
                   </div>
                 </div>
                 <div className="flex-1 lg:max-w-xl">
-                  <p className="text-[11px] font-bold uppercase tracking-widest text-slate-500">Resumo do cenário</p>
+                  <p className="text-[11px] font-bold uppercase tracking-widest text-[#64748B]">Resumo do cenário</p>
                   <p className="mt-1 text-sm leading-relaxed text-[#334155]">{semDados ? "Sem pedidos no período e filtros selecionados — ajuste os filtros acima para ver a análise." : ia.resumo}</p>
                 </div>
               </div>
+              {!semDados && (
+                <div className="mt-5 grid gap-2.5 border-t border-[#F1F5F9] pt-4 sm:grid-cols-3">
+                  <div className="rounded-xl p-3" style={{ background: "#10B9810D" }}><p className="text-[9px] font-black uppercase tracking-widest" style={{ color: "#10B981" }}>Principal resultado positivo</p><p className="mt-1 text-xs font-semibold leading-snug text-[#334155]">{ia.resultadoPositivo}</p></div>
+                  <div className="rounded-xl p-3" style={{ background: "#EF44440D" }}><p className="text-[9px] font-black uppercase tracking-widest" style={{ color: "#EF4444" }}>Principal risco</p><p className="mt-1 text-xs font-semibold leading-snug text-[#334155]">{ia.principalRisco}</p></div>
+                  <div className="rounded-xl p-3" style={{ background: "#8B5CF60D" }}><p className="text-[9px] font-black uppercase tracking-widest" style={{ color: "#8B5CF6" }}>Principal oportunidade</p><p className="mt-1 text-xs font-semibold leading-snug text-[#334155]">{ia.principalOportunidade}</p></div>
+                </div>
+              )}
               {!semDados && ia.acoes.length > 0 && (
-                <div className="mt-5 border-t border-slate-200 pt-4">
+                <div className="mt-3 border-t border-[#F1F5F9] pt-4">
                   <p className="mb-2 text-[11px] font-black uppercase tracking-widest text-[#0D1B2A]">Três prioridades agora</p>
                   <div className="grid gap-2 sm:grid-cols-3">
                     {ia.acoes.slice(0, 3).map((ac, i) => (
-                      <div key={i} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                        <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-black uppercase ${prioCls[ac.prio]}`}>{prioLbl[ac.prio]}</span>
+                      <div key={i} className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
+                        <span className="inline-flex rounded-full border px-2 py-0.5 text-[10px] font-black uppercase" style={{ borderColor: `${prioCor[ac.prio]}4D`, background: `${prioCor[ac.prio]}1A`, color: prioCor[ac.prio] }}>{prioLbl[ac.prio]}</span>
                         <p className="mt-1.5 text-xs font-semibold leading-snug text-[#334155]">{ac.texto}</p>
                       </div>
                     ))}
@@ -7985,56 +8205,77 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], irParaM
               )}
             </div>
 
-            {/* Chat "Pergunte ao Copiloto" — IA (Claude) com fallback no motor local */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-              <div className="flex items-center justify-between gap-2">
-                <p className="flex items-center gap-2 text-sm font-black text-[#0D1B2A]"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-violet-50 text-violet-500">🤖</span>Pergunte ao Copiloto</p>
-                {chatMsgs.length > 0 && (
-                  <button onClick={() => { setChatMsgs([]); setChatErro(""); }} className="shrink-0 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-bold text-slate-500 transition hover:border-blue-500 hover:text-blue-500">Limpar conversa</button>
-                )}
+            {/* 5. Pergunte ao Copiloto */}
+            <div className="rounded-2xl border border-[#E2E8F0] bg-white p-5 shadow-sm sm:p-6">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="flex items-center gap-2 text-sm font-black text-[#0D1B2A]"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg" style={{ background: "#8B5CF61A", color: "#8B5CF6" }}>🤖</span>Pergunte ao Copiloto</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  {chatMsgs.some((m) => m.role === "user") && !chatLoading && (
+                    <button onClick={refazerAnaliseIA} className="shrink-0 rounded-lg border border-[#E2E8F0] bg-white px-2.5 py-1 text-[11px] font-bold text-[#334155] transition hover:border-[#2563EB] hover:text-[#2563EB]">🔁 Refazer análise</button>
+                  )}
+                  {chatMsgs.length > 0 && (
+                    <button onClick={() => { setChatMsgs([]); setChatErro(""); setChatFeedback({}); }} className="shrink-0 rounded-lg border border-[#E2E8F0] bg-white px-2.5 py-1 text-[11px] font-bold text-[#334155] transition hover:border-[#2563EB] hover:text-[#2563EB]">Limpar conversa</button>
+                  )}
+                </div>
               </div>
               {chatMsgs.length === 0 && !chatLoading && (
-                <p className="mt-3 rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-xs text-slate-500">Nenhuma pergunta ainda nesta sessão. Use uma sugestão abaixo ou escreva a sua pergunta.</p>
+                <p className="mt-3 rounded-xl border border-dashed border-[#E2E8F0] bg-[#F8FAFC] px-4 py-6 text-center text-xs text-[#64748B]">Nenhuma pergunta ainda nesta sessão. Use uma sugestão abaixo ou escreva a sua pergunta.</p>
               )}
               {chatMsgs.length > 0 && (
-                <div className="mt-3 max-h-80 space-y-2 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <div className="mt-3 max-h-[28rem] space-y-2 overflow-y-auto rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
                   {chatMsgs.map((m, i) => (
                     <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                      <div className={`max-w-[88%] whitespace-pre-wrap rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${m.role === "user" ? "bg-blue-500 text-white" : "border border-slate-200 bg-white text-[#334155]"}`}>
-                        {m.content}
-                        {m.role === "assistant" && m.content && (
-                          <button onClick={() => copiarResposta(m.content, i)} className="mt-1.5 block text-[10px] font-bold text-blue-500 hover:underline">{chatCopiadoIdx === i ? "Copiado ✓" : "Copiar resposta"}</button>
+                      <div className={`max-w-[92%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${m.role === "user" ? "whitespace-pre-wrap" : ""}`} style={m.role === "user" ? { background: "#2563EB", color: "#FFFFFF" } : { border: "1px solid #E2E8F0", background: "#FFFFFF", color: "#334155" }}>
+                        {m.role === "user" ? m.content : (
+                          <RespostaCopilotoBubble resultado={m.resultado} modelo={m.modelo} dataPeriod={m.dataPeriod} bloqueado={m.bloqueado} atualizadoEm={m.atualizadoEm}
+                            copiado={chatCopiadoIdx === i} onCopiar={(texto) => copiarResposta(texto, i)}
+                            feedback={chatFeedback[i]} onFeedback={(v) => setChatFeedback((f) => ({ ...f, [i]: f[i] === v ? undefined : v }))} />
                         )}
                       </div>
                     </div>
                   ))}
-                  {chatLoading && <div className="flex justify-start"><div className="rounded-2xl border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-500">🤖 Pensando…</div></div>}
+                  {chatLoading && (
+                    <div className="flex justify-start">
+                      <div className="w-56 space-y-2 rounded-2xl border border-[#E2E8F0] bg-white px-3.5 py-3">
+                        <div className="h-2.5 w-full animate-pulse rounded-full bg-[#F1F5F9]" />
+                        <div className="h-2.5 w-4/5 animate-pulse rounded-full bg-[#F1F5F9]" />
+                        <div className="h-2.5 w-3/5 animate-pulse rounded-full bg-[#F1F5F9]" />
+                        <button onClick={interromperRespostaIA} className="text-[10px] font-bold text-[#EF4444] hover:underline">■ Interromper resposta</button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
               {chatErro && (
-                <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[12px] font-semibold text-amber-700">⚠️ {chatErro}</div>
+                <div className="mt-3 rounded-xl border px-4 py-3 text-[12px] font-semibold" style={{ borderColor: "#F59E0B4D", background: "#F59E0B1A", color: "#B45309" }}>⚠️ {chatErro}</div>
               )}
               <div className="mt-3 flex gap-2">
                 <textarea value={chatInput} onChange={(e) => setChatInput(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); enviarPerguntaIA(); } }}
                   rows={2} placeholder="Ex.: Como aumentar o ticket médio neste período? (Enter envia, Shift+Enter quebra linha)"
-                  className="flex-1 resize-none rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-[#334155] outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/25 placeholder:text-slate-400" />
-                <button onClick={() => enviarPerguntaIA()} disabled={chatLoading || !chatInput.trim()}
-                  className="shrink-0 self-end rounded-xl bg-blue-500 px-5 py-2.5 text-sm font-black text-white transition hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-40">Enviar</button>
+                  aria-label="Pergunta para o Copiloto"
+                  className="flex-1 resize-none rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm text-[#334155] outline-none transition focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/25 placeholder:text-[#94A3B8]" />
+                {chatLoading ? (
+                  <button onClick={interromperRespostaIA} className="shrink-0 self-end rounded-xl border border-[#EF4444] bg-white px-5 py-2.5 text-sm font-black text-[#EF4444] transition hover:bg-[#FEF2F2]">■ Interromper</button>
+                ) : (
+                  <button onClick={() => enviarPerguntaIA()} disabled={!chatInput.trim()}
+                    className="shrink-0 self-end rounded-xl bg-[#2563EB] px-5 py-2.5 text-sm font-black text-white transition hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:opacity-40">Enviar</button>
+                )}
               </div>
               <div className="mt-2 flex flex-wrap gap-1.5">
-                {["Como aumentar o faturamento?", "Quais produtos devo promover?", "Onde estou perdendo dinheiro?", "Quais clientes devo reativar?", "Como reduzir o tempo de preparo?"].map((s) => (
+                {["Como aumentar meu faturamento?", "Quais produtos devo promover?", "Onde estou perdendo dinheiro?", "Quais clientes devo reativar?", "Como reduzir o tempo de preparo?", "Quais riscos exigem atenção?", "Qual oportunidade tem maior impacto?"].map((s) => (
                   <button key={s} type="button" onClick={() => enviarPerguntaIA(s)} disabled={chatLoading}
-                    className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-bold text-slate-600 transition hover:border-blue-500 hover:text-blue-500 disabled:opacity-40">{s}</button>
+                    className="rounded-full border border-[#E2E8F0] bg-white px-2.5 py-1 text-[11px] font-bold text-[#334155] transition hover:border-[#2563EB] hover:text-[#2563EB] disabled:opacity-40">{s}</button>
                 ))}
               </div>
-              <p className="mt-3 text-[10px] text-slate-400">Respostas usam somente os dados reais do período e filtros ativos — o Copiloto não inventa números. Chat via IA (Claude) por função segura no servidor; sem chave configurada, use a análise local desta tela.</p>
+              <p className="mt-3 text-[10px] text-[#94A3B8]">Respostas usam somente os dados reais do período e filtros ativos ({filtrosAtivosTexto}) — o Copiloto não inventa números. Chat via IA por função segura no servidor; sem chave configurada ou em caso de erro, cai automaticamente no diagnóstico local desta tela.</p>
             </div>
 
-            {/* Indicadores gerenciais */}
+            {/* 7. Indicadores gerenciais */}
             <div>
               <p className="mb-2 text-[11px] font-black uppercase tracking-widest text-[#0D1B2A]">Indicadores gerenciais</p>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
+                onClick={(e) => { const pergunta = e.target.closest("[data-pergunta]")?.dataset.pergunta; if (pergunta) analisarIndicador(pergunta); }}>
                 {kpis.map((k) => <KpiCardCopiloto key={k.id} {...k} />)}
               </div>
             </div>
@@ -8043,39 +8284,40 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], irParaM
             <div>
               <p className="mb-2 text-[11px] font-black uppercase tracking-widest text-[#0D1B2A]">Alertas críticos</p>
               {ia.alertasCriticos.length === 0 ? (
-                <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">✅ Nenhum alerta crítico no momento.</div>
+                <div className="rounded-xl border px-4 py-3 text-sm font-semibold" style={{ borderColor: "#10B98133", background: "#10B9811A", color: "#10B981" }}>✅ Nenhum alerta crítico no momento.</div>
               ) : (
                 <div className="grid gap-2 sm:grid-cols-2">
                   {ia.alertasCriticos.map((al, i) => (
-                    <div key={i} className={`flex items-start gap-2 rounded-xl border-l-4 bg-white py-3 pl-3.5 pr-4 shadow-sm ${al.sev === "crit" ? "border-l-red-500" : "border-l-amber-500"}`}>
+                    <div key={i} className="flex items-start gap-2 rounded-xl border-l-4 bg-white py-3 pl-3.5 pr-4 shadow-sm" style={{ borderLeftColor: al.sev === "crit" ? "#EF4444" : "#F59E0B" }}>
                       <span className="shrink-0">{al.sev === "crit" ? "🔴" : "⚠️"}</span>
-                      <div className="min-w-0"><p className={`text-sm font-bold ${al.sev === "crit" ? "text-red-700" : "text-amber-700"}`}>{al.titulo}</p><p className="text-xs text-slate-500">{al.desc}</p></div>
+                      <div className="min-w-0"><p className="text-sm font-bold" style={{ color: al.sev === "crit" ? "#EF4444" : "#B45309" }}>{al.titulo}</p><p className="text-xs text-[#64748B]">{al.desc}</p></div>
                     </div>
                   ))}
                 </div>
               )}
             </div>
 
-            {/* Insights agrupados por área */}
+            {/* 8. Insights inteligentes — agrupados por área, fundo branco, cor só em
+                badge/ícone/borda lateral. */}
             <div>
-              <p className="mb-2 text-[11px] font-black uppercase tracking-widest text-[#0D1B2A]">Insights por área</p>
+              <p className="mb-2 text-[11px] font-black uppercase tracking-widest text-[#0D1B2A]">Insights inteligentes</p>
               {insightsPorCategoria.length === 0 ? (
-                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">{semDados ? "Dados insuficientes no período para gerar insights." : "Nenhum insight relevante no momento."}</div>
+                <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-6 text-center text-sm text-[#64748B]">{semDados ? "Dados insuficientes no período para gerar insights." : "Nenhum insight relevante no momento."}</div>
               ) : (
                 <div className="grid gap-4 md:grid-cols-2">
                   {insightsPorCategoria.map((g) => (
-                    <div key={g.cat} className="rounded-2xl border border-slate-200 bg-white p-4">
-                      <p className="mb-2 text-xs font-black uppercase tracking-wide text-slate-500">{g.cat}</p>
+                    <div key={g.cat} className="rounded-2xl border border-[#E2E8F0] bg-white p-4">
+                      <p className="mb-2 text-xs font-black uppercase tracking-wide text-[#64748B]">{g.cat}</p>
                       <div className="space-y-2">
                         {g.itens.map((it, i) => (
-                          <div key={i} className={`rounded-xl border px-3.5 py-2.5 text-xs font-semibold ${sevCls[it.sev]}`}>
+                          <div key={i} className="rounded-xl border-l-4 bg-white px-3.5 py-2.5 text-xs font-semibold shadow-sm" style={{ borderLeftColor: sevCor[it.sev], borderTop: "1px solid #E2E8F0", borderRight: "1px solid #E2E8F0", borderBottom: "1px solid #E2E8F0" }}>
                             <div className="flex items-start gap-2">
                               <span className="shrink-0">{sevIc[it.sev]}</span>
-                              <span className="min-w-0 flex-1">{it.texto}</span>
+                              <span className="min-w-0 flex-1 text-[#334155]">{it.texto}</span>
                             </div>
                             <div className="mt-1.5 flex items-center gap-2 pl-5">
-                              <span className="text-[10px] font-black uppercase opacity-70">Impacto {it.impacto}</span>
-                              {it.acaoId && <button onClick={() => irPara(it.acaoId)} className="text-[10px] font-black underline decoration-dotted underline-offset-2 hover:opacity-70">Ver detalhes →</button>}
+                              <span className="rounded-full px-1.5 py-0.5 text-[10px] font-black uppercase" style={{ background: `${sevCor[it.sev]}1A`, color: sevCor[it.sev] }}>Impacto {it.impacto}</span>
+                              {it.acaoId && <button onClick={() => irPara(it.acaoId)} className="text-[10px] font-black underline decoration-dotted underline-offset-2 hover:opacity-70" style={{ color: "#2563EB" }}>Ver origem →</button>}
                             </div>
                           </div>
                         ))}
@@ -8086,24 +8328,24 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], irParaM
               )}
             </div>
 
-            {/* Ações recomendadas */}
+            {/* 9. Plano de ação recomendado */}
             <div>
-              <p className="mb-2 text-[11px] font-black uppercase tracking-widest text-[#0D1B2A]">Ações recomendadas</p>
+              <p className="mb-2 text-[11px] font-black uppercase tracking-widest text-[#0D1B2A]">Plano de ação recomendado</p>
               {ia.acoes.length === 0 ? (
-                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">Nenhuma recomendação disponível no momento.</div>
+                <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-6 text-center text-sm text-[#64748B]">Nenhuma recomendação disponível no momento.</div>
               ) : (
                 <div className="space-y-2">
                   {ia.acoes.map((ac, i) => (
-                    <div key={i} className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div key={i} className="flex flex-col gap-2 rounded-xl border border-[#E2E8F0] bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                       <div className="flex items-start gap-3 min-w-0">
-                        <span className={`mt-0.5 shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-black uppercase ${prioCls[ac.prio]}`}>{prioLbl[ac.prio]}</span>
+                        <span className="mt-0.5 shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-black uppercase" style={{ borderColor: `${prioCor[ac.prio]}4D`, background: `${prioCor[ac.prio]}1A`, color: prioCor[ac.prio] }}>{prioLbl[ac.prio]}</span>
                         <div className="min-w-0">
                           <p className="text-sm font-bold text-[#0D1B2A]">{ac.texto}</p>
-                          <p className="text-[11px] text-slate-500">{ac.motivo}{ac.area ? ` · Área: ${ac.area}` : ""}{ac.impacto ? ` · Impacto esperado: ${ac.impacto}` : ""}</p>
+                          <p className="text-[11px] text-[#64748B]">{ac.motivo}{ac.area ? ` · Área: ${ac.area}` : ""}{ac.kpiId ? ` · Indicador: ${KPI_ID_PARA_LABEL[ac.kpiId] || ac.kpiId}` : ""}{ac.impacto ? ` · Impacto esperado: ${ac.impacto}` : ""}</p>
                         </div>
                       </div>
                       <button onClick={() => setModalAcao({ titulo: ac.texto, responsavel: "", prazo: "", prioridade: ac.prio, observacao: ac.motivo || "" })}
-                        className="shrink-0 self-start rounded-lg border border-blue-500 bg-white px-3 py-1.5 text-xs font-black text-blue-500 transition hover:bg-blue-50 sm:self-center">Criar ação</button>
+                        className="shrink-0 self-start rounded-lg border px-3 py-1.5 text-xs font-black transition hover:bg-[#EFF6FF] sm:self-center" style={{ borderColor: "#2563EB", color: "#2563EB" }}>Criar ação</button>
                     </div>
                   ))}
                 </div>
@@ -8123,51 +8365,83 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], irParaM
               </div>
             </div>
 
+            {/* 10. Simulações seguras — fórmulas locais, projeção claramente
+                identificada como tal, sem misturar com dado realizado e sem
+                salvar/alterar nada. */}
+            <div className="rounded-2xl border border-[#E2E8F0] bg-white p-5 shadow-sm sm:p-6">
+              <button onClick={() => setMostrarSimulador((v) => !v)} className="flex w-full items-center justify-between gap-2 text-left">
+                <p className="flex items-center gap-2 text-sm font-black text-[#0D1B2A]"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg" style={{ background: "#8B5CF61A", color: "#8B5CF6" }}>🧪</span>Simular cenário</p>
+                <span className="text-xs font-bold text-[#64748B]">{mostrarSimulador ? "Recolher ▲" : "Expandir ▼"}</span>
+              </button>
+              {mostrarSimulador && (
+                <div className="pp-anim-fade mt-4 space-y-3">
+                  <p className="rounded-xl px-3.5 py-2.5 text-[11px] font-semibold" style={{ background: "#8B5CF60D", color: "#8B5CF6" }}>⚠️ Projeção — não é dado realizado. Usa fórmulas simples sobre os números atuais do período; nada aqui é salvo ou altera a operação.</p>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {[
+                      { titulo: "Aumentar o ticket médio em 10%", premissa: `Ticket atual ${formatCurrency(a.ticket)} → ${formatCurrency(a.ticket * 1.1)}`, resultado: `+${formatCurrency(a.ticket * 0.1 * a.totalPedidos)} de faturamento projetado (${a.totalPedidos} pedido(s) no período)` },
+                      { titulo: `Reativar ${Math.min(inativos.length, 10) || 0} cliente(s) inativos`, premissa: inativos.length ? `Ticket médio histórico dos reativados ≈ ${formatCurrency(inativos.slice(0, 10).reduce((s, c) => s + c.total / c.qtd, 0) / Math.max(1, Math.min(inativos.length, 10)))}` : "Nenhum cliente inativo no período", resultado: inativos.length ? `+${formatCurrency(inativos.slice(0, 10).reduce((s, c) => s + c.total / c.qtd, 0))} projetado se cada um voltar 1x` : "—" },
+                      { titulo: "Promover 1 produto parado", premissa: produtoTop ? `Referência: ${produtoTop.nome} vendeu ${produtoTop.qtd} un. no período` : "Sem produto de referência no período", resultado: produtosParados.length ? `Se um item parado vender como 30% do carro-chefe, +${Math.round((produtoTop?.qtd || 0) * 0.3)} un. projetadas` : "Nenhum produto parado no período" },
+                      { titulo: "Reduzir o tempo de preparo em 20%", premissa: tempoMedioPrep != null ? `Tempo atual: ${fmtTempo(tempoMedioPrep)}` : "Sem tempo médio de preparo no período", resultado: tempoMedioPrep != null ? `Tempo projetado: ${fmtTempo(Math.round(tempoMedioPrep * 0.8))} — pode aumentar o giro de mesas` : "—" },
+                    ].map((s, i) => (
+                      <div key={i} className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3.5">
+                        <p className="text-xs font-black text-[#0D1B2A]">{s.titulo}</p>
+                        <p className="mt-1 text-[11px] text-[#64748B]">Premissa: {s.premissa}</p>
+                        <p className="mt-1 text-[11px] font-bold" style={{ color: "#8B5CF6" }}>Projeção: {s.resultado}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Modal "Criar ação" — reaproveita o padrão de modal já usado nas telas
                 administrativas (overlay + card branco). Sem backend próprio: o
                 sistema ainda não tem uma estrutura de tarefas, e criar uma tabela
-                nova para isso seria uma arquitetura paralela (fora do pedido). */}
+                nova para isso seria uma arquitetura paralela (fora do pedido) —
+                é só um modal de preparação, sem persistência paralela. */}
             {modalAcao && (
               <div className="fixed inset-0 z-[140] flex items-center justify-center bg-[#0D1B2A]/50 p-4 backdrop-blur-sm" onClick={() => setModalAcao(null)}>
-                <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-xl">
+                <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-2xl border border-[#E2E8F0] bg-white p-5 shadow-xl">
                   <p className="text-base font-black text-[#0D1B2A]">Criar ação</p>
                   <div className="mt-4 space-y-3">
                     <div>
-                      <label className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-slate-500">Título</label>
+                      <label className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-[#64748B]">Título</label>
                       <input value={modalAcao.titulo} onChange={(e) => setModalAcao({ ...modalAcao, titulo: e.target.value })}
-                        className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-[#334155] outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/25" />
+                        className="w-full rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2.5 text-sm text-[#334155] outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/25" />
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-slate-500">Responsável</label>
+                        <label className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-[#64748B]">Responsável</label>
                         <input value={modalAcao.responsavel} onChange={(e) => setModalAcao({ ...modalAcao, responsavel: e.target.value })} placeholder="Nome"
-                          className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-[#334155] outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/25" />
+                          className="w-full rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2.5 text-sm text-[#334155] outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/25" />
                       </div>
                       <div>
-                        <label className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-slate-500">Prazo</label>
+                        <label className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-[#64748B]">Prazo</label>
                         <input type="date" value={modalAcao.prazo} onChange={(e) => setModalAcao({ ...modalAcao, prazo: e.target.value })}
-                          className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-[#334155] outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/25" />
+                          className="w-full rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2.5 text-sm text-[#334155] outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/25" />
                       </div>
                     </div>
                     <div>
-                      <label className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-slate-500">Prioridade</label>
+                      <label className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-[#64748B]">Prioridade</label>
                       <div className="flex gap-2">
                         {["alta", "media", "baixa"].map((p) => (
                           <button key={p} type="button" onClick={() => setModalAcao({ ...modalAcao, prioridade: p })}
-                            className={`flex-1 rounded-lg border px-3 py-2 text-xs font-black uppercase transition ${modalAcao.prioridade === p ? "border-blue-500 bg-blue-500 text-white" : "border-slate-200 bg-white text-[#334155] hover:border-blue-500 hover:text-blue-500"}`}>{prioLbl[p]}</button>
+                            className="flex-1 rounded-lg border px-3 py-2 text-xs font-black uppercase transition"
+                            style={modalAcao.prioridade === p ? { borderColor: "#2563EB", background: "#2563EB", color: "#FFFFFF" } : { borderColor: "#E2E8F0", background: "#FFFFFF", color: "#334155" }}>{prioLbl[p]}</button>
                         ))}
                       </div>
                     </div>
                     <div>
-                      <label className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-slate-500">Observação</label>
+                      <label className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-[#64748B]">Observação</label>
                       <textarea value={modalAcao.observacao} onChange={(e) => setModalAcao({ ...modalAcao, observacao: e.target.value })} rows={3}
-                        className="w-full resize-none rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-[#334155] outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/25" />
+                        className="w-full resize-none rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2.5 text-sm text-[#334155] outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/25" />
                     </div>
                   </div>
-                  <div className="mt-5 flex justify-end gap-2">
-                    <button onClick={() => setModalAcao(null)} className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-600 transition hover:bg-slate-50">Cancelar</button>
+                  <p className="mt-3 text-[10px] text-[#94A3B8]">Este projeto ainda não tem uma estrutura de tarefas — "Salvar ação" só confirma o preparo aqui na tela, sem criar uma tabela paralela.</p>
+                  <div className="mt-3 flex justify-end gap-2">
+                    <button onClick={() => setModalAcao(null)} className="rounded-xl border border-[#E2E8F0] bg-white px-4 py-2 text-sm font-bold text-[#334155] transition hover:bg-[#F1F5F9]">Cancelar</button>
                     <button onClick={() => { setToastAcao(`Ação "${modalAcao.titulo}" registrada para ${modalAcao.responsavel || "a equipe"}.`); setModalAcao(null); setTimeout(() => setToastAcao(""), 4000); }}
-                      className="rounded-xl bg-blue-500 px-4 py-2 text-sm font-black text-white transition hover:bg-blue-600">Salvar ação</button>
+                      className="rounded-xl bg-[#2563EB] px-4 py-2 text-sm font-black text-white transition hover:bg-[#1D4ED8]">Salvar ação</button>
                   </div>
                 </div>
               </div>

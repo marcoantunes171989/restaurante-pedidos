@@ -483,19 +483,23 @@ export async function criarChamado(c) {
 // origem, na Vercel). A chave da API (ANTHROPIC_API_KEY) fica só no servidor.
 // Lança erro se a função/chave não estiver ativa, para o front cair no motor
 // de análise local (tolerante).
-export async function perguntarCopilotoIA({ resumoDados = '', pergunta, historico = [] }) {
+// Retorna a resposta estruturada { resultado, dataPeriod, modelo, atualizadoEm,
+// bloqueado? } do endpoint seguro. `signal` permite cancelar a requisição em
+// andamento (botão "Interromper resposta" / troca de filtro).
+export async function perguntarCopilotoIA({ resumoDados = '', pergunta, historico = [], dataPeriod = '', signal }) {
   const { data: sess } = await supabase.auth.getSession()
   const token = sess?.session?.access_token
   if (!token) throw new Error('Sessão inválida — faça login novamente.')
   const r = await fetch('/api/copiloto-ia', {
     method: 'POST',
     headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
-    body: JSON.stringify({ resumoDados, pergunta, historico }),
+    body: JSON.stringify({ resumoDados, pergunta, historico, dataPeriod }),
+    signal,
   })
   let data = {}
   try { data = await r.json() } catch { /* resposta não-JSON */ }
   if (!r.ok || data?.error) throw new Error(data?.error || `Erro ${r.status} ao consultar a IA.`)
-  return data?.resposta || ''
+  return data
 }
 export async function atualizarChamado(id, { status, atendidoPor }) {
   const campos = { status }
