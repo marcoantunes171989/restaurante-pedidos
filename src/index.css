@@ -393,6 +393,24 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
   transition: background-color 9999s ease-out 0s;
 }
 
+/* Tela de login — compactação adicional por ALTURA de viewport (não largura).
+   Os clamp() aplicados inline no JSX (App.jsx, TelaLogin) já escalam de forma
+   contínua com a altura da tela; estas media queries cobrem o caso de janelas
+   muito baixas (notebook 720p, janela maximizada com barra de tarefas) em que
+   o painel institucional (aside) ainda precisa de um corte extra para nunca
+   ultrapassar 100dvh e gerar barra de rolagem na página. */
+@media (max-height: 800px) {
+  .pp-login-shell .pp-login-mockup { padding: 0.625rem; margin-top: 0.625rem; }
+  .pp-login-shell .pp-login-benefits { margin-top: 0.625rem; row-gap: 0.375rem; }
+  .pp-login-shell .pp-login-title { font-size: 1.5rem; }
+}
+@media (max-height: 680px) {
+  .pp-login-shell .pp-login-mockup { padding: 0.5rem; margin-top: 0.5rem; }
+  .pp-login-shell .pp-login-mockup-total { padding-top: 0.375rem; margin-top: 0.375rem; }
+  .pp-login-shell .pp-login-benefits { margin-top: 0.5rem; row-gap: 0.25rem; }
+  .pp-login-shell .pp-login-title { font-size: 1.375rem; }
+}
+
 /* ── Classes utilitárias premium (design system light) ──────────
    Disponíveis para uso incremental nas telas (não substituem o que
    já existe, apenas padronizam o que for novo ou refatorado). */

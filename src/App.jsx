@@ -271,7 +271,7 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
   // Reseta o loading quando chega uma mensagem (ex.: erro de credenciais).
   useEffect(() => { if (message && message.text) setEntrando(false); }, [message]);
   const labelCls = "mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-[#64748B]";
-  const inputCls = "box-border min-h-[52px] w-full rounded-2xl border border-[#CBD5E1] bg-white py-3.5 pl-11 pr-4 text-[15px] text-[#0F172A] caret-[#2563EB] outline-none transition-colors focus:border-[#2563EB] focus:bg-white focus:ring-[3px] focus:ring-[#2563EB]/15 placeholder:text-[#94A3B8]";
+  const inputCls = "box-border min-h-[clamp(44px,6.5vh,52px)] w-full rounded-2xl border border-[#CBD5E1] bg-white py-[clamp(0.6rem,1.6vh,0.875rem)] pl-11 pr-4 text-[15px] text-[#0F172A] caret-[#2563EB] outline-none transition-colors focus:border-[#2563EB] focus:bg-white focus:ring-[3px] focus:ring-[#2563EB]/15 placeholder:text-[#94A3B8]";
   const podeEntrar = loginForm.email.trim() && loginForm.password;
 
   // Ícones (SVG inline — leves e elegantes)
@@ -307,89 +307,104 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
     // no mesmo nó (como estava antes), a regra nunca era aplicada e o
     // autofill escuro genérico (index.css) pintava o campo de e-mail.
     <div data-theme="light">
-    <div className="tema-claro-area pp-brand-manrope relative flex min-h-dvh w-full max-w-[100vw] items-stretch overflow-x-hidden text-[#0D1B2A]" style={{ fontFamily: "'Inter','Poppins',sans-serif", backgroundColor: "#F8FAFC", boxSizing: "border-box", margin: 0 }}>
+    {/* h-dvh + overflow-hidden (em vez do antigo min-h-dvh, sem teto de altura):
+        a tela de login nunca deve crescer além do viewport real — é o container
+        que define a altura máxima, e aside/main (abaixo) usam min-h-0 para
+        poderem encolher/rolar internamente em vez de estourar este limite. */}
+    <div className="pp-login-shell tema-claro-area pp-brand-manrope relative flex h-dvh max-h-dvh w-full items-stretch overflow-hidden text-[#0D1B2A]" style={{ fontFamily: "'Inter','Poppins',sans-serif", backgroundColor: "#F8FAFC", boxSizing: "border-box", margin: 0 }}>
 
       {/* ══ Painel institucional (tablet/desktop) ══ */}
-      <aside className="pp-anim-left relative hidden shrink-0 flex-col justify-center gap-8 overflow-hidden border-r border-[#E2E8F0] bg-[#F8FAFC] p-10 md:flex md:w-[45%] md:p-12 xl:w-1/2 xl:p-16">
+      <aside className="pp-anim-left relative hidden h-full shrink-0 overflow-hidden border-r border-[#E2E8F0] bg-[#F8FAFC] px-[clamp(1.5rem,4vw,4rem)] py-[clamp(1rem,3vh,3rem)] md:block md:w-[45%] xl:w-1/2">
         {/* Elementos geométricos suaves — opacidade baixa do azul, sem degradês alaranjados */}
         <div className="pointer-events-none absolute inset-0 opacity-[0.035]" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #2563EB 1px, transparent 0)", backgroundSize: "32px 32px" }} />
         <div className="pointer-events-none absolute -top-24 -right-20 h-[26rem] w-[26rem] rounded-full bg-[#2563EB] opacity-[0.05]" />
         <div className="pointer-events-none absolute -bottom-28 -left-16 h-[22rem] w-[22rem] rounded-full bg-[#2563EB] opacity-[0.04]" />
 
-        {/* Logo centralizada no topo */}
-        <div className="relative flex items-center justify-center">
-          <LogoPP size={44} />
-        </div>
-
-        {/* Pitch + mockup */}
-        <div className="relative mx-auto max-w-md text-center">
-          <h2 className="font-display text-3xl font-black leading-tight text-[#0D1B2A] xl:text-4xl">Controle seu restaurante em <span className="text-[#2563EB]">tempo real</span></h2>
-          <p className="mt-4 text-sm leading-7 text-[#334155]">Pedidos, mesas, cozinha, caixa, financeiro e relatórios em uma única plataforma.</p>
-
-          {/* 6 benefícios */}
-          <div className="mt-7 grid grid-cols-2 gap-x-6 gap-y-3.5 text-left">
-            {beneficios.map((b) => (
-              <div key={b} className="flex items-center gap-2 text-sm font-semibold text-[#334155]">
-                {IconeCheck}{b}
-              </div>
-            ))}
+        {/* Conteúdo real (logo + pitch + rodapé): coluna própria com min-h-0 +
+            overflow-y-auto — se algum caso extremo de altura não couber mesmo
+            após a compactação por clamp()/media query abaixo, é ESTE bloco
+            (institucional, não essencial ao login) que absorve a rolagem,
+            nunca a página inteira. */}
+        <div className="pp-login-aside-content relative z-10 flex h-full min-h-0 w-full flex-col justify-center gap-[clamp(0.75rem,2.4vh,2rem)] overflow-y-auto">
+          {/* Logo centralizada no topo */}
+          <div className="flex shrink-0 items-center justify-center">
+            <LogoPP size={44} />
           </div>
 
-          {/* Mockup elegante do sistema */}
-          <div className="mt-8 rounded-2xl border border-[#E2E8F0] bg-white p-4 text-left shadow-[0_8px_24px_rgba(13,27,42,0.06)]">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#F1F5F9] text-base">🍽️</span>
-                <div>
-                  <p className="font-display text-sm font-bold leading-none text-[#0D1B2A]">Mesa 12</p>
-                  <p className="mt-1 text-[10px] text-[#64748B]">Comanda #087</p>
-                </div>
-              </div>
-              <span className="rounded-full bg-[#F59E0B]/10 px-2.5 py-1 text-[10px] font-bold text-[#F59E0B]">Em preparo</span>
-            </div>
-            <div className="mt-3 space-y-1.5">
-              {[["1x", "Risoto de camarão", "58,00"], ["2x", "Suco natural", "12,00"]].map((i) => (
-                <div key={i[1]} className="flex items-center justify-between rounded-lg bg-[#F8FAFC] px-3 py-2 text-xs">
-                  <span className="text-[#334155]"><b className="text-[#0D1B2A]">{i[0]}</b> {i[1]}</span>
-                  <span className="font-display font-bold text-[#0D1B2A]">R$ {i[2]}</span>
+          {/* Pitch + mockup */}
+          <div className="mx-auto max-w-md shrink-0 text-center">
+            <h2 className="pp-login-title font-display text-[clamp(1.375rem,1rem+1.6vh,2.25rem)] font-black leading-tight text-[#0D1B2A]">Controle seu restaurante em <span className="text-[#2563EB]">tempo real</span></h2>
+            <p className="mt-[clamp(0.5rem,1.4vh,1rem)] text-sm leading-7 text-[#334155]">Pedidos, mesas, cozinha, caixa, financeiro e relatórios em uma única plataforma.</p>
+
+            {/* 6 benefícios */}
+            <div className="pp-login-benefits mt-[clamp(0.625rem,1.8vh,1.75rem)] grid grid-cols-2 gap-x-6 gap-y-[clamp(0.4rem,1vh,0.875rem)] text-left">
+              {beneficios.map((b) => (
+                <div key={b} className="flex items-center gap-2 text-sm font-semibold text-[#334155]">
+                  {IconeCheck}{b}
                 </div>
               ))}
             </div>
-            <div className="mt-3 flex items-center gap-1.5">
-              {["Recebido", "Preparando", "Pronto"].map((s, i) => (
-                <div key={s} className="flex-1 text-center">
-                  <div className={`h-1 rounded-full ${i <= 1 ? "bg-[#2563EB]" : "bg-[#E2E8F0]"}`} />
-                  <p className={`mt-1 text-[8px] font-bold ${i <= 1 ? "text-[#2563EB]" : "text-[#64748B]"}`}>{s}</p>
+
+            {/* Mockup elegante do sistema */}
+            <div className="pp-login-mockup mt-[clamp(0.625rem,1.8vh,2rem)] rounded-2xl border border-[#E2E8F0] bg-white p-[clamp(0.625rem,1.6vh,1rem)] text-left shadow-[0_8px_24px_rgba(13,27,42,0.06)]">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#F1F5F9] text-base">🍽️</span>
+                  <div>
+                    <p className="font-display text-sm font-bold leading-none text-[#0D1B2A]">Mesa 12</p>
+                    <p className="mt-1 text-[10px] text-[#64748B]">Comanda #087</p>
+                  </div>
                 </div>
-              ))}
-            </div>
-            <div className="mt-3 flex items-center justify-between border-t border-[#E2E8F0] pt-3">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[#64748B]">Total</span>
-              <span className="font-display text-base font-black text-[#0D1B2A]">R$ 82,00</span>
+                <span className="rounded-full bg-[#F59E0B]/10 px-2.5 py-1 text-[10px] font-bold text-[#F59E0B]">Em preparo</span>
+              </div>
+              <div className="mt-[clamp(0.375rem,1vh,0.75rem)] space-y-1.5">
+                {[["1x", "Risoto de camarão", "58,00"], ["2x", "Suco natural", "12,00"]].map((i) => (
+                  <div key={i[1]} className="flex items-center justify-between rounded-lg bg-[#F8FAFC] px-3 py-2 text-xs">
+                    <span className="text-[#334155]"><b className="text-[#0D1B2A]">{i[0]}</b> {i[1]}</span>
+                    <span className="font-display font-bold text-[#0D1B2A]">R$ {i[2]}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-[clamp(0.375rem,1vh,0.75rem)] flex items-center gap-1.5">
+                {["Recebido", "Preparando", "Pronto"].map((s, i) => (
+                  <div key={s} className="flex-1 text-center">
+                    <div className={`h-1 rounded-full ${i <= 1 ? "bg-[#2563EB]" : "bg-[#E2E8F0]"}`} />
+                    <p className={`mt-1 text-[8px] font-bold ${i <= 1 ? "text-[#2563EB]" : "text-[#64748B]"}`}>{s}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="pp-login-mockup-total mt-[clamp(0.375rem,1vh,0.75rem)] flex items-center justify-between border-t border-[#E2E8F0] pt-[clamp(0.375rem,1vh,0.75rem)]">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#64748B]">Total</span>
+                <span className="font-display text-base font-black text-[#0D1B2A]">R$ 82,00</span>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Rodapé do painel */}
-        <p className="relative mx-auto flex max-w-md items-center justify-center gap-2 text-xs text-[#64748B]">
-          <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="11" width="16" height="9" rx="2.5" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>
-          Plataforma segura · acesso por usuário e permissão
-        </p>
+          {/* Rodapé do painel */}
+          <p className="mx-auto flex max-w-md shrink-0 items-center justify-center gap-2 text-xs text-[#64748B]">
+            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="11" width="16" height="9" rx="2.5" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>
+            Plataforma segura · acesso por usuário e permissão
+          </p>
+        </div>
       </aside>
 
       {/* ══ Formulário ══ */}
-      <main className="relative z-10 flex w-full flex-1 flex-col items-center justify-center px-5 py-6"
-        style={{ paddingTop: "calc(env(safe-area-inset-top) + 1rem)", paddingBottom: "calc(env(safe-area-inset-bottom) + 1.5rem)" }}>
-        <div className="pp-anim-up relative w-full max-w-[430px]">
+      {/* min-h-0 + overflow-y-auto: esta coluna (não a página) absorve
+          eventuais casos extremos de altura; em condições normais o
+          conteúdo cabe inteiro (ver clamp()s abaixo) e nenhuma rolagem
+          aparece. */}
+      <main className="pp-login-main relative z-10 flex h-full min-h-0 w-full flex-1 flex-col items-center justify-center overflow-y-auto px-[clamp(1rem,3vw,1.25rem)]"
+        style={{ paddingTop: "calc(env(safe-area-inset-top) + clamp(0.75rem, 2vh, 1.5rem))", paddingBottom: "calc(env(safe-area-inset-bottom) + clamp(1rem, 2.5vh, 2rem))" }}>
+        <div className="pp-anim-up relative w-full max-w-[430px] shrink-0">
           {/* Card */}
           <form onSubmit={(e) => { e.preventDefault(); if (podeEntrar && !entrando) { setEntrando(true); login(); } }}
             autoComplete="off"
-            className="relative overflow-hidden rounded-[20px] border border-[#E2E8F0] bg-white p-6 shadow-[0_4px_20px_rgba(13,27,42,0.07)] sm:p-7 space-y-4">
+            className="relative flex flex-col gap-[clamp(0.65rem,1.6vh,1rem)] overflow-hidden rounded-[20px] border border-[#E2E8F0] bg-white p-[clamp(1.125rem,2.6vh,1.75rem)] shadow-[0_4px_20px_rgba(13,27,42,0.07)]">
             <span className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#2563EB] to-[#1D4ED8]" />
             {/* Marca / título (dentro do card, sobre fundo claro) */}
-            <div className="mb-1 text-center">
+            <div className="text-center">
               <div className="mx-auto flex h-16 w-16 items-center justify-center"><LogoPP size={64} /></div>
-              <h1 className="font-display mt-3 text-2xl font-black tracking-tight text-[#0D1B2A]">Pedido Prime</h1>
+              <h1 className="font-display mt-[clamp(0.5rem,1.2vh,0.75rem)] text-2xl font-black tracking-tight text-[#0D1B2A]">Pedido Prime</h1>
               <p className="mt-1 text-sm text-[#64748B]">Acesse sua conta</p>
             </div>
             {/* Campos isca ocultos: absorvem o autofill do navegador */}
@@ -435,7 +450,7 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
                   mude de altura ao abrir/fechar o aviso (causa real de "tela
                   se move" nesta área). */}
               <p id="login-aviso-senha" aria-hidden={!avisoSenha}
-                className={`mt-2 min-h-[52px] rounded-xl border p-2.5 text-xs transition-opacity duration-150 ${avisoSenha ? "border-[#E2E8F0] bg-[#F8FAFC] text-[#334155] opacity-100" : "border-transparent bg-transparent opacity-0"}`}>
+                className={`mt-2 min-h-[clamp(38px,6vh,52px)] rounded-xl border p-2.5 text-xs transition-opacity duration-150 ${avisoSenha ? "border-[#E2E8F0] bg-[#F8FAFC] text-[#334155] opacity-100" : "border-transparent bg-transparent opacity-0"}`}>
                 Entre em contato com o administrador do sistema para redefinir sua senha.
               </p>
             </div>
@@ -443,7 +458,7 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
             {/* Mensagem — mesmo motivo acima: contêiner sempre presente com
                 altura mínima reservada, só o conteúdo/opacidade mudam. */}
             <div id="login-mensagem" role="alert" aria-live="polite" aria-hidden={!message.text}
-              className={`flex min-h-[52px] items-start gap-2 rounded-2xl border p-3 text-sm transition-opacity duration-150 ${message.text ? `opacity-100 ${message.type === "error" ? "border-[#EF4444]/25 bg-[#EF4444]/10 text-[#EF4444]" : "border-[#10B981]/25 bg-[#10B981]/10 text-[#10B981]"}` : "border-transparent bg-transparent opacity-0"}`}>
+              className={`flex min-h-[clamp(38px,6vh,52px)] items-start gap-2 rounded-2xl border p-3 text-sm transition-opacity duration-150 ${message.text ? `opacity-100 ${message.type === "error" ? "border-[#EF4444]/25 bg-[#EF4444]/10 text-[#EF4444]" : "border-[#10B981]/25 bg-[#10B981]/10 text-[#10B981]"}` : "border-transparent bg-transparent opacity-0"}`}>
               {message.text && (
                 <>
                   <span className="mt-0.5 shrink-0">{message.type === "error" ? "⚠️" : "✅"}</span>
@@ -454,7 +469,7 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
 
             {/* Entrar */}
             <button type="submit" disabled={!podeEntrar || entrando}
-              className="mt-1 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#2563EB] px-5 text-sm font-black text-white shadow-lg shadow-[#2563EB]/25 transition hover:bg-[#1D4ED8] active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100">
+              className="flex h-[clamp(2.75rem,6vh,3rem)] w-full items-center justify-center gap-2 rounded-xl bg-[#2563EB] px-5 text-sm font-black text-white shadow-lg shadow-[#2563EB]/25 transition hover:bg-[#1D4ED8] active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100">
               {entrando
                 ? <><span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" /> Entrando...</>
                 : <>Entrar →</>}
@@ -462,31 +477,33 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
           </form>
 
           {/* Divisor + QR Code */}
-          <div className="my-4 flex items-center gap-3">
+          <div className="my-[clamp(0.75rem,2vh,1rem)] flex items-center gap-3">
             <span className="h-px flex-1 bg-[#E2E8F0]" />
             <span className="text-[11px] font-bold uppercase tracking-wider text-[#64748B]">ou</span>
             <span className="h-px flex-1 bg-[#E2E8F0]" />
           </div>
           <button type="button" onClick={() => setScanLogin(true)}
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-[#2563EB] bg-white text-sm font-bold text-[#2563EB] transition hover:bg-[#EFF6FF]">
+            className="flex h-[clamp(2.75rem,6vh,3rem)] w-full items-center justify-center gap-2 rounded-xl border border-[#2563EB] bg-white text-sm font-bold text-[#2563EB] transition hover:bg-[#EFF6FF]">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-[16px] w-[16px]"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M14 14h3v3M21 14v.01M14 21h.01M21 21v.01M17.5 21H21v-3.5"/></svg>
             Entrar com QR Code
           </button>
 
           {/* Segurança */}
-          <p className="mt-5 flex items-center justify-center gap-1.5 text-center text-[11px] text-[#64748B]">
+          <p className="mt-[clamp(0.75rem,2vh,1.25rem)] flex items-center justify-center gap-1.5 text-center text-[11px] text-[#64748B]">
             <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="11" width="16" height="9" rx="2.5" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>
             Acesso protegido por autenticação segura.
           </p>
-          <div className="mt-3 text-center">
+          <div className="mt-[clamp(0.5rem,1.2vh,0.75rem)] text-center">
             <button onClick={voltarAoSite} className="text-xs font-bold text-[#64748B] transition hover:text-[#2563EB]">← Voltar ao site</button>
           </div>
+          {/* Versão do sistema — discreta, no rodapé. Fica no fluxo normal
+              (não mais position:absolute pinado no fundo de <main>) para nunca
+              sobrepor "Voltar ao site" em telas baixas: agora acompanha a
+              altura real do conteúdo compactado, sempre com folga própria. */}
+          <p className="mt-[clamp(0.5rem,1.2vh,0.75rem)] text-center font-mono text-[10px] tracking-wide text-[#CBD5E1]">
+            Versão {(typeof __APP_VERSION__ !== "undefined") ? __APP_VERSION__ : "local"}
+          </p>
         </div>
-
-        {/* Versão do sistema — discreta, no rodapé */}
-        <p className="absolute left-0 right-0 text-center font-mono text-[10px] tracking-wide text-[#CBD5E1]" style={{ bottom: "calc(env(safe-area-inset-bottom) + 8px)" }}>
-          Versão {(typeof __APP_VERSION__ !== "undefined") ? __APP_VERSION__ : "local"}
-        </p>
       </main>
 
       {/* Scanner do QR de login */}
