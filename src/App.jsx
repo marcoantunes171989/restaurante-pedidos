@@ -6243,7 +6243,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
             <ModuloBloqueado slug={ativo} />
           ) : (<SecaoErrorBoundary key={ativo}>
           {ativo === "dashboard"  && <DashboardAdmin orders={orders} products={products} clientes={clientes} setores={setores} irParaMesas={() => setAdminSection("mesas")} />}
-          {ativo === "copiloto"   && (precisaEmpresa ? avisoEmpresa : <DashboardAdmin orders={orders} products={products} clientes={clientes} setores={setores} pesquisas={filtraLoja(pesquisas)} irPara={setAdminSection} soCopiloto />)}
+          {ativo === "copiloto"   && (precisaEmpresa ? avisoEmpresa : <DashboardAdmin orders={orders} products={products} clientes={clientes} setores={setores} pesquisas={filtraLoja(pesquisas)} usuarios={usersLoja ?? users} irPara={setAdminSection} soCopiloto />)}
           {ativo === "relatorios" && <RelatoriosAdmin orders={orders} products={products} lojaInfo={lojaInfo} pesquisas={filtraLoja(pesquisas)} irParaMesas={() => setAdminSection("mesas")} irParaProdutos={() => setAdminSection("products")} currentUser={currentUser} />}
           {ativo === "crm"        && <CrmAdmin clientes={clientes} orders={orders} fidTransacoes={fidTransacoes} fidRecompensas={fidRecompensas} lancarPontos={fidApi?.lancarPontos} configCrm={lojaInfo?.configCrm || {}} salvarConfigCrm={salvarConfigCrm} />}
           {ativo === "fidelidade" && (precisaEmpresa ? avisoEmpresa : <FidelidadeAdmin regra={fidRegra} recompensas={fidRecompensas} transacoes={fidTransacoes} clientes={clientes} api={fidApi} />)}
@@ -7704,7 +7704,212 @@ function RespostaCopilotoBubble({ resultado, modelo, dataPeriod, bloqueado, atua
   );
 }
 
-function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquisas = [], irParaMesas = () => {}, irPara = () => {}, soCopiloto = false }) {
+// O sistema ainda não tem uma tabela/API de tarefas (confirmado — ver
+// histórico do projeto). Esta é a ÚNICA fonte de verdade sobre isso: quando
+// uma estrutura de persistência real existir, basta trocar para `true` e o
+// modal troca sozinho de rótulo/mensagem (nenhum outro texto foi hardcoded).
+const TEM_PERSISTENCIA_ACOES = false;
+
+// Ícones lineares de prioridade — cor própria por nível (nunca azul
+// primário para "Alta"), com borda + texto + aria-pressed no botão.
+const IcoPrioAlta = (p) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" {...p}><path d="M12 9v4M12 17h.01M10.3 3.9 2.7 17a2 2 0 0 0 1.7 3h15.2a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" /></svg>);
+const IcoPrioMedia = (p) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" {...p}><path d="M5 12h14" /></svg>);
+const IcoPrioBaixa = (p) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" {...p}><path d="M12 5v14M6 13l6 6 6-6" /></svg>);
+const PRIORIDADE_ACAO = {
+  alta: { label: "Alta", cor: "#DC2626", Icone: IcoPrioAlta },
+  media: { label: "Média", cor: "#D97706", Icone: IcoPrioMedia },
+  baixa: { label: "Baixa", cor: "#64748B", Icone: IcoPrioBaixa },
+};
+
+// Modal "Criar plano de ação" (Copiloto IA) — reformulado como ferramenta de
+// criação/acompanhamento de ações gerenciais. Continua sem tabela própria de
+// tarefas (ver TEM_PERSISTENCIA_ACOES acima): o rótulo do botão, a mensagem
+// de sucesso e o texto de status derivam dessa única constante, nunca de
+// texto solto — se uma API real for criada no futuro, só ela muda.
+function ModalCriarAcao({ acao, usuarios = [], onFechar, onConfirmar }) {
+  const [titulo, setTitulo] = useState("");
+  const [responsavel, setResponsavel] = useState("");
+  const [prazo, setPrazo] = useState("");
+  const [prioridade, setPrioridade] = useState("media");
+  const [planoAcao, setPlanoAcao] = useState("");
+  const [resultadoEsperado, setResultadoEsperado] = useState("");
+  const [erros, setErros] = useState({});
+  const [enviando, setEnviando] = useState(false);
+  const [sucesso, setSucesso] = useState(false);
+  const [erroEnvio, setErroEnvio] = useState(false);
+  const painelRef = useRef(null);
+  const tituloRef = useRef(null);
+  const focoAnteriorRef = useRef(null);
+
+  useEffect(() => {
+    if (!acao) return undefined;
+    setTitulo(acao.titulo || ""); setResponsavel(""); setPrazo("");
+    setPrioridade(acao.prioridade || "media"); setPlanoAcao(""); setResultadoEsperado("");
+    setErros({}); setEnviando(false); setSucesso(false); setErroEnvio(false);
+    focoAnteriorRef.current = document.activeElement;
+    tituloRef.current?.focus();
+    const painel = painelRef.current;
+    function aoTeclado(e) {
+      if (e.key === "Escape") { e.preventDefault(); onFechar(); return; }
+      if (e.key !== "Tab" || !painel) return;
+      const focaveis = painel.querySelectorAll("button, a, input, select, textarea, [tabindex]:not([tabindex='-1'])");
+      if (focaveis.length === 0) return;
+      const primeiro = focaveis[0], ultimo = focaveis[focaveis.length - 1];
+      if (e.shiftKey && document.activeElement === primeiro) { e.preventDefault(); ultimo.focus(); }
+      else if (!e.shiftKey && document.activeElement === ultimo) { e.preventDefault(); primeiro.focus(); }
+    }
+    document.addEventListener("keydown", aoTeclado);
+    return () => {
+      document.removeEventListener("keydown", aoTeclado);
+      focoAnteriorRef.current?.focus?.();
+    };
+  }, [acao, onFechar]);
+  useScrollLock(!!acao);
+
+  if (!acao) return null;
+
+  function validar() {
+    const e = {};
+    if (!titulo.trim()) e.titulo = "Informe um título para a ação.";
+    if (!planoAcao.trim()) e.planoAcao = "Descreva o plano de ação.";
+    if (prazo && prazo < dataHojeStr()) e.prazo = "O prazo não pode ser anterior a hoje.";
+    setErros(e);
+    return Object.keys(e).length === 0;
+  }
+
+  async function confirmar() {
+    if (enviando) return; // impede clique duplicado
+    if (!validar()) { setErroEnvio(true); setTimeout(() => setErroEnvio(false), 1200); return; }
+    setEnviando(true);
+    await new Promise((r) => setTimeout(r, 550)); // preparo local — sem chamada de rede
+    setEnviando(false);
+    setSucesso(true);
+    setTimeout(() => onConfirmar({ titulo: titulo.trim(), responsavel, prazo, prioridade, planoAcao: planoAcao.trim(), resultadoEsperado: resultadoEsperado.trim() }), 500);
+  }
+
+  const inputCls = "w-full min-h-[44px] rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2.5 text-sm text-[#0F172A] outline-none transition focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/25";
+  const lblCls = "mb-1.5 block text-xs font-bold uppercase tracking-widest text-[#64748B]";
+  const usuariosAtivos = usuarios.filter((u) => u.active !== false);
+
+  return (
+    <div className="fixed inset-0 z-[140] flex items-center justify-center bg-[#0F172A]/60 p-4 backdrop-blur-sm" onClick={onFechar} role="presentation">
+      <div ref={painelRef} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="titulo-modal-acao"
+        className="flex max-h-[90vh] w-[calc(100%-32px)] flex-col overflow-hidden rounded-[1.25rem] border border-[#E2E8F0] bg-white shadow-2xl sm:w-full sm:max-w-[600px]">
+        {/* Cabeçalho fixo */}
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[#E2E8F0] px-6 py-5">
+          <div className="min-w-0">
+            <h2 id="titulo-modal-acao" className="text-lg font-black text-[#0F172A]">Criar plano de ação</h2>
+            <p className="mt-1 text-sm text-[#64748B]">Transforme esta recomendação em uma atividade prática para acompanhar a melhoria dos resultados.</p>
+          </div>
+          <button onClick={onFechar} title="Fechar" aria-label="Fechar modal" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#E2E8F0] text-sm font-black text-[#64748B] transition hover:bg-[#F8FAFC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]">✕</button>
+        </div>
+
+        {/* Corpo com rolagem interna */}
+        <div className="flex-1 space-y-4 overflow-y-auto px-6 py-5">
+          {/* Contexto da recomendação — somente leitura, só dados reais já recebidos */}
+          <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3.5">
+            <p className="text-[10px] font-black uppercase tracking-widest text-[#64748B]">Recomendação selecionada</p>
+            <p className="mt-1 text-sm font-bold text-[#0F172A]">{acao.origem?.texto}</p>
+            {acao.origem?.motivo && <p className="mt-1 text-xs leading-5 text-[#64748B]">{acao.origem.motivo}</p>}
+            {(acao.origem?.indicadorLabel || acao.origem?.area) && (
+              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-[#64748B]">
+                {acao.origem.indicadorLabel && <span>Indicador: <b className="text-[#0F172A]">{acao.origem.indicadorLabel}</b></span>}
+                {acao.origem.valorAtual != null && <span>Valor atual: <b className="text-[#0F172A]">{acao.origem.valorAtual}</b></span>}
+                {acao.origem.variacao != null && (
+                  <span>Variação identificada: <b style={{ color: acao.origem.variacao < 0 ? "#DC2626" : "#16A34A" }}>{acao.origem.variacao >= 0 ? "+" : ""}{Math.round(acao.origem.variacao)}% no período analisado</b></span>
+                )}
+                {acao.origem.area && <span>Categoria: <b className="text-[#0F172A]">{acao.origem.area}</b></span>}
+              </div>
+            )}
+          </div>
+
+          <div>
+            <label className={lblCls} htmlFor="acao-titulo">Título da ação *</label>
+            <input id="acao-titulo" ref={tituloRef} value={titulo} onChange={(e) => { setTitulo(e.target.value); if (erros.titulo) setErros((x) => ({ ...x, titulo: undefined })); }}
+              placeholder="Ex.: Criar campanha de retorno para clientes inativos" maxLength={140}
+              aria-invalid={!!erros.titulo} aria-describedby={erros.titulo ? "acao-titulo-erro" : undefined} className={inputCls} />
+            <div className="mt-1 flex items-center justify-between">
+              {erros.titulo ? <p id="acao-titulo-erro" className="text-xs font-semibold text-[#DC2626]">{erros.titulo}</p> : <span />}
+              <span className="text-[10px] text-[#94A3B8]">{titulo.length}/140</span>
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className={lblCls} htmlFor="acao-responsavel">Responsável</label>
+              {usuariosAtivos.length > 0 ? (
+                <select id="acao-responsavel" value={responsavel} onChange={(e) => setResponsavel(e.target.value)} className={inputCls}>
+                  <option value="">Selecionar responsável</option>
+                  {usuariosAtivos.map((u) => <option key={u.id} value={u.name}>{u.name}</option>)}
+                </select>
+              ) : (
+                <input id="acao-responsavel" value={responsavel} onChange={(e) => setResponsavel(e.target.value)} placeholder="Selecionar responsável" className={inputCls} />
+              )}
+            </div>
+            <div>
+              <label className={lblCls} htmlFor="acao-prazo">Prazo</label>
+              <input id="acao-prazo" type="date" value={prazo} min={dataHojeStr()} placeholder="Selecionar data"
+                onChange={(e) => { setPrazo(e.target.value); if (erros.prazo) setErros((x) => ({ ...x, prazo: undefined })); }}
+                aria-invalid={!!erros.prazo} aria-describedby={erros.prazo ? "acao-prazo-erro" : undefined} className={inputCls} />
+              {erros.prazo && <p id="acao-prazo-erro" className="mt-1 text-xs font-semibold text-[#DC2626]">{erros.prazo}</p>}
+            </div>
+          </div>
+
+          <div>
+            <span className={lblCls} id="acao-prioridade-label">Prioridade *</span>
+            <div className="grid grid-cols-3 gap-2" role="group" aria-labelledby="acao-prioridade-label">
+              {Object.entries(PRIORIDADE_ACAO).map(([id, cfg]) => {
+                const sel = prioridade === id;
+                const Icone = cfg.Icone;
+                return (
+                  <button key={id} type="button" aria-pressed={sel} onClick={() => setPrioridade(id)}
+                    className="flex min-h-[44px] flex-col items-center justify-center gap-1 rounded-xl border-2 px-2 py-2.5 text-xs font-black uppercase transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB] focus-visible:ring-offset-1"
+                    style={sel ? { borderColor: cfg.cor, background: `${cfg.cor}14`, color: cfg.cor } : { borderColor: "#E2E8F0", background: "#FFFFFF", color: "#64748B" }}>
+                    <Icone />{cfg.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div>
+            <label className={lblCls} htmlFor="acao-plano">Plano de ação *</label>
+            <textarea id="acao-plano" value={planoAcao} rows={3}
+              onChange={(e) => { setPlanoAcao(e.target.value); if (erros.planoAcao) setErros((x) => ({ ...x, planoAcao: undefined })); }}
+              placeholder="Descreva as etapas, responsáveis envolvidos e o resultado esperado."
+              aria-invalid={!!erros.planoAcao} aria-describedby={erros.planoAcao ? "acao-plano-erro" : "acao-plano-ajuda"}
+              className={`${inputCls} resize-none`} />
+            {erros.planoAcao ? <p id="acao-plano-erro" className="mt-1 text-xs font-semibold text-[#DC2626]">{erros.planoAcao}</p> : <p id="acao-plano-ajuda" className="mt-1 text-xs text-[#64748B]">Seja objetivo e informe o que deverá ser feito para concluir esta ação.</p>}
+          </div>
+
+          <div>
+            <label className={lblCls} htmlFor="acao-resultado">Resultado esperado</label>
+            <textarea id="acao-resultado" value={resultadoEsperado} rows={2} onChange={(e) => setResultadoEsperado(e.target.value)}
+              placeholder="Ex.: Recuperar clientes inativos e aumentar o faturamento do período." className={`${inputCls} resize-none`} />
+            <p className="mt-1 text-xs text-[#64748B]">Qual resultado esta ação deve alcançar?</p>
+          </div>
+
+          <p className="text-xs text-[#64748B]">Esta ação será preparada para acompanhamento nesta recomendação.</p>
+        </div>
+
+        {/* Rodapé fixo */}
+        <div className="flex shrink-0 items-center justify-end gap-2 border-t border-[#E2E8F0] px-6 py-4">
+          <button type="button" onClick={onFechar} disabled={enviando}
+            className="min-h-[44px] rounded-xl border border-[#E2E8F0] px-4 py-2 text-sm font-bold text-[#0F172A] transition hover:bg-[#F8FAFC] disabled:opacity-50">Cancelar</button>
+          <button type="button" onClick={confirmar} disabled={enviando}
+            className={`min-h-[44px] rounded-xl px-5 py-2 text-sm font-black text-white transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 disabled:cursor-not-allowed ${erroEnvio ? "animate-pulse" : ""}`}
+            style={{ background: sucesso ? "#16A34A" : erroEnvio ? "#DC2626" : "#2563EB", opacity: enviando ? 0.85 : 1 }}>
+            {sucesso ? "✓ " + (TEM_PERSISTENCIA_ACOES ? "Ação criada" : "Plano confirmado")
+              : enviando ? (TEM_PERSISTENCIA_ACOES ? "Criando ação…" : "Confirmando…")
+              : (TEM_PERSISTENCIA_ACOES ? "Criar ação" : "Confirmar plano")}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquisas = [], usuarios = [], irParaMesas = () => {}, irPara = () => {}, soCopiloto = false }) {
   const [periodo, setPeriodo] = useState("30");
   const [ini, setIni] = useState("");
   const [fim, setFim] = useState("");
@@ -8344,7 +8549,18 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
                           <p className="text-[11px] text-[#64748B]">{ac.motivo}{ac.area ? ` · Área: ${ac.area}` : ""}{ac.kpiId ? ` · Indicador: ${KPI_ID_PARA_LABEL[ac.kpiId] || ac.kpiId}` : ""}{ac.impacto ? ` · Impacto esperado: ${ac.impacto}` : ""}</p>
                         </div>
                       </div>
-                      <button onClick={() => setModalAcao({ titulo: ac.texto, responsavel: "", prazo: "", prioridade: ac.prio, observacao: ac.motivo || "" })}
+                      <button onClick={() => {
+                        const kpiRel = ac.kpiId ? kpis.find((k) => k.id === ac.kpiId) : null;
+                        setModalAcao({
+                          titulo: ac.texto, prioridade: ac.prio,
+                          origem: {
+                            texto: ac.texto, motivo: ac.motivo, area: ac.area,
+                            indicadorLabel: ac.kpiId ? (KPI_ID_PARA_LABEL[ac.kpiId] || ac.kpiId) : null,
+                            valorAtual: kpiRel ? kpiRel.valor : null,
+                            variacao: kpiRel && kpiRel.variacao != null ? kpiRel.variacao : null,
+                          },
+                        });
+                      }}
                         className="shrink-0 self-start rounded-lg border px-3 py-1.5 text-xs font-black transition hover:bg-[#EFF6FF] sm:self-center" style={{ borderColor: "#2563EB", color: "#2563EB" }}>Criar ação</button>
                     </div>
                   ))}
@@ -8394,58 +8610,12 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
               )}
             </div>
 
-            {/* Modal "Criar ação" — reaproveita o padrão de modal já usado nas telas
-                administrativas (overlay + card branco). Sem backend próprio: o
-                sistema ainda não tem uma estrutura de tarefas, e criar uma tabela
-                nova para isso seria uma arquitetura paralela (fora do pedido) —
-                é só um modal de preparação, sem persistência paralela. */}
-            {modalAcao && (
-              <div className="fixed inset-0 z-[140] flex items-center justify-center bg-[#0D1B2A]/50 p-4 backdrop-blur-sm" onClick={() => setModalAcao(null)}>
-                <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-2xl border border-[#E2E8F0] bg-white p-5 shadow-xl">
-                  <p className="text-base font-black text-[#0D1B2A]">Criar ação</p>
-                  <div className="mt-4 space-y-3">
-                    <div>
-                      <label className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-[#64748B]">Título</label>
-                      <input value={modalAcao.titulo} onChange={(e) => setModalAcao({ ...modalAcao, titulo: e.target.value })}
-                        className="w-full rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2.5 text-sm text-[#334155] outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/25" />
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-[#64748B]">Responsável</label>
-                        <input value={modalAcao.responsavel} onChange={(e) => setModalAcao({ ...modalAcao, responsavel: e.target.value })} placeholder="Nome"
-                          className="w-full rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2.5 text-sm text-[#334155] outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/25" />
-                      </div>
-                      <div>
-                        <label className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-[#64748B]">Prazo</label>
-                        <input type="date" value={modalAcao.prazo} onChange={(e) => setModalAcao({ ...modalAcao, prazo: e.target.value })}
-                          className="w-full rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2.5 text-sm text-[#334155] outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/25" />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-[#64748B]">Prioridade</label>
-                      <div className="flex gap-2">
-                        {["alta", "media", "baixa"].map((p) => (
-                          <button key={p} type="button" onClick={() => setModalAcao({ ...modalAcao, prioridade: p })}
-                            className="flex-1 rounded-lg border px-3 py-2 text-xs font-black uppercase transition"
-                            style={modalAcao.prioridade === p ? { borderColor: "#2563EB", background: "#2563EB", color: "#FFFFFF" } : { borderColor: "#E2E8F0", background: "#FFFFFF", color: "#334155" }}>{prioLbl[p]}</button>
-                        ))}
-                      </div>
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-[#64748B]">Observação</label>
-                      <textarea value={modalAcao.observacao} onChange={(e) => setModalAcao({ ...modalAcao, observacao: e.target.value })} rows={3}
-                        className="w-full resize-none rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2.5 text-sm text-[#334155] outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/25" />
-                    </div>
-                  </div>
-                  <p className="mt-3 text-[10px] text-[#94A3B8]">Este projeto ainda não tem uma estrutura de tarefas — "Salvar ação" só confirma o preparo aqui na tela, sem criar uma tabela paralela.</p>
-                  <div className="mt-3 flex justify-end gap-2">
-                    <button onClick={() => setModalAcao(null)} className="rounded-xl border border-[#E2E8F0] bg-white px-4 py-2 text-sm font-bold text-[#334155] transition hover:bg-[#F1F5F9]">Cancelar</button>
-                    <button onClick={() => { setToastAcao(`Ação "${modalAcao.titulo}" registrada para ${modalAcao.responsavel || "a equipe"}.`); setModalAcao(null); setTimeout(() => setToastAcao(""), 4000); }}
-                      className="rounded-xl bg-[#2563EB] px-4 py-2 text-sm font-black text-white transition hover:bg-[#1D4ED8]">Salvar ação</button>
-                  </div>
-                </div>
-              </div>
-            )}
+            <ModalCriarAcao acao={modalAcao} usuarios={usuarios} onFechar={() => setModalAcao(null)}
+              onConfirmar={(dados) => {
+                setModalAcao(null);
+                setToastAcao(TEM_PERSISTENCIA_ACOES ? "Ação criada com sucesso." : `Plano de ação preparado com sucesso — "${dados.titulo}"${dados.responsavel ? ` · Responsável: ${dados.responsavel}` : ""}.`);
+                setTimeout(() => setToastAcao(""), 4000);
+              }} />
           </div>
         );
       })()}
