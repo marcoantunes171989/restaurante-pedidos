@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Central Operacional</string>
+
+    <!-- Status -->
+    <string name="status_live">Operação em tempo real</string>
+
+    <!-- Métricas do header -->
+    <string name="metric_mesas_abertas">Mesas abertas</string>
+    <string name="metric_em_preparo">Em preparo</string>
+    <string name="metric_turno_atual">Turno atual</string>
+
+    <!-- Módulos -->
+    <string name="module_central_title">Central</string>
+    <string name="module_pedidos_title">Pedidos</string>
+    <string name="module_cozinha_title">Cozinha</string>
+    <string name="module_bar_title">Bar</string>
+    <string name="module_caixa_title">Caixa</string>
+
+    <string name="module_pedidos_desc">Acompanhar pedidos em aberto, novos pedidos e status de atendimento.</string>
+    <string name="module_cozinha_desc">Pedidos enviados para preparo na cozinha.</string>
+    <string name="module_bar_desc">Bebidas e itens direcionados ao bar.</string>
+    <string name="module_caixa_desc">Pagamentos, fechamento de conta e baixas.</string>
+
+    <string name="module_pending">pendentes</string>
+    <string name="module_placeholder_note">Tela de módulo em construção — os dados acima já vêm da mesma fonte em tempo real da Central.</string>
+
+    <!-- Ações -->
+    <string name="action_sair">Sair</string>
+    <string name="action_entrar_novamente">Entrar novamente</string>
+    <string name="section_modulos_operacao">Módulos da Operação</string>
+    <string name="sessao_encerrada">Sessão encerrada</string>
+    <string name="erro_titulo">Não foi possível atualizar</string>
+    <string name="ok">OK</string>
+
+    <!-- Erros -->
+    <string name="error_network">Sem conexão com a internet.</string>
+    <string name="error_server">Não foi possível carregar os dados agora.</string>
+    <string name="error_decoding">Resposta inesperada do servidor.</string>
+</resources>

@@ -1,0 +1,29 @@
+/* Central Operacional — strings pt-BR (idioma padrão do app). */
+
+/* Status */
+"status.live" = "Operação em tempo real";
+
+/* Métricas do header */
+"metric.mesasAbertas" = "Mesas abertas";
+"metric.emPreparo" = "Em preparo";
+"metric.turnoAtual" = "Turno atual";
+
+/* Módulos */
+"module.central.title" = "Central";
+"module.pedidos.title" = "Pedidos";
+"module.cozinha.title" = "Cozinha";
+"module.bar.title" = "Bar";
+"module.caixa.title" = "Caixa";
+
+"module.pedidos.desc" = "Acompanhar pedidos em aberto, novos pedidos e status de atendimento.";
+"module.cozinha.desc" = "Pedidos enviados para preparo na cozinha.";
+"module.bar.desc" = "Bebidas e itens direcionados ao bar.";
+"module.caixa.desc" = "Pagamentos, fechamento de conta e baixas.";
+
+"module.pending" = "pendentes";
+"module.placeholderNote" = "Tela de módulo em construção — os dados acima já vêm da mesma fonte em tempo real da Central.";
+
+/* Erros */
+"error.network" = "Sem conexão com a internet.";
+"error.server" = "Não foi possível carregar os dados agora.";
+"error.decoding" = "Resposta inesperada do servidor.";
