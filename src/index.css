@@ -659,6 +659,12 @@ select::-ms-expand { display: none; } /* IE/Edge antigo */
 }
 .scrollbar-none::-webkit-scrollbar { width: 0; height: 0; display: none; }
 
+/* Remove a barra de rolagem lateral da página inteira (scroll continua
+   funcional, só a barra visual some) — overflow-x:hidden já garantido
+   acima (html, body, #root); aqui só a barra vertical fica invisível. */
+html { scrollbar-width: none; -ms-overflow-style: none; }
+html::-webkit-scrollbar, body::-webkit-scrollbar { width: 0; height: 0; display: none; }
+
 /* Mantém o fundo escuro padrão mesmo quando o navegador preenche automaticamente (autofill) */
 input:-webkit-autofill,
 input:-webkit-autofill:hover,

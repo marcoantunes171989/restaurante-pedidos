@@ -52,7 +52,7 @@ export default function OperationalCentral({ user = "Administrador", role = "Ges
         >
           <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full opacity-20 blur-2xl"
                style={{ background: brand.primary }} />
-          <div className="relative flex items-start justify-between gap-4">
+          <div className="relative flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-medium backdrop-blur">
                 <span className="relative flex h-2 w-2">
@@ -75,7 +75,7 @@ export default function OperationalCentral({ user = "Administrador", role = "Ges
           </div>
 
           {/* KPI STRIP */}
-          <div className="relative mt-6 grid grid-cols-3 gap-3">
+          <div className="relative mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
             {kpis.map((k) => (
               <div key={k.label} className="rounded-2xl border border-white/10 bg-white/5 p-3 backdrop-blur">
                 <k.icon size={18} style={{ color: brand.gold }} />
