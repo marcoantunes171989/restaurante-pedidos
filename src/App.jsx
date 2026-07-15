@@ -40,6 +40,8 @@ import { LogoPP } from "./components/BrandLogo";
 import { IconDashboard, IconRelatorios, IconCrm, IconProdutos, IconCategorias, IconMesas, IconPagamento, IconQr, IconCardapio, IconEmpresas, IconUsuarios, IconCargos, IconPermissoes, IconLink, IconLicencas, IconVersoes, IconEmpresa, IconBusca, IconConfig, IconPromocao } from "./components/PrimeIcons";
 import { obterTema, aplicarTema } from "./lib/theme";
 import { PageHeader, PrimeButton, EmptyState, FilterChip, FilterGroup, FiltersPanel, ActiveFiltersSummary } from "./components/Prime";
+import OperationalCentral from "./pages/OperationalCentral";
+import { ClipboardList, ChefHat, Wine, CreditCard, Utensils, Clock, TrendingUp } from "lucide-react";
 
 export const fallbackImage = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=900&q=80";
 
@@ -6943,6 +6945,41 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
     : null;
   const titulo = tab === "central" ? "Central Operacional" : tab === "pedidos" ? "Central de Pedidos" : tab === "cozinha" ? "Cozinha" : tab === "bar" ? "Bar" : "Caixa";
 
+  // Central Operacional — tela dedicada (src/pages/OperationalCentral.jsx),
+  // substitui totalmente o antigo grid de cards + cabeçalho compartilhado
+  // (as demais abas — pedidos/cozinha/bar/caixa — continuam usando o layout
+  // abaixo, inalterado). KPIs e contagens por módulo vêm dos dados reais já
+  // carregados nesta função (orders/products/setores), não são fixos.
+  if (tab === "central") {
+    const mesasAbertas = new Set(ativos.filter((o) => !ehExterno(o)).map((o) => o.table)).size;
+    const hojeStr = new Date().toLocaleDateString("pt-BR");
+    const faturamentoTurno = orders
+      .filter((o) => o.paymentStatus === "paid" && o.createdAtISO && new Date(o.createdAtISO).toLocaleDateString("pt-BR") === hojeStr)
+      .reduce((s, o) => s + totalCom(o), 0);
+    const qtdPorTipoSetor = (bar) => ativos.reduce((acc, o) => acc + (o.items || []).filter((it) => barLike(setorDoItem(it)) === bar).reduce((s, it) => s + it.quantity, 0), 0);
+    const ICONE_MODULO = { pedidos: ClipboardList, cozinha: ChefHat, bar: Wine, caixa: CreditCard };
+    const TINT_MODULO = { pedidos: "#e8622c", cozinha: "#d4a017", bar: "#2563eb", caixa: "#16a34a" };
+    const CONTAGEM_MODULO = { pedidos: ativos.length, cozinha: qtdPorTipoSetor(false), bar: qtdPorTipoSetor(true), caixa: contasAbertas.length };
+    const modulosReais = liberados.map((m) => ({ id: m.id, label: m.label, desc: m.desc, icon: ICONE_MODULO[m.id], tint: TINT_MODULO[m.id], count: CONTAGEM_MODULO[m.id] }));
+    const kpisReais = [
+      { label: "Mesas abertas", value: String(mesasAbertas), icon: Utensils },
+      { label: "Em preparo", value: String(emPreparo.length), icon: Clock },
+      { label: "Turno atual", value: formatCurrency(faturamentoTurno), icon: TrendingUp },
+    ];
+    const roleLabel = perms.total ? "Acesso total" : (liberados.map((m) => m.label).join(" · ") || "Sem acesso");
+    return (
+      <OperationalCentral
+        user={usuarioNome || lojaInfo?.nome || "Operador"}
+        role={roleLabel}
+        active={tab}
+        modules={modulosReais}
+        kpis={kpisReais}
+        onOpen={(id) => setTab(id)}
+        onExit={onFechar}
+      />
+    );
+  }
+
   return (
     <div className="tema-claro-area fixed inset-0 z-[60] w-full max-w-[100vw] overflow-x-hidden overflow-y-auto bg-[#F7F8FA]" data-theme="light" style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "calc(env(safe-area-inset-bottom) + 76px)" }}>
     <div className="mx-auto w-full max-w-md px-4 pt-4 sm:max-w-2xl sm:px-6 lg:max-w-4xl">
@@ -6959,30 +6996,6 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
           <p className="mt-2 page-title text-lg font-bold text-[#182230]">Acesso não autorizado</p>
           <p className="mx-auto mt-1 max-w-xs text-sm text-[#475467]">Você não possui permissão para acessar este módulo. Entre em contato com o administrador do estabelecimento.</p>
           <button onClick={() => setTab("central")} className="button-primary mt-4 min-h-[44px] px-5 py-2.5 text-sm">Voltar para a Central</button>
-        </div>
-      )}
-
-      {/* Central Operacional — cards dos módulos liberados */}
-      {tab === "central" && permitido("central") && (
-        <div>
-          <p className="mb-2 px-1 text-xs font-bold uppercase tracking-widest text-[#667085]">Acessos liberados</p>
-          {liberados.length === 0 ? (
-            <div className="rounded-[2rem] border border-[#E5E7EB] bg-white p-6 text-center shadow-[0_8px_24px_rgba(16,24,40,.06)]">
-              <p className="text-2xl">🚫</p>
-              <p className="mt-2 text-sm font-bold text-[#182230]">Nenhum acesso operacional foi liberado para este usuário.</p>
-              <p className="mt-1 text-xs text-[#667085]">Peça ao administrador para liberar Pedidos, Cozinha, Bar ou Caixa.</p>
-            </div>
-          ) : (
-            <div className="grid gap-2.5 sm:grid-cols-2">
-              {liberados.map((m) => (
-                <button key={m.id} onClick={() => setTab(m.id)} className="flex min-h-[44px] w-full items-center gap-3 rounded-3xl border border-[#E5E7EB] bg-white p-4 text-left shadow-[0_8px_24px_rgba(16,24,40,.06)] transition active:scale-[0.98] hover:border-[#D9A441] hover:bg-[#FFF7E0]">
-                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[#F4D27A] bg-[#FFF7E0] text-2xl">{m.ic}</span>
-                  <span className="min-w-0 flex-1"><span className="block font-black text-[#182230]">{m.label}</span><span className="block text-xs leading-5 text-[#667085]">{m.desc}</span></span>
-                  <span className="shrink-0 text-[#D9A441]">›</span>
-                </button>
-              ))}
-            </div>
-          )}
         </div>
       )}
 
