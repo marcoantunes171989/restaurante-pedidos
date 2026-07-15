@@ -15,6 +15,17 @@ const brand = {
   info: "#2563eb",
 };
 
+// Superfície "vidro" reutilizável (cards de KPI + botão Sair, sobre o
+// header escuro) — estilos explícitos, sem depender de herança. Corrige um
+// bug conhecido do Safari/iOS/PWA em que backdrop-filter (blur) dentro de
+// um elemento com transform ativo (o motion.header abaixo anima via
+// transform) faz o fundo translúcido renderizar branco sólido com texto
+// preto; por isso não usamos backdrop-blur aqui (sem conteúdo atrás para
+// borrar, o resultado visual é idêntico). .pp-glass-surface (index.css)
+// neutraliza a carcaça nativa do <button> no iOS, que por padrão sobrevive
+// ao reset do Tailwind (-webkit-appearance:button, não "none").
+const GLASS_SURFACE = "pp-glass-surface border bg-white/5 text-white opacity-100 transition";
+
 // Shape/placeholder — a tela real recebe `modules`/`kpis` via props, vindos
 // da API (ver OperacaoMobileView em src/App.jsx). Estes arrays só documentam
 // o formato esperado e servem de fallback se nada for passado.
@@ -73,7 +84,7 @@ export default function OperationalCentral({ user = "Administrador", role = "Ges
             </div>
             <button
               onClick={onExit}
-              className="flex shrink-0 items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm font-medium transition hover:bg-white/15"
+              className={`${GLASS_SURFACE} flex shrink-0 items-center gap-2 rounded-xl border-white/15 px-4 py-2 text-sm font-medium hover:bg-white/15`}
             >
               <LogOut size={16} /> Sair
             </button>
@@ -82,7 +93,7 @@ export default function OperationalCentral({ user = "Administrador", role = "Ges
           {/* KPI STRIP */}
           <div className="relative mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
             {kpis.map((k) => (
-              <div key={k.label} className="rounded-2xl border border-white/10 bg-white/5 p-3 backdrop-blur">
+              <div key={k.label} className={`${GLASS_SURFACE} rounded-2xl border-white/10 p-3`}>
                 <k.icon size={18} style={{ color: brand.gold }} />
                 <p className="mt-2 text-lg font-bold leading-none">{k.value}</p>
                 <p className="mt-1 text-[11px] uppercase tracking-wide text-white/50">{k.label}</p>

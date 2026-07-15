@@ -638,6 +638,22 @@ select {
 }
 select::-ms-expand { display: none; } /* IE/Edge antigo */
 
+/* ── Superfície "vidro" reutilizável (Central Operacional) ──────
+   Cards de KPI + botão Sair sobre o header escuro. Neutraliza a
+   aparência nativa do Safari/iOS (carcaça de <button>, tap highlight,
+   text-fill-color de formulário) que faz o fundo translúcido virar
+   branco sólido com texto preto — bug que não aparece em Chrome/Edge
+   nem em emulação de viewport (só em WebKit real). Propriedades com
+   prefixo -webkit- ficam aqui porque a sintaxe de "arbitrary property"
+   do Tailwind não as reconhece (classe [-webkit-x:y] não compila). */
+.pp-glass-surface {
+  -webkit-appearance: none !important;
+  appearance: none;
+  -webkit-text-fill-color: currentColor;
+  -webkit-tap-highlight-color: transparent;
+  opacity: 1;
+}
+
 /* ── Scrollbar minimalista (global) ─────────────────────────── */
 * {
   scrollbar-width: thin;                         /* Firefox */
