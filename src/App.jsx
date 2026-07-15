@@ -2114,7 +2114,7 @@ export default function RestaurantePedidoApp() {
             <div>
               <div className="mb-4 flex items-center gap-3">
                 <LogoPP size={48} />
-                <span className="text-xl font-black leading-none tracking-tight"><span className="text-white">PEDIDO</span> <span className="text-gold-400">PRIME</span></span>
+                <span className="text-xl font-black leading-none tracking-tight"><span className="text-white">PEDIDO</span> <span className="text-[var(--pp-primary)]">PRIME</span></span>
               </div>
               <div className="mb-3 flex flex-wrap items-center gap-2">
                 <span className="inline-flex rounded-full border border-gold-400/30 bg-gold-400/10 px-4 py-2 text-sm font-semibold text-gold-200">Sistema para restaurantes • Acesso controlado</span>
@@ -2576,7 +2576,7 @@ function TabletView({
         <div className="flex min-w-0 items-center gap-3">
           <LogoPP size={42} />
           <div className="min-w-0">
-            <p className="text-base font-black leading-none tracking-tight"><span className="text-[#182230]">PEDIDO</span> <span className="text-[#D9A441]">PRIME</span></p>
+            <p className="text-base font-black leading-none tracking-tight"><span className="text-[#182230]">PEDIDO</span> <span className="text-[var(--pp-primary)]">PRIME</span></p>
             <p className="mt-1 truncate text-[9px] font-bold uppercase tracking-[0.28em] text-[#98A2B3]">{lojaInfo?.nome || "Sistema para restaurantes"}</p>
           </div>
         </div>
@@ -3284,7 +3284,7 @@ function TabletView({
                 <>
                   {/* Marca da plataforma (fallback quando não há logo da empresa) */}
                   <LogoPP size={56} />
-                  <p className="mt-3 text-lg font-black leading-none tracking-tight"><span className="text-[#182230]">PEDIDO</span> <span className="text-[#D9A441]">PRIME</span></p>
+                  <p className="mt-3 text-lg font-black leading-none tracking-tight"><span className="text-[#182230]">PEDIDO</span> <span className="text-[var(--pp-primary)]">PRIME</span></p>
                   <p className="mt-1.5 text-[9px] font-bold uppercase tracking-[0.35em] text-[#98A2B3]">{lojaInfo?.nome || "Sistema para restaurantes"}</p>
                 </>
               )}
@@ -5985,7 +5985,7 @@ function SidebarHeader({ subtitulo, onClose }) {
     <div className="flex items-center gap-3 border-b border-white/10 px-5 py-4">
       <LogoPP size={40} />
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-black leading-tight truncate"><span className="text-white">PEDIDO</span> <span className="text-[#D4A017]">PRIME</span></p>
+        <p className="text-sm font-black leading-tight truncate"><span className="text-white">PEDIDO</span> <span className="text-[var(--pp-primary)]">PRIME</span></p>
         <p className="text-[11px] text-white/70 truncate">{subtitulo}</p>
       </div>
       {onClose && (
@@ -6282,7 +6282,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
             </button>
             <LogoPP size={28} />
             <div className="min-w-0">
-              <p className="truncate text-sm font-black leading-tight"><span className="text-white">PEDIDO</span> <span className="text-[#D4A017]">PRIME</span></p>
+              <p className="truncate text-sm font-black leading-tight"><span className="text-white">PEDIDO</span> <span className="text-[var(--pp-primary)]">PRIME</span></p>
               {currentUser?.role && <p className="truncate text-[10px] text-white/60 leading-tight">{currentUser.role}{lojaInfo ? ` · ${lojaInfo.nome}` : ""}</p>}
             </div>
           </div>

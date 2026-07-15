@@ -49,7 +49,7 @@ export function MarcaPedidoPrime({ size = 40, className = "" }) {
     <div className={`flex shrink-0 items-center gap-2.5 ${className}`}>
       <LogoPP size={size} />
       <span className="whitespace-nowrap text-lg font-black leading-none tracking-tight">
-        <span className="text-white">PEDIDO</span> <span className="text-gold-400">PRIME</span>
+        <span className="text-white">PEDIDO</span> <span className="text-[var(--pp-primary)]">PRIME</span>
       </span>
     </div>
   );
