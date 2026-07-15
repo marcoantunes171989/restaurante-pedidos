@@ -41,7 +41,12 @@ const NAV = [
 
 export default function OperationalCentral({ user = "Administrador", role = "Gestor", onOpen, onExit, active = "central", modules = MODULES, kpis = KPIS }) {
   return (
-    <div className="min-h-screen w-full pb-28" style={{ background: brand.cream }}>
+    // paddingTop reserva a área do notch/status bar (env(safe-area-inset-top))
+    // — sem isso, em celulares reais (não reproduz em viewport de desktop
+    // redimensionado) o topo do cartão escuro fica coberto pela barra de
+    // status/entalhe, cortando o título "Central Operacional". Mesmo padrão
+    // já usado pelas outras telas cheias deste app (tablet, cozinha, etc.).
+    <div className="min-h-screen w-full pb-28" style={{ background: brand.cream, paddingTop: "env(safe-area-inset-top)" }}>
       <div className="mx-auto max-w-5xl px-4 pt-6 md:pt-10">
 
         {/* HERO HEADER */}
@@ -129,9 +134,10 @@ export default function OperationalCentral({ user = "Administrador", role = "Ges
         </div>
       </div>
 
-      {/* BOTTOM NAV */}
+      {/* BOTTOM NAV — paddingBottom reserva a faixa de gestos/home-indicator
+          em iPhones sem botão físico, mesmo padrão das demais telas cheias. */}
       <nav className="fixed inset-x-0 bottom-0 z-20 border-t bg-white/90 backdrop-blur"
-           style={{ borderColor: brand.border }}>
+           style={{ borderColor: brand.border, paddingBottom: "env(safe-area-inset-bottom)" }}>
         <div className="mx-auto flex max-w-5xl items-stretch justify-around px-2">
           {NAV.map((n) => {
             const isActive = active === n.id;
