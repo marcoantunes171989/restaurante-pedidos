@@ -57,14 +57,14 @@ export function Botao({ children, variant = "primary", onClick, href, type = "bu
   return <button type={type} onClick={onClick} className={cls} {...rest}>{children}</button>;
 }
 
-// "PRIME" sempre em dourado (marca) — --pp-brand no fundo escuro (7.33:1) e
-// --pp-brand-text no fundo claro (5.06:1; o dourado puro mede só 2.38:1).
+// "PRIME" em coral (--pp-primary), cor primária do sistema — mesma cor no
+// header (fundo claro) e no footer (fundo escuro).
 export function Marca({ tamanho = 38, escuro = false }) {
   return (
     <div className="flex shrink-0 items-center gap-2.5">
       <LogoPP size={tamanho} />
       <span className="font-display whitespace-nowrap text-lg font-bold leading-none tracking-tight">
-        <span className={escuro ? "text-white" : "text-[var(--pp-graphite)]"}>PEDIDO</span> <span className={escuro ? "text-[#D4A017]" : "text-[var(--pp-brand-text)]"}>PRIME</span>
+        <span className={escuro ? "text-white" : "text-[var(--pp-graphite)]"}>PEDIDO</span> <span className="text-[var(--pp-primary)]">PRIME</span>
       </span>
     </div>
   );
