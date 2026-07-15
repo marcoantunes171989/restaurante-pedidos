@@ -639,19 +639,50 @@ select {
 select::-ms-expand { display: none; } /* IE/Edge antigo */
 
 /* ── Superfície "vidro" reutilizável (Central Operacional) ──────
-   Cards de KPI + botão Sair sobre o header escuro. Neutraliza a
-   aparência nativa do Safari/iOS (carcaça de <button>, tap highlight,
-   text-fill-color de formulário) que faz o fundo translúcido virar
-   branco sólido com texto preto — bug que não aparece em Chrome/Edge
-   nem em emulação de viewport (só em WebKit real). Propriedades com
-   prefixo -webkit- ficam aqui porque a sintaxe de "arbitrary property"
-   do Tailwind não as reconhece (classe [-webkit-x:y] não compila). */
+   Cards de KPI + botão Sair sobre o header escuro. A cor de fundo é
+   definida aqui via rgba() sólido — NÃO em `bg-white/5` do Tailwind —
+   porque depender de uma utility classe separada para o único pixel que
+   importa (o background) deixa o resultado refém da ordem de cascata e
+   do parser de `rgb(r g b / a)` do navegador; se essa regra específica
+   falhar/for sobrescrita em algum WebKit/WebView móvel, o elemento cai
+   no branco nativo do <button>/fundo padrão. Com o rgba() direto na
+   classe, o fundo escuro translúcido é garantido em qualquer navegador,
+   com ou sem suporte a backdrop-filter (aplicado só como enhancement
+   progressivo via @supports, nunca como única fonte de opacidade).
+   Também neutraliza a aparência nativa do Safari/iOS (carcaça de
+   <button>, tap highlight, text-fill-color de formulário). Propriedades
+   com prefixo -webkit- ficam aqui porque a sintaxe de "arbitrary
+   property" do Tailwind não as reconhece (classe [-webkit-x:y] não
+   compila). */
 .pp-glass-surface {
-  -webkit-appearance: none !important;
   appearance: none;
+  -webkit-appearance: none !important;
+  background-color: rgba(38, 30, 25, 0.82);
+  background-image: none;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
   -webkit-text-fill-color: currentColor;
   -webkit-tap-highlight-color: transparent;
   opacity: 1;
+  transition: background-color 0.2s ease;
+}
+
+/* Hover só em dispositivos com ponteiro de verdade — evita o estado
+   :hover "grudar" após o toque em telas sensíveis ao toque (iOS/Android). */
+@media (hover: hover) and (pointer: fine) {
+  .pp-glass-surface:hover {
+    background-color: rgba(58, 46, 39, 0.92);
+  }
+}
+
+/* Blur é aprimoramento progressivo: só entra em navegadores que o
+   suportam de fato; o rgba() acima já garante contraste sem ele. */
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .pp-glass-surface {
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+  }
 }
 
 /* ── Scrollbar minimalista (global) ─────────────────────────── */
