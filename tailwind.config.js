@@ -138,6 +138,28 @@ export default {
         dash: {
           navy: "#0D1B2A", // texto principal / títulos / valores dos KPIs
         },
+        // ── Paleta oficial 2026 (tokens --pp-*, ver src/index.css e
+        // docs/design-tokens.md) — namespace de conveniência para classes
+        // simples (bg-pp-primary). Os MESMOS hex vivem em :root como
+        // CSS vars; qualquer ajuste deve ser feito nos dois lugares.
+        pp: {
+          brand: "#D4A017",
+          brandHover: "#B8860B",
+          primary: "#E8622C",
+          primaryHover: "#C9501F",
+          graphite: "#1A1A1A",
+          graphiteDeep: "#101012",
+          bg: "#FAF9F5",
+          surface: "#FFFFFF",
+          border: "#E7E5E4",
+          text: "#1A1A1A",
+          textBody: "#3F3F46",
+          textMuted: "#71717A",
+          info: "#2563EB",
+          warning: "#F59E0B",
+          success: "#16A34A",
+          danger: "#DC2626",
+        },
       },
       boxShadow: {
         admin: "0 1px 2px rgba(6,26,46,0.05), 0 6px 20px rgba(6,26,46,0.08)",

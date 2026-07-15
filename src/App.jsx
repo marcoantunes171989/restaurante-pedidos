@@ -89,12 +89,15 @@ const initialUsers = [
   { id: 5, name: "Caixa", email: "caixa@restaurante.com", password: "123456", role: "Financeiro", active: true, accessIds: ["cashier"] },
 ];
 
+// Cores semânticas do fluxo de pedidos (paleta oficial 2026, --pp-info/
+// warning/success/danger) — únicos consumidores oficiais dessas 4 cores;
+// "delivered" fica neutro (cinza), sem cor semântica própria.
 export const statusMap = {
-  received:  { label: "Recebido",     title: "Pedido recebido",    order: 1, progress: 25,  dot: "bg-blue-500",   chip: "bg-blue-50 text-blue-700 border-blue-100"     },
-  preparing: { label: "Em preparação",title: "Em preparação",      order: 2, progress: 65,  dot: "bg-amber-500",  chip: "bg-amber-50 text-amber-700 border-amber-100"  },
-  ready:     { label: "Finalizado",   title: "Pedido finalizado",  order: 3, progress: 100, dot: "bg-emerald-500",chip: "bg-emerald-50 text-emerald-700 border-emerald-100"},
+  received:  { label: "Recebido",     title: "Pedido recebido",    order: 1, progress: 25,  dot: "bg-[#2563EB]",  chip: "bg-[var(--pp-info-soft)] text-[#2563EB] border-[#2563EB]/15" },
+  preparing: { label: "Em preparação",title: "Em preparação",      order: 2, progress: 65,  dot: "bg-[#F59E0B]",  chip: "bg-[var(--pp-warning-soft)] text-[var(--pp-warning-text)] border-[#F59E0B]/25" },
+  ready:     { label: "Finalizado",   title: "Pedido finalizado",  order: 3, progress: 100, dot: "bg-[#16A34A]",  chip: "bg-[var(--pp-success-soft)] text-[var(--pp-success-text)] border-[#16A34A]/20" },
   delivered: { label: "Entregue",     title: "Pedido entregue",    order: 4, progress: 100, dot: "bg-slate-500",  chip: "bg-slate-100 text-slate-600 border-slate-200" },
-  cancelled: { label: "Cancelado",    title: "Pedido cancelado",   order: 5, progress: 0,   dot: "bg-red-500",    chip: "bg-red-50 text-red-700 border-red-100" },
+  cancelled: { label: "Cancelado",    title: "Pedido cancelado",   order: 5, progress: 0,   dot: "bg-[#DC2626]",  chip: "bg-[var(--pp-danger-soft)] text-[#DC2626] border-[#DC2626]/20" },
 };
 
 export function formatCurrency(value) {
@@ -270,8 +273,8 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
   const [avisoSenha, setAvisoSenha] = useState(false); // aviso local do link "Esqueci minha senha" (sem alterar autenticação)
   // Reseta o loading quando chega uma mensagem (ex.: erro de credenciais).
   useEffect(() => { if (message && message.text) setEntrando(false); }, [message]);
-  const labelCls = "mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-[#64748B]";
-  const inputCls = "box-border min-h-[clamp(44px,6.5vh,52px)] w-full rounded-2xl border border-[#CBD5E1] bg-white py-[clamp(0.6rem,1.6vh,0.875rem)] pl-11 pr-4 text-[15px] text-[#0F172A] caret-[#2563EB] outline-none transition-colors focus:border-[#2563EB] focus:bg-white focus:ring-[3px] focus:ring-[#2563EB]/15 placeholder:text-[#94A3B8]";
+  const labelCls = "mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]";
+  const inputCls = "box-border min-h-[clamp(44px,6.5vh,52px)] w-full rounded-2xl border border-[var(--pp-border)] bg-white py-[clamp(0.6rem,1.6vh,0.875rem)] pl-11 pr-4 text-[15px] text-[var(--pp-graphite)] caret-[var(--pp-primary-text)] outline-none transition-colors focus:border-[var(--pp-primary-text)] focus:bg-white focus:ring-[3px] focus:ring-[#C9501F]/15 placeholder:text-[var(--pp-text-muted)]";
   const podeEntrar = loginForm.email.trim() && loginForm.password;
 
   // Ícones (SVG inline — leves e elegantes)
@@ -287,7 +290,7 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px]"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" /></svg>
   );
   const IconeCheck = (
-    <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="#2563EB" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
+    <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="#D4A017" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
   );
 
   const voltarAoSite = () => {
@@ -311,14 +314,16 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
         a tela de login nunca deve crescer além do viewport real — é o container
         que define a altura máxima, e aside/main (abaixo) usam min-h-0 para
         poderem encolher/rolar internamente em vez de estourar este limite. */}
-    <div className="pp-login-shell tema-claro-area pp-brand-manrope relative flex h-dvh max-h-dvh w-full items-stretch overflow-hidden text-[#0D1B2A]" style={{ fontFamily: "'Inter','Poppins',sans-serif", backgroundColor: "#F8FAFC", boxSizing: "border-box", margin: 0 }}>
+    <div className="pp-login-shell tema-claro-area pp-brand-manrope relative flex h-dvh max-h-dvh w-full items-stretch overflow-hidden text-[var(--pp-graphite)]" style={{ fontFamily: "'Inter','Poppins',sans-serif", backgroundColor: "var(--pp-bg)", boxSizing: "border-box", margin: 0 }}>
 
-      {/* ══ Painel institucional (tablet/desktop) ══ */}
-      <aside className="pp-anim-left relative hidden h-full shrink-0 overflow-hidden border-r border-[#E2E8F0] bg-[#F8FAFC] px-[clamp(1.5rem,4vw,4rem)] py-[clamp(1rem,3vh,3rem)] md:block md:w-[45%] xl:w-1/2">
-        {/* Elementos geométricos suaves — opacidade baixa do azul, sem degradês alaranjados */}
-        <div className="pointer-events-none absolute inset-0 opacity-[0.035]" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #2563EB 1px, transparent 0)", backgroundSize: "32px 32px" }} />
-        <div className="pointer-events-none absolute -top-24 -right-20 h-[26rem] w-[26rem] rounded-full bg-[#2563EB] opacity-[0.05]" />
-        <div className="pointer-events-none absolute -bottom-28 -left-16 h-[22rem] w-[22rem] rounded-full bg-[#2563EB] opacity-[0.04]" />
+      {/* ══ Painel institucional (tablet/desktop) — grafite com logo em
+          destaque e acentos dourados (marca/premium); o formulário à
+          direita é quem carrega a cor de ação (coral). ══ */}
+      <aside className="pp-anim-left relative hidden h-full shrink-0 overflow-hidden border-r border-white/10 bg-[var(--pp-graphite)] px-[clamp(1.5rem,4vw,4rem)] py-[clamp(1rem,3vh,3rem)] md:block md:w-[45%] xl:w-1/2">
+        {/* Elementos geométricos suaves — glow dourado sutil, sem degradês alaranjados */}
+        <div className="pointer-events-none absolute inset-0 opacity-[0.05]" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #D4A017 1px, transparent 0)", backgroundSize: "32px 32px" }} />
+        <div className="pointer-events-none absolute -top-24 -right-20 h-[26rem] w-[26rem] rounded-full bg-[#D4A017] opacity-[0.08]" />
+        <div className="pointer-events-none absolute -bottom-28 -left-16 h-[22rem] w-[22rem] rounded-full bg-[#D4A017] opacity-[0.06]" />
 
         {/* Conteúdo real (logo + pitch + rodapé): coluna própria com min-h-0 +
             overflow-y-auto — se algum caso extremo de altura não couber mesmo
@@ -333,55 +338,58 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
 
           {/* Pitch + mockup */}
           <div className="mx-auto max-w-md shrink-0 text-center">
-            <h2 className="pp-login-title font-display text-[clamp(1.375rem,1rem+1.6vh,2.25rem)] font-black leading-tight text-[#0D1B2A]">Controle seu restaurante em <span className="text-[#2563EB]">tempo real</span></h2>
-            <p className="mt-[clamp(0.5rem,1.4vh,1rem)] text-sm leading-7 text-[#334155]">Pedidos, mesas, cozinha, caixa, financeiro e relatórios em uma única plataforma.</p>
+            <h2 className="pp-login-title font-display text-[clamp(1.375rem,1rem+1.6vh,2.25rem)] font-black leading-tight text-[#FFFFFF]">Controle seu restaurante em <span className="text-[#D4A017]">tempo real</span></h2>
+            <p className="mt-[clamp(0.5rem,1.4vh,1rem)] text-sm leading-7 text-white/70">Pedidos, mesas, cozinha, caixa, financeiro e relatórios em uma única plataforma.</p>
 
             {/* 6 benefícios */}
             <div className="pp-login-benefits mt-[clamp(0.625rem,1.8vh,1.75rem)] grid grid-cols-2 gap-x-6 gap-y-[clamp(0.4rem,1vh,0.875rem)] text-left">
               {beneficios.map((b) => (
-                <div key={b} className="flex items-center gap-2 text-sm font-semibold text-[#334155]">
+                <div key={b} className="flex items-center gap-2 text-sm font-semibold text-white/85">
                   {IconeCheck}{b}
                 </div>
               ))}
             </div>
 
-            {/* Mockup elegante do sistema */}
-            <div className="pp-login-mockup mt-[clamp(0.625rem,1.8vh,2rem)] rounded-2xl border border-[#E2E8F0] bg-white p-[clamp(0.625rem,1.6vh,1rem)] text-left shadow-[0_8px_24px_rgba(13,27,42,0.06)]">
+            {/* Mockup elegante do sistema — cartão claro "flutuando" sobre o
+                painel grafite (mostra a UI real, sempre light). Recebido/
+                Preparando usam as MESMAS cores semânticas de status de
+                pedido do resto do sistema (info/aviso). */}
+            <div className="pp-login-mockup mt-[clamp(0.625rem,1.8vh,2rem)] rounded-2xl border border-[var(--pp-border)] bg-white p-[clamp(0.625rem,1.6vh,1rem)] text-left shadow-[0_8px_24px_rgba(13,27,42,0.06)]">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#F1F5F9] text-base">🍽️</span>
+                  <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#F5F4F0] text-base">🍽️</span>
                   <div>
-                    <p className="font-display text-sm font-bold leading-none text-[#0D1B2A]">Mesa 12</p>
-                    <p className="mt-1 text-[10px] text-[#64748B]">Comanda #087</p>
+                    <p className="font-display text-sm font-bold leading-none text-[var(--pp-graphite)]">Mesa 12</p>
+                    <p className="mt-1 text-[10px] text-[var(--pp-text-muted)]">Comanda #087</p>
                   </div>
                 </div>
-                <span className="rounded-full bg-[#F59E0B]/10 px-2.5 py-1 text-[10px] font-bold text-[#F59E0B]">Em preparo</span>
+                <span className="rounded-full bg-[#F59E0B]/10 px-2.5 py-1 text-[10px] font-bold text-[var(--pp-warning-text)]">Em preparo</span>
               </div>
               <div className="mt-[clamp(0.375rem,1vh,0.75rem)] space-y-1.5">
                 {[["1x", "Risoto de camarão", "58,00"], ["2x", "Suco natural", "12,00"]].map((i) => (
-                  <div key={i[1]} className="flex items-center justify-between rounded-lg bg-[#F8FAFC] px-3 py-2 text-xs">
-                    <span className="text-[#334155]"><b className="text-[#0D1B2A]">{i[0]}</b> {i[1]}</span>
-                    <span className="font-display font-bold text-[#0D1B2A]">R$ {i[2]}</span>
+                  <div key={i[1]} className="flex items-center justify-between rounded-lg bg-[var(--pp-bg)] px-3 py-2 text-xs">
+                    <span className="text-[var(--pp-text-body)]"><b className="text-[var(--pp-graphite)]">{i[0]}</b> {i[1]}</span>
+                    <span className="font-display font-bold text-[var(--pp-graphite)]">R$ {i[2]}</span>
                   </div>
                 ))}
               </div>
               <div className="mt-[clamp(0.375rem,1vh,0.75rem)] flex items-center gap-1.5">
                 {["Recebido", "Preparando", "Pronto"].map((s, i) => (
                   <div key={s} className="flex-1 text-center">
-                    <div className={`h-1 rounded-full ${i <= 1 ? "bg-[#2563EB]" : "bg-[#E2E8F0]"}`} />
-                    <p className={`mt-1 text-[8px] font-bold ${i <= 1 ? "text-[#2563EB]" : "text-[#64748B]"}`}>{s}</p>
+                    <div className={`h-1 rounded-full ${i === 0 ? "bg-[var(--pp-info)]" : i === 1 ? "bg-[var(--pp-warning)]" : "bg-[var(--pp-border)]"}`} />
+                    <p className={`mt-1 text-[8px] font-bold ${i === 0 ? "text-[var(--pp-info)]" : i === 1 ? "text-[var(--pp-warning-text)]" : "text-[var(--pp-text-muted)]"}`}>{s}</p>
                   </div>
                 ))}
               </div>
-              <div className="pp-login-mockup-total mt-[clamp(0.375rem,1vh,0.75rem)] flex items-center justify-between border-t border-[#E2E8F0] pt-[clamp(0.375rem,1vh,0.75rem)]">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-[#64748B]">Total</span>
-                <span className="font-display text-base font-black text-[#0D1B2A]">R$ 82,00</span>
+              <div className="pp-login-mockup-total mt-[clamp(0.375rem,1vh,0.75rem)] flex items-center justify-between border-t border-[var(--pp-border)] pt-[clamp(0.375rem,1vh,0.75rem)]">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--pp-text-muted)]">Total</span>
+                <span className="font-display text-base font-black text-[var(--pp-graphite)]">R$ 82,00</span>
               </div>
             </div>
           </div>
 
           {/* Rodapé do painel */}
-          <p className="mx-auto flex max-w-md shrink-0 items-center justify-center gap-2 text-xs text-[#64748B]">
+          <p className="mx-auto flex max-w-md shrink-0 items-center justify-center gap-2 text-xs text-white/60">
             <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="11" width="16" height="9" rx="2.5" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>
             Plataforma segura · acesso por usuário e permissão
           </p>
@@ -399,13 +407,13 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
           {/* Card */}
           <form onSubmit={(e) => { e.preventDefault(); if (podeEntrar && !entrando) { setEntrando(true); login(); } }}
             autoComplete="off"
-            className="relative flex flex-col gap-[clamp(0.65rem,1.6vh,1rem)] overflow-hidden rounded-[20px] border border-[#E2E8F0] bg-white p-[clamp(1.125rem,2.6vh,1.75rem)] shadow-[0_4px_20px_rgba(13,27,42,0.07)]">
-            <span className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#2563EB] to-[#1D4ED8]" />
+            className="relative flex flex-col gap-[clamp(0.65rem,1.6vh,1rem)] overflow-hidden rounded-[20px] border border-[var(--pp-border)] bg-white p-[clamp(1.125rem,2.6vh,1.75rem)] shadow-[0_4px_20px_rgba(13,27,42,0.07)]">
+            <span className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[var(--pp-primary-text)] to-[var(--pp-primary)]" />
             {/* Marca / título (dentro do card, sobre fundo claro) */}
             <div className="text-center">
               <div className="mx-auto flex h-16 w-16 items-center justify-center"><LogoPP size={64} /></div>
-              <h1 className="font-display mt-[clamp(0.5rem,1.2vh,0.75rem)] text-2xl font-black tracking-tight text-[#0D1B2A]">Pedido Prime</h1>
-              <p className="mt-1 text-sm text-[#64748B]">Acesse sua conta</p>
+              <h1 className="font-display mt-[clamp(0.5rem,1.2vh,0.75rem)] text-2xl font-black tracking-tight text-[var(--pp-graphite)]">Pedido Prime</h1>
+              <p className="mt-1 text-sm text-[var(--pp-text-muted)]">Acesse sua conta</p>
             </div>
             {/* Campos isca ocultos: absorvem o autofill do navegador */}
             <input type="text" name="username" autoComplete="username" tabIndex={-1} aria-hidden="true" className="absolute h-0 w-0 opacity-0 pointer-events-none" />
@@ -415,7 +423,7 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
             <div>
               <label htmlFor="login-email" className={labelCls}>E-mail</label>
               <div className="relative">
-                <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#64748B]">{IconeMail}</span>
+                <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--pp-text-muted)]">{IconeMail}</span>
                 <input id="login-email" autoFocus type="email" inputMode="email"
                   autoComplete="email" name="login_email_nofill" data-lpignore="true" data-form-type="other"
                   value={loginForm.email}
@@ -430,10 +438,10 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
               <div className="flex items-center justify-between">
                 <label htmlFor="login-senha" className={labelCls}>Senha</label>
                 <button type="button" onClick={() => setAvisoSenha((v) => !v)} aria-expanded={avisoSenha} aria-controls="login-aviso-senha"
-                  className="mb-1.5 text-[11px] font-bold text-[#2563EB] transition hover:text-[#1D4ED8]">Esqueci minha senha</button>
+                  className="mb-1.5 text-[11px] font-bold text-[var(--pp-primary-hover)] transition hover:text-[var(--pp-primary)]">Esqueci minha senha</button>
               </div>
               <div className="relative">
-                <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#64748B]">{IconeLock}</span>
+                <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--pp-text-muted)]">{IconeLock}</span>
                 <input id="login-senha" type={verSenha ? "text" : "password"}
                   autoComplete="current-password" name="login_senha_nofill" data-lpignore="true" data-form-type="other"
                   value={loginForm.password}
@@ -442,7 +450,7 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
                   placeholder="••••••••" className={`${inputCls} pr-11`} />
                 <button type="button" onClick={() => setVerSenha((v) => !v)}
                   aria-label={verSenha ? "Ocultar senha" : "Mostrar senha"} title={verSenha ? "Ocultar senha" : "Mostrar senha"}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-[#64748B] transition hover:bg-[#F1F5F9] hover:text-[#0D1B2A]">
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-[var(--pp-text-muted)] transition hover:bg-[#F5F4F0] hover:text-[var(--pp-graphite)]">
                   {IconeOlho}
                 </button>
               </div>
@@ -450,7 +458,7 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
                   mude de altura ao abrir/fechar o aviso (causa real de "tela
                   se move" nesta área). */}
               <p id="login-aviso-senha" aria-hidden={!avisoSenha}
-                className={`mt-2 min-h-[clamp(38px,6vh,52px)] rounded-xl border p-2.5 text-xs transition-opacity duration-150 ${avisoSenha ? "border-[#E2E8F0] bg-[#F8FAFC] text-[#334155] opacity-100" : "border-transparent bg-transparent opacity-0"}`}>
+                className={`mt-2 min-h-[clamp(38px,6vh,52px)] rounded-xl border p-2.5 text-xs transition-opacity duration-150 ${avisoSenha ? "border-[var(--pp-border)] bg-[var(--pp-bg)] text-[var(--pp-text-body)] opacity-100" : "border-transparent bg-transparent opacity-0"}`}>
                 Entre em contato com o administrador do sistema para redefinir sua senha.
               </p>
             </div>
@@ -458,18 +466,22 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
             {/* Mensagem — mesmo motivo acima: contêiner sempre presente com
                 altura mínima reservada, só o conteúdo/opacidade mudam. */}
             <div id="login-mensagem" role="alert" aria-live="polite" aria-hidden={!message.text}
-              className={`flex min-h-[clamp(38px,6vh,52px)] items-start gap-2 rounded-2xl border p-3 text-sm transition-opacity duration-150 ${message.text ? `opacity-100 ${message.type === "error" ? "border-[#EF4444]/25 bg-[#EF4444]/10 text-[#EF4444]" : "border-[#10B981]/25 bg-[#10B981]/10 text-[#10B981]"}` : "border-transparent bg-transparent opacity-0"}`}>
+              className={`flex min-h-[clamp(38px,6vh,52px)] items-start gap-2 rounded-2xl border p-3 text-sm transition-opacity duration-150 ${message.text ? `opacity-100 ${message.type === "error" ? "border-[#DC2626]/25 bg-[#DC2626]/10 text-[var(--pp-danger)]" : "border-[#16A34A]/25 bg-[#16A34A]/10 text-[var(--pp-success-text)]"}` : "border-transparent bg-transparent opacity-0"}`}>
               {message.text && (
                 <>
                   <span className="mt-0.5 shrink-0">{message.type === "error" ? "⚠️" : "✅"}</span>
-                  <span className="text-[#334155]">{message.text}</span>
+                  <span className="text-[var(--pp-text-body)]">{message.text}</span>
                 </>
               )}
             </div>
 
-            {/* Entrar */}
+            {/* Entrar — coral sólido com texto branco. Fundo em repouso usa
+                --pp-primary-hover (não --pp-primary): a variante mais clara
+                pedida (#E8622C) com texto branco mede 3.38:1, abaixo do
+                mínimo AA de 4.5:1 — a mais escura mede 4.52:1 e passa. O
+                tom mais claro fica reservado para o hover. */}
             <button type="submit" disabled={!podeEntrar || entrando}
-              className="flex h-[clamp(2.75rem,6vh,3rem)] w-full items-center justify-center gap-2 rounded-xl bg-[#2563EB] px-5 text-sm font-black text-[#FFFFFF] shadow-lg shadow-[#2563EB]/25 transition hover:bg-[#1D4ED8] active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100">
+              className="flex h-[clamp(2.75rem,6vh,3rem)] w-full items-center justify-center gap-2 rounded-xl bg-[var(--pp-primary-hover)] px-5 text-sm font-black text-[#FFFFFF] shadow-lg shadow-[#C9501F]/25 transition hover:bg-[var(--pp-primary)] active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100">
               {entrando
                 ? <><span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" /> Entrando...</>
                 : <>Entrar →</>}
@@ -478,29 +490,29 @@ function TelaLogin({ loginForm, setLoginForm, login, message }) {
 
           {/* Divisor + QR Code */}
           <div className="my-[clamp(0.75rem,2vh,1rem)] flex items-center gap-3">
-            <span className="h-px flex-1 bg-[#E2E8F0]" />
-            <span className="text-[11px] font-bold uppercase tracking-wider text-[#64748B]">ou</span>
-            <span className="h-px flex-1 bg-[#E2E8F0]" />
+            <span className="h-px flex-1 bg-[var(--pp-border)]" />
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--pp-text-muted)]">ou</span>
+            <span className="h-px flex-1 bg-[var(--pp-border)]" />
           </div>
           <button type="button" onClick={() => setScanLogin(true)}
-            className="flex h-[clamp(2.75rem,6vh,3rem)] w-full items-center justify-center gap-2 rounded-xl border border-[#2563EB] bg-white text-sm font-bold text-[#2563EB] transition hover:bg-[#EFF6FF]">
+            className="flex h-[clamp(2.75rem,6vh,3rem)] w-full items-center justify-center gap-2 rounded-xl border border-[var(--pp-primary-hover)] bg-white text-sm font-bold text-[var(--pp-primary-hover)] transition hover:bg-[#FDF1EC]">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-[16px] w-[16px]"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M14 14h3v3M21 14v.01M14 21h.01M21 21v.01M17.5 21H21v-3.5"/></svg>
             Entrar com QR Code
           </button>
 
           {/* Segurança */}
-          <p className="mt-[clamp(0.75rem,2vh,1.25rem)] flex items-center justify-center gap-1.5 text-center text-[11px] text-[#64748B]">
+          <p className="mt-[clamp(0.75rem,2vh,1.25rem)] flex items-center justify-center gap-1.5 text-center text-[11px] text-[var(--pp-text-muted)]">
             <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="11" width="16" height="9" rx="2.5" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>
             Acesso protegido por autenticação segura.
           </p>
           <div className="mt-[clamp(0.5rem,1.2vh,0.75rem)] text-center">
-            <button onClick={voltarAoSite} className="text-xs font-bold text-[#64748B] transition hover:text-[#2563EB]">← Voltar ao site</button>
+            <button onClick={voltarAoSite} className="text-xs font-bold text-[var(--pp-text-muted)] transition hover:text-[var(--pp-primary-hover)]">← Voltar ao site</button>
           </div>
           {/* Versão do sistema — discreta, no rodapé. Fica no fluxo normal
               (não mais position:absolute pinado no fundo de <main>) para nunca
               sobrepor "Voltar ao site" em telas baixas: agora acompanha a
               altura real do conteúdo compactado, sempre com folga própria. */}
-          <p className="mt-[clamp(0.5rem,1.2vh,0.75rem)] text-center font-mono text-[10px] tracking-wide text-[#CBD5E1]">
+          <p className="mt-[clamp(0.5rem,1.2vh,0.75rem)] text-center font-mono text-[10px] tracking-wide text-[var(--pp-border)]">
             Versão {(typeof __APP_VERSION__ !== "undefined") ? __APP_VERSION__ : "local"}
           </p>
         </div>
@@ -5973,12 +5985,12 @@ function SidebarHeader({ subtitulo, onClose }) {
     <div className="flex items-center gap-3 border-b border-white/10 px-5 py-4">
       <LogoPP size={40} />
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-black leading-tight truncate"><span className="text-[#F8DAFC]">PEDIDO</span> <span className="text-[#E8756B]">PRIME</span></p>
-        <p className="text-[11px] text-[#F8DAFC] truncate">{subtitulo}</p>
+        <p className="text-sm font-black leading-tight truncate"><span className="text-white">PEDIDO</span> <span className="text-[#D4A017]">PRIME</span></p>
+        <p className="text-[11px] text-white/70 truncate">{subtitulo}</p>
       </div>
       {onClose && (
         <button onClick={onClose} aria-label="Fechar menu"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.06] text-[#F8DAFC] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563EB]">✕</button>
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.06] text-white/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C9501F]">✕</button>
       )}
     </div>
   );
@@ -5990,37 +6002,39 @@ function SidebarUserCompact({ currentUser, isSuperAdmin, lojaInfo }) {
   if (!currentUser) return null;
   return (
     <div className="flex items-center gap-2.5 border-b border-white/10 px-5 py-3.5">
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/10 text-sm font-black text-[#F8DAFC] uppercase select-none" aria-hidden="true">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/10 text-sm font-black text-white/85 uppercase select-none" aria-hidden="true">
         {(currentUser.name || "U").charAt(0)}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-black text-[#F8DAFC] leading-tight">{currentUser.name}</p>
-        <p className="truncate text-[11px] text-[#F8DAFC]/70 leading-tight">{currentUser.role || "Usuário"}</p>
+        <p className="truncate text-sm font-black text-white leading-tight">{currentUser.name}</p>
+        <p className="truncate text-[11px] text-white/60 leading-tight">{currentUser.role || "Usuário"}</p>
       </div>
       {isSuperAdmin ? (
-        <span className="shrink-0 rounded-full bg-[#C4322B]/15 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-[#E8756B]">Admin</span>
+        <span className="shrink-0 rounded-full bg-[#D4A017]/15 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-[#D4A017]">Admin</span>
       ) : lojaInfo ? (
-        <span className="shrink-0 rounded-full bg-white/10 px-1.5 py-0.5 font-mono text-[9px] font-black text-[#B6BECD]">{lojaInfo.prefixo}</span>
+        <span className="shrink-0 rounded-full bg-white/10 px-1.5 py-0.5 font-mono text-[9px] font-black text-white/60">{lojaInfo.prefixo}</span>
       ) : null}
     </div>
   );
 }
 
 // Item de navegação — ÚNICO componente oficial para itens de menu lateral.
-// Estados: normal (transparente, texto/ícone #F8DAFC), hover (fundo azul
-// suave rgba(37,99,235,.10)), selecionado (fundo rgba(37,99,235,.16) +
-// borda esquerda 3px #2563EB, texto/ícone #2563EB, peso 700).
+// Estados: normal (transparente, texto/ícone branco/80), hover (fundo coral
+// suave rgba(201,80,31,.10)), selecionado (fundo rgba(201,80,31,.16) +
+// borda esquerda 3px --pp-primary-hover, texto/ícone --pp-primary-hover,
+// peso 700). Coral porque é o mesmo acento de "selecionado/ativo" usado em
+// filtros e botões no resto do sistema — dourado fica reservado à marca.
 const SidebarItem = React.memo(function SidebarItem({ icon, label, selected, blocked, title, onClick }) {
   return (
     <button onClick={onClick} title={title} aria-current={selected ? "page" : undefined}
       className={cxSidebar(
         "group relative flex min-h-[44px] w-full items-center gap-3 rounded-2xl border-l-[3px] p-4 text-sm transition-all duration-200 ease-out",
-        "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563EB]",
+        "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C9501F]",
         selected
-          ? "border-l-[#2563EB] bg-[rgba(37,99,235,0.16)] font-bold text-[#2563EB]"
-          : "border-l-transparent font-medium text-[#F8DAFC] hover:bg-[rgba(37,99,235,0.10)] hover:text-[#2563EB]"
+          ? "border-l-[#C9501F] bg-[rgba(201,80,31,0.16)] font-bold text-[#C9501F]"
+          : "border-l-transparent font-medium text-white/80 hover:bg-[rgba(201,80,31,0.10)] hover:text-[#C9501F]"
       )}>
-      <span className={cxSidebar("text-base shrink-0 transition-colors duration-200", selected ? "text-[#2563EB]" : "text-[#F8DAFC] group-hover:text-[#2563EB]", blocked && "opacity-40")} aria-hidden="true">{icon}</span>
+      <span className={cxSidebar("text-base shrink-0 transition-colors duration-200", selected ? "text-[#C9501F]" : "text-white/80 group-hover:text-[#C9501F]", blocked && "opacity-40")} aria-hidden="true">{icon}</span>
       <span className={cxSidebar("truncate", blocked && "opacity-50")}>{label}</span>
       {blocked && <span className="ml-auto shrink-0" aria-label="Disponível em outro plano" title="Disponível em outro plano">🔒</span>}
     </button>
@@ -6032,19 +6046,22 @@ const cxSidebar = (...c) => c.filter(Boolean).join(" ");
 function SidebarSection({ titulo, children }) {
   return (
     <div>
-      <p className="px-4 mb-1.5 text-[11px] font-bold uppercase tracking-widest text-[#F8DAFC]/70">{titulo}</p>
+      <p className="px-4 mb-1.5 text-[11px] font-bold uppercase tracking-widest text-white/60">{titulo}</p>
       <div className="space-y-1">{children}</div>
     </div>
   );
 }
 
 // Rodapé — selo de assinatura + ação de sair (fim da hierarquia do Sidebar).
+// Estilo neutro (não usa --pp-danger): "Sair" não é um status de pedido
+// nem um erro — as 4 cores semânticas ficam reservadas exclusivamente ao
+// fluxo de pedidos, com o mesmo significado nas três superfícies.
 function SidebarFooter({ assinaturaAtual, onSair }) {
   return (
     <div className="shrink-0 border-t border-white/10 p-3 space-y-2">
       <TrialBadge assinatura={assinaturaAtual} />
       <button onClick={onSair}
-        className="w-full min-h-[44px] rounded-2xl border border-[#C4322B]/35 bg-transparent py-2.5 text-sm font-black text-[#E8756B] hover:bg-[#C4322B]/10 transition active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E8756B]">
+        className="w-full min-h-[44px] rounded-2xl border border-white/15 bg-transparent py-2.5 text-sm font-black text-white/80 hover:bg-white/10 transition active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/40">
         ← Sair
       </button>
     </div>
@@ -6107,7 +6124,7 @@ function MobileAdminDrawer({ open, onClose, triggerRef, children, titulo }) {
   return (
     <div id="drawer-admin-mobile" className="fixed inset-0 z-[70] flex lg:hidden" role="dialog" aria-modal="true" aria-label={titulo || "Menu de navegação"}>
       <div className="absolute inset-0 bg-black/50 animate-[pp-fade-in_220ms_ease-out_both]" onClick={onClose} aria-hidden="true" />
-      <div ref={panelRef} className="pp-anim-left relative flex h-full w-[280px] max-w-[85vw] flex-col overflow-hidden bg-[#0D1B2A] shadow-2xl" style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)", animationDuration: "220ms" }}>
+      <div ref={panelRef} className="pp-anim-left relative flex h-full w-[280px] max-w-[85vw] flex-col overflow-hidden bg-[var(--pp-graphite)] shadow-2xl" style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)", animationDuration: "220ms" }}>
         {children}
       </div>
     </div>
@@ -6214,21 +6231,21 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
 
       {/* ── Menu lateral esquerdo (fixo) — hierarquia oficial: Logo → Usuário
           → Empresa → Menu (protagonista) → Rodapé → Sair ── */}
-      <aside className="hidden lg:flex h-full w-64 shrink-0 flex-col overflow-hidden bg-[#0D1B2A]">
+      <aside className="hidden lg:flex h-full w-64 shrink-0 flex-col overflow-hidden bg-[var(--pp-graphite)]">
         <SidebarHeader subtitulo={isSuperAdmin ? "Administrador geral" : (lojaInfo ? lojaInfo.nome : "Painel gerencial")} />
         <SidebarUserCompact currentUser={currentUser} isSuperAdmin={isSuperAdmin} lojaInfo={lojaInfo} />
         {isSuperAdmin && (
           <div className="border-b border-white/10 px-4 py-3">
-            <label className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-[#F8DAFC]">Empresa em foco</label>
+            <label className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-white/70">Empresa em foco</label>
             <CompanySelector lojas={lojas} valor={lojaContexto} onChange={setLojaContexto} />
           </div>
         )}
         <div className="border-b border-white/10 px-3 py-3">
           <button onClick={() => setCmdOpen(true)} aria-label="Abrir busca rápida (Ctrl K)"
-            className="flex min-h-[44px] w-full items-center gap-2 rounded-xl border border-white/10 bg-white/[0.05] px-3 py-2 text-left text-[13px] text-[#F8DAFC] transition hover:bg-white/[0.08] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563EB]">
-            <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-[#F8DAFC]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
+            className="flex min-h-[44px] w-full items-center gap-2 rounded-xl border border-white/10 bg-white/[0.05] px-3 py-2 text-left text-[13px] text-white/80 transition hover:bg-white/[0.08] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C9501F]">
+            <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-white/80" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
             <span className="flex-1 truncate">Buscar telas…</span>
-            <span className="shrink-0 rounded-md border border-white/10 px-1.5 py-0.5 text-[10px] font-bold text-[#F8DAFC]">Ctrl K</span>
+            <span className="shrink-0 rounded-md border border-white/10 px-1.5 py-0.5 text-[10px] font-bold text-white/70">Ctrl K</span>
           </button>
         </div>
         <SidebarNavItems menu={menu} ativo={ativo} setAdminSection={setAdminSection} canAccessModule={canAccessModule}
@@ -6243,7 +6260,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
         <SidebarUserCompact currentUser={currentUser} isSuperAdmin={isSuperAdmin} lojaInfo={lojaInfo} />
         {isSuperAdmin && (
           <div className="border-b border-white/10 px-4 py-3">
-            <label className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-[#F8DAFC]">Empresa em foco</label>
+            <label className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-white/70">Empresa em foco</label>
             <CompanySelector lojas={lojas} valor={lojaContexto} onChange={setLojaContexto} />
           </div>
         )}
@@ -6255,20 +6272,21 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
 
       {/* ── Conteúdo ─────────────────────────────────────────── */}
       <div className="flex flex-1 flex-col overflow-hidden">
-        {/* Cabeçalho mobile/tablet — botão de menu abre o drawer de navegação (lg:hidden) */}
-        <div className="lg:hidden flex shrink-0 items-center justify-between gap-3 border-b border-[#E5E7EB] bg-white px-4 py-3" style={{ paddingTop: "calc(env(safe-area-inset-top) + 12px)" }}>
+        {/* Cabeçalho mobile/tablet — grafite, mesma cor da sidebar desktop
+            (botão de menu abre o drawer de navegação, lg:hidden) */}
+        <div className="lg:hidden flex shrink-0 items-center justify-between gap-3 border-b border-white/10 bg-[var(--pp-graphite)] px-4 py-3" style={{ paddingTop: "calc(env(safe-area-inset-top) + 12px)" }}>
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <button ref={botaoMenuRef} onClick={() => setMenuMobileAberto(true)} aria-label="Abrir menu de navegação" aria-expanded={menuMobileAberto} aria-controls="drawer-admin-mobile"
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#E5E7EB] bg-white text-[#182230] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C4322B]">
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/[0.06] text-white/85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C9501F]">
               <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M4 7h16" /><path d="M4 12h16" /><path d="M4 17h16" /></svg>
             </button>
             <LogoPP size={28} />
             <div className="min-w-0">
-              <p className="truncate text-sm font-black leading-tight"><span className="text-[#182230]">PEDIDO</span> <span className="text-[#C4322B]">PRIME</span></p>
-              {currentUser?.role && <p className="truncate text-[10px] text-[#667085] leading-tight">{currentUser.role}{lojaInfo ? ` · ${lojaInfo.nome}` : ""}</p>}
+              <p className="truncate text-sm font-black leading-tight"><span className="text-white">PEDIDO</span> <span className="text-[#D4A017]">PRIME</span></p>
+              {currentUser?.role && <p className="truncate text-[10px] text-white/60 leading-tight">{currentUser.role}{lojaInfo ? ` · ${lojaInfo.nome}` : ""}</p>}
             </div>
           </div>
-          <button onClick={onSair} className="shrink-0 rounded-2xl border border-[#FECDD3] bg-[#FFF1F2] px-3 py-1.5 text-xs font-black text-[#B42318]">Sair</button>
+          <button onClick={onSair} className="shrink-0 rounded-2xl border border-white/15 bg-white/[0.06] px-3 py-1.5 text-xs font-black text-white/80">Sair</button>
         </div>
 
         {/* Conteúdo rolável — remonta ao trocar a "Empresa em foco" para refletir a empresa selecionada em todas as telas */}

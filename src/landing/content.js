@@ -104,11 +104,15 @@ export const FLUXO_BENEFICIOS = [
 // ── Painel administrativo (seção 8) — indicadores ilustrativos:
 // mostram o FORMATO do painel real do sistema, não são métricas de
 // vendas reais do Pedido Prime (a empresa). ──
+// Cores meramente decorativas (variedade visual entre os 4 cartões do
+// mockup) — não são status de pedido, por isso não usam --pp-info/
+// warning/success/danger (reservadas exclusivamente a isso). Paleta
+// oficial 2026: coral, dourado e grafite.
 export const INDICADORES_PAINEL = [
-  { label: "Faturamento", valor: "R$ 4.860", cor: "#10B981" },
-  { label: "Ticket médio", valor: "R$ 42,90", cor: "#F59E0B" },
-  { label: "Pedidos", valor: "138", cor: "#334155" },
-  { label: "Clientes recorrentes", valor: "63%", cor: "#8B5CF6" },
+  { label: "Faturamento", valor: "R$ 4.860", cor: "#E8622C" },
+  { label: "Ticket médio", valor: "R$ 42,90", cor: "#D4A017" },
+  { label: "Pedidos", valor: "138", cor: "#3F3F46" },
+  { label: "Clientes recorrentes", valor: "63%", cor: "#C9501F" },
 ];
 export const RECURSOS_PAINEL = [
   "Faturamento", "Ticket médio", "Pedidos", "Produtos mais vendidos", "Vendas por período",

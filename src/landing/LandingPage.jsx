@@ -26,7 +26,7 @@ export default function LandingPage({ navigate }) {
   const entrar = () => (navigate ? navigate("/login") : (window.location.href = "/login"));
 
   return (
-    <div className="min-h-screen bg-white font-sans text-[#334155] antialiased">
+    <div className="min-h-screen bg-white font-sans text-[var(--pp-text-body)] antialiased">
       <Header onEntrar={entrar} />
       <main>
         <Hero />

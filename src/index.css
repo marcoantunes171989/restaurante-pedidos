@@ -112,11 +112,13 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
 
   /* ── FilterChip (componente oficial de filtros/chips/segment-buttons) ──
      Único ponto de verdade para as cores do FilterChip — nunca repetir
-     estes hex diretamente nas telas. Ver src/components/ui.jsx. */
+     estes hex diretamente nas telas. Ver src/components/Prime.jsx.
+     Selecionado usa a variante escura --pp-primary-text (não --pp-primary
+     puro) como fundo em repouso — só ela atinge 4.5:1 com texto branco. */
   --filter-chip-bg: #FFFFFF;
-  --filter-chip-selected: #C4322B;
-  --filter-chip-selected-hover: #A62B24;
-  --filter-chip-hover-bg: #FEF2F2;
+  --filter-chip-selected: #C9501F;
+  --filter-chip-selected-hover: #E8622C;
+  --filter-chip-hover-bg: #FDF1EC;
   --filter-chip-border: #E5E7EB;
   --filter-chip-text: #172033;
   --filter-chip-text-selected: #FFFFFF;
@@ -174,27 +176,129 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
 
   --shadow-card: 0 8px 24px rgba(16, 24, 40, 0.06);
   --shadow-card-hover: 0 12px 32px rgba(16, 24, 40, 0.08);
+
+  /* ══════════════════════════════════════════════════════════════
+     PALETA OFICIAL 2026 — Pedido Prime (tokens --pp-*)
+     Fonte única de verdade para cor em TODA a plataforma (landing,
+     login, telas internas). Setor de alimentos: quente (apetite/
+     conversão) sobre base neutra confortável para uso prolongado.
+     Duas cores de ação com papéis DIFERENTES — não são intercambiáveis:
+       --pp-brand   = identidade/marca/premium (logo, plano Prime, selos)
+       --pp-primary = apetite/ação (CTAs, botão "Entrar", "Pedir")
+     Ver docs/design-tokens.md para a tabela de mapeamento completa e
+     notas de contraste (WCAG AA).
+
+     ⚠ ARMADILHA DO TAILWIND: NUNCA combine var() com modificador de
+     opacidade em classe arbitrária — `bg-[var(--pp-x)]/20`,
+     `text-[var(--pp-x)]/50`, `shadow-[var(--pp-x)]/25` etc. O Tailwind
+     v3 não sabe abrir um var() em canais RGB para aplicar alpha, então
+     a REGRA INTEIRA é descartada silenciosamente (nem a cor cheia
+     aparece — fica transparente, sem erro no build). Se precisar de
+     opacidade, use o hex literal do token (ex.: `bg-[#E8622C]/20`) ou
+     a variável --pp-*-soft já pronta (--pp-info-soft, --pp-warning-soft
+     etc.) — var() SEM modificador de opacidade funciona normalmente.
+     ══════════════════════════════════════════════════════════════ */
+  /* Marca / Premium (dourado) */
+  --pp-brand: #D4A017;
+  --pp-brand-hover: #B8860B;
+
+  /* Apetite / Ação — CTA principal (coral/terracota).
+     NOTA DE CONTRASTE: branco sobre --pp-primary dá 3.38:1 (reprova AA
+     em texto normal/bold ≤18px, que é o caso da maioria dos botões
+     daqui). Por isso, em PREENCHIMENTOS SÓLIDOS com texto branco
+     (botões), use --pp-primary-hover como fundo do estado padrão
+     (4.52:1, passa AA) e --pp-primary (mais claro) como estado hover —
+     inverte qual tom é "base"/"hover" em relação à leitura literal dos
+     nomes, mas preserva os dois hex exatos pedidos e garante AA no
+     estado sempre visível. Para texto grande (≥19px bold ou ≥24px
+     regular), ícones, bordas e fundos com --pp-primary-soft, os dois
+     tons podem ser usados na ordem "natural" sem risco de contraste. */
+  --pp-primary: #E8622C;
+  --pp-primary-hover: #C9501F;
+  --pp-primary-soft: rgba(232, 98, 44, 0.07);
+
+  /* Estrutura */
+  --pp-graphite: #1A1A1A;
+  --pp-graphite-deep: #101012;
+  --pp-bg: #FAF9F5;
+  --pp-surface: #FFFFFF;
+  --pp-border: #E7E5E4;
+
+  /* Texto */
+  --pp-text: #1A1A1A;
+  --pp-text-body: #3F3F46;
+  --pp-text-muted: #71717A;
+
+  /* Status (fluxo de pedidos) — usar EXCLUSIVAMENTE para status de
+     pedido (recebido/preparo/pronto/cancelado), nas 3 superfícies, com
+     a mesma semântica. Não usar como cor decorativa genérica. */
+  --pp-info: #2563EB;
+  --pp-warning: #F59E0B;
+  --pp-success: #16A34A;
+  --pp-danger: #DC2626;
+
+  /* Fundos suaves (10-12%) para badges/chips de status — mesma cor,
+     tingida sobre uma superfície clara. */
+  --pp-info-soft: rgba(37, 99, 235, 0.10);
+  --pp-warning-soft: #FFF4E5;
+  --pp-success-soft: rgba(22, 163, 74, 0.10);
+  --pp-danger-soft: rgba(220, 38, 38, 0.10);
+
+  /* Variantes escurecidas p/ uso como TEXTO em fundo claro — as cores
+     base acima (--pp-primary, --pp-brand, --pp-warning, --pp-success)
+     não atingem 4.5:1 como texto direto sobre branco/--pp-bg (medido:
+     3.38:1, 2.38:1, 2.15:1 e 3.30:1 respectivamente). Estas variantes
+     passam AA (≥4.5:1) e devem ser usadas sempre que a cor aparecer
+     como TEXTO (links, valores, ícones com rótulo) em vez de
+     preenchimento sólido. --pp-danger já passa AA nativamente (4.83:1)
+     e não precisa de variante própria. */
+  --pp-primary-text: #C9501F;  /* = --pp-primary-hover, 4.52:1 */
+  --pp-brand-text: #8A6A12;    /* 5.06:1 */
+  --pp-warning-text: #B45309;  /* 5.02:1 */
+  --pp-success-text: #147A4A;  /* 5.37:1 */
 }
 
+/* Equivalentes propostos para modo escuro (NÃO ativado — este projeto
+   ainda não tem um toggle de tema claro/escuro geral; ver
+   docs/design-tokens.md). Documentado aqui para quando existir. */
+/*
+[data-theme="dark"] {
+  --pp-bg: #17140F;
+  --pp-surface: #211D17;
+  --pp-border: #35302A;
+  --pp-text: #F5F3EE;
+  --pp-text-body: #D4D1CA;
+  --pp-text-muted: #9C968C;
+  --pp-primary: #F17B45;
+  --pp-primary-hover: #E8622C;
+  --pp-brand: #E8B94A;
+  --pp-brand-hover: #D4A017;
+}
+*/
+
 /* ── Painel de filtro oficial (FilterGroup, src/components/Prime.jsx) ──
-   Paleta azul dos grupos "Turno/Canal/Status" do Dashboard Gerencial —
-   aplicada automaticamente por QUALQUER FilterGroup (é a própria classe-raiz
-   do componente). Sobrescreve as variáveis do FilterChip (componente
-   compartilhado, ver acima) só dentro de .pp-filter-panel, sem alterar a
-   cor oficial (vermelho) usada pelo FilterChip nas demais telas (telas com
-   tema escuro legado, permissões, configurações, templates). */
+   Paleta oficial 2026 dos grupos "Turno/Canal/Status" do Dashboard
+   Gerencial — aplicada automaticamente por QUALQUER FilterGroup (é a
+   própria classe-raiz do componente). Sobrescreve as variáveis do
+   FilterChip (componente compartilhado, ver acima) só dentro de
+   .pp-filter-panel, sem alterar a cor oficial usada pelo FilterChip nas
+   demais telas (telas com tema escuro legado, permissões, configurações,
+   templates). Selecionado usa --pp-primary-text (não --pp-primary) como
+   fundo em repouso — só a variante escura atinge 4.5:1 com texto branco
+   (ver nota de contraste em :root); --pp-primary (mais claro) fica para
+   o hover. */
 .pp-filter-panel {
-  --filter-chip-bg: #FFFFFF;
-  --filter-chip-selected: #2563EB;
-  --filter-chip-selected-hover: #1D4ED8;
+  --filter-chip-bg: var(--pp-surface);
+  --filter-chip-selected: var(--pp-primary-text);
+  --filter-chip-selected-hover: var(--pp-primary);
   --filter-chip-hover-bg: #F1F5F9;
-  --filter-chip-border: #E2E8F0;
-  --filter-chip-text: #334155;
+  --filter-chip-border: var(--pp-border);
+  --filter-chip-text: var(--pp-text-body);
   --filter-chip-text-selected: #FFFFFF;
-  --filter-chip-selected-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
+  --filter-chip-selected-shadow: 0 2px 6px rgba(232, 98, 44, 0.25);
 }
 .pp-filter-panel .filter-chip:focus-visible {
-  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.25);
+  box-shadow: 0 0 0 4px rgba(232, 98, 44, 0.25);
 }
 
 /* Tema CLARO das telas do cliente (menus laterais permanecem escuros) */
@@ -217,8 +321,8 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
    preservando os acentos dourados e as cores semânticas (verde, âmbar,
    vermelho, azul). Ativo apenas com [data-theme="light"]. */
 [data-theme="light"] .tema-claro-area {
-  background-color: #F7F8FA !important; /* fundo geral (paleta oficial admin) */
-  color: #182230;                       /* texto principal */
+  background-color: var(--pp-bg) !important; /* fundo geral (paleta oficial 2026) */
+  color: var(--pp-text-body);                 /* texto principal */
 }
 /* Superfícies sólidas escuras → branco (cards/painéis) */
 [data-theme="light"] .tema-claro-area.bg-black,
@@ -232,7 +336,7 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
 [data-theme="light"] .tema-claro-area .bg-\[\#060912\],
 [data-theme="light"] .tema-claro-area.bg-\[\#0d0d0d\],
 [data-theme="light"] .tema-claro-area .bg-\[\#0d0d0d\],
-[data-theme="light"] .tema-claro-area .bg-\[\#1a1a1a\] { background-color: #FFFFFF !important; }
+[data-theme="light"] .tema-claro-area .bg-\[\#1a1a1a\] { background-color: var(--pp-surface) !important; }
 /* Inputs/selects com fundo escuro translúcido → branco */
 [data-theme="light"] .tema-claro-area .bg-slate-950\/70,
 [data-theme="light"] .tema-claro-area .bg-slate-950\/60,
@@ -247,12 +351,12 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
 [data-theme="light"] .tema-claro-area .bg-slate-900\/50,
 [data-theme="light"] .tema-claro-area .bg-blue-950\/60,
 [data-theme="light"] .tema-claro-area .bg-blue-950\/40,
-[data-theme="light"] .tema-claro-area .bg-blue-950\/20 { background-color: #FFFFFF !important; }
-/* Cartões aninhados (slate-800) → off-white para diferenciar do branco */
+[data-theme="light"] .tema-claro-area .bg-blue-950\/20 { background-color: var(--pp-surface) !important; }
+/* Cartões aninhados (slate-800) → off-white quente para diferenciar do branco */
 [data-theme="light"] .tema-claro-area .bg-slate-800,
 [data-theme="light"] .tema-claro-area .bg-slate-800\/60,
 [data-theme="light"] .tema-claro-area .bg-slate-800\/50,
-[data-theme="light"] .tema-claro-area .bg-slate-800\/40 { background-color: #F3F4F6 !important; }
+[data-theme="light"] .tema-claro-area .bg-slate-800\/40 { background-color: #F5F4F0 !important; }
 /* Superfícies elevadas translúcidas (white/x) → cinza claro sutil e visível */
 [data-theme="light"] .tema-claro-area .bg-white\/\[0\.02\],
 [data-theme="light"] .tema-claro-area .bg-white\/\[0\.03\],
@@ -261,93 +365,93 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
 [data-theme="light"] .tema-claro-area .bg-white\/\[0\.06\],
 [data-theme="light"] .tema-claro-area .bg-white\/\[0\.08\],
 [data-theme="light"] .tema-claro-area .bg-white\/5,
-[data-theme="light"] .tema-claro-area .bg-white\/10 { background-color: #F3F4F6 !important; }
-/* Textos neutros → escuros (gold e cores semânticas preservados) — paleta oficial */
-[data-theme="light"] .tema-claro-area .text-white { color: #182230 !important; }
+[data-theme="light"] .tema-claro-area .bg-white\/10 { background-color: #F5F4F0 !important; }
+/* Textos neutros → escuros (dourado e cores semânticas preservados) — paleta oficial 2026 */
+[data-theme="light"] .tema-claro-area .text-white { color: var(--pp-graphite) !important; }
 /* Tons de texto quase-brancos (feitos p/ fundo escuro) → legíveis no claro */
 [data-theme="light"] .tema-claro-area .text-slate-100,
 [data-theme="light"] .tema-claro-area .text-slate-200,
 [data-theme="light"] .tema-claro-area .text-blue-50,
-[data-theme="light"] .tema-claro-area .text-blue-100 { color: #182230 !important; }
-[data-theme="light"] .tema-claro-area .text-slate-300 { color: #475467 !important; }
-[data-theme="light"] .tema-claro-area .text-slate-400 { color: #667085 !important; }
-[data-theme="light"] .tema-claro-area .text-slate-500 { color: #667085 !important; }
-[data-theme="light"] .tema-claro-area .text-slate-600 { color: #98A2B3 !important; }
+[data-theme="light"] .tema-claro-area .text-blue-100 { color: var(--pp-graphite) !important; }
+[data-theme="light"] .tema-claro-area .text-slate-300 { color: var(--pp-text-body) !important; }
+[data-theme="light"] .tema-claro-area .text-slate-400 { color: var(--pp-text-muted) !important; }
+[data-theme="light"] .tema-claro-area .text-slate-500 { color: var(--pp-text-muted) !important; }
+[data-theme="light"] .tema-claro-area .text-slate-600 { color: #A8A29E !important; }
 /* page-title / títulos principais em texto premium */
-[data-theme="light"] .tema-claro-area .page-title { color: #182230 !important; }
+[data-theme="light"] .tema-claro-area .page-title { color: var(--pp-graphite) !important; }
 [data-theme="light"] .tema-claro-area .text-blue-200,
-[data-theme="light"] .tema-claro-area .text-blue-300 { color: #2563EB !important; }
+[data-theme="light"] .tema-claro-area .text-blue-300 { color: var(--pp-primary-text) !important; }
 /* Bordas neutras → claras */
 [data-theme="light"] .tema-claro-area .border-white\/5,
 [data-theme="light"] .tema-claro-area .border-white\/10,
 [data-theme="light"] .tema-claro-area .border-white\/20,
-[data-theme="light"] .tema-claro-area .border-white\/\[0\.08\] { border-color: #E5E7EB !important; }
+[data-theme="light"] .tema-claro-area .border-white\/\[0\.08\] { border-color: var(--pp-border) !important; }
 /* Sombra leve e elegante nos cards/painéis principais (superfícies brancas) */
 [data-theme="light"] .tema-claro-area .rounded-\[2rem\],
 [data-theme="light"] .tema-claro-area .rounded-3xl {
   box-shadow: 0 8px 24px rgba(16, 24, 40, 0.06);
 }
-/* ── Botões e cores semânticas na paleta oficial (Fase 2) ──────
-   Padroniza os fundos sólidos de ação/estado para os hexes exatos da
-   paleta, mantendo a legibilidade dos textos já definidos. */
-/* Primário dourado premium: #D9A441 (hover #C7922F) */
+/* ── Botões e cores semânticas na paleta oficial 2026 (Fase 2) ──
+   Padroniza os fundos sólidos de ação/estado para os tokens --pp-*,
+   mantendo a legibilidade dos textos já definidos. */
+/* Marca/premium dourado: --pp-brand (hover --pp-brand-hover) */
 [data-theme="light"] .tema-claro-area .bg-gold-400,
-[data-theme="light"] .tema-claro-area .bg-gold-500 { background-color: #D9A441 !important; }
+[data-theme="light"] .tema-claro-area .bg-gold-500 { background-color: var(--pp-brand) !important; }
 [data-theme="light"] .tema-claro-area .hover\:bg-gold-300:hover,
 [data-theme="light"] .tema-claro-area .hover\:bg-gold-400:hover,
-[data-theme="light"] .tema-claro-area .hover\:bg-gold-500:hover { background-color: #C7922F !important; }
-/* Perigo/erro/cancelar: #E5484D */
+[data-theme="light"] .tema-claro-area .hover\:bg-gold-500:hover { background-color: var(--pp-brand-hover) !important; }
+/* Perigo/erro/cancelar: --pp-danger */
 [data-theme="light"] .tema-claro-area .bg-red-500,
-[data-theme="light"] .tema-claro-area .bg-red-600 { background-color: #E5484D !important; }
+[data-theme="light"] .tema-claro-area .bg-red-600 { background-color: var(--pp-danger) !important; }
 [data-theme="light"] .tema-claro-area .hover\:bg-red-400:hover,
 [data-theme="light"] .tema-claro-area .hover\:bg-red-500:hover { background-color: #EF4444 !important; }
-/* Sucesso/confirmar/ativar: #22A06B */
+/* Sucesso/confirmar/ativar: --pp-success */
 [data-theme="light"] .tema-claro-area .bg-emerald-500,
 [data-theme="light"] .tema-claro-area .bg-emerald-600,
 [data-theme="light"] .tema-claro-area .bg-green-500,
-[data-theme="light"] .tema-claro-area .bg-green-600 { background-color: #22A06B !important; }
+[data-theme="light"] .tema-claro-area .bg-green-600 { background-color: var(--pp-success) !important; }
 [data-theme="light"] .tema-claro-area .hover\:bg-emerald-400:hover,
 [data-theme="light"] .tema-claro-area .hover\:bg-emerald-500:hover,
-[data-theme="light"] .tema-claro-area .hover\:bg-green-400:hover { background-color: #2DBE7E !important; }
-/* Alerta/atenção/pendência: #F59E0B */
+[data-theme="light"] .tema-claro-area .hover\:bg-green-400:hover { background-color: #22C55E !important; }
+/* Alerta/atenção/pendência: --pp-warning */
 [data-theme="light"] .tema-claro-area .bg-amber-500,
-[data-theme="light"] .tema-claro-area .bg-orange-500 { background-color: #F59E0B !important; }
-/* Foco de campo com borda dourada oficial */
+[data-theme="light"] .tema-claro-area .bg-orange-500 { background-color: var(--pp-warning) !important; }
+/* Foco de campo com borda dourada oficial (marca) */
 [data-theme="light"] .tema-claro-area .focus\:border-gold-400\/60:focus,
-[data-theme="light"] .tema-claro-area .focus\:border-gold-400:focus { border-color: #D9A441 !important; }
+[data-theme="light"] .tema-claro-area .focus\:border-gold-400:focus { border-color: var(--pp-brand) !important; }
 /* ── Badges de status: fundos suaves oficiais (Fase 3) ────────── */
 [data-theme="light"] .tema-claro-area .bg-emerald-500\/10,
 [data-theme="light"] .tema-claro-area .bg-emerald-500\/15,
 [data-theme="light"] .tema-claro-area .bg-emerald-500\/20,
 [data-theme="light"] .tema-claro-area .bg-green-500\/10,
-[data-theme="light"] .tema-claro-area .bg-green-500\/15 { background-color: #EAFBF2 !important; }
+[data-theme="light"] .tema-claro-area .bg-green-500\/15 { background-color: var(--pp-success-soft) !important; }
 [data-theme="light"] .tema-claro-area .bg-amber-500\/10,
 [data-theme="light"] .tema-claro-area .bg-amber-500\/15,
 [data-theme="light"] .tema-claro-area .bg-amber-500\/20,
 [data-theme="light"] .tema-claro-area .bg-orange-500\/10,
-[data-theme="light"] .tema-claro-area .bg-orange-500\/15 { background-color: #FFF4E5 !important; }
+[data-theme="light"] .tema-claro-area .bg-orange-500\/15 { background-color: var(--pp-warning-soft) !important; }
 [data-theme="light"] .tema-claro-area .bg-red-500\/10,
 [data-theme="light"] .tema-claro-area .bg-red-500\/15,
-[data-theme="light"] .tema-claro-area .bg-red-500\/20 { background-color: #FFF1F2 !important; }
+[data-theme="light"] .tema-claro-area .bg-red-500\/20 { background-color: var(--pp-danger-soft) !important; }
 /* Texto das cores de status → tons legíveis no fundo claro/suave */
 [data-theme="light"] .tema-claro-area .text-emerald-200,
 [data-theme="light"] .tema-claro-area .text-emerald-300,
 [data-theme="light"] .tema-claro-area .text-emerald-400,
 [data-theme="light"] .tema-claro-area .text-green-300,
-[data-theme="light"] .tema-claro-area .text-green-400 { color: #147A4A !important; }
+[data-theme="light"] .tema-claro-area .text-green-400 { color: var(--pp-success-text) !important; }
 [data-theme="light"] .tema-claro-area .text-red-200,
 [data-theme="light"] .tema-claro-area .text-red-300,
-[data-theme="light"] .tema-claro-area .text-red-400 { color: #B42318 !important; }
+[data-theme="light"] .tema-claro-area .text-red-400 { color: var(--pp-danger) !important; }
 [data-theme="light"] .tema-claro-area .text-amber-100,
 [data-theme="light"] .tema-claro-area .text-amber-200,
 [data-theme="light"] .tema-claro-area .text-amber-300,
-[data-theme="light"] .tema-claro-area .text-orange-300 { color: #B45309 !important; }
+[data-theme="light"] .tema-claro-area .text-orange-300 { color: var(--pp-warning-text) !important; }
 
 /* ── FASE 5 — Revisão fina (contraste tela a tela) ──────────────
-   O dourado vivo #C99A2E sobre branco tem contraste insuficiente para
-   TEXTO (~2.3:1). Aqui escurecemos apenas o dourado-texto para um tom
-   legível (gold-700 #8A6A12, ~4.5:1) — os FUNDOS/ícones dourados
-   continuam vivos (regras acima). */
+   O dourado vivo --pp-brand sobre branco tem contraste insuficiente
+   para TEXTO (2.38:1). Aqui escurecemos apenas o dourado-texto para
+   --pp-brand-text (5.06:1) — os FUNDOS/ícones dourados continuam
+   vivos (regras acima). */
 [data-theme="light"] .tema-claro-area .text-gold-200,
 [data-theme="light"] .tema-claro-area .text-gold-300,
 [data-theme="light"] .tema-claro-area .text-gold-400,
@@ -355,12 +459,7 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
 [data-theme="light"] .tema-claro-area .text-gold-300\/80,
 [data-theme="light"] .tema-claro-area .text-gold-400\/80,
 [data-theme="light"] .tema-claro-area .text-gold-400\/70,
-[data-theme="light"] .tema-claro-area .text-gold-400\/60 { color: #9A6A00 !important; }
-/* Dourado claro como TEXTO (gold-200/300, sem opacidade) tem contraste
-   insuficiente sobre fundo branco — escurece só o texto (fundos/ícones
-   dourados vivos continuam intactos via as regras de bg-gold-*). */
-[data-theme="light"] .tema-claro-area .text-gold-200,
-[data-theme="light"] .tema-claro-area .text-gold-300 { color: #9A6A00 !important; }
+[data-theme="light"] .tema-claro-area .text-gold-400\/60 { color: var(--pp-brand-text) !important; }
 
 /* Separadores de linhas em listas/tabelas (divide-*) — o padrão branco
    fica invisível no fundo claro. Remapeia para o divisor suave da paleta. */
@@ -390,8 +489,8 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
 [data-theme="light"] .tema-claro-area input:-webkit-autofill:hover,
 [data-theme="light"] .tema-claro-area input:-webkit-autofill:focus,
 [data-theme="light"] .tema-claro-area input:-webkit-autofill:active {
-  -webkit-text-fill-color: #0F172A !important;
-  caret-color: #2563EB;
+  -webkit-text-fill-color: var(--pp-graphite) !important;
+  caret-color: var(--pp-primary-text);
   -webkit-box-shadow: 0 0 0 1000px #FFFFFF inset !important;
   box-shadow: 0 0 0 1000px #FFFFFF inset !important;
   transition: background-color 9999s ease-out 0s;
