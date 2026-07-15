@@ -8,7 +8,8 @@
       "mcp__Claude_Preview__preview_start",
       "Bash(supabase --version)",
       "Bash(psql --version)",
-      "Bash(supabase db *)"
+      "Bash(supabase db *)",
+      "Bash(git stash *)"
     ]
   }
 }
