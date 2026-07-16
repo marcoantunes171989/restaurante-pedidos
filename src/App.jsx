@@ -41,6 +41,7 @@ import { IconDashboard, IconRelatorios, IconCrm, IconProdutos, IconCategorias, I
 import { obterTema, aplicarTema } from "./lib/theme";
 import { PageHeader, PrimeButton, EmptyState, FilterChip, FilterGroup, FiltersPanel, ActiveFiltersSummary } from "./components/Prime";
 import OperationalCentral from "./pages/OperationalCentral";
+import CentralDePedidos from "./pages/CentralDePedidos";
 import { ClipboardList, ChefHat, Wine, CreditCard, Utensils, Clock, TrendingUp } from "lucide-react";
 
 export const fallbackImage = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=900&q=80";
@@ -6991,6 +6992,68 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
     );
   }
 
+  // Central de Pedidos — tela dedicada (src/pages/CentralDePedidos.jsx),
+  // mesmo padrão da Central Operacional acima: substitui o cabeçalho/board
+  // compartilhados só para esta aba. Toda a lógica de negócio (setores
+  // dinâmicos, fila cronológica, status/pagamento, ações) continua sendo
+  // calculada aqui, com os MESMOS helpers já usados pelas outras abas —
+  // o componente só recebe os arrays prontos e formata a UI.
+  if (tab === "pedidos" && permitido("pedidos")) {
+    const setoresChip = (() => {
+      const vistos = new Set(); const out = [];
+      setores.filter((s) => s.ativo !== false && products.some((p) => p.setorId === s.id && p.active !== false)).forEach((s) => {
+        const k = normSetor(s.nome);
+        if (k && !vistos.has(k)) { vistos.add(k); out.push(s.nome); }
+      });
+      return out;
+    })();
+    const setorFiltrado = (filtroCentral !== "todos" && filtroCentral !== "caixa") ? filtroCentral : null;
+    const porSetorEOrdem = (arr) => arr
+      .filter((o) => setorFiltrado ? itensDoSetor(o, setorFiltrado).length > 0 : true)
+      // Fila em ordem cronológica fixa: o mais antigo no topo (#1, #2, #3…),
+      // para o atendimento seguir a ordem de chegada sem pedido novo "pular".
+      .sort((a, b) => new Date(a.createdAtISO || 0) - new Date(b.createdAtISO || 0));
+    const qtdSetorAtivos = (nome) => ativos.reduce((acc, o) => acc + qtdItens(o, nome), 0);
+    const colunas = {
+      novos: porSetorEOrdem(novos),
+      preparo: porSetorEOrdem(emPreparo),
+      prontos: porSetorEOrdem(prontos),
+      pgto: porSetorEOrdem(contasAbertas),
+    };
+    const hojeStr = new Date().toLocaleDateString("pt-BR");
+    const pedidosHoje = orders.filter((o) => o.createdAtISO && new Date(o.createdAtISO).toLocaleDateString("pt-BR") === hojeStr).length;
+    const temposPreparo = emPreparo.map((o) => minutos(o)).filter((m) => m != null);
+    const mediaPreparo = temposPreparo.length ? Math.round(temposPreparo.reduce((a, b) => a + b, 0) / temposPreparo.length) : null;
+    const valorAguardando = contasAbertas.reduce((s, o) => s + totalCom(o), 0);
+    return (
+      <CentralDePedidos
+        usuarioNome={usuarioNome}
+        lojaInfo={lojaInfo}
+        onFechar={onFechar}
+        liberados={liberados}
+        onNavigate={(id) => setTab(id)}
+        setoresChip={setoresChip}
+        filtroCentral={filtroCentral}
+        onFiltroChange={setFiltroCentral}
+        qtdSetorAtivos={qtdSetorAtivos}
+        colunas={colunas}
+        listaTodos={porSetorEOrdem(ativos)}
+        trendNovos={`${pedidosHoje} hoje`}
+        trendPreparo={mediaPreparo != null ? `tempo médio ${mediaPreparo}min` : "sem pedidos em preparo"}
+        valorAguardando={valorAguardando}
+        origemDe={origemDe}
+        haTxt={haTxt}
+        telMascarado={telMascarado}
+        numeroPedido={numeroPedido}
+        setoresPresentes={setoresPresentes}
+        itensDoSetor={itensDoSetor}
+        metaSetor={metaSetor}
+        totalCom={totalCom}
+        acaoPrincipal={acaoPrincipal}
+      />
+    );
+  }
+
   return (
     <div className="tema-claro-area fixed inset-0 z-[60] w-full max-w-[100vw] overflow-x-hidden overflow-y-auto bg-[#F7F8FA]" data-theme="light" style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "calc(env(safe-area-inset-bottom) + 76px)" }}>
     <div className="mx-auto w-full max-w-md px-4 pt-4 sm:max-w-2xl sm:px-6 lg:max-w-4xl">
@@ -7009,73 +7072,6 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
           <button onClick={() => setTab("central")} className="button-primary mt-4 min-h-[44px] px-5 py-2.5 text-sm">Voltar para a Central</button>
         </div>
       )}
-
-      {tab === "pedidos" && permitido("pedidos") && (() => {
-        // Setores DINÂMICOS: cadastrados (ativos) que têm produtos ativos vinculados.
-        const setoresChip = (() => {
-          const vistos = new Set(); const out = [];
-          setores.filter((s) => s.ativo !== false && products.some((p) => p.setorId === s.id && p.active !== false)).forEach((s) => {
-            const k = normSetor(s.nome);
-            if (k && !vistos.has(k)) { vistos.add(k); out.push(s.nome); }
-          });
-          return out;
-        })();
-        const setorFiltrado = (filtroCentral !== "todos" && filtroCentral !== "caixa") ? filtroCentral : null;
-        const ativosFiltrados = ativos.filter((o) => setorFiltrado ? itensDoSetor(o, setorFiltrado).length > 0 : true)
-          // Fila em ordem cronológica fixa: o mais antigo no topo (#1, #2, #3…),
-          // para o atendimento seguir a ordem de chegada sem pedido novo "pular".
-          .sort((a, b) => new Date(a.createdAtISO || 0) - new Date(b.createdAtISO || 0));
-        const qtdSetorAtivos = (nome) => ativos.reduce((acc, o) => acc + qtdItens(o, nome), 0);
-        return (<>
-        <div className="mb-3 flex gap-1.5 overflow-x-auto">
-          {[["todos", "Todos"], ...setoresChip.map((n) => [n, n]), ["caixa", "Caixa"]].map(([k, l]) => { const cnt = (k !== "todos" && k !== "caixa") ? qtdSetorAtivos(k) : 0;
-            return (
-              <FilterChip key={k} size="sm" selected={filtroCentral === k} label={l} badge={cnt > 0 ? cnt : null}
-                onClick={() => (k === "caixa" ? setTab("caixa") : setFiltroCentral(k))} />
-            );
-          })}
-        </div>
-        <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {[{ l: "Novos", v: novos.length, c: "text-[#2563EB]" }, { l: "Em preparo", v: emPreparo.length, c: "text-[#9A6A00]" }, { l: "Prontos", v: prontos.length, c: "text-[#147A4A]" }, { l: "Aguardando pgto", v: contasAbertas.length, c: "text-[#9A6A00]" }].map((k) => (
-            <div key={k.l} className="rounded-2xl border border-[#E5E7EB] bg-white px-3 py-2.5 shadow-[0_8px_24px_rgba(16,24,40,.06)]"><p className={`page-title text-2xl font-bold ${k.c}`}>{k.v}</p><p className="text-[11px] text-[#667085]">{k.l}</p></div>
-          ))}
-        </div>
-        <div className="space-y-2 sm:grid sm:grid-cols-2 sm:gap-3 sm:space-y-0">
-          {ativosFiltrados.length === 0 && <p className="py-10 text-center text-sm text-[#667085] sm:col-span-2">Nenhum pedido ativo{filtroCentral !== "todos" ? ` para ${filtroCentral}` : ""}.</p>}
-          {ativosFiltrados.map((o) => { const b = badge(o); const a = acaoPrincipal(o); const org = origemDe(o);
-            return (
-              <div key={o.id} className="rounded-3xl border border-[#E5E7EB] bg-white p-3.5 shadow-[0_8px_24px_rgba(16,24,40,.06)]">
-                <div className="flex items-center justify-between gap-2"><div className="flex items-center gap-1.5"><span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-black ${b.c}`}>{b.l}</span>{o.paymentStatus === "paid" && <span className="rounded-full border border-[#B7E4C7] bg-[#ECFDF3] px-2 py-0.5 text-[10px] font-black text-[#147A4A]">✓ PAGO</span>}</div><span className="text-[11px] text-[#667085]">{org.ic} {org.l} · {haTxt(o)}</span></div>
-                <p className="mt-1.5 font-black text-[#182230]">Pedido #{numeroPedido[o.id] ?? "—"} · {o.table}</p>
-                <p className="text-[10px] text-[#98A2B3]">{o.id}</p>
-                <p className="text-xs text-[#475467]">{o.customer || "Cliente"}</p>
-                {telMascarado(o.clienteTelefone) && <p className="text-[11px] text-[#667085]">📞 {telMascarado(o.clienteTelefone)}</p>}
-                {o.pagamentoForma && <p className="text-[11px] font-bold text-[#9A6A00]">💳 {o.pagamentoForma}{o.pagamentoMomento ? ` · ${o.pagamentoMomento}` : ""}</p>}
-                <div className="mt-2">
-                  {setoresPresentes(o).filter((sk) => !setorFiltrado || sk === setorFiltrado).map((sk, idx) => { const its = itensDoSetor(o, sk); const liberado = setorPronto(o, sk) && parcial(o);
-                    return (
-                      <div key={sk} className={idx > 0 ? "mt-3 border-t border-[#E5E7EB] pt-2.5" : ""}>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[10px] font-bold uppercase tracking-wide text-[#9A6A00]">{metaSetor(sk).ic} {metaSetor(sk).label}</span>
-                          {liberado && <span className="rounded-full border border-[#B7E4C7] bg-[#ECFDF3] px-1.5 py-0.5 text-[9px] font-bold text-[#147A4A]">✓ liberado</span>}
-                        </div>
-                        <div className="mt-1 space-y-0.5">
-                          {its.map((it, i) => <p key={i} className={`text-xs ${liberado ? "text-[#98A2B3] line-through decoration-[#B7E4C7]" : "text-[#475467]"}`}>{it.quantity}× {it.name}</p>)}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-                <div className="mt-2 flex items-center justify-end">
-                  <span className="text-sm font-black text-[#147A4A]">{formatCurrency(totalCom(o))}</span>
-                </div>
-                {a && <button onClick={a.fn || undefined} disabled={a.disabled} className={`mt-2.5 w-full min-h-[44px] rounded-2xl py-2.5 text-sm font-black transition ${a.disabled ? "cursor-not-allowed" : "active:scale-95"} ${a.c}`}>{a.l}</button>}
-              </div>
-            );
-          })}
-        </div>
-      </>);
-      })()}
 
       {(tab === "cozinha" || tab === "bar") && permitido(tab) && (() => {
         // Bar = setores "bar/bebida"; Cozinha = os demais (cozinha, sobremesa, e quaisquer
