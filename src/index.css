@@ -685,6 +685,45 @@ select::-ms-expand { display: none; } /* IE/Edge antigo */
   }
 }
 
+/* Cor padrão (desktop/tablet) do label de KPI — igual ao valor anterior
+   de text-white/50, agora centralizada aqui (em vez da utility Tailwind)
+   para o override mobile abaixo poder trocar só a opacidade sem depender
+   de ordem de cascata entre index.css e as utilities do Tailwind. Precisa
+   vir ANTES do @media abaixo: mesma especificidade, então quem aparece
+   por último no arquivo vence dentro do range em que o media query bate. */
+.pp-kpi-label {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* ── Glassmorphism — cards de KPI, somente mobile (<768px) ──────
+   Só troca o preenchimento visual dos cards de indicador (Mesas
+   Abertas/Em Preparo/Turno Atual) no header da Central Operacional;
+   Desktop/notebook/tablet (>= 768px) continuam com .pp-glass-surface
+   normal, sem nenhuma regra daqui se aplicando. O botão "Sair" também
+   fica de fora (usa só .pp-glass-surface) — o pedido é especificamente
+   sobre os cards. Fallback sólido primeiro (funciona em qualquer
+   navegador); o blur entra depois, só onde há suporte real. */
+@media (max-width: 767px) {
+  .pp-kpi-card {
+    background: rgba(255, 255, 255, 0.18); /* fallback sem backdrop-filter */
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+    border-radius: 20px;
+  }
+
+  .pp-kpi-label {
+    color: rgba(255, 255, 255, 0.82);
+  }
+
+  @supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+    .pp-kpi-card {
+      background: rgba(255, 255, 255, 0.12);
+      -webkit-backdrop-filter: blur(18px);
+      backdrop-filter: blur(18px);
+    }
+  }
+}
+
 /* ── Scrollbar minimalista (global) ─────────────────────────── */
 * {
   scrollbar-width: thin;                         /* Firefox */

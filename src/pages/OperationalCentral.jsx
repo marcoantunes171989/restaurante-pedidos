@@ -91,10 +91,10 @@ export default function OperationalCentral({ user = "Administrador", role = "Ges
           {/* KPI STRIP */}
           <div className="relative mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
             {kpis.map((k) => (
-              <div key={k.label} className={`${GLASS_SURFACE} rounded-2xl p-3`}>
+              <div key={k.label} className={`${GLASS_SURFACE} pp-kpi-card rounded-2xl p-3`}>
                 <k.icon size={18} style={{ color: brand.gold }} />
                 <p className="mt-2 text-lg font-bold leading-none">{k.value}</p>
-                <p className="mt-1 text-[11px] uppercase tracking-wide text-white/50">{k.label}</p>
+                <p className="pp-kpi-label mt-1 text-[11px] uppercase tracking-wide">{k.label}</p>
               </div>
             ))}
           </div>
