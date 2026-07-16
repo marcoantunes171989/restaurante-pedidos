@@ -1,8 +1,9 @@
 import { motion } from "framer-motion";
 import {
-  ClipboardList, ChefHat, Wine, CreditCard, Home,
+  ClipboardList, ChefHat, Wine, CreditCard,
   LogOut, Clock, TrendingUp, Utensils, ChevronRight, Activity,
 } from "lucide-react";
+import OperationalBottomNav from "../components/OperationalBottomNav";
 
 const brand = {
   primary: "#e8622c",
@@ -61,15 +62,7 @@ const KPIS = [
   { label: "Turno atual", value: "R$ 1.847", icon: TrendingUp },
 ];
 
-const NAV = [
-  { id: "central", label: "Central", icon: Home },
-  { id: "pedidos", label: "Pedidos", icon: ClipboardList },
-  { id: "cozinha", label: "Cozinha", icon: ChefHat },
-  { id: "bar", label: "Bar", icon: Wine },
-  { id: "caixa", label: "Caixa", icon: CreditCard },
-];
-
-export default function OperationalCentral({ user = "Administrador", role = "Gestor", onOpen, onExit, active = "central", modules = MODULES, kpis = KPIS }) {
+export default function OperationalCentral({ user = "Administrador", role = "Gestor", onOpen, onExit, active = "central", modules = MODULES, kpis = KPIS, navItems = [] }) {
   return (
     // paddingTop reserva a área do notch/status bar (env(safe-area-inset-top))
     // — sem isso, em celulares reais (não reproduz em viewport de desktop
@@ -164,29 +157,7 @@ export default function OperationalCentral({ user = "Administrador", role = "Ges
         </div>
       </div>
 
-      {/* BOTTOM NAV — paddingBottom reserva a faixa de gestos/home-indicator
-          em iPhones sem botão físico, mesmo padrão das demais telas cheias. */}
-      <nav className="fixed inset-x-0 bottom-0 z-20 border-t bg-white/90 backdrop-blur"
-           style={{ borderColor: brand.border, paddingBottom: "env(safe-area-inset-bottom)" }}>
-        <div className="mx-auto flex max-w-5xl items-stretch justify-around px-2">
-          {NAV.map((n) => {
-            const isActive = active === n.id;
-            return (
-              <button key={n.id} onClick={() => onOpen?.(n.id)}
-                      className="relative flex flex-1 flex-col items-center gap-1 py-3 text-[11px] font-medium transition"
-                      style={{ color: isActive ? brand.primary : "#9ca3af" }}>
-                {isActive && (
-                  <motion.span layoutId="nav-indicator"
-                    className="absolute top-0 h-0.5 w-8 rounded-full"
-                    style={{ background: brand.primary }} />
-                )}
-                <n.icon size={20} />
-                {n.label}
-              </button>
-            );
-          })}
-        </div>
-      </nav>
+      <OperationalBottomNav items={navItems} active={active} onNavigate={(id) => onOpen?.(id)} />
     </div>
   );
 }

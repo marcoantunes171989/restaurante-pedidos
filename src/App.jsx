@@ -36,13 +36,14 @@ import { statusAssinatura, getCurrentCompanyPlan, modulosDoPlano, MODULOS_LABEL,
 import { useUpgradeModais } from "./components/upgrade/UpgradeModais";
 import { GeradorComandas } from "./components/QRComandas";
 import { QRScannerModal  } from "./components/QRScanner";
-import { LogoPP } from "./components/BrandLogo";
+import { LogoPP, OperationalBrandLogo } from "./components/BrandLogo";
 import { IconDashboard, IconRelatorios, IconCrm, IconProdutos, IconCategorias, IconMesas, IconPagamento, IconQr, IconCardapio, IconEmpresas, IconUsuarios, IconCargos, IconPermissoes, IconLink, IconLicencas, IconVersoes, IconEmpresa, IconBusca, IconConfig, IconPromocao } from "./components/PrimeIcons";
 import { obterTema, aplicarTema } from "./lib/theme";
 import { PageHeader, PrimeButton, EmptyState, FilterChip, FilterGroup, FiltersPanel, ActiveFiltersSummary } from "./components/Prime";
 import OperationalCentral from "./pages/OperationalCentral";
 import CentralDePedidos from "./pages/CentralDePedidos";
 import CentralDoCaixa from "./pages/CentralDoCaixa";
+import OperationalBottomNav from "./components/OperationalBottomNav";
 import { ClipboardList, ChefHat, Wine, CreditCard, Utensils, Clock, TrendingUp } from "lucide-react";
 
 export const fallbackImage = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=900&q=80";
@@ -6864,6 +6865,10 @@ function CardapioQrConfigAdmin({ products = [], setores = [], salvarProdutoQr = 
 function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, confirmarRetirada = async () => {}, marcarSetorPronto = async () => {}, baixarComandas, products = [], setores = [], formasPagamento = [], lojaInfo, perms = { pedidos: true, cozinha: true, bar: true, caixa: true, total: true }, usuarioNome = "", tabInicial = null, onTabChange = null, onFechar = null }) {
   // Módulos liberados para este usuário (ordem fixa)
   const liberados = OP_MODULOS.filter((m) => perms[m.id]);
+  // Itens da bottom nav única (OperationalBottomNav) — "Central" só entra
+  // quando há mais de um módulo liberado (mesma regra de sempre). Calculado
+  // uma vez aqui (fonte única) em vez de cada tela decidir sozinha.
+  const navItems = liberados.length > 1 ? [{ id: "central", label: "Central" }, ...liberados] : liberados;
   const permitido = (t) => t === "central" || (perms[t] === true);
   // Tela inicial: rota (tabInicial) tem prioridade. Senão: acesso a TODOS os módulos → Central;
   // acesso parcial → abre direto no primeiro módulo que o usuário tem.
@@ -6987,6 +6992,7 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
         active={tab}
         modules={modulosReais}
         kpis={kpisReais}
+        navItems={navItems}
         onOpen={(id) => setTab(id)}
         onExit={onFechar}
       />
@@ -7031,7 +7037,7 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
         usuarioNome={usuarioNome}
         lojaInfo={lojaInfo}
         onFechar={onFechar}
-        liberados={liberados}
+        navItems={navItems}
         onNavigate={(id) => setTab(id)}
         setoresChip={setoresChip}
         filtroCentral={filtroCentral}
@@ -7069,7 +7075,7 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
         usuarioNome={usuarioNome}
         lojaInfo={lojaInfo}
         onFechar={onFechar}
-        liberados={liberados}
+        navItems={navItems}
         onNavigate={(id) => setTab(id)}
         contas={contas}
         totalCom={totalCom}
@@ -7088,7 +7094,7 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
     <div className="tema-claro-area fixed inset-0 z-[60] w-full max-w-[100vw] overflow-x-hidden overflow-y-auto bg-[#F7F8FA]" data-theme="light" style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "calc(env(safe-area-inset-bottom) + 76px)" }}>
     <div className="mx-auto w-full max-w-md px-4 pt-4 sm:max-w-2xl sm:px-6 lg:max-w-4xl">
       <div className="mb-4 flex items-center gap-3 rounded-3xl border border-[#E5E7EB] bg-white p-4 shadow-[0_8px_24px_rgba(16,24,40,.06)]">
-        {lojaInfo?.logoUrl ? <img src={lojaInfo.logoUrl} alt="" className="h-10 w-10 rounded-2xl object-cover" /> : <LogoPP size={40} />}
+        <OperationalBrandLogo />
         <div className="min-w-0 flex-1"><p className="page-title text-base font-bold text-[#182230]">{titulo}</p><p className="truncate text-xs text-[#667085]">{lojaInfo?.nome || "Operação da loja"}{usuarioNome ? ` · ${usuarioNome}` : ""}</p></div>
         {onFechar && <button onClick={onFechar} className="min-h-[44px] shrink-0 rounded-2xl border border-[#FDA4AF] bg-[#FFF1F2] px-3.5 text-xs font-black text-[#B42318] transition hover:bg-[#FEE2E2]">✕ Sair</button>}
       </div>
@@ -7160,17 +7166,7 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
         </>);
       })()}
 
-      {/* Bottom nav */}
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-[#E5E7EB] bg-white shadow-[0_-8px_24px_rgba(16,24,40,.06)]" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
-        <div className="mx-auto flex max-w-md items-stretch sm:max-w-2xl lg:max-w-4xl">
-          {liberados.length > 1 && (
-            <button onClick={() => setTab("central")} className={`relative flex min-h-[56px] flex-1 flex-col items-center justify-center gap-0.5 py-2.5 text-[11px] font-bold transition ${tab === "central" ? "text-[#D9A441]" : "text-[#667085]"}`}>{tab === "central" && <span className="absolute top-0 h-0.5 w-8 rounded-full bg-[#D9A441]" />}<span className="text-lg">🏠</span>Central</button>
-          )}
-          {liberados.map((m) => (
-            <button key={m.id} onClick={() => setTab(m.id)} className={`relative flex min-h-[56px] flex-1 flex-col items-center justify-center gap-0.5 py-2.5 text-[11px] font-bold transition ${tab === m.id ? "text-[#D9A441]" : "text-[#667085]"}`}>{tab === m.id && <span className="absolute top-0 h-0.5 w-8 rounded-full bg-[#D9A441]" />}<span className="text-lg">{m.ic}</span>{m.label}</button>
-          ))}
-        </div>
-      </div>
+      <OperationalBottomNav items={navItems} active={tab} onNavigate={(id) => setTab(id)} />
     </div>
     </div>
   );

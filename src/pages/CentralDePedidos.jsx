@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react";
 import { formatCurrency } from "../App";
+import OperationalBottomNav from "../components/OperationalBottomNav";
+import { OperationalBrandLogo } from "../components/BrandLogo";
 
 // Metadados visuais por status/variante de card — só estilo (label, cor,
 // tag), nunca decide o que é aceito/entregue/pago (isso continua 100% em
@@ -98,7 +100,7 @@ export default function CentralDePedidos({
   usuarioNome = "",
   lojaInfo,
   onFechar,
-  liberados = [],
+  navItems = [],
   onNavigate,
   setoresChip = [],
   filtroCentral = "todos",
@@ -162,7 +164,7 @@ export default function CentralDePedidos({
       <div className="pp-cp-app">
         <header className="pp-cp-topbar">
           <div className="pp-cp-brand">
-            <div className="pp-cp-logo">{lojaInfo?.logoUrl ? <img src={lojaInfo.logoUrl} alt="" /> : "P"}</div>
+            <OperationalBrandLogo />
             <div>
               <h1>Central de Pedidos</h1>
               <p><span className="pp-cp-dot" />{lojaInfo?.nome || "Operação da loja"} · {usuarioNome || "Operador"} · <b style={{ color: "var(--cp-txt-dim)" }}>Online</b></p>
@@ -270,16 +272,7 @@ export default function CentralDePedidos({
         )}
       </div>
 
-      <nav className="pp-cp-bottomnav">
-        {liberados.length > 1 && (
-          <button className="pp-cp-nav-item" onClick={() => onNavigate?.("central")} type="button"><span>🏠</span>Central</button>
-        )}
-        {liberados.map((m) => (
-          <button key={m.id} className={`pp-cp-nav-item${m.id === "pedidos" ? " is-active" : ""}`} onClick={() => onNavigate?.(m.id)} type="button">
-            <span>{m.ic}</span>{m.label}
-          </button>
-        ))}
-      </nav>
+      <OperationalBottomNav items={navItems} active="pedidos" onNavigate={onNavigate} />
     </div>
   );
 }

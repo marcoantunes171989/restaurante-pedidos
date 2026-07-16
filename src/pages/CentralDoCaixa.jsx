@@ -1,5 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { formatCurrency } from "../App";
+import OperationalBottomNav from "../components/OperationalBottomNav";
+import { OperationalBrandLogo } from "../components/BrandLogo";
 
 // Categoria só é usada para o badge/filtro visual — nunca decide o que a
 // conta PODE fazer (pagar antecipado é sempre permitido, como já era).
@@ -28,13 +30,7 @@ const FILTROS = [
 function Header({ lojaInfo, usuarioNome, onFechar }) {
   return (
     <header className="flex items-center gap-3 rounded-[24px] border border-[#E5E7EB] bg-white p-4 shadow-[0_8px_24px_rgba(16,24,40,.06)] sm:p-5">
-      <div
-        className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl text-base font-black text-white"
-        style={{ background: "conic-gradient(from 180deg, #E8622C, #D9A441, #E8622C)" }}
-        aria-hidden="true"
-      >
-        PP
-      </div>
+      <OperationalBrandLogo />
       <div className="min-w-0 flex-1">
         <p className="page-title text-[20px] font-bold leading-tight text-[#182230]">Caixa</p>
         <p className="mt-0.5 flex items-center gap-1.5 truncate text-xs text-[#667085]">
@@ -279,72 +275,6 @@ function ContaCard({ o, totalCom, haTxt, numeroPedido, telMascarado, opcoes, pag
   );
 }
 
-/* ── Navegação — side rail (desktop) + bottom nav (mobile/tablet) ── */
-function SideRail({ liberados, onNavigate }) {
-  return (
-    <nav aria-label="Navegação operacional" className="sticky top-6 hidden h-fit flex-col items-center gap-2 rounded-[24px] border border-[#E5E7EB] bg-white p-3 shadow-[0_8px_24px_rgba(16,24,40,.06)] lg:flex">
-      <button
-        onClick={() => onNavigate("central")}
-        aria-label="Central"
-        className="flex min-h-[56px] w-full flex-col items-center justify-center gap-1 rounded-2xl text-[10px] font-bold text-[#667085] transition hover:bg-[#F7F8FA]"
-      >
-        <span className="text-lg" aria-hidden="true">🏠</span>Central
-      </button>
-      {liberados.map((m) => {
-        const ativo = m.id === "caixa";
-        return (
-          <button
-            key={m.id}
-            onClick={() => onNavigate(m.id)}
-            aria-label={m.label}
-            aria-current={ativo ? "page" : undefined}
-            className={`flex min-h-[56px] w-full flex-col items-center justify-center gap-1 rounded-2xl border text-[10px] font-bold transition ${
-              ativo
-                ? "border-[#F4D27A] text-[#9A6A00]"
-                : "border-transparent text-[#667085] hover:bg-[#F7F8FA]"
-            }`}
-            style={ativo ? { background: "linear-gradient(160deg, #FAF9F5 0%, #FDF1EC 100%)" } : undefined}
-          >
-            <span className="text-lg" aria-hidden="true">{m.ic}</span>{m.label}
-          </button>
-        );
-      })}
-    </nav>
-  );
-}
-
-function BottomNav({ liberados, onNavigate }) {
-  return (
-    <nav
-      aria-label="Navegação operacional"
-      className="fixed inset-x-0 bottom-0 z-30 border-t border-[#E5E7EB] bg-white/90 backdrop-blur-md lg:hidden"
-      style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
-    >
-      <div className="mx-auto flex max-w-[560px] items-stretch">
-        {liberados.length > 1 && (
-          <button onClick={() => onNavigate("central")} className="relative flex min-h-[56px] flex-1 flex-col items-center justify-center gap-0.5 py-2.5 text-[11px] font-bold text-[#667085] transition">
-            <span className="text-lg" aria-hidden="true">🏠</span>Central
-          </button>
-        )}
-        {liberados.map((m) => {
-          const ativo = m.id === "caixa";
-          return (
-            <button
-              key={m.id}
-              onClick={() => onNavigate(m.id)}
-              aria-current={ativo ? "page" : undefined}
-              className={`relative flex min-h-[56px] flex-1 flex-col items-center justify-center gap-0.5 py-2.5 text-[11px] font-bold transition ${ativo ? "text-[#D9A441]" : "text-[#667085]"}`}
-            >
-              {ativo && <span className="absolute top-0 h-0.5 w-8 rounded-full bg-[#D9A441]" aria-hidden="true" />}
-              <span className="text-lg" aria-hidden="true">{m.ic}</span>{m.label}
-            </button>
-          );
-        })}
-      </div>
-    </nav>
-  );
-}
-
 /**
  * Caixa (/operacional/caixa) — camada de apresentação apenas. Toda a lógica
  * (buscar/receber pagamento, confirmar retirada, formas de pagamento,
@@ -355,7 +285,7 @@ export default function CentralDoCaixa({
   usuarioNome = "",
   lojaInfo,
   onFechar,
-  liberados = [],
+  navItems = [],
   onNavigate,
   contas = [],
   totalCom,
@@ -419,40 +349,36 @@ export default function CentralDoCaixa({
   const visiveis = contasComCategoria.filter((c) => (filtro === "todas" || c.categoria === filtro) && bate(c.o));
 
   return (
-    <div className="min-h-screen w-full bg-[#F7F8FA] pb-28 lg:pb-10" style={{ paddingTop: "env(safe-area-inset-top)" }}>
-      <div className="mx-auto flex w-full max-w-[1280px] gap-5 px-4 pt-4 sm:px-6 lg:grid lg:grid-cols-[84px_1fr] lg:items-start lg:px-8 lg:pt-8">
-        <SideRail liberados={liberados} onNavigate={onNavigate} />
+    <div className="min-h-screen w-full bg-[#F7F8FA] pb-28" style={{ paddingTop: "env(safe-area-inset-top)" }}>
+      <div className="mx-auto w-full max-w-[1280px] space-y-5 px-4 pt-4 sm:px-6 lg:px-8 lg:pt-8">
+        <Header lojaInfo={lojaInfo} usuarioNome={usuarioNome} onFechar={onFechar} />
+        <KpiGrid aguardandoCount={counts.aguardando} contasAbertasCount={contas.length} totalReceber={totalReceber} faturadoHoje={faturadoHoje} />
+        <CaixaToolbar busca={busca} onBusca={setBusca} filtro={filtro} onFiltro={setFiltro} counts={counts} />
 
-        <div className="min-w-0 flex-1 space-y-5">
-          <Header lojaInfo={lojaInfo} usuarioNome={usuarioNome} onFechar={onFechar} />
-          <KpiGrid aguardandoCount={counts.aguardando} contasAbertasCount={contas.length} totalReceber={totalReceber} faturadoHoje={faturadoHoje} />
-          <CaixaToolbar busca={busca} onBusca={setBusca} filtro={filtro} onFiltro={setFiltro} counts={counts} />
-
-          {visiveis.length === 0 ? (
-            <p className="py-16 text-center text-sm text-[#667085]">Nenhuma conta no momento.</p>
-          ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
-              {visiveis.map(({ o }) => (
-                <ContaCard
-                  key={o.id}
-                  o={o}
-                  totalCom={totalCom}
-                  haTxt={haTxt}
-                  numeroPedido={numeroPedido}
-                  telMascarado={telMascarado}
-                  opcoes={opcoes}
-                  pagando={pagando === o.id}
-                  onFinalizar={finalizar}
-                  retirando={retirando === o.id}
-                  onRetirar={retirar}
-                />
-              ))}
-            </div>
-          )}
-        </div>
+        {visiveis.length === 0 ? (
+          <p className="py-16 text-center text-sm text-[#667085]">Nenhuma conta no momento.</p>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+            {visiveis.map(({ o }) => (
+              <ContaCard
+                key={o.id}
+                o={o}
+                totalCom={totalCom}
+                haTxt={haTxt}
+                numeroPedido={numeroPedido}
+                telMascarado={telMascarado}
+                opcoes={opcoes}
+                pagando={pagando === o.id}
+                onFinalizar={finalizar}
+                retirando={retirando === o.id}
+                onRetirar={retirar}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
-      <BottomNav liberados={liberados} onNavigate={onNavigate} />
+      <OperationalBottomNav items={navItems} active="caixa" onNavigate={onNavigate} />
     </div>
   );
 }

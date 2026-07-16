@@ -43,6 +43,39 @@ export function LogoPP({ size = 40, fundo = true, className = "" }) {
   );
 }
 
+// Logo padronizada do módulo operacional (Central/Pedidos/Cozinha/Bar/
+// Caixa) — squircle (não circular), moldura e sombra douradas, tamanho
+// responsivo via classes (40px mobile, 44px tablet/desktop). Sempre usa
+// a marca Pedido Prime, não o logo da loja (lojaInfo.logoUrl): estas 5
+// telas são ferramenta interna da equipe, não a vitrine do cardápio do
+// estabelecimento — o logo por-loja continua aparecendo normalmente no
+// cardápio público e no painel admin.
+export function OperationalBrandLogo({ className = "" }) {
+  const [erro, setErro] = useState(false);
+  const shape = "h-10 w-10 shrink-0 rounded-[14px] border border-[rgba(217,164,65,.4)] shadow-[0_2px_8px_rgba(217,164,65,.35)] sm:h-11 sm:w-11";
+
+  if (!erro) {
+    return (
+      <img
+        src={LOGO_SRC}
+        alt="Pedido Prime"
+        className={`${shape} object-cover ${className}`}
+        onError={() => setErro(true)}
+      />
+    );
+  }
+
+  return (
+    <div
+      role="img"
+      aria-label="Pedido Prime"
+      className={`${shape} grid place-items-center bg-[#1A1A1A] text-xs font-black text-[#E8622C] ${className}`}
+    >
+      PP
+    </div>
+  );
+}
+
 // Marca completa: logo + nome (PEDIDO branco / PRIME dourado)
 export function MarcaPedidoPrime({ size = 40, className = "" }) {
   return (
