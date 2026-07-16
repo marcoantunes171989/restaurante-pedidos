@@ -42,6 +42,7 @@ import { obterTema, aplicarTema } from "./lib/theme";
 import { PageHeader, PrimeButton, EmptyState, FilterChip, FilterGroup, FiltersPanel, ActiveFiltersSummary } from "./components/Prime";
 import OperationalCentral from "./pages/OperationalCentral";
 import CentralDePedidos from "./pages/CentralDePedidos";
+import CentralDoCaixa from "./pages/CentralDoCaixa";
 import { ClipboardList, ChefHat, Wine, CreditCard, Utensils, Clock, TrendingUp } from "lucide-react";
 
 export const fallbackImage = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=900&q=80";
@@ -7054,6 +7055,35 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
     );
   }
 
+  // Caixa — tela dedicada (src/pages/CentralDoCaixa.jsx), mesmo padrão das
+  // duas telas acima: só a camada de apresentação é nova. Toda a lógica
+  // (formas de pagamento, baixar comandas, confirmar retirada) continua
+  // vindo das props já recebidas por esta função, sem duplicação.
+  if (tab === "caixa" && permitido("caixa")) {
+    const hojeStrCaixa = new Date().toLocaleDateString("pt-BR");
+    const faturadoHoje = orders
+      .filter((o) => o.paymentStatus === "paid" && o.createdAtISO && new Date(o.createdAtISO).toLocaleDateString("pt-BR") === hojeStrCaixa)
+      .reduce((s, o) => s + totalCom(o), 0);
+    return (
+      <CentralDoCaixa
+        usuarioNome={usuarioNome}
+        lojaInfo={lojaInfo}
+        onFechar={onFechar}
+        liberados={liberados}
+        onNavigate={(id) => setTab(id)}
+        contas={contas}
+        totalCom={totalCom}
+        formasPagamento={formasPagamento}
+        baixarComandas={baixarComandas}
+        confirmarRetirada={confirmarRetirada}
+        haTxt={haTxt}
+        numeroPedido={numeroPedido}
+        telMascarado={telMascarado}
+        faturadoHoje={faturadoHoje}
+      />
+    );
+  }
+
   return (
     <div className="tema-claro-area fixed inset-0 z-[60] w-full max-w-[100vw] overflow-x-hidden overflow-y-auto bg-[#F7F8FA]" data-theme="light" style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "calc(env(safe-area-inset-bottom) + 76px)" }}>
     <div className="mx-auto w-full max-w-md px-4 pt-4 sm:max-w-2xl sm:px-6 lg:max-w-4xl">
@@ -7130,8 +7160,6 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
         </>);
       })()}
 
-      {tab === "caixa" && permitido("caixa") && <CaixaMobile contas={contas} totalCom={totalCom} baixarComandas={baixarComandas} confirmarRetirada={confirmarRetirada} formasPagamento={formasPagamento} lojaInfo={lojaInfo} haTxt={haTxt} numeroPedido={numeroPedido} telMascarado={telMascarado} />}
-
       {/* Bottom nav */}
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-[#E5E7EB] bg-white shadow-[0_-8px_24px_rgba(16,24,40,.06)]" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
         <div className="mx-auto flex max-w-md items-stretch sm:max-w-2xl lg:max-w-4xl">
@@ -7144,129 +7172,6 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
         </div>
       </div>
     </div>
-    </div>
-  );
-}
-
-// Sub-tela de caixa (Operação Mobile) — todo pedido aparece de imediato; o cliente
-// pode pagar a qualquer momento (inclusive antes da retirada) e com várias formas.
-function CaixaMobile({ contas, totalCom, baixarComandas, confirmarRetirada = async () => {}, formasPagamento = [], lojaInfo, haTxt, numeroPedido = {}, telMascarado = () => "" }) {
-  const [pagando, setPagando] = useState(null);
-  const [retirando, setRetirando] = useState(null);
-  // Trava síncrona (ref) contra clique duplo antes do re-render aplicar o "disabled".
-  const pagandoIdsRef = useRef(new Set());
-  async function retirar(o) { setRetirando(o.id); try { await confirmarRetirada(o.id); } catch {} setRetirando(null); }
-  // Lista única de formas de pagamento (dedup por nome normalizado — evita botão
-  // repetido se a origem trouxer o mesmo nome mais de uma vez).
-  const opcoes = (() => {
-    const vistos = new Set(); const out = [];
-    formasPagamento.filter((f) => f.active !== false).forEach((f) => {
-      const nome = (f.nome || "").trim(); const k = nome.toLowerCase();
-      if (nome && !vistos.has(k)) { vistos.add(k); out.push(nome); }
-    });
-    return out.length ? out : ["Pix", "Cartão", "Dinheiro"];
-  })();
-  const abertas = contas.filter((o) => o.paymentStatus !== "paid");
-  const totalAberto = abertas.reduce((s, o) => s + totalCom(o), 0);
-  async function finalizar(o, linhas, total) {
-    if (pagandoIdsRef.current.has(o.id)) return; // clique duplo antes do re-render desabilitar o botão
-    pagandoIdsRef.current.add(o.id);
-    setPagando(o.id);
-    try {
-      const detalhes = linhas.map((l) => ({ forma: l.forma, valor: Number(l.valor) || 0 }));
-      await baixarComandas([o.command], { forma: detalhes.map((d) => d.forma).join(" + "), total, valor: total, detalhes, mesa: o.table, lojaId: lojaInfo?.id }, { manterStatus: true, somenteId: o.id });
-    } catch {}
-    pagandoIdsRef.current.delete(o.id);
-    setPagando(null);
-  }
-  return (
-    <>
-      <div className="mb-3 grid grid-cols-2 gap-2">
-        <div className="rounded-2xl border border-[#F4D27A] bg-[#FFF7E0] px-3 py-2.5"><p className="page-title text-2xl font-bold text-[#9A6A00]">{abertas.length}</p><p className="text-[11px] text-[#667085]">Aguardando pagamento</p></div>
-        <div className="rounded-2xl border border-[#E5E7EB] bg-white px-3 py-2.5 shadow-[0_8px_24px_rgba(16,24,40,.06)]"><p className="page-title text-2xl font-bold text-[#182230]">{formatCurrency(totalAberto)}</p><p className="text-[11px] text-[#667085]">Em aberto</p></div>
-      </div>
-      <div className="space-y-2 sm:grid sm:grid-cols-2 sm:gap-3 sm:space-y-0">
-        {contas.length === 0 && <p className="py-10 text-center text-sm text-[#667085] sm:col-span-2">Nenhuma conta no momento.</p>}
-        {contas.map((o) => o.paymentStatus === "paid"
-          ? <ContaPaga key={o.id} o={o} haTxt={haTxt} onRetirar={retirar} retirando={retirando === o.id} numeroPedido={numeroPedido} telMascarado={telMascarado} />
-          : <ContaCaixa key={o.id} o={o} opcoes={opcoes} pagando={pagando === o.id} onFinalizar={finalizar} haTxt={haTxt} numeroPedido={numeroPedido} telMascarado={telMascarado} />)}
-      </div>
-    </>
-  );
-}
-
-// Conta já paga, aguardando o cliente retirar o produto. A mensagem "aguardando
-// retirada" só existe enquanto NÃO foi confirmada a retirada; ao confirmar, o pedido
-// vira pago+entregue e some da lista de contas imediatamente.
-function ContaPaga({ o, haTxt, onRetirar, retirando, numeroPedido = {}, telMascarado = () => "" }) {
-  const total = orderTotal(o) * 1.1;
-  return (
-    <div className="rounded-3xl border border-[#B7E4C7] bg-[#ECFDF3] p-3.5">
-      <div className="flex items-center justify-between gap-2"><p className="font-black text-[#182230]">Pedido #{numeroPedido[o.id] ?? "—"} · {o.table}</p><span className="text-[11px] text-[#667085]">{haTxt(o)}</span></div>
-      <p className="text-[10px] text-[#98A2B3]">{o.id}</p>
-      <p className="text-xs text-[#475467]">{o.customer || "Cliente"}</p>
-      {telMascarado(o.clienteTelefone) && <p className="text-[11px] text-[#667085]">📞 {telMascarado(o.clienteTelefone)}</p>}
-      {o.pagamentoForma && <p className="text-[11px] font-bold text-[#9A6A00]">💳 {o.pagamentoForma}{o.pagamentoMomento ? ` · ${o.pagamentoMomento}` : ""}</p>}
-      <p className="mt-2 rounded-xl border border-[#B7E4C7] bg-white px-3 py-2 text-center text-sm font-bold text-[#147A4A]">✓ Pago {formatCurrency(total)} · aguardando retirada do produto</p>
-      <button onClick={() => onRetirar(o)} disabled={retirando} className="mt-2 w-full min-h-[44px] rounded-2xl bg-[#16A34A] py-2.5 text-sm font-black text-white transition active:scale-95 disabled:opacity-50">{retirando ? "Confirmando…" : "Confirmar retirada do produto"}</button>
-    </div>
-  );
-}
-
-// Conta em aberto — pagamento com 1 ou mais formas, com validação do valor
-function ContaCaixa({ o, opcoes, pagando, onFinalizar, haTxt, numeroPedido = {}, telMascarado = () => "" }) {
-  const sub = orderTotal(o); const taxa = sub * 0.1; const total = Math.round((sub + taxa) * 100) / 100;
-  const [linhas, setLinhas] = useState([]); // [{ forma, valor }]
-  const soma = Math.round(linhas.reduce((s, l) => s + (Number(l.valor) || 0), 0) * 100) / 100;
-  const restante = Math.round((total - soma) * 100) / 100;
-  const valido = linhas.length > 0 && linhas.every((l) => (Number(l.valor) || 0) > 0) && Math.abs(restante) < 0.01;
-  // Máscara de moeda: o valor é guardado como número (reais); o input mostra "1.234,56"
-  // e ao digitar preenche da direita p/ esquerda (cada dígito entra como centavo).
-  const fmtMoeda = (n) => (Number(n) || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const toggleForma = (f) => setLinhas((cur) => {
-    if (cur.some((l) => l.forma === f)) return cur.filter((l) => l.forma !== f);
-    const pagoAtual = cur.reduce((s, l) => s + (Number(l.valor) || 0), 0);
-    const falta = Math.max(0, Math.round((total - pagoAtual) * 100) / 100);
-    return [...cur, { forma: f, valor: falta }];
-  });
-  const editarValor = (f, raw) => setLinhas((cur) => cur.map((l) => l.forma === f ? { ...l, valor: parseInt(String(raw).replace(/\D/g, "") || "0", 10) / 100 } : l));
-  return (
-    <div className="rounded-3xl border border-[#F4D27A] bg-white p-3.5 shadow-[0_8px_24px_rgba(16,24,40,.06)]">
-      <div className="flex items-center justify-between gap-2"><p className="font-black text-[#182230]">Pedido #{numeroPedido[o.id] ?? "—"} · {o.table}</p><span className="text-[11px] text-[#667085]">{haTxt(o)}</span></div>
-      <p className="text-[10px] text-[#98A2B3]">{o.id}</p>
-      <p className="text-xs text-[#475467]">{o.customer || "Cliente"}</p>
-      {telMascarado(o.clienteTelefone) && <p className="text-[11px] text-[#667085]">📞 {telMascarado(o.clienteTelefone)}</p>}
-      {o.pagamentoForma && <p className="text-[11px] font-bold text-[#9A6A00]">💳 Cliente quer pagar: {o.pagamentoForma}{o.pagamentoMomento ? ` · ${o.pagamentoMomento}` : ""}</p>}
-      <div className="mt-2 space-y-0.5 border-t border-[#E5E7EB] pt-2">
-        {o.items.map((it, i) => (<div key={i} className="flex justify-between text-sm"><span className="text-[#475467]">{it.quantity}× {it.name}</span><span className="font-bold text-[#182230]">{formatCurrency(it.price * it.quantity)}</span></div>))}
-      </div>
-      <div className="mt-2 space-y-0.5 border-t border-[#E5E7EB] pt-2 text-sm">
-        <div className="flex justify-between text-[#475467]"><span>Subtotal</span><span className="text-[#182230]">{formatCurrency(sub)}</span></div>
-        <div className="flex justify-between text-[#475467]"><span>Taxa de serviço (10%)</span><span className="text-[#182230]">{formatCurrency(taxa)}</span></div>
-        <div className="flex justify-between text-base font-black"><span className="text-[#182230]">Total</span><span className="text-[#147A4A]">{formatCurrency(total)}</span></div>
-      </div>
-      <p className="mt-2 text-[10px] font-bold uppercase tracking-wide text-[#667085]">Forma(s) de pagamento</p>
-      <div className="mt-1 grid grid-cols-2 gap-1.5">
-        {opcoes.map((f) => { const on = linhas.some((l) => l.forma === f);
-          return <button key={f} onClick={() => toggleForma(f)} className={`flex min-h-[40px] items-center justify-center gap-1 rounded-xl border px-2 py-1.5 text-center text-xs font-bold transition ${on ? "border-[#D9A441] bg-[#D9A441] text-[#182230]" : "border-[#E5E7EB] bg-white text-[#475467] hover:bg-[#F9FAFB]"}`}>{on && <span>✓</span>}<span className="truncate">{f}</span></button>;
-        })}
-      </div>
-      {linhas.length > 0 && (
-        <div className="mt-2 space-y-1.5">
-          {linhas.map((l) => (
-            <div key={l.forma} className="flex items-center gap-2">
-              <span className="min-w-0 flex-1 text-xs font-bold leading-tight text-[#9A6A00]">{l.forma}</span>
-              <span className="shrink-0 text-xs text-[#667085]">R$</span>
-              <input inputMode="numeric" value={fmtMoeda(l.valor)} onChange={(e) => editarValor(l.forma, e.target.value)} className="w-24 shrink-0 rounded-lg border border-[#D0D5DD] bg-white px-2 py-1 text-right text-sm font-bold text-[#182230] outline-none focus:border-[#2563EB]" />
-            </div>
-          ))}
-          <div className="flex items-center justify-between text-[11px]">
-            <span className={Math.abs(restante) < 0.01 ? "font-bold text-[#147A4A]" : restante > 0 ? "font-bold text-[#9A6A00]" : "font-bold text-[#B42318]"}>{Math.abs(restante) < 0.01 ? "Valor confere ✓" : restante > 0 ? `Falta ${formatCurrency(restante)}` : `Excede ${formatCurrency(-restante)}`}</span>
-            <span className="text-[#667085]">Pago {formatCurrency(soma)} / {formatCurrency(total)}</span>
-          </div>
-        </div>
-      )}
-      <button onClick={() => onFinalizar(o, linhas, total)} disabled={!valido || pagando} className="mt-2.5 w-full min-h-[44px] rounded-2xl bg-[#16A34A] py-2.5 text-sm font-black text-white transition active:scale-95 disabled:cursor-not-allowed disabled:bg-[#E5E7EB] disabled:text-[#98A2B3]">{pagando ? "Registrando…" : linhas.length === 0 ? "Selecione a forma de pagamento" : !valido ? "Confirme o valor" : "Finalizar pagamento"}</button>
     </div>
   );
 }
