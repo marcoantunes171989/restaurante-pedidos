@@ -9,7 +9,9 @@
       "Bash(supabase --version)",
       "Bash(psql --version)",
       "Bash(supabase db *)",
-      "Bash(git stash *)"
+      "Bash(git stash *)",
+      "Bash(cd \"/c/Projetos/helpdesk-atendify/helpdesk/helpdesk/backend/src\" && find . -iname \"companyController*\" -o -iname \"company.route*\" | head)",
+      "Read(//c/Projetos/helpdesk-atendify/helpdesk/helpdesk/backend/src/**)"
     ]
   }
 }
