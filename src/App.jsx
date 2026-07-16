@@ -2120,7 +2120,16 @@ export default function RestaurantePedidoApp() {
       )}
       {emOperacional ? (
         <div className="relative mx-auto w-full max-w-7xl px-4 pt-4 sm:px-6 lg:px-8">
-          <OperacaoMobileView orders={orders} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} confirmarRetirada={confirmarRetirada} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} products={products} setores={filtraLoja(setoresCozinha)} formasPagamento={formasPagamentoLoja} lojaInfo={lojaInfo} perms={acessosOperacionais(currentUser)} usuarioNome={currentUser?.name || ""} tabInicial={opmobileTab} onTabChange={setOpmobileTab} onFechar={() => setActiveTab(allowedTabs[0]?.id || "tablet")} />
+          {/* onFechar aqui precisa ser o logout de verdade (não trocar de aba):
+              esta é a rota standalone /operacional/*, sem hub/admin ao redor —
+              "Sair" tem que encerrar a sessão e voltar para /login, não apenas
+              fechar a ferramenta atual. Reaproveita a MESMA `logout()` usada
+              pelos outros botões "Sair" do app (Supabase signOut + limpeza das
+              chaves de sessão + navegação para /login já revisadas ali; não
+              duplicar essa lógica aqui). O onFechar do embutido dentro do
+              admin (abaixo, "operacaomobile") continua voltando ao dashboard —
+              ali o usuário não está "saindo do app", só fechando a ferramenta. */}
+          <OperacaoMobileView orders={orders} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} confirmarRetirada={confirmarRetirada} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} products={products} setores={filtraLoja(setoresCozinha)} formasPagamento={formasPagamentoLoja} lojaInfo={lojaInfo} perms={acessosOperacionais(currentUser)} usuarioNome={currentUser?.name || ""} tabInicial={opmobileTab} onTabChange={setOpmobileTab} onFechar={logout} />
         </div>
       ) : (
       <div className="relative mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
