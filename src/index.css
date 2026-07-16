@@ -722,6 +722,31 @@ select::-ms-expand { display: none; } /* IE/Edge antigo */
       backdrop-filter: blur(18px);
     }
   }
+
+  /* Badge "Operação em tempo real" — mesma lógica: fallback sólido
+     primeiro (tom grafite/marrom da marca, igual ao pedido), depois
+     vidro fosco onde há suporte a backdrop-filter. Ponto/indicador verde
+     e o formato em pílula (rounded-full, já no JSX) não mudam. */
+  .pp-status-badge-glass {
+    background: rgba(40, 32, 28, 0.78); /* fallback sem backdrop-filter */
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+    color: #ffffff;
+  }
+
+  @supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+    .pp-status-badge-glass {
+      background: rgba(255, 255, 255, 0.12);
+      -webkit-backdrop-filter: blur(16px);
+      backdrop-filter: blur(16px);
+    }
+  }
+
+  /* Título "Central Operacional" — branco explícito, só para blindar o
+     contraste no mobile real (tamanho/peso/posição intocados: só color). */
+  .pp-operational-title {
+    color: #ffffff;
+  }
 }
 
 /* ── Scrollbar minimalista (global) ─────────────────────────── */

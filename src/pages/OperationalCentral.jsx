@@ -68,14 +68,14 @@ export default function OperationalCentral({ user = "Administrador", role = "Ges
                style={{ background: brand.primary }} />
           <div className="relative flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-medium backdrop-blur">
+              <div className="pp-status-badge-glass mb-2 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-medium backdrop-blur">
                 <span className="relative flex h-2 w-2">
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75" style={{ background: brand.success }} />
                   <span className="relative inline-flex h-2 w-2 rounded-full" style={{ background: brand.success }} />
                 </span>
                 Operação em tempo real
               </div>
-              <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Central Operacional</h1>
+              <h1 className="pp-operational-title text-2xl font-bold tracking-tight md:text-3xl">Central Operacional</h1>
               <p className="mt-1 text-sm text-white/70">
                 {user} · <span style={{ color: brand.gold }}>{role}</span>
               </p>
