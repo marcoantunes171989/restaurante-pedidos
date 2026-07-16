@@ -723,20 +723,24 @@ select::-ms-expand { display: none; } /* IE/Edge antigo */
     }
   }
 
-  /* Badge "Operação em tempo real" — mesma lógica: fallback sólido
-     primeiro (tom grafite/marrom da marca, igual ao pedido), depois
-     vidro fosco onde há suporte a backdrop-filter. Ponto/indicador verde
-     e o formato em pílula (rounded-full, já no JSX) não mudam. */
+  /* Badge "Operação em tempo real" — mesmo padrão visual/técnica do botão
+     "Sair" (fallback sólido primeiro, vidro fosco via @supports depois),
+     com os valores pedidos para esta correção. Não é a mesma classe
+     .pp-glass-surface do Sair porque essa classe também estiliza o botão
+     em TODOS os breakpoints (sem media query); aplicá-la direto no badge
+     mudaria a aparência dele no desktop também, e o pedido é mobile-only
+     sem tocar no Sair. Ponto/indicador verde e o formato em pílula
+     (rounded-full, já no JSX) não mudam. */
   .pp-status-badge-glass {
-    background: rgba(40, 32, 28, 0.78); /* fallback sem backdrop-filter */
-    border: 1px solid rgba(255, 255, 255, 0.22);
+    background: rgba(45, 36, 32, 0.78); /* fallback sem backdrop-filter */
+    border: 1px solid rgba(255, 255, 255, 0.12);
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
     color: #ffffff;
   }
 
   @supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
     .pp-status-badge-glass {
-      background: rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.08);
       -webkit-backdrop-filter: blur(16px);
       backdrop-filter: blur(16px);
     }
