@@ -15,13 +15,18 @@ const brand = {
   info: "#2563eb",
 };
 
-// Superfície "vidro" reutilizável (cards de KPI + botão Sair, sobre o
-// header escuro). O fundo escuro translúcido, borda, cor de texto e
-// blur/hover progressivos vêm inteiramente de .pp-glass-surface
-// (index.css) via background-color: rgba(...) direto na classe — não de
-// utilities Tailwind (bg-white/5, border-white/*), que dependiam de
-// cascata/parser e podiam cair no branco nativo do <button>/fundo padrão
-// em WebKit/WebView móvel. Ver comentário completo em index.css.
+// Superfície "vidro" reutilizável (cards de KPI + botão Sair + badge
+// "Operação em tempo real", sobre o header escuro). O fundo escuro
+// translúcido, borda, cor de texto e blur/hover progressivos vêm
+// inteiramente de .pp-glass-surface (index.css) via background-color:
+// rgba(...) direto na classe — não de utilities Tailwind (bg-white/5,
+// border-white/*), que dependiam de cascata/parser e podiam cair no
+// branco nativo do <button>/fundo padrão em WebKit/WebView móvel. O
+// badge usa a MESMA classe (não uma cópia dos valores) e um reset em
+// index.css (@media min-width:768px .pp-status-badge.pp-glass-surface)
+// restaura sua aparência original em telas >=768px, já que
+// .pp-glass-surface não tem media query própria (estiliza o Sair em
+// qualquer largura). Ver comentário completo em index.css.
 const GLASS_SURFACE = "pp-glass-surface";
 
 // Shape/placeholder — a tela real recebe `modules`/`kpis` via props, vindos
@@ -68,7 +73,7 @@ export default function OperationalCentral({ user = "Administrador", role = "Ges
                style={{ background: brand.primary }} />
           <div className="relative flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <div className="pp-status-badge-glass mb-2 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-medium backdrop-blur">
+              <div className={`${GLASS_SURFACE} pp-status-badge mb-2 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-medium backdrop-blur`}>
                 <span className="relative flex h-2 w-2">
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75" style={{ background: brand.success }} />
                   <span className="relative inline-flex h-2 w-2 rounded-full" style={{ background: brand.success }} />
