@@ -19,14 +19,30 @@ const brand = {
 // "Operação em tempo real", sobre o header escuro). O fundo escuro
 // translúcido, borda, cor de texto e blur/hover progressivos vêm
 // inteiramente de .pp-glass-surface (index.css) via background-color:
-// rgba(...) direto na classe — não de utilities Tailwind (bg-white/5,
-// border-white/*), que dependiam de cascata/parser e podiam cair no
-// branco nativo do <button>/fundo padrão em WebKit/WebView móvel. O
-// badge usa a MESMA classe (não uma cópia dos valores) e um reset em
-// index.css (@media min-width:768px .pp-status-badge.pp-glass-surface)
-// restaura sua aparência original em telas >=768px, já que
-// .pp-glass-surface não tem media query própria (estiliza o Sair em
-// qualquer largura). Ver comentário completo em index.css.
+// rgba(...) direto na classe. O badge usa a MESMA classe (não uma cópia
+// dos valores) e um reset em index.css (@media min-width:768px
+// .pp-status-badge.pp-glass-surface) restaura sua aparência original em
+// telas >=768px, já que .pp-glass-surface não tem media query própria
+// (estiliza o Sair em qualquer largura). Ver comentário completo em
+// index.css.
+//
+// CAUSA RAIZ do "fundo branco" (achada por inspeção real do CSS
+// compilado, não presumida): index.css tem regras globais de
+// repaint do tema claro — [data-theme="light"] .tema-claro-area
+// .bg-white\/10 { background-color:#F5F4F0 !important } e o mesmo para
+// .text-white { color:var(--pp-graphite) !important } — criadas para
+// re-pintar telas do admin que reaproveitam classes "escuras" dentro de
+// áreas claras. <html> recebe data-theme="light" por padrão (ver
+// src/lib/theme.js), e esta tela vive dentro de <div className=
+// "tema-claro-area"> (App.jsx, wrapper de /operacional) — então QUALQUER
+// elemento aqui com a classe literal `bg-white/10` ou `text-white` era
+// hijackado por esse !important, em qualquer breakpoint (não só mobile).
+// Antes a solução tentava vencer essa regra com media query/especifi-
+// cidade, o que não funciona contra !important. A correção definitiva é
+// não usar esses nomes de classe Tailwind reservados no header: cor de
+// texto vem de .pp-operational-header (abaixo) e o fundo do badge vem só
+// de .pp-glass-surface/.pp-status-badge — nenhum dos dois é alvo das
+// regras globais, então o !important nunca entra em jogo.
 const GLASS_SURFACE = "pp-glass-surface";
 
 // Shape/placeholder — a tela real recebe `modules`/`kpis` via props, vindos
@@ -66,21 +82,21 @@ export default function OperationalCentral({ user = "Administrador", role = "Ges
         {/* HERO HEADER */}
         <motion.header
           initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }}
-          className="relative overflow-hidden rounded-3xl p-6 md:p-8 text-white shadow-lg"
+          className="pp-operational-header relative overflow-hidden rounded-3xl p-6 md:p-8 shadow-lg"
           style={{ background: `linear-gradient(135deg, ${brand.graphite} 0%, #2a1a12 60%, ${brand.primaryHover} 140%)` }}
         >
           <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full opacity-20 blur-2xl"
                style={{ background: brand.primary }} />
           <div className="relative flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <div className={`${GLASS_SURFACE} pp-status-badge mb-2 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-medium backdrop-blur`}>
+              <div className={`${GLASS_SURFACE} pp-status-badge mb-2 inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium`}>
                 <span className="relative flex h-2 w-2">
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75" style={{ background: brand.success }} />
                   <span className="relative inline-flex h-2 w-2 rounded-full" style={{ background: brand.success }} />
                 </span>
                 Operação em tempo real
               </div>
-              <h1 className="pp-operational-title text-2xl font-bold tracking-tight md:text-3xl">Central Operacional</h1>
+              <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Central Operacional</h1>
               <p className="mt-1 text-sm text-white/70">
                 {user} · <span style={{ color: brand.gold }}>{role}</span>
               </p>

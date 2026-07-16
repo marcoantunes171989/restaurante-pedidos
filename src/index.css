@@ -638,6 +638,23 @@ select {
 }
 select::-ms-expand { display: none; } /* IE/Edge antigo */
 
+/* ── Header escuro da Central Operacional ────────────────────────
+   Cor de texto branca definida numa classe própria (NÃO `text-white`
+   do Tailwind) porque index.css tem uma regra global —
+   [data-theme="light"] .tema-claro-area .text-white { color:
+   var(--pp-graphite) !important } — que repinta esse nome de classe
+   exato para texto escuro em qualquer área "tema claro" (inclusive
+   este wrapper, já que <html> recebe data-theme="light" por padrão via
+   src/lib/theme.js). Como .text-white é usado por outras dezenas de
+   telas do admin que precisam ficar escuras no tema claro, a correção
+   certa não é lutar contra o !important — é este header não usar esse
+   nome de classe. Título, subtítulo e valores de KPI herdam esta cor
+   normalmente (nenhum !important envolvido, nenhuma regra global
+   compila para ".pp-operational-header"). */
+.pp-operational-header {
+  color: #ffffff;
+}
+
 /* ── Superfície "vidro" reutilizável (Central Operacional) ──────
    Cards de KPI + botão Sair sobre o header escuro. A cor de fundo é
    definida aqui via rgba() sólido — NÃO em `bg-white/5` do Tailwind —
@@ -741,12 +758,6 @@ select::-ms-expand { display: none; } /* IE/Edge antigo */
       -webkit-backdrop-filter: blur(18px);
       backdrop-filter: blur(18px);
     }
-  }
-
-  /* Título "Central Operacional" — branco explícito, só para blindar o
-     contraste no mobile real (tamanho/peso/posição intocados: só color). */
-  .pp-operational-title {
-    color: #ffffff;
   }
 }
 
