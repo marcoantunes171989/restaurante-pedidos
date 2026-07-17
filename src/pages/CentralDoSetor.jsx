@@ -1,14 +1,5 @@
 import OperationalFlowPage from "../components/OperationalFlowPage";
-import OrderItemsList from "../components/OrderItemsList";
-
-// Mesmo vocabulário visual de tag da Central de Pedidos (.pp-cp-tag-*,
-// já em index.css) — Cozinha e Bar não têm estado "pgto", só as 3 fases
-// reais do preparo.
-const VARIANTE = {
-  novo: { tag: "Novo", tagCls: "pp-cp-tag-novo", accent: "var(--cp-blue)" },
-  preparo: { tag: "Em preparo", tagCls: "pp-cp-tag-preparo", accent: "var(--cp-amber)" },
-  pronto: { tag: "Pronto", tagCls: "pp-cp-tag-pronto", accent: "var(--cp-green)" },
-};
+import OperationalOrderCard from "../components/OperationalOrderCard";
 
 // Textos de coluna vazia — deliberadamente iguais para Cozinha e Bar (é o
 // que o pedido de padronização define), por isso ficam fixos aqui em vez
@@ -18,73 +9,6 @@ const COLUNAS_META = [
   { key: "preparo", label: "Em preparo", dot: "var(--cp-amber)", variante: "preparo", vazio: { ic: "🍳", txt: "Nenhum pedido em preparo" } },
   { key: "prontos", label: "Prontos", dot: "var(--cp-green)", variante: "pronto", vazio: { ic: "📦", txt: "Nada pronto no momento" } },
 ];
-
-/** Um bloco de itens por setor (um pedido pode ter mais de um setor ao
- * mesmo tempo: cozinha + bar, por exemplo) — cada setor tem seu próprio
- * "pronto", igual à lógica original. */
-function SetorBloco({ o, sk, its, metaSetor, setorPronto, onMarcarPronto }) {
-  const sm = metaSetor(sk);
-  const pronto = setorPronto(o, sk);
-  return (
-    <div className="pp-cp-station-block">
-      <div className="pp-cp-station-head">
-        <span className="pp-cp-station-badge">{sm.ic} {sm.label}</span>
-        {o.status === "preparing" && (
-          pronto
-            ? <span className="pp-cp-station-ready">✓ pronto</span>
-            : <button className="pp-cp-btn-mini" onClick={onMarcarPronto} type="button">Marcar pronto</button>
-        )}
-      </div>
-      <OrderItemsList items={its} />
-    </div>
-  );
-}
-
-/** Card de pedido — mesmo componente para as 3 colunas do kanban e para a
- * lista, em Cozinha e Bar; layout idêntico ao OrderCard da Central de
- * Pedidos (mesmas classes pp-cp-*), com o corpo trocado para os setores/
- * itens/ações reais de produção (nunca um único total de pagamento). */
-function OrderCard({
-  o, variante, setoresNoPedido, action,
-  origemDe, haTxt, numeroPedido, itensDoSetor, metaSetor, setorPronto, onMarcarPronto,
-}) {
-  const meta = VARIANTE[variante];
-  const org = origemDe(o);
-  const [tableBase, tableSub] = String(o.table || "").split(" · ");
-
-  return (
-    <div className="pp-cp-order">
-      <div className="pp-cp-order-accent" style={{ background: meta.accent }} />
-      <div className="pp-cp-order-top">
-        <span className={`pp-cp-tag ${meta.tagCls}`}>{meta.tag}</span>
-        <span className="pp-cp-chan">{org.ic} {org.l}{haTxt(o) ? ` · ${haTxt(o)}` : ""}</span>
-      </div>
-
-      <h4>Pedido #{numeroPedido[o.id] ?? "—"} · {tableBase || o.table}</h4>
-      <div className="pp-cp-oid">{o.id}{tableSub ? ` · ${tableSub}` : ""}</div>
-
-      <div className="pp-cp-cust">
-        <div className="pp-cp-row"><span className="pp-cp-ci">👤</span><b>{o.customer || "Cliente"}</b></div>
-        {o.pagamentoForma && (
-          <div className="pp-cp-row">
-            <span className="pp-cp-ci">💳</span>
-            {o.pagamentoForma}{o.pagamentoMomento ? <> · <span style={{ color: "var(--cp-amber)" }}>{o.pagamentoMomento}</span></> : ""}
-          </div>
-        )}
-      </div>
-
-      {setoresNoPedido.map((sk) => {
-        const its = itensDoSetor(o, sk);
-        if (its.length === 0) return null;
-        return (
-          <SetorBloco key={sk} o={o} sk={sk} its={its} metaSetor={metaSetor} setorPronto={setorPronto} onMarcarPronto={() => onMarcarPronto(sk)} />
-        );
-      })}
-
-      {action && <div className="pp-cp-actions">{action}</div>}
-    </div>
-  );
-}
 
 /**
  * Tela de setor de produção (Cozinha e Bar — /operacional/cozinha e
@@ -162,7 +86,7 @@ export default function CentralDoSetor({
     // contrato de sempre em marcarSetorPronto(id, setor, setoresPresentes).
     const setoresNoPedido = setoresPresentesSetor(o);
     return (
-      <OrderCard
+      <OperationalOrderCard
         key={o.id} o={o} variante={variante} setoresNoPedido={setoresNoPedido} action={actionPara(o, variante, setoresNoPedido)}
         origemDe={origemDe} haTxt={haTxt} numeroPedido={numeroPedido} itensDoSetor={itensDoSetor} metaSetor={metaSetor}
         setorPronto={setorPronto} onMarcarPronto={(sk) => onMarcarSetorPronto(o.id, sk, setoresPresentes(o))}
