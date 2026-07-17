@@ -6964,7 +6964,7 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
         ? { l: "🔒 Aguardando pagamento", fn: null, c: "bg-[#F3F4F6] text-[#98A2B3]", disabled: true }
         : { l: "Entregue", fn: () => marcarEntregue(o.id), c: "bg-[#2563EB] text-white" })
     : null;
-  const titulo = tab === "central" ? "Central Operacional" : tab === "pedidos" ? "Central de Pedidos" : tab === "cozinha" ? "Cozinha" : tab === "bar" ? "Bar" : "Caixa";
+  const titulo = tab === "central" ? "Central Operacional" : tab === "pedidos" ? "Pedidos" : tab === "cozinha" ? "Cozinha" : tab === "bar" ? "Bar" : "Caixa";
 
   // Central Operacional — tela dedicada (src/pages/OperationalCentral.jsx),
   // substitui totalmente o antigo grid de cards + cabeçalho compartilhado

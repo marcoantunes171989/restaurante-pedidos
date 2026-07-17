@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import OperationalBottomNav from "../components/OperationalBottomNav";
 import { OperationalBrandLogo } from "../components/BrandLogo";
+import OrderItemsList from "../components/OrderItemsList";
 
 // Mesmo vocabulário visual de tag da Central de Pedidos (.pp-cp-tag-*,
 // já em index.css) — Cozinha e Bar não têm estado "pgto", só as 3 fases
@@ -36,20 +37,7 @@ function SetorBloco({ o, sk, its, metaSetor, setorPronto, onMarcarPronto }) {
             : <button className="pp-cp-btn-mini" onClick={onMarcarPronto} type="button">Marcar pronto</button>
         )}
       </div>
-      <div className="pp-cp-items">
-        {its.map((it, i) => {
-          const mods = [...(it.removedIngredients || []).map((x) => "− " + x), ...(it.extraIngredients || []).map((x) => "+ " + x), it.observation].filter(Boolean).join(" · ");
-          return (
-            <div key={i} className="pp-cp-item-wrap">
-              <div className="pp-cp-item">
-                <span className="pp-cp-qty">{it.quantity}×</span>
-                <span className="pp-cp-nm">{it.name}</span>
-              </div>
-              {mods && <p className="pp-cp-item-mods">{mods}</p>}
-            </div>
-          );
-        })}
-      </div>
+      <OrderItemsList items={its} />
     </div>
   );
 }

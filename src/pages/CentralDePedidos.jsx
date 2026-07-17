@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { formatCurrency } from "../App";
 import OperationalBottomNav from "../components/OperationalBottomNav";
 import { OperationalBrandLogo } from "../components/BrandLogo";
+import OrderItemsList from "../components/OrderItemsList";
 
 // Metadados visuais por status/variante de card — só estilo (label, cor,
 // tag), nunca decide o que é aceito/entregue/pago (isso continua 100% em
@@ -67,14 +68,7 @@ function OrderCard({
         return (
           <div key={sk}>
             <span className="pp-cp-station-badge">{sm.ic} {sm.label}</span>
-            <div className="pp-cp-items">
-              {its.map((it, i) => (
-                <div key={i} className="pp-cp-item">
-                  <span className="pp-cp-qty">{it.quantity}×</span>
-                  <span className="pp-cp-nm">{it.name}</span>
-                </div>
-              ))}
-            </div>
+            <OrderItemsList items={its} />
           </div>
         );
       })}
@@ -166,7 +160,7 @@ export default function CentralDePedidos({
           <div className="pp-cp-brand">
             <OperationalBrandLogo />
             <div>
-              <h1>Central de Pedidos</h1>
+              <h1>Pedidos</h1>
               <p><span className="pp-cp-dot" />{lojaInfo?.nome || "Operação da loja"} · {usuarioNome || "Operador"} · <b style={{ color: "var(--cp-txt-dim)" }}>Online</b></p>
             </div>
           </div>
@@ -224,7 +218,7 @@ export default function CentralDePedidos({
         </div>
 
         <div className="pp-cp-board-head">
-          <h2>Fluxo operacional</h2>
+          <h2>Fluxo de pedidos</h2>
           <div className="pp-cp-view-toggle">
             <button className={view === "kanban" ? "is-active" : ""} onClick={() => setView("kanban")} type="button">Kanban</button>
             <button className={view === "lista" ? "is-active" : ""} onClick={() => setView("lista")} type="button">Lista</button>
