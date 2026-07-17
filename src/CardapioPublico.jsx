@@ -4,7 +4,7 @@ import {
   escutarLojas, inserirPedido, atualizarPedido, escutarPedidos,
   buscarClientePorTelefone, upsertCliente, criarChamado,
   rpcCriarPedidoPublico, rpcUpsertClientePublico, rpcBuscarClientePublico, rpcPedidosComanda, rpcPedidosCliente, rpcSolicitarContaPublico, rpcCriarChamadoPublico,
-  rpcPesquisaSatisfacao, inserirPesquisaSatisfacao,
+  rpcPesquisaSatisfacao, inserirPesquisaSatisfacao, rpcStatusMesa,
 } from "./lib/supabase";
 import { cardapioViaRpc } from "./lib/authMode";
 import { useScrollLock } from "./lib/scrollLock";
@@ -132,6 +132,13 @@ export default function CardapioPublico() {
   const [agora, setAgora] = useState(() => new Date()); // relógio p/ reavaliar aberto/fechado ao vivo
   const [comboRemover, setComboRemover] = useState(null); // item de combo aguardando confirmação de remoção
 
+  // Confirmação obrigatória de "mesa ocupada" (QR por mesa) — status vem do
+  // backend (pub_status_mesa, migration 067), nunca de cache/estado local.
+  // statusMesa: null = ainda checando · { ocupada, numero, nome } = resolvido.
+  const [statusMesa, setStatusMesa] = useState(null);
+  const [ocupacaoConfirmada, setOcupacaoConfirmada] = useState(false); // cliente respondeu "Sim" pra ocupação já vista
+  const [ocupacaoRecusada, setOcupacaoRecusada] = useState(false);     // cliente respondeu "Não" → bloqueia
+
   // Carrega empresa (por prefixo) + produtos + categorias
   useEffect(() => {
     let vivo = true;
@@ -217,6 +224,18 @@ export default function CardapioPublico() {
   const mesaCadastrada = mesasLoja === null ? null
     : mesasLoja.find((m) => midURL ? String(m.id) === midURL : m.numero === Number(mesaURL));
   const mesaValida = !mesaURL || mesasLoja === null || (!!mesaCadastrada && mesaCadastrada.active !== false && mesaCadastrada.permiteQr !== false);
+
+  // Status ao vivo da mesa (ocupada = tem pedido aberto não pago/cancelado
+  // nela, migration 067) — direto do backend, nunca de cache. Só se aplica
+  // ao canal mesa, com mesa real confirmada (mesaValida) e modo permitido.
+  useEffect(() => {
+    let vivo = true;
+    if (!mesaURL || !loja || !podeMesa || !mesaValida || !mesaCadastrada) return;
+    rpcStatusMesa({ lojaId: loja.id, mesaNumero: Number(mesaURL), mesaId: mesaCadastrada.id })
+      .then((s) => { if (vivo) setStatusMesa(s); });
+    return () => { vivo = false; };
+  }, [mesaURL, loja, podeMesa, mesaValida, mesaCadastrada]);
+
   // Configurações do pedido externo (aba "Pedido externo" — config_externo)
   const cfgExt = loja?.configExterno || {};
   const aceitaExterno = cfgExt.aceitaPedidoExterno !== false; // padrão: aceita
@@ -577,6 +596,14 @@ export default function CardapioPublico() {
   async function enviar() {
     if (cart.length === 0) return;
     if (bloqueioHorario) return setMsg({ t: "error", m: "O estabelecimento está fechado no momento. Consulte os horários de atendimento." });
+    // Revalida a ocupação da mesa direto no backend antes de concluir — evita
+    // cache/concorrência: se a mesa ficou ocupada durante a navegação e o
+    // cliente ainda não confirmou essa ocupação, pede confirmação agora e
+    // NÃO envia o pedido ainda (o cliente confirma e clica em enviar de novo).
+    if (!modoExterno && mesaCadastrada && !ocupacaoConfirmada) {
+      const fresco = await rpcStatusMesa({ lojaId: loja.id, mesaNumero: Number(mesa), mesaId: mesaCadastrada.id });
+      if (fresco?.ocupada) { setStatusMesa(fresco); return; }
+    }
     const itens = cart.map((i) => ({ name: i.name, quantity: i.quantity, price: i.price, selectedIngredients: i.selectedIngredients, removedIngredients: i.removedIngredients, extraIngredients: i.extraIngredients, selectedOptions: i.selectedOptions || [], observation: i.observation }));
     // Forma de pagamento (aba "Pagamento" — vale para pedido interno e externo)
     if (formasPagto.length === 0) return setMsg({ t: "error", m: "Nenhuma forma de pagamento está disponível no momento." });
@@ -695,6 +722,39 @@ export default function CardapioPublico() {
     ? <Centro><span className="text-5xl">📵</span><p className="mt-3 font-black text-white">QR por mesa indisponível</p><p className="mt-1 text-sm text-slate-500">O QR Code por mesa está disponível nos modos Interno ou Ambos.</p></Centro>
     : <Centro><span className="text-5xl">📵</span><p className="mt-3 font-black text-white">Cardápio externo indisponível</p><p className="mt-1 text-sm text-slate-500">Esta empresa não habilitou o cardápio digital para o cliente.</p></Centro>;
   if (mesaURL && !mesaValida) return <Centro><span className="text-5xl">🚫</span><p className="mt-3 font-black text-white">QR Code inválido</p><p className="mt-1 text-sm text-slate-500">Esta mesa não foi encontrada ou está inativa. Fale com a equipe do estabelecimento.</p></Centro>;
+  // Nunca libera o cardápio antes de saber se a mesa está ocupada — evita
+  // qualquer flash do cardápio antes do modal de confirmação aparecer.
+  if (mesaURL && podeMesa && mesaCadastrada && statusMesa === null) return <Centro><Spinner /><p className="mt-3 text-sm text-slate-400">Verificando a mesa…</p></Centro>;
+  // Cliente recusou a confirmação de mesa ocupada — bloqueia e orienta a
+  // escanear o QR certo (não deixa seguir para o cardápio).
+  if (mesaURL && ocupacaoRecusada) return <Centro><span className="text-5xl">🔍</span><p className="mt-3 font-black text-white">Confira o QR Code</p><p className="mt-1 text-sm text-slate-500">Escaneie o QR Code afixado na sua mesa para continuar.</p></Centro>;
+  // Confirmação OBRIGATÓRIA de mesa ocupada — status vem sempre do backend
+  // (pub_status_mesa, migration 067), nunca de cache. Só aparece quando
+  // realmente ocupada (nunca para mesa disponível) e bloqueia o cardápio até
+  // o cliente responder.
+  if (mesaURL && statusMesa?.ocupada && !ocupacaoConfirmada) {
+    const numeroFmt = String(statusMesa.numero ?? mesaURL).padStart(2, "0");
+    return (
+      <div data-theme="light" className="tema-claro-area fixed inset-0 z-[130] flex min-h-screen w-full max-w-[100vw] items-center justify-center overflow-x-hidden bg-black/75 p-6 backdrop-blur-sm" style={{ minHeight: "100dvh" }}>
+        <div role="alertdialog" aria-modal="true" aria-labelledby="msg-mesa-ocupada" className="w-full max-w-sm rounded-3xl border border-white/10 bg-slate-900 p-5 text-center">
+          <p className="text-3xl">🍽️</p>
+          <p id="msg-mesa-ocupada" className="mt-2 text-base font-black text-white">Esta mesa já está ocupada.</p>
+          <p className="mt-1 text-sm text-slate-400">
+            Você está realmente na <b className="text-white">Mesa {numeroFmt}{statusMesa.nome ? ` — ${statusMesa.nome}` : ""}</b>?
+          </p>
+          <p className="mt-2 text-xs text-slate-500">Ao continuar, seu pedido será adicionado aos pedidos já existentes desta mesa.</p>
+          <div className="mt-4 flex flex-col gap-2">
+            <button onClick={() => setOcupacaoConfirmada(true)} type="button" className="min-h-[44px] w-full rounded-2xl bg-[#D9A441] py-3 text-sm font-black text-[#182230] transition active:scale-95 hover:bg-[#C7922F]">
+              Sim, estou na Mesa {numeroFmt}
+            </button>
+            <button onClick={() => setOcupacaoRecusada(true)} type="button" className="min-h-[44px] w-full rounded-2xl border border-white/10 bg-white/[0.06] py-3 text-sm font-black text-slate-300 transition active:scale-95 hover:bg-white/10">
+              Não, cancelar
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // ── Tela de boas-vindas (somente no modo mesa via QR) ──────────
   if (etapa === "welcome") {

@@ -595,6 +595,17 @@ export async function rpcBuscarClientePublico({ lojaId, telefone }) {
     return data ? { nome: data } : null
   } catch { return null }
 }
+// Status ao vivo da mesa (ocupada = tem pedido aberto não pago/cancelado
+// nela, migration 067) — usado para o modal obrigatório de confirmação no
+// QR por mesa. Tolerante: se a RPC ainda não existir nesse banco (migration
+// não aplicada), retorna null e o app segue sem o aviso (não quebra o fluxo).
+export async function rpcStatusMesa({ lojaId, mesaNumero, mesaId = null }) {
+  try {
+    const { data, error } = await supabase.rpc('pub_status_mesa', { p_loja_id: lojaId, p_mesa_numero: mesaNumero ?? null, p_mesa_id: mesaId ?? null })
+    if (error || !data) return null
+    return { existe: !!data.existe, ativa: !!data.ativa, ocupada: !!data.ocupada, numero: data.numero ?? null, nome: data.nome ?? '' }
+  } catch { return null }
+}
 export async function rpcPedidosComanda({ lojaId, comanda }) {
   const { data, error } = await supabase.rpc('pub_pedidos_comanda', { p_loja_id: lojaId, p_comanda: comanda })
   if (error || !data) return []
