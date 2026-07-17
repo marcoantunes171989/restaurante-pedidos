@@ -1,8 +1,5 @@
 import { motion } from "framer-motion";
-import {
-  ClipboardList, ChefHat, Wine, CreditCard,
-  LogOut, Clock, TrendingUp, Utensils, ChevronRight, Activity,
-} from "lucide-react";
+import { LogOut, Clock, TrendingUp, Utensils } from "lucide-react";
 import OperationalBottomNav from "../components/OperationalBottomNav";
 
 const brand = {
@@ -11,7 +8,6 @@ const brand = {
   gold: "#d4a017",
   graphite: "#1a1a1a",
   cream: "#faf9f5",
-  border: "#e7e5e4",
   success: "#16a34a",
   info: "#2563eb",
 };
@@ -46,23 +42,16 @@ const brand = {
 // regras globais, então o !important nunca entra em jogo.
 const GLASS_SURFACE = "pp-glass-surface";
 
-// Shape/placeholder — a tela real recebe `modules`/`kpis` via props, vindos
-// da API (ver OperacaoMobileView em src/App.jsx). Estes arrays só documentam
-// o formato esperado e servem de fallback se nada for passado.
-const MODULES = [
-  { id: "pedidos", label: "Pedidos", desc: "Fluxo de pedidos, novos itens e status de atendimento em tempo real.", icon: ClipboardList, tint: "#e8622c", count: 12 },
-  { id: "cozinha", label: "Cozinha", desc: "Fila de preparo, prioridades e finalização de pratos.", icon: ChefHat, tint: "#d4a017", count: 5 },
-  { id: "bar", label: "Bar", desc: "Bebidas e itens direcionados, com sinalização de urgência.", icon: Wine, tint: "#2563eb", count: 3 },
-  { id: "caixa", label: "Caixa", desc: "Pagamentos, fechamento de conta e baixas da operação.", icon: CreditCard, tint: "#16a34a", count: 0 },
-];
-
+// Shape/placeholder — a tela real recebe `kpis` via props, vindos da API
+// (ver OperacaoMobileView em src/App.jsx). Este array só documenta o
+// formato esperado e serve de fallback se nada for passado.
 const KPIS = [
   { label: "Mesas abertas", value: "8", icon: Utensils },
   { label: "Em preparo", value: "5", icon: Clock },
   { label: "Turno atual", value: "R$ 1.847", icon: TrendingUp },
 ];
 
-export default function OperationalCentral({ user = "Administrador", role = "Gestor", onOpen, onExit, active = "central", modules = MODULES, kpis = KPIS, navItems = [] }) {
+export default function OperationalCentral({ user = "Administrador", role = "Gestor", onOpen, onExit, active = "central", kpis = KPIS, navItems = [] }) {
   return (
     // paddingTop reserva a área do notch/status bar (env(safe-area-inset-top))
     // — sem isso, em celulares reais (não reproduz em viewport de desktop
@@ -113,48 +102,6 @@ export default function OperationalCentral({ user = "Administrador", role = "Ges
             ))}
           </div>
         </motion.header>
-
-        {/* SECTION TITLE */}
-        <div className="mt-8 mb-4 flex items-center gap-2">
-          <Activity size={16} style={{ color: brand.primary }} />
-          <h2 className="text-sm font-semibold uppercase tracking-wider" style={{ color: brand.graphite }}>
-            Módulos da operação
-          </h2>
-        </div>
-
-        {/* MODULE CARDS */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {modules.map((m, i) => (
-            <motion.button
-              key={m.id}
-              onClick={() => onOpen?.(m.id)}
-              initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.05 * i }}
-              whileHover={{ y: -4 }} whileTap={{ scale: 0.98 }}
-              className="group relative flex items-center gap-4 rounded-2xl border bg-white p-5 text-left shadow-sm outline-none transition focus-visible:ring-2"
-              style={{ borderColor: brand.border, "--tw-ring-color": m.tint }}
-            >
-              <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl"
-                    style={{ background: `${m.tint}14`, color: m.tint }}>
-                <m.icon size={26} />
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-base font-bold" style={{ color: brand.graphite }}>{m.label}</h3>
-                  {m.count > 0 && (
-                    <span className="rounded-full px-2 py-0.5 text-[11px] font-bold text-white"
-                          style={{ background: m.tint }}>
-                      {m.count}
-                    </span>
-                  )}
-                </div>
-                <p className="mt-1 text-sm leading-snug text-zinc-500">{m.desc}</p>
-              </div>
-              <ChevronRight size={20} className="shrink-0 transition group-hover:translate-x-1"
-                            style={{ color: m.tint }} />
-            </motion.button>
-          ))}
-        </div>
       </div>
 
       <OperationalBottomNav items={navItems} active={active} onNavigate={(id) => onOpen?.(id)} />
