@@ -7048,6 +7048,10 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
     const temposPreparo = emPreparo.map((o) => minutos(o)).filter((m) => m != null);
     const mediaPreparo = temposPreparo.length ? Math.round(temposPreparo.reduce((a, b) => a + b, 0) / temposPreparo.length) : null;
     const valorAguardando = contasAbertas.reduce((s, o) => s + totalCom(o), 0);
+    // Mesmo "nível de acesso" já exibido no cabeçalho da Central Operacional
+    // (perms/liberados computados uma vez no topo desta função) — reaproveitado
+    // aqui, não é um dado novo.
+    const nivelAcesso = perms.total ? "Acesso total" : (liberados.map((m) => m.label).join(" · ") || "Sem acesso");
     return (
       <CentralDePedidos
         usuarioNome={usuarioNome}
@@ -7055,6 +7059,7 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
         onFechar={onFechar}
         navItems={navItems}
         onNavigate={(id) => setTab(id)}
+        nivelAcesso={nivelAcesso}
         setoresChip={setoresChip}
         filtroCentral={filtroCentral}
         onFiltroChange={setFiltroCentral}
