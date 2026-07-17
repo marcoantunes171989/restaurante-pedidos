@@ -762,7 +762,8 @@ select::-ms-expand { display: none; } /* IE/Edge antigo */
 }
 
 /* ══════════════════════════════════════════════════════════════
-   Pedidos (/operacional/pedidos) — src/pages/CentralDePedidos.jsx
+   Pedidos e Cozinha (/operacional/pedidos, /operacional/cozinha) —
+   src/components/OperationalDarkPage.jsx + OperationalOrderCardDark.jsx.
    Tema escuro padronizado com a Central Operacional (bloco acima):
    cabeçalho, badge "Online", botão Sair e cards de KPI REAPROVEITAM as
    classes de lá (.pp-operational-header/.pp-glass-surface/.pp-kpi-card/
@@ -770,8 +771,8 @@ select::-ms-expand { display: none; } /* IE/Edge antigo */
    de board/lista/cards de pedido — que a Central não tem — ganha classes
    novas aqui (prefixo pp-pd-), usando os MESMOS tons hex já usados nas
    classes da Central (graphite #1a1a1a, primary #e8622c/#c9501f, gold
-   #d4a017) para manter a paleta idêntica. Cozinha/Bar não usam nada
-   deste bloco (continuam no tema claro pp-cp-*, abaixo). */
+   #d4a017) para manter a paleta idêntica. Bar NÃO usa nada deste bloco
+   (continua no tema claro pp-cp-*, abaixo, via CentralDoSetor.jsx). */
 .pp-pd-root { min-height: 100vh; width: 100%; background: #faf9f5; padding-bottom: 112px; }
 
 .pp-pd-search { display:flex; align-items:center; gap:9px; border-radius:13px; padding:10px 15px; min-width:200px; flex:1; }
@@ -811,6 +812,19 @@ select::-ms-expand { display: none; } /* IE/Edge antigo */
 .pp-pd-cust .pp-pd-row b { color:#fff; font-weight:600; }
 .pp-pd-cust .pp-pd-row .pp-pd-ci { width:26px; height:26px; border-radius:8px; background:rgba(255,255,255,.07); display:grid; place-items:center; font-size:12px; flex:none; }
 .pp-pd-station-badge { display:inline-flex; align-items:center; gap:7px; background:rgba(212,160,23,.16); color:#e8c170; padding:5px 11px; border-radius:9px; font-size:11px; font-weight:700; letter-spacing:.4px; margin-bottom:12px; }
+/* Cozinha — bloco de itens por setor (um pedido pode ter cozinha + outro
+   setor ao mesmo tempo, cada um com seu próprio "pronto"); reaproveita
+   pp-pd-station-badge/pp-pd-items/pp-pd-item acima, só adiciona o
+   essencial (mesmo padrão de .pp-cp-station-* no tema claro). */
+.pp-pd-station-block + .pp-pd-station-block { margin-top: 4px; }
+.pp-pd-station-head { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:-4px; }
+.pp-pd-station-ready { font-size:10px; font-weight:700; color:#5fe08c; background:rgba(22,163,74,.20); padding:3px 9px; border-radius:8px; }
+.pp-pd-btn-mini { min-height:32px; border:none; border-radius:8px; background:linear-gradient(120deg,#16a34a,#2fc27f); color:#fff; font-size:11px; font-weight:800; padding:0 10px; cursor:pointer; font-family:inherit; transition:.2s; }
+.pp-pd-btn-mini:hover { transform:translateY(-1px); }
+.pp-pd-btn-mini:focus-visible { outline:2px solid #d4a017; outline-offset:2px; }
+.pp-pd-wait-msg, .pp-pd-lock-msg { flex:1; margin:0; text-align:center; padding:12px; border-radius:12px; font-size:13px; font-weight:700; }
+.pp-pd-wait-msg { background:rgba(22,163,74,.16); color:#5fe08c; }
+.pp-pd-lock-msg { background:rgba(224,147,15,.16); color:#f2b84a; }
 
 .pp-pd-items { border-top:1px dashed rgba(255,255,255,.14); padding-top:12px; margin-bottom:12px; display:flex; flex-direction:column; gap:8px; }
 .pp-pd-item-wrap { display:flex; flex-direction:column; gap:2px; }
