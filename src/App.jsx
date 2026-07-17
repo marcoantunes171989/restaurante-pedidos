@@ -43,7 +43,7 @@ import { PageHeader, PrimeButton, EmptyState, FilterChip, FilterGroup, FiltersPa
 import OperationalCentral from "./pages/OperationalCentral";
 import CentralDePedidos from "./pages/CentralDePedidos";
 import CentralDoCaixa from "./pages/CentralDoCaixa";
-import CentralDaCozinha from "./pages/CentralDaCozinha";
+import CentralDoSetor from "./pages/CentralDoSetor";
 import OperationalBottomNav from "./components/OperationalBottomNav";
 import { ClipboardList, ChefHat, Wine, CreditCard, Utensils, Clock, TrendingUp } from "lucide-react";
 
@@ -6927,7 +6927,6 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
     return [...ordemSetores.filter((n) => pres.includes(n)), ...pres.filter((n) => !ordemSetores.includes(n))];
   };
   const setorPronto = (o, s) => (o.setorStatus || {})[s] === "ready";
-  const parcial = (o) => { const ps = setoresPresentes(o); return ps.length > 1 && ps.some((s) => setorPronto(o, s)) && !ps.every((s) => setorPronto(o, s)); };
 
   // Fluxo operacional independe do pagamento: o pedido continua na Cozinha/Bar/Pedidos
   // até ser ENTREGUE (mesmo já pago). Só conclui com pago E entregue.
@@ -6955,12 +6954,6 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
   const emPreparo = ativos.filter((o) => o.status === "preparing");
   const prontos = ativos.filter((o) => o.status === "ready");
 
-  const badge = (o) =>
-    o.status === "received" ? { l: "NOVO", c: "border-[#BFDBFE] bg-[#EFF6FF] text-[#1D4ED8]" }
-    : o.status === "preparing" && parcial(o) ? { l: "PARCIAL. PRONTO", c: "border-[#F4D27A] bg-[#FFF7E0] text-[#9A6A00]" }
-    : o.status === "preparing" ? { l: "EM PREPARO", c: "border-[#F4D27A] bg-[#FFF7E0] text-[#9A6A00]" }
-    : o.status === "ready" ? { l: "PRONTO", c: "border-[#B7E4C7] bg-[#ECFDF3] text-[#147A4A]" }
-    : { l: "AGUARDANDO PGTO", c: "border-[#F4D27A] bg-[#FFF7E0] text-[#9A6A00]" };
   // Pedido externo (delivery/retirada) deve estar PAGO antes de liberar a entrega.
   const ehExterno = (o) => o.table === "Externo" || /^EXT-/.test(o.command || "");
   const bloqueadoPorPagamento = (o) => ehExterno(o) && o.paymentStatus !== "paid";
@@ -7100,28 +7093,34 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
     );
   }
 
-  // Cozinha — tela dedicada (src/pages/CentralDaCozinha.jsx), padronizada
-  // com a Central de Pedidos (mesmo container/cabeçalho/KPIs/board/nav,
-  // reaproveitando as classes pp-cp-* de index.css). "Bar" continua no
-  // bloco compartilhado abaixo, inalterado — só a Cozinha foi pedida.
-  if (tab === "cozinha" && permitido("cozinha")) {
-    const naTabCozinha = (nome) => !barLike(nome);
-    const temNaTabCozinha = (o) => setoresPresentes(o).some(naTabCozinha);
-    const porSetorEOrdemCozinha = (arr) => arr.filter(temNaTabCozinha)
+  // Cozinha e Bar — mesma tela compartilhada (src/pages/CentralDoSetor.jsx),
+  // padronizada com a Central de Pedidos (container/cabeçalho/KPIs/board/
+  // nav, reaproveitando as classes pp-cp-* de index.css). Só o filtro de
+  // setor e os textos mudam entre as duas; nenhuma lógica é duplicada.
+  if ((tab === "cozinha" || tab === "bar") && permitido(tab)) {
+    const ehBar = tab === "bar";
+    const naTabSetor = ehBar ? barLike : (nome) => !barLike(nome);
+    const temNaTabSetor = (o) => setoresPresentes(o).some(naTabSetor);
+    const porSetorEOrdem = (arr) => arr.filter(temNaTabSetor)
       .sort((a, b) => new Date(a.createdAtISO || 0) - new Date(b.createdAtISO || 0));
     return (
-      <CentralDaCozinha
+      <CentralDoSetor
+        titulo={ehBar ? "Bar" : "Cozinha"}
+        fluxoLabel={ehBar ? "Fluxo do bar" : "Fluxo da cozinha"}
+        listaVazioTexto={ehBar ? "Nenhum pedido para o bar." : "Nenhum pedido para a cozinha."}
+        listaVazioIcone={ehBar ? "🍹" : "🧑‍🍳"}
+        activeNavId={tab}
         usuarioNome={usuarioNome}
         lojaInfo={lojaInfo}
         onFechar={onFechar}
         navItems={navItems}
         onNavigate={(id) => setTab(id)}
         colunas={{
-          novos: porSetorEOrdemCozinha(novos),
-          preparo: porSetorEOrdemCozinha(emPreparo),
-          prontos: porSetorEOrdemCozinha(prontos),
+          novos: porSetorEOrdem(novos),
+          preparo: porSetorEOrdem(emPreparo),
+          prontos: porSetorEOrdem(prontos),
         }}
-        listaTodos={porSetorEOrdemCozinha(ativos)}
+        listaTodos={porSetorEOrdem(ativos)}
         origemDe={origemDe}
         haTxt={haTxt}
         numeroPedido={numeroPedido}
@@ -7129,7 +7128,7 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
         metaSetor={metaSetor}
         setorPronto={setorPronto}
         setoresPresentes={setoresPresentes}
-        setoresPresentesCozinha={(o) => setoresPresentes(o).filter(naTabCozinha)}
+        setoresPresentesSetor={(o) => setoresPresentes(o).filter(naTabSetor)}
         bloqueadoPorPagamento={bloqueadoPorPagamento}
         onIniciarPreparo={(id) => updateOrderStatus(id, "preparing")}
         onMarcarSetorPronto={(id, sk, setores) => marcarSetorPronto(id, sk, setores)}
@@ -7156,63 +7155,6 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
           <button onClick={() => setTab("central")} className="button-primary mt-4 min-h-[44px] px-5 py-2.5 text-sm">Voltar para a Central</button>
         </div>
       )}
-
-      {tab === "bar" && permitido("bar") && (() => {
-        // Bar = setores "bar/bebida" (Cozinha virou tela própria — ver
-        // src/pages/CentralDaCozinha.jsx). Cada setor tem seu próprio "pronto".
-        const naTab = barLike;
-        const temNaTab = (o) => setoresPresentes(o).some(naTab);
-        const comItens = ativos.filter(temNaTab).sort((a, b) => new Date(a.createdAtISO || 0) - new Date(b.createdAtISO || 0));
-        return (<>
-          <div className="mb-3 flex gap-2">
-            {[["Novos", novos], ["Em preparo", emPreparo], ["Prontos", prontos]].map(([l, arr]) => {
-              const n = arr.filter(temNaTab).length;
-              return <div key={l} className="flex-1 rounded-2xl border border-[#E5E7EB] bg-white py-2 text-center shadow-[0_8px_24px_rgba(16,24,40,.06)]"><span className="page-title block text-lg font-bold text-[#182230]">{n}</span><span className="text-[10px] text-[#667085]">{l}</span></div>;
-            })}
-          </div>
-          <div className="space-y-2 sm:grid sm:grid-cols-2 sm:gap-3 sm:space-y-0">
-            {comItens.length === 0 && <p className="py-10 text-center text-sm text-[#667085] sm:col-span-2">Nenhum pedido para o bar.</p>}
-            {comItens.map((o) => { const b = badge(o); const setoresNoPedido = setoresPresentes(o).filter(naTab);
-              return (
-                <div key={o.id} className="rounded-3xl border border-[#E5E7EB] bg-white p-3.5 shadow-[0_8px_24px_rgba(16,24,40,.06)]">
-                  <div className="flex items-center justify-between gap-2"><span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-black ${b.c}`}>{b.l}</span><span className="text-[11px] text-[#667085]">Pedido #{numeroPedido[o.id] ?? "—"} · {haTxt(o)} · {o.table}</span></div>
-                  <p className="mt-1.5 text-xs text-[#475467]">{o.customer || "Cliente"}</p>
-                  {o.pagamentoForma && <p className="text-[11px] font-bold text-[#9A6A00]">💳 {o.pagamentoForma}{o.pagamentoMomento ? ` · ${o.pagamentoMomento}` : ""}</p>}
-                  {setoresNoPedido.map((sk) => { const its = itensDoSetor(o, sk);
-                    return (
-                      <div key={sk} className="mt-2">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-[10px] font-bold uppercase tracking-wide text-[#667085]">{metaSetor(sk).ic} {metaSetor(sk).label}</span>
-                          {o.status === "preparing" && (setorPronto(o, sk)
-                            ? <span className="rounded-full border border-[#B7E4C7] bg-[#ECFDF3] px-2 py-0.5 text-[10px] font-bold text-[#147A4A]">✓ pronto</span>
-                            : <button onClick={() => marcarSetorPronto(o.id, sk, setoresPresentes(o))} className="min-h-[32px] rounded-lg bg-[#16A34A] px-2.5 py-1 text-[11px] font-black text-white active:scale-95">Marcar pronto</button>)}
-                        </div>
-                        <div className="mt-1 space-y-1.5">
-                          {its.map((it, i) => (
-                            <div key={i} className="rounded-2xl border border-[#E5E7EB] bg-[#F7F8FA] p-2">
-                              <p className="text-sm font-bold text-[#182230]">{it.quantity}× {it.name}</p>
-                              {(it.removedIngredients?.length > 0 || it.extraIngredients?.length > 0 || it.observation) && (
-                                <p className="text-[11px] text-[#9A6A00]">{[...(it.removedIngredients || []).map((x) => "− " + x), ...(it.extraIngredients || []).map((x) => "+ " + x), it.observation].filter(Boolean).join(" · ")}</p>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
-                  <div className="mt-2.5">
-                    {o.status === "received" && <button onClick={() => updateOrderStatus(o.id, "preparing")} className="w-full min-h-[44px] rounded-2xl bg-[#D9A441] py-2.5 text-sm font-black text-[#182230] active:scale-95">Aceitar para preparação</button>}
-                    {o.status === "ready" && (bloqueadoPorPagamento(o)
-                      ? <p className="rounded-2xl border border-[#F4D27A] bg-[#FFF7E0] py-2.5 text-center text-sm font-bold text-[#9A6A00]">🔒 Aguardando pagamento para liberar</p>
-                      : <button onClick={() => marcarEntregue(o.id)} className="w-full min-h-[44px] rounded-2xl bg-[#2563EB] py-2.5 text-sm font-black text-white active:scale-95">Baixa / entregue</button>)}
-                    {o.status === "preparing" && setoresNoPedido.every((s) => setorPronto(o, s)) && setoresPresentes(o).length > setoresNoPedido.length && <p className="rounded-2xl border border-[#B7E4C7] bg-[#ECFDF3] py-2.5 text-center text-sm font-bold text-[#147A4A]">✓ Bar pronto · aguardando o outro setor</p>}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </>);
-      })()}
 
       <OperationalBottomNav items={navItems} active={tab} onNavigate={(id) => setTab(id)} />
     </div>

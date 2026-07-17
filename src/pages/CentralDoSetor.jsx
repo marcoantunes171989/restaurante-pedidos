@@ -3,7 +3,7 @@ import OperationalBottomNav from "../components/OperationalBottomNav";
 import { OperationalBrandLogo } from "../components/BrandLogo";
 
 // Mesmo vocabulário visual de tag da Central de Pedidos (.pp-cp-tag-*,
-// já em index.css) — a Cozinha não tem estado "pgto", só as 3 fases
+// já em index.css) — Cozinha e Bar não têm estado "pgto", só as 3 fases
 // reais do preparo.
 const VARIANTE = {
   novo: { tag: "Novo", tagCls: "pp-cp-tag-novo", accent: "var(--cp-blue)" },
@@ -11,15 +11,18 @@ const VARIANTE = {
   pronto: { tag: "Pronto", tagCls: "pp-cp-tag-pronto", accent: "var(--cp-green)" },
 };
 
+// Textos de coluna vazia — deliberadamente iguais para Cozinha e Bar (é o
+// que o pedido de padronização define), por isso ficam fixos aqui em vez
+// de vir por prop.
 const COLUNAS_META = [
   { key: "novos", label: "Novos", dot: "var(--cp-blue)", variante: "novo", vazio: { ic: "🆕", txt: "Nenhum pedido novo" } },
   { key: "preparo", label: "Em preparo", dot: "var(--cp-amber)", variante: "preparo", vazio: { ic: "🍳", txt: "Nenhum pedido em preparo" } },
   { key: "prontos", label: "Prontos", dot: "var(--cp-green)", variante: "pronto", vazio: { ic: "📦", txt: "Nada pronto no momento" } },
 ];
 
-/** Um bloco de itens por setor (cozinha pode ter mais de um setor no
- * mesmo pedido: cozinha + sobremesa, por exemplo) — cada setor tem seu
- * próprio "pronto", igual à lógica original. */
+/** Um bloco de itens por setor (um pedido pode ter mais de um setor ao
+ * mesmo tempo: cozinha + bar, por exemplo) — cada setor tem seu próprio
+ * "pronto", igual à lógica original. */
 function SetorBloco({ o, sk, its, metaSetor, setorPronto, onMarcarPronto }) {
   const sm = metaSetor(sk);
   const pronto = setorPronto(o, sk);
@@ -51,10 +54,10 @@ function SetorBloco({ o, sk, its, metaSetor, setorPronto, onMarcarPronto }) {
   );
 }
 
-/** Card de pedido da cozinha — mesmo componente para as 3 colunas do
- * kanban e para a lista; layout idêntico ao OrderCard da Central de
+/** Card de pedido — mesmo componente para as 3 colunas do kanban e para a
+ * lista, em Cozinha e Bar; layout idêntico ao OrderCard da Central de
  * Pedidos (mesmas classes pp-cp-*), com o corpo trocado para os setores/
- * itens/ações reais da cozinha (nunca um único total de pagamento). */
+ * itens/ações reais de produção (nunca um único total de pagamento). */
 function OrderCard({
   o, variante, setoresNoPedido, action,
   origemDe, haTxt, numeroPedido, itensDoSetor, metaSetor, setorPronto, onMarcarPronto,
@@ -98,16 +101,24 @@ function OrderCard({
 }
 
 /**
- * Cozinha (/operacional/cozinha) — mesma configuração visual e estrutural
- * da Central de Pedidos (src/pages/CentralDePedidos.jsx): container,
- * cabeçalho com logo/título/subtítulo/Sair, cards de indicador, board
- * Kanban/Lista, bottom nav — reaproveitando as MESMAS classes pp-cp-*
- * de index.css (nenhum CSS novo). Só o conteúdo do card e as ações
- * mudam para a lógica real da cozinha (setor por setor, iniciar preparo,
- * marcar pronto, baixa), que continua 100% calculada em
- * OperacaoMobileView (src/App.jsx) e só passada pronta para cá.
+ * Tela de setor de produção (Cozinha e Bar — /operacional/cozinha e
+ * /operacional/bar) — componente ÚNICO e compartilhado entre as duas,
+ * para não duplicar JSX/CSS/lógica: só o que é textualmente diferente
+ * (título, rótulo do fluxo, textos/ícone do estado vazio da lista, item
+ * ativo da nav) entra por prop. Estrutura idêntica à Central de Pedidos
+ * (src/pages/CentralDePedidos.jsx), reaproveitando as MESMAS classes
+ * pp-cp-* de index.css (nenhum CSS por setor). Toda a lógica real
+ * (contadores, setor por setor, iniciar preparo, marcar pronto, baixa,
+ * tempo real) continua 100% calculada em OperacaoMobileView
+ * (src/App.jsx) e só é passada pronta para cá — o filtro que decide
+ * "isto é Cozinha ou Bar" também vem de lá (setoresPresentesSetor).
  */
-export default function CentralDaCozinha({
+export default function CentralDoSetor({
+  titulo, // "Cozinha" | "Bar"
+  fluxoLabel, // "Fluxo da cozinha" | "Fluxo do bar"
+  listaVazioTexto, // "Nenhum pedido para a cozinha." | "Nenhum pedido para o bar."
+  listaVazioIcone, // "🧑‍🍳" | "🍹"
+  activeNavId, // "cozinha" | "bar"
   usuarioNome = "",
   lojaInfo,
   onFechar,
@@ -116,8 +127,8 @@ export default function CentralDaCozinha({
   colunas = {}, // { novos:[], preparo:[], prontos:[] }
   listaTodos = [],
   origemDe, haTxt, numeroPedido, itensDoSetor, metaSetor, setorPronto,
-  setoresPresentes, // todos os setores do pedido (inclusive fora da cozinha) — usado na mutação e no "aguardando outro setor"
-  setoresPresentesCozinha, // só os setores desta aba — usado para exibir os blocos do card
+  setoresPresentes, // todos os setores do pedido (inclusive de outro setor) — usado na mutação e no "aguardando outro setor"
+  setoresPresentesSetor, // só os setores desta aba (Cozinha OU Bar) — usado para exibir os blocos do card
   bloqueadoPorPagamento,
   onIniciarPreparo, onMarcarSetorPronto, onBaixarEntregue,
 }) {
@@ -157,11 +168,12 @@ export default function CentralDaCozinha({
     }
     if (variante === "preparo") {
       // Todos os setores DESTA aba já prontos, mas o pedido tem setor(es)
-      // fora dela (ex.: bar) ainda pendente(s) — mesma checagem de sempre.
+      // fora dela (ex.: o outro, cozinha ↔ bar) ainda pendente(s) —
+      // mesma checagem de sempre.
       const todos = setoresPresentes(o);
       const aguardandoOutroSetor = setoresNoPedido.length > 0 && setoresNoPedido.every((s) => setorPronto(o, s)) && todos.length > setoresNoPedido.length;
       if (aguardandoOutroSetor) {
-        return <p className="pp-cp-wait-msg">✓ Cozinha pronto · aguardando o outro setor</p>;
+        return <p className="pp-cp-wait-msg">✓ {titulo} pronto · aguardando o outro setor</p>;
       }
       return null; // ação real é por setor, dentro do card (SetorBloco)
     }
@@ -180,7 +192,7 @@ export default function CentralDaCozinha({
     // Exibição só mostra os setores desta aba; a mutação (marcar setor
     // pronto) precisa saber de TODOS os setores do pedido — mesmo
     // contrato de sempre em marcarSetorPronto(id, setor, setoresPresentes).
-    const setoresNoPedido = setoresPresentesCozinha(o);
+    const setoresNoPedido = setoresPresentesSetor(o);
     return (
       <OrderCard
         key={o.id} o={o} variante={variante} setoresNoPedido={setoresNoPedido} action={actionPara(o, variante, setoresNoPedido)}
@@ -197,7 +209,7 @@ export default function CentralDaCozinha({
           <div className="pp-cp-brand">
             <OperationalBrandLogo />
             <div>
-              <h1>Cozinha</h1>
+              <h1>{titulo}</h1>
               <p><span className="pp-cp-dot" />{lojaInfo?.nome || "Operação da loja"} · {usuarioNome || "Operador"} · <b style={{ color: "var(--cp-txt-dim)" }}>Online</b></p>
             </div>
           </div>
@@ -235,7 +247,7 @@ export default function CentralDaCozinha({
         </div>
 
         <div className="pp-cp-board-head">
-          <h2>Fluxo da cozinha</h2>
+          <h2>{fluxoLabel}</h2>
           <div className="pp-cp-view-toggle">
             <button className={view === "kanban" ? "is-active" : ""} onClick={() => setView("kanban")} type="button">Kanban</button>
             <button className={view === "lista" ? "is-active" : ""} onClick={() => setView("lista")} type="button">Lista</button>
@@ -262,7 +274,7 @@ export default function CentralDaCozinha({
           </div>
         ) : (
           <div className="pp-cp-list">
-            {listaFiltrada.length === 0 && <div className="pp-cp-empty"><div className="pp-cp-e-ic">🧑‍🍳</div><p>Nenhum pedido para a cozinha.</p></div>}
+            {listaFiltrada.length === 0 && <div className="pp-cp-empty"><div className="pp-cp-e-ic">{listaVazioIcone}</div><p>{listaVazioTexto}</p></div>}
             {listaFiltrada.map((o) => {
               const variante = o.status === "received" ? "novo" : o.status === "preparing" ? "preparo" : "pronto";
               return renderCard(o, variante);
@@ -271,7 +283,7 @@ export default function CentralDaCozinha({
         )}
       </div>
 
-      <OperationalBottomNav items={navItems} active="cozinha" onNavigate={onNavigate} />
+      <OperationalBottomNav items={navItems} active={activeNavId} onNavigate={onNavigate} />
     </div>
   );
 }
