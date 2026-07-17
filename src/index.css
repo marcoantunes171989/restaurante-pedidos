@@ -733,8 +733,8 @@ select::-ms-expand { display: none; } /* IE/Edge antigo */
 }
 
 /* ── Glassmorphism — cards de KPI, somente mobile (<768px) ──────
-   Só troca o preenchimento visual dos cards de indicador (Mesas
-   Abertas/Em Preparo/Turno Atual) no header da Central Operacional;
+   Só troca o preenchimento visual dos cards de indicador (os 9
+   .pp-kpi-card da faixa de KPIs) no header da Central Operacional;
    Desktop/notebook/tablet (>= 768px) continuam com .pp-glass-surface
    normal, sem nenhuma regra daqui se aplicando. O botão "Sair" também
    fica de fora (usa só .pp-glass-surface) — o pedido é especificamente

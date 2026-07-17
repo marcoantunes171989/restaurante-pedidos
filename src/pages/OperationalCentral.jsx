@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { LogOut, Clock, TrendingUp, Utensils } from "lucide-react";
+import { LogOut, Clock, TrendingUp, Utensils, Bell, CheckCircle2, Hourglass, Receipt, Wallet, CalendarCheck } from "lucide-react";
 import OperationalBottomNav from "../components/OperationalBottomNav";
 
 const brand = {
@@ -47,8 +47,14 @@ const GLASS_SURFACE = "pp-glass-surface";
 // formato esperado e serve de fallback se nada for passado.
 const KPIS = [
   { label: "Mesas abertas", value: "8", icon: Utensils },
+  { label: "Novos", value: "2", icon: Bell },
   { label: "Em preparo", value: "5", icon: Clock },
-  { label: "Turno atual", value: "R$ 1.847", icon: TrendingUp },
+  { label: "Prontos", value: "3", icon: CheckCircle2 },
+  { label: "Aguardando pagamento", value: "4", icon: Hourglass },
+  { label: "Contas em aberto", value: "6", icon: Receipt },
+  { label: "Total a receber", value: "R$ 312,00", icon: Wallet },
+  { label: "Faturado hoje", value: "R$ 1.847,00", icon: CalendarCheck },
+  { label: "Turno atual", value: "R$ 1.847,00", icon: TrendingUp },
 ];
 
 export default function OperationalCentral({ user = "Administrador", role = "Gestor", onOpen, onExit, active = "central", kpis = KPIS, navItems = [] }) {
@@ -91,8 +97,10 @@ export default function OperationalCentral({ user = "Administrador", role = "Ges
             </button>
           </div>
 
-          {/* KPI STRIP */}
-          <div className="relative mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {/* KPI STRIP — 1 coluna em telas bem estreitas, 2 a partir de
+              ~400px (mobile "seguro"), 3 a partir de 640px (tablet/desktop);
+              9 indicadores ÷ 3 colunas fecha em linhas completas, sem sobra. */}
+          <div className="relative mt-6 grid grid-cols-1 gap-3 min-[400px]:grid-cols-2 sm:grid-cols-3">
             {kpis.map((k) => (
               <div key={k.label} className={`${GLASS_SURFACE} pp-kpi-card rounded-2xl p-3`}>
                 <k.icon size={18} style={{ color: brand.gold }} />

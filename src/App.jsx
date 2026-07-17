@@ -45,7 +45,7 @@ import CentralDePedidos from "./pages/CentralDePedidos";
 import CentralDoCaixa from "./pages/CentralDoCaixa";
 import CentralDoSetor from "./pages/CentralDoSetor";
 import OperationalBottomNav from "./components/OperationalBottomNav";
-import { ClipboardList, ChefHat, Wine, CreditCard, Utensils, Clock, TrendingUp } from "lucide-react";
+import { ClipboardList, ChefHat, Wine, CreditCard, Utensils, Clock, TrendingUp, Bell, CheckCircle2, Hourglass, Receipt, Wallet, CalendarCheck } from "lucide-react";
 
 export const fallbackImage = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=900&q=80";
 
@@ -6977,6 +6977,13 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
     const faturamentoTurno = orders
       .filter((o) => o.paymentStatus === "paid" && o.createdAtISO && new Date(o.createdAtISO).toLocaleDateString("pt-BR") === hojeStr)
       .reduce((s, o) => s + totalCom(o), 0);
+    // Mesmas definições já usadas no Caixa (src/pages/CentralDoCaixa.jsx):
+    // "aguardando pagamento" = conta não paga E ainda não pronta (categoriaDe
+    // "aguardando"); "contas em aberto" = todas as contas que ainda precisam
+    // de alguma ação do caixa (não pagas OU pagas aguardando retirada) —
+    // mesmo array `contas`; "total a receber" = soma das não pagas.
+    const aguardandoPagamento = contas.filter((o) => o.paymentStatus !== "paid" && o.status !== "ready").length;
+    const totalReceberCentral = contasAbertas.reduce((s, o) => s + totalCom(o), 0);
     const qtdPorTipoSetor = (bar) => ativos.reduce((acc, o) => acc + (o.items || []).filter((it) => barLike(setorDoItem(it)) === bar).reduce((s, it) => s + it.quantity, 0), 0);
     const ICONE_MODULO = { pedidos: ClipboardList, cozinha: ChefHat, bar: Wine, caixa: CreditCard };
     const TINT_MODULO = { pedidos: "#e8622c", cozinha: "#d4a017", bar: "#2563eb", caixa: "#16a34a" };
@@ -6984,7 +6991,13 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
     const modulosReais = liberados.map((m) => ({ id: m.id, label: m.label, desc: m.desc, icon: ICONE_MODULO[m.id], tint: TINT_MODULO[m.id], count: CONTAGEM_MODULO[m.id] }));
     const kpisReais = [
       { label: "Mesas abertas", value: String(mesasAbertas), icon: Utensils },
+      { label: "Novos", value: String(novos.length), icon: Bell },
       { label: "Em preparo", value: String(emPreparo.length), icon: Clock },
+      { label: "Prontos", value: String(prontos.length), icon: CheckCircle2 },
+      { label: "Aguardando pagamento", value: String(aguardandoPagamento), icon: Hourglass },
+      { label: "Contas em aberto", value: String(contas.length), icon: Receipt },
+      { label: "Total a receber", value: formatCurrency(totalReceberCentral), icon: Wallet },
+      { label: "Faturado hoje", value: formatCurrency(faturamentoTurno), icon: CalendarCheck },
       { label: "Turno atual", value: formatCurrency(faturamentoTurno), icon: TrendingUp },
     ];
     const roleLabel = perms.total ? "Acesso total" : (liberados.map((m) => m.label).join(" · ") || "Sem acesso");
