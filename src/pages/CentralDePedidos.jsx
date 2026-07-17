@@ -11,12 +11,11 @@ const COLUNAS_META = [
 /**
  * Pedidos (/operacional/pedidos) — tema escuro padronizado com a Central
  * Operacional, via o casco compartilhado OperationalDarkPage (também
- * usado por Cozinha, src/pages/CentralDaCozinha.jsx) e o card
+ * usado por Cozinha e Bar, src/pages/CentralDoSetor.jsx) e o card
  * compartilhado OperationalOrderCardDark. Todo dado e toda mutação
  * (aceitar, entregar) continuam vindo prontos de OperacaoMobileView
  * (src/App.jsx) — este componente só formata e define suas próprias
- * ações. Bar não é afetado (continua no tema claro pp-cp-*, via
- * src/pages/CentralDoSetor.jsx).
+ * ações.
  */
 export default function CentralDePedidos({
   usuarioNome = "",

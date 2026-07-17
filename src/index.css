@@ -762,17 +762,17 @@ select::-ms-expand { display: none; } /* IE/Edge antigo */
 }
 
 /* ══════════════════════════════════════════════════════════════
-   Pedidos e Cozinha (/operacional/pedidos, /operacional/cozinha) —
-   src/components/OperationalDarkPage.jsx + OperationalOrderCardDark.jsx.
-   Tema escuro padronizado com a Central Operacional (bloco acima):
-   cabeçalho, badge "Online", botão Sair e cards de KPI REAPROVEITAM as
-   classes de lá (.pp-operational-header/.pp-glass-surface/.pp-kpi-card/
-   .pp-kpi-label/.pp-status-badge), sem duplicar nenhuma regra. Só a área
-   de board/lista/cards de pedido — que a Central não tem — ganha classes
+   Pedidos, Cozinha e Bar (/operacional/pedidos, /operacional/cozinha,
+   /operacional/bar) — src/components/OperationalDarkPage.jsx +
+   OperationalOrderCardDark.jsx. Tema escuro padronizado com a Central
+   Operacional (bloco acima): cabeçalho, badge "Online", botão Sair e
+   cards de KPI REAPROVEITAM as classes de lá
+   (.pp-operational-header/.pp-glass-surface/.pp-kpi-card/.pp-kpi-label/
+   .pp-status-badge), sem duplicar nenhuma regra. Só a área de
+   board/lista/cards de pedido — que a Central não tem — ganha classes
    novas aqui (prefixo pp-pd-), usando os MESMOS tons hex já usados nas
    classes da Central (graphite #1a1a1a, primary #e8622c/#c9501f, gold
-   #d4a017) para manter a paleta idêntica. Bar NÃO usa nada deste bloco
-   (continua no tema claro pp-cp-*, abaixo, via CentralDoSetor.jsx). */
+   #d4a017) para manter a paleta idêntica nas três telas. */
 .pp-pd-root { min-height: 100vh; width: 100%; background: #faf9f5; padding-bottom: 112px; }
 
 .pp-pd-search { display:flex; align-items:center; gap:9px; border-radius:13px; padding:10px 15px; min-width:200px; flex:1; }
@@ -812,10 +812,10 @@ select::-ms-expand { display: none; } /* IE/Edge antigo */
 .pp-pd-cust .pp-pd-row b { color:#fff; font-weight:600; }
 .pp-pd-cust .pp-pd-row .pp-pd-ci { width:26px; height:26px; border-radius:8px; background:rgba(255,255,255,.07); display:grid; place-items:center; font-size:12px; flex:none; }
 .pp-pd-station-badge { display:inline-flex; align-items:center; gap:7px; background:rgba(212,160,23,.16); color:#e8c170; padding:5px 11px; border-radius:9px; font-size:11px; font-weight:700; letter-spacing:.4px; margin-bottom:12px; }
-/* Cozinha — bloco de itens por setor (um pedido pode ter cozinha + outro
-   setor ao mesmo tempo, cada um com seu próprio "pronto"); reaproveita
+/* Cozinha/Bar — bloco de itens por setor (um pedido pode ter cozinha +
+   bar ao mesmo tempo, cada um com seu próprio "pronto"); reaproveita
    pp-pd-station-badge/pp-pd-items/pp-pd-item acima, só adiciona o
-   essencial (mesmo padrão de .pp-cp-station-* no tema claro). */
+   essencial. */
 .pp-pd-station-block + .pp-pd-station-block { margin-top: 4px; }
 .pp-pd-station-head { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:-4px; }
 .pp-pd-station-ready { font-size:10px; font-weight:700; color:#5fe08c; background:rgba(22,163,74,.20); padding:3px 9px; border-radius:8px; }
@@ -854,168 +854,6 @@ select::-ms-expand { display: none; } /* IE/Edge antigo */
 
 @media (max-width: 640px) {
   .pp-pd-search { min-width: 0; }
-}
-
-/* ══════════════════════════════════════════════════════════════
-   Cozinha e Bar (/operacional/cozinha, /operacional/bar) —
-   src/pages/CentralDoSetor.jsx. Classes próprias (prefixo pp-cp-), não
-   utilities Tailwind, para não correr o risco de colidir com as regras
-   globais de repaint do tema claro (linhas ~330-390 acima) que hijackam
-   nomes exatos como `bg-white`/`text-white` dentro de `.tema-claro-area`
-   — a mesma causa raiz identificada e corrigida na Central Operacional.
-   Pedidos (/operacional/pedidos) NÃO usa mais este bloco — tem tema
-   escuro próprio, padronizado com a Central Operacional (ver pp-pd-*
-   logo abaixo do bloco da Central Operacional, acima). ══════════════ */
-.pp-central-pedidos {
-  --cp-brand:#e08b2b; --cp-brand-2:#f2a844; --cp-brand-deep:#c6741d; --cp-brand-soft:#fdf3e6;
-  --cp-bg:#f4f6fa; --cp-bg-grad-1:#fff6ec; --cp-bg-grad-2:#eef2f8;
-  --cp-card:#ffffff; --cp-card-brd:#eceff4; --cp-line:#eef1f6;
-  --cp-txt:#1c2540; --cp-txt-2:#4a5578; --cp-txt-dim:#7b8398; --cp-txt-mute:#aab1c2;
-  --cp-blue:#2f76e8; --cp-blue-soft:#e9f1fe;
-  --cp-green:#17a866; --cp-green-soft:#e7f7ef;
-  --cp-amber:#e0930f; --cp-amber-soft:#fdf3e0;
-  --cp-red:#e35668; --cp-red-soft:#fdeef0;
-  --cp-radius:18px;
-  --cp-shadow-sm:0 1px 3px rgba(23,32,53,.06);
-  --cp-shadow-md:0 8px 24px -12px rgba(23,32,53,.18);
-  --cp-shadow-lg:0 20px 50px -22px rgba(23,32,53,.28);
-  font-family:'Inter',system-ui,sans-serif;
-  color:var(--cp-txt);
-  min-height:100%;
-  background:
-    radial-gradient(900px 480px at 90% -8%, var(--cp-bg-grad-1), transparent 60%),
-    radial-gradient(800px 460px at 0% 0%, var(--cp-bg-grad-2), transparent 55%),
-    var(--cp-bg);
-}
-.pp-central-pedidos * { box-sizing: border-box; }
-.pp-cp-app { max-width: 1400px; margin: 0 auto; padding: clamp(14px,3vw,28px) clamp(14px,4vw,40px) calc(clamp(96px,14vw,120px) + env(safe-area-inset-bottom)); }
-
-/* topbar */
-.pp-cp-topbar { display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; background:var(--cp-card); border:1px solid var(--cp-card-brd); border-radius:var(--cp-radius); padding:16px clamp(16px,2vw,22px); box-shadow:var(--cp-shadow-md); }
-.pp-cp-brand { display:flex; align-items:center; gap:14px; min-width:0; }
-.pp-cp-brand h1 { font-family:'Space Grotesk',sans-serif; font-size:clamp(17px,2vw,21px); margin:0; letter-spacing:-.4px; font-weight:700; color:var(--cp-txt); }
-.pp-cp-brand p { margin:3px 0 0; font-size:12.5px; color:var(--cp-txt-dim); display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-.pp-cp-dot { width:7px; height:7px; border-radius:50%; background:var(--cp-green); box-shadow:0 0 8px rgba(23,168,102,.7); animation:pp-cp-pulse 2s infinite; flex:none; }
-@keyframes pp-cp-pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
-.pp-cp-topbar-actions { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
-.pp-cp-search { display:flex; align-items:center; gap:9px; background:var(--cp-bg); border:1px solid var(--cp-card-brd); border-radius:13px; padding:10px 15px; min-width:220px; color:var(--cp-txt-dim); }
-.pp-cp-search input { background:none; border:none; outline:none; color:var(--cp-txt); font-size:14px; width:100%; font-family:inherit; }
-.pp-cp-icon-btn { width:44px; height:44px; border-radius:13px; border:1px solid var(--cp-card-brd); background:var(--cp-card); display:grid; place-items:center; cursor:pointer; color:var(--cp-txt-2); font-size:18px; transition:.2s; position:relative; padding:0; }
-.pp-cp-icon-btn:hover { background:var(--cp-bg); transform:translateY(-1px); box-shadow:var(--cp-shadow-sm); }
-.pp-cp-icon-btn .pp-cp-badge { position:absolute; top:-5px; right:-5px; background:var(--cp-red); color:#fff; font-size:10px; font-weight:700; border-radius:10px; padding:2px 6px; border:2px solid var(--cp-card); }
-.pp-cp-logout { display:flex; align-items:center; gap:8px; background:var(--cp-red-soft); color:var(--cp-red); border:1px solid #f6cdd3; border-radius:13px; padding:11px 17px; font-weight:600; font-size:14px; cursor:pointer; transition:.2s; font-family:inherit; }
-.pp-cp-logout:hover { background:#fbe0e4; }
-
-/* kpis */
-.pp-cp-kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:clamp(12px,1.5vw,16px); margin-bottom:26px; }
-.pp-cp-kpi { position:relative; overflow:hidden; background:var(--cp-card); border:1px solid var(--cp-card-brd); border-radius:var(--cp-radius); padding:20px; box-shadow:var(--cp-shadow-sm); }
-.pp-cp-kpi .pp-cp-bar { position:absolute; left:0; top:0; bottom:0; width:4px; background:var(--cp-accent); }
-.pp-cp-kpi .pp-cp-kpi-top { display:flex; align-items:center; justify-content:space-between; gap:8px; }
-.pp-cp-kpi .pp-cp-kicon { width:40px; height:40px; border-radius:12px; display:grid; place-items:center; font-size:19px; background:var(--cp-accent-soft); flex:none; }
-.pp-cp-kpi .pp-cp-num { font-family:'Space Grotesk',sans-serif; font-size:clamp(32px,4vw,42px); font-weight:700; line-height:1; margin:14px 0 5px; color:var(--cp-txt); }
-.pp-cp-kpi .pp-cp-lbl { font-size:13px; color:var(--cp-txt-dim); font-weight:500; }
-.pp-cp-kpi .pp-cp-trend { font-size:11px; font-weight:600; padding:3px 9px; border-radius:8px; background:var(--cp-bg); color:var(--cp-txt-dim); white-space:nowrap; }
-
-/* board */
-.pp-cp-board-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; gap:12px; flex-wrap:wrap; }
-.pp-cp-board-head h2 { font-family:'Space Grotesk',sans-serif; font-size:18px; margin:0; font-weight:700; color:var(--cp-txt); }
-.pp-cp-view-toggle { display:flex; gap:4px; background:var(--cp-card); border:1px solid var(--cp-card-brd); border-radius:12px; padding:4px; box-shadow:var(--cp-shadow-sm); }
-.pp-cp-view-toggle button { border:none; background:none; color:var(--cp-txt-dim); padding:7px 15px; border-radius:9px; font-size:13px; font-weight:600; cursor:pointer; font-family:inherit; transition:.2s; }
-.pp-cp-view-toggle button.is-active { background:var(--cp-brand-soft); color:var(--cp-brand-deep); }
-.pp-cp-board { display:grid; grid-template-columns:repeat(4,1fr); gap:clamp(12px,1.5vw,16px); align-items:start; }
-.pp-cp-col { background:rgba(255,255,255,.55); border:1px solid var(--cp-card-brd); border-radius:var(--cp-radius); padding:14px; min-height:180px; }
-.pp-cp-col-head { display:flex; align-items:center; gap:10px; margin-bottom:14px; padding:2px; }
-.pp-cp-col-head .pp-cp-cd { width:9px; height:9px; border-radius:50%; flex:none; }
-.pp-cp-col-head h3 { margin:0; font-size:14px; font-weight:700; flex:1; color:var(--cp-txt); }
-.pp-cp-col-head .pp-cp-cn { font-size:12px; color:var(--cp-txt-dim); font-weight:700; background:var(--cp-card); border:1px solid var(--cp-card-brd); padding:2px 9px; border-radius:8px; }
-
-/* order card */
-.pp-cp-order { background:var(--cp-card); border:1px solid var(--cp-card-brd); border-radius:15px; padding:15px; margin-bottom:12px; transition:.25s; position:relative; overflow:hidden; box-shadow:var(--cp-shadow-sm); }
-.pp-cp-order:hover { transform:translateY(-3px); box-shadow:var(--cp-shadow-lg); border-color:#e2e6ee; }
-.pp-cp-order .pp-cp-order-accent { position:absolute; left:0; top:0; bottom:0; width:4px; background:var(--cp-accent,var(--cp-brand)); }
-.pp-cp-order-top { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:11px; gap:8px; }
-.pp-cp-tag { font-size:10.5px; font-weight:800; letter-spacing:.6px; padding:5px 10px; border-radius:8px; text-transform:uppercase; white-space:nowrap; }
-.pp-cp-tag.pp-cp-tag-novo { background:var(--cp-blue-soft); color:var(--cp-blue); }
-.pp-cp-tag.pp-cp-tag-preparo { background:var(--cp-amber-soft); color:var(--cp-amber); }
-.pp-cp-tag.pp-cp-tag-pronto { background:var(--cp-green-soft); color:var(--cp-green); }
-.pp-cp-tag.pp-cp-tag-pago { background:var(--cp-green-soft); color:var(--cp-green); }
-.pp-cp-chan { font-size:11.5px; color:var(--cp-txt-dim); display:flex; align-items:center; gap:6px; text-align:right; white-space:nowrap; }
-.pp-cp-order h4 { margin:0 0 4px; font-size:16px; font-weight:700; font-family:'Space Grotesk',sans-serif; color:var(--cp-txt); }
-.pp-cp-oid { font-size:11px; color:var(--cp-txt-mute); font-family:'Space Grotesk',sans-serif; letter-spacing:.5px; margin-bottom:12px; }
-.pp-cp-cust { display:flex; flex-direction:column; gap:6px; margin-bottom:12px; }
-.pp-cp-cust .pp-cp-row { display:flex; align-items:center; gap:9px; font-size:13px; color:var(--cp-txt-2); }
-.pp-cp-cust .pp-cp-row .pp-cp-ci { width:26px; height:26px; border-radius:8px; background:var(--cp-bg); display:grid; place-items:center; font-size:12px; flex:none; }
-.pp-cp-cust .pp-cp-row b { color:var(--cp-txt); font-weight:600; }
-.pp-cp-station-badge { display:inline-flex; align-items:center; gap:7px; background:var(--cp-amber-soft); color:var(--cp-amber); padding:5px 11px; border-radius:9px; font-size:11px; font-weight:700; letter-spacing:.4px; margin-bottom:12px; }
-.pp-cp-items { border-top:1px dashed var(--cp-line); padding-top:12px; margin-bottom:12px; display:flex; flex-direction:column; gap:8px; }
-.pp-cp-item { display:flex; align-items:center; gap:10px; font-size:13.5px; }
-.pp-cp-item .pp-cp-qty { background:var(--cp-brand-soft); color:var(--cp-brand-deep); font-weight:700; font-size:12px; padding:2px 8px; border-radius:7px; flex:none; min-width:30px; text-align:center; }
-.pp-cp-item .pp-cp-nm { color:var(--cp-txt-2); }
-/* Cozinha — bloco de itens por setor (um pedido pode ter cozinha +
-   sobremesa, cada setor com seu próprio "pronto"); reaproveita .pp-cp-
-   station-badge/.pp-cp-items/.pp-cp-item acima, só adiciona o essencial. */
-.pp-cp-station-block + .pp-cp-station-block { margin-top:4px; }
-.pp-cp-station-head { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:-4px; }
-.pp-cp-station-ready { font-size:10px; font-weight:700; color:var(--cp-green); background:var(--cp-green-soft); padding:3px 9px; border-radius:8px; }
-.pp-cp-btn-mini { min-height:32px; border:none; border-radius:8px; background:linear-gradient(120deg,var(--cp-green),#2fc27f); color:#fff; font-size:11px; font-weight:800; padding:0 10px; cursor:pointer; font-family:inherit; transition:.2s; }
-.pp-cp-btn-mini:hover { transform:translateY(-1px); }
-.pp-cp-item-wrap { display:flex; flex-direction:column; gap:2px; }
-.pp-cp-item-mods { margin:0 0 0 40px; font-size:11px; color:var(--cp-amber); }
-.pp-cp-wait-msg, .pp-cp-lock-msg { flex:1; margin:0; text-align:center; padding:12px; border-radius:12px; font-size:13px; font-weight:700; }
-.pp-cp-wait-msg { background:var(--cp-green-soft); color:var(--cp-green); }
-.pp-cp-lock-msg { background:var(--cp-amber-soft); color:var(--cp-amber); }
-.pp-cp-actions { display:flex; gap:10px; }
-.pp-cp-btn { flex:1; border:none; border-radius:12px; padding:13px; font-weight:700; font-size:14px; cursor:pointer; font-family:inherit; transition:.2s; display:flex; align-items:center; justify-content:center; gap:8px; }
-.pp-cp-btn.pp-cp-btn-primary { background:linear-gradient(120deg,var(--cp-brand),var(--cp-brand-2)); color:#fff; box-shadow:0 8px 20px -10px rgba(224,139,43,.8); }
-.pp-cp-btn.pp-cp-btn-primary:hover:not(:disabled) { transform:translateY(-2px); box-shadow:0 12px 26px -8px rgba(224,139,43,.9); }
-.pp-cp-btn.pp-cp-btn-blue { background:linear-gradient(120deg,var(--cp-blue),#5a93ef); color:#fff; box-shadow:0 8px 20px -10px rgba(47,118,232,.8); }
-.pp-cp-btn.pp-cp-btn-blue:hover:not(:disabled) { transform:translateY(-2px); }
-.pp-cp-btn.pp-cp-btn-green { background:linear-gradient(120deg,var(--cp-green),#2fc27f); color:#fff; box-shadow:0 8px 20px -10px rgba(23,168,102,.8); }
-.pp-cp-btn.pp-cp-btn-green:hover:not(:disabled) { transform:translateY(-2px); }
-.pp-cp-btn:disabled { opacity:.55; cursor:not-allowed; transform:none !important; }
-.pp-cp-btn.pp-cp-btn-ghost { flex:none; width:50px; background:var(--cp-bg); color:var(--cp-txt-2); border:1px solid var(--cp-card-brd); }
-.pp-cp-btn.pp-cp-btn-ghost:hover { background:#eaedf3; }
-.pp-cp-empty { text-align:center; padding:28px 10px; color:var(--cp-txt-mute); }
-.pp-cp-empty .pp-cp-e-ic { font-size:28px; opacity:.55; margin-bottom:8px; }
-.pp-cp-empty p { margin:0; font-size:13px; }
-
-/* lista (view alternativa ao kanban) */
-.pp-cp-list { display:flex; flex-direction:column; gap:12px; }
-
-/* Cozinha tem 3 colunas (sem "aguardando pgto") em vez de 4.
-   Board: acima de 1080px vira 3 col; abaixo disso reaproveita o mesmo
-   colapso 2/1 col de .pp-cp-board (esperado num board kanban, igual à
-   Central de Pedidos quando 4 colunas colapsam).
-   KPIs: 3 cards pequenos colapsando pra 2 col deixa 1 vazio do lado —
-   por isso aqui NÃO reaproveita o colapso de 2 col do .pp-cp-kpis: fica
-   3 col até 640px, depois pula direto pra 1 col empilhado (sem vão). */
-.pp-cp-kpis.pp-cp-kpis--3 { grid-template-columns:repeat(3,1fr); }
-@media (max-width:640px) {
-  .pp-cp-kpis.pp-cp-kpis--3 { grid-template-columns:1fr; }
-}
-@media (min-width:1081px) {
-  .pp-cp-board.pp-cp-board--3 { grid-template-columns:repeat(3,1fr); }
-}
-
-/* responsivo */
-@media (max-width:1080px) {
-  .pp-cp-kpis { grid-template-columns:repeat(2,1fr); }
-  .pp-cp-board { grid-template-columns:repeat(2,1fr); }
-}
-@media (max-width:720px) {
-  .pp-cp-topbar { flex-direction:column; align-items:stretch; }
-  .pp-cp-topbar-actions { justify-content:space-between; }
-  .pp-cp-search { flex:1; min-width:0; }
-}
-@media (max-width:560px) {
-  .pp-cp-kpis { grid-template-columns:1fr 1fr; }
-  .pp-cp-board { grid-template-columns:1fr; }
-  .pp-cp-search { order:3; width:100%; flex-basis:100%; }
-  .pp-cp-brand h1 { font-size:18px; }
-  .pp-cp-kpi .pp-cp-num { font-size:34px; }
-}
-@media (max-width:380px) {
-  .pp-cp-kpis { grid-template-columns:1fr; }
 }
 
 /* ── Scrollbar minimalista (global) ─────────────────────────── */

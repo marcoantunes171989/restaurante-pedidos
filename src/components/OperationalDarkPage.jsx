@@ -12,14 +12,13 @@ const brand = { primary: "#e8622c", primaryHover: "#c9501f", gold: "#d4a017", gr
 const GLASS = "pp-glass-surface";
 
 /**
- * Casco visual escuro compartilhado por Pedidos e Cozinha (as duas telas
- * padronizadas com a Central Operacional): cabeçalho com gradiente/logo/
- * badge "Online"/busca/notificações/configurações/Sair, KPIs e board
+ * Casco visual escuro compartilhado por Pedidos, Cozinha e Bar (as três
+ * telas padronizadas com a Central Operacional): cabeçalho com gradiente/
+ * logo/badge "Online"/busca/notificações/configurações/Sair, KPIs e board
  * Kanban/Lista — tudo reaproveitando as classes da Central Operacional
  * (.pp-operational-header/.pp-glass-surface/.pp-kpi-card/.pp-kpi-label/
  * .pp-status-badge) mais as classes novas pp-pd-* (index.css) para a
- * área de board/cards, que a Central não tem. Bar continua no tema claro
- * (CentralDoSetor.jsx) — não usa este componente. A lógica de negócio
+ * área de board/cards, que a Central não tem. A lógica de negócio
  * (dados, mutações, ações por card) fica 100% nas telas-mãe, passada via
  * `renderCard`/`searchMatch`/`deriveListVariant` — este componente só
  * monta o esqueleto.

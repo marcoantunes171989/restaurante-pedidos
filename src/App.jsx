@@ -43,7 +43,6 @@ import { PageHeader, PrimeButton, EmptyState, FilterChip, FilterGroup, FiltersPa
 import OperationalCentral from "./pages/OperationalCentral";
 import CentralDePedidos from "./pages/CentralDePedidos";
 import CentralDoCaixa from "./pages/CentralDoCaixa";
-import CentralDaCozinha from "./pages/CentralDaCozinha";
 import CentralDoSetor from "./pages/CentralDoSetor";
 import OperationalBottomNav from "./components/OperationalBottomNav";
 import { ClipboardList, ChefHat, Wine, CreditCard, Utensils, Clock, TrendingUp, Bell, CheckCircle2, Hourglass, Receipt, Wallet, CalendarCheck } from "lucide-react";
@@ -7112,14 +7111,15 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
     );
   }
 
-  // Cozinha — tela dedicada (src/pages/CentralDaCozinha.jsx), tema escuro
-  // padronizado com Pedidos (src/pages/CentralDePedidos.jsx). Toda a
-  // lógica (setor, iniciar preparo, marcar pronto, baixa, tempo real)
-  // continua sendo calculada aqui, com os MESMOS helpers já usados pelas
-  // outras abas — setoresPresentesSetor já filtra só itens da cozinha,
-  // nunca mistura com o Bar.
-  if (tab === "cozinha" && permitido("cozinha")) {
-    const naTabSetor = (nome) => !barLike(nome);
+  // Cozinha e Bar — mesma tela compartilhada (src/pages/CentralDoSetor.jsx),
+  // tema escuro padronizado com Pedidos (src/pages/CentralDePedidos.jsx),
+  // via os mesmos OperationalDarkPage/OperationalOrderCardDark. Só o
+  // filtro de setor e os textos mudam entre as duas; nenhuma lógica é
+  // duplicada — setoresPresentesSetor já filtra só os itens desta aba,
+  // nunca mistura Cozinha com Bar.
+  if ((tab === "cozinha" || tab === "bar") && permitido(tab)) {
+    const ehBar = tab === "bar";
+    const naTabSetor = ehBar ? barLike : (nome) => !barLike(nome);
     const temNaTabSetor = (o) => setoresPresentes(o).some(naTabSetor);
     const porSetorEOrdem = (arr) => arr.filter(temNaTabSetor)
       .sort((a, b) => new Date(a.createdAtISO || 0) - new Date(b.createdAtISO || 0));
@@ -7127,55 +7127,18 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
     // (perms/liberados computados uma vez no topo desta função).
     const nivelAcesso = perms.total ? "Acesso total" : (liberados.map((m) => m.label).join(" · ") || "Sem acesso");
     return (
-      <CentralDaCozinha
+      <CentralDoSetor
+        titulo={ehBar ? "Bar" : "Cozinha"}
+        fluxoLabel={ehBar ? "Fluxo do bar" : "Fluxo da cozinha"}
+        listaVazioTexto={ehBar ? "Nenhum pedido para o bar." : "Nenhum pedido para a cozinha."}
+        listaVazioIcone={ehBar ? "🍹" : "🧑‍🍳"}
+        activeNavId={tab}
         usuarioNome={usuarioNome}
         lojaInfo={lojaInfo}
         onFechar={onFechar}
         navItems={navItems}
         onNavigate={(id) => setTab(id)}
         nivelAcesso={nivelAcesso}
-        colunas={{
-          novos: porSetorEOrdem(novos),
-          preparo: porSetorEOrdem(emPreparo),
-          prontos: porSetorEOrdem(prontos),
-        }}
-        listaTodos={porSetorEOrdem(ativos)}
-        origemDe={origemDe}
-        haTxt={haTxt}
-        numeroPedido={numeroPedido}
-        itensDoSetor={itensDoSetor}
-        metaSetor={metaSetor}
-        setorPronto={setorPronto}
-        setoresPresentes={setoresPresentes}
-        setoresPresentesSetor={(o) => setoresPresentes(o).filter(naTabSetor)}
-        bloqueadoPorPagamento={bloqueadoPorPagamento}
-        onIniciarPreparo={(id) => updateOrderStatus(id, "preparing")}
-        onMarcarSetorPronto={(id, sk, setores) => marcarSetorPronto(id, sk, setores)}
-        onBaixarEntregue={(id) => marcarEntregue(id)}
-      />
-    );
-  }
-
-  // Bar — tela dedicada (src/pages/CentralDoSetor.jsx), tema claro
-  // pp-cp-*, inalterada por esta padronização (só Pedidos/Cozinha foram
-  // ao tema escuro). Mesma lógica de sempre.
-  if (tab === "bar" && permitido("bar")) {
-    const naTabSetor = barLike;
-    const temNaTabSetor = (o) => setoresPresentes(o).some(naTabSetor);
-    const porSetorEOrdem = (arr) => arr.filter(temNaTabSetor)
-      .sort((a, b) => new Date(a.createdAtISO || 0) - new Date(b.createdAtISO || 0));
-    return (
-      <CentralDoSetor
-        titulo="Bar"
-        fluxoLabel="Fluxo do bar"
-        listaVazioTexto="Nenhum pedido para o bar."
-        listaVazioIcone="🍹"
-        activeNavId="bar"
-        usuarioNome={usuarioNome}
-        lojaInfo={lojaInfo}
-        onFechar={onFechar}
-        navItems={navItems}
-        onNavigate={(id) => setTab(id)}
         colunas={{
           novos: porSetorEOrdem(novos),
           preparo: porSetorEOrdem(emPreparo),

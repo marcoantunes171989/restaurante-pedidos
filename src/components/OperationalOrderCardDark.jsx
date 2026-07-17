@@ -1,8 +1,8 @@
 import OrderItemsList from "./OrderItemsList";
 
-// Vocabulário visual de tag compartilhado por Pedidos e Cozinha (tema
-// escuro) — Novos/Em preparo/Prontos são as únicas 3 fases reais do
-// fluxo em ambas as telas.
+// Vocabulário visual de tag compartilhado por Pedidos, Cozinha e Bar
+// (tema escuro) — Novos/Em preparo/Prontos são as únicas 3 fases reais
+// do fluxo nas três telas.
 const VARIANTE = {
   novo:    { tag: "Novo",       tagCls: "pp-pd-tag-novo",    accent: "#2563eb" },
   preparo: { tag: "Em preparo", tagCls: "pp-pd-tag-preparo", accent: "#e0930f" },
@@ -10,10 +10,9 @@ const VARIANTE = {
 };
 
 /** Um bloco de itens por setor (um pedido pode ter mais de um setor ao
- * mesmo tempo: cozinha + bar, por exemplo). Em Cozinha é acionável
+ * mesmo tempo: cozinha + bar, por exemplo). Em Cozinha/Bar é acionável
  * ("Marcar pronto" por setor); em Pedidos é só leitura — basta omitir
- * `onMarcarPronto` para o bloco virar somente exibição (mesmo contrato
- * já usado pela versão clara, OperationalOrderCard.jsx). */
+ * `onMarcarPronto` para o bloco virar somente exibição. */
 function SetorBloco({ o, sk, its, metaSetor, setorPronto, onMarcarPronto }) {
   const sm = metaSetor(sk);
   const pronto = setorPronto?.(o, sk);
@@ -28,18 +27,18 @@ function SetorBloco({ o, sk, its, metaSetor, setorPronto, onMarcarPronto }) {
             : <button className="pp-pd-btn-mini" onClick={onMarcarPronto} type="button">Marcar pronto</button>
         )}
       </div>
-      <OrderItemsList items={its} variant="dark" />
+      <OrderItemsList items={its} />
     </div>
   );
 }
 
 /**
- * Card de pedido — tema escuro (pp-pd-*), compartilhado por Pedidos e
- * Cozinha. `variante` só controla selo/cor; o corpo mostra cliente,
- * mesa/comanda, forma de pagamento (se houver) e os itens agrupados por
- * setor. `onMarcarPronto`/`setorPronto` são opcionais — só Cozinha passa
- * (ação real de produção); sem eles, os blocos de setor ficam só
- * leitura, do jeito que Pedidos precisa.
+ * Card de pedido — tema escuro (pp-pd-*), compartilhado por Pedidos,
+ * Cozinha e Bar. `variante` só controla selo/cor; o corpo mostra
+ * cliente, mesa/comanda, forma de pagamento (se houver) e os itens
+ * agrupados por setor. `onMarcarPronto`/`setorPronto` são opcionais —
+ * só Cozinha/Bar passam (ação real de produção); sem eles, os blocos de
+ * setor ficam só leitura, do jeito que Pedidos precisa.
  */
 export default function OperationalOrderCardDark({
   o, variante, setoresNoPedido = [], action,

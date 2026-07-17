@@ -1,27 +1,28 @@
-import OperationalFlowPage from "../components/OperationalFlowPage";
-import OperationalOrderCard from "../components/OperationalOrderCard";
+import { Bell, Clock, CheckCircle2 } from "lucide-react";
+import OperationalDarkPage from "../components/OperationalDarkPage";
+import OperationalOrderCardDark from "../components/OperationalOrderCardDark";
 
 // Textos de coluna vazia — deliberadamente iguais para Cozinha e Bar (é o
 // que o pedido de padronização define), por isso ficam fixos aqui em vez
 // de vir por prop.
 const COLUNAS_META = [
-  { key: "novos", label: "Novos", dot: "var(--cp-blue)", variante: "novo", vazio: { ic: "🆕", txt: "Nenhum pedido novo" } },
-  { key: "preparo", label: "Em preparo", dot: "var(--cp-amber)", variante: "preparo", vazio: { ic: "🍳", txt: "Nenhum pedido em preparo" } },
-  { key: "prontos", label: "Prontos", dot: "var(--cp-green)", variante: "pronto", vazio: { ic: "📦", txt: "Nada pronto no momento" } },
+  { key: "novos", label: "Novos", dot: "#2563eb", variante: "novo", vazio: { ic: "🆕", txt: "Nenhum pedido novo" } },
+  { key: "preparo", label: "Em preparo", dot: "#e0930f", variante: "preparo", vazio: { ic: "🍳", txt: "Nenhum pedido em preparo" } },
+  { key: "prontos", label: "Prontos", dot: "#16a34a", variante: "pronto", vazio: { ic: "📦", txt: "Nada pronto no momento" } },
 ];
 
 /**
  * Tela de setor de produção (Cozinha e Bar — /operacional/cozinha e
  * /operacional/bar) — componente ÚNICO e compartilhado entre as duas,
- * para não duplicar JSX/CSS/lógica: só o que é textualmente diferente
- * (título, rótulo do fluxo, textos/ícone do estado vazio da lista, item
- * ativo da nav) entra por prop. Estrutura idêntica à Central de Pedidos
- * (src/pages/CentralDePedidos.jsx), reaproveitando as MESMAS classes
- * pp-cp-* de index.css (nenhum CSS por setor). Toda a lógica real
- * (contadores, setor por setor, iniciar preparo, marcar pronto, baixa,
- * tempo real) continua 100% calculada em OperacaoMobileView
- * (src/App.jsx) e só é passada pronta para cá — o filtro que decide
- * "isto é Cozinha ou Bar" também vem de lá (setoresPresentesSetor).
+ * tema escuro padronizado com Pedidos (src/pages/CentralDePedidos.jsx):
+ * mesmo casco (OperationalDarkPage) e mesmo card (OperationalOrderCardDark)
+ * das duas outras telas. Só o que é textualmente diferente (título,
+ * rótulo do fluxo, textos/ícone do estado vazio da lista, item ativo da
+ * nav) entra por prop. Toda a lógica real (contadores, setor por setor,
+ * iniciar preparo, marcar pronto, baixa, tempo real) continua 100%
+ * calculada em OperacaoMobileView (src/App.jsx) e só é passada pronta
+ * para cá — o filtro que decide "isto é Cozinha ou Bar" também vem de lá
+ * (setoresPresentesSetor), nunca mistura itens entre os dois setores.
  */
 export default function CentralDoSetor({
   titulo, // "Cozinha" | "Bar"
@@ -34,6 +35,7 @@ export default function CentralDoSetor({
   onFechar,
   navItems = [],
   onNavigate,
+  nivelAcesso = "",
   colunas = {}, // { novos:[], preparo:[], prontos:[] }
   listaTodos = [],
   origemDe, haTxt, numeroPedido, itensDoSetor, metaSetor, setorPronto,
@@ -51,10 +53,10 @@ export default function CentralDoSetor({
     if (variante === "novo") {
       return (
         <>
-          <button className="pp-cp-btn pp-cp-btn-primary" onClick={() => onIniciarPreparo(o.id)} type="button">
+          <button className="pp-pd-btn pp-pd-btn-primary" onClick={() => onIniciarPreparo(o.id)} type="button">
             ✓ Aceitar para preparação
           </button>
-          <button className="pp-cp-btn pp-cp-btn-ghost" aria-label="Mais opções" type="button">⋯</button>
+          <button className="pp-pd-btn pp-pd-btn-ghost" aria-label="Mais opções" type="button">⋯</button>
         </>
       );
     }
@@ -65,16 +67,16 @@ export default function CentralDoSetor({
       const todos = setoresPresentes(o);
       const aguardandoOutroSetor = setoresNoPedido.length > 0 && setoresNoPedido.every((s) => setorPronto(o, s)) && todos.length > setoresNoPedido.length;
       if (aguardandoOutroSetor) {
-        return <p className="pp-cp-wait-msg">✓ {titulo} pronto · aguardando o outro setor</p>;
+        return <p className="pp-pd-wait-msg">✓ {titulo} pronto · aguardando o outro setor</p>;
       }
       return null; // ação real é por setor, dentro do card (SetorBloco)
     }
     // pronto
     if (bloqueadoPorPagamento(o)) {
-      return <p className="pp-cp-lock-msg">🔒 Aguardando pagamento para liberar</p>;
+      return <p className="pp-pd-lock-msg">🔒 Aguardando pagamento para liberar</p>;
     }
     return (
-      <button className="pp-cp-btn pp-cp-btn-blue" onClick={() => onBaixarEntregue(o.id)} type="button">
+      <button className="pp-pd-btn pp-pd-btn-blue" onClick={() => onBaixarEntregue(o.id)} type="button">
         Baixa / entregue
       </button>
     );
@@ -86,7 +88,7 @@ export default function CentralDoSetor({
     // contrato de sempre em marcarSetorPronto(id, setor, setoresPresentes).
     const setoresNoPedido = setoresPresentesSetor(o);
     return (
-      <OperationalOrderCard
+      <OperationalOrderCardDark
         key={o.id} o={o} variante={variante} setoresNoPedido={setoresNoPedido} action={actionPara(o, variante, setoresNoPedido)}
         origemDe={origemDe} haTxt={haTxt} numeroPedido={numeroPedido} itensDoSetor={itensDoSetor} metaSetor={metaSetor}
         setorPronto={setorPronto} onMarcarPronto={(sk) => onMarcarSetorPronto(o.id, sk, setoresPresentes(o))}
@@ -97,14 +99,16 @@ export default function CentralDoSetor({
   const deriveListVariant = (o) =>
     o.status === "received" ? "novo" : o.status === "preparing" ? "preparo" : "pronto";
 
+  // Mesmos ícones já usados para estes 3 indicadores em Pedidos/Central
+  // Operacional — mesmo significado visual nas três telas.
   const kpis = [
-    { key: "novos", icon: "🆕", label: "Novos", value: colunas.novos?.length || 0, accent: "var(--cp-blue)", accentSoft: "var(--cp-blue-soft)" },
-    { key: "preparo", icon: "🔥", label: "Em preparo", value: colunas.preparo?.length || 0, accent: "var(--cp-amber)", accentSoft: "var(--cp-amber-soft)" },
-    { key: "prontos", icon: "✅", label: "Prontos", value: colunas.prontos?.length || 0, accent: "var(--cp-green)", accentSoft: "var(--cp-green-soft)" },
+    { key: "novos", Icon: Bell, label: "Novos", value: colunas.novos?.length || 0 },
+    { key: "preparo", Icon: Clock, label: "Em preparo", value: colunas.preparo?.length || 0 },
+    { key: "prontos", Icon: CheckCircle2, label: "Prontos", value: colunas.prontos?.length || 0 },
   ];
 
   return (
-    <OperationalFlowPage
+    <OperationalDarkPage
       title={titulo}
       flowTitle={fluxoLabel}
       activeNavId={activeNavId}
@@ -113,10 +117,9 @@ export default function CentralDoSetor({
       usuarioNome={usuarioNome}
       lojaInfo={lojaInfo}
       onFechar={onFechar}
+      nivelAcesso={nivelAcesso}
       kpis={kpis}
-      kpisVariant="3"
       columns={COLUNAS_META}
-      boardVariant="3"
       dataColumns={colunas}
       dataList={listaTodos}
       searchMatch={searchMatch}
