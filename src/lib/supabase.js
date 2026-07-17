@@ -1393,3 +1393,91 @@ export const STATUS_APP_PARA_DB = { received: 'recebido', preparing: 'preparando
 export const STATUS_DB_PARA_APP = { recebido: 'received', preparando: 'preparing', finalizado: 'ready', entregue: 'delivered', cancelado: 'cancelled' }
 export const PAGT_APP_PARA_DB   = { open: 'aberto', requested: 'solicitado', paid: 'pago' }
 export const PAGT_DB_PARA_APP   = { aberto: 'open', solicitado: 'requested', pago: 'paid' }
+
+// ════════════════════════════════════════════════════════════
+//  tab_notificacoes / tab_push_subscriptions / tab_notificacao_prefs
+//  (migration 064) — notificações push operacionais. RLS já garante
+//  que cada usuário só vê as próprias linhas; estas funções não
+//  filtram por usuário/loja no client (não precisam — ver migration).
+// ════════════════════════════════════════════════════════════
+function mapNotificacao(r) {
+  return {
+    id: r.id, tipo: r.tipo, pedidoId: r.pedido_id ?? null,
+    titulo: r.titulo, corpo: r.corpo, rota: r.rota ?? null,
+    lida: !!r.lido_em, lidoEmISO: r.lido_em ?? null, criadoEmISO: r.criado_em,
+  };
+}
+export async function fetchNotificacoes(limite = 30) {
+  const { data, error } = await supabase.from('tab_notificacoes')
+    .select('*').order('criado_em', { ascending: false }).limit(limite);
+  if (error) throw error;
+  return (data || []).map(mapNotificacao);
+}
+export function escutarNotificacoes(onMudanca) {
+  const reload = async () => { try { onMudanca(await fetchNotificacoes()); } catch {} };
+  const canal = supabase.channel('ch_notificacoes_' + Math.random().toString(36).slice(2))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_notificacoes' }, reload)
+    .subscribe((s) => { if (s === 'SUBSCRIBED') reload(); });
+  return () => supabase.removeChannel(canal);
+}
+export async function marcarNotificacaoLida(id) {
+  const { error } = await supabase.from('tab_notificacoes').update({ lido_em: new Date().toISOString() }).eq('id', id).is('lido_em', null);
+  if (error) throw error;
+}
+export async function marcarTodasNotificacoesLidas() {
+  const { error } = await supabase.from('tab_notificacoes').update({ lido_em: new Date().toISOString() }).is('lido_em', null);
+  if (error) throw error;
+}
+
+export async function upsertPushSubscription({ endpoint, p256dh, authChave, plataforma, deviceId }) {
+  const { error } = await supabase.from('tab_push_subscriptions').upsert([{
+    endpoint, p256dh, auth_chave: authChave, plataforma, device_id: deviceId, ativo: true, last_seen_at: new Date().toISOString(),
+  }], { onConflict: 'endpoint' });
+  if (error) throw error;
+}
+export async function desativarPushSubscription(endpoint) {
+  const { error } = await supabase.from('tab_push_subscriptions').update({ ativo: false }).eq('endpoint', endpoint);
+  if (error) throw error;
+}
+export async function removerPushSubscription(endpoint) {
+  const { error } = await supabase.from('tab_push_subscriptions').delete().eq('endpoint', endpoint);
+  if (error) throw error;
+}
+export async function fetchPushSubscriptionAtual(endpoint) {
+  const { data, error } = await supabase.from('tab_push_subscriptions').select('*').eq('endpoint', endpoint).maybeSingle();
+  if (error) throw error;
+  return data || null;
+}
+
+function mapPrefs(r) {
+  return {
+    pushAtivo: r?.push_ativo !== false,
+    alertaNovoPedido: r?.alerta_novo_pedido !== false,
+    alertaCaixa: r?.alerta_caixa !== false,
+    som: r?.som !== false,
+    alertasVisuais: r?.alertas_visuais !== false,
+  };
+}
+export async function fetchPreferenciasNotificacao() {
+  const { data, error } = await supabase.from('tab_notificacao_prefs').select('*').maybeSingle();
+  if (error) throw error;
+  return mapPrefs(data);
+}
+export async function salvarPreferenciasNotificacao(prefs) {
+  const linha = {
+    push_ativo: prefs.pushAtivo, alerta_novo_pedido: prefs.alertaNovoPedido,
+    alerta_caixa: prefs.alertaCaixa, som: prefs.som, alertas_visuais: prefs.alertasVisuais,
+  };
+  // upsert sem informar usuario_id/loja_id — os defaults da tabela
+  // (app_usuario_id()/app_loja_id(), migration 064) resolvem sozinhos.
+  const { error } = await supabase.from('tab_notificacao_prefs').upsert([linha], { onConflict: 'usuario_id' });
+  if (error) throw error;
+}
+
+// Dispara a Edge Function em modo teste (envia push só para o próprio
+// usuário logado) — nunca chama serviço de push direto do navegador.
+export async function enviarNotificacaoTeste() {
+  const { data, error } = await supabase.functions.invoke('notificacoes-push', { body: { teste: true } });
+  if (error) throw error;
+  return data;
+}

@@ -798,6 +798,12 @@ select::-ms-expand { display: none; } /* IE/Edge antigo */
 
 .pp-pd-order { background:rgba(38,30,25,.55); border:1px solid rgba(255,255,255,.10); border-radius:16px; padding:15px; margin-bottom:12px; position:relative; overflow:hidden; transition:.25s; }
 .pp-pd-order:hover { transform:translateY(-3px); border-color:rgba(255,255,255,.22); box-shadow:0 14px 32px rgba(0,0,0,.28); }
+
+/* Card de chegada via clique numa notificação (?destacar=<id>) — mesmo
+   dourado da marca, sem introduzir cor nova; some sozinho após 4s
+   (CentralDePedidos.jsx / CentralDoCaixa.jsx). */
+.pp-pd-destacado .pp-pd-order { border-color:#d4a017; box-shadow:0 0 0 3px rgba(212,160,23,.35), 0 14px 32px rgba(0,0,0,.28); animation:pp-destacado-pulso 1.6s ease-out 2; }
+@keyframes pp-destacado-pulso { 0% { box-shadow:0 0 0 0 rgba(212,160,23,.55); } 100% { box-shadow:0 0 0 10px rgba(212,160,23,0); } }
 .pp-pd-order-accent { position:absolute; left:0; top:0; bottom:0; width:4px; }
 .pp-pd-order-top { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:11px; gap:8px; }
 .pp-pd-tag { font-size:10.5px; font-weight:800; letter-spacing:.6px; padding:5px 10px; border-radius:8px; text-transform:uppercase; white-space:nowrap; }
@@ -855,6 +861,53 @@ select::-ms-expand { display: none; } /* IE/Edge antigo */
 @media (max-width: 640px) {
   .pp-pd-search { min-width: 0; }
 }
+
+/* ── Notificações (sino) e Configurações (engrenagem) — painéis do
+   header escuro compartilhado. Mobile: drawer fixo na parte de baixo da
+   tela (safe-area já tratada no componente); >=640px: popover/modal
+   flutuante ancorado, mesma paleta/bordas/sombra do resto do tema. ── */
+.pp-notif-panel {
+  background: #1a1a1a;
+  border: 1px solid rgba(255,255,255,.12);
+  box-shadow: 0 20px 50px rgba(0,0,0,.45);
+  border-radius: 22px 22px 0 0;
+  width: 100%;
+  max-height: 80vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+@media (min-width: 640px) {
+  .pp-notif-panel { width: 384px; max-width: calc(100vw - 32px); border-radius: 20px; max-height: 70vh; }
+}
+
+.pp-notif-modal-backdrop {
+  position: fixed; inset: 0; z-index: 50;
+  background: rgba(0,0,0,.55);
+  display: flex; align-items: flex-end; justify-content: center;
+}
+@media (min-width: 640px) {
+  .pp-notif-modal-backdrop { align-items: center; padding: 16px; }
+}
+.pp-notif-modal {
+  background: #1a1a1a;
+  border: 1px solid rgba(255,255,255,.12);
+  box-shadow: 0 20px 60px rgba(0,0,0,.5);
+  border-radius: 24px 24px 0 0;
+  width: 100%;
+  max-height: 88vh;
+  overflow-y: auto;
+}
+@media (min-width: 640px) {
+  .pp-notif-modal { width: 460px; max-width: 100%; border-radius: 22px; max-height: 85vh; }
+}
+
+.pp-notif-toggle { position: relative; display: inline-flex; height: 26px; width: 46px; flex-shrink: 0; border-radius: 999px; border: 1px solid rgba(255,255,255,.18); background: rgba(255,255,255,.08); transition: .2s; cursor: pointer; }
+.pp-notif-toggle.is-on { background: linear-gradient(120deg,#e8622c,#d4a017); border-color: transparent; }
+.pp-notif-toggle:disabled { opacity: .4; cursor: not-allowed; }
+.pp-notif-toggle .pp-notif-knob { position: absolute; top: 2px; left: 2px; height: 20px; width: 20px; border-radius: 999px; background: #fff; transition: .2s; }
+.pp-notif-toggle.is-on .pp-notif-knob { transform: translateX(20px); }
+.pp-notif-toggle:focus-visible { outline: 2px solid #d4a017; outline-offset: 2px; }
 
 /* ── Scrollbar minimalista (global) ─────────────────────────── */
 * {

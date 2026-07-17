@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import { Bell, Clock, CheckCircle2 } from "lucide-react";
 import OperationalDarkPage from "../components/OperationalDarkPage";
 import OperationalOrderCardDark from "../components/OperationalOrderCardDark";
@@ -29,6 +30,29 @@ export default function CentralDePedidos({
   origemDe, haTxt, numeroPedido, setoresPresentes, itensDoSetor, metaSetor,
   acaoPrincipal,
 }) {
+  // Chegada via clique numa notificação (?destacar=<id>, migration 064 /
+  // NotificationBell) — realça e rola até o card certo, uma vez só. Lido no
+  // initializer (não num efeito) para não disparar setState síncrono dentro
+  // de useEffect.
+  const [destacadoId, setDestacadoId] = useState(() => new URLSearchParams(window.location.search).get("destacar"));
+  const destacadoRef = useRef(null);
+
+  useEffect(() => {
+    if (!destacadoId) return;
+    const params = new URLSearchParams(window.location.search);
+    if (!params.has("destacar")) return;
+    params.delete("destacar");
+    const resto = params.toString();
+    window.history.replaceState({}, "", window.location.pathname + (resto ? `?${resto}` : ""));
+  }, [destacadoId]);
+
+  useEffect(() => {
+    if (!destacadoId || !destacadoRef.current) return;
+    destacadoRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    const t = setTimeout(() => setDestacadoId(null), 4000);
+    return () => clearTimeout(t);
+  }, [destacadoId]);
+
   const searchMatch = (o, q) => {
     const alvo = [o.customer, o.id, o.table, `#${numeroPedido[o.id] ?? ""}`].join(" ").toLowerCase();
     return alvo.includes(q);
@@ -49,10 +73,12 @@ export default function CentralDePedidos({
   };
 
   const renderCard = (o, variante) => (
-    <OperationalOrderCardDark
-      key={o.id} o={o} variante={variante} setoresNoPedido={setoresPresentes(o)} action={actionPara(o, variante)}
-      origemDe={origemDe} haTxt={haTxt} numeroPedido={numeroPedido} itensDoSetor={itensDoSetor} metaSetor={metaSetor}
-    />
+    <div key={o.id} ref={o.id === destacadoId ? destacadoRef : undefined} className={o.id === destacadoId ? "pp-pd-destacado" : undefined}>
+      <OperationalOrderCardDark
+        o={o} variante={variante} setoresNoPedido={setoresPresentes(o)} action={actionPara(o, variante)}
+        origemDe={origemDe} haTxt={haTxt} numeroPedido={numeroPedido} itensDoSetor={itensDoSetor} metaSetor={metaSetor}
+      />
+    </div>
   );
 
   const deriveListVariant = (o) =>

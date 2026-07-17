@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Hourglass, Receipt, Wallet, CalendarCheck } from "lucide-react";
 import { formatCurrency } from "../App";
 import OperationalBottomNav from "../components/OperationalBottomNav";
@@ -278,6 +278,29 @@ export default function CentralDoCaixa({
   // Trava síncrona (ref) contra clique duplo antes do re-render aplicar o "disabled".
   const pagandoIdsRef = useRef(new Set());
 
+  // Chegada via clique numa notificação de Caixa (?destacar=<id>, migration
+  // 064 / NotificationBell) — realça e rola até a conta certa, uma vez só.
+  // Lido no initializer (não num efeito) para não disparar setState síncrono
+  // dentro de useEffect.
+  const [destacadoId, setDestacadoId] = useState(() => new URLSearchParams(window.location.search).get("destacar"));
+  const destacadoRef = useRef(null);
+
+  useEffect(() => {
+    if (!destacadoId) return;
+    const params = new URLSearchParams(window.location.search);
+    if (!params.has("destacar")) return;
+    params.delete("destacar");
+    const resto = params.toString();
+    window.history.replaceState({}, "", window.location.pathname + (resto ? `?${resto}` : ""));
+  }, [destacadoId]);
+
+  useEffect(() => {
+    if (!destacadoId || !destacadoRef.current) return;
+    destacadoRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    const t = setTimeout(() => setDestacadoId(null), 4000);
+    return () => clearTimeout(t);
+  }, [destacadoId]);
+
   async function retirar(o) {
     setRetirando(o.id);
     try { await confirmarRetirada(o.id); } catch { /* feedback já tratado no backend */ }
@@ -367,19 +390,20 @@ export default function CentralDoCaixa({
             // colunas exatamente a partir de 1024px).
             <div className="mt-5 grid min-w-0 gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr))]">
               {visiveis.map(({ o }) => (
-                <ContaCard
-                  key={o.id}
-                  o={o}
-                  totalCom={totalCom}
-                  haTxt={haTxt}
-                  numeroPedido={numeroPedido}
-                  telMascarado={telMascarado}
-                  opcoes={opcoes}
-                  pagando={pagando === o.id}
-                  onFinalizar={finalizar}
-                  retirando={retirando === o.id}
-                  onRetirar={retirar}
-                />
+                <div key={o.id} ref={o.id === destacadoId ? destacadoRef : undefined} className={o.id === destacadoId ? "pp-pd-destacado" : undefined}>
+                  <ContaCard
+                    o={o}
+                    totalCom={totalCom}
+                    haTxt={haTxt}
+                    numeroPedido={numeroPedido}
+                    telMascarado={telMascarado}
+                    opcoes={opcoes}
+                    pagando={pagando === o.id}
+                    onFinalizar={finalizar}
+                    retirando={retirando === o.id}
+                    onRetirar={retirar}
+                  />
+                </div>
               ))}
             </div>
           )}

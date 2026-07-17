@@ -1,6 +1,8 @@
 import { motion } from "framer-motion";
 import { LogOut } from "lucide-react";
 import { OperationalBrandLogo } from "./BrandLogo";
+import NotificationBell from "./NotificationBell";
+import NotificationSettings from "./NotificationSettings";
 
 // Mesmos tons hex já usados em .pp-operational-header/.pp-glass-surface/
 // .pp-kpi-card (index.css, Central Operacional) — repetidos aqui como
@@ -18,6 +20,9 @@ const GLASS = "pp-glass-surface";
  * Cozinha/Bar) para o Caixa também reaproveitar — o Caixa NÃO usa
  * OperationalDarkPage inteiro (não é um kanban), só este cabeçalho.
  * `busca`/`onBuscaChange` e `kpis` são controlados pela tela-mãe.
+ * Sino/engrenagem (NotificationBell/NotificationSettings) são
+ * autocontidos — resolvem usuário/loja pelo JWT + RLS, sem precisar de
+ * props vindas daqui nem das telas-mãe (migration 064).
  */
 export default function OperationalDarkHeader({
   title,
@@ -28,7 +33,6 @@ export default function OperationalDarkHeader({
   searchPlaceholder = "Buscar pedido, cliente ou código…",
   busca,
   onBuscaChange,
-  notificacoes = 0,
   kpis = [],
   kpiGridClassName = "grid grid-cols-1 gap-3 min-[400px]:grid-cols-2 sm:grid-cols-3",
 }) {
@@ -67,10 +71,8 @@ export default function OperationalDarkHeader({
           <div className={`${GLASS} pp-pd-search rounded-xl`}>
             🔎 <input placeholder={searchPlaceholder} value={busca} onChange={(e) => onBuscaChange(e.target.value)} />
           </div>
-          <button className={`${GLASS} pp-pd-icon-btn rounded-xl`} title="Notificações" type="button">
-            🔔{notificacoes > 0 && <span className="pp-pd-notif-badge">{notificacoes}</span>}
-          </button>
-          <button className={`${GLASS} pp-pd-icon-btn rounded-xl`} title="Configurações" type="button">⚙️</button>
+          <NotificationBell />
+          <NotificationSettings />
         </div>
 
         {/* KPI STRIP — mesmas classes de KPI da Central (pp-glass-surface/pp-kpi-card/pp-kpi-label) */}
