@@ -43,6 +43,7 @@ import { PageHeader, PrimeButton, EmptyState, FilterChip, FilterGroup, FiltersPa
 import OperationalCentral from "./pages/OperationalCentral";
 import CentralDePedidos from "./pages/CentralDePedidos";
 import CentralDoCaixa from "./pages/CentralDoCaixa";
+import CentralDaCozinha from "./pages/CentralDaCozinha";
 import OperationalBottomNav from "./components/OperationalBottomNav";
 import { ClipboardList, ChefHat, Wine, CreditCard, Utensils, Clock, TrendingUp } from "lucide-react";
 
@@ -7099,6 +7100,44 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
     );
   }
 
+  // Cozinha — tela dedicada (src/pages/CentralDaCozinha.jsx), padronizada
+  // com a Central de Pedidos (mesmo container/cabeçalho/KPIs/board/nav,
+  // reaproveitando as classes pp-cp-* de index.css). "Bar" continua no
+  // bloco compartilhado abaixo, inalterado — só a Cozinha foi pedida.
+  if (tab === "cozinha" && permitido("cozinha")) {
+    const naTabCozinha = (nome) => !barLike(nome);
+    const temNaTabCozinha = (o) => setoresPresentes(o).some(naTabCozinha);
+    const porSetorEOrdemCozinha = (arr) => arr.filter(temNaTabCozinha)
+      .sort((a, b) => new Date(a.createdAtISO || 0) - new Date(b.createdAtISO || 0));
+    return (
+      <CentralDaCozinha
+        usuarioNome={usuarioNome}
+        lojaInfo={lojaInfo}
+        onFechar={onFechar}
+        navItems={navItems}
+        onNavigate={(id) => setTab(id)}
+        colunas={{
+          novos: porSetorEOrdemCozinha(novos),
+          preparo: porSetorEOrdemCozinha(emPreparo),
+          prontos: porSetorEOrdemCozinha(prontos),
+        }}
+        listaTodos={porSetorEOrdemCozinha(ativos)}
+        origemDe={origemDe}
+        haTxt={haTxt}
+        numeroPedido={numeroPedido}
+        itensDoSetor={itensDoSetor}
+        metaSetor={metaSetor}
+        setorPronto={setorPronto}
+        setoresPresentes={setoresPresentes}
+        setoresPresentesCozinha={(o) => setoresPresentes(o).filter(naTabCozinha)}
+        bloqueadoPorPagamento={bloqueadoPorPagamento}
+        onIniciarPreparo={(id) => updateOrderStatus(id, "preparing")}
+        onMarcarSetorPronto={(id, sk, setores) => marcarSetorPronto(id, sk, setores)}
+        onBaixarEntregue={(id) => marcarEntregue(id)}
+      />
+    );
+  }
+
   return (
     <div className="tema-claro-area fixed inset-0 z-[60] w-full max-w-[100vw] overflow-x-hidden overflow-y-auto bg-[#F7F8FA]" data-theme="light" style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "calc(env(safe-area-inset-bottom) + 76px)" }}>
     <div className="mx-auto w-full max-w-md px-4 pt-4 sm:max-w-2xl sm:px-6 lg:max-w-4xl">
@@ -7118,10 +7157,10 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
         </div>
       )}
 
-      {(tab === "cozinha" || tab === "bar") && permitido(tab) && (() => {
-        // Bar = setores "bar/bebida"; Cozinha = os demais (cozinha, sobremesa, e quaisquer
-        // outros setores cadastrados). Cada setor tem seu próprio "pronto".
-        const naTab = (nome) => tab === "bar" ? barLike(nome) : !barLike(nome);
+      {tab === "bar" && permitido("bar") && (() => {
+        // Bar = setores "bar/bebida" (Cozinha virou tela própria — ver
+        // src/pages/CentralDaCozinha.jsx). Cada setor tem seu próprio "pronto".
+        const naTab = barLike;
         const temNaTab = (o) => setoresPresentes(o).some(naTab);
         const comItens = ativos.filter(temNaTab).sort((a, b) => new Date(a.createdAtISO || 0) - new Date(b.createdAtISO || 0));
         return (<>
@@ -7132,7 +7171,7 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
             })}
           </div>
           <div className="space-y-2 sm:grid sm:grid-cols-2 sm:gap-3 sm:space-y-0">
-            {comItens.length === 0 && <p className="py-10 text-center text-sm text-[#667085] sm:col-span-2">Nenhum pedido para {tab === "bar" ? "o bar" : "a cozinha"}.</p>}
+            {comItens.length === 0 && <p className="py-10 text-center text-sm text-[#667085] sm:col-span-2">Nenhum pedido para o bar.</p>}
             {comItens.map((o) => { const b = badge(o); const setoresNoPedido = setoresPresentes(o).filter(naTab);
               return (
                 <div key={o.id} className="rounded-3xl border border-[#E5E7EB] bg-white p-3.5 shadow-[0_8px_24px_rgba(16,24,40,.06)]">
@@ -7166,7 +7205,7 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
                     {o.status === "ready" && (bloqueadoPorPagamento(o)
                       ? <p className="rounded-2xl border border-[#F4D27A] bg-[#FFF7E0] py-2.5 text-center text-sm font-bold text-[#9A6A00]">🔒 Aguardando pagamento para liberar</p>
                       : <button onClick={() => marcarEntregue(o.id)} className="w-full min-h-[44px] rounded-2xl bg-[#2563EB] py-2.5 text-sm font-black text-white active:scale-95">Baixa / entregue</button>)}
-                    {o.status === "preparing" && setoresNoPedido.every((s) => setorPronto(o, s)) && setoresPresentes(o).length > setoresNoPedido.length && <p className="rounded-2xl border border-[#B7E4C7] bg-[#ECFDF3] py-2.5 text-center text-sm font-bold text-[#147A4A]">✓ {tab === "bar" ? "Bar" : "Cozinha"} pronto · aguardando o outro setor</p>}
+                    {o.status === "preparing" && setoresNoPedido.every((s) => setorPronto(o, s)) && setoresPresentes(o).length > setoresNoPedido.length && <p className="rounded-2xl border border-[#B7E4C7] bg-[#ECFDF3] py-2.5 text-center text-sm font-bold text-[#147A4A]">✓ Bar pronto · aguardando o outro setor</p>}
                   </div>
                 </div>
               );

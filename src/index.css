@@ -863,6 +863,19 @@ select::-ms-expand { display: none; } /* IE/Edge antigo */
 .pp-cp-item { display:flex; align-items:center; gap:10px; font-size:13.5px; }
 .pp-cp-item .pp-cp-qty { background:var(--cp-brand-soft); color:var(--cp-brand-deep); font-weight:700; font-size:12px; padding:2px 8px; border-radius:7px; flex:none; min-width:30px; text-align:center; }
 .pp-cp-item .pp-cp-nm { color:var(--cp-txt-2); }
+/* Cozinha — bloco de itens por setor (um pedido pode ter cozinha +
+   sobremesa, cada setor com seu próprio "pronto"); reaproveita .pp-cp-
+   station-badge/.pp-cp-items/.pp-cp-item acima, só adiciona o essencial. */
+.pp-cp-station-block + .pp-cp-station-block { margin-top:4px; }
+.pp-cp-station-head { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:-4px; }
+.pp-cp-station-ready { font-size:10px; font-weight:700; color:var(--cp-green); background:var(--cp-green-soft); padding:3px 9px; border-radius:8px; }
+.pp-cp-btn-mini { min-height:32px; border:none; border-radius:8px; background:linear-gradient(120deg,var(--cp-green),#2fc27f); color:#fff; font-size:11px; font-weight:800; padding:0 10px; cursor:pointer; font-family:inherit; transition:.2s; }
+.pp-cp-btn-mini:hover { transform:translateY(-1px); }
+.pp-cp-item-wrap { display:flex; flex-direction:column; gap:2px; }
+.pp-cp-item-mods { margin:0 0 0 40px; font-size:11px; color:var(--cp-amber); }
+.pp-cp-wait-msg, .pp-cp-lock-msg { flex:1; margin:0; text-align:center; padding:12px; border-radius:12px; font-size:13px; font-weight:700; }
+.pp-cp-wait-msg { background:var(--cp-green-soft); color:var(--cp-green); }
+.pp-cp-lock-msg { background:var(--cp-amber-soft); color:var(--cp-amber); }
 .pp-cp-pay { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; gap:8px; }
 .pp-cp-pay .pp-cp-method { font-size:12px; color:var(--cp-txt-dim); display:flex; align-items:center; gap:7px; }
 .pp-cp-pay .pp-cp-total { font-family:'Space Grotesk',sans-serif; font-size:22px; font-weight:700; color:var(--cp-green); }
@@ -886,6 +899,21 @@ select::-ms-expand { display: none; } /* IE/Edge antigo */
 
 /* lista (view alternativa ao kanban) */
 .pp-cp-list { display:flex; flex-direction:column; gap:12px; }
+
+/* Cozinha tem 3 colunas (sem "aguardando pgto") em vez de 4.
+   Board: acima de 1080px vira 3 col; abaixo disso reaproveita o mesmo
+   colapso 2/1 col de .pp-cp-board (esperado num board kanban, igual à
+   Central de Pedidos quando 4 colunas colapsam).
+   KPIs: 3 cards pequenos colapsando pra 2 col deixa 1 vazio do lado —
+   por isso aqui NÃO reaproveita o colapso de 2 col do .pp-cp-kpis: fica
+   3 col até 640px, depois pula direto pra 1 col empilhado (sem vão). */
+.pp-cp-kpis.pp-cp-kpis--3 { grid-template-columns:repeat(3,1fr); }
+@media (max-width:640px) {
+  .pp-cp-kpis.pp-cp-kpis--3 { grid-template-columns:1fr; }
+}
+@media (min-width:1081px) {
+  .pp-cp-board.pp-cp-board--3 { grid-template-columns:repeat(3,1fr); }
+}
 
 /* responsivo */
 @media (max-width:1080px) {
