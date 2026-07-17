@@ -1,7 +1,8 @@
 import { useMemo, useRef, useState } from "react";
+import { Hourglass, Receipt, Wallet, CalendarCheck } from "lucide-react";
 import { formatCurrency } from "../App";
 import OperationalBottomNav from "../components/OperationalBottomNav";
-import { OperationalBrandLogo } from "../components/BrandLogo";
+import OperationalDarkHeader from "../components/OperationalDarkHeader";
 
 // Categoria só é usada para o badge/filtro visual — nunca decide o que a
 // conta PODE fazer (pagar antecipado é sempre permitido, como já era).
@@ -13,10 +14,13 @@ function categoriaDe(o) {
   return o.status === "ready" ? "em_aberto" : "aguardando";
 }
 
+// Mesmo vocabulário visual de tag do tema escuro (pp-pd-tag-*, já usado
+// nos cards de Pedidos/Cozinha/Bar) — aguardando=âmbar, em_aberto=azul,
+// pago=verde, sem introduzir cores novas.
 const CATEGORIA_META = {
-  aguardando: { label: "Aguardando", badge: "border-[#F4D27A] bg-[#FFF7E0] text-[#9A6A00]" },
-  em_aberto: { label: "Em aberto", badge: "border-[#BFDBFE] bg-[#EFF6FF] text-[#2563EB]" },
-  pago: { label: "Pago", badge: "border-[#B7E4C7] bg-[#EAFBF2] text-[#16A34A]" },
+  aguardando: { label: "Aguardando", cls: "pp-pd-tag-preparo" },
+  em_aberto: { label: "Em aberto", cls: "pp-pd-tag-novo" },
+  pago: { label: "Pago", cls: "pp-pd-tag-pronto" },
 };
 
 const FILTROS = [
@@ -26,96 +30,44 @@ const FILTROS = [
   { key: "pago", label: "Pagas" },
 ];
 
-/* ── Header ──────────────────────────────────────────────────── */
-function Header({ lojaInfo, usuarioNome, onFechar }) {
-  return (
-    <header className="flex items-center gap-3 rounded-[24px] border border-[#E5E7EB] bg-white p-4 shadow-[0_8px_24px_rgba(16,24,40,.06)] sm:p-5">
-      <OperationalBrandLogo />
-      <div className="min-w-0 flex-1">
-        <p className="page-title text-[20px] font-bold leading-tight text-[#182230]">Caixa</p>
-        <p className="mt-0.5 flex items-center gap-1.5 truncate text-xs text-[#667085]">
-          <span className="relative flex h-2 w-2 shrink-0" aria-hidden="true">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#16A34A] opacity-75" />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-[#16A34A]" />
-          </span>
-          {lojaInfo?.nome || "Operação da loja"} · {usuarioNome || "Administrador"}
-        </p>
-      </div>
-      {onFechar && (
-        <button
-          onClick={onFechar}
-          aria-label="Sair da operação"
-          className="flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-2xl border border-[#FCA5A5] bg-[#FFF1F2] px-4 text-xs font-black text-[#B91C1C] transition hover:bg-[#FEE2E2]"
-        >
-          ✕ Sair
-        </button>
-      )}
-    </header>
-  );
-}
+const brand = { graphite: "#1a1a1a" };
 
-/* ── KPIs ────────────────────────────────────────────────────── */
-function KpiCard({ icon, value, label, bar, iconBg, valueCls }) {
-  return (
-    <div className="relative overflow-hidden rounded-[20px] border border-[#E5E7EB] bg-white p-4 shadow-[0_8px_24px_rgba(16,24,40,.06)]">
-      <span className="absolute inset-y-0 left-0 w-1" style={{ background: bar }} aria-hidden="true" />
-      <div className="flex items-center justify-between pl-2">
-        <span className="grid h-9 w-9 place-items-center rounded-xl text-base" style={{ background: iconBg }} aria-hidden="true">{icon}</span>
-      </div>
-      <p className={`page-title mt-3 pl-2 text-2xl font-bold ${valueCls}`}>{value}</p>
-      <p className="pl-2 text-[11px] font-medium text-[#667085]">{label}</p>
-    </div>
-  );
-}
+// NOTA IMPORTANTE: nunca usar as classes literais `text-white`,
+// `bg-white/5`, `bg-white/10`, `bg-white/[0.0N]` ou `border-white/5|10|20`
+// aqui — index.css tem regras globais de repaint do tema claro
+// ([data-theme="light"] .tema-claro-area .text-white/.bg-white.../.border-
+// white...) que hijackam exatamente esses nomes de classe (toda tela
+// /operacional/* vive dentro de .tema-claro-area). Por isso, branco/preto
+// translúcido sempre entra como valor arbitrário (`text-[#fff]`,
+// `bg-[rgba(255,255,255,.05)]`), nunca como a utility reservada — mesmo
+// padrão já usado em OperationalDarkHeader/OperationalOrderCardDark.
 
-function KpiGrid({ aguardandoCount, contasAbertasCount, totalReceber, faturadoHoje }) {
+/* ── Toolbar de filtros (chips com contador) ────────────────────
+   Mesmo vocabulário visual dos botões do tema escuro (gradiente laranja/
+   dourado no ativo, vidro translúcido no inativo) — scroll horizontal
+   interno só nesta faixa (nunca na página) quando os chips não couberem. */
+function CaixaFiltros({ filtro, onFiltro, counts }) {
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-      <div className="relative overflow-hidden rounded-[20px] border border-[#F4D27A] p-4 shadow-[0_8px_24px_rgba(16,24,40,.06)]" style={{ background: "linear-gradient(140deg, #FAF9F5 0%, #FFF7E0 100%)" }}>
-        <span className="absolute inset-y-0 left-0 w-1 bg-[#D9A441]" aria-hidden="true" />
-        <div className="pl-2"><span className="grid h-9 w-9 place-items-center rounded-xl bg-white/70 text-base" aria-hidden="true">⏳</span></div>
-        <p className="page-title mt-3 pl-2 text-2xl font-bold text-[#9A6A00]">{aguardandoCount}</p>
-        <p className="pl-2 text-[11px] font-medium text-[#9A6A00]/80">Aguardando pagamento</p>
-      </div>
-      <KpiCard icon="📋" value={contasAbertasCount} label="Contas em aberto" bar="#2563EB" iconBg="#EFF6FF" valueCls="text-[#182230]" />
-      <KpiCard icon="💰" value={formatCurrency(totalReceber)} label="Total a receber" bar="#16A34A" iconBg="#EAFBF2" valueCls="text-[#147A4A]" />
-      <KpiCard icon="📈" value={formatCurrency(faturadoHoje)} label="Faturado hoje" bar="#E8622C" iconBg="#FDF1EC" valueCls="text-[#C9501F]" />
-    </div>
-  );
-}
-
-/* ── Toolbar (busca + chips) ─────────────────────────────────── */
-function CaixaToolbar({ busca, onBusca, filtro, onFiltro, counts }) {
-  return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-      <div className="flex min-w-[200px] flex-1 items-center gap-2.5 rounded-2xl border border-[#E5E7EB] bg-white px-4 py-3">
-        <span aria-hidden="true" className="text-[#667085]">🔎</span>
-        <input
-          value={busca}
-          onChange={(e) => onBusca(e.target.value)}
-          placeholder="Buscar por mesa, cliente ou pedido…"
-          aria-label="Buscar por mesa, cliente ou pedido"
-          className="w-full bg-transparent text-sm text-[#182230] outline-none placeholder:text-[#98A2B3]"
-        />
-      </div>
-      <div className="flex flex-wrap gap-2">
-        {FILTROS.map((f) => {
-          const ativo = filtro === f.key;
-          const cnt = counts[f.key] ?? 0;
-          return (
-            <button
-              key={f.key}
-              onClick={() => onFiltro(f.key)}
-              className={`flex min-h-[40px] items-center gap-2 rounded-2xl border px-3.5 text-sm font-bold transition ${
-                ativo ? "border-transparent bg-[#E8622C] text-white" : "border-[#E5E7EB] bg-white text-[#475467] hover:bg-[#F9FAFB]"
-              }`}
-            >
-              {f.label}
-              <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-black ${ativo ? "bg-white/25 text-white" : "bg-[#F7F8FA] text-[#667085]"}`}>{cnt}</span>
-            </button>
-          );
-        })}
-      </div>
+    <div className="flex flex-nowrap items-center gap-2 overflow-x-auto pb-1">
+      {FILTROS.map((f) => {
+        const ativo = filtro === f.key;
+        const cnt = counts[f.key] ?? 0;
+        return (
+          <button
+            key={f.key}
+            onClick={() => onFiltro(f.key)}
+            type="button"
+            className={`flex min-h-[44px] shrink-0 items-center gap-2 rounded-2xl border px-3.5 text-sm font-bold transition ${
+              ativo
+                ? "border-transparent bg-gradient-to-r from-[#e8622c] to-[#d4a017] text-[#fff]"
+                : "border-[rgba(255,255,255,.15)] bg-[rgba(255,255,255,.05)] text-[rgba(255,255,255,.7)] hover:bg-[rgba(255,255,255,.1)]"
+            }`}
+          >
+            {f.label}
+            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-black ${ativo ? "bg-[rgba(255,255,255,.25)] text-[#fff]" : "bg-[rgba(255,255,255,.1)] text-[rgba(255,255,255,.7)]"}`}>{cnt}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -152,38 +104,39 @@ function ContaCard({ o, totalCom, haTxt, numeroPedido, telMascarado, opcoes, pag
   const itensExtra = (o.items || []).length - itensVisiveis.length;
 
   return (
-    <div className="group rounded-[20px] border border-[#E5E7EB] bg-white p-4 shadow-[0_8px_24px_rgba(16,24,40,.06)] transition hover:-translate-y-[3px] hover:border-[#F4D27A] hover:shadow-[0_14px_40px_rgba(16,24,40,.10)]">
+    <div className="pp-pd-order">
       <div className="flex items-start gap-3">
-        <span className="grid h-[42px] w-[42px] shrink-0 place-items-center rounded-xl bg-[#FFF7E0] text-lg" aria-hidden="true">{externo ? "🛵" : "🍽️"}</span>
+        <span className="grid h-[42px] w-[42px] shrink-0 place-items-center rounded-xl bg-[rgba(255,255,255,.07)] text-lg" aria-hidden="true">{externo ? "🛵" : "🍽️"}</span>
         <div className="min-w-0 flex-1">
-          <p className="page-title truncate text-sm font-bold text-[#182230]">Pedido #{numeroPedido[o.id] ?? "—"} · {o.customer || "Cliente"}</p>
-          <p className="truncate text-xs text-[#667085]">{subtitulo}{haTxt(o) ? ` · ${haTxt(o)}` : ""}</p>
+          <p className="text-sm font-bold text-[#fff]">Pedido #{numeroPedido[o.id] ?? "—"} · {o.customer || "Cliente"}</p>
+          <p className="text-xs text-[rgba(255,255,255,.6)]">{subtitulo}{haTxt(o) ? ` · ${haTxt(o)}` : ""}</p>
         </div>
-        <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-wide ${meta.badge}`}>{meta.label}</span>
+        <span className={`pp-pd-tag ${meta.cls}`}>{meta.label}</span>
       </div>
 
-      <p className="mt-2 text-[10px] text-[#98A2B3]">{o.id}</p>
-      {telMascarado(o.clienteTelefone) && <p className="mt-0.5 text-[11px] text-[#667085]">📞 {telMascarado(o.clienteTelefone)}</p>}
+      <p className="mt-2 text-[10px] text-[rgba(255,255,255,.35)]">{o.id}</p>
+      {telMascarado(o.clienteTelefone) && <p className="mt-0.5 text-[11px] text-[rgba(255,255,255,.6)]">📞 {telMascarado(o.clienteTelefone)}</p>}
 
-      <div className="mt-3 space-y-1 border-y border-dashed border-[#E7E5E4] py-2.5">
+      <div className="mt-3 space-y-1 border-y border-dashed border-[rgba(255,255,255,.15)] py-2.5">
         {itensVisiveis.map((it, i) => (
           <div key={i} className="flex items-center gap-2 text-sm">
-            <span className="font-bold text-[#E8622C]">{it.quantity}×</span>
-            <span className="min-w-0 flex-1 truncate text-[#475467]">{it.name}</span>
+            <span className="font-bold text-[#f2b84a]">{it.quantity}×</span>
+            <span className="min-w-0 flex-1 text-[rgba(255,255,255,.75)]">{it.name}</span>
           </div>
         ))}
-        {itensExtra > 0 && <p className="text-xs font-semibold text-[#98A2B3]">+ {itensExtra} {itensExtra === 1 ? "item" : "itens"}</p>}
+        {itensExtra > 0 && <p className="text-xs font-semibold text-[rgba(255,255,255,.4)]">+ {itensExtra} {itensExtra === 1 ? "item" : "itens"}</p>}
       </div>
 
       <div className="mt-3 flex items-center justify-between">
-        <span className="text-xs text-[#667085]">Total</span>
-        <span className="page-title text-[22px] font-bold text-[#182230]">{formatCurrency(total)}</span>
+        <span className="text-xs text-[rgba(255,255,255,.6)]">Total</span>
+        <span className="text-[22px] font-bold text-[#fff]">{formatCurrency(total)}</span>
       </div>
 
       <div className="mt-3 grid grid-cols-2 gap-2">
         <button
           onClick={() => setAberto((v) => !v)}
-          className="flex min-h-[44px] items-center justify-center rounded-xl border border-[#E5E7EB] bg-white text-sm font-bold text-[#475467] transition hover:bg-[#F9FAFB]"
+          type="button"
+          className="flex min-h-[44px] items-center justify-center rounded-xl border border-[rgba(255,255,255,.15)] bg-[rgba(255,255,255,.05)] text-sm font-bold text-[rgba(255,255,255,.8)] transition hover:bg-[rgba(255,255,255,.1)]"
         >
           Detalhes
         </button>
@@ -191,14 +144,16 @@ function ContaCard({ o, totalCom, haTxt, numeroPedido, telMascarado, opcoes, pag
           <button
             onClick={() => onRetirar(o)}
             disabled={retirando}
-            className="flex min-h-[44px] items-center justify-center rounded-xl bg-[#16A34A] text-sm font-black text-white transition active:scale-95 disabled:opacity-50"
+            type="button"
+            className="pp-pd-btn pp-pd-btn-green"
           >
             {retirando ? "Confirmando…" : "✓ Retirada"}
           </button>
         ) : (
           <button
             onClick={() => setAberto(true)}
-            className="flex min-h-[44px] items-center justify-center rounded-xl bg-[#E8622C] text-sm font-black text-white transition hover:bg-[#C9501F] active:scale-95"
+            type="button"
+            className="pp-pd-btn pp-pd-btn-primary"
           >
             Receber
           </button>
@@ -206,21 +161,21 @@ function ContaCard({ o, totalCom, haTxt, numeroPedido, telMascarado, opcoes, pag
       </div>
 
       {aberto && (
-        <div className="mt-3 space-y-2 rounded-2xl border border-[#E5E7EB] bg-[#F7F8FA] p-3">
+        <div className="mt-3 space-y-2 rounded-2xl border border-[rgba(255,255,255,.1)] bg-[rgba(255,255,255,.05)] p-3">
           <div className="space-y-0.5">
             {(o.items || []).map((it, i) => (
-              <div key={i} className="flex justify-between text-xs"><span className="text-[#475467]">{it.quantity}× {it.name}</span><span className="font-bold text-[#182230]">{formatCurrency(it.price * it.quantity)}</span></div>
+              <div key={i} className="flex justify-between text-xs"><span className="text-[rgba(255,255,255,.7)]">{it.quantity}× {it.name}</span><span className="font-bold text-[#fff]">{formatCurrency(it.price * it.quantity)}</span></div>
             ))}
           </div>
-          <div className="space-y-0.5 border-t border-[#E5E7EB] pt-2 text-xs">
-            <div className="flex justify-between text-[#475467]"><span>Subtotal</span><span className="text-[#182230]">{formatCurrency(sub)}</span></div>
-            <div className="flex justify-between text-[#475467]"><span>Taxa de serviço (10%)</span><span className="text-[#182230]">{formatCurrency(taxa)}</span></div>
-            <div className="flex justify-between text-sm font-black"><span className="text-[#182230]">Total</span><span className="text-[#147A4A]">{formatCurrency(total)}</span></div>
+          <div className="space-y-0.5 border-t border-[rgba(255,255,255,.1)] pt-2 text-xs">
+            <div className="flex justify-between text-[rgba(255,255,255,.6)]"><span>Subtotal</span><span className="text-[#fff]">{formatCurrency(sub)}</span></div>
+            <div className="flex justify-between text-[rgba(255,255,255,.6)]"><span>Taxa de serviço (10%)</span><span className="text-[#fff]">{formatCurrency(taxa)}</span></div>
+            <div className="flex justify-between text-sm font-black"><span className="text-[#fff]">Total</span><span className="text-[#5fe08c]">{formatCurrency(total)}</span></div>
           </div>
 
           {!pago && (
             <>
-              <p className="pt-1 text-[10px] font-bold uppercase tracking-wide text-[#667085]">Forma(s) de pagamento</p>
+              <p className="pt-1 text-[10px] font-bold uppercase tracking-wide text-[rgba(255,255,255,.5)]">Forma(s) de pagamento</p>
               <div className="grid grid-cols-2 gap-1.5">
                 {opcoes.map((f) => {
                   const on = linhas.some((l) => l.forma === f);
@@ -228,8 +183,9 @@ function ContaCard({ o, totalCom, haTxt, numeroPedido, telMascarado, opcoes, pag
                     <button
                       key={f}
                       onClick={() => toggleForma(f)}
+                      type="button"
                       className={`flex min-h-[40px] items-center justify-center gap-1 rounded-xl border px-2 py-1.5 text-center text-xs font-bold transition ${
-                        on ? "border-[#D9A441] bg-[#D9A441] text-[#182230]" : "border-[#E5E7EB] bg-white text-[#475467] hover:bg-white"
+                        on ? "border-[#d4a017] bg-[#d4a017] text-[#1a1a1a]" : "border-[rgba(255,255,255,.15)] bg-[rgba(255,255,255,.05)] text-[rgba(255,255,255,.75)] hover:bg-[rgba(255,255,255,.1)]"
                       }`}
                     >
                       {on && <span>✓</span>}<span className="truncate">{f}</span>
@@ -241,29 +197,30 @@ function ContaCard({ o, totalCom, haTxt, numeroPedido, telMascarado, opcoes, pag
                 <div className="space-y-1.5">
                   {linhas.map((l) => (
                     <div key={l.forma} className="flex items-center gap-2">
-                      <span className="min-w-0 flex-1 truncate text-xs font-bold text-[#9A6A00]">{l.forma}</span>
-                      <span className="shrink-0 text-xs text-[#667085]">R$</span>
+                      <span className="min-w-0 flex-1 truncate text-xs font-bold text-[#e8c170]">{l.forma}</span>
+                      <span className="shrink-0 text-xs text-[rgba(255,255,255,.6)]">R$</span>
                       <input
                         inputMode="numeric"
                         value={fmtMoeda(l.valor)}
                         onChange={(e) => editarValor(l.forma, e.target.value)}
                         aria-label={`Valor pago em ${l.forma}`}
-                        className="w-24 shrink-0 rounded-lg border border-[#D0D5DD] bg-white px-2 py-1 text-right text-sm font-bold text-[#182230] outline-none focus:border-[#2563EB]"
+                        className="w-24 shrink-0 rounded-lg border border-[rgba(255,255,255,.15)] bg-[rgba(255,255,255,.05)] px-2 py-1 text-right text-sm font-bold text-[#fff] outline-none focus:border-[#d4a017]"
                       />
                     </div>
                   ))}
                   <div className="flex items-center justify-between text-[11px]">
-                    <span className={Math.abs(restante) < 0.01 ? "font-bold text-[#147A4A]" : restante > 0 ? "font-bold text-[#9A6A00]" : "font-bold text-[#B42318]"}>
+                    <span className={Math.abs(restante) < 0.01 ? "font-bold text-[#5fe08c]" : restante > 0 ? "font-bold text-[#f2b84a]" : "font-bold text-[#f87171]"}>
                       {Math.abs(restante) < 0.01 ? "Valor confere ✓" : restante > 0 ? `Falta ${formatCurrency(restante)}` : `Excede ${formatCurrency(-restante)}`}
                     </span>
-                    <span className="text-[#667085]">Pago {formatCurrency(soma)} / {formatCurrency(total)}</span>
+                    <span className="text-[rgba(255,255,255,.6)]">Pago {formatCurrency(soma)} / {formatCurrency(total)}</span>
                   </div>
                 </div>
               )}
               <button
                 onClick={() => onFinalizar(o, linhas, total)}
                 disabled={!valido || pagando}
-                className="mt-1 flex min-h-[44px] w-full items-center justify-center rounded-xl bg-[#16A34A] text-sm font-black text-white transition active:scale-95 disabled:cursor-not-allowed disabled:bg-[#E5E7EB] disabled:text-[#98A2B3]"
+                type="button"
+                className="pp-pd-btn pp-pd-btn-green mt-1 w-full disabled:!bg-[rgba(255,255,255,.1)] disabled:!text-[rgba(255,255,255,.35)]"
               >
                 {pagando ? "Registrando…" : linhas.length === 0 ? "Selecione a forma de pagamento" : !valido ? "Confirme o valor" : "Finalizar pagamento"}
               </button>
@@ -276,10 +233,15 @@ function ContaCard({ o, totalCom, haTxt, numeroPedido, telMascarado, opcoes, pag
 }
 
 /**
- * Caixa (/operacional/caixa) — camada de apresentação apenas. Toda a lógica
- * (buscar/receber pagamento, confirmar retirada, formas de pagamento,
- * navegação, logout) é a mesma já existente em OperacaoMobileView; este
- * componente só recebe os dados prontos e formata a UI.
+ * Caixa (/operacional/caixa) — tema escuro padronizado com Pedidos
+ * (src/pages/CentralDePedidos.jsx): mesmo cabeçalho (OperationalDarkHeader,
+ * também usado por Pedidos/Cozinha/Bar), mesmos cards de KPI, mesma
+ * paleta/gradiente/bordas/sombras. NÃO vira kanban — mantém sua própria
+ * hierarquia (indicadores + filtros + grid de contas), só reestilizada.
+ * Toda a lógica (buscar/receber pagamento, confirmar retirada, formas de
+ * pagamento, navegação, logout) é a mesma já existente em
+ * OperacaoMobileView; este componente só recebe os dados prontos e
+ * formata a UI.
  */
 export default function CentralDoCaixa({
   usuarioNome = "",
@@ -287,6 +249,7 @@ export default function CentralDoCaixa({
   onFechar,
   navItems = [],
   onNavigate,
+  nivelAcesso = "",
   contas = [],
   totalCom,
   formasPagamento = [],
@@ -348,34 +311,60 @@ export default function CentralDoCaixa({
   };
   const visiveis = contasComCategoria.filter((c) => (filtro === "todas" || c.categoria === filtro) && bate(c.o));
 
-  return (
-    <div className="min-h-screen w-full bg-[#F7F8FA] pb-28" style={{ paddingTop: "env(safe-area-inset-top)" }}>
-      <div className="mx-auto w-full max-w-[1280px] space-y-5 px-4 pt-4 sm:px-6 lg:px-8 lg:pt-8">
-        <Header lojaInfo={lojaInfo} usuarioNome={usuarioNome} onFechar={onFechar} />
-        <KpiGrid aguardandoCount={counts.aguardando} contasAbertasCount={contas.length} totalReceber={totalReceber} faturadoHoje={faturadoHoje} />
-        <CaixaToolbar busca={busca} onBusca={setBusca} filtro={filtro} onFiltro={setFiltro} counts={counts} />
+  const kpis = [
+    { key: "aguardando", Icon: Hourglass, label: "Aguardando pagamento", value: counts.aguardando },
+    { key: "abertas", Icon: Receipt, label: "Contas em aberto", value: contas.length },
+    { key: "receber", Icon: Wallet, label: "Total a receber", value: formatCurrency(totalReceber) },
+    { key: "faturado", Icon: CalendarCheck, label: "Faturado hoje", value: formatCurrency(faturadoHoje) },
+  ];
 
-        {visiveis.length === 0 ? (
-          <p className="py-16 text-center text-sm text-[#667085]">Nenhuma conta no momento.</p>
-        ) : (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
-            {visiveis.map(({ o }) => (
-              <ContaCard
-                key={o.id}
-                o={o}
-                totalCom={totalCom}
-                haTxt={haTxt}
-                numeroPedido={numeroPedido}
-                telMascarado={telMascarado}
-                opcoes={opcoes}
-                pagando={pagando === o.id}
-                onFinalizar={finalizar}
-                retirando={retirando === o.id}
-                onRetirar={retirar}
-              />
-            ))}
-          </div>
-        )}
+  return (
+    <div className="pp-pd-root" style={{ paddingTop: "env(safe-area-inset-top)" }}>
+      <div className="mx-auto max-w-5xl px-4 pt-6 md:pt-10">
+        <OperationalDarkHeader
+          title="Caixa"
+          usuarioNome={usuarioNome}
+          lojaInfo={lojaInfo}
+          onFechar={onFechar}
+          nivelAcesso={nivelAcesso}
+          searchPlaceholder="Buscar por mesa, cliente ou pedido…"
+          busca={busca}
+          onBuscaChange={setBusca}
+          notificacoes={counts.aguardando}
+          kpis={kpis}
+          kpiGridClassName="grid grid-cols-1 gap-3 min-[400px]:grid-cols-2 lg:grid-cols-4"
+        />
+
+        {/* Contas — mesma família de card escuro do cabeçalho (não é
+            kanban: filtros + grid de contas, mesma hierarquia de sempre). */}
+        <div
+          className="pp-operational-header relative mt-6 overflow-hidden rounded-3xl p-6 shadow-lg md:p-8"
+          style={{ background: `linear-gradient(160deg, ${brand.graphite} 0%, #241c15 100%)` }}
+        >
+          <CaixaFiltros filtro={filtro} onFiltro={setFiltro} counts={counts} />
+
+          {visiveis.length === 0 ? (
+            <div className="pp-pd-empty"><div className="pp-pd-e-ic">🧾</div><p>Nenhuma conta no momento.</p></div>
+          ) : (
+            <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+              {visiveis.map(({ o }) => (
+                <ContaCard
+                  key={o.id}
+                  o={o}
+                  totalCom={totalCom}
+                  haTxt={haTxt}
+                  numeroPedido={numeroPedido}
+                  telMascarado={telMascarado}
+                  opcoes={opcoes}
+                  pagando={pagando === o.id}
+                  onFinalizar={finalizar}
+                  retirando={retirando === o.id}
+                  onRetirar={retirar}
+                />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <OperationalBottomNav items={navItems} active="caixa" onNavigate={onNavigate} />

@@ -7091,6 +7091,9 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
     const faturadoHoje = orders
       .filter((o) => o.paymentStatus === "paid" && o.createdAtISO && new Date(o.createdAtISO).toLocaleDateString("pt-BR") === hojeStrCaixa)
       .reduce((s, o) => s + totalCom(o), 0);
+    // Mesmo "nível de acesso" já exibido em Pedidos/Cozinha/Bar/Central
+    // Operacional (perms/liberados computados uma vez no topo desta função).
+    const nivelAcesso = perms.total ? "Acesso total" : (liberados.map((m) => m.label).join(" · ") || "Sem acesso");
     return (
       <CentralDoCaixa
         usuarioNome={usuarioNome}
@@ -7098,6 +7101,7 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
         onFechar={onFechar}
         navItems={navItems}
         onNavigate={(id) => setTab(id)}
+        nivelAcesso={nivelAcesso}
         contas={contas}
         totalCom={totalCom}
         formasPagamento={formasPagamento}
