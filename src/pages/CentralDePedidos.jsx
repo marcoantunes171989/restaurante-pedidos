@@ -1,7 +1,5 @@
-import { useMemo, useState } from "react";
 import { formatCurrency } from "../App";
-import OperationalBottomNav from "../components/OperationalBottomNav";
-import { OperationalBrandLogo } from "../components/BrandLogo";
+import OperationalFlowPage from "../components/OperationalFlowPage";
 import OrderItemsList from "../components/OrderItemsList";
 
 // Metadados visuais por status/variante de card — só estilo (label, cor,
@@ -108,29 +106,10 @@ export default function CentralDePedidos({
   origemDe, haTxt, telMascarado, numeroPedido, setoresPresentes, itensDoSetor, metaSetor, totalCom,
   acaoPrincipal,
 }) {
-  const [busca, setBusca] = useState("");
-  const [view, setView] = useState("kanban");
-
-  const buscaNorm = busca.trim().toLowerCase();
-  const bate = (o) => {
-    if (!buscaNorm) return true;
+  const searchMatch = (o, q) => {
     const alvo = [o.customer, o.id, o.table, `#${numeroPedido[o.id] ?? ""}`].join(" ").toLowerCase();
-    return alvo.includes(buscaNorm);
+    return alvo.includes(q);
   };
-
-  const colunasFiltradas = useMemo(() => ({
-    novos: (colunas.novos || []).filter(bate),
-    preparo: (colunas.preparo || []).filter(bate),
-    prontos: (colunas.prontos || []).filter(bate),
-    pgto: (colunas.pgto || []).filter(bate),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [colunas, buscaNorm]);
-
-  const listaFiltrada = useMemo(() => listaTodos.filter(bate),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [listaTodos, buscaNorm]);
-
-  const notificacoes = colunasFiltradas.novos.length;
 
   const actionPara = (o, variante) => {
     if (variante === "pgto") {
@@ -153,120 +132,59 @@ export default function CentralDePedidos({
     );
   };
 
-  return (
-    <div className="pp-central-pedidos min-h-screen w-full" style={{ paddingTop: "env(safe-area-inset-top)" }}>
-      <div className="pp-cp-app">
-        <header className="pp-cp-topbar">
-          <div className="pp-cp-brand">
-            <OperationalBrandLogo />
-            <div>
-              <h1>Pedidos</h1>
-              <p><span className="pp-cp-dot" />{lojaInfo?.nome || "Operação da loja"} · {usuarioNome || "Operador"} · <b style={{ color: "var(--cp-txt-dim)" }}>Online</b></p>
-            </div>
-          </div>
-          <div className="pp-cp-topbar-actions">
-            <div className="pp-cp-search">
-              🔎 <input placeholder="Buscar pedido, cliente ou código…" value={busca} onChange={(e) => setBusca(e.target.value)} />
-            </div>
-            <button className="pp-cp-icon-btn" title="Notificações" type="button">
-              🔔{notificacoes > 0 && <span className="pp-cp-badge">{notificacoes}</span>}
-            </button>
-            <button className="pp-cp-icon-btn" title="Configurações" type="button">⚙️</button>
-            <button className="pp-cp-logout" onClick={onFechar} type="button">✕ Sair</button>
-          </div>
-        </header>
+  const renderCard = (o, variante) => (
+    <OrderCard
+      key={o.id} o={o} variante={variante} action={actionPara(o, variante)}
+      origemDe={origemDe} haTxt={haTxt} telMascarado={telMascarado} numeroPedido={numeroPedido}
+      setoresPresentes={setoresPresentes} itensDoSetor={itensDoSetor} metaSetor={metaSetor} totalCom={totalCom}
+    />
+  );
 
-        <div className="pp-cp-stations">
-          <button className={`pp-cp-chip${filtroCentral === "todos" ? " is-active" : ""}`} onClick={() => onFiltroChange?.("todos")} type="button">🍽️ Todos</button>
-          {setoresChip.map((nome) => {
-            const cnt = qtdSetorAtivos(nome);
-            return (
-              <button key={nome} className={`pp-cp-chip${filtroCentral === nome ? " is-active" : ""}`} onClick={() => onFiltroChange?.(nome)} type="button">
-                {/bar|bebida/i.test(nome) ? "🍹" : /sobremesa|doce/i.test(nome) ? "🍰" : "👨‍🍳"} {nome}
-                {cnt > 0 && <span className="pp-cp-cnt">{cnt}</span>}
-              </button>
-            );
-          })}
-          <button className="pp-cp-chip" onClick={() => onNavigate?.("caixa")} type="button">💳 Caixa</button>
-        </div>
+  const deriveListVariant = (o) =>
+    o.status === "received" ? "novo" : o.status === "preparing" ? "preparo" : o.status === "ready" ? "pronto" : "novo";
 
-        <div className="pp-cp-kpis">
-          <div className="pp-cp-kpi" style={{ "--cp-accent": "var(--cp-blue)", "--cp-accent-soft": "var(--cp-blue-soft)" }}>
-            <div className="pp-cp-bar" />
-            <div className="pp-cp-kpi-top"><div className="pp-cp-kicon">🆕</div><span className="pp-cp-trend">{trendNovos}</span></div>
-            <div className="pp-cp-num">{colunas.novos?.length || 0}</div>
-            <div className="pp-cp-lbl">Novos pedidos</div>
-          </div>
-          <div className="pp-cp-kpi" style={{ "--cp-accent": "var(--cp-amber)", "--cp-accent-soft": "var(--cp-amber-soft)" }}>
-            <div className="pp-cp-bar" />
-            <div className="pp-cp-kpi-top"><div className="pp-cp-kicon">🔥</div><span className="pp-cp-trend">{trendPreparo}</span></div>
-            <div className="pp-cp-num">{colunas.preparo?.length || 0}</div>
-            <div className="pp-cp-lbl">Em preparo</div>
-          </div>
-          <div className="pp-cp-kpi" style={{ "--cp-accent": "var(--cp-green)", "--cp-accent-soft": "var(--cp-green-soft)" }}>
-            <div className="pp-cp-bar" />
-            <div className="pp-cp-kpi-top"><div className="pp-cp-kicon">✅</div><span className="pp-cp-trend">aguardando entrega</span></div>
-            <div className="pp-cp-num">{colunas.prontos?.length || 0}</div>
-            <div className="pp-cp-lbl">Prontos</div>
-          </div>
-          <div className="pp-cp-kpi" style={{ "--cp-accent": "var(--cp-violet)", "--cp-accent-soft": "var(--cp-violet-soft)" }}>
-            <div className="pp-cp-bar" />
-            <div className="pp-cp-kpi-top"><div className="pp-cp-kicon">💰</div><span className="pp-cp-trend">{formatCurrency(valorAguardando)}</span></div>
-            <div className="pp-cp-num">{colunas.pgto?.length || 0}</div>
-            <div className="pp-cp-lbl">Aguardando pgto</div>
-          </div>
-        </div>
-
-        <div className="pp-cp-board-head">
-          <h2>Fluxo de pedidos</h2>
-          <div className="pp-cp-view-toggle">
-            <button className={view === "kanban" ? "is-active" : ""} onClick={() => setView("kanban")} type="button">Kanban</button>
-            <button className={view === "lista" ? "is-active" : ""} onClick={() => setView("lista")} type="button">Lista</button>
-          </div>
-        </div>
-
-        {view === "kanban" ? (
-          <div className="pp-cp-board">
-            {COLUNAS_META.map((col) => {
-              const itens = colunasFiltradas[col.key];
-              return (
-                <div className="pp-cp-col" key={col.key}>
-                  <div className="pp-cp-col-head">
-                    <span className="pp-cp-cd" style={{ background: col.dot }} />
-                    <h3>{col.label}</h3>
-                    <span className="pp-cp-cn">{itens.length}</span>
-                  </div>
-                  {itens.length === 0 ? (
-                    <div className="pp-cp-empty"><div className="pp-cp-e-ic">{col.vazio.ic}</div><p>{col.vazio.txt}</p></div>
-                  ) : itens.map((o) => (
-                    <OrderCard
-                      key={`${col.key}-${o.id}`} o={o} variante={col.variante} action={actionPara(o, col.variante)}
-                      origemDe={origemDe} haTxt={haTxt} telMascarado={telMascarado} numeroPedido={numeroPedido}
-                      setoresPresentes={setoresPresentes} itensDoSetor={itensDoSetor} metaSetor={metaSetor} totalCom={totalCom}
-                    />
-                  ))}
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="pp-cp-list">
-            {listaFiltrada.length === 0 && <div className="pp-cp-empty"><div className="pp-cp-e-ic">🧾</div><p>Nenhum pedido ativo{filtroCentral !== "todos" ? ` para ${filtroCentral}` : ""}.</p></div>}
-            {listaFiltrada.map((o) => {
-              const variante = o.status === "received" ? "novo" : o.status === "preparing" ? "preparo" : o.status === "ready" ? "pronto" : "novo";
-              return (
-                <OrderCard
-                  key={o.id} o={o} variante={variante} action={actionPara(o, variante)}
-                  origemDe={origemDe} haTxt={haTxt} telMascarado={telMascarado} numeroPedido={numeroPedido}
-                  setoresPresentes={setoresPresentes} itensDoSetor={itensDoSetor} metaSetor={metaSetor} totalCom={totalCom}
-                />
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      <OperationalBottomNav items={navItems} active="pedidos" onNavigate={onNavigate} />
+  const renderChips = () => (
+    <div className="pp-cp-stations">
+      <button className={`pp-cp-chip${filtroCentral === "todos" ? " is-active" : ""}`} onClick={() => onFiltroChange?.("todos")} type="button">🍽️ Todos</button>
+      {setoresChip.map((nome) => {
+        const cnt = qtdSetorAtivos(nome);
+        return (
+          <button key={nome} className={`pp-cp-chip${filtroCentral === nome ? " is-active" : ""}`} onClick={() => onFiltroChange?.(nome)} type="button">
+            {/bar|bebida/i.test(nome) ? "🍹" : /sobremesa|doce/i.test(nome) ? "🍰" : "👨‍🍳"} {nome}
+            {cnt > 0 && <span className="pp-cp-cnt">{cnt}</span>}
+          </button>
+        );
+      })}
+      <button className="pp-cp-chip" onClick={() => onNavigate?.("caixa")} type="button">💳 Caixa</button>
     </div>
+  );
+
+  const kpis = [
+    { key: "novos", icon: "🆕", label: "Novos pedidos", value: colunas.novos?.length || 0, trend: trendNovos, accent: "var(--cp-blue)", accentSoft: "var(--cp-blue-soft)" },
+    { key: "preparo", icon: "🔥", label: "Em preparo", value: colunas.preparo?.length || 0, trend: trendPreparo, accent: "var(--cp-amber)", accentSoft: "var(--cp-amber-soft)" },
+    { key: "prontos", icon: "✅", label: "Prontos", value: colunas.prontos?.length || 0, trend: "aguardando entrega", accent: "var(--cp-green)", accentSoft: "var(--cp-green-soft)" },
+    { key: "pgto", icon: "💰", label: "Aguardando pgto", value: colunas.pgto?.length || 0, trend: formatCurrency(valorAguardando), accent: "var(--cp-violet)", accentSoft: "var(--cp-violet-soft)" },
+  ];
+
+  return (
+    <OperationalFlowPage
+      title="Pedidos"
+      flowTitle="Fluxo de pedidos"
+      activeNavId="pedidos"
+      navItems={navItems}
+      onNavigate={onNavigate}
+      usuarioNome={usuarioNome}
+      lojaInfo={lojaInfo}
+      onFechar={onFechar}
+      renderChips={renderChips}
+      kpis={kpis}
+      columns={COLUNAS_META}
+      dataColumns={colunas}
+      dataList={listaTodos}
+      searchMatch={searchMatch}
+      renderCard={renderCard}
+      deriveListVariant={deriveListVariant}
+      emptyListMessage={{ ic: "🧾", txt: `Nenhum pedido ativo${filtroCentral !== "todos" ? ` para ${filtroCentral}` : ""}.` }}
+    />
   );
 }

@@ -1,6 +1,4 @@
-import { useMemo, useState } from "react";
-import OperationalBottomNav from "../components/OperationalBottomNav";
-import { OperationalBrandLogo } from "../components/BrandLogo";
+import OperationalFlowPage from "../components/OperationalFlowPage";
 import OrderItemsList from "../components/OrderItemsList";
 
 // Mesmo vocabulário visual de tag da Central de Pedidos (.pp-cp-tag-*,
@@ -120,28 +118,10 @@ export default function CentralDoSetor({
   bloqueadoPorPagamento,
   onIniciarPreparo, onMarcarSetorPronto, onBaixarEntregue,
 }) {
-  const [busca, setBusca] = useState("");
-  const [view, setView] = useState("kanban");
-
-  const buscaNorm = busca.trim().toLowerCase();
-  const bate = (o) => {
-    if (!buscaNorm) return true;
+  const searchMatch = (o, q) => {
     const alvo = [o.customer, o.id, o.table, `#${numeroPedido[o.id] ?? ""}`].join(" ").toLowerCase();
-    return alvo.includes(buscaNorm);
+    return alvo.includes(q);
   };
-
-  const colunasFiltradas = useMemo(() => ({
-    novos: (colunas.novos || []).filter(bate),
-    preparo: (colunas.preparo || []).filter(bate),
-    prontos: (colunas.prontos || []).filter(bate),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [colunas, buscaNorm]);
-
-  const listaFiltrada = useMemo(() => listaTodos.filter(bate),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [listaTodos, buscaNorm]);
-
-  const notificacoes = colunasFiltradas.novos.length;
 
   const actionPara = (o, variante, setoresNoPedido) => {
     if (variante === "novo") {
@@ -190,88 +170,35 @@ export default function CentralDoSetor({
     );
   };
 
+  const deriveListVariant = (o) =>
+    o.status === "received" ? "novo" : o.status === "preparing" ? "preparo" : "pronto";
+
+  const kpis = [
+    { key: "novos", icon: "🆕", label: "Novos", value: colunas.novos?.length || 0, accent: "var(--cp-blue)", accentSoft: "var(--cp-blue-soft)" },
+    { key: "preparo", icon: "🔥", label: "Em preparo", value: colunas.preparo?.length || 0, accent: "var(--cp-amber)", accentSoft: "var(--cp-amber-soft)" },
+    { key: "prontos", icon: "✅", label: "Prontos", value: colunas.prontos?.length || 0, accent: "var(--cp-green)", accentSoft: "var(--cp-green-soft)" },
+  ];
+
   return (
-    <div className="pp-central-pedidos min-h-screen w-full" style={{ paddingTop: "env(safe-area-inset-top)" }}>
-      <div className="pp-cp-app">
-        <header className="pp-cp-topbar">
-          <div className="pp-cp-brand">
-            <OperationalBrandLogo />
-            <div>
-              <h1>{titulo}</h1>
-              <p><span className="pp-cp-dot" />{lojaInfo?.nome || "Operação da loja"} · {usuarioNome || "Operador"} · <b style={{ color: "var(--cp-txt-dim)" }}>Online</b></p>
-            </div>
-          </div>
-          <div className="pp-cp-topbar-actions">
-            <div className="pp-cp-search">
-              🔎 <input placeholder="Buscar pedido, cliente ou código…" value={busca} onChange={(e) => setBusca(e.target.value)} />
-            </div>
-            <button className="pp-cp-icon-btn" title="Notificações" type="button">
-              🔔{notificacoes > 0 && <span className="pp-cp-badge">{notificacoes}</span>}
-            </button>
-            <button className="pp-cp-icon-btn" title="Configurações" type="button">⚙️</button>
-            <button className="pp-cp-logout" onClick={onFechar} type="button">✕ Sair</button>
-          </div>
-        </header>
-
-        <div className="pp-cp-kpis pp-cp-kpis--3">
-          <div className="pp-cp-kpi" style={{ "--cp-accent": "var(--cp-blue)", "--cp-accent-soft": "var(--cp-blue-soft)" }}>
-            <div className="pp-cp-bar" />
-            <div className="pp-cp-kpi-top"><div className="pp-cp-kicon">🆕</div></div>
-            <div className="pp-cp-num">{colunas.novos?.length || 0}</div>
-            <div className="pp-cp-lbl">Novos</div>
-          </div>
-          <div className="pp-cp-kpi" style={{ "--cp-accent": "var(--cp-amber)", "--cp-accent-soft": "var(--cp-amber-soft)" }}>
-            <div className="pp-cp-bar" />
-            <div className="pp-cp-kpi-top"><div className="pp-cp-kicon">🔥</div></div>
-            <div className="pp-cp-num">{colunas.preparo?.length || 0}</div>
-            <div className="pp-cp-lbl">Em preparo</div>
-          </div>
-          <div className="pp-cp-kpi" style={{ "--cp-accent": "var(--cp-green)", "--cp-accent-soft": "var(--cp-green-soft)" }}>
-            <div className="pp-cp-bar" />
-            <div className="pp-cp-kpi-top"><div className="pp-cp-kicon">✅</div></div>
-            <div className="pp-cp-num">{colunas.prontos?.length || 0}</div>
-            <div className="pp-cp-lbl">Prontos</div>
-          </div>
-        </div>
-
-        <div className="pp-cp-board-head">
-          <h2>{fluxoLabel}</h2>
-          <div className="pp-cp-view-toggle">
-            <button className={view === "kanban" ? "is-active" : ""} onClick={() => setView("kanban")} type="button">Kanban</button>
-            <button className={view === "lista" ? "is-active" : ""} onClick={() => setView("lista")} type="button">Lista</button>
-          </div>
-        </div>
-
-        {view === "kanban" ? (
-          <div className="pp-cp-board pp-cp-board--3">
-            {COLUNAS_META.map((col) => {
-              const itens = colunasFiltradas[col.key];
-              return (
-                <div className="pp-cp-col" key={col.key}>
-                  <div className="pp-cp-col-head">
-                    <span className="pp-cp-cd" style={{ background: col.dot }} />
-                    <h3>{col.label}</h3>
-                    <span className="pp-cp-cn">{itens.length}</span>
-                  </div>
-                  {itens.length === 0 ? (
-                    <div className="pp-cp-empty"><div className="pp-cp-e-ic">{col.vazio.ic}</div><p>{col.vazio.txt}</p></div>
-                  ) : itens.map((o) => renderCard(o, col.variante))}
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="pp-cp-list">
-            {listaFiltrada.length === 0 && <div className="pp-cp-empty"><div className="pp-cp-e-ic">{listaVazioIcone}</div><p>{listaVazioTexto}</p></div>}
-            {listaFiltrada.map((o) => {
-              const variante = o.status === "received" ? "novo" : o.status === "preparing" ? "preparo" : "pronto";
-              return renderCard(o, variante);
-            })}
-          </div>
-        )}
-      </div>
-
-      <OperationalBottomNav items={navItems} active={activeNavId} onNavigate={onNavigate} />
-    </div>
+    <OperationalFlowPage
+      title={titulo}
+      flowTitle={fluxoLabel}
+      activeNavId={activeNavId}
+      navItems={navItems}
+      onNavigate={onNavigate}
+      usuarioNome={usuarioNome}
+      lojaInfo={lojaInfo}
+      onFechar={onFechar}
+      kpis={kpis}
+      kpisVariant="3"
+      columns={COLUNAS_META}
+      boardVariant="3"
+      dataColumns={colunas}
+      dataList={listaTodos}
+      searchMatch={searchMatch}
+      renderCard={renderCard}
+      deriveListVariant={deriveListVariant}
+      emptyListMessage={{ ic: listaVazioIcone, txt: listaVazioTexto }}
+    />
   );
 }
