@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  fetchLojas, fetchProdutos, fetchCategorias, fetchPromocoes, fetchGruposOpcoes, fetchOpcoes, fetchSetoresCozinha,
+  fetchLojas, fetchProdutos, fetchCategorias, fetchPromocoes, fetchGruposOpcoes, fetchOpcoes, fetchSetoresCozinha, fetchMesas,
   escutarLojas, inserirPedido, atualizarPedido, escutarPedidos,
   buscarClientePorTelefone, upsertCliente, criarChamado,
   rpcCriarPedidoPublico, rpcUpsertClientePublico, rpcBuscarClientePublico, rpcPedidosComanda, rpcPedidosCliente, rpcSolicitarContaPublico, rpcCriarChamadoPublico,
@@ -11,7 +11,7 @@ import { useScrollLock } from "./lib/scrollLock";
 import SatisfactionSurvey from "./components/SatisfactionSurvey";
 import {
   ProdutoModal, formatCurrency, fallbackImage, statusMap, STATUS_TABLET_LABEL, isValidCommand,
-  promocaoVigente, promoResumoDesconto,
+  promocaoVigente, promoResumoDesconto, qrMesaEnabled, externalOrderingEnabled,
 } from "./App";
 import { LogoPP } from "./components/BrandLogo";
 
@@ -39,18 +39,44 @@ const SURVEY_PEND_KEY = "pp_survey_pend";
 const SURVEY_DONE_KEY = "pp_survey_done";
 function lerSetLS(k) { try { return new Set(JSON.parse(localStorage.getItem(k) || "[]")); } catch { return new Set(); } }
 function salvarSetLS(k, set) { try { localStorage.setItem(k, JSON.stringify([...set].slice(-200))); } catch {} }
+// Dia da semana + minutos-do-dia "agora", já convertidos para o fuso horário
+// do estabelecimento (não o fuso do navegador do cliente — um cliente
+// acessando de outro estado/fuso precisa ver o horário REAL da loja).
+// Sem fuso configurado, cai em America/Sao_Paulo (único fuso usado hoje em
+// todo o app — mesma referência da formatação pt-BR já usada no projeto).
+const DIAS_SEMANA = ["dom", "seg", "ter", "qua", "qui", "sex", "sab"];
+function diaEHoraNoFuso(fuso, base = new Date()) {
+  try {
+    const fmt = new Intl.DateTimeFormat("en-US", {
+      timeZone: fuso || "America/Sao_Paulo", weekday: "short", hour: "2-digit", minute: "2-digit", hour12: false,
+    });
+    const partes = {}; fmt.formatToParts(base).forEach((p) => (partes[p.type] = p.value));
+    const idx = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }[partes.weekday];
+    // Intl pode formatar meia-noite como "24:00" com hour12:false — normaliza para 0.
+    return { dia: DIAS_SEMANA[idx], minutos: (Number(partes.hour) % 24) * 60 + Number(partes.minute) };
+  } catch {
+    return { dia: DIAS_SEMANA[base.getDay()], minutos: base.getHours() * 60 + base.getMinutes() };
+  }
+}
 // Verdadeiro se a loja está aberta AGORA conforme os horários { seg..dom: "HH:MM–HH:MM" }.
 // Trata faixa que vira a meia-noite (ex.: "18:00–02:00"). Dia sem faixa = fechado.
-function lojaAbertaAgora(horarios, agora = new Date()) {
-  const dias = ["dom", "seg", "ter", "qua", "qui", "sex", "sab"];
-  const faixa = (horarios || {})[dias[agora.getDay()]];
+function lojaAbertaAgora(horarios, agora = new Date(), fuso) {
+  const { dia, minutos: nowMin } = diaEHoraNoFuso(fuso, agora);
+  const faixa = (horarios || {})[dia];
   if (!faixa || !/\d/.test(String(faixa))) return false;
   const [abre, fecha] = String(faixa).split("–").map((s) => (s || "").trim());
   if (!/^\d{1,2}:\d{2}$/.test(abre || "") || !/^\d{1,2}:\d{2}$/.test(fecha || "")) return false;
   const min = (hm) => { const [h, m] = hm.split(":").map(Number); return h * 60 + (m || 0); };
-  const nowMin = agora.getHours() * 60 + agora.getMinutes();
   const aMin = min(abre), fMin = min(fecha);
   return fMin > aMin ? (nowMin >= aMin && nowMin < fMin) : (nowMin >= aMin || nowMin < fMin);
+}
+// Verdadeiro se HÁ horário cadastrado para o dia de hoje (independente de
+// estar aberto ou fechado agora) — usado para só exigir o bloqueio de
+// horário da mesa quando a empresa realmente configurou os dias/horários
+// (não usa horário fixo/simulado; sem configuração, não há o que respeitar).
+function diaTemHorario(horarios, agora = new Date(), fuso) {
+  const { dia } = diaEHoraNoFuso(fuso, agora);
+  return /\d/.test(String((horarios || {})[dia] || ""));
 }
 // Converte o pedido mínimo salvo ("20,00" / "20" / "20.00") em número de reais.
 function parseMoedaBR(v) {
@@ -75,6 +101,7 @@ export default function CardapioPublico() {
   const [gruposOpcoes, setGruposOpcoes] = useState([]);
   const [opcoes, setOpcoes] = useState([]);
   const [setores, setSetores] = useState([]);
+  const [mesasLoja, setMesasLoja] = useState([]); // mesas cadastradas da empresa (valida "mesa existente e ativa")
   const [orders, setOrders]       = useState([]);
   const [busca, setBusca]         = useState("");
   const [cart, setCart]           = useState([]);
@@ -102,7 +129,7 @@ export default function CardapioPublico() {
     let vivo = true;
     (async () => {
       try {
-        const [lojas, prods, cats, promos, grps, ops, sets] = await Promise.all([fetchLojas(), fetchProdutos(), fetchCategorias(), fetchPromocoes().catch(() => []), fetchGruposOpcoes().catch(() => []), fetchOpcoes().catch(() => []), fetchSetoresCozinha().catch(() => [])]);
+        const [lojas, prods, cats, promos, grps, ops, sets, mesasTodas] = await Promise.all([fetchLojas(), fetchProdutos(), fetchCategorias(), fetchPromocoes().catch(() => []), fetchGruposOpcoes().catch(() => []), fetchOpcoes().catch(() => []), fetchSetoresCozinha().catch(() => []), fetchMesas().catch(() => [])]);
         if (!vivo) return;
         const l = lojas.find((x) => x.prefixo === prefixo) || null;
         setLoja(l);
@@ -110,6 +137,7 @@ export default function CardapioPublico() {
           setGruposOpcoes((grps || []).filter((g) => g.lojaId === l.id));
           setOpcoes((ops || []).filter((o) => o.lojaId === l.id));
           setSetores((sets || []).filter((s) => s.lojaId == null || s.lojaId === l.id));
+          setMesasLoja((mesasTodas || []).filter((m) => m.lojaId === l.id));
           // Modo mesa (QR) respeita visivelQr; link geral respeita visivelExterno (migration 034)
           const canalOk = (p) => mesaURL ? (p.visivelQr !== false) : (p.visivelExterno !== false);
           setProdutos(prods.filter((p) => (p.lojaId == null || p.lojaId === l.id) && p.active && canalOk(p)));
@@ -160,7 +188,18 @@ export default function CardapioPublico() {
 
   useEffect(() => { if (!msg) return; const t = setTimeout(() => setMsg(null), 3500); return () => clearTimeout(t); }, [msg]);
 
-  const podeExterno = loja && (loja.modoUso === "externo" || loja.modoUso === "ambos");
+  // QR por mesa (recurso local: Interno/Ambos) e link/pedido externo
+  // (Externo/Ambos) são regras INDEPENDENTES — QR de mesa nunca depende do
+  // cardápio externo estar habilitado (mesma regra centralizada em App.jsx,
+  // usada também pelo admin em CardapioExternoAdmin e pelo backend em
+  // pub_validar_pedido_mesa, migration 065).
+  const podeMesa = loja && qrMesaEnabled(loja.modoUso);
+  const podeExterno = loja && externalOrderingEnabled(loja.modoUso);
+  const canalPermitido = loja && (mesaURL ? podeMesa : podeExterno);
+  // "Mesa existente e ativa" (tab_mesas) — protege contra QR obsoleto/mesa
+  // removida ou um `?mesa=NN` digitado manualmente sem corresponder a
+  // nenhuma mesa cadastrada. Sem mesaURL, não se aplica (canal externo).
+  const mesaValida = !mesaURL || mesasLoja.some((m) => m.numero === Number(mesaURL) && m.active !== false && m.permiteQr !== false);
   // Configurações do pedido externo (aba "Pedido externo" — config_externo)
   const cfgExt = loja?.configExterno || {};
   const aceitaExterno = cfgExt.aceitaPedidoExterno !== false; // padrão: aceita
@@ -170,9 +209,16 @@ export default function CardapioPublico() {
     cfgExt.entrega      === true  && { id: "entrega",  label: "Entrega (delivery)", icon: "🛵" },
   ].filter(Boolean);
   const minimoExterno = parseMoedaBR(cfgExt.pedidoMinimo); // número em reais (0 = sem mínimo)
-  // Horários de funcionamento (aba "Horários") — reavaliado ao vivo via `agora`
-  const abertoAgora = lojaAbertaAgora(cfgExt.horarios, agora);
-  const bloqueioHorario = cfgExt.bloquearForaHorario === true && !abertoAgora; // fechado e bloqueando
+  // Horários de funcionamento (aba "Horários") — reavaliado ao vivo via `agora`,
+  // no fuso do estabelecimento (cfgExt.fusoHorario, padrão America/Sao_Paulo).
+  const abertoAgora = lojaAbertaAgora(cfgExt.horarios, agora, cfgExt.fusoHorario);
+  // QR por mesa: recurso local — respeita os horários cadastrados sempre que
+  // a empresa configurou o dia de hoje, independente do toggle abaixo (que é
+  // do fluxo externo). Pedido externo: comportamento preservado, só bloqueia
+  // fora do horário quando a empresa liga "Bloquear pedidos fora do horário".
+  const bloqueioHorario = !modoExterno
+    ? (diaTemHorario(cfgExt.horarios, agora, cfgExt.fusoHorario) && !abertoAgora)
+    : (cfgExt.bloquearForaHorario === true && !abertoAgora);
   // Promoções vigentes AGORA (reavaliado pelo relógio — happy hour ativa/desativa sozinho)
   const promosVigentes = useMemo(() => promocoes.filter((p) => promocaoVigente(p, agora)), [promocoes, agora]);
   const catNomePorId = useMemo(() => { const m = {}; categorias.forEach((c) => (m[c.id] = c.nome)); return m; }, [categorias]);
@@ -513,7 +559,7 @@ export default function CardapioPublico() {
 
   async function enviar() {
     if (cart.length === 0) return;
-    if (bloqueioHorario) return setMsg({ t: "error", m: "Estabelecimento fechado no momento. Confira os horários de funcionamento." });
+    if (bloqueioHorario) return setMsg({ t: "error", m: "O estabelecimento está fechado no momento. Consulte os horários de atendimento." });
     const itens = cart.map((i) => ({ name: i.name, quantity: i.quantity, price: i.price, selectedIngredients: i.selectedIngredients, removedIngredients: i.removedIngredients, extraIngredients: i.extraIngredients, selectedOptions: i.selectedOptions || [], observation: i.observation }));
     // Forma de pagamento (aba "Pagamento" — vale para pedido interno e externo)
     if (formasPagto.length === 0) return setMsg({ t: "error", m: "Nenhuma forma de pagamento está disponível no momento." });
@@ -543,7 +589,9 @@ export default function CardapioPublico() {
       };
     } else {
       // Pedido na mesa (QR da mesa): exige mesa + comanda
+      if (!podeMesa) return setMsg({ t: "error", m: "O QR Code por mesa está disponível nos modos Interno ou Ambos." });
       if (!mesa || Number(mesa) <= 0) return setMsg({ t: "error", m: "Informe o número da mesa." });
+      if (!mesaValida) return setMsg({ t: "error", m: "Mesa não encontrada ou inativa. Verifique o QR Code." });
       if (!isValidCommand(comanda)) return setMsg({ t: "error", m: "Escaneie o QR Code da mesa (comanda) para pedir." });
       if (comanda.split("-")[0] !== loja.prefixo) return setMsg({ t: "error", m: `Comanda de outra empresa (${comanda.split("-")[0]}).` });
       setEnviando(true);
@@ -558,13 +606,26 @@ export default function CardapioPublico() {
     }
     try {
       let pedidoId = novo.id;
-      if (cardapioViaRpc()) { const r = await rpcCriarPedidoPublico({ lojaId: loja.id, mesa: novo.table, comanda: novo.command, cliente: novo.customer, telefone: novo.clienteTelefone || "", itens, pagForma: formaSel.label, pagMomento: momentoPagto }); if (r) pedidoId = r; }
+      const mesaNumero = modoExterno ? null : (Number(mesa) || null);
+      if (cardapioViaRpc()) { const r = await rpcCriarPedidoPublico({ lojaId: loja.id, mesa: novo.table, comanda: novo.command, cliente: novo.customer, telefone: novo.clienteTelefone || "", itens, pagForma: formaSel.label, pagMomento: momentoPagto, mesaNumero }); if (r) pedidoId = r; }
       else await inserirPedido(novo);
       // A Pesquisa de Satisfação NÃO aparece agora — só quando o pedido CONCLUIR
       // (pago + retirado/entregue). Registra o pedido como pendente de pesquisa.
       try { const pend = lerSetLS(SURVEY_PEND_KEY); pend.add(pedidoId); salvarSetLS(SURVEY_PEND_KEY, pend); } catch {}
       setCart([]); setAba("conta"); setMsg({ t: "success", m: "✅ Pedido enviado para a cozinha!" });
-    } catch (e) { console.error("Erro ao criar pedido:", e); setMsg({ t: "error", m: "Erro ao enviar o pedido. Tente novamente." }); }
+    } catch (e) {
+      console.error("Erro ao criar pedido:", e);
+      // Mensagens conhecidas vindas da validação no servidor (pub_validar_pedido_mesa,
+      // migration 065) — mostradas como vieram; qualquer outra cai no texto genérico
+      // (evita expor erro técnico/bruto do Postgres ao cliente final).
+      const MSGS_BACKEND = new Set([
+        "Estabelecimento indisponível no momento.",
+        "Mesa não encontrada ou inativa. Verifique o QR Code.",
+        "O QR Code por mesa está disponível nos modos Interno ou Ambos.",
+        "O estabelecimento está fechado no momento. Consulte os horários de atendimento.",
+      ]);
+      setMsg({ t: "error", m: MSGS_BACKEND.has(e?.message) ? e.message : "Erro ao enviar o pedido. Tente novamente." });
+    }
     finally { setEnviando(false); }
   }
 
@@ -612,7 +673,10 @@ export default function CardapioPublico() {
   // ── Estados de carregamento/erro ───────────────────────────
   if (loja === undefined) return <Centro><Spinner /><p className="mt-3 text-sm text-slate-400">Carregando cardápio…</p></Centro>;
   if (loja === null) return <Centro><span className="text-5xl">🔍</span><p className="mt-3 font-black text-white">Empresa não encontrada</p><p className="mt-1 text-sm text-slate-500">Verifique o link/QR do cardápio.</p></Centro>;
-  if (!podeExterno) return <Centro><span className="text-5xl">📵</span><p className="mt-3 font-black text-white">Cardápio externo indisponível</p><p className="mt-1 text-sm text-slate-500">Esta empresa não habilitou o cardápio digital para o cliente.</p></Centro>;
+  if (!canalPermitido) return mesaURL
+    ? <Centro><span className="text-5xl">📵</span><p className="mt-3 font-black text-white">QR por mesa indisponível</p><p className="mt-1 text-sm text-slate-500">O QR Code por mesa está disponível nos modos Interno ou Ambos.</p></Centro>
+    : <Centro><span className="text-5xl">📵</span><p className="mt-3 font-black text-white">Cardápio externo indisponível</p><p className="mt-1 text-sm text-slate-500">Esta empresa não habilitou o cardápio digital para o cliente.</p></Centro>;
+  if (mesaURL && !mesaValida) return <Centro><span className="text-5xl">🚫</span><p className="mt-3 font-black text-white">QR Code inválido</p><p className="mt-1 text-sm text-slate-500">Esta mesa não foi encontrada ou está inativa. Fale com a equipe do estabelecimento.</p></Centro>;
 
   // ── Tela de boas-vindas (somente no modo mesa via QR) ──────────
   if (etapa === "welcome") {
@@ -867,7 +931,7 @@ export default function CardapioPublico() {
           {bloqueioHorario && (
             <div className="mb-3 rounded-2xl border border-[#FDA4AF] bg-[#FFF1F2] px-4 py-3 text-center">
               <p className="text-sm font-bold text-[#B42318]">🌙 Estabelecimento fechado no momento</p>
-              <p className="mt-0.5 text-xs font-medium text-[#7F1D1D]">Pedidos só podem ser enviados dentro do horário de funcionamento.</p>
+              <p className="mt-0.5 text-xs font-medium text-[#7F1D1D]">Consulte os horários de atendimento.</p>
             </div>
           )}
           {cart.length === 0 ? <p className="py-8 text-center text-sm text-[#667085]">Carrinho vazio.</p> : (

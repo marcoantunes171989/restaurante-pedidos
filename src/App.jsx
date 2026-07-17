@@ -122,6 +122,19 @@ export function isValidCommand(code) {
   return /^[A-Z]{1,5}-\d{4,8}$/.test(String(code || "").trim().toUpperCase());
 }
 
+// Regras do "Modo de uso da empresa" (migration 026: interno | externo | ambos)
+// — únicas fontes da verdade para habilitar QR por mesa (recurso local) vs.
+// link/pedido externo. Centralizadas aqui para o admin (CardapioExternoAdmin)
+// e o cardápio público (CardapioPublico.jsx) nunca duplicarem a condicional;
+// o backend replica a mesma regra em public.pub_validar_pedido_mesa
+// (migration 065).
+export function qrMesaEnabled(modoUso) {
+  return modoUso === "interno" || modoUso === "ambos";
+}
+export function externalOrderingEnabled(modoUso) {
+  return modoUso === "externo" || modoUso === "ambos";
+}
+
 // Documento (CNPJ/CPF) — utilitários
 function soDigitos(s) { return String(s || "").replace(/\D/g, ""); }
 function docValido(s) { const d = soDigitos(s); return d.length === 11 || d.length === 14; }
@@ -14615,7 +14628,8 @@ function CardapioExternoAdmin({ lojaInfo, setModoUsoEmpresa = async () => {}, sa
   const prefixo = lojaInfo?.prefixo || "";
   const link = `${origem}/cardapio?e=${prefixo}`;
   const modo = lojaInfo?.modoUso || "interno";
-  const ativo = modo === "externo" || modo === "ambos";
+  const ativo = externalOrderingEnabled(modo);   // link público / pedido externo
+  const podeMesa = qrMesaEnabled(modo);           // QR por mesa (recurso local)
 
   // ── QR por mesa (selecionar mesas cadastradas, sem duplicar, gerar em lote) ──
   const mesasAtivas = (mesas || []).filter((m) => m.ativo !== false).sort((a, b) => a.numero - b.numero);
@@ -14745,9 +14759,18 @@ function CardapioExternoAdmin({ lojaInfo, setModoUsoEmpresa = async () => {}, sa
             </button>
           ))}
         </div>
-        <p className={`mt-3 rounded-2xl border px-3 py-2 text-xs font-bold ${ativo ? "border-emerald-400/20 bg-emerald-500/10 text-emerald-200" : "border-amber-400/20 bg-amber-500/10 text-amber-200"}`}>
-          {ativo ? "✓ Cardápio externo ATIVO — o link abaixo abre para o cliente." : "⚠️ Cardápio externo desativado. Selecione Externo ou Ambos para habilitar o link."}
-        </p>
+        {/* Status do modo — específico da aba ativa: o QR por mesa é um recurso
+            LOCAL (Interno/Ambos) e não depende do cardápio externo público
+            (Externo/Ambos), por isso nunca reaproveita o aviso do link aqui. */}
+        {aba === "qrmesa" ? (
+          <p className={`mt-3 rounded-2xl border px-3 py-2 text-xs font-bold ${podeMesa ? "border-emerald-400/20 bg-emerald-500/10 text-emerald-200" : "border-amber-400/20 bg-amber-500/10 text-amber-200"}`}>
+            {podeMesa ? "✓ QR por mesa ATIVO — gere e imprima os QR Codes abaixo." : "⚠️ O QR Code por mesa está disponível nos modos Interno ou Ambos."}
+          </p>
+        ) : (
+          <p className={`mt-3 rounded-2xl border px-3 py-2 text-xs font-bold ${ativo ? "border-emerald-400/20 bg-emerald-500/10 text-emerald-200" : "border-amber-400/20 bg-amber-500/10 text-amber-200"}`}>
+            {ativo ? "✓ Cardápio externo ATIVO — o link abaixo abre para o cliente." : "⚠️ Cardápio externo desativado. Selecione Externo ou Ambos para habilitar o link."}
+          </p>
+        )}
         <div className="mt-3 grid gap-1.5 text-[11px] leading-snug text-slate-500 sm:grid-cols-3">
           <p><b className="text-slate-300">Interno:</b> uso por tablet dentro do estabelecimento.</p>
           <p><b className="text-slate-300">Externo:</b> uso pelo celular do cliente via link ou QR Code.</p>
@@ -14793,7 +14816,11 @@ function CardapioExternoAdmin({ lojaInfo, setModoUsoEmpresa = async () => {}, sa
         <h3 className="text-base font-black text-white">🪧 QR Code das mesas (colar na mesa)</h3>
         <p className="mt-0.5 text-xs text-slate-400">Selecione as mesas cadastradas para gerar um QR por mesa. O cliente aponta a câmera, abre o cardápio já na mesa e pede pelo celular.</p>
 
-        {mesasAtivas.length === 0 ? (
+        {!podeMesa ? (
+          <p className="mt-4 rounded-2xl border border-amber-400/20 bg-amber-500/10 px-3 py-2 text-xs font-bold text-amber-200">
+            ⚠️ O QR Code por mesa está disponível nos modos Interno ou Ambos.
+          </p>
+        ) : mesasAtivas.length === 0 ? (
           <p className="mt-4 rounded-2xl border border-amber-400/20 bg-amber-500/10 px-3 py-2 text-xs font-bold text-amber-200">
             Nenhuma mesa cadastrada. Cadastre em <b className="text-white">Cadastros → Mesas</b> para gerar os QRs.
           </p>

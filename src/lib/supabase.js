@@ -520,11 +520,17 @@ export function escutarChamados(onMudanca) {
 //  Cardápio público via RPC (migration 050) — usado só quando
 //  CARDAPIO_PUBLICO_VIA_RPC = true (após o enforce da RLS).
 // ════════════════════════════════════════════════════════════
-export async function rpcCriarPedidoPublico({ lojaId, mesa, comanda, cliente, telefone, itens, pagForma = null, pagMomento = null }) {
+export async function rpcCriarPedidoPublico({ lojaId, mesa, comanda, cliente, telefone, itens, pagForma = null, pagMomento = null, mesaNumero = null }) {
   const base = { p_loja_id: lojaId, p_mesa: mesa || null, p_comanda: comanda || null, p_cliente: cliente || null, p_telefone: telefone || null, p_itens: itens || [] }
-  // Tenta a assinatura nova (migration 061, com pagamento). Se a migration ainda
-  // não foi aplicada, cai para a assinatura antiga (6 args) — pedido funciona sem o pagamento.
-  let { data, error } = await supabase.rpc('pub_criar_pedido', { ...base, p_pag_forma: pagForma || null, p_pag_momento: pagMomento || null })
+  const comPagto = { ...base, p_pag_forma: pagForma || null, p_pag_momento: pagMomento || null }
+  // Tenta a assinatura mais nova primeiro (migration 065 — valida mesa/modo/horário
+  // no servidor). Se a migration ainda não foi aplicada nesse banco, cai para a
+  // assinatura anterior (migration 061, com pagamento) e depois para a original
+  // (6 args) — pedido segue funcionando enquanto a migration não roda.
+  let { data, error } = await supabase.rpc('pub_criar_pedido', { ...comPagto, p_mesa_numero: mesaNumero ?? null })
+  if (error && (error.code === 'PGRST202' || /pub_criar_pedido/i.test(error.message || ''))) {
+    ({ data, error } = await supabase.rpc('pub_criar_pedido', comPagto))
+  }
   if (error && (error.code === 'PGRST202' || /pub_criar_pedido/i.test(error.message || ''))) {
     ({ data, error } = await supabase.rpc('pub_criar_pedido', base))
   }
