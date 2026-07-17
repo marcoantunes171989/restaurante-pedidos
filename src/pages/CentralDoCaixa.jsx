@@ -44,11 +44,12 @@ const brand = { graphite: "#1a1a1a" };
 
 /* ── Toolbar de filtros (chips com contador) ────────────────────
    Mesmo vocabulário visual dos botões do tema escuro (gradiente laranja/
-   dourado no ativo, vidro translúcido no inativo) — scroll horizontal
-   interno só nesta faixa (nunca na página) quando os chips não couberem. */
+   dourado no ativo, vidro translúcido no inativo). flex-wrap em vez de
+   scroll forçado: com 4 chips curtos, "quebra organizada" em 1-2 linhas
+   já resolve o celular sem precisar de scroll horizontal escondido. */
 function CaixaFiltros({ filtro, onFiltro, counts }) {
   return (
-    <div className="flex flex-nowrap items-center gap-2 overflow-x-auto pb-1">
+    <div className="flex flex-wrap items-center gap-2">
       {FILTROS.map((f) => {
         const ativo = filtro === f.key;
         const cnt = counts[f.key] ?? 0;
@@ -104,39 +105,46 @@ function ContaCard({ o, totalCom, haTxt, numeroPedido, telMascarado, opcoes, pag
   const itensExtra = (o.items || []).length - itensVisiveis.length;
 
   return (
-    <div className="pp-pd-order">
-      <div className="flex items-start gap-3">
+    <div className="pp-pd-order min-w-0">
+      {/* flex-wrap (não position:absolute): quando não há espaço para os
+          3 itens numa linha, o badge (último no fluxo) desce para sua
+          própria linha, sem nunca cobrir o número do pedido. */}
+      <div className="flex flex-wrap items-start gap-x-3 gap-y-2">
         <span className="grid h-[42px] w-[42px] shrink-0 place-items-center rounded-xl bg-[rgba(255,255,255,.07)] text-lg" aria-hidden="true">{externo ? "🛵" : "🍽️"}</span>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-bold text-[#fff]">Pedido #{numeroPedido[o.id] ?? "—"} · {o.customer || "Cliente"}</p>
-          <p className="text-xs text-[rgba(255,255,255,.6)]">{subtitulo}{haTxt(o) ? ` · ${haTxt(o)}` : ""}</p>
+        <div className="min-w-0 flex-1 basis-[140px]">
+          <p className="text-sm font-bold text-[#fff] [overflow-wrap:anywhere]">Pedido #{numeroPedido[o.id] ?? "—"} · {o.customer || "Cliente"}</p>
+          <p className="text-xs text-[rgba(255,255,255,.6)] [overflow-wrap:anywhere]">{subtitulo}{haTxt(o) ? ` · ${haTxt(o)}` : ""}</p>
         </div>
-        <span className={`pp-pd-tag ${meta.cls}`}>{meta.label}</span>
+        {/* whiteSpace normal via style (não na classe pp-pd-tag compartilhada
+            com Pedidos/Cozinha/Bar): defesa extra para o badge nunca
+            ultrapassar o card, mesmo que um rótulo futuro seja mais longo
+            que os atuais (Aguardando/Em aberto/Pago, sempre curtos). */}
+        <span className={`pp-pd-tag ${meta.cls} shrink-0 max-w-full`} style={{ whiteSpace: "normal", textAlign: "center" }}>{meta.label}</span>
       </div>
 
-      <p className="mt-2 text-[10px] text-[rgba(255,255,255,.35)]">{o.id}</p>
+      <p className="mt-2 text-[10px] text-[rgba(255,255,255,.35)] [overflow-wrap:anywhere]">{o.id}</p>
       {telMascarado(o.clienteTelefone) && <p className="mt-0.5 text-[11px] text-[rgba(255,255,255,.6)]">📞 {telMascarado(o.clienteTelefone)}</p>}
 
-      <div className="mt-3 space-y-1 border-y border-dashed border-[rgba(255,255,255,.15)] py-2.5">
+      <div className="mt-3 space-y-1.5 border-y border-dashed border-[rgba(255,255,255,.15)] py-2.5">
         {itensVisiveis.map((it, i) => (
-          <div key={i} className="flex items-center gap-2 text-sm">
-            <span className="font-bold text-[#f2b84a]">{it.quantity}×</span>
-            <span className="min-w-0 flex-1 text-[rgba(255,255,255,.75)]">{it.name}</span>
+          <div key={i} className="flex items-start gap-2 text-sm">
+            <span className="shrink-0 font-bold text-[#f2b84a]">{it.quantity}×</span>
+            <span className="min-w-0 flex-1 break-words text-[rgba(255,255,255,.75)]">{it.name}</span>
           </div>
         ))}
         {itensExtra > 0 && <p className="text-xs font-semibold text-[rgba(255,255,255,.4)]">+ {itensExtra} {itensExtra === 1 ? "item" : "itens"}</p>}
       </div>
 
-      <div className="mt-3 flex items-center justify-between">
-        <span className="text-xs text-[rgba(255,255,255,.6)]">Total</span>
-        <span className="text-[22px] font-bold text-[#fff]">{formatCurrency(total)}</span>
+      <div className="mt-3 flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1">
+        <span className="shrink-0 text-xs text-[rgba(255,255,255,.6)]">Total</span>
+        <span className="min-w-0 break-words text-right text-[22px] font-bold text-[#fff]">{formatCurrency(total)}</span>
       </div>
 
-      <div className="mt-3 grid grid-cols-2 gap-2">
+      <div className="mt-3 grid min-w-0 grid-cols-1 gap-2 min-[380px]:grid-cols-2">
         <button
           onClick={() => setAberto((v) => !v)}
           type="button"
-          className="flex min-h-[44px] items-center justify-center rounded-xl border border-[rgba(255,255,255,.15)] bg-[rgba(255,255,255,.05)] text-sm font-bold text-[rgba(255,255,255,.8)] transition hover:bg-[rgba(255,255,255,.1)]"
+          className="flex min-h-[44px] min-w-0 items-center justify-center rounded-xl border border-[rgba(255,255,255,.15)] bg-[rgba(255,255,255,.05)] text-sm font-bold text-[rgba(255,255,255,.8)] transition hover:bg-[rgba(255,255,255,.1)]"
         >
           Detalhes
         </button>
@@ -145,7 +153,7 @@ function ContaCard({ o, totalCom, haTxt, numeroPedido, telMascarado, opcoes, pag
             onClick={() => onRetirar(o)}
             disabled={retirando}
             type="button"
-            className="pp-pd-btn pp-pd-btn-green"
+            className="pp-pd-btn pp-pd-btn-green min-w-0"
           >
             {retirando ? "Confirmando…" : "✓ Retirada"}
           </button>
@@ -153,7 +161,7 @@ function ContaCard({ o, totalCom, haTxt, numeroPedido, telMascarado, opcoes, pag
           <button
             onClick={() => setAberto(true)}
             type="button"
-            className="pp-pd-btn pp-pd-btn-primary"
+            className="pp-pd-btn pp-pd-btn-primary min-w-0"
           >
             Receber
           </button>
@@ -162,15 +170,18 @@ function ContaCard({ o, totalCom, haTxt, numeroPedido, telMascarado, opcoes, pag
 
       {aberto && (
         <div className="mt-3 space-y-2 rounded-2xl border border-[rgba(255,255,255,.1)] bg-[rgba(255,255,255,.05)] p-3">
-          <div className="space-y-0.5">
+          <div className="space-y-1">
             {(o.items || []).map((it, i) => (
-              <div key={i} className="flex justify-between text-xs"><span className="text-[rgba(255,255,255,.7)]">{it.quantity}× {it.name}</span><span className="font-bold text-[#fff]">{formatCurrency(it.price * it.quantity)}</span></div>
+              <div key={i} className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 text-xs">
+                <span className="min-w-0 flex-1 break-words text-[rgba(255,255,255,.7)]">{it.quantity}× {it.name}</span>
+                <span className="shrink-0 font-bold text-[#fff]">{formatCurrency(it.price * it.quantity)}</span>
+              </div>
             ))}
           </div>
           <div className="space-y-0.5 border-t border-[rgba(255,255,255,.1)] pt-2 text-xs">
-            <div className="flex justify-between text-[rgba(255,255,255,.6)]"><span>Subtotal</span><span className="text-[#fff]">{formatCurrency(sub)}</span></div>
-            <div className="flex justify-between text-[rgba(255,255,255,.6)]"><span>Taxa de serviço (10%)</span><span className="text-[#fff]">{formatCurrency(taxa)}</span></div>
-            <div className="flex justify-between text-sm font-black"><span className="text-[#fff]">Total</span><span className="text-[#5fe08c]">{formatCurrency(total)}</span></div>
+            <div className="flex flex-wrap justify-between gap-x-2 text-[rgba(255,255,255,.6)]"><span>Subtotal</span><span className="text-[#fff]">{formatCurrency(sub)}</span></div>
+            <div className="flex flex-wrap justify-between gap-x-2 text-[rgba(255,255,255,.6)]"><span>Taxa de serviço (10%)</span><span className="text-[#fff]">{formatCurrency(taxa)}</span></div>
+            <div className="flex flex-wrap justify-between gap-x-2 text-sm font-black"><span className="text-[#fff]">Total</span><span className="text-[#5fe08c]">{formatCurrency(total)}</span></div>
           </div>
 
           {!pago && (
@@ -188,7 +199,7 @@ function ContaCard({ o, totalCom, haTxt, numeroPedido, telMascarado, opcoes, pag
                         on ? "border-[#d4a017] bg-[#d4a017] text-[#1a1a1a]" : "border-[rgba(255,255,255,.15)] bg-[rgba(255,255,255,.05)] text-[rgba(255,255,255,.75)] hover:bg-[rgba(255,255,255,.1)]"
                       }`}
                     >
-                      {on && <span>✓</span>}<span className="truncate">{f}</span>
+                      {on && <span className="shrink-0">✓</span>}<span className="min-w-0 break-words">{f}</span>
                     </button>
                   );
                 })}
@@ -196,23 +207,23 @@ function ContaCard({ o, totalCom, haTxt, numeroPedido, telMascarado, opcoes, pag
               {linhas.length > 0 && (
                 <div className="space-y-1.5">
                   {linhas.map((l) => (
-                    <div key={l.forma} className="flex items-center gap-2">
-                      <span className="min-w-0 flex-1 truncate text-xs font-bold text-[#e8c170]">{l.forma}</span>
+                    <div key={l.forma} className="flex flex-wrap items-center gap-2">
+                      <span className="min-w-0 flex-1 break-words text-xs font-bold text-[#e8c170]">{l.forma}</span>
                       <span className="shrink-0 text-xs text-[rgba(255,255,255,.6)]">R$</span>
                       <input
                         inputMode="numeric"
                         value={fmtMoeda(l.valor)}
                         onChange={(e) => editarValor(l.forma, e.target.value)}
                         aria-label={`Valor pago em ${l.forma}`}
-                        className="w-24 shrink-0 rounded-lg border border-[rgba(255,255,255,.15)] bg-[rgba(255,255,255,.05)] px-2 py-1 text-right text-sm font-bold text-[#fff] outline-none focus:border-[#d4a017]"
+                        className="w-28 shrink-0 rounded-lg border border-[rgba(255,255,255,.15)] bg-[rgba(255,255,255,.05)] px-2 py-1 text-right text-sm font-bold text-[#fff] outline-none focus:border-[#d4a017]"
                       />
                     </div>
                   ))}
-                  <div className="flex items-center justify-between text-[11px]">
-                    <span className={Math.abs(restante) < 0.01 ? "font-bold text-[#5fe08c]" : restante > 0 ? "font-bold text-[#f2b84a]" : "font-bold text-[#f87171]"}>
+                  <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1 text-[11px]">
+                    <span className={`min-w-0 break-words ${Math.abs(restante) < 0.01 ? "font-bold text-[#5fe08c]" : restante > 0 ? "font-bold text-[#f2b84a]" : "font-bold text-[#f87171]"}`}>
                       {Math.abs(restante) < 0.01 ? "Valor confere ✓" : restante > 0 ? `Falta ${formatCurrency(restante)}` : `Excede ${formatCurrency(-restante)}`}
                     </span>
-                    <span className="text-[rgba(255,255,255,.6)]">Pago {formatCurrency(soma)} / {formatCurrency(total)}</span>
+                    <span className="min-w-0 break-words text-[rgba(255,255,255,.6)]">Pago {formatCurrency(soma)} / {formatCurrency(total)}</span>
                   </div>
                 </div>
               )}
@@ -346,7 +357,15 @@ export default function CentralDoCaixa({
           {visiveis.length === 0 ? (
             <div className="pp-pd-empty"><div className="pp-pd-e-ic">🧾</div><p>Nenhuma conta no momento.</p></div>
           ) : (
-            <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+            // auto-fit + minmax(min(100%,280px),1fr): a coluna nunca fica
+            // mais estreita que o conteúdo do card (280px), então a grade
+            // se ajusta sozinha ao espaço real — 1 col até ~480px, 2 col em
+            // tablet, 3 col em desktop/1024px+ (container tem max-w-5xl,
+            // então 4 colunas não caberiam com folga aqui; 280px é a
+            // largura mínima confortável para ícone+texto+badge do card,
+            // um pouco menor que os 300px de referência para garantir 3
+            // colunas exatamente a partir de 1024px).
+            <div className="mt-5 grid min-w-0 gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr))]">
               {visiveis.map(({ o }) => (
                 <ContaCard
                   key={o.id}
