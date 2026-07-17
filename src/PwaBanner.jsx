@@ -62,8 +62,6 @@ async function verificarAPI() {
 }
 
 // ── Textos por plataforma ─────────────────────────────────────
-const NOMES_SO = { ios: "iPhone / iPad", android: "Android", windows: "Windows", mac: "Mac", outro: "este dispositivo" };
-
 // Como ABRIR o app já instalado (instrução por plataforma)
 const INSTRUCOES_ABRIR = {
   ios:     "Procure e toque no ícone 🍽️ Pedido Prime na sua Tela de Início.",
@@ -273,24 +271,25 @@ export default function PwaBanner({ swAtivado = false }) {
   // ══════════════════════════════════════════════════════════
   if (banner === "abrirApp") {
     return (
-      <Wrap border="border-emerald-400/20">
+      <Wrap theme="light">
         <div className="flex items-start gap-3 p-4">
           <span className="flex h-12 w-12 shrink-0 items-center justify-center"><LogoPP size={48} /></span>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-black text-white">Pedido Prime instalado</p>
+            <p className="text-sm font-black text-pp-graphite">Pedido Prime está instalado</p>
             {!instrucaoAbrir ? (
-              <p className="mt-0.5 text-xs text-slate-400">
-                Encontrado em {NOMES_SO[so]}. Deseja abrí-lo agora?
+              <p className="mt-0.5 text-xs text-pp-textMuted">
+                Encontramos o aplicativo neste dispositivo. Deseja abri-lo agora?
               </p>
             ) : (
               <div className="mt-1.5 space-y-2">
-                <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 p-2.5">
-                  <p className="text-xs leading-5 text-emerald-200">
+                <div className="rounded-2xl border border-pp-border bg-pp-bg p-2.5">
+                  <p className="text-xs leading-5 text-pp-textBody">
                     👆 {INSTRUCOES_ABRIR[so]}
                   </p>
                 </div>
-                <button onClick={resetarFlag}
-                  className="text-xs text-slate-500 underline hover:text-slate-300 transition">
+                <button onClick={resetarFlag} type="button"
+                  aria-label="Informar que o aplicativo não está instalado e ocultar este aviso"
+                  className="rounded text-xs text-pp-textMuted underline transition hover:text-pp-graphite focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pp-primaryHover">
                   Não tenho instalado — ocultar
                 </button>
               </div>
@@ -298,9 +297,13 @@ export default function PwaBanner({ swAtivado = false }) {
           </div>
         </div>
         {!instrucaoAbrir && (
-          <div className="flex gap-2 border-t border-white/10 p-3">
-            <Btn variante="ghost" onClick={dispensar}>Continuar no site</Btn>
-            <Btn variante="green" onClick={handleAbrirApp}>🚀 Abrir no aplicativo</Btn>
+          <div className="flex flex-col gap-2 border-t border-pp-border p-3 sm:flex-row">
+            <Btn variante="ghostLight" onClick={dispensar} ariaLabel="Continuar usando o Pedido Prime pelo navegador">
+              Continuar no site
+            </Btn>
+            <Btn variante="primary" onClick={handleAbrirApp} ariaLabel="Abrir o Pedido Prime no aplicativo instalado">
+              🚀 Abrir no aplicativo
+            </Btn>
           </div>
         )}
       </Wrap>
@@ -311,11 +314,14 @@ export default function PwaBanner({ swAtivado = false }) {
 }
 
 // ── Utilitários ───────────────────────────────────────────────
-function Wrap({ children, border }) {
+function Wrap({ children, border, theme = "dark" }) {
+  const surface = theme === "light"
+    ? "border-pp-border bg-pp-surface shadow-premium"
+    : `${border} bg-slate-900/95 shadow-2xl backdrop-blur-xl`;
   return (
     <div className="fixed inset-x-0 bottom-0 z-[200] flex justify-center p-3 sm:p-4"
       style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 0.75rem)" }}>
-      <div className={`w-full max-w-md overflow-hidden rounded-3xl border ${border} bg-slate-900/95 shadow-2xl backdrop-blur-xl`}>
+      <div className={`w-full max-w-md overflow-hidden rounded-3xl border ${surface}`}>
         {children}
       </div>
     </div>
@@ -325,8 +331,9 @@ function Wrap({ children, border }) {
 const cls = {
   ghost: "flex-1 rounded-2xl border border-white/10 bg-white/[0.06] py-3 text-sm font-black text-slate-300 hover:bg-white/10 transition",
   blue:  "flex-[1.5] rounded-2xl bg-blue-500 py-3 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95",
-  green: "flex-[1.5] rounded-2xl bg-emerald-500 py-3 text-sm font-black text-white hover:bg-emerald-400 transition active:scale-95",
+  ghostLight: "w-full sm:flex-1 min-h-[44px] rounded-2xl border border-pp-border bg-white py-3 text-sm font-bold text-pp-graphite transition hover:bg-pp-bg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pp-primaryHover",
+  primary: "w-full sm:flex-[1.5] min-h-[44px] rounded-2xl bg-pp-primaryHover py-3 text-sm font-bold text-white transition hover:bg-pp-primary active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pp-primaryHover",
 };
-function Btn({ variante, onClick, children }) {
-  return <button onClick={onClick} className={cls[variante]}>{children}</button>;
+function Btn({ variante, onClick, children, ariaLabel }) {
+  return <button onClick={onClick} type="button" aria-label={ariaLabel} className={cls[variante]}>{children}</button>;
 }

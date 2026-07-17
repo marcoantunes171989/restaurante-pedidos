@@ -2055,18 +2055,18 @@ export default function RestaurantePedidoApp() {
             "radial-gradient(30rem 30rem at -6rem -6rem, rgba(37,99,235,0.18), transparent 70%), radial-gradient(30rem 30rem at calc(100% + 6rem) calc(100% + 6rem), rgba(124,58,237,0.14), transparent 70%)",
         }}>
         {/* Grade de pontos discreta */}
-        <div className="pointer-events-none absolute inset-0 opacity-[0.05]"
-          style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)", backgroundSize: "32px 32px" }} />
+        <div className="pointer-events-none absolute inset-0 opacity-[0.06]"
+          style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #1A1A1A 1px, transparent 0)", backgroundSize: "32px 32px" }} />
 
         <div className="relative flex flex-col items-center gap-7 text-center">
           <div className="flex h-20 w-20 items-center justify-center animate-pulse"><LogoPP size={80} /></div>
           <div>
-            <h1 className="text-2xl font-black tracking-tight"><span className="text-white">Pedido</span> <span className="text-gold-400">Prime</span></h1>
-            <p className="mt-1.5 text-sm text-slate-400">Carregando ambiente do restaurante...</p>
+            <h1 className="text-2xl font-black tracking-tight text-pp-graphite">Pedido <span className="text-[var(--pp-brand-text)]">Prime</span></h1>
+            <p className="mt-1.5 text-sm text-pp-textMuted">Carregando ambiente do restaurante...</p>
           </div>
-          <div className="flex items-center gap-2.5 rounded-full border border-white/10 bg-white/[0.04] px-5 py-2 backdrop-blur-xl">
-            <span className="h-4 w-4 animate-spin rounded-full border-2 border-blue-400/30 border-t-blue-400" />
-            <span className="text-sm font-bold text-slate-300">Inicializando sistema...</span>
+          <div className="flex items-center gap-2.5 rounded-full border border-pp-border bg-pp-surface px-5 py-2 shadow-premium">
+            <span className="h-4 w-4 animate-spin rounded-full border-2 border-blue-400/30 border-t-blue-500" />
+            <span className="text-sm font-bold text-pp-textBody">Inicializando sistema...</span>
           </div>
         </div>
       </div>
