@@ -92,6 +92,10 @@ export default function CardapioPublico() {
   const params = new URLSearchParams(window.location.search);
   const prefixo  = (params.get("e") || "").toUpperCase();
   const mesaURL  = (params.get("mesa") || "").replace(/\D/g, "").slice(0, 2);
+  // `mid` (mesa id, migration 066) — identificador persistente da mesa, imune
+  // a renumeração. QR Codes gerados a partir de agora levam os dois; QR Codes
+  // antigos (só `mesa=NN`) continuam funcionando via fallback por número.
+  const midURL   = (params.get("mid") || "").replace(/\D/g, "");
   const comURL   = (params.get("c") || "").toUpperCase();
 
   const [loja, setLoja]           = useState(undefined); // undefined=carregando, null=não achou
@@ -101,7 +105,11 @@ export default function CardapioPublico() {
   const [gruposOpcoes, setGruposOpcoes] = useState([]);
   const [opcoes, setOpcoes] = useState([]);
   const [setores, setSetores] = useState([]);
-  const [mesasLoja, setMesasLoja] = useState([]); // mesas cadastradas da empresa (valida "mesa existente e ativa")
+  // Mesas cadastradas da empresa — valida "mesa existente e ativa". `null` =
+  // ainda não carregou ou a consulta falhou (nunca trava o acesso por causa
+  // disso: a autoridade real é o backend em pub_validar_pedido_mesa, que roda
+  // como security definer e não depende desta leitura do cliente).
+  const [mesasLoja, setMesasLoja] = useState(null);
   const [orders, setOrders]       = useState([]);
   const [busca, setBusca]         = useState("");
   const [cart, setCart]           = useState([]);
@@ -129,7 +137,9 @@ export default function CardapioPublico() {
     let vivo = true;
     (async () => {
       try {
-        const [lojas, prods, cats, promos, grps, ops, sets, mesasTodas] = await Promise.all([fetchLojas(), fetchProdutos(), fetchCategorias(), fetchPromocoes().catch(() => []), fetchGruposOpcoes().catch(() => []), fetchOpcoes().catch(() => []), fetchSetoresCozinha().catch(() => []), fetchMesas().catch(() => [])]);
+        // fetchMesas() pode falhar (rede/RLS) — não derruba o carregamento do
+        // resto do cardápio; nesse caso mesasTodas fica null (ver mesasLoja).
+        const [lojas, prods, cats, promos, grps, ops, sets, mesasTodas] = await Promise.all([fetchLojas(), fetchProdutos(), fetchCategorias(), fetchPromocoes().catch(() => []), fetchGruposOpcoes().catch(() => []), fetchOpcoes().catch(() => []), fetchSetoresCozinha().catch(() => []), fetchMesas().catch(() => null)]);
         if (!vivo) return;
         const l = lojas.find((x) => x.prefixo === prefixo) || null;
         setLoja(l);
@@ -137,7 +147,7 @@ export default function CardapioPublico() {
           setGruposOpcoes((grps || []).filter((g) => g.lojaId === l.id));
           setOpcoes((ops || []).filter((o) => o.lojaId === l.id));
           setSetores((sets || []).filter((s) => s.lojaId == null || s.lojaId === l.id));
-          setMesasLoja((mesasTodas || []).filter((m) => m.lojaId === l.id));
+          setMesasLoja(mesasTodas === null ? null : (mesasTodas || []).filter((m) => m.lojaId === l.id));
           // Modo mesa (QR) respeita visivelQr; link geral respeita visivelExterno (migration 034)
           const canalOk = (p) => mesaURL ? (p.visivelQr !== false) : (p.visivelExterno !== false);
           setProdutos(prods.filter((p) => (p.lojaId == null || p.lojaId === l.id) && p.active && canalOk(p)));
@@ -199,7 +209,14 @@ export default function CardapioPublico() {
   // "Mesa existente e ativa" (tab_mesas) — protege contra QR obsoleto/mesa
   // removida ou um `?mesa=NN` digitado manualmente sem corresponder a
   // nenhuma mesa cadastrada. Sem mesaURL, não se aplica (canal externo).
-  const mesaValida = !mesaURL || mesasLoja.some((m) => m.numero === Number(mesaURL) && m.active !== false && m.permiteQr !== false);
+  // Prefere resolver por `mid` (id persistente, migration 066) quando presente
+  // — imune a renumeração; sem `mid` (QR antigo), cai no número (compatível
+  // com todo QR já impresso). `mesasLoja === null` = não deu pra confirmar
+  // (RLS/rede) → nunca bloqueia por causa disso, só quando a lista carregou
+  // e a mesa realmente não está nela.
+  const mesaCadastrada = mesasLoja === null ? null
+    : mesasLoja.find((m) => midURL ? String(m.id) === midURL : m.numero === Number(mesaURL));
+  const mesaValida = !mesaURL || mesasLoja === null || (!!mesaCadastrada && mesaCadastrada.active !== false && mesaCadastrada.permiteQr !== false);
   // Configurações do pedido externo (aba "Pedido externo" — config_externo)
   const cfgExt = loja?.configExterno || {};
   const aceitaExterno = cfgExt.aceitaPedidoExterno !== false; // padrão: aceita
@@ -607,7 +624,8 @@ export default function CardapioPublico() {
     try {
       let pedidoId = novo.id;
       const mesaNumero = modoExterno ? null : (Number(mesa) || null);
-      if (cardapioViaRpc()) { const r = await rpcCriarPedidoPublico({ lojaId: loja.id, mesa: novo.table, comanda: novo.command, cliente: novo.customer, telefone: novo.clienteTelefone || "", itens, pagForma: formaSel.label, pagMomento: momentoPagto, mesaNumero }); if (r) pedidoId = r; }
+      const mesaId = modoExterno ? null : (mesaCadastrada?.id ?? null);
+      if (cardapioViaRpc()) { const r = await rpcCriarPedidoPublico({ lojaId: loja.id, mesa: novo.table, comanda: novo.command, cliente: novo.customer, telefone: novo.clienteTelefone || "", itens, pagForma: formaSel.label, pagMomento: momentoPagto, mesaNumero, mesaId }); if (r) pedidoId = r; }
       else await inserirPedido(novo);
       // A Pesquisa de Satisfação NÃO aparece agora — só quando o pedido CONCLUIR
       // (pago + retirado/entregue). Registra o pedido como pendente de pesquisa.

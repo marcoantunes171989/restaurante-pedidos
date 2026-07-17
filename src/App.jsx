@@ -14637,7 +14637,13 @@ function CardapioExternoAdmin({ lojaInfo, setModoUsoEmpresa = async () => {}, sa
   const [addNum, setAddNum] = useState("");      // valor do select
   const [qrMap, setQrMap] = useState({});        // numero -> dataURL
   const disponiveis = mesasAtivas.filter((m) => !selMesas.includes(m.numero));
-  const linkDaMesa = (n) => `${origem}/cardapio?e=${prefixo}&mesa=${n}`;
+  // `mid` (id persistente da mesa, migration 066) somado ao `mesa=NN` de sempre
+  // — QR novo fica imune a uma futura renumeração; QR já impresso (sem `mid`)
+  // continua funcionando pelo número, sem qualquer mudança.
+  const linkDaMesa = (n) => {
+    const m = mesasAtivas.find((x) => x.numero === n);
+    return `${origem}/cardapio?e=${prefixo}&mesa=${n}${m?.id != null ? `&mid=${m.id}` : ""}`;
+  };
 
   function adicionar(n) { const num = Number(n); if (!num || selMesas.includes(num)) return; setSelMesas((s) => [...s, num].sort((a, b) => a - b)); setAddNum(""); }
   function adicionarTodas() { setSelMesas(mesasAtivas.map((m) => m.numero)); }
