@@ -550,31 +550,65 @@ export default function CardapioPublico() {
       const alvo = atual ? atual.id : CATEGORIA_TODOS;
       setCatAtivaId((cur) => (cur === alvo ? cur : alvo));
     };
-    const obsSecoes = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        const id = entry.target.dataset.catId;
-        if (entry.isIntersecting) naFaixa.add(id); else naFaixa.delete(id);
-      });
+    // obsSecoes/obsFim são recriados (não só reposicionados) sempre que o
+    // CONTAINER DE ROLAGEM muda de tamanho — não apenas quando grupos/headerH/
+    // catBarH mudam. O rootMargin abaixo usa el.clientHeight capturado no
+    // instante da criação; se essa altura mudar depois (ex.: iframe embutido
+    // num site externo redimensionado pelo script de auto-resize do host DEPOIS
+    // do primeiro paint, ou teclado virtual/barra do navegador mobile
+    // recolhendo), o observer antigo ficaria com uma faixa de detecção errada
+    // pro resto da sessão — a categoria ativa parava de acompanhar a rolagem
+    // exatamente nesses casos (mesmo código, mesmo comportamento no acesso
+    // direto — onde o viewport raramente muda de tamanho depois do mount).
+    let obsSecoes, obsFim;
+    const criarObservers = () => {
+      obsSecoes?.disconnect();
+      obsFim?.disconnect();
+      naFaixa.clear();
+      obsSecoes = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          const id = entry.target.dataset.catId;
+          if (entry.isIntersecting) naFaixa.add(id); else naFaixa.delete(id);
+        });
+        escolher();
+      }, { root: el, rootMargin: `-${linha}px 0px -${Math.max(0, el.clientHeight - linha - 1)}px 0px`, threshold: 0 });
+      Object.values(secRefs.current).forEach((secEl) => secEl && obsSecoes.observe(secEl));
       escolher();
-    }, { root: el, rootMargin: `-${linha}px 0px -${Math.max(0, el.clientHeight - linha - 1)}px 0px`, threshold: 0 });
-    Object.values(secRefs.current).forEach((secEl) => secEl && obsSecoes.observe(secEl));
-    escolher();
 
-    let obsFim;
-    if (finalRef.current) {
-      obsFim = new IntersectionObserver((entries) => {
-        // scrollTop > 0: sem isso, um cardápio mais curto que a tela (nunca
-        // rola) manteria o sentinela sempre visível e forçaria a última
-        // categoria mesmo sem o usuário ter rolado nada.
-        if (rolandoPorCliqueRef.current || el.scrollTop <= 0) return;
-        if (entries[0]?.isIntersecting) {
-          const ultimo = grupos[grupos.length - 1]?.id;
-          setCatAtivaId((cur) => (cur === ultimo ? cur : ultimo));
-        }
-      }, { root: el, threshold: 0 });
-      obsFim.observe(finalRef.current);
-    }
-    return () => { obsSecoes.disconnect(); obsFim?.disconnect(); };
+      if (finalRef.current) {
+        obsFim = new IntersectionObserver((entries) => {
+          // scrollTop > 0: sem isso, um cardápio mais curto que a tela (nunca
+          // rola) manteria o sentinela sempre visível e forçaria a última
+          // categoria mesmo sem o usuário ter rolado nada.
+          if (rolandoPorCliqueRef.current || el.scrollTop <= 0) return;
+          if (entries[0]?.isIntersecting) {
+            const ultimo = grupos[grupos.length - 1]?.id;
+            setCatAtivaId((cur) => (cur === ultimo ? cur : ultimo));
+          }
+        }, { root: el, threshold: 0 });
+        obsFim.observe(finalRef.current);
+      }
+    };
+    criarObservers();
+
+    // ResizeObserver no container de rolagem em si (não no header/barra —
+    // esses já têm o próprio ResizeObserver acima, que atualiza headerH/
+    // catBarH e por tabela recria este efeito). Debounce curto: um
+    // redimensionamento real dispara várias entradas seguidas (ex.: iframe
+    // ajustando altura em passos).
+    let debounceResize = 0;
+    const roEl = typeof ResizeObserver !== "undefined" ? new ResizeObserver(() => {
+      clearTimeout(debounceResize);
+      debounceResize = setTimeout(criarObservers, 120);
+    }) : null;
+    roEl?.observe(el);
+
+    return () => {
+      obsSecoes?.disconnect();
+      obsFim?.disconnect();
+      roEl?.disconnect();
+      clearTimeout(debounceResize);
+    };
   }, [busca, grupos, headerH, catBarH]);
   // Mantém o chip ativo visível (e centralizado) na barra horizontal
   useEffect(() => {
