@@ -765,7 +765,9 @@ export default function RestaurantePedidoApp() {
   const [customerName, setCustomerName] = useState("");
   const [message, setMessage] = useState({ type: "", text: "" });
   const [adminSection, setAdminSection] = useState("dashboard");
-  const [adminForm, setAdminForm] = useState({ name: "", category: "Pratos principais", price: "", cost: "", time: "15-25 min", imageUrl: "", ingredientsText: "", description: "" });
+  // Migration 068: categoria passa a ser obrigatória e vinculada por ID —
+  // sem valor fixo no código (nenhuma categoria é assumida por padrão).
+  const [adminForm, setAdminForm] = useState({ name: "", category: "", categoriaId: null, price: "", cost: "", time: "15-25 min", imageUrl: "", ingredientsText: "", description: "" });
   const [userForm, setUserForm] = useState({ name: "", email: "", password: "", role: "", cargoId: "", lojaId: "" });
   const [accessForm, setAccessForm] = useState({ id: "", label: "", desc: "", type: "Operacional" });
 
@@ -1789,18 +1791,20 @@ export default function RestaurantePedidoApp() {
   async function addProduct(overrideImageUrl) {
     if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
     if (!adminForm.name.trim()) return notify("error", "Informe o nome do produto.");
+    // Migration 068 — categoria obrigatória, vínculo por ID (nunca por nome)
+    if (adminForm.categoriaId == null) return notify("error", "Selecione uma categoria para o produto.");
     const precoAdd = moedaParaNum(String(adminForm.price));
     const custoAdd = moedaParaNum(String(adminForm.cost));
     if (precoAdd <= 0) return notify("error", "Informe um preço de venda válido.");
     if (custoAdd <= 0) return notify("error", "Informe o custo do produto.");
     const imgFinal = (typeof overrideImageUrl === "string" && overrideImageUrl) ? overrideImageUrl : adminForm.imageUrl;
     if (!adminForm.time || !adminForm.time.trim()) return notify("error", "Selecione o tempo de preparo.");
-    const np = { name: adminForm.name.trim(), category: adminForm.category, price: precoAdd, cost: custoAdd, active: true, time: adminForm.time, description: adminForm.description || "Produto cadastrado pelo administrativo.", badge: "Admin", imageUrl: imgFinal || fallbackImage, ingredients: adminForm.ingredientsText.split(",").map((s) => s.trim()).filter(Boolean), adicionais: adminForm.adicionais || [], estoque: 100, lojaId: lojaAtual };
+    const np = { name: adminForm.name.trim(), category: adminForm.category, categoriaId: adminForm.categoriaId, price: precoAdd, cost: custoAdd, active: true, time: adminForm.time, description: adminForm.description || "Produto cadastrado pelo administrativo.", badge: "Admin", imageUrl: imgFinal || fallbackImage, ingredients: adminForm.ingredientsText.split(",").map((s) => s.trim()).filter(Boolean), adicionais: adminForm.adicionais || [], estoque: 100, lojaId: lojaAtual };
     try {
       const saved = dbReady ? await inserirProduto(np) : { ...np, id: Date.now() };
       setProducts((cur) => [saved, ...cur]);
     } catch { setProducts((cur) => [{ ...np, id: Date.now() }, ...cur]); }
-    setAdminForm({ name: "", category: "Pratos principais", price: "", cost: "", time: "15-25 min", imageUrl: "", ingredientsText: "", description: "" });
+    setAdminForm({ name: "", category: "", categoriaId: null, price: "", cost: "", time: "15-25 min", imageUrl: "", ingredientsText: "", description: "" });
     auditar("criar", "produto", null, { nome: np.name });
     notify("success", "Produto cadastrado com sucesso no administrativo.");
     return true;
@@ -1818,10 +1822,12 @@ export default function RestaurantePedidoApp() {
   async function editarProduto(pid, dados) {
     if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
     if (!dados.time || !dados.time.trim()) return notify("error", "Selecione o tempo de preparo.");
+    // Migration 068 — categoria obrigatória, vínculo por ID (nunca por nome)
+    if (dados.categoriaId == null) return notify("error", "Selecione uma categoria para o produto.");
     setProducts((cur) => cur.map((p) => p.id === pid ? { ...p, ...dados } : p));
     if (dbReady) try {
       await atualizarProduto(pid, {
-        nome: dados.name, categoria: dados.category, preco: Number(dados.price), custo: Number(dados.cost || 0),
+        nome: dados.name, categoria: dados.category, categoria_id: dados.categoriaId, preco: Number(dados.price), custo: Number(dados.cost || 0),
         tempo_preparo: dados.time, descricao: dados.description, url_imagem: dados.imageUrl,
         ingredientes: dados.ingredients, estoque: Number(dados.estoque ?? 0),
         adicionais: Array.isArray(dados.adicionais) ? dados.adicionais : [],
@@ -6338,7 +6344,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           {ativo === "relatorios" && <RelatoriosAdmin orders={orders} products={products} lojaInfo={lojaInfo} pesquisas={filtraLoja(pesquisas)} irParaMesas={() => setAdminSection("mesas")} irParaProdutos={() => setAdminSection("products")} currentUser={currentUser} />}
           {ativo === "crm"        && <CrmAdmin clientes={clientes} orders={orders} fidTransacoes={fidTransacoes} fidRecompensas={fidRecompensas} lancarPontos={fidApi?.lancarPontos} configCrm={lojaInfo?.configCrm || {}} salvarConfigCrm={salvarConfigCrm} />}
           {ativo === "fidelidade" && (precisaEmpresa ? avisoEmpresa : <FidelidadeAdmin regra={fidRegra} recompensas={fidRecompensas} transacoes={fidTransacoes} clientes={clientes} api={fidApi} />)}
-          {ativo === "products"   && (precisaEmpresa ? avisoEmpresa : <ProductAdmin   products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} editarProduto={editarProduto} removerProduto={removerProduto} lojaId={lojaInfo?.id} opcoesApi={opcoesApi} setores={setores} />)}
+          {ativo === "products"   && (precisaEmpresa ? avisoEmpresa : <ProductAdmin   products={products} categories={categories} categoriasDb={categoriasDb} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} editarProduto={editarProduto} removerProduto={removerProduto} lojaId={lojaInfo?.id} opcoesApi={opcoesApi} setores={setores} />)}
           {ativo === "setores"    && (precisaEmpresa ? avisoEmpresa : <SetoresCozinhaAdmin setores={setores} produtos={products} orders={orders} api={setoresApi} vincularProduto={vincularProdutoSetor} irParaCozinha={irParaCozinha} />)}
           {ativo === "operacaomobile" && <OperacaoMobileView orders={orders} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} confirmarRetirada={confirmarRetirada} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} products={products} setores={setores} formasPagamento={formasPagamento} lojaInfo={lojaInfo} perms={acessosOperacionais(currentUser)} usuarioNome={currentUser?.name || ""} onFechar={() => setAdminSection("dashboard")} />}
           {ativo === "cardapioqr"  && (precisaEmpresa ? avisoEmpresa : <CardapioQrConfigAdmin products={products} setores={setores} salvarProdutoQr={salvarProdutoQr} irParaProdutos={() => setAdminSection("products")} />)}
@@ -15571,8 +15577,11 @@ function CategoriaAdmin({ categoriasDb, produtos, addCategoria, toggleCategoria,
   const [editando, setEditando] = useState(null); // categoria sendo editada
   const [busca, setBusca]       = useState("");
 
-  const produtosDaCat = (catNome) => produtos.filter((p) => p.category === catNome);
-  const contagem = (catNome) => produtosDaCat(catNome).length;
+  // Migration 068 — conta/lista por categoriaId (vínculo real). Produto
+  // ainda não migrado (categoriaId null — banco sem a migration 068 rodada
+  // ainda) cai no fallback por nome, igual ao comportamento de sempre.
+  const produtosDaCat = (cat) => produtos.filter((p) => (p.categoriaId != null ? p.categoriaId === cat.id : p.category === cat.nome));
+  const contagem = (cat) => produtosDaCat(cat).length;
 
   const termo = busca.trim().toLowerCase();
   const filtradas = termo ? categoriasDb.filter((c) => c.nome.toLowerCase().includes(termo)) : categoriasDb;
@@ -15619,7 +15628,7 @@ function CategoriaAdmin({ categoriasDb, produtos, addCategoria, toggleCategoria,
           )}
           {categoriasDb.length > 0 && filtradas.length === 0 && <p className="py-6 text-center text-sm text-slate-500">Nenhuma categoria encontrada.</p>}
           {filtradas.map((c) => {
-            const usos = contagem(c.nome);
+            const usos = contagem(c);
             return (
               <div key={c.id}
                 onClick={() => setEditando(c)}
@@ -15648,15 +15657,31 @@ function CategoriaAdmin({ categoriasDb, produtos, addCategoria, toggleCategoria,
       {editando && (
         <CategoriaEditModal
           categoria={editando}
-          produtos={produtosDaCat(editando.nome)}
+          produtos={produtosDaCat(editando)}
           onSalvar={salvarEdicao}
           onToggle={() => { toggleCategoria(editando.id); setEditando((c) => c ? { ...c, active: c.active === false ? true : false } : c); }}
           onFechar={() => setEditando(null)}
         />
       )}
-      {excluir && (
+      {/* Migration 068: exclusão bloqueada de verdade quando há produto vinculado
+          (o banco também recusa via FK "on delete restrict" — isto é só a
+          mensagem amigável antes de sequer tentar). Sem produtos: confirmação normal. */}
+      {excluir && contagem(excluir) > 0 && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={() => setExcluir(null)}>
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm rounded-[2rem] border border-white/10 bg-slate-900 p-6 shadow-2xl text-center">
+            <span className="text-4xl">🚫</span>
+            <h2 className="mt-3 text-lg font-black text-white">Não é possível excluir</h2>
+            <p className="mt-2 text-sm text-slate-400">
+              A categoria <b className="text-white">"{excluir.nome}"</b> tem <b className="text-amber-300">{contagem(excluir)} produto(s)</b> vinculado(s).
+              Mude a categoria desses produtos ou apenas <b className="text-white">inative</b> a categoria em vez de excluir.
+            </p>
+            <button onClick={() => setExcluir(null)} className="mt-6 w-full rounded-2xl bg-blue-500 py-3 text-sm font-black text-white hover:bg-blue-400">Entendi</button>
+          </div>
+        </div>
+      )}
+      {excluir && contagem(excluir) === 0 && (
         <ConfirmModal titulo="Excluir categoria?"
-          mensagem={`Excluir a categoria "${excluir.nome}"? ${contagem(excluir.nome) > 0 ? `Atenção: ${contagem(excluir.nome)} produto(s) usam esta categoria.` : ""} Você pode apenas inativá-la.`}
+          mensagem={`Excluir a categoria "${excluir.nome}"? Esta ação não pode ser desfeita.`}
           confirmar="Sim, excluir"
           onConfirmar={() => { removerCategoria(excluir.id); setExcluir(null); }}
           onCancelar={() => setExcluir(null)} />
@@ -18145,7 +18170,7 @@ function AdicionaisEditor({ value = [], onChange }) {
   );
 }
 
-function ProductAdmin({ products, categories, adminForm, setAdminForm, addProduct, toggleProduct, editarProduto, removerProduto, lojaId, opcoesApi = null, setores = [] }) {
+function ProductAdmin({ products, categories, categoriasDb = [], adminForm, setAdminForm, addProduct, toggleProduct, editarProduto, removerProduto, lojaId, opcoesApi = null, setores = [] }) {
   const [editando, setEditando] = useState(null);
   const [excluir, setExcluir]   = useState(null);
   const [variacoes, setVariacoes] = useState(null); // produto cujas variações/adicionais estamos editando
@@ -18155,6 +18180,9 @@ function ProductAdmin({ products, categories, adminForm, setAdminForm, addProduc
   const [pagina, setPagina] = useState(1);
   const POR_PAGINA = 10;
   const cats = categories.filter((c) => c !== "Todos");
+  // Categorias cadastradas e ativas — únicas selecionáveis ao criar/editar
+  // produto (migration 068: vínculo obrigatório por ID, nunca por nome).
+  const categoriasAtivas = categoriasDb.filter((c) => c.active !== false);
 
   const filtrados = products.filter((p) => {
     const t = `${p.name} ${p.category}`.toLowerCase();
@@ -18170,7 +18198,8 @@ function ProductAdmin({ products, categories, adminForm, setAdminForm, addProduc
   const visiveis = filtrados.slice((paginaAtual - 1) * POR_PAGINA, paginaAtual * POR_PAGINA);
 
   function abrirCadastro() {
-    setAdminForm({ name: "", category: cats[0] || "Pratos principais", price: "", cost: "", time: TEMPOS_PREPARO[3], imageUrl: "", ingredientsText: "", description: "" });
+    // Sem categoria padrão fixa — o admin precisa escolher (campo obrigatório).
+    setAdminForm({ name: "", category: "", categoriaId: null, price: "", cost: "", time: TEMPOS_PREPARO[3], imageUrl: "", ingredientsText: "", description: "" });
     setCriando(true);
   }
   async function salvarNovo(overrideImageUrl) {
@@ -18273,10 +18302,10 @@ function ProductAdmin({ products, categories, adminForm, setAdminForm, addProduc
       </div>
 
       {criando && (
-        <ProdutoCadastroModal adminForm={adminForm} setAdminForm={setAdminForm} cats={cats} lojaId={lojaId}
+        <ProdutoCadastroModal adminForm={adminForm} setAdminForm={setAdminForm} categoriasAtivas={categoriasAtivas} lojaId={lojaId}
           onSalvar={salvarNovo} onFechar={() => setCriando(false)} />
       )}
-      {editando && <ProdutoEditModal produto={editando} cats={cats} lojaId={lojaId} setores={setores} onSalvar={(d) => { editarProduto(editando.id, d); setEditando(null); }} onFechar={() => setEditando(null)} />}
+      {editando && <ProdutoEditModal produto={editando} categoriasAtivas={categoriasAtivas} lojaId={lojaId} setores={setores} onSalvar={(d) => { editarProduto(editando.id, d); setEditando(null); }} onFechar={() => setEditando(null)} />}
       {variacoes && opcoesApi && <GruposOpcoesModal produto={variacoes} api={opcoesApi} onFechar={() => setVariacoes(null)} />}
       {excluir && (
         <ConfirmModal titulo="Excluir produto?"
@@ -18371,18 +18400,22 @@ function SeletorImagem({ urlAtual, onImageUrl, onFileChange, uploading = false, 
   );
 }
 
-function ProdutoCadastroModal({ adminForm, setAdminForm, cats, onSalvar, onFechar, lojaId }) {
+function ProdutoCadastroModal({ adminForm, setAdminForm, categoriasAtivas, onSalvar, onFechar, lojaId }) {
   const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-gold-400/60 placeholder:text-slate-600";
   const lbl = "mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500";
   const set = (k, v) => setAdminForm({ ...adminForm, [k]: v });
+  // Escolher a categoria grava os dois: categoriaId (vínculo real, migration
+  // 068) e category (nome, mantido em sincronia p/ telas ainda lendo o texto).
+  const setCategoria = (cat) => setAdminForm({ ...adminForm, categoriaId: cat.id, category: cat.nome });
   const tagsAtuais = adminForm.ingredientsText ? adminForm.ingredientsText.split(",").map((s) => s.trim()).filter(Boolean) : [];
   const precoNum = moedaParaNum(String(adminForm.price));
   const custoNum = moedaParaNum(String(adminForm.cost));
   const [arquivoImg, setArquivoImg] = React.useState(null);
   const [uploadando, setUploadando] = React.useState(false);
   const [erroUpload, setErroUpload] = React.useState("");
-  // Todos os campos são obrigatórios
+  // Todos os campos são obrigatórios (categoria: migration 068, vínculo por ID)
   const valido = adminForm.name.trim() &&
+    adminForm.categoriaId != null &&
     precoNum > 0 && custoNum > 0 &&
     adminForm.time.trim() &&
     adminForm.imageUrl.trim() &&
@@ -18441,8 +18474,14 @@ function ProdutoCadastroModal({ adminForm, setAdminForm, cats, onSalvar, onFecha
                 <input autoFocus value={adminForm.name} onChange={(e) => set("name", e.target.value)} placeholder="Ex.: Risoto de Filé Mignon" className={inp} />
               </div>
               <div>
-                <span className={lbl}>Categoria</span>
-                <SeletorCategoria valor={adminForm.category} aoMudar={(c) => set("category", c)} categorias={cats} />
+                <span className={lbl}>Categoria *</span>
+                {categoriasAtivas.length === 0 ? (
+                  <p className="rounded-2xl border border-amber-400/20 bg-amber-500/10 px-3 py-2 text-xs font-bold text-amber-200">
+                    Nenhuma categoria ativa cadastrada. Cadastre em <b className="text-white">Cadastros → Categorias</b> antes de criar produtos.
+                  </p>
+                ) : (
+                  <SeletorCategoria valorId={adminForm.categoriaId} aoMudar={setCategoria} categorias={categoriasAtivas} />
+                )}
               </div>
             </div>
           </div>
@@ -18522,20 +18561,23 @@ function ProdutoCadastroModal({ adminForm, setAdminForm, cats, onSalvar, onFecha
 }
 
 // Seletor de categoria minimalista e gourmet (chips com acento dourado/âmbar)
-function SeletorCategoria({ valor, aoMudar, categorias }) {
+// Migration 068: seleciona a categoria pelo ID real (nunca pelo nome) —
+// `categorias` recebe objetos { id, nome }, `aoMudar` devolve o objeto
+// inteiro (o chamador grava categoriaId + o nome de exibição).
+function SeletorCategoria({ valorId, aoMudar, categorias }) {
   return (
     <div className="flex flex-wrap gap-2">
       {categorias.map((c) => {
-        const ativo = valor === c;
+        const ativo = valorId === c.id;
         return (
-          <button key={c} type="button" onClick={() => aoMudar(c)}
+          <button key={c.id} type="button" onClick={() => aoMudar(c)}
             className={`group inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-bold tracking-tight transition active:scale-95 ${
               ativo
                 ? "border-[#EBCE86] bg-[#FAF0D6] text-[#8A6A12] shadow-[0_0_0_1px_rgba(201,154,46,0.18),0_4px_16px_-6px_rgba(201,154,46,0.4)]"
                 : "border-white/10 bg-white/[0.04] text-slate-300 hover:border-[#EBCE86]/60 hover:bg-white/[0.07] hover:text-[#8A6A12]"
             }`}>
             <span className={`h-1.5 w-1.5 rounded-full transition ${ativo ? "bg-[#C99A2E] shadow-[0_0_6px_1px_rgba(201,154,46,0.6)]" : "bg-slate-600 group-hover:bg-[#C99A2E]/60"}`} />
-            {c}
+            {c.nome}
           </button>
         );
       })}
@@ -18543,7 +18585,7 @@ function SeletorCategoria({ valor, aoMudar, categorias }) {
   );
 }
 
-function ProdutoEditModal({ produto, cats, onSalvar, onFechar, lojaId, setores = [] }) {
+function ProdutoEditModal({ produto, categoriasAtivas, onSalvar, onFechar, lojaId, setores = [] }) {
   // Inicializa campos de moeda já formatados
   const toDisplay = (v) => {
     if (!v && v !== 0) return "";
@@ -18552,7 +18594,7 @@ function ProdutoEditModal({ produto, cats, onSalvar, onFechar, lojaId, setores =
     return rawParaMoeda(digits);
   };
   const [f, setF] = useState({
-    name: produto.name, category: produto.category,
+    name: produto.name, category: produto.category, categoriaId: produto.categoriaId ?? null,
     price: toDisplay(produto.price), cost: toDisplay(produto.cost),
     precoPromo: produto.precoPromocional ? toDisplay(produto.precoPromocional) : "",
     time: produto.time || "", imageUrl: produto.imageUrl || "", description: produto.description || "",
@@ -18579,7 +18621,7 @@ function ProdutoEditModal({ produto, cats, onSalvar, onFechar, lojaId, setores =
   const lbl = "mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500";
   const precoNum = moedaParaNum(String(f.price));
   const custoNum = moedaParaNum(String(f.cost));
-  const validoEdit = f.name.trim() && precoNum > 0 && custoNum > 0 &&
+  const validoEdit = f.name.trim() && f.categoriaId != null && precoNum > 0 && custoNum > 0 &&
     f.time.trim() && f.imageUrl.trim() && tags.length > 0 && f.description.trim();
   // Tempos: garante que o valor atual apareça mesmo se for um texto antigo fora do padrão
   const opcoesTempo = TEMPOS_PREPARO.includes(f.time) || !f.time ? TEMPOS_PREPARO : [f.time, ...TEMPOS_PREPARO];
@@ -18631,8 +18673,14 @@ function ProdutoEditModal({ produto, cats, onSalvar, onFechar, lojaId, setores =
                 <input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="Ex.: Risoto de Filé Mignon" className={inp} />
               </div>
               <div>
-                <span className={lbl}>Categoria</span>
-                <SeletorCategoria valor={f.category} aoMudar={(c) => setF({ ...f, category: c })} categorias={cats} />
+                <span className={lbl}>Categoria *</span>
+                {categoriasAtivas.length === 0 ? (
+                  <p className="rounded-2xl border border-amber-400/20 bg-amber-500/10 px-3 py-2 text-xs font-bold text-amber-200">
+                    Nenhuma categoria ativa cadastrada. Cadastre em <b className="text-white">Cadastros → Categorias</b>.
+                  </p>
+                ) : (
+                  <SeletorCategoria valorId={f.categoriaId} aoMudar={(c) => setF({ ...f, categoriaId: c.id, category: c.nome })} categorias={categoriasAtivas} />
+                )}
               </div>
             </div>
           </div>

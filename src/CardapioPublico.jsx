@@ -312,7 +312,10 @@ export default function CardapioPublico() {
       const ids = Array.isArray(p.produtoIds) && p.produtoIds.length ? p.produtoIds : (p.produtoId ? [p.produtoId] : []);
       const temAlvo = ids.length > 0 || p.categoriaId != null;
       const alvoProduto = ids.includes(item.id);
-      const alvoCategoria = p.categoriaId != null && catNomePorId[p.categoriaId] === item.category;
+      // Migration 068: compara por ID quando o produto já tem categoriaId
+      // (vínculo real, imune a categoria renomeada); nome como fallback para
+      // produto ainda não migrado.
+      const alvoCategoria = p.categoriaId != null && (item.categoriaId != null ? item.categoriaId === p.categoriaId : catNomePorId[p.categoriaId] === item.category);
       if (temAlvo ? !(alvoProduto || alvoCategoria) : false) continue; // tem alvo mas não bate → pula; sem alvo → geral
       let preco = base, label = null;
       if (p.descontoPercent != null && p.descontoPercent > 0) { preco = base * (1 - p.descontoPercent / 100); label = `-${p.descontoPercent}%`; }
@@ -399,21 +402,36 @@ export default function CardapioPublico() {
     if (!termo) return [];
     return visiveis.filter((p) => norm(`${p.name} ${p.description} ${p.category} ${(p.ingredients || []).join(" ")}`).includes(termo));
   }, [visiveis, busca]);
+  // Migration 068: agrupa PRIMEIRO pelo vínculo real (produto.categoriaId →
+  // tab_categorias.id). Produto sem categoriaId (banco ainda sem a migration
+  // 068 aplicada, ou produto legado não migrado pelo backfill) cai no
+  // fallback por texto de sempre — nada desaparece do cardápio. Ordena por
+  // categoria.ordem e, dentro do grupo, por produto.ordemExibicao/nome.
   const grupos = useMemo(() => {
-    const porCat = {};
-    visiveis.forEach((p) => { const c = p.category || "Outros"; (porCat[c] = porCat[c] || []).push(p); });
-    const ordem = categorias.map((c) => c.nome);
-    const nomes = [...ordem.filter((n) => porCat[n]?.length), ...Object.keys(porCat).filter((n) => !ordem.includes(n))];
-    // ID estável por grupo: o id real de tab_categorias quando o nome bate com
-    // uma categoria cadastrada (caso normal); slug do nome como fallback
-    // (produto com `categoria` em texto livre que não corresponde a nenhuma
-    // linha cadastrada, ex.: "Outros"). Nunca o nome cru — evita colisão por
-    // acento/espaço/maiúscula em chaves de refs/estado.
-    return nomes.map((nome) => {
-      const cadastrada = categorias.find((c) => c.nome === nome);
-      const id = cadastrada ? String(cadastrada.id) : slugify(nome);
-      return { id, nome, produtos: porCat[nome] };
+    const porChave = new Map(); // chave -> { id, nome, ordem, produtos[] }
+    visiveis.forEach((p) => {
+      let chave, id, nome, ordem;
+      if (p.categoriaId != null) {
+        const cat = categorias.find((c) => c.id === p.categoriaId);
+        chave = `id:${p.categoriaId}`;
+        id = String(p.categoriaId);
+        nome = cat?.nome || p.category || "Outros";
+        ordem = cat?.ordem ?? 9999;
+      } else {
+        const nomeTxt = p.category || "Outros";
+        const cadastrada = categorias.find((c) => c.nome === nomeTxt);
+        chave = `nome:${nomeTxt}`;
+        id = cadastrada ? String(cadastrada.id) : slugify(nomeTxt);
+        nome = nomeTxt;
+        ordem = cadastrada?.ordem ?? 9999;
+      }
+      if (!porChave.has(chave)) porChave.set(chave, { id, nome, ordem, produtos: [] });
+      porChave.get(chave).produtos.push(p);
     });
+    const porOrdemNome = (a, b) => (a.ordemExibicao ?? 9999) - (b.ordemExibicao ?? 9999) || a.name.localeCompare(b.name, "pt-BR");
+    return [...porChave.values()]
+      .sort((a, b) => a.ordem - b.ordem || a.nome.localeCompare(b.nome, "pt-BR"))
+      .map((g) => ({ id: g.id, nome: g.nome, produtos: [...g.produtos].sort(porOrdemNome) }));
   }, [visiveis, categorias]);
   const cats = useMemo(() => [{ id: CATEGORIA_TODOS, nome: "Todos" }, ...grupos.map((g) => ({ id: g.id, nome: g.nome }))], [grupos]);
 

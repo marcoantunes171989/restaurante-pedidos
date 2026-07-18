@@ -67,12 +67,19 @@ export async function inserirProduto(p) {
     const { adicionais, ...semExtra } = linha;
     res = await supabase.from('tab_produtos').insert([semExtra]).select().single();
   }
+  // Migration 068 ainda não aplicada nesse banco: categoria_id não existe —
+  // insere sem ela (o produto fica só com o texto em `categoria`, como já
+  // funcionava antes desta migration).
+  if (res.error && 'categoria_id' in linha && ehColunaAusente(res.error, 'categoria_id')) {
+    const { categoria_id, ...semCategoriaId } = linha;
+    res = await supabase.from('tab_produtos').insert([semCategoriaId]).select().single();
+  }
   if (res.error) throw res.error
   return dbParaProduto(res.data)
 }
 
-// Colunas opcionais (migrations 029/034) — removidas no fallback se o banco não as tiver
-const COLS_PRODUTO_OPCIONAIS = ['adicionais', 'controla_estoque', 'estoque_minimo', 'preco_promocional', 'visivel_tablet', 'visivel_qr', 'visivel_externo', 'is_featured', 'featured_label', 'featured_order', 'show_on_home', 'disponivel', 'setor_id'];
+// Colunas opcionais (migrations 029/034/068) — removidas no fallback se o banco não as tiver
+const COLS_PRODUTO_OPCIONAIS = ['adicionais', 'controla_estoque', 'estoque_minimo', 'preco_promocional', 'visivel_tablet', 'visivel_qr', 'visivel_externo', 'is_featured', 'featured_label', 'featured_order', 'show_on_home', 'disponivel', 'setor_id', 'categoria_id'];
 export async function atualizarProduto(id, campos) {
   let { error } = await supabase.from('tab_produtos').update(campos).eq('id', id)
   if (error && COLS_PRODUTO_OPCIONAIS.some((c) => c in campos) && ehColunaAusente(error, 'column')) {
@@ -946,6 +953,12 @@ export async function atualizarCategoria(id, campos) {
 }
 export async function excluirCategoria(id) {
   const { error } = await supabase.from('tab_categorias').delete().eq('id', id)
+  // Migration 068 — categoria_id tem FK "on delete restrict": o banco recusa
+  // apagar uma categoria com produto vinculado (código 23503). A tela já
+  // bloqueia isso antes de chamar aqui (ver CategoriaAdmin), mas traduz a
+  // mensagem mesmo assim — cobre a corrida rara de um produto ser vinculado
+  // por outro dispositivo entre abrir a confirmação e clicar em excluir.
+  if (error?.code === '23503') throw new Error('Esta categoria tem produtos vinculados. Remova ou mude a categoria desses produtos antes de excluir — ou apenas inative a categoria.')
   if (error) throw error
 }
 export function escutarCategorias(onMudanca) {
@@ -1177,6 +1190,13 @@ function dbParaProduto(r) {
     id:          r.id,
     name:        r.nome,
     category:    r.categoria,
+    // Migration 068 — vínculo real por FK (categoria_id). `category` (texto)
+    // continua vindo junto para telas ainda não migradas; `categoriaId` é a
+    // fonte de verdade nas novas (agrupamento do cardápio, admin). Banco sem
+    // a migration 068 aplicada: coluna não existe, r.categoria_id vem
+    // undefined → categoriaId fica null, tudo cai no fallback por nome.
+    categoriaId: r.categoria_id ?? null,
+    ordemExibicao: r.ordem_exibicao ?? null, // migration 034 — existia sem uso; agora ordena o cardápio dentro da categoria
     price:       Number(r.preco),
     cost:        Number(r.custo),
     active:      r.ativo,
@@ -1328,6 +1348,10 @@ function produtoParaDb(p) {
     adicionais:    Array.isArray(p.adicionais) ? p.adicionais : [],
     estoque:       p.estoque ?? 100,
     ...(p.lojaId ? { loja_id: p.lojaId } : {}),
+    // Migration 068 — grava a FK real junto com o texto (categoria) acima,
+    // sempre que o formulário já informou um categoriaId. Se o banco ainda
+    // não tem a coluna, inserirProduto() abaixo tolera e tenta de novo sem ela.
+    ...(p.categoriaId != null ? { categoria_id: p.categoriaId } : {}),
   }
 }
 
