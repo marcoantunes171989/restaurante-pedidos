@@ -112,7 +112,15 @@ export default function CardapioPublico() {
   const [mesasLoja, setMesasLoja] = useState(null);
   const [orders, setOrders]       = useState([]);
   const [busca, setBusca]         = useState("");
-  const [cart, setCart]           = useState([]);
+  // Carrinho sobrevive a navegação/F5: por empresa+mesa (link externo cai em
+  // "ext"), pra não vazar carrinho entre mesas/empresas diferentes no mesmo
+  // navegador. sessionStorage (não localStorage) — some quando a aba fecha,
+  // certo pra um QR físico que muitos clientes diferentes escaneiam.
+  const cartKey = `pp_cart_${prefixo}_${mesaURL || "ext"}`;
+  const [cart, setCart] = useState(() => {
+    try { const s = JSON.parse(sessionStorage.getItem(cartKey) || "[]"); return Array.isArray(s) ? s : []; } catch { return []; }
+  });
+  useEffect(() => { try { sessionStorage.setItem(cartKey, JSON.stringify(cart)); } catch {} }, [cart, cartKey]);
   const [detalhe, setDetalhe]     = useState(null);
   const [mesa, setMesa]           = useState(mesaURL);
   const [comanda, setComanda]     = useState(comURL);
@@ -125,12 +133,14 @@ export default function CardapioPublico() {
   const [survey, setSurvey]       = useState(null); // pesquisa de satisfação na finalização: { pedidoId, mesa, origem }
   const [ocultarIndisp, setOcultarIndisp] = useState(false); // botão "Filtros": ocultar indisponíveis
   const [enviando, setEnviando]   = useState(false);
+  const enviandoRef = useRef(false); // trava síncrona contra clique duplo (ver enviar())
   const [msg, setMsg]             = useState(null);
   const [etapa, setEtapa]         = useState(mesaURL ? "welcome" : "cardapio"); // welcome | cardapio
   const [tipoPedido, setTipoPedido] = useState(""); // pedido externo: local | retirada | entrega (config_externo)
   const [formaPagto, setFormaPagto] = useState(""); // forma de pagamento: pix | cartao | dinheiro (config_externo)
   const [agora, setAgora] = useState(() => new Date()); // relógio p/ reavaliar aberto/fechado ao vivo
   const [comboRemover, setComboRemover] = useState(null); // item de combo aguardando confirmação de remoção
+  const [confirmarLimpar, setConfirmarLimpar] = useState(false); // confirmação obrigatória antes de esvaziar o carrinho todo
 
   // Confirmação obrigatória de "mesa ocupada" (QR por mesa) — status vem do
   // backend (pub_status_mesa, migration 067), nunca de cache/estado local.
@@ -474,19 +484,22 @@ export default function CardapioPublico() {
         <div className="flex gap-3 p-3">
           <div className="relative shrink-0">
             <button onClick={() => !indisponivel && abrir()} disabled={indisponivel} className="block h-[88px] w-[88px] overflow-hidden rounded-2xl bg-[#F3F4F6]">
-              <img src={item.imageUrl || fallbackImage} alt={item.name} className={`h-full w-full object-cover ${indisponivel ? "grayscale opacity-50" : ""}`} />
+              <img src={item.imageUrl || fallbackImage} alt={item.name} loading="lazy" decoding="async"
+                onError={(e) => { if (e.currentTarget.src !== fallbackImage) e.currentTarget.src = fallbackImage; }}
+                className={`h-full w-full object-cover ${indisponivel ? "grayscale opacity-50" : ""}`} />
             </button>
+            {/* Selo decorativo (não é um controle independente — tocar na imagem já abre a personalização) */}
             {personalizavel && !indisponivel && (
-              <button onClick={abrir} aria-label="Personalizar" title="Personalizar" className="absolute left-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-full border border-[#F4D27A] bg-white text-[#9A6A00] shadow-[0_4px_12px_rgba(16,24,40,.1)]">
+              <span aria-hidden="true" title="Personalizável" className="pointer-events-none absolute left-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-full border border-[#F4D27A] bg-white text-[#9A6A00] shadow-[0_4px_12px_rgba(16,24,40,.1)]">
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/><circle cx="9" cy="7" r="2" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="2" fill="currentColor" stroke="none"/><circle cx="8" cy="17" r="2" fill="currentColor" stroke="none"/></svg>
-              </button>
+              </span>
             )}
             {promo && !indisponivel && <span className="absolute right-1.5 top-1.5 rounded-full bg-[#16A34A] px-1.5 py-0.5 text-[9px] font-black text-white shadow-[0_4px_12px_rgba(16,24,40,.1)]">{promo.label}</span>}
             {indisponivel && <span className="absolute left-1/2 top-1/2 w-max -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#E5E7EB] bg-white/90 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-[#667085]">Indisponível</span>}
           </div>
           <div className="min-w-0 flex-1">
             <h3 className="text-[15px] font-black leading-tight text-[#182230] line-clamp-2">{item.name}</h3>
-            <p className="mt-1 text-[11px] leading-4 text-[#667085]">{item.description}</p>
+            {item.description && <p className="mt-1 line-clamp-2 text-[11px] leading-4 text-[#667085]">{item.description}</p>}
           </div>
         </div>
         <div className="mt-auto flex items-center justify-between px-3 pb-3">
@@ -494,8 +507,8 @@ export default function CardapioPublico() {
             ? <span className="flex flex-col leading-none"><span className="text-[11px] font-bold text-[#98A2B3] line-through">{formatCurrency(promo.original)}</span><span className="text-base font-black text-[#147A4A]">{formatCurrency(promo.preco)}</span></span>
             : <span className="text-base font-black text-[#9A6A00]">{formatCurrency(item.price)}</span>}
           {indisponivel
-            ? <span className="flex h-9 w-9 items-center justify-center rounded-full border border-[#E5E7EB] bg-[#F3F4F6] text-[#98A2B3]">✕</span>
-            : <button onClick={abrir} aria-label="Adicionar" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#D9A441] text-xl font-black text-[#182230] shadow-[0_4px_12px_rgba(16,24,40,.1)] transition active:scale-90 hover:bg-[#C7922F]">+</button>}
+            ? <span className="flex h-11 w-11 items-center justify-center rounded-full border border-[#E5E7EB] bg-[#F3F4F6] text-[#98A2B3]">✕</span>
+            : <button onClick={abrir} aria-label={`Adicionar ${item.name}`} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#D9A441] text-xl font-black text-[#182230] shadow-[0_4px_12px_rgba(16,24,40,.1)] transition active:scale-90 hover:bg-[#C7922F]">+</button>}
         </div>
       </article>
     );
@@ -584,6 +597,7 @@ export default function CardapioPublico() {
     setDetalhe(null);
   }
   function removerItem(uid) { setCart((c) => c.filter((i) => i._uid !== uid)); }
+  function limparCarrinho() { setCart([]); setConfirmarLimpar(false); }
 
   // Chamados de mesa (garçom/ajuda/limpeza) — só no modo mesa (QR na mesa)
   async function chamar(tipo, rotulo) {
@@ -595,22 +609,29 @@ export default function CardapioPublico() {
 
   async function enviar() {
     if (cart.length === 0) return;
-    if (bloqueioHorario) return setMsg({ t: "error", m: "O estabelecimento está fechado no momento. Consulte os horários de atendimento." });
-    // Revalida a ocupação da mesa direto no backend antes de concluir — evita
-    // cache/concorrência: se a mesa ficou ocupada durante a navegação e o
-    // cliente ainda não confirmou essa ocupação, pede confirmação agora e
-    // NÃO envia o pedido ainda (o cliente confirma e clica em enviar de novo).
-    if (!modoExterno && mesaCadastrada && !ocupacaoConfirmada) {
-      const fresco = await rpcStatusMesa({ lojaId: loja.id, mesaNumero: Number(mesa), mesaId: mesaCadastrada.id });
-      if (fresco?.ocupada) { setStatusMesa(fresco); return; }
-    }
-    const itens = cart.map((i) => ({ name: i.name, quantity: i.quantity, price: i.price, selectedIngredients: i.selectedIngredients, removedIngredients: i.removedIngredients, extraIngredients: i.extraIngredients, selectedOptions: i.selectedOptions || [], observation: i.observation }));
-    // Forma de pagamento (aba "Pagamento" — vale para pedido interno e externo)
-    if (formasPagto.length === 0) return setMsg({ t: "error", m: "Nenhuma forma de pagamento está disponível no momento." });
-    const formaSel = formasPagto.find((f) => f.id === formaPagto);
-    if (!formaSel) return setMsg({ t: "error", m: "Escolha a forma de pagamento." });
-    let novo;
-    if (modoExterno) {
+    // Trava síncrona contra duplo clique/toque: "enviando" (estado) só reflete
+    // no botão depois de um re-render, e o recheque de ocupação acima é
+    // assíncrono — sem isso, dois toques rápidos poderiam disparar dois
+    // pedidos antes do botão desabilitar.
+    if (enviandoRef.current) return;
+    enviandoRef.current = true;
+    try {
+      if (bloqueioHorario) return setMsg({ t: "error", m: "O estabelecimento está fechado no momento. Consulte os horários de atendimento." });
+      // Revalida a ocupação da mesa direto no backend antes de concluir — evita
+      // cache/concorrência: se a mesa ficou ocupada durante a navegação e o
+      // cliente ainda não confirmou essa ocupação, pede confirmação agora e
+      // NÃO envia o pedido ainda (o cliente confirma e clica em enviar de novo).
+      if (!modoExterno && mesaCadastrada && !ocupacaoConfirmada) {
+        const fresco = await rpcStatusMesa({ lojaId: loja.id, mesaNumero: Number(mesa), mesaId: mesaCadastrada.id });
+        if (fresco?.ocupada) { setStatusMesa(fresco); return; }
+      }
+      const itens = cart.map((i) => ({ name: i.name, quantity: i.quantity, price: i.price, selectedIngredients: i.selectedIngredients, removedIngredients: i.removedIngredients, extraIngredients: i.extraIngredients, selectedOptions: i.selectedOptions || [], observation: i.observation }));
+      // Forma de pagamento (aba "Pagamento" — vale para pedido interno e externo)
+      if (formasPagto.length === 0) return setMsg({ t: "error", m: "Nenhuma forma de pagamento está disponível no momento." });
+      const formaSel = formasPagto.find((f) => f.id === formaPagto);
+      if (!formaSel) return setMsg({ t: "error", m: "Escolha a forma de pagamento." });
+      let novo;
+      if (modoExterno) {
       // Aplica as regras configuradas pela empresa (aba "Pedido externo")
       if (!aceitaExterno) return setMsg({ t: "error", m: "Esta empresa não está aceitando pedidos pelo cardápio no momento." });
       if (opcoesEntrega.length === 0) return setMsg({ t: "error", m: "Nenhuma forma de pedido (consumo, retirada ou entrega) está disponível no momento." });
@@ -672,6 +693,7 @@ export default function CardapioPublico() {
       setMsg({ t: "error", m: MSGS_BACKEND.has(e?.message) ? e.message : "Erro ao enviar o pedido. Tente novamente." });
     }
     finally { setEnviando(false); }
+    } finally { enviandoRef.current = false; }
   }
 
   // Grava a pesquisa de satisfação (tolerante: falha NÃO impede a finalização).
@@ -716,7 +738,7 @@ export default function CardapioPublico() {
   }
 
   // ── Estados de carregamento/erro ───────────────────────────
-  if (loja === undefined) return <Centro><Spinner /><p className="mt-3 text-sm text-slate-400">Carregando cardápio…</p></Centro>;
+  if (loja === undefined) return <CardapioSkeleton />;
   if (loja === null) return <Centro><span className="text-5xl">🔍</span><p className="mt-3 font-black text-white">Empresa não encontrada</p><p className="mt-1 text-sm text-slate-500">Verifique o link/QR do cardápio.</p></Centro>;
   if (!canalPermitido) return mesaURL
     ? <Centro><span className="text-5xl">📵</span><p className="mt-3 font-black text-white">QR por mesa indisponível</p><p className="mt-1 text-sm text-slate-500">O QR Code por mesa está disponível nos modos Interno ou Ambos.</p></Centro>
@@ -842,10 +864,10 @@ export default function CardapioPublico() {
           <div className="flex items-center gap-2 py-3">
             <div className="relative flex-1">
               <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#98A2B3]">🔍</span>
-              <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar produtos..."
+              <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar produtos..." aria-label="Buscar produtos" type="search"
                 className="w-full rounded-2xl border border-[#E5E7EB] bg-white py-3 pl-11 pr-4 text-sm text-[#182230] outline-none focus:border-[#D9A441] placeholder:text-[#98A2B3]" />
             </div>
-            <button onClick={() => setOcultarIndisp((v) => !v)} title="Ocultar indisponíveis"
+            <button onClick={() => setOcultarIndisp((v) => !v)} type="button" title="Ocultar indisponíveis" aria-pressed={ocultarIndisp}
               className={`flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-2xl border px-4 py-3 text-sm font-bold transition ${ocultarIndisp ? "border-[#D9A441] bg-[#D9A441] text-[#182230]" : "border-[#E5E7EB] bg-white text-[#475467]"}`}>
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="10" y1="18" x2="14" y2="18"/></svg>
               Filtros
@@ -908,7 +930,7 @@ export default function CardapioPublico() {
 
         {/* Resultados da busca — lista achatada (sem divisão por grupo) */}
         {busca ? (
-          <div className="grid grid-cols-2 gap-3 pb-6">
+          <div className="grid grid-cols-1 gap-3 pb-6 sm:grid-cols-2">
             {itensBusca.length === 0 && <p className="col-span-full py-10 text-center text-sm text-[#667085]">Nenhum produto encontrado.</p>}
             {itensBusca.map(renderProduto)}
           </div>
@@ -923,7 +945,7 @@ export default function CardapioPublico() {
                   <h2 className="text-sm font-black uppercase tracking-wide text-[#182230]">{g.nome}</h2>
                   <span className="text-[11px] font-bold text-[#98A2B3]">{g.produtos.length} {g.produtos.length === 1 ? "item" : "itens"}</span>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   {g.produtos.map(renderProduto)}
                 </div>
               </section>
@@ -991,6 +1013,21 @@ export default function CardapioPublico() {
         </div>
       )}
 
+      {/* Confirmação obrigatória antes de esvaziar o carrinho inteiro */}
+      {confirmarLimpar && (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/75 p-6 backdrop-blur-sm" onClick={() => setConfirmarLimpar(false)}>
+          <div role="alertdialog" aria-modal="true" className="w-full max-w-sm rounded-3xl border border-white/10 bg-slate-900 p-5 text-center" onClick={(e) => e.stopPropagation()}>
+            <p className="text-3xl">🗑️</p>
+            <p className="mt-2 text-base font-black text-white">Limpar o carrinho?</p>
+            <p className="mt-1 text-sm text-slate-400">Todos os {qtdCart} {qtdCart === 1 ? "item" : "itens"} do seu pedido serão removidos.</p>
+            <div className="mt-4 flex gap-2">
+              <button onClick={() => setConfirmarLimpar(false)} type="button" className="min-h-[44px] flex-1 rounded-2xl border border-white/10 bg-white/[0.06] py-3 text-sm font-black text-slate-300 hover:bg-white/10">Manter itens</button>
+              <button onClick={limparCarrinho} type="button" className="min-h-[44px] flex-1 rounded-2xl bg-red-500 py-3 text-sm font-black text-white hover:bg-red-400">Limpar tudo</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal "Ver QR" — QR do link deste cardápio */}
       {qrModal && (
         <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/75 p-6 backdrop-blur-sm" onClick={() => setQrModal(null)}>
@@ -1013,7 +1050,12 @@ export default function CardapioPublico() {
             </div>
           )}
           {cart.length === 0 ? <p className="py-8 text-center text-sm text-[#667085]">Carrinho vazio.</p> : (
-            <div className="space-y-2.5">
+            <>
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <p className="text-[11px] font-black uppercase tracking-widest text-[#9A6A00]">1. Revise seu pedido</p>
+                <button onClick={() => setConfirmarLimpar(true)} type="button" className="min-h-[32px] rounded-lg px-2 text-xs font-bold text-[#B42318] transition hover:bg-[#FFF1F2]">Limpar carrinho</button>
+              </div>
+              <div className="space-y-2.5">
               {cart.map((i) => (
                 <div key={i._uid} className={`flex items-center justify-between gap-3 rounded-2xl border bg-white p-3.5 shadow-[0_8px_24px_rgba(16,24,40,.06)] ${i.comboId ? "border-[#B7E4C7]" : "border-[#E5E7EB]"}`}>
                   <div className="min-w-0">
@@ -1033,11 +1075,13 @@ export default function CardapioPublico() {
                   </div>
                 </div>
               ))}
-            </div>
+              </div>
+            </>
           )}
           {modoExterno ? (
             // Pedido externo (link de divulgação) — regras da empresa + nome + telefone
             <div className="mt-4 space-y-3">
+              <p className="text-[11px] font-black uppercase tracking-widest text-[#9A6A00]">2. Identifique-se e confirme a entrega</p>
               {!aceitaExterno ? (
                 <div className="rounded-2xl border border-[#FDE1B0] bg-[#FFF4E5] px-4 py-3 text-sm font-bold text-[#B45309]">
                   🚫 Esta empresa não está aceitando pedidos pelo cardápio no momento.
@@ -1070,7 +1114,8 @@ export default function CardapioPublico() {
             </div>
           ) : (
             <>
-              <div className="mt-4 grid grid-cols-2 gap-3">
+              <p className="mt-4 text-[11px] font-black uppercase tracking-widest text-[#9A6A00]">2. Confirme sua mesa</p>
+              <div className="mt-2 grid grid-cols-2 gap-3">
                 <label><span className="mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-[#667085]">Mesa <span className="text-[#B45309]">*</span></span>
                   <input type="tel" inputMode="numeric" value={mesa} onChange={(e) => setMesa(e.target.value.replace(/\D/g, "").slice(0, 2))} placeholder="Nº" disabled={!!mesaURL}
                     className="w-full min-h-[44px] rounded-2xl border border-[#E5E7EB] bg-white px-3 py-2.5 text-sm font-black text-[#182230] outline-none transition focus:border-[#D9A441] disabled:bg-[#F8FAFC] disabled:text-[#667085]" /></label>
@@ -1088,7 +1133,7 @@ export default function CardapioPublico() {
           {/* Forma de pagamento (aba "Pagamento") — pedido interno e externo */}
           {formasPagto.length > 0 && (
             <div className="mt-4">
-              <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-[#667085]">Forma de pagamento <span className="text-[#B45309]">*</span></span>
+              <p className="mb-1.5 text-[11px] font-black uppercase tracking-widest text-[#9A6A00]">3. Forma de pagamento <span className="font-bold normal-case text-[#B45309]">*</span></p>
               <div className="grid grid-cols-3 gap-2">
                 {formasPagto.map((f) => (
                   <button key={f.id} type="button" onClick={() => setFormaPagto(f.id)}
@@ -1157,6 +1202,44 @@ function Centro({ children }) {
   return <div data-theme="light" className="tema-claro-area flex min-h-screen w-full max-w-[100vw] flex-col items-center justify-center overflow-x-hidden bg-[#F7F8FA] px-6 text-center text-[#182230]" style={{ minHeight: "100dvh" }}>{children}</div>;
 }
 function Spinner() { return <div className="h-10 w-10 animate-spin rounded-full border-4 border-blue-500/30 border-t-blue-500" />; }
+
+// Skeleton do primeiro carregamento — repete o formato real (cabeçalho +
+// categorias + grade de cards) em vez de um spinner solto, pra reduzir a
+// sensação de espera. Mesmo padrão já usado no projeto (animate-pulse +
+// blocos cinza claro), sem CSS novo.
+function BlocoSkeleton({ className }) { return <div className={`animate-pulse rounded-full bg-[#F1F5F9] ${className}`} />; }
+function CardapioSkeleton() {
+  return (
+    <div data-theme="light" className="tema-claro-area min-h-screen w-full max-w-[100vw] overflow-x-hidden bg-[#F7F8FA]" style={{ minHeight: "100dvh" }} aria-busy="true" aria-label="Carregando cardápio">
+      <header className="sticky top-0 z-30 border-b border-[#E5E7EB] bg-white px-4 pb-3" style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)" }}>
+        <div className="mx-auto flex max-w-3xl items-center gap-3">
+          <div className="h-12 w-12 shrink-0 animate-pulse rounded-2xl bg-[#F1F5F9]" />
+          <div className="min-w-0 flex-1 space-y-2">
+            <BlocoSkeleton className="h-4 w-32" />
+            <BlocoSkeleton className="h-3 w-20" />
+          </div>
+        </div>
+      </header>
+      <div className="mx-auto max-w-3xl px-4">
+        <div className="flex gap-2 border-b border-[#E5E7EB] py-4">
+          {[76, 60, 92, 68].map((w, i) => <div key={i} className="h-8 shrink-0 animate-pulse rounded-full bg-[#F1F5F9]" style={{ width: w }} />)}
+        </div>
+        <div className="grid grid-cols-1 gap-3 py-4 sm:grid-cols-2">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="flex gap-3 rounded-[1.25rem] border border-[#E5E7EB] bg-white p-3">
+              <div className="h-[88px] w-[88px] shrink-0 animate-pulse rounded-2xl bg-[#F1F5F9]" />
+              <div className="min-w-0 flex-1 space-y-2 py-1">
+                <BlocoSkeleton className="h-3.5 w-4/5" />
+                <BlocoSkeleton className="h-2.5 w-full" />
+                <BlocoSkeleton className="h-2.5 w-3/5" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // Linha do tempo do status do pedido — recebido → (cozinha / bar) → mesa → entregue
 function TimelinePedido({ status, paymentStatus = "open", setorStatus = {}, setoresPedido = [], externo = false }) {

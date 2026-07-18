@@ -3477,12 +3477,12 @@ export function ProdutoModal({ produto, onFechar, onAdicionar, grupos = [], opco
         <div className="relative h-[220px] sm:h-[250px] shrink-0 overflow-hidden bg-[#F7F8FA]">
           <img src={produto.imageUrl || fallbackImage} alt={produto.name} className="h-full w-full object-cover" />
           <div className="absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-transparent" />
-          <button onClick={onFechar} title="Voltar"
-            className="absolute left-4 top-4 flex h-9 w-9 items-center justify-center rounded-full border border-[#E5E7EB] bg-[rgba(255,255,255,0.92)] text-lg font-bold text-[#182230] shadow-sm hover:bg-[#F8FAFC] transition duration-200">
+          <button onClick={onFechar} title="Voltar" aria-label="Voltar"
+            className="absolute left-4 top-4 flex h-11 w-11 items-center justify-center rounded-full border border-[#E5E7EB] bg-[rgba(255,255,255,0.92)] text-lg font-bold text-[#182230] shadow-sm hover:bg-[#F8FAFC] transition duration-200">
             ←
           </button>
-          <button onClick={toggleFavorito} title="Favoritar"
-            className={`absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full border shadow-sm transition duration-200 ${favorito ? "border-[#D9A441] bg-[#FFF7E0] text-[#D9A441]" : "border-[#E5E7EB] bg-[rgba(255,255,255,0.92)] text-[#475467] hover:bg-[#F8FAFC]"}`}>
+          <button onClick={toggleFavorito} title="Favoritar" aria-label={favorito ? "Remover dos favoritos" : "Adicionar aos favoritos"} aria-pressed={favorito}
+            className={`absolute right-4 top-4 flex h-11 w-11 items-center justify-center rounded-full border shadow-sm transition duration-200 ${favorito ? "border-[#D9A441] bg-[#FFF7E0] text-[#D9A441]" : "border-[#E5E7EB] bg-[rgba(255,255,255,0.92)] text-[#475467] hover:bg-[#F8FAFC]"}`}>
             {favorito ? "♥" : "♡"}
           </button>
           {produto.badge && (
