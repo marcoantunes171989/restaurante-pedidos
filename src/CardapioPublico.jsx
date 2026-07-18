@@ -8,6 +8,7 @@ import {
 } from "./lib/supabase";
 import { cardapioViaRpc } from "./lib/authMode";
 import { useScrollLock } from "./lib/scrollLock";
+import { CATEGORIA_TODOS, agruparProdutosPorCategoria, montarListaCategorias, escolherCategoriaAtiva, idUltimoGrupo, calcularDestinoScroll } from "./lib/cardapioCategorias";
 import SatisfactionSurvey from "./components/SatisfactionSurvey";
 import {
   ProdutoModal, formatCurrency, fallbackImage, statusMap, STATUS_TABLET_LABEL, isValidCommand,
@@ -78,24 +79,6 @@ function diaTemHorario(horarios, agora = new Date(), fuso) {
   const { dia } = diaEHoraNoFuso(fuso, agora);
   return /\d/.test(String((horarios || {})[dia] || ""));
 }
-// Identificador estável para uma categoria sem linha correspondente em
-// tab_categorias (produto com texto livre em `categoria` que não bate com
-// nenhuma cadastrada — cai no grupo "Outros" hoje). tab_produtos.categoria é
-// texto livre (sem categoria_id) — não existe um ID de banco para linkar aqui
-// — então normalizamos o nome (acentos/espaços/maiúsculas/caracteres
-// especiais) para um slug estável, em vez de usar o nome exibido cru como
-// chave de refs/estado (evita colisão por acento/espaço/caixa).
-function slugify(nome) {
-  const base = String(nome || "")
-    .normalize("NFD").replace(/[̀-ͯ]/g, "")
-    .toLowerCase().trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-  return `cat-${base || "sem-nome"}`;
-}
-// "Todos" nunca colide com um ID real: categorias vindas do banco viram string
-// numérica ("42") e as sem correspondência levam o prefixo "cat-" (slugify).
-const CATEGORIA_TODOS = "todos";
 // Respeita prefers-reduced-motion nas rolagens programáticas (clique em
 // categoria/"Todos"/oferta e centralização do chip) — usa "auto" (instantâneo)
 // em vez de "smooth" quando o usuário pediu menos movimento no sistema.
@@ -411,39 +394,11 @@ export default function CardapioPublico() {
     if (!termo) return [];
     return visiveis.filter((p) => norm(`${p.name} ${p.description} ${p.category} ${(p.ingredients || []).join(" ")}`).includes(termo));
   }, [visiveis, busca]);
-  // Migration 068: agrupa PRIMEIRO pelo vínculo real (produto.categoriaId →
-  // tab_categorias.id). Produto sem categoriaId (banco ainda sem a migration
-  // 068 aplicada, ou produto legado não migrado pelo backfill) cai no
-  // fallback por texto de sempre — nada desaparece do cardápio. Ordena por
-  // categoria.ordem e, dentro do grupo, por produto.ordemExibicao/nome.
-  const grupos = useMemo(() => {
-    const porChave = new Map(); // chave -> { id, nome, ordem, produtos[] }
-    visiveis.forEach((p) => {
-      let chave, id, nome, ordem;
-      if (p.categoriaId != null) {
-        // String(): bigint pode vir como number OU string — nunca compara por === direto.
-        const cat = categorias.find((c) => String(c.id) === String(p.categoriaId));
-        chave = `id:${p.categoriaId}`;
-        id = String(p.categoriaId);
-        nome = cat?.nome || p.category || "Outros";
-        ordem = cat?.ordem ?? 9999;
-      } else {
-        const nomeTxt = p.category || "Outros";
-        const cadastrada = categorias.find((c) => c.nome === nomeTxt);
-        chave = `nome:${nomeTxt}`;
-        id = cadastrada ? String(cadastrada.id) : slugify(nomeTxt);
-        nome = nomeTxt;
-        ordem = cadastrada?.ordem ?? 9999;
-      }
-      if (!porChave.has(chave)) porChave.set(chave, { id, nome, ordem, produtos: [] });
-      porChave.get(chave).produtos.push(p);
-    });
-    const porOrdemNome = (a, b) => (a.ordemExibicao ?? 9999) - (b.ordemExibicao ?? 9999) || a.name.localeCompare(b.name, "pt-BR");
-    return [...porChave.values()]
-      .sort((a, b) => a.ordem - b.ordem || a.nome.localeCompare(b.nome, "pt-BR"))
-      .map((g) => ({ id: g.id, nome: g.nome, produtos: [...g.produtos].sort(porOrdemNome) }));
-  }, [visiveis, categorias]);
-  const cats = useMemo(() => [{ id: CATEGORIA_TODOS, nome: "Todos" }, ...grupos.map((g) => ({ id: g.id, nome: g.nome }))], [grupos]);
+  // Agrupamento/lista de categorias — lógica pura extraída para
+  // src/lib/cardapioCategorias.js (testável isoladamente, sem depender de
+  // DOM/scroll; ver cardapioCategorias.test.js).
+  const grupos = useMemo(() => agruparProdutosPorCategoria(visiveis, categorias), [visiveis, categorias]);
+  const cats = useMemo(() => montarListaCategorias(grupos), [grupos]);
 
   const secRefs = useRef({});      // uma ref por seção de categoria — alvo do clique e do IntersectionObserver
   const finalRef = useRef(null);   // sentinela após a última seção — ao entrar na tela, força a ÚLTIMA categoria
@@ -521,12 +476,16 @@ export default function CardapioPublico() {
       // Fallback sem IntersectionObserver: geometria a cada scroll, com
       // throttle por requestAnimationFrame + debounce curto (evita trocar de
       // categoria a cada pixel ao rolar rápido por seções próximas/curtas).
+      // Algoritmo deliberadamente diferente do observer abaixo: aqui vence a
+      // ÚLTIMA seção cujo topo já passou da linha (varredura simples), em vez
+      // de "primeira seção cruzando a faixa" — sem IntersectionObserver não
+      // há uma "faixa" sendo rastreada, só a posição atual de cada seção.
       let raf = 0, debounce = 0;
       const calc = () => {
         if (rolandoPorCliqueRef.current) return;
         const scrollTop = el.scrollTop, scrollHeight = el.scrollHeight, clientHeight = el.clientHeight;
         if (scrollTop > 0 && scrollTop + clientHeight >= scrollHeight - 4) {
-          const ultimo = grupos[grupos.length - 1]?.id;
+          const ultimo = idUltimoGrupo(grupos);
           setCatAtivaId((cur) => (cur === ultimo ? cur : ultimo));
           return;
         }
@@ -546,8 +505,7 @@ export default function CardapioPublico() {
     const naFaixa = new Set(); // ids das seções cruzando a linha agora
     const escolher = () => {
       if (rolandoPorCliqueRef.current) return;
-      const atual = grupos.find((g) => naFaixa.has(g.id));
-      const alvo = atual ? atual.id : CATEGORIA_TODOS;
+      const alvo = escolherCategoriaAtiva(grupos, naFaixa);
       setCatAtivaId((cur) => (cur === alvo ? cur : alvo));
     };
     // obsSecoes/obsFim são recriados (não só reposicionados) sempre que o
@@ -582,7 +540,7 @@ export default function CardapioPublico() {
           // categoria mesmo sem o usuário ter rolado nada.
           if (rolandoPorCliqueRef.current || el.scrollTop <= 0) return;
           if (entries[0]?.isIntersecting) {
-            const ultimo = grupos[grupos.length - 1]?.id;
+            const ultimo = idUltimoGrupo(grupos);
             setCatAtivaId((cur) => (cur === ultimo ? cur : ultimo));
           }
         }, { root: el, threshold: 0 });
@@ -618,22 +576,37 @@ export default function CardapioPublico() {
   const selecionarCategoria = (id) => {
     setBusca("");
     setCatAtivaId(id);
+    const el = scrollEl();
     // Trava a sincronização durante a rolagem programática — sem isso, o
     // clique em "Sobremesas" (por ex.) piscaria pelas categorias que ficam no
-    // caminho até chegar lá.
+    // caminho até chegar lá. Destrava assim que a rolagem realmente ACABAR
+    // (evento nativo "scrollend", quando suportado) — o timeout abaixo existe
+    // só como rede de segurança pros navegadores sem esse evento, não é a
+    // solução principal.
     clearTimeout(cliqueTimeoutRef.current);
     rolandoPorCliqueRef.current = true;
-    cliqueTimeoutRef.current = setTimeout(() => { rolandoPorCliqueRef.current = false; }, 700);
-    // scrollIntoView() em vez de window.scrollTo(): funciona não importa qual
-    // ancestral é o container de rolagem de verdade (aqui é #root, não
-    // window), sem precisar calcular offset na mão. O scroll-margin-top de
-    // cada seção (estilo inline, na renderização) já reserva o espaço do
-    // cabeçalho+barra fixos, então o título nunca fica escondido atrás deles.
+    const destravar = () => { rolandoPorCliqueRef.current = false; };
+    if (el && "onscrollend" in el) {
+      el.addEventListener("scrollend", destravar, { once: true });
+      cliqueTimeoutRef.current = setTimeout(destravar, 1500);
+    } else {
+      cliqueTimeoutRef.current = setTimeout(destravar, 700);
+    }
+    // Destino calculado explicitamente (getBoundingClientRect().top + rolagem
+    // atual - offset fixo) em vez de confiar só em scrollIntoView(): o
+    // comportamento dele ao respeitar scroll-margin-top dentro de um
+    // container de rolagem que não é a window (aqui é #root — ver `scrollEl`)
+    // é inconsistente entre navegadores. scroll-margin-top continua no CSS de
+    // cada seção como proteção complementar (ex.: navegação nativa por
+    // âncora/foco), não como o mecanismo principal.
     const comportamento = motionOk() ? "smooth" : "auto";
-    if (id === CATEGORIA_TODOS) { topoRef.current?.scrollIntoView({ behavior: comportamento, block: "start" }); return; }
-    const alvo = secRefs.current[id];
-    if (!alvo) return;
-    alvo.scrollIntoView({ behavior: comportamento, block: "start" });
+    const rolarAte = (elAlvo, stickyOffset) => {
+      if (!el || !elAlvo) return;
+      const destino = calcularDestinoScroll({ rectTop: elAlvo.getBoundingClientRect().top, scrollAtual: el.scrollTop, stickyOffset });
+      el.scrollTo({ top: destino, behavior: comportamento });
+    };
+    if (id === CATEGORIA_TODOS) { rolarAte(topoRef.current, 0); return; }
+    rolarAte(secRefs.current[id], headerH + catBarH + 8);
   };
   // Ofertas: ícone/resumo/validade por tipo + clique leva ao combo/categoria
   const combosRef = useRef(null);
@@ -650,8 +623,10 @@ export default function CardapioPublico() {
     if (p.tipo === "combo") { combosRef.current?.scrollIntoView({ behavior: motionOk() ? "smooth" : "auto", block: "center" }); return; }
     const catNome = p.categoriaId != null ? catNomePorId[p.categoriaId] : null;
     const grupoAlvo = catNome ? grupos.find((g) => g.nome === catNome) : null;
-    if (grupoAlvo) { selecionarCategoria(grupoAlvo.id); return; }
-    topoRef.current?.scrollIntoView({ behavior: motionOk() ? "smooth" : "auto", block: "start" });
+    // Sempre passa por selecionarCategoria (mesmo no fallback pro topo) —
+    // única fonte de verdade da categoria ativa, sem caminho paralelo que
+    // rola a tela sem atualizar catAtivaId.
+    selecionarCategoria(grupoAlvo ? grupoAlvo.id : CATEGORIA_TODOS);
   };
   const renderProduto = (item) => {
     const indisponivel = item.disponivel === false;
