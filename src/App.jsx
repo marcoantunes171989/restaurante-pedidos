@@ -38,7 +38,6 @@ import { GeradorComandas } from "./components/QRComandas";
 import { QRScannerModal  } from "./components/QRScanner";
 import { LogoPP, OperationalBrandLogo } from "./components/BrandLogo";
 import { IconDashboard, IconRelatorios, IconCrm, IconProdutos, IconCategorias, IconMesas, IconPagamento, IconQr, IconCardapio, IconEmpresas, IconUsuarios, IconCargos, IconPermissoes, IconLink, IconLicencas, IconVersoes, IconEmpresa, IconBusca, IconConfig, IconPromocao } from "./components/PrimeIcons";
-import { obterTema, aplicarTema } from "./lib/theme";
 import { PageHeader, PrimeButton, EmptyState, FilterChip, FilterGroup, FiltersPanel, ActiveFiltersSummary } from "./components/Prime";
 import OperationalCentral from "./pages/OperationalCentral";
 import CentralDePedidos from "./pages/CentralDePedidos";
@@ -15817,7 +15816,7 @@ const TIPOS_PAGAMENTO = [
 ];
 
 // ════════════════════════════════════════════════════════════
-//  Admin — Configurações (aparência / tema das telas do cliente)
+//  Admin — Configurações
 // ════════════════════════════════════════════════════════════
 // Tela elegante exibida quando o módulo não está incluso no plano contratado.
 function ModuloBloqueado({ slug }) {
@@ -17707,8 +17706,6 @@ function salvarConfigTaxaServico(lojaId, cfg) {
 }
 
 function ConfiguracoesAdmin({ lojaInfo }) {
-  const [tema, setTema] = useState(() => obterTema());
-  function escolher(t) { setTema(aplicarTema(t)); }
   const [taxaCfg, setTaxaCfg] = useState(() => lerConfigTaxaServico(lojaInfo?.id));
   function atualizarTaxa(patch) {
     setTaxaCfg((cur) => { const novo = { ...cur, ...patch }; salvarConfigTaxaServico(lojaInfo?.id, novo); return novo; });
@@ -17718,7 +17715,7 @@ function ConfiguracoesAdmin({ lojaInfo }) {
       <PageHeader
         icone={<IconConfig />}
         titulo="Configurações"
-        descricao="Preferências de aparência do sistema. As alterações ficam salvas neste aparelho."
+        descricao="Preferências do sistema. As alterações ficam salvas neste aparelho."
       />
 
       {/* Taxa de serviço */}
@@ -17751,48 +17748,6 @@ function ConfiguracoesAdmin({ lojaInfo }) {
             ))}
           </div>
         </div>
-      </div>
-
-      {/* Aparência — tema das telas do cliente */}
-      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
-        <h3 className="page-title text-base font-bold tracking-tight text-white">Aparência das telas do cliente</h3>
-        <p className="mt-1 text-sm text-slate-400">
-          Escolha o tema da <b className="text-slate-200">tela de pedido</b> e demais telas voltadas ao cliente (tablet e cardápio).
-          O <b className="text-slate-200">menu lateral</b> permanece sempre escuro.
-        </p>
-
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          {[
-            { id: "dark",  titulo: "Escuro",  desc: "Visual gourmet em fundo preto com acentos dourados (padrão).", amostraBg: "#000000", amostraCard: "#121212", amostraText: "#ffffff" },
-            { id: "light", titulo: "Claro",   desc: "Fundo claro com texto escuro, mantendo os acentos dourados.", amostraBg: "#F1F4F9", amostraCard: "#FFFFFF", amostraText: "#0F172A" },
-          ].map((op) => {
-            const sel = tema === op.id;
-            return (
-              <button key={op.id} type="button" onClick={() => escolher(op.id)}
-                className={`rounded-2xl border p-4 text-left transition ${sel ? "border-gold-400 bg-gold-400/10" : "border-white/10 bg-white/[0.03] hover:bg-white/[0.06]"}`}>
-                <div className="flex items-center justify-between gap-3">
-                  <span className={`font-display text-sm font-bold ${sel ? "text-gold-300" : "text-white"}`}>{op.titulo}</span>
-                  <span className={`flex h-5 w-5 items-center justify-center rounded-full border text-[11px] ${sel ? "border-gold-400 bg-gold-400 text-blue-950" : "border-white/25 text-transparent"}`}>✓</span>
-                </div>
-                {/* Amostra visual do tema */}
-                <div className="mt-3 overflow-hidden rounded-xl border border-white/10" style={{ background: op.amostraBg }}>
-                  <div className="flex items-center gap-2 p-2.5">
-                    <span className="h-8 w-8 shrink-0 rounded-lg" style={{ background: op.amostraCard }} />
-                    <div className="flex-1">
-                      <div className="h-2 w-20 rounded-full" style={{ background: op.amostraText, opacity: 0.85 }} />
-                      <div className="mt-1.5 h-2 w-12 rounded-full bg-gold-400" />
-                    </div>
-                    <span className="rounded-md bg-gold-400 px-2 py-1 text-[9px] font-black text-blue-950">Adicionar</span>
-                  </div>
-                </div>
-                <p className="mt-2 text-[11px] leading-snug text-slate-500">{op.desc}</p>
-              </button>
-            );
-          })}
-        </div>
-        <p className="mt-3 text-[11px] text-slate-500">
-          💡 A preferência é salva por aparelho — cada tablet pode usar o tema que preferir.
-        </p>
       </div>
     </main>
   );

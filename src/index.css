@@ -125,9 +125,9 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
   --filter-chip-disabled-bg: #F1F5F9;
   --filter-chip-disabled-text: #94A3B8;
 
-  /* ── Tema das telas do cliente (tablet/pedido) — escuro por padrão ──
-     Trocado para claro via [data-theme="light"]. Os menus laterais NÃO
-     usam estas variáveis (ficam sempre escuros). */
+  /* ── Tela de pedido no tablet — sempre escura (tema fixo, sem seletor
+     de aparência) ── Os menus laterais NÃO usam estas variáveis (ficam
+     sempre escuros também, com suas próprias cores). */
   --ord-bg: #000000;          /* fundo da tela do pedido */
   --ord-card: #121212;        /* cards de produto */
   --ord-elev: rgba(255,255,255,0.04); /* superfícies elevadas (item do pedido) */
@@ -299,18 +299,6 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
 }
 .pp-filter-panel .filter-chip:focus-visible {
   box-shadow: 0 0 0 4px rgba(232, 98, 44, 0.25);
-}
-
-/* Tema CLARO das telas do cliente (menus laterais permanecem escuros) */
-[data-theme="light"] {
-  --ord-bg: #F1F4F9;
-  --ord-card: #FFFFFF;
-  --ord-elev: #FFFFFF;
-  --ord-header: rgba(255,255,255,0.92);
-  --ord-text: #0F172A;
-  --ord-text-soft: #334155;
-  --ord-text-muted: #667085;
-  --ord-border: #E2E8F0;
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -653,8 +641,9 @@ select::-ms-expand { display: none; } /* IE/Edge antigo */
    [data-theme="light"] .tema-claro-area .text-white { color:
    var(--pp-graphite) !important } — que repinta esse nome de classe
    exato para texto escuro em qualquer área "tema claro" (inclusive
-   este wrapper, já que <html> recebe data-theme="light" por padrão via
-   src/lib/theme.js). Como .text-white é usado por outras dezenas de
+   este wrapper, que vive dentro do módulo admin — data-theme="light"
+   hardcoded no wrapper do AdminView, App.jsx). Como .text-white é usado
+   por outras dezenas de
    telas do admin que precisam ficar escuras no tema claro, a correção
    certa não é lutar contra o !important — é este header não usar esse
    nome de classe. Título, subtítulo e valores de KPI herdam esta cor

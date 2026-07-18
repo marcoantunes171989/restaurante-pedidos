@@ -29,8 +29,8 @@ const brand = {
 // .bg-white\/10 { background-color:#F5F4F0 !important } e o mesmo para
 // .text-white { color:var(--pp-graphite) !important } — criadas para
 // re-pintar telas do admin que reaproveitam classes "escuras" dentro de
-// áreas claras. <html> recebe data-theme="light" por padrão (ver
-// src/lib/theme.js), e esta tela vive dentro de <div className=
+// áreas claras. Esta tela vive dentro do módulo admin (data-theme="light"
+// hardcoded no wrapper do AdminView, App.jsx) e de <div className=
 // "tema-claro-area"> (App.jsx, wrapper de /operacional) — então QUALQUER
 // elemento aqui com a classe literal `bg-white/10` ou `text-white` era
 // hijackado por esse !important, em qualquer breakpoint (não só mobile).
