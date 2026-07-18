@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   fetchLojas, fetchProdutos, fetchCategorias, fetchPromocoes, fetchGruposOpcoes, fetchOpcoes, fetchSetoresCozinha, fetchMesas,
   escutarLojas, inserirPedido, atualizarPedido, escutarPedidos,
@@ -387,7 +387,37 @@ export default function CardapioPublico() {
   // Scroll-spy: destaca no header o grupo atualmente visível na tela.
   const secRefs = useRef({});
   const chipRefs = useRef({});
+  const headerRef = useRef(null);  // cabeçalho fixo — sua altura REAL vira o offset "top" do carrossel
   const catBarRef = useRef(null); // barra sticky de categorias — usada p/ calcular offset real
+  // Alturas medidas de verdade (não um px fixo "no chute") — sem isso, o
+  // carrossel ficava com top-[64px] fixo, mas a altura real do cabeçalho varia
+  // por aparelho (env(safe-area-inset-top) do notch/Dynamic Island) e por modo
+  // (linha de "Garçom/Ajuda/Limpeza" só aparece no QR de mesa). Em celulares
+  // com notch, o cabeçalho real passava dos 64px assumidos e cobria o
+  // carrossel (mesmo z-index mais baixo) — por isso "sumia" só no mobile.
+  const [headerH, setHeaderH] = useState(0);
+  const [catBarH, setCatBarH] = useState(0);
+  useLayoutEffect(() => {
+    const medir = () => {
+      setHeaderH(Math.ceil(headerRef.current?.getBoundingClientRect().height || 0));
+      setCatBarH(Math.ceil(catBarRef.current?.getBoundingClientRect().height || 0));
+    };
+    medir();
+    const t = setTimeout(medir, 300); // reajusta depois de fontes/imagens do cabeçalho carregarem
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(medir) : null;
+    if (ro) {
+      if (headerRef.current) ro.observe(headerRef.current);
+      if (catBarRef.current) ro.observe(catBarRef.current);
+    }
+    window.addEventListener("resize", medir);
+    window.addEventListener("orientationchange", medir);
+    return () => {
+      clearTimeout(t);
+      ro?.disconnect();
+      window.removeEventListener("resize", medir);
+      window.removeEventListener("orientationchange", medir);
+    };
+  }, []);
   const [catAtiva, setCatAtiva] = useState("Todos");
   // Enquanto true, um clique (categoria ou "Todos") disparou uma rolagem suave
   // programática — o scroll-spy ignora o scroll até ela assentar, pra não
@@ -867,7 +897,7 @@ export default function CardapioPublico() {
   return (
     <div data-theme="light" className="tema-claro-area min-h-screen w-full max-w-[100vw] overflow-x-hidden bg-[#F7F8FA] text-[#182230]" style={{ minHeight: "100dvh", paddingBottom: `calc(env(safe-area-inset-bottom) + ${cart.length > 0 ? 150 : 92}px)` }}>
       {/* Cabeçalho */}
-      <header className="sticky top-0 z-30 border-b border-[#E5E7EB] bg-white px-4 pb-3 backdrop-blur-xl" style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)" }}>
+      <header ref={headerRef} className="sticky top-0 z-30 border-b border-[#E5E7EB] bg-white px-4 pb-3 backdrop-blur-xl" style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)" }}>
         <div className="mx-auto flex max-w-3xl items-center gap-3">
           {loja.logoUrl ? <img src={loja.logoUrl} alt="" className="h-12 w-12 rounded-2xl object-cover" /> : <LogoPP size={48} />}
           <div className="min-w-0 flex-1">
@@ -900,7 +930,7 @@ export default function CardapioPublico() {
 
       <main className="mx-auto max-w-3xl px-4">
         {/* Categorias — clique rola até o grupo; ao rolar, o grupo atual é destacado */}
-        <div ref={catBarRef} className="pp-noscrollbar sticky top-[64px] z-20 -mx-4 flex gap-2 overflow-x-auto border-b border-[#E5E7EB] bg-white/96 px-4 py-4 backdrop-blur">
+        <div ref={catBarRef} className="pp-noscrollbar sticky z-20 -mx-4 flex gap-2 overflow-x-auto border-b border-[#E5E7EB] bg-white/96 px-4 py-4 backdrop-blur" style={{ top: headerH }}>
           {cats.map((c) => { const ativo = !busca && catAtiva === c;
             return (
               <button key={c} ref={(el) => (chipRefs.current[c] = el)} onClick={() => irParaCategoria(c)} className={`shrink-0 rounded-full border px-4 py-1.5 text-sm font-bold transition ${ativo ? "border-[#D9A441] bg-[#FFF7E0] text-[#182230]" : "border-[#E5E7EB] bg-white text-[#475467] hover:bg-[#F9FAFB]"}`}>{ativo ? "★ " : ""}{c}</button>
@@ -989,7 +1019,7 @@ export default function CardapioPublico() {
             {grupos.length === 0 && <p className="py-10 text-center text-sm text-[#667085]">Nenhum produto disponível.</p>}
             {grupos.map((g) => (
               <section key={g.nome} ref={(el) => (secRefs.current[g.nome] = el)} data-cat={g.nome} className="scroll-mt-28">
-                <div className="sticky top-[116px] z-10 -mx-4 mb-3 mt-1 flex items-center gap-2 bg-[#F7F8FA]/95 px-4 py-1.5 backdrop-blur">
+                <div className="sticky z-10 -mx-4 mb-3 mt-1 flex items-center gap-2 bg-[#F7F8FA]/95 px-4 py-1.5 backdrop-blur" style={{ top: headerH + catBarH }}>
                   <span className="h-4 w-1 rounded-full bg-[#D9A441]" />
                   <h2 className="text-sm font-black uppercase tracking-wide text-[#182230]">{g.nome}</h2>
                   <span className="text-[11px] font-bold text-[#98A2B3]">{g.produtos.length} {g.produtos.length === 1 ? "item" : "itens"}</span>
