@@ -505,7 +505,10 @@ export default function CardapioPublico() {
     const naFaixa = new Set(); // ids das seções cruzando a linha agora
     const escolher = () => {
       if (rolandoPorCliqueRef.current) return;
-      const alvo = escolherCategoriaAtiva(grupos, naFaixa);
+      // No topo de verdade (scrollTop 0), "Todos" sempre vence — mesmo que a
+      // geometria da primeira seção coloque seu topo dentro da faixa (ex.:
+      // cardápio sem ofertas/combos, aviso de personalização baixo).
+      const alvo = el.scrollTop <= 0 ? CATEGORIA_TODOS : escolherCategoriaAtiva(grupos, naFaixa);
       setCatAtivaId((cur) => (cur === alvo ? cur : alvo));
     };
     // obsSecoes/obsFim são recriados (não só reposicionados) sempre que o
@@ -1013,7 +1016,7 @@ export default function CardapioPublico() {
             a barra fixa é destacada automaticamente (ver o efeito de
             sincronização acima). Sombra discreta: a barra fica presa (sticky)
             praticamente assim que a rolagem começa. */}
-        <div ref={catBarRef} className="pp-noscrollbar sticky z-20 -mx-4 flex gap-2 overflow-x-auto border-b border-[#E5E7EB] bg-white/96 px-4 py-4 shadow-[0_2px_8px_rgba(16,24,40,.06)] backdrop-blur" style={{ top: headerH }}>
+        <div ref={catBarRef} className="pp-noscrollbar sticky z-20 -mx-4 flex gap-2 overflow-x-auto border-b border-[#E5E7EB] bg-white px-4 py-4 shadow-[0_2px_8px_rgba(16,24,40,.06)]" style={{ top: headerH }}>
           {cats.map((c) => { const ativo = !busca && catAtivaId === c.id;
             return (
               <button key={c.id} type="button" ref={(el) => (chipRefs.current[c.id] = el)} onClick={() => selecionarCategoria(c.id)}
