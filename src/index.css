@@ -79,10 +79,18 @@
    overscroll-behavior evita o scroll-chaining/bounce ao chegar no
    fim de uma área rolável. .pp-scroll-locked congela o fundo
    enquanto há um overlay (gaveta/modal) na frente. */
-html, body { overscroll-behavior: none; }
+/* #root é o container de rolagem vertical DE VERDADE da SPA inteira (ver
+   bloco "html, body, #root" mais abaixo) — overscroll-behavior:none em
+   html/body sozinho não bloqueia o bounce elástico do PRÓPRIO #root em
+   iOS/Safari: cada elemento rolável precisa da sua própria regra, ela não
+   "desce" para descendentes. Sem isso, arrastar além do fim do conteúdo
+   esticava #root e revelava, por baixo, o fundo escuro (#070B16) do
+   html/body — uma "tela preta" visível fora da interface do cardápio (e de
+   qualquer outra tela pública) ao rolar rápido/arrastar até o fim. */
+html, body, #root { overscroll-behavior: none; }
 /* Rolagem suave (cliques de categoria) + inércia/momentum em iOS e Android */
 html { scroll-behavior: smooth; }
-body { -webkit-overflow-scrolling: touch; }
+body, #root { -webkit-overflow-scrolling: touch; }
 body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflow: hidden; }
 .pp-overscroll-contain { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
