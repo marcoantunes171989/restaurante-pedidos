@@ -78,6 +78,30 @@ function diaTemHorario(horarios, agora = new Date(), fuso) {
   const { dia } = diaEHoraNoFuso(fuso, agora);
   return /\d/.test(String((horarios || {})[dia] || ""));
 }
+// Identificador estável para uma categoria sem linha correspondente em
+// tab_categorias (produto com texto livre em `categoria` que não bate com
+// nenhuma cadastrada — cai no grupo "Outros" hoje). tab_produtos.categoria é
+// texto livre (sem categoria_id) — não existe um ID de banco para linkar aqui
+// — então normalizamos o nome (acentos/espaços/maiúsculas/caracteres
+// especiais) para um slug estável, em vez de usar o nome exibido cru como
+// chave de refs/estado (evita colisão por acento/espaço/caixa).
+function slugify(nome) {
+  const base = String(nome || "")
+    .normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .toLowerCase().trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return `cat-${base || "sem-nome"}`;
+}
+// "Todos" nunca colide com um ID real: categorias vindas do banco viram string
+// numérica ("42") e as sem correspondência levam o prefixo "cat-" (slugify).
+const CATEGORIA_TODOS = "todos";
+// Respeita prefers-reduced-motion nas rolagens programáticas (clique em
+// categoria/"Todos"/oferta e centralização do chip) — usa "auto" (instantâneo)
+// em vez de "smooth" quando o usuário pediu menos movimento no sistema.
+function motionOk() {
+  try { return !window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch { return true; }
+}
 // Converte o pedido mínimo salvo ("20,00" / "20" / "20.00") em número de reais.
 function parseMoedaBR(v) {
   if (v == null || v === "") return 0;
@@ -152,7 +176,7 @@ export default function CardapioPublico() {
   // Toda abertura/atualização da tela começa no topo, com "Todos" ativo — nunca
   // restaura a última categoria/posição de rolagem. Desliga a restauração
   // nativa do navegador (senão um F5 poderia reabrir no meio do scroll,
-  // brigando com o catAtiva="Todos" inicial) e força o topo uma única vez.
+  // brigando com o catAtivaId=CATEGORIA_TODOS inicial) e força o topo uma única vez.
   useEffect(() => {
     try { if ("scrollRestoration" in window.history) window.history.scrollRestoration = "manual"; } catch {}
     window.scrollTo(0, 0);
@@ -380,9 +404,18 @@ export default function CardapioPublico() {
     visiveis.forEach((p) => { const c = p.category || "Outros"; (porCat[c] = porCat[c] || []).push(p); });
     const ordem = categorias.map((c) => c.nome);
     const nomes = [...ordem.filter((n) => porCat[n]?.length), ...Object.keys(porCat).filter((n) => !ordem.includes(n))];
-    return nomes.map((nome) => ({ nome, produtos: porCat[nome] }));
+    // ID estável por grupo: o id real de tab_categorias quando o nome bate com
+    // uma categoria cadastrada (caso normal); slug do nome como fallback
+    // (produto com `categoria` em texto livre que não corresponde a nenhuma
+    // linha cadastrada, ex.: "Outros"). Nunca o nome cru — evita colisão por
+    // acento/espaço/maiúscula em chaves de refs/estado.
+    return nomes.map((nome) => {
+      const cadastrada = categorias.find((c) => c.nome === nome);
+      const id = cadastrada ? String(cadastrada.id) : slugify(nome);
+      return { id, nome, produtos: porCat[nome] };
+    });
   }, [visiveis, categorias]);
-  const cats = useMemo(() => ["Todos", ...grupos.map((g) => g.nome)], [grupos]);
+  const cats = useMemo(() => [{ id: CATEGORIA_TODOS, nome: "Todos" }, ...grupos.map((g) => ({ id: g.id, nome: g.nome }))], [grupos]);
 
   // Scroll-spy: destaca no header o grupo atualmente visível na tela.
   const secRefs = useRef({});
@@ -418,7 +451,7 @@ export default function CardapioPublico() {
       window.removeEventListener("orientationchange", medir);
     };
   }, []);
-  const [catAtiva, setCatAtiva] = useState("Todos");
+  const [catAtivaId, setCatAtivaId] = useState(CATEGORIA_TODOS);
   // Enquanto true, um clique (categoria ou "Todos") disparou uma rolagem suave
   // programática — o scroll-spy ignora o scroll até ela assentar, pra não
   // "brigar" com o clique piscando por categorias intermediárias no caminho
@@ -441,8 +474,8 @@ export default function CardapioPublico() {
       const scrollHeight = doc.scrollHeight;
       const clientHeight = window.innerHeight;
       if (scrollTop + clientHeight >= scrollHeight - 80) {
-        const ultimo = grupos[grupos.length - 1]?.nome;
-        setCatAtiva((cur) => (cur === ultimo ? cur : ultimo));
+        const ultimo = grupos[grupos.length - 1]?.id;
+        setCatAtivaId((cur) => (cur === ultimo ? cur : ultimo));
         return;
       }
       // Linha de deteção = base real da barra sticky de categorias (fallback 140px).
@@ -450,12 +483,12 @@ export default function CardapioPublico() {
       // Padrão "Todos": só troca quando o cabeçalho de algum grupo realmente
       // cruza a linha (entrou visualmente na seção). No topo, antes da
       // primeira seção, nada cruza — permanece "Todos".
-      let atual = "Todos";
+      let atual = CATEGORIA_TODOS;
       for (const g of grupos) {
-        const el = secRefs.current[g.nome];
-        if (el && el.getBoundingClientRect().top - linha <= 0) atual = g.nome;
+        const el = secRefs.current[g.id];
+        if (el && el.getBoundingClientRect().top - linha <= 0) atual = g.id;
       }
-      setCatAtiva((cur) => (cur === atual ? cur : atual));
+      setCatAtivaId((cur) => (cur === atual ? cur : atual));
     };
     // rAF-throttle: o destaque acompanha a rolagem sem travar (mais fluido em iOS/Android).
     // Some ao debounce curto abaixo: evita trocar de categoria a cada pixel
@@ -492,7 +525,7 @@ export default function CardapioPublico() {
   // Mede a altura do último grupo p/ dimensionar o espaçador (recalcula ao carregar imagens/redimensionar).
   useEffect(() => {
     if (busca || !grupos.length) { setSpacerH(0); return; }
-    const ultimo = grupos[grupos.length - 1].nome;
+    const ultimo = grupos[grupos.length - 1].id;
     // Altura de referência ESTÁVEL: não acompanha o toggle da barra do navegador
     // (que muda só a altura). Assim o scrollHeight não encolhe ao rolar e a tela
     // não "volta" para um grupo anterior. Só atualiza em rotação (muda a largura).
@@ -513,12 +546,12 @@ export default function CardapioPublico() {
   }, [busca, grupos]);
   // Mantém o chip ativo visível na barra horizontal
   useEffect(() => {
-    const el = chipRefs.current[catAtiva];
-    if (el) el.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
-  }, [catAtiva]);
-  const irParaCategoria = (nome) => {
+    const el = chipRefs.current[catAtivaId];
+    if (el) el.scrollIntoView({ behavior: motionOk() ? "smooth" : "auto", inline: "center", block: "nearest" });
+  }, [catAtivaId]);
+  const irParaCategoria = (id) => {
     setBusca("");
-    setCatAtiva(nome);
+    setCatAtivaId(id);
     // Trava o scroll-spy durante a rolagem programática — sem isso, o
     // clique em "Sobremesas" (por ex.) piscaria pelas categorias que ficam
     // no caminho até chegar lá. Libera sozinha depois que a rolagem suave
@@ -527,13 +560,13 @@ export default function CardapioPublico() {
     clearTimeout(cliqueTimeoutRef.current);
     rolandoPorCliqueRef.current = true;
     cliqueTimeoutRef.current = setTimeout(() => { rolandoPorCliqueRef.current = false; }, 700);
-    if (nome === "Todos") { window.scrollTo({ top: 0, behavior: "smooth" }); return; }
-    const alvo = secRefs.current[nome];
+    if (id === CATEGORIA_TODOS) { window.scrollTo({ top: 0, behavior: motionOk() ? "smooth" : "auto" }); return; }
+    const alvo = secRefs.current[id];
     if (!alvo) return;
     // Offset = altura real da barra sticky (header + categorias) + folga, para o
     // título do agrupamento não ficar escondido atrás dela.
     const offset = (catBarRef.current?.getBoundingClientRect().bottom || 108) + 12;
-    window.scrollTo({ top: alvo.getBoundingClientRect().top + window.scrollY - offset, behavior: "smooth" });
+    window.scrollTo({ top: alvo.getBoundingClientRect().top + window.scrollY - offset, behavior: motionOk() ? "smooth" : "auto" });
   };
   // Ofertas: ícone/resumo/validade por tipo + clique leva ao combo/categoria
   const combosRef = useRef(null);
@@ -547,10 +580,11 @@ export default function CardapioPublico() {
     return partes.join(" · ");
   };
   const clicarOferta = (p) => {
-    if (p.tipo === "combo") { combosRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }); return; }
+    if (p.tipo === "combo") { combosRef.current?.scrollIntoView({ behavior: motionOk() ? "smooth" : "auto", block: "center" }); return; }
     const catNome = p.categoriaId != null ? catNomePorId[p.categoriaId] : null;
-    if (catNome && secRefs.current[catNome]) { irParaCategoria(catNome); return; }
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    const grupoAlvo = catNome ? grupos.find((g) => g.nome === catNome) : null;
+    if (grupoAlvo) { irParaCategoria(grupoAlvo.id); return; }
+    window.scrollTo({ top: 0, behavior: motionOk() ? "smooth" : "auto" });
   };
   const renderProduto = (item) => {
     const indisponivel = item.disponivel === false;
@@ -931,9 +965,13 @@ export default function CardapioPublico() {
       <main className="mx-auto max-w-3xl px-4">
         {/* Categorias — clique rola até o grupo; ao rolar, o grupo atual é destacado */}
         <div ref={catBarRef} className="pp-noscrollbar sticky z-20 -mx-4 flex gap-2 overflow-x-auto border-b border-[#E5E7EB] bg-white/96 px-4 py-4 backdrop-blur" style={{ top: headerH }}>
-          {cats.map((c) => { const ativo = !busca && catAtiva === c;
+          {cats.map((c) => { const ativo = !busca && catAtivaId === c.id;
             return (
-              <button key={c} ref={(el) => (chipRefs.current[c] = el)} onClick={() => irParaCategoria(c)} className={`shrink-0 rounded-full border px-4 py-1.5 text-sm font-bold transition ${ativo ? "border-[#D9A441] bg-[#FFF7E0] text-[#182230]" : "border-[#E5E7EB] bg-white text-[#475467] hover:bg-[#F9FAFB]"}`}>{ativo ? "★ " : ""}{c}</button>
+              <button key={c.id} type="button" ref={(el) => (chipRefs.current[c.id] = el)} onClick={() => irParaCategoria(c.id)}
+                aria-current={ativo ? "true" : undefined}
+                className={`flex min-h-[44px] shrink-0 items-center rounded-full border px-4 text-sm font-bold transition ${ativo ? "border-[#D9A441] bg-[#FFF7E0] text-[#182230]" : "border-[#E5E7EB] bg-white text-[#475467] hover:bg-[#F9FAFB]"}`}>
+                {ativo ? "★ " : ""}{c.nome}
+              </button>
             );
           })}
         </div>
@@ -1018,7 +1056,7 @@ export default function CardapioPublico() {
           <div className="pb-6">
             {grupos.length === 0 && <p className="py-10 text-center text-sm text-[#667085]">Nenhum produto disponível.</p>}
             {grupos.map((g) => (
-              <section key={g.nome} ref={(el) => (secRefs.current[g.nome] = el)} data-cat={g.nome} className="scroll-mt-28">
+              <section key={g.id} ref={(el) => (secRefs.current[g.id] = el)} data-cat-id={g.id} className="scroll-mt-28">
                 <div className="sticky z-10 -mx-4 mb-3 mt-1 flex items-center gap-2 bg-[#F7F8FA]/95 px-4 py-1.5 backdrop-blur" style={{ top: headerH + catBarH }}>
                   <span className="h-4 w-1 rounded-full bg-[#D9A441]" />
                   <h2 className="text-sm font-black uppercase tracking-wide text-[#182230]">{g.nome}</h2>
