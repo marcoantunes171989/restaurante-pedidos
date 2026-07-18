@@ -984,6 +984,14 @@ export default function CardapioPublico() {
       )}
 
       <main className="mx-auto max-w-3xl px-4">
+        {/* TEMP DEBUG — remover depois de confirmar a causa real (ver conversa
+            sobre agrupamento por categoria não refletindo em produção). Mostra
+            direto na tela pra confirmar sem precisar de devtools: qual build
+            está rodando, quantos produtos/categorias/grupos, e a medição real
+            do cabeçalho/carrossel usada no offset sticky. */}
+        <div style={{ position: "sticky", top: 0, zIndex: 999, background: "#111", color: "#0f0", fontSize: 10, fontFamily: "monospace", padding: "4px 8px", wordBreak: "break-all" }}>
+          DEBUG-2026-07-18-A · produtos={produtos.length} · comCategoriaId={produtos.filter((p) => p.categoriaId != null).length} · categorias={categorias.length} · grupos={grupos.length} · headerH={headerH} · catBarH={catBarH}
+        </div>
         {/* Categorias — clique rola até o grupo; ao rolar, o grupo atual é destacado */}
         <div ref={catBarRef} className="pp-noscrollbar sticky z-20 -mx-4 flex gap-2 overflow-x-auto border-b border-[#E5E7EB] bg-white/96 px-4 py-4 backdrop-blur" style={{ top: headerH }}>
           {cats.map((c) => { const ativo = !busca && catAtivaId === c.id;
