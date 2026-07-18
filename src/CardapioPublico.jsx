@@ -421,6 +421,21 @@ export default function CardapioPublico() {
   // carrossel (mesmo z-index mais baixo) — por isso "sumia" só no mobile.
   const [headerH, setHeaderH] = useState(0);
   const [catBarH, setCatBarH] = useState(0);
+  // Dependência [loja] (não []) — CAUSA RAIZ confirmada com teste real de
+  // navegador: este componente mostra <CardapioSkeleton/> (uma árvore JSX
+  // TOTALMENTE diferente, sem headerRef/catBarRef) enquanto `loja` ainda não
+  // carregou. Um efeito com deps [] roda UMA VEZ, na primeira montagem — se
+  // essa primeira montagem cair durante o skeleton (garantido sempre que a
+  // busca a Supabase leva mais que um punhado de ms, ou seja, quase sempre
+  // fora de uma rede local), headerRef.current/catBarRef.current são `null`
+  // nesse instante, medir() calcula 0 pra ambos, e o efeito NUNCA roda de
+  // novo — mesmo depois da árvore real (com os refs de verdade) finalmente
+  // montar. Resultado: catBarH fica 0 pra sempre, a barra de categorias gruda
+  // no top:0 (por cima do cabeçalho) e o scroll-margin-top das seções fica
+  // só "+8", nunca compensando a altura real dos elementos fixos — a causa
+  // de fundo do "clique não desconta os 150px". Recriar o efeito quando
+  // `loja` resolve (undefined -> objeto) garante medir de novo exatamente no
+  // instante em que a árvore real (com os refs corretos) acabou de montar.
   useLayoutEffect(() => {
     const medir = () => {
       setHeaderH(Math.ceil(headerRef.current?.getBoundingClientRect().height || 0));
@@ -441,7 +456,7 @@ export default function CardapioPublico() {
       window.removeEventListener("resize", medir);
       window.removeEventListener("orientationchange", medir);
     };
-  }, []);
+  }, [loja]);
   const [catAtivaId, setCatAtivaId] = useState(CATEGORIA_TODOS);
   // Enquanto true, um clique (categoria ou "Todos") disparou uma rolagem suave
   // programática — a sincronização abaixo ignora as seções que cruzam a linha
@@ -505,10 +520,24 @@ export default function CardapioPublico() {
     const naFaixa = new Set(); // ids das seções cruzando a linha agora
     const escolher = () => {
       if (rolandoPorCliqueRef.current) return;
-      // No topo de verdade (scrollTop 0), "Todos" sempre vence — mesmo que a
-      // geometria da primeira seção coloque seu topo dentro da faixa (ex.:
-      // cardápio sem ofertas/combos, aviso de personalização baixo).
-      const alvo = el.scrollTop <= 0 ? CATEGORIA_TODOS : escolherCategoriaAtiva(grupos, naFaixa);
+      let alvo;
+      if (el.scrollTop <= 0) {
+        // No topo de verdade, "Todos" sempre vence — mesmo que a geometria da
+        // primeira seção coloque seu topo dentro da faixa (ex.: cardápio sem
+        // ofertas/combos, aviso de personalização baixo).
+        alvo = CATEGORIA_TODOS;
+      } else if (el.scrollTop + el.clientHeight >= el.scrollHeight - 4) {
+        // No fundo de verdade (scroll máximo), a ÚLTIMA categoria sempre
+        // vence — sem isso, uma seção curta perto do fim (cujo conteúdo não
+        // preenche toda a faixa de detecção) podia fazer a categoria ativa
+        // "regredir" pra uma anterior assim que a última seção saía da
+        // faixa, mesmo já no scroll máximo (sem como rolar mais pra
+        // confirmar a última de novo). Confirmado com teste real de
+        // navegador num cardápio com poucas categorias/itens no fim.
+        alvo = idUltimoGrupo(grupos) ?? CATEGORIA_TODOS;
+      } else {
+        alvo = escolherCategoriaAtiva(grupos, naFaixa);
+      }
       setCatAtivaId((cur) => (cur === alvo ? cur : alvo));
     };
     // obsSecoes/obsFim são recriados (não só reposicionados) sempre que o
@@ -571,10 +600,26 @@ export default function CardapioPublico() {
       clearTimeout(debounceResize);
     };
   }, [busca, grupos, headerH, catBarH]);
-  // Mantém o chip ativo visível (e centralizado) na barra horizontal
+  // Mantém o chip ativo visível (e centralizado) na barra horizontal — rola
+  // SÓ a barra (catBarRef.scrollTo no eixo X), calculado na mão, em vez de
+  // chip.scrollIntoView(). Causa raiz confirmada com teste real de navegador
+  // (Playwright): scrollIntoView() sobe por TODOS os ancestrais roláveis do
+  // chip — inclusive #root, o scroll VERTICAL real da tela — e mesmo pedindo
+  // block:"nearest" ele podia emitir um ajuste vertical em #root que
+  // colidia com o scrollTo({top,...}) do clique na categoria (ver
+  // `selecionarCategoria`), cancelando a rolagem suave no meio do caminho
+  // (ela parava sempre por volta de 200-240px, o ponto em que a 1ª seção
+  // cruzava a faixa de detecção e a categoria ativa mudava). Rolar só a
+  // barra, sem tocar em #root, elimina esse conflito de vez.
   useEffect(() => {
-    const el = chipRefs.current[catAtivaId];
-    if (el) el.scrollIntoView({ behavior: motionOk() ? "smooth" : "auto", inline: "center", block: "nearest" });
+    const barra = catBarRef.current;
+    const chip = chipRefs.current[catAtivaId];
+    if (!barra || !chip) return;
+    const rectBarra = barra.getBoundingClientRect();
+    const rectChip = chip.getBoundingClientRect();
+    const delta = (rectChip.left + rectChip.width / 2) - (rectBarra.left + rectBarra.width / 2);
+    const alvoLeft = Math.max(0, barra.scrollLeft + delta);
+    barra.scrollTo({ left: alvoLeft, behavior: motionOk() ? "smooth" : "auto" });
   }, [catAtivaId]);
   const selecionarCategoria = (id) => {
     setBusca("");
