@@ -149,6 +149,15 @@ export default function CardapioPublico() {
   const [ocupacaoConfirmada, setOcupacaoConfirmada] = useState(false); // cliente respondeu "Sim" pra ocupação já vista
   const [ocupacaoRecusada, setOcupacaoRecusada] = useState(false);     // cliente respondeu "Não" → bloqueia
 
+  // Toda abertura/atualização da tela começa no topo, com "Todos" ativo — nunca
+  // restaura a última categoria/posição de rolagem. Desliga a restauração
+  // nativa do navegador (senão um F5 poderia reabrir no meio do scroll,
+  // brigando com o catAtiva="Todos" inicial) e força o topo uma única vez.
+  useEffect(() => {
+    try { if ("scrollRestoration" in window.history) window.history.scrollRestoration = "manual"; } catch {}
+    window.scrollTo(0, 0);
+  }, []);
+
   // Carrega empresa (por prefixo) + produtos + categorias
   useEffect(() => {
     let vivo = true;
@@ -380,6 +389,12 @@ export default function CardapioPublico() {
   const chipRefs = useRef({});
   const catBarRef = useRef(null); // barra sticky de categorias — usada p/ calcular offset real
   const [catAtiva, setCatAtiva] = useState("Todos");
+  // Enquanto true, um clique (categoria ou "Todos") disparou uma rolagem suave
+  // programática — o scroll-spy ignora o scroll até ela assentar, pra não
+  // "brigar" com o clique piscando por categorias intermediárias no caminho
+  // (evita o loop rolagem automática ⇄ clique ⇄ estado).
+  const rolandoPorCliqueRef = useRef(false);
+  const cliqueTimeoutRef = useRef(null);
   // Espaçador dinâmico ao fim: exatamente o necessário para o ÚLTIMO grupo encostar
   // no topo ao rolar — sem sobra extra (não deixa "passar do topo").
   const [spacerH, setSpacerH] = useState(0);
@@ -388,6 +403,7 @@ export default function CardapioPublico() {
     // Calcula o grupo atual: o último cujo cabeçalho passou da "linha" (abaixo dos
     // headers fixos). Determinístico e correto mesmo com seções curtas.
     const calc = () => {
+      if (rolandoPorCliqueRef.current) return; // rolagem de clique em andamento — não interfere
       // Perto do fim da página: força o ÚLTIMO grupo, mesmo que o cabeçalho dele
       // não tenha alcançado a "linha" (seção curta / cardápio pequeno).
       const doc = document.documentElement;
@@ -401,7 +417,10 @@ export default function CardapioPublico() {
       }
       // Linha de deteção = base real da barra sticky de categorias (fallback 140px).
       const linha = (catBarRef.current?.getBoundingClientRect().bottom || 140) + 8;
-      let atual = grupos[0]?.nome;
+      // Padrão "Todos": só troca quando o cabeçalho de algum grupo realmente
+      // cruza a linha (entrou visualmente na seção). No topo, antes da
+      // primeira seção, nada cruza — permanece "Todos".
+      let atual = "Todos";
       for (const g of grupos) {
         const el = secRefs.current[g.nome];
         if (el && el.getBoundingClientRect().top - linha <= 0) atual = g.nome;
@@ -409,15 +428,37 @@ export default function CardapioPublico() {
       setCatAtiva((cur) => (cur === atual ? cur : atual));
     };
     // rAF-throttle: o destaque acompanha a rolagem sem travar (mais fluido em iOS/Android).
+    // Some ao debounce curto abaixo: evita trocar de categoria a cada pixel
+    // quando o usuário rola rápido por seções próximas/curtas.
     let raf = 0;
-    const onScroll = () => { if (raf) return; raf = requestAnimationFrame(() => { raf = 0; calc(); }); };
-    const obs = new IntersectionObserver(onScroll, { threshold: [0, 0.5, 1], rootMargin: "-100px 0px 0px 0px" });
+    let debounce = 0;
+    const onScroll = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        clearTimeout(debounce);
+        debounce = setTimeout(calc, 60);
+      });
+    };
+    // rootMargin dinâmico = altura real do cabeçalho + carrossel de categorias
+    // (não um valor fixo "no chute") — recalculado sempre que os grupos mudam
+    // (cardápio carregado dinamicamente pode alterar a altura da barra).
+    const topoReal = Math.round((catBarRef.current?.getBoundingClientRect().bottom || 140) + 8);
+    const obs = new IntersectionObserver(onScroll, { threshold: [0, 0.5, 1], rootMargin: `-${topoReal}px 0px 0px 0px` });
     Object.values(secRefs.current).forEach((el) => el && obs.observe(el));
     calc();
     window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", onScroll);
-    return () => { obs.disconnect(); cancelAnimationFrame(raf); window.removeEventListener("scroll", onScroll); window.removeEventListener("resize", onScroll); };
+    return () => {
+      obs.disconnect();
+      cancelAnimationFrame(raf);
+      clearTimeout(debounce);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
   }, [busca, grupos]);
+  // Limpa o timeout do "clique em andamento" ao desmontar.
+  useEffect(() => () => clearTimeout(cliqueTimeoutRef.current), []);
   // Mede a altura do último grupo p/ dimensionar o espaçador (recalcula ao carregar imagens/redimensionar).
   useEffect(() => {
     if (busca || !grupos.length) { setSpacerH(0); return; }
@@ -448,6 +489,14 @@ export default function CardapioPublico() {
   const irParaCategoria = (nome) => {
     setBusca("");
     setCatAtiva(nome);
+    // Trava o scroll-spy durante a rolagem programática — sem isso, o
+    // clique em "Sobremesas" (por ex.) piscaria pelas categorias que ficam
+    // no caminho até chegar lá. Libera sozinha depois que a rolagem suave
+    // termina (tempo generoso; se o usuário rolar de novo por conta própria
+    // antes disso, o clique seguinte já reseta o timeout normalmente).
+    clearTimeout(cliqueTimeoutRef.current);
+    rolandoPorCliqueRef.current = true;
+    cliqueTimeoutRef.current = setTimeout(() => { rolandoPorCliqueRef.current = false; }, 700);
     if (nome === "Todos") { window.scrollTo({ top: 0, behavior: "smooth" }); return; }
     const alvo = secRefs.current[nome];
     if (!alvo) return;
@@ -851,7 +900,7 @@ export default function CardapioPublico() {
 
       <main className="mx-auto max-w-3xl px-4">
         {/* Categorias — clique rola até o grupo; ao rolar, o grupo atual é destacado */}
-        <div ref={catBarRef} className="sticky top-[64px] z-20 -mx-4 flex gap-2 overflow-x-auto border-b border-[#E5E7EB] bg-white/96 px-4 py-4 backdrop-blur">
+        <div ref={catBarRef} className="pp-noscrollbar sticky top-[64px] z-20 -mx-4 flex gap-2 overflow-x-auto border-b border-[#E5E7EB] bg-white/96 px-4 py-4 backdrop-blur">
           {cats.map((c) => { const ativo = !busca && catAtiva === c;
             return (
               <button key={c} ref={(el) => (chipRefs.current[c] = el)} onClick={() => irParaCategoria(c)} className={`shrink-0 rounded-full border px-4 py-1.5 text-sm font-bold transition ${ativo ? "border-[#D9A441] bg-[#FFF7E0] text-[#182230]" : "border-[#E5E7EB] bg-white text-[#475467] hover:bg-[#F9FAFB]"}`}>{ativo ? "★ " : ""}{c}</button>
