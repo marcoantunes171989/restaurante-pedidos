@@ -179,6 +179,11 @@ export default function CardapioPublico() {
   // brigando com o catAtivaId=CATEGORIA_TODOS inicial) e força o topo uma única vez.
   useEffect(() => {
     try { if ("scrollRestoration" in window.history) window.history.scrollRestoration = "manual"; } catch {}
+    // Quem rola de verdade nesta tela é #root (não a window — ver `scrollEl`
+    // mais abaixo); nesse momento (mount) a raiz da tela do cardápio ainda
+    // pode nem ter renderizado (primeiro paint é o skeleton), então zera
+    // direto pelo id em vez de depender de um ref que ainda não existe.
+    try { document.getElementById("root")?.scrollTo(0, 0); } catch {}
     window.scrollTo(0, 0);
   }, []);
 
@@ -441,8 +446,22 @@ export default function CardapioPublico() {
   // Scroll-spy: destaca no header o grupo atualmente visível na tela.
   const secRefs = useRef({});
   const chipRefs = useRef({});
+  const topoRef = useRef(null);    // sentinela no topo — "Todos" rola até aqui
   const headerRef = useRef(null);  // cabeçalho fixo — sua altura REAL vira o offset "top" do carrossel
   const catBarRef = useRef(null); // barra sticky de categorias — usada p/ calcular offset real
+  // Raiz da tela — quem realmente rola NÃO é a window: html/body/#root têm
+  // overflow-x:hidden global (index.css), e o CSS converte automaticamente
+  // o eixo Y ausente para "auto" nesse caso — #root vira o container de
+  // scroll de verdade (tem altura travada em 100%). Esta raiz (.tema-claro-
+  // area) usa min-h-screen (cresce com o conteúdo, nunca rola sozinha), mas
+  // ela PRÓPRIA teria o mesmo overflow-x:hidden aplicado antes — o que a
+  // fazia contar como "scroll container" pro position:sticky (mesmo nunca
+  // rolando de fato), quebrando o cabeçalho/carrossel fixos. Por isso essa
+  // classe não leva mais overflow-x aqui (a raiz global já clipa por fora).
+  // raizRef.current.parentElement é o elemento que REALMENTE rola (#root,
+  // resolvido em runtime — não fixamos o id, só usamos o pai real do DOM).
+  const raizRef = useRef(null);
+  const scrollEl = () => raizRef.current?.parentElement || null;
   // Alturas medidas de verdade (não um px fixo "no chute") — sem isso, o
   // carrossel ficava com top-[64px] fixo, mas a altura real do cabeçalho varia
   // por aparelho (env(safe-area-inset-top) do notch/Dynamic Island) e por modo
@@ -484,36 +503,37 @@ export default function CardapioPublico() {
   const [spacerH, setSpacerH] = useState(0);
   useEffect(() => {
     if (busca || !grupos.length) return;
+    const el = scrollEl();
+    if (!el) return; // raiz ainda não montada — o efeito roda de novo quando grupos mudar
     // Calcula o grupo atual: o último cujo cabeçalho passou da "linha" (abaixo dos
     // headers fixos). Determinístico e correto mesmo com seções curtas.
     const calc = () => {
       if (rolandoPorCliqueRef.current) return; // rolagem de clique em andamento — não interfere
       // Perto do fim da página: força o ÚLTIMO grupo, mesmo que o cabeçalho dele
-      // não tenha alcançado a "linha" (seção curta / cardápio pequeno).
-      // BUG CORRIGIDO: exige scrollTop > 0 — sem isso, essa saída disparava
-      // logo na primeira chamada (mount, scrollTop=0), sempre que o
-      // scrollHeight ainda não tinha assentado (imagens carregando, spacerH
-      // ainda em 0 por vir de outro efeito assíncrono), acendendo a ÚLTIMA
-      // categoria como ativa no topo da página, no lugar de "Todos"/da
-      // primeira seção — exatamente o sintoma visto em produção.
-      const doc = document.documentElement;
-      const scrollTop = window.scrollY || doc.scrollTop || 0;
-      const scrollHeight = doc.scrollHeight;
-      const clientHeight = window.innerHeight;
+      // não tenha alcançado a "linha" (seção curta / cardápio pequeno). Lê do
+      // elemento que REALMENTE rola (não window/document — ver `scrollEl`).
+      // Exige scrollTop > 0: sem isso, essa saída disparava logo na primeira
+      // chamada (mount, scrollTop=0) sempre que o scrollHeight ainda não
+      // tinha assentado, acendendo a ÚLTIMA categoria no lugar de "Todos".
+      const scrollTop = el.scrollTop;
+      const scrollHeight = el.scrollHeight;
+      const clientHeight = el.clientHeight;
       if (scrollTop > 0 && scrollTop + clientHeight >= scrollHeight - 80) {
         const ultimo = grupos[grupos.length - 1]?.id;
         setCatAtivaId((cur) => (cur === ultimo ? cur : ultimo));
         return;
       }
       // Linha de deteção = base real da barra sticky de categorias (fallback 140px).
+      // getBoundingClientRect() é relativa ao viewport sempre — não depende de
+      // qual elemento é o scroll container, por isso segue igual aqui.
       const linha = (catBarRef.current?.getBoundingClientRect().bottom || 140) + 8;
       // Padrão "Todos": só troca quando o cabeçalho de algum grupo realmente
       // cruza a linha (entrou visualmente na seção). No topo, antes da
       // primeira seção, nada cruza — permanece "Todos".
       let atual = CATEGORIA_TODOS;
       for (const g of grupos) {
-        const el = secRefs.current[g.id];
-        if (el && el.getBoundingClientRect().top - linha <= 0) atual = g.id;
+        const secEl = secRefs.current[g.id];
+        if (secEl && secEl.getBoundingClientRect().top - linha <= 0) atual = g.id;
       }
       setCatAtivaId((cur) => (cur === atual ? cur : atual));
     };
@@ -533,17 +553,21 @@ export default function CardapioPublico() {
     // rootMargin dinâmico = altura real do cabeçalho + carrossel de categorias
     // (não um valor fixo "no chute") — recalculado sempre que os grupos mudam
     // (cardápio carregado dinamicamente pode alterar a altura da barra).
+    // root = o elemento que REALMENTE rola — sem isso, o IntersectionObserver
+    // usa a viewport como referência por padrão, que nesta tela não é quem
+    // rola (ver `scrollEl` acima); com o root errado, os thresholds de
+    // interseção não refletem a rolagem real.
     const topoReal = Math.round((catBarRef.current?.getBoundingClientRect().bottom || 140) + 8);
-    const obs = new IntersectionObserver(onScroll, { threshold: [0, 0.5, 1], rootMargin: `-${topoReal}px 0px 0px 0px` });
-    Object.values(secRefs.current).forEach((el) => el && obs.observe(el));
+    const obs = new IntersectionObserver(onScroll, { root: el, threshold: [0, 0.5, 1], rootMargin: `-${topoReal}px 0px 0px 0px` });
+    Object.values(secRefs.current).forEach((secEl) => secEl && obs.observe(secEl));
     calc();
-    window.addEventListener("scroll", onScroll, { passive: true });
+    el.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", onScroll);
     return () => {
       obs.disconnect();
       cancelAnimationFrame(raf);
       clearTimeout(debounce);
-      window.removeEventListener("scroll", onScroll);
+      el.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", onScroll);
     };
   }, [busca, grupos]);
@@ -587,13 +611,17 @@ export default function CardapioPublico() {
     clearTimeout(cliqueTimeoutRef.current);
     rolandoPorCliqueRef.current = true;
     cliqueTimeoutRef.current = setTimeout(() => { rolandoPorCliqueRef.current = false; }, 700);
-    if (id === CATEGORIA_TODOS) { window.scrollTo({ top: 0, behavior: motionOk() ? "smooth" : "auto" }); return; }
+    // scrollIntoView() em vez de window.scrollTo(): funciona não importa qual
+    // ancestral é o container de rolagem de verdade (aqui é #root, não
+    // window — ver `scrollEl`), sem precisar calcular offset na mão. O
+    // scroll-margin-top de cada seção (estilo inline, abaixo) já reserva o
+    // espaço do cabeçalho+carrossel fixos, então o título nunca fica
+    // escondido atrás deles.
+    const comportamento = motionOk() ? "smooth" : "auto";
+    if (id === CATEGORIA_TODOS) { topoRef.current?.scrollIntoView({ behavior: comportamento, block: "start" }); return; }
     const alvo = secRefs.current[id];
     if (!alvo) return;
-    // Offset = altura real da barra sticky (header + categorias) + folga, para o
-    // título do agrupamento não ficar escondido atrás dela.
-    const offset = (catBarRef.current?.getBoundingClientRect().bottom || 108) + 12;
-    window.scrollTo({ top: alvo.getBoundingClientRect().top + window.scrollY - offset, behavior: motionOk() ? "smooth" : "auto" });
+    alvo.scrollIntoView({ behavior: comportamento, block: "start" });
   };
   // Ofertas: ícone/resumo/validade por tipo + clique leva ao combo/categoria
   const combosRef = useRef(null);
@@ -611,7 +639,7 @@ export default function CardapioPublico() {
     const catNome = p.categoriaId != null ? catNomePorId[p.categoriaId] : null;
     const grupoAlvo = catNome ? grupos.find((g) => g.nome === catNome) : null;
     if (grupoAlvo) { irParaCategoria(grupoAlvo.id); return; }
-    window.scrollTo({ top: 0, behavior: motionOk() ? "smooth" : "auto" });
+    topoRef.current?.scrollIntoView({ behavior: motionOk() ? "smooth" : "auto", block: "start" });
   };
   const renderProduto = (item) => {
     const indisponivel = item.disponivel === false;
@@ -956,7 +984,7 @@ export default function CardapioPublico() {
     aceitaExterno && opcoesEntrega.length > 0 && opcoesEntrega.some((o) => o.id === tipoPedido) && minimoFalta <= 0
   ));
   return (
-    <div data-theme="light" className="tema-claro-area min-h-screen w-full max-w-[100vw] overflow-x-hidden bg-[#F7F8FA] text-[#182230]" style={{ minHeight: "100dvh", paddingBottom: `calc(env(safe-area-inset-bottom) + ${cart.length > 0 ? 150 : 92}px)` }}>
+    <div ref={raizRef} data-theme="light" className="tema-claro-area min-h-screen w-full max-w-[100vw] bg-[#F7F8FA] text-[#182230]" style={{ minHeight: "100dvh", paddingBottom: `calc(env(safe-area-inset-bottom) + ${cart.length > 0 ? 150 : 92}px)` }}>
       {/* Cabeçalho */}
       <header ref={headerRef} className="sticky top-0 z-30 border-b border-[#E5E7EB] bg-white px-4 pb-3 backdrop-blur-xl" style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)" }}>
         <div className="mx-auto flex max-w-3xl items-center gap-3">
@@ -990,6 +1018,10 @@ export default function CardapioPublico() {
       )}
 
       <main className="mx-auto max-w-3xl px-4">
+        {/* Sentinela do topo — "Todos" rola até aqui (scrollIntoView), sem
+            depender de window.scrollTo (que não move a rolagem real desta
+            tela — quem rola é #root, não a window). */}
+        <div ref={topoRef} aria-hidden="true" style={{ scrollMarginTop: 0 }} />
         {/* Categorias — clique rola até o grupo; ao rolar, o grupo atual é destacado */}
         <div ref={catBarRef} className="pp-noscrollbar sticky z-20 -mx-4 flex gap-2 overflow-x-auto border-b border-[#E5E7EB] bg-white/96 px-4 py-4 backdrop-blur" style={{ top: headerH }}>
           {cats.map((c) => { const ativo = !busca && catAtivaId === c.id;
@@ -1083,7 +1115,7 @@ export default function CardapioPublico() {
           <div className="pb-6">
             {grupos.length === 0 && <p className="py-10 text-center text-sm text-[#667085]">Nenhum produto disponível.</p>}
             {grupos.map((g) => (
-              <section key={g.id} ref={(el) => (secRefs.current[g.id] = el)} data-cat-id={g.id} className="scroll-mt-28">
+              <section key={g.id} ref={(el) => (secRefs.current[g.id] = el)} id={`cat-${g.id}`} data-cat-id={g.id} style={{ scrollMarginTop: headerH + catBarH + 8 }}>
                 <div className="sticky z-10 -mx-4 mb-3 mt-1 flex items-center gap-2 bg-[#F7F8FA]/95 px-4 py-1.5 backdrop-blur" style={{ top: headerH + catBarH }}>
                   <span className="h-4 w-1 rounded-full bg-[#D9A441]" />
                   <h2 className="text-sm font-black uppercase tracking-wide text-[#182230]">{g.nome}</h2>
@@ -1354,7 +1386,7 @@ function Spinner() { return <div className="h-10 w-10 animate-spin rounded-full 
 function BlocoSkeleton({ className }) { return <div className={`animate-pulse rounded-full bg-[#F1F5F9] ${className}`} />; }
 function CardapioSkeleton() {
   return (
-    <div data-theme="light" className="tema-claro-area min-h-screen w-full max-w-[100vw] overflow-x-hidden bg-[#F7F8FA]" style={{ minHeight: "100dvh" }} aria-busy="true" aria-label="Carregando cardápio">
+    <div data-theme="light" className="tema-claro-area min-h-screen w-full max-w-[100vw] bg-[#F7F8FA]" style={{ minHeight: "100dvh" }} aria-busy="true" aria-label="Carregando cardápio">
       <header className="sticky top-0 z-30 border-b border-[#E5E7EB] bg-white px-4 pb-3" style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)" }}>
         <div className="mx-auto flex max-w-3xl items-center gap-3">
           <div className="h-12 w-12 shrink-0 animate-pulse rounded-2xl bg-[#F1F5F9]" />
