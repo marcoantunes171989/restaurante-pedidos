@@ -315,7 +315,9 @@ export default function CardapioPublico() {
       // Migration 068: compara por ID quando o produto já tem categoriaId
       // (vínculo real, imune a categoria renomeada); nome como fallback para
       // produto ainda não migrado.
-      const alvoCategoria = p.categoriaId != null && (item.categoriaId != null ? item.categoriaId === p.categoriaId : catNomePorId[p.categoriaId] === item.category);
+      // String(): bigint pode ir e vir como number OU string dependendo da
+      // origem do dado — compara sempre normalizado, nunca por === direto.
+      const alvoCategoria = p.categoriaId != null && (item.categoriaId != null ? String(item.categoriaId) === String(p.categoriaId) : catNomePorId[p.categoriaId] === item.category);
       if (temAlvo ? !(alvoProduto || alvoCategoria) : false) continue; // tem alvo mas não bate → pula; sem alvo → geral
       let preco = base, label = null;
       if (p.descontoPercent != null && p.descontoPercent > 0) { preco = base * (1 - p.descontoPercent / 100); label = `-${p.descontoPercent}%`; }
@@ -412,7 +414,8 @@ export default function CardapioPublico() {
     visiveis.forEach((p) => {
       let chave, id, nome, ordem;
       if (p.categoriaId != null) {
-        const cat = categorias.find((c) => c.id === p.categoriaId);
+        // String(): bigint pode vir como number OU string — nunca compara por === direto.
+        const cat = categorias.find((c) => String(c.id) === String(p.categoriaId));
         chave = `id:${p.categoriaId}`;
         id = String(p.categoriaId);
         nome = cat?.nome || p.category || "Outros";

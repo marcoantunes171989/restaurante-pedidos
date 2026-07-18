@@ -15580,7 +15580,8 @@ function CategoriaAdmin({ categoriasDb, produtos, addCategoria, toggleCategoria,
   // Migration 068 — conta/lista por categoriaId (vínculo real). Produto
   // ainda não migrado (categoriaId null — banco sem a migration 068 rodada
   // ainda) cai no fallback por nome, igual ao comportamento de sempre.
-  const produtosDaCat = (cat) => produtos.filter((p) => (p.categoriaId != null ? p.categoriaId === cat.id : p.category === cat.nome));
+  // String(): bigint pode vir como number OU string — nunca compara por === direto.
+  const produtosDaCat = (cat) => produtos.filter((p) => (p.categoriaId != null ? String(p.categoriaId) === String(cat.id) : p.category === cat.nome));
   const contagem = (cat) => produtosDaCat(cat).length;
 
   const termo = busca.trim().toLowerCase();
