@@ -616,6 +616,15 @@ html, body, #root {
   margin: 0;
   padding: 0;
   overflow-x: hidden;                /* nunca rola lateralmente em nenhuma resolução */
+  /* Declarado explicitamente (não deixado para o navegador inferir a partir do
+     overflow-x acima) — #root é o container de rolagem vertical de verdade da
+     SPA inteira, do qual todo position:sticky (cabeçalho, barra de categorias
+     do /cardapio, etc.) depende para calcular o "topo". Alguns motores de
+     navegador só promovem overflow-x:hidden a overflow-y:auto de forma
+     implícita depois de o layout assentar — declarar auto aqui elimina essa
+     dependência e garante o mesmo comportamento em Chrome, Firefox, Safari e
+     Edge desde o primeiro paint. */
+  overflow-y: auto;
   box-sizing: border-box;
 }
 /* Mídia/QR e imagens nunca estouram a largura do container */
