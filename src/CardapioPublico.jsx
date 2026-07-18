@@ -121,6 +121,7 @@ export default function CardapioPublico() {
   // antigos (só `mesa=NN`) continuam funcionando via fallback por número.
   const midURL   = (params.get("mid") || "").replace(/\D/g, "");
   const comURL   = (params.get("c") || "").toUpperCase();
+  const catURL   = params.get("categoria") || ""; // categoria pré-selecionada via link/recarregamento (?categoria=...)
 
   const [loja, setLoja]           = useState(undefined); // undefined=carregando, null=não achou
   const [produtos, setProdutos]   = useState([]);
@@ -173,16 +174,18 @@ export default function CardapioPublico() {
   const [ocupacaoConfirmada, setOcupacaoConfirmada] = useState(false); // cliente respondeu "Sim" pra ocupação já vista
   const [ocupacaoRecusada, setOcupacaoRecusada] = useState(false);     // cliente respondeu "Não" → bloqueia
 
-  // Toda abertura/atualização da tela começa no topo, com "Todos" ativo — nunca
-  // restaura a última categoria/posição de rolagem. Desliga a restauração
-  // nativa do navegador (senão um F5 poderia reabrir no meio do scroll,
-  // brigando com o catAtivaId=CATEGORIA_TODOS inicial) e força o topo uma única vez.
+  // Toda abertura/atualização da tela começa no topo — nunca restaura a
+  // última posição de rolagem (a categoria em si já é restaurada, se veio na
+  // URL, pelo estado inicial de catAtivaId). Desliga a restauração nativa do
+  // navegador (senão um F5 poderia reabrir no meio do scroll) e força o topo
+  // uma única vez.
   useEffect(() => {
     try { if ("scrollRestoration" in window.history) window.history.scrollRestoration = "manual"; } catch {}
-    // Quem rola de verdade nesta tela é #root (não a window — ver `scrollEl`
-    // mais abaixo); nesse momento (mount) a raiz da tela do cardápio ainda
-    // pode nem ter renderizado (primeiro paint é o skeleton), então zera
-    // direto pelo id em vez de depender de um ref que ainda não existe.
+    // Quem rola de verdade nesta tela é #root (não a window — html/body/#root
+    // têm overflow-x:hidden global em index.css, e o CSS converte o eixo Y
+    // ausente para "auto" nesse caso, virando o container de scroll real);
+    // nesse momento (mount) a raiz da tela do cardápio ainda pode nem ter
+    // renderizado (primeiro paint é o skeleton), então zera direto pelo id.
     try { document.getElementById("root")?.scrollTo(0, 0); } catch {}
     window.scrollTo(0, 0);
   }, []);
@@ -443,25 +446,10 @@ export default function CardapioPublico() {
   }, [visiveis, categorias]);
   const cats = useMemo(() => [{ id: CATEGORIA_TODOS, nome: "Todos" }, ...grupos.map((g) => ({ id: g.id, nome: g.nome }))], [grupos]);
 
-  // Scroll-spy: destaca no header o grupo atualmente visível na tela.
-  const secRefs = useRef({});
   const chipRefs = useRef({});
-  const topoRef = useRef(null);    // sentinela no topo — "Todos" rola até aqui
+  const topoRef = useRef(null);    // sentinela no topo — todo clique de categoria rola até aqui
   const headerRef = useRef(null);  // cabeçalho fixo — sua altura REAL vira o offset "top" do carrossel
   const catBarRef = useRef(null); // barra sticky de categorias — usada p/ calcular offset real
-  // Raiz da tela — quem realmente rola NÃO é a window: html/body/#root têm
-  // overflow-x:hidden global (index.css), e o CSS converte automaticamente
-  // o eixo Y ausente para "auto" nesse caso — #root vira o container de
-  // scroll de verdade (tem altura travada em 100%). Esta raiz (.tema-claro-
-  // area) usa min-h-screen (cresce com o conteúdo, nunca rola sozinha), mas
-  // ela PRÓPRIA teria o mesmo overflow-x:hidden aplicado antes — o que a
-  // fazia contar como "scroll container" pro position:sticky (mesmo nunca
-  // rolando de fato), quebrando o cabeçalho/carrossel fixos. Por isso essa
-  // classe não leva mais overflow-x aqui (a raiz global já clipa por fora).
-  // raizRef.current.parentElement é o elemento que REALMENTE rola (#root,
-  // resolvido em runtime — não fixamos o id, só usamos o pai real do DOM).
-  const raizRef = useRef(null);
-  const scrollEl = () => raizRef.current?.parentElement || null;
   // Alturas medidas de verdade (não um px fixo "no chute") — sem isso, o
   // carrossel ficava com top-[64px] fixo, mas a altura real do cabeçalho varia
   // por aparelho (env(safe-area-inset-top) do notch/Dynamic Island) e por modo
@@ -491,137 +479,48 @@ export default function CardapioPublico() {
       window.removeEventListener("orientationchange", medir);
     };
   }, []);
-  const [catAtivaId, setCatAtivaId] = useState(CATEGORIA_TODOS);
-  // Enquanto true, um clique (categoria ou "Todos") disparou uma rolagem suave
-  // programática — o scroll-spy ignora o scroll até ela assentar, pra não
-  // "brigar" com o clique piscando por categorias intermediárias no caminho
-  // (evita o loop rolagem automática ⇄ clique ⇄ estado).
-  const rolandoPorCliqueRef = useRef(false);
-  const cliqueTimeoutRef = useRef(null);
-  // Espaçador dinâmico ao fim: exatamente o necessário para o ÚLTIMO grupo encostar
-  // no topo ao rolar — sem sobra extra (não deixa "passar do topo").
-  const [spacerH, setSpacerH] = useState(0);
+  // Categoria selecionada filtra a lista renderizada (ver `gruposExibidos`
+  // abaixo) — não é mais scroll-spy. Inicializa a partir da URL (?categoria=),
+  // pra recarregar/compartilhar o link já manter o filtro; valida contra as
+  // categorias carregadas no efeito logo abaixo (categoria inexistente/removida
+  // cai em "Todos" em vez de mostrar uma lista vazia).
+  const [catAtivaId, setCatAtivaId] = useState(catURL || CATEGORIA_TODOS);
+  // URL inválida ou categoria que não existe (mais) nesta empresa → volta pra
+  // "Todos". `cats` sempre tem pelo menos "Todos" (mesmo antes do carregamento
+  // terminar) — por isso espera `loja` resolver (não mais `undefined`) antes de
+  // validar, senão uma categoria válida na URL seria descartada cedo demais,
+  // no instante em que produtos/categorias ainda não chegaram do backend.
   useEffect(() => {
-    if (busca || !grupos.length) return;
-    const el = scrollEl();
-    if (!el) return; // raiz ainda não montada — o efeito roda de novo quando grupos mudar
-    // Calcula o grupo atual: o último cujo cabeçalho passou da "linha" (abaixo dos
-    // headers fixos). Determinístico e correto mesmo com seções curtas.
-    const calc = () => {
-      if (rolandoPorCliqueRef.current) return; // rolagem de clique em andamento — não interfere
-      // Perto do fim da página: força o ÚLTIMO grupo, mesmo que o cabeçalho dele
-      // não tenha alcançado a "linha" (seção curta / cardápio pequeno). Lê do
-      // elemento que REALMENTE rola (não window/document — ver `scrollEl`).
-      // Exige scrollTop > 0: sem isso, essa saída disparava logo na primeira
-      // chamada (mount, scrollTop=0) sempre que o scrollHeight ainda não
-      // tinha assentado, acendendo a ÚLTIMA categoria no lugar de "Todos".
-      const scrollTop = el.scrollTop;
-      const scrollHeight = el.scrollHeight;
-      const clientHeight = el.clientHeight;
-      if (scrollTop > 0 && scrollTop + clientHeight >= scrollHeight - 80) {
-        const ultimo = grupos[grupos.length - 1]?.id;
-        setCatAtivaId((cur) => (cur === ultimo ? cur : ultimo));
-        return;
-      }
-      // Linha de deteção = base real da barra sticky de categorias (fallback 140px).
-      // getBoundingClientRect() é relativa ao viewport sempre — não depende de
-      // qual elemento é o scroll container, por isso segue igual aqui.
-      const linha = (catBarRef.current?.getBoundingClientRect().bottom || 140) + 8;
-      // Padrão "Todos": só troca quando o cabeçalho de algum grupo realmente
-      // cruza a linha (entrou visualmente na seção). No topo, antes da
-      // primeira seção, nada cruza — permanece "Todos".
-      let atual = CATEGORIA_TODOS;
-      for (const g of grupos) {
-        const secEl = secRefs.current[g.id];
-        if (secEl && secEl.getBoundingClientRect().top - linha <= 0) atual = g.id;
-      }
-      setCatAtivaId((cur) => (cur === atual ? cur : atual));
-    };
-    // rAF-throttle: o destaque acompanha a rolagem sem travar (mais fluido em iOS/Android).
-    // Some ao debounce curto abaixo: evita trocar de categoria a cada pixel
-    // quando o usuário rola rápido por seções próximas/curtas.
-    let raf = 0;
-    let debounce = 0;
-    const onScroll = () => {
-      if (raf) return;
-      raf = requestAnimationFrame(() => {
-        raf = 0;
-        clearTimeout(debounce);
-        debounce = setTimeout(calc, 60);
-      });
-    };
-    // rootMargin dinâmico = altura real do cabeçalho + carrossel de categorias
-    // (não um valor fixo "no chute") — recalculado sempre que os grupos mudam
-    // (cardápio carregado dinamicamente pode alterar a altura da barra).
-    // root = o elemento que REALMENTE rola — sem isso, o IntersectionObserver
-    // usa a viewport como referência por padrão, que nesta tela não é quem
-    // rola (ver `scrollEl` acima); com o root errado, os thresholds de
-    // interseção não refletem a rolagem real.
-    const topoReal = Math.round((catBarRef.current?.getBoundingClientRect().bottom || 140) + 8);
-    const obs = new IntersectionObserver(onScroll, { root: el, threshold: [0, 0.5, 1], rootMargin: `-${topoReal}px 0px 0px 0px` });
-    Object.values(secRefs.current).forEach((secEl) => secEl && obs.observe(secEl));
-    calc();
-    el.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onScroll);
-    return () => {
-      obs.disconnect();
-      cancelAnimationFrame(raf);
-      clearTimeout(debounce);
-      el.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onScroll);
-    };
-  }, [busca, grupos]);
-  // Limpa o timeout do "clique em andamento" ao desmontar.
-  useEffect(() => () => clearTimeout(cliqueTimeoutRef.current), []);
-  // Mede a altura do último grupo p/ dimensionar o espaçador (recalcula ao carregar imagens/redimensionar).
+    if (catAtivaId === CATEGORIA_TODOS || loja === undefined) return;
+    if (!cats.some((c) => String(c.id) === String(catAtivaId))) setCatAtivaId(CATEGORIA_TODOS);
+  }, [cats, catAtivaId, loja]);
+  // Reflete a categoria selecionada na URL (compartilhamento/recarregamento
+  // mantêm o filtro) sem empilhar histórico a cada clique — replaceState, não
+  // pushState. Preserva os demais parâmetros (e, mesa, mid, c).
   useEffect(() => {
-    if (busca || !grupos.length) { setSpacerH(0); return; }
-    const ultimo = grupos[grupos.length - 1].id;
-    // Altura de referência ESTÁVEL: não acompanha o toggle da barra do navegador
-    // (que muda só a altura). Assim o scrollHeight não encolhe ao rolar e a tela
-    // não "volta" para um grupo anterior. Só atualiza em rotação (muda a largura).
-    let vh = window.innerHeight;
-    let lastW = window.innerWidth;
-    // Desconta a barra de categorias + a folga das barras do carrinho, para o último
-    // grupo pousar logo abaixo do header — sem vazio extra.
-    const medir = () => { const el = secRefs.current[ultimo]; if (el) setSpacerH(Math.max(0, Math.round(vh - el.getBoundingClientRect().height - 200))); };
-    const onResize = () => { if (window.innerWidth === lastW) return; lastW = window.innerWidth; vh = window.innerHeight; medir(); };
-    medir();
-    const t = setTimeout(medir, 350);
-    const el = secRefs.current[ultimo];
-    const ro = (typeof ResizeObserver !== "undefined" && el) ? new ResizeObserver(medir) : null;
-    if (ro && el) ro.observe(el);
-    window.addEventListener("resize", onResize);
-    window.addEventListener("load", medir);
-    return () => { clearTimeout(t); if (ro) ro.disconnect(); window.removeEventListener("resize", onResize); window.removeEventListener("load", medir); };
-  }, [busca, grupos]);
+    const url = new URL(window.location.href);
+    if (catAtivaId !== CATEGORIA_TODOS) url.searchParams.set("categoria", catAtivaId);
+    else url.searchParams.delete("categoria");
+    window.history.replaceState(null, "", url.toString());
+  }, [catAtivaId]);
   // Mantém o chip ativo visível na barra horizontal
   useEffect(() => {
     const el = chipRefs.current[catAtivaId];
     if (el) el.scrollIntoView({ behavior: motionOk() ? "smooth" : "auto", inline: "center", block: "nearest" });
   }, [catAtivaId]);
-  const irParaCategoria = (id) => {
+  // Lista exibida: "Todos" mostra todos os grupos; qualquer outra categoria
+  // filtra pra mostrar SÓ o grupo selecionado (oculta as demais seções).
+  const gruposExibidos = useMemo(
+    () => (catAtivaId === CATEGORIA_TODOS ? grupos : grupos.filter((g) => String(g.id) === String(catAtivaId))),
+    [grupos, catAtivaId],
+  );
+  const selecionarCategoria = (id) => {
     setBusca("");
     setCatAtivaId(id);
-    // Trava o scroll-spy durante a rolagem programática — sem isso, o
-    // clique em "Sobremesas" (por ex.) piscaria pelas categorias que ficam
-    // no caminho até chegar lá. Libera sozinha depois que a rolagem suave
-    // termina (tempo generoso; se o usuário rolar de novo por conta própria
-    // antes disso, o clique seguinte já reseta o timeout normalmente).
-    clearTimeout(cliqueTimeoutRef.current);
-    rolandoPorCliqueRef.current = true;
-    cliqueTimeoutRef.current = setTimeout(() => { rolandoPorCliqueRef.current = false; }, 700);
-    // scrollIntoView() em vez de window.scrollTo(): funciona não importa qual
-    // ancestral é o container de rolagem de verdade (aqui é #root, não
-    // window — ver `scrollEl`), sem precisar calcular offset na mão. O
-    // scroll-margin-top de cada seção (estilo inline, abaixo) já reserva o
-    // espaço do cabeçalho+carrossel fixos, então o título nunca fica
-    // escondido atrás deles.
-    const comportamento = motionOk() ? "smooth" : "auto";
-    if (id === CATEGORIA_TODOS) { topoRef.current?.scrollIntoView({ behavior: comportamento, block: "start" }); return; }
-    const alvo = secRefs.current[id];
-    if (!alvo) return;
-    alvo.scrollIntoView({ behavior: comportamento, block: "start" });
+    // Troca de categoria sempre volta a lista ao topo (não há mais seções
+    // lado a lado pra rolar até — scrollIntoView funciona não importa qual
+    // ancestral é o container de rolagem de verdade, sem calcular offset na mão).
+    topoRef.current?.scrollIntoView({ behavior: motionOk() ? "smooth" : "auto", block: "start" });
   };
   // Ofertas: ícone/resumo/validade por tipo + clique leva ao combo/categoria
   const combosRef = useRef(null);
@@ -638,7 +537,7 @@ export default function CardapioPublico() {
     if (p.tipo === "combo") { combosRef.current?.scrollIntoView({ behavior: motionOk() ? "smooth" : "auto", block: "center" }); return; }
     const catNome = p.categoriaId != null ? catNomePorId[p.categoriaId] : null;
     const grupoAlvo = catNome ? grupos.find((g) => g.nome === catNome) : null;
-    if (grupoAlvo) { irParaCategoria(grupoAlvo.id); return; }
+    if (grupoAlvo) { selecionarCategoria(grupoAlvo.id); return; }
     topoRef.current?.scrollIntoView({ behavior: motionOk() ? "smooth" : "auto", block: "start" });
   };
   const renderProduto = (item) => {
@@ -984,7 +883,7 @@ export default function CardapioPublico() {
     aceitaExterno && opcoesEntrega.length > 0 && opcoesEntrega.some((o) => o.id === tipoPedido) && minimoFalta <= 0
   ));
   return (
-    <div ref={raizRef} data-theme="light" className="tema-claro-area min-h-screen w-full max-w-[100vw] bg-[#F7F8FA] text-[#182230]" style={{ minHeight: "100dvh", paddingBottom: `calc(env(safe-area-inset-bottom) + ${cart.length > 0 ? 150 : 92}px)` }}>
+    <div data-theme="light" className="tema-claro-area min-h-screen w-full max-w-[100vw] bg-[#F7F8FA] text-[#182230]" style={{ minHeight: "100dvh", paddingBottom: `calc(env(safe-area-inset-bottom) + ${cart.length > 0 ? 150 : 92}px)` }}>
       {/* Cabeçalho */}
       <header ref={headerRef} className="sticky top-0 z-30 border-b border-[#E5E7EB] bg-white px-4 pb-3 backdrop-blur-xl" style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)" }}>
         <div className="mx-auto flex max-w-3xl items-center gap-3">
@@ -1018,16 +917,31 @@ export default function CardapioPublico() {
       )}
 
       <main className="mx-auto max-w-3xl px-4">
-        {/* Sentinela do topo — "Todos" rola até aqui (scrollIntoView), sem
-            depender de window.scrollTo (que não move a rolagem real desta
-            tela — quem rola é #root, não a window). */}
+        {/* Sentinela do topo — toda troca de categoria rola até aqui
+            (scrollIntoView), sem depender de window.scrollTo (que não move a
+            rolagem real desta tela — quem rola é #root, não a window). */}
         <div ref={topoRef} aria-hidden="true" style={{ scrollMarginTop: 0 }} />
-        {/* Categorias — clique rola até o grupo; ao rolar, o grupo atual é destacado */}
-        <div ref={catBarRef} className="pp-noscrollbar sticky z-20 -mx-4 flex gap-2 overflow-x-auto border-b border-[#E5E7EB] bg-white/96 px-4 py-4 backdrop-blur" style={{ top: headerH }}>
-          {cats.map((c) => { const ativo = !busca && catAtivaId === c.id;
+        {/* Categorias — clique FILTRA a lista (mostra só aquela categoria);
+            role="tablist"/"tab" + navegação por seta (padrão ARIA de abas),
+            já que o comportamento agora é de fato mostrar/ocultar conteúdo. */}
+        <div ref={catBarRef} role="tablist" aria-label="Categorias" className="pp-noscrollbar sticky z-20 -mx-4 flex gap-2 overflow-x-auto border-b border-[#E5E7EB] bg-white/96 px-4 py-4 backdrop-blur" style={{ top: headerH }}>
+          {cats.map((c, idx) => { const ativo = !busca && catAtivaId === c.id;
+            // tabIndex roving segue a categoria selecionada de verdade (não o
+            // "ativo" visual, que também exige !busca) — senão, durante uma
+            // busca nenhum chip ficaria alcançável por Tab.
+            const focavel = catAtivaId === c.id;
+            const navegarTeclado = (e) => {
+              if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
+              e.preventDefault();
+              const n = cats.length;
+              const novoIdx = e.key === "ArrowLeft" ? (idx - 1 + n) % n : e.key === "ArrowRight" ? (idx + 1) % n : e.key === "Home" ? 0 : n - 1;
+              const alvo = cats[novoIdx];
+              selecionarCategoria(alvo.id);
+              chipRefs.current[alvo.id]?.focus();
+            };
             return (
-              <button key={c.id} type="button" ref={(el) => (chipRefs.current[c.id] = el)} onClick={() => irParaCategoria(c.id)}
-                aria-current={ativo ? "true" : undefined}
+              <button key={c.id} type="button" role="tab" ref={(el) => (chipRefs.current[c.id] = el)} onClick={() => selecionarCategoria(c.id)} onKeyDown={navegarTeclado}
+                aria-selected={ativo} tabIndex={focavel ? 0 : -1}
                 className={`flex min-h-[44px] shrink-0 items-center rounded-full border px-4 text-sm font-bold transition ${ativo ? "border-[#D9A441] bg-[#FFF7E0] text-[#182230]" : "border-[#E5E7EB] bg-white text-[#475467] hover:bg-[#F9FAFB]"}`}>
                 {ativo ? "★ " : ""}{c.nome}
               </button>
@@ -1111,11 +1025,13 @@ export default function CardapioPublico() {
             {itensBusca.map(renderProduto)}
           </div>
         ) : (
-          /* Cardápio dividido por grupo — cada seção é âncora do scroll-spy */
+          /* Cardápio filtrado pela categoria selecionada — "Todos" mostra todos
+             os grupos; qualquer outra categoria mostra só o grupo escolhido
+             (ver `gruposExibidos`), com as demais seções ocultas de verdade. */
           <div className="pb-6">
-            {grupos.length === 0 && <p className="py-10 text-center text-sm text-[#667085]">Nenhum produto disponível.</p>}
-            {grupos.map((g) => (
-              <section key={g.id} ref={(el) => (secRefs.current[g.id] = el)} id={`cat-${g.id}`} data-cat-id={g.id} style={{ scrollMarginTop: headerH + catBarH + 8 }}>
+            {gruposExibidos.length === 0 && <p className="py-10 text-center text-sm text-[#667085]">Nenhum produto disponível.</p>}
+            {gruposExibidos.map((g) => (
+              <section key={g.id} id={`cat-${g.id}`}>
                 <div className="sticky z-10 -mx-4 mb-3 mt-1 flex items-center gap-2 bg-[#F7F8FA]/95 px-4 py-1.5 backdrop-blur" style={{ top: headerH + catBarH }}>
                   <span className="h-4 w-1 rounded-full bg-[#D9A441]" />
                   <h2 className="text-sm font-black uppercase tracking-wide text-[#182230]">{g.nome}</h2>
@@ -1126,8 +1042,6 @@ export default function CardapioPublico() {
                 </div>
               </section>
             ))}
-            {/* Espaçador mínimo: deixa o último grupo encostar no topo ao rolar, sem sobra. */}
-            <div aria-hidden style={{ height: spacerH }} />
           </div>
         )}
       </main>
