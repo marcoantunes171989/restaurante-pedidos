@@ -8,7 +8,7 @@ import {
 } from "./lib/supabase";
 import { cardapioViaRpc } from "./lib/authMode";
 import { useScrollLock } from "./lib/scrollLock";
-import { CATEGORIA_TODOS, agruparProdutosPorCategoria, montarListaCategorias, escolherCategoriaAtiva, idUltimoGrupo, calcularDestinoScroll } from "./lib/cardapioCategorias";
+import { CATEGORIA_TODOS, agruparProdutosPorCategoria, montarListaCategorias, escolherCategoriaAtiva, calcularDestinoScroll } from "./lib/cardapioCategorias";
 import SatisfactionSurvey from "./components/SatisfactionSurvey";
 import {
   ProdutoModal, formatCurrency, fallbackImage, statusMap, STATUS_TABLET_LABEL, isValidCommand,
@@ -401,7 +401,6 @@ export default function CardapioPublico() {
   const cats = useMemo(() => montarListaCategorias(grupos), [grupos]);
 
   const secRefs = useRef({});      // uma ref por seção de categoria — alvo do clique e do IntersectionObserver
-  const finalRef = useRef(null);   // sentinela após a última seção — ao entrar na tela, força a ÚLTIMA categoria
   const chipRefs = useRef({});
   const topoRef = useRef(null);    // sentinela no topo — "Todos" rola até aqui
   const headerRef = useRef(null);  // cabeçalho fixo — sua altura REAL vira o offset "top" do carrossel
@@ -492,18 +491,16 @@ export default function CardapioPublico() {
       // throttle por requestAnimationFrame + debounce curto (evita trocar de
       // categoria a cada pixel ao rolar rápido por seções próximas/curtas).
       // Algoritmo deliberadamente diferente do observer abaixo: aqui vence a
-      // ÚLTIMA seção cujo topo já passou da linha (varredura simples), em vez
-      // de "primeira seção cruzando a faixa" — sem IntersectionObserver não
-      // há uma "faixa" sendo rastreada, só a posição atual de cada seção.
+      // ÚLTIMA seção cujo topo já passou da linha vence (varredura simples) —
+      // é a mesma seção cujo cabeçalho sticky está "fixo no topo" agora: se
+      // várias seções curtas ficam empilhadas visualmente no fim do cardápio
+      // (sem espaço pra rolar cada uma até o fim), a que está fixa é sempre a
+      // primeira delas (as seguintes ainda não "chegaram" na linha), nunca
+      // necessariamente a última categoria do cardápio.
       let raf = 0, debounce = 0;
       const calc = () => {
         if (rolandoPorCliqueRef.current) return;
-        const scrollTop = el.scrollTop, scrollHeight = el.scrollHeight, clientHeight = el.clientHeight;
-        if (scrollTop > 0 && scrollTop + clientHeight >= scrollHeight - 4) {
-          const ultimo = idUltimoGrupo(grupos);
-          setCatAtivaId((cur) => (cur === ultimo ? cur : ultimo));
-          return;
-        }
+        if (el.scrollTop <= 0) { setCatAtivaId((cur) => (cur === CATEGORIA_TODOS ? cur : CATEGORIA_TODOS)); return; }
         let atual = CATEGORIA_TODOS;
         for (const g of grupos) {
           const secEl = secRefs.current[g.id];
@@ -517,67 +514,55 @@ export default function CardapioPublico() {
       return () => { el.removeEventListener("scroll", onScroll); cancelAnimationFrame(raf); clearTimeout(debounce); };
     }
 
-    const naFaixa = new Set(); // ids das seções cruzando a linha agora
+    // ids das seções com QUALQUER parte visível abaixo da linha de referência
+    // agora (não uma faixa fina — da linha até o fim do container). A
+    // categoria ativa é a PRIMEIRA dessas na ordem do cardápio: entre as
+    // seções ainda visíveis abaixo da linha, é sempre a mais "de cima" delas
+    // que já cruzou a linha e está com o cabeçalho sticky fixo ali — as
+    // seguintes (mesmo já parcialmente visíveis, empilhadas por falta de
+    // espaço pra rolar mais, como no fim de um cardápio com categorias
+    // curtas) ainda não "chegaram". Ex. real: Acompanhamentos(4)/
+    // Sobremesas(1)/Bebidas(2) no fim de um cardápio curto — no scroll
+    // máximo as 3 aparecem juntas na tela, mas só Acompanhamentos está de
+    // fato fixa sob a barra; as outras duas ainda estão no fluxo normal,
+    // abaixo dela.
+    const visiveisAbaixoDaLinha = new Set();
+    // Debounce curto: evita a categoria "piscar" entre vizinhas durante uma
+    // rolagem rápida (arrastar/fling) — só assenta no valor final depois que
+    // as intersecções param de mudar por um instante.
+    let debounceEscolha = 0;
     const escolher = () => {
       if (rolandoPorCliqueRef.current) return;
-      let alvo;
-      if (el.scrollTop <= 0) {
-        // No topo de verdade, "Todos" sempre vence — mesmo que a geometria da
-        // primeira seção coloque seu topo dentro da faixa (ex.: cardápio sem
-        // ofertas/combos, aviso de personalização baixo).
-        alvo = CATEGORIA_TODOS;
-      } else if (el.scrollTop + el.clientHeight >= el.scrollHeight - 4) {
-        // No fundo de verdade (scroll máximo), a ÚLTIMA categoria sempre
-        // vence — sem isso, uma seção curta perto do fim (cujo conteúdo não
-        // preenche toda a faixa de detecção) podia fazer a categoria ativa
-        // "regredir" pra uma anterior assim que a última seção saía da
-        // faixa, mesmo já no scroll máximo (sem como rolar mais pra
-        // confirmar a última de novo). Confirmado com teste real de
-        // navegador num cardápio com poucas categorias/itens no fim.
-        alvo = idUltimoGrupo(grupos) ?? CATEGORIA_TODOS;
-      } else {
-        alvo = escolherCategoriaAtiva(grupos, naFaixa);
-      }
-      setCatAtivaId((cur) => (cur === alvo ? cur : alvo));
+      clearTimeout(debounceEscolha);
+      debounceEscolha = setTimeout(() => {
+        const alvo = el.scrollTop <= 0 ? CATEGORIA_TODOS : escolherCategoriaAtiva(grupos, visiveisAbaixoDaLinha);
+        setCatAtivaId((cur) => (cur === alvo ? cur : alvo));
+      }, 80);
     };
-    // obsSecoes/obsFim são recriados (não só reposicionados) sempre que o
-    // CONTAINER DE ROLAGEM muda de tamanho — não apenas quando grupos/headerH/
-    // catBarH mudam. O rootMargin abaixo usa el.clientHeight capturado no
-    // instante da criação; se essa altura mudar depois (ex.: iframe embutido
-    // num site externo redimensionado pelo script de auto-resize do host DEPOIS
-    // do primeiro paint, ou teclado virtual/barra do navegador mobile
-    // recolhendo), o observer antigo ficaria com uma faixa de detecção errada
-    // pro resto da sessão — a categoria ativa parava de acompanhar a rolagem
-    // exatamente nesses casos (mesmo código, mesmo comportamento no acesso
-    // direto — onde o viewport raramente muda de tamanho depois do mount).
-    let obsSecoes, obsFim;
+    // obsSecoes é recriado (não só reposicionado) sempre que o CONTAINER DE
+    // ROLAGEM muda de tamanho — não apenas quando grupos/headerH/catBarH
+    // mudam. O rootMargin abaixo usa el.clientHeight capturado no instante da
+    // criação; se essa altura mudar depois (ex.: iframe embutido num site
+    // externo redimensionado pelo script de auto-resize do host DEPOIS do
+    // primeiro paint, ou teclado virtual/barra do navegador mobile
+    // recolhendo), o observer antigo ficaria com uma faixa de detecção
+    // errada pro resto da sessão — a categoria ativa parava de acompanhar a
+    // rolagem exatamente nesses casos (mesmo código, mesmo comportamento no
+    // acesso direto — onde o viewport raramente muda de tamanho depois do
+    // mount).
+    let obsSecoes;
     const criarObservers = () => {
       obsSecoes?.disconnect();
-      obsFim?.disconnect();
-      naFaixa.clear();
+      visiveisAbaixoDaLinha.clear();
       obsSecoes = new IntersectionObserver((entries) => {
         entries.forEach((entry) => {
           const id = entry.target.dataset.catId;
-          if (entry.isIntersecting) naFaixa.add(id); else naFaixa.delete(id);
+          if (entry.isIntersecting) visiveisAbaixoDaLinha.add(id); else visiveisAbaixoDaLinha.delete(id);
         });
         escolher();
-      }, { root: el, rootMargin: `-${linha}px 0px -${Math.max(0, el.clientHeight - linha - 1)}px 0px`, threshold: 0 });
+      }, { root: el, rootMargin: `-${linha}px 0px 0px 0px`, threshold: 0 });
       Object.values(secRefs.current).forEach((secEl) => secEl && obsSecoes.observe(secEl));
       escolher();
-
-      if (finalRef.current) {
-        obsFim = new IntersectionObserver((entries) => {
-          // scrollTop > 0: sem isso, um cardápio mais curto que a tela (nunca
-          // rola) manteria o sentinela sempre visível e forçaria a última
-          // categoria mesmo sem o usuário ter rolado nada.
-          if (rolandoPorCliqueRef.current || el.scrollTop <= 0) return;
-          if (entries[0]?.isIntersecting) {
-            const ultimo = idUltimoGrupo(grupos);
-            setCatAtivaId((cur) => (cur === ultimo ? cur : ultimo));
-          }
-        }, { root: el, threshold: 0 });
-        obsFim.observe(finalRef.current);
-      }
     };
     criarObservers();
 
@@ -595,7 +580,7 @@ export default function CardapioPublico() {
 
     return () => {
       obsSecoes?.disconnect();
-      obsFim?.disconnect();
+      clearTimeout(debounceEscolha);
       roEl?.disconnect();
       clearTimeout(debounceResize);
     };
@@ -1165,9 +1150,6 @@ export default function CardapioPublico() {
                 </div>
               </section>
             ))}
-            {/* Sentinela do fim da lista — ver o efeito de sincronização acima
-                (força a última categoria ao entrar na tela). */}
-            <div ref={finalRef} aria-hidden="true" />
           </div>
         )}
       </main>

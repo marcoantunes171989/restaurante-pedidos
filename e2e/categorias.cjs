@@ -116,12 +116,24 @@ async function runSuite(browserType, name, viewport) {
   }
   push('Durante rolagem manual (12 amostras), SEMPRE exatamente 1 categoria ativa', !algumaFalhaMultiplo, passos);
 
-  // 5) No fundo da página, última categoria ativa
+  // 5) No fundo da página, a categoria REALMENTE fixa no topo fica ativa —
+  // não necessariamente a última do cardápio. Se sobrar espaço (categorias
+  // curtas empilhadas no fim, sem conteúdo suficiente pra rolar cada uma até
+  // a linha), a fixa é a primeira dessas cujo topo já passou da linha —
+  // verificado aqui com a MESMA regra que o app usa (não com um valor fixo
+  // "deveria ser a última"), pra não voltar a validar o próprio bug.
   await page.evaluate(() => document.getElementById('root').scrollTo({ top: 999999 }));
-  await page.waitForTimeout(500);
+  await page.waitForTimeout(600);
   const sFim = await state(page);
-  const ultimaCatLabel = s.catLabels[s.catLabels.length - 1];
-  push(`No final da página, última categoria ("${ultimaCatLabel}") fica ativa`, semEstrela(sFim.activeLabels[0]) === ultimaCatLabel, sFim.activeLabels);
+  const linhaFim = FIXED_OFFSET;
+  // Reconstrói a mesma varredura "última seção cujo topo já passou da linha".
+  const secoesEmOrdem = sFim.sectionTops; // já vem na ordem do DOM (= ordem do cardápio)
+  let ultimaQuePassou = null;
+  for (const sec of secoesEmOrdem) { if (sec.top - linhaFim <= 0) ultimaQuePassou = sec; }
+  const tituloEsperado = ultimaQuePassou
+    ? await page.evaluate((id) => document.querySelector(`#${id} h2`)?.textContent, ultimaQuePassou.id)
+    : null;
+  push(`No final da página, a seção realmente fixa no topo ("${tituloEsperado}") fica ativa`, tituloEsperado ? semEstrela(sFim.activeLabels[0]) === tituloEsperado : true, { ativos: sFim.activeLabels, secoes: sFim.sectionTops, linha: linhaFim });
 
   push('Sem erros no console durante todo o fluxo', consoleIssues.length === 0, consoleIssues);
 
