@@ -621,6 +621,8 @@ export default function RestaurantePedidoApp() {
   const [lojaContexto, setLojaContexto] = useState(null); // super admin: empresa em foco para cadastros
   const [dbReady, setDbReady] = useState(false);
   const [loading, setLoading]     = useState(true);
+  const [entregandoId, setEntregandoId] = useState(null); // id do pedido sendo marcado como entregue agora (desabilita o botão dele)
+  const entregandoRef = useRef(false); // trava síncrona contra duplo clique / condição de corrida (mesmo padrão do checkout público)
   const [scannerAberto, setScannerAberto] = useState(false);
 
   // ── Carregamento inicial + Realtime para todas as tabelas ────
@@ -1266,17 +1268,39 @@ export default function RestaurantePedidoApp() {
 
   async function marcarEntregue(oid) {
     if (!canAccess(currentUser, "kitchen")) return notify("error", "Usuário sem permissão.");
+    // Trava síncrona contra duplo clique/toque: sem isso, dois cliques rápidos
+    // no botão (ou um clique + o card ainda visível por um instante) podiam
+    // disparar duas gravações concorrentes pro mesmo pedido.
+    if (entregandoRef.current) return;
     // Pedido externo (delivery/retirada) só é liberado para entrega após pagamento total.
     const ped = orders.find((o) => o.id === oid);
     if (ped && (ped.table === "Externo" || /^EXT-/.test(ped.command || "")) && ped.paymentStatus !== "paid")
       return notify("error", "Pagamento pendente — finalize o pagamento antes de liberar a entrega.");
+    entregandoRef.current = true;
+    setEntregandoId(oid);
     // Remove da view ativa imediatamente (UI responsiva)
     setOrders((cur) => cur.map((o) => o.id === oid ? { ...o, status: "delivered" } : o));
-    // Salva no banco como "entregue" — mantido para relatórios
+    // Salva no banco pelo mesmo caminho confiável de updateOrderStatus: helper
+    // atualizarPedido() + mapeamento oficial STATUS_APP_PARA_DB (delivered →
+    // 'entregue'), não chamamos updateOrderStatus() diretamente porque ela
+    // engole erros silenciosamente (sem repassar falha pra quem chamou) — e
+    // aqui precisamos saber se deu certo pra desfazer a atualização otimista
+    // e avisar o usuário em caso de falha, sem alterar o comportamento de
+    // Preparar/Finalizar.
+    const statusDb = STATUS_APP_PARA_DB.delivered; // 'entregue'
     if (dbReady) {
-      try { await atualizarPedido(oid, { status: "entregue" }); }
-      catch (err) { console.error("Erro ao marcar como entregue:", err); }
+      try {
+        await atualizarPedido(oid, { status: statusDb });
+      } catch (err) {
+        console.error("Erro ao marcar como entregue:", err);
+        // Desfaz a atualização otimista — sem isso, o card ficava mostrando
+        // "entregue" na tela mesmo com a gravação tendo falhado no banco.
+        setOrders((cur) => cur.map((o) => o.id === oid ? { ...o, status: "ready" } : o));
+        notify("error", "Não foi possível marcar o pedido como entregue. Tente novamente.");
+      }
     }
+    entregandoRef.current = false;
+    setEntregandoId(null);
   }
 
   // Confirma a retirada do produto no balcão a partir do financeiro (Caixa).
@@ -2265,7 +2289,7 @@ export default function RestaurantePedidoApp() {
         )}
 
         {activeTab === "kitchen" && canAccess(currentUser, "kitchen") && (
-          <KitchenView groupedOrders={groupedOrders} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} cancelarPedido={cancelarPedido} currentUser={currentUser} lojaInfo={lojaInfo} setores={filtraLoja(setoresCozinha)} produtos={products} setorInicial={cozinhaSetorInicial} />
+          <KitchenView groupedOrders={groupedOrders} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} entregandoId={entregandoId} cancelarPedido={cancelarPedido} currentUser={currentUser} lojaInfo={lojaInfo} setores={filtraLoja(setoresCozinha)} produtos={products} setorInicial={cozinhaSetorInicial} />
         )}
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} products={products} lojaInfo={lojaInfo} />}
         {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierView orders={orders} baixarComandas={baixarComandas} formasPagamento={formasPagamentoLoja} lojaInfo={lojaInfo} />}
@@ -3751,7 +3775,7 @@ const kitchenCols = [
   { key: "ready",     label: "Finalizado", sub: "Pronto p/ retirada",dot: "bg-[#16A34A]", text: "text-[#047857]", header: "border-[#86EFAC] bg-[#ECFDF3]", card: "border-[#E5E7EB]" },
 ];
 
-function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, cancelarPedido, currentUser, lojaInfo, setores = [], produtos = [], setorInicial = null }) {
+function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, entregandoId = null, cancelarPedido, currentUser, lojaInfo, setores = [], produtos = [], setorInicial = null }) {
   const [cancelando, setCancelando] = useState(null); // pedido a cancelar
   const [setorFiltro, setSetorFiltro] = useState(setorInicial); // null = todos
   // "Filtrar cozinha" (vindo da tela de Setores) define o setor inicial
@@ -3953,8 +3977,12 @@ function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, cancela
                       {order.status === "ready" && (
                         <button
                           onClick={() => marcarEntregue(order.id)}
-                          className="w-full rounded-2xl border border-[#D9A441] bg-[#D9A441] py-3 text-sm font-black text-[#182230] hover:bg-[#C7922F] transition duration-200 active:scale-95 shadow-sm">
-                          🛎️ Marcar como Entregue
+                          disabled={entregandoId === order.id}
+                          className={`w-full rounded-2xl border py-3 text-sm font-black transition duration-200 active:scale-95 shadow-sm
+                            ${entregandoId === order.id
+                              ? "cursor-not-allowed border-[#E5E7EB] bg-[#F3F4F6] text-[#98A2B3]"
+                              : "border-[#D9A441] bg-[#D9A441] text-[#182230] hover:bg-[#C7922F]"}`}>
+                          {entregandoId === order.id ? "Enviando…" : "🛎️ Marcar como Entregue"}
                         </button>
                       )}
 
