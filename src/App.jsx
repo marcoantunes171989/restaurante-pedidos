@@ -3386,7 +3386,68 @@ function TabletView({
 
 // ════════════════════════════════════════════════════════════
 //  Modal de detalhes/personalização do produto
+//  Ícones inline (mesma convenção de src/components/PrimeIcons.jsx —
+//  stroke=currentColor, sem lib externa) usados só aqui.
 // ════════════════════════════════════════════════════════════
+const pmIconBase = { width: 20, height: 20, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true };
+const PmIconVoltar   = () => (<svg {...pmIconBase}><path d="M19 12H5" /><path d="m11 18-6-6 6-6" /></svg>);
+const PmIconCoracao  = ({ preenchido }) => (<svg {...pmIconBase} fill={preenchido ? "currentColor" : "none"}><path d="M12 20.5s-7.5-4.6-10-9.3C.4 7.8 2 4.5 5.4 4A5 5 0 0 1 12 7a5 5 0 0 1 6.6-3c3.4.5 5 3.8 3.4 7.2-2.5 4.7-10 9.3-10 9.3Z" /></svg>);
+const PmIconCheck    = (p) => (<svg {...pmIconBase} width={14} height={14} strokeWidth={3} {...p}><path d="M20 6 9 17l-5-5" /></svg>);
+const PmIconX        = (p) => (<svg {...pmIconBase} width={12} height={12} strokeWidth={3} {...p}><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>);
+const PmIconMenos    = () => (<svg {...pmIconBase} width={18} height={18} strokeWidth={2.5}><path d="M5 12h14" /></svg>);
+const PmIconMais     = () => (<svg {...pmIconBase} width={18} height={18} strokeWidth={2.5}><path d="M12 5v14" /><path d="M5 12h14" /></svg>);
+const PmIconSpinner  = () => (<svg className="animate-spin" width={18} height={18} viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" opacity=".25" /><path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" /></svg>);
+const PmIconAlerta   = () => (<svg {...pmIconBase} width={15} height={15} strokeWidth={2.4}><path d="M12 9v4" /><path d="M12 17h.01" /><path d="M10.3 3.9 2 18a1.5 1.5 0 0 0 1.3 2.3h17.4A1.5 1.5 0 0 0 22 18L13.7 3.9a1.7 1.7 0 0 0-3.4 0Z" /></svg>);
+
+// Chip de seleção — usado em todas as seções de personalização (grupos de
+// opções, adicionais, remoção de ingredientes). Não reaproveita o FilterChip
+// (src/components/Prime.jsx) porque aquele acopla borda+fundo na mesma
+// variável de cor (preenchimento sólido, padrão das telas administrativas);
+// aqui o requisito é fundo suave + borda cheia na cor principal + ícone
+// condicional — por isso um componente local pequeno, com os MESMOS estados
+// (padrão/hover/foco/selecionado/desabilitado) e a MESMA cor azul oficial
+// (var(--color-primary), definida em src/index.css) em vez de um hex novo.
+function ChipSelecao({ selecionado, disabled = false, onClick, texto, detalhe, icone = "check" }) {
+  return (
+    <button type="button" onClick={onClick} disabled={disabled} aria-pressed={selecionado}
+      className={`group flex min-h-11 shrink-0 items-center gap-2 rounded-2xl border px-3.5 py-2 text-left text-sm font-medium transition-all duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary)] ${
+        disabled
+          ? "cursor-not-allowed border-[#E5E7EB] bg-[#F1F5F9] text-[#98A2B3]"
+          : selecionado
+            ? "border-[var(--color-primary)] bg-[#EFF6FF] text-[#182230] shadow-[0_1px_2px_rgba(37,99,235,.15)]"
+            : "border-[#E5E7EB] bg-white text-[#475467] hover:border-[#BFDBFE] hover:bg-[#F8FAFC]"
+      }`}>
+      <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors ${
+        disabled ? "border-[#D0D5DD]" : selecionado ? "border-[var(--color-primary)] bg-[var(--color-primary)] text-white" : "border-[#D0D5DD] text-transparent group-hover:border-[#94A3B8]"
+      }`}>
+        {icone === "remover" ? <PmIconX /> : <PmIconCheck />}
+      </span>
+      <span className="min-w-0">{texto}</span>
+      {detalhe != null && (
+        <span className={`shrink-0 text-xs font-semibold ${disabled ? "text-[#98A2B3]" : selecionado ? "text-[#1D4ED8]" : "text-[#98A2B3]"}`}>{detalhe}</span>
+      )}
+    </button>
+  );
+}
+
+// Título de seção (grupo de opções / adicionais / remoção) com selo
+// Obrigatório · Opcional · Concluído — nunca só cor: sempre com texto/ícone.
+function SecaoTitulo({ titulo, subtitulo, selo }) {
+  return (
+    <div className="mb-2.5 flex items-start justify-between gap-3">
+      <div className="min-w-0">
+        <h3 className="text-[13px] font-bold uppercase tracking-[0.14em] text-[#182230]">{titulo}</h3>
+        {subtitulo && <p className="mt-0.5 text-xs text-[#667085]">{subtitulo}</p>}
+      </div>
+      {selo && (
+        <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${selo.tom}`}>
+          {selo.icone}{selo.texto}
+        </span>
+      )}
+    </div>
+  );
+}
+
 export function ProdutoModal({ produto, onFechar, onAdicionar, grupos = [], opcoes = [] }) {
   useScrollLock(); // trava a rolagem do fundo enquanto o modal está aberto
   const [quantidade, setQuantidade]   = useState(1);
@@ -3395,21 +3456,40 @@ export function ProdutoModal({ produto, onFechar, onAdicionar, grupos = [], opco
   const [extras, setExtras]             = useState([]); // nomes dos adicionais selecionados
   const [observacao, setObservacao]     = useState("");
   const [escolhas, setEscolhas]         = useState({});    // { [grupoId]: [opcaoId, ...] } — variações/adicionais estruturados
+  const indisponivel = produto.disponivel === false; // defensivo: os chamadores já bloqueiam a abertura, mas a tela reage corretamente se acontecer
 
   // Favorito — persistido localmente por empresa/dispositivo (sem tabela nova)
   const FAV_KEY = `pedidoPrime:favoritos:${produto.lojaId || produto.empresaId || "geral"}`;
   const lerFavoritos = () => { try { return new Set(JSON.parse(localStorage.getItem(FAV_KEY) || "[]")); } catch { return new Set(); } };
   const [favorito, setFavorito] = useState(() => lerFavoritos().has(produto.id));
+  const [favPop, setFavPop] = useState(false); // microinteração: "pop" rápido no coração ao favoritar
   const [toastFav, setToastFav] = useState("");
   useEffect(() => { if (!toastFav) return; const t = setTimeout(() => setToastFav(""), 1800); return () => clearTimeout(t); }, [toastFav]);
+  useEffect(() => { if (!favPop) return; const t = setTimeout(() => setFavPop(false), 260); return () => clearTimeout(t); }, [favPop]);
   function toggleFavorito() {
     const set = lerFavoritos();
     const novo = !favorito;
     if (novo) set.add(produto.id); else set.delete(produto.id);
     try { localStorage.setItem(FAV_KEY, JSON.stringify([...set])); } catch {}
     setFavorito(novo);
+    setFavPop(true);
     setToastFav(novo ? "Produto adicionado aos favoritos" : "Produto removido dos favoritos");
   }
+
+  // Imagem — skeleton enquanto carrega, fallback se falhar (mesmo padrão de
+  // src/CardapioPublico.jsx: nunca deixa a tela sem imagem).
+  const [imgPronta, setImgPronta] = useState(false);
+  const [imgSrc, setImgSrc] = useState(produto.imageUrl || fallbackImage);
+
+  // Observação — expansão controlada do textarea (cresce com o texto, com
+  // teto — não fica infinito nem empurra o botão de ação pra fora da tela).
+  const obsRef = useRef(null);
+  useEffect(() => {
+    const el = obsRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
+  }, [observacao]);
 
   // Adicionais cadastrados e vinculados ao produto: [{ nome, preco }]
   const adicionais = (produto.adicionais || []).filter((a) => a && a.nome);
@@ -3432,7 +3512,8 @@ export function ProdutoModal({ produto, onFechar, onAdicionar, grupos = [], opco
   }
   const opcoesTotal = gruposProduto.reduce((s, g) => s + (escolhas[g.id] || []).reduce((x, oid) => { const o = opcoesDoGrupo(g.id).find((op) => op.id === oid); return x + (o?.precoDelta || 0); }, 0), 0);
   const grupoFaltando = gruposProduto.find((g) => g.obrigatorio && (escolhas[g.id] || []).length < (g.minSelect || 1));
-  const podeAdicionar = !grupoFaltando;
+  const semPersonalizacao = gruposProduto.length === 0 && adicionais.length === 0 && (produto.ingredients || []).length === 0;
+  const podeAdicionar = !grupoFaltando && !indisponivel;
 
   function toggleIngrediente(ing) {
     if (selecionados.includes(ing)) {
@@ -3448,10 +3529,21 @@ export function ProdutoModal({ produto, onFechar, onAdicionar, grupos = [], opco
     setExtras((e) => e.includes(nome) ? e.filter((x) => x !== nome) : [...e, nome]);
   }
 
+  // Estado do botão de ação: idle -> enviando -> sucesso (breve, antes do
+  // fechamento que o próprio onAdicionar já dispara) | erro (se onAdicionar
+  // lançar). enviandoRef trava duplo clique/duplo toque de forma síncrona —
+  // mesmo padrão já usado no envio do pedido (src/CardapioPublico.jsx).
+  const [statusEnvio, setStatusEnvio] = useState("idle");
+  const enviandoRef = useRef(false);
+  const timeoutRef = useRef(null);
+  useEffect(() => () => clearTimeout(timeoutRef.current), []);
+
   function confirmar() {
-    if (!podeAdicionar) return;
+    if (!podeAdicionar || enviandoRef.current) return;
+    enviandoRef.current = true;
+    setStatusEnvio("enviando");
     const selectedOptions = gruposProduto.flatMap((g) => (escolhas[g.id] || []).map((oid) => { const o = opcoesDoGrupo(g.id).find((op) => op.id === oid); return { grupo: g.nome, nome: o?.nome || "", preco: o?.precoDelta || 0 }; }));
-    onAdicionar({
+    const payload = {
       ...produto,
       price: produto.price + extrasTotal + opcoesTotal, // preço unitário com adicionais + opções
       quantity: quantidade,
@@ -3461,155 +3553,191 @@ export function ProdutoModal({ produto, onFechar, onAdicionar, grupos = [], opco
       selectedOptions,
       extraIngredientInput: "",
       observation: observacao,
-    });
+    };
+    // Pequeno atraso proposital (~350ms): dá tempo do estado "sucesso" (✓
+    // Adicionado) ser percebido antes do modal fechar — onAdicionar já
+    // fecha a tela como parte do fluxo existente, então isso não muda nada
+    // além do instante exato em que esse fechamento acontece.
+    timeoutRef.current = setTimeout(() => {
+      try {
+        onAdicionar(payload);
+        setStatusEnvio("sucesso");
+      } catch (e) {
+        console.error("Erro ao adicionar produto ao carrinho:", e);
+        enviandoRef.current = false;
+        setStatusEnvio("erro");
+      }
+    }, 350);
   }
 
   const totalItem = (produto.price + extrasTotal + opcoesTotal) * quantidade;
+  const corTextoTotal = statusEnvio === "erro" ? "text-[#FCA5A5]" : "text-white/90";
 
   return (
     <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-[rgba(15,23,42,0.5)] backdrop-blur-sm p-0 sm:p-4"
       style={{ fontFamily: "'Inter','Poppins',sans-serif" }} onClick={onFechar}>
-      <div onClick={(e) => e.stopPropagation()}
-        className="relative flex w-full max-w-[520px] flex-col overflow-hidden rounded-t-[28px] sm:rounded-[28px] border border-[#E5E7EB] bg-white shadow-[0_20px_60px_rgba(16,24,40,0.16)] max-h-[92vh]"
+      <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="pm-titulo"
+        className="relative flex w-full max-w-[520px] lg:max-w-[900px] flex-col lg:flex-row overflow-hidden rounded-t-[28px] sm:rounded-[28px] border border-[#E5E7EB] bg-white shadow-[0_20px_60px_rgba(16,24,40,0.16)] max-h-[92vh]"
         style={{ width: "calc(100% - 24px)" }}>
 
         {/* Feedback discreto de favorito */}
         {toastFav && (
-          <div className="absolute left-1/2 top-3 z-20 -translate-x-1/2 rounded-full border border-[#F4D27A] bg-white px-3.5 py-1.5 text-xs font-bold text-[#9A6A00] shadow-md">{toastFav}</div>
+          <div role="status" className="absolute left-1/2 top-3 z-30 -translate-x-1/2 rounded-full border border-[#F4D27A] bg-white px-3.5 py-1.5 text-xs font-bold text-[#9A6A00] shadow-md">{toastFav}</div>
         )}
 
-        {/* Imagem grande — voltar e favorito */}
-        <div className="relative h-[220px] sm:h-[250px] shrink-0 overflow-hidden bg-[#F7F8FA]">
-          <img src={produto.imageUrl || fallbackImage} alt={produto.name} className="h-full w-full object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-transparent" />
-          <button onClick={onFechar} title="Voltar" aria-label="Voltar"
-            className="absolute left-4 top-4 flex h-11 w-11 items-center justify-center rounded-full border border-[#E5E7EB] bg-[rgba(255,255,255,0.92)] text-lg font-bold text-[#182230] shadow-sm hover:bg-[#F8FAFC] transition duration-200">
-            ←
-          </button>
-          <button onClick={toggleFavorito} title="Favoritar" aria-label={favorito ? "Remover dos favoritos" : "Adicionar aos favoritos"} aria-pressed={favorito}
-            className={`absolute right-4 top-4 flex h-11 w-11 items-center justify-center rounded-full border shadow-sm transition duration-200 ${favorito ? "border-[#D9A441] bg-[#FFF7E0] text-[#D9A441]" : "border-[#E5E7EB] bg-[rgba(255,255,255,0.92)] text-[#475467] hover:bg-[#F8FAFC]"}`}>
-            {favorito ? "♥" : "♡"}
-          </button>
+        {/* ── Coluna da imagem (linha inteira no mobile/tablet; coluna
+            esquerda fixa no desktop, ver lg:w-*) ── */}
+        {/* Altura em clamp(mín, %vh, máx) — não só px fixo: numa tela BAIXA
+            (celular deitado / paisagem), uma imagem de 260px fixos podia
+            sobrar tão pouco espaço pro cabeçalho+rodapé que o botão
+            "Adicionar" ficava fora da área visível do modal (confirmado com
+            teste real de navegador, viewport 844x390 → botão renderizava
+            100px abaixo do fim do modal). Em telas normais, o clamp() bate
+            no teto (220px/260px) e o resultado visual não muda. */}
+        <div className="relative h-[clamp(96px,30vh,220px)] sm:h-[clamp(96px,30vh,260px)] lg:h-auto lg:w-[42%] shrink-0 overflow-hidden bg-[#F7F8FA]">
+          {!imgPronta && <div className="absolute inset-0 animate-pulse motion-reduce:animate-none bg-[#F1F5F9]" aria-hidden="true" />}
+          <img
+            src={imgSrc} alt={produto.name} decoding="async"
+            onLoad={() => setImgPronta(true)}
+            onError={() => { if (imgSrc !== fallbackImage) { setImgSrc(fallbackImage); setImgPronta(false); } else setImgPronta(true); }}
+            className={`h-full w-full object-cover transition-opacity duration-300 motion-reduce:transition-none ${imgPronta ? "opacity-100" : "opacity-0"}`} />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-transparent" />
+          {/* Voltar / Favoritar — glassmorphism discreto, 44x44px, respeita safe-area (notch) */}
+          <div className="absolute inset-x-4 flex items-center justify-between" style={{ top: "max(1rem, env(safe-area-inset-top))" }}>
+            <button onClick={onFechar} aria-label="Voltar"
+              className="flex h-11 w-11 items-center justify-center rounded-full border border-white/40 bg-white/70 text-[#182230] shadow-[0_2px_10px_rgba(16,24,40,.12)] backdrop-blur-md transition duration-200 hover:bg-white/90 active:scale-90">
+              <PmIconVoltar />
+            </button>
+            <button onClick={toggleFavorito} aria-label={favorito ? "Remover dos favoritos" : "Adicionar aos favoritos"} aria-pressed={favorito}
+              className={`flex h-11 w-11 items-center justify-center rounded-full border shadow-[0_2px_10px_rgba(16,24,40,.12)] backdrop-blur-md transition duration-200 active:scale-90 ${favorito ? "border-[#F4D27A] bg-white/85 text-[#D9A441]" : "border-white/40 bg-white/70 text-[#475467] hover:bg-white/90"}`}>
+              <span className={`block transition-transform duration-200 motion-reduce:transition-none ${favPop ? "scale-125" : "scale-100"}`}><PmIconCoracao preenchido={favorito} /></span>
+            </button>
+          </div>
           {produto.badge && (
             <span className="absolute left-4 bottom-4 rounded-md bg-[#D9A441] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[#182230] shadow-lg">{produto.badge}</span>
           )}
-        </div>
-
-        {/* Título + preço (padrão gourmet) */}
-        <div className="shrink-0 px-5 pt-4">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.25em] text-[#9A6A00]">{produto.category} • ⏱ {produto.time}</p>
-          <div className="mt-1.5 flex items-start justify-between gap-3">
-            <h2 className="text-xl font-bold tracking-tight text-[#182230] leading-tight">{produto.name}</h2>
-            <span className="shrink-0 text-xl font-bold text-[#D9A441]">{formatCurrency(produto.price)}</span>
-          </div>
-          <p className="mt-1.5 text-xs leading-5 text-[#667085]">{produto.description}</p>
-          <p className="mt-3 text-[11px] font-bold uppercase tracking-widest text-[#475467]">Personalize seu pedido</p>
-        </div>
-
-        {/* Corpo rolável */}
-        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
-          {/* Grupos de variações/adicionais estruturados (migration 040) */}
-          {gruposProduto.map((g) => {
-            const sel = escolhas[g.id] || [];
-            const faltam = g.obrigatorio && sel.length < (g.minSelect || 1);
-            return (
-              <div key={g.id}>
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#9A6A00]">{g.nome}</p>
-                  <span className={`rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${g.obrigatorio ? (faltam ? "bg-[#FFF1F2] text-[#B42318]" : "bg-[#EAFBF2] text-[#147A4A]") : "bg-[#F2F4F7] text-[#667085]"}`}>
-                    {g.obrigatorio ? (faltam ? "Obrigatório" : "✓ Ok") : "Opcional"}{(g.maxSelect ?? 1) > 1 ? ` · até ${g.maxSelect}` : ""}
-                  </span>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {opcoesDoGrupo(g.id).map((o) => {
-                    const on = sel.includes(o.id);
-                    const unico = (g.maxSelect ?? 1) <= 1;
-                    return (
-                      <button key={o.id} type="button" onClick={() => toggleOpcao(g, o.id)}
-                        className={`flex items-center gap-2 rounded-full border px-3.5 py-2 text-left text-sm font-medium transition duration-200 ${on ? "border-[#D9A441] bg-[#FFF7E0] text-[#182230]" : "border-[#E5E7EB] bg-[#F8FAFC] text-[#475467] hover:bg-[#F1F5F9]"}`}>
-                        <span className={`flex h-5 w-5 items-center justify-center border text-[11px] transition ${unico ? "rounded-full" : "rounded-md"} ${on ? "border-[#D9A441] bg-[#D9A441] text-[#182230]" : "border-[#D0D5DD] text-transparent"}`}>{unico ? "●" : "✓"}</span>
-                        {o.nome}
-                        <span className={`text-xs font-semibold ${on ? "text-[#9A6A00]" : "text-[#98A2B3]"}`}>{o.precoDelta > 0 ? `+ ${formatCurrency(o.precoDelta)}` : (o.precoDelta < 0 ? formatCurrency(o.precoDelta) : "Grátis")}</span>
-                      </button>
-                    );
-                  })}
-                  {opcoesDoGrupo(g.id).length === 0 && <p className="text-xs text-[#667085]">Sem opções cadastradas.</p>}
-                </div>
-              </div>
-            );
-          })}
-
-          {/* Adicionais (selecionáveis, com preço dourado) */}
-          {adicionais.length > 0 && (
-            <div>
-              <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.18em] text-[#9A6A00]">Adicionais</p>
-              <div className="flex flex-wrap gap-2">
-                {adicionais.map((a) => {
-                  const sel = extras.includes(a.nome);
-                  return (
-                    <button key={a.nome} type="button" onClick={() => toggleExtra(a.nome)}
-                      className={`flex items-center gap-2 rounded-full border px-3.5 py-2 text-left text-sm font-medium transition duration-200 ${sel ? "border-[#D9A441] bg-[#FFF7E0] text-[#182230]" : "border-[#E5E7EB] bg-[#F8FAFC] text-[#475467] hover:bg-[#F1F5F9]"}`}>
-                      <span className={`flex h-5 w-5 items-center justify-center rounded-md border text-[11px] transition ${sel ? "border-[#D9A441] bg-[#D9A441] text-[#182230]" : "border-[#D0D5DD] text-transparent"}`}>✓</span>
-                      {a.nome}
-                      <span className={`text-xs font-semibold ${sel ? "text-[#9A6A00]" : "text-[#98A2B3]"}`}>{(Number(a.preco) || 0) > 0 ? `+ ${formatCurrency(Number(a.preco))}` : "Grátis"}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+          {indisponivel && (
+            <span className="absolute right-4 bottom-4 rounded-full border border-white/50 bg-[rgba(15,23,42,.7)] px-3 py-1 text-[11px] font-bold text-[#fff] backdrop-blur-sm">Indisponível no momento</span>
           )}
-
-          {/* Remover ingredientes — "Sem X" compacto, como no padrão gourmet */}
-          <div>
-            <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.18em] text-[#9A6A00]">Remover ingredientes</p>
-            {(produto.ingredients || []).length > 0 ? (
-              <>
-                <p className="mb-2 text-xs text-[#667085]">Selecione os itens que deseja remover do produto.</p>
-                <div className="flex flex-wrap gap-2">
-                  {(produto.ingredients || []).map((ing) => {
-                    const removido = removidos.includes(ing);
-                    return (
-                      <button key={ing} type="button" onClick={() => toggleIngrediente(ing)}
-                        className={`flex items-center gap-2 rounded-full border px-3.5 py-2 text-left text-xs font-medium transition duration-200 ${removido ? "border-[#D9A441] bg-[#FFF7E0] text-[#182230]" : "border-[#E5E7EB] bg-[#F8FAFC] text-[#475467] hover:bg-[#F1F5F9]"}`}>
-                        <span className={`flex h-4 w-4 items-center justify-center rounded border text-[10px] transition ${removido ? "border-[#D9A441] bg-[#D9A441] text-[#182230]" : "border-[#D0D5DD] text-transparent"}`}>✓</span>
-                        Sem {ing}
-                      </button>
-                    );
-                  })}
-                </div>
-              </>
-            ) : <p className="text-xs text-[#667085]">Nenhum ingrediente disponível para remoção.</p>}
-          </div>
-
-          {/* Observação */}
-          <div>
-            <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.18em] text-[#9A6A00]">Observação</p>
-            <textarea value={observacao}
-              onChange={(e) => setObservacao(e.target.value)}
-              rows={2}
-              placeholder="Ex.: ponto da carne, alergias, retirar molho..."
-              className="w-full resize-none rounded-xl border border-[#E5E7EB] bg-[#F8FAFC] px-3.5 py-2.5 text-sm text-[#182230] outline-none placeholder:text-[#98A2B3] focus:border-[#D9A441] focus:ring-2 focus:ring-[#D9A441]/20 transition duration-200" />
-          </div>
         </div>
 
-        {/* Rodapé fixo — quantidade + adicionar ao pedido */}
-        <div className="shrink-0 border-t border-[#E5E7EB] bg-white px-5 py-4">
-          <div className="flex items-center gap-3">
-            {/* Seletor de quantidade */}
-            <div className="flex items-center gap-1 rounded-xl border border-[#E5E7EB] bg-[#F8FAFC] p-1">
-              <button onClick={() => setQuantidade((q) => Math.max(1, q - 1))}
-                className="h-11 w-11 rounded-lg text-xl font-semibold text-[#182230] hover:bg-white transition duration-200 active:scale-95">−</button>
-              <span className="w-10 text-center text-xl font-semibold text-[#182230]">{quantidade}</span>
-              <button onClick={() => setQuantidade((q) => q + 1)}
-                className="h-11 w-11 rounded-lg text-xl font-semibold text-[#182230] hover:bg-white transition duration-200 active:scale-95">+</button>
+        {/* ── Coluna de conteúdo (info + personalização + rodapé) ── */}
+        <div className="flex min-h-0 flex-1 flex-col">
+          {/* Transição elegante da imagem pro conteúdo + informações do produto */}
+          <div className="shrink-0 px-5 pt-4 lg:pt-5">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#9A6A00]">
+              {[produto.category, produto.time && `⏱ ${produto.time}`].filter(Boolean).join("  •  ")}
+            </p>
+            <h2 id="pm-titulo" className="mt-1.5 text-[22px] font-bold leading-tight tracking-tight text-[#182230]">{produto.name}</h2>
+            <p className="mt-1 text-lg font-bold text-[#B45309]">{formatCurrency(produto.price)}</p>
+            {produto.description && <p className="mt-2 text-sm leading-6 text-[#667085]">{produto.description}</p>}
+          </div>
+
+          {/* Corpo rolável — personalização + observação */}
+          <div className="mt-4 min-h-0 flex-1 overflow-y-auto px-5 pb-4 space-y-6">
+            {!semPersonalizacao && <p className="text-[11px] font-bold uppercase tracking-widest text-[#98A2B3]">Personalize seu pedido</p>}
+
+            {/* Grupos de variações/adicionais estruturados (migration 040) */}
+            {gruposProduto.map((g) => {
+              const sel = escolhas[g.id] || [];
+              const faltam = g.obrigatorio && sel.length < (g.minSelect || 1);
+              const unico = (g.maxSelect ?? 1) <= 1;
+              return (
+                <div key={g.id}>
+                  <SecaoTitulo titulo={g.nome} subtitulo={unico ? "Escolha 1 opção" : `Escolha até ${g.maxSelect ?? 1} opções`}
+                    selo={g.obrigatorio
+                      ? (faltam ? { tom: "bg-[#FFF1F2] text-[#B42318]", texto: "Obrigatório", icone: <PmIconAlerta /> } : { tom: "bg-[#EAFBF2] text-[#147A4A]", texto: "Concluído", icone: <PmIconCheck /> })
+                      : { tom: "bg-[#F2F4F7] text-[#667085]", texto: "Opcional" }} />
+                  <div className="flex flex-wrap gap-2">
+                    {opcoesDoGrupo(g.id).map((o) => (
+                      <ChipSelecao key={o.id} selecionado={sel.includes(o.id)} onClick={() => toggleOpcao(g, o.id)}
+                        texto={o.nome} detalhe={o.precoDelta > 0 ? `+ ${formatCurrency(o.precoDelta)}` : (o.precoDelta < 0 ? formatCurrency(o.precoDelta) : "Grátis")} />
+                    ))}
+                    {opcoesDoGrupo(g.id).length === 0 && <p className="text-xs text-[#667085]">Sem opções cadastradas.</p>}
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Adicionais (selecionáveis, com preço) */}
+            {adicionais.length > 0 && (
+              <div>
+                <SecaoTitulo titulo="Adicionais" selo={{ tom: "bg-[#F2F4F7] text-[#667085]", texto: "Opcional" }} />
+                <div className="flex flex-wrap gap-2">
+                  {adicionais.map((a) => (
+                    <ChipSelecao key={a.nome} selecionado={extras.includes(a.nome)} onClick={() => toggleExtra(a.nome)}
+                      texto={a.nome} detalhe={(Number(a.preco) || 0) > 0 ? `+ ${formatCurrency(Number(a.preco))}` : "Grátis"} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Remover ingredientes */}
+            {(produto.ingredients || []).length > 0 && (
+              <div>
+                <SecaoTitulo titulo="Remover ingredientes" subtitulo="Selecione os itens que deseja remover do produto." selo={{ tom: "bg-[#F2F4F7] text-[#667085]", texto: "Opcional" }} />
+                <div className="flex flex-wrap gap-2">
+                  {(produto.ingredients || []).map((ing) => (
+                    <ChipSelecao key={ing} icone="remover" selecionado={removidos.includes(ing)} onClick={() => toggleIngrediente(ing)} texto={`Sem ${ing}`} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Observação — card clean, expansão controlada */}
+            <div>
+              <label htmlFor="pm-observacao" className="mb-2 block text-[13px] font-bold uppercase tracking-[0.14em] text-[#182230]">Observação</label>
+              <div className="rounded-2xl border border-[#E5E7EB] bg-[#F8FAFC] p-3.5 transition-colors duration-150 focus-within:border-[var(--color-primary)] focus-within:bg-white focus-within:ring-4 focus-within:ring-[var(--color-primary)]/10">
+                <textarea id="pm-observacao" ref={obsRef} value={observacao}
+                  onChange={(e) => setObservacao(e.target.value)}
+                  rows={2}
+                  placeholder="Ex.: ponto da carne, alergias, retirar molho..."
+                  className="block w-full resize-none overflow-y-auto bg-transparent text-sm text-[#182230] outline-none placeholder:text-[#98A2B3]"
+                  style={{ maxHeight: 160 }} />
+              </div>
             </div>
-            {/* Botão adicionar */}
-            <button onClick={confirmar} disabled={!podeAdicionar}
-              title={!podeAdicionar ? `Escolha: ${grupoFaltando?.nome}` : undefined}
-              className="flex flex-1 items-center justify-between gap-2 rounded-xl bg-[#D9A441] px-5 py-4 text-sm font-semibold text-[#182230] hover:bg-[#C7922F] transition duration-200 active:scale-95 shadow-lg shadow-[#D9A441]/30 disabled:bg-[#E5E7EB] disabled:text-[#98A2B3] disabled:shadow-none disabled:cursor-not-allowed">
-              <span>{podeAdicionar ? "Adicionar" : `Escolha: ${grupoFaltando?.nome}`}</span>
-              <span>{formatCurrency(totalItem)}</span>
-            </button>
+          </div>
+
+          {/* Rodapé — quantidade + adicionar ao pedido, sempre visível (nunca cobre conteúdo: é parte do fluxo flex, não position:fixed) */}
+          <div className="shrink-0 border-t border-[#E5E7EB] bg-white px-5 py-4" style={{ paddingBottom: "max(1rem, calc(env(safe-area-inset-bottom) + 0.5rem))" }}>
+            {!podeAdicionar && !indisponivel && (
+              <p className="mb-2.5 flex items-center gap-1.5 text-xs font-bold text-[#B42318]"><PmIconAlerta /> Escolha uma opção em "{grupoFaltando?.nome}" para continuar</p>
+            )}
+            <div className="flex items-stretch gap-2">
+              {/* Seletor de quantidade — compacto o bastante pra caber ao lado
+                  do botão mesmo em telas de 320px, sem descer do toque mínimo
+                  de 44x44px nos botões +/−. */}
+              <div className="flex items-center rounded-2xl border border-[#E5E7EB] bg-[#F8FAFC] p-0.5">
+                <button type="button" onClick={() => setQuantidade((q) => Math.max(1, q - 1))} disabled={quantidade <= 1} aria-label="Diminuir quantidade"
+                  className="flex h-11 w-11 items-center justify-center rounded-xl text-[#182230] transition duration-150 hover:bg-white active:scale-90 disabled:cursor-not-allowed disabled:text-[#D0D5DD] disabled:hover:bg-transparent">
+                  <PmIconMenos />
+                </button>
+                <span className="w-6 text-center text-base font-bold text-[#182230]" aria-live="polite" aria-atomic="true">{quantidade}</span>
+                <button type="button" onClick={() => setQuantidade((q) => q + 1)} aria-label="Aumentar quantidade"
+                  className="flex h-11 w-11 items-center justify-center rounded-xl text-[#182230] transition duration-150 hover:bg-white active:scale-90">
+                  <PmIconMais />
+                </button>
+              </div>
+              {/* Botão adicionar — azul oficial, com estados idle/enviando/sucesso/erro/desabilitado */}
+              <button type="button" onClick={confirmar} disabled={!podeAdicionar || statusEnvio === "enviando"}
+                className={`flex min-h-[44px] flex-1 items-center justify-between gap-1.5 rounded-2xl px-3.5 py-3.5 text-[13px] sm:text-sm font-bold text-[#fff] transition-all duration-150 active:scale-[0.98] disabled:cursor-not-allowed ${
+                  statusEnvio === "erro" ? "bg-[#DC2626]" : "bg-[var(--color-primary)] hover:bg-[var(--color-primary-dark)]"
+                } disabled:opacity-50 shadow-lg shadow-[var(--color-primary)]/25`}>
+                <span className="flex min-w-0 items-center gap-1.5 truncate">
+                  {statusEnvio === "enviando" && <PmIconSpinner />}
+                  {statusEnvio === "sucesso" && <PmIconCheck width={16} height={16} />}
+                  <span className="truncate">
+                    {indisponivel ? "Indisponível"
+                      : statusEnvio === "enviando" ? "Adicionando…"
+                      : statusEnvio === "sucesso" ? "Adicionado!"
+                      : statusEnvio === "erro" ? "Tentar novamente"
+                      : !podeAdicionar ? "Escolha as opções"
+                      : "Adicionar"}
+                  </span>
+                </span>
+                <span className={`shrink-0 whitespace-nowrap ${corTextoTotal}`}>{formatCurrency(totalItem)}</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
