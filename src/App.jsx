@@ -3901,7 +3901,7 @@ function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, cancela
                       <div>
                         <p className="text-xs font-bold uppercase tracking-widest text-[#98A2B3]">{order.id} • {order.createdAt}</p>
                         <p className="mt-0.5 font-mono text-sm font-black text-[#1D4ED8]">{order.command}</p>
-                        {order.pagamentoForma && <p className="mt-0.5 text-[11px] font-bold text-[#9A6A00]">💳 {order.pagamentoForma}{order.pagamentoMomento ? ` · ${order.pagamentoMomento}` : ""}</p>}
+                        {order.pagamentoForma && <p className="mt-0.5 text-[11px] font-bold text-[#9A6A00]">💳 {order.pagamentoForma}{order.pagamentoMomento ? ` · ${order.pagamentoMomento}` : ""}{order.pagamentoTrocoPara > 0 ? ` · Troco p/ ${formatCurrency(order.pagamentoTrocoPara)}` : ""}</p>}
                       </div>
                       <div className="flex flex-col items-end gap-1">
                         <StatusChip status={order.status} />

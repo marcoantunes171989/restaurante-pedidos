@@ -147,7 +147,10 @@ export default function CardapioPublico() {
   const [formaPagto, setFormaPagto] = useState(""); // forma de pagamento: pix | cartao | dinheiro (config_externo)
   const [agora, setAgora] = useState(() => new Date()); // relógio p/ reavaliar aberto/fechado ao vivo
   const [comboRemover, setComboRemover] = useState(null); // item de combo aguardando confirmação de remoção
+  const [itemRemover, setItemRemover] = useState(null); // item avulso (não-combo) aguardando confirmação de remoção
   const [confirmarLimpar, setConfirmarLimpar] = useState(false); // confirmação obrigatória antes de esvaziar o carrinho todo
+  const [trocoResposta, setTrocoResposta] = useState(""); // "" | "sim" | "nao" — só perguntado com pagamento em Dinheiro
+  const [trocoValor, setTrocoValor] = useState(""); // valor (texto) que o cliente vai usar para pagar em espécie
 
   // Confirmação obrigatória de "mesa ocupada" (QR por mesa) — status vem do
   // backend (pub_status_mesa, migration 067), nunca de cache/estado local.
@@ -346,10 +349,12 @@ export default function CardapioPublico() {
     setCart((c) => [...c, ...novos]);
     setMsg({ t: "success", m: `🍔 Combo "${combo.promo.nome}" adicionado!` });
   }
-  // Remoção: se o item faz parte de um combo, avisa e desfaz o combo (demais itens voltam ao preço normal).
+  // Remoção sempre pede confirmação antes de tirar o item do carrinho — se o
+  // item faz parte de um combo, o aviso é o de "desfazer o combo" (demais
+  // itens voltam ao preço normal); senão, confirmação simples de remoção.
   function pedirRemover(item) {
     if (item.comboId) { setComboRemover(item); return; }
-    removerItem(item._uid);
+    setItemRemover(item);
   }
   function desfazerCombo(item) {
     setCart((c) => c
@@ -370,7 +375,7 @@ export default function CardapioPublico() {
   const momentoPagto = !modoExterno ? "No caixa"
     : tipoPedido === "entrega"  ? "Na entrega"
     : tipoPedido === "retirada" ? "Na retirada"
-    : tipoPedido === "local"    ? "No local"
+    : tipoPedido === "local"    ? "Após o consumo, no fechamento da conta"
     : (cfgExt.pagOnline ? "Online" : "No atendimento");
   // Tipo de pedido externo: garante uma opção válida selecionada
   useEffect(() => {
@@ -385,6 +390,21 @@ export default function CardapioPublico() {
     if (!formasPagto.some((f) => f.id === formaPagto)) setFormaPagto(formasPagto[0].id);
     /* eslint-disable-next-line */
   }, [loja?.id, cfgExt.pagPix, cfgExt.pagCartao, cfgExt.pagDinheiro]);
+  // Troca entre "como deseja receber" (ex.: local ↔ retirada) — chamado direto
+  // pelo clique no radiogroup (não por efeito): consumo no local não pede
+  // pagamento agora, então limpa a forma escolhida (e o troco, que depende
+  // dela) na hora, pra não ficar uma seleção "fantasma" caso o cliente volte
+  // para retirada/entrega depois (troca imediata e previsível).
+  function escolherTipoPedido(id) {
+    setTipoPedido(id);
+    if (modoExterno && id === "local") { setFormaPagto(""); setTrocoResposta(""); setTrocoValor(""); }
+  }
+  // Troca de forma de pagamento — troco só faz sentido com Dinheiro: limpa a
+  // pergunta e o valor na hora, direto no clique (não via efeito).
+  function escolherFormaPagto(id) {
+    setFormaPagto(id);
+    if (id !== "dinheiro") { setTrocoResposta(""); setTrocoValor(""); }
+  }
   // Durante a busca, lista achatada (filtrada). Sem busca, agrupamos por categoria
   // para dividir os grupos e permitir o "scroll-spy" (header acompanha o grupo na tela).
   const visiveis = useMemo(() => ocultarIndisp ? produtos.filter((p) => p.disponivel !== false) : produtos, [produtos, ocultarIndisp]);
@@ -814,10 +834,32 @@ export default function CardapioPublico() {
         if (fresco?.ocupada) { setStatusMesa(fresco); return; }
       }
       const itens = cart.map((i) => ({ name: i.name, quantity: i.quantity, price: i.price, selectedIngredients: i.selectedIngredients, removedIngredients: i.removedIngredients, extraIngredients: i.extraIngredients, selectedOptions: i.selectedOptions || [], observation: i.observation }));
-      // Forma de pagamento (aba "Pagamento" — vale para pedido interno e externo)
-      if (formasPagto.length === 0) return setMsg({ t: "error", m: "Nenhuma forma de pagamento está disponível no momento." });
-      const formaSel = formasPagto.find((f) => f.id === formaPagto);
-      if (!formaSel) return setMsg({ t: "error", m: "Escolha a forma de pagamento." });
+      // Forma de pagamento (aba "Pagamento" — vale para pedido interno e
+      // externo, EXCETO consumo no local: nesse caso o pagamento acontece só
+      // no fechamento da conta, então não exige escolha nenhuma agora —
+      // formaSel fica null, e o pedido é criado sem forma/momento de
+      // pagamento definidos (pagamento_forma/pagamento_momento aceitam null
+      // em todo o caminho: coluna, RPC pub_criar_pedido e inserirPedido —
+      // conferido nas migrations 061/065/066, nenhuma mudança de banco
+      // necessária).
+      let formaSel = null;
+      let trocoParaNum = null;
+      if (exigePagamentoAgora) {
+        if (formasPagto.length === 0) return setMsg({ t: "error", m: "Nenhuma forma de pagamento está disponível no momento." });
+        formaSel = formasPagto.find((f) => f.id === formaPagto);
+        if (!formaSel) return setMsg({ t: "error", m: "Escolha a forma de pagamento." });
+        // Troco (só relevante em Dinheiro): se o cliente disse que precisa,
+        // exige um valor válido e maior ou igual ao total do pedido — não faz
+        // sentido "pagar com" menos do que se deve.
+        if (formaSel.id === "dinheiro") {
+          if (!trocoResposta) return setMsg({ t: "error", m: "Informe se precisa de troco." });
+          if (trocoResposta === "sim") {
+            trocoParaNum = parseMoedaBR(trocoValor);
+            if (!(trocoParaNum > 0)) return setMsg({ t: "error", m: "Informe o valor que vai usar para pagar." });
+            if (trocoParaNum < totalCart) return setMsg({ t: "error", m: `O valor deve ser de pelo menos ${formatCurrency(totalCart)} (total do pedido).` });
+          }
+        }
+      }
       let novo;
       if (modoExterno) {
       // Aplica as regras configuradas pela empresa (aba "Pedido externo")
@@ -838,7 +880,7 @@ export default function CardapioPublico() {
         status: "received", paymentStatus: "open",
         createdAt: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
         items: itens, lojaId: loja.id,
-        pagamentoForma: formaSel.label, pagamentoMomento: momentoPagto,
+        pagamentoForma: formaSel?.label ?? null, pagamentoMomento: momentoPagto, pagamentoTrocoPara: trocoParaNum,
       };
     } else {
       // Pedido na mesa (QR da mesa): exige mesa + comanda
@@ -854,19 +896,22 @@ export default function CardapioPublico() {
         status: "received", paymentStatus: "open",
         createdAt: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
         items: itens, lojaId: loja.id,
-        pagamentoForma: formaSel.label, pagamentoMomento: momentoPagto,
+        pagamentoForma: formaSel?.label ?? null, pagamentoMomento: momentoPagto, pagamentoTrocoPara: trocoParaNum,
       };
     }
     try {
       let pedidoId = novo.id;
       const mesaNumero = modoExterno ? null : (Number(mesa) || null);
       const mesaId = modoExterno ? null : (mesaCadastrada?.id ?? null);
-      if (cardapioViaRpc()) { const r = await rpcCriarPedidoPublico({ lojaId: loja.id, mesa: novo.table, comanda: novo.command, cliente: novo.customer, telefone: novo.clienteTelefone || "", itens, pagForma: formaSel.label, pagMomento: momentoPagto, mesaNumero, mesaId }); if (r) pedidoId = r; }
+      if (cardapioViaRpc()) { const r = await rpcCriarPedidoPublico({ lojaId: loja.id, mesa: novo.table, comanda: novo.command, cliente: novo.customer, telefone: novo.clienteTelefone || "", itens, pagForma: formaSel?.label ?? null, pagMomento: momentoPagto, mesaNumero, mesaId, trocoPara: trocoParaNum }); if (r) pedidoId = r; }
       else await inserirPedido(novo);
       // A Pesquisa de Satisfação NÃO aparece agora — só quando o pedido CONCLUIR
       // (pago + retirado/entregue). Registra o pedido como pendente de pesquisa.
       try { const pend = lerSetLS(SURVEY_PEND_KEY); pend.add(pedidoId); salvarSetLS(SURVEY_PEND_KEY, pend); } catch {}
-      setCart([]); setAba("conta"); setMsg({ t: "success", m: "✅ Pedido enviado para a cozinha!" });
+      setCart([]); setTrocoResposta(""); setTrocoValor(""); setAba("conta");
+      setMsg({ t: "success", m: modoExterno && tipoPedido === "local"
+        ? "Pedido enviado com sucesso. Foi encaminhado para preparação — o pagamento será feito no fechamento da conta."
+        : "Pedido enviado com sucesso. Foi encaminhado para preparação." });
     } catch (e) {
       console.error("Erro ao criar pedido:", e);
       // Mensagens conhecidas vindas da validação no servidor (pub_validar_pedido_mesa,
@@ -999,10 +1044,34 @@ export default function CardapioPublico() {
   }
 
   const minimoFalta = modoExterno && minimoExterno > 0 ? Math.max(0, minimoExterno - totalCart) : 0;
-  const pagtoOk = formasPagto.length > 0 && formasPagto.some((f) => f.id === formaPagto);
+  // Consumo no local (pedido externo, tipoPedido "local"): o cliente paga só
+  // no fechamento da conta — não faz sentido exigir PIX/cartão/dinheiro no
+  // ato do pedido (o pedido nem está "pago", só fica em aberto até o caixa
+  // fechar). Vale só para modoExterno+local; mesa (QR) e retirada/entrega
+  // continuam exigindo a escolha normalmente, sem mudança de comportamento.
+  const exigePagamentoAgora = !(modoExterno && tipoPedido === "local");
+  const pagtoOk = !exigePagamentoAgora || (formasPagto.length > 0 && formasPagto.some((f) => f.id === formaPagto));
   const podeEnviar = cart.length > 0 && pagtoOk && !bloqueioHorario && (!modoExterno || (
     aceitaExterno && opcoesEntrega.length > 0 && opcoesEntrega.some((o) => o.id === tipoPedido) && minimoFalta <= 0
   ));
+  // Indicador de progresso do checkout (Pedido → Identificação → Confirmação —
+  // nunca "Pagamento" como etapa obrigatória, ver regra do consumo no local).
+  const identificacaoOk = modoExterno
+    ? (cliente.trim().length > 0 && telDig.length >= 10 && !!tipoPedido && opcoesEntrega.some((o) => o.id === tipoPedido))
+    : (!!mesa && Number(mesa) > 0 && mesaValida && (!!comURL || (isValidCommand(comanda) && comanda.split("-")[0] === loja.prefixo)));
+  const etapasCheckout = [
+    { label: "Pedido", feito: cart.length > 0 },
+    { label: "Identificação", feito: identificacaoOk },
+    { label: "Confirmação", feito: pagtoOk },
+  ];
+  const etapaAtualIdx = cart.length === 0 ? 0 : !identificacaoOk ? 1 : 2;
+  const ICONES_ENTREGA = { local: CkIconGarfo, retirada: CkIconLoja, entrega: CkIconMoto };
+  const ICONES_PAGTO = { pix: CkIconPix, cartao: CkIconCartao, dinheiro: CkIconDinheiro };
+  const DESC_ENTREGA = {
+    local: "Envie o pedido agora e pague somente no fechamento da conta.",
+    retirada: "Retire o pedido diretamente no balcão do estabelecimento.",
+    entrega: "Receba o pedido no endereço combinado com a equipe.",
+  };
   return (
     <div ref={raizRef} data-theme="light" className="tema-claro-area min-h-screen w-full max-w-[100vw] bg-[#F7F8FA] text-[#182230]" style={{ minHeight: "100dvh", paddingBottom: `calc(env(safe-area-inset-bottom) + ${cart.length > 0 ? 150 : 92}px)` }}>
       {/* Cabeçalho */}
@@ -1033,7 +1102,9 @@ export default function CardapioPublico() {
 
       {bloqueioHorario && (
         <div className="mx-auto max-w-3xl px-4 pt-3">
-          <div className="rounded-2xl border border-[#FDA4AF] bg-[#FFF1F2] px-4 py-2.5 text-center text-sm font-bold text-[#B42318]">🌙 Fechado no momento — pedidos indisponíveis fora do horário de funcionamento.</div>
+          <div className="flex items-center justify-center gap-2 rounded-2xl border border-[#FDA4AF] bg-[#FFF1F2] px-4 py-2.5 text-center text-sm font-bold text-[#B42318]">
+            <CkIconAlerta width={16} height={16} /> Fechado no momento — pedidos indisponíveis fora do horário de funcionamento.
+          </div>
         </div>
       )}
 
@@ -1196,6 +1267,21 @@ export default function CardapioPublico() {
       {/* Modal de produto (reutilizado) */}
       {detalhe && <ProdutoModal produto={detalhe} grupos={gruposOpcoes} opcoes={opcoes} onFechar={() => setDetalhe(null)} onAdicionar={addConfigurado} />}
 
+      {/* Confirmação ao remover item avulso (não-combo) do carrinho */}
+      {itemRemover && (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/75 p-6 backdrop-blur-sm" onClick={() => setItemRemover(null)}>
+          <div role="alertdialog" aria-modal="true" aria-labelledby="msg-remover-item" className="w-full max-w-sm rounded-3xl border border-white/10 bg-slate-900 p-5 text-center" onClick={(e) => e.stopPropagation()}>
+            <p className="text-3xl">🗑️</p>
+            <p id="msg-remover-item" className="mt-2 text-base font-black text-white">Remover item?</p>
+            <p className="mt-1 text-sm text-slate-400"><b className="text-white">{itemRemover.quantity}× {itemRemover.name}</b> será removido do seu pedido.</p>
+            <div className="mt-4 flex gap-2">
+              <button onClick={() => setItemRemover(null)} type="button" className="min-h-[44px] flex-1 rounded-2xl border border-white/10 bg-white/[0.06] py-3 text-sm font-black text-slate-300 hover:bg-white/10">Manter item</button>
+              <button onClick={() => { removerItem(itemRemover._uid); setItemRemover(null); }} type="button" className="min-h-[44px] flex-1 rounded-2xl bg-red-500 py-3 text-sm font-black text-white hover:bg-red-400">Remover</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Confirmação ao remover item de combo */}
       {comboRemover && (
         <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/75 p-6 backdrop-blur-sm" onClick={() => setComboRemover(null)}>
@@ -1240,122 +1326,197 @@ export default function CardapioPublico() {
 
       {/* Gaveta: Carrinho */}
       {aba === "carrinho" && (
-        <Gaveta titulo="🛒 Seu pedido" onFechar={() => setAba(null)}>
+        <Gaveta titulo="Finalizar pedido" subtitulo={cart.length > 0 ? "Revise os dados antes de confirmar" : undefined} onFechar={() => setAba(null)}
+          rodape={cart.length === 0 ? undefined : (
+            <>
+              {modoExterno && minimoExterno > 0 && (
+                <p className={`mb-2 text-xs font-bold ${minimoFalta > 0 ? "text-[#B45309]" : "text-[#147A4A]"}`}>
+                  {minimoFalta > 0 ? `Pedido mínimo de ${formatCurrency(minimoExterno)} — faltam ${formatCurrency(minimoFalta)}.` : `Pedido mínimo de ${formatCurrency(minimoExterno)} atingido.`}
+                </p>
+              )}
+              <button onClick={enviar} disabled={!podeEnviar || enviando} type="button"
+                className={`flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-black transition active:scale-95 ${(!podeEnviar || enviando) ? "bg-[#F3F4F6] text-[#98A2B3]" : "bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)]"}`}>
+                {enviando && <CkIconSpinner />}
+                {enviando ? "Enviando…" : bloqueioHorario ? "Pedido indisponível no momento" : "Confirmar e enviar pedido"}
+              </button>
+              {!enviando && !bloqueioHorario && (
+                <p className="mt-2 text-center text-[11px] text-[#667085]">
+                  {modoExterno && tipoPedido === "local" ? "Você pagará somente após o consumo." : `Pagamento: ${momentoPagto}.`}
+                </p>
+              )}
+            </>
+          )}>
           {bloqueioHorario && (
-            <div className="mb-3 rounded-2xl border border-[#FDA4AF] bg-[#FFF1F2] px-4 py-3 text-center">
-              <p className="text-sm font-bold text-[#B42318]">🌙 Estabelecimento fechado no momento</p>
-              <p className="mt-0.5 text-xs font-medium text-[#7F1D1D]">Consulte os horários de atendimento.</p>
+            <div className="mb-3 flex items-center gap-2.5 rounded-2xl border border-[#FDA4AF] bg-[#FFF1F2] px-4 py-3">
+              <CkIconAlerta className="shrink-0 text-[#B42318]" />
+              <div>
+                <p className="text-sm font-bold text-[#B42318]">Estabelecimento fechado no momento</p>
+                <p className="mt-0.5 text-xs font-medium text-[#7F1D1D]">Consulte os horários de atendimento.</p>
+              </div>
             </div>
           )}
-          {cart.length === 0 ? <p className="py-8 text-center text-sm text-[#667085]">Carrinho vazio.</p> : (
-            <>
-              <div className="mb-2 flex items-center justify-between gap-2">
-                <p className="text-[11px] font-black uppercase tracking-widest text-[#9A6A00]">1. Revise seu pedido</p>
-                <button onClick={() => setConfirmarLimpar(true)} type="button" className="min-h-[32px] rounded-lg px-2 text-xs font-bold text-[#B42318] transition hover:bg-[#FFF1F2]">Limpar carrinho</button>
-              </div>
-              <div className="space-y-2.5">
-              {cart.map((i) => (
-                <div key={i._uid} className={`flex items-center justify-between gap-3 rounded-2xl border bg-white p-3.5 shadow-[0_8px_24px_rgba(16,24,40,.06)] ${i.comboId ? "border-[#B7E4C7]" : "border-[#E5E7EB]"}`}>
-                  <div className="min-w-0">
-                    <p className="text-sm font-black leading-snug text-[#182230]">{i.quantity}× {i.name}</p>
-                    {i.comboId && <p className="mt-0.5 truncate text-[11px] font-bold text-[#147A4A]">🍔 Combo: {i.comboNome}</p>}
-                    {(i.removedIngredients?.length > 0 || i.extraIngredients?.length > 0 || i.observation) && (
-                      <p className="mt-1 text-[11px] leading-4 text-[#9A6A00]">
-                        {i.removedIngredients?.length > 0 && <>Sem: {i.removedIngredients.join(", ")}<br /></>}
-                        {i.extraIngredients?.length > 0 && <>Com: {i.extraIngredients.join(", ")}<br /></>}
-                        {i.observation}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex shrink-0 flex-col items-end gap-1.5">
-                    <span className="text-sm font-bold text-[#182230]">{formatCurrency(i.price * i.quantity)}</span>
-                    <button onClick={() => pedirRemover(i)} className="min-h-[32px] rounded-lg border border-[#FDA4AF] bg-[#FFF1F2] px-2.5 py-1 text-xs font-black text-[#B42318] transition hover:bg-[#FEE2E2]">Remover</button>
-                  </div>
-                </div>
-              ))}
-              </div>
-            </>
-          )}
-          {modoExterno ? (
-            // Pedido externo (link de divulgação) — regras da empresa + nome + telefone
-            <div className="mt-4 space-y-3">
-              <p className="text-[11px] font-black uppercase tracking-widest text-[#9A6A00]">2. Identifique-se e confirme a entrega</p>
-              {!aceitaExterno ? (
-                <div className="rounded-2xl border border-[#FDE1B0] bg-[#FFF4E5] px-4 py-3 text-sm font-bold text-[#B45309]">
-                  🚫 Esta empresa não está aceitando pedidos pelo cardápio no momento.
-                </div>
-              ) : opcoesEntrega.length === 0 ? (
-                <div className="rounded-2xl border border-[#FDE1B0] bg-[#FFF4E5] px-4 py-3 text-sm font-bold text-[#B45309]">
-                  Nenhuma forma de pedido disponível no momento.
-                </div>
-              ) : (
-                <div>
-                  <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-[#667085]">Como deseja receber? <span className="text-[#B45309]">*</span></span>
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                    {opcoesEntrega.map((o) => (
-                      <button key={o.id} type="button" onClick={() => setTipoPedido(o.id)}
-                        className={`flex min-h-[44px] items-center justify-center gap-1.5 rounded-2xl border px-3 py-2.5 text-sm font-black transition ${tipoPedido === o.id ? "border-[#16A34A] bg-[#ECFDF3] text-[#047857]" : "border-[#E5E7EB] bg-white text-[#475467] hover:bg-[#F8FAFC]"}`}>
-                        <span>{o.icon}</span><span>{o.label}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <label><span className="mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-[#667085]">Telefone (WhatsApp) <span className="text-[#B45309]">*</span></span>
-                  <input type="tel" inputMode="numeric" autoComplete="tel" value={mascararTelefone(telefone)} onChange={(e) => setTelefone(e.target.value.replace(/\D/g, "").slice(0, 11))} placeholder="(11) 98765-4321" maxLength={16}
-                    className="w-full min-h-[44px] rounded-2xl border border-[#E5E7EB] bg-white px-3 py-2.5 text-sm font-black text-[#182230] outline-none transition focus:border-[#D9A441] placeholder:font-normal placeholder:text-[#98A2B3]" /></label>
-                <label><span className="mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-[#667085]">Seu nome <span className="text-[#B45309]">*</span></span>
-                  <input autoComplete="name" value={cliente} onChange={(e) => setCliente(capitalizarNome(e.target.value))} placeholder="Nome completo"
-                    className="w-full min-h-[44px] rounded-2xl border border-[#E5E7EB] bg-white px-3 py-2.5 text-sm text-[#182230] outline-none transition focus:border-[#D9A441] placeholder:text-[#98A2B3]" /></label>
-              </div>
+
+          {cart.length === 0 ? (
+            <div className="py-10 text-center">
+              <p className="text-sm text-[#667085]">Seu carrinho está vazio.</p>
+              <button onClick={() => setAba(null)} type="button" className="mt-4 min-h-11 rounded-2xl border border-[#E5E7EB] bg-white px-5 py-2.5 text-sm font-black text-[#475467] transition hover:bg-[#F8FAFC]">Voltar ao cardápio</button>
             </div>
           ) : (
             <>
-              <p className="mt-4 text-[11px] font-black uppercase tracking-widest text-[#9A6A00]">2. Confirme sua mesa</p>
-              <div className="mt-2 grid grid-cols-2 gap-3">
-                <label><span className="mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-[#667085]">Mesa <span className="text-[#B45309]">*</span></span>
-                  <input type="tel" inputMode="numeric" value={mesa} onChange={(e) => setMesa(e.target.value.replace(/\D/g, "").slice(0, 2))} placeholder="Nº" disabled={!!mesaURL}
-                    className="w-full min-h-[44px] rounded-2xl border border-[#E5E7EB] bg-white px-3 py-2.5 text-sm font-black text-[#182230] outline-none transition focus:border-[#D9A441] disabled:bg-[#F8FAFC] disabled:text-[#667085]" /></label>
-                <label><span className="mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-[#667085]">Seu nome (opcional)</span>
-                  <input value={cliente} onChange={(e) => setCliente(capitalizarNome(e.target.value))} placeholder="Nome" className="w-full min-h-[44px] rounded-2xl border border-[#E5E7EB] bg-white px-3 py-2.5 text-sm text-[#182230] outline-none transition focus:border-[#D9A441] placeholder:text-[#98A2B3]" /></label>
+              <EtapaProgresso etapas={etapasCheckout} atualIdx={etapaAtualIdx} />
+
+              {/* Itens do pedido */}
+              <div className="mt-4">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <h3 className="text-[11px] font-black uppercase tracking-widest text-[#667085]">Seu pedido</h3>
+                  <button onClick={() => setConfirmarLimpar(true)} type="button" className="min-h-8 rounded-lg px-2 text-xs font-bold text-[#98A2B3] transition hover:bg-[#FFF1F2] hover:text-[#B42318]">Limpar carrinho</button>
+                </div>
+                <div className="space-y-2.5">
+                  {cart.map((i) => <CardItemCarrinho key={i._uid} item={i} onRemover={pedirRemover} />)}
+                </div>
               </div>
-              {!comURL && (
-                <div className="mt-3"><span className="mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-[#667085]">Comanda <span className="text-[#B45309]">*</span></span>
-                  <input value={comanda} onChange={(e) => setComanda(e.target.value.toUpperCase())} placeholder={`Ex.: ${loja.prefixo}-000001`}
-                    className="w-full min-h-[44px] rounded-2xl border border-[#E5E7EB] bg-white px-3 py-2.5 font-mono text-sm font-black tracking-widest text-[#182230] outline-none transition focus:border-[#D9A441] placeholder:font-sans placeholder:font-normal placeholder:text-[#98A2B3]" />
-                  <p className="mt-1 text-[11px] text-[#667085]">Escaneie o QR Code da mesa ou digite a comanda.</p></div>
+
+              {/* Forma de recebimento (externo) / mesa+comanda (interno) */}
+              {modoExterno ? (
+                <div className="mt-5 space-y-3">
+                  <h3 className="text-[11px] font-black uppercase tracking-widest text-[#667085]">Como deseja receber?</h3>
+                  {!aceitaExterno ? (
+                    <div className="rounded-2xl border border-[#FDE1B0] bg-[#FFF4E5] px-4 py-3 text-sm font-bold text-[#B45309]">Esta empresa não está aceitando pedidos pelo cardápio no momento.</div>
+                  ) : opcoesEntrega.length === 0 ? (
+                    <div className="rounded-2xl border border-[#FDE1B0] bg-[#FFF4E5] px-4 py-3 text-sm font-bold text-[#B45309]">Nenhuma forma de pedido disponível no momento.</div>
+                  ) : (
+                    <div role="radiogroup" aria-label="Como deseja receber o pedido" className="space-y-2">
+                      {opcoesEntrega.map((o) => {
+                        const Icone = ICONES_ENTREGA[o.id] || CkIconLoja;
+                        const sel = tipoPedido === o.id;
+                        return (
+                          <button key={o.id} type="button" role="radio" aria-checked={sel} onClick={() => escolherTipoPedido(o.id)}
+                            className={`flex w-full items-start gap-3 rounded-2xl border p-3.5 text-left transition ${sel ? "border-[var(--color-primary)] bg-[#EFF6FF]" : "border-[#E5E7EB] bg-white hover:bg-[#F8FAFC]"}`}>
+                            <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${sel ? "bg-[var(--color-primary)] text-white" : "bg-[#F1F5F9] text-[#667085]"}`}><Icone width={17} height={17} /></span>
+                            <span className="min-w-0 flex-1">
+                              <span className={`block text-sm font-black ${sel ? "text-[var(--color-primary)]" : "text-[#182230]"}`}>{o.label}</span>
+                              <span className="mt-0.5 block text-xs text-[#667085]">{DESC_ENTREGA[o.id]}</span>
+                            </span>
+                            <span className={`mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${sel ? "border-[var(--color-primary)]" : "border-[#D0D5DD]"}`}>{sel && <span className="h-2.5 w-2.5 rounded-full bg-[var(--color-primary)]" />}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <label className="block"><span className="mb-1.5 block text-xs font-bold text-[#667085]">Telefone (WhatsApp) <span className="text-[#B45309]">*</span></span>
+                      <input type="tel" inputMode="numeric" autoComplete="tel" value={mascararTelefone(telefone)} onChange={(e) => setTelefone(e.target.value.replace(/\D/g, "").slice(0, 11))} placeholder="(11) 98765-4321" maxLength={16}
+                        className="w-full min-h-11 rounded-2xl border border-[#E5E7EB] bg-white px-3 py-2.5 text-sm font-black text-[#182230] outline-none transition focus:border-[var(--color-primary)] placeholder:font-normal placeholder:text-[#98A2B3]" /></label>
+                    <label className="block"><span className="mb-1.5 block text-xs font-bold text-[#667085]">Seu nome <span className="text-[#B45309]">*</span></span>
+                      <input autoComplete="name" value={cliente} onChange={(e) => setCliente(capitalizarNome(e.target.value))} placeholder="Nome completo"
+                        className="w-full min-h-11 rounded-2xl border border-[#E5E7EB] bg-white px-3 py-2.5 text-sm text-[#182230] outline-none transition focus:border-[var(--color-primary)] placeholder:text-[#98A2B3]" /></label>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-5 space-y-3">
+                  <h3 className="text-[11px] font-black uppercase tracking-widest text-[#667085]">Confirme sua mesa</h3>
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className="block"><span className="mb-1.5 block text-xs font-bold text-[#667085]">Mesa <span className="text-[#B45309]">*</span></span>
+                      <input type="tel" inputMode="numeric" value={mesa} onChange={(e) => setMesa(e.target.value.replace(/\D/g, "").slice(0, 2))} placeholder="Nº" disabled={!!mesaURL}
+                        className="w-full min-h-11 rounded-2xl border border-[#E5E7EB] bg-white px-3 py-2.5 text-sm font-black text-[#182230] outline-none transition focus:border-[var(--color-primary)] disabled:bg-[#F8FAFC] disabled:text-[#667085]" /></label>
+                    <label className="block"><span className="mb-1.5 block text-xs font-bold text-[#667085]">Seu nome (opcional)</span>
+                      <input value={cliente} onChange={(e) => setCliente(capitalizarNome(e.target.value))} placeholder="Nome" className="w-full min-h-11 rounded-2xl border border-[#E5E7EB] bg-white px-3 py-2.5 text-sm text-[#182230] outline-none transition focus:border-[var(--color-primary)] placeholder:text-[#98A2B3]" /></label>
+                  </div>
+                  {!comURL && (
+                    <div><span className="mb-1.5 block text-xs font-bold text-[#667085]">Comanda <span className="text-[#B45309]">*</span></span>
+                      <input value={comanda} onChange={(e) => setComanda(e.target.value.toUpperCase())} placeholder={`Ex.: ${loja.prefixo}-000001`}
+                        className="w-full min-h-11 rounded-2xl border border-[#E5E7EB] bg-white px-3 py-2.5 font-mono text-sm font-black tracking-widest text-[#182230] outline-none transition focus:border-[var(--color-primary)] placeholder:font-sans placeholder:font-normal placeholder:text-[#98A2B3]" />
+                      <p className="mt-1 text-[11px] text-[#667085]">Escaneie o QR Code da mesa ou digite a comanda.</p></div>
+                  )}
+                </div>
               )}
+
+              {/* Pagamento — condicional: consumo no local não pede nada agora */}
+              <div className="mt-5">
+                <h3 className="mb-2 text-[11px] font-black uppercase tracking-widest text-[#667085]">Pagamento</h3>
+                {!exigePagamentoAgora ? (
+                  <div className="rounded-2xl border border-[#BFDBFE] bg-[#EFF6FF] p-4">
+                    <div className="flex items-start gap-3">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--color-primary)] text-white"><CkIconRelogio width={17} height={17} /></span>
+                      <div className="min-w-0">
+                        <p className="text-sm font-black text-[#182230]">Pagamento após o consumo</p>
+                        <p className="mt-1 text-xs leading-5 text-[#475467]">Seu pedido será enviado agora. A forma de pagamento será escolhida no fechamento da conta.</p>
+                      </div>
+                    </div>
+                  </div>
+                ) : formasPagto.length === 0 ? (
+                  <div className="rounded-2xl border border-[#FDE1B0] bg-[#FFF4E5] px-4 py-3 text-sm font-bold text-[#B45309]">Nenhuma forma de pagamento está disponível no momento.</div>
+                ) : (
+                  <>
+                    <fieldset>
+                      <legend className="sr-only">Forma de pagamento</legend>
+                      <div role="radiogroup" aria-label="Forma de pagamento" className="grid grid-cols-3 gap-2">
+                        {formasPagto.map((f) => {
+                          const Icone = ICONES_PAGTO[f.id] || CkIconCartao;
+                          const sel = formaPagto === f.id;
+                          return (
+                            <button key={f.id} type="button" role="radio" aria-checked={sel} onClick={() => escolherFormaPagto(f.id)}
+                              className={`flex min-h-11 flex-col items-center justify-center gap-1 rounded-2xl border px-2 py-3 text-xs font-black transition ${sel ? "border-[var(--color-primary)] bg-[#EFF6FF] text-[var(--color-primary)]" : "border-[#E5E7EB] bg-white text-[#475467] hover:bg-[#F8FAFC]"}`}>
+                              <Icone width={18} height={18} />
+                              {f.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </fieldset>
+                    <p className="mt-2 text-[11px] text-[#667085]">Pagamento: <span className="font-bold text-[#475467]">{momentoPagto}</span>.</p>
+
+                    {formaPagto === "dinheiro" && (
+                      <div className="mt-3 rounded-2xl border border-[#E5E7EB] bg-[#F8FAFC] p-3.5">
+                        <p className="mb-2 text-xs font-bold text-[#182230]">Precisa de troco?</p>
+                        <div role="radiogroup" aria-label="Precisa de troco?" className="flex gap-2">
+                          {[["sim", "Sim"], ["nao", "Não"]].map(([id, l]) => {
+                            const sel = trocoResposta === id;
+                            return (
+                              <button key={id} type="button" role="radio" aria-checked={sel}
+                                onClick={() => { setTrocoResposta(id); if (id === "nao") setTrocoValor(""); }}
+                                className={`min-h-11 flex-1 rounded-xl border text-sm font-black transition ${sel ? "border-[var(--color-primary)] bg-[#EFF6FF] text-[var(--color-primary)]" : "border-[#E5E7EB] bg-white text-[#475467] hover:bg-[#F1F5F9]"}`}>{l}</button>
+                            );
+                          })}
+                        </div>
+                        {trocoResposta === "sim" && (
+                          <div className="mt-3">
+                            <label className="block"><span className="mb-1.5 block text-xs font-bold text-[#667085]">Vai pagar com quanto?</span>
+                              <input type="text" inputMode="decimal" value={trocoValor} onChange={(e) => setTrocoValor(e.target.value.replace(/[^\d.,]/g, ""))} placeholder={formatCurrency(totalCart)}
+                                className="w-full min-h-11 rounded-2xl border border-[#E5E7EB] bg-white px-3 py-2.5 text-sm font-black text-[#182230] outline-none transition focus:border-[var(--color-primary)] placeholder:font-normal placeholder:text-[#98A2B3]" /></label>
+                            {trocoValor && parseMoedaBR(trocoValor) > 0 && parseMoedaBR(trocoValor) < totalCart && (
+                              <p className="mt-1.5 text-xs font-bold text-[#B42318]">O valor deve ser de pelo menos {formatCurrency(totalCart)} (total do pedido).</p>
+                            )}
+                            {trocoValor && parseMoedaBR(trocoValor) >= totalCart && (
+                              <p className="mt-1.5 text-xs font-bold text-[#147A4A]">Troco: {formatCurrency(parseMoedaBR(trocoValor) - totalCart)}.</p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+
+              {economiaCart > 0 && (
+                <div className="mt-4 flex items-center justify-center gap-1.5 rounded-2xl border border-[#B7E4C7] bg-[#ECFDF3] px-3 py-2 text-sm font-black text-[#147A4A]">
+                  <CkIconCheck width={16} height={16} /> Você economizou {formatCurrency(economiaCart)} nesta compra!
+                </div>
+              )}
+
+              {/* Resumo financeiro */}
+              <div className="mt-4 space-y-1.5 border-t border-[#E5E7EB] pt-3.5">
+                {economiaCart > 0 && (
+                  <>
+                    <div className="flex items-center justify-between text-sm"><span className="text-[#667085]">Subtotal</span><span className="text-[#475467]">{formatCurrency(totalCart + economiaCart)}</span></div>
+                    <div className="flex items-center justify-between text-sm"><span className="text-[#667085]">Desconto</span><span className="font-bold text-[#147A4A]">-{formatCurrency(economiaCart)}</span></div>
+                  </>
+                )}
+                <div className="flex items-center justify-between"><span className="text-sm font-bold text-[#475467]">Total do pedido</span><span className="text-xl font-black text-[#182230]">{formatCurrency(totalCart)}</span></div>
+                {modoExterno && tipoPedido === "local" && <p className="text-[11px] text-[#667085]">Pagamento realizado no fechamento da conta.</p>}
+              </div>
             </>
           )}
-          {/* Forma de pagamento (aba "Pagamento") — pedido interno e externo */}
-          {formasPagto.length > 0 && (
-            <div className="mt-4">
-              <p className="mb-1.5 text-[11px] font-black uppercase tracking-widest text-[#9A6A00]">3. Forma de pagamento <span className="font-bold normal-case text-[#B45309]">*</span></p>
-              <div className="grid grid-cols-3 gap-2">
-                {formasPagto.map((f) => (
-                  <button key={f.id} type="button" onClick={() => setFormaPagto(f.id)}
-                    className={`flex min-h-[44px] items-center justify-center gap-1.5 rounded-2xl border px-2 py-2.5 text-sm font-black transition ${formaPagto === f.id ? "border-[#16A34A] bg-[#ECFDF3] text-[#047857]" : "border-[#E5E7EB] bg-white text-[#475467] hover:bg-[#F8FAFC]"}`}>
-                    <span>{f.icon}</span><span>{f.label}</span>
-                  </button>
-                ))}
-              </div>
-              <p className="mt-1.5 text-[11px] text-[#667085]">Pagamento: <span className="font-bold text-[#475467]">{momentoPagto}</span>.</p>
-            </div>
-          )}
-          {economiaCart > 0 && (
-            <div className="mt-3 flex items-center justify-center gap-1.5 rounded-2xl border border-[#B7E4C7] bg-[#ECFDF3] px-3 py-2 text-sm font-black text-[#147A4A]">💚 Você economizou {formatCurrency(economiaCart)} nesta compra!</div>
-          )}
-          <div className="mt-3 flex items-center justify-between border-t border-[#E5E7EB] pt-3"><span className="text-sm text-[#475467]">Total</span><span className="text-xl font-black text-[#9A6A00]">{formatCurrency(totalCart)}</span></div>
-          {modoExterno && minimoExterno > 0 && (
-            <p className={`mt-2 text-xs font-bold ${minimoFalta > 0 ? "text-[#B45309]" : "text-[#147A4A]"}`}>
-              {minimoFalta > 0 ? `Pedido mínimo de ${formatCurrency(minimoExterno)} — faltam ${formatCurrency(minimoFalta)}.` : `✓ Pedido mínimo de ${formatCurrency(minimoExterno)} atingido.`}
-            </p>
-          )}
-          <button onClick={enviar} disabled={!podeEnviar || enviando}
-            className={`mt-3 w-full min-h-[44px] rounded-2xl py-4 text-sm font-black transition active:scale-95 ${(!podeEnviar || enviando) ? "bg-[#F3F4F6] text-[#98A2B3]" : "bg-[#D9A441] text-[#182230] hover:bg-[#C7922F]"}`}>
-            {enviando ? "Enviando…" : bloqueioHorario ? "Pedido indisponível no momento" : "🚀 Enviar pedido"}
-          </button>
         </Gaveta>
       )}
 
@@ -1470,7 +1631,82 @@ function TimelinePedido({ status, paymentStatus = "open", setorStatus = {}, seto
     </div>
   );
 }
-function Gaveta({ titulo, onFechar, children }) {
+// ════════════════════════════════════════════════════════════
+//  Finalização do pedido — ícones inline (sem emoji, sem lib externa —
+//  mesma convenção de src/App.jsx ProdutoModal: stroke=currentColor).
+// ════════════════════════════════════════════════════════════
+const ckIconBase = { width: 18, height: 18, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true };
+const CkIconCheck    = (p) => (<svg {...ckIconBase} {...p}><path d="M20 6 9 17l-5-5" /></svg>);
+const CkIconAlerta   = (p) => (<svg {...ckIconBase} {...p}><path d="M12 9v4" /><path d="M12 17h.01" /><path d="M10.3 3.9 2 18a1.5 1.5 0 0 0 1.3 2.3h17.4A1.5 1.5 0 0 0 22 18L13.7 3.9a1.7 1.7 0 0 0-3.4 0Z" /></svg>);
+const CkIconLixeira  = (p) => (<svg {...ckIconBase} {...p}><path d="M3 6h18" /><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" /><path d="M19 6l-.9 13.2A2 2 0 0 1 16.1 21H7.9a2 2 0 0 1-2-1.8L5 6" /><path d="M10 11v6M14 11v6" /></svg>);
+const CkIconRelogio  = (p) => (<svg {...ckIconBase} {...p}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>);
+const CkIconLoja     = (p) => (<svg {...ckIconBase} {...p}><path d="M4 9 5.2 4.5A1 1 0 0 1 6.2 4h11.6a1 1 0 0 1 1 .5L20 9" /><path d="M4 9h16v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V9Z" /><path d="M9 20v-5h6v5" /></svg>);
+const CkIconMoto     = (p) => (<svg {...ckIconBase} {...p}><circle cx="6" cy="18" r="2.5" /><circle cx="18" cy="18" r="2.5" /><path d="M9 18h6l3-6h-4l-2-4H8l-2 3" /><path d="M13 8h4" /></svg>);
+const CkIconGarfo    = (p) => (<svg {...ckIconBase} {...p}><path d="M7 3v7a2 2 0 0 0 4 0V3" /><path d="M9 10v11" /><path d="M16 3c-1.1 0-2 1.3-2 4s.9 4 2 4 2-1.3 2-4-.9-4-2-4Z" /><path d="M16 11v10" /></svg>);
+const CkIconCartao   = (p) => (<svg {...ckIconBase} {...p}><rect x="2.5" y="5.5" width="19" height="13" rx="2" /><path d="M2.5 10h19" /><path d="M6 14.5h4" /></svg>);
+const CkIconPix      = (p) => (<svg {...ckIconBase} {...p}><path d="M9.5 4.5 4.5 9.5a2 2 0 0 0 0 2.8l6.7 6.7a2 2 0 0 0 2.8 0l6.7-6.7a2 2 0 0 0 0-2.8L14.5 3a2 2 0 0 0-2 0" /><path d="m8.3 8.3 2.2 2.2a2 2 0 0 0 2.8 0l2.2-2.2M8.3 15.7l2.2-2.2a2 2 0 0 1 2.8 0l2.2 2.2" /></svg>);
+const CkIconDinheiro = (p) => (<svg {...ckIconBase} {...p}><rect x="2.5" y="6" width="19" height="12" rx="2" /><circle cx="12" cy="12" r="2.5" /><path d="M6 9v0M18 15v0" /></svg>);
+const CkIconSpinner  = () => (<svg className="animate-spin" width={18} height={18} viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" opacity=".25" /><path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" /></svg>);
+
+// Indicador compacto de progresso — Pedido → Identificação → Confirmação
+// (nunca "Pagamento": ele pode nem existir, ver regra do consumo local).
+// Não depende só de cor: número/check + rótulo sempre visíveis.
+function EtapaProgresso({ etapas, atualIdx }) {
+  return (
+    <ol className="flex items-center gap-1.5" aria-label="Progresso do pedido">
+      {etapas.map((e, i) => {
+        const feita = i < atualIdx || (i === atualIdx && e.feito);
+        const atual = i === atualIdx;
+        return (
+          <li key={e.label} className="flex flex-1 items-center gap-1.5">
+            <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-black transition-colors ${
+              feita ? "bg-[var(--color-primary)] text-white" : atual ? "border-2 border-[var(--color-primary)] text-[var(--color-primary)]" : "border border-[#E5E7EB] text-[#98A2B3]"
+            }`} aria-current={atual ? "step" : undefined}>
+              {feita ? <CkIconCheck width={12} height={12} strokeWidth={3} /> : i + 1}
+            </span>
+            <span className={`truncate text-[11px] font-bold ${atual || feita ? "text-[#182230]" : "text-[#98A2B3]"}`}>{e.label}</span>
+            {i < etapas.length - 1 && <span className="h-px flex-1 bg-[#E5E7EB]" aria-hidden="true" />}
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+// Card de item do carrinho — hierarquia clara (nome/qtd → personalização →
+// preço), "Remover" como ação secundária discreta (só ícone + aria-label,
+// nunca compete visualmente com o preço).
+function CardItemCarrinho({ item, onRemover }) {
+  const personalizado = item.removedIngredients?.length > 0 || item.extraIngredients?.length > 0 || item.observation;
+  return (
+    <div className={`flex items-start justify-between gap-3 rounded-2xl border bg-white p-3.5 shadow-[0_8px_24px_rgba(16,24,40,.06)] ${item.comboId ? "border-[#B7E4C7]" : "border-[#E5E7EB]"}`}>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-black leading-snug text-[#182230]">
+          <span className="text-[#667085]">{item.quantity}×</span> {item.name}
+        </p>
+        {item.comboId && <p className="mt-0.5 truncate text-[11px] font-bold text-[#147A4A]">Combo: {item.comboNome}</p>}
+        {personalizado && (
+          <p className="mt-1 text-[11px] leading-4 text-[#667085]">
+            {item.removedIngredients?.length > 0 && <>Sem: {item.removedIngredients.join(", ")}<br /></>}
+            {item.extraIngredients?.length > 0 && <>Com: {item.extraIngredients.join(", ")}<br /></>}
+            {item.observation}
+          </p>
+        )}
+        <p className="mt-1.5 text-sm font-bold text-[#182230]">{formatCurrency(item.price * item.quantity)}</p>
+      </div>
+      <button onClick={() => onRemover(item)} type="button" aria-label={`Remover ${item.name} do pedido`}
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-[#98A2B3] transition hover:bg-[#FFF1F2] hover:text-[#B42318] active:scale-90">
+        <CkIconLixeira />
+      </button>
+    </div>
+  );
+}
+
+// `rodape` (opcional): conteúdo fixo ABAIXO da área rolável (ex.: total +
+// CTA de "Finalizar pedido") — fica sempre visível, nunca precisa rolar até
+// o fim pra alcançar o botão principal. Sem essa prop, a gaveta se comporta
+// exatamente como antes (usado por aba "conta"/acompanhar pedido).
+function Gaveta({ titulo, subtitulo, onFechar, children, rodape }) {
   useScrollLock(); // trava a rolagem do fundo enquanto a gaveta está aberta
   // Acompanha o "visual viewport" (área visível) para a gaveta sentar ACIMA do teclado
   // do celular — assim o campo focado nunca fica escondido.
@@ -1486,12 +1722,26 @@ function Gaveta({ titulo, onFechar, children }) {
   }, []);
   const overlayStyle = vp ? { top: vp.top, height: vp.h, bottom: "auto" } : undefined;
   const sheetMax = vp ? `${vp.h - 8}px` : "88dvh";
-  const bodyMax = vp ? `${vp.h - 72}px` : "calc(88dvh - 64px)";
   return (
     <div data-theme="light" className="tema-claro-area fixed inset-x-0 top-0 z-[110] flex w-full max-w-[100vw] items-end justify-center overflow-x-hidden bg-black/60 backdrop-blur-sm" style={overlayStyle} onClick={onFechar}>
-      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-3xl rounded-t-[24px] border border-[#E5E7EB] bg-white shadow-[0_8px_24px_rgba(16,24,40,.08)]" style={{ maxHeight: sheetMax, paddingBottom: "env(safe-area-inset-bottom)" }}>
-        <div className="sticky top-0 z-10 flex items-center justify-between rounded-t-[24px] border-b border-[#E5E7EB] bg-white px-5 py-4"><h2 className="text-lg font-black text-[#182230]">{titulo}</h2><button onClick={onFechar} className="min-h-[44px] rounded-2xl border border-[#E5E7EB] bg-[#F8FAFC] px-4 py-2 text-sm font-black text-[#475467] transition hover:bg-[#F3F4F6]">Fechar ✕</button></div>
-        <div className="pp-overscroll-contain overflow-y-auto px-4 py-4 sm:px-5" style={{ maxHeight: bodyMax }}>{children}</div>
+      {/* flex-col + min-h-0 no corpo: o rodapé (quando existe) reserva sua
+          própria altura de verdade (medida pelo navegador), e o corpo rolável
+          ocupa exatamente o resto — sem precisar "chutar" um px fixo de
+          desconto pra altura do cabeçalho/rodapé em cada gaveta. */}
+      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-3xl flex-col rounded-t-[24px] border border-[#E5E7EB] bg-white shadow-[0_8px_24px_rgba(16,24,40,.08)]" style={{ maxHeight: sheetMax, paddingBottom: rodape ? undefined : "env(safe-area-inset-bottom)" }}>
+        <div className="sticky top-0 z-10 flex shrink-0 items-center justify-between gap-3 rounded-t-[24px] border-b border-[#E5E7EB] bg-white px-5 py-4">
+          <div className="min-w-0">
+            <h2 className="text-lg font-black text-[#182230]">{titulo}</h2>
+            {subtitulo && <p className="mt-0.5 text-xs text-[#667085]">{subtitulo}</p>}
+          </div>
+          <button onClick={onFechar} aria-label="Fechar" className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-2xl border border-[#E5E7EB] bg-[#F8FAFC] px-4 py-2 text-sm font-black text-[#475467] transition hover:bg-[#F3F4F6]">Fechar ✕</button>
+        </div>
+        <div className="pp-overscroll-contain min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">{children}</div>
+        {rodape && (
+          <div className="shrink-0 border-t border-[#E5E7EB] bg-white px-4 py-3 sm:px-5" style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 0.75rem)" }}>
+            {rodape}
+          </div>
+        )}
       </div>
     </div>
   );

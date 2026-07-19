@@ -527,16 +527,19 @@ export function escutarChamados(onMudanca) {
 //  Cardápio público via RPC (migration 050) — usado só quando
 //  CARDAPIO_PUBLICO_VIA_RPC = true (após o enforce da RLS).
 // ════════════════════════════════════════════════════════════
-export async function rpcCriarPedidoPublico({ lojaId, mesa, comanda, cliente, telefone, itens, pagForma = null, pagMomento = null, mesaNumero = null, mesaId = null }) {
+export async function rpcCriarPedidoPublico({ lojaId, mesa, comanda, cliente, telefone, itens, pagForma = null, pagMomento = null, mesaNumero = null, mesaId = null, trocoPara = null }) {
   const base = { p_loja_id: lojaId, p_mesa: mesa || null, p_comanda: comanda || null, p_cliente: cliente || null, p_telefone: telefone || null, p_itens: itens || [] }
   const comPagto = { ...base, p_pag_forma: pagForma || null, p_pag_momento: pagMomento || null }
   const comMesaNumero = { ...comPagto, p_mesa_numero: mesaNumero ?? null }
-  // Tenta a assinatura mais nova primeiro (migration 066 — valida mesa por id
-  // persistente, além de número/modo/horário no servidor). Se a migration
-  // ainda não foi aplicada nesse banco, cai em cascata pelas assinaturas
-  // anteriores (065 → 061 → original) — pedido segue funcionando enquanto a
-  // migration mais nova não roda.
-  let { data, error } = await supabase.rpc('pub_criar_pedido', { ...comMesaNumero, p_mesa_id: mesaId ?? null })
+  const comMesaId = { ...comMesaNumero, p_mesa_id: mesaId ?? null }
+  // Tenta a assinatura mais nova primeiro (migration 071 — troco p/ dinheiro).
+  // Se a migration ainda não foi aplicada nesse banco, cai em cascata pelas
+  // assinaturas anteriores (066 → 065 → 061 → original) — pedido segue
+  // funcionando (sem o troco) enquanto a migration mais nova não roda.
+  let { data, error } = await supabase.rpc('pub_criar_pedido', { ...comMesaId, p_troco_para: trocoPara ?? null })
+  if (error && (error.code === 'PGRST202' || /pub_criar_pedido/i.test(error.message || ''))) {
+    ({ data, error } = await supabase.rpc('pub_criar_pedido', comMesaId))
+  }
   if (error && (error.code === 'PGRST202' || /pub_criar_pedido/i.test(error.message || ''))) {
     ({ data, error } = await supabase.rpc('pub_criar_pedido', comMesaNumero))
   }
@@ -1272,6 +1275,7 @@ function dbParaPedido(r) {
     setorStatus:   r.setor_status ?? {},   // status por setor (migration 055, tolerante)
     pagamentoForma:   r.pagamento_forma ?? null,   // forma escolhida no checkout (migration 061)
     pagamentoMomento: r.pagamento_momento ?? null, // quando pagar (na entrega/retirada/local)
+    pagamentoTrocoPara: r.pagamento_troco_para ?? null, // valor p/ troco em dinheiro (migration 071)
   }
 }
 
@@ -1392,6 +1396,7 @@ function pedidoParaDb(p) {
     ...(p.clienteTelefone ? { cliente_telefone: p.clienteTelefone } : {}),
     ...(p.pagamentoForma ? { pagamento_forma: p.pagamentoForma } : {}),
     ...(p.pagamentoMomento ? { pagamento_momento: p.pagamentoMomento } : {}),
+    ...(p.pagamentoTrocoPara > 0 ? { pagamento_troco_para: p.pagamentoTrocoPara } : {}),
   }
 }
 
