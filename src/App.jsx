@@ -1272,9 +1272,19 @@ export default function RestaurantePedidoApp() {
     // no botão (ou um clique + o card ainda visível por um instante) podiam
     // disparar duas gravações concorrentes pro mesmo pedido.
     if (entregandoRef.current) return;
-    // Pedido externo (delivery/retirada) só é liberado para entrega após pagamento total.
+    // Pedido externo de RETIRADA ou ENTREGA só é liberado após pagamento total
+    // (o cliente leva o produto embora — precisa estar quitado antes de sair
+    // com ele). "Consumo no local" (mesmo vindo do canal externo, ver
+    // enviar() em CardapioPublico.jsx) NÃO entra nessa trava: por regra de
+    // negócio o pagamento desse tipo de pedido é sempre depois, no
+    // fechamento da conta — então paymentStatus fica "open" a refeição
+    // inteira, e essa checagem travava TODO pedido de consumo no local pra
+    // sempre (nenhuma requisição chegava a sair, sem erro nenhum no
+    // console — o clique só mostrava este aviso).
     const ped = orders.find((o) => o.id === oid);
-    if (ped && (ped.table === "Externo" || /^EXT-/.test(ped.command || "")) && ped.paymentStatus !== "paid")
+    const pedidoExterno = ped?.table === "Externo" || /^EXT-/.test(ped?.command || "");
+    const exigePagamentoAntes = pedidoExterno && /retirada|entrega/i.test(ped?.table || "");
+    if (ped && exigePagamentoAntes && ped.paymentStatus !== "paid")
       return notify("error", "Pagamento pendente — finalize o pagamento antes de liberar a entrega.");
     entregandoRef.current = true;
     setEntregandoId(oid);
