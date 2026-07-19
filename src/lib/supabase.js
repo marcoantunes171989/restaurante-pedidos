@@ -618,13 +618,16 @@ export async function rpcStatusMesa({ lojaId, mesaNumero, mesaId = null }) {
 }
 export async function rpcPedidosComanda({ lojaId, comanda }) {
   const { data, error } = await supabase.rpc('pub_pedidos_comanda', { p_loja_id: lojaId, p_comanda: comanda })
-  if (error || !data) return []
-  return data.map(dbParaPedido)
+  // Propaga erro de rede/RPC (diferente de "sem pedidos ainda", que é !error
+  // com data vazio) — quem chama usa isso pra detectar perda de conexão em
+  // tempo real (ver pedidosOffline em CardapioPublico.jsx).
+  if (error) throw error
+  return (data || []).map(dbParaPedido)
 }
 export async function rpcPedidosCliente({ lojaId, telefone }) {
   const { data, error } = await supabase.rpc('pub_pedidos_cliente', { p_loja_id: lojaId, p_telefone: telefone })
-  if (error || !data) return []
-  return data.map(dbParaPedido)
+  if (error) throw error
+  return (data || []).map(dbParaPedido)
 }
 export async function rpcSolicitarContaPublico({ lojaId, comanda }) {
   const { error } = await supabase.rpc('pub_solicitar_conta', { p_loja_id: lojaId, p_comanda: comanda })
@@ -1164,7 +1167,7 @@ export async function atualizarPedido(id, campos) {
   if (error) throw error
 }
 
-export function escutarPedidos(onMudanca) {
+export function escutarPedidos(onMudanca, onStatus) {
   // Guard de sequência: se dois reloads ficam em voo (ex.: INSERT e UPDATE
   // quase simultâneos), a resposta mais lenta não pode sobrescrever a mais
   // recente — aplica só o resultado do último reload disparado (evita
@@ -1181,7 +1184,7 @@ export function escutarPedidos(onMudanca) {
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'tab_pedidos' }, reload)
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tab_pedidos' }, reload)
     .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'tab_pedidos' }, reload)
-    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
+    .subscribe((s) => { onStatus && onStatus(s); if (s === 'SUBSCRIBED') reload() })
   return () => supabase.removeChannel(canal)
 }
 

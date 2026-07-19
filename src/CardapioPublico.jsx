@@ -11,7 +11,7 @@ import { useScrollLock } from "./lib/scrollLock";
 import { CATEGORIA_TODOS, agruparProdutosPorCategoria, montarListaCategorias, escolherCategoriaAtiva, calcularDestinoScroll } from "./lib/cardapioCategorias";
 import SatisfactionSurvey from "./components/SatisfactionSurvey";
 import {
-  ProdutoModal, formatCurrency, fallbackImage, statusMap, STATUS_TABLET_LABEL, isValidCommand,
+  ProdutoModal, formatCurrency, fallbackImage, statusMap, isValidCommand,
   promocaoVigente, promoResumoDesconto, qrMesaEnabled, externalOrderingEnabled,
 } from "./App";
 import { LogoPP } from "./components/BrandLogo";
@@ -94,6 +94,29 @@ function parseMoedaBR(v) {
   const n = parseFloat(s);
   return isFinite(n) ? n : 0;
 }
+// Modo de recebimento REAL de um pedido específico — não basta saber se o
+// canal é "externo" (link) ou "mesa" (QR): dentro do canal externo, "Consumir
+// no local" e "Retirada no balcão" são fluxos diferentes (o rótulo já vem
+// gravado em o.table, ver enviar(): "Externo · Consumo no local" / "Externo ·
+// Retirada" / "Externo · Entrega") e não podem usar o mesmo texto de
+// "pronto"/"entregue" — mesa e consumo no local são sempre "servidos".
+function modoEntregaPedido(pedido, modoExterno) {
+  if (!modoExterno) return "mesa";
+  const t = pedido.table || "";
+  if (/retirada/i.test(t)) return "retirada";
+  if (/entrega/i.test(t)) return "entrega";
+  return "local"; // "Externo · Consumo no local" e qualquer formato antigo/desconhecido
+}
+// Rótulo do status operacional (enum oficial STATUS_DB_PARA_APP/STATUS_APP_PARA_DB
+// — nunca um valor inventado) em linguagem amigável pro cliente, sem confundir
+// consumo local/mesa ("Entregue") com retirada ("Retirado") ou entrega ("Entregue").
+function statusClienteLabel(pedido, modo) {
+  if (pedido.status === "cancelled") return "Cancelado";
+  if (pedido.status === "delivered") return modo === "retirada" ? "Retirado" : "Entregue";
+  if (pedido.status === "ready") return modo === "retirada" ? "Pronto para retirada" : modo === "entrega" ? "Pronto para entrega" : "Pronto para servir";
+  if (pedido.status === "preparing") return "Em preparação";
+  return "Recebido";
+}
 
 export default function CardapioPublico() {
   const params = new URLSearchParams(window.location.search);
@@ -118,6 +141,7 @@ export default function CardapioPublico() {
   // como security definer e não depende desta leitura do cliente).
   const [mesasLoja, setMesasLoja] = useState(null);
   const [orders, setOrders]       = useState([]);
+  const [pedidosOffline, setPedidosOffline] = useState(false); // true quando a atualização em tempo real dos pedidos está falhando (polling/realtime)
   const [busca, setBusca]         = useState("");
   // Carrinho sobrevive a navegação/F5: por empresa+mesa (link externo cai em
   // "ext"), pra não vazar carrinho entre mesas/empresas diferentes no mesmo
@@ -151,6 +175,10 @@ export default function CardapioPublico() {
   const [confirmarLimpar, setConfirmarLimpar] = useState(false); // confirmação obrigatória antes de esvaziar o carrinho todo
   const [trocoResposta, setTrocoResposta] = useState(""); // "" | "sim" | "nao" — só perguntado com pagamento em Dinheiro
   const [trocoValor, setTrocoValor] = useState(""); // valor (texto) que o cliente vai usar para pagar em espécie
+  const [confirmarFechamento, setConfirmarFechamento] = useState(false); // confirmação obrigatória antes de solicitar/reenviar o fechamento da conta
+  const [solicitando, setSolicitando] = useState(false);
+  const solicitandoRef = useRef(false); // trava síncrona contra clique duplo (mesmo padrão de enviandoRef)
+  const [pedidoRecolhido, setPedidoRecolhido] = useState({}); // { [id]: true } — cartão de pedido recolhido pelo cliente (padrão: expandido)
 
   // Confirmação obrigatória de "mesa ocupada" (QR por mesa) — status vem do
   // backend (pub_status_mesa, migration 067), nunca de cache/estado local.
@@ -228,14 +256,19 @@ export default function CardapioPublico() {
           const lista = modoExterno
             ? (tel.length >= 10 ? await rpcPedidosCliente({ lojaId: loja.id, telefone: tel }) : [])
             : (comanda ? await rpcPedidosComanda({ lojaId: loja.id, comanda }) : []);
-          if (vivo) setOrders(lista);
-        } catch {}
+          if (!vivo) return;
+          setOrders(lista);
+          setPedidosOffline(false); // poll respondeu — conexão OK
+        } catch { if (vivo) setPedidosOffline(true); } // poll falhou (rede/RLS) — mantém os últimos dados válidos, só sinaliza
       };
       buscar();
       const iv = setInterval(buscar, 4000);
       return () => { vivo = false; clearInterval(iv); };
     }
-    const off = escutarPedidos((all) => setOrders(all.filter((o) => o.lojaId === loja.id)));
+    const off = escutarPedidos(
+      (all) => { setOrders(all.filter((o) => o.lojaId === loja.id)); setPedidosOffline(false); },
+      (status) => setPedidosOffline(status === "TIMED_OUT" || status === "CHANNEL_ERROR" || status === "CLOSED"),
+    );
     return () => off && off();
   }, [loja?.id, modoExterno, comanda, telefone]);
 
@@ -780,6 +813,25 @@ export default function CardapioPublico() {
   const qtdCart = cart.reduce((s, i) => s + i.quantity, 0);
   const podeFechar = meusPedidos.length > 0 && meusPedidos.every((o) => o.status === "delivered");
   const contaSolicitada = meusPedidos.some((o) => o.paymentStatus === "requested");
+  const contaPaga = meusPedidos.length > 0 && meusPedidos.every((o) => o.paymentStatus === "paid");
+  // Conta "paga só depois do consumo": nenhum pedido desta conta declarou
+  // forma de pagamento no ato (ver regra do checkout — consumo no local e
+  // mesa/QR sempre ficam assim; retirada/entrega com forma escolhida, não).
+  // Dado real por pedido (pagamentoForma), não um palpite pelo tipoPedido atual.
+  const pagamentoPosteriorConta = meusPedidos.length > 0 && meusPedidos.every((o) => !o.pagamentoForma);
+  // Status geral do atendimento (só combina os 3 status oficiais já existentes
+  // — status operacional e status_pagamento — nunca um valor inventado).
+  const statusGeralConta = meusPedidos.length === 0 ? null
+    : contaSolicitada ? "Fechamento solicitado"
+    : contaPaga ? "Pagamento confirmado"
+    : podeFechar ? "Pedidos entregues"
+    : meusPedidos.some((o) => o.status === "ready") ? "Pedido pronto"
+    : meusPedidos.some((o) => o.status === "preparing") ? "Em preparação"
+    : "Pedido recebido";
+  // meusPedidos vem ordenado do mais recente pro mais antigo (mesma ordem de
+  // `orders`, já ordenado pelo backend) — o último da lista é o mais antigo,
+  // ou seja, o horário de abertura da conta.
+  const contaAbertaEm = meusPedidos.length > 0 ? meusPedidos[meusPedidos.length - 1].createdAt : null;
 
   // Roteamento por setor (cozinha/bar) — para o acompanhamento por setor
   const setorPorNomeProd = useMemo(() => { const m = {}; produtos.forEach((p) => { if (p.setorId != null) m[p.name] = p.setorId; }); return m; }, [produtos]);
@@ -957,8 +1009,17 @@ export default function CardapioPublico() {
     setMsg({ t: "success", m: "Tudo certo, obrigado! 👋" });
   }
 
-  async function solicitarConta() {
-    if (!podeFechar) return setMsg({ t: "error", m: "Aguarde a entrega de todos os pedidos para solicitar a conta." });
+  // Confirma (2º passo, após o diálogo) a solicitação — ou o reenvio — do
+  // fechamento ao caixa. Trava síncrona (solicitandoRef) contra clique duplo,
+  // mesmo padrão já usado em enviar()/enviandoRef: sem ela, dois toques
+  // rápidos no botão de confirmação do diálogo poderiam disparar duas
+  // solicitações antes do estado "solicitando" refletir no botão.
+  async function confirmarSolicitarConta() {
+    setConfirmarFechamento(false);
+    if (!podeFechar || solicitandoRef.current) return;
+    solicitandoRef.current = true;
+    setSolicitando(true);
+    const reenvio = contaSolicitada;
     try {
       if (cardapioViaRpc()) {
         const comandas = [...new Set(meusPedidos.map((o) => o.command).filter(Boolean))];
@@ -966,8 +1027,9 @@ export default function CardapioPublico() {
       } else {
         await Promise.all(meusPedidos.map((o) => atualizarPedido(o.id, { status_pagamento: "solicitado" })));
       }
-      setMsg({ t: "success", m: "🧾 Conta solicitada ao caixa." });
-    } catch { setMsg({ t: "error", m: "Erro ao solicitar a conta." }); }
+      setMsg({ t: "success", m: reenvio ? "Solicitação reenviada ao caixa." : "Fechamento solicitado ao caixa." });
+    } catch { setMsg({ t: "error", m: "Erro ao solicitar a conta. Tente novamente." }); }
+    finally { setSolicitando(false); solicitandoRef.current = false; }
   }
 
   // ── Estados de carregamento/erro ───────────────────────────
@@ -1242,14 +1304,14 @@ export default function CardapioPublico() {
             // Carrinho vazio: dá acesso direto ao carrinho + acompanhar
             <div className="flex items-stretch gap-2 rounded-3xl border border-[#E5E7EB] bg-white p-2 shadow-[0_8px_24px_rgba(16,24,40,.1)] backdrop-blur-xl">
               <button onClick={() => setAba("conta")} disabled={meusPedidos.length === 0}
-                className={`flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-2xl border border-[#E5E7EB] py-3 text-sm font-black transition active:scale-95 ${meusPedidos.length === 0 ? "bg-[#F3F4F6] text-[#98A2B3]" : "bg-white text-[#2563EB]"}`}>👁️ Acompanhar pedido</button>
+                className={`flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-2xl border border-[#E5E7EB] py-3 text-sm font-black transition active:scale-95 ${meusPedidos.length === 0 ? "bg-[#F3F4F6] text-[#98A2B3]" : "bg-white text-[#2563EB]"}`}><CkIconRecibo width={16} height={16} /> Acompanhar pedido</button>
               <button onClick={() => setAba("carrinho")}
                 className="flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-2xl border border-[#E5E7EB] bg-[#F3F4F6] py-3 text-sm font-black text-[#98A2B3] transition active:scale-95">🛒 Carrinho vazio</button>
             </div>
           ) : (
             // Com itens: o carrinho já está na barra dourada acima — aqui só acompanhar
             <button onClick={() => setAba("conta")} disabled={meusPedidos.length === 0}
-              className={`flex min-h-[44px] w-full items-center justify-center gap-2 rounded-3xl border border-[#E5E7EB] py-3.5 text-sm font-black shadow-[0_8px_24px_rgba(16,24,40,.1)] backdrop-blur-xl transition active:scale-95 ${meusPedidos.length === 0 ? "bg-[#F3F4F6] text-[#98A2B3]" : "bg-white text-[#2563EB]"}`}>👁️ Acompanhar pedido</button>
+              className={`flex min-h-[44px] w-full items-center justify-center gap-2 rounded-3xl border border-[#E5E7EB] py-3.5 text-sm font-black shadow-[0_8px_24px_rgba(16,24,40,.1)] backdrop-blur-xl transition active:scale-95 ${meusPedidos.length === 0 ? "bg-[#F3F4F6] text-[#98A2B3]" : "bg-white text-[#2563EB]"}`}><CkIconRecibo width={16} height={16} /> Acompanhar pedido</button>
           )}
         </div>
       </div>
@@ -1307,6 +1369,24 @@ export default function CardapioPublico() {
             <div className="mt-4 flex gap-2">
               <button onClick={() => setConfirmarLimpar(false)} type="button" className="min-h-[44px] flex-1 rounded-2xl border border-white/10 bg-white/[0.06] py-3 text-sm font-black text-slate-300 hover:bg-white/10">Manter itens</button>
               <button onClick={limparCarrinho} type="button" className="min-h-[44px] flex-1 rounded-2xl bg-red-500 py-3 text-sm font-black text-white hover:bg-red-400">Limpar tudo</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmação ao solicitar (ou reenviar) o fechamento da conta ao caixa —
+          esta ação só AVISA o caixa; não marca a conta como paga nem gera
+          baixa financeira (isso só acontece de verdade no caixa). */}
+      {confirmarFechamento && (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/75 p-6 backdrop-blur-sm" onClick={() => setConfirmarFechamento(false)}>
+          <div role="alertdialog" aria-modal="true" aria-labelledby="msg-fechar-conta" className="w-full max-w-sm rounded-3xl border border-white/10 bg-slate-900 p-5 text-center" onClick={(e) => e.stopPropagation()}>
+            <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--color-primary)]/15 text-[var(--color-primary-light)]"><CkIconRecibo width={22} height={22} /></span>
+            <p id="msg-fechar-conta" className="mt-3 text-base font-black text-white">{contaSolicitada ? "Reenviar solicitação ao caixa?" : "Solicitar fechamento da conta?"}</p>
+            <p className="mt-1 text-sm text-slate-400">{contaSolicitada ? "Confirme para avisar novamente o caixa sobre o fechamento da sua conta." : "Confirme para avisar o caixa que você deseja finalizar o atendimento."}</p>
+            <p className="mt-3 rounded-2xl bg-white/[0.06] py-2.5 text-lg font-black text-white">{formatCurrency(totalMesa)}</p>
+            <div className="mt-4 flex gap-2">
+              <button onClick={() => setConfirmarFechamento(false)} type="button" className="min-h-[44px] flex-1 rounded-2xl border border-white/10 bg-white/[0.06] py-3 text-sm font-black text-slate-300 hover:bg-white/10">Continuar consumindo</button>
+              <button onClick={confirmarSolicitarConta} type="button" className="min-h-[44px] flex-1 rounded-2xl bg-[var(--color-primary)] py-3 text-sm font-black text-white hover:bg-[var(--color-primary-dark)]">{contaSolicitada ? "Reenviar" : "Solicitar fechamento"}</button>
             </div>
           </div>
         </div>
@@ -1522,33 +1602,129 @@ export default function CardapioPublico() {
 
       {/* Gaveta: Acompanhar / Conta */}
       {aba === "conta" && (
-        <Gaveta titulo={`🧾 ${modoExterno ? "Meus pedidos" : (currentTable || "Conta")}`} onFechar={() => setAba(null)}>
-          {meusPedidos.length === 0 ? <p className="py-8 text-center text-sm text-slate-500">Nenhum pedido para acompanhar ainda.</p> : (
-            <div className="space-y-2">
-              {meusPedidos.map((o) => (
-                <div key={o.id} className="rounded-2xl border border-white/10 bg-slate-950/40 p-3">
-                  <div className="mb-2 flex items-center justify-between gap-2"><span className="text-xs font-bold uppercase tracking-widest text-slate-500">Pedido nº {String(o.id || "").replace(/\D/g, "").slice(-4)} • {o.createdAt}</span>
-                    <span className={`rounded-full border px-3 py-1 text-xs font-black ${statusMap[o.status]?.chip}`}>{STATUS_TABLET_LABEL[o.status] || statusMap[o.status]?.label}</span></div>
-                  <TimelinePedido status={o.status} paymentStatus={o.paymentStatus} setorStatus={o.setorStatus} setoresPedido={setoresDoPedido(o)} externo={modoExterno || o.table === "Externo"} />
-                  <div className="mt-2 border-t border-white/10 pt-2">
-                    {o.items.map((it, idx) => <div key={idx} className="flex justify-between text-sm py-0.5"><span className="text-slate-300"><b className="text-white">{it.quantity}×</b> {it.name}</span><span className="font-bold text-white">{formatCurrency(it.price * it.quantity)}</span></div>)}
-                  </div>
-                </div>
-              ))}
+        <Gaveta titulo={modoExterno ? "Meus pedidos" : (currentTable || "Meus pedidos")} subtitulo="Acompanhe o preparo e o fechamento da sua conta." onFechar={() => setAba(null)}>
+          {meusPedidos.length > 0 && pedidosOffline && (
+            <div className="mb-3 flex items-center gap-2 rounded-2xl border border-[#FDE1B0] bg-[#FFF4E5] px-3.5 py-2.5 text-xs font-bold text-[#B45309]">
+              <CkIconWifiOff width={15} height={15} className="shrink-0" /> Atualização em tempo real indisponível — tentando reconectar…
             </div>
           )}
-          {meusPedidos.length > 0 && (
+
+          {meusPedidos.length === 0 ? (
+            <div className="py-10 text-center">
+              <p className="text-sm text-[#667085]">Nenhum pedido para acompanhar ainda.</p>
+              <p className="mt-1 text-xs text-[#98A2B3]">Seus pedidos aparecerão aqui assim que forem enviados.</p>
+              <button onClick={() => setAba(null)} type="button" className="mt-4 min-h-11 rounded-2xl border border-[#E5E7EB] bg-white px-5 py-2.5 text-sm font-black text-[#475467] transition hover:bg-[#F8FAFC]">Voltar ao cardápio</button>
+            </div>
+          ) : (
             <>
-              <div className="mt-4 space-y-1 border-t border-white/10 pt-3">
-                <div className="flex justify-between text-sm text-slate-400"><span>Subtotal</span><span className="text-white">{formatCurrency(subtotal)}</span></div>
-                <div className="flex justify-between text-sm text-slate-400"><span>Taxa de serviço (10%)</span><span className="text-white">{formatCurrency(subtotal * 0.1)}</span></div>
-                <div className="flex justify-between text-lg font-black text-white"><span>Total</span><span className="text-emerald-400">{formatCurrency(totalMesa)}</span></div>
+              {/* Resumo geral da conta */}
+              <div className="rounded-2xl border border-[#E5E7EB] bg-white p-4 shadow-[0_8px_24px_rgba(16,24,40,.06)]">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#EFF6FF] text-[var(--color-primary)]"><CkIconRecibo width={17} height={17} /></span>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-black text-[#182230]">{!modoExterno && currentTable ? currentTable : "Seu pedido"}</p>
+                      {!modoExterno && comanda && <p className="truncate text-[11px] text-[#667085]">Comanda {comanda}</p>}
+                    </div>
+                  </div>
+                  {statusGeralConta && <span className="shrink-0 rounded-full border border-[#E5E7EB] bg-[#F8FAFC] px-2.5 py-1 text-[11px] font-black text-[#475467]">{statusGeralConta}</span>}
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-3 border-t border-[#E5E7EB] pt-3">
+                  <div><p className="text-[10px] font-bold uppercase tracking-widest text-[#98A2B3]">Pedidos</p><p className="text-sm font-black text-[#182230]">{meusPedidos.length}</p></div>
+                  <div><p className="text-[10px] font-bold uppercase tracking-widest text-[#98A2B3]">Aberta às</p><p className="text-sm font-black text-[#182230]">{contaAbertaEm || "—"}</p></div>
+                  <div className="col-span-2"><p className="text-[10px] font-bold uppercase tracking-widest text-[#98A2B3]">Valor atual da conta</p><p className="text-lg font-black text-[#182230]">{formatCurrency(totalMesa)}</p></div>
+                </div>
+                {pagamentoPosteriorConta && (
+                  <p className="mt-3 flex items-center gap-1.5 rounded-xl bg-[#EFF6FF] px-3 py-2 text-[11px] font-bold text-[var(--color-primary)]"><CkIconRelogio width={13} height={13} /> Pagamento após o consumo</p>
+                )}
               </div>
-              <button onClick={solicitarConta} disabled={!podeFechar}
-                className={`mt-3 w-full rounded-2xl py-4 text-sm font-black text-white transition active:scale-95 disabled:opacity-40 ${contaSolicitada ? "bg-amber-500" : "bg-gold-500 hover:bg-gold-400"}`}>
-                {contaSolicitada ? "🔁 Reenviar conta ao caixa" : "🧾 Solicitar fechamento da conta"}
-              </button>
-              {!podeFechar && <p className="mt-2 text-center text-xs text-slate-500">Disponível quando todos os pedidos forem entregues.</p>}
+
+              {/* Lista de pedidos + acompanhamento operacional de cada um */}
+              <div className="mt-3 space-y-2.5">
+                {meusPedidos.map((o) => {
+                  const recolhido = !!pedidoRecolhido[o.id];
+                  const modoPedido = modoEntregaPedido(o, modoExterno);
+                  const s = statusMap[o.status];
+                  return (
+                    <div key={o.id} className="rounded-2xl border border-[#E5E7EB] bg-white p-3.5 shadow-[0_8px_24px_rgba(16,24,40,.06)]">
+                      <button type="button" disabled={meusPedidos.length <= 1} aria-expanded={!recolhido}
+                        onClick={() => setPedidoRecolhido((p) => ({ ...p, [o.id]: !p[o.id] }))}
+                        className="flex w-full items-center justify-between gap-2 text-left disabled:cursor-default">
+                        <div className="min-w-0">
+                          <p className="text-sm font-black text-[#182230]">Pedido nº {String(o.id || "").replace(/\D/g, "").slice(-4)}</p>
+                          <p className="text-[11px] text-[#667085]">Realizado às {o.createdAt}</p>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2">
+                          <span className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-black ${s?.chip}`}>
+                            <span className={`h-1.5 w-1.5 rounded-full ${s?.dot}`} aria-hidden="true" />{statusClienteLabel(o, modoPedido)}
+                          </span>
+                          {meusPedidos.length > 1 && <CkIconChevron width={16} height={16} className={`shrink-0 text-[#98A2B3] transition-transform motion-reduce:transition-none ${recolhido ? "" : "rotate-180"}`} />}
+                        </div>
+                      </button>
+                      {!recolhido && (
+                        <>
+                          <div className="mt-3 border-t border-[#E5E7EB] pt-3">
+                            <LinhaTempoOperacional status={o.status} setorStatus={o.setorStatus} setoresPedido={setoresDoPedido(o)} modo={modoPedido} />
+                          </div>
+                          <div className="mt-3 space-y-1 border-t border-[#E5E7EB] pt-3">
+                            {o.items.map((it, idx) => (
+                              <div key={idx} className="flex justify-between gap-3 text-sm">
+                                <span className="text-[#475467]"><b className="text-[#182230]">{it.quantity}×</b> {it.name}</span>
+                                <span className="shrink-0 font-bold text-[#182230]">{formatCurrency(it.price * it.quantity)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Status financeiro — sempre separado da timeline operacional acima */}
+              <div className={`mt-3 flex items-start gap-3 rounded-2xl border p-3.5 ${
+                contaSolicitada ? "border-[#FDE1B0] bg-[#FFF4E5]" : contaPaga ? "border-[#B7E4C7] bg-[#ECFDF3]" : "border-[#BFDBFE] bg-[#EFF6FF]"
+              }`}>
+                <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-white ${
+                  contaSolicitada ? "bg-[#F59E0B]" : contaPaga ? "bg-[#16A34A]" : "bg-[var(--color-primary)]"
+                }`}><CkIconCarteira width={17} height={17} /></span>
+                <div className="min-w-0">
+                  <p className={`text-sm font-black ${contaSolicitada ? "text-[#B45309]" : contaPaga ? "text-[#147A4A]" : "text-[#182230]"}`}>
+                    {contaSolicitada ? "Fechamento solicitado" : contaPaga ? "Pagamento confirmado" : podeFechar ? "Fechamento disponível" : "Conta em aberto"}
+                  </p>
+                  <p className="mt-0.5 text-xs leading-5 text-[#475467]">
+                    {contaSolicitada ? "O caixa foi notificado e dará continuidade ao pagamento."
+                      : contaPaga ? "O pagamento desta conta já foi confirmado pelo caixa."
+                      : podeFechar ? "Todos os pedidos foram entregues — você já pode solicitar o fechamento."
+                      : pagamentoPosteriorConta ? "Você pagará somente após o consumo, no fechamento da conta."
+                      : "Acompanhe o preparo — o fechamento fica disponível quando todos os pedidos forem entregues."}
+                  </p>
+                </div>
+              </div>
+
+              {/* Resumo financeiro */}
+              <div className="mt-3 space-y-1.5 border-t border-[#E5E7EB] pt-3.5">
+                <div className="flex items-center justify-between text-sm"><span className="text-[#667085]">Subtotal</span><span className="text-[#475467]">{formatCurrency(subtotal)}</span></div>
+                <div className="flex items-center justify-between text-sm"><span className="text-[#667085]">Taxa de serviço (10%)</span><span className="text-[#475467]">{formatCurrency(subtotal * 0.1)}</span></div>
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-sm font-bold text-[#475467]">{contaPaga ? "Total pago" : "Total em aberto"}</span>
+                  <span className={`text-xl font-black ${contaPaga ? "text-[#147A4A]" : "text-[#182230]"}`}>{formatCurrency(totalMesa)}</span>
+                </div>
+              </div>
+
+              {/* Solicitar/reenviar fechamento — nunca finaliza o pagamento sozinho, só avisa o caixa */}
+              {!contaPaga && (
+                <>
+                  <button onClick={() => setConfirmarFechamento(true)} disabled={!podeFechar || solicitando} type="button"
+                    className={`mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-black transition active:scale-95 ${
+                      (!podeFechar || solicitando) ? "bg-[#F3F4F6] text-[#98A2B3]" : "bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)]"
+                    }`}>
+                    {solicitando && <CkIconSpinner />}
+                    {solicitando ? "Enviando…" : contaSolicitada ? "Reenviar solicitação ao caixa" : "Solicitar fechamento da conta"}
+                  </button>
+                  {!podeFechar && <p className="mt-2 text-center text-xs text-[#667085]">Disponível quando todos os pedidos forem entregues.</p>}
+                </>
+              )}
             </>
           )}
         </Gaveta>
@@ -1601,34 +1777,47 @@ function CardapioSkeleton() {
 }
 
 // Linha do tempo do status do pedido — recebido → (cozinha / bar) → mesa → entregue
-function TimelinePedido({ status, paymentStatus = "open", setorStatus = {}, setoresPedido = [], externo = false }) {
-  if (status === "cancelled") return <p className="rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-300">Pedido cancelado.</p>;
-  const ordem = ["received", "preparing", "ready", "delivered"];
-  const idx = Math.max(0, ordem.indexOf(status));
-  const linha = ({ feito, ativo, ic, l, sub }) => (
-    <div className="flex items-center gap-2.5">
-      <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] ${feito ? "bg-emerald-500/20 text-emerald-300" : "bg-white/[0.06] text-slate-600"}`}>{feito ? ic : "•"}</span>
-      <span className={`text-xs font-bold ${ativo ? "text-gold-300" : feito ? "text-slate-200" : "text-slate-600"}`}>{l}</span>
-      {sub && <span className="ml-auto rounded-full border border-white/10 bg-white/[0.05] px-2 py-0.5 text-[10px] font-bold text-slate-300">{sub}</span>}
+// Linha do tempo — SÓ o operacional (preparo dos produtos). O status
+// financeiro (pagamento/fechamento) é um bloco totalmente separado
+// (StatusFinanceiroConta, abaixo), nunca uma etapa desta timeline — evita
+// confundir "pedido pronto" com "conta paga", que são coisas independentes.
+function LinhaTempoOperacional({ status, setorStatus = {}, setoresPedido = [], modo = "mesa" }) {
+  if (status === "cancelled") return (
+    <div className="flex items-center gap-2 rounded-xl border border-[#FDA4AF] bg-[#FFF1F2] px-3 py-2 text-xs font-bold text-[#B42318]">
+      <CkIconAlerta width={14} height={14} /> Pedido cancelado.
     </div>
   );
-  // Status de um setor: pronto (setorStatus) → senão deriva do status geral
-  const stSetor = (s) => {
-    if (setorStatus?.[s] === "ready") return { feito: true, ativo: false, sub: "Pronto" };
-    if (status === "received") return { feito: false, ativo: false, sub: "Na fila" };
-    if (status === "preparing") return { feito: false, ativo: true, sub: "Em preparo" };
-    return { feito: true, ativo: false, sub: "Pronto" }; // ready/delivered
-  };
-  const presentes = setoresPedido.length ? setoresPedido : ["Cozinha"];
-  const iconeSetor = (s) => /bar|bebida|drink/i.test(s) ? "🍹" : /sobremesa|doce|sweet|confeit/i.test(s) ? "🍰" : "👨‍🍳";
+  const ordem = ["received", "preparing", "ready", "delivered"];
+  const idx = Math.max(0, ordem.indexOf(status));
+  const passos = [
+    { key: "recebido", feito: idx >= 0, atual: status === "received", Icone: CkIconCaixaEntrada, label: "Pedido recebido" },
+    ...(setoresPedido.length ? setoresPedido : ["Cozinha"]).map((s) => {
+      const pronto = setorStatus?.[s] === "ready";
+      const emPreparo = status === "preparing" && !pronto;
+      return { key: `setor-${s}`, feito: pronto || idx >= 2, atual: emPreparo, Icone: CkIconPanela, label: `Preparo · ${s}`, sub: pronto || idx >= 2 ? "Pronto" : emPreparo ? "Em preparo" : "Na fila" };
+    }),
+    { key: "pronto", feito: idx >= 2, atual: status === "ready", Icone: modo === "retirada" ? CkIconSacola : CkIconSino,
+      label: modo === "retirada" ? "Pronto para retirada" : modo === "entrega" ? "Pronto para entrega" : "Pronto para servir" },
+    { key: "entregue", feito: idx >= 3, atual: status === "delivered", Icone: modo === "retirada" ? CkIconSacola : CkIconGarfo,
+      label: modo === "retirada" ? "Retirado" : modo === "entrega" ? "Entregue" : "Entregue na mesa" },
+  ];
   return (
-    <div className="space-y-1.5">
-      {linha({ feito: idx >= 0, ativo: status === "received", ic: "✅", l: "Pedido recebido" })}
-      {presentes.map((s) => <div key={s}>{linha({ ...stSetor(s), ic: iconeSetor(s), l: `Preparo · ${s}` })}</div>)}
-      {linha({ feito: idx >= 2, ativo: status === "ready", ic: externo ? "🛍️" : "🛎️", l: externo ? "Pronto — liberado para retirada no balcão" : "Pronto — saindo para a mesa" })}
-      {linha({ feito: idx >= 3, ativo: status === "delivered", ic: externo ? "🛍️" : "🍽️", l: externo ? "Retirado" : "Entregue" })}
-      {linha({ feito: paymentStatus === "paid", ativo: paymentStatus === "requested", ic: "💳", l: paymentStatus === "paid" ? "Pagamento confirmado" : paymentStatus === "requested" ? "Pagamento — aguardando no caixa" : "Pagamento pendente" })}
-    </div>
+    <ol className="space-y-0">
+      {passos.map((p, i) => (
+        <li key={p.key} className="relative flex gap-3 pb-4 last:pb-0">
+          {i < passos.length - 1 && <span className={`absolute left-[13px] top-[26px] h-full w-px ${p.feito ? "bg-[#16A34A]/30" : "bg-[#E5E7EB]"}`} aria-hidden="true" />}
+          <span className={`flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full ${
+            p.feito ? "bg-[#16A34A] text-white" : p.atual ? "border-2 border-[var(--color-primary)] bg-[#EFF6FF] text-[var(--color-primary)]" : "border border-[#E5E7EB] bg-white text-[#98A2B3]"
+          }`}>
+            {p.feito ? <CkIconCheck width={13} height={13} strokeWidth={3} /> : <p.Icone width={13} height={13} />}
+          </span>
+          <span className="flex min-w-0 flex-1 items-center justify-between gap-2 pt-0.5">
+            <span className={`text-xs font-bold ${p.atual ? "text-[var(--color-primary)]" : p.feito ? "text-[#182230]" : "text-[#98A2B3]"}`}>{p.label}</span>
+            {p.sub && <span className="shrink-0 rounded-full border border-[#E5E7EB] bg-[#F8FAFC] px-2 py-0.5 text-[10px] font-bold text-[#667085]">{p.sub}</span>}
+          </span>
+        </li>
+      ))}
+    </ol>
   );
 }
 // ════════════════════════════════════════════════════════════
@@ -1647,6 +1836,14 @@ const CkIconCartao   = (p) => (<svg {...ckIconBase} {...p}><rect x="2.5" y="5.5"
 const CkIconPix      = (p) => (<svg {...ckIconBase} {...p}><path d="M9.5 4.5 4.5 9.5a2 2 0 0 0 0 2.8l6.7 6.7a2 2 0 0 0 2.8 0l6.7-6.7a2 2 0 0 0 0-2.8L14.5 3a2 2 0 0 0-2 0" /><path d="m8.3 8.3 2.2 2.2a2 2 0 0 0 2.8 0l2.2-2.2M8.3 15.7l2.2-2.2a2 2 0 0 1 2.8 0l2.2 2.2" /></svg>);
 const CkIconDinheiro = (p) => (<svg {...ckIconBase} {...p}><rect x="2.5" y="6" width="19" height="12" rx="2" /><circle cx="12" cy="12" r="2.5" /><path d="M6 9v0M18 15v0" /></svg>);
 const CkIconSpinner  = () => (<svg className="animate-spin" width={18} height={18} viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" opacity=".25" /><path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" /></svg>);
+const CkIconRecibo   = (p) => (<svg {...ckIconBase} {...p}><path d="M6 3h12v18l-2.5-1.5L13 21l-2.5-1.5L8 21l-2-1.5V3Z" /><path d="M9 8h6M9 12h6M9 16h3" /></svg>);
+const CkIconCarteira = (p) => (<svg {...ckIconBase} {...p}><path d="M3 7a2 2 0 0 1 2-2h13a1 1 0 0 1 1 1v2" /><rect x="3" y="7" width="18" height="13" rx="2" /><path d="M16 13.5h3" /></svg>);
+const CkIconChevron  = (p) => (<svg {...ckIconBase} {...p}><path d="m6 9 6 6 6-6" /></svg>);
+const CkIconWifiOff  = (p) => (<svg {...ckIconBase} {...p}><path d="M2 8.5a17 17 0 0 1 5-3M22 8.5a17 17 0 0 0-8.5-4.4M6.3 12a11 11 0 0 1 4-2M17.7 12a11 11 0 0 0-2.7-1.8" /><path d="M9 16a5.5 5.5 0 0 1 6 0" /><circle cx="12" cy="19.5" r="0.6" fill="currentColor" stroke="none" /><path d="M2 2l20 20" /></svg>);
+const CkIconPanela   = (p) => (<svg {...ckIconBase} {...p}><path d="M3 11h18v3a5 5 0 0 1-5 5H8a5 5 0 0 1-5-5v-3Z" /><path d="M1 11h22" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>);
+const CkIconCaixaEntrada = (p) => (<svg {...ckIconBase} {...p}><path d="M3 12h4.5l1.5 3h6l1.5-3H21" /><path d="M5.5 5h13l2.5 7v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-6l2.5-7Z" /></svg>);
+const CkIconSino     = (p) => (<svg {...ckIconBase} {...p}><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6Z" /><path d="M10 19a2 2 0 0 0 4 0" /></svg>);
+const CkIconSacola   = (p) => (<svg {...ckIconBase} {...p}><path d="M6 8h12l1 12.5a1 1 0 0 1-1 1.5H6a1 1 0 0 1-1-1.5L6 8Z" /><path d="M9 8V6a3 3 0 0 1 6 0v2" /></svg>);
 
 // Indicador compacto de progresso — Pedido → Identificação → Confirmação
 // (nunca "Pagamento": ele pode nem existir, ver regra do consumo local).
