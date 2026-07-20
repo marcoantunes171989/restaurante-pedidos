@@ -485,21 +485,22 @@ export default function CardapioPublico() {
   // carrossel (mesmo z-index mais baixo) — por isso "sumia" só no mobile.
   const [headerH, setHeaderH] = useState(0);
   const [catBarH, setCatBarH] = useState(0);
-  // Dependência [loja] (não []) — CAUSA RAIZ confirmada com teste real de
-  // navegador: este componente mostra <CardapioSkeleton/> (uma árvore JSX
-  // TOTALMENTE diferente, sem headerRef/catBarRef) enquanto `loja` ainda não
-  // carregou. Um efeito com deps [] roda UMA VEZ, na primeira montagem — se
-  // essa primeira montagem cair durante o skeleton (garantido sempre que a
-  // busca a Supabase leva mais que um punhado de ms, ou seja, quase sempre
-  // fora de uma rede local), headerRef.current/catBarRef.current são `null`
-  // nesse instante, medir() calcula 0 pra ambos, e o efeito NUNCA roda de
-  // novo — mesmo depois da árvore real (com os refs de verdade) finalmente
-  // montar. Resultado: catBarH fica 0 pra sempre, a barra de categorias gruda
-  // no top:0 (por cima do cabeçalho) e o scroll-margin-top das seções fica
-  // só "+8", nunca compensando a altura real dos elementos fixos — a causa
-  // de fundo do "clique não desconta os 150px". Recriar o efeito quando
-  // `loja` resolve (undefined -> objeto) garante medir de novo exatamente no
-  // instante em que a árvore real (com os refs corretos) acabou de montar.
+  // Dependência [loja, etapa] (não []) — CAUSA RAIZ confirmada com teste real
+  // de navegador: este componente mostra árvores JSX TOTALMENTE diferentes,
+  // sem headerRef/catBarRef, tanto enquanto `loja` ainda não carregou
+  // (<CardapioSkeleton/>) quanto — só no modo QR de mesa — na tela de
+  // boas-vindas (etapa==="welcome", `loja` já carregado). Um efeito com deps
+  // [] roda UMA VEZ, na primeira montagem — se essa primeira montagem cair
+  // numa dessas árvores "sem header real", headerRef.current/catBarRef.current
+  // são `null` nesse instante, medir() calcula 0 pra ambos, e o efeito NUNCA
+  // roda de novo — mesmo depois da árvore real (com os refs de verdade)
+  // finalmente montar. Resultado: catBarH fica 0 pra sempre, a barra de
+  // categorias gruda no top:0 (por cima do cabeçalho) — invisível antes de
+  // rolar (a posição em fluxo normal já bate com a real), mas some atrás do
+  // cabeçalho assim que a rolagem começa a "grudar" o sticky. Recriar o
+  // efeito quando `loja` resolve (undefined -> objeto) OU `etapa` muda
+  // (welcome -> cardapio) garante medir de novo exatamente no instante em que
+  // a árvore real (com os refs corretos) acabou de montar.
   useLayoutEffect(() => {
     const medir = () => {
       setHeaderH(Math.ceil(headerRef.current?.getBoundingClientRect().height || 0));
@@ -520,7 +521,7 @@ export default function CardapioPublico() {
       window.removeEventListener("resize", medir);
       window.removeEventListener("orientationchange", medir);
     };
-  }, [loja]);
+  }, [loja, etapa]);
   const [catAtivaId, setCatAtivaId] = useState(CATEGORIA_TODOS);
   // Enquanto true, um clique (categoria ou "Todos") disparou uma rolagem suave
   // programática — a sincronização abaixo ignora as seções que cruzam a linha
