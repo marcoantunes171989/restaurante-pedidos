@@ -184,6 +184,20 @@ function orderTotal(order) {
   return order.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
 }
 
+// Pedido externo de RETIRADA ou ENTREGA (o cliente leva o produto embora) só
+// pode ser liberado para entrega depois do pagamento confirmado no Caixa —
+// "Consumo no local" (mesmo vindo do canal externo) não entra aqui, pois o
+// pagamento desse tipo é sempre depois, no fechamento da conta. Função pura
+// e reutilizada tanto pela trava real (marcarEntregue) quanto pelo aviso
+// visual no card da cozinha — uma única fonte de verdade pra essa regra.
+function pedidoExigePagamentoAntesDeEntregar(o) {
+  const pedidoExterno = o?.table === "Externo" || /^EXT-/.test(o?.command || "");
+  return pedidoExterno && /retirada|entrega/i.test(o?.table || "");
+}
+function pedidoAguardandoPagamento(o) {
+  return pedidoExigePagamentoAntesDeEntregar(o) && o?.paymentStatus !== "paid";
+}
+
 // Abre janela de impressão no padrão térmico 80mm (automação comercial / não fiscal).
 // Recebe o corpo já em HTML; aplica o cabeçalho/estilo padrão e dispara a impressão.
 function abrirImpressaoTermica(tituloDoc, corpoHTML) {
@@ -1267,26 +1281,26 @@ export default function RestaurantePedidoApp() {
     }
   }
 
+  // Retorna { blocked, motivo } além de disparar o toast de sempre — quem
+  // chama (ex.: card da cozinha) pode usar o retorno pra mostrar um aviso
+  // mais completo (modal com orientação), sem duplicar a regra aqui.
   async function marcarEntregue(oid) {
-    if (!canAccess(currentUser, "kitchen")) return notify("error", "Usuário sem permissão.");
+    if (!canAccess(currentUser, "kitchen")) { notify("error", "Usuário sem permissão."); return { blocked: true, motivo: "permissao" }; }
     // Trava síncrona contra duplo clique/toque: sem isso, dois cliques rápidos
     // no botão (ou um clique + o card ainda visível por um instante) podiam
     // disparar duas gravações concorrentes pro mesmo pedido.
-    if (entregandoRef.current) return;
+    if (entregandoRef.current) return { blocked: true, motivo: "concorrencia" };
     // Pedido externo de RETIRADA ou ENTREGA só é liberado após pagamento total
     // (o cliente leva o produto embora — precisa estar quitado antes de sair
     // com ele). "Consumo no local" (mesmo vindo do canal externo, ver
     // enviar() em CardapioPublico.jsx) NÃO entra nessa trava: por regra de
     // negócio o pagamento desse tipo de pedido é sempre depois, no
-    // fechamento da conta — então paymentStatus fica "open" a refeição
-    // inteira, e essa checagem travava TODO pedido de consumo no local pra
-    // sempre (nenhuma requisição chegava a sair, sem erro nenhum no
-    // console — o clique só mostrava este aviso).
+    // fechamento da conta.
     const ped = orders.find((o) => o.id === oid);
-    const pedidoExterno = ped?.table === "Externo" || /^EXT-/.test(ped?.command || "");
-    const exigePagamentoAntes = pedidoExterno && /retirada|entrega/i.test(ped?.table || "");
-    if (ped && exigePagamentoAntes && ped.paymentStatus !== "paid")
-      return notify("error", "Pagamento pendente — finalize o pagamento antes de liberar a entrega.");
+    if (pedidoAguardandoPagamento(ped)) {
+      notify("error", "Pagamento pendente — finalize o pagamento antes de liberar a entrega.");
+      return { blocked: true, motivo: "pagamento", pedido: ped };
+    }
     entregandoRef.current = true;
     setEntregandoId(oid);
     // Remove da view ativa imediatamente (UI responsiva)
@@ -1312,6 +1326,7 @@ export default function RestaurantePedidoApp() {
     }
     entregandoRef.current = false;
     setEntregandoId(null);
+    return { blocked: false };
   }
 
   // Confirma a retirada do produto no balcão a partir do financeiro (Caixa).
@@ -3788,6 +3803,7 @@ const kitchenCols = [
 
 function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, entregandoId = null, cancelarPedido, currentUser, lojaInfo, setores = [], produtos = [], setorInicial = null }) {
   const [cancelando, setCancelando] = useState(null); // pedido a cancelar
+  const [avisoPagamentoPendente, setAvisoPagamentoPendente] = useState(null); // pedido bloqueado por falta de pagamento (Retirada/Entrega)
   const [setorFiltro, setSetorFiltro] = useState(setorInicial); // null = todos
   // "Filtrar cozinha" (vindo da tela de Setores) define o setor inicial
   useEffect(() => { if (setorInicial != null) setSetorFiltro(setorInicial); }, [setorInicial]);
@@ -3937,6 +3953,11 @@ function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, entrega
                         <p className="text-xs font-bold uppercase tracking-widest text-[#98A2B3]">{order.id} • {order.createdAt}</p>
                         <p className="mt-0.5 font-mono text-sm font-black text-[#1D4ED8]">{order.command}</p>
                         {order.pagamentoForma && <p className="mt-0.5 text-[11px] font-bold text-[#9A6A00]">💳 {order.pagamentoForma}{order.pagamentoMomento ? ` · ${order.pagamentoMomento}` : ""}{order.pagamentoTrocoPara > 0 ? ` · Troco p/ ${formatCurrency(order.pagamentoTrocoPara)}` : ""}</p>}
+                        {pedidoAguardandoPagamento(order) && (
+                          <p className="mt-1 inline-flex items-center gap-1 rounded-full border border-[#FDA4AF] bg-[#FFF1F2] px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-[#B42318]">
+                            ⚠ Aguardando pagamento no caixa
+                          </p>
+                        )}
                       </div>
                       <div className="flex flex-col items-end gap-1">
                         <StatusChip status={order.status} />
@@ -3987,11 +4008,16 @@ function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, entrega
                       {/* Botão Entregue — só aparece quando finalizado */}
                       {order.status === "ready" && (
                         <button
-                          onClick={() => marcarEntregue(order.id)}
+                          onClick={async () => {
+                            const r = await marcarEntregue(order.id);
+                            if (r?.blocked && r.motivo === "pagamento") setAvisoPagamentoPendente(r.pedido || order);
+                          }}
                           disabled={entregandoId === order.id}
                           className={`w-full rounded-2xl border py-3 text-sm font-black transition duration-200 active:scale-95 shadow-sm
                             ${entregandoId === order.id
                               ? "cursor-not-allowed border-[#E5E7EB] bg-[#F3F4F6] text-[#98A2B3]"
+                              : pedidoAguardandoPagamento(order)
+                              ? "border-[#FDE1B0] bg-[#FFF4E5] text-[#B45309] hover:bg-[#FDE1B0]"
                               : "border-[#D9A441] bg-[#D9A441] text-[#182230] hover:bg-[#C7922F]"}`}>
                           {entregandoId === order.id ? "Enviando…" : "🛎️ Marcar como Entregue"}
                         </button>
@@ -4026,6 +4052,10 @@ function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, entrega
           onConfirmar={(motivo) => { cancelarPedido(cancelando.id, motivo); setCancelando(null); }}
           onFechar={() => setCancelando(null)}
         />
+      )}
+
+      {avisoPagamentoPendente && (
+        <AvisoPagamentoPendenteModal pedido={avisoPagamentoPendente} onFechar={() => setAvisoPagamentoPendente(null)} />
       )}
 
       {/* ── Rodapé ────────────────────────────────────────────── */}
@@ -4073,6 +4103,45 @@ function CancelarModal({ pedido, onConfirmar, onFechar }) {
             onClick={() => onConfirmar(motivo === "Outro" ? (obs.trim() || "Outro") : motivo)}
             className="mt-1 w-full rounded-2xl bg-[#DC2626] py-4 text-sm font-black text-white hover:bg-[#C81E1E] transition duration-200 active:scale-95">
             Confirmar cancelamento
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+//  Aviso ao tentar "Marcar como Entregue" com pagamento pendente
+//  (pedido de Retirada/Entrega ainda não pago) — orienta o operador
+//  sobre o que fazer, em vez de deixar só um toast passageiro.
+// ════════════════════════════════════════════════════════════
+function AvisoPagamentoPendenteModal({ pedido, onFechar }) {
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[rgba(15,23,42,0.5)] backdrop-blur-sm p-4" onClick={onFechar}>
+      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm rounded-[24px] border border-[#E5E7EB] bg-white shadow-[0_20px_60px_rgba(16,24,40,0.16)]">
+        <div className="px-6 pt-6 text-center">
+          <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#FFF4E5] text-2xl">⚠️</span>
+          <h2 className="mt-3 text-lg font-black text-[#182230]">Pagamento pendente</h2>
+          <p className="mt-1 text-xs text-[#667085]">{pedido.id} • {pedido.command}</p>
+        </div>
+        <div className="px-6 py-4">
+          <p className="text-sm leading-6 text-[#475467]">
+            Este pedido é de <strong className="text-[#182230]">retirada/entrega</strong> e ainda não tem o pagamento confirmado
+            {pedido.pagamentoForma ? <> (forma escolhida: <strong className="text-[#182230]">{pedido.pagamentoForma}</strong>)</> : ""}.
+            Por regra do estabelecimento, o produto só pode ser liberado depois que o pagamento for confirmado no <strong className="text-[#182230]">Caixa</strong>.
+          </p>
+          <div className="mt-3 rounded-2xl border border-[#FDE1B0] bg-[#FFF4E5] p-3.5">
+            <p className="text-xs font-black uppercase tracking-widest text-[#B45309]">O que fazer agora</p>
+            <ol className="mt-1.5 list-decimal space-y-1 pl-4 text-xs leading-5 text-[#7A4A00]">
+              <li>Encaminhe o cliente (ou o pedido) para o Caixa.</li>
+              <li>No Caixa, confirme o recebimento do pagamento.</li>
+              <li>Volte aqui e toque em "Marcar como Entregue" novamente.</li>
+            </ol>
+          </div>
+        </div>
+        <div className="border-t border-[#E5E7EB] px-6 py-4">
+          <button onClick={onFechar} className="w-full rounded-2xl bg-[#182230] py-3.5 text-sm font-black text-white transition duration-200 hover:bg-[#0F1620] active:scale-95">
+            Entendi
           </button>
         </div>
       </div>
