@@ -165,7 +165,6 @@ export default function CardapioPublico() {
   const [mesasLoja, setMesasLoja] = useState(null);
   const [orders, setOrders]       = useState([]);
   const [pedidosOffline, setPedidosOffline] = useState(false); // true quando a atualização em tempo real dos pedidos está falhando (polling/realtime)
-  const [busca, setBusca]         = useState("");
   // Carrinho sobrevive a navegação/F5: por empresa+mesa (link externo cai em
   // "ext"), pra não vazar carrinho entre mesas/empresas diferentes no mesmo
   // navegador. sessionStorage (não localStorage) — some quando a aba fecha,
@@ -185,7 +184,6 @@ export default function CardapioPublico() {
   const [aba, setAba]             = useState(null); // null | 'carrinho' | 'conta'
   const [qrModal, setQrModal]     = useState(null); // dataURL do QR do cardápio (botão "Ver QR")
   const [survey, setSurvey]       = useState(null); // pesquisa de satisfação na finalização: { pedidoId, mesa, origem }
-  const [ocultarIndisp, setOcultarIndisp] = useState(false); // botão "Filtros": ocultar indisponíveis
   const [enviando, setEnviando]   = useState(false);
   const enviandoRef = useRef(false); // trava síncrona contra clique duplo (ver enviar())
   const [msg, setMsg]             = useState(null);
@@ -461,19 +459,10 @@ export default function CardapioPublico() {
     setFormaPagto(id);
     if (id !== "dinheiro") { setTrocoResposta(""); setTrocoValor(""); }
   }
-  // Durante a busca, lista achatada (filtrada). Sem busca, agrupamos por categoria
-  // para dividir os grupos e permitir o "scroll-spy" (header acompanha o grupo na tela).
-  const visiveis = useMemo(() => ocultarIndisp ? produtos.filter((p) => p.disponivel !== false) : produtos, [produtos, ocultarIndisp]);
-  const itensBusca = useMemo(() => {
-    const norm = (s) => (s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
-    const termo = norm(busca);
-    if (!termo) return [];
-    return visiveis.filter((p) => norm(`${p.name} ${p.description} ${p.category} ${(p.ingredients || []).join(" ")}`).includes(termo));
-  }, [visiveis, busca]);
   // Agrupamento/lista de categorias — lógica pura extraída para
   // src/lib/cardapioCategorias.js (testável isoladamente, sem depender de
   // DOM/scroll; ver cardapioCategorias.test.js).
-  const grupos = useMemo(() => agruparProdutosPorCategoria(visiveis, categorias), [visiveis, categorias]);
+  const grupos = useMemo(() => agruparProdutosPorCategoria(produtos, categorias), [produtos, categorias]);
   const cats = useMemo(() => montarListaCategorias(grupos), [grupos]);
 
   const secRefs = useRef({});      // uma ref por seção de categoria — alvo do clique e do IntersectionObserver
@@ -556,7 +545,7 @@ export default function CardapioPublico() {
   // IntersectionObserver usa a viewport como referência por padrão, que
   // nesta tela não é quem rola.
   useEffect(() => {
-    if (busca || !grupos.length) return;
+    if (!grupos.length) return;
     const el = scrollEl();
     if (!el) return; // raiz ainda não montada — o efeito roda de novo quando grupos mudar
     // Fallback generoso (~130px) antes das alturas reais serem medidas.
@@ -660,7 +649,7 @@ export default function CardapioPublico() {
       roEl?.disconnect();
       clearTimeout(debounceResize);
     };
-  }, [busca, grupos, headerH, catBarH]);
+  }, [grupos, headerH, catBarH]);
   // Mantém o chip ativo visível (e centralizado) na barra horizontal — rola
   // SÓ a barra (catBarRef.scrollTo no eixo X), calculado na mão, em vez de
   // chip.scrollIntoView(). Causa raiz confirmada com teste real de navegador
@@ -683,7 +672,6 @@ export default function CardapioPublico() {
     barra.scrollTo({ left: alvoLeft, behavior: motionOk() ? "smooth" : "auto" });
   }, [catAtivaId]);
   const selecionarCategoria = (id) => {
-    setBusca("");
     setCatAtivaId(id);
     const el = scrollEl();
     // Trava a sincronização durante a rolagem programática — sem isso, o
@@ -1211,7 +1199,7 @@ export default function CardapioPublico() {
             sincronização acima). Sombra discreta: a barra fica presa (sticky)
             praticamente assim que a rolagem começa. */}
         <div ref={catBarRef} className="pp-noscrollbar sticky z-20 -mx-4 flex gap-2 overflow-x-auto border-b border-[var(--client-border)] bg-[var(--client-surface)] px-4 py-4 shadow-[var(--client-shadow-sm)]" style={{ top: headerH }}>
-          {cats.map((c) => { const ativo = !busca && catAtivaId === c.id;
+          {cats.map((c) => { const ativo = catAtivaId === c.id;
             return (
               <button key={c.id} type="button" ref={(el) => (chipRefs.current[c.id] = el)} onClick={() => selecionarCategoria(c.id)}
                 aria-current={ativo ? "true" : undefined} aria-pressed={ativo}
@@ -1221,22 +1209,6 @@ export default function CardapioPublico() {
             );
           })}
         </div>
-
-        {/* Busca + Filtros — oculta no cardápio de acesso por link externo */}
-        {!modoExterno && (
-          <div className="flex items-center gap-2 py-3">
-            <div className="relative flex-1">
-              <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[var(--client-text-muted)]">🔍</span>
-              <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar produtos..." aria-label="Buscar produtos" type="search"
-                className="w-full rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] py-3 pl-11 pr-4 text-sm text-[var(--client-text-primary)] outline-none focus:border-[var(--client-primary)] focus:ring-[3px] focus:ring-[var(--client-focus-primary)] placeholder:text-[var(--client-text-muted)]" />
-            </div>
-            <button onClick={() => setOcultarIndisp((v) => !v)} type="button" title="Ocultar indisponíveis" aria-pressed={ocultarIndisp}
-              className={`flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-2xl border px-4 py-3 text-sm font-bold transition duration-200 ${ocultarIndisp ? "border-[var(--client-primary)] bg-[var(--client-primary)] text-white" : "border-[var(--client-border)] bg-[var(--client-surface)] text-[var(--client-text-secondary)]"}`}>
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="10" y1="18" x2="14" y2="18"/></svg>
-              Filtros
-            </button>
-          </div>
-        )}
 
         {/* Ofertas vigentes */}
         {promosVigentes.length > 0 && (
@@ -1291,31 +1263,23 @@ export default function CardapioPublico() {
           <p className="text-xs font-bold text-[var(--client-text-primary)]">Personalize do seu jeito! <span className="font-normal text-[var(--client-text-secondary)]">Adicione ou remova ingredientes.</span></p>
         </div>
 
-        {/* Resultados da busca — lista achatada (sem divisão por grupo) */}
-        {busca ? (
-          <div className="grid grid-cols-1 gap-3 pb-6 sm:grid-cols-2">
-            {itensBusca.length === 0 && <p className="col-span-full py-10 text-center text-sm text-[var(--client-text-secondary)]">Nenhum produto encontrado.</p>}
-            {itensBusca.map(renderProduto)}
-          </div>
-        ) : (
-          /* Cardápio dividido por grupo — cada seção é âncora do clique e da
-             sincronização de rolagem (todas ficam visíveis ao mesmo tempo). */
-          <div className="pb-6">
-            {grupos.length === 0 && <p className="py-10 text-center text-sm text-[var(--client-text-secondary)]">Nenhum produto disponível.</p>}
-            {grupos.map((g) => (
-              <section key={g.id} ref={(el) => (secRefs.current[g.id] = el)} id={`cat-${g.id}`} data-cat-id={g.id} style={{ scrollMarginTop: headerH + catBarH + 8 }}>
-                <div className="sticky z-10 -mx-4 mb-3 mt-1 flex items-center gap-2 bg-[var(--client-background)]/95 px-4 py-1.5 backdrop-blur" style={{ top: headerH + catBarH }}>
-                  <span className="h-4 w-1 rounded-full bg-[var(--client-primary)]" />
-                  <h2 className="text-sm font-black uppercase tracking-wide text-[var(--client-text-primary)]">{g.nome}</h2>
-                  <span className="text-[11px] font-bold text-[var(--client-text-muted)]">{g.produtos.length} {g.produtos.length === 1 ? "item" : "itens"}</span>
-                </div>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  {g.produtos.map(renderProduto)}
-                </div>
-              </section>
-            ))}
-          </div>
-        )}
+        {/* Cardápio dividido por grupo — cada seção é âncora do clique e da
+            sincronização de rolagem (todas ficam visíveis ao mesmo tempo). */}
+        <div className="pb-6">
+          {grupos.length === 0 && <p className="py-10 text-center text-sm text-[var(--client-text-secondary)]">Nenhum produto disponível.</p>}
+          {grupos.map((g) => (
+            <section key={g.id} ref={(el) => (secRefs.current[g.id] = el)} id={`cat-${g.id}`} data-cat-id={g.id} style={{ scrollMarginTop: headerH + catBarH + 8 }}>
+              <div className="sticky z-10 -mx-4 mb-3 mt-1 flex items-center gap-2 bg-[var(--client-background)]/95 px-4 py-1.5 backdrop-blur" style={{ top: headerH + catBarH }}>
+                <span className="h-4 w-1 rounded-full bg-[var(--client-primary)]" />
+                <h2 className="text-sm font-black uppercase tracking-wide text-[var(--client-text-primary)]">{g.nome}</h2>
+                <span className="text-[11px] font-bold text-[var(--client-text-muted)]">{g.produtos.length} {g.produtos.length === 1 ? "item" : "itens"}</span>
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {g.produtos.map(renderProduto)}
+              </div>
+            </section>
+          ))}
+        </div>
       </main>
 
 
