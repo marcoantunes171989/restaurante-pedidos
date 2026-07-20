@@ -3168,21 +3168,21 @@ const PmIconAlerta   = () => (<svg {...pmIconBase} width={15} height={15} stroke
 function ChipSelecao({ selecionado, disabled = false, onClick, texto, detalhe, icone = "check" }) {
   return (
     <button type="button" onClick={onClick} disabled={disabled} aria-pressed={selecionado}
-      className={`group flex min-h-11 shrink-0 items-center gap-2 rounded-2xl border px-3.5 py-2 text-left text-sm font-medium transition-all duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary)] ${
+      className={`group flex min-h-11 shrink-0 items-center gap-2 rounded-2xl border px-3.5 py-2 text-left text-sm font-medium transition-all duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--client-primary)] ${
         disabled
-          ? "cursor-not-allowed border-[#E5E7EB] bg-[#F1F5F9] text-[#98A2B3]"
+          ? "cursor-not-allowed border-[var(--client-disabled-border)] bg-[var(--client-disabled-background)] text-[var(--client-disabled-text)]"
           : selecionado
-            ? "border-[var(--color-primary)] bg-[#EFF6FF] text-[#182230] shadow-[0_1px_2px_rgba(37,99,235,.15)]"
-            : "border-[#E5E7EB] bg-white text-[#475467] hover:border-[#BFDBFE] hover:bg-[#F8FAFC]"
+            ? "border-[var(--client-primary)] bg-[var(--client-primary-soft)] text-[var(--client-text-primary)] shadow-[0_1px_2px_rgba(217,71,34,.15)]"
+            : "border-[var(--client-border)] bg-[var(--client-surface)] text-[var(--client-text-secondary)] hover:border-[var(--client-border-strong)] hover:bg-[var(--client-surface-secondary)]"
       }`}>
       <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors ${
-        disabled ? "border-[#D0D5DD]" : selecionado ? "border-[var(--color-primary)] bg-[var(--color-primary)] text-white" : "border-[#D0D5DD] text-transparent group-hover:border-[#94A3B8]"
+        disabled ? "border-[var(--client-disabled-border)]" : selecionado ? "border-[var(--client-primary)] bg-[var(--client-primary)] text-white" : "border-[var(--client-border-strong)] text-transparent group-hover:border-[var(--client-text-muted)]"
       }`}>
         {icone === "remover" ? <PmIconX /> : <PmIconCheck />}
       </span>
       <span className="min-w-0">{texto}</span>
       {detalhe != null && (
-        <span className={`shrink-0 text-xs font-semibold ${disabled ? "text-[#98A2B3]" : selecionado ? "text-[#1D4ED8]" : "text-[#98A2B3]"}`}>{detalhe}</span>
+        <span className={`shrink-0 text-xs font-semibold ${disabled ? "text-[var(--client-disabled-text)]" : selecionado ? "text-[var(--client-primary-active)]" : "text-[var(--client-text-muted)]"}`}>{detalhe}</span>
       )}
     </button>
   );
@@ -3194,8 +3194,8 @@ function SecaoTitulo({ titulo, subtitulo, selo }) {
   return (
     <div className="mb-2.5 flex items-start justify-between gap-3">
       <div className="min-w-0">
-        <h3 className="text-[13px] font-bold uppercase tracking-[0.14em] text-[#182230]">{titulo}</h3>
-        {subtitulo && <p className="mt-0.5 text-xs text-[#667085]">{subtitulo}</p>}
+        <h3 className="text-[13px] font-bold uppercase tracking-[0.14em] text-[var(--client-text-primary)]">{titulo}</h3>
+        {subtitulo && <p className="mt-0.5 text-xs text-[var(--client-text-secondary)]">{subtitulo}</p>}
       </div>
       {selo && (
         <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${selo.tom}`}>
@@ -3329,18 +3329,18 @@ export function ProdutoModal({ produto, onFechar, onAdicionar, grupos = [], opco
   }
 
   const totalItem = (produto.price + extrasTotal + opcoesTotal) * quantidade;
-  const corTextoTotal = statusEnvio === "erro" ? "text-[#FCA5A5]" : "text-white/90";
+  const corTextoTotal = statusEnvio === "erro" ? "text-white/80" : "text-white/90";
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-[rgba(15,23,42,0.5)] backdrop-blur-sm p-0 sm:p-4"
+    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-[rgba(33,24,20,0.5)] backdrop-blur-sm p-0 sm:p-4"
       style={{ fontFamily: "'Inter','Poppins',sans-serif" }} onClick={onFechar}>
       <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="pm-titulo"
-        className="relative flex w-full max-w-[520px] lg:max-w-[900px] flex-col lg:flex-row overflow-hidden rounded-t-[28px] sm:rounded-[28px] border border-[#E5E7EB] bg-white shadow-[0_20px_60px_rgba(16,24,40,0.16)] max-h-[92vh]"
+        className="relative flex w-full max-w-[520px] lg:max-w-[900px] flex-col lg:flex-row overflow-hidden rounded-t-[28px] sm:rounded-[28px] border border-[var(--client-border)] bg-[var(--client-surface)] shadow-[var(--client-shadow-floating)] max-h-[92vh]"
         style={{ width: "calc(100% - 24px)" }}>
 
         {/* Feedback discreto de favorito */}
         {toastFav && (
-          <div role="status" className="absolute left-1/2 top-3 z-30 -translate-x-1/2 rounded-full border border-[#F4D27A] bg-white px-3.5 py-1.5 text-xs font-bold text-[#9A6A00] shadow-md">{toastFav}</div>
+          <div role="status" className="absolute left-1/2 top-3 z-30 -translate-x-1/2 rounded-full border border-[var(--client-border)] bg-[var(--client-surface)] px-3.5 py-1.5 text-xs font-bold text-[var(--client-text-primary)] shadow-md">{toastFav}</div>
         )}
 
         {/* ── Coluna da imagem (linha inteira no mobile/tablet; coluna
@@ -3352,8 +3352,8 @@ export function ProdutoModal({ produto, onFechar, onAdicionar, grupos = [], opco
             teste real de navegador, viewport 844x390 → botão renderizava
             100px abaixo do fim do modal). Em telas normais, o clamp() bate
             no teto (220px/260px) e o resultado visual não muda. */}
-        <div className="relative h-[clamp(96px,30vh,220px)] sm:h-[clamp(96px,30vh,260px)] lg:h-auto lg:w-[42%] shrink-0 overflow-hidden bg-[#F7F8FA]">
-          {!imgPronta && <div className="absolute inset-0 animate-pulse motion-reduce:animate-none bg-[#F1F5F9]" aria-hidden="true" />}
+        <div className="relative h-[clamp(96px,30vh,220px)] sm:h-[clamp(96px,30vh,260px)] lg:h-auto lg:w-[42%] shrink-0 overflow-hidden bg-[var(--client-background)]">
+          {!imgPronta && <div className="absolute inset-0 animate-pulse motion-reduce:animate-none bg-[var(--client-surface-secondary)]" aria-hidden="true" />}
           <img
             src={imgSrc} alt={produto.name} decoding="async"
             onLoad={() => setImgPronta(true)}
@@ -3363,19 +3363,19 @@ export function ProdutoModal({ produto, onFechar, onAdicionar, grupos = [], opco
           {/* Voltar / Favoritar — glassmorphism discreto, 44x44px, respeita safe-area (notch) */}
           <div className="absolute inset-x-4 flex items-center justify-between" style={{ top: "max(1rem, env(safe-area-inset-top))" }}>
             <button onClick={onFechar} aria-label="Voltar"
-              className="flex h-11 w-11 items-center justify-center rounded-full border border-white/40 bg-white/70 text-[#182230] shadow-[0_2px_10px_rgba(16,24,40,.12)] backdrop-blur-md transition duration-200 hover:bg-white/90 active:scale-90">
+              className="flex h-11 w-11 items-center justify-center rounded-full border border-white/40 bg-white/70 text-[var(--client-text-primary)] shadow-[0_2px_10px_rgba(16,24,40,.12)] backdrop-blur-md transition duration-200 hover:bg-white/90 active:scale-90">
               <PmIconVoltar />
             </button>
             <button onClick={toggleFavorito} aria-label={favorito ? "Remover dos favoritos" : "Adicionar aos favoritos"} aria-pressed={favorito}
-              className={`flex h-11 w-11 items-center justify-center rounded-full border shadow-[0_2px_10px_rgba(16,24,40,.12)] backdrop-blur-md transition duration-200 active:scale-90 ${favorito ? "border-[#F4D27A] bg-white/85 text-[#D9A441]" : "border-white/40 bg-white/70 text-[#475467] hover:bg-white/90"}`}>
+              className={`flex h-11 w-11 items-center justify-center rounded-full border shadow-[0_2px_10px_rgba(16,24,40,.12)] backdrop-blur-md transition duration-200 active:scale-90 ${favorito ? "border-[var(--client-primary-border)] bg-white/85 text-[var(--client-primary)]" : "border-white/40 bg-white/70 text-[var(--client-text-secondary)] hover:bg-white/90"}`}>
               <span className={`block transition-transform duration-200 motion-reduce:transition-none ${favPop ? "scale-125" : "scale-100"}`}><PmIconCoracao preenchido={favorito} /></span>
             </button>
           </div>
           {produto.badge && (
-            <span className="absolute left-4 bottom-4 rounded-md bg-[#D9A441] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[#182230] shadow-lg">{produto.badge}</span>
+            <span className="absolute left-4 bottom-4 rounded-md bg-[var(--client-gold)] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white shadow-lg">{produto.badge}</span>
           )}
           {indisponivel && (
-            <span className="absolute right-4 bottom-4 rounded-full border border-white/50 bg-[rgba(15,23,42,.7)] px-3 py-1 text-[11px] font-bold text-[#fff] backdrop-blur-sm">Indisponível no momento</span>
+            <span className="absolute right-4 bottom-4 rounded-full border border-white/50 bg-[rgba(33,24,20,.7)] px-3 py-1 text-[11px] font-bold text-white backdrop-blur-sm">Indisponível no momento</span>
           )}
         </div>
 
@@ -3383,17 +3383,17 @@ export function ProdutoModal({ produto, onFechar, onAdicionar, grupos = [], opco
         <div className="flex min-h-0 flex-1 flex-col">
           {/* Transição elegante da imagem pro conteúdo + informações do produto */}
           <div className="shrink-0 px-5 pt-4 lg:pt-5">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#9A6A00]">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--client-text-secondary)]">
               {[produto.category, produto.time && `⏱ ${produto.time}`].filter(Boolean).join("  •  ")}
             </p>
-            <h2 id="pm-titulo" className="mt-1.5 text-[22px] font-bold leading-tight tracking-tight text-[#182230]">{produto.name}</h2>
-            <p className="mt-1 text-lg font-bold text-[#B45309]">{formatCurrency(produto.price)}</p>
-            {produto.description && <p className="mt-2 text-sm leading-6 text-[#667085]">{produto.description}</p>}
+            <h2 id="pm-titulo" className="mt-1.5 text-[22px] font-bold leading-tight tracking-tight text-[var(--client-text-primary)]">{produto.name}</h2>
+            <p className="mt-1 text-lg font-bold text-[var(--client-text-primary)]">{formatCurrency(produto.price)}</p>
+            {produto.description && <p className="mt-2 text-sm leading-6 text-[var(--client-text-secondary)]">{produto.description}</p>}
           </div>
 
           {/* Corpo rolável — personalização + observação */}
           <div className="mt-4 min-h-0 flex-1 overflow-y-auto px-5 pb-4 space-y-6">
-            {!semPersonalizacao && <p className="text-[11px] font-bold uppercase tracking-widest text-[#98A2B3]">Personalize seu pedido</p>}
+            {!semPersonalizacao && <p className="text-[11px] font-bold uppercase tracking-widest text-[var(--client-text-muted)]">Personalize seu pedido</p>}
 
             {/* Grupos de variações/adicionais estruturados (migration 040) */}
             {gruposProduto.map((g) => {
@@ -3404,14 +3404,14 @@ export function ProdutoModal({ produto, onFechar, onAdicionar, grupos = [], opco
                 <div key={g.id}>
                   <SecaoTitulo titulo={g.nome} subtitulo={unico ? "Escolha 1 opção" : `Escolha até ${g.maxSelect ?? 1} opções`}
                     selo={g.obrigatorio
-                      ? (faltam ? { tom: "bg-[#FFF1F2] text-[#B42318]", texto: "Obrigatório", icone: <PmIconAlerta /> } : { tom: "bg-[#EAFBF2] text-[#147A4A]", texto: "Concluído", icone: <PmIconCheck /> })
-                      : { tom: "bg-[#F2F4F7] text-[#667085]", texto: "Opcional" }} />
+                      ? (faltam ? { tom: "bg-[var(--client-error-soft)] text-[var(--client-error)]", texto: "Obrigatório", icone: <PmIconAlerta /> } : { tom: "bg-[var(--client-success-soft)] text-[var(--client-success)]", texto: "Concluído", icone: <PmIconCheck /> })
+                      : { tom: "bg-[var(--client-surface-secondary)] text-[var(--client-text-secondary)]", texto: "Opcional" }} />
                   <div className="flex flex-wrap gap-2">
                     {opcoesDoGrupo(g.id).map((o) => (
                       <ChipSelecao key={o.id} selecionado={sel.includes(o.id)} onClick={() => toggleOpcao(g, o.id)}
                         texto={o.nome} detalhe={o.precoDelta > 0 ? `+ ${formatCurrency(o.precoDelta)}` : (o.precoDelta < 0 ? formatCurrency(o.precoDelta) : "Grátis")} />
                     ))}
-                    {opcoesDoGrupo(g.id).length === 0 && <p className="text-xs text-[#667085]">Sem opções cadastradas.</p>}
+                    {opcoesDoGrupo(g.id).length === 0 && <p className="text-xs text-[var(--client-text-secondary)]">Sem opções cadastradas.</p>}
                   </div>
                 </div>
               );
@@ -3420,7 +3420,7 @@ export function ProdutoModal({ produto, onFechar, onAdicionar, grupos = [], opco
             {/* Adicionais (selecionáveis, com preço) */}
             {adicionais.length > 0 && (
               <div>
-                <SecaoTitulo titulo="Adicionais" selo={{ tom: "bg-[#F2F4F7] text-[#667085]", texto: "Opcional" }} />
+                <SecaoTitulo titulo="Adicionais" selo={{ tom: "bg-[var(--client-surface-secondary)] text-[var(--client-text-secondary)]", texto: "Opcional" }} />
                 <div className="flex flex-wrap gap-2">
                   {adicionais.map((a) => (
                     <ChipSelecao key={a.nome} selecionado={extras.includes(a.nome)} onClick={() => toggleExtra(a.nome)}
@@ -3433,7 +3433,7 @@ export function ProdutoModal({ produto, onFechar, onAdicionar, grupos = [], opco
             {/* Remover ingredientes */}
             {(produto.ingredients || []).length > 0 && (
               <div>
-                <SecaoTitulo titulo="Remover ingredientes" subtitulo="Selecione os itens que deseja remover do produto." selo={{ tom: "bg-[#F2F4F7] text-[#667085]", texto: "Opcional" }} />
+                <SecaoTitulo titulo="Remover ingredientes" subtitulo="Selecione os itens que deseja remover do produto." selo={{ tom: "bg-[var(--client-surface-secondary)] text-[var(--client-text-secondary)]", texto: "Opcional" }} />
                 <div className="flex flex-wrap gap-2">
                   {(produto.ingredients || []).map((ing) => (
                     <ChipSelecao key={ing} icone="remover" selecionado={removidos.includes(ing)} onClick={() => toggleIngrediente(ing)} texto={`Sem ${ing}`} />
@@ -3444,43 +3444,43 @@ export function ProdutoModal({ produto, onFechar, onAdicionar, grupos = [], opco
 
             {/* Observação — card clean, expansão controlada */}
             <div>
-              <label htmlFor="pm-observacao" className="mb-2 block text-[13px] font-bold uppercase tracking-[0.14em] text-[#182230]">Observação</label>
-              <div className="rounded-2xl border border-[#E5E7EB] bg-[#F8FAFC] p-3.5 transition-colors duration-150 focus-within:border-[var(--color-primary)] focus-within:bg-white focus-within:ring-4 focus-within:ring-[var(--color-primary)]/10">
+              <label htmlFor="pm-observacao" className="mb-2 block text-[13px] font-bold uppercase tracking-[0.14em] text-[var(--client-text-primary)]">Observação</label>
+              <div className="rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface-secondary)] p-3.5 transition-colors duration-150 focus-within:border-[var(--client-primary)] focus-within:bg-[var(--client-surface)] focus-within:ring-4 focus-within:ring-[var(--client-focus-primary)]">
                 <textarea id="pm-observacao" ref={obsRef} value={observacao}
                   onChange={(e) => setObservacao(e.target.value)}
                   rows={2}
                   placeholder="Ex.: ponto da carne, alergias, retirar molho..."
-                  className="block w-full resize-none overflow-y-auto bg-transparent text-sm text-[#182230] outline-none placeholder:text-[#98A2B3]"
+                  className="block w-full resize-none overflow-y-auto bg-transparent text-sm text-[var(--client-text-primary)] outline-none placeholder:text-[var(--client-text-muted)]"
                   style={{ maxHeight: 160 }} />
               </div>
             </div>
           </div>
 
           {/* Rodapé — quantidade + adicionar ao pedido, sempre visível (nunca cobre conteúdo: é parte do fluxo flex, não position:fixed) */}
-          <div className="shrink-0 border-t border-[#E5E7EB] bg-white px-5 py-4" style={{ paddingBottom: "max(1rem, calc(env(safe-area-inset-bottom) + 0.5rem))" }}>
+          <div className="shrink-0 border-t border-[var(--client-border)] bg-[var(--client-surface)] px-5 py-4" style={{ paddingBottom: "max(1rem, calc(env(safe-area-inset-bottom) + 0.5rem))" }}>
             {!podeAdicionar && !indisponivel && (
-              <p className="mb-2.5 flex items-center gap-1.5 text-xs font-bold text-[#B42318]"><PmIconAlerta /> Escolha uma opção em "{grupoFaltando?.nome}" para continuar</p>
+              <p className="mb-2.5 flex items-center gap-1.5 text-xs font-bold text-[var(--client-error)]"><PmIconAlerta /> Escolha uma opção em "{grupoFaltando?.nome}" para continuar</p>
             )}
             <div className="flex items-stretch gap-2">
               {/* Seletor de quantidade — compacto o bastante pra caber ao lado
                   do botão mesmo em telas de 320px, sem descer do toque mínimo
                   de 44x44px nos botões +/−. */}
-              <div className="flex items-center rounded-2xl border border-[#E5E7EB] bg-[#F8FAFC] p-0.5">
+              <div className="flex items-center rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface-secondary)] p-0.5">
                 <button type="button" onClick={() => setQuantidade((q) => Math.max(1, q - 1))} disabled={quantidade <= 1} aria-label="Diminuir quantidade"
-                  className="flex h-11 w-11 items-center justify-center rounded-xl text-[#182230] transition duration-150 hover:bg-white active:scale-90 disabled:cursor-not-allowed disabled:text-[#D0D5DD] disabled:hover:bg-transparent">
+                  className="flex h-11 w-11 items-center justify-center rounded-xl text-[var(--client-text-primary)] transition duration-150 hover:bg-[var(--client-surface)] active:scale-90 disabled:cursor-not-allowed disabled:text-[var(--client-disabled-text)] disabled:hover:bg-transparent">
                   <PmIconMenos />
                 </button>
-                <span className="w-6 text-center text-base font-bold text-[#182230]" aria-live="polite" aria-atomic="true">{quantidade}</span>
+                <span className="w-6 text-center text-base font-bold text-[var(--client-text-primary)]" aria-live="polite" aria-atomic="true">{quantidade}</span>
                 <button type="button" onClick={() => setQuantidade((q) => q + 1)} aria-label="Aumentar quantidade"
-                  className="flex h-11 w-11 items-center justify-center rounded-xl text-[#182230] transition duration-150 hover:bg-white active:scale-90">
+                  className="flex h-11 w-11 items-center justify-center rounded-xl text-[var(--client-text-primary)] transition duration-150 hover:bg-[var(--client-surface)] active:scale-90">
                   <PmIconMais />
                 </button>
               </div>
-              {/* Botão adicionar — azul oficial, com estados idle/enviando/sucesso/erro/desabilitado */}
+              {/* Botão adicionar — terracota (ação principal), com estados idle/enviando/sucesso/erro/desabilitado */}
               <button type="button" onClick={confirmar} disabled={!podeAdicionar || statusEnvio === "enviando"}
-                className={`flex min-h-[44px] flex-1 items-center justify-between gap-1.5 rounded-2xl px-3.5 py-3.5 text-[13px] sm:text-sm font-bold text-[#fff] transition-all duration-150 active:scale-[0.98] disabled:cursor-not-allowed ${
-                  statusEnvio === "erro" ? "bg-[#DC2626]" : "bg-[var(--color-primary)] hover:bg-[var(--color-primary-dark)]"
-                } disabled:opacity-50 shadow-lg shadow-[var(--color-primary)]/25`}>
+                className={`flex min-h-[44px] flex-1 items-center justify-between gap-1.5 rounded-2xl px-3.5 py-3.5 text-[13px] sm:text-sm font-bold text-white transition-all duration-150 active:scale-[0.98] disabled:cursor-not-allowed ${
+                  statusEnvio === "erro" ? "bg-[var(--client-error)]" : "bg-[var(--client-primary)] hover:bg-[var(--client-primary-hover)]"
+                } disabled:opacity-50 shadow-lg shadow-[var(--client-primary)]/20`}>
                 <span className="flex min-w-0 items-center gap-1.5 truncate">
                   {statusEnvio === "enviando" && <PmIconSpinner />}
                   {statusEnvio === "sucesso" && <PmIconCheck width={16} height={16} />}

@@ -292,6 +292,66 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
 
   --login-focus: rgba(217, 71, 34, 0.22);
   --login-shadow: 0 20px 60px rgba(60, 37, 27, 0.10);
+
+  /* ══════════════════════════════════════════════════════════════
+     TOKENS DO CLIENTE (--client-*) — cardápio digital, produto,
+     carrinho, checkout, pagamento e acompanhamento (celular/tablet).
+     Fonte única, ver src/CardapioPublico.jsx e ProdutoModal em
+     src/App.jsx. Mesma família visual do login (idênticos aliasados
+     abaixo); os demais têm hex próprios definidos para esta tela.
+     Regra semântica (não decorativa):
+       terracota = ação · dourado = promoção/economia real ·
+       azul = informação/andamento · verde = confirmação real ·
+       crimson = erro/cancelamento. Nunca intercambiáveis. */
+  --client-background: #F8F5F1;
+  --client-background-soft: #FCFAF8;
+  --client-surface: var(--login-surface);
+  --client-surface-secondary: #F3ECE6;
+
+  --client-text-primary: var(--login-text-primary);
+  --client-text-secondary: #6F625B;
+  --client-text-muted: #948780;
+  --client-text-inverse: #FFFFFF;
+
+  --client-border: #E5DBD3;
+  --client-border-strong: #D5C6BB;
+
+  --client-primary: var(--login-primary);
+  --client-primary-hover: var(--login-primary-hover);
+  --client-primary-active: var(--login-primary-active);
+  --client-primary-soft: var(--login-primary-soft);
+  --client-primary-border: #EB9E89;
+
+  --client-gold: #A96F00;
+  --client-gold-hover: #895A00;
+  --client-gold-soft: #F8EED4;
+  --client-gold-border: #E7C66D;
+
+  --client-info: var(--pp-info);
+  --client-info-hover: #234B86;
+  --client-info-soft: #E8F0FA;
+  --client-info-border: #BDD0EA;
+
+  --client-success: #17824B;
+  --client-success-hover: #11663A;
+  --client-success-soft: #E7F5EC;
+  --client-success-border: #B8DFC7;
+
+  --client-error: var(--login-error);
+  --client-error-hover: #901D3E;
+  --client-error-soft: var(--login-error-soft);
+  --client-error-border: #E8AEC1;
+
+  --client-disabled-background: #ECEFF3;
+  --client-disabled-text: #9AA4B2;
+  --client-disabled-border: #DDE2E8;
+
+  --client-focus-primary: var(--login-focus);
+  --client-focus-info: rgba(46, 95, 168, 0.20);
+
+  --client-shadow-sm: 0 4px 14px rgba(57, 40, 31, 0.06);
+  --client-shadow-md: 0 12px 32px rgba(57, 40, 31, 0.10);
+  --client-shadow-floating: 0 16px 40px rgba(57, 40, 31, 0.14);
 }
 
 /* Equivalentes propostos para modo escuro (NÃO ativado — este projeto
