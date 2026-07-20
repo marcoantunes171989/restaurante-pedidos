@@ -77,12 +77,6 @@ export default {
           800: "#7C2D12",
           900: "#431407",
         },
-        // Âmbar dourado premium (detalhes, badges, ícones) — não é ação.
-        premium: {
-          DEFAULT: "#D9A441",
-          light:   "#FFF7E0",
-          dark:    "#C7922F",
-        },
         // Paleta das telas internas (painel, operacional). Namespace próprio.
         // Reformulação LIGHT premium (fundo neutro claro, azul + dourado como destaque).
         admin: {

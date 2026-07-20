@@ -2129,7 +2129,7 @@ export default function RestaurantePedidoApp() {
         <div className="relative flex flex-col items-center gap-7 text-center">
           <div className="flex h-20 w-20 items-center justify-center animate-pulse"><LogoPP size={80} /></div>
           <div>
-            <h1 className="text-2xl font-black tracking-tight text-pp-graphite">Pedido <span className="text-[var(--pp-brand-text)]">Prime</span></h1>
+            <h1 className="text-2xl font-black tracking-tight text-pp-graphite">Pedido <span className="text-[var(--pp-primary)]">Prime</span></h1>
             <p className="mt-1.5 text-sm text-pp-textMuted">Carregando ambiente do restaurante...</p>
           </div>
           <div className="flex items-center gap-2.5 rounded-full border border-pp-border bg-pp-surface px-5 py-2 shadow-premium">
