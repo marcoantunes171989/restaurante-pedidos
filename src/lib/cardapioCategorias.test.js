@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   CATEGORIA_TODOS, slugify, agruparProdutosPorCategoria, montarListaCategorias,
-  escolherCategoriaAtiva, idUltimoGrupo, calcularDestinoScroll,
+  escolherCategoriaAtiva, calcularDestinoScroll,
 } from "./cardapioCategorias";
 
 describe("slugify", () => {
@@ -104,17 +104,6 @@ describe("escolherCategoriaAtiva", () => {
 
   it("mais de uma seção na faixa ao mesmo tempo → vence a que vem primeiro no cardápio", () => {
     expect(escolherCategoriaAtiva(grupos, new Set(["3", "1"]))).toBe("1");
-  });
-});
-
-describe("idUltimoGrupo", () => {
-  it("respeita a última categoria até o final da página", () => {
-    const grupos = [{ id: "1" }, { id: "2" }, { id: "3" }];
-    expect(idUltimoGrupo(grupos)).toBe("3");
-  });
-  it("cardápio vazio/ainda carregando → null (nada pra forçar)", () => {
-    expect(idUltimoGrupo([])).toBeNull();
-    expect(idUltimoGrupo(undefined)).toBeNull();
   });
 });
 

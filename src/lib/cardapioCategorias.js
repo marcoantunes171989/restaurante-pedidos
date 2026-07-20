@@ -91,14 +91,6 @@ export function escolherCategoriaAtiva(grupos, idsNaFaixa) {
   return atual ? atual.id : CATEGORIA_TODOS;
 }
 
-// Id do último grupo — usado para forçar a categoria ativa ao chegar no fim
-// da página (sentinela após a última seção). null se não houver grupo algum
-// (cardápio vazio ou produtos/categorias ainda carregando).
-export function idUltimoGrupo(grupos) {
-  if (!grupos || !grupos.length) return null;
-  return grupos[grupos.length - 1].id;
-}
-
 // Ponto de destino da rolagem pra posicionar `rectTop` (getBoundingClientRect().top
 // do alvo, relativo ao viewport) logo abaixo dos elementos fixos — cálculo
 // explícito (element.getBoundingClientRect().top + scrollAtual - stickyOffset)

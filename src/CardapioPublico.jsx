@@ -532,15 +532,16 @@ export default function CardapioPublico() {
   const cliqueTimeoutRef = useRef(null);
   useEffect(() => () => clearTimeout(cliqueTimeoutRef.current), []);
   // Sincronização categoria ↔ rolagem: um único IntersectionObserver observa
-  // todas as seções contra uma FAIXA de 1px logo abaixo do cabeçalho+barra
-  // fixos ("linha de referência" — rootMargin negativo nos 4 lados reduz a
-  // área observável do root a essa faixa). A categoria ativa é a primeira
-  // seção (na ordem do cardápio) que estiver cruzando a faixa no momento —
-  // dispara só quando uma seção realmente entra/sai dela, não a cada pixel
-  // rolado (sem listener pesado de scroll). Um segundo observer cobre um
-  // sentinela após a última seção: ao entrar na tela, força a ÚLTIMA
-  // categoria — cobre o caso de uma seção curta cujo topo nunca alcançaria a
-  // faixa sozinho (cardápio pequeno / última categoria com poucos itens).
+  // todas as seções contra uma FAIXA logo abaixo do cabeçalho+barra fixos
+  // ("linha de referência" — rootMargin negativo no topo reduz a área
+  // observável do root a essa faixa). A categoria ativa é a primeira seção
+  // (na ordem do cardápio) que ainda estiver visível abaixo da linha — dispara
+  // só quando uma seção realmente entra/sai dela, não a cada pixel rolado
+  // (sem listener pesado de scroll). Isso também resolve sozinho o caso de
+  // categorias curtas empilhadas no fim de um cardápio pequeno: se
+  // Acompanhamentos/Sobremesas/Bebidas aparecem juntas na tela no scroll
+  // máximo, só a primeira delas (a que está de fato fixa sob a barra) conta —
+  // as seguintes, mesmo visíveis, ainda não "chegaram" na linha.
   // root = o elemento que REALMENTE rola (`scrollEl`) — sem isso, o
   // IntersectionObserver usa a viewport como referência por padrão, que
   // nesta tela não é quem rola.
