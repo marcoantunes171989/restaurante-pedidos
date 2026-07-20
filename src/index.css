@@ -186,11 +186,14 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
   --shadow-card-hover: 0 12px 32px rgba(16, 24, 40, 0.08);
 
   /* ══════════════════════════════════════════════════════════════
-     PALETA OFICIAL 2026 — Pedido Prime (tokens --pp-*)
+     PALETA OFICIAL 2026 v2 — Pedido Prime (tokens --pp-*)
      Fonte única de verdade para cor em TODA a plataforma (landing,
-     login, telas internas). Setor de alimentos: quente (apetite/
-     conversão) sobre base neutra confortável para uso prolongado.
-     Duas cores de ação com papéis DIFERENTES — não são intercambiáveis:
+     login, telas internas). Reescrita a partir da marca para o
+     mercado gastronômico: terracota estimula apetite (evita o azul,
+     atípico em food-service e associado a supressão de apetite);
+     dourado assina exclusivamente a identidade "Prime" — nunca é cor
+     de status. Duas cores de ação com papéis DIFERENTES — não são
+     intercambiáveis:
        --pp-brand   = identidade/marca/premium (logo, plano Prime, selos)
        --pp-primary = apetite/ação (CTAs, botão "Entrar", "Pedir")
      Ver docs/design-tokens.md para a tabela de mapeamento completa e
@@ -202,68 +205,66 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
      v3 não sabe abrir um var() em canais RGB para aplicar alpha, então
      a REGRA INTEIRA é descartada silenciosamente (nem a cor cheia
      aparece — fica transparente, sem erro no build). Se precisar de
-     opacidade, use o hex literal do token (ex.: `bg-[#E8622C]/20`) ou
+     opacidade, use o hex literal do token (ex.: `bg-[#C63F1D]/20`) ou
      a variável --pp-*-soft já pronta (--pp-info-soft, --pp-warning-soft
      etc.) — var() SEM modificador de opacidade funciona normalmente.
      ══════════════════════════════════════════════════════════════ */
-  /* Marca / Premium (dourado) */
-  --pp-brand: #D4A017;
-  --pp-brand-hover: #B8860B;
+  /* Marca / Premium (dourado antigo — só identidade, nunca status) */
+  --pp-brand: #B8872A;
+  --pp-brand-hover: #96701F;
 
-  /* Apetite / Ação — CTA principal (coral/terracota).
-     NOTA DE CONTRASTE: branco sobre --pp-primary dá 3.38:1 (reprova AA
-     em texto normal/bold ≤18px, que é o caso da maioria dos botões
-     daqui). Por isso, em PREENCHIMENTOS SÓLIDOS com texto branco
-     (botões), use --pp-primary-hover como fundo do estado padrão
-     (4.52:1, passa AA) e --pp-primary (mais claro) como estado hover —
-     inverte qual tom é "base"/"hover" em relação à leitura literal dos
-     nomes, mas preserva os dois hex exatos pedidos e garante AA no
-     estado sempre visível. Para texto grande (≥19px bold ou ≥24px
-     regular), ícones, bordas e fundos com --pp-primary-soft, os dois
-     tons podem ser usados na ordem "natural" sem risco de contraste. */
-  --pp-primary: #E8622C;
-  --pp-primary-hover: #C9501F;
-  --pp-primary-soft: rgba(232, 98, 44, 0.07);
+  /* Apetite / Ação — CTA principal (terracota).
+     NOTA DE CONTRASTE: branco sobre --pp-primary-hover dá 5.08:1
+     (passa AA folgado) — ao contrário da paleta anterior, este tom já
+     funciona como fundo sólido padrão sem precisar de um par mais
+     escuro só para o estado base. --pp-primary (mais claro) fica para
+     hover/ícones/bordas, onde 4.0:1 já é suficiente (texto grande,
+     bold ≥18px, ou uso não-textual). */
+  --pp-primary: #D9542E;
+  --pp-primary-hover: #C63F1D;
+  --pp-primary-soft: rgba(198, 63, 29, 0.07);
 
-  /* Estrutura */
-  --pp-graphite: #1A1A1A;
-  --pp-graphite-deep: #101012;
-  --pp-bg: #FAF9F5;
+  /* Estrutura — neutros com base quente (não cinza-azulado), para a
+     fotografia/ilustração de comida render mais convidativa. */
+  --pp-graphite: #2B2320;
+  --pp-graphite-deep: #1C140F;
+  --pp-bg: #FBF7F2;
   --pp-surface: #FFFFFF;
-  --pp-border: #E7E5E4;
+  --pp-border: #EAE0D6;
 
   /* Texto */
-  --pp-text: #1A1A1A;
-  --pp-text-body: #3F3F46;
-  --pp-text-muted: #71717A;
+  --pp-text: #2B2320;
+  --pp-text-body: #5B4F47;
+  --pp-text-muted: #8A7D73;
 
   /* Status (fluxo de pedidos) — usar EXCLUSIVAMENTE para status de
      pedido (recebido/preparo/pronto/cancelado), nas 3 superfícies, com
-     a mesma semântica. Não usar como cor decorativa genérica. */
-  --pp-info: #2563EB;
+     a mesma semântica. Não usar como cor decorativa genérica. Afastadas
+     de propósito do terracota da marca (info puxa pro azul, danger pro
+     rosa/crimson) para nenhuma delas ser lida como uma ação da marca. */
+  --pp-info: #2E5FA8;
   --pp-warning: #F59E0B;
-  --pp-success: #16A34A;
-  --pp-danger: #DC2626;
+  --pp-success: #2F9E52;
+  --pp-danger: #C81E4A;
 
   /* Fundos suaves (10-12%) para badges/chips de status — mesma cor,
      tingida sobre uma superfície clara. */
-  --pp-info-soft: rgba(37, 99, 235, 0.10);
+  --pp-info-soft: rgba(46, 95, 168, 0.10);
   --pp-warning-soft: #FFF4E5;
-  --pp-success-soft: rgba(22, 163, 74, 0.10);
-  --pp-danger-soft: rgba(220, 38, 38, 0.10);
+  --pp-success-soft: rgba(47, 158, 82, 0.10);
+  --pp-danger-soft: rgba(200, 30, 74, 0.10);
 
-  /* Variantes escurecidas p/ uso como TEXTO em fundo claro — as cores
-     base acima (--pp-primary, --pp-brand, --pp-warning, --pp-success)
-     não atingem 4.5:1 como texto direto sobre branco/--pp-bg (medido:
-     3.38:1, 2.38:1, 2.15:1 e 3.30:1 respectivamente). Estas variantes
-     passam AA (≥4.5:1) e devem ser usadas sempre que a cor aparecer
-     como TEXTO (links, valores, ícones com rótulo) em vez de
-     preenchimento sólido. --pp-danger já passa AA nativamente (4.83:1)
-     e não precisa de variante própria. */
-  --pp-primary-text: #C9501F;  /* = --pp-primary-hover, 4.52:1 */
-  --pp-brand-text: #8A6A12;    /* 5.06:1 */
+  /* Variantes escurecidas p/ uso como TEXTO em fundo claro — --pp-brand
+     e --pp-warning não atingem 4.5:1 como texto direto sobre branco/
+     --pp-bg. Estas variantes passam AA (≥4.5:1) e devem ser usadas
+     sempre que a cor aparecer como TEXTO (links, valores, ícones com
+     rótulo) em vez de preenchimento sólido. --pp-primary-hover e
+     --pp-danger já passam AA nativamente como preenchimento e não
+     precisam de variante própria. */
+  --pp-primary-text: #C63F1D;  /* = --pp-primary-hover, 5.08:1 */
+  --pp-brand-text: #6B5015;    /* 6.1:1 */
   --pp-warning-text: #B45309;  /* 5.02:1 */
-  --pp-success-text: #147A4A;  /* 5.37:1 */
+  --pp-success-text: #1F7A3D;  /* 5.4:1 */
 }
 
 /* Equivalentes propostos para modo escuro (NÃO ativado — este projeto
@@ -271,16 +272,16 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
    docs/design-tokens.md). Documentado aqui para quando existir. */
 /*
 [data-theme="dark"] {
-  --pp-bg: #17140F;
-  --pp-surface: #211D17;
-  --pp-border: #35302A;
-  --pp-text: #F5F3EE;
-  --pp-text-body: #D4D1CA;
-  --pp-text-muted: #9C968C;
-  --pp-primary: #F17B45;
-  --pp-primary-hover: #E8622C;
-  --pp-brand: #E8B94A;
-  --pp-brand-hover: #D4A017;
+  --pp-bg: #1C140F;
+  --pp-surface: #241B15;
+  --pp-border: #3B2E24;
+  --pp-text: #F4EBE2;
+  --pp-text-body: #CBB9AC;
+  --pp-text-muted: #9C8A7C;
+  --pp-primary: #E8734A;
+  --pp-primary-hover: #D9542E;
+  --pp-brand: #D0A548;
+  --pp-brand-hover: #B8872A;
 }
 */
 
@@ -303,10 +304,10 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
   --filter-chip-border: var(--pp-border);
   --filter-chip-text: var(--pp-text-body);
   --filter-chip-text-selected: #FFFFFF;
-  --filter-chip-selected-shadow: 0 2px 6px rgba(232, 98, 44, 0.25);
+  --filter-chip-selected-shadow: 0 2px 6px rgba(198, 63, 29, 0.25);
 }
 .pp-filter-panel .filter-chip:focus-visible {
-  box-shadow: 0 0 0 4px rgba(232, 98, 44, 0.25);
+  box-shadow: 0 0 0 4px rgba(198, 63, 29, 0.25);
 }
 
 /* ══════════════════════════════════════════════════════════════

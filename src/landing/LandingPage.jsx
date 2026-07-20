@@ -4,6 +4,7 @@ import { linkWhatsappConsultor } from "../config/contato";
 
 import Header from "./sections/Header";
 import Hero from "./sections/Hero";
+import Vitrine from "./sections/Vitrine";
 import Canais from "./sections/Canais";
 import Plataforma from "./sections/Plataforma";
 import Fluxo from "./sections/Fluxo";
@@ -30,6 +31,7 @@ export default function LandingPage({ navigate }) {
       <Header onEntrar={entrar} />
       <main>
         <Hero />
+        <Vitrine />
         <Canais />
         <Plataforma />
         <Fluxo />

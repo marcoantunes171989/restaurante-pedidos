@@ -7,8 +7,8 @@ import { linkWhatsappConsultor } from "../../config/contato";
 export default function Hero() {
   return (
     <section id="topo" className="relative overflow-hidden">
-      <div className="pointer-events-none absolute -right-24 -top-24 -z-10 h-96 w-96 rounded-full bg-[radial-gradient(closest-side,rgba(232,98,44,0.10),transparent)]" />
-      <div className="pointer-events-none absolute -left-24 top-40 -z-10 h-72 w-72 rounded-full bg-[radial-gradient(closest-side,rgba(212,160,23,0.10),transparent)]" />
+      <div className="pointer-events-none absolute -right-24 -top-24 -z-10 h-96 w-96 rounded-full bg-[radial-gradient(closest-side,rgba(198,63,29,0.10),transparent)]" />
+      <div className="pointer-events-none absolute -left-24 top-40 -z-10 h-72 w-72 rounded-full bg-[radial-gradient(closest-side,rgba(184,135,42,0.10),transparent)]" />
       <div className="mx-auto grid max-w-7xl items-center gap-12 px-5 py-16 sm:py-24 lg:grid-cols-2">
         <div>
           <Reveal><Badge>{HERO.badge}</Badge></Reveal>
@@ -25,7 +25,7 @@ export default function Hero() {
               <Botao variant="primary" onClick={() => goTo("funcionalidades")}>Conhecer o Pedido Prime</Botao>
               <Botao variant="outline" href={linkWhatsappConsultor("Olá! Gostaria de ver uma demonstração do Pedido Prime.")}>Ver demonstração</Botao>
             </div>
-            <button onClick={() => goTo("planos")} className="mt-4 text-sm font-bold text-[var(--pp-primary-hover)] underline decoration-[#C9501F]/30 underline-offset-4 hover:decoration-[var(--pp-primary-hover)]">
+            <button onClick={() => goTo("planos")} className="mt-4 text-sm font-bold text-[var(--pp-primary-hover)] underline decoration-[#C63F1D]/30 underline-offset-4 hover:decoration-[var(--pp-primary-hover)]">
               Falar com um consultor →
             </button>
           </Reveal>

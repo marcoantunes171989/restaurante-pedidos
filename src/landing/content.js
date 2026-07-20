@@ -24,6 +24,25 @@ export const HERO = {
   beneficios: ["Implantação simplificada", "Sem necessidade de aplicativo para o cliente", "Uso em qualquer dispositivo", "Atendimento especializado"],
 };
 
+// ── Vitrine de pratos em destaque (seção 2) — sem fotos reais de prato
+// no projeto (mesma ressalva de mockups.jsx): representados por emoji em
+// cartão premium, um por segmento atendido (ver SEGMENTOS abaixo), para
+// mostrar como o cardápio digital valoriza o produto de cada tipo de
+// estabelecimento. Preços ilustrativos.
+export const PRATOS_DESTAQUE = [
+  { emoji: "🍕", nome: "Pizza Margherita", estabelecimento: "Pizzarias", preco: "42,90" },
+  { emoji: "🍔", nome: "Combo Smash Duplo", estabelecimento: "Hamburguerias", preco: "36,90" },
+  { emoji: "🍣", nome: "Combinado Salmão", estabelecimento: "Restaurantes japoneses", preco: "58,90" },
+  { emoji: "🍝", nome: "Risoto de Camarão", estabelecimento: "Restaurantes", preco: "64,90" },
+  { emoji: "🍢", nome: "Espetinho de Alcatra", estabelecimento: "Espetarias", preco: "12,90" },
+  { emoji: "🍨", nome: "Açaí na Tigela 500ml", estabelecimento: "Açaíterias", preco: "24,90" },
+  { emoji: "☕", nome: "Cappuccino Cremoso", estabelecimento: "Cafeterias", preco: "14,90" },
+  { emoji: "🍺", nome: "Chopp Artesanal 500ml", estabelecimento: "Bares e choperias", preco: "18,90" },
+  { emoji: "🥐", nome: "Croissant Recheado", estabelecimento: "Padarias", preco: "13,90" },
+  { emoji: "🍦", nome: "Sundae Duas Bolas", estabelecimento: "Sorveterias", preco: "16,90" },
+  { emoji: "🥪", nome: "Sanduíche Natural", estabelecimento: "Lanchonetes", preco: "19,90" },
+];
+
 // ── Canais de atendimento (seção 3) ──────────────────────────
 export const CANAIS = [
   {
@@ -107,12 +126,12 @@ export const FLUXO_BENEFICIOS = [
 // Cores meramente decorativas (variedade visual entre os 4 cartões do
 // mockup) — não são status de pedido, por isso não usam --pp-info/
 // warning/success/danger (reservadas exclusivamente a isso). Paleta
-// oficial 2026: coral, dourado e grafite.
+// oficial 2026 v2: terracota, dourado e grafite quente.
 export const INDICADORES_PAINEL = [
-  { label: "Faturamento", valor: "R$ 4.860", cor: "#E8622C" },
-  { label: "Ticket médio", valor: "R$ 42,90", cor: "#D4A017" },
-  { label: "Pedidos", valor: "138", cor: "#3F3F46" },
-  { label: "Clientes recorrentes", valor: "63%", cor: "#C9501F" },
+  { label: "Faturamento", valor: "R$ 4.860", cor: "#C63F1D" },
+  { label: "Ticket médio", valor: "R$ 42,90", cor: "#B8872A" },
+  { label: "Pedidos", valor: "138", cor: "#5B4F47" },
+  { label: "Clientes recorrentes", valor: "63%", cor: "#A53416" },
 ];
 export const RECURSOS_PAINEL = [
   "Faturamento", "Ticket médio", "Pedidos", "Produtos mais vendidos", "Vendas por período",

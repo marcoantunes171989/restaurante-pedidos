@@ -54,7 +54,7 @@ export function MockupTablet() {
           <span className="rounded-xl bg-[var(--pp-primary-hover)] px-3.5 py-2 text-xs font-bold text-white">Solicitar conta</span>
         </div>
       </div>
-      <div className="pointer-events-none absolute -inset-6 -z-10 rounded-[3rem] bg-[radial-gradient(closest-side,rgba(232,98,44,0.14),transparent)]" />
+      <div className="pointer-events-none absolute -inset-6 -z-10 rounded-[3rem] bg-[radial-gradient(closest-side,rgba(198,63,29,0.14),transparent)]" />
     </div>
   );
 }
@@ -72,17 +72,17 @@ export function MockupCardapioCliente() {
       <div className="pp-float rounded-[2rem] border border-[var(--pp-border)] bg-white p-3 shadow-[0_30px_80px_-30px_rgba(13,27,42,0.3)]">
         <div className="flex items-center justify-between px-2 pb-2">
           <p className="font-display text-sm font-bold text-[var(--pp-graphite)]">Cardápio</p>
-          <span className="rounded-full bg-[#D4A017]/10 px-2 py-0.5 text-[9px] font-bold text-[var(--pp-brand-text)]">Aberto agora</span>
+          <span className="rounded-full bg-[#B8872A]/10 px-2 py-0.5 text-[9px] font-bold text-[var(--pp-brand-text)]">Aberto agora</span>
         </div>
         <div className="flex gap-1.5 overflow-hidden px-2">
           {["Lanches", "Bebidas", "Sobremesas"].map((c, i) => (
-            <span key={c} className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold ${i === 0 ? "bg-[var(--pp-primary-hover)] text-white" : "bg-[#F5F4F0] text-[var(--pp-text-muted)]"}`}>{c}</span>
+            <span key={c} className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold ${i === 0 ? "bg-[var(--pp-primary-hover)] text-white" : "bg-[#F3EDE4] text-[var(--pp-text-muted)]"}`}>{c}</span>
           ))}
         </div>
         <div className="mt-2 space-y-2 px-1">
           {produtos.map((p) => (
             <div key={p.nome} className="flex items-center gap-2.5 rounded-xl border border-[var(--pp-border)] p-2">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[#F5F4F0] text-lg" aria-hidden="true">🍔</span>
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[#F3EDE4] text-lg" aria-hidden="true">🍔</span>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-xs font-bold text-[var(--pp-graphite)]">{p.nome}</p>
                 {p.tag && <span className="text-[9px] font-bold text-[var(--pp-brand-text)]">{p.tag}</span>}
@@ -93,10 +93,10 @@ export function MockupCardapioCliente() {
         </div>
         <div className="mt-3 flex items-center justify-between rounded-xl bg-[var(--pp-graphite)] px-3.5 py-2.5">
           <span className="text-xs font-bold text-white">Ver carrinho (3)</span>
-          <span className="text-xs font-black text-[#D4A017]">R$ 72,70</span>
+          <span className="text-xs font-black text-[#D0A548]">R$ 72,70</span>
         </div>
       </div>
-      <div className="pointer-events-none absolute -inset-6 -z-10 rounded-[3rem] bg-[radial-gradient(closest-side,rgba(212,160,23,0.14),transparent)]" />
+      <div className="pointer-events-none absolute -inset-6 -z-10 rounded-[3rem] bg-[radial-gradient(closest-side,rgba(184,135,42,0.14),transparent)]" />
     </div>
   );
 }
@@ -116,14 +116,14 @@ export function MockupDashboard() {
           <p className="font-display text-sm font-bold text-[var(--pp-graphite)]">Faturamento por horário</p>
           <p className="mt-0.5 text-[11px] text-[var(--pp-text-muted)]">Ilustrativo — formato do painel real</p>
         </div>
-        <span className="rounded-full bg-[#D4A017]/10 px-2.5 py-1 text-[10px] font-bold text-[var(--pp-brand-text)]">+12% vs. ontem</span>
+        <span className="rounded-full bg-[#B8872A]/10 px-2.5 py-1 text-[10px] font-bold text-[var(--pp-brand-text)]">+12% vs. ontem</span>
       </div>
       <div className="mt-5 flex items-end justify-between gap-1.5" style={{ height: ALT + 18 }}>
         {horas.map((x) => {
           const pico = x.v === max;
           return (
             <div key={x.h} className="flex flex-1 flex-col items-center justify-end gap-1">
-              <div className="w-full rounded-t-md transition-all" style={{ height: Math.max(6, (x.v / max) * ALT), background: pico ? "#D4A017" : "#E8622C" }} />
+              <div className="w-full rounded-t-md transition-all" style={{ height: Math.max(6, (x.v / max) * ALT), background: pico ? "#B8872A" : "#C63F1D" }} />
               <span className="text-[8px] font-semibold leading-none text-[var(--pp-text-muted)]">{x.h}</span>
             </div>
           );

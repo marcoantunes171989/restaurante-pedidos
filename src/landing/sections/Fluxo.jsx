@@ -10,7 +10,7 @@ export default function Fluxo() {
         <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {COMO_FUNCIONA.map((p, i) => (
             <Reveal as="article" key={p.n} delay={i * 70} className="relative rounded-[1.25rem] border border-[var(--pp-border)] bg-white p-6">
-              <span className="font-display absolute right-5 top-4 text-4xl font-black text-[#C9501F]/10">{p.n}</span>
+              <span className="font-display absolute right-5 top-4 text-4xl font-black text-[#C63F1D]/10">{p.n}</span>
               <IconBadge nome={p.icon} />
               <h3 className="font-display mt-4 text-base font-bold text-[var(--pp-graphite)]">{p.titulo}</h3>
               <p className="mt-1.5 text-sm leading-6 text-[var(--pp-text-muted)]">{p.desc}</p>

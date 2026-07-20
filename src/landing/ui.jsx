@@ -39,17 +39,17 @@ export function Carrossel({ children, duracao = 50, className = "" }) {
   );
 }
 
-// Paleta oficial 2026 (--pp-*, ver src/index.css e docs/design-tokens.md).
-// "primary" (fundo sólido + texto branco) usa --pp-primary-hover, não
-// --pp-primary: a variante clara pedida (#E8622C) com texto branco mede
-// 3.38:1 (reprova AA); a escura mede 4.52:1 (passa). O tom claro fica para
-// o hover — ver nota de contraste completa em :root (src/index.css).
+// Paleta oficial 2026 v2 (--pp-*, ver src/index.css e docs/design-tokens.md).
+// "primary" (fundo sólido + texto branco) usa --pp-primary-hover (o
+// terracota mais fundo, #C63F1D, 5.08:1 com branco — já passa AA como
+// fundo padrão). --pp-primary (mais claro) fica para o hover — ver nota
+// de contraste completa em :root (src/index.css).
 const BOTAO_ESTILOS = {
-  primary: "bg-[var(--pp-primary-hover)] text-white hover:bg-[var(--pp-primary)] shadow-lg shadow-[#C9501F]/20",
+  primary: "bg-[var(--pp-primary-hover)] text-white hover:bg-[var(--pp-primary)] shadow-lg shadow-[#C63F1D]/20",
   outline: "border border-[var(--pp-border)] bg-white text-[var(--pp-text-body)] hover:bg-[var(--pp-bg)]",
-  navy: "bg-[var(--pp-graphite)] text-white hover:bg-[var(--pp-graphite-deep)] shadow-lg shadow-[#1A1A1A]/20",
+  navy: "bg-[var(--pp-graphite)] text-white hover:bg-[var(--pp-graphite-deep)] shadow-lg shadow-[#2B2320]/20",
   whatsapp: "bg-[#10B981] text-white hover:bg-[#0D9668] shadow-lg shadow-[#10B981]/25", // marca do WhatsApp — fora da paleta Pedido Prime, cor de terceiro preservada
-  ghost: "text-[var(--pp-primary-hover)] hover:bg-[#C9501F]/10",
+  ghost: "text-[var(--pp-primary-hover)] hover:bg-[#C63F1D]/10",
 };
 export function Botao({ children, variant = "primary", onClick, href, type = "button", className = "", ...rest }) {
   const cls = `font-display inline-flex min-h-[44px] items-center justify-center gap-2 rounded-2xl px-6 py-3.5 text-sm font-bold transition active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pp-primary-hover)] focus-visible:ring-offset-2 ${BOTAO_ESTILOS[variant]} ${className}`;
@@ -75,9 +75,9 @@ export function Marca({ tamanho = 38, escuro = false }) {
 // paleta, unificado aqui em dourado).
 export function Badge({ children, tom = "blue" }) {
   const tons = {
-    blue: "border-[#C9501F]/25 bg-[#C9501F]/5 text-[var(--pp-primary-hover)]",
-    gold: "border-[#D4A017]/30 bg-[#D4A017]/5 text-[var(--pp-brand-text)]",
-    violet: "border-[#D4A017]/30 bg-[#D4A017]/5 text-[var(--pp-brand-text)]",
+    blue: "border-[#C63F1D]/25 bg-[#C63F1D]/5 text-[var(--pp-primary-hover)]",
+    gold: "border-[#B8872A]/30 bg-[#B8872A]/5 text-[var(--pp-brand-text)]",
+    violet: "border-[#B8872A]/30 bg-[#B8872A]/5 text-[var(--pp-brand-text)]",
   };
   return (
     <span className={`inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-wider ${tons[tom]}`}>
@@ -89,11 +89,11 @@ export function Badge({ children, tom = "blue" }) {
 // Selo redondo com ícone linear (usado em todos os cards de feature).
 export function IconBadge({ nome, tom = "blue" }) {
   const tons = {
-    blue: "border-[#C9501F]/20 bg-[#C9501F]/5 text-[var(--pp-primary-hover)]",
-    gold: "border-[#D4A017]/25 bg-[#D4A017]/5 text-[var(--pp-brand-text)]",
-    violet: "border-[#D4A017]/20 bg-[#D4A017]/5 text-[var(--pp-brand-text)]",
-    green: "border-[#D4A017]/20 bg-[#D4A017]/5 text-[var(--pp-brand-text)]", // decorativo — não é status de pedido, unificado em dourado (verde fica reservado a --pp-success)
-    navy: "border-[#1A1A1A]/10 bg-white text-[var(--pp-graphite)]",
+    blue: "border-[#C63F1D]/20 bg-[#C63F1D]/5 text-[var(--pp-primary-hover)]",
+    gold: "border-[#B8872A]/25 bg-[#B8872A]/5 text-[var(--pp-brand-text)]",
+    violet: "border-[#B8872A]/20 bg-[#B8872A]/5 text-[var(--pp-brand-text)]",
+    green: "border-[#B8872A]/20 bg-[#B8872A]/5 text-[var(--pp-brand-text)]", // decorativo — não é status de pedido, unificado em dourado (verde fica reservado a --pp-success)
+    navy: "border-[#2B2320]/10 bg-white text-[var(--pp-graphite)]",
   };
   return (
     <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border ${tons[tom]}`}>
@@ -104,7 +104,7 @@ export function IconBadge({ nome, tom = "blue" }) {
 
 // Marcador de lista (bullet check) reutilizado nas seções de benefícios.
 // Decorativo (não é status de pedido) — dourado, não --pp-success.
-export function Check({ cor = "#D4A017" }) {
+export function Check({ cor = "#B8872A" }) {
   return (
     <svg viewBox="0 0 24 24" className="mt-0.5 h-4 w-4 shrink-0" fill="none" stroke={cor} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
       <path d="M20 6 9 17l-5-5" />

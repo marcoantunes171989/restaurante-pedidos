@@ -27,17 +27,17 @@ export function LogoPP({ size = 40, fundo = true, className = "" }) {
     );
   }
 
-  // Fallback — monograma PP em SVG (grafite + coral + prata), mesma
-  // paleta do arquivo oficial (logo-oficial.png).
+  // Fallback — monograma PP em SVG (grafite quente + terracota + prata),
+  // paleta oficial 2026 v2 (ver src/index.css, tokens --pp-*).
   return (
     <svg width={size} height={size} viewBox="0 0 100 100" className={`shrink-0 ${className}`} aria-label="Pedido Prime" role="img">
       {fundo && (
         <>
-          <circle cx="50" cy="50" r="46" fill="#1A1A1A" />
-          <circle cx="50" cy="50" r="46" fill="none" stroke="#E8622C" strokeWidth="5" />
+          <circle cx="50" cy="50" r="46" fill="#2B2320" />
+          <circle cx="50" cy="50" r="46" fill="none" stroke="#C63F1D" strokeWidth="5" />
         </>
       )}
-      <path d="M33 76 V28 h14 a13 13 0 0 1 0 26 H33" fill="none" stroke="#E8622C" strokeWidth="9" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M33 76 V28 h14 a13 13 0 0 1 0 26 H33" fill="none" stroke="#C63F1D" strokeWidth="9" strokeLinecap="round" strokeLinejoin="round" />
       <path d="M48 82 V40 h12 a12 12 0 0 1 0 24 H48" fill="none" stroke="#F8FAFC" strokeWidth="9" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
