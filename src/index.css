@@ -337,13 +337,26 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
   --client-success-soft: #E7F5EC;
   --client-success-border: #B8DFC7;
 
+  /* Em preparo/andamento — distinto do dourado (promoção) e do azul
+     (recebido/informativo): status "algo está acontecendo agora". */
+  --client-warning: #B96A00;
+  --client-warning-hover: #935500;
+  --client-warning-soft: #FFF1D9;
+  --client-warning-border: #F1C77D;
+
   --client-error: var(--login-error);
   --client-error-hover: #901D3E;
   --client-error-soft: var(--login-error-soft);
   --client-error-border: #E8AEC1;
 
+  /* Status neutro (arquivado/concluído sem destaque — ex.: entregue) —
+     distinto dos tons de texto/superfície genéricos. */
+  --client-status-neutral: #786B64;
+  --client-status-neutral-soft: #F3EFEC;
+  --client-status-neutral-border: #DFD5CE;
+
   --client-disabled-background: #ECEFF3;
-  --client-disabled-text: #9AA4B2;
+  --client-disabled-text: #98A2B3;
   --client-disabled-border: #DDE2E8;
 
   --client-focus-primary: var(--login-focus);
@@ -351,7 +364,7 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
 
   --client-shadow-sm: 0 4px 14px rgba(57, 40, 31, 0.06);
   --client-shadow-md: 0 12px 32px rgba(57, 40, 31, 0.10);
-  --client-shadow-floating: 0 16px 40px rgba(57, 40, 31, 0.14);
+  --client-shadow-floating: 0 18px 48px rgba(57, 40, 31, 0.14);
 }
 
 /* Equivalentes propostos para modo escuro (NÃO ativado — este projeto

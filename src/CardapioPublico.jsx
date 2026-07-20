@@ -119,23 +119,25 @@ function statusClienteLabel(pedido, modo) {
 }
 // Chip de status do pedido — paleta própria do cliente (--client-*), local a
 // esta tela: NÃO reaproveita o statusMap de App.jsx (esse é compartilhado com
-// cozinha/painel, fora do escopo desta padronização). Recebido/Em preparo
-// ficam os dois em azul informativo (sem tom de "aviso" dedicado na paleta do
-// cliente) — a etiqueta de texto já diferencia os dois estágios; pronto vira
-// verde só quando a etapa está de fato concluída; cancelado, crimson.
+// cozinha/painel, fora do escopo desta padronização). Cada estágio com sua
+// própria cor semântica (nunca duas etapas com significados diferentes
+// dividindo a mesma cor): recebido = azul (informativo/aguardando), em
+// preparo = âmbar (em andamento), pronto = verde (concluído de fato),
+// entregue = neutro (arquivado, sem destaque), cancelado = crimson.
 function estiloStatusCliente(status) {
   switch (status) {
     case "received":
-    case "preparing":
       return { chip: "bg-[var(--client-info-soft)] text-[var(--client-info)] border-[var(--client-info-border)]", dot: "bg-[var(--client-info)]" };
+    case "preparing":
+      return { chip: "bg-[var(--client-warning-soft)] text-[var(--client-warning)] border-[var(--client-warning-border)]", dot: "bg-[var(--client-warning)]" };
     case "ready":
       return { chip: "bg-[var(--client-success-soft)] text-[var(--client-success)] border-[var(--client-success-border)]", dot: "bg-[var(--client-success)]" };
     case "delivered":
-      return { chip: "bg-[var(--client-surface-secondary)] text-[var(--client-text-secondary)] border-[var(--client-border)]", dot: "bg-[var(--client-text-muted)]" };
+      return { chip: "bg-[var(--client-status-neutral-soft)] text-[var(--client-status-neutral)] border-[var(--client-status-neutral-border)]", dot: "bg-[var(--client-status-neutral)]" };
     case "cancelled":
       return { chip: "bg-[var(--client-error-soft)] text-[var(--client-error)] border-[var(--client-error-border)]", dot: "bg-[var(--client-error)]" };
     default:
-      return { chip: "bg-[var(--client-surface-secondary)] text-[var(--client-text-secondary)] border-[var(--client-border)]", dot: "bg-[var(--client-text-muted)]" };
+      return { chip: "bg-[var(--client-status-neutral-soft)] text-[var(--client-status-neutral)] border-[var(--client-status-neutral-border)]", dot: "bg-[var(--client-status-neutral)]" };
   }
 }
 
@@ -850,6 +852,13 @@ export default function CardapioPublico() {
     : meusPedidos.some((o) => o.status === "ready") ? "Pedido pronto"
     : meusPedidos.some((o) => o.status === "preparing") ? "Em preparação"
     : "Pedido recebido";
+  // Cor do selo "visão geral" — deriva das MESMAS condições acima (nunca
+  // reinterpreta o texto): aguardando ação (solicitado/em preparação) fica
+  // âmbar; concluído (pago/entregues/pronto) fica verde; recebido fica azul.
+  const tomStatusGeral = contaSolicitada ? "warning"
+    : contaPaga || podeFechar || meusPedidos.some((o) => o.status === "ready") ? "success"
+    : meusPedidos.some((o) => o.status === "preparing") ? "warning"
+    : "info";
   // meusPedidos vem ordenado do mais recente pro mais antigo (mesma ordem de
   // `orders`, já ordenado pelo backend) — o último da lista é o mais antigo,
   // ou seja, o horário de abertura da conta.
@@ -1432,7 +1441,7 @@ export default function CardapioPublico() {
           rodape={cart.length === 0 ? undefined : (
             <>
               {modoExterno && minimoExterno > 0 && (
-                <p className={`mb-2 text-xs font-bold ${minimoFalta > 0 ? "text-[var(--client-gold-hover)]" : "text-[var(--client-success)]"}`}>
+                <p className={`mb-2 text-xs font-bold ${minimoFalta > 0 ? "text-[var(--client-warning)]" : "text-[var(--client-success)]"}`}>
                   {minimoFalta > 0 ? `Pedido mínimo de ${formatCurrency(minimoExterno)} — faltam ${formatCurrency(minimoFalta)}.` : `Pedido mínimo de ${formatCurrency(minimoExterno)} atingido.`}
                 </p>
               )}
@@ -1483,9 +1492,9 @@ export default function CardapioPublico() {
                 <div className="mt-5 space-y-3">
                   <h3 className="text-[11px] font-black uppercase tracking-widest text-[var(--client-text-secondary)]">Como deseja receber?</h3>
                   {!aceitaExterno ? (
-                    <div className="rounded-2xl border border-[var(--client-gold-border)] bg-[var(--client-gold-soft)] px-4 py-3 text-sm font-bold text-[var(--client-gold-hover)]">Esta empresa não está aceitando pedidos pelo cardápio no momento.</div>
+                    <div className="rounded-2xl border border-[var(--client-warning-border)] bg-[var(--client-warning-soft)] px-4 py-3 text-sm font-bold text-[var(--client-warning)]">Esta empresa não está aceitando pedidos pelo cardápio no momento.</div>
                   ) : opcoesEntrega.length === 0 ? (
-                    <div className="rounded-2xl border border-[var(--client-gold-border)] bg-[var(--client-gold-soft)] px-4 py-3 text-sm font-bold text-[var(--client-gold-hover)]">Nenhuma forma de pedido disponível no momento.</div>
+                    <div className="rounded-2xl border border-[var(--client-warning-border)] bg-[var(--client-warning-soft)] px-4 py-3 text-sm font-bold text-[var(--client-warning)]">Nenhuma forma de pedido disponível no momento.</div>
                   ) : (
                     <div role="radiogroup" aria-label="Como deseja receber o pedido" className="space-y-2">
                       {opcoesEntrega.map((o) => {
@@ -1547,7 +1556,7 @@ export default function CardapioPublico() {
                     </div>
                   </div>
                 ) : formasPagto.length === 0 ? (
-                  <div className="rounded-2xl border border-[var(--client-gold-border)] bg-[var(--client-gold-soft)] px-4 py-3 text-sm font-bold text-[var(--client-gold-hover)]">Nenhuma forma de pagamento está disponível no momento.</div>
+                  <div className="rounded-2xl border border-[var(--client-warning-border)] bg-[var(--client-warning-soft)] px-4 py-3 text-sm font-bold text-[var(--client-warning)]">Nenhuma forma de pagamento está disponível no momento.</div>
                 ) : (
                   <>
                     <fieldset>
@@ -1626,7 +1635,7 @@ export default function CardapioPublico() {
       {aba === "conta" && (
         <Gaveta titulo={modoExterno ? "Meus pedidos" : (currentTable || "Meus pedidos")} subtitulo="Acompanhe o preparo e o fechamento da sua conta." onFechar={() => setAba(null)}>
           {meusPedidos.length > 0 && pedidosOffline && (
-            <div className="mb-3 flex items-center gap-2 rounded-2xl border border-[var(--client-gold-border)] bg-[var(--client-gold-soft)] px-3.5 py-2.5 text-xs font-bold text-[var(--client-gold-hover)]">
+            <div className="mb-3 flex items-center gap-2 rounded-2xl border border-[var(--client-warning-border)] bg-[var(--client-warning-soft)] px-3.5 py-2.5 text-xs font-bold text-[var(--client-warning)]">
               <CkIconWifiOff width={15} height={15} className="shrink-0" /> Atualização em tempo real indisponível — tentando reconectar…
             </div>
           )}
@@ -1649,7 +1658,13 @@ export default function CardapioPublico() {
                       {!modoExterno && comanda && <p className="truncate text-[11px] text-[var(--client-text-secondary)]">Comanda {comanda}</p>}
                     </div>
                   </div>
-                  {statusGeralConta && <span className="shrink-0 rounded-full border border-[var(--client-border)] bg-[var(--client-surface-secondary)] px-2.5 py-1 text-[11px] font-black text-[var(--client-text-secondary)]">{statusGeralConta}</span>}
+                  {statusGeralConta && (
+                    <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-black ${
+                      tomStatusGeral === "success" ? "border-[var(--client-success-border)] bg-[var(--client-success-soft)] text-[var(--client-success)]"
+                        : tomStatusGeral === "warning" ? "border-[var(--client-warning-border)] bg-[var(--client-warning-soft)] text-[var(--client-warning)]"
+                        : "border-[var(--client-info-border)] bg-[var(--client-info-soft)] text-[var(--client-info)]"
+                    }`}>{statusGeralConta}</span>
+                  )}
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-3 border-t border-[var(--client-border)] pt-3">
                   <div><p className="text-[10px] font-bold uppercase tracking-widest text-[var(--client-text-muted)]">Pedidos</p><p className="text-sm font-black text-[var(--client-text-primary)]">{meusPedidos.length}</p></div>
@@ -1705,13 +1720,13 @@ export default function CardapioPublico() {
 
               {/* Status financeiro — sempre separado da timeline operacional acima */}
               <div className={`mt-3 flex items-start gap-3 rounded-2xl border p-3.5 ${
-                contaSolicitada ? "border-[var(--client-gold-border)] bg-[var(--client-gold-soft)]" : contaPaga ? "border-[var(--client-success-border)] bg-[var(--client-success-soft)]" : "border-[var(--client-info-border)] bg-[var(--client-info-soft)]"
+                contaSolicitada ? "border-[var(--client-warning-border)] bg-[var(--client-warning-soft)]" : contaPaga ? "border-[var(--client-success-border)] bg-[var(--client-success-soft)]" : "border-[var(--client-info-border)] bg-[var(--client-info-soft)]"
               }`}>
                 <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-white ${
-                  contaSolicitada ? "bg-[var(--client-gold)]" : contaPaga ? "bg-[var(--client-success)]" : "bg-[var(--client-info)]"
+                  contaSolicitada ? "bg-[var(--client-warning)]" : contaPaga ? "bg-[var(--client-success)]" : "bg-[var(--client-info)]"
                 }`}><CkIconCarteira width={17} height={17} /></span>
                 <div className="min-w-0">
-                  <p className={`text-sm font-black ${contaSolicitada ? "text-[var(--client-gold-hover)]" : contaPaga ? "text-[var(--client-success)]" : "text-[var(--client-text-primary)]"}`}>
+                  <p className={`text-sm font-black ${contaSolicitada ? "text-[var(--client-warning)]" : contaPaga ? "text-[var(--client-success)]" : "text-[var(--client-text-primary)]"}`}>
                     {contaSolicitada ? "Fechamento solicitado" : contaPaga ? "Pagamento confirmado" : podeFechar ? "Fechamento disponível" : "Conta em aberto"}
                   </p>
                   <p className="mt-0.5 text-xs leading-5 text-[var(--client-text-secondary)]">
@@ -1816,7 +1831,11 @@ function LinhaTempoOperacional({ status, setorStatus = {}, setoresPedido = [], m
     ...(setoresPedido.length ? setoresPedido : ["Cozinha"]).map((s) => {
       const pronto = setorStatus?.[s] === "ready";
       const emPreparo = status === "preparing" && !pronto;
-      return { key: `setor-${s}`, feito: pronto || idx >= 2, atual: emPreparo, Icone: CkIconPanela, label: `Preparo · ${s}`, sub: pronto || idx >= 2 ? "Pronto" : emPreparo ? "Em preparo" : "Na fila" };
+      const subTexto = pronto || idx >= 2 ? "Pronto" : emPreparo ? "Em preparo" : "Na fila";
+      return { key: `setor-${s}`, feito: pronto || idx >= 2, atual: emPreparo, Icone: CkIconPanela, label: `Preparo · ${s}`, sub: subTexto,
+        subTom: subTexto === "Pronto" ? "border-[var(--client-success-border)] bg-[var(--client-success-soft)] text-[var(--client-success)]"
+          : subTexto === "Em preparo" ? "border-[var(--client-warning-border)] bg-[var(--client-warning-soft)] text-[var(--client-warning)]"
+          : "border-[var(--client-border)] bg-[var(--client-surface-secondary)] text-[var(--client-text-secondary)]" };
     }),
     { key: "pronto", feito: idx >= 2, atual: status === "ready", Icone: modo === "retirada" ? CkIconSacola : CkIconSino,
       label: modo === "retirada" ? "Pronto para retirada" : modo === "entrega" ? "Pronto para entrega" : "Pronto para servir" },
@@ -1829,13 +1848,17 @@ function LinhaTempoOperacional({ status, setorStatus = {}, setoresPedido = [], m
         <li key={p.key} className="relative flex gap-3 pb-4 last:pb-0">
           {i < passos.length - 1 && <span className={`absolute left-[13px] top-[26px] h-full w-px ${p.feito ? "bg-[var(--client-success)]/30" : "bg-[var(--client-border)]"}`} aria-hidden="true" />}
           <span className={`flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full ${
-            p.feito ? "bg-[var(--client-success)] text-white" : p.atual ? "border-2 border-[var(--client-info)] bg-[var(--client-info-soft)] text-[var(--client-info)]" : "border border-[var(--client-border)] bg-[var(--client-surface)] text-[var(--client-text-muted)]"
+            p.feito ? "bg-[var(--client-success)] text-white" : p.atual ? "border-2 border-[var(--client-warning)] bg-[var(--client-warning-soft)] text-[var(--client-warning)]" : "border border-[var(--client-border)] bg-[var(--client-surface)] text-[var(--client-text-muted)]"
           }`}>
             {p.feito ? <CkIconCheck width={13} height={13} strokeWidth={3} /> : <p.Icone width={13} height={13} />}
           </span>
           <span className="flex min-w-0 flex-1 items-center justify-between gap-2 pt-0.5">
-            <span className={`text-xs font-bold ${p.atual ? "text-[var(--client-info)]" : p.feito ? "text-[var(--client-text-primary)]" : "text-[var(--client-text-muted)]"}`}>{p.label}</span>
-            {p.sub && <span className="shrink-0 rounded-full border border-[var(--client-border)] bg-[var(--client-surface-secondary)] px-2 py-0.5 text-[10px] font-bold text-[var(--client-text-secondary)]">{p.sub}</span>}
+            {/* feito vence atual (mesma prioridade do ícone acima) — sem isso,
+                o passo "pronto" (feito=true E atual=true no instante exato em
+                que status vira "ready") mostrava ícone verde de concluído com
+                o texto ainda âmbar de "em andamento", uma contradição visual. */}
+            <span className={`text-xs font-bold ${p.feito ? "text-[var(--client-text-primary)]" : p.atual ? "text-[var(--client-warning)]" : "text-[var(--client-text-muted)]"}`}>{p.label}</span>
+            {p.sub && <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${p.subTom || "border-[var(--client-border)] bg-[var(--client-surface-secondary)] text-[var(--client-text-secondary)]"}`}>{p.sub}</span>}
           </span>
         </li>
       ))}
