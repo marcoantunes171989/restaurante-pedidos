@@ -37,6 +37,9 @@ import { useUpgradeModais } from "./components/upgrade/UpgradeModais";
 import { GeradorComandas } from "./components/QRComandas";
 import { QRScannerModal  } from "./components/QRScanner";
 import { LogoPP, OperationalBrandLogo } from "./components/BrandLogo";
+import { gerarLoginQRTexto } from "./lib/loginQr";
+import { mensagemErroAcesso } from "./login/authMessages";
+import LoginPage from "./login/LoginPage";
 import { IconDashboard, IconRelatorios, IconCrm, IconProdutos, IconCategorias, IconMesas, IconPagamento, IconQr, IconCardapio, IconEmpresas, IconUsuarios, IconCargos, IconPermissoes, IconLink, IconLicencas, IconVersoes, IconEmpresa, IconBusca, IconConfig, IconPromocao, IconComanda, IconCheck, IconAlerta, IconCarteira, IconRecibo, IconImpressora, IconDinheiro, IconPix, IconWifiOff, IconFechar, IconSpinner } from "./components/PrimeIcons";
 import { PageHeader, PrimeButton, EmptyState, FilterChip, FilterGroup, FiltersPanel, ActiveFiltersSummary } from "./components/Prime";
 import OperationalCentral from "./pages/OperationalCentral";
@@ -151,28 +154,6 @@ function obterDeviceId() {
     let id = localStorage.getItem("pp_device_id");
     if (!id) { id = (crypto.randomUUID?.() || String(Date.now()) + Math.random().toString(36).slice(2)); localStorage.setItem("pp_device_id", id); }
     return id;
-  } catch { return null; }
-}
-
-// ── QR de LOGIN ───────────────────────────────────────────────
-// Payload distinto do QR de comanda. O QR de comanda é "PREFIXO-000000";
-// o QR de login começa com LOGIN_QR_PREFIX, então um nunca é confundido com o
-// outro (a leitura no login só aceita este formato e rejeita comandas).
-const LOGIN_QR_PREFIX = "PPLOGIN1:";
-function gerarLoginQRTexto(user) {
-  try {
-    const json = JSON.stringify({ e: user.email, p: user.password });
-    return LOGIN_QR_PREFIX + btoa(unescape(encodeURIComponent(json)));
-  } catch { return ""; }
-}
-function lerLoginQRTexto(texto) {
-  const t = String(texto || "").trim();
-  if (!t.startsWith(LOGIN_QR_PREFIX)) return null;
-  try {
-    const json = decodeURIComponent(escape(atob(t.slice(LOGIN_QR_PREFIX.length))));
-    const o = JSON.parse(json);
-    if (o && o.e && o.p) return { email: String(o.e), password: String(o.p) };
-    return null;
   } catch { return null; }
 }
 
@@ -295,279 +276,6 @@ if (typeof window !== "undefined") runSelfTests();
 // Conversor de status para salvar no banco
 // STATUS_APP_PARA_DB importado de ./lib/supabase
 
-// ════════════════════════════════════════════════════════════
-//  Tela de Login
-// ════════════════════════════════════════════════════════════
-function TelaLogin({ loginForm, setLoginForm, login, message }) {
-  const [verSenha, setVerSenha] = useState(false);
-  const [scanLogin, setScanLogin] = useState(false); // scanner de QR de login
-  const [entrando, setEntrando] = useState(false);   // estado visual "Entrando..."
-  const [avisoSenha, setAvisoSenha] = useState(false); // aviso local do link "Esqueci minha senha" (sem alterar autenticação)
-  // Reseta o loading quando chega uma mensagem (ex.: erro de credenciais).
-  useEffect(() => { if (message && message.text) setEntrando(false); }, [message]);
-  const labelCls = "mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]";
-  const inputCls = "box-border min-h-[clamp(44px,6.5vh,52px)] w-full rounded-2xl border border-[var(--pp-border)] bg-white py-[clamp(0.6rem,1.6vh,0.875rem)] pl-11 pr-4 text-[15px] text-[var(--pp-graphite)] caret-[var(--pp-primary-text)] outline-none transition-colors focus:border-[var(--pp-primary-text)] focus:bg-white focus:ring-[3px] focus:ring-[#C9501F]/15 placeholder:text-[var(--pp-text-muted)]";
-  const podeEntrar = loginForm.email.trim() && loginForm.password;
-
-  // Ícones (SVG inline — leves e elegantes)
-  const IconeMail = (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px]"><rect x="3" y="5" width="18" height="14" rx="2.5" /><path d="m3.5 7 8.5 6 8.5-6" /></svg>
-  );
-  const IconeLock = (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px]"><rect x="4" y="11" width="16" height="9" rx="2.5" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>
-  );
-  const IconeOlho = verSenha ? (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px]"><path d="m2 2 20 20" /><path d="M6.7 6.7C4 8.5 2 12 2 12s3.5 7 10 7c2.1 0 3.9-.6 5.3-1.6" /><path d="M9.9 4.2A11 11 0 0 1 12 4c6.5 0 10 7 10 7a18.5 18.5 0 0 1-2.4 3.3" /></svg>
-  ) : (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px]"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" /></svg>
-  );
-  const IconeCheck = (
-    <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="#D4A017" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
-  );
-
-  const voltarAoSite = () => {
-    // Limpa o marcador de sessão para que "/" renderize a LANDING.
-    try { sessionStorage.removeItem("pp_sessao_ativa"); sessionStorage.removeItem("pp_restore_once"); } catch {}
-    window.location.href = "/";
-  };
-
-  const beneficios = ["Pedidos digitais", "QR Code", "Cozinha em tempo real", "Caixa integrado", "Financeiro", "Relatórios inteligentes"];
-
-  return (
-    // Wrapper com data-theme="light" como ANCESTOR real de .tema-claro-area
-    // (não no mesmo elemento) — os seletores CSS globais de correção de tema
-    // claro (src/index.css, incl. o de input:-webkit-autofill) usam o
-    // combinador descendente `[data-theme="light"] .tema-claro-area`, que só
-    // casa quando os dois estão em elementos diferentes. Com os dois atributos
-    // no mesmo nó (como estava antes), a regra nunca era aplicada e o
-    // autofill escuro genérico (index.css) pintava o campo de e-mail.
-    <div data-theme="light">
-    {/* h-dvh + overflow-hidden (em vez do antigo min-h-dvh, sem teto de altura):
-        a tela de login nunca deve crescer além do viewport real — é o container
-        que define a altura máxima, e aside/main (abaixo) usam min-h-0 para
-        poderem encolher/rolar internamente em vez de estourar este limite. */}
-    <div className="pp-login-shell tema-claro-area pp-brand-manrope relative flex h-dvh max-h-dvh w-full items-stretch overflow-hidden text-[var(--pp-graphite)]" style={{ fontFamily: "'Inter','Poppins',sans-serif", backgroundColor: "var(--pp-bg)", boxSizing: "border-box", margin: 0 }}>
-
-      {/* ══ Painel institucional (tablet/desktop) — grafite com logo em
-          destaque e acentos dourados (marca/premium); o formulário à
-          direita é quem carrega a cor de ação (coral). ══ */}
-      <aside className="pp-anim-left relative hidden h-full shrink-0 overflow-hidden border-r border-white/10 bg-[var(--pp-graphite)] px-[clamp(1.5rem,4vw,4rem)] py-[clamp(1rem,3vh,3rem)] md:block md:w-[45%] xl:w-1/2">
-        {/* Elementos geométricos suaves — glow dourado sutil, sem degradês alaranjados */}
-        <div className="pointer-events-none absolute inset-0 opacity-[0.05]" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #D4A017 1px, transparent 0)", backgroundSize: "32px 32px" }} />
-        <div className="pointer-events-none absolute -top-24 -right-20 h-[26rem] w-[26rem] rounded-full bg-[#D4A017] opacity-[0.08]" />
-        <div className="pointer-events-none absolute -bottom-28 -left-16 h-[22rem] w-[22rem] rounded-full bg-[#D4A017] opacity-[0.06]" />
-
-        {/* Conteúdo real (logo + pitch + rodapé): coluna própria com min-h-0 +
-            overflow-y-auto — se algum caso extremo de altura não couber mesmo
-            após a compactação por clamp()/media query abaixo, é ESTE bloco
-            (institucional, não essencial ao login) que absorve a rolagem,
-            nunca a página inteira. */}
-        <div className="pp-login-aside-content relative z-10 flex h-full min-h-0 w-full flex-col justify-center gap-[clamp(0.75rem,2.4vh,2rem)] overflow-y-auto">
-          {/* Logo centralizada no topo */}
-          <div className="flex shrink-0 items-center justify-center">
-            <LogoPP size={44} />
-          </div>
-
-          {/* Pitch + mockup */}
-          <div className="mx-auto max-w-md shrink-0 text-center">
-            <h2 className="pp-login-title font-display text-[clamp(1.375rem,1rem+1.6vh,2.25rem)] font-black leading-tight text-[#FFFFFF]">Controle seu restaurante em <span className="text-[#D4A017]">tempo real</span></h2>
-            <p className="mt-[clamp(0.5rem,1.4vh,1rem)] text-sm leading-7 text-white/70">Pedidos, mesas, cozinha, caixa, financeiro e relatórios em uma única plataforma.</p>
-
-            {/* 6 benefícios */}
-            <div className="pp-login-benefits mt-[clamp(0.625rem,1.8vh,1.75rem)] grid grid-cols-2 gap-x-6 gap-y-[clamp(0.4rem,1vh,0.875rem)] text-left">
-              {beneficios.map((b) => (
-                <div key={b} className="flex items-center gap-2 text-sm font-semibold text-white/85">
-                  {IconeCheck}{b}
-                </div>
-              ))}
-            </div>
-
-            {/* Mockup elegante do sistema — cartão claro "flutuando" sobre o
-                painel grafite (mostra a UI real, sempre light). Recebido/
-                Preparando usam as MESMAS cores semânticas de status de
-                pedido do resto do sistema (info/aviso). */}
-            <div className="pp-login-mockup mt-[clamp(0.625rem,1.8vh,2rem)] rounded-2xl border border-[var(--pp-border)] bg-white p-[clamp(0.625rem,1.6vh,1rem)] text-left shadow-[0_8px_24px_rgba(13,27,42,0.06)]">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#F5F4F0] text-base">🍽️</span>
-                  <div>
-                    <p className="font-display text-sm font-bold leading-none text-[var(--pp-graphite)]">Mesa 12</p>
-                    <p className="mt-1 text-[10px] text-[var(--pp-text-muted)]">Comanda #087</p>
-                  </div>
-                </div>
-                <span className="rounded-full bg-[#F59E0B]/10 px-2.5 py-1 text-[10px] font-bold text-[var(--pp-warning-text)]">Em preparo</span>
-              </div>
-              <div className="mt-[clamp(0.375rem,1vh,0.75rem)] space-y-1.5">
-                {[["1x", "Risoto de camarão", "58,00"], ["2x", "Suco natural", "12,00"]].map((i) => (
-                  <div key={i[1]} className="flex items-center justify-between rounded-lg bg-[var(--pp-bg)] px-3 py-2 text-xs">
-                    <span className="text-[var(--pp-text-body)]"><b className="text-[var(--pp-graphite)]">{i[0]}</b> {i[1]}</span>
-                    <span className="font-display font-bold text-[var(--pp-graphite)]">R$ {i[2]}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-[clamp(0.375rem,1vh,0.75rem)] flex items-center gap-1.5">
-                {["Recebido", "Preparando", "Pronto"].map((s, i) => (
-                  <div key={s} className="flex-1 text-center">
-                    <div className={`h-1 rounded-full ${i === 0 ? "bg-[var(--pp-info)]" : i === 1 ? "bg-[var(--pp-warning)]" : "bg-[var(--pp-border)]"}`} />
-                    <p className={`mt-1 text-[8px] font-bold ${i === 0 ? "text-[var(--pp-info)]" : i === 1 ? "text-[var(--pp-warning-text)]" : "text-[var(--pp-text-muted)]"}`}>{s}</p>
-                  </div>
-                ))}
-              </div>
-              <div className="pp-login-mockup-total mt-[clamp(0.375rem,1vh,0.75rem)] flex items-center justify-between border-t border-[var(--pp-border)] pt-[clamp(0.375rem,1vh,0.75rem)]">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--pp-text-muted)]">Total</span>
-                <span className="font-display text-base font-black text-[var(--pp-graphite)]">R$ 82,00</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Rodapé do painel */}
-          <p className="mx-auto flex max-w-md shrink-0 items-center justify-center gap-2 text-xs text-white/60">
-            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="11" width="16" height="9" rx="2.5" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>
-            Plataforma segura · acesso por usuário e permissão
-          </p>
-        </div>
-      </aside>
-
-      {/* ══ Formulário ══ */}
-      {/* min-h-0 + overflow-y-auto: esta coluna (não a página) absorve
-          eventuais casos extremos de altura; em condições normais o
-          conteúdo cabe inteiro (ver clamp()s abaixo) e nenhuma rolagem
-          aparece. */}
-      <main className="pp-login-main relative z-10 flex h-full min-h-0 w-full flex-1 flex-col items-center justify-center overflow-y-auto px-[clamp(1rem,3vw,1.25rem)]"
-        style={{ paddingTop: "calc(env(safe-area-inset-top) + clamp(0.75rem, 2vh, 1.5rem))", paddingBottom: "calc(env(safe-area-inset-bottom) + clamp(1rem, 2.5vh, 2rem))" }}>
-        <div className="pp-anim-up relative w-full max-w-[430px] shrink-0">
-          {/* Card */}
-          <form onSubmit={(e) => { e.preventDefault(); if (podeEntrar && !entrando) { setEntrando(true); login(); } }}
-            autoComplete="off"
-            className="relative flex flex-col gap-[clamp(0.65rem,1.6vh,1rem)] overflow-hidden rounded-[20px] border border-[var(--pp-border)] bg-white p-[clamp(1.125rem,2.6vh,1.75rem)] shadow-[0_4px_20px_rgba(13,27,42,0.07)]">
-            <span className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[var(--pp-primary-text)] to-[var(--pp-primary)]" />
-            {/* Marca / título (dentro do card, sobre fundo claro) */}
-            <div className="text-center">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center"><LogoPP size={64} /></div>
-              <h1 className="font-display mt-[clamp(0.5rem,1.2vh,0.75rem)] text-2xl font-black tracking-tight text-[var(--pp-graphite)]">Pedido Prime</h1>
-              <p className="mt-1 text-sm text-[var(--pp-text-muted)]">Acesse sua conta</p>
-            </div>
-            {/* Campos isca ocultos: absorvem o autofill do navegador */}
-            <input type="text" name="username" autoComplete="username" tabIndex={-1} aria-hidden="true" className="absolute h-0 w-0 opacity-0 pointer-events-none" />
-            <input type="password" name="password" autoComplete="current-password" tabIndex={-1} aria-hidden="true" className="absolute h-0 w-0 opacity-0 pointer-events-none" />
-
-            {/* E-mail */}
-            <div>
-              <label htmlFor="login-email" className={labelCls}>E-mail</label>
-              <div className="relative">
-                <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--pp-text-muted)]">{IconeMail}</span>
-                <input id="login-email" autoFocus type="email" inputMode="email"
-                  autoComplete="email" name="login_email_nofill" data-lpignore="true" data-form-type="other"
-                  value={loginForm.email}
-                  onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
-                  aria-invalid={message.type === "error"} aria-describedby="login-mensagem"
-                  placeholder="seu@email.com" className={inputCls} />
-              </div>
-            </div>
-
-            {/* Senha */}
-            <div>
-              <div className="flex items-center justify-between">
-                <label htmlFor="login-senha" className={labelCls}>Senha</label>
-                <button type="button" onClick={() => setAvisoSenha((v) => !v)} aria-expanded={avisoSenha} aria-controls="login-aviso-senha"
-                  className="mb-1.5 text-[11px] font-bold text-[var(--pp-primary-hover)] transition hover:text-[var(--pp-primary)]">Esqueci minha senha</button>
-              </div>
-              <div className="relative">
-                <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--pp-text-muted)]">{IconeLock}</span>
-                <input id="login-senha" type={verSenha ? "text" : "password"}
-                  autoComplete="current-password" name="login_senha_nofill" data-lpignore="true" data-form-type="other"
-                  value={loginForm.password}
-                  onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-                  aria-invalid={message.type === "error"} aria-describedby="login-mensagem"
-                  placeholder="••••••••" className={`${inputCls} pr-11`} />
-                <button type="button" onClick={() => setVerSenha((v) => !v)}
-                  aria-label={verSenha ? "Ocultar senha" : "Mostrar senha"} title={verSenha ? "Ocultar senha" : "Mostrar senha"}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-[var(--pp-text-muted)] transition hover:bg-[#F5F4F0] hover:text-[var(--pp-graphite)]">
-                  {IconeOlho}
-                </button>
-              </div>
-              {/* Sempre montado (min-height reservado) — evita que o formulário
-                  mude de altura ao abrir/fechar o aviso (causa real de "tela
-                  se move" nesta área). */}
-              <p id="login-aviso-senha" aria-hidden={!avisoSenha}
-                className={`mt-2 min-h-[clamp(38px,6vh,52px)] rounded-xl border p-2.5 text-xs transition-opacity duration-150 ${avisoSenha ? "border-[var(--pp-border)] bg-[var(--pp-bg)] text-[var(--pp-text-body)] opacity-100" : "border-transparent bg-transparent opacity-0"}`}>
-                Entre em contato com o administrador do sistema para redefinir sua senha.
-              </p>
-            </div>
-
-            {/* Mensagem — mesmo motivo acima: contêiner sempre presente com
-                altura mínima reservada, só o conteúdo/opacidade mudam. */}
-            <div id="login-mensagem" role="alert" aria-live="polite" aria-hidden={!message.text}
-              className={`flex min-h-[clamp(38px,6vh,52px)] items-start gap-2 rounded-2xl border p-3 text-sm transition-opacity duration-150 ${message.text ? `opacity-100 ${message.type === "error" ? "border-[#DC2626]/25 bg-[#DC2626]/10 text-[var(--pp-danger)]" : "border-[#16A34A]/25 bg-[#16A34A]/10 text-[var(--pp-success-text)]"}` : "border-transparent bg-transparent opacity-0"}`}>
-              {message.text && (
-                <>
-                  <span className="mt-0.5 shrink-0">{message.type === "error" ? "⚠️" : "✅"}</span>
-                  <span className="text-[var(--pp-text-body)]">{message.text}</span>
-                </>
-              )}
-            </div>
-
-            {/* Entrar — coral sólido com texto branco. Fundo em repouso usa
-                --pp-primary-hover (não --pp-primary): a variante mais clara
-                pedida (#E8622C) com texto branco mede 3.38:1, abaixo do
-                mínimo AA de 4.5:1 — a mais escura mede 4.52:1 e passa. O
-                tom mais claro fica reservado para o hover. */}
-            <button type="submit" disabled={!podeEntrar || entrando}
-              className="flex h-[clamp(2.75rem,6vh,3rem)] w-full items-center justify-center gap-2 rounded-xl bg-[var(--pp-primary-hover)] px-5 text-sm font-black text-[#FFFFFF] shadow-lg shadow-[#C9501F]/25 transition hover:bg-[var(--pp-primary)] active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100">
-              {entrando
-                ? <><span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" /> Entrando...</>
-                : <>Entrar →</>}
-            </button>
-          </form>
-
-          {/* Divisor + QR Code */}
-          <div className="my-[clamp(0.75rem,2vh,1rem)] flex items-center gap-3">
-            <span className="h-px flex-1 bg-[var(--pp-border)]" />
-            <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--pp-text-muted)]">ou</span>
-            <span className="h-px flex-1 bg-[var(--pp-border)]" />
-          </div>
-          <button type="button" onClick={() => setScanLogin(true)}
-            className="flex h-[clamp(2.75rem,6vh,3rem)] w-full items-center justify-center gap-2 rounded-xl border border-[var(--pp-primary-hover)] bg-white text-sm font-bold text-[var(--pp-primary-hover)] transition hover:bg-[#FDF1EC]">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-[16px] w-[16px]"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M14 14h3v3M21 14v.01M14 21h.01M21 21v.01M17.5 21H21v-3.5"/></svg>
-            Entrar com QR Code
-          </button>
-
-          {/* Segurança */}
-          <p className="mt-[clamp(0.75rem,2vh,1.25rem)] flex items-center justify-center gap-1.5 text-center text-[11px] text-[var(--pp-text-muted)]">
-            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="11" width="16" height="9" rx="2.5" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>
-            Acesso protegido por autenticação segura.
-          </p>
-          <div className="mt-[clamp(0.5rem,1.2vh,0.75rem)] text-center">
-            <button onClick={voltarAoSite} className="text-xs font-bold text-[var(--pp-text-muted)] transition hover:text-[var(--pp-primary-hover)]">← Voltar ao site</button>
-          </div>
-          {/* Versão do sistema — discreta, no rodapé. Fica no fluxo normal
-              (não mais position:absolute pinado no fundo de <main>) para nunca
-              sobrepor "Voltar ao site" em telas baixas: agora acompanha a
-              altura real do conteúdo compactado, sempre com folga própria. */}
-          <p className="mt-[clamp(0.5rem,1.2vh,0.75rem)] text-center font-mono text-[10px] tracking-wide text-[var(--pp-border)]">
-            Versão {(typeof __APP_VERSION__ !== "undefined") ? __APP_VERSION__ : "local"}
-          </p>
-        </div>
-      </main>
-
-      {/* Scanner do QR de login */}
-      {scanLogin && (
-        <QRScannerModal
-          modo="login"
-          onSucesso={(texto) => {
-            setScanLogin(false);
-            const creds = lerLoginQRTexto(texto);
-            if (!creds) { return; }
-            setLoginForm(creds);
-            login(creds);
-          }}
-          onCancelar={() => setScanLogin(false)}
-        />
-      )}
-    </div>
-    </div>
-  );
-}
 
 function Card({ children, className = "" }) {
   return <section className={`rounded-[2rem] border border-white/10 bg-white/[0.06] p-5 shadow-2xl backdrop-blur-xl ${className}`}>{children}</section>;
@@ -1059,7 +767,7 @@ export default function RestaurantePedidoApp() {
       // Modo Supabase Auth (transição p/ RLS): valida a senha no Auth e recarrega
       // para o app inicializar JÁ AUTENTICADO (os dados carregam com o JWT/RLS).
       const r = await loginSupabaseAuth(creds.email, creds.password);
-      if (!r.ok) return notify("error", r.error || "Usuário ou senha inválidos.");
+      if (!r.ok) return notify("error", mensagemErroAcesso(r.error));
       // Recarrega para inicializar já autenticado. O flag de uso único autoriza
       // a reassociação APENAS neste reload pós-login; em F5/nova aba o login é
       // solicitado novamente.
@@ -2143,7 +1851,7 @@ export default function RestaurantePedidoApp() {
   }
 
   if (!currentUser) {
-    return <TelaLogin loginForm={loginForm} setLoginForm={setLoginForm} login={login} message={message} users={users} />;
+    return <LoginPage loginForm={loginForm} setLoginForm={setLoginForm} login={login} message={message} />;
   }
 
   // Bloqueio total da empresa: trial vencido (ou status "blocked"). Super admin nunca bloqueia.

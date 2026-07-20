@@ -265,6 +265,33 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
   --pp-brand-text: #6B5015;    /* 6.1:1 */
   --pp-warning-text: #B45309;  /* 5.02:1 */
   --pp-success-text: #1F7A3D;  /* 5.4:1 */
+
+  /* ══════════════════════════════════════════════════════════════
+     TOKENS DA TELA DE LOGIN (--login-*) — fonte única de verdade,
+     ver src/login/. "Quieto, sofisticado, um único ponto de cor":
+     fundo/superfícies em creme quente, terracota reservado ao CTA
+     principal/foco, erro exclusivamente em crimson. Neutros e
+     semânticas idênticas a --pp-* são reaproveitadas por referência;
+     os demais (progressão primary/hover/active, soft sólido, erro,
+     foco, sombra) usam os hex exatos definidos para esta tela. */
+  --login-background: #F8F3ED;
+  --login-surface: #FFFDFC;
+  --login-surface-secondary: #F3EBE4;
+  --login-text-primary: #211814;
+  --login-text-secondary: #76675F;
+  --login-border: #E6D9D0;
+
+  --login-primary: #D94722;
+  --login-primary-hover: #BB3518;
+  --login-primary-active: #9F2D16;
+  --login-primary-soft: #FBE9E3;
+
+  --login-error: #B4234D;
+  --login-error-soft: #FBE7EE;
+  --login-success: var(--pp-success-text);
+
+  --login-focus: rgba(217, 71, 34, 0.22);
+  --login-shadow: 0 20px 60px rgba(60, 37, 27, 0.10);
 }
 
 /* Equivalentes propostos para modo escuro (NÃO ativado — este projeto
