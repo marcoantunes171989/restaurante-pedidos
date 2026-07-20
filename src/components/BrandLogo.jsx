@@ -52,7 +52,7 @@ export function LogoPP({ size = 40, fundo = true, className = "" }) {
 // cardápio público e no painel admin.
 export function OperationalBrandLogo({ className = "" }) {
   const [erro, setErro] = useState(false);
-  const shape = "h-10 w-10 shrink-0 rounded-[14px] border border-[rgba(217,164,65,.4)] shadow-[0_2px_8px_rgba(217,164,65,.35)] sm:h-11 sm:w-11";
+  const shape = "h-10 w-10 shrink-0 rounded-[14px] border border-[rgba(184,135,42,.4)] shadow-[0_2px_8px_rgba(184,135,42,.35)] sm:h-11 sm:w-11";
 
   if (!erro) {
     return (
@@ -69,7 +69,7 @@ export function OperationalBrandLogo({ className = "" }) {
     <div
       role="img"
       aria-label="Pedido Prime"
-      className={`${shape} grid place-items-center bg-[#1A1A1A] text-xs font-black text-[#E8622C] ${className}`}
+      className={`${shape} grid place-items-center bg-[#2B2320] text-xs font-black text-[#C63F1D] ${className}`}
     >
       PP
     </div>
