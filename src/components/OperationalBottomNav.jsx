@@ -26,7 +26,7 @@ export default function OperationalBottomNav({ items, active, onNavigate }) {
   return (
     <nav
       aria-label="Navegação operacional"
-      className="fixed inset-x-0 bottom-0 z-30 border-t border-[#EEF0F3] bg-white/92 shadow-[0_-6px_24px_rgba(16,24,40,.08)] backdrop-blur-xl"
+      className="fixed inset-x-0 bottom-0 z-30 border-t border-[var(--pp-border)] bg-[var(--pp-surface)]/92 shadow-[0_-6px_24px_rgba(43,35,32,.08)] backdrop-blur-xl"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       <div className="mx-auto flex max-w-md items-stretch gap-0.5 px-1 sm:max-w-2xl lg:max-w-4xl lg:justify-between">
@@ -40,13 +40,13 @@ export default function OperationalBottomNav({ items, active, onNavigate }) {
               onClick={() => onNavigate(item.id)}
               aria-label={item.label}
               aria-current={isActive ? "page" : undefined}
-              className={`relative flex min-h-[60px] flex-1 flex-col items-center justify-center gap-1 rounded-[14px] py-2 text-[11px] transition-colors duration-[180ms] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D9A441] focus-visible:ring-offset-2 sm:text-xs ${
-                isActive ? "font-bold text-[#D9A441]" : "font-medium text-[#667085] hover:text-[#101828]"
+              className={`relative flex min-h-[60px] flex-1 flex-col items-center justify-center gap-1 rounded-[14px] py-2 text-[11px] transition-colors duration-[180ms] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pp-primary)] focus-visible:ring-offset-2 sm:text-xs ${
+                isActive ? "font-bold text-[var(--pp-primary-text)]" : "font-medium text-[var(--pp-text-muted)] hover:text-[var(--pp-text)]"
               }`}
-              style={isActive ? { background: "rgba(217,164,65,.10)" } : undefined}
+              style={isActive ? { background: "var(--pp-primary-soft)" } : undefined}
             >
               {isActive && (
-                <span aria-hidden="true" className="absolute top-1.5 h-[3px] w-[26px] rounded-full bg-[#D9A441]" />
+                <span aria-hidden="true" className="absolute top-1.5 h-[3px] w-[26px] rounded-full bg-[var(--pp-primary)]" />
               )}
               <Icon aria-hidden="true" strokeWidth={1.8} className="h-[22px] w-[22px] sm:h-6 sm:w-6" />
               {item.label}

@@ -7068,13 +7068,19 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
     const TINT_MODULO = { pedidos: "#e8622c", cozinha: "#d4a017", bar: "#2563eb", caixa: "#16a34a" };
     const CONTAGEM_MODULO = { pedidos: ativos.length, cozinha: qtdPorTipoSetor(false), bar: qtdPorTipoSetor(true), caixa: contasAbertas.length };
     const modulosReais = liberados.map((m) => ({ id: m.id, label: m.label, desc: m.desc, icon: ICONE_MODULO[m.id], tint: TINT_MODULO[m.id], count: CONTAGEM_MODULO[m.id] }));
+    // Variantes semânticas (ver OperationalMetricCard): info/warning/success
+    // seguem EXATAMENTE a semântica de status de pedido já documentada em
+    // docs/design-tokens.md (recebido/em preparo/pronto) — "Mesas abertas" e
+    // "Contas em aberto" não são uma etapa do pipeline, ficam neutras.
     const kpisReais = [
-      { label: "Mesas abertas", value: String(mesasAbertas), icon: Utensils },
-      { label: "Novos", value: String(novos.length), icon: Bell },
-      { label: "Em preparo", value: String(emPreparo.length), icon: Clock },
-      { label: "Prontos", value: String(prontos.length), icon: CheckCircle2 },
-      { label: "Aguardando pagamento", value: String(aguardandoPagamento), icon: Hourglass },
-      { label: "Contas em aberto", value: String(contas.length), icon: Receipt },
+      { label: "Mesas abertas", value: String(mesasAbertas), icon: Utensils, variant: "neutral" },
+      { label: "Novos", value: String(novos.length), icon: Bell, variant: "info" },
+      { label: "Em preparo", value: String(emPreparo.length), icon: Clock, variant: "warning" },
+      { label: "Prontos", value: String(prontos.length), icon: CheckCircle2, variant: "success" },
+      { label: "Aguardando pagamento", value: String(aguardandoPagamento), icon: Hourglass, variant: "warning" },
+      { label: "Contas em aberto", value: String(contas.length), icon: Receipt, variant: "neutral" },
+    ];
+    const kpisFinanceirosReais = [
       { label: "Total a receber", value: formatCurrency(totalReceberCentral), icon: Wallet },
       { label: "Faturado hoje", value: formatCurrency(faturamentoTurno), icon: CalendarCheck },
       { label: "Turno atual", value: formatCurrency(faturamentoTurno), icon: TrendingUp },
@@ -7087,6 +7093,7 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
         active={tab}
         modules={modulosReais}
         kpis={kpisReais}
+        kpisFinanceiro={kpisFinanceirosReais}
         navItems={navItems}
         onOpen={(id) => setTab(id)}
         onExit={onFechar}

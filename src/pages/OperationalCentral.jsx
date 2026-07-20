@@ -1,115 +1,158 @@
-import { motion } from "framer-motion";
-import { LogOut, Clock, TrendingUp, Utensils, Bell, CheckCircle2, Hourglass, Receipt, Wallet, CalendarCheck } from "lucide-react";
+import { useEffect, useState } from "react";
+import { motion, useReducedMotion } from "framer-motion";
+import {
+  LogOut, Clock, TrendingUp, Utensils, Bell, CheckCircle2, Hourglass, Receipt, Wallet,
+  CalendarCheck, ChevronRight,
+} from "lucide-react";
 import OperationalBottomNav from "../components/OperationalBottomNav";
-
-const brand = {
-  primary: "#e8622c",
-  primaryHover: "#c9501f",
-  gold: "#d4a017",
-  graphite: "#1a1a1a",
-  cream: "#faf9f5",
-  success: "#16a34a",
-  info: "#2563eb",
-};
-
-// Superfície "vidro" reutilizável (cards de KPI + botão Sair + badge
-// "Operação em tempo real", sobre o header escuro). O fundo escuro
-// translúcido, borda, cor de texto e blur/hover progressivos vêm
-// inteiramente de .pp-glass-surface (index.css) via background-color:
-// rgba(...) direto na classe. O badge usa a MESMA classe (não uma cópia
-// dos valores) e um reset em index.css (@media min-width:768px
-// .pp-status-badge.pp-glass-surface) restaura sua aparência original em
-// telas >=768px, já que .pp-glass-surface não tem media query própria
-// (estiliza o Sair em qualquer largura). Ver comentário completo em
-// index.css.
-//
-// CAUSA RAIZ do "fundo branco" (achada por inspeção real do CSS
-// compilado, não presumida): index.css tem regras globais de
-// repaint do tema claro — [data-theme="light"] .tema-claro-area
-// .bg-white\/10 { background-color:#F5F4F0 !important } e o mesmo para
-// .text-white { color:var(--pp-graphite) !important } — criadas para
-// re-pintar telas do admin que reaproveitam classes "escuras" dentro de
-// áreas claras. Esta tela vive dentro do módulo admin (data-theme="light"
-// hardcoded no wrapper do AdminView, App.jsx) e de <div className=
-// "tema-claro-area"> (App.jsx, wrapper de /operacional) — então QUALQUER
-// elemento aqui com a classe literal `bg-white/10` ou `text-white` era
-// hijackado por esse !important, em qualquer breakpoint (não só mobile).
-// Antes a solução tentava vencer essa regra com media query/especifi-
-// cidade, o que não funciona contra !important. A correção definitiva é
-// não usar esses nomes de classe Tailwind reservados no header: cor de
-// texto vem de .pp-operational-header (abaixo) e o fundo do badge vem só
-// de .pp-glass-surface/.pp-status-badge — nenhum dos dois é alvo das
-// regras globais, então o !important nunca entra em jogo.
-const GLASS_SURFACE = "pp-glass-surface";
+import OperationalMetricCard from "../components/OperationalMetricCard";
 
 // Shape/placeholder — a tela real recebe `kpis` via props, vindos da API
 // (ver OperacaoMobileView em src/App.jsx). Este array só documenta o
-// formato esperado e serve de fallback se nada for passado.
+// formato esperado e serve de fallback se nada for passado. `variant`
+// define a cor semântica de cada card (ver OperationalMetricCard) — segue
+// a mesma semântica de status de pedido já documentada em
+// docs/design-tokens.md (info=recebido, warning=em preparo, success=pronto).
 const KPIS = [
-  { label: "Mesas abertas", value: "8", icon: Utensils },
-  { label: "Novos", value: "2", icon: Bell },
-  { label: "Em preparo", value: "5", icon: Clock },
-  { label: "Prontos", value: "3", icon: CheckCircle2 },
-  { label: "Aguardando pagamento", value: "4", icon: Hourglass },
-  { label: "Contas em aberto", value: "6", icon: Receipt },
-  { label: "Total a receber", value: "R$ 312,00", icon: Wallet },
-  { label: "Faturado hoje", value: "R$ 1.847,00", icon: CalendarCheck },
-  { label: "Turno atual", value: "R$ 1.847,00", icon: TrendingUp },
+  { label: "Mesas abertas", value: "8", icon: Utensils, variant: "neutral" },
+  { label: "Novos", value: "2", icon: Bell, variant: "info" },
+  { label: "Em preparo", value: "5", icon: Clock, variant: "warning" },
+  { label: "Prontos", value: "3", icon: CheckCircle2, variant: "success" },
+  { label: "Aguardando pagamento", value: "4", icon: Hourglass, variant: "warning" },
+  { label: "Contas em aberto", value: "6", icon: Receipt, variant: "neutral" },
+];
+const KPIS_FINANCEIRO = [
+  { label: "Total a receber", value: "R$ 312,00", icon: Wallet, variant: "financial" },
+  { label: "Faturado hoje", value: "R$ 1.847,00", icon: CalendarCheck, variant: "financial" },
+  { label: "Turno atual", value: "R$ 1.847,00", icon: TrendingUp, variant: "financial" },
 ];
 
-export default function OperationalCentral({ user = "Administrador", role = "Gestor", onOpen, onExit, active = "central", kpis = KPIS, navItems = [] }) {
+// Conectividade real do dispositivo (API nativa do navegador, não um dado
+// inventado) — o badge "Operação em tempo real" só acende quando o
+// aparelho realmente está online; cai para "offline" de verdade se a rede
+// cair em campo (Wi-Fi da loja, 4G etc.), em vez de ficar sempre aceso.
+function useOnline() {
+  const [online, setOnline] = useState(() => typeof navigator === "undefined" || navigator.onLine);
+  useEffect(() => {
+    const on = () => setOnline(true), off = () => setOnline(false);
+    window.addEventListener("online", on);
+    window.addEventListener("offline", off);
+    return () => { window.removeEventListener("online", on); window.removeEventListener("offline", off); };
+  }, []);
+  return online;
+}
+
+export default function OperationalCentral({ user = "Administrador", role = "Acesso total", onOpen, onExit, active = "central", kpis = KPIS, kpisFinanceiro = KPIS_FINANCEIRO, modules = [], navItems = [] }) {
+  const online = useOnline();
+  const reduzMovimento = useReducedMotion();
+
   return (
     // paddingTop reserva a área do notch/status bar (env(safe-area-inset-top))
     // — sem isso, em celulares reais (não reproduz em viewport de desktop
-    // redimensionado) o topo do cartão escuro fica coberto pela barra de
+    // redimensionado) o topo do cartão fica coberto pela barra de
     // status/entalhe, cortando o título "Central Operacional". Mesmo padrão
     // já usado pelas outras telas cheias deste app (tablet, cozinha, etc.).
-    <div className="min-h-screen w-full pb-28" style={{ background: brand.cream, paddingTop: "env(safe-area-inset-top)" }}>
-      <div className="mx-auto max-w-5xl px-4 pt-6 md:pt-10">
+    // pb-28 reserva espaço pra bottom nav fixa não cobrir o fim do conteúdo.
+    <div className="min-h-[100dvh] w-full pb-28" style={{ background: "var(--pp-bg)", paddingTop: "env(safe-area-inset-top)" }}>
+      <div className="mx-auto max-w-[1400px] px-4 pb-6 pt-6 md:px-6 md:pt-10 lg:px-10">
 
-        {/* HERO HEADER */}
+        {/* CABEÇALHO */}
         <motion.header
-          initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }}
-          className="pp-operational-header relative overflow-hidden rounded-3xl p-6 md:p-8 shadow-lg"
-          style={{ background: `linear-gradient(135deg, ${brand.graphite} 0%, #2a1a12 60%, ${brand.primaryHover} 140%)` }}
+          initial={reduzMovimento ? false : { opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}
+          className="relative overflow-hidden rounded-[20px] border border-[var(--pp-border)] bg-[var(--pp-surface)] p-5 shadow-[0_1px_2px_rgba(43,35,32,0.04),0_4px_16px_rgba(43,35,32,0.05)] md:p-7"
         >
-          <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full opacity-20 blur-2xl"
-               style={{ background: brand.primary }} />
-          <div className="relative flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <div className={`${GLASS_SURFACE} pp-status-badge mb-2 inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium`}>
-                <span className="relative flex h-2 w-2">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75" style={{ background: brand.success }} />
-                  <span className="relative inline-flex h-2 w-2 rounded-full" style={{ background: brand.success }} />
-                </span>
-                Operação em tempo real
+          {/* Faixa de detalhe terracota — acento de identidade, sem transformar o cabeçalho num bloco escuro */}
+          <span aria-hidden="true" className="absolute inset-x-0 top-0 h-1 bg-[var(--pp-primary)]" />
+
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <div
+                role="status"
+                className={`mb-2.5 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-bold ${
+                  online
+                    ? "border-[var(--pp-success)]/25 bg-[var(--pp-success-soft)] text-[var(--pp-success-text)]"
+                    : "border-[var(--pp-border)] bg-[var(--pp-bg)] text-[var(--pp-text-muted)]"
+                }`}
+              >
+                {online && (
+                  <span className="relative flex h-1.5 w-1.5" aria-hidden="true">
+                    {!reduzMovimento && <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--pp-success)] opacity-75" />}
+                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[var(--pp-success)]" />
+                  </span>
+                )}
+                {online ? "Operação em tempo real" : "Sem conexão"}
               </div>
-              <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Central Operacional</h1>
-              <p className="mt-1 text-sm text-white/70">
-                {user} · <span style={{ color: brand.gold }}>{role}</span>
+              <h1 className="text-[26px] font-black leading-tight tracking-tight text-[var(--pp-text)] md:text-[32px]">Central Operacional</h1>
+              <p className="mt-1.5 flex flex-wrap items-center gap-x-1.5 text-sm text-[var(--pp-text-body)]">
+                <span className="font-semibold text-[var(--pp-text)]">{user}</span>
+                <span aria-hidden="true" className="text-[var(--pp-border)]">·</span>
+                <span className="font-semibold text-[var(--pp-brand-text)]">{role}</span>
               </p>
             </div>
             <button
+              type="button"
               onClick={onExit}
-              className={`${GLASS_SURFACE} flex shrink-0 items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium`}
+              className="flex shrink-0 items-center gap-2 self-start rounded-xl border border-[var(--pp-border)] bg-[var(--pp-surface)] px-4 py-2.5 text-sm font-bold text-[var(--pp-text-body)] transition-colors duration-150 hover:border-[var(--pp-danger)]/30 hover:bg-[var(--pp-danger-soft)] hover:text-[var(--pp-danger)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-primary)]"
             >
-              <LogOut size={16} /> Sair
+              <LogOut aria-hidden="true" size={16} />
+              <span>Sair</span>
             </button>
           </div>
+        </motion.header>
 
-          {/* KPI STRIP — 1 coluna em telas bem estreitas, 2 a partir de
-              ~400px (mobile "seguro"), 3 a partir de 640px (tablet/desktop);
-              9 indicadores ÷ 3 colunas fecha em linhas completas, sem sobra. */}
-          <div className="relative mt-6 grid grid-cols-1 gap-3 min-[400px]:grid-cols-2 sm:grid-cols-3">
+        {/* RESUMO OPERACIONAL */}
+        <section aria-label="Resumo operacional" className="mt-6">
+          <h2 className="mb-3 text-xs font-bold uppercase tracking-wide text-[var(--pp-text-muted)]">Operação agora</h2>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {kpis.map((k) => (
-              <div key={k.label} className={`${GLASS_SURFACE} pp-kpi-card rounded-2xl p-3`}>
-                <k.icon size={18} style={{ color: brand.gold }} />
-                <p className="mt-2 text-lg font-bold leading-none">{k.value}</p>
-                <p className="pp-kpi-label mt-1 text-[11px] uppercase tracking-wide">{k.label}</p>
-              </div>
+              <OperationalMetricCard key={k.label} title={k.label} value={k.value} icon={k.icon} variant={k.variant} loading={k.loading} description={k.description} />
             ))}
           </div>
-        </motion.header>
+        </section>
+
+        {/* RESUMO FINANCEIRO */}
+        <section aria-label="Resumo financeiro" className="mt-6">
+          <h2 className="mb-3 text-xs font-bold uppercase tracking-wide text-[var(--pp-text-muted)]">Financeiro</h2>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            {kpisFinanceiro.map((k) => (
+              <OperationalMetricCard key={k.label} title={k.label} value={k.value} icon={k.icon} variant="financial" loading={k.loading} description={k.description} />
+            ))}
+          </div>
+        </section>
+
+        {/* ACESSO RÁPIDO AOS MÓDULOS — reaproveita os dados já calculados
+            (contagem real por módulo) em vez de duplicar lógica; só
+            aparece se houver mais de um módulo liberado para o usuário
+            (mesma regra de navItems em OperacaoMobileView/App.jsx). */}
+        {modules.length > 0 && (
+          <section aria-label="Acesso rápido aos módulos" className="mt-6">
+            <h2 className="mb-3 text-xs font-bold uppercase tracking-wide text-[var(--pp-text-muted)]">Acesso rápido</h2>
+            <div className="grid grid-cols-1 gap-3 min-[560px]:grid-cols-2 lg:grid-cols-4">
+              {modules.map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => onOpen?.(m.id)}
+                  className="group flex items-center gap-3 rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-surface)] p-4 text-left shadow-[0_1px_2px_rgba(43,35,32,0.04),0_2px_8px_rgba(43,35,32,0.05)] transition-all duration-200 hover:-translate-y-0.5 hover:border-[var(--pp-primary)]/30 hover:shadow-[0_4px_16px_rgba(43,35,32,0.09)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-primary)]"
+                >
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--pp-primary-soft)]">
+                    {m.icon && <m.icon aria-hidden="true" size={20} className="text-[var(--pp-primary-text)]" strokeWidth={2} />}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-1.5">
+                      <span className="font-bold text-[var(--pp-text)]">{m.label}</span>
+                      {typeof m.count === "number" && m.count > 0 && (
+                        <span className="rounded-full bg-[var(--pp-primary)] px-1.5 py-0.5 text-[10px] font-black text-white">{m.count}</span>
+                      )}
+                    </span>
+                    {m.desc && <span className="mt-0.5 block truncate text-xs text-[var(--pp-text-muted)]">{m.desc}</span>}
+                  </span>
+                  <ChevronRight aria-hidden="true" size={18} className="shrink-0 text-[var(--pp-text-muted)] transition-transform duration-200 group-hover:translate-x-0.5" />
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
       </div>
 
       <OperationalBottomNav items={navItems} active={active} onNavigate={(id) => onOpen?.(id)} />
