@@ -37,7 +37,7 @@ import { useUpgradeModais } from "./components/upgrade/UpgradeModais";
 import { GeradorComandas } from "./components/QRComandas";
 import { QRScannerModal  } from "./components/QRScanner";
 import { LogoPP, OperationalBrandLogo } from "./components/BrandLogo";
-import { IconDashboard, IconRelatorios, IconCrm, IconProdutos, IconCategorias, IconMesas, IconPagamento, IconQr, IconCardapio, IconEmpresas, IconUsuarios, IconCargos, IconPermissoes, IconLink, IconLicencas, IconVersoes, IconEmpresa, IconBusca, IconConfig, IconPromocao } from "./components/PrimeIcons";
+import { IconDashboard, IconRelatorios, IconCrm, IconProdutos, IconCategorias, IconMesas, IconPagamento, IconQr, IconCardapio, IconEmpresas, IconUsuarios, IconCargos, IconPermissoes, IconLink, IconLicencas, IconVersoes, IconEmpresa, IconBusca, IconConfig, IconPromocao, IconComanda, IconCheck, IconAlerta, IconCarteira, IconRecibo, IconImpressora, IconDinheiro, IconPix, IconWifiOff, IconFechar, IconSpinner } from "./components/PrimeIcons";
 import { PageHeader, PrimeButton, EmptyState, FilterChip, FilterGroup, FiltersPanel, ActiveFiltersSummary } from "./components/Prime";
 import OperationalCentral from "./pages/OperationalCentral";
 import CentralDePedidos from "./pages/CentralDePedidos";
@@ -620,6 +620,7 @@ export default function RestaurantePedidoApp() {
   const [auditoria, setAuditoria] = useState([]);          // trilha de auditoria (migration 045)
   const [lojaContexto, setLojaContexto] = useState(null); // super admin: empresa em foco para cadastros
   const [dbReady, setDbReady] = useState(false);
+  const [conexaoOk, setConexaoOk] = useState(true); // status do canal realtime de pedidos (usado no indicador do Caixa)
   const [loading, setLoading]     = useState(true);
   const [entregandoId, setEntregandoId] = useState(null); // id do pedido sendo marcado como entregue agora (desabilita o botão dele)
   const entregandoRef = useRef(false); // trava síncrona contra duplo clique / condição de corrida (mesmo padrão do checkout público)
@@ -673,7 +674,7 @@ export default function RestaurantePedidoApp() {
           escutarProdutos(setProducts),
           escutarUsuarios(setUsers),
           escutarAcessos(setAccesses),
-          escutarPedidos(setOrders),
+          escutarPedidos(setOrders, (status) => setConexaoOk(status !== "TIMED_OUT" && status !== "CHANNEL_ERROR" && status !== "CLOSED")),
         ];
         try { unsubs.push(escutarFormasPagamento(setFormasPagamento)); } catch {}
         try { unsubs.push(escutarCategorias(setCategoriasDb)); } catch {}
@@ -2302,7 +2303,7 @@ export default function RestaurantePedidoApp() {
           <KitchenView groupedOrders={groupedOrders} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} entregandoId={entregandoId} cancelarPedido={cancelarPedido} currentUser={currentUser} lojaInfo={lojaInfo} setores={filtraLoja(setoresCozinha)} produtos={products} setorInicial={cozinhaSetorInicial} />
         )}
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} products={products} lojaInfo={lojaInfo} />}
-        {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierView orders={orders} baixarComandas={baixarComandas} formasPagamento={formasPagamentoLoja} lojaInfo={lojaInfo} />}
+        {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierView orders={orders} baixarComandas={baixarComandas} formasPagamento={formasPagamentoLoja} lojaInfo={lojaInfo} currentUser={currentUser} caixaAberto={caixaAberto} auditar={auditar} conexaoOk={conexaoOk} />}
         {/* activeTab === "opmobile" agora é tratado pelo branch dedicado no início desta função (sem cabeçalho/grade de módulos) */}
         {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} toggleLoja={toggleLoja} editarLoja={editarLoja} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} filtraLoja={filtraLoja} pesquisas={pesquisas} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} salvarConfigCrm={salvarConfigCrm} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} assinaturas={assinaturas} promocoes={filtraLoja(promocoes)} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} opcoesApi={{ grupos: filtraLoja(gruposOpcoes), opcoes: filtraLoja(opcoes), addGrupo: addGrupoOpcoes, editarGrupo: editarGrupoOpcoes, removerGrupo: removerGrupoOpcoes, addOpcao, editarOpcao, removerOpcao }} setores={filtraLoja(setoresCozinha)} setoresApi={{ add: addSetorCozinha, editar: editarSetorCozinha, remover: removerSetorCozinha }} vincularProdutoSetor={vincularProdutoSetor} salvarProdutoQr={salvarProdutoQr} irParaCozinha={(setorId) => { setCozinhaSetorInicial(setorId ?? null); if (canAccess(currentUser, "kitchen")) setActiveTab("kitchen"); else notify("error", "Sem permissão para acessar o painel da cozinha."); }} caixaAberto={caixaAberto} caixasLoja={filtraLoja(caixas)} caixaApi={{ abrir: abrirCaixaFn, movimentar: movimentarCaixaFn, fechar: fecharCaixaFn, fetchMovimentos: fetchMovimentosCaixa }} fidRegra={fidRegraAtual} fidRecompensas={filtraLoja(fidRecompensas)} fidTransacoes={filtraLoja(fidTransacoes)} fidApi={{ salvarRegra: salvarRegraFid, addRecompensa: addRecompensaFid, removerRecompensa: removerRecompensaFid, lancarPontos }} chamados={filtraLoja(chamados)} atenderChamado={atenderChamadoFn} auditoria={filtraLoja(auditoria)} />}
 
@@ -4383,144 +4384,234 @@ function PanelView({ groupedOrders, products = [], lojaInfo }) {
   );
 }
 
-function CashierView({ orders, baixarComandas, formasPagamento = [], lojaInfo }) {
-  const [comandasLidas, setComandasLidas] = useState([]); // comandas escaneadas
-  const [pessoas, setPessoas]   = useState(1);            // divisão da conta
+// ════════════════════════════════════════════════════════════
+//  CAIXA — PDV (Point of Sale)
+//  Reescrita completa da tela de fechamento de contas: busca unificada
+//  por mesa/comanda, conta selecionada, divisão de pagamento (integral/
+//  pessoas/valor/item), pagamento combinado, impressão e baixa financeira.
+//
+//  Preserva 100% a lógica financeira e as integrações já existentes:
+//  baixarComandas() (idempotente, baixa de estoque, fidelidade, log de
+//  caixa), orderTotal(), lerConfigTaxaServico(), tab_pagamentos via
+//  registrarPagamento() (dentro de baixarComandas), TIPOS_PAGAMENTO,
+//  QRScannerModal, CupomNaoFiscalModal. Nenhuma tabela ou coluna nova.
+// ════════════════════════════════════════════════════════════
+
+// ── Buscas recentes (mesa/comanda) — por loja, só neste aparelho ──
+function lerBuscasRecentes(lojaId) {
+  try { return JSON.parse(localStorage.getItem(`pp_caixa_buscas_${lojaId || "geral"}`) || "[]"); }
+  catch { return []; }
+}
+function salvarBuscaRecente(lojaId, item) {
+  try {
+    const atuais = lerBuscasRecentes(lojaId).filter((b) => !(b.tipo === item.tipo && b.valor === item.valor));
+    const novas = [item, ...atuais].slice(0, 8);
+    localStorage.setItem(`pp_caixa_buscas_${lojaId || "geral"}`, JSON.stringify(novas));
+    return novas;
+  } catch { return lerBuscasRecentes(lojaId); }
+}
+
+function CashierView({ orders, baixarComandas, formasPagamento = [], lojaInfo, currentUser, caixaAberto = null, auditar = () => {}, conexaoOk = true }) {
+
+  // ── Busca (mesa | comanda) ──────────────────────────────────
+  const [searchMode, setSearchMode] = useState("mesa"); // "mesa" | "comanda"
+  const [mesaQuery, setMesaQuery] = useState("");
+  const [comandaQuery, setComandaQuery] = useState("");
+  const [searchError, setSearchError] = useState("");
+  const [recentSearches, setRecentSearches] = useState(() => lerBuscasRecentes(lojaInfo?.id));
+  const [openAccountsFilter, setOpenAccountsFilter] = useState("todas");
+  const mesaInputRef = useRef(null);
+  const comandaInputRef = useRef(null);
+
+  // ── Conta selecionada ────────────────────────────────────────
+  const [comandasLidas, setComandasLidas] = useState([]);
   const [scannerAberto, setScannerAberto] = useState(false);
-  const [pagamentoAberto, setPagamentoAberto] = useState(false); // modal de pagamento
-  const [cupomAberto, setCupomAberto] = useState(false);         // modal do cupom
-  const [comprovante, setComprovante] = useState(null);          // comprovante fiscal pós-pagamento
-  const [modoItens, setModoItens] = useState(false);             // seleção parcial por item
-  const [selecao, setSelecao] = useState({});                    // { "orderId::idx": { incluir, dividir } }
-  const [pagamentosFeitos, setPagamentosFeitos] = useState([]);  // pagamentos parciais acumulados
-  const [logFinanceiro, setLogFinanceiro] = useState([]);        // log de parcelas pagas/reabertas (relatório da sessão)
-  const [reimpressaoAberta, setReimpressaoAberta] = useState(false); // lista de cupons do dia
-  const [cupomReimpressao, setCupomReimpressao] = useState(null);    // cupom selecionado para reimprimir
-  // ── Consulta de comanda (ler QR, ver compras em aberto e dar baixa) ──
-  const [modoCaixa, setModoCaixa] = useState("caixa");               // "caixa" | "consulta"
-  const [consultaCodigo, setConsultaCodigo] = useState("");          // comanda consultada
-  const [consultaScanner, setConsultaScanner] = useState(false);     // scanner da consulta
-  const [consultaInput, setConsultaInput] = useState("");            // digitação manual
-  const [consultaPagamento, setConsultaPagamento] = useState(false); // modal de pagamento da consulta
-  const [consultaComprovante, setConsultaComprovante] = useState(null);
-  // ── Taxa de serviço — parametrização do estabelecimento ──
-  // TODO: mover para configuração persistida da empresa (lojaInfo.config) quando existir
-  // um local de settings; por ora, fallback local seguro (mesmo comportamento de hoje: 10%).
+
+  // ── Fluxo mobile em etapas ───────────────────────────────────
+  const [mobileStep, setMobileStep] = useState("buscar"); // "buscar" | "conta" | "pagamento"
+
+  // ── Divisão de pagamento ─────────────────────────────────────
+  const [splitMode, setSplitMode] = useState("integral"); // "integral" | "pessoas" | "valor" | "item"
+  const [pessoas, setPessoas] = useState(2);
+  const [pessoasPagas, setPessoasPagas] = useState(0);
+  const [valorParcialTexto, setValorParcialTexto] = useState("");
+  const [selecao, setSelecao] = useState({}); // { "oid::idx": { incluir, dividir } } — modo "item"
+
+  // ── Taxa de serviço (parametrização por empresa) ─────────────
   const SERVICE_FEE_CONFIG = lerConfigTaxaServico(lojaInfo?.id);
   const taxaFixa = SERVICE_FEE_CONFIG.enabled && SERVICE_FEE_CONFIG.chargingRule === "fixa";
   const taxaBloqueadaOff = !SERVICE_FEE_CONFIG.enabled || SERVICE_FEE_CONFIG.chargingRule === "nao_cobrar";
   const [taxaIncluida, setTaxaIncluida] = useState(!taxaBloqueadaOff);
   useEffect(() => { setTaxaIncluida(taxaFixa ? true : taxaBloqueadaOff ? false : taxaIncluida); }, [taxaFixa, taxaBloqueadaOff]); // eslint-disable-line react-hooks/exhaustive-deps
-  const [taxaManualValor, setTaxaManualValor] = useState(0); // usado só quando partialStrategy === "manual"
-  // ── Divisão por pessoas: quantas já pagaram sua parte desta seleção ──
-  // TODO: hoje é só estado local da sessão do caixa; persistir por parcela
-  // quando existir uma tabela de "pagamentos individuais" no backend.
-  const [pessoasPagas, setPessoasPagas] = useState(0);
-  // ── Consulta por número da mesa (teclado numérico) — reaproveita carregarMesa() ──
-  const [mesaDigitada, setMesaDigitada] = useState("");
-  const [mesaErro, setMesaErro] = useState("");
+  const [taxaManualValor, setTaxaManualValor] = useState(0);
+
+  // ── Pagamento combinado (linhas: forma + valor) ──────────────
+  const [linhasPagamento, setLinhasPagamento] = useState([]);
+  const [pagamentosFeitos, setPagamentosFeitos] = useState([]);
+  const [logFinanceiro, setLogFinanceiro] = useState([]);
+  const [confirmarFinalizacao, setConfirmarFinalizacao] = useState(false);
+  const [processando, setProcessando] = useState(false);
+  const processandoRef = useRef(false);
+  const [sucesso, setSucesso] = useState(null);
+
+  // ── Conflito de atualização concorrente ──────────────────────
+  const [subtotalSnapshot, setSubtotalSnapshot] = useState(null);
+
+  // ── Impressão / reimpressão ───────────────────────────────────
+  const [cupomAberto, setCupomAberto] = useState(false);
+  const [reimpressaoAberta, setReimpressaoAberta] = useState(false);
+  const [cupomReimpressao, setCupomReimpressao] = useState(null);
+  const [menuAcoesAberto, setMenuAcoesAberto] = useState(false);
+
+  // ── Relógio do cabeçalho ──────────────────────────────────────
+  const [agora, setAgora] = useState(() => new Date());
+  useEffect(() => { const iv = setInterval(() => setAgora(new Date()), 30000); return () => clearInterval(iv); }, []);
+
   function buscarMesaPorNumero() {
-    if (!mesaDigitada) return;
-    const alvo = `Mesa ${mesaDigitada.padStart(2, "0")}`;
+    const digitado = mesaQuery.trim();
+    if (!digitado) return;
+    const alvo = `Mesa ${digitado.padStart(2, "0")}`;
     const comandasDaMesa = [...new Set(orders.filter((o) => o.table === alvo && o.paymentStatus !== "paid" && o.status !== "cancelled").map((o) => o.command))];
-    if (comandasDaMesa.length === 0) { setMesaErro(`Nenhum pedido em aberto para a ${alvo}.`); return; }
-    carregarMesa(comandasDaMesa);
-    setMesaDigitada(""); setMesaErro("");
+    if (comandasDaMesa.length === 0) { setSearchError(`Nenhuma conta em aberto para a ${alvo}.`); return; }
+    carregarComandas(comandasDaMesa);
+    setRecentSearches(salvarBuscaRecente(lojaInfo?.id, { tipo: "mesa", valor: digitado, quando: Date.now() }));
+    setMesaQuery(""); setSearchError(""); setMobileStep("conta");
+  }
+  function buscarPorComanda(codigoBruto) {
+    const codigo = (codigoBruto ?? comandaQuery).trim().toUpperCase();
+    if (!codigo) return;
+    carregarComandas([codigo]);
+    setRecentSearches(salvarBuscaRecente(lojaInfo?.id, { tipo: "comanda", valor: codigo, quando: Date.now() }));
+    setComandaQuery(codigo); setSearchError(""); setScannerAberto(false); setMobileStep("conta");
+  }
+  function carregarComandas(codigos) {
+    setComandasLidas((cur) => [...new Set([...cur, ...codigos])]);
+    setSubtotalSnapshot(null);
+  }
+  function removerComanda(cmd) {
+    setComandasLidas((cur) => cur.filter((c) => c !== cmd));
+    setPagamentosFeitos([]); setLogFinanceiro([]); setLinhasPagamento([]); setSubtotalSnapshot(null);
+  }
+  function limparConta() {
+    setComandasLidas([]); setPagamentosFeitos([]); setLogFinanceiro([]); setLinhasPagamento([]);
+    setSplitMode("integral"); setSelecao({}); setPessoas(2); setPessoasPagas(0); setValorParcialTexto("");
+    setSubtotalSnapshot(null); setMobileStep("buscar");
+  }
+  function selecionarBuscaRecente(item) {
+    if (item.tipo === "mesa") { setSearchMode("mesa"); setMesaQuery(item.valor); }
+    else { setSearchMode("comanda"); buscarPorComanda(item.valor); }
+  }
+  function abrirContaDaLista(conta) {
+    carregarComandas(conta.comandas);
+    setMobileStep("conta");
   }
 
-  // Cupons fiscais PAGOS do dia atual (para reimpressão sem usar o relatório)
-  const ehHoje = (o) => {
-    const ref = o.createdAtISO || o.updatedAtISO;
-    if (!ref) return true; // sem data → assume sessão atual
-    const d = new Date(ref); const h = new Date();
-    return d.getFullYear() === h.getFullYear() && d.getMonth() === h.getMonth() && d.getDate() === h.getDate();
-  };
-  const cuponsDoDia = orders
-    .filter((o) => o.paymentStatus === "paid" && o.status !== "cancelled" && ehHoje(o))
-    .sort((a, b) => new Date(b.createdAtISO || 0) - new Date(a.createdAtISO || 0));
-
-  // Pedidos NÃO PAGOS das comandas lidas (entregue ou não, o que importa é o pagamento)
+  // ── Pedidos da conta selecionada (não pagos, não cancelados) ──
   const pedidos = orders.filter((o) => comandasLidas.includes(o.command) && o.paymentStatus !== "paid" && o.status !== "cancelled");
-  // Pagamento só é permitido quando todos os pedidos estão finalizados/entregues
   const pendentesPreparo = pedidos.filter((o) => o.status === "received" || o.status === "preparing");
   const podePagar = pedidos.length > 0 && pendentesPreparo.length === 0;
+  const comandaJaUsada = (cod) => orders.some((o) => o.command === cod);
 
-  // Helpers de seleção por item
   const chaveItem = (oid, idx) => `${oid}::${idx}`;
-  const selDe = (oid, idx) => selecao[chaveItem(oid, idx)] || { incluir: !modoItens, dividir: 1 };
+  const selDe = (oid, idx) => selecao[chaveItem(oid, idx)] || { incluir: splitMode !== "item", dividir: 1 };
   function toggleItem(oid, idx) {
     const k = chaveItem(oid, idx); const atual = selDe(oid, idx);
     setSelecao((c) => ({ ...c, [k]: { ...atual, incluir: !atual.incluir } }));
   }
-  function setDividir(oid, idx, n) {
+  function setDividirItem(oid, idx, n) {
     const k = chaveItem(oid, idx); const atual = selDe(oid, idx);
     setSelecao((c) => ({ ...c, [k]: { ...atual, dividir: Math.max(1, n) } }));
   }
 
-  // Agrupa por comanda
   const porComanda = comandasLidas.map((cmd) => {
     const ped = pedidos.filter((o) => o.command === cmd);
     const sub = ped.reduce((s, o) => s + orderTotal(o), 0);
     return { comanda: cmd, pedidos: ped, subtotal: sub };
   });
 
-  // Itens já marcados como PAGOS em pagamentos parciais anteriores (chave "oid::idx")
-  const chavesPagas = new Set(
-    pagamentosFeitos.flatMap((p) => (p.itens || []).map((it) => it.key))
-  );
+  const chavesPagas = new Set(pagamentosFeitos.flatMap((p) => (p.itens || []).map((it) => it.key)));
 
-  // Subtotal considerando o modo: conta cheia OU itens selecionados (com divisão por item)
   let subtotal = 0;
-  const itensPagosAgora = []; // para cupom/comprovante
+  const itensPagosAgora = [];
   pedidos.forEach((o) => o.items.forEach((it, idx) => {
     const key = chaveItem(o.id, idx);
-    if (chavesPagas.has(key)) return; // item já pago em parcela anterior → não recobra
+    if (chavesPagas.has(key)) return;
     const s = selDe(o.id, idx);
-    const incluir = modoItens ? s.incluir : true;
+    const incluir = splitMode === "item" ? s.incluir : true;
     if (incluir) {
       const valor = (it.price * it.quantity) / (s.dividir || 1);
       subtotal += valor;
       itensPagosAgora.push({ key, oid: o.id, comanda: o.command, name: it.name, quantity: it.quantity, valor, dividir: s.dividir || 1 });
     }
   }));
-  // ── Total geral das comandas (base para "proporcional ao valor") ──
+
   const subtotalGeralBruto = pedidos.reduce((s, o) => s + orderTotal(o), 0);
   const taxaTotalMesaBruta = subtotalGeralBruto * SERVICE_FEE_CONFIG.percent / 100;
-
-  // Taxa de serviço: bloqueada (fixa/não cobrar) ou opcional (toggle do
-  // caixa) e, no parcial, conforme a estratégia de rateio parametrizada.
   const taxa = !taxaIncluida ? 0
-    : (modoItens && SERVICE_FEE_CONFIG.partialStrategy === "nao_ratear") ? 0
-    : (modoItens && SERVICE_FEE_CONFIG.partialStrategy === "manual") ? taxaManualValor
-    : (modoItens && SERVICE_FEE_CONFIG.partialStrategy === "proporcional_valor") ? (subtotalGeralBruto > 0 ? taxaTotalMesaBruta * (subtotal / subtotalGeralBruto) : 0)
-    : subtotal * SERVICE_FEE_CONFIG.percent / 100; // proporcional_itens (default)
-  const totalSelecao = subtotal + taxa;          // total da seleção atual
+    : (splitMode === "item" && SERVICE_FEE_CONFIG.partialStrategy === "nao_ratear") ? 0
+    : (splitMode === "item" && SERVICE_FEE_CONFIG.partialStrategy === "manual") ? taxaManualValor
+    : (splitMode === "item" && SERVICE_FEE_CONFIG.partialStrategy === "proporcional_valor") ? (subtotalGeralBruto > 0 ? taxaTotalMesaBruta * (subtotal / subtotalGeralBruto) : 0)
+    : subtotal * SERVICE_FEE_CONFIG.percent / 100;
+  const totalSelecao = subtotal + taxa;
   const mesas = [...new Set(pedidos.map((o) => o.table))];
 
-  // ── Total geral das comandas e acúmulo de pagamentos ──
   const totalGeral = subtotalGeralBruto + (taxaIncluida ? taxaTotalMesaBruta : 0);
   const jaPago = pagamentosFeitos.reduce((s, p) => s + p.valor, 0);
   const restanteGeral = Math.max(0, totalGeral - jaPago);
-  // Quanto será cobrado AGORA: seleção (parcial) ou todo o restante (conta inteira)
-  const aPagar = modoItens ? Math.min(totalSelecao, restanteGeral) : restanteGeral;
-  const total = aPagar;                          // valor total desta cobrança (seleção ou conta inteira)
+
+  const valorParcialNum = moedaParaNumero(valorParcialTexto);
+  const valorParcialValido = valorParcialNum > 0 && valorParcialNum <= restanteGeral + 0.001;
+
+  const aPagar = splitMode === "item" ? Math.min(totalSelecao, restanteGeral)
+    : splitMode === "valor" ? (valorParcialValido ? valorParcialNum : 0)
+    : restanteGeral;
+  const total = aPagar;
   const porPessoa = total / Math.max(1, pessoas);
 
-  // Quando dividido por mais de 1 pessoa, cada clique em "Pagar" cobra só a
-  // parte de 1 pessoa por vez — não o total da seleção. Ajusta o centavo de
-  // arredondamento na última pessoa para fechar exatamente o valor total.
-  useEffect(() => { setPessoasPagas(0); }, [pessoas, subtotal, modoItens]);
   const pessoasRestantes = Math.max(0, pessoas - pessoasPagas);
   const ehUltimaPessoa = pessoas > 1 && pessoasRestantes <= 1;
   const valorIndividualBase = pessoas > 1 ? Math.round((total / pessoas) * 100) / 100 : total;
-  const valorPagoAgora = pessoas > 1
+  const valorPagoAgora = splitMode === "pessoas" && pessoas > 1
     ? (ehUltimaPessoa ? Math.max(0, Math.round((total - valorIndividualBase * (pessoas - 1)) * 100) / 100) : valorIndividualBase)
     : total;
-  const totalPagoSelecao = pessoas > 1 ? Math.min(total, valorIndividualBase * pessoasPagas) : jaPago;
-  const restanteSelecao = Math.max(0, total - totalPagoSelecao);
+  const totalPagoSelecaoPessoas = pessoas > 1 ? Math.min(total, valorIndividualBase * pessoasPagas) : 0;
+  const restanteSelecaoPessoas = Math.max(0, total - totalPagoSelecaoPessoas);
 
-  // ── Solicitações de fechamento das mesas (pagamento "requested", não pago) ──
-  const solicitacoes = (() => {
+  // ── Detecta alteração da conta enquanto o operador está pagando ──
+  useEffect(() => {
+    if (linhasPagamento.length > 0 && subtotalSnapshot === null) setSubtotalSnapshot(subtotalGeralBruto);
+    if (linhasPagamento.length === 0) setSubtotalSnapshot(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [linhasPagamento.length]);
+  const conflitoAtualizacao = subtotalSnapshot !== null && Math.abs(subtotalSnapshot - subtotalGeralBruto) > 0.005;
+  function reconferirConta() { setSubtotalSnapshot(subtotalGeralBruto); }
+
+  // ── Linhas de pagamento (combinado) ───────────────────────────
+  const pagoLinhas = linhasPagamento.reduce((s, l) => s + l.valor, 0);
+  const pagoNaoDinheiro = linhasPagamento.filter((l) => !l.permiteTroco).reduce((s, l) => s + l.valor, 0);
+  const temDinheiro = linhasPagamento.some((l) => l.permiteTroco);
+  const restanteLinhas = Math.max(0, total - pagoLinhas);
+  const trocoBruto = pagoLinhas - total;
+  const troco = trocoBruto > 0.001 ? trocoBruto : 0;
+  const excedeNaoDinheiro = pagoNaoDinheiro > total + 0.001;
+  const podeConfirmarPagamento = total > 0 && pagoLinhas >= total - 0.001 && !excedeNaoDinheiro && (troco === 0 || temDinheiro)
+    && linhasPagamento.length > 0 && !conflitoAtualizacao
+    && (splitMode !== "valor" || valorParcialValido);
+
+  function addLinhaPagamento(forma) {
+    const restanteAgora = Math.max(0, total - pagoLinhas);
+    setLinhasPagamento((cur) => [{ uid: Date.now() + Math.random(), formaId: forma.id, nome: forma.nome, tipo: forma.tipo, permiteTroco: forma.permiteTroco, valor: restanteAgora }, ...cur]);
+  }
+  function setValorLinha(uid, str) {
+    const v = moedaParaNumero(str);
+    setLinhasPagamento((cur) => cur.map((l) => l.uid === uid ? { ...l, valor: v } : l));
+  }
+  function removerLinhaPagamento(uid) {
+    setLinhasPagamento((cur) => cur.filter((l) => l.uid !== uid));
+  }
+
+  // ── Solicitações de fechamento (mesas aguardando o caixa) ────
+  const solicitacoes = useMemo(() => {
     const pendentes = orders.filter((o) => o.paymentStatus === "requested");
     const mapa = {};
     pendentes.forEach((o) => {
@@ -4529,807 +4620,1101 @@ function CashierView({ orders, baixarComandas, formasPagamento = [], lojaInfo })
       mapa[o.table].subtotal += orderTotal(o);
       mapa[o.table].pedidos += 1;
     });
-    return Object.values(mapa).map((m) => ({ ...m, comandas: [...m.comandas], total: m.subtotal * 1.1 }));
-  })();
+    return Object.values(mapa).map((m) => ({ ...m, comandas: [...m.comandas], total: m.subtotal * (1 + SERVICE_FEE_CONFIG.percent / 100) }));
+  }, [orders, SERVICE_FEE_CONFIG.percent]);
+  const solicitacoesNaoCarregadas = solicitacoes.filter((s) => !s.comandas.every((c) => comandasLidas.includes(c)));
 
-  function adicionarComanda(cmd) {
-    setComandasLidas((cur) => cur.includes(cmd) ? cur : [...cur, cmd]);
-    setScannerAberto(false);
-  }
-  function removerComanda(cmd) {
-    setComandasLidas((cur) => cur.filter((c) => c !== cmd));
-    setPagamentosFeitos([]); // ao alterar as comandas, zera os pagamentos parciais
-    setLogFinanceiro([]);
-  }
-  // Carrega todas as comandas de uma mesa solicitante de uma vez
-  function carregarMesa(comandasDaMesa) {
-    setComandasLidas((cur) => [...new Set([...cur, ...comandasDaMesa])]);
-  }
+  // ── Contas abertas (painel de localização) ────────────────────
+  const contasAbertas = useMemo(() => {
+    const mapa = {};
+    orders.forEach((o) => {
+      if (o.status === "cancelled" || o.paymentStatus === "paid") return;
+      const key = o.table || "-";
+      if (!mapa[key]) mapa[key] = { mesa: key, comandas: new Set(), pedidos: 0, subtotal: 0, aberturaISO: o.createdAtISO || null, cliente: o.customer || "", pendentePreparo: false, solicitada: false };
+      const m = mapa[key];
+      m.comandas.add(o.command);
+      m.pedidos += 1;
+      m.subtotal += orderTotal(o);
+      if (o.createdAtISO && (!m.aberturaISO || o.createdAtISO < m.aberturaISO)) m.aberturaISO = o.createdAtISO;
+      if (!m.cliente && o.customer) m.cliente = o.customer;
+      if (o.status === "received" || o.status === "preparing") m.pendentePreparo = true;
+      if (o.paymentStatus === "requested") m.solicitada = true;
+    });
+    return Object.values(mapa)
+      .map((m) => ({ ...m, comandas: [...m.comandas], total: m.subtotal * (1 + SERVICE_FEE_CONFIG.percent / 100),
+        situacao: m.solicitada ? "solicitado" : m.pendentePreparo ? "entrega" : "pagamento" }))
+      .sort((a, b) => new Date(a.aberturaISO || 0) - new Date(b.aberturaISO || 0));
+  }, [orders, SERVICE_FEE_CONFIG.percent]);
+  const contasFiltradas = openAccountsFilter === "todas" ? contasAbertas : contasAbertas.filter((c) => c.situacao === openAccountsFilter);
 
-  function imprimirCupom() {
-    // Agrupa itens por comanda para layout profissional
-    const blocos = porComanda
-      .filter((b) => b.pedidos.length > 0)
-      .map(({ comanda, pedidos: peds, subtotal: subCmd }) => {
-        const itens = [];
-        peds.forEach((o) => o.items.forEach((it) => itens.push({ q: it.quantity, nome: it.name, unit: it.price, v: it.price * it.quantity })));
-        return { comanda, itens, subCmd };
-      });
-    const agora = new Date();
-    const data = agora.toLocaleDateString("pt-BR");
-    const hora = agora.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  // ── Impressão (mesma automação térmica 80mm já usada no projeto) ──
+  function imprimirConferencia() {
+    const blocos = porComanda.filter((b) => b.pedidos.length > 0).map(({ comanda, pedidos: peds, subtotal: subCmd }) => {
+      const itens = [];
+      peds.forEach((o) => o.items.forEach((it) => itens.push({ q: it.quantity, nome: it.name, unit: it.price, v: it.price * it.quantity })));
+      return { comanda, itens, subCmd };
+    });
+    const agoraD = new Date();
+    const data = agoraD.toLocaleDateString("pt-BR");
+    const hora = agoraD.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
     const doc = String(Math.floor(100000 + Math.random() * 899999));
-
     const janela = window.open("", "_blank", "width=400,height=640");
-    janela.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Cupom ${doc}</title>
+    if (!janela) return;
+    janela.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Conferência ${doc}</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
   @page{size:80mm auto;margin:0}
   body{font-family:'Courier New',Consolas,monospace;font-size:12px;line-height:1.35;color:#000;background:#fff;width:80mm;padding:4mm 3mm}
   .c{text-align:center}.b{font-weight:bold}.r{text-align:right}
-  .sep{border-top:1px dashed #000;margin:5px 0}
-  .sep2{border-top:2px solid #000;margin:5px 0}
-  .row{display:flex;justify-content:space-between;gap:6px}
-  .row .l{flex:1}
-  h1{font-size:17px;letter-spacing:1px;margin:2px 0}
-  .xs{font-size:10px}.sm{font-size:11px}.lg{font-size:15px}
+  .sep{border-top:1px dashed #000;margin:5px 0}.sep2{border-top:2px solid #000;margin:5px 0}
+  .row{display:flex;justify-content:space-between;gap:6px}.row .l{flex:1}
+  h1{font-size:17px;letter-spacing:1px;margin:2px 0}.xs{font-size:10px}.sm{font-size:11px}.lg{font-size:15px}
   .cmd{background:#000;color:#fff;padding:2px 6px;font-weight:bold;display:inline-block;margin:6px 0 3px}
-  .item-nome{font-size:11px}
-  .item-det{font-size:9px;color:#222;padding-left:10px}
-  table{width:100%;border-collapse:collapse}
-  td{vertical-align:top;padding:1px 0}
+  .item-nome{font-size:11px}.item-det{font-size:9px;color:#222;padding-left:10px}
+  table{width:100%;border-collapse:collapse}td{vertical-align:top;padding:1px 0}
 </style></head><body>
-  <div class="c">
-    <h1 class="b">RESTAURANTE</h1>
-    <p class="xs">Rua Exemplo, 123 - Centro</p>
-    <p class="xs">CNPJ 00.000.000/0001-00</p>
-    <p class="xs">Tel: (00) 0000-0000</p>
-  </div>
+  <div class="c"><h1 class="b">${(lojaInfo?.nome || "RESTAURANTE").toUpperCase()}</h1><p class="xs">Documento auxiliar interno</p></div>
   <div class="sep2"></div>
-  <p class="c b sm">CUPOM NAO FISCAL${modoItens ? " - PAGAMENTO PARCIAL" : ""}</p>
+  <p class="c b sm">CONFERÊNCIA${splitMode !== "integral" ? " — SELEÇÃO PARCIAL" : ""}</p>
   <p class="c xs">*** SEM VALOR FISCAL ***</p>
-  <p class="c xs">Documento auxiliar de venda</p>
   <div class="sep"></div>
   <div class="row xs"><span class="l">Doc.: ${doc}</span><span>${data} ${hora}</span></div>
-  <div class="row xs"><span class="l">Mesa(s): ${mesas.join(", ") || "-"}</span><span>Operador: Caixa</span></div>
+  <div class="row xs"><span class="l">Mesa(s): ${mesas.join(", ") || "-"}</span><span>Operador: ${currentUser?.name || "Caixa"}</span></div>
   <div class="sep"></div>
-  <table>
-    <tr class="b xs"><td>ITEM/QTD x UNIT</td><td class="r">VALOR</td></tr>
-  </table>
-  ${blocos.map(b => `
+  ${blocos.map((b) => `
     <span class="cmd xs">COMANDA ${b.comanda}</span>
-    <table>
-      ${b.itens.map(it => `
-        <tr>
-          <td class="item-nome">${it.q}x ${it.nome}</td>
-          <td class="r b">${formatCurrency(it.v)}</td>
-        </tr>
-        <tr><td class="item-det" colspan="2">${it.q} un x ${formatCurrency(it.unit)}</td></tr>
-      `).join("")}
-    </table>
-    <div class="row sm b"><span class="l">Subtotal ${b.comanda}</span><span>${formatCurrency(b.subCmd)}</span></div>
-  `).join("")}
+    <table>${b.itens.map((it) => `
+        <tr><td class="item-nome">${it.q}x ${it.nome}</td><td class="r b">${formatCurrency(it.v)}</td></tr>
+        <tr><td class="item-det" colspan="2">${it.q} un x ${formatCurrency(it.unit)}</td></tr>`).join("")}</table>
+    <div class="row sm b"><span class="l">Subtotal ${b.comanda}</span><span>${formatCurrency(b.subCmd)}</span></div>`).join("")}
   <div class="sep2"></div>
   <div class="row sm"><span class="l">Subtotal geral</span><span>${formatCurrency(subtotal)}</span></div>
-  <div class="row sm"><span class="l">${taxaIncluida ? `Taxa de servico (${SERVICE_FEE_CONFIG.percent}%)` : "Taxa de servico: removida/opcional"}</span><span>${formatCurrency(taxa)}</span></div>
+  <div class="row sm"><span class="l">${taxaIncluida ? `Taxa de serviço (${SERVICE_FEE_CONFIG.percent}%)` : "Taxa de serviço: não cobrada"}</span><span>${formatCurrency(taxa)}</span></div>
   <div class="sep"></div>
-  <div class="row b lg"><span class="l">TOTAL A PAGAR</span><span>${formatCurrency(total)}</span></div>
-  ${pessoas > 1 ? `
-  <div class="sep"></div>
-  <div class="row sm"><span class="l">Dividido por ${pessoas} pessoas</span><span class="b">${formatCurrency(porPessoa)}</span></div>
-  <p class="xs c">(valor por pessoa)</p>` : ""}
+  <div class="row b lg"><span class="l">TOTAL</span><span>${formatCurrency(total)}</span></div>
+  ${splitMode === "pessoas" && pessoas > 1 ? `<div class="sep"></div><div class="row sm"><span class="l">Dividido por ${pessoas} pessoas</span><span class="b">${formatCurrency(porPessoa)}</span></div><p class="xs c">(valor por pessoa)</p>` : ""}
   <div class="sep2"></div>
-  <p class="c xs">Taxa de servico opcional conforme configuracao do estabelecimento.</p>
-  <p class="c xs">Pagamento na mesa com o garcom</p>
-  <p class="c sm b" style="margin-top:4px">OBRIGADO PELA PREFERENCIA!</p>
+  <p class="c xs">Taxa de serviço opcional conforme configuração do estabelecimento.</p>
+  <p class="c sm b" style="margin-top:4px">OBRIGADO PELA PREFERÊNCIA!</p>
   <p class="c xs" style="margin-top:6px">${data} ${hora}</p>
-  <p class="c xs">.</p>
-  <p class="c xs">.</p>
   <script>window.onload=function(){window.print();setTimeout(function(){window.close()},300)}<\/script>
 </body></html>`);
     janela.document.close();
   }
 
-  // Cupom individual — emitido a cada pessoa paga quando a conta/seleção está
-  // dividida por mais de 1 (mesmo padrão visual do cupom principal, resumido).
   function imprimirCupomIndividual(valorPagoIndividual, numeroPessoa, totalPessoas) {
-    const agora = new Date();
-    const data = agora.toLocaleDateString("pt-BR");
-    const hora = agora.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    const agoraD = new Date();
+    const data = agoraD.toLocaleDateString("pt-BR");
+    const hora = agoraD.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
     const doc = String(Math.floor(100000 + Math.random() * 899999));
     const janela = window.open("", "_blank", "width=400,height=560");
     if (!janela) return;
-    janela.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Cupom ${doc}</title>
+    janela.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Comprovante ${doc}</title>
 <style>
-  *{margin:0;padding:0;box-sizing:border-box}
-  @page{size:80mm auto;margin:0}
+  *{margin:0;padding:0;box-sizing:border-box}@page{size:80mm auto;margin:0}
   body{font-family:'Courier New',Consolas,monospace;font-size:12px;line-height:1.4;color:#000;background:#fff;width:80mm;padding:4mm 3mm}
-  .c{text-align:center}.b{font-weight:bold}
-  .sep{border-top:1px dashed #000;margin:5px 0}
-  .sep2{border-top:2px solid #000;margin:5px 0}
-  .row{display:flex;justify-content:space-between;gap:6px}
-  h1{font-size:15px;letter-spacing:0.5px;margin:2px 0}
+  .c{text-align:center}.b{font-weight:bold}.sep{border-top:1px dashed #000;margin:5px 0}.sep2{border-top:2px solid #000;margin:5px 0}
+  .row{display:flex;justify-content:space-between;gap:6px}h1{font-size:15px;letter-spacing:0.5px;margin:2px 0}
   .xs{font-size:10px}.sm{font-size:11px}.lg{font-size:16px}
 </style></head><body>
-  <div class="c"><h1 class="b">CUPOM NAO FISCAL</h1><p class="xs">PAGAMENTO INDIVIDUAL</p></div>
+  <div class="c"><h1 class="b">COMPROVANTE NÃO FISCAL</h1><p class="xs">PAGAMENTO INDIVIDUAL</p></div>
   <div class="sep2"></div>
   <div class="row xs"><span>Doc.: ${doc}</span><span>${data} ${hora}</span></div>
   <div class="row xs"><span>Mesa(s): ${mesas.join(", ") || "-"}</span><span>Comanda(s): ${comandasLidas.join(", ") || "-"}</span></div>
   <div class="sep"></div>
   <div class="row sm"><span>Total da seleção</span><span class="b">${formatCurrency(total)}</span></div>
-  <div class="row sm"><span>${taxaIncluida ? `Taxa de servico (${SERVICE_FEE_CONFIG.percent}%)` : "Taxa de servico: removida/opcional"}</span><span>${formatCurrency(taxa)}</span></div>
+  <div class="row sm"><span>${taxaIncluida ? `Taxa de serviço (${SERVICE_FEE_CONFIG.percent}%)` : "Taxa de serviço: não cobrada"}</span><span>${formatCurrency(taxa)}</span></div>
   <div class="row sm"><span>Dividido entre</span><span>${totalPessoas} pessoas</span></div>
   <div class="row sm"><span>Pessoa</span><span>${numeroPessoa} de ${totalPessoas}</span></div>
   <div class="sep2"></div>
   <div class="row b lg"><span>VALOR PAGO AGORA</span><span>${formatCurrency(valorPagoIndividual)}</span></div>
   <div class="sep"></div>
-  <p class="c xs">Taxa de servico opcional conforme configuracao do estabelecimento.</p>
-  <p class="c sm b" style="margin-top:4px">OBRIGADO PELA PREFERENCIA!</p>
+  <p class="c xs">Taxa de serviço opcional conforme configuração do estabelecimento.</p>
+  <p class="c sm b" style="margin-top:4px">OBRIGADO PELA PREFERÊNCIA!</p>
   <script>window.onload=function(){window.print();setTimeout(function(){window.close()},300)}<\/script>
 </body></html>`);
     janela.document.close();
   }
 
-  // Chamado pelo modal de pagamento ao confirmar
-  async function confirmarPagamento({ detalhes, troco }) {
-    const valorPago = valorPagoAgora; // valor cobrado neste pagamento (parte individual, se dividido)
-    const finalizaSelecao = pessoas <= 1 || ehUltimaPessoa; // última (ou única) parte desta divisão
-    const hora = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-    // Itens só são marcados como PAGOS (baixa) quando a divisão desta seleção
-    // foi totalmente quitada — enquanto restarem pessoas a pagar, os itens
-    // continuam "em aberto" (regra: não baixar até fechar o total selecionado).
-    const itensDaParcela = modoItens && finalizaSelecao
-      ? itensPagosAgora
-          .filter((it) => (it.dividir || 1) === 1) // só marca PAGO itens cobrados integralmente
-          .map((it) => ({ key: it.key, oid: it.oid, comanda: it.comanda, name: it.name, quantity: it.quantity, valor: it.valor }))
-      : [];
-    const parcelaId = Date.now();
-    const novosPagamentos = [...pagamentosFeitos, { id: parcelaId, valor: valorPago, troco, detalhes, hora, itens: itensDaParcela, taxaAplicada: taxa, taxaIncluida, pessoaNumero: pessoas > 1 ? pessoasPagas + 1 : null, pessoasTotal: pessoas > 1 ? pessoas : null }];
-    // Log financeiro: parcela paga
-    setLogFinanceiro((cur) => [
-      ...cur,
-      {
-        tipo: "pago", parcelaId, hora, valor: valorPago,
-        formas: detalhes.map((d) => d.forma).join(", "),
-        itens: itensDaParcela.map((it) => `${it.quantity}x ${it.name}`),
-      },
-    ]);
-    if (pessoas > 1) imprimirCupomIndividual(valorPago, pessoasPagas + 1, pessoas);
-    const totalPagoAgora = jaPago + valorPago;
-    const quitado = totalPagoAgora >= totalGeral - 0.01;
+  // ── Confirmação e finalização (baixa financeira) ──────────────
+  function abrirConfirmacao() {
+    if (!podeConfirmarPagamento || processandoRef.current) return;
+    setConfirmarFinalizacao(true);
+  }
 
-    setPagamentoAberto(false);
-    if (!finalizaSelecao) {
-      // Ainda faltam pessoas pagando a mesma seleção: mantém itens/pessoas
-      // selecionados e só avança o contador — não reseta a tela.
-      setPagamentosFeitos(novosPagamentos);
-      setPessoasPagas((n) => n + 1);
-      return;
-    }
-    setPessoas(1);
-    setModoItens(false);
-    setSelecao({});
-    setPessoasPagas(0);
+  async function confirmarEFinalizar() {
+    if (processandoRef.current) return;
+    processandoRef.current = true;
+    setProcessando(true);
+    try {
+      const valorPago = valorPagoAgora;
+      const finalizaSelecao = splitMode !== "pessoas" || pessoas <= 1 || ehUltimaPessoa;
+      const hora = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+      const itensDaParcela = splitMode === "item" && finalizaSelecao
+        ? itensPagosAgora.filter((it) => (it.dividir || 1) === 1).map((it) => ({ key: it.key, oid: it.oid, comanda: it.comanda, name: it.name, quantity: it.quantity, valor: it.valor }))
+        : [];
+      const parcelaId = Date.now();
+      const detalhesDestaParcela = linhasPagamento.map((l) => ({ forma: l.nome, valor: l.valor }));
+      const novosPagamentos = [...pagamentosFeitos, { id: parcelaId, valor: valorPago, troco, detalhes: detalhesDestaParcela, hora, itens: itensDaParcela, taxaAplicada: taxa, taxaIncluida, pessoaNumero: splitMode === "pessoas" && pessoas > 1 ? pessoasPagas + 1 : null, pessoasTotal: splitMode === "pessoas" && pessoas > 1 ? pessoas : null }];
+      setLogFinanceiro((cur) => [...cur, { tipo: "pago", parcelaId, hora, valor: valorPago, formas: detalhesDestaParcela.map((d) => d.forma).join(", "), itens: itensDaParcela.map((it) => `${it.quantity}x ${it.name}`) }]);
+      if (splitMode === "pessoas" && pessoas > 1) imprimirCupomIndividual(valorPago, pessoasPagas + 1, pessoas);
 
-    if (quitado) {
-      // QUITADO → baixa todas as comandas + comprovante fiscal final (com todos os pagamentos)
-      const detalhesTodos = novosPagamentos.flatMap((p) => p.detalhes);
-      const trocoTotal = novosPagamentos.reduce((s, p) => s + (p.troco || 0), 0);
-      const info = { mesa: mesas.join(", "), total: totalGeral, troco: trocoTotal, detalhes: detalhesTodos, comandas: [...comandasLidas] };
-      const baixa = await baixarComandas(comandasLidas, info);
-      setComprovante({
-        ...info,
-        subtotal: totalGeral / 1.1, taxa: totalGeral - totalGeral / 1.1,
-        blocos: porComanda.filter((b) => b.pedidos.length > 0),
-        parciais: novosPagamentos,
-        alertasEstoque: baixa?.alertas || [],
-      });
-      setPagamentosFeitos([]);
-      setComandasLidas([]);
-      setLogFinanceiro([]);
-    } else {
-      // PARCIAL → mantém a comanda em tela, acumula o pago, aguarda o restante
-      setPagamentosFeitos(novosPagamentos);
+      const totalPagoAgora = jaPago + valorPago;
+      const quitado = totalPagoAgora >= totalGeral - 0.01;
+
+      setConfirmarFinalizacao(false);
+      setLinhasPagamento([]);
+
+      if (!finalizaSelecao) {
+        setPagamentosFeitos(novosPagamentos);
+        setPessoasPagas((n) => n + 1);
+        return;
+      }
+      setPessoas(2); setSplitMode("integral"); setSelecao({}); setPessoasPagas(0); setValorParcialTexto("");
+
+      if (quitado) {
+        const detalhesTodos = novosPagamentos.flatMap((p) => p.detalhes);
+        const trocoTotal = novosPagamentos.reduce((s, p) => s + (p.troco || 0), 0);
+        const info = { mesa: mesas.join(", "), total: totalGeral, troco: trocoTotal, detalhes: detalhesTodos, comandas: [...comandasLidas] };
+        const baixa = await baixarComandas(comandasLidas, info);
+        auditar("finalizar_pagamento", "comanda", comandasLidas.join(","), { mesa: info.mesa, total: totalGeral, formas: detalhesTodos.map((d) => d.forma), parcelas: novosPagamentos.length });
+        setSucesso({
+          ...info,
+          subtotal: totalGeral / (1 + SERVICE_FEE_CONFIG.percent / 100),
+          taxa: totalGeral - totalGeral / (1 + SERVICE_FEE_CONFIG.percent / 100),
+          blocos: porComanda.filter((b) => b.pedidos.length > 0),
+          parciais: novosPagamentos,
+          alertasEstoque: baixa?.alertas || [],
+          codigo: `PAG-${parcelaId.toString().slice(-8)}`,
+        });
+        setPagamentosFeitos([]); setComandasLidas([]); setLogFinanceiro([]); setSubtotalSnapshot(null); setMobileStep("buscar");
+      } else {
+        setPagamentosFeitos(novosPagamentos);
+      }
+    } finally {
+      processandoRef.current = false;
+      setProcessando(false);
     }
   }
 
-  // Cancela uma parcela paga → itens voltam a "em aberto" e o valor volta a "falta pagar".
-  // Registra o log da reabertura do título da parcela financeira.
+  // Comprovante final (após baixa) — mesma automação térmica 80mm, rótulo
+  // corrigido para "COMPROVANTE NÃO FISCAL" (este projeto não tem
+  // integração NFC-e/SAT — nunca rotular como cupom fiscal de verdade).
+  function imprimirComprovanteFinal(dados) {
+    const agoraD = new Date();
+    const doc = dados.codigo || String(Math.floor(100000 + Math.random() * 899999));
+    const j = window.open("", "_blank", "width=400,height=640");
+    if (!j) return;
+    j.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Comprovante ${doc}</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}@page{size:80mm auto;margin:0}
+  body{font-family:'Courier New',monospace;font-size:12px;line-height:1.35;color:#000;background:#fff;width:80mm;padding:4mm 3mm}
+  .c{text-align:center}.b{font-weight:bold}.r{text-align:right}
+  .sep{border-top:1px dashed #000;margin:5px 0}.sep2{border-top:2px solid #000;margin:5px 0}
+  .row{display:flex;justify-content:space-between;gap:6px}.row .l{flex:1}
+  h1{font-size:16px}.xs{font-size:10px}.sm{font-size:11px}.lg{font-size:14px}
+</style></head><body>
+  <div class="c"><h1 class="b">${(lojaInfo?.nome || "RESTAURANTE").toUpperCase()}</h1></div>
+  <div class="sep2"></div>
+  <p class="c b sm">COMPROVANTE NÃO FISCAL</p>
+  <p class="c xs">*** SEM VALOR FISCAL *** Doc.: ${doc}</p>
+  <p class="c xs">${agoraD.toLocaleString("pt-BR")}</p>
+  <p class="xs">Mesa(s): ${dados.mesa || "-"} | Comanda(s): ${(dados.comandas || []).join(", ")}</p>
+  <div class="sep"></div>
+  ${(dados.blocos || []).map((b) => b.pedidos.map((o) => o.items.map((it) =>
+      `<div class="row sm"><span class="l">${it.quantity}x ${it.name}</span><span>${formatCurrency(it.price * it.quantity)}</span></div>`
+    ).join("")).join("")).join("")}
+  <div class="sep"></div>
+  <div class="row sm"><span class="l">Subtotal</span><span>${formatCurrency(dados.subtotal)}</span></div>
+  <div class="row sm"><span class="l">Taxa de serviço</span><span>${formatCurrency(dados.taxa)}</span></div>
+  <div class="row b lg"><span class="l">TOTAL</span><span>${formatCurrency(dados.total)}</span></div>
+  <div class="sep"></div>
+  <p class="b xs">FORMAS DE PAGAMENTO</p>
+  ${(dados.detalhes || []).map((d) => `<div class="row sm"><span class="l">${d.forma}</span><span>${formatCurrency(d.valor)}</span></div>`).join("")}
+  ${dados.troco > 0 ? `<div class="row sm b"><span class="l">TROCO</span><span>${formatCurrency(dados.troco)}</span></div>` : ""}
+  <div class="sep2"></div>
+  <p class="c sm b">PAGAMENTO CONFIRMADO</p>
+  <p class="c xs" style="margin-top:4px">Obrigado pela preferência!</p>
+  <script>window.onload=function(){window.print();setTimeout(function(){window.close()},300)}<\/script>
+</body></html>`);
+    j.document.close();
+  }
+
   function cancelarPagamento(parcelaId) {
     const p = pagamentosFeitos.find((x) => x.id === parcelaId);
     if (!p) return;
     setPagamentosFeitos((cur) => cur.filter((x) => x.id !== parcelaId));
-    setLogFinanceiro((cur) => [
-      ...cur,
-      {
-        tipo: "reaberto", parcelaId,
-        hora: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
-        valor: p.valor,
-        formas: (p.detalhes || []).map((d) => d.forma).join(", "),
-        itens: (p.itens || []).map((it) => `${it.quantity}x ${it.name}`),
-      },
-    ]);
+    setLogFinanceiro((cur) => [...cur, { tipo: "reaberto", parcelaId, hora: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }), valor: p.valor, formas: (p.detalhes || []).map((d) => d.forma).join(", "), itens: (p.itens || []).map((it) => `${it.quantity}x ${it.name}`) }]);
   }
 
-  // ── Consulta de comanda: pedidos em aberto da comanda consultada ──
-  const consultaPedidos = consultaCodigo
-    ? orders.filter((o) => o.command === consultaCodigo && o.paymentStatus !== "paid" && o.status !== "cancelled")
-    : [];
-  const consultaJaUsada = consultaCodigo && orders.some((o) => o.command === consultaCodigo); // já teve algum pedido (pago/aberto)
-  const consultaPendentes = consultaPedidos.filter((o) => o.status === "received" || o.status === "preparing");
-  const consultaSubtotal = consultaPedidos.reduce((s, o) => s + orderTotal(o), 0);
-  const consultaTaxa = consultaSubtotal * 0.1;
-  const consultaTotal = consultaSubtotal + consultaTaxa;
-  const consultaMesas = [...new Set(consultaPedidos.map((o) => o.table))];
-  const consultaPodePagar = consultaPedidos.length > 0 && consultaPendentes.length === 0;
+  // ── Atalhos de teclado (não conflitam com o navegador; F2..F10) ──
+  useEffect(() => {
+    function onKeyDown(e) {
+      if (confirmarFinalizacao || sucesso || scannerAberto || cupomAberto || reimpressaoAberta || cupomReimpressao) {
+        if (e.key === "Escape") {
+          setConfirmarFinalizacao(false); setSucesso(null); setScannerAberto(false); setCupomAberto(false); setReimpressaoAberta(false); setCupomReimpressao(null);
+        }
+        return;
+      }
+      if (e.key === "F2") { e.preventDefault(); setSearchMode("mesa"); mesaInputRef.current?.focus(); }
+      else if (e.key === "F3") { e.preventDefault(); setSearchMode("comanda"); comandaInputRef.current?.focus(); }
+      else if (e.key === "F8" && pedidos.length > 0) { e.preventDefault(); imprimirConferencia(); }
+      else if (e.key === "F10" && podeConfirmarPagamento) { e.preventDefault(); abrirConfirmacao(); }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [confirmarFinalizacao, sucesso, scannerAberto, cupomAberto, reimpressaoAberta, cupomReimpressao, pedidos.length, podeConfirmarPagamento]);
 
-  function lerComandaConsulta(codigo) {
-    const c = (codigo || "").trim().toUpperCase();
-    if (!c) return;
-    setConsultaCodigo(c);
-    setConsultaInput(c);
-    setConsultaScanner(false);
-  }
+  // ── Cupons pagos hoje (reimpressão) ───────────────────────────
+  const ehHoje = (o) => {
+    const ref = o.createdAtISO || o.updatedAtISO;
+    if (!ref) return true;
+    const d = new Date(ref); const h = new Date();
+    return d.getFullYear() === h.getFullYear() && d.getMonth() === h.getMonth() && d.getDate() === h.getDate();
+  };
+  const cuponsDoDia = orders.filter((o) => o.paymentStatus === "paid" && o.status !== "cancelled" && ehHoje(o)).sort((a, b) => new Date(b.createdAtISO || 0) - new Date(a.createdAtISO || 0));
 
-  // Dá baixa (finaliza pagamento) da comanda consultada → libera a comanda para reuso
-  async function confirmarPagamentoConsulta({ detalhes, troco }) {
-    const info = { mesa: consultaMesas.join(", "), total: consultaTotal, troco, detalhes, comandas: [consultaCodigo] };
-    const blocosCmd = [{
-      comanda: consultaCodigo,
-      pedidos: consultaPedidos,
-      subtotal: consultaSubtotal,
-    }];
-    const baixa = await baixarComandas([consultaCodigo], info); // mantém os pedidos no banco como pagos; comanda fica livre
-    setConsultaComprovante({
-      ...info,
-      subtotal: consultaSubtotal, taxa: consultaTaxa,
-      blocos: blocosCmd,
-      parciais: [{ valor: consultaTotal, troco, detalhes, hora: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) }],
-      alertasEstoque: baixa?.alertas || [],
-    });
-    setConsultaPagamento(false);
-    // mantém consultaCodigo: a tela passará a exibir "comanda livre / disponível para reuso"
-  }
+  const temConta = comandasLidas.length > 0;
+  const contaVazia = temConta && pedidos.length === 0;
+  const situacaoTurno = caixaAberto ? "aberto" : "fechado";
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-[#F7F8FA] overflow-hidden" style={{ paddingTop: "calc(env(safe-area-inset-top) + 24px)" }}>
-      {/* Cabeçalho */}
-      <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-[#E5E7EB] bg-white px-6 py-3">
-        <div className="flex items-center gap-3">
-          <LogoPP size={36} />
-          <div>
-            <p className="text-lg font-black text-[#182230] leading-tight">💳 Caixa / Pagamento{lojaInfo && <span className="ml-2 text-sm font-bold text-[#9A6A00]">· {lojaInfo.nome}</span>}</p>
-            <p className="text-xs text-[#667085]">Consulte mesas, comandas e finalize contas</p>
-          </div>
-        </div>
-        {/* Alternador de modo: Caixa x Consultar comanda */}
-        <div className="flex items-center gap-1 rounded-2xl border border-[#E5E7EB] bg-[#F8FAFC] p-1">
-          <button onClick={() => setModoCaixa("caixa")}
-            className={`rounded-xl px-3 py-2 text-sm font-black transition duration-200 ${modoCaixa === "caixa" ? "bg-[#FFF7E0] text-[#182230] border border-[#F4D27A]" : "text-[#475467] hover:bg-white"}`}>
-            💳 Caixa
-          </button>
-          <button onClick={() => setModoCaixa("consulta")}
-            className={`rounded-xl px-3 py-2 text-sm font-black transition duration-200 ${modoCaixa === "consulta" ? "bg-[#EFF6FF] text-[#1D4ED8] border border-[#BFDBFE]" : "text-[#475467] hover:bg-white"}`}>
-            🔍 Consultar comanda
-          </button>
-        </div>
-        <div className="flex items-center gap-2">
-          <button onClick={() => setReimpressaoAberta(true)} title="Reimprimir cupons de hoje"
-            className="rounded-2xl border border-[#BFDBFE] bg-[#EFF6FF] px-4 py-2 text-sm font-black text-[#1D4ED8] hover:bg-[#DBEAFE] transition duration-200">
-            🧾 Reimprimir cupom{cuponsDoDia.length > 0 && <span className="ml-1.5 rounded-full bg-[#2563EB] px-1.5 py-0.5 text-[10px] text-white">{cuponsDoDia.length}</span>}
-          </button>
-        </div>
-      </header>
+    <div data-theme="light" className="tema-claro-area fixed inset-0 z-50 flex flex-col bg-[#F7F8FA] overflow-hidden" style={{ paddingTop: "env(safe-area-inset-top)" }}>
+      <PosHeader
+        lojaInfo={lojaInfo} currentUser={currentUser} agora={agora} situacaoTurno={situacaoTurno} conexaoOk={conexaoOk}
+        cuponsDoDia={cuponsDoDia.length}
+        menuAcoesAberto={menuAcoesAberto} setMenuAcoesAberto={setMenuAcoesAberto}
+        onReimprimir={() => { setReimpressaoAberta(true); setMenuAcoesAberto(false); }}
+        onSair={() => window.history.back()}
+      />
 
-      {/* ── Alerta destacado: mesas aguardando fechamento ────── */}
-      {modoCaixa === "caixa" && solicitacoes.some((s) => !s.comandas.every((c) => comandasLidas.includes(c))) && (
-        <div className="shrink-0 border-b border-[#FDE1B0] bg-[#FFF4E5] px-6 py-2.5">
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
-            <span className="flex items-center gap-2 text-sm font-black text-[#B45309]">
-              <span className="relative flex h-2.5 w-2.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#F59E0B]/60" /><span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#F59E0B]" /></span>
-              🔔 {solicitacoes.filter((s) => !s.comandas.every((c) => comandasLidas.includes(c))).map((s) => s.mesa).join(", ")} solicitou fechamento da conta
+      {solicitacoesNaoCarregadas.length > 0 && (
+        <div className="shrink-0 border-b border-[#FDE1B0] bg-[#FFF4E5] px-4 py-2 sm:px-6">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+            <span className="flex items-center gap-1.5 text-xs font-black text-[#B45309]">
+              <span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#F59E0B]/60" /><span className="relative inline-flex h-2 w-2 rounded-full bg-[#F59E0B]" /></span>
+              Fechamento solicitado:
             </span>
-            {solicitacoes.filter((s) => !s.comandas.every((c) => comandasLidas.includes(c))).map((s) => (
-              <button key={s.mesa} onClick={() => carregarMesa(s.comandas)}
-                className="rounded-full border border-[#F4D27A] bg-white px-3 py-1 text-xs font-black text-[#9A6A00] hover:bg-[#FFF7E0] transition duration-200">
-                Carregar {s.mesa} · {formatCurrency(s.total)}
+            {solicitacoesNaoCarregadas.map((s) => (
+              <button key={s.mesa} onClick={() => carregarComandas(s.comandas)}
+                className="rounded-full border border-[#F4D27A] bg-white px-2.5 py-1 text-xs font-black text-[#9A6A00] hover:bg-[#FFF7E0] transition">
+                {s.mesa} · {formatCurrency(s.total)}
               </button>
             ))}
           </div>
         </div>
       )}
 
-      {modoCaixa === "caixa" && (
-      <div className="tema-claro-area flex flex-1 overflow-hidden">
-        {/* Lista de comandas/itens */}
-        <div className="flex-1 overflow-y-auto p-6">
+      {/* ── Corpo: 3 colunas (desktop) / 2 áreas (tablet) / etapas (mobile) ── */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Coluna 1 — Localização (desktop/tablet sempre visível; mobile só na etapa "buscar") */}
+        <PosLocationColumn
+          className={`${mobileStep === "buscar" ? "flex" : "hidden"} lg:flex`}
+          searchMode={searchMode} setSearchMode={setSearchMode}
+          mesaQuery={mesaQuery} setMesaQuery={setMesaQuery} mesaInputRef={mesaInputRef}
+          comandaQuery={comandaQuery} setComandaQuery={setComandaQuery} comandaInputRef={comandaInputRef}
+          searchError={searchError} setSearchError={setSearchError}
+          onBuscarMesa={buscarMesaPorNumero} onBuscarComanda={() => buscarPorComanda()}
+          onAbrirScanner={() => setScannerAberto(true)}
+          recentSearches={recentSearches} onSelecionarRecente={selecionarBuscaRecente}
+          contasFiltradas={contasFiltradas} openAccountsFilter={openAccountsFilter} setOpenAccountsFilter={setOpenAccountsFilter}
+          onAbrirConta={abrirContaDaLista} comandasLidas={comandasLidas}
+        />
 
-          {/* ── Solicitações de fechamento das mesas ─────────── */}
-          {solicitacoes.length > 0 && (
-            <div className="mb-5 rounded-3xl border border-amber-400/30 bg-amber-500/5 p-4">
-              <div className="mb-3 flex items-center gap-2">
-                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-amber-500 text-sm">🔔</span>
-                <p className="font-black text-amber-200">Solicitações de fechamento ({solicitacoes.length})</p>
-              </div>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {solicitacoes.map((s) => {
-                  const jaCarregada = s.comandas.every((c) => comandasLidas.includes(c));
-                  return (
-                    <button key={s.mesa} onClick={() => carregarMesa(s.comandas)}
-                      className={`rounded-2xl border p-4 text-left transition active:scale-95 ${jaCarregada ? "border-emerald-400/40 bg-emerald-500/10" : "border-amber-400/30 bg-slate-900 hover:bg-amber-500/10"}`}>
-                      <div className="flex items-center justify-between">
-                        <p className="text-lg font-black text-white">{s.mesa}</p>
-                        <span className="text-base font-black text-amber-300">{formatCurrency(s.total)}</span>
-                      </div>
-                      <p className="mt-0.5 text-xs text-slate-400">{s.comandas.length} comanda(s) • {s.pedidos} pedido(s)</p>
-                      <p className="mt-2 text-xs font-bold {jaCarregada ? 'text-emerald-300' : 'text-amber-300'}">
-                        {jaCarregada ? "✅ Carregada — gere o cupom" : "👆 Tocar para carregar a conta"}
-                      </p>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+        {/* Coluna 2 — Conta selecionada */}
+        <PosAccountColumn
+          className={`${mobileStep === "conta" ? "flex" : "hidden"} lg:flex`}
+          temConta={temConta} contaVazia={contaVazia} comandaJaUsada={comandaJaUsada} comandasLidas={comandasLidas}
+          porComanda={porComanda} mesas={mesas} pedidos={pedidos} pendentesPreparo={pendentesPreparo}
+          splitMode={splitMode} selDe={selDe} toggleItem={toggleItem} setDividirItem={setDividirItem}
+          chavesPagas={chavesPagas} onRemoverComanda={removerComanda} onLimparConta={limparConta}
+          onImprimirConferencia={imprimirConferencia}
+          onVoltarBusca={() => setMobileStep("buscar")} onIrPagamento={() => setMobileStep("pagamento")}
+          conflitoAtualizacao={conflitoAtualizacao} onReconferir={reconferirConta}
+        />
+
+        {/* Coluna 3 — Pagamento */}
+        <PosPaymentColumn
+          className={`${mobileStep === "pagamento" ? "flex" : "hidden"} lg:flex`}
+          temConta={temConta} podePagar={podePagar} pendentesPreparo={pendentesPreparo.length}
+          subtotal={subtotal} taxa={taxa} total={total} totalGeral={totalGeral} jaPago={jaPago} restanteGeral={restanteGeral}
+          taxaIncluida={taxaIncluida} setTaxaIncluida={setTaxaIncluida} taxaFixa={taxaFixa} taxaBloqueadaOff={taxaBloqueadaOff}
+          taxaManualValor={taxaManualValor} setTaxaManualValor={setTaxaManualValor} SERVICE_FEE_CONFIG={SERVICE_FEE_CONFIG}
+          splitMode={splitMode} setSplitMode={setSplitMode}
+          pessoas={pessoas} setPessoas={setPessoas} porPessoa={porPessoa} pessoasRestantes={pessoasRestantes}
+          valorPagoAgora={valorPagoAgora} totalPagoSelecaoPessoas={totalPagoSelecaoPessoas} restanteSelecaoPessoas={restanteSelecaoPessoas}
+          valorParcialTexto={valorParcialTexto} setValorParcialTexto={setValorParcialTexto} valorParcialValido={valorParcialValido}
+          pagamentosFeitos={pagamentosFeitos} logFinanceiro={logFinanceiro} onCancelarPagamento={cancelarPagamento}
+          formasPagamento={formasPagamento.filter((f) => f.active !== false)}
+          linhasPagamento={linhasPagamento} onAddLinha={addLinhaPagamento} onSetValorLinha={setValorLinha} onRemoverLinha={removerLinhaPagamento}
+          pagoLinhas={pagoLinhas} restanteLinhas={restanteLinhas} troco={troco} excedeNaoDinheiro={excedeNaoDinheiro} temDinheiro={temDinheiro}
+          podeConfirmarPagamento={podeConfirmarPagamento} onFinalizarClick={abrirConfirmacao}
+          onImprimirConferencia={imprimirConferencia} aPagarMaiorQueRestante={splitMode === "item" && aPagar > 0 && aPagar < restanteGeral - 0.01}
+          conflitoAtualizacao={conflitoAtualizacao} onReconferir={reconferirConta}
+          onVoltarConta={() => setMobileStep("conta")}
+        />
+      </div>
+
+      {/* ── Rodapé sticky (mobile) ── */}
+      {temConta && mobileStep !== "buscar" && (
+        <div className="shrink-0 border-t border-[#E5E7EB] bg-white px-4 py-3 lg:hidden" style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 0.75rem)" }}>
+          <div className="mb-2 flex items-center justify-between text-sm">
+            <span className="font-bold text-[#475467]">{mobileStep === "conta" ? "Total da conta" : "Restante a pagar"}</span>
+            <span className="text-lg font-black text-[#182230]">{formatCurrency(mobileStep === "conta" ? totalGeral : restanteGeral)}</span>
+          </div>
+          {mobileStep === "conta" ? (
+            <button onClick={() => setMobileStep("pagamento")} disabled={!podePagar}
+              className={`flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl text-sm font-black transition active:scale-95 ${podePagar ? "bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)]" : "bg-[#F3F4F6] text-[#98A2B3]"}`}>
+              Ir para pagamento
+            </button>
+          ) : (
+            <button onClick={abrirConfirmacao} disabled={!podeConfirmarPagamento}
+              className={`flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl text-sm font-black transition active:scale-95 ${podeConfirmarPagamento ? "bg-[#16A34A] text-white hover:bg-[#15803D]" : "bg-[#F3F4F6] text-[#98A2B3]"}`}>
+              <IconCheck width={16} height={16} /> Finalizar pagamento
+            </button>
           )}
+        </div>
+      )}
 
-          {/* Botão ler comanda */}
-          <button onClick={() => setScannerAberto(true)}
-            className="mb-3 flex w-full items-center justify-center gap-3 rounded-3xl border-2 border-dashed border-blue-400/40 bg-blue-500/5 py-5 text-base font-black text-blue-300 hover:bg-blue-500/10 transition active:scale-[0.99]">
-            📷 Ler comanda manualmente
+      {/* ── Modais ── */}
+      {scannerAberto && (
+        <QRScannerModal onSucesso={(codigo) => buscarPorComanda(codigo)} onCancelar={() => setScannerAberto(false)} prefixoLoja={lojaInfo?.prefixo || "CMD"} lojaNome={lojaInfo?.nome || ""} />
+      )}
+
+      {confirmarFinalizacao && (
+        <PosConfirmDialog
+          mesas={mesas} comandas={comandasLidas} total={total} troco={troco} linhasPagamento={linhasPagamento}
+          processando={processando} onCancelar={() => setConfirmarFinalizacao(false)} onConfirmar={confirmarEFinalizar}
+        />
+      )}
+
+      {sucesso && <PosSuccessScreen dados={sucesso} onFechar={() => setSucesso(null)} onReimprimir={() => imprimirComprovanteFinal(sucesso)} onNovaConsulta={() => { setSucesso(null); mesaInputRef.current?.focus(); }} />}
+
+      {cupomAberto && (
+        <PosReceiptPreview
+          blocos={porComanda.filter((b) => b.pedidos.length > 0)} mesas={mesas} comandas={comandasLidas}
+          subtotal={subtotal} taxa={taxa} total={total} splitMode={splitMode} pessoas={pessoas} porPessoa={porPessoa}
+          imprimir={imprimirConferencia} onFechar={() => setCupomAberto(false)}
+        />
+      )}
+
+      {reimpressaoAberta && (
+        <ReimpressaoCupons cupons={cuponsDoDia} lojaInfo={lojaInfo} onSelecionar={(o) => { setCupomReimpressao(o); setReimpressaoAberta(false); }} onFechar={() => setReimpressaoAberta(false)} />
+      )}
+      {cupomReimpressao && <CupomNaoFiscalModal pedido={cupomReimpressao} lojaInfo={lojaInfo} onFechar={() => setCupomReimpressao(null)} />}
+    </div>
+  );
+}
+
+const POS_FILTROS_CONTA = [
+  { id: "todas", label: "Todas" },
+  { id: "entrega", label: "Aguardando entrega" },
+  { id: "solicitado", label: "Fechamento solicitado" },
+  { id: "pagamento", label: "Aguardando pagamento" },
+];
+
+// ════════════════════════════════════════════════════════════
+//  Coluna 1 — Localização: busca por mesa/comanda + contas abertas
+// ════════════════════════════════════════════════════════════
+function PosLocationColumn({ className, searchMode, setSearchMode, mesaQuery, setMesaQuery, mesaInputRef, comandaQuery, setComandaQuery, comandaInputRef, searchError, setSearchError, onBuscarMesa, onBuscarComanda, onAbrirScanner, recentSearches, onSelecionarRecente, contasFiltradas, openAccountsFilter, setOpenAccountsFilter, onAbrirConta, comandasLidas }) {
+  useEffect(() => { if (searchMode === "mesa") mesaInputRef.current?.focus(); }, [searchMode]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return (
+    <aside className={`${className} w-full flex-col overflow-y-auto border-[#E5E7EB] bg-white p-4 lg:w-[300px] lg:shrink-0 lg:border-r lg:p-5`}>
+      <h2 className="text-xs font-black uppercase tracking-widest text-[#98A2B3]">Localizar conta</h2>
+
+      {/* Segmented control Mesa / Comanda */}
+      <div role="tablist" aria-label="Tipo de consulta" className="mt-3 flex items-center gap-1 rounded-2xl border border-[#E5E7EB] bg-[#F8FAFC] p-1">
+        {[["mesa", "Mesa", IconMesas], ["comanda", "Comanda", IconComanda]].map(([id, label, Icone]) => (
+          <button key={id} role="tab" aria-selected={searchMode === id} onClick={() => { setSearchMode(id); setSearchError(""); }}
+            className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-black transition ${searchMode === id ? "bg-white text-[var(--color-primary)] shadow-sm" : "text-[#667085] hover:text-[#182230]"}`}>
+            <Icone width={15} height={15} /> {label}
           </button>
+        ))}
+      </div>
 
-          {/* Toggle: conta cheia x pagamento parcial por item */}
-          {pedidos.length > 0 && (
-            <div className="mb-5 flex items-center gap-1.5 rounded-2xl border border-[#E5E7EB] bg-white p-1.5 shadow-sm">
-              <button onClick={() => { setModoItens(false); setSelecao({}); }}
-                className={`flex-1 rounded-xl py-2.5 text-sm font-black transition duration-200 ${!modoItens ? "bg-[#FFF7E0] text-[#182230] border border-[#F4D27A]" : "text-[#475467] hover:bg-[#F8FAFC]"}`}>
-                💳 Conta inteira
-              </button>
-              <button onClick={() => setModoItens(true)}
-                className={`flex-1 rounded-xl py-2.5 text-sm font-black transition duration-200 ${modoItens ? "bg-[#EAFBF2] text-[#147A4A] border border-[#B7E4C7]" : "text-[#475467] hover:bg-[#F8FAFC]"}`}>
-                ☑️ Selecionar itens / parcial
-              </button>
-            </div>
-          )}
+      {searchMode === "mesa" ? (
+        <div className="mt-3">
+          <label className="mb-1.5 block text-xs font-bold text-[#667085]" htmlFor="pos-busca-mesa">Número da mesa</label>
+          <div className="flex gap-2">
+            <input id="pos-busca-mesa" ref={mesaInputRef} type="tel" inputMode="numeric" value={mesaQuery}
+              onChange={(e) => { setMesaQuery(e.target.value.replace(/\D/g, "").slice(0, 3)); setSearchError(""); }}
+              onKeyDown={(e) => e.key === "Enter" && onBuscarMesa()}
+              placeholder="Ex.: 07" className="min-h-11 w-full flex-1 rounded-2xl border border-[#E5E7EB] bg-white px-4 py-2.5 text-lg font-black text-[#182230] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/10 placeholder:text-sm placeholder:font-normal placeholder:text-[#98A2B3]" />
+            <button onClick={onBuscarMesa} disabled={!mesaQuery} aria-label="Consultar mesa (F2)"
+              className="flex min-h-11 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-primary)] px-4 text-white transition hover:bg-[var(--color-primary-dark)] disabled:bg-[#F3F4F6] disabled:text-[#98A2B3]">
+              <IconBusca />
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="mt-3">
+          <label className="mb-1.5 block text-xs font-bold text-[#667085]" htmlFor="pos-busca-comanda">Código da comanda</label>
+          <div className="flex gap-2">
+            <input id="pos-busca-comanda" ref={comandaInputRef} value={comandaQuery}
+              onChange={(e) => { setComandaQuery(e.target.value.toUpperCase()); setSearchError(""); }}
+              onKeyDown={(e) => e.key === "Enter" && onBuscarComanda()}
+              placeholder="Ex.: CMD-000123" className="min-h-11 w-full flex-1 rounded-2xl border border-[#E5E7EB] bg-white px-4 py-2.5 font-mono text-sm font-black tracking-wide text-[#182230] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/10 placeholder:font-sans placeholder:font-normal placeholder:text-[#98A2B3]" />
+            <button onClick={onAbrirScanner} aria-label="Ler QR Code da comanda"
+              className="flex min-h-11 shrink-0 items-center justify-center rounded-2xl border border-[#E5E7EB] bg-white px-3 text-[#475467] transition hover:bg-[#F8FAFC]">
+              <IconQr />
+            </button>
+            <button onClick={onBuscarComanda} disabled={!comandaQuery.trim()} aria-label="Consultar comanda (F3)"
+              className="flex min-h-11 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-primary)] px-4 text-white transition hover:bg-[var(--color-primary-dark)] disabled:bg-[#F3F4F6] disabled:text-[#98A2B3]">
+              <IconBusca />
+            </button>
+          </div>
+        </div>
+      )}
+      {searchError && <p role="alert" className="mt-2 text-xs font-bold text-[#DC2626]">{searchError}</p>}
 
-          {comandasLidas.length === 0 ? (
-            <div className="mx-auto max-w-sm rounded-[24px] border border-[#E5E7EB] bg-white p-6 shadow-[0_8px_24px_rgba(16,24,40,0.06)]">
-              <p className="text-center text-lg font-black text-[#182230]">Selecione a mesa</p>
-              <p className="mt-1 text-center text-xs text-[#667085]">Digite o número da mesa para acompanhar pedidos ou gerar fechamento.</p>
-              <input inputMode="numeric" autoFocus value={mesaDigitada}
-                onChange={(e) => { setMesaDigitada(e.target.value.replace(/\D/g, "").slice(0, 2)); setMesaErro(""); }}
-                onKeyDown={(e) => e.key === "Enter" && buscarMesaPorNumero()}
-                placeholder="Digite o número da mesa"
-                className="mt-4 w-full rounded-2xl border border-[#E5E7EB] bg-[#F8FAFC] px-4 py-3 text-center text-2xl font-black text-[#182230] outline-none focus:border-[#D9A441] focus:ring-2 focus:ring-[#D9A441]/20 placeholder:text-sm placeholder:font-normal placeholder:text-[#98A2B3]" />
-              {mesaErro && <p className="mt-2 text-center text-xs font-semibold text-[#DC2626]">{mesaErro}</p>}
-              <div className="mt-4 grid grid-cols-3 gap-2">
-                {["1","2","3","4","5","6","7","8","9","Limpar","0","Buscar"].map((k) => {
-                  if (k === "Limpar") return <button key={k} onClick={() => { setMesaDigitada(""); setMesaErro(""); }} className="rounded-2xl border border-[#E5E7EB] bg-white py-3.5 text-sm font-black text-[#475467] hover:bg-[#F8FAFC] transition duration-200">Limpar</button>;
-                  if (k === "Buscar") return <button key={k} onClick={buscarMesaPorNumero} className="rounded-2xl bg-[#D9A441] py-3.5 text-sm font-black text-[#182230] hover:bg-[#C7922F] transition duration-200">Buscar</button>;
-                  return <button key={k} onClick={() => { setMesaDigitada((c) => (c + k).slice(0, 2)); setMesaErro(""); }} className="rounded-2xl border border-[#E5E7EB] bg-white py-3.5 text-lg font-black text-[#182230] hover:bg-[#F8FAFC] transition duration-200">{k}</button>;
-                })}
-              </div>
-              <p className="mt-4 text-center text-xs text-[#98A2B3]">ou escaneie/leia a comanda do cliente para ver os gastos</p>
-            </div>
-          ) : porComanda.map(({ comanda, pedidos: peds, subtotal: sub }) => (
-            <div key={comanda} className="mb-4 overflow-hidden rounded-3xl border border-[#E5E7EB] bg-white shadow-[0_8px_24px_rgba(16,24,40,0.06)]">
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E5E7EB] bg-[#F8FAFC] px-5 py-3">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded-xl bg-[#EFF6FF] border border-[#BFDBFE] px-3 py-1 font-mono text-sm font-black text-[#1D4ED8]">{comanda}</span>
-                  <span className="text-xs text-[#667085]">{peds.length} pedido(s) • {[...new Set(peds.map(p=>p.table))].join(", ")}</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-base font-black text-[#182230]">{formatCurrency(sub)}</span>
-                  <button onClick={() => removerComanda(comanda)} className="rounded-lg px-2 py-1 text-xs font-bold text-[#98A2B3] hover:bg-[#FFF1F2] hover:text-[#DC2626] transition duration-200">✕</button>
-                </div>
-              </div>
-              <div className="divide-y divide-[#E5E7EB]">
-                {peds.length === 0 && <p className="px-5 py-3 text-sm text-[#667085]">Sem pedidos em aberto nesta comanda.</p>}
-                {peds.map((o) => (
-                  <div key={o.id} className="px-5 py-3">
-                    <p className="mb-1 text-xs font-bold uppercase tracking-widest text-[#98A2B3]">{o.id} • {o.createdAt}</p>
-                    {o.items.map((it, i) => {
-                      const pago = chavesPagas.has(chaveItem(o.id, i));
-                      const s = selDe(o.id, i);
-                      const incluido = !pago && (modoItens ? s.incluir : true);
-                      const valor = (it.price * it.quantity) / (s.dividir || 1);
-                      return (
-                        <div key={i} className={`flex items-center justify-between gap-2 rounded-xl px-2 py-1.5 text-sm ${pago ? "bg-[#EAFBF2]" : modoItens ? (incluido ? "bg-[#ECFDF3]" : "opacity-50") : ""}`}>
-                          <div className="flex min-w-0 flex-1 items-center gap-2">
-                            {modoItens && !pago && (
-                              <input type="checkbox" checked={incluido} onChange={() => toggleItem(o.id, i)} className="h-4 w-4 shrink-0 accent-[#16A34A]" />
-                            )}
-                            <span className={`truncate ${pago ? "text-[#147A4A]/70 line-through" : "text-[#475467]"}`}><span className={`font-black ${pago ? "text-[#147A4A]/70" : "text-[#182230]"}`}>{it.quantity}x</span> {it.name}</span>
-                            {pago && <span className="shrink-0 rounded-md bg-[#B7E4C7] px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-[#147A4A]">✓ Pago</span>}
-                          </div>
-                          {modoItens && incluido && (
-                            <div className="flex shrink-0 items-center gap-1 rounded-lg bg-white px-1.5 py-0.5 border border-[#E5E7EB]">
-                              <span className="text-xs text-[#98A2B3]">÷</span>
-                              <button onClick={() => setDividir(o.id, i, (s.dividir || 1) - 1)} className="h-5 w-5 rounded bg-[#F8FAFC] text-xs font-black text-[#182230]">−</button>
-                              <span className="w-4 text-center text-xs font-black text-[#182230]">{s.dividir || 1}</span>
-                              <button onClick={() => setDividir(o.id, i, (s.dividir || 1) + 1)} className="h-5 w-5 rounded bg-[#2563EB] text-xs font-black text-white">+</button>
-                            </div>
-                          )}
-                          <span className={`shrink-0 font-bold ${pago ? "text-[#147A4A]/70 line-through" : "text-[#182230]"}`}>{formatCurrency(valor)}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ))}
-              </div>
-            </div>
+      {recentSearches.length > 0 && (
+        <div className="mt-4">
+          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-widest text-[#98A2B3]">Buscas recentes</p>
+          <div className="flex flex-wrap gap-1.5">
+            {recentSearches.map((b, i) => (
+              <button key={i} onClick={() => onSelecionarRecente(b)}
+                className="rounded-full border border-[#E5E7EB] bg-[#F8FAFC] px-2.5 py-1 text-xs font-bold text-[#475467] transition hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]">
+                {b.tipo === "mesa" ? `Mesa ${b.valor}` : b.valor}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Contas abertas */}
+      <div className="mt-6">
+        <div className="flex items-center justify-between">
+          <p className="text-[11px] font-bold uppercase tracking-widest text-[#98A2B3]">Contas abertas</p>
+          <span className="rounded-full bg-[#F1F5F9] px-2 py-0.5 text-[11px] font-black text-[#475467]">{contasFiltradas.length}</span>
+        </div>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {POS_FILTROS_CONTA.map((f) => (
+            <button key={f.id} onClick={() => setOpenAccountsFilter(f.id)}
+              className={`rounded-full border px-2.5 py-1 text-[11px] font-black transition ${openAccountsFilter === f.id ? "border-[var(--color-primary)] bg-[#EFF6FF] text-[var(--color-primary)]" : "border-[#E5E7EB] bg-white text-[#667085] hover:bg-[#F8FAFC]"}`}>
+              {f.label}
+            </button>
           ))}
         </div>
-
-        {/* Painel de fechamento */}
-        <aside className="flex w-[380px] shrink-0 flex-col border-l border-[#E5E7EB] bg-[#F7F8FA]">
-          <div className="border-b border-[#E5E7EB] bg-white px-5 py-4">
-            <p className="text-lg font-black text-[#182230]">🧾 Fechamento</p>
-            <p className="text-xs text-[#667085]">{comandasLidas.length} comanda(s) • {pedidos.length} pedido(s)</p>
-          </div>
-
-          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-            {/* Bloco 1 — Resumo da mesa */}
-            <div className="rounded-3xl border border-[#E5E7EB] bg-white p-5 shadow-sm">
-              <p className="mb-2 text-xs font-black uppercase tracking-widest text-[#98A2B3]">Resumo da mesa</p>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between text-[#475467]"><span>Mesa(s)</span><strong className="text-[#182230]">{mesas.join(", ") || "-"}</strong></div>
-                <div className="flex justify-between text-[#475467]"><span>Total da conta</span><strong className="text-[#182230]">{formatCurrency(totalGeral)}</strong></div>
-                {jaPago > 0 && <div className="flex justify-between text-[#16A34A]"><span>Já pago</span><strong>− {formatCurrency(jaPago)}</strong></div>}
-                <div className="h-px bg-[#E5E7EB]" />
-                <div className="flex justify-between text-xl"><span className="font-black text-[#182230]">{jaPago > 0 ? "Restante" : "Total geral"}</span><strong className={jaPago > 0 ? "text-[#9A6A00]" : "text-[#182230]"}>{formatCurrency(restanteGeral)}</strong></div>
-              </div>
-            </div>
-
-            {/* Bloco 2 — Resumo da seleção (taxa de serviço opcional/parametrizável) */}
-            {pedidos.length > 0 && (
-              <div className="rounded-3xl border border-[#E5E7EB] bg-white p-5 shadow-sm text-sm">
-                <p className="mb-2 text-xs font-black uppercase tracking-widest text-[#98A2B3]">Resumo da seleção</p>
-                <div className="flex items-center justify-between">
-                  <span className="text-[#475467]">Subtotal selecionado</span>
-                  <strong className="text-[#182230]">{formatCurrency(subtotal)}</strong>
+        <div className="mt-3 space-y-2">
+          {contasFiltradas.length === 0 && <p className="py-4 text-center text-xs text-[#98A2B3]">Nenhuma conta em aberto.</p>}
+          {contasFiltradas.map((c) => {
+            const carregada = c.comandas.every((cm) => comandasLidas.includes(cm));
+            return (
+              <button key={c.mesa} onClick={() => onAbrirConta(c)}
+                className={`flex w-full items-start justify-between gap-2 rounded-2xl border p-3 text-left transition ${carregada ? "border-[var(--color-primary)] bg-[#EFF6FF]" : "border-[#E5E7EB] bg-white hover:border-[var(--color-primary)]/40 hover:bg-[#F8FAFC]"}`}>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-black text-[#182230]">{c.mesa}</p>
+                  <p className="truncate text-[11px] text-[#667085]">{c.cliente ? `${c.cliente} · ` : ""}{c.pedidos} pedido(s)</p>
+                  <span className={`mt-1 inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-black ${
+                    c.situacao === "solicitado" ? "bg-[#FFF4E5] text-[#B45309]" : c.situacao === "entrega" ? "bg-[#EFF6FF] text-[#1D4ED8]" : "bg-[#EAFBF2] text-[#147A4A]"
+                  }`}>
+                    {c.situacao === "solicitado" ? "Fechamento solicitado" : c.situacao === "entrega" ? "Aguardando entrega" : "Aguardando pagamento"}
+                  </span>
                 </div>
-                {!taxaBloqueadaOff ? (
-                  <label className={`mt-2 flex items-center justify-between gap-2 ${taxaFixa ? "" : "cursor-pointer"}`}>
-                    <span className="text-[#475467]">Incluir taxa de serviço ({SERVICE_FEE_CONFIG.percent}%)</span>
-                    <input type="checkbox" checked={taxaIncluida} disabled={taxaFixa}
-                      onChange={(e) => !taxaFixa && setTaxaIncluida(e.target.checked)}
-                      className="h-5 w-5 accent-[#D9A441] disabled:opacity-70" />
-                  </label>
-                ) : (
-                  <p className="mt-2 text-[#98A2B3]">Taxa de serviço: não cobrada (configuração da empresa)</p>
-                )}
-                <span className={`mt-1.5 inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide ${taxaFixa ? "bg-[#FFF7E0] text-[#9A6A00]" : taxaBloqueadaOff ? "bg-[#F2F4F7] text-[#667085]" : "bg-[#EFF6FF] text-[#1D4ED8]"}`}>
-                  {taxaFixa ? "Taxa fixa pela empresa" : taxaBloqueadaOff ? "Não cobrar (empresa)" : "Taxa opcional"}
-                </span>
-                {SERVICE_FEE_CONFIG.partialStrategy === "manual" && modoItens && taxaIncluida && (
-                  <input type="number" min="0" step="0.01" value={taxaManualValor}
-                    onChange={(e) => setTaxaManualValor(Math.max(0, Number(e.target.value) || 0))}
-                    className="mt-2 w-full rounded-xl border border-[#E5E7EB] bg-[#F8FAFC] px-3 py-2 text-sm text-[#182230] outline-none focus:border-[#D9A441]" placeholder="Valor manual da taxa" />
-                )}
-                <div className="mt-1 flex justify-between"><span className="text-[#475467]">Taxa aplicada</span><strong className="text-[#182230]">{formatCurrency(taxa)}</strong></div>
-                <div className="mt-2 flex justify-between border-t border-[#E5E7EB] pt-2 text-base"><span className="font-black text-[#182230]">Total a pagar</span><strong className="text-[#D9A441]">{formatCurrency(aPagar)}</strong></div>
-                <p className="mt-2 text-[11px] text-[#98A2B3]">Taxa de serviço opcional e configurável pelo estabelecimento.</p>
-              </div>
-            )}
-
-            {/* Histórico de pagamentos parciais */}
-            {pagamentosFeitos.length > 0 && (
-              <div className="rounded-3xl border border-[#B7E4C7] bg-[#EAFBF2] p-4">
-                <p className="mb-2 text-xs font-black uppercase tracking-widest text-[#147A4A]">✅ Pagamentos realizados ({pagamentosFeitos.length})</p>
-                <div className="space-y-2">
-                  {pagamentosFeitos.map((p, i) => (
-                    <div key={p.id ?? i} className="rounded-2xl bg-white px-3 py-2 border border-[#E5E7EB]">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-xs text-[#667085]">{p.hora} • {p.detalhes.map((d) => d.forma).join(", ")}</span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-black text-[#147A4A]">{formatCurrency(p.valor)}</span>
-                          <button onClick={() => cancelarPagamento(p.id)}
-                            title="Cancelar pagamento e reabrir os itens"
-                            className="rounded-lg px-1.5 py-0.5 text-[10px] font-black text-[#98A2B3] hover:bg-[#FFF1F2] hover:text-[#DC2626] transition duration-200">
-                            ↩ Cancelar
-                          </button>
-                        </div>
-                      </div>
-                      {p.itens && p.itens.length > 0 && (
-                        <p className="mt-0.5 text-[11px] text-[#475467]">{p.itens.map((it) => `${it.quantity}x ${it.name}`).join(", ")}</p>
-                      )}
-                      {p.troco > 0 && <p className="text-xs text-[#667085]">troco {formatCurrency(p.troco)}</p>}
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-2 flex justify-between border-t border-[#B7E4C7] pt-2 text-sm">
-                  <span className="font-black text-[#182230]">Falta pagar</span>
-                  <span className="font-black text-[#9A6A00]">{formatCurrency(restanteGeral)}</span>
-                </div>
-              </div>
-            )}
-
-            {/* Log financeiro: parcelas pagas e reabertas (relatório da sessão) */}
-            {logFinanceiro.length > 0 && (
-              <div className="rounded-3xl border border-[#E5E7EB] bg-white p-4">
-                <p className="mb-2 text-xs font-black uppercase tracking-widest text-[#98A2B3]">📋 Log financeiro</p>
-                <div className="space-y-1.5">
-                  {logFinanceiro.map((l, i) => (
-                    <div key={i} className="flex items-start justify-between gap-2 text-xs">
-                      <div className="min-w-0">
-                        <span className={`font-black ${l.tipo === "pago" ? "text-[#147A4A]" : "text-[#DC2626]"}`}>
-                          {l.tipo === "pago" ? "✓ Parcela paga" : "↩ Parcela reaberta"}
-                        </span>
-                        <span className="text-[#98A2B3]"> • {l.hora}{l.formas ? ` • ${l.formas}` : ""}</span>
-                        {l.itens && l.itens.length > 0 && (
-                          <p className="truncate text-[11px] text-[#98A2B3]">{l.itens.join(", ")}</p>
-                        )}
-                      </div>
-                      <span className={`shrink-0 font-black ${l.tipo === "pago" ? "text-[#147A4A]" : "text-[#DC2626]"}`}>{formatCurrency(l.valor)}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Valor desta cobrança (quando parcial selecionado) */}
-            {modoItens && aPagar > 0 && aPagar < restanteGeral - 0.01 && (
-              <div className="rounded-2xl border border-[#BFDBFE] bg-[#EFF6FF] p-3 text-sm">
-                <div className="flex justify-between"><span className="text-[#1D4ED8]">Cobrar agora (seleção)</span><span className="font-black text-[#1D4ED8]">{formatCurrency(aPagar)}</span></div>
-              </div>
-            )}
-
-            {/* Bloco 3 — Divisão de pagamento */}
-            <div className="rounded-3xl border border-[#E5E7EB] bg-white p-4 shadow-sm">
-              <p className="mb-2 text-xs font-black uppercase tracking-widest text-[#98A2B3]">Dividir pagamento</p>
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-1.5 rounded-2xl border border-[#E5E7EB] bg-[#F8FAFC] p-1.5">
-                  <button onClick={() => setPessoas((p) => Math.max(1, p - 1))} className="h-11 w-11 rounded-xl border border-[#E5E7EB] bg-white text-lg font-black text-[#182230] hover:bg-[#F1F5F9] transition duration-200">−</button>
-                  <span className="w-10 text-center text-lg font-black text-[#182230]">{pessoas}</span>
-                  <button onClick={() => setPessoas((p) => p + 1)} className="h-11 w-11 rounded-xl bg-[#2563EB] text-lg font-black text-white hover:bg-[#1D4ED8] transition duration-200">+</button>
-                </div>
-                <div className="flex-1 text-right">
-                  <p className="text-xs text-[#667085]">{pessoas} {pessoas === 1 ? "pessoa" : "pessoas"}</p>
-                  <p className="text-lg font-black text-[#16A34A]">{formatCurrency(porPessoa)}<span className="text-xs text-[#667085]">/cada</span></p>
-                </div>
-              </div>
-              {pessoas > 1 && (
-                <div className="mt-3 space-y-1 border-t border-[#E5E7EB] pt-3 text-xs">
-                  <div className="flex justify-between text-[#475467]"><span>Total selecionado</span><span className="font-bold text-[#182230]">{formatCurrency(total)}</span></div>
-                  <div className="flex justify-between text-[#475467]"><span>Valor por pessoa</span><span className="font-bold text-[#182230]">{formatCurrency(valorIndividualBase)}</span></div>
-                  <div className="flex justify-between text-[#16A34A]"><span>Pago</span><span className="font-bold">{formatCurrency(totalPagoSelecao)}</span></div>
-                  <div className="flex justify-between text-[#9A6A00]"><span>Restante</span><span className="font-bold">{formatCurrency(restanteSelecao)}</span></div>
-                  <p className="pt-1 font-bold text-[#182230]">Pagar 1 pessoa: {formatCurrency(valorPagoAgora)}</p>
-                  {pessoasRestantes > 0 && <p className="text-[11px] font-bold text-[#9A6A00]">{pessoasRestantes} pagamento(s) pendente(s)</p>}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Bloco 4 — Ações (fluxo em 2 passos) */}
-          <div className="shrink-0 border-t border-[#E5E7EB] bg-white px-5 py-4 space-y-3">
-            <p className="text-xs text-[#667085]">
-              <span className="font-black text-[#475467]">Passo 1:</span> imprima o cupom e leve à mesa para o garçom receber.
-              <span className="font-black text-[#475467]"> Passo 2:</span> após receber, dê baixa.
-            </p>
-            {/* Passo 1 — imprimir cupom (abre modal de cupom) */}
-            <button onClick={() => setCupomAberto(true)} disabled={pedidos.length === 0}
-              className="w-full rounded-2xl bg-[#2563EB] py-4 text-sm font-black text-white hover:bg-[#1D4ED8] transition duration-200 active:scale-95 shadow-lg shadow-[#2563EB]/25 disabled:bg-[#E5E7EB] disabled:text-[#98A2B3] disabled:shadow-none disabled:cursor-not-allowed">
-              🖨️ Imprimir cupom não fiscal
-            </button>
-            {/* Aviso: há pedidos não finalizados */}
-            {pedidos.length > 0 && !podePagar && (
-              <div className="rounded-2xl border border-[#FDE1B0] bg-[#FFF4E5] p-3 text-xs font-semibold text-[#B45309]">
-                ⚠ {pendentesPreparo.length} pedido(s) ainda em preparo. O pagamento só é liberado após todos finalizados e entregues.
-              </div>
-            )}
-            {/* Passo 2 — pagamento (parcial ou total) */}
-            <button onClick={() => setPagamentoAberto(true)} disabled={!podePagar || aPagar <= 0}
-              title={!podePagar ? "Aguarde todos os pedidos serem finalizados/entregues" : ""}
-              className="w-full rounded-2xl bg-[#16A34A] py-4 text-sm font-black text-white hover:bg-[#15803D] transition duration-200 active:scale-95 shadow-lg shadow-[#16A34A]/25 disabled:bg-[#E5E7EB] disabled:text-[#98A2B3] disabled:shadow-none disabled:cursor-not-allowed">
-              {pessoas > 1
-                ? `💰 Pagar 1 pessoa ${formatCurrency(valorPagoAgora)}`
-                : jaPago > 0
-                ? `💰 Pagar ${formatCurrency(aPagar)} (resta ${formatCurrency(restanteGeral)})`
-                : modoItens && aPagar < restanteGeral - 0.01
-                ? `💰 Pagar seleção ${formatCurrency(aPagar)}`
-                : "💰 Finalizar pagamento e dar baixa"}
-            </button>
-          </div>
-        </aside>
+                <span className="shrink-0 text-sm font-black text-[#182230]">{formatCurrency(c.total)}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
-      )}
+    </aside>
+  );
+}
 
-      {/* ── Modo: Consultar comanda ──────────────────────────── */}
-      {modoCaixa === "consulta" && (
-        <div className="tema-claro-area flex flex-1 items-start justify-center overflow-y-auto p-6">
-          <div className="w-full max-w-xl space-y-5">
-            {/* Leitura da comanda */}
-            <div className="rounded-3xl border border-white/10 bg-slate-900 p-6">
-              <p className="mb-1 text-lg font-black text-white">🔍 Consultar comanda</p>
-              <p className="mb-4 text-xs text-slate-500">Leia o QR Code ou digite o código da comanda para verificar se há compras em aberto.</p>
-              <div className="flex gap-2">
-                <input
-                  value={consultaInput}
-                  onChange={(e) => setConsultaInput(e.target.value.toUpperCase())}
-                  onKeyDown={(e) => { if (e.key === "Enter") lerComandaConsulta(consultaInput); }}
-                  placeholder={`Ex.: ${lojaInfo?.prefixo || "CMD"}-000123`}
-                  className="flex-1 rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm font-mono font-black text-white outline-none focus:border-gold-400/60 placeholder:text-slate-600" />
-                <button onClick={() => lerComandaConsulta(consultaInput)} disabled={!consultaInput.trim()}
-                  className="rounded-2xl bg-blue-500 px-4 py-3 text-sm font-black text-white hover:bg-blue-400 transition disabled:opacity-40">
-                  Consultar
+// ════════════════════════════════════════════════════════════
+//  Cabeçalho do PDV — compacto: empresa, operador, turno, conexão,
+//  data/hora e ações secundárias (só as que têm funcionalidade real).
+// ════════════════════════════════════════════════════════════
+function PosHeader({ lojaInfo, currentUser, agora, situacaoTurno, conexaoOk, cuponsDoDia, menuAcoesAberto, setMenuAcoesAberto, onReimprimir, onSair }) {
+  return (
+    <header className="relative flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-[#E5E7EB] bg-white px-4 py-3 sm:px-6">
+      <div className="flex items-center gap-3">
+        <button onClick={onSair} aria-label="Voltar" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#E5E7EB] bg-[#F8FAFC] text-[#475467] transition hover:bg-[#F1F5F9] lg:hidden">
+          <IconFechar width={16} height={16} />
+        </button>
+        <LogoPP size={36} />
+        <div className="min-w-0">
+          <p className="truncate text-base font-black leading-tight text-[#182230]">Caixa{lojaInfo && <span className="font-bold text-[#667085]"> · {lojaInfo.nome}</span>}</p>
+          <p className="truncate text-xs text-[#667085]">{currentUser?.name || "Operador"}</p>
+        </div>
+      </div>
+
+      <div className="flex flex-1 items-center justify-end gap-2 sm:flex-initial">
+        <span className={`hidden items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-black sm:flex ${situacaoTurno === "aberto" ? "border-[#B7E4C7] bg-[#EAFBF2] text-[#147A4A]" : "border-[#E5E7EB] bg-[#F8FAFC] text-[#667085]"}`}>
+          <span className={`h-1.5 w-1.5 rounded-full ${situacaoTurno === "aberto" ? "bg-[#16A34A]" : "bg-[#98A2B3]"}`} aria-hidden="true" />
+          {situacaoTurno === "aberto" ? "Caixa aberto" : "Caixa fechado"}
+        </span>
+        <span title={conexaoOk ? "Conectado" : "Reconectando…"} className={`flex h-9 w-9 items-center justify-center rounded-2xl border ${conexaoOk ? "border-[#E5E7EB] text-[#98A2B3]" : "border-[#FDE1B0] bg-[#FFF4E5] text-[#B45309]"}`}>
+          {conexaoOk ? <span className="h-2 w-2 rounded-full bg-[#16A34A]" aria-hidden="true" /> : <IconWifiOff width={15} height={15} />}
+        </span>
+        <span className="hidden text-xs text-[#667085] md:block">
+          {agora.toLocaleDateString("pt-BR")} · {agora.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+        </span>
+        <div className="relative">
+          <button onClick={() => setMenuAcoesAberto((v) => !v)} aria-haspopup="menu" aria-expanded={menuAcoesAberto} aria-label="Mais ações"
+            className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[#E5E7EB] bg-white text-[#475467] transition hover:bg-[#F8FAFC]">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8" /><circle cx="12" cy="12" r="1.8" /><circle cx="19" cy="12" r="1.8" /></svg>
+          </button>
+          {menuAcoesAberto && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setMenuAcoesAberto(false)} />
+              <div role="menu" className="absolute right-0 top-full z-50 mt-2 w-64 overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white shadow-[0_12px_32px_rgba(16,24,40,.12)]">
+                <button role="menuitem" onClick={onReimprimir} className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left text-sm font-bold text-[#182230] transition hover:bg-[#F8FAFC]">
+                  <span className="flex items-center gap-2"><IconImpressora width={16} height={16} className="text-[#667085]" /> Reimprimir comprovante</span>
+                  {cuponsDoDia > 0 && <span className="rounded-full bg-[var(--color-primary)] px-1.5 py-0.5 text-[10px] font-black text-white">{cuponsDoDia}</span>}
                 </button>
-                <button onClick={() => setConsultaScanner(true)} title="Ler QR Code"
-                  className="rounded-2xl border border-blue-400/30 bg-blue-500/10 px-4 py-3 text-lg text-blue-300 hover:bg-blue-500/20 transition">
-                  📷
+                <button role="menuitem" onClick={onSair} className="hidden w-full items-center gap-2 border-t border-[#E5E7EB] px-4 py-3 text-left text-sm font-bold text-[#475467] transition hover:bg-[#F8FAFC] lg:flex">
+                  <IconFechar width={16} height={16} className="text-[#667085]" /> Voltar à operação
                 </button>
               </div>
-              {consultaCodigo && (
-                <button onClick={() => { setConsultaCodigo(""); setConsultaInput(""); setConsultaComprovante(null); }}
-                  className="mt-3 text-xs font-bold text-slate-400 hover:text-slate-200">↩ Limpar consulta</button>
-              )}
-            </div>
+            </>
+          )}
+        </div>
+      </div>
+    </header>
+  );
+}
 
-            {/* Resultado da consulta */}
-            {consultaCodigo && (
-              consultaPedidos.length > 0 ? (
-                <div className="overflow-hidden rounded-3xl border border-amber-400/30 bg-slate-900">
-                  <div className="flex items-center justify-between border-b border-white/10 bg-amber-500/10 px-5 py-4">
-                    <div>
-                      <p className="font-mono text-base font-black text-amber-300">{consultaCodigo}</p>
-                      <p className="text-xs text-amber-200/80">🟠 Comanda em aberto • {consultaPedidos.length} pedido(s) • Mesa(s) {consultaMesas.join(", ") || "-"}</p>
-                    </div>
-                    <span className="text-lg font-black text-white">{formatCurrency(consultaTotal)}</span>
-                  </div>
-                  <div className="divide-y divide-white/5 px-5 py-2">
-                    {consultaPedidos.map((o) => (
-                      <div key={o.id} className="py-2">
-                        <p className="mb-1 text-[11px] font-bold uppercase tracking-widest text-slate-500">{o.id} • {o.createdAt} • <StatusChip status={o.status} /></p>
-                        {o.items.map((it, i) => (
-                          <div key={i} className="flex justify-between py-0.5 text-sm">
-                            <span className="text-slate-300"><span className="font-black text-white">{it.quantity}x</span> {it.name}</span>
-                            <span className="font-bold text-white">{formatCurrency(it.price * it.quantity)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    ))}
-                  </div>
-                  <div className="border-t border-white/10 bg-slate-950/60 px-5 py-4 space-y-2">
-                    <div className="flex justify-between text-sm text-slate-400"><span>Subtotal</span><span className="font-bold text-white">{formatCurrency(consultaSubtotal)}</span></div>
-                    <div className="flex justify-between text-sm text-slate-400"><span>Taxa de serviço (10%)</span><span className="font-bold text-white">{formatCurrency(consultaTaxa)}</span></div>
-                    <div className="h-px bg-white/10" />
-                    <div className="flex justify-between text-lg font-black text-white"><span>Total</span><span className="text-emerald-400">{formatCurrency(consultaTotal)}</span></div>
-                    {!consultaPodePagar && (
-                      <div className="rounded-2xl border border-amber-400/30 bg-amber-500/10 p-3 text-xs font-semibold text-amber-200">
-                        ⚠ {consultaPendentes.length} pedido(s) ainda em preparo. A baixa só é liberada após todos finalizados.
-                      </div>
-                    )}
-                    <button onClick={() => setConsultaPagamento(true)} disabled={!consultaPodePagar}
-                      className="mt-1 w-full rounded-2xl bg-[#16A34A] py-4 text-sm font-black text-white hover:bg-[#22C55E] transition active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed">
-                      💰 Dar baixa / Finalizar pagamento
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="rounded-3xl border border-emerald-400/30 bg-emerald-500/5 p-6 text-center">
-                  <p className="text-4xl">✅</p>
-                  <p className="mt-2 font-mono text-base font-black text-emerald-300">{consultaCodigo}</p>
-                  <p className="mt-1 font-black text-emerald-200">Comanda livre — sem compras em aberto</p>
-                  <p className="mt-1 text-xs text-slate-400">
-                    {consultaJaUsada
-                      ? "Os pedidos anteriores já foram pagos e baixados. A comanda está disponível para reutilização."
-                      : "Nenhum pedido foi registrado nesta comanda. Disponível para uso."}
-                  </p>
-                </div>
-              )
-            )}
+// ════════════════════════════════════════════════════════════
+//  Coluna 2 — Conta selecionada: cabeçalho de contexto + pedidos/itens
+// ════════════════════════════════════════════════════════════
+function PosAccountColumn({ className, temConta, contaVazia, comandaJaUsada, comandasLidas, porComanda, mesas, pedidos, pendentesPreparo, splitMode, selDe, toggleItem, setDividirItem, chavesPagas, onRemoverComanda, onLimparConta, onImprimirConferencia, onVoltarBusca, onIrPagamento, conflitoAtualizacao, onReconferir }) {
+  if (!temConta) {
+    return (
+      <section className={`${className} w-full flex-col items-center justify-center overflow-y-auto p-8 lg:flex-1`}>
+        <div className="mx-auto max-w-xs text-center">
+          <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#F1F5F9] text-[#98A2B3]"><IconRecibo width={24} height={24} /></span>
+          <p className="mt-4 text-base font-black text-[#182230]">Nenhuma conta selecionada</p>
+          <p className="mt-1 text-sm text-[#667085]">Consulte uma mesa ou comanda para ver os pedidos e finalizar o pagamento.</p>
+        </div>
+      </section>
+    );
+  }
+  if (contaVazia) {
+    const jaUsada = comandasLidas.some((c) => comandaJaUsada(c));
+    return (
+      <section className={`${className} w-full flex-col overflow-y-auto p-6 lg:flex-1`}>
+        <button onClick={onVoltarBusca} className="mb-4 flex items-center gap-1.5 text-xs font-bold text-[#667085] hover:text-[#182230] lg:hidden">← Nova busca</button>
+        <div className="mx-auto max-w-sm rounded-3xl border border-[#B7E4C7] bg-[#EAFBF2] p-6 text-center">
+          <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[#16A34A] text-white"><IconCheck width={22} height={22} /></span>
+          <p className="mt-3 font-mono text-sm font-black text-[#147A4A]">{comandasLidas.join(", ")}</p>
+          <p className="mt-1 text-sm font-black text-[#147A4A]">{jaUsada ? "Conta livre — sem valores em aberto" : "Comanda disponível"}</p>
+          <p className="mt-1 text-xs text-[#475467]">{jaUsada ? "Os pedidos já foram pagos e baixados. A comanda está disponível para reutilização." : "Nenhum pedido foi registrado ainda nesta comanda."}</p>
+          <button onClick={onLimparConta} className="mt-4 rounded-2xl border border-[#B7E4C7] bg-white px-4 py-2 text-xs font-black text-[#147A4A] hover:bg-[#F0FDF4]">Nova consulta</button>
+        </div>
+      </section>
+    );
+  }
+
+  const abertura = pedidos.reduce((min, o) => (!min || (o.createdAtISO || "") < min) ? (o.createdAtISO || min) : min, null);
+
+  return (
+    <section className={`${className} w-full flex-col overflow-hidden lg:flex-1 lg:border-r lg:border-[#E5E7EB]`}>
+      {/* Cabeçalho de contexto — sempre visível durante o pagamento */}
+      <div className="shrink-0 border-b border-[#E5E7EB] bg-white px-4 py-3 sm:px-6">
+        <button onClick={onVoltarBusca} className="mb-2 flex items-center gap-1.5 text-xs font-bold text-[#667085] hover:text-[#182230] lg:hidden">← Nova busca</button>
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-lg font-black text-[#182230]">{mesas.join(", ") || comandasLidas.join(", ")}</p>
+            <p className="text-xs text-[#667085]">{comandasLidas.length} comanda(s) · {pedidos.length} pedido(s){abertura ? ` · aberta às ${new Date(abertura).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}` : ""}</p>
+          </div>
+          <div className="flex shrink-0 items-center gap-1.5">
+            <button onClick={onImprimirConferencia} title="Imprimir conferência" aria-label="Imprimir conferência"
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#E5E7EB] bg-white text-[#475467] transition hover:bg-[#F8FAFC]"><IconImpressora width={16} height={16} /></button>
+            <button onClick={onLimparConta} title="Limpar conta selecionada" aria-label="Limpar conta selecionada"
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#E5E7EB] bg-white text-[#98A2B3] transition hover:bg-[#FFF1F2] hover:text-[#DC2626]"><IconFechar width={15} height={15} /></button>
           </div>
         </div>
-      )}
+        {pendentesPreparo.length > 0 && (
+          <div className="mt-2 flex items-center gap-2 rounded-xl border border-[#FDE1B0] bg-[#FFF4E5] px-3 py-2 text-xs font-bold text-[#B45309]">
+            <IconAlerta width={14} height={14} className="shrink-0" /> {pendentesPreparo.length} pedido(s) ainda em preparo — pagamento liberado após finalizados/entregues.
+          </div>
+        )}
+        {conflitoAtualizacao && (
+          <div role="alert" className="mt-2 flex items-center justify-between gap-2 rounded-xl border border-[#FDA4AF] bg-[#FFF1F2] px-3 py-2 text-xs font-bold text-[#B42318]">
+            <span className="flex items-center gap-2"><IconAlerta width={14} height={14} className="shrink-0" /> A conta foi atualizada durante o pagamento.</span>
+            <button onClick={onReconferir} className="shrink-0 rounded-lg border border-[#FDA4AF] bg-white px-2 py-1 font-black hover:bg-[#FFF1F2]">Revisei, continuar</button>
+          </div>
+        )}
+      </div>
 
-      {/* Scanner da consulta */}
-      {consultaScanner && (
-        <QRScannerModal
-          onSucesso={(codigo) => lerComandaConsulta(codigo)}
-          onCancelar={() => setConsultaScanner(false)}
-          prefixoLoja={lojaInfo?.prefixo || "CMD"}
-        />
-      )}
+      {/* Lista de pedidos/itens */}
+      <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6">
+        {porComanda.filter((b) => b.pedidos.length > 0).map(({ comanda, pedidos: peds, subtotal: sub }) => (
+          <div key={comanda} className="mb-4 overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white shadow-[0_4px_16px_rgba(16,24,40,.04)]">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E5E7EB] bg-[#F8FAFC] px-4 py-2.5">
+              <div className="flex items-center gap-2">
+                <span className="rounded-lg border border-[#BFDBFE] bg-[#EFF6FF] px-2 py-0.5 font-mono text-xs font-black text-[#1D4ED8]">{comanda}</span>
+                {comandasLidas.length > 1 && (
+                  <button onClick={() => onRemoverComanda(comanda)} aria-label={`Remover comanda ${comanda} da conta`} className="rounded-md px-1.5 py-0.5 text-[11px] font-bold text-[#98A2B3] hover:bg-[#FFF1F2] hover:text-[#DC2626]">remover</button>
+                )}
+              </div>
+              <span className="text-sm font-black text-[#182230]">{formatCurrency(sub)}</span>
+            </div>
+            <div className="divide-y divide-[#F1F5F9]">
+              {peds.map((o) => (
+                <div key={o.id} className="px-4 py-2.5">
+                  <p className="mb-1 flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-[#98A2B3]">
+                    {o.id} · {o.createdAt} <StatusChip status={o.status} />
+                  </p>
+                  {o.items.map((it, i) => {
+                    const pago = chavesPagas.has(`${o.id}::${i}`);
+                    const s = selDe(o.id, i);
+                    const incluido = !pago && (splitMode === "item" ? s.incluir : true);
+                    const valor = (it.price * it.quantity) / (s.dividir || 1);
+                    const detalhes = [it.removedIngredients?.length ? `Sem: ${it.removedIngredients.join(", ")}` : null, it.extraIngredients?.length ? `Com: ${it.extraIngredients.join(", ")}` : null, it.observation || null].filter(Boolean).join(" · ");
+                    return (
+                      <div key={i} className={`flex items-center gap-2 rounded-xl px-2 py-1.5 text-sm ${pago ? "bg-[#EAFBF2]" : splitMode === "item" ? (incluido ? "bg-[#EFF6FF]" : "opacity-50") : ""}`}>
+                        {splitMode === "item" && !pago && (
+                          <input type="checkbox" checked={incluido} onChange={() => toggleItem(o.id, i)} aria-label={`Incluir ${it.name} na cobrança`} className="h-4 w-4 shrink-0 accent-[var(--color-primary)]" />
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p className={`truncate ${pago ? "text-[#147A4A]/70 line-through" : "text-[#475467]"}`}><span className={`font-black ${pago ? "" : "text-[#182230]"}`}>{it.quantity}x</span> {it.name}</p>
+                          {detalhes && <p className="truncate text-[11px] text-[#98A2B3]">{detalhes}</p>}
+                        </div>
+                        {pago && <span className="shrink-0 rounded-md bg-[#B7E4C7] px-1.5 py-0.5 text-[10px] font-black uppercase text-[#147A4A]">Pago</span>}
+                        {splitMode === "item" && incluido && (
+                          <div className="flex shrink-0 items-center gap-1 rounded-lg border border-[#E5E7EB] bg-white px-1.5 py-0.5" role="group" aria-label={`Dividir ${it.name} entre pessoas`}>
+                            <span className="text-xs text-[#98A2B3]">÷</span>
+                            <button onClick={() => setDividirItem(o.id, i, (s.dividir || 1) - 1)} aria-label="Diminuir divisão" className="flex h-6 w-6 items-center justify-center rounded bg-[#F8FAFC] text-xs font-black text-[#182230]">−</button>
+                            <span className="w-4 text-center text-xs font-black text-[#182230]">{s.dividir || 1}</span>
+                            <button onClick={() => setDividirItem(o.id, i, (s.dividir || 1) + 1)} aria-label="Aumentar divisão" className="flex h-6 w-6 items-center justify-center rounded bg-[var(--color-primary)] text-xs font-black text-white">+</button>
+                          </div>
+                        )}
+                        <span className={`shrink-0 font-bold ${pago ? "text-[#147A4A]/70 line-through" : "text-[#182230]"}`}>{formatCurrency(valor)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
 
-      {/* Pagamento da consulta */}
-      {consultaPagamento && (
-        <PagamentoModal
-          total={consultaTotal} formasPagamento={formasPagamento.filter((f) => f.active !== false)}
-          onConfirmar={confirmarPagamentoConsulta}
-          onCancelar={() => setConsultaPagamento(false)}
-        />
-      )}
+      {/* Continuar para pagamento (desktop; mobile usa o rodapé sticky) */}
+      <div className="hidden shrink-0 border-t border-[#E5E7EB] bg-white px-6 py-3 lg:hidden">
+        <button onClick={onIrPagamento} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-[var(--color-primary)] text-sm font-black text-white transition hover:bg-[var(--color-primary-dark)]">Ir para pagamento</button>
+      </div>
+    </section>
+  );
+}
 
-      {/* Comprovante da baixa pela consulta */}
-      {consultaComprovante && <ComprovanteModal dados={consultaComprovante} onFechar={() => setConsultaComprovante(null)} />}
+const POS_ICONE_FORMA = { dinheiro: IconDinheiro, pix: IconPix, cartao_credito: IconPagamento, cartao_debito: IconPagamento, outro: IconCarteira };
+const POS_SPLIT_MODES = [
+  { id: "integral", label: "Conta inteira" },
+  { id: "pessoas", label: "Por pessoas" },
+  { id: "valor", label: "Por valor" },
+  { id: "item", label: "Por item" },
+];
 
-      {/* Scanner do caixa */}
-      {scannerAberto && (
-        <QRScannerModal
-          onSucesso={(codigo) => adicionarComanda(codigo)}
-          onCancelar={() => setScannerAberto(false)}
-          prefixoLoja={lojaInfo?.prefixo || "CMD"}
-          lojaNome={lojaInfo?.nome || ""}
-        />
-      )}
+// ════════════════════════════════════════════════════════════
+//  Coluna 3 — Pagamento: resumo financeiro, divisão, formas
+//  combinadas, troco e finalização.
+// ════════════════════════════════════════════════════════════
+function PosPaymentColumn({
+  className, temConta, podePagar, pendentesPreparo,
+  subtotal, taxa, total, totalGeral, jaPago, restanteGeral,
+  taxaIncluida, setTaxaIncluida, taxaFixa, taxaBloqueadaOff, taxaManualValor, setTaxaManualValor, SERVICE_FEE_CONFIG,
+  splitMode, setSplitMode,
+  pessoas, setPessoas, porPessoa, pessoasRestantes, valorPagoAgora, totalPagoSelecaoPessoas, restanteSelecaoPessoas,
+  valorParcialTexto, setValorParcialTexto, valorParcialValido,
+  pagamentosFeitos, logFinanceiro, onCancelarPagamento,
+  formasPagamento, linhasPagamento, onAddLinha, onSetValorLinha, onRemoverLinha,
+  pagoLinhas, restanteLinhas, troco, excedeNaoDinheiro, temDinheiro,
+  podeConfirmarPagamento, onFinalizarClick, onImprimirConferencia, aPagarMaiorQueRestante,
+  conflitoAtualizacao, onReconferir, onVoltarConta,
+}) {
+  if (!temConta) {
+    return (
+      <aside className={`${className} w-full flex-col items-center justify-center overflow-y-auto border-[#E5E7EB] bg-white p-8 lg:w-[380px] lg:shrink-0 lg:border-l`}>
+        <p className="text-center text-sm text-[#98A2B3]">O resumo de pagamento aparece aqui após localizar uma conta.</p>
+      </aside>
+    );
+  }
 
-      {/* Modal de pagamento */}
-      {pagamentoAberto && (
-        <PagamentoModal
-          total={valorPagoAgora} formasPagamento={formasPagamento.filter((f) => f.active !== false)}
-          onConfirmar={confirmarPagamento}
-          onCancelar={() => setPagamentoAberto(false)}
-        />
-      )}
+  return (
+    <aside className={`${className} w-full flex-col overflow-hidden border-[#E5E7EB] bg-white lg:w-[380px] lg:shrink-0 lg:border-l`}>
+      <button onClick={onVoltarConta} className="mt-3 flex items-center gap-1.5 px-4 text-xs font-bold text-[#667085] hover:text-[#182230] lg:hidden">← Ver conta</button>
+      <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-5">
+        {/* Resumo financeiro */}
+        <div className="rounded-2xl border border-[#E5E7EB] bg-[#F8FAFC] p-4">
+          <p className="mb-2 text-[11px] font-bold uppercase tracking-widest text-[#98A2B3]">Resumo financeiro</p>
+          <div className="space-y-1.5 text-sm">
+            <div className="flex justify-between text-[#475467]"><span>Subtotal</span><strong className="text-[#182230]">{formatCurrency(subtotal)}</strong></div>
+            {!taxaBloqueadaOff ? (
+              <label className={`flex items-center justify-between gap-2 ${taxaFixa ? "" : "cursor-pointer"}`}>
+                <span className="text-[#475467]">Taxa de serviço ({SERVICE_FEE_CONFIG.percent}%)</span>
+                <input type="checkbox" checked={taxaIncluida} disabled={taxaFixa} onChange={(e) => !taxaFixa && setTaxaIncluida(e.target.checked)} className="h-4 w-4 accent-[var(--color-primary)] disabled:opacity-70" />
+              </label>
+            ) : (
+              <div className="flex justify-between text-[#98A2B3]"><span>Taxa de serviço</span><span>não cobrada</span></div>
+            )}
+            {SERVICE_FEE_CONFIG.partialStrategy === "manual" && splitMode === "item" && taxaIncluida && (
+              <label className="block pt-1"><span className="mb-1 block text-[11px] font-bold text-[#667085]">Valor manual da taxa</span>
+                <input type="number" min="0" step="0.01" value={taxaManualValor} onChange={(e) => setTaxaManualValor(Math.max(0, Number(e.target.value) || 0))}
+                  className="w-full rounded-xl border border-[#E5E7EB] bg-white px-3 py-1.5 text-sm text-[#182230] outline-none focus:border-[var(--color-primary)]" /></label>
+            )}
+            <div className="flex justify-between text-[#475467]"><span>Taxa aplicada</span><strong className="text-[#182230]">{formatCurrency(taxa)}</strong></div>
+            <div className="h-px bg-[#E5E7EB]" />
+            <div className="flex justify-between"><span className="font-bold text-[#475467]">Total da conta</span><strong className="text-[#182230]">{formatCurrency(totalGeral)}</strong></div>
+            {jaPago > 0 && <div className="flex justify-between text-[#16A34A]"><span>Já pago</span><strong>− {formatCurrency(jaPago)}</strong></div>}
+            <div className="flex items-center justify-between rounded-xl bg-white px-2.5 py-2">
+              <span className="text-sm font-black text-[#182230]">{restanteGeral <= 0.001 ? "Quitado" : "Saldo restante"}</span>
+              <span className={`text-xl font-black ${restanteGeral <= 0.001 ? "text-[#147A4A]" : "text-[#182230]"}`}>{formatCurrency(restanteGeral)}</span>
+            </div>
+          </div>
+        </div>
 
-      {/* Modal do cupom */}
-      {cupomAberto && (
-        <CupomModal
-          blocos={porComanda.filter((b) => b.pedidos.length > 0)}
-          mesas={mesas} comandas={comandasLidas}
-          subtotal={subtotal} taxa={taxa} total={total} pessoas={pessoas} porPessoa={porPessoa}
-          imprimir={imprimirCupom}
-          onFechar={() => setCupomAberto(false)}
-        />
-      )}
+        {pendentesPreparo > 0 && (
+          <div className="mt-3 flex items-center gap-2 rounded-xl border border-[#FDE1B0] bg-[#FFF4E5] px-3 py-2.5 text-xs font-bold text-[#B45309]">
+            <IconAlerta width={14} height={14} className="shrink-0" /> {pendentesPreparo} pedido(s) em preparo — aguarde para pagar.
+          </div>
+        )}
 
-      {/* Comprovante fiscal pós-pagamento (com formas de pagamento) */}
-      {comprovante && <ComprovanteModal dados={comprovante} onFechar={() => setComprovante(null)} />}
+        {/* Histórico de pagamentos desta conta */}
+        {pagamentosFeitos.length > 0 && (
+          <div className="mt-3 rounded-2xl border border-[#B7E4C7] bg-[#EAFBF2] p-3.5">
+            <p className="mb-2 text-[11px] font-bold uppercase tracking-widest text-[#147A4A]">Pagamentos registrados ({pagamentosFeitos.length})</p>
+            <div className="space-y-1.5">
+              {pagamentosFeitos.map((p, i) => (
+                <div key={p.id ?? i} className="rounded-xl border border-[#E5E7EB] bg-white px-3 py-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs text-[#667085]">{p.hora} · {p.detalhes.map((d) => d.forma).join(", ")}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-black text-[#147A4A]">{formatCurrency(p.valor)}</span>
+                      <button onClick={() => onCancelarPagamento(p.id)} className="rounded-md px-1 py-0.5 text-[10px] font-black text-[#98A2B3] hover:bg-[#FFF1F2] hover:text-[#DC2626]">cancelar</button>
+                    </div>
+                  </div>
+                  {p.troco > 0 && <p className="mt-0.5 text-[11px] text-[#667085]">troco {formatCurrency(p.troco)}</p>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {logFinanceiro.length > 0 && (
+          <details className="mt-3 rounded-2xl border border-[#E5E7EB] bg-white p-3">
+            <summary className="cursor-pointer text-[11px] font-bold uppercase tracking-widest text-[#98A2B3]">Log financeiro da sessão</summary>
+            <div className="mt-2 space-y-1">
+              {logFinanceiro.map((l, i) => (
+                <div key={i} className="flex justify-between gap-2 text-xs">
+                  <span className={l.tipo === "pago" ? "text-[#147A4A]" : "text-[#DC2626]"}>{l.tipo === "pago" ? "Parcela paga" : "Parcela reaberta"} · {l.hora}</span>
+                  <span className={`font-bold ${l.tipo === "pago" ? "text-[#147A4A]" : "text-[#DC2626]"}`}>{formatCurrency(l.valor)}</span>
+                </div>
+              ))}
+            </div>
+          </details>
+        )}
 
-      {/* Reimpressão de cupons do dia */}
-      {reimpressaoAberta && (
-        <ReimpressaoCupons cupons={cuponsDoDia} lojaInfo={lojaInfo}
-          onSelecionar={(o) => setCupomReimpressao(o)}
-          onFechar={() => setReimpressaoAberta(false)} />
-      )}
-      {cupomReimpressao && (
-        <CupomNaoFiscalModal pedido={cupomReimpressao} lojaInfo={lojaInfo} onFechar={() => setCupomReimpressao(null)} />
-      )}
+        {restanteGeral > 0.001 && (
+          <>
+            {/* Divisão do pagamento */}
+            <div className="mt-3 rounded-2xl border border-[#E5E7EB] bg-white p-3.5">
+              <fieldset>
+                <legend className="mb-2 text-[11px] font-bold uppercase tracking-widest text-[#98A2B3]">Dividir pagamento</legend>
+                <div role="radiogroup" aria-label="Modo de divisão" className="grid grid-cols-2 gap-1.5">
+                  {POS_SPLIT_MODES.map((m) => (
+                    <button key={m.id} type="button" role="radio" aria-checked={splitMode === m.id} onClick={() => setSplitMode(m.id)}
+                      className={`rounded-xl border px-2 py-2 text-xs font-black transition ${splitMode === m.id ? "border-[var(--color-primary)] bg-[#EFF6FF] text-[var(--color-primary)]" : "border-[#E5E7EB] bg-white text-[#475467] hover:bg-[#F8FAFC]"}`}>
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+
+              {splitMode === "pessoas" && (
+                <div className="mt-3 border-t border-[#E5E7EB] pt-3">
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1 rounded-xl border border-[#E5E7EB] bg-[#F8FAFC] p-1">
+                      <button onClick={() => setPessoas((p) => Math.max(2, p - 1))} aria-label="Diminuir número de pessoas" className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-base font-black text-[#182230] hover:bg-[#F1F5F9]">−</button>
+                      <span className="w-8 text-center text-base font-black text-[#182230]">{pessoas}</span>
+                      <button onClick={() => setPessoas((p) => p + 1)} aria-label="Aumentar número de pessoas" className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--color-primary)] text-base font-black text-white hover:bg-[var(--color-primary-dark)]">+</button>
+                    </div>
+                    <div className="flex-1 text-right">
+                      <p className="text-xs text-[#667085]">{pessoas} pessoas</p>
+                      <p className="text-lg font-black text-[#182230]">{formatCurrency(porPessoa)}<span className="text-xs font-normal text-[#667085]"> /cada</span></p>
+                    </div>
+                  </div>
+                  <div className="mt-2 space-y-1 border-t border-[#E5E7EB] pt-2 text-xs">
+                    <div className="flex justify-between text-[#475467]"><span>Pago</span><strong className="text-[#16A34A]">{formatCurrency(totalPagoSelecaoPessoas)}</strong></div>
+                    <div className="flex justify-between text-[#475467]"><span>Restante</span><strong className="text-[#9A6A00]">{formatCurrency(restanteSelecaoPessoas)}</strong></div>
+                    {pessoasRestantes > 0 && <p className="pt-0.5 font-bold text-[#182230]">Cobrar agora (1 pessoa): {formatCurrency(valorPagoAgora)}</p>}
+                  </div>
+                </div>
+              )}
+
+              {splitMode === "valor" && (
+                <div className="mt-3 border-t border-[#E5E7EB] pt-3">
+                  <label className="block"><span className="mb-1 block text-xs font-bold text-[#667085]">Valor a pagar agora</span>
+                    <div className="flex items-center gap-2 rounded-xl border border-[#E5E7EB] bg-[#F8FAFC] px-3 py-2 focus-within:border-[var(--color-primary)]">
+                      <span className="text-sm font-bold text-[#667085]">R$</span>
+                      <input inputMode="numeric" value={numeroParaMoeda(moedaParaNumero(valorParcialTexto))} onChange={(e) => setValorParcialTexto(e.target.value)} onFocus={(e) => e.target.select()}
+                        className="w-full bg-transparent text-right text-lg font-black text-[#182230] outline-none" /></div>
+                  </label>
+                  {valorParcialTexto && !valorParcialValido && <p className="mt-1.5 text-xs font-bold text-[#DC2626]">Informe um valor entre {formatCurrency(0.01)} e {formatCurrency(restanteGeral)}.</p>}
+                </div>
+              )}
+
+              {splitMode === "item" && (
+                <p className="mt-3 border-t border-[#E5E7EB] pt-3 text-xs text-[#667085]">Selecione os itens na conta (coluna ao lado) que serão pagos agora.</p>
+              )}
+
+              {aPagarMaiorQueRestante && (
+                <div className="mt-2 rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] p-2.5 text-xs font-bold text-[#1D4ED8]">Cobrar agora (seleção): {formatCurrency(total)}</div>
+              )}
+            </div>
+
+            {conflitoAtualizacao && (
+              <div role="alert" className="mt-3 flex items-center justify-between gap-2 rounded-xl border border-[#FDA4AF] bg-[#FFF1F2] px-3 py-2.5 text-xs font-bold text-[#B42318]">
+                <span className="flex items-center gap-2"><IconAlerta width={14} height={14} className="shrink-0" /> Valores alterados durante o pagamento.</span>
+                <button onClick={onReconferir} className="shrink-0 rounded-lg border border-[#FDA4AF] bg-white px-2 py-1 font-black hover:bg-[#FFF1F2]">Revisar</button>
+              </div>
+            )}
+
+            {/* Formas de pagamento */}
+            <div className="mt-3 rounded-2xl border border-[#E5E7EB] bg-white p-3.5">
+              <p className="mb-2 text-[11px] font-bold uppercase tracking-widest text-[#98A2B3]">Formas de pagamento</p>
+              {formasPagamento.length === 0 ? (
+                <p className="text-xs text-[#667085]">Nenhuma forma ativa. Cadastre em Administrativo → Formas de pagamento.</p>
+              ) : (
+                <div className="grid grid-cols-3 gap-1.5">
+                  {formasPagamento.map((f) => {
+                    const Icone = POS_ICONE_FORMA[f.tipo] || IconCarteira;
+                    return (
+                      <button key={f.id} type="button" onClick={() => onAddLinha(f)} disabled={total <= 0}
+                        className="flex min-h-11 flex-col items-center justify-center gap-1 rounded-xl border border-[#E5E7EB] bg-white px-1.5 py-2.5 text-[11px] font-black text-[#475467] transition hover:border-[var(--color-primary)] hover:bg-[#EFF6FF] hover:text-[var(--color-primary)] disabled:opacity-40">
+                        <Icone width={17} height={17} /> <span className="truncate">{f.nome}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {linhasPagamento.length > 0 && (
+                <div className="mt-3 space-y-2 border-t border-[#E5E7EB] pt-3">
+                  {linhasPagamento.map((l) => (
+                    <div key={l.uid} className="rounded-xl border border-[#E5E7EB] bg-[#F8FAFC] p-2.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-black text-[#182230]">{l.nome}{l.permiteTroco && <span className="ml-1.5 rounded-full bg-[#EAFBF2] px-1.5 py-0.5 text-[10px] font-bold text-[#147A4A]">troco</span>}</p>
+                        <button onClick={() => onRemoverLinha(l.uid)} aria-label={`Remover ${l.nome}`} className="rounded-md px-1.5 py-0.5 text-[11px] font-bold text-[#98A2B3] hover:bg-[#FFF1F2] hover:text-[#DC2626]">remover</button>
+                      </div>
+                      <div className="mt-1.5 flex items-center gap-2">
+                        <span className="text-sm font-bold text-[#667085]">R$</span>
+                        <input inputMode="numeric" value={numeroParaMoeda(l.valor)} onChange={(e) => onSetValorLinha(l.uid, e.target.value)} onFocus={(e) => e.target.select()}
+                          aria-label={`Valor recebido em ${l.nome}`}
+                          className="flex-1 rounded-lg border border-[#E5E7EB] bg-white px-2.5 py-1.5 text-right text-base font-black text-[#182230] outline-none focus:border-[var(--color-primary)]" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="mt-3 space-y-1 border-t border-[#E5E7EB] pt-3 text-sm">
+                <div className="flex justify-between text-[#667085]"><span>A pagar agora</span><strong className="text-[#182230]">{formatCurrency(total)}</strong></div>
+                <div className="flex justify-between text-[#667085]"><span>Recebido</span><strong className="text-[#16A34A]">{formatCurrency(pagoLinhas)}</strong></div>
+                {restanteLinhas > 0.001 && <div className="flex justify-between text-[#9A6A00]"><span>Falta</span><strong>{formatCurrency(restanteLinhas)}</strong></div>}
+                {troco > 0 && <div className="flex justify-between text-[var(--color-primary)]"><span>Troco</span><strong>{formatCurrency(troco)}</strong></div>}
+                {excedeNaoDinheiro && <p role="alert" className="text-xs font-bold text-[#DC2626]">Cartão/PIX não pode ultrapassar o total — use dinheiro para o troco.</p>}
+                {troco > 0 && !temDinheiro && <p role="alert" className="text-xs font-bold text-[#DC2626]">Troco só é permitido com pagamento em dinheiro.</p>}
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Ações fixas */}
+      <div className="shrink-0 space-y-2 border-t border-[#E5E7EB] bg-white px-4 py-3.5 sm:px-5">
+        <button onClick={onImprimirConferencia} disabled={!podePagar && pendentesPreparo === 0}
+          className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-[#E5E7EB] bg-white text-sm font-black text-[#475467] transition hover:bg-[#F8FAFC]">
+          <IconImpressora width={16} height={16} /> Imprimir conferência
+        </button>
+        <button onClick={onFinalizarClick} disabled={!podeConfirmarPagamento}
+          className={`flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl text-sm font-black transition active:scale-95 ${podeConfirmarPagamento ? "bg-[#16A34A] text-white hover:bg-[#15803D] shadow-lg shadow-[#16A34A]/20" : "bg-[#F3F4F6] text-[#98A2B3]"}`}>
+          <IconCheck width={16} height={16} /> Finalizar pagamento
+        </button>
+        <p className="text-center text-[10px] text-[#98A2B3]">F8 conferência · F10 finalizar</p>
+      </div>
+    </aside>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+//  Diálogo de confirmação — passo obrigatório antes da baixa financeira
+// ════════════════════════════════════════════════════════════
+function PosConfirmDialog({ mesas, comandas, total, troco, linhasPagamento, processando, onCancelar, onConfirmar }) {
+  return (
+    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => !processando && onCancelar()}>
+      <div onClick={(e) => e.stopPropagation()} role="alertdialog" aria-modal="true" aria-labelledby="pos-confirm-titulo"
+        className="w-full max-w-sm overflow-hidden rounded-3xl border border-[#E5E7EB] bg-white shadow-[0_20px_60px_rgba(16,24,40,.18)]">
+        <div className="border-b border-[#E5E7EB] px-6 py-4">
+          <h2 id="pos-confirm-titulo" className="text-lg font-black text-[#182230]">Confirmar pagamento?</h2>
+          <p className="mt-0.5 text-xs text-[#667085]">{mesas.join(", ") || comandas.join(", ")}</p>
+        </div>
+        <div className="space-y-2 px-6 py-4 text-sm">
+          {linhasPagamento.map((l) => (
+            <div key={l.uid} className="flex justify-between text-[#475467]"><span>{l.nome}</span><strong className="text-[#182230]">{formatCurrency(l.valor)}</strong></div>
+          ))}
+          <div className="h-px bg-[#E5E7EB]" />
+          <div className="flex justify-between text-base"><span className="font-black text-[#182230]">Total</span><strong className="text-[#182230]">{formatCurrency(total)}</strong></div>
+          {troco > 0 && <div className="flex justify-between text-[var(--color-primary)]"><span className="font-bold">Troco</span><strong>{formatCurrency(troco)}</strong></div>}
+        </div>
+        <div className="flex gap-2 border-t border-[#E5E7EB] px-6 py-4">
+          <button onClick={onCancelar} disabled={processando} type="button" className="min-h-11 flex-1 rounded-2xl border border-[#E5E7EB] bg-white text-sm font-black text-[#475467] transition hover:bg-[#F8FAFC] disabled:opacity-50">Voltar</button>
+          <button onClick={onConfirmar} disabled={processando} type="button"
+            className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-2xl bg-[#16A34A] text-sm font-black text-white transition hover:bg-[#15803D] disabled:opacity-70">
+            {processando && <IconSpinner />} {processando ? "Processando…" : "Confirmar"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
 
 // ════════════════════════════════════════════════════════════
-//  Caixa — Reimpressão de cupons pagos do dia
+//  Tela de sucesso — só aparece após a baixa confirmada no backend
+// ════════════════════════════════════════════════════════════
+function PosSuccessScreen({ dados, onFechar, onReimprimir, onNovaConsulta }) {
+  return (
+    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div role="status" aria-live="polite" className="w-full max-w-sm overflow-hidden rounded-3xl border border-[#E5E7EB] bg-white shadow-[0_20px_60px_rgba(16,24,40,.18)] max-h-[92vh] flex flex-col">
+        <div className="shrink-0 border-b border-[#E5E7EB] px-6 py-6 text-center">
+          <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#16A34A] text-white"><IconCheck width={26} height={26} /></span>
+          <h2 className="mt-3 text-xl font-black text-[#182230]">Pagamento concluído</h2>
+          <p className="text-sm text-[#667085]">{dados.mesa || dados.comandas.join(", ")}</p>
+        </div>
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-2 text-sm">
+          <div className="flex justify-between"><span className="text-[#667085]">Total pago</span><strong className="text-[#182230]">{formatCurrency(dados.total)}</strong></div>
+          {(dados.detalhes || []).map((d, i) => (
+            <div key={i} className="flex justify-between"><span className="text-[#667085]">{d.forma}</span><strong className="text-[#182230]">{formatCurrency(d.valor)}</strong></div>
+          ))}
+          {dados.troco > 0 && <div className="flex justify-between border-t border-[#E5E7EB] pt-2"><span className="font-black text-[var(--color-primary)]">Troco</span><strong className="text-[var(--color-primary)]">{formatCurrency(dados.troco)}</strong></div>}
+          <div className="flex justify-between border-t border-[#E5E7EB] pt-2 text-xs text-[#98A2B3]"><span>Código</span><span>{dados.codigo}</span></div>
+          <div className="flex justify-between text-xs text-[#98A2B3]"><span>Horário</span><span>{new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span></div>
+          {Array.isArray(dados.alertasEstoque) && dados.alertasEstoque.length > 0 && (
+            <div className="mt-1 rounded-2xl border border-[#FDE1B0] bg-[#FFF4E5] px-4 py-3">
+              <p className="flex items-center gap-1.5 text-xs font-black text-[#B45309]"><IconAlerta width={13} height={13} /> Alerta de estoque</p>
+              <ul className="mt-2 space-y-1">
+                {dados.alertasEstoque.map((a) => (
+                  <li key={a.nome} className="flex items-center justify-between gap-2 text-xs">
+                    <span className="min-w-0 truncate font-bold text-[#7A4A00]">{a.nome}</span>
+                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black ${a.zerado ? "bg-[#FFF1F2] text-[#DC2626]" : "bg-[#FFF4E5] text-[#B45309]"}`}>{a.zerado ? "Esgotado" : `Mínimo · ${a.estoque}/${a.minimo}`}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+        <div className="shrink-0 space-y-2 border-t border-[#E5E7EB] px-6 py-4">
+          <button onClick={onReimprimir} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-[var(--color-primary)] text-sm font-black text-white transition hover:bg-[var(--color-primary-dark)]"><IconImpressora width={16} height={16} /> Imprimir comprovante</button>
+          <div className="grid grid-cols-2 gap-2">
+            <button onClick={onNovaConsulta} className="min-h-11 rounded-2xl border border-[#E5E7EB] bg-white text-sm font-black text-[#475467] transition hover:bg-[#F8FAFC]">Nova consulta</button>
+            <button onClick={onFechar} className="min-h-11 rounded-2xl border border-[#E5E7EB] bg-white text-sm font-black text-[#475467] transition hover:bg-[#F8FAFC]">Voltar ao caixa</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+//  Prévia de conferência — visualizar + imprimir + compartilhar
+// ════════════════════════════════════════════════════════════
+function PosReceiptPreview({ blocos, mesas, comandas, subtotal, taxa, total, splitMode, pessoas, porPessoa, imprimir, onFechar }) {
+  const texto = (() => {
+    let t = "*CONFERÊNCIA — SEM VALOR FISCAL*\n";
+    t += `Mesa(s): ${mesas.join(", ") || "-"}\n`;
+    t += `Comanda(s): ${comandas.join(", ")}\n------------------------------\n`;
+    blocos.forEach((b) => { t += `Comanda ${b.comanda}:\n`; b.pedidos.forEach((o) => o.items.forEach((it) => { t += `  ${it.quantity}x ${it.name} - ${formatCurrency(it.price * it.quantity)}\n`; })); });
+    t += `------------------------------\nSubtotal: ${formatCurrency(subtotal)}\nTaxa: ${formatCurrency(taxa)}\n*TOTAL: ${formatCurrency(total)}*\n`;
+    if (splitMode === "pessoas" && pessoas > 1) t += `Dividido por ${pessoas}: ${formatCurrency(porPessoa)}/pessoa\n`;
+    return t;
+  })();
+  function enviarWhatsApp() {
+    const fone = prompt("Telefone do cliente (com DDD):");
+    if (!fone) return;
+    window.open(`https://wa.me/55${fone.replace(/\D/g, "")}?text=${encodeURIComponent(texto)}`, "_blank");
+  }
+
+  return (
+    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={onFechar}>
+      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-sm flex-col overflow-hidden rounded-3xl border border-[#E5E7EB] bg-white shadow-[0_20px_60px_rgba(16,24,40,.18)] max-h-[92vh]">
+        <div className="flex items-center justify-between border-b border-[#E5E7EB] px-5 py-4">
+          <h2 className="text-base font-black text-[#182230]">Conferência</h2>
+          <button onClick={onFechar} aria-label="Fechar" className="rounded-xl border border-[#E5E7EB] bg-white px-3 py-1.5 text-xs font-black text-[#475467] hover:bg-[#F8FAFC]">Fechar</button>
+        </div>
+        <div className="flex-1 overflow-y-auto bg-[#F8FAFC] px-5 py-4 text-[#182230]" style={{ fontFamily: "'Courier New', monospace", fontSize: 12 }}>
+          <p className="text-center font-black">CONFERÊNCIA — SEM VALOR FISCAL</p>
+          <div className="my-2 border-t border-dashed border-[#CBD5E1]" />
+          <p className="text-[11px]">Mesa(s): {mesas.join(", ") || "-"}</p>
+          <p className="text-[11px]">Comanda(s): {comandas.join(", ")}</p>
+          <div className="my-2 border-t border-dashed border-[#CBD5E1]" />
+          {blocos.map((b) => (
+            <div key={b.comanda} className="mb-2">
+              <p className="font-black text-[11px]">COMANDA {b.comanda}</p>
+              {b.pedidos.map((o) => o.items.map((it, i) => (
+                <div key={o.id + i} className="flex justify-between text-[11px]"><span>{it.quantity}x {it.name}</span><span>{formatCurrency(it.price * it.quantity)}</span></div>
+              )))}
+            </div>
+          ))}
+          <div className="my-2 border-t border-dashed border-[#CBD5E1]" />
+          <div className="flex justify-between text-[11px]"><span>Subtotal</span><span>{formatCurrency(subtotal)}</span></div>
+          <div className="flex justify-between text-[11px]"><span>Taxa</span><span>{formatCurrency(taxa)}</span></div>
+          <div className="mt-1 flex justify-between font-black text-[13px]"><span>TOTAL</span><span>{formatCurrency(total)}</span></div>
+          {splitMode === "pessoas" && pessoas > 1 && <div className="flex justify-between text-[10px]"><span>Por pessoa ({pessoas})</span><span>{formatCurrency(porPessoa)}</span></div>}
+        </div>
+        <div className="shrink-0 space-y-2 border-t border-[#E5E7EB] px-5 py-4">
+          <button onClick={imprimir} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-[var(--color-primary)] text-sm font-black text-white hover:bg-[var(--color-primary-dark)]"><IconImpressora width={16} height={16} /> Imprimir</button>
+          <button onClick={enviarWhatsApp} className="min-h-11 w-full rounded-2xl border border-[#B7E4C7] bg-[#EAFBF2] text-sm font-black text-[#147A4A] hover:bg-[#DCFCE7]">Enviar por WhatsApp</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+//  Reimpressão de cupons pagos do dia
 // ════════════════════════════════════════════════════════════
 function ReimpressaoCupons({ cupons, lojaInfo, onSelecionar, onFechar }) {
   const [busca, setBusca] = useState("");
   const hoje = new Date().toLocaleDateString("pt-BR");
   const termo = busca.trim().toLowerCase();
-  const lista = termo
-    ? cupons.filter((o) => `${o.id} ${o.command} ${o.table} ${o.customer || ""}`.toLowerCase().includes(termo))
-    : cupons;
+  const lista = termo ? cupons.filter((o) => `${o.id} ${o.command} ${o.table} ${o.customer || ""}`.toLowerCase().includes(termo)) : cupons;
   const totalDia = cupons.reduce((s, o) => s + orderTotal(o) * 1.1, 0);
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={onFechar}>
-      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-lg flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl max-h-[88vh]">
-        <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={onFechar}>
+      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-[#E5E7EB] bg-white shadow-[0_20px_60px_rgba(16,24,40,.18)] max-h-[88vh]">
+        <div className="flex items-center justify-between border-b border-[#E5E7EB] px-6 py-4">
           <div>
-            <h2 className="text-lg font-black text-white">🧾 Reimpressão de cupons — {hoje}</h2>
-            <p className="text-xs text-slate-400">{cupons.length} cupom(ns) pago(s) hoje{lojaInfo ? ` • ${lojaInfo.nome}` : ""} • Total {formatCurrency(totalDia)}</p>
+            <h2 className="text-base font-black text-[#182230]">Reimpressão de comprovantes — {hoje}</h2>
+            <p className="text-xs text-[#667085]">{cupons.length} comprovante(s) pago(s) hoje{lojaInfo ? ` · ${lojaInfo.nome}` : ""} · Total {formatCurrency(totalDia)}</p>
           </div>
-          <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20">✕</button>
+          <button onClick={onFechar} aria-label="Fechar" className="shrink-0 rounded-xl border border-[#E5E7EB] bg-white px-3 py-1.5 text-xs font-black text-[#475467] hover:bg-[#F8FAFC]">Fechar</button>
         </div>
-        <div className="border-b border-white/10 px-6 py-3">
-          <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="🔍 Buscar por cupom, comanda, mesa ou cliente…"
-            className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none focus:border-gold-400/60 placeholder:text-slate-600" />
+        <div className="border-b border-[#E5E7EB] px-6 py-3">
+          <label htmlFor="pos-reimpressao-busca" className="sr-only">Buscar por cupom, comanda, mesa ou cliente</label>
+          <div className="flex items-center gap-2 rounded-2xl border border-[#E5E7EB] bg-[#F8FAFC] px-3 py-2 focus-within:border-[var(--color-primary)]">
+            <IconBusca />
+            <input id="pos-reimpressao-busca" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por cupom, comanda, mesa ou cliente…"
+              className="w-full bg-transparent text-sm text-[#182230] outline-none placeholder:text-[#98A2B3]" />
+          </div>
         </div>
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-2">
-          {cupons.length === 0 && <p className="py-10 text-center text-sm text-slate-500">Nenhum cupom pago hoje. Finalize uma venda para reimprimir aqui.</p>}
-          {cupons.length > 0 && lista.length === 0 && <p className="py-8 text-center text-sm text-slate-500">Nenhum cupom encontrado para “{busca}”.</p>}
+          {cupons.length === 0 && <p className="py-10 text-center text-sm text-[#98A2B3]">Nenhum comprovante pago hoje. Finalize uma venda para reimprimir aqui.</p>}
+          {cupons.length > 0 && lista.length === 0 && <p className="py-8 text-center text-sm text-[#98A2B3]">Nenhum resultado para “{busca}”.</p>}
           {lista.map((o) => (
             <button key={o.id} onClick={() => onSelecionar(o)}
-              className="flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-slate-800/50 px-4 py-3 text-left transition hover:border-blue-400/40 hover:bg-blue-500/10">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-blue-500/15 text-lg">🧾</span>
+              className="flex w-full items-center gap-3 rounded-2xl border border-[#E5E7EB] bg-white px-4 py-3 text-left transition hover:border-[var(--color-primary)] hover:bg-[#EFF6FF]">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#EFF6FF] text-[var(--color-primary)]"><IconRecibo width={17} height={17} /></span>
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-bold uppercase tracking-widest text-slate-500">{o.id} • {o.table} • {o.command}</p>
-                <p className="text-sm text-white truncate">👤 {o.customer || "-"} • {o.createdAtISO ? new Date(o.createdAtISO).toLocaleTimeString("pt-BR") : o.createdAt}</p>
+                <p className="text-xs font-bold uppercase tracking-widest text-[#98A2B3]">{o.id} · {o.table} · {o.command}</p>
+                <p className="truncate text-sm text-[#182230]">{o.customer || "-"} · {o.createdAtISO ? new Date(o.createdAtISO).toLocaleTimeString("pt-BR") : o.createdAt}</p>
               </div>
               <div className="shrink-0 text-right">
-                <p className="text-sm font-black text-emerald-300">{formatCurrency(orderTotal(o) * 1.1)}</p>
-                <p className="text-[11px] font-bold text-blue-300">Reimprimir ▸</p>
+                <p className="text-sm font-black text-[#147A4A]">{formatCurrency(orderTotal(o) * 1.1)}</p>
+                <p className="text-[11px] font-bold text-[var(--color-primary)]">Reimprimir ›</p>
               </div>
             </button>
           ))}
@@ -5348,284 +5733,6 @@ function moedaParaNumero(str) {
 }
 function numeroParaMoeda(num) {
   return Number(num || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
-// ════════════════════════════════════════════════════════════
-//  Modal de pagamento — múltiplas formas, máscara BRL, troco só dinheiro
-// ════════════════════════════════════════════════════════════
-function PagamentoModal({ total, formasPagamento, onConfirmar, onCancelar }) {
-  useScrollLock(); // trava a rolagem do fundo enquanto o modal está aberto
-  const [linhas, setLinhas] = useState([]); // mais recentes no topo (ordem decrescente)
-
-  // Soma atual já preenchida
-  const pagoAtual = linhas.reduce((s, l) => s + l.valor, 0);
-
-  function addLinha(forma) {
-    // Pré-preenche com o valor restante a pagar (facilita a finalização)
-    const restanteAgora = Math.max(0, total - pagoAtual);
-    const nova = { uid: Date.now() + Math.random(), formaId: forma.id, nome: forma.nome, tipo: forma.tipo, permiteTroco: forma.permiteTroco, valor: restanteAgora };
-    setLinhas((cur) => [nova, ...cur]); // adiciona no TOPO (ordem decrescente)
-  }
-  function setValor(uid, str) {
-    const v = moedaParaNumero(str); // máscara: lê dígitos como centavos
-    setLinhas((cur) => cur.map((l) => l.uid === uid ? { ...l, valor: v } : l));
-  }
-  function removerLinha(uid) {
-    setLinhas((cur) => cur.filter((l) => l.uid !== uid));
-  }
-
-  const pago = linhas.reduce((s, l) => s + l.valor, 0);
-  const pagoNaoDinheiro = linhas.filter((l) => !l.permiteTroco).reduce((s, l) => s + l.valor, 0);
-  const temDinheiro = linhas.some((l) => l.permiteTroco);
-  const restante = Math.max(0, total - pago);
-  const trocoBruto = pago - total;
-  const troco = trocoBruto > 0.001 ? trocoBruto : 0; // troco 0,00 = sem troco
-  const excedeNaoDinheiro = pagoNaoDinheiro > total + 0.001;
-  // Só confirma se cobre o total, cartão/PIX não excede, e troco (>0) só com dinheiro
-  const podeConfirmar = pago >= total - 0.001 && !excedeNaoDinheiro && (troco === 0 || temDinheiro) && linhas.length > 0;
-
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[rgba(15,23,42,0.5)] backdrop-blur-sm p-4" onClick={onCancelar}>
-      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-[480px] flex-col overflow-hidden rounded-[24px] border border-[#E5E7EB] bg-white shadow-[0_20px_60px_rgba(16,24,40,0.16)] max-h-[92vh]" style={{ width: "calc(100% - 24px)" }}>
-        <div className="flex items-center justify-between border-b border-[#E5E7EB] px-6 py-4">
-          <div>
-            <h2 className="text-lg font-black text-[#182230]">💰 Pagamento</h2>
-            <p className="mt-0.5 text-xs text-[#667085]">Total a pagar: <span className="font-black text-[#182230]">{formatCurrency(total)}</span></p>
-          </div>
-          <button onClick={onCancelar} className="shrink-0 rounded-full border border-[#E5E7EB] bg-[#F8FAFC] px-4 py-2 text-sm font-black text-[#475467] hover:bg-[#F1F5F9] transition duration-200">✕</button>
-        </div>
-
-        {/* Formas disponíveis */}
-        <div className="border-b border-[#E5E7EB] px-6 py-3">
-          <p className="mb-2 text-xs font-bold uppercase tracking-widest text-[#667085]">Adicionar forma de pagamento</p>
-          <div className="flex flex-wrap gap-2">
-            {formasPagamento.length === 0 && <p className="text-xs text-[#667085]">Nenhuma forma ativa. Cadastre no Administrativo → Formas de pagamento.</p>}
-            {formasPagamento.map((f) => (
-              <button key={f.id} onClick={() => addLinha(f)}
-                className="rounded-full border border-[#BFDBFE] bg-white px-3 py-1.5 text-sm font-bold text-[#2563EB] hover:bg-[#EFF6FF] transition duration-200">
-                + {f.nome}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Linhas de pagamento (ordem decrescente — mais recente no topo) */}
-        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
-          {linhas.length === 0 ? (
-            <div className="flex h-28 flex-col items-center justify-center gap-2 opacity-70">
-              <span className="text-3xl">💳</span>
-              <p className="text-sm text-[#98A2B3]">Selecione uma forma de pagamento para continuar</p>
-            </div>
-          ) : linhas.map((l) => (
-            <div key={l.uid} className="rounded-2xl border border-[#E5E7EB] bg-white p-3 shadow-sm">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-black text-[#182230]">{l.nome}{l.permiteTroco && <span className="ml-2 rounded-full bg-[#EAFBF2] px-2 py-0.5 text-xs font-bold text-[#147A4A]">troco</span>}</p>
-                <button onClick={() => removerLinha(l.uid)} className="rounded-lg px-2 py-1 text-xs font-bold text-[#98A2B3] hover:bg-[#FFF1F2] hover:text-[#DC2626] transition duration-200">✕ remover</button>
-              </div>
-              <div className="mt-2 flex items-center gap-2">
-                <span className="text-sm font-bold text-[#667085]">R$</span>
-                <input
-                  inputMode="numeric"
-                  value={numeroParaMoeda(l.valor)}
-                  onChange={(e) => setValor(l.uid, e.target.value)}
-                  onFocus={(e) => e.target.select()}
-                  className="flex-1 rounded-xl border border-[#E5E7EB] bg-[#F8FAFC] px-3 py-2.5 text-right text-lg font-black text-[#182230] outline-none focus:border-[#D9A441] focus:ring-2 focus:ring-[#D9A441]/20" />
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Resumo */}
-        <div className="shrink-0 border-t border-[#E5E7EB] bg-[#F7F8FA] px-6 py-4 space-y-2">
-          <div className="flex justify-between text-sm text-[#667085]"><span>Total</span><span className="font-bold text-[#182230]">{formatCurrency(total)}</span></div>
-          <div className="flex justify-between text-sm text-[#667085]"><span>Pago</span><span className="font-bold text-[#16A34A]">{formatCurrency(pago)}</span></div>
-          {restante > 0 && <div className="flex justify-between text-sm"><span className="text-[#9A6A00]">Falta</span><span className="font-black text-[#9A6A00]">{formatCurrency(restante)}</span></div>}
-          {troco > 0 && <div className="flex justify-between text-sm"><span className="text-[#2563EB]">Troco</span><span className="font-black text-[#2563EB]">{formatCurrency(troco)}</span></div>}
-          {excedeNaoDinheiro && <p className="text-xs font-semibold text-[#DC2626]">⚠ Cartão/PIX não pode ultrapassar o total. Use dinheiro para troco.</p>}
-          {troco > 0 && !temDinheiro && <p className="text-xs font-semibold text-[#DC2626]">⚠ Troco só é permitido com pagamento em dinheiro.</p>}
-          <button onClick={() => onConfirmar({ detalhes: linhas.map((l) => ({ forma: l.nome, valor: l.valor })), troco })}
-            disabled={!podeConfirmar}
-            className="mt-2 w-full rounded-2xl bg-[#16A34A] py-4 text-sm font-black text-white hover:bg-[#15803D] transition duration-200 active:scale-95 shadow-lg shadow-[#16A34A]/25 disabled:bg-[#E5E7EB] disabled:text-[#98A2B3] disabled:shadow-none disabled:cursor-not-allowed">
-            ✅ Confirmar pagamento e dar baixa
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ════════════════════════════════════════════════════════════
-//  Comprovante fiscal pós-pagamento (com formas de pagamento)
-// ════════════════════════════════════════════════════════════
-function ComprovanteModal({ dados, onFechar }) {
-  // dados: { mesa, comandas, total, troco, detalhes, blocos, subtotal, taxa }
-  function imprimir() {
-    const agora = new Date();
-    const doc = String(Math.floor(100000 + Math.random() * 899999));
-    const j = window.open("", "_blank", "width=400,height=640");
-    j.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Comprovante ${doc}</title>
-<style>
-  *{margin:0;padding:0;box-sizing:border-box}@page{size:80mm auto;margin:0}
-  body{font-family:'Courier New',monospace;font-size:12px;line-height:1.35;color:#000;background:#fff;width:80mm;padding:4mm 3mm}
-  .c{text-align:center}.b{font-weight:bold}.r{text-align:right}
-  .sep{border-top:1px dashed #000;margin:5px 0}.sep2{border-top:2px solid #000;margin:5px 0}
-  .row{display:flex;justify-content:space-between;gap:6px}.row .l{flex:1}
-  h1{font-size:16px}.xs{font-size:10px}.sm{font-size:11px}.lg{font-size:14px}
-</style></head><body>
-  <div class="c"><h1 class="b">RESTAURANTE</h1><p class="xs">CNPJ 00.000.000/0001-00</p></div>
-  <div class="sep2"></div>
-  <p class="c b sm">CUPOM FISCAL</p>
-  <p class="c xs">Doc.: ${doc} — ${agora.toLocaleString("pt-BR")}</p>
-  <p class="xs">Mesa(s): ${dados.mesa || "-"} | Comanda(s): ${dados.comandas.join(", ")}</p>
-  <div class="sep"></div>
-  ${(dados.itensLivres && dados.itensLivres.length
-      ? dados.itensLivres.map((it) => `<div class="row sm"><span class="l">${it.quantity}x ${it.name}</span><span>${formatCurrency(it.valor)}</span></div>`).join("")
-      : (dados.blocos || []).map((b) => b.pedidos.map((o) => o.items.map((it) =>
-          `<div class="row sm"><span class="l">${it.quantity}x ${it.name}</span><span>${formatCurrency(it.price * it.quantity)}</span></div>`
-        ).join("")).join("")).join(""))}
-  <div class="sep"></div>
-  <div class="row sm"><span class="l">Subtotal</span><span>${formatCurrency(dados.subtotal)}</span></div>
-  <div class="row sm"><span class="l">Taxa servico (10%)</span><span>${formatCurrency(dados.taxa)}</span></div>
-  <div class="row b lg"><span class="l">TOTAL</span><span>${formatCurrency(dados.total)}</span></div>
-  <div class="sep"></div>
-  <p class="b xs">FORMAS DE PAGAMENTO</p>
-  ${dados.detalhes.map((d) => `<div class="row sm"><span class="l">${d.forma}</span><span>${formatCurrency(d.valor)}</span></div>`).join("")}
-  ${dados.troco > 0 ? `<div class="row sm b"><span class="l">TROCO</span><span>${formatCurrency(dados.troco)}</span></div>` : ""}
-  <div class="sep2"></div>
-  <p class="c sm b">PAGAMENTO CONFIRMADO</p>
-  <p class="c xs" style="margin-top:4px">Obrigado pela preferencia!</p>
-  <p class="c xs">.</p><p class="c xs">.</p>
-  <script>window.onload=function(){window.print();setTimeout(function(){window.close()},300)}<\/script>
-</body></html>`);
-    j.document.close();
-  }
-
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onFechar}>
-      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl overflow-hidden">
-        <div className="border-b border-white/10 px-6 py-5 text-center">
-          <span className="text-5xl">✅</span>
-          <h2 className="mt-2 text-xl font-black text-white">Pagamento confirmado!</h2>
-          <p className="text-sm text-slate-400">Comanda(s) baixada(s) e estoque atualizado.</p>
-        </div>
-        {/* Resumo do pagamento */}
-        <div className="px-6 py-4 space-y-2 text-sm">
-          <div className="flex justify-between"><span className="text-slate-400">Total pago</span><span className="font-black text-white">{formatCurrency(dados.total)}</span></div>
-          {dados.detalhes.map((d, i) => (
-            <div key={i} className="flex justify-between"><span className="text-slate-400">{d.forma}</span><span className="font-bold text-white">{formatCurrency(d.valor)}</span></div>
-          ))}
-          {dados.troco > 0 && <div className="flex justify-between border-t border-white/10 pt-2"><span className="text-emerald-400 font-black">Troco</span><span className="font-black text-emerald-400">{formatCurrency(dados.troco)}</span></div>}
-        </div>
-        {/* Alerta automático: produtos que zeraram ou atingiram o estoque mínimo após a baixa */}
-        {Array.isArray(dados.alertasEstoque) && dados.alertasEstoque.length > 0 && (
-          <div className="mx-6 mb-1 rounded-2xl border border-amber-400/40 bg-amber-500/10 px-4 py-3">
-            <p className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-amber-300">⚠️ Alerta de estoque</p>
-            <ul className="mt-2 space-y-1">
-              {dados.alertasEstoque.map((a) => (
-                <li key={a.nome} className="flex items-center justify-between gap-2 text-sm">
-                  <span className="min-w-0 truncate font-bold text-amber-100">{a.nome}</span>
-                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-black ${a.zerado ? "bg-red-500/20 text-red-300" : "bg-amber-500/20 text-amber-200"}`}>
-                    {a.zerado ? "Esgotado (0 un)" : `Mínimo atingido · ${a.estoque}/${a.minimo} un`}
-                  </span>
-                </li>
-              ))}
-            </ul>
-            <p className="mt-2 text-[11px] leading-snug text-amber-200/80">Reabasteça em <b>Produtos</b> para não faltar no atendimento.</p>
-          </div>
-        )}
-        <div className="border-t border-white/10 px-6 py-4 space-y-2">
-          <button onClick={imprimir} className="w-full rounded-2xl bg-blue-500 py-3.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95">🖨️ Imprimir cupom fiscal</button>
-          <button onClick={onFechar} className="w-full rounded-2xl border border-white/10 bg-white/[0.06] py-3 text-sm font-black text-slate-300 hover:bg-white/10">Fechar</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ════════════════════════════════════════════════════════════
-//  Modal do cupom — visualização + imprimir + WhatsApp + e-mail
-// ════════════════════════════════════════════════════════════
-function CupomModal({ blocos, mesas, comandas, subtotal, taxa, total, pessoas, porPessoa, imprimir, onFechar }) {
-  // Texto do cupom para WhatsApp/e-mail
-  const texto = (() => {
-    let t = "*RESTAURANTE — CUPOM NÃO FISCAL*\n";
-    t += `Mesa(s): ${mesas.join(", ") || "-"}\n`;
-    t += `Comanda(s): ${comandas.join(", ")}\n`;
-    t += "------------------------------\n";
-    blocos.forEach((b) => {
-      t += `Comanda ${b.comanda}:\n`;
-      b.pedidos.forEach((o) => o.items.forEach((it) => {
-        t += `  ${it.quantity}x ${it.name} - ${formatCurrency(it.price * it.quantity)}\n`;
-      }));
-    });
-    t += "------------------------------\n";
-    t += `Subtotal: ${formatCurrency(subtotal)}\n`;
-    t += `Taxa 10%: ${formatCurrency(taxa)}\n`;
-    t += `*TOTAL: ${formatCurrency(total)}*\n`;
-    if (pessoas > 1) t += `Dividido por ${pessoas}: ${formatCurrency(porPessoa)}/pessoa\n`;
-    t += "\nObrigado pela preferência!";
-    return t;
-  })();
-
-  function enviarWhatsApp() {
-    const fone = prompt("Telefone do cliente (com DDD, ex.: 11999998888):");
-    if (!fone) return;
-    const num = fone.replace(/\D/g, "");
-    window.open(`https://wa.me/55${num}?text=${encodeURIComponent(texto)}`, "_blank");
-  }
-  function enviarEmail() {
-    const email = prompt("E-mail do cliente:");
-    if (!email) return;
-    const assunto = encodeURIComponent("Cupom não fiscal - Restaurante");
-    const corpo = encodeURIComponent(texto.replace(/\*/g, ""));
-    window.open(`mailto:${email}?subject=${assunto}&body=${corpo}`, "_blank");
-  }
-
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onFechar}>
-      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-sm flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl max-h-[92vh]">
-        <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
-          <h2 className="text-lg font-black text-white">🧾 Cupom não fiscal</h2>
-          <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20">✕</button>
-        </div>
-
-        {/* Prévia do cupom */}
-        <div className="flex-1 overflow-y-auto bg-white px-5 py-4 text-slate-900" style={{ fontFamily: "'Courier New', monospace", fontSize: 12 }}>
-          <p className="text-center font-black">RESTAURANTE</p>
-          <p className="text-center text-[10px]">CUPOM NÃO FISCAL — Sem valor fiscal</p>
-          <div className="my-2 border-t border-dashed border-slate-400" />
-          <p className="text-[11px]">Mesa(s): {mesas.join(", ") || "-"}</p>
-          <p className="text-[11px]">Comanda(s): {comandas.join(", ")}</p>
-          <div className="my-2 border-t border-dashed border-slate-400" />
-          {blocos.map((b) => (
-            <div key={b.comanda} className="mb-2">
-              <p className="font-black text-[11px]">COMANDA {b.comanda}</p>
-              {b.pedidos.map((o) => o.items.map((it, i) => (
-                <div key={o.id + i} className="flex justify-between text-[11px]">
-                  <span>{it.quantity}x {it.name}</span>
-                  <span>{formatCurrency(it.price * it.quantity)}</span>
-                </div>
-              )))}
-            </div>
-          ))}
-          <div className="my-2 border-t border-dashed border-slate-400" />
-          <div className="flex justify-between text-[11px]"><span>Subtotal</span><span>{formatCurrency(subtotal)}</span></div>
-          <div className="flex justify-between text-[11px]"><span>Taxa 10%</span><span>{formatCurrency(taxa)}</span></div>
-          <div className="mt-1 flex justify-between font-black text-[13px]"><span>TOTAL</span><span>{formatCurrency(total)}</span></div>
-          {pessoas > 1 && <div className="flex justify-between text-[10px]"><span>Por pessoa ({pessoas})</span><span>{formatCurrency(porPessoa)}</span></div>}
-        </div>
-
-        {/* Ações */}
-        <div className="shrink-0 border-t border-white/10 px-5 py-4 space-y-2">
-          <button onClick={imprimir} className="w-full rounded-2xl bg-blue-500 py-3.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95">🖨️ Imprimir</button>
-          <div className="grid grid-cols-2 gap-2">
-            <button onClick={enviarWhatsApp} className="rounded-2xl bg-emerald-500/90 py-3 text-sm font-black text-white hover:bg-emerald-500 transition active:scale-95">💬 WhatsApp</button>
-            <button onClick={enviarEmail} className="rounded-2xl border border-white/10 bg-white/[0.08] py-3 text-sm font-black text-slate-200 hover:bg-white/15 transition active:scale-95">✉️ E-mail</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 // Combo "Empresa em foco" (menu lateral do super admin) — identidade navy + dourado
