@@ -4611,16 +4611,28 @@ function CashierView({ orders, baixarComandas, formasPagamento = [], lojaInfo, c
   }
 
   // ── Solicitações de fechamento (mesas aguardando o caixa) ────
+  // Pedidos do canal externo (delivery/retirada/consumo local via link) não
+  // têm uma "mesa" real — o.table é o MESMO texto fixo ("Externo · Consumo
+  // no local" etc.) para QUALQUER cliente desse canal. Agrupar por o.table
+  // juntaria contas de clientes diferentes num único item clicável (baixa
+  // cobraria/baixaria pedidos de gente que não tem nada a ver uma com a
+  // outra). Pedidos internos (mesa/QR) continuam agrupados por mesa, que é
+  // o identificador real e pode ter mais de uma comanda.
+  const ehPedidoExterno = (o) => o.table === "Externo" || /^EXT-/.test(o.command || "");
+  const chaveConta = (o) => ehPedidoExterno(o) ? o.command : o.table;
+
   const solicitacoes = useMemo(() => {
     const pendentes = orders.filter((o) => o.paymentStatus === "requested");
     const mapa = {};
     pendentes.forEach((o) => {
-      if (!mapa[o.table]) mapa[o.table] = { mesa: o.table, comandas: new Set(), subtotal: 0, pedidos: 0 };
-      mapa[o.table].comandas.add(o.command);
-      mapa[o.table].subtotal += orderTotal(o);
-      mapa[o.table].pedidos += 1;
+      const key = chaveConta(o);
+      if (!mapa[key]) mapa[key] = { mesa: o.table, comandas: new Set(), subtotal: 0, pedidos: 0 };
+      mapa[key].comandas.add(o.command);
+      mapa[key].subtotal += orderTotal(o);
+      mapa[key].pedidos += 1;
     });
     return Object.values(mapa).map((m) => ({ ...m, comandas: [...m.comandas], total: m.subtotal * (1 + SERVICE_FEE_CONFIG.percent / 100) }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orders, SERVICE_FEE_CONFIG.percent]);
   const solicitacoesNaoCarregadas = solicitacoes.filter((s) => !s.comandas.every((c) => comandasLidas.includes(c)));
 
@@ -4629,8 +4641,8 @@ function CashierView({ orders, baixarComandas, formasPagamento = [], lojaInfo, c
     const mapa = {};
     orders.forEach((o) => {
       if (o.status === "cancelled" || o.paymentStatus === "paid") return;
-      const key = o.table || "-";
-      if (!mapa[key]) mapa[key] = { mesa: key, comandas: new Set(), pedidos: 0, subtotal: 0, aberturaISO: o.createdAtISO || null, cliente: o.customer || "", pendentePreparo: false, solicitada: false };
+      const key = chaveConta(o) || "-";
+      if (!mapa[key]) mapa[key] = { mesa: o.table, comandas: new Set(), pedidos: 0, subtotal: 0, aberturaISO: o.createdAtISO || null, cliente: o.customer || "", pendentePreparo: false, solicitada: false };
       const m = mapa[key];
       m.comandas.add(o.command);
       m.pedidos += 1;
@@ -4644,6 +4656,7 @@ function CashierView({ orders, baixarComandas, formasPagamento = [], lojaInfo, c
       .map((m) => ({ ...m, comandas: [...m.comandas], total: m.subtotal * (1 + SERVICE_FEE_CONFIG.percent / 100),
         situacao: m.solicitada ? "solicitado" : m.pendentePreparo ? "entrega" : "pagamento" }))
       .sort((a, b) => new Date(a.aberturaISO || 0) - new Date(b.aberturaISO || 0));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orders, SERVICE_FEE_CONFIG.percent]);
   const contasFiltradas = openAccountsFilter === "todas" ? contasAbertas : contasAbertas.filter((c) => c.situacao === openAccountsFilter);
 
@@ -4777,7 +4790,10 @@ function CashierView({ orders, baixarComandas, formasPagamento = [], lojaInfo, c
         const trocoTotal = novosPagamentos.reduce((s, p) => s + (p.troco || 0), 0);
         const info = { mesa: mesas.join(", "), total: totalGeral, troco: trocoTotal, detalhes: detalhesTodos, comandas: [...comandasLidas] };
         const baixa = await baixarComandas(comandasLidas, info);
-        auditar("finalizar_pagamento", "comanda", comandasLidas.join(","), { mesa: info.mesa, total: totalGeral, formas: detalhesTodos.map((d) => d.forma), parcelas: novosPagamentos.length });
+        // entidade_id é bigint no banco (chave numérica de outras tabelas) —
+        // comanda/mesa são strings (ex.: "EXT-147353"), por isso vão nos
+        // dados (jsonb), não no entidade_id (senão o insert falha 22P02).
+        auditar("finalizar_pagamento", "comanda", null, { mesa: info.mesa, comandas: comandasLidas, total: totalGeral, formas: detalhesTodos.map((d) => d.forma), parcelas: novosPagamentos.length });
         setSucesso({
           ...info,
           subtotal: totalGeral / (1 + SERVICE_FEE_CONFIG.percent / 100),
@@ -4897,7 +4913,7 @@ function CashierView({ orders, baixarComandas, formasPagamento = [], lojaInfo, c
               Fechamento solicitado:
             </span>
             {solicitacoesNaoCarregadas.map((s) => (
-              <button key={s.mesa} onClick={() => carregarComandas(s.comandas)}
+              <button key={s.comandas[0]} onClick={() => carregarComandas(s.comandas)}
                 className="rounded-full border border-[#F4D27A] bg-white px-2.5 py-1 text-xs font-black text-[#9A6A00] hover:bg-[#FFF7E0] transition">
                 {s.mesa} · {formatCurrency(s.total)}
               </button>
@@ -4910,7 +4926,7 @@ function CashierView({ orders, baixarComandas, formasPagamento = [], lojaInfo, c
       <div className="flex flex-1 overflow-hidden">
         {/* Coluna 1 — Localização (desktop/tablet sempre visível; mobile só na etapa "buscar") */}
         <PosLocationColumn
-          className={`${mobileStep === "buscar" ? "flex" : "hidden"} lg:flex`}
+          className={`${mobileStep === "buscar" ? "flex" : "hidden"} md:flex`}
           searchMode={searchMode} setSearchMode={setSearchMode}
           mesaQuery={mesaQuery} setMesaQuery={setMesaQuery} mesaInputRef={mesaInputRef}
           comandaQuery={comandaQuery} setComandaQuery={setComandaQuery} comandaInputRef={comandaInputRef}
@@ -4924,13 +4940,13 @@ function CashierView({ orders, baixarComandas, formasPagamento = [], lojaInfo, c
 
         {/* Coluna 2 — Conta selecionada */}
         <PosAccountColumn
-          className={`${mobileStep === "conta" ? "flex" : "hidden"} lg:flex`}
+          className={`${mobileStep === "conta" ? "flex" : "hidden"} md:flex`}
           temConta={temConta} contaVazia={contaVazia} comandaJaUsada={comandaJaUsada} comandasLidas={comandasLidas}
           porComanda={porComanda} mesas={mesas} pedidos={pedidos} pendentesPreparo={pendentesPreparo}
           splitMode={splitMode} selDe={selDe} toggleItem={toggleItem} setDividirItem={setDividirItem}
           chavesPagas={chavesPagas} onRemoverComanda={removerComanda} onLimparConta={limparConta}
           onImprimirConferencia={imprimirConferencia}
-          onVoltarBusca={() => setMobileStep("buscar")} onIrPagamento={() => setMobileStep("pagamento")}
+          onVoltarBusca={() => setMobileStep("buscar")}
           conflitoAtualizacao={conflitoAtualizacao} onReconferir={reconferirConta}
         />
 
@@ -5021,7 +5037,7 @@ function PosLocationColumn({ className, searchMode, setSearchMode, mesaQuery, se
   useEffect(() => { if (searchMode === "mesa") mesaInputRef.current?.focus(); }, [searchMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <aside className={`${className} w-full flex-col overflow-y-auto border-[#E5E7EB] bg-white p-4 lg:w-[300px] lg:shrink-0 lg:border-r lg:p-5`}>
+    <aside className={`${className} w-full flex-col overflow-y-auto border-[#E5E7EB] bg-white p-4 md:w-[260px] md:shrink-0 md:border-r lg:w-[300px] lg:p-5`}>
       <h2 className="text-xs font-black uppercase tracking-widest text-[#98A2B3]">Localizar conta</h2>
 
       {/* Segmented control Mesa / Comanda */}
@@ -5102,7 +5118,7 @@ function PosLocationColumn({ className, searchMode, setSearchMode, mesaQuery, se
           {contasFiltradas.map((c) => {
             const carregada = c.comandas.every((cm) => comandasLidas.includes(cm));
             return (
-              <button key={c.mesa} onClick={() => onAbrirConta(c)}
+              <button key={c.comandas[0]} onClick={() => onAbrirConta(c)}
                 className={`flex w-full items-start justify-between gap-2 rounded-2xl border p-3 text-left transition ${carregada ? "border-[var(--color-primary)] bg-[#EFF6FF]" : "border-[#E5E7EB] bg-white hover:border-[var(--color-primary)]/40 hover:bg-[#F8FAFC]"}`}>
                 <div className="min-w-0">
                   <p className="truncate text-sm font-black text-[#182230]">{c.mesa}</p>
@@ -5180,7 +5196,7 @@ function PosHeader({ lojaInfo, currentUser, agora, situacaoTurno, conexaoOk, cup
 // ════════════════════════════════════════════════════════════
 //  Coluna 2 — Conta selecionada: cabeçalho de contexto + pedidos/itens
 // ════════════════════════════════════════════════════════════
-function PosAccountColumn({ className, temConta, contaVazia, comandaJaUsada, comandasLidas, porComanda, mesas, pedidos, pendentesPreparo, splitMode, selDe, toggleItem, setDividirItem, chavesPagas, onRemoverComanda, onLimparConta, onImprimirConferencia, onVoltarBusca, onIrPagamento, conflitoAtualizacao, onReconferir }) {
+function PosAccountColumn({ className, temConta, contaVazia, comandaJaUsada, comandasLidas, porComanda, mesas, pedidos, pendentesPreparo, splitMode, selDe, toggleItem, setDividirItem, chavesPagas, onRemoverComanda, onLimparConta, onImprimirConferencia, onVoltarBusca, conflitoAtualizacao, onReconferir }) {
   if (!temConta) {
     return (
       <section className={`${className} w-full flex-col items-center justify-center overflow-y-auto p-8 lg:flex-1`}>
@@ -5211,7 +5227,7 @@ function PosAccountColumn({ className, temConta, contaVazia, comandaJaUsada, com
   const abertura = pedidos.reduce((min, o) => (!min || (o.createdAtISO || "") < min) ? (o.createdAtISO || min) : min, null);
 
   return (
-    <section className={`${className} w-full flex-col overflow-hidden lg:flex-1 lg:border-r lg:border-[#E5E7EB]`}>
+    <section className={`${className} w-full flex-col overflow-hidden md:flex-1 md:border-r md:border-[#E5E7EB]`}>
       {/* Cabeçalho de contexto — sempre visível durante o pagamento */}
       <div className="shrink-0 border-b border-[#E5E7EB] bg-white px-4 py-3 sm:px-6">
         <button onClick={onVoltarBusca} className="mb-2 flex items-center gap-1.5 text-xs font-bold text-[#667085] hover:text-[#182230] lg:hidden">← Nova busca</button>
@@ -5292,11 +5308,6 @@ function PosAccountColumn({ className, temConta, contaVazia, comandaJaUsada, com
             </div>
           </div>
         ))}
-      </div>
-
-      {/* Continuar para pagamento (desktop; mobile usa o rodapé sticky) */}
-      <div className="hidden shrink-0 border-t border-[#E5E7EB] bg-white px-6 py-3 lg:hidden">
-        <button onClick={onIrPagamento} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-[var(--color-primary)] text-sm font-black text-white transition hover:bg-[var(--color-primary-dark)]">Ir para pagamento</button>
       </div>
     </section>
   );
