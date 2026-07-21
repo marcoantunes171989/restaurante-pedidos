@@ -43,6 +43,7 @@ export default function CentralDaCozinha({
   setoresPresentesSetor, // só os setores da cozinha — usado para exibir os blocos do card
   bloqueadoPorPagamento,
   onIniciarPreparo, onMarcarSetorPronto, onBaixarEntregue,
+  context = "kitchen", podeCancelarPedido = false, cancelarPedido, imprimirTicketOperacional,
 }) {
   const [busca, setBusca] = useState("");
   const [view, setView] = useState("kanban");
@@ -116,6 +117,7 @@ export default function CentralDaCozinha({
         acao={acao} mensagemRodape={mensagemRodape}
         origemDe={origemDe} haTxt={haTxt} numeroPedido={numeroPedido} itensDoSetor={itensDoSetor} metaSetor={metaSetor}
         setorPronto={setorPronto} onMarcarPronto={(sk) => onMarcarSetorPronto(o.id, sk, setoresPresentes(o))}
+        context={context} podeCancelar={podeCancelarPedido} onCancelar={cancelarPedido} onImprimir={imprimirTicketOperacional}
       />
     );
   };
@@ -145,6 +147,8 @@ export default function CentralDaCozinha({
               pedidos={listaFiltrada} deriveVariant={deriveVariant} renderCard={renderCard}
               acaoPrincipal={(o) => acaoPara(o, deriveVariant(o), setoresPresentesSetor(o)).acao}
               origemDe={origemDe} haTxt={haTxt} numeroPedido={numeroPedido} setoresPresentes={setoresPresentesSetor}
+              metaSetor={metaSetor} itensDoSetor={itensDoSetor}
+              context={context} podeCancelar={podeCancelarPedido} onCancelar={cancelarPedido} onImprimir={imprimirTicketOperacional}
               vazioTitulo="Nenhum pedido para a cozinha." vazioDescricao={busca ? "Tente ajustar a busca." : undefined}
             />
           )}

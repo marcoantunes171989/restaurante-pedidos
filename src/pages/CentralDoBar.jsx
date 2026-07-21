@@ -43,6 +43,7 @@ export default function CentralDoBar({
   setoresPresentesSetor, // só os setores do bar — usado para exibir os blocos do card
   bloqueadoPorPagamento,
   onIniciarPreparo, onMarcarSetorPronto, onBaixarEntregue,
+  context = "bar", podeCancelarPedido = false, cancelarPedido, imprimirTicketOperacional,
 }) {
   const [busca, setBusca] = useState("");
   const [view, setView] = useState("kanban");
@@ -116,6 +117,7 @@ export default function CentralDoBar({
         acao={acao} mensagemRodape={mensagemRodape}
         origemDe={origemDe} haTxt={haTxt} numeroPedido={numeroPedido} itensDoSetor={itensDoSetor} metaSetor={metaSetor}
         setorPronto={setorPronto} onMarcarPronto={(sk) => onMarcarSetorPronto(o.id, sk, setoresPresentes(o))}
+        context={context} podeCancelar={podeCancelarPedido} onCancelar={cancelarPedido} onImprimir={imprimirTicketOperacional}
       />
     );
   };
@@ -145,6 +147,8 @@ export default function CentralDoBar({
               pedidos={listaFiltrada} deriveVariant={deriveVariant} renderCard={renderCard}
               acaoPrincipal={(o) => acaoPara(o, deriveVariant(o), setoresPresentesSetor(o)).acao}
               origemDe={origemDe} haTxt={haTxt} numeroPedido={numeroPedido} setoresPresentes={setoresPresentesSetor}
+              metaSetor={metaSetor} itensDoSetor={itensDoSetor}
+              context={context} podeCancelar={podeCancelarPedido} onCancelar={cancelarPedido} onImprimir={imprimirTicketOperacional}
               vazioTitulo="Nenhum pedido para o bar." vazioDescricao={busca ? "Tente ajustar a busca." : undefined}
             />
           )}

@@ -27,6 +27,7 @@ export default function CentralDePedidos({
   listaTodos = [],
   origemDe, haTxt, numeroPedido, setoresPresentes, itensDoSetor, metaSetor,
   acaoPrincipal,
+  podeCancelarPedido = false, cancelarPedido, imprimirTicketOperacional,
 }) {
   const [busca, setBusca] = useState("");
   const [view, setView] = useState("kanban"); // sem persistência: o projeto não tem hoje um padrão pra isso
@@ -82,6 +83,7 @@ export default function CentralDePedidos({
       setoresNoPedido={setoresPresentes(o)}
       acao={acaoPrincipal(o)}
       origemDe={origemDe} haTxt={haTxt} numeroPedido={numeroPedido} itensDoSetor={itensDoSetor} metaSetor={metaSetor}
+      context="orders" podeCancelar={podeCancelarPedido} onCancelar={cancelarPedido} onImprimir={imprimirTicketOperacional}
     />
   );
 
@@ -109,6 +111,8 @@ export default function CentralDePedidos({
             <OrdersList
               pedidos={listaFiltrada} deriveVariant={deriveVariant} renderCard={renderCard}
               acaoPrincipal={acaoPrincipal} origemDe={origemDe} haTxt={haTxt} numeroPedido={numeroPedido} setoresPresentes={setoresPresentes}
+              metaSetor={metaSetor} itensDoSetor={itensDoSetor}
+              context="orders" podeCancelar={podeCancelarPedido} onCancelar={cancelarPedido} onImprimir={imprimirTicketOperacional}
               vazioTitulo="Nenhum pedido ativo." vazioDescricao={busca ? "Tente ajustar a busca." : undefined}
             />
           )}

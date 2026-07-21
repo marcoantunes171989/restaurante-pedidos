@@ -1,8 +1,9 @@
-import { User, CreditCard, MoreVertical, Check, Wine } from "lucide-react";
+import { User, CreditCard, Check, Wine } from "lucide-react";
 import OrderStatusBadge from "./OrderStatusBadge";
 import { STATUS_ACCENT } from "./orderStatusColors";
 import OrderOriginBadge from "./OrderOriginBadge";
 import OrderActionButton from "./OrderActionButton";
+import OrderActionsMenu from "./OrderActionsMenu";
 
 // Mesma formatação de modificadores ("− ingrediente, + ingrediente,
 // observação") de src/components/OrderItemsList.jsx (tema escuro,
@@ -77,11 +78,11 @@ export default function OrderCard({
   o, variante, setoresNoPedido = [], acao, mensagemRodape,
   origemDe, haTxt, numeroPedido, itensDoSetor, metaSetor,
   setorPronto, onMarcarPronto,
+  context = "orders", podeCancelar = false, onCancelar, onImprimir,
   destacado = false, cardRef,
 }) {
   const org = origemDe(o);
   const [tableBase, tableSub] = String(o.table || "").split(" · ");
-  const mostrarMenu = variante === "novo"; // paridade com o comportamento atual (ver nota abaixo)
 
   return (
     <article ref={cardRef} className={`relative overflow-hidden rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-surface)] p-4 shadow-[0_1px_2px_rgba(43,35,32,0.04),0_2px_10px_rgba(43,35,32,0.05)] transition-shadow duration-200 hover:shadow-[0_4px_18px_rgba(43,35,32,0.09)] ${destacado ? "pp-order-destaque" : ""}`}>
@@ -120,27 +121,20 @@ export default function OrderCard({
         })}
       </div>
 
-      {mensagemRodape ? (
-        <div className="mt-4 pl-2">
-          <p className="flex items-center justify-center gap-1.5 rounded-xl bg-[var(--pp-success-soft)] px-4 py-3 text-center text-sm font-bold text-[var(--pp-success-text)]">
+      <div className="mt-4 flex items-center gap-2 pl-2">
+        {mensagemRodape ? (
+          <p className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-[var(--pp-success-soft)] px-4 py-3 text-center text-sm font-bold text-[var(--pp-success-text)]">
             <Check aria-hidden="true" size={15} /> {mensagemRodape}
           </p>
-        </div>
-      ) : acao && (
-        <div className="mt-4 flex gap-2 pl-2">
+        ) : acao ? (
           <OrderActionButton a={acao} variante={variante} />
-          {/* Botão preservado por paridade com o comportamento atual (o
-              menu de ações desta tela já não tinha nenhuma opção
-              implementada — sem handler, sem popover — só neste ponto do
-              fluxo/"novo"); mantido decorativo em vez de simular um menu
-              vazio ou inventar ações que não existem hoje. */}
-          {mostrarMenu && (
-            <button type="button" aria-label="Mais opções" className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-[var(--pp-border)] bg-[var(--pp-surface)] text-[var(--pp-text-muted)] transition-colors duration-150 hover:bg-[var(--pp-bg)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-primary)]">
-              <MoreVertical aria-hidden="true" size={18} />
-            </button>
-          )}
-        </div>
-      )}
+        ) : null}
+        <OrderActionsMenu
+          order={o} variante={variante} context={context} setoresNoPedido={setoresNoPedido}
+          origemDe={origemDe} haTxt={haTxt} numeroPedido={numeroPedido} metaSetor={metaSetor} itensDoSetor={itensDoSetor}
+          podeCancelar={podeCancelar} onCancelar={onCancelar} onImprimir={onImprimir}
+        />
+      </div>
     </article>
   );
 }

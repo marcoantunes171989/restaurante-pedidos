@@ -2,6 +2,7 @@ import OrderStatusBadge from "./OrderStatusBadge";
 import OrderOriginBadge from "./OrderOriginBadge";
 import OrdersEmptyState from "./OrdersEmptyState";
 import OrderActionButton from "./OrderActionButton";
+import OrderActionsMenu from "./OrderActionsMenu";
 
 /**
  * Visualização em Lista (tema claro) — tabela em telas >=768px (coluna
@@ -11,7 +12,11 @@ import OrderActionButton from "./OrderActionButton";
  * `acaoPrincipal(o)` vêm de CentralDePedidos.jsx — mesma fonte de dados/
  * ações do Kanban, sem lógica duplicada.
  */
-export default function OrdersList({ pedidos = [], deriveVariant, renderCard, acaoPrincipal, origemDe, haTxt, numeroPedido, setoresPresentes, vazioTitulo, vazioDescricao }) {
+export default function OrdersList({
+  pedidos = [], deriveVariant, renderCard, acaoPrincipal, origemDe, haTxt, numeroPedido, setoresPresentes,
+  metaSetor, itensDoSetor, context = "orders", podeCancelar = false, onCancelar, onImprimir,
+  vazioTitulo, vazioDescricao,
+}) {
   if (pedidos.length === 0) {
     return <OrdersEmptyState variante="lista" titulo={vazioTitulo} descricao={vazioDescricao} />;
   }
@@ -55,8 +60,14 @@ export default function OrdersList({ pedidos = [], deriveVariant, renderCard, ac
                   <td className="px-3 py-3 align-top tabular-nums text-[var(--pp-text-body)]">{haTxt(o) || "—"}</td>
                   <td className="hidden px-3 py-3 align-top text-[var(--pp-text-body)] lg:table-cell">{setores.join(", ") || "—"}</td>
                   <td className="rounded-r-xl px-3 py-3 text-right align-top">
-                    <div className="flex justify-end">
+                    <div className="flex justify-end gap-2">
                       <OrderActionButton a={acaoPrincipal(o)} variante={variante} compact />
+                      <OrderActionsMenu
+                        order={o} variante={variante} context={context} setoresNoPedido={setores}
+                        origemDe={origemDe} haTxt={haTxt} numeroPedido={numeroPedido} metaSetor={metaSetor} itensDoSetor={itensDoSetor}
+                        podeCancelar={podeCancelar} onCancelar={onCancelar} onImprimir={onImprimir}
+                        compact
+                      />
                     </div>
                   </td>
                 </tr>
