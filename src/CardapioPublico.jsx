@@ -1132,7 +1132,7 @@ export default function CardapioPublico() {
             </div>
           )}
         </div>
-        {msg && <div className="mx-auto w-full max-w-md"><div className={`rounded-2xl border px-4 py-2.5 text-center text-sm font-bold ${msg.t === "error" ? "border-[var(--client-error-border)] bg-[var(--client-error-soft)] text-[var(--client-error)]" : "border-[var(--client-success-border)] bg-[var(--client-success-soft)] text-[var(--client-success)]"}`}>{msg.m}</div></div>}
+        {msg && <div className="mx-auto w-full max-w-md"><div role={msg.t === "error" ? "alert" : "status"} aria-live={msg.t === "error" ? "assertive" : "polite"} className={`rounded-2xl border px-4 py-2.5 text-center text-sm font-bold ${msg.t === "error" ? "border-[var(--client-error-border)] bg-[var(--client-error-soft)] text-[var(--client-error)]" : "border-[var(--client-success-border)] bg-[var(--client-success-soft)] text-[var(--client-success)]"}`}>{msg.m}</div></div>}
       </div>
     );
   }
@@ -1332,7 +1332,7 @@ export default function CardapioPublico() {
       {/* Mensagem */}
       {msg && (
         <div className={`fixed inset-x-0 z-[120] flex justify-center px-4`} style={{ bottom: "96px" }}>
-          <div className={`rounded-2xl border px-4 py-2.5 text-sm font-bold shadow-xl ${msg.t === "error" ? "border-[var(--client-error-border)] bg-[var(--client-error-soft)] text-[var(--client-error)]" : "border-[var(--client-success-border)] bg-[var(--client-success-soft)] text-[var(--client-success)]"}`}>{msg.m}</div>
+          <div role={msg.t === "error" ? "alert" : "status"} aria-live={msg.t === "error" ? "assertive" : "polite"} className={`rounded-2xl border px-4 py-2.5 text-sm font-bold shadow-xl ${msg.t === "error" ? "border-[var(--client-error-border)] bg-[var(--client-error-soft)] text-[var(--client-error)]" : "border-[var(--client-success-border)] bg-[var(--client-success-soft)] text-[var(--client-success)]"}`}>{msg.m}</div>
         </div>
       )}
 
@@ -1615,7 +1615,7 @@ export default function CardapioPublico() {
 
       {/* Gaveta: Acompanhar / Conta */}
       {aba === "conta" && (
-        <Gaveta titulo={modoExterno ? "Meus pedidos" : (currentTable || "Meus pedidos")} subtitulo="Acompanhe o preparo e o fechamento da sua conta." onFechar={() => setAba(null)}>
+        <Gaveta titulo={modoExterno ? "Meus pedidos" : (currentTable || "Meus pedidos")} subtitulo="Acompanhe o preparo e o fechamento da sua conta." onFechar={() => setAba(null)} fecharLabel="Fechar acompanhamento dos pedidos">
           {meusPedidos.length > 0 && pedidosOffline && (
             <div className="mb-3 flex items-center gap-2 rounded-2xl border border-[var(--client-warning-border)] bg-[var(--client-warning-soft)] px-3.5 py-2.5 text-xs font-bold text-[var(--client-warning)]">
               <CkIconWifiOff width={15} height={15} className="shrink-0" /> Atualização em tempo real indisponível — tentando reconectar…
@@ -1674,7 +1674,7 @@ export default function CardapioPublico() {
                           <p className="text-[11px] text-[var(--client-text-secondary)]">Realizado às {o.createdAt}</p>
                         </div>
                         <div className="flex shrink-0 items-center gap-2">
-                          <span className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-black ${s.chip}`}>
+                          <span role="status" aria-live="polite" className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-black ${s.chip}`}>
                             <span className={`h-1.5 w-1.5 rounded-full ${s.dot}`} aria-hidden="true" />{statusClienteLabel(o, modoPedido)}
                           </span>
                           {meusPedidos.length > 1 && <CkIconChevron width={16} height={16} className={`shrink-0 text-[var(--client-text-muted)] transition-transform motion-reduce:transition-none ${recolhido ? "" : "rotate-180"}`} />}
@@ -1726,7 +1726,7 @@ export default function CardapioPublico() {
                 <div className="flex items-center justify-between text-sm"><span className="text-[var(--client-text-secondary)]">Subtotal</span><span className="text-[var(--client-text-secondary)]">{formatCurrency(subtotal)}</span></div>
                 <div className="flex items-center justify-between text-sm"><span className="text-[var(--client-text-secondary)]">Taxa de serviço (10%)</span><span className="text-[var(--client-text-secondary)]">{formatCurrency(subtotal * 0.1)}</span></div>
                 <div className="flex items-center justify-between pt-1">
-                  <span className="text-sm font-bold text-[var(--client-text-secondary)]">{contaPaga ? "Total pago" : "Total em aberto"}</span>
+                  <span className={`text-sm font-bold ${contaPaga ? "text-[var(--client-success)]" : "text-[var(--client-text-secondary)]"}`}>{contaPaga ? "Total pago" : "Total em aberto"}</span>
                   <span className={`text-xl font-black ${contaPaga ? "text-[var(--client-success)]" : "text-[var(--client-text-primary)]"}`}>{formatCurrency(totalMesa)}</span>
                 </div>
               </div>
@@ -1734,8 +1734,8 @@ export default function CardapioPublico() {
               {/* Solicitar/reenviar fechamento — nunca finaliza o pagamento sozinho, só avisa o caixa */}
               {!contaPaga && (
                 <>
-                  <button onClick={() => setConfirmarFechamento(true)} disabled={!podeFechar || solicitando} type="button"
-                    className={`mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-black transition active:scale-95 ${
+                  <button onClick={() => setConfirmarFechamento(true)} disabled={!podeFechar || solicitando} aria-disabled={!podeFechar || solicitando} aria-busy={solicitando} type="button"
+                    className={`mt-4 flex min-h-[50px] w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-black transition active:scale-95 ${
                       (!podeFechar || solicitando) ? "bg-[var(--client-disabled-background)] text-[var(--client-disabled-text)]" : "bg-[var(--client-primary)] text-white hover:bg-[var(--client-primary-hover)]"
                     }`}>
                     {solicitando && <CkIconSpinner />}
@@ -1819,9 +1819,12 @@ function LinhaTempoOperacional({ status, setorStatus = {}, setoresPedido = [], m
       const emPreparo = status === "preparing" && !pronto;
       const subTexto = pronto || idx >= 2 ? "Pronto" : emPreparo ? "Em preparo" : "Na fila";
       return { key: `setor-${s}`, feito: pronto || idx >= 2, atual: emPreparo, Icone: CkIconPanela, label: `Preparo · ${s}`, sub: subTexto,
+        // "Na fila" é espera operacional (ainda não começou) — azul informativo,
+        // nunca neutro/cinza (perderia o significado) nem âmbar (isso é reservado
+        // para "em preparo", que é uma etapa distinta e já ativa).
         subTom: subTexto === "Pronto" ? "border-[var(--client-success-border)] bg-[var(--client-success-soft)] text-[var(--client-success)]"
           : subTexto === "Em preparo" ? "border-[var(--client-warning-border)] bg-[var(--client-warning-soft)] text-[var(--client-warning)]"
-          : "border-[var(--client-border)] bg-[var(--client-surface-secondary)] text-[var(--client-text-secondary)]" };
+          : "border-[var(--client-info-border)] bg-[var(--client-info-soft)] text-[var(--client-info)]" };
     }),
     { key: "pronto", feito: idx >= 2, atual: status === "ready", Icone: modo === "retirada" ? CkIconSacola : CkIconSino,
       label: modo === "retirada" ? "Pronto para retirada" : modo === "entrega" ? "Pronto para entrega" : "Pronto para servir" },
@@ -1948,7 +1951,7 @@ function CardItemCarrinho({ item, onRemover }) {
 // CTA de "Finalizar pedido") — fica sempre visível, nunca precisa rolar até
 // o fim pra alcançar o botão principal. Sem essa prop, a gaveta se comporta
 // exatamente como antes (usado por aba "conta"/acompanhar pedido).
-function Gaveta({ titulo, subtitulo, onFechar, children, rodape }) {
+function Gaveta({ titulo, subtitulo, onFechar, children, rodape, fecharLabel = "Fechar" }) {
   useScrollLock(); // trava a rolagem do fundo enquanto a gaveta está aberta
   // Acompanha o "visual viewport" (área visível) para a gaveta sentar ACIMA do teclado
   // do celular — assim o campo focado nunca fica escondido.
@@ -1976,7 +1979,7 @@ function Gaveta({ titulo, subtitulo, onFechar, children, rodape }) {
             <h2 className="text-lg font-black text-[var(--client-text-primary)]">{titulo}</h2>
             {subtitulo && <p className="mt-0.5 text-xs text-[var(--client-text-secondary)]">{subtitulo}</p>}
           </div>
-          <button onClick={onFechar} aria-label="Fechar" className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface-secondary)] px-4 py-2 text-sm font-black text-[var(--client-text-secondary)] transition hover:bg-[var(--client-border)]">Fechar ✕</button>
+          <button onClick={onFechar} aria-label={fecharLabel} className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface-secondary)] px-4 py-2 text-sm font-black text-[var(--client-text-secondary)] transition hover:bg-[var(--client-border)]">Fechar ✕</button>
         </div>
         <div className="pp-overscroll-contain min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">{children}</div>
         {rodape && (
