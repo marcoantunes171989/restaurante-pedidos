@@ -748,7 +748,7 @@ export default function CardapioPublico() {
             {/* Selo decorativo (não é um controle independente — tocar na imagem já abre a personalização) */}
             {personalizavel && !indisponivel && (
               <span aria-hidden="true" title="Personalizável" className="pointer-events-none absolute left-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-full border border-[var(--client-border)] bg-[var(--client-surface)] text-[var(--client-text-secondary)] shadow-[var(--client-shadow-sm)]">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/><circle cx="9" cy="7" r="2" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="2" fill="currentColor" stroke="none"/><circle cx="8" cy="17" r="2" fill="currentColor" stroke="none"/></svg>
+                <CkIconAjustes width={14} height={14} strokeWidth={2.2} />
               </span>
             )}
             {promo && !indisponivel && <span className="absolute right-1.5 top-1.5 rounded-full bg-[var(--client-gold)] px-1.5 py-0.5 text-[9px] font-black text-white shadow-[var(--client-shadow-sm)]">{promo.label}</span>}
@@ -761,7 +761,7 @@ export default function CardapioPublico() {
         </div>
         <div className="mt-auto flex items-center justify-between px-3 pb-3">
           {promo
-            ? <span className="flex flex-col leading-none"><span className="text-[11px] font-bold text-[var(--client-text-muted)] line-through">{formatCurrency(promo.original)}</span><span className="text-base font-black text-[var(--client-text-primary)]">{formatCurrency(promo.preco)}</span></span>
+            ? <span className="flex flex-col leading-none"><span className="text-[11px] font-bold text-[var(--client-text-muted)] line-through">{formatCurrency(promo.original)}</span><span className="text-base font-black text-[var(--client-gold-hover)]">{formatCurrency(promo.preco)}</span></span>
             : <span className="text-base font-black text-[var(--client-text-primary)]">{formatCurrency(item.price)}</span>}
           {indisponivel
             ? <span className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--client-border)] bg-[var(--client-surface-secondary)] text-[var(--client-text-muted)]">✕</span>
@@ -1177,7 +1177,7 @@ export default function CardapioPublico() {
             <p className="text-sm text-[var(--client-text-secondary)]">{currentTable ? `${currentTable}${comanda ? " · " + comanda : ""}` : "Cardápio digital"}</p>
           </div>
           {!modoExterno && mesa && (
-            <button onClick={abrirQr} className="flex min-h-[40px] shrink-0 items-center gap-1.5 rounded-full border border-[var(--client-border)] bg-[var(--client-surface-secondary)] px-3.5 py-2 text-xs font-black text-[var(--client-text-primary)] transition active:scale-95 hover:bg-[var(--client-border)]">
+            <button onClick={abrirQr} aria-label="Visualizar QR Code da mesa" className="flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-full border border-[var(--client-border)] bg-[var(--client-surface-secondary)] px-3.5 py-2 text-xs font-black text-[var(--client-text-primary)] transition active:scale-95 hover:bg-[var(--client-primary-soft)]">
               <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><line x1="14" y1="14" x2="14" y2="21"/><line x1="18" y1="14" x2="18" y2="18"/><line x1="21" y1="14" x2="21" y2="21"/></svg>
               Ver QR
             </button>
@@ -1190,7 +1190,7 @@ export default function CardapioPublico() {
               const emAndamento = chamando === t;
               return (
                 <button key={t} onClick={() => chamar(t, l)} disabled={!!chamando} aria-busy={emAndamento}
-                  className="flex min-h-[40px] flex-1 items-center justify-center gap-1.5 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface-secondary)] py-2.5 text-sm font-black text-[var(--client-text-primary)] transition active:scale-95 hover:bg-[var(--client-border)] disabled:cursor-not-allowed disabled:opacity-60">
+                  className="flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface-secondary)] py-2.5 text-sm font-black text-[var(--client-text-primary)] transition active:scale-95 hover:bg-[var(--client-border)] disabled:cursor-not-allowed disabled:opacity-60">
                   {emAndamento ? <CkIconSpinner /> : <Icone width={16} height={16} />}{emAndamento ? "Enviando…" : l}
                 </button>
               );
@@ -1277,7 +1277,7 @@ export default function CardapioPublico() {
 
         {/* Aviso de personalização */}
         <div className="mb-3 mt-4 flex items-center gap-2 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface-secondary)] px-4 py-2.5">
-          <span className="text-lg">✨</span>
+          <span aria-hidden="true" className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--client-primary-soft)] text-[var(--client-primary-hover)]"><CkIconAjustes width={14} height={14} strokeWidth={2.2} /></span>
           <p className="text-xs font-bold text-[var(--client-text-primary)]">Personalize do seu jeito! <span className="font-normal text-[var(--client-text-secondary)]">Adicione ou remova ingredientes.</span></p>
         </div>
 
@@ -1886,6 +1886,9 @@ const CkIconSacola   = (p) => (<svg {...ckIconBase} {...p}><path d="M6 8h12l1 12
 const CkIconMesa     = (p) => (<svg {...ckIconBase} {...p}><path d="M12 21s7-7.1 7-12a7 7 0 1 0-14 0c0 4.9 7 12 7 12Z" /><circle cx="12" cy="9" r="2.5" /></svg>);
 const CkIconAjuda    = (p) => (<svg {...ckIconBase} {...p}><circle cx="12" cy="12" r="9" /><path d="M9.2 9.2a2.8 2.8 0 0 1 5.4 1c0 1.9-2.6 1.9-2.6 3.6" /><path d="M12 17.2h.01" /></svg>);
 const CkIconLimpeza  = (p) => (<svg {...ckIconBase} {...p}><path d="M12 3v3M12 18v3M3 12h3M18 12h3M6.3 6.3l2 2M15.7 15.7l2 2M17.7 6.3l-2 2M8.3 15.7l-2 2" /><circle cx="12" cy="12" r="2.2" /></svg>);
+// Mesmo desenho do selo "Personalizável" sobre a imagem do produto — promovido
+// a componente para reuso também no aviso "Personalize do seu jeito!".
+const CkIconAjustes  = (p) => (<svg {...ckIconBase} {...p}><line x1="4" y1="7" x2="20" y2="7" /><line x1="4" y1="12" x2="20" y2="12" /><line x1="4" y1="17" x2="20" y2="17" /><circle cx="9" cy="7" r="2" fill="currentColor" stroke="none" /><circle cx="15" cy="12" r="2" fill="currentColor" stroke="none" /><circle cx="8" cy="17" r="2" fill="currentColor" stroke="none" /></svg>);
 
 // Indicador compacto de progresso — Pedido → Identificação → Confirmação
 // (nunca "Pagamento": ele pode nem existir, ver regra do consumo local).
