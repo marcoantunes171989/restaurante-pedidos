@@ -7,8 +7,6 @@ import {
 } from "../lib/notificacoes";
 import { fetchPushSubscriptionAtual, enviarNotificacaoTeste } from "../lib/supabase";
 
-const GLASS = "pp-glass-surface";
-
 function Toggle({ ligado, onToggle, disabled, label }) {
   return (
     <button
@@ -40,9 +38,8 @@ const TEXTO_PERMISSAO = {
   unsupported: { txt: "Não suportada neste navegador", cor: "#f87171" },
 };
 
-// `light`: ver o mesmo parâmetro em NotificationBell.jsx (só o botão
-// gatilho muda de aparência; o painel continua igual).
-export default function NotificationSettings({ light = false }) {
+// O botão-gatilho é sempre claro — ver a mesma nota em NotificationBell.jsx.
+export default function NotificationSettings() {
   const [aberto, setAberto] = useState(false);
   const [cap, setCap] = useState(null);
   const [permissao, setPermissao] = useState("default");
@@ -155,12 +152,10 @@ export default function NotificationSettings({ light = false }) {
         onClick={() => setAberto(true)}
         type="button"
         aria-label="Configurações de notificação"
-        title={light ? "Configurações de notificação" : undefined}
-        className={light
-          ? "grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-[var(--pp-border)] bg-[var(--pp-surface)] text-[var(--pp-text-body)] transition-colors duration-150 hover:bg-[var(--pp-bg)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-primary)]"
-          : `${GLASS} pp-pd-icon-btn rounded-xl`}
+        title="Configurações de notificação"
+        className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-[var(--pp-border)] bg-[var(--pp-surface)] text-[var(--pp-text-body)] transition-colors duration-150 hover:bg-[var(--pp-bg)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-primary)]"
       >
-        {light ? <Settings aria-hidden="true" size={18} /> : "⚙️"}
+        <Settings aria-hidden="true" size={18} />
       </button>
 
       {aberto && (

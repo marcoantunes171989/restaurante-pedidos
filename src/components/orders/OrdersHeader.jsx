@@ -6,11 +6,12 @@ import NotificationSettings from "../NotificationSettings";
 import { useOnline } from "../../lib/useOnline";
 
 /**
- * Cabeçalho + busca da tela Pedidos (tema claro) — único componente
- * porque a busca fica "imediatamente abaixo" do cabeçalho, mesma unidade
- * visual. Logo/Notificações/Configurações reaproveitados sem duplicar
- * lógica (NotificationBell/NotificationSettings continuam autocontidos —
- * JWT/RLS — só o botão-gatilho troca de aparência via a prop `light`).
+ * Cabeçalho + busca (tema claro) — usado por Pedidos, Cozinha, Bar e
+ * Caixa (prop `titulo` muda o texto). Único componente porque a busca
+ * fica "imediatamente abaixo" do cabeçalho, mesma unidade visual.
+ * Logo/Notificações/Configurações reaproveitados sem duplicar lógica
+ * (NotificationBell/NotificationSettings continuam autocontidos — JWT/
+ * RLS —, só o visual do botão-gatilho é definido lá).
  */
 export default function OrdersHeader({ titulo = "Pedidos", usuarioNome = "", lojaInfo, onFechar, nivelAcesso = "", busca, onBuscaChange, searchPlaceholder = "Buscar pedido, cliente ou código…" }) {
   const online = useOnline();
@@ -73,8 +74,8 @@ export default function OrdersHeader({ titulo = "Pedidos", usuarioNome = "", loj
             </button>
           )}
         </div>
-        <NotificationBell light />
-        <NotificationSettings light />
+        <NotificationBell />
+        <NotificationSettings />
       </div>
     </motion.header>
   );

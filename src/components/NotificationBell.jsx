@@ -3,8 +3,6 @@ import { Bell } from "lucide-react";
 import { fetchNotificacoes, escutarNotificacoes, marcarNotificacaoLida, marcarTodasNotificacoesLidas } from "../lib/supabase";
 import { ouvirOutrasAbas, avisarOutrasAbas } from "../lib/notificacoes";
 
-const GLASS = "pp-glass-surface";
-
 // Mesmo truque de navegação usado pelo botão voltar/avançar do navegador
 // (App.jsx: "Sincroniza com a rota (voltar/avançar do navegador →
 // /operacional/:sub)") — pushState sozinho não dispara popstate, então
@@ -28,12 +26,11 @@ function tempoRelativo(iso) {
 
 const ICONE_TIPO = { novo_pedido: "🆕", caixa_aguardando: "💳" };
 
-// `light`: só troca a aparência do BOTÃO GATILHO (fundo claro + ícone
-// lucide, em vez do glass escuro + emoji) para o novo header claro de
-// Pedidos — o painel de notificações em si continua igual (mesmo
-// componente autocontido, mesma lógica), sem afetar Cozinha/Bar/Caixa
-// (que continuam chamando <NotificationBell /> sem essa prop).
-export default function NotificationBell({ light = false }) {
+// O botão-gatilho é sempre claro (fundo --pp-surface + ícone lucide) —
+// as 5 telas operacionais migraram para o tema claro (Central, Pedidos,
+// Cozinha, Bar, Caixa); o painel de notificações em si continua no
+// visual original (componente autocontido, mesma lógica).
+export default function NotificationBell() {
   const [aberto, setAberto] = useState(false);
   const [itens, setItens] = useState([]);
   const [carregando, setCarregando] = useState(true);
@@ -89,13 +86,11 @@ export default function NotificationBell({ light = false }) {
         aria-label={`Notificações${naoLidas > 0 ? ` — ${naoLidas} não lida${naoLidas > 1 ? "s" : ""}` : ""}`}
         aria-haspopup="true"
         aria-expanded={aberto}
-        title={light ? "Notificações" : undefined}
-        className={light
-          ? "relative grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-[var(--pp-border)] bg-[var(--pp-surface)] text-[var(--pp-text-body)] transition-colors duration-150 hover:bg-[var(--pp-bg)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-primary)]"
-          : `${GLASS} pp-pd-icon-btn rounded-xl`}
+        title="Notificações"
+        className="relative grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-[var(--pp-border)] bg-[var(--pp-surface)] text-[var(--pp-text-body)] transition-colors duration-150 hover:bg-[var(--pp-bg)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-primary)]"
       >
-        {light ? <Bell aria-hidden="true" size={18} /> : "🔔"}
-        {naoLidas > 0 && <span className={light ? "absolute -right-1 -top-1 min-w-[18px] rounded-full border-2 border-[var(--pp-surface)] bg-[var(--pp-danger)] px-1 text-[10px] font-bold leading-[16px] text-white" : "pp-pd-notif-badge"}>{naoLidas > 9 ? "9+" : naoLidas}</span>}
+        <Bell aria-hidden="true" size={18} />
+        {naoLidas > 0 && <span className="absolute -right-1 -top-1 min-w-[18px] rounded-full border-2 border-[var(--pp-surface)] bg-[var(--pp-danger)] px-1 text-[10px] font-bold leading-[16px] text-white">{naoLidas > 9 ? "9+" : naoLidas}</span>}
       </button>
 
       {aberto && (
