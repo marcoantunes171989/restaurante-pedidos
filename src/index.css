@@ -744,27 +744,23 @@ select {
 }
 select::-ms-expand { display: none; } /* IE/Edge antigo */
 
-/* ── Notificações (sino) e Configurações (engrenagem) — painéis do
-   header escuro compartilhado. Mobile: drawer fixo na parte de baixo da
-   tela (safe-area já tratada no componente); >=640px: popover/modal
-   flutuante ancorado, mesma paleta/bordas/sombra do resto do tema. ── */
+/* ── Notificações (sino) e Configurações (engrenagem) — painéis
+   renderizados via createPortal em document.body (NotificationBell.jsx/
+   NotificationSettings.jsx — ver o comentário de causa raiz lá: um
+   ancestral com overflow-hidden recortava o popover quando ele ainda
+   vivia dentro do header). Aqui só a aparência (fundo/borda/sombra);
+   posição, largura, altura máxima e border-radius (que agora diferem
+   entre mobile "sheet" e desktop "popover") viram className/style no
+   componente, calculados em runtime — não fixos aqui. */
 .pp-notif-panel {
   background: #1a1a1a;
   border: 1px solid rgba(255,255,255,.12);
   box-shadow: 0 20px 50px rgba(0,0,0,.45);
-  border-radius: 22px 22px 0 0;
-  width: 100%;
-  max-height: 80vh;
   overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-@media (min-width: 640px) {
-  .pp-notif-panel { width: 384px; max-width: calc(100vw - 32px); border-radius: 20px; max-height: 70vh; }
 }
 
 .pp-notif-modal-backdrop {
-  position: fixed; inset: 0; z-index: 50;
+  position: fixed; inset: 0; z-index: 100;
   background: rgba(0,0,0,.55);
   display: flex; align-items: flex-end; justify-content: center;
 }

@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { Settings } from "lucide-react";
+import { createPortal } from "react-dom";
+import { Settings, X } from "lucide-react";
 import {
   capacidadesPush, permissaoAtual, swEstaAtivo, obterAssinaturaAtual,
   ativarNotificacoes, desativarNotificacoes, removerEsteDispositivo,
   carregarPreferencias, atualizarPreferencias,
 } from "../lib/notificacoes";
 import { fetchPushSubscriptionAtual, enviarNotificacaoTeste } from "../lib/supabase";
+import { useBodyScrollLock } from "../lib/useBodyScrollLock";
 
 function Toggle({ ligado, onToggle, disabled, label }) {
   return (
@@ -39,6 +41,13 @@ const TEXTO_PERMISSAO = {
 };
 
 // O botão-gatilho é sempre claro — ver a mesma nota em NotificationBell.jsx.
+// O modal em si (position:fixed + inset:0) já escapava corretamente do
+// overflow-hidden do header mesmo antes desta tarefa (fixed só é
+// recortado por um ancestral com transform/filter/perspective/contain,
+// que o header não tem) — mas passou a ser renderizado via createPortal
+// também, pelos mesmos motivos estruturais do NotificationBell.jsx:
+// consistência entre os dois painéis e imunidade a qualquer mudança
+// futura no header que crie um stacking context.
 export default function NotificationSettings() {
   const [aberto, setAberto] = useState(false);
   const [cap, setCap] = useState(null);
@@ -89,6 +98,8 @@ export default function NotificationSettings() {
       botao?.focus();
     };
   }, [aberto]);
+
+  useBodyScrollLock(aberto);
 
   async function alternarPush() {
     setProcessando(true);
@@ -158,7 +169,7 @@ export default function NotificationSettings() {
         <Settings aria-hidden="true" size={18} />
       </button>
 
-      {aberto && (
+      {aberto && createPortal(
         <div className="pp-notif-modal-backdrop" onClick={() => setAberto(false)}>
           <div
             ref={painelRef}
@@ -169,7 +180,7 @@ export default function NotificationSettings() {
           >
             <div className="flex items-center justify-between gap-2 border-b border-[rgba(255,255,255,.1)] p-4">
               <h2 className="text-base font-bold text-[#fff]">Configurações de notificação</h2>
-              <button onClick={() => setAberto(false)} type="button" aria-label="Fechar" className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-[rgba(255,255,255,.6)] hover:bg-[rgba(255,255,255,.08)]">✕</button>
+              <button onClick={() => setAberto(false)} type="button" aria-label="Fechar" className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-[rgba(255,255,255,.6)] hover:bg-[rgba(255,255,255,.08)]"><X aria-hidden="true" size={18} /></button>
             </div>
 
             <div className="p-4">
@@ -259,7 +270,8 @@ export default function NotificationSettings() {
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );
