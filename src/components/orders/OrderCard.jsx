@@ -1,4 +1,4 @@
-import { User, CreditCard, MoreVertical } from "lucide-react";
+import { User, CreditCard, MoreVertical, Check } from "lucide-react";
 import OrderStatusBadge from "./OrderStatusBadge";
 import { STATUS_ACCENT } from "./orderStatusColors";
 import OrderOriginBadge from "./OrderOriginBadge";
@@ -31,27 +31,47 @@ function ItensLista({ items = [] }) {
   );
 }
 
-function SetorBloco({ sk, its, metaSetor }) {
+// `setorPronto`/`onMarcarPronto` são opcionais — só Cozinha/Bar passam (ação
+// real de produção por setor, ver CentralDaCozinha.jsx); sem eles, o bloco
+// fica só leitura, do jeito que Pedidos precisa. Mesmo contrato de
+// OperationalOrderCardDark.jsx (tema escuro): acionável só com o pedido em
+// "preparing" e aquele setor específico ainda não pronto.
+function SetorBloco({ o, sk, its, metaSetor, setorPronto, onMarcarPronto }) {
   const sm = metaSetor(sk);
+  const pronto = setorPronto?.(o, sk);
+  const acionavel = !!onMarcarPronto;
   return (
     <div className="mt-1">
-      <span className="mb-2 inline-flex items-center rounded-lg bg-[var(--pp-brand)]/10 px-2.5 py-1 text-[11px] font-bold text-[var(--pp-brand-text)]">{sm.label}</span>
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <span className="inline-flex items-center rounded-lg bg-[var(--pp-brand)]/10 px-2.5 py-1 text-[11px] font-bold text-[var(--pp-brand-text)]">{sm.label}</span>
+        {acionavel && o.status === "preparing" && (
+          pronto
+            ? <span className="inline-flex items-center gap-1 rounded-lg bg-[var(--pp-success-soft)] px-2 py-0.5 text-[11px] font-bold text-[var(--pp-success-text)]"><Check aria-hidden="true" size={12} /> Pronto</span>
+            : (
+              <button type="button" onClick={onMarcarPronto} className="min-h-[32px] rounded-lg bg-[var(--pp-success)] px-2.5 text-[11px] font-bold text-white transition-colors duration-150 hover:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-primary-hover)]">
+                Marcar pronto
+              </button>
+            )
+        )}
+      </div>
       <ItensLista items={its} />
     </div>
   );
 }
 
 /**
- * Card de pedido (tema claro) — usado só pela tela Pedidos
- * (src/pages/CentralDePedidos.jsx). Cozinha/Bar continuam usando
- * OperationalOrderCardDark (tema escuro, inalterado) — mesmos dados,
- * apresentação diferente. `acao` é o objeto cru vindo de
- * `acaoPrincipal(o)` (App.jsx: { l, fn, disabled }), não mais o JSX
- * pré-montado — este componente decide seu próprio ícone/estados.
+ * Card de pedido (tema claro) — usado por Pedidos (src/pages/
+ * CentralDePedidos.jsx) e Cozinha (src/pages/CentralDaCozinha.jsx). Bar
+ * continua usando OperationalOrderCardDark (tema escuro, inalterado) até
+ * ganhar seu próprio redesign. `acao` é o objeto cru vindo de
+ * acaoPrincipal(o)/actionPara(o) — { l, fn, disabled } —, não JSX
+ * pré-montado; `mensagemRodape` substitui o botão por um texto (ex.:
+ * "pronto, aguardando o outro setor" — Cozinha/Bar), sem nenhuma ação.
  */
 export default function OrderCard({
-  o, variante, setoresNoPedido = [], acao,
+  o, variante, setoresNoPedido = [], acao, mensagemRodape,
   origemDe, haTxt, numeroPedido, itensDoSetor, metaSetor,
+  setorPronto, onMarcarPronto,
   destacado = false, cardRef,
 }) {
   const org = origemDe(o);
@@ -91,11 +111,17 @@ export default function OrderCard({
         {setoresNoPedido.map((sk) => {
           const its = itensDoSetor(o, sk);
           if (its.length === 0) return null;
-          return <SetorBloco key={sk} sk={sk} its={its} metaSetor={metaSetor} />;
+          return <SetorBloco key={sk} o={o} sk={sk} its={its} metaSetor={metaSetor} setorPronto={setorPronto} onMarcarPronto={onMarcarPronto ? () => onMarcarPronto(sk) : undefined} />;
         })}
       </div>
 
-      {acao && (
+      {mensagemRodape ? (
+        <div className="mt-4 pl-2">
+          <p className="flex items-center justify-center gap-1.5 rounded-xl bg-[var(--pp-success-soft)] px-4 py-3 text-center text-sm font-bold text-[var(--pp-success-text)]">
+            <Check aria-hidden="true" size={15} /> {mensagemRodape}
+          </p>
+        </div>
+      ) : acao && (
         <div className="mt-4 flex gap-2 pl-2">
           <OrderActionButton a={acao} variante={variante} />
           {/* Botão preservado por paridade com o comportamento atual (o

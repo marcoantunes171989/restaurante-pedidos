@@ -1,12 +1,6 @@
 import OrdersEmptyState from "./OrdersEmptyState";
 import { STATUS_ACCENT } from "./orderStatusColors";
 
-const VAZIO_TXT = {
-  novo: "Nenhum pedido novo.",
-  preparo: "Nenhum pedido em preparo.",
-  pronto: "Nenhum pedido pronto no momento.",
-};
-
 /**
  * Coluna do Kanban (tema claro) — usada só em desktop/tablet (>=768px,
  * ver OrdersKanban.jsx). Cabeçalho fixo dentro da coluna quando a lista
@@ -15,7 +9,7 @@ const VAZIO_TXT = {
  * OrderCard já com todas as props por-pedido (mesmo padrão do
  * `renderCard` original de CentralDePedidos.jsx).
  */
-export default function OrdersKanbanColumn({ variante, titulo, pedidos = [], renderCard }) {
+export default function OrdersKanbanColumn({ variante, titulo, vazio, pedidos = [], renderCard }) {
   return (
     <div className="flex min-h-[220px] flex-col rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-3.5">
       <div className="sticky top-0 z-[1] mb-3 flex items-center gap-2.5 rounded-xl bg-[var(--pp-bg)] px-1 py-1">
@@ -25,7 +19,7 @@ export default function OrdersKanbanColumn({ variante, titulo, pedidos = [], ren
       </div>
 
       {pedidos.length === 0 ? (
-        <OrdersEmptyState variante={variante} titulo={VAZIO_TXT[variante]} />
+        <OrdersEmptyState variante={variante} titulo={vazio} />
       ) : (
         <div className="flex max-h-[65vh] flex-col gap-3 overflow-y-auto pr-0.5">
           {pedidos.map((o) => renderCard(o, variante))}

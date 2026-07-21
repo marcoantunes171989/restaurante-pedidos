@@ -3,7 +3,11 @@ import OrdersEmptyState from "./OrdersEmptyState";
 import OrdersKanbanColumn from "./OrdersKanbanColumn";
 import { STATUS_ACCENT } from "./orderStatusColors";
 
-const COLUNAS = [
+// Textos padrão = os já usados hoje em Pedidos (preservados exatamente).
+// Cozinha/Bar têm sua própria redação (ver CentralDoSetor.jsx/
+// CentralDaCozinha.jsx) — passe `colunasConfig` pra sobrescrever só o
+// título/mensagem-vazia sem duplicar este componente.
+const COLUNAS_PADRAO = [
   { key: "novo", dataKey: "novos", titulo: "Novos", vazio: "Nenhum pedido novo." },
   { key: "preparo", dataKey: "preparo", titulo: "Em preparo", vazio: "Nenhum pedido em preparo." },
   { key: "pronto", dataKey: "prontos", titulo: "Pronto", vazio: "Nenhum pedido pronto no momento." },
@@ -17,7 +21,8 @@ const COLUNAS = [
  * nunca comprimir 3 colunas lado a lado num celular). `renderCard(o,
  * variante)` monta o OrderCard já com todas as props por-pedido.
  */
-export default function OrdersKanban({ dataColunas, renderCard }) {
+export default function OrdersKanban({ dataColunas, renderCard, colunasConfig = COLUNAS_PADRAO }) {
+  const COLUNAS = colunasConfig;
   const [tabMobile, setTabMobile] = useState("novo");
 
   return (
@@ -61,7 +66,7 @@ export default function OrdersKanban({ dataColunas, renderCard }) {
       {/* Colunas — >=768px */}
       <div className="hidden gap-4 md:grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))" }}>
         {COLUNAS.map((c) => (
-          <OrdersKanbanColumn key={c.key} variante={c.key} titulo={c.titulo} pedidos={dataColunas[c.dataKey] || []} renderCard={renderCard} />
+          <OrdersKanbanColumn key={c.key} variante={c.key} titulo={c.titulo} vazio={c.vazio} pedidos={dataColunas[c.dataKey] || []} renderCard={renderCard} />
         ))}
       </div>
     </div>

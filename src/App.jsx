@@ -46,6 +46,7 @@ import OperationalCentral from "./pages/OperationalCentral";
 import CentralDePedidos from "./pages/CentralDePedidos";
 import CentralDoCaixa from "./pages/CentralDoCaixa";
 import CentralDoSetor from "./pages/CentralDoSetor";
+import CentralDaCozinha from "./pages/CentralDaCozinha";
 import OperationalBottomNav from "./components/OperationalBottomNav";
 import { ClipboardList, ChefHat, Wine, CreditCard, Utensils, Clock, TrendingUp, Bell, CheckCircle2, Hourglass, Receipt, Wallet, CalendarCheck } from "lucide-react";
 
@@ -7201,12 +7202,13 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
     );
   }
 
-  // Cozinha e Bar — mesma tela compartilhada (src/pages/CentralDoSetor.jsx),
-  // tema escuro padronizado com Pedidos (src/pages/CentralDePedidos.jsx),
-  // via os mesmos OperationalDarkPage/OperationalOrderCardDark. Só o
-  // filtro de setor e os textos mudam entre as duas; nenhuma lógica é
-  // duplicada — setoresPresentesSetor já filtra só os itens desta aba,
-  // nunca mistura Cozinha com Bar.
+  // Cozinha (src/pages/CentralDaCozinha.jsx, tema CLARO) e Bar
+  // (src/pages/CentralDoSetor.jsx, tema escuro — inalterado) — eram a
+  // MESMA tela compartilhada antes do redesign da Cozinha; desacopladas
+  // pra não mudar o Bar sem pedido para isso (mesmo padrão já usado pra
+  // separar Pedidos de Cozinha/Bar). setoresPresentesSetor já filtra só
+  // os itens desta aba, nunca mistura Cozinha com Bar — preservado
+  // idêntico nas duas.
   if ((tab === "cozinha" || tab === "bar") && permitido(tab)) {
     const ehBar = tab === "bar";
     const naTabSetor = ehBar ? barLike : (nome) => !barLike(nome);
@@ -7216,37 +7218,26 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
     // Mesmo "nível de acesso" já exibido em Pedidos/Central Operacional
     // (perms/liberados computados uma vez no topo desta função).
     const nivelAcesso = perms.total ? "Acesso total" : (liberados.map((m) => m.label).join(" · ") || "Sem acesso");
+    const propsComuns = {
+      usuarioNome, lojaInfo, onFechar, navItems, onNavigate: (id) => setTab(id), nivelAcesso,
+      colunas: { novos: porSetorEOrdem(novos), preparo: porSetorEOrdem(emPreparo), prontos: porSetorEOrdem(prontos) },
+      listaTodos: porSetorEOrdem(ativos),
+      origemDe, haTxt, numeroPedido, itensDoSetor, metaSetor, setorPronto,
+      setoresPresentes, setoresPresentesSetor: (o) => setoresPresentes(o).filter(naTabSetor),
+      bloqueadoPorPagamento,
+      onIniciarPreparo: (id) => updateOrderStatus(id, "preparing"),
+      onMarcarSetorPronto: (id, sk, setores) => marcarSetorPronto(id, sk, setores),
+      onBaixarEntregue: (id) => marcarEntregue(id),
+    };
+    if (!ehBar) return <CentralDaCozinha {...propsComuns} />;
     return (
       <CentralDoSetor
-        titulo={ehBar ? "Bar" : "Cozinha"}
-        fluxoLabel={ehBar ? "Fluxo do bar" : "Fluxo da cozinha"}
-        listaVazioTexto={ehBar ? "Nenhum pedido para o bar." : "Nenhum pedido para a cozinha."}
-        listaVazioIcone={ehBar ? "🍹" : "🧑‍🍳"}
+        {...propsComuns}
+        titulo="Bar"
+        fluxoLabel="Fluxo do bar"
+        listaVazioTexto="Nenhum pedido para o bar."
+        listaVazioIcone="🍹"
         activeNavId={tab}
-        usuarioNome={usuarioNome}
-        lojaInfo={lojaInfo}
-        onFechar={onFechar}
-        navItems={navItems}
-        onNavigate={(id) => setTab(id)}
-        nivelAcesso={nivelAcesso}
-        colunas={{
-          novos: porSetorEOrdem(novos),
-          preparo: porSetorEOrdem(emPreparo),
-          prontos: porSetorEOrdem(prontos),
-        }}
-        listaTodos={porSetorEOrdem(ativos)}
-        origemDe={origemDe}
-        haTxt={haTxt}
-        numeroPedido={numeroPedido}
-        itensDoSetor={itensDoSetor}
-        metaSetor={metaSetor}
-        setorPronto={setorPronto}
-        setoresPresentes={setoresPresentes}
-        setoresPresentesSetor={(o) => setoresPresentes(o).filter(naTabSetor)}
-        bloqueadoPorPagamento={bloqueadoPorPagamento}
-        onIniciarPreparo={(id) => updateOrderStatus(id, "preparing")}
-        onMarcarSetorPronto={(id, sk, setores) => marcarSetorPronto(id, sk, setores)}
-        onBaixarEntregue={(id) => marcarEntregue(id)}
       />
     );
   }

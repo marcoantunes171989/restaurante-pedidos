@@ -12,7 +12,7 @@ import { useOnline } from "../../lib/useOnline";
  * lógica (NotificationBell/NotificationSettings continuam autocontidos —
  * JWT/RLS — só o botão-gatilho troca de aparência via a prop `light`).
  */
-export default function OrdersHeader({ usuarioNome = "", lojaInfo, onFechar, nivelAcesso = "", busca, onBuscaChange, searchPlaceholder = "Buscar pedido, cliente ou código…" }) {
+export default function OrdersHeader({ titulo = "Pedidos", usuarioNome = "", lojaInfo, onFechar, nivelAcesso = "", busca, onBuscaChange, searchPlaceholder = "Buscar pedido, cliente ou código…" }) {
   const online = useOnline();
   const reduzMovimento = useReducedMotion();
 
@@ -38,7 +38,7 @@ export default function OrdersHeader({ usuarioNome = "", lojaInfo, onFechar, niv
               )}
               {online ? "Online" : "Sem conexão"}
             </div>
-            <h1 className="text-2xl font-black leading-tight tracking-tight text-[var(--pp-text)] md:text-[28px]">Pedidos</h1>
+            <h1 className="text-2xl font-black leading-tight tracking-tight text-[var(--pp-text)] md:text-[28px]">{titulo}</h1>
             <p className="mt-0.5 truncate text-sm text-[var(--pp-text-body)]">
               {lojaInfo?.nome || "Operação da loja"} · {usuarioNome || "Operador"}{nivelAcesso ? <> · <span className="font-semibold text-[var(--pp-brand-text)]">{nivelAcesso}</span></> : ""}
             </p>
