@@ -1,4 +1,4 @@
-import { User, CreditCard, MoreVertical, Check } from "lucide-react";
+import { User, CreditCard, MoreVertical, Check, Wine } from "lucide-react";
 import OrderStatusBadge from "./OrderStatusBadge";
 import { STATUS_ACCENT } from "./orderStatusColors";
 import OrderOriginBadge from "./OrderOriginBadge";
@@ -40,10 +40,16 @@ function SetorBloco({ o, sk, its, metaSetor, setorPronto, onMarcarPronto }) {
   const sm = metaSetor(sk);
   const pronto = setorPronto?.(o, sk);
   const acionavel = !!onMarcarPronto;
+  // Ícone de taça só quando o setor é o Bar (heurística de texto, mesma
+  // já usada em App.jsx/barLike) — sem hardcode de tela, sem emoji.
+  const ehBar = /bar|bebida|drink/i.test(sm.label || "");
   return (
     <div className="mt-1">
       <div className="mb-2 flex items-center justify-between gap-2">
-        <span className="inline-flex items-center rounded-lg bg-[var(--pp-brand)]/10 px-2.5 py-1 text-[11px] font-bold text-[var(--pp-brand-text)]">{sm.label}</span>
+        <span className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--pp-brand)]/10 px-2.5 py-1 text-[11px] font-bold text-[var(--pp-brand-text)]">
+          {ehBar && <Wine aria-hidden="true" size={12} />}
+          {sm.label}
+        </span>
         {acionavel && o.status === "preparing" && (
           pronto
             ? <span className="inline-flex items-center gap-1 rounded-lg bg-[var(--pp-success-soft)] px-2 py-0.5 text-[11px] font-bold text-[var(--pp-success-text)]"><Check aria-hidden="true" size={12} /> Pronto</span>
@@ -61,10 +67,9 @@ function SetorBloco({ o, sk, its, metaSetor, setorPronto, onMarcarPronto }) {
 
 /**
  * Card de pedido (tema claro) — usado por Pedidos (src/pages/
- * CentralDePedidos.jsx) e Cozinha (src/pages/CentralDaCozinha.jsx). Bar
- * continua usando OperationalOrderCardDark (tema escuro, inalterado) até
- * ganhar seu próprio redesign. `acao` é o objeto cru vindo de
- * acaoPrincipal(o)/actionPara(o) — { l, fn, disabled } —, não JSX
+ * CentralDePedidos.jsx), Cozinha (src/pages/CentralDaCozinha.jsx) e Bar
+ * (src/pages/CentralDoBar.jsx). `acao` é o objeto cru vindo de
+ * acaoPrincipal(o)/acaoPara(o) — { l, fn, disabled } —, não JSX
  * pré-montado; `mensagemRodape` substitui o botão por um texto (ex.:
  * "pronto, aguardando o outro setor" — Cozinha/Bar), sem nenhuma ação.
  */

@@ -45,8 +45,8 @@ import { PageHeader, PrimeButton, EmptyState, FilterChip, FilterGroup, FiltersPa
 import OperationalCentral from "./pages/OperationalCentral";
 import CentralDePedidos from "./pages/CentralDePedidos";
 import CentralDoCaixa from "./pages/CentralDoCaixa";
-import CentralDoSetor from "./pages/CentralDoSetor";
 import CentralDaCozinha from "./pages/CentralDaCozinha";
+import CentralDoBar from "./pages/CentralDoBar";
 import OperationalBottomNav from "./components/OperationalBottomNav";
 import { ClipboardList, ChefHat, Wine, CreditCard, Utensils, Clock, TrendingUp, Bell, CheckCircle2, Hourglass, Receipt, Wallet, CalendarCheck } from "lucide-react";
 
@@ -7202,11 +7202,10 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
     );
   }
 
-  // Cozinha (src/pages/CentralDaCozinha.jsx, tema CLARO) e Bar
-  // (src/pages/CentralDoSetor.jsx, tema escuro — inalterado) — eram a
-  // MESMA tela compartilhada antes do redesign da Cozinha; desacopladas
-  // pra não mudar o Bar sem pedido para isso (mesmo padrão já usado pra
-  // separar Pedidos de Cozinha/Bar). setoresPresentesSetor já filtra só
+  // Cozinha (src/pages/CentralDaCozinha.jsx) e Bar (src/pages/
+  // CentralDoBar.jsx) — tema CLARO nas duas. Eram a mesma tela
+  // compartilhada (CentralDoSetor.jsx, tema escuro) antes de cada uma
+  // ganhar sua própria tela dedicada; setoresPresentesSetor já filtra só
   // os itens desta aba, nunca mistura Cozinha com Bar — preservado
   // idêntico nas duas.
   if ((tab === "cozinha" || tab === "bar") && permitido(tab)) {
@@ -7229,17 +7228,7 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
       onMarcarSetorPronto: (id, sk, setores) => marcarSetorPronto(id, sk, setores),
       onBaixarEntregue: (id) => marcarEntregue(id),
     };
-    if (!ehBar) return <CentralDaCozinha {...propsComuns} />;
-    return (
-      <CentralDoSetor
-        {...propsComuns}
-        titulo="Bar"
-        fluxoLabel="Fluxo do bar"
-        listaVazioTexto="Nenhum pedido para o bar."
-        listaVazioIcone="🍹"
-        activeNavId={tab}
-      />
-    );
+    return ehBar ? <CentralDoBar {...propsComuns} /> : <CentralDaCozinha {...propsComuns} />;
   }
 
   return (

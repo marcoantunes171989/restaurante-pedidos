@@ -8,13 +8,13 @@ import OrdersList from "../components/orders/OrdersList";
 import OrderCard from "../components/orders/OrderCard";
 
 /**
- * Pedidos (/operacional/pedidos) — tema CLARO, dedicado a esta tela (não
- * usa mais o casco compartilhado OperationalDarkPage/OperationalDarkHeader
- * — esses continuam servindo Cozinha/Bar/Caixa sem nenhuma alteração, ver
- * src/pages/CentralDoSetor.jsx e src/pages/CentralDoCaixa.jsx). Todo dado
- * e toda mutação (aceitar, entregar, status) continuam vindo prontos de
- * OperacaoMobileView (src/App.jsx) — este componente só formata,
- * filtra pela busca local e monta a apresentação.
+ * Pedidos (/operacional/pedidos) — tema CLARO, dedicado a esta tela.
+ * Cozinha (CentralDaCozinha.jsx) e Bar (CentralDoBar.jsx) seguiram o
+ * mesmo caminho depois; só o Caixa (src/pages/CentralDoCaixa.jsx) ainda
+ * usa o cabeçalho escuro original (OperationalDarkHeader), sem nenhuma
+ * alteração. Todo dado e toda mutação (aceitar, entregar, status)
+ * continuam vindo prontos de OperacaoMobileView (src/App.jsx) — este
+ * componente só formata, filtra pela busca local e monta a apresentação.
  */
 export default function CentralDePedidos({
   usuarioNome = "",

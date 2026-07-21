@@ -7,10 +7,9 @@ import OrdersKanban from "../components/orders/OrdersKanban";
 import OrdersList from "../components/orders/OrdersList";
 import OrderCard from "../components/orders/OrderCard";
 
-// Textos de coluna vazia — os mesmos já usados no antigo CentralDoSetor.jsx
-// (COLUNAS_META, removido — ver CentralDoBar.jsx), preservados ao pé da
-// letra (não são os mesmos de Pedidos: "Nada pronto no momento" em vez
-// de "Nenhum pedido pronto no momento.", sem ponto final).
+// Textos de coluna vazia — os mesmos já usados hoje (CentralDoSetor.jsx,
+// COLUNAS_META — deliberadamente iguais para Cozinha e Bar), preservados
+// ao pé da letra.
 const COLUNAS_CONFIG = [
   { key: "novo", dataKey: "novos", titulo: "Novos", vazio: "Nenhum pedido novo" },
   { key: "preparo", dataKey: "preparo", titulo: "Em preparo", vazio: "Nenhum pedido em preparo" },
@@ -18,18 +17,19 @@ const COLUNAS_CONFIG = [
 ];
 
 /**
- * Cozinha (/operacional/cozinha) — tema CLARO, dedicado a esta tela.
- * Cozinha e Bar (src/pages/CentralDoBar.jsx) eram a mesma tela
- * compartilhada (CentralDoSetor.jsx, tema escuro — removido junto com
- * OperationalDarkPage/OperationalOrderCardDark/OrderItemsList, sem mais
- * nenhum consumidor) antes de cada uma ganhar sua própria tela dedicada.
- * Toda a lógica (contadores, setor por setor, iniciar preparo, marcar
- * pronto, baixa, tempo real) continua vindo pronta de OperacaoMobileView
- * (src/App.jsx) — este componente só formata, filtra pela busca local e
- * monta a apresentação. Ação por-setor ("Marcar pronto") replicada
- * fielmente da lógica original em CentralDoSetor.jsx/actionPara.
+ * Bar (/operacional/bar) — tema CLARO, dedicado a esta tela. Mesmo
+ * padrão de CentralDaCozinha.jsx (que era o mesmo componente
+ * compartilhado — CentralDoSetor.jsx — antes de a Cozinha ser
+ * desacoplada); agora o Bar também ganha sua tela própria e
+ * CentralDoSetor.jsx fica sem nenhum consumidor (ver remoção do código
+ * morto no commit desta tarefa). Toda a lógica (contadores, setor por
+ * setor, iniciar preparo, marcar pronto, baixa, tempo real) continua
+ * vindo pronta de OperacaoMobileView (src/App.jsx) — este componente só
+ * formata, filtra pela busca local e monta a apresentação. Ação
+ * por-setor replicada fielmente da lógica original em
+ * CentralDoSetor.jsx/actionPara.
  */
-export default function CentralDaCozinha({
+export default function CentralDoBar({
   usuarioNome = "",
   lojaInfo,
   onFechar,
@@ -40,7 +40,7 @@ export default function CentralDaCozinha({
   listaTodos = [],
   origemDe, haTxt, numeroPedido, itensDoSetor, metaSetor, setorPronto,
   setoresPresentes, // todos os setores do pedido (inclusive de outro setor) — usado na mutação
-  setoresPresentesSetor, // só os setores da cozinha — usado para exibir os blocos do card
+  setoresPresentesSetor, // só os setores do bar — usado para exibir os blocos do card
   bloqueadoPorPagamento,
   onIniciarPreparo, onMarcarSetorPronto, onBaixarEntregue,
 }) {
@@ -95,7 +95,7 @@ export default function CentralDaCozinha({
     if (variante === "preparo") {
       const todos = setoresPresentes(o);
       const aguardandoOutroSetor = setoresNoPedido.length > 0 && setoresNoPedido.every((s) => setorPronto(o, s)) && todos.length > setoresNoPedido.length;
-      if (aguardandoOutroSetor) return { mensagemRodape: "Cozinha pronta · aguardando o outro setor" };
+      if (aguardandoOutroSetor) return { mensagemRodape: "Bar pronto · aguardando o outro setor" };
       return {}; // ação real é por setor, dentro do card
     }
     // pronto
@@ -123,16 +123,16 @@ export default function CentralDaCozinha({
   return (
     <div className="min-h-[100dvh] w-full pb-28" style={{ background: "var(--pp-bg)", paddingTop: "env(safe-area-inset-top)" }}>
       <div className="mx-auto max-w-[1600px] px-4 pb-6 pt-6 md:px-6 md:pt-10 lg:px-10">
-        <OrdersHeader titulo="Cozinha" usuarioNome={usuarioNome} lojaInfo={lojaInfo} onFechar={onFechar} nivelAcesso={nivelAcesso} busca={busca} onBuscaChange={setBusca} />
+        <OrdersHeader titulo="Bar" usuarioNome={usuarioNome} lojaInfo={lojaInfo} onFechar={onFechar} nivelAcesso={nivelAcesso} busca={busca} onBuscaChange={setBusca} />
 
         <div className="mt-6">
           <OrdersSummary novos={colunas.novos?.length || 0} preparo={colunas.preparo?.length || 0} prontos={colunas.prontos?.length || 0} />
         </div>
 
-        <section aria-label="Fluxo da cozinha" className="mt-6 rounded-[22px] border border-[var(--pp-border)] bg-[var(--pp-surface)] p-4 shadow-[0_1px_2px_rgba(43,35,32,0.04),0_4px_16px_rgba(43,35,32,0.04)] md:p-6">
+        <section aria-label="Fluxo do bar" className="mt-6 rounded-[22px] border border-[var(--pp-border)] bg-[var(--pp-surface)] p-4 shadow-[0_1px_2px_rgba(43,35,32,0.04),0_4px_16px_rgba(43,35,32,0.04)] md:p-6">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 className="text-lg font-black text-[var(--pp-text)] md:text-xl">Fluxo da cozinha</h2>
+              <h2 className="text-lg font-black text-[var(--pp-text)] md:text-xl">Fluxo do bar</h2>
               <p className="text-xs text-[var(--pp-text-muted)]">{listaTodos.length} {listaTodos.length === 1 ? "pedido ativo" : "pedidos ativos"}</p>
             </div>
             <OrdersViewToggle view={view} onChange={setView} />
@@ -145,13 +145,13 @@ export default function CentralDaCozinha({
               pedidos={listaFiltrada} deriveVariant={deriveVariant} renderCard={renderCard}
               acaoPrincipal={(o) => acaoPara(o, deriveVariant(o), setoresPresentesSetor(o)).acao}
               origemDe={origemDe} haTxt={haTxt} numeroPedido={numeroPedido} setoresPresentes={setoresPresentesSetor}
-              vazioTitulo="Nenhum pedido para a cozinha." vazioDescricao={busca ? "Tente ajustar a busca." : undefined}
+              vazioTitulo="Nenhum pedido para o bar." vazioDescricao={busca ? "Tente ajustar a busca." : undefined}
             />
           )}
         </section>
       </div>
 
-      <OperationalBottomNav items={navItems} active="cozinha" onNavigate={onNavigate} />
+      <OperationalBottomNav items={navItems} active="bar" onNavigate={onNavigate} />
     </div>
   );
 }

@@ -869,17 +869,17 @@ select::-ms-expand { display: none; } /* IE/Edge antigo */
 }
 
 /* ══════════════════════════════════════════════════════════════
-   Pedidos, Cozinha e Bar (/operacional/pedidos, /operacional/cozinha,
-   /operacional/bar) — src/components/OperationalDarkPage.jsx +
-   OperationalOrderCardDark.jsx. Tema escuro padronizado com a Central
-   Operacional (bloco acima): cabeçalho, badge "Online", botão Sair e
-   cards de KPI REAPROVEITAM as classes de lá
-   (.pp-operational-header/.pp-glass-surface/.pp-kpi-card/.pp-kpi-label/
-   .pp-status-badge), sem duplicar nenhuma regra. Só a área de
-   board/lista/cards de pedido — que a Central não tem — ganha classes
-   novas aqui (prefixo pp-pd-), usando os MESMOS tons hex já usados nas
-   classes da Central (graphite #1a1a1a, primary #e8622c/#c9501f, gold
-   #d4a017) para manter a paleta idêntica nas três telas. */
+   Caixa (/operacional/caixa, src/pages/CentralDoCaixa.jsx) — ÚLTIMA tela
+   operacional ainda no tema escuro original (Central Operacional,
+   Pedidos, Cozinha e Bar já migraram para o tema claro --pp-* — ver
+   src/pages/OperationalCentral.jsx e src/components/orders/). Usa
+   .pp-operational-header/.pp-glass-surface/.pp-kpi-card/.pp-kpi-label/
+   .pp-status-badge (cabeçalho, herdados de OperationalDarkHeader.jsx) e
+   as classes pp-pd-* abaixo (board/cards de conta) diretamente. Um bom
+   número de classes pp-pd-* (board/coluna/setor/itens de pedido) ficou
+   sem uso depois da migração das outras 3 telas — mantidas aqui de
+   propósito (custo zero, sem risco) até o redesign do Caixa remover a
+   necessidade de todo o bloco. */
 .pp-pd-root { min-height: 100vh; width: 100%; background: #faf9f5; padding-bottom: 112px; }
 
 .pp-pd-search { display:flex; align-items:center; gap:9px; border-radius:13px; padding:10px 15px; min-width:200px; flex:1; }
