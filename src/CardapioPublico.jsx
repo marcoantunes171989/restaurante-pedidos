@@ -199,6 +199,8 @@ export default function CardapioPublico() {
   const [confirmarFechamento, setConfirmarFechamento] = useState(false); // confirmação obrigatória antes de solicitar/reenviar o fechamento da conta
   const [solicitando, setSolicitando] = useState(false);
   const solicitandoRef = useRef(false); // trava síncrona contra clique duplo (mesmo padrão de enviandoRef)
+  const [chamando, setChamando] = useState(""); // tipo do chamado (garcom|ajuda|limpeza) em andamento, "" se nenhum
+  const chamandoRef = useRef(false); // trava síncrona contra clique duplo (mesmo padrão de enviandoRef/solicitandoRef)
   const [pedidoRecolhido, setPedidoRecolhido] = useState({}); // { [id]: true } — cartão de pedido recolhido pelo cliente (padrão: expandido)
 
   // Confirmação obrigatória de "mesa ocupada" (QR por mesa) — status vem do
@@ -882,10 +884,13 @@ export default function CardapioPublico() {
 
   // Chamados de mesa (garçom/ajuda/limpeza) — só no modo mesa (QR na mesa)
   async function chamar(tipo, rotulo) {
-    if (!loja) return;
+    if (!loja || chamandoRef.current) return;
+    chamandoRef.current = true;
+    setChamando(tipo);
     const args = { lojaId: loja.id, mesa: mesa ? `Mesa ${String(mesa).padStart(2, "0")}` : "", comanda: comanda || "", tipo };
     try { await (cardapioViaRpc() ? rpcCriarChamadoPublico(args) : criarChamado(args)); setMsg({ t: "success", m: `${rotulo} — a equipe foi avisada.` }); }
     catch { setMsg({ t: "error", m: "Não foi possível enviar o chamado agora." }); }
+    finally { chamandoRef.current = false; setChamando(""); }
   }
 
   async function enviar() {
@@ -1102,8 +1107,8 @@ export default function CardapioPublico() {
         <div className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center text-center">
           {loja.logoUrl ? <img src={loja.logoUrl} alt="" className="h-20 w-20 rounded-3xl border border-[var(--client-border)] object-cover shadow-[var(--client-shadow-sm)]" /> : <LogoPP size={80} />}
           <h1 className="page-title mt-5 text-2xl font-bold tracking-tight text-[var(--client-text-primary)]">{loja.nome}</h1>
-          {currentTable && <span className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-[var(--client-primary-border)] bg-[var(--client-primary-soft)] px-4 py-1.5 text-sm font-bold text-[var(--client-primary-hover)]">📍 {currentTable}</span>}
-          <p className="mt-6 text-lg font-bold text-[var(--client-text-primary)]">Bem-vindo! 👋</p>
+          {currentTable && <span className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-[var(--client-primary-border)] bg-[var(--client-primary-soft)] px-4 py-1.5 text-sm font-bold text-[var(--client-primary-hover)]"><CkIconMesa width={14} height={14} /> {currentTable}</span>}
+          <p className="mt-6 text-lg font-bold text-[var(--client-text-primary)]">Bem-vindo!</p>
           <p className="mt-1 text-sm leading-6 text-[var(--client-text-secondary)]">Faça seu pedido de forma rápida e prática direto pelo celular.</p>
           <div className="mt-8 w-full space-y-3">
             <button onClick={() => setEtapa("cardapio")} className="w-full min-h-[44px] rounded-2xl bg-[var(--client-primary)] py-4 text-base font-black text-white shadow-[var(--client-shadow-sm)] transition active:scale-95 hover:bg-[var(--client-primary-hover)]">Iniciar pedido</button>
@@ -1113,10 +1118,16 @@ export default function CardapioPublico() {
             <div className="mt-8 w-full">
               <p className="text-xs font-bold uppercase tracking-widest text-[var(--client-text-secondary)]">Precisa de algo?</p>
               <div className="mt-2 flex justify-center gap-2">
-                {[["garcom", "🔔 Garçom"], ["ajuda", "🆘 Ajuda"], ["limpeza", "🧹 Limpeza"]].map(([t, l]) => (
-                  <button key={t} onClick={() => chamar(t, l.replace(/^\S+\s/, ""))}
-                    className="min-h-[44px] flex-1 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface-secondary)] py-2.5 text-xs font-black text-[var(--client-text-primary)] transition active:scale-95 hover:bg-[var(--client-border)]">{l}</button>
-                ))}
+                {[["garcom", CkIconSino, "Garçom"], ["ajuda", CkIconAjuda, "Ajuda"], ["limpeza", CkIconLimpeza, "Limpeza"]].map(([t, Icone, l]) => {
+                  const emAndamento = chamando === t;
+                  return (
+                    <button key={t} onClick={() => chamar(t, l)} disabled={!!chamando} aria-busy={emAndamento}
+                      className="flex min-h-[44px] flex-1 flex-col items-center justify-center gap-1 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface-secondary)] py-2.5 text-xs font-black text-[var(--client-text-primary)] transition active:scale-95 hover:bg-[var(--client-border)] disabled:cursor-not-allowed disabled:opacity-60">
+                      {emAndamento ? <CkIconSpinner /> : <Icone width={16} height={16} />}
+                      {emAndamento ? "Enviando…" : l}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -1175,10 +1186,15 @@ export default function CardapioPublico() {
         {/* Chamados — só no modo mesa (QR na mesa) */}
         {!modoExterno && mesa && (
           <div className="mx-auto mt-3 flex max-w-3xl gap-2">
-            {[["garcom", "🔔", "Garçom"], ["ajuda", "🆘", "Ajuda"], ["limpeza", "🧹", "Limpeza"]].map(([t, ic, l]) => (
-              <button key={t} onClick={() => chamar(t, l)}
-                className="flex min-h-[40px] flex-1 items-center justify-center gap-1.5 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface-secondary)] py-2.5 text-sm font-black text-[var(--client-text-primary)] transition active:scale-95 hover:bg-[var(--client-border)]"><span className="text-base">{ic}</span>{l}</button>
-            ))}
+            {[["garcom", CkIconSino, "Garçom"], ["ajuda", CkIconAjuda, "Ajuda"], ["limpeza", CkIconLimpeza, "Limpeza"]].map(([t, Icone, l]) => {
+              const emAndamento = chamando === t;
+              return (
+                <button key={t} onClick={() => chamar(t, l)} disabled={!!chamando} aria-busy={emAndamento}
+                  className="flex min-h-[40px] flex-1 items-center justify-center gap-1.5 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface-secondary)] py-2.5 text-sm font-black text-[var(--client-text-primary)] transition active:scale-95 hover:bg-[var(--client-border)] disabled:cursor-not-allowed disabled:opacity-60">
+                  {emAndamento ? <CkIconSpinner /> : <Icone width={16} height={16} />}{emAndamento ? "Enviando…" : l}
+                </button>
+              );
+            })}
           </div>
         )}
       </header>
@@ -1793,7 +1809,11 @@ function LinhaTempoOperacional({ status, setorStatus = {}, setoresPedido = [], m
   const ordem = ["received", "preparing", "ready", "delivered"];
   const idx = Math.max(0, ordem.indexOf(status));
   const passos = [
-    { key: "recebido", feito: idx >= 0, atual: status === "received", Icone: CkIconCaixaEntrada, label: "Pedido recebido" },
+    // "recebido" só fica "feito" (check verde) a partir do próximo estágio —
+    // enquanto status === "received" ele é a etapa ATUAL, em azul (informativo),
+    // nunca verde: verde ali daria a entender "concluído" para um pedido que
+    // acabou de chegar, contradizendo o selo azul "Recebido" mostrado junto.
+    { key: "recebido", feito: idx >= 1, atual: status === "received", atualTom: "info", Icone: CkIconCaixaEntrada, label: "Pedido recebido" },
     ...(setoresPedido.length ? setoresPedido : ["Cozinha"]).map((s) => {
       const pronto = setorStatus?.[s] === "ready";
       const emPreparo = status === "preparing" && !pronto;
@@ -1810,11 +1830,18 @@ function LinhaTempoOperacional({ status, setorStatus = {}, setoresPedido = [], m
   ];
   return (
     <ol className="space-y-0">
-      {passos.map((p, i) => (
-        <li key={p.key} className="relative flex gap-3 pb-4 last:pb-0">
+      {passos.map((p, i) => {
+        // Cor do estágio "atual" não é sempre âmbar: "recebido" em andamento é
+        // azul/informativo (ver comentário acima); os demais ("em preparo" etc.)
+        // seguem âmbar. Nunca as duas semânticas dividindo a mesma cor.
+        const atualInfo = p.atualTom === "info";
+        return (
+        <li key={p.key} aria-current={p.atual ? "step" : undefined} className="relative flex gap-3 pb-4 last:pb-0">
           {i < passos.length - 1 && <span className={`absolute left-[13px] top-[26px] h-full w-px ${p.feito ? "bg-[var(--client-success)]/30" : "bg-[var(--client-border)]"}`} aria-hidden="true" />}
           <span className={`flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full ${
-            p.feito ? "bg-[var(--client-success)] text-white" : p.atual ? "border-2 border-[var(--client-warning)] bg-[var(--client-warning-soft)] text-[var(--client-warning)]" : "border border-[var(--client-border)] bg-[var(--client-surface)] text-[var(--client-text-muted)]"
+            p.feito ? "bg-[var(--client-success)] text-white"
+              : p.atual ? (atualInfo ? "border-2 border-[var(--client-info)] bg-[var(--client-info-soft)] text-[var(--client-info)]" : "border-2 border-[var(--client-warning)] bg-[var(--client-warning-soft)] text-[var(--client-warning)]")
+              : "border border-[var(--client-border)] bg-[var(--client-surface)] text-[var(--client-text-muted)]"
           }`}>
             {p.feito ? <CkIconCheck width={13} height={13} strokeWidth={3} /> : <p.Icone width={13} height={13} />}
           </span>
@@ -1823,11 +1850,12 @@ function LinhaTempoOperacional({ status, setorStatus = {}, setoresPedido = [], m
                 o passo "pronto" (feito=true E atual=true no instante exato em
                 que status vira "ready") mostrava ícone verde de concluído com
                 o texto ainda âmbar de "em andamento", uma contradição visual. */}
-            <span className={`text-xs font-bold ${p.feito ? "text-[var(--client-text-primary)]" : p.atual ? "text-[var(--client-warning)]" : "text-[var(--client-text-muted)]"}`}>{p.label}</span>
+            <span className={`text-xs font-bold ${p.feito ? "text-[var(--client-text-primary)]" : p.atual ? (atualInfo ? "text-[var(--client-info)]" : "text-[var(--client-warning)]") : "text-[var(--client-text-muted)]"}`}>{p.label}</span>
             {p.sub && <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${p.subTom || "border-[var(--client-border)] bg-[var(--client-surface-secondary)] text-[var(--client-text-secondary)]"}`}>{p.sub}</span>}
           </span>
         </li>
-      ))}
+        );
+      })}
     </ol>
   );
 }
@@ -1855,6 +1883,9 @@ const CkIconPanela   = (p) => (<svg {...ckIconBase} {...p}><path d="M3 11h18v3a5
 const CkIconCaixaEntrada = (p) => (<svg {...ckIconBase} {...p}><path d="M3 12h4.5l1.5 3h6l1.5-3H21" /><path d="M5.5 5h13l2.5 7v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-6l2.5-7Z" /></svg>);
 const CkIconSino     = (p) => (<svg {...ckIconBase} {...p}><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6Z" /><path d="M10 19a2 2 0 0 0 4 0" /></svg>);
 const CkIconSacola   = (p) => (<svg {...ckIconBase} {...p}><path d="M6 8h12l1 12.5a1 1 0 0 1-1 1.5H6a1 1 0 0 1-1-1.5L6 8Z" /><path d="M9 8V6a3 3 0 0 1 6 0v2" /></svg>);
+const CkIconMesa     = (p) => (<svg {...ckIconBase} {...p}><path d="M12 21s7-7.1 7-12a7 7 0 1 0-14 0c0 4.9 7 12 7 12Z" /><circle cx="12" cy="9" r="2.5" /></svg>);
+const CkIconAjuda    = (p) => (<svg {...ckIconBase} {...p}><circle cx="12" cy="12" r="9" /><path d="M9.2 9.2a2.8 2.8 0 0 1 5.4 1c0 1.9-2.6 1.9-2.6 3.6" /><path d="M12 17.2h.01" /></svg>);
+const CkIconLimpeza  = (p) => (<svg {...ckIconBase} {...p}><path d="M12 3v3M12 18v3M3 12h3M18 12h3M6.3 6.3l2 2M15.7 15.7l2 2M17.7 6.3l-2 2M8.3 15.7l-2 2" /><circle cx="12" cy="12" r="2.2" /></svg>);
 
 // Indicador compacto de progresso — Pedido → Identificação → Confirmação
 // (nunca "Pagamento": ele pode nem existir, ver regra do consumo local).
