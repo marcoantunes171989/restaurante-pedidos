@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
 import LandingPage from './landing/LandingPage.jsx'
-import PwaBanner from './PwaBanner.jsx'
+import PwaExperienceProvider from './components/PwaExperienceProvider.jsx'
 import CardapioPublico from './CardapioPublico.jsx'
 
 // ══════════════════════════════════════════════════════════════
@@ -281,7 +281,7 @@ function Root() {
   return (
     <>
       {(ehSistema || sessaoAtiva) ? <App /> : <LandingPage navigate={navigate} />}
-      <PwaBanner swAtivado={swAtivado} />
+      <PwaExperienceProvider swAtivado={swAtivado} />
     </>
   )
 }

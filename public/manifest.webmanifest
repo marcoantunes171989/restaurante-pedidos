@@ -7,24 +7,25 @@
   "display": "fullscreen",
   "display_override": ["fullscreen", "standalone"],
   "orientation": "any",
-  "background_color": "#070B16",
-  "theme_color": "#070B16",
+  "background_color": "#FBF7F2",
+  "theme_color": "#D9542E",
   "start_url": "/login",
   "scope": "/",
   "id": "/",
   "categories": ["food", "business", "productivity"],
   "related_applications": [
-    { "platform": "webapp", "url": "https://restaurante-pedidos-delta.vercel.app/manifest.webmanifest" }
+    { "platform": "webapp", "url": "/manifest.webmanifest" }
   ],
   "prefer_related_applications": false,
+  "launch_handler": { "client_mode": ["navigate-existing", "auto"] },
   "icons": [
-    { "src": "https://restaurante-pedidos-delta.vercel.app/icon-192.png", "type": "image/png", "sizes": "192x192", "purpose": "any" },
-    { "src": "https://restaurante-pedidos-delta.vercel.app/icon-512.png", "type": "image/png", "sizes": "512x512", "purpose": "any" },
-    { "src": "https://restaurante-pedidos-delta.vercel.app/icon-192.png", "type": "image/png", "sizes": "192x192", "purpose": "maskable" },
-    { "src": "https://restaurante-pedidos-delta.vercel.app/icon-512.png", "type": "image/png", "sizes": "512x512", "purpose": "maskable" }
+    { "src": "/icon-192.png", "type": "image/png", "sizes": "192x192", "purpose": "any" },
+    { "src": "/icon-512.png", "type": "image/png", "sizes": "512x512", "purpose": "any" },
+    { "src": "/icon-192.png", "type": "image/png", "sizes": "192x192", "purpose": "maskable" },
+    { "src": "/icon-512.png", "type": "image/png", "sizes": "512x512", "purpose": "maskable" }
   ],
   "screenshots": [
-    { "src": "https://restaurante-pedidos-delta.vercel.app/icon-512.png", "type": "image/png", "sizes": "512x512", "form_factor": "wide", "label": "Pedido Prime" },
-    { "src": "https://restaurante-pedidos-delta.vercel.app/icon-512.png", "type": "image/png", "sizes": "512x512", "form_factor": "narrow", "label": "Pedido Prime" }
+    { "src": "/icon-512.png", "type": "image/png", "sizes": "512x512", "form_factor": "wide", "label": "Pedido Prime" },
+    { "src": "/icon-512.png", "type": "image/png", "sizes": "512x512", "form_factor": "narrow", "label": "Pedido Prime" }
   ]
 }

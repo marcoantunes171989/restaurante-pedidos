@@ -14,7 +14,9 @@ export default defineConfig([
       reactRefresh.configs.vite,
     ],
     languageOptions: {
-      globals: globals.browser,
+      // __APP_VERSION__: injetado em build time (vite.config.js `define`),
+      // lido em src/components/PwaUpdateBanner.jsx.
+      globals: { ...globals.browser, __APP_VERSION__: "readonly" },
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
   },
