@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Bell, X, Check } from "lucide-react";
+import { Bell, X, Check, ClipboardList, CreditCard } from "lucide-react";
 import { fetchNotificacoes, escutarNotificacoes, marcarNotificacaoLida, marcarTodasNotificacoesLidas } from "../lib/supabase";
 import { ouvirOutrasAbas, avisarOutrasAbas } from "../lib/notificacoes";
 import { useAnchoredPosition } from "../lib/useAnchoredPosition";
@@ -28,7 +28,14 @@ function tempoRelativo(iso) {
   return new Date(iso).toLocaleDateString("pt-BR");
 }
 
-const ICONE_TIPO = { novo_pedido: "🆕", caixa_aguardando: "💳" };
+// Ícone + tom por tipo — azul (informativo/recebido) para novo pedido, âmbar
+// (aguardando) para o caixa aguardando pagamento; qualquer tipo futuro ainda
+// não mapeado cai no sino neutro, nunca em terracota (reservado a ações).
+const TIPO_CONFIG = {
+  novo_pedido: { Icone: ClipboardList, tom: "bg-[var(--pp-info-soft)] text-[var(--pp-info)]" },
+  caixa_aguardando: { Icone: CreditCard, tom: "bg-[var(--pp-warning-soft)] text-[var(--pp-warning-text)]" },
+};
+const TIPO_PADRAO = { Icone: Bell, tom: "bg-[var(--pp-bg)] text-[var(--pp-text-muted)]" };
 
 /**
  * CAUSA RAIZ do painel cortado/"faixa escura estreita" (achada por
@@ -108,7 +115,7 @@ export default function NotificationBell() {
 
   const painel = aberto && (
     <>
-      {!ehDesktop && <div className="fixed inset-0 z-[95] bg-black/50" onClick={() => setAberto(false)} aria-hidden="true" />}
+      {!ehDesktop && <div className="fixed inset-0 z-[95] backdrop-blur-[2px]" style={{ background: "rgba(33, 24, 20, 0.32)" }} onClick={() => setAberto(false)} aria-hidden="true" />}
       <div
         ref={painelRef}
         role="dialog"
@@ -122,15 +129,15 @@ export default function NotificationBell() {
           ? { top: pos.top, left: pos.left, width: pos.width, maxHeight: pos.maxHeight }
           : { paddingBottom: "env(safe-area-inset-bottom)" }}
       >
-        <div className="flex items-center justify-between gap-2 border-b border-[rgba(255,255,255,.1)] p-4">
-          <h2 className="text-sm font-bold text-[#fff]">Notificações{naoLidas > 0 ? ` (${naoLidas})` : ""}</h2>
+        <div className="flex items-center justify-between gap-2 border-b border-[var(--pp-border)] p-4">
+          <h2 className="text-sm font-bold text-[var(--pp-text)]">Notificações{naoLidas > 0 ? ` (${naoLidas})` : ""}</h2>
           <div className="flex items-center gap-2">
             {naoLidas > 0 && (
-              <button onClick={marcarTodas} type="button" className="flex min-h-[32px] items-center gap-1 rounded-lg px-2 text-xs font-bold text-[#f2b84a] hover:bg-[rgba(255,255,255,.08)]">
+              <button onClick={marcarTodas} type="button" className="flex min-h-[32px] items-center gap-1 rounded-lg px-2 text-xs font-bold text-[var(--pp-primary-text)] hover:bg-[var(--pp-bg)]">
                 <Check aria-hidden="true" size={13} /> Marcar todas como lidas
               </button>
             )}
-            <button onClick={() => setAberto(false)} type="button" aria-label="Fechar notificações" className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-[rgba(255,255,255,.6)] hover:bg-[rgba(255,255,255,.08)]">
+            <button onClick={() => setAberto(false)} type="button" aria-label="Fechar notificações" className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-[var(--pp-text-body)] hover:bg-[var(--pp-bg)]">
               <X aria-hidden="true" size={16} />
             </button>
           </div>
@@ -138,36 +145,41 @@ export default function NotificationBell() {
 
         <div className="min-h-0 flex-1 overflow-y-auto">
           {carregando ? (
-            <div className="p-6 text-center text-sm text-[rgba(255,255,255,.5)]">Carregando…</div>
+            <div className="p-6 text-center text-sm text-[var(--pp-text-muted)]">Carregando…</div>
           ) : erro ? (
-            <div className="p-6 text-center text-sm text-[#f87171]">{erro}</div>
+            <div role="alert" className="p-6 text-center text-sm text-[var(--pp-danger)]">{erro}</div>
           ) : itens.length === 0 ? (
             <div className="p-8 text-center">
-              <Bell aria-hidden="true" size={26} className="mx-auto mb-2 text-[rgba(255,255,255,.35)]" strokeWidth={1.6} />
-              <p className="text-sm font-semibold text-[rgba(255,255,255,.65)]">Nenhuma notificação no momento.</p>
-              <p className="mt-1 text-xs text-[rgba(255,255,255,.4)]">Novas atualizações da operação aparecerão aqui.</p>
+              <span className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--pp-info-soft)]">
+                <Bell aria-hidden="true" size={22} className="text-[var(--pp-info)]" strokeWidth={1.8} />
+              </span>
+              <p className="text-sm font-semibold text-[var(--pp-text)]">Não há notificações no momento.</p>
+              <p className="mt-1 text-xs text-[var(--pp-text-body)]">As novas atualizações da operação aparecerão aqui.</p>
             </div>
           ) : (
             <ul>
-              {itens.map((n) => (
+              {itens.map((n) => {
+                const { Icone, tom } = TIPO_CONFIG[n.tipo] || TIPO_PADRAO;
+                return (
                 <li key={n.id}>
                   <button
                     onClick={() => abrirNotificacao(n)}
                     type="button"
-                    className={`flex w-full min-h-[44px] items-start gap-3 border-b border-[rgba(255,255,255,.06)] p-3.5 text-left transition hover:bg-[rgba(255,255,255,.05)] ${!n.lida ? "bg-[rgba(212,160,23,.06)]" : ""}`}
+                    className={`flex w-full min-h-[44px] items-start gap-3 border-b border-[var(--pp-border)] p-3.5 text-left transition hover:bg-[var(--pp-bg)] ${!n.lida ? "bg-[var(--pp-info-soft)]" : "bg-[var(--pp-surface)]"}`}
                   >
-                    <span className="mt-0.5 shrink-0 text-lg" aria-hidden="true">{ICONE_TIPO[n.tipo] || "🔔"}</span>
+                    <span aria-hidden="true" className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${tom}`}><Icone size={15} /></span>
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center gap-2">
-                        <span className="min-w-0 flex-1 break-words text-sm font-bold text-[#fff]">{n.titulo}</span>
-                        {!n.lida && <span className="h-2 w-2 shrink-0 rounded-full bg-[#e8622c]" aria-label="Não lida" />}
+                        <span className="min-w-0 flex-1 break-words text-sm font-bold text-[var(--pp-text)]">{n.titulo}</span>
+                        {!n.lida && <span className="h-2 w-2 shrink-0 rounded-full bg-[var(--pp-info)]" aria-label="Não lida" />}
                       </span>
-                      <span className="mt-0.5 block break-words text-xs text-[rgba(255,255,255,.65)]">{n.corpo}</span>
-                      <span className="mt-1 block text-[11px] text-[rgba(255,255,255,.4)]">{tempoRelativo(n.criadoEmISO)}</span>
+                      <span className="mt-0.5 block break-words text-xs text-[var(--pp-text-body)]">{n.corpo}</span>
+                      <span className="mt-1 block text-[11px] text-[var(--pp-text-muted)]">{tempoRelativo(n.criadoEmISO)}</span>
                     </span>
                   </button>
                 </li>
-              ))}
+                );
+              })}
             </ul>
           )}
         </div>

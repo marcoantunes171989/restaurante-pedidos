@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Settings, X } from "lucide-react";
+import { Settings, X, Loader2 } from "lucide-react";
 import {
   capacidadesPush, permissaoAtual, swEstaAtivo, obterAssinaturaAtual,
   ativarNotificacoes, desativarNotificacoes, removerEsteDispositivo,
@@ -8,6 +8,7 @@ import {
 } from "../lib/notificacoes";
 import { fetchPushSubscriptionAtual, enviarNotificacaoTeste } from "../lib/supabase";
 import { useBodyScrollLock } from "../lib/useBodyScrollLock";
+import { useFocusTrap } from "../lib/useFocusTrap";
 
 function Toggle({ ligado, onToggle, disabled, label }) {
   return (
@@ -25,8 +26,8 @@ function Linha({ titulo, desc, children }) {
   return (
     <div className="flex items-center justify-between gap-3 py-3">
       <div className="min-w-0">
-        <p className="text-sm font-bold text-[#fff]">{titulo}</p>
-        {desc && <p className="mt-0.5 text-xs text-[rgba(255,255,255,.55)]">{desc}</p>}
+        <p className="text-sm font-bold text-[var(--pp-text)]">{titulo}</p>
+        {desc && <p className="mt-0.5 text-xs text-[var(--pp-text-body)]">{desc}</p>}
       </div>
       <div className="shrink-0">{children}</div>
     </div>
@@ -34,10 +35,10 @@ function Linha({ titulo, desc, children }) {
 }
 
 const TEXTO_PERMISSAO = {
-  granted: { txt: "Concedida", cor: "#5fe08c" },
-  denied: { txt: "Bloqueada", cor: "#f87171" },
-  default: { txt: "Ainda não solicitada", cor: "#f2b84a" },
-  unsupported: { txt: "Não suportada neste navegador", cor: "#f87171" },
+  granted: { txt: "Concedida", cor: "var(--pp-success-text)" },
+  denied: { txt: "Bloqueada", cor: "var(--pp-danger)" },
+  default: { txt: "Ainda não solicitada", cor: "var(--pp-warning-text)" },
+  unsupported: { txt: "Não suportada neste navegador", cor: "var(--pp-danger)" },
 };
 
 // O botão-gatilho é sempre claro — ver a mesma nota em NotificationBell.jsx.
@@ -59,8 +60,14 @@ export default function NotificationSettings() {
   const [processando, setProcessando] = useState(false);
   const [mensagem, setMensagem] = useState(null); // { tipo: 'ok'|'erro', texto }
   const [confirmarRemocao, setConfirmarRemocao] = useState(false);
+  // Rótulo/spinner do botão certo durante o "processando" compartilhado
+  // (teste, remoção e ativar/desativar push usam o mesmo guard) — não muda
+  // nenhuma trava existente, só decide qual botão mostra "Enviando teste..."
+  // vs "Removendo...".
+  const [acaoEmAndamento, setAcaoEmAndamento] = useState(null); // "teste" | "remover" | null
   const botaoRef = useRef(null);
   const painelRef = useRef(null);
+  useFocusTrap(painelRef, aberto);
 
   async function recarregarStatus() {
     setCarregando(true);
@@ -135,6 +142,7 @@ export default function NotificationSettings() {
 
   async function testar() {
     setProcessando(true);
+    setAcaoEmAndamento("teste");
     setMensagem(null);
     try {
       await enviarNotificacaoTeste();
@@ -143,15 +151,18 @@ export default function NotificationSettings() {
       setMensagem({ tipo: "erro", texto: e?.message || "Não foi possível enviar o teste agora." });
     }
     setProcessando(false);
+    setAcaoEmAndamento(null);
   }
 
   async function remover() {
     setProcessando(true);
+    setAcaoEmAndamento("remover");
     await removerEsteDispositivo();
     setConfirmarRemocao(false);
     setMensagem({ tipo: "ok", texto: "Este aparelho foi removido das notificações." });
     await recarregarStatus();
     setProcessando(false);
+    setAcaoEmAndamento(null);
   }
 
   const permInfo = TEXTO_PERMISSAO[permissao] || TEXTO_PERMISSAO.default;
@@ -178,54 +189,55 @@ export default function NotificationSettings() {
             style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between gap-2 border-b border-[rgba(255,255,255,.1)] p-4">
-              <h2 className="text-base font-bold text-[#fff]">Configurações de notificação</h2>
-              <button onClick={() => setAberto(false)} type="button" aria-label="Fechar" className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-[rgba(255,255,255,.6)] hover:bg-[rgba(255,255,255,.08)]"><X aria-hidden="true" size={18} /></button>
+            <div className="flex items-center justify-between gap-2 border-b border-[var(--pp-border)] p-4">
+              <h2 className="text-base font-bold text-[var(--pp-text)]">Configurações de notificação</h2>
+              <button onClick={() => setAberto(false)} type="button" aria-label="Fechar" className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-[var(--pp-text-body)] hover:bg-[var(--pp-bg)]"><X aria-hidden="true" size={18} /></button>
             </div>
 
             <div className="p-4">
               {carregando ? (
-                <div className="py-8 text-center text-sm text-[rgba(255,255,255,.5)]">Carregando…</div>
+                <div className="py-8 text-center text-sm text-[var(--pp-text-muted)]">Carregando…</div>
               ) : (
                 <>
                   {mensagem && (
-                    <div className={`mb-3 rounded-xl border p-3 text-xs font-medium ${mensagem.tipo === "ok" ? "border-[rgba(95,224,140,.3)] bg-[rgba(95,224,140,.1)] text-[#5fe08c]" : "border-[rgba(248,113,113,.3)] bg-[rgba(248,113,113,.1)] text-[#f87171]"}`}>
+                    <div role={mensagem.tipo === "erro" ? "alert" : "status"} aria-live={mensagem.tipo === "erro" ? "assertive" : "polite"}
+                      className={`mb-3 rounded-xl border p-3 text-xs font-medium ${mensagem.tipo === "ok" ? "border-[var(--pp-border)] bg-[var(--pp-success-soft)] text-[var(--pp-success-text)]" : "border-[var(--pp-border)] bg-[var(--pp-danger-soft)] text-[var(--pp-danger)]"}`}>
                       {mensagem.texto}
                     </div>
                   )}
 
                   {!cap?.instalado && (
-                    <div className="mb-4 rounded-xl border border-[rgba(242,184,74,.3)] bg-[rgba(242,184,74,.08)] p-3 text-xs font-medium text-[#f2b84a]">
+                    <div className="mb-4 rounded-xl border border-[var(--pp-border)] bg-[var(--pp-warning-soft)] p-3 text-xs font-medium text-[var(--pp-warning-text)]">
                       Instale o Pedido Prime para receber notificações.
                     </div>
                   )}
 
                   {/* Status — só leitura */}
-                  <div className="rounded-2xl border border-[rgba(255,255,255,.1)] bg-[rgba(255,255,255,.03)] p-3.5">
+                  <div className="rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-3.5">
                     <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs">
-                      <span className="text-[rgba(255,255,255,.6)]">Status do app</span>
-                      <span className={`font-bold ${cap?.instalado ? "text-[#5fe08c]" : "text-[rgba(255,255,255,.7)]"}`}>{cap?.instalado ? "Instalado" : "Não instalado"}</span>
+                      <span className="text-[var(--pp-text-muted)]">Status do app</span>
+                      <span className={`font-bold ${cap?.instalado ? "text-[var(--pp-success-text)]" : "text-[var(--pp-text-body)]"}`}>{cap?.instalado ? "Instalado" : "Não instalado"}</span>
                     </div>
                     <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs">
-                      <span className="text-[rgba(255,255,255,.6)]">Compatibilidade do dispositivo</span>
-                      <span className={`font-bold ${cap?.suportado ? "text-[#5fe08c]" : "text-[#f87171]"}`}>{cap?.suportado ? "Compatível" : "Não compatível"}</span>
+                      <span className="text-[var(--pp-text-muted)]">Compatibilidade do dispositivo</span>
+                      <span className={`font-bold ${cap?.suportado ? "text-[var(--pp-success-text)]" : "text-[var(--pp-danger)]"}`}>{cap?.suportado ? "Compatível" : "Não compatível"}</span>
                     </div>
                     <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs">
-                      <span className="text-[rgba(255,255,255,.6)]">Permissão atual</span>
+                      <span className="text-[var(--pp-text-muted)]">Permissão atual</span>
                       <span className="font-bold" style={{ color: permInfo.cor }}>{permInfo.txt}</span>
                     </div>
                     <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs">
-                      <span className="text-[rgba(255,255,255,.6)]">Service Worker</span>
-                      <span className={`font-bold ${swAtivo ? "text-[#5fe08c]" : "text-[rgba(255,255,255,.7)]"}`}>{swAtivo ? "Ativo" : "Inativo"}</span>
+                      <span className="text-[var(--pp-text-muted)]">Service Worker</span>
+                      <span className={`font-bold ${swAtivo ? "text-[var(--pp-success-text)]" : "text-[var(--pp-warning-text)]"}`}>{swAtivo ? "Ativo" : "Inativo"}</span>
                     </div>
                     {permissao === "denied" && (
-                      <p className="mt-2 text-[11px] leading-relaxed text-[rgba(255,255,255,.55)]">
+                      <p className="mt-2 text-[11px] leading-relaxed text-[var(--pp-text-body)]">
                         Bloqueado nas configurações do navegador/sistema. Para reativar: abra as permissões do site (ícone de cadeado na barra de endereço, ou Configurações → Notificações do aparelho) e permita notificações para o Pedido Prime.
                       </p>
                     )}
                   </div>
 
-                  <div className="divide-y divide-[rgba(255,255,255,.08)]">
+                  <div className="divide-y divide-[var(--pp-border)]">
                     <Linha titulo="Notificações do dispositivo" desc={inscrito ? "Ativas neste aparelho" : "Desativadas neste aparelho"}>
                       <Toggle ligado={inscrito} onToggle={alternarPush} disabled={processando || !cap?.suportado} label="Notificações do dispositivo" />
                     </Linha>
@@ -243,29 +255,42 @@ export default function NotificationSettings() {
                     </Linha>
                   </div>
 
-                  <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-                    <button
-                      onClick={testar} type="button" disabled={processando || !inscrito}
-                      className="flex min-h-[44px] flex-1 items-center justify-center rounded-xl border border-[rgba(255,255,255,.15)] bg-[rgba(255,255,255,.05)] text-sm font-bold text-[#fff] transition hover:bg-[rgba(255,255,255,.1)] disabled:opacity-40"
-                    >
-                      Enviar notificação de teste
-                    </button>
-                    {confirmarRemocao ? (
+                  {confirmarRemocao ? (
+                    <div className="mt-4 flex flex-col gap-2.5 sm:flex-row">
                       <button
-                        onClick={remover} type="button" disabled={processando}
-                        className="flex min-h-[44px] flex-1 items-center justify-center rounded-xl bg-[#f87171] text-sm font-bold text-[#1a1a1a] transition disabled:opacity-40"
+                        onClick={() => setConfirmarRemocao(false)} type="button" disabled={processando}
+                        className="flex min-h-[44px] flex-1 items-center justify-center rounded-xl border border-[var(--pp-border)] bg-[var(--pp-surface)] text-sm font-bold text-[var(--pp-text-body)] transition hover:bg-[var(--pp-bg)] disabled:opacity-40"
                       >
-                        Confirmar remoção
+                        Cancelar
                       </button>
-                    ) : (
+                      <button
+                        onClick={remover} type="button" disabled={processando} aria-busy={acaoEmAndamento === "remover"}
+                        className="flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-xl bg-[var(--pp-danger)] text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-60"
+                      >
+                        {acaoEmAndamento === "remover" && <Loader2 aria-hidden="true" size={15} className="animate-spin" />}
+                        {acaoEmAndamento === "remover" ? "Removendo…" : "Confirmar remoção"}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="mt-4 flex flex-col gap-2.5 sm:flex-row">
+                      <button
+                        onClick={testar} type="button" disabled={processando || !inscrito} aria-busy={acaoEmAndamento === "teste"}
+                        className="flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-xl bg-[var(--pp-primary-hover)] text-sm font-bold text-white transition hover:bg-[var(--pp-primary)] disabled:opacity-40"
+                      >
+                        {acaoEmAndamento === "teste" && <Loader2 aria-hidden="true" size={15} className="animate-spin" />}
+                        {acaoEmAndamento === "teste" ? "Enviando teste…" : "Enviar notificação de teste"}
+                      </button>
                       <button
                         onClick={() => setConfirmarRemocao(true)} type="button" disabled={processando || !inscrito}
-                        className="flex min-h-[44px] flex-1 items-center justify-center rounded-xl border border-[rgba(248,113,113,.35)] bg-[rgba(248,113,113,.08)] text-sm font-bold text-[#f87171] transition hover:bg-[rgba(248,113,113,.14)] disabled:opacity-40"
+                        className="flex min-h-[44px] flex-1 items-center justify-center rounded-xl border border-[#C81E4A]/30 bg-[var(--pp-surface)] text-sm font-bold text-[var(--pp-danger)] transition hover:bg-[var(--pp-danger-soft)] disabled:opacity-40"
                       >
                         Remover este dispositivo
                       </button>
-                    )}
-                  </div>
+                    </div>
+                  )}
+                  {!inscrito && !processando && (
+                    <p className="mt-2 text-center text-[11px] text-[var(--pp-text-muted)]">Ative as notificações do dispositivo para testar ou remover.</p>
+                  )}
                 </>
               )}
             </div>

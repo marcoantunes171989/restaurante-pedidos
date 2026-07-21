@@ -760,24 +760,25 @@ select::-ms-expand { display: none; } /* IE/Edge antigo */
    entre mobile "sheet" e desktop "popover") viram className/style no
    componente, calculados em runtime — não fixos aqui. */
 .pp-notif-panel {
-  background: #1a1a1a;
-  border: 1px solid rgba(255,255,255,.12);
-  box-shadow: 0 20px 50px rgba(0,0,0,.45);
+  background: var(--pp-surface);
+  border: 1px solid var(--pp-border);
+  box-shadow: 0 22px 60px rgba(57, 40, 31, 0.18);
   overflow: hidden;
 }
 
 .pp-notif-modal-backdrop {
   position: fixed; inset: 0; z-index: 100;
-  background: rgba(0,0,0,.55);
+  background: rgba(33, 24, 20, 0.32);
+  backdrop-filter: blur(2px);
   display: flex; align-items: flex-end; justify-content: center;
 }
 @media (min-width: 640px) {
   .pp-notif-modal-backdrop { align-items: center; padding: 16px; }
 }
 .pp-notif-modal {
-  background: #1a1a1a;
-  border: 1px solid rgba(255,255,255,.12);
-  box-shadow: 0 20px 60px rgba(0,0,0,.5);
+  background: var(--pp-surface);
+  border: 1px solid var(--pp-border);
+  box-shadow: 0 22px 60px rgba(57, 40, 31, 0.18);
   border-radius: 24px 24px 0 0;
   width: 100%;
   max-height: 88vh;
@@ -787,12 +788,15 @@ select::-ms-expand { display: none; } /* IE/Edge antigo */
   .pp-notif-modal { width: 460px; max-width: 100%; border-radius: 22px; max-height: 85vh; }
 }
 
-.pp-notif-toggle { position: relative; display: inline-flex; height: 26px; width: 46px; flex-shrink: 0; border-radius: 999px; border: 1px solid rgba(255,255,255,.18); background: rgba(255,255,255,.08); transition: .2s; cursor: pointer; }
-.pp-notif-toggle.is-on { background: linear-gradient(120deg,#e8622c,#d4a017); border-color: transparent; }
-.pp-notif-toggle:disabled { opacity: .4; cursor: not-allowed; }
-.pp-notif-toggle .pp-notif-knob { position: absolute; top: 2px; left: 2px; height: 20px; width: 20px; border-radius: 999px; background: #fff; transition: .2s; }
+/* Trilha desligada: neutra. Ligada: terracota sólido (mesma variante
+   -hover usada como "base AA" nos botões sólidos, ver docs/design-tokens.md).
+   Sem gradiente — proibido pela nova identidade clara. */
+.pp-notif-toggle { position: relative; display: inline-flex; height: 26px; width: 46px; flex-shrink: 0; border-radius: 999px; border: 1px solid var(--pp-border); background: var(--pp-bg); transition: .2s; cursor: pointer; }
+.pp-notif-toggle.is-on { background: var(--pp-primary-hover); border-color: transparent; }
+.pp-notif-toggle:disabled { opacity: .45; cursor: not-allowed; }
+.pp-notif-toggle .pp-notif-knob { position: absolute; top: 2px; left: 2px; height: 20px; width: 20px; border-radius: 999px; background: #fff; box-shadow: 0 1px 3px rgba(57, 40, 31, 0.25); transition: .2s; }
 .pp-notif-toggle.is-on .pp-notif-knob { transform: translateX(20px); }
-.pp-notif-toggle:focus-visible { outline: 2px solid #d4a017; outline-offset: 2px; }
+.pp-notif-toggle:focus-visible { outline: 2px solid var(--pp-primary); outline-offset: 2px; }
 
 /* Card destacado ao chegar via clique numa notificação (?destacar=<id>,
    migration 064 / NotificationBell) — usada por OrderCard.jsx e
