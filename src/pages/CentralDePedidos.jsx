@@ -1,22 +1,20 @@
-import { useEffect, useRef, useState } from "react";
-import { Bell, Clock, CheckCircle2 } from "lucide-react";
-import OperationalDarkPage from "../components/OperationalDarkPage";
-import OperationalOrderCardDark from "../components/OperationalOrderCardDark";
-
-const COLUNAS_META = [
-  { key: "novos", label: "Novos", dot: "#2563eb", variante: "novo", vazio: { ic: "🆕", txt: "Nenhum pedido novo" } },
-  { key: "preparo", label: "Em preparo", dot: "#e0930f", variante: "preparo", vazio: { ic: "🍳", txt: "Nenhum pedido em preparo" } },
-  { key: "prontos", label: "Prontos", dot: "#16a34a", variante: "pronto", vazio: { ic: "📦", txt: "Nada pronto no momento" } },
-];
+import { useEffect, useMemo, useRef, useState } from "react";
+import OperationalBottomNav from "../components/OperationalBottomNav";
+import OrdersHeader from "../components/orders/OrdersHeader";
+import OrdersSummary from "../components/orders/OrdersSummary";
+import OrdersViewToggle from "../components/orders/OrdersViewToggle";
+import OrdersKanban from "../components/orders/OrdersKanban";
+import OrdersList from "../components/orders/OrdersList";
+import OrderCard from "../components/orders/OrderCard";
 
 /**
- * Pedidos (/operacional/pedidos) — tema escuro padronizado com a Central
- * Operacional, via o casco compartilhado OperationalDarkPage (também
- * usado por Cozinha e Bar, src/pages/CentralDoSetor.jsx) e o card
- * compartilhado OperationalOrderCardDark. Todo dado e toda mutação
- * (aceitar, entregar) continuam vindo prontos de OperacaoMobileView
- * (src/App.jsx) — este componente só formata e define suas próprias
- * ações.
+ * Pedidos (/operacional/pedidos) — tema CLARO, dedicado a esta tela (não
+ * usa mais o casco compartilhado OperationalDarkPage/OperationalDarkHeader
+ * — esses continuam servindo Cozinha/Bar/Caixa sem nenhuma alteração, ver
+ * src/pages/CentralDoSetor.jsx e src/pages/CentralDoCaixa.jsx). Todo dado
+ * e toda mutação (aceitar, entregar, status) continuam vindo prontos de
+ * OperacaoMobileView (src/App.jsx) — este componente só formata,
+ * filtra pela busca local e monta a apresentação.
  */
 export default function CentralDePedidos({
   usuarioNome = "",
@@ -30,10 +28,13 @@ export default function CentralDePedidos({
   origemDe, haTxt, numeroPedido, setoresPresentes, itensDoSetor, metaSetor,
   acaoPrincipal,
 }) {
+  const [busca, setBusca] = useState("");
+  const [view, setView] = useState("kanban"); // sem persistência: o projeto não tem hoje um padrão pra isso
+
   // Chegada via clique numa notificação (?destacar=<id>, migration 064 /
-  // NotificationBell) — realça e rola até o card certo, uma vez só. Lido no
-  // initializer (não num efeito) para não disparar setState síncrono dentro
-  // de useEffect.
+  // NotificationBell) — realça e rola até o card certo, uma vez só. Mesmo
+  // mecanismo já usado antes desta tela (lido no initializer, não num
+  // efeito, pra não disparar setState síncrono dentro de useEffect).
   const [destacadoId, setDestacadoId] = useState(() => new URLSearchParams(window.location.search).get("destacar"));
   const destacadoRef = useRef(null);
 
@@ -53,64 +54,68 @@ export default function CentralDePedidos({
     return () => clearTimeout(t);
   }, [destacadoId]);
 
-  const searchMatch = (o, q) => {
+  const buscaNorm = busca.trim().toLowerCase();
+  const bate = (o) => {
+    if (!buscaNorm) return true;
     const alvo = [o.customer, o.id, o.table, `#${numeroPedido[o.id] ?? ""}`].join(" ").toLowerCase();
-    return alvo.includes(q);
+    return alvo.includes(buscaNorm);
   };
 
-  const actionPara = (o, variante) => {
-    const a = acaoPrincipal(o);
-    if (!a) return null;
-    const cls = variante === "novo" ? "pp-pd-btn-primary" : variante === "preparo" ? "pp-pd-btn-green" : "pp-pd-btn-blue";
-    return (
-      <>
-        <button className={`pp-pd-btn ${cls}`} onClick={a.fn || undefined} disabled={a.disabled} type="button">
-          {a.disabled ? a.l : `${variante === "novo" ? "✓ " : ""}${a.l}${variante === "novo" ? " pedido" : ""}`}
-        </button>
-        {variante === "novo" && <button className="pp-pd-btn pp-pd-btn-ghost" aria-label="Mais opções" type="button">⋯</button>}
-      </>
-    );
-  };
+  const colunasFiltradas = useMemo(() => ({
+    novos: (colunas.novos || []).filter(bate),
+    preparo: (colunas.preparo || []).filter(bate),
+    prontos: (colunas.prontos || []).filter(bate),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [colunas, buscaNorm]);
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const listaFiltrada = useMemo(() => listaTodos.filter(bate), [listaTodos, buscaNorm]);
+
+  const deriveVariant = (o) => (o.status === "received" ? "novo" : o.status === "preparing" ? "preparo" : "pronto");
 
   const renderCard = (o, variante) => (
-    <div key={o.id} ref={o.id === destacadoId ? destacadoRef : undefined} className={o.id === destacadoId ? "pp-pd-destacado" : undefined}>
-      <OperationalOrderCardDark
-        o={o} variante={variante} setoresNoPedido={setoresPresentes(o)} action={actionPara(o, variante)}
-        origemDe={origemDe} haTxt={haTxt} numeroPedido={numeroPedido} itensDoSetor={itensDoSetor} metaSetor={metaSetor}
-      />
-    </div>
+    <OrderCard
+      key={o.id}
+      cardRef={o.id === destacadoId ? destacadoRef : undefined}
+      destacado={o.id === destacadoId}
+      o={o} variante={variante}
+      setoresNoPedido={setoresPresentes(o)}
+      acao={acaoPrincipal(o)}
+      origemDe={origemDe} haTxt={haTxt} numeroPedido={numeroPedido} itensDoSetor={itensDoSetor} metaSetor={metaSetor}
+    />
   );
 
-  const deriveListVariant = (o) =>
-    o.status === "received" ? "novo" : o.status === "preparing" ? "preparo" : "pronto";
-
-  // Mesmos ícones já usados para estes 3 indicadores na Central Operacional
-  // (Novos/Em preparo/Prontos) — mesmo significado visual nas três telas.
-  const kpis = [
-    { key: "novos", Icon: Bell, label: "Novos", value: colunas.novos?.length || 0 },
-    { key: "preparo", Icon: Clock, label: "Em preparo", value: colunas.preparo?.length || 0 },
-    { key: "prontos", Icon: CheckCircle2, label: "Prontos", value: colunas.prontos?.length || 0 },
-  ];
-
   return (
-    <OperationalDarkPage
-      title="Pedidos"
-      flowTitle="Fluxo de pedidos"
-      activeNavId="pedidos"
-      navItems={navItems}
-      onNavigate={onNavigate}
-      usuarioNome={usuarioNome}
-      lojaInfo={lojaInfo}
-      onFechar={onFechar}
-      nivelAcesso={nivelAcesso}
-      kpis={kpis}
-      columns={COLUNAS_META}
-      dataColumns={colunas}
-      dataList={listaTodos}
-      searchMatch={searchMatch}
-      renderCard={renderCard}
-      deriveListVariant={deriveListVariant}
-      emptyListMessage={{ ic: "🧾", txt: "Nenhum pedido ativo." }}
-    />
+    <div className="min-h-[100dvh] w-full pb-28" style={{ background: "var(--pp-bg)", paddingTop: "env(safe-area-inset-top)" }}>
+      <div className="mx-auto max-w-[1600px] px-4 pb-6 pt-6 md:px-6 md:pt-10 lg:px-10">
+        <OrdersHeader usuarioNome={usuarioNome} lojaInfo={lojaInfo} onFechar={onFechar} nivelAcesso={nivelAcesso} busca={busca} onBuscaChange={setBusca} />
+
+        <div className="mt-6">
+          <OrdersSummary novos={colunas.novos?.length || 0} preparo={colunas.preparo?.length || 0} prontos={colunas.prontos?.length || 0} />
+        </div>
+
+        <section aria-label="Fluxo de pedidos" className="mt-6 rounded-[22px] border border-[var(--pp-border)] bg-[var(--pp-surface)] p-4 shadow-[0_1px_2px_rgba(43,35,32,0.04),0_4px_16px_rgba(43,35,32,0.04)] md:p-6">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-black text-[var(--pp-text)] md:text-xl">Fluxo de pedidos</h2>
+              <p className="text-xs text-[var(--pp-text-muted)]">{listaTodos.length} {listaTodos.length === 1 ? "pedido ativo" : "pedidos ativos"}</p>
+            </div>
+            <OrdersViewToggle view={view} onChange={setView} />
+          </div>
+
+          {view === "kanban" ? (
+            <OrdersKanban dataColunas={colunasFiltradas} renderCard={renderCard} />
+          ) : (
+            <OrdersList
+              pedidos={listaFiltrada} deriveVariant={deriveVariant} renderCard={renderCard}
+              acaoPrincipal={acaoPrincipal} origemDe={origemDe} haTxt={haTxt} numeroPedido={numeroPedido} setoresPresentes={setoresPresentes}
+              vazioTitulo="Nenhum pedido ativo." vazioDescricao={busca ? "Tente ajustar a busca." : undefined}
+            />
+          )}
+        </section>
+      </div>
+
+      <OperationalBottomNav items={navItems} active="pedidos" onNavigate={onNavigate} />
+    </div>
   );
 }

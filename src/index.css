@@ -1016,6 +1016,17 @@ select::-ms-expand { display: none; } /* IE/Edge antigo */
 .pp-notif-toggle.is-on .pp-notif-knob { transform: translateX(20px); }
 .pp-notif-toggle:focus-visible { outline: 2px solid #d4a017; outline-offset: 2px; }
 
+/* Card destacado ao chegar via clique numa notificação (?destacar=<id>,
+   migration 064 / NotificationBell) — versão tema CLARO, usada só pela
+   tela Pedidos (src/components/orders/OrderCard.jsx). Equivalente ao
+   .pp-pd-destacado do tema escuro (Cozinha/Bar/Caixa), mas com o
+   terracota do tema claro em vez do dourado sobre fundo escuro — mesma
+   ideia, classe própria para não depender de nenhum estilo do card
+   escuro. Some sozinho depois de alguns segundos (ver CentralDePedidos.jsx). */
+.pp-order-destaque { border-color: var(--pp-primary) !important; box-shadow: 0 0 0 3px var(--pp-primary-soft), 0 14px 32px rgba(43,35,32,.12); animation: pp-order-destaque-pulso 1.6s ease-out 2; }
+@keyframes pp-order-destaque-pulso { 0% { box-shadow: 0 0 0 0 rgba(198,63,29,.45); } 100% { box-shadow: 0 0 0 10px rgba(198,63,29,0); } }
+@media (prefers-reduced-motion: reduce) { .pp-order-destaque { animation: none; } }
+
 /* ── Scrollbar minimalista (global) ─────────────────────────── */
 * {
   scrollbar-width: thin;                         /* Firefox */

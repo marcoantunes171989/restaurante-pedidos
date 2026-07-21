@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Bell } from "lucide-react";
 import { fetchNotificacoes, escutarNotificacoes, marcarNotificacaoLida, marcarTodasNotificacoesLidas } from "../lib/supabase";
 import { ouvirOutrasAbas, avisarOutrasAbas } from "../lib/notificacoes";
 
@@ -27,7 +28,12 @@ function tempoRelativo(iso) {
 
 const ICONE_TIPO = { novo_pedido: "🆕", caixa_aguardando: "💳" };
 
-export default function NotificationBell() {
+// `light`: só troca a aparência do BOTÃO GATILHO (fundo claro + ícone
+// lucide, em vez do glass escuro + emoji) para o novo header claro de
+// Pedidos — o painel de notificações em si continua igual (mesmo
+// componente autocontido, mesma lógica), sem afetar Cozinha/Bar/Caixa
+// (que continuam chamando <NotificationBell /> sem essa prop).
+export default function NotificationBell({ light = false }) {
   const [aberto, setAberto] = useState(false);
   const [itens, setItens] = useState([]);
   const [carregando, setCarregando] = useState(true);
@@ -83,9 +89,13 @@ export default function NotificationBell() {
         aria-label={`Notificações${naoLidas > 0 ? ` — ${naoLidas} não lida${naoLidas > 1 ? "s" : ""}` : ""}`}
         aria-haspopup="true"
         aria-expanded={aberto}
-        className={`${GLASS} pp-pd-icon-btn rounded-xl`}
+        title={light ? "Notificações" : undefined}
+        className={light
+          ? "relative grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-[var(--pp-border)] bg-[var(--pp-surface)] text-[var(--pp-text-body)] transition-colors duration-150 hover:bg-[var(--pp-bg)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-primary)]"
+          : `${GLASS} pp-pd-icon-btn rounded-xl`}
       >
-        🔔{naoLidas > 0 && <span className="pp-pd-notif-badge">{naoLidas > 9 ? "9+" : naoLidas}</span>}
+        {light ? <Bell aria-hidden="true" size={18} /> : "🔔"}
+        {naoLidas > 0 && <span className={light ? "absolute -right-1 -top-1 min-w-[18px] rounded-full border-2 border-[var(--pp-surface)] bg-[var(--pp-danger)] px-1 text-[10px] font-bold leading-[16px] text-white" : "pp-pd-notif-badge"}>{naoLidas > 9 ? "9+" : naoLidas}</span>}
       </button>
 
       {aberto && (

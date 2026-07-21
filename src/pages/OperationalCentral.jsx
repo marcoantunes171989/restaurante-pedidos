@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import {
   LogOut, Clock, TrendingUp, Utensils, Bell, CheckCircle2, Hourglass, Receipt, Wallet,
@@ -6,6 +5,7 @@ import {
 } from "lucide-react";
 import OperationalBottomNav from "../components/OperationalBottomNav";
 import OperationalMetricCard from "../components/OperationalMetricCard";
+import { useOnline } from "../lib/useOnline";
 
 // Shape/placeholder — a tela real recebe `kpis` via props, vindos da API
 // (ver OperacaoMobileView em src/App.jsx). Este array só documenta o
@@ -26,21 +26,6 @@ const KPIS_FINANCEIRO = [
   { label: "Faturado hoje", value: "R$ 1.847,00", icon: CalendarCheck, variant: "financial" },
   { label: "Turno atual", value: "R$ 1.847,00", icon: TrendingUp, variant: "financial" },
 ];
-
-// Conectividade real do dispositivo (API nativa do navegador, não um dado
-// inventado) — o badge "Operação em tempo real" só acende quando o
-// aparelho realmente está online; cai para "offline" de verdade se a rede
-// cair em campo (Wi-Fi da loja, 4G etc.), em vez de ficar sempre aceso.
-function useOnline() {
-  const [online, setOnline] = useState(() => typeof navigator === "undefined" || navigator.onLine);
-  useEffect(() => {
-    const on = () => setOnline(true), off = () => setOnline(false);
-    window.addEventListener("online", on);
-    window.addEventListener("offline", off);
-    return () => { window.removeEventListener("online", on); window.removeEventListener("offline", off); };
-  }, []);
-  return online;
-}
 
 export default function OperationalCentral({ user = "Administrador", role = "Acesso total", onOpen, onExit, active = "central", kpis = KPIS, kpisFinanceiro = KPIS_FINANCEIRO, modules = [], navItems = [] }) {
   const online = useOnline();
