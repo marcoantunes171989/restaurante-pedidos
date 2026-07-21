@@ -2185,57 +2185,6 @@ function TabletView({
       window.removeEventListener("keydown", tentar);
     };
   }, []);
-  // ── Tela de descanso (screensaver) ────────────────────────────
-  // Aparece ao entrar no tablet e volta após 5 min de inatividade.
-  // É apenas um overlay: NÃO desmonta o tablet, então carrinho, mesa,
-  // comanda e quantidades já informados permanecem intactos.
-  const [descansoAtivo, setDescansoAtivo] = useState(true);
-  const [descansoIdx, setDescansoIdx] = useState(0);
-  const [porInatividade, setPorInatividade] = useState(false); // descanso veio de 5 min ocioso
-  const idleTimerRef = useRef(null);
-  const INATIVIDADE_MS = 5 * 60 * 1000; // 5 minutos
-  const INATIVIDADE_MIN = 5;
-
-  // iOS no navegador (Safari/Chrome) não permite Fullscreen API; a tela cheia
-  // real vem do modo standalone (Adicionar à Tela de Início). Detecta esse caso
-  // para orientar o usuário na tela de descanso.
-  const iosSemApp = useMemo(() => {
-    const ua = navigator.userAgent || "";
-    const ios = /iP(hone|ad|od)/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-    const standalone = (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || window.navigator.standalone === true;
-    return ios && !standalone;
-  }, []);
-
-  // Imagens dos produtos (modo fosco) para o screensaver
-  const imagensDescanso = useMemo(() => {
-    const fromProducts = (products || []).filter((p) => p.imageUrl).map((p) => p.imageUrl);
-    const base = fromProducts.length > 0 ? fromProducts : initialProducts.map((p) => p.imageUrl);
-    return [...new Set(base)].slice(0, 12);
-  }, [products]);
-
-  // Reinicia o cronômetro de inatividade a cada interação do usuário
-  useEffect(() => {
-    if (descansoAtivo) return; // em descanso não conta inatividade
-    const reset = () => {
-      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-      idleTimerRef.current = setTimeout(() => { setPorInatividade(true); setDescansoAtivo(true); }, INATIVIDADE_MS);
-    };
-    reset();
-    const evts = ["pointerdown", "pointermove", "keydown", "touchstart", "wheel", "scroll"];
-    evts.forEach((e) => window.addEventListener(e, reset, { passive: true }));
-    return () => {
-      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-      evts.forEach((e) => window.removeEventListener(e, reset));
-    };
-  }, [descansoAtivo]);
-
-  // Troca a imagem de fundo do screensaver periodicamente (efeito "passando imagens")
-  useEffect(() => {
-    if (!descansoAtivo || imagensDescanso.length < 2) return;
-    const t = setInterval(() => setDescansoIdx((i) => (i + 1) % imagensDescanso.length), 4000);
-    return () => clearInterval(t);
-  }, [descansoAtivo, imagensDescanso.length]);
-
   // Reset do fluxo ao QUITAR a conta: quando a MESMA mesa que tinha pedidos em
   // aberto zera (todos quitados no caixa), volta ao estado inicial — limpa mesa,
   // comanda, cliente e fecha a conta, pronto para o próximo cliente com uma nova
@@ -2254,7 +2203,6 @@ function TabletView({
       setCustomerName("");
       setVerConta(false);
       setCarrinhoAberto(false);
-      setDescansoAtivo(true); // tela de boas-vindas aguardando o próximo cliente
     }
   }, [currentTableOrders.length, currentTableCancelled.length, tableNumber]);
 
@@ -3017,120 +2965,6 @@ function TabletView({
           mesaManual={mesaManual}
           setMesaManual={setMesaManual}
         />
-      )}
-
-      {/* ── Tela de descanso (screensaver) ───────────────────────
-          Overlay sobre o cardápio. Não desmonta o tablet → preserva
-          carrinho, mesa, comanda e quantidades já informados. */}
-      {descansoAtivo && (
-        <div
-          role="button"
-          tabIndex={0}
-          onClick={() => { entrarTelaCheia(); setDescansoAtivo(false); setPorInatividade(false); }}
-          style={{ height: "100dvh", fontFamily: "'Inter','Poppins',sans-serif" }}
-          className="fixed inset-0 z-[120] block w-full cursor-pointer overflow-hidden bg-gradient-to-br from-white via-[#F7F8FA] to-[#FFF7E0] text-left">
-          {/* Imagens dos produtos em modo fosco (passando) */}
-          <div className="absolute inset-0">
-            {imagensDescanso.map((src, i) => (
-              <img key={src} src={src} alt=""
-                className="absolute inset-0 h-full w-full object-cover transition-opacity duration-1000"
-                style={{ opacity: i === descansoIdx ? 1 : 0, filter: "blur(14px) brightness(1.05) saturate(1.05)", transform: "scale(1.08)" }} />
-            ))}
-            {/* Camada clara por cima (overlay light) */}
-            <div className="absolute inset-0 bg-[rgba(255,255,255,0.78)] backdrop-blur-[2px]" />
-          </div>
-
-          {/* Faixa de miniaturas dos produtos (segmentos) */}
-          {imagensDescanso.length > 0 && (
-            <div className="absolute left-0 right-0 top-1/2 z-[1] flex -translate-y-[145%] items-center justify-center gap-3 px-6 opacity-60">
-              {imagensDescanso.slice(0, 6).map((src) => (
-                <img key={"thumb-" + src} src={src} alt=""
-                  className="h-16 w-16 shrink-0 rounded-2xl object-cover shadow-xl ring-1 ring-white/10"
-                  style={{ filter: "grayscale(0.2) brightness(0.85)" }} />
-              ))}
-            </div>
-          )}
-
-          {/* Aviso de inatividade (elegante) — só quando entrou por 5 min ocioso */}
-          {porInatividade && (
-            <div className="absolute left-1/2 top-8 z-[3] flex -translate-x-1/2 items-center gap-3 rounded-full border border-[#FDE1B0] bg-[#FFF4E5] px-5 py-2.5 shadow-lg">
-              <span className="flex h-2.5 w-2.5 items-center justify-center">
-                <span className="absolute h-2.5 w-2.5 animate-ping rounded-full bg-[#F59E0B]/60" />
-                <span className="h-2.5 w-2.5 rounded-full bg-[#F59E0B]" />
-              </span>
-              <span className="text-sm font-black text-[#B45309]">Inativo por {INATIVIDADE_MIN} minutos</span>
-            </div>
-          )}
-
-          {/* Cartão de boas-vindas gourmet */}
-          <div className="relative z-[2] flex h-full flex-col items-center justify-center px-4 text-center">
-            <div className="pointer-events-none absolute h-72 w-72 rounded-full bg-[radial-gradient(closest-side,rgba(217,164,65,0.18),transparent)]" />
-            <div className="relative flex w-full max-w-[420px] flex-col items-center rounded-[28px] border border-[#E5E7EB] bg-white px-8 py-9 shadow-[0_20px_60px_rgba(16,24,40,0.12)]" style={{ width: "calc(100% - 32px)" }}>
-              {/* Logo do estabelecimento (quando cadastrada) — destaque para o cliente */}
-              {lojaInfo?.logoUrl ? (
-                <>
-                  <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-2xl border border-[#E5E7EB] bg-[#F7F8FA] p-1.5 shadow-sm">
-                    <img src={lojaInfo.logoUrl} alt={lojaInfo?.nome || "Logo"} className="h-full w-full object-contain" />
-                  </div>
-                  <p className="font-display mt-3 text-xl font-bold tracking-tight text-[#182230]">{lojaInfo?.nome}</p>
-                  <p className="mt-1.5 flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.3em] text-[#98A2B3]">
-                    <LogoPP size={14} /> Pedido Prime
-                  </p>
-                </>
-              ) : (
-                <>
-                  {/* Marca da plataforma (fallback quando não há logo da empresa) */}
-                  <LogoPP size={56} />
-                  <p className="mt-3 text-lg font-black leading-none tracking-tight"><span className="text-[#182230]">PEDIDO</span> <span className="text-[var(--pp-primary)]">PRIME</span></p>
-                  <p className="mt-1.5 text-[9px] font-bold uppercase tracking-[0.35em] text-[#98A2B3]">{lojaInfo?.nome || "Sistema para restaurantes"}</p>
-                </>
-              )}
-
-              {/* Divisor com cloche dourada */}
-              <div className="mt-5 flex w-full items-center gap-3">
-                <div className="h-px flex-1 bg-[#E5E7EB]" />
-                <svg width="34" height="26" viewBox="0 0 34 26" fill="none" aria-hidden="true">
-                  <path d="M3 19h28" stroke="#D9A441" strokeWidth="2" strokeLinecap="round" />
-                  <path d="M6 19a11 11 0 0 1 22 0" stroke="#D9A441" strokeWidth="2" strokeLinecap="round" />
-                  <circle cx="17" cy="5.5" r="2" stroke="#D9A441" strokeWidth="2" />
-                </svg>
-                <div className="h-px flex-1 bg-[#E5E7EB]" />
-              </div>
-
-              {/* Mesa em destaque */}
-              <p className="mt-5 text-sm font-bold text-[#475467]">{porInatividade ? "Que bom ter você de volta à" : "Bem-vindo à"}</p>
-              <p className="mt-1 text-5xl font-black tracking-tight text-[#D9A441]">{dadosCompletos ? `Mesa ${String(tableNumber).padStart(2, "0")}` : (lojaInfo?.nome || "nossa casa")}</p>
-              <p className="mt-4 max-w-xs text-sm leading-6 text-[#667085]">
-                {porInatividade
-                  ? "A tela entrou em descanso por inatividade. Seu pedido foi preservado — continue de onde parou."
-                  : "Explore nosso cardápio digital, escolha seus produtos favoritos e envie seu pedido diretamente para a cozinha."}
-              </p>
-
-              {/* Ações */}
-              <button type="button"
-                onClick={() => { entrarTelaCheia(); setDescansoAtivo(false); setPorInatividade(false); }}
-                className="mt-6 w-full rounded-2xl bg-[#D9A441] py-3.5 text-sm font-black text-[#182230] shadow-lg shadow-[#D9A441]/30 hover:bg-[#C7922F] transition duration-200 active:scale-95">
-                {porInatividade ? "👆 Continuar pedido" : "👆 Iniciar pedido"}
-              </button>
-              <div className="mt-2.5 grid w-full grid-cols-2 gap-2.5">
-                <button type="button" onClick={() => setSelectedCategory("Todos")}
-                  className="rounded-2xl border border-[#E5E7EB] bg-white py-3 text-xs font-black text-[#182230] shadow-sm hover:bg-[#F8FAFC] hover:-translate-y-0.5 transition duration-200">
-                  Ver destaques
-                </button>
-                <button type="button" onClick={chamarGarcom}
-                  className="rounded-2xl border border-[#E5E7EB] bg-white py-3 text-xs font-black text-[#182230] shadow-sm hover:bg-[#F8FAFC] hover:-translate-y-0.5 transition duration-200">
-                  Chamar garçom
-                </button>
-              </div>
-            </div>
-            <p className="relative mt-6 text-xs text-[#667085]">{totalCartItems > 0 ? `Seu pedido foi mantido — ${totalCartItems} ${totalCartItems === 1 ? "item" : "itens"} no carrinho` : "Toque em qualquer ponto para começar"}</p>
-            {iosSemApp && (
-              <p className="mt-3 max-w-xs text-[11px] leading-4 text-slate-500">
-                📱 iPhone/iPad: para tela cheia, toque em <span className="font-bold text-slate-300">Compartilhar ⬆️</span> e depois <span className="font-bold text-slate-300">“Adicionar à Tela de Início”</span>.
-              </p>
-            )}
-          </div>
-        </div>
       )}
 
     </div>
