@@ -465,6 +465,13 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
 [data-theme="light"] .tema-claro-area .bg-white\/10 { background-color: #F5F4F0 !important; }
 /* Textos neutros → escuros (dourado e cores semânticas preservados) — paleta oficial 2026 */
 [data-theme="light"] .tema-claro-area .text-white { color: var(--pp-graphite) !important; }
+/* Exceção: botão "Entrar na plataforma" (LoginForm.jsx) — texto branco de
+   propósito sobre fundo terracota (--login-primary-hover), não um branco
+   "herdado de tema escuro" como os demais casos acima. A classe de fundo
+   permanece no DOM em todos os estados (hover/active só adicionam outra
+   classe por cima), então basta esta combinação para cobrir padrão,
+   hover, active, foco e carregando. */
+[data-theme="light"] .tema-claro-area .bg-\[var\(--login-primary-hover\)\].text-white { color: #FFFFFF !important; }
 /* Tons de texto quase-brancos (feitos p/ fundo escuro) → legíveis no claro */
 [data-theme="light"] .tema-claro-area .text-slate-100,
 [data-theme="light"] .tema-claro-area .text-slate-200,
