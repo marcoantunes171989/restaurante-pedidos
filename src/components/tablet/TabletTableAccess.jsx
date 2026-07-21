@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Search, X, Loader2, CheckCircle2, AlertTriangle, LayoutGrid } from "lucide-react";
 import EstablishmentShowcase from "./EstablishmentShowcase";
 import TableSelectionCard from "./TableSelectionCard";
@@ -12,17 +12,18 @@ const FILTROS = [
 ];
 
 function ConfirmacaoMesaOcupada({ mesa, onVoltar, onContinuar }) {
+  const numeroFmt = String(mesa.numero).padStart(2, "0");
   return (
     <div className="fixed inset-0 z-[220] flex items-center justify-center bg-[rgba(33,24,20,0.32)] p-4" style={{ backdropFilter: "blur(2px)" }} onClick={onVoltar}>
-      <div role="alertdialog" aria-modal="true" aria-labelledby="confirm-mesa-ocupada-titulo" className="w-full max-w-sm rounded-3xl border border-[var(--client-border)] bg-[var(--client-surface)] p-5 text-center shadow-[var(--client-shadow-floating)]" onClick={(e) => e.stopPropagation()}>
-        <p id="confirm-mesa-ocupada-titulo" className="text-base font-black text-[var(--client-text-primary)]">Esta mesa possui atendimento em andamento. Deseja vincular este tablet mesmo assim?</p>
-        <p className="mt-2 text-sm text-[var(--client-text-secondary)]">Mesa {String(mesa.numero).padStart(2, "0")}{mesa.localizacao ? ` · ${mesa.localizacao}` : ""}</p>
+      <div role="alertdialog" aria-modal="true" aria-labelledby="confirm-mesa-ocupada-titulo" aria-describedby="confirm-mesa-ocupada-desc" className="w-full max-w-sm rounded-3xl border border-[var(--client-border)] bg-[var(--client-surface)] p-5 text-center shadow-[var(--client-shadow-floating)]" onClick={(e) => e.stopPropagation()}>
+        <p id="confirm-mesa-ocupada-titulo" className="text-base font-black text-[var(--client-text-primary)]">Esta mesa já está em atendimento</p>
+        <p id="confirm-mesa-ocupada-desc" className="mt-2 text-sm leading-relaxed text-[var(--client-text-secondary)]">A Mesa {numeroFmt} possui pedidos ou uma conta em andamento. Deseja utilizar este tablet nesta mesma mesa?</p>
         <div className="mt-4 flex gap-2">
           <button type="button" onClick={onVoltar} className="flex min-h-[48px] flex-1 items-center justify-center rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] text-sm font-bold text-[var(--client-text-secondary)] transition hover:bg-[var(--client-surface-secondary)]">
-            Voltar
+            Escolher outra mesa
           </button>
           <button type="button" onClick={onContinuar} className="flex min-h-[48px] flex-1 items-center justify-center rounded-2xl bg-[var(--client-primary)] text-sm font-bold text-white transition hover:bg-[var(--client-primary-hover)]">
-            Continuar com esta mesa
+            Continuar na Mesa {numeroFmt}
           </button>
         </div>
       </div>
@@ -94,6 +95,23 @@ export default function TabletTableAccess({
     setSelecionada(mesa);
   }
 
+  // Revalida em tempo real: se a mesa selecionada (ainda não confirmada) for
+  // assumida por outro dispositivo enquanto o usuário decide, avisa e limpa a
+  // seleção — nunca deixa uma escolha inválida silenciosa na tela. `mesas` e
+  // `dispositivos`/`orders` (via mesasOcupadasPorDispositivo/mesasComPedidoAberto)
+  // já chegam ao vivo do realtime existente; não é uma consulta nova.
+  useEffect(() => {
+    if (!selecionada || enviando || sucesso) return;
+    const atual = mesasComStatus.find((item) => item.mesa.id === selecionada.id);
+    if (atual && atual.status === "occupiedDevice") {
+      queueMicrotask(() => {
+        setSelecionada(null);
+        setErro("A situação desta mesa foi alterada. Confira as informações antes de continuar.");
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mesasComStatus]);
+
   async function confirmar(mesaAlvo) {
     if (!mesaAlvo || enviandoRef.current) return;
     enviandoRef.current = true;
@@ -101,11 +119,21 @@ export default function TabletTableAccess({
     setErro("");
     await new Promise((r) => setTimeout(r, 450));
     try {
+      // Revalida contra o estado ATUAL (não o que valia no clique) antes de
+      // confirmar — impede que duas mesas/dois dispositivos conflitem por a
+      // tela ter ficado aberta um tempo sem revalidação.
+      const atual = mesasComStatus.find((item) => item.mesa.id === mesaAlvo.id);
+      if (atual && atual.status === "occupiedDevice") {
+        throw new Error("mesa_em_uso");
+      }
       onConfirmar(mesaAlvo.numero);
       setSucesso(true);
       await new Promise((r) => setTimeout(r, 550));
-    } catch {
-      setErro("Não foi possível configurar este tablet agora. Tente novamente.");
+    } catch (e) {
+      setSelecionada(null);
+      setErro(e?.message === "mesa_em_uso"
+        ? "Esta mesa acabou de ser vinculada a outro dispositivo. Escolha outra mesa."
+        : "Não foi possível configurar este tablet agora. Tente novamente.");
     } finally {
       enviandoRef.current = false;
       setEnviando(false);
@@ -145,7 +173,7 @@ export default function TabletTableAccess({
               <span aria-hidden="true" className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--client-primary-soft)] text-[var(--client-primary-active)]"><LayoutGrid size={17} /></span>
               <div>
                 <h2 className="text-lg font-black leading-tight text-[var(--client-text-primary)]">Selecione a mesa deste tablet</h2>
-                <p className="mt-0.5 text-xs leading-5 text-[var(--client-text-secondary)]">Escolha a mesa em que este dispositivo será utilizado. A seleção ficará salva neste tablet.</p>
+                <p className="mt-0.5 text-xs leading-5 text-[var(--client-text-secondary)]">Escolha a mesa em que este dispositivo será utilizado neste atendimento.</p>
               </div>
             </div>
             {podeFechar && (

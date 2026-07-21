@@ -2089,18 +2089,23 @@ function TabletView({
     .sort((a, b) => (a.featuredOrder ?? 0) - (b.featuredOrder ?? 0))
     .slice(0, 6), [filteredItems]);
 
-  // CHAVE_MESA_TABLET: persistência real da mesa neste aparelho (localStorage).
-  // Antes a mesa era só por SESSÃO (limpa a cada login) — decisão revertida a
-  // pedido explícito, mas com autovalidação: ao restaurar, se outro dispositivo
-  // já tiver assumido essa mesa nesse meio tempo (heartbeat real, ver
-  // `mesasOcupadas` abaixo), descarta o valor salvo e pede a seleção de novo —
-  // nunca confia cegamente num valor antigo. "Trocar mesa" continua disponível
-  // a qualquer momento. Ver logout() (App.jsx) que já limpa esta mesma chave.
-  const CHAVE_MESA_TABLET = "pp_tablet_mesa";
+  // Mesa do tablet por SESSÃO — decisão revertida de volta a pedido explícito
+  // (uma tentativa anterior persistiu em localStorage; causava a mesa antiga
+  // "colar" no aparelho depois de fechar/reabrir o navegador ou o PWA, mesmo
+  // com autovalidação contra o heartbeat). Regra atual: `tableNumber` vive
+  // só em memória (useState em RestaurantePedidoApp) — nada é escrito em
+  // localStorage/sessionStorage/IndexedDB para esta vinculação. Fechar e
+  // reabrir (ou logout, que já zera `tableNumber` — ver logout() acima)
+  // sempre volta a pedir a seleção. A chave antiga "pp_tablet_mesa" é limpa
+  // ativamente ao entrar nesta tela (efeito abaixo), pra autocurar qualquer
+  // aparelho que já tenha esse valor salvo de uma versão anterior.
+  const CHAVE_MESA_TABLET_ANTIGA = "pp_tablet_mesa";
+  useEffect(() => {
+    try { localStorage.removeItem(CHAVE_MESA_TABLET_ANTIGA); } catch { /* localStorage indisponível */ }
+  }, []);
   const definirMesaTablet = (numero) => {
     setTableNumber(String(numero));
     setTrocarMesaAberto(false);
-    try { localStorage.setItem(CHAVE_MESA_TABLET, String(numero)); } catch { /* localStorage indisponível — segue só em memória */ }
   };
   const mesaSelecionada = mesas.find((m) => String(m.numero) === String(tableNumber)) || null;
   // Precisa escolher a mesa após o login (em TODOS os dispositivos), enquanto
@@ -2133,19 +2138,6 @@ function TabletView({
     });
     return set;
   }, [orders]);
-
-  // Restaura a mesa salva neste tablet ao montar/recarregar — só quando ainda
-  // não há mesa definida e o valor salvo não estiver, agora, em uso por outro
-  // aparelho (autovalidação contra o heartbeat real, não um valor cego).
-  useEffect(() => {
-    if (!precisaMesa) return;
-    let salvo;
-    try { salvo = localStorage.getItem(CHAVE_MESA_TABLET) || ""; } catch { return; }
-    if (!(Number(salvo) > 0)) return;
-    if (mesasOcupadas.has(String(Number(salvo)))) { try { localStorage.removeItem(CHAVE_MESA_TABLET); } catch { /* ignora */ } return; }
-    setTableNumber(salvo);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mesasOcupadas, precisaMesa]);
 
   // Sai da tela cheia ao trocar de tela (desmontar o tablet)
   useEffect(() => () => sairTelaCheia(), []);
