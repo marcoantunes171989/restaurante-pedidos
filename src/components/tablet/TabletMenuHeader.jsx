@@ -1,14 +1,15 @@
-import { Bell, Receipt, ShoppingBag, Search, X } from "lucide-react";
+import { Receipt, ShoppingBag, Search, X } from "lucide-react";
 
 // Cabeçalho da tela de pedidos do tablet — identidade do estabelecimento,
 // mesa em destaque (só mostra "lugares" quando a mesa tem capacidade
-// cadastrada de verdade — nunca inventa uma contagem de pessoas), ações de
-// atendimento e busca. Ícones sempre com aria-label; texto aparece a partir
-// do breakpoint com espaço (lg) — abaixo disso os botões continuam com
-// 44px mínimos de toque.
+// cadastrada de verdade — nunca inventa uma contagem de pessoas) e acesso a
+// busca/pedidos. Ícones sempre com aria-label; texto aparece a partir do
+// breakpoint com espaço (lg) — abaixo disso os botões continuam com 44px
+// mínimos de toque. Sem ação de "Garçom" nesta tela (removida a pedido —
+// ver acompanhamento de pedidos em TabletOrderTrackingDrawer).
 export default function TabletMenuHeader({
   lojaInfo, mesaAtual, tableNumber, dadosCompletos,
-  temConta, garcomChamado, onChamarGarcom, onAbrirConta,
+  temConta, onAbrirConta,
   totalCartItems, onAbrirCarrinhoMobile,
   search, onSearchChange,
 }) {
@@ -38,10 +39,6 @@ export default function TabletMenuHeader({
         </div>
 
         <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-          <button type="button" onClick={onChamarGarcom} title="Chamar garçom" aria-label="Chamar garçom"
-            className="flex h-11 w-11 shrink-0 items-center justify-center gap-1.5 rounded-xl border border-[var(--client-border)] text-[var(--client-text-secondary)] transition hover:bg-[var(--client-background-soft)] lg:w-auto lg:px-3">
-            <Bell aria-hidden="true" size={17} /><span className="hidden text-xs font-bold lg:inline">Garçom</span>
-          </button>
           <button type="button" onClick={onAbrirConta} disabled={!temConta} title="Acompanhar pedidos e conta" aria-label="Acompanhar pedidos e conta"
             className="flex h-11 w-11 shrink-0 items-center justify-center gap-1.5 rounded-xl border border-[var(--client-border)] text-[var(--client-text-secondary)] transition hover:bg-[var(--client-background-soft)] disabled:cursor-not-allowed disabled:opacity-40 lg:w-auto lg:px-3">
             <Receipt aria-hidden="true" size={17} /><span className="hidden text-xs font-bold lg:inline">Pedidos</span>
@@ -71,12 +68,6 @@ export default function TabletMenuHeader({
           </button>
         )}
       </label>
-
-      {garcomChamado && (
-        <div role="status" className="mt-2 rounded-xl border border-[var(--client-primary-border)] bg-[var(--client-primary-soft)] px-3 py-2 text-center text-xs font-bold text-[var(--client-primary-active)]">
-          Garçom chamado — aguarde, alguém virá até a mesa.
-        </div>
-      )}
     </header>
   );
 }

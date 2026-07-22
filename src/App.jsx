@@ -1981,7 +1981,7 @@ export default function RestaurantePedidoApp() {
               promocoes={filtraLoja(promocoes).filter((p) => p.ativo && p.mostrarTablet && promocaoVigente(p))}
               categoriasDb={categoriasDbLoja} economiaCart={economiaCart}
               onAdicionarCombo={adicionarComboTablet} onRemoverComboItem={setComboRemoverTablet}
-              gruposOpcoes={filtraLoja(gruposOpcoes)} opcoes={filtraLoja(opcoes)} onChamarGarcom={() => registrarChamadoFn("garcom")}
+              gruposOpcoes={filtraLoja(gruposOpcoes)} opcoes={filtraLoja(opcoes)}
               products={products} categories={categories}
               filteredItems={filteredItems} setSelectedCategory={setSelectedCategory}
               search={search} setSearch={setSearch}
@@ -2050,7 +2050,7 @@ export default function RestaurantePedidoApp() {
 //  TabletView — tela cheia para pedidos do cliente
 // ════════════════════════════════════════════════════════════
 function TabletView({
-  promocoes = [], categoriasDb = [], economiaCart = 0, onAdicionarCombo = () => {}, onRemoverComboItem = () => {}, gruposOpcoes = [], opcoes = [], onChamarGarcom = () => {},
+  promocoes = [], categoriasDb = [], economiaCart = 0, onAdicionarCombo = () => {}, onRemoverComboItem = () => {}, gruposOpcoes = [], opcoes = [],
   products, categories, filteredItems, setSelectedCategory,
   search = "", setSearch, cart, tableNumber, setTableNumber,
   customerName, setCustomerName, commandCode, setCommandCode,
@@ -2218,12 +2218,6 @@ function TabletView({
   const contaSolicitada = currentTableOrders.length > 0 && currentTableOrders.some((o) => o.paymentStatus === "requested");
   const [confirmarConta, setConfirmarConta] = useState(false); // modal de confirmação do envio
   const [cancelandoPedido, setCancelandoPedido] = useState(null); // pedido que o cliente quer cancelar
-  const [garcomChamado, setGarcomChamado] = useState(false);   // feedback do botão "Chamar garçom"
-  function chamarGarcom() {
-    setGarcomChamado(true);
-    onChamarGarcom();
-    setTimeout(() => setGarcomChamado(false), 4000);
-  }
 
   // Agrupa pedidos por comanda
   const porComanda = currentTableOrders.reduce((acc, order) => {
@@ -2338,7 +2332,7 @@ function TabletView({
 
       <TabletMenuHeader
         lojaInfo={lojaInfo} mesaAtual={mesaSelecionada} tableNumber={tableNumber} dadosCompletos={dadosCompletos}
-        temConta={temConta} garcomChamado={garcomChamado} onChamarGarcom={chamarGarcom}
+        temConta={temConta}
         onAbrirConta={() => setVerConta(true)}
         totalCartItems={totalCartItems} onAbrirCarrinhoMobile={() => setCarrinhoAberto(true)}
         search={search} onSearchChange={setSearch}
@@ -2427,7 +2421,11 @@ function TabletView({
                   <div className="h-px flex-1 bg-[var(--client-border)]" />
                 </div>
               );
-              const grade = { gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 190px), 1fr))" };
+              // 1 produto por linha em mobile/tablet (<1024px, ver critério do
+              // pedido); a partir de 1024px (lg — mesmo corte já usado para a
+              // barra lateral/carrinho permanente) passa a grid responsiva de
+              // 2+ colunas, conforme o espaço disponível.
+              const gradeClasse = "grid grid-cols-1 gap-4 lg:gap-3.5 lg:[grid-template-columns:repeat(auto-fill,minmax(220px,1fr))]";
               const cardParaItem = (item, tagAuto = null) => {
                 const promoCard = promoDoProdutoTablet(item);
                 const noCarrinho = cart.find((c) => c.id === item.id);
@@ -2455,7 +2453,7 @@ function TabletView({
                     return (
                       <section key={c} id={`cat-${c}`} data-cat-section={c} className="scroll-mt-4">
                         {cabSecao(c, itens.length)}
-                        <div className="grid gap-3.5" style={grade}>
+                        <div className={gradeClasse}>
                           {itens.map((item) => cardParaItem(item))}
                         </div>
                       </section>
