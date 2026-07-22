@@ -298,6 +298,30 @@ function Metric({ label, value }) {
   );
 }
 
+// ── Redirecionamento pós-login (rota protegida acessada sem sessão) ──────
+// Quando um acesso direto/atualização numa rota protegida (/admin, /app,
+// /operacional) é feito sem usuário autenticado, a tela de login passa a
+// ser exibida com a URL corrigida para "/login" (ver useEffect de
+// sincronização em RestaurantePedidoApp). A rota originalmente pedida é
+// salva aqui — de uso único, igual ao "pp_restore_once" — para que,
+// terminado o login, o usuário volte exatamente para onde tentou entrar.
+const CHAVE_REDIRECT_POS_LOGIN = "pp_pos_login_redirect";
+function salvarRedirectPosLogin(pathname, search) {
+  try { sessionStorage.setItem(CHAVE_REDIRECT_POS_LOGIN, JSON.stringify({ pathname, search })); } catch { /* sessionStorage indisponível */ }
+}
+function obterRedirectPosLogin() {
+  try {
+    const bruto = sessionStorage.getItem(CHAVE_REDIRECT_POS_LOGIN);
+    if (!bruto) return null;
+    const dados = JSON.parse(bruto);
+    if (dados && typeof dados.pathname === "string") return dados;
+  } catch { /* valor corrompido/sessionStorage indisponível — ignora */ }
+  return null;
+}
+function limparRedirectPosLogin() {
+  try { sessionStorage.removeItem(CHAVE_REDIRECT_POS_LOGIN); } catch { /* sessionStorage indisponível */ }
+}
+
 // Rótulos de acompanhamento exibidos no TABLET (mesmos nomes dos estágios da
 // cozinha, mais amigáveis para o cliente acompanhar).
 export const STATUS_TABLET_LABEL = {
@@ -448,9 +472,22 @@ export default function RestaurantePedidoApp() {
   //   • reload imediato pós-login → flag presente → reassocia o currentUser;
   //   • F5 / nova aba / acesso direto → sem flag → encerra a sessão persistida
   //     e mostra a tela de login.
+  // `authResolved` marca o instante em que essa checagem TERMINA (com ou sem
+  // usuário reassociado) — usado tanto para não piscar a tela de login antes
+  // da hora quanto para só então corrigir a URL de uma rota protegida para
+  // "/login" quando não há sessão (ver os dois useEffect logo abaixo).
   const restaurouSessaoRef = useRef(false);
+  const [authResolved, setAuthResolved] = useState(false);
   useEffect(() => {
-    if (!usandoSupabaseAuth() || !dbReady || currentUser || restaurouSessaoRef.current) return;
+    if (loading || currentUser || restaurouSessaoRef.current) return;
+    // Modo legacy, ou banco indisponível (fallback local/offline — sem
+    // usandoSupabaseAuth() ou sem dbReady não há sessão Supabase a restaurar):
+    // a checagem termina aqui mesmo, sem tentativa de restauração.
+    if (!usandoSupabaseAuth() || !dbReady) {
+      restaurouSessaoRef.current = true;
+      queueMicrotask(() => setAuthResolved(true));
+      return;
+    }
     let restaurar = false;
     try { restaurar = sessionStorage.getItem("pp_restore_once") === "1"; } catch {}
     // Para reassociar precisamos da lista de usuários já carregada; aguarda.
@@ -461,15 +498,35 @@ export default function RestaurantePedidoApp() {
         // Sem flag → carregamento "limpo": encerra qualquer sessão persistida
         // para que o login seja realmente solicitado novamente.
         try { await logoutSupabaseAuth(); } catch {}
+        setAuthResolved(true);
         return;
       }
       try { sessionStorage.removeItem("pp_restore_once"); } catch {}
       const email = await getSessionEmail();
-      if (!email) return; // sem sessão (ex.: após "Sair") → mostra a tela de login
-      const u = users.find((x) => (x.email || "").toLowerCase() === email.toLowerCase());
-      if (u) aplicarLogin(u, { silencioso: true });
+      if (email) {
+        const u = users.find((x) => (x.email || "").toLowerCase() === email.toLowerCase());
+        if (u) aplicarLogin(u, { silencioso: true }); // sem sessão/usuário → mostra a tela de login
+      }
+      setAuthResolved(true);
     })();
-  }, [dbReady, users, currentUser]);
+  }, [loading, dbReady, users, currentUser]);
+
+  // ── Sincroniza a URL com a tela de login ────────────────────────
+  // Enquanto a sessão ainda está sendo verificada (authResolved=false), nada
+  // é redirecionado — evita trocar a URL e depois "voltar atrás" se a sessão
+  // for restaurada com sucesso. Só quando a checagem termina SEM usuário
+  // autenticado e a URL aponta para uma rota protegida (/admin, /app,
+  // /operacional) é que a URL é corrigida para "/login" — a rota original é
+  // salva (obterRedirectPosLogin/aplicarLogin/rotaInicialRef) para retomar
+  // logo após o login. Substitui a entrada do histórico (não empilha), então
+  // o botão Voltar não retorna à rota protegida.
+  useEffect(() => {
+    if (!authResolved || currentUser) return;
+    const { pathname, search } = window.location;
+    if (!/^\/(admin|app|operacional)(\/|$)/.test(pathname)) return;
+    salvarRedirectPosLogin(pathname, search);
+    window.history.replaceState({}, "", "/login");
+  }, [authResolved, currentUser]);
 
   // ── Atualização quase imediata na cozinha e painel ──────────
   // Realtime (WebSocket) cobre o instantâneo; este polling de 1.5s
@@ -578,11 +635,17 @@ export default function RestaurantePedidoApp() {
   }
   // Deep-link: aplica a rota da URL UMA vez após autenticar (ex.: abrir direto
   // /operacional/cozinha). A sincronização seguinte normaliza a URL.
+  // Quando a rota protegida foi acessada sem sessão, a URL já foi corrigida
+  // para "/login" (ver useEffect de sincronização acima) e o destino original
+  // fica salvo em obterRedirectPosLogin() — é ele que é aplicado aqui, não a
+  // URL atual (que seria só "/login").
   const rotaInicialRef = useRef(false);
   useEffect(() => {
     if (!currentUser || rotaInicialRef.current) return;
     rotaInicialRef.current = true;
-    const { pathname, search } = window.location;
+    const redirectSalvo = obterRedirectPosLogin();
+    const pathname = redirectSalvo ? redirectSalvo.pathname : window.location.pathname;
+    const search = redirectSalvo ? redirectSalvo.search : window.location.search;
     if (/^\/(admin|app|operacional)(\/|$)/.test(pathname)) {
       popstateRef.current = true;
       aplicarRota(pathname, search, currentUser);
@@ -591,6 +654,7 @@ export default function RestaurantePedidoApp() {
       // — reseta de forma assíncrona para não deixá-la presa em "true".
       setTimeout(() => { popstateRef.current = false; }, 0);
     }
+    limparRedirectPosLogin();
   }, [currentUser]);
   // Espelha a tela atual na URL (replace na 1ª vez; push nas seguintes)
   useEffect(() => {
@@ -748,9 +812,16 @@ export default function RestaurantePedidoApp() {
     setCurrentUser(credOk);
     auditar("login", "usuario", credOk.id, { email: credOk.email }, credOk);
     const acessosAtivos = (id) => credOk.accessIds.includes(id) && accesses.some((a) => a.id === id && a.active);
-    // Respeita link direto (ex.: /admin/copiloto) já presente na URL — evita
-    // que o login sempre force a aba padrão e derrube o deep-link do usuário.
-    const deepAdmin = window.location.pathname.match(/^\/admin\/([^/?]+)/);
+    // Respeita link direto (ex.: /admin/copiloto) — usa a rota original salva
+    // quando o acesso protegido foi feito sem sessão (a URL, nesse caso, já
+    // foi corrigida para "/login"); sem redirect salvo, cai na URL atual
+    // (ex.: login legacy, ou usuário já estava numa rota protegida logado
+    // em outra aba). Não consome o redirect salvo aqui — quem faz isso é o
+    // deep-link geral (rotaInicialRef), que roda logo em seguida e cobre
+    // /admin, /app e /operacional de forma uniforme com fallback de permissão.
+    const redirectSalvo = obterRedirectPosLogin();
+    const pathnameAlvo = redirectSalvo ? redirectSalvo.pathname : window.location.pathname;
+    const deepAdmin = pathnameAlvo.match(/^\/admin\/([^/?]+)/);
     if (deepAdmin && deepAdmin[1] === "cozinha" && canAccess(credOk, "kitchen")) {
       setActiveTab("kitchen");
     } else if (deepAdmin && deepAdmin[1] !== "cozinha" && acessosAtivos("admin")) {
@@ -795,6 +866,7 @@ export default function RestaurantePedidoApp() {
     try { localStorage.removeItem("pp_tablet_mesa"); } catch {}
     try { sessionStorage.removeItem("pp_restore_once"); } catch {}
     try { sessionStorage.removeItem("pp_sessao_ativa"); } catch {} // libera o acesso à landing/login
+    limparRedirectPosLogin(); // não retomar destino de uma tentativa de acesso anterior
     try { window.history.replaceState({}, "", "/login"); } catch {}
     primeiraSyncRef.current = true; // próxima sessão recomeça normalizando a URL
     if (usandoSupabaseAuth()) logoutSupabaseAuth();
@@ -1827,7 +1899,10 @@ export default function RestaurantePedidoApp() {
   }
 
   // ── Tela de carregamento inicial (elegante e minimalista) ────
-  if (loading) {
+  // Também cobre a checagem de sessão (authResolved) — sem isso, uma rota
+  // protegida sem sessão chegaria a mostrar rapidamente a tela de login
+  // antes da restauração (reload pós-login) terminar de verificar.
+  if (loading || !authResolved) {
     return (
       <div data-theme="light">
       <div className="tema-claro-area relative flex items-center justify-center overflow-hidden px-4 text-admin-text"
