@@ -215,15 +215,6 @@ export function itemDetails(item) {
   ].filter(Boolean).join(" • ");
 }
 
-// Normaliza string: remove acentos e converte para minúsculas
-function normalizar(str) {
-  return String(str || "")
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "") // remove diacríticos (acentos)
-    .toLowerCase()
-    .trim();
-}
-
 function canAccess(user, accessId) {
   return Boolean(user && user.active && user.accessIds.includes(accessId));
 }
@@ -548,7 +539,6 @@ export default function RestaurantePedidoApp() {
 
   const [cart, setCart] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState("Todos");
-  const [search, setSearch] = useState("");
   const [tableNumber, setTableNumber] = useState("");
   const [commandCode, setCommandCode] = useState("");
   const [customerName, setCustomerName] = useState("");
@@ -755,14 +745,8 @@ export default function RestaurantePedidoApp() {
   // Tablet do salão respeita a visibilidade "Tablet" do produto (migration 034)
   const activeProducts = products.filter((p) => p.active && p.visivelTablet !== false);
   const filteredItems = useMemo(() => {
-    const termo = normalizar(search);
-    return activeProducts.filter((item) => {
-      const texto = normalizar(`${item.name} ${item.description} ${item.category} ${(item.ingredients || []).join(" ")}`);
-      const categoriaOk = selectedCategory === "Todos" || item.category === selectedCategory;
-      const buscaOk = termo === "" || texto.includes(termo);
-      return categoriaOk && buscaOk;
-    });
-  }, [activeProducts, selectedCategory, search]);
+    return activeProducts.filter((item) => selectedCategory === "Todos" || item.category === selectedCategory);
+  }, [activeProducts, selectedCategory]);
 
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const serviceFee = subtotal * 0.1;
@@ -2059,7 +2043,6 @@ export default function RestaurantePedidoApp() {
               gruposOpcoes={filtraLoja(gruposOpcoes)} opcoes={filtraLoja(opcoes)}
               products={products} categories={categories}
               filteredItems={filteredItems} setSelectedCategory={setSelectedCategory}
-              search={search} setSearch={setSearch}
               cart={cart} tableNumber={tableNumber} setTableNumber={setTableNumber}
               customerName={customerName} setCustomerName={setCustomerName}
               commandCode={commandCode} setCommandCode={setCommandCode}
@@ -2127,7 +2110,7 @@ export default function RestaurantePedidoApp() {
 function TabletView({
   promocoes = [], categoriasDb = [], economiaCart = 0, onAdicionarCombo = () => {}, onRemoverComboItem = () => {}, gruposOpcoes = [], opcoes = [],
   products, categories, filteredItems, setSelectedCategory,
-  search = "", setSearch, cart, tableNumber, setTableNumber,
+  cart, tableNumber, setTableNumber,
   customerName, setCustomerName, commandCode, setCommandCode,
   addToCart, removeFromCart, addConfiguredToCart,
   subtotal, serviceFee, total,
@@ -2369,8 +2352,8 @@ function TabletView({
   const clicarOfertaT = (p) => {
     if (p.tipo === "combo") { combosRefTablet.current?.scrollIntoView({ behavior: "smooth", block: "start" }); return; }
     const catNome = p.categoriaId != null ? catNomePorIdTablet[p.categoriaId] : null;
-    if (catNome && (categories || []).includes(catNome)) { setSelectedCategory(catNome); setSearch(""); return; }
-    setSelectedCategory("Todos"); setSearch("");
+    if (catNome && (categories || []).includes(catNome)) { setSelectedCategory(catNome); return; }
+    setSelectedCategory("Todos");
   };
   // Produto é "personalizável" quando tem de fato grupos de opções,
   // adicionais ou ingredientes cadastrados — nunca um selo genérico.
@@ -2410,7 +2393,6 @@ function TabletView({
         temConta={temConta}
         onAbrirConta={() => setVerConta(true)}
         totalCartItems={totalCartItems} onAbrirCarrinhoMobile={() => setCarrinhoAberto(true)}
-        search={search} onSearchChange={setSearch}
       />
 
       {/* ── Corpo: categorias · vitrine · carrinho ── */}
@@ -2424,11 +2406,6 @@ function TabletView({
 
           {/* Seções da vitrine */}
           <div className="flex-1 overflow-y-auto p-4 sm:p-5">
-            {search.trim() && (
-              <p className="mb-3 text-xs font-bold text-[var(--client-text-muted)]">
-                {filteredItems.length} {filteredItems.length === 1 ? "resultado" : "resultados"} para "{search.trim()}"
-              </p>
-            )}
             {/* Faixa de ofertas vigentes (promoções) */}
             {promosTabletVigentes.length > 0 && (
               <div className="mb-5">
@@ -2479,7 +2456,7 @@ function TabletView({
               <div className="flex h-full flex-col items-center justify-center gap-3 opacity-70">
                 <SearchX aria-hidden="true" size={44} className="text-[var(--client-text-muted)]" />
                 <p className="text-base font-black text-[var(--client-text-primary)]">Nenhum produto encontrado</p>
-                <p className="text-sm text-[var(--client-text-muted)]">Tente outra busca ou categoria</p>
+                <p className="text-sm text-[var(--client-text-muted)]">Tente outra categoria</p>
               </div>
             ) : (() => {
               // Prioriza produtos marcados como destaque (migration 038); senão, cai
@@ -2499,8 +2476,13 @@ function TabletView({
               // 1 produto por linha em mobile/tablet (<1024px, ver critério do
               // pedido); a partir de 1024px (lg — mesmo corte já usado para a
               // barra lateral/carrinho permanente) passa a grid responsiva de
-              // 2+ colunas, conforme o espaço disponível.
-              const gradeClasse = "grid grid-cols-1 gap-4 lg:gap-3.5 lg:[grid-template-columns:repeat(auto-fill,minmax(220px,1fr))]";
+              // 2+ colunas, conforme o espaço disponível. O card agora é
+              // horizontal (imagem à esquerda + conteúdo à direita) e precisa
+              // de bem mais largura por coluna do que o card vertical antigo
+              // — auto-fill com um mínimo generoso garante 1 coluna quando o
+              // painel lateral/carrinho permanente reduz demais o espaço, e
+              // mais colunas só quando cabem sem comprimir texto/imagem.
+              const gradeClasse = "grid grid-cols-1 gap-4 lg:gap-4 lg:[grid-template-columns:repeat(auto-fill,minmax(360px,1fr))]";
               const cardParaItem = (item, tagAuto = null) => {
                 const promoCard = promoDoProdutoTablet(item);
                 const noCarrinho = cart.find((c) => c.id === item.id);
@@ -2517,7 +2499,7 @@ function TabletView({
                   {destaques.length > 0 && (
                     <section id="cat-Todos" data-cat-section="Todos" className="scroll-mt-4">
                       {cabSecao("Destaques da casa", destaques.length)}
-                      <div className="-mx-1 flex snap-x gap-3 overflow-x-auto px-1 pb-1">
+                      <div className={gradeClasse}>
                         {destaques.map((item, i) => cardParaItem(item, TAGS_DESTAQUE[i % TAGS_DESTAQUE.length]))}
                       </div>
                     </section>

@@ -1,17 +1,17 @@
-import { Receipt, ShoppingBag, Search, X } from "lucide-react";
+import { Receipt, ShoppingBag } from "lucide-react";
 
 // Cabeçalho da tela de pedidos do tablet — identidade do estabelecimento,
 // mesa em destaque (só mostra "lugares" quando a mesa tem capacidade
 // cadastrada de verdade — nunca inventa uma contagem de pessoas) e acesso a
-// busca/pedidos. Ícones sempre com aria-label; texto aparece a partir do
+// pedidos/carrinho. Ícones sempre com aria-label; texto aparece a partir do
 // breakpoint com espaço (lg) — abaixo disso os botões continuam com 44px
-// mínimos de toque. Sem ação de "Garçom" nesta tela (removida a pedido —
-// ver acompanhamento de pedidos em TabletOrderTrackingDrawer).
+// mínimos de toque. Sem campo de busca (removido a pedido) nem ação de
+// "Garçom" nesta tela (removida a pedido — ver acompanhamento de pedidos em
+// TabletOrderTrackingDrawer).
 export default function TabletMenuHeader({
   lojaInfo, mesaAtual, tableNumber, dadosCompletos,
   temConta, onAbrirConta,
   totalCartItems, onAbrirCarrinhoMobile,
-  search, onSearchChange,
 }) {
   const nomeLoja = lojaInfo?.nome || "Pedido Prime";
   return (
@@ -53,21 +53,6 @@ export default function TabletMenuHeader({
           </button>
         </div>
       </div>
-
-      <label className="relative mt-2.5 block">
-        <span className="sr-only">Buscar produto, categoria ou ingrediente</span>
-        <Search aria-hidden="true" size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--client-text-muted)]" />
-        <input
-          type="search" value={search} onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="Buscar produto, categoria ou ingrediente..."
-          className="h-11 w-full rounded-xl border border-[var(--client-border)] bg-[var(--client-background-soft)] pl-9 pr-9 text-sm text-[var(--client-text-primary)] outline-none transition placeholder:text-[var(--client-text-muted)] focus:border-[var(--client-primary)] focus:ring-2 focus:ring-[var(--client-focus-primary)]" />
-        {search && (
-          <button type="button" onClick={() => onSearchChange("")} aria-label="Limpar busca"
-            className="absolute right-2.5 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-[var(--client-text-muted)] transition hover:bg-[var(--client-border)]/40 hover:text-[var(--client-text-primary)]">
-            <X aria-hidden="true" size={14} />
-          </button>
-        )}
-      </label>
     </header>
   );
 }
