@@ -1,31 +1,74 @@
-import { Botao, Marca, Reveal, Badge, GlowOrb } from "../ui";
+import { useEffect, useState } from "react";
+import QRCode from "qrcode";
+import { Botao, Marca, Reveal, Badge, Check } from "../ui";
+import { DeviceStack } from "../components/DeviceStack";
+import { LeadForm } from "../components/LeadForm";
+import { TelaMesa, TelaCardapioCliente } from "../devices";
 import { goTo } from "../utils";
-import { NOME_SISTEMA, CTA_FINAL, FOOTER_LINKS } from "../content";
+import { NOME_SISTEMA, CTA_FINAL, FOOTER_LINKS, LEAD_FORM } from "../content";
 import { linkWhatsappConsultor } from "../../config/contato";
 
-export function CtaFinal() {
+// QR Code gerado como SVG de verdade (não uma imagem estática) — aponta
+// para o mesmo link de WhatsApp dos botões desta seção, então quem
+// escanear (numa foto de tela, print, apresentação) cai numa conversa
+// real com um consultor, não numa URL de exemplo inventada.
+function QrPecaAqui() {
+  const [svg, setSvg] = useState("");
+  const link = linkWhatsappConsultor("Olá! Vi o QR Code do Pedido Prime e quero saber mais.");
+
+  useEffect(() => {
+    let cancelado = false;
+    QRCode.toString(link, { type: "svg", margin: 0, color: { dark: "#1C140F", light: "#ffffff" } })
+      .then((s) => { if (!cancelado) setSvg(s); })
+      .catch(() => {});
+    return () => { cancelado = true; };
+  }, [link]);
+
   return (
-    <section className="section relative overflow-hidden bg-white">
+    <div className="mx-auto flex w-full max-w-[220px] flex-col items-center gap-3 rounded-[1.5rem] bg-white p-5 text-center shadow-[0_24px_60px_-24px_rgba(28,20,15,0.5)]">
+      <div className="h-32 w-32" aria-hidden="true" dangerouslySetInnerHTML={{ __html: svg }} />
+      <p className="font-display text-sm font-black tracking-widest text-[var(--pp-graphite)]">{CTA_FINAL.qrLabel}</p>
+      <p className="text-[11px] leading-4 text-[var(--pp-text-muted)]">{CTA_FINAL.qrDesc}</p>
+    </div>
+  );
+}
+
+// Único bloco 100% --pp-primary-hover da página inteira (o restante da
+// landing fica ≤~12% de área em laranja) — o clímax visual antes do
+// rodapé. Texto branco sobre --pp-primary-hover: 5.08:1 de contraste
+// (AA), mesma combinação já documentada em ui.jsx/Botao "primary".
+export function CtaFinal() {
+  const [formAberto, setFormAberto] = useState(false);
+  return (
+    <section className="section relative overflow-hidden bg-[var(--pp-primary-hover)]">
       <div className="mx-auto max-w-6xl px-5">
-        <Reveal className="relative overflow-hidden rounded-[1.75rem] border border-[#C63F1D]/15 bg-gradient-to-br from-[#C63F1D]/[0.06] via-white to-[#B8872A]/[0.08] p-10 text-center shadow-[0_30px_80px_-40px_rgba(28,20,15,0.25)] sm:p-16">
-          <GlowOrb className="-right-24 -top-24 h-72 w-72" />
-          <GlowOrb tom="brand" className="-bottom-24 -left-24 h-72 w-72" />
-          <div className="relative">
-            <Badge>{CTA_FINAL.badge}</Badge>
-            <h2 className="font-display mt-5 text-[clamp(1.6rem,1.1rem+1.8vw,2.5rem)] font-black leading-tight tracking-tight text-[var(--pp-graphite)]">{CTA_FINAL.titulo}</h2>
-            <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-[var(--pp-text-muted)] sm:text-base">{CTA_FINAL.desc}</p>
-            <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-              <Botao variant="primary" href={linkWhatsappConsultor(`Olá! Gostaria de solicitar uma demonstração do ${NOME_SISTEMA}.`)}>Solicitar demonstração</Botao>
-              <Botao variant="outline" href={linkWhatsappConsultor(`Olá! Gostaria de falar com um consultor sobre o ${NOME_SISTEMA}.`)}>Falar com um consultor</Botao>
+        <Reveal className="grid items-center gap-10 lg:grid-cols-[1.1fr_auto_0.7fr]">
+          <div className="text-center lg:text-left">
+            <Badge tom="gold">{CTA_FINAL.badge}</Badge>
+            <h2 className="font-display mt-5 text-[clamp(1.6rem,1.1rem+1.8vw,2.5rem)] font-black leading-tight tracking-tight text-white">{CTA_FINAL.titulo}</h2>
+            <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-white/85 sm:text-base lg:mx-0">{CTA_FINAL.desc}</p>
+            <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row lg:justify-start">
+              <Botao variant="outline" onClick={() => setFormAberto(true)} className="!border-white !bg-white !text-[var(--pp-primary-hover)] hover:!bg-white/90">{LEAD_FORM.gatilho}</Botao>
+              <Botao variant="ghost" href={linkWhatsappConsultor(`Olá! Gostaria de falar com um consultor sobre o ${NOME_SISTEMA}.`)} className="!text-white hover:!bg-white/10">Falar no WhatsApp</Botao>
             </div>
-            <div className="mx-auto mt-9 grid max-w-2xl grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-4">
+            <ul className="mx-auto mt-9 grid max-w-md grid-cols-2 gap-x-6 gap-y-2.5 text-left text-sm sm:grid-cols-2 lg:mx-0">
               {CTA_FINAL.beneficios.map((b) => (
-                <span key={b} className="font-semibold text-[var(--pp-text-muted)]">{b}</span>
+                <li key={b} className="flex items-start gap-2 font-semibold text-white/90"><Check cor="#ffffff" /> {b}</li>
               ))}
-            </div>
+            </ul>
+          </div>
+
+          <div className="hidden justify-self-center lg:block">
+            <DeviceStack variant="compact" tablet={<TelaMesa />} phone={<TelaCardapioCliente compacta />} />
+          </div>
+
+          <div className="justify-self-center">
+            <QrPecaAqui />
           </div>
         </Reveal>
       </div>
+
+      <LeadForm aberto={formAberto} onFechar={() => setFormAberto(false)} />
     </section>
   );
 }
@@ -63,6 +106,8 @@ export default function Footer({ onEntrar }) {
             </div>
           </div>
         </div>
+        {/* CNPJ e redes sociais: sem dado real cadastrado ainda (ver
+            ASSETS.md) — omitido de propósito em vez de inventado. */}
         <div className="mt-10 flex flex-col items-center justify-between gap-3 border-t border-[var(--pp-border)] pt-6 text-center sm:flex-row sm:text-left">
           <p className="text-xs text-[var(--pp-text-muted)]">© {new Date().getFullYear()} {NOME_SISTEMA}. Todos os direitos reservados.</p>
           <p className="text-xs text-[var(--pp-text-muted)]">Sistema para restaurante · Cardápio digital · Gestão gastronômica · PDV</p>

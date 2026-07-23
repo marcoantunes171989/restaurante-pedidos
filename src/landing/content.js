@@ -279,6 +279,33 @@ export const CTA_FINAL = {
   titulo: "Profissionalize o atendimento e assuma o controle de toda a operação.",
   desc: "Cardápio, mesas, cozinha, bar, caixa, estoque, financeiro e gestão — conectados em uma única plataforma inteligente, pronta para crescer com o seu negócio.",
   beneficios: ["Configuração simples", "Plataforma responsiva", "Suporte especializado", "Atualizações contínuas"],
+  qrLabel: "PEÇA AQUI",
+  qrDesc: "Aponte a câmera e fale com um consultor no WhatsApp agora mesmo.",
+};
+
+// ── Formulário de contato (modal LeadForm) ──────────────────────
+export const LEAD_FORM = {
+  gatilho: "Quero uma proposta",
+  titulo: "Vamos profissionalizar seu atendimento",
+  desc: "Preencha seus dados — um consultor entra em contato para entender sua operação e indicar o plano ideal.",
+  campos: {
+    nome: { label: "Seu nome", placeholder: "Como podemos te chamar?" },
+    estabelecimento: { label: "Nome do restaurante", placeholder: "Nome do seu estabelecimento" },
+    whatsapp: { label: "WhatsApp", placeholder: "(11) 98765-4321" },
+    email: { label: "E-mail (opcional)", placeholder: "voce@exemplo.com" },
+    mesas: { label: "Número de mesas (opcional)", placeholder: "Ex.: 12" },
+  },
+  erros: {
+    nome: "Informe seu nome.",
+    estabelecimento: "Informe o nome do seu restaurante.",
+    whatsapp: "Informe um WhatsApp válido, com DDD.",
+    email: "Informe um e-mail válido ou deixe em branco.",
+  },
+  cta: "Enviar meus dados",
+  enviando: "Enviando...",
+  sucessoTitulo: "Dados enviados com sucesso!",
+  sucessoDesc: "Um consultor do Pedido Prime vai falar com você em breve.",
+  erroGenerico: "Não foi possível enviar agora. Tente novamente em instantes.",
 };
 
 // ── Rodapé ─────────────────────────────────────────────────────

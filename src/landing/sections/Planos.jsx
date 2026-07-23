@@ -19,7 +19,7 @@ export default function Planos() {
             const destaque = !!p.destaque;
             return (
               <Reveal as="article" key={p.id} delay={i * 80}
-                className={`relative flex flex-col rounded-[1.25rem] border bg-white p-7 ${destaque ? "border-[#B8872A] shadow-xl" : "border-[var(--pp-border)]"}`}>
+                className={`relative flex flex-col rounded-[1.25rem] border bg-white p-7 transition ${destaque ? "border-[#B8872A] shadow-[0_32px_70px_-24px_rgba(184,135,42,0.45)] lg:-translate-y-3 lg:scale-[1.03]" : "border-[var(--pp-border)]"}`}>
                 {destaque && (
                   <span className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-[#B8872A] px-3.5 py-1 text-[11px] font-black uppercase tracking-wider text-[var(--pp-graphite)] shadow">Recomendado</span>
                 )}
