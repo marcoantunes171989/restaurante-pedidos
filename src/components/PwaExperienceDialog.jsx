@@ -1,22 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Download, ExternalLink, Share, SquarePlus, CheckCircle2, X, Loader2, LayoutGrid, Smartphone, Maximize } from "lucide-react";
+import { Download, Share, SquarePlus, CheckCircle2, X, Loader2, LayoutGrid, Smartphone } from "lucide-react";
 import { useBodyScrollLock } from "../lib/useBodyScrollLock";
 import { useFocusTrap } from "../lib/useFocusTrap";
 
-const START_URL = "/login"; // mesma start_url do manifest — fonte única (public/manifest.webmanifest)
-
 // Textos e benefícios por status — sem termos técnicos (PWA, Service
-// Worker, Manifest, standalone…), conforme pedido.
+// Worker, Manifest, standalone…), conforme pedido. Sem entrada para
+// "installed-detected"/"running-as-app"/"checking"/"unknown": esses
+// status nunca chegam a abrir este diálogo (ver STATUS_ELEGIVEL em
+// usePwaPromptTimer.js) — quando a instalação já está confirmada, ou o
+// estado não pôde ser determinado com segurança, a navegação web segue
+// normalmente, sem sugestão nem redirecionamento.
 const CONTEUDO = {
-  "installed-detected": {
-    titulo: "Continue pelo aplicativo Pedido Prime",
-    mensagem: "O Pedido Prime já está disponível como aplicativo neste dispositivo. Abra-o para aproveitar melhor a tela, acessar com mais rapidez e manter uma experiência mais fluida durante a operação.",
-    beneficios: ["Acesso mais rápido", "Melhor aproveitamento da tela", "Experiência otimizada para o dispositivo", "Acesso direto pela área de trabalho ou Tela de Início"],
-    primario: "Sim, abrir aplicativo",
-    secundario: "Não, continuar no navegador",
-    icone: ExternalLink,
-  },
   "installable-native": {
     titulo: "Leve o Pedido Prime com você",
     mensagem: "Instale o Pedido Prime neste dispositivo e tenha acesso mais rápido, melhor aproveitamento da tela e uma experiência criada para a sua operação.",
@@ -113,7 +108,7 @@ function BotaoSecundario({ children, onClick, ariaLabel }) {
  * clique no overlay fecha, foco restaurado ao fechar.
  */
 export default function PwaExperienceDialog({ status, visivel, so, navegador, onDispensar, onFechar, promptInstalar, recemInstalado }) {
-  const [etapa, setEtapa] = useState("principal"); // "principal" | "guia" | "instalando" | "fallbackAbrir" | "concluido"
+  const [etapa, setEtapa] = useState("principal"); // "principal" | "guia" | "instalando" | "concluido"
   const [erro, setErro] = useState(null);
   const painelRef = useRef(null);
   const gatilhoAnteriorRef = useRef(null);
@@ -168,29 +163,6 @@ export default function PwaExperienceDialog({ status, visivel, so, navegador, on
     onDispensar();
   }
 
-  function handleAbrirApp() {
-    setEtapa("abrindo");
-    const url = new URL(START_URL, window.location.origin).href;
-    if (so === "android") {
-      const host = window.location.host;
-      const intentUrl = `intent://${host}${START_URL}#Intent;scheme=https;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;end`;
-      try { window.location.href = intentUrl; } catch { window.location.href = url; }
-    } else {
-      try { window.location.href = url; } catch { /* mantém o diálogo aberto, cai no fallback abaixo */ }
-    }
-    setTimeout(() => {
-      // Se ainda estamos aqui (não navegou pro app instalado), mostra o
-      // fallback amigável — nunca afirmamos "aberto" sem confirmação real.
-      setEtapa("fallbackAbrir");
-    }, 1200);
-  }
-
-  async function handleFullscreenFallback() {
-    if (!document.fullscreenEnabled) return;
-    try { await document.documentElement.requestFullscreen(); onFechar(); }
-    catch { /* rejeição do navegador — sem erro no console, sem loop */ }
-  }
-
   function handleMostrarGuia() { setEtapa("guia"); }
 
   return createPortal(
@@ -234,19 +206,6 @@ export default function PwaExperienceDialog({ status, visivel, so, navegador, on
                   ))}
                 </ol>
               </div>
-            ) : etapa === "fallbackAbrir" ? (
-              <div>
-                <h3 id="pwa-dialog-titulo" className="text-lg font-black leading-snug text-[var(--pp-text)]">O aplicativo está instalado</h3>
-                <p id="pwa-dialog-mensagem" className="mt-2 text-sm leading-relaxed text-[var(--pp-text-body)]">
-                  Abra o ícone Pedido Prime na sua área de trabalho ou Tela de Início.
-                </p>
-                {document.fullscreenEnabled && (
-                  <button type="button" onClick={handleFullscreenFallback}
-                    className="mt-4 flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-4 text-sm font-bold text-[var(--pp-text-body)] transition-colors duration-150 hover:bg-[var(--pp-surface)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-primary)]">
-                    <Maximize aria-hidden="true" size={16} /> Usar tela cheia neste navegador
-                  </button>
-                )}
-              </div>
             ) : (
               <div>
                 <h3 id="pwa-dialog-titulo" className="text-lg font-black leading-snug text-[var(--pp-text)] sm:text-xl">{conteudo.titulo}</h3>
@@ -268,13 +227,6 @@ export default function PwaExperienceDialog({ status, visivel, so, navegador, on
               <BotaoPrimario onClick={onFechar}>Entendi</BotaoPrimario>
             ) : etapa === "guia" ? (
               <BotaoPrimario onClick={onDispensar}>Concluir</BotaoPrimario>
-            ) : etapa === "fallbackAbrir" ? (
-              <BotaoPrimario onClick={onFechar}>Entendi</BotaoPrimario>
-            ) : status === "installed-detected" ? (
-              <>
-                <BotaoSecundario onClick={onDispensar} ariaLabel="Não, continuar no navegador">{conteudo.secundario}</BotaoSecundario>
-                <BotaoPrimario onClick={handleAbrirApp} carregando={etapa === "abrindo"} ariaLabel="Sim, abrir aplicativo">{conteudo.primario}</BotaoPrimario>
-              </>
             ) : status === "installable-native" ? (
               <>
                 <BotaoSecundario onClick={onDispensar} ariaLabel="Não, agora não">{conteudo.secundario}</BotaoSecundario>

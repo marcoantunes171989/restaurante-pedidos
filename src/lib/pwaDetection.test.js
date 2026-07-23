@@ -1,5 +1,17 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
-import { ehStandalone, detectarPlataforma, avaliarStatus } from "./pwaDetection";
+import { ehStandalone, detectarPlataforma, avaliarStatus, lerInstalacaoPersistida, registrarInstalacaoPersistida } from "./pwaDetection";
+
+// Mock mínimo de localStorage (mesmo padrão de vi.stubGlobal já usado
+// neste arquivo para window/navigator/document — sem depender do
+// ambiente jsdom, que este arquivo não usa).
+function mockLocalStorage(inicial = {}) {
+  const dados = { ...inicial };
+  return {
+    getItem: (k) => (k in dados ? dados[k] : null),
+    setItem: (k, v) => { dados[k] = String(v); },
+    removeItem: (k) => { delete dados[k]; },
+  };
+}
 
 describe("detectarPlataforma", () => {
   it("identifica iPhone", () => {
@@ -79,5 +91,49 @@ describe("avaliarStatus", () => {
     const r = avaliarStatus({ standalone: false, apiInstalado: null, apiDisponivel: false, temPromptNativo: false, so: "ios" });
     expect(r).toBe("ios-manual-install");
     expect(r).not.toBe("manual-install");
+  });
+
+  // ── Sinal persistido (localStorage) — regressão do bug relatado:
+  // usuário já instalou, getInstalledRelatedApps não confirma (indisponível
+  // ou inconclusiva), mas uma sessão standalone anterior já foi registrada. ──
+  it("installed-detected quando só o sinal persistido confirma (API indisponível)", () => {
+    const r = avaliarStatus({ standalone: false, apiInstalado: null, apiDisponivel: false, temPromptNativo: false, so: "windows", persistedInstalled: true });
+    expect(r).toBe("installed-detected");
+  });
+
+  it("installed-detected quando o sinal persistido confirma mesmo com beforeinstallprompt disponível", () => {
+    // beforeinstallprompt pode disparar de novo em alguns navegadores mesmo já
+    // instalado — a confirmação persistida tem prioridade (nunca reabre "instalar").
+    const r = avaliarStatus({ standalone: false, apiInstalado: null, apiDisponivel: false, temPromptNativo: true, so: "android", persistedInstalled: true });
+    expect(r).toBe("installed-detected");
+  });
+
+  it("sem sinal persistido, comportamento permanece igual (default false)", () => {
+    const r = avaliarStatus({ standalone: false, apiInstalado: null, apiDisponivel: false, temPromptNativo: false, so: "outro" });
+    expect(r).toBe("unknown");
+  });
+});
+
+describe("lerInstalacaoPersistida / registrarInstalacaoPersistida", () => {
+  afterEach(() => { vi.unstubAllGlobals(); });
+
+  it("lê false quando nada foi gravado", () => {
+    vi.stubGlobal("localStorage", mockLocalStorage());
+    expect(lerInstalacaoPersistida()).toBe(false);
+  });
+
+  it("registrarInstalacaoPersistida grava e lerInstalacaoPersistida passa a confirmar", () => {
+    const ls = mockLocalStorage();
+    vi.stubGlobal("localStorage", ls);
+    expect(lerInstalacaoPersistida()).toBe(false);
+    registrarInstalacaoPersistida();
+    expect(lerInstalacaoPersistida()).toBe(true);
+  });
+
+  it("nunca lança erro quando localStorage está indisponível", () => {
+    vi.stubGlobal("localStorage", undefined);
+    expect(() => registrarInstalacaoPersistida()).not.toThrow();
+    expect(() => lerInstalacaoPersistida()).not.toThrow();
+    expect(lerInstalacaoPersistida()).toBe(false);
   });
 });

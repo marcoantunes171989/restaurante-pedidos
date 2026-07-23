@@ -14,6 +14,26 @@
  * @typedef {"checking"|"running-as-app"|"installed-detected"|"installable-native"|"ios-manual-install"|"manual-install"|"unknown"} PwaEnvironmentStatus
  */
 
+// ── Confirmação persistida de instalação (localStorage) ─────────
+// Sinal ADICIONAL (nunca o único) de que este dispositivo já rodou o
+// Pedido Prime como app: gravado por usePwaEnvironment sempre que
+// ehStandalone() é true (a aplicação está de fato rodando instalada) ou
+// quando o evento appinstalled dispara. Cobre o caso comum em que
+// navigator.getInstalledRelatedApps() está indisponível ou não confirma
+// (Firefox, Safari, várias combinações Android) mas o usuário JÁ instalou
+// e abriu o app antes nesta mesma máquina/perfil — sem isso, o app cai em
+// "unknown" a cada nova visita pelo navegador e volta a sugerir instalação
+// para quem já instalou.
+const CHAVE_PWA_INSTALADO = "pedido-prime:pwa-installed";
+
+export function lerInstalacaoPersistida() {
+  try { return localStorage.getItem(CHAVE_PWA_INSTALADO) === "1"; } catch { return false; }
+}
+
+export function registrarInstalacaoPersistida() {
+  try { localStorage.setItem(CHAVE_PWA_INSTALADO, "1"); } catch { /* localStorage indisponível — apenas não persiste, não quebra a detecção */ }
+}
+
 // ── Executando como aplicativo (display-mode) ──────────────────
 // Qualquer um destes sinais já é suficiente — não dependemos de um só.
 export function ehStandalone() {
@@ -59,12 +79,16 @@ export function detectarPlataforma(ua = (typeof navigator !== "undefined" ? navi
  * função pura, sem tocar em window/navigator diretamente, pra poder
  * testar cada combinação sem precisar simular o navegador inteiro.
  *
- * @param {{ standalone: boolean, apiInstalado: boolean|null, apiDisponivel: boolean, temPromptNativo: boolean, so: string }} sinais
+ * @param {{ standalone: boolean, apiInstalado: boolean|null, apiDisponivel: boolean, temPromptNativo: boolean, so: string, persistedInstalled?: boolean }} sinais
  * @returns {PwaEnvironmentStatus}
  */
-export function avaliarStatus({ standalone, apiInstalado, apiDisponivel, temPromptNativo, so }) {
+export function avaliarStatus({ standalone, apiInstalado, apiDisponivel, temPromptNativo, so, persistedInstalled = false }) {
   if (standalone) return "running-as-app";
-  if (apiInstalado === true) return "installed-detected";
+  // apiInstalado (getInstalledRelatedApps) OU o registro persistido de uma
+  // sessão standalone anterior — qualquer um dos dois já é confirmação
+  // suficiente; nunca dependemos só da API (indisponível/instável em
+  // Firefox, Safari e várias combinações de Android).
+  if (apiInstalado === true || persistedInstalled) return "installed-detected";
   if (temPromptNativo) return "installable-native";
   if (so === "ios") return "ios-manual-install";
   // API existe e respondeu "não instalado" com confiança (Chrome/Edge

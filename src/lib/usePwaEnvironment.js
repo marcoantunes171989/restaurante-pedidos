@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { avaliarStatus, detectarPlataforma, ehStandalone } from "./pwaDetection";
+import { avaliarStatus, detectarPlataforma, ehStandalone, lerInstalacaoPersistida, registrarInstalacaoPersistida } from "./pwaDetection";
 
 // ════════════════════════════════════════════════════════════
 //  usePwaEnvironment — única fonte de verdade sobre o ambiente PWA.
@@ -20,6 +20,7 @@ export function usePwaEnvironment() {
   const [apiDisponivel, setApiDisponivel] = useState(false);
   const [temPromptNativo, setTemPromptNativo] = useState(false);
   const [recemInstalado, setRecemInstalado] = useState(false);
+  const [persistedInstalled, setPersistedInstalled] = useState(false); // localStorage — sinal ADICIONAL, nunca o único (ver pwaDetection.js)
   const [plataforma, setPlataforma] = useState({ so: "outro", navegador: "outro" });
   const deferredRef = useRef(null);
 
@@ -32,6 +33,7 @@ export function usePwaEnvironment() {
     queueMicrotask(() => {
       setPlataforma(detectarPlataforma());
       setStandalone(ehStandalone());
+      setPersistedInstalled(lerInstalacaoPersistida());
     });
   }, []);
 
@@ -45,6 +47,15 @@ export function usePwaEnvironment() {
     mqls.forEach((mql) => mql.addEventListener("change", onChange));
     return () => mqls.forEach((mql) => mql.removeEventListener("change", onChange));
   }, []);
+
+  // Confirmação persistida: sempre que a aplicação estiver de fato rodando
+  // standalone, registra isso em localStorage — é o sinal que permite
+  // reconhecer "já instalado" numa visita FUTURA pelo navegador comum,
+  // mesmo quando getInstalledRelatedApps() está indisponível ou não
+  // confirma (ver pwaDetection.js). Nunca é o único sinal usado.
+  useEffect(() => {
+    if (standalone) registrarInstalacaoPersistida();
+  }, [standalone]);
 
   // beforeinstallprompt + appinstalled — capturados uma única vez;
   // preventDefault() sempre, prompt() só é chamado depois de clique
@@ -60,6 +71,8 @@ export function usePwaEnvironment() {
       setTemPromptNativo(false);
       setApiInstalado(true);
       setRecemInstalado(true);
+      registrarInstalacaoPersistida();
+      setPersistedInstalled(true);
     };
     window.addEventListener("beforeinstallprompt", onBIP);
     window.addEventListener("appinstalled", onInstalled);
@@ -92,9 +105,9 @@ export function usePwaEnvironment() {
   // (mesmo idiom já usado em NotificationSettings.jsx/useAnchoredPosition.js).
   useEffect(() => {
     queueMicrotask(() => {
-      setStatus(avaliarStatus({ standalone, apiInstalado, apiDisponivel, temPromptNativo, so: plataforma.so }));
+      setStatus(avaliarStatus({ standalone, apiInstalado, apiDisponivel, temPromptNativo, so: plataforma.so, persistedInstalled }));
     });
-  }, [standalone, apiInstalado, apiDisponivel, temPromptNativo, plataforma.so]);
+  }, [standalone, apiInstalado, apiDisponivel, temPromptNativo, plataforma.so, persistedInstalled]);
 
   // Chamado só a partir de um clique real do usuário — nunca automaticamente.
   const promptInstalar = useCallback(async () => {
