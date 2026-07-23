@@ -122,3 +122,18 @@ export function SectionHeading({ badge, tom, titulo, desc, className = "" }) {
     </Reveal>
   );
 }
+
+// Blob decorativo de fundo (gradiente radial suave) — mesmo recurso usado
+// no Hero, reaproveitado em outras seções para manter a mesma linguagem
+// visual sem repetir o gradiente inline em cada arquivo.
+export function GlowOrb({ tom = "primary", className = "" }) {
+  const cor = tom === "brand" ? "rgba(184,135,42,0.14)" : "rgba(198,63,29,0.12)";
+  return <div aria-hidden="true" className={`pointer-events-none absolute -z-10 rounded-full blur-2xl ${className}`} style={{ background: `radial-gradient(closest-side, ${cor}, transparent)` }} />;
+}
+
+// Selo pequeno de status ("Em breve") — usado em recursos ainda não
+// lançados (nunca apresentados como já disponíveis).
+export function StatusPill({ status }) {
+  if (status !== "em breve") return null;
+  return <span className="absolute right-3 top-3 rounded-full border border-[#B8872A]/30 bg-white px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-[var(--pp-brand-text)]">Em breve</span>;
+}

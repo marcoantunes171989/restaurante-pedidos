@@ -1,24 +1,28 @@
-import { Botao, Marca, Reveal } from "../ui";
+import { Botao, Marca, Reveal, Badge, GlowOrb } from "../ui";
 import { goTo } from "../utils";
 import { NOME_SISTEMA, CTA_FINAL, FOOTER_LINKS } from "../content";
 import { linkWhatsappConsultor } from "../../config/contato";
 
 export function CtaFinal() {
   return (
-    <section className="bg-white py-16 sm:py-20">
+    <section className="relative overflow-hidden bg-white py-16 sm:py-20">
       <div className="mx-auto max-w-6xl px-5">
-        <Reveal className="relative overflow-hidden rounded-[1.75rem] border border-[var(--pp-border)] bg-[var(--pp-bg)] p-10 text-center shadow-[0_20px_60px_-30px_rgba(13,27,42,0.2)] sm:p-16">
-          <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-[radial-gradient(closest-side,rgba(198,63,29,0.12),transparent)]" />
-          <div className="pointer-events-none absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-[radial-gradient(closest-side,rgba(184,135,42,0.12),transparent)]" />
-          <h2 className="font-display relative text-[clamp(1.5rem,1.1rem+1.6vw,2.25rem)] font-black tracking-tight text-[var(--pp-graphite)]">{CTA_FINAL.titulo}</h2>
-          <div className="relative mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-            <Botao variant="primary" href={linkWhatsappConsultor(`Olá! Gostaria de solicitar uma demonstração do ${NOME_SISTEMA}.`)}>Solicitar demonstração</Botao>
-            <Botao variant="outline" href={linkWhatsappConsultor(`Olá! Gostaria de falar com um consultor sobre o ${NOME_SISTEMA}.`)}>Falar com um consultor</Botao>
-          </div>
-          <div className="relative mx-auto mt-8 grid max-w-2xl grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-4">
-            {CTA_FINAL.beneficios.map((b) => (
-              <span key={b} className="font-semibold text-[var(--pp-text-muted)]">{b}</span>
-            ))}
+        <Reveal className="relative overflow-hidden rounded-[1.75rem] border border-[var(--pp-border)] bg-[var(--pp-graphite)] p-10 text-center shadow-[0_30px_80px_-40px_rgba(28,20,15,0.5)] sm:p-16">
+          <GlowOrb className="-right-24 -top-24 h-72 w-72" />
+          <GlowOrb tom="brand" className="-bottom-24 -left-24 h-72 w-72" />
+          <div className="relative">
+            <Badge>{CTA_FINAL.badge}</Badge>
+            <h2 className="font-display mt-5 text-[clamp(1.6rem,1.1rem+1.8vw,2.5rem)] font-black leading-tight tracking-tight text-white">{CTA_FINAL.titulo}</h2>
+            <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-white/60 sm:text-base">{CTA_FINAL.desc}</p>
+            <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
+              <Botao variant="primary" href={linkWhatsappConsultor(`Olá! Gostaria de solicitar uma demonstração do ${NOME_SISTEMA}.`)}>Solicitar demonstração</Botao>
+              <Botao variant="outline" className="!border-white/20 !bg-white/[0.06] !text-white hover:!bg-white/10" href={linkWhatsappConsultor(`Olá! Gostaria de falar com um consultor sobre o ${NOME_SISTEMA}.`)}>Falar com um consultor</Botao>
+            </div>
+            <div className="mx-auto mt-9 grid max-w-2xl grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-4">
+              {CTA_FINAL.beneficios.map((b) => (
+                <span key={b} className="font-semibold text-white/50">{b}</span>
+              ))}
+            </div>
           </div>
         </Reveal>
       </div>
@@ -34,13 +38,13 @@ export default function Footer({ onEntrar }) {
           <div className="lg:col-span-2">
             <Marca escuro />
             <p className="mt-4 max-w-md text-sm leading-6 text-white/60">
-              {NOME_SISTEMA} — plataforma completa de cardápio digital, pedidos e gestão para estabelecimentos gastronômicos: cardápio em PDF, QR Code local e externo, tablet, cozinha, caixa e relatórios em tempo real.
+              {NOME_SISTEMA} — a plataforma inteligente de gestão gastronômica: cardápio digital, QR Code, mesas, cozinha, bar, caixa, estoque, financeiro, CRM e relatórios em tempo real, para restaurantes, hamburguerias, pizzarias, bares e muito mais.
             </p>
           </div>
           <div>
-            <p className="font-display text-sm font-bold text-white">Soluções</p>
+            <p className="font-display text-sm font-bold text-white">Plataforma</p>
             <div className="mt-3 grid gap-2">
-              {FOOTER_LINKS.solucoes.map((n) => (
+              {FOOTER_LINKS.plataforma.map((n) => (
                 <button key={n.id} onClick={() => goTo(n.id)} className="text-left text-sm text-white/60 transition hover:text-[#B8872A]">{n.label}</button>
               ))}
             </div>
@@ -61,7 +65,7 @@ export default function Footer({ onEntrar }) {
         </div>
         <div className="mt-10 flex flex-col items-center justify-between gap-3 border-t border-white/10 pt-6 text-center sm:flex-row sm:text-left">
           <p className="text-xs text-white/40">© {new Date().getFullYear()} {NOME_SISTEMA}. Todos os direitos reservados.</p>
-          <p className="text-xs text-white/40">Cardápio digital · Pedido por QR Code · Gestão gastronômica</p>
+          <p className="text-xs text-white/40">Sistema para restaurante · Cardápio digital · Gestão gastronômica · PDV</p>
         </div>
       </div>
     </footer>

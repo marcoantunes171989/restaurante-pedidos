@@ -4,14 +4,20 @@ import { linkWhatsappConsultor } from "../config/contato";
 
 import Header from "./sections/Header";
 import Hero from "./sections/Hero";
-import Vitrine from "./sections/Vitrine";
-import Canais from "./sections/Canais";
-import Plataforma from "./sections/Plataforma";
-import Fluxo from "./sections/Fluxo";
-import Experiencia from "./sections/Experiencia";
-import Multiestabelecimentos from "./sections/Multiestabelecimentos";
+import LiveFlow from "./sections/LiveFlow";
+import Ecosystem from "./sections/Ecosystem";
+import CommandCenter from "./sections/CommandCenter";
+import Intelligence from "./sections/Intelligence";
+import JornadaCliente from "./sections/JornadaCliente";
+import JornadaGestor from "./sections/JornadaGestor";
 import Segmentos from "./sections/Segmentos";
+import OperacaoIntegrada from "./sections/OperacaoIntegrada";
+import DashboardPremium from "./sections/DashboardPremium";
+import Tecnologia from "./sections/Tecnologia";
 import Diferenciais from "./sections/Diferenciais";
+import Crescimento from "./sections/Crescimento";
+import AlemDoSalao from "./sections/AlemDoSalao";
+import Seguranca from "./sections/Seguranca";
 import Planos from "./sections/Planos";
 import ProvaSocialFaq from "./sections/ProvaSocialFaq";
 import Footer, { CtaFinal } from "./sections/CtaFooter";
@@ -21,24 +27,32 @@ import Footer, { CtaFinal } from "./sections/CtaFooter";
 //  Orquestra as seções (src/landing/sections/*), com textos e dados
 //  centralizados em src/landing/content.js e src/config/*.js — nenhum
 //  texto comercial solto aqui. Recebe `navigate(rota)` do main.jsx para
-//  abrir o sistema autenticado (ex.: "/login").
+//  abrir o sistema autenticado (ex.: "/login"). Tipografia de marca
+//  (Manrope) via .pp-brand-manrope, mesmo escopo já usado no Login
+//  (ver src/index.css — rebrand 2026).
 // ════════════════════════════════════════════════════════════
 export default function LandingPage({ navigate }) {
   const entrar = () => (navigate ? navigate("/login") : (window.location.href = "/login"));
 
   return (
-    <div className="min-h-screen bg-white font-sans text-[var(--pp-text-body)] antialiased">
+    <div className="pp-brand-manrope min-h-screen bg-white font-sans text-[var(--pp-text-body)] antialiased">
       <Header onEntrar={entrar} />
       <main>
         <Hero />
-        <Vitrine />
-        <Canais />
-        <Plataforma />
-        <Fluxo />
-        <Experiencia />
-        <Multiestabelecimentos />
+        <LiveFlow />
+        <Ecosystem />
+        <CommandCenter />
+        <Intelligence />
+        <JornadaCliente />
+        <JornadaGestor />
         <Segmentos />
+        <OperacaoIntegrada />
+        <DashboardPremium />
+        <Tecnologia />
         <Diferenciais />
+        <Crescimento />
+        <AlemDoSalao />
+        <Seguranca />
         <Planos />
         <ProvaSocialFaq />
         <CtaFinal />

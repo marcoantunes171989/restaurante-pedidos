@@ -4,129 +4,170 @@
 //  seção), para evitar duplicação e facilitar manutenção. Preços e planos
 //  vêm de ../config/pricing.js (fonte única, também usada no sistema
 //  logado); contato comercial vem de ../config/contato.js.
+//
+//  Princípio editorial: nenhum número/depoimento é citado como métrica
+//  real medida — indicadores de ganho usam "até" (faixa/potencial, não
+//  média comprovada) e recursos ainda não lançados são marcados como
+//  "Em breve", nunca apresentados como disponíveis hoje.
 // ════════════════════════════════════════════════════════════
 
 export const NOME_SISTEMA = "Pedido Prime";
 
 export const NAV = [
-  { label: "Soluções", id: "canais" },
-  { label: "Funcionalidades", id: "funcionalidades" },
-  { label: "Como funciona", id: "como-funciona" },
+  { label: "Plataforma", id: "plataforma" },
+  { label: "Ecossistema", id: "ecossistema" },
+  { label: "Inteligência", id: "inteligencia" },
   { label: "Segmentos", id: "segmentos" },
   { label: "Planos", id: "planos" },
   { label: "FAQ", id: "faq" },
 ];
 
+// ── Hero ──────────────────────────────────────────────────────
 export const HERO = {
-  badge: "Plataforma para gestão gastronômica",
-  titulo: "Do cardápio ao resultado: toda a operação do seu restaurante em uma única plataforma.",
-  subtitulo: "Receba pedidos por QR Code, cardápio digital, tablet ou celular e acompanhe mesas, cozinha, caixa, clientes e resultados em tempo real.",
-  beneficios: ["Implantação simplificada", "Sem necessidade de aplicativo para o cliente", "Uso em qualquer dispositivo", "Atendimento especializado"],
+  badge: "Plataforma inteligente de gestão gastronômica",
+  tituloLinha1: "Muito mais que um sistema.",
+  tituloLinha2: "A plataforma inteligente que conecta toda a operação do seu restaurante.",
+  subtitulo: "Do primeiro pedido até o fechamento do caixa, o Pedido Prime conecta clientes, garçons, cozinha, bar, delivery, estoque, financeiro e gestão em uma única plataforma inteligente.",
+  ctaPrimario: "Solicitar demonstração",
+  ctaSecundario: "Conhecer a plataforma",
+  ctaTerciario: "Falar com especialista",
+  indicadores: [
+    { valor: "Até +35%", label: "Mais vendas" },
+    { valor: "Até 60%", label: "Redução no tempo de atendimento" },
+    { valor: "Até 90%", label: "Menos erros de pedido" },
+    { valor: "24h", label: "Operação online" },
+    { valor: "100%", label: "Responsivo" },
+    { valor: "∞", label: "Escalável" },
+  ],
+  indicadoresNota: "Faixas de ganho potencial com a digitalização do atendimento — variam conforme a operação de cada estabelecimento.",
 };
 
-// ── Vitrine de pratos em destaque (seção 2) — sem fotos reais de prato
-// no projeto (mesma ressalva de mockups.jsx): representados por emoji em
-// cartão premium, um por segmento atendido (ver SEGMENTOS abaixo), para
-// mostrar como o cardápio digital valoriza o produto de cada tipo de
-// estabelecimento. Preços ilustrativos.
-export const PRATOS_DESTAQUE = [
-  { emoji: "🍕", nome: "Pizza Margherita", estabelecimento: "Pizzarias", preco: "42,90" },
-  { emoji: "🍔", nome: "Combo Smash Duplo", estabelecimento: "Hamburguerias", preco: "36,90" },
-  { emoji: "🍣", nome: "Combinado Salmão", estabelecimento: "Restaurantes japoneses", preco: "58,90" },
-  { emoji: "🍝", nome: "Risoto de Camarão", estabelecimento: "Restaurantes", preco: "64,90" },
-  { emoji: "🍢", nome: "Espetinho de Alcatra", estabelecimento: "Espetarias", preco: "12,90" },
-  { emoji: "🍨", nome: "Açaí na Tigela 500ml", estabelecimento: "Açaíterias", preco: "24,90" },
-  { emoji: "☕", nome: "Cappuccino Cremoso", estabelecimento: "Cafeterias", preco: "14,90" },
-  { emoji: "🍺", nome: "Chopp Artesanal 500ml", estabelecimento: "Bares e choperias", preco: "18,90" },
-  { emoji: "🥐", nome: "Croissant Recheado", estabelecimento: "Padarias", preco: "13,90" },
-  { emoji: "🍦", nome: "Sundae Duas Bolas", estabelecimento: "Sorveterias", preco: "16,90" },
-  { emoji: "🥪", nome: "Sanduíche Natural", estabelecimento: "Lanchonetes", preco: "19,90" },
+// ── "Veja o restaurante funcionando em tempo real" ───────────
+export const FLUXO_TEMPO_REAL = [
+  { id: "cliente", label: "Cliente", icon: "clientes" },
+  { id: "qr", label: "QR Code", icon: "qr" },
+  { id: "cardapio", label: "Cardápio", icon: "cardapio" },
+  { id: "pedido", label: "Pedido", icon: "pdf" },
+  { id: "cozinha", label: "Cozinha", icon: "chef" },
+  { id: "bar", label: "Bar", icon: "bar" },
+  { id: "caixa", label: "Caixa", icon: "caixa" },
+  { id: "pagamento", label: "Pagamento", icon: "pagamento" },
+  { id: "dashboard", label: "Dashboard", icon: "dashboard" },
+  { id: "relatorios", label: "Relatórios", icon: "relatorios" },
 ];
 
-// ── Canais de atendimento (seção 3) ──────────────────────────
-export const CANAIS = [
+// ── "Conheça o ecossistema Pedido Prime" ─────────────────────
+export const ECOSSISTEMA = [
+  { id: "tablet-garcom", titulo: "Tablet do Garçom", desc: "Anota, envia e acompanha pedidos direto do salão.", icon: "tablet", tela: "garcom" },
+  { id: "tablet-mesa", titulo: "Tablet da Mesa", desc: "Cliente pede sozinho, sem esperar atendimento.", icon: "mesa", tela: "cliente" },
+  { id: "cliente-celular", titulo: "Cliente no celular", desc: "Cardápio completo a um QR Code de distância.", icon: "qr", tela: "cliente" },
+  { id: "painel-admin", titulo: "Painel Administrativo", desc: "Toda a operação visível em um único painel.", icon: "dashboard", tela: "dashboard" },
+  { id: "financeiro", titulo: "Tela Financeira", desc: "Entradas, saídas e fechamento sempre em dia.", icon: "financeiro", tela: "financeiro" },
+  { id: "estoque", titulo: "Tela de Estoque", desc: "Insumos e produtos com alerta de reposição.", icon: "estoque", tela: "estoque" },
+  { id: "crm", titulo: "Tela CRM", desc: "Histórico, recorrência e relacionamento com o cliente.", icon: "clientes", tela: "crm" },
+  { id: "caixa", titulo: "Tela Caixa", desc: "Fechamento de conta rápido e sem divergência.", icon: "caixa", tela: "caixa" },
+  { id: "cozinha", titulo: "Tela Cozinha", desc: "Fila de produção clara, por setor e prioridade.", icon: "chef", tela: "cozinha" },
+  { id: "bar", titulo: "Tela Bar", desc: "Pedidos de bebida separados da cozinha, em tempo real.", icon: "bar", tela: "bar" },
+  { id: "delivery", titulo: "Tela Delivery", desc: "Pedidos externos organizados junto da operação do salão.", icon: "delivery", tela: "delivery" },
+  { id: "analytics", titulo: "Tela Analytics", desc: "Indicadores e tendências para decisão diária.", icon: "relatorios", tela: "analytics" },
+];
+
+// ── "Centro de comando" — grid massivo de funcionalidades ─────
+export const CENTRO_COMANDO = [
   {
-    id: "pdf", icon: "pdf", titulo: "Cardápio em PDF",
-    onde: "Divulgação externa, redes sociais e delivery por telefone.",
-    como: "Gere um cardápio em PDF a partir dos produtos já cadastrados no sistema, sempre atualizado.",
-    beneficio: "Alcance clientes que ainda não pedem pelo digital.",
-    impacto: "Mais um canal de divulgação, sem retrabalho de montagem manual.",
+    categoria: "Atendimento & Pedidos",
+    itens: ["Cardápio Digital Inteligente", "QR Code Inteligente", "Mesas Inteligentes", "Pedidos Online", "Comandas", "PDV"],
   },
   {
-    id: "qr-local", icon: "qr", titulo: "QR Code local",
-    onde: "Mesas, balcão e ambientes internos do estabelecimento.",
-    como: "Cada mesa tem um QR Code vinculado; o cliente escaneia e já cai no cardápio da própria mesa/comanda.",
-    beneficio: "Pedido direto do cliente, sem depender de garçom disponível.",
-    impacto: "Menos espera e menos erro de anotação manual.",
+    categoria: "Operação & Produção",
+    itens: ["Cozinha", "Bar", "Delivery", "Caixa", "Estoque", "Controle de Funcionários"],
   },
   {
-    id: "qr-externo", icon: "qrExterno", titulo: "QR Code externo",
-    onde: "Fora do estabelecimento — vitrine, cartão, embalagem, redes sociais.",
-    como: "Link/QR Code público que leva ao cardápio digital para pedido remoto.",
-    beneficio: "Amplia o alcance do cardápio além do salão.",
-    impacto: "Novo canal de pedido sem precisar de aplicativo próprio.",
+    categoria: "Gestão & Financeiro",
+    itens: ["Financeiro", "Relatórios", "Dashboard", "Analytics", "Auditoria", "Multiempresa"],
   },
   {
-    id: "tablet", icon: "tablet", titulo: "Tablet e mobile",
-    onde: "Mesa do cliente, garçom, cozinha e caixa.",
-    como: "Pedido, acompanhamento e operação direto no tablet ou celular, em tempo real.",
-    beneficio: "Equipe e cliente operam do mesmo lugar, sem papel.",
-    impacto: "Comunicação instantânea entre salão, cozinha e caixa.",
+    categoria: "Clientes & Fidelização",
+    itens: ["CRM", "Promoções", "Programa Fidelidade", "Cupons", "Pesquisa de Satisfação", "Avaliações"],
+  },
+  {
+    categoria: "Tecnologia & Confiabilidade",
+    itens: ["Permissões", "Notificações", "PWA", "Multi Loja", "Multi Usuário", "Backup em Nuvem", "API", "Integrações"],
   },
 ];
-
-// ── Plataforma completa — grid de funcionalidades (seção 4) ──
-export const FUNCIONALIDADES = [
-  { icon: "cardapio", titulo: "Cardápio digital", desc: "Produtos com fotos, categorias, adicionais e variações.", beneficio: "Cardápio sempre atualizado, sem reimpressão." },
-  { icon: "mesa", titulo: "Mesas e comandas", desc: "Controle de status, ocupação e consumo por mesa.", beneficio: "Visão clara do que cada mesa já pediu." },
-  { icon: "qr", titulo: "Pedidos por QR Code", desc: "Cliente pede pelo próprio celular, local ou externo.", beneficio: "Menos espera e mais autonomia para o cliente." },
-  { icon: "chef", titulo: "Cozinha e bar integrados", desc: "Pedido chega direto no setor responsável, em tempo real.", beneficio: "Menos ruído de comunicação entre salão e produção." },
-  { icon: "caixa", titulo: "Caixa", desc: "Fechamento de conta, divisão e conferência de pagamento.", beneficio: "Fechamento organizado, com menos erro de caixa." },
-  { icon: "dashboard", titulo: "Dashboard", desc: "Faturamento, ticket médio, pedidos e desempenho em tempo real.", beneficio: "Decisão com dados, não achismo." },
-  { icon: "relatorios", titulo: "Relatórios", desc: "Vendas, produtos, clientes e desempenho por período.", beneficio: "Enxerga o que vende mais e o que precisa de atenção." },
-  { icon: "clientes", titulo: "Clientes e CRM", desc: "Histórico, recorrência e relacionamento com o cliente.", beneficio: "Sabe quem compra, quanto e com que frequência." },
-  { icon: "fidelidade", titulo: "Fidelidade", desc: "Programa de pontos e recompensas para reter clientes.", beneficio: "Cliente tem motivo para voltar." },
-  { icon: "satisfacao", titulo: "Pesquisa de satisfação", desc: "Avaliação do atendimento direto pelo cliente.", beneficio: "Identifica pontos de melhoria com dado real." },
-  { icon: "permissoes", titulo: "Usuários e permissões", desc: "Cada perfil de equipe com o acesso certo.", beneficio: "Controle de quem pode fazer o quê no sistema." },
-  { icon: "multiloja", titulo: "Multiestabelecimentos", desc: "Várias unidades com dados isolados e gestão centralizada.", beneficio: "Cresce para mais de uma unidade sem trocar de sistema." },
+export const CENTRO_COMANDO_DESTAQUES = [
+  { icon: "cardapio", titulo: "Cardápio Digital Inteligente", desc: "Fotos, categorias, adicionais e variações sempre atualizados." },
+  { icon: "mesa", titulo: "Mesas & Comandas", desc: "Ocupação, status e consumo de cada mesa em tempo real." },
+  { icon: "financeiro", titulo: "Financeiro Integrado", desc: "Fluxo de caixa conectado direto às vendas do salão." },
+  { icon: "estoque", titulo: "Estoque Inteligente", desc: "Baixa automática por venda e alerta de reposição." },
+  { icon: "fidelidade", titulo: "Fidelidade & Cupons", desc: "Programa de pontos e promoções para reter clientes." },
+  { icon: "permissoes", titulo: "Permissões por Perfil", desc: "Cada função da equipe com o acesso certo, nada a mais." },
 ];
 
-// ── Como funciona (seção 5) ───────────────────────────────────
-export const COMO_FUNCIONA = [
-  { n: 1, icon: "produtos", titulo: "Cadastre produtos, categorias, adicionais e setores", desc: "Monte o cardápio e organize a produção por setor (cozinha, bar, etc.)." },
-  { n: 2, icon: "canais", titulo: "Disponibilize o cardápio por PDF, QR Code, tablet ou celular", desc: "Escolha o canal — ou combine todos — conforme a operação do seu negócio." },
-  { n: 3, icon: "chef", titulo: "Receba os pedidos diretamente no setor responsável", desc: "Cozinha, bar e caixa recebem o pedido em tempo real, sem intermediário." },
-  { n: 4, icon: "dashboard", titulo: "Acompanhe preparo, entrega, pagamento e indicadores", desc: "Do status do pedido ao relatório gerencial, tudo no mesmo painel." },
+// ── "Inteligência Operacional" ────────────────────────────────
+export const INTELIGENCIA_NOTA = "Exemplos ilustrativos do tipo de leitura que o painel gera a partir dos dados reais de cada operação — os números mostrados variam conforme o histórico de cada estabelecimento.";
+export const INTELIGENCIA = [
+  { icon: "chef", frase: "Seu hambúrguer vende mais às sextas-feiras." },
+  { icon: "queda", frase: "Seu ticket médio caiu nas últimas semanas." },
+  { icon: "estoque", frase: "Seu estoque de um insumo está acabando." },
+  { icon: "tempo", frase: "Sua cozinha está mais lenta que o habitual." },
+  { icon: "mesa", frase: "Sua mesa 4 gira menos que as demais." },
+  { icon: "bar", frase: "Seu garçom 12 vende mais bebidas que a média." },
+  { icon: "queda", frase: "Sua sobremesa vende pouco — vale repensar a vitrine." },
+  { icon: "crescimento", frase: "Seu horário de maior lucro é às 19h." },
 ];
 
-// ── Experiência do cliente (seção 6) ─────────────────────────
-export const EXPERIENCIA_CLIENTE = [
-  "Produtos com fotos", "Categorias organizadas", "Adicionais", "Remoção de ingredientes",
-  "Observações no pedido", "Sugestões de bebidas", "Carrinho simples", "Identificação do cliente",
-  "Acompanhamento do pedido", "Navegação rápida e intuitiva",
+// ── "Experiência do Cliente" — jornada em etapas ──────────────
+export const JORNADA_CLIENTE = [
+  { icon: "clientes", titulo: "Chega ao restaurante", desc: "Senta na mesa, sem precisar chamar ninguém." },
+  { icon: "qr", titulo: "Escaneia o QR Code", desc: "Cardápio abre na hora, direto no celular." },
+  { icon: "cardapio", titulo: "Visualiza fotos", desc: "Produtos com imagem, descrição e preço claros." },
+  { icon: "produtos", titulo: "Personaliza o pedido", desc: "Escolhe adicionais e ajusta do jeito que quiser." },
+  { icon: "check", titulo: "Remove ingredientes", desc: "Restrições e preferências resolvidas sem atrito." },
+  { icon: "pdf", titulo: "Deixa uma observação", desc: "Pede exatamente como gosta, sem ruído na comunicação." },
+  { icon: "seta", titulo: "Envia o pedido", desc: "Direto para o setor responsável, sem intermediário." },
+  { icon: "tempo", titulo: "Acompanha em tempo real", desc: "Sabe exatamente em que etapa o pedido está." },
+  { icon: "check", titulo: "Recebe o prato", desc: "Do jeito que pediu, no tempo esperado." },
+  { icon: "caixa", titulo: "Solicita a conta", desc: "Fecha quando quiser, sem esperar o garçom passar." },
+  { icon: "satisfacao", titulo: "Avalia o atendimento", desc: "Feedback direto, que vira dado para o gestor." },
 ];
 
-// ── Prova social (seção 13) — sem depoimentos/avaliações reais cadastrados
-// no projeto até o momento. Mantido vazio de propósito: a seção só
-// renderiza quando houver conteúdo real aqui (ver sections/ProvaSocial.jsx).
-// Formato esperado por item: { nome, cargo, estabelecimento, cidade, texto }.
-export const DEPOIMENTOS = [];
-
-// ── Operação integrada (seção 7) ─────────────────────────────
-export const FLUXO_OPERACAO = ["Cliente", "Atendimento", "Cozinha / Bar", "Caixa", "Gestão"];
-export const FLUXO_BENEFICIOS = [
-  { icon: "check", titulo: "Menos erros", desc: "Pedido digital do início ao fim, sem anotação manual." },
-  { icon: "tempo", titulo: "Comunicação em tempo real", desc: "Salão, cozinha, bar e caixa sempre sincronizados." },
-  { icon: "organizacao", titulo: "Organização operacional", desc: "Cada etapa com responsável e status claros." },
+// ── "Experiência do Gestor" — cards flutuantes ao redor do notebook ──
+export const JORNADA_GESTOR = [
+  { icon: "crescimento", label: "Vendas" },
+  { icon: "financeiro", label: "Lucro" },
+  { icon: "produtos", label: "Produtos" },
+  { icon: "clientes", label: "Clientes" },
+  { icon: "pdf", label: "Pedidos" },
+  { icon: "mesa", label: "Mesas" },
+  { icon: "caixa", label: "Financeiro" },
+  { icon: "relatorios", label: "Gráficos" },
+  { icon: "alerta", label: "Alertas" },
+  { icon: "meta", label: "Metas" },
 ];
 
-// ── Painel administrativo (seção 8) — indicadores ilustrativos:
-// mostram o FORMATO do painel real do sistema, não são métricas de
-// vendas reais do Pedido Prime (a empresa). ──
-// Cores meramente decorativas (variedade visual entre os 4 cartões do
-// mockup) — não são status de pedido, por isso não usam --pp-info/
-// warning/success/danger (reservadas exclusivamente a isso). Paleta
-// oficial 2026 v2: terracota, dourado e grafite quente.
+// ── Segmentos atendidos — emoji em cartão premium (sem fotos reais de
+// estabelecimento/prato disponíveis no projeto para esta página). ──
+export const SEGMENTOS = [
+  { nome: "Hamburgueria", emoji: "🍔" },
+  { nome: "Pizzaria", emoji: "🍕" },
+  { nome: "Restaurante", emoji: "🍽️" },
+  { nome: "Cafeteria", emoji: "☕" },
+  { nome: "Sorveteria", emoji: "🍦" },
+  { nome: "Padaria", emoji: "🥐" },
+  { nome: "Açaíteria", emoji: "🫐" },
+  { nome: "Espetaria", emoji: "🍢" },
+  { nome: "Choperia", emoji: "🍺" },
+  { nome: "Japonês", emoji: "🍣" },
+  { nome: "Marmitaria", emoji: "🍱" },
+  { nome: "Food Truck", emoji: "🚚" },
+  { nome: "Hotel", emoji: "🏨" },
+  { nome: "Buffet", emoji: "🍱" },
+];
+
+// ── Painel administrativo / Dashboard Premium — indicadores ilustrativos:
+// mostram o FORMATO do painel real do sistema, não são métricas reais de
+// clientes. Cores decorativas (paleta oficial 2026 v2). ──
 export const INDICADORES_PAINEL = [
   { label: "Faturamento", valor: "R$ 4.860", cor: "#C63F1D" },
   { label: "Ticket médio", valor: "R$ 42,90", cor: "#B8872A" },
@@ -134,66 +175,122 @@ export const INDICADORES_PAINEL = [
   { label: "Clientes recorrentes", valor: "63%", cor: "#A53416" },
 ];
 export const RECURSOS_PAINEL = [
-  "Faturamento", "Ticket médio", "Pedidos", "Produtos mais vendidos", "Vendas por período",
-  "Formas de pagamento", "Desempenho dos setores", "Clientes", "Estoque", "Relatórios", "Auditoria",
+  "Faturamento", "Ticket médio", "Ranking de produtos", "Tempo médio de preparo",
+  "Formas de pagamento", "Desempenho por setor", "Mapa de mesas", "Estoque",
+  "Clientes", "Relatórios", "Auditoria", "Metas",
 ];
 
-// ── Multiestabelecimentos (seção 9) ──────────────────────────
-export const MULTILOJA = [
-  { icon: "multiloja", titulo: "Administração centralizada", desc: "Gerencie todas as unidades a partir de um único painel." },
-  { icon: "dashboard", titulo: "Visão individual por empresa", desc: "Indicadores e operação isolados por unidade." },
-  { icon: "permissoes", titulo: "Usuários e permissões", desc: "Cada equipe com acesso restrito à sua unidade." },
-  { icon: "relatorios", titulo: "Indicadores comparativos", desc: "Compare desempenho entre unidades da rede." },
-  { icon: "cardapio", titulo: "Cardápios personalizados", desc: "Cada unidade com seu próprio cardápio e identidade." },
-  { icon: "crescimento", titulo: "Expansão organizada", desc: "Estrutura pronta para abrir novas unidades." },
+// ── Prova social — sem depoimentos/avaliações reais cadastrados no
+// projeto até o momento. Mantido vazio de propósito: a seção só renderiza
+// quando houver conteúdo real aqui (ver sections/ProvaSocialFaq.jsx).
+// Formato esperado por item: { nome, cargo, estabelecimento, cidade, texto }.
+export const DEPOIMENTOS = [];
+
+// ── "Tecnologia que trabalha para você" ───────────────────────
+export const TECNOLOGIA = [
+  { icon: "pwa", titulo: "PWA", desc: "Instala como aplicativo, sem loja de apps." },
+  { icon: "cloud", titulo: "Cloud", desc: "Dados seguros, acessíveis de qualquer lugar." },
+  { icon: "tempo", titulo: "Tempo Real", desc: "Cozinha, bar e caixa sempre sincronizados." },
+  { icon: "seguranca", titulo: "Segurança", desc: "Autenticação e permissões por perfil de acesso." },
+  { icon: "backup", titulo: "Backup", desc: "Rotina de backup em nuvem, sem esforço manual." },
+  { icon: "crescimento", titulo: "Escalabilidade", desc: "Cresce de uma mesa a uma rede de unidades." },
+  { icon: "api", titulo: "API", desc: "Pronta para conectar com outras ferramentas." },
+  { icon: "multiloja", titulo: "Multiplataforma", desc: "Celular, tablet, notebook e computador." },
+  { icon: "multiloja", titulo: "Multiempresa", desc: "Várias unidades, dados isolados por empresa." },
+  { icon: "offline", titulo: "Offline Inteligente", desc: "Continua funcionando em instabilidades de conexão." },
+  { icon: "sync", titulo: "Sincronização", desc: "Tudo atualizado entre os dispositivos, na hora." },
 ];
 
-// ── Segmentos atendidos (seção 10) ───────────────────────────
-export const SEGMENTOS = [
-  "Restaurantes", "Hamburguerias", "Pizzarias", "Lanchonetes", "Bares e choperias", "Cafeterias",
-  "Padarias", "Açaíterias", "Sorveterias", "Espetarias", "Restaurantes japoneses", "Outros estabelecimentos gastronômicos",
-];
-
-// ── Diferenciais (seção 11) ───────────────────────────────────
+// ── Diferenciais — benefício, não função ──────────────────────
 export const DIFERENCIAIS = [
-  { icon: "check", titulo: "Operação completa em uma plataforma", desc: "Pedido, cozinha, caixa, clientes e gestão, sem sistemas soltos." },
-  { icon: "canais", titulo: "Atendimento em vários canais", desc: "PDF, QR local, QR externo, tablet e celular." },
-  { icon: "tablet", titulo: "Uso responsivo", desc: "Funciona em celular, tablet, notebook e computador." },
-  { icon: "dashboard", titulo: "Gestão em tempo real", desc: "Indicadores atualizados a cada pedido." },
-  { icon: "cardapio", titulo: "Personalização", desc: "Cardápio e identidade visual do seu estabelecimento." },
-  { icon: "multiloja", titulo: "Multiestabelecimentos", desc: "Pronto para crescer além de uma unidade." },
-  { icon: "permissoes", titulo: "Segurança e permissões", desc: "Controle de acesso por perfil de usuário." },
-  { icon: "rocket", titulo: "Implantação simples", desc: "Comece com cardápio digital e evolua no seu ritmo." },
-  { icon: "suporte", titulo: "Suporte especializado", desc: "Time disponível para ajudar na configuração." },
-  { icon: "crescimento", titulo: "Evolução contínua", desc: "Sistema em constante atualização." },
+  { icon: "crescimento", titulo: "Mais produtividade", desc: "Equipe gasta menos tempo em tarefa manual e mais tempo com o cliente." },
+  { icon: "estoque", titulo: "Menos desperdício", desc: "Estoque e produção acompanhados de perto, com menos perda." },
+  { icon: "financeiro", titulo: "Mais lucro", desc: "Decisão guiada por relatório e dashboard, não por achismo." },
+  { icon: "tempo", titulo: "Mais velocidade", desc: "Pedido chega ao setor certo no instante em que é feito." },
+  { icon: "organizacao", titulo: "Mais organização", desc: "Cada etapa da operação com responsável e status claros." },
+  { icon: "permissoes", titulo: "Mais controle", desc: "Visão completa da operação, do salão ao financeiro." },
+  { icon: "satisfacao", titulo: "Clientes mais satisfeitos", desc: "Atendimento ágil, sem espera nem erro de anotação." },
+  { icon: "fidelidade", titulo: "Mais fidelização", desc: "Programa de pontos e histórico de relacionamento com o cliente." },
+  { icon: "dashboard", titulo: "Mais inteligência", desc: "O sistema lê os próprios dados e aponta onde agir." },
+  { icon: "rocket", titulo: "Mais crescimento", desc: "Plataforma pronta para acompanhar a expansão do negócio." },
 ];
 
-// ── FAQ (seção 14) ────────────────────────────────────────────
+// ── "O Pedido Prime acompanha seu crescimento" — timeline ─────
+export const CRESCIMENTO = [
+  { titulo: "Primeiro restaurante", desc: "Comece com cardápio digital e QR Code, sem complicação." },
+  { titulo: "Expansão", desc: "Adicione tablet, cozinha e caixa conforme a operação cresce." },
+  { titulo: "Nova unidade", desc: "Abra uma segunda unidade sem trocar de sistema." },
+  { titulo: "Franquia", desc: "Padronize atendimento e gestão entre todas as unidades." },
+  { titulo: "Rede", desc: "Administração centralizada, com visão individual por unidade." },
+];
+
+// ── "Muito além do salão" ──────────────────────────────────────
+export const ALEM_DO_SALAO = [
+  { icon: "mesa", titulo: "Pedidos internos", desc: "Salão, balcão e mesa, tudo no mesmo fluxo.", status: "disponivel" },
+  { icon: "qr", titulo: "QR Code", desc: "Local ou externo, para pedido direto do cliente.", status: "disponivel" },
+  { icon: "delivery", titulo: "Delivery", desc: "Pedidos externos organizados junto da operação.", status: "disponivel" },
+  { icon: "caixa", titulo: "Retirada", desc: "Cliente retira no balcão, sem esperar mesa.", status: "disponivel" },
+  { icon: "tablet", titulo: "Tablet", desc: "Garçom e mesa operando em tempo real.", status: "disponivel" },
+  { icon: "pwa", titulo: "Aplicativo PWA", desc: "Instala como app, sem loja de aplicativos.", status: "disponivel" },
+  { icon: "totem", titulo: "Totem de autoatendimento", desc: "Pedido por totem no salão.", status: "em breve" },
+  { icon: "whats", titulo: "WhatsApp", desc: "Notificações e pedidos via WhatsApp.", status: "em breve" },
+  { icon: "api", titulo: "Novas integrações", desc: "Conexão com ferramentas de mercado e ERPs.", status: "em breve" },
+  { icon: "marketplace", titulo: "Marketplace", desc: "Vitrine para novos canais de venda.", status: "em breve" },
+];
+
+// ── Segurança ───────────────────────────────────────────────
+export const SEGURANCA = [
+  { icon: "seguranca", titulo: "LGPD", desc: "Tratamento de dados alinhado à legislação vigente." },
+  { icon: "backup", titulo: "Backups", desc: "Rotina de backup em nuvem, sem esforço manual." },
+  { icon: "criptografia", titulo: "Criptografia", desc: "Dados protegidos em trânsito e em repouso." },
+  { icon: "permissoes", titulo: "Permissões", desc: "Cada perfil de usuário com o acesso certo." },
+  { icon: "auditoria", titulo: "Auditoria", desc: "Registro de alterações relevantes no sistema." },
+  { icon: "log", titulo: "Logs", desc: "Histórico técnico para investigação quando necessário." },
+  { icon: "clientes", titulo: "Controle de usuários", desc: "Ativação, bloqueio e perfis por colaborador." },
+  { icon: "sessao", titulo: "Sessões", desc: "Autenticação por usuário, sessão a sessão." },
+];
+
+// ── FAQ ────────────────────────────────────────────────────────
 export const FAQ = [
+  { q: "O Pedido Prime é só um cardápio digital?", a: "Não. O cardápio digital é a porta de entrada — a plataforma também organiza mesas, cozinha, bar, caixa, estoque, financeiro, CRM e relatórios em um só lugar." },
   { q: "O cliente precisa instalar aplicativo?", a: "Não. O cardápio digital roda no navegador — o cliente acessa pelo QR Code ou link, sem instalar nada." },
   { q: "Como funciona o QR Code local?", a: "Cada mesa tem um QR Code vinculado. O cliente escaneia e acessa o cardápio já associado à mesa/comanda, podendo pedir direto pelo celular." },
-  { q: "O que é o QR Code externo?", a: "É um QR Code/link para uso fora do estabelecimento — em redes sociais, embalagens ou material de divulgação — que leva ao cardápio digital para pedido remoto." },
-  { q: "Posso disponibilizar o cardápio em PDF?", a: "Sim. O sistema gera um PDF a partir dos produtos já cadastrados, sempre atualizado, para divulgação externa." },
-  { q: "Funciona em tablet e celular?", a: "Sim. Cliente, garçom, cozinha e gestor podem usar o sistema em celular, tablet, notebook ou computador." },
   { q: "O pedido chega à cozinha automaticamente?", a: "Sim. O pedido é enviado em tempo real para o setor responsável (cozinha, bar, etc.), sem intermediário manual." },
+  { q: "Dá para acompanhar financeiro e estoque pelo sistema?", a: "Sim. O painel administrativo reúne financeiro, estoque, relatórios e dashboard junto da operação do salão." },
+  { q: "Funciona em tablet e celular?", a: "Sim. Cliente, garçom, cozinha e gestor podem usar o sistema em celular, tablet, notebook ou computador." },
   { q: "Posso gerenciar mais de uma unidade?", a: "Sim. O sistema é multiestabelecimento: cada unidade tem dados isolados, com gestão centralizada." },
   { q: "O cardápio pode ser personalizado?", a: "Sim. Produtos, categorias, fotos e identidade visual são configuráveis por estabelecimento." },
   { q: "Existe suporte para implantação?", a: "Sim. A equipe acompanha a configuração inicial e fica disponível para dúvidas durante o uso." },
   { q: "Como funcionam os planos?", a: "Os planos variam conforme os recursos necessários para a sua operação. Fale com um consultor para indicarmos o mais adequado." },
 ];
 
-// ── CTA final (seção 15) ──────────────────────────────────────
+// ── CTA final ──────────────────────────────────────────────────
 export const CTA_FINAL = {
-  titulo: "Modernize seu atendimento e tenha o controle da operação na palma da mão.",
+  badge: "O restaurante do futuro começa hoje",
+  titulo: "Profissionalize o atendimento e assuma o controle de toda a operação.",
+  desc: "Cardápio, mesas, cozinha, bar, caixa, estoque, financeiro e gestão — conectados em uma única plataforma inteligente, pronta para crescer com o seu negócio.",
   beneficios: ["Configuração simples", "Plataforma responsiva", "Suporte especializado", "Atualizações contínuas"],
 };
 
-// ── Rodapé (seção 16) ─────────────────────────────────────────
+// ── Rodapé ─────────────────────────────────────────────────────
 export const FOOTER_LINKS = {
-  solucoes: NAV.filter((n) => ["canais", "funcionalidades"].includes(n.id)),
+  plataforma: [
+    { label: "Plataforma", id: "plataforma" },
+    { label: "Ecossistema", id: "ecossistema" },
+    { label: "Inteligência Operacional", id: "inteligencia" },
+  ],
   institucional: [
     { label: "Segmentos", id: "segmentos" },
     { label: "Planos", id: "planos" },
     { label: "FAQ", id: "faq" },
   ],
 };
+
+// SEO — termos estratégicos usados na copy/meta desta página (mantidos aqui
+// para referência editorial; a tag <meta> real vive em index.html).
+export const SEO_TERMOS = [
+  "sistema para restaurante", "sistema gastronômico", "cardápio digital", "QR Code para restaurante",
+  "gestão de restaurantes", "controle de mesas", "controle de pedidos", "PDV para restaurante",
+  "sistema para hamburgueria", "sistema para pizzaria", "software para bares", "dashboard gastronômico",
+  "automação para restaurantes", "plataforma gastronômica", "ERP para restaurantes",
+];
