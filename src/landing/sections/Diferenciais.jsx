@@ -6,7 +6,7 @@ import { DIFERENCIAIS } from "../content";
 // ancora em algo real da plataforma, para não soar vazio.
 export default function Diferenciais() {
   return (
-    <section className="bg-white py-16 sm:py-24">
+    <section className="section bg-white">
       <div className="mx-auto max-w-7xl px-5">
         <SectionHeading badge="Por que Pedido Prime" titulo="Não vendemos função. Entregamos resultado."
           desc="Cada recurso da plataforma existe para gerar um ganho concreto na operação do seu restaurante." />

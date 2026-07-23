@@ -8,7 +8,7 @@ import { INTELIGENCIA, INTELIGENCIA_NOTA } from "../content";
 // TIPO de leitura, não números medidos de um cliente real.
 export default function Intelligence() {
   return (
-    <section id="inteligencia" className="scroll-mt-24 bg-[var(--pp-bg)] py-16 sm:py-24">
+    <section id="inteligencia" className="section scroll-mt-24 bg-[var(--pp-bg)]">
       <div className="mx-auto max-w-7xl px-5">
         <SectionHeading badge="Inteligência operacional" titulo="O sistema analisa os dados do seu restaurante — e te conta o que eles significam"
           desc="Cada pedido, cada mesa e cada produto viram leitura acionável. Sem planilha, sem análise manual: o painel entrega o insight pronto." />

@@ -10,7 +10,7 @@ import { FLUXO_TEMPO_REAL } from "../content";
 export default function LiveFlow() {
   const total = FLUXO_TEMPO_REAL.length;
   return (
-    <section id="como-funciona" className="scroll-mt-24 relative overflow-hidden bg-white py-16 sm:py-24">
+    <section id="como-funciona" className="section scroll-mt-24 relative overflow-hidden bg-white">
       <GlowOrb className="left-1/2 top-0 h-96 w-96 -translate-x-1/2" />
       <div className="mx-auto max-w-7xl px-5">
         <SectionHeading

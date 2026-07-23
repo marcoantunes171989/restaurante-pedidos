@@ -26,7 +26,7 @@ function No({ icon, label }) {
 // caixa e gestor, todos conectados no mesmo fluxo de dados.
 export default function OperacaoIntegrada() {
   return (
-    <section className="bg-[var(--pp-bg)] py-16 sm:py-24">
+    <section className="section bg-[var(--pp-bg)]">
       <div className="mx-auto max-w-7xl px-5">
         <SectionHeading badge="Operação integrada" titulo="Cliente, equipe e gestão — todos conectados no mesmo fluxo"
           desc="Cada papel da operação enxerga exatamente o que precisa, no momento certo, sem depender de comunicação manual entre setores." />

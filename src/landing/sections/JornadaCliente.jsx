@@ -6,7 +6,7 @@ import { JORNADA_CLIENTE } from "../content";
 // em cartões numerados e sequenciais (linha conectora sutil no desktop).
 export default function JornadaCliente() {
   return (
-    <section className="bg-white py-16 sm:py-24">
+    <section className="section bg-white">
       <div className="mx-auto max-w-7xl px-5">
         <SectionHeading badge="Experiência do cliente" titulo="Uma jornada pensada do primeiro clique ao último gole"
           desc="Da chegada à mesa até a avaliação do atendimento — cada passo do cliente é simples, rápido e sem atrito." />

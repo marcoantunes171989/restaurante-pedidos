@@ -7,7 +7,7 @@ import { ALEM_DO_SALAO } from "../content";
 // nunca apresentados como já disponíveis.
 export default function AlemDoSalao() {
   return (
-    <section className="bg-white py-16 sm:py-24">
+    <section className="section bg-white">
       <div className="mx-auto max-w-7xl px-5">
         <SectionHeading badge="Além do salão" titulo="Muito além do salão"
           desc="Pedido interno, QR Code, delivery, retirada e app instalável hoje — totem, WhatsApp e novas integrações a caminho." />

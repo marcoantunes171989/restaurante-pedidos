@@ -5,7 +5,7 @@ import { CRESCIMENTO } from "../content";
 // restaurante até a rede, mostrando que a plataforma escala junto.
 export default function Crescimento() {
   return (
-    <section className="bg-[var(--pp-bg)] py-16 sm:py-24">
+    <section className="section bg-[var(--pp-bg)]">
       <div className="mx-auto max-w-6xl px-5">
         <SectionHeading badge="Cresça sem trocar de sistema" titulo="O Pedido Prime acompanha o seu crescimento"
           desc="Comece pequeno, evolua no seu ritmo — do primeiro restaurante até uma rede com várias unidades." />

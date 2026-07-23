@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="360" viewBox="0 0 480 360" role="img" aria-label="Espetaria">
+  <rect width="480" height="360" fill="#EAE0D6"/>
+  <rect x="1" y="1" width="478" height="358" fill="none" stroke="#8A7D73" stroke-width="2" stroke-dasharray="10 7"/>
+  <g fill="#8A7D73" font-family="Arial, sans-serif" text-anchor="middle">
+    <text x="240" y="174" font-size="20" font-weight="700" fill="#5B4F47">Espetaria</text>
+    <text x="240" y="200" font-size="12">480×360 · 4:3</text>
+  </g>
+</svg>

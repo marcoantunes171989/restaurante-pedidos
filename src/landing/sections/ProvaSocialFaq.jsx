@@ -9,7 +9,7 @@ import { DEPOIMENTOS, FAQ } from "../content";
 function ProvaSocial() {
   if (DEPOIMENTOS.length === 0) return null;
   return (
-    <section className="bg-white py-16 sm:py-20">
+    <section className="section bg-white">
       <div className="mx-auto max-w-7xl px-5">
         <SectionHeading badge="Quem usa" titulo="O que dizem os estabelecimentos que usam o Pedido Prime" />
         <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -29,7 +29,7 @@ function ProvaSocial() {
 function Faq() {
   const [aberto, setAberto] = useState(-1);
   return (
-    <section id="faq" className="scroll-mt-24 bg-[var(--pp-bg)] py-16 sm:py-24">
+    <section id="faq" className="section scroll-mt-24 bg-[var(--pp-bg)]">
       <div className="mx-auto max-w-3xl px-5">
         <SectionHeading badge="FAQ" titulo="Perguntas frequentes" />
         <div className="mt-10 space-y-3">

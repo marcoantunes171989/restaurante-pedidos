@@ -8,7 +8,7 @@ import { ECOSSISTEMA } from "../content";
 // todos os 12, para não competir com os dispositivos do Hero).
 export default function Ecosystem() {
   return (
-    <section id="ecossistema" className="scroll-mt-24 bg-white py-16 sm:py-24">
+    <section id="ecossistema" className="section scroll-mt-24 bg-white">
       <div className="mx-auto max-w-7xl px-5">
         <SectionHeading badge="Ecossistema completo" titulo="Conheça o ecossistema Pedido Prime"
           desc="Cada perfil da operação com a tela certa — cliente, garçom, cozinha, bar, caixa e gestão, todos conectados à mesma base de dados, em tempo real." />

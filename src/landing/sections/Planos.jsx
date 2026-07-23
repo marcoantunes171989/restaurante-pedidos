@@ -9,7 +9,7 @@ const ICONE_PLANO = { phone: IcoPhone, bars: IcoBars, handshake: IcoHandshake };
 
 export default function Planos() {
   return (
-    <section id="planos" className="scroll-mt-24 bg-[var(--pp-bg)] py-16 sm:py-24">
+    <section id="planos" className="section scroll-mt-24 bg-[var(--pp-bg)]">
       <div className="mx-auto max-w-7xl px-5">
         <SectionHeading badge="Planos" titulo={`Planos a partir de R$ ${planosPedidoPrime[0].preco}/mês`}
           desc="Escolha os recursos ideais para a sua operação. Valores e funcionalidades podem variar conforme o porte do negócio." />

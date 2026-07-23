@@ -19,7 +19,7 @@ function CardSegmento({ s, i }) {
 // tile com gradiente da marca, mesma decisão já usada em PRATOS_DESTAQUE).
 export default function Segmentos() {
   return (
-    <section id="segmentos" className="scroll-mt-24 bg-white py-16 sm:py-24">
+    <section id="segmentos" className="section scroll-mt-24 bg-white">
       <div className="mx-auto max-w-7xl px-5">
         <SectionHeading badge="Para todo tipo de operação" titulo="Restaurantes de todos os segmentos"
           desc="De hamburguerias a hotéis, o Pedido Prime se adapta ao formato e ao ritmo de cada tipo de estabelecimento gastronômico." />

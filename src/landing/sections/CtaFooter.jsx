@@ -5,7 +5,7 @@ import { linkWhatsappConsultor } from "../../config/contato";
 
 export function CtaFinal() {
   return (
-    <section className="relative overflow-hidden bg-white py-16 sm:py-20">
+    <section className="section relative overflow-hidden bg-white">
       <div className="mx-auto max-w-6xl px-5">
         <Reveal className="relative overflow-hidden rounded-[1.75rem] border border-[#C63F1D]/15 bg-gradient-to-br from-[#C63F1D]/[0.06] via-white to-[#B8872A]/[0.08] p-10 text-center shadow-[0_30px_80px_-40px_rgba(28,20,15,0.25)] sm:p-16">
           <GlowOrb className="-right-24 -top-24 h-72 w-72" />

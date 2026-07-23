@@ -6,7 +6,7 @@ import { SEGURANCA } from "../content";
 // controle de usuários e sessões. Fundo claro (paleta oficial).
 export default function Seguranca() {
   return (
-    <section className="bg-white py-16 sm:py-24">
+    <section className="section bg-white">
       <div className="mx-auto max-w-7xl px-5">
         <SectionHeading badge="Segurança" titulo="Dados protegidos, do login ao backup"
           desc="Autenticação por usuário, permissões por perfil e trilha de auditoria — segurança pensada para operação real, não só para o discurso." />

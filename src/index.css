@@ -2,6 +2,14 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Landing Pedido Prime: ritmo vertical único ──────────────────
+   Uma única classe para o py de TODAS as seções (96px desktop / 64px
+   mobile) — nunca sobrescrever padding em classes de seção específicas
+   (erro clássico de especificidade: duas regras Tailwind com o mesmo
+   peso disputando py-*, resultado depende só da ordem de import). */
+.section { padding-top: 4rem; padding-bottom: 4rem; }
+@media (min-width: 640px) { .section { padding-top: 6rem; padding-bottom: 6rem; } }
+
 /* ── Landing Pedido Prime: animações leves + carrossel ──────────
    Fade/slide ao entrar na viewport (via IntersectionObserver que
    adiciona .pp-in). Respeita prefers-reduced-motion. */

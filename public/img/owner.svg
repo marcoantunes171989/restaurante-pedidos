@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="1000" viewBox="0 0 800 1000" role="img" aria-label="Foto do gestor(a)">
+  <rect width="800" height="1000" fill="#EAE0D6"/>
+  <rect x="1" y="1" width="798" height="998" fill="none" stroke="#8A7D73" stroke-width="2" stroke-dasharray="10 7"/>
+  <g fill="#8A7D73" font-family="Arial, sans-serif" text-anchor="middle">
+    <text x="400" y="494" font-size="33" font-weight="700" fill="#5B4F47">Foto do gestor(a)</text>
+    <text x="400" y="520" font-size="20">800×1000 · 4:5</text>
+  </g>
+</svg>

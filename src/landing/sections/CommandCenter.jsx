@@ -7,7 +7,7 @@ import { CENTRO_COMANDO, CENTRO_COMANDO_DESTAQUES } from "../content";
 // uma parede de texto ilegível.
 export default function CommandCenter() {
   return (
-    <section id="plataforma" className="scroll-mt-24 bg-white py-16 sm:py-24">
+    <section id="plataforma" className="section scroll-mt-24 bg-white">
       <div className="mx-auto max-w-7xl px-5">
         <SectionHeading badge="Centro de comando" titulo="Mais que um sistema. Um verdadeiro centro de comando para restaurantes."
           desc="Cardápio, mesas, cozinha, bar, caixa, estoque, financeiro, CRM e relatórios — tudo o que a operação precisa, numa base de dados só." />

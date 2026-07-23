@@ -1,4 +1,5 @@
 import { Botao, Badge, Reveal, GlowOrb } from "../ui";
+import { Headline } from "../components/Headline";
 import { goTo } from "../utils";
 import { LaptopFrame, TabletFrame, PhoneFrame, PosFrame, PrinterFrame, TelaMesa, TelaCardapioCliente, TelaDashboard } from "../devices";
 import { HERO } from "../content";
@@ -68,10 +69,8 @@ export default function Hero() {
         <div>
           <Reveal><Badge>{HERO.badge}</Badge></Reveal>
           <Reveal delay={80}>
-            <h1 className="font-display mt-5 text-[clamp(2rem,1.4rem+2.8vw,3.4rem)] font-black leading-[1.08] tracking-tight text-[var(--pp-graphite)]">
-              <span className="block">{HERO.tituloLinha1}</span>
-              <span className="mt-1 block bg-gradient-to-r from-[var(--pp-primary-hover)] to-[var(--pp-brand)] bg-clip-text text-transparent">{HERO.tituloLinha2}</span>
-            </h1>
+            <Headline as="h1" lead={HERO.tituloLinha1} accent={HERO.tituloLinha2}
+              className="font-display mt-5 text-[clamp(2rem,1.4rem+2.8vw,3.4rem)] font-black leading-[1.08] tracking-tight text-[var(--pp-graphite)]" />
           </Reveal>
           <Reveal delay={160}>
             <p className="mt-5 max-w-xl text-base leading-7 text-[var(--pp-text-muted)] sm:text-lg">{HERO.subtitulo}</p>

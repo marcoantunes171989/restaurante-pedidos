@@ -5,7 +5,7 @@ import { TECNOLOGIA } from "../content";
 // a plataforma, explicados em benefício direto (não jargão).
 export default function Tecnologia() {
   return (
-    <section className="bg-[var(--pp-bg)] py-16 sm:py-24">
+    <section className="section bg-[var(--pp-bg)]">
       <div className="mx-auto max-w-7xl px-5">
         <SectionHeading badge="Tecnologia" titulo="Tecnologia que trabalha para você"
           desc="Nuvem, tempo real, segurança e escalabilidade — para que a operação nunca pare, em nenhum dispositivo." />

@@ -17,7 +17,7 @@ const POSICOES = [
 // Fundo bege muito claro (paleta oficial) — sem bloco escuro pesado.
 export default function JornadaGestor() {
   return (
-    <section className="relative overflow-hidden bg-[var(--pp-bg)] py-16 sm:py-24">
+    <section className="section relative overflow-hidden bg-[var(--pp-bg)]">
       <GlowOrb className="left-1/2 top-0 h-96 w-96 -translate-x-1/2" />
       <div className="mx-auto max-w-7xl px-5">
         <SectionHeading badge="Experiência do gestor" titulo="O restaurante inteiro, visível em uma única tela"

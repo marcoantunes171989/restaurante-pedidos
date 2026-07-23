@@ -18,7 +18,7 @@ const COR_MESA = { livre: "bg-[var(--pp-success)]", ocupada: "bg-[var(--pp-prima
 export default function DashboardPremium() {
   const max = Math.max(...HORAS.map((x) => x.v));
   return (
-    <section className="bg-white py-16 sm:py-24">
+    <section className="section bg-white">
       <div className="mx-auto max-w-7xl px-5">
         <SectionHeading badge="Dashboard premium" titulo="Um painel à altura da decisão que ele precisa embasar"
           desc="Faturamento, ticket médio, ranking de produtos, tempo de preparo e mapa de mesas — tudo no mesmo lugar, atualizado a cada pedido." />

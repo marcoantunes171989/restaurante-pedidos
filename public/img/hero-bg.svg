@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080" role="img" aria-label="Foto do salão">
+  <rect width="1920" height="1080" fill="#EAE0D6"/>
+  <rect x="1" y="1" width="1918" height="1078" fill="none" stroke="#8A7D73" stroke-width="2" stroke-dasharray="10 7"/>
+  <g fill="#8A7D73" font-family="Arial, sans-serif" text-anchor="middle">
+    <text x="960" y="534" font-size="80" font-weight="700" fill="#5B4F47">Foto do salão</text>
+    <text x="960" y="560" font-size="48">1920×1080 · 16:9</text>
+  </g>
+</svg>
