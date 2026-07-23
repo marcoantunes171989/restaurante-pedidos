@@ -11,6 +11,9 @@ export default {
       fontFamily: {
         sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'Arial', 'sans-serif'],
         display: ['Poppins', 'Inter', 'sans-serif'],
+        // Números de dado (estatísticas, preços, passos numerados) — já
+        // carregada em index.html, sem custo extra de fonte.
+        data: ['"Space Grotesk"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
       },
       colors: {
         // ── Novo sistema de marca (rebrand 2026) — namespace `brand`, isolado
