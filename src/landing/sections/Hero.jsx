@@ -1,17 +1,41 @@
-import { Botao, Badge, Reveal, GlowOrb } from "../ui";
+import { Botao, Badge, Reveal, GlowOrb, Check } from "../ui";
 import { Headline } from "../components/Headline";
 import { DeviceStack } from "../components/DeviceStack";
 import { StatBar } from "../components/StatBar";
 import { goTo } from "../utils";
-import { PosFrame, PrinterFrame, TelaMesa, TelaCardapioCliente, TelaDashboard } from "../devices";
+import { PosFrame, TelaMesa, TelaCardapioCliente, TelaDashboard, TelaKanban } from "../devices";
 import { HERO } from "../content";
 import { linkWhatsappConsultor } from "../../config/contato";
 
-// Cena do Hero em torno do DeviceStack — wash de ambiente, linhas SVG
-// conectando os aparelhos (traço tracejado "escoando", pp-line-flow),
-// PDV + impressora no canto (só desktop) e notificações flutuantes.
-// O DeviceStack cuida só do trio notebook/tablet/celular em 3D; o resto
-// é decoração posicionada em torno dele.
+const COZINHA_COLUNAS = [
+  { titulo: "Fila", cards: ["Pizza x2", "Massa"] },
+  { titulo: "Preparo", cards: ["Risoto"] },
+  { titulo: "Pronto", cards: ["Salada"] },
+];
+
+// Etiqueta flutuante — some no mobile por padrão (mostrarEm controla a
+// partir de qual breakpoint aparece): no mobile a composição já fica
+// apertada só com os 3 aparelhos principais, adicionar 5 selos pequenos
+// vira ruído visual. A etiqueta "Cozinha" usa um corte mais largo (xl)
+// porque só faz sentido quando a telinha de cozinha também está visível.
+function Etiqueta({ texto, className = "", delay = "0s", mostrarEm = "min-[900px]:flex" }) {
+  return (
+    <div aria-hidden="true" className={`pp-float pointer-events-none absolute z-30 hidden items-center gap-1.5 rounded-full border border-[var(--pp-border)] bg-white/95 px-3 py-1.5 text-[11px] font-bold text-[var(--pp-graphite)] shadow-lg backdrop-blur ${mostrarEm} ${className}`} style={{ animationDelay: delay }}>
+      <span className="h-1.5 w-1.5 rounded-full bg-[var(--pp-primary-hover)]" />{texto}
+    </div>
+  );
+}
+
+// Cena do Hero em torno do DeviceStack — wash de ambiente (sem foto real
+// disponível no projeto, ver nota abaixo), linhas SVG conectando os
+// aparelhos, notebook (gestão) + tablet (mesa) + celular (cliente) via
+// DeviceStack, PDV/caixa (lg+) e uma tela de cozinha (xl+, senão o cluster
+// estoura a largura da coluna nas resoluções médias) no canto, com 5
+// etiquetas de papel (Cliente, Mesa, Cozinha, Caixa, Gestão) marcando cada
+// ponto do fluxo. Flutuação via .pp-float (respeita prefers-reduced-motion,
+// ver index.css). Sem impressora: o briefing pede "PDV OU impressora", e
+// com PDV + cozinha já ocupando o canto direito, a impressora só apertava
+// a composição sem acrescentar um papel novo.
 function DeviceScene() {
   return (
     <div className="relative mx-auto w-full max-w-lg">
@@ -22,28 +46,31 @@ function DeviceScene() {
         style={{ background: "radial-gradient(60% 60% at 30% 20%, rgba(217,84,46,0.10), transparent), radial-gradient(50% 50% at 80% 80%, rgba(184,135,42,0.12), transparent)" }} />
 
       <svg aria-hidden="true" viewBox="0 0 400 420" className="pointer-events-none absolute inset-0 hidden h-full w-full min-[900px]:block">
-        <path id="linha1" d="M60 340 C 120 300, 140 220, 210 190" fill="none" stroke="#C63F1D" strokeOpacity=".35" strokeWidth="1.6" className="pp-line-flow" />
-        <path id="linha2" d="M340 90 C 300 130, 260 150, 220 185" fill="none" stroke="#B8872A" strokeOpacity=".35" strokeWidth="1.6" className="pp-line-flow" />
+        <path d="M60 340 C 120 300, 140 220, 210 190" fill="none" stroke="#C63F1D" strokeOpacity=".35" strokeWidth="1.6" className="pp-line-flow" />
+        <path d="M340 90 C 300 130, 260 150, 220 185" fill="none" stroke="#B8872A" strokeOpacity=".35" strokeWidth="1.6" className="pp-line-flow" />
         <path d="M330 300 C 290 280, 250 250, 222 210" fill="none" stroke="#C63F1D" strokeOpacity=".25" strokeWidth="1.6" className="pp-line-flow" />
       </svg>
 
       <DeviceStack laptop={<TelaDashboard compacta />} tablet={<TelaMesa />} phone={<TelaCardapioCliente compacta />} />
 
-      {/* PDV + impressora — canto superior direito, só em telas maiores */}
-      <div className="pp-float absolute -right-4 -top-6 z-20 hidden w-[30%] lg:block" style={{ animationDelay: "-4.5s" }}>
+      {/* PDV/caixa — canto superior direito, telas grandes (lg+) */}
+      <div className="pp-float absolute -right-4 -top-6 z-20 hidden w-[28%] lg:block" style={{ animationDelay: "-4.5s" }}>
         <PosFrame><TelaDashboard compacta /></PosFrame>
       </div>
-      <div className="absolute -right-10 top-24 hidden w-[22%] lg:block">
-        <PrinterFrame />
+
+      {/* Tela de cozinha/operação — canto inferior direito, só telas bem
+          largas (xl+): junto com o PDV, precisa de mais espaço horizontal
+          do que a coluna tem em lg (1024–1279px). */}
+      <div className="pp-float absolute -right-6 bottom-2 z-20 hidden w-[30%] xl:block" style={{ animationDelay: "-3.2s" }}>
+        <PosFrame><TelaKanban colunas={COZINHA_COLUNAS} /></PosFrame>
       </div>
 
-      {/* Notificações flutuantes */}
-      <div className="pp-float pointer-events-none absolute -left-4 top-2 z-30 hidden rounded-2xl border border-[var(--pp-border)] bg-white/95 px-3.5 py-2.5 text-xs font-bold text-[var(--pp-graphite)] shadow-lg backdrop-blur sm:flex sm:items-center sm:gap-2" style={{ animationDelay: "-2s" }}>
-        <span className="h-2 w-2 rounded-full bg-[var(--pp-info)]" /> Pedido recebido
-      </div>
-      <div className="pp-float pointer-events-none absolute -right-2 bottom-1/3 z-30 hidden rounded-2xl border border-[var(--pp-border)] bg-white/95 px-3.5 py-2.5 text-xs font-bold text-[var(--pp-graphite)] shadow-lg backdrop-blur sm:flex sm:items-center sm:gap-2" style={{ animationDelay: "-4s" }}>
-        <span className="h-2 w-2 rounded-full bg-[var(--pp-success)]" /> Pedido concluído
-      </div>
+      {/* Etiquetas do fluxo — uma por papel da operação */}
+      <Etiqueta texto="Gestão" className="-left-4 top-0" delay="-1s" />
+      <Etiqueta texto="Mesa" className="right-[26%] top-[38%]" delay="-2.5s" />
+      <Etiqueta texto="Cliente" className="left-0 bottom-14" delay="-0.5s" />
+      <Etiqueta texto="Caixa" className="right-[4%] top-[26%] lg:right-[10%]" delay="-4s" />
+      <Etiqueta texto="Cozinha" className="right-[8%] bottom-[18%]" delay="-3.6s" mostrarEm="xl:flex" />
     </div>
   );
 }
@@ -61,17 +88,24 @@ export default function Hero() {
               className="font-display mt-5 text-[clamp(2rem,1.4rem+2.8vw,3.4rem)] font-black leading-[1.08] tracking-tight text-[var(--pp-graphite)]" />
           </Reveal>
           <Reveal delay={160}>
-            <p className="mt-5 max-w-xl text-base leading-7 text-[var(--pp-text-muted)] sm:text-lg">{HERO.subtitulo}</p>
+            <p className="mt-5 max-w-xl text-base leading-7 text-[var(--pp-text-body)] sm:text-lg">{HERO.subtitulo}</p>
           </Reveal>
           <Reveal delay={240}>
             <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-              <Botao variant="primary" href={linkWhatsappConsultor("Olá! Gostaria de solicitar uma demonstração do Pedido Prime.")}>{HERO.ctaPrimario}</Botao>
-              <Botao variant="outline" onClick={() => goTo("plataforma")}>{HERO.ctaSecundario}</Botao>
-              <Botao variant="ghost" href={linkWhatsappConsultor("Olá! Gostaria de falar com um especialista do Pedido Prime.")}>{HERO.ctaTerciario}</Botao>
+              <Botao variant="primary" onClick={() => goTo("plataforma")}>{HERO.ctaPrimario}</Botao>
+              <Botao variant="outline" href={linkWhatsappConsultor("Olá! Gostaria de ver uma demonstração do Pedido Prime.")}>{HERO.ctaSecundario}</Botao>
+              <Botao variant="ghost" href={linkWhatsappConsultor("Olá! Gostaria de falar com um consultor do Pedido Prime.")}>{HERO.ctaTerciario}</Botao>
             </div>
           </Reveal>
+          <Reveal delay={280}>
+            <ul className="mt-6 flex flex-wrap gap-x-5 gap-y-2">
+              {HERO.beneficiosRapidos.map((b) => (
+                <li key={b} className="flex items-center gap-1.5 text-xs font-semibold text-[var(--pp-text-body)] sm:text-sm"><Check /> {b}</li>
+              ))}
+            </ul>
+          </Reveal>
           <Reveal delay={320}>
-            <StatBar className="mt-10" indicadores={HERO.indicadores} nota={HERO.indicadoresNota} />
+            <StatBar className="mt-8" indicadores={HERO.indicadores} nota={HERO.indicadoresNota} />
           </Reveal>
         </div>
         <Reveal delay={160} className="relative lg:pl-6">

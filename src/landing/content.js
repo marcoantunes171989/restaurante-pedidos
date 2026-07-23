@@ -24,13 +24,19 @@ export const NAV = [
 
 // ── Hero ──────────────────────────────────────────────────────
 export const HERO = {
-  badge: "Plataforma inteligente de gestão gastronômica",
-  tituloLinha1: "Muito mais que um sistema.",
-  tituloLinha2: "A plataforma inteligente que conecta toda a operação do seu restaurante.",
-  subtitulo: "Do primeiro pedido até o fechamento do caixa, o Pedido Prime conecta clientes, garçons, cozinha, bar, delivery, estoque, financeiro e gestão em uma única plataforma inteligente.",
-  ctaPrimario: "Solicitar demonstração",
-  ctaSecundario: "Conhecer a plataforma",
-  ctaTerciario: "Falar com especialista",
+  badge: "Plataforma completa para restaurantes",
+  tituloLinha1: "Do cardápio ao resultado:",
+  tituloLinha2: "toda a operação do seu restaurante em uma única plataforma.",
+  subtitulo: "Receba pedidos por QR Code, cardápio digital, tablet ou celular e acompanhe mesas, comandas, cozinha, bar, caixa, clientes e resultados em tempo real.",
+  ctaPrimario: "Conhecer o Pedido Prime",
+  ctaSecundario: "Ver demonstração",
+  ctaTerciario: "Falar com um consultor",
+  beneficiosRapidos: [
+    "Implantação simplificada",
+    "Sem aplicativo obrigatório para o cliente",
+    "Uso em computador, tablet e celular",
+    "Atendimento especializado",
+  ],
   indicadores: [
     { valor: "Até +35%", label: "Mais vendas" },
     { valor: "Até 60%", label: "Redução no tempo de atendimento" },
