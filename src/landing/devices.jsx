@@ -169,6 +169,31 @@ export function TelaDashboard({ compacta = false }) {
   );
 }
 
+// Tela de notificação push — usada como mockup flutuante sobreposto ao
+// Dashboard Premium (celular do gestor recebendo o alerta em tempo real).
+export function TelaNotificacaoPush() {
+  return (
+    <div className="space-y-2 bg-[var(--pp-bg)] p-2.5">
+      <div className="flex items-center gap-2 rounded-xl border border-[var(--pp-border)] bg-white p-2.5 shadow-sm">
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--pp-primary-hover)] text-[9px] font-black text-white">PP</span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[9px] font-bold text-[var(--pp-graphite)]">Pedido Prime</p>
+          <p className="truncate text-[8.5px] text-[var(--pp-text-muted)]">Novo pedido recebido — Mesa 07</p>
+        </div>
+        <span className="shrink-0 text-[8px] text-[var(--pp-text-muted)]">agora</span>
+      </div>
+      <div className="flex items-center gap-2 rounded-xl border border-[var(--pp-border)] bg-white/70 p-2.5 opacity-70">
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--pp-brand)] text-[9px] font-black text-white">PP</span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[9px] font-bold text-[var(--pp-graphite)]">Pedido Prime</p>
+          <p className="truncate text-[8.5px] text-[var(--pp-text-muted)]">Fechamento de caixa concluído</p>
+        </div>
+        <span className="shrink-0 text-[8px] text-[var(--pp-text-muted)]">12min</span>
+      </div>
+    </div>
+  );
+}
+
 export function TelaLista({ icone, linhas }) {
   return (
     <div className="p-3">

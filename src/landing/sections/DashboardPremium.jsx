@@ -1,5 +1,6 @@
 import { Reveal, SectionHeading } from "../ui";
 import { Icone } from "../icons";
+import { PhoneFrame, TelaNotificacaoPush } from "../devices";
 import { INDICADORES_PAINEL, RECURSOS_PAINEL } from "../content";
 
 const HORAS = [
@@ -23,7 +24,13 @@ export default function DashboardPremium() {
         <SectionHeading badge="Dashboard premium" titulo="Um painel à altura da decisão que ele precisa embasar"
           desc="Faturamento, ticket médio, ranking de produtos, tempo de preparo e mapa de mesas — tudo no mesmo lugar, atualizado a cada pedido." />
 
-        <Reveal delay={140} className="mt-14 overflow-hidden rounded-[1.75rem] border border-[var(--pp-border)] bg-white shadow-[0_40px_90px_-40px_rgba(28,20,15,0.35)]">
+        <Reveal delay={140} className="relative mt-14">
+        {/* Celular do gestor recebendo alerta em tempo real — decorativo,
+            só cabe sem sobrepor conteúdo a partir de telas bem largas. */}
+        <div className="pp-float absolute -right-6 -top-10 z-20 hidden w-[170px] xl:block" style={{ animationDelay: "-2.4s" }}>
+          <PhoneFrame><TelaNotificacaoPush /></PhoneFrame>
+        </div>
+        <div className="overflow-hidden rounded-[1.75rem] border border-[var(--pp-border)] bg-white shadow-[0_40px_90px_-40px_rgba(28,20,15,0.35)]">
           <div className="flex items-center justify-between border-b border-[var(--pp-border)] bg-[var(--pp-bg)] px-6 py-4">
             <p className="font-display text-sm font-bold text-[var(--pp-graphite)]">Painel administrativo</p>
             <span className="rounded-full bg-[#2F9E52]/10 px-3 py-1 text-[10px] font-bold text-[var(--pp-success-text)]">● Em tempo real</span>
@@ -95,6 +102,7 @@ export default function DashboardPremium() {
               </div>
             </div>
           </div>
+        </div>
         </Reveal>
         <Reveal delay={200} className="mt-4 text-center text-[11px] text-[var(--pp-text-muted)]">Ilustrativo — mostra o formato real do painel, não métricas de um cliente específico.</Reveal>
       </div>

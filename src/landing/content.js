@@ -146,24 +146,20 @@ export const JORNADA_GESTOR = [
   { icon: "meta", label: "Metas" },
 ];
 
-// ── Segmentos atendidos — emoji em cartão premium (sem fotos reais de
-// estabelecimento/prato disponíveis no projeto para esta página). ──
-export const SEGMENTOS = [
-  { nome: "Hamburgueria", emoji: "🍔" },
-  { nome: "Pizzaria", emoji: "🍕" },
-  { nome: "Restaurante", emoji: "🍽️" },
-  { nome: "Cafeteria", emoji: "☕" },
-  { nome: "Sorveteria", emoji: "🍦" },
-  { nome: "Padaria", emoji: "🥐" },
-  { nome: "Açaíteria", emoji: "🫐" },
-  { nome: "Espetaria", emoji: "🍢" },
-  { nome: "Choperia", emoji: "🍺" },
-  { nome: "Japonês", emoji: "🍣" },
-  { nome: "Marmitaria", emoji: "🍱" },
-  { nome: "Food Truck", emoji: "🚚" },
-  { nome: "Hotel", emoji: "🏨" },
-  { nome: "Buffet", emoji: "🍱" },
+// ── Segmentos atendidos — grade principal com foto (placeholder cinza até
+// a foto real chegar, ver ASSETS.md) e lista complementar só com nome,
+// revelada pelo link "E muito mais". ──
+export const SEGMENTOS_DESTAQUE = [
+  { nome: "Hamburguerias", img: "/img/segmentos/hamburguerias.svg" },
+  { nome: "Pizzarias", img: "/img/segmentos/pizzarias.svg" },
+  { nome: "Bares e Churrascarias", img: "/img/segmentos/bares-e-churrascarias.svg" },
+  { nome: "Restaurantes", img: "/img/segmentos/restaurantes.svg" },
+  { nome: "Cafeterias", img: "/img/segmentos/cafeterias.svg" },
+  { nome: "Espetarias", img: "/img/segmentos/espetarias.svg" },
+  { nome: "Padarias", img: "/img/segmentos/padarias.svg" },
+  { nome: "Sorveterias", img: "/img/segmentos/sorveterias.svg" },
 ];
+export const SEGMENTOS_EXTRA = ["Açaíteria", "Choperia", "Japonês", "Marmitaria", "Food Truck", "Hotel", "Buffet"];
 
 // ── Painel administrativo / Dashboard Premium — indicadores ilustrativos:
 // mostram o FORMATO do painel real do sistema, não são métricas reais de
