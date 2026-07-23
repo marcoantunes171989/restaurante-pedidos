@@ -48,10 +48,16 @@
 @keyframes pp-travel { from { offset-distance: 0%; } to { offset-distance: 100%; } }
 .pp-travel { animation: pp-travel 3.6s linear infinite; }
 
+/* Preenchimento da timeline "Operação Integrada" — anima uma vez, ao
+   entrar na viewport (classe .pp-in aplicada via JS, não CSS/IntersectionObserver
+   genérico como o .pp-reveal, porque aqui o alvo é width, não opacity/transform). */
+.pp-timeline-fill { transition: width 1.6s cubic-bezier(.2,.7,.3,1); }
+
 @media (prefers-reduced-motion: reduce) {
   .pp-reveal { opacity: 1; transform: none; transition: none; }
   .pp-pulse-ring, .pp-float, .pp-anim-fade, .pp-anim-up, .pp-anim-left,
   .pp-line-flow, .pp-glow-pulse, .pp-travel { animation: none; }
+  .pp-timeline-fill { transition: none; }
 }
 
 /* ── Foco/hover padronizado dos gráficos (barras, fatias de donut, pontos de

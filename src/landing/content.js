@@ -211,6 +211,19 @@ export const DIFERENCIAIS = [
   { icon: "rocket", titulo: "Mais crescimento", desc: "Plataforma pronta para acompanhar a expansão do negócio." },
 ];
 
+// ── "Operação Integrada" — hotspots do mapa isométrico do salão
+// (ver components/RestaurantMap.jsx) e timeline do pedido (anima 1x ao
+// entrar na viewport, ver sections/OperacaoIntegrada.jsx) ────────────
+export const MAPA_HOTSPOTS = [
+  { id: "mesas", nome: "Mesas", desc: "Cliente pede direto da mesa, sem esperar o garçom." },
+  { id: "atendimento", nome: "Atendimento", desc: "Garçom acompanha e envia o pedido em um toque." },
+  { id: "cozinha", nome: "Cozinha", desc: "Pedido chega em tempo real, por ordem de prioridade." },
+  { id: "bar", nome: "Bar", desc: "Bebidas preparadas em paralelo, sem gargalo na cozinha." },
+  { id: "caixa", nome: "Caixa", desc: "Fechamento de conta rápido, sem divergência." },
+  { id: "gestor", nome: "Gestor", desc: "Acompanha tudo em tempo real, de qualquer lugar." },
+];
+export const TIMELINE_PEDIDO = ["Pedido realizado", "Preparando", "Pronto", "Entregue", "Pagamento processado"];
+
 // ── "O Pedido Prime acompanha seu crescimento" — timeline ─────
 export const CRESCIMENTO = [
   { titulo: "Primeiro restaurante", desc: "Comece com cardápio digital e QR Code, sem complicação." },
