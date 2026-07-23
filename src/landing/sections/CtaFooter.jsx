@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import QRCode from "qrcode";
-import { Botao, Marca, Reveal, Badge, Check } from "../ui";
+import { Botao, Marca, Reveal, Check } from "../ui";
 import { DeviceStack } from "../components/DeviceStack";
 import { LeadForm } from "../components/LeadForm";
 import { TelaMesa, TelaCardapioCliente } from "../devices";
@@ -44,9 +44,16 @@ export function CtaFinal() {
       <div className="mx-auto max-w-6xl px-5">
         <Reveal className="grid items-center gap-10 lg:grid-cols-[1.1fr_auto_0.7fr]">
           <div className="text-center lg:text-left">
-            <Badge tom="gold">{CTA_FINAL.badge}</Badge>
+            {/* Badge branco translúcido, não o <Badge> compartilhado — aquele
+                componente usa texto terracota/dourado escuro (--pp-brand-text,
+                pensado pra fundo claro) e ficaria ilegível sobre este bloco
+                sólido. Texto branco 600+/13px sobre --pp-primary-hover: contraste
+                AA já documentado em ui.jsx (Botao "primary"), 5.08:1. */}
+            <span className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-wider text-white">
+              <span className="h-1.5 w-1.5 rounded-full bg-white" />{CTA_FINAL.badge}
+            </span>
             <h2 className="font-display mt-5 text-[clamp(1.6rem,1.1rem+1.8vw,2.5rem)] font-black leading-tight tracking-tight text-white">{CTA_FINAL.titulo}</h2>
-            <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-white/85 sm:text-base lg:mx-0">{CTA_FINAL.desc}</p>
+            <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-white/90 sm:text-base lg:mx-0">{CTA_FINAL.desc}</p>
             <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row lg:justify-start">
               <Botao variant="outline" onClick={() => setFormAberto(true)} className="!border-white !bg-white !text-[var(--pp-primary-hover)] hover:!bg-white/90">{LEAD_FORM.gatilho}</Botao>
               <Botao variant="ghost" href={linkWhatsappConsultor(`Olá! Gostaria de falar com um consultor sobre o ${NOME_SISTEMA}.`)} className="!text-white hover:!bg-white/10">Falar no WhatsApp</Botao>

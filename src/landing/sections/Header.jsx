@@ -23,7 +23,11 @@ export default function Header({ onEntrar }) {
   return (
     <header className={`sticky top-0 z-50 border-b bg-white/85 backdrop-blur-xl transition-shadow ${rolado ? "border-[var(--pp-border)] shadow-[0_4px_20px_rgba(13,27,42,0.06)]" : "border-transparent"}`} style={{ paddingTop: "env(safe-area-inset-top)" }}>
       <nav className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-3.5">
-        <button onClick={() => irPara("topo")} className="cursor-pointer" aria-label="Início"><Marca /></button>
+        {/* Sem aria-label: o nome accessível vem do próprio texto visível
+            ("PEDIDO PRIME", ver Marca) — um aria-label diferente do texto
+            visível ("Início") reprovava a auditoria de acessibilidade da
+            Fase 6 (WCAG 2.5.3, nome acessível precisa conter o texto visível). */}
+        <button onClick={() => irPara("topo")} className="cursor-pointer"><Marca /></button>
         <div className="hidden items-center gap-1 lg:flex">
           {NAV.map((n) => (
             <button key={n.id} onClick={() => irPara(n.id)}

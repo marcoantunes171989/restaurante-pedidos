@@ -57,14 +57,18 @@ export function Botao({ children, variant = "primary", onClick, href, type = "bu
   return <button type={type} onClick={onClick} className={cls} {...rest}>{children}</button>;
 }
 
-// "PRIME" em coral (--pp-primary), cor primária do sistema — mesma cor no
-// header (fundo claro) e no footer (fundo escuro).
+// "PRIME" em terracota — mesma cor no header (fundo claro) e no footer
+// (fundo bege). Usa --pp-primary-hover, não --pp-primary: o tom mais claro
+// reprovava em contraste AA sobre branco/bege (3.99:1 e 3.74:1, achado na
+// auditoria de acessibilidade da Fase 6 — Lighthouse) — --pp-primary-hover
+// já é o tom documentado pra texto sobre fundo claro em todo o resto da
+// landing (ver nota de contraste em Botao "primary" acima).
 export function Marca({ tamanho = 38, escuro = false }) {
   return (
     <div className="flex shrink-0 items-center gap-2.5">
       <LogoPP size={tamanho} />
       <span className="font-display whitespace-nowrap text-lg font-bold leading-none tracking-tight">
-        <span className={escuro ? "text-white" : "text-[var(--pp-graphite)]"}>PEDIDO</span> <span className="text-[var(--pp-primary)]">PRIME</span>
+        <span className={escuro ? "text-white" : "text-[var(--pp-graphite)]"}>PEDIDO</span> <span className="text-[var(--pp-primary-hover)]">PRIME</span>
       </span>
     </div>
   );

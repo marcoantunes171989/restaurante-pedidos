@@ -42,8 +42,12 @@ function Campo({ id, label, erro, tocado, children }) {
   );
 }
 
-const INPUT_CLS = "min-h-[44px] w-full rounded-xl border border-[var(--pp-border)] bg-white px-3.5 text-sm text-[var(--pp-graphite)] outline-none transition focus:border-[var(--pp-primary-hover)] focus:ring-2 focus:ring-[var(--pp-primary-hover)]/20";
-const INPUT_ERR_CLS = "border-[var(--pp-danger)] focus:border-[var(--pp-danger)] focus:ring-[var(--pp-danger)]/20";
+// Ring com opacidade (ring-[var(...)]/20) não funciona em cor arbitrária via
+// CSS var — Tailwind não consegue extrair canais RGB de uma custom property
+// hex pra aplicar a opacidade (o ring saía sem cor nenhuma). Outline direto,
+// mesmo padrão já usado em PwaExperienceDialog.jsx, evita o problema.
+const INPUT_CLS = "min-h-[44px] w-full rounded-xl border border-[var(--pp-border)] bg-white px-3.5 text-sm text-[var(--pp-graphite)] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-primary-hover)] focus-visible:border-[var(--pp-primary-hover)]";
+const INPUT_ERR_CLS = "border-[var(--pp-danger)] focus-visible:border-[var(--pp-danger)] focus-visible:outline-[var(--pp-danger)]";
 
 // Modal de captura de lead — nome, restaurante, WhatsApp (com máscara),
 // e-mail e nº de mesas (os 2 últimos opcionais). Portal em document.body,
@@ -115,6 +119,7 @@ export function LeadForm({ aberto, onFechar }) {
           role="dialog"
           aria-modal="true"
           aria-labelledby="lead-form-titulo"
+          aria-describedby="lead-form-desc"
           onClick={(e) => e.stopPropagation()}
           className="pointer-events-auto flex max-h-[90dvh] w-full flex-col overflow-hidden rounded-t-[22px] border border-[var(--pp-border)] bg-white shadow-[0_20px_60px_rgba(28,20,15,0.3)] sm:max-h-[85vh] sm:w-[480px] sm:max-w-[calc(100vw-48px)] sm:rounded-[22px]"
           style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
@@ -131,11 +136,11 @@ export function LeadForm({ aberto, onFechar }) {
               <div role="status" aria-live="polite" className="flex flex-col items-center gap-2 py-6 text-center">
                 <CheckCircle2 aria-hidden="true" size={44} className="text-[var(--pp-success-text)]" />
                 <p className="mt-1 text-base font-bold text-[var(--pp-graphite)]">{LEAD_FORM.sucessoTitulo}</p>
-                <p className="text-sm text-[var(--pp-text-muted)]">{LEAD_FORM.sucessoDesc}</p>
+                <p id="lead-form-desc" className="text-sm text-[var(--pp-text-muted)]">{LEAD_FORM.sucessoDesc}</p>
               </div>
             ) : (
               <form onSubmit={handleSubmit} noValidate className="space-y-4">
-                <p className="text-sm leading-6 text-[var(--pp-text-muted)]">{LEAD_FORM.desc}</p>
+                <p id="lead-form-desc" className="text-sm leading-6 text-[var(--pp-text-muted)]">{LEAD_FORM.desc}</p>
 
                 <Campo id="lead-nome" label={LEAD_FORM.campos.nome.label} erro={erros.nome} tocado={tocados.nome}>
                   <input id="lead-nome" type="text" autoComplete="name" value={campos.nome}

@@ -35,8 +35,11 @@ export default function Segmentos() {
         </div>
 
         <Reveal delay={140} className="mt-8 text-center">
+          {/* -my-3 cancela o py-3 visualmente — mantém o link discreto mas
+              garante ~44px de área de toque (WCAG 2.5.5), mesmo truque já
+              cabível em qualquer link de texto pequeno da landing. */}
           <button onClick={() => setExpandido((v) => !v)} aria-expanded={expandido}
-            className="inline-flex items-center gap-1.5 text-sm font-bold text-[var(--pp-primary-hover)] transition hover:text-[var(--pp-primary)]">
+            className="-my-3 inline-flex items-center gap-1.5 py-3 text-sm font-bold text-[var(--pp-primary-hover)] transition hover:text-[var(--pp-primary)]">
             E muito mais <IcoSeta className={`h-4 w-4 transition-transform ${expandido ? "rotate-90" : ""}`} />
           </button>
           {expandido && (
