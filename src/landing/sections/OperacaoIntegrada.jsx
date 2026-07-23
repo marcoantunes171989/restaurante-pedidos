@@ -37,7 +37,10 @@ function TimelinePedido() {
             >
               {i + 1}
             </span>
-            <p className="mt-2 text-[10px] font-semibold leading-tight text-[var(--pp-text-muted)]">{etapa}</p>
+            {/* --pp-text-body, não --pp-text-muted: nesse tamanho (10px) o
+                muted reprovava contraste AA sobre --pp-bg (3.74:1, achado na
+                auditoria da Fase 6) — body já passa com folga (7.42:1). */}
+            <p className="mt-2 text-[10px] font-semibold leading-tight text-[var(--pp-text-body)]">{etapa}</p>
           </div>
         ))}
       </div>
