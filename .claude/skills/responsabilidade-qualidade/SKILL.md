@@ -21,6 +21,8 @@ layout). Só então aplique. Trabalhe **uma tela por vez**, validando antes de s
    - 📱 celular (~360–430px), 📲 tablet (~768px), 💻 desktop (~1280px+).
    - Nada de overflow horizontal, texto cortado, sobreposição, alvo de toque < 44px,
      grid que estoura. Respeite `safe-area-inset-*` (notch) e a bottom nav fixa.
+   - Valide também nos 3 sistemas — **Windows, Android e iOS** — e o conforto por
+     tamanho de dispositivo: ver a skill `compatibilidade-dispositivos`.
 3. **Função preservada:** a tela continua fazendo o que fazia (navegação, cliques,
    formulários, estados). Alteração de estilo não altera comportamento.
 4. **Paleta e design:** segue `identidade-visual` (cores no papel certo) e
