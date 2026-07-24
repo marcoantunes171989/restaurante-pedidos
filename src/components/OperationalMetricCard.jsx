@@ -11,8 +11,8 @@
 //  pedidos: recebido/em preparo/pronto") — por isso só "Novos pedidos"
 //  (recebido), "Em preparo" e "Prontos" usam essas cores; contadores que
 //  não são uma etapa do pipeline (mesas, contas) ficam neutros, e as 3
-//  métricas financeiras usam a variante "financial" (dourado, reservado
-//  pelo token --pp-brand a "identidade/destaque", nunca status).
+//  métricas financeiras usam a variante "financial" (azul petróleo da paleta
+//  oficial = gestão/dados; substitui o dourado antigo, fora da paleta).
 import { Loader2 } from "lucide-react";
 
 const VARIANTS = {
@@ -41,14 +41,15 @@ const VARIANTS = {
     iconColor: "text-[var(--pp-warning-text)]",
     ring: "",
   },
-  // Fundo levemente aquecido (não --pp-warning-soft/âmbar — tom dourado
-  // próprio, calculado a partir de --pp-brand a ~6% para não repetir a
-  // cor de "em preparo") + linha superior dourada, conforme pedido.
+  // Financeiro = gestão/dados → AZUL PETRÓLEO (paleta oficial), no lugar do
+  // dourado antigo (fora da paleta). Chip petróleo + linha superior petróleo +
+  // fundo levemente esverdeado-petróleo (~4,5%). Verde segue reservado a
+  // "confirmação/pronto" (sem ambiguidade); petróleo dá o tom institucional.
   financial: {
-    iconBg: "bg-[var(--pp-brand)]",
+    iconBg: "bg-[var(--op-nav-accent)]",
     iconColor: "text-white",
-    ring: "border-t-2 border-t-[var(--pp-brand)]",
-    warmBg: "rgba(184, 135, 42, 0.05)",
+    ring: "border-t-2 border-t-[var(--op-nav-accent)]",
+    warmBg: "rgba(15, 76, 92, 0.045)",
   },
 };
 
