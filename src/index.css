@@ -253,6 +253,12 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
   --pp-primary-hover: #C63F1D;
   --pp-primary-soft: rgba(198, 63, 29, 0.07);
 
+  /* Navegação operacional — azul petróleo (paleta oficial: cor de
+     navegação/menus). Escopado à bottom nav do /operacional, não altera a
+     cor de ação (laranja --pp-primary) do restante das telas. */
+  --op-nav-accent: #0F4C5C;
+  --op-nav-accent-soft: rgba(15, 76, 92, 0.09);
+
   /* Estrutura — neutros com base quente (não cinza-azulado), para a
      fotografia/ilustração de comida render mais convidativa. */
   --pp-graphite: #2B2320;
