@@ -118,16 +118,16 @@ export default function OperationalCentral({ user = "Administrador", role = "Ace
                   key={m.id}
                   type="button"
                   onClick={() => onOpen?.(m.id)}
-                  className="group flex items-center gap-3 rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-surface)] p-4 text-left shadow-[0_1px_2px_rgba(43,35,32,0.04),0_2px_8px_rgba(43,35,32,0.05)] transition-all duration-200 hover:-translate-y-0.5 hover:border-[var(--pp-primary)]/30 hover:shadow-[0_4px_16px_rgba(43,35,32,0.09)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-primary)]"
+                  className="group flex items-center gap-3 rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-surface)] p-4 text-left shadow-[0_1px_2px_rgba(43,35,32,0.04),0_2px_8px_rgba(43,35,32,0.05)] transition-all duration-200 hover:-translate-y-0.5 hover:border-[var(--op-nav-accent)]/30 hover:shadow-[0_4px_16px_rgba(43,35,32,0.09)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--op-nav-accent)]"
                 >
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--pp-primary-soft)]">
-                    {m.icon && <m.icon aria-hidden="true" size={20} className="text-[var(--pp-primary-text)]" strokeWidth={2} />}
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--op-nav-accent-soft)]">
+                    {m.icon && <m.icon aria-hidden="true" size={20} className="text-[var(--op-nav-accent)]" strokeWidth={2} />}
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="flex items-center gap-1.5">
                       <span className="font-bold text-[var(--pp-text)]">{m.label}</span>
                       {typeof m.count === "number" && m.count > 0 && (
-                        <span className="rounded-full bg-[var(--pp-primary)] px-1.5 py-0.5 text-[10px] font-black text-white">{m.count}</span>
+                        <span className="rounded-full bg-[var(--op-nav-accent)] px-1.5 py-0.5 text-[10px] font-black text-white">{m.count}</span>
                       )}
                     </span>
                     {m.desc && <span className="mt-0.5 block truncate text-xs text-[var(--pp-text-muted)]">{m.desc}</span>}
