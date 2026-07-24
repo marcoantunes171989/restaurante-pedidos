@@ -2637,6 +2637,7 @@ function TabletView({
 // ════════════════════════════════════════════════════════════
 const pmIconBase = { width: 20, height: 20, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true };
 const PmIconVoltar   = () => (<svg {...pmIconBase}><path d="M19 12H5" /><path d="m11 18-6-6 6-6" /></svg>);
+const PmIconRelogio  = (p) => (<svg {...pmIconBase} width={13} height={13} {...p}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>);
 const PmIconCoracao  = ({ preenchido }) => (<svg {...pmIconBase} fill={preenchido ? "currentColor" : "none"}><path d="M12 20.5s-7.5-4.6-10-9.3C.4 7.8 2 4.5 5.4 4A5 5 0 0 1 12 7a5 5 0 0 1 6.6-3c3.4.5 5 3.8 3.4 7.2-2.5 4.7-10 9.3-10 9.3Z" /></svg>);
 const PmIconCheck    = (p) => (<svg {...pmIconBase} width={14} height={14} strokeWidth={3} {...p}><path d="M20 6 9 17l-5-5" /></svg>);
 const PmIconX        = (p) => (<svg {...pmIconBase} width={12} height={12} strokeWidth={3} {...p}><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>);
@@ -2651,8 +2652,8 @@ const PmIconAlerta   = () => (<svg {...pmIconBase} width={15} height={15} stroke
 // variável de cor (preenchimento sólido, padrão das telas administrativas);
 // aqui o requisito é fundo suave + borda cheia na cor principal + ícone
 // condicional — por isso um componente local pequeno, com os MESMOS estados
-// (padrão/hover/foco/selecionado/desabilitado) e a MESMA cor azul oficial
-// (var(--color-primary), definida em src/index.css) em vez de um hex novo.
+// (padrão/hover/foco/selecionado/desabilitado) e a MESMA cor de seleção
+// oficial (laranja, var(--client-primary) em src/index.css) em vez de um hex novo.
 function ChipSelecao({ selecionado, disabled = false, onClick, texto, detalhe, icone = "check" }) {
   return (
     <button type="button" onClick={onClick} disabled={disabled} aria-pressed={selecionado}
@@ -2871,8 +2872,10 @@ export function ProdutoModal({ produto, onFechar, onAdicionar, grupos = [], opco
         <div className="flex min-h-0 flex-1 flex-col">
           {/* Transição elegante da imagem pro conteúdo + informações do produto */}
           <div className="shrink-0 px-5 pt-4 lg:pt-5">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--client-text-secondary)]">
-              {[produto.category, produto.time && `⏱ ${produto.time}`].filter(Boolean).join("  •  ")}
+            <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--client-text-secondary)]">
+              {produto.category && <span>{produto.category}</span>}
+              {produto.category && produto.time && <span aria-hidden="true" className="text-[var(--client-text-muted)]">•</span>}
+              {produto.time && <span className="inline-flex items-center gap-1"><PmIconRelogio aria-hidden="true" /> {produto.time}</span>}
             </p>
             <h2 id="pm-titulo" className="mt-1.5 text-[22px] font-bold leading-tight tracking-tight text-[var(--client-text-primary)]">{produto.name}</h2>
             <p className="mt-1 text-lg font-bold text-[var(--client-text-primary)]">{formatCurrency(produto.price)}</p>
@@ -2881,7 +2884,7 @@ export function ProdutoModal({ produto, onFechar, onAdicionar, grupos = [], opco
 
           {/* Corpo rolável — personalização + observação */}
           <div className="mt-4 min-h-0 flex-1 overflow-y-auto px-5 pb-4 space-y-6">
-            {!semPersonalizacao && <p className="text-[11px] font-bold uppercase tracking-widest text-[var(--client-text-muted)]">Personalize seu pedido</p>}
+            {!semPersonalizacao && <p className="text-[11px] font-bold uppercase tracking-widest text-[var(--client-text-secondary)]">Personalize seu pedido</p>}
 
             {/* Grupos de variações/adicionais estruturados (migration 040) */}
             {gruposProduto.map((g) => {
