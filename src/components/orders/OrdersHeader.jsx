@@ -22,7 +22,7 @@ export default function OrdersHeader({ titulo = "Pedidos", usuarioNome = "", loj
       initial={reduzMovimento ? false : { opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}
       className="relative overflow-hidden rounded-[20px] border border-[var(--pp-border)] bg-[var(--pp-surface)] p-5 shadow-[0_1px_2px_rgba(43,35,32,0.04),0_4px_16px_rgba(43,35,32,0.05)] md:p-6"
     >
-      <span aria-hidden="true" className="absolute inset-x-0 top-0 h-1 bg-[var(--pp-primary)]" />
+      <span aria-hidden="true" className="absolute inset-x-0 top-0 h-1 bg-[var(--op-nav-accent)]" />
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex min-w-0 items-center gap-3">
@@ -41,7 +41,7 @@ export default function OrdersHeader({ titulo = "Pedidos", usuarioNome = "", loj
             </div>
             <h1 className="text-2xl font-black leading-tight tracking-tight text-[var(--pp-text)] md:text-[28px]">{titulo}</h1>
             <p className="mt-0.5 truncate text-sm text-[var(--pp-text-body)]">
-              {lojaInfo?.nome || "Operação da loja"} · {usuarioNome || "Operador"}{nivelAcesso ? <> · <span className="font-semibold text-[var(--pp-brand-text)]">{nivelAcesso}</span></> : ""}
+              {lojaInfo?.nome || "Operação da loja"} · {usuarioNome || "Operador"}{nivelAcesso ? <> · <span className="font-semibold text-[var(--op-nav-accent)]">{nivelAcesso}</span></> : ""}
             </p>
           </div>
         </div>
