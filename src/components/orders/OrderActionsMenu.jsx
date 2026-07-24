@@ -216,7 +216,7 @@ export default function OrderActionsMenu({
         className={`flex shrink-0 items-center justify-center rounded-xl border transition-colors duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-primary)] ${
           compact ? "min-h-[36px] min-w-[36px]" : "min-h-[44px] min-w-[44px]"
         } ${
-          aberto ? "border-[var(--pp-primary)] bg-[var(--pp-primary-soft)] text-[var(--pp-primary)]" : "border-[var(--pp-border)] bg-[var(--pp-surface)] text-[var(--pp-text-muted)] hover:bg-[var(--pp-bg)] hover:text-[var(--pp-text)]"
+          aberto ? "border-[var(--pp-primary)] bg-[var(--pp-primary-soft)] text-[var(--pp-primary-text)]" : "border-[var(--pp-border)] bg-[var(--pp-surface)] text-[var(--pp-text-muted)] hover:bg-[var(--pp-bg)] hover:text-[var(--pp-text)]"
         }`}
       >
         <MoreVertical aria-hidden="true" size={compact ? 16 : 18} />

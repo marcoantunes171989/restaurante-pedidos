@@ -249,9 +249,12 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
      escuro só para o estado base. --pp-primary (mais claro) fica para
      hover/ícones/bordas, onde 4.0:1 já é suficiente (texto grande,
      bold ≥18px, ou uso não-textual). */
-  --pp-primary: #D9542E;
-  --pp-primary-hover: #C63F1D;
-  --pp-primary-soft: rgba(198, 63, 29, 0.07);
+  /* Laranja de AÇÃO = laranja oficial da paleta (#E67E22), igual ao Login.
+     Substitui a terracota antiga (#D9542E), alinhando toda a cor de ação do
+     app à identidade. Textos/ícones usam --pp-primary-text (escuro, AA). */
+  --pp-primary: #E67E22;
+  --pp-primary-hover: #D06E1A;
+  --pp-primary-soft: rgba(230, 126, 34, 0.08);
 
   /* Chrome do /operacional (navegação + header) — azul petróleo (paleta
      oficial: cor de navegação/menus/barras). Não altera a cor de ação
@@ -296,7 +299,7 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
      rótulo) em vez de preenchimento sólido. --pp-primary-hover e
      --pp-danger já passam AA nativamente como preenchimento e não
      precisam de variante própria. */
-  --pp-primary-text: #C63F1D;  /* = --pp-primary-hover, 5.08:1 */
+  --pp-primary-text: #A6540E;  /* laranja escuro p/ texto/ícone — 5.4:1 (AA) */
   --pp-brand-text: #6B5015;    /* 6.1:1 */
   --pp-warning-text: #B45309;  /* 5.02:1 */
   --pp-success-text: #1F7A3D;  /* 5.4:1 */

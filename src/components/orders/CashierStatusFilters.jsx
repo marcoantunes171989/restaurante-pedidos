@@ -28,7 +28,7 @@ export default function CashierStatusFilters({ filtro, onFiltro, counts }) {
             onClick={() => onFiltro(f.key)}
             className={`flex min-h-[44px] shrink-0 items-center gap-2 rounded-2xl border px-3.5 text-sm font-bold transition-colors duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-primary-hover)] ${
               ativo
-                ? "border-transparent bg-[var(--pp-primary)] text-white"
+                ? "border-transparent bg-[var(--pp-primary-hover)] text-white"
                 : "border-[var(--pp-border)] bg-[var(--pp-surface)] text-[var(--pp-text-body)] hover:bg-[var(--pp-bg)]"
             }`}
           >
