@@ -3,10 +3,17 @@ import { createClient } from '@supabase/supabase-js'
 // Fallback embutido — garante que o app NUNCA fique em tela branca por env var ausente.
 // Em produção o ideal é vir do ambiente (VITE_SUPABASE_*), mas se faltar, usa estes valores.
 const FALLBACK_URL = 'https://rwnzggjxhxnfrhstbxkm.supabase.co'
-const FALLBACK_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ3bnpnZ2p4aHhuZnJoc3RieGttIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxNjk2MjUsImV4cCI6MjA5NTc0NTYyNX0.hkCTJF65URa5zN8TBfV72vLJzj71Ie8jmKLRi4_bzfM'
+// Publishable key (nova geração, prefixo `sb_`). Substitui a antiga anon JWT (HS256),
+// que deixou de ser aceita após a rotação do JWT signing key do projeto (Legacy
+// HS256 → ECC). Publishable keys são públicas por design e sobrevivem à rotação.
+const FALLBACK_KEY = 'sb_publishable_d7rhTgmb-hBruvWSw_SmKg_-dJQyDw0'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || FALLBACK_URL
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || FALLBACK_KEY
+// Prioriza a env var SOMENTE se já for uma publishable key (`sb_...`). Assim, uma
+// chave anon legada/inválida ainda configurada na Vercel é ignorada em favor da
+// publishable correta acima — o deploy conserta produção sem ajuste manual da env.
+const envKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+const supabaseKey = (envKey && envKey.startsWith('sb_')) ? envKey : FALLBACK_KEY
 
 export const supabase = createClient(supabaseUrl, supabaseKey)
 
