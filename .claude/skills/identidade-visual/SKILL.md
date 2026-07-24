@@ -33,7 +33,7 @@ Sempre que desenhar algo, pergunte: "isto passa confiança, praticidade e efici�
 ## USO DAS CORES — onde aplicar cada cor
 - 🟧 **Laranja `#E67E22`** → **Ações principais**: botões primários, CTAs, links de destaque, item/aba ativa, ícones de ação.
 - 🔵 **Azul petróleo `#0F4C5C`** → **Barras, menus e elementos de navegação**: header, sidebar/menu lateral, abas, rodapé, blocos institucionais.
-- 🟩 **Verde `#5E8C31`** → **Confirmações, status positivos e destaques**: sucesso, "pago/entregue/pronto/fresco", badges e selos positivos.
+- 🟩 **Verde `#5E8C31`** → **Confirmações, status positivos e destaques**: sucesso, "pago/entregue/pronto/fresco", badges e selos positivos. **Também é a cor de OFERTA/ECONOMIA** (promoção, desconto, combo, "-%", "Economize R$ X"): o verde comunica "vantagem" e — por não ser o laranja — faz a oferta CONTRASTAR com os CTAs em vez de se confundir com eles. No módulo cliente isso é o token `--client-offer` (mesmo `#5E8C31`). Nunca use dourado (legado, fora da paleta) para oferta.
 - ⬜ **Off-white `#F8F6F2`** (+ **branco** em cards) → **Fundos e superfícies neutras**.
 - ▫️ **Cinza claro `#E6E6E6`** → **apoio**: bordas, divisórias, superfícies sutis, estado desabilitado.
 - ⬛ **Grafite `#2D3436`** → **Textos e ícones** (títulos, corpo, ícones neutros).

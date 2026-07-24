@@ -2409,7 +2409,7 @@ function TabletView({
             {/* Faixa de ofertas vigentes (promoções) */}
             {promosTabletVigentes.length > 0 && (
               <div className="mb-5">
-                <p className="mb-2 flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-[var(--client-gold-hover)]"><Tag aria-hidden="true" size={13} /> Ofertas de hoje</p>
+                <p className="mb-2 flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-[var(--client-offer-hover)]"><Tag aria-hidden="true" size={13} /> Ofertas de hoje</p>
                 <div className="-mx-1 flex gap-2.5 overflow-x-auto px-1 pb-1">
                   {promosTabletVigentes.map((p) => {
                     const ehCombo = p.tipo === "combo";
@@ -2417,11 +2417,11 @@ function TabletView({
                     const IconeOferta = ehCombo ? Gift : p.tipo === "horario" ? Clock : p.tipo === "destaque" ? Star : p.tipo === "valor" ? Wallet : Tag;
                     return (
                       <button key={p.id} type="button" onClick={() => clicarOfertaT(p)}
-                        className={`group flex min-w-[210px] shrink-0 items-center gap-3 rounded-2xl border px-3.5 py-3 text-left transition active:scale-[0.97] ${ehCombo ? "border-[var(--client-success-border)] bg-[var(--client-success-soft)] hover:brightness-95" : "border-[var(--client-gold-border)] bg-[var(--client-gold-soft)] hover:brightness-95"}`}>
-                        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${ehCombo ? "bg-[var(--client-success)]/15 text-[var(--client-success)]" : "bg-[var(--client-gold)]/15 text-[var(--client-gold-hover)]"}`}><IconeOferta aria-hidden="true" size={18} /></span>
+                        className="group flex min-w-[210px] shrink-0 items-center gap-3 rounded-2xl border border-[var(--client-offer-border)] bg-[var(--client-offer-soft)] px-3.5 py-3 text-left transition active:scale-[0.97] hover:brightness-95">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--client-offer)] text-white"><IconeOferta aria-hidden="true" size={18} /></span>
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-black text-[var(--client-text-primary)]">{p.nome}</p>
-                          <p className={`truncate text-xs font-black ${ehCombo ? "text-[var(--client-success)]" : "text-[var(--client-gold-hover)]"}`}>{promoResumoDesconto(p)}</p>
+                          <p className="truncate text-xs font-black text-[var(--client-offer-hover)]">{promoResumoDesconto(p)}</p>
                           {val && <p className="truncate text-[10px] font-bold text-[var(--client-text-muted)]">{val}</p>}
                         </div>
                         <ChevronRight aria-hidden="true" size={16} className="shrink-0 text-[var(--client-text-muted)] transition group-hover:translate-x-0.5" />
@@ -2435,19 +2435,19 @@ function TabletView({
             {combosTablet.length > 0 && (
               <div ref={combosRefTablet} className="mb-5 grid gap-3 scroll-mt-4 sm:grid-cols-2 lg:grid-cols-3">
                 {combosTablet.map((c) => (
-                  <div key={c.promo.id} className="flex flex-col rounded-2xl border border-[var(--client-success-border)] bg-[var(--client-success-soft)] p-4">
+                  <div key={c.promo.id} className="flex flex-col rounded-2xl border border-[var(--client-offer-border)] bg-[var(--client-offer-soft)] p-4">
                     <div className="flex items-center gap-2">
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--client-success)]/15 text-[var(--client-success)]"><Gift aria-hidden="true" size={17} /></span>
-                      <div className="min-w-0"><p className="truncate text-sm font-black text-[var(--client-text-primary)]">{c.promo.nome}</p><p className="text-[11px] font-bold uppercase tracking-widest text-[var(--client-success)]">Combo</p></div>
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--client-offer)] text-white"><Gift aria-hidden="true" size={17} /></span>
+                      <div className="min-w-0"><p className="truncate text-sm font-black text-[var(--client-text-primary)]">{c.promo.nome}</p><p className="text-[11px] font-bold uppercase tracking-widest text-[var(--client-offer-hover)]">Combo</p></div>
                     </div>
                     <p className="mt-2 text-xs text-[var(--client-text-secondary)]">{c.itens.map((it) => it.name).join(" + ")}</p>
                     <div className="mt-2 flex items-end justify-between">
                       <div className="leading-none">
                         {c.precoCombo < c.somaOriginal && <p className="text-[11px] font-bold text-[var(--client-text-muted)] line-through">{formatCurrency(c.somaOriginal)}</p>}
-                        <p className="text-lg font-black text-[var(--client-success)]">{formatCurrency(c.precoCombo)}</p>
+                        <p className="text-lg font-black text-[var(--client-offer-hover)]">{formatCurrency(c.precoCombo)}</p>
                       </div>
                     </div>
-                    <button type="button" onClick={() => onAdicionarCombo(c)} className="mt-3 flex h-11 w-full items-center justify-center rounded-xl bg-[var(--client-success)] text-sm font-black text-white transition active:scale-95 hover:brightness-95">Adicionar combo</button>
+                    <button type="button" onClick={() => onAdicionarCombo(c)} className="mt-3 flex h-11 w-full items-center justify-center rounded-xl bg-[var(--client-offer-hover)] text-sm font-black text-white transition active:scale-95 hover:brightness-95">Adicionar combo</button>
                   </div>
                 ))}
               </div>
@@ -2860,7 +2860,7 @@ export function ProdutoModal({ produto, onFechar, onAdicionar, grupos = [], opco
             </button>
           </div>
           {produto.badge && (
-            <span className="absolute left-4 bottom-4 rounded-md bg-[var(--client-gold)] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white shadow-lg">{produto.badge}</span>
+            <span className="absolute left-4 bottom-4 rounded-md bg-[var(--client-offer-hover)] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white shadow-lg">{produto.badge}</span>
           )}
           {indisponivel && (
             <span className="absolute right-4 bottom-4 rounded-full border border-white/50 bg-[rgba(33,24,20,.7)] px-3 py-1 text-[11px] font-bold text-white backdrop-blur-sm">Indisponível no momento</span>
@@ -2964,11 +2964,11 @@ export function ProdutoModal({ produto, onFechar, onAdicionar, grupos = [], opco
                   <PmIconMais />
                 </button>
               </div>
-              {/* Botão adicionar — terracota (ação principal), com estados idle/enviando/sucesso/erro/desabilitado */}
+              {/* Botão adicionar — laranja (ação principal), com estados idle/enviando/sucesso/erro/desabilitado */}
               <button type="button" onClick={confirmar} disabled={!podeAdicionar || statusEnvio === "enviando"}
                 className={`flex min-h-[44px] flex-1 items-center justify-between gap-1.5 rounded-2xl px-3.5 py-3.5 text-[13px] sm:text-sm font-bold text-white transition-all duration-150 active:scale-[0.98] disabled:cursor-not-allowed ${
                   statusEnvio === "erro" ? "bg-[var(--client-error)]" : "bg-[var(--client-primary-hover)] hover:bg-[var(--client-primary)]"
-                } disabled:opacity-50 shadow-lg shadow-[var(--client-primary)]/20`}>
+                } disabled:opacity-50 shadow-lg shadow-[#E67E22]/20`}>
                 <span className="flex min-w-0 items-center gap-1.5 truncate">
                   {statusEnvio === "enviando" && <PmIconSpinner />}
                   {statusEnvio === "sucesso" && <PmIconCheck width={16} height={16} />}

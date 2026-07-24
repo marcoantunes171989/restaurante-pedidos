@@ -31,10 +31,10 @@ export default function TabletProductCard({ item, promo, etiqueta, noCarrinho, i
         <img src={item.imageUrl || fallbackImage} alt={item.name} loading="lazy" decoding="async"
           className={`h-full min-h-[128px] w-full object-cover transition-transform duration-200 group-hover:scale-105 ${indisponivel ? "opacity-50 grayscale" : ""}`} />
         {etiqueta && !indisponivel && (
-          <span className="absolute left-1.5 top-1.5 rounded-full bg-[var(--client-gold-soft)] px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-[var(--client-gold-hover)] shadow-sm sm:left-2 sm:top-2">{etiqueta}</span>
+          <span className="absolute left-1.5 top-1.5 rounded-full bg-[var(--client-offer-soft)] px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-[var(--client-offer-hover)] shadow-sm sm:left-2 sm:top-2">{etiqueta}</span>
         )}
         {promo && !indisponivel && (
-          <span className="absolute bottom-1.5 left-1.5 rounded-full bg-[var(--client-gold)] px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-white shadow-sm sm:bottom-2 sm:left-2">{promo.label}</span>
+          <span className="absolute bottom-1.5 left-1.5 rounded-full bg-[var(--client-offer-hover)] px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-white shadow-sm sm:bottom-2 sm:left-2">{promo.label}</span>
         )}
         {indisponivel && (
           <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-[var(--client-border)] bg-[var(--client-surface)] px-2.5 py-1 text-center text-[9px] font-black uppercase tracking-wider text-[var(--client-text-muted)]">Indisponível</span>
@@ -58,10 +58,13 @@ export default function TabletProductCard({ item, promo, etiqueta, noCarrinho, i
               <div className="flex items-center gap-1.5">
                 <span className="text-[11px] font-semibold text-[var(--client-text-muted)] line-through">{formatCurrency(promo.original)}</span>
                 {percentualValido && (
-                  <span className="rounded-full bg-[var(--client-gold-soft)] px-1.5 py-0.5 text-[9px] font-black leading-none text-[var(--client-gold-hover)]">{percentualOff}% OFF</span>
+                  <span className="rounded-full bg-[var(--client-offer-soft)] px-1.5 py-0.5 text-[9px] font-black leading-none text-[var(--client-offer-hover)]">{percentualOff}% OFF</span>
                 )}
               </div>
-              <p className="text-xl font-black leading-tight text-[var(--client-gold-hover)]">{formatCurrency(promo.preco)}</p>
+              <p className="text-xl font-black leading-tight text-[var(--client-offer-hover)]">{formatCurrency(promo.preco)}</p>
+              {promo.original > promo.preco && (
+                <span className="mt-1 inline-flex w-max items-center rounded-md bg-[var(--client-offer-soft)] px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-[var(--client-offer-hover)]">Economize {formatCurrency(promo.original - promo.preco)}</span>
+              )}
             </div>
           ) : (
             <p className="text-xl font-black leading-tight text-[var(--client-text-primary)]">{formatCurrency(item.price)}</p>

@@ -737,7 +737,7 @@ export default function CardapioPublico() {
     const abrir = () => setDetalhe(promo ? { ...item, price: promo.preco, precoOriginal: promo.original, economiaUnit: promo.original - promo.preco } : item);
     const destaque = promo || (item.isFeatured && !indisponivel);
     return (
-      <article key={item.id} className={`flex h-full flex-col rounded-[1.25rem] border bg-[var(--client-surface)] shadow-[var(--client-shadow-sm)] ${destaque ? "border-[var(--client-gold-border)]" : "border-[var(--client-border)]"}`}>
+      <article key={item.id} className={`flex h-full flex-col rounded-[1.25rem] border bg-[var(--client-surface)] shadow-[var(--client-shadow-sm)] ${destaque ? "border-[var(--client-offer-border)]" : "border-[var(--client-border)]"}`}>
         {/* Bloco imagem+nome+descrição = um único alvo de toque que abre a
             personalização (antes só a imagem abria; tocar no nome não fazia
             nada — atrito para explorar o produto). O "+" abaixo continua sendo
@@ -756,7 +756,7 @@ export default function CardapioPublico() {
                 <CkIconAjustes width={14} height={14} strokeWidth={2.2} />
               </span>
             )}
-            {promo && !indisponivel && <span className="absolute right-1.5 top-1.5 rounded-full bg-[var(--client-gold)] px-1.5 py-0.5 text-[9px] font-black text-white shadow-[var(--client-shadow-sm)]">{promo.label}</span>}
+            {promo && !indisponivel && <span className="absolute right-1.5 top-1.5 rounded-full bg-[var(--client-offer-hover)] px-1.5 py-0.5 text-[9px] font-black text-white shadow-[var(--client-shadow-sm)]">{promo.label}</span>}
             {indisponivel && <span className="absolute left-1/2 top-1/2 w-max -translate-x-1/2 -translate-y-1/2 rounded-full border border-[var(--client-border)] bg-white/90 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-[var(--client-text-secondary)]">Indisponível</span>}
           </div>
           <div className="min-w-0 flex-1">
@@ -766,7 +766,11 @@ export default function CardapioPublico() {
         </button>
         <div className="mt-auto flex items-center justify-between px-3 pb-3">
           {promo
-            ? <span className="flex flex-col leading-none"><span className="text-[11px] font-bold text-[var(--client-text-muted)] line-through">{formatCurrency(promo.original)}</span><span className="text-lg font-black text-[var(--client-gold-hover)]">{formatCurrency(promo.preco)}</span></span>
+            ? <span className="flex flex-col gap-0.5 leading-none">
+                <span className="text-[11px] font-bold text-[var(--client-text-muted)] line-through">{formatCurrency(promo.original)}</span>
+                <span className="text-lg font-black text-[var(--client-offer-hover)]">{formatCurrency(promo.preco)}</span>
+                <span className="mt-0.5 inline-flex w-max items-center rounded-md bg-[var(--client-offer-soft)] px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-[var(--client-offer-hover)]">Economize {formatCurrency(promo.original - promo.preco)}</span>
+              </span>
             : <span className="text-lg font-black text-[var(--client-text-primary)]">{formatCurrency(item.price)}</span>}
           {indisponivel
             ? <span className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--client-border)] bg-[var(--client-surface-secondary)] text-[var(--client-text-muted)]">✕</span>
@@ -1250,18 +1254,18 @@ export default function CardapioPublico() {
         {/* Ofertas vigentes */}
         {promosVigentes.length > 0 && (
           <div className="mb-4">
-            <p className="mb-2 flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-[var(--client-gold-hover)]">🔥 Ofertas de hoje</p>
+            <p className="mb-2 flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-[var(--client-offer-hover)]">🔥 Ofertas de hoje</p>
             <div className="-mx-1 flex gap-2.5 overflow-x-auto px-1 pb-1">
               {promosVigentes.map((p) => {
                 const ehCombo = p.tipo === "combo";
                 const val = validadeOferta(p);
                 return (
                   <button key={p.id} type="button" onClick={() => clicarOferta(p)}
-                    className="group flex min-w-[200px] shrink-0 items-center gap-3 rounded-2xl border border-[var(--client-gold-border)] bg-[var(--client-gold-soft)] px-3.5 py-3 text-left shadow-[var(--client-shadow-sm)] transition active:scale-[0.97]">
+                    className="group flex min-w-[200px] shrink-0 items-center gap-3 rounded-2xl border border-[var(--client-offer-border)] bg-[var(--client-offer-soft)] px-3.5 py-3 text-left shadow-[var(--client-shadow-sm)] transition active:scale-[0.97]">
                     <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-lg">{iconeOferta(p)}</span>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-black text-[var(--client-text-primary)]">{p.nome}</p>
-                      <p className="truncate text-xs font-black text-[var(--client-gold-hover)]">{promoResumoDesconto(p)}{ehCombo ? " · combo" : ""}</p>
+                      <p className="truncate text-xs font-black text-[var(--client-offer-hover)]">{promoResumoDesconto(p)}{ehCombo ? " · combo" : ""}</p>
                       {val && <p className="truncate text-[10px] font-bold text-[var(--client-text-secondary)]">📅 {val}</p>}
                     </div>
                     <span className="shrink-0 text-[var(--client-text-muted)] transition group-hover:translate-x-0.5">›</span>
@@ -1276,10 +1280,10 @@ export default function CardapioPublico() {
         {combosVigentes.length > 0 && (
           <div ref={combosRef} className="mb-4 space-y-2 scroll-mt-28">
             {combosVigentes.map((c) => (
-              <div key={c.promo.id} className="rounded-2xl border border-[var(--client-gold-border)] bg-[var(--client-gold-soft)] p-3.5">
+              <div key={c.promo.id} className="rounded-2xl border border-[var(--client-offer-border)] bg-[var(--client-offer-soft)] p-3.5">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="flex items-center gap-1.5 text-sm font-black text-[var(--client-text-primary)]">🍔 {c.promo.nome} <span className="rounded-full bg-[var(--client-gold)] px-1.5 py-0.5 text-[9px] font-black text-white">COMBO</span></p>
+                    <p className="flex items-center gap-1.5 text-sm font-black text-[var(--client-text-primary)]">🍔 {c.promo.nome} <span className="rounded-full bg-[var(--client-offer-hover)] px-1.5 py-0.5 text-[9px] font-black text-white">COMBO</span></p>
                     {c.promo.descricao && <p className="mt-0.5 text-[11px] text-[var(--client-text-secondary)]">{c.promo.descricao}</p>}
                     <p className="mt-1 text-[11px] text-[var(--client-text-secondary)]">{c.itens.map((i) => i.name).join(" + ")}</p>
                   </div>
@@ -1288,7 +1292,7 @@ export default function CardapioPublico() {
                     <p className="text-lg font-black text-[var(--client-text-primary)]">{formatCurrency(c.precoCombo)}</p>
                   </div>
                 </div>
-                <button onClick={() => adicionarCombo(c)} className="mt-2.5 w-full min-h-[44px] rounded-xl bg-[var(--client-gold)] py-2.5 text-sm font-black text-white transition active:scale-95 hover:bg-[var(--client-gold-hover)]">+ Adicionar combo</button>
+                <button onClick={() => adicionarCombo(c)} className="mt-2.5 w-full min-h-[44px] rounded-xl bg-[var(--client-offer-hover)] py-2.5 text-sm font-black text-white transition active:scale-95 hover:bg-[var(--client-offer)]">+ Adicionar combo</button>
               </div>
             ))}
           </div>
@@ -1382,7 +1386,7 @@ export default function CardapioPublico() {
           <div className="w-full max-w-sm rounded-3xl border border-[var(--client-border)] bg-[var(--client-surface)] p-5 text-center shadow-[var(--client-shadow-floating)]" onClick={(e) => e.stopPropagation()}>
             <p className="text-3xl">🍔</p>
             <p className="mt-2 text-base font-black text-[var(--client-text-primary)]">Sair do combo?</p>
-            <p className="mt-1 text-sm text-[var(--client-text-secondary)]">Ao remover <b className="text-[var(--client-text-primary)]">{comboRemover.name}</b>, o combo <b className="text-[var(--client-gold-hover)]">{comboRemover.comboNome}</b> será desfeito. Os demais itens deixam a regra do combo e <b className="text-[var(--client-text-primary)]">voltam ao preço normal</b>.</p>
+            <p className="mt-1 text-sm text-[var(--client-text-secondary)]">Ao remover <b className="text-[var(--client-text-primary)]">{comboRemover.name}</b>, o combo <b className="text-[var(--client-offer-hover)]">{comboRemover.comboNome}</b> será desfeito. Os demais itens deixam a regra do combo e <b className="text-[var(--client-text-primary)]">voltam ao preço normal</b>.</p>
             <div className="mt-4 flex gap-2">
               <button onClick={() => setComboRemover(null)} className="flex-1 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] py-3 text-sm font-black text-[var(--client-text-secondary)] hover:bg-[var(--client-surface-secondary)]">Manter combo</button>
               <button onClick={() => desfazerCombo(comboRemover)} className="flex-1 rounded-2xl bg-[var(--client-error)] py-3 text-sm font-black text-white hover:bg-[var(--client-error-hover)]">Remover assim mesmo</button>
@@ -1611,7 +1615,7 @@ export default function CardapioPublico() {
               </div>
 
               {economiaCart > 0 && (
-                <div className="mt-4 flex items-center justify-center gap-1.5 rounded-2xl border border-[var(--client-gold-border)] bg-[var(--client-gold-soft)] px-3 py-2 text-sm font-black text-[var(--client-gold-hover)]">
+                <div className="mt-4 flex items-center justify-center gap-1.5 rounded-2xl border border-[var(--client-offer-border)] bg-[var(--client-offer-soft)] px-3 py-2 text-sm font-black text-[var(--client-offer-hover)]">
                   <CkIconCheck width={16} height={16} /> Você economizou {formatCurrency(economiaCart)} nesta compra!
                 </div>
               )}
@@ -1621,7 +1625,7 @@ export default function CardapioPublico() {
                 {economiaCart > 0 && (
                   <>
                     <div className="flex items-center justify-between text-sm"><span className="text-[var(--client-text-secondary)]">Subtotal</span><span className="text-[var(--client-text-secondary)]">{formatCurrency(totalCart + economiaCart)}</span></div>
-                    <div className="flex items-center justify-between text-sm"><span className="text-[var(--client-text-secondary)]">Desconto</span><span className="font-bold text-[var(--client-gold-hover)]">-{formatCurrency(economiaCart)}</span></div>
+                    <div className="flex items-center justify-between text-sm"><span className="text-[var(--client-text-secondary)]">Desconto</span><span className="font-bold text-[var(--client-offer-hover)]">-{formatCurrency(economiaCart)}</span></div>
                   </>
                 )}
                 <div className="flex items-center justify-between"><span className="text-sm font-bold text-[var(--client-text-secondary)]">Total do pedido</span><span className="text-xl font-black text-[var(--client-text-primary)]">{formatCurrency(totalCart)}</span></div>
@@ -1943,12 +1947,12 @@ function EtapaProgresso({ etapas, atualIdx }) {
 function CardItemCarrinho({ item, onRemover }) {
   const personalizado = item.removedIngredients?.length > 0 || item.extraIngredients?.length > 0 || item.observation;
   return (
-    <div className={`flex items-start justify-between gap-3 rounded-2xl border bg-[var(--client-surface)] p-3.5 shadow-[var(--client-shadow-sm)] ${item.comboId ? "border-[var(--client-gold-border)]" : "border-[var(--client-border)]"}`}>
+    <div className={`flex items-start justify-between gap-3 rounded-2xl border bg-[var(--client-surface)] p-3.5 shadow-[var(--client-shadow-sm)] ${item.comboId ? "border-[var(--client-offer-border)]" : "border-[var(--client-border)]"}`}>
       <div className="min-w-0 flex-1">
         <p className="text-sm font-black leading-snug text-[var(--client-text-primary)]">
           <span className="text-[var(--client-text-secondary)]">{item.quantity}×</span> {item.name}
         </p>
-        {item.comboId && <p className="mt-0.5 truncate text-[11px] font-bold text-[var(--client-gold-hover)]">Combo: {item.comboNome}</p>}
+        {item.comboId && <p className="mt-0.5 truncate text-[11px] font-bold text-[var(--client-offer-hover)]">Combo: {item.comboNome}</p>}
         {personalizado && (
           <p className="mt-1 text-[11px] leading-4 text-[var(--client-text-secondary)]">
             {item.removedIngredients?.length > 0 && <>Sem: {item.removedIngredients.join(", ")}<br /></>}

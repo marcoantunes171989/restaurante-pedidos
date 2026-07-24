@@ -346,9 +346,11 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
      src/App.jsx. Mesma família visual do login (idênticos aliasados
      abaixo); os demais têm hex próprios definidos para esta tela.
      Regra semântica (não decorativa):
-       laranja = ação · dourado = promoção/economia real ·
-       azul = informação/andamento · verde = confirmação real ·
-       crimson = erro/cancelamento. Nunca intercambiáveis. */
+       laranja = ação · verde-oferta (--client-offer) = promoção/economia real ·
+       azul = informação/andamento · verde (--client-success) = confirmação real ·
+       crimson = erro/cancelamento. Nunca intercambiáveis. Obs.: são dois verdes
+       de papéis distintos — oferta/economia (paleta oficial #5E8C31) x status
+       concluído/pago (#17824B); aparecem em telas diferentes. */
   --client-background: #F8F5F1;
   --client-background-soft: #FCFAF8;
   --client-surface: #FFFDFC;
@@ -371,10 +373,15 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
   --client-primary-soft: #FCEFE1;
   --client-primary-border: #F0B589;
 
-  --client-gold: #A96F00;
-  --client-gold-hover: #895A00;
-  --client-gold-soft: #F8EED4;
-  --client-gold-border: #E7C66D;
+  /* Oferta/economia/combo = VERDE oficial da paleta (#5E8C31 = vantagem/economia).
+     Substitui o dourado legado (fora da paleta oficial). Em verde a oferta
+     contrasta com o laranja de ação (não se confunde com CTA) e comunica
+     "economia". Fills com texto branco e textos sobre claro usam o tom -hover
+     (mais escuro, legível AA); o base entra em acentos/ícones sobre soft. */
+  --client-offer: #5E8C31;
+  --client-offer-hover: #46691F;
+  --client-offer-soft: #EDF3E1;
+  --client-offer-border: #C3D9A2;
 
   --client-info: var(--pp-info);
   --client-info-hover: #234B86;
