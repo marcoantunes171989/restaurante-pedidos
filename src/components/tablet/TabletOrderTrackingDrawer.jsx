@@ -35,7 +35,7 @@ export default function TabletOrderTrackingDrawer({
             <p className="mt-0.5 text-xs text-[var(--client-text-muted)]">Acompanhe seus pedidos e o status de cada comanda</p>
           </div>
           <button type="button" onClick={onFechar} aria-label="Fechar"
-            className="shrink-0 rounded-full border border-[var(--client-border)] bg-[var(--client-background-soft)] px-3.5 py-2 text-xs font-black text-[var(--client-text-secondary)] transition hover:bg-[var(--client-border)]/40">
+            className="shrink-0 rounded-full border border-[var(--client-border)] bg-[var(--client-background-soft)] px-3.5 py-2 text-xs font-black text-[var(--client-text-secondary)] transition hover:bg-[var(--client-surface-secondary)]">
             <X aria-hidden="true" size={16} />
           </button>
         </div>
@@ -87,7 +87,7 @@ export default function TabletOrderTrackingDrawer({
             <div className="overflow-hidden rounded-2xl border border-[var(--client-error-border)] bg-[var(--client-error-soft)]">
               <div className="flex items-center justify-between border-b border-[var(--client-error-border)] px-4 py-3">
                 <span className="text-sm font-black text-[var(--client-error)]">Pedidos cancelados</span>
-                <span className="text-xs font-bold text-[var(--client-error)]/80">{currentTableCancelled.length} pedido(s)</span>
+                <span className="text-xs font-bold text-[var(--client-error)]">{currentTableCancelled.length} pedido(s)</span>
               </div>
               <div className="divide-y divide-[var(--client-error-border)]">
                 {currentTableCancelled.map((order) => (

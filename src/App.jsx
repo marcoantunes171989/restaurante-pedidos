@@ -2660,7 +2660,7 @@ function ChipSelecao({ selecionado, disabled = false, onClick, texto, detalhe, i
         disabled
           ? "cursor-not-allowed border-[var(--client-disabled-border)] bg-[var(--client-disabled-background)] text-[var(--client-disabled-text)]"
           : selecionado
-            ? "border-[var(--client-primary)] bg-[var(--client-primary-soft)] text-[var(--client-text-primary)] shadow-[0_1px_2px_rgba(217,71,34,.15)]"
+            ? "border-[var(--client-primary)] bg-[var(--client-primary-soft)] text-[var(--client-text-primary)] shadow-[0_1px_2px_rgba(230,126,34,.15)]"
             : "border-[var(--client-border)] bg-[var(--client-surface)] text-[var(--client-text-secondary)] hover:border-[var(--client-border-strong)] hover:bg-[var(--client-surface-secondary)]"
       }`}>
       <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors ${

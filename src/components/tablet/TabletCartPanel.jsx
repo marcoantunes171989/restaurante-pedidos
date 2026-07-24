@@ -66,7 +66,7 @@ export default function TabletCartPanel({
               className={`flex-1 rounded-xl border bg-[var(--client-background-soft)] px-3 py-2.5 font-mono text-sm text-[var(--client-text-primary)] outline-none transition cursor-default placeholder:text-[var(--client-text-muted)] ${comandaValida ? "border-[var(--client-success-border)]" : "border-[var(--client-border)]"}`} />
             <button type="button" onClick={onAbrirScanner} disabled={!podeEscanear}
               title={!podeEscanear ? "Informe a mesa e adicione itens" : "Escanear QR Code da comanda"}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[var(--client-primary-border)] bg-[var(--client-primary-soft)] text-[var(--client-primary-active)] transition hover:bg-[var(--client-primary-border)]/40 disabled:cursor-not-allowed disabled:opacity-40">
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[var(--client-primary-border)] bg-[var(--client-primary-soft)] text-[var(--client-primary-active)] transition hover:bg-[var(--client-primary-border)] disabled:cursor-not-allowed disabled:opacity-40">
               <QrCode aria-hidden="true" size={18} />
             </button>
           </div>

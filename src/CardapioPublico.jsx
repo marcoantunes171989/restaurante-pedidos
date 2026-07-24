@@ -1287,7 +1287,7 @@ export default function CardapioPublico() {
           {grupos.length === 0 && <p className="py-10 text-center text-sm text-[var(--client-text-secondary)]">Nenhum produto disponível.</p>}
           {grupos.map((g) => (
             <section key={g.id} ref={(el) => (secRefs.current[g.id] = el)} id={`cat-${g.id}`} data-cat-id={g.id} style={{ scrollMarginTop: headerH + catBarH + 8 }}>
-              <div className="sticky z-10 -mx-4 mb-3 mt-1 flex items-center gap-2 bg-[var(--client-background)]/95 px-4 py-1.5 backdrop-blur" style={{ top: headerH + catBarH }}>
+              <div className="sticky z-10 -mx-4 mb-3 mt-1 flex items-center gap-2 bg-[#F8F5F1]/95 px-4 py-1.5 backdrop-blur" style={{ top: headerH + catBarH }}>
                 <span className="h-4 w-1 rounded-full bg-[var(--client-primary-hover)]" />
                 <h2 className="text-sm font-black uppercase tracking-wide text-[var(--client-text-primary)]">{g.nome}</h2>
                 <span className="text-[11px] font-bold text-[var(--client-text-muted)]">{g.produtos.length} {g.produtos.length === 1 ? "item" : "itens"}</span>
@@ -1755,7 +1755,7 @@ export default function CardapioPublico() {
 function Centro({ children }) {
   return <div data-theme="light" className="tema-claro-area flex min-h-screen w-full max-w-[100vw] flex-col items-center justify-center overflow-x-hidden bg-[var(--client-background)] px-6 text-center text-[var(--client-text-primary)]" style={{ minHeight: "100dvh" }}>{children}</div>;
 }
-function Spinner() { return <div className="h-10 w-10 animate-spin rounded-full border-4 border-[var(--client-primary)]/25 border-t-[var(--client-primary)]" />; }
+function Spinner() { return <div className="h-10 w-10 animate-spin rounded-full border-4 border-[var(--client-primary-border)] border-t-[var(--client-primary)]" />; }
 
 // Skeleton do primeiro carregamento — repete o formato real (cabeçalho +
 // categorias + grade de cards) em vez de um spinner solto, pra reduzir a
@@ -1840,7 +1840,7 @@ function LinhaTempoOperacional({ status, setorStatus = {}, setoresPedido = [], m
         const atualInfo = p.atualTom === "info";
         return (
         <li key={p.key} aria-current={p.atual ? "step" : undefined} className="relative flex gap-3 pb-4 last:pb-0">
-          {i < passos.length - 1 && <span className={`absolute left-[13px] top-[26px] h-full w-px ${p.feito ? "bg-[var(--client-success)]/30" : "bg-[var(--client-border)]"}`} aria-hidden="true" />}
+          {i < passos.length - 1 && <span className={`absolute left-[13px] top-[26px] h-full w-px ${p.feito ? "bg-[var(--client-success-border)]" : "bg-[var(--client-border)]"}`} aria-hidden="true" />}
           <span className={`flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full ${
             p.feito ? "bg-[var(--client-success)] text-white"
               : p.atual ? (atualInfo ? "border-2 border-[var(--client-info)] bg-[var(--client-info-soft)] text-[var(--client-info)]" : "border-2 border-[var(--client-warning)] bg-[var(--client-warning-soft)] text-[var(--client-warning)]")
