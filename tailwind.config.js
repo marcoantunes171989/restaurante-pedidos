@@ -16,6 +16,26 @@ export default {
         data: ['"Space Grotesk"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
       },
       colors: {
+        // ── Paleta OFICIAL (ver .claude/skills/identidade-visual) — namespace
+        // `marca`. Fonte única das cores da marca; use estas classes em telas
+        // novas e ao migrar telas antigas. Papéis: laranja=ação/CTA ·
+        // petroleo=navegação/institucional · verde=confirmação · offwhite=fundo ·
+        // cinza=bordas/apoio · grafite=texto/ícones.
+        marca: {
+          laranja:      "#E67E22",
+          laranjaHover: "#D06E1A",
+          laranjaAtivo: "#B25E15",
+          laranjaSoft:  "#FCEFE1",
+          petroleo:     "#0F4C5C",
+          petroleoSoft: "#E5EDEF",
+          verde:        "#5E8C31",
+          verdeSoft:    "#EDF3E5",
+          offwhite:     "#F8F6F2",
+          branco:       "#FFFFFF",
+          cinza:        "#E6E6E6",
+          grafite:      "#2D3436",
+          grafiteSoft:  "#5F6B6E",
+        },
         // ── Novo sistema de marca (rebrand 2026) — namespace `brand`, isolado
         // das escalas legadas (gold/blue/admin) para não afetar telas ainda não
         // migradas. Vermelho-terra = ação/CTA; dourado passa a ser só destaque
