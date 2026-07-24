@@ -2824,8 +2824,8 @@ export function ProdutoModal({ produto, onFechar, onAdicionar, grupos = [], opco
     <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-[rgba(33,24,20,0.5)] backdrop-blur-sm p-0 sm:p-4"
       style={{ fontFamily: "'Inter','Poppins',sans-serif" }} onClick={onFechar}>
       <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="pm-titulo"
-        className="relative flex w-full max-w-[520px] lg:max-w-[900px] flex-col lg:flex-row overflow-hidden rounded-t-[28px] sm:rounded-[28px] border border-[var(--client-border)] bg-[var(--client-surface)] shadow-[var(--client-shadow-floating)] max-h-[92vh]"
-        style={{ width: "calc(100% - 24px)" }}>
+        className="relative flex w-full max-w-[520px] lg:max-w-[900px] flex-col lg:flex-row overflow-hidden rounded-t-[28px] sm:rounded-[28px] border border-[var(--client-border)] bg-[var(--client-surface)] shadow-[var(--client-shadow-floating)] max-h-[92dvh]"
+        style={{ width: "calc(100% - 32px)" }}>
 
         {/* Feedback discreto de favorito */}
         {toastFav && (
@@ -2853,7 +2853,7 @@ export function ProdutoModal({ produto, onFechar, onAdicionar, grupos = [], opco
             className={`h-full w-full object-contain p-4 lg:p-6 transition-opacity duration-300 motion-reduce:transition-none ${imgPronta ? "opacity-100" : "opacity-0"}`} />
           {/* Voltar / Favoritar — botões sólidos brancos (nítidos sobre o fundo
               neutro), 44x44px, respeitam a safe-area (notch). */}
-          <div className="absolute inset-x-4 flex items-center justify-between" style={{ top: "max(0.875rem, env(safe-area-inset-top))" }}>
+          <div className="absolute inset-x-4 flex items-center justify-between" style={{ top: "max(1rem, calc(env(safe-area-inset-top) + 0.5rem))" }}>
             <button onClick={onFechar} aria-label="Voltar"
               className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--client-border)] bg-[var(--client-surface)] text-[var(--client-text-primary)] shadow-[0_4px_14px_rgba(16,24,40,.12)] transition duration-200 hover:bg-[var(--client-surface-secondary)] active:scale-90">
               <PmIconVoltar />
