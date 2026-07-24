@@ -1,11 +1,10 @@
-import { motion, useReducedMotion } from "framer-motion";
 import {
-  LogOut, Clock, TrendingUp, Utensils, Bell, CheckCircle2, Hourglass, Receipt, Wallet,
+  Clock, TrendingUp, Utensils, Bell, CheckCircle2, Hourglass, Receipt, Wallet,
   CalendarCheck, ChevronRight,
 } from "lucide-react";
+import OperationalHeader from "../components/OperationalHeader";
 import OperationalBottomNav from "../components/OperationalBottomNav";
 import OperationalMetricCard from "../components/OperationalMetricCard";
-import { useOnline } from "../lib/useOnline";
 
 // Shape/placeholder — a tela real recebe `kpis` via props, vindos da API
 // (ver OperacaoMobileView em src/App.jsx). Este array só documenta o
@@ -28,8 +27,6 @@ const KPIS_FINANCEIRO = [
 ];
 
 export default function OperationalCentral({ user = "Administrador", role = "Acesso total", onOpen, onExit, active = "central", kpis = KPIS, kpisFinanceiro = KPIS_FINANCEIRO, modules = [], navItems = [] }) {
-  const online = useOnline();
-  const reduzMovimento = useReducedMotion();
 
   return (
     // paddingTop reserva a área do notch/status bar (env(safe-area-inset-top))
@@ -41,49 +38,20 @@ export default function OperationalCentral({ user = "Administrador", role = "Ace
     <div className="min-h-[100dvh] w-full pb-28" style={{ background: "var(--pp-bg)", paddingTop: "env(safe-area-inset-top)" }}>
       <div className="mx-auto max-w-[1400px] px-4 pb-6 pt-6 md:px-6 md:pt-10 lg:px-10">
 
-        {/* CABEÇALHO */}
-        <motion.header
-          initial={reduzMovimento ? false : { opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}
-          className="relative overflow-hidden rounded-[20px] border border-[var(--pp-border)] bg-[var(--pp-surface)] p-5 shadow-[0_1px_2px_rgba(43,35,32,0.04),0_4px_16px_rgba(43,35,32,0.05)] md:p-7"
-        >
-          {/* Faixa de detalhe azul petróleo — acento de identidade/navegação (paleta oficial), sem transformar o cabeçalho num bloco escuro */}
-          <span aria-hidden="true" className="absolute inset-x-0 top-0 h-1 bg-[var(--op-nav-accent)]" />
-
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div className="min-w-0">
-              <div
-                role="status"
-                className={`mb-2.5 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-bold ${
-                  online
-                    ? "border-[var(--pp-success)]/25 bg-[var(--pp-success-soft)] text-[var(--pp-success-text)]"
-                    : "border-[var(--pp-border)] bg-[var(--pp-bg)] text-[var(--pp-text-muted)]"
-                }`}
-              >
-                {online && (
-                  <span className="relative flex h-1.5 w-1.5" aria-hidden="true">
-                    {!reduzMovimento && <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--pp-success)] opacity-75" />}
-                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[var(--pp-success)]" />
-                  </span>
-                )}
-                {online ? "Operação em tempo real" : "Sem conexão"}
-              </div>
-              <h1 className="text-[26px] font-black leading-tight tracking-tight text-[var(--pp-text)] md:text-[32px]">Central Operacional</h1>
-              <p className="mt-1.5 flex flex-wrap items-center gap-x-1.5 text-sm text-[var(--pp-text-body)]">
-                <span className="font-semibold text-[var(--pp-text)]">{user}</span>
-                <span aria-hidden="true" className="text-[var(--pp-border)]">·</span>
-                <span className="font-semibold text-[var(--op-nav-accent)]">{role}</span>
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={onExit}
-              className="flex shrink-0 items-center gap-2 self-start rounded-xl border border-[var(--pp-border)] bg-[var(--pp-surface)] px-4 py-2.5 text-sm font-bold text-[var(--pp-text-body)] transition-colors duration-150 hover:border-[var(--pp-danger)]/30 hover:bg-[var(--pp-danger-soft)] hover:text-[var(--pp-danger)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-primary)]"
-            >
-              <LogOut aria-hidden="true" size={16} />
-              <span>Sair</span>
-            </button>
-          </div>
-        </motion.header>
+        {/* CABEÇALHO — componente unificado (ver src/components/OperationalHeader). */}
+        <OperationalHeader
+          titulo="Central Operacional"
+          statusLabelOnline="Operação em tempo real"
+          comLogo={false}
+          onFechar={onExit}
+          meta={
+            <p className="mt-1.5 flex flex-wrap items-center gap-x-1.5 text-sm text-[var(--pp-text-body)]">
+              <span className="font-semibold text-[var(--pp-text)]">{user}</span>
+              <span aria-hidden="true" className="text-[var(--pp-border)]">·</span>
+              <span className="font-semibold text-[var(--op-nav-accent)]">{role}</span>
+            </p>
+          }
+        />
 
         {/* RESUMO OPERACIONAL */}
         <section aria-label="Resumo operacional" className="mt-6">
