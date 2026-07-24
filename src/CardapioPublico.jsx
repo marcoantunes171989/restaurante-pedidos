@@ -713,7 +713,9 @@ export default function CardapioPublico() {
   const combosRef = useRef(null);
   const DIAS_CURTOS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
   const fmtHora = (h) => { if (!h) return ""; const hh = h.slice(0, 2), mm = h.slice(3, 5); return mm === "00" ? `${hh}h` : `${hh}h${mm}`; };
-  const iconeOferta = (p) => p.tipo === "combo" ? "🍔" : p.tipo === "horario" ? "⏰" : p.tipo === "destaque" ? "⭐" : p.tipo === "valor" ? "💰" : "🏷️";
+  // Ícone da oferta por tipo — SVG inline (não emoji: renderização consistente
+  // entre iOS/Android/Windows, mesmo icon-set do resto do app).
+  const iconeOferta = (p) => p.tipo === "combo" ? CkIconSacola : p.tipo === "horario" ? CkIconRelogio : p.tipo === "destaque" ? CkIconEstrela : p.tipo === "valor" ? CkIconCarteira : CkIconTag;
   const validadeOferta = (p) => {
     const partes = [];
     if (Array.isArray(p.diasSemana) && p.diasSemana.length > 0 && p.diasSemana.length < 7) partes.push(p.diasSemana.map((d) => DIAS_CURTOS[d]).join(", "));
@@ -729,12 +731,25 @@ export default function CardapioPublico() {
     // rola a tela sem atualizar catAtivaId.
     selecionarCategoria(grupoAlvo ? grupoAlvo.id : CATEGORIA_TODOS);
   };
+  // Favoritos do cliente (mesma chave/persistência do ProdutoModal). Recomputa
+  // quando o modal (detalhe) abre/fecha — assim o coração marcado lá reflete
+  // no card sem precisar recarregar. É o "payoff" do favoritar: o produto fica
+  // sinalizado na lista, em vez de o coração ser um beco sem saída.
+  const favSet = useMemo(() => {
+    try { return new Set(JSON.parse(localStorage.getItem(`pedidoPrime:favoritos:${loja.id || "geral"}`) || "[]")); }
+    catch { return new Set(); }
+  }, [loja.id, detalhe]);
   const renderProduto = (item) => {
     const indisponivel = item.disponivel === false;
     const personalizavel = (item.ingredients || []).length > 0;
     const promo = promoDoProduto(item);
+    const favorito = favSet.has(item.id);
+    // lojaId garante que a chave de favoritos do ProdutoModal case com a lida
+    // aqui (mesma loja) — o coração marcado no modal reflete no card.
     // Abre o modal com o produto já no preço promocional (carrinho/total refletem o desconto)
-    const abrir = () => setDetalhe(promo ? { ...item, price: promo.preco, precoOriginal: promo.original, economiaUnit: promo.original - promo.preco } : item);
+    const abrir = () => setDetalhe(promo
+      ? { ...item, lojaId: item.lojaId ?? loja.id, price: promo.preco, precoOriginal: promo.original, economiaUnit: promo.original - promo.preco }
+      : { ...item, lojaId: item.lojaId ?? loja.id });
     const destaque = promo || (item.isFeatured && !indisponivel);
     return (
       <article key={item.id} className={`flex h-full flex-col rounded-[1.25rem] border bg-[var(--client-surface)] shadow-[var(--client-shadow-sm)] ${destaque ? "border-[var(--client-offer-border)]" : "border-[var(--client-border)]"}`}>
@@ -758,6 +773,11 @@ export default function CardapioPublico() {
             )}
             {promo && !indisponivel && <span className="absolute right-1.5 top-1.5 rounded-full bg-[var(--client-offer-hover)] px-1.5 py-0.5 text-[9px] font-black text-white shadow-[var(--client-shadow-sm)]">{promo.label}</span>}
             {indisponivel && <span className="absolute left-1/2 top-1/2 w-max -translate-x-1/2 -translate-y-1/2 rounded-full border border-[var(--client-border)] bg-white/90 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-[var(--client-text-secondary)]">Indisponível</span>}
+            {favorito && !indisponivel && (
+              <span aria-label="Favorito" title="Favorito" className="absolute bottom-1.5 right-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-[var(--client-surface)] text-[var(--client-primary-hover)] shadow-[var(--client-shadow-sm)]">
+                <CkIconCoracao width={13} height={13} />
+              </span>
+            )}
           </div>
           <div className="min-w-0 flex-1">
             <h3 className="text-[15px] font-black leading-tight text-[var(--client-text-primary)] line-clamp-2">{item.name}</h3>
@@ -1254,7 +1274,7 @@ export default function CardapioPublico() {
         {/* Ofertas vigentes */}
         {promosVigentes.length > 0 && (
           <div className="mb-4">
-            <p className="mb-2 flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-[var(--client-offer-hover)]">🔥 Ofertas de hoje</p>
+            <p className="mb-2 flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-[var(--client-offer-hover)]"><CkIconTag width={13} height={13} /> Ofertas de hoje</p>
             <div className="-mx-1 flex gap-2.5 overflow-x-auto px-1 pb-1">
               {promosVigentes.map((p) => {
                 const ehCombo = p.tipo === "combo";
@@ -1262,11 +1282,11 @@ export default function CardapioPublico() {
                 return (
                   <button key={p.id} type="button" onClick={() => clicarOferta(p)}
                     className="group flex min-w-[200px] shrink-0 items-center gap-3 rounded-2xl border border-[var(--client-offer-border)] bg-[var(--client-offer-soft)] px-3.5 py-3 text-left shadow-[var(--client-shadow-sm)] transition active:scale-[0.97]">
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-lg">{iconeOferta(p)}</span>
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-[var(--client-offer-hover)]">{(() => { const Icone = iconeOferta(p); return <Icone width={17} height={17} />; })()}</span>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-black text-[var(--client-text-primary)]">{p.nome}</p>
                       <p className="truncate text-xs font-black text-[var(--client-offer-hover)]">{promoResumoDesconto(p)}{ehCombo ? " · combo" : ""}</p>
-                      {val && <p className="truncate text-[10px] font-bold text-[var(--client-text-secondary)]">📅 {val}</p>}
+                      {val && <p className="flex items-center gap-1 truncate text-[10px] font-bold text-[var(--client-text-secondary)]"><CkIconCalendario width={11} height={11} className="shrink-0" /> {val}</p>}
                     </div>
                     <span className="shrink-0 text-[var(--client-text-muted)] transition group-hover:translate-x-0.5">›</span>
                   </button>
@@ -1283,7 +1303,7 @@ export default function CardapioPublico() {
               <div key={c.promo.id} className="rounded-2xl border border-[var(--client-offer-border)] bg-[var(--client-offer-soft)] p-3.5">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="flex items-center gap-1.5 text-sm font-black text-[var(--client-text-primary)]">🍔 {c.promo.nome} <span className="rounded-full bg-[var(--client-offer-hover)] px-1.5 py-0.5 text-[9px] font-black text-white">COMBO</span></p>
+                    <p className="flex items-center gap-1.5 text-sm font-black text-[var(--client-text-primary)]"><CkIconSacola width={15} height={15} className="shrink-0 text-[var(--client-offer-hover)]" /> {c.promo.nome} <span className="rounded-full bg-[var(--client-offer-hover)] px-1.5 py-0.5 text-[9px] font-black text-white">COMBO</span></p>
                     {c.promo.descricao && <p className="mt-0.5 text-[11px] text-[var(--client-text-secondary)]">{c.promo.descricao}</p>}
                     <p className="mt-1 text-[11px] text-[var(--client-text-secondary)]">{c.itens.map((i) => i.name).join(" + ")}</p>
                   </div>
@@ -1891,6 +1911,10 @@ function LinhaTempoOperacional({ status, setorStatus = {}, setoresPedido = [], m
 // ════════════════════════════════════════════════════════════
 const ckIconBase = { width: 18, height: 18, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true };
 const CkIconCheck    = (p) => (<svg {...ckIconBase} {...p}><path d="M20 6 9 17l-5-5" /></svg>);
+const CkIconCoracao  = (p) => (<svg {...ckIconBase} fill="currentColor" {...p}><path d="M12 20.5s-7.5-4.6-10-9.3C.4 7.8 2 4.5 5.4 4A5 5 0 0 1 12 7a5 5 0 0 1 6.6-3c3.4.5 5 3.8 3.4 7.2-2.5 4.7-10 9.3-10 9.3Z" /></svg>);
+const CkIconTag      = (p) => (<svg {...ckIconBase} {...p}><path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0l-6.2-6.2A2 2 0 0 1 3.8 13V6a2 2 0 0 1 2-2h7a2 2 0 0 1 1.4.6l6.4 6.4a2 2 0 0 1 0 2.4Z" /><circle cx="8" cy="8" r="1.3" fill="currentColor" stroke="none" /></svg>);
+const CkIconEstrela  = (p) => (<svg {...ckIconBase} {...p}><path d="M12 3.5l2.6 5.3 5.8.8-4.2 4.1 1 5.8L12 16.8l-5.2 2.7 1-5.8-4.2-4.1 5.8-.8z" /></svg>);
+const CkIconCalendario = (p) => (<svg {...ckIconBase} {...p}><rect x="3.5" y="5" width="17" height="16" rx="2" /><path d="M8 3v4M16 3v4M3.5 10h17" /></svg>);
 const CkIconAlerta   = (p) => (<svg {...ckIconBase} {...p}><path d="M12 9v4" /><path d="M12 17h.01" /><path d="M10.3 3.9 2 18a1.5 1.5 0 0 0 1.3 2.3h17.4A1.5 1.5 0 0 0 22 18L13.7 3.9a1.7 1.7 0 0 0-3.4 0Z" /></svg>);
 const CkIconLixeira  = (p) => (<svg {...ckIconBase} {...p}><path d="M3 6h18" /><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" /><path d="M19 6l-.9 13.2A2 2 0 0 1 16.1 21H7.9a2 2 0 0 1-2-1.8L5 6" /><path d="M10 11v6M14 11v6" /></svg>);
 const CkIconRelogio  = (p) => (<svg {...ckIconBase} {...p}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>);

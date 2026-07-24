@@ -2841,22 +2841,25 @@ export function ProdutoModal({ produto, onFechar, onAdicionar, grupos = [], opco
             teste real de navegador, viewport 844x390 → botão renderizava
             100px abaixo do fim do modal). Em telas normais, o clamp() bate
             no teto (220px/260px) e o resultado visual não muda. */}
-        <div className="relative h-[clamp(96px,30vh,220px)] sm:h-[clamp(96px,30vh,260px)] lg:h-auto lg:w-[42%] shrink-0 overflow-hidden bg-[var(--client-background)]">
+        {/* Imagem do produto — object-contain sobre fundo neutro: mostra o
+            produto INTEIRO, sem cortar (antes object-cover cortava topo/base).
+            Container mais alto e com respiro (p-4) para a foto respirar. */}
+        <div className="relative h-[clamp(200px,40vh,300px)] sm:h-[clamp(220px,42vh,340px)] lg:h-auto lg:w-[42%] shrink-0 overflow-hidden bg-[var(--client-background)]">
           {!imgPronta && <div className="absolute inset-0 animate-pulse motion-reduce:animate-none bg-[var(--client-surface-secondary)]" aria-hidden="true" />}
           <img
             src={imgSrc} alt={produto.name} decoding="async"
             onLoad={() => setImgPronta(true)}
             onError={() => { if (imgSrc !== fallbackImage) { setImgSrc(fallbackImage); setImgPronta(false); } else setImgPronta(true); }}
-            className={`h-full w-full object-cover transition-opacity duration-300 motion-reduce:transition-none ${imgPronta ? "opacity-100" : "opacity-0"}`} />
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-transparent" />
-          {/* Voltar / Favoritar — glassmorphism discreto, 44x44px, respeita safe-area (notch) */}
-          <div className="absolute inset-x-4 flex items-center justify-between" style={{ top: "max(1rem, env(safe-area-inset-top))" }}>
+            className={`h-full w-full object-contain p-4 lg:p-6 transition-opacity duration-300 motion-reduce:transition-none ${imgPronta ? "opacity-100" : "opacity-0"}`} />
+          {/* Voltar / Favoritar — botões sólidos brancos (nítidos sobre o fundo
+              neutro), 44x44px, respeitam a safe-area (notch). */}
+          <div className="absolute inset-x-4 flex items-center justify-between" style={{ top: "max(0.875rem, env(safe-area-inset-top))" }}>
             <button onClick={onFechar} aria-label="Voltar"
-              className="flex h-11 w-11 items-center justify-center rounded-full border border-white/40 bg-white/70 text-[var(--client-text-primary)] shadow-[0_2px_10px_rgba(16,24,40,.12)] backdrop-blur-md transition duration-200 hover:bg-white/90 active:scale-90">
+              className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--client-border)] bg-[var(--client-surface)] text-[var(--client-text-primary)] shadow-[0_4px_14px_rgba(16,24,40,.12)] transition duration-200 hover:bg-[var(--client-surface-secondary)] active:scale-90">
               <PmIconVoltar />
             </button>
             <button onClick={toggleFavorito} aria-label={favorito ? "Remover dos favoritos" : "Adicionar aos favoritos"} aria-pressed={favorito}
-              className={`flex h-11 w-11 items-center justify-center rounded-full border shadow-[0_2px_10px_rgba(16,24,40,.12)] backdrop-blur-md transition duration-200 active:scale-90 ${favorito ? "border-[var(--client-primary-border)] bg-white/85 text-[var(--client-primary)]" : "border-white/40 bg-white/70 text-[var(--client-text-secondary)] hover:bg-white/90"}`}>
+              className={`flex h-11 w-11 items-center justify-center rounded-full border shadow-[0_4px_14px_rgba(16,24,40,.12)] transition duration-200 active:scale-90 ${favorito ? "border-[var(--client-primary-border)] bg-[var(--client-primary-soft)] text-[var(--client-primary-hover)]" : "border-[var(--client-border)] bg-[var(--client-surface)] text-[var(--client-text-secondary)] hover:bg-[var(--client-surface-secondary)]"}`}>
               <span className={`block transition-transform duration-200 motion-reduce:transition-none ${favPop ? "scale-125" : "scale-100"}`}><PmIconCoracao preenchido={favorito} /></span>
             </button>
           </div>
