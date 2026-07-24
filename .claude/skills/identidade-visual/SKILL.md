@@ -9,6 +9,16 @@ Esta é a **paleta oficial vigente**. A partir de agora, **todo trabalho visual 
 cores** — ao criar ou tocar em qualquer tela/componente, aplique-as e substitua cores
 divergentes de rebrands anteriores (namespaces legados `brand`, `gold`, `admin`, `pp`).
 
+## Posicionamento da marca
+Paleta desenvolvida para transmitir **confiança, praticidade e eficiência**, unindo
+**tecnologia** com o **universo da alimentação**. Cada cor carrega um atributo:
+- 🟧 **Apetite** → laranja `#E67E22`
+- 🟩 **Frescor** → verde `#5E8C31`
+- 🔵 **Confiança** → azul petróleo `#0F4C5C`
+- 📊 **Gestão / tecnologia** → azul petróleo `#0F4C5C` (dados, painéis)
+
+Sempre que desenhar algo, pergunte: "isto passa confiança, praticidade e eficiência?".
+
 ## Paleta
 
 | Cor | Hex | Papel | Uso |
@@ -19,6 +29,14 @@ divergentes de rebrands anteriores (namespaces legados `brand`, `gold`, `admin`,
 | ⬜ **Off-white** | `#F8F6F2` | **Fundo** | Leveza, limpeza e respiro visual → fundo geral das telas |
 | ▫️ **Cinza claro** | `#E6E6E6` | **Apoio** | Elementos de apoio e divisões → bordas, divisores, superfícies sutis, estados desabilitados |
 | ⬛ **Grafite** | `#2D3436` | **Texto** | Textos, títulos e ícones |
+
+## USO DAS CORES — onde aplicar cada cor
+- 🟧 **Laranja `#E67E22`** → **Ações principais**: botões primários, CTAs, links de destaque, item/aba ativa, ícones de ação.
+- 🔵 **Azul petróleo `#0F4C5C`** → **Barras, menus e elementos de navegação**: header, sidebar/menu lateral, abas, rodapé, blocos institucionais.
+- 🟩 **Verde `#5E8C31`** → **Confirmações, status positivos e destaques**: sucesso, "pago/entregue/pronto/fresco", badges e selos positivos.
+- ⬜ **Off-white `#F8F6F2`** (+ **branco** em cards) → **Fundos e superfícies neutras**.
+- ▫️ **Cinza claro `#E6E6E6`** → **apoio**: bordas, divisórias, superfícies sutis, estado desabilitado.
+- ⬛ **Grafite `#2D3436`** → **Textos e ícones** (títulos, corpo, ícones neutros).
 
 ## Regras de aplicação
 - **Laranja `#E67E22`** é a cor de AÇÃO — use com parcimônia, só onde quer que o olho vá
