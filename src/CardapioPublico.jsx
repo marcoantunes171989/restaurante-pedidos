@@ -738,14 +738,19 @@ export default function CardapioPublico() {
     const destaque = promo || (item.isFeatured && !indisponivel);
     return (
       <article key={item.id} className={`flex h-full flex-col rounded-[1.25rem] border bg-[var(--client-surface)] shadow-[var(--client-shadow-sm)] ${destaque ? "border-[var(--client-gold-border)]" : "border-[var(--client-border)]"}`}>
-        <div className="flex gap-3 p-3">
+        {/* Bloco imagem+nome+descrição = um único alvo de toque que abre a
+            personalização (antes só a imagem abria; tocar no nome não fazia
+            nada — atrito para explorar o produto). O "+" abaixo continua sendo
+            o atalho de adição rápida, separado. */}
+        <button type="button" onClick={() => !indisponivel && abrir()} disabled={indisponivel}
+          aria-label={indisponivel ? `${item.name} — indisponível` : `Ver ${item.name}`}
+          className="flex gap-3 p-3 text-left transition active:scale-[0.99] disabled:cursor-not-allowed">
           <div className="relative shrink-0">
-            <button onClick={() => !indisponivel && abrir()} disabled={indisponivel} className="block h-[88px] w-[88px] overflow-hidden rounded-2xl bg-[var(--client-surface-secondary)]">
+            <span className="block h-[88px] w-[88px] overflow-hidden rounded-2xl bg-[var(--client-surface-secondary)]">
               <img src={item.imageUrl || fallbackImage} alt={item.name} loading="lazy" decoding="async"
                 onError={(e) => { if (e.currentTarget.src !== fallbackImage) e.currentTarget.src = fallbackImage; }}
                 className={`h-full w-full object-cover ${indisponivel ? "grayscale opacity-50" : ""}`} />
-            </button>
-            {/* Selo decorativo (não é um controle independente — tocar na imagem já abre a personalização) */}
+            </span>
             {personalizavel && !indisponivel && (
               <span aria-hidden="true" title="Personalizável" className="pointer-events-none absolute left-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-full border border-[var(--client-border)] bg-[var(--client-surface)] text-[var(--client-text-secondary)] shadow-[var(--client-shadow-sm)]">
                 <CkIconAjustes width={14} height={14} strokeWidth={2.2} />
@@ -758,11 +763,11 @@ export default function CardapioPublico() {
             <h3 className="text-[15px] font-black leading-tight text-[var(--client-text-primary)] line-clamp-2">{item.name}</h3>
             {item.description && <p className="mt-1 line-clamp-2 text-[11px] leading-4 text-[var(--client-text-secondary)]">{item.description}</p>}
           </div>
-        </div>
+        </button>
         <div className="mt-auto flex items-center justify-between px-3 pb-3">
           {promo
-            ? <span className="flex flex-col leading-none"><span className="text-[11px] font-bold text-[var(--client-text-muted)] line-through">{formatCurrency(promo.original)}</span><span className="text-base font-black text-[var(--client-gold-hover)]">{formatCurrency(promo.preco)}</span></span>
-            : <span className="text-base font-black text-[var(--client-text-primary)]">{formatCurrency(item.price)}</span>}
+            ? <span className="flex flex-col leading-none"><span className="text-[11px] font-bold text-[var(--client-text-muted)] line-through">{formatCurrency(promo.original)}</span><span className="text-lg font-black text-[var(--client-gold-hover)]">{formatCurrency(promo.preco)}</span></span>
+            : <span className="text-lg font-black text-[var(--client-text-primary)]">{formatCurrency(item.price)}</span>}
           {indisponivel
             ? <span className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--client-border)] bg-[var(--client-surface-secondary)] text-[var(--client-text-muted)]">✕</span>
             : <button onClick={abrir} aria-label={`Adicionar ${item.name}`} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--client-primary-hover)] text-xl font-black text-white shadow-[var(--client-shadow-sm)] transition active:scale-90 hover:bg-[var(--client-primary)]">+</button>}
