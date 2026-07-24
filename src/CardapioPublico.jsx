@@ -1101,18 +1101,32 @@ export default function CardapioPublico() {
 
   // ── Tela de boas-vindas (somente no modo mesa via QR) ──────────
   if (etapa === "welcome") {
+    // Status de funcionamento só aparece quando HÁ horário cadastrado para hoje
+    // (sem configuração não há o que informar — evita "Fechado" enganoso).
+    const temHorarioHoje = diaTemHorario(cfgExt.horarios, agora, cfgExt.fusoHorario);
+    const lojaStatus = abertoAgora ? "aberto" : temHorarioHoje ? "fechado" : null;
     return (
       <div data-theme="light" className="tema-claro-area flex min-h-screen w-full max-w-[100vw] flex-col overflow-x-hidden bg-[var(--client-background)] px-6 text-[var(--client-text-primary)]"
         style={{ minHeight: "100dvh", paddingTop: "calc(env(safe-area-inset-top) + 2rem)", paddingBottom: "calc(env(safe-area-inset-bottom) + 2rem)" }}>
         <div className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center text-center">
           {loja.logoUrl ? <img src={loja.logoUrl} alt="" className="h-20 w-20 rounded-3xl border border-[var(--client-border)] object-cover shadow-[var(--client-shadow-sm)]" /> : <LogoPP size={80} />}
           <h1 className="page-title mt-5 text-2xl font-bold tracking-tight text-[var(--client-text-primary)]">{loja.nome}</h1>
-          {currentTable && <span className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-[var(--client-primary-border)] bg-[var(--client-primary-soft)] px-4 py-1.5 text-sm font-bold text-[var(--client-primary-hover)]"><CkIconMesa width={14} height={14} /> {currentTable}</span>}
+          {(currentTable || lojaStatus) && (
+            <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+              {currentTable && <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--client-primary-border)] bg-[var(--client-primary-soft)] px-4 py-1.5 text-sm font-bold text-[var(--client-primary-hover)]"><CkIconMesa width={14} height={14} /> {currentTable}</span>}
+              {lojaStatus === "aberto" && <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--client-success-border)] bg-[var(--client-success-soft)] px-3.5 py-1.5 text-sm font-bold text-[var(--client-success)]"><span className="h-1.5 w-1.5 rounded-full bg-[var(--client-success)]" aria-hidden="true" /> Aberto agora</span>}
+              {lojaStatus === "fechado" && <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--client-status-neutral-border)] bg-[var(--client-status-neutral-soft)] px-3.5 py-1.5 text-sm font-bold text-[var(--client-status-neutral)]"><CkIconRelogio width={13} height={13} /> Fechado no momento</span>}
+            </div>
+          )}
           <p className="mt-6 text-lg font-bold text-[var(--client-text-primary)]">Bem-vindo!</p>
           <p className="mt-1 text-sm leading-6 text-[var(--client-text-secondary)]">Faça seu pedido de forma rápida e prática direto pelo celular.</p>
-          <div className="mt-8 w-full space-y-3">
-            <button onClick={() => setEtapa("cardapio")} className="w-full min-h-[44px] rounded-2xl bg-[var(--client-primary-hover)] py-4 text-base font-black text-white shadow-[var(--client-shadow-sm)] transition active:scale-95 hover:bg-[var(--client-primary)]">Iniciar pedido</button>
-            <button onClick={() => setEtapa("cardapio")} className="w-full min-h-[44px] rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] py-4 text-base font-bold text-[var(--client-text-secondary)] transition active:scale-95 hover:bg-[var(--client-surface-secondary)]">Ver cardápio</button>
+          <div className="mt-8 flex w-full flex-col items-center">
+            <button onClick={() => setEtapa("cardapio")} className="w-full min-h-[52px] rounded-2xl bg-[var(--client-primary-hover)] py-4 text-base font-black text-white shadow-[var(--client-shadow-sm)] transition active:scale-95 hover:bg-[var(--client-primary)]">Ver cardápio</button>
+            {meusPedidos.length > 0 && (
+              <button onClick={() => { setEtapa("cardapio"); setAba("conta"); }} className="mt-4 inline-flex min-h-11 items-center gap-1.5 px-3 text-sm font-bold text-[var(--client-info)] transition hover:text-[var(--client-info-hover)]">
+                <CkIconRecibo width={15} height={15} /> Acompanhar meu pedido ({meusPedidos.length})
+              </button>
+            )}
           </div>
           {!modoExterno && mesa && (
             <div className="mt-8 w-full">
