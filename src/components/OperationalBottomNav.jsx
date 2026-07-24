@@ -1,9 +1,9 @@
 // ════════════════════════════════════════════════════════════
 //  Bottom nav única do módulo operacional (Central, Pedidos, Cozinha,
-//  Bar, Caixa). Antes cada uma dessas 5 telas desenhava sua própria nav
-//  (emojis diferentes, cor do item ativo divergente — OperationalCentral
-//  usava laranja #e8622c, as demais douravam #D9A441) — este componente
-//  substitui todas.
+//  Bar, Caixa). Unifica a navegação: antes cada tela desenhava a sua, com
+//  emojis e cor do item ativo divergentes — aqui o item ativo é padrão, em
+//  azul petróleo da paleta oficial (token --op-nav-accent). Este componente
+//  substitui as navs antigas.
 //
 //  `active` não é recalculado aqui a partir da URL: vem pronto de
 //  OperacaoMobileView (src/App.jsx), que já é a única fonte da verdade

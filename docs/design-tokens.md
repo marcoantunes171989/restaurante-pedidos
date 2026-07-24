@@ -1,9 +1,16 @@
-# Paleta oficial 2026 — Pedido Prime
+# Tokens `--pp-*` (referência técnica do sistema legado)
 
-Fonte única de verdade para cor em toda a plataforma (landing, login, telas
-internas). Setor de alimentos: cores quentes (apetite/conversão) sobre base
-neutra confortável para uso prolongado no sistema de gestão. Identidade da
-marca preservada (logo preto + dourado).
+> ⚠️ **Fonte única da PALETA OFICIAL atual:** `.claude/skills/identidade-visual`
+> (laranja `#E67E22` = ação · azul petróleo `#0F4C5C` = navegação/gestão · verde
+> `#5E8C31` = confirmação · off-white `#F8F6F2` = fundo · cinza `#E6E6E6` = bordas ·
+> grafite `#2D3436` = texto). Onde este documento divergir da skill, **a skill
+> vence** — a migração dos tokens `--pp-*` para a paleta oficial está em andamento
+> (ex.: `--pp-primary` já aponta para o laranja oficial `#E67E22`; o dourado
+> `--pp-brand` está sendo removido, restando na Landing). Trate o texto abaixo como
+> histórico/técnico do namespace `--pp-*`, não como a definição da identidade.
+
+Referência técnica dos tokens `--pp-*` em `:root` (`src/index.css`). Base neutra
+confortável para uso prolongado no sistema de gestão.
 
 **Duas cores de ação com papéis diferentes — não são intercambiáveis:**
 - **Dourado (`--pp-brand`)** = identidade/marca/premium (logo, plano "Prime", selos, item ativo de navegação com conotação premium).
