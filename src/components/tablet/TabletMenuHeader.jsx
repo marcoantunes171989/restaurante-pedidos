@@ -45,7 +45,7 @@ export default function TabletMenuHeader({
           </button>
           <button type="button" onClick={onAbrirCarrinhoMobile}
             aria-label={`Ver carrinho, ${totalCartItems} ${totalCartItems === 1 ? "item" : "itens"}`}
-            className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--client-primary)] text-white transition hover:bg-[var(--client-primary-hover)] lg:hidden">
+            className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--client-primary-hover)] text-white transition hover:bg-[var(--client-primary)] lg:hidden">
             <ShoppingBag aria-hidden="true" size={18} />
             {totalCartItems > 0 && (
               <span aria-hidden="true" className="absolute -right-1 -top-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[var(--client-error)] px-1 text-[10px] font-black text-white">{totalCartItems}</span>

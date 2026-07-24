@@ -2664,7 +2664,7 @@ function ChipSelecao({ selecionado, disabled = false, onClick, texto, detalhe, i
             : "border-[var(--client-border)] bg-[var(--client-surface)] text-[var(--client-text-secondary)] hover:border-[var(--client-border-strong)] hover:bg-[var(--client-surface-secondary)]"
       }`}>
       <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors ${
-        disabled ? "border-[var(--client-disabled-border)]" : selecionado ? "border-[var(--client-primary)] bg-[var(--client-primary)] text-white" : "border-[var(--client-border-strong)] text-transparent group-hover:border-[var(--client-text-muted)]"
+        disabled ? "border-[var(--client-disabled-border)]" : selecionado ? "border-[var(--client-primary)] bg-[var(--client-primary-hover)] text-white" : "border-[var(--client-border-strong)] text-transparent group-hover:border-[var(--client-text-muted)]"
       }`}>
         {icone === "remover" ? <PmIconX /> : <PmIconCheck />}
       </span>
@@ -2967,7 +2967,7 @@ export function ProdutoModal({ produto, onFechar, onAdicionar, grupos = [], opco
               {/* Botão adicionar — terracota (ação principal), com estados idle/enviando/sucesso/erro/desabilitado */}
               <button type="button" onClick={confirmar} disabled={!podeAdicionar || statusEnvio === "enviando"}
                 className={`flex min-h-[44px] flex-1 items-center justify-between gap-1.5 rounded-2xl px-3.5 py-3.5 text-[13px] sm:text-sm font-bold text-white transition-all duration-150 active:scale-[0.98] disabled:cursor-not-allowed ${
-                  statusEnvio === "erro" ? "bg-[var(--client-error)]" : "bg-[var(--client-primary)] hover:bg-[var(--client-primary-hover)]"
+                  statusEnvio === "erro" ? "bg-[var(--client-error)]" : "bg-[var(--client-primary-hover)] hover:bg-[var(--client-primary)]"
                 } disabled:opacity-50 shadow-lg shadow-[var(--client-primary)]/20`}>
                 <span className="flex min-w-0 items-center gap-1.5 truncate">
                   {statusEnvio === "enviando" && <PmIconSpinner />}

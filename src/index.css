@@ -346,7 +346,7 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
      src/App.jsx. Mesma família visual do login (idênticos aliasados
      abaixo); os demais têm hex próprios definidos para esta tela.
      Regra semântica (não decorativa):
-       terracota = ação · dourado = promoção/economia real ·
+       laranja = ação · dourado = promoção/economia real ·
        azul = informação/andamento · verde = confirmação real ·
        crimson = erro/cancelamento. Nunca intercambiáveis. */
   --client-background: #F8F5F1;
@@ -362,11 +362,14 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
   --client-border: #E5DBD3;
   --client-border-strong: #D5C6BB;
 
-  --client-primary: #D94722;
-  --client-primary-hover: #BB3518;
-  --client-primary-active: #9F2D16;
-  --client-primary-soft: #FBE9E3;
-  --client-primary-border: #EB9E89;
+  /* Ação do cliente = laranja oficial da paleta (#E67E22 = apetite), igual ao
+     Login e ao operacional. Solidos com texto branco usam o tom -hover (#D06E1A,
+     mais escuro/legivel); o -primary claro fica para acentos/badges/bordas. */
+  --client-primary: #E67E22;
+  --client-primary-hover: #D06E1A;
+  --client-primary-active: #B25E15;
+  --client-primary-soft: #FCEFE1;
+  --client-primary-border: #F0B589;
 
   --client-gold: #A96F00;
   --client-gold-hover: #895A00;

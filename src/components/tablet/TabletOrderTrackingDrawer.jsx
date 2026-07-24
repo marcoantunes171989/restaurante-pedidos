@@ -122,7 +122,7 @@ export default function TabletOrderTrackingDrawer({
           )}
           <button type="button" onClick={onSolicitarFechamento} disabled={!podeFecharConta}
             title={!podeFecharConta ? "Disponível somente quando todos os pedidos forem entregues pela cozinha" : ""}
-            className={`mt-1 flex h-12 w-full items-center justify-center gap-2 rounded-xl text-sm font-black transition active:scale-[0.98] disabled:cursor-not-allowed disabled:border disabled:border-[var(--client-border)] disabled:bg-[var(--client-disabled-background)] disabled:text-[var(--client-disabled-text)] ${contaSolicitada ? "bg-[var(--client-warning-soft)] text-[var(--client-warning)] hover:brightness-95" : "bg-[var(--client-primary)] text-white hover:bg-[var(--client-primary-hover)]"}`}>
+            className={`mt-1 flex h-12 w-full items-center justify-center gap-2 rounded-xl text-sm font-black transition active:scale-[0.98] disabled:cursor-not-allowed disabled:border disabled:border-[var(--client-border)] disabled:bg-[var(--client-disabled-background)] disabled:text-[var(--client-disabled-text)] ${contaSolicitada ? "bg-[var(--client-warning-soft)] text-[var(--client-warning)] hover:brightness-95" : "bg-[var(--client-primary-hover)] text-white hover:bg-[var(--client-primary)]"}`}>
             {contaSolicitada ? <><RefreshCcw aria-hidden="true" size={16} /> Reenviar conta ao caixa</> : <><Receipt aria-hidden="true" size={16} /> Solicitar fechamento ao caixa</>}
           </button>
           {!podeFecharConta && comandasArr.length > 0 && (
