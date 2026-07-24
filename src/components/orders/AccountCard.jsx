@@ -76,7 +76,7 @@ export default function AccountCard({
       <div className="mt-3 space-y-1.5 border-y border-dashed border-[var(--pp-border)] py-2.5 pl-2">
         {itensVisiveis.map((it, i) => (
           <div key={i} className="flex items-start gap-2 text-sm">
-            <span className="shrink-0 font-bold tabular-nums text-[var(--pp-brand-text)]">{it.quantity}×</span>
+            <span className="shrink-0 font-bold tabular-nums text-[var(--op-nav-accent)]">{it.quantity}×</span>
             <span className="min-w-0 flex-1 break-words text-[var(--pp-text-body)]">{it.name}</span>
           </div>
         ))}
@@ -158,7 +158,7 @@ export default function AccountCard({
                 <div className="space-y-1.5">
                   {linhas.map((l) => (
                     <div key={l.forma} className="flex flex-wrap items-center gap-2">
-                      <span className="min-w-0 flex-1 break-words text-xs font-bold text-[var(--pp-brand-text)]">{l.forma}</span>
+                      <span className="min-w-0 flex-1 break-words text-xs font-bold text-[var(--op-nav-accent)]">{l.forma}</span>
                       <span className="shrink-0 text-xs text-[var(--pp-text-muted)]">R$</span>
                       <input
                         inputMode="numeric"

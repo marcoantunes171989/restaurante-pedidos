@@ -47,7 +47,7 @@ function SetorBloco({ o, sk, its, metaSetor, setorPronto, onMarcarPronto }) {
   return (
     <div className="mt-1">
       <div className="mb-2 flex items-center justify-between gap-2">
-        <span className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--pp-brand)]/10 px-2.5 py-1 text-[11px] font-bold text-[var(--pp-brand-text)]">
+        <span className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--op-nav-accent-soft)] px-2.5 py-1 text-[11px] font-bold text-[var(--op-nav-accent)]">
           {ehBar && <Wine aria-hidden="true" size={12} />}
           {sm.label}
         </span>

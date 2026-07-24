@@ -4,8 +4,8 @@ import OperationalMetricCard from "../OperationalMetricCard";
 // Reaproveita o mesmo componente/variantes semânticas já usados na
 // Central Operacional e em Pedidos/Cozinha/Bar — aguardando=warning
 // (âmbar), contas em aberto=info (azul), valores financeiros=financial
-// (dourado, mesmo tratamento das 3 métricas financeiras da Central, para
-// consistência visual entre as telas). Nenhum cálculo aqui: os 4 valores
+// (azul petróleo da paleta oficial, mesmo tratamento das 3 métricas
+// financeiras da Central). Nenhum cálculo aqui: os 4 valores
 // já vêm prontos de CentralDoCaixa.jsx/OperacaoMobileView.
 export default function CashierSummary({ aguardando, abertas, totalReceber, faturadoHoje }) {
   return (

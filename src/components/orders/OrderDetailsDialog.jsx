@@ -205,7 +205,7 @@ export default function OrderDetailsDialog({
               </div>
             ) : (
               <button type="button" onClick={() => setConfirmando(true)}
-                className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl border border-[#C81E4A]/30 bg-[var(--pp-surface)] text-sm font-bold text-[var(--pp-danger)] transition hover:bg-[var(--pp-danger-soft)]">
+                className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl border border-[var(--pp-danger)]/30 bg-[var(--pp-surface)] text-sm font-bold text-[var(--pp-danger)] transition hover:bg-[var(--pp-danger-soft)]">
                 <Ban aria-hidden="true" size={16} /> Cancelar pedido
               </button>
             )}
