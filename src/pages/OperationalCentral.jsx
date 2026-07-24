@@ -46,8 +46,8 @@ export default function OperationalCentral({ user = "Administrador", role = "Ace
           initial={reduzMovimento ? false : { opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}
           className="relative overflow-hidden rounded-[20px] border border-[var(--pp-border)] bg-[var(--pp-surface)] p-5 shadow-[0_1px_2px_rgba(43,35,32,0.04),0_4px_16px_rgba(43,35,32,0.05)] md:p-7"
         >
-          {/* Faixa de detalhe terracota — acento de identidade, sem transformar o cabeçalho num bloco escuro */}
-          <span aria-hidden="true" className="absolute inset-x-0 top-0 h-1 bg-[var(--pp-primary)]" />
+          {/* Faixa de detalhe azul petróleo — acento de identidade/navegação (paleta oficial), sem transformar o cabeçalho num bloco escuro */}
+          <span aria-hidden="true" className="absolute inset-x-0 top-0 h-1 bg-[var(--op-nav-accent)]" />
 
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
@@ -71,7 +71,7 @@ export default function OperationalCentral({ user = "Administrador", role = "Ace
               <p className="mt-1.5 flex flex-wrap items-center gap-x-1.5 text-sm text-[var(--pp-text-body)]">
                 <span className="font-semibold text-[var(--pp-text)]">{user}</span>
                 <span aria-hidden="true" className="text-[var(--pp-border)]">·</span>
-                <span className="font-semibold text-[var(--pp-brand-text)]">{role}</span>
+                <span className="font-semibold text-[var(--op-nav-accent)]">{role}</span>
               </p>
             </div>
             <button
