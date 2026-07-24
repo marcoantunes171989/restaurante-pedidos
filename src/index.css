@@ -303,24 +303,32 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
      semânticas idênticas a --pp-* são reaproveitadas por referência;
      os demais (progressão primary/hover/active, soft sólido, erro,
      foco, sombra) usam os hex exatos definidos para esta tela. */
-  --login-background: #F8F3ED;
-  --login-surface: #FFFDFC;
-  --login-surface-secondary: #F3EBE4;
-  --login-text-primary: #211814;
-  --login-text-secondary: #76675F;
-  --login-border: #E6D9D0;
+  /* Paleta OFICIAL (ver .claude/skills/identidade-visual):
+     off-white=fundo · branco=superfície · grafite=texto/ícones ·
+     cinza claro=bordas · LARANJA=ação/CTA · AZUL PETRÓLEO=institucional ·
+     VERDE=confirmação/sucesso. Erro em crimson (fora da paleta, semântico). */
+  --login-background: #F8F6F2;   /* off-white — fundo */
+  --login-surface: #FFFFFF;      /* branco — cards/inputs */
+  --login-surface-secondary: #F1F0EC;
+  --login-text-primary: #2D3436; /* grafite — texto/ícones */
+  --login-text-secondary: #5F6B6E;
+  --login-border: #E6E6E6;       /* cinza claro — bordas/divisórias */
 
-  --login-primary: #D94722;
-  --login-primary-hover: #BB3518;
-  --login-primary-active: #9F2D16;
-  --login-primary-soft: #FBE9E3;
+  --login-primary: #E67E22;      /* laranja — ação/CTA/foco */
+  --login-primary-hover: #D06E1A;
+  --login-primary-active: #B25E15;
+  --login-primary-soft: #FCEFE1;
+
+  /* Secundária institucional — azul petróleo (confiança/tecnologia). */
+  --login-secondary: #0F4C5C;
+  --login-secondary-soft: #E5EDEF;
 
   --login-error: #B4234D;
   --login-error-soft: #FBE7EE;
-  --login-success: var(--pp-success-text);
+  --login-success: #5E8C31;      /* verde — confirmação */
 
-  --login-focus: rgba(217, 71, 34, 0.22);
-  --login-shadow: 0 20px 60px rgba(60, 37, 27, 0.10);
+  --login-focus: rgba(230, 126, 34, 0.22);
+  --login-shadow: 0 20px 60px rgba(45, 52, 54, 0.10);
 
   /* ══════════════════════════════════════════════════════════════
      TOKENS DO CLIENTE (--client-*) — cardápio digital, produto,
@@ -334,10 +342,10 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
        crimson = erro/cancelamento. Nunca intercambiáveis. */
   --client-background: #F8F5F1;
   --client-background-soft: #FCFAF8;
-  --client-surface: var(--login-surface);
+  --client-surface: #FFFDFC;
   --client-surface-secondary: #F3ECE6;
 
-  --client-text-primary: var(--login-text-primary);
+  --client-text-primary: #211814;
   --client-text-secondary: #6F625B;
   --client-text-muted: #948780;
   --client-text-inverse: #FFFFFF;
@@ -345,10 +353,10 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
   --client-border: #E5DBD3;
   --client-border-strong: #D5C6BB;
 
-  --client-primary: var(--login-primary);
-  --client-primary-hover: var(--login-primary-hover);
-  --client-primary-active: var(--login-primary-active);
-  --client-primary-soft: var(--login-primary-soft);
+  --client-primary: #D94722;
+  --client-primary-hover: #BB3518;
+  --client-primary-active: #9F2D16;
+  --client-primary-soft: #FBE9E3;
   --client-primary-border: #EB9E89;
 
   --client-gold: #A96F00;
@@ -373,9 +381,9 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
   --client-warning-soft: #FFF1D9;
   --client-warning-border: #F1C77D;
 
-  --client-error: var(--login-error);
+  --client-error: #B4234D;
   --client-error-hover: #901D3E;
-  --client-error-soft: var(--login-error-soft);
+  --client-error-soft: #FBE7EE;
   --client-error-border: #E8AEC1;
 
   /* Status neutro (arquivado/concluído sem destaque — ex.: entregue) —
@@ -388,7 +396,7 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
   --client-disabled-text: #98A2B3;
   --client-disabled-border: #DDE2E8;
 
-  --client-focus-primary: var(--login-focus);
+  --client-focus-primary: rgba(217, 71, 34, 0.22);
   --client-focus-info: rgba(46, 95, 168, 0.20);
 
   --client-shadow-sm: 0 4px 14px rgba(57, 40, 31, 0.06);

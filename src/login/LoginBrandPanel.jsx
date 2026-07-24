@@ -14,7 +14,7 @@ export default function LoginBrandPanel() {
   return (
     <aside className="pp-anim-left relative hidden h-full shrink-0 overflow-hidden border-r border-[var(--login-border)] bg-[var(--login-background)] px-[clamp(1.75rem,4vw,4.5rem)] py-[clamp(1rem,3vh,3rem)] md:block md:w-[42%] lg:w-[54%]">
       {/* Textura e formas orgânicas — muito discretas, nunca competem com o conteúdo */}
-      <div className="pointer-events-none absolute inset-0 opacity-[0.05]" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #211814 1px, transparent 0)", backgroundSize: "30px 30px" }} />
+      <div className="pointer-events-none absolute inset-0 opacity-[0.05]" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #2D3436 1px, transparent 0)", backgroundSize: "30px 30px" }} />
       <div className="pointer-events-none absolute -top-28 -right-24 h-[24rem] w-[24rem] rounded-full bg-[var(--login-primary-soft)] opacity-60 blur-[2px]" />
       <div className="pointer-events-none absolute -bottom-32 -left-20 h-[20rem] w-[20rem] rounded-full bg-[var(--login-surface-secondary)] opacity-70" />
 
@@ -25,7 +25,7 @@ export default function LoginBrandPanel() {
 
         <div className="mx-auto max-w-md">
           <span className="inline-flex items-center gap-2 rounded-full border border-[var(--login-border)] bg-[var(--login-surface)] px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-wider text-[var(--login-text-secondary)]">
-            <span className="h-1.5 w-1.5 rounded-full bg-[var(--login-primary)]" />
+            <span className="h-1.5 w-1.5 rounded-full bg-[var(--login-secondary)]" />
             {INSTITUCIONAL.selo}
           </span>
 
@@ -41,7 +41,7 @@ export default function LoginBrandPanel() {
               const Icone = ICONES_BENEFICIO[b.icon];
               return (
                 <div key={b.texto} className="flex items-center gap-2 text-sm font-semibold text-[var(--login-text-primary)]">
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--login-primary-soft)] text-[var(--login-primary-hover)]"><Icone /></span>
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--login-secondary-soft)] text-[var(--login-secondary)]"><Icone /></span>
                   {b.texto}
                 </div>
               );
