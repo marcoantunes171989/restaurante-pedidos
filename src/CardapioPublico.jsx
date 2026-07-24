@@ -736,9 +736,9 @@ export default function CardapioPublico() {
   // no card sem precisar recarregar. É o "payoff" do favoritar: o produto fica
   // sinalizado na lista, em vez de o coração ser um beco sem saída.
   const favSet = useMemo(() => {
-    try { return new Set(JSON.parse(localStorage.getItem(`pedidoPrime:favoritos:${loja.id || "geral"}`) || "[]")); }
+    try { return new Set(JSON.parse(localStorage.getItem(`pedidoPrime:favoritos:${loja?.id || "geral"}`) || "[]")); }
     catch { return new Set(); }
-  }, [loja.id, detalhe]);
+  }, [loja?.id, detalhe]);
   const renderProduto = (item) => {
     const indisponivel = item.disponivel === false;
     const personalizavel = (item.ingredients || []).length > 0;
@@ -748,8 +748,8 @@ export default function CardapioPublico() {
     // aqui (mesma loja) — o coração marcado no modal reflete no card.
     // Abre o modal com o produto já no preço promocional (carrinho/total refletem o desconto)
     const abrir = () => setDetalhe(promo
-      ? { ...item, lojaId: item.lojaId ?? loja.id, price: promo.preco, precoOriginal: promo.original, economiaUnit: promo.original - promo.preco }
-      : { ...item, lojaId: item.lojaId ?? loja.id });
+      ? { ...item, lojaId: item.lojaId ?? loja?.id, price: promo.preco, precoOriginal: promo.original, economiaUnit: promo.original - promo.preco }
+      : { ...item, lojaId: item.lojaId ?? loja?.id });
     const destaque = promo || (item.isFeatured && !indisponivel);
     return (
       <article key={item.id} className={`flex h-full flex-col rounded-[1.25rem] border bg-[var(--client-surface)] shadow-[var(--client-shadow-sm)] ${destaque ? "border-[var(--client-offer-border)]" : "border-[var(--client-border)]"}`}>
