@@ -109,7 +109,7 @@ const initialUsers = [
 // warning/success/danger) — únicos consumidores oficiais dessas 4 cores;
 // "delivered" fica neutro (cinza), sem cor semântica própria.
 export const statusMap = {
-  received:  { label: "Recebido",     title: "Pedido recebido",    order: 1, progress: 25,  dot: "bg-[#2563EB]",  chip: "bg-[var(--pp-info-soft)] text-[#2563EB] border-[#2563EB]/15" },
+  received:  { label: "Recebido",     title: "Pedido recebido",    order: 1, progress: 25,  dot: "bg-[var(--pp-info)]",  chip: "bg-[var(--pp-info-soft)] text-[var(--pp-info)] border-[#0F4C5C]/15" },
   preparing: { label: "Em preparação",title: "Em preparação",      order: 2, progress: 65,  dot: "bg-[#F59E0B]",  chip: "bg-[var(--pp-warning-soft)] text-[var(--pp-warning-text)] border-[#F59E0B]/25" },
   ready:     { label: "Finalizado",   title: "Pedido finalizado",  order: 3, progress: 100, dot: "bg-[#16A34A]",  chip: "bg-[var(--pp-success-soft)] text-[var(--pp-success-text)] border-[#16A34A]/20" },
   delivered: { label: "Entregue",     title: "Pedido entregue",    order: 4, progress: 100, dot: "bg-slate-500",  chip: "bg-slate-100 text-slate-600 border-slate-200" },

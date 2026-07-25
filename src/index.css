@@ -280,14 +280,14 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
      a mesma semântica. Não usar como cor decorativa genérica. Afastadas
      de propósito do terracota da marca (info puxa pro azul, danger pro
      rosa/crimson) para nenhuma delas ser lida como uma ação da marca. */
-  --pp-info: #2E5FA8;
+  --pp-info: #0F4C5C; /* azul petróleo oficial (era #2E5FA8 royal, fora da paleta) — status "recebido/novo/info", igual ao cliente */
   --pp-warning: #F59E0B;
   --pp-success: #2F9E52;
   --pp-danger: #C81E4A;
 
   /* Fundos suaves (10-12%) para badges/chips de status — mesma cor,
      tingida sobre uma superfície clara. */
-  --pp-info-soft: rgba(46, 95, 168, 0.10);
+  --pp-info-soft: rgba(15, 76, 92, 0.10); /* azul petróleo #0F4C5C a 10% */
   --pp-warning-soft: #FFF4E5;
   --pp-success-soft: rgba(47, 158, 82, 0.10);
   --pp-danger-soft: rgba(200, 30, 74, 0.10);
