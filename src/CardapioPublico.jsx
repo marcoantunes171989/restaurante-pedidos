@@ -1213,33 +1213,36 @@ export default function CardapioPublico() {
     <div ref={raizRef} data-theme="light" className="tema-claro-area min-h-screen w-full max-w-[100vw] bg-[var(--client-background)] text-[var(--client-text-primary)]" style={{ minHeight: "100dvh", paddingBottom: `calc(env(safe-area-inset-bottom) + ${cart.length > 0 ? 150 : 92}px)` }}>
       {/* Cabeçalho */}
       <header ref={headerRef} className="sticky top-0 z-30 border-b border-[var(--client-border)] bg-[var(--client-surface)] px-4 pb-3 backdrop-blur-xl" style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)" }}>
-        <div className="mx-auto flex max-w-3xl items-center gap-3">
-          {loja.logoUrl ? <img src={loja.logoUrl} alt="" className="h-12 w-12 rounded-2xl object-cover" /> : <LogoPP size={48} />}
+        {/* Header em UMA linha: logo + nome + ações SÓ-ÍCONE (garçom/ajuda/
+            limpeza/QR). Antes eram 2 linhas (a de chamados ocupava ~50px); só
+            ícones colapsa tudo numa linha e libera altura para os produtos.
+            Cada ícone tem aria-label + title (a11y/desktop). Cor dos ícones =
+            grafite (neutro/apoio) sobre superfície secundária — padrão da paleta
+            para AÇÃO SECUNDÁRIA (o laranja fica reservado às ações primárias). */}
+        <div className="mx-auto flex max-w-3xl items-center gap-2.5">
+          {loja.logoUrl ? <img src={loja.logoUrl} alt="" className="h-11 w-11 shrink-0 rounded-2xl object-cover" /> : <LogoPP size={44} />}
           <div className="min-w-0 flex-1">
-            <p className="truncate text-lg font-black text-[var(--client-text-primary)] leading-tight">{loja.nome}</p>
-            <p className="text-sm text-[var(--client-text-secondary)]">{currentTable ? `${currentTable}${comanda ? " · " + comanda : ""}` : "Cardápio digital"}</p>
+            <p className="truncate text-base font-black leading-tight text-[var(--client-text-primary)] sm:text-lg">{loja.nome}</p>
+            <p className="truncate text-xs text-[var(--client-text-secondary)] sm:text-sm">{currentTable ? `${currentTable}${comanda ? " · " + comanda : ""}` : "Cardápio digital"}</p>
           </div>
           {!modoExterno && mesa && (
-            <button onClick={abrirQr} aria-label="Visualizar QR Code da mesa" className="flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-full border border-[var(--client-border)] bg-[var(--client-surface-secondary)] px-3.5 py-2 text-xs font-black text-[var(--client-text-primary)] transition active:scale-95 hover:bg-[var(--client-primary-soft)]">
-              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><line x1="14" y1="14" x2="14" y2="21"/><line x1="18" y1="14" x2="18" y2="18"/><line x1="21" y1="14" x2="21" y2="21"/></svg>
-              Ver QR
-            </button>
+            <div className="flex shrink-0 items-center gap-1.5">
+              {[["garcom", CkIconSino, "Garçom", "Chamar garçom"], ["ajuda", CkIconAjuda, "Ajuda", "Pedir ajuda"], ["limpeza", CkIconLimpeza, "Limpeza", "Solicitar limpeza"]].map(([t, Icone, rotulo, aria]) => {
+                const emAndamento = chamando === t;
+                return (
+                  <button key={t} onClick={() => chamar(t, rotulo)} disabled={!!chamando} aria-busy={emAndamento} aria-label={aria} title={aria}
+                    className="flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--client-border)] bg-[var(--client-surface-secondary)] text-[var(--client-text-primary)] transition active:scale-90 hover:bg-[var(--client-border)] disabled:cursor-not-allowed disabled:opacity-60">
+                    {emAndamento ? <CkIconSpinner /> : <Icone width={18} height={18} />}
+                  </button>
+                );
+              })}
+              <button onClick={abrirQr} aria-label="Ver QR Code da mesa" title="Ver QR Code"
+                className="flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--client-border)] bg-[var(--client-surface-secondary)] text-[var(--client-text-primary)] transition active:scale-90 hover:bg-[var(--client-primary-soft)]">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><line x1="14" y1="14" x2="14" y2="21"/><line x1="18" y1="14" x2="18" y2="18"/><line x1="21" y1="14" x2="21" y2="21"/></svg>
+              </button>
+            </div>
           )}
         </div>
-        {/* Chamados — só no modo mesa (QR na mesa) */}
-        {!modoExterno && mesa && (
-          <div className="mx-auto mt-3 flex max-w-3xl gap-2">
-            {[["garcom", CkIconSino, "Garçom"], ["ajuda", CkIconAjuda, "Ajuda"], ["limpeza", CkIconLimpeza, "Limpeza"]].map(([t, Icone, l]) => {
-              const emAndamento = chamando === t;
-              return (
-                <button key={t} onClick={() => chamar(t, l)} disabled={!!chamando} aria-busy={emAndamento}
-                  className="flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface-secondary)] py-2.5 text-sm font-black text-[var(--client-text-primary)] transition active:scale-95 hover:bg-[var(--client-border)] disabled:cursor-not-allowed disabled:opacity-60">
-                  {emAndamento ? <CkIconSpinner /> : <Icone width={16} height={16} />}{emAndamento ? "Enviando…" : l}
-                </button>
-              );
-            })}
-          </div>
-        )}
       </header>
 
       {bloqueioHorario && (
