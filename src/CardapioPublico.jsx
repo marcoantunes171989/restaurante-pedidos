@@ -1357,29 +1357,39 @@ export default function CardapioPublico() {
           duplicando os botões ao focar um campo (ex.: comanda). Esconder na
           raiz resolve em iOS, Android e desktop. */}
       <div className={`fixed inset-x-0 bottom-0 z-40 ${(aba || detalhe || survey) ? "hidden" : ""}`} style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
-        <div className="mx-auto max-w-3xl space-y-2 px-3 pb-2 pt-1">
-          {cart.length > 0 && (
-            <div className="flex items-center justify-between gap-3 rounded-3xl border border-[var(--client-border)] bg-[var(--client-surface)] p-3 shadow-[var(--client-shadow-floating)] backdrop-blur-xl">
-              <button onClick={() => setAba("carrinho")} className="flex min-w-0 items-center gap-3 text-left">
-                <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[var(--client-primary-soft)] text-lg text-[var(--client-primary-hover)]">🛒<span className="absolute -right-1 -top-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[var(--client-primary-hover)] px-1 text-[11px] font-black text-white">{qtdCart}</span></span>
-                <span className="min-w-0"><span className="block text-sm font-black text-[var(--client-text-primary)]">Ver carrinho</span><span className="block text-xs text-[var(--client-text-secondary)]">{qtdCart} {qtdCart === 1 ? "item" : "itens"} · {formatCurrency(totalCart)}</span></span>
+        <div className="mx-auto max-w-3xl px-3 pb-2 pt-1">
+          {/* Rodapé em UMA linha, altura fixa (antes eram 2 — Finalizar + uma
+              linha inteira de "Acompanhar" — que roubavam altura dos produtos).
+              Carrinho (esq., toca p/ abrir) + Acompanhar como ÍCONE com contador
+              de pedidos (só aparece quando há pedidos, em petróleo/info) +
+              Finalizar (laranja). Mais limpo e sem emoji (SVG). */}
+          <div className="flex items-center gap-2 rounded-3xl border border-[var(--client-border)] bg-[var(--client-surface)] p-2.5 shadow-[var(--client-shadow-floating)] backdrop-blur-xl">
+            <button onClick={() => setAba("carrinho")} disabled={cart.length === 0} aria-label={cart.length > 0 ? "Ver carrinho" : "Carrinho vazio"}
+              className="flex min-w-0 flex-1 items-center gap-3 rounded-2xl text-left disabled:cursor-default">
+              <span className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${cart.length > 0 ? "bg-[var(--client-primary-soft)] text-[var(--client-primary-hover)]" : "bg-[var(--client-surface-secondary)] text-[var(--client-text-muted)]"}`}>
+                <CkIconSacola width={20} height={20} />
+                {qtdCart > 0 && <span className="absolute -right-1 -top-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[var(--client-primary-hover)] px-1 text-[11px] font-black text-white">{qtdCart}</span>}
+              </span>
+              <span className="min-w-0">
+                {cart.length > 0 ? (
+                  <><span className="block text-sm font-black text-[var(--client-text-primary)]">Ver carrinho</span><span className="block truncate text-xs text-[var(--client-text-secondary)]">{qtdCart} {qtdCart === 1 ? "item" : "itens"} · {formatCurrency(totalCart)}</span></>
+                ) : (
+                  <span className="block text-sm font-black text-[var(--client-text-muted)]">Carrinho vazio</span>
+                )}
+              </span>
+            </button>
+            {meusPedidos.length > 0 && (
+              <button onClick={() => setAba("conta")} aria-label="Acompanhar meu pedido" title="Acompanhar pedido"
+                className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[var(--client-info-border)] bg-[var(--client-info-soft)] text-[var(--client-info)] transition active:scale-90 hover:brightness-95">
+                <CkIconRecibo width={20} height={20} />
+                <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[var(--client-info)] px-1 text-[11px] font-black text-white">{meusPedidos.length}</span>
               </button>
-              <button onClick={() => setAba("carrinho")} className="flex min-h-[44px] shrink-0 items-center gap-1 rounded-2xl bg-[var(--client-primary-hover)] px-4 py-3 text-sm font-black text-white transition active:scale-95 hover:bg-[var(--client-primary)]">Finalizar pedido ›</button>
-            </div>
-          )}
-          {cart.length === 0 ? (
-            // Carrinho vazio: dá acesso direto ao carrinho + acompanhar
-            <div className="flex items-stretch gap-2 rounded-3xl border border-[var(--client-border)] bg-[var(--client-surface)] p-2 shadow-[var(--client-shadow-floating)] backdrop-blur-xl">
-              <button onClick={() => setAba("conta")} disabled={meusPedidos.length === 0}
-                className={`flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-2xl border border-[var(--client-border)] py-3 text-sm font-black transition active:scale-95 ${meusPedidos.length === 0 ? "bg-[var(--client-disabled-background)] text-[var(--client-disabled-text)]" : "bg-[var(--client-surface)] text-[var(--client-info)]"}`}><CkIconRecibo width={16} height={16} /> Acompanhar pedido</button>
+            )}
+            {cart.length > 0 && (
               <button onClick={() => setAba("carrinho")}
-                className="flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-2xl border border-[var(--client-border)] bg-[var(--client-disabled-background)] py-3 text-sm font-black text-[var(--client-disabled-text)] transition active:scale-95">🛒 Carrinho vazio</button>
-            </div>
-          ) : (
-            // Com itens: o carrinho já está na barra acima — aqui só acompanhar
-            <button onClick={() => setAba("conta")} disabled={meusPedidos.length === 0}
-              className={`flex min-h-[44px] w-full items-center justify-center gap-2 rounded-3xl border border-[var(--client-border)] py-3.5 text-sm font-black shadow-[var(--client-shadow-floating)] backdrop-blur-xl transition active:scale-95 ${meusPedidos.length === 0 ? "bg-[var(--client-disabled-background)] text-[var(--client-disabled-text)]" : "bg-[var(--client-surface)] text-[var(--client-info)]"}`}><CkIconRecibo width={16} height={16} /> Acompanhar pedido</button>
-          )}
+                className="flex h-12 shrink-0 items-center gap-1 rounded-2xl bg-[var(--client-primary-hover)] px-4 text-sm font-black text-white transition active:scale-95 hover:bg-[var(--client-primary)]">Finalizar&nbsp;›</button>
+            )}
+          </div>
         </div>
       </div>
 
