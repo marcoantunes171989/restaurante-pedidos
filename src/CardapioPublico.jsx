@@ -1159,15 +1159,18 @@ export default function CardapioPublico() {
           </div>
           {!modoExterno && mesa && (
             <div className="mt-8 w-full">
+              {/* Chamados SÓ-ÍCONE — mesmo padrão do header do cardápio (grafite
+                  neutro sobre superfície secundária = ação secundária). aria-label
+                  + title para clareza/acessibilidade; a legenda "Precisa de algo?"
+                  dá o contexto do grupo. */}
               <p className="text-xs font-bold uppercase tracking-widest text-[var(--client-text-secondary)]">Precisa de algo?</p>
-              <div className="mt-2 flex justify-center gap-2">
-                {[["garcom", CkIconSino, "Garçom"], ["ajuda", CkIconAjuda, "Ajuda"], ["limpeza", CkIconLimpeza, "Limpeza"]].map(([t, Icone, l]) => {
+              <div className="mt-2 flex justify-center gap-1.5">
+                {[["garcom", CkIconSino, "Garçom", "Chamar garçom"], ["ajuda", CkIconAjuda, "Ajuda", "Pedir ajuda"], ["limpeza", CkIconLimpeza, "Limpeza", "Solicitar limpeza"]].map(([t, Icone, rotulo, aria]) => {
                   const emAndamento = chamando === t;
                   return (
-                    <button key={t} onClick={() => chamar(t, l)} disabled={!!chamando} aria-busy={emAndamento}
-                      className="flex min-h-[44px] flex-1 flex-col items-center justify-center gap-1 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface-secondary)] py-2.5 text-xs font-black text-[var(--client-text-primary)] transition active:scale-95 hover:bg-[var(--client-border)] disabled:cursor-not-allowed disabled:opacity-60">
-                      {emAndamento ? <CkIconSpinner /> : <Icone width={16} height={16} />}
-                      {emAndamento ? "Enviando…" : l}
+                    <button key={t} onClick={() => chamar(t, rotulo)} disabled={!!chamando} aria-busy={emAndamento} aria-label={aria} title={aria}
+                      className="flex h-11 w-11 items-center justify-center rounded-xl border border-[var(--client-border)] bg-[var(--client-surface-secondary)] text-[var(--client-text-primary)] transition active:scale-90 hover:bg-[var(--client-border)] disabled:cursor-not-allowed disabled:opacity-60">
+                      {emAndamento ? <CkIconSpinner /> : <Icone width={18} height={18} />}
                     </button>
                   );
                 })}
