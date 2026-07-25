@@ -7590,7 +7590,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
   const mesasAbertas = mesasAtencao.length;
   const tempoMedioMesa = mesasAbertas ? Math.round(mesasAtencao.reduce((s, m) => s + m.mins, 0) / mesasAbertas) : 0;
   const fmtTempo = formatarDuracaoMin; // helper global — mesmo formato em toda a tela
-  const situacaoMesa = (m) => m.preparo ? { label: "Pedido em preparo", cls: "border-blue-500/30 bg-blue-500/10 text-blue-500" } : { label: "Aguardando pagamento", cls: "border-amber-500/30 bg-amber-500/10 text-amber-500" };
+  const situacaoMesa = (m) => m.preparo ? { label: "Pedido em preparo", cls: "border-[#0F4C5C]/30 bg-[#0F4C5C]/10 text-[#0F4C5C]" } : { label: "Aguardando pagamento", cls: "border-amber-500/30 bg-amber-500/10 text-amber-500" };
 
   // Cancelamentos e perdas
   const valorPerdido = cancelados.reduce((s, o) => s + orderTotal(o) * 1.1, 0);
@@ -7619,10 +7619,10 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
       : { tom: "danger", titulo: `${semEstoque.length} produto(s)`, desc: "abaixo do estoque mínimo." },
   ];
   const tomCls = {
-    danger:  "border-[rgba(239,68,68,0.30)] bg-[rgba(239,68,68,0.08)] text-red-500",
+    danger:  "border-[rgba(200,30,74,0.30)] bg-[rgba(200,30,74,0.08)] text-[#C81E4A]",
     warning: "border-[rgba(245,158,11,0.30)] bg-[rgba(245,158,11,0.08)] text-amber-500",
-    info:    "border-[rgba(139,92,246,0.30)] bg-[rgba(139,92,246,0.08)] text-violet-500",
-    success: "border-[rgba(16,185,129,0.30)] bg-[rgba(16,185,129,0.08)] text-emerald-500",
+    info:    "border-[rgba(15,76,92,0.30)] bg-[rgba(15,76,92,0.08)] text-[#0F4C5C]",
+    success: "border-[rgba(47,158,82,0.30)] bg-[rgba(47,158,82,0.08)] text-[#2F9E52]",
   };
 
   // Recomendações (parcialmente dinâmicas)
@@ -7824,29 +7824,29 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
       {/* Cabeçalho + período */}
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h2 className="page-title flex items-center gap-2.5 text-2xl font-bold tracking-tight text-brand-ink">
+          <h2 className="page-title flex items-center gap-2.5 text-2xl font-bold tracking-tight text-[var(--pp-text)]">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[#0F4C5C]" style={{ background: "#0F4C5C1A" }}>{soCopiloto ? "🤖" : <IconDashboard />}</span>
             {soCopiloto ? "Copiloto IA" : "Dashboard Gerencial"}
           </h2>
-          <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1.5 max-w-2xl text-sm text-brand-inkSoft">
+          <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1.5 max-w-2xl text-sm text-[var(--pp-text-muted)]">
             <span>{soCopiloto ? "Inteligência gerencial baseada nos dados reais do seu negócio." : "Visão estratégica de vendas, operação, produtos, clientes e desempenho financeiro."}</span>
             {!soCopiloto && (
-              <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-brand-success" title="Os dados são atualizados automaticamente em tempo real">
-                <span className="relative flex h-1.5 w-1.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand-success opacity-60 motion-reduce:animate-none" /><span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-brand-success" /></span>
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-[var(--pp-success)]" title="Os dados são atualizados automaticamente em tempo real">
+                <span className="relative flex h-1.5 w-1.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--pp-success)] opacity-60 motion-reduce:animate-none" /><span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[var(--pp-success)]" /></span>
                 Dados em tempo real
               </span>
             )}
             {soCopiloto && (
               <>
-                <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wider" style={{ background: "#10B9811A", color: "#10B981" }} title="Todos os números desta tela vêm dos dados reais da empresa logada — nada é inventado">✔ Dados reais</span>
-                <span className="text-[11px] text-[#64748B]">Última atualização: {atualizadoEmCopiloto.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span>
+                <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wider" style={{ background: "#2F9E521A", color: "#2F9E52" }} title="Todos os números desta tela vêm dos dados reais da empresa logada — nada é inventado">✔ Dados reais</span>
+                <span className="text-[11px] text-[var(--pp-text-muted)]">Última atualização: {atualizadoEmCopiloto.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span>
               </>
             )}
           </p>
         </div>
         <div className="flex flex-wrap items-start gap-2">
           {soCopiloto && (
-            <button onClick={atualizarAnaliseCopiloto} className="shrink-0 rounded-xl border px-3.5 py-2.5 text-xs font-bold transition hover:bg-[#E6EEF1]" style={{ borderColor: "#E2E8F0", color: "#0F4C5C" }}>🔄 Atualizar análise</button>
+            <button onClick={atualizarAnaliseCopiloto} className="shrink-0 rounded-xl border px-3.5 py-2.5 text-xs font-bold transition hover:bg-[rgba(15,76,92,0.06)]" style={{ borderColor: "var(--pp-border)", color: "#0F4C5C" }}>🔄 Atualizar análise</button>
           )}
           <div className="pp-filter-panel">
             <SeletorPeriodo periodo={periodo} setPeriodo={setPeriodo} ini={ini} setIni={setIni} fim={fim} setFim={setFim} />
@@ -7876,20 +7876,20 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
         const estoqueBaixo = (products || []).filter((p) => p.controlaEstoque && (Number(p.estoque) || 0) <= (Number(p.estoqueMinimo) || 0)).length;
         const pills = [
           melhorHora?.valor > 0 && { dot: "bg-amber-500", txt: <>Melhor horário: <b className="font-bold text-dash-navy">{melhorHora.label}</b></> },
-          produtoTop && { dot: "bg-blue-500", txt: <>Destaque: <b className="font-bold text-dash-navy">{produtoTop.nome}</b></> },
-          { dot: a.ticket >= meta ? "bg-emerald-500" : "bg-amber-500", txt: <>Ticket médio {a.ticket >= meta ? "acima" : "abaixo"} da meta</> },
-          { dot: abertos.length === 0 ? "bg-emerald-500" : "bg-amber-500", txt: abertos.length === 0 ? "Sem pendências financeiras" : <>{abertos.length} comanda(s) em aberto</> },
-          { dot: estoqueBaixo === 0 ? "bg-emerald-500" : "bg-red-500", txt: estoqueBaixo === 0 ? "Estoque sem alertas" : <>{estoqueBaixo} produto(s) sem estoque</> },
+          produtoTop && { dot: "bg-[#0F4C5C]", txt: <>Destaque: <b className="font-bold text-dash-navy">{produtoTop.nome}</b></> },
+          { dot: a.ticket >= meta ? "bg-[#2F9E52]" : "bg-amber-500", txt: <>Ticket médio {a.ticket >= meta ? "acima" : "abaixo"} da meta</> },
+          { dot: abertos.length === 0 ? "bg-[#2F9E52]" : "bg-amber-500", txt: abertos.length === 0 ? "Sem pendências financeiras" : <>{abertos.length} comanda(s) em aberto</> },
+          { dot: estoqueBaixo === 0 ? "bg-[#2F9E52]" : "bg-[#C81E4A]", txt: estoqueBaixo === 0 ? "Estoque sem alertas" : <>{estoqueBaixo} produto(s) sem estoque</> },
         ].filter(Boolean);
         return (
-          <div className="mt-4 flex flex-wrap items-center gap-2.5 rounded-2xl border border-blue-500/25 bg-white px-4 py-3">
-            <span className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-blue-500">
+          <div className="mt-4 flex flex-wrap items-center gap-2.5 rounded-2xl border border-[#0F4C5C]/25 bg-white px-4 py-3">
+            <span className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-[#0F4C5C]">
               <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor"><path d="M12 2l2.4 6.9H22l-6 4.3 2.3 7L12 16l-6.3 4.2 2.3-7-6-4.3h7.6z" /></svg>
               Resumo inteligente
             </span>
-            <span className="hidden h-4 w-px bg-slate-200 sm:block" />
+            <span className="hidden h-4 w-px bg-[var(--pp-border)] sm:block" />
             {pills.map((p, i) => (
-              <span key={i} className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-500">
+              <span key={i} className="inline-flex items-center gap-2 rounded-full border border-[var(--pp-border)] bg-[var(--pp-bg)] px-3 py-1.5 text-xs font-semibold text-[var(--pp-text-muted)]">
                 <span className={`h-1.5 w-1.5 rounded-full ${p.dot}`} />{p.txt}
               </span>
             ))}
@@ -7919,11 +7919,11 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
 
       {/* Copiloto de Gestão (IA) — só na tela dedicada do menu "Copiloto IA" */}
       {soCopiloto && (() => {
-        const NIVEL_COR = { "Saudável": "#10B981", "Atenção": "#F59E0B", "Crítico": "#EF4444" };
+        const NIVEL_COR = { "Saudável": "#2F9E52", "Atenção": "#F59E0B", "Crítico": "#C81E4A" };
         const nivelCorAnel = NIVEL_COR[ia.nivel] || "#F59E0B";
-        const sevCor = { pos: "#10B981", info: "#8B5CF6", warn: "#F59E0B", crit: "#EF4444" };
+        const sevCor = { pos: "#2F9E52", info: "#8B5CF6", warn: "#F59E0B", crit: "#C81E4A" };
         const sevIc = { pos: "✅", info: "ℹ️", warn: "⚠️", crit: "🔴" };
-        const prioCor = { alta: "#EF4444", media: "#F59E0B", baixa: "#64748B" };
+        const prioCor = { alta: "#C81E4A", media: "#F59E0B", baixa: "#8A7D73" };
         const prioLbl = { alta: "Alta", media: "Média", baixa: "Baixa" };
         const semDados = a.totalPedidos === 0;
         const CATEGORIAS_INSIGHT = ["Vendas", "Clientes", "Produtos", "Estoque", "Operação", "Financeiro", "Satisfação"];
@@ -7948,52 +7948,52 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
           <div className="space-y-6">
             {toastAcao && (
               <div className="fixed inset-x-0 top-4 z-[150] flex justify-center px-4">
-                <div className="flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-bold shadow-lg" style={{ borderColor: "#10B98133", background: "#10B9811A", color: "#10B981" }}>✅ {toastAcao}</div>
+                <div className="flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-bold shadow-lg" style={{ borderColor: "#2F9E5233", background: "#2F9E521A", color: "#2F9E52" }}>✅ {toastAcao}</div>
               </div>
             )}
             {/* 4. Diagnóstico do negócio */}
-            <div className="rounded-2xl border border-[#E2E8F0] bg-white p-5 shadow-sm sm:p-6">
+            <div className="rounded-2xl border border-[var(--pp-border)] bg-white p-5 shadow-sm sm:p-6">
               <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
                 <div className="flex items-center gap-4">
-                  <div className="relative h-20 w-20 shrink-0" style={{ background: `conic-gradient(${nivelCorAnel} ${ia.score * 3.6}deg, #E2E8F0 0deg)`, borderRadius: "9999px" }}>
+                  <div className="relative h-20 w-20 shrink-0" style={{ background: `conic-gradient(${nivelCorAnel} ${ia.score * 3.6}deg, #EAE0D6 0deg)`, borderRadius: "9999px" }}>
                     <div className="absolute inset-[6px] flex flex-col items-center justify-center rounded-full bg-white">
                       <span className="text-2xl font-black leading-none" style={{ color: nivelCorAnel }}>{ia.score}</span>
-                      <span className="mt-0.5 text-[9px] font-bold uppercase tracking-wider text-[#64748B]">/100</span>
+                      <span className="mt-0.5 text-[9px] font-bold uppercase tracking-wider text-[var(--pp-text-muted)]">/100</span>
                     </div>
                   </div>
                   <div>
-                    <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-[#64748B]">
+                    <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]">
                       Diagnóstico do negócio
-                      <span tabIndex={0} title={`Como o score é calculado (regras locais, sem IA):\n${ia.regrasScore.map((r) => `• ${r.desc}`).join("\n")}`} aria-label="Como o score é calculado" className="cursor-help text-[#94A3B8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F4C5C] focus-visible:ring-offset-1 rounded-full">ⓘ</span>
+                      <span tabIndex={0} title={`Como o score é calculado (regras locais, sem IA):\n${ia.regrasScore.map((r) => `• ${r.desc}`).join("\n")}`} aria-label="Como o score é calculado" className="cursor-help text-[var(--pp-text-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F4C5C] focus-visible:ring-offset-1 rounded-full">ⓘ</span>
                     </p>
                     <span className="mt-1 inline-flex rounded-full border px-3 py-1 text-sm font-black" style={{ borderColor: `${nivelCorAnel}4D`, background: `${nivelCorAnel}1A`, color: nivelCorAnel }}>{ia.nivel}</span>
                     {comparativo?.faturamento != null && (
-                      <p className="mt-1.5 text-xs font-bold" style={{ color: comparativo.faturamento >= 0 ? "#10B981" : "#EF4444" }}>
+                      <p className="mt-1.5 text-xs font-bold" style={{ color: comparativo.faturamento >= 0 ? "#2F9E52" : "#C81E4A" }}>
                         {comparativo.faturamento >= 0 ? "▲" : "▼"} {Math.abs(Math.round(comparativo.faturamento))}% de faturamento vs. período anterior
                       </p>
                     )}
                   </div>
                 </div>
                 <div className="flex-1 lg:max-w-xl">
-                  <p className="text-[11px] font-bold uppercase tracking-widest text-[#64748B]">Resumo do cenário</p>
-                  <p className="mt-1 text-sm leading-relaxed text-[#334155]">{semDados ? "Sem pedidos no período e filtros selecionados — ajuste os filtros acima para ver a análise." : ia.resumo}</p>
+                  <p className="text-[11px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]">Resumo do cenário</p>
+                  <p className="mt-1 text-sm leading-relaxed text-[var(--pp-text)]">{semDados ? "Sem pedidos no período e filtros selecionados — ajuste os filtros acima para ver a análise." : ia.resumo}</p>
                 </div>
               </div>
               {!semDados && (
-                <div className="mt-5 grid gap-2.5 border-t border-[#F1F5F9] pt-4 sm:grid-cols-3">
-                  <div className="rounded-xl p-3" style={{ background: "#10B9810D" }}><p className="text-[9px] font-black uppercase tracking-widest" style={{ color: "#10B981" }}>Principal resultado positivo</p><p className="mt-1 text-xs font-semibold leading-snug text-[#334155]">{ia.resultadoPositivo}</p></div>
-                  <div className="rounded-xl p-3" style={{ background: "#EF44440D" }}><p className="text-[9px] font-black uppercase tracking-widest" style={{ color: "#EF4444" }}>Principal risco</p><p className="mt-1 text-xs font-semibold leading-snug text-[#334155]">{ia.principalRisco}</p></div>
-                  <div className="rounded-xl p-3" style={{ background: "#8B5CF60D" }}><p className="text-[9px] font-black uppercase tracking-widest" style={{ color: "#8B5CF6" }}>Principal oportunidade</p><p className="mt-1 text-xs font-semibold leading-snug text-[#334155]">{ia.principalOportunidade}</p></div>
+                <div className="mt-5 grid gap-2.5 border-t border-[var(--pp-bg)] pt-4 sm:grid-cols-3">
+                  <div className="rounded-xl p-3" style={{ background: "#2F9E520D" }}><p className="text-[9px] font-black uppercase tracking-widest" style={{ color: "#2F9E52" }}>Principal resultado positivo</p><p className="mt-1 text-xs font-semibold leading-snug text-[var(--pp-text)]">{ia.resultadoPositivo}</p></div>
+                  <div className="rounded-xl p-3" style={{ background: "#C81E4A0D" }}><p className="text-[9px] font-black uppercase tracking-widest" style={{ color: "#C81E4A" }}>Principal risco</p><p className="mt-1 text-xs font-semibold leading-snug text-[var(--pp-text)]">{ia.principalRisco}</p></div>
+                  <div className="rounded-xl p-3" style={{ background: "#8B5CF60D" }}><p className="text-[9px] font-black uppercase tracking-widest" style={{ color: "#8B5CF6" }}>Principal oportunidade</p><p className="mt-1 text-xs font-semibold leading-snug text-[var(--pp-text)]">{ia.principalOportunidade}</p></div>
                 </div>
               )}
               {!semDados && ia.acoes.length > 0 && (
-                <div className="mt-3 border-t border-[#F1F5F9] pt-4">
-                  <p className="mb-2 text-[11px] font-black uppercase tracking-widest text-[#0D1B2A]">Três prioridades agora</p>
+                <div className="mt-3 border-t border-[var(--pp-bg)] pt-4">
+                  <p className="mb-2 text-[11px] font-black uppercase tracking-widest text-[var(--pp-text)]">Três prioridades agora</p>
                   <div className="grid gap-2 sm:grid-cols-3">
                     {ia.acoes.slice(0, 3).map((ac, i) => (
-                      <div key={i} className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
+                      <div key={i} className="rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-3">
                         <span className="inline-flex rounded-full border px-2 py-0.5 text-[10px] font-black uppercase" style={{ borderColor: `${prioCor[ac.prio]}4D`, background: `${prioCor[ac.prio]}1A`, color: prioCor[ac.prio] }}>{prioLbl[ac.prio]}</span>
-                        <p className="mt-1.5 text-xs font-semibold leading-snug text-[#334155]">{ac.texto}</p>
+                        <p className="mt-1.5 text-xs font-semibold leading-snug text-[var(--pp-text)]">{ac.texto}</p>
                       </div>
                     ))}
                   </div>
@@ -8002,26 +8002,26 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
             </div>
 
             {/* 5. Pergunte ao Copiloto */}
-            <div className="rounded-2xl border border-[#E2E8F0] bg-white p-5 shadow-sm sm:p-6">
+            <div className="rounded-2xl border border-[var(--pp-border)] bg-white p-5 shadow-sm sm:p-6">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="flex items-center gap-2 text-sm font-black text-[#0D1B2A]"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg" style={{ background: "#8B5CF61A", color: "#8B5CF6" }}>🤖</span>Pergunte ao Copiloto</p>
+                <p className="flex items-center gap-2 text-sm font-black text-[var(--pp-text)]"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg" style={{ background: "#8B5CF61A", color: "#8B5CF6" }}>🤖</span>Pergunte ao Copiloto</p>
                 <div className="flex flex-wrap items-center gap-2">
                   {chatMsgs.some((m) => m.role === "user") && !chatLoading && (
-                    <button onClick={refazerAnaliseIA} className="shrink-0 rounded-lg border border-[#E2E8F0] bg-white px-2.5 py-1 text-[11px] font-bold text-[#334155] transition hover:border-[#0F4C5C] hover:text-[#0F4C5C]">🔁 Refazer análise</button>
+                    <button onClick={refazerAnaliseIA} className="shrink-0 rounded-lg border border-[var(--pp-border)] bg-white px-2.5 py-1 text-[11px] font-bold text-[var(--pp-text)] transition hover:border-[#0F4C5C] hover:text-[#0F4C5C]">🔁 Refazer análise</button>
                   )}
                   {chatMsgs.length > 0 && (
-                    <button onClick={() => { setChatMsgs([]); setChatErro(""); setChatFeedback({}); }} className="shrink-0 rounded-lg border border-[#E2E8F0] bg-white px-2.5 py-1 text-[11px] font-bold text-[#334155] transition hover:border-[#0F4C5C] hover:text-[#0F4C5C]">Limpar conversa</button>
+                    <button onClick={() => { setChatMsgs([]); setChatErro(""); setChatFeedback({}); }} className="shrink-0 rounded-lg border border-[var(--pp-border)] bg-white px-2.5 py-1 text-[11px] font-bold text-[var(--pp-text)] transition hover:border-[#0F4C5C] hover:text-[#0F4C5C]">Limpar conversa</button>
                   )}
                 </div>
               </div>
               {chatMsgs.length === 0 && !chatLoading && (
-                <p className="mt-3 rounded-xl border border-dashed border-[#E2E8F0] bg-[#F8FAFC] px-4 py-6 text-center text-xs text-[#64748B]">Nenhuma pergunta ainda nesta sessão. Use uma sugestão abaixo ou escreva a sua pergunta.</p>
+                <p className="mt-3 rounded-xl border border-dashed border-[var(--pp-border)] bg-[var(--pp-bg)] px-4 py-6 text-center text-xs text-[var(--pp-text-muted)]">Nenhuma pergunta ainda nesta sessão. Use uma sugestão abaixo ou escreva a sua pergunta.</p>
               )}
               {chatMsgs.length > 0 && (
-                <div className="mt-3 max-h-[28rem] space-y-2 overflow-y-auto rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
+                <div className="mt-3 max-h-[28rem] space-y-2 overflow-y-auto rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-3">
                   {chatMsgs.map((m, i) => (
                     <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                      <div className={`max-w-[92%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${m.role === "user" ? "whitespace-pre-wrap" : ""}`} style={m.role === "user" ? { background: "#0F4C5C", color: "#FFFFFF" } : { border: "1px solid #E2E8F0", background: "#FFFFFF", color: "#334155" }}>
+                      <div className={`max-w-[92%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${m.role === "user" ? "whitespace-pre-wrap" : ""}`} style={m.role === "user" ? { background: "#0F4C5C", color: "#FFFFFF" } : { border: "1px solid #EAE0D6", background: "#FFFFFF", color: "#2B2320" }}>
                         {m.role === "user" ? m.content : (
                           <RespostaCopilotoBubble resultado={m.resultado} modelo={m.modelo} dataPeriod={m.dataPeriod} bloqueado={m.bloqueado} atualizadoEm={m.atualizadoEm}
                             copiado={chatCopiadoIdx === i} onCopiar={(texto) => copiarResposta(texto, i)}
@@ -8032,11 +8032,11 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
                   ))}
                   {chatLoading && (
                     <div className="flex justify-start">
-                      <div className="w-56 space-y-2 rounded-2xl border border-[#E2E8F0] bg-white px-3.5 py-3">
-                        <div className="h-2.5 w-full animate-pulse rounded-full bg-[#F1F5F9]" />
-                        <div className="h-2.5 w-4/5 animate-pulse rounded-full bg-[#F1F5F9]" />
-                        <div className="h-2.5 w-3/5 animate-pulse rounded-full bg-[#F1F5F9]" />
-                        <button onClick={interromperRespostaIA} className="text-[10px] font-bold text-[#EF4444] hover:underline">■ Interromper resposta</button>
+                      <div className="w-56 space-y-2 rounded-2xl border border-[var(--pp-border)] bg-white px-3.5 py-3">
+                        <div className="h-2.5 w-full animate-pulse rounded-full bg-[var(--pp-bg)]" />
+                        <div className="h-2.5 w-4/5 animate-pulse rounded-full bg-[var(--pp-bg)]" />
+                        <div className="h-2.5 w-3/5 animate-pulse rounded-full bg-[var(--pp-bg)]" />
+                        <button onClick={interromperRespostaIA} className="text-[10px] font-bold text-[#C81E4A] hover:underline">■ Interromper resposta</button>
                       </div>
                     </div>
                   )}
@@ -8050,9 +8050,9 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
                   onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); enviarPerguntaIA(); } }}
                   rows={2} placeholder="Ex.: Como aumentar o ticket médio neste período? (Enter envia, Shift+Enter quebra linha)"
                   aria-label="Pergunta para o Copiloto"
-                  className="flex-1 resize-none rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm text-[#334155] outline-none transition focus:border-[#0F4C5C] focus:ring-2 focus:ring-[#0F4C5C]/25 placeholder:text-[#94A3B8]" />
+                  className="flex-1 resize-none rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-sm text-[var(--pp-text)] outline-none transition focus:border-[#0F4C5C] focus:ring-2 focus:ring-[#0F4C5C]/25 placeholder:text-[var(--pp-text-muted)]" />
                 {chatLoading ? (
-                  <button onClick={interromperRespostaIA} className="shrink-0 self-end rounded-xl border border-[#EF4444] bg-white px-5 py-2.5 text-sm font-black text-[#EF4444] transition hover:bg-[#FEF2F2]">■ Interromper</button>
+                  <button onClick={interromperRespostaIA} className="shrink-0 self-end rounded-xl border border-[#C81E4A] bg-white px-5 py-2.5 text-sm font-black text-[#C81E4A] transition hover:bg-[#FEF2F2]">■ Interromper</button>
                 ) : (
                   <button onClick={() => enviarPerguntaIA()} disabled={!chatInput.trim()}
                     className="shrink-0 self-end rounded-xl bg-[#0F4C5C] px-5 py-2.5 text-sm font-black text-white transition hover:bg-[#0B3A46] disabled:cursor-not-allowed disabled:opacity-40">Enviar</button>
@@ -8061,15 +8061,15 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {["Como aumentar meu faturamento?", "Quais produtos devo promover?", "Onde estou perdendo dinheiro?", "Quais clientes devo reativar?", "Como reduzir o tempo de preparo?", "Quais riscos exigem atenção?", "Qual oportunidade tem maior impacto?"].map((s) => (
                   <button key={s} type="button" onClick={() => enviarPerguntaIA(s)} disabled={chatLoading}
-                    className="rounded-full border border-[#E2E8F0] bg-white px-2.5 py-1 text-[11px] font-bold text-[#334155] transition hover:border-[#0F4C5C] hover:text-[#0F4C5C] disabled:opacity-40">{s}</button>
+                    className="rounded-full border border-[var(--pp-border)] bg-white px-2.5 py-1 text-[11px] font-bold text-[var(--pp-text)] transition hover:border-[#0F4C5C] hover:text-[#0F4C5C] disabled:opacity-40">{s}</button>
                 ))}
               </div>
-              <p className="mt-3 text-[10px] text-[#94A3B8]">Respostas usam somente os dados reais do período e filtros ativos ({filtrosAtivosTexto}) — o Copiloto não inventa números. Chat via IA por função segura no servidor; sem chave configurada ou em caso de erro, cai automaticamente no diagnóstico local desta tela.</p>
+              <p className="mt-3 text-[10px] text-[var(--pp-text-muted)]">Respostas usam somente os dados reais do período e filtros ativos ({filtrosAtivosTexto}) — o Copiloto não inventa números. Chat via IA por função segura no servidor; sem chave configurada ou em caso de erro, cai automaticamente no diagnóstico local desta tela.</p>
             </div>
 
             {/* 7. Indicadores gerenciais */}
             <div>
-              <p className="mb-2 text-[11px] font-black uppercase tracking-widest text-[#0D1B2A]">Indicadores gerenciais</p>
+              <p className="mb-2 text-[11px] font-black uppercase tracking-widest text-[var(--pp-text)]">Indicadores gerenciais</p>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
                 onClick={(e) => { const pergunta = e.target.closest("[data-pergunta]")?.dataset.pergunta; if (pergunta) analisarIndicador(pergunta); }}>
                 {kpis.map((k) => <KpiCardCopiloto key={k.id} {...k} />)}
@@ -8078,15 +8078,15 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
 
             {/* Alertas críticos — separados dos insights comuns */}
             <div>
-              <p className="mb-2 text-[11px] font-black uppercase tracking-widest text-[#0D1B2A]">Alertas críticos</p>
+              <p className="mb-2 text-[11px] font-black uppercase tracking-widest text-[var(--pp-text)]">Alertas críticos</p>
               {ia.alertasCriticos.length === 0 ? (
-                <div className="rounded-xl border px-4 py-3 text-sm font-semibold" style={{ borderColor: "#10B98133", background: "#10B9811A", color: "#10B981" }}>✅ Nenhum alerta crítico no momento.</div>
+                <div className="rounded-xl border px-4 py-3 text-sm font-semibold" style={{ borderColor: "#2F9E5233", background: "#2F9E521A", color: "#2F9E52" }}>✅ Nenhum alerta crítico no momento.</div>
               ) : (
                 <div className="grid gap-2 sm:grid-cols-2">
                   {ia.alertasCriticos.map((al, i) => (
-                    <div key={i} className="flex items-start gap-2 rounded-xl border-l-4 bg-white py-3 pl-3.5 pr-4 shadow-sm" style={{ borderLeftColor: al.sev === "crit" ? "#EF4444" : "#F59E0B" }}>
+                    <div key={i} className="flex items-start gap-2 rounded-xl border-l-4 bg-white py-3 pl-3.5 pr-4 shadow-sm" style={{ borderLeftColor: al.sev === "crit" ? "#C81E4A" : "#F59E0B" }}>
                       <span className="shrink-0">{al.sev === "crit" ? "🔴" : "⚠️"}</span>
-                      <div className="min-w-0"><p className="text-sm font-bold" style={{ color: al.sev === "crit" ? "#EF4444" : "#B45309" }}>{al.titulo}</p><p className="text-xs text-[#64748B]">{al.desc}</p></div>
+                      <div className="min-w-0"><p className="text-sm font-bold" style={{ color: al.sev === "crit" ? "#C81E4A" : "#B45309" }}>{al.titulo}</p><p className="text-xs text-[var(--pp-text-muted)]">{al.desc}</p></div>
                     </div>
                   ))}
                 </div>
@@ -8096,20 +8096,20 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
             {/* 8. Insights inteligentes — agrupados por área, fundo branco, cor só em
                 badge/ícone/borda lateral. */}
             <div>
-              <p className="mb-2 text-[11px] font-black uppercase tracking-widest text-[#0D1B2A]">Insights inteligentes</p>
+              <p className="mb-2 text-[11px] font-black uppercase tracking-widest text-[var(--pp-text)]">Insights inteligentes</p>
               {insightsPorCategoria.length === 0 ? (
-                <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-6 text-center text-sm text-[#64748B]">{semDados ? "Dados insuficientes no período para gerar insights." : "Nenhum insight relevante no momento."}</div>
+                <div className="rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-4 py-6 text-center text-sm text-[var(--pp-text-muted)]">{semDados ? "Dados insuficientes no período para gerar insights." : "Nenhum insight relevante no momento."}</div>
               ) : (
                 <div className="grid gap-4 md:grid-cols-2">
                   {insightsPorCategoria.map((g) => (
-                    <div key={g.cat} className="rounded-2xl border border-[#E2E8F0] bg-white p-4">
-                      <p className="mb-2 text-xs font-black uppercase tracking-wide text-[#64748B]">{g.cat}</p>
+                    <div key={g.cat} className="rounded-2xl border border-[var(--pp-border)] bg-white p-4">
+                      <p className="mb-2 text-xs font-black uppercase tracking-wide text-[var(--pp-text-muted)]">{g.cat}</p>
                       <div className="space-y-2">
                         {g.itens.map((it, i) => (
-                          <div key={i} className="rounded-xl border-l-4 bg-white px-3.5 py-2.5 text-xs font-semibold shadow-sm" style={{ borderLeftColor: sevCor[it.sev], borderTop: "1px solid #E2E8F0", borderRight: "1px solid #E2E8F0", borderBottom: "1px solid #E2E8F0" }}>
+                          <div key={i} className="rounded-xl border-l-4 bg-white px-3.5 py-2.5 text-xs font-semibold shadow-sm" style={{ borderLeftColor: sevCor[it.sev], borderTop: "1px solid #EAE0D6", borderRight: "1px solid #EAE0D6", borderBottom: "1px solid #EAE0D6" }}>
                             <div className="flex items-start gap-2">
                               <span className="shrink-0">{sevIc[it.sev]}</span>
-                              <span className="min-w-0 flex-1 text-[#334155]">{it.texto}</span>
+                              <span className="min-w-0 flex-1 text-[var(--pp-text)]">{it.texto}</span>
                             </div>
                             <div className="mt-1.5 flex items-center gap-2 pl-5">
                               <span className="rounded-full px-1.5 py-0.5 text-[10px] font-black uppercase" style={{ background: `${sevCor[it.sev]}1A`, color: sevCor[it.sev] }}>Impacto {it.impacto}</span>
@@ -8126,18 +8126,18 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
 
             {/* 9. Plano de ação recomendado */}
             <div>
-              <p className="mb-2 text-[11px] font-black uppercase tracking-widest text-[#0D1B2A]">Plano de ação recomendado</p>
+              <p className="mb-2 text-[11px] font-black uppercase tracking-widest text-[var(--pp-text)]">Plano de ação recomendado</p>
               {ia.acoes.length === 0 ? (
-                <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-6 text-center text-sm text-[#64748B]">Nenhuma recomendação disponível no momento.</div>
+                <div className="rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-4 py-6 text-center text-sm text-[var(--pp-text-muted)]">Nenhuma recomendação disponível no momento.</div>
               ) : (
                 <div className="space-y-2">
                   {ia.acoes.map((ac, i) => (
-                    <div key={i} className="flex flex-col gap-2 rounded-xl border border-[#E2E8F0] bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div key={i} className="flex flex-col gap-2 rounded-xl border border-[var(--pp-border)] bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                       <div className="flex items-start gap-3 min-w-0">
                         <span className="mt-0.5 shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-black uppercase" style={{ borderColor: `${prioCor[ac.prio]}4D`, background: `${prioCor[ac.prio]}1A`, color: prioCor[ac.prio] }}>{prioLbl[ac.prio]}</span>
                         <div className="min-w-0">
-                          <p className="text-sm font-bold text-[#0D1B2A]">{ac.texto}</p>
-                          <p className="text-[11px] text-[#64748B]">{ac.motivo}{ac.area ? ` · Área: ${ac.area}` : ""}{ac.kpiId ? ` · Indicador: ${KPI_ID_PARA_LABEL[ac.kpiId] || ac.kpiId}` : ""}{ac.impacto ? ` · Impacto esperado: ${ac.impacto}` : ""}</p>
+                          <p className="text-sm font-bold text-[var(--pp-text)]">{ac.texto}</p>
+                          <p className="text-[11px] text-[var(--pp-text-muted)]">{ac.motivo}{ac.area ? ` · Área: ${ac.area}` : ""}{ac.kpiId ? ` · Indicador: ${KPI_ID_PARA_LABEL[ac.kpiId] || ac.kpiId}` : ""}{ac.impacto ? ` · Impacto esperado: ${ac.impacto}` : ""}</p>
                         </div>
                       </div>
                       <button onClick={() => {
@@ -8152,7 +8152,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
                           },
                         });
                       }}
-                        className="shrink-0 self-start rounded-lg border px-3 py-1.5 text-xs font-black transition hover:bg-[#E6EEF1] sm:self-center" style={{ borderColor: "#0F4C5C", color: "#0F4C5C" }}>Criar ação</button>
+                        className="shrink-0 self-start rounded-lg border px-3 py-1.5 text-xs font-black transition hover:bg-[rgba(15,76,92,0.06)] sm:self-center" style={{ borderColor: "#0F4C5C", color: "#0F4C5C" }}>Criar ação</button>
                     </div>
                   ))}
                 </div>
@@ -8161,7 +8161,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
 
             {/* Oportunidades */}
             <div>
-              <p className="mb-2 text-[11px] font-black uppercase tracking-widest text-[#0D1B2A]">Oportunidades</p>
+              <p className="mb-2 text-[11px] font-black uppercase tracking-widest text-[var(--pp-text)]">Oportunidades</p>
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 <OportunidadeCard titulo="Produtos para promoção" itens={oportunidades.promocao} vazio="Nenhum produto parado no período." render={(nome) => nome} />
                 <OportunidadeCard titulo="Clientes para reativação" itens={oportunidades.reativacao} vazio="Nenhum cliente inativo no momento." render={(c) => `${c.nome || "Cliente"} · ${formatCurrency(c.total)}`} />
@@ -8175,10 +8175,10 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
             {/* 10. Simulações seguras — fórmulas locais, projeção claramente
                 identificada como tal, sem misturar com dado realizado e sem
                 salvar/alterar nada. */}
-            <div className="rounded-2xl border border-[#E2E8F0] bg-white p-5 shadow-sm sm:p-6">
+            <div className="rounded-2xl border border-[var(--pp-border)] bg-white p-5 shadow-sm sm:p-6">
               <button onClick={() => setMostrarSimulador((v) => !v)} className="flex w-full items-center justify-between gap-2 text-left">
-                <p className="flex items-center gap-2 text-sm font-black text-[#0D1B2A]"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg" style={{ background: "#8B5CF61A", color: "#8B5CF6" }}>🧪</span>Simular cenário</p>
-                <span className="text-xs font-bold text-[#64748B]">{mostrarSimulador ? "Recolher ▲" : "Expandir ▼"}</span>
+                <p className="flex items-center gap-2 text-sm font-black text-[var(--pp-text)]"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg" style={{ background: "#8B5CF61A", color: "#8B5CF6" }}>🧪</span>Simular cenário</p>
+                <span className="text-xs font-bold text-[var(--pp-text-muted)]">{mostrarSimulador ? "Recolher ▲" : "Expandir ▼"}</span>
               </button>
               {mostrarSimulador && (
                 <div className="pp-anim-fade mt-4 space-y-3">
@@ -8190,9 +8190,9 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
                       { titulo: "Promover 1 produto parado", premissa: produtoTop ? `Referência: ${produtoTop.nome} vendeu ${produtoTop.qtd} un. no período` : "Sem produto de referência no período", resultado: produtosParados.length ? `Se um item parado vender como 30% do carro-chefe, +${Math.round((produtoTop?.qtd || 0) * 0.3)} un. projetadas` : "Nenhum produto parado no período" },
                       { titulo: "Reduzir o tempo de preparo em 20%", premissa: tempoMedioPrep != null ? `Tempo atual: ${fmtTempo(tempoMedioPrep)}` : "Sem tempo médio de preparo no período", resultado: tempoMedioPrep != null ? `Tempo projetado: ${fmtTempo(Math.round(tempoMedioPrep * 0.8))} — pode aumentar o giro de mesas` : "—" },
                     ].map((s, i) => (
-                      <div key={i} className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3.5">
-                        <p className="text-xs font-black text-[#0D1B2A]">{s.titulo}</p>
-                        <p className="mt-1 text-[11px] text-[#64748B]">Premissa: {s.premissa}</p>
+                      <div key={i} className="rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-3.5">
+                        <p className="text-xs font-black text-[var(--pp-text)]">{s.titulo}</p>
+                        <p className="mt-1 text-[11px] text-[var(--pp-text-muted)]">Premissa: {s.premissa}</p>
                         <p className="mt-1 text-[11px] font-bold" style={{ color: "#8B5CF6" }}>Projeção: {s.resultado}</p>
                       </div>
                     ))}
@@ -8214,7 +8214,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
       {!soCopiloto && (<>
       {/* Alertas gerenciais */}
       <div>
-        <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-brand-inkMuted">Alertas gerenciais</h3>
+        <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-[var(--pp-text)]Muted">Alertas gerenciais</h3>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {alertas.map((al, i) => (
             <div key={i} className={`rounded-2xl border px-4 py-3 ${tomCls[al.tom]}`}>
@@ -8231,15 +8231,15 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
       <Painel titulo="Faturamento por horário" descricao="Distribuição das vendas ao longo do período selecionado"
         acao={a.faturamento > 0 ? (
           <span className="shrink-0 text-right">
-            <span className="block text-[10px] font-bold uppercase tracking-wider text-brand-inkSoft">Total do período</span>
-            <span className="block text-sm font-black text-brand-ink">{formatCurrency(a.faturamento)}</span>
+            <span className="block text-[10px] font-bold uppercase tracking-wider text-[var(--pp-text-muted)]">Total do período</span>
+            <span className="block text-sm font-black text-[var(--pp-text)]">{formatCurrency(a.faturamento)}</span>
           </span>
         ) : null}>
-        <BarrasHora dados={vendasPorHora} paleta={{ semVenda: "#0F4C5C", pico: "#F59E0B", acimaMedia: "#0F4C5C", padrao: "#0F4C5C", grade: "#E2E8F0", texto: "#64748B", textoValor: "#64748B" }} />
+        <BarrasHora dados={vendasPorHora} paleta={{ semVenda: "#0F4C5C", pico: "#F59E0B", acimaMedia: "#0F4C5C", padrao: "#0F4C5C", grade: "#EAE0D6", texto: "#8A7D73", textoValor: "#8A7D73" }} />
         {melhorHora.valor > 0 && (
           <div className="mt-4 flex flex-wrap gap-2">
             <span className="rounded-full bg-amber-500/10 px-3 py-1.5 text-xs font-bold text-amber-500">★ Melhor horário: {melhorHora.label} — {formatCurrency(melhorHora.valor)}</span>
-            <span className="rounded-full bg-violet-500/10 px-3 py-1.5 text-xs font-bold text-violet-500">Oportunidade: estimular vendas nos horários de menor movimento.</span>
+            <span className="rounded-full bg-[#0F4C5C]/10 px-3 py-1.5 text-xs font-bold text-[#0F4C5C]">Oportunidade: estimular vendas nos horários de menor movimento.</span>
           </div>
         )}
       </Painel>
@@ -8250,16 +8250,16 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
 
         <Painel titulo="Produtos Mais Vendidos">
           <div className="space-y-3">
-            {a.topProdutos.length === 0 && <p className="py-4 text-center text-sm text-slate-500">Nenhuma venda no período.</p>}
+            {a.topProdutos.length === 0 && <p className="py-4 text-center text-sm text-[var(--pp-text-muted)]">Nenhuma venda no período.</p>}
             {a.topProdutos.map((p, i) => (
-              <BarraHorizontal key={p.nome} label={p.nome} valor={p.qtd} max={maxProd} sufixo=" un" cor={i === 0 ? "bg-emerald-500" : "bg-blue-500"} />
+              <BarraHorizontal key={p.nome} label={p.nome} valor={p.qtd} max={maxProd} sufixo=" un" cor={i === 0 ? "bg-[#2F9E52]" : "bg-[#0F4C5C]"} />
             ))}
           </div>
         </Painel>
 
         <Painel titulo="Status dos Pedidos">
           <DonutChart dados={statusDist} label="Status" />
-          <p className="mt-3 text-center text-xs text-slate-500">Taxa de entrega concluída: <b className="text-emerald-500">{taxaEntrega}%</b></p>
+          <p className="mt-3 text-center text-xs text-[var(--pp-text-muted)]">Taxa de entrega concluída: <b className="text-[#2F9E52]">{taxaEntrega}%</b></p>
         </Painel>
 
         <Painel titulo="Desempenho da Cozinha">
@@ -8269,21 +8269,21 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
               { r: "Pedido mais demorado", v: tempoMaxPrep != null ? formatarDuracaoMin(tempoMaxPrep) : "—" },
               { r: "Setor mais acionado", v: setorMaisAcionado },
             ].map((c) => (
-              <div key={c.r} className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-center">
+              <div key={c.r} className="rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-3 text-center">
                 <p className="page-title text-lg font-bold text-dash-navy">{c.v}</p>
-                <p className="mt-1 text-[10px] leading-tight text-slate-500">{c.r}</p>
+                <p className="mt-1 text-[10px] leading-tight text-[var(--pp-text-muted)]">{c.r}</p>
               </div>
             ))}
           </div>
-          {tempoMedioPrep == null && <p className="mt-3 text-center text-[11px] text-slate-500">Sem registros de preparo finalizados no período.</p>}
+          {tempoMedioPrep == null && <p className="mt-3 text-center text-[11px] text-[var(--pp-text-muted)]">Sem registros de preparo finalizados no período.</p>}
         </Painel>
 
         <Painel titulo="Formas de Pagamento">
           <div className="space-y-3">
-            <BarraHorizontal label="Recebido (pago)" valor={a.faturamento} max={Math.max(1, previsto)} sufixo="R$" cor="bg-emerald-500" />
+            <BarraHorizontal label="Recebido (pago)" valor={a.faturamento} max={Math.max(1, previsto)} sufixo="R$" cor="bg-[#2F9E52]" />
             <BarraHorizontal label="Pendente (em aberto)" valor={a.emAberto} max={Math.max(1, previsto)} sufixo="R$" cor="bg-amber-500" />
           </div>
-          <p className="mt-3 text-[11px] text-slate-500">Detalhamento por forma (Pix, crédito, débito, dinheiro) disponível em <b className="text-dash-navy">Fechamento de Caixa</b>.</p>
+          <p className="mt-3 text-[11px] text-[var(--pp-text-muted)]">Detalhamento por forma (Pix, crédito, débito, dinheiro) disponível em <b className="text-dash-navy">Fechamento de Caixa</b>.</p>
         </Painel>
 
         <Painel titulo="Clientes no Período">
@@ -8294,9 +8294,9 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
               { r: "Pedidos por cliente", v: clientesPeriodo ? (filtrados.length / clientesPeriodo).toFixed(1) : "0" },
               { r: "Ticket médio/cliente", v: formatCurrency(ticketPorCliente) },
             ].map((c) => (
-              <div key={c.r} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+              <div key={c.r} className="rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-3">
                 <p className="page-title text-lg font-bold text-dash-navy">{c.v}</p>
-                <p className="mt-0.5 text-[11px] text-slate-500">{c.r}</p>
+                <p className="mt-0.5 text-[11px] text-[var(--pp-text-muted)]">{c.r}</p>
               </div>
             ))}
           </div>
@@ -8306,22 +8306,22 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
       {/* Painéis de ação gerencial */}
       <div className="grid gap-5 lg:grid-cols-2 xl:grid-cols-3">
         <Painel titulo="Mesas e Comandas em Atenção" className="xl:col-span-2"
-          acao={<button onClick={irParaMesas} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-bold text-dash-navy transition hover:bg-slate-100">Ver todas as mesas e comandas</button>}>
+          acao={<button onClick={irParaMesas} className="rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-3 py-1.5 text-xs font-bold text-dash-navy transition hover:bg-[var(--pp-bg)]">Ver todas as mesas e comandas</button>}>
           {mesasAtencao.length === 0 ? (
-            <p className="py-4 text-center text-sm text-emerald-500">✅ Nenhuma mesa em aberto no momento.</p>
+            <p className="py-4 text-center text-sm text-[#2F9E52]">✅ Nenhuma mesa em aberto no momento.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[460px] text-sm">
-                <thead><tr className="border-b border-slate-200 text-left text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                <thead><tr className="border-b border-[var(--pp-border)] text-left text-[10px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]">
                   <th className="py-2 pr-3">Mesa</th><th className="py-2 pr-3">Tempo aberta</th><th className="py-2 pr-3 text-right">Valor</th><th className="py-2 pl-3">Situação</th>
                 </tr></thead>
                 <tbody>
                   {mesasAtencao.slice(0, 8).map((m) => {
                     const sit = situacaoMesa(m);
                     return (
-                      <tr key={m.mesa} className="border-b border-slate-100">
+                      <tr key={m.mesa} className="border-b border-[var(--pp-border)]">
                         <td className="py-2.5 pr-3 font-bold text-dash-navy">{m.mesa}</td>
-                        <td className={`py-2.5 pr-3 ${m.mins >= 40 ? "text-amber-500 font-semibold" : "text-slate-500"}`}>{fmtTempo(m.mins)}</td>
+                        <td className={`py-2.5 pr-3 ${m.mins >= 40 ? "text-amber-500 font-semibold" : "text-[var(--pp-text-muted)]"}`}>{fmtTempo(m.mins)}</td>
                         <td className="py-2.5 pr-3 text-right font-semibold text-dash-navy">{formatCurrency(m.valor)}</td>
                         <td className="py-2.5 pl-3"><span className={`inline-flex rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${sit.cls}`}>{sit.label}</span></td>
                       </tr>
@@ -8335,16 +8335,16 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
 
         <Painel titulo="Estoque Baixo">
           {semEstoque.length === 0 ? (
-            <div className="flex items-center gap-2 rounded-2xl border border-[rgba(16,185,129,0.30)] bg-[rgba(16,185,129,0.08)] px-4 py-3 text-sm font-semibold text-emerald-500"><span>✅</span> Todos os produtos com estoque adequado.</div>
+            <div className="flex items-center gap-2 rounded-2xl border border-[rgba(47,158,82,0.30)] bg-[rgba(47,158,82,0.08)] px-4 py-3 text-sm font-semibold text-[#2F9E52]"><span>✅</span> Todos os produtos com estoque adequado.</div>
           ) : (
             <div className="space-y-2">
               {semEstoque.map((p) => (
-                <div key={p.id} className="flex items-center justify-between gap-2 rounded-2xl border border-[rgba(239,68,68,0.30)] bg-[rgba(239,68,68,0.08)] px-4 py-2.5">
+                <div key={p.id} className="flex items-center justify-between gap-2 rounded-2xl border border-[rgba(200,30,74,0.30)] bg-[rgba(200,30,74,0.08)] px-4 py-2.5">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-bold text-dash-navy">{p.name}</p>
-                    <p className="text-[11px] text-red-500/80">Abaixo do mínimo{p.estoqueMinimo != null ? ` (${p.estoqueMinimo} un)` : ""}</p>
+                    <p className="text-[11px] text-[#C81E4A]/80">Abaixo do mínimo{p.estoqueMinimo != null ? ` (${p.estoqueMinimo} un)` : ""}</p>
                   </div>
-                  <span className="shrink-0 text-sm font-black text-red-500">{p.estoque ?? 0} un</span>
+                  <span className="shrink-0 text-sm font-black text-[#C81E4A]">{p.estoque ?? 0} un</span>
                 </div>
               ))}
             </div>
@@ -8353,9 +8353,9 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
 
         <Painel titulo="Cancelamentos e Perdas">
           <div className="space-y-2">
-            <div className="flex items-center justify-between"><span className="text-sm text-slate-500">Cancelamentos</span><span className="page-title text-lg font-bold text-dash-navy">{cancelados.length}</span></div>
-            <div className="flex items-center justify-between"><span className="text-sm text-slate-500">Valor perdido</span><span className="page-title text-lg font-bold text-red-500">{formatCurrency(valorPerdido)}</span></div>
-            <div className="flex items-center justify-between gap-2"><span className="text-sm text-slate-500">Motivo principal</span><span className="truncate text-sm font-semibold text-dash-navy">{motivoPrincipal}</span></div>
+            <div className="flex items-center justify-between"><span className="text-sm text-[var(--pp-text-muted)]">Cancelamentos</span><span className="page-title text-lg font-bold text-dash-navy">{cancelados.length}</span></div>
+            <div className="flex items-center justify-between"><span className="text-sm text-[var(--pp-text-muted)]">Valor perdido</span><span className="page-title text-lg font-bold text-[#C81E4A]">{formatCurrency(valorPerdido)}</span></div>
+            <div className="flex items-center justify-between gap-2"><span className="text-sm text-[var(--pp-text-muted)]">Motivo principal</span><span className="truncate text-sm font-semibold text-dash-navy">{motivoPrincipal}</span></div>
           </div>
         </Painel>
 
@@ -8367,20 +8367,20 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
                 { r: "Pedidos", v: comparativo.pedidos },
                 { r: "Ticket médio", v: comparativo.ticket },
               ].map((c) => (
-                <div key={c.r} className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-center">
-                  <p className={`page-title text-lg font-bold ${c.v == null ? "text-slate-400" : c.v >= 0 ? "text-emerald-500" : "text-red-500"}`}>{c.v == null ? "—" : `${c.v >= 0 ? "+" : ""}${c.v.toFixed(0)}%`}</p>
-                  <p className="mt-1 text-[10px] leading-tight text-slate-500">{c.r}<br />vs período anterior</p>
+                <div key={c.r} className="rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-3 text-center">
+                  <p className={`page-title text-lg font-bold ${c.v == null ? "text-[var(--pp-text-muted)]" : c.v >= 0 ? "text-[#2F9E52]" : "text-[#C81E4A]"}`}>{c.v == null ? "—" : `${c.v >= 0 ? "+" : ""}${c.v.toFixed(0)}%`}</p>
+                  <p className="mt-1 text-[10px] leading-tight text-[var(--pp-text-muted)]">{c.r}<br />vs período anterior</p>
                 </div>
               ))}
             </div>
-          ) : <p className="py-4 text-center text-sm text-slate-500">Sem período anterior para comparar.</p>}
+          ) : <p className="py-4 text-center text-sm text-[var(--pp-text-muted)]">Sem período anterior para comparar.</p>}
         </Painel>
 
         <Painel titulo="Recomendações para o Gestor" className="xl:col-span-3">
           <ul className="grid gap-2 sm:grid-cols-2">
             {recomendacoes.map((r, i) => (
-              <li key={i} className="flex items-start gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-600">
-                <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-[10px] font-black text-emerald-500">✓</span>{r}
+              <li key={i} className="flex items-start gap-2 rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-4 py-2.5 text-sm text-[var(--pp-text-body)]">
+                <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#2F9E52]/15 text-[10px] font-black text-[#2F9E52]">✓</span>{r}
               </li>
             ))}
           </ul>
@@ -8399,24 +8399,24 @@ function ModalDetalhePedidos({ titulo, pedidos, onFechar }) {
   const total = pedidos.reduce((s, o) => s + orderTotal(o) * 1.1, 0);
   return (
     <PainelDetalhe aberto ariaLabel={titulo} onFechar={onFechar} titulo={titulo}
-      subtitulo={<>{pedidos.length} pedido(s) • Total <span className="font-semibold text-[#10B981]">{formatCurrency(total)}</span></>}
+      subtitulo={<>{pedidos.length} pedido(s) • Total <span className="font-semibold text-[#2F9E52]">{formatCurrency(total)}</span></>}
       rodape={null}>
-      {pedidos.length === 0 && <p className="py-8 text-center text-sm text-[#64748B]">Nenhum pedido no período.</p>}
+      {pedidos.length === 0 && <p className="py-8 text-center text-sm text-[var(--pp-text-muted)]">Nenhum pedido no período.</p>}
       <div className="space-y-3">
         {pedidos.map((o) => (
-          <div key={o.id} className="rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-4">
+          <div key={o.id} className="rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-4">
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
-                <p className="truncate text-[11px] font-bold uppercase tracking-widest text-[#64748B]">{o.id} • {o.table} • {o.command}</p>
-                <p className="mt-0.5 text-xs text-[#94A3B8]">{o.createdAtISO ? new Date(o.createdAtISO).toLocaleString("pt-BR") : o.createdAt}</p>
+                <p className="truncate text-[11px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]">{o.id} • {o.table} • {o.command}</p>
+                <p className="mt-0.5 text-xs text-[var(--pp-text-muted)]">{o.createdAtISO ? new Date(o.createdAtISO).toLocaleString("pt-BR") : o.createdAt}</p>
               </div>
-              <span className="shrink-0 text-base font-black text-[#10B981]">{formatCurrency(orderTotal(o) * 1.1)}</span>
+              <span className="shrink-0 text-base font-black text-[#2F9E52]">{formatCurrency(orderTotal(o) * 1.1)}</span>
             </div>
             <div className="mt-2 space-y-0.5">
               {o.items.map((it, i) => (
                 <div key={i} className="flex justify-between gap-3 text-sm">
-                  <span className="text-[#334155]"><b className="font-semibold text-[#0D1B2A]">{it.quantity}x</b> {it.name}</span>
-                  <span className="shrink-0 font-medium text-[#64748B]">{formatCurrency(it.price * it.quantity)}</span>
+                  <span className="text-[var(--pp-text)]"><b className="font-semibold text-[var(--pp-text)]">{it.quantity}x</b> {it.name}</span>
+                  <span className="shrink-0 font-medium text-[var(--pp-text-muted)]">{formatCurrency(it.price * it.quantity)}</span>
                 </div>
               ))}
             </div>

@@ -146,14 +146,12 @@ export default {
           teal:   "#2FBF9A",
           gray:   "#94A3B8",
         },
-        // Dashboard Gerencial — paleta dedicada (padronização visual). O resto
-        // da paleta pedida já existe nas escalas padrão do Tailwind e é reaproveitado
-        // diretamente: primária azul-500 (#2563EB), sucesso emerald-500 (#10B981),
-        // aviso amber-500 (#F59E0B), informação violet-500 (#8B5CF6), apoio gráfico
-        // cyan-500 (#06B6D4), erro red-500 (#EF4444), cinza/texto secundário
-        // slate-500 (#64748B), fundos slate-50/100, bordas slate-200/300.
+        // Dashboard Gerencial — alinhado à paleta oficial 2026 (--pp-*): texto
+        // em grafite quente, neutros quentes (--pp-border/--pp-bg), ação/
+        // informação em azul petróleo #0F4C5C. As séries dos gráficos (donut/
+        // status) mantêm hues distintos por necessidade de leitura (data-viz).
         dash: {
-          navy: "#0D1B2A", // texto principal / títulos / valores dos KPIs
+          navy: "#2B2320", // texto principal / títulos / valores dos KPIs (grafite quente = --pp-text)
         },
         // ── Paleta oficial 2026 (tokens --pp-*, ver src/index.css e
         // docs/design-tokens.md) — namespace de conveniência para classes
