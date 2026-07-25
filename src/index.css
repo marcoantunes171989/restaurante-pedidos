@@ -365,11 +365,13 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
   --client-border-strong: #D5C6BB;
 
   /* Ação do cliente = laranja oficial da paleta (#E67E22 = apetite), igual ao
-     Login e ao operacional. Solidos com texto branco usam o tom -hover (#D06E1A,
-     mais escuro/legivel); o -primary claro fica para acentos/badges/bordas. */
+     Login e ao operacional. Sólidos com texto branco e textos de acento usam o
+     tom -hover (#B25E15, ~4,66:1 = passa WCAG AA sobre branco / com branco em
+     cima); o -primary claro (#E67E22) fica para hover, acentos, badges e bordas.
+     -hover foi aprofundado de #D06E1A (só 3,5:1, falhava AA) para #B25E15. */
   --client-primary: #E67E22;
-  --client-primary-hover: #D06E1A;
-  --client-primary-active: #B25E15;
+  --client-primary-hover: #B25E15;
+  --client-primary-active: #964E11;
   --client-primary-soft: #FCEFE1;
   --client-primary-border: #F0B589;
 
