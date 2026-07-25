@@ -465,7 +465,7 @@ export default function CardapioPublico() {
   // src/lib/cardapioCategorias.js (testável isoladamente, sem depender de
   // DOM/scroll; ver cardapioCategorias.test.js).
   const grupos = useMemo(() => agruparProdutosPorCategoria(produtos, categorias), [produtos, categorias]);
-  const cats = useMemo(() => montarListaCategorias(grupos), [grupos]);
+  const cats = useMemo(() => montarListaCategorias(grupos).filter((c) => c.id !== CATEGORIA_TODOS), [grupos]); // sem o chip "Todos"
 
   const secRefs = useRef({});      // uma ref por seção de categoria — alvo do clique e do IntersectionObserver
   const chipRefs = useRef({});
@@ -555,6 +555,7 @@ export default function CardapioPublico() {
     if (!el) return; // raiz ainda não montada — o efeito roda de novo quando grupos mudar
     // Fallback generoso (~130px) antes das alturas reais serem medidas.
     const linha = (headerH + catBarH) || 130;
+    const primeira = grupos[0]?.id ?? CATEGORIA_TODOS; // sem "Todos": a 1ª categoria é a ativa no topo
 
     if (typeof IntersectionObserver === "undefined") {
       // Fallback sem IntersectionObserver: geometria a cada scroll, com
@@ -570,8 +571,8 @@ export default function CardapioPublico() {
       let raf = 0, debounce = 0;
       const calc = () => {
         if (rolandoPorCliqueRef.current) return;
-        if (el.scrollTop <= 0) { setCatAtivaId((cur) => (cur === CATEGORIA_TODOS ? cur : CATEGORIA_TODOS)); return; }
-        let atual = CATEGORIA_TODOS;
+        if (el.scrollTop <= 0) { setCatAtivaId((cur) => (cur === primeira ? cur : primeira)); return; }
+        let atual = primeira;
         for (const g of grupos) {
           const secEl = secRefs.current[g.id];
           if (secEl && secEl.getBoundingClientRect().top - linha <= 0) atual = g.id;
@@ -606,7 +607,7 @@ export default function CardapioPublico() {
       clearTimeout(debounceEscolha);
       debounceEscolha = setTimeout(() => {
         let alvo;
-        if (el.scrollTop <= 0) alvo = CATEGORIA_TODOS;
+        if (el.scrollTop <= 0) alvo = primeira;
         else if (grupos.length && el.scrollHeight - el.scrollTop - el.clientHeight <= 120) alvo = grupos[grupos.length - 1].id; // fim da rolagem → última categoria
         else alvo = escolherCategoriaAtiva(grupos, visiveisAbaixoDaLinha);
         setCatAtivaId((cur) => (cur === alvo ? cur : alvo));
@@ -663,13 +664,13 @@ export default function CardapioPublico() {
       if (rolandoPorCliqueRef.current) return;
       let atual;
       if (el.scrollTop <= 0) {
-        atual = CATEGORIA_TODOS;
+        atual = primeira;
       } else if (grupos.length && el.scrollHeight - el.scrollTop - el.clientHeight <= 120) {
         // Fim da rolagem: a última categoria é a ativa assim que seus produtos
         // aparecem — sem precisar de espaço vazio para "empurrá-la" até o topo.
         atual = grupos[grupos.length - 1].id;
       } else {
-        atual = CATEGORIA_TODOS;
+        atual = primeira;
         for (const g of grupos) {
           const secEl = secRefs.current[g.id];
           if (secEl && secEl.getBoundingClientRect().top - linha <= 0) atual = g.id;
@@ -1384,12 +1385,6 @@ export default function CardapioPublico() {
             ))}
           </div>
         )}
-
-        {/* Aviso de personalização */}
-        <div className="mb-3 mt-4 flex items-center gap-2 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface-secondary)] px-4 py-2.5">
-          <span aria-hidden="true" className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--client-primary-soft)] text-[var(--client-primary-hover)]"><CkIconAjustes width={14} height={14} strokeWidth={2.2} /></span>
-          <p className="text-xs font-bold text-[var(--client-text-primary)]">Personalize do seu jeito! <span className="font-normal text-[var(--client-text-secondary)]">Adicione ou remova ingredientes.</span></p>
-        </div>
 
         {/* Cardápio dividido por grupo — cada seção é âncora do clique e da
             sincronização de rolagem (todas ficam visíveis ao mesmo tempo). */}
