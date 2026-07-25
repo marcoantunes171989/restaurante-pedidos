@@ -1220,7 +1220,13 @@ export default function CardapioPublico() {
   return (
     <div ref={raizRef} data-theme="light" className="tema-claro-area min-h-screen w-full max-w-[100vw] bg-[var(--client-background)] text-[var(--client-text-primary)]" style={{ minHeight: "100dvh", paddingBottom: "calc(env(safe-area-inset-bottom) + 92px)" }}>
       {/* Cabeçalho */}
-      <header ref={headerRef} className="sticky top-0 z-30 border-b border-[var(--client-border)] bg-[var(--client-surface)] px-4 pb-3 backdrop-blur-xl" style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)" }}>
+      {/* Cabeçalho + categorias num ÚNICO container sticky (top-0): grudam
+          JUNTOS no topo por CSS nativo, sem depender do valor MEDIDO do header
+          para posicionar a barra (o antigo top:headerH era frágil — soltava a
+          barra quando a medição chegava errada). A medição (headerH/catBarH)
+          continua só para o scroll-margin e o realce da categoria ativa. */}
+      <div className="sticky top-0 z-30">
+      <header ref={headerRef} className="border-b border-[var(--client-border)] bg-[var(--client-surface)] px-4 pb-3 backdrop-blur-xl" style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)" }}>
         {/* Header em UMA linha: logo + nome + ações SÓ-ÍCONE (garçom/ajuda/
             limpeza/QR). Antes eram 2 linhas (a de chamados ocupava ~50px); só
             ícones colapsa tudo numa linha e libera altura para os produtos.
@@ -1261,26 +1267,28 @@ export default function CardapioPublico() {
         </div>
       )}
 
-      <main className="mx-auto max-w-3xl px-4">
-        {/* Sentinela do topo — "Todos" rola até aqui (scrollIntoView), sem
-            depender de window.scrollTo (que não move a rolagem real desta
-            tela — quem rola é #root, não a window). */}
-        <div ref={topoRef} aria-hidden="true" style={{ scrollMarginTop: 0 }} />
-        {/* Categorias — clique rola até a seção; ao rolar, a seção visível sob
-            a barra fixa é destacada automaticamente (ver o efeito de
-            sincronização acima). Sombra discreta: a barra fica presa (sticky)
-            praticamente assim que a rolagem começa. */}
-        <div ref={catBarRef} className="pp-noscrollbar sticky z-20 -mx-4 flex gap-2 overflow-x-auto border-b border-[var(--client-border)] bg-[var(--client-surface)] px-4 py-4 shadow-[var(--client-shadow-sm)]" style={{ top: headerH }}>
+        {/* Categorias — fazem parte do container sticky acima (grudam junto com
+            o cabeçalho). Fonte/altura compactas (text-sm, py-2.5): mais clean e
+            libera altura para os produtos, sem perder legibilidade. */}
+        <div ref={catBarRef} className="border-b border-[var(--client-border)] bg-[var(--client-surface)] shadow-[var(--client-shadow-sm)]">
+          <div className="pp-noscrollbar mx-auto flex max-w-3xl gap-2 overflow-x-auto px-4 py-2.5">
           {cats.map((c) => { const ativo = catAtivaId === c.id;
             return (
               <button key={c.id} type="button" ref={(el) => (chipRefs.current[c.id] = el)} onClick={() => selecionarCategoria(c.id)}
                 aria-current={ativo ? "true" : undefined} aria-pressed={ativo}
-                className={`flex min-h-[44px] shrink-0 items-center rounded-full border px-4 text-sm font-bold transition duration-200 ${ativo ? "border-[var(--client-primary)] bg-[var(--client-primary-soft)] text-[var(--client-primary-active)]" : "border-[var(--client-border)] bg-[var(--client-surface)] text-[var(--client-text-secondary)] hover:bg-[var(--client-surface-secondary)]"}`}>
+                className={`flex min-h-[38px] shrink-0 items-center rounded-full border px-3.5 text-sm font-bold transition duration-200 ${ativo ? "border-[var(--client-primary)] bg-[var(--client-primary-soft)] text-[var(--client-primary-active)]" : "border-[var(--client-border)] bg-[var(--client-surface)] text-[var(--client-text-secondary)] hover:bg-[var(--client-surface-secondary)]"}`}>
                 {ativo ? "★ " : ""}{c.nome}
               </button>
             );
           })}
+          </div>
         </div>
+      </div>
+
+      <main className="mx-auto max-w-3xl px-4">
+        {/* Sentinela do topo — "Todos" rola até aqui (scrollIntoView); quem rola
+            é #root, não a window. */}
+        <div ref={topoRef} aria-hidden="true" style={{ scrollMarginTop: 0 }} />
 
         {/* Ofertas vigentes */}
         {promosVigentes.length > 0 && (
