@@ -1344,8 +1344,13 @@ export default function CardapioPublico() {
       </main>
 
 
-      {/* Barra inferior fixa — resumo/Finalizar + Acompanhar/Carrinho */}
-      <div className="fixed inset-x-0 bottom-0 z-40" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
+      {/* Barra inferior fixa — resumo/Finalizar + Acompanhar/Carrinho.
+          OCULTA quando qualquer overlay está aberto (gaveta carrinho/conta,
+          modal de produto ou pesquisa): no iOS, um elemento position:fixed
+          bottom-0 flutua ACIMA do teclado, reaparecendo sobre a gaveta e
+          duplicando os botões ao focar um campo (ex.: comanda). Esconder na
+          raiz resolve em iOS, Android e desktop. */}
+      <div className={`fixed inset-x-0 bottom-0 z-40 ${(aba || detalhe || survey) ? "hidden" : ""}`} style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
         <div className="mx-auto max-w-3xl space-y-2 px-3 pb-2 pt-1">
           {cart.length > 0 && (
             <div className="flex items-center justify-between gap-3 rounded-3xl border border-[var(--client-border)] bg-[var(--client-surface)] p-3 shadow-[var(--client-shadow-floating)] backdrop-blur-xl">
@@ -1561,6 +1566,7 @@ export default function CardapioPublico() {
                   {!comURL && (
                     <div><span className="mb-1.5 block text-xs font-bold text-[var(--client-text-secondary)]">Comanda <span className="text-[var(--client-error)]">*</span></span>
                       <input value={comanda} onChange={(e) => setComanda(e.target.value.toUpperCase())} placeholder={`Ex.: ${loja.prefixo}-000001`}
+                        autoComplete="off" autoCorrect="off" autoCapitalize="characters" spellCheck={false} inputMode="text" enterKeyHint="done" name="comanda"
                         className="w-full min-h-11 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] px-3 py-2.5 font-mono text-sm font-black tracking-widest text-[var(--client-text-primary)] outline-none transition focus:border-[var(--client-primary)] focus:ring-[3px] focus:ring-[var(--client-focus-primary)] placeholder:font-sans placeholder:font-normal placeholder:text-[var(--client-text-muted)]" />
                       <p className="mt-1 text-[11px] text-[var(--client-text-secondary)]">Escaneie o QR Code da mesa ou digite a comanda.</p></div>
                   )}
