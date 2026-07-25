@@ -5018,12 +5018,12 @@ function numeroParaMoeda(num) {
   return Number(num || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-// CompanySelector — seletor de "Empresa em foco" (super admin). Acento em AZUL
-// PETRÓLEO da paleta: como o menu é escuro (grafite), o petróleo puro #0F4C5C
-// ficaria escuro-sobre-escuro e ilegível, então os elementos de frente (texto,
-// ícone, borda, foco, ✓) usam o petróleo CLARO #4A9DB2 (contraste AA ~4:1 no
-// fundo escuro) e os fundos usam tints de petróleo rgba(15,76,92,*). Substitui
-// o antigo acento azul royal, que era o único ponto do menu fora da paleta.
+// CompanySelector — seletor de "Empresa em foco" (super admin). Fica sobre o
+// menu AZUL PETRÓLEO (--pp-nav), então usa o MESMO acento de seleção do resto
+// do menu: o LARANJA da marca (#E67E22 — complementar ao petróleo, realça e
+// passa contraste). Seleção/hover/foco/borda/✓ em laranja, com tints
+// rgba(230,126,34,*) nos fundos e rótulos em branco/quase-branco. (Um acento
+// petróleo aqui ficaria petróleo-sobre-petróleo, sem distinção.)
 function CompanySelector({ lojas = [], valor, onChange }) {
   const [aberto, setAberto] = useState(false);
   const [busca, setBusca]   = useState("");
@@ -5031,22 +5031,22 @@ function CompanySelector({ lojas = [], valor, onChange }) {
   const termo = busca.trim().toLowerCase();
   const lista = termo ? lojas.filter((l) => `${l.nome} ${l.prefixo}`.toLowerCase().includes(termo)) : lojas;
   const escolher = (id) => { onChange(id); setAberto(false); setBusca(""); };
-  const item = (sel) => `group flex w-full items-center gap-2.5 rounded-xl border px-2.5 py-2 text-left text-sm transition duration-150 ${sel ? "border-[#4A9DB2] bg-[rgba(15,76,92,0.14)] text-[#F8DAFC]" : "border-transparent text-[#F8DAFC] hover:border-[#4A9DB2] hover:bg-[rgba(15,76,92,0.10)]"}`;
-  const avatar = (sel) => `flex h-7 w-7 shrink-0 items-center justify-center rounded-md border transition-colors duration-150 ${sel ? "border-[#4A9DB2]/50 bg-[rgba(15,76,92,0.16)] text-[#4A9DB2]" : "border-white/10 bg-white/[0.05] text-[#F8DAFC]/70 group-hover:text-[#4A9DB2]"}`;
+  const item = (sel) => `group flex w-full items-center gap-2.5 rounded-xl border px-2.5 py-2 text-left text-sm transition duration-150 ${sel ? "border-[#E67E22] bg-[rgba(230,126,34,0.14)] text-[#F8DAFC]" : "border-transparent text-[#F8DAFC] hover:border-[#E67E22] hover:bg-[rgba(230,126,34,0.10)]"}`;
+  const avatar = (sel) => `flex h-7 w-7 shrink-0 items-center justify-center rounded-md border transition-colors duration-150 ${sel ? "border-[#E67E22]/50 bg-[rgba(230,126,34,0.16)] text-[#E67E22]" : "border-white/10 bg-white/[0.05] text-[#F8DAFC]/70 group-hover:text-[#E67E22]"}`;
   const Globo = ({ className = "h-4 w-4" }) => (<svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c2.5 2.5 3.8 5.7 3.8 9S14.5 18.5 12 21c-2.5-2.5-3.8-5.7-3.8-9S9.5 5.5 12 3Z" /></svg>);
 
   return (
     <div className="relative">
       <button onClick={() => setAberto((o) => !o)} aria-haspopup="listbox" aria-expanded={aberto}
-        className={`group flex min-h-[44px] w-full items-center gap-2.5 rounded-[18px] border px-3.5 py-3 text-left transition duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#4A9DB2] ${aberto ? "border-[#4A9DB2] bg-[rgba(15,76,92,0.10)]" : "border-white/[0.08] bg-white/[0.06] hover:border-[#4A9DB2] hover:bg-[rgba(15,76,92,0.10)]"}`}>
-        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/[0.05] transition-colors duration-150 ${aberto ? "text-[#4A9DB2]" : "text-[#F8DAFC] group-hover:text-[#4A9DB2]"}`}>
+        className={`group flex min-h-[44px] w-full items-center gap-2.5 rounded-[18px] border px-3.5 py-3 text-left transition duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E67E22] ${aberto ? "border-[#E67E22] bg-[rgba(230,126,34,0.10)]" : "border-white/[0.08] bg-white/[0.06] hover:border-[#E67E22] hover:bg-[rgba(230,126,34,0.10)]"}`}>
+        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/[0.05] transition-colors duration-150 ${aberto ? "text-[#E67E22]" : "text-[#F8DAFC] group-hover:text-[#E67E22]"}`}>
           {atual ? <IconEmpresa /> : <Globo />}
         </span>
         <div className="min-w-0 flex-1">
           <p className="font-display truncate text-sm font-bold text-[#F8DAFC]">{atual ? atual.nome : "Visão geral"}</p>
           <p className="truncate text-[10px] font-medium text-[#F8DAFC]/70">{atual ? `Comandas: ${atual.prefixo}` : "Todas as empresas"}</p>
         </div>
-        <svg className={`h-3.5 w-3.5 shrink-0 transition-transform duration-200 ${aberto ? "rotate-180 text-[#4A9DB2]" : "text-[#F8DAFC] group-hover:text-[#4A9DB2]"}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
+        <svg className={`h-3.5 w-3.5 shrink-0 transition-transform duration-200 ${aberto ? "rotate-180 text-[#E67E22]" : "text-[#F8DAFC] group-hover:text-[#E67E22]"}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
       </button>
 
       {aberto && (
@@ -5055,7 +5055,7 @@ function CompanySelector({ lojas = [], valor, onChange }) {
           <div role="listbox" className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-[18px] border border-white/[0.08] bg-[#1F2A3D] shadow-2xl">
             {lojas.length > 6 && (
               <div className="border-b border-white/[0.08] p-2">
-                <div className="flex items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.05] px-3 py-1.5 transition duration-150 focus-within:border-[#4A9DB2] focus-within:ring-2 focus-within:ring-[rgba(15,76,92,0.25)]">
+                <div className="flex items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.05] px-3 py-1.5 transition duration-150 focus-within:border-[#E67E22] focus-within:ring-2 focus-within:ring-[rgba(230,126,34,0.25)]">
                   <span className="shrink-0 text-[#F8DAFC]/60"><IconBusca /></span>
                   <input autoFocus value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar empresa..."
                     className="w-full bg-transparent text-xs text-[#F8DAFC] outline-none placeholder:text-[#F8DAFC]/40" />
@@ -5066,7 +5066,7 @@ function CompanySelector({ lojas = [], valor, onChange }) {
               <button onClick={() => escolher(null)} className={item(valor == null)} role="option" aria-selected={valor == null}>
                 <span className={avatar(valor == null)}><Globo /></span>
                 <span className="flex-1 truncate font-bold">Visão geral (todas)</span>
-                {valor == null && <span className="shrink-0 text-[#4A9DB2]">✓</span>}
+                {valor == null && <span className="shrink-0 text-[#E67E22]">✓</span>}
               </button>
               {lista.map((l) => {
                 const sel = valor === l.id;
@@ -5077,7 +5077,7 @@ function CompanySelector({ lojas = [], valor, onChange }) {
                       <span className="block truncate font-bold">{l.nome}</span>
                       <span className="block truncate text-[10px] text-[#F8DAFC]/60">{l.prefixo}{l.active === false ? " • inativa" : ""}</span>
                     </span>
-                    {sel && <span className="shrink-0 text-[#4A9DB2]">✓</span>}
+                    {sel && <span className="shrink-0 text-[#E67E22]">✓</span>}
                   </button>
                 );
               })}
@@ -5592,7 +5592,7 @@ function SidebarHeader({ subtitulo, onClose }) {
       </div>
       {onClose && (
         <button onClick={onClose} aria-label="Fechar menu"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.06] text-white/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C9501F]">✕</button>
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.06] text-white/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E67E22]">✕</button>
       )}
     </div>
   );
@@ -5621,22 +5621,24 @@ function SidebarUserCompact({ currentUser, isSuperAdmin, lojaInfo }) {
 }
 
 // Item de navegação — ÚNICO componente oficial para itens de menu lateral.
-// Estados: normal (transparente, texto/ícone branco/80), hover (fundo coral
-// suave rgba(201,80,31,.10)), selecionado (fundo rgba(201,80,31,.16) +
-// borda esquerda 3px --pp-primary-hover, texto/ícone --pp-primary-hover,
-// peso 700). Coral porque é o mesmo acento de "selecionado/ativo" usado em
-// filtros e botões no resto do sistema — dourado fica reservado à marca.
+// Sobre o fundo AZUL PETRÓLEO do menu (--pp-nav), o acento de ação/seleção é
+// o LARANJA da marca (#E67E22, complementar ao petróleo — realça bem).
+// Estados: normal (transparente, texto/ícone branco/80), hover (fundo laranja
+// suave rgba(230,126,34,.10) + rótulo branco), selecionado (fundo
+// rgba(230,126,34,.16) + borda esquerda 3px laranja + ícone laranja + rótulo
+// BRANCO em peso 700). Rótulo branco garante contraste AA no petróleo; o
+// laranja carrega o sinal de "ativo" pela borda/ícone/fundo.
 const SidebarItem = React.memo(function SidebarItem({ icon, label, selected, blocked, title, onClick }) {
   return (
     <button onClick={onClick} title={title} aria-current={selected ? "page" : undefined}
       className={cxSidebar(
         "group relative flex min-h-[44px] w-full items-center gap-3 rounded-2xl border-l-[3px] p-4 text-sm transition-all duration-200 ease-out",
-        "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C9501F]",
+        "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E67E22]",
         selected
-          ? "border-l-[#C9501F] bg-[rgba(201,80,31,0.16)] font-bold text-[#C9501F]"
-          : "border-l-transparent font-medium text-white/80 hover:bg-[rgba(201,80,31,0.10)] hover:text-[#C9501F]"
+          ? "border-l-[#E67E22] bg-[rgba(230,126,34,0.16)] font-bold text-white"
+          : "border-l-transparent font-medium text-white/80 hover:bg-[rgba(230,126,34,0.10)] hover:text-white"
       )}>
-      <span className={cxSidebar("text-base shrink-0 transition-colors duration-200", selected ? "text-[#C9501F]" : "text-white/80 group-hover:text-[#C9501F]", blocked && "opacity-40")} aria-hidden="true">{icon}</span>
+      <span className={cxSidebar("text-base shrink-0 transition-colors duration-200", selected ? "text-[#E67E22]" : "text-white/80 group-hover:text-[#E67E22]", blocked && "opacity-40")} aria-hidden="true">{icon}</span>
       <span className={cxSidebar("truncate", blocked && "opacity-50")}>{label}</span>
       {blocked && <span className="ml-auto shrink-0" aria-label="Disponível em outro plano" title="Disponível em outro plano">🔒</span>}
     </button>
@@ -5726,7 +5728,7 @@ function MobileAdminDrawer({ open, onClose, triggerRef, children, titulo }) {
   return (
     <div id="drawer-admin-mobile" className="fixed inset-0 z-[70] flex lg:hidden" role="dialog" aria-modal="true" aria-label={titulo || "Menu de navegação"}>
       <div className="absolute inset-0 bg-black/50 animate-[pp-fade-in_220ms_ease-out_both]" onClick={onClose} aria-hidden="true" />
-      <div ref={panelRef} className="pp-anim-left relative flex h-full w-[280px] max-w-[85vw] flex-col overflow-hidden bg-[var(--pp-graphite)] shadow-2xl" style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)", animationDuration: "220ms" }}>
+      <div ref={panelRef} className="pp-anim-left relative flex h-full w-[280px] max-w-[85vw] flex-col overflow-hidden bg-[var(--pp-nav)] shadow-2xl" style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)", animationDuration: "220ms" }}>
         {children}
       </div>
     </div>
@@ -5833,7 +5835,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
 
       {/* ── Menu lateral esquerdo (fixo) — hierarquia oficial: Logo → Usuário
           → Empresa → Menu (protagonista) → Rodapé → Sair ── */}
-      <aside className="hidden lg:flex h-full w-64 shrink-0 flex-col overflow-hidden bg-[var(--pp-graphite)]">
+      <aside className="hidden lg:flex h-full w-64 shrink-0 flex-col overflow-hidden bg-[var(--pp-nav)]">
         <SidebarHeader subtitulo={isSuperAdmin ? "Administrador geral" : (lojaInfo ? lojaInfo.nome : "Painel gerencial")} />
         <SidebarUserCompact currentUser={currentUser} isSuperAdmin={isSuperAdmin} lojaInfo={lojaInfo} />
         {isSuperAdmin && (
@@ -5844,7 +5846,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
         )}
         <div className="border-b border-white/10 px-3 py-3">
           <button onClick={() => setCmdOpen(true)} aria-label="Abrir busca rápida (Ctrl K)"
-            className="flex min-h-[44px] w-full items-center gap-2 rounded-xl border border-white/10 bg-white/[0.05] px-3 py-2 text-left text-[13px] text-white/80 transition hover:bg-white/[0.08] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C9501F]">
+            className="flex min-h-[44px] w-full items-center gap-2 rounded-xl border border-white/10 bg-white/[0.05] px-3 py-2 text-left text-[13px] text-white/80 transition hover:bg-white/[0.08] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E67E22]">
             <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-white/80" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
             <span className="flex-1 truncate">Buscar telas…</span>
             <span className="shrink-0 rounded-md border border-white/10 px-1.5 py-0.5 text-[10px] font-bold text-white/70">Ctrl K</span>
@@ -5874,12 +5876,12 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
 
       {/* ── Conteúdo ─────────────────────────────────────────── */}
       <div className="flex flex-1 flex-col overflow-hidden">
-        {/* Cabeçalho mobile/tablet — grafite, mesma cor da sidebar desktop
+        {/* Cabeçalho mobile/tablet — azul petróleo, mesma cor da sidebar desktop
             (botão de menu abre o drawer de navegação, lg:hidden) */}
-        <div className="lg:hidden flex shrink-0 items-center justify-between gap-3 border-b border-white/10 bg-[var(--pp-graphite)] px-4 py-3" style={{ paddingTop: "calc(env(safe-area-inset-top) + 12px)" }}>
+        <div className="lg:hidden flex shrink-0 items-center justify-between gap-3 border-b border-white/10 bg-[var(--pp-nav)] px-4 py-3" style={{ paddingTop: "calc(env(safe-area-inset-top) + 12px)" }}>
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <button ref={botaoMenuRef} onClick={() => setMenuMobileAberto(true)} aria-label="Abrir menu de navegação" aria-expanded={menuMobileAberto} aria-controls="drawer-admin-mobile"
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/[0.06] text-white/85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C9501F]">
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/[0.06] text-white/85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E67E22]">
               <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M4 7h16" /><path d="M4 12h16" /><path d="M4 17h16" /></svg>
             </button>
             <LogoPP size={28} />
