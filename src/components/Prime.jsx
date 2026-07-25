@@ -63,7 +63,7 @@ export const FilterChip = memo(function FilterChip({
 // linha de FilterChip. Substitui implementações ad-hoc (divs soltas sem
 // título/card, ou botões próprios) — nenhuma tela deve estilizar isso por
 // conta própria. Aplica a paleta azul oficial de filtro (fundo branco,
-// selecionado #2563EB) via a classe `pp-filter-panel` (src/index.css),
+// selecionado #0F4C5C) via a classe `pp-filter-panel` (src/index.css),
 // sem afetar outros usos de FilterChip (permissões, config, templates
 // etc.), que continuam com a cor vermelha padrão do sistema.
 export const FilterGroup = memo(function FilterGroup({
@@ -112,7 +112,7 @@ export function ActiveFiltersSummary({ grupos, onClearAll, className = "" }) {
         {ativos.length} {ativos.length === 1 ? "filtro ativo" : "filtros ativos"}
       </span>
       <button type="button" onClick={onClearAll}
-        className="text-xs font-bold text-[#2563EB] transition hover:text-[#1D4ED8] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563EB]">
+        className="text-xs font-bold text-[#0F4C5C] transition hover:text-[#0B3A46] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0F4C5C]">
         Limpar filtros
       </button>
     </div>

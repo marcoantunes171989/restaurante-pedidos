@@ -1896,7 +1896,7 @@ export default function RestaurantePedidoApp() {
           paddingTop: "env(safe-area-inset-top)",
           paddingBottom: "env(safe-area-inset-bottom)",
           backgroundImage:
-            "radial-gradient(30rem 30rem at -6rem -6rem, rgba(37,99,235,0.18), transparent 70%), radial-gradient(30rem 30rem at calc(100% + 6rem) calc(100% + 6rem), rgba(124,58,237,0.14), transparent 70%)",
+            "radial-gradient(30rem 30rem at -6rem -6rem, rgba(15, 76, 92,0.18), transparent 70%), radial-gradient(30rem 30rem at calc(100% + 6rem) calc(100% + 6rem), rgba(124,58,237,0.14), transparent 70%)",
         }}>
         {/* Grade de pontos discreta */}
         <div className="pointer-events-none absolute inset-0 opacity-[0.06]"
@@ -2999,7 +2999,7 @@ export function ProdutoModal({ produto, onFechar, onAdicionar, grupos = [], opco
 }
 
 const kitchenCols = [
-  { key: "received",  label: "Aguardando", sub: "Na fila",           dot: "bg-[#2563EB]", text: "text-[#1D4ED8]", header: "border-[#BFDBFE] bg-[#EFF6FF]", card: "border-[#E5E7EB]" },
+  { key: "received",  label: "Aguardando", sub: "Na fila",           dot: "bg-[#0F4C5C]", text: "text-[#0B3A46]", header: "border-[#B0C9D0] bg-[#E6EEF1]", card: "border-[#E5E7EB]" },
   { key: "preparing", label: "Preparando", sub: "Em produção",       dot: "bg-[#D9A441]", text: "text-[#9A6A00]", header: "border-[#F4D27A] bg-[#FFF7E0]", card: "border-[#E5E7EB]" },
   { key: "ready",     label: "Finalizado", sub: "Pronto p/ retirada",dot: "bg-[#16A34A]", text: "text-[#047857]", header: "border-[#86EFAC] bg-[#ECFDF3]", card: "border-[#E5E7EB]" },
 ];
@@ -3137,7 +3137,7 @@ function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, entrega
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="rounded-full border border-[#E5E7EB] bg-white px-2.5 py-0.5 text-[11px] font-black text-[#475467]">{pedidos.length} pedido(s)</span>
-                        <span className="rounded-full border border-[#BFDBFE] bg-[#EFF6FF] px-2.5 py-0.5 text-[11px] font-black text-[#1D4ED8]">{totalItensMesa} item(ns)</span>
+                        <span className="rounded-full border border-[#B0C9D0] bg-[#E6EEF1] px-2.5 py-0.5 text-[11px] font-black text-[#0B3A46]">{totalItensMesa} item(ns)</span>
                       </div>
                     </div>
 
@@ -3154,7 +3154,7 @@ function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, entrega
                     <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[#E5E7EB] px-4 py-2.5">
                       <div>
                         <p className="text-xs font-bold uppercase tracking-widest text-[#98A2B3]">{order.id} • {order.createdAt}</p>
-                        <p className="mt-0.5 font-mono text-sm font-black text-[#1D4ED8]">{order.command}</p>
+                        <p className="mt-0.5 font-mono text-sm font-black text-[#0B3A46]">{order.command}</p>
                         {order.pagamentoForma && <p className="mt-0.5 text-[11px] font-bold text-[#9A6A00]">💳 {order.pagamentoForma}{order.pagamentoMomento ? ` · ${order.pagamentoMomento}` : ""}{order.pagamentoTrocoPara > 0 ? ` · Troco p/ ${formatCurrency(order.pagamentoTrocoPara)}` : ""}</p>}
                         {pedidoAguardandoPagamento(order) && (
                           <p className="mt-1 inline-flex items-center gap-1 rounded-full border border-[#FDA4AF] bg-[#FFF1F2] px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-[#B42318]">
@@ -3353,7 +3353,7 @@ function AvisoPagamentoPendenteModal({ pedido, onFechar }) {
 }
 
 const panelStatusConfig = {
-  received:  { col: "border-[#BFDBFE] bg-[#EFF6FF]", text: "text-[#1D4ED8]", num: "bg-[#2563EB]", bar: "bg-[#2563EB]", icon: "⏳",   progress: 25  },
+  received:  { col: "border-[#B0C9D0] bg-[#E6EEF1]", text: "text-[#0B3A46]", num: "bg-[#0F4C5C]", bar: "bg-[#0F4C5C]", icon: "⏳",   progress: 25  },
   preparing: { col: "border-[#F4D27A] bg-[#FFF7E0]", text: "text-[#9A6A00]", num: "bg-[#D9A441]", bar: "bg-[#D9A441]", icon: "👨‍🍳", progress: 65  },
   ready:     { col: "border-[#86EFAC] bg-[#ECFDF3]", text: "text-[#047857]", num: "bg-[#16A34A]", bar: "bg-[#16A34A]", icon: "✅",   progress: 100 },
 };
@@ -3569,7 +3569,7 @@ function PanelView({ groupedOrders, products = [], lojaInfo }) {
                             {order.table.replace("Mesa ", "")}
                           </p>
                           {order.customer && (
-                            <p className="mt-[0.3vh] font-bold text-[#2563EB] truncate"
+                            <p className="mt-[0.3vh] font-bold text-[#0F4C5C] truncate"
                               style={{ fontSize: "clamp(9px,1vw,15px)" }}>👤 {order.customer}</p>
                           )}
                         </div>
@@ -3611,9 +3611,9 @@ function PanelView({ groupedOrders, products = [], lojaInfo }) {
                         }
                         if (key === "received") {
                           return (
-                            <div className="mb-[0.8vh] flex items-center justify-between rounded-[0.8vw] border border-[#BFDBFE] bg-[#EFF6FF] px-[1vw] py-[0.5vh]">
-                              <span className="font-bold uppercase tracking-widest text-[#1D4ED8]" style={{ fontSize: "clamp(6px,0.6vw,9px)" }}>⏳ Na fila</span>
-                              {estMin > 0 && <span className="font-black text-[#1D4ED8]" style={{ fontSize: "clamp(9px,1vw,14px)" }}>~{estMin}min preparo</span>}
+                            <div className="mb-[0.8vh] flex items-center justify-between rounded-[0.8vw] border border-[#B0C9D0] bg-[#E6EEF1] px-[1vw] py-[0.5vh]">
+                              <span className="font-bold uppercase tracking-widest text-[#0B3A46]" style={{ fontSize: "clamp(6px,0.6vw,9px)" }}>⏳ Na fila</span>
+                              {estMin > 0 && <span className="font-black text-[#0B3A46]" style={{ fontSize: "clamp(9px,1vw,14px)" }}>~{estMin}min preparo</span>}
                             </div>
                           );
                         }
@@ -4380,7 +4380,7 @@ function PosLocationColumn({ className, searchMode, setSearchMode, mesaQuery, se
         <div className="mt-2 flex flex-wrap gap-1.5">
           {POS_FILTROS_CONTA.map((f) => (
             <button key={f.id} onClick={() => setOpenAccountsFilter(f.id)}
-              className={`rounded-full border px-2.5 py-1 text-[11px] font-black transition ${openAccountsFilter === f.id ? "border-[var(--color-primary)] bg-[#EFF6FF] text-[var(--color-primary)]" : "border-[#E5E7EB] bg-white text-[#667085] hover:bg-[#F8FAFC]"}`}>
+              className={`rounded-full border px-2.5 py-1 text-[11px] font-black transition ${openAccountsFilter === f.id ? "border-[var(--color-primary)] bg-[#E6EEF1] text-[var(--color-primary)]" : "border-[#E5E7EB] bg-white text-[#667085] hover:bg-[#F8FAFC]"}`}>
               {f.label}
             </button>
           ))}
@@ -4391,12 +4391,12 @@ function PosLocationColumn({ className, searchMode, setSearchMode, mesaQuery, se
             const carregada = c.comandas.every((cm) => comandasLidas.includes(cm));
             return (
               <button key={c.comandas[0]} onClick={() => onAbrirConta(c)}
-                className={`flex w-full items-start justify-between gap-2 rounded-2xl border p-3 text-left transition ${carregada ? "border-[var(--color-primary)] bg-[#EFF6FF]" : "border-[#E5E7EB] bg-white hover:border-[var(--color-primary)]/40 hover:bg-[#F8FAFC]"}`}>
+                className={`flex w-full items-start justify-between gap-2 rounded-2xl border p-3 text-left transition ${carregada ? "border-[var(--color-primary)] bg-[#E6EEF1]" : "border-[#E5E7EB] bg-white hover:border-[var(--color-primary)]/40 hover:bg-[#F8FAFC]"}`}>
                 <div className="min-w-0">
                   <p className="truncate text-sm font-black text-[#182230]">{c.mesa}</p>
                   <p className="truncate text-[11px] text-[#667085]">{c.cliente ? `${c.cliente} · ` : ""}{c.pedidos} pedido(s)</p>
                   <span className={`mt-1 inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-black ${
-                    c.situacao === "solicitado" ? "bg-[#FFF4E5] text-[#B45309]" : c.situacao === "entrega" ? "bg-[#EFF6FF] text-[#1D4ED8]" : "bg-[#EAFBF2] text-[#147A4A]"
+                    c.situacao === "solicitado" ? "bg-[#FFF4E5] text-[#B45309]" : c.situacao === "entrega" ? "bg-[#E6EEF1] text-[#0B3A46]" : "bg-[#EAFBF2] text-[#147A4A]"
                   }`}>
                     {c.situacao === "solicitado" ? "Fechamento solicitado" : c.situacao === "entrega" ? "Aguardando entrega" : "Aguardando pagamento"}
                   </span>
@@ -4534,7 +4534,7 @@ function PosAccountColumn({ className, temConta, contaVazia, comandaJaUsada, com
           <div key={comanda} className="mb-4 overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white shadow-[0_4px_16px_rgba(16,24,40,.04)]">
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E5E7EB] bg-[#F8FAFC] px-4 py-2.5">
               <div className="flex items-center gap-2">
-                <span className="rounded-lg border border-[#BFDBFE] bg-[#EFF6FF] px-2 py-0.5 font-mono text-xs font-black text-[#1D4ED8]">{comanda}</span>
+                <span className="rounded-lg border border-[#B0C9D0] bg-[#E6EEF1] px-2 py-0.5 font-mono text-xs font-black text-[#0B3A46]">{comanda}</span>
                 {comandasLidas.length > 1 && (
                   <button onClick={() => onRemoverComanda(comanda)} aria-label={`Remover comanda ${comanda} da conta`} className="rounded-md px-1.5 py-0.5 text-[11px] font-bold text-[#98A2B3] hover:bg-[#FFF1F2] hover:text-[#DC2626]">remover</button>
                 )}
@@ -4554,7 +4554,7 @@ function PosAccountColumn({ className, temConta, contaVazia, comandaJaUsada, com
                     const valor = (it.price * it.quantity) / (s.dividir || 1);
                     const detalhes = [it.removedIngredients?.length ? `Sem: ${it.removedIngredients.join(", ")}` : null, it.extraIngredients?.length ? `Com: ${it.extraIngredients.join(", ")}` : null, it.observation || null].filter(Boolean).join(" · ");
                     return (
-                      <div key={i} className={`flex items-center gap-2 rounded-xl px-2 py-1.5 text-sm ${pago ? "bg-[#EAFBF2]" : splitMode === "item" ? (incluido ? "bg-[#EFF6FF]" : "opacity-50") : ""}`}>
+                      <div key={i} className={`flex items-center gap-2 rounded-xl px-2 py-1.5 text-sm ${pago ? "bg-[#EAFBF2]" : splitMode === "item" ? (incluido ? "bg-[#E6EEF1]" : "opacity-50") : ""}`}>
                         {splitMode === "item" && !pago && (
                           <input type="checkbox" checked={incluido} onChange={() => toggleItem(o.id, i)} aria-label={`Incluir ${it.name} na cobrança`} className="h-4 w-4 shrink-0 accent-[var(--color-primary)]" />
                         )}
@@ -4700,7 +4700,7 @@ function PosPaymentColumn({
                 <div role="radiogroup" aria-label="Modo de divisão" className="grid grid-cols-2 gap-1.5">
                   {POS_SPLIT_MODES.map((m) => (
                     <button key={m.id} type="button" role="radio" aria-checked={splitMode === m.id} onClick={() => setSplitMode(m.id)}
-                      className={`rounded-xl border px-2 py-2 text-xs font-black transition ${splitMode === m.id ? "border-[var(--color-primary)] bg-[#EFF6FF] text-[var(--color-primary)]" : "border-[#E5E7EB] bg-white text-[#475467] hover:bg-[#F8FAFC]"}`}>
+                      className={`rounded-xl border px-2 py-2 text-xs font-black transition ${splitMode === m.id ? "border-[var(--color-primary)] bg-[#E6EEF1] text-[var(--color-primary)]" : "border-[#E5E7EB] bg-white text-[#475467] hover:bg-[#F8FAFC]"}`}>
                       {m.label}
                     </button>
                   ))}
@@ -4745,7 +4745,7 @@ function PosPaymentColumn({
               )}
 
               {aPagarMaiorQueRestante && (
-                <div className="mt-2 rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] p-2.5 text-xs font-bold text-[#1D4ED8]">Cobrar agora (seleção): {formatCurrency(total)}</div>
+                <div className="mt-2 rounded-xl border border-[#B0C9D0] bg-[#E6EEF1] p-2.5 text-xs font-bold text-[#0B3A46]">Cobrar agora (seleção): {formatCurrency(total)}</div>
               )}
             </div>
 
@@ -4767,7 +4767,7 @@ function PosPaymentColumn({
                     const Icone = POS_ICONE_FORMA[f.tipo] || IconCarteira;
                     return (
                       <button key={f.id} type="button" onClick={() => onAddLinha(f)} disabled={total <= 0}
-                        className="flex min-h-11 flex-col items-center justify-center gap-1 rounded-xl border border-[#E5E7EB] bg-white px-1.5 py-2.5 text-[11px] font-black text-[#475467] transition hover:border-[var(--color-primary)] hover:bg-[#EFF6FF] hover:text-[var(--color-primary)] disabled:opacity-40">
+                        className="flex min-h-11 flex-col items-center justify-center gap-1 rounded-xl border border-[#E5E7EB] bg-white px-1.5 py-2.5 text-[11px] font-black text-[#475467] transition hover:border-[var(--color-primary)] hover:bg-[#E6EEF1] hover:text-[var(--color-primary)] disabled:opacity-40">
                         <Icone width={17} height={17} /> <span className="truncate">{f.nome}</span>
                       </button>
                     );
@@ -4989,8 +4989,8 @@ function ReimpressaoCupons({ cupons, lojaInfo, onSelecionar, onFechar }) {
           {cupons.length > 0 && lista.length === 0 && <p className="py-8 text-center text-sm text-[#98A2B3]">Nenhum resultado para “{busca}”.</p>}
           {lista.map((o) => (
             <button key={o.id} onClick={() => onSelecionar(o)}
-              className="flex w-full items-center gap-3 rounded-2xl border border-[#E5E7EB] bg-white px-4 py-3 text-left transition hover:border-[var(--color-primary)] hover:bg-[#EFF6FF]">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#EFF6FF] text-[var(--color-primary)]"><IconRecibo width={17} height={17} /></span>
+              className="flex w-full items-center gap-3 rounded-2xl border border-[#E5E7EB] bg-white px-4 py-3 text-left transition hover:border-[var(--color-primary)] hover:bg-[#E6EEF1]">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#E6EEF1] text-[var(--color-primary)]"><IconRecibo width={17} height={17} /></span>
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-bold uppercase tracking-widest text-[#98A2B3]">{o.id} · {o.table} · {o.command}</p>
                 <p className="truncate text-sm text-[#182230]">{o.customer || "-"} · {o.createdAtISO ? new Date(o.createdAtISO).toLocaleTimeString("pt-BR") : o.createdAt}</p>
@@ -5064,7 +5064,7 @@ function CompanySelector({ lojas = [], valor, onChange }) {
               <button onClick={() => escolher(null)} className={item(valor == null)} role="option" aria-selected={valor == null}>
                 <span className={avatar(valor == null)}><Globo /></span>
                 <span className="flex-1 truncate font-bold">Visão geral (todas)</span>
-                {valor == null && <span className="shrink-0 text-[#2563EB]">✓</span>}
+                {valor == null && <span className="shrink-0 text-[#0F4C5C]">✓</span>}
               </button>
               {lista.map((l) => {
                 const sel = valor === l.id;
@@ -5075,7 +5075,7 @@ function CompanySelector({ lojas = [], valor, onChange }) {
                       <span className="block truncate font-bold">{l.nome}</span>
                       <span className="block truncate text-[10px] text-[#F8DAFC]/60">{l.prefixo}{l.active === false ? " • inativa" : ""}</span>
                     </span>
-                    {sel && <span className="shrink-0 text-[#2563EB]">✓</span>}
+                    {sel && <span className="shrink-0 text-[#0F4C5C]">✓</span>}
                   </button>
                 );
               })}
@@ -5406,7 +5406,7 @@ function CommandPalette({ open, onClose, sections = [], onNavigate, onSair }) {
   return (
     <div className="fixed inset-0 z-[120] flex items-start justify-center bg-[#061A2E]/45 px-4 pt-[14vh] backdrop-blur-sm" onClick={onClose} onKeyDown={onKey} style={{ fontFamily: "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif" }}>
       <div onClick={(e) => e.stopPropagation()} className="w-full max-w-xl overflow-hidden rounded-2xl border border-[#E7E1D8] bg-white shadow-2xl">
-        <div className="flex items-center gap-3 border-b border-[#E7E1D8] px-4 py-3.5 transition-colors duration-150 focus-within:border-[#2563EB]">
+        <div className="flex items-center gap-3 border-b border-[#E7E1D8] px-4 py-3.5 transition-colors duration-150 focus-within:border-[#0F4C5C]">
           <svg viewBox="0 0 24 24" className="h-5 w-5 shrink-0 text-[#98A2B3]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
           <input ref={inputRef} value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={onKey}
             placeholder="Buscar telas e ações…  (ex.: produtos, caixa, clientes)"
@@ -5420,23 +5420,23 @@ function CommandPalette({ open, onClose, sections = [], onNavigate, onSair }) {
             const on = i === idx;
             return (
               <button key={it.id + i} data-on={on ? "1" : "0"} onMouseEnter={() => setIdx(i)} onClick={() => escolher(it)}
-                className={`flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563EB] ${on ? "border-[#2563EB] bg-[rgba(37,99,235,0.14)]" : "border-transparent hover:border-[#2563EB] hover:bg-[rgba(37,99,235,0.10)]"}`}>
-                <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition-colors duration-150 ${on ? "border-[#2563EB]/40 bg-[rgba(37,99,235,0.10)] text-[#2563EB]" : "border-[#E7E1D8] bg-white text-[#667085]"}`}>
+                className={`flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0F4C5C] ${on ? "border-[#0F4C5C] bg-[rgba(15, 76, 92,0.14)]" : "border-transparent hover:border-[#0F4C5C] hover:bg-[rgba(15, 76, 92,0.10)]"}`}>
+                <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition-colors duration-150 ${on ? "border-[#0F4C5C]/40 bg-[rgba(15, 76, 92,0.10)] text-[#0F4C5C]" : "border-[#E7E1D8] bg-white text-[#667085]"}`}>
                   {it.sair
                     ? <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="m16 17 5-5-5-5" /><path d="M21 12H9" /></svg>
                     : <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 6 15 12 9 18" /></svg>}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className={`block truncate text-sm font-semibold ${on ? "text-[#2563EB]" : "text-[#111827]"}`}>{it.label}</span>
+                  <span className={`block truncate text-sm font-semibold ${on ? "text-[#0F4C5C]" : "text-[#111827]"}`}>{it.label}</span>
                   {it.grupo && <span className="block text-[11px] text-[#98A2B3]">{it.grupo}</span>}
                 </span>
-                {on && <span className="shrink-0 text-[11px] font-bold text-[#2563EB]">Abrir ↵</span>}
+                {on && <span className="shrink-0 text-[11px] font-bold text-[#0F4C5C]">Abrir ↵</span>}
               </button>
             );
           })}
         </div>
         <div className="flex items-center justify-between border-t border-[#E7E1D8] bg-[#F8F6F0] px-4 py-2.5 text-[11px] text-[#667085]">
-          <span className="font-semibold">Pedido <span className="text-[#2563EB]">Prime</span> · navegação rápida</span>
+          <span className="font-semibold">Pedido <span className="text-[#0F4C5C]">Prime</span> · navegação rápida</span>
           <span>↑↓ navegar · ↵ abrir · Ctrl K abrir/fechar</span>
         </div>
       </div>
@@ -6055,8 +6055,8 @@ function CalendarioMinimalista({ valor, onChange, max, min, placeholder = "Selec
   return (
     <div ref={ref} className="relative">
       <button type="button" onClick={() => setAberto((a) => !a)}
-        className={`flex h-[30px] items-center gap-2 rounded-full border bg-white px-3 text-xs font-bold outline-none transition ${aberto ? "border-[#BFDBFE] text-[#1D4ED8]" : "border-[#E5E7EB] text-[#475467] hover:bg-[#F8FAFC] hover:border-[#D0D5DD]"}`}>
-        <span className={aberto ? "text-[#2563EB]" : "text-[#2563EB]/70"}><IconCalendario /></span>
+        className={`flex h-[30px] items-center gap-2 rounded-full border bg-white px-3 text-xs font-bold outline-none transition ${aberto ? "border-[#B0C9D0] text-[#0B3A46]" : "border-[#E5E7EB] text-[#475467] hover:bg-[#F8FAFC] hover:border-[#D0D5DD]"}`}>
+        <span className={aberto ? "text-[#0F4C5C]" : "text-[#0F4C5C]/70"}><IconCalendario /></span>
         <span className={valor ? "" : "text-[#98A2B3]"}>{valor ? formatarDataBR(valor) : placeholder}</span>
       </button>
 
@@ -6086,7 +6086,7 @@ function CalendarioMinimalista({ valor, onChange, max, min, placeholder = "Selec
               return (
                 <button key={dia} type="button" disabled={off} onClick={() => selecionar(dia)}
                   className={`flex h-8 items-center justify-center rounded-lg text-xs font-bold transition ${
-                    sel ? "border border-[#BFDBFE] bg-[#EFF6FF] text-[#1D4ED8]"
+                    sel ? "border border-[#B0C9D0] bg-[#E6EEF1] text-[#0B3A46]"
                     : off ? "text-[#D0D5DD] cursor-not-allowed"
                     : "text-[#475467] hover:bg-[#F3F4F6]"}`}>
                   {dia}
@@ -6219,7 +6219,7 @@ function CardMetrica({ titulo, valor, sub, cor = "text-brand-ink", icon, variaca
 // categoria" — varredura confirmou não existir nenhum outro donut no projeto).
 // Paleta padrão dentro da lista oficial; vermelho fica reservado para
 // erro/cancelado/crítico e não entra no ciclo automático.
-const CORES_GRAF = ["#2563EB", "#10B981", "#F59E0B", "#8B5CF6", "#06B6D4", "#64748B"];
+const CORES_GRAF = ["#0F4C5C", "#10B981", "#F59E0B", "#8B5CF6", "#06B6D4", "#64748B"];
 // corCentral/legendaColorida/interativo têm o padrão de referência (usado por
 // todos os donuts); ainda são sobrescrevíveis caso uma tela futura precise de
 // um comportamento diferente, sem duplicar a configuração em cada chamada.
@@ -6536,7 +6536,7 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
     : o.status === "preparing" ? { l: "Marcar pronto", fn: () => updateOrderStatus(o.id, "ready"), c: "bg-[#16A34A] text-white" }
     : o.status === "ready" ? (bloqueadoPorPagamento(o)
         ? { l: "🔒 Aguardando pagamento", fn: null, c: "bg-[#F3F4F6] text-[#98A2B3]", disabled: true }
-        : { l: "Entregue", fn: () => marcarEntregue(o.id), c: "bg-[#2563EB] text-white" })
+        : { l: "Entregue", fn: () => marcarEntregue(o.id), c: "bg-[#0F4C5C] text-white" })
     : null;
   // Comanda operacional (menu de três pontos — Pedidos/Cozinha/Bar): reaproveita
   // o mesmo abrirImpressaoTermica() (App.jsx:185) já usado pelos cupons/
@@ -6589,7 +6589,7 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
     const totalReceberCentral = contasAbertas.reduce((s, o) => s + totalCom(o), 0);
     const qtdPorTipoSetor = (bar) => ativos.reduce((acc, o) => acc + (o.items || []).filter((it) => barLike(setorDoItem(it)) === bar).reduce((s, it) => s + it.quantity, 0), 0);
     const ICONE_MODULO = { pedidos: ClipboardList, cozinha: ChefHat, bar: Wine, caixa: CreditCard };
-    const TINT_MODULO = { pedidos: "#e8622c", cozinha: "#d4a017", bar: "#2563eb", caixa: "#16a34a" };
+    const TINT_MODULO = { pedidos: "#e8622c", cozinha: "#d4a017", bar: "#0F4C5C", caixa: "#16a34a" };
     const CONTAGEM_MODULO = { pedidos: ativos.length, cozinha: qtdPorTipoSetor(false), bar: qtdPorTipoSetor(true), caixa: contasAbertas.length };
     const modulosReais = liberados.map((m) => ({ id: m.id, label: m.label, desc: m.desc, icon: ICONE_MODULO[m.id], tint: TINT_MODULO[m.id], count: CONTAGEM_MODULO[m.id] }));
     // Variantes semânticas (ver OperationalMetricCard): info/warning/success
@@ -6811,7 +6811,7 @@ function GraficoTooltip({ children, className = "" }) {
 // LinhaFaturamento (pp-chart-container, pp-chart-focus, GraficoTooltip):
 // sem outline preto, sem alterar layout no hover, overlay absoluto.
 // dados: [{ rotulo, valor, qtd, variacao }]; ordena do maior para o menor;
-// o maior valor fica em #F59E0B, os demais em #2563EB; linha vertical
+// o maior valor fica em #F59E0B, os demais em #0F4C5C; linha vertical
 // cinza (#64748B) marca a média do conjunto.
 function BarrasRankeadas({ dados, formatarValor, sufixo = "" }) {
   const [ativo, setAtivo] = useState(null);
@@ -6824,7 +6824,7 @@ function BarrasRankeadas({ dados, formatarValor, sufixo = "" }) {
     <div className="pp-chart-container space-y-3">
       {ordenados.map((d, i) => {
         const pct = (d.valor / maxValor) * 100;
-        const cor = i === 0 ? "#F59E0B" : "#2563EB";
+        const cor = i === 0 ? "#F59E0B" : "#0F4C5C";
         return (
           <div key={d.rotulo} className="relative">
             <div className="mb-1 flex items-center justify-between gap-2 text-xs">
@@ -6917,7 +6917,7 @@ function BarrasHora({ dados, paleta = PALETA_BARRAS_HORA_PADRAO }) {
                 {aberto && (
                   <GraficoTooltip className="pp-chart-tooltip-overlay bottom-[calc(100%+8px)] left-1/2 w-max max-w-[180px] -translate-x-1/2">
                     <p className="font-bold" style={{ color: "#0D1B2A" }}>{d.label}</p>
-                    <p className="mt-0.5 font-black" style={{ color: d.valor > 0 ? "#2563EB" : "#64748B" }}>{d.valor > 0 ? formatCurrency(d.valor) : "Sem faturamento"}</p>
+                    <p className="mt-0.5 font-black" style={{ color: d.valor > 0 ? "#0F4C5C" : "#64748B" }}>{d.valor > 0 ? formatCurrency(d.valor) : "Sem faturamento"}</p>
                     {d.qtd > 0 && <p className="mt-0.5" style={{ color: "#64748B" }}>{d.qtd} pedido{d.qtd > 1 ? "s" : ""} · ticket médio {formatCurrency(d.valor / d.qtd)}</p>}
                     {diffPct != null && (
                       <p className="mt-0.5 font-semibold" style={{ color: diffPct >= 0 ? "#10B981" : "#64748B" }}>{diffPct >= 0 ? "▲" : "▼"} {Math.abs(diffPct)}% vs. média do período</p>
@@ -6959,13 +6959,13 @@ function LinhaFaturamento({ dados }) {
   const idxMin = dados.findIndex((d) => d.valor === valorMin);
   const media = dados.reduce((s, d) => s + d.valor, 0) / n;
   const yMedia = y(media);
-  const corPonto = (i) => (i === idxMax ? "#F59E0B" : i === idxMin ? "#8B5CF6" : "#2563EB");
+  const corPonto = (i) => (i === idxMax ? "#F59E0B" : i === idxMin ? "#8B5CF6" : "#0F4C5C");
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="pp-chart-container w-full overflow-visible" style={{ height: 180 }}>
       {[0, 0.25, 0.5, 0.75, 1].map((f, i) => (<line key={i} x1={P} x2={W - P} y1={y(max * f)} y2={y(max * f)} stroke="#E2E8F0" />))}
       {n > 1 && <line x1={P} x2={W - P} y1={yMedia} y2={yMedia} stroke="#64748B" strokeWidth="1" strokeDasharray="4 3" />}
-      <path d={area} fill="#2563EB" fillOpacity="0.08" />
-      <path d={linha} fill="none" stroke="#2563EB" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+      <path d={area} fill="#0F4C5C" fillOpacity="0.08" />
+      <path d={linha} fill="none" stroke="#0F4C5C" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
       {pts.map((p, i) => (
         <g key={i} className="pp-chart-focus-svg" style={{ cursor: "pointer" }} tabIndex={0} role="img" aria-label={`${dados[i].label}: ${formatCurrency(dados[i].valor)}`}
           onMouseEnter={() => setAtivo(i)} onMouseLeave={() => setAtivo((c) => (c === i ? null : c))}
@@ -6984,7 +6984,7 @@ function LinhaFaturamento({ dados }) {
           <g pointerEvents="none">
             <rect x={bx} y={by} width={boxW} height={boxH} rx="6" fill="#FFFFFF" stroke="#E2E8F0" />
             <text x={bx + boxW / 2} y={by + 14} textAnchor="middle" fill="#334155" style={{ fontSize: 9, fontWeight: 700 }}>{d.label}</text>
-            <text x={bx + boxW / 2} y={by + 27} textAnchor="middle" fill="#2563EB" style={{ fontSize: 10, fontWeight: 800 }}>{formatCurrency(d.valor)}</text>
+            <text x={bx + boxW / 2} y={by + 27} textAnchor="middle" fill="#0F4C5C" style={{ fontSize: 10, fontWeight: 800 }}>{formatCurrency(d.valor)}</text>
           </g>
         );
       })()}
@@ -7154,7 +7154,7 @@ function analisarGestaoIA(ctx) {
 // e paleta oficial (hex exatos, não classes genéricas do Tailwind). "Analisar"
 // preenche o chat com uma pergunta contextual sobre o indicador.
 const KPI_COPILOTO_TONS = {
-  blue: "#2563EB", emerald: "#10B981", amber: "#F59E0B", violet: "#8B5CF6", red: "#EF4444",
+  blue: "#0F4C5C", emerald: "#10B981", amber: "#F59E0B", violet: "#8B5CF6", red: "#EF4444",
 };
 // "Analisar" não recebe uma função por prop — o clique sobe até o container
 // do grid (elemento nativo) por delegação, que lê data-pergunta e chama o
@@ -7195,7 +7195,7 @@ function OportunidadeCard({ titulo, itens, vazio, render }) {
         <ul className="space-y-1.5">
           {itens.map((it, i) => (
             <li key={i} className="flex items-start gap-2 text-xs text-[#334155]">
-              <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-[#2563EB]" />
+              <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-[#0F4C5C]" />
               <span className="min-w-0">{render(it)}</span>
             </li>
           ))}
@@ -7261,7 +7261,7 @@ function RespostaCopilotoBubble({ resultado, modelo, dataPeriod, bloqueado, atua
         </div>
       )}
       <div className="flex items-center gap-3 pt-1">
-        <button onClick={() => onCopiar(textoParaCopiar)} className="text-[10px] font-bold text-[#2563EB] hover:underline">{copiado ? "Copiado ✓" : "Copiar resposta"}</button>
+        <button onClick={() => onCopiar(textoParaCopiar)} className="text-[10px] font-bold text-[#0F4C5C] hover:underline">{copiado ? "Copiado ✓" : "Copiar resposta"}</button>
         {!bloqueado && (
           <span className="flex items-center gap-1.5">
             <button onClick={() => onFeedback("util")} title="Resposta útil" aria-label="Marcar como útil" className="text-xs" style={{ opacity: feedback === "util" ? 1 : 0.4 }}>👍</button>
@@ -7356,7 +7356,7 @@ function ModalCriarAcao({ acao, usuarios = [], onFechar, onConfirmar }) {
     setTimeout(() => onConfirmar({ titulo: titulo.trim(), responsavel, prazo, prioridade, planoAcao: planoAcao.trim(), resultadoEsperado: resultadoEsperado.trim() }), 500);
   }
 
-  const inputCls = "w-full min-h-[44px] rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2.5 text-sm text-[#0F172A] outline-none transition focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/25";
+  const inputCls = "w-full min-h-[44px] rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2.5 text-sm text-[#0F172A] outline-none transition focus:border-[#0F4C5C] focus:ring-2 focus:ring-[#0F4C5C]/25";
   const lblCls = "mb-1.5 block text-xs font-bold uppercase tracking-widest text-[#64748B]";
   const usuariosAtivos = usuarios.filter((u) => u.active !== false);
 
@@ -7370,7 +7370,7 @@ function ModalCriarAcao({ acao, usuarios = [], onFechar, onConfirmar }) {
             <h2 id="titulo-modal-acao" className="text-lg font-black text-[#0F172A]">Criar plano de ação</h2>
             <p className="mt-1 text-sm text-[#64748B]">Transforme esta recomendação em uma atividade prática para acompanhar a melhoria dos resultados.</p>
           </div>
-          <button onClick={onFechar} title="Fechar" aria-label="Fechar modal" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#E2E8F0] text-sm font-black text-[#64748B] transition hover:bg-[#F8FAFC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]">✕</button>
+          <button onClick={onFechar} title="Fechar" aria-label="Fechar modal" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#E2E8F0] text-sm font-black text-[#64748B] transition hover:bg-[#F8FAFC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F4C5C]">✕</button>
         </div>
 
         {/* Corpo com rolagem interna */}
@@ -7432,7 +7432,7 @@ function ModalCriarAcao({ acao, usuarios = [], onFechar, onConfirmar }) {
                 const Icone = cfg.Icone;
                 return (
                   <button key={id} type="button" aria-pressed={sel} onClick={() => setPrioridade(id)}
-                    className="flex min-h-[44px] flex-col items-center justify-center gap-1 rounded-xl border-2 px-2 py-2.5 text-xs font-black uppercase transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB] focus-visible:ring-offset-1"
+                    className="flex min-h-[44px] flex-col items-center justify-center gap-1 rounded-xl border-2 px-2 py-2.5 text-xs font-black uppercase transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F4C5C] focus-visible:ring-offset-1"
                     style={sel ? { borderColor: cfg.cor, background: `${cfg.cor}14`, color: cfg.cor } : { borderColor: "#E2E8F0", background: "#FFFFFF", color: "#64748B" }}>
                     <Icone />{cfg.label}
                   </button>
@@ -7467,17 +7467,17 @@ function ModalCriarAcao({ acao, usuarios = [], onFechar, onConfirmar }) {
             mobile em diante. */}
         <div className="flex shrink-0 flex-col-reverse items-stretch justify-end gap-2 border-t border-[#E2E8F0] bg-white px-6 py-3 shadow-[0_-4px_12px_rgba(15,23,42,0.06)] min-[360px]:flex-row min-[360px]:items-center">
           <button type="button" onClick={onFechar} disabled={enviando}
-            className="inline-flex min-h-[48px] items-center justify-center rounded-[10px] border border-[#CBD5E1] bg-white px-5 py-2.5 text-sm font-semibold text-[#334155] transition hover:border-[#94A3B8] hover:bg-[#F8FAFC] active:bg-[#F1F5F9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/30 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-[44px]">
+            className="inline-flex min-h-[48px] items-center justify-center rounded-[10px] border border-[#CBD5E1] bg-white px-5 py-2.5 text-sm font-semibold text-[#334155] transition hover:border-[#94A3B8] hover:bg-[#F8FAFC] active:bg-[#F1F5F9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F4C5C]/30 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-[44px]">
             Cancelar
           </button>
           <button type="button" onClick={confirmar} disabled={enviando} aria-busy={enviando}
             style={{
-              "--btn-bg": sucesso ? "#16A34A" : erroEnvio ? "#DC2626" : "#2563EB",
-              "--btn-bg-hover": sucesso ? "#16A34A" : erroEnvio ? "#DC2626" : "#1D4ED8",
-              "--btn-bg-active": sucesso ? "#16A34A" : erroEnvio ? "#DC2626" : "#1E40AF",
-              boxShadow: enviando ? "none" : "0 4px 10px rgba(37,99,235,0.20)",
+              "--btn-bg": sucesso ? "#16A34A" : erroEnvio ? "#DC2626" : "#0F4C5C",
+              "--btn-bg-hover": sucesso ? "#16A34A" : erroEnvio ? "#DC2626" : "#0B3A46",
+              "--btn-bg-active": sucesso ? "#16A34A" : erroEnvio ? "#DC2626" : "#0A3A47",
+              boxShadow: enviando ? "none" : "0 4px 10px rgba(15, 76, 92,0.20)",
             }}
-            className={`inline-flex min-h-[48px] items-center justify-center gap-2 rounded-[10px] border border-transparent bg-[var(--btn-bg)] px-5 py-2.5 text-sm font-semibold text-white transition-colors active:translate-y-px focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[rgba(37,99,235,0.25)] disabled:translate-y-0 disabled:cursor-not-allowed sm:min-h-[44px]
+            className={`inline-flex min-h-[48px] items-center justify-center gap-2 rounded-[10px] border border-transparent bg-[var(--btn-bg)] px-5 py-2.5 text-sm font-semibold text-white transition-colors active:translate-y-px focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[rgba(15, 76, 92,0.25)] disabled:translate-y-0 disabled:cursor-not-allowed sm:min-h-[44px]
               ${!enviando && !sucesso && !erroEnvio ? "hover:bg-[var(--btn-bg-hover)] active:bg-[var(--btn-bg-active)]" : ""}
               ${!enviando ? "disabled:bg-[#CBD5E1] disabled:text-[#64748B] disabled:shadow-none disabled:hover:bg-[#CBD5E1]" : ""}
               ${erroEnvio ? "animate-pulse" : ""}`}>
@@ -7551,11 +7551,11 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
   // Donut categorias e status — paleta oficial única de donuts do projeto, na
   // ordem definida: azul, verde, âmbar, violeta, ciano, cinza. Vermelho fica
   // reservado para erro/cancelado/crítico (não entra no ciclo de categorias).
-  const PALETA_SERIES_DASHBOARD = ["#2563EB", "#10B981", "#F59E0B", "#8B5CF6", "#06B6D4", "#64748B"];
+  const PALETA_SERIES_DASHBOARD = ["#0F4C5C", "#10B981", "#F59E0B", "#8B5CF6", "#06B6D4", "#64748B"];
   const catDonut = a.categorias.slice(0, 6).map((c, i) => ({ label: c.categoria, valor: c.valor, cor: PALETA_SERIES_DASHBOARD[i % PALETA_SERIES_DASHBOARD.length] }));
   // Cor semântica por status (não cíclica): aguardando=âmbar (pendência), em
   // preparo=azul (padrão), pronto=ciano (apoio gráfico), entregue=verde (sucesso).
-  const CORES_STATUS_PEDIDO = { received: "#F59E0B", preparing: "#2563EB", ready: "#06B6D4", delivered: "#10B981" };
+  const CORES_STATUS_PEDIDO = { received: "#F59E0B", preparing: "#0F4C5C", ready: "#06B6D4", delivered: "#10B981" };
   const statusDist = ["received", "preparing", "ready", "delivered"]
     .map((s) => ({ label: statusMap[s]?.label || s, valor: filtrados.filter((o) => o.status === s).length, cor: CORES_STATUS_PEDIDO[s] }))
     .filter((d) => d.valor > 0);
@@ -7823,7 +7823,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h2 className="page-title flex items-center gap-2.5 text-2xl font-bold tracking-tight text-brand-ink">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[#2563EB]" style={{ background: "#2563EB1A" }}>{soCopiloto ? "🤖" : <IconDashboard />}</span>
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[#0F4C5C]" style={{ background: "#0F4C5C1A" }}>{soCopiloto ? "🤖" : <IconDashboard />}</span>
             {soCopiloto ? "Copiloto IA" : "Dashboard Gerencial"}
           </h2>
           <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1.5 max-w-2xl text-sm text-brand-inkSoft">
@@ -7844,7 +7844,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
         </div>
         <div className="flex flex-wrap items-start gap-2">
           {soCopiloto && (
-            <button onClick={atualizarAnaliseCopiloto} className="shrink-0 rounded-xl border px-3.5 py-2.5 text-xs font-bold transition hover:bg-[#EFF6FF]" style={{ borderColor: "#E2E8F0", color: "#2563EB" }}>🔄 Atualizar análise</button>
+            <button onClick={atualizarAnaliseCopiloto} className="shrink-0 rounded-xl border px-3.5 py-2.5 text-xs font-bold transition hover:bg-[#E6EEF1]" style={{ borderColor: "#E2E8F0", color: "#0F4C5C" }}>🔄 Atualizar análise</button>
           )}
           <div className="pp-filter-panel">
             <SeletorPeriodo periodo={periodo} setPeriodo={setPeriodo} ini={ini} setIni={setIni} fim={fim} setFim={setFim} />
@@ -7962,7 +7962,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
                   <div>
                     <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-[#64748B]">
                       Diagnóstico do negócio
-                      <span tabIndex={0} title={`Como o score é calculado (regras locais, sem IA):\n${ia.regrasScore.map((r) => `• ${r.desc}`).join("\n")}`} aria-label="Como o score é calculado" className="cursor-help text-[#94A3B8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB] focus-visible:ring-offset-1 rounded-full">ⓘ</span>
+                      <span tabIndex={0} title={`Como o score é calculado (regras locais, sem IA):\n${ia.regrasScore.map((r) => `• ${r.desc}`).join("\n")}`} aria-label="Como o score é calculado" className="cursor-help text-[#94A3B8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F4C5C] focus-visible:ring-offset-1 rounded-full">ⓘ</span>
                     </p>
                     <span className="mt-1 inline-flex rounded-full border px-3 py-1 text-sm font-black" style={{ borderColor: `${nivelCorAnel}4D`, background: `${nivelCorAnel}1A`, color: nivelCorAnel }}>{ia.nivel}</span>
                     {comparativo?.faturamento != null && (
@@ -8005,10 +8005,10 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
                 <p className="flex items-center gap-2 text-sm font-black text-[#0D1B2A]"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg" style={{ background: "#8B5CF61A", color: "#8B5CF6" }}>🤖</span>Pergunte ao Copiloto</p>
                 <div className="flex flex-wrap items-center gap-2">
                   {chatMsgs.some((m) => m.role === "user") && !chatLoading && (
-                    <button onClick={refazerAnaliseIA} className="shrink-0 rounded-lg border border-[#E2E8F0] bg-white px-2.5 py-1 text-[11px] font-bold text-[#334155] transition hover:border-[#2563EB] hover:text-[#2563EB]">🔁 Refazer análise</button>
+                    <button onClick={refazerAnaliseIA} className="shrink-0 rounded-lg border border-[#E2E8F0] bg-white px-2.5 py-1 text-[11px] font-bold text-[#334155] transition hover:border-[#0F4C5C] hover:text-[#0F4C5C]">🔁 Refazer análise</button>
                   )}
                   {chatMsgs.length > 0 && (
-                    <button onClick={() => { setChatMsgs([]); setChatErro(""); setChatFeedback({}); }} className="shrink-0 rounded-lg border border-[#E2E8F0] bg-white px-2.5 py-1 text-[11px] font-bold text-[#334155] transition hover:border-[#2563EB] hover:text-[#2563EB]">Limpar conversa</button>
+                    <button onClick={() => { setChatMsgs([]); setChatErro(""); setChatFeedback({}); }} className="shrink-0 rounded-lg border border-[#E2E8F0] bg-white px-2.5 py-1 text-[11px] font-bold text-[#334155] transition hover:border-[#0F4C5C] hover:text-[#0F4C5C]">Limpar conversa</button>
                   )}
                 </div>
               </div>
@@ -8019,7 +8019,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
                 <div className="mt-3 max-h-[28rem] space-y-2 overflow-y-auto rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
                   {chatMsgs.map((m, i) => (
                     <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                      <div className={`max-w-[92%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${m.role === "user" ? "whitespace-pre-wrap" : ""}`} style={m.role === "user" ? { background: "#2563EB", color: "#FFFFFF" } : { border: "1px solid #E2E8F0", background: "#FFFFFF", color: "#334155" }}>
+                      <div className={`max-w-[92%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${m.role === "user" ? "whitespace-pre-wrap" : ""}`} style={m.role === "user" ? { background: "#0F4C5C", color: "#FFFFFF" } : { border: "1px solid #E2E8F0", background: "#FFFFFF", color: "#334155" }}>
                         {m.role === "user" ? m.content : (
                           <RespostaCopilotoBubble resultado={m.resultado} modelo={m.modelo} dataPeriod={m.dataPeriod} bloqueado={m.bloqueado} atualizadoEm={m.atualizadoEm}
                             copiado={chatCopiadoIdx === i} onCopiar={(texto) => copiarResposta(texto, i)}
@@ -8048,18 +8048,18 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
                   onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); enviarPerguntaIA(); } }}
                   rows={2} placeholder="Ex.: Como aumentar o ticket médio neste período? (Enter envia, Shift+Enter quebra linha)"
                   aria-label="Pergunta para o Copiloto"
-                  className="flex-1 resize-none rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm text-[#334155] outline-none transition focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/25 placeholder:text-[#94A3B8]" />
+                  className="flex-1 resize-none rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm text-[#334155] outline-none transition focus:border-[#0F4C5C] focus:ring-2 focus:ring-[#0F4C5C]/25 placeholder:text-[#94A3B8]" />
                 {chatLoading ? (
                   <button onClick={interromperRespostaIA} className="shrink-0 self-end rounded-xl border border-[#EF4444] bg-white px-5 py-2.5 text-sm font-black text-[#EF4444] transition hover:bg-[#FEF2F2]">■ Interromper</button>
                 ) : (
                   <button onClick={() => enviarPerguntaIA()} disabled={!chatInput.trim()}
-                    className="shrink-0 self-end rounded-xl bg-[#2563EB] px-5 py-2.5 text-sm font-black text-white transition hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:opacity-40">Enviar</button>
+                    className="shrink-0 self-end rounded-xl bg-[#0F4C5C] px-5 py-2.5 text-sm font-black text-white transition hover:bg-[#0B3A46] disabled:cursor-not-allowed disabled:opacity-40">Enviar</button>
                 )}
               </div>
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {["Como aumentar meu faturamento?", "Quais produtos devo promover?", "Onde estou perdendo dinheiro?", "Quais clientes devo reativar?", "Como reduzir o tempo de preparo?", "Quais riscos exigem atenção?", "Qual oportunidade tem maior impacto?"].map((s) => (
                   <button key={s} type="button" onClick={() => enviarPerguntaIA(s)} disabled={chatLoading}
-                    className="rounded-full border border-[#E2E8F0] bg-white px-2.5 py-1 text-[11px] font-bold text-[#334155] transition hover:border-[#2563EB] hover:text-[#2563EB] disabled:opacity-40">{s}</button>
+                    className="rounded-full border border-[#E2E8F0] bg-white px-2.5 py-1 text-[11px] font-bold text-[#334155] transition hover:border-[#0F4C5C] hover:text-[#0F4C5C] disabled:opacity-40">{s}</button>
                 ))}
               </div>
               <p className="mt-3 text-[10px] text-[#94A3B8]">Respostas usam somente os dados reais do período e filtros ativos ({filtrosAtivosTexto}) — o Copiloto não inventa números. Chat via IA por função segura no servidor; sem chave configurada ou em caso de erro, cai automaticamente no diagnóstico local desta tela.</p>
@@ -8111,7 +8111,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
                             </div>
                             <div className="mt-1.5 flex items-center gap-2 pl-5">
                               <span className="rounded-full px-1.5 py-0.5 text-[10px] font-black uppercase" style={{ background: `${sevCor[it.sev]}1A`, color: sevCor[it.sev] }}>Impacto {it.impacto}</span>
-                              {it.acaoId && <button onClick={() => irPara(it.acaoId)} className="text-[10px] font-black underline decoration-dotted underline-offset-2 hover:opacity-70" style={{ color: "#2563EB" }}>Ver origem →</button>}
+                              {it.acaoId && <button onClick={() => irPara(it.acaoId)} className="text-[10px] font-black underline decoration-dotted underline-offset-2 hover:opacity-70" style={{ color: "#0F4C5C" }}>Ver origem →</button>}
                             </div>
                           </div>
                         ))}
@@ -8150,7 +8150,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
                           },
                         });
                       }}
-                        className="shrink-0 self-start rounded-lg border px-3 py-1.5 text-xs font-black transition hover:bg-[#EFF6FF] sm:self-center" style={{ borderColor: "#2563EB", color: "#2563EB" }}>Criar ação</button>
+                        className="shrink-0 self-start rounded-lg border px-3 py-1.5 text-xs font-black transition hover:bg-[#E6EEF1] sm:self-center" style={{ borderColor: "#0F4C5C", color: "#0F4C5C" }}>Criar ação</button>
                     </div>
                   ))}
                 </div>
@@ -8233,7 +8233,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
             <span className="block text-sm font-black text-brand-ink">{formatCurrency(a.faturamento)}</span>
           </span>
         ) : null}>
-        <BarrasHora dados={vendasPorHora} paleta={{ semVenda: "#2563EB", pico: "#F59E0B", acimaMedia: "#2563EB", padrao: "#2563EB", grade: "#E2E8F0", texto: "#64748B", textoValor: "#64748B" }} />
+        <BarrasHora dados={vendasPorHora} paleta={{ semVenda: "#0F4C5C", pico: "#F59E0B", acimaMedia: "#0F4C5C", padrao: "#0F4C5C", grade: "#E2E8F0", texto: "#64748B", textoValor: "#64748B" }} />
         {melhorHora.valor > 0 && (
           <div className="mt-4 flex flex-wrap gap-2">
             <span className="rounded-full bg-amber-500/10 px-3 py-1.5 text-xs font-bold text-amber-500">★ Melhor horário: {melhorHora.label} — {formatCurrency(melhorHora.valor)}</span>
@@ -8460,7 +8460,7 @@ function KpiExecutivo({ titulo, valor, variacao, desc, icon, tendencia }) {
     <div className="h-full rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-[0_1px_2px_rgba(13,27,42,0.04)]">
       <div className="flex items-start justify-between gap-2">
         <p className="text-[11px] font-bold uppercase tracking-widest text-[#64748B]">{titulo}</p>
-        {icon && <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#2563EB]/10 text-sm">{icon}</span>}
+        {icon && <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#0F4C5C]/10 text-sm">{icon}</span>}
       </div>
       <p className="page-title mt-1.5 text-2xl font-black text-[#0D1B2A]">{valor}</p>
       <div className="mt-1 flex items-center gap-2">
@@ -8469,7 +8469,7 @@ function KpiExecutivo({ titulo, valor, variacao, desc, icon, tendencia }) {
         )}
         {tendencia && tendencia.length > 1 && (
           <span className="flex h-4 items-end gap-[2px]" aria-hidden="true">
-            {tendencia.slice(-8).map((v, i) => (<span key={i} className="w-[3px] rounded-sm bg-[#2563EB]/35" style={{ height: `${Math.max(15, (v / max) * 100)}%` }} />))}
+            {tendencia.slice(-8).map((v, i) => (<span key={i} className="w-[3px] rounded-sm bg-[#0F4C5C]/35" style={{ height: `${Math.max(15, (v / max) * 100)}%` }} />))}
           </span>
         )}
       </div>
@@ -8503,7 +8503,7 @@ function TopLista({ titulo, icon, itens, render, vazio = "Sem dados no período.
 const INSIGHT_TONS_VENDAS = {
   success: { icon: "📈", bg: "bg-[#10B981]/10" },
   warning: { icon: "⚠️", bg: "bg-[#F59E0B]/10" },
-  info:    { icon: "💡", bg: "bg-[#2563EB]/10" },
+  info:    { icon: "💡", bg: "bg-[#0F4C5C]/10" },
   violet:  { icon: "✨", bg: "bg-[#8B5CF6]/10" },
   danger:  { icon: "🔴", bg: "bg-[#EF4444]/10" },
 };
@@ -8516,7 +8516,7 @@ function InsightCardVendas({ tom = "info", titulo, texto, acaoLabel, onAcao }) {
         <p className="text-sm font-bold text-[#0D1B2A]">{titulo}</p>
         <p className="mt-0.5 text-xs leading-relaxed text-[#334155]">{texto}</p>
         {acaoLabel && onAcao && (
-          <button onClick={onAcao} className="mt-1.5 text-[11px] font-bold text-[#2563EB] transition hover:text-[#1D4ED8]">{acaoLabel} →</button>
+          <button onClick={onAcao} className="mt-1.5 text-[11px] font-bold text-[#0F4C5C] transition hover:text-[#0B3A46]">{acaoLabel} →</button>
         )}
       </div>
     </div>
@@ -8641,7 +8641,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
   pagosG.forEach((o) => { if (o.createdAtISO) { const h = new Date(o.createdAtISO).getHours(); horas24R[h].valor += orderTotal(o) * 1.1; horas24R[h].qtd += 1; } });
   const horarioGeral = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 0, 1].map((h) => horas24R[h]);
   // Paleta oficial única de donuts do projeto (mesma do Dashboard Gerencial).
-  const PALETA_GRAF_RELATORIOS = ["#2563EB", "#10B981", "#F59E0B", "#8B5CF6", "#06B6D4", "#64748B"];
+  const PALETA_GRAF_RELATORIOS = ["#0F4C5C", "#10B981", "#F59E0B", "#8B5CF6", "#06B6D4", "#64748B"];
   const catDonutR = a.categorias.slice(0, 6).map((c, i) => ({ label: c.categoria, valor: c.valor, cor: PALETA_GRAF_RELATORIOS[i % PALETA_GRAF_RELATORIOS.length] }));
   // Mesas com maior faturamento
   const porMesaR = {};
@@ -8870,7 +8870,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
     j.document.close();
   }
   function atualizarEstoqueVisao() { setAtualizadoEmEstoque(new Date()); }
-  const inputClsEstoque = "w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs text-[#334155] outline-none transition focus:border-[#2563EB]";
+  const inputClsEstoque = "w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs text-[#334155] outline-none transition focus:border-[#0F4C5C]";
   const labelClsEstoque = "mb-1 block text-[10px] font-bold uppercase tracking-widest text-[#64748B]";
 
   function exportarEstoqueCSV() {
@@ -9000,11 +9000,11 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
       @page { size: A4; margin: 14mm 14mm 16mm; }
       * { box-sizing: border-box; }
       body { font-family: 'Segoe UI', Arial, sans-serif; color:#0f172a; margin:0; }
-      .head { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid #2563eb; padding-bottom:12px; }
+      .head { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid #0F4C5C; padding-bottom:12px; }
       .head .emp { font-size:22px; font-weight:800; }
       .head .sub { font-size:12px; color:#475569; margin-top:2px; }
       .head .doc { text-align:right; }
-      .head .doc .t { font-size:15px; font-weight:800; color:#2563eb; }
+      .head .doc .t { font-size:15px; font-weight:800; color:#0F4C5C; }
       .head .doc .m { font-size:11px; color:#667085; }
       .meta { display:flex; gap:18px; flex-wrap:wrap; margin:12px 0 4px; font-size:12px; color:#475569; }
       .meta b { color:#0f172a; }
@@ -9012,16 +9012,16 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
       .kpi { border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; background:#F8F6F0; }
       .kpi .l { font-size:10px; text-transform:uppercase; letter-spacing:.08em; color:#667085; font-weight:700; }
       .kpi .v { font-size:18px; font-weight:800; margin-top:3px; }
-      .kpi .v.green { color:#059669; } .kpi .v.blue { color:#2563eb; }
+      .kpi .v.green { color:#059669; } .kpi .v.blue { color:#0F4C5C; }
       h2 { font-size:14px; margin:18px 0 6px; color:#0f172a; }
       table { width:100%; border-collapse:collapse; font-size:12px; }
       thead th { background:#0f172a; color:#fff; text-align:left; padding:8px 10px; font-size:11px; }
       thead th.r, td.r { text-align:right; }
       tbody td { padding:7px 10px; border-bottom:1px solid #e2e8f0; }
       tbody tr:nth-child(even) td { background:#F8F6F0; }
-      td.rank { color:#2563eb; font-weight:800; width:26px; }
+      td.rank { color:#0F4C5C; font-weight:800; width:26px; }
       td.b, .b { font-weight:800; }
-      tfoot td { padding:9px 10px; font-weight:800; border-top:2px solid #0f172a; background:#DBEAFE; }
+      tfoot td { padding:9px 10px; font-weight:800; border-top:2px solid #0f172a; background:#DCE8EA; }
       .bar { height:8px; background:#e2e8f0; border-radius:99px; overflow:hidden; min-width:90px; }
       .fill { height:100%; background:#3b82f6; } .fill.cat { background:#10b981; }
       .foot { margin-top:22px; padding-top:10px; border-top:1px solid #e2e8f0; font-size:10px; color:#94a3b8; display:flex; justify-content:space-between; }
@@ -9432,7 +9432,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
     URL.revokeObjectURL(url);
   }
   function atualizarClientesVisaoE() { setAtualizadoEmClientesE(new Date()); }
-  const inputClsClientesE = "w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs text-[#334155] outline-none transition focus:border-[#2563EB]";
+  const inputClsClientesE = "w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs text-[#334155] outline-none transition focus:border-[#0F4C5C]";
   const labelClsClientesE = "mb-1 block text-[10px] font-bold uppercase tracking-widest text-[#64748B]";
 
   return (
@@ -9499,7 +9499,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
                 <span className="block text-sm font-black text-[#172033]">{formatCurrency(a.faturamento)}</span>
               </span>
             ) : null}>
-            <BarrasHora dados={horarioGeral} paleta={{ semVenda: "#2563EB", pico: "#F59E0B", acimaMedia: "#2563EB", padrao: "#2563EB", grade: "#E2E8F0", texto: "#64748B", textoValor: "#64748B" }} />
+            <BarrasHora dados={horarioGeral} paleta={{ semVenda: "#0F4C5C", pico: "#F59E0B", acimaMedia: "#0F4C5C", padrao: "#0F4C5C", grade: "#E2E8F0", texto: "#64748B", textoValor: "#64748B" }} />
           </Painel>
 
           {/* Tabelas: produtos, mesas */}
@@ -9564,7 +9564,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
             <div className="flex flex-wrap items-center gap-2">
               <button onClick={exportarClientesExcelE} className="rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">📊 Exportar</button>
               <button onClick={() => setCompararPeriodoClientesE((v) => !v)}
-                className={`rounded-xl border px-3.5 py-2 text-xs font-bold transition ${compararPeriodoClientesE ? "border-[#2563EB] bg-[#EFF6FF] text-[#2563EB]" : "border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9]"}`}>📅 Comparar período</button>
+                className={`rounded-xl border px-3.5 py-2 text-xs font-bold transition ${compararPeriodoClientesE ? "border-[#0F4C5C] bg-[#E6EEF1] text-[#0F4C5C]" : "border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9]"}`}>📅 Comparar período</button>
               <button onClick={atualizarClientesVisaoE} className="rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">🔄 Atualizar</button>
             </div>
             <p className="text-[11px] text-[#94A3B8]">Atualizado às {atualizadoEmClientesE.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</p>
@@ -9631,7 +9631,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
                 <div key={r} className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
                   <p className="text-[9px] font-bold uppercase tracking-widest text-[#64748B]">{r}</p>
                   <p className="mt-0.5 truncate text-sm font-black text-[#0D1B2A]">{v}</p>
-                  {sub && <p className="truncate text-[11px] font-semibold text-[#2563EB]">{sub}</p>}
+                  {sub && <p className="truncate text-[11px] font-semibold text-[#0F4C5C]">{sub}</p>}
                 </div>
               ))}
             </div>
@@ -9665,9 +9665,9 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
           <div className="rounded-2xl border border-[#E2E8F0] bg-white p-3.5">
             <div className="flex flex-wrap items-center gap-2.5">
               <input value={buscaClientesE} onChange={(e) => setBuscaClientesE(e.target.value)} placeholder="🔎 Buscar por cliente ou telefone…"
-                className="min-w-[220px] flex-1 rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2.5 text-sm text-[#334155] outline-none transition focus:border-[#2563EB]" />
+                className="min-w-[220px] flex-1 rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2.5 text-sm text-[#334155] outline-none transition focus:border-[#0F4C5C]" />
               <button onClick={() => setMostrarFiltrosClientesE((v) => !v)}
-                className={`rounded-xl border px-3.5 py-2.5 text-xs font-bold transition ${mostrarFiltrosClientesE || filtrosClientesAtivosE ? "border-[#2563EB] bg-[#EFF6FF] text-[#2563EB]" : "border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9]"}`}>
+                className={`rounded-xl border px-3.5 py-2.5 text-xs font-bold transition ${mostrarFiltrosClientesE || filtrosClientesAtivosE ? "border-[#0F4C5C] bg-[#E6EEF1] text-[#0F4C5C]" : "border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9]"}`}>
                 ⚙️ Filtros{filtrosClientesAtivosE ? " •" : ""}
               </button>
             </div>
@@ -9700,7 +9700,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
                 <div><label className={labelClsClientesE}>Pedidos no período (mín.)</label><input value={fPedidosMinE} onChange={(e) => setFPedidosMinE(e.target.value.replace(/[^\d]/g, ""))} placeholder="0" inputMode="numeric" className={inputClsClientesE} /></div>
                 <div><label className={labelClsClientesE}>Dias sem comprar (mín.)</label><input value={fDiasSemComprarMinE} onChange={(e) => setFDiasSemComprarMinE(e.target.value.replace(/[^\d]/g, ""))} placeholder="0" inputMode="numeric" className={inputClsClientesE} /></div>
                 {filtrosClientesAtivosE && (
-                  <button onClick={limparFiltrosClientesE} className="self-end text-left text-[11px] font-bold text-[#2563EB] hover:text-[#1D4ED8] sm:col-span-2 lg:col-span-4">✕ Limpar filtros</button>
+                  <button onClick={limparFiltrosClientesE} className="self-end text-left text-[11px] font-bold text-[#0F4C5C] hover:text-[#0B3A46] sm:col-span-2 lg:col-span-4">✕ Limpar filtros</button>
                 )}
               </div>
             )}
@@ -9723,7 +9723,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
                       ["canalPredominante", "Canal"], ["formaPagamentoFavorita", "Forma pagto."],
                     ].map(([campo, rotulo]) => (
                       <th key={campo} className="whitespace-nowrap border-b border-[#E2E8F0] px-3 py-2.5 text-left">
-                        <button onClick={() => alternarOrdemClientesE(campo)} className="flex items-center gap-1 transition hover:text-[#2563EB]">
+                        <button onClick={() => alternarOrdemClientesE(campo)} className="flex items-center gap-1 transition hover:text-[#0F4C5C]">
                           {rotulo}{ordenacaoClientesE.campo === campo ? (ordenacaoClientesE.dir === "desc" ? " ▼" : " ▲") : ""}
                         </button>
                       </th>
@@ -9816,7 +9816,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
             <div className="flex flex-wrap items-center gap-2">
               <BotoesExport />
               <button onClick={() => setCompararPeriodo((v) => !v)}
-                className={`rounded-2xl border px-4 py-2.5 text-sm font-bold transition ${compararPeriodo ? "border-[#2563EB] bg-[#EFF6FF] text-[#2563EB]" : "border-slate-200 bg-white text-[#334155] hover:bg-slate-100"}`}>📅 Comparar período</button>
+                className={`rounded-2xl border px-4 py-2.5 text-sm font-bold transition ${compararPeriodo ? "border-[#0F4C5C] bg-[#E6EEF1] text-[#0F4C5C]" : "border-slate-200 bg-white text-[#334155] hover:bg-slate-100"}`}>📅 Comparar período</button>
               <button onClick={compartilharRelatorioV} className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-[#334155] transition hover:bg-slate-100">🔗 Compartilhar</button>
               <button onClick={atualizarVisaoV} className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-[#334155] transition hover:bg-slate-100">🔄 Atualizar</button>
             </div>
@@ -9852,7 +9852,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
                 <div key={c.r} className="rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-3.5">
                   <p className="text-[10px] font-bold uppercase tracking-widest text-[#64748B]">{c.r}</p>
                   <p className="page-title mt-1 truncate text-base font-bold text-[#0D1B2A]">{c.v}</p>
-                  <p className="truncate text-[11px] font-semibold text-[#2563EB]">{c.s}</p>
+                  <p className="truncate text-[11px] font-semibold text-[#0F4C5C]">{c.s}</p>
                 </div>
               ))}
             </div>
@@ -9874,7 +9874,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
             <Painel titulo="Vendas por categoria"><DonutChart dados={catDonutR} label="Categorias" /></Painel>
           </div>
           <Painel titulo="Faturamento por horário" descricao="Distribuição das vendas ao longo do período selecionado">
-            <BarrasHora dados={horarioGeral} paleta={{ semVenda: "#2563EB", pico: "#F59E0B", acimaMedia: "#2563EB", padrao: "#2563EB", grade: "#E2E8F0", texto: "#64748B", textoValor: "#64748B" }} />
+            <BarrasHora dados={horarioGeral} paleta={{ semVenda: "#0F4C5C", pico: "#F59E0B", acimaMedia: "#0F4C5C", padrao: "#0F4C5C", grade: "#E2E8F0", texto: "#64748B", textoValor: "#64748B" }} />
           </Painel>
 
           {/* 3. Produtos mais vendidos — ranking profissional (busca, ordenação, paginação) */}
@@ -9885,15 +9885,15 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
                 <p className="mt-0.5 text-[11px] text-[#64748B]">{produtosCompletosV.length} produto(s) com venda no período · toque para ver os cupons</p>
               </div>
               <input value={buscaProdV} onChange={(e) => setBuscaProdV(e.target.value)} placeholder="🔎 Buscar produto…"
-                className="w-full max-w-[220px] rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs text-[#334155] outline-none transition focus:border-[#2563EB]" />
+                className="w-full max-w-[220px] rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs text-[#334155] outline-none transition focus:border-[#0F4C5C]" />
             </div>
             <div className="hidden items-center justify-between border-b border-[#E2E8F0] bg-[#F8FAFC] px-5 py-2 text-[10px] font-bold uppercase tracking-widest text-[#64748B] sm:flex">
               <span>#, Produto e categoria</span>
               <span className="flex gap-3">
-                <button onClick={() => alternarOrdemV("qtd")} className="transition hover:text-[#2563EB]">Qtd{ordemProdV.campo === "qtd" ? (ordemProdV.dir === "desc" ? " ▼" : " ▲") : ""}</button>
-                <button onClick={() => alternarOrdemV("valor")} className="transition hover:text-[#2563EB]">Faturamento{ordemProdV.campo === "valor" ? (ordemProdV.dir === "desc" ? " ▼" : " ▲") : ""}</button>
+                <button onClick={() => alternarOrdemV("qtd")} className="transition hover:text-[#0F4C5C]">Qtd{ordemProdV.campo === "qtd" ? (ordemProdV.dir === "desc" ? " ▼" : " ▲") : ""}</button>
+                <button onClick={() => alternarOrdemV("valor")} className="transition hover:text-[#0F4C5C]">Faturamento{ordemProdV.campo === "valor" ? (ordemProdV.dir === "desc" ? " ▼" : " ▲") : ""}</button>
                 <span>%</span><span>Ticket médio</span>
-                <button onClick={() => alternarOrdemV("margem")} className="transition hover:text-[#2563EB]">Margem{ordemProdV.campo === "margem" ? (ordemProdV.dir === "desc" ? " ▼" : " ▲") : ""}</button>
+                <button onClick={() => alternarOrdemV("margem")} className="transition hover:text-[#0F4C5C]">Margem{ordemProdV.campo === "margem" ? (ordemProdV.dir === "desc" ? " ▼" : " ▲") : ""}</button>
               </span>
             </div>
             {produtosVisiveisV.length === 0 && (
@@ -9904,7 +9904,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
               return (
                 <div key={p.nome} className="border-t border-[#F1F5F9] px-5 py-3.5 transition hover:bg-[#F8FAFC]">
                   <div className="flex flex-wrap items-center gap-3">
-                    <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-black ${rankGlobal === 1 ? "bg-[#F59E0B]/15 text-[#F59E0B]" : "bg-[#2563EB]/10 text-[#2563EB]"}`}>{rankGlobal}</span>
+                    <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-black ${rankGlobal === 1 ? "bg-[#F59E0B]/15 text-[#F59E0B]" : "bg-[#0F4C5C]/10 text-[#0F4C5C]"}`}>{rankGlobal}</span>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-semibold text-[#0D1B2A]">{p.nome}</p>
                       <p className="truncate text-[11px] text-[#64748B]">{p.categoria}</p>
@@ -9917,9 +9917,9 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
                       <span className="hidden font-semibold text-[#10B981] sm:inline">{formatCurrency(p.margem)}</span>
                     </div>
                     <button onClick={() => setDrill({ nome: p.nome, cupons: cuponsDoProduto(p.nome) })}
-                      className="shrink-0 rounded-lg border border-[#E2E8F0] px-2.5 py-1.5 text-[11px] font-bold text-[#2563EB] transition hover:bg-[#EFF6FF]">Ver detalhes</button>
+                      className="shrink-0 rounded-lg border border-[#E2E8F0] px-2.5 py-1.5 text-[11px] font-bold text-[#0F4C5C] transition hover:bg-[#E6EEF1]">Ver detalhes</button>
                   </div>
-                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#F1F5F9]"><div className="h-full rounded-full bg-[#2563EB]" style={{ width: `${(p.qtd / maxQtdV) * 100}%` }} /></div>
+                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#F1F5F9]"><div className="h-full rounded-full bg-[#0F4C5C]" style={{ width: `${(p.qtd / maxQtdV) * 100}%` }} /></div>
                 </div>
               );
             })}
@@ -9932,7 +9932,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
             <TopLista titulo="Top categorias" icon="🏷️" itens={a.categorias.slice(0, 5)} vazio="Sem categorias vendidas no período."
               render={(c) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[#334155]">{c.categoria}</span><span className="shrink-0 font-bold text-[#0D1B2A]">{formatCurrency(c.valor)}</span></div>)} />
             <TopLista titulo="Top clientes" icon="👤" itens={clientesLista.filter((c) => c.identificado).slice(0, 5)} vazio="Sem clientes identificados no período."
-              acao={<button onClick={() => setAba("clientes")} className="text-[11px] font-bold text-[#2563EB] transition hover:text-[#1D4ED8]">Ver todos →</button>}
+              acao={<button onClick={() => setAba("clientes")} className="text-[11px] font-bold text-[#0F4C5C] transition hover:text-[#0B3A46]">Ver todos →</button>}
               render={(c) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[#334155]">{c.cliente}</span><span className="shrink-0 font-bold text-[#0D1B2A]">{formatCurrency(c.faturamento)}</span></div>)} />
             <TopLista titulo="Top mesas" icon="🍽️" itens={mesasFaturamento.slice(0, 5)} vazio="Sem vendas por mesa no período."
               render={(m) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[#334155]">{m.mesa}</span><span className="shrink-0 font-bold text-[#0D1B2A]">{formatCurrency(m.faturamento)}</span></div>)} />
@@ -9940,7 +9940,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
               acao={produtosSemVendaV.length > 5 ? <span className="text-[11px] text-[#64748B]">+{produtosSemVendaV.length - 5}</span> : null}
               render={(p) => <span className="block truncate text-sm text-[#334155]">{p.name}</span>} />
             <TopLista titulo="Produtos com baixo estoque" icon="📉" itens={produtosBaixoEstoqueV.slice(0, 5)} vazio="Nenhum produto em estoque crítico."
-              acao={<button onClick={() => setAba("estoque")} className="text-[11px] font-bold text-[#2563EB] transition hover:text-[#1D4ED8]">Ver estoque →</button>}
+              acao={<button onClick={() => setAba("estoque")} className="text-[11px] font-bold text-[#0F4C5C] transition hover:text-[#0B3A46]">Ver estoque →</button>}
               render={(l) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[#334155]">{l.nome}</span><span className={`shrink-0 font-bold ${l.zerado ? "text-[#EF4444]" : "text-[#F59E0B]"}`}>{l.posterior} un</span></div>)} />
             <TopLista titulo="Maior margem" icon="💎" itens={produtosPorMargemV.slice(0, 5)} vazio="Sem dados de margem no período."
               render={(p) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[#334155]">{p.nome}</span><span className="shrink-0 font-bold text-[#10B981]">{formatCurrency(p.margem)}</span></div>)} />
@@ -9998,7 +9998,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
               <button onClick={exportarEstoqueCSV} className="rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">📊 Exportar Excel</button>
               <button onClick={exportarEstoquePDF} className="rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">📄 Exportar PDF</button>
               <button onClick={() => setCompararPeriodoEstoque((v) => !v)}
-                className={`rounded-xl border px-3.5 py-2 text-xs font-bold transition ${compararPeriodoEstoque ? "border-[#2563EB] bg-[#EFF6FF] text-[#2563EB]" : "border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9]"}`}>📅 Comparar período</button>
+                className={`rounded-xl border px-3.5 py-2 text-xs font-bold transition ${compararPeriodoEstoque ? "border-[#0F4C5C] bg-[#E6EEF1] text-[#0F4C5C]" : "border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9]"}`}>📅 Comparar período</button>
               <button onClick={() => setSomenteCriticosEstoque((v) => !v)}
                 className={`rounded-xl border px-3.5 py-2 text-xs font-bold transition ${somenteCriticosEstoque ? "border-[#EF4444] bg-[#EF4444]/10 text-[#EF4444]" : "border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9]"}`}>🚨 Ver somente críticos</button>
               <button onClick={atualizarEstoqueVisao} className="rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">🔄 Atualizar</button>
@@ -10041,9 +10041,9 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
           <div className="rounded-2xl border border-[#E2E8F0] bg-white p-3.5">
             <div className="flex flex-wrap items-center gap-2.5">
               <input value={buscaEstoque} onChange={(e) => setBuscaEstoque(e.target.value)} placeholder="🔎 Buscar por produto ou categoria…"
-                className="min-w-[220px] flex-1 rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2.5 text-sm text-[#334155] outline-none transition focus:border-[#2563EB]" />
+                className="min-w-[220px] flex-1 rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2.5 text-sm text-[#334155] outline-none transition focus:border-[#0F4C5C]" />
               <button onClick={() => setMostrarFiltrosEstoque((v) => !v)}
-                className={`rounded-xl border px-3.5 py-2.5 text-xs font-bold transition ${mostrarFiltrosEstoque || filtrosEstoqueAtivos ? "border-[#2563EB] bg-[#EFF6FF] text-[#2563EB]" : "border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9]"}`}>
+                className={`rounded-xl border px-3.5 py-2.5 text-xs font-bold transition ${mostrarFiltrosEstoque || filtrosEstoqueAtivos ? "border-[#0F4C5C] bg-[#E6EEF1] text-[#0F4C5C]" : "border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9]"}`}>
                 ⚙️ Filtros{filtrosEstoqueAtivos ? " •" : ""}
               </button>
             </div>
@@ -10062,7 +10062,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
                 <div><label className={labelClsEstoque}>Estoque mínimo (faixa)</label><input value={fEstoqueMin} onChange={(e) => setFEstoqueMin(e.target.value.replace(/[^\d]/g, ""))} placeholder="0" inputMode="numeric" className={inputClsEstoque} /></div>
                 <div><label className={labelClsEstoque}>Estoque máximo (faixa)</label><input value={fEstoqueMax} onChange={(e) => setFEstoqueMax(e.target.value.replace(/[^\d]/g, ""))} placeholder="999" inputMode="numeric" className={inputClsEstoque} /></div>
                 {filtrosEstoqueAtivos && (
-                  <button onClick={limparFiltrosEstoque} className="self-end text-left text-[11px] font-bold text-[#2563EB] hover:text-[#1D4ED8] sm:col-span-2 lg:col-span-4">✕ Limpar filtros</button>
+                  <button onClick={limparFiltrosEstoque} className="self-end text-left text-[11px] font-bold text-[#0F4C5C] hover:text-[#0B3A46] sm:col-span-2 lg:col-span-4">✕ Limpar filtros</button>
                 )}
               </div>
             )}
@@ -10083,7 +10083,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
                       ["posterior", "Atual"], ["minimo", "Mínimo"], ["cobertura", "Cobertura"], ["custoUnit", "Custo un."], ["valorEstoque", "Valor"], ["status", "Status"],
                     ].map(([campo, rotulo]) => (
                       <th key={campo} className="whitespace-nowrap border-b border-[#E2E8F0] px-3 py-2.5 text-left">
-                        <button onClick={() => alternarOrdemEstoque(campo)} className="flex items-center gap-1 transition hover:text-[#2563EB]">
+                        <button onClick={() => alternarOrdemEstoque(campo)} className="flex items-center gap-1 transition hover:text-[#0F4C5C]">
                           {rotulo}{ordenacaoEstoque.campo === campo ? (ordenacaoEstoque.dir === "desc" ? " ▼" : " ▲") : ""}
                         </button>
                       </th>
@@ -10101,7 +10101,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
                       <td className="max-w-[220px] truncate px-3 py-2.5 font-semibold text-[#0D1B2A]">{l.nome}</td>
                       <td className="px-3 py-2.5 text-[#64748B]">{l.categoria || "—"}</td>
                       <td className="px-3 py-2.5 font-mono text-[#64748B]">{l.anterior}</td>
-                      <td className="px-3 py-2.5 font-mono font-semibold text-[#2563EB]">{l.vendido}</td>
+                      <td className="px-3 py-2.5 font-mono font-semibold text-[#0F4C5C]">{l.vendido}</td>
                       <td className="px-3 py-2.5 font-mono font-bold text-[#0D1B2A]">{l.posterior}</td>
                       <td className="px-3 py-2.5 font-mono text-[#64748B]">{l.minimo}</td>
                       <td className="px-3 py-2.5 text-[#64748B]">{l.cobertura != null ? `${l.cobertura.toFixed(0)}d` : "—"}</td>
@@ -10137,7 +10137,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
                 <div className="flex items-center justify-between gap-2 text-sm">
                   <span className="min-w-0 truncate text-[#334155]">{l.nome}</span>
                   <span className="shrink-0 text-right">
-                    <span className="font-bold text-[#2563EB]">+{l.sugestaoQtd} un. até o mínimo</span>
+                    <span className="font-bold text-[#0F4C5C]">+{l.sugestaoQtd} un. até o mínimo</span>
                     <span className="ml-2 text-[11px] text-[#64748B]">média {l.mediaDiaria.toFixed(1)} un./dia</span>
                   </span>
                 </div>
@@ -10167,21 +10167,21 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
 
 // ── Relatório analítico por cupom fiscal / mesa / comanda ────
 // Badge de indicador do cupom — paleta oficial restrita a estas 5 cores.
-const INDICADOR_CUPOM_CORES = { cancelada: "#EF4444", reimpressa: "#F59E0B", enviada: "#10B981", fiscal: "#2563EB", naoFiscal: "#64748B" };
+const INDICADOR_CUPOM_CORES = { cancelada: "#EF4444", reimpressa: "#F59E0B", enviada: "#10B981", fiscal: "#0F4C5C", naoFiscal: "#64748B" };
 function BadgeCupom({ tipo, children }) {
   const cor = INDICADOR_CUPOM_CORES[tipo] || INDICADOR_CUPOM_CORES.naoFiscal;
   return <span className="rounded-full px-2 py-0.5 text-[10px] font-black" style={{ background: `${cor}1A`, color: cor }}>{children}</span>;
 }
 // Badge de anomalia — só estas 4 cores oficiais (azul=informativo,
 // laranja=atenção, vermelho=crítico; verde reservado para "sem anomalias").
-const ANOMALIA_CORES = { azul: "#2563EB", laranja: "#F59E0B", vermelho: "#EF4444", verde: "#10B981" };
+const ANOMALIA_CORES = { azul: "#0F4C5C", laranja: "#F59E0B", vermelho: "#EF4444", verde: "#10B981" };
 function BadgeAnomalia({ cor, children }) {
   const hex = ANOMALIA_CORES[cor] || ANOMALIA_CORES.laranja;
   return <span className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-black" style={{ background: `${hex}1A`, color: hex }}><span className="h-1.5 w-1.5 rounded-full" style={{ background: hex }} />{children}</span>;
 }
 
 // Status de estoque — paleta oficial restrita a estas 5 cores (a 6ª,
-// #2563EB, é usada à parte pelo BadgeCupom tipo="fiscal" para o caso
+// #0F4C5C, é usada à parte pelo BadgeCupom tipo="fiscal" para o caso
 // "informativo": custo sem cadastro, que não é um nível de estoque).
 const ESTOQUE_STATUS = {
   normal: { label: "Normal", cor: "#10B981" },
@@ -10281,7 +10281,7 @@ function ModalDetalheProdutoEstoque({ produto, onFechar, onAbrirCadastro }) {
     <PainelDetalhe aberto={!!produto} ariaLabel={`Detalhe do produto ${l.nome}`} titulo={l.nome}
       badges={<BadgeEstoque status={l.status} />} subtitulo={l.categoria || "Sem categoria"}
       onFechar={onFechar}
-      rodape={<button onClick={onAbrirCadastro} className="w-full rounded-xl bg-[#2563EB] py-2.5 text-sm font-bold text-white transition hover:bg-[#1D4ED8]">Abrir cadastro do produto</button>}>
+      rodape={<button onClick={onAbrirCadastro} className="w-full rounded-xl bg-[#0F4C5C] py-2.5 text-sm font-bold text-white transition hover:bg-[#0B3A46]">Abrir cadastro do produto</button>}>
       <div className="grid grid-cols-2 gap-2.5">
         {[
           ["Estoque anterior", `${l.anterior} un.`], ["Vendido no período", `${l.vendido} un.`],
@@ -10310,7 +10310,7 @@ const CLIENTE_TIER = {
   bronze: { label: "Bronze", cor: "#334155" },
 };
 const CLIENTE_STATUS = {
-  novo: { label: "Novo", cor: "#2563EB" },
+  novo: { label: "Novo", cor: "#0F4C5C" },
   recorrente: { label: "Recorrente", cor: "#10B981" },
   recuperado: { label: "Recuperado", cor: "#10B981" },
   risco: { label: "Em risco", cor: "#F59E0B" },
@@ -10320,7 +10320,7 @@ const CLIENTE_STATUS = {
 };
 // Classificação do score de relacionamento (0–100) — cor só do indicador.
 const SCORE_CLASSIFICACAO_CORES = {
-  VIP: "#8B5CF6", Frequente: "#10B981", "Em crescimento": "#2563EB", "Em risco": "#F59E0B", Inativo: "#EF4444",
+  VIP: "#8B5CF6", Frequente: "#10B981", "Em crescimento": "#0F4C5C", "Em risco": "#F59E0B", Inativo: "#EF4444",
 };
 function BadgeCliente({ mapa, chave }) {
   const s = mapa[chave] || { label: chave, cor: "#64748B" };
@@ -10335,11 +10335,11 @@ function IconAcaoCliente({ icone, label, onClick, disabled = false, carregando =
   return (
     <button type="button" title={label} aria-label={label} disabled={disabled || carregando}
       onClick={(e) => { e.stopPropagation(); if (!disabled && !carregando) onClick(e); }}
-      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB] focus-visible:ring-offset-1 ${
+      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F4C5C] focus-visible:ring-offset-1 ${
         disabled ? "cursor-not-allowed border-[#E2E8F0] bg-white text-[#64748B] opacity-40"
-          : "cursor-pointer border-[#E2E8F0] bg-white text-[#64748B] hover:bg-[#F1F5F9] hover:text-[#2563EB]"
+          : "cursor-pointer border-[#E2E8F0] bg-white text-[#64748B] hover:bg-[#F1F5F9] hover:text-[#0F4C5C]"
       }`}>
-      {carregando ? <span className="h-3 w-3 animate-spin rounded-full border-2 border-[#E2E8F0] border-t-[#2563EB]" /> : icone}
+      {carregando ? <span className="h-3 w-3 animate-spin rounded-full border-2 border-[#E2E8F0] border-t-[#0F4C5C]" /> : icone}
     </button>
   );
 }
@@ -10371,7 +10371,7 @@ function ClientePerfilPainel({ cliente, onFechar, onWhatsApp, onCopiarTelefone, 
 
   return (
     <PainelDetalhe aberto={!!cliente} ariaLabel={`Perfil de ${c.cliente}`} onFechar={onFechar} largura="lg:w-[560px] lg:max-w-[560px]"
-      icone={<span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#2563EB]/10 text-base font-black text-[#2563EB]" aria-hidden="true">{iniciais}</span>}
+      icone={<span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#0F4C5C]/10 text-base font-black text-[#0F4C5C]" aria-hidden="true">{iniciais}</span>}
       titulo={<span title={c.cliente}>{c.cliente}</span>}
       badges={<>
         {c.classificacao === "vip" && <BadgeCliente mapa={CLIENTE_TIER} chave="vip" />}
@@ -10385,7 +10385,7 @@ function ClientePerfilPainel({ cliente, onFechar, onWhatsApp, onCopiarTelefone, 
       </>}
       rodape={
         <div className="flex items-center gap-2 sm:hidden">
-          <button onClick={() => onWhatsApp(c)} className="flex-1 rounded-xl bg-[#2563EB] py-2.5 text-xs font-bold text-white transition hover:bg-[#1D4ED8]">💬 WhatsApp</button>
+          <button onClick={() => onWhatsApp(c)} className="flex-1 rounded-xl bg-[#0F4C5C] py-2.5 text-xs font-bold text-white transition hover:bg-[#0B3A46]">💬 WhatsApp</button>
           <button onClick={() => onCopiarTelefone(c)} className="flex-1 rounded-xl border border-[#E2E8F0] py-2.5 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">📋 Copiar telefone</button>
         </div>
       }>
@@ -10483,7 +10483,7 @@ function ClientePerfilPainel({ cliente, onFechar, onWhatsApp, onCopiarTelefone, 
                 </div>
               ))}
             </div>
-            <p className="mt-2 rounded-xl bg-[#2563EB]/10 px-3 py-2 text-xs font-semibold text-[#2563EB]">Próxima ação recomendada: {proximaAcao}</p>
+            <p className="mt-2 rounded-xl bg-[#0F4C5C]/10 px-3 py-2 text-xs font-semibold text-[#0F4C5C]">Próxima ação recomendada: {proximaAcao}</p>
           </div>
 
           {/* 5/6. Histórico de pedidos */}
@@ -10491,7 +10491,7 @@ function ClientePerfilPainel({ cliente, onFechar, onWhatsApp, onCopiarTelefone, 
             <div className="mb-2 flex items-center justify-between gap-2">
               <p className="text-[10px] font-black uppercase tracking-widest text-[#64748B]">Histórico de pedidos</p>
               {onExportarHistorico && (
-                <button onClick={() => onExportarHistorico(c)} className="text-[11px] font-bold text-[#2563EB] transition hover:text-[#1D4ED8]">📤 Exportar</button>
+                <button onClick={() => onExportarHistorico(c)} className="text-[11px] font-bold text-[#0F4C5C] transition hover:text-[#0B3A46]">📤 Exportar</button>
               )}
             </div>
             {(!c.ultimosPedidos || c.ultimosPedidos.length === 0) ? (
@@ -10515,7 +10515,7 @@ function ClientePerfilPainel({ cliente, onFechar, onWhatsApp, onCopiarTelefone, 
                           <span>💳 {p.pedidoObj?.pagamentoForma || "Não informado"}</span>
                           {onAbrirCupom && (
                             <button onClick={() => onAbrirCupom(p.pedidoObj)} title="Ver cupom" aria-label="Ver detalhe deste cupom"
-                              className="ml-auto rounded-lg border border-[#E2E8F0] px-2 py-1 text-[10px] font-bold text-[#2563EB] transition hover:bg-[#EFF6FF]">🧾 Ver cupom</button>
+                              className="ml-auto rounded-lg border border-[#E2E8F0] px-2 py-1 text-[10px] font-bold text-[#0F4C5C] transition hover:bg-[#E6EEF1]">🧾 Ver cupom</button>
                           )}
                         </div>
                       </div>
@@ -10523,7 +10523,7 @@ function ClientePerfilPainel({ cliente, onFechar, onWhatsApp, onCopiarTelefone, 
                   })}
                 </div>
                 {!verTodosPedidos && c.ultimosPedidos.length > 5 && (
-                  <button onClick={() => setVerTodosPedidos(true)} className="mt-2 w-full rounded-xl border border-[#E2E8F0] py-2 text-xs font-bold text-[#2563EB] transition hover:bg-[#EFF6FF]">Ver todos ({c.ultimosPedidos.length})</button>
+                  <button onClick={() => setVerTodosPedidos(true)} className="mt-2 w-full rounded-xl border border-[#E2E8F0] py-2 text-xs font-bold text-[#0F4C5C] transition hover:bg-[#E6EEF1]">Ver todos ({c.ultimosPedidos.length})</button>
                 )}
               </>
             )}
@@ -10560,7 +10560,7 @@ function TimelineVenda({ pedido }) {
           const feito = !!p.quando;
           const atual = i === ultimoAlcancadoIdx && i < passos.length - 1;
           const delta = feito && passos[i - 1]?.quando ? minutosEntreISO(passos[i - 1].quando, p.quando) : null;
-          const cor = cancelado && p.chave === "pago" ? "#EF4444" : atual ? "#2563EB" : feito ? "#10B981" : "#CBD5E1";
+          const cor = cancelado && p.chave === "pago" ? "#EF4444" : atual ? "#0F4C5C" : feito ? "#10B981" : "#CBD5E1";
           return (
             <div key={p.chave} className="flex flex-1 flex-col items-center text-center">
               <div className="flex w-full items-center">
@@ -10570,7 +10570,7 @@ function TimelineVenda({ pedido }) {
               </div>
               <p className="mt-1.5 px-1 text-[10px] font-bold leading-tight" style={{ color: feito ? "#0D1B2A" : "#94A3B8" }}>{p.rotulo}</p>
               <p className="text-[9px] text-[#64748B]">{p.quando ? new Date(p.quando).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "—"}</p>
-              {delta != null && <p className="text-[9px] font-bold text-[#2563EB]">+{formatarDuracaoMin(delta)}</p>}
+              {delta != null && <p className="text-[9px] font-bold text-[#0F4C5C]">+{formatarDuracaoMin(delta)}</p>}
             </div>
           );
         })}
@@ -10871,7 +10871,7 @@ function DropdownSelect({ valor, opcoes, onSelecionar, ariaLabel, className = ""
             <button key={o.valor} type="button" role="option" aria-selected={o.valor === valor} data-selecionado={o.valor === valor}
               onClick={() => { setAberto(false); onSelecionar(o.valor); btnRef.current?.focus({ preventScroll: true }); }}
               className={`block w-full truncate rounded-lg px-3 py-2 text-left text-xs font-semibold transition ${
-                o.valor === valor ? "bg-[#2563EB] text-white" : "text-[#334155] hover:bg-[#F1F5F9]"
+                o.valor === valor ? "bg-[#0F4C5C] text-white" : "text-[#334155] hover:bg-[#F1F5F9]"
               }`}>
               {o.rotulo}
             </button>
@@ -11207,7 +11207,7 @@ function RelatorioCupom({ pedidos, products = [], lojaInfo, periodo, ini, fim, c
     URL.revokeObjectURL(url);
   }
 
-  const inputCls = "w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs text-[#334155] outline-none transition focus:border-[#2563EB]";
+  const inputCls = "w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs text-[#334155] outline-none transition focus:border-[#0F4C5C]";
   const labelCls = "mb-1 block text-[10px] font-bold uppercase tracking-widest text-[#64748B]";
 
   return (
@@ -11272,7 +11272,7 @@ function RelatorioCupom({ pedidos, products = [], lojaInfo, periodo, ini, fim, c
               <div key={r} className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
                 <p className="text-[9px] font-bold uppercase tracking-widest text-[#64748B]">{r}</p>
                 <p className="mt-0.5 truncate text-sm font-black text-[#0D1B2A]">{v}</p>
-                {sub && <p className="truncate text-[11px] font-semibold text-[#2563EB]">{sub}</p>}
+                {sub && <p className="truncate text-[11px] font-semibold text-[#0F4C5C]">{sub}</p>}
               </div>
             ))}
           </div>
@@ -11286,9 +11286,9 @@ function RelatorioCupom({ pedidos, products = [], lojaInfo, periodo, ini, fim, c
       <div className="rounded-2xl border border-[#E2E8F0] bg-white p-3.5">
         <div className="flex flex-wrap items-center gap-2.5">
           <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="🔎 Buscar por cupom, comanda, produto ou cliente…"
-            className="min-w-[220px] flex-1 rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2.5 text-sm text-[#334155] outline-none transition focus:border-[#2563EB]" />
+            className="min-w-[220px] flex-1 rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2.5 text-sm text-[#334155] outline-none transition focus:border-[#0F4C5C]" />
           <DropdownSelect ariaLabel="Ordenar por" valor={ordenacao} onSelecionar={setOrdenacao}
-            className="flex items-center rounded-xl border border-[#E2E8F0] bg-white px-3 py-2.5 text-xs font-bold text-[#334155] outline-none transition hover:bg-[#F1F5F9] focus:border-[#2563EB]"
+            className="flex items-center rounded-xl border border-[#E2E8F0] bg-white px-3 py-2.5 text-xs font-bold text-[#334155] outline-none transition hover:bg-[#F1F5F9] focus:border-[#0F4C5C]"
             opcoes={[
               { valor: "recente", rotulo: "Mais recente" },
               { valor: "antigo", rotulo: "Mais antigo" },
@@ -11297,7 +11297,7 @@ function RelatorioCupom({ pedidos, products = [], lojaInfo, periodo, ini, fim, c
               { valor: "maiorLucro", rotulo: "Maior lucro" },
             ]} />
           <button onClick={() => setMostrarFiltros((v) => !v)}
-            className={`rounded-xl border px-3.5 py-2.5 text-xs font-bold transition ${mostrarFiltros || filtrosAtivos ? "border-[#2563EB] bg-[#EFF6FF] text-[#2563EB]" : "border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9]"}`}>
+            className={`rounded-xl border px-3.5 py-2.5 text-xs font-bold transition ${mostrarFiltros || filtrosAtivos ? "border-[#0F4C5C] bg-[#E6EEF1] text-[#0F4C5C]" : "border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9]"}`}>
             ⚙️ Filtros{filtrosAtivos ? " •" : ""}
           </button>
           <label className="flex items-center gap-1.5 text-xs font-bold text-[#334155]">
@@ -11349,7 +11349,7 @@ function RelatorioCupom({ pedidos, products = [], lojaInfo, periodo, ini, fim, c
               <input type="checkbox" checked={fSomenteReimpressos} onChange={(e) => setFSomenteReimpressos(e.target.checked)} /> Somente reimpressos
             </label>
             {filtrosAtivos && (
-              <button onClick={limparFiltros} className="self-end text-left text-[11px] font-bold text-[#2563EB] hover:text-[#1D4ED8] sm:col-span-2 lg:col-span-4">✕ Limpar filtros</button>
+              <button onClick={limparFiltros} className="self-end text-left text-[11px] font-bold text-[#0F4C5C] hover:text-[#0B3A46] sm:col-span-2 lg:col-span-4">✕ Limpar filtros</button>
             )}
             <p className="text-[10px] text-[#94A3B8] sm:col-span-2 lg:col-span-4">Filtro por "Operador" não disponível — nenhum pedido registra o usuário responsável no modelo de dados atual.</p>
           </div>
@@ -11398,7 +11398,7 @@ function RelatorioCupom({ pedidos, products = [], lojaInfo, periodo, ini, fim, c
                 <input type="checkbox" className="mt-1.5" checked={selecionados.has(o.id)} onChange={() => alternar(setSelecionados, o.id)} />
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="rounded-lg border border-[#2563EB]/25 bg-[#2563EB]/10 px-2.5 py-1 font-mono text-xs font-black text-[#2563EB]">Cupom {o.id}</span>
+                    <span className="rounded-lg border border-[#0F4C5C]/25 bg-[#0F4C5C]/10 px-2.5 py-1 font-mono text-xs font-black text-[#0F4C5C]">Cupom {o.id}</span>
                     <span className="rounded-lg bg-[#F1F5F9] px-2.5 py-1 text-xs font-bold text-[#0D1B2A]">{o.table || "Balcão"}</span>
                     {o.command && <span className="rounded-lg bg-[#F1F5F9] px-2.5 py-1 font-mono text-xs font-bold text-[#64748B]">{o.command}</span>}
                     <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-black ${statusMap[o.status]?.chip}`}>{statusMap[o.status]?.label}</span>
@@ -11627,12 +11627,12 @@ function CupomNaoFiscalModal({ pedido, lojaInfo, onFechar, onAcao = () => {} }) 
   *{margin:0;padding:0;box-sizing:border-box}
   body{font-family:'Segoe UI',Arial,sans-serif;color:#0f172a;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .doc{max-width:680px;margin:0 auto}
-  .top{display:flex;align-items:center;gap:16px;border-bottom:3px solid #2563eb;padding-bottom:16px}
+  .top{display:flex;align-items:center;gap:16px;border-bottom:3px solid #0F4C5C;padding-bottom:16px}
   .logo{width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,#3b82f6,#1e3a8a);color:#fff;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:800}
   .emp{flex:1}
   .emp h1{font-size:24px;font-weight:800;letter-spacing:-.5px;line-height:1.1}
   .emp p{font-size:12px;color:#667085;margin-top:2px}
-  .pill{align-self:flex-start;background:#DBEAFE;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:999px;padding:6px 14px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px}
+  .pill{align-self:flex-start;background:#DCE8EA;color:#0B3A46;border:1px solid #B0C9D0;border-radius:999px;padding:6px 14px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px}
   .info{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:20px 0}
   .card{border:1px solid #e2e8f0;border-radius:12px;padding:10px 12px;background:#F8F6F0}
   .card .l{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1.2px;color:#94a3b8}
@@ -11642,7 +11642,7 @@ function CupomNaoFiscalModal({ pedido, lojaInfo, onFechar, onAcao = () => {} }) 
   thead th.r,tbody td.un,tbody td.tt{text-align:right}
   tbody td{padding:11px 8px;border-bottom:1px solid #f1f5f9;vertical-align:top;font-size:13px}
   tbody tr.alt td{background:#F8F6F0}
-  td.qt{font-weight:800;color:#2563eb;width:48px}
+  td.qt{font-weight:800;color:#0F4C5C;width:48px}
   .np{font-weight:700;display:block}
   .dt{display:block;font-size:11px;color:#667085;margin-top:2px}
   td.un{color:#667085}
@@ -11650,7 +11650,7 @@ function CupomNaoFiscalModal({ pedido, lojaInfo, onFechar, onAcao = () => {} }) 
   .tot{margin-top:18px;display:flex;justify-content:flex-end}
   .totbox{width:300px}
   .tr{display:flex;justify-content:space-between;padding:7px 0;font-size:13px;color:#475569}
-  .tr.grand{margin-top:6px;padding:14px 16px;background:linear-gradient(135deg,#2563eb,#1e3a8a);color:#fff;border-radius:14px;font-size:18px;font-weight:800}
+  .tr.grand{margin-top:6px;padding:14px 16px;background:linear-gradient(135deg,#0F4C5C,#1e3a8a);color:#fff;border-radius:14px;font-size:18px;font-weight:800}
   .ft{margin-top:26px;border-top:1px dashed #cbd5e1;padding-top:16px;text-align:center;color:#667085}
   .ft .ty{font-size:15px;font-weight:800;color:#0f172a}
   .ft .nf{font-size:10px;text-transform:uppercase;letter-spacing:1px;margin-top:6px}
@@ -11781,10 +11781,10 @@ function CuponsProdutoModal({ nome, cupons, lojaInfo, onFechar }) {
   @page{size:A4;margin:14mm}*{margin:0;padding:0;box-sizing:border-box}
   body{font-family:'Segoe UI',Arial,sans-serif;color:#0f172a;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .doc{max-width:720px;margin:0 auto}
-  .top{display:flex;align-items:center;gap:16px;border-bottom:3px solid #2563eb;padding-bottom:16px}
+  .top{display:flex;align-items:center;gap:16px;border-bottom:3px solid #0F4C5C;padding-bottom:16px}
   .logo{width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,#3b82f6,#1e3a8a);color:#fff;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:800}
   .emp{flex:1}.emp h1{font-size:22px;font-weight:800;letter-spacing:-.5px}.emp p{font-size:12px;color:#667085;margin-top:2px}
-  .pill{align-self:flex-start;background:#DBEAFE;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:999px;padding:6px 14px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px}
+  .pill{align-self:flex-start;background:#DCE8EA;color:#0B3A46;border:1px solid #B0C9D0;border-radius:999px;padding:6px 14px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px}
   .info{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:20px 0}
   .card{border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;background:#F8F6F0}
   .card .l{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1.2px;color:#94a3b8}
@@ -11795,9 +11795,9 @@ function CuponsProdutoModal({ nome, cupons, lojaInfo, onFechar }) {
   tbody td{padding:11px 8px;border-bottom:1px solid #f1f5f9;vertical-align:top;font-size:12px}
   tbody tr.alt td{background:#F8F6F0}
   .np{font-weight:800;display:block}.dt{display:block;font-size:10px;color:#94a3b8;margin-top:2px}
-  td.dh{color:#667085}td.qt{font-weight:800;color:#2563eb}td.tt{font-weight:800}
+  td.dh{color:#667085}td.qt{font-weight:800;color:#0F4C5C}td.tt{font-weight:800}
   tfoot td{padding:14px 8px;font-size:14px;font-weight:800;border-top:2px solid #0f172a}
-  tfoot td.tt{text-align:right;color:#1d4ed8;font-size:16px}
+  tfoot td.tt{text-align:right;color:#0B3A46;font-size:16px}
   .ft{margin-top:24px;border-top:1px dashed #cbd5e1;padding-top:14px;text-align:center;color:#667085;font-size:10px;text-transform:uppercase;letter-spacing:1px}
 </style></head><body>
   <div class="doc">
@@ -11866,11 +11866,11 @@ function CuponsProdutoModal({ nome, cupons, lojaInfo, onFechar }) {
         acoes={<>
           <div className="flex items-center gap-1 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-1">
             <button onClick={() => setFormato("80mm")}
-              className={`rounded-lg px-2.5 py-1.5 text-xs font-black transition ${formato === "80mm" ? "bg-[#2563EB] text-white" : "text-[#64748B] hover:bg-white"}`}>🧾 80mm</button>
+              className={`rounded-lg px-2.5 py-1.5 text-xs font-black transition ${formato === "80mm" ? "bg-[#0F4C5C] text-white" : "text-[#64748B] hover:bg-white"}`}>🧾 80mm</button>
             <button onClick={() => setFormato("a4")}
-              className={`rounded-lg px-2.5 py-1.5 text-xs font-black transition ${formato === "a4" ? "bg-[#2563EB] text-white" : "text-[#64748B] hover:bg-white"}`}>📄 A4</button>
+              className={`rounded-lg px-2.5 py-1.5 text-xs font-black transition ${formato === "a4" ? "bg-[#0F4C5C] text-white" : "text-[#64748B] hover:bg-white"}`}>📄 A4</button>
           </div>
-          <button onClick={imprimirRelatorio} className="rounded-xl bg-[#2563EB] px-4 py-2 text-xs font-black text-white transition hover:bg-[#1D4ED8]">🖨️ Imprimir</button>
+          <button onClick={imprimirRelatorio} className="rounded-xl bg-[#0F4C5C] px-4 py-2 text-xs font-black text-white transition hover:bg-[#0B3A46]">🖨️ Imprimir</button>
         </>}
         rodape={null}>
         {cupons.length === 0 && <p className="py-8 text-center text-sm text-[#64748B]">Nenhum cupom pago com este produto no período.</p>}
@@ -11890,7 +11890,7 @@ function CuponsProdutoModal({ nome, cupons, lojaInfo, onFechar }) {
                   <p className="text-sm font-black text-[#10B981]">{formatCurrency(v)}</p>
                 </div>
                 <button onClick={() => setCupomSel(o)} title="Ver cupom não fiscal (imprimir / WhatsApp)"
-                  className="shrink-0 rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs font-black text-[#2563EB] transition hover:bg-[#EFF6FF]">🧾 Cupom</button>
+                  className="shrink-0 rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs font-black text-[#0F4C5C] transition hover:bg-[#E6EEF1]">🧾 Cupom</button>
               </div>
             );
           })}
@@ -11977,7 +11977,7 @@ function ModalDetalheComanda({
   const temposPreparoComanda = pedidosOrdenados.filter((o) => o.preparoEmISO && o.prontoEmISO).map((o) => minutosEntreISO(o.preparoEmISO, o.prontoEmISO));
   const mediaPreparoComanda = temposPreparoComanda.length ? temposPreparoComanda.reduce((s, v) => s + v, 0) / temposPreparoComanda.length : null;
   if (mediaPreparoComanda != null && mediaPreparoGeral > 0 && mediaPreparoComanda > mediaPreparoGeral * 1.3) indicadores.push({ texto: "Tempo de preparo elevado", cor: "#EF4444" });
-  if (mediaItensGeral > 0 && c.itens > mediaItensGeral * 1.5) indicadores.push({ texto: "Comanda longa", cor: "#2563EB" });
+  if (mediaItensGeral > 0 && c.itens > mediaItensGeral * 1.5) indicadores.push({ texto: "Comanda longa", cor: "#0F4C5C" });
 
   // ── Insights — apenas comparações com dados já calculados no período ──
   const insights = [];
@@ -11998,7 +11998,7 @@ function ModalDetalheComanda({
         <span className="text-[#64748B]">Valor total: <b className="text-[#0D1B2A]">{formatCurrency(c.valor)}</b></span>
       </>}
       acoes={<>
-        <button onClick={() => onVerCupom?.(ultimoPedido)} title="Ver o cupom do pedido mais recente desta comanda" className="rounded-xl border border-[#E2E8F0] px-3 py-2 text-xs font-bold text-[#2563EB] transition hover:bg-[#EFF6FF]">🧾 Ver cupom</button>
+        <button onClick={() => onVerCupom?.(ultimoPedido)} title="Ver o cupom do pedido mais recente desta comanda" className="rounded-xl border border-[#E2E8F0] px-3 py-2 text-xs font-bold text-[#0F4C5C] transition hover:bg-[#E6EEF1]">🧾 Ver cupom</button>
         <button onClick={() => onImprimirCompartilhar?.(ultimoPedido)} title="Imprimir o cupom do pedido mais recente" className="rounded-xl border border-[#E2E8F0] px-3 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">🖨️ Imprimir</button>
         <button onClick={() => onImprimirCompartilhar?.(ultimoPedido)} title="Compartilhar o cupom por WhatsApp" className="rounded-xl border border-[#E2E8F0] px-3 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">💬 Compartilhar</button>
       </>}>
@@ -12279,7 +12279,7 @@ function RelatorioPermanencia({ pedidos, orders = [], products = [], periodo, in
   // ── 4. Distribuição por faixa ──
   const FAIXAS_PERM_E = [
     { rotulo: "Até 30 min", min: 0, max: 30, cor: "#10B981" },
-    { rotulo: "31–60 min", min: 31, max: 60, cor: "#2563EB" },
+    { rotulo: "31–60 min", min: 31, max: 60, cor: "#0F4C5C" },
     { rotulo: "61–90 min", min: 61, max: 90, cor: "#8B5CF6" },
     { rotulo: "91–120 min", min: 91, max: 120, cor: "#F59E0B" },
     { rotulo: "Acima de 120 min", min: 121, max: Infinity, cor: "#EF4444" },
@@ -12387,7 +12387,7 @@ function RelatorioPermanencia({ pedidos, orders = [], products = [], periodo, in
     j.document.close();
   }
 
-  const inputClsPermE = "w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs text-[#334155] outline-none transition focus:border-[#2563EB]";
+  const inputClsPermE = "w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs text-[#334155] outline-none transition focus:border-[#0F4C5C]";
   const labelClsPermE = "mb-1 block text-[10px] font-bold uppercase tracking-widest text-[#64748B]";
 
   return (
@@ -12398,7 +12398,7 @@ function RelatorioPermanencia({ pedidos, orders = [], products = [], periodo, in
           <button onClick={exportarPermExcelE} className="rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">📊 Exportar Excel</button>
           <button onClick={exportarPermPDFE} className="rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">🖨️ PDF / Imprimir</button>
           <button onClick={() => setCompararPeriodoPermE((v) => !v)}
-            className={`rounded-xl border px-3.5 py-2 text-xs font-bold transition ${compararPeriodoPermE ? "border-[#2563EB] bg-[#EFF6FF] text-[#2563EB]" : "border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9]"}`}>📅 Comparar períodos</button>
+            className={`rounded-xl border px-3.5 py-2 text-xs font-bold transition ${compararPeriodoPermE ? "border-[#0F4C5C] bg-[#E6EEF1] text-[#0F4C5C]" : "border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9]"}`}>📅 Comparar períodos</button>
           <button onClick={() => setSomenteAcimaMediaPermE((v) => !v)}
             className={`rounded-xl border px-3.5 py-2 text-xs font-bold transition ${somenteAcimaMediaPermE ? "border-[#F59E0B] bg-[#F59E0B]/10 text-[#F59E0B]" : "border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9]"}`}>⚠️ Ver apenas acima da média</button>
           <button onClick={atualizarPermVisaoE} className="rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">🔄 Atualizar</button>
@@ -12478,9 +12478,9 @@ function RelatorioPermanencia({ pedidos, orders = [], products = [], periodo, in
       <div className="rounded-2xl border border-[#E2E8F0] bg-white p-3.5">
         <div className="flex flex-wrap items-center gap-2.5">
           <input value={buscaPermE} onChange={(e) => setBuscaPermE(e.target.value)} placeholder="🔎 Buscar por comanda ou mesa…"
-            className="min-w-[220px] flex-1 rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2.5 text-sm text-[#334155] outline-none transition focus:border-[#2563EB]" />
+            className="min-w-[220px] flex-1 rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2.5 text-sm text-[#334155] outline-none transition focus:border-[#0F4C5C]" />
           <button onClick={() => setMostrarFiltrosPermE((v) => !v)}
-            className={`rounded-xl border px-3.5 py-2.5 text-xs font-bold transition ${mostrarFiltrosPermE || filtrosPermAtivosE ? "border-[#2563EB] bg-[#EFF6FF] text-[#2563EB]" : "border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9]"}`}>
+            className={`rounded-xl border px-3.5 py-2.5 text-xs font-bold transition ${mostrarFiltrosPermE || filtrosPermAtivosE ? "border-[#0F4C5C] bg-[#E6EEF1] text-[#0F4C5C]" : "border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9]"}`}>
             ⚙️ Filtros{filtrosPermAtivosE ? " •" : ""}
           </button>
         </div>
@@ -12507,7 +12507,7 @@ function RelatorioPermanencia({ pedidos, orders = [], products = [], periodo, in
                 opcoes={[{ valor: "todas", rotulo: "Todas" }, ...FAIXAS_PERM_E.map((f) => ({ valor: f.rotulo, rotulo: f.rotulo }))]} />
             </div>
             {filtrosPermAtivosE && (
-              <button onClick={limparFiltrosPermE} className="self-end text-left text-[11px] font-bold text-[#2563EB] hover:text-[#1D4ED8] sm:col-span-2 lg:col-span-4">✕ Limpar filtros</button>
+              <button onClick={limparFiltrosPermE} className="self-end text-left text-[11px] font-bold text-[#0F4C5C] hover:text-[#0B3A46] sm:col-span-2 lg:col-span-4">✕ Limpar filtros</button>
             )}
           </div>
         )}
@@ -12528,7 +12528,7 @@ function RelatorioPermanencia({ pedidos, orders = [], products = [], periodo, in
                   ["minutos", "Permanência"], ["valor", "Valor"], ["ticketMedio", "Ticket médio"], ["itens", "Itens"], ["status", "Status"],
                 ].map(([campo, rotulo]) => (
                   <th key={campo} className="whitespace-nowrap border-b border-[#E2E8F0] px-3 py-2.5 text-left">
-                    <button onClick={() => alternarOrdemPermE(campo)} className="flex items-center gap-1 transition hover:text-[#2563EB]">
+                    <button onClick={() => alternarOrdemPermE(campo)} className="flex items-center gap-1 transition hover:text-[#0F4C5C]">
                       {rotulo}{ordenacaoPermE.campo === campo ? (ordenacaoPermE.dir === "desc" ? " ▼" : " ▲") : ""}
                     </button>
                   </th>
@@ -12554,7 +12554,7 @@ function RelatorioPermanencia({ pedidos, orders = [], products = [], periodo, in
                   <td className="px-3 py-2.5 font-mono text-[#334155]">{c.itens}</td>
                   <td className="px-3 py-2.5"><BadgeEstoque status={c.status} /></td>
                   <td className="px-3 py-2.5">
-                    <button onClick={(e) => { e.stopPropagation(); setComandaDetalheE(c); }} className="rounded-lg border border-[#E2E8F0] px-2.5 py-1.5 text-[11px] font-bold text-[#2563EB] transition hover:bg-[#EFF6FF]">Ver detalhes</button>
+                    <button onClick={(e) => { e.stopPropagation(); setComandaDetalheE(c); }} className="rounded-lg border border-[#E2E8F0] px-2.5 py-1.5 text-[11px] font-bold text-[#0F4C5C] transition hover:bg-[#E6EEF1]">Ver detalhes</button>
                   </td>
                 </tr>
               ))}
@@ -12621,7 +12621,7 @@ function LinhaMetrica({ dados, formatarValor, sufixo = "" }) {
   const idxMin = dados.findIndex((d) => d.valor === valorMin);
   const media = dados.reduce((s, d) => s + d.valor, 0) / n;
   const yMedia = y(media);
-  const corPonto = (i) => (i === idxMax ? "#10B981" : i === idxMin ? "#F59E0B" : "#2563EB");
+  const corPonto = (i) => (i === idxMax ? "#10B981" : i === idxMin ? "#F59E0B" : "#0F4C5C");
   const temComparacao = dados.some((d) => d.valorAnterior != null);
   const ptsAnt = temComparacao ? dados.map((d, i) => [x(i), y(d.valorAnterior ?? 0)]) : null;
   const linhaAnt = ptsAnt ? ptsAnt.map((p, i) => `${i ? "L" : "M"}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ") : null;
@@ -12630,8 +12630,8 @@ function LinhaMetrica({ dados, formatarValor, sufixo = "" }) {
       {[0, 0.25, 0.5, 0.75, 1].map((f, i) => (<line key={i} x1={P} x2={W - P} y1={y(max * f)} y2={y(max * f)} stroke="#E2E8F0" />))}
       {n > 1 && <line x1={P} x2={W - P} y1={yMedia} y2={yMedia} stroke="#64748B" strokeWidth="1" strokeDasharray="4 3" />}
       {linhaAnt && <path d={linhaAnt} fill="none" stroke="#8B5CF6" strokeWidth="2" strokeDasharray="5 4" strokeLinejoin="round" strokeLinecap="round" />}
-      <path d={area} fill="#2563EB" fillOpacity="0.08" />
-      <path d={linha} fill="none" stroke="#2563EB" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+      <path d={area} fill="#0F4C5C" fillOpacity="0.08" />
+      <path d={linha} fill="none" stroke="#0F4C5C" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
       {pts.map((p, i) => (
         <g key={i} className="pp-chart-focus-svg" style={{ cursor: "pointer" }} tabIndex={0} role="img" aria-label={`${dados[i].label}: ${formatarValor(dados[i].valor)}${sufixo}`}
           onMouseEnter={() => setAtivo(i)} onMouseLeave={() => setAtivo((c) => (c === i ? null : c))}
@@ -12654,7 +12654,7 @@ function LinhaMetrica({ dados, formatarValor, sufixo = "" }) {
             <rect x={bx} y={by} width={boxW} height={boxH} rx="6" fill="#FFFFFF" stroke="#E2E8F0" />
             <text x={bx + boxW / 2} y={by + 13} textAnchor="middle" fill="#334155" style={{ fontSize: 9, fontWeight: 700 }}>{d.label}</text>
             {linhas.map((l, li) => (
-              <text key={li} x={bx + boxW / 2} y={by + 26 + li * 13} textAnchor="middle" fill={li === 0 ? "#2563EB" : "#64748B"} style={{ fontSize: 9, fontWeight: li === 0 ? 800 : 600 }}>{l}</text>
+              <text key={li} x={bx + boxW / 2} y={by + 26 + li * 13} textAnchor="middle" fill={li === 0 ? "#0F4C5C" : "#64748B"} style={{ fontSize: 9, fontWeight: li === 0 ? 800 : 600 }}>{l}</text>
             ))}
           </g>
         );
@@ -12689,7 +12689,7 @@ function mediaNotasValidas(notas) {
 function classificacaoMediaSatE(media) {
   if (media == null) return null;
   if (media >= 4.5) return { label: "Excelente", cor: "#10B981" };
-  if (media >= 3.5) return { label: "Bom", cor: "#2563EB" };
+  if (media >= 3.5) return { label: "Bom", cor: "#0F4C5C" };
   if (media >= 2.5) return { label: "Atenção", cor: "#F59E0B" };
   return { label: "Crítico", cor: "#EF4444" };
 }
@@ -12749,7 +12749,7 @@ function RelatorioSatisfacao({ pesquisas = [], todasPesquisas = [], pedidos = []
   const taxaResposta = pedidosPagosPeriodo > 0 ? (lista.length / pedidosPagosPeriodo) * 100 : null;
   const origemTxt = (o) => o === "externo" ? "🛵 Delivery" : o === "mesa" ? "🍽️ Mesa" : (o || "—");
   const telMasc = (t) => { const d = String(t || "").replace(/\D/g, ""); return d.length >= 4 ? `****-${d.slice(-4)}` : "—"; };
-  const CORES_NOTA = ["#EF4444", "#F59E0B", "#64748B", "#2563EB", "#10B981"];
+  const CORES_NOTA = ["#EF4444", "#F59E0B", "#64748B", "#0F4C5C", "#10B981"];
 
   // ── Comparativo com o período anterior (mesma técnica das demais abas) ──
   const comparativoSatE = (() => {
@@ -12904,7 +12904,7 @@ function RelatorioSatisfacao({ pesquisas = [], todasPesquisas = [], pedidos = []
   }
   function atualizarSatE() { setAtualizadoEmSatE(new Date()); }
 
-  const inputClsSatE = "w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs text-[#334155] outline-none transition focus:border-[#2563EB]";
+  const inputClsSatE = "w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs text-[#334155] outline-none transition focus:border-[#0F4C5C]";
   const labelClsSatE = "mb-1 block text-[10px] font-bold uppercase tracking-widest text-[#64748B]";
   const notasOrdenadas = [...medias].sort((a, b) => (ordenarNotasSatE === "piores" ? a.media - b.media : b.media - a.media));
 
@@ -12916,7 +12916,7 @@ function RelatorioSatisfacao({ pesquisas = [], todasPesquisas = [], pedidos = []
           <button onClick={exportarCSV} disabled={lista.length === 0} className="rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9] disabled:opacity-40">📊 Exportar CSV</button>
           <button onClick={exportarPDF} disabled={lista.length === 0} className="rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9] disabled:opacity-40">🖨️ PDF / Imprimir</button>
           <button onClick={() => setCompararPeriodoSatE((v) => !v)}
-            className={`rounded-xl border px-3.5 py-2 text-xs font-bold transition ${compararPeriodoSatE ? "border-[#2563EB] bg-[#EFF6FF] text-[#2563EB]" : "border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9]"}`}>📅 Comparar períodos</button>
+            className={`rounded-xl border px-3.5 py-2 text-xs font-bold transition ${compararPeriodoSatE ? "border-[#0F4C5C] bg-[#E6EEF1] text-[#0F4C5C]" : "border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9]"}`}>📅 Comparar períodos</button>
           <button onClick={() => setSomenteDetratoresSatE((v) => !v)}
             className={`rounded-xl border px-3.5 py-2 text-xs font-bold transition ${somenteDetratoresSatE ? "border-[#EF4444] bg-[#EF4444]/10 text-[#EF4444]" : "border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9]"}`}>⚠️ Ver apenas detratores</button>
           <button onClick={() => comentariosRef.current?.scrollIntoView({ block: "start", behavior: "smooth" })} className="rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">💬 Ver comentários</button>
@@ -12929,9 +12929,9 @@ function RelatorioSatisfacao({ pesquisas = [], todasPesquisas = [], pedidos = []
       <div className="rounded-2xl border border-[#E2E8F0] bg-white p-3.5">
         <div className="flex flex-wrap items-center gap-2.5">
           <input value={buscaSatE} onChange={(e) => setBuscaSatE(e.target.value)} placeholder="🔎 Buscar por telefone ou nº do pedido…"
-            className="min-w-[220px] flex-1 rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2.5 text-sm text-[#334155] outline-none transition focus:border-[#2563EB]" />
+            className="min-w-[220px] flex-1 rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2.5 text-sm text-[#334155] outline-none transition focus:border-[#0F4C5C]" />
           <button onClick={() => setMostrarFiltrosSatE((v) => !v)}
-            className={`rounded-xl border px-3.5 py-2.5 text-xs font-bold transition ${mostrarFiltrosSatE || chipsAtivosSatE.length > 0 ? "border-[#2563EB] bg-[#EFF6FF] text-[#2563EB]" : "border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9]"}`}>
+            className={`rounded-xl border px-3.5 py-2.5 text-xs font-bold transition ${mostrarFiltrosSatE || chipsAtivosSatE.length > 0 ? "border-[#0F4C5C] bg-[#E6EEF1] text-[#0F4C5C]" : "border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9]"}`}>
             ⚙️ Filtros{chipsAtivosSatE.length > 0 ? ` • ${chipsAtivosSatE.length}` : ""}
           </button>
         </div>
@@ -12962,9 +12962,9 @@ function RelatorioSatisfacao({ pesquisas = [], todasPesquisas = [], pedidos = []
         {chipsAtivosSatE.length > 0 && (
           <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-[#F1F5F9] pt-3">
             {chipsAtivosSatE.map((c, i) => (
-              <span key={i} className="flex items-center gap-1.5 rounded-full border border-[#2563EB] bg-[#EFF6FF] px-3 py-1 text-[11px] font-bold text-[#2563EB]">
+              <span key={i} className="flex items-center gap-1.5 rounded-full border border-[#0F4C5C] bg-[#E6EEF1] px-3 py-1 text-[11px] font-bold text-[#0F4C5C]">
                 {c.label}
-                <button onClick={c.limpar} title="Remover filtro" aria-label={`Remover filtro: ${c.label}`} className="text-[#2563EB] hover:text-[#1D4ED8]">✕</button>
+                <button onClick={c.limpar} title="Remover filtro" aria-label={`Remover filtro: ${c.label}`} className="text-[#0F4C5C] hover:text-[#0B3A46]">✕</button>
               </span>
             ))}
             <button onClick={limparFiltrosSatE} className="text-[11px] font-bold text-[#64748B] hover:text-[#334155]">Limpar todos</button>
@@ -13019,7 +13019,7 @@ function RelatorioSatisfacao({ pesquisas = [], todasPesquisas = [], pedidos = []
               <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3"><p className="text-[9px] font-bold uppercase tracking-widest text-[#64748B]">Neutros (3)</p><p className="mt-0.5 text-xl font-black text-[#64748B]">{neutros} <span className="text-xs font-bold text-[#94A3B8]">({((neutros / recVals.length) * 100).toFixed(0)}%)</span></p></div>
               <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3"><p className="text-[9px] font-bold uppercase tracking-widest text-[#64748B]">Detratores (1-2)</p><p className="mt-0.5 text-xl font-black text-[#EF4444]">{detratores} <span className="text-xs font-bold text-[#94A3B8]">({((detratores / recVals.length) * 100).toFixed(0)}%)</span></p></div>
             </div>
-            <p className="mt-3 text-sm font-bold text-[#0D1B2A]">NPS calculado: <span className="text-[#2563EB]">{nps}</span>{comparativoSatE?.variacaoNps != null && <span className="ml-2 text-xs font-semibold text-[#64748B]">({comparativoSatE.variacaoNps >= 0 ? "+" : ""}{comparativoSatE.variacaoNps} vs. período anterior)</span>}</p>
+            <p className="mt-3 text-sm font-bold text-[#0D1B2A]">NPS calculado: <span className="text-[#0F4C5C]">{nps}</span>{comparativoSatE?.variacaoNps != null && <span className="ml-2 text-xs font-semibold text-[#64748B]">({comparativoSatE.variacaoNps >= 0 ? "+" : ""}{comparativoSatE.variacaoNps} vs. período anterior)</span>}</p>
             <p className="mt-1.5 text-[10px] text-[#94A3B8]">Fórmula: ((promotores − detratores) ÷ respostas) × 100. A pesquisa usa escala de 1 a 5 (não a escala clássica de 0 a 10) — nota 4-5 conta como promotor, 1-2 como detrator, 3 como neutro.</p>
           </>
         )}
@@ -13031,8 +13031,8 @@ function RelatorioSatisfacao({ pesquisas = [], todasPesquisas = [], pedidos = []
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
             <h3 className="page-title text-sm font-bold uppercase tracking-wider text-[#0D1B2A]">Distribuição das notas</h3>
             <div className="flex items-center gap-1 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-1">
-              <button onClick={() => setOrdenarNotasSatE("piores")} className={`rounded-lg px-2.5 py-1 text-[10px] font-black transition ${ordenarNotasSatE === "piores" ? "bg-[#2563EB] text-white" : "text-[#64748B]"}`}>Piores primeiro</button>
-              <button onClick={() => setOrdenarNotasSatE("melhores")} className={`rounded-lg px-2.5 py-1 text-[10px] font-black transition ${ordenarNotasSatE === "melhores" ? "bg-[#2563EB] text-white" : "text-[#64748B]"}`}>Melhores primeiro</button>
+              <button onClick={() => setOrdenarNotasSatE("piores")} className={`rounded-lg px-2.5 py-1 text-[10px] font-black transition ${ordenarNotasSatE === "piores" ? "bg-[#0F4C5C] text-white" : "text-[#64748B]"}`}>Piores primeiro</button>
+              <button onClick={() => setOrdenarNotasSatE("melhores")} className={`rounded-lg px-2.5 py-1 text-[10px] font-black transition ${ordenarNotasSatE === "melhores" ? "bg-[#0F4C5C] text-white" : "text-[#64748B]"}`}>Melhores primeiro</button>
             </div>
           </div>
           <div className="mb-3 flex flex-wrap gap-2 text-[10px] font-bold text-[#64748B]">
@@ -13077,7 +13077,7 @@ function RelatorioSatisfacao({ pesquisas = [], todasPesquisas = [], pedidos = []
                       </span>
                     </div>
                     <div className="h-2 overflow-hidden rounded-full bg-[#F1F5F9]">
-                      <div className="h-full rounded-full" style={{ width: `${(m.media / 5) * 100}%`, background: classe?.cor || "#2563EB" }} />
+                      <div className="h-full rounded-full" style={{ width: `${(m.media / 5) * 100}%`, background: classe?.cor || "#0F4C5C" }} />
                     </div>
                     <p className="mt-0.5 text-[10px] text-[#94A3B8]">{m.n} resposta(s){compararPeriodoSatE && varPct != null ? ` · ${varPct >= 0 ? "+" : ""}${varPct.toFixed(0)}% vs. período anterior` : ""}</p>
                   </div>
@@ -13139,7 +13139,7 @@ function RelatorioSatisfacao({ pesquisas = [], todasPesquisas = [], pedidos = []
               {q.comentario && <p className="mt-1 text-sm text-[#334155]">"{q.comentario}"</p>}
               <div className="mt-2 flex flex-wrap gap-2">
                 <button onClick={() => abrirPedidoRelacionadoSatE(q.pedidoId)} disabled={!pedidoEncontrado} title={pedidoEncontrado ? "Ver pedido/cupom relacionado" : "Pedido não encontrado no histórico"}
-                  className="rounded-lg border border-[#E2E8F0] px-2 py-1 text-[10px] font-bold text-[#2563EB] transition hover:bg-[#EFF6FF] disabled:cursor-not-allowed disabled:text-[#94A3B8] disabled:opacity-60">🧾 Ver pedido</button>
+                  className="rounded-lg border border-[#E2E8F0] px-2 py-1 text-[10px] font-bold text-[#0F4C5C] transition hover:bg-[#E6EEF1] disabled:cursor-not-allowed disabled:text-[#94A3B8] disabled:opacity-60">🧾 Ver pedido</button>
                 {q.comentario && (
                   <button onClick={() => copiarComentarioSatE(q.comentario)} title="Copiar comentário" className="rounded-lg border border-[#E2E8F0] px-2 py-1 text-[10px] font-bold text-[#334155] transition hover:bg-[#F1F5F9]">📋 Copiar</button>
                 )}
