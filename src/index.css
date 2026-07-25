@@ -385,10 +385,14 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
   --client-offer-soft: #EDF3E1;
   --client-offer-border: #C3D9A2;
 
-  --client-info: var(--pp-info);
-  --client-info-hover: #234B86;
-  --client-info-soft: #E8F0FA;
-  --client-info-border: #BDD0EA;
+  /* Info/recebido/andamento = AZUL PETRÓLEO oficial (#0F4C5C = confiança/gestão),
+     substituindo o azul royal legado #2563EB (var(--pp-info)), estranho à paleta.
+     Harmoniza com o sistema quente-neutro; fills com texto branco ficam ~9:1.
+     Continua distinto do verde de sucesso (petróleo é azul-dominante). */
+  --client-info: #0F4C5C;
+  --client-info-hover: #0B3A46;
+  --client-info-soft: #E6EEF1;
+  --client-info-border: #B0C9D0;
 
   --client-success: #17824B;
   --client-success-hover: #11663A;
@@ -418,7 +422,7 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
   --client-disabled-border: #DDE2E8;
 
   --client-focus-primary: rgba(230, 126, 34, 0.22); /* laranja oficial #E67E22 */
-  --client-focus-info: rgba(46, 95, 168, 0.20);
+  --client-focus-info: rgba(15, 76, 92, 0.22); /* azul petróleo #0F4C5C */
 
   --client-shadow-sm: 0 4px 14px rgba(57, 40, 31, 0.06);
   --client-shadow-md: 0 12px 32px rgba(57, 40, 31, 0.10);
