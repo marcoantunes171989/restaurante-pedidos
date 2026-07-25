@@ -2013,7 +2013,7 @@ function Gaveta({ titulo, subtitulo, onFechar, children, rodape, fecharLabel = "
     return () => { vv.removeEventListener("resize", upd); vv.removeEventListener("scroll", upd); };
   }, []);
   const overlayStyle = vp ? { top: vp.top, height: vp.h, bottom: "auto" } : undefined;
-  const sheetMax = vp ? `${vp.h - 8}px` : "88dvh";
+  const sheetMax = vp ? `${vp.h}px` : "92dvh";
   return (
     <div data-theme="light" className="tema-claro-area fixed inset-x-0 top-0 z-[110] flex w-full max-w-[100vw] items-end justify-center overflow-x-hidden bg-black/60 backdrop-blur-sm" style={overlayStyle} onClick={onFechar}>
       {/* flex-col + min-h-0 no corpo: o rodapé (quando existe) reserva sua
@@ -2021,16 +2021,16 @@ function Gaveta({ titulo, subtitulo, onFechar, children, rodape, fecharLabel = "
           ocupa exatamente o resto — sem precisar "chutar" um px fixo de
           desconto pra altura do cabeçalho/rodapé em cada gaveta. */}
       <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-3xl flex-col rounded-t-[24px] border border-[var(--client-border)] bg-[var(--client-surface)] shadow-[var(--client-shadow-floating)]" style={{ maxHeight: sheetMax, paddingBottom: rodape ? undefined : "env(safe-area-inset-bottom)" }}>
-        <div className="sticky top-0 z-10 flex shrink-0 items-center justify-between gap-3 rounded-t-[24px] border-b border-[var(--client-border)] bg-[var(--client-surface)] px-5 py-4">
+        <div className="sticky top-0 z-10 flex shrink-0 items-center justify-between gap-3 rounded-t-[24px] border-b border-[var(--client-border)] bg-[var(--client-surface)] px-5 pb-4" style={{ paddingTop: "max(1rem, calc(env(safe-area-inset-top) + 0.5rem))" }}>
           <div className="min-w-0">
             <h2 className="text-lg font-black text-[var(--client-text-primary)]">{titulo}</h2>
             {subtitulo && <p className="mt-0.5 text-xs text-[var(--client-text-secondary)]">{subtitulo}</p>}
           </div>
           <button onClick={onFechar} aria-label={fecharLabel} className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface-secondary)] px-4 py-2 text-sm font-black text-[var(--client-text-secondary)] transition hover:bg-[var(--client-border)]">Fechar ✕</button>
         </div>
-        <div className="pp-overscroll-contain min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">{children}</div>
+        <div className="pp-overscroll-contain min-h-0 flex-1 overflow-y-auto px-5 py-4">{children}</div>
         {rodape && (
-          <div className="shrink-0 border-t border-[var(--client-border)] bg-[var(--client-surface)] px-4 py-3 sm:px-5" style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 0.75rem)" }}>
+          <div className="shrink-0 border-t border-[var(--client-border)] bg-[var(--client-surface)] px-5 py-3" style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 0.75rem)" }}>
             {rodape}
           </div>
         )}
