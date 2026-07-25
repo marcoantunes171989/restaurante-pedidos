@@ -455,6 +455,33 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
 }
 */
 
+/* ══════════════════════════════════════════════════════════════════
+   Botão laranja "GOURMET" — degradê quente premium para os botões de
+   AÇÃO laranja (e o estado ativo de chips/toggles). Reúne os 3 estados
+   pedidos: repouso = laranja CLARO (mais apetitoso que o antigo fundo
+   chapado), hover = MAIS CLARO, ativo/pressionado = MAIS ESCURO (chapado).
+   Texto branco com leve sombra para manter a legibilidade sobre o laranja
+   (branco puro sobre laranja claro não atinge AA sozinho; a sombra + o
+   tom rico da base do degradê preservam a leitura). Basta trocar o antigo
+   `bg-[var(--pp-primary-hover)]` por `btn-laranja` (mantendo `text-white`).
+   ══════════════════════════════════════════════════════════════════ */
+.btn-laranja {
+  background-image: linear-gradient(180deg, #EC8636 0%, #C6551A 100%);
+  text-shadow: 0 1px 1.5px rgba(90, 35, 0, 0.35);
+}
+.btn-laranja:hover:not(:disabled):not([aria-disabled="true"]) {
+  background-image: linear-gradient(180deg, #F49A48 0%, #D66528 100%);
+}
+.btn-laranja:active:not(:disabled):not([aria-disabled="true"]) {
+  background-image: none;
+  background-color: #A8480F;
+}
+.btn-laranja:disabled,
+.btn-laranja[disabled] {
+  background-image: none;
+  text-shadow: none;
+}
+
 /* ── Painel de filtro oficial (FilterGroup, src/components/Prime.jsx) ──
    Paleta oficial 2026 dos grupos "Turno/Canal/Status" do Dashboard
    Gerencial — aplicada automaticamente por QUALQUER FilterGroup (é a

@@ -27,7 +27,7 @@ export default function OrderActionButton({ a, variante, compact = false }) {
       type="button"
       onClick={clicar}
       disabled={a.disabled || enviando}
-      className={`flex items-center justify-center gap-2 rounded-xl bg-[var(--pp-primary-hover)] font-bold text-white transition-colors duration-150 hover:bg-[var(--pp-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-primary-hover)] active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-[var(--pp-bg)] disabled:text-[var(--pp-text-muted)] disabled:active:scale-100 ${
+      className={`btn-laranja flex items-center justify-center gap-2 rounded-xl font-bold text-white transition-colors duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-primary-hover)] active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-[var(--pp-bg)] disabled:text-[var(--pp-text-muted)] disabled:active:scale-100 ${
         compact ? "min-h-[36px] px-3 text-xs" : "min-h-[44px] flex-1 px-4 text-sm"
       }`}
     >
