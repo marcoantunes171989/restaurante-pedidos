@@ -7824,14 +7824,14 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
       {/* Cabeçalho + período */}
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h2 className="page-title flex items-center gap-2.5 text-2xl font-bold tracking-tight text-[var(--pp-text)]">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[#0F4C5C]" style={{ background: "#0F4C5C1A" }}>{soCopiloto ? "🤖" : <IconDashboard />}</span>
+          <h2 className="page-title flex items-center gap-3 text-2xl font-bold tracking-tight text-[var(--pp-text)]">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-white shadow-[0_8px_20px_-8px_rgba(15,76,92,0.55)]" style={{ background: "linear-gradient(135deg, #12586B 0%, #0B3A46 100%)" }}>{soCopiloto ? "🤖" : <IconDashboard />}</span>
             {soCopiloto ? "Copiloto IA" : "Dashboard Gerencial"}
           </h2>
           <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1.5 max-w-2xl text-sm text-[var(--pp-text-muted)]">
             <span>{soCopiloto ? "Inteligência gerencial baseada nos dados reais do seu negócio." : "Visão estratégica de vendas, operação, produtos, clientes e desempenho financeiro."}</span>
             {!soCopiloto && (
-              <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-[var(--pp-success)]" title="Os dados são atualizados automaticamente em tempo real">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-[rgba(47,158,82,0.10)] px-2.5 py-1 text-[11px] font-bold text-[var(--pp-success)]" title="Os dados são atualizados automaticamente em tempo real">
                 <span className="relative flex h-1.5 w-1.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--pp-success)] opacity-60 motion-reduce:animate-none" /><span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[var(--pp-success)]" /></span>
                 Dados em tempo real
               </span>
@@ -7882,8 +7882,8 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
           { dot: estoqueBaixo === 0 ? "bg-[#2F9E52]" : "bg-[#C81E4A]", txt: estoqueBaixo === 0 ? "Estoque sem alertas" : <>{estoqueBaixo} produto(s) sem estoque</> },
         ].filter(Boolean);
         return (
-          <div className="mt-4 flex flex-wrap items-center gap-2.5 rounded-2xl border border-[#0F4C5C]/25 bg-white px-4 py-3">
-            <span className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-[#0F4C5C]">
+          <div className="mt-4 flex flex-wrap items-center gap-2.5 rounded-2xl border border-[rgba(15,76,92,0.18)] bg-white px-4 py-3 shadow-[0_1px_2px_rgba(43,35,32,0.04),0_12px_28px_-14px_rgba(43,35,32,0.14)]">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-[rgba(15,76,92,0.10)] px-2.5 py-1 text-[11px] font-black uppercase tracking-widest text-[#0F4C5C]">
               <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor"><path d="M12 2l2.4 6.9H22l-6 4.3 2.3 7L12 16l-6.3 4.2 2.3-7-6-4.3h7.6z" /></svg>
               Resumo inteligente
             </span>
@@ -7952,7 +7952,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
               </div>
             )}
             {/* 4. Diagnóstico do negócio */}
-            <div className="rounded-2xl border border-[var(--pp-border)] bg-white p-5 shadow-sm sm:p-6">
+            <div className="rounded-2xl border border-[var(--pp-border)] bg-white p-5 shadow-[0_1px_2px_rgba(43,35,32,0.04),0_12px_28px_-14px_rgba(43,35,32,0.14)] sm:p-6">
               <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
                 <div className="flex items-center gap-4">
                   <div className="relative h-20 w-20 shrink-0" style={{ background: `conic-gradient(${nivelCorAnel} ${ia.score * 3.6}deg, #EAE0D6 0deg)`, borderRadius: "9999px" }}>
@@ -8002,7 +8002,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
             </div>
 
             {/* 5. Pergunte ao Copiloto */}
-            <div className="rounded-2xl border border-[var(--pp-border)] bg-white p-5 shadow-sm sm:p-6">
+            <div className="rounded-2xl border border-[var(--pp-border)] bg-white p-5 shadow-[0_1px_2px_rgba(43,35,32,0.04),0_12px_28px_-14px_rgba(43,35,32,0.14)] sm:p-6">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="flex items-center gap-2 text-sm font-black text-[var(--pp-text)]"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg" style={{ background: "#8B5CF61A", color: "#8B5CF6" }}>🤖</span>Pergunte ao Copiloto</p>
                 <div className="flex flex-wrap items-center gap-2">
@@ -8084,7 +8084,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
               ) : (
                 <div className="grid gap-2 sm:grid-cols-2">
                   {ia.alertasCriticos.map((al, i) => (
-                    <div key={i} className="flex items-start gap-2 rounded-xl border-l-4 bg-white py-3 pl-3.5 pr-4 shadow-sm" style={{ borderLeftColor: al.sev === "crit" ? "#C81E4A" : "#F59E0B" }}>
+                    <div key={i} className="flex items-start gap-2 rounded-xl border-l-4 bg-white py-3 pl-3.5 pr-4 shadow-[0_1px_2px_rgba(43,35,32,0.04),0_12px_28px_-14px_rgba(43,35,32,0.14)]" style={{ borderLeftColor: al.sev === "crit" ? "#C81E4A" : "#F59E0B" }}>
                       <span className="shrink-0">{al.sev === "crit" ? "🔴" : "⚠️"}</span>
                       <div className="min-w-0"><p className="text-sm font-bold" style={{ color: al.sev === "crit" ? "#C81E4A" : "#B45309" }}>{al.titulo}</p><p className="text-xs text-[var(--pp-text-muted)]">{al.desc}</p></div>
                     </div>
@@ -8102,11 +8102,11 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
               ) : (
                 <div className="grid gap-4 md:grid-cols-2">
                   {insightsPorCategoria.map((g) => (
-                    <div key={g.cat} className="rounded-2xl border border-[var(--pp-border)] bg-white p-4">
+                    <div key={g.cat} className="rounded-2xl border border-[var(--pp-border)] bg-white p-4 shadow-[0_1px_2px_rgba(43,35,32,0.04),0_12px_28px_-14px_rgba(43,35,32,0.14)]">
                       <p className="mb-2 text-xs font-black uppercase tracking-wide text-[var(--pp-text-muted)]">{g.cat}</p>
                       <div className="space-y-2">
                         {g.itens.map((it, i) => (
-                          <div key={i} className="rounded-xl border-l-4 bg-white px-3.5 py-2.5 text-xs font-semibold shadow-sm" style={{ borderLeftColor: sevCor[it.sev], borderTop: "1px solid #EAE0D6", borderRight: "1px solid #EAE0D6", borderBottom: "1px solid #EAE0D6" }}>
+                          <div key={i} className="rounded-xl border-l-4 bg-white px-3.5 py-2.5 text-xs font-semibold shadow-[0_1px_2px_rgba(43,35,32,0.04),0_12px_28px_-14px_rgba(43,35,32,0.14)]" style={{ borderLeftColor: sevCor[it.sev], borderTop: "1px solid #EAE0D6", borderRight: "1px solid #EAE0D6", borderBottom: "1px solid #EAE0D6" }}>
                             <div className="flex items-start gap-2">
                               <span className="shrink-0">{sevIc[it.sev]}</span>
                               <span className="min-w-0 flex-1 text-[var(--pp-text)]">{it.texto}</span>
@@ -8175,7 +8175,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
             {/* 10. Simulações seguras — fórmulas locais, projeção claramente
                 identificada como tal, sem misturar com dado realizado e sem
                 salvar/alterar nada. */}
-            <div className="rounded-2xl border border-[var(--pp-border)] bg-white p-5 shadow-sm sm:p-6">
+            <div className="rounded-2xl border border-[var(--pp-border)] bg-white p-5 shadow-[0_1px_2px_rgba(43,35,32,0.04),0_12px_28px_-14px_rgba(43,35,32,0.14)] sm:p-6">
               <button onClick={() => setMostrarSimulador((v) => !v)} className="flex w-full items-center justify-between gap-2 text-left">
                 <p className="flex items-center gap-2 text-sm font-black text-[var(--pp-text)]"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg" style={{ background: "#8B5CF61A", color: "#8B5CF6" }}>🧪</span>Simular cenário</p>
                 <span className="text-xs font-bold text-[var(--pp-text-muted)]">{mostrarSimulador ? "Recolher ▲" : "Expandir ▼"}</span>
