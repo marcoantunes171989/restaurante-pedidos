@@ -2850,15 +2850,16 @@ export function ProdutoModal({ produto, onFechar, onAdicionar, grupos = [], opco
 
         {/* ── Imagem do produto — ROLA junto com o conteúdo no mobile (não fica
             presa no topo); no desktop é a coluna esquerda fixa (lg:w-*).
-            object-contain sobre fundo neutro mostra o produto INTEIRO, sem cortar.
-            pt-16 no mobile reserva espaço para os botões sobrepostos. ── */}
-        <div className="relative h-[clamp(240px,42vh,380px)] shrink-0 overflow-hidden bg-[var(--client-background)] lg:h-auto lg:max-h-none lg:w-[42%]">
+            object-cover em TELA CHEIA (full-bleed): a foto ocupa todo o espaço,
+            sem moldura/letterbox — o produto aparece maior e mais apetitoso. Os
+            botões flutuam por cima (barra sticky h-0, com safe-area). ── */}
+        <div className="relative h-[clamp(260px,46vh,420px)] shrink-0 overflow-hidden bg-[var(--client-background)] lg:h-auto lg:max-h-none lg:w-[42%]">
           {!imgPronta && <div className="absolute inset-0 animate-pulse motion-reduce:animate-none bg-[var(--client-surface-secondary)]" aria-hidden="true" />}
           <img
             src={imgSrc} alt={produto.name} decoding="async"
             onLoad={() => setImgPronta(true)}
             onError={() => { if (imgSrc !== fallbackImage) { setImgSrc(fallbackImage); setImgPronta(false); } else setImgPronta(true); }}
-            className={`h-full w-full object-contain p-4 pt-16 lg:p-6 lg:pt-6 transition-opacity duration-300 motion-reduce:transition-none ${imgPronta ? "opacity-100" : "opacity-0"}`} />
+            className={`h-full w-full object-cover transition-opacity duration-300 motion-reduce:transition-none ${imgPronta ? "opacity-100" : "opacity-0"}`} />
           {produto.badge && (
             <span className="absolute left-4 bottom-4 rounded-md bg-[var(--client-offer-hover)] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white shadow-lg">{produto.badge}</span>
           )}
