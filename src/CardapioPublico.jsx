@@ -605,7 +605,10 @@ export default function CardapioPublico() {
       if (rolandoPorCliqueRef.current) return;
       clearTimeout(debounceEscolha);
       debounceEscolha = setTimeout(() => {
-        const alvo = el.scrollTop <= 0 ? CATEGORIA_TODOS : escolherCategoriaAtiva(grupos, visiveisAbaixoDaLinha);
+        let alvo;
+        if (el.scrollTop <= 0) alvo = CATEGORIA_TODOS;
+        else if (grupos.length && el.scrollHeight - el.scrollTop - el.clientHeight <= 120) alvo = grupos[grupos.length - 1].id; // fim da rolagem → última categoria
+        else alvo = escolherCategoriaAtiva(grupos, visiveisAbaixoDaLinha);
         setCatAtivaId((cur) => (cur === alvo ? cur : alvo));
       }, 80);
     };
@@ -658,11 +661,19 @@ export default function CardapioPublico() {
     let rafGeom = 0;
     const calcGeom = () => {
       if (rolandoPorCliqueRef.current) return;
-      if (el.scrollTop <= 0) { setCatAtivaId((cur) => (cur === CATEGORIA_TODOS ? cur : CATEGORIA_TODOS)); return; }
-      let atual = CATEGORIA_TODOS;
-      for (const g of grupos) {
-        const secEl = secRefs.current[g.id];
-        if (secEl && secEl.getBoundingClientRect().top - linha <= 0) atual = g.id;
+      let atual;
+      if (el.scrollTop <= 0) {
+        atual = CATEGORIA_TODOS;
+      } else if (grupos.length && el.scrollHeight - el.scrollTop - el.clientHeight <= 120) {
+        // Fim da rolagem: a última categoria é a ativa assim que seus produtos
+        // aparecem — sem precisar de espaço vazio para "empurrá-la" até o topo.
+        atual = grupos[grupos.length - 1].id;
+      } else {
+        atual = CATEGORIA_TODOS;
+        for (const g of grupos) {
+          const secEl = secRefs.current[g.id];
+          if (secEl && secEl.getBoundingClientRect().top - linha <= 0) atual = g.id;
+        }
       }
       setCatAtivaId((cur) => (cur === atual ? cur : atual));
     };
@@ -1384,14 +1395,8 @@ export default function CardapioPublico() {
             sincronização de rolagem (todas ficam visíveis ao mesmo tempo). */}
         <div className="pb-6">
           {grupos.length === 0 && <p className="py-10 text-center text-sm text-[var(--client-text-secondary)]">Nenhum produto disponível.</p>}
-          {grupos.map((g, i) => (
-            // A ÚLTIMA seção recebe min-height = altura visível abaixo da barra
-            // fixa (100dvh − cabeçalho − barra de categorias). Sem isso, a última
-            // categoria (e categorias curtas no fim) nunca conseguem rolar até
-            // ficar fixas no topo → nunca são "selecionadas" e a barra não rola
-            // até elas. dvh (não vh) p/ a barra do navegador mobile não bagunçar.
-            <section key={g.id} ref={(el) => (secRefs.current[g.id] = el)} id={`cat-${g.id}`} data-cat-id={g.id}
-              style={{ scrollMarginTop: headerH + catBarH + 8, ...(i === grupos.length - 1 ? { minHeight: `calc(100dvh - ${headerH + catBarH}px)` } : {}) }}>
+          {grupos.map((g) => (
+            <section key={g.id} ref={(el) => (secRefs.current[g.id] = el)} id={`cat-${g.id}`} data-cat-id={g.id} style={{ scrollMarginTop: headerH + catBarH + 8 }}>
               <div className="sticky z-10 -mx-4 mb-3 mt-1 flex items-center gap-2 bg-[#F8F5F1]/95 px-4 py-1.5 backdrop-blur" style={{ top: headerH + catBarH }}>
                 <span className="h-4 w-1 rounded-full bg-[var(--client-primary-hover)]" />
                 <h2 className="text-sm font-black uppercase tracking-wide text-[var(--client-text-primary)]">{g.nome}</h2>
