@@ -14,7 +14,8 @@ import { useOnline } from "../lib/useOnline";
  *  - statusLabelOnline: rótulo do chip quando online.
  *  - meta: ReactNode opcional que substitui a linha de meta; se ausente,
  *    compõe "loja · usuário · nível".
- *  - comNotificacoes: exibe a linha de notificações (sino + config) (telas de lista = true).
+ *  - comNotificacoes: exibe o sino + config no cluster de ações do topo, à
+ *    direita, junto do botão Sair (só ícones) — telas de lista = true.
  *    (A busca por pedido/cliente foi removida das telas do operacional.)
  * NotificationBell/NotificationSettings continuam autocontidos (JWT/RLS).
  */
@@ -62,21 +63,25 @@ export default function OperationalHeader({
             )}
           </div>
         </div>
-        <button
-          type="button" onClick={onFechar}
-          className="flex shrink-0 items-center gap-2 self-start rounded-xl border border-[var(--pp-border)] bg-[var(--pp-surface)] px-4 py-2.5 text-sm font-bold text-[var(--pp-text-body)] transition-colors duration-150 hover:border-[var(--pp-danger)]/30 hover:bg-[var(--pp-danger-soft)] hover:text-[var(--pp-danger)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-primary)] sm:self-auto"
-        >
-          <LogOut aria-hidden="true" size={16} />
-          <span>Sair</span>
-        </button>
-      </div>
-
-      {comNotificacoes && (
-        <div className="mt-4 flex items-center justify-end gap-2.5">
-          <NotificationBell />
-          <NotificationSettings />
+        {/* Ações do cabeçalho — sino, config e Sair (só ícones), agrupados no
+            topo à direita. Aproveita o espaço (antes o sino/config ficavam numa
+            linha separada embaixo) e alinha todas as telas do operacional. */}
+        <div className="flex shrink-0 items-center gap-2 self-start">
+          {comNotificacoes && (
+            <>
+              <NotificationBell />
+              <NotificationSettings />
+              <span aria-hidden="true" className="mx-0.5 h-6 w-px bg-[var(--pp-border)]" />
+            </>
+          )}
+          <button
+            type="button" onClick={onFechar} aria-label="Sair" title="Sair"
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-[var(--pp-border)] bg-[var(--pp-surface)] text-[var(--pp-text-body)] transition-colors duration-150 hover:border-[var(--pp-danger)]/30 hover:bg-[var(--pp-danger-soft)] hover:text-[var(--pp-danger)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-primary)]"
+          >
+            <LogOut aria-hidden="true" size={18} />
+          </button>
         </div>
-      )}
+      </div>
     </motion.header>
   );
 }
