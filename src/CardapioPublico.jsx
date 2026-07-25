@@ -1423,7 +1423,7 @@ export default function CardapioPublico() {
             <button onClick={() => setAba("carrinho")} disabled={cart.length === 0} aria-label={cart.length > 0 ? "Ver carrinho" : "Carrinho vazio"}
               className="flex min-w-0 flex-1 items-center gap-3 rounded-2xl text-left disabled:cursor-default">
               <span className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${cart.length > 0 ? "bg-[var(--client-primary-soft)] text-[var(--client-primary-hover)]" : "bg-[var(--client-surface-secondary)] text-[var(--client-text-muted)]"}`}>
-                <CkIconSacola width={20} height={20} />
+                <CkIconCarrinho width={20} height={20} />
                 {qtdCart > 0 && <span className="absolute -right-1 -top-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[var(--client-primary-hover)] px-1 text-[11px] font-black text-white">{qtdCart}</span>}
               </span>
               <span className="min-w-0">
@@ -2010,6 +2010,9 @@ const CkIconPanela   = (p) => (<svg {...ckIconBase} {...p}><path d="M3 11h18v3a5
 const CkIconCaixaEntrada = (p) => (<svg {...ckIconBase} {...p}><path d="M3 12h4.5l1.5 3h6l1.5-3H21" /><path d="M5.5 5h13l2.5 7v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-6l2.5-7Z" /></svg>);
 const CkIconSino     = (p) => (<svg {...ckIconBase} {...p}><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6Z" /><path d="M10 19a2 2 0 0 0 4 0" /></svg>);
 const CkIconSacola   = (p) => (<svg {...ckIconBase} {...p}><path d="M6 8h12l1 12.5a1 1 0 0 1-1 1.5H6a1 1 0 0 1-1-1.5L6 8Z" /><path d="M9 8V6a3 3 0 0 1 6 0v2" /></svg>);
+// Carrinho de compras — mesmo traço dos demais Ck* e igual ao ShoppingCart do
+// tablet (lucide), para o ícone de CARRINHO ficar idêntico em todas as telas.
+const CkIconCarrinho = (p) => (<svg {...ckIconBase} {...p}><circle cx="8" cy="21" r="1" /><circle cx="19" cy="21" r="1" /><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12" /></svg>);
 const CkIconMesa     = (p) => (<svg {...ckIconBase} {...p}><path d="M12 21s7-7.1 7-12a7 7 0 1 0-14 0c0 4.9 7 12 7 12Z" /><circle cx="12" cy="9" r="2.5" /></svg>);
 const CkIconAjuda    = (p) => (<svg {...ckIconBase} {...p}><circle cx="12" cy="12" r="9" /><path d="M9.2 9.2a2.8 2.8 0 0 1 5.4 1c0 1.9-2.6 1.9-2.6 3.6" /><path d="M12 17.2h.01" /></svg>);
 const CkIconLimpeza  = (p) => (<svg {...ckIconBase} {...p}><path d="M12 3v3M12 18v3M3 12h3M18 12h3M6.3 6.3l2 2M15.7 15.7l2 2M17.7 6.3l-2 2M8.3 15.7l-2 2" /><circle cx="12" cy="12" r="2.2" /></svg>);

@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { ShoppingBag, X, QrCode, Minus, Plus, Loader2, CheckCircle2, Receipt, RefreshCcw } from "lucide-react";
+import { ShoppingCart, X, QrCode, Minus, Plus, Loader2, CheckCircle2, Receipt, RefreshCcw } from "lucide-react";
 import { formatCurrency } from "../../App";
 import { useFocusTrap } from "../../lib/useFocusTrap";
 
@@ -26,7 +26,7 @@ export default function TabletCartPanel({
     <div ref={containerRef} className="flex h-full flex-col bg-[var(--client-surface)]">
       <div className="flex shrink-0 items-center justify-between border-b border-[var(--client-border)] px-4 py-3.5">
         <div className="flex items-center gap-2.5">
-          <span aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--client-primary-soft)] text-[var(--client-primary-active)]"><ShoppingBag size={17} /></span>
+          <span aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--client-primary-soft)] text-[var(--client-primary-active)]"><ShoppingCart size={17} /></span>
           <div>
             <p className="text-sm font-black text-[var(--client-text-primary)]">Seu pedido</p>
             <p className="text-[11px] text-[var(--client-text-muted)]">Personalize e envie para a cozinha</p>
@@ -80,7 +80,7 @@ export default function TabletCartPanel({
       <div className="scrollbar-none flex-1 space-y-2.5 overflow-y-auto px-4 py-3.5">
         {cart.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 text-center opacity-80">
-            <span aria-hidden="true" className="flex h-14 w-14 items-center justify-center rounded-full bg-[var(--client-background-soft)] text-[var(--client-text-muted)]"><ShoppingBag size={24} /></span>
+            <span aria-hidden="true" className="flex h-14 w-14 items-center justify-center rounded-full bg-[var(--client-background-soft)] text-[var(--client-text-muted)]"><ShoppingCart size={24} /></span>
             <p className="text-sm font-bold text-[var(--client-text-primary)]">Seu pedido começa aqui</p>
             <p className="max-w-[220px] text-xs text-[var(--client-text-muted)]">Adicione produtos do cardápio para montar seu pedido.</p>
           </div>

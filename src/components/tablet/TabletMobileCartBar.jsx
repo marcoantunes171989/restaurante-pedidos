@@ -1,4 +1,4 @@
-import { ShoppingBag, ChevronRight } from "lucide-react";
+import { ShoppingCart, ChevronRight } from "lucide-react";
 import { formatCurrency } from "../../App";
 
 // Barra fixa inferior do carrinho — só em tablet-retrato/celular (o desktop
@@ -13,7 +13,7 @@ export default function TabletMobileCartBar({ totalCartItems, total, onAbrir }) 
       <button type="button" onClick={onAbrir}
         className="flex h-[54px] w-full items-center justify-between gap-3 rounded-2xl btn-laranja bg-[var(--client-primary-hover)] px-4 text-white transition active:scale-[0.98] hover:bg-[var(--client-primary)]">
         <span className="flex items-center gap-2 text-sm font-bold">
-          <ShoppingBag aria-hidden="true" size={18} />
+          <ShoppingCart aria-hidden="true" size={18} />
           {totalCartItems} {totalCartItems === 1 ? "item" : "itens"} · {formatCurrency(total)}
         </span>
         <span className="flex items-center gap-1 text-sm font-black">Ver carrinho <ChevronRight aria-hidden="true" size={16} /></span>

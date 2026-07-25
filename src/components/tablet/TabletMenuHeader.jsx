@@ -1,4 +1,4 @@
-import { Receipt, ShoppingBag } from "lucide-react";
+import { Receipt, ShoppingCart } from "lucide-react";
 
 // Cabeçalho da tela de pedidos do tablet — identidade do estabelecimento,
 // mesa em destaque (só mostra "lugares" quando a mesa tem capacidade
@@ -46,7 +46,7 @@ export default function TabletMenuHeader({
           <button type="button" onClick={onAbrirCarrinhoMobile}
             aria-label={`Ver carrinho, ${totalCartItems} ${totalCartItems === 1 ? "item" : "itens"}`}
             className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl btn-laranja bg-[var(--client-primary-hover)] text-white transition hover:bg-[var(--client-primary)] lg:hidden">
-            <ShoppingBag aria-hidden="true" size={18} />
+            <ShoppingCart aria-hidden="true" size={18} />
             {totalCartItems > 0 && (
               <span aria-hidden="true" className="absolute -right-1 -top-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[var(--client-error)] px-1 text-[10px] font-black text-white">{totalCartItems}</span>
             )}
