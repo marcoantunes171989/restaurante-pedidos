@@ -263,10 +263,12 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
   --op-nav-accent-soft: rgba(15, 76, 92, 0.09);
 
   /* Chrome do painel administrativo (menu lateral desktop + drawer/topo
-     mobile) — azul petróleo (paleta oficial: cor de navegação/menus/barras).
-     A cor de AÇÃO/seleção sobre este fundo continua sendo o laranja da marca
-     (--pp-primary #E67E22), que é complementar ao petróleo e passa contraste. */
-  --pp-nav: #0F4C5C;
+     mobile) — AZUL PETRÓLEO monocromático (paleta oficial: cor de navegação/
+     menus/barras). Menu propositalmente escuro e tom-sobre-tom: a superfície
+     é um petróleo PROFUNDO e o estado ativo/seleção "acende" num petróleo
+     CLARO (--pp-nav-accent), da mesma família, com contraste AA (~5:1). */
+  --pp-nav: #0C3D4A;        /* superfície do menu — petróleo profundo */
+  --pp-nav-accent: #58B7CD; /* seleção/ativo — petróleo claro (tom sobre tom) */
 
   /* Estrutura — neutros com base quente (não cinza-azulado), para a
      fotografia/ilustração de comida render mais convidativa. */
