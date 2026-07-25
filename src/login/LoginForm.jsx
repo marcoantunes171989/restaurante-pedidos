@@ -114,7 +114,7 @@ export default function LoginForm({ loginForm, setLoginForm, login, message, onQ
         <LoginAlert id="login-mensagem" message={message} />
 
         <button type="submit" disabled={entrando}
-          className="flex h-[50px] w-full items-center justify-center gap-2 rounded-[11px] bg-[var(--login-primary-hover)] px-5 text-sm font-black text-white transition duration-200 hover:bg-[var(--login-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--login-primary)] active:bg-[var(--login-primary-active)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70 disabled:active:scale-100">
+          className="flex h-[50px] w-full items-center justify-center gap-2 rounded-[11px] btn-laranja bg-[var(--login-primary-hover)] px-5 text-sm font-black text-white transition duration-200 hover:bg-[var(--login-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--login-primary)] active:bg-[var(--login-primary-active)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70 disabled:active:scale-100">
           {entrando ? <><IconSpinner /> {FORM.botaoEntrando}</> : FORM.botaoEntrar}
         </button>
       </form>

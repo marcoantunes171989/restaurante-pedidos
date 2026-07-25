@@ -78,11 +78,11 @@ export default function TabletProductCard({ item, promo, etiqueta, noCarrinho, i
                 className="flex h-11 flex-1 items-center justify-center rounded-lg border border-[var(--client-border)] bg-[var(--client-surface)] font-black text-[var(--client-text-primary)] transition active:scale-95 hover:bg-[var(--client-background-soft)]"><Minus aria-hidden="true" size={14} /></button>
               <span className="w-8 text-center text-sm font-black text-[var(--client-text-primary)]">{noCarrinho.quantity}</span>
               <button type="button" onClick={() => onAbrir(item)} title="Personalizar / adicionar mais" aria-label={`Adicionar mais uma unidade de ${item.name}`}
-                className="flex h-11 flex-1 items-center justify-center rounded-lg bg-[var(--client-primary-hover)] font-black text-white transition active:scale-95 hover:bg-[var(--client-primary)]"><Plus aria-hidden="true" size={14} /></button>
+                className="flex h-11 flex-1 items-center justify-center rounded-lg btn-laranja bg-[var(--client-primary-hover)] font-black text-white transition active:scale-95 hover:bg-[var(--client-primary)]"><Plus aria-hidden="true" size={14} /></button>
             </div>
           ) : (
             <button type="button" onClick={() => onAbrir(item)}
-              className="mt-2.5 flex h-11 w-full items-center justify-center gap-1.5 rounded-xl bg-[var(--client-primary-hover)] px-3 text-sm font-bold text-white transition active:scale-95 hover:bg-[var(--client-primary)]">
+              className="mt-2.5 flex h-11 w-full items-center justify-center gap-1.5 rounded-xl btn-laranja bg-[var(--client-primary-hover)] px-3 text-sm font-bold text-white transition active:scale-95 hover:bg-[var(--client-primary)]">
               Adicionar <Plus aria-hidden="true" size={15} />
             </button>
           )}

@@ -2974,7 +2974,7 @@ export function ProdutoModal({ produto, onFechar, onAdicionar, grupos = [], opco
               {/* Botão adicionar — laranja (ação principal), com estados idle/enviando/sucesso/erro/desabilitado */}
               <button type="button" onClick={confirmar} disabled={!podeAdicionar || statusEnvio === "enviando"}
                 className={`flex min-h-[44px] flex-1 items-center justify-between gap-1.5 rounded-2xl px-3.5 py-3.5 text-[13px] sm:text-sm font-bold text-white transition-all duration-150 active:scale-[0.98] disabled:cursor-not-allowed ${
-                  statusEnvio === "erro" ? "bg-[var(--client-error)]" : "bg-[var(--client-primary-hover)] hover:bg-[var(--client-primary)]"
+                  statusEnvio === "erro" ? "bg-[var(--client-error)]" : "btn-laranja bg-[var(--client-primary-hover)] hover:bg-[var(--client-primary)]"
                 } disabled:opacity-50 shadow-lg shadow-[#E67E22]/20`}>
                 <span className="flex min-w-0 items-center gap-1.5 truncate">
                   {statusEnvio === "enviando" && <PmIconSpinner />}
