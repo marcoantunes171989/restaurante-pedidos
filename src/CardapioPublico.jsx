@@ -1380,8 +1380,14 @@ export default function CardapioPublico() {
             sincronização de rolagem (todas ficam visíveis ao mesmo tempo). */}
         <div className="pb-6">
           {grupos.length === 0 && <p className="py-10 text-center text-sm text-[var(--client-text-secondary)]">Nenhum produto disponível.</p>}
-          {grupos.map((g) => (
-            <section key={g.id} ref={(el) => (secRefs.current[g.id] = el)} id={`cat-${g.id}`} data-cat-id={g.id} style={{ scrollMarginTop: headerH + catBarH + 8 }}>
+          {grupos.map((g, i) => (
+            // A ÚLTIMA seção recebe min-height = altura visível abaixo da barra
+            // fixa (100dvh − cabeçalho − barra de categorias). Sem isso, a última
+            // categoria (e categorias curtas no fim) nunca conseguem rolar até
+            // ficar fixas no topo → nunca são "selecionadas" e a barra não rola
+            // até elas. dvh (não vh) p/ a barra do navegador mobile não bagunçar.
+            <section key={g.id} ref={(el) => (secRefs.current[g.id] = el)} id={`cat-${g.id}`} data-cat-id={g.id}
+              style={{ scrollMarginTop: headerH + catBarH + 8, ...(i === grupos.length - 1 ? { minHeight: `calc(100dvh - ${headerH + catBarH}px)` } : {}) }}>
               <div className="sticky z-10 -mx-4 mb-3 mt-1 flex items-center gap-2 bg-[#F8F5F1]/95 px-4 py-1.5 backdrop-blur" style={{ top: headerH + catBarH }}>
                 <span className="h-4 w-1 rounded-full bg-[var(--client-primary-hover)]" />
                 <h2 className="text-sm font-black uppercase tracking-wide text-[var(--client-text-primary)]">{g.nome}</h2>
