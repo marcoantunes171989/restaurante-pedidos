@@ -1,5 +1,5 @@
 import { motion, useReducedMotion } from "framer-motion";
-import { LogOut, Search, X } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { OperationalBrandLogo } from "./BrandLogo";
 import NotificationBell from "./NotificationBell";
 import NotificationSettings from "./NotificationSettings";
@@ -14,7 +14,8 @@ import { useOnline } from "../lib/useOnline";
  *  - statusLabelOnline: rótulo do chip quando online.
  *  - meta: ReactNode opcional que substitui a linha de meta; se ausente,
  *    compõe "loja · usuário · nível".
- *  - comBusca: exibe a linha de busca + notificações (telas de lista = true).
+ *  - comNotificacoes: exibe a linha de notificações (sino + config) (telas de lista = true).
+ *    (A busca por pedido/cliente foi removida das telas do operacional.)
  * NotificationBell/NotificationSettings continuam autocontidos (JWT/RLS).
  */
 export default function OperationalHeader({
@@ -26,10 +27,7 @@ export default function OperationalHeader({
   statusLabelOnline = "Online",
   comLogo = true,
   meta = null,
-  comBusca = false,
-  busca = "",
-  onBuscaChange,
-  searchPlaceholder = "Buscar…",
+  comNotificacoes = false,
 }) {
   const online = useOnline();
   const reduzMovimento = useReducedMotion();
@@ -73,27 +71,8 @@ export default function OperationalHeader({
         </button>
       </div>
 
-      {comBusca && (
-        <div className="mt-4 flex items-center gap-2.5">
-          <div className="relative flex-1">
-            <Search aria-hidden="true" size={17} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--pp-text-muted)]" />
-            <input
-              type="text"
-              value={busca}
-              onChange={(e) => onBuscaChange?.(e.target.value)}
-              placeholder={searchPlaceholder}
-              aria-label={searchPlaceholder}
-              className="min-h-[44px] w-full rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] py-2.5 pl-10 pr-10 text-sm text-[var(--pp-text)] outline-none transition-colors duration-150 placeholder:text-[var(--pp-text-muted)] focus:border-[var(--pp-primary)] focus:bg-[var(--pp-surface)] focus:ring-[3px] focus:ring-[var(--pp-primary-soft)]"
-            />
-            {busca && (
-              <button
-                type="button" onClick={() => onBuscaChange?.("")} aria-label="Limpar busca"
-                className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-[var(--pp-text-muted)] transition-colors duration-150 hover:bg-[var(--pp-border)] hover:text-[var(--pp-text)]"
-              >
-                <X aria-hidden="true" size={16} />
-              </button>
-            )}
-          </div>
+      {comNotificacoes && (
+        <div className="mt-4 flex items-center justify-end gap-2.5">
           <NotificationBell />
           <NotificationSettings />
         </div>
