@@ -1,4 +1,5 @@
-import { User, CreditCard, Check, Wine } from "lucide-react";
+import { useState } from "react";
+import { User, CreditCard, Check, Wine, ChevronDown } from "lucide-react";
 import OrderStatusBadge from "./OrderStatusBadge";
 import { STATUS_ACCENT } from "./orderStatusColors";
 import OrderOriginBadge from "./OrderOriginBadge";
@@ -75,7 +76,7 @@ function SetorBloco({ o, sk, its, metaSetor, setorPronto, onMarcarPronto }) {
  * "pronto, aguardando o outro setor" — Cozinha/Bar), sem nenhuma ação.
  */
 export default function OrderCard({
-  o, variante, setoresNoPedido = [], acao, mensagemRodape,
+  o, variante, setoresNoPedido = [], acao, mensagemRodape, setoresAguardando = [],
   origemDe, haTxt, numeroPedido, itensDoSetor, metaSetor,
   setorPronto, onMarcarPronto,
   context = "orders", podeCancelar = false, onCancelar, onImprimir,
@@ -83,6 +84,7 @@ export default function OrderCard({
 }) {
   const org = origemDe(o);
   const [tableBase, tableSub] = String(o.table || "").split(" · ");
+  const [verSetor, setVerSetor] = useState(false); // revela QUAL setor falta ao tocar na faixa
 
   return (
     <article ref={cardRef} className={`relative overflow-hidden rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-surface)] p-4 shadow-[0_1px_2px_rgba(43,35,32,0.04),0_2px_10px_rgba(43,35,32,0.05)] transition-shadow duration-200 hover:shadow-[0_4px_18px_rgba(43,35,32,0.09)] ${destacado ? "pp-order-destaque" : ""}`}>
@@ -123,9 +125,25 @@ export default function OrderCard({
 
       <div className="mt-4 flex items-center gap-2 pl-2">
         {mensagemRodape ? (
-          <p aria-disabled="true" className="btn-verde flex flex-1 items-center justify-center gap-1.5 rounded-xl px-4 py-3 text-center text-sm font-bold text-white">
-            <Check aria-hidden="true" size={15} /> {mensagemRodape}
-          </p>
+          setoresAguardando.length > 0 ? (
+            <button
+              type="button"
+              onClick={() => setVerSetor((v) => !v)}
+              aria-expanded={verSetor}
+              title="Toque para ver qual setor falta"
+              className="btn-verde btn-verde--calmo flex flex-1 items-center justify-center gap-1.5 rounded-xl px-4 py-3 text-center text-sm font-bold text-white transition-transform duration-150 active:scale-[0.99] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-primary-hover)]"
+            >
+              <Check aria-hidden="true" size={15} />
+              {verSetor
+                ? `Aguardando ${setoresAguardando.length > 1 ? "os setores" : "o setor"}: ${setoresAguardando.join(", ")}`
+                : mensagemRodape}
+              <ChevronDown aria-hidden="true" size={14} className={`shrink-0 transition-transform duration-200 ${verSetor ? "rotate-180" : ""}`} />
+            </button>
+          ) : (
+            <p aria-disabled="true" className="btn-verde flex flex-1 items-center justify-center gap-1.5 rounded-xl px-4 py-3 text-center text-sm font-bold text-white">
+              <Check aria-hidden="true" size={15} /> {mensagemRodape}
+            </p>
+          )
         ) : acao ? (
           <OrderActionButton a={acao} variante={variante} />
         ) : null}

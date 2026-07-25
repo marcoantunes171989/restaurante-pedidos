@@ -79,7 +79,14 @@ export default function CentralDoBar({
     if (variante === "preparo") {
       const todos = setoresPresentes(o);
       const aguardandoOutroSetor = setoresNoPedido.length > 0 && setoresNoPedido.every((s) => setorPronto(o, s)) && todos.length > setoresNoPedido.length;
-      if (aguardandoOutroSetor) return { mensagemRodape: "Bar pronto · aguardando o outro setor" };
+      if (aguardandoOutroSetor) {
+        // nomes dos setores que ainda faltam (outros setores do pedido, não prontos)
+        const setoresAguardando = todos
+          .filter((s) => !setoresNoPedido.includes(s) && !setorPronto(o, s))
+          .map((s) => metaSetor(s)?.label)
+          .filter(Boolean);
+        return { mensagemRodape: "Bar pronto · aguardando o outro setor", setoresAguardando };
+      }
       return {}; // ação real é por setor, dentro do card
     }
     // pronto
@@ -89,7 +96,7 @@ export default function CentralDoBar({
 
   const renderCard = (o, variante) => {
     const setoresNoPedido = setoresPresentesSetor(o);
-    const { acao, mensagemRodape } = acaoPara(o, variante, setoresNoPedido);
+    const { acao, mensagemRodape, setoresAguardando } = acaoPara(o, variante, setoresNoPedido);
     return (
       <OrderCard
         key={o.id}
@@ -97,7 +104,7 @@ export default function CentralDoBar({
         destacado={o.id === destacadoId}
         o={o} variante={variante}
         setoresNoPedido={setoresNoPedido}
-        acao={acao} mensagemRodape={mensagemRodape}
+        acao={acao} mensagemRodape={mensagemRodape} setoresAguardando={setoresAguardando}
         origemDe={origemDe} haTxt={haTxt} numeroPedido={numeroPedido} itensDoSetor={itensDoSetor} metaSetor={metaSetor}
         setorPronto={setorPronto} onMarcarPronto={(sk) => onMarcarSetorPronto(o.id, sk, setoresPresentes(o))}
         context={context} podeCancelar={podeCancelarPedido} onCancelar={cancelarPedido} onImprimir={imprimirTicketOperacional}
