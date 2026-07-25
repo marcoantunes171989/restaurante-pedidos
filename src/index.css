@@ -647,6 +647,15 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
 [data-theme="light"] .tema-claro-area .bg-emerald-500.text-white,
 [data-theme="light"] .tema-claro-area .bg-green-500.text-white,
 [data-theme="light"] .tema-claro-area .bg-red-500.text-white { color: #FFFFFF !important; }
+/* Cardápio do cliente: preenchimentos coloridos (tokens --client-*) com texto
+   branco DEVEM manter o branco. A regra genérica acima (.text-white -> grafite)
+   existe para remapear telas admin de tema escuro, mas escurecia por engano o
+   texto/ícone branco dos elementos coloridos do cliente — botão laranja
+   "Confirmar e enviar", ✓ do stepper (fundo verde), selos info/oferta, etc.
+   Um seletor de atributo cobre TODOS os fills --client-* (à prova de futuro:
+   qualquer botão/badge colorido novo do cliente já nasce com o branco correto).
+   Fundos -soft usam texto colorido (não branco), então não são afetados. */
+[data-theme="light"] .tema-claro-area [class*="bg-[var(--client"].text-white { color: #FFFFFF !important; }
 /* Autofill claro dentro da área clara — cobre :hover/:focus/:active também
    (o WebKit trata cada estado como seletor composto separado; sem os 4,
    o navegador pode reverter para o autofill escuro genérico ao focar um
