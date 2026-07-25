@@ -471,7 +471,8 @@ export default function CardapioPublico() {
   const chipRefs = useRef({});
   const topoRef = useRef(null);    // sentinela no topo — "Todos" rola até aqui
   const headerRef = useRef(null);  // cabeçalho fixo — sua altura REAL vira o offset "top" do carrossel
-  const catBarRef = useRef(null); // barra sticky de categorias — usada p/ calcular offset real
+  const catBarRef = useRef(null); // barra sticky de categorias (div externa) — usada p/ medir a altura/offset real
+  const catScrollRef = useRef(null); // div INTERNA que realmente rola no eixo X (overflow-x-auto) — alvo do auto-scroll do chip ativo
   // Raiz da tela — quem realmente rola NÃO é a window: html/body/#root têm
   // overflow-x:hidden global (index.css), e o CSS converte automaticamente o
   // eixo Y ausente para "auto" nesse caso — #root vira o container de scroll
@@ -690,7 +691,10 @@ export default function CardapioPublico() {
   // cruzava a faixa de detecção e a categoria ativa mudava). Rolar só a
   // barra, sem tocar em #root, elimina esse conflito de vez.
   useEffect(() => {
-    const barra = catBarRef.current;
+    // A rolagem horizontal acontece na div INTERNA (overflow-x-auto), não na
+    // externa (catBarRef, que só mede altura). Rolar a externa não fazia nada —
+    // por isso o chip ativo (ex.: a última categoria) nunca aparecia na barra.
+    const barra = catScrollRef.current;
     const chip = chipRefs.current[catAtivaId];
     if (!barra || !chip) return;
     const rectBarra = barra.getBoundingClientRect();
@@ -1304,7 +1308,7 @@ export default function CardapioPublico() {
             o cabeçalho). Fonte/altura compactas (text-sm, py-2.5): mais clean e
             libera altura para os produtos, sem perder legibilidade. */}
         <div ref={catBarRef} className="border-b border-[var(--client-border)] bg-[var(--client-surface)] shadow-[var(--client-shadow-sm)]">
-          <div className="pp-noscrollbar mx-auto flex max-w-3xl gap-2 overflow-x-auto px-4 py-2.5">
+          <div ref={catScrollRef} className="pp-noscrollbar mx-auto flex max-w-3xl gap-2 overflow-x-auto px-4 py-2.5">
           {cats.map((c) => { const ativo = catAtivaId === c.id;
             return (
               <button key={c.id} type="button" ref={(el) => (chipRefs.current[c.id] = el)} onClick={() => selecionarCategoria(c.id)}
