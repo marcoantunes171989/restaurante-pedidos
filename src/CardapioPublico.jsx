@@ -843,14 +843,19 @@ export default function CardapioPublico() {
   // Pesquisa de Satisfação SÓ no fim: quando um pedido feito por este aparelho CONCLUIR
   // (pago + retirado/entregue). Mostra uma vez por pedido.
   useEffect(() => {
-    if (survey) return;
+    // NÃO interromper o usuário no meio de um fluxo: se a gaveta (carrinho/conta)
+    // ou o modal de produto estiver aberto, adia a pesquisa. Isso evita o bug de
+    // ela abrir por cima do checkout ao digitar a comanda (que recarrega `orders`
+    // e podia trazer um pedido antigo já concluído + pendente de pesquisa). A
+    // pesquisa reaparece quando o usuário fecha o overlay (aba/detalhe nas deps).
+    if (survey || aba || detalhe) return;
     const pend = lerSetLS(SURVEY_PEND_KEY);
     if (pend.size === 0) return;
     const done = lerSetLS(SURVEY_DONE_KEY);
     const alvo = orders.find((o) => pend.has(o.id) && !done.has(o.id) && o.paymentStatus === "paid" && o.status === "delivered");
     if (alvo) setSurvey({ pedidoId: alvo.id, mesa: alvo.table, origem: (alvo.table === "Externo" || /^EXT-/.test(alvo.command || "")) ? "externo" : "mesa" });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orders, survey]);
+  }, [orders, survey, aba, detalhe]);
   const subtotal = meusPedidos.reduce((s, o) => s + o.items.reduce((a, i) => a + i.price * i.quantity, 0), 0);
   const totalMesa = subtotal * 1.1;
   const totalCart = cart.reduce((s, i) => s + i.price * i.quantity, 0);
