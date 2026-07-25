@@ -1430,7 +1430,7 @@ export default function CardapioPublico() {
                 {cart.length > 0 ? (
                   <><span className="block text-sm font-black text-[var(--client-text-primary)]">Ver carrinho</span><span className="block truncate text-xs text-[var(--client-text-secondary)]">{qtdCart} {qtdCart === 1 ? "item" : "itens"} · {formatCurrency(totalCart)}</span></>
                 ) : (
-                  <span className="block text-sm font-black text-[var(--client-text-muted)]">Carrinho vazio</span>
+                  <><span className="block text-sm font-black text-[var(--client-text-secondary)]">Seu carrinho está vazio</span><span className="block truncate text-xs text-[var(--client-text-muted)]">Toque num produto para começar</span></>
                 )}
               </span>
             </button>
