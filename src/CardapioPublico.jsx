@@ -842,17 +842,26 @@ export default function CardapioPublico() {
     : orders.filter((o) => o.table === currentTable && o.command === comanda && o.status !== "cancelled" && !concluido(o));
   // Pesquisa de Satisfação SÓ no fim: quando um pedido feito por este aparelho CONCLUIR
   // (pago + retirado/entregue). Mostra uma vez por pedido.
+  // Guarda os pedidos pendentes vistos AINDA ATIVOS nesta sessão — só eles podem
+  // abrir a pesquisa ao concluir (evita disparar por um pedido antigo já concluído
+  // carregado do banco ao digitar a comanda). É um ref (não reinicia por re-render).
+  const pendVistosAtivosRef = useRef(new Set());
   useEffect(() => {
-    // NÃO interromper o usuário no meio de um fluxo: se a gaveta (carrinho/conta)
-    // ou o modal de produto estiver aberto, adia a pesquisa. Isso evita o bug de
-    // ela abrir por cima do checkout ao digitar a comanda (que recarrega `orders`
-    // e podia trazer um pedido antigo já concluído + pendente de pesquisa). A
-    // pesquisa reaparece quando o usuário fecha o overlay (aba/detalhe nas deps).
+    // A pesquisa NÃO deve abrir para um pedido que já chegou concluído (ex.: ao
+    // DIGITAR A COMANDA, `orders` recarrega e pode trazer um pedido antigo, de
+    // outra sessão, já pago+entregue). Só pesquisamos um pedido cujo CICLO
+    // acompanhamos NESTA sessão: registramos os pendentes vistos ainda ATIVOS e
+    // só disparamos quando um deles TRANSICIONA para concluído sob nossos olhos.
+    // (+ não interromper: adia enquanto gaveta/modal aberto — aba/detalhe.)
     if (survey || aba || detalhe) return;
     const pend = lerSetLS(SURVEY_PEND_KEY);
     if (pend.size === 0) return;
     const done = lerSetLS(SURVEY_DONE_KEY);
-    const alvo = orders.find((o) => pend.has(o.id) && !done.has(o.id) && o.paymentStatus === "paid" && o.status === "delivered");
+    const concl = (o) => o.paymentStatus === "paid" && o.status === "delivered";
+    for (const o of orders) {
+      if (pend.has(o.id) && !done.has(o.id) && !concl(o)) pendVistosAtivosRef.current.add(o.id);
+    }
+    const alvo = orders.find((o) => pend.has(o.id) && !done.has(o.id) && concl(o) && pendVistosAtivosRef.current.has(o.id));
     if (alvo) setSurvey({ pedidoId: alvo.id, mesa: alvo.table, origem: (alvo.table === "Externo" || /^EXT-/.test(alvo.command || "")) ? "externo" : "mesa" });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orders, survey, aba, detalhe]);
