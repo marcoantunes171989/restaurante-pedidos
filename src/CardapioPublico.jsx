@@ -647,11 +647,35 @@ export default function CardapioPublico() {
     }) : null;
     roEl?.observe(el);
 
+    // Backstop por GEOMETRIA (sempre ligado, além do observer): em webviews/
+    // navegadores in-app (Safari iOS, WhatsApp/Instagram in-app browser) o
+    // IntersectionObserver com root+rootMargin às vezes não dispara direito e a
+    // categoria ativa "congela". Este recálculo a cada rolagem (throttle rAF)
+    // é barato, determinístico e funciona em todo lugar: a categoria ativa é a
+    // ÚLTIMA seção cujo topo já passou da linha de referência (a que está fixa
+    // sob a barra agora). Só re-renderiza quando o valor realmente muda.
+    let rafGeom = 0;
+    const calcGeom = () => {
+      if (rolandoPorCliqueRef.current) return;
+      if (el.scrollTop <= 0) { setCatAtivaId((cur) => (cur === CATEGORIA_TODOS ? cur : CATEGORIA_TODOS)); return; }
+      let atual = CATEGORIA_TODOS;
+      for (const g of grupos) {
+        const secEl = secRefs.current[g.id];
+        if (secEl && secEl.getBoundingClientRect().top - linha <= 0) atual = g.id;
+      }
+      setCatAtivaId((cur) => (cur === atual ? cur : atual));
+    };
+    const onScrollGeom = () => { if (rafGeom) return; rafGeom = requestAnimationFrame(() => { rafGeom = 0; calcGeom(); }); };
+    el.addEventListener("scroll", onScrollGeom, { passive: true });
+    calcGeom();
+
     return () => {
       obsSecoes?.disconnect();
       clearTimeout(debounceEscolha);
       roEl?.disconnect();
       clearTimeout(debounceResize);
+      el.removeEventListener("scroll", onScrollGeom);
+      cancelAnimationFrame(rafGeom);
     };
   }, [grupos, headerH, catBarH]);
   // Mantém o chip ativo visível (e centralizado) na barra horizontal — rola
