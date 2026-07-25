@@ -27,7 +27,7 @@ const VAZIO_POR_FILTRO = {
 /**
  * Caixa (/operacional/caixa) — tema CLARO, última das 5 telas
  * operacionais a migrar (Central, Pedidos, Cozinha e Bar já tinham sido
- * redesenhadas). Reaproveita OrdersHeader (cabeçalho + busca já usado em
+ * redesenhadas). Reaproveita OrdersHeader (cabeçalho já usado em
  * Pedidos/Cozinha/Bar) e um conjunto próprio de componentes financeiros
  * (CashierSummary/CashierStatusFilters/AccountCard/AccountStatusBadge —
  * vocabulário de status diferente do fluxo de produção: aguardando/
@@ -58,7 +58,6 @@ export default function CentralDoCaixa({
 }) {
   const [pagando, setPagando] = useState(null);
   const [retirando, setRetirando] = useState(null);
-  const [busca, setBusca] = useState("");
   const [filtro, setFiltro] = useState("todas");
   // Trava síncrona (ref) contra clique duplo antes do re-render aplicar o "disabled".
   const pagandoIdsRef = useRef(new Set());
@@ -113,12 +112,6 @@ export default function CentralDoCaixa({
 
   const abertas = contas.filter((o) => o.paymentStatus !== "paid");
   const totalReceber = abertas.reduce((s, o) => s + totalCom(o), 0);
-  const buscaNorm = busca.trim().toLowerCase();
-  const bate = (o) => {
-    if (!buscaNorm) return true;
-    const alvo = [o.table, o.customer, o.id, `#${numeroPedido[o.id] ?? ""}`].join(" ").toLowerCase();
-    return alvo.includes(buscaNorm);
-  };
   const contasComCategoria = contas.map((o) => ({ o, categoria: categoriaDe(o) }));
   const counts = {
     todas: contas.length,
@@ -126,13 +119,13 @@ export default function CentralDoCaixa({
     em_aberto: contasComCategoria.filter((c) => c.categoria === "em_aberto").length,
     pago: contasComCategoria.filter((c) => c.categoria === "pago").length,
   };
-  const visiveis = contasComCategoria.filter((c) => (filtro === "todas" || c.categoria === filtro) && bate(c.o));
+  const visiveis = contasComCategoria.filter((c) => filtro === "todas" || c.categoria === filtro);
   const vazio = VAZIO_POR_FILTRO[filtro] || VAZIO_POR_FILTRO.todas;
 
   return (
     <div className="min-h-[100dvh] w-full pb-28" style={{ background: "var(--pp-bg)", paddingTop: "env(safe-area-inset-top)" }}>
       <div className="mx-auto max-w-[1600px] px-4 pb-6 pt-6 md:px-6 md:pt-10 lg:px-10">
-        <OrdersHeader titulo="Caixa" usuarioNome={usuarioNome} lojaInfo={lojaInfo} onFechar={onFechar} nivelAcesso={nivelAcesso} busca={busca} onBuscaChange={setBusca} searchPlaceholder="Buscar por mesa, cliente ou pedido…" />
+        <OrdersHeader titulo="Caixa" usuarioNome={usuarioNome} lojaInfo={lojaInfo} onFechar={onFechar} nivelAcesso={nivelAcesso} />
 
         <div className="mt-6">
           <CashierSummary aguardando={counts.aguardando} abertas={contas.length} totalReceber={formatCurrency(totalReceber)} faturadoHoje={formatCurrency(faturadoHoje)} />

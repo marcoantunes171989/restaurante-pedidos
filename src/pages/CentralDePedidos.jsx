@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import OperationalBottomNav from "../components/OperationalBottomNav";
 import OrdersHeader from "../components/orders/OrdersHeader";
 import OrdersSummary from "../components/orders/OrdersSummary";
@@ -14,7 +14,7 @@ import OrderCard from "../components/orders/OrderCard";
  * usa o cabeçalho escuro original (OperationalDarkHeader), sem nenhuma
  * alteração. Todo dado e toda mutação (aceitar, entregar, status)
  * continuam vindo prontos de OperacaoMobileView (src/App.jsx) — este
- * componente só formata, filtra pela busca local e monta a apresentação.
+ * componente só formata e monta a apresentação.
  */
 export default function CentralDePedidos({
   usuarioNome = "",
@@ -29,7 +29,6 @@ export default function CentralDePedidos({
   acaoPrincipal,
   podeCancelarPedido = false, cancelarPedido, imprimirTicketOperacional,
 }) {
-  const [busca, setBusca] = useState("");
   const [view, setView] = useState("kanban"); // sem persistência: o projeto não tem hoje um padrão pra isso
 
   // Chegada via clique numa notificação (?destacar=<id>, migration 064 /
@@ -55,22 +54,6 @@ export default function CentralDePedidos({
     return () => clearTimeout(t);
   }, [destacadoId]);
 
-  const buscaNorm = busca.trim().toLowerCase();
-  const bate = (o) => {
-    if (!buscaNorm) return true;
-    const alvo = [o.customer, o.id, o.table, `#${numeroPedido[o.id] ?? ""}`].join(" ").toLowerCase();
-    return alvo.includes(buscaNorm);
-  };
-
-  const colunasFiltradas = useMemo(() => ({
-    novos: (colunas.novos || []).filter(bate),
-    preparo: (colunas.preparo || []).filter(bate),
-    prontos: (colunas.prontos || []).filter(bate),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [colunas, buscaNorm]);
-
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const listaFiltrada = useMemo(() => listaTodos.filter(bate), [listaTodos, buscaNorm]);
 
   const deriveVariant = (o) => (o.status === "received" ? "novo" : o.status === "preparing" ? "preparo" : "pronto");
 
@@ -90,7 +73,7 @@ export default function CentralDePedidos({
   return (
     <div className="min-h-[100dvh] w-full pb-28" style={{ background: "var(--pp-bg)", paddingTop: "env(safe-area-inset-top)" }}>
       <div className="mx-auto max-w-[1600px] px-4 pb-6 pt-6 md:px-6 md:pt-10 lg:px-10">
-        <OrdersHeader usuarioNome={usuarioNome} lojaInfo={lojaInfo} onFechar={onFechar} nivelAcesso={nivelAcesso} busca={busca} onBuscaChange={setBusca} />
+        <OrdersHeader usuarioNome={usuarioNome} lojaInfo={lojaInfo} onFechar={onFechar} nivelAcesso={nivelAcesso} />
 
         <div className="mt-6">
           <OrdersSummary novos={colunas.novos?.length || 0} preparo={colunas.preparo?.length || 0} prontos={colunas.prontos?.length || 0} />
@@ -106,14 +89,14 @@ export default function CentralDePedidos({
           </div>
 
           {view === "kanban" ? (
-            <OrdersKanban dataColunas={colunasFiltradas} renderCard={renderCard} />
+            <OrdersKanban dataColunas={colunas} renderCard={renderCard} />
           ) : (
             <OrdersList
-              pedidos={listaFiltrada} deriveVariant={deriveVariant} renderCard={renderCard}
+              pedidos={listaTodos} deriveVariant={deriveVariant} renderCard={renderCard}
               acaoPrincipal={acaoPrincipal} origemDe={origemDe} haTxt={haTxt} numeroPedido={numeroPedido} setoresPresentes={setoresPresentes}
               metaSetor={metaSetor} itensDoSetor={itensDoSetor}
               context="orders" podeCancelar={podeCancelarPedido} onCancelar={cancelarPedido} onImprimir={imprimirTicketOperacional}
-              vazioTitulo="Nenhum pedido ativo." vazioDescricao={busca ? "Tente ajustar a busca." : undefined}
+              vazioTitulo="Nenhum pedido ativo."
             />
           )}
         </section>
