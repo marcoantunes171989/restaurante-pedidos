@@ -5630,7 +5630,7 @@ const SidebarItem = React.memo(function SidebarItem({ icon, label, selected, blo
   return (
     <button onClick={onClick} title={title} aria-current={selected ? "page" : undefined}
       className={cxSidebar(
-        "group relative flex min-h-[44px] w-full items-center gap-3 rounded-2xl border-l-[3px] p-4 text-sm transition-all duration-200 ease-out",
+        "group relative flex min-h-[44px] w-full items-center gap-3 rounded-2xl border-l-[3px] p-4 text-[13px] tracking-[0.01em] transition-all duration-200 ease-out",
         "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-nav-accent)]",
         selected
           ? "border-l-[var(--pp-nav-accent)] bg-[rgba(88,183,205,0.16)] font-bold text-[var(--pp-nav-accent)]"
@@ -5648,7 +5648,7 @@ const cxSidebar = (...c) => c.filter(Boolean).join(" ");
 function SidebarSection({ titulo, children }) {
   return (
     <div>
-      <p className="px-4 mb-1.5 text-[11px] font-bold uppercase tracking-widest text-white/60">{titulo}</p>
+      <p className="px-4 mb-1.5 text-[10px] font-bold uppercase tracking-widest text-white/60">{titulo}</p>
       <div className="space-y-1">{children}</div>
     </div>
   );
