@@ -8459,15 +8459,15 @@ class SecaoErrorBoundary extends React.Component {
 function KpiExecutivo({ titulo, valor, variacao, desc, icon, tendencia }) {
   const max = tendencia && tendencia.length ? Math.max(1, ...tendencia) : 1;
   return (
-    <div className="h-full rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-[0_1px_2px_rgba(13,27,42,0.04)]">
+    <div className="h-full rounded-2xl border border-[var(--pp-border)] bg-white p-4 shadow-[0_1px_2px_rgba(13,27,42,0.04)]">
       <div className="flex items-start justify-between gap-2">
-        <p className="text-[11px] font-bold uppercase tracking-widest text-[#64748B]">{titulo}</p>
+        <p className="text-[11px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]">{titulo}</p>
         {icon && <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#0F4C5C]/10 text-sm">{icon}</span>}
       </div>
-      <p className="page-title mt-1.5 text-2xl font-black text-[#0D1B2A]">{valor}</p>
+      <p className="page-title mt-1.5 text-2xl font-black text-[var(--pp-text)]">{valor}</p>
       <div className="mt-1 flex items-center gap-2">
         {variacao != null && (
-          <span className={`text-[11px] font-bold ${variacao >= 0 ? "text-[#10B981]" : "text-[#F59E0B]"}`}>{variacao >= 0 ? "▲" : "▼"} {Math.abs(Math.round(variacao))}%</span>
+          <span className={`text-[11px] font-bold ${variacao >= 0 ? "text-[#2F9E52]" : "text-[#F59E0B]"}`}>{variacao >= 0 ? "▲" : "▼"} {Math.abs(Math.round(variacao))}%</span>
         )}
         {tendencia && tendencia.length > 1 && (
           <span className="flex h-4 items-end gap-[2px]" aria-hidden="true">
@@ -8475,7 +8475,7 @@ function KpiExecutivo({ titulo, valor, variacao, desc, icon, tendencia }) {
           </span>
         )}
       </div>
-      {desc && <p className="mt-1 text-xs leading-snug text-[#64748B]">{desc}</p>}
+      {desc && <p className="mt-1 text-xs leading-snug text-[var(--pp-text-muted)]">{desc}</p>}
     </div>
   );
 }
@@ -8484,13 +8484,13 @@ function KpiExecutivo({ titulo, valor, variacao, desc, icon, tendencia }) {
 // sem venda/baixo estoque/maior margem/faturamento, forma de pagamento, canal…
 function TopLista({ titulo, icon, itens, render, vazio = "Sem dados no período.", acao, className = "" }) {
   return (
-    <div className={`h-full rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-[0_1px_2px_rgba(13,27,42,0.04)] ${className}`}>
+    <div className={`h-full rounded-2xl border border-[var(--pp-border)] bg-white p-4 shadow-[0_1px_2px_rgba(13,27,42,0.04)] ${className}`}>
       <div className="mb-2.5 flex items-center justify-between gap-2">
-        <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-[#64748B]">{icon && <span aria-hidden="true">{icon}</span>}{titulo}</p>
+        <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]">{icon && <span aria-hidden="true">{icon}</span>}{titulo}</p>
         {acao}
       </div>
       {(!itens || itens.length === 0) ? (
-        <p className="py-2 text-xs text-[#94A3B8]">{vazio}</p>
+        <p className="py-2 text-xs text-[var(--pp-text-muted)]">{vazio}</p>
       ) : (
         <ul className="space-y-2">
           {itens.map((it, i) => (<li key={i}>{render(it, i)}</li>))}
@@ -8503,20 +8503,20 @@ function TopLista({ titulo, icon, itens, render, vazio = "Sem dados no período.
 // Painel de insights — ícone + cor semântica (só azul/verde/laranja/violeta/
 // vermelho — vermelho reservado ao caso realmente crítico: estoque zerado).
 const INSIGHT_TONS_VENDAS = {
-  success: { icon: "📈", bg: "bg-[#10B981]/10" },
+  success: { icon: "📈", bg: "bg-[#2F9E52]/10" },
   warning: { icon: "⚠️", bg: "bg-[#F59E0B]/10" },
   info:    { icon: "💡", bg: "bg-[#0F4C5C]/10" },
-  violet:  { icon: "✨", bg: "bg-[#8B5CF6]/10" },
-  danger:  { icon: "🔴", bg: "bg-[#EF4444]/10" },
+  violet:  { icon: "✨", bg: "bg-[#0F4C5C]/10" },
+  danger:  { icon: "🔴", bg: "bg-[#C81E4A]/10" },
 };
 function InsightCardVendas({ tom = "info", titulo, texto, acaoLabel, onAcao }) {
   const t = INSIGHT_TONS_VENDAS[tom] || INSIGHT_TONS_VENDAS.info;
   return (
-    <div className="flex h-full items-start gap-3 rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-[0_1px_2px_rgba(13,27,42,0.04)]">
+    <div className="flex h-full items-start gap-3 rounded-2xl border border-[var(--pp-border)] bg-white p-4 shadow-[0_1px_2px_rgba(13,27,42,0.04)]">
       <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-base ${t.bg}`} aria-hidden="true">{t.icon}</span>
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-bold text-[#0D1B2A]">{titulo}</p>
-        <p className="mt-0.5 text-xs leading-relaxed text-[#334155]">{texto}</p>
+        <p className="text-sm font-bold text-[var(--pp-text)]">{titulo}</p>
+        <p className="mt-0.5 text-xs leading-relaxed text-[var(--pp-text)]">{texto}</p>
         {acaoLabel && onAcao && (
           <button onClick={onAcao} className="mt-1.5 text-[11px] font-bold text-[#0F4C5C] transition hover:text-[#0B3A46]">{acaoLabel} →</button>
         )}
@@ -8670,8 +8670,8 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
   // Botões de exportação (reutilizados em várias abas)
   const BotoesExport = () => (
     <div className="flex flex-wrap gap-2">
-      <button onClick={exportarCSV} className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-[#334155] transition hover:bg-slate-100">📊 Exportar Excel (CSV)</button>
-      <button onClick={imprimirRelatorio} className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-[#334155] transition hover:bg-slate-100">🖨️ PDF / Imprimir</button>
+      <button onClick={exportarCSV} className="rounded-2xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-sm font-bold text-[var(--pp-text)] transition hover:bg-[var(--pp-bg)]">📊 Exportar Excel (CSV)</button>
+      <button onClick={imprimirRelatorio} className="rounded-2xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-sm font-bold text-[var(--pp-text)] transition hover:bg-[var(--pp-bg)]">🖨️ PDF / Imprimir</button>
     </div>
   );
 
@@ -8872,8 +8872,8 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
     j.document.close();
   }
   function atualizarEstoqueVisao() { setAtualizadoEmEstoque(new Date()); }
-  const inputClsEstoque = "w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs text-[#334155] outline-none transition focus:border-[#0F4C5C]";
-  const labelClsEstoque = "mb-1 block text-[10px] font-bold uppercase tracking-widest text-[#64748B]";
+  const inputClsEstoque = "w-full rounded-xl border border-[var(--pp-border)] bg-white px-3 py-2 text-xs text-[var(--pp-text)] outline-none transition focus:border-[#0F4C5C]";
+  const labelClsEstoque = "mb-1 block text-[10px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]";
 
   function exportarEstoqueCSV() {
     let csv = "Produto;Categoria;Estoque anterior;Vendido no periodo;Estoque atual;Estoque minimo\n";
@@ -9349,8 +9349,8 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
   const clientesAtivosCountE = clientesRankingE.filter((c) => c.status !== "inativo").length;
   const clientesInativosCountE = clientesRankingE.filter((c) => c.status === "inativo").length;
   const clientesAtivoXInativoE = [
-    { label: "Ativos", valor: clientesAtivosCountE, cor: "#10B981" },
-    { label: "Inativos", valor: clientesInativosCountE, cor: "#EF4444" },
+    { label: "Ativos", valor: clientesAtivosCountE, cor: "#2F9E52" },
+    { label: "Inativos", valor: clientesInativosCountE, cor: "#C81E4A" },
   ];
 
   // ── Ações rápidas por cliente ──
@@ -9434,18 +9434,18 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
     URL.revokeObjectURL(url);
   }
   function atualizarClientesVisaoE() { setAtualizadoEmClientesE(new Date()); }
-  const inputClsClientesE = "w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs text-[#334155] outline-none transition focus:border-[#0F4C5C]";
-  const labelClsClientesE = "mb-1 block text-[10px] font-bold uppercase tracking-widest text-[#64748B]";
+  const inputClsClientesE = "w-full rounded-xl border border-[var(--pp-border)] bg-white px-3 py-2 text-xs text-[var(--pp-text)] outline-none transition focus:border-[#0F4C5C]";
+  const labelClsClientesE = "mb-1 block text-[10px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]";
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h2 className="page-title flex items-center gap-2.5 text-2xl font-bold tracking-tight text-dash-navy">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-500/10 text-blue-500"><IconRelatorios /></span>
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#0F4C5C]/10 text-[#0F4C5C]"><IconRelatorios /></span>
             Relatórios de vendas
           </h2>
-          <p className="mt-1 text-sm text-slate-500">Análise gerencial: vendas, cupons, estoque, clientes e tempo de permanência.</p>
+          <p className="mt-1 text-sm text-[var(--pp-text-muted)]">Análise gerencial: vendas, cupons, estoque, clientes e tempo de permanência.</p>
         </div>
         <div className="pp-filter-panel">
           <SeletorPeriodo periodo={periodo} setPeriodo={setPeriodo} ini={ini} setIni={setIni} fim={fim} setFim={setFim} />
@@ -9479,12 +9479,12 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
               <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {[
                   { r: "Maior dia", v: maiorDiaSemana ? maiorDiaSemana.dia.split("-")[0] : "—", s: maiorDiaSemana ? formatCurrency(maiorDiaSemana.valor) : "—", cor: "text-amber-500" },
-                  { r: "Menor dia", v: menorDiaSemana ? menorDiaSemana.dia.split("-")[0] : "—", s: menorDiaSemana ? formatCurrency(menorDiaSemana.valor) : "—", cor: "text-violet-500" },
-                  { r: "Média diária", v: formatCurrency(mediaDiaria), s: "no período", cor: "text-blue-500" },
-                  { r: "Dias ativos", v: `${diasAtivos}`, s: `de ${totalDiasPeriodo}`, cor: "text-emerald-500" },
+                  { r: "Menor dia", v: menorDiaSemana ? menorDiaSemana.dia.split("-")[0] : "—", s: menorDiaSemana ? formatCurrency(menorDiaSemana.valor) : "—", cor: "text-[#0F4C5C]" },
+                  { r: "Média diária", v: formatCurrency(mediaDiaria), s: "no período", cor: "text-[#0F4C5C]" },
+                  { r: "Dias ativos", v: `${diasAtivos}`, s: `de ${totalDiasPeriodo}`, cor: "text-[#2F9E52]" },
                 ].map((c) => (
-                  <div key={c.r} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{c.r}</p>
+                  <div key={c.r} className="rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-3">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]">{c.r}</p>
                     <p className="page-title mt-1 truncate text-base font-bold text-dash-navy">{c.v}</p>
                     <p className={`truncate text-[11px] font-semibold ${c.cor}`}>{c.s}</p>
                   </div>
@@ -9497,36 +9497,36 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
           <Painel titulo="Faturamento por horário" descricao="Distribuição das vendas ao longo do período selecionado"
             acao={a.faturamento > 0 ? (
               <span className="shrink-0 text-right">
-                <span className="block text-[10px] font-bold uppercase tracking-wider text-[#64748B]">Total do período</span>
+                <span className="block text-[10px] font-bold uppercase tracking-wider text-[var(--pp-text-muted)]">Total do período</span>
                 <span className="block text-sm font-black text-[#172033]">{formatCurrency(a.faturamento)}</span>
               </span>
             ) : null}>
-            <BarrasHora dados={horarioGeral} paleta={{ semVenda: "#0F4C5C", pico: "#F59E0B", acimaMedia: "#0F4C5C", padrao: "#0F4C5C", grade: "#E2E8F0", texto: "#64748B", textoValor: "#64748B" }} />
+            <BarrasHora dados={horarioGeral} paleta={{ semVenda: "#0F4C5C", pico: "#F59E0B", acimaMedia: "#0F4C5C", padrao: "#0F4C5C", grade: "#EAE0D6", texto: "#8A7D73", textoValor: "#8A7D73" }} />
           </Painel>
 
           {/* Tabelas: produtos, mesas */}
           <div className="grid gap-5 xl:grid-cols-2">
-            <Painel titulo="Produtos mais vendidos" acao={<button onClick={() => setAba("vendas")} className="text-xs font-bold text-blue-500 hover:underline">Ver todos →</button>}>
+            <Painel titulo="Produtos mais vendidos" acao={<button onClick={() => setAba("vendas")} className="text-xs font-bold text-[#0F4C5C] hover:underline">Ver todos →</button>}>
               <div className="space-y-2.5">
-                {a.topProdutos.length === 0 && <p className="py-4 text-center text-sm text-slate-500">Nenhuma venda no período.</p>}
+                {a.topProdutos.length === 0 && <p className="py-4 text-center text-sm text-[var(--pp-text-muted)]">Nenhuma venda no período.</p>}
                 {a.topProdutos.map((p, i) => (
                   <div key={p.nome}>
                     <div className="flex items-center justify-between gap-2 text-sm">
-                      <span className="flex min-w-0 items-center gap-2 font-semibold text-dash-navy"><span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[10px] font-black ${i === 0 ? "bg-amber-50 text-amber-600" : "bg-blue-50 text-blue-600"}`}>{i + 1}</span><span className="truncate">{p.nome}</span></span>
-                      <span className="shrink-0 text-slate-500">{p.qtd} un · <b className="text-emerald-600">{formatCurrency(p.valor)}</b> · {a.faturamentoSemTaxa ? ((p.valor / a.faturamentoSemTaxa) * 100).toFixed(1) : 0}%</span>
+                      <span className="flex min-w-0 items-center gap-2 font-semibold text-dash-navy"><span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[10px] font-black ${i === 0 ? "bg-amber-50 text-amber-600" : "bg-[rgba(15,76,92,0.06)] text-[#0F4C5C]"}`}>{i + 1}</span><span className="truncate">{p.nome}</span></span>
+                      <span className="shrink-0 text-[var(--pp-text-muted)]">{p.qtd} un · <b className="text-[#2F9E52]">{formatCurrency(p.valor)}</b> · {a.faturamentoSemTaxa ? ((p.valor / a.faturamentoSemTaxa) * 100).toFixed(1) : 0}%</span>
                     </div>
-                    <div className="mt-1 h-2 overflow-hidden rounded-full bg-slate-100"><div className={`h-full rounded-full ${i === 0 ? "bg-amber-500" : "bg-blue-500"}`} style={{ width: `${a.faturamentoSemTaxa ? (p.valor / a.faturamentoSemTaxa) * 100 : 0}%` }} /></div>
+                    <div className="mt-1 h-2 overflow-hidden rounded-full bg-[var(--pp-bg)]"><div className={`h-full rounded-full ${i === 0 ? "bg-amber-500" : "bg-[#0F4C5C]"}`} style={{ width: `${a.faturamentoSemTaxa ? (p.valor / a.faturamentoSemTaxa) * 100 : 0}%` }} /></div>
                   </div>
                 ))}
               </div>
             </Painel>
-            <Painel titulo="Mesas com maior faturamento" acao={<button onClick={irParaMesas} className="text-xs font-bold text-blue-500 hover:underline">Ver mapa →</button>}>
-              {mesasFaturamento.length === 0 ? <p className="py-4 text-center text-sm text-slate-500">Nenhuma venda no período.</p> : (
+            <Painel titulo="Mesas com maior faturamento" acao={<button onClick={irParaMesas} className="text-xs font-bold text-[#0F4C5C] hover:underline">Ver mapa →</button>}>
+              {mesasFaturamento.length === 0 ? <p className="py-4 text-center text-sm text-[var(--pp-text-muted)]">Nenhuma venda no período.</p> : (
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[360px] text-sm">
-                    <thead><tr className="border-b border-slate-200 text-left text-[10px] font-bold uppercase tracking-widest text-slate-500"><th className="py-2 pr-3">Mesa</th><th className="py-2 pr-3 text-right">Faturamento</th><th className="py-2 pr-3 text-center">Pedidos</th><th className="py-2 text-right">Ticket médio</th></tr></thead>
+                    <thead><tr className="border-b border-[var(--pp-border)] text-left text-[10px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]"><th className="py-2 pr-3">Mesa</th><th className="py-2 pr-3 text-right">Faturamento</th><th className="py-2 pr-3 text-center">Pedidos</th><th className="py-2 text-right">Ticket médio</th></tr></thead>
                     <tbody>{mesasFaturamento.slice(0, 8).map((m) => (
-                      <tr key={m.mesa} className="border-b border-slate-100"><td className="py-2.5 pr-3 font-bold text-dash-navy">{m.mesa}</td><td className="py-2.5 pr-3 text-right font-semibold text-emerald-600">{formatCurrency(m.faturamento)}</td><td className="py-2.5 pr-3 text-center text-slate-500">{m.pedidos}</td><td className="py-2.5 text-right text-slate-500">{formatCurrency(m.ticket)}</td></tr>
+                      <tr key={m.mesa} className="border-b border-[var(--pp-border)]"><td className="py-2.5 pr-3 font-bold text-dash-navy">{m.mesa}</td><td className="py-2.5 pr-3 text-right font-semibold text-[#2F9E52]">{formatCurrency(m.faturamento)}</td><td className="py-2.5 pr-3 text-center text-[var(--pp-text-muted)]">{m.pedidos}</td><td className="py-2.5 text-right text-[var(--pp-text-muted)]">{formatCurrency(m.ticket)}</td></tr>
                     ))}</tbody>
                   </table>
                 </div>
@@ -9538,22 +9538,22 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
           <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
             <Painel titulo="Conversão / Pagamento">
               <p className="page-title text-3xl font-bold text-dash-navy">{taxaPagamento}%</p>
-              <p className="mt-1 text-xs text-slate-500">pedidos pagos de {a.totalPedidos}</p>
+              <p className="mt-1 text-xs text-[var(--pp-text-muted)]">pedidos pagos de {a.totalPedidos}</p>
             </Painel>
             <Painel titulo="Clientes no período">
               <p className="page-title text-3xl font-bold text-dash-navy">{clientesLista.length}</p>
-              <p className="mt-1 text-xs text-slate-500">{clientesIdentificados} identificado(s)</p>
+              <p className="mt-1 text-xs text-[var(--pp-text-muted)]">{clientesIdentificados} identificado(s)</p>
             </Painel>
             <Painel titulo="Estoque">
               <div className="flex gap-4">
-                <div><p className="page-title text-2xl font-bold text-amber-500">{baixoCount}</p><p className="text-[11px] text-slate-500">abaixo do mínimo</p></div>
-                <div><p className="page-title text-2xl font-bold text-red-500">{zeradosCount}</p><p className="text-[11px] text-slate-500">zerados</p></div>
+                <div><p className="page-title text-2xl font-bold text-amber-500">{baixoCount}</p><p className="text-[11px] text-[var(--pp-text-muted)]">abaixo do mínimo</p></div>
+                <div><p className="page-title text-2xl font-bold text-[#C81E4A]">{zeradosCount}</p><p className="text-[11px] text-[var(--pp-text-muted)]">zerados</p></div>
               </div>
-              <button onClick={() => setAba("estoque")} className="mt-3 text-xs font-bold text-blue-500 hover:underline">Ver relatório de estoque →</button>
+              <button onClick={() => setAba("estoque")} className="mt-3 text-xs font-bold text-[#0F4C5C] hover:underline">Ver relatório de estoque →</button>
             </Painel>
             <Painel titulo="Permanência">
-              <button onClick={() => setAba("permanencia")} className="text-sm font-bold text-blue-500 hover:underline">Ver tempo de permanência →</button>
-              <p className="mt-2 text-xs text-slate-500">Análise do tempo entre abertura e pagamento das comandas.</p>
+              <button onClick={() => setAba("permanencia")} className="text-sm font-bold text-[#0F4C5C] hover:underline">Ver tempo de permanência →</button>
+              <p className="mt-2 text-xs text-[var(--pp-text-muted)]">Análise do tempo entre abertura e pagamento das comandas.</p>
             </Painel>
           </div>
         </>
@@ -9562,21 +9562,21 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
       {aba === "clientes" && (
         <>
           {/* 7. Ações rápidas */}
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#E2E8F0] bg-white p-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--pp-border)] bg-white p-3">
             <div className="flex flex-wrap items-center gap-2">
-              <button onClick={exportarClientesExcelE} className="rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">📊 Exportar</button>
+              <button onClick={exportarClientesExcelE} className="rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2 text-xs font-bold text-[var(--pp-text)] transition hover:bg-[var(--pp-bg)]">📊 Exportar</button>
               <button onClick={() => setCompararPeriodoClientesE((v) => !v)}
-                className={`rounded-xl border px-3.5 py-2 text-xs font-bold transition ${compararPeriodoClientesE ? "border-[#0F4C5C] bg-[#E6EEF1] text-[#0F4C5C]" : "border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9]"}`}>📅 Comparar período</button>
-              <button onClick={atualizarClientesVisaoE} className="rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">🔄 Atualizar</button>
+                className={`rounded-xl border px-3.5 py-2 text-xs font-bold transition ${compararPeriodoClientesE ? "border-[#0F4C5C] bg-[rgba(15,76,92,0.06)] text-[#0F4C5C]" : "border-[var(--pp-border)] bg-white text-[var(--pp-text)] hover:bg-[var(--pp-bg)]"}`}>📅 Comparar período</button>
+              <button onClick={atualizarClientesVisaoE} className="rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2 text-xs font-bold text-[var(--pp-text)] transition hover:bg-[var(--pp-bg)]">🔄 Atualizar</button>
             </div>
-            <p className="text-[11px] text-[#94A3B8]">Atualizado às {atualizadoEmClientesE.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</p>
+            <p className="text-[11px] text-[var(--pp-text-muted)]">Atualizado às {atualizadoEmClientesE.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</p>
           </div>
           {/* Toast fixo — sempre visível, independente da rolagem da tabela
               (o antigo aviso ficava preso no topo da aba e "sumia" quando o
               usuário copiava algo com a tabela rolada para baixo). */}
           {toastClientesE && (
             <div className="pp-anim-fade fixed bottom-5 left-1/2 z-[200] w-[calc(100%-2.5rem)] max-w-sm -translate-x-1/2 rounded-xl border px-4 py-3 text-xs font-semibold shadow-[0_12px_32px_rgba(13,27,42,0.16)]"
-              style={toastClientesTipoE === "error" ? { background: "#FFFFFF", borderColor: "#EF4444", color: "#EF4444" } : { background: "#FFFFFF", borderColor: "#10B981", color: "#10B981" }} role="status" aria-live="polite">
+              style={toastClientesTipoE === "error" ? { background: "#FFFFFF", borderColor: "#C81E4A", color: "#C81E4A" } : { background: "#FFFFFF", borderColor: "#2F9E52", color: "#2F9E52" }} role="status" aria-live="polite">
               {toastClientesTipoE === "error" ? "⚠️ " : "✅ "}{toastClientesE}
             </div>
           )}
@@ -9600,9 +9600,9 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
 
           {/* 2. Alertas gerenciais */}
           <div>
-            <h3 className="page-title mb-3 text-base font-bold text-[#0D1B2A]">Alertas gerenciais</h3>
+            <h3 className="page-title mb-3 text-base font-bold text-[var(--pp-text)]">Alertas gerenciais</h3>
             {alertasClientesE.length === 0 ? (
-              <p className="rounded-2xl border border-[#E2E8F0] bg-white px-5 py-6 text-center text-sm text-[#64748B]">Nenhum alerta no momento.</p>
+              <p className="rounded-2xl border border-[var(--pp-border)] bg-white px-5 py-6 text-center text-sm text-[var(--pp-text-muted)]">Nenhum alerta no momento.</p>
             ) : (
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {alertasClientesE.slice(0, 12).map((al, i) => (
@@ -9616,8 +9616,8 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
           </div>
 
           {/* 6. Insights (Oportunidades) */}
-          <div className="rounded-2xl border border-[#E2E8F0] bg-white p-4">
-            <p className="mb-3 text-[10px] font-black uppercase tracking-widest text-[#64748B]">💡 Oportunidades</p>
+          <div className="rounded-2xl border border-[var(--pp-border)] bg-white p-4">
+            <p className="mb-3 text-[10px] font-black uppercase tracking-widest text-[var(--pp-text-muted)]">💡 Oportunidades</p>
             <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4">
               {[
                 clienteEmRiscoAptoPromocaoE && ["Cliente apto para promoção", clienteEmRiscoAptoPromocaoE.cliente, formatCurrency(clienteEmRiscoAptoPromocaoE.faturamentoTotal)],
@@ -9630,51 +9630,51 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
                 clienteMaiorLucroE && ["Maior margem gerada", clienteMaiorLucroE.cliente, formatCurrency(clienteMaiorLucroE.lucroGerado)],
                 clienteMaiorPotencialE && ["Maior potencial de upgrade", clienteMaiorPotencialE.cliente, `${CLIENTE_TIER[clienteMaiorPotencialE.classificacao]?.label} · ${clienteMaiorPotencialE.pedidosPeriodo} pedido(s)`],
               ].filter(Boolean).map(([r, v, sub]) => (
-                <div key={r} className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
-                  <p className="text-[9px] font-bold uppercase tracking-widest text-[#64748B]">{r}</p>
-                  <p className="mt-0.5 truncate text-sm font-black text-[#0D1B2A]">{v}</p>
+                <div key={r} className="rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-3">
+                  <p className="text-[9px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]">{r}</p>
+                  <p className="mt-0.5 truncate text-sm font-black text-[var(--pp-text)]">{v}</p>
                   {sub && <p className="truncate text-[11px] font-semibold text-[#0F4C5C]">{sub}</p>}
                 </div>
               ))}
             </div>
-            <p className="mt-3 text-xs leading-relaxed text-[#334155]">💡 Campanha sugerida: {clientesRankingE.filter((c) => c.status === "risco").length > 0 ? `oferta de reativação para os ${clientesRankingE.filter((c) => c.status === "risco").length} cliente(s) em risco (15–30 dias sem comprar).` : clientesUmaCompraE.length > 0 ? `incentivo de segunda compra para os ${clientesUmaCompraE.length} cliente(s) que compraram apenas uma vez.` : "base de clientes estável no momento — sem campanha urgente identificada."}</p>
+            <p className="mt-3 text-xs leading-relaxed text-[var(--pp-text)]">💡 Campanha sugerida: {clientesRankingE.filter((c) => c.status === "risco").length > 0 ? `oferta de reativação para os ${clientesRankingE.filter((c) => c.status === "risco").length} cliente(s) em risco (15–30 dias sem comprar).` : clientesUmaCompraE.length > 0 ? `incentivo de segunda compra para os ${clientesUmaCompraE.length} cliente(s) que compraram apenas uma vez.` : "base de clientes estável no momento — sem campanha urgente identificada."}</p>
           </div>
 
           {/* 9. Dashboard CRM */}
           <div className="grid gap-4 sm:grid-cols-2">
             <TopLista titulo="Top 10 clientes" icon="🏆" itens={top10ClientesE} vazio="Sem clientes identificados no período."
-              render={(c) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[#334155]">{c.cliente}</span><span className="shrink-0 font-bold text-[#0D1B2A]">{formatCurrency(c.faturamentoTotal)}</span></div>)} />
-            <div className="h-full rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-[0_1px_2px_rgba(13,27,42,0.04)]">
-              <p className="mb-2.5 text-[11px] font-bold uppercase tracking-widest text-[#64748B]">Clientes ativos x inativos</p>
-              {clientesRankingE.length === 0 ? <p className="py-2 text-xs text-[#94A3B8]">Sem dados no período.</p> : <DonutChart dados={clientesAtivoXInativoE} label="Clientes" />}
+              render={(c) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[var(--pp-text)]">{c.cliente}</span><span className="shrink-0 font-bold text-[var(--pp-text)]">{formatCurrency(c.faturamentoTotal)}</span></div>)} />
+            <div className="h-full rounded-2xl border border-[var(--pp-border)] bg-white p-4 shadow-[0_1px_2px_rgba(13,27,42,0.04)]">
+              <p className="mb-2.5 text-[11px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]">Clientes ativos x inativos</p>
+              {clientesRankingE.length === 0 ? <p className="py-2 text-xs text-[var(--pp-text-muted)]">Sem dados no período.</p> : <DonutChart dados={clientesAtivoXInativoE} label="Clientes" />}
             </div>
-            <div className="h-full rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-[0_1px_2px_rgba(13,27,42,0.04)]">
-              <p className="mb-2.5 text-[11px] font-bold uppercase tracking-widest text-[#64748B]">Clientes por canal</p>
-              {clientesPorCanalE.length === 0 ? <p className="py-2 text-xs text-[#94A3B8]">Sem dados no período.</p> : <DonutChart dados={clientesPorCanalE} label="Canal" />}
+            <div className="h-full rounded-2xl border border-[var(--pp-border)] bg-white p-4 shadow-[0_1px_2px_rgba(13,27,42,0.04)]">
+              <p className="mb-2.5 text-[11px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]">Clientes por canal</p>
+              {clientesPorCanalE.length === 0 ? <p className="py-2 text-xs text-[var(--pp-text-muted)]">Sem dados no período.</p> : <DonutChart dados={clientesPorCanalE} label="Canal" />}
             </div>
             <TopLista titulo="Clientes por forma de pagamento" icon="💳" itens={clientesPorFormaE} vazio="Sem dados no período."
-              render={(f) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[#334155]">{f.nome}</span><span className="shrink-0 font-bold text-[#0D1B2A]">{f.qtd}</span></div>)} />
+              render={(f) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[var(--pp-text)]">{f.nome}</span><span className="shrink-0 font-bold text-[var(--pp-text)]">{f.qtd}</span></div>)} />
             <TopLista titulo="Clientes por frequência" icon="🔁" itens={clientesPorFrequenciaE} vazio="Sem dados no período."
-              render={(f) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[#334155]">{f.faixa}</span><span className="shrink-0 font-bold text-[#0D1B2A]">{f.qtd}</span></div>)} />
+              render={(f) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[var(--pp-text)]">{f.faixa}</span><span className="shrink-0 font-bold text-[var(--pp-text)]">{f.qtd}</span></div>)} />
             <TopLista titulo="Clientes por faixa de ticket" icon="🎟️" itens={clientesPorTicketE} vazio="Sem dados no período."
-              render={(f) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[#334155]">{f.faixa}</span><span className="shrink-0 font-bold text-[#0D1B2A]">{f.qtd}</span></div>)} />
+              render={(f) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[var(--pp-text)]">{f.faixa}</span><span className="shrink-0 font-bold text-[var(--pp-text)]">{f.qtd}</span></div>)} />
             <TopLista titulo="Clientes por horário preferido" icon="⏰" itens={clientesPorHorarioE} vazio="Sem dados no período."
-              render={(f) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[#334155]">{f.faixa}</span><span className="shrink-0 font-bold text-[#0D1B2A]">{f.qtd}</span></div>)} />
+              render={(f) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[var(--pp-text)]">{f.faixa}</span><span className="shrink-0 font-bold text-[var(--pp-text)]">{f.qtd}</span></div>)} />
           </div>
-          <p className="text-[11px] text-[#94A3B8]">"Clientes por Cidade" não está disponível — o cadastro de cliente não tem campo de cidade no modelo de dados atual.</p>
+          <p className="text-[11px] text-[var(--pp-text-muted)]">"Clientes por Cidade" não está disponível — o cadastro de cliente não tem campo de cidade no modelo de dados atual.</p>
 
           {/* 8. Filtros */}
-          <div className="rounded-2xl border border-[#E2E8F0] bg-white p-3.5">
+          <div className="rounded-2xl border border-[var(--pp-border)] bg-white p-3.5">
             <div className="flex flex-wrap items-center gap-2.5">
               <input value={buscaClientesE} onChange={(e) => setBuscaClientesE(e.target.value)} placeholder="🔎 Buscar por cliente ou telefone…"
-                className="min-w-[220px] flex-1 rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2.5 text-sm text-[#334155] outline-none transition focus:border-[#0F4C5C]" />
+                className="min-w-[220px] flex-1 rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2.5 text-sm text-[var(--pp-text)] outline-none transition focus:border-[#0F4C5C]" />
               <button onClick={() => setMostrarFiltrosClientesE((v) => !v)}
-                className={`rounded-xl border px-3.5 py-2.5 text-xs font-bold transition ${mostrarFiltrosClientesE || filtrosClientesAtivosE ? "border-[#0F4C5C] bg-[#E6EEF1] text-[#0F4C5C]" : "border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9]"}`}>
+                className={`rounded-xl border px-3.5 py-2.5 text-xs font-bold transition ${mostrarFiltrosClientesE || filtrosClientesAtivosE ? "border-[#0F4C5C] bg-[rgba(15,76,92,0.06)] text-[#0F4C5C]" : "border-[var(--pp-border)] bg-white text-[var(--pp-text)] hover:bg-[var(--pp-bg)]"}`}>
                 ⚙️ Filtros{filtrosClientesAtivosE ? " •" : ""}
               </button>
             </div>
             {mostrarFiltrosClientesE && (
-              <div className="pp-anim-fade mt-3 grid gap-3 border-t border-[#F1F5F9] pt-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="pp-anim-fade mt-3 grid gap-3 border-t border-[var(--pp-bg)] pt-3 sm:grid-cols-2 lg:grid-cols-4">
                 <div>
                   <label className={labelClsClientesE}>Status</label>
                   <DropdownSelect ariaLabel="Status" valor={fStatusClienteE} onSelecionar={setFStatusClienteE} className={`${inputClsClientesE} flex items-center justify-between text-left`}
@@ -9709,22 +9709,22 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
           </div>
 
           {/* 3. Ranking de clientes */}
-          <div className="overflow-hidden rounded-[1.75rem] border border-[#E2E8F0] bg-white">
-            <div className="border-b border-[#E2E8F0] px-5 py-3.5">
-              <h3 className="page-title text-sm font-bold uppercase tracking-wider text-[#0D1B2A]">Ranking de clientes</h3>
-              <p className="mt-0.5 text-[11px] text-[#64748B]">{clientesOrdenadosE.length} cliente(s) identificado(s) · "Responsável" e "Origem" (distinta de canal) não existem no cadastro atual</p>
+          <div className="overflow-hidden rounded-[1.75rem] border border-[var(--pp-border)] bg-white">
+            <div className="border-b border-[var(--pp-border)] px-5 py-3.5">
+              <h3 className="page-title text-sm font-bold uppercase tracking-wider text-[var(--pp-text)]">Ranking de clientes</h3>
+              <p className="mt-0.5 text-[11px] text-[var(--pp-text-muted)]">{clientesOrdenadosE.length} cliente(s) identificado(s) · "Responsável" e "Origem" (distinta de canal) não existem no cadastro atual</p>
             </div>
             <div className="max-h-[560px] overflow-auto">
               <table className="w-full min-w-[1100px] border-collapse text-sm">
-                <thead className="sticky top-0 z-10 bg-[#F8FAFC]">
-                  <tr className="text-[10px] font-bold uppercase tracking-widest text-[#64748B]">
+                <thead className="sticky top-0 z-10 bg-[var(--pp-bg)]">
+                  <tr className="text-[10px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]">
                     {[
                       ["cliente", "Cliente"], ["telefone", "Telefone"], ["pedidosPeriodo", "Pedidos"], ["faturamentoPeriodo", "Faturamento"],
                       ["ticketPeriodo", "Ticket médio"], ["lucroGerado", "Lucro gerado"], ["recencia", "Última compra"], ["antiguidade", "Primeira compra"],
                       ["totalPedidosVida", "Frequência"], ["diasSemComprar", "Dias sem comprar"], ["status", "Status"], ["classificacao", "Classif."],
                       ["canalPredominante", "Canal"], ["formaPagamentoFavorita", "Forma pagto."],
                     ].map(([campo, rotulo]) => (
-                      <th key={campo} className="whitespace-nowrap border-b border-[#E2E8F0] px-3 py-2.5 text-left">
+                      <th key={campo} className="whitespace-nowrap border-b border-[var(--pp-border)] px-3 py-2.5 text-left">
                         <button onClick={() => alternarOrdemClientesE(campo)} className="flex items-center gap-1 transition hover:text-[#0F4C5C]">
                           {rotulo}{ordenacaoClientesE.campo === campo ? (ordenacaoClientesE.dir === "desc" ? " ▼" : " ▲") : ""}
                         </button>
@@ -9734,40 +9734,40 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
                 </thead>
                 <tbody>
                   {clientesVisiveisE.length === 0 && (
-                    <tr><td colSpan={14} className="px-5 py-8 text-center text-sm text-[#64748B]">
+                    <tr><td colSpan={14} className="px-5 py-8 text-center text-sm text-[var(--pp-text-muted)]">
                       {clientesRankingE.length === 0 ? "Nenhum cliente identificado no período." : "Nenhum cliente encontrado para os filtros aplicados."}
                     </td></tr>
                   )}
                   {clientesVisiveisE.map((c) => (
-                    <tr key={c.cliente} onClick={() => setClienteSelecionadoE(c)} className="cursor-pointer border-b border-[#F1F5F9] transition hover:bg-[#F8FAFC]">
-                      <td className="max-w-[180px] truncate px-3 py-2.5 font-semibold text-[#0D1B2A]">{c.cliente}</td>
-                      <td className="px-3 py-2.5 text-[#64748B]">{c.telefone || "—"}</td>
-                      <td className="px-3 py-2.5 font-mono text-[#334155]">{c.pedidosPeriodo}</td>
-                      <td className="px-3 py-2.5 font-semibold text-[#0D1B2A]">{formatCurrency(c.faturamentoPeriodo)}</td>
-                      <td className="px-3 py-2.5 text-[#64748B]">{formatCurrency(c.ticketPeriodo)}</td>
-                      <td className="px-3 py-2.5 text-[#10B981]">{formatCurrency(c.lucroGerado)}</td>
-                      <td className="px-3 py-2.5 text-[#64748B]">{c.ultima ? c.ultima.toLocaleDateString("pt-BR") : "—"}</td>
-                      <td className="px-3 py-2.5 text-[#64748B]">{c.primeira ? c.primeira.toLocaleDateString("pt-BR") : "—"}</td>
-                      <td className="px-3 py-2.5 font-mono text-[#334155]">{c.totalPedidosVida}</td>
-                      <td className="px-3 py-2.5 text-[#64748B]">{c.diasSemComprar != null ? `${c.diasSemComprar}d` : "—"}</td>
+                    <tr key={c.cliente} onClick={() => setClienteSelecionadoE(c)} className="cursor-pointer border-b border-[var(--pp-bg)] transition hover:bg-[var(--pp-bg)]">
+                      <td className="max-w-[180px] truncate px-3 py-2.5 font-semibold text-[var(--pp-text)]">{c.cliente}</td>
+                      <td className="px-3 py-2.5 text-[var(--pp-text-muted)]">{c.telefone || "—"}</td>
+                      <td className="px-3 py-2.5 font-mono text-[var(--pp-text)]">{c.pedidosPeriodo}</td>
+                      <td className="px-3 py-2.5 font-semibold text-[var(--pp-text)]">{formatCurrency(c.faturamentoPeriodo)}</td>
+                      <td className="px-3 py-2.5 text-[var(--pp-text-muted)]">{formatCurrency(c.ticketPeriodo)}</td>
+                      <td className="px-3 py-2.5 text-[#2F9E52]">{formatCurrency(c.lucroGerado)}</td>
+                      <td className="px-3 py-2.5 text-[var(--pp-text-muted)]">{c.ultima ? c.ultima.toLocaleDateString("pt-BR") : "—"}</td>
+                      <td className="px-3 py-2.5 text-[var(--pp-text-muted)]">{c.primeira ? c.primeira.toLocaleDateString("pt-BR") : "—"}</td>
+                      <td className="px-3 py-2.5 font-mono text-[var(--pp-text)]">{c.totalPedidosVida}</td>
+                      <td className="px-3 py-2.5 text-[var(--pp-text-muted)]">{c.diasSemComprar != null ? `${c.diasSemComprar}d` : "—"}</td>
                       <td className="px-3 py-2.5"><BadgeCliente mapa={CLIENTE_STATUS} chave={c.status} /></td>
                       <td className="px-3 py-2.5"><BadgeCliente mapa={CLIENTE_TIER} chave={c.classificacao} /></td>
-                      <td className="max-w-[140px] truncate px-3 py-2.5 text-[#64748B]">{c.canalPredominante}</td>
-                      <td className="max-w-[140px] truncate px-3 py-2.5 text-[#64748B]">{c.formaPagamentoFavorita || "—"}</td>
+                      <td className="max-w-[140px] truncate px-3 py-2.5 text-[var(--pp-text-muted)]">{c.canalPredominante}</td>
+                      <td className="max-w-[140px] truncate px-3 py-2.5 text-[var(--pp-text-muted)]">{c.formaPagamentoFavorita || "—"}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
             {clientesVisiveisE.length > 0 && (
-              <div className="border-t border-[#F1F5F9] px-5 py-3">
-                <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-[#64748B]">Ações rápidas por cliente</p>
+              <div className="border-t border-[var(--pp-bg)] px-5 py-3">
+                <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-[var(--pp-text-muted)]">Ações rápidas por cliente</p>
                 <div className="space-y-1.5">
                   {clientesVisiveisE.map((c) => {
                     const temTelefone = !!telefoneValidoE(c.telefone);
                     return (
-                      <div key={c.cliente} className="flex items-center justify-between gap-2 rounded-xl border border-[#E2E8F0] px-3 py-2">
-                        <span className="min-w-0 truncate text-xs font-semibold text-[#334155]">{c.cliente}</span>
+                      <div key={c.cliente} className="flex items-center justify-between gap-2 rounded-xl border border-[var(--pp-border)] px-3 py-2">
+                        <span className="min-w-0 truncate text-xs font-semibold text-[var(--pp-text)]">{c.cliente}</span>
                         <div className="flex shrink-0 items-center gap-1.5">
                           <IconAcaoCliente icone="👁️" label="Visualizar perfil completo" onClick={() => setClienteSelecionadoE(c)} />
                           <IconAcaoCliente icone="💬" label={temTelefone ? "Enviar WhatsApp" : "Sem telefone válido cadastrado"} disabled={!temTelefone} onClick={() => abrirWhatsAppClienteE(c)} />
@@ -9778,7 +9778,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
                     );
                   })}
                 </div>
-                <p className="mt-2 text-[10px] text-[#94A3B8]">As mesmas ações (Visualizar, WhatsApp, Copiar telefone, Copiar cadastro) também ficam disponíveis ao clicar em qualquer linha da tabela.</p>
+                <p className="mt-2 text-[10px] text-[var(--pp-text-muted)]">As mesmas ações (Visualizar, WhatsApp, Copiar telefone, Copiar cadastro) também ficam disponíveis ao clicar em qualquer linha da tabela.</p>
               </div>
             )}
           </div>
@@ -9786,9 +9786,9 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
             onMudar={setPaginaClientes} rotulo="cliente(s)" tema="claro" porPaginaOpcoes={[10, 20, 50, 100]} onMudarPorPagina={setPorPaginaClientes} mostrarExtremos />
 
           {pedidosSemId > 0 && (
-            <div className="rounded-2xl border border-[#E2E8F0] bg-white p-5">
-              <h3 className="page-title text-sm font-bold text-[#8B5CF6]">💡 Recomendação gerencial</h3>
-              <p className="mt-2 text-sm leading-6 text-[#334155]">A maior parte dos pedidos está sem identificação do cliente. Considere incentivar o cadastro no tablet, oferecer benefício de fidelidade ou solicitar o telefone no fechamento da comanda para melhorar campanhas futuras.</p>
+            <div className="rounded-2xl border border-[var(--pp-border)] bg-white p-5">
+              <h3 className="page-title text-sm font-bold text-[#0F4C5C]">💡 Recomendação gerencial</h3>
+              <p className="mt-2 text-sm leading-6 text-[var(--pp-text)]">A maior parte dos pedidos está sem identificação do cliente. Considere incentivar o cadastro no tablet, oferecer benefício de fidelidade ou solicitar o telefone no fechamento da comanda para melhorar campanhas futuras.</p>
             </div>
           )}
 
@@ -9814,27 +9814,27 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
       {aba === "vendas" && (
         <>
           {/* 8. Ações rápidas */}
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#E2E8F0] bg-white p-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--pp-border)] bg-white p-3">
             <div className="flex flex-wrap items-center gap-2">
               <BotoesExport />
               <button onClick={() => setCompararPeriodo((v) => !v)}
-                className={`rounded-2xl border px-4 py-2.5 text-sm font-bold transition ${compararPeriodo ? "border-[#0F4C5C] bg-[#E6EEF1] text-[#0F4C5C]" : "border-slate-200 bg-white text-[#334155] hover:bg-slate-100"}`}>📅 Comparar período</button>
-              <button onClick={compartilharRelatorioV} className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-[#334155] transition hover:bg-slate-100">🔗 Compartilhar</button>
-              <button onClick={atualizarVisaoV} className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-[#334155] transition hover:bg-slate-100">🔄 Atualizar</button>
+                className={`rounded-2xl border px-4 py-2.5 text-sm font-bold transition ${compararPeriodo ? "border-[#0F4C5C] bg-[rgba(15,76,92,0.06)] text-[#0F4C5C]" : "border-[var(--pp-border)] bg-white text-[var(--pp-text)] hover:bg-[var(--pp-bg)]"}`}>📅 Comparar período</button>
+              <button onClick={compartilharRelatorioV} className="rounded-2xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-sm font-bold text-[var(--pp-text)] transition hover:bg-[var(--pp-bg)]">🔗 Compartilhar</button>
+              <button onClick={atualizarVisaoV} className="rounded-2xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-sm font-bold text-[var(--pp-text)] transition hover:bg-[var(--pp-bg)]">🔄 Atualizar</button>
             </div>
-            <p className="text-[11px] text-[#94A3B8]">Atualizado às {atualizadoEm.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</p>
+            <p className="text-[11px] text-[var(--pp-text-muted)]">Atualizado às {atualizadoEm.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</p>
           </div>
-          {toastVendas && <p className="pp-anim-fade rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-2.5 text-xs text-[#334155]">{toastVendas}</p>}
+          {toastVendas && <p className="pp-anim-fade rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-4 py-2.5 text-xs text-[var(--pp-text)]">{toastVendas}</p>}
 
           {/* 1. Resumo executivo */}
-          <div className="rounded-[1.75rem] border border-[#E2E8F0] bg-white p-5 sm:p-6">
+          <div className="rounded-[1.75rem] border border-[var(--pp-border)] bg-white p-5 sm:p-6">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
               <div>
-                <h3 className="page-title text-base font-bold text-[#0D1B2A]">Resumo executivo</h3>
-                <p className="mt-0.5 text-xs text-[#64748B]">Visão consolidada do período selecionado</p>
+                <h3 className="page-title text-base font-bold text-[var(--pp-text)]">Resumo executivo</h3>
+                <p className="mt-0.5 text-xs text-[var(--pp-text-muted)]">Visão consolidada do período selecionado</p>
               </div>
               {comparativo && (
-                <span className={`rounded-full px-3 py-1.5 text-xs font-bold ${comparativo.faturamento >= 0 ? "bg-[#10B981]/10 text-[#10B981]" : "bg-[#F59E0B]/10 text-[#F59E0B]"}`}>
+                <span className={`rounded-full px-3 py-1.5 text-xs font-bold ${comparativo.faturamento >= 0 ? "bg-[#2F9E52]/10 text-[#2F9E52]" : "bg-[#F59E0B]/10 text-[#F59E0B]"}`}>
                   {comparativo.faturamento >= 0 ? "▲" : "▼"} {Math.abs(Math.round(comparativo.faturamento))}% vs. período anterior
                 </span>
               )}
@@ -9851,9 +9851,9 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
                 { r: "Melhor categoria", v: a.categorias[0]?.categoria || "—", s: a.categorias[0] ? formatCurrency(a.categorias[0].valor) : "sem vendas" },
                 { r: "Melhor forma de pagamento", v: formasPagamentoV[0]?.nome || "—", s: formasPagamentoV[0] ? formatCurrency(formasPagamentoV[0].valor) : "sem dados" },
               ].map((c) => (
-                <div key={c.r} className="rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-3.5">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-[#64748B]">{c.r}</p>
-                  <p className="page-title mt-1 truncate text-base font-bold text-[#0D1B2A]">{c.v}</p>
+                <div key={c.r} className="rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-3.5">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]">{c.r}</p>
+                  <p className="page-title mt-1 truncate text-base font-bold text-[var(--pp-text)]">{c.v}</p>
                   <p className="truncate text-[11px] font-semibold text-[#0F4C5C]">{c.s}</p>
                 </div>
               ))}
@@ -9876,20 +9876,20 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
             <Painel titulo="Vendas por categoria"><DonutChart dados={catDonutR} label="Categorias" /></Painel>
           </div>
           <Painel titulo="Faturamento por horário" descricao="Distribuição das vendas ao longo do período selecionado">
-            <BarrasHora dados={horarioGeral} paleta={{ semVenda: "#0F4C5C", pico: "#F59E0B", acimaMedia: "#0F4C5C", padrao: "#0F4C5C", grade: "#E2E8F0", texto: "#64748B", textoValor: "#64748B" }} />
+            <BarrasHora dados={horarioGeral} paleta={{ semVenda: "#0F4C5C", pico: "#F59E0B", acimaMedia: "#0F4C5C", padrao: "#0F4C5C", grade: "#EAE0D6", texto: "#8A7D73", textoValor: "#8A7D73" }} />
           </Painel>
 
           {/* 3. Produtos mais vendidos — ranking profissional (busca, ordenação, paginação) */}
-          <div className="overflow-hidden rounded-[1.75rem] border border-[#E2E8F0] bg-white">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E2E8F0] px-5 py-3.5">
+          <div className="overflow-hidden rounded-[1.75rem] border border-[var(--pp-border)] bg-white">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--pp-border)] px-5 py-3.5">
               <div>
-                <h3 className="page-title text-sm font-bold uppercase tracking-wider text-[#0D1B2A]">Produtos mais vendidos</h3>
-                <p className="mt-0.5 text-[11px] text-[#64748B]">{produtosCompletosV.length} produto(s) com venda no período · toque para ver os cupons</p>
+                <h3 className="page-title text-sm font-bold uppercase tracking-wider text-[var(--pp-text)]">Produtos mais vendidos</h3>
+                <p className="mt-0.5 text-[11px] text-[var(--pp-text-muted)]">{produtosCompletosV.length} produto(s) com venda no período · toque para ver os cupons</p>
               </div>
               <input value={buscaProdV} onChange={(e) => setBuscaProdV(e.target.value)} placeholder="🔎 Buscar produto…"
-                className="w-full max-w-[220px] rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs text-[#334155] outline-none transition focus:border-[#0F4C5C]" />
+                className="w-full max-w-[220px] rounded-xl border border-[var(--pp-border)] bg-white px-3 py-2 text-xs text-[var(--pp-text)] outline-none transition focus:border-[#0F4C5C]" />
             </div>
-            <div className="hidden items-center justify-between border-b border-[#E2E8F0] bg-[#F8FAFC] px-5 py-2 text-[10px] font-bold uppercase tracking-widest text-[#64748B] sm:flex">
+            <div className="hidden items-center justify-between border-b border-[var(--pp-border)] bg-[var(--pp-bg)] px-5 py-2 text-[10px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)] sm:flex">
               <span>#, Produto e categoria</span>
               <span className="flex gap-3">
                 <button onClick={() => alternarOrdemV("qtd")} className="transition hover:text-[#0F4C5C]">Qtd{ordemProdV.campo === "qtd" ? (ordemProdV.dir === "desc" ? " ▼" : " ▲") : ""}</button>
@@ -9899,29 +9899,29 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
               </span>
             </div>
             {produtosVisiveisV.length === 0 && (
-              <p className="px-5 py-6 text-center text-sm text-[#64748B]">Nenhum produto encontrado{buscaProdV ? " para essa busca" : " no período"}.</p>
+              <p className="px-5 py-6 text-center text-sm text-[var(--pp-text-muted)]">Nenhum produto encontrado{buscaProdV ? " para essa busca" : " no período"}.</p>
             )}
             {produtosVisiveisV.map((p, i) => {
               const rankGlobal = (paginaProdVAtual - 1) * porPaginaProdV + i + 1;
               return (
-                <div key={p.nome} className="border-t border-[#F1F5F9] px-5 py-3.5 transition hover:bg-[#F8FAFC]">
+                <div key={p.nome} className="border-t border-[var(--pp-bg)] px-5 py-3.5 transition hover:bg-[var(--pp-bg)]">
                   <div className="flex flex-wrap items-center gap-3">
                     <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-black ${rankGlobal === 1 ? "bg-[#F59E0B]/15 text-[#F59E0B]" : "bg-[#0F4C5C]/10 text-[#0F4C5C]"}`}>{rankGlobal}</span>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-[#0D1B2A]">{p.nome}</p>
-                      <p className="truncate text-[11px] text-[#64748B]">{p.categoria}</p>
+                      <p className="truncate text-sm font-semibold text-[var(--pp-text)]">{p.nome}</p>
+                      <p className="truncate text-[11px] text-[var(--pp-text-muted)]">{p.categoria}</p>
                     </div>
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-right text-xs">
-                      <span className="text-[#334155]"><b className="text-[#0D1B2A]">{p.qtd}</b> un</span>
-                      <span className="font-bold text-[#0D1B2A]">{formatCurrency(p.valor)}</span>
-                      <span className="text-[#64748B]">{p.pct.toFixed(1)}%</span>
-                      <span className="hidden text-[#64748B] sm:inline">tkt {formatCurrency(p.ticket)}</span>
-                      <span className="hidden font-semibold text-[#10B981] sm:inline">{formatCurrency(p.margem)}</span>
+                      <span className="text-[var(--pp-text)]"><b className="text-[var(--pp-text)]">{p.qtd}</b> un</span>
+                      <span className="font-bold text-[var(--pp-text)]">{formatCurrency(p.valor)}</span>
+                      <span className="text-[var(--pp-text-muted)]">{p.pct.toFixed(1)}%</span>
+                      <span className="hidden text-[var(--pp-text-muted)] sm:inline">tkt {formatCurrency(p.ticket)}</span>
+                      <span className="hidden font-semibold text-[#2F9E52] sm:inline">{formatCurrency(p.margem)}</span>
                     </div>
                     <button onClick={() => setDrill({ nome: p.nome, cupons: cuponsDoProduto(p.nome) })}
-                      className="shrink-0 rounded-lg border border-[#E2E8F0] px-2.5 py-1.5 text-[11px] font-bold text-[#0F4C5C] transition hover:bg-[#E6EEF1]">Ver detalhes</button>
+                      className="shrink-0 rounded-lg border border-[var(--pp-border)] px-2.5 py-1.5 text-[11px] font-bold text-[#0F4C5C] transition hover:bg-[rgba(15,76,92,0.06)]">Ver detalhes</button>
                   </div>
-                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#F1F5F9]"><div className="h-full rounded-full bg-[#0F4C5C]" style={{ width: `${(p.qtd / maxQtdV) * 100}%` }} /></div>
+                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--pp-bg)]"><div className="h-full rounded-full bg-[#0F4C5C]" style={{ width: `${(p.qtd / maxQtdV) * 100}%` }} /></div>
                 </div>
               );
             })}
@@ -9932,33 +9932,33 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
           {/* 4. Novos cards — Top categorias/clientes/mesas, produtos sem venda/baixo estoque/maior margem/faturamento, horário de pico, forma de pagamento e canal */}
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             <TopLista titulo="Top categorias" icon="🏷️" itens={a.categorias.slice(0, 5)} vazio="Sem categorias vendidas no período."
-              render={(c) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[#334155]">{c.categoria}</span><span className="shrink-0 font-bold text-[#0D1B2A]">{formatCurrency(c.valor)}</span></div>)} />
+              render={(c) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[var(--pp-text)]">{c.categoria}</span><span className="shrink-0 font-bold text-[var(--pp-text)]">{formatCurrency(c.valor)}</span></div>)} />
             <TopLista titulo="Top clientes" icon="👤" itens={clientesLista.filter((c) => c.identificado).slice(0, 5)} vazio="Sem clientes identificados no período."
               acao={<button onClick={() => setAba("clientes")} className="text-[11px] font-bold text-[#0F4C5C] transition hover:text-[#0B3A46]">Ver todos →</button>}
-              render={(c) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[#334155]">{c.cliente}</span><span className="shrink-0 font-bold text-[#0D1B2A]">{formatCurrency(c.faturamento)}</span></div>)} />
+              render={(c) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[var(--pp-text)]">{c.cliente}</span><span className="shrink-0 font-bold text-[var(--pp-text)]">{formatCurrency(c.faturamento)}</span></div>)} />
             <TopLista titulo="Top mesas" icon="🍽️" itens={mesasFaturamento.slice(0, 5)} vazio="Sem vendas por mesa no período."
-              render={(m) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[#334155]">{m.mesa}</span><span className="shrink-0 font-bold text-[#0D1B2A]">{formatCurrency(m.faturamento)}</span></div>)} />
+              render={(m) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[var(--pp-text)]">{m.mesa}</span><span className="shrink-0 font-bold text-[var(--pp-text)]">{formatCurrency(m.faturamento)}</span></div>)} />
             <TopLista titulo="Produtos sem venda" icon="🚫" itens={produtosSemVendaV.slice(0, 5)} vazio="Todos os produtos ativos venderam no período."
-              acao={produtosSemVendaV.length > 5 ? <span className="text-[11px] text-[#64748B]">+{produtosSemVendaV.length - 5}</span> : null}
-              render={(p) => <span className="block truncate text-sm text-[#334155]">{p.name}</span>} />
+              acao={produtosSemVendaV.length > 5 ? <span className="text-[11px] text-[var(--pp-text-muted)]">+{produtosSemVendaV.length - 5}</span> : null}
+              render={(p) => <span className="block truncate text-sm text-[var(--pp-text)]">{p.name}</span>} />
             <TopLista titulo="Produtos com baixo estoque" icon="📉" itens={produtosBaixoEstoqueV.slice(0, 5)} vazio="Nenhum produto em estoque crítico."
               acao={<button onClick={() => setAba("estoque")} className="text-[11px] font-bold text-[#0F4C5C] transition hover:text-[#0B3A46]">Ver estoque →</button>}
-              render={(l) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[#334155]">{l.nome}</span><span className={`shrink-0 font-bold ${l.zerado ? "text-[#EF4444]" : "text-[#F59E0B]"}`}>{l.posterior} un</span></div>)} />
+              render={(l) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[var(--pp-text)]">{l.nome}</span><span className={`shrink-0 font-bold ${l.zerado ? "text-[#C81E4A]" : "text-[#F59E0B]"}`}>{l.posterior} un</span></div>)} />
             <TopLista titulo="Maior margem" icon="💎" itens={produtosPorMargemV.slice(0, 5)} vazio="Sem dados de margem no período."
-              render={(p) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[#334155]">{p.nome}</span><span className="shrink-0 font-bold text-[#10B981]">{formatCurrency(p.margem)}</span></div>)} />
+              render={(p) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[var(--pp-text)]">{p.nome}</span><span className="shrink-0 font-bold text-[#2F9E52]">{formatCurrency(p.margem)}</span></div>)} />
             <TopLista titulo="Maior faturamento" icon="🏆" itens={produtosPorFaturamentoV.slice(0, 5)} vazio="Sem vendas no período."
-              render={(p) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[#334155]">{p.nome}</span><span className="shrink-0 font-bold text-[#0D1B2A]">{formatCurrency(p.valor)}</span></div>)} />
+              render={(p) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[var(--pp-text)]">{p.nome}</span><span className="shrink-0 font-bold text-[var(--pp-text)]">{formatCurrency(p.valor)}</span></div>)} />
             <TopLista titulo="Horário de pico" icon="⏰" itens={[...horarioGeral].filter((h) => h.valor > 0).sort((x, y) => y.valor - x.valor).slice(0, 5)} vazio="Sem vendas no período."
-              render={(h) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="text-[#334155]">{h.label}</span><span className="shrink-0 font-bold text-[#0D1B2A]">{formatCurrency(h.valor)}</span></div>)} />
+              render={(h) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="text-[var(--pp-text)]">{h.label}</span><span className="shrink-0 font-bold text-[var(--pp-text)]">{formatCurrency(h.valor)}</span></div>)} />
             <TopLista titulo="Forma de pagamento" icon="💳" itens={formasPagamentoV.slice(0, 5)} vazio="Sem dados de forma de pagamento."
-              render={(f) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[#334155]">{f.nome}</span><span className="shrink-0 font-bold text-[#0D1B2A]">{formatCurrency(f.valor)}</span></div>)} />
+              render={(f) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[var(--pp-text)]">{f.nome}</span><span className="shrink-0 font-bold text-[var(--pp-text)]">{formatCurrency(f.valor)}</span></div>)} />
             <TopLista titulo="Canal de venda" icon="📡" itens={canalVendaV} vazio="Sem dados de canal de venda."
-              render={(c) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[#334155]">{c.nome}</span><span className="shrink-0 font-bold text-[#0D1B2A]">{formatCurrency(c.valor)}</span></div>)} />
+              render={(c) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[var(--pp-text)]">{c.nome}</span><span className="shrink-0 font-bold text-[var(--pp-text)]">{formatCurrency(c.valor)}</span></div>)} />
           </div>
 
           {/* 5. Insights */}
           <div>
-            <h3 className="page-title mb-3 text-base font-bold text-[#0D1B2A]">Insights</h3>
+            <h3 className="page-title mb-3 text-base font-bold text-[var(--pp-text)]">Insights</h3>
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               {a.topProdutos[0] && (
                 <InsightCardVendas tom="success" titulo="Produto destaque" texto={`${a.topProdutos[0].nome} lidera as vendas com ${a.topProdutos[0].qtd} un. (${formatCurrency(a.topProdutos[0].valor)}).`} />
@@ -9983,7 +9983,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
                 <InsightCardVendas tom="danger" titulo="Estoque crítico" texto={`${produtosBaixoEstoqueV.length} produto(s) com estoque baixo ou zerado.`} acaoLabel="Ver estoque" onAcao={() => setAba("estoque")} />
               )}
               {a.topProdutos.length === 0 && produtosSemVendaV.length === 0 && !comparativo && produtosBaixoEstoqueV.length === 0 && (
-                <p className="sm:col-span-2 xl:col-span-4 rounded-2xl border border-[#E2E8F0] bg-white px-5 py-6 text-center text-sm text-[#64748B]">Nenhum insight disponível para o período selecionado.</p>
+                <p className="sm:col-span-2 xl:col-span-4 rounded-2xl border border-[var(--pp-border)] bg-white px-5 py-6 text-center text-sm text-[var(--pp-text-muted)]">Nenhum insight disponível para o período selecionado.</p>
               )}
             </div>
           </div>
@@ -9995,18 +9995,18 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
       {aba === "estoque" && (
         <>
           {/* 6. Ações rápidas */}
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#E2E8F0] bg-white p-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--pp-border)] bg-white p-3">
             <div className="flex flex-wrap items-center gap-2">
-              <button onClick={exportarEstoqueCSV} className="rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">📊 Exportar Excel</button>
-              <button onClick={exportarEstoquePDF} className="rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">📄 Exportar PDF</button>
+              <button onClick={exportarEstoqueCSV} className="rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2 text-xs font-bold text-[var(--pp-text)] transition hover:bg-[var(--pp-bg)]">📊 Exportar Excel</button>
+              <button onClick={exportarEstoquePDF} className="rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2 text-xs font-bold text-[var(--pp-text)] transition hover:bg-[var(--pp-bg)]">📄 Exportar PDF</button>
               <button onClick={() => setCompararPeriodoEstoque((v) => !v)}
-                className={`rounded-xl border px-3.5 py-2 text-xs font-bold transition ${compararPeriodoEstoque ? "border-[#0F4C5C] bg-[#E6EEF1] text-[#0F4C5C]" : "border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9]"}`}>📅 Comparar período</button>
+                className={`rounded-xl border px-3.5 py-2 text-xs font-bold transition ${compararPeriodoEstoque ? "border-[#0F4C5C] bg-[rgba(15,76,92,0.06)] text-[#0F4C5C]" : "border-[var(--pp-border)] bg-white text-[var(--pp-text)] hover:bg-[var(--pp-bg)]"}`}>📅 Comparar período</button>
               <button onClick={() => setSomenteCriticosEstoque((v) => !v)}
-                className={`rounded-xl border px-3.5 py-2 text-xs font-bold transition ${somenteCriticosEstoque ? "border-[#EF4444] bg-[#EF4444]/10 text-[#EF4444]" : "border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9]"}`}>🚨 Ver somente críticos</button>
-              <button onClick={atualizarEstoqueVisao} className="rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">🔄 Atualizar</button>
-              <button onClick={irParaProdutos} className="rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">📦 Abrir cadastro do produto</button>
+                className={`rounded-xl border px-3.5 py-2 text-xs font-bold transition ${somenteCriticosEstoque ? "border-[#C81E4A] bg-[#C81E4A]/10 text-[#C81E4A]" : "border-[var(--pp-border)] bg-white text-[var(--pp-text)] hover:bg-[var(--pp-bg)]"}`}>🚨 Ver somente críticos</button>
+              <button onClick={atualizarEstoqueVisao} className="rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2 text-xs font-bold text-[var(--pp-text)] transition hover:bg-[var(--pp-bg)]">🔄 Atualizar</button>
+              <button onClick={irParaProdutos} className="rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2 text-xs font-bold text-[var(--pp-text)] transition hover:bg-[var(--pp-bg)]">📦 Abrir cadastro do produto</button>
             </div>
-            <p className="text-[11px] text-[#94A3B8]">Atualizado às {atualizadoEmEstoque.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</p>
+            <p className="text-[11px] text-[var(--pp-text-muted)]">Atualizado às {atualizadoEmEstoque.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</p>
           </div>
 
           {/* 1. Resumo executivo */}
@@ -10025,9 +10025,9 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
 
           {/* 2. Alertas de estoque */}
           <div>
-            <h3 className="page-title mb-3 text-base font-bold text-[#0D1B2A]">Alertas de estoque</h3>
+            <h3 className="page-title mb-3 text-base font-bold text-[var(--pp-text)]">Alertas de estoque</h3>
             {alertasEstoque.length === 0 ? (
-              <p className="rounded-2xl border border-[#E2E8F0] bg-white px-5 py-6 text-center text-sm text-[#64748B]">Nenhum alerta no momento — estoque dentro do esperado para o período.</p>
+              <p className="rounded-2xl border border-[var(--pp-border)] bg-white px-5 py-6 text-center text-sm text-[var(--pp-text-muted)]">Nenhum alerta no momento — estoque dentro do esperado para o período.</p>
             ) : (
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {(somenteCriticosEstoque ? alertasEstoque.filter((a) => a.nivel === "critico") : alertasEstoque).slice(0, 12).map((a, i) => (
@@ -10040,17 +10040,17 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
           </div>
 
           {/* 3. Tabela principal — busca, ordenação por coluna, filtros, paginação */}
-          <div className="rounded-2xl border border-[#E2E8F0] bg-white p-3.5">
+          <div className="rounded-2xl border border-[var(--pp-border)] bg-white p-3.5">
             <div className="flex flex-wrap items-center gap-2.5">
               <input value={buscaEstoque} onChange={(e) => setBuscaEstoque(e.target.value)} placeholder="🔎 Buscar por produto ou categoria…"
-                className="min-w-[220px] flex-1 rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2.5 text-sm text-[#334155] outline-none transition focus:border-[#0F4C5C]" />
+                className="min-w-[220px] flex-1 rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2.5 text-sm text-[var(--pp-text)] outline-none transition focus:border-[#0F4C5C]" />
               <button onClick={() => setMostrarFiltrosEstoque((v) => !v)}
-                className={`rounded-xl border px-3.5 py-2.5 text-xs font-bold transition ${mostrarFiltrosEstoque || filtrosEstoqueAtivos ? "border-[#0F4C5C] bg-[#E6EEF1] text-[#0F4C5C]" : "border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9]"}`}>
+                className={`rounded-xl border px-3.5 py-2.5 text-xs font-bold transition ${mostrarFiltrosEstoque || filtrosEstoqueAtivos ? "border-[#0F4C5C] bg-[rgba(15,76,92,0.06)] text-[#0F4C5C]" : "border-[var(--pp-border)] bg-white text-[var(--pp-text)] hover:bg-[var(--pp-bg)]"}`}>
                 ⚙️ Filtros{filtrosEstoqueAtivos ? " •" : ""}
               </button>
             </div>
             {mostrarFiltrosEstoque && (
-              <div className="pp-anim-fade mt-3 grid gap-3 border-t border-[#F1F5F9] pt-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="pp-anim-fade mt-3 grid gap-3 border-t border-[var(--pp-bg)] pt-3 sm:grid-cols-2 lg:grid-cols-4">
                 <div>
                   <label className={labelClsEstoque}>Categoria</label>
                   <DropdownSelect ariaLabel="Categoria" valor={fCategoriaEstoque} onSelecionar={setFCategoriaEstoque} className={`${inputClsEstoque} flex items-center justify-between text-left`}
@@ -10070,21 +10070,21 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
             )}
           </div>
 
-          <div className="overflow-hidden rounded-[1.75rem] border border-[#E2E8F0] bg-white">
-            <div className="border-b border-[#E2E8F0] px-5 py-3.5">
-              <h3 className="page-title text-sm font-bold uppercase tracking-wider text-[#0D1B2A]">Estoque anterior x posterior (por venda)</h3>
-              <p className="mt-0.5 text-[11px] text-[#64748B]">Anterior = atual + vendido no período · não considera restock manual feito fora deste período · {linhasEstoqueOrdenadas.length} produto(s)</p>
+          <div className="overflow-hidden rounded-[1.75rem] border border-[var(--pp-border)] bg-white">
+            <div className="border-b border-[var(--pp-border)] px-5 py-3.5">
+              <h3 className="page-title text-sm font-bold uppercase tracking-wider text-[var(--pp-text)]">Estoque anterior x posterior (por venda)</h3>
+              <p className="mt-0.5 text-[11px] text-[var(--pp-text-muted)]">Anterior = atual + vendido no período · não considera restock manual feito fora deste período · {linhasEstoqueOrdenadas.length} produto(s)</p>
             </div>
             {/* Rolagem interna com cabeçalho fixo */}
             <div className="max-h-[520px] overflow-auto">
               <table className="w-full min-w-[820px] border-collapse text-sm">
-                <thead className="sticky top-0 z-10 bg-[#F8FAFC]">
-                  <tr className="text-[10px] font-bold uppercase tracking-widest text-[#64748B]">
+                <thead className="sticky top-0 z-10 bg-[var(--pp-bg)]">
+                  <tr className="text-[10px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]">
                     {[
                       ["nome", "Produto"], ["categoria", "Categoria"], ["anterior", "Anterior"], ["vendido", "Vendido"],
                       ["posterior", "Atual"], ["minimo", "Mínimo"], ["cobertura", "Cobertura"], ["custoUnit", "Custo un."], ["valorEstoque", "Valor"], ["status", "Status"],
                     ].map(([campo, rotulo]) => (
-                      <th key={campo} className="whitespace-nowrap border-b border-[#E2E8F0] px-3 py-2.5 text-left">
+                      <th key={campo} className="whitespace-nowrap border-b border-[var(--pp-border)] px-3 py-2.5 text-left">
                         <button onClick={() => alternarOrdemEstoque(campo)} className="flex items-center gap-1 transition hover:text-[#0F4C5C]">
                           {rotulo}{ordenacaoEstoque.campo === campo ? (ordenacaoEstoque.dir === "desc" ? " ▼" : " ▲") : ""}
                         </button>
@@ -10094,21 +10094,21 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
                 </thead>
                 <tbody>
                   {linhasEstoqueVisiveis.length === 0 && (
-                    <tr><td colSpan={10} className="px-5 py-8 text-center text-sm text-[#64748B]">
+                    <tr><td colSpan={10} className="px-5 py-8 text-center text-sm text-[var(--pp-text-muted)]">
                       {linhasEstoqueEnriquecidas.length === 0 ? "Nenhum produto cadastrado." : "Nenhum produto encontrado para os filtros aplicados."}
                     </td></tr>
                   )}
                   {linhasEstoqueVisiveis.map((l) => (
-                    <tr key={l.nome} onClick={() => setProdutoDetalheEstoque(l)} className="cursor-pointer border-b border-[#F1F5F9] transition hover:bg-[#F8FAFC]">
-                      <td className="max-w-[220px] truncate px-3 py-2.5 font-semibold text-[#0D1B2A]">{l.nome}</td>
-                      <td className="px-3 py-2.5 text-[#64748B]">{l.categoria || "—"}</td>
-                      <td className="px-3 py-2.5 font-mono text-[#64748B]">{l.anterior}</td>
+                    <tr key={l.nome} onClick={() => setProdutoDetalheEstoque(l)} className="cursor-pointer border-b border-[var(--pp-bg)] transition hover:bg-[var(--pp-bg)]">
+                      <td className="max-w-[220px] truncate px-3 py-2.5 font-semibold text-[var(--pp-text)]">{l.nome}</td>
+                      <td className="px-3 py-2.5 text-[var(--pp-text-muted)]">{l.categoria || "—"}</td>
+                      <td className="px-3 py-2.5 font-mono text-[var(--pp-text-muted)]">{l.anterior}</td>
                       <td className="px-3 py-2.5 font-mono font-semibold text-[#0F4C5C]">{l.vendido}</td>
-                      <td className="px-3 py-2.5 font-mono font-bold text-[#0D1B2A]">{l.posterior}</td>
-                      <td className="px-3 py-2.5 font-mono text-[#64748B]">{l.minimo}</td>
-                      <td className="px-3 py-2.5 text-[#64748B]">{l.cobertura != null ? `${l.cobertura.toFixed(0)}d` : "—"}</td>
-                      <td className="px-3 py-2.5 text-[#64748B]">{formatCurrency(l.custoUnit)}</td>
-                      <td className="px-3 py-2.5 font-semibold text-[#0D1B2A]">{formatCurrency(l.valorEstoque)}</td>
+                      <td className="px-3 py-2.5 font-mono font-bold text-[var(--pp-text)]">{l.posterior}</td>
+                      <td className="px-3 py-2.5 font-mono text-[var(--pp-text-muted)]">{l.minimo}</td>
+                      <td className="px-3 py-2.5 text-[var(--pp-text-muted)]">{l.cobertura != null ? `${l.cobertura.toFixed(0)}d` : "—"}</td>
+                      <td className="px-3 py-2.5 text-[var(--pp-text-muted)]">{formatCurrency(l.custoUnit)}</td>
+                      <td className="px-3 py-2.5 font-semibold text-[var(--pp-text)]">{formatCurrency(l.valorEstoque)}</td>
                       <td className="px-3 py-2.5"><BadgeEstoque status={l.status} /></td>
                     </tr>
                   ))}
@@ -10122,32 +10122,32 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
           {/* 5. Novas análises */}
           <div className="grid gap-4 sm:grid-cols-2">
             <TopLista titulo="Maior giro" icon="🔁" itens={maiorGiro} vazio="Sem dados de giro no período."
-              render={(l) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[#334155]">{l.nome}</span><span className="shrink-0 font-bold text-[#0D1B2A]">{l.giro.toFixed(2)}x</span></div>)} />
+              render={(l) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[var(--pp-text)]">{l.nome}</span><span className="shrink-0 font-bold text-[var(--pp-text)]">{l.giro.toFixed(2)}x</span></div>)} />
             <TopLista titulo="Menor giro" icon="🐌" itens={menorGiro} vazio="Sem produtos com giro baixo (excluindo parados)."
-              render={(l) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[#334155]">{l.nome}</span><span className="shrink-0 font-bold text-[#F59E0B]">{l.giro.toFixed(2)}x</span></div>)} />
+              render={(l) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[var(--pp-text)]">{l.nome}</span><span className="shrink-0 font-bold text-[#F59E0B]">{l.giro.toFixed(2)}x</span></div>)} />
             <TopLista titulo="Produtos parados" icon="😴" itens={produtosParadosEstoqueE.slice(0, 5)} vazio="Todos os produtos ativos venderam no período."
-              acao={produtosParadosEstoqueE.length > 5 ? <span className="text-[11px] text-[#64748B]">+{produtosParadosEstoqueE.length - 5}</span> : null}
-              render={(l) => <span className="block truncate text-sm text-[#334155]">{l.nome}</span>} />
+              acao={produtosParadosEstoqueE.length > 5 ? <span className="text-[11px] text-[var(--pp-text-muted)]">+{produtosParadosEstoqueE.length - 5}</span> : null}
+              render={(l) => <span className="block truncate text-sm text-[var(--pp-text)]">{l.nome}</span>} />
             <TopLista titulo="Maior valor imobilizado" icon="🏦" itens={maiorValorImobilizado} vazio="Sem dados de valor em estoque."
-              render={(l) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[#334155]">{l.nome}</span><span className="shrink-0 font-bold text-[#0D1B2A]">{formatCurrency(l.valorEstoque)}</span></div>)} />
+              render={(l) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[var(--pp-text)]">{l.nome}</span><span className="shrink-0 font-bold text-[var(--pp-text)]">{formatCurrency(l.valorEstoque)}</span></div>)} />
             <TopLista titulo="Risco de ruptura" icon="🚨" itens={riscoRuptura} vazio="Nenhum produto com risco de ruptura identificado."
-              render={(l) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[#334155]">{l.nome}</span><span className="shrink-0 font-bold text-[#EF4444]">{l.cobertura.toFixed(1)}d</span></div>)} />
+              render={(l) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[var(--pp-text)]">{l.nome}</span><span className="shrink-0 font-bold text-[#C81E4A]">{l.cobertura.toFixed(1)}d</span></div>)} />
             <TopLista titulo="Categorias com maior consumo" icon="🏷️" itens={consumoPorCategoria} vazio="Sem categorias com consumo no período."
-              render={(c) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[#334155]">{c.categoria}</span><span className="shrink-0 font-bold text-[#0D1B2A]">{c.vendido} un.</span></div>)} />
+              render={(c) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[var(--pp-text)]">{c.categoria}</span><span className="shrink-0 font-bold text-[var(--pp-text)]">{c.vendido} un.</span></div>)} />
             <TopLista titulo="Sugestão de reposição" icon="📋" itens={sugestoesReposicao} vazio="Nenhum produto abaixo do mínimo no momento." className="sm:col-span-2"
               render={(l) => (
                 <div className="flex items-center justify-between gap-2 text-sm">
-                  <span className="min-w-0 truncate text-[#334155]">{l.nome}</span>
+                  <span className="min-w-0 truncate text-[var(--pp-text)]">{l.nome}</span>
                   <span className="shrink-0 text-right">
                     <span className="font-bold text-[#0F4C5C]">+{l.sugestaoQtd} un. até o mínimo</span>
-                    <span className="ml-2 text-[11px] text-[#64748B]">média {l.mediaDiaria.toFixed(1)} un./dia</span>
+                    <span className="ml-2 text-[11px] text-[var(--pp-text-muted)]">média {l.mediaDiaria.toFixed(1)} un./dia</span>
                   </span>
                 </div>
               )} />
           </div>
 
           {produtosSemCustoEstoque.length > 0 && (
-            <p className="text-[11px] text-[#94A3B8]">{produtosSemCustoEstoque.length} produto(s) sem custo cadastrado — valor em estoque e CMV podem estar subestimados para esses itens.</p>
+            <p className="text-[11px] text-[var(--pp-text-muted)]">{produtosSemCustoEstoque.length} produto(s) sem custo cadastrado — valor em estoque e CMV podem estar subestimados para esses itens.</p>
           )}
 
           {produtoDetalheEstoque && (
@@ -10169,7 +10169,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
 
 // ── Relatório analítico por cupom fiscal / mesa / comanda ────
 // Badge de indicador do cupom — paleta oficial restrita a estas 5 cores.
-const INDICADOR_CUPOM_CORES = { cancelada: "#EF4444", reimpressa: "#F59E0B", enviada: "#10B981", fiscal: "#0F4C5C", naoFiscal: "#64748B" };
+const INDICADOR_CUPOM_CORES = { cancelada: "#C81E4A", reimpressa: "#F59E0B", enviada: "#2F9E52", fiscal: "#0F4C5C", naoFiscal: "#8A7D73" };
 function BadgeCupom({ tipo, children }) {
   const cor = INDICADOR_CUPOM_CORES[tipo] || INDICADOR_CUPOM_CORES.naoFiscal;
   return <span className="rounded-full px-2 py-0.5 text-[10px] font-black" style={{ background: `${cor}1A`, color: cor }}>{children}</span>;
