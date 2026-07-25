@@ -2821,48 +2821,44 @@ export function ProdutoModal({ produto, onFechar, onAdicionar, grupos = [], opco
   const corTextoTotal = statusEnvio === "erro" ? "text-white/80" : "text-white/90";
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-[rgba(33,24,20,0.5)] backdrop-blur-sm p-0 sm:p-4"
+    <div className="fixed inset-0 z-[100] flex items-stretch sm:items-center justify-center bg-[rgba(33,24,20,0.5)] backdrop-blur-sm p-0 sm:p-4"
       style={{ fontFamily: "'Inter','Poppins',sans-serif" }} onClick={onFechar}>
       <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="pm-titulo"
-        className="relative flex w-full max-w-[520px] lg:max-w-[900px] flex-col lg:flex-row overflow-hidden rounded-t-[28px] sm:rounded-[28px] border border-[var(--client-border)] bg-[var(--client-surface)] shadow-[var(--client-shadow-floating)] max-h-[92dvh]"
-        style={{ width: "calc(100% - 32px)" }}>
+        className="relative flex w-full sm:w-[calc(100%-32px)] max-w-[520px] lg:max-w-[900px] flex-col lg:flex-row h-[100dvh] sm:h-auto sm:max-h-[92dvh] overflow-y-auto overscroll-contain lg:overflow-hidden rounded-none sm:rounded-[28px] border-0 sm:border border-[var(--client-border)] bg-[var(--client-surface)] shadow-[var(--client-shadow-floating)]">
 
-        {/* Feedback discreto de favorito */}
+        {/* Voltar / Favoritar — barra STICKY: fica fixa no topo enquanto o
+            conteúdo (imagem inclusive) rola por baixo. Altura 0 para sobrepor a
+            imagem sem empurrá-la; respeita a safe-area (notch). No desktop vira
+            absoluta sobre a coluna da imagem. Botões sólidos, 44x44px. */}
+        <div className="pointer-events-none sticky top-0 z-30 h-0 lg:absolute lg:inset-x-0 lg:top-0">
+          <div className="flex items-center justify-between px-4" style={{ paddingTop: "max(0.875rem, calc(env(safe-area-inset-top) + 0.5rem))" }}>
+            <button onClick={onFechar} aria-label="Voltar"
+              className="pointer-events-auto flex h-11 w-11 items-center justify-center rounded-full border border-[var(--client-border)] bg-[var(--client-surface)] text-[var(--client-text-primary)] shadow-[0_4px_14px_rgba(16,24,40,.12)] transition duration-200 hover:bg-[var(--client-surface-secondary)] active:scale-90">
+              <PmIconVoltar />
+            </button>
+            <button onClick={toggleFavorito} aria-label={favorito ? "Remover dos favoritos" : "Adicionar aos favoritos"} aria-pressed={favorito}
+              className={`pointer-events-auto flex h-11 w-11 items-center justify-center rounded-full border shadow-[0_4px_14px_rgba(16,24,40,.12)] transition duration-200 active:scale-90 ${favorito ? "border-[var(--client-primary-border)] bg-[var(--client-primary-soft)] text-[var(--client-primary-hover)]" : "border-[var(--client-border)] bg-[var(--client-surface)] text-[var(--client-text-secondary)] hover:bg-[var(--client-surface-secondary)]"}`}>
+              <span className={`block transition-transform duration-200 motion-reduce:transition-none ${favPop ? "scale-125" : "scale-100"}`}><PmIconCoracao preenchido={favorito} /></span>
+            </button>
+          </div>
+        </div>
+
+        {/* Feedback discreto de favorito — logo abaixo dos botões */}
         {toastFav && (
-          <div role="status" className="absolute left-1/2 top-3 z-30 -translate-x-1/2 rounded-full border border-[var(--client-border)] bg-[var(--client-surface)] px-3.5 py-1.5 text-xs font-bold text-[var(--client-text-primary)] shadow-md">{toastFav}</div>
+          <div role="status" className="pointer-events-none absolute left-1/2 z-40 -translate-x-1/2 rounded-full border border-[var(--client-border)] bg-[var(--client-surface)] px-3.5 py-1.5 text-xs font-bold text-[var(--client-text-primary)] shadow-md" style={{ top: "calc(max(0.875rem, env(safe-area-inset-top)) + 3.75rem)" }}>{toastFav}</div>
         )}
 
-        {/* ── Coluna da imagem (linha inteira no mobile/tablet; coluna
-            esquerda fixa no desktop, ver lg:w-*) ── */}
-        {/* Altura em clamp(mín, %vh, máx) — não só px fixo: numa tela BAIXA
-            (celular deitado / paisagem), uma imagem de 260px fixos podia
-            sobrar tão pouco espaço pro cabeçalho+rodapé que o botão
-            "Adicionar" ficava fora da área visível do modal (confirmado com
-            teste real de navegador, viewport 844x390 → botão renderizava
-            100px abaixo do fim do modal). Em telas normais, o clamp() bate
-            no teto (220px/260px) e o resultado visual não muda. */}
-        {/* Imagem do produto — object-contain sobre fundo neutro: mostra o
-            produto INTEIRO, sem cortar (antes object-cover cortava topo/base).
-            Container mais alto e com respiro (p-4) para a foto respirar. */}
-        <div className="relative h-[clamp(200px,40vh,300px)] sm:h-[clamp(220px,42vh,340px)] lg:h-auto lg:w-[42%] shrink-0 overflow-hidden bg-[var(--client-background)]">
+        {/* ── Imagem do produto — ROLA junto com o conteúdo no mobile (não fica
+            presa no topo); no desktop é a coluna esquerda fixa (lg:w-*).
+            object-contain sobre fundo neutro mostra o produto INTEIRO, sem cortar.
+            pt-16 no mobile reserva espaço para os botões sobrepostos. ── */}
+        <div className="relative h-[clamp(240px,42vh,380px)] shrink-0 overflow-hidden bg-[var(--client-background)] lg:h-auto lg:max-h-none lg:w-[42%]">
           {!imgPronta && <div className="absolute inset-0 animate-pulse motion-reduce:animate-none bg-[var(--client-surface-secondary)]" aria-hidden="true" />}
           <img
             src={imgSrc} alt={produto.name} decoding="async"
             onLoad={() => setImgPronta(true)}
             onError={() => { if (imgSrc !== fallbackImage) { setImgSrc(fallbackImage); setImgPronta(false); } else setImgPronta(true); }}
-            className={`h-full w-full object-contain p-4 lg:p-6 transition-opacity duration-300 motion-reduce:transition-none ${imgPronta ? "opacity-100" : "opacity-0"}`} />
-          {/* Voltar / Favoritar — botões sólidos brancos (nítidos sobre o fundo
-              neutro), 44x44px, respeitam a safe-area (notch). */}
-          <div className="absolute inset-x-4 flex items-center justify-between" style={{ top: "max(1rem, calc(env(safe-area-inset-top) + 0.5rem))" }}>
-            <button onClick={onFechar} aria-label="Voltar"
-              className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--client-border)] bg-[var(--client-surface)] text-[var(--client-text-primary)] shadow-[0_4px_14px_rgba(16,24,40,.12)] transition duration-200 hover:bg-[var(--client-surface-secondary)] active:scale-90">
-              <PmIconVoltar />
-            </button>
-            <button onClick={toggleFavorito} aria-label={favorito ? "Remover dos favoritos" : "Adicionar aos favoritos"} aria-pressed={favorito}
-              className={`flex h-11 w-11 items-center justify-center rounded-full border shadow-[0_4px_14px_rgba(16,24,40,.12)] transition duration-200 active:scale-90 ${favorito ? "border-[var(--client-primary-border)] bg-[var(--client-primary-soft)] text-[var(--client-primary-hover)]" : "border-[var(--client-border)] bg-[var(--client-surface)] text-[var(--client-text-secondary)] hover:bg-[var(--client-surface-secondary)]"}`}>
-              <span className={`block transition-transform duration-200 motion-reduce:transition-none ${favPop ? "scale-125" : "scale-100"}`}><PmIconCoracao preenchido={favorito} /></span>
-            </button>
-          </div>
+            className={`h-full w-full object-contain p-4 pt-16 lg:p-6 lg:pt-6 transition-opacity duration-300 motion-reduce:transition-none ${imgPronta ? "opacity-100" : "opacity-0"}`} />
           {produto.badge && (
             <span className="absolute left-4 bottom-4 rounded-md bg-[var(--client-offer-hover)] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white shadow-lg">{produto.badge}</span>
           )}
@@ -2871,8 +2867,10 @@ export function ProdutoModal({ produto, onFechar, onAdicionar, grupos = [], opco
           )}
         </div>
 
-        {/* ── Coluna de conteúdo (info + personalização + rodapé) ── */}
-        <div className="flex min-h-0 flex-1 flex-col">
+        {/* ── Coluna de conteúdo (info + personalização + rodapé) ──
+            No mobile flui na rolagem do dialog; no desktop é coluna com scroll
+            próprio no corpo (lg:overflow). ── */}
+        <div className="flex min-w-0 flex-col lg:min-h-0 lg:flex-1 lg:overflow-hidden">
           {/* Transição elegante da imagem pro conteúdo + informações do produto */}
           <div className="shrink-0 px-5 pt-4 lg:pt-5">
             <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--client-text-secondary)]">
@@ -2885,8 +2883,9 @@ export function ProdutoModal({ produto, onFechar, onAdicionar, grupos = [], opco
             {produto.description && <p className="mt-2 text-sm leading-6 text-[var(--client-text-secondary)]">{produto.description}</p>}
           </div>
 
-          {/* Corpo rolável — personalização + observação */}
-          <div className="mt-4 min-h-0 flex-1 overflow-y-auto px-5 pb-4 space-y-6">
+          {/* Corpo — personalização + observação. No mobile flui na rolagem do
+              dialog; no desktop tem scroll próprio (lg:overflow-y-auto). */}
+          <div className="mt-4 px-5 pb-4 space-y-6 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
             {!semPersonalizacao && <p className="text-[11px] font-bold uppercase tracking-widest text-[var(--client-text-secondary)]">Personalize seu pedido</p>}
 
             {/* Grupos de variações/adicionais estruturados (migration 040) */}
@@ -2950,8 +2949,10 @@ export function ProdutoModal({ produto, onFechar, onAdicionar, grupos = [], opco
             </div>
           </div>
 
-          {/* Rodapé — quantidade + adicionar ao pedido, sempre visível (nunca cobre conteúdo: é parte do fluxo flex, não position:fixed) */}
-          <div className="shrink-0 border-t border-[var(--client-border)] bg-[var(--client-surface)] px-5 py-4" style={{ paddingBottom: "max(1rem, calc(env(safe-area-inset-bottom) + 0.5rem))" }}>
+          {/* Rodapé — quantidade + adicionar ao pedido, sempre visível. No mobile
+              é sticky bottom (fica fixo enquanto o dialog rola); no desktop é
+              estático no fim da coluna. Fundo sólido cobre o conteúdo por baixo. */}
+          <div className="sticky bottom-0 z-20 shrink-0 border-t border-[var(--client-border)] bg-[var(--client-surface)] px-5 py-4 lg:static" style={{ paddingBottom: "max(1rem, calc(env(safe-area-inset-bottom) + 0.5rem))" }}>
             {!podeAdicionar && !indisponivel && (
               <p className="mb-2.5 flex items-center gap-1.5 text-xs font-bold text-[var(--client-error)]"><PmIconAlerta /> Escolha uma opção em "{grupoFaltando?.nome}" para continuar</p>
             )}
