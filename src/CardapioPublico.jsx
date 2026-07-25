@@ -1947,7 +1947,10 @@ function EtapaProgresso({ etapas, atualIdx }) {
   return (
     <ol className="flex items-center gap-1.5" aria-label="Progresso do pedido">
       {etapas.map((e, i) => {
-        const feita = i < atualIdx || (i === atualIdx && e.feito);
+        // A etapa ATUAL nunca fica verde antes de ser passada: verde = etapa já
+        // concluída (i < atualIdx); a atual fica laranja (ação, harmoniza com o
+        // botão "Confirmar"). Verde = já fiz · laranja = fazer agora.
+        const feita = i < atualIdx;
         const atual = i === atualIdx;
         return (
           <li key={e.label} className="flex flex-1 items-center gap-1.5">
