@@ -2848,18 +2848,21 @@ export function ProdutoModal({ produto, onFechar, onAdicionar, grupos = [], opco
           <div role="status" className="pointer-events-none absolute left-1/2 z-40 -translate-x-1/2 rounded-full border border-[var(--client-border)] bg-[var(--client-surface)] px-3.5 py-1.5 text-xs font-bold text-[var(--client-text-primary)] shadow-md" style={{ top: "calc(max(0.875rem, env(safe-area-inset-top)) + 3.75rem)" }}>{toastFav}</div>
         )}
 
-        {/* ── Imagem do produto — ROLA junto com o conteúdo no mobile (não fica
-            presa no topo); no desktop é a coluna esquerda fixa (lg:w-*).
-            object-cover em TELA CHEIA (full-bleed): a foto ocupa todo o espaço,
-            sem moldura/letterbox — o produto aparece maior e mais apetitoso. Os
-            botões flutuam por cima (barra sticky h-0, com safe-area). ── */}
-        <div className="relative h-[clamp(260px,46vh,420px)] shrink-0 overflow-hidden bg-[var(--client-background)] lg:h-auto lg:max-h-none lg:w-[42%]">
+        {/* ── Imagem do produto — RESPONSIVA por layout:
+            • Mobile/tablet (herói no topo, largura total): object-cover em TELA
+              CHEIA (full-bleed) — a foto ocupa todo o espaço, sem moldura, maior
+              e mais apetitosa. Altura em dvh (não vh) p/ a barra do Safari não
+              cortar (iOS/Android). Botões flutuam por cima (sticky h-0, safe-area).
+            • Desktop (lg): a imagem é a coluna lateral ALTA; ali object-cover
+              deixaria um recorte fino/esticado, então usa object-contain (produto
+              inteiro) com respiro (lg:p-6). ── */}
+        <div className="relative h-[clamp(240px,44dvh,400px)] shrink-0 overflow-hidden bg-[var(--client-background)] lg:h-auto lg:max-h-none lg:w-[42%]">
           {!imgPronta && <div className="absolute inset-0 animate-pulse motion-reduce:animate-none bg-[var(--client-surface-secondary)]" aria-hidden="true" />}
           <img
             src={imgSrc} alt={produto.name} decoding="async"
             onLoad={() => setImgPronta(true)}
             onError={() => { if (imgSrc !== fallbackImage) { setImgSrc(fallbackImage); setImgPronta(false); } else setImgPronta(true); }}
-            className={`h-full w-full object-cover transition-opacity duration-300 motion-reduce:transition-none ${imgPronta ? "opacity-100" : "opacity-0"}`} />
+            className={`h-full w-full object-cover object-center lg:object-contain lg:p-6 transition-opacity duration-300 motion-reduce:transition-none ${imgPronta ? "opacity-100" : "opacity-0"}`} />
           {produto.badge && (
             <span className="absolute left-4 bottom-4 rounded-md bg-[var(--client-offer-hover)] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white shadow-lg">{produto.badge}</span>
           )}
