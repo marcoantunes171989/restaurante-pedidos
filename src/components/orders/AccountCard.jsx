@@ -102,7 +102,7 @@ export default function AccountCard({
             type="button"
             onClick={() => onRetirar(o)}
             disabled={retirando}
-            className="flex min-h-[44px] min-w-0 items-center justify-center gap-2 rounded-xl bg-[var(--pp-success)] text-sm font-bold text-white transition-colors duration-150 hover:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-primary-hover)] disabled:cursor-not-allowed disabled:opacity-70"
+            className="flex min-h-[44px] min-w-0 items-center justify-center gap-2 rounded-xl btn-verde bg-[var(--pp-success)] text-sm font-bold text-white transition-colors duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-primary-hover)] disabled:cursor-not-allowed disabled:opacity-70"
           >
             {retirando ? <><Loader2 aria-hidden="true" size={15} className="animate-spin" /> Confirmando…</> : <><Check aria-hidden="true" size={15} /> Retirada</>}
           </button>
@@ -181,7 +181,7 @@ export default function AccountCard({
                 type="button"
                 onClick={() => onFinalizar(o, linhas, total)}
                 disabled={!valido || pagando}
-                className="mt-1 flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl bg-[var(--pp-success)] text-sm font-bold text-white transition-colors duration-150 hover:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-primary-hover)] disabled:cursor-not-allowed disabled:bg-[var(--pp-bg)] disabled:text-[var(--pp-text-muted)]"
+                className="mt-1 flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl btn-verde bg-[var(--pp-success)] text-sm font-bold text-white transition-colors duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-primary-hover)] disabled:cursor-not-allowed disabled:bg-[var(--pp-bg)] disabled:text-[var(--pp-text-muted)]"
               >
                 {pagando && <Loader2 aria-hidden="true" size={15} className="animate-spin" />}
                 {pagando ? "Registrando…" : linhas.length === 0 ? "Selecione a forma de pagamento" : !valido ? "Confirme o valor" : "Finalizar pagamento"}

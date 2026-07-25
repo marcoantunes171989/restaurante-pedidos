@@ -55,7 +55,7 @@ function SetorBloco({ o, sk, its, metaSetor, setorPronto, onMarcarPronto }) {
           pronto
             ? <span className="inline-flex items-center gap-1 rounded-lg bg-[var(--pp-success-soft)] px-2 py-0.5 text-[11px] font-bold text-[var(--pp-success-text)]"><Check aria-hidden="true" size={12} /> Pronto</span>
             : (
-              <button type="button" onClick={onMarcarPronto} className="min-h-[32px] rounded-lg bg-[var(--pp-success)] px-2.5 text-[11px] font-bold text-white transition-colors duration-150 hover:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-primary-hover)]">
+              <button type="button" onClick={onMarcarPronto} className="min-h-[32px] rounded-lg btn-verde bg-[var(--pp-success)] px-2.5 text-[11px] font-bold text-white transition-colors duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-primary-hover)]">
                 Marcar pronto
               </button>
             )

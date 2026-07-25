@@ -482,6 +482,32 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
   text-shadow: none;
 }
 
+/* ══════════════════════════════════════════════════════════════════
+   Botão verde "GOURMET" — mesma receita do .btn-laranja, mas na cor de
+   SUCESSO/CONFIRMAÇÃO (verde da paleta). Degradê quente-fresco (mais claro
+   no topo, rico embaixo), 3 estados: repouso = verde CLARO, hover = MAIS
+   CLARO, ativo/pressionado = MAIS ESCURO (chapado). Texto branco com leve
+   sombra p/ legibilidade. Usar em botões de AÇÃO POSITIVA (confirmar,
+   marcar pronto, retirada, entregue…). Trocar `bg-[var(--pp-success)]` por
+   `btn-verde` (mantendo `text-white`).
+   ══════════════════════════════════════════════════════════════════ */
+.btn-verde {
+  background-image: linear-gradient(180deg, #3FB463 0%, #2A8548 100%);
+  text-shadow: 0 1px 1.5px rgba(0, 45, 18, 0.35);
+}
+.btn-verde:hover:not(:disabled):not([aria-disabled="true"]) {
+  background-image: linear-gradient(180deg, #52C075 0%, #319556 100%);
+}
+.btn-verde:active:not(:disabled):not([aria-disabled="true"]) {
+  background-image: none;
+  background-color: #1F6E3A;
+}
+.btn-verde:disabled,
+.btn-verde[disabled] {
+  background-image: none;
+  text-shadow: none;
+}
+
 /* ── Painel de filtro oficial (FilterGroup, src/components/Prime.jsx) ──
    Paleta oficial 2026 dos grupos "Turno/Canal/Status" do Dashboard
    Gerencial — aplicada automaticamente por QUALQUER FilterGroup (é a
