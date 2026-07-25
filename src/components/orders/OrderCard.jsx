@@ -123,7 +123,7 @@ export default function OrderCard({
 
       <div className="mt-4 flex items-center gap-2 pl-2">
         {mensagemRodape ? (
-          <p className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-[var(--pp-success-soft)] px-4 py-3 text-center text-sm font-bold text-[var(--pp-success-text)]">
+          <p className="btn-verde flex flex-1 items-center justify-center gap-1.5 rounded-xl px-4 py-3 text-center text-sm font-bold text-white">
             <Check aria-hidden="true" size={15} /> {mensagemRodape}
           </p>
         ) : acao ? (
