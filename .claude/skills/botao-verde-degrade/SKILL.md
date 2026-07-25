@@ -64,6 +64,19 @@ embaixo) — mais fresco e premium.
 - 🟧 **`.btn-laranja`** → ação PRINCIPAL/CTA: Aceitar, Confirmar pedido, Enviar,
   Adicionar, Receber, Entrar. (ver skill botao-laranja-degrade)
 
+## Uso ESTÁTICO (faixa de status, sem hover)
+
+Quando o degradê é usado numa faixa **não-clicável** (status que ocupa o lugar do
+botão — ex.: "Cozinha pronta · aguardando o outro setor"), marque o elemento com
+**`aria-disabled="true"`**. As regras de `:hover`/`:active` da utility já têm
+`:not([aria-disabled="true"])`, então o degradê base fica **fixo, sem reação ao
+hover/pressão** (e sem sugerir que é clicável). O degradê NÃO é limpo (isso só
+acontece com o atributo real `disabled`). Mesmo gancho vale para `.btn-laranja`.
+
+```jsx
+<p aria-disabled="true" className="btn-verde ... text-white">…status…</p>
+```
+
 ## Onde NÃO usar
 
 Selos/badges, pontos de status, pings, barras de progresso, bordas, texto, ícones e
