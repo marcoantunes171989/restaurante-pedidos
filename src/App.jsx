@@ -5405,38 +5405,38 @@ function CommandPalette({ open, onClose, sections = [], onNavigate, onSair }) {
     else if (e.key === "Escape") { e.preventDefault(); onClose(); }
   };
   return (
-    <div className="fixed inset-0 z-[120] flex items-start justify-center bg-[#061A2E]/45 px-4 pt-[14vh] backdrop-blur-sm" onClick={onClose} onKeyDown={onKey} style={{ fontFamily: "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif" }}>
-      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-xl overflow-hidden rounded-2xl border border-[#E7E1D8] bg-white shadow-2xl">
-        <div className="flex items-center gap-3 border-b border-[#E7E1D8] px-4 py-3.5 transition-colors duration-150 focus-within:border-[#0F4C5C]">
-          <svg viewBox="0 0 24 24" className="h-5 w-5 shrink-0 text-[#98A2B3]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
+    <div className="fixed inset-0 z-[120] flex items-start justify-center bg-[#0C3D4A]/55 px-4 pt-[14vh] backdrop-blur-sm" onClick={onClose} onKeyDown={onKey} style={{ fontFamily: "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif" }}>
+      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-xl overflow-hidden rounded-2xl border border-[var(--pp-border)] bg-white shadow-2xl">
+        <div className="flex items-center gap-3 border-b border-[var(--pp-border)] px-4 py-3.5 transition-colors duration-150 focus-within:border-[#0F4C5C]">
+          <svg viewBox="0 0 24 24" className="h-5 w-5 shrink-0 text-[var(--pp-text-muted)]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
           <input ref={inputRef} value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={onKey}
             placeholder="Buscar telas e ações…  (ex.: produtos, caixa, clientes)"
-            className="w-full bg-transparent text-[15px] text-[#111827] outline-none placeholder:text-[#98A2B3]" />
-          <span className="shrink-0 rounded-md border border-[#E7E1D8] px-1.5 py-0.5 text-[10px] font-bold text-[#98A2B3]">ESC</span>
+            className="w-full bg-transparent text-[15px] text-[var(--pp-text)] outline-none placeholder:text-[var(--pp-text-muted)]" />
+          <span className="shrink-0 rounded-md border border-[var(--pp-border)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--pp-text-muted)]">ESC</span>
         </div>
-        <div ref={listRef} className="max-h-[52vh] overflow-y-auto p-2">
+        <div ref={listRef} className="max-h-[52vh] space-y-0.5 overflow-y-auto p-2">
           {itens.length === 0 ? (
-            <p className="px-3 py-10 text-center text-sm text-[#667085]">Nada encontrado para “{q}”.</p>
+            <p className="px-3 py-10 text-center text-sm text-[var(--pp-text-muted)]">Nada encontrado para “{q}”.</p>
           ) : itens.map((it, i) => {
             const on = i === idx;
             return (
               <button key={it.id + i} data-on={on ? "1" : "0"} onMouseEnter={() => setIdx(i)} onClick={() => escolher(it)}
-                className={`flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0F4C5C] ${on ? "border-[#0F4C5C] bg-[rgba(15, 76, 92,0.14)]" : "border-transparent hover:border-[#0F4C5C] hover:bg-[rgba(15, 76, 92,0.10)]"}`}>
-                <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition-colors duration-150 ${on ? "border-[#0F4C5C]/40 bg-[rgba(15, 76, 92,0.10)] text-[#0F4C5C]" : "border-[#E7E1D8] bg-white text-[#667085]"}`}>
+                className={`flex w-full items-center gap-2.5 rounded-xl border px-3 py-2 text-left transition duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0F4C5C] ${on ? "border-[#0F4C5C] bg-[rgba(15,76,92,0.10)]" : "border-transparent hover:border-[rgba(15,76,92,0.35)] hover:bg-[rgba(15,76,92,0.05)]"}`}>
+                <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition-colors duration-150 ${on ? "border-[#0F4C5C]/40 bg-[rgba(15,76,92,0.10)] text-[#0F4C5C]" : "border-[var(--pp-border)] bg-white text-[var(--pp-text-muted)]"}`}>
                   {it.sair
                     ? <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="m16 17 5-5-5-5" /><path d="M21 12H9" /></svg>
                     : <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 6 15 12 9 18" /></svg>}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className={`block truncate text-sm font-semibold ${on ? "text-[#0F4C5C]" : "text-[#111827]"}`}>{it.label}</span>
-                  {it.grupo && <span className="block text-[11px] text-[#98A2B3]">{it.grupo}</span>}
+                  <span className={`block truncate text-[13px] font-semibold ${on ? "text-[#0F4C5C]" : "text-[var(--pp-text)]"}`}>{it.label}</span>
+                  {it.grupo && <span className="block text-[11px] text-[var(--pp-text-muted)]">{it.grupo}</span>}
                 </span>
                 {on && <span className="shrink-0 text-[11px] font-bold text-[#0F4C5C]">Abrir ↵</span>}
               </button>
             );
           })}
         </div>
-        <div className="flex items-center justify-between border-t border-[#E7E1D8] bg-[#F8F6F0] px-4 py-2.5 text-[11px] text-[#667085]">
+        <div className="flex items-center justify-between border-t border-[var(--pp-border)] bg-[var(--pp-bg)] px-4 py-2.5 text-[11px] text-[var(--pp-text-muted)]">
           <span className="font-semibold">Pedido <span className="text-[#0F4C5C]">Prime</span> · navegação rápida</span>
           <span>↑↓ navegar · ↵ abrir · Ctrl K abrir/fechar</span>
         </div>
@@ -7479,7 +7479,7 @@ function ModalCriarAcao({ acao, usuarios = [], onFechar, onConfirmar }) {
               "--btn-bg-active": sucesso ? "#16A34A" : erroEnvio ? "#DC2626" : "#0A3A47",
               boxShadow: enviando ? "none" : "0 4px 10px rgba(15, 76, 92,0.20)",
             }}
-            className={`inline-flex min-h-[48px] items-center justify-center gap-2 rounded-[10px] border border-transparent bg-[var(--btn-bg)] px-5 py-2.5 text-sm font-semibold text-white transition-colors active:translate-y-px focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[rgba(15, 76, 92,0.25)] disabled:translate-y-0 disabled:cursor-not-allowed sm:min-h-[44px]
+            className={`inline-flex min-h-[48px] items-center justify-center gap-2 rounded-[10px] border border-transparent bg-[var(--btn-bg)] px-5 py-2.5 text-sm font-semibold text-white transition-colors active:translate-y-px focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[rgba(15,76,92,0.25)] disabled:translate-y-0 disabled:cursor-not-allowed sm:min-h-[44px]
               ${!enviando && !sucesso && !erroEnvio ? "hover:bg-[var(--btn-bg-hover)] active:bg-[var(--btn-bg-active)]" : ""}
               ${!enviando ? "disabled:bg-[#CBD5E1] disabled:text-[#64748B] disabled:shadow-none disabled:hover:bg-[#CBD5E1]" : ""}
               ${erroEnvio ? "animate-pulse" : ""}`}>
