@@ -1218,7 +1218,7 @@ export default function CardapioPublico() {
     entrega: "Receba o pedido no endereço combinado com a equipe.",
   };
   return (
-    <div ref={raizRef} data-theme="light" className="tema-claro-area min-h-screen w-full max-w-[100vw] bg-[var(--client-background)] text-[var(--client-text-primary)]" style={{ minHeight: "100dvh", paddingBottom: `calc(env(safe-area-inset-bottom) + ${cart.length > 0 ? 150 : 92}px)` }}>
+    <div ref={raizRef} data-theme="light" className="tema-claro-area min-h-screen w-full max-w-[100vw] bg-[var(--client-background)] text-[var(--client-text-primary)]" style={{ minHeight: "100dvh", paddingBottom: "calc(env(safe-area-inset-bottom) + 92px)" }}>
       {/* Cabeçalho */}
       <header ref={headerRef} className="sticky top-0 z-30 border-b border-[var(--client-border)] bg-[var(--client-surface)] px-4 pb-3 backdrop-blur-xl" style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)" }}>
         {/* Header em UMA linha: logo + nome + ações SÓ-ÍCONE (garçom/ajuda/
@@ -1361,14 +1361,14 @@ export default function CardapioPublico() {
           bottom-0 flutua ACIMA do teclado, reaparecendo sobre a gaveta e
           duplicando os botões ao focar um campo (ex.: comanda). Esconder na
           raiz resolve em iOS, Android e desktop. */}
-      <div className={`fixed inset-x-0 bottom-0 z-40 ${(aba || detalhe || survey) ? "hidden" : ""}`} style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
-        <div className="mx-auto max-w-3xl px-3 pb-2 pt-1">
-          {/* Rodapé em UMA linha, altura fixa (antes eram 2 — Finalizar + uma
-              linha inteira de "Acompanhar" — que roubavam altura dos produtos).
-              Carrinho (esq., toca p/ abrir) + Acompanhar como ÍCONE com contador
-              de pedidos (só aparece quando há pedidos, em petróleo/info) +
-              Finalizar (laranja). Mais limpo e sem emoji (SVG). */}
-          <div className="flex items-center gap-2 rounded-3xl border border-[var(--client-border)] bg-[var(--client-surface)] p-2.5 shadow-[var(--client-shadow-floating)] backdrop-blur-xl">
+      <div className={`fixed inset-x-0 bottom-0 z-40 border-t border-[var(--client-border)] bg-[var(--client-surface)] shadow-[0_-6px_24px_rgba(45,52,54,0.10)] ${(aba || detalhe || survey) ? "hidden" : ""}`} style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
+        {/* Barra SÓLIDA full-width, colada na base (borda superior + sombra p/
+            cima). Antes era um card flutuante (rounded + margens px-3/pb-2), que
+            deixava o produto atrás VAZAR pelas laterais e por baixo. Agora ocupa
+            toda a largura e a base, cobrindo o fundo. Conteúdo em UMA linha:
+            carrinho + Acompanhar (ícone com contador de pedidos, petróleo) +
+            Finalizar (laranja). */}
+        <div className="mx-auto flex max-w-3xl items-center gap-2 px-3 py-2.5">
             <button onClick={() => setAba("carrinho")} disabled={cart.length === 0} aria-label={cart.length > 0 ? "Ver carrinho" : "Carrinho vazio"}
               className="flex min-w-0 flex-1 items-center gap-3 rounded-2xl text-left disabled:cursor-default">
               <span className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${cart.length > 0 ? "bg-[var(--client-primary-soft)] text-[var(--client-primary-hover)]" : "bg-[var(--client-surface-secondary)] text-[var(--client-text-muted)]"}`}>
@@ -1394,7 +1394,6 @@ export default function CardapioPublico() {
               <button onClick={() => setAba("carrinho")}
                 className="flex h-12 shrink-0 items-center gap-1 rounded-2xl bg-[var(--client-primary-hover)] px-4 text-sm font-black text-white transition active:scale-95 hover:bg-[var(--client-primary)]">Finalizar&nbsp;›</button>
             )}
-          </div>
         </div>
       </div>
 
