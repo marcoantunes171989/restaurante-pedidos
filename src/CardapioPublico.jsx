@@ -1439,30 +1439,60 @@ export default function CardapioPublico() {
               // contagem): cor por tom (recebido=petróleo · preparo/aguardando=âmbar
               // · pronto/pago=verde) e, quando há espaço (carrinho vazio), o rótulo
               // "Meu pedido · <status>". Usa statusGeralConta/tomStatusGeral já calculados.
-              const tomCls = {
+              const TOM_CLS = {
                 info:    "border-[var(--client-info-border)] bg-[var(--client-info-soft)] text-[var(--client-info)]",
                 warning: "border-[var(--client-warning-border)] bg-[var(--client-warning-soft)] text-[var(--client-warning)]",
                 success: "border-[var(--client-success-border)] bg-[var(--client-success-soft)] text-[var(--client-success)]",
-              }[tomStatusGeral] || "border-[var(--client-info-border)] bg-[var(--client-info-soft)] text-[var(--client-info)]";
-              const badgeCls = { info: "bg-[var(--client-info)]", warning: "bg-[var(--client-warning)]", success: "bg-[var(--client-success)]" }[tomStatusGeral] || "bg-[var(--client-info)]";
+              };
+              const DOT_CLS = { info: "bg-[var(--client-info)]", warning: "bg-[var(--client-warning)]", success: "bg-[var(--client-success)]" };
+              // Quebra por STATUS operacional de cada pedido — quando há vários
+              // pedidos em estágios diferentes, cada status vira um "balão" com
+              // sua cor e a quantidade de pedidos naquele estágio.
+              const META = {
+                received:  { label: "Recebido", tom: "info" },
+                preparing: { label: "Preparo",  tom: "warning" },
+                ready:     { label: "Pronto",   tom: "success" },
+                delivered: { label: "Entregue", tom: "success" },
+              };
+              const porStatus = ["received", "preparing", "ready", "delivered"]
+                .map((s) => ({ s, ...META[s], count: meusPedidos.filter((o) => o.status === s).length }))
+                .filter((g) => g.count > 0);
+              const statusMisto = porStatus.length > 1;
+              const tomCls = statusMisto
+                ? "border-[var(--client-border)] bg-[var(--client-surface)] text-[var(--client-text-secondary)]"
+                : (TOM_CLS[tomStatusGeral] || TOM_CLS.info);
+              const badgeCls = statusMisto ? "bg-[var(--client-info)]" : (DOT_CLS[tomStatusGeral] || DOT_CLS.info);
+              const mostrarBadge = !(statusMisto && cart.length === 0); // no misto+expandido, os balões por status já dão as contagens
               // Etapa atual p/ o mini-stepper (Recebido → Preparo → Pronto → Entregue)
               const stepIdx = { "Pedido recebido": 0, "Em preparação": 1, "Pedido pronto": 2, "Pedidos entregues": 3, "Pagamento confirmado": 3, "Fechamento solicitado": 3 }[statusGeralConta] ?? 0;
               return (
-                <button onClick={() => setAba("conta")} aria-label={`Acompanhar meu pedido — ${statusGeralConta}`} title={`Acompanhar pedido — ${statusGeralConta}`}
+                <button onClick={() => setAba("conta")}
+                  aria-label={statusMisto ? `Acompanhar pedidos: ${porStatus.map((g) => `${g.count} ${g.label}`).join(", ")}` : `Acompanhar meu pedido — ${statusGeralConta}`}
+                  title="Acompanhar pedidos"
                   className={`relative flex h-12 shrink-0 items-center gap-2 rounded-2xl border px-3 transition active:scale-90 hover:brightness-95 ${tomCls}`}>
                   <CkIconRecibo width={20} height={20} className="shrink-0" />
                   {cart.length === 0 && (
                     <span className="min-w-0 leading-tight">
-                      <span className="block text-[10px] font-bold uppercase tracking-wide opacity-70">Meu pedido</span>
-                      <span className="flex items-center gap-1.5">
-                        <span aria-hidden="true" className="flex shrink-0 gap-0.5">
-                          {[0, 1, 2, 3].map((i) => <span key={i} className={`h-1 w-2.5 rounded-full bg-current ${i <= stepIdx ? "" : "opacity-25"}`} />)}
+                      <span className="block text-[10px] font-bold uppercase tracking-wide opacity-70">{statusMisto ? "Meus pedidos" : "Meu pedido"}</span>
+                      {statusMisto ? (
+                        <span className="flex items-center gap-2.5">
+                          {porStatus.map((g) => (
+                            <span key={g.s} className="flex items-center gap-1 whitespace-nowrap text-xs font-black">
+                              <span aria-hidden="true" className={`h-2 w-2 shrink-0 rounded-full ${DOT_CLS[g.tom]}`} />{g.count}<span className="font-bold opacity-70"> {g.label}</span>
+                            </span>
+                          ))}
                         </span>
-                        <span className="truncate text-xs font-black">{statusGeralConta}</span>
-                      </span>
+                      ) : (
+                        <span className="flex items-center gap-1.5">
+                          <span aria-hidden="true" className="flex shrink-0 gap-0.5">
+                            {[0, 1, 2, 3].map((i) => <span key={i} className={`h-1 w-2.5 rounded-full bg-current ${i <= stepIdx ? "" : "opacity-25"}`} />)}
+                          </span>
+                          <span className="truncate text-xs font-black">{statusGeralConta}</span>
+                        </span>
+                      )}
                     </span>
                   )}
-                  <span className={`absolute -right-1.5 -top-1.5 flex h-5 min-w-[20px] items-center justify-center rounded-full px-1 text-[11px] font-black text-white ${badgeCls}`}>{meusPedidos.length}</span>
+                  {mostrarBadge && <span className={`absolute -right-1.5 -top-1.5 flex h-5 min-w-[20px] items-center justify-center rounded-full px-1 text-[11px] font-black text-white ${badgeCls}`}>{meusPedidos.length}</span>}
                 </button>
               );
             })()}
