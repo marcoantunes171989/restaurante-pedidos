@@ -2364,6 +2364,20 @@ function TabletView({
     return temGrupo || temAdicional || temIngrediente;
   };
   const temConta = currentTableOrders.length > 0 || currentTableCancelled.length > 0;
+  // Status geral da conta da mesa (só combina status operacional + pagamento
+  // já existentes) — mostrado no botão "Pedidos" do cabeçalho do tablet, para
+  // o cliente ver o andamento sem abrir o painel.
+  const statusTabletConta = currentTableOrders.length === 0 ? null
+    : currentTableOrders.some((o) => o.paymentStatus === "requested") ? "Fechamento solicitado"
+    : currentTableOrders.every((o) => o.paymentStatus === "paid") ? "Pagamento confirmado"
+    : currentTableOrders.every((o) => o.status === "delivered") ? "Pedidos entregues"
+    : currentTableOrders.some((o) => o.status === "ready") ? "Pedido pronto"
+    : currentTableOrders.some((o) => o.status === "preparing") ? "Em preparação"
+    : "Pedido recebido";
+  const tomTabletConta = statusTabletConta == null ? null
+    : ["Pagamento confirmado", "Pedidos entregues", "Pedido pronto"].includes(statusTabletConta) ? "success"
+    : ["Fechamento solicitado", "Em preparação"].includes(statusTabletConta) ? "warning"
+    : "info";
 
   // Envio do pedido: trava duplo clique/duplo toque e expõe um estado de
   // carregamento para o botão. handleSendOrder já faz toda a validação e só
@@ -2390,7 +2404,7 @@ function TabletView({
 
       <TabletMenuHeader
         lojaInfo={lojaInfo} mesaAtual={mesaSelecionada} tableNumber={tableNumber} dadosCompletos={dadosCompletos}
-        temConta={temConta}
+        temConta={temConta} statusConta={statusTabletConta} tomConta={tomTabletConta}
         onAbrirConta={() => setVerConta(true)}
         totalCartItems={totalCartItems} onAbrirCarrinhoMobile={() => setCarrinhoAberto(true)}
       />

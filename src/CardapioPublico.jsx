@@ -1434,13 +1434,31 @@ export default function CardapioPublico() {
                 )}
               </span>
             </button>
-            {meusPedidos.length > 0 && (
-              <button onClick={() => setAba("conta")} aria-label="Acompanhar meu pedido" title="Acompanhar pedido"
-                className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[var(--client-info-border)] bg-[var(--client-info-soft)] text-[var(--client-info)] transition active:scale-90 hover:brightness-95">
-                <CkIconRecibo width={20} height={20} />
-                <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[var(--client-info)] px-1 text-[11px] font-black text-white">{meusPedidos.length}</span>
-              </button>
-            )}
+            {meusPedidos.length > 0 && (() => {
+              // Botão de acompanhamento agora informa o STATUS do pedido (não só a
+              // contagem): cor por tom (recebido=petróleo · preparo/aguardando=âmbar
+              // · pronto/pago=verde) e, quando há espaço (carrinho vazio), o rótulo
+              // "Meu pedido · <status>". Usa statusGeralConta/tomStatusGeral já calculados.
+              const tomCls = {
+                info:    "border-[var(--client-info-border)] bg-[var(--client-info-soft)] text-[var(--client-info)]",
+                warning: "border-[var(--client-warning-border)] bg-[var(--client-warning-soft)] text-[var(--client-warning)]",
+                success: "border-[var(--client-success-border)] bg-[var(--client-success-soft)] text-[var(--client-success)]",
+              }[tomStatusGeral] || "border-[var(--client-info-border)] bg-[var(--client-info-soft)] text-[var(--client-info)]";
+              const badgeCls = { info: "bg-[var(--client-info)]", warning: "bg-[var(--client-warning)]", success: "bg-[var(--client-success)]" }[tomStatusGeral] || "bg-[var(--client-info)]";
+              return (
+                <button onClick={() => setAba("conta")} aria-label={`Acompanhar meu pedido — ${statusGeralConta}`} title={`Acompanhar pedido — ${statusGeralConta}`}
+                  className={`relative flex h-12 shrink-0 items-center gap-2 rounded-2xl border px-3 transition active:scale-90 hover:brightness-95 ${tomCls}`}>
+                  <CkIconRecibo width={20} height={20} className="shrink-0" />
+                  {cart.length === 0 && (
+                    <span className="min-w-0 leading-tight">
+                      <span className="block text-[10px] font-bold uppercase tracking-wide opacity-70">Meu pedido</span>
+                      <span className="block whitespace-nowrap text-xs font-black">{statusGeralConta}</span>
+                    </span>
+                  )}
+                  <span className={`absolute -right-1.5 -top-1.5 flex h-5 min-w-[20px] items-center justify-center rounded-full px-1 text-[11px] font-black text-white ${badgeCls}`}>{meusPedidos.length}</span>
+                </button>
+              );
+            })()}
             {cart.length > 0 && (
               <button onClick={() => setAba("carrinho")}
                 className="flex h-12 shrink-0 items-center gap-1 rounded-2xl btn-laranja bg-[var(--client-primary-hover)] px-4 text-sm font-black text-white transition active:scale-95 hover:bg-[var(--client-primary)]">Finalizar&nbsp;›</button>

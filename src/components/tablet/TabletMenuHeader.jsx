@@ -10,10 +10,18 @@ import { Receipt, ShoppingCart } from "lucide-react";
 // TabletOrderTrackingDrawer).
 export default function TabletMenuHeader({
   lojaInfo, mesaAtual, tableNumber, dadosCompletos,
-  temConta, onAbrirConta,
+  temConta, statusConta = null, tomConta = null, onAbrirConta,
   totalCartItems, onAbrirCarrinhoMobile,
 }) {
   const nomeLoja = lojaInfo?.nome || "Pedido Prime";
+  // Botão "Pedidos": quando há conta, informa o STATUS (cor + rótulo no lg,
+  // ponto de status no compacto), em vez de um genérico "Pedidos".
+  const tomMap = {
+    info:    { btn: "border-[var(--client-info-border)] bg-[var(--client-info-soft)] text-[var(--client-info)]", dot: "bg-[var(--client-info)]" },
+    warning: { btn: "border-[var(--client-warning-border)] bg-[var(--client-warning-soft)] text-[var(--client-warning)]", dot: "bg-[var(--client-warning)]" },
+    success: { btn: "border-[var(--client-success-border)] bg-[var(--client-success-soft)] text-[var(--client-success)]", dot: "bg-[var(--client-success)]" },
+  };
+  const contaTom = (statusConta && tomMap[tomConta]) || null;
   return (
     <header className="shrink-0 border-b border-[var(--client-border)] bg-[var(--client-surface)] px-4 py-2.5 sm:px-5">
       <div className="flex items-center gap-2.5 sm:gap-3">
@@ -39,9 +47,12 @@ export default function TabletMenuHeader({
         </div>
 
         <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-          <button type="button" onClick={onAbrirConta} disabled={!temConta} title="Acompanhar pedidos e conta" aria-label="Acompanhar pedidos e conta"
-            className="flex h-11 w-11 shrink-0 items-center justify-center gap-1.5 rounded-xl border border-[var(--client-border)] text-[var(--client-text-secondary)] transition hover:bg-[var(--client-background-soft)] disabled:cursor-not-allowed disabled:opacity-40 lg:w-auto lg:px-3">
-            <Receipt aria-hidden="true" size={17} /><span className="hidden text-xs font-bold lg:inline">Pedidos</span>
+          <button type="button" onClick={onAbrirConta} disabled={!temConta}
+            title={statusConta ? `Acompanhar pedidos · ${statusConta}` : "Acompanhar pedidos e conta"}
+            aria-label={statusConta ? `Acompanhar pedidos, ${statusConta}` : "Acompanhar pedidos e conta"}
+            className={`relative flex h-11 w-11 shrink-0 items-center justify-center gap-1.5 rounded-xl border transition disabled:cursor-not-allowed disabled:opacity-40 lg:w-auto lg:px-3 ${contaTom ? contaTom.btn : "border-[var(--client-border)] text-[var(--client-text-secondary)] hover:bg-[var(--client-background-soft)]"}`}>
+            <Receipt aria-hidden="true" size={17} /><span className="hidden text-xs font-bold lg:inline">{statusConta || "Pedidos"}</span>
+            {contaTom && <span aria-hidden="true" className={`absolute right-1 top-1 h-2 w-2 rounded-full ring-2 ring-[var(--client-surface)] lg:hidden ${contaTom.dot}`} />}
           </button>
           <button type="button" onClick={onAbrirCarrinhoMobile}
             aria-label={`Ver carrinho, ${totalCartItems} ${totalCartItems === 1 ? "item" : "itens"}`}
