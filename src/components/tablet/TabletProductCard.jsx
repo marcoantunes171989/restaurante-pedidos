@@ -1,4 +1,4 @@
-import { Plus, Minus, Sparkles } from "lucide-react";
+import { Plus, Minus, Sparkles, Clock, Star } from "lucide-react";
 import { formatCurrency, fallbackImage } from "../../App";
 
 // Card de produto — horizontal em todas as resoluções: imagem à esquerda,
@@ -46,8 +46,16 @@ export default function TabletProductCard({ item, promo, etiqueta, noCarrinho, i
 
       {/* Coluna direita — nome, descrição, personalização, preço/oferta e ação */}
       <div className="flex min-w-0 flex-1 flex-col p-3 sm:p-3.5">
+        {item.isFeatured && !indisponivel && (
+          <span className="mb-1 inline-flex w-max items-center gap-1 rounded-full bg-[var(--client-primary-soft)] px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-[var(--client-primary-hover)]">
+            <Star aria-hidden="true" size={10} /> Mais vendido
+          </span>
+        )}
         <h3 title={item.name} className="line-clamp-2 text-sm font-bold leading-tight text-[var(--client-text-primary)] sm:text-base">{item.name}</h3>
         {item.description && <p className="mt-1 line-clamp-2 text-xs leading-5 text-[var(--client-text-secondary)] sm:line-clamp-3">{item.description}</p>}
+        {item.time && (
+          <p className="mt-1.5 flex items-center gap-1 text-[10px] font-bold text-[var(--client-text-muted)]"><Clock aria-hidden="true" size={11} /> {item.time}</p>
+        )}
         {personalizavel && !indisponivel && (
           <p className="mt-1.5 flex items-center gap-1 text-[10px] font-bold text-[var(--client-info)]"><Sparkles aria-hidden="true" size={11} /> Personalizável</p>
         )}

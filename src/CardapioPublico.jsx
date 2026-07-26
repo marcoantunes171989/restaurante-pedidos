@@ -820,8 +820,18 @@ export default function CardapioPublico() {
             )}
           </div>
           <div className="min-w-0 flex-1">
+            {item.isFeatured && !indisponivel && (
+              <span className="mb-1 inline-flex items-center gap-1 rounded-full bg-[var(--client-primary-soft)] px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-[var(--client-primary-hover)]">
+                <CkIconEstrela width={10} height={10} /> Mais vendido
+              </span>
+            )}
             <h3 className="text-[15px] font-black leading-tight text-[var(--client-text-primary)] line-clamp-2">{item.name}</h3>
             {item.description && <p className="mt-1 line-clamp-2 text-[11px] leading-4 text-[var(--client-text-secondary)]">{item.description}</p>}
+            {item.time && (
+              <p className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--client-text-muted)]">
+                <CkIconRelogio width={11} height={11} /> {item.time}
+              </p>
+            )}
           </div>
         </button>
         <div className="mt-auto flex items-center justify-between px-3 pb-3">
