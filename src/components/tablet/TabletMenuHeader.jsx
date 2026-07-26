@@ -10,23 +10,18 @@ import { Receipt, ShoppingCart } from "lucide-react";
 // TabletOrderTrackingDrawer).
 export default function TabletMenuHeader({
   lojaInfo, mesaAtual, tableNumber, dadosCompletos,
-  temConta, statusConta = null, tomConta = null, porStatus = [], onAbrirConta,
+  temConta, statusConta = null, tomConta = null, onAbrirConta,
   totalCartItems, onAbrirCarrinhoMobile,
 }) {
   const nomeLoja = lojaInfo?.nome || "Pedido Prime";
-  // Botão "Pedidos": informa o STATUS (cor + rótulo no lg, ponto no compacto).
-  // Com vários pedidos em estágios diferentes (statusMisto), mostra um balão
-  // por status (cor + quantidade), em vez de um resumo único.
+  // Botão "Pedidos": linha de processo AGRUPADA — mini-stepper + status geral
+  // (cor por tom no lg, ponto no compacto). Detalhe por pedido abre no drawer.
   const tomMap = {
     info:    { btn: "border-[var(--client-info-border)] bg-[var(--client-info-soft)] text-[var(--client-info)]", dot: "bg-[var(--client-info)]" },
     warning: { btn: "border-[var(--client-warning-border)] bg-[var(--client-warning-soft)] text-[var(--client-warning)]", dot: "bg-[var(--client-warning)]" },
     success: { btn: "border-[var(--client-success-border)] bg-[var(--client-success-soft)] text-[var(--client-success)]", dot: "bg-[var(--client-success)]" },
   };
-  const META = { received: { label: "Recebido", tom: "info" }, preparing: { label: "Preparo", tom: "warning" }, ready: { label: "Pronto", tom: "success" }, delivered: { label: "Entregue", tom: "success" } };
-  const statusMisto = porStatus.length > 1;
   const contaTom = (statusConta && tomMap[tomConta]) || null;
-  const neutro = "border-[var(--client-border)] text-[var(--client-text-secondary)] hover:bg-[var(--client-background-soft)]";
-  const btnCls = statusMisto ? neutro : (contaTom ? contaTom.btn : neutro);
   // Etapa atual p/ o mini-stepper (Recebido → Preparo → Pronto → Entregue)
   const stepIdx = { "Pedido recebido": 0, "Em preparação": 1, "Pedido pronto": 2, "Pedidos entregues": 3, "Pagamento confirmado": 3, "Fechamento solicitado": 3 }[statusConta] ?? 0;
   return (
@@ -55,23 +50,13 @@ export default function TabletMenuHeader({
 
         <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
           <button type="button" onClick={onAbrirConta} disabled={!temConta}
-            title={statusMisto ? `Acompanhar pedidos · ${porStatus.map((g) => `${g.count} ${META[g.s].label}`).join(", ")}` : statusConta ? `Acompanhar pedidos · ${statusConta}` : "Acompanhar pedidos e conta"}
-            aria-label={statusMisto ? `Acompanhar pedidos: ${porStatus.map((g) => `${g.count} ${META[g.s].label}`).join(", ")}` : statusConta ? `Acompanhar pedidos, ${statusConta}` : "Acompanhar pedidos e conta"}
-            className={`relative flex h-11 w-11 shrink-0 items-center justify-center gap-1.5 rounded-xl border transition disabled:cursor-not-allowed disabled:opacity-40 lg:w-auto lg:px-3 ${btnCls}`}>
+            title={statusConta ? `Acompanhar pedidos · ${statusConta}` : "Acompanhar pedidos e conta"}
+            aria-label={statusConta ? `Acompanhar pedidos, ${statusConta}` : "Acompanhar pedidos e conta"}
+            className={`relative flex h-11 w-11 shrink-0 items-center justify-center gap-1.5 rounded-xl border transition disabled:cursor-not-allowed disabled:opacity-40 lg:w-auto lg:px-3 ${contaTom ? contaTom.btn : "border-[var(--client-border)] text-[var(--client-text-secondary)] hover:bg-[var(--client-background-soft)]"}`}>
             <Receipt aria-hidden="true" size={17} />
-            <span className="hidden items-center gap-2 text-xs font-bold lg:inline-flex">
-              {statusMisto ? (
-                porStatus.map((g) => (
-                  <span key={g.s} className="flex items-center gap-1 whitespace-nowrap">
-                    <span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${tomMap[META[g.s].tom].dot}`} />{g.count}<span className="font-medium opacity-70"> {META[g.s].label}</span>
-                  </span>
-                ))
-              ) : (
-                <>
-                  {contaTom && <span aria-hidden="true" className="flex gap-0.5">{[0, 1, 2, 3].map((i) => <span key={i} className={`h-1 w-2 rounded-full bg-current ${i <= stepIdx ? "" : "opacity-25"}`} />)}</span>}
-                  {statusConta || "Pedidos"}
-                </>
-              )}
+            <span className="hidden items-center gap-1.5 text-xs font-bold lg:inline-flex">
+              {contaTom && <span aria-hidden="true" className="flex gap-0.5">{[0, 1, 2, 3].map((i) => <span key={i} className={`h-1 w-2 rounded-full bg-current ${i <= stepIdx ? "" : "opacity-25"}`} />)}</span>}
+              {statusConta || "Pedidos"}
             </span>
             {contaTom && <span aria-hidden="true" className={`absolute right-1 top-1 h-2 w-2 rounded-full ring-2 ring-[var(--client-surface)] lg:hidden ${contaTom.dot}`} />}
           </button>

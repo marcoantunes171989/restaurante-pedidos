@@ -2378,11 +2378,6 @@ function TabletView({
     : ["Pagamento confirmado", "Pedidos entregues", "Pedido pronto"].includes(statusTabletConta) ? "success"
     : ["Fechamento solicitado", "Em preparação"].includes(statusTabletConta) ? "warning"
     : "info";
-  // Quebra por status operacional — p/ mostrar um balão por status quando há
-  // vários pedidos em estágios diferentes (controle mais fácil pro cliente).
-  const porStatusTablet = ["received", "preparing", "ready", "delivered"]
-    .map((s) => ({ s, count: currentTableOrders.filter((o) => o.status === s).length }))
-    .filter((g) => g.count > 0);
 
   // Envio do pedido: trava duplo clique/duplo toque e expõe um estado de
   // carregamento para o botão. handleSendOrder já faz toda a validação e só
@@ -2409,7 +2404,7 @@ function TabletView({
 
       <TabletMenuHeader
         lojaInfo={lojaInfo} mesaAtual={mesaSelecionada} tableNumber={tableNumber} dadosCompletos={dadosCompletos}
-        temConta={temConta} statusConta={statusTabletConta} tomConta={tomTabletConta} porStatus={porStatusTablet}
+        temConta={temConta} statusConta={statusTabletConta} tomConta={tomTabletConta}
         onAbrirConta={() => setVerConta(true)}
         totalCartItems={totalCartItems} onAbrirCarrinhoMobile={() => setCarrinhoAberto(true)}
       />
