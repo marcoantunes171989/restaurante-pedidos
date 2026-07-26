@@ -22,6 +22,8 @@ export default function TabletMenuHeader({
     success: { btn: "border-[var(--client-success-border)] bg-[var(--client-success-soft)] text-[var(--client-success)]", dot: "bg-[var(--client-success)]" },
   };
   const contaTom = (statusConta && tomMap[tomConta]) || null;
+  // Etapa atual p/ o mini-stepper (Recebido → Preparo → Pronto → Entregue)
+  const stepIdx = { "Pedido recebido": 0, "Em preparação": 1, "Pedido pronto": 2, "Pedidos entregues": 3, "Pagamento confirmado": 3, "Fechamento solicitado": 3 }[statusConta] ?? 0;
   return (
     <header className="shrink-0 border-b border-[var(--client-border)] bg-[var(--client-surface)] px-4 py-2.5 sm:px-5">
       <div className="flex items-center gap-2.5 sm:gap-3">
@@ -51,7 +53,11 @@ export default function TabletMenuHeader({
             title={statusConta ? `Acompanhar pedidos · ${statusConta}` : "Acompanhar pedidos e conta"}
             aria-label={statusConta ? `Acompanhar pedidos, ${statusConta}` : "Acompanhar pedidos e conta"}
             className={`relative flex h-11 w-11 shrink-0 items-center justify-center gap-1.5 rounded-xl border transition disabled:cursor-not-allowed disabled:opacity-40 lg:w-auto lg:px-3 ${contaTom ? contaTom.btn : "border-[var(--client-border)] text-[var(--client-text-secondary)] hover:bg-[var(--client-background-soft)]"}`}>
-            <Receipt aria-hidden="true" size={17} /><span className="hidden text-xs font-bold lg:inline">{statusConta || "Pedidos"}</span>
+            <Receipt aria-hidden="true" size={17} />
+            <span className="hidden items-center gap-1.5 text-xs font-bold lg:inline-flex">
+              {contaTom && <span aria-hidden="true" className="flex gap-0.5">{[0, 1, 2, 3].map((i) => <span key={i} className={`h-1 w-2 rounded-full bg-current ${i <= stepIdx ? "" : "opacity-25"}`} />)}</span>}
+              {statusConta || "Pedidos"}
+            </span>
             {contaTom && <span aria-hidden="true" className={`absolute right-1 top-1 h-2 w-2 rounded-full ring-2 ring-[var(--client-surface)] lg:hidden ${contaTom.dot}`} />}
           </button>
           <button type="button" onClick={onAbrirCarrinhoMobile}

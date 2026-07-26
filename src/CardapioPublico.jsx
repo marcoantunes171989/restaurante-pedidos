@@ -1445,6 +1445,8 @@ export default function CardapioPublico() {
                 success: "border-[var(--client-success-border)] bg-[var(--client-success-soft)] text-[var(--client-success)]",
               }[tomStatusGeral] || "border-[var(--client-info-border)] bg-[var(--client-info-soft)] text-[var(--client-info)]";
               const badgeCls = { info: "bg-[var(--client-info)]", warning: "bg-[var(--client-warning)]", success: "bg-[var(--client-success)]" }[tomStatusGeral] || "bg-[var(--client-info)]";
+              // Etapa atual p/ o mini-stepper (Recebido → Preparo → Pronto → Entregue)
+              const stepIdx = { "Pedido recebido": 0, "Em preparação": 1, "Pedido pronto": 2, "Pedidos entregues": 3, "Pagamento confirmado": 3, "Fechamento solicitado": 3 }[statusGeralConta] ?? 0;
               return (
                 <button onClick={() => setAba("conta")} aria-label={`Acompanhar meu pedido — ${statusGeralConta}`} title={`Acompanhar pedido — ${statusGeralConta}`}
                   className={`relative flex h-12 shrink-0 items-center gap-2 rounded-2xl border px-3 transition active:scale-90 hover:brightness-95 ${tomCls}`}>
@@ -1452,7 +1454,12 @@ export default function CardapioPublico() {
                   {cart.length === 0 && (
                     <span className="min-w-0 leading-tight">
                       <span className="block text-[10px] font-bold uppercase tracking-wide opacity-70">Meu pedido</span>
-                      <span className="block whitespace-nowrap text-xs font-black">{statusGeralConta}</span>
+                      <span className="flex items-center gap-1.5">
+                        <span aria-hidden="true" className="flex shrink-0 gap-0.5">
+                          {[0, 1, 2, 3].map((i) => <span key={i} className={`h-1 w-2.5 rounded-full bg-current ${i <= stepIdx ? "" : "opacity-25"}`} />)}
+                        </span>
+                        <span className="truncate text-xs font-black">{statusGeralConta}</span>
+                      </span>
                     </span>
                   )}
                   <span className={`absolute -right-1.5 -top-1.5 flex h-5 min-w-[20px] items-center justify-center rounded-full px-1 text-[11px] font-black text-white ${badgeCls}`}>{meusPedidos.length}</span>
