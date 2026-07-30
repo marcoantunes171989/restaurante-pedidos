@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { LogoPP } from "../components/BrandLogo";
-import { IconSpinner } from "../components/PrimeIcons";
+import { IconSpinner, IconAlerta } from "../components/PrimeIcons";
 import { IconMail, IconQr } from "./icons";
 import PasswordField from "./PasswordField";
 import LoginAlert from "./LoginAlert";
@@ -15,7 +15,7 @@ const EMAIL_CLS = "box-border min-h-[50px] w-full rounded-[11px] border bg-[var(
 //  vinda do servidor. Não altera a lógica de login em si: só decide
 //  QUANDO chamá-la e o que mostrar antes disso.
 // ════════════════════════════════════════════════════════════
-export default function LoginForm({ loginForm, setLoginForm, login, message, onQrClick }) {
+export default function LoginForm({ loginForm, setLoginForm, login, message, dbReady = true, onQrClick }) {
   const [entrando, setEntrando] = useState(false);
   const [avisoSenha, setAvisoSenha] = useState(false);
   const [tocado, setTocado] = useState({ email: false, senha: false });
@@ -65,6 +65,17 @@ export default function LoginForm({ loginForm, setLoginForm, login, message, onQ
           <p className="mt-1 text-sm text-[var(--login-text-secondary)]">{FORM.subtitulo}</p>
           <p className="mt-1 text-xs text-[var(--login-text-secondary)] md:hidden">{FORM.fraseValorMobile}</p>
         </div>
+
+        {/* Aviso persistente de indisponibilidade do servidor — só aparece quando
+            o app não conseguiu alcançar o Supabase (dbReady=false). Fica sempre
+            visível, independente da mensagem de erro do formulário, para o
+            usuário entender o estado antes mesmo de tentar entrar. */}
+        {!dbReady && (
+          <div role="alert" className="flex items-start gap-2 rounded-xl border border-[var(--login-error)]/25 bg-[var(--login-error-soft)] p-3 text-sm">
+            <span className="mt-0.5 shrink-0 text-[var(--login-error)]"><IconAlerta /></span>
+            <span className="font-semibold text-[var(--login-error)]">{FORM.offline}</span>
+          </div>
+        )}
 
         {/* Campos-isca ocultos — absorvem o autofill do navegador antes dos reais */}
         <input type="text" name="username" autoComplete="username" tabIndex={-1} aria-hidden="true" className="pointer-events-none absolute h-0 w-0 opacity-0" />

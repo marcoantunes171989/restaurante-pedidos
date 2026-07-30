@@ -381,10 +381,17 @@ export default function RestaurantePedidoApp() {
         // Sob Supabase Auth, garante que a sessão (JWT) esteja anexada ANTES de
         // carregar os dados — assim, com RLS estrita, vêm os dados da empresa.
         if (usandoSupabaseAuth()) { try { await aguardarSessao(); } catch {} }
-        // Carrega tudo em paralelo
-        const [prods, usrs, accs, ords] = await Promise.all([
-          fetchProdutos(), fetchUsuarios(), fetchAcessos(), fetchPedidos(),
+        // Carrega tudo em paralelo — com timeout de segurança: se o Supabase
+        // travar (sem responder nem falhar), a corrida rejeita em ~10s e o app
+        // cai no fallback local (catch abaixo), garantindo que a tela de login
+        // SEMPRE apareça (com o aviso de offline) em vez de spinner infinito.
+        const comTimeout = (p, ms) => Promise.race([
+          p,
+          new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), ms)),
         ]);
+        const [prods, usrs, accs, ords] = await comTimeout(Promise.all([
+          fetchProdutos(), fetchUsuarios(), fetchAcessos(), fetchPedidos(),
+        ]), 10000);
         setProducts(prods);
         setUsers(usrs);
         setAccesses(accs);
@@ -1919,7 +1926,7 @@ export default function RestaurantePedidoApp() {
   }
 
   if (!currentUser) {
-    return <LoginPage loginForm={loginForm} setLoginForm={setLoginForm} login={login} message={message} />;
+    return <LoginPage loginForm={loginForm} setLoginForm={setLoginForm} login={login} message={message} dbReady={dbReady} />;
   }
 
   // Bloqueio total da empresa: trial vencido (ou status "blocked"). Super admin nunca bloqueia.

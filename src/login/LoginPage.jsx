@@ -12,7 +12,7 @@ import LoginFooter from "./LoginFooter";
 //  Desktop/tablet: duas colunas (institucional + formulário). Mobile:
 //  coluna única, formulário em primeiro lugar.
 // ════════════════════════════════════════════════════════════
-export default function LoginPage({ loginForm, setLoginForm, login, message }) {
+export default function LoginPage({ loginForm, setLoginForm, login, message, dbReady = true }) {
   const [scanLogin, setScanLogin] = useState(false);
 
   function voltarAoSite() {
@@ -41,6 +41,7 @@ export default function LoginPage({ loginForm, setLoginForm, login, message }) {
             setLoginForm={setLoginForm}
             login={login}
             message={message}
+            dbReady={dbReady}
             onQrClick={() => setScanLogin(true)}
           />
           <div className="w-full max-w-[440px]">

@@ -29,6 +29,7 @@ export const FORM = {
   botaoQr: "Entrar com QR Code",
   seguranca: "Acesso seguro e protegido.",
   voltarSite: "← Voltar ao site",
+  offline: "Sistema offline — não foi possível conectar ao servidor. Acione o suporte.",
 };
 
 export const VALIDACAO = {
