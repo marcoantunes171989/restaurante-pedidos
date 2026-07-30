@@ -3715,19 +3715,6 @@ function PanelView({ groupedOrders, products = [], lojaInfo }) {
 // ════════════════════════════════════════════════════════════
 
 // ── Buscas recentes (mesa/comanda) — por loja, só neste aparelho ──
-function lerBuscasRecentes(lojaId) {
-  try { return JSON.parse(localStorage.getItem(`pp_caixa_buscas_${lojaId || "geral"}`) || "[]"); }
-  catch { return []; }
-}
-function salvarBuscaRecente(lojaId, item) {
-  try {
-    const atuais = lerBuscasRecentes(lojaId).filter((b) => !(b.tipo === item.tipo && b.valor === item.valor));
-    const novas = [item, ...atuais].slice(0, 8);
-    localStorage.setItem(`pp_caixa_buscas_${lojaId || "geral"}`, JSON.stringify(novas));
-    return novas;
-  } catch { return lerBuscasRecentes(lojaId); }
-}
-
 function CashierView({ orders, baixarComandas, formasPagamento = [], lojaInfo, currentUser, caixaAberto = null, auditar = () => {}, conexaoOk = true, editarItensPedido = async () => {}, products = [] }) {
 
   // ── Busca (mesa | comanda) ──────────────────────────────────
@@ -3735,7 +3722,6 @@ function CashierView({ orders, baixarComandas, formasPagamento = [], lojaInfo, c
   const [mesaQuery, setMesaQuery] = useState("");
   const [comandaQuery, setComandaQuery] = useState("");
   const [searchError, setSearchError] = useState("");
-  const [recentSearches, setRecentSearches] = useState(() => lerBuscasRecentes(lojaInfo?.id));
   const [openAccountsFilter, setOpenAccountsFilter] = useState("todas");
   const mesaInputRef = useRef(null);
   const comandaInputRef = useRef(null);
@@ -3798,14 +3784,12 @@ function CashierView({ orders, baixarComandas, formasPagamento = [], lojaInfo, c
     const comandasDaMesa = [...new Set(orders.filter((o) => o.table === alvo && o.paymentStatus !== "paid" && o.status !== "cancelled").map((o) => o.command))];
     if (comandasDaMesa.length === 0) { setSearchError(`Nenhuma conta em aberto para a ${alvo}.`); return; }
     carregarComandas(comandasDaMesa);
-    setRecentSearches(salvarBuscaRecente(lojaInfo?.id, { tipo: "mesa", valor: digitado, quando: Date.now() }));
     setMesaQuery(""); setSearchError(""); setMobileStep("conta");
   }
   function buscarPorComanda(codigoBruto) {
     const codigo = (codigoBruto ?? comandaQuery).trim().toUpperCase();
     if (!codigo) return;
     carregarComandas([codigo]);
-    setRecentSearches(salvarBuscaRecente(lojaInfo?.id, { tipo: "comanda", valor: codigo, quando: Date.now() }));
     setComandaQuery(codigo); setSearchError(""); setScannerAberto(false); setMobileStep("conta");
   }
   function carregarComandas(codigos) {
@@ -3821,10 +3805,6 @@ function CashierView({ orders, baixarComandas, formasPagamento = [], lojaInfo, c
     setSplitMode("integral"); setSelecao({}); setPessoas(2); setPessoasPagas(0); setValorParcialTexto("");
     setDescontoTexto(""); setAcrescimoTexto(""); setMetodoValor("livre");
     setSubtotalSnapshot(null); setMobileStep("buscar");
-  }
-  function selecionarBuscaRecente(item) {
-    if (item.tipo === "mesa") { setSearchMode("mesa"); setMesaQuery(item.valor); }
-    else { setSearchMode("comanda"); buscarPorComanda(item.valor); }
   }
   function abrirContaDaLista(conta) {
     carregarComandas(conta.comandas);
@@ -4059,6 +4039,23 @@ function CashierView({ orders, baixarComandas, formasPagamento = [], lojaInfo, c
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orders, SERVICE_FEE_CONFIG.percent]);
   const contasFiltradas = openAccountsFilter === "todas" ? contasAbertas : contasAbertas.filter((c) => c.situacao === openAccountsFilter);
+
+  // Auto-carrega a conta quando o número da mesa digitado casa com uma conta
+  // aberta — sem tocar em "buscar" (mais ágil no balcão/tablet). Debounce curto
+  // evita disparar a cada tecla; só carrega em correspondência exata e nova.
+  useEffect(() => {
+    if (searchMode !== "mesa" || !mesaQuery) return;
+    const t = setTimeout(() => {
+      const alvo = `Mesa ${mesaQuery.padStart(2, "0")}`;
+      const conta = contasAbertas.find((c) => c.mesa === alvo);
+      if (conta && !conta.comandas.every((cm) => comandasLidas.includes(cm))) {
+        carregarComandas(conta.comandas);
+        setMesaQuery(""); setSearchError(""); setMobileStep("conta");
+      }
+    }, 450);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mesaQuery, searchMode, contasAbertas]);
 
   // ── Impressão (mesma automação térmica 80mm já usada no projeto) ──
   function imprimirConferencia() {
@@ -4333,22 +4330,24 @@ function CashierView({ orders, baixarComandas, formasPagamento = [], lojaInfo, c
         </div>
       )}
 
-      {/* ── Busca — topo, centralizada (combina tipo + campo; teclado ao lado) ── */}
-      <div className="shrink-0 border-b border-[var(--pp-border)] bg-[var(--pp-surface)] px-4 py-3">
-        <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-2.5">
-          <div role="tablist" aria-label="Tipo de busca" className="flex flex-wrap items-center justify-center gap-1 rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-1">
+      {/* ── Busca — seletor à esquerda, campo centralizado (teclado ao lado) ── */}
+      <div className="shrink-0 border-b border-[var(--pp-border)] bg-[var(--pp-surface)] px-4 py-3 lg:px-6">
+        <div className="mx-auto flex w-full max-w-5xl flex-col items-center gap-2.5 md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,26rem)_minmax(0,1fr)] md:items-center md:gap-3">
+          {/* Seletor de tipo — à esquerda */}
+          <div role="tablist" aria-label="Tipo de busca" className="flex flex-wrap items-center justify-center gap-1 rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-1 md:col-start-1 md:justify-self-start">
             {[["mesa", "Mesa", IconMesas, true], ["comanda", "Comanda", IconComanda, true], ["cliente", "Cliente", IconUsuarios, false], ["pedido", "Pedido", IconRecibo, false]].map(([id, label, Icone, ativo]) => {
               const on = searchMode === id;
               return (
                 <button key={id} role="tab" aria-selected={on} disabled={!ativo} title={ativo ? undefined : "Em breve"}
                   onClick={() => { if (ativo) { setSearchMode(id); setSearchError(""); } }}
-                  className={`flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-black transition ${on ? "btn-laranja text-white" : ativo ? "text-[var(--pp-text-body)] hover:bg-[var(--pp-surface)]" : "text-[var(--pp-text-muted)] opacity-60"}`}>
+                  className={`flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-black transition ${on ? "btn-laranja text-white" : ativo ? "text-[var(--pp-text-body)] hover:bg-[var(--pp-surface)]" : "text-[var(--pp-text-muted)] opacity-60"}`}>
                   <Icone width={15} height={15} /> {label}
                 </button>
               );
             })}
           </div>
-          <div className="flex w-full max-w-xl items-center gap-2">
+          {/* Campo — centralizado */}
+          <div className="flex w-full items-center gap-2 md:col-start-2 md:justify-self-center">
             {searchMode === "comanda" ? (
               <input ref={comandaInputRef} value={comandaQuery} onChange={(e) => { setComandaQuery(e.target.value.toUpperCase()); setSearchError(""); }} onKeyDown={(e) => e.key === "Enter" && buscarPorComanda()}
                 placeholder={`Ex.: ${lojaInfo?.prefixo || "CMD"}-000123`}
@@ -4363,17 +4362,7 @@ function CashierView({ orders, baixarComandas, formasPagamento = [], lojaInfo, c
             )}
             <button onClick={() => (searchMode === "comanda" ? buscarPorComanda() : buscarMesaPorNumero())} aria-label="Buscar conta" className="btn-laranja grid min-h-12 w-14 shrink-0 place-items-center rounded-2xl text-white"><IconBusca /></button>
           </div>
-          {searchError && <p role="alert" className="text-xs font-bold text-[var(--pp-danger)]">{searchError}</p>}
-          {recentSearches.length > 0 && (
-            <div className="flex flex-wrap items-center justify-center gap-1.5">
-              <span className="text-[11px] font-bold text-[var(--pp-text-muted)]">Recentes:</span>
-              {recentSearches.slice(0, 5).map((b, i) => (
-                <button key={i} onClick={() => selecionarBuscaRecente(b)} className="rounded-full border border-[var(--pp-border)] bg-[var(--pp-bg)] px-2.5 py-1 text-[11px] font-bold text-[var(--pp-text-body)] transition hover:border-[var(--pp-primary)] hover:text-[var(--pp-primary-text)]">
-                  {b.tipo === "mesa" ? `Mesa ${b.valor}` : b.valor}
-                </button>
-              ))}
-            </div>
-          )}
+          {searchError && <p role="alert" className="text-center text-xs font-bold text-[var(--pp-danger)] md:col-span-3">{searchError}</p>}
         </div>
       </div>
 
@@ -4540,22 +4529,23 @@ function PosLocationColumn({ className, contasFiltradas, openAccountsFilter, set
           ))}
         </div>
         <div className="mt-3 space-y-2">
-          {contasFiltradas.length === 0 && <p className="py-4 text-center text-xs text-[var(--pp-text-muted)]">Nenhuma conta em aberto.</p>}
+          {contasFiltradas.length === 0 && <p className="py-6 text-center text-xs text-[var(--pp-text-muted)]">Nenhuma conta em aberto.</p>}
           {contasFiltradas.map((c) => {
             const carregada = c.comandas.every((cm) => comandasLidas.includes(cm));
+            const stCor = c.situacao === "solicitado" ? "bg-[var(--pp-warning-soft)] text-[var(--pp-warning-text)]" : c.situacao === "entrega" ? "bg-[var(--op-nav-accent-soft)] text-[var(--op-nav-accent)]" : "bg-[var(--pp-success-soft)] text-[var(--pp-success-text)]";
+            const stLabel = c.situacao === "solicitado" ? "Fechamento solicitado" : c.situacao === "entrega" ? "Aguardando entrega" : "Aguardando pagamento";
             return (
               <button key={c.comandas[0]} onClick={() => onAbrirConta(c)}
-                className={`flex w-full items-start justify-between gap-2 rounded-2xl border p-3 text-left transition ${carregada ? "border-[var(--pp-primary)] bg-[var(--op-nav-accent-soft)]" : "border-[var(--pp-border)] bg-white hover:border-[var(--pp-primary)] hover:bg-[var(--pp-bg)]"}`}>
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-black text-[var(--pp-text)]">{c.mesa}</p>
-                  <p className="truncate text-[11px] text-[var(--pp-text-body)]">{c.cliente ? `${c.cliente} · ` : ""}{c.pedidos} pedido(s)</p>
-                  <span className={`mt-1 inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-black ${
-                    c.situacao === "solicitado" ? "bg-[var(--pp-warning-soft)] text-[var(--pp-warning-text)]" : c.situacao === "entrega" ? "bg-[var(--op-nav-accent-soft)] text-[var(--op-nav-accent)]" : "bg-[var(--pp-success-soft)] text-[var(--pp-success-text)]"
-                  }`}>
-                    {c.situacao === "solicitado" ? "Fechamento solicitado" : c.situacao === "entrega" ? "Aguardando entrega" : "Aguardando pagamento"}
+                className={`flex w-full items-center gap-3 rounded-2xl border p-3 text-left transition ${carregada ? "border-[var(--pp-primary)] bg-[var(--pp-primary-soft)] ring-1 ring-inset ring-[var(--pp-primary)]" : "border-[var(--pp-border)] bg-[var(--pp-surface)] hover:border-[var(--pp-primary)] hover:bg-[var(--pp-bg)]"}`}>
+                <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${carregada ? "bg-[var(--pp-primary-hover)] text-white" : "bg-[var(--pp-bg)] text-[var(--op-nav-accent)]"}`}><IconMesas width={17} height={17} /></span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-black leading-tight text-[var(--pp-text)]">{c.mesa}</p>
+                  <p className="mt-0.5 truncate text-[11px] text-[var(--pp-text-muted)]">{c.cliente ? `${c.cliente} · ` : ""}{c.pedidos} pedido(s)</p>
+                  <p className="mt-1 text-base font-black tabular-nums text-[var(--pp-text)]">{formatCurrency(c.total)}</p>
+                  <span className={`mt-2 inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-black ${stCor}`}>
+                    <span className="h-1.5 w-1.5 rounded-full bg-current" /> {stLabel}
                   </span>
                 </div>
-                <span className="shrink-0 text-sm font-black text-[var(--pp-text)]">{formatCurrency(c.total)}</span>
               </button>
             );
           })}
@@ -4755,7 +4745,8 @@ function PosAccountColumn({ className, temConta, contaVazia, comandaJaUsada, com
           <span className="text-right">Unitário</span><span className="text-right">Total</span><span />
         </div>
 
-        {porComanda.filter((b) => b.pedidos.length > 0).map(({ comanda, pedidos: peds, subtotal: sub }) => (
+        {/* Só comandas/pedidos com valor > 0 aparecem no financeiro (0 não soma). */}
+        {porComanda.filter((b) => b.subtotal > 0.001).map(({ comanda, pedidos: peds, subtotal: sub }) => (
           <div key={comanda}>
             {comandasLidas.length > 1 && (
               <div className="mt-3 flex items-center justify-between gap-2 border-b border-[var(--pp-border)] pb-1.5">
@@ -4767,7 +4758,7 @@ function PosAccountColumn({ className, temConta, contaVazia, comandaJaUsada, com
               </div>
             )}
             <div className="divide-y divide-[var(--pp-border)]">
-              {peds.flatMap((o) => o.items.map((it, i) => {
+              {peds.filter((o) => orderTotal(o) > 0.001).flatMap((o) => o.items.map((it, i) => {
                 const pago = chavesPagas.has(`${o.id}::${i}`);
                 const s = selDe(o.id, i);
                 const incluido = !pago && (splitMode === "item" ? s.incluir : true);
