@@ -46,6 +46,7 @@ import OperationalCentral from "./pages/OperationalCentral";
 import CentralDePedidos from "./pages/CentralDePedidos";
 import CentralDoCaixa from "./pages/CentralDoCaixa";
 import CheckoutKeypad from "./components/orders/checkout/CheckoutKeypad";
+import CheckoutFooterActions from "./components/orders/checkout/CheckoutFooterActions";
 import CentralDaCozinha from "./pages/CentralDaCozinha";
 import CentralDoBar from "./pages/CentralDoBar";
 import OperationalBottomNav from "./components/OperationalBottomNav";
@@ -3751,6 +3752,13 @@ function CashierView({ orders, baixarComandas, formasPagamento = [], lojaInfo, c
   const [pessoas, setPessoas] = useState(2);
   const [pessoasPagas, setPessoasPagas] = useState(0);
   const [valorParcialTexto, setValorParcialTexto] = useState("");
+  // Desconto / acréscimo aplicados na conta no momento do fechamento (ajuste de
+  // caixa — não há campo por pedido no modelo; entra no total e no comprovante).
+  const [descontoTexto, setDescontoTexto] = useState("");
+  const [acrescimoTexto, setAcrescimoTexto] = useState("");
+  // Distingue os dois botões que usam o modo "valor": "livre" (Valor
+  // personalizado, campo aberto) e "fracao" (Pagamento parcial, atalhos ½/⅓/¼).
+  const [metodoValor, setMetodoValor] = useState("livre");
   const [selecao, setSelecao] = useState({}); // { "oid::idx": { incluir, dividir } } — modo "item"
 
   // ── Taxa de serviço (parametrização por empresa) ─────────────
@@ -3811,6 +3819,7 @@ function CashierView({ orders, baixarComandas, formasPagamento = [], lojaInfo, c
   function limparConta() {
     setComandasLidas([]); setPagamentosFeitos([]); setLogFinanceiro([]); setLinhasPagamento([]);
     setSplitMode("integral"); setSelecao({}); setPessoas(2); setPessoasPagas(0); setValorParcialTexto("");
+    setDescontoTexto(""); setAcrescimoTexto(""); setMetodoValor("livre");
     setSubtotalSnapshot(null); setMobileStep("buscar");
   }
   function selecionarBuscaRecente(item) {
@@ -3871,7 +3880,11 @@ function CashierView({ orders, baixarComandas, formasPagamento = [], lojaInfo, c
   const totalSelecao = subtotal + taxa;
   const mesas = [...new Set(pedidos.map((o) => o.table))];
 
-  const totalGeral = subtotalGeralBruto + (taxaIncluida ? taxaTotalMesaBruta : 0);
+  // Ajuste de caixa: desconto abate e acréscimo soma no total geral da conta.
+  const totalBrutoComTaxa = subtotalGeralBruto + (taxaIncluida ? taxaTotalMesaBruta : 0);
+  const acrescimoValor = Math.max(0, moedaParaNumero(acrescimoTexto));
+  const descontoValor = Math.min(Math.max(0, moedaParaNumero(descontoTexto)), totalBrutoComTaxa);
+  const totalGeral = Math.max(0, totalBrutoComTaxa - descontoValor + acrescimoValor);
   const jaPago = pagamentosFeitos.reduce((s, p) => s + p.valor, 0);
   const restanteGeral = Math.max(0, totalGeral - jaPago);
 
@@ -4154,7 +4167,7 @@ function CashierView({ orders, baixarComandas, formasPagamento = [], lojaInfo, c
       if (quitado) {
         const detalhesTodos = novosPagamentos.flatMap((p) => p.detalhes);
         const trocoTotal = novosPagamentos.reduce((s, p) => s + (p.troco || 0), 0);
-        const info = { mesa: mesas.join(", "), total: totalGeral, troco: trocoTotal, detalhes: detalhesTodos, comandas: [...comandasLidas] };
+        const info = { mesa: mesas.join(", "), total: totalGeral, troco: trocoTotal, detalhes: detalhesTodos, comandas: [...comandasLidas], desconto: descontoValor, acrescimo: acrescimoValor };
         const baixa = await baixarComandas(comandasLidas, info);
         // entidade_id é bigint no banco (chave numérica de outras tabelas) —
         // comanda/mesa são strings (ex.: "EXT-147353"), por isso vão nos
@@ -4327,6 +4340,11 @@ function CashierView({ orders, baixarComandas, formasPagamento = [], lojaInfo, c
           onVoltarBusca={() => setMobileStep("buscar")}
           conflitoAtualizacao={conflitoAtualizacao} onReconferir={reconferirConta}
           onQtd={alterarQtdItem} onRemover={removerItem} onAdicionar={setAddItemPara}
+          products={products}
+          subtotalGeralBruto={subtotalGeralBruto} taxaTotalMesaBruta={taxaTotalMesaBruta}
+          taxaIncluida={taxaIncluida} setTaxaIncluida={setTaxaIncluida} taxaFixa={taxaFixa} taxaBloqueadaOff={taxaBloqueadaOff} SERVICE_FEE_CONFIG={SERVICE_FEE_CONFIG}
+          descontoTexto={descontoTexto} setDescontoTexto={setDescontoTexto} acrescimoTexto={acrescimoTexto} setAcrescimoTexto={setAcrescimoTexto}
+          totalGeral={totalGeral} jaPago={jaPago} restanteGeral={restanteGeral}
         />
 
         {/* Coluna 3 — Pagamento */}
@@ -4336,7 +4354,7 @@ function CashierView({ orders, baixarComandas, formasPagamento = [], lojaInfo, c
           subtotal={subtotal} taxa={taxa} total={total} totalGeral={totalGeral} jaPago={jaPago} restanteGeral={restanteGeral}
           taxaIncluida={taxaIncluida} setTaxaIncluida={setTaxaIncluida} taxaFixa={taxaFixa} taxaBloqueadaOff={taxaBloqueadaOff}
           taxaManualValor={taxaManualValor} setTaxaManualValor={setTaxaManualValor} SERVICE_FEE_CONFIG={SERVICE_FEE_CONFIG}
-          splitMode={splitMode} setSplitMode={setSplitMode}
+          splitMode={splitMode} setSplitMode={setSplitMode} metodoValor={metodoValor} setMetodoValor={setMetodoValor}
           pessoas={pessoas} setPessoas={setPessoas} porPessoa={porPessoa} pessoasRestantes={pessoasRestantes}
           valorPagoAgora={valorPagoAgora} totalPagoSelecaoPessoas={totalPagoSelecaoPessoas} restanteSelecaoPessoas={restanteSelecaoPessoas}
           valorParcialTexto={valorParcialTexto} setValorParcialTexto={setValorParcialTexto} valorParcialValido={valorParcialValido}
@@ -4351,6 +4369,13 @@ function CashierView({ orders, baixarComandas, formasPagamento = [], lojaInfo, c
           onVoltarConta={() => setMobileStep("conta")}
         />
       </div>
+
+      {/* ── Barra de ações (desktop) — mockup ── */}
+      {temConta && (
+        <div className="hidden shrink-0 border-t border-[var(--pp-border)] bg-[var(--pp-surface)] px-4 py-3 lg:block lg:px-6">
+          <CheckoutFooterActions onFecharConta={abrirConfirmacao} podeFechar={podeConfirmarPagamento} onImprimir={imprimirConferencia} />
+        </div>
+      )}
 
       {/* ── Rodapé: atalhos rápidos + status (desktop) — mockup ── */}
       <footer className="hidden shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-t border-[var(--pp-border)] bg-[var(--pp-surface)] px-4 py-2.5 lg:flex lg:px-6">
@@ -4573,6 +4598,12 @@ function PosHeader({ currentUser, agora, conexaoOk, cuponsDoDia, menuAcoesAberto
   const svg = "h-[15px] w-[15px] text-[var(--pp-text-muted)]";
   return (
     <header className="relative flex h-16 shrink-0 items-center gap-3 border-b border-[var(--pp-border)] bg-[var(--pp-surface)] px-4 lg:gap-4 lg:px-6">
+      {/* Menu / voltar */}
+      <button onClick={onSair} aria-label="Voltar à operação"
+        className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-[var(--pp-text-body)] transition hover:bg-[var(--pp-bg)]">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
+      </button>
+
       {/* Marca */}
       <div className="flex items-center gap-2.5">
         <LogoPP size={36} />
@@ -4603,13 +4634,15 @@ function PosHeader({ currentUser, agora, conexaoOk, cuponsDoDia, menuAcoesAberto
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={svg}><rect x="2" y="4" width="20" height="13" rx="2" /><path d="M8 21h8M12 17v4" /></svg>
           Caixa 01
         </span>
-        <div className="flex items-center gap-2.5">
+        <button type="button" onClick={() => setMenuAcoesAberto((v) => !v)} aria-haspopup="menu" aria-expanded={menuAcoesAberto}
+          className="flex items-center gap-2.5 rounded-lg px-1 py-1 transition hover:bg-[var(--pp-bg)]">
           <span className="grid h-9 w-9 place-items-center rounded-full bg-[var(--pp-success)] text-sm font-black text-white">{(currentUser?.name || "O").charAt(0).toUpperCase()}</span>
           <span className="hidden leading-tight sm:block">
             <span className="block text-sm font-black text-[var(--pp-text)]">{currentUser?.name || "Operador"}</span>
             <span className="block text-[11px] text-[var(--pp-text-muted)]">Atendente</span>
           </span>
-        </div>
+          <svg className="hidden h-4 w-4 text-[var(--pp-text-muted)] sm:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+        </button>
 
         <div className="relative">
           <button onClick={() => setMenuAcoesAberto((v) => !v)} aria-haspopup="menu" aria-expanded={menuAcoesAberto} aria-label="Mais ações"
@@ -4641,7 +4674,7 @@ function PosHeader({ currentUser, agora, conexaoOk, cuponsDoDia, menuAcoesAberto
 // ════════════════════════════════════════════════════════════
 //  Coluna 2 — Conta selecionada: cabeçalho de contexto + pedidos/itens
 // ════════════════════════════════════════════════════════════
-function PosAccountColumn({ className, temConta, contaVazia, comandaJaUsada, comandasLidas, porComanda, mesas, pedidos, pendentesPreparo, splitMode, selDe, toggleItem, setDividirItem, chavesPagas, onRemoverComanda, onLimparConta, onImprimirConferencia, onVoltarBusca, conflitoAtualizacao, onReconferir, onQtd, onRemover, onAdicionar }) {
+function PosAccountColumn({ className, temConta, contaVazia, comandaJaUsada, comandasLidas, porComanda, mesas, pedidos, pendentesPreparo, splitMode, selDe, toggleItem, setDividirItem, chavesPagas, onRemoverComanda, onLimparConta, onImprimirConferencia, onVoltarBusca, conflitoAtualizacao, onReconferir, onQtd, onRemover, onAdicionar, products = [], subtotalGeralBruto = 0, taxaTotalMesaBruta = 0, taxaIncluida, setTaxaIncluida, taxaFixa, taxaBloqueadaOff, SERVICE_FEE_CONFIG, descontoTexto, setDescontoTexto, acrescimoTexto, setAcrescimoTexto, totalGeral = 0, jaPago = 0, restanteGeral = 0 }) {
   if (!temConta) {
     return (
       <section className={`${className} w-full flex-col items-center justify-center overflow-y-auto p-8 lg:flex-1`}>
@@ -4745,6 +4778,7 @@ function PosAccountColumn({ className, temConta, contaVazia, comandaJaUsada, com
                 const totalItem = it.price * it.quantity;
                 const valorPagar = totalItem / (s.dividir || 1);
                 const custom = [it.removedIngredients?.length ? `Sem: ${it.removedIngredients.join(", ")}` : null, it.extraIngredients?.length ? `Com: ${it.extraIngredients.join(", ")}` : null].filter(Boolean).join(" · ");
+                const descricao = products.find((p) => p.name === it.name)?.description || custom;
                 const obs = it.observation || "";
                 return (
                   <div key={`${o.id}::${i}`} className={`grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-2 py-3 ${COLS} ${splitMode === "item" && !pago && !incluido ? "opacity-50" : ""}`}>
@@ -4756,7 +4790,7 @@ function PosAccountColumn({ className, temConta, contaVazia, comandaJaUsada, com
                       <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-[var(--pp-border)] bg-[var(--pp-bg)] text-[var(--pp-text-muted)]"><IconCardapio width={16} height={16} /></span>
                       <div className="min-w-0">
                         <p className={`line-clamp-2 text-sm font-black leading-tight ${pago ? "text-[var(--pp-success-text)] line-through" : "text-[var(--pp-text)]"}`}>{it.name}</p>
-                        {custom && <p className="truncate text-xs text-[var(--pp-text-muted)]">{custom}</p>}
+                        {descricao && <p className="truncate text-xs text-[var(--pp-text-muted)]">{descricao}</p>}
                         {obs && <p className="truncate text-xs text-[var(--pp-text-muted)] sm:hidden">Obs.: {obs}</p>}
                         {pago && <span className="mt-0.5 inline-block rounded bg-[var(--pp-success)] px-1.5 py-0.5 text-[9px] font-black uppercase text-white">Pago</span>}
                       </div>
@@ -4809,6 +4843,55 @@ function PosAccountColumn({ className, temConta, contaVazia, comandaJaUsada, com
           <IconMais /> Adicionar item
         </button>
       </div>
+
+      {/* Resumo financeiro + Total geral */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-surface)] p-5">
+          <p className="text-[11px] font-black uppercase tracking-widest text-[var(--pp-text-muted)]">Resumo financeiro</p>
+          <div className="mt-3 space-y-2.5 text-sm">
+            <div className="flex justify-between text-[var(--pp-text-body)]"><span>Subtotal</span><strong className="text-[var(--pp-text)] tabular-nums">{formatCurrency(subtotalGeralBruto)}</strong></div>
+            {!taxaBloqueadaOff ? (
+              <label className={`flex items-center justify-between gap-2 ${taxaFixa ? "" : "cursor-pointer"}`}>
+                <span className="flex items-center gap-2 text-[var(--pp-text-body)]">
+                  <input type="checkbox" checked={taxaIncluida} disabled={taxaFixa} onChange={(e) => !taxaFixa && setTaxaIncluida(e.target.checked)} className="h-4 w-4 accent-[var(--pp-primary)] disabled:opacity-70" />
+                  Taxa de serviço ({SERVICE_FEE_CONFIG?.percent ?? 10}%)
+                </span>
+                <strong className="text-[var(--pp-text)] tabular-nums">{formatCurrency(taxaIncluida ? taxaTotalMesaBruta : 0)}</strong>
+              </label>
+            ) : (
+              <div className="flex justify-between text-[var(--pp-text-muted)]"><span>Taxa de serviço</span><span>não cobrada</span></div>
+            )}
+            <div className="flex items-center justify-between gap-2">
+              <span className="flex items-center gap-1.5 text-[var(--pp-danger)]"><span className="grid h-4 w-4 place-items-center rounded-full bg-[var(--pp-danger-soft)] text-[11px] font-black leading-none">−</span> Desconto</span>
+              <div className="flex items-center gap-1 rounded-lg border border-[var(--pp-border)] bg-[var(--pp-bg)] px-2 py-1 focus-within:border-[var(--pp-primary)]">
+                <span className="text-xs font-bold text-[var(--pp-text-body)]">R$</span>
+                <input inputMode="numeric" aria-label="Desconto" value={numeroParaMoeda(moedaParaNumero(descontoTexto))} onChange={(e) => setDescontoTexto(e.target.value)} onFocus={(e) => e.target.select()}
+                  className="w-16 bg-transparent text-right text-sm font-black text-[var(--pp-danger)] outline-none tabular-nums" />
+              </div>
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <span className="flex items-center gap-1.5 text-[var(--pp-success-text)]"><span className="grid h-4 w-4 place-items-center rounded-full bg-[var(--pp-success-soft)] text-[11px] font-black leading-none">+</span> Acréscimos</span>
+              <div className="flex items-center gap-1 rounded-lg border border-[var(--pp-border)] bg-[var(--pp-bg)] px-2 py-1 focus-within:border-[var(--pp-primary)]">
+                <span className="text-xs font-bold text-[var(--pp-text-body)]">R$</span>
+                <input inputMode="numeric" aria-label="Acréscimos" value={numeroParaMoeda(moedaParaNumero(acrescimoTexto))} onChange={(e) => setAcrescimoTexto(e.target.value)} onFocus={(e) => e.target.select()}
+                  className="w-16 bg-transparent text-right text-sm font-black text-[var(--pp-success-text)] outline-none tabular-nums" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-col justify-center rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-surface)] p-5">
+          <p className="text-[11px] font-black uppercase tracking-widest text-[var(--pp-text-muted)]">Total geral</p>
+          <p className="mt-1 text-3xl font-black tabular-nums text-[var(--pp-text)]">{formatCurrency(totalGeral)}</p>
+          <div className="mt-3 flex items-center justify-between text-sm text-[var(--pp-text-body)]">
+            <span>Valor pago</span><strong className="tabular-nums text-[var(--pp-success)]">{formatCurrency(jaPago)}</strong>
+          </div>
+          <div className="mt-1.5 flex items-center justify-between rounded-xl bg-[var(--pp-bg)] px-3 py-2">
+            <span className="text-[11px] font-black uppercase tracking-wide text-[var(--pp-text-muted)]">{restanteGeral <= 0.001 ? "Quitado" : "Saldo restante"}</span>
+            <span className={`text-xl font-black tabular-nums ${restanteGeral <= 0.001 ? "text-[var(--pp-success-text)]" : "text-[var(--pp-primary-text)]"}`}>{formatCurrency(restanteGeral)}</span>
+          </div>
+        </div>
+      </div>
     </section>
   );
 }
@@ -4821,9 +4904,8 @@ const POS_ICONE_FORMA = { dinheiro: IconDinheiro, pix: IconPix, cartao_credito: 
 // ════════════════════════════════════════════════════════════
 function PosPaymentColumn({
   className, temConta, podePagar, pendentesPreparo,
-  subtotal, taxa, total, totalGeral, jaPago, restanteGeral,
-  taxaIncluida, setTaxaIncluida, taxaFixa, taxaBloqueadaOff, taxaManualValor, setTaxaManualValor, SERVICE_FEE_CONFIG,
-  splitMode, setSplitMode,
+  total, restanteGeral,
+  splitMode, setSplitMode, metodoValor, setMetodoValor,
   pessoas, setPessoas, porPessoa, pessoasRestantes, valorPagoAgora, totalPagoSelecaoPessoas, restanteSelecaoPessoas,
   valorParcialTexto, setValorParcialTexto, valorParcialValido,
   pagamentosFeitos, logFinanceiro, onCancelarPagamento,
@@ -4906,9 +4988,14 @@ function PosPaymentColumn({
           <div className="rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-surface)] p-4">
             <p className="text-[11px] font-black uppercase tracking-widest text-[var(--pp-text-muted)]">Divisão da conta</p>
             <div role="radiogroup" aria-label="Modo de divisão" className="mt-3 grid grid-cols-4 gap-2.5">
-              {[["integral", "Conta inteira", IconRecibo], ["pessoas", "Por pessoas", IconUsuarios], ["valor", "Por valor", IconDinheiro], ["item", "Por item", IconCardapio]].map(([id, label, Icone]) => (
-                <button key={id} type="button" role="radio" aria-checked={splitMode === id} onClick={() => setSplitMode(id)}
-                  className={`grid place-items-center gap-1.5 rounded-xl border px-1.5 py-3 text-center text-[11px] font-bold leading-tight transition ${splitMode === id ? "btn-laranja border-transparent text-white" : "border-[var(--pp-border)] bg-[var(--pp-surface)] text-[var(--pp-text-body)] hover:bg-[var(--pp-bg)]"}`}>
+              {[
+                { id: "pessoas", label: "Dividir igualmente", Icone: IconUsuarios, on: splitMode === "pessoas", click: () => setSplitMode(splitMode === "pessoas" ? "integral" : "pessoas") },
+                { id: "item", label: "Dividir por item", Icone: IconCardapio, on: splitMode === "item", click: () => setSplitMode(splitMode === "item" ? "integral" : "item") },
+                { id: "valor-livre", label: "Valor personalizado", Icone: IconDinheiro, on: splitMode === "valor" && metodoValor === "livre", click: () => { if (splitMode === "valor" && metodoValor === "livre") setSplitMode("integral"); else { setSplitMode("valor"); setMetodoValor("livre"); } } },
+                { id: "valor-parcial", label: "Pagamento parcial", Icone: IconRelogio, on: splitMode === "valor" && metodoValor === "fracao", click: () => { if (splitMode === "valor" && metodoValor === "fracao") setSplitMode("integral"); else { setSplitMode("valor"); setMetodoValor("fracao"); } } },
+              ].map(({ id, label, Icone, on, click }) => (
+                <button key={id} type="button" role="radio" aria-checked={on} onClick={click}
+                  className={`grid place-items-center gap-1.5 rounded-xl border px-1.5 py-3 text-center text-[11px] font-bold leading-tight transition ${on ? "btn-laranja border-transparent text-white" : "border-[var(--pp-border)] bg-[var(--pp-surface)] text-[var(--pp-text-body)] hover:bg-[var(--pp-bg)]"}`}>
                   <Icone width={18} height={18} /> <span className="min-w-0">{label}</span>
                 </button>
               ))}
@@ -4916,26 +5003,27 @@ function PosPaymentColumn({
 
             {splitMode === "pessoas" && (
               <div className="mt-3 border-t border-[var(--pp-border)] pt-3">
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-1 rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-1">
-                    <button onClick={() => setPessoas((p) => Math.max(2, p - 1))} aria-label="Diminuir número de pessoas" className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-base font-black text-[var(--pp-text)] hover:bg-[var(--pp-bg)]">−</button>
-                    <span className="w-8 text-center text-base font-black text-[var(--pp-text)]">{pessoas}</span>
-                    <button onClick={() => setPessoas((p) => p + 1)} aria-label="Aumentar número de pessoas" className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--pp-primary)] text-base font-black text-white hover:bg-[var(--pp-primary-hover)]">+</button>
+                <div className="grid grid-cols-[minmax(0,auto)_1fr] gap-3">
+                  <div className="flex flex-col gap-1.5">
+                    <p className="text-[10px] font-black uppercase tracking-wide text-[var(--pp-text-muted)]">Pessoas</p>
+                    {[2, 3, 4].map((n) => (
+                      <button key={n} onClick={() => setPessoas(n)} aria-pressed={pessoas === n}
+                        className={`rounded-lg px-3 py-1.5 text-sm font-black transition ${pessoas === n ? "btn-laranja text-white" : "border border-[var(--pp-border)] bg-[var(--pp-surface)] text-[var(--pp-text-body)] hover:bg-[var(--pp-bg)]"}`}>{n} pessoas</button>
+                    ))}
+                    <button onClick={() => setPessoas((p) => p + 1)} className="rounded-lg border border-dashed border-[var(--pp-border)] px-3 py-1 text-xs font-bold text-[var(--pp-text-muted)] hover:bg-[var(--pp-bg)]">+ mais</button>
                   </div>
-                  <div className="flex-1 text-right">
-                    <p className="text-xs text-[var(--pp-text-body)]">{pessoas} pessoas</p>
-                    <p className="text-lg font-black text-[var(--pp-text)]">{formatCurrency(porPessoa)}<span className="text-xs font-normal text-[var(--pp-text-body)]"> /cada</span></p>
+                  <div className="flex flex-col items-center justify-center rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-3 text-center">
+                    <p className="text-[10px] font-black uppercase tracking-wide text-[var(--pp-text-muted)]">Valor por pessoa</p>
+                    <span className="mt-1 flex items-center gap-1.5 text-2xl font-black text-[var(--pp-primary-text)]"><IconUsuarios width={18} height={18} /> {formatCurrency(porPessoa)}</span>
+                    <p className="mt-0.5 text-xs text-[var(--pp-text-body)]">{formatCurrency(total)} total da conta</p>
                   </div>
                 </div>
-                <div className="mt-2 space-y-1 border-t border-[var(--pp-border)] pt-2 text-xs">
-                  <div className="flex justify-between text-[var(--pp-text-body)]"><span>Pago</span><strong className="text-[var(--pp-success)]">{formatCurrency(totalPagoSelecaoPessoas)}</strong></div>
-                  <div className="flex justify-between text-[var(--pp-text-body)]"><span>Restante</span><strong className="text-[var(--pp-warning-text)]">{formatCurrency(restanteSelecaoPessoas)}</strong></div>
-                  {pessoasRestantes > 0 && <p className="pt-0.5 font-bold text-[var(--pp-text)]">Cobrar agora (1 pessoa): {formatCurrency(valorPagoAgora)}</p>}
-                </div>
+                {pessoasRestantes > 0 && <p className="mt-2 border-t border-[var(--pp-border)] pt-2 text-xs font-bold text-[var(--pp-text)]">Cobrar agora (1 pessoa): {formatCurrency(valorPagoAgora)}</p>}
+                <div className="mt-1 flex justify-between text-xs text-[var(--pp-text-body)]"><span>Pago {formatCurrency(totalPagoSelecaoPessoas)}</span><span>Restante {formatCurrency(restanteSelecaoPessoas)}</span></div>
               </div>
             )}
 
-            {splitMode === "valor" && (
+            {splitMode === "valor" && metodoValor === "livre" && (
               <div className="mt-3 border-t border-[var(--pp-border)] pt-3">
                 <label className="block"><span className="mb-1 block text-xs font-bold text-[var(--pp-text-body)]">Valor a pagar agora</span>
                   <div className="flex items-center gap-2 rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-3 py-2 focus-within:border-[var(--pp-primary)]">
@@ -4943,6 +5031,24 @@ function PosPaymentColumn({
                     <input inputMode="numeric" value={numeroParaMoeda(moedaParaNumero(valorParcialTexto))} onChange={(e) => setValorParcialTexto(e.target.value)} onFocus={(e) => e.target.select()}
                       className="w-full bg-transparent text-right text-lg font-black text-[var(--pp-text)] outline-none" /></div>
                 </label>
+                {valorParcialTexto && !valorParcialValido && <p className="mt-1.5 text-xs font-bold text-[var(--pp-danger)]">Informe um valor entre {formatCurrency(0.01)} e {formatCurrency(restanteGeral)}.</p>}
+              </div>
+            )}
+
+            {splitMode === "valor" && metodoValor === "fracao" && (
+              <div className="mt-3 border-t border-[var(--pp-border)] pt-3">
+                <p className="mb-1.5 text-xs font-bold text-[var(--pp-text-body)]">Receber parte agora (deixa saldo em aberto)</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {[["½", 2], ["⅓", 3], ["¼", 4]].map(([lbl, div]) => (
+                    <button key={div} onClick={() => setValorParcialTexto(String(Math.round((restanteGeral / div) * 100)))}
+                      className="rounded-lg border border-[var(--pp-border)] bg-[var(--pp-surface)] py-2 text-sm font-black text-[var(--pp-text-body)] transition hover:bg-[var(--pp-bg)]">{lbl}</button>
+                  ))}
+                </div>
+                <div className="mt-2 flex items-center gap-2 rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-3 py-2 focus-within:border-[var(--pp-primary)]">
+                  <span className="text-sm font-bold text-[var(--pp-text-body)]">R$</span>
+                  <input inputMode="numeric" value={numeroParaMoeda(moedaParaNumero(valorParcialTexto))} onChange={(e) => setValorParcialTexto(e.target.value)} onFocus={(e) => e.target.select()}
+                    className="w-full bg-transparent text-right text-lg font-black text-[var(--pp-text)] outline-none" />
+                </div>
                 {valorParcialTexto && !valorParcialValido && <p className="mt-1.5 text-xs font-bold text-[var(--pp-danger)]">Informe um valor entre {formatCurrency(0.01)} e {formatCurrency(restanteGeral)}.</p>}
               </div>
             )}
@@ -4958,34 +5064,6 @@ function PosPaymentColumn({
         </>
       )}
 
-      {/* Resumo financeiro */}
-      <div className="rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-surface)] p-4">
-        <p className="mb-2 text-[11px] font-black uppercase tracking-widest text-[var(--pp-text-muted)]">Resumo financeiro</p>
-        <div className="space-y-1.5 text-sm">
-          <div className="flex justify-between text-[var(--pp-text-body)]"><span>Subtotal</span><strong className="text-[var(--pp-text)]">{formatCurrency(subtotal)}</strong></div>
-          {!taxaBloqueadaOff ? (
-            <label className={`flex items-center justify-between gap-2 ${taxaFixa ? "" : "cursor-pointer"}`}>
-              <span className="text-[var(--pp-text-body)]">Taxa de serviço ({SERVICE_FEE_CONFIG.percent}%)</span>
-              <input type="checkbox" checked={taxaIncluida} disabled={taxaFixa} onChange={(e) => !taxaFixa && setTaxaIncluida(e.target.checked)} className="h-4 w-4 accent-[var(--pp-primary)] disabled:opacity-70" />
-            </label>
-          ) : (
-            <div className="flex justify-between text-[var(--pp-text-muted)]"><span>Taxa de serviço</span><span>não cobrada</span></div>
-          )}
-          {SERVICE_FEE_CONFIG.partialStrategy === "manual" && splitMode === "item" && taxaIncluida && (
-            <label className="block pt-1"><span className="mb-1 block text-[11px] font-bold text-[var(--pp-text-body)]">Valor manual da taxa</span>
-              <input type="number" min="0" step="0.01" value={taxaManualValor} onChange={(e) => setTaxaManualValor(Math.max(0, Number(e.target.value) || 0))}
-                className="w-full rounded-xl border border-[var(--pp-border)] bg-white px-3 py-1.5 text-sm text-[var(--pp-text)] outline-none focus:border-[var(--pp-primary)]" /></label>
-          )}
-          <div className="flex justify-between text-[var(--pp-text-body)]"><span>Taxa aplicada</span><strong className="text-[var(--pp-text)]">{formatCurrency(taxa)}</strong></div>
-          <div className="h-px bg-[var(--pp-border)]" />
-          <div className="flex justify-between"><span className="font-bold text-[var(--pp-text-body)]">Total da conta</span><strong className="text-[var(--pp-text)]">{formatCurrency(totalGeral)}</strong></div>
-          {jaPago > 0 && <div className="flex justify-between text-[var(--pp-success)]"><span>Já pago</span><strong>− {formatCurrency(jaPago)}</strong></div>}
-          <div className="flex items-center justify-between rounded-xl bg-[var(--pp-bg)] px-2.5 py-2">
-            <span className="text-sm font-black text-[var(--pp-text)]">{restanteGeral <= 0.001 ? "Quitado" : "Saldo restante"}</span>
-            <span className={`text-xl font-black ${restanteGeral <= 0.001 ? "text-[var(--pp-success-text)]" : "text-[var(--pp-text)]"}`}>{formatCurrency(restanteGeral)}</span>
-          </div>
-        </div>
-      </div>
 
       {pendentesPreparo > 0 && (
         <div className="flex items-center gap-2 rounded-xl border border-[var(--pp-warning)] bg-[var(--pp-warning-soft)] px-3 py-2.5 text-xs font-bold text-[var(--pp-warning-text)]">
