@@ -3961,14 +3961,23 @@ function CashierView({ orders, baixarComandas, formasPagamento = [], lojaInfo, c
     setAddItemPara(null);
   }
 
-  // ── Teclado numérico (mockup) ──────────────────────────────────
-  // Alimenta em centavos o valor da linha de pagamento mais recente
-  // (linhasPagamento[0]) via setValorLinha — sem lógica financeira nova.
+  // ── Teclado numérico — dois alvos conforme o contexto ──────────
+  // Sem pagamento em curso, o teclado digita o NÚMERO da busca (mesa/comanda) —
+  // ideal para tablet no fechamento; havendo linha de pagamento, alimenta em
+  // centavos o valor recebido (linhasPagamento[0]) via setValorLinha.
   const [entradaTeclado, setEntradaTeclado] = useState("");
   const tecladoUidRef = useRef(null);
   const linhaAlvoTeclado = linhasPagamento[0]?.uid ?? null;
+  const tecladoNaBusca = linhaAlvoTeclado == null;
   function tecladoDigito(d) {
-    if (d === "," || linhaAlvoTeclado == null) return; // entrada em centavos
+    if (tecladoNaBusca) {
+      if (d === ",") return;
+      setSearchError("");
+      if (searchMode === "comanda") setComandaQuery((q) => (q + d).slice(0, 24));
+      else setMesaQuery((q) => (q + d).replace(/\D/g, "").slice(0, 3));
+      return;
+    }
+    if (d === ",") return; // entrada em centavos
     const base = tecladoUidRef.current === linhaAlvoTeclado ? entradaTeclado : "";
     const proximo = (base + d).replace(/^0+(?=\d)/, "").slice(0, 9);
     tecladoUidRef.current = linhaAlvoTeclado;
@@ -3976,17 +3985,29 @@ function CashierView({ orders, baixarComandas, formasPagamento = [], lojaInfo, c
     setValorLinha(linhaAlvoTeclado, proximo);
   }
   function tecladoApagar() {
-    if (linhaAlvoTeclado == null) return;
+    if (tecladoNaBusca) {
+      if (searchMode === "comanda") setComandaQuery((q) => q.slice(0, -1));
+      else setMesaQuery((q) => q.slice(0, -1));
+      return;
+    }
     const proximo = (tecladoUidRef.current === linhaAlvoTeclado ? entradaTeclado : "").slice(0, -1);
     tecladoUidRef.current = linhaAlvoTeclado;
     setEntradaTeclado(proximo);
     setValorLinha(linhaAlvoTeclado, proximo || "0");
   }
   function tecladoLimpar() {
-    if (linhaAlvoTeclado == null) return;
+    if (tecladoNaBusca) {
+      if (searchMode === "comanda") setComandaQuery(""); else setMesaQuery("");
+      setSearchError("");
+      return;
+    }
     tecladoUidRef.current = linhaAlvoTeclado;
     setEntradaTeclado("");
     setValorLinha(linhaAlvoTeclado, "0");
+  }
+  function tecladoConfirmar() {
+    if (!tecladoNaBusca) return;
+    if (searchMode === "comanda") buscarPorComanda(); else buscarMesaPorNumero();
   }
 
   // ── Solicitações de fechamento (mesas aguardando o caixa) ────
@@ -4312,18 +4333,55 @@ function CashierView({ orders, baixarComandas, formasPagamento = [], lojaInfo, c
         </div>
       )}
 
+      {/* ── Busca — topo, centralizada (combina tipo + campo; teclado ao lado) ── */}
+      <div className="shrink-0 border-b border-[var(--pp-border)] bg-[var(--pp-surface)] px-4 py-3">
+        <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-2.5">
+          <div role="tablist" aria-label="Tipo de busca" className="flex flex-wrap items-center justify-center gap-1 rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-1">
+            {[["mesa", "Mesa", IconMesas, true], ["comanda", "Comanda", IconComanda, true], ["cliente", "Cliente", IconUsuarios, false], ["pedido", "Pedido", IconRecibo, false]].map(([id, label, Icone, ativo]) => {
+              const on = searchMode === id;
+              return (
+                <button key={id} role="tab" aria-selected={on} disabled={!ativo} title={ativo ? undefined : "Em breve"}
+                  onClick={() => { if (ativo) { setSearchMode(id); setSearchError(""); } }}
+                  className={`flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-black transition ${on ? "btn-laranja text-white" : ativo ? "text-[var(--pp-text-body)] hover:bg-[var(--pp-surface)]" : "text-[var(--pp-text-muted)] opacity-60"}`}>
+                  <Icone width={15} height={15} /> {label}
+                </button>
+              );
+            })}
+          </div>
+          <div className="flex w-full max-w-xl items-center gap-2">
+            {searchMode === "comanda" ? (
+              <input ref={comandaInputRef} value={comandaQuery} onChange={(e) => { setComandaQuery(e.target.value.toUpperCase()); setSearchError(""); }} onKeyDown={(e) => e.key === "Enter" && buscarPorComanda()}
+                placeholder={`Ex.: ${lojaInfo?.prefixo || "CMD"}-000123`}
+                className="min-h-12 w-full flex-1 rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-4 text-center font-mono text-base font-black tracking-wide text-[var(--pp-text)] outline-none transition focus:border-[var(--pp-primary)] focus:ring-2 focus:ring-[var(--pp-primary-soft)] placeholder:font-sans placeholder:font-normal placeholder:text-[var(--pp-text-muted)]" />
+            ) : (
+              <input ref={mesaInputRef} type="tel" inputMode="numeric" value={mesaQuery} onChange={(e) => { setMesaQuery(e.target.value.replace(/\D/g, "").slice(0, 3)); setSearchError(""); }} onKeyDown={(e) => e.key === "Enter" && buscarMesaPorNumero()}
+                placeholder="Número da mesa · ex.: 07"
+                className="min-h-12 w-full flex-1 rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-4 text-center text-lg font-black text-[var(--pp-text)] outline-none transition focus:border-[var(--pp-primary)] focus:ring-2 focus:ring-[var(--pp-primary-soft)] placeholder:text-base placeholder:font-normal placeholder:text-[var(--pp-text-muted)]" />
+            )}
+            {searchMode === "comanda" && (
+              <button onClick={() => setScannerAberto(true)} aria-label="Ler QR Code da comanda" className="grid min-h-12 w-12 shrink-0 place-items-center rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-surface)] text-[var(--pp-text-body)] transition hover:bg-[var(--pp-bg)]"><IconQr /></button>
+            )}
+            <button onClick={() => (searchMode === "comanda" ? buscarPorComanda() : buscarMesaPorNumero())} aria-label="Buscar conta" className="btn-laranja grid min-h-12 w-14 shrink-0 place-items-center rounded-2xl text-white"><IconBusca /></button>
+          </div>
+          {searchError && <p role="alert" className="text-xs font-bold text-[var(--pp-danger)]">{searchError}</p>}
+          {recentSearches.length > 0 && (
+            <div className="flex flex-wrap items-center justify-center gap-1.5">
+              <span className="text-[11px] font-bold text-[var(--pp-text-muted)]">Recentes:</span>
+              {recentSearches.slice(0, 5).map((b, i) => (
+                <button key={i} onClick={() => selecionarBuscaRecente(b)} className="rounded-full border border-[var(--pp-border)] bg-[var(--pp-bg)] px-2.5 py-1 text-[11px] font-bold text-[var(--pp-text-body)] transition hover:border-[var(--pp-primary)] hover:text-[var(--pp-primary-text)]">
+                  {b.tipo === "mesa" ? `Mesa ${b.valor}` : b.valor}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* ── Corpo: 3 colunas (desktop) / 2 áreas (tablet) / etapas (mobile) ── */}
       <div className="flex flex-1 overflow-hidden">
         {/* Coluna 1 — Localização (desktop/tablet sempre visível; mobile só na etapa "buscar") */}
         <PosLocationColumn
           className={`${mobileStep === "buscar" ? "flex" : "hidden"} md:flex`}
-          searchMode={searchMode} setSearchMode={setSearchMode}
-          mesaQuery={mesaQuery} setMesaQuery={setMesaQuery} mesaInputRef={mesaInputRef}
-          comandaQuery={comandaQuery} setComandaQuery={setComandaQuery} comandaInputRef={comandaInputRef}
-          searchError={searchError} setSearchError={setSearchError}
-          onBuscarMesa={buscarMesaPorNumero} onBuscarComanda={() => buscarPorComanda()}
-          onAbrirScanner={() => setScannerAberto(true)}
-          recentSearches={recentSearches} onSelecionarRecente={selecionarBuscaRecente}
           contasFiltradas={contasFiltradas} openAccountsFilter={openAccountsFilter} setOpenAccountsFilter={setOpenAccountsFilter}
           onAbrirConta={abrirContaDaLista} comandasLidas={comandasLidas}
           indicadores={indicadoresTurno}
@@ -4362,7 +4420,7 @@ function CashierView({ orders, baixarComandas, formasPagamento = [], lojaInfo, c
           formasPagamento={formasPagamento.filter((f) => f.active !== false)}
           linhasPagamento={linhasPagamento} onAddLinha={addLinhaPagamento} onSetValorLinha={setValorLinha} onRemoverLinha={removerLinhaPagamento}
           pagoLinhas={pagoLinhas} restanteLinhas={restanteLinhas} troco={troco} excedeNaoDinheiro={excedeNaoDinheiro} temDinheiro={temDinheiro}
-          onTeclaDigito={tecladoDigito} onTeclaApagar={tecladoApagar} onTeclaLimpar={tecladoLimpar} tecladoAtivo={linhasPagamento.length > 0}
+          onTeclaDigito={tecladoDigito} onTeclaApagar={tecladoApagar} onTeclaLimpar={tecladoLimpar} onTeclaConfirmar={tecladoConfirmar} tecladoAtivo={linhasPagamento.length > 0}
           podeConfirmarPagamento={podeConfirmarPagamento} onFinalizarClick={abrirConfirmacao}
           onImprimirConferencia={imprimirConferencia} aPagarMaiorQueRestante={splitMode === "item" && aPagar > 0 && aPagar < restanteGeral - 0.01}
           conflitoAtualizacao={conflitoAtualizacao} onReconferir={reconferirConta}
@@ -4464,71 +4522,9 @@ const POS_FILTROS_CONTA = [
 // ════════════════════════════════════════════════════════════
 //  Coluna 1 — Localização: busca por mesa/comanda + contas abertas
 // ════════════════════════════════════════════════════════════
-function PosLocationColumn({ className, searchMode, setSearchMode, mesaQuery, setMesaQuery, mesaInputRef, comandaQuery, setComandaQuery, comandaInputRef, searchError, setSearchError, onBuscarMesa, onBuscarComanda, onAbrirScanner, recentSearches, onSelecionarRecente, contasFiltradas, openAccountsFilter, setOpenAccountsFilter, onAbrirConta, comandasLidas, indicadores }) {
-  useEffect(() => { if (searchMode === "mesa") mesaInputRef.current?.focus(); }, [searchMode]); // eslint-disable-line react-hooks/exhaustive-deps
-
+function PosLocationColumn({ className, contasFiltradas, openAccountsFilter, setOpenAccountsFilter, onAbrirConta, comandasLidas, indicadores }) {
   return (
     <aside className={`${className} w-full flex-col gap-4 overflow-y-auto bg-[var(--pp-bg)] p-4 md:w-[248px] md:shrink-0 lg:w-[268px]`}>
-      {/* Consulta rápida */}
-      <div className="rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-surface)] p-3.5">
-        <p className="text-[11px] font-black uppercase tracking-widest text-[var(--pp-text-muted)]">Consulta rápida</p>
-        <div className="mt-3 space-y-2">
-          {[["mesa", "Mesa", IconMesas, true], ["comanda", "Comanda", IconComanda, true], ["cliente", "Cliente", IconUsuarios, false], ["pedido", "Pedido", IconRecibo, false]].map(([id, label, Icone, ativo]) => {
-            const on = searchMode === id;
-            return (
-              <button key={id} type="button" disabled={!ativo} title={ativo ? undefined : "Em breve"}
-                onClick={() => { if (ativo) { setSearchMode(id); setSearchError(""); } }}
-                className={`flex w-full items-center gap-2.5 rounded-xl px-3.5 py-3 text-sm font-bold transition ${
-                  on ? "btn-laranja text-white"
-                  : ativo ? "border border-[var(--pp-border)] bg-[var(--pp-surface)] text-[var(--pp-text-body)] hover:bg-[var(--pp-bg)]"
-                  : "border border-[var(--pp-border)] bg-[var(--pp-surface)] text-[var(--pp-text-muted)] opacity-60"}`}>
-                <Icone width={17} height={17} /> {label}
-              </button>
-            );
-          })}
-        </div>
-
-        {searchMode === "mesa" && (
-          <div className="mt-3">
-            <label className="mb-1.5 block text-[11px] font-bold text-[var(--pp-text-body)]" htmlFor="pos-busca-mesa">Número da mesa</label>
-            <div className="flex gap-2">
-              <input id="pos-busca-mesa" ref={mesaInputRef} type="tel" inputMode="numeric" value={mesaQuery}
-                onChange={(e) => { setMesaQuery(e.target.value.replace(/\D/g, "").slice(0, 3)); setSearchError(""); }}
-                onKeyDown={(e) => e.key === "Enter" && onBuscarMesa()}
-                placeholder="Ex.: 07" className="min-h-11 w-full flex-1 rounded-xl border border-[var(--pp-border)] bg-[var(--pp-surface)] px-3.5 py-2.5 text-lg font-black text-[var(--pp-text)] outline-none transition focus:border-[var(--pp-primary)] focus:ring-2 focus:ring-[var(--pp-primary-soft)] placeholder:text-sm placeholder:font-normal placeholder:text-[var(--pp-text-muted)]" />
-              <button onClick={onBuscarMesa} disabled={!mesaQuery} aria-label="Consultar mesa (F2)"
-                className="btn-laranja grid min-h-11 w-11 shrink-0 place-items-center rounded-xl text-white disabled:opacity-50"><IconBusca /></button>
-            </div>
-          </div>
-        )}
-        {searchMode === "comanda" && (
-          <div className="mt-3">
-            <label className="mb-1.5 block text-[11px] font-bold text-[var(--pp-text-body)]" htmlFor="pos-busca-comanda">Código da comanda</label>
-            <div className="flex gap-2">
-              <input id="pos-busca-comanda" ref={comandaInputRef} value={comandaQuery}
-                onChange={(e) => { setComandaQuery(e.target.value.toUpperCase()); setSearchError(""); }}
-                onKeyDown={(e) => e.key === "Enter" && onBuscarComanda()}
-                placeholder="Ex.: CMD-000123" className="min-h-11 w-full flex-1 rounded-xl border border-[var(--pp-border)] bg-[var(--pp-surface)] px-3 py-2.5 font-mono text-sm font-black tracking-wide text-[var(--pp-text)] outline-none transition focus:border-[var(--pp-primary)] focus:ring-2 focus:ring-[var(--pp-primary-soft)] placeholder:font-sans placeholder:font-normal placeholder:text-[var(--pp-text-muted)]" />
-              <button onClick={onAbrirScanner} aria-label="Ler QR Code da comanda"
-                className="grid min-h-11 w-11 shrink-0 place-items-center rounded-xl border border-[var(--pp-border)] bg-[var(--pp-surface)] text-[var(--pp-text-body)] transition hover:bg-[var(--pp-bg)]"><IconQr /></button>
-              <button onClick={onBuscarComanda} disabled={!comandaQuery.trim()} aria-label="Consultar comanda (F3)"
-                className="btn-laranja grid min-h-11 w-11 shrink-0 place-items-center rounded-xl text-white disabled:opacity-50"><IconBusca /></button>
-            </div>
-          </div>
-        )}
-        {searchError && <p role="alert" className="mt-2 text-xs font-bold text-[var(--pp-danger)]">{searchError}</p>}
-        {recentSearches.length > 0 && (
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            {recentSearches.slice(0, 4).map((b, i) => (
-              <button key={i} onClick={() => onSelecionarRecente(b)}
-                className="rounded-full border border-[var(--pp-border)] bg-[var(--pp-bg)] px-2.5 py-1 text-[11px] font-bold text-[var(--pp-text-body)] transition hover:border-[var(--pp-primary)] hover:text-[var(--pp-primary-text)]">
-                {b.tipo === "mesa" ? `Mesa ${b.valor}` : b.valor}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-
       {/* Contas abertas */}
       <div className="rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-surface)] p-3.5">
         <div className="flex items-center justify-between">
@@ -4911,14 +4907,17 @@ function PosPaymentColumn({
   pagamentosFeitos, logFinanceiro, onCancelarPagamento,
   formasPagamento, linhasPagamento, onAddLinha, onSetValorLinha, onRemoverLinha,
   pagoLinhas, restanteLinhas, troco, excedeNaoDinheiro, temDinheiro,
-  onTeclaDigito, onTeclaApagar, onTeclaLimpar,
+  onTeclaDigito, onTeclaApagar, onTeclaLimpar, onTeclaConfirmar,
   podeConfirmarPagamento, onFinalizarClick, onImprimirConferencia, aPagarMaiorQueRestante,
   conflitoAtualizacao, onReconferir, onVoltarConta,
 }) {
   if (!temConta) {
+    // Sem conta: o teclado serve à BUSCA (digitar mesa/comanda e confirmar) —
+    // ideal no tablet. A grade de pagamento aparece após localizar a conta.
     return (
-      <aside className={`${className} w-full flex-col items-center justify-center overflow-y-auto border-[var(--pp-border)] bg-white p-8 lg:w-[380px] lg:shrink-0 lg:border-l`}>
-        <p className="text-center text-sm text-[var(--pp-text-muted)]">O resumo de pagamento aparece aqui após localizar uma conta.</p>
+      <aside className={`${className} w-full flex-col gap-4 overflow-y-auto bg-[var(--pp-bg)] p-4 lg:w-[344px] lg:shrink-0`}>
+        <CheckoutKeypad onDigito={onTeclaDigito} onLimpar={onTeclaLimpar} onApagar={onTeclaApagar} onConfirmar={onTeclaConfirmar} confirmarDesabilitado={false} />
+        <p className="rounded-2xl border border-dashed border-[var(--pp-border)] px-4 py-3 text-center text-xs text-[var(--pp-text-muted)]">Digite o número da mesa ou a comanda e toque em <span className="font-black text-[var(--op-nav-accent)]">Confirmar</span> para localizar a conta.</p>
       </aside>
     );
   }
@@ -4932,7 +4931,7 @@ function PosPaymentColumn({
       {restanteGeral > 0.001 && (
         <>
           {/* Digite o código — teclado sempre visível */}
-          <CheckoutKeypad onDigito={onTeclaDigito} onLimpar={onTeclaLimpar} onApagar={onTeclaApagar} onConfirmar={() => {}} confirmarDesabilitado={false} />
+          <CheckoutKeypad onDigito={onTeclaDigito} onLimpar={onTeclaLimpar} onApagar={onTeclaApagar} onConfirmar={onTeclaConfirmar} confirmarDesabilitado={false} />
 
           {/* Forma de pagamento */}
           <div className="rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-surface)] p-4">
