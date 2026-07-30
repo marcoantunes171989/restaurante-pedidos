@@ -45,6 +45,8 @@ import { PageHeader, PrimeButton, EmptyState, FilterChip, FilterGroup, FiltersPa
 import OperationalCentral from "./pages/OperationalCentral";
 import CentralDePedidos from "./pages/CentralDePedidos";
 import CentralDoCaixa from "./pages/CentralDoCaixa";
+import CheckoutKeypad from "./components/orders/checkout/CheckoutKeypad";
+import CheckoutFooterActions from "./components/orders/checkout/CheckoutFooterActions";
 import CentralDaCozinha from "./pages/CentralDaCozinha";
 import CentralDoBar from "./pages/CentralDoBar";
 import OperationalBottomNav from "./components/OperationalBottomNav";
@@ -3907,6 +3909,34 @@ function CashierView({ orders, baixarComandas, formasPagamento = [], lojaInfo, c
     setLinhasPagamento((cur) => cur.filter((l) => l.uid !== uid));
   }
 
+  // ── Teclado numérico (mockup) ──────────────────────────────────
+  // Alimenta em centavos o valor da linha de pagamento mais recente
+  // (linhasPagamento[0]) via setValorLinha — sem lógica financeira nova.
+  const [entradaTeclado, setEntradaTeclado] = useState("");
+  const tecladoUidRef = useRef(null);
+  const linhaAlvoTeclado = linhasPagamento[0]?.uid ?? null;
+  function tecladoDigito(d) {
+    if (d === "," || linhaAlvoTeclado == null) return; // entrada em centavos
+    const base = tecladoUidRef.current === linhaAlvoTeclado ? entradaTeclado : "";
+    const proximo = (base + d).replace(/^0+(?=\d)/, "").slice(0, 9);
+    tecladoUidRef.current = linhaAlvoTeclado;
+    setEntradaTeclado(proximo);
+    setValorLinha(linhaAlvoTeclado, proximo);
+  }
+  function tecladoApagar() {
+    if (linhaAlvoTeclado == null) return;
+    const proximo = (tecladoUidRef.current === linhaAlvoTeclado ? entradaTeclado : "").slice(0, -1);
+    tecladoUidRef.current = linhaAlvoTeclado;
+    setEntradaTeclado(proximo);
+    setValorLinha(linhaAlvoTeclado, proximo || "0");
+  }
+  function tecladoLimpar() {
+    if (linhaAlvoTeclado == null) return;
+    tecladoUidRef.current = linhaAlvoTeclado;
+    setEntradaTeclado("");
+    setValorLinha(linhaAlvoTeclado, "0");
+  }
+
   // ── Solicitações de fechamento (mesas aguardando o caixa) ────
   // Pedidos do canal externo (delivery/retirada/consumo local via link) não
   // têm uma "mesa" real — o.table é o MESMO texto fixo ("Externo · Consumo
@@ -4192,8 +4222,18 @@ function CashierView({ orders, baixarComandas, formasPagamento = [], lojaInfo, c
   const contaVazia = temConta && pedidos.length === 0;
   const situacaoTurno = caixaAberto ? "aberto" : "fechado";
 
+  // Indicadores do turno (coluna esquerda) — derivados das contas em aberto e
+  // dos cupons pagos hoje, sem plumbing novo.
+  const indicadoresTurno = {
+    mesasOcupadas: new Set(contasAbertas.map((c) => c.mesa)).size,
+    mesasTotal: null,
+    comandasEmAberto: contasAbertas.reduce((s, c) => s + (c.comandas?.length || 1), 0),
+    contasAguardando: contasAbertas.length,
+    faturamentoTurno: formatCurrency(cuponsDoDia.reduce((s, o) => s + orderTotal(o), 0)),
+  };
+
   return (
-    <div data-theme="light" className="tema-claro-area fixed inset-0 z-50 flex flex-col bg-[#F7F8FA] overflow-hidden" style={{ paddingTop: "env(safe-area-inset-top)" }}>
+    <div data-theme="light" className="tema-claro-area fixed inset-0 z-50 flex flex-col bg-[var(--pp-bg)] overflow-hidden" style={{ paddingTop: "env(safe-area-inset-top)" }}>
       <PosHeader
         lojaInfo={lojaInfo} currentUser={currentUser} agora={agora} situacaoTurno={situacaoTurno} conexaoOk={conexaoOk}
         cuponsDoDia={cuponsDoDia.length}
@@ -4203,15 +4243,15 @@ function CashierView({ orders, baixarComandas, formasPagamento = [], lojaInfo, c
       />
 
       {solicitacoesNaoCarregadas.length > 0 && (
-        <div className="shrink-0 border-b border-[#FDE1B0] bg-[#FFF4E5] px-4 py-2 sm:px-6">
+        <div className="shrink-0 border-b border-[var(--pp-warning)] bg-[var(--pp-warning-soft)] px-4 py-2 sm:px-6">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-            <span className="flex items-center gap-1.5 text-xs font-black text-[#B45309]">
-              <span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#F59E0B]/60" /><span className="relative inline-flex h-2 w-2 rounded-full bg-[#F59E0B]" /></span>
+            <span className="flex items-center gap-1.5 text-xs font-black text-[var(--pp-warning-text)]">
+              <span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--pp-warning)]" /><span className="relative inline-flex h-2 w-2 rounded-full bg-[var(--pp-warning)]" /></span>
               Fechamento solicitado:
             </span>
             {solicitacoesNaoCarregadas.map((s) => (
               <button key={s.comandas[0]} onClick={() => carregarComandas(s.comandas)}
-                className="rounded-full border border-[#F4D27A] bg-white px-2.5 py-1 text-xs font-black text-[#9A6A00] hover:bg-[#FFF7E0] transition">
+                className="rounded-full border border-[var(--pp-warning)] bg-white px-2.5 py-1 text-xs font-black text-[var(--pp-warning-text)] hover:bg-[var(--pp-warning-soft)] transition">
                 {s.mesa} · {formatCurrency(s.total)}
               </button>
             ))}
@@ -4233,6 +4273,7 @@ function CashierView({ orders, baixarComandas, formasPagamento = [], lojaInfo, c
           recentSearches={recentSearches} onSelecionarRecente={selecionarBuscaRecente}
           contasFiltradas={contasFiltradas} openAccountsFilter={openAccountsFilter} setOpenAccountsFilter={setOpenAccountsFilter}
           onAbrirConta={abrirContaDaLista} comandasLidas={comandasLidas}
+          indicadores={indicadoresTurno}
         />
 
         {/* Coluna 2 — Conta selecionada */}
@@ -4262,6 +4303,7 @@ function CashierView({ orders, baixarComandas, formasPagamento = [], lojaInfo, c
           formasPagamento={formasPagamento.filter((f) => f.active !== false)}
           linhasPagamento={linhasPagamento} onAddLinha={addLinhaPagamento} onSetValorLinha={setValorLinha} onRemoverLinha={removerLinhaPagamento}
           pagoLinhas={pagoLinhas} restanteLinhas={restanteLinhas} troco={troco} excedeNaoDinheiro={excedeNaoDinheiro} temDinheiro={temDinheiro}
+          onTeclaDigito={tecladoDigito} onTeclaApagar={tecladoApagar} onTeclaLimpar={tecladoLimpar} tecladoAtivo={linhasPagamento.length > 0}
           podeConfirmarPagamento={podeConfirmarPagamento} onFinalizarClick={abrirConfirmacao}
           onImprimirConferencia={imprimirConferencia} aPagarMaiorQueRestante={splitMode === "item" && aPagar > 0 && aPagar < restanteGeral - 0.01}
           conflitoAtualizacao={conflitoAtualizacao} onReconferir={reconferirConta}
@@ -4269,21 +4311,28 @@ function CashierView({ orders, baixarComandas, formasPagamento = [], lojaInfo, c
         />
       </div>
 
+      {/* ── Barra de ações (desktop) — elementos do mockup ── */}
+      {temConta && (
+        <div className="hidden shrink-0 border-t border-[var(--pp-border)] bg-[var(--pp-surface)] px-4 py-3 lg:block">
+          <CheckoutFooterActions onFecharConta={abrirConfirmacao} podeFechar={podeConfirmarPagamento} onImprimir={imprimirConferencia} />
+        </div>
+      )}
+
       {/* ── Rodapé sticky (mobile) ── */}
       {temConta && mobileStep !== "buscar" && (
-        <div className="shrink-0 border-t border-[#E5E7EB] bg-white px-4 py-3 lg:hidden" style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 0.75rem)" }}>
+        <div className="shrink-0 border-t border-[var(--pp-border)] bg-white px-4 py-3 lg:hidden" style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 0.75rem)" }}>
           <div className="mb-2 flex items-center justify-between text-sm">
-            <span className="font-bold text-[#475467]">{mobileStep === "conta" ? "Total da conta" : "Restante a pagar"}</span>
-            <span className="text-lg font-black text-[#182230]">{formatCurrency(mobileStep === "conta" ? totalGeral : restanteGeral)}</span>
+            <span className="font-bold text-[var(--pp-text-body)]">{mobileStep === "conta" ? "Total da conta" : "Restante a pagar"}</span>
+            <span className="text-lg font-black text-[var(--pp-text)]">{formatCurrency(mobileStep === "conta" ? totalGeral : restanteGeral)}</span>
           </div>
           {mobileStep === "conta" ? (
             <button onClick={() => setMobileStep("pagamento")} disabled={!podePagar}
-              className={`flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl text-sm font-black transition active:scale-95 ${podePagar ? "bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)]" : "bg-[#F3F4F6] text-[#98A2B3]"}`}>
+              className={`flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl text-sm font-black transition active:scale-95 ${podePagar ? "btn-laranja bg-[var(--pp-primary)] text-white" : "bg-[var(--pp-bg)] text-[var(--pp-text-muted)]"}`}>
               Ir para pagamento
             </button>
           ) : (
             <button onClick={abrirConfirmacao} disabled={!podeConfirmarPagamento}
-              className={`flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl text-sm font-black transition active:scale-95 ${podeConfirmarPagamento ? "bg-[#16A34A] text-white hover:bg-[#15803D]" : "bg-[#F3F4F6] text-[#98A2B3]"}`}>
+              className={`flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl text-sm font-black transition active:scale-95 ${podeConfirmarPagamento ? "btn-verde bg-[var(--pp-success)] text-white" : "bg-[var(--pp-bg)] text-[var(--pp-text-muted)]"}`}>
               <IconCheck width={16} height={16} /> Finalizar pagamento
             </button>
           )}
@@ -4330,18 +4379,18 @@ const POS_FILTROS_CONTA = [
 // ════════════════════════════════════════════════════════════
 //  Coluna 1 — Localização: busca por mesa/comanda + contas abertas
 // ════════════════════════════════════════════════════════════
-function PosLocationColumn({ className, searchMode, setSearchMode, mesaQuery, setMesaQuery, mesaInputRef, comandaQuery, setComandaQuery, comandaInputRef, searchError, setSearchError, onBuscarMesa, onBuscarComanda, onAbrirScanner, recentSearches, onSelecionarRecente, contasFiltradas, openAccountsFilter, setOpenAccountsFilter, onAbrirConta, comandasLidas }) {
+function PosLocationColumn({ className, searchMode, setSearchMode, mesaQuery, setMesaQuery, mesaInputRef, comandaQuery, setComandaQuery, comandaInputRef, searchError, setSearchError, onBuscarMesa, onBuscarComanda, onAbrirScanner, recentSearches, onSelecionarRecente, contasFiltradas, openAccountsFilter, setOpenAccountsFilter, onAbrirConta, comandasLidas, indicadores }) {
   useEffect(() => { if (searchMode === "mesa") mesaInputRef.current?.focus(); }, [searchMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <aside className={`${className} w-full flex-col overflow-y-auto border-[#E5E7EB] bg-white p-4 md:w-[260px] md:shrink-0 md:border-r lg:w-[300px] lg:p-5`}>
-      <h2 className="text-xs font-black uppercase tracking-widest text-[#98A2B3]">Localizar conta</h2>
+    <aside className={`${className} w-full flex-col overflow-y-auto border-[var(--pp-border)] bg-white p-4 md:w-[260px] md:shrink-0 md:border-r lg:w-[300px] lg:p-5`}>
+      <h2 className="text-xs font-black uppercase tracking-widest text-[var(--pp-text-muted)]">Localizar conta</h2>
 
       {/* Segmented control Mesa / Comanda */}
-      <div role="tablist" aria-label="Tipo de consulta" className="mt-3 flex items-center gap-1 rounded-2xl border border-[#E5E7EB] bg-[#F8FAFC] p-1">
+      <div role="tablist" aria-label="Tipo de consulta" className="mt-3 flex items-center gap-1 rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-1">
         {[["mesa", "Mesa", IconMesas], ["comanda", "Comanda", IconComanda]].map(([id, label, Icone]) => (
           <button key={id} role="tab" aria-selected={searchMode === id} onClick={() => { setSearchMode(id); setSearchError(""); }}
-            className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-black transition ${searchMode === id ? "bg-white text-[var(--color-primary)] shadow-sm" : "text-[#667085] hover:text-[#182230]"}`}>
+            className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-black transition ${searchMode === id ? "bg-white text-[var(--pp-primary)] shadow-sm" : "text-[var(--pp-text-body)] hover:text-[var(--pp-text)]"}`}>
             <Icone width={15} height={15} /> {label}
           </button>
         ))}
@@ -4349,46 +4398,46 @@ function PosLocationColumn({ className, searchMode, setSearchMode, mesaQuery, se
 
       {searchMode === "mesa" ? (
         <div className="mt-3">
-          <label className="mb-1.5 block text-xs font-bold text-[#667085]" htmlFor="pos-busca-mesa">Número da mesa</label>
+          <label className="mb-1.5 block text-xs font-bold text-[var(--pp-text-body)]" htmlFor="pos-busca-mesa">Número da mesa</label>
           <div className="flex gap-2">
             <input id="pos-busca-mesa" ref={mesaInputRef} type="tel" inputMode="numeric" value={mesaQuery}
               onChange={(e) => { setMesaQuery(e.target.value.replace(/\D/g, "").slice(0, 3)); setSearchError(""); }}
               onKeyDown={(e) => e.key === "Enter" && onBuscarMesa()}
-              placeholder="Ex.: 07" className="min-h-11 w-full flex-1 rounded-2xl border border-[#E5E7EB] bg-white px-4 py-2.5 text-lg font-black text-[#182230] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/10 placeholder:text-sm placeholder:font-normal placeholder:text-[#98A2B3]" />
+              placeholder="Ex.: 07" className="min-h-11 w-full flex-1 rounded-2xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-lg font-black text-[var(--pp-text)] outline-none transition focus:border-[var(--pp-primary)] focus:ring-2 focus:ring-[var(--pp-primary-soft)] placeholder:text-sm placeholder:font-normal placeholder:text-[var(--pp-text-muted)]" />
             <button onClick={onBuscarMesa} disabled={!mesaQuery} aria-label="Consultar mesa (F2)"
-              className="flex min-h-11 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-primary)] px-4 text-white transition hover:bg-[var(--color-primary-dark)] disabled:bg-[#F3F4F6] disabled:text-[#98A2B3]">
+              className="btn-laranja flex min-h-11 shrink-0 items-center justify-center rounded-2xl bg-[var(--pp-primary)] px-4 text-white transition hover:bg-[var(--pp-primary-hover)] disabled:bg-[var(--pp-bg)] disabled:text-[var(--pp-text-muted)]">
               <IconBusca />
             </button>
           </div>
         </div>
       ) : (
         <div className="mt-3">
-          <label className="mb-1.5 block text-xs font-bold text-[#667085]" htmlFor="pos-busca-comanda">Código da comanda</label>
+          <label className="mb-1.5 block text-xs font-bold text-[var(--pp-text-body)]" htmlFor="pos-busca-comanda">Código da comanda</label>
           <div className="flex gap-2">
             <input id="pos-busca-comanda" ref={comandaInputRef} value={comandaQuery}
               onChange={(e) => { setComandaQuery(e.target.value.toUpperCase()); setSearchError(""); }}
               onKeyDown={(e) => e.key === "Enter" && onBuscarComanda()}
-              placeholder="Ex.: CMD-000123" className="min-h-11 w-full flex-1 rounded-2xl border border-[#E5E7EB] bg-white px-4 py-2.5 font-mono text-sm font-black tracking-wide text-[#182230] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/10 placeholder:font-sans placeholder:font-normal placeholder:text-[#98A2B3]" />
+              placeholder="Ex.: CMD-000123" className="min-h-11 w-full flex-1 rounded-2xl border border-[var(--pp-border)] bg-white px-4 py-2.5 font-mono text-sm font-black tracking-wide text-[var(--pp-text)] outline-none transition focus:border-[var(--pp-primary)] focus:ring-2 focus:ring-[var(--pp-primary-soft)] placeholder:font-sans placeholder:font-normal placeholder:text-[var(--pp-text-muted)]" />
             <button onClick={onAbrirScanner} aria-label="Ler QR Code da comanda"
-              className="flex min-h-11 shrink-0 items-center justify-center rounded-2xl border border-[#E5E7EB] bg-white px-3 text-[#475467] transition hover:bg-[#F8FAFC]">
+              className="flex min-h-11 shrink-0 items-center justify-center rounded-2xl border border-[var(--pp-border)] bg-white px-3 text-[var(--pp-text-body)] transition hover:bg-[var(--pp-bg)]">
               <IconQr />
             </button>
             <button onClick={onBuscarComanda} disabled={!comandaQuery.trim()} aria-label="Consultar comanda (F3)"
-              className="flex min-h-11 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-primary)] px-4 text-white transition hover:bg-[var(--color-primary-dark)] disabled:bg-[#F3F4F6] disabled:text-[#98A2B3]">
+              className="btn-laranja flex min-h-11 shrink-0 items-center justify-center rounded-2xl bg-[var(--pp-primary)] px-4 text-white transition hover:bg-[var(--pp-primary-hover)] disabled:bg-[var(--pp-bg)] disabled:text-[var(--pp-text-muted)]">
               <IconBusca />
             </button>
           </div>
         </div>
       )}
-      {searchError && <p role="alert" className="mt-2 text-xs font-bold text-[#DC2626]">{searchError}</p>}
+      {searchError && <p role="alert" className="mt-2 text-xs font-bold text-[var(--pp-danger)]">{searchError}</p>}
 
       {recentSearches.length > 0 && (
         <div className="mt-4">
-          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-widest text-[#98A2B3]">Buscas recentes</p>
+          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]">Buscas recentes</p>
           <div className="flex flex-wrap gap-1.5">
             {recentSearches.map((b, i) => (
               <button key={i} onClick={() => onSelecionarRecente(b)}
-                className="rounded-full border border-[#E5E7EB] bg-[#F8FAFC] px-2.5 py-1 text-xs font-bold text-[#475467] transition hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]">
+                className="rounded-full border border-[var(--pp-border)] bg-[var(--pp-bg)] px-2.5 py-1 text-xs font-bold text-[var(--pp-text-body)] transition hover:border-[var(--pp-primary)] hover:text-[var(--pp-primary)]">
                 {b.tipo === "mesa" ? `Mesa ${b.valor}` : b.valor}
               </button>
             ))}
@@ -4399,39 +4448,60 @@ function PosLocationColumn({ className, searchMode, setSearchMode, mesaQuery, se
       {/* Contas abertas */}
       <div className="mt-6">
         <div className="flex items-center justify-between">
-          <p className="text-[11px] font-bold uppercase tracking-widest text-[#98A2B3]">Contas abertas</p>
-          <span className="rounded-full bg-[#F1F5F9] px-2 py-0.5 text-[11px] font-black text-[#475467]">{contasFiltradas.length}</span>
+          <p className="text-[11px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]">Contas abertas</p>
+          <span className="rounded-full bg-[var(--pp-bg)] px-2 py-0.5 text-[11px] font-black text-[var(--pp-text-body)]">{contasFiltradas.length}</span>
         </div>
         <div className="mt-2 flex flex-wrap gap-1.5">
           {POS_FILTROS_CONTA.map((f) => (
             <button key={f.id} onClick={() => setOpenAccountsFilter(f.id)}
-              className={`rounded-full border px-2.5 py-1 text-[11px] font-black transition ${openAccountsFilter === f.id ? "border-[var(--color-primary)] bg-[#E6EEF1] text-[var(--color-primary)]" : "border-[#E5E7EB] bg-white text-[#667085] hover:bg-[#F8FAFC]"}`}>
+              className={`rounded-full border px-2.5 py-1 text-[11px] font-black transition ${openAccountsFilter === f.id ? "border-[var(--pp-primary)] bg-[var(--op-nav-accent-soft)] text-[var(--pp-primary)]" : "border-[var(--pp-border)] bg-white text-[var(--pp-text-body)] hover:bg-[var(--pp-bg)]"}`}>
               {f.label}
             </button>
           ))}
         </div>
         <div className="mt-3 space-y-2">
-          {contasFiltradas.length === 0 && <p className="py-4 text-center text-xs text-[#98A2B3]">Nenhuma conta em aberto.</p>}
+          {contasFiltradas.length === 0 && <p className="py-4 text-center text-xs text-[var(--pp-text-muted)]">Nenhuma conta em aberto.</p>}
           {contasFiltradas.map((c) => {
             const carregada = c.comandas.every((cm) => comandasLidas.includes(cm));
             return (
               <button key={c.comandas[0]} onClick={() => onAbrirConta(c)}
-                className={`flex w-full items-start justify-between gap-2 rounded-2xl border p-3 text-left transition ${carregada ? "border-[var(--color-primary)] bg-[#E6EEF1]" : "border-[#E5E7EB] bg-white hover:border-[var(--color-primary)]/40 hover:bg-[#F8FAFC]"}`}>
+                className={`flex w-full items-start justify-between gap-2 rounded-2xl border p-3 text-left transition ${carregada ? "border-[var(--pp-primary)] bg-[var(--op-nav-accent-soft)]" : "border-[var(--pp-border)] bg-white hover:border-[var(--pp-primary)] hover:bg-[var(--pp-bg)]"}`}>
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-black text-[#182230]">{c.mesa}</p>
-                  <p className="truncate text-[11px] text-[#667085]">{c.cliente ? `${c.cliente} · ` : ""}{c.pedidos} pedido(s)</p>
+                  <p className="truncate text-sm font-black text-[var(--pp-text)]">{c.mesa}</p>
+                  <p className="truncate text-[11px] text-[var(--pp-text-body)]">{c.cliente ? `${c.cliente} · ` : ""}{c.pedidos} pedido(s)</p>
                   <span className={`mt-1 inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-black ${
-                    c.situacao === "solicitado" ? "bg-[#FFF4E5] text-[#B45309]" : c.situacao === "entrega" ? "bg-[#E6EEF1] text-[#0B3A46]" : "bg-[#EAFBF2] text-[#147A4A]"
+                    c.situacao === "solicitado" ? "bg-[var(--pp-warning-soft)] text-[var(--pp-warning-text)]" : c.situacao === "entrega" ? "bg-[var(--op-nav-accent-soft)] text-[var(--op-nav-accent)]" : "bg-[var(--pp-success-soft)] text-[var(--pp-success-text)]"
                   }`}>
                     {c.situacao === "solicitado" ? "Fechamento solicitado" : c.situacao === "entrega" ? "Aguardando entrega" : "Aguardando pagamento"}
                   </span>
                 </div>
-                <span className="shrink-0 text-sm font-black text-[#182230]">{formatCurrency(c.total)}</span>
+                <span className="shrink-0 text-sm font-black text-[var(--pp-text)]">{formatCurrency(c.total)}</span>
               </button>
             );
           })}
         </div>
       </div>
+
+      {/* Indicadores do turno */}
+      {indicadores && (
+        <div className="mt-6 rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-surface)] p-3.5">
+          <p className="mb-1 text-[11px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]">Indicadores do turno</p>
+          <div className="divide-y divide-[var(--pp-border)]">
+            {[
+              [IconMesas, "Mesas ocupadas", `${indicadores.mesasOcupadas}${indicadores.mesasTotal ? ` / ${indicadores.mesasTotal}` : ""}`, false],
+              [IconComanda, "Comandas em aberto", indicadores.comandasEmAberto, false],
+              [IconRecibo, "Contas aguardando", indicadores.contasAguardando, false],
+              [IconDinheiro, "Faturamento do turno", indicadores.faturamentoTurno, true],
+            ].map(([Icone, rotulo, valor, destaque], i) => (
+              <div key={i} className="flex items-center gap-2.5 py-2">
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[var(--op-nav-accent-soft)] text-[var(--op-nav-accent)]"><Icone width={15} height={15} /></span>
+                <span className="min-w-0 flex-1 truncate text-xs text-[var(--pp-text-body)]">{rotulo}</span>
+                <span className={`shrink-0 text-right text-sm font-black tabular-nums ${destaque ? "text-[var(--pp-success-text)]" : "text-[var(--pp-text)]"}`}>{valor}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </aside>
   );
 }
@@ -4442,44 +4512,44 @@ function PosLocationColumn({ className, searchMode, setSearchMode, mesaQuery, se
 // ════════════════════════════════════════════════════════════
 function PosHeader({ lojaInfo, currentUser, agora, situacaoTurno, conexaoOk, cuponsDoDia, menuAcoesAberto, setMenuAcoesAberto, onReimprimir, onSair }) {
   return (
-    <header className="relative flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-[#E5E7EB] bg-white px-4 py-3 sm:px-6">
+    <header className="relative flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-[var(--pp-border)] bg-white px-4 py-3 sm:px-6">
       <div className="flex items-center gap-3">
-        <button onClick={onSair} aria-label="Voltar" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#E5E7EB] bg-[#F8FAFC] text-[#475467] transition hover:bg-[#F1F5F9] lg:hidden">
+        <button onClick={onSair} aria-label="Voltar" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-bg)] text-[var(--pp-text-body)] transition hover:bg-[var(--pp-bg)] lg:hidden">
           <IconFechar width={16} height={16} />
         </button>
         <LogoPP size={36} />
         <div className="min-w-0">
-          <p className="truncate text-base font-black leading-tight text-[#182230]">Caixa{lojaInfo && <span className="font-bold text-[#667085]"> · {lojaInfo.nome}</span>}</p>
-          <p className="truncate text-xs text-[#667085]">{currentUser?.name || "Operador"}</p>
+          <p className="truncate text-base font-black leading-tight text-[var(--pp-text)]">Caixa{lojaInfo && <span className="font-bold text-[var(--pp-text-body)]"> · {lojaInfo.nome}</span>}</p>
+          <p className="truncate text-xs text-[var(--pp-text-body)]">{currentUser?.name || "Operador"}</p>
         </div>
       </div>
 
       <div className="flex flex-1 items-center justify-end gap-2 sm:flex-initial">
-        <span className={`hidden items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-black sm:flex ${situacaoTurno === "aberto" ? "border-[#B7E4C7] bg-[#EAFBF2] text-[#147A4A]" : "border-[#E5E7EB] bg-[#F8FAFC] text-[#667085]"}`}>
-          <span className={`h-1.5 w-1.5 rounded-full ${situacaoTurno === "aberto" ? "bg-[#16A34A]" : "bg-[#98A2B3]"}`} aria-hidden="true" />
+        <span className={`hidden items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-black sm:flex ${situacaoTurno === "aberto" ? "border-[var(--pp-success)] bg-[var(--pp-success-soft)] text-[var(--pp-success-text)]" : "border-[var(--pp-border)] bg-[var(--pp-bg)] text-[var(--pp-text-body)]"}`}>
+          <span className={`h-1.5 w-1.5 rounded-full ${situacaoTurno === "aberto" ? "bg-[var(--pp-success)]" : "bg-[var(--pp-text-muted)]"}`} aria-hidden="true" />
           {situacaoTurno === "aberto" ? "Caixa aberto" : "Caixa fechado"}
         </span>
-        <span title={conexaoOk ? "Conectado" : "Reconectando…"} className={`flex h-9 w-9 items-center justify-center rounded-2xl border ${conexaoOk ? "border-[#E5E7EB] text-[#98A2B3]" : "border-[#FDE1B0] bg-[#FFF4E5] text-[#B45309]"}`}>
-          {conexaoOk ? <span className="h-2 w-2 rounded-full bg-[#16A34A]" aria-hidden="true" /> : <IconWifiOff width={15} height={15} />}
+        <span title={conexaoOk ? "Conectado" : "Reconectando…"} className={`flex h-9 w-9 items-center justify-center rounded-2xl border ${conexaoOk ? "border-[var(--pp-border)] text-[var(--pp-text-muted)]" : "border-[var(--pp-warning)] bg-[var(--pp-warning-soft)] text-[var(--pp-warning-text)]"}`}>
+          {conexaoOk ? <span className="h-2 w-2 rounded-full bg-[var(--pp-success)]" aria-hidden="true" /> : <IconWifiOff width={15} height={15} />}
         </span>
-        <span className="hidden text-xs text-[#667085] md:block">
+        <span className="hidden text-xs text-[var(--pp-text-body)] md:block">
           {agora.toLocaleDateString("pt-BR")} · {agora.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
         </span>
         <div className="relative">
           <button onClick={() => setMenuAcoesAberto((v) => !v)} aria-haspopup="menu" aria-expanded={menuAcoesAberto} aria-label="Mais ações"
-            className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[#E5E7EB] bg-white text-[#475467] transition hover:bg-[#F8FAFC]">
+            className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[var(--pp-border)] bg-white text-[var(--pp-text-body)] transition hover:bg-[var(--pp-bg)]">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8" /><circle cx="12" cy="12" r="1.8" /><circle cx="19" cy="12" r="1.8" /></svg>
           </button>
           {menuAcoesAberto && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setMenuAcoesAberto(false)} />
-              <div role="menu" className="absolute right-0 top-full z-50 mt-2 w-64 overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white shadow-[0_12px_32px_rgba(16,24,40,.12)]">
-                <button role="menuitem" onClick={onReimprimir} className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left text-sm font-bold text-[#182230] transition hover:bg-[#F8FAFC]">
-                  <span className="flex items-center gap-2"><IconImpressora width={16} height={16} className="text-[#667085]" /> Reimprimir comprovante</span>
-                  {cuponsDoDia > 0 && <span className="rounded-full bg-[var(--color-primary)] px-1.5 py-0.5 text-[10px] font-black text-white">{cuponsDoDia}</span>}
+              <div role="menu" className="absolute right-0 top-full z-50 mt-2 w-64 overflow-hidden rounded-2xl border border-[var(--pp-border)] bg-white shadow-[0_12px_32px_rgba(16,24,40,.12)]">
+                <button role="menuitem" onClick={onReimprimir} className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left text-sm font-bold text-[var(--pp-text)] transition hover:bg-[var(--pp-bg)]">
+                  <span className="flex items-center gap-2"><IconImpressora width={16} height={16} className="text-[var(--pp-text-body)]" /> Reimprimir comprovante</span>
+                  {cuponsDoDia > 0 && <span className="rounded-full bg-[var(--pp-primary)] px-1.5 py-0.5 text-[10px] font-black text-white">{cuponsDoDia}</span>}
                 </button>
-                <button role="menuitem" onClick={onSair} className="hidden w-full items-center gap-2 border-t border-[#E5E7EB] px-4 py-3 text-left text-sm font-bold text-[#475467] transition hover:bg-[#F8FAFC] lg:flex">
-                  <IconFechar width={16} height={16} className="text-[#667085]" /> Voltar à operação
+                <button role="menuitem" onClick={onSair} className="hidden w-full items-center gap-2 border-t border-[var(--pp-border)] px-4 py-3 text-left text-sm font-bold text-[var(--pp-text-body)] transition hover:bg-[var(--pp-bg)] lg:flex">
+                  <IconFechar width={16} height={16} className="text-[var(--pp-text-body)]" /> Voltar à operação
                 </button>
               </div>
             </>
@@ -4498,9 +4568,9 @@ function PosAccountColumn({ className, temConta, contaVazia, comandaJaUsada, com
     return (
       <section className={`${className} w-full flex-col items-center justify-center overflow-y-auto p-8 lg:flex-1`}>
         <div className="mx-auto max-w-xs text-center">
-          <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#F1F5F9] text-[#98A2B3]"><IconRecibo width={24} height={24} /></span>
-          <p className="mt-4 text-base font-black text-[#182230]">Nenhuma conta selecionada</p>
-          <p className="mt-1 text-sm text-[#667085]">Consulte uma mesa ou comanda para ver os pedidos e finalizar o pagamento.</p>
+          <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--pp-bg)] text-[var(--pp-text-muted)]"><IconRecibo width={24} height={24} /></span>
+          <p className="mt-4 text-base font-black text-[var(--pp-text)]">Nenhuma conta selecionada</p>
+          <p className="mt-1 text-sm text-[var(--pp-text-body)]">Consulte uma mesa ou comanda para ver os pedidos e finalizar o pagamento.</p>
         </div>
       </section>
     );
@@ -4509,13 +4579,13 @@ function PosAccountColumn({ className, temConta, contaVazia, comandaJaUsada, com
     const jaUsada = comandasLidas.some((c) => comandaJaUsada(c));
     return (
       <section className={`${className} w-full flex-col overflow-y-auto p-6 lg:flex-1`}>
-        <button onClick={onVoltarBusca} className="mb-4 flex items-center gap-1.5 text-xs font-bold text-[#667085] hover:text-[#182230] lg:hidden">← Nova busca</button>
-        <div className="mx-auto max-w-sm rounded-3xl border border-[#B7E4C7] bg-[#EAFBF2] p-6 text-center">
-          <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[#16A34A] text-white"><IconCheck width={22} height={22} /></span>
-          <p className="mt-3 font-mono text-sm font-black text-[#147A4A]">{comandasLidas.join(", ")}</p>
-          <p className="mt-1 text-sm font-black text-[#147A4A]">{jaUsada ? "Conta livre — sem valores em aberto" : "Comanda disponível"}</p>
-          <p className="mt-1 text-xs text-[#475467]">{jaUsada ? "Os pedidos já foram pagos e baixados. A comanda está disponível para reutilização." : "Nenhum pedido foi registrado ainda nesta comanda."}</p>
-          <button onClick={onLimparConta} className="mt-4 rounded-2xl border border-[#B7E4C7] bg-white px-4 py-2 text-xs font-black text-[#147A4A] hover:bg-[#F0FDF4]">Nova consulta</button>
+        <button onClick={onVoltarBusca} className="mb-4 flex items-center gap-1.5 text-xs font-bold text-[var(--pp-text-body)] hover:text-[var(--pp-text)] lg:hidden">← Nova busca</button>
+        <div className="mx-auto max-w-sm rounded-3xl border border-[var(--pp-success)] bg-[var(--pp-success-soft)] p-6 text-center">
+          <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--pp-success)] text-white"><IconCheck width={22} height={22} /></span>
+          <p className="mt-3 font-mono text-sm font-black text-[var(--pp-success-text)]">{comandasLidas.join(", ")}</p>
+          <p className="mt-1 text-sm font-black text-[var(--pp-success-text)]">{jaUsada ? "Conta livre — sem valores em aberto" : "Comanda disponível"}</p>
+          <p className="mt-1 text-xs text-[var(--pp-text-body)]">{jaUsada ? "Os pedidos já foram pagos e baixados. A comanda está disponível para reutilização." : "Nenhum pedido foi registrado ainda nesta comanda."}</p>
+          <button onClick={onLimparConta} className="mt-4 rounded-2xl border border-[var(--pp-success)] bg-white px-4 py-2 text-xs font-black text-[var(--pp-success-text)] hover:bg-[var(--pp-success-soft)]">Nova consulta</button>
         </div>
       </section>
     );
@@ -4524,31 +4594,31 @@ function PosAccountColumn({ className, temConta, contaVazia, comandaJaUsada, com
   const abertura = pedidos.reduce((min, o) => (!min || (o.createdAtISO || "") < min) ? (o.createdAtISO || min) : min, null);
 
   return (
-    <section className={`${className} w-full flex-col overflow-hidden md:flex-1 md:border-r md:border-[#E5E7EB]`}>
+    <section className={`${className} w-full flex-col overflow-hidden md:flex-1 md:border-r md:border-[var(--pp-border)]`}>
       {/* Cabeçalho de contexto — sempre visível durante o pagamento */}
-      <div className="shrink-0 border-b border-[#E5E7EB] bg-white px-4 py-3 sm:px-6">
-        <button onClick={onVoltarBusca} className="mb-2 flex items-center gap-1.5 text-xs font-bold text-[#667085] hover:text-[#182230] lg:hidden">← Nova busca</button>
+      <div className="shrink-0 border-b border-[var(--pp-border)] bg-white px-4 py-3 sm:px-6">
+        <button onClick={onVoltarBusca} className="mb-2 flex items-center gap-1.5 text-xs font-bold text-[var(--pp-text-body)] hover:text-[var(--pp-text)] lg:hidden">← Nova busca</button>
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
-            <p className="text-lg font-black text-[#182230]">{mesas.join(", ") || comandasLidas.join(", ")}</p>
-            <p className="text-xs text-[#667085]">{comandasLidas.length} comanda(s) · {pedidos.length} pedido(s){abertura ? ` · aberta às ${new Date(abertura).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}` : ""}</p>
+            <p className="text-lg font-black text-[var(--pp-text)]">{mesas.join(", ") || comandasLidas.join(", ")}</p>
+            <p className="text-xs text-[var(--pp-text-body)]">{comandasLidas.length} comanda(s) · {pedidos.length} pedido(s){abertura ? ` · aberta às ${new Date(abertura).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}` : ""}</p>
           </div>
           <div className="flex shrink-0 items-center gap-1.5">
             <button onClick={onImprimirConferencia} title="Imprimir conferência" aria-label="Imprimir conferência"
-              className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#E5E7EB] bg-white text-[#475467] transition hover:bg-[#F8FAFC]"><IconImpressora width={16} height={16} /></button>
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--pp-border)] bg-white text-[var(--pp-text-body)] transition hover:bg-[var(--pp-bg)]"><IconImpressora width={16} height={16} /></button>
             <button onClick={onLimparConta} title="Limpar conta selecionada" aria-label="Limpar conta selecionada"
-              className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#E5E7EB] bg-white text-[#98A2B3] transition hover:bg-[#FFF1F2] hover:text-[#DC2626]"><IconFechar width={15} height={15} /></button>
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--pp-border)] bg-white text-[var(--pp-text-muted)] transition hover:bg-[var(--pp-danger-soft)] hover:text-[var(--pp-danger)]"><IconFechar width={15} height={15} /></button>
           </div>
         </div>
         {pendentesPreparo.length > 0 && (
-          <div className="mt-2 flex items-center gap-2 rounded-xl border border-[#FDE1B0] bg-[#FFF4E5] px-3 py-2 text-xs font-bold text-[#B45309]">
+          <div className="mt-2 flex items-center gap-2 rounded-xl border border-[var(--pp-warning)] bg-[var(--pp-warning-soft)] px-3 py-2 text-xs font-bold text-[var(--pp-warning-text)]">
             <IconAlerta width={14} height={14} className="shrink-0" /> {pendentesPreparo.length} pedido(s) ainda em preparo — pagamento liberado após finalizados/entregues.
           </div>
         )}
         {conflitoAtualizacao && (
-          <div role="alert" className="mt-2 flex items-center justify-between gap-2 rounded-xl border border-[#FDA4AF] bg-[#FFF1F2] px-3 py-2 text-xs font-bold text-[#B42318]">
+          <div role="alert" className="mt-2 flex items-center justify-between gap-2 rounded-xl border border-[var(--pp-danger)] bg-[var(--pp-danger-soft)] px-3 py-2 text-xs font-bold text-[var(--pp-danger)]">
             <span className="flex items-center gap-2"><IconAlerta width={14} height={14} className="shrink-0" /> A conta foi atualizada durante o pagamento.</span>
-            <button onClick={onReconferir} className="shrink-0 rounded-lg border border-[#FDA4AF] bg-white px-2 py-1 font-black hover:bg-[#FFF1F2]">Revisei, continuar</button>
+            <button onClick={onReconferir} className="shrink-0 rounded-lg border border-[var(--pp-danger)] bg-white px-2 py-1 font-black hover:bg-[var(--pp-danger-soft)]">Revisei, continuar</button>
           </div>
         )}
       </div>
@@ -4556,20 +4626,20 @@ function PosAccountColumn({ className, temConta, contaVazia, comandaJaUsada, com
       {/* Lista de pedidos/itens */}
       <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6">
         {porComanda.filter((b) => b.pedidos.length > 0).map(({ comanda, pedidos: peds, subtotal: sub }) => (
-          <div key={comanda} className="mb-4 overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white shadow-[0_4px_16px_rgba(16,24,40,.04)]">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E5E7EB] bg-[#F8FAFC] px-4 py-2.5">
+          <div key={comanda} className="mb-4 overflow-hidden rounded-2xl border border-[var(--pp-border)] bg-white shadow-[0_4px_16px_rgba(16,24,40,.04)]">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--pp-border)] bg-[var(--pp-bg)] px-4 py-2.5">
               <div className="flex items-center gap-2">
-                <span className="rounded-lg border border-[#B0C9D0] bg-[#E6EEF1] px-2 py-0.5 font-mono text-xs font-black text-[#0B3A46]">{comanda}</span>
+                <span className="rounded-lg border border-[var(--op-nav-accent)] bg-[var(--op-nav-accent-soft)] px-2 py-0.5 font-mono text-xs font-black text-[var(--op-nav-accent)]">{comanda}</span>
                 {comandasLidas.length > 1 && (
-                  <button onClick={() => onRemoverComanda(comanda)} aria-label={`Remover comanda ${comanda} da conta`} className="rounded-md px-1.5 py-0.5 text-[11px] font-bold text-[#98A2B3] hover:bg-[#FFF1F2] hover:text-[#DC2626]">remover</button>
+                  <button onClick={() => onRemoverComanda(comanda)} aria-label={`Remover comanda ${comanda} da conta`} className="rounded-md px-1.5 py-0.5 text-[11px] font-bold text-[var(--pp-text-muted)] hover:bg-[var(--pp-danger-soft)] hover:text-[var(--pp-danger)]">remover</button>
                 )}
               </div>
-              <span className="text-sm font-black text-[#182230]">{formatCurrency(sub)}</span>
+              <span className="text-sm font-black text-[var(--pp-text)]">{formatCurrency(sub)}</span>
             </div>
-            <div className="divide-y divide-[#F1F5F9]">
+            <div className="divide-y divide-[var(--pp-bg)]">
               {peds.map((o) => (
                 <div key={o.id} className="px-4 py-2.5">
-                  <p className="mb-1 flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-[#98A2B3]">
+                  <p className="mb-1 flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]">
                     {o.id} · {o.createdAt} <StatusChip status={o.status} />
                   </p>
                   {o.items.map((it, i) => {
@@ -4579,24 +4649,24 @@ function PosAccountColumn({ className, temConta, contaVazia, comandaJaUsada, com
                     const valor = (it.price * it.quantity) / (s.dividir || 1);
                     const detalhes = [it.removedIngredients?.length ? `Sem: ${it.removedIngredients.join(", ")}` : null, it.extraIngredients?.length ? `Com: ${it.extraIngredients.join(", ")}` : null, it.observation || null].filter(Boolean).join(" · ");
                     return (
-                      <div key={i} className={`flex items-center gap-2 rounded-xl px-2 py-1.5 text-sm ${pago ? "bg-[#EAFBF2]" : splitMode === "item" ? (incluido ? "bg-[#E6EEF1]" : "opacity-50") : ""}`}>
+                      <div key={i} className={`flex items-center gap-2 rounded-xl px-2 py-1.5 text-sm ${pago ? "bg-[var(--pp-success-soft)]" : splitMode === "item" ? (incluido ? "bg-[var(--op-nav-accent-soft)]" : "opacity-50") : ""}`}>
                         {splitMode === "item" && !pago && (
-                          <input type="checkbox" checked={incluido} onChange={() => toggleItem(o.id, i)} aria-label={`Incluir ${it.name} na cobrança`} className="h-4 w-4 shrink-0 accent-[var(--color-primary)]" />
+                          <input type="checkbox" checked={incluido} onChange={() => toggleItem(o.id, i)} aria-label={`Incluir ${it.name} na cobrança`} className="h-4 w-4 shrink-0 accent-[var(--pp-primary)]" />
                         )}
                         <div className="min-w-0 flex-1">
-                          <p className={`truncate ${pago ? "text-[#147A4A]/70 line-through" : "text-[#475467]"}`}><span className={`font-black ${pago ? "" : "text-[#182230]"}`}>{it.quantity}x</span> {it.name}</p>
-                          {detalhes && <p className="truncate text-[11px] text-[#98A2B3]">{detalhes}</p>}
+                          <p className={`truncate ${pago ? "text-[var(--pp-success-text)] line-through" : "text-[var(--pp-text-body)]"}`}><span className={`font-black ${pago ? "" : "text-[var(--pp-text)]"}`}>{it.quantity}x</span> {it.name}</p>
+                          {detalhes && <p className="truncate text-[11px] text-[var(--pp-text-muted)]">{detalhes}</p>}
                         </div>
-                        {pago && <span className="shrink-0 rounded-md bg-[#B7E4C7] px-1.5 py-0.5 text-[10px] font-black uppercase text-[#147A4A]">Pago</span>}
+                        {pago && <span className="shrink-0 rounded-md bg-[var(--pp-success)] px-1.5 py-0.5 text-[10px] font-black uppercase text-[var(--pp-success-text)]">Pago</span>}
                         {splitMode === "item" && incluido && (
-                          <div className="flex shrink-0 items-center gap-1 rounded-lg border border-[#E5E7EB] bg-white px-1.5 py-0.5" role="group" aria-label={`Dividir ${it.name} entre pessoas`}>
-                            <span className="text-xs text-[#98A2B3]">÷</span>
-                            <button onClick={() => setDividirItem(o.id, i, (s.dividir || 1) - 1)} aria-label="Diminuir divisão" className="flex h-6 w-6 items-center justify-center rounded bg-[#F8FAFC] text-xs font-black text-[#182230]">−</button>
-                            <span className="w-4 text-center text-xs font-black text-[#182230]">{s.dividir || 1}</span>
-                            <button onClick={() => setDividirItem(o.id, i, (s.dividir || 1) + 1)} aria-label="Aumentar divisão" className="flex h-6 w-6 items-center justify-center rounded bg-[var(--color-primary)] text-xs font-black text-white">+</button>
+                          <div className="flex shrink-0 items-center gap-1 rounded-lg border border-[var(--pp-border)] bg-white px-1.5 py-0.5" role="group" aria-label={`Dividir ${it.name} entre pessoas`}>
+                            <span className="text-xs text-[var(--pp-text-muted)]">÷</span>
+                            <button onClick={() => setDividirItem(o.id, i, (s.dividir || 1) - 1)} aria-label="Diminuir divisão" className="flex h-6 w-6 items-center justify-center rounded bg-[var(--pp-bg)] text-xs font-black text-[var(--pp-text)]">−</button>
+                            <span className="w-4 text-center text-xs font-black text-[var(--pp-text)]">{s.dividir || 1}</span>
+                            <button onClick={() => setDividirItem(o.id, i, (s.dividir || 1) + 1)} aria-label="Aumentar divisão" className="flex h-6 w-6 items-center justify-center rounded bg-[var(--pp-primary)] text-xs font-black text-white">+</button>
                           </div>
                         )}
-                        <span className={`shrink-0 font-bold ${pago ? "text-[#147A4A]/70 line-through" : "text-[#182230]"}`}>{formatCurrency(valor)}</span>
+                        <span className={`shrink-0 font-bold ${pago ? "text-[var(--pp-success-text)] line-through" : "text-[var(--pp-text)]"}`}>{formatCurrency(valor)}</span>
                       </div>
                     );
                   })}
@@ -4632,84 +4702,85 @@ function PosPaymentColumn({
   pagamentosFeitos, logFinanceiro, onCancelarPagamento,
   formasPagamento, linhasPagamento, onAddLinha, onSetValorLinha, onRemoverLinha,
   pagoLinhas, restanteLinhas, troco, excedeNaoDinheiro, temDinheiro,
+  onTeclaDigito, onTeclaApagar, onTeclaLimpar, tecladoAtivo,
   podeConfirmarPagamento, onFinalizarClick, onImprimirConferencia, aPagarMaiorQueRestante,
   conflitoAtualizacao, onReconferir, onVoltarConta,
 }) {
   if (!temConta) {
     return (
-      <aside className={`${className} w-full flex-col items-center justify-center overflow-y-auto border-[#E5E7EB] bg-white p-8 lg:w-[380px] lg:shrink-0 lg:border-l`}>
-        <p className="text-center text-sm text-[#98A2B3]">O resumo de pagamento aparece aqui após localizar uma conta.</p>
+      <aside className={`${className} w-full flex-col items-center justify-center overflow-y-auto border-[var(--pp-border)] bg-white p-8 lg:w-[380px] lg:shrink-0 lg:border-l`}>
+        <p className="text-center text-sm text-[var(--pp-text-muted)]">O resumo de pagamento aparece aqui após localizar uma conta.</p>
       </aside>
     );
   }
 
   return (
-    <aside className={`${className} w-full flex-col overflow-hidden border-[#E5E7EB] bg-white lg:w-[380px] lg:shrink-0 lg:border-l`}>
-      <button onClick={onVoltarConta} className="mt-3 flex items-center gap-1.5 px-4 text-xs font-bold text-[#667085] hover:text-[#182230] lg:hidden">← Ver conta</button>
+    <aside className={`${className} w-full flex-col overflow-hidden border-[var(--pp-border)] bg-white lg:w-[380px] lg:shrink-0 lg:border-l`}>
+      <button onClick={onVoltarConta} className="mt-3 flex items-center gap-1.5 px-4 text-xs font-bold text-[var(--pp-text-body)] hover:text-[var(--pp-text)] lg:hidden">← Ver conta</button>
       <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-5">
         {/* Resumo financeiro */}
-        <div className="rounded-2xl border border-[#E5E7EB] bg-[#F8FAFC] p-4">
-          <p className="mb-2 text-[11px] font-bold uppercase tracking-widest text-[#98A2B3]">Resumo financeiro</p>
+        <div className="rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-4">
+          <p className="mb-2 text-[11px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]">Resumo financeiro</p>
           <div className="space-y-1.5 text-sm">
-            <div className="flex justify-between text-[#475467]"><span>Subtotal</span><strong className="text-[#182230]">{formatCurrency(subtotal)}</strong></div>
+            <div className="flex justify-between text-[var(--pp-text-body)]"><span>Subtotal</span><strong className="text-[var(--pp-text)]">{formatCurrency(subtotal)}</strong></div>
             {!taxaBloqueadaOff ? (
               <label className={`flex items-center justify-between gap-2 ${taxaFixa ? "" : "cursor-pointer"}`}>
-                <span className="text-[#475467]">Taxa de serviço ({SERVICE_FEE_CONFIG.percent}%)</span>
-                <input type="checkbox" checked={taxaIncluida} disabled={taxaFixa} onChange={(e) => !taxaFixa && setTaxaIncluida(e.target.checked)} className="h-4 w-4 accent-[var(--color-primary)] disabled:opacity-70" />
+                <span className="text-[var(--pp-text-body)]">Taxa de serviço ({SERVICE_FEE_CONFIG.percent}%)</span>
+                <input type="checkbox" checked={taxaIncluida} disabled={taxaFixa} onChange={(e) => !taxaFixa && setTaxaIncluida(e.target.checked)} className="h-4 w-4 accent-[var(--pp-primary)] disabled:opacity-70" />
               </label>
             ) : (
-              <div className="flex justify-between text-[#98A2B3]"><span>Taxa de serviço</span><span>não cobrada</span></div>
+              <div className="flex justify-between text-[var(--pp-text-muted)]"><span>Taxa de serviço</span><span>não cobrada</span></div>
             )}
             {SERVICE_FEE_CONFIG.partialStrategy === "manual" && splitMode === "item" && taxaIncluida && (
-              <label className="block pt-1"><span className="mb-1 block text-[11px] font-bold text-[#667085]">Valor manual da taxa</span>
+              <label className="block pt-1"><span className="mb-1 block text-[11px] font-bold text-[var(--pp-text-body)]">Valor manual da taxa</span>
                 <input type="number" min="0" step="0.01" value={taxaManualValor} onChange={(e) => setTaxaManualValor(Math.max(0, Number(e.target.value) || 0))}
-                  className="w-full rounded-xl border border-[#E5E7EB] bg-white px-3 py-1.5 text-sm text-[#182230] outline-none focus:border-[var(--color-primary)]" /></label>
+                  className="w-full rounded-xl border border-[var(--pp-border)] bg-white px-3 py-1.5 text-sm text-[var(--pp-text)] outline-none focus:border-[var(--pp-primary)]" /></label>
             )}
-            <div className="flex justify-between text-[#475467]"><span>Taxa aplicada</span><strong className="text-[#182230]">{formatCurrency(taxa)}</strong></div>
-            <div className="h-px bg-[#E5E7EB]" />
-            <div className="flex justify-between"><span className="font-bold text-[#475467]">Total da conta</span><strong className="text-[#182230]">{formatCurrency(totalGeral)}</strong></div>
-            {jaPago > 0 && <div className="flex justify-between text-[#16A34A]"><span>Já pago</span><strong>− {formatCurrency(jaPago)}</strong></div>}
+            <div className="flex justify-between text-[var(--pp-text-body)]"><span>Taxa aplicada</span><strong className="text-[var(--pp-text)]">{formatCurrency(taxa)}</strong></div>
+            <div className="h-px bg-[var(--pp-border)]" />
+            <div className="flex justify-between"><span className="font-bold text-[var(--pp-text-body)]">Total da conta</span><strong className="text-[var(--pp-text)]">{formatCurrency(totalGeral)}</strong></div>
+            {jaPago > 0 && <div className="flex justify-between text-[var(--pp-success)]"><span>Já pago</span><strong>− {formatCurrency(jaPago)}</strong></div>}
             <div className="flex items-center justify-between rounded-xl bg-white px-2.5 py-2">
-              <span className="text-sm font-black text-[#182230]">{restanteGeral <= 0.001 ? "Quitado" : "Saldo restante"}</span>
-              <span className={`text-xl font-black ${restanteGeral <= 0.001 ? "text-[#147A4A]" : "text-[#182230]"}`}>{formatCurrency(restanteGeral)}</span>
+              <span className="text-sm font-black text-[var(--pp-text)]">{restanteGeral <= 0.001 ? "Quitado" : "Saldo restante"}</span>
+              <span className={`text-xl font-black ${restanteGeral <= 0.001 ? "text-[var(--pp-success-text)]" : "text-[var(--pp-text)]"}`}>{formatCurrency(restanteGeral)}</span>
             </div>
           </div>
         </div>
 
         {pendentesPreparo > 0 && (
-          <div className="mt-3 flex items-center gap-2 rounded-xl border border-[#FDE1B0] bg-[#FFF4E5] px-3 py-2.5 text-xs font-bold text-[#B45309]">
+          <div className="mt-3 flex items-center gap-2 rounded-xl border border-[var(--pp-warning)] bg-[var(--pp-warning-soft)] px-3 py-2.5 text-xs font-bold text-[var(--pp-warning-text)]">
             <IconAlerta width={14} height={14} className="shrink-0" /> {pendentesPreparo} pedido(s) em preparo — aguarde para pagar.
           </div>
         )}
 
         {/* Histórico de pagamentos desta conta */}
         {pagamentosFeitos.length > 0 && (
-          <div className="mt-3 rounded-2xl border border-[#B7E4C7] bg-[#EAFBF2] p-3.5">
-            <p className="mb-2 text-[11px] font-bold uppercase tracking-widest text-[#147A4A]">Pagamentos registrados ({pagamentosFeitos.length})</p>
+          <div className="mt-3 rounded-2xl border border-[var(--pp-success)] bg-[var(--pp-success-soft)] p-3.5">
+            <p className="mb-2 text-[11px] font-bold uppercase tracking-widest text-[var(--pp-success-text)]">Pagamentos registrados ({pagamentosFeitos.length})</p>
             <div className="space-y-1.5">
               {pagamentosFeitos.map((p, i) => (
-                <div key={p.id ?? i} className="rounded-xl border border-[#E5E7EB] bg-white px-3 py-2">
+                <div key={p.id ?? i} className="rounded-xl border border-[var(--pp-border)] bg-white px-3 py-2">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs text-[#667085]">{p.hora} · {p.detalhes.map((d) => d.forma).join(", ")}</span>
+                    <span className="text-xs text-[var(--pp-text-body)]">{p.hora} · {p.detalhes.map((d) => d.forma).join(", ")}</span>
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-black text-[#147A4A]">{formatCurrency(p.valor)}</span>
-                      <button onClick={() => onCancelarPagamento(p.id)} className="rounded-md px-1 py-0.5 text-[10px] font-black text-[#98A2B3] hover:bg-[#FFF1F2] hover:text-[#DC2626]">cancelar</button>
+                      <span className="text-sm font-black text-[var(--pp-success-text)]">{formatCurrency(p.valor)}</span>
+                      <button onClick={() => onCancelarPagamento(p.id)} className="rounded-md px-1 py-0.5 text-[10px] font-black text-[var(--pp-text-muted)] hover:bg-[var(--pp-danger-soft)] hover:text-[var(--pp-danger)]">cancelar</button>
                     </div>
                   </div>
-                  {p.troco > 0 && <p className="mt-0.5 text-[11px] text-[#667085]">troco {formatCurrency(p.troco)}</p>}
+                  {p.troco > 0 && <p className="mt-0.5 text-[11px] text-[var(--pp-text-body)]">troco {formatCurrency(p.troco)}</p>}
                 </div>
               ))}
             </div>
           </div>
         )}
         {logFinanceiro.length > 0 && (
-          <details className="mt-3 rounded-2xl border border-[#E5E7EB] bg-white p-3">
-            <summary className="cursor-pointer text-[11px] font-bold uppercase tracking-widest text-[#98A2B3]">Log financeiro da sessão</summary>
+          <details className="mt-3 rounded-2xl border border-[var(--pp-border)] bg-white p-3">
+            <summary className="cursor-pointer text-[11px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]">Log financeiro da sessão</summary>
             <div className="mt-2 space-y-1">
               {logFinanceiro.map((l, i) => (
                 <div key={i} className="flex justify-between gap-2 text-xs">
-                  <span className={l.tipo === "pago" ? "text-[#147A4A]" : "text-[#DC2626]"}>{l.tipo === "pago" ? "Parcela paga" : "Parcela reaberta"} · {l.hora}</span>
-                  <span className={`font-bold ${l.tipo === "pago" ? "text-[#147A4A]" : "text-[#DC2626]"}`}>{formatCurrency(l.valor)}</span>
+                  <span className={l.tipo === "pago" ? "text-[var(--pp-success-text)]" : "text-[var(--pp-danger)]"}>{l.tipo === "pago" ? "Parcela paga" : "Parcela reaberta"} · {l.hora}</span>
+                  <span className={`font-bold ${l.tipo === "pago" ? "text-[var(--pp-success-text)]" : "text-[var(--pp-danger)]"}`}>{formatCurrency(l.valor)}</span>
                 </div>
               ))}
             </div>
@@ -4719,13 +4790,13 @@ function PosPaymentColumn({
         {restanteGeral > 0.001 && (
           <>
             {/* Divisão do pagamento */}
-            <div className="mt-3 rounded-2xl border border-[#E5E7EB] bg-white p-3.5">
+            <div className="mt-3 rounded-2xl border border-[var(--pp-border)] bg-white p-3.5">
               <fieldset>
-                <legend className="mb-2 text-[11px] font-bold uppercase tracking-widest text-[#98A2B3]">Dividir pagamento</legend>
+                <legend className="mb-2 text-[11px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]">Dividir pagamento</legend>
                 <div role="radiogroup" aria-label="Modo de divisão" className="grid grid-cols-2 gap-1.5">
                   {POS_SPLIT_MODES.map((m) => (
                     <button key={m.id} type="button" role="radio" aria-checked={splitMode === m.id} onClick={() => setSplitMode(m.id)}
-                      className={`rounded-xl border px-2 py-2 text-xs font-black transition ${splitMode === m.id ? "border-[var(--color-primary)] bg-[#E6EEF1] text-[var(--color-primary)]" : "border-[#E5E7EB] bg-white text-[#475467] hover:bg-[#F8FAFC]"}`}>
+                      className={`rounded-xl border px-2 py-2 text-xs font-black transition ${splitMode === m.id ? "border-[var(--pp-primary)] bg-[var(--op-nav-accent-soft)] text-[var(--pp-primary)]" : "border-[var(--pp-border)] bg-white text-[var(--pp-text-body)] hover:bg-[var(--pp-bg)]"}`}>
                       {m.label}
                     </button>
                   ))}
@@ -4733,66 +4804,66 @@ function PosPaymentColumn({
               </fieldset>
 
               {splitMode === "pessoas" && (
-                <div className="mt-3 border-t border-[#E5E7EB] pt-3">
+                <div className="mt-3 border-t border-[var(--pp-border)] pt-3">
                   <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-1 rounded-xl border border-[#E5E7EB] bg-[#F8FAFC] p-1">
-                      <button onClick={() => setPessoas((p) => Math.max(2, p - 1))} aria-label="Diminuir número de pessoas" className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-base font-black text-[#182230] hover:bg-[#F1F5F9]">−</button>
-                      <span className="w-8 text-center text-base font-black text-[#182230]">{pessoas}</span>
-                      <button onClick={() => setPessoas((p) => p + 1)} aria-label="Aumentar número de pessoas" className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--color-primary)] text-base font-black text-white hover:bg-[var(--color-primary-dark)]">+</button>
+                    <div className="flex items-center gap-1 rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-1">
+                      <button onClick={() => setPessoas((p) => Math.max(2, p - 1))} aria-label="Diminuir número de pessoas" className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-base font-black text-[var(--pp-text)] hover:bg-[var(--pp-bg)]">−</button>
+                      <span className="w-8 text-center text-base font-black text-[var(--pp-text)]">{pessoas}</span>
+                      <button onClick={() => setPessoas((p) => p + 1)} aria-label="Aumentar número de pessoas" className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--pp-primary)] text-base font-black text-white hover:bg-[var(--pp-primary-hover)]">+</button>
                     </div>
                     <div className="flex-1 text-right">
-                      <p className="text-xs text-[#667085]">{pessoas} pessoas</p>
-                      <p className="text-lg font-black text-[#182230]">{formatCurrency(porPessoa)}<span className="text-xs font-normal text-[#667085]"> /cada</span></p>
+                      <p className="text-xs text-[var(--pp-text-body)]">{pessoas} pessoas</p>
+                      <p className="text-lg font-black text-[var(--pp-text)]">{formatCurrency(porPessoa)}<span className="text-xs font-normal text-[var(--pp-text-body)]"> /cada</span></p>
                     </div>
                   </div>
-                  <div className="mt-2 space-y-1 border-t border-[#E5E7EB] pt-2 text-xs">
-                    <div className="flex justify-between text-[#475467]"><span>Pago</span><strong className="text-[#16A34A]">{formatCurrency(totalPagoSelecaoPessoas)}</strong></div>
-                    <div className="flex justify-between text-[#475467]"><span>Restante</span><strong className="text-[#9A6A00]">{formatCurrency(restanteSelecaoPessoas)}</strong></div>
-                    {pessoasRestantes > 0 && <p className="pt-0.5 font-bold text-[#182230]">Cobrar agora (1 pessoa): {formatCurrency(valorPagoAgora)}</p>}
+                  <div className="mt-2 space-y-1 border-t border-[var(--pp-border)] pt-2 text-xs">
+                    <div className="flex justify-between text-[var(--pp-text-body)]"><span>Pago</span><strong className="text-[var(--pp-success)]">{formatCurrency(totalPagoSelecaoPessoas)}</strong></div>
+                    <div className="flex justify-between text-[var(--pp-text-body)]"><span>Restante</span><strong className="text-[var(--pp-warning-text)]">{formatCurrency(restanteSelecaoPessoas)}</strong></div>
+                    {pessoasRestantes > 0 && <p className="pt-0.5 font-bold text-[var(--pp-text)]">Cobrar agora (1 pessoa): {formatCurrency(valorPagoAgora)}</p>}
                   </div>
                 </div>
               )}
 
               {splitMode === "valor" && (
-                <div className="mt-3 border-t border-[#E5E7EB] pt-3">
-                  <label className="block"><span className="mb-1 block text-xs font-bold text-[#667085]">Valor a pagar agora</span>
-                    <div className="flex items-center gap-2 rounded-xl border border-[#E5E7EB] bg-[#F8FAFC] px-3 py-2 focus-within:border-[var(--color-primary)]">
-                      <span className="text-sm font-bold text-[#667085]">R$</span>
+                <div className="mt-3 border-t border-[var(--pp-border)] pt-3">
+                  <label className="block"><span className="mb-1 block text-xs font-bold text-[var(--pp-text-body)]">Valor a pagar agora</span>
+                    <div className="flex items-center gap-2 rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-3 py-2 focus-within:border-[var(--pp-primary)]">
+                      <span className="text-sm font-bold text-[var(--pp-text-body)]">R$</span>
                       <input inputMode="numeric" value={numeroParaMoeda(moedaParaNumero(valorParcialTexto))} onChange={(e) => setValorParcialTexto(e.target.value)} onFocus={(e) => e.target.select()}
-                        className="w-full bg-transparent text-right text-lg font-black text-[#182230] outline-none" /></div>
+                        className="w-full bg-transparent text-right text-lg font-black text-[var(--pp-text)] outline-none" /></div>
                   </label>
-                  {valorParcialTexto && !valorParcialValido && <p className="mt-1.5 text-xs font-bold text-[#DC2626]">Informe um valor entre {formatCurrency(0.01)} e {formatCurrency(restanteGeral)}.</p>}
+                  {valorParcialTexto && !valorParcialValido && <p className="mt-1.5 text-xs font-bold text-[var(--pp-danger)]">Informe um valor entre {formatCurrency(0.01)} e {formatCurrency(restanteGeral)}.</p>}
                 </div>
               )}
 
               {splitMode === "item" && (
-                <p className="mt-3 border-t border-[#E5E7EB] pt-3 text-xs text-[#667085]">Selecione os itens na conta (coluna ao lado) que serão pagos agora.</p>
+                <p className="mt-3 border-t border-[var(--pp-border)] pt-3 text-xs text-[var(--pp-text-body)]">Selecione os itens na conta (coluna ao lado) que serão pagos agora.</p>
               )}
 
               {aPagarMaiorQueRestante && (
-                <div className="mt-2 rounded-xl border border-[#B0C9D0] bg-[#E6EEF1] p-2.5 text-xs font-bold text-[#0B3A46]">Cobrar agora (seleção): {formatCurrency(total)}</div>
+                <div className="mt-2 rounded-xl border border-[var(--op-nav-accent)] bg-[var(--op-nav-accent-soft)] p-2.5 text-xs font-bold text-[var(--op-nav-accent)]">Cobrar agora (seleção): {formatCurrency(total)}</div>
               )}
             </div>
 
             {conflitoAtualizacao && (
-              <div role="alert" className="mt-3 flex items-center justify-between gap-2 rounded-xl border border-[#FDA4AF] bg-[#FFF1F2] px-3 py-2.5 text-xs font-bold text-[#B42318]">
+              <div role="alert" className="mt-3 flex items-center justify-between gap-2 rounded-xl border border-[var(--pp-danger)] bg-[var(--pp-danger-soft)] px-3 py-2.5 text-xs font-bold text-[var(--pp-danger)]">
                 <span className="flex items-center gap-2"><IconAlerta width={14} height={14} className="shrink-0" /> Valores alterados durante o pagamento.</span>
-                <button onClick={onReconferir} className="shrink-0 rounded-lg border border-[#FDA4AF] bg-white px-2 py-1 font-black hover:bg-[#FFF1F2]">Revisar</button>
+                <button onClick={onReconferir} className="shrink-0 rounded-lg border border-[var(--pp-danger)] bg-white px-2 py-1 font-black hover:bg-[var(--pp-danger-soft)]">Revisar</button>
               </div>
             )}
 
             {/* Formas de pagamento */}
-            <div className="mt-3 rounded-2xl border border-[#E5E7EB] bg-white p-3.5">
-              <p className="mb-2 text-[11px] font-bold uppercase tracking-widest text-[#98A2B3]">Formas de pagamento</p>
+            <div className="mt-3 rounded-2xl border border-[var(--pp-border)] bg-white p-3.5">
+              <p className="mb-2 text-[11px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]">Formas de pagamento</p>
               {formasPagamento.length === 0 ? (
-                <p className="text-xs text-[#667085]">Nenhuma forma ativa. Cadastre em Administrativo → Formas de pagamento.</p>
+                <p className="text-xs text-[var(--pp-text-body)]">Nenhuma forma ativa. Cadastre em Administrativo → Formas de pagamento.</p>
               ) : (
                 <div className="grid grid-cols-3 gap-1.5">
                   {formasPagamento.map((f) => {
                     const Icone = POS_ICONE_FORMA[f.tipo] || IconCarteira;
                     return (
                       <button key={f.id} type="button" onClick={() => onAddLinha(f)} disabled={total <= 0}
-                        className="flex min-h-11 flex-col items-center justify-center gap-1 rounded-xl border border-[#E5E7EB] bg-white px-1.5 py-2.5 text-[11px] font-black text-[#475467] transition hover:border-[var(--color-primary)] hover:bg-[#E6EEF1] hover:text-[var(--color-primary)] disabled:opacity-40">
+                        className="flex min-h-11 flex-col items-center justify-center gap-1 rounded-xl border border-[var(--pp-border)] bg-white px-1.5 py-2.5 text-[11px] font-black text-[var(--pp-text-body)] transition hover:border-[var(--pp-primary)] hover:bg-[var(--op-nav-accent-soft)] hover:text-[var(--pp-primary)] disabled:opacity-40">
                         <Icone width={17} height={17} /> <span className="truncate">{f.nome}</span>
                       </button>
                     );
@@ -4801,48 +4872,56 @@ function PosPaymentColumn({
               )}
 
               {linhasPagamento.length > 0 && (
-                <div className="mt-3 space-y-2 border-t border-[#E5E7EB] pt-3">
+                <div className="mt-3 space-y-2 border-t border-[var(--pp-border)] pt-3">
                   {linhasPagamento.map((l) => (
-                    <div key={l.uid} className="rounded-xl border border-[#E5E7EB] bg-[#F8FAFC] p-2.5">
+                    <div key={l.uid} className="rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-2.5">
                       <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-black text-[#182230]">{l.nome}{l.permiteTroco && <span className="ml-1.5 rounded-full bg-[#EAFBF2] px-1.5 py-0.5 text-[10px] font-bold text-[#147A4A]">troco</span>}</p>
-                        <button onClick={() => onRemoverLinha(l.uid)} aria-label={`Remover ${l.nome}`} className="rounded-md px-1.5 py-0.5 text-[11px] font-bold text-[#98A2B3] hover:bg-[#FFF1F2] hover:text-[#DC2626]">remover</button>
+                        <p className="text-sm font-black text-[var(--pp-text)]">{l.nome}{l.permiteTroco && <span className="ml-1.5 rounded-full bg-[var(--pp-success-soft)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--pp-success-text)]">troco</span>}</p>
+                        <button onClick={() => onRemoverLinha(l.uid)} aria-label={`Remover ${l.nome}`} className="rounded-md px-1.5 py-0.5 text-[11px] font-bold text-[var(--pp-text-muted)] hover:bg-[var(--pp-danger-soft)] hover:text-[var(--pp-danger)]">remover</button>
                       </div>
                       <div className="mt-1.5 flex items-center gap-2">
-                        <span className="text-sm font-bold text-[#667085]">R$</span>
+                        <span className="text-sm font-bold text-[var(--pp-text-body)]">R$</span>
                         <input inputMode="numeric" value={numeroParaMoeda(l.valor)} onChange={(e) => onSetValorLinha(l.uid, e.target.value)} onFocus={(e) => e.target.select()}
                           aria-label={`Valor recebido em ${l.nome}`}
-                          className="flex-1 rounded-lg border border-[#E5E7EB] bg-white px-2.5 py-1.5 text-right text-base font-black text-[#182230] outline-none focus:border-[var(--color-primary)]" />
+                          className="flex-1 rounded-lg border border-[var(--pp-border)] bg-white px-2.5 py-1.5 text-right text-base font-black text-[var(--pp-text)] outline-none focus:border-[var(--pp-primary)]" />
                       </div>
                     </div>
                   ))}
                 </div>
               )}
 
-              <div className="mt-3 space-y-1 border-t border-[#E5E7EB] pt-3 text-sm">
-                <div className="flex justify-between text-[#667085]"><span>A pagar agora</span><strong className="text-[#182230]">{formatCurrency(total)}</strong></div>
-                <div className="flex justify-between text-[#667085]"><span>Recebido</span><strong className="text-[#16A34A]">{formatCurrency(pagoLinhas)}</strong></div>
-                {restanteLinhas > 0.001 && <div className="flex justify-between text-[#9A6A00]"><span>Falta</span><strong>{formatCurrency(restanteLinhas)}</strong></div>}
-                {troco > 0 && <div className="flex justify-between text-[var(--color-primary)]"><span>Troco</span><strong>{formatCurrency(troco)}</strong></div>}
-                {excedeNaoDinheiro && <p role="alert" className="text-xs font-bold text-[#DC2626]">Cartão/PIX não pode ultrapassar o total — use dinheiro para o troco.</p>}
-                {troco > 0 && !temDinheiro && <p role="alert" className="text-xs font-bold text-[#DC2626]">Troco só é permitido com pagamento em dinheiro.</p>}
+              <div className="mt-3 space-y-1 border-t border-[var(--pp-border)] pt-3 text-sm">
+                <div className="flex justify-between text-[var(--pp-text-body)]"><span>A pagar agora</span><strong className="text-[var(--pp-text)]">{formatCurrency(total)}</strong></div>
+                <div className="flex justify-between text-[var(--pp-text-body)]"><span>Recebido</span><strong className="text-[var(--pp-success)]">{formatCurrency(pagoLinhas)}</strong></div>
+                {restanteLinhas > 0.001 && <div className="flex justify-between text-[var(--pp-warning-text)]"><span>Falta</span><strong>{formatCurrency(restanteLinhas)}</strong></div>}
+                {troco > 0 && <div className="flex justify-between text-[var(--pp-primary)]"><span>Troco</span><strong>{formatCurrency(troco)}</strong></div>}
+                {excedeNaoDinheiro && <p role="alert" className="text-xs font-bold text-[var(--pp-danger)]">Cartão/PIX não pode ultrapassar o total — use dinheiro para o troco.</p>}
+                {troco > 0 && !temDinheiro && <p role="alert" className="text-xs font-bold text-[var(--pp-danger)]">Troco só é permitido com pagamento em dinheiro.</p>}
               </div>
             </div>
+
+            {/* Teclado numérico — lança o valor recebido na forma de pagamento
+                selecionada (a mais recente). Só aparece com uma forma escolhida. */}
+            {tecladoAtivo && (
+              <div className="mt-3">
+                <CheckoutKeypad onDigito={onTeclaDigito} onLimpar={onTeclaLimpar} onApagar={onTeclaApagar} onConfirmar={() => {}} confirmarDesabilitado={!tecladoAtivo} />
+              </div>
+            )}
           </>
         )}
       </div>
 
       {/* Ações fixas */}
-      <div className="shrink-0 space-y-2 border-t border-[#E5E7EB] bg-white px-4 py-3.5 sm:px-5">
+      <div className="shrink-0 space-y-2 border-t border-[var(--pp-border)] bg-white px-4 py-3.5 sm:px-5">
         <button onClick={onImprimirConferencia} disabled={!podePagar && pendentesPreparo === 0}
-          className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-[#E5E7EB] bg-white text-sm font-black text-[#475467] transition hover:bg-[#F8FAFC]">
+          className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-[var(--pp-border)] bg-white text-sm font-black text-[var(--pp-text-body)] transition hover:bg-[var(--pp-bg)]">
           <IconImpressora width={16} height={16} /> Imprimir conferência
         </button>
         <button onClick={onFinalizarClick} disabled={!podeConfirmarPagamento}
-          className={`flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl text-sm font-black transition active:scale-95 ${podeConfirmarPagamento ? "bg-[#16A34A] text-white hover:bg-[#15803D] shadow-lg shadow-[#16A34A]/20" : "bg-[#F3F4F6] text-[#98A2B3]"}`}>
+          className={`flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl text-sm font-black transition active:scale-95 ${podeConfirmarPagamento ? "btn-verde bg-[var(--pp-success)] text-white shadow-lg" : "bg-[var(--pp-bg)] text-[var(--pp-text-muted)]"}`}>
           <IconCheck width={16} height={16} /> Finalizar pagamento
         </button>
-        <p className="text-center text-[10px] text-[#98A2B3]">F8 conferência · F10 finalizar</p>
+        <p className="text-center text-[10px] text-[var(--pp-text-muted)]">F8 conferência · F10 finalizar</p>
       </div>
     </aside>
   );
@@ -4855,23 +4934,23 @@ function PosConfirmDialog({ mesas, comandas, total, troco, linhasPagamento, proc
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => !processando && onCancelar()}>
       <div onClick={(e) => e.stopPropagation()} role="alertdialog" aria-modal="true" aria-labelledby="pos-confirm-titulo"
-        className="w-full max-w-sm overflow-hidden rounded-3xl border border-[#E5E7EB] bg-white shadow-[0_20px_60px_rgba(16,24,40,.18)]">
-        <div className="border-b border-[#E5E7EB] px-6 py-4">
-          <h2 id="pos-confirm-titulo" className="text-lg font-black text-[#182230]">Confirmar pagamento?</h2>
-          <p className="mt-0.5 text-xs text-[#667085]">{mesas.join(", ") || comandas.join(", ")}</p>
+        className="w-full max-w-sm overflow-hidden rounded-3xl border border-[var(--pp-border)] bg-white shadow-[0_20px_60px_rgba(16,24,40,.18)]">
+        <div className="border-b border-[var(--pp-border)] px-6 py-4">
+          <h2 id="pos-confirm-titulo" className="text-lg font-black text-[var(--pp-text)]">Confirmar pagamento?</h2>
+          <p className="mt-0.5 text-xs text-[var(--pp-text-body)]">{mesas.join(", ") || comandas.join(", ")}</p>
         </div>
         <div className="space-y-2 px-6 py-4 text-sm">
           {linhasPagamento.map((l) => (
-            <div key={l.uid} className="flex justify-between text-[#475467]"><span>{l.nome}</span><strong className="text-[#182230]">{formatCurrency(l.valor)}</strong></div>
+            <div key={l.uid} className="flex justify-between text-[var(--pp-text-body)]"><span>{l.nome}</span><strong className="text-[var(--pp-text)]">{formatCurrency(l.valor)}</strong></div>
           ))}
-          <div className="h-px bg-[#E5E7EB]" />
-          <div className="flex justify-between text-base"><span className="font-black text-[#182230]">Total</span><strong className="text-[#182230]">{formatCurrency(total)}</strong></div>
-          {troco > 0 && <div className="flex justify-between text-[var(--color-primary)]"><span className="font-bold">Troco</span><strong>{formatCurrency(troco)}</strong></div>}
+          <div className="h-px bg-[var(--pp-border)]" />
+          <div className="flex justify-between text-base"><span className="font-black text-[var(--pp-text)]">Total</span><strong className="text-[var(--pp-text)]">{formatCurrency(total)}</strong></div>
+          {troco > 0 && <div className="flex justify-between text-[var(--pp-primary)]"><span className="font-bold">Troco</span><strong>{formatCurrency(troco)}</strong></div>}
         </div>
-        <div className="flex gap-2 border-t border-[#E5E7EB] px-6 py-4">
-          <button onClick={onCancelar} disabled={processando} type="button" className="min-h-11 flex-1 rounded-2xl border border-[#E5E7EB] bg-white text-sm font-black text-[#475467] transition hover:bg-[#F8FAFC] disabled:opacity-50">Voltar</button>
+        <div className="flex gap-2 border-t border-[var(--pp-border)] px-6 py-4">
+          <button onClick={onCancelar} disabled={processando} type="button" className="min-h-11 flex-1 rounded-2xl border border-[var(--pp-border)] bg-white text-sm font-black text-[var(--pp-text-body)] transition hover:bg-[var(--pp-bg)] disabled:opacity-50">Voltar</button>
           <button onClick={onConfirmar} disabled={processando} type="button"
-            className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-2xl bg-[#16A34A] text-sm font-black text-white transition hover:bg-[#15803D] disabled:opacity-70">
+            className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-2xl bg-[var(--pp-success)] text-sm font-black text-white transition hover:bg-[var(--pp-success)] disabled:opacity-70">
             {processando && <IconSpinner />} {processando ? "Processando…" : "Confirmar"}
           </button>
         </div>
@@ -4886,39 +4965,39 @@ function PosConfirmDialog({ mesas, comandas, total, troco, linhasPagamento, proc
 function PosSuccessScreen({ dados, onFechar, onReimprimir, onNovaConsulta }) {
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div role="status" aria-live="polite" className="w-full max-w-sm overflow-hidden rounded-3xl border border-[#E5E7EB] bg-white shadow-[0_20px_60px_rgba(16,24,40,.18)] max-h-[92vh] flex flex-col">
-        <div className="shrink-0 border-b border-[#E5E7EB] px-6 py-6 text-center">
-          <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#16A34A] text-white"><IconCheck width={26} height={26} /></span>
-          <h2 className="mt-3 text-xl font-black text-[#182230]">Pagamento concluído</h2>
-          <p className="text-sm text-[#667085]">{dados.mesa || dados.comandas.join(", ")}</p>
+      <div role="status" aria-live="polite" className="w-full max-w-sm overflow-hidden rounded-3xl border border-[var(--pp-border)] bg-white shadow-[0_20px_60px_rgba(16,24,40,.18)] max-h-[92vh] flex flex-col">
+        <div className="shrink-0 border-b border-[var(--pp-border)] px-6 py-6 text-center">
+          <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--pp-success)] text-white"><IconCheck width={26} height={26} /></span>
+          <h2 className="mt-3 text-xl font-black text-[var(--pp-text)]">Pagamento concluído</h2>
+          <p className="text-sm text-[var(--pp-text-body)]">{dados.mesa || dados.comandas.join(", ")}</p>
         </div>
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-2 text-sm">
-          <div className="flex justify-between"><span className="text-[#667085]">Total pago</span><strong className="text-[#182230]">{formatCurrency(dados.total)}</strong></div>
+          <div className="flex justify-between"><span className="text-[var(--pp-text-body)]">Total pago</span><strong className="text-[var(--pp-text)]">{formatCurrency(dados.total)}</strong></div>
           {(dados.detalhes || []).map((d, i) => (
-            <div key={i} className="flex justify-between"><span className="text-[#667085]">{d.forma}</span><strong className="text-[#182230]">{formatCurrency(d.valor)}</strong></div>
+            <div key={i} className="flex justify-between"><span className="text-[var(--pp-text-body)]">{d.forma}</span><strong className="text-[var(--pp-text)]">{formatCurrency(d.valor)}</strong></div>
           ))}
-          {dados.troco > 0 && <div className="flex justify-between border-t border-[#E5E7EB] pt-2"><span className="font-black text-[var(--color-primary)]">Troco</span><strong className="text-[var(--color-primary)]">{formatCurrency(dados.troco)}</strong></div>}
-          <div className="flex justify-between border-t border-[#E5E7EB] pt-2 text-xs text-[#98A2B3]"><span>Código</span><span>{dados.codigo}</span></div>
-          <div className="flex justify-between text-xs text-[#98A2B3]"><span>Horário</span><span>{new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span></div>
+          {dados.troco > 0 && <div className="flex justify-between border-t border-[var(--pp-border)] pt-2"><span className="font-black text-[var(--pp-primary)]">Troco</span><strong className="text-[var(--pp-primary)]">{formatCurrency(dados.troco)}</strong></div>}
+          <div className="flex justify-between border-t border-[var(--pp-border)] pt-2 text-xs text-[var(--pp-text-muted)]"><span>Código</span><span>{dados.codigo}</span></div>
+          <div className="flex justify-between text-xs text-[var(--pp-text-muted)]"><span>Horário</span><span>{new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span></div>
           {Array.isArray(dados.alertasEstoque) && dados.alertasEstoque.length > 0 && (
-            <div className="mt-1 rounded-2xl border border-[#FDE1B0] bg-[#FFF4E5] px-4 py-3">
-              <p className="flex items-center gap-1.5 text-xs font-black text-[#B45309]"><IconAlerta width={13} height={13} /> Alerta de estoque</p>
+            <div className="mt-1 rounded-2xl border border-[var(--pp-warning)] bg-[var(--pp-warning-soft)] px-4 py-3">
+              <p className="flex items-center gap-1.5 text-xs font-black text-[var(--pp-warning-text)]"><IconAlerta width={13} height={13} /> Alerta de estoque</p>
               <ul className="mt-2 space-y-1">
                 {dados.alertasEstoque.map((a) => (
                   <li key={a.nome} className="flex items-center justify-between gap-2 text-xs">
-                    <span className="min-w-0 truncate font-bold text-[#7A4A00]">{a.nome}</span>
-                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black ${a.zerado ? "bg-[#FFF1F2] text-[#DC2626]" : "bg-[#FFF4E5] text-[#B45309]"}`}>{a.zerado ? "Esgotado" : `Mínimo · ${a.estoque}/${a.minimo}`}</span>
+                    <span className="min-w-0 truncate font-bold text-[var(--pp-warning-text)]">{a.nome}</span>
+                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black ${a.zerado ? "bg-[var(--pp-danger-soft)] text-[var(--pp-danger)]" : "bg-[var(--pp-warning-soft)] text-[var(--pp-warning-text)]"}`}>{a.zerado ? "Esgotado" : `Mínimo · ${a.estoque}/${a.minimo}`}</span>
                   </li>
                 ))}
               </ul>
             </div>
           )}
         </div>
-        <div className="shrink-0 space-y-2 border-t border-[#E5E7EB] px-6 py-4">
-          <button onClick={onReimprimir} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-[var(--color-primary)] text-sm font-black text-white transition hover:bg-[var(--color-primary-dark)]"><IconImpressora width={16} height={16} /> Imprimir comprovante</button>
+        <div className="shrink-0 space-y-2 border-t border-[var(--pp-border)] px-6 py-4">
+          <button onClick={onReimprimir} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-[var(--pp-primary)] text-sm font-black text-white transition hover:bg-[var(--pp-primary-hover)]"><IconImpressora width={16} height={16} /> Imprimir comprovante</button>
           <div className="grid grid-cols-2 gap-2">
-            <button onClick={onNovaConsulta} className="min-h-11 rounded-2xl border border-[#E5E7EB] bg-white text-sm font-black text-[#475467] transition hover:bg-[#F8FAFC]">Nova consulta</button>
-            <button onClick={onFechar} className="min-h-11 rounded-2xl border border-[#E5E7EB] bg-white text-sm font-black text-[#475467] transition hover:bg-[#F8FAFC]">Voltar ao caixa</button>
+            <button onClick={onNovaConsulta} className="min-h-11 rounded-2xl border border-[var(--pp-border)] bg-white text-sm font-black text-[var(--pp-text-body)] transition hover:bg-[var(--pp-bg)]">Nova consulta</button>
+            <button onClick={onFechar} className="min-h-11 rounded-2xl border border-[var(--pp-border)] bg-white text-sm font-black text-[var(--pp-text-body)] transition hover:bg-[var(--pp-bg)]">Voltar ao caixa</button>
           </div>
         </div>
       </div>
@@ -4947,17 +5026,17 @@ function PosReceiptPreview({ blocos, mesas, comandas, subtotal, taxa, total, spl
 
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={onFechar}>
-      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-sm flex-col overflow-hidden rounded-3xl border border-[#E5E7EB] bg-white shadow-[0_20px_60px_rgba(16,24,40,.18)] max-h-[92vh]">
-        <div className="flex items-center justify-between border-b border-[#E5E7EB] px-5 py-4">
-          <h2 className="text-base font-black text-[#182230]">Conferência</h2>
-          <button onClick={onFechar} aria-label="Fechar" className="rounded-xl border border-[#E5E7EB] bg-white px-3 py-1.5 text-xs font-black text-[#475467] hover:bg-[#F8FAFC]">Fechar</button>
+      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-sm flex-col overflow-hidden rounded-3xl border border-[var(--pp-border)] bg-white shadow-[0_20px_60px_rgba(16,24,40,.18)] max-h-[92vh]">
+        <div className="flex items-center justify-between border-b border-[var(--pp-border)] px-5 py-4">
+          <h2 className="text-base font-black text-[var(--pp-text)]">Conferência</h2>
+          <button onClick={onFechar} aria-label="Fechar" className="rounded-xl border border-[var(--pp-border)] bg-white px-3 py-1.5 text-xs font-black text-[var(--pp-text-body)] hover:bg-[var(--pp-bg)]">Fechar</button>
         </div>
-        <div className="flex-1 overflow-y-auto bg-[#F8FAFC] px-5 py-4 text-[#182230]" style={{ fontFamily: "'Courier New', monospace", fontSize: 12 }}>
+        <div className="flex-1 overflow-y-auto bg-[var(--pp-bg)] px-5 py-4 text-[var(--pp-text)]" style={{ fontFamily: "'Courier New', monospace", fontSize: 12 }}>
           <p className="text-center font-black">CONFERÊNCIA — SEM VALOR FISCAL</p>
-          <div className="my-2 border-t border-dashed border-[#CBD5E1]" />
+          <div className="my-2 border-t border-dashed border-[var(--pp-border)]" />
           <p className="text-[11px]">Mesa(s): {mesas.join(", ") || "-"}</p>
           <p className="text-[11px]">Comanda(s): {comandas.join(", ")}</p>
-          <div className="my-2 border-t border-dashed border-[#CBD5E1]" />
+          <div className="my-2 border-t border-dashed border-[var(--pp-border)]" />
           {blocos.map((b) => (
             <div key={b.comanda} className="mb-2">
               <p className="font-black text-[11px]">COMANDA {b.comanda}</p>
@@ -4966,15 +5045,15 @@ function PosReceiptPreview({ blocos, mesas, comandas, subtotal, taxa, total, spl
               )))}
             </div>
           ))}
-          <div className="my-2 border-t border-dashed border-[#CBD5E1]" />
+          <div className="my-2 border-t border-dashed border-[var(--pp-border)]" />
           <div className="flex justify-between text-[11px]"><span>Subtotal</span><span>{formatCurrency(subtotal)}</span></div>
           <div className="flex justify-between text-[11px]"><span>Taxa</span><span>{formatCurrency(taxa)}</span></div>
           <div className="mt-1 flex justify-between font-black text-[13px]"><span>TOTAL</span><span>{formatCurrency(total)}</span></div>
           {splitMode === "pessoas" && pessoas > 1 && <div className="flex justify-between text-[10px]"><span>Por pessoa ({pessoas})</span><span>{formatCurrency(porPessoa)}</span></div>}
         </div>
-        <div className="shrink-0 space-y-2 border-t border-[#E5E7EB] px-5 py-4">
-          <button onClick={imprimir} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-[var(--color-primary)] text-sm font-black text-white hover:bg-[var(--color-primary-dark)]"><IconImpressora width={16} height={16} /> Imprimir</button>
-          <button onClick={enviarWhatsApp} className="min-h-11 w-full rounded-2xl border border-[#B7E4C7] bg-[#EAFBF2] text-sm font-black text-[#147A4A] hover:bg-[#DCFCE7]">Enviar por WhatsApp</button>
+        <div className="shrink-0 space-y-2 border-t border-[var(--pp-border)] px-5 py-4">
+          <button onClick={imprimir} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-[var(--pp-primary)] text-sm font-black text-white hover:bg-[var(--pp-primary-hover)]"><IconImpressora width={16} height={16} /> Imprimir</button>
+          <button onClick={enviarWhatsApp} className="min-h-11 w-full rounded-2xl border border-[var(--pp-success)] bg-[var(--pp-success-soft)] text-sm font-black text-[var(--pp-success-text)] hover:brightness-[0.97]">Enviar por WhatsApp</button>
         </div>
       </div>
     </div>
@@ -4993,36 +5072,36 @@ function ReimpressaoCupons({ cupons, lojaInfo, onSelecionar, onFechar }) {
 
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={onFechar}>
-      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-[#E5E7EB] bg-white shadow-[0_20px_60px_rgba(16,24,40,.18)] max-h-[88vh]">
-        <div className="flex items-center justify-between border-b border-[#E5E7EB] px-6 py-4">
+      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-[var(--pp-border)] bg-white shadow-[0_20px_60px_rgba(16,24,40,.18)] max-h-[88vh]">
+        <div className="flex items-center justify-between border-b border-[var(--pp-border)] px-6 py-4">
           <div>
-            <h2 className="text-base font-black text-[#182230]">Reimpressão de comprovantes — {hoje}</h2>
-            <p className="text-xs text-[#667085]">{cupons.length} comprovante(s) pago(s) hoje{lojaInfo ? ` · ${lojaInfo.nome}` : ""} · Total {formatCurrency(totalDia)}</p>
+            <h2 className="text-base font-black text-[var(--pp-text)]">Reimpressão de comprovantes — {hoje}</h2>
+            <p className="text-xs text-[var(--pp-text-body)]">{cupons.length} comprovante(s) pago(s) hoje{lojaInfo ? ` · ${lojaInfo.nome}` : ""} · Total {formatCurrency(totalDia)}</p>
           </div>
-          <button onClick={onFechar} aria-label="Fechar" className="shrink-0 rounded-xl border border-[#E5E7EB] bg-white px-3 py-1.5 text-xs font-black text-[#475467] hover:bg-[#F8FAFC]">Fechar</button>
+          <button onClick={onFechar} aria-label="Fechar" className="shrink-0 rounded-xl border border-[var(--pp-border)] bg-white px-3 py-1.5 text-xs font-black text-[var(--pp-text-body)] hover:bg-[var(--pp-bg)]">Fechar</button>
         </div>
-        <div className="border-b border-[#E5E7EB] px-6 py-3">
+        <div className="border-b border-[var(--pp-border)] px-6 py-3">
           <label htmlFor="pos-reimpressao-busca" className="sr-only">Buscar por cupom, comanda, mesa ou cliente</label>
-          <div className="flex items-center gap-2 rounded-2xl border border-[#E5E7EB] bg-[#F8FAFC] px-3 py-2 focus-within:border-[var(--color-primary)]">
+          <div className="flex items-center gap-2 rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-3 py-2 focus-within:border-[var(--pp-primary)]">
             <IconBusca />
             <input id="pos-reimpressao-busca" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por cupom, comanda, mesa ou cliente…"
-              className="w-full bg-transparent text-sm text-[#182230] outline-none placeholder:text-[#98A2B3]" />
+              className="w-full bg-transparent text-sm text-[var(--pp-text)] outline-none placeholder:text-[var(--pp-text-muted)]" />
           </div>
         </div>
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-2">
-          {cupons.length === 0 && <p className="py-10 text-center text-sm text-[#98A2B3]">Nenhum comprovante pago hoje. Finalize uma venda para reimprimir aqui.</p>}
-          {cupons.length > 0 && lista.length === 0 && <p className="py-8 text-center text-sm text-[#98A2B3]">Nenhum resultado para “{busca}”.</p>}
+          {cupons.length === 0 && <p className="py-10 text-center text-sm text-[var(--pp-text-muted)]">Nenhum comprovante pago hoje. Finalize uma venda para reimprimir aqui.</p>}
+          {cupons.length > 0 && lista.length === 0 && <p className="py-8 text-center text-sm text-[var(--pp-text-muted)]">Nenhum resultado para “{busca}”.</p>}
           {lista.map((o) => (
             <button key={o.id} onClick={() => onSelecionar(o)}
-              className="flex w-full items-center gap-3 rounded-2xl border border-[#E5E7EB] bg-white px-4 py-3 text-left transition hover:border-[var(--color-primary)] hover:bg-[#E6EEF1]">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#E6EEF1] text-[var(--color-primary)]"><IconRecibo width={17} height={17} /></span>
+              className="flex w-full items-center gap-3 rounded-2xl border border-[var(--pp-border)] bg-white px-4 py-3 text-left transition hover:border-[var(--pp-primary)] hover:bg-[var(--op-nav-accent-soft)]">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[var(--op-nav-accent-soft)] text-[var(--pp-primary)]"><IconRecibo width={17} height={17} /></span>
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-bold uppercase tracking-widest text-[#98A2B3]">{o.id} · {o.table} · {o.command}</p>
-                <p className="truncate text-sm text-[#182230]">{o.customer || "-"} · {o.createdAtISO ? new Date(o.createdAtISO).toLocaleTimeString("pt-BR") : o.createdAt}</p>
+                <p className="text-xs font-bold uppercase tracking-widest text-[var(--pp-text-muted)]">{o.id} · {o.table} · {o.command}</p>
+                <p className="truncate text-sm text-[var(--pp-text)]">{o.customer || "-"} · {o.createdAtISO ? new Date(o.createdAtISO).toLocaleTimeString("pt-BR") : o.createdAt}</p>
               </div>
               <div className="shrink-0 text-right">
-                <p className="text-sm font-black text-[#147A4A]">{formatCurrency(orderTotal(o) * 1.1)}</p>
-                <p className="text-[11px] font-bold text-[var(--color-primary)]">Reimprimir ›</p>
+                <p className="text-sm font-black text-[var(--pp-success-text)]">{formatCurrency(orderTotal(o) * 1.1)}</p>
+                <p className="text-[11px] font-bold text-[var(--pp-primary)]">Reimprimir ›</p>
               </div>
             </button>
           ))}
