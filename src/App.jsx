@@ -4035,6 +4035,7 @@ function CashierView({ orders, baixarComandas, formasPagamento = [], lojaInfo, c
     return Object.values(mapa)
       .map((m) => ({ ...m, comandas: [...m.comandas], total: m.subtotal * (1 + SERVICE_FEE_CONFIG.percent / 100),
         situacao: m.solicitada ? "solicitado" : m.pendentePreparo ? "entrega" : "pagamento" }))
+      .filter((c) => c.total > 0.001) // não exibir mesa/conta com valor zerado
       .sort((a, b) => new Date(a.aberturaISO || 0) - new Date(b.aberturaISO || 0));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orders, SERVICE_FEE_CONFIG.percent]);
@@ -4330,11 +4331,11 @@ function CashierView({ orders, baixarComandas, formasPagamento = [], lojaInfo, c
         </div>
       )}
 
-      {/* ── Busca — seletor à esquerda, campo centralizado (teclado ao lado) ── */}
+      {/* ── Busca — seletor + campo alinhados totalmente à esquerda, campo amplo ── */}
       <div className="shrink-0 border-b border-[var(--pp-border)] bg-[var(--pp-surface)] px-4 py-3 lg:px-6">
-        <div className="mx-auto flex w-full max-w-5xl flex-col items-center gap-2.5 md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,26rem)_minmax(0,1fr)] md:items-center md:gap-3">
+        <div className="flex w-full flex-col items-stretch gap-2.5 md:flex-row md:items-center md:gap-3">
           {/* Seletor de tipo — à esquerda */}
-          <div role="tablist" aria-label="Tipo de busca" className="flex flex-wrap items-center justify-center gap-1 rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-1 md:col-start-1 md:justify-self-start">
+          <div role="tablist" aria-label="Tipo de busca" className="flex flex-wrap items-center gap-1 rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-1 md:shrink-0">
             {[["mesa", "Mesa", IconMesas, true], ["comanda", "Comanda", IconComanda, true], ["cliente", "Cliente", IconUsuarios, false], ["pedido", "Pedido", IconRecibo, false]].map(([id, label, Icone, ativo]) => {
               const on = searchMode === id;
               return (
@@ -4346,23 +4347,23 @@ function CashierView({ orders, baixarComandas, formasPagamento = [], lojaInfo, c
               );
             })}
           </div>
-          {/* Campo — centralizado */}
-          <div className="flex w-full items-center gap-2 md:col-start-2 md:justify-self-center">
+          {/* Campo — amplo, ocupa o espaço restante à esquerda */}
+          <div className="flex w-full items-center gap-2 md:max-w-3xl md:flex-1">
             {searchMode === "comanda" ? (
               <input ref={comandaInputRef} value={comandaQuery} onChange={(e) => { setComandaQuery(e.target.value.toUpperCase()); setSearchError(""); }} onKeyDown={(e) => e.key === "Enter" && buscarPorComanda()}
-                placeholder={`Ex.: ${lojaInfo?.prefixo || "CMD"}-000123`}
-                className="min-h-12 w-full flex-1 rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-4 text-center font-mono text-base font-black tracking-wide text-[var(--pp-text)] outline-none transition focus:border-[var(--pp-primary)] focus:ring-2 focus:ring-[var(--pp-primary-soft)] placeholder:font-sans placeholder:font-normal placeholder:text-[var(--pp-text-muted)]" />
+                placeholder={`Buscar por comanda · ex.: ${lojaInfo?.prefixo || "CMD"}-000123`}
+                className="min-h-[52px] w-full flex-1 rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-5 font-mono text-base font-black tracking-wide text-[var(--pp-text)] outline-none transition focus:border-[var(--pp-primary)] focus:ring-2 focus:ring-[var(--pp-primary-soft)] placeholder:font-sans placeholder:font-normal placeholder:text-[var(--pp-text-muted)]" />
             ) : (
               <input ref={mesaInputRef} type="tel" inputMode="numeric" value={mesaQuery} onChange={(e) => { setMesaQuery(e.target.value.replace(/\D/g, "").slice(0, 3)); setSearchError(""); }} onKeyDown={(e) => e.key === "Enter" && buscarMesaPorNumero()}
-                placeholder="Número da mesa · ex.: 07"
-                className="min-h-12 w-full flex-1 rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-4 text-center text-lg font-black text-[var(--pp-text)] outline-none transition focus:border-[var(--pp-primary)] focus:ring-2 focus:ring-[var(--pp-primary-soft)] placeholder:text-base placeholder:font-normal placeholder:text-[var(--pp-text-muted)]" />
+                placeholder="Buscar por número da mesa · ex.: 07"
+                className="min-h-[52px] w-full flex-1 rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-5 text-lg font-black text-[var(--pp-text)] outline-none transition focus:border-[var(--pp-primary)] focus:ring-2 focus:ring-[var(--pp-primary-soft)] placeholder:text-base placeholder:font-normal placeholder:text-[var(--pp-text-muted)]" />
             )}
             {searchMode === "comanda" && (
-              <button onClick={() => setScannerAberto(true)} aria-label="Ler QR Code da comanda" className="grid min-h-12 w-12 shrink-0 place-items-center rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-surface)] text-[var(--pp-text-body)] transition hover:bg-[var(--pp-bg)]"><IconQr /></button>
+              <button onClick={() => setScannerAberto(true)} aria-label="Ler QR Code da comanda" className="grid min-h-[52px] w-12 shrink-0 place-items-center rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-surface)] text-[var(--pp-text-body)] transition hover:bg-[var(--pp-bg)]"><IconQr /></button>
             )}
-            <button onClick={() => (searchMode === "comanda" ? buscarPorComanda() : buscarMesaPorNumero())} aria-label="Buscar conta" className="btn-laranja grid min-h-12 w-14 shrink-0 place-items-center rounded-2xl text-white"><IconBusca /></button>
+            <button onClick={() => (searchMode === "comanda" ? buscarPorComanda() : buscarMesaPorNumero())} aria-label="Buscar conta" className="btn-laranja grid min-h-[52px] w-14 shrink-0 place-items-center rounded-2xl text-white"><IconBusca /></button>
           </div>
-          {searchError && <p role="alert" className="text-center text-xs font-bold text-[var(--pp-danger)] md:col-span-3">{searchError}</p>}
+          {searchError && <p role="alert" className="w-full text-xs font-bold text-[var(--pp-danger)] md:basis-full">{searchError}</p>}
         </div>
       </div>
 
