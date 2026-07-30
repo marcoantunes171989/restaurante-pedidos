@@ -6,6 +6,7 @@ import CashierSummary from "../components/orders/CashierSummary";
 import CashierStatusFilters from "../components/orders/CashierStatusFilters";
 import AccountCard from "../components/orders/AccountCard";
 import OrdersEmptyState from "../components/orders/OrdersEmptyState";
+import CashierCheckout from "../components/orders/checkout/CashierCheckout";
 
 // Categoria só é usada para o badge/filtro visual — nunca decide o que a
 // conta PODE fazer (pagar antecipado é sempre permitido, como já era).
@@ -59,6 +60,8 @@ export default function CentralDoCaixa({
   const [pagando, setPagando] = useState(null);
   const [retirando, setRetirando] = useState(null);
   const [filtro, setFiltro] = useState("todas");
+  // Conta selecionada para o PDV de fechamento (overlay em tela cheia).
+  const [contaCheckout, setContaCheckout] = useState(null);
   // Trava síncrona (ref) contra clique duplo antes do re-render aplicar o "disabled".
   const pagandoIdsRef = useRef(new Set());
 
@@ -122,6 +125,23 @@ export default function CentralDoCaixa({
   const visiveis = contasComCategoria.filter((c) => filtro === "todas" || c.categoria === filtro);
   const vazio = VAZIO_POR_FILTRO[filtro] || VAZIO_POR_FILTRO.todas;
 
+  // Indicadores do turno para o PDV — derivados dos dados já disponíveis (sem
+  // plumbing novo). "Mesas ocupadas" = nº de mesas distintas com conta aberta.
+  const mesasOcupadas = new Set(abertas.map((o) => String(o.table || "").split(" · ")[0]).filter(Boolean)).size;
+  const indicadores = {
+    mesasOcupadas,
+    mesasTotal: null,
+    comandasEmAberto: contas.length,
+    contasAguardando: counts.aguardando,
+    faturamentoTurno: formatCurrency(faturadoHoje),
+  };
+
+  async function fecharContaPdv(linhas, total) {
+    if (!contaCheckout) return;
+    await finalizar(contaCheckout, linhas, total);
+    setContaCheckout(null);
+  }
+
   return (
     <div className="min-h-[100dvh] w-full pb-28" style={{ background: "var(--pp-bg)", paddingTop: "env(safe-area-inset-top)" }}>
       <div className="mx-auto max-w-[1600px] px-4 pb-6 pt-6 md:px-6 md:pt-10 lg:px-10">
@@ -158,6 +178,7 @@ export default function CentralDoCaixa({
                   opcoes={opcoes}
                   pagando={pagando === o.id}
                   onFinalizar={finalizar}
+                  onAbrirCheckout={setContaCheckout}
                   retirando={retirando === o.id}
                   onRetirar={retirar}
                 />
@@ -168,6 +189,22 @@ export default function CentralDoCaixa({
       </div>
 
       <OperationalBottomNav items={navItems} active="caixa" onNavigate={onNavigate} />
+
+      {contaCheckout && (
+        <CashierCheckout
+          o={contaCheckout}
+          totalCom={totalCom}
+          opcoes={opcoes}
+          usuarioNome={usuarioNome}
+          nivelAcesso={nivelAcesso}
+          lojaInfo={lojaInfo}
+          indicadores={indicadores}
+          haTxt={haTxt}
+          onFecharConta={fecharContaPdv}
+          fechando={pagando === contaCheckout.id}
+          onFechar={() => setContaCheckout(null)}
+        />
+      )}
     </div>
   );
 }

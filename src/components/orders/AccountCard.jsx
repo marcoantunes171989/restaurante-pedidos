@@ -4,6 +4,7 @@ import { formatCurrency } from "../../App";
 import AccountStatusBadge from "./AccountStatusBadge";
 import { CATEGORIA_ACCENT } from "./accountStatusColors";
 import OrderOriginBadge from "./OrderOriginBadge";
+import { usePagamentoConta } from "./checkout/usePagamentoConta";
 
 /**
  * Card de conta do Caixa (tema claro) — porta 1:1 a lógica financeira de
@@ -18,32 +19,19 @@ import OrderOriginBadge from "./OrderOriginBadge";
  */
 export default function AccountCard({
   o, categoria, totalCom, haTxt, numeroPedido, telMascarado, opcoes,
-  pagando, onFinalizar, retirando, onRetirar, destacado = false, cardRef,
+  pagando, onFinalizar, retirando, onRetirar, onAbrirCheckout, destacado = false, cardRef,
 }) {
   const [aberto, setAberto] = useState(false);
   const total = totalCom(o);
-  const sub = Math.round((total / 1.1) * 100) / 100;
-  const taxa = Math.round((total - sub) * 100) / 100;
   const pago = categoria === "pago";
   const externo = o.table === "Externo" || /^EXT-/.test(o.command || "");
   const origem = { l: externo ? "Delivery" : "Mesa / QR" };
   const [tableBase, tableSub] = String(o.table || "").split(" · ");
   const subtitulo = externo ? (tableSub || "Delivery/retirada") : (tableBase || o.table);
 
-  // Estado do formulário de pagamento (múltiplas formas) — mesma lógica de
-  // sempre, escondida atrás de "Receber".
-  const [linhas, setLinhas] = useState([]);
-  const soma = Math.round(linhas.reduce((s, l) => s + (Number(l.valor) || 0), 0) * 100) / 100;
-  const restante = Math.round((total - soma) * 100) / 100;
-  const valido = linhas.length > 0 && linhas.every((l) => (Number(l.valor) || 0) > 0) && Math.abs(restante) < 0.01;
-  const fmtMoeda = (n) => (Number(n) || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const toggleForma = (f) => setLinhas((cur) => {
-    if (cur.some((l) => l.forma === f)) return cur.filter((l) => l.forma !== f);
-    const pagoAtual = cur.reduce((s, l) => s + (Number(l.valor) || 0), 0);
-    const falta = Math.max(0, Math.round((total - pagoAtual) * 100) / 100);
-    return [...cur, { forma: f, valor: falta }];
-  });
-  const editarValor = (f, raw) => setLinhas((cur) => cur.map((l) => l.forma === f ? { ...l, valor: parseInt(String(raw).replace(/\D/g, "") || "0", 10) / 100 } : l));
+  // Estado do formulário de pagamento (múltiplas formas) — lógica compartilhada
+  // com a tela PDV (usePagamentoConta), escondida atrás de "Receber".
+  const { linhas, soma, restante, valido, sub, taxa, fmtMoeda, toggleForma, editarValor } = usePagamentoConta(total);
 
   const itensVisiveis = (o.items || []).slice(0, 3);
   const itensExtra = (o.items || []).length - itensVisiveis.length;
@@ -109,7 +97,7 @@ export default function AccountCard({
         ) : (
           <button
             type="button"
-            onClick={() => setAberto(true)}
+            onClick={() => (onAbrirCheckout ? onAbrirCheckout(o) : setAberto(true))}
             className="btn-laranja flex min-h-[44px] min-w-0 items-center justify-center gap-2 rounded-xl text-sm font-bold text-white transition-colors duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-primary-hover)]"
           >
             <CreditCard aria-hidden="true" size={15} /> Receber
