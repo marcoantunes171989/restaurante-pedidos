@@ -1255,7 +1255,10 @@ export default function CardapioPublico() {
   // ato do pedido (o pedido nem está "pago", só fica em aberto até o caixa
   // fechar). Vale só para modoExterno+local; mesa (QR) e retirada/entrega
   // continuam exigindo a escolha normalmente, sem mudança de comportamento.
-  const exigePagamentoAgora = !(modoExterno && tipoPedido === "local");
+  // Acesso interno (mesa/QR) paga no caixa — não escolhe forma no app. Só o
+  // canal externo (entrega/retirada) pede a forma de pagamento agora; consumo
+  // no local também paga só no fechamento.
+  const exigePagamentoAgora = modoExterno && tipoPedido !== "local";
   const pagtoOk = !exigePagamentoAgora || (formasPagto.length > 0 && formasPagto.some((f) => f.id === formaPagto));
   const podeEnviar = cart.length > 0 && pagtoOk && !bloqueioHorario && (!modoExterno || (
     aceitaExterno && opcoesEntrega.length > 0 && opcoesEntrega.some((o) => o.id === tipoPedido) && minimoFalta <= 0
@@ -1688,7 +1691,9 @@ export default function CardapioPublico() {
                 </div>
               )}
 
-              {/* Pagamento — condicional: consumo no local não pede nada agora */}
+              {/* Pagamento — só no canal externo. No acesso interno (mesa/QR) o
+                  pagamento é no caixa, então a tela não pede forma alguma. */}
+              {modoExterno && (
               <div className="mt-5">
                 <h3 className="mb-2 text-[11px] font-black uppercase tracking-widest text-[var(--client-text-secondary)]">Pagamento</h3>
                 {!exigePagamentoAgora ? (
@@ -1754,6 +1759,7 @@ export default function CardapioPublico() {
                   </>
                 )}
               </div>
+              )}
 
               {economiaCart > 0 && (
                 <div className="mt-4 flex items-center justify-center gap-1.5 rounded-2xl border border-[var(--client-offer-border)] bg-[var(--client-offer-soft)] px-3 py-2 text-sm font-black text-[var(--client-offer-hover)]">
