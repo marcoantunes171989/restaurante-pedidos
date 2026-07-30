@@ -40,18 +40,12 @@ import { LogoPP, OperationalBrandLogo } from "./components/BrandLogo";
 import { gerarLoginQRTexto } from "./lib/loginQr";
 import { mensagemErroAcesso } from "./login/authMessages";
 import LoginPage from "./login/LoginPage";
-import { IconDashboard, IconRelatorios, IconCrm, IconProdutos, IconCategorias, IconMesas, IconPagamento, IconQr, IconCardapio, IconEmpresas, IconUsuarios, IconCargos, IconPermissoes, IconLink, IconLicencas, IconVersoes, IconEmpresa, IconBusca, IconConfig, IconPromocao, IconComanda, IconCheck, IconAlerta, IconCarteira, IconRecibo, IconImpressora, IconDinheiro, IconPix, IconWifiOff, IconFechar, IconSpinner } from "./components/PrimeIcons";
+import { IconDashboard, IconRelatorios, IconCrm, IconProdutos, IconCategorias, IconMesas, IconPagamento, IconQr, IconCardapio, IconEmpresas, IconUsuarios, IconCargos, IconPermissoes, IconLink, IconLicencas, IconVersoes, IconEmpresa, IconBusca, IconConfig, IconPromocao, IconComanda, IconCheck, IconAlerta, IconCarteira, IconRecibo, IconImpressora, IconDinheiro, IconPix, IconFechar, IconSpinner, IconRelogio, IconMais, IconMenos, IconLixeira } from "./components/PrimeIcons";
 import { PageHeader, PrimeButton, EmptyState, FilterChip, FilterGroup, FiltersPanel, ActiveFiltersSummary } from "./components/Prime";
 import OperationalCentral from "./pages/OperationalCentral";
 import CentralDePedidos from "./pages/CentralDePedidos";
 import CentralDoCaixa from "./pages/CentralDoCaixa";
 import CheckoutKeypad from "./components/orders/checkout/CheckoutKeypad";
-import CheckoutFooterActions from "./components/orders/checkout/CheckoutFooterActions";
-import PdvCaixa from "./components/caixa/PdvCaixa";
-
-// Tela do caixa: novo PDV (mockup Pedido Prime). O caixa funcional legado
-// (CashierView) permanece como fallback — basta trocar esta flag para false.
-const USAR_PDV_NOVO = true;
 import CentralDaCozinha from "./pages/CentralDaCozinha";
 import CentralDoBar from "./pages/CentralDoBar";
 import OperationalBottomNav from "./components/OperationalBottomNav";
@@ -1213,6 +1207,24 @@ export default function RestaurantePedidoApp() {
     if (dbReady) try { await atualizarChamado(id, { status: "atendido", atendidoPor: currentUser?.id ?? null }); } catch {}
   }
 
+  // Edição de itens da conta no caixa (ajuste de conta). Atualiza o pedido em
+  // memória e persiste a coluna JSON tab_pedidos.itens via atualizarPedido.
+  // NOTA: é ajuste de conta — NÃO gera ticket de cozinha nem baixa de estoque.
+  async function editarItensPedido(orderId, novosItens) {
+    if (!canAccess(currentUser, "cashier")) return notify("error", "Usuário sem permissão para editar a conta.");
+    const anterior = ordersAll.find((o) => o.id === orderId)?.items;
+    setOrders((cur) => cur.map((o) => o.id === orderId ? { ...o, items: novosItens } : o));
+    if (dbReady) {
+      try { await atualizarPedido(orderId, { itens: novosItens }); }
+      catch {
+        // rollback otimista em caso de falha de persistência
+        setOrders((cur) => cur.map((o) => o.id === orderId ? { ...o, items: anterior ?? o.items } : o));
+        return notify("error", "Não foi possível salvar a alteração do item.");
+      }
+    }
+    auditar("editar_itens_conta", "pedido", orderId, { qtdItens: novosItens.length });
+  }
+
   // Baixa das comandas após pagamento: marca pedidos NÃO PAGOS como pago + entregue (libera comanda)
   // Baixa completa: pagamento + estoque + registro. info = { mesa, total, troco, detalhes }
   async function baixarComandas(comandas, info = null, opts = {}) {
@@ -2108,11 +2120,7 @@ export default function RestaurantePedidoApp() {
           <KitchenView groupedOrders={groupedOrders} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} entregandoId={entregandoId} cancelarPedido={cancelarPedido} currentUser={currentUser} lojaInfo={lojaInfo} setores={filtraLoja(setoresCozinha)} produtos={products} setorInicial={cozinhaSetorInicial} />
         )}
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} products={products} lojaInfo={lojaInfo} />}
-        {activeTab === "cashier" && canAccess(currentUser, "cashier") && (
-          USAR_PDV_NOVO
-            ? <PdvCaixa currentUser={currentUser} lojaInfo={lojaInfo} />
-            : <CashierView orders={orders} baixarComandas={baixarComandas} formasPagamento={formasPagamentoLoja} lojaInfo={lojaInfo} currentUser={currentUser} caixaAberto={caixaAberto} auditar={auditar} conexaoOk={conexaoOk} />
-        )}
+        {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierView orders={orders} baixarComandas={baixarComandas} formasPagamento={formasPagamentoLoja} lojaInfo={lojaInfo} currentUser={currentUser} caixaAberto={caixaAberto} auditar={auditar} conexaoOk={conexaoOk} editarItensPedido={editarItensPedido} products={products} />}
         {/* activeTab === "opmobile" agora é tratado pelo branch dedicado no início desta função (sem cabeçalho/grade de módulos) */}
         {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} toggleLoja={toggleLoja} editarLoja={editarLoja} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} filtraLoja={filtraLoja} pesquisas={pesquisas} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} cancelarPedido={cancelarPedido} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} salvarConfigCrm={salvarConfigCrm} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} assinaturas={assinaturas} promocoes={filtraLoja(promocoes)} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} opcoesApi={{ grupos: filtraLoja(gruposOpcoes), opcoes: filtraLoja(opcoes), addGrupo: addGrupoOpcoes, editarGrupo: editarGrupoOpcoes, removerGrupo: removerGrupoOpcoes, addOpcao, editarOpcao, removerOpcao }} setores={filtraLoja(setoresCozinha)} setoresApi={{ add: addSetorCozinha, editar: editarSetorCozinha, remover: removerSetorCozinha }} vincularProdutoSetor={vincularProdutoSetor} salvarProdutoQr={salvarProdutoQr} irParaCozinha={(setorId) => { setCozinhaSetorInicial(setorId ?? null); if (canAccess(currentUser, "kitchen")) setActiveTab("kitchen"); else notify("error", "Sem permissão para acessar o painel da cozinha."); }} caixaAberto={caixaAberto} caixasLoja={filtraLoja(caixas)} caixaApi={{ abrir: abrirCaixaFn, movimentar: movimentarCaixaFn, fechar: fecharCaixaFn, fetchMovimentos: fetchMovimentosCaixa }} fidRegra={fidRegraAtual} fidRecompensas={filtraLoja(fidRecompensas)} fidTransacoes={filtraLoja(fidTransacoes)} fidApi={{ salvarRegra: salvarRegraFid, addRecompensa: addRecompensaFid, removerRecompensa: removerRecompensaFid, lancarPontos }} chamados={filtraLoja(chamados)} atenderChamado={atenderChamadoFn} auditoria={filtraLoja(auditoria)} />}
 
@@ -3719,7 +3727,7 @@ function salvarBuscaRecente(lojaId, item) {
   } catch { return lerBuscasRecentes(lojaId); }
 }
 
-function CashierView({ orders, baixarComandas, formasPagamento = [], lojaInfo, currentUser, caixaAberto = null, auditar = () => {}, conexaoOk = true }) {
+function CashierView({ orders, baixarComandas, formasPagamento = [], lojaInfo, currentUser, caixaAberto = null, auditar = () => {}, conexaoOk = true, editarItensPedido = async () => {}, products = [] }) {
 
   // ── Busca (mesa | comanda) ──────────────────────────────────
   const [searchMode, setSearchMode] = useState("mesa"); // "mesa" | "comanda"
@@ -3916,6 +3924,28 @@ function CashierView({ orders, baixarComandas, formasPagamento = [], lojaInfo, c
   }
   function removerLinhaPagamento(uid) {
     setLinhasPagamento((cur) => cur.filter((l) => l.uid !== uid));
+  }
+
+  // ── Edição de itens da conta (ajuste no caixa) ─────────────────
+  const [addItemPara, setAddItemPara] = useState(null); // comanda alvo do modal
+  function alterarQtdItem(orderId, idx, delta) {
+    const alvo = orders.find((o) => o.id === orderId);
+    if (!alvo) return;
+    const novos = alvo.items
+      .map((it, i) => i === idx ? { ...it, quantity: Math.max(0, (it.quantity || 1) + delta) } : it)
+      .filter((it) => (it.quantity || 0) > 0);
+    editarItensPedido(orderId, novos);
+  }
+  function removerItem(orderId, idx) {
+    const alvo = orders.find((o) => o.id === orderId);
+    if (!alvo) return;
+    editarItensPedido(orderId, alvo.items.filter((_, i) => i !== idx));
+  }
+  function confirmarAdicionarItem(produto, qtd) {
+    const alvo = pedidos.find((o) => o.command === addItemPara) || pedidos[0];
+    if (!alvo) { setAddItemPara(null); return; }
+    editarItensPedido(alvo.id, [...alvo.items, { name: produto.name, quantity: Math.max(1, qtd), price: Number(produto.price) || 0, observation: "" }]);
+    setAddItemPara(null);
   }
 
   // ── Teclado numérico (mockup) ──────────────────────────────────
@@ -4210,8 +4240,9 @@ function CashierView({ orders, baixarComandas, formasPagamento = [], lojaInfo, c
       }
       if (e.key === "F2") { e.preventDefault(); setSearchMode("mesa"); mesaInputRef.current?.focus(); }
       else if (e.key === "F3") { e.preventDefault(); setSearchMode("comanda"); comandaInputRef.current?.focus(); }
-      else if (e.key === "F8" && pedidos.length > 0) { e.preventDefault(); imprimirConferencia(); }
-      else if (e.key === "F10" && podeConfirmarPagamento) { e.preventDefault(); abrirConfirmacao(); }
+      else if ((e.key === "F4" || e.key === "F8") && pedidos.length > 0) { e.preventDefault(); imprimirConferencia(); }
+      else if (e.key === "F5" || e.key === "F10") { if (podeConfirmarPagamento) { e.preventDefault(); abrirConfirmacao(); } }
+      else if (e.key === "F6" && temConta) { e.preventDefault(); setMobileStep("pagamento"); }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
@@ -4295,6 +4326,7 @@ function CashierView({ orders, baixarComandas, formasPagamento = [], lojaInfo, c
           onImprimirConferencia={imprimirConferencia}
           onVoltarBusca={() => setMobileStep("buscar")}
           conflitoAtualizacao={conflitoAtualizacao} onReconferir={reconferirConta}
+          onQtd={alterarQtdItem} onRemover={removerItem} onAdicionar={setAddItemPara}
         />
 
         {/* Coluna 3 — Pagamento */}
@@ -4320,12 +4352,27 @@ function CashierView({ orders, baixarComandas, formasPagamento = [], lojaInfo, c
         />
       </div>
 
-      {/* ── Barra de ações (desktop) — elementos do mockup ── */}
-      {temConta && (
-        <div className="hidden shrink-0 border-t border-[var(--pp-border)] bg-[var(--pp-surface)] px-4 py-3 lg:block">
-          <CheckoutFooterActions onFecharConta={abrirConfirmacao} podeFechar={podeConfirmarPagamento} onImprimir={imprimirConferencia} />
+      {/* ── Rodapé: atalhos rápidos + status (desktop) — mockup ── */}
+      <footer className="hidden shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-t border-[var(--pp-border)] bg-[var(--pp-surface)] px-4 py-2.5 lg:flex lg:px-6">
+        <span className="text-[10px] font-black uppercase tracking-wider text-[var(--pp-text-muted)]">Atalhos rápidos</span>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+          {[["F2", "Buscar mesa"], ["F3", "Abrir comanda"], ["F4", "Pré-conta"], ["F5", "Fechar conta"], ["F6", "Pagamento"]].map(([tecla, rotulo]) => (
+            <span key={tecla} className="flex items-center gap-1.5 text-[13px] text-[var(--pp-text-body)]">
+              <kbd className="rounded-md border border-[var(--pp-border)] bg-[var(--pp-bg)] px-1.5 py-0.5 text-[11px] font-black text-[var(--pp-text-body)]">{tecla}</kbd>
+              {rotulo}
+            </span>
+          ))}
         </div>
-      )}
+        <div className="ml-auto flex items-center gap-4 text-[13px]">
+          <span className={`flex items-center gap-1.5 font-semibold ${conexaoOk ? "text-[var(--pp-success-text)]" : "text-[var(--pp-warning-text)]"}`}>
+            <span className={`h-1.5 w-1.5 rounded-full ${conexaoOk ? "bg-[var(--pp-success)]" : "bg-[var(--pp-warning)]"}`} />
+            {conexaoOk ? "Conexão ativa" : "Reconectando…"}
+          </span>
+          <span className="hidden items-center gap-1.5 text-[var(--pp-text-muted)] sm:flex">
+            <IconImpressora width={14} height={14} /> Backup em dia {agora.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+          </span>
+        </div>
+      </footer>
 
       {/* ── Rodapé sticky (mobile) ── */}
       {temConta && mobileStep !== "buscar" && (
@@ -4370,6 +4417,10 @@ function CashierView({ orders, baixarComandas, formasPagamento = [], lojaInfo, c
         />
       )}
 
+      {addItemPara && (
+        <PosAdicionarItemModal comanda={addItemPara} products={products} onAdicionar={confirmarAdicionarItem} onFechar={() => setAddItemPara(null)} />
+      )}
+
       {reimpressaoAberta && (
         <ReimpressaoCupons cupons={cuponsDoDia} lojaInfo={lojaInfo} onSelecionar={(o) => { setCupomReimpressao(o); setReimpressaoAberta(false); }} onFechar={() => setReimpressaoAberta(false)} />
       )}
@@ -4392,70 +4443,69 @@ function PosLocationColumn({ className, searchMode, setSearchMode, mesaQuery, se
   useEffect(() => { if (searchMode === "mesa") mesaInputRef.current?.focus(); }, [searchMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <aside className={`${className} w-full flex-col overflow-y-auto border-[var(--pp-border)] bg-white p-4 md:w-[260px] md:shrink-0 md:border-r lg:w-[300px] lg:p-5`}>
-      <h2 className="text-xs font-black uppercase tracking-widest text-[var(--pp-text-muted)]">Localizar conta</h2>
-
-      {/* Segmented control Mesa / Comanda */}
-      <div role="tablist" aria-label="Tipo de consulta" className="mt-3 flex items-center gap-1 rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-1">
-        {[["mesa", "Mesa", IconMesas], ["comanda", "Comanda", IconComanda]].map(([id, label, Icone]) => (
-          <button key={id} role="tab" aria-selected={searchMode === id} onClick={() => { setSearchMode(id); setSearchError(""); }}
-            className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-black transition ${searchMode === id ? "bg-white text-[var(--pp-primary)] shadow-sm" : "text-[var(--pp-text-body)] hover:text-[var(--pp-text)]"}`}>
-            <Icone width={15} height={15} /> {label}
-          </button>
-        ))}
-      </div>
-
-      {searchMode === "mesa" ? (
-        <div className="mt-3">
-          <label className="mb-1.5 block text-xs font-bold text-[var(--pp-text-body)]" htmlFor="pos-busca-mesa">Número da mesa</label>
-          <div className="flex gap-2">
-            <input id="pos-busca-mesa" ref={mesaInputRef} type="tel" inputMode="numeric" value={mesaQuery}
-              onChange={(e) => { setMesaQuery(e.target.value.replace(/\D/g, "").slice(0, 3)); setSearchError(""); }}
-              onKeyDown={(e) => e.key === "Enter" && onBuscarMesa()}
-              placeholder="Ex.: 07" className="min-h-11 w-full flex-1 rounded-2xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-lg font-black text-[var(--pp-text)] outline-none transition focus:border-[var(--pp-primary)] focus:ring-2 focus:ring-[var(--pp-primary-soft)] placeholder:text-sm placeholder:font-normal placeholder:text-[var(--pp-text-muted)]" />
-            <button onClick={onBuscarMesa} disabled={!mesaQuery} aria-label="Consultar mesa (F2)"
-              className="btn-laranja flex min-h-11 shrink-0 items-center justify-center rounded-2xl bg-[var(--pp-primary)] px-4 text-white transition hover:bg-[var(--pp-primary-hover)] disabled:bg-[var(--pp-bg)] disabled:text-[var(--pp-text-muted)]">
-              <IconBusca />
-            </button>
-          </div>
+    <aside className={`${className} w-full flex-col gap-4 overflow-y-auto bg-[var(--pp-bg)] p-4 md:w-[248px] md:shrink-0 lg:w-[268px]`}>
+      {/* Consulta rápida */}
+      <div className="rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-surface)] p-3.5">
+        <p className="text-[11px] font-black uppercase tracking-widest text-[var(--pp-text-muted)]">Consulta rápida</p>
+        <div className="mt-3 space-y-2">
+          {[["mesa", "Mesa", IconMesas, true], ["comanda", "Comanda", IconComanda, true], ["cliente", "Cliente", IconUsuarios, false], ["pedido", "Pedido", IconRecibo, false]].map(([id, label, Icone, ativo]) => {
+            const on = searchMode === id;
+            return (
+              <button key={id} type="button" disabled={!ativo} title={ativo ? undefined : "Em breve"}
+                onClick={() => { if (ativo) { setSearchMode(id); setSearchError(""); } }}
+                className={`flex w-full items-center gap-2.5 rounded-xl px-3.5 py-3 text-sm font-bold transition ${
+                  on ? "btn-laranja text-white"
+                  : ativo ? "border border-[var(--pp-border)] bg-[var(--pp-surface)] text-[var(--pp-text-body)] hover:bg-[var(--pp-bg)]"
+                  : "border border-[var(--pp-border)] bg-[var(--pp-surface)] text-[var(--pp-text-muted)] opacity-60"}`}>
+                <Icone width={17} height={17} /> {label}
+              </button>
+            );
+          })}
         </div>
-      ) : (
-        <div className="mt-3">
-          <label className="mb-1.5 block text-xs font-bold text-[var(--pp-text-body)]" htmlFor="pos-busca-comanda">Código da comanda</label>
-          <div className="flex gap-2">
-            <input id="pos-busca-comanda" ref={comandaInputRef} value={comandaQuery}
-              onChange={(e) => { setComandaQuery(e.target.value.toUpperCase()); setSearchError(""); }}
-              onKeyDown={(e) => e.key === "Enter" && onBuscarComanda()}
-              placeholder="Ex.: CMD-000123" className="min-h-11 w-full flex-1 rounded-2xl border border-[var(--pp-border)] bg-white px-4 py-2.5 font-mono text-sm font-black tracking-wide text-[var(--pp-text)] outline-none transition focus:border-[var(--pp-primary)] focus:ring-2 focus:ring-[var(--pp-primary-soft)] placeholder:font-sans placeholder:font-normal placeholder:text-[var(--pp-text-muted)]" />
-            <button onClick={onAbrirScanner} aria-label="Ler QR Code da comanda"
-              className="flex min-h-11 shrink-0 items-center justify-center rounded-2xl border border-[var(--pp-border)] bg-white px-3 text-[var(--pp-text-body)] transition hover:bg-[var(--pp-bg)]">
-              <IconQr />
-            </button>
-            <button onClick={onBuscarComanda} disabled={!comandaQuery.trim()} aria-label="Consultar comanda (F3)"
-              className="btn-laranja flex min-h-11 shrink-0 items-center justify-center rounded-2xl bg-[var(--pp-primary)] px-4 text-white transition hover:bg-[var(--pp-primary-hover)] disabled:bg-[var(--pp-bg)] disabled:text-[var(--pp-text-muted)]">
-              <IconBusca />
-            </button>
-          </div>
-        </div>
-      )}
-      {searchError && <p role="alert" className="mt-2 text-xs font-bold text-[var(--pp-danger)]">{searchError}</p>}
 
-      {recentSearches.length > 0 && (
-        <div className="mt-4">
-          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]">Buscas recentes</p>
-          <div className="flex flex-wrap gap-1.5">
-            {recentSearches.map((b, i) => (
+        {searchMode === "mesa" && (
+          <div className="mt-3">
+            <label className="mb-1.5 block text-[11px] font-bold text-[var(--pp-text-body)]" htmlFor="pos-busca-mesa">Número da mesa</label>
+            <div className="flex gap-2">
+              <input id="pos-busca-mesa" ref={mesaInputRef} type="tel" inputMode="numeric" value={mesaQuery}
+                onChange={(e) => { setMesaQuery(e.target.value.replace(/\D/g, "").slice(0, 3)); setSearchError(""); }}
+                onKeyDown={(e) => e.key === "Enter" && onBuscarMesa()}
+                placeholder="Ex.: 07" className="min-h-11 w-full flex-1 rounded-xl border border-[var(--pp-border)] bg-[var(--pp-surface)] px-3.5 py-2.5 text-lg font-black text-[var(--pp-text)] outline-none transition focus:border-[var(--pp-primary)] focus:ring-2 focus:ring-[var(--pp-primary-soft)] placeholder:text-sm placeholder:font-normal placeholder:text-[var(--pp-text-muted)]" />
+              <button onClick={onBuscarMesa} disabled={!mesaQuery} aria-label="Consultar mesa (F2)"
+                className="btn-laranja grid min-h-11 w-11 shrink-0 place-items-center rounded-xl text-white disabled:opacity-50"><IconBusca /></button>
+            </div>
+          </div>
+        )}
+        {searchMode === "comanda" && (
+          <div className="mt-3">
+            <label className="mb-1.5 block text-[11px] font-bold text-[var(--pp-text-body)]" htmlFor="pos-busca-comanda">Código da comanda</label>
+            <div className="flex gap-2">
+              <input id="pos-busca-comanda" ref={comandaInputRef} value={comandaQuery}
+                onChange={(e) => { setComandaQuery(e.target.value.toUpperCase()); setSearchError(""); }}
+                onKeyDown={(e) => e.key === "Enter" && onBuscarComanda()}
+                placeholder="Ex.: CMD-000123" className="min-h-11 w-full flex-1 rounded-xl border border-[var(--pp-border)] bg-[var(--pp-surface)] px-3 py-2.5 font-mono text-sm font-black tracking-wide text-[var(--pp-text)] outline-none transition focus:border-[var(--pp-primary)] focus:ring-2 focus:ring-[var(--pp-primary-soft)] placeholder:font-sans placeholder:font-normal placeholder:text-[var(--pp-text-muted)]" />
+              <button onClick={onAbrirScanner} aria-label="Ler QR Code da comanda"
+                className="grid min-h-11 w-11 shrink-0 place-items-center rounded-xl border border-[var(--pp-border)] bg-[var(--pp-surface)] text-[var(--pp-text-body)] transition hover:bg-[var(--pp-bg)]"><IconQr /></button>
+              <button onClick={onBuscarComanda} disabled={!comandaQuery.trim()} aria-label="Consultar comanda (F3)"
+                className="btn-laranja grid min-h-11 w-11 shrink-0 place-items-center rounded-xl text-white disabled:opacity-50"><IconBusca /></button>
+            </div>
+          </div>
+        )}
+        {searchError && <p role="alert" className="mt-2 text-xs font-bold text-[var(--pp-danger)]">{searchError}</p>}
+        {recentSearches.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {recentSearches.slice(0, 4).map((b, i) => (
               <button key={i} onClick={() => onSelecionarRecente(b)}
-                className="rounded-full border border-[var(--pp-border)] bg-[var(--pp-bg)] px-2.5 py-1 text-xs font-bold text-[var(--pp-text-body)] transition hover:border-[var(--pp-primary)] hover:text-[var(--pp-primary)]">
+                className="rounded-full border border-[var(--pp-border)] bg-[var(--pp-bg)] px-2.5 py-1 text-[11px] font-bold text-[var(--pp-text-body)] transition hover:border-[var(--pp-primary)] hover:text-[var(--pp-primary-text)]">
                 {b.tipo === "mesa" ? `Mesa ${b.valor}` : b.valor}
               </button>
             ))}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Contas abertas */}
-      <div className="mt-6">
+      <div className="rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-surface)] p-3.5">
         <div className="flex items-center justify-between">
           <p className="text-[11px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]">Contas abertas</p>
           <span className="rounded-full bg-[var(--pp-bg)] px-2 py-0.5 text-[11px] font-black text-[var(--pp-text-body)]">{contasFiltradas.length}</span>
@@ -4493,7 +4543,7 @@ function PosLocationColumn({ className, searchMode, setSearchMode, mesaQuery, se
 
       {/* Indicadores do turno */}
       {indicadores && (
-        <div className="mt-6 rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-surface)] p-3.5">
+        <div className="rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-surface)] p-3.5">
           <p className="mb-1 text-[11px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]">Indicadores do turno</p>
           <div className="divide-y divide-[var(--pp-border)]">
             {[
@@ -4519,34 +4569,51 @@ function PosLocationColumn({ className, searchMode, setSearchMode, mesaQuery, se
 //  Cabeçalho do PDV — compacto: empresa, operador, turno, conexão,
 //  data/hora e ações secundárias (só as que têm funcionalidade real).
 // ════════════════════════════════════════════════════════════
-function PosHeader({ lojaInfo, currentUser, agora, situacaoTurno, conexaoOk, cuponsDoDia, menuAcoesAberto, setMenuAcoesAberto, onReimprimir, onSair }) {
+function PosHeader({ currentUser, agora, conexaoOk, cuponsDoDia, menuAcoesAberto, setMenuAcoesAberto, onReimprimir, onSair }) {
+  const svg = "h-[15px] w-[15px] text-[var(--pp-text-muted)]";
   return (
-    <header className="relative flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-[var(--pp-border)] bg-white px-4 py-3 sm:px-6">
-      <div className="flex items-center gap-3">
-        <button onClick={onSair} aria-label="Voltar" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-bg)] text-[var(--pp-text-body)] transition hover:bg-[var(--pp-bg)] lg:hidden">
-          <IconFechar width={16} height={16} />
-        </button>
+    <header className="relative flex h-16 shrink-0 items-center gap-3 border-b border-[var(--pp-border)] bg-[var(--pp-surface)] px-4 lg:gap-4 lg:px-6">
+      {/* Marca */}
+      <div className="flex items-center gap-2.5">
         <LogoPP size={36} />
-        <div className="min-w-0">
-          <p className="truncate text-base font-black leading-tight text-[var(--pp-text)]">Caixa{lojaInfo && <span className="font-bold text-[var(--pp-text-body)]"> · {lojaInfo.nome}</span>}</p>
-          <p className="truncate text-xs text-[var(--pp-text-body)]">{currentUser?.name || "Operador"}</p>
-        </div>
+        <span className="whitespace-nowrap text-lg font-black leading-none">
+          <span className="text-[var(--pp-primary)]">Pedido Prime</span> <span className="text-[var(--pp-text)]">PDV</span>
+        </span>
+        <span className={`ml-1 hidden items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold sm:inline-flex ${conexaoOk ? "bg-[var(--pp-success-soft)] text-[var(--pp-success-text)]" : "bg-[var(--pp-warning-soft)] text-[var(--pp-warning-text)]"}`}>
+          <span className={`h-1.5 w-1.5 rounded-full ${conexaoOk ? "bg-[var(--pp-success)]" : "bg-[var(--pp-warning)]"}`} aria-hidden="true" />
+          {conexaoOk ? "Operação normal" : "Reconectando…"}
+        </span>
       </div>
 
-      <div className="flex flex-1 items-center justify-end gap-2 sm:flex-initial">
-        <span className={`hidden items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-black sm:flex ${situacaoTurno === "aberto" ? "border-[var(--pp-success)] bg-[var(--pp-success-soft)] text-[var(--pp-success-text)]" : "border-[var(--pp-border)] bg-[var(--pp-bg)] text-[var(--pp-text-body)]"}`}>
-          <span className={`h-1.5 w-1.5 rounded-full ${situacaoTurno === "aberto" ? "bg-[var(--pp-success)]" : "bg-[var(--pp-text-muted)]"}`} aria-hidden="true" />
-          {situacaoTurno === "aberto" ? "Caixa aberto" : "Caixa fechado"}
+      {/* Data / hora */}
+      <div className="ml-2 hidden items-center gap-4 text-sm font-semibold text-[var(--pp-text-body)] md:flex">
+        <span className="flex items-center gap-1.5">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={svg}><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>
+          {agora.toLocaleDateString("pt-BR")}
         </span>
-        <span title={conexaoOk ? "Conectado" : "Reconectando…"} className={`flex h-9 w-9 items-center justify-center rounded-2xl border ${conexaoOk ? "border-[var(--pp-border)] text-[var(--pp-text-muted)]" : "border-[var(--pp-warning)] bg-[var(--pp-warning-soft)] text-[var(--pp-warning-text)]"}`}>
-          {conexaoOk ? <span className="h-2 w-2 rounded-full bg-[var(--pp-success)]" aria-hidden="true" /> : <IconWifiOff width={15} height={15} />}
+        <span className="flex items-center gap-1.5">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={svg}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
+          {agora.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
         </span>
-        <span className="hidden text-xs text-[var(--pp-text-body)] md:block">
-          {agora.toLocaleDateString("pt-BR")} · {agora.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+      </div>
+
+      {/* Direita: caixa + usuário + ações */}
+      <div className="ml-auto flex items-center gap-3 sm:gap-4">
+        <span className="hidden items-center gap-1.5 text-sm font-semibold text-[var(--pp-text-body)] sm:flex">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={svg}><rect x="2" y="4" width="20" height="13" rx="2" /><path d="M8 21h8M12 17v4" /></svg>
+          Caixa 01
         </span>
+        <div className="flex items-center gap-2.5">
+          <span className="grid h-9 w-9 place-items-center rounded-full bg-[var(--pp-success)] text-sm font-black text-white">{(currentUser?.name || "O").charAt(0).toUpperCase()}</span>
+          <span className="hidden leading-tight sm:block">
+            <span className="block text-sm font-black text-[var(--pp-text)]">{currentUser?.name || "Operador"}</span>
+            <span className="block text-[11px] text-[var(--pp-text-muted)]">Atendente</span>
+          </span>
+        </div>
+
         <div className="relative">
           <button onClick={() => setMenuAcoesAberto((v) => !v)} aria-haspopup="menu" aria-expanded={menuAcoesAberto} aria-label="Mais ações"
-            className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[var(--pp-border)] bg-white text-[var(--pp-text-body)] transition hover:bg-[var(--pp-bg)]">
+            className="grid h-9 w-9 place-items-center rounded-lg border border-[var(--pp-border)] bg-[var(--pp-surface)] text-[var(--pp-text-body)] transition hover:bg-[var(--pp-bg)]">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8" /><circle cx="12" cy="12" r="1.8" /><circle cx="19" cy="12" r="1.8" /></svg>
           </button>
           {menuAcoesAberto && (
@@ -4557,13 +4624,15 @@ function PosHeader({ lojaInfo, currentUser, agora, situacaoTurno, conexaoOk, cup
                   <span className="flex items-center gap-2"><IconImpressora width={16} height={16} className="text-[var(--pp-text-body)]" /> Reimprimir comprovante</span>
                   {cuponsDoDia > 0 && <span className="rounded-full bg-[var(--pp-primary)] px-1.5 py-0.5 text-[10px] font-black text-white">{cuponsDoDia}</span>}
                 </button>
-                <button role="menuitem" onClick={onSair} className="hidden w-full items-center gap-2 border-t border-[var(--pp-border)] px-4 py-3 text-left text-sm font-bold text-[var(--pp-text-body)] transition hover:bg-[var(--pp-bg)] lg:flex">
-                  <IconFechar width={16} height={16} className="text-[var(--pp-text-body)]" /> Voltar à operação
-                </button>
               </div>
             </>
           )}
         </div>
+
+        <button onClick={onSair} aria-label="Fechar caixa"
+          className="grid h-9 w-9 place-items-center rounded-lg border border-[var(--pp-border)] bg-[var(--pp-surface)] text-[var(--pp-text-body)] transition hover:bg-[var(--pp-bg)]">
+          <IconFechar width={16} height={16} />
+        </button>
       </div>
     </header>
   );
@@ -4572,7 +4641,7 @@ function PosHeader({ lojaInfo, currentUser, agora, situacaoTurno, conexaoOk, cup
 // ════════════════════════════════════════════════════════════
 //  Coluna 2 — Conta selecionada: cabeçalho de contexto + pedidos/itens
 // ════════════════════════════════════════════════════════════
-function PosAccountColumn({ className, temConta, contaVazia, comandaJaUsada, comandasLidas, porComanda, mesas, pedidos, pendentesPreparo, splitMode, selDe, toggleItem, setDividirItem, chavesPagas, onRemoverComanda, onLimparConta, onImprimirConferencia, onVoltarBusca, conflitoAtualizacao, onReconferir }) {
+function PosAccountColumn({ className, temConta, contaVazia, comandaJaUsada, comandasLidas, porComanda, mesas, pedidos, pendentesPreparo, splitMode, selDe, toggleItem, setDividirItem, chavesPagas, onRemoverComanda, onLimparConta, onImprimirConferencia, onVoltarBusca, conflitoAtualizacao, onReconferir, onQtd, onRemover, onAdicionar }) {
   if (!temConta) {
     return (
       <section className={`${className} w-full flex-col items-center justify-center overflow-y-auto p-8 lg:flex-1`}>
@@ -4601,101 +4670,150 @@ function PosAccountColumn({ className, temConta, contaVazia, comandaJaUsada, com
   }
 
   const abertura = pedidos.reduce((min, o) => (!min || (o.createdAtISO || "") < min) ? (o.createdAtISO || min) : min, null);
+  const cliente = pedidos.find((o) => o.customer)?.customer || "";
+  const inicio = abertura ? new Date(abertura) : null;
+  const minAberta = inicio ? Math.max(0, Math.floor((Date.now() - inicio.getTime()) / 60000)) : null;
+  const tempoAberta = minAberta == null ? null : minAberta < 60 ? `${minAberta}min` : `${Math.floor(minAberta / 60)}h ${String(minAberta % 60).padStart(2, "0")}min`;
+  const comandaPrincipal = porComanda.find((b) => b.pedidos.length > 0)?.comanda || comandasLidas[0];
+  const COLS = "sm:grid-cols-[minmax(0,1fr)_104px_88px_72px_82px_24px]";
 
   return (
-    <section className={`${className} w-full flex-col overflow-hidden md:flex-1 md:border-r md:border-[var(--pp-border)]`}>
-      {/* Cabeçalho de contexto — sempre visível durante o pagamento */}
-      <div className="shrink-0 border-b border-[var(--pp-border)] bg-white px-4 py-3 sm:px-6">
-        <button onClick={onVoltarBusca} className="mb-2 flex items-center gap-1.5 text-xs font-bold text-[var(--pp-text-body)] hover:text-[var(--pp-text)] lg:hidden">← Nova busca</button>
-        <div className="flex flex-wrap items-start justify-between gap-2">
-          <div className="min-w-0">
-            <p className="text-lg font-black text-[var(--pp-text)]">{mesas.join(", ") || comandasLidas.join(", ")}</p>
-            <p className="text-xs text-[var(--pp-text-body)]">{comandasLidas.length} comanda(s) · {pedidos.length} pedido(s){abertura ? ` · aberta às ${new Date(abertura).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}` : ""}</p>
-          </div>
-          <div className="flex shrink-0 items-center gap-1.5">
-            <button onClick={onImprimirConferencia} title="Imprimir conferência" aria-label="Imprimir conferência"
-              className="flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--pp-border)] bg-white text-[var(--pp-text-body)] transition hover:bg-[var(--pp-bg)]"><IconImpressora width={16} height={16} /></button>
-            <button onClick={onLimparConta} title="Limpar conta selecionada" aria-label="Limpar conta selecionada"
-              className="flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--pp-border)] bg-white text-[var(--pp-text-muted)] transition hover:bg-[var(--pp-danger-soft)] hover:text-[var(--pp-danger)]"><IconFechar width={15} height={15} /></button>
-          </div>
+    <section className={`${className} w-full flex-col gap-4 overflow-y-auto bg-[var(--pp-bg)] p-4 md:flex-1`}>
+      <button onClick={onVoltarBusca} className="flex items-center gap-1.5 text-xs font-bold text-[var(--pp-text-body)] hover:text-[var(--pp-text)] lg:hidden">← Nova busca</button>
+
+      {/* Identificação */}
+      <div className="rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-surface)] p-5">
+        <div className="flex items-start justify-between">
+          <p className="text-[11px] font-black uppercase tracking-widest text-[var(--pp-text-muted)]">Identificação</p>
+          <button onClick={onLimparConta} aria-label="Limpar conta selecionada"
+            className="grid h-7 w-7 place-items-center rounded-lg text-[var(--pp-text-muted)] transition hover:bg-[var(--pp-bg)] hover:text-[var(--pp-danger)]"><IconFechar width={15} height={15} /></button>
         </div>
+        <h1 className="mt-1 text-3xl font-black tracking-tight text-[var(--pp-text)]">{mesas.join(", ") || comandasLidas.join(", ")}</h1>
+        <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[13px] text-[var(--pp-text-muted)]">
+          <span className="flex items-center gap-1.5"><IconMesas width={13} height={13} /> {comandasLidas.length} comanda(s) · {pedidos.length} pedido(s)</span>
+          {cliente && (<><span>·</span><span>{cliente}</span></>)}
+          {abertura && (<><span>·</span><span>Aberta em {new Date(abertura).toLocaleDateString("pt-BR")} às {new Date(abertura).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span></>)}
+        </p>
+        {tempoAberta && (
+          <span className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-[var(--pp-warning-soft)] px-2.5 py-1 text-xs font-bold text-[var(--pp-warning-text)]">
+            <IconRelogio width={13} height={13} /> Tempo aberta: {tempoAberta}
+          </span>
+        )}
         {pendentesPreparo.length > 0 && (
-          <div className="mt-2 flex items-center gap-2 rounded-xl border border-[var(--pp-warning)] bg-[var(--pp-warning-soft)] px-3 py-2 text-xs font-bold text-[var(--pp-warning-text)]">
+          <div className="mt-3 flex items-center gap-2 rounded-xl border border-[var(--pp-warning)] bg-[var(--pp-warning-soft)] px-3 py-2 text-xs font-bold text-[var(--pp-warning-text)]">
             <IconAlerta width={14} height={14} className="shrink-0" /> {pendentesPreparo.length} pedido(s) ainda em preparo — pagamento liberado após finalizados/entregues.
           </div>
         )}
         {conflitoAtualizacao && (
-          <div role="alert" className="mt-2 flex items-center justify-between gap-2 rounded-xl border border-[var(--pp-danger)] bg-[var(--pp-danger-soft)] px-3 py-2 text-xs font-bold text-[var(--pp-danger)]">
+          <div role="alert" className="mt-3 flex items-center justify-between gap-2 rounded-xl border border-[var(--pp-danger)] bg-[var(--pp-danger-soft)] px-3 py-2 text-xs font-bold text-[var(--pp-danger)]">
             <span className="flex items-center gap-2"><IconAlerta width={14} height={14} className="shrink-0" /> A conta foi atualizada durante o pagamento.</span>
             <button onClick={onReconferir} className="shrink-0 rounded-lg border border-[var(--pp-danger)] bg-white px-2 py-1 font-black hover:bg-[var(--pp-danger-soft)]">Revisei, continuar</button>
           </div>
         )}
       </div>
 
-      {/* Lista de pedidos/itens */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6">
+      {/* Itens consumidos */}
+      <div className="rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-surface)] p-5">
+        <div className="flex items-center justify-between">
+          <p className="text-[11px] font-black uppercase tracking-widest text-[var(--pp-text-muted)]">Itens consumidos</p>
+          <button onClick={onImprimirConferencia} title="Imprimir conferência" aria-label="Imprimir conferência"
+            className="grid h-8 w-8 place-items-center rounded-lg border border-[var(--pp-border)] bg-[var(--pp-surface)] text-[var(--pp-text-body)] transition hover:bg-[var(--pp-bg)]"><IconImpressora width={15} height={15} /></button>
+        </div>
+        {/* Cabeçalho da tabela (desktop) */}
+        <div className={`mt-3 hidden ${COLS} gap-x-3 border-b border-[var(--pp-border)] pb-2 text-[10px] font-black uppercase tracking-wider text-[var(--pp-text-muted)] sm:grid`}>
+          <span>Produto</span><span className="text-center">Qtd.</span>
+          <span>{splitMode === "item" ? "Dividir" : "Observação"}</span>
+          <span className="text-right">Unitário</span><span className="text-right">Total</span><span />
+        </div>
+
         {porComanda.filter((b) => b.pedidos.length > 0).map(({ comanda, pedidos: peds, subtotal: sub }) => (
-          <div key={comanda} className="mb-4 overflow-hidden rounded-2xl border border-[var(--pp-border)] bg-white shadow-[0_4px_16px_rgba(16,24,40,.04)]">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--pp-border)] bg-[var(--pp-bg)] px-4 py-2.5">
-              <div className="flex items-center gap-2">
-                <span className="rounded-lg border border-[var(--op-nav-accent)] bg-[var(--op-nav-accent-soft)] px-2 py-0.5 font-mono text-xs font-black text-[var(--op-nav-accent)]">{comanda}</span>
-                {comandasLidas.length > 1 && (
-                  <button onClick={() => onRemoverComanda(comanda)} aria-label={`Remover comanda ${comanda} da conta`} className="rounded-md px-1.5 py-0.5 text-[11px] font-bold text-[var(--pp-text-muted)] hover:bg-[var(--pp-danger-soft)] hover:text-[var(--pp-danger)]">remover</button>
-                )}
+          <div key={comanda}>
+            {comandasLidas.length > 1 && (
+              <div className="mt-3 flex items-center justify-between gap-2 border-b border-[var(--pp-border)] pb-1.5">
+                <div className="flex items-center gap-2">
+                  <span className="rounded-md border border-[var(--op-nav-accent)] bg-[var(--op-nav-accent-soft)] px-1.5 py-0.5 font-mono text-[11px] font-black text-[var(--op-nav-accent)]">{comanda}</span>
+                  <button onClick={() => onRemoverComanda(comanda)} className="text-[11px] font-bold text-[var(--pp-text-muted)] hover:text-[var(--pp-danger)]">remover</button>
+                </div>
+                <span className="text-xs font-black text-[var(--pp-text)]">{formatCurrency(sub)}</span>
               </div>
-              <span className="text-sm font-black text-[var(--pp-text)]">{formatCurrency(sub)}</span>
-            </div>
-            <div className="divide-y divide-[var(--pp-bg)]">
-              {peds.map((o) => (
-                <div key={o.id} className="px-4 py-2.5">
-                  <p className="mb-1 flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]">
-                    {o.id} · {o.createdAt} <StatusChip status={o.status} />
-                  </p>
-                  {o.items.map((it, i) => {
-                    const pago = chavesPagas.has(`${o.id}::${i}`);
-                    const s = selDe(o.id, i);
-                    const incluido = !pago && (splitMode === "item" ? s.incluir : true);
-                    const valor = (it.price * it.quantity) / (s.dividir || 1);
-                    const detalhes = [it.removedIngredients?.length ? `Sem: ${it.removedIngredients.join(", ")}` : null, it.extraIngredients?.length ? `Com: ${it.extraIngredients.join(", ")}` : null, it.observation || null].filter(Boolean).join(" · ");
-                    return (
-                      <div key={i} className={`flex items-center gap-2 rounded-xl px-2 py-1.5 text-sm ${pago ? "bg-[var(--pp-success-soft)]" : splitMode === "item" ? (incluido ? "bg-[var(--op-nav-accent-soft)]" : "opacity-50") : ""}`}>
-                        {splitMode === "item" && !pago && (
-                          <input type="checkbox" checked={incluido} onChange={() => toggleItem(o.id, i)} aria-label={`Incluir ${it.name} na cobrança`} className="h-4 w-4 shrink-0 accent-[var(--pp-primary)]" />
-                        )}
-                        <div className="min-w-0 flex-1">
-                          <p className={`truncate ${pago ? "text-[var(--pp-success-text)] line-through" : "text-[var(--pp-text-body)]"}`}><span className={`font-black ${pago ? "" : "text-[var(--pp-text)]"}`}>{it.quantity}x</span> {it.name}</p>
-                          {detalhes && <p className="truncate text-[11px] text-[var(--pp-text-muted)]">{detalhes}</p>}
-                        </div>
-                        {pago && <span className="shrink-0 rounded-md bg-[var(--pp-success)] px-1.5 py-0.5 text-[10px] font-black uppercase text-[var(--pp-success-text)]">Pago</span>}
-                        {splitMode === "item" && incluido && (
-                          <div className="flex shrink-0 items-center gap-1 rounded-lg border border-[var(--pp-border)] bg-white px-1.5 py-0.5" role="group" aria-label={`Dividir ${it.name} entre pessoas`}>
+            )}
+            <div className="divide-y divide-[var(--pp-border)]">
+              {peds.flatMap((o) => o.items.map((it, i) => {
+                const pago = chavesPagas.has(`${o.id}::${i}`);
+                const s = selDe(o.id, i);
+                const incluido = !pago && (splitMode === "item" ? s.incluir : true);
+                const totalItem = it.price * it.quantity;
+                const valorPagar = totalItem / (s.dividir || 1);
+                const custom = [it.removedIngredients?.length ? `Sem: ${it.removedIngredients.join(", ")}` : null, it.extraIngredients?.length ? `Com: ${it.extraIngredients.join(", ")}` : null].filter(Boolean).join(" · ");
+                const obs = it.observation || "";
+                return (
+                  <div key={`${o.id}::${i}`} className={`grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-2 py-3 ${COLS} ${splitMode === "item" && !pago && !incluido ? "opacity-50" : ""}`}>
+                    {/* Produto */}
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      {splitMode === "item" && !pago && (
+                        <input type="checkbox" checked={incluido} onChange={() => toggleItem(o.id, i)} aria-label={`Incluir ${it.name} na cobrança`} className="h-4 w-4 shrink-0 accent-[var(--pp-primary)]" />
+                      )}
+                      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-[var(--pp-border)] bg-[var(--pp-bg)] text-[var(--pp-text-muted)]"><IconCardapio width={16} height={16} /></span>
+                      <div className="min-w-0">
+                        <p className={`line-clamp-2 text-sm font-black leading-tight ${pago ? "text-[var(--pp-success-text)] line-through" : "text-[var(--pp-text)]"}`}>{it.name}</p>
+                        {custom && <p className="truncate text-xs text-[var(--pp-text-muted)]">{custom}</p>}
+                        {obs && <p className="truncate text-xs text-[var(--pp-text-muted)] sm:hidden">Obs.: {obs}</p>}
+                        {pago && <span className="mt-0.5 inline-block rounded bg-[var(--pp-success)] px-1.5 py-0.5 text-[9px] font-black uppercase text-white">Pago</span>}
+                      </div>
+                    </div>
+
+                    {/* Qtd — editável */}
+                    <div className="justify-self-end sm:justify-self-center">
+                      <div className={`flex items-center overflow-hidden rounded-lg border border-[var(--pp-border)] ${pago ? "opacity-40" : ""}`}>
+                        <button type="button" disabled={pago} onClick={() => onQtd(o.id, i, -1)} aria-label="Diminuir quantidade" className="grid h-8 w-8 place-items-center text-[var(--pp-text-body)] transition-colors hover:bg-[var(--pp-bg)] disabled:cursor-not-allowed"><IconMenos /></button>
+                        <span className="grid h-8 w-9 place-items-center border-x border-[var(--pp-border)] text-sm font-black tabular-nums text-[var(--pp-text)]">{it.quantity}</span>
+                        <button type="button" disabled={pago} onClick={() => onQtd(o.id, i, 1)} aria-label="Aumentar quantidade" className="grid h-8 w-8 place-items-center text-[var(--pp-text-body)] transition-colors hover:bg-[var(--pp-bg)] disabled:cursor-not-allowed"><IconMais /></button>
+                      </div>
+                    </div>
+
+                    {/* Observação OU controle de divisão (modo item) */}
+                    {splitMode === "item" ? (
+                      <div className="hidden sm:block">
+                        {incluido && (
+                          <div className="flex w-fit items-center gap-1 rounded-lg border border-[var(--pp-border)] bg-[var(--pp-surface)] px-1.5 py-0.5" role="group" aria-label={`Dividir ${it.name}`}>
                             <span className="text-xs text-[var(--pp-text-muted)]">÷</span>
-                            <button onClick={() => setDividirItem(o.id, i, (s.dividir || 1) - 1)} aria-label="Diminuir divisão" className="flex h-6 w-6 items-center justify-center rounded bg-[var(--pp-bg)] text-xs font-black text-[var(--pp-text)]">−</button>
+                            <button onClick={() => setDividirItem(o.id, i, (s.dividir || 1) - 1)} aria-label="Diminuir divisão" className="grid h-6 w-6 place-items-center rounded bg-[var(--pp-bg)] text-xs font-black text-[var(--pp-text)]">−</button>
                             <span className="w-4 text-center text-xs font-black text-[var(--pp-text)]">{s.dividir || 1}</span>
-                            <button onClick={() => setDividirItem(o.id, i, (s.dividir || 1) + 1)} aria-label="Aumentar divisão" className="flex h-6 w-6 items-center justify-center rounded bg-[var(--pp-primary)] text-xs font-black text-white">+</button>
+                            <button onClick={() => setDividirItem(o.id, i, (s.dividir || 1) + 1)} aria-label="Aumentar divisão" className="grid h-6 w-6 place-items-center rounded bg-[var(--pp-primary)] text-xs font-black text-white">+</button>
                           </div>
                         )}
-                        <span className={`shrink-0 font-bold ${pago ? "text-[var(--pp-success-text)] line-through" : "text-[var(--pp-text)]"}`}>{formatCurrency(valor)}</span>
                       </div>
-                    );
-                  })}
-                </div>
-              ))}
+                    ) : (
+                      <span className="hidden truncate text-left text-xs font-medium text-[var(--pp-text-muted)] sm:block">{obs || "—"}</span>
+                    )}
+
+                    {/* Unitário */}
+                    <span className="hidden text-right text-sm text-[var(--pp-text-body)] tabular-nums sm:block">{formatCurrency(it.price)}</span>
+
+                    {/* Total (ou valor a pagar no split item) */}
+                    <span className={`col-start-2 row-start-1 text-right text-sm font-black tabular-nums sm:col-start-auto sm:row-start-auto ${pago ? "text-[var(--pp-success-text)] line-through" : "text-[var(--pp-text)]"}`}>
+                      {formatCurrency(splitMode === "item" && incluido ? valorPagar : totalItem)}
+                    </span>
+
+                    {/* Remover item */}
+                    <button type="button" onClick={() => onRemover(o.id, i)} disabled={pago} aria-label={`Remover ${it.name}`} className="hidden place-items-center text-[var(--pp-text-muted)] transition-colors hover:text-[var(--pp-danger)] disabled:opacity-30 sm:grid"><IconLixeira /></button>
+                  </div>
+                );
+              }))}
             </div>
           </div>
         ))}
+
+        <button type="button" onClick={() => onAdicionar(comandaPrincipal)}
+          className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-[var(--pp-primary)] py-3 text-sm font-black text-[var(--pp-primary-text)] transition-colors hover:bg-[var(--pp-primary-soft)]">
+          <IconMais /> Adicionar item
+        </button>
       </div>
     </section>
   );
 }
 
 const POS_ICONE_FORMA = { dinheiro: IconDinheiro, pix: IconPix, cartao_credito: IconPagamento, cartao_debito: IconPagamento, outro: IconCarteira };
-const POS_SPLIT_MODES = [
-  { id: "integral", label: "Conta inteira" },
-  { id: "pessoas", label: "Por pessoas" },
-  { id: "valor", label: "Por valor" },
-  { id: "item", label: "Por item" },
-];
 
 // ════════════════════════════════════════════════════════════
 //  Coluna 3 — Pagamento: resumo financeiro, divisão, formas
@@ -4711,7 +4829,7 @@ function PosPaymentColumn({
   pagamentosFeitos, logFinanceiro, onCancelarPagamento,
   formasPagamento, linhasPagamento, onAddLinha, onSetValorLinha, onRemoverLinha,
   pagoLinhas, restanteLinhas, troco, excedeNaoDinheiro, temDinheiro,
-  onTeclaDigito, onTeclaApagar, onTeclaLimpar, tecladoAtivo,
+  onTeclaDigito, onTeclaApagar, onTeclaLimpar,
   podeConfirmarPagamento, onFinalizarClick, onImprimirConferencia, aPagarMaiorQueRestante,
   conflitoAtualizacao, onReconferir, onVoltarConta,
 }) {
@@ -4723,207 +4841,201 @@ function PosPaymentColumn({
     );
   }
 
+  const formasSel = new Set(linhasPagamento.map((l) => l.formaId));
+
   return (
-    <aside className={`${className} w-full flex-col overflow-hidden border-[var(--pp-border)] bg-white lg:w-[380px] lg:shrink-0 lg:border-l`}>
-      <button onClick={onVoltarConta} className="mt-3 flex items-center gap-1.5 px-4 text-xs font-bold text-[var(--pp-text-body)] hover:text-[var(--pp-text)] lg:hidden">← Ver conta</button>
-      <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-5">
-        {/* Resumo financeiro */}
-        <div className="rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-4">
-          <p className="mb-2 text-[11px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]">Resumo financeiro</p>
-          <div className="space-y-1.5 text-sm">
-            <div className="flex justify-between text-[var(--pp-text-body)]"><span>Subtotal</span><strong className="text-[var(--pp-text)]">{formatCurrency(subtotal)}</strong></div>
-            {!taxaBloqueadaOff ? (
-              <label className={`flex items-center justify-between gap-2 ${taxaFixa ? "" : "cursor-pointer"}`}>
-                <span className="text-[var(--pp-text-body)]">Taxa de serviço ({SERVICE_FEE_CONFIG.percent}%)</span>
-                <input type="checkbox" checked={taxaIncluida} disabled={taxaFixa} onChange={(e) => !taxaFixa && setTaxaIncluida(e.target.checked)} className="h-4 w-4 accent-[var(--pp-primary)] disabled:opacity-70" />
-              </label>
+    <aside className={`${className} w-full flex-col gap-4 overflow-y-auto bg-[var(--pp-bg)] p-4 lg:w-[344px] lg:shrink-0`}>
+      <button onClick={onVoltarConta} className="flex items-center gap-1.5 text-xs font-bold text-[var(--pp-text-body)] hover:text-[var(--pp-text)] lg:hidden">← Ver conta</button>
+
+      {restanteGeral > 0.001 && (
+        <>
+          {/* Digite o código — teclado sempre visível */}
+          <CheckoutKeypad onDigito={onTeclaDigito} onLimpar={onTeclaLimpar} onApagar={onTeclaApagar} onConfirmar={() => {}} confirmarDesabilitado={false} />
+
+          {/* Forma de pagamento */}
+          <div className="rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-surface)] p-4">
+            <p className="text-[11px] font-black uppercase tracking-widest text-[var(--pp-text-muted)]">Forma de pagamento</p>
+            {formasPagamento.length === 0 ? (
+              <p className="mt-3 text-xs text-[var(--pp-text-body)]">Nenhuma forma ativa. Cadastre em Administrativo → Formas de pagamento.</p>
             ) : (
-              <div className="flex justify-between text-[var(--pp-text-muted)]"><span>Taxa de serviço</span><span>não cobrada</span></div>
+              <div className="mt-3 grid grid-cols-3 gap-2.5">
+                {formasPagamento.map((f) => {
+                  const Icone = POS_ICONE_FORMA[f.tipo] || IconCarteira;
+                  const on = formasSel.has(f.id);
+                  return (
+                    <button key={f.id} type="button" onClick={() => onAddLinha(f)} disabled={total <= 0}
+                      className={`relative grid place-items-center gap-1.5 rounded-xl border px-2 py-3 text-[11px] font-bold transition disabled:opacity-40 ${on ? "border-[var(--pp-primary)] bg-[var(--pp-primary-soft)] text-[var(--pp-text)]" : "border-[var(--pp-border)] bg-[var(--pp-surface)] text-[var(--pp-text-body)] hover:bg-[var(--pp-bg)]"}`}>
+                      {on && <span className="absolute right-1.5 top-1.5 grid h-4 w-4 place-items-center rounded-full bg-[var(--pp-primary)] text-white"><IconCheck width={10} height={10} /></span>}
+                      <Icone width={19} height={19} className={on ? "text-[var(--pp-primary-text)]" : ""} /> <span className="truncate">{f.nome}</span>
+                    </button>
+                  );
+                })}
+              </div>
             )}
-            {SERVICE_FEE_CONFIG.partialStrategy === "manual" && splitMode === "item" && taxaIncluida && (
-              <label className="block pt-1"><span className="mb-1 block text-[11px] font-bold text-[var(--pp-text-body)]">Valor manual da taxa</span>
-                <input type="number" min="0" step="0.01" value={taxaManualValor} onChange={(e) => setTaxaManualValor(Math.max(0, Number(e.target.value) || 0))}
-                  className="w-full rounded-xl border border-[var(--pp-border)] bg-white px-3 py-1.5 text-sm text-[var(--pp-text)] outline-none focus:border-[var(--pp-primary)]" /></label>
+
+            {linhasPagamento.length > 0 && (
+              <div className="mt-3 space-y-2 border-t border-[var(--pp-border)] pt-3">
+                {linhasPagamento.map((l) => (
+                  <div key={l.uid} className="rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-2.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm font-black text-[var(--pp-text)]">{l.nome}{l.permiteTroco && <span className="ml-1.5 rounded-full bg-[var(--pp-success-soft)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--pp-success-text)]">troco</span>}</p>
+                      <button onClick={() => onRemoverLinha(l.uid)} aria-label={`Remover ${l.nome}`} className="rounded-md px-1.5 py-0.5 text-[11px] font-bold text-[var(--pp-text-muted)] hover:bg-[var(--pp-danger-soft)] hover:text-[var(--pp-danger)]">remover</button>
+                    </div>
+                    <div className="mt-1.5 flex items-center gap-2">
+                      <span className="text-sm font-bold text-[var(--pp-text-body)]">R$</span>
+                      <input inputMode="numeric" value={numeroParaMoeda(l.valor)} onChange={(e) => onSetValorLinha(l.uid, e.target.value)} onFocus={(e) => e.target.select()}
+                        aria-label={`Valor recebido em ${l.nome}`}
+                        className="flex-1 rounded-lg border border-[var(--pp-border)] bg-[var(--pp-surface)] px-2.5 py-1.5 text-right text-base font-black text-[var(--pp-text)] outline-none focus:border-[var(--pp-primary)]" />
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
-            <div className="flex justify-between text-[var(--pp-text-body)]"><span>Taxa aplicada</span><strong className="text-[var(--pp-text)]">{formatCurrency(taxa)}</strong></div>
-            <div className="h-px bg-[var(--pp-border)]" />
-            <div className="flex justify-between"><span className="font-bold text-[var(--pp-text-body)]">Total da conta</span><strong className="text-[var(--pp-text)]">{formatCurrency(totalGeral)}</strong></div>
-            {jaPago > 0 && <div className="flex justify-between text-[var(--pp-success)]"><span>Já pago</span><strong>− {formatCurrency(jaPago)}</strong></div>}
-            <div className="flex items-center justify-between rounded-xl bg-white px-2.5 py-2">
-              <span className="text-sm font-black text-[var(--pp-text)]">{restanteGeral <= 0.001 ? "Quitado" : "Saldo restante"}</span>
-              <span className={`text-xl font-black ${restanteGeral <= 0.001 ? "text-[var(--pp-success-text)]" : "text-[var(--pp-text)]"}`}>{formatCurrency(restanteGeral)}</span>
+
+            <div className="mt-3 space-y-1 border-t border-[var(--pp-border)] pt-3 text-sm">
+              <div className="flex justify-between text-[var(--pp-text-body)]"><span>A pagar agora</span><strong className="text-[var(--pp-text)]">{formatCurrency(total)}</strong></div>
+              <div className="flex justify-between text-[var(--pp-text-body)]"><span>Recebido</span><strong className="text-[var(--pp-success)]">{formatCurrency(pagoLinhas)}</strong></div>
+              {restanteLinhas > 0.001 && <div className="flex justify-between text-[var(--pp-warning-text)]"><span>Falta</span><strong>{formatCurrency(restanteLinhas)}</strong></div>}
+              {troco > 0 && <div className="flex justify-between text-[var(--pp-primary)]"><span>Troco</span><strong>{formatCurrency(troco)}</strong></div>}
+              {excedeNaoDinheiro && <p role="alert" className="text-xs font-bold text-[var(--pp-danger)]">Cartão/PIX não pode ultrapassar o total — use dinheiro para o troco.</p>}
+              {troco > 0 && !temDinheiro && <p role="alert" className="text-xs font-bold text-[var(--pp-danger)]">Troco só é permitido com pagamento em dinheiro.</p>}
             </div>
+          </div>
+
+          {/* Divisão da conta */}
+          <div className="rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-surface)] p-4">
+            <p className="text-[11px] font-black uppercase tracking-widest text-[var(--pp-text-muted)]">Divisão da conta</p>
+            <div role="radiogroup" aria-label="Modo de divisão" className="mt-3 grid grid-cols-4 gap-2.5">
+              {[["integral", "Conta inteira", IconRecibo], ["pessoas", "Por pessoas", IconUsuarios], ["valor", "Por valor", IconDinheiro], ["item", "Por item", IconCardapio]].map(([id, label, Icone]) => (
+                <button key={id} type="button" role="radio" aria-checked={splitMode === id} onClick={() => setSplitMode(id)}
+                  className={`grid place-items-center gap-1.5 rounded-xl border px-1.5 py-3 text-center text-[11px] font-bold leading-tight transition ${splitMode === id ? "btn-laranja border-transparent text-white" : "border-[var(--pp-border)] bg-[var(--pp-surface)] text-[var(--pp-text-body)] hover:bg-[var(--pp-bg)]"}`}>
+                  <Icone width={18} height={18} /> <span className="min-w-0">{label}</span>
+                </button>
+              ))}
+            </div>
+
+            {splitMode === "pessoas" && (
+              <div className="mt-3 border-t border-[var(--pp-border)] pt-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-1 rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-1">
+                    <button onClick={() => setPessoas((p) => Math.max(2, p - 1))} aria-label="Diminuir número de pessoas" className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-base font-black text-[var(--pp-text)] hover:bg-[var(--pp-bg)]">−</button>
+                    <span className="w-8 text-center text-base font-black text-[var(--pp-text)]">{pessoas}</span>
+                    <button onClick={() => setPessoas((p) => p + 1)} aria-label="Aumentar número de pessoas" className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--pp-primary)] text-base font-black text-white hover:bg-[var(--pp-primary-hover)]">+</button>
+                  </div>
+                  <div className="flex-1 text-right">
+                    <p className="text-xs text-[var(--pp-text-body)]">{pessoas} pessoas</p>
+                    <p className="text-lg font-black text-[var(--pp-text)]">{formatCurrency(porPessoa)}<span className="text-xs font-normal text-[var(--pp-text-body)]"> /cada</span></p>
+                  </div>
+                </div>
+                <div className="mt-2 space-y-1 border-t border-[var(--pp-border)] pt-2 text-xs">
+                  <div className="flex justify-between text-[var(--pp-text-body)]"><span>Pago</span><strong className="text-[var(--pp-success)]">{formatCurrency(totalPagoSelecaoPessoas)}</strong></div>
+                  <div className="flex justify-between text-[var(--pp-text-body)]"><span>Restante</span><strong className="text-[var(--pp-warning-text)]">{formatCurrency(restanteSelecaoPessoas)}</strong></div>
+                  {pessoasRestantes > 0 && <p className="pt-0.5 font-bold text-[var(--pp-text)]">Cobrar agora (1 pessoa): {formatCurrency(valorPagoAgora)}</p>}
+                </div>
+              </div>
+            )}
+
+            {splitMode === "valor" && (
+              <div className="mt-3 border-t border-[var(--pp-border)] pt-3">
+                <label className="block"><span className="mb-1 block text-xs font-bold text-[var(--pp-text-body)]">Valor a pagar agora</span>
+                  <div className="flex items-center gap-2 rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-3 py-2 focus-within:border-[var(--pp-primary)]">
+                    <span className="text-sm font-bold text-[var(--pp-text-body)]">R$</span>
+                    <input inputMode="numeric" value={numeroParaMoeda(moedaParaNumero(valorParcialTexto))} onChange={(e) => setValorParcialTexto(e.target.value)} onFocus={(e) => e.target.select()}
+                      className="w-full bg-transparent text-right text-lg font-black text-[var(--pp-text)] outline-none" /></div>
+                </label>
+                {valorParcialTexto && !valorParcialValido && <p className="mt-1.5 text-xs font-bold text-[var(--pp-danger)]">Informe um valor entre {formatCurrency(0.01)} e {formatCurrency(restanteGeral)}.</p>}
+              </div>
+            )}
+
+            {splitMode === "item" && (
+              <p className="mt-3 border-t border-[var(--pp-border)] pt-3 text-xs text-[var(--pp-text-body)]">Selecione os itens na conta (coluna ao lado) que serão pagos agora.</p>
+            )}
+
+            {aPagarMaiorQueRestante && (
+              <div className="mt-2 rounded-xl border border-[var(--op-nav-accent)] bg-[var(--op-nav-accent-soft)] p-2.5 text-xs font-bold text-[var(--op-nav-accent)]">Cobrar agora (seleção): {formatCurrency(total)}</div>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* Resumo financeiro */}
+      <div className="rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-surface)] p-4">
+        <p className="mb-2 text-[11px] font-black uppercase tracking-widest text-[var(--pp-text-muted)]">Resumo financeiro</p>
+        <div className="space-y-1.5 text-sm">
+          <div className="flex justify-between text-[var(--pp-text-body)]"><span>Subtotal</span><strong className="text-[var(--pp-text)]">{formatCurrency(subtotal)}</strong></div>
+          {!taxaBloqueadaOff ? (
+            <label className={`flex items-center justify-between gap-2 ${taxaFixa ? "" : "cursor-pointer"}`}>
+              <span className="text-[var(--pp-text-body)]">Taxa de serviço ({SERVICE_FEE_CONFIG.percent}%)</span>
+              <input type="checkbox" checked={taxaIncluida} disabled={taxaFixa} onChange={(e) => !taxaFixa && setTaxaIncluida(e.target.checked)} className="h-4 w-4 accent-[var(--pp-primary)] disabled:opacity-70" />
+            </label>
+          ) : (
+            <div className="flex justify-between text-[var(--pp-text-muted)]"><span>Taxa de serviço</span><span>não cobrada</span></div>
+          )}
+          {SERVICE_FEE_CONFIG.partialStrategy === "manual" && splitMode === "item" && taxaIncluida && (
+            <label className="block pt-1"><span className="mb-1 block text-[11px] font-bold text-[var(--pp-text-body)]">Valor manual da taxa</span>
+              <input type="number" min="0" step="0.01" value={taxaManualValor} onChange={(e) => setTaxaManualValor(Math.max(0, Number(e.target.value) || 0))}
+                className="w-full rounded-xl border border-[var(--pp-border)] bg-white px-3 py-1.5 text-sm text-[var(--pp-text)] outline-none focus:border-[var(--pp-primary)]" /></label>
+          )}
+          <div className="flex justify-between text-[var(--pp-text-body)]"><span>Taxa aplicada</span><strong className="text-[var(--pp-text)]">{formatCurrency(taxa)}</strong></div>
+          <div className="h-px bg-[var(--pp-border)]" />
+          <div className="flex justify-between"><span className="font-bold text-[var(--pp-text-body)]">Total da conta</span><strong className="text-[var(--pp-text)]">{formatCurrency(totalGeral)}</strong></div>
+          {jaPago > 0 && <div className="flex justify-between text-[var(--pp-success)]"><span>Já pago</span><strong>− {formatCurrency(jaPago)}</strong></div>}
+          <div className="flex items-center justify-between rounded-xl bg-[var(--pp-bg)] px-2.5 py-2">
+            <span className="text-sm font-black text-[var(--pp-text)]">{restanteGeral <= 0.001 ? "Quitado" : "Saldo restante"}</span>
+            <span className={`text-xl font-black ${restanteGeral <= 0.001 ? "text-[var(--pp-success-text)]" : "text-[var(--pp-text)]"}`}>{formatCurrency(restanteGeral)}</span>
           </div>
         </div>
-
-        {pendentesPreparo > 0 && (
-          <div className="mt-3 flex items-center gap-2 rounded-xl border border-[var(--pp-warning)] bg-[var(--pp-warning-soft)] px-3 py-2.5 text-xs font-bold text-[var(--pp-warning-text)]">
-            <IconAlerta width={14} height={14} className="shrink-0" /> {pendentesPreparo} pedido(s) em preparo — aguarde para pagar.
-          </div>
-        )}
-
-        {/* Histórico de pagamentos desta conta */}
-        {pagamentosFeitos.length > 0 && (
-          <div className="mt-3 rounded-2xl border border-[var(--pp-success)] bg-[var(--pp-success-soft)] p-3.5">
-            <p className="mb-2 text-[11px] font-bold uppercase tracking-widest text-[var(--pp-success-text)]">Pagamentos registrados ({pagamentosFeitos.length})</p>
-            <div className="space-y-1.5">
-              {pagamentosFeitos.map((p, i) => (
-                <div key={p.id ?? i} className="rounded-xl border border-[var(--pp-border)] bg-white px-3 py-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs text-[var(--pp-text-body)]">{p.hora} · {p.detalhes.map((d) => d.forma).join(", ")}</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-black text-[var(--pp-success-text)]">{formatCurrency(p.valor)}</span>
-                      <button onClick={() => onCancelarPagamento(p.id)} className="rounded-md px-1 py-0.5 text-[10px] font-black text-[var(--pp-text-muted)] hover:bg-[var(--pp-danger-soft)] hover:text-[var(--pp-danger)]">cancelar</button>
-                    </div>
-                  </div>
-                  {p.troco > 0 && <p className="mt-0.5 text-[11px] text-[var(--pp-text-body)]">troco {formatCurrency(p.troco)}</p>}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-        {logFinanceiro.length > 0 && (
-          <details className="mt-3 rounded-2xl border border-[var(--pp-border)] bg-white p-3">
-            <summary className="cursor-pointer text-[11px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]">Log financeiro da sessão</summary>
-            <div className="mt-2 space-y-1">
-              {logFinanceiro.map((l, i) => (
-                <div key={i} className="flex justify-between gap-2 text-xs">
-                  <span className={l.tipo === "pago" ? "text-[var(--pp-success-text)]" : "text-[var(--pp-danger)]"}>{l.tipo === "pago" ? "Parcela paga" : "Parcela reaberta"} · {l.hora}</span>
-                  <span className={`font-bold ${l.tipo === "pago" ? "text-[var(--pp-success-text)]" : "text-[var(--pp-danger)]"}`}>{formatCurrency(l.valor)}</span>
-                </div>
-              ))}
-            </div>
-          </details>
-        )}
-
-        {restanteGeral > 0.001 && (
-          <>
-            {/* Divisão do pagamento */}
-            <div className="mt-3 rounded-2xl border border-[var(--pp-border)] bg-white p-3.5">
-              <fieldset>
-                <legend className="mb-2 text-[11px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]">Dividir pagamento</legend>
-                <div role="radiogroup" aria-label="Modo de divisão" className="grid grid-cols-2 gap-1.5">
-                  {POS_SPLIT_MODES.map((m) => (
-                    <button key={m.id} type="button" role="radio" aria-checked={splitMode === m.id} onClick={() => setSplitMode(m.id)}
-                      className={`rounded-xl border px-2 py-2 text-xs font-black transition ${splitMode === m.id ? "border-[var(--pp-primary)] bg-[var(--op-nav-accent-soft)] text-[var(--pp-primary)]" : "border-[var(--pp-border)] bg-white text-[var(--pp-text-body)] hover:bg-[var(--pp-bg)]"}`}>
-                      {m.label}
-                    </button>
-                  ))}
-                </div>
-              </fieldset>
-
-              {splitMode === "pessoas" && (
-                <div className="mt-3 border-t border-[var(--pp-border)] pt-3">
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-1 rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-1">
-                      <button onClick={() => setPessoas((p) => Math.max(2, p - 1))} aria-label="Diminuir número de pessoas" className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-base font-black text-[var(--pp-text)] hover:bg-[var(--pp-bg)]">−</button>
-                      <span className="w-8 text-center text-base font-black text-[var(--pp-text)]">{pessoas}</span>
-                      <button onClick={() => setPessoas((p) => p + 1)} aria-label="Aumentar número de pessoas" className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--pp-primary)] text-base font-black text-white hover:bg-[var(--pp-primary-hover)]">+</button>
-                    </div>
-                    <div className="flex-1 text-right">
-                      <p className="text-xs text-[var(--pp-text-body)]">{pessoas} pessoas</p>
-                      <p className="text-lg font-black text-[var(--pp-text)]">{formatCurrency(porPessoa)}<span className="text-xs font-normal text-[var(--pp-text-body)]"> /cada</span></p>
-                    </div>
-                  </div>
-                  <div className="mt-2 space-y-1 border-t border-[var(--pp-border)] pt-2 text-xs">
-                    <div className="flex justify-between text-[var(--pp-text-body)]"><span>Pago</span><strong className="text-[var(--pp-success)]">{formatCurrency(totalPagoSelecaoPessoas)}</strong></div>
-                    <div className="flex justify-between text-[var(--pp-text-body)]"><span>Restante</span><strong className="text-[var(--pp-warning-text)]">{formatCurrency(restanteSelecaoPessoas)}</strong></div>
-                    {pessoasRestantes > 0 && <p className="pt-0.5 font-bold text-[var(--pp-text)]">Cobrar agora (1 pessoa): {formatCurrency(valorPagoAgora)}</p>}
-                  </div>
-                </div>
-              )}
-
-              {splitMode === "valor" && (
-                <div className="mt-3 border-t border-[var(--pp-border)] pt-3">
-                  <label className="block"><span className="mb-1 block text-xs font-bold text-[var(--pp-text-body)]">Valor a pagar agora</span>
-                    <div className="flex items-center gap-2 rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-3 py-2 focus-within:border-[var(--pp-primary)]">
-                      <span className="text-sm font-bold text-[var(--pp-text-body)]">R$</span>
-                      <input inputMode="numeric" value={numeroParaMoeda(moedaParaNumero(valorParcialTexto))} onChange={(e) => setValorParcialTexto(e.target.value)} onFocus={(e) => e.target.select()}
-                        className="w-full bg-transparent text-right text-lg font-black text-[var(--pp-text)] outline-none" /></div>
-                  </label>
-                  {valorParcialTexto && !valorParcialValido && <p className="mt-1.5 text-xs font-bold text-[var(--pp-danger)]">Informe um valor entre {formatCurrency(0.01)} e {formatCurrency(restanteGeral)}.</p>}
-                </div>
-              )}
-
-              {splitMode === "item" && (
-                <p className="mt-3 border-t border-[var(--pp-border)] pt-3 text-xs text-[var(--pp-text-body)]">Selecione os itens na conta (coluna ao lado) que serão pagos agora.</p>
-              )}
-
-              {aPagarMaiorQueRestante && (
-                <div className="mt-2 rounded-xl border border-[var(--op-nav-accent)] bg-[var(--op-nav-accent-soft)] p-2.5 text-xs font-bold text-[var(--op-nav-accent)]">Cobrar agora (seleção): {formatCurrency(total)}</div>
-              )}
-            </div>
-
-            {conflitoAtualizacao && (
-              <div role="alert" className="mt-3 flex items-center justify-between gap-2 rounded-xl border border-[var(--pp-danger)] bg-[var(--pp-danger-soft)] px-3 py-2.5 text-xs font-bold text-[var(--pp-danger)]">
-                <span className="flex items-center gap-2"><IconAlerta width={14} height={14} className="shrink-0" /> Valores alterados durante o pagamento.</span>
-                <button onClick={onReconferir} className="shrink-0 rounded-lg border border-[var(--pp-danger)] bg-white px-2 py-1 font-black hover:bg-[var(--pp-danger-soft)]">Revisar</button>
-              </div>
-            )}
-
-            {/* Formas de pagamento */}
-            <div className="mt-3 rounded-2xl border border-[var(--pp-border)] bg-white p-3.5">
-              <p className="mb-2 text-[11px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]">Formas de pagamento</p>
-              {formasPagamento.length === 0 ? (
-                <p className="text-xs text-[var(--pp-text-body)]">Nenhuma forma ativa. Cadastre em Administrativo → Formas de pagamento.</p>
-              ) : (
-                <div className="grid grid-cols-3 gap-1.5">
-                  {formasPagamento.map((f) => {
-                    const Icone = POS_ICONE_FORMA[f.tipo] || IconCarteira;
-                    return (
-                      <button key={f.id} type="button" onClick={() => onAddLinha(f)} disabled={total <= 0}
-                        className="flex min-h-11 flex-col items-center justify-center gap-1 rounded-xl border border-[var(--pp-border)] bg-white px-1.5 py-2.5 text-[11px] font-black text-[var(--pp-text-body)] transition hover:border-[var(--pp-primary)] hover:bg-[var(--op-nav-accent-soft)] hover:text-[var(--pp-primary)] disabled:opacity-40">
-                        <Icone width={17} height={17} /> <span className="truncate">{f.nome}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-
-              {linhasPagamento.length > 0 && (
-                <div className="mt-3 space-y-2 border-t border-[var(--pp-border)] pt-3">
-                  {linhasPagamento.map((l) => (
-                    <div key={l.uid} className="rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-2.5">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-black text-[var(--pp-text)]">{l.nome}{l.permiteTroco && <span className="ml-1.5 rounded-full bg-[var(--pp-success-soft)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--pp-success-text)]">troco</span>}</p>
-                        <button onClick={() => onRemoverLinha(l.uid)} aria-label={`Remover ${l.nome}`} className="rounded-md px-1.5 py-0.5 text-[11px] font-bold text-[var(--pp-text-muted)] hover:bg-[var(--pp-danger-soft)] hover:text-[var(--pp-danger)]">remover</button>
-                      </div>
-                      <div className="mt-1.5 flex items-center gap-2">
-                        <span className="text-sm font-bold text-[var(--pp-text-body)]">R$</span>
-                        <input inputMode="numeric" value={numeroParaMoeda(l.valor)} onChange={(e) => onSetValorLinha(l.uid, e.target.value)} onFocus={(e) => e.target.select()}
-                          aria-label={`Valor recebido em ${l.nome}`}
-                          className="flex-1 rounded-lg border border-[var(--pp-border)] bg-white px-2.5 py-1.5 text-right text-base font-black text-[var(--pp-text)] outline-none focus:border-[var(--pp-primary)]" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <div className="mt-3 space-y-1 border-t border-[var(--pp-border)] pt-3 text-sm">
-                <div className="flex justify-between text-[var(--pp-text-body)]"><span>A pagar agora</span><strong className="text-[var(--pp-text)]">{formatCurrency(total)}</strong></div>
-                <div className="flex justify-between text-[var(--pp-text-body)]"><span>Recebido</span><strong className="text-[var(--pp-success)]">{formatCurrency(pagoLinhas)}</strong></div>
-                {restanteLinhas > 0.001 && <div className="flex justify-between text-[var(--pp-warning-text)]"><span>Falta</span><strong>{formatCurrency(restanteLinhas)}</strong></div>}
-                {troco > 0 && <div className="flex justify-between text-[var(--pp-primary)]"><span>Troco</span><strong>{formatCurrency(troco)}</strong></div>}
-                {excedeNaoDinheiro && <p role="alert" className="text-xs font-bold text-[var(--pp-danger)]">Cartão/PIX não pode ultrapassar o total — use dinheiro para o troco.</p>}
-                {troco > 0 && !temDinheiro && <p role="alert" className="text-xs font-bold text-[var(--pp-danger)]">Troco só é permitido com pagamento em dinheiro.</p>}
-              </div>
-            </div>
-
-            {/* Teclado numérico — lança o valor recebido na forma de pagamento
-                selecionada (a mais recente). Só aparece com uma forma escolhida. */}
-            {tecladoAtivo && (
-              <div className="mt-3">
-                <CheckoutKeypad onDigito={onTeclaDigito} onLimpar={onTeclaLimpar} onApagar={onTeclaApagar} onConfirmar={() => {}} confirmarDesabilitado={!tecladoAtivo} />
-              </div>
-            )}
-          </>
-        )}
       </div>
 
-      {/* Ações fixas */}
-      <div className="shrink-0 space-y-2 border-t border-[var(--pp-border)] bg-white px-4 py-3.5 sm:px-5">
+      {pendentesPreparo > 0 && (
+        <div className="flex items-center gap-2 rounded-xl border border-[var(--pp-warning)] bg-[var(--pp-warning-soft)] px-3 py-2.5 text-xs font-bold text-[var(--pp-warning-text)]">
+          <IconAlerta width={14} height={14} className="shrink-0" /> {pendentesPreparo} pedido(s) em preparo — aguarde para pagar.
+        </div>
+      )}
+      {conflitoAtualizacao && (
+        <div role="alert" className="flex items-center justify-between gap-2 rounded-xl border border-[var(--pp-danger)] bg-[var(--pp-danger-soft)] px-3 py-2.5 text-xs font-bold text-[var(--pp-danger)]">
+          <span className="flex items-center gap-2"><IconAlerta width={14} height={14} className="shrink-0" /> Valores alterados durante o pagamento.</span>
+          <button onClick={onReconferir} className="shrink-0 rounded-lg border border-[var(--pp-danger)] bg-white px-2 py-1 font-black hover:bg-[var(--pp-danger-soft)]">Revisar</button>
+        </div>
+      )}
+
+      {pagamentosFeitos.length > 0 && (
+        <div className="rounded-2xl border border-[var(--pp-success)] bg-[var(--pp-success-soft)] p-3.5">
+          <p className="mb-2 text-[11px] font-bold uppercase tracking-widest text-[var(--pp-success-text)]">Pagamentos registrados ({pagamentosFeitos.length})</p>
+          <div className="space-y-1.5">
+            {pagamentosFeitos.map((p, i) => (
+              <div key={p.id ?? i} className="rounded-xl border border-[var(--pp-border)] bg-white px-3 py-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs text-[var(--pp-text-body)]">{p.hora} · {p.detalhes.map((d) => d.forma).join(", ")}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-black text-[var(--pp-success-text)]">{formatCurrency(p.valor)}</span>
+                    <button onClick={() => onCancelarPagamento(p.id)} className="rounded-md px-1 py-0.5 text-[10px] font-black text-[var(--pp-text-muted)] hover:bg-[var(--pp-danger-soft)] hover:text-[var(--pp-danger)]">cancelar</button>
+                  </div>
+                </div>
+                {p.troco > 0 && <p className="mt-0.5 text-[11px] text-[var(--pp-text-body)]">troco {formatCurrency(p.troco)}</p>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {logFinanceiro.length > 0 && (
+        <details className="rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-surface)] p-3">
+          <summary className="cursor-pointer text-[11px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]">Log financeiro da sessão</summary>
+          <div className="mt-2 space-y-1">
+            {logFinanceiro.map((l, i) => (
+              <div key={i} className="flex justify-between gap-2 text-xs">
+                <span className={l.tipo === "pago" ? "text-[var(--pp-success-text)]" : "text-[var(--pp-danger)]"}>{l.tipo === "pago" ? "Parcela paga" : "Parcela reaberta"} · {l.hora}</span>
+                <span className={`font-bold ${l.tipo === "pago" ? "text-[var(--pp-success-text)]" : "text-[var(--pp-danger)]"}`}>{formatCurrency(l.valor)}</span>
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
+
+      {/* Ações */}
+      <div className="space-y-2">
         <button onClick={onImprimirConferencia} disabled={!podePagar && pendentesPreparo === 0}
-          className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-[var(--pp-border)] bg-white text-sm font-black text-[var(--pp-text-body)] transition hover:bg-[var(--pp-bg)]">
+          className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-surface)] text-sm font-black text-[var(--pp-text-body)] transition hover:bg-[var(--pp-bg)]">
           <IconImpressora width={16} height={16} /> Imprimir conferência
         </button>
         <button onClick={onFinalizarClick} disabled={!podeConfirmarPagamento}
@@ -4933,6 +5045,61 @@ function PosPaymentColumn({
         <p className="text-center text-[10px] text-[var(--pp-text-muted)]">F8 conferência · F10 finalizar</p>
       </div>
     </aside>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+//  Modal Adicionar item — escolhe um produto do cardápio e acrescenta
+//  à comanda ativa (ajuste de conta no caixa). Não gera ticket de
+//  cozinha nem baixa de estoque (limitação assumida nesta fase).
+// ════════════════════════════════════════════════════════════
+function PosAdicionarItemModal({ comanda, products, onAdicionar, onFechar }) {
+  const [busca, setBusca] = useState("");
+  const [qtd, setQtd] = useState(1);
+  const [sel, setSel] = useState(null);
+  const lista = products
+    .filter((p) => p.active !== false && (p.name || "").toLowerCase().includes(busca.trim().toLowerCase()))
+    .slice(0, 60);
+  return (
+    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/40 sm:items-center sm:p-4" onClick={onFechar}>
+      <div className="flex max-h-[85vh] w-full max-w-md flex-col overflow-hidden rounded-t-3xl border border-[var(--pp-border)] bg-[var(--pp-surface)] sm:rounded-3xl" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-[var(--pp-border)] px-5 py-4">
+          <div>
+            <p className="text-[11px] font-black uppercase tracking-widest text-[var(--pp-text-muted)]">Adicionar item</p>
+            <p className="text-sm font-black text-[var(--pp-text)]">{comanda}</p>
+          </div>
+          <button onClick={onFechar} aria-label="Fechar" className="grid h-9 w-9 place-items-center rounded-lg border border-[var(--pp-border)] text-[var(--pp-text-body)] transition hover:bg-[var(--pp-bg)]"><IconFechar width={15} height={15} /></button>
+        </div>
+        <div className="border-b border-[var(--pp-border)] p-4">
+          <div className="flex items-center gap-2 rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-3">
+            <IconBusca />
+            <input autoFocus value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar produto…"
+              className="min-h-11 w-full flex-1 bg-transparent text-sm font-bold text-[var(--pp-text)] outline-none placeholder:font-normal placeholder:text-[var(--pp-text-muted)]" />
+          </div>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto p-3">
+          {lista.length === 0 && <p className="py-8 text-center text-sm text-[var(--pp-text-muted)]">Nenhum produto encontrado.</p>}
+          {lista.map((p) => (
+            <button key={p.id} onClick={() => setSel(p)}
+              className={`flex w-full items-center justify-between gap-3 rounded-xl border px-3 py-2.5 text-left transition ${sel?.id === p.id ? "border-[var(--pp-primary)] bg-[var(--pp-primary-soft)]" : "border-transparent hover:bg-[var(--pp-bg)]"}`}>
+              <span className="min-w-0"><span className="block truncate text-sm font-black text-[var(--pp-text)]">{p.name}</span>{p.category && <span className="block truncate text-xs text-[var(--pp-text-muted)]">{p.category}</span>}</span>
+              <span className="shrink-0 text-sm font-black tabular-nums text-[var(--pp-text)]">{formatCurrency(p.price)}</span>
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-3 border-t border-[var(--pp-border)] p-4" style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 1rem)" }}>
+          <div className="flex items-center overflow-hidden rounded-xl border border-[var(--pp-border)]">
+            <button onClick={() => setQtd((q) => Math.max(1, q - 1))} aria-label="Diminuir" className="grid h-11 w-11 place-items-center text-[var(--pp-text-body)] hover:bg-[var(--pp-bg)]"><IconMenos /></button>
+            <span className="grid h-11 w-10 place-items-center border-x border-[var(--pp-border)] text-base font-black tabular-nums text-[var(--pp-text)]">{qtd}</span>
+            <button onClick={() => setQtd((q) => q + 1)} aria-label="Aumentar" className="grid h-11 w-11 place-items-center text-[var(--pp-text-body)] hover:bg-[var(--pp-bg)]"><IconMais /></button>
+          </div>
+          <button onClick={() => sel && onAdicionar(sel, qtd)} disabled={!sel}
+            className="btn-laranja flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl text-sm font-black text-white disabled:opacity-50">
+            <IconMais /> Adicionar {sel ? `· ${formatCurrency(sel.price * qtd)}` : ""}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
