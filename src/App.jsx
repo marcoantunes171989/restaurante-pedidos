@@ -4347,8 +4347,8 @@ function CashierView({ orders, baixarComandas, formasPagamento = [], lojaInfo, c
               );
             })}
           </div>
-          {/* Campo — amplo, ocupa o espaço restante à esquerda */}
-          <div className="flex w-full items-center gap-2 md:max-w-3xl md:flex-1">
+          {/* Campo — ocupa toda a largura restante da barra */}
+          <div className="flex w-full items-center gap-2 md:flex-1">
             {searchMode === "comanda" ? (
               <input ref={comandaInputRef} value={comandaQuery} onChange={(e) => { setComandaQuery(e.target.value.toUpperCase()); setSearchError(""); }} onKeyDown={(e) => e.key === "Enter" && buscarPorComanda()}
                 placeholder={`Buscar por comanda · ex.: ${lojaInfo?.prefixo || "CMD"}-000123`}
@@ -4503,10 +4503,10 @@ function CashierView({ orders, baixarComandas, formasPagamento = [], lojaInfo, c
 }
 
 const POS_FILTROS_CONTA = [
-  { id: "todas", label: "Todas" },
-  { id: "entrega", label: "Aguardando entrega" },
-  { id: "solicitado", label: "Fechamento solicitado" },
-  { id: "pagamento", label: "Aguardando pagamento" },
+  { id: "todas", label: "Todas", dot: "var(--pp-text-muted)" },
+  { id: "entrega", label: "Aguardando entrega", dot: "var(--op-nav-accent)" },
+  { id: "solicitado", label: "Fechamento solicitado", dot: "var(--pp-warning)" },
+  { id: "pagamento", label: "Aguardando pagamento", dot: "var(--pp-success)" },
 ];
 
 // ════════════════════════════════════════════════════════════
@@ -4521,13 +4521,17 @@ function PosLocationColumn({ className, contasFiltradas, openAccountsFilter, set
           <p className="text-[11px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]">Contas abertas</p>
           <span className="rounded-full bg-[var(--pp-bg)] px-2 py-0.5 text-[11px] font-black text-[var(--pp-text-body)]">{contasFiltradas.length}</span>
         </div>
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {POS_FILTROS_CONTA.map((f) => (
-            <button key={f.id} onClick={() => setOpenAccountsFilter(f.id)}
-              className={`rounded-full border px-2.5 py-1 text-[11px] font-black transition ${openAccountsFilter === f.id ? "border-[var(--pp-primary)] bg-[var(--op-nav-accent-soft)] text-[var(--pp-primary)]" : "border-[var(--pp-border)] bg-white text-[var(--pp-text-body)] hover:bg-[var(--pp-bg)]"}`}>
-              {f.label}
-            </button>
-          ))}
+        <div className="mt-2.5 flex flex-wrap gap-1.5">
+          {POS_FILTROS_CONTA.map((f) => {
+            const on = openAccountsFilter === f.id;
+            return (
+              <button key={f.id} onClick={() => setOpenAccountsFilter(f.id)} aria-pressed={on}
+                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-black leading-none transition ${on ? "btn-laranja text-white shadow-sm" : "border border-[var(--pp-border)] bg-[var(--pp-surface)] text-[var(--pp-text-body)] hover:border-[var(--pp-primary)] hover:bg-[var(--pp-bg)]"}`}>
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: on ? "rgba(255,255,255,0.9)" : f.dot }} />
+                {f.label}
+              </button>
+            );
+          })}
         </div>
         <div className="mt-3 space-y-2">
           {contasFiltradas.length === 0 && <p className="py-6 text-center text-xs text-[var(--pp-text-muted)]">Nenhuma conta em aberto.</p>}
@@ -4766,7 +4770,9 @@ function PosAccountColumn({ className, temConta, contaVazia, comandaJaUsada, com
                 const totalItem = it.price * it.quantity;
                 const valorPagar = totalItem / (s.dividir || 1);
                 const custom = [it.removedIngredients?.length ? `Sem: ${it.removedIngredients.join(", ")}` : null, it.extraIngredients?.length ? `Com: ${it.extraIngredients.join(", ")}` : null].filter(Boolean).join(" · ");
-                const descricao = products.find((p) => p.name === it.name)?.description || custom;
+                const prod = products.find((p) => p.name === it.name);
+                const descricao = prod?.description || custom;
+                const imagem = prod?.imageUrl;
                 const obs = it.observation || "";
                 return (
                   <div key={`${o.id}::${i}`} className={`grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-2 py-3 ${COLS} ${splitMode === "item" && !pago && !incluido ? "opacity-50" : ""}`}>
@@ -4775,12 +4781,19 @@ function PosAccountColumn({ className, temConta, contaVazia, comandaJaUsada, com
                       {splitMode === "item" && !pago && (
                         <input type="checkbox" checked={incluido} onChange={() => toggleItem(o.id, i)} aria-label={`Incluir ${it.name} na cobrança`} className="h-4 w-4 shrink-0 accent-[var(--pp-primary)]" />
                       )}
-                      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-[var(--pp-border)] bg-[var(--pp-bg)] text-[var(--pp-text-muted)]"><IconCardapio width={16} height={16} /></span>
+                      {imagem ? (
+                        <img src={imagem} alt="" loading="lazy" decoding="async"
+                          className={`h-12 w-12 shrink-0 rounded-xl border border-[var(--pp-border)] object-cover shadow-[var(--shadow-card)] ${pago ? "opacity-50 grayscale" : ""}`} />
+                      ) : (
+                        <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] text-[var(--pp-text-muted)]"><IconCardapio width={18} height={18} /></span>
+                      )}
                       <div className="min-w-0">
                         <p className={`line-clamp-2 text-sm font-black leading-tight ${pago ? "text-[var(--pp-success-text)] line-through" : "text-[var(--pp-text)]"}`}>{it.name}</p>
-                        {descricao && <p className="truncate text-xs text-[var(--pp-text-muted)]">{descricao}</p>}
-                        {obs && <p className="truncate text-xs text-[var(--pp-text-muted)] sm:hidden">Obs.: {obs}</p>}
-                        {pago && <span className="mt-0.5 inline-block rounded bg-[var(--pp-success)] px-1.5 py-0.5 text-[9px] font-black uppercase text-white">Pago</span>}
+                        {descricao && <p className="mt-0.5 line-clamp-1 text-xs text-[var(--pp-text-muted)]">{descricao}</p>}
+                        <div className="mt-1 flex flex-wrap items-center gap-1">
+                          {obs && <span className="inline-flex max-w-full items-center gap-1 truncate rounded-md bg-[var(--pp-warning-soft)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--pp-warning-text)] sm:hidden" title={obs}>Obs.: {obs}</span>}
+                          {pago && <span className="inline-block rounded bg-[var(--pp-success)] px-1.5 py-0.5 text-[9px] font-black uppercase text-white">Pago</span>}
+                        </div>
                       </div>
                     </div>
 
@@ -4805,8 +4818,10 @@ function PosAccountColumn({ className, temConta, contaVazia, comandaJaUsada, com
                           </div>
                         )}
                       </div>
+                    ) : obs ? (
+                      <span title={obs} className="hidden max-w-full items-center truncate rounded-md bg-[var(--pp-warning-soft)] px-2 py-1 text-left text-[11px] font-bold text-[var(--pp-warning-text)] sm:inline-flex">{obs}</span>
                     ) : (
-                      <span className="hidden truncate text-left text-xs font-medium text-[var(--pp-text-muted)] sm:block">{obs || "—"}</span>
+                      <span className="hidden text-left text-xs text-[var(--pp-text-muted)] sm:block">—</span>
                     )}
 
                     {/* Unitário */}
