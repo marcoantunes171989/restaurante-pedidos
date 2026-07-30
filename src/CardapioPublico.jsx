@@ -1674,13 +1674,29 @@ export default function CardapioPublico() {
               ) : (
                 <div className="mt-5 space-y-3">
                   <h3 className="text-[11px] font-black uppercase tracking-widest text-[var(--client-text-secondary)]">Confirme sua mesa</h3>
-                  <div className="grid grid-cols-2 gap-3">
-                    <label className="block"><span className="mb-1.5 block text-xs font-bold text-[var(--client-text-secondary)]">Mesa <span className="text-[var(--client-error)]">*</span></span>
-                      <input type="tel" inputMode="numeric" value={mesa} onChange={(e) => setMesa(e.target.value.replace(/\D/g, "").slice(0, 2))} placeholder="Nº" disabled={!!mesaURL}
-                        className="w-full min-h-11 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] px-3 py-2.5 text-sm font-black text-[var(--client-text-primary)] outline-none transition focus:border-[var(--client-primary)] focus:ring-[3px] focus:ring-[var(--client-focus-primary)] disabled:bg-[var(--client-surface-secondary)] disabled:text-[var(--client-text-secondary)]" /></label>
-                    <label className="block"><span className="mb-1.5 block text-xs font-bold text-[var(--client-text-secondary)]">Seu nome (opcional)</span>
-                      <input value={cliente} onChange={(e) => setCliente(capitalizarNome(e.target.value))} placeholder="Nome" className="w-full min-h-11 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] px-3 py-2.5 text-sm text-[var(--client-text-primary)] outline-none transition focus:border-[var(--client-primary)] focus:ring-[3px] focus:ring-[var(--client-focus-primary)] placeholder:text-[var(--client-text-muted)]" /></label>
-                  </div>
+                  {mesaURL ? (
+                    <>
+                      {/* Mesa confirmada pelo QR — selo elegante em vez de campo desabilitado */}
+                      <div className="flex items-center gap-3 rounded-2xl border border-[var(--client-primary-border)] bg-[var(--client-primary-soft)] px-4 py-3">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--client-primary-hover)] text-white"><CkIconMesa width={18} height={18} /></span>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[11px] font-bold uppercase tracking-wide text-[var(--client-text-secondary)]">Sua mesa</p>
+                          <p className="text-base font-black leading-tight text-[var(--client-text-primary)]">Mesa {mesa}</p>
+                        </div>
+                        <span className="flex items-center gap-1 rounded-full bg-[var(--client-surface)] px-2.5 py-1 text-[11px] font-black text-[var(--client-primary-active)]"><CkIconCheck width={12} height={12} /> Confirmada</span>
+                      </div>
+                      <label className="block"><span className="mb-1.5 block text-xs font-bold text-[var(--client-text-secondary)]">Seu nome (opcional)</span>
+                        <input value={cliente} onChange={(e) => setCliente(capitalizarNome(e.target.value))} placeholder="Nome" className="w-full min-h-11 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] px-3 py-2.5 text-sm text-[var(--client-text-primary)] outline-none transition focus:border-[var(--client-primary)] focus:ring-[3px] focus:ring-[var(--client-focus-primary)] placeholder:text-[var(--client-text-muted)]" /></label>
+                    </>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-3">
+                      <label className="block"><span className="mb-1.5 block text-xs font-bold text-[var(--client-text-secondary)]">Mesa <span className="text-[var(--client-error)]">*</span></span>
+                        <input type="tel" inputMode="numeric" value={mesa} onChange={(e) => setMesa(e.target.value.replace(/\D/g, "").slice(0, 2))} placeholder="Nº"
+                          className="w-full min-h-11 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] px-3 py-2.5 text-sm font-black text-[var(--client-text-primary)] outline-none transition focus:border-[var(--client-primary)] focus:ring-[3px] focus:ring-[var(--client-focus-primary)]" /></label>
+                      <label className="block"><span className="mb-1.5 block text-xs font-bold text-[var(--client-text-secondary)]">Seu nome (opcional)</span>
+                        <input value={cliente} onChange={(e) => setCliente(capitalizarNome(e.target.value))} placeholder="Nome" className="w-full min-h-11 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] px-3 py-2.5 text-sm text-[var(--client-text-primary)] outline-none transition focus:border-[var(--client-primary)] focus:ring-[3px] focus:ring-[var(--client-focus-primary)] placeholder:text-[var(--client-text-muted)]" /></label>
+                    </div>
+                  )}
                   {!comURL && (
                     <div><span className="mb-1.5 block text-xs font-bold text-[var(--client-text-secondary)]">Comanda <span className="text-[var(--client-error)]">*</span></span>
                       <input value={comanda} onChange={(e) => setComanda(e.target.value.toUpperCase())} placeholder={`Ex.: ${loja.prefixo}-000001`}
