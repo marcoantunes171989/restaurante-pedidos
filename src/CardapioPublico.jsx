@@ -792,34 +792,35 @@ export default function CardapioPublico() {
       : { ...item, lojaId: item.lojaId ?? loja?.id });
     const destaque = promo || (item.isFeatured && !indisponivel);
     return (
-      <article key={item.id} className={`flex h-full flex-col rounded-[1.25rem] border bg-[var(--client-surface)] shadow-[var(--client-shadow-sm)] ${destaque ? "border-[var(--client-offer-border)]" : "border-[var(--client-border)]"}`}>
-        {/* Bloco imagem+nome+descrição = um único alvo de toque que abre a
-            personalização (antes só a imagem abria; tocar no nome não fazia
-            nada — atrito para explorar o produto). O "+" abaixo continua sendo
-            o atalho de adição rápida, separado. */}
+      <article key={item.id} className={`flex h-full gap-3 rounded-[1.25rem] border bg-[var(--client-surface)] p-3 shadow-[var(--client-shadow-sm)] ${destaque ? "border-[var(--client-offer-border)]" : "border-[var(--client-border)]"}`}>
+        {/* Imagem — alvo de toque que abre a personalização. */}
         <button type="button" onClick={() => !indisponivel && abrir()} disabled={indisponivel}
           aria-label={indisponivel ? `${item.name} — indisponível` : `Ver ${item.name}`}
-          className="flex gap-3 p-3 text-left transition active:scale-[0.99] disabled:cursor-not-allowed">
-          <div className="relative shrink-0">
-            <span className="block h-[88px] w-[88px] overflow-hidden rounded-2xl bg-[var(--client-surface-secondary)]">
-              <img src={item.imageUrl || fallbackImage} alt={item.name} loading="lazy" decoding="async"
-                onError={(e) => { if (e.currentTarget.src !== fallbackImage) e.currentTarget.src = fallbackImage; }}
-                className={`h-full w-full object-cover ${indisponivel ? "grayscale opacity-50" : ""}`} />
+          className="relative shrink-0 transition active:scale-[0.98] disabled:cursor-not-allowed">
+          <span className="block h-[84px] w-[84px] overflow-hidden rounded-2xl bg-[var(--client-surface-secondary)]">
+            <img src={item.imageUrl || fallbackImage} alt={item.name} loading="lazy" decoding="async"
+              onError={(e) => { if (e.currentTarget.src !== fallbackImage) e.currentTarget.src = fallbackImage; }}
+              className={`h-full w-full object-cover ${indisponivel ? "grayscale opacity-50" : ""}`} />
+          </span>
+          {personalizavel && !indisponivel && (
+            <span aria-hidden="true" title="Personalizável" className="pointer-events-none absolute left-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-full border border-[var(--client-border)] bg-[var(--client-surface)] text-[var(--client-text-secondary)] shadow-[var(--client-shadow-sm)]">
+              <CkIconAjustes width={14} height={14} strokeWidth={2.2} />
             </span>
-            {personalizavel && !indisponivel && (
-              <span aria-hidden="true" title="Personalizável" className="pointer-events-none absolute left-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-full border border-[var(--client-border)] bg-[var(--client-surface)] text-[var(--client-text-secondary)] shadow-[var(--client-shadow-sm)]">
-                <CkIconAjustes width={14} height={14} strokeWidth={2.2} />
-              </span>
-            )}
-            {promo && !indisponivel && <span className="absolute right-1.5 top-1.5 rounded-full bg-[var(--client-offer-hover)] px-1.5 py-0.5 text-[9px] font-black text-white shadow-[var(--client-shadow-sm)]">{promo.label}</span>}
-            {indisponivel && <span className="absolute left-1/2 top-1/2 w-max -translate-x-1/2 -translate-y-1/2 rounded-full border border-[var(--client-border)] bg-white/90 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-[var(--client-text-secondary)]">Indisponível</span>}
-            {favorito && !indisponivel && (
-              <span aria-label="Favorito" title="Favorito" className="absolute bottom-1.5 right-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-[var(--client-surface)] text-[var(--client-primary-hover)] shadow-[var(--client-shadow-sm)]">
-                <CkIconCoracao width={13} height={13} />
-              </span>
-            )}
-          </div>
-          <div className="min-w-0 flex-1">
+          )}
+          {promo && !indisponivel && <span className="absolute right-1.5 top-1.5 rounded-full bg-[var(--client-offer-hover)] px-1.5 py-0.5 text-[9px] font-black text-white shadow-[var(--client-shadow-sm)]">{promo.label}</span>}
+          {indisponivel && <span className="absolute left-1/2 top-1/2 w-max -translate-x-1/2 -translate-y-1/2 rounded-full border border-[var(--client-border)] bg-white/90 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-[var(--client-text-secondary)]">Indisponível</span>}
+          {favorito && !indisponivel && (
+            <span aria-label="Favorito" title="Favorito" className="absolute bottom-1.5 right-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-[var(--client-surface)] text-[var(--client-primary-hover)] shadow-[var(--client-shadow-sm)]">
+              <CkIconCoracao width={13} height={13} />
+            </span>
+          )}
+        </button>
+
+        {/* Conteúdo — nome/descrição/tempo e, embaixo, preço + "+". */}
+        <div className="flex min-w-0 flex-1 flex-col">
+          <button type="button" onClick={() => !indisponivel && abrir()} disabled={indisponivel}
+            aria-label={indisponivel ? `${item.name} — indisponível` : `Ver ${item.name}`}
+            className="text-left transition disabled:cursor-not-allowed">
             {item.isFeatured && !indisponivel && (
               <span className="mb-1 inline-flex items-center gap-1 rounded-full bg-[var(--client-primary-soft)] px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-[var(--client-primary-hover)]">
                 <CkIconEstrela width={10} height={10} /> Mais vendido
@@ -832,19 +833,20 @@ export default function CardapioPublico() {
                 <CkIconRelogio width={11} height={11} /> {item.time}
               </p>
             )}
+          </button>
+
+          <div className="mt-auto flex items-end justify-between gap-2 pt-2">
+            {promo
+              ? <span className="flex flex-col gap-0.5 leading-none">
+                  <span className="text-[11px] font-bold text-[var(--client-text-muted)] line-through">{formatCurrency(promo.original)}</span>
+                  <span className="text-base font-black text-[var(--client-offer-hover)]">{formatCurrency(promo.preco)}</span>
+                  <span className="mt-0.5 inline-flex w-max items-center rounded-md bg-[var(--client-offer-soft)] px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-[var(--client-offer-hover)]">Economize {formatCurrency(promo.original - promo.preco)}</span>
+                </span>
+              : <span className="text-base font-black text-[var(--client-text-primary)]">{formatCurrency(item.price)}</span>}
+            {indisponivel
+              ? <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[var(--client-border)] bg-[var(--client-surface-secondary)] text-[var(--client-text-muted)]">✕</span>
+              : <button onClick={abrir} aria-label={`Adicionar ${item.name}`} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full btn-laranja bg-[var(--client-primary-hover)] text-lg font-black text-white shadow-[var(--client-shadow-sm)] transition active:scale-90 hover:bg-[var(--client-primary)]">+</button>}
           </div>
-        </button>
-        <div className="mt-auto flex items-center justify-between px-3 pb-3">
-          {promo
-            ? <span className="flex flex-col gap-0.5 leading-none">
-                <span className="text-[11px] font-bold text-[var(--client-text-muted)] line-through">{formatCurrency(promo.original)}</span>
-                <span className="text-lg font-black text-[var(--client-offer-hover)]">{formatCurrency(promo.preco)}</span>
-                <span className="mt-0.5 inline-flex w-max items-center rounded-md bg-[var(--client-offer-soft)] px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-[var(--client-offer-hover)]">Economize {formatCurrency(promo.original - promo.preco)}</span>
-              </span>
-            : <span className="text-lg font-black text-[var(--client-text-primary)]">{formatCurrency(item.price)}</span>}
-          {indisponivel
-            ? <span className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--client-border)] bg-[var(--client-surface-secondary)] text-[var(--client-text-muted)]">✕</span>
-            : <button onClick={abrir} aria-label={`Adicionar ${item.name}`} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full btn-laranja bg-[var(--client-primary-hover)] text-xl font-black text-white shadow-[var(--client-shadow-sm)] transition active:scale-90 hover:bg-[var(--client-primary)]">+</button>}
         </div>
       </article>
     );
