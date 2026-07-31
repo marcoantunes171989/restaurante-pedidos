@@ -5853,6 +5853,87 @@ function fmtDuracaoComanda(min) {
   const h = Math.floor(min / 60), r = min % 60;
   return `${String(h).padStart(2, "0")}h ${String(r).padStart(2, "0")}min`;
 }
+// Tempo (min) entre as etapas do fluxo da comanda: recebido→preparo→pronto→fim.
+function temposEtapaComanda(g) {
+  const ms = (iso) => (iso ? new Date(iso).getTime() : null);
+  const iniMs = ms(g.iso);
+  const prepISO = g.pedidos.map((o) => o.preparoEmISO).filter(Boolean).sort()[0] || null;
+  const pronISO = g.pedidos.map((o) => o.prontoEmISO).filter(Boolean).sort()[0] || null;
+  const prepMs = ms(prepISO), pronMs = ms(pronISO), fimMs = ms(g.ultima);
+  const delta = (a, b) => (a != null && b != null && b >= a ? Math.round((b - a) / 60000) : null);
+  return {
+    prepISO, pronISO,
+    recebidoPreparo: delta(iniMs, prepMs),
+    preparoPronto: delta(prepMs, pronMs),
+    prontoFim: delta(pronMs, fimMs),
+  };
+}
+// Documento imprimível (A4) da comanda — visão gerencial, com a marca Pedido
+// Prime na paleta oficial. Abre a caixa de impressão (o usuário salva em PDF).
+function abrirPDFComanda(g) {
+  const esc = (s) => String(s ?? "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+  const j = window.open("", "_blank", "width=820,height=1040");
+  if (!j) return;
+  const sit = SIT_COMANDA[g.sit] || SIT_COMANDA.aberta;
+  const t = temposEtapaComanda(g);
+  const ticketPed = g.pedidos.length ? g.total / g.pedidos.length : 0;
+  const ticketItem = g.itens ? g.total / g.itens : 0;
+  const fin = g.sit === "finalizada" ? `Pago${g.forma ? ` · ${g.forma}` : ""}` : g.sit === "aguardando_pagamento" ? "Pagamento pendente" : g.sit === "cancelada" ? "Cancelada" : "Em aberto";
+  const kpi = (l, v) => `<div class="kpi"><span class="kl">${l}</span><span class="kv">${v}</span></div>`;
+  const etapa = (l, v) => (v == null ? "" : `<div class="et"><span class="el">${l}</span><span class="ev">${v} min</span></div>`);
+  const passo = (l, iso) => (!iso ? "" : `<div class="ts"><span class="td"></span><span class="tl">${l}</span><span class="tv">${fmtHoraComanda(iso)}</span></div>`);
+  const pedidos = g.pedidos.map((o, idx) => `
+    <div class="ped">
+      <div class="ph"><b>${esc(o.id || `Pedido ${idx + 1}`)}</b><span>${fmtHoraComanda(o.createdAtISO)}</span></div>
+      ${o.items.map((it) => `<div class="it"><span><b>${it.quantity}×</b> ${esc(it.name)}${it.observation ? ` <i>— ${esc(it.observation)}</i>` : ""}</span><span>${formatCurrency((it.price || 0) * (it.quantity || 0))}</span></div>`).join("")}
+    </div>`).join("");
+  j.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Comanda ${esc(g.comanda || g.mesa || "")}</title>
+  <style>
+    @page { size: A4; margin: 14mm; }
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif; color:#2B2320; margin:0; }
+    .top { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid #E67E22; padding-bottom:12px; }
+    .brand { font-size:20px; font-weight:800; } .brand b{ color:#E67E22; }
+    .brand .sub{ display:block; font-size:11px; font-weight:600; color:#8A7D73; margin-top:2px; }
+    .cod { text-align:right; } .cod .c{ font-family:'Courier New',monospace; font-size:16px; font-weight:800; }
+    .badge{ display:inline-block; margin-top:4px; padding:3px 10px; border-radius:999px; font-size:11px; font-weight:800; border:1px solid #0F4C5C; color:#0F4C5C; }
+    .meta{ margin:10px 0 16px; font-size:12px; color:#8A7D73; }
+    .kpis{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:16px; }
+    .kpi{ border:1px solid #EAE0D6; border-radius:10px; padding:8px 10px; }
+    .kl{ display:block; font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:#8A7D73; }
+    .kv{ display:block; font-size:16px; font-weight:800; margin-top:2px; }
+    h3{ font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:#8A7D73; margin:0 0 8px; }
+    .etapas{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
+    .et{ border:1px solid #EAE0D6; border-left:3px solid #0F4C5C; border-radius:8px; padding:6px 10px; }
+    .el{ font-size:11px; font-weight:700; color:#2B2320; } .ev{ display:block; font-size:14px; font-weight:800; color:#0F4C5C; }
+    .tl-wrap{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
+    .ts{ display:flex; align-items:center; gap:6px; border:1px solid #EAE0D6; border-radius:8px; padding:5px 10px; font-size:12px; }
+    .td{ width:8px; height:8px; border-radius:50%; background:#E67E22; display:inline-block; } .tv{ color:#8A7D73; }
+    .fin{ display:flex; justify-content:space-between; align-items:center; border:1px solid #EAE0D6; background:#FBF7F2; border-radius:10px; padding:10px 12px; margin-bottom:16px; }
+    .fin .fl{ font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:#8A7D73; } .fin .fs{ font-weight:700; } .fin .ft{ font-size:20px; font-weight:800; }
+    .ped{ border:1px solid #EAE0D6; border-radius:10px; padding:10px; margin-bottom:8px; }
+    .ph{ display:flex; justify-content:space-between; font-size:12px; margin-bottom:6px; color:#2B2320; } .ph span{ color:#8A7D73; }
+    .it{ display:flex; justify-content:space-between; gap:12px; font-size:13px; padding:2px 0; } .it i{ color:#8A7D73; font-style:italic; }
+    .foot{ margin-top:18px; border-top:1px solid #EAE0D6; padding-top:8px; font-size:10px; color:#8A7D73; text-align:center; }
+  </style></head><body>
+    <div class="top">
+      <div class="brand">PEDIDO <b>PRIME</b><span class="sub">Controle de Comandas · Relatório da comanda</span></div>
+      <div class="cod"><div class="c">${esc(g.comanda || `Mesa ${g.mesa || "—"}`)}</div><span class="badge">${sit.label}</span></div>
+    </div>
+    <div class="meta">${esc(g.mesa || "Externo")}${g.cliente ? ` · ${esc(g.cliente)}` : ""} · ${g.externo ? "Externo" : "Atendimento local"} — aberta em ${fmtHoraComanda(g.iso)}</div>
+    <div class="kpis">
+      ${kpi("Pedidos", g.pedidos.length)}${kpi("Itens", g.itens)}${kpi("Total", formatCurrency(g.total))}
+      ${kpi("Ticket médio/pedido", formatCurrency(ticketPed))}${kpi("Ticket médio/item", formatCurrency(ticketItem))}${kpi(g.finalizado ? "Duração total" : "Aberta há", fmtDuracaoComanda(g.finalizado ? g.duracao : g.mins))}
+    </div>
+    ${(t.recebidoPreparo != null || t.preparoPronto != null || t.prontoFim != null) ? `<h3>Tempo de preparo por etapa</h3><div class="etapas">${etapa("Recebido → Preparo", t.recebidoPreparo)}${etapa("Preparo → Pronto", t.preparoPronto)}${etapa("Pronto → Finalização", t.prontoFim)}</div>` : ""}
+    <h3>Linha do tempo</h3><div class="tl-wrap">${passo("Abertura", g.iso)}${passo("Início do preparo", t.prepISO)}${passo("Pronto", t.pronISO)}${passo("Última movimentação", g.ultima)}</div>
+    <div class="fin"><div><div class="fl">Financeiro</div><div class="fs">${fin}</div></div><div class="ft">${formatCurrency(g.total)}</div></div>
+    <h3>Pedidos e itens</h3>${pedidos}
+    <div class="foot">Gerado por Pedido Prime em ${new Date().toLocaleString("pt-BR")}</div>
+    <script>window.onload=function(){window.print();}<\/script>
+  </body></html>`);
+  j.document.close();
+}
 function situacaoComanda(pedidos) {
   if (!pedidos.length) return "aberta";
   const ativos = pedidos.filter((o) => o.status !== "cancelled");
@@ -6170,7 +6251,8 @@ function ComandasGestaoAdmin({ orders = [] }) {
             {[
               { ic: <IconBusca />, label: "Ver detalhes", on: () => { setDetalhe(grupoMenu); setMenu(null); } },
               { ic: <IconRecibo />, label: "Copiar código", on: () => copiarCodigo(grupoMenu) },
-              { ic: <IconCarteira />, label: "Exportar comanda", on: () => exportarUma(grupoMenu) },
+              { ic: <IconCarteira />, label: "Exportar CSV", on: () => exportarUma(grupoMenu) },
+              { ic: <IconImpressora />, label: "Exportar PDF", on: () => { abrirPDFComanda(grupoMenu); setMenu(null); } },
             ].map((a) => (
               <button key={a.label} role="menuitem" onClick={a.on} className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-[13px] font-semibold text-dash-navy transition hover:bg-[var(--pp-bg)] [&>svg]:h-4 [&>svg]:w-4 [&>span>svg]:h-4 [&>span>svg]:w-4">
                 <span className="text-[var(--pp-text-muted)]">{a.ic}</span>{a.label}
@@ -6188,14 +6270,16 @@ function ComandasGestaoAdmin({ orders = [] }) {
       {detalhe && (() => {
         const g = detalhe;
         const sit = SIT_COMANDA[g.sit] || SIT_COMANDA.aberta;
-        const preparo = g.pedidos.map((o) => o.preparoEmISO).filter(Boolean).sort()[0] || null;
-        const pronto = g.pedidos.map((o) => o.prontoEmISO).filter(Boolean).sort()[0] || null;
-        const ticket = g.pedidos.length ? g.total / g.pedidos.length : 0;
+        const t = temposEtapaComanda(g);
+        const ticketPed = g.pedidos.length ? g.total / g.pedidos.length : 0;
+        const ticketItem = g.itens ? g.total / g.itens : 0;
         const metricas = [
-          ["Pedidos", g.pedidos.length], ["Itens", g.itens], ["Ticket médio", formatCurrency(ticket)],
+          ["Pedidos", g.pedidos.length], ["Itens", g.itens],
+          ["Ticket médio/pedido", formatCurrency(ticketPed)], ["Ticket médio/item", formatCurrency(ticketItem)],
           [g.finalizado ? "Duração total" : "Aberta há", fmtDuracaoComanda(g.finalizado ? g.duracao : g.mins)],
         ];
-        const passos = [["Abertura", g.iso], ["Início do preparo", preparo], ["Pronto", pronto], ["Última movimentação", g.ultima]].filter(([, v]) => v);
+        const passos = [["Abertura", g.iso], ["Início do preparo", t.prepISO], ["Pronto", t.pronISO], ["Última movimentação", g.ultima]].filter(([, v]) => v);
+        const etapas = [["Recebido → Preparo", t.recebidoPreparo], ["Preparo → Pronto", t.preparoPronto], ["Pronto → Finalização", t.prontoFim]].filter(([, v]) => v != null);
         return (
           <div className="fixed inset-0 z-[130] flex items-center justify-center bg-[rgba(15,23,42,0.5)] p-4 backdrop-blur-sm" onClick={() => setDetalhe(null)}>
             <div role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()} className="flex max-h-[86vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-[var(--pp-border)] bg-white shadow-2xl">
@@ -6210,7 +6294,7 @@ function ComandasGestaoAdmin({ orders = [] }) {
                 <button onClick={() => setDetalhe(null)} aria-label="Fechar" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[var(--pp-border)] text-[var(--pp-text-muted)] transition hover:bg-[var(--pp-bg)]">✕</button>
               </div>
               <div className="space-y-5 overflow-y-auto p-5">
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                   {metricas.map(([l, v]) => (
                     <div key={l} className="rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-3">
                       <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--pp-text-muted)]">{l}</p>
@@ -6218,6 +6302,19 @@ function ComandasGestaoAdmin({ orders = [] }) {
                     </div>
                   ))}
                 </div>
+                {etapas.length > 0 && (
+                  <div>
+                    <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[var(--pp-text-muted)]">Tempo de preparo por etapa</p>
+                    <div className="flex flex-wrap gap-2">
+                      {etapas.map(([l, v]) => (
+                        <div key={l} className="flex items-center gap-2 rounded-lg border border-[var(--pp-border)] border-l-[3px] border-l-[#0F4C5C] bg-white px-3 py-1.5">
+                          <span className="text-xs font-semibold text-dash-navy">{l}</span>
+                          <span className="text-sm font-black text-[#0F4C5C]">{v} min</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <div>
                   <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[var(--pp-text-muted)]">Linha do tempo</p>
                   <div className="flex flex-wrap gap-2">
@@ -6261,9 +6358,10 @@ function ComandasGestaoAdmin({ orders = [] }) {
                   </div>
                 </div>
               </div>
-              <div className="flex items-center justify-end gap-2 border-t border-[var(--pp-border)] p-4">
+              <div className="flex flex-wrap items-center justify-end gap-2 border-t border-[var(--pp-border)] p-4">
                 <button onClick={() => copiarCodigo(g)} className="rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2 text-sm font-bold text-dash-navy transition hover:bg-[var(--pp-bg)]">Copiar código</button>
-                <button onClick={() => exportarUma(g)} className="btn-laranja rounded-xl px-4 py-2 text-sm font-bold">Exportar comanda</button>
+                <button onClick={() => exportarUma(g)} className="rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2 text-sm font-bold text-dash-navy transition hover:bg-[var(--pp-bg)]">Exportar CSV</button>
+                <button onClick={() => abrirPDFComanda(g)} className="btn-laranja rounded-xl px-4 py-2 text-sm font-bold">Exportar PDF</button>
               </div>
             </div>
           </div>
