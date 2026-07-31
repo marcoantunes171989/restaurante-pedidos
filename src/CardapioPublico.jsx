@@ -1332,16 +1332,17 @@ export default function CardapioPublico() {
       )}
 
         {/* Categorias — fazem parte do container sticky acima (grudam junto com
-            o cabeçalho). Fonte/altura compactas (text-sm, py-2.5): mais clean e
-            libera altura para os produtos, sem perder legibilidade. */}
+            o cabeçalho). Fonte/altura compactas (text-sm, py-2): mais clean e
+            libera altura para os produtos, sem perder legibilidade. Selecionada
+            no laranja padrão da marca (--client-primary), sem ícone. */}
         <div ref={catBarRef} className="border-b border-[var(--client-border)] bg-[var(--client-surface)] shadow-[var(--client-shadow-sm)]">
-          <div ref={catScrollRef} className="pp-noscrollbar mx-auto flex max-w-3xl gap-2 overflow-x-auto px-4 py-2.5">
+          <div ref={catScrollRef} className="pp-noscrollbar mx-auto flex max-w-3xl gap-2 overflow-x-auto px-4 py-2">
           {cats.map((c) => { const ativo = catAtivaId === c.id;
             return (
               <button key={c.id} type="button" ref={(el) => (chipRefs.current[c.id] = el)} onClick={() => selecionarCategoria(c.id)}
                 aria-current={ativo ? "true" : undefined} aria-pressed={ativo}
-                className={`flex min-h-[38px] shrink-0 items-center rounded-full border px-3.5 text-sm font-bold transition duration-200 ${ativo ? "border-[var(--client-primary)] bg-[var(--client-primary-soft)] text-[var(--client-primary-active)]" : "border-[var(--client-border)] bg-[var(--client-surface)] text-[var(--client-text-secondary)] hover:bg-[var(--client-surface-secondary)]"}`}>
-                {ativo ? "★ " : ""}{c.nome}
+                className={`flex min-h-[34px] shrink-0 items-center rounded-full border px-3.5 text-sm font-bold transition duration-200 ${ativo ? "border-[var(--client-primary)] bg-[var(--client-primary-soft)] text-[var(--client-primary)]" : "border-[var(--client-border)] bg-[var(--client-surface)] text-[var(--client-text-secondary)] hover:bg-[var(--client-surface-secondary)]"}`}>
+                {c.nome}
               </button>
             );
           })}
