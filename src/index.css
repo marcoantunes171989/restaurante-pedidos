@@ -153,9 +153,9 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
      Selecionado usa a variante escura --pp-primary-text (não --pp-primary
      puro) como fundo em repouso — só ela atinge 4.5:1 com texto branco. */
   --filter-chip-bg: #FFFFFF;
-  --filter-chip-selected: #C9501F;
-  --filter-chip-selected-hover: #E8622C;
-  --filter-chip-hover-bg: #FDF1EC;
+  --filter-chip-selected: #E67E22;
+  --filter-chip-selected-hover: #D06E1A;
+  --filter-chip-hover-bg: #FCEFE1;
   --filter-chip-border: #E5E7EB;
   --filter-chip-text: #172033;
   --filter-chip-text-selected: #FFFFFF;
@@ -466,15 +466,15 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
    `bg-[var(--pp-primary-hover)]` por `btn-laranja` (mantendo `text-white`).
    ══════════════════════════════════════════════════════════════════ */
 .btn-laranja {
-  background-image: linear-gradient(180deg, #EC8636 0%, #C6551A 100%);
+  background-image: linear-gradient(180deg, #EC8B3E 0%, #D06E1A 100%);
   text-shadow: 0 1px 1.5px rgba(90, 35, 0, 0.35);
 }
 .btn-laranja:hover:not(:disabled):not([aria-disabled="true"]) {
-  background-image: linear-gradient(180deg, #F49A48 0%, #D66528 100%);
+  background-image: linear-gradient(180deg, #F0994A 0%, #DE7420 100%);
 }
 .btn-laranja:active:not(:disabled):not([aria-disabled="true"]) {
   background-image: none;
-  background-color: #A8480F;
+  background-color: #B25E15;
 }
 .btn-laranja:disabled,
 .btn-laranja[disabled] {
@@ -527,13 +527,13 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
    o hover. */
 .pp-filter-panel {
   --filter-chip-bg: var(--pp-surface);
-  --filter-chip-selected: var(--pp-primary-text);
-  --filter-chip-selected-hover: var(--pp-primary);
-  --filter-chip-hover-bg: #F1F5F9;
+  --filter-chip-selected: var(--pp-primary);
+  --filter-chip-selected-hover: var(--pp-primary-hover);
+  --filter-chip-hover-bg: #FCEFE1;
   --filter-chip-border: var(--pp-border);
   --filter-chip-text: var(--pp-text-body);
   --filter-chip-text-selected: #FFFFFF;
-  --filter-chip-selected-shadow: 0 2px 6px rgba(198, 63, 29, 0.25);
+  --filter-chip-selected-shadow: 0 2px 6px rgba(230, 126, 34, 0.25);
 }
 .pp-filter-panel .filter-chip:focus-visible {
   box-shadow: 0 0 0 4px rgba(198, 63, 29, 0.25);

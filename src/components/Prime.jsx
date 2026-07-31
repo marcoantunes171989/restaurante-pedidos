@@ -126,7 +126,7 @@ export function PageHeader({ icone = null, titulo, descricao, indicadores = [], 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <h3 className="page-title flex items-center gap-2.5 text-xl font-bold tracking-tight text-white">
-            {icone && <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#D4A017]/30 bg-[#D4A017]/10 text-[#D4A017] [&>svg]:h-[18px] [&>svg]:w-[18px]">{icone}</span>}
+            {icone && <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#E67E22]/30 bg-[#E67E22]/10 text-[#E67E22] [&>svg]:h-[18px] [&>svg]:w-[18px]">{icone}</span>}
             {titulo}
           </h3>
           {descricao && <p className="mt-1 text-sm leading-6 text-slate-400">{descricao}</p>}
@@ -138,7 +138,7 @@ export function PageHeader({ icone = null, titulo, descricao, indicadores = [], 
           {indicadores.map((ind, i) => (
             <span key={i} className="flex items-center gap-2">
               {i > 0 && <span className="text-slate-700">|</span>}
-              <span className={`text-xs font-semibold ${ind.tom === "ok" ? "text-emerald-300" : ind.tom === "alerta" ? "text-amber-300" : ind.tom === "erro" ? "text-red-300" : ind.tom === "gold" ? "text-[#D4A017]" : "text-slate-300"}`}>
+              <span className={`text-xs font-semibold ${ind.tom === "ok" ? "text-emerald-300" : ind.tom === "alerta" ? "text-amber-300" : ind.tom === "erro" ? "text-red-300" : ind.tom === "gold" ? "text-[#E67E22]" : "text-slate-300"}`}>
                 <b className="font-bold text-white">{ind.valor}</b> {ind.rotulo}
               </span>
             </span>
@@ -154,8 +154,8 @@ export function PageHeader({ icone = null, titulo, descricao, indicadores = [], 
 // 18 call-sites existentes; a cor em si já é coral (--pp-primary-hover).
 export function PrimeButton({ children, onClick, variante = "blue", className = "", disabled = false, type = "button" }) {
   const estilos = {
-    blue: "bg-[#C9501F] text-white hover:bg-[#E8622C] shadow-lg shadow-[#C9501F]/40",
-    gold: "bg-[#D4A017] text-[#1A1A1A] hover:bg-[#E8B94A] shadow-lg shadow-[#D4A017]/30",
+    blue: "bg-[#E67E22] text-white hover:bg-[#D06E1A] shadow-lg shadow-[#E67E22]/40",
+    gold: "bg-[#E67E22] text-white hover:bg-[#D06E1A] shadow-lg shadow-[#E67E22]/30",
     ghost: "border border-white/10 bg-white/[0.06] text-slate-300 hover:bg-white/10",
     danger: "border border-red-400/30 bg-red-500/10 text-red-300 hover:bg-red-500/20",
   };

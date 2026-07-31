@@ -6961,7 +6961,7 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
     const totalReceberCentral = contasAbertas.reduce((s, o) => s + totalCom(o), 0);
     const qtdPorTipoSetor = (bar) => ativos.reduce((acc, o) => acc + (o.items || []).filter((it) => barLike(setorDoItem(it)) === bar).reduce((s, it) => s + it.quantity, 0), 0);
     const ICONE_MODULO = { pedidos: ClipboardList, cozinha: ChefHat, bar: Wine, caixa: CreditCard };
-    const TINT_MODULO = { pedidos: "#e8622c", cozinha: "#d4a017", bar: "#0F4C5C", caixa: "#16a34a" };
+    const TINT_MODULO = { pedidos: "#E67E22", cozinha: "#d4a017", bar: "#0F4C5C", caixa: "#16a34a" };
     const CONTAGEM_MODULO = { pedidos: ativos.length, cozinha: qtdPorTipoSetor(false), bar: qtdPorTipoSetor(true), caixa: contasAbertas.length };
     const modulosReais = liberados.map((m) => ({ id: m.id, label: m.label, desc: m.desc, icon: ICONE_MODULO[m.id], tint: TINT_MODULO[m.id], count: CONTAGEM_MODULO[m.id] }));
     // Variantes semânticas (ver OperationalMetricCard): info/warning/success
