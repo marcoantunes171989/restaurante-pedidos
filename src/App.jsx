@@ -5875,6 +5875,9 @@ function ComandasGestaoAdmin({ orders = [] }) {
   const [pagina, setPagina] = useState(1);
   const [fixadas, setFixadas] = useState(() => new Set());
   const [atualizadoEm, setAtualizadoEm] = useState(() => Date.now());
+  const [menu, setMenu] = useState(null);       // { chave, top, left } — menu de Ações posicionado
+  const [detalhe, setDetalhe] = useState(null); // comanda aberta no modal de detalhes
+  const [copiado, setCopiado] = useState(null);
   const agora = Date.now();
 
   // Reinicia a paginação quando qualquer filtro muda.
@@ -5957,6 +5960,27 @@ function ComandasGestaoAdmin({ orders = [] }) {
     const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = "comandas.csv"; a.click(); URL.revokeObjectURL(url);
   }
+  function exportarUma(g) {
+    const cab = ["Pedido", "Item", "Qtd", "Preco", "Subtotal", "Observacao"];
+    const linhas = g.pedidos.flatMap((o) => o.items.map((it) => [
+      o.id || "", it.name || "", it.quantity || 0, (it.price || 0).toFixed(2).replace(".", ","),
+      ((it.price || 0) * (it.quantity || 0)).toFixed(2).replace(".", ","), it.observation || "",
+    ]));
+    const csv = [cab, ...linhas].map((l) => l.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\n");
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `comanda-${g.comanda || g.mesa || g.chave}.csv`; a.click(); URL.revokeObjectURL(url);
+    setMenu(null);
+  }
+  function copiarCodigo(g) {
+    const txt = g.comanda || `Mesa ${g.mesa || ""}`.trim();
+    try { navigator.clipboard?.writeText(txt); } catch { /* clipboard indisponível */ }
+    setCopiado(g.chave); setMenu(null); setTimeout(() => setCopiado(null), 1600);
+  }
+  function abrirMenu(e, chave) {
+    const r = e.currentTarget.getBoundingClientRect();
+    setMenu((m) => m?.chave === chave ? null : { chave, top: r.bottom + 6, left: Math.max(12, r.right - 208) });
+  }
+  const grupoMenu = menu ? filtradas.find((g) => g.chave === menu.chave) : null;
 
   const CHIPS = [
     { id: "em_andamento", label: "Em andamento", dot: true }, { id: "todas", label: "Todas" }, { id: "aberta", label: "Abertas" },
@@ -6105,7 +6129,8 @@ function ComandasGestaoAdmin({ orders = [] }) {
                         <p className="text-xs text-[var(--pp-text-muted)]">{MOV_COMANDA[g.sit] || "—"}</p>
                       </td>
                       <td className="py-3 pr-4 text-right">
-                        <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--pp-text-muted)]" title="Visão somente leitura">⋮</span>
+                        <button onClick={(e) => abrirMenu(e, g.chave)} aria-label="Ações da comanda" aria-haspopup="menu" aria-expanded={menu?.chave === g.chave}
+                          className={`inline-flex h-8 w-8 items-center justify-center rounded-lg border text-[15px] leading-none transition ${menu?.chave === g.chave ? "border-[#E67E22] bg-[#E67E22]/10 text-[#C2410C]" : "border-transparent text-[var(--pp-text-muted)] hover:border-[var(--pp-border)] hover:bg-[var(--pp-bg)] hover:text-dash-navy"}`}>⋮</button>
                       </td>
                     </tr>
                   );
@@ -6135,6 +6160,117 @@ function ComandasGestaoAdmin({ orders = [] }) {
           </div>
         </div>
       )}
+
+      {/* Menu de Ações (posição fixa para não ser cortado pela tabela) */}
+      {menu && grupoMenu && (
+        <>
+          <div className="fixed inset-0 z-[110]" onClick={() => setMenu(null)} />
+          <div role="menu" onClick={(e) => e.stopPropagation()} style={{ position: "fixed", top: menu.top, left: menu.left, width: 208 }}
+            className="z-[120] overflow-hidden rounded-xl border border-[var(--pp-border)] bg-white py-1 shadow-xl">
+            {[
+              { ic: <IconBusca />, label: "Ver detalhes", on: () => { setDetalhe(grupoMenu); setMenu(null); } },
+              { ic: <IconRecibo />, label: "Copiar código", on: () => copiarCodigo(grupoMenu) },
+              { ic: <IconCarteira />, label: "Exportar comanda", on: () => exportarUma(grupoMenu) },
+            ].map((a) => (
+              <button key={a.label} role="menuitem" onClick={a.on} className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-[13px] font-semibold text-dash-navy transition hover:bg-[var(--pp-bg)] [&>svg]:h-4 [&>svg]:w-4 [&>span>svg]:h-4 [&>span>svg]:w-4">
+                <span className="text-[var(--pp-text-muted)]">{a.ic}</span>{a.label}
+              </button>
+            ))}
+            <div className="my-1 border-t border-[var(--pp-border)]" />
+            <button role="menuitem" onClick={() => { toggleFixar(grupoMenu.chave); setMenu(null); }} className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-[13px] font-semibold text-dash-navy transition hover:bg-[var(--pp-bg)]">
+              <span className="text-[#E67E22]">{fixadas.has(grupoMenu.chave) ? "★" : "☆"}</span>{fixadas.has(grupoMenu.chave) ? "Desafixar" : "Fixar no topo"}
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* Modal de detalhes — visão gerencial da comanda */}
+      {detalhe && (() => {
+        const g = detalhe;
+        const sit = SIT_COMANDA[g.sit] || SIT_COMANDA.aberta;
+        const preparo = g.pedidos.map((o) => o.preparoEmISO).filter(Boolean).sort()[0] || null;
+        const pronto = g.pedidos.map((o) => o.prontoEmISO).filter(Boolean).sort()[0] || null;
+        const ticket = g.pedidos.length ? g.total / g.pedidos.length : 0;
+        const metricas = [
+          ["Pedidos", g.pedidos.length], ["Itens", g.itens], ["Ticket médio", formatCurrency(ticket)],
+          [g.finalizado ? "Duração total" : "Aberta há", fmtDuracaoComanda(g.finalizado ? g.duracao : g.mins)],
+        ];
+        const passos = [["Abertura", g.iso], ["Início do preparo", preparo], ["Pronto", pronto], ["Última movimentação", g.ultima]].filter(([, v]) => v);
+        return (
+          <div className="fixed inset-0 z-[130] flex items-center justify-center bg-[rgba(15,23,42,0.5)] p-4 backdrop-blur-sm" onClick={() => setDetalhe(null)}>
+            <div role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()} className="flex max-h-[86vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-[var(--pp-border)] bg-white shadow-2xl">
+              <div className="flex items-start justify-between gap-3 border-b border-[var(--pp-border)] p-5">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-mono text-sm font-bold text-dash-navy">{g.comanda || `Mesa ${g.mesa || "—"}`}</span>
+                    <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-bold ${sit.cls}`}>{sit.label}</span>
+                  </div>
+                  <p className="mt-1 text-sm text-[var(--pp-text-muted)]">{g.mesa || "Externo"}{g.cliente ? ` · ${g.cliente}` : ""} · {g.externo ? "Externo" : "Atendimento local"}</p>
+                </div>
+                <button onClick={() => setDetalhe(null)} aria-label="Fechar" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[var(--pp-border)] text-[var(--pp-text-muted)] transition hover:bg-[var(--pp-bg)]">✕</button>
+              </div>
+              <div className="space-y-5 overflow-y-auto p-5">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {metricas.map(([l, v]) => (
+                    <div key={l} className="rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-3">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--pp-text-muted)]">{l}</p>
+                      <p className="page-title mt-0.5 text-base font-black text-dash-navy">{v}</p>
+                    </div>
+                  ))}
+                </div>
+                <div>
+                  <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[var(--pp-text-muted)]">Linha do tempo</p>
+                  <div className="flex flex-wrap gap-2">
+                    {passos.map(([l, v]) => (
+                      <div key={l} className="flex items-center gap-2 rounded-lg border border-[var(--pp-border)] bg-white px-3 py-1.5">
+                        <span className="h-2 w-2 rounded-full bg-[#E67E22]" />
+                        <span className="text-xs font-semibold text-dash-navy">{l}</span>
+                        <span className="text-xs text-[var(--pp-text-muted)]">{fmtHoraComanda(v)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-3">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--pp-text-muted)]">Financeiro</p>
+                    <p className={`text-sm font-semibold ${g.sit === "finalizada" ? "text-[#047857]" : g.sit === "aguardando_pagamento" ? "text-[#B45309]" : "text-[var(--pp-text-muted)]"}`}>
+                      {g.sit === "finalizada" ? `Pago${g.forma ? ` · ${g.forma}` : ""}` : g.sit === "aguardando_pagamento" ? "Pagamento pendente" : g.sit === "cancelada" ? "Cancelada" : "Em aberto"}
+                    </p>
+                  </div>
+                  <span className="page-title text-xl font-black text-dash-navy">{formatCurrency(g.total)}</span>
+                </div>
+                <div>
+                  <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[var(--pp-text-muted)]">Pedidos e itens</p>
+                  <div className="space-y-3">
+                    {g.pedidos.map((o, idx) => (
+                      <div key={o.id || idx} className="rounded-xl border border-[var(--pp-border)] p-3">
+                        <div className="mb-2 flex items-center justify-between gap-2">
+                          <span className="text-xs font-bold text-dash-navy">{o.id || `Pedido ${idx + 1}`}</span>
+                          <span className="text-xs text-[var(--pp-text-muted)]">{fmtHoraComanda(o.createdAtISO)}</span>
+                        </div>
+                        <ul className="space-y-1">
+                          {o.items.map((it, i) => (
+                            <li key={i} className="flex items-start justify-between gap-3 text-sm">
+                              <span className="text-dash-navy"><b className="text-[#0F4C5C]">{it.quantity}×</b> {it.name}{it.observation ? <em className="text-[var(--pp-text-muted)]"> — {it.observation}</em> : ""}</span>
+                              <span className="shrink-0 font-semibold text-dash-navy">{formatCurrency((it.price || 0) * (it.quantity || 0))}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center justify-end gap-2 border-t border-[var(--pp-border)] p-4">
+                <button onClick={() => copiarCodigo(g)} className="rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2 text-sm font-bold text-dash-navy transition hover:bg-[var(--pp-bg)]">Copiar código</button>
+                <button onClick={() => exportarUma(g)} className="btn-laranja rounded-xl px-4 py-2 text-sm font-bold">Exportar comanda</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {copiado && <div className="fixed bottom-6 left-1/2 z-[140] -translate-x-1/2 rounded-full bg-[#0F4C5C] px-4 py-2 text-sm font-bold text-white shadow-lg">Código copiado</div>}
     </main>
   );
 }
