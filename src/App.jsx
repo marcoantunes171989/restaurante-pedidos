@@ -8195,7 +8195,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h2 className="page-title flex items-center gap-3 text-2xl font-bold tracking-tight text-[var(--pp-text)]">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-white shadow-[0_8px_20px_-8px_rgba(15,76,92,0.55)]" style={{ background: "linear-gradient(135deg, #12586B 0%, #0B3A46 100%)" }}>{soCopiloto ? "🤖" : <IconDashboard />}</span>
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#E67E22]/30 bg-[#E67E22]/10 text-[#E67E22]">{soCopiloto ? "🤖" : <IconDashboard />}</span>
             {soCopiloto ? "Copiloto IA" : "Dashboard Gerencial"}
           </h2>
           <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1.5 max-w-2xl text-sm text-[var(--pp-text-muted)]">
@@ -9812,7 +9812,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h2 className="page-title flex items-center gap-2.5 text-2xl font-bold tracking-tight text-dash-navy">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#0F4C5C]/10 text-[#0F4C5C]"><IconRelatorios /></span>
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#E67E22]/30 bg-[#E67E22]/10 text-[#E67E22]"><IconRelatorios /></span>
             Relatórios de vendas
           </h2>
           <p className="mt-1 text-sm text-[var(--pp-text-muted)]">Análise gerencial: vendas, cupons, estoque, clientes e tempo de permanência.</p>
@@ -13805,7 +13805,7 @@ function VersoesAdmin({ lojas = [], lojaFiltro = null }) {
       {/* Cabeçalho + versão liberada */}
       <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
         <h3 className="page-title flex items-center gap-2.5 text-xl font-bold tracking-tight text-white">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gold-400/30 bg-gold-400/10 text-gold-300"><IconVersoes /></span>
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#E67E22]/30 bg-[#E67E22]/10 text-[#E67E22]"><IconVersoes /></span>
           Controle de Versões
         </h3>
         <p className="mt-1 text-sm text-slate-400">Acompanhe a versão liberada da plataforma e a versão aplicada em cada aparelho.</p>
@@ -14101,7 +14101,7 @@ function CrmAdmin({ clientes = [], orders = [], fidTransacoes = [], fidRecompens
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0">
             <h3 className="page-title flex items-center gap-2.5 text-xl font-bold tracking-tight text-white">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gold-400/30 bg-gold-400/10 text-gold-300"><IconCrm /></span>
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#E67E22]/30 bg-[#E67E22]/10 text-[#E67E22]"><IconCrm /></span>
               CRM — Clientes
             </h3>
             <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-400">Clientes identificados nos pedidos do cardápio digital. Analise frequência, consumo, faturamento, recorrência e oportunidades de relacionamento para aumentar vendas e fidelização.</p>
@@ -14700,7 +14700,7 @@ function CardapioExternoAdmin({ lojaInfo, setModoUsoEmpresa = async () => {}, sa
     <main className="space-y-5">
       <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
         <h3 className="page-title flex items-center gap-2.5 text-xl font-bold tracking-tight text-white">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gold-400/30 bg-gold-400/10 text-gold-300"><IconCardapio /></span>
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#E67E22]/30 bg-[#E67E22]/10 text-[#E67E22]"><IconCardapio /></span>
           Cardápio Digital Externo
         </h3>
         <p className="mt-0.5 text-sm text-slate-400">Cardápio do cliente no celular — ver, pedir e acompanhar. Empresa: <b className="text-white">{lojaInfo?.nome || "—"}</b></p>
