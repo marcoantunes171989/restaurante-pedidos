@@ -41,7 +41,7 @@ function Faq() {
                   <button onClick={() => setAberto(ativo ? -1 : i)} aria-expanded={ativo} aria-controls={`faq-resposta-${i}`}
                     className="flex min-h-[44px] w-full items-center justify-between gap-3 px-5 py-4 text-left">
                     <span className="font-display text-sm font-bold text-[var(--pp-graphite)] sm:text-base">{item.q}</span>
-                    <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--pp-border)] text-[var(--pp-primary-hover)] transition ${ativo ? "rotate-90 bg-[#C63F1D]/10" : ""}`}>
+                    <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--pp-border)] text-[var(--pp-primary-hover)] transition ${ativo ? "rotate-90 bg-[#E67E22]/10" : ""}`}>
                       <IcoSeta className="h-4 w-4" />
                     </span>
                   </button>

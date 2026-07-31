@@ -13,8 +13,8 @@ export default function Seguranca() {
         <div className="mt-12 grid grid-cols-2 gap-4 sm:grid-cols-4">
           {SEGURANCA.map((s, i) => (
             <Reveal as="article" key={s.titulo} delay={(i % 4) * 70}
-              className="rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-5 transition hover:-translate-y-1 hover:border-[#C63F1D]/30">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#C63F1D]/20 bg-white text-[var(--pp-primary-hover)]"><Icone nome={s.icon} className="h-5 w-5" /></span>
+              className="rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-5 transition hover:-translate-y-1 hover:border-[#E67E22]/30">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#E67E22]/20 bg-white text-[var(--pp-primary-hover)]"><Icone nome={s.icon} className="h-5 w-5" /></span>
               <h3 className="font-display mt-3.5 text-sm font-bold text-[var(--pp-graphite)]">{s.titulo}</h3>
               <p className="mt-1 text-xs leading-5 text-[var(--pp-text-muted)]">{s.desc}</p>
             </Reveal>

@@ -1,5 +1,5 @@
 // Título de duas cores — "lead" em grafite neutro e "accent" em gradiente
-// terracota→dourado (mesmo tratamento já usado no H1 do Hero), com "tail"
+// laranja→laranja profundo (mesmo tratamento já usado no H1 do Hero), com "tail"
 // opcional em grafite após o trecho colorido. Centraliza o padrão que antes
 // era escrito à mão (dois <span> por seção) num único componente.
 export function Headline({ as: Tag = "h2", lead, accent, tail, className = "" }) {
@@ -7,7 +7,7 @@ export function Headline({ as: Tag = "h2", lead, accent, tail, className = "" })
     <Tag className={className}>
       {lead && <span className="block">{lead}</span>}
       {accent && (
-        <span className="mt-1 block bg-gradient-to-r from-[var(--pp-primary-hover)] to-[var(--pp-brand)] bg-clip-text text-transparent">
+        <span className="mt-1 block bg-gradient-to-r from-[#E67E22] to-[#D06E1A] bg-clip-text text-transparent">
           {accent}
         </span>
       )}

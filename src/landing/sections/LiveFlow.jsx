@@ -6,7 +6,7 @@ import { FLUXO_TEMPO_REAL } from "../content";
 // conectados por uma linha; cada nó "acende" em ondas (anel pulsante com
 // atraso escalonado por índice), sugerindo o pedido percorrendo o fluxo
 // completo de forma contínua e automática. Fundo claro (paleta oficial:
-// branco/bege muito claro + terracota) — nada de blocos escuros pesados.
+// branco/bege muito claro + laranja) — nada de blocos escuros pesados.
 export default function LiveFlow() {
   const total = FLUXO_TEMPO_REAL.length;
   return (
@@ -21,15 +21,15 @@ export default function LiveFlow() {
 
         <Reveal delay={120} className="relative mt-14">
           {/* Linha conectora (desktop: horizontal · mobile: vertical) */}
-          <div aria-hidden="true" className="absolute left-6 top-0 hidden h-full w-px bg-gradient-to-b from-[#C63F1D]/40 via-[var(--pp-border)] to-[#B8872A]/40 sm:hidden" />
-          <div aria-hidden="true" className="absolute left-0 top-6 hidden h-px w-full bg-gradient-to-r from-[#C63F1D]/40 via-[var(--pp-border)] to-[#B8872A]/40 sm:block" />
+          <div aria-hidden="true" className="absolute left-6 top-0 hidden h-full w-px bg-gradient-to-b from-[#E67E22]/40 via-[var(--pp-border)] to-[#0F4C5C]/40 sm:hidden" />
+          <div aria-hidden="true" className="absolute left-0 top-6 hidden h-px w-full bg-gradient-to-r from-[#E67E22]/40 via-[var(--pp-border)] to-[#0F4C5C]/40 sm:block" />
 
           <div className="grid grid-cols-1 gap-8 sm:grid-cols-5 sm:gap-x-4 sm:gap-y-10 lg:grid-cols-10">
             {FLUXO_TEMPO_REAL.map((etapa, i) => (
               <div key={etapa.id} className="relative flex items-center gap-3 sm:flex-col sm:items-center sm:gap-0 sm:text-center">
                 <div className="relative shrink-0">
-                  <span aria-hidden="true" className="pp-pulse-ring absolute inset-0 rounded-2xl bg-[#C63F1D]/20" style={{ animationDuration: `${total * 0.6}s`, animationDelay: `${i * 0.6}s` }} />
-                  <span className="relative flex h-12 w-12 items-center justify-center rounded-2xl border border-[#C63F1D]/20 bg-white text-[var(--pp-primary-hover)] shadow-[0_10px_26px_-20px_rgba(28,20,15,0.3)]">
+                  <span aria-hidden="true" className="pp-pulse-ring absolute inset-0 rounded-2xl bg-[#E67E22]/20" style={{ animationDuration: `${total * 0.6}s`, animationDelay: `${i * 0.6}s` }} />
+                  <span className="relative flex h-12 w-12 items-center justify-center rounded-2xl border border-[#E67E22]/20 bg-white text-[var(--pp-primary-hover)] shadow-[0_10px_26px_-20px_rgba(28,20,15,0.3)]">
                     <Icone nome={etapa.icon} className="h-5 w-5" />
                   </span>
                 </div>

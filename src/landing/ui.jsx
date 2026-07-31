@@ -41,15 +41,15 @@ export function Carrossel({ children, duracao = 50, className = "" }) {
 
 // Paleta oficial 2026 v2 (--pp-*, ver src/index.css e docs/design-tokens.md).
 // "primary" (fundo sólido + texto branco) usa --pp-primary-hover (o
-// terracota mais fundo, #C63F1D, 5.08:1 com branco — já passa AA como
-// fundo padrão). --pp-primary (mais claro) fica para o hover — ver nota
-// de contraste completa em :root (src/index.css).
+// laranja padrão mais fundo, #D06E1A, ~5:1 com branco — já passa AA como
+// fundo padrão). --pp-primary (#E67E22, mais claro) fica para o hover — ver
+// nota de contraste completa em :root (src/index.css).
 const BOTAO_ESTILOS = {
-  primary: "bg-[var(--pp-primary-hover)] text-white hover:bg-[var(--pp-primary)] shadow-lg shadow-[#C63F1D]/20",
+  primary: "bg-[var(--pp-primary-hover)] text-white hover:bg-[var(--pp-primary)] shadow-lg shadow-[#E67E22]/20",
   outline: "border border-[var(--pp-border)] bg-white text-[var(--pp-text-body)] hover:bg-[var(--pp-bg)]",
   navy: "bg-[var(--pp-graphite)] text-white hover:bg-[var(--pp-graphite-deep)] shadow-lg shadow-[#2B2320]/20",
   whatsapp: "bg-[#10B981] text-white hover:bg-[#0D9668] shadow-lg shadow-[#10B981]/25", // marca do WhatsApp — fora da paleta Pedido Prime, cor de terceiro preservada
-  ghost: "text-[var(--pp-primary-hover)] hover:bg-[#C63F1D]/10",
+  ghost: "text-[var(--pp-primary-hover)] hover:bg-[#E67E22]/10",
 };
 export function Botao({ children, variant = "primary", onClick, href, type = "button", className = "", ...rest }) {
   const cls = `font-display inline-flex min-h-[44px] items-center justify-center gap-2 rounded-2xl px-6 py-3.5 text-sm font-bold transition active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pp-primary-hover)] focus-visible:ring-offset-2 ${BOTAO_ESTILOS[variant]} ${className}`;
@@ -57,7 +57,7 @@ export function Botao({ children, variant = "primary", onClick, href, type = "bu
   return <button type={type} onClick={onClick} className={cls} {...rest}>{children}</button>;
 }
 
-// "PRIME" em terracota — mesma cor no header (fundo claro) e no footer
+// "PRIME" em laranja padrão — mesma cor no header (fundo claro) e no footer
 // (fundo bege). Usa --pp-primary-hover, não --pp-primary: o tom mais claro
 // reprovava em contraste AA sobre branco/bege (3.99:1 e 3.74:1, achado na
 // auditoria de acessibilidade da Fase 6 — Lighthouse) — --pp-primary-hover
@@ -74,14 +74,14 @@ export function Marca({ tamanho = 38, escuro = false }) {
   );
 }
 
-// tons: "blue" (default) = ação/destaque geral → --pp-primary; "gold" e
-// "violet" = marca/premium → --pp-brand (o roxo antigo foi removido da
-// paleta, unificado aqui em dourado).
+// tons: "blue" (default) = ação/destaque geral → laranja padrão #E67E22;
+// "gold"/"violet" = marca/secundário → azul petróleo #0F4C5C (nomes das
+// variantes mantidos por compatibilidade; a cor foi unificada em petróleo).
 export function Badge({ children, tom = "blue" }) {
   const tons = {
-    blue: "border-[#C63F1D]/25 bg-[#C63F1D]/5 text-[var(--pp-primary-hover)]",
-    gold: "border-[#B8872A]/30 bg-[#B8872A]/5 text-[var(--pp-brand-text)]",
-    violet: "border-[#B8872A]/30 bg-[#B8872A]/5 text-[var(--pp-brand-text)]",
+    blue: "border-[#E67E22]/25 bg-[#E67E22]/5 text-[var(--pp-primary-hover)]",
+    gold: "border-[#0F4C5C]/30 bg-[#0F4C5C]/5 text-[#0F4C5C]",
+    violet: "border-[#0F4C5C]/30 bg-[#0F4C5C]/5 text-[#0F4C5C]",
   };
   return (
     <span className={`inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-wider ${tons[tom]}`}>
@@ -93,10 +93,10 @@ export function Badge({ children, tom = "blue" }) {
 // Selo redondo com ícone linear (usado em todos os cards de feature).
 export function IconBadge({ nome, tom = "blue" }) {
   const tons = {
-    blue: "border-[#C63F1D]/20 bg-[#C63F1D]/5 text-[var(--pp-primary-hover)]",
-    gold: "border-[#B8872A]/25 bg-[#B8872A]/5 text-[var(--pp-brand-text)]",
-    violet: "border-[#B8872A]/20 bg-[#B8872A]/5 text-[var(--pp-brand-text)]",
-    green: "border-[#B8872A]/20 bg-[#B8872A]/5 text-[var(--pp-brand-text)]", // decorativo — não é status de pedido, unificado em dourado (verde fica reservado a --pp-success)
+    blue: "border-[#E67E22]/20 bg-[#E67E22]/5 text-[var(--pp-primary-hover)]",
+    gold: "border-[#0F4C5C]/25 bg-[#0F4C5C]/5 text-[#0F4C5C]",
+    violet: "border-[#0F4C5C]/20 bg-[#0F4C5C]/5 text-[#0F4C5C]",
+    green: "border-[#0F4C5C]/20 bg-[#0F4C5C]/5 text-[#0F4C5C]", // decorativo — não é status de pedido, unificado em petróleo (verde fica reservado a --pp-success)
     navy: "border-[#2B2320]/10 bg-white text-[var(--pp-graphite)]",
   };
   return (
@@ -107,8 +107,8 @@ export function IconBadge({ nome, tom = "blue" }) {
 }
 
 // Marcador de lista (bullet check) reutilizado nas seções de benefícios.
-// Decorativo (não é status de pedido) — dourado, não --pp-success.
-export function Check({ cor = "#B8872A" }) {
+// Decorativo (não é status de pedido) — azul petróleo, não --pp-success.
+export function Check({ cor = "#0F4C5C" }) {
   return (
     <svg viewBox="0 0 24 24" className="mt-0.5 h-4 w-4 shrink-0" fill="none" stroke={cor} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
       <path d="M20 6 9 17l-5-5" />
@@ -131,7 +131,7 @@ export function SectionHeading({ badge, tom, titulo, desc, className = "" }) {
 // no Hero, reaproveitado em outras seções para manter a mesma linguagem
 // visual sem repetir o gradiente inline em cada arquivo.
 export function GlowOrb({ tom = "primary", className = "" }) {
-  const cor = tom === "brand" ? "rgba(184,135,42,0.14)" : "rgba(198,63,29,0.12)";
+  const cor = tom === "brand" ? "rgba(15,76,92,0.14)" : "rgba(230,126,34,0.12)";
   return <div aria-hidden="true" className={`pointer-events-none absolute -z-10 rounded-full blur-2xl ${className}`} style={{ background: `radial-gradient(closest-side, ${cor}, transparent)` }} />;
 }
 
@@ -139,5 +139,5 @@ export function GlowOrb({ tom = "primary", className = "" }) {
 // lançados (nunca apresentados como já disponíveis).
 export function StatusPill({ status }) {
   if (status !== "em breve") return null;
-  return <span className="absolute right-3 top-3 rounded-full border border-[#B8872A]/30 bg-white px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-[var(--pp-brand-text)]">Em breve</span>;
+  return <span className="absolute right-3 top-3 rounded-full border border-[#0F4C5C]/30 bg-white px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-[#0F4C5C]">Em breve</span>;
 }

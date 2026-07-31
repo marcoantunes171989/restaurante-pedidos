@@ -10,7 +10,7 @@ export default function Crescimento() {
         <SectionHeading badge="Cresça sem trocar de sistema" titulo="O Pedido Prime acompanha o seu crescimento"
           desc="Comece pequeno, evolua no seu ritmo — do primeiro restaurante até uma rede com várias unidades." />
         <Reveal delay={120} className="relative mt-16">
-          <div aria-hidden="true" className="absolute left-4 top-0 h-full w-px bg-gradient-to-b from-[#C63F1D] via-[#B8872A] to-[#C63F1D] sm:left-1/2" />
+          <div aria-hidden="true" className="absolute left-4 top-0 h-full w-px bg-gradient-to-b from-[#E67E22] via-[#0F4C5C] to-[#E67E22] sm:left-1/2" />
           <div className="space-y-10 sm:space-y-14">
             {CRESCIMENTO.map((etapa, i) => {
               const esquerda = i % 2 === 0;

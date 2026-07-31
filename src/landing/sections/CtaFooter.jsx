@@ -45,8 +45,8 @@ export function CtaFinal() {
         <Reveal className="grid items-center gap-10 lg:grid-cols-[1.1fr_auto_0.7fr]">
           <div className="text-center lg:text-left">
             {/* Badge branco translúcido, não o <Badge> compartilhado — aquele
-                componente usa texto terracota/dourado escuro (--pp-brand-text,
-                pensado pra fundo claro) e ficaria ilegível sobre este bloco
+                componente usa texto laranja/petróleo escuro (pensado pra
+                fundo claro) e ficaria ilegível sobre este bloco
                 sólido. Texto branco 600+/13px sobre --pp-primary-hover: contraste
                 AA já documentado em ui.jsx (Botao "primary"), 5.08:1. */}
             <span className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-wider text-white">

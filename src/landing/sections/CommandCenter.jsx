@@ -15,7 +15,7 @@ export default function CommandCenter() {
         <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {CENTRO_COMANDO_DESTAQUES.map((f, i) => (
             <Reveal as="article" key={f.titulo} delay={(i % 3) * 90}
-              className="rounded-2xl border border-[var(--pp-border)] bg-white p-6 shadow-[0_16px_40px_-30px_rgba(28,20,15,0.25)] transition hover:-translate-y-1 hover:border-[#C63F1D]/30">
+              className="rounded-2xl border border-[var(--pp-border)] bg-white p-6 shadow-[0_16px_40px_-30px_rgba(28,20,15,0.25)] transition hover:-translate-y-1 hover:border-[#E67E22]/30">
               <IconBadge nome={f.icon} />
               <h3 className="font-display mt-4 text-base font-bold text-[var(--pp-graphite)]">{f.titulo}</h3>
               <p className="mt-1.5 text-sm leading-6 text-[var(--pp-text-muted)]">{f.desc}</p>

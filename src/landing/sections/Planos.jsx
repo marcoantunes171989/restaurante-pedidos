@@ -19,11 +19,11 @@ export default function Planos() {
             const destaque = !!p.destaque;
             return (
               <Reveal as="article" key={p.id} delay={i * 80}
-                className={`relative flex flex-col rounded-[1.25rem] border bg-white p-7 transition ${destaque ? "border-[#B8872A] shadow-[0_32px_70px_-24px_rgba(184,135,42,0.45)] lg:-translate-y-3 lg:scale-[1.03]" : "border-[var(--pp-border)]"}`}>
+                className={`relative flex flex-col rounded-[1.25rem] border bg-white p-7 transition ${destaque ? "border-[#0F4C5C] shadow-[0_32px_70px_-24px_rgba(15,76,92,0.45)] lg:-translate-y-3 lg:scale-[1.03]" : "border-[var(--pp-border)]"}`}>
                 {destaque && (
-                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-[#B8872A] px-3.5 py-1 text-[11px] font-black uppercase tracking-wider text-[var(--pp-graphite)] shadow">Recomendado</span>
+                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-[#0F4C5C] px-3.5 py-1 text-[11px] font-black uppercase tracking-wider text-[var(--pp-graphite)] shadow">Recomendado</span>
                 )}
-                <span className={`flex h-11 w-11 items-center justify-center rounded-2xl border ${destaque ? "border-[#B8872A]/40 text-[var(--pp-brand-text)]" : "border-[var(--pp-border)] text-[var(--pp-primary-hover)]"}`}><Icone className="h-5 w-5" /></span>
+                <span className={`flex h-11 w-11 items-center justify-center rounded-2xl border ${destaque ? "border-[#0F4C5C]/40 text-[#0F4C5C]" : "border-[var(--pp-border)] text-[var(--pp-primary-hover)]"}`}><Icone className="h-5 w-5" /></span>
                 <h3 className="font-display mt-4 text-xl font-bold text-[var(--pp-graphite)]">{p.nome}</h3>
                 <p className="mt-1 min-h-[3.5rem] text-sm leading-6 text-[var(--pp-text-muted)]">{p.desc}</p>
                 <p className="mt-4 flex items-baseline gap-1">

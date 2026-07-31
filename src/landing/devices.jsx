@@ -113,7 +113,7 @@ export function TelaCardapioCliente({ compacta = false }) {
     <div className="p-3">
       <div className="flex items-center justify-between px-1 pb-2">
         <p className="font-display text-xs font-bold text-[var(--pp-graphite)]">Cardápio</p>
-        <span className="rounded-full bg-[#B8872A]/10 px-2 py-0.5 text-[8px] font-bold text-[var(--pp-brand-text)]">Aberto agora</span>
+        <span className="rounded-full bg-[#0F4C5C]/10 px-2 py-0.5 text-[8px] font-bold text-[#0F4C5C]">Aberto agora</span>
       </div>
       <div className="flex gap-1.5 overflow-hidden px-1">
         {["Lanches", "Bebidas", "Sobremesas"].map((c, i) => (
@@ -126,7 +126,7 @@ export function TelaCardapioCliente({ compacta = false }) {
             {!compacta && <span className="h-8 w-8 shrink-0 rounded-md bg-gradient-to-br from-[#F3EDE4] to-[#E9DECF]" />}
             <div className="min-w-0 flex-1">
               <p className={`truncate font-bold text-[var(--pp-graphite)] ${compacta ? "text-[9px]" : "text-[10px]"}`}>{p.nome}</p>
-              {p.tag && !compacta && <span className="text-[8px] font-bold text-[var(--pp-brand-text)]">{p.tag}</span>}
+              {p.tag && !compacta && <span className="text-[8px] font-bold text-[#0F4C5C]">{p.tag}</span>}
             </div>
             <span className={`shrink-0 font-black text-[var(--pp-graphite)] ${compacta ? "text-[9px]" : "text-[10px]"}`}>R$ {p.preco}</span>
           </div>
@@ -134,7 +134,7 @@ export function TelaCardapioCliente({ compacta = false }) {
       </div>
       <div className="mt-2 flex items-center justify-between rounded-lg bg-[var(--pp-graphite)] px-2.5 py-2">
         <span className="text-[9px] font-bold text-white">Ver carrinho (3)</span>
-        <span className="text-[9px] font-black text-[#D0A548]">R$ 72,70</span>
+        <span className="text-[9px] font-black text-[#0F4C5C]">R$ 72,70</span>
       </div>
     </div>
   );
@@ -148,11 +148,11 @@ export function TelaDashboard({ compacta = false }) {
     <div className={compacta ? "p-3" : "p-4"}>
       <div className="flex items-start justify-between">
         <p className="font-display text-[11px] font-bold text-[var(--pp-graphite)]">Faturamento por horário</p>
-        <span className="rounded-full bg-[#B8872A]/10 px-2 py-0.5 text-[8px] font-bold text-[var(--pp-brand-text)]">+12% vs. ontem</span>
+        <span className="rounded-full bg-[#0F4C5C]/10 px-2 py-0.5 text-[8px] font-bold text-[#0F4C5C]">+12% vs. ontem</span>
       </div>
       <div className="mt-2.5 flex items-end justify-between gap-1" style={{ height: ALT + 8 }}>
         {horas.map((v, i) => (
-          <div key={i} className="w-full rounded-t-sm" style={{ height: Math.max(4, (v / max) * ALT), background: v === max ? "#B8872A" : "#C63F1D" }} />
+          <div key={i} className="w-full rounded-t-sm" style={{ height: Math.max(4, (v / max) * ALT), background: v === max ? "#0F4C5C" : "#E67E22" }} />
         ))}
       </div>
       {!compacta && (
@@ -183,7 +183,7 @@ export function TelaNotificacaoPush() {
         <span className="shrink-0 text-[8px] text-[var(--pp-text-muted)]">agora</span>
       </div>
       <div className="flex items-center gap-2 rounded-xl border border-[var(--pp-border)] bg-white/70 p-2.5 opacity-70">
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--pp-brand)] text-[9px] font-black text-white">PP</span>
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#0F4C5C] text-[9px] font-black text-white">PP</span>
         <div className="min-w-0 flex-1">
           <p className="truncate text-[9px] font-bold text-[var(--pp-graphite)]">Pedido Prime</p>
           <p className="truncate text-[8.5px] text-[var(--pp-text-muted)]">Fechamento de caixa concluído</p>
@@ -253,7 +253,7 @@ export function TelaPorTipo({ tipo }) {
     case "crm": return <TelaLista icone="clientes" linhas={[
       { a: "Ana Souza", b: "12 pedidos", cor: "bg-[var(--pp-info)]" },
       { a: "Marcos Lima", b: "7 pedidos", cor: "bg-[var(--pp-info)]" },
-      { a: "Beatriz Alves", b: "Novo cliente", cor: "bg-[var(--pp-brand)]" },
+      { a: "Beatriz Alves", b: "Novo cliente", cor: "bg-[#0F4C5C]" },
     ]} />;
     case "caixa": return <TelaLista icone="caixa" linhas={[
       { a: "Comanda #118", b: "R$ 96,00", cor: "bg-[var(--pp-success)]" },
