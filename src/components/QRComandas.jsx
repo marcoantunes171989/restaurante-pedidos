@@ -691,7 +691,7 @@ function imprimirComandas(comandas, nomeEmpresa, logoUrl, chamada, colunas = 3) 
     body{background:#fff;font-family:'Segoe UI',Arial,sans-serif;color:#0f172a}
     .grade{display:grid;grid-template-columns:repeat(${colunas},1fr);gap:8px}
     .card{position:relative;border:1.5px dashed #cbd5e1;border-radius:16px;padding:14px 10px 12px;display:flex;flex-direction:column;align-items:center;text-align:center;break-inside:avoid;page-break-inside:avoid;overflow:hidden}
-    .card::before{content:"";position:absolute;top:0;left:0;right:0;height:6px;background:#2563eb}
+    .card::before{content:"";position:absolute;top:0;left:0;right:0;height:6px;background:#0F4C5C}
     .top{display:flex;flex-direction:column;align-items:center;margin-top:4px}
     .logo{width:44px;height:44px;object-fit:contain;border-radius:10px;margin-bottom:4px}
     .emp{font-size:15px;font-weight:800;letter-spacing:.3px;line-height:1.1}

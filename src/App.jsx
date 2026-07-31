@@ -5557,7 +5557,7 @@ function LancamentoModal({ inicial, onFechar, onSalvar, salvando }) {
         </div>
         <div className="flex justify-end gap-2 border-t border-white/10 px-6 py-4">
           <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.06] px-5 py-2.5 text-sm font-bold text-slate-200 hover:bg-white/10">Cancelar</button>
-          <button onClick={() => valido && onSalvar({ ...f, valor: moedaParaNum(String(f.valor)) })} disabled={!valido || salvando} className="rounded-2xl bg-gold-400 px-5 py-2.5 text-sm font-black text-[#061A2E] transition hover:bg-gold-300 disabled:opacity-40">{salvando ? "Salvando…" : "Salvar"}</button>
+          <button onClick={() => valido && onSalvar({ ...f, valor: moedaParaNum(String(f.valor)) })} disabled={!valido || salvando} className="rounded-2xl bg-gold-400 px-5 py-2.5 text-sm font-black text-white transition hover:bg-gold-300 disabled:opacity-40">{salvando ? "Salvando…" : "Salvar"}</button>
         </div>
       </div>
     </div>
@@ -14108,7 +14108,7 @@ function CrmAdmin({ clientes = [], orders = [], fidTransacoes = [], fidRecompens
           </div>
           <div className="flex flex-wrap gap-2 lg:justify-end">
             <button onClick={exportarClientesCSV} className="rounded-2xl border border-white/10 bg-white/[0.06] px-3.5 py-2.5 text-xs font-bold text-slate-200 transition hover:bg-white/10">Exportar clientes</button>
-            <button onClick={() => setCampanhaAberta(true)} className="rounded-2xl bg-gold-400 px-3.5 py-2.5 text-xs font-bold text-[#061A2E] transition hover:bg-gold-300">Criar campanha</button>
+            <button onClick={() => setCampanhaAberta(true)} className="rounded-2xl bg-gold-400 px-3.5 py-2.5 text-xs font-bold text-white transition hover:bg-gold-300">Criar campanha</button>
             <button onClick={() => { setSegmento("inativo"); setFiltrosAbertos(true); }} className="rounded-2xl border border-red-400/25 bg-red-500/10 px-3.5 py-2.5 text-xs font-bold text-red-300 transition hover:bg-red-500/20">Clientes inativos</button>
             <button onClick={() => setConfigAberta(true)} className="rounded-2xl border border-white/10 bg-white/[0.06] px-3.5 py-2.5 text-xs font-bold text-slate-200 transition hover:bg-white/10">Configurar CRM</button>
           </div>

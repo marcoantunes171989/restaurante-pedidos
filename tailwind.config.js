@@ -54,7 +54,7 @@ export default {
           surface:      "#FFFFFF",
           border:       "#E5E7EB",
           disabled:     "#F1F5F9",
-          gold:         "#F4A62A",
+          gold:         "#E67E22",
           success:      "#3F7D5A",
           successSoft:  "#F0FDF4",
           warning:      "#C28135",
@@ -72,42 +72,47 @@ export default {
           chart5:       "#7CA1BF",
           chart6:       "#94A3B8",
         },
-        // Família azul-marinho da marca (#061A2E principal / #03101C escuro).
+        // Família AZUL PETRÓLEO oficial (#0F4C5C) — institucional/navegação/info.
+        // Migrada do azul-marinho legado para a paleta oficial; a rampa preserva
+        // a relação claro→escuro (fundos suaves, textos e blocos institucionais).
         blue: {
-          50:  "#EDF3FB",
-          100: "#D7E4F6",
-          200: "#AFC9ED",
-          300: "#7FA8DF",
-          400: "#3B82F6",
-          500: "#2563EB",  // azul informativo
-          600: "#1D4ED8",
-          700: "#163A75",
-          800: "#102C5B",
-          900: "#061A2E",  // azul-marinho principal (novo)
-          950: "#03101C",  // navy mais escuro (novo)
+          50:  "#E5EDEF",  // petróleo suave (fundos) — = --pp-info-soft
+          100: "#CFE0E4",
+          200: "#A7C4CB",
+          300: "#6FA0AB",
+          400: "#2E7A8C",
+          500: "#0F4C5C",  // azul petróleo oficial (info/dados) — = --pp-info
+          600: "#0C3D4A",  // petróleo profundo
+          700: "#0A333E",
+          800: "#082A33",
+          900: "#061F26",  // petróleo mais escuro (blocos institucionais)
+          950: "#04151A",
         },
-        // Escala `gold` = dourado premium (detalhes, ações, badges).
-        // Nome mantido por compatibilidade; agora representa o dourado premium claro.
+        // Escala `gold` = AÇÃO/DESTAQUE. Nome mantido por compatibilidade, mas
+        // agora representa o LARANJA PADRÃO oficial da marca (#E67E22) — o dourado
+        // legado foi migrado para a paleta oficial (laranja=ação · petróleo=
+        // institucional). A rampa mantém a relação claro→escuro, então fundos
+        // suaves, bordas e textos preservam o contraste, só mudam de matiz.
         gold: {
-          50:  "#FFF7E0",  // dourado suave (fundos)
-          100: "#FAF0D6",
-          200: "#F4D27A",  // borda de pill ativo
-          300: "#E8C170",  // hover claro
-          400: "#D9A441",  // dourado premium principal (ações)
-          500: "#C7922F",  // dourado pressionado/hover escuro
-          600: "#9A6A00",  // dourado escuro (texto sobre claro)
-          700: "#9A3412",
-          800: "#7C2D12",
-          900: "#431407",
+          50:  "#FCEFE1",  // laranja suave (fundos) — = --client-primary-soft
+          100: "#FAE3CC",
+          200: "#F0B589",  // borda de pill ativo — = --client-primary-border
+          300: "#EC9A5A",  // hover claro
+          400: "#E67E22",  // LARANJA PADRÃO principal (ações) — = --pp-primary
+          500: "#D06E1A",  // hover/pressionado — = --pp-primary-hover
+          600: "#B25E15",  // laranja escuro (texto sobre claro)
+          700: "#964E11",
+          800: "#7C3F0E",
+          900: "#5A2E0A",
         },
         // Paleta das telas internas (painel, operacional). Namespace próprio.
         // Reformulação LIGHT premium (fundo neutro claro, azul + dourado como destaque).
         admin: {
-          navy:      "#061A2E", // legado (marca, textos pontuais) — não usar como bloco de fundo
-          navy2:     "#0B2A3D", // legado
-          gold:      "#D9A441", // dourado premium (detalhes/ações)
-          goldhover: "#C7922F", // hover do dourado
-          amber:     "#D9A441", // detalhe premium
+          navy:      "#0F4C5C", // azul petróleo institucional (marca, textos pontuais)
+          navy2:     "#0C3D4A", // petróleo mais profundo
+          gold:      "#E67E22", // laranja padrão (detalhes/ações)
+          goldhover: "#D06E1A", // hover do laranja
+          amber:     "#E67E22", // detalhe de ação (laranja)
           bg:        "#F7F8FA", // fundo geral das telas
           bg2:       "#F3F4F6", // fundo secundário (superfícies elevadas sutis)
           cream:     "#FAFAF8", // superfície suave
@@ -124,22 +129,22 @@ export default {
           warnbg:    "#FFF4E5",
           danger:    "#E5484D",
           dangerbg:  "#FFF1F2",
-          info:      "#2563EB",
-          infobg:    "#EFF6FF",
+          info:      "#0F4C5C", // azul petróleo (info/dados)
+          infobg:    "#E5EDEF", // petróleo suave
           // Sidebar (menu lateral) — versão light premium
           sidebarBg:          "#FFFFFF",
           sidebarBorder:      "#E5E7EB",
           sidebarText:        "#475467",
           sidebarTextActive:  "#182230",
-          sidebarActiveBg:    "#FFF7E0",
-          sidebarActiveAccent:"#D9A441",
+          sidebarActiveBg:    "#FCEFE1",  // laranja suave
+          sidebarActiveAccent:"#E67E22",  // laranja padrão
           sidebarIcon:        "#667085",
-          sidebarIconActive:  "#D9A441",
+          sidebarIconActive:  "#E67E22",  // laranja padrão
         },
         // Paleta dedicada para gráficos (tons médios, sem saturação pesada).
         chart: {
-          blue:   "#4F8EF7",
-          gold:   "#D9A441",
+          blue:   "#0F4C5C",
+          gold:   "#E67E22",
           green:  "#35B779",
           coral:  "#F28C82",
           purple: "#8B7CF6",
@@ -158,10 +163,10 @@ export default {
         // simples (bg-pp-primary). Os MESMOS hex vivem em :root como
         // CSS vars; qualquer ajuste deve ser feito nos dois lugares.
         pp: {
-          brand: "#D4A017",
-          brandHover: "#B8860B",
-          primary: "#E8622C",
-          primaryHover: "#C9501F",
+          brand: "#E67E22",
+          brandHover: "#D06E1A",
+          primary: "#E67E22",
+          primaryHover: "#D06E1A",
           graphite: "#1A1A1A",
           graphiteDeep: "#101012",
           bg: "#FAF9F5",
