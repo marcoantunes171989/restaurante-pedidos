@@ -13066,22 +13066,6 @@ function classificacaoMediaSatE(media) {
   return { label: "Crítico", cor: "#EF4444" };
 }
 
-// Cor de texto legível sobre um fundo colorido: branco em fundos ESCUROS,
-// grafite em fundos CLAROS. Usa luminância relativa (WCAG) e devolve o tom
-// de maior contraste — garante leitura dos rótulos dentro de barras/segmentos
-// coloridos (ex.: número dentro do segmento da distribuição de notas), onde
-// branco fixo falha em cores claras como âmbar/verde.
-function corTextoSobre(hex) {
-  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || "").trim());
-  if (!m) return "#FFFFFF";
-  const n = parseInt(m[1], 16);
-  const canal = (v) => { const c = v / 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
-  const L = 0.2126 * canal((n >> 16) & 255) + 0.7152 * canal((n >> 8) & 255) + 0.0722 * canal(n & 255);
-  const contrasteBranco = 1.05 / (L + 0.05);
-  const contrasteGrafite = (L + 0.05) / (0.0176 + 0.05); // grafite #0D1B2A
-  return contrasteBranco >= contrasteGrafite ? "#FFFFFF" : "#0D1B2A";
-}
-
 function RelatorioSatisfacao({ pesquisas = [], todasPesquisas = [], pedidos = [], orders = [], periodo, ini, fim, lojaInfo }) {
   const [buscaSatE, setBuscaSatE] = useState("");
   const [fCanalSatE, setFCanalSatE] = useState("todos");
@@ -13137,7 +13121,9 @@ function RelatorioSatisfacao({ pesquisas = [], todasPesquisas = [], pedidos = []
   const taxaResposta = pedidosPagosPeriodo > 0 ? (lista.length / pedidosPagosPeriodo) * 100 : null;
   const origemTxt = (o) => o === "externo" ? "🛵 Delivery" : o === "mesa" ? "🍽️ Mesa" : (o || "—");
   const telMasc = (t) => { const d = String(t || "").replace(/\D/g, ""); return d.length >= 4 ? `****-${d.slice(-4)}` : "—"; };
-  const CORES_NOTA = ["#EF4444", "#F59E0B", "#64748B", "#0F4C5C", "#10B981"];
+  // Escala 1→5. Âmbar e verde levemente aprofundados (#D97706/#059669) para o
+  // NÚMERO BRANCO ter contraste em todos os segmentos (padrão único de leitura).
+  const CORES_NOTA = ["#EF4444", "#D97706", "#64748B", "#0F4C5C", "#059669"];
 
   // ── Comparativo com o período anterior (mesma técnica das demais abas) ──
   const comparativoSatE = (() => {
@@ -13436,7 +13422,7 @@ function RelatorioSatisfacao({ pesquisas = [], todasPesquisas = [], pedidos = []
                     <div className="mb-1 flex items-center justify-between text-xs"><span className="font-semibold text-[#334155]">{m.label}</span><span className="font-bold text-[#64748B]">{tot} resposta(s)</span></div>
                     <div className="flex h-6 overflow-hidden rounded-lg bg-[#F1F5F9]">
                       {m.dist.map((c, i) => c > 0 && (
-                        <div key={i} className="flex items-center justify-center text-[10px] font-black" style={{ width: `${(c / tot) * 100}%`, background: CORES_NOTA[i], color: corTextoSobre(CORES_NOTA[i]) }} title={`${i + 1}★: ${c} (${((c / tot) * 100).toFixed(0)}%)`}>{(c / tot) >= 0.08 ? c : ""}</div>
+                        <div key={i} className="flex items-center justify-center text-[10px] font-black text-white" style={{ width: `${(c / tot) * 100}%`, background: CORES_NOTA[i] }} title={`${i + 1}★: ${c} (${((c / tot) * 100).toFixed(0)}%)`}>{(c / tot) >= 0.08 ? c : ""}</div>
                       ))}
                     </div>
                   </div>
