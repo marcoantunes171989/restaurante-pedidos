@@ -1,7 +1,14 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <!-- Pedido Prime - monograma PP (azul-marinho, branco e dourado) -->
-  <circle cx="50" cy="50" r="46" fill="#0C2247"/>
-  <circle cx="50" cy="50" r="46" fill="none" stroke="#D4A017" stroke-width="5"/>
-  <path d="M33 76 V28 h14 a13 13 0 0 1 0 26 H33" fill="none" stroke="#F8FAFC" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M48 82 V40 h12 a12 12 0 0 1 0 24 H48" fill="none" stroke="#E0B135" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Pedido Prime">
+  <!-- Pedido Prime - monograma PP (paleta oficial: petróleo #0F4C5C + laranja #E67E22) -->
+  <circle cx="50" cy="50" r="48.5" fill="#FFFFFF"/>
+  <circle cx="50" cy="50" r="47" fill="none" stroke="#E67E22" stroke-width="2.4"/>
+  <circle cx="50" cy="50" r="42.5" fill="none" stroke="#E67E22" stroke-width="1.7" opacity="0.5"/>
+  <g fill="none" stroke="#0F4C5C" stroke-width="8.2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M34 27 L34 73"/>
+    <path d="M34 27 Q57 27 57 38 Q57 49 34 49"/>
+  </g>
+  <g fill="none" stroke="#E67E22" stroke-width="8.2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M50 32 L50 78"/>
+    <path d="M50 32 Q72 32 72 43 Q72 54 50 54"/>
+  </g>
 </svg>
