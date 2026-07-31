@@ -5916,7 +5916,7 @@ async function abrirPDFComanda(g, opts = {}) {
     const pref = (prefixoLoja || String(g.comanda || "").split("-")[0] || "").toUpperCase();
     const base = origin || (typeof window !== "undefined" ? window.location.origin : "");
     if (g.comanda && pref && base) {
-      const url = `${base}/cardapio?e=${encodeURIComponent(pref)}&c=${encodeURIComponent(g.comanda)}`;
+      const url = `${base}/cardapio?e=${encodeURIComponent(pref)}&c=${encodeURIComponent(g.comanda)}&consulta=1`;
       const QRCode = (await import("qrcode")).default;
       const qrData = await QRCode.toDataURL(url, { width: 320, margin: 1, color: { dark: "#0F4C5C", light: "#ffffff" }, errorCorrectionLevel: "H" });
       qrHTML = `<div class="qr"><img src="${qrData}" alt="QR de consulta da comanda ${esc(g.comanda)}"/><span>Consultar comanda</span></div>`;

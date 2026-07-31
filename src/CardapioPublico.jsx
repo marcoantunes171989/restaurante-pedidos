@@ -150,6 +150,9 @@ export default function CardapioPublico() {
   // antigos (só `mesa=NN`) continuam funcionando via fallback por número.
   const midURL   = (params.get("mid") || "").replace(/\D/g, "");
   const comURL   = (params.get("c") || "").toUpperCase();
+  // Consulta read-only por comanda (QR do relatório da comanda). Flag exclusiva
+  // deste fluxo — nenhum link de mesa/externo a usa, então não afeta pedidos.
+  const consultaComanda = ((params.get("consulta") || "") === "1") && !!comURL;
 
   const [loja, setLoja]           = useState(undefined); // undefined=carregando, null=não achou
   const [produtos, setProdutos]   = useState([]);
@@ -276,7 +279,9 @@ export default function CardapioPublico() {
       const tel = (telefone || "").replace(/\D/g, "");
       const buscar = async () => {
         try {
-          const lista = modoExterno
+          const lista = consultaComanda
+            ? (comanda ? await rpcPedidosComanda({ lojaId: loja.id, comanda }) : [])
+            : modoExterno
             ? (tel.length >= 10 ? await rpcPedidosCliente({ lojaId: loja.id, telefone: tel }) : [])
             : (comanda ? await rpcPedidosComanda({ lojaId: loja.id, comanda }) : []);
           if (!vivo) return;
@@ -296,6 +301,14 @@ export default function CardapioPublico() {
   }, [loja?.id, modoExterno, comanda, telefone]);
 
   useEffect(() => { if (!msg) return; const t = setTimeout(() => setMsg(null), 3500); return () => clearTimeout(t); }, [msg]);
+
+  // Consulta por comanda: dá um tempo ao 1º poll antes de assumir "sem pedidos".
+  const [consultaEsperou, setConsultaEsperou] = useState(false);
+  useEffect(() => {
+    if (!consultaComanda) return;
+    const t = setTimeout(() => setConsultaEsperou(true), 5000);
+    return () => clearTimeout(t);
+  }, [consultaComanda]);
 
   // QR por mesa (recurso local: Interno/Ambos) e link/pedido externo
   // (Externo/Ambos) são regras INDEPENDENTES — QR de mesa nunca depende do
@@ -1156,6 +1169,117 @@ export default function CardapioPublico() {
   // ── Estados de carregamento/erro ───────────────────────────
   if (loja === undefined) return <CardapioSkeleton />;
   if (loja === null) return <Centro><span className="text-5xl">🔍</span><p className="mt-3 font-black text-[var(--client-text-primary)]">Empresa não encontrada</p><p className="mt-1 text-sm text-[var(--client-text-secondary)]">Verifique o link/QR do cardápio.</p></Centro>;
+
+  // ── Consulta read-only por comanda (QR do relatório) ───────────
+  // Mostra os pedidos/itens vinculados à comanda escaneada. Independe do canal
+  // externo estar habilitado (é consulta, não pedido) — por isso vem antes.
+  if (consultaComanda) {
+    const pedidosC = orders
+      .filter((o) => o.command === comanda && o.status !== "cancelled")
+      .sort((a, b) => new Date(a.createdAtISO || 0) - new Date(b.createdAtISO || 0));
+    const subtotalC = pedidosC.reduce((s, o) => s + o.items.reduce((a, i) => a + i.price * i.quantity, 0), 0);
+    const totalC = subtotalC * 1.1;
+    const itensC = pedidosC.reduce((s, o) => s + o.items.reduce((a, i) => a + (i.quantity || 0), 0), 0);
+    const pagaC = pedidosC.length > 0 && pedidosC.every((o) => o.paymentStatus === "paid");
+    const solicC = pedidosC.some((o) => o.paymentStatus === "requested");
+    const statusConta = pagaC ? { t: "Pagamento confirmado", cls: "border-[var(--client-success-border)] bg-[var(--client-success-soft)] text-[var(--client-success)]", ic: "bg-[var(--client-success)]" }
+      : solicC ? { t: "Fechamento solicitado", cls: "border-[var(--client-warning-border)] bg-[var(--client-warning-soft)] text-[var(--client-warning)]", ic: "bg-[var(--client-warning)]" }
+      : { t: "Conta em aberto", cls: "border-[var(--client-info-border)] bg-[var(--client-info-soft)] text-[var(--client-text-primary)]", ic: "bg-[var(--client-info)]" };
+
+    return (
+      <div data-theme="light" className="tema-claro-area min-h-screen w-full max-w-[100vw] overflow-x-hidden bg-[var(--client-background)] text-[var(--client-text-primary)]" style={{ minHeight: "100dvh" }}>
+        {/* Cabeçalho da marca */}
+        <header className="border-b border-[var(--client-border)] bg-[var(--client-surface)] px-4 pb-4" style={{ paddingTop: "calc(env(safe-area-inset-top) + 1rem)" }}>
+          <div className="mx-auto flex max-w-md items-center gap-3">
+            {loja.logoUrl ? <img src={loja.logoUrl} alt="" className="h-11 w-11 shrink-0 rounded-2xl object-cover" /> : <LogoPP size={44} />}
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-base font-black text-[var(--client-text-primary)]">{loja.nome}</p>
+              <p className="truncate text-xs text-[var(--client-text-secondary)]">Consulta da comanda</p>
+            </div>
+          </div>
+        </header>
+
+        <div className="mx-auto w-full max-w-md px-4 py-4" style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 2rem)" }}>
+          {/* Código da comanda */}
+          <div className="flex items-center justify-between gap-3 rounded-2xl border border-[var(--client-primary-border)] bg-[var(--client-primary-soft)] px-4 py-3">
+            <div className="flex items-center gap-2 text-[var(--client-primary-hover)]">
+              <CkIconRecibo width={18} height={18} />
+              <span className="font-mono text-lg font-black tracking-wide">{comanda}</span>
+            </div>
+            {pedidosC.length > 0 && <span className="shrink-0 text-xs font-bold text-[var(--client-primary-hover)]">{pedidosC.length} pedido{pedidosC.length > 1 ? "s" : ""} · {itensC} {itensC === 1 ? "item" : "itens"}</span>}
+          </div>
+
+          {pedidosC.length === 0 ? (
+            <div className="mt-10 flex flex-col items-center text-center">
+              {consultaEsperou ? (
+                <>
+                  <span className="text-5xl">🧾</span>
+                  <p className="mt-3 font-black text-[var(--client-text-primary)]">Nenhum pedido nesta comanda</p>
+                  <p className="mt-1 text-sm text-[var(--client-text-secondary)]">Ainda não há pedidos vinculados a <b>{comanda}</b>.</p>
+                </>
+              ) : (
+                <>
+                  <Spinner />
+                  <p className="mt-3 text-sm text-[var(--client-text-secondary)]">Buscando os pedidos da comanda…</p>
+                </>
+              )}
+            </div>
+          ) : (
+            <>
+              {/* Pedidos e itens */}
+              <div className="mt-3 space-y-2.5">
+                {pedidosC.map((o) => {
+                  const s = estiloStatusCliente(o.status);
+                  const modoPedido = modoEntregaPedido(o, true);
+                  const subtotalO = o.items.reduce((a, i) => a + i.price * i.quantity, 0);
+                  return (
+                    <div key={o.id} className="rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] p-3.5 shadow-[var(--client-shadow-sm)]">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-sm font-black text-[var(--client-text-primary)]">Pedido nº {String(o.id || "").replace(/\D/g, "").slice(-4)}</p>
+                          {o.createdAt && <p className="text-[11px] text-[var(--client-text-secondary)]">Realizado às {o.createdAt}</p>}
+                        </div>
+                        <span className={`flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-black ${s.chip}`}>
+                          <span className={`h-1.5 w-1.5 rounded-full ${s.dot}`} aria-hidden="true" />{statusClienteLabel(o, modoPedido)}
+                        </span>
+                      </div>
+                      <div className="mt-3 space-y-1 border-t border-[var(--client-border)] pt-3">
+                        {o.items.map((it, idx) => (
+                          <div key={idx} className="flex justify-between gap-3 text-sm">
+                            <span className="min-w-0 text-[var(--client-text-secondary)]"><b className="text-[var(--client-text-primary)]">{it.quantity}×</b> {it.name}{it.observation ? <i className="text-[var(--client-text-muted)]"> — {it.observation}</i> : ""}</span>
+                            <span className="shrink-0 font-bold text-[var(--client-text-primary)]">{formatCurrency(it.price * it.quantity)}</span>
+                          </div>
+                        ))}
+                        <div className="flex justify-between gap-3 pt-1 text-xs font-bold text-[var(--client-text-secondary)]"><span>Subtotal do pedido</span><span>{formatCurrency(subtotalO)}</span></div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Status financeiro */}
+              <div className={`mt-3 flex items-center gap-3 rounded-2xl border p-3.5 ${statusConta.cls}`}>
+                <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-white ${statusConta.ic}`}><CkIconCarteira width={17} height={17} /></span>
+                <p className="text-sm font-black">{statusConta.t}</p>
+              </div>
+
+              {/* Totais */}
+              <div className="mt-3 space-y-1.5 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] p-3.5">
+                <div className="flex items-center justify-between text-sm"><span className="text-[var(--client-text-secondary)]">Subtotal</span><span className="text-[var(--client-text-secondary)]">{formatCurrency(subtotalC)}</span></div>
+                <div className="flex items-center justify-between text-sm"><span className="text-[var(--client-text-secondary)]">Taxa de serviço (10%)</span><span className="text-[var(--client-text-secondary)]">{formatCurrency(subtotalC * 0.1)}</span></div>
+                <div className="flex items-center justify-between border-t border-[var(--client-border)] pt-2">
+                  <span className={`text-sm font-bold ${pagaC ? "text-[var(--client-success)]" : "text-[var(--client-text-secondary)]"}`}>{pagaC ? "Total pago" : "Total"}</span>
+                  <span className={`text-xl font-black ${pagaC ? "text-[var(--client-success)]" : "text-[var(--client-text-primary)]"}`}>{formatCurrency(totalC)}</span>
+                </div>
+              </div>
+              <p className="mt-3 text-center text-[11px] text-[var(--client-text-muted)]">Atualiza automaticamente · Consulta somente leitura</p>
+            </>
+          )}
+          {pedidosOffline && <p className="mt-3 text-center text-[11px] text-[var(--client-warning)]">Reconectando à atualização em tempo real…</p>}
+        </div>
+      </div>
+    );
+  }
   if (!canalPermitido) return mesaURL
     ? <Centro><span className="text-5xl">📵</span><p className="mt-3 font-black text-[var(--client-text-primary)]">QR por mesa indisponível</p><p className="mt-1 text-sm text-[var(--client-text-secondary)]">O QR Code por mesa está disponível nos modos Interno ou Ambos.</p></Centro>
     : <Centro><span className="text-5xl">📵</span><p className="mt-3 font-black text-[var(--client-text-primary)]">Cardápio externo indisponível</p><p className="mt-1 text-sm text-[var(--client-text-secondary)]">Esta empresa não habilitou o cardápio digital para o cliente.</p></Centro>;
