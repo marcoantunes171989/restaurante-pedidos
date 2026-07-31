@@ -5818,14 +5818,41 @@ function CommandPalette({ open, onClose, sections = [], onNavigate, onSair }) {
 // ── Controle de Comandas (visão gerencial · SOMENTE LEITURA) ──
 // Agrupa os pedidos por comanda e mostra situação, valor e tempo em aberto.
 // Não altera dados: apenas lista/filtra/busca (ações ficam no Caixa/Operacional).
+// Selos de situação — tema CLARO do painel, paleta oficial (laranja de ação,
+// azul petróleo institucional, verde de sucesso, âmbar semântico, vermelho erro).
 const SIT_COMANDA = {
-  aberta:               { label: "Aberta",               cls: "border-gold-400/30 bg-gold-400/10 text-gold-300" },
-  em_preparo:           { label: "Em preparo",           cls: "border-amber-400/30 bg-amber-500/10 text-amber-300" },
-  pronta:               { label: "Pronta",               cls: "border-emerald-400/30 bg-emerald-500/10 text-emerald-300" },
-  aguardando_pagamento: { label: "Aguardando pagamento", cls: "border-blue-400/30 bg-blue-500/10 text-blue-300" },
-  finalizada:           { label: "Finalizada",           cls: "border-white/10 bg-white/[0.06] text-slate-300" },
-  cancelada:            { label: "Cancelada",            cls: "border-red-400/30 bg-red-500/10 text-red-300" },
+  aberta:               { label: "Aberta",            cls: "border-[#E67E22]/40 bg-[#E67E22]/12 text-[#C2410C]" },
+  em_preparo:           { label: "Em preparo",        cls: "border-[#0F4C5C]/35 bg-[#0F4C5C]/10 text-[#0F4C5C]" },
+  pronta:               { label: "Pronta",            cls: "border-[#047857]/35 bg-[#059669]/10 text-[#047857]" },
+  aguardando_pagamento: { label: "Aguard. pagamento", cls: "border-[#D97706]/40 bg-[#D97706]/12 text-[#B45309]" },
+  finalizada:           { label: "Finalizada",        cls: "border-[#047857]/30 bg-[#059669]/10 text-[#047857]" },
+  cancelada:            { label: "Cancelada",         cls: "border-[#DC2626]/35 bg-[#DC2626]/10 text-[#B91C1C]" },
 };
+// Rótulo da última movimentação por situação da comanda.
+const MOV_COMANDA = {
+  aberta: "Novo pedido", em_preparo: "Itens enviados", pronta: "Pronto para servir",
+  aguardando_pagamento: "Aguardando pagamento", finalizada: "Pagamento recebido", cancelada: "Comanda cancelada",
+};
+// Formatação de horário / tempo relativo / duração para a tabela de comandas.
+function fmtHoraComanda(iso) {
+  if (!iso) return "—";
+  const d = new Date(iso); if (isNaN(d.getTime())) return "—";
+  const hh = String(d.getHours()).padStart(2, "0"), mm = String(d.getMinutes()).padStart(2, "0");
+  const hoje = d.toDateString() === new Date().toDateString();
+  return hoje ? `Hoje, ${hh}:${mm}` : `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}, ${hh}:${mm}`;
+}
+function fmtRelativoComanda(ms) {
+  const min = Math.max(0, Math.round(ms / 60000));
+  if (min < 1) return "Agora mesmo";
+  if (min < 60) return `Há ${min} min`;
+  const h = Math.floor(min / 60), r = min % 60;
+  return `Há ${h}h${r ? ` ${String(r).padStart(2, "0")}min` : ""}`;
+}
+function fmtDuracaoComanda(min) {
+  if (min < 60) return `${min} min`;
+  const h = Math.floor(min / 60), r = min % 60;
+  return `${String(h).padStart(2, "0")}h ${String(r).padStart(2, "0")}min`;
+}
 function situacaoComanda(pedidos) {
   if (!pedidos.length) return "aberta";
   const ativos = pedidos.filter((o) => o.status !== "cancelled");
@@ -5836,102 +5863,276 @@ function situacaoComanda(pedidos) {
   if (ativos.every((o) => o.status === "ready" || o.status === "delivered")) return "pronta";
   return "aberta";
 }
+const ABERTAS_KEYS = ["aberta", "em_preparo", "pronta", "aguardando_pagamento"];
+const ehComandaExterna = (o) => o.table === "Externo" || /^EXT-/.test(o.command || "");
 function ComandasGestaoAdmin({ orders = [] }) {
   const [busca, setBusca] = useState("");
-  const [filtro, setFiltro] = useState("todas");
+  const [filtro, setFiltro] = useState("em_andamento");
+  const [periodo, setPeriodo] = useState("hoje");
+  const [origem, setOrigem] = useState("todas");
+  const [ordenacao, setOrdenacao] = useState("recentes");
+  const [porPagina, setPorPagina] = useState(20);
+  const [pagina, setPagina] = useState(1);
+  const [fixadas, setFixadas] = useState(() => new Set());
+  const [atualizadoEm, setAtualizadoEm] = useState(() => Date.now());
   const agora = Date.now();
+
+  // Reinicia a paginação quando qualquer filtro muda.
+  const comReset = (setter) => (v) => { setter(v); setPagina(1); };
+  const toggleFixar = (chave) => setFixadas((s) => { const n = new Set(s); n.has(chave) ? n.delete(chave) : n.add(chave); return n; });
 
   const grupos = useMemo(() => {
     const map = {};
     for (const o of orders) {
       const key = String(o.command || o.table || o.id);
-      if (!map[key]) map[key] = { chave: key, comanda: o.command, mesa: o.table, cliente: o.customer, telefone: o.clienteTelefone, pedidos: [], iso: o.createdAtISO };
+      if (!map[key]) map[key] = { chave: key, comanda: o.command, mesa: o.table, cliente: o.customer, telefone: o.clienteTelefone, pedidos: [], iso: o.createdAtISO, ultima: null, forma: null, externo: ehComandaExterna(o) };
       const g = map[key];
       g.pedidos.push(o);
       if (o.customer && !g.cliente) g.cliente = o.customer;
       if (o.createdAtISO && (!g.iso || o.createdAtISO < g.iso)) g.iso = o.createdAtISO;
+      const mov = o.updatedAtISO || o.prontoEmISO || o.preparoEmISO || o.createdAtISO;
+      if (mov && (!g.ultima || mov > g.ultima)) g.ultima = mov;
+      if (o.pagamentoForma && !g.forma) g.forma = o.pagamentoForma;
     }
     return Object.values(map).map((g) => {
       const total = g.pedidos.reduce((s, o) => s + orderTotal(o), 0);
       const itens = g.pedidos.reduce((s, o) => s + o.items.reduce((a, it) => a + (it.quantity || 0), 0), 0);
       const mins = g.iso ? Math.max(0, Math.round((agora - new Date(g.iso).getTime()) / 60000)) : 0;
-      return { ...g, total, itens, mins, sit: situacaoComanda(g.pedidos) };
-    }).sort((a, b) => {
-      const fim = (s) => (s === "finalizada" || s === "cancelada" ? 1 : 0);
-      return fim(a.sit) - fim(b.sit) || b.mins - a.mins;
+      const sit = situacaoComanda(g.pedidos);
+      const finalizado = sit === "finalizada" || sit === "cancelada";
+      const duracao = finalizado && g.iso && g.ultima ? Math.max(0, Math.round((new Date(g.ultima).getTime() - new Date(g.iso).getTime()) / 60000)) : mins;
+      const movMs = g.ultima ? agora - new Date(g.ultima).getTime() : agora - new Date(g.iso || agora).getTime();
+      return { ...g, total, itens, mins, sit, finalizado, duracao, movMs };
     });
   }, [orders, agora]);
 
+  const abertasGrupos = grupos.filter((g) => ABERTAS_KEYS.includes(g.sit));
+  const mediaMin = abertasGrupos.length ? abertasGrupos.reduce((s, g) => s + g.mins, 0) / abertasGrupos.length : 0;
+  const kAbertas = grupos.filter((g) => g.sit === "aberta").length;
+  const kPreparo = grupos.filter((g) => g.sit === "em_preparo").length;
+  const kPagto = grupos.filter((g) => g.sit === "aguardando_pagamento").length;
+  const kValor = abertasGrupos.reduce((s, g) => s + g.total, 0);
+  const kTempo = abertasGrupos.length ? Math.round(mediaMin) : 0;
+
   const q = busca.trim().toLowerCase();
-  const abertasKeys = ["aberta", "em_preparo", "pronta", "aguardando_pagamento"];
-  const filtradas = grupos.filter((g) => {
-    const okFiltro = filtro === "todas" || g.sit === filtro;
-    const okBusca = !q || `${g.comanda || ""} ${g.mesa || ""} ${g.cliente || ""} ${g.telefone || ""}`.toLowerCase().includes(q);
-    return okFiltro && okBusca;
-  });
-  const nAbertas = grupos.filter((g) => abertasKeys.includes(g.sit)).length;
-  const nPagto = grupos.filter((g) => g.sit === "aguardando_pagamento").length;
-  const totalAberto = grupos.filter((g) => abertasKeys.includes(g.sit)).reduce((s, g) => s + g.total, 0);
+  const dentroPeriodo = (g) => {
+    if (periodo === "todos" || !g.iso) return true;
+    if (periodo === "hoje") return new Date(g.iso).toDateString() === new Date().toDateString();
+    if (periodo === "7d") return (agora - new Date(g.iso).getTime()) / 86400000 <= 7;
+    return true;
+  };
+  const casaStatus = (g) => filtro === "todas" ? true : filtro === "em_andamento" ? ABERTAS_KEYS.includes(g.sit) : g.sit === filtro;
+  const casaOrigem = (g) => origem === "todas" ? true : origem === "externo" ? g.externo : !g.externo;
+  const ORDENADORES = {
+    recentes: (a, b) => new Date(b.ultima || b.iso || 0) - new Date(a.ultima || a.iso || 0),
+    antigas: (a, b) => new Date(a.ultima || a.iso || 0) - new Date(b.ultima || b.iso || 0),
+    maior: (a, b) => b.total - a.total,
+    menor: (a, b) => a.total - b.total,
+  };
+  const filtradas = grupos
+    .filter((g) => casaStatus(g) && casaOrigem(g) && dentroPeriodo(g) && (!q || `${g.comanda || ""} ${g.mesa || ""} ${g.cliente || ""} ${g.telefone || ""}`.toLowerCase().includes(q)))
+    .sort((a, b) => (fixadas.has(b.chave) ? 1 : 0) - (fixadas.has(a.chave) ? 1 : 0) || (ORDENADORES[ordenacao] || ORDENADORES.recentes)(a, b));
+
+  const totalItens = filtradas.length;
+  const totalPaginas = Math.max(1, Math.ceil(totalItens / porPagina));
+  const pgAtual = Math.min(pagina, totalPaginas);
+  const inicio = (pgAtual - 1) * porPagina;
+  const visiveis = filtradas.slice(inicio, inicio + porPagina);
+  const paginasVisiveis = () => {
+    if (totalPaginas <= 7) return Array.from({ length: totalPaginas }, (_, i) => i + 1);
+    if (pgAtual <= 4) return [1, 2, 3, 4, 5, "…", totalPaginas];
+    if (pgAtual >= totalPaginas - 3) return [1, "…", totalPaginas - 4, totalPaginas - 3, totalPaginas - 2, totalPaginas - 1, totalPaginas];
+    return [1, "…", pgAtual - 1, pgAtual, pgAtual + 1, "…", totalPaginas];
+  };
+
+  function limparFiltros() { setBusca(""); setFiltro("em_andamento"); setPeriodo("hoje"); setOrigem("todas"); setOrdenacao("recentes"); setPagina(1); }
+  function atualizar() { setAtualizadoEm(Date.now()); }
+  function exportar() {
+    const cab = ["Comanda", "Mesa", "Cliente", "Origem", "Status", "Pedidos", "Itens", "Abertura", "Duracao", "Pagamento", "Total"];
+    const linhas = filtradas.map((g) => [
+      g.comanda || "", g.mesa || "", g.cliente || "", g.externo ? "Externo" : "Local", SIT_COMANDA[g.sit]?.label || "",
+      g.pedidos.length, g.itens, fmtHoraComanda(g.iso), fmtDuracaoComanda(g.duracao), g.forma || "", (g.total || 0).toFixed(2).replace(".", ","),
+    ]);
+    const csv = [cab, ...linhas].map((l) => l.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\n");
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = "comandas.csv"; a.click(); URL.revokeObjectURL(url);
+  }
 
   const CHIPS = [
-    { id: "todas", label: "Todas" }, { id: "aberta", label: "Abertas" }, { id: "em_preparo", label: "Em preparo" },
-    { id: "pronta", label: "Prontas" }, { id: "aguardando_pagamento", label: "Aguard. pagamento" },
+    { id: "em_andamento", label: "Em andamento", dot: true }, { id: "todas", label: "Todas" }, { id: "aberta", label: "Abertas" },
+    { id: "em_preparo", label: "Em preparo" }, { id: "pronta", label: "Prontas" }, { id: "aguardando_pagamento", label: "Aguard. pagamento" },
     { id: "finalizada", label: "Finalizadas" }, { id: "cancelada", label: "Canceladas" },
   ];
+  const KPIS = [
+    { rot: "Abertas agora", val: kAbertas, cor: "#E67E22", Icone: IconComanda },
+    { rot: "Em preparo", val: kPreparo, cor: "#0F4C5C", Icone: IconRecibo },
+    { rot: "Aguardando pagamento", val: kPagto, cor: "#D97706", Icone: IconPagamento },
+    { rot: "Valor em aberto", val: formatCurrency(kValor), cor: "#059669", Icone: IconCarteira },
+    { rot: "Tempo médio em aberto", val: kTempo ? fmtDuracaoComanda(kTempo) : "—", cor: "#0F4C5C", Icone: IconRelogio },
+  ];
+  const horaAtualizacao = `${String(new Date(atualizadoEm).getHours()).padStart(2, "0")}:${String(new Date(atualizadoEm).getMinutes()).padStart(2, "0")}`;
+  const selBox = "flex min-w-0 items-center gap-2 rounded-xl border border-[var(--pp-border)] bg-white px-3 py-1.5";
 
   return (
     <main className="space-y-5">
-      <PageHeader icone={<IconQr />} titulo="Controle de Comandas"
-        descricao="Acompanhe as comandas por status, valor e tempo em aberto — visão gerencial em tempo real."
-        indicadores={[
-          { valor: nAbertas, rotulo: "abertas", tom: "gold" },
-          { valor: nPagto, rotulo: "aguardando pagamento", tom: "alerta" },
-          { valor: formatCurrency(totalAberto), rotulo: "em aberto", tom: "ok" },
-        ]} />
-
-      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-wrap gap-2">
-            {CHIPS.map((c) => (
-              <FilterChip key={c.id} size="sm" selected={filtro === c.id} label={c.label} onClick={() => setFiltro(c.id)} />
-            ))}
-          </div>
-          <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar comanda, mesa, cliente ou telefone..."
-            className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-white outline-none transition focus:border-gold-400 placeholder:text-slate-600 sm:w-72" />
+      {/* Cabeçalho */}
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <h2 className="page-title flex items-center gap-2.5 text-2xl font-bold tracking-tight text-dash-navy">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#E67E22]/30 bg-[#E67E22]/10 text-[#E67E22] [&>svg]:h-5 [&>svg]:w-5"><IconComanda /></span>
+            Controle de Comandas
+          </h2>
+          <p className="mt-1 text-sm text-[var(--pp-text-muted)]">Acompanhe pedidos, status e valores em tempo real.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="text-sm text-[var(--pp-text-muted)]"><b className="text-dash-navy">{totalItens}</b> comandas encontradas</span>
+          <span className="hidden items-center gap-1.5 text-sm text-[var(--pp-text-muted)] sm:inline-flex">Última atualização: hoje às {horaAtualizacao} <span className="h-1.5 w-1.5 rounded-full bg-[#059669]" /></span>
+          <button onClick={atualizar} className="inline-flex items-center gap-2 rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2 text-sm font-bold text-dash-navy transition hover:bg-[var(--pp-bg)]"><IconRelogio /> Atualizar</button>
+          <button onClick={exportar} disabled={totalItens === 0} className="btn-laranja inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold disabled:opacity-40"><IconRecibo /> Exportar</button>
         </div>
       </div>
 
-      {filtradas.length === 0 ? (
+      {/* KPIs */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        {KPIS.map((k) => (
+          <div key={k.rot} className="flex items-center gap-3 rounded-2xl border border-[var(--pp-border)] bg-white p-4 shadow-[0_2px_8px_rgba(43,35,32,0.04)]">
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl [&>svg]:h-6 [&>svg]:w-6" style={{ background: `${k.cor}1A`, color: k.cor }}><k.Icone /></span>
+            <div className="min-w-0">
+              <p className="truncate text-xs font-semibold text-[var(--pp-text-muted)]">{k.rot}</p>
+              <p className="page-title text-xl font-black text-dash-navy">{k.val}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Chips de status */}
+      <div className="flex flex-wrap gap-2">
+        {CHIPS.map((c) => (
+          <button key={c.id} onClick={() => comReset(setFiltro)(c.id)}
+            className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-[13px] font-bold transition ${filtro === c.id ? "border-[#E67E22] bg-[#E67E22] text-white shadow-sm" : "border-[var(--pp-border)] bg-white text-dash-navy hover:border-[#E67E22]/50 hover:text-[#C2410C]"}`}>
+            {c.label}{c.dot && <span className={`h-1.5 w-1.5 rounded-full ${filtro === c.id ? "bg-white" : "bg-[#E67E22]"}`} />}
+          </button>
+        ))}
+      </div>
+
+      {/* Barra de filtros */}
+      <div className="flex flex-col gap-3 rounded-2xl border border-[var(--pp-border)] bg-white p-3 xl:flex-row xl:items-center">
+        <label className="flex flex-1 items-center gap-2 rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-3 py-2">
+          <span className="text-[var(--pp-text-muted)]"><IconBusca /></span>
+          <input value={busca} onChange={(e) => comReset(setBusca)(e.target.value)} placeholder="Buscar por comanda, mesa, cliente ou telefone"
+            className="w-full bg-transparent text-sm text-dash-navy outline-none placeholder:text-[var(--pp-text-muted)]" />
+        </label>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:flex xl:items-center">
+          {[
+            { rot: "Período", val: periodo, set: setPeriodo, ops: [["hoje", "Hoje"], ["7d", "7 dias"], ["todos", "Todos"]] },
+            { rot: "Status", val: filtro, set: setFiltro, ops: [["em_andamento", "Em andamento"], ["todas", "Todos"], ["aberta", "Abertas"], ["em_preparo", "Em preparo"], ["pronta", "Prontas"], ["aguardando_pagamento", "Aguard. pagamento"], ["finalizada", "Finalizadas"], ["cancelada", "Canceladas"]] },
+            { rot: "Origem", val: origem, set: setOrigem, ops: [["todas", "Todas"], ["local", "Local"], ["externo", "Externo"]] },
+            { rot: "Ordenação", val: ordenacao, set: setOrdenacao, ops: [["recentes", "Mais recentes"], ["antigas", "Mais antigas"], ["maior", "Maior valor"], ["menor", "Menor valor"]] },
+          ].map((s) => (
+            <label key={s.rot} className={selBox}>
+              <div className="min-w-0 flex-1">
+                <span className="block text-[9px] font-bold uppercase tracking-wider text-[var(--pp-text-muted)]">{s.rot}</span>
+                <select value={s.val} onChange={(e) => comReset(s.set)(e.target.value)} className="w-full cursor-pointer bg-transparent text-[13px] font-bold text-dash-navy outline-none">
+                  {s.ops.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                </select>
+              </div>
+            </label>
+          ))}
+          <button onClick={limparFiltros} className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl border border-[#E67E22]/40 bg-[#E67E22]/8 px-3.5 py-2 text-[13px] font-bold text-[#C2410C] transition hover:bg-[#E67E22]/15">Limpar filtros</button>
+        </div>
+      </div>
+
+      {/* Tabela */}
+      {totalItens === 0 ? (
         <EmptyState titulo="Nenhuma comanda encontrada" dica="Ajuste os filtros ou aguarde novas movimentações no salão." />
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {filtradas.map((g) => {
-            const sit = SIT_COMANDA[g.sit] || SIT_COMANDA.aberta;
-            const atrasada = abertasKeys.includes(g.sit) && g.mins >= 40;
-            return (
-              <article key={g.chave} className="flex flex-col rounded-3xl border border-white/10 bg-white/[0.03] p-5 shadow-lg shadow-black/10">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="font-display truncate text-base font-bold text-white">{g.comanda ? `Comanda ${g.comanda}` : `Mesa ${g.mesa || "—"}`}</p>
-                    <p className="mt-0.5 truncate text-xs text-slate-400">{g.mesa ? `Mesa ${g.mesa}` : "Sem mesa"}{g.cliente ? ` · ${g.cliente}` : ""}</p>
-                  </div>
-                  <span className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${sit.cls}`}>{sit.label}</span>
-                </div>
-                <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-                  {[["Pedidos", g.pedidos.length], ["Itens", g.itens], ["Aberta há", `${g.mins}min`]].map(([l, v], i) => (
-                    <div key={l} className="rounded-xl border border-white/[0.07] bg-white/[0.03] py-2">
-                      <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500">{l}</p>
-                      <p className={`page-title text-sm font-black ${i === 2 && atrasada ? "text-red-400" : "text-white"}`}>{v}</p>
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-4 flex items-center justify-between border-t border-white/10 pt-3">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Total</span>
-                  <span className="font-display text-lg font-black text-gold-300">{formatCurrency(g.total)}</span>
-                </div>
-              </article>
-            );
-          })}
+        <div className="overflow-hidden rounded-2xl border border-[var(--pp-border)] bg-white">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[1080px] text-sm">
+              <thead>
+                <tr className="border-b border-[var(--pp-border)] text-left text-[10px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]">
+                  <th className="py-3 pl-4 pr-2 w-8"></th>
+                  <th className="py-3 pr-3">Comanda</th>
+                  <th className="py-3 pr-3">Cliente/Origem</th>
+                  <th className="py-3 pr-3">Status</th>
+                  <th className="py-3 pr-3">Pedidos/Itens</th>
+                  <th className="py-3 pr-3">Abertura</th>
+                  <th className="py-3 pr-3">Tempo/Duração</th>
+                  <th className="py-3 pr-3">Financeiro</th>
+                  <th className="py-3 pr-3 text-right">Total</th>
+                  <th className="py-3 pr-3">Última movimentação</th>
+                  <th className="py-3 pr-4 text-right">Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visiveis.map((g) => {
+                  const sit = SIT_COMANDA[g.sit] || SIT_COMANDA.aberta;
+                  const acimaMedia = ABERTAS_KEYS.includes(g.sit) && mediaMin > 0 && g.mins > mediaMin;
+                  const corTempo = g.sit === "em_preparo" ? "#0F4C5C" : g.sit === "pronta" ? "#047857" : g.sit === "aguardando_pagamento" ? "#B45309" : acimaMedia ? "#C2410C" : "#E67E22";
+                  const fixada = fixadas.has(g.chave);
+                  return (
+                    <tr key={g.chave} className="border-b border-[var(--pp-border)] last:border-0 transition hover:bg-[var(--pp-bg)]">
+                      <td className="py-3 pl-4 pr-2">
+                        <button onClick={() => toggleFixar(g.chave)} title={fixada ? "Desafixar" : "Fixar no topo"} aria-label="Fixar comanda"
+                          className={`text-base leading-none transition ${fixada ? "text-[#E67E22]" : "text-[var(--pp-border)] hover:text-[#E67E22]"}`}>{fixada ? "★" : "☆"}</button>
+                      </td>
+                      <td className="py-3 pr-3 font-mono text-[13px] font-bold text-dash-navy">{g.comanda || `Mesa ${g.mesa || "—"}`}</td>
+                      <td className="py-3 pr-3">
+                        <p className="font-semibold text-dash-navy">{g.mesa ? `${g.mesa}` : "Externo"}{g.cliente ? ` · ${g.cliente}` : ""}</p>
+                        <p className="text-xs text-[var(--pp-text-muted)]">{g.externo ? "Externo" : "Atendimento local"}</p>
+                      </td>
+                      <td className="py-3 pr-3"><span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-bold ${sit.cls}`}>{sit.label}</span></td>
+                      <td className="py-3 pr-3">
+                        <p className="font-semibold text-dash-navy">{g.pedidos.length} {g.pedidos.length === 1 ? "pedido" : "pedidos"}</p>
+                        <p className="text-xs text-[var(--pp-text-muted)]">{g.itens} {g.itens === 1 ? "item" : "itens"}</p>
+                      </td>
+                      <td className="py-3 pr-3"><p className="font-medium text-dash-navy">{fmtHoraComanda(g.iso)}</p></td>
+                      <td className="py-3 pr-3">
+                        <p className="font-semibold" style={{ color: corTempo }}>
+                          {g.finalizado ? `${sit.label} · ${fmtDuracaoComanda(g.duracao)}` : `${g.sit === "em_preparo" ? "Em preparo há" : g.sit === "pronta" ? "Pronta há" : g.sit === "aguardando_pagamento" ? "Aguardando há" : "Aberta há"} ${fmtDuracaoComanda(g.mins)}`}
+                        </p>
+                        <p className="text-xs text-[var(--pp-text-muted)]">{g.finalizado ? "Duração total" : acimaMedia ? "Acima da média" : "Dentro da média"}</p>
+                      </td>
+                      <td className="py-3 pr-3">
+                        <p className="font-medium text-dash-navy">{formatCurrency(g.total)}</p>
+                        <p className={`text-xs font-semibold ${g.sit === "finalizada" ? "text-[#047857]" : g.sit === "aguardando_pagamento" ? "text-[#B45309]" : "text-[var(--pp-text-muted)]"}`}>
+                          {g.sit === "finalizada" ? `Pago${g.forma ? ` · ${g.forma}` : ""}` : g.sit === "aguardando_pagamento" ? "Pagamento pendente" : g.sit === "cancelada" ? "Cancelada" : "Em aberto"}
+                        </p>
+                      </td>
+                      <td className="py-3 pr-3 text-right font-black text-dash-navy">{formatCurrency(g.total)}</td>
+                      <td className="py-3 pr-3">
+                        <p className="font-medium text-dash-navy">{fmtRelativoComanda(g.movMs)}</p>
+                        <p className="text-xs text-[var(--pp-text-muted)]">{MOV_COMANDA[g.sit] || "—"}</p>
+                      </td>
+                      <td className="py-3 pr-4 text-right">
+                        <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--pp-text-muted)]" title="Visão somente leitura">⋮</span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Rodapé / paginação */}
+          <div className="flex flex-col gap-3 border-t border-[var(--pp-border)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-[var(--pp-text-muted)]">Mostrando {totalItens === 0 ? 0 : inicio + 1}–{Math.min(inicio + porPagina, totalItens)} de {totalItens} comandas</p>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-[var(--pp-text-muted)]">Itens por página</span>
+              <select value={porPagina} onChange={(e) => comReset(setPorPagina)(Number(e.target.value))} className="cursor-pointer rounded-lg border border-[var(--pp-border)] bg-white px-2 py-1 text-sm font-bold text-dash-navy outline-none">
+                {[10, 20, 50].map((n) => <option key={n} value={n}>{n}</option>)}
+              </select>
+            </div>
+            <div className="flex items-center gap-1">
+              <button onClick={() => setPagina(Math.max(1, pgAtual - 1))} disabled={pgAtual <= 1} className="flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--pp-border)] bg-white text-dash-navy transition hover:bg-[var(--pp-bg)] disabled:opacity-40">‹</button>
+              {paginasVisiveis().map((p, i) => p === "…" ? (
+                <span key={`e${i}`} className="px-1.5 text-sm text-[var(--pp-text-muted)]">…</span>
+              ) : (
+                <button key={p} onClick={() => setPagina(p)} className={`flex h-8 min-w-8 items-center justify-center rounded-lg border px-2 text-sm font-bold transition ${p === pgAtual ? "border-[#E67E22] bg-[#E67E22] text-white" : "border-[var(--pp-border)] bg-white text-dash-navy hover:bg-[var(--pp-bg)]"}`}>{p}</button>
+              ))}
+              <button onClick={() => setPagina(Math.min(totalPaginas, pgAtual + 1))} disabled={pgAtual >= totalPaginas} className="flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--pp-border)] bg-white text-dash-navy transition hover:bg-[var(--pp-bg)] disabled:opacity-40">›</button>
+            </div>
+          </div>
         </div>
       )}
     </main>
