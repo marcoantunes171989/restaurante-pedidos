@@ -2045,13 +2045,13 @@ export default function RestaurantePedidoApp() {
                 if (fn) fn.call(document).catch(() => {});
               }
               openTab(tab.id);
-            }} className={`rounded-3xl border p-4 text-left transition ${activeTab === tab.id ? "border-blue-400 bg-blue-500 text-white shadow-xl shadow-blue-950/30" : "border-white/10 bg-white/[0.06] text-slate-300 hover:bg-white/[0.1]"}`}>
+            }} className={`rounded-3xl border p-4 text-left transition ${activeTab === tab.id ? "border-[#E67E22] bg-[#E67E22] text-white shadow-xl shadow-black/30" : "border-white/10 bg-white/[0.06] text-slate-300 hover:bg-white/[0.1]"}`}>
               <p className="text-sm font-black">{tab.label}</p>
               <p className="mt-1 text-xs opacity-75">{tab.desc}</p>
             </button>
           ))}
           {["pedidos", "cozinha", "bar", "caixa"].some((k) => acessosOperacionais(currentUser)[k]) && (
-            <button onClick={() => { setActiveTab("opmobile"); clearMessage(); }} className={`rounded-3xl border p-4 text-left transition ${activeTab === "opmobile" ? "border-gold-400 bg-gold-400 text-blue-950 shadow-xl shadow-gold-900/30" : "border-gold-400/30 bg-gold-400/10 text-gold-200 hover:bg-gold-400/20"}`}>
+            <button onClick={() => { setActiveTab("opmobile"); clearMessage(); }} className={`rounded-3xl border p-4 text-left transition ${activeTab === "opmobile" ? "border-[#E67E22] bg-[#E67E22] text-white shadow-xl shadow-black/30" : "border-[#E67E22]/30 bg-[#E67E22]/10 text-[#E67E22] hover:bg-[#E67E22]/20"}`}>
               <p className="text-sm font-black">📱 Operação Mobile</p>
               <p className="mt-1 text-xs opacity-75">Central de pedidos, cozinha, bar e caixa no celular</p>
             </button>
