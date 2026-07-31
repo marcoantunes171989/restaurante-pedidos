@@ -5870,8 +5870,13 @@ function temposEtapaComanda(g) {
 }
 // Documento imprimível (A4) da comanda — visão gerencial, com a marca Pedido
 // Prime na paleta oficial. Abre a caixa de impressão (o usuário salva em PDF).
-function abrirPDFComanda(g) {
+// opts.catDe: mapa nome do item → categoria (para o resumo por categoria).
+// opts.prefixoLoja / opts.origin: montam o QR de consulta pública por comanda.
+async function abrirPDFComanda(g, opts = {}) {
+  const { catDe = {}, prefixoLoja = "", origin = "" } = opts;
   const esc = (s) => String(s ?? "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+  // Abre a janela AGORA (dentro do clique) para não cair no bloqueador de pop-up;
+  // o QR é gerado logo depois, de forma assíncrona, antes de escrever o conteúdo.
   const j = window.open("", "_blank", "width=820,height=1040");
   if (!j) return;
   const sit = SIT_COMANDA[g.sit] || SIT_COMANDA.aberta;
@@ -5882,6 +5887,42 @@ function abrirPDFComanda(g) {
   const kpi = (l, v) => `<div class="kpi"><span class="kl">${l}</span><span class="kv">${v}</span></div>`;
   const etapa = (l, v) => (v == null ? "" : `<div class="et"><span class="el">${l}</span><span class="ev">${v} min</span></div>`);
   const passo = (l, iso) => (!iso ? "" : `<div class="ts"><span class="td"></span><span class="tl">${l}</span><span class="tv">${fmtHoraComanda(iso)}</span></div>`);
+
+  // ── Mini-resumo: itens mais pedidos (por quantidade) e valor por categoria ──
+  const porItem = {}, porCat = {};
+  g.pedidos.forEach((o) => (o.items || []).forEach((it) => {
+    const q = it.quantity || 0, v = (it.price || 0) * q;
+    if (!porItem[it.name]) porItem[it.name] = { nome: it.name, qtd: 0, valor: 0 };
+    porItem[it.name].qtd += q; porItem[it.name].valor += v;
+    const cat = catDe[it.name] || "Outros";
+    if (!porCat[cat]) porCat[cat] = { nome: cat, qtd: 0, valor: 0 };
+    porCat[cat].qtd += q; porCat[cat].valor += v;
+  }));
+  const topItens = Object.values(porItem).sort((a, b) => b.qtd - a.qtd || b.valor - a.valor).slice(0, 6);
+  const cats = Object.values(porCat).sort((a, b) => b.valor - a.valor).slice(0, 6);
+  const maxQtd = Math.max(1, ...topItens.map((i) => i.qtd));
+  const maxVal = Math.max(1, ...cats.map((c) => c.valor));
+  const larguraBarra = (v, max) => Math.max(6, Math.round((v / max) * 100));
+  const barItem = (i) => `<div class="rb"><div class="rbh"><span class="rbl">${esc(i.nome)}</span><span class="rbv">${i.qtd} un · ${formatCurrency(i.valor)}</span></div><div class="rbt"><div class="rbf rbf-o" style="width:${larguraBarra(i.qtd, maxQtd)}%"></div></div></div>`;
+  const barCat = (c) => `<div class="rb"><div class="rbh"><span class="rbl">${esc(c.nome)}</span><span class="rbv">${formatCurrency(c.valor)} · ${c.qtd} un</span></div><div class="rbt"><div class="rbf rbf-p" style="width:${larguraBarra(c.valor, maxVal)}%"></div></div></div>`;
+  const resumoHTML = topItens.length ? `<h3>Resumo da comanda</h3><div class="resumo">
+      <div class="rcard"><h4>Itens mais pedidos</h4>${topItens.map(barItem).join("")}</div>
+      <div class="rcard"><h4>Valor por categoria</h4>${cats.map(barCat).join("")}</div>
+    </div>` : "";
+
+  // ── QR Code de consulta pública por comanda (/cardapio?e=PREFIXO&c=COMANDA) ──
+  let qrHTML = "";
+  try {
+    const pref = (prefixoLoja || String(g.comanda || "").split("-")[0] || "").toUpperCase();
+    const base = origin || (typeof window !== "undefined" ? window.location.origin : "");
+    if (g.comanda && pref && base) {
+      const url = `${base}/cardapio?e=${encodeURIComponent(pref)}&c=${encodeURIComponent(g.comanda)}`;
+      const QRCode = (await import("qrcode")).default;
+      const qrData = await QRCode.toDataURL(url, { width: 320, margin: 1, color: { dark: "#0F4C5C", light: "#ffffff" }, errorCorrectionLevel: "H" });
+      qrHTML = `<div class="qr"><img src="${qrData}" alt="QR de consulta da comanda ${esc(g.comanda)}"/><span>Consultar comanda</span></div>`;
+    }
+  } catch { /* sem QR se a geração falhar — o documento continua válido */ }
+
   const pedidos = g.pedidos.map((o, idx) => `
     <div class="ped">
       <div class="ph"><b>${esc(o.id || `Pedido ${idx + 1}`)}</b><span>${fmtHoraComanda(o.createdAtISO)}</span></div>
@@ -5903,6 +5944,18 @@ function abrirPDFComanda(g) {
     .kl{ display:block; font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:#8A7D73; }
     .kv{ display:block; font-size:16px; font-weight:800; margin-top:2px; }
     h3{ font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:#8A7D73; margin:0 0 8px; }
+    .resumo{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px; }
+    .rcard{ border:1px solid #EAE0D6; border-radius:10px; padding:10px 12px; }
+    .rcard h4{ font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:#8A7D73; margin:0 0 8px; font-weight:800; }
+    .rb{ margin-bottom:7px; } .rb:last-child{ margin-bottom:0; }
+    .rbh{ display:flex; justify-content:space-between; gap:10px; font-size:11px; margin-bottom:3px; }
+    .rbl{ font-weight:700; color:#2B2320; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .rbv{ color:#8A7D73; white-space:nowrap; font-weight:700; }
+    .rbt{ height:7px; border-radius:999px; background:#F1E9E0; overflow:hidden; }
+    .rbf{ height:100%; border-radius:999px; } .rbf-o{ background:#E67E22; } .rbf-p{ background:#0F4C5C; }
+    .qr{ margin-top:10px; display:flex; flex-direction:column; align-items:flex-end; }
+    .qr img{ width:88px; height:88px; border:1px solid #EAE0D6; border-radius:8px; padding:3px; background:#fff; }
+    .qr span{ font-size:8.5px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:#8A7D73; margin-top:3px; }
     .etapas{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
     .et{ border:1px solid #EAE0D6; border-left:3px solid #0F4C5C; border-radius:8px; padding:6px 10px; }
     .el{ font-size:11px; font-weight:700; color:#2B2320; } .ev{ display:block; font-size:14px; font-weight:800; color:#0F4C5C; }
@@ -5918,13 +5971,14 @@ function abrirPDFComanda(g) {
   </style></head><body>
     <div class="top">
       <div class="brand">PEDIDO <b>PRIME</b><span class="sub">Controle de Comandas · Relatório da comanda</span></div>
-      <div class="cod"><div class="c">${esc(g.comanda || `Mesa ${g.mesa || "—"}`)}</div><span class="badge">${sit.label}</span></div>
+      <div class="cod"><div class="c">${esc(g.comanda || `Mesa ${g.mesa || "—"}`)}</div><span class="badge">${sit.label}</span>${qrHTML}</div>
     </div>
     <div class="meta">${esc(g.mesa || "Externo")}${g.cliente ? ` · ${esc(g.cliente)}` : ""} · ${g.externo ? "Externo" : "Atendimento local"} — aberta em ${fmtHoraComanda(g.iso)}</div>
     <div class="kpis">
       ${kpi("Pedidos", g.pedidos.length)}${kpi("Itens", g.itens)}${kpi("Total", formatCurrency(g.total))}
       ${kpi("Ticket médio/pedido", formatCurrency(ticketPed))}${kpi("Ticket médio/item", formatCurrency(ticketItem))}${kpi(g.finalizado ? "Duração total" : "Aberta há", fmtDuracaoComanda(g.finalizado ? g.duracao : g.mins))}
     </div>
+    ${resumoHTML}
     ${(t.recebidoPreparo != null || t.preparoPronto != null || t.prontoFim != null) ? `<h3>Tempo de preparo por etapa</h3><div class="etapas">${etapa("Recebido → Preparo", t.recebidoPreparo)}${etapa("Preparo → Pronto", t.preparoPronto)}${etapa("Pronto → Finalização", t.prontoFim)}</div>` : ""}
     <h3>Linha do tempo</h3><div class="tl-wrap">${passo("Abertura", g.iso)}${passo("Início do preparo", t.prepISO)}${passo("Pronto", t.pronISO)}${passo("Última movimentação", g.ultima)}</div>
     <div class="fin"><div><div class="fl">Financeiro</div><div class="fs">${fin}</div></div><div class="ft">${formatCurrency(g.total)}</div></div>
@@ -5946,7 +6000,15 @@ function situacaoComanda(pedidos) {
 }
 const ABERTAS_KEYS = ["aberta", "em_preparo", "pronta", "aguardando_pagamento"];
 const ehComandaExterna = (o) => o.table === "Externo" || /^EXT-/.test(o.command || "");
-function ComandasGestaoAdmin({ orders = [] }) {
+function ComandasGestaoAdmin({ orders = [], products = [], lojaPrefixo = "" }) {
+  // Mapa nome do item → categoria do produto, para o resumo por categoria do PDF.
+  const catDe = useMemo(() => {
+    const m = {};
+    (products || []).forEach((p) => { if (p?.name) m[p.name] = p.category || "Outros"; });
+    return m;
+  }, [products]);
+  const origemPublica = (typeof window !== "undefined") ? window.location.origin : "";
+  const pdfOpts = { catDe, prefixoLoja: lojaPrefixo, origin: origemPublica };
   const [busca, setBusca] = useState("");
   const [filtro, setFiltro] = useState("em_andamento");
   const [periodo, setPeriodo] = useState("hoje");
@@ -6252,7 +6314,7 @@ function ComandasGestaoAdmin({ orders = [] }) {
               { ic: <IconBusca />, label: "Ver detalhes", on: () => { setDetalhe(grupoMenu); setMenu(null); } },
               { ic: <IconRecibo />, label: "Copiar código", on: () => copiarCodigo(grupoMenu) },
               { ic: <IconCarteira />, label: "Exportar CSV", on: () => exportarUma(grupoMenu) },
-              { ic: <IconImpressora />, label: "Exportar PDF", on: () => { abrirPDFComanda(grupoMenu); setMenu(null); } },
+              { ic: <IconImpressora />, label: "Exportar PDF", on: () => { abrirPDFComanda(grupoMenu, pdfOpts); setMenu(null); } },
             ].map((a) => (
               <button key={a.label} role="menuitem" onClick={a.on} className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-[13px] font-semibold text-dash-navy transition hover:bg-[var(--pp-bg)] [&>svg]:h-4 [&>svg]:w-4 [&>span>svg]:h-4 [&>span>svg]:w-4">
                 <span className="text-[var(--pp-text-muted)]">{a.ic}</span>{a.label}
@@ -6361,7 +6423,7 @@ function ComandasGestaoAdmin({ orders = [] }) {
               <div className="flex flex-wrap items-center justify-end gap-2 border-t border-[var(--pp-border)] p-4">
                 <button onClick={() => copiarCodigo(g)} className="rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2 text-sm font-bold text-dash-navy transition hover:bg-[var(--pp-bg)]">Copiar código</button>
                 <button onClick={() => exportarUma(g)} className="rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2 text-sm font-bold text-dash-navy transition hover:bg-[var(--pp-bg)]">Exportar CSV</button>
-                <button onClick={() => abrirPDFComanda(g)} className="btn-laranja rounded-xl px-4 py-2 text-sm font-bold">Exportar PDF</button>
+                <button onClick={() => abrirPDFComanda(g, pdfOpts)} className="btn-laranja rounded-xl px-4 py-2 text-sm font-bold">Exportar PDF</button>
               </div>
             </div>
           </div>
@@ -6732,7 +6794,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           {ativo === "link"       && <UserAccessAdmin users={filtraLoja(users)} accesses={accesses} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} lojaInfo={lojaInfo} lojas={lojas} isSuperAdmin={isSuperAdmin} />}
           {ativo === "categorias" && (precisaEmpresa ? avisoEmpresa : <CategoriaAdmin categoriasDb={categoriasDb} produtos={products} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} />)}
           {ativo === "mesas"      && (precisaEmpresa ? avisoEmpresa : <MesaAdmin mesas={mesas} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} orders={orders} />)}
-          {ativo === "comandas-gestao" && (precisaEmpresa ? avisoEmpresa : <ComandasGestaoAdmin orders={filtraLoja(orders)} />)}
+          {ativo === "comandas-gestao" && (precisaEmpresa ? avisoEmpresa : <ComandasGestaoAdmin orders={filtraLoja(orders)} products={filtraLoja(products)} lojaPrefixo={lojaInfo?.prefixo || ""} />)}
           {ativo === "comandas"   && (precisaEmpresa ? avisoEmpresa : <GeradorComandas prefixoLoja={lojaInfo?.prefixo || "CMD"} empresa={lojaInfo?.nome || "Restaurante"} onGerar={registrarComandas} comandasRegistradas={comandasRegistradas} orders={orders} onExcluirComanda={excluirComandaFn} onRenomearComanda={renomearComandaFn} onToggleComanda={toggleComandaFn} lojaId={lojaInfo?.id} logoSalvo={lojaInfo?.logoUrl || ""} onSalvarLogo={(url) => salvarLogoEmpresa(lojaInfo?.id, url)} onIrCardapioExterno={() => setAdminSection("cardapioext")} />)}
           {ativo === "pagamento"  && (precisaEmpresa ? avisoEmpresa : <PagamentoAdmin formasPagamento={formasPagamento} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} />)}
           {ativo === "config"     && <ConfiguracoesAdmin lojaInfo={lojaInfo} />}
