@@ -823,7 +823,7 @@ export default function CardapioPublico() {
             className="text-left transition disabled:cursor-not-allowed">
             {item.isFeatured && !indisponivel && (
               <span className="mb-1 inline-flex items-center gap-1 rounded-full bg-[var(--client-primary-soft)] px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-[var(--client-primary-hover)]">
-                <CkIconEstrela width={10} height={10} /> Mais vendido
+                <CkIconEstrela width={10} height={10} /> {item.featuredLabel || "Mais vendido"}
               </span>
             )}
             <h3 className="text-[15px] font-black leading-tight text-[var(--client-text-primary)] line-clamp-2">{item.name}</h3>
