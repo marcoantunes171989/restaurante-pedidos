@@ -1,5 +1,19 @@
 {
   "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/skills/migrations-supabase/hook-on-migration-change.sh\"",
+            "shell": "bash",
+            "timeout": 60,
+            "statusMessage": "Verificando migrations do Supabase..."
+          }
+        ]
+      }
+    ],
     "Stop": [
       {
         "hooks": [
