@@ -35,6 +35,9 @@ export default function AccountCard({
   const reaisEmPontos = Math.floor((saldoPontos / pontosPorReal) * 100) / 100;
   const maxPontosReais = Math.min(total, reaisEmPontos);
   const pediuPontos = /pontos/i.test(o.pagamentoForma || "");
+  // Pontos que o cliente identificado ganha ao pagar esta conta (incentivo).
+  const valorPorPontoAc = Number(fidCaixa?.valorPorPonto) || 0;
+  const pontosGanhar = (fidCaixa?.ativo && o.clienteTelefone && valorPorPontoAc > 0) ? Math.floor((total / 1.1) / valorPorPontoAc) : 0;
   const opcoesPag = maxPontosReais > 0 && !pago ? [...opcoes, "Pontos"] : opcoes;
 
   // Estado do formulário de pagamento (múltiplas formas) — lógica compartilhada
@@ -133,6 +136,11 @@ export default function AccountCard({
             <div className={`flex items-center justify-between gap-2 rounded-xl border px-3 py-2 text-xs ${pediuPontos ? "border-[var(--pp-primary)] bg-[var(--pp-primary-soft)]" : "border-[var(--pp-info-border,var(--pp-border))] bg-[var(--pp-bg)]"}`}>
               <span className="font-bold text-[var(--pp-text-body)]">⭐ Saldo: {saldoPontos.toLocaleString("pt-BR")} pts <span className="text-[var(--pp-text-muted)]">(≈ {formatCurrency(reaisEmPontos)})</span></span>
               {pediuPontos && <span className="shrink-0 font-black text-[var(--pp-primary-text)]">Pediu pagar com pontos</span>}
+            </div>
+          )}
+          {!pago && pontosGanhar > 0 && (
+            <div className="flex items-center gap-1.5 rounded-xl border border-[var(--pp-border)] bg-[var(--pp-success-soft)] px-3 py-2 text-xs font-bold text-[var(--pp-success-text)]">
+              ⭐ Cliente ganhará até {pontosGanhar.toLocaleString("pt-BR")} pontos com esta compra.
             </div>
           )}
           {!pago && (

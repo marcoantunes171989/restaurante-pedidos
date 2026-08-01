@@ -3,7 +3,7 @@ import {
   fetchLojas, fetchProdutos, fetchCategorias, fetchPromocoes, fetchGruposOpcoes, fetchOpcoes, fetchSetoresCozinha, fetchMesas,
   escutarLojas, inserirPedido, atualizarPedido, escutarPedidos,
   buscarClientePorTelefone, upsertCliente, criarChamado,
-  rpcCriarPedidoPublico, rpcUpsertClientePublico, rpcBuscarClientePublico, rpcPedidosComanda, rpcPedidosCliente, rpcSolicitarContaPublico, rpcSaldoFidelidade, rpcCriarChamadoPublico,
+  rpcCriarPedidoPublico, rpcUpsertClientePublico, rpcBuscarClientePublico, rpcPedidosComanda, rpcPedidosCliente, rpcSolicitarContaPublico, rpcSaldoFidelidade, rpcFidelidadeRegra, rpcCriarChamadoPublico,
   rpcPesquisaSatisfacao, inserirPesquisaSatisfacao, rpcStatusMesa,
 } from "./lib/supabase";
 import { cardapioViaRpc } from "./lib/authMode";
@@ -224,6 +224,7 @@ export default function CardapioPublico() {
   const [confirmarFechamento, setConfirmarFechamento] = useState(false); // confirmação obrigatória antes de solicitar/reenviar o fechamento da conta
   const [saldoPontos, setSaldoPontos] = useState(null); // saldo de pontos do cliente identificado (null = desconhecido)
   const [usarPontos, setUsarPontos]   = useState(false); // intenção de pagar com pontos no fechamento (o caixa efetiva)
+  const [fidRegraPub, setFidRegraPub] = useState(null); // regra de pontos vigente (leitura pública; null = sem programa/RPC)
   const [solicitando, setSolicitando] = useState(false);
   const solicitandoRef = useRef(false); // trava síncrona contra clique duplo (mesmo padrão de enviandoRef)
   const [chamando, setChamando] = useState(""); // tipo do chamado (garcom|ajuda|limpeza) em andamento, "" se nenhum
@@ -916,6 +917,16 @@ export default function CardapioPublico() {
     return () => { vivo = false; clearTimeout(t); };
   }, [telDig, loja?.id]);
 
+  // Fidelidade: regra de pontos vigente (ganho + resgate), leitura pública. Serve
+  // para mostrar ao cliente quantos pontos ele ganha na compra. Tolerante: se a
+  // RPC (migration 074) não existir, fica null e a UI de pontos-a-ganhar some.
+  useEffect(() => {
+    if (!loja) return;
+    let vivo = true;
+    rpcFidelidadeRegra({ lojaId: loja.id }).then((r) => { if (vivo) setFidRegraPub(r && r.ativo ? r : null); }).catch(() => {});
+    return () => { vivo = false; };
+  }, [loja?.id]);
+
   // Cadastra/atualiza o cliente do estabelecimento assim que NOME + TELEFONE
   // forem informados (sem esperar o pedido) — alimenta o CRM da empresa.
   useEffect(() => {
@@ -966,6 +977,12 @@ export default function CardapioPublico() {
   const totalCart = cart.reduce((s, i) => s + i.price * i.quantity, 0);
   const economiaCart = cart.reduce((s, i) => s + (Number(i.economiaUnit) || 0) * i.quantity, 0);
   const qtdCart = cart.reduce((s, i) => s + i.quantity, 0);
+  // Fidelidade (incentivo): pontos que o cliente ganha nesta compra e o saldo
+  // atual em R$. Só quando há regra ativa (leitura pública, migration 074).
+  const valorPorPontoPub = Number(fidRegraPub?.valorPorPonto) || 0;
+  const pontosPorRealPub = Number(fidRegraPub?.pontosPorReal) || 100;
+  const pontosGanharCart = valorPorPontoPub > 0 ? Math.floor(totalCart / valorPorPontoPub) : 0;
+  const reaisEmPontosSaldo = saldoPontos > 0 ? Math.floor((saldoPontos / pontosPorRealPub) * 100) / 100 : 0;
   const podeFechar = meusPedidos.length > 0 && meusPedidos.every((o) => o.status === "delivered");
   const contaSolicitada = meusPedidos.some((o) => o.paymentStatus === "requested");
   const contaPaga = meusPedidos.length > 0 && meusPedidos.every((o) => o.paymentStatus === "paid");
@@ -1329,6 +1346,12 @@ export default function CardapioPublico() {
                   <span className={`text-sm font-bold ${pagaC ? "text-[var(--client-success)]" : "text-[var(--client-text-secondary)]"}`}>{pagaC ? "Total pago" : "Total"}</span>
                   <span className={`text-xl font-black ${pagaC ? "text-[var(--client-success)]" : "text-[var(--client-text-primary)]"}`}>{formatCurrency(totalC)}</span>
                 </div>
+                {valorPorPontoPub > 0 && Math.floor(subtotalC / valorPorPontoPub) > 0 && (
+                  <div className="flex items-center justify-between border-t border-[var(--client-border)] pt-2 text-xs font-bold text-[var(--client-primary-hover)]">
+                    <span className="inline-flex items-center gap-1"><CkIconEstrela width={12} height={12} className="shrink-0" /> {pagaC ? "Pontos creditados" : "Pontos desta conta"}</span>
+                    <span>+{Math.floor(subtotalC / valorPorPontoPub).toLocaleString("pt-BR")} pts</span>
+                  </div>
+                )}
               </div>
               <p className="mt-3 text-center text-[11px] text-[var(--client-text-muted)]">Atualiza automaticamente · Consulta somente leitura</p>
             </>
@@ -1611,6 +1634,18 @@ export default function CardapioPublico() {
           duplicando os botões ao focar um campo (ex.: comanda). Esconder na
           raiz resolve em iOS, Android e desktop. */}
       <div className={`fixed inset-x-0 bottom-0 z-40 border-t border-[var(--client-border)] bg-[var(--client-surface)] shadow-[0_-6px_24px_rgba(45,52,54,0.10)] ${(aba || detalhe || survey) ? "hidden" : ""}`} style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
+        {/* Fidelidade — faixa de incentivo colada ao carrinho: pontos que a compra
+            rende + saldo atual do cliente (quando identificado). Estimula recompra. */}
+        {((cart.length > 0 && pontosGanharCart > 0) || saldoPontos > 0) && (
+          <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-center gap-x-2 gap-y-0.5 border-b border-[var(--client-border)] bg-[var(--client-primary-soft)] px-3 py-1.5 text-[11px] font-bold text-[var(--client-primary-hover)]">
+            {cart.length > 0 && pontosGanharCart > 0 && (
+              <span className="inline-flex items-center gap-1"><CkIconEstrela width={12} height={12} className="shrink-0" /> Você ganhará <b>{pontosGanharCart.toLocaleString("pt-BR")} pontos</b> com esta compra</span>
+            )}
+            {saldoPontos > 0 && (
+              <span className="text-[var(--client-text-secondary)]">{cart.length > 0 && pontosGanharCart > 0 ? "· " : ""}Seu saldo: <b className="text-[var(--client-primary-hover)]">{saldoPontos.toLocaleString("pt-BR")} pts</b>{reaisEmPontosSaldo > 0 ? ` (≈ ${formatCurrency(reaisEmPontosSaldo)})` : ""}</span>
+            )}
+          </div>
+        )}
         {/* Barra SÓLIDA full-width, colada na base (borda superior + sombra p/
             cima). Antes era um card flutuante (rounded + margens px-3/pb-2), que
             deixava o produto atrás VAZAR pelas laterais e por baixo. Agora ocupa
@@ -1978,6 +2013,14 @@ export default function CardapioPublico() {
                 <div className="flex items-center justify-between"><span className="text-sm font-bold text-[var(--client-text-secondary)]">Total do pedido</span><span className="text-xl font-black text-[var(--client-text-primary)]">{formatCurrency(totalCart)}</span></div>
                 {modoExterno && tipoPedido === "local" && <p className="text-[11px] text-[var(--client-text-secondary)]">Pagamento realizado no fechamento da conta.</p>}
               </div>
+
+              {/* Fidelidade — pontos creditados nesta compra (informado no pagamento) */}
+              {pontosGanharCart > 0 && (
+                <div className="mt-3 flex items-center justify-center gap-1.5 rounded-2xl border border-[var(--client-primary)] bg-[var(--client-primary-soft)] px-3 py-2.5 text-sm font-black text-[var(--client-primary-hover)]">
+                  <CkIconEstrela width={16} height={16} className="shrink-0" /> Você ganhará {pontosGanharCart.toLocaleString("pt-BR")} pontos com esta compra
+                  {saldoPontos > 0 && <span className="font-bold text-[var(--client-text-secondary)]">· saldo passa a {(saldoPontos + pontosGanharCart).toLocaleString("pt-BR")} pts</span>}
+                </div>
+              )}
             </>
           )}
         </Gaveta>

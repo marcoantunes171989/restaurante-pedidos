@@ -668,6 +668,18 @@ export async function rpcSaldoFidelidade({ lojaId, telefone }) {
     return Number(data) || 0
   } catch { return null }
 }
+// Regra de fidelidade vigente (ganho + resgate) — leitura pública p/ o cardápio
+// externo mostrar quantos pontos o cliente ganha na compra. Tolerante: se a RPC
+// (migration 074) não existir, devolve null e a UI de pontos-a-ganhar fica oculta.
+export async function rpcFidelidadeRegra({ lojaId }) {
+  try {
+    const { data, error } = await supabase.rpc('pub_fidelidade_regra', { p_loja_id: lojaId })
+    if (error) return null
+    const r = Array.isArray(data) ? data[0] : data
+    if (!r) return null
+    return { valorPorPonto: Number(r.valor_por_ponto) || 1, pontosPorReal: Number(r.pontos_por_real) || 100, ativo: r.ativo !== false }
+  } catch { return null }
+}
 export async function rpcCriarChamadoPublico({ lojaId, mesa, comanda, tipo }) {
   const { error } = await supabase.rpc('pub_criar_chamado', { p_loja_id: lojaId, p_mesa: mesa || null, p_comanda: comanda || null, p_tipo: tipo || 'garcom' })
   if (error) throw error

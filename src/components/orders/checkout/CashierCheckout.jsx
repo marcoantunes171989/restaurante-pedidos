@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, Utensils, CalendarClock } from "lucide-react";
+import { X, Utensils, CalendarClock, Star } from "lucide-react";
 import { formatCurrency } from "../../../App";
 import { usePagamentoConta } from "./usePagamentoConta";
 import CheckoutTopBar from "./CheckoutTopBar";
@@ -33,6 +33,10 @@ export default function CashierCheckout({
   const reaisEmPontos = Math.floor((saldoPontos / pontosPorReal) * 100) / 100;
   const maxPontosReais = Math.min(total, reaisEmPontos);
   const pediuPontos = /pontos/i.test(o.pagamentoForma || "");
+  // Pontos que o cliente identificado ganha nesta compra (incentivo no fechamento).
+  const valorPorPontoCx = Number(fidCaixa?.valorPorPonto) || 0;
+  const clienteIdent = !!(fidCaixa?.ativo && o.clienteTelefone);
+  const pontosGanhar = (clienteIdent && valorPorPontoCx > 0) ? Math.floor((total / 1.1) / valorPorPontoCx) : 0;
   const opcoesPag = maxPontosReais > 0 ? [...opcoes, "Pontos"] : opcoes;
   const { linhas, soma, restante, valido, sub, taxa, toggleForma, setLinhas, formaAtiva } = usePagamentoConta(total, { formaPontos: "Pontos", maxReais: maxPontosReais });
   const [entrada, setEntrada] = useState(""); // dígitos em centavos, aplicados à forma ativa
@@ -97,6 +101,11 @@ export default function CashierCheckout({
                 <div className={`mt-2 flex flex-wrap items-center justify-between gap-2 rounded-xl border px-3 py-2 text-xs ${pediuPontos ? "border-[var(--pp-primary)] bg-[var(--pp-primary-soft)]" : "border-[var(--pp-border)] bg-[var(--pp-bg)]"}`}>
                   <span className="font-bold text-[var(--pp-text-body)]">⭐ Saldo de pontos: {saldoPontos.toLocaleString("pt-BR")} pts <span className="text-[var(--pp-text-muted)]">(≈ {formatCurrency(reaisEmPontos)} · até {formatCurrency(maxPontosReais)} nesta conta)</span></span>
                   {pediuPontos && <span className="shrink-0 font-black text-[var(--pp-primary-text)]">Cliente pediu pagar com pontos</span>}
+                </div>
+              )}
+              {pontosGanhar > 0 && (
+                <div className="mt-2 flex flex-wrap items-center gap-1.5 rounded-xl border border-[var(--pp-border)] bg-[var(--pp-success-soft)] px-3 py-2 text-xs font-bold text-[var(--pp-success-text)]">
+                  <Star aria-hidden="true" size={13} /> Cliente ganhará até {pontosGanhar.toLocaleString("pt-BR")} pontos com esta compra.
                 </div>
               )}
             </section>

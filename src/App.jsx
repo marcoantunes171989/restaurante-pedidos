@@ -1506,7 +1506,7 @@ export default function RestaurantePedidoApp() {
     fidTransacoes.forEach((t) => { if (t.clienteId != null) saldoPorId[t.clienteId] = (saldoPorId[t.clienteId] || 0) + (Number(t.pontos) || 0); });
     const saldoPorTelefone = {};
     clientes.forEach((c) => { if (c.telefone) saldoPorTelefone[c.telefone] = saldoPorId[c.id] || 0; });
-    return { pontosPorReal: Number(fidRegraAtual?.pontosPorReal) || 100, ativo: !!fidRegraAtual, saldoPorTelefone };
+    return { pontosPorReal: Number(fidRegraAtual?.pontosPorReal) || 100, valorPorPonto: Number(fidRegraAtual?.valorPorPonto) || 0, ativo: !!fidRegraAtual, saldoPorTelefone };
   })();
   async function salvarRegraFid(campos) {
     if (!canAccess(currentUser, "admin")) return notify("error", "Sem permissão.");
@@ -3964,6 +3964,9 @@ function CashierView({ orders, baixarComandas, formasPagamento = [], lojaInfo, c
   const reaisEmPontosCx = Math.floor((saldoPontosCx / pontosPorRealCx) * 100) / 100;
   const maxPontosReaisCx = Math.min(total, reaisEmPontosCx);
   const pediuPontosCx = orders.some((o) => comandasLidas.includes(o.command) && /pontos/i.test(o.pagamentoForma || ""));
+  // Pontos que o cliente identificado ganha ao pagar (base = subtotal sem taxa).
+  const valorPorPontoCx = Number(fidCaixa?.valorPorPonto) || 0;
+  const pontosGanharCx = (fidCaixa?.ativo && telConta && valorPorPontoCx > 0) ? Math.floor(subtotalGeralBruto / valorPorPontoCx) : 0;
   const formasAtivasCx = formasPagamento.filter((f) => f.active !== false);
   const formasComPontos = maxPontosReaisCx > 0 ? [...formasAtivasCx, { id: "pontos", nome: "Pontos", tipo: "outro", permiteTroco: false }] : formasAtivasCx;
 
@@ -4469,7 +4472,7 @@ function CashierView({ orders, baixarComandas, formasPagamento = [], lojaInfo, c
           valorParcialTexto={valorParcialTexto} setValorParcialTexto={setValorParcialTexto} valorParcialValido={valorParcialValido}
           pagamentosFeitos={pagamentosFeitos} logFinanceiro={logFinanceiro} onCancelarPagamento={cancelarPagamento}
           formasPagamento={formasComPontos}
-          saldoPontos={saldoPontosCx} reaisEmPontos={reaisEmPontosCx} maxPontosReais={maxPontosReaisCx} pediuPontos={pediuPontosCx}
+          saldoPontos={saldoPontosCx} reaisEmPontos={reaisEmPontosCx} maxPontosReais={maxPontosReaisCx} pediuPontos={pediuPontosCx} pontosGanhar={pontosGanharCx}
           linhasPagamento={linhasPagamento} onAddLinha={addLinhaPagamento} onSetValorLinha={setValorLinha} onRemoverLinha={removerLinhaPagamento}
           pagoLinhas={pagoLinhas} restanteLinhas={restanteLinhas} troco={troco} excedeNaoDinheiro={excedeNaoDinheiro} temDinheiro={temDinheiro}
           onTeclaDigito={tecladoDigito} onTeclaApagar={tecladoApagar} onTeclaLimpar={tecladoLimpar} onTeclaConfirmar={tecladoConfirmar} tecladoAtivo={linhasPagamento.length > 0}
@@ -4975,7 +4978,7 @@ function PosPaymentColumn({
   valorParcialTexto, setValorParcialTexto, valorParcialValido,
   pagamentosFeitos, logFinanceiro, onCancelarPagamento,
   formasPagamento, linhasPagamento, onAddLinha, onSetValorLinha, onRemoverLinha,
-  saldoPontos = 0, reaisEmPontos = 0, pediuPontos = false,
+  saldoPontos = 0, reaisEmPontos = 0, pediuPontos = false, pontosGanhar = 0,
   pagoLinhas, restanteLinhas, troco, excedeNaoDinheiro, temDinheiro,
   onTeclaDigito, onTeclaApagar, onTeclaLimpar, onTeclaConfirmar,
   podeConfirmarPagamento, onFinalizarClick, onImprimirConferencia, aPagarMaiorQueRestante,
@@ -5010,6 +5013,11 @@ function PosPaymentColumn({
               <div className={`mt-2 flex flex-wrap items-center justify-between gap-2 rounded-xl border px-3 py-2 text-xs ${pediuPontos ? "border-[var(--pp-primary)] bg-[var(--pp-primary-soft)]" : "border-[var(--pp-border)] bg-[var(--pp-bg)]"}`}>
                 <span className="font-bold text-[var(--pp-text-body)]">⭐ Saldo: {saldoPontos.toLocaleString("pt-BR")} pts <span className="text-[var(--pp-text-muted)]">(≈ {formatCurrency(reaisEmPontos)})</span></span>
                 {pediuPontos && <span className="shrink-0 font-black text-[var(--pp-primary-text)]">Cliente pediu pagar com pontos</span>}
+              </div>
+            )}
+            {pontosGanhar > 0 && (
+              <div className="mt-2 flex items-center gap-1.5 rounded-xl border border-[var(--pp-border)] bg-[var(--pp-success-soft)] px-3 py-2 text-xs font-bold text-[var(--pp-success-text)]">
+                ⭐ Cliente ganhará até {pontosGanhar.toLocaleString("pt-BR")} pontos com esta compra.
               </div>
             )}
             {formasPagamento.length === 0 ? (
@@ -5525,7 +5533,7 @@ function CompanySelector({ lojas = [], valor, onChange }) {
 // ── Visão Financeira (SOMENTE LEITURA) — consolida dados existentes ──
 // Não cria lançamentos/contas: só agrega receitas, em aberto e formas de
 // pagamento a partir dos pedidos (orders). Aditivo, sem novas tabelas.
-function FinanceiroVisaoAdmin({ orders = [] }) {
+function FinanceiroVisaoAdmin({ orders = [], fidRegra = null, fidTransacoes = [] }) {
   const [preset, setPreset] = useState("30d");
   const agora = Date.now();
   const dias = { hoje: 1, "7d": 7, "30d": 30, tudo: null };
@@ -5545,6 +5553,25 @@ function FinanceiroVisaoAdmin({ orders = [] }) {
   const formas = Object.entries(porForma).map(([nome, valor]) => ({ nome, valor })).sort((a, b) => b.valor - a.valor);
   const maxForma = Math.max(1, ...formas.map((f) => f.valor));
   const CHIPS = [["hoje", "Hoje"], ["7d", "7 dias"], ["30d", "30 dias"], ["tudo", "Tudo"]];
+
+  // ── Programa de Pontos (Fidelidade) — reflete a REGRA ATUAL em tempo real.
+  // Ao salvar uma nova regra no painel Fidelidade, `fidRegra` muda e estes
+  // valores (sobretudo o passivo em R$) são recalculados na hora.
+  const fidAtivo = !!fidRegra && fidRegra.ativo !== false;
+  const vppFin = Number(String(fidRegra?.valorPorPonto ?? 1).replace(",", ".")) || 1;   // R$ por 1 ponto
+  const pprFin = Number(String(fidRegra?.pontosPorReal ?? 100).replace(",", ".")) || 100; // pts por R$ 1,00
+  const noPeriodo = (iso) => {
+    if (preset === "tudo") return true;
+    if (!iso) return false;
+    if (preset === "hoje") return new Date(iso).toDateString() === new Date().toDateString();
+    return (agora - new Date(iso).getTime()) / 86400000 <= dias[preset];
+  };
+  const fidEmitidosTot = fidTransacoes.reduce((s, t) => s + (t.tipo === "earn" ? (Number(t.pontos) || 0) : 0), 0);
+  const fidResgatadosTot = Math.abs(fidTransacoes.reduce((s, t) => s + (t.tipo === "redeem" ? (Number(t.pontos) || 0) : 0), 0));
+  const fidCirculante = Math.max(0, fidEmitidosTot - fidResgatadosTot);           // saldo de pontos em circulação
+  const fidPassivoReais = fidCirculante / pprFin;                                  // R$ que ainda podem ser resgatados
+  const fidResgatadosPeriodo = Math.abs(fidTransacoes.reduce((s, t) => s + ((t.tipo === "redeem" && noPeriodo(t.criadoEmISO)) ? (Number(t.pontos) || 0) : 0), 0));
+  const fidPagoComPontosReais = fidResgatadosPeriodo / pprFin;                     // valor abatido com pontos no período
   return (
     <main className="space-y-5">
       <PageHeader icone={<IconPagamento />} titulo="Visão Financeira"
@@ -5580,6 +5607,37 @@ function FinanceiroVisaoAdmin({ orders = [] }) {
           </div>
         )}
         <p className="mt-4 text-[11px] text-slate-500">Visão consolidada dos pedidos. Lançamentos e contas a pagar/receber não fazem parte do módulo atual.</p>
+      </div>
+
+      {/* Programa de Pontos — espelha a regra atual da Fidelidade em tempo real */}
+      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="page-title text-base font-bold text-white">Programa de Pontos (Fidelidade)</h3>
+          <span className={`rounded-full px-2.5 py-1 text-[11px] font-black ${fidAtivo ? "bg-emerald-500/15 text-emerald-300" : "bg-white/10 text-slate-400"}`}>{fidAtivo ? "Ativo" : "Inativo"}</span>
+        </div>
+        <p className="mt-1 text-[11px] text-slate-400">Regra atual: <b className="text-slate-200">1 ponto a cada R$ {String(vppFin).replace(".", ",")}</b> · Resgate: <b className="text-slate-200">{fmtInt(pprFin)} pts = R$ 1,00</b>. Atualiza automaticamente ao alterar a regra em Fidelidade.</p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+            <p className="text-[11px] font-semibold text-slate-400">Pontos em circulação</p>
+            <p className="page-title mt-0.5 text-2xl font-black text-white">{fmtInt(fidCirculante)}</p>
+            <p className="mt-0.5 text-[11px] text-slate-500">emitidos − resgatados</p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+            <p className="text-[11px] font-semibold text-slate-400">Passivo de pontos</p>
+            <p className="page-title mt-0.5 text-2xl font-black text-gold-300">{formatCurrency(fidPassivoReais)}</p>
+            <p className="mt-0.5 text-[11px] text-slate-500">valor ainda resgatável em R$</p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+            <p className="text-[11px] font-semibold text-slate-400">Pago com pontos {preset === "tudo" ? "(total)" : "(período)"}</p>
+            <p className="page-title mt-0.5 text-2xl font-black text-emerald-300">{formatCurrency(fidPagoComPontosReais)}</p>
+            <p className="mt-0.5 text-[11px] text-slate-500">{fmtInt(fidResgatadosPeriodo)} pts resgatados</p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+            <p className="text-[11px] font-semibold text-slate-400">Pontos emitidos (total)</p>
+            <p className="page-title mt-0.5 text-2xl font-black text-white">{fmtInt(fidEmitidosTot)}</p>
+            <p className="mt-0.5 text-[11px] text-slate-500">acumulados no programa</p>
+          </div>
+        </div>
       </div>
     </main>
   );
@@ -6932,7 +6990,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
               return ok;
             }}
           />}
-          {ativo === "financeiro" && (precisaEmpresa ? avisoEmpresa : <FinanceiroVisaoAdmin orders={filtraLoja(orders)} />)}
+          {ativo === "financeiro" && (precisaEmpresa ? avisoEmpresa : <FinanceiroVisaoAdmin orders={filtraLoja(orders)} fidRegra={fidRegra} fidTransacoes={fidTransacoes} />)}
           {ativo === "lancamentos" && (precisaEmpresa ? avisoEmpresa : <LancamentosAdmin lojaId={lojaInfo?.id} orders={filtraLoja(orders)} />)}
           {ativo === "contas-receber" && (precisaEmpresa ? avisoEmpresa : <LancamentosAdmin lojaId={lojaInfo?.id} orders={filtraLoja(orders)} modo="receber" />)}
           {ativo === "contas-pagar" && (precisaEmpresa ? avisoEmpresa : <LancamentosAdmin lojaId={lojaInfo?.id} orders={filtraLoja(orders)} modo="pagar" />)}
@@ -17646,6 +17704,12 @@ function FidelidadeAdmin({ regra, recompensas = [], transacoes = [], clientes = 
 
   const programaAtivo = regra?.ativo !== false && !!regra;
   const vpp = Number(String(regra?.valorPorPonto ?? valorPorPonto).replace(",", ".")) || 1;
+  // Valores DIGITADOS ao vivo (antes de salvar) — alimentam os textos-exemplo e a
+  // descrição de funcionamento, que atualizam a cada tecla para facilitar a leitura.
+  const vppLive = Number(String(valorPorPonto).replace(",", ".")) || 1;   // R$ para ganhar 1 ponto
+  const pprLive = Number(String(pontosPorReal).replace(",", ".")) || 100;  // pts que valem R$ 1,00
+  const ptsEmCem = Math.floor(100 / vppLive);                              // pontos numa compra de R$ 100
+  const creditoCem = ptsEmCem / pprLive;                                   // R$ que esses pontos resgatam
 
   // ── Métricas 100% reais ──
   const saldo = useMemo(() => { const m = {}; transacoes.forEach((t) => { if (t.clienteId != null) m[t.clienteId] = (m[t.clienteId] || 0) + t.pontos; }); return m; }, [transacoes]);
@@ -17775,12 +17839,13 @@ function FidelidadeAdmin({ regra, recompensas = [], transacoes = [], clientes = 
             <div className="mt-4 grid gap-4 lg:grid-cols-2">
               {/* Ganho */}
               <div>
-                <span className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-[var(--pp-text-muted)]">Ganho — a cada R$ gasto, vale:</span>
+                <span className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-[var(--pp-text-muted)]">Ganho — valor em R$ para ganhar 1 ponto:</span>
                 <div className="flex items-center gap-2">
+                  <span className="shrink-0 text-sm font-bold text-[var(--pp-text-muted)]">R$</span>
                   <input inputMode="decimal" value={valorPorPonto} onChange={(e) => setValorPorPonto(e.target.value.replace(/[^\d.,]/g, ""))} className={`${inpCard} font-black`} />
-                  <span className="shrink-0 text-sm font-bold text-[var(--pp-text-muted)]">ponto(s)</span>
+                  <span className="shrink-0 text-sm font-bold text-[var(--pp-text-muted)]">= 1 ponto</span>
                 </div>
-                <p className="mt-1.5 text-xs text-[var(--pp-text-muted)]">R$ {String(vpp).replace(".", ",")} = <b className="text-dash-navy">1 ponto</b> · R$ {String(vpp * 50).replace(".", ",")} = <b className="text-dash-navy">50 pontos</b></p>
+                <p className="mt-1.5 text-xs text-[var(--pp-text-muted)]">A cada <b className="text-dash-navy">R$ {String(vppLive).replace(".", ",")}</b> em compras o cliente ganha <b className="text-dash-navy">1 ponto</b> · R$ {String(Math.round(vppLive * 50 * 100) / 100).replace(".", ",")} = <b className="text-dash-navy">50 pontos</b></p>
               </div>
               {/* Resgate */}
               <div>
@@ -17789,9 +17854,13 @@ function FidelidadeAdmin({ regra, recompensas = [], transacoes = [], clientes = 
                   <input inputMode="numeric" value={pontosPorReal} onChange={(e) => setPontosPorReal(e.target.value.replace(/[^\d]/g, ""))} className={`${inpCard} font-black`} />
                   <span className="shrink-0 text-sm font-bold text-[var(--pp-text-muted)]">pts = R$ 1</span>
                 </div>
-                <p className="mt-1.5 text-xs text-[var(--pp-text-muted)]">O cliente pode pagar a conta com pontos: <b className="text-dash-navy">{fmtInt(Number(String(pontosPorReal).replace(",", ".")) || 100)} pts = R$ 1,00</b>.</p>
+                <p className="mt-1.5 text-xs text-[var(--pp-text-muted)]">O cliente pode pagar a conta com pontos: <b className="text-dash-navy">{fmtInt(pprLive)} pts = R$ 1,00</b>.</p>
               </div>
             </div>
+            {/* Descrição viva de como o programa funciona com a configuração atual */}
+            <p className="mt-4 rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-4 py-3 text-sm leading-6 text-[var(--pp-text-body)]">
+              <b className="text-dash-navy">Como funciona hoje:</b> o cliente ganha <b className="text-dash-navy">1 ponto</b> a cada <b className="text-dash-navy">R$ {String(vppLive).replace(".", ",")}</b> em compras e pode usar <b className="text-dash-navy">{fmtInt(pprLive)} pontos</b> para abater <b className="text-dash-navy">R$ 1,00</b> no pagamento da conta. Exemplo: uma compra de <b className="text-dash-navy">R$ 100,00</b> gera <b className="text-dash-navy">{fmtInt(ptsEmCem)} pontos</b> (≈ <b className="text-dash-navy">{formatCurrency(creditoCem)}</b> em créditos para resgate).
+            </p>
             <div className="mt-4 flex justify-end">
               <button onClick={() => api?.salvarRegra({ valorPorPonto: Number(String(valorPorPonto).replace(",", ".")) || 1, pontosPorReal: Number(String(pontosPorReal).replace(",", ".")) || 100, ativo: programaAtivo || !regra })} className="btn-laranja rounded-xl px-5 py-2.5 text-sm font-bold">Salvar Regra</button>
             </div>
