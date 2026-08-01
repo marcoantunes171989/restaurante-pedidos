@@ -5600,7 +5600,19 @@ function FinanceiroVisaoAdmin({ orders = [], fidRegra = null, fidTransacoes = []
   const fidCirculante = Math.max(0, fidEmitidosTot - fidResgatadosTot);           // saldo de pontos em circulação
   const fidPassivoReais = fidCirculante / pprFin;                                  // R$ que ainda podem ser resgatados
   const fidResgatadosPeriodo = Math.abs(fidTransacoes.reduce((s, t) => s + ((t.tipo === "redeem" && noPeriodo(t.criadoEmISO)) ? (Number(t.pontos) || 0) : 0), 0));
-  const fidPagoComPontosReais = fidResgatadosPeriodo / pprFin;                     // valor abatido com pontos no período
+  // Valor pago com pontos pela TAXA HISTÓRICA de cada resgate: a descrição do
+  // lançamento já grava o R$ exato do momento ("Pagamento com pontos R$ X"). Isso
+  // dá precisão total mesmo se a taxa de resgate mudou depois. Fallback: converte
+  // pela taxa atual quando a descrição não traz o valor (ex.: resgates via CRM).
+  const reaisDeResgate = (desc) => {
+    const m = /R\$\s*([\d.]*\d,\d{2})/.exec(String(desc || ""));
+    return m ? (Number(m[1].replace(/\./g, "").replace(",", ".")) || null) : null;
+  };
+  const fidPagoComPontosReais = fidTransacoes.reduce((s, t) => {
+    if (t.tipo !== "redeem" || !noPeriodo(t.criadoEmISO)) return s;
+    const r = reaisDeResgate(t.descricao);
+    return s + (r != null ? r : Math.abs(Number(t.pontos) || 0) / pprFin);
+  }, 0);
   return (
     <main className="space-y-5">
       <PageHeader icone={<IconPagamento />} titulo="Visão Financeira"
