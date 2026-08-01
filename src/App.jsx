@@ -6080,6 +6080,7 @@ function ComandasGestaoAdmin({ orders = [], products = [], lojaPrefixo = "", loj
   const mediaMin = abertos.length ? abertos.reduce((s, g) => s + g.mins, 0) / abertos.length : 0;
   const kAbertas = grupos.filter((g) => g.sit === "aberta").length;
   const kPreparo = grupos.filter((g) => g.sit === "em_preparo").length;
+  const kPronta = grupos.filter((g) => g.sit === "pronta").length;
   const kPagto = grupos.filter((g) => g.sit === "aguardando_pagamento").length;
   const kValor = abertos.reduce((s, g) => s + g.totalComTaxa, 0);
   const kTempo = abertos.length ? Math.round(mediaMin) : 0;
@@ -6175,6 +6176,7 @@ function ComandasGestaoAdmin({ orders = [], products = [], lojaPrefixo = "", loj
   const KPIS = [
     { rot: "Pedidos abertos", val: kAbertas, cor: "#E67E22", Icone: IconComanda },
     { rot: "Em preparo", val: kPreparo, cor: "#0F4C5C", Icone: IconRecibo },
+    { rot: "Prontos", val: kPronta, cor: "#047857", Icone: IconCheck },
     { rot: "Aguardando pagamento", val: kPagto, cor: "#D97706", Icone: IconPagamento },
     { rot: "Valor em aberto", val: formatCurrency(kValor), cor: "#059669", Icone: IconCarteira },
     { rot: "Tempo médio em aberto", val: kTempo ? fmtDuracaoComanda(kTempo) : "—", cor: "#0F4C5C", Icone: IconRelogio },
@@ -6202,7 +6204,7 @@ function ComandasGestaoAdmin({ orders = [], products = [], lojaPrefixo = "", loj
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         {KPIS.map((k) => (
           <div key={k.rot} className="flex items-center gap-3 rounded-2xl border border-[var(--pp-border)] bg-white p-4 shadow-[0_2px_8px_rgba(43,35,32,0.04)]">
             <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl [&>svg]:h-6 [&>svg]:w-6" style={{ background: `${k.cor}1A`, color: k.cor }}><k.Icone /></span>
