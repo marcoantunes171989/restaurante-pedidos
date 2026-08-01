@@ -1255,11 +1255,22 @@ export default function RestaurantePedidoApp() {
     try {
       // Itens vendidos (para baixa de estoque)
       const itensVendidos = alvo.flatMap((o) => o.items.map((it) => ({ name: it.name, quantity: it.quantity })));
-      setOrders((cur) => cur.map((o) => (ehAlvo(o) && o.paymentStatus !== "paid") ? { ...o, paymentStatus: "paid", ...(manterStatus ? {} : { status: "delivered" }) } : o));
+      // Forma(s) de pagamento REAL do caixa (info.detalhes) — grava no pedido para
+      // o Financeiro/relatórios agruparem por forma (PIX, Dinheiro, Pontos…). Sem
+      // isso, pagamentos internos apareciam como "Não informado". Formas distintas
+      // ordenadas por valor; múltiplas viram "Dinheiro + Pontos".
+      const formaLabel = (() => {
+        const det = Array.isArray(info?.detalhes) ? info.detalhes : [];
+        if (!det.length) return null;
+        const porF = {};
+        det.forEach((d) => { const f = String(d.forma || "").trim() || "Pagamento"; porF[f] = (porF[f] || 0) + (Number(d.valor) || 0); });
+        return Object.entries(porF).sort((a, b) => b[1] - a[1]).map(([f]) => f).join(" + ") || null;
+      })();
+      setOrders((cur) => cur.map((o) => (ehAlvo(o) && o.paymentStatus !== "paid") ? { ...o, paymentStatus: "paid", ...(formaLabel ? { pagamentoForma: formaLabel } : {}), ...(manterStatus ? {} : { status: "delivered" }) } : o));
       let alertasEstoque = [];
       if (dbReady) {
         try {
-          await Promise.all(alvo.map((o) => atualizarPedido(o.id, { status_pagamento: "pago", ...(manterStatus ? {} : { status: "entregue" }) })));
+          await Promise.all(alvo.map((o) => atualizarPedido(o.id, { status_pagamento: "pago", ...(formaLabel ? { pagamento_forma: formaLabel } : {}), ...(manterStatus ? {} : { status: "entregue" }) })));
           const r = await baixarEstoque(itensVendidos, lojaAtual, comandas); // baixa correta por loja + registro
           alertasEstoque = r?.alertas || [];
           if (info) await registrarPagamento({ ...info, comandas }); // histórico de pagamento
