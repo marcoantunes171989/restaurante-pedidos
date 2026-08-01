@@ -1269,15 +1269,34 @@ export default function RestaurantePedidoApp() {
               await Promise.all(formas.map((d) => registrarMovimentoCaixa({ caixaId: caixaAberto.id, lojaId: lojaAtual, tipo: "venda", valor: d.valor, descricao: `Venda ${d.forma || ""} · ${info.mesa || ""}`.trim(), usuarioId: currentUser?.id ?? null })));
             } catch {}
           }
-          // Fidelidade: concede pontos ao cliente identificado (por telefone). Tolerante.
-          if (fidRegraAtual && fidRegraAtual.valorPorPonto > 0) {
+          // Fidelidade: RESGATE (pagamento com pontos) + concessão de pontos ao
+          // cliente identificado (por telefone). Tolerante — nunca derruba a baixa.
+          if (fidRegraAtual) {
             try {
-              const porCliente = {};
-              alvo.forEach((o) => { if (o.clienteTelefone) porCliente[o.clienteTelefone] = (porCliente[o.clienteTelefone] || 0) + orderTotal(o); });
-              for (const [tel, valor] of Object.entries(porCliente)) {
-                const cli = clientes.find((c) => c.telefone === tel && (c.lojaId == null || c.lojaId === lojaAtual));
-                const pts = Math.floor(valor / fidRegraAtual.valorPorPonto);
-                if (cli && pts > 0) { const t = await lancarFidelidadeTransacao({ lojaId: lojaAtual, clienteId: cli.id, pontos: pts, tipo: "earn", descricao: `Compra ${formatCurrency(valor)}` }); setFidTransacoes((cur) => [t, ...cur]); }
+              const detalhes = Array.isArray(info?.detalhes) ? info.detalhes : [];
+              // Valor pago com a forma "Pontos" nesta baixa (0 se não usou pontos).
+              const valorPontos = detalhes.filter((d) => /pontos/i.test(d.forma || "")).reduce((s, d) => s + (Number(d.valor) || 0), 0);
+              const pontosPorReal = Number(fidRegraAtual.pontosPorReal) || 100;
+              // Cliente da conta (os pedidos do alvo compartilham o mesmo telefone).
+              const telConta = alvo.map((o) => o.clienteTelefone).find(Boolean) || null;
+              const cliConta = telConta ? clientes.find((c) => c.telefone === telConta && (c.lojaId == null || c.lojaId === lojaAtual)) : null;
+              // 1) Resgate: debita os pontos correspondentes ao valor pago em pontos
+              //    (clamp ao saldo real — o front já limita, isto é defensivo).
+              if (cliConta && valorPontos > 0) {
+                const saldoAtual = fidTransacoes.reduce((s, t) => s + (t.clienteId === cliConta.id ? (Number(t.pontos) || 0) : 0), 0);
+                const ptsResgate = Math.min(saldoAtual, Math.round(valorPontos * pontosPorReal));
+                if (ptsResgate > 0) { const t = await lancarFidelidadeTransacao({ lojaId: lojaAtual, clienteId: cliConta.id, pontos: -ptsResgate, tipo: "redeem", descricao: `Pagamento com pontos ${formatCurrency(valorPontos)}` }); setFidTransacoes((cur) => [t, ...cur]); }
+              }
+              // 2) Ganho: pontos sobre o valor pago — exceto a parcela paga em pontos.
+              if (fidRegraAtual.valorPorPonto > 0) {
+                const porCliente = {};
+                alvo.forEach((o) => { if (o.clienteTelefone) porCliente[o.clienteTelefone] = (porCliente[o.clienteTelefone] || 0) + orderTotal(o); });
+                if (telConta && porCliente[telConta] != null) porCliente[telConta] = Math.max(0, porCliente[telConta] - valorPontos);
+                for (const [tel, valor] of Object.entries(porCliente)) {
+                  const cli = clientes.find((c) => c.telefone === tel && (c.lojaId == null || c.lojaId === lojaAtual));
+                  const pts = Math.floor(valor / fidRegraAtual.valorPorPonto);
+                  if (cli && pts > 0) { const t = await lancarFidelidadeTransacao({ lojaId: lojaAtual, clienteId: cli.id, pontos: pts, tipo: "earn", descricao: `Compra ${formatCurrency(valor)}` }); setFidTransacoes((cur) => [t, ...cur]); }
+                }
               }
             } catch {}
           }
@@ -1480,6 +1499,15 @@ export default function RestaurantePedidoApp() {
 
   // ── Fidelidade (migration 043) ─────────────────────────────
   const fidRegraAtual = fidRegras.find((r) => (lojaAtual == null || r.lojaId === lojaAtual) && r.ativo) || null;
+  // Fidelidade no CAIXA: saldo de pontos por telefone do cliente + valor de
+  // resgate (pontos por R$1). Alimenta a forma de pagamento "Pontos".
+  const fidCaixa = (() => {
+    const saldoPorId = {};
+    fidTransacoes.forEach((t) => { if (t.clienteId != null) saldoPorId[t.clienteId] = (saldoPorId[t.clienteId] || 0) + (Number(t.pontos) || 0); });
+    const saldoPorTelefone = {};
+    clientes.forEach((c) => { if (c.telefone) saldoPorTelefone[c.telefone] = saldoPorId[c.id] || 0; });
+    return { pontosPorReal: Number(fidRegraAtual?.pontosPorReal) || 100, ativo: !!fidRegraAtual, saldoPorTelefone };
+  })();
   async function salvarRegraFid(campos) {
     if (!canAccess(currentUser, "admin")) return notify("error", "Sem permissão.");
     try { await salvarFidelidadeRegra(lojaAtual, campos); setFidRegras(await fetchFidelidadeRegras()); notify("success", "Regra de fidelidade salva."); }
@@ -2014,7 +2042,7 @@ export default function RestaurantePedidoApp() {
               duplicar essa lógica aqui). O onFechar do embutido dentro do
               admin (abaixo, "operacaomobile") continua voltando ao dashboard —
               ali o usuário não está "saindo do app", só fechando a ferramenta. */}
-          <OperacaoMobileView orders={orders} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} confirmarRetirada={confirmarRetirada} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} products={products} setores={filtraLoja(setoresCozinha)} formasPagamento={formasPagamentoLoja} lojaInfo={lojaInfo} perms={acessosOperacionais(currentUser)} usuarioNome={currentUser?.name || ""} tabInicial={opmobileTab} onTabChange={setOpmobileTab} onFechar={logout} cancelarPedido={cancelarPedido} podeCancelarPedido={canAccess(currentUser, "kitchen")} />
+          <OperacaoMobileView orders={orders} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} confirmarRetirada={confirmarRetirada} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} products={products} setores={filtraLoja(setoresCozinha)} formasPagamento={formasPagamentoLoja} lojaInfo={lojaInfo} perms={acessosOperacionais(currentUser)} usuarioNome={currentUser?.name || ""} tabInicial={opmobileTab} onTabChange={setOpmobileTab} onFechar={logout} cancelarPedido={cancelarPedido} podeCancelarPedido={canAccess(currentUser, "kitchen")} fidCaixa={fidCaixa} />
         </div>
       ) : (
       <div className="relative mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
@@ -2134,9 +2162,9 @@ export default function RestaurantePedidoApp() {
           <KitchenView groupedOrders={groupedOrders} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} entregandoId={entregandoId} cancelarPedido={cancelarPedido} currentUser={currentUser} lojaInfo={lojaInfo} setores={filtraLoja(setoresCozinha)} produtos={products} setorInicial={cozinhaSetorInicial} />
         )}
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} products={products} lojaInfo={lojaInfo} />}
-        {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierView orders={orders} baixarComandas={baixarComandas} formasPagamento={formasPagamentoLoja} lojaInfo={lojaInfo} currentUser={currentUser} caixaAberto={caixaAberto} auditar={auditar} conexaoOk={conexaoOk} editarItensPedido={editarItensPedido} products={products} />}
+        {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierView orders={orders} baixarComandas={baixarComandas} formasPagamento={formasPagamentoLoja} lojaInfo={lojaInfo} currentUser={currentUser} caixaAberto={caixaAberto} auditar={auditar} conexaoOk={conexaoOk} editarItensPedido={editarItensPedido} products={products} fidCaixa={fidCaixa} />}
         {/* activeTab === "opmobile" agora é tratado pelo branch dedicado no início desta função (sem cabeçalho/grade de módulos) */}
-        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} toggleLoja={toggleLoja} editarLoja={editarLoja} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} filtraLoja={filtraLoja} pesquisas={pesquisas} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} cancelarPedido={cancelarPedido} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} salvarConfigCrm={salvarConfigCrm} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} assinaturas={assinaturas} promocoes={filtraLoja(promocoes)} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} opcoesApi={{ grupos: filtraLoja(gruposOpcoes), opcoes: filtraLoja(opcoes), addGrupo: addGrupoOpcoes, editarGrupo: editarGrupoOpcoes, removerGrupo: removerGrupoOpcoes, addOpcao, editarOpcao, removerOpcao }} setores={filtraLoja(setoresCozinha)} setoresApi={{ add: addSetorCozinha, editar: editarSetorCozinha, remover: removerSetorCozinha }} vincularProdutoSetor={vincularProdutoSetor} salvarProdutoQr={salvarProdutoQr} irParaCozinha={(setorId) => { setCozinhaSetorInicial(setorId ?? null); if (canAccess(currentUser, "kitchen")) setActiveTab("kitchen"); else notify("error", "Sem permissão para acessar o painel da cozinha."); }} caixaAberto={caixaAberto} caixasLoja={filtraLoja(caixas)} caixaApi={{ abrir: abrirCaixaFn, movimentar: movimentarCaixaFn, fechar: fecharCaixaFn, fetchMovimentos: fetchMovimentosCaixa }} fidRegra={fidRegraAtual} fidRecompensas={filtraLoja(fidRecompensas)} fidTransacoes={filtraLoja(fidTransacoes)} fidApi={{ salvarRegra: salvarRegraFid, addRecompensa: addRecompensaFid, removerRecompensa: removerRecompensaFid, editarRecompensa: editarRecompensaFid, lancarPontos }} chamados={filtraLoja(chamados)} atenderChamado={atenderChamadoFn} assumirChamado={assumirChamadoFn} auditoria={filtraLoja(auditoria)} />}
+        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} toggleLoja={toggleLoja} editarLoja={editarLoja} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} filtraLoja={filtraLoja} pesquisas={pesquisas} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} cancelarPedido={cancelarPedido} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} salvarConfigCrm={salvarConfigCrm} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} assinaturas={assinaturas} promocoes={filtraLoja(promocoes)} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} opcoesApi={{ grupos: filtraLoja(gruposOpcoes), opcoes: filtraLoja(opcoes), addGrupo: addGrupoOpcoes, editarGrupo: editarGrupoOpcoes, removerGrupo: removerGrupoOpcoes, addOpcao, editarOpcao, removerOpcao }} setores={filtraLoja(setoresCozinha)} setoresApi={{ add: addSetorCozinha, editar: editarSetorCozinha, remover: removerSetorCozinha }} vincularProdutoSetor={vincularProdutoSetor} salvarProdutoQr={salvarProdutoQr} irParaCozinha={(setorId) => { setCozinhaSetorInicial(setorId ?? null); if (canAccess(currentUser, "kitchen")) setActiveTab("kitchen"); else notify("error", "Sem permissão para acessar o painel da cozinha."); }} caixaAberto={caixaAberto} caixasLoja={filtraLoja(caixas)} caixaApi={{ abrir: abrirCaixaFn, movimentar: movimentarCaixaFn, fechar: fecharCaixaFn, fetchMovimentos: fetchMovimentosCaixa }} fidRegra={fidRegraAtual} fidRecompensas={filtraLoja(fidRecompensas)} fidTransacoes={filtraLoja(fidTransacoes)} fidApi={{ salvarRegra: salvarRegraFid, addRecompensa: addRecompensaFid, removerRecompensa: removerRecompensaFid, editarRecompensa: editarRecompensaFid, lancarPontos }} fidCaixa={fidCaixa} chamados={filtraLoja(chamados)} atenderChamado={atenderChamadoFn} assumirChamado={assumirChamadoFn} auditoria={filtraLoja(auditoria)} />}
 
       </div>
       )}
@@ -3737,7 +3765,7 @@ function PanelView({ groupedOrders, products = [], lojaInfo }) {
 // ════════════════════════════════════════════════════════════
 
 // ── Buscas recentes (mesa/comanda) — por loja, só neste aparelho ──
-function CashierView({ orders, baixarComandas, formasPagamento = [], lojaInfo, currentUser, caixaAberto = null, auditar = () => {}, conexaoOk = true, editarItensPedido = async () => {}, products = [] }) {
+function CashierView({ orders, baixarComandas, formasPagamento = [], lojaInfo, currentUser, caixaAberto = null, auditar = () => {}, conexaoOk = true, editarItensPedido = async () => {}, products = [], fidCaixa = null }) {
 
   // ── Busca (mesa | comanda) ──────────────────────────────────
   const [searchMode, setSearchMode] = useState("mesa"); // "mesa" | "comanda"
@@ -3929,13 +3957,24 @@ function CashierView({ orders, baixarComandas, formasPagamento = [], lojaInfo, c
     && linhasPagamento.length > 0 && !conflitoAtualizacao
     && (splitMode !== "valor" || valorParcialValido);
 
+  // ── Fidelidade: forma virtual "Pontos" limitada ao saldo do cliente ──
+  const telConta = orders.find((o) => comandasLidas.includes(o.command) && o.clienteTelefone)?.clienteTelefone || null;
+  const pontosPorRealCx = Number(fidCaixa?.pontosPorReal) || 100;
+  const saldoPontosCx = (fidCaixa?.ativo && telConta) ? (fidCaixa.saldoPorTelefone?.[telConta] || 0) : 0;
+  const reaisEmPontosCx = Math.floor((saldoPontosCx / pontosPorRealCx) * 100) / 100;
+  const maxPontosReaisCx = Math.min(total, reaisEmPontosCx);
+  const pediuPontosCx = orders.some((o) => comandasLidas.includes(o.command) && /pontos/i.test(o.pagamentoForma || ""));
+  const formasAtivasCx = formasPagamento.filter((f) => f.active !== false);
+  const formasComPontos = maxPontosReaisCx > 0 ? [...formasAtivasCx, { id: "pontos", nome: "Pontos", tipo: "outro", permiteTroco: false }] : formasAtivasCx;
+
   function addLinhaPagamento(forma) {
-    const restanteAgora = Math.max(0, total - pagoLinhas);
+    let restanteAgora = Math.max(0, total - pagoLinhas);
+    if (forma.id === "pontos") restanteAgora = Math.min(restanteAgora, maxPontosReaisCx); // pontos limitados ao saldo
     setLinhasPagamento((cur) => [{ uid: Date.now() + Math.random(), formaId: forma.id, nome: forma.nome, tipo: forma.tipo, permiteTroco: forma.permiteTroco, valor: restanteAgora }, ...cur]);
   }
   function setValorLinha(uid, str) {
     const v = moedaParaNumero(str);
-    setLinhasPagamento((cur) => cur.map((l) => l.uid === uid ? { ...l, valor: v } : l));
+    setLinhasPagamento((cur) => cur.map((l) => l.uid === uid ? { ...l, valor: l.formaId === "pontos" ? Math.min(v, maxPontosReaisCx) : v } : l));
   }
   function removerLinhaPagamento(uid) {
     setLinhasPagamento((cur) => cur.filter((l) => l.uid !== uid));
@@ -4429,7 +4468,8 @@ function CashierView({ orders, baixarComandas, formasPagamento = [], lojaInfo, c
           valorPagoAgora={valorPagoAgora} totalPagoSelecaoPessoas={totalPagoSelecaoPessoas} restanteSelecaoPessoas={restanteSelecaoPessoas}
           valorParcialTexto={valorParcialTexto} setValorParcialTexto={setValorParcialTexto} valorParcialValido={valorParcialValido}
           pagamentosFeitos={pagamentosFeitos} logFinanceiro={logFinanceiro} onCancelarPagamento={cancelarPagamento}
-          formasPagamento={formasPagamento.filter((f) => f.active !== false)}
+          formasPagamento={formasComPontos}
+          saldoPontos={saldoPontosCx} reaisEmPontos={reaisEmPontosCx} maxPontosReais={maxPontosReaisCx} pediuPontos={pediuPontosCx}
           linhasPagamento={linhasPagamento} onAddLinha={addLinhaPagamento} onSetValorLinha={setValorLinha} onRemoverLinha={removerLinhaPagamento}
           pagoLinhas={pagoLinhas} restanteLinhas={restanteLinhas} troco={troco} excedeNaoDinheiro={excedeNaoDinheiro} temDinheiro={temDinheiro}
           onTeclaDigito={tecladoDigito} onTeclaApagar={tecladoApagar} onTeclaLimpar={tecladoLimpar} onTeclaConfirmar={tecladoConfirmar} tecladoAtivo={linhasPagamento.length > 0}
@@ -4935,6 +4975,7 @@ function PosPaymentColumn({
   valorParcialTexto, setValorParcialTexto, valorParcialValido,
   pagamentosFeitos, logFinanceiro, onCancelarPagamento,
   formasPagamento, linhasPagamento, onAddLinha, onSetValorLinha, onRemoverLinha,
+  saldoPontos = 0, reaisEmPontos = 0, pediuPontos = false,
   pagoLinhas, restanteLinhas, troco, excedeNaoDinheiro, temDinheiro,
   onTeclaDigito, onTeclaApagar, onTeclaLimpar, onTeclaConfirmar,
   podeConfirmarPagamento, onFinalizarClick, onImprimirConferencia, aPagarMaiorQueRestante,
@@ -4965,6 +5006,12 @@ function PosPaymentColumn({
           {/* Forma de pagamento */}
           <div className="rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-surface)] p-4">
             <p className="text-[11px] font-black uppercase tracking-widest text-[var(--pp-text-muted)]">Forma de pagamento</p>
+            {saldoPontos > 0 && (
+              <div className={`mt-2 flex flex-wrap items-center justify-between gap-2 rounded-xl border px-3 py-2 text-xs ${pediuPontos ? "border-[var(--pp-primary)] bg-[var(--pp-primary-soft)]" : "border-[var(--pp-border)] bg-[var(--pp-bg)]"}`}>
+                <span className="font-bold text-[var(--pp-text-body)]">⭐ Saldo: {saldoPontos.toLocaleString("pt-BR")} pts <span className="text-[var(--pp-text-muted)]">(≈ {formatCurrency(reaisEmPontos)})</span></span>
+                {pediuPontos && <span className="shrink-0 font-black text-[var(--pp-primary-text)]">Cliente pediu pagar com pontos</span>}
+              </div>
+            )}
             {formasPagamento.length === 0 ? (
               <p className="mt-3 text-xs text-[var(--pp-text-body)]">Nenhuma forma ativa. Cadastre em Administrativo → Formas de pagamento.</p>
             ) : (
@@ -6702,7 +6749,7 @@ function MobileAdminDrawer({ open, onClose, triggerRef, children, titulo }) {
   );
 }
 
-function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, definirAcoesUsuario, toggleUserStatus, toggleAccessStatus, usersLoja, filtraLoja = (a) => a, pesquisas = [], adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], toggleLoja, editarLoja, setLicencaEmpresa = async()=>{}, setValidadeLicenca = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, updateOrderStatus = async()=>{}, marcarEntregue = async()=>{}, marcarSetorPronto = async()=>{}, baixarComandas = async()=>{}, cancelarPedido, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, setModoUsoEmpresa = async()=>{}, salvarConfigExterno = async()=>{}, salvarConfigCrm = async()=>{}, mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, clientes = [], planoAtual = null, assinaturaAtual = null, assinaturas = [], planos = [], planoModulos = [], definirAssinatura = async()=>{}, promocoes = [], addPromocao = async()=>{}, editarPromocao = async()=>{}, togglePromocao = async()=>{}, removerPromocao = async()=>{}, opcoesApi = null, setores = [], setoresApi = null, vincularProdutoSetor = async () => {}, salvarProdutoQr = async () => {}, irParaCozinha = () => {}, caixaAberto = null, caixasLoja = [], caixaApi = null, fidRegra = null, fidRecompensas = [], fidTransacoes = [], fidApi = null, chamados = [], atenderChamado = async()=>{}, assumirChamado = async()=>{}, auditoria = [] }) {
+function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, definirAcoesUsuario, toggleUserStatus, toggleAccessStatus, usersLoja, filtraLoja = (a) => a, pesquisas = [], adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], toggleLoja, editarLoja, setLicencaEmpresa = async()=>{}, setValidadeLicenca = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, updateOrderStatus = async()=>{}, marcarEntregue = async()=>{}, marcarSetorPronto = async()=>{}, baixarComandas = async()=>{}, cancelarPedido, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, setModoUsoEmpresa = async()=>{}, salvarConfigExterno = async()=>{}, salvarConfigCrm = async()=>{}, mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, clientes = [], planoAtual = null, assinaturaAtual = null, assinaturas = [], planos = [], planoModulos = [], definirAssinatura = async()=>{}, promocoes = [], addPromocao = async()=>{}, editarPromocao = async()=>{}, togglePromocao = async()=>{}, removerPromocao = async()=>{}, opcoesApi = null, setores = [], setoresApi = null, vincularProdutoSetor = async () => {}, salvarProdutoQr = async () => {}, irParaCozinha = () => {}, caixaAberto = null, caixasLoja = [], caixaApi = null, fidRegra = null, fidRecompensas = [], fidTransacoes = [], fidApi = null, chamados = [], atenderChamado = async()=>{}, assumirChamado = async()=>{}, auditoria = [], fidCaixa = null }) {
   // Menu reorganizado por contexto (SaaS premium) — mesmos ids e permissões de antes
   const menu = [
     { grupo: "Visão Geral", itens: [
@@ -6872,7 +6919,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           {ativo === "fidelidade" && (precisaEmpresa ? avisoEmpresa : <FidelidadeAdmin regra={fidRegra} recompensas={fidRecompensas} transacoes={fidTransacoes} clientes={clientes} orders={orders} api={fidApi} onVerClientes={() => setAdminSection("crm")} />)}
           {ativo === "products"   && (precisaEmpresa ? avisoEmpresa : <ProductAdmin   products={products} categories={categories} categoriasDb={categoriasDb} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} editarProduto={editarProduto} removerProduto={removerProduto} lojaId={lojaInfo?.id} opcoesApi={opcoesApi} setores={setores} />)}
           {ativo === "setores"    && (precisaEmpresa ? avisoEmpresa : <SetoresCozinhaAdmin setores={setores} produtos={products} orders={orders} api={setoresApi} vincularProduto={vincularProdutoSetor} irParaCozinha={irParaCozinha} />)}
-          {ativo === "operacaomobile" && <OperacaoMobileView orders={orders} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} confirmarRetirada={confirmarRetirada} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} products={products} setores={setores} formasPagamento={formasPagamento} lojaInfo={lojaInfo} perms={acessosOperacionais(currentUser)} usuarioNome={currentUser?.name || ""} onFechar={() => setAdminSection("dashboard")} cancelarPedido={cancelarPedido} podeCancelarPedido={canAccess(currentUser, "kitchen")} />}
+          {ativo === "operacaomobile" && <OperacaoMobileView orders={orders} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} confirmarRetirada={confirmarRetirada} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} products={products} setores={setores} formasPagamento={formasPagamento} lojaInfo={lojaInfo} perms={acessosOperacionais(currentUser)} usuarioNome={currentUser?.name || ""} onFechar={() => setAdminSection("dashboard")} cancelarPedido={cancelarPedido} podeCancelarPedido={canAccess(currentUser, "kitchen")} fidCaixa={fidCaixa} />}
           {ativo === "cardapioqr"  && (precisaEmpresa ? avisoEmpresa : <CardapioQrConfigAdmin products={products} setores={setores} salvarProdutoQr={salvarProdutoQr} irParaProdutos={() => setAdminSection("products")} />)}
           {ativo === "acessosop"   && <AcessosOperacionaisAdmin users={filtraLoja(users)} definirAcessos={definirAcessos} />}
           {ativo === "chamados"   && <ChamadosPainel chamados={chamados} atenderChamado={atenderChamado} assumirChamado={assumirChamado} usuarios={usersLoja} />}
@@ -7417,7 +7464,7 @@ function CardapioQrConfigAdmin({ products = [], setores = [], salvarProdutoQr = 
 //  Reaproveita os pedidos + ações existentes (status, baixa, caixa).
 //  Visual de aplicativo para pequenos estabelecimentos no celular.
 // ════════════════════════════════════════════════════════════
-function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, confirmarRetirada = async () => {}, marcarSetorPronto = async () => {}, baixarComandas, products = [], setores = [], formasPagamento = [], lojaInfo, perms = { pedidos: true, cozinha: true, bar: true, caixa: true, total: true }, usuarioNome = "", tabInicial = null, onTabChange = null, onFechar = null, cancelarPedido, podeCancelarPedido = false }) {
+function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, confirmarRetirada = async () => {}, marcarSetorPronto = async () => {}, baixarComandas, products = [], setores = [], formasPagamento = [], lojaInfo, perms = { pedidos: true, cozinha: true, bar: true, caixa: true, total: true }, usuarioNome = "", tabInicial = null, onTabChange = null, onFechar = null, cancelarPedido, podeCancelarPedido = false, fidCaixa = null }) {
   // Módulos liberados para este usuário (ordem fixa)
   const liberados = OP_MODULOS.filter((m) => perms[m.id]);
   // Itens da bottom nav única (OperationalBottomNav) — "Central" só entra
@@ -7695,6 +7742,7 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
         numeroPedido={numeroPedido}
         telMascarado={telMascarado}
         faturadoHoje={faturadoHoje}
+        fidCaixa={fidCaixa}
       />
     );
   }
@@ -17588,12 +17636,13 @@ function deltaMesFid(atual, anterior) {
 
 function FidelidadeAdmin({ regra, recompensas = [], transacoes = [], clientes = [], orders = [], api, onVerClientes }) {
   const [valorPorPonto, setValorPorPonto] = useState(regra?.valorPorPonto ?? 1);
+  const [pontosPorReal, setPontosPorReal] = useState(regra?.pontosPorReal ?? 100); // resgate: pts que valem R$1
   const [configAberto, setConfigAberto] = useState(false);
   const [modalRec, setModalRec] = useState(null); // null | {} (nova) | recompensa (editar)
   const [confirmarExcluir, setConfirmarExcluir] = useState(null);
   const [verTodasRec, setVerTodasRec] = useState(false);
   const regraRef = useRef(null);
-  useEffect(() => { setValorPorPonto(regra?.valorPorPonto ?? 1); }, [regra?.id]);
+  useEffect(() => { setValorPorPonto(regra?.valorPorPonto ?? 1); setPontosPorReal(regra?.pontosPorReal ?? 100); }, [regra?.id]);
 
   const programaAtivo = regra?.ativo !== false && !!regra;
   const vpp = Number(String(regra?.valorPorPonto ?? valorPorPonto).replace(",", ".")) || 1;
@@ -17690,7 +17739,7 @@ function FidelidadeAdmin({ regra, recompensas = [], transacoes = [], clientes = 
                 <p className="mt-0.5 text-xs text-[var(--pp-text-muted)]">Quando inativo, novas compras não creditam pontos.</p>
                 <div className="mt-3 flex items-center justify-between">
                   <span className="text-sm font-bold text-dash-navy">{programaAtivo ? "Ativo" : "Inativo"}</span>
-                  <button type="button" role="switch" aria-checked={programaAtivo} onClick={() => { api?.salvarRegra({ valorPorPonto: vpp, ativo: !programaAtivo }); setConfigAberto(false); }}
+                  <button type="button" role="switch" aria-checked={programaAtivo} onClick={() => { api?.salvarRegra({ valorPorPonto: vpp, pontosPorReal: Number(String(pontosPorReal).replace(",", ".")) || 100, ativo: !programaAtivo }); setConfigAberto(false); }}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${programaAtivo ? "bg-[#5E8C31]" : "bg-[var(--pp-border)]"}`}>
                     <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${programaAtivo ? "translate-x-5" : "translate-x-0.5"}`} />
                   </button>
@@ -17723,21 +17772,28 @@ function FidelidadeAdmin({ regra, recompensas = [], transacoes = [], clientes = 
           {/* Regra de Pontuação */}
           <section ref={regraRef} className="rounded-2xl border border-[var(--pp-border)] bg-white p-5">
             <h3 className="flex items-center gap-1.5 text-base font-black text-dash-navy">Regra de Pontuação <span className="text-[var(--pp-text-muted)] [&>svg]:h-3.5 [&>svg]:w-3.5" title="A cada R$ gasto o cliente acumula pontos."><FidIco.info /></span></h3>
-            <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-end">
-              <div className="lg:w-52">
-                <span className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-[var(--pp-text-muted)]">A cada R$ gasto, vale:</span>
+            <div className="mt-4 grid gap-4 lg:grid-cols-2">
+              {/* Ganho */}
+              <div>
+                <span className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-[var(--pp-text-muted)]">Ganho — a cada R$ gasto, vale:</span>
                 <div className="flex items-center gap-2">
                   <input inputMode="decimal" value={valorPorPonto} onChange={(e) => setValorPorPonto(e.target.value.replace(/[^\d.,]/g, ""))} className={`${inpCard} font-black`} />
                   <span className="shrink-0 text-sm font-bold text-[var(--pp-text-muted)]">ponto(s)</span>
                 </div>
+                <p className="mt-1.5 text-xs text-[var(--pp-text-muted)]">R$ {String(vpp).replace(".", ",")} = <b className="text-dash-navy">1 ponto</b> · R$ {String(vpp * 50).replace(".", ",")} = <b className="text-dash-navy">50 pontos</b></p>
               </div>
-              <span className="hidden text-[var(--pp-text-muted)] lg:block [&>svg]:h-5 [&>svg]:w-5"><FidIco.seta /></span>
-              <div className="flex-1 rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-4 py-3">
-                <p className="text-[11px] font-bold uppercase tracking-wider text-[var(--pp-text-muted)]">Exemplo prático</p>
-                <p className="mt-0.5 text-sm text-dash-navy">R$ {String(vpp).replace(".", ",")} em compras = <b>1 ponto</b></p>
-                <p className="text-sm text-dash-navy">R$ {String(vpp * 50).replace(".", ",")} em compras = <b>50 pontos</b></p>
+              {/* Resgate */}
+              <div>
+                <span className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-[var(--pp-text-muted)]">Resgate — pontos que valem R$ 1,00:</span>
+                <div className="flex items-center gap-2">
+                  <input inputMode="numeric" value={pontosPorReal} onChange={(e) => setPontosPorReal(e.target.value.replace(/[^\d]/g, ""))} className={`${inpCard} font-black`} />
+                  <span className="shrink-0 text-sm font-bold text-[var(--pp-text-muted)]">pts = R$ 1</span>
+                </div>
+                <p className="mt-1.5 text-xs text-[var(--pp-text-muted)]">O cliente pode pagar a conta com pontos: <b className="text-dash-navy">{fmtInt(Number(String(pontosPorReal).replace(",", ".")) || 100)} pts = R$ 1,00</b>.</p>
               </div>
-              <button onClick={() => api?.salvarRegra({ valorPorPonto: Number(String(valorPorPonto).replace(",", ".")) || 1, ativo: programaAtivo || !regra })} className="btn-laranja rounded-xl px-5 py-2.5 text-sm font-bold">Salvar Regra</button>
+            </div>
+            <div className="mt-4 flex justify-end">
+              <button onClick={() => api?.salvarRegra({ valorPorPonto: Number(String(valorPorPonto).replace(",", ".")) || 1, pontosPorReal: Number(String(pontosPorReal).replace(",", ".")) || 100, ativo: programaAtivo || !regra })} className="btn-laranja rounded-xl px-5 py-2.5 text-sm font-bold">Salvar Regra</button>
             </div>
           </section>
 

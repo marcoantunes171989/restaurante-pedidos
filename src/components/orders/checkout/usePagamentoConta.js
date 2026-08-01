@@ -14,8 +14,11 @@ import { useState } from "react";
  * `total` é o valor da conta (já com a taxa). Retorna o estado das linhas e os
  * utilitários usados pela UI.
  */
-export function usePagamentoConta(total) {
+export function usePagamentoConta(total, opcoesPontos = null) {
   const [linhas, setLinhas] = useState([]);
+  // Forma virtual "Pontos" (fidelidade): limitada ao R$ que o saldo cobre.
+  const formaPontos = opcoesPontos?.formaPontos || "Pontos";
+  const maxPontosReais = Math.max(0, Math.round((Number(opcoesPontos?.maxReais) || 0) * 100) / 100);
 
   const sub = Math.round((total / 1.1) * 100) / 100;
   const taxa = Math.round((total - sub) * 100) / 100;
@@ -31,12 +34,18 @@ export function usePagamentoConta(total) {
   const toggleForma = (f) => setLinhas((cur) => {
     if (cur.some((l) => l.forma === f)) return cur.filter((l) => l.forma !== f);
     const pagoAtual = cur.reduce((s, l) => s + (Number(l.valor) || 0), 0);
-    const falta = Math.max(0, Math.round((total - pagoAtual) * 100) / 100);
+    let falta = Math.max(0, Math.round((total - pagoAtual) * 100) / 100);
+    if (f === formaPontos) falta = Math.min(falta, maxPontosReais); // pontos limitados ao saldo
     return [...cur, { forma: f, valor: falta }];
   });
 
   // Edita o valor de uma forma a partir de um texto (só dígitos → centavos).
-  const editarValor = (f, raw) => setLinhas((cur) => cur.map((l) => l.forma === f ? { ...l, valor: parseInt(String(raw).replace(/\D/g, "") || "0", 10) / 100 } : l));
+  const editarValor = (f, raw) => setLinhas((cur) => cur.map((l) => {
+    if (l.forma !== f) return l;
+    let v = parseInt(String(raw).replace(/\D/g, "") || "0", 10) / 100;
+    if (f === formaPontos) v = Math.min(v, maxPontosReais); // trava no saldo em pontos
+    return { ...l, valor: v };
+  }));
 
   const formaAtiva = (f) => linhas.some((l) => l.forma === f);
 

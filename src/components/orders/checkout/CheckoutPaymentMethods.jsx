@@ -1,4 +1,4 @@
-import { QrCode, CreditCard, Banknote, Ticket, ArrowLeftRight, Wallet, Check } from "lucide-react";
+import { QrCode, CreditCard, Banknote, Ticket, ArrowLeftRight, Wallet, Check, Star } from "lucide-react";
 
 // Grade de formas de pagamento do PDV. As opções vêm das formas cadastradas na
 // loja (prop `opcoes`); o ícone e a cor são resolvidos pelo nome (fallback
@@ -6,6 +6,7 @@ import { QrCode, CreditCard, Banknote, Ticket, ArrowLeftRight, Wallet, Check } f
 // lógica de múltiplas formas já usada no card do caixa (usePagamentoConta).
 function estiloForma(nome) {
   const n = (nome || "").toLowerCase();
+  if (n.includes("ponto")) return { Icon: Star, cor: "text-[var(--pp-success-text)]" };
   if (n.includes("pix")) return { Icon: QrCode, cor: "text-[var(--op-nav-accent)]" };
   if (n.includes("dinheiro") || n.includes("espécie") || n.includes("especie")) return { Icon: Banknote, cor: "text-[var(--pp-success-text)]" };
   if (n.includes("voucher") || n.includes("vale") || n.includes("ticket")) return { Icon: Ticket, cor: "text-[var(--pp-primary-text)]" };

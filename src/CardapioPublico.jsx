@@ -3,7 +3,7 @@ import {
   fetchLojas, fetchProdutos, fetchCategorias, fetchPromocoes, fetchGruposOpcoes, fetchOpcoes, fetchSetoresCozinha, fetchMesas,
   escutarLojas, inserirPedido, atualizarPedido, escutarPedidos,
   buscarClientePorTelefone, upsertCliente, criarChamado,
-  rpcCriarPedidoPublico, rpcUpsertClientePublico, rpcBuscarClientePublico, rpcPedidosComanda, rpcPedidosCliente, rpcSolicitarContaPublico, rpcCriarChamadoPublico,
+  rpcCriarPedidoPublico, rpcUpsertClientePublico, rpcBuscarClientePublico, rpcPedidosComanda, rpcPedidosCliente, rpcSolicitarContaPublico, rpcSaldoFidelidade, rpcCriarChamadoPublico,
   rpcPesquisaSatisfacao, inserirPesquisaSatisfacao, rpcStatusMesa,
 } from "./lib/supabase";
 import { cardapioViaRpc } from "./lib/authMode";
@@ -222,6 +222,8 @@ export default function CardapioPublico() {
   const [trocoResposta, setTrocoResposta] = useState(""); // "" | "sim" | "nao" — só perguntado com pagamento em Dinheiro
   const [trocoValor, setTrocoValor] = useState(""); // valor (texto) que o cliente vai usar para pagar em espécie
   const [confirmarFechamento, setConfirmarFechamento] = useState(false); // confirmação obrigatória antes de solicitar/reenviar o fechamento da conta
+  const [saldoPontos, setSaldoPontos] = useState(null); // saldo de pontos do cliente identificado (null = desconhecido)
+  const [usarPontos, setUsarPontos]   = useState(false); // intenção de pagar com pontos no fechamento (o caixa efetiva)
   const [solicitando, setSolicitando] = useState(false);
   const solicitandoRef = useRef(false); // trava síncrona contra clique duplo (mesmo padrão de enviandoRef)
   const [chamando, setChamando] = useState(""); // tipo do chamado (garcom|ajuda|limpeza) em andamento, "" se nenhum
@@ -900,6 +902,20 @@ export default function CardapioPublico() {
     return () => { vivo = false; clearTimeout(t); };
   }, [telDig, modoExterno, loja?.id]);
 
+  // Fidelidade: saldo de pontos do cliente identificado (leitura pública). Só
+  // aparece se a RPC existir (migration 073) e houver saldo. O débito real é
+  // efetivado pelo caixa no fechamento (segurança — identidade é só o telefone).
+  useEffect(() => {
+    if (!loja) return;
+    let vivo = true;
+    const t = setTimeout(async () => {
+      if (telDig.length < 10) { if (vivo) { setSaldoPontos(null); setUsarPontos(false); } return; }
+      const s = await rpcSaldoFidelidade({ lojaId: loja.id, telefone: telDig });
+      if (vivo) setSaldoPontos(s);
+    }, 600);
+    return () => { vivo = false; clearTimeout(t); };
+  }, [telDig, loja?.id]);
+
   // Cadastra/atualiza o cliente do estabelecimento assim que NOME + TELEFONE
   // forem informados (sem esperar o pedido) — alimenta o CRM da empresa.
   useEffect(() => {
@@ -1170,13 +1186,14 @@ export default function CardapioPublico() {
     setSolicitando(true);
     const reenvio = contaSolicitada;
     try {
+      const comPontos = usarPontos && saldoPontos > 0;
       if (cardapioViaRpc()) {
         const comandas = [...new Set(meusPedidos.map((o) => o.command).filter(Boolean))];
-        await Promise.all(comandas.map((c) => rpcSolicitarContaPublico({ lojaId: loja.id, comanda: c })));
+        await Promise.all(comandas.map((c) => rpcSolicitarContaPublico({ lojaId: loja.id, comanda: c, usarPontos: comPontos })));
       } else {
-        await Promise.all(meusPedidos.map((o) => atualizarPedido(o.id, { status_pagamento: "solicitado" })));
+        await Promise.all(meusPedidos.map((o) => atualizarPedido(o.id, { status_pagamento: "solicitado", ...(comPontos ? { pagamento_forma: "Pontos (solicitado)" } : {}) })));
       }
-      setMsg({ t: "success", m: reenvio ? "Solicitação reenviada ao caixa." : "Fechamento solicitado ao caixa." });
+      setMsg({ t: "success", m: comPontos ? "Fechamento solicitado — o caixa vai aplicar seus pontos." : reenvio ? "Solicitação reenviada ao caixa." : "Fechamento solicitado ao caixa." });
     } catch { setMsg({ t: "error", m: "Erro ao solicitar a conta. Tente novamente." }); }
     finally { setSolicitando(false); solicitandoRef.current = false; }
   }
@@ -1729,6 +1746,7 @@ export default function CardapioPublico() {
             <p id="msg-fechar-conta" className="mt-3 text-base font-black text-[var(--client-text-primary)]">{contaSolicitada ? "Reenviar solicitação ao caixa?" : "Solicitar fechamento da conta?"}</p>
             <p className="mt-1 text-sm text-[var(--client-text-secondary)]">{contaSolicitada ? "Confirme para avisar novamente o caixa sobre o fechamento da sua conta." : "Confirme para avisar o caixa que você deseja finalizar o atendimento."}</p>
             <p className="mt-3 rounded-2xl bg-[var(--client-surface-secondary)] py-2.5 text-lg font-black text-[var(--client-text-primary)]">{formatCurrency(totalMesa)}</p>
+            {usarPontos && saldoPontos > 0 && <p className="mt-2 rounded-2xl border border-[var(--client-primary)] bg-[var(--client-primary-soft)] px-3 py-2 text-xs font-bold text-[var(--client-primary-hover)]">⭐ Pagar com pontos — o caixa aplica o desconto dos seus {saldoPontos.toLocaleString("pt-BR")} pontos.</p>}
             <div className="mt-4 flex gap-2">
               <button onClick={() => setConfirmarFechamento(false)} type="button" className="min-h-[44px] flex-1 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] py-3 text-sm font-black text-[var(--client-text-secondary)] hover:bg-[var(--client-surface-secondary)]">Continuar consumindo</button>
               <button onClick={confirmarSolicitarConta} type="button" className="min-h-[44px] flex-1 rounded-2xl btn-laranja bg-[var(--client-primary-hover)] py-3 text-sm font-black text-white hover:bg-[var(--client-primary)]">{contaSolicitada ? "Reenviar" : "Solicitar fechamento"}</button>
@@ -2082,6 +2100,17 @@ export default function CardapioPublico() {
                   <span className={`text-xl font-black ${contaPaga ? "text-[var(--client-success)]" : "text-[var(--client-text-primary)]"}`}>{formatCurrency(totalMesa)}</span>
                 </div>
               </div>
+
+              {/* Fidelidade: saldo de pontos + intenção de pagar com pontos (o caixa efetiva) */}
+              {!contaPaga && saldoPontos > 0 && (
+                <label className={`mt-3 flex cursor-pointer items-start gap-3 rounded-2xl border p-3.5 transition ${usarPontos ? "border-[var(--client-primary)] bg-[var(--client-primary-soft)]" : "border-[var(--client-border)] bg-[var(--client-surface)]"}`}>
+                  <input type="checkbox" checked={usarPontos} onChange={(e) => setUsarPontos(e.target.checked)} className="mt-0.5 h-5 w-5 accent-[var(--client-primary)]" />
+                  <span className="min-w-0">
+                    <span className="block text-sm font-black text-[var(--client-text-primary)]">⭐ Usar meus pontos nesta conta</span>
+                    <span className="mt-0.5 block text-xs text-[var(--client-text-secondary)]">Você tem <b className="text-[var(--client-text-primary)]">{saldoPontos.toLocaleString("pt-BR")} pontos</b>. Ao solicitar o fechamento, o caixa aplica o desconto em pontos.</span>
+                  </span>
+                </label>
+              )}
 
               {/* Solicitar/reenviar fechamento — nunca finaliza o pagamento sozinho, só avisa o caixa */}
               {!contaPaga && (

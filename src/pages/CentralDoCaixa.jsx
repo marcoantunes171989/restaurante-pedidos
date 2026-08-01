@@ -56,6 +56,7 @@ export default function CentralDoCaixa({
   numeroPedido = {},
   telMascarado = () => "",
   faturadoHoje = 0,
+  fidCaixa = null,
 }) {
   const [pagando, setPagando] = useState(null);
   const [retirando, setRetirando] = useState(null);
@@ -181,6 +182,7 @@ export default function CentralDoCaixa({
                   onAbrirCheckout={setContaCheckout}
                   retirando={retirando === o.id}
                   onRetirar={retirar}
+                  fidCaixa={fidCaixa}
                 />
               ))}
             </div>
@@ -201,6 +203,7 @@ export default function CentralDoCaixa({
           indicadores={indicadores}
           haTxt={haTxt}
           onFecharConta={fecharContaPdv}
+          fidCaixa={fidCaixa}
           fechando={pagando === contaCheckout.id}
           onFechar={() => setContaCheckout(null)}
         />

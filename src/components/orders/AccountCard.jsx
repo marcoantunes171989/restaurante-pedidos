@@ -19,7 +19,7 @@ import { usePagamentoConta } from "./checkout/usePagamentoConta";
  */
 export default function AccountCard({
   o, categoria, totalCom, haTxt, numeroPedido, telMascarado, opcoes,
-  pagando, onFinalizar, retirando, onRetirar, onAbrirCheckout, destacado = false, cardRef,
+  pagando, onFinalizar, retirando, onRetirar, onAbrirCheckout, destacado = false, cardRef, fidCaixa = null,
 }) {
   const [aberto, setAberto] = useState(false);
   const total = totalCom(o);
@@ -29,9 +29,17 @@ export default function AccountCard({
   const [tableBase, tableSub] = String(o.table || "").split(" · ");
   const subtitulo = externo ? (tableSub || "Delivery/retirada") : (tableBase || o.table);
 
+  // Fidelidade: saldo de pontos do cliente identificado e quanto (R$) ele cobre.
+  const pontosPorReal = Number(fidCaixa?.pontosPorReal) || 100;
+  const saldoPontos = (fidCaixa?.ativo && o.clienteTelefone) ? (fidCaixa.saldoPorTelefone?.[o.clienteTelefone] || 0) : 0;
+  const reaisEmPontos = Math.floor((saldoPontos / pontosPorReal) * 100) / 100;
+  const maxPontosReais = Math.min(total, reaisEmPontos);
+  const pediuPontos = /pontos/i.test(o.pagamentoForma || "");
+  const opcoesPag = maxPontosReais > 0 && !pago ? [...opcoes, "Pontos"] : opcoes;
+
   // Estado do formulário de pagamento (múltiplas formas) — lógica compartilhada
   // com a tela PDV (usePagamentoConta), escondida atrás de "Receber".
-  const { linhas, soma, restante, valido, sub, taxa, fmtMoeda, toggleForma, editarValor } = usePagamentoConta(total);
+  const { linhas, soma, restante, valido, sub, taxa, fmtMoeda, toggleForma, editarValor } = usePagamentoConta(total, { formaPontos: "Pontos", maxReais: maxPontosReais });
 
   const itensVisiveis = (o.items || []).slice(0, 3);
   const itensExtra = (o.items || []).length - itensVisiveis.length;
@@ -121,11 +129,17 @@ export default function AccountCard({
             <div className="flex flex-wrap justify-between gap-x-2 text-sm font-black"><span className="text-[var(--pp-text)]">Total</span><span className="tabular-nums text-[var(--pp-success-text)]">{formatCurrency(total)}</span></div>
           </div>
 
+          {!pago && saldoPontos > 0 && (
+            <div className={`flex items-center justify-between gap-2 rounded-xl border px-3 py-2 text-xs ${pediuPontos ? "border-[var(--pp-primary)] bg-[var(--pp-primary-soft)]" : "border-[var(--pp-info-border,var(--pp-border))] bg-[var(--pp-bg)]"}`}>
+              <span className="font-bold text-[var(--pp-text-body)]">⭐ Saldo: {saldoPontos.toLocaleString("pt-BR")} pts <span className="text-[var(--pp-text-muted)]">(≈ {formatCurrency(reaisEmPontos)})</span></span>
+              {pediuPontos && <span className="shrink-0 font-black text-[var(--pp-primary-text)]">Pediu pagar com pontos</span>}
+            </div>
+          )}
           {!pago && (
             <>
               <p className="pt-1 text-[10px] font-bold uppercase tracking-wide text-[var(--pp-text-muted)]">Forma(s) de pagamento</p>
               <div className="grid grid-cols-2 gap-1.5">
-                {opcoes.map((f) => {
+                {opcoesPag.map((f) => {
                   const on = linhas.some((l) => l.forma === f);
                   return (
                     <button

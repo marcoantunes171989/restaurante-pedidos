@@ -426,17 +426,21 @@ export function escutarCaixas(onMudanca) {
 export async function fetchFidelidadeRegras() {
   const { data, error } = await supabase.from('tab_fidelidade_regras').select('*')
   if (error || !data) return []
-  return data.map((r) => ({ id: r.id, lojaId: r.loja_id, nome: r.nome, valorPorPonto: Number(r.valor_por_ponto) || 1, ativo: r.ativo !== false }))
+  // pontos_por_real (migration 073): quantos pontos valem R$ 1 no RESGATE (default 100).
+  return data.map((r) => ({ id: r.id, lojaId: r.loja_id, nome: r.nome, valorPorPonto: Number(r.valor_por_ponto) || 1, pontosPorReal: Number(r.pontos_por_real) || 100, ativo: r.ativo !== false }))
 }
 export async function salvarFidelidadeRegra(lojaId, campos) {
+  // pontos_por_real só entra no patch quando informado — tolera a coluna ausente
+  // (migration 073 ainda não aplicada) sem quebrar o salvamento do restante.
+  const extra = campos.pontosPorReal != null ? { pontos_por_real: Number(campos.pontosPorReal) || 100 } : {}
   // upsert "manual": existe regra da loja? atualiza; senão insere
   const { data: ex } = await supabase.from('tab_fidelidade_regras').select('id').eq('loja_id', lojaId).limit(1)
   if (ex && ex.length) {
-    const { error } = await supabase.from('tab_fidelidade_regras').update({ valor_por_ponto: Number(campos.valorPorPonto) || 1, ativo: campos.ativo !== false, nome: campos.nome || 'Programa de Fidelidade', atualizado_em: new Date().toISOString() }).eq('id', ex[0].id)
+    const { error } = await supabase.from('tab_fidelidade_regras').update({ valor_por_ponto: Number(campos.valorPorPonto) || 1, ativo: campos.ativo !== false, nome: campos.nome || 'Programa de Fidelidade', ...extra, atualizado_em: new Date().toISOString() }).eq('id', ex[0].id)
     if (error) throw error
     return { id: ex[0].id }
   }
-  const { data, error } = await supabase.from('tab_fidelidade_regras').insert([{ loja_id: lojaId ?? null, valor_por_ponto: Number(campos.valorPorPonto) || 1, ativo: campos.ativo !== false, nome: campos.nome || 'Programa de Fidelidade' }]).select().single()
+  const { data, error } = await supabase.from('tab_fidelidade_regras').insert([{ loja_id: lojaId ?? null, valor_por_ponto: Number(campos.valorPorPonto) || 1, ativo: campos.ativo !== false, nome: campos.nome || 'Programa de Fidelidade', ...extra }]).select().single()
   if (error) throw error
   return { id: data.id }
 }
@@ -645,9 +649,24 @@ export async function rpcPedidosCliente({ lojaId, telefone }) {
   if (error) throw error
   return (data || []).map(dbParaPedido)
 }
-export async function rpcSolicitarContaPublico({ lojaId, comanda }) {
+export async function rpcSolicitarContaPublico({ lojaId, comanda, usarPontos = false }) {
+  // Overload com intenção de pagar com pontos (migration 073). Se o overload
+  // ainda não existir no banco, cai para a assinatura antiga (sem a flag).
+  if (usarPontos) {
+    const { error } = await supabase.rpc('pub_solicitar_conta', { p_loja_id: lojaId, p_comanda: comanda, p_usar_pontos: true })
+    if (!error) return
+  }
   const { error } = await supabase.rpc('pub_solicitar_conta', { p_loja_id: lojaId, p_comanda: comanda })
   if (error) throw error
+}
+// Saldo de pontos do cliente por telefone (leitura pública — migration 073).
+// Retorna null se a RPC não existir ainda (feature degrada sem quebrar a tela).
+export async function rpcSaldoFidelidade({ lojaId, telefone }) {
+  try {
+    const { data, error } = await supabase.rpc('pub_saldo_fidelidade', { p_loja_id: lojaId, p_telefone: telefone })
+    if (error) return null
+    return Number(data) || 0
+  } catch { return null }
 }
 export async function rpcCriarChamadoPublico({ lojaId, mesa, comanda, tipo }) {
   const { error } = await supabase.rpc('pub_criar_chamado', { p_loja_id: lojaId, p_mesa: mesa || null, p_comanda: comanda || null, p_tipo: tipo || 'garcom' })

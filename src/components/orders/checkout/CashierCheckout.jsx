@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { X, Utensils, CalendarClock } from "lucide-react";
+import { formatCurrency } from "../../../App";
 import { usePagamentoConta } from "./usePagamentoConta";
 import CheckoutTopBar from "./CheckoutTopBar";
 import CheckoutQuickLookup from "./CheckoutQuickLookup";
@@ -23,10 +24,17 @@ import CheckoutStatusBar from "./CheckoutStatusBar";
  */
 export default function CashierCheckout({
   o, totalCom, opcoes = [], usuarioNome = "", nivelAcesso = "", lojaInfo,
-  indicadores, haTxt = () => "", onFecharConta, fechando = false, onFechar,
+  indicadores, haTxt = () => "", onFecharConta, fechando = false, onFechar, fidCaixa = null,
 }) {
   const total = totalCom(o);
-  const { linhas, soma, restante, valido, sub, taxa, toggleForma, setLinhas, formaAtiva } = usePagamentoConta(total);
+  // Fidelidade: saldo do cliente identificado + R$ que os pontos cobrem.
+  const pontosPorReal = Number(fidCaixa?.pontosPorReal) || 100;
+  const saldoPontos = (fidCaixa?.ativo && o.clienteTelefone) ? (fidCaixa.saldoPorTelefone?.[o.clienteTelefone] || 0) : 0;
+  const reaisEmPontos = Math.floor((saldoPontos / pontosPorReal) * 100) / 100;
+  const maxPontosReais = Math.min(total, reaisEmPontos);
+  const pediuPontos = /pontos/i.test(o.pagamentoForma || "");
+  const opcoesPag = maxPontosReais > 0 ? [...opcoes, "Pontos"] : opcoes;
+  const { linhas, soma, restante, valido, sub, taxa, toggleForma, setLinhas, formaAtiva } = usePagamentoConta(total, { formaPontos: "Pontos", maxReais: maxPontosReais });
   const [entrada, setEntrada] = useState(""); // dígitos em centavos, aplicados à forma ativa
   const [pessoas, setPessoas] = useState(2);
 
@@ -85,6 +93,12 @@ export default function CashierCheckout({
                   <CalendarClock aria-hidden="true" size={12} /> Tempo aberta: {haTxt(o)}
                 </span>
               </div>
+              {saldoPontos > 0 && (
+                <div className={`mt-2 flex flex-wrap items-center justify-between gap-2 rounded-xl border px-3 py-2 text-xs ${pediuPontos ? "border-[var(--pp-primary)] bg-[var(--pp-primary-soft)]" : "border-[var(--pp-border)] bg-[var(--pp-bg)]"}`}>
+                  <span className="font-bold text-[var(--pp-text-body)]">⭐ Saldo de pontos: {saldoPontos.toLocaleString("pt-BR")} pts <span className="text-[var(--pp-text-muted)]">(≈ {formatCurrency(reaisEmPontos)} · até {formatCurrency(maxPontosReais)} nesta conta)</span></span>
+                  {pediuPontos && <span className="shrink-0 font-black text-[var(--pp-primary-text)]">Cliente pediu pagar com pontos</span>}
+                </div>
+              )}
             </section>
 
             <CheckoutItemsTable itens={o.items || []} />
@@ -94,7 +108,7 @@ export default function CashierCheckout({
           {/* Coluna direita */}
           <div className="order-2 flex min-w-0 flex-col gap-4 lg:order-3">
             <CheckoutKeypad onDigito={onDigito} onLimpar={onLimpar} onApagar={onApagar} onConfirmar={() => setEntrada("")} confirmarDesabilitado={!formaAlvo} />
-            <CheckoutPaymentMethods opcoes={opcoes} formaAtiva={formaAtiva} onToggle={toggle} />
+            <CheckoutPaymentMethods opcoes={opcoesPag} formaAtiva={formaAtiva} onToggle={toggle} />
             <CheckoutSplit total={total} pessoas={pessoas} onPessoas={setPessoas} />
           </div>
         </div>
