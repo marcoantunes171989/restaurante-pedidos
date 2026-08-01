@@ -5576,10 +5576,18 @@ function FinanceiroVisaoAdmin({ orders = [], fidRegra = null, fidTransacoes = []
     <main className="space-y-5">
       <PageHeader icone={<IconPagamento />} titulo="Visão Financeira"
         descricao="Receitas, valores em aberto e formas de pagamento — consolidados dos pedidos do período." />
-      <div className="flex flex-wrap gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
-        {CHIPS.map(([id, l]) => (
-          <FilterChip key={id} size="sm" selected={preset === id} label={l} onClick={() => setPreset(id)} />
-        ))}
+      {/* Filtro de período — controle segmentado ENQUADRADO: botões emoldurados,
+          largura igual, 2 colunas no celular e 4 no desktop (responsivo). */}
+      <div className="grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-white/[0.03] p-2 sm:grid-cols-4">
+        {CHIPS.map(([id, l]) => {
+          const on = preset === id;
+          return (
+            <button key={id} type="button" onClick={() => setPreset(id)} aria-pressed={on}
+              className={`min-h-10 rounded-xl border px-3 py-2 text-sm font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-400 ${on ? "border-gold-400 bg-gold-400 text-white shadow" : "border-white/10 bg-white/[0.02] text-slate-300 hover:border-white/20 hover:bg-white/[0.06]"}`}>
+              {l}
+            </button>
+          );
+        })}
       </div>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <CardMetrica titulo="Receitas (pago)" valor={formatCurrency(receita)} sub={`${pagos.length} pedidos pagos`} cor="text-emerald-400" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="12" rx="2" /><circle cx="12" cy="12" r="2.5" /></svg>} />
@@ -5587,7 +5595,7 @@ function FinanceiroVisaoAdmin({ orders = [], fidRegra = null, fidTransacoes = []
         <CardMetrica titulo="Saldo previsto" valor={formatCurrency(receita + emAberto)} sub="pago + em aberto" cor="text-blue-400" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 17l6-6 4 4 8-8" /><path d="M17 7h4v4" /></svg>} />
         <CardMetrica titulo="Ticket médio" valor={formatCurrency(ticket)} sub="por pedido pago" cor="text-violet-300" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z" /><path d="M9 8h6M9 12h6" /></svg>} />
       </div>
-      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-4 sm:p-5">
         <h3 className="page-title text-base font-bold text-white">Receita por forma de pagamento</h3>
         {formas.length === 0 ? (
           <EmptyState titulo="Sem receitas no período" dica="Não há pedidos pagos no período selecionado." />
@@ -5610,7 +5618,7 @@ function FinanceiroVisaoAdmin({ orders = [], fidRegra = null, fidTransacoes = []
       </div>
 
       {/* Programa de Pontos — espelha a regra atual da Fidelidade em tempo real */}
-      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-4 sm:p-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="page-title text-base font-bold text-white">Programa de Pontos (Fidelidade)</h3>
           <span className={`rounded-full px-2.5 py-1 text-[11px] font-black ${fidAtivo ? "bg-emerald-500/15 text-emerald-300" : "bg-white/10 text-slate-400"}`}>{fidAtivo ? "Ativo" : "Inativo"}</span>

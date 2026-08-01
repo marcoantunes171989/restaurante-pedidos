@@ -982,6 +982,10 @@ export default function CardapioPublico() {
   const valorPorPontoPub = Number(fidRegraPub?.valorPorPonto) || 0;
   const pontosPorRealPub = Number(fidRegraPub?.pontosPorReal) || 100;
   const pontosGanharCart = valorPorPontoPub > 0 ? Math.floor(totalCart / valorPorPontoPub) : 0;
+  // Pontos da CONTA já aberta (pedidos enviados) — recalcula a cada item
+  // adicionado/cancelado. É o total que o cliente ganha ao pagar a conta.
+  const pontosGanharConta = valorPorPontoPub > 0 ? Math.floor(subtotal / valorPorPontoPub) : 0;
+  const clienteIdentificado = telDig.length >= 10;
   const reaisEmPontosSaldo = saldoPontos > 0 ? Math.floor((saldoPontos / pontosPorRealPub) * 100) / 100 : 0;
   const podeFechar = meusPedidos.length > 0 && meusPedidos.every((o) => o.status === "delivered");
   const contaSolicitada = meusPedidos.some((o) => o.paymentStatus === "requested");
@@ -1124,9 +1128,15 @@ export default function CardapioPublico() {
       if (!isValidCommand(comanda)) return setMsg({ t: "error", m: "Escaneie o QR Code da mesa (comanda) para pedir." });
       if (comanda.split("-")[0] !== loja.prefixo) return setMsg({ t: "error", m: `Comanda de outra empresa (${comanda.split("-")[0]}).` });
       setEnviando(true);
+      // Identificação opcional na mesa: com telefone válido, cadastra/vincula o
+      // cliente e grava clienteTelefone no pedido — é o que permite ACUMULAR
+      // pontos (o caixa credita no fechamento) e ver o saldo. Sem telefone, o
+      // pedido segue anônimo (sem pontos), como antes.
+      const telMesa = telDig.length >= 10 ? telDig : null;
+      if (telMesa) { try { await (cardapioViaRpc() ? rpcUpsertClientePublico({ lojaId: loja.id, nome: cliente.trim() || "Cliente", telefone: telMesa }) : upsertCliente({ nome: cliente.trim() || "Cliente", telefone: telMesa, lojaId: loja.id })); } catch { /* cadastro tolerante: não bloqueia o envio do pedido */ } }
       novo = {
         id: `PED-${Date.now().toString().slice(-7)}${Math.floor(Math.random() * 90 + 10)}`,
-        table: currentTable, command: comanda, customer: cliente.trim() || "Cliente",
+        table: currentTable, command: comanda, customer: cliente.trim() || "Cliente", clienteTelefone: telMesa,
         status: "received", paymentStatus: "open",
         createdAt: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
         items: itens, lojaId: loja.id,
@@ -1904,10 +1914,19 @@ export default function CardapioPublico() {
                         </div>
                         <span className="flex items-center gap-1 rounded-full bg-[var(--client-surface)] px-2.5 py-1 text-[11px] font-black text-[var(--client-primary-active)]"><CkIconCheck width={12} height={12} /> Confirmada</span>
                       </div>
-                      <label className="block"><span className="mb-1.5 block text-xs font-bold text-[var(--client-text-secondary)]">Seu nome (opcional)</span>
-                        <input value={cliente} onChange={(e) => setCliente(capitalizarNome(e.target.value))} placeholder="Nome" className="w-full min-h-11 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] px-3 py-2.5 text-sm text-[var(--client-text-primary)] outline-none transition focus:border-[var(--client-primary)] focus:ring-[3px] focus:ring-[var(--client-focus-primary)] placeholder:text-[var(--client-text-muted)]" /></label>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <label className="block"><span className="mb-1.5 block text-xs font-bold text-[var(--client-text-secondary)]">Telefone (WhatsApp) <span className="font-normal text-[var(--client-text-muted)]">— para acumular pontos</span></span>
+                          <input type="tel" inputMode="numeric" autoComplete="tel" value={mascararTelefone(telefone)} onChange={(e) => setTelefone(e.target.value.replace(/\D/g, "").slice(0, 11))} placeholder="(11) 98765-4321" maxLength={16}
+                            className="w-full min-h-11 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] px-3 py-2.5 text-sm font-black text-[var(--client-text-primary)] outline-none transition focus:border-[var(--client-primary)] focus:ring-[3px] focus:ring-[var(--client-focus-primary)] placeholder:font-normal placeholder:text-[var(--client-text-muted)]" /></label>
+                        <label className="block"><span className="mb-1.5 block text-xs font-bold text-[var(--client-text-secondary)]">Seu nome (opcional)</span>
+                          <input value={cliente} onChange={(e) => setCliente(capitalizarNome(e.target.value))} placeholder="Nome" className="w-full min-h-11 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] px-3 py-2.5 text-sm text-[var(--client-text-primary)] outline-none transition focus:border-[var(--client-primary)] focus:ring-[3px] focus:ring-[var(--client-focus-primary)] placeholder:text-[var(--client-text-muted)]" /></label>
+                      </div>
+                      {fidRegraPub && pontosGanharCart > 0 && (
+                        <p className="flex items-center gap-1.5 rounded-xl border border-[var(--client-primary-border)] bg-[var(--client-primary-soft)] px-3 py-2 text-[11px] font-bold text-[var(--client-primary-hover)]"><CkIconEstrela width={13} height={13} className="shrink-0" /> Informe seu telefone e ganhe {pontosGanharCart.toLocaleString("pt-BR")} pontos nesta compra.</p>
+                      )}
                     </>
                   ) : (
+                    <>
                     <div className="grid grid-cols-2 gap-3">
                       <label className="block"><span className="mb-1.5 block text-xs font-bold text-[var(--client-text-secondary)]">Mesa <span className="text-[var(--client-error)]">*</span></span>
                         <input type="tel" inputMode="numeric" value={mesa} onChange={(e) => setMesa(e.target.value.replace(/\D/g, "").slice(0, 2))} placeholder="Nº"
@@ -1915,6 +1934,10 @@ export default function CardapioPublico() {
                       <label className="block"><span className="mb-1.5 block text-xs font-bold text-[var(--client-text-secondary)]">Seu nome (opcional)</span>
                         <input value={cliente} onChange={(e) => setCliente(capitalizarNome(e.target.value))} placeholder="Nome" className="w-full min-h-11 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] px-3 py-2.5 text-sm text-[var(--client-text-primary)] outline-none transition focus:border-[var(--client-primary)] focus:ring-[3px] focus:ring-[var(--client-focus-primary)] placeholder:text-[var(--client-text-muted)]" /></label>
                     </div>
+                    <label className="block"><span className="mb-1.5 block text-xs font-bold text-[var(--client-text-secondary)]">Telefone (WhatsApp) <span className="font-normal text-[var(--client-text-muted)]">— para acumular pontos</span></span>
+                      <input type="tel" inputMode="numeric" autoComplete="tel" value={mascararTelefone(telefone)} onChange={(e) => setTelefone(e.target.value.replace(/\D/g, "").slice(0, 11))} placeholder="(11) 98765-4321" maxLength={16}
+                        className="w-full min-h-11 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] px-3 py-2.5 text-sm font-black text-[var(--client-text-primary)] outline-none transition focus:border-[var(--client-primary)] focus:ring-[3px] focus:ring-[var(--client-focus-primary)] placeholder:font-normal placeholder:text-[var(--client-text-muted)]" /></label>
+                    </>
                   )}
                   {!comURL && (
                     <div><span className="mb-1.5 block text-xs font-bold text-[var(--client-text-secondary)]">Comanda <span className="text-[var(--client-error)]">*</span></span>
@@ -2068,6 +2091,16 @@ export default function CardapioPublico() {
                 </div>
                 {pagamentoPosteriorConta && (
                   <p className="mt-3 flex items-center gap-1.5 rounded-xl bg-[var(--client-info-soft)] px-3 py-2 text-[11px] font-bold text-[var(--client-info)]"><CkIconRelogio width={13} height={13} /> Pagamento após o consumo</p>
+                )}
+                {/* Fidelidade — pontos que ESTA conta gera, recalculados a cada
+                    item adicionado/cancelado. Incentiva identificar-se e voltar. */}
+                {fidRegraPub && pontosGanharConta > 0 && (
+                  <div className="mt-3 rounded-xl border border-[var(--client-primary-border)] bg-[var(--client-primary-soft)] px-3 py-2.5">
+                    <p className="flex items-center gap-1.5 text-sm font-black text-[var(--client-primary-hover)]"><CkIconEstrela width={15} height={15} className="shrink-0" /> {clienteIdentificado ? "Você ganhará" : "Esta conta gera"} {pontosGanharConta.toLocaleString("pt-BR")} pontos</p>
+                    {clienteIdentificado
+                      ? (saldoPontos > 0 && <p className="mt-0.5 text-[11px] font-bold text-[var(--client-text-secondary)]">Saldo atual: {saldoPontos.toLocaleString("pt-BR")} pts → passará a {(saldoPontos + pontosGanharConta).toLocaleString("pt-BR")} pts no fechamento.</p>)
+                      : <p className="mt-0.5 text-[11px] font-bold text-[var(--client-text-secondary)]">Informe seu telefone ao pedir para acumular estes pontos.</p>}
+                  </div>
                 )}
               </div>
 
