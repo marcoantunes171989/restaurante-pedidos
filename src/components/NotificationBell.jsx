@@ -23,8 +23,8 @@ function tempoRelativo(iso) {
   const min = Math.max(0, Math.round(diffMs / 60000));
   if (min < 1) return "agora";
   if (min < 60) return `há ${min} min`;
-  const h = Math.round(min / 60);
-  if (h < 24) return `há ${h}h`;
+  const h = Math.floor(min / 60), rm = min % 60;
+  if (h < 24) return `há ${h}h${rm ? ` ${String(rm).padStart(2, "0")}min` : ""}`;
   return new Date(iso).toLocaleDateString("pt-BR");
 }
 

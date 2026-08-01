@@ -3459,8 +3459,11 @@ function PanelView({ groupedOrders, products = [], lojaInfo }) {
   // Tempo estimado do pedido = maior tempo médio entre os itens (o mais demorado define)
   const tempoEstimadoPedido = (order) => Math.max(0, ...order.items.map((it) => tempoMedioDe(it.name)));
   const fmtTimer = (ms) => {
-    const s = Math.max(0, Math.floor(ms / 1000)); const m = Math.floor(s / 60); const r = s % 60;
-    return `${String(m).padStart(2, "0")}:${String(r).padStart(2, "0")}`;
+    const s = Math.max(0, Math.floor(ms / 1000)); const h = Math.floor(s / 3600); const m = Math.floor((s % 3600) / 60); const r = s % 60;
+    // A partir de 1h, rola para horas (h:mm:ss) — nunca mostra "90:23" de minutos.
+    return h > 0
+      ? `${h}:${String(m).padStart(2, "0")}:${String(r).padStart(2, "0")}`
+      : `${String(m).padStart(2, "0")}:${String(r).padStart(2, "0")}`;
   };
 
   // Entra em tela cheia automaticamente quando aberto pelo app (PWA em modo
@@ -3659,7 +3662,7 @@ function PanelView({ groupedOrders, products = [], lojaInfo }) {
                           return (
                             <div className={`mb-[0.8vh] flex items-center justify-between rounded-[0.8vw] px-[1vw] py-[0.5vh] border ${dentro ? "bg-[#FFF7E0] border-[#F4D27A]" : "bg-[#FFF1F2] border-[#FDA4AF]"}`}>
                               <span className="font-bold uppercase tracking-widest" style={{ fontSize: "clamp(6px,0.6vw,9px)", color: dentro ? "#9A6A00" : "#B42318" }}>
-                                ⏱ {dentro ? "No prazo" : "Atrasado"} {estMin > 0 && `• média ${estMin}min`}
+                                ⏱ {dentro ? "No prazo" : "Atrasado"} {estMin > 0 && `• média ${formatarDuracaoMin(estMin)}`}
                               </span>
                               <span className="font-black tabular-nums" style={{ fontSize: "clamp(12px,1.5vw,22px)", color: dentro ? "#9A6A00" : "#B42318" }}>
                                 {dentro && restante > 0 ? `falta ${fmtTimer(restante)}` : fmtTimer(decorrido)}
@@ -7639,7 +7642,7 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
         colunas={colunas}
         listaTodos={porSetorEOrdem(ativos)}
         trendNovos={`${pedidosHoje} hoje`}
-        trendPreparo={mediaPreparo != null ? `tempo médio ${mediaPreparo}min` : "sem pedidos em preparo"}
+        trendPreparo={mediaPreparo != null ? `tempo médio ${formatarDuracaoMin(mediaPreparo)}` : "sem pedidos em preparo"}
         valorAguardando={valorAguardando}
         origemDe={origemDe}
         haTxt={haTxt}
@@ -14280,7 +14283,7 @@ function tempoRelativo(iso) {
   const s = Math.floor(ms / 1000);
   if (s < 60) return "agora";
   const m = Math.floor(s / 60); if (m < 60) return `há ${m} min`;
-  const h = Math.floor(m / 60); if (h < 24) return `há ${h} h`;
+  const h = Math.floor(m / 60), rm = m % 60; if (h < 24) return `há ${h}h${rm ? ` ${String(rm).padStart(2, "0")}min` : ""}`;
   const d = Math.floor(h / 24); return `há ${d} dia(s)`;
 }
 function dataHora(iso) {
@@ -17653,8 +17656,11 @@ function fmtEsperaChamado(min) {
 }
 function fmtRespostaChamado(min) {
   const seg = Math.max(0, Math.round(min * 60));
-  const m = Math.floor(seg / 60), s = seg % 60;
-  return m > 0 ? `${m}min ${String(s).padStart(2, "0")}s` : `${s}s`;
+  if (seg < 60) return `${seg}s`;                 // respostas rápidas: segundos
+  const totalMin = Math.floor(seg / 60), s = seg % 60;
+  if (totalMin < 60) return `${totalMin}min${s ? ` ${String(s).padStart(2, "0")}s` : ""}`;
+  const h = Math.floor(totalMin / 60), m = totalMin % 60; // ≥ 1h: horas e minutos
+  return `${h}h ${String(m).padStart(2, "0")}min`;
 }
 function fmtHoraChamado(iso) {
   if (!iso) return "—";
