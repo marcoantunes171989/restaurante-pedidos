@@ -5853,6 +5853,24 @@ function fmtDuracaoComanda(min) {
   const h = Math.floor(min / 60), r = min % 60;
   return `${String(h).padStart(2, "0")}h ${String(r).padStart(2, "0")}min`;
 }
+// Chave (YYYY-MM-DD) e rótulo legível do DIA de um pedido — base para separar
+// a lista por data (independentemente da comanda). Usa a data de criação.
+function diaChaveComanda(iso) {
+  if (!iso) return "sem-data";
+  const d = new Date(iso); if (isNaN(d.getTime())) return "sem-data";
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+function fmtDiaComanda(iso) {
+  if (!iso) return "Sem data";
+  const d = new Date(iso); if (isNaN(d.getTime())) return "Sem data";
+  const hoje = new Date(); const ontem = new Date(); ontem.setDate(hoje.getDate() - 1);
+  const mesmoDia = (a, b) => a.toDateString() === b.toDateString();
+  const longo = d.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "2-digit", year: "numeric" });
+  const rotulo = longo.charAt(0).toUpperCase() + longo.slice(1);
+  if (mesmoDia(d, hoje)) return `Hoje · ${rotulo}`;
+  if (mesmoDia(d, ontem)) return `Ontem · ${rotulo}`;
+  return rotulo;
+}
 // Tempo (min) entre as etapas do fluxo da comanda: recebido→preparo→pronto→fim.
 function temposEtapaComanda(g) {
   const ms = (iso) => (iso ? new Date(iso).getTime() : null);
@@ -5881,8 +5899,8 @@ async function abrirPDFComanda(g, opts = {}) {
   if (!j) return;
   const sit = SIT_COMANDA[g.sit] || SIT_COMANDA.aberta;
   const t = temposEtapaComanda(g);
-  const ticketPed = g.pedidos.length ? g.total / g.pedidos.length : 0;
-  const ticketItem = g.itens ? g.total / g.itens : 0;
+  const taxaPDF = g.taxa || 0;
+  const totalComTaxaPDF = g.totalComTaxa ?? (g.total + taxaPDF);
   const fin = g.sit === "finalizada" ? `Pago${g.forma ? ` · ${g.forma}` : ""}` : g.sit === "aguardando_pagamento" ? "Pagamento pendente" : g.sit === "cancelada" ? "Cancelada" : "Em aberto";
   const kpi = (l, v) => `<div class="kpi"><span class="kl">${l}</span><span class="kv">${v}</span></div>`;
   const etapa = (l, v) => (v == null ? "" : `<div class="et"><span class="el">${l}</span><span class="ev">${v} min</span></div>`);
@@ -5975,13 +5993,13 @@ async function abrirPDFComanda(g, opts = {}) {
     </div>
     <div class="meta">${esc(g.mesa || "Externo")}${g.cliente ? ` · ${esc(g.cliente)}` : ""} · ${g.externo ? "Externo" : "Atendimento local"} — aberta em ${fmtHoraComanda(g.iso)}</div>
     <div class="kpis">
-      ${kpi("Pedidos", g.pedidos.length)}${kpi("Itens", g.itens)}${kpi("Total", formatCurrency(g.total))}
-      ${kpi("Ticket médio/pedido", formatCurrency(ticketPed))}${kpi("Ticket médio/item", formatCurrency(ticketItem))}${kpi(g.finalizado ? "Duração total" : "Aberta há", fmtDuracaoComanda(g.finalizado ? g.duracao : g.mins))}
+      ${kpi("Pedidos", g.pedidos.length)}${kpi("Itens", g.itens)}${kpi("Subtotal", formatCurrency(g.total))}
+      ${kpi("Taxa de serviço", formatCurrency(taxaPDF))}${kpi("Total c/ taxa", formatCurrency(totalComTaxaPDF))}${kpi(g.finalizado ? "Duração total" : "Aberta há", fmtDuracaoComanda(g.finalizado ? g.duracao : g.mins))}
     </div>
     ${resumoHTML}
     ${(t.recebidoPreparo != null || t.preparoPronto != null || t.prontoFim != null) ? `<h3>Tempo de preparo por etapa</h3><div class="etapas">${etapa("Recebido → Preparo", t.recebidoPreparo)}${etapa("Preparo → Pronto", t.preparoPronto)}${etapa("Pronto → Finalização", t.prontoFim)}</div>` : ""}
     <h3>Linha do tempo</h3><div class="tl-wrap">${passo("Abertura", g.iso)}${passo("Início do preparo", t.prepISO)}${passo("Pronto", t.pronISO)}${passo("Última movimentação", g.ultima)}</div>
-    <div class="fin"><div><div class="fl">Financeiro</div><div class="fs">${fin}</div></div><div class="ft">${formatCurrency(g.total)}</div></div>
+    <div class="fin"><div><div class="fl">Financeiro</div><div class="fs">${fin}${taxaPDF > 0 ? ` · Subtotal ${formatCurrency(g.total)} + Taxa ${formatCurrency(taxaPDF)}` : ""}</div></div><div class="ft">${formatCurrency(totalComTaxaPDF)}</div></div>
     <h3>Pedidos e itens</h3>${pedidos}
     <div class="foot">Gerado por Pedido Prime em ${new Date().toLocaleString("pt-BR")}</div>
     <script>window.onload=function(){window.print();}<\/script>
@@ -6000,7 +6018,7 @@ function situacaoComanda(pedidos) {
 }
 const ABERTAS_KEYS = ["aberta", "em_preparo", "pronta", "aguardando_pagamento"];
 const ehComandaExterna = (o) => o.table === "Externo" || /^EXT-/.test(o.command || "");
-function ComandasGestaoAdmin({ orders = [], products = [], lojaPrefixo = "" }) {
+function ComandasGestaoAdmin({ orders = [], products = [], lojaPrefixo = "", lojaId = null }) {
   // Mapa nome do item → categoria do produto, para o resumo por categoria do PDF.
   const catDe = useMemo(() => {
     const m = {};
@@ -6016,7 +6034,6 @@ function ComandasGestaoAdmin({ orders = [], products = [], lojaPrefixo = "" }) {
   const [ordenacao, setOrdenacao] = useState("recentes");
   const [porPagina, setPorPagina] = useState(20);
   const [pagina, setPagina] = useState(1);
-  const [fixadas, setFixadas] = useState(() => new Set());
   const [atualizadoEm, setAtualizadoEm] = useState(() => Date.now());
   const [menu, setMenu] = useState(null);       // { chave, top, left } — menu de Ações posicionado
   const [detalhe, setDetalhe] = useState(null); // comanda aberta no modal de detalhes
@@ -6025,40 +6042,47 @@ function ComandasGestaoAdmin({ orders = [], products = [], lojaPrefixo = "" }) {
 
   // Reinicia a paginação quando qualquer filtro muda.
   const comReset = (setter) => (v) => { setter(v); setPagina(1); };
-  const toggleFixar = (chave) => setFixadas((s) => { const n = new Set(s); n.has(chave) ? n.delete(chave) : n.add(chave); return n; });
 
+  // Percentual da taxa de serviço configurado para a loja — o mesmo que o Caixa
+  // aplica e imprime no cupom. Só entra no cálculo quando a cobrança está
+  // habilitada e não está marcada como "não cobrar"; assim os valores exibidos
+  // refletem o que realmente sai no cupom.
+  const SERVICE_FEE_CONFIG = lerConfigTaxaServico(lojaId);
+  const taxaPercent = (SERVICE_FEE_CONFIG.enabled && SERVICE_FEE_CONFIG.chargingRule !== "nao_cobrar")
+    ? (Number(SERVICE_FEE_CONFIG.percent) || 0) : 0;
+
+  // Uma linha por PEDIDO (sem agrupar por comanda). Cada linha mantém o formato
+  // de "grupo" (pedidos: [o]) para reaproveitar detalhes/PDF/CSV, mas representa
+  // um único pedido — a separação por DIA é feita ao renderizar a tabela.
   const grupos = useMemo(() => {
-    const map = {};
-    for (const o of orders) {
-      const key = String(o.command || o.table || o.id);
-      if (!map[key]) map[key] = { chave: key, comanda: o.command, mesa: o.table, cliente: o.customer, telefone: o.clienteTelefone, pedidos: [], iso: o.createdAtISO, ultima: null, forma: null, externo: ehComandaExterna(o) };
-      const g = map[key];
-      g.pedidos.push(o);
-      if (o.customer && !g.cliente) g.cliente = o.customer;
-      if (o.createdAtISO && (!g.iso || o.createdAtISO < g.iso)) g.iso = o.createdAtISO;
-      const mov = o.updatedAtISO || o.prontoEmISO || o.preparoEmISO || o.createdAtISO;
-      if (mov && (!g.ultima || mov > g.ultima)) g.ultima = mov;
-      if (o.pagamentoForma && !g.forma) g.forma = o.pagamentoForma;
-    }
-    return Object.values(map).map((g) => {
-      const total = g.pedidos.reduce((s, o) => s + orderTotal(o), 0);
-      const itens = g.pedidos.reduce((s, o) => s + o.items.reduce((a, it) => a + (it.quantity || 0), 0), 0);
-      const mins = g.iso ? Math.max(0, Math.round((agora - new Date(g.iso).getTime()) / 60000)) : 0;
-      const sit = situacaoComanda(g.pedidos);
+    return orders.map((o) => {
+      const iso = o.createdAtISO;
+      const ultima = o.updatedAtISO || o.prontoEmISO || o.preparoEmISO || o.createdAtISO;
+      const total = orderTotal(o);
+      const taxa = total * taxaPercent / 100;
+      const totalComTaxa = total + taxa;
+      const itens = (o.items || []).reduce((a, it) => a + (it.quantity || 0), 0);
+      const mins = iso ? Math.max(0, Math.round((agora - new Date(iso).getTime()) / 60000)) : 0;
+      const sit = situacaoComanda([o]);
       const finalizado = sit === "finalizada" || sit === "cancelada";
-      const duracao = finalizado && g.iso && g.ultima ? Math.max(0, Math.round((new Date(g.ultima).getTime() - new Date(g.iso).getTime()) / 60000)) : mins;
-      const movMs = g.ultima ? agora - new Date(g.ultima).getTime() : agora - new Date(g.iso || agora).getTime();
-      return { ...g, total, itens, mins, sit, finalizado, duracao, movMs };
+      const duracao = finalizado && iso && ultima ? Math.max(0, Math.round((new Date(ultima).getTime() - new Date(iso).getTime()) / 60000)) : mins;
+      const movMs = ultima ? agora - new Date(ultima).getTime() : agora - new Date(iso || agora).getTime();
+      return {
+        chave: String(o.id), comanda: o.command, mesa: o.table, cliente: o.customer,
+        telefone: o.clienteTelefone, pedidos: [o], iso, ultima, diaKey: diaChaveComanda(iso),
+        forma: o.pagamentoForma || null, externo: ehComandaExterna(o),
+        total, taxa, totalComTaxa, itens, mins, sit, finalizado, duracao, movMs,
+      };
     });
-  }, [orders, agora]);
+  }, [orders, agora, taxaPercent]);
 
-  const abertasGrupos = grupos.filter((g) => ABERTAS_KEYS.includes(g.sit));
-  const mediaMin = abertasGrupos.length ? abertasGrupos.reduce((s, g) => s + g.mins, 0) / abertasGrupos.length : 0;
+  const abertos = grupos.filter((g) => ABERTAS_KEYS.includes(g.sit));
+  const mediaMin = abertos.length ? abertos.reduce((s, g) => s + g.mins, 0) / abertos.length : 0;
   const kAbertas = grupos.filter((g) => g.sit === "aberta").length;
   const kPreparo = grupos.filter((g) => g.sit === "em_preparo").length;
   const kPagto = grupos.filter((g) => g.sit === "aguardando_pagamento").length;
-  const kValor = abertasGrupos.reduce((s, g) => s + g.total, 0);
-  const kTempo = abertasGrupos.length ? Math.round(mediaMin) : 0;
+  const kValor = abertos.reduce((s, g) => s + g.totalComTaxa, 0);
+  const kTempo = abertos.length ? Math.round(mediaMin) : 0;
 
   const q = busca.trim().toLowerCase();
   const dentroPeriodo = (g) => {
@@ -6069,15 +6093,31 @@ function ComandasGestaoAdmin({ orders = [], products = [], lojaPrefixo = "" }) {
   };
   const casaStatus = (g) => filtro === "todas" ? true : filtro === "em_andamento" ? ABERTAS_KEYS.includes(g.sit) : g.sit === filtro;
   const casaOrigem = (g) => origem === "todas" ? true : origem === "externo" ? g.externo : !g.externo;
+  // Ordena SEMPRE pelo dia primeiro (para manter cada data em um bloco contíguo)
+  // e, dentro do dia, pela ordenação escolhida. Dias mais recentes no topo —
+  // exceto quando o usuário pede "Mais antigas".
   const ORDENADORES = {
     recentes: (a, b) => new Date(b.ultima || b.iso || 0) - new Date(a.ultima || a.iso || 0),
     antigas: (a, b) => new Date(a.ultima || a.iso || 0) - new Date(b.ultima || b.iso || 0),
-    maior: (a, b) => b.total - a.total,
-    menor: (a, b) => a.total - b.total,
+    maior: (a, b) => b.totalComTaxa - a.totalComTaxa,
+    menor: (a, b) => a.totalComTaxa - b.totalComTaxa,
   };
+  const diaDir = ordenacao === "antigas" ? 1 : -1;
   const filtradas = grupos
     .filter((g) => casaStatus(g) && casaOrigem(g) && dentroPeriodo(g) && (!q || `${g.comanda || ""} ${g.mesa || ""} ${g.cliente || ""} ${g.telefone || ""}`.toLowerCase().includes(q)))
-    .sort((a, b) => (fixadas.has(b.chave) ? 1 : 0) - (fixadas.has(a.chave) ? 1 : 0) || (ORDENADORES[ordenacao] || ORDENADORES.recentes)(a, b));
+    .sort((a, b) => diaDir * a.diaKey.localeCompare(b.diaKey) || (ORDENADORES[ordenacao] || ORDENADORES.recentes)(a, b));
+
+  // Totais por dia (sobre o conjunto filtrado, não só a página) — alimentam o
+  // cabeçalho de cada seção de data, já com a taxa de serviço somada.
+  const totaisPorDia = {};
+  for (const l of filtradas) {
+    const k = l.diaKey;
+    if (!totaisPorDia[k]) totaisPorDia[k] = { count: 0, subtotal: 0, taxa: 0, total: 0 };
+    totaisPorDia[k].count += 1;
+    totaisPorDia[k].subtotal += l.total;
+    totaisPorDia[k].taxa += l.taxa;
+    totaisPorDia[k].total += l.totalComTaxa;
+  }
 
   const totalItens = filtradas.length;
   const totalPaginas = Math.max(1, Math.ceil(totalItens / porPagina));
@@ -6094,14 +6134,16 @@ function ComandasGestaoAdmin({ orders = [], products = [], lojaPrefixo = "" }) {
   function limparFiltros() { setBusca(""); setFiltro("em_andamento"); setPeriodo("hoje"); setOrigem("todas"); setOrdenacao("recentes"); setPagina(1); }
   function atualizar() { setAtualizadoEm(Date.now()); }
   function exportar() {
-    const cab = ["Comanda", "Mesa", "Cliente", "Origem", "Status", "Pedidos", "Itens", "Abertura", "Duracao", "Pagamento", "Total"];
+    const dataCurta = (iso) => { const d = iso ? new Date(iso) : null; return d && !isNaN(d.getTime()) ? d.toLocaleDateString("pt-BR") : ""; };
+    const cab = ["Data", "Comanda", "Mesa", "Cliente", "Origem", "Status", "Itens", "Horario", "Pagamento", "Subtotal", "Taxa", "Total"];
     const linhas = filtradas.map((g) => [
-      g.comanda || "", g.mesa || "", g.cliente || "", g.externo ? "Externo" : "Local", SIT_COMANDA[g.sit]?.label || "",
-      g.pedidos.length, g.itens, fmtHoraComanda(g.iso), fmtDuracaoComanda(g.duracao), g.forma || "", (g.total || 0).toFixed(2).replace(".", ","),
+      dataCurta(g.iso), g.comanda || "", g.mesa || "", g.cliente || "", g.externo ? "Externo" : "Local", SIT_COMANDA[g.sit]?.label || "",
+      g.itens, fmtHoraComanda(g.iso), g.forma || "",
+      (g.total || 0).toFixed(2).replace(".", ","), (g.taxa || 0).toFixed(2).replace(".", ","), (g.totalComTaxa || 0).toFixed(2).replace(".", ","),
     ]);
     const csv = [cab, ...linhas].map((l) => l.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\n");
     const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = "comandas.csv"; a.click(); URL.revokeObjectURL(url);
+    const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = "pedidos.csv"; a.click(); URL.revokeObjectURL(url);
   }
   function exportarUma(g) {
     const cab = ["Pedido", "Item", "Qtd", "Preco", "Subtotal", "Observacao"];
@@ -6131,7 +6173,7 @@ function ComandasGestaoAdmin({ orders = [], products = [], lojaPrefixo = "" }) {
     { id: "finalizada", label: "Finalizadas" }, { id: "cancelada", label: "Canceladas" },
   ];
   const KPIS = [
-    { rot: "Abertas agora", val: kAbertas, cor: "#E67E22", Icone: IconComanda },
+    { rot: "Pedidos abertos", val: kAbertas, cor: "#E67E22", Icone: IconComanda },
     { rot: "Em preparo", val: kPreparo, cor: "#0F4C5C", Icone: IconRecibo },
     { rot: "Aguardando pagamento", val: kPagto, cor: "#D97706", Icone: IconPagamento },
     { rot: "Valor em aberto", val: formatCurrency(kValor), cor: "#059669", Icone: IconCarteira },
@@ -6149,10 +6191,10 @@ function ComandasGestaoAdmin({ orders = [], products = [], lojaPrefixo = "" }) {
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#E67E22]/30 bg-[#E67E22]/10 text-[#E67E22] [&>svg]:h-5 [&>svg]:w-5"><IconComanda /></span>
             Controle de Comandas
           </h2>
-          <p className="mt-1 text-sm text-[var(--pp-text-muted)]">Acompanhe pedidos, status e valores em tempo real.</p>
+          <p className="mt-1 text-sm text-[var(--pp-text-muted)]">Pedidos separados por dia, com status, taxa de serviço e valores em tempo real.</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <span className="text-sm text-[var(--pp-text-muted)]"><b className="text-dash-navy">{totalItens}</b> comandas encontradas</span>
+          <span className="text-sm text-[var(--pp-text-muted)]"><b className="text-dash-navy">{totalItens}</b> {totalItens === 1 ? "pedido encontrado" : "pedidos encontrados"}</span>
           <span className="hidden items-center gap-1.5 text-sm text-[var(--pp-text-muted)] sm:inline-flex">Última atualização: hoje às {horaAtualizacao} <span className="h-1.5 w-1.5 rounded-full bg-[#059669]" /></span>
           <button onClick={atualizar} className="inline-flex items-center gap-2 rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2 text-sm font-bold text-dash-navy transition hover:bg-[var(--pp-bg)]"><IconRelogio /> Atualizar</button>
           <button onClick={exportar} disabled={totalItens === 0} className="btn-laranja inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold disabled:opacity-40"><IconRecibo /> Exportar</button>
@@ -6211,19 +6253,18 @@ function ComandasGestaoAdmin({ orders = [], products = [], lojaPrefixo = "" }) {
 
       {/* Tabela */}
       {totalItens === 0 ? (
-        <EmptyState titulo="Nenhuma comanda encontrada" dica="Ajuste os filtros ou aguarde novas movimentações no salão." />
+        <EmptyState titulo="Nenhum pedido encontrado" dica="Ajuste os filtros ou aguarde novas movimentações no salão." />
       ) : (
         <div className="overflow-hidden rounded-2xl border border-[var(--pp-border)] bg-white">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[1080px] text-sm">
               <thead>
                 <tr className="border-b border-[var(--pp-border)] text-left text-[10px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]">
-                  <th className="py-3 pl-4 pr-2 w-8"></th>
-                  <th className="py-3 pr-3">Comanda</th>
+                  <th className="py-3 pl-4 pr-3">Comanda</th>
                   <th className="py-3 pr-3">Cliente/Origem</th>
                   <th className="py-3 pr-3">Status</th>
-                  <th className="py-3 pr-3">Pedidos/Itens</th>
-                  <th className="py-3 pr-3">Abertura</th>
+                  <th className="py-3 pr-3">Itens</th>
+                  <th className="py-3 pr-3">Horário</th>
                   <th className="py-3 pr-3">Tempo/Duração</th>
                   <th className="py-3 pr-3">Financeiro</th>
                   <th className="py-3 pr-3 text-right">Total</th>
@@ -6232,59 +6273,86 @@ function ComandasGestaoAdmin({ orders = [], products = [], lojaPrefixo = "" }) {
                 </tr>
               </thead>
               <tbody>
-                {visiveis.map((g) => {
-                  const sit = SIT_COMANDA[g.sit] || SIT_COMANDA.aberta;
-                  const acimaMedia = ABERTAS_KEYS.includes(g.sit) && mediaMin > 0 && g.mins > mediaMin;
-                  const corTempo = g.sit === "em_preparo" ? "#0F4C5C" : g.sit === "pronta" ? "#047857" : g.sit === "aguardando_pagamento" ? "#B45309" : acimaMedia ? "#C2410C" : "#E67E22";
-                  const fixada = fixadas.has(g.chave);
-                  return (
-                    <tr key={g.chave} className="border-b border-[var(--pp-border)] last:border-0 transition hover:bg-[var(--pp-bg)]">
-                      <td className="py-3 pl-4 pr-2">
-                        <button onClick={() => toggleFixar(g.chave)} title={fixada ? "Desafixar" : "Fixar no topo"} aria-label="Fixar comanda"
-                          className={`text-base leading-none transition ${fixada ? "text-[#E67E22]" : "text-[var(--pp-border)] hover:text-[#E67E22]"}`}>{fixada ? "★" : "☆"}</button>
-                      </td>
-                      <td className="py-3 pr-3 font-mono text-[13px] font-bold text-dash-navy">{g.comanda || `Mesa ${g.mesa || "—"}`}</td>
-                      <td className="py-3 pr-3">
-                        <p className="font-semibold text-dash-navy">{g.mesa ? `${g.mesa}` : "Externo"}{g.cliente ? ` · ${g.cliente}` : ""}</p>
-                        <p className="text-xs text-[var(--pp-text-muted)]">{g.externo ? "Externo" : "Atendimento local"}</p>
-                      </td>
-                      <td className="py-3 pr-3"><span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-bold ${sit.cls}`}>{sit.label}</span></td>
-                      <td className="py-3 pr-3">
-                        <p className="font-semibold text-dash-navy">{g.pedidos.length} {g.pedidos.length === 1 ? "pedido" : "pedidos"}</p>
-                        <p className="text-xs text-[var(--pp-text-muted)]">{g.itens} {g.itens === 1 ? "item" : "itens"}</p>
-                      </td>
-                      <td className="py-3 pr-3"><p className="font-medium text-dash-navy">{fmtHoraComanda(g.iso)}</p></td>
-                      <td className="py-3 pr-3">
-                        <p className="font-semibold" style={{ color: corTempo }}>
-                          {g.finalizado ? `${sit.label} · ${fmtDuracaoComanda(g.duracao)}` : `${g.sit === "em_preparo" ? "Em preparo há" : g.sit === "pronta" ? "Pronta há" : g.sit === "aguardando_pagamento" ? "Aguardando há" : "Aberta há"} ${fmtDuracaoComanda(g.mins)}`}
-                        </p>
-                        <p className="text-xs text-[var(--pp-text-muted)]">{g.finalizado ? "Duração total" : acimaMedia ? "Acima da média" : "Dentro da média"}</p>
-                      </td>
-                      <td className="py-3 pr-3">
-                        <p className="font-medium text-dash-navy">{formatCurrency(g.total)}</p>
-                        <p className={`text-xs font-semibold ${g.sit === "finalizada" ? "text-[#047857]" : g.sit === "aguardando_pagamento" ? "text-[#B45309]" : "text-[var(--pp-text-muted)]"}`}>
-                          {g.sit === "finalizada" ? `Pago${g.forma ? ` · ${g.forma}` : ""}` : g.sit === "aguardando_pagamento" ? "Pagamento pendente" : g.sit === "cancelada" ? "Cancelada" : "Em aberto"}
-                        </p>
-                      </td>
-                      <td className="py-3 pr-3 text-right font-black text-dash-navy">{formatCurrency(g.total)}</td>
-                      <td className="py-3 pr-3">
-                        <p className="font-medium text-dash-navy">{fmtRelativoComanda(g.movMs)}</p>
-                        <p className="text-xs text-[var(--pp-text-muted)]">{MOV_COMANDA[g.sit] || "—"}</p>
-                      </td>
-                      <td className="py-3 pr-4 text-right">
-                        <button onClick={(e) => abrirMenu(e, g.chave)} aria-label="Ações da comanda" aria-haspopup="menu" aria-expanded={menu?.chave === g.chave}
-                          className={`inline-flex h-8 w-8 items-center justify-center rounded-lg border text-[15px] leading-none transition ${menu?.chave === g.chave ? "border-[#E67E22] bg-[#E67E22]/10 text-[#C2410C]" : "border-transparent text-[var(--pp-text-muted)] hover:border-[var(--pp-border)] hover:bg-[var(--pp-bg)] hover:text-dash-navy"}`}>⋮</button>
-                      </td>
-                    </tr>
-                  );
-                })}
+                {(() => {
+                  let ultimoDia = null;
+                  const linhas = [];
+                  visiveis.forEach((g) => {
+                    // Cabeçalho de seção sempre que o dia muda — separa os pedidos
+                    // por data, com o total do dia (já com a taxa de serviço).
+                    if (g.diaKey !== ultimoDia) {
+                      ultimoDia = g.diaKey;
+                      const td = totaisPorDia[g.diaKey] || { count: 0, taxa: 0, total: 0 };
+                      linhas.push(
+                        <tr key={`dia-${g.diaKey}`} className="bg-[var(--pp-bg)]">
+                          <td colSpan={10} className="border-y border-[var(--pp-border)] px-4 py-2.5">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <span className="flex items-center gap-2 text-[13px] font-black text-dash-navy">
+                                <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-[#E67E22]/12 text-[#E67E22] [&>svg]:h-3.5 [&>svg]:w-3.5"><IconRelogio /></span>
+                                {fmtDiaComanda(g.iso)}
+                                <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-bold text-[var(--pp-text-muted)]">{td.count} {td.count === 1 ? "pedido" : "pedidos"}</span>
+                              </span>
+                              <span className="text-[13px] font-bold text-dash-navy">
+                                {formatCurrency(td.total)}
+                                {td.taxa > 0 && <span className="ml-1.5 text-[11px] font-semibold text-[var(--pp-text-muted)]">(inclui taxa {formatCurrency(td.taxa)})</span>}
+                              </span>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    }
+                    const sit = SIT_COMANDA[g.sit] || SIT_COMANDA.aberta;
+                    const acimaMedia = ABERTAS_KEYS.includes(g.sit) && mediaMin > 0 && g.mins > mediaMin;
+                    const corTempo = g.sit === "em_preparo" ? "#0F4C5C" : g.sit === "pronta" ? "#047857" : g.sit === "aguardando_pagamento" ? "#B45309" : acimaMedia ? "#C2410C" : "#E67E22";
+                    const itensPed = g.pedidos[0]?.items || [];
+                    const preview = itensPed.map((it) => `${it.quantity}× ${it.name}`);
+                    const previewTxt = preview.slice(0, 2).join(", ") + (preview.length > 2 ? ` +${preview.length - 2}` : "");
+                    linhas.push(
+                      <tr key={g.chave} className="border-b border-[var(--pp-border)] last:border-0 transition hover:bg-[var(--pp-bg)]">
+                        <td className="py-3 pl-4 pr-3 font-mono text-[13px] font-bold text-dash-navy">{g.comanda || `Mesa ${g.mesa || "—"}`}</td>
+                        <td className="py-3 pr-3">
+                          <p className="font-semibold text-dash-navy">{g.mesa ? `${g.mesa}` : "Externo"}{g.cliente ? ` · ${g.cliente}` : ""}</p>
+                          <p className="text-xs text-[var(--pp-text-muted)]">{g.externo ? "Externo" : "Atendimento local"}</p>
+                        </td>
+                        <td className="py-3 pr-3"><span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-bold ${sit.cls}`}>{sit.label}</span></td>
+                        <td className="py-3 pr-3">
+                          <p className="font-semibold text-dash-navy">{g.itens} {g.itens === 1 ? "item" : "itens"}</p>
+                          {previewTxt && <p className="max-w-[220px] truncate text-xs text-[var(--pp-text-muted)]" title={preview.join(", ")}>{previewTxt}</p>}
+                        </td>
+                        <td className="py-3 pr-3"><p className="font-medium text-dash-navy">{fmtHoraComanda(g.iso)}</p></td>
+                        <td className="py-3 pr-3">
+                          <p className="font-semibold" style={{ color: corTempo }}>
+                            {g.finalizado ? `${sit.label} · ${fmtDuracaoComanda(g.duracao)}` : `${g.sit === "em_preparo" ? "Em preparo há" : g.sit === "pronta" ? "Pronta há" : g.sit === "aguardando_pagamento" ? "Aguardando há" : "Aberto há"} ${fmtDuracaoComanda(g.mins)}`}
+                          </p>
+                          <p className="text-xs text-[var(--pp-text-muted)]">{g.finalizado ? "Duração total" : acimaMedia ? "Acima da média" : "Dentro da média"}</p>
+                        </td>
+                        <td className="py-3 pr-3">
+                          <p className="font-medium text-dash-navy">{formatCurrency(g.totalComTaxa)}</p>
+                          {g.taxa > 0 && <p className="text-[11px] text-[var(--pp-text-muted)]">{formatCurrency(g.total)} + taxa {formatCurrency(g.taxa)}</p>}
+                          <p className={`text-xs font-semibold ${g.sit === "finalizada" ? "text-[#047857]" : g.sit === "aguardando_pagamento" ? "text-[#B45309]" : "text-[var(--pp-text-muted)]"}`}>
+                            {g.sit === "finalizada" ? `Pago${g.forma ? ` · ${g.forma}` : ""}` : g.sit === "aguardando_pagamento" ? "Pagamento pendente" : g.sit === "cancelada" ? "Cancelada" : "Em aberto"}
+                          </p>
+                        </td>
+                        <td className="py-3 pr-3 text-right font-black text-dash-navy">{formatCurrency(g.totalComTaxa)}</td>
+                        <td className="py-3 pr-3">
+                          <p className="font-medium text-dash-navy">{fmtRelativoComanda(g.movMs)}</p>
+                          <p className="text-xs text-[var(--pp-text-muted)]">{MOV_COMANDA[g.sit] || "—"}</p>
+                        </td>
+                        <td className="py-3 pr-4 text-right">
+                          <button onClick={(e) => abrirMenu(e, g.chave)} aria-label="Ações do pedido" aria-haspopup="menu" aria-expanded={menu?.chave === g.chave}
+                            className={`inline-flex h-8 w-8 items-center justify-center rounded-lg border text-[15px] leading-none transition ${menu?.chave === g.chave ? "border-[#E67E22] bg-[#E67E22]/10 text-[#C2410C]" : "border-transparent text-[var(--pp-text-muted)] hover:border-[var(--pp-border)] hover:bg-[var(--pp-bg)] hover:text-dash-navy"}`}>⋮</button>
+                        </td>
+                      </tr>
+                    );
+                  });
+                  return linhas;
+                })()}
               </tbody>
             </table>
           </div>
 
           {/* Rodapé / paginação */}
           <div className="flex flex-col gap-3 border-t border-[var(--pp-border)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-[var(--pp-text-muted)]">Mostrando {totalItens === 0 ? 0 : inicio + 1}–{Math.min(inicio + porPagina, totalItens)} de {totalItens} comandas</p>
+            <p className="text-sm text-[var(--pp-text-muted)]">Mostrando {totalItens === 0 ? 0 : inicio + 1}–{Math.min(inicio + porPagina, totalItens)} de {totalItens} {totalItens === 1 ? "pedido" : "pedidos"}</p>
             <div className="flex items-center gap-2">
               <span className="text-sm text-[var(--pp-text-muted)]">Itens por página</span>
               <select value={porPagina} onChange={(e) => comReset(setPorPagina)(Number(e.target.value))} className="cursor-pointer rounded-lg border border-[var(--pp-border)] bg-white px-2 py-1 text-sm font-bold text-dash-navy outline-none">
@@ -6320,10 +6388,6 @@ function ComandasGestaoAdmin({ orders = [], products = [], lojaPrefixo = "" }) {
                 <span className="text-[var(--pp-text-muted)]">{a.ic}</span>{a.label}
               </button>
             ))}
-            <div className="my-1 border-t border-[var(--pp-border)]" />
-            <button role="menuitem" onClick={() => { toggleFixar(grupoMenu.chave); setMenu(null); }} className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-[13px] font-semibold text-dash-navy transition hover:bg-[var(--pp-bg)]">
-              <span className="text-[#E67E22]">{fixadas.has(grupoMenu.chave) ? "★" : "☆"}</span>{fixadas.has(grupoMenu.chave) ? "Desafixar" : "Fixar no topo"}
-            </button>
           </div>
         </>
       )}
@@ -6333,12 +6397,10 @@ function ComandasGestaoAdmin({ orders = [], products = [], lojaPrefixo = "" }) {
         const g = detalhe;
         const sit = SIT_COMANDA[g.sit] || SIT_COMANDA.aberta;
         const t = temposEtapaComanda(g);
-        const ticketPed = g.pedidos.length ? g.total / g.pedidos.length : 0;
-        const ticketItem = g.itens ? g.total / g.itens : 0;
         const metricas = [
-          ["Pedidos", g.pedidos.length], ["Itens", g.itens],
-          ["Ticket médio/pedido", formatCurrency(ticketPed)], ["Ticket médio/item", formatCurrency(ticketItem)],
-          [g.finalizado ? "Duração total" : "Aberta há", fmtDuracaoComanda(g.finalizado ? g.duracao : g.mins)],
+          ["Itens", g.itens], ["Subtotal", formatCurrency(g.total)],
+          ["Taxa de serviço", formatCurrency(g.taxa || 0)], ["Total c/ taxa", formatCurrency(g.totalComTaxa ?? g.total)],
+          [g.finalizado ? "Duração" : "Aberto há", fmtDuracaoComanda(g.finalizado ? g.duracao : g.mins)],
         ];
         const passos = [["Abertura", g.iso], ["Início do preparo", t.prepISO], ["Pronto", t.pronISO], ["Última movimentação", g.ultima]].filter(([, v]) => v);
         const etapas = [["Recebido → Preparo", t.recebidoPreparo], ["Preparo → Pronto", t.preparoPronto], ["Pronto → Finalização", t.prontoFim]].filter(([, v]) => v != null);
@@ -6396,7 +6458,7 @@ function ComandasGestaoAdmin({ orders = [], products = [], lojaPrefixo = "" }) {
                       {g.sit === "finalizada" ? `Pago${g.forma ? ` · ${g.forma}` : ""}` : g.sit === "aguardando_pagamento" ? "Pagamento pendente" : g.sit === "cancelada" ? "Cancelada" : "Em aberto"}
                     </p>
                   </div>
-                  <span className="page-title text-xl font-black text-dash-navy">{formatCurrency(g.total)}</span>
+                  <span className="page-title text-xl font-black text-dash-navy">{formatCurrency(g.totalComTaxa ?? g.total)}</span>
                 </div>
                 <div>
                   <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[var(--pp-text-muted)]">Pedidos e itens</p>
@@ -6794,7 +6856,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           {ativo === "link"       && <UserAccessAdmin users={filtraLoja(users)} accesses={accesses} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} lojaInfo={lojaInfo} lojas={lojas} isSuperAdmin={isSuperAdmin} />}
           {ativo === "categorias" && (precisaEmpresa ? avisoEmpresa : <CategoriaAdmin categoriasDb={categoriasDb} produtos={products} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} />)}
           {ativo === "mesas"      && (precisaEmpresa ? avisoEmpresa : <MesaAdmin mesas={mesas} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} orders={orders} />)}
-          {ativo === "comandas-gestao" && (precisaEmpresa ? avisoEmpresa : <ComandasGestaoAdmin orders={filtraLoja(orders)} products={filtraLoja(products)} lojaPrefixo={lojaInfo?.prefixo || ""} />)}
+          {ativo === "comandas-gestao" && (precisaEmpresa ? avisoEmpresa : <ComandasGestaoAdmin orders={filtraLoja(orders)} products={filtraLoja(products)} lojaPrefixo={lojaInfo?.prefixo || ""} lojaId={lojaInfo?.id} />)}
           {ativo === "comandas"   && (precisaEmpresa ? avisoEmpresa : <GeradorComandas prefixoLoja={lojaInfo?.prefixo || "CMD"} empresa={lojaInfo?.nome || "Restaurante"} onGerar={registrarComandas} comandasRegistradas={comandasRegistradas} orders={orders} onExcluirComanda={excluirComandaFn} onRenomearComanda={renomearComandaFn} onToggleComanda={toggleComandaFn} lojaId={lojaInfo?.id} logoSalvo={lojaInfo?.logoUrl || ""} onSalvarLogo={(url) => salvarLogoEmpresa(lojaInfo?.id, url)} onIrCardapioExterno={() => setAdminSection("cardapioext")} />)}
           {ativo === "pagamento"  && (precisaEmpresa ? avisoEmpresa : <PagamentoAdmin formasPagamento={formasPagamento} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} />)}
           {ativo === "config"     && <ConfiguracoesAdmin lojaInfo={lojaInfo} />}
