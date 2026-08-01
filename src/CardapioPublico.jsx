@@ -33,6 +33,25 @@ function capitalizarNome(valor) {
   return String(valor || "").replace(/(^|\s)([\p{L}])/gu, (_, sep, ch) => sep + ch.toUpperCase());
 }
 
+// Chave (YYYY-MM-DD) e rótulo legível do DIA de um pedido — usados para separar
+// a consulta da comanda por data (mesmo critério do Controle de Comandas).
+function diaKeyConsulta(iso) {
+  if (!iso) return "sem-data";
+  const d = new Date(iso); if (isNaN(d.getTime())) return "sem-data";
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+function rotuloDiaConsulta(iso) {
+  if (!iso) return "Sem data";
+  const d = new Date(iso); if (isNaN(d.getTime())) return "Sem data";
+  const hoje = new Date(); const ontem = new Date(); ontem.setDate(hoje.getDate() - 1);
+  const mesmoDia = (a, b) => a.toDateString() === b.toDateString();
+  const longo = d.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "2-digit", year: "numeric" });
+  const rotulo = longo.charAt(0).toUpperCase() + longo.slice(1);
+  if (mesmoDia(d, hoje)) return `Hoje · ${rotulo}`;
+  if (mesmoDia(d, ontem)) return `Ontem · ${rotulo}`;
+  return rotulo;
+}
+
 // Pesquisa de satisfação: controle por localStorage (sobrevive a reload, evita repetição).
 //  - PEND: pedidos feitos pelo cliente, aguardando CONCLUSÃO (pago + retirado) p/ pesquisar.
 //  - DONE: pedidos já pesquisados/dispensados → nunca mais aparecem.
@@ -1170,12 +1189,24 @@ export default function CardapioPublico() {
   // Mostra os pedidos/itens vinculados à comanda escaneada. Independe do canal
   // externo estar habilitado (é consulta, não pedido) — por isso vem antes.
   if (consultaComanda) {
+    const TAXA_PCT = 0.1; // taxa de serviço padrão (mesma do cupom não fiscal)
     const pedidosC = orders
       .filter((o) => o.command === comanda && o.status !== "cancelled")
       .sort((a, b) => new Date(a.createdAtISO || 0) - new Date(b.createdAtISO || 0));
-    const subtotalC = pedidosC.reduce((s, o) => s + o.items.reduce((a, i) => a + i.price * i.quantity, 0), 0);
-    const totalC = subtotalC * 1.1;
+    const subtotalPedido = (o) => o.items.reduce((a, i) => a + i.price * i.quantity, 0);
+    const subtotalC = pedidosC.reduce((s, o) => s + subtotalPedido(o), 0);
+    const taxaC = subtotalC * TAXA_PCT;
+    const totalC = subtotalC + taxaC;
     const itensC = pedidosC.reduce((s, o) => s + o.items.reduce((a, i) => a + (i.quantity || 0), 0), 0);
+    // Agrupa os pedidos por DIA (sem agrupar por comanda) — cada dia vira uma
+    // seção com seu próprio subtotal + taxa, na mesma ordem cronológica.
+    const diasC = [];
+    for (const o of pedidosC) {
+      const k = diaKeyConsulta(o.createdAtISO);
+      let g = diasC.length && diasC[diasC.length - 1].key === k ? diasC[diasC.length - 1] : null;
+      if (!g) { g = { key: k, iso: o.createdAtISO, pedidos: [], subtotal: 0 }; diasC.push(g); }
+      g.pedidos.push(o); g.subtotal += subtotalPedido(o);
+    }
     const pagaC = pedidosC.length > 0 && pedidosC.every((o) => o.paymentStatus === "paid");
     const solicC = pedidosC.some((o) => o.paymentStatus === "requested");
     const statusConta = pagaC ? { t: "Pagamento confirmado", cls: "border-[var(--client-success-border)] bg-[var(--client-success-soft)] text-[var(--client-success)]", ic: "bg-[var(--client-success)]" }
@@ -1223,35 +1254,48 @@ export default function CardapioPublico() {
             </div>
           ) : (
             <>
-              {/* Pedidos e itens */}
-              <div className="mt-3 space-y-2.5">
-                {pedidosC.map((o) => {
-                  const s = estiloStatusCliente(o.status);
-                  const modoPedido = modoEntregaPedido(o, true);
-                  const subtotalO = o.items.reduce((a, i) => a + i.price * i.quantity, 0);
-                  return (
-                    <div key={o.id} className="rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] p-3.5 shadow-[var(--client-shadow-sm)]">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="text-sm font-black text-[var(--client-text-primary)]">Pedido nº {String(o.id || "").replace(/\D/g, "").slice(-4)}</p>
-                          {o.createdAt && <p className="text-[11px] text-[var(--client-text-secondary)]">Realizado às {o.createdAt}</p>}
-                        </div>
-                        <span className={`flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-black ${s.chip}`}>
-                          <span className={`h-1.5 w-1.5 rounded-full ${s.dot}`} aria-hidden="true" />{statusClienteLabel(o, modoPedido)}
-                        </span>
-                      </div>
-                      <div className="mt-3 space-y-1 border-t border-[var(--client-border)] pt-3">
-                        {o.items.map((it, idx) => (
-                          <div key={idx} className="flex justify-between gap-3 text-sm">
-                            <span className="min-w-0 text-[var(--client-text-secondary)]"><b className="text-[var(--client-text-primary)]">{it.quantity}×</b> {it.name}{it.observation ? <i className="text-[var(--client-text-muted)]"> — {it.observation}</i> : ""}</span>
-                            <span className="shrink-0 font-bold text-[var(--client-text-primary)]">{formatCurrency(it.price * it.quantity)}</span>
-                          </div>
-                        ))}
-                        <div className="flex justify-between gap-3 pt-1 text-xs font-bold text-[var(--client-text-secondary)]"><span>Subtotal do pedido</span><span>{formatCurrency(subtotalO)}</span></div>
-                      </div>
+              {/* Pedidos e itens — separados por dia */}
+              <div className="mt-3 space-y-4">
+                {diasC.map((dia) => (
+                  <div key={dia.key} className="space-y-2.5">
+                    {/* Cabeçalho do dia */}
+                    <div className="flex items-center justify-between gap-2 rounded-xl border border-[var(--client-primary-border)] bg-[var(--client-primary-soft)] px-3 py-2">
+                      <span className="flex items-center gap-2 text-[13px] font-black text-[var(--client-primary-hover)]">
+                        <CkIconRecibo width={14} height={14} />
+                        {rotuloDiaConsulta(dia.iso)}
+                        <span className="rounded-full bg-[var(--client-surface)] px-2 py-0.5 text-[10px] font-bold text-[var(--client-text-secondary)]">{dia.pedidos.length} pedido{dia.pedidos.length > 1 ? "s" : ""}</span>
+                      </span>
+                      <span className="shrink-0 text-[13px] font-black text-[var(--client-primary-hover)]">{formatCurrency(dia.subtotal * (1 + TAXA_PCT))}</span>
                     </div>
-                  );
-                })}
+                    {dia.pedidos.map((o) => {
+                      const s = estiloStatusCliente(o.status);
+                      const modoPedido = modoEntregaPedido(o, true);
+                      const subtotalO = subtotalPedido(o);
+                      return (
+                        <div key={o.id} className="rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] p-3.5 shadow-[var(--client-shadow-sm)]">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="text-sm font-black text-[var(--client-text-primary)]">Pedido nº {String(o.id || "").replace(/\D/g, "").slice(-4)}</p>
+                              {o.createdAt && <p className="text-[11px] text-[var(--client-text-secondary)]">Realizado às {o.createdAt}</p>}
+                            </div>
+                            <span className={`flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-black ${s.chip}`}>
+                              <span className={`h-1.5 w-1.5 rounded-full ${s.dot}`} aria-hidden="true" />{statusClienteLabel(o, modoPedido)}
+                            </span>
+                          </div>
+                          <div className="mt-3 space-y-1 border-t border-[var(--client-border)] pt-3">
+                            {o.items.map((it, idx) => (
+                              <div key={idx} className="flex justify-between gap-3 text-sm">
+                                <span className="min-w-0 text-[var(--client-text-secondary)]"><b className="text-[var(--client-text-primary)]">{it.quantity}×</b> {it.name}{it.observation ? <i className="text-[var(--client-text-muted)]"> — {it.observation}</i> : ""}</span>
+                                <span className="shrink-0 font-bold text-[var(--client-text-primary)]">{formatCurrency(it.price * it.quantity)}</span>
+                              </div>
+                            ))}
+                            <div className="flex justify-between gap-3 pt-1 text-xs font-bold text-[var(--client-text-secondary)]"><span>Subtotal do pedido</span><span>{formatCurrency(subtotalO)}</span></div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
               </div>
 
               {/* Status financeiro */}
@@ -1263,7 +1307,7 @@ export default function CardapioPublico() {
               {/* Totais */}
               <div className="mt-3 space-y-1.5 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] p-3.5">
                 <div className="flex items-center justify-between text-sm"><span className="text-[var(--client-text-secondary)]">Subtotal</span><span className="text-[var(--client-text-secondary)]">{formatCurrency(subtotalC)}</span></div>
-                <div className="flex items-center justify-between text-sm"><span className="text-[var(--client-text-secondary)]">Taxa de serviço (10%)</span><span className="text-[var(--client-text-secondary)]">{formatCurrency(subtotalC * 0.1)}</span></div>
+                <div className="flex items-center justify-between text-sm"><span className="text-[var(--client-text-secondary)]">Taxa de serviço ({Math.round(TAXA_PCT * 100)}%)</span><span className="text-[var(--client-text-secondary)]">{formatCurrency(taxaC)}</span></div>
                 <div className="flex items-center justify-between border-t border-[var(--client-border)] pt-2">
                   <span className={`text-sm font-bold ${pagaC ? "text-[var(--client-success)]" : "text-[var(--client-text-secondary)]"}`}>{pagaC ? "Total pago" : "Total"}</span>
                   <span className={`text-xl font-black ${pagaC ? "text-[var(--client-success)]" : "text-[var(--client-text-primary)]"}`}>{formatCurrency(totalC)}</span>
