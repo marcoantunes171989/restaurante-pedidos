@@ -1204,8 +1204,15 @@ export default function RestaurantePedidoApp() {
     catch {}
   }
   async function atenderChamadoFn(id) {
-    setChamados((cur) => cur.map((c) => c.id === id ? { ...c, status: "atendido" } : c));
+    setChamados((cur) => cur.map((c) => c.id === id ? { ...c, status: "atendido", atendidoPor: c.atendidoPor ?? currentUser?.id ?? null } : c));
     if (dbReady) try { await atualizarChamado(id, { status: "atendido", atendidoPor: currentUser?.id ?? null }); } catch {}
+  }
+  // "Assumir" — atribui o chamado ao usuário atual SEM fechá-lo (fica "em
+  // atendimento"): mantém status pendente e grava atendido_por. Reaproveita
+  // atualizarChamado (que só grava atendido_em quando status = "atendido").
+  async function assumirChamadoFn(id) {
+    setChamados((cur) => cur.map((c) => c.id === id ? { ...c, atendidoPor: currentUser?.id ?? null } : c));
+    if (dbReady) try { await atualizarChamado(id, { status: "pendente", atendidoPor: currentUser?.id ?? null }); } catch {}
   }
 
   // Edição de itens da conta no caixa (ajuste de conta). Atualiza o pedido em
@@ -2123,7 +2130,7 @@ export default function RestaurantePedidoApp() {
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} products={products} lojaInfo={lojaInfo} />}
         {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierView orders={orders} baixarComandas={baixarComandas} formasPagamento={formasPagamentoLoja} lojaInfo={lojaInfo} currentUser={currentUser} caixaAberto={caixaAberto} auditar={auditar} conexaoOk={conexaoOk} editarItensPedido={editarItensPedido} products={products} />}
         {/* activeTab === "opmobile" agora é tratado pelo branch dedicado no início desta função (sem cabeçalho/grade de módulos) */}
-        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} toggleLoja={toggleLoja} editarLoja={editarLoja} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} filtraLoja={filtraLoja} pesquisas={pesquisas} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} cancelarPedido={cancelarPedido} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} salvarConfigCrm={salvarConfigCrm} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} assinaturas={assinaturas} promocoes={filtraLoja(promocoes)} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} opcoesApi={{ grupos: filtraLoja(gruposOpcoes), opcoes: filtraLoja(opcoes), addGrupo: addGrupoOpcoes, editarGrupo: editarGrupoOpcoes, removerGrupo: removerGrupoOpcoes, addOpcao, editarOpcao, removerOpcao }} setores={filtraLoja(setoresCozinha)} setoresApi={{ add: addSetorCozinha, editar: editarSetorCozinha, remover: removerSetorCozinha }} vincularProdutoSetor={vincularProdutoSetor} salvarProdutoQr={salvarProdutoQr} irParaCozinha={(setorId) => { setCozinhaSetorInicial(setorId ?? null); if (canAccess(currentUser, "kitchen")) setActiveTab("kitchen"); else notify("error", "Sem permissão para acessar o painel da cozinha."); }} caixaAberto={caixaAberto} caixasLoja={filtraLoja(caixas)} caixaApi={{ abrir: abrirCaixaFn, movimentar: movimentarCaixaFn, fechar: fecharCaixaFn, fetchMovimentos: fetchMovimentosCaixa }} fidRegra={fidRegraAtual} fidRecompensas={filtraLoja(fidRecompensas)} fidTransacoes={filtraLoja(fidTransacoes)} fidApi={{ salvarRegra: salvarRegraFid, addRecompensa: addRecompensaFid, removerRecompensa: removerRecompensaFid, lancarPontos }} chamados={filtraLoja(chamados)} atenderChamado={atenderChamadoFn} auditoria={filtraLoja(auditoria)} />}
+        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} toggleLoja={toggleLoja} editarLoja={editarLoja} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} filtraLoja={filtraLoja} pesquisas={pesquisas} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} cancelarPedido={cancelarPedido} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} salvarConfigCrm={salvarConfigCrm} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} assinaturas={assinaturas} promocoes={filtraLoja(promocoes)} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} opcoesApi={{ grupos: filtraLoja(gruposOpcoes), opcoes: filtraLoja(opcoes), addGrupo: addGrupoOpcoes, editarGrupo: editarGrupoOpcoes, removerGrupo: removerGrupoOpcoes, addOpcao, editarOpcao, removerOpcao }} setores={filtraLoja(setoresCozinha)} setoresApi={{ add: addSetorCozinha, editar: editarSetorCozinha, remover: removerSetorCozinha }} vincularProdutoSetor={vincularProdutoSetor} salvarProdutoQr={salvarProdutoQr} irParaCozinha={(setorId) => { setCozinhaSetorInicial(setorId ?? null); if (canAccess(currentUser, "kitchen")) setActiveTab("kitchen"); else notify("error", "Sem permissão para acessar o painel da cozinha."); }} caixaAberto={caixaAberto} caixasLoja={filtraLoja(caixas)} caixaApi={{ abrir: abrirCaixaFn, movimentar: movimentarCaixaFn, fechar: fecharCaixaFn, fetchMovimentos: fetchMovimentosCaixa }} fidRegra={fidRegraAtual} fidRecompensas={filtraLoja(fidRecompensas)} fidTransacoes={filtraLoja(fidTransacoes)} fidApi={{ salvarRegra: salvarRegraFid, addRecompensa: addRecompensaFid, removerRecompensa: removerRecompensaFid, lancarPontos }} chamados={filtraLoja(chamados)} atenderChamado={atenderChamadoFn} assumirChamado={assumirChamadoFn} auditoria={filtraLoja(auditoria)} />}
 
       </div>
       )}
@@ -6686,7 +6693,7 @@ function MobileAdminDrawer({ open, onClose, triggerRef, children, titulo }) {
   );
 }
 
-function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, definirAcoesUsuario, toggleUserStatus, toggleAccessStatus, usersLoja, filtraLoja = (a) => a, pesquisas = [], adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], toggleLoja, editarLoja, setLicencaEmpresa = async()=>{}, setValidadeLicenca = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, updateOrderStatus = async()=>{}, marcarEntregue = async()=>{}, marcarSetorPronto = async()=>{}, baixarComandas = async()=>{}, cancelarPedido, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, setModoUsoEmpresa = async()=>{}, salvarConfigExterno = async()=>{}, salvarConfigCrm = async()=>{}, mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, clientes = [], planoAtual = null, assinaturaAtual = null, assinaturas = [], planos = [], planoModulos = [], definirAssinatura = async()=>{}, promocoes = [], addPromocao = async()=>{}, editarPromocao = async()=>{}, togglePromocao = async()=>{}, removerPromocao = async()=>{}, opcoesApi = null, setores = [], setoresApi = null, vincularProdutoSetor = async () => {}, salvarProdutoQr = async () => {}, irParaCozinha = () => {}, caixaAberto = null, caixasLoja = [], caixaApi = null, fidRegra = null, fidRecompensas = [], fidTransacoes = [], fidApi = null, chamados = [], atenderChamado = async()=>{}, auditoria = [] }) {
+function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, definirAcoesUsuario, toggleUserStatus, toggleAccessStatus, usersLoja, filtraLoja = (a) => a, pesquisas = [], adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], toggleLoja, editarLoja, setLicencaEmpresa = async()=>{}, setValidadeLicenca = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, updateOrderStatus = async()=>{}, marcarEntregue = async()=>{}, marcarSetorPronto = async()=>{}, baixarComandas = async()=>{}, cancelarPedido, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, setModoUsoEmpresa = async()=>{}, salvarConfigExterno = async()=>{}, salvarConfigCrm = async()=>{}, mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, clientes = [], planoAtual = null, assinaturaAtual = null, assinaturas = [], planos = [], planoModulos = [], definirAssinatura = async()=>{}, promocoes = [], addPromocao = async()=>{}, editarPromocao = async()=>{}, togglePromocao = async()=>{}, removerPromocao = async()=>{}, opcoesApi = null, setores = [], setoresApi = null, vincularProdutoSetor = async () => {}, salvarProdutoQr = async () => {}, irParaCozinha = () => {}, caixaAberto = null, caixasLoja = [], caixaApi = null, fidRegra = null, fidRecompensas = [], fidTransacoes = [], fidApi = null, chamados = [], atenderChamado = async()=>{}, assumirChamado = async()=>{}, auditoria = [] }) {
   // Menu reorganizado por contexto (SaaS premium) — mesmos ids e permissões de antes
   const menu = [
     { grupo: "Visão Geral", itens: [
@@ -6859,7 +6866,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           {ativo === "operacaomobile" && <OperacaoMobileView orders={orders} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} confirmarRetirada={confirmarRetirada} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} products={products} setores={setores} formasPagamento={formasPagamento} lojaInfo={lojaInfo} perms={acessosOperacionais(currentUser)} usuarioNome={currentUser?.name || ""} onFechar={() => setAdminSection("dashboard")} cancelarPedido={cancelarPedido} podeCancelarPedido={canAccess(currentUser, "kitchen")} />}
           {ativo === "cardapioqr"  && (precisaEmpresa ? avisoEmpresa : <CardapioQrConfigAdmin products={products} setores={setores} salvarProdutoQr={salvarProdutoQr} irParaProdutos={() => setAdminSection("products")} />)}
           {ativo === "acessosop"   && <AcessosOperacionaisAdmin users={filtraLoja(users)} definirAcessos={definirAcessos} />}
-          {ativo === "chamados"   && <ChamadosPainel chamados={chamados} atenderChamado={atenderChamado} />}
+          {ativo === "chamados"   && <ChamadosPainel chamados={chamados} atenderChamado={atenderChamado} assumirChamado={assumirChamado} usuarios={usersLoja} />}
           {ativo === "auditoria"  && <AuditoriaAdmin
             logs={auditoria} lojas={lojas}
             onAtualizar={async () => { try { setAuditoria(await fetchAuditoria(null)); } catch { throw new Error("falha"); } }}
@@ -17616,53 +17623,423 @@ function FidelidadeAdmin({ regra, recompensas = [], transacoes = [], clientes = 
 // ════════════════════════════════════════════════════════════
 //  Admin — Painel de Chamados de Mesa (migration 044)
 // ════════════════════════════════════════════════════════════
-const CHAMADO_TIPOS = { garcom: { label: "Garçom", icon: "🔔", cls: "border-blue-400/30 bg-blue-500/10 text-blue-300" }, conta: { label: "Conta", icon: "🧾", cls: "border-gold-400/30 bg-gold-400/10 text-gold-300" }, ajuda: { label: "Ajuda", icon: "🆘", cls: "border-red-400/30 bg-red-500/10 text-red-300" }, limpeza: { label: "Limpeza", icon: "🧹", cls: "border-emerald-400/30 bg-emerald-500/10 text-emerald-300" } };
-function ChamadosPainel({ chamados = [], atenderChamado }) {
-  const pendentes = chamados.filter((c) => c.status === "pendente").sort((a, b) => new Date(a.criadoEmISO) - new Date(b.criadoEmISO));
-  const atendidos = chamados.filter((c) => c.status === "atendido").slice(0, 12);
+// Tipos de chamado — tema CLARO do painel (paleta oficial): laranja de ação
+// (garçom), âmbar (conta), roxo (ajuda) e verde (limpeza).
+const CHAMADO_TIPOS = {
+  garcom:  { label: "Garçom",  emoji: "🔔", cor: "#E67E22", cls: "border-[#E67E22]/35 bg-[#E67E22]/12 text-[#C2410C]" },
+  conta:   { label: "Conta",   emoji: "🧾", cor: "#D97706", cls: "border-[#D97706]/35 bg-[#D97706]/12 text-[#B45309]" },
+  ajuda:   { label: "Ajuda",   emoji: "🆘", cor: "#7C3AED", cls: "border-[#7C3AED]/30 bg-[#7C3AED]/10 text-[#6D28D9]" },
+  limpeza: { label: "Limpeza", emoji: "🧹", cor: "#059669", cls: "border-[#047857]/30 bg-[#059669]/10 text-[#047857]" },
+};
+// Prioridade pelo tempo de espera (SLA): crítico ≥ 10 min, atenção ≥ 5 min.
+const CHAMADO_SLA_CRITICO = 10, CHAMADO_SLA_ATENCAO = 5;
+const CHAMADO_PRIOS = {
+  critico: { label: "Crítico", cor: "#DC2626" },
+  atencao: { label: "Atenção", cor: "#D97706" },
+  normal:  { label: "Normal",  cor: "#059669" },
+};
+const CHAMADO_PRIO_PESO = { critico: 3, atencao: 2, normal: 1 };
+function chamadoPrioridade(esperaMin) {
+  if (esperaMin >= CHAMADO_SLA_CRITICO) return "critico";
+  if (esperaMin >= CHAMADO_SLA_ATENCAO) return "atencao";
+  return "normal";
+}
+function fmtEsperaChamado(min) {
+  const m = Math.max(0, Math.round(min));
+  if (m < 1) return "agora mesmo";
+  if (m < 60) return `há ${m} min`;
+  const h = Math.floor(m / 60), r = m % 60;
+  return `há ${h}h${r ? ` ${r}min` : ""}`;
+}
+function fmtRespostaChamado(min) {
+  const seg = Math.max(0, Math.round(min * 60));
+  const m = Math.floor(seg / 60), s = seg % 60;
+  return m > 0 ? `${m}min ${String(s).padStart(2, "0")}s` : `${s}s`;
+}
+function fmtHoraChamado(iso) {
+  if (!iso) return "—";
+  const d = new Date(iso); return isNaN(d.getTime()) ? "—" : d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+}
+
+// ── Painel gerencial de Chamados de Mesa (dados reais · migration 044) ──
+function ChamadosPainel({ chamados = [], atenderChamado, assumirChamado = async () => {}, usuarios = [] }) {
+  const [busca, setBusca] = useState("");
+  const [fTipo, setFTipo] = useState("todos");
+  const [fEstado, setFEstado] = useState("abertos");     // abertos | pendente | em_atendimento | atendido
+  const [fPrio, setFPrio] = useState("todas");
+  const [fEspera, setFEspera] = useState("todos");        // todos | 5 | 10
+  const [fResp, setFResp] = useState("todos");            // todos | nao | <userId>
+  const [ordenacao, setOrdenacao] = useState("prioridade");
+  const [pagina, setPagina] = useState(1);
+  const [expandido, setExpandido] = useState(null);
+  const [alertasAbertos, setAlertasAbertos] = useState(false);
+  const [atualizadoEm, setAtualizadoEm] = useState(() => Date.now());
+  const agora = Date.now();
+  const POR_PAGINA = 8;
+  const comReset = (setter) => (v) => { setter(v); setPagina(1); };
+  const nomeResp = (id) => { if (id == null) return null; const u = usuarios.find((x) => String(x.id) === String(id)); return u ? (u.name || u.email || `#${id}`) : `#${id}`; };
+
+  // Enriquecimento: espera/resposta, estado e prioridade — só dados reais.
+  const enriquecidos = useMemo(() => chamados
+    .filter((c) => c.status !== "cancelado")
+    .map((c) => {
+      const criadoMs = c.criadoEmISO ? new Date(c.criadoEmISO).getTime() : agora;
+      const atendido = c.status === "atendido";
+      const esperaMin = atendido ? null : Math.max(0, (agora - criadoMs) / 60000);
+      const respostaMin = (atendido && c.atendidoEmISO) ? Math.max(0, (new Date(c.atendidoEmISO).getTime() - criadoMs) / 60000) : null;
+      const estado = atendido ? "atendido" : (c.atendidoPor != null ? "em_atendimento" : "pendente");
+      const prioridade = atendido ? null : chamadoPrioridade(esperaMin);
+      return { ...c, criadoMs, atendido, esperaMin, respostaMin, estado, prioridade, responsavel: nomeResp(c.atendidoPor), origem: c.origem || "QR da mesa" };
+    }), [chamados, agora, usuarios]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Janelas de tempo (hoje/ontem/últimas horas) ──
+  const inicioHoje = new Date(); inicioHoje.setHours(0, 0, 0, 0);
+  const inicioHojeMs = inicioHoje.getTime();
+  const inicioOntemMs = inicioHojeMs - 86400000;
+  const h1 = agora - 3600000, h2 = agora - 2 * 3600000;
+
+  const abertos = enriquecidos.filter((c) => !c.atendido);
+  const criticos = abertos.filter((c) => c.prioridade === "critico").length;
+  const novosUltimaHora = abertos.filter((c) => c.criadoMs >= h1).length;
+  const atendidosHoje = enriquecidos.filter((c) => c.atendido && c.atendidoEmISO && new Date(c.atendidoEmISO).getTime() >= inicioHojeMs);
+  const atendidosOntem = enriquecidos.filter((c) => { if (!c.atendido || !c.atendidoEmISO) return false; const t = new Date(c.atendidoEmISO).getTime(); return t >= inicioOntemMs && t < inicioHojeMs; });
+  const media = (arr) => arr.length ? arr.reduce((s, c) => s + c.respostaMin, 0) / arr.length : null;
+  const tmrHoje = media(atendidosHoje), tmrOntem = media(atendidosOntem);
+  const deltaTmr = (tmrHoje != null && tmrOntem != null) ? tmrHoje - tmrOntem : null;
+  const deltaAtend = atendidosOntem.length ? atendidosHoje.length - atendidosOntem.length : null;
+
+  // Ranking de mesas (do dia) e análise por tipo / SLA / tendência.
+  const chamadosHoje = enriquecidos.filter((c) => c.criadoMs >= inicioHojeMs);
+  const porMesa = {}; chamadosHoje.forEach((c) => { const m = c.mesa || "—"; porMesa[m] = (porMesa[m] || 0) + 1; });
+  const mesasRank = Object.entries(porMesa).map(([mesa, n]) => ({ mesa, n })).sort((a, b) => b.n - a.n);
+  const mesaTop = mesasRank[0] || null;
+  const mesaTop2h = mesaTop ? enriquecidos.filter((c) => c.mesa === mesaTop.mesa && c.criadoMs >= h2).length : 0;
+
+  const porTipo = Object.keys(CHAMADO_TIPOS).map((t) => ({ t, ...CHAMADO_TIPOS[t], n: chamadosHoje.filter((c) => c.tipo === t).length }));
+  const totalTipo = porTipo.reduce((s, x) => s + x.n, 0);
+  const dentroPrazo = atendidosHoje.filter((c) => c.respostaMin <= CHAMADO_SLA_CRITICO).length;
+  const slaPct = atendidosHoje.length ? Math.round((dentroPrazo / atendidosHoje.length) * 100) : 0;
+  const acimaPrazo = atendidosHoje.length - dentroPrazo;
+  // Tendência: chamados criados por faixa de 20 min nas últimas 2h.
+  const buckets = []; const passo = 20 * 60000;
+  for (let i = 5; i >= 0; i--) { const ini = agora - (i + 1) * passo, fim = agora - i * passo; buckets.push({ n: enriquecidos.filter((c) => c.criadoMs >= ini && c.criadoMs < fim).length, hora: fmtHoraChamado(new Date(fim).toISOString()) }); }
+  const maxBucket = Math.max(1, ...buckets.map((b) => b.n));
+
+  // ── Fila filtrada + ordenada ──
+  const q = busca.trim().toLowerCase();
+  const ORDENADORES = {
+    prioridade: (a, b) => (CHAMADO_PRIO_PESO[b.prioridade] || 0) - (CHAMADO_PRIO_PESO[a.prioridade] || 0) || a.criadoMs - b.criadoMs,
+    antigos: (a, b) => a.criadoMs - b.criadoMs,
+    recentes: (a, b) => b.criadoMs - a.criadoMs,
+  };
+  const fila = enriquecidos
+    .filter((c) => fEstado === "abertos" ? !c.atendido : c.estado === fEstado)
+    .filter((c) => fTipo === "todos" || c.tipo === fTipo)
+    .filter((c) => fPrio === "todas" || c.prioridade === fPrio)
+    .filter((c) => fEspera === "todos" || (c.esperaMin != null && c.esperaMin >= Number(fEspera)))
+    .filter((c) => fResp === "todos" || (fResp === "nao" ? c.atendidoPor == null : String(c.atendidoPor) === fResp))
+    .filter((c) => !q || `${c.mesa || ""} ${CHAMADO_TIPOS[c.tipo]?.label || ""} ${c.responsavel || ""}`.toLowerCase().includes(q))
+    .sort(ORDENADORES[ordenacao] || ORDENADORES.prioridade);
+  const totalFila = fila.length;
+  const totalPaginas = Math.max(1, Math.ceil(totalFila / POR_PAGINA));
+  const pgAtual = Math.min(pagina, totalPaginas);
+  const inicio = (pgAtual - 1) * POR_PAGINA;
+  const visiveis = fila.slice(inicio, inicio + POR_PAGINA);
+  const recentes = enriquecidos.filter((c) => c.atendido && c.atendidoEmISO).sort((a, b) => new Date(b.atendidoEmISO) - new Date(a.atendidoEmISO)).slice(0, 6);
+  const respOpcoes = [...new Set(enriquecidos.map((c) => c.atendidoPor).filter((x) => x != null).map(String))];
+
+  function limparFiltros() { setBusca(""); setFTipo("todos"); setFEstado("abertos"); setFPrio("todas"); setFEspera("todos"); setFResp("todos"); setOrdenacao("prioridade"); setPagina(1); }
+  const horaAtualizacao = `${String(new Date(atualizadoEm).getHours()).padStart(2, "0")}:${String(new Date(atualizadoEm).getMinutes()).padStart(2, "0")}`;
+
+  const KPIS = [
+    { rot: "Pendentes agora", val: abertos.length, cor: "#E67E22", Icone: IconComanda, sub: novosUltimaHora > 0 ? `+${novosUltimaHora} na última hora` : "estável na última hora" },
+    { rot: "Críticos", val: criticos, cor: "#DC2626", Icone: IconAlerta, sub: `acima de ${CHAMADO_SLA_CRITICO} min de espera` },
+    { rot: "Tempo médio de resposta", val: tmrHoje != null ? fmtRespostaChamado(tmrHoje) : "—", cor: "#0F4C5C", Icone: IconRelogio, sub: deltaTmr != null ? `${deltaTmr <= 0 ? "−" : "+"}${fmtRespostaChamado(Math.abs(deltaTmr))} vs. ontem` : "sem base de ontem", subCor: deltaTmr != null ? (deltaTmr <= 0 ? "#047857" : "#B91C1C") : null },
+    { rot: "Mesa com mais chamados", val: mesaTop ? mesaTop.mesa : "—", cor: "#0F4C5C", Icone: IconUsuarios, sub: mesaTop ? `${mesaTop2h} ${mesaTop2h === 1 ? "chamado" : "chamados"} nas últimas 2h` : "sem chamados hoje" },
+    { rot: "Atendidos hoje", val: atendidosHoje.length, cor: "#059669", Icone: IconCheck, sub: deltaAtend != null ? `${deltaAtend >= 0 ? "+" : "−"}${Math.abs(deltaAtend)} vs. ontem` : `${dentroPrazo} no prazo`, subCor: deltaAtend != null ? (deltaAtend >= 0 ? "#047857" : "#B91C1C") : null },
+  ];
+  const selBox = "flex min-w-0 items-center gap-2 rounded-xl border border-[var(--pp-border)] bg-white px-3 py-1.5";
+  const CHIP_ESTADOS = [["pendente", "Pendentes"], ["em_atendimento", "Em atendimento"], ["atendido", "Atendidos"]];
+  const CHIP_TIPOS = [["todos", "Todos"], ...Object.keys(CHAMADO_TIPOS).map((t) => [t, CHAMADO_TIPOS[t].label])];
+
   return (
     <main className="space-y-5">
-      <PageHeader icone={<IconMesas />} titulo="Chamados de Mesa" descricao="Solicitações dos clientes em tempo real — garçom, conta, ajuda e limpeza." />
-
-      <div className="flex items-center gap-2">
-        <span className={`rounded-full px-3 py-1.5 text-sm font-black ${pendentes.length > 0 ? "bg-red-500/15 text-red-300 animate-pulse" : "bg-emerald-500/15 text-emerald-300"}`}>
-          {pendentes.length > 0 ? `🔔 ${pendentes.length} chamado(s) pendente(s)` : "✓ Nenhum chamado pendente"}
-        </span>
+      {/* Cabeçalho */}
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <h2 className="page-title flex items-center gap-2.5 text-2xl font-bold tracking-tight text-dash-navy">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#E67E22]/30 bg-[#E67E22]/10 text-[#E67E22] [&>svg]:h-5 [&>svg]:w-5"><IconMesas /></span>
+            Chamados de Mesa
+          </h2>
+          <p className="mt-1 text-sm text-[var(--pp-text-muted)]">Solicitações dos clientes em tempo real — garçom, conta, ajuda e limpeza.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="hidden items-center gap-1.5 text-sm text-[var(--pp-text-muted)] sm:inline-flex">Última atualização: hoje às {horaAtualizacao} <span className="h-1.5 w-1.5 rounded-full bg-[#059669]" /></span>
+          <button onClick={() => setAtualizadoEm(Date.now())} className="inline-flex items-center gap-2 rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2 text-sm font-bold text-dash-navy transition hover:bg-[var(--pp-bg)]"><IconRelogio /> Atualizar</button>
+          <button onClick={() => setAlertasAbertos((v) => !v)} className={`inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-sm font-bold transition ${alertasAbertos ? "border-[#E67E22] bg-[#E67E22]/10 text-[#C2410C]" : "border-[#E67E22]/40 bg-[#E67E22]/8 text-[#C2410C] hover:bg-[#E67E22]/15"}`}><IconAlerta /> Configurar alertas</button>
+        </div>
       </div>
 
-      {pendentes.length > 0 && (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {pendentes.map((c) => {
-            const t = CHAMADO_TIPOS[c.tipo] || CHAMADO_TIPOS.garcom;
-            return (
-              <div key={c.id} className="rounded-[1.5rem] border border-red-400/30 bg-red-500/[0.06] p-5">
-                <div className="flex items-center justify-between gap-2">
-                  <span className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ${t.cls}`}>{t.icon} {t.label}</span>
-                  <span className="text-[11px] font-bold text-slate-400">{tempoRelativo(c.criadoEmISO)}</span>
-                </div>
-                <p className="page-title mt-3 text-xl font-bold text-white">{c.mesa || "Mesa —"}</p>
-                {c.comanda && <p className="text-xs text-slate-400">Comanda {c.comanda}</p>}
-                <button onClick={() => atenderChamado(c.id)} className="mt-4 w-full rounded-xl bg-gold-400 py-2.5 text-sm font-black text-blue-950 hover:bg-gold-300 transition active:scale-95">✓ Marcar como atendido</button>
-              </div>
-            );
-          })}
+      {alertasAbertos && (
+        <div className="rounded-2xl border border-[#E67E22]/30 bg-[#E67E22]/[0.06] p-4 text-sm text-dash-navy">
+          <p className="font-bold">Regras de alerta por tempo de espera (SLA)</p>
+          <p className="mt-1 text-[var(--pp-text-muted)]">Um chamado entra em <b className="text-[#B45309]">Atenção</b> ao passar de {CHAMADO_SLA_ATENCAO} min sem atendimento e vira <b className="text-[#B91C1C]">Crítico</b> a partir de {CHAMADO_SLA_CRITICO} min. Esses limites definem os KPIs "Críticos" e "SLA de atendimento".</p>
         </div>
       )}
 
-      {atendidos.length > 0 && (
-        <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.04]">
-          <div className="border-b border-gold-400/15 px-5 py-3"><h3 className="page-title text-sm font-bold uppercase tracking-wider text-white">Atendidos recentemente</h3></div>
-          {atendidos.map((c) => {
-            const t = CHAMADO_TIPOS[c.tipo] || CHAMADO_TIPOS.garcom;
-            return (
-              <div key={c.id} className="flex items-center gap-3 border-t border-white/5 px-5 py-2.5 text-sm">
-                <span className="shrink-0">{t.icon}</span>
-                <span className="font-bold text-slate-200">{c.mesa || "—"}</span>
-                <span className="text-slate-500">{t.label}</span>
-                <span className="ml-auto text-[11px] text-slate-500">{c.atendidoEmISO ? new Date(c.atendidoEmISO).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : ""}</span>
+      {/* KPIs */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        {KPIS.map((k) => (
+          <div key={k.rot} className="flex items-start gap-3 rounded-2xl border border-[var(--pp-border)] bg-white p-4 shadow-[0_2px_8px_rgba(43,35,32,0.04)]">
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl [&>svg]:h-6 [&>svg]:w-6" style={{ background: `${k.cor}1A`, color: k.cor }}><k.Icone /></span>
+            <div className="min-w-0">
+              <p className="truncate text-xs font-semibold text-[var(--pp-text-muted)]">{k.rot}</p>
+              <p className="page-title text-xl font-black text-dash-navy">{k.val}</p>
+              {k.sub && <p className="mt-0.5 truncate text-[11px] font-semibold" style={{ color: k.subCor || "var(--pp-text-muted)" }}>{k.sub}</p>}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Barra de filtros */}
+      <div className="space-y-3 rounded-2xl border border-[var(--pp-border)] bg-white p-3">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
+          <label className="flex flex-1 items-center gap-2 rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-3 py-2">
+            <span className="text-[var(--pp-text-muted)]"><IconBusca /></span>
+            <input value={busca} onChange={(e) => comReset(setBusca)(e.target.value)} placeholder="Buscar por mesa, tipo ou responsável"
+              className="w-full bg-transparent text-sm text-dash-navy outline-none placeholder:text-[var(--pp-text-muted)]" />
+          </label>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {CHIP_TIPOS.map(([id, label]) => (
+              <button key={id} onClick={() => comReset(setFTipo)(id)}
+                className={`inline-flex items-center rounded-full border px-3 py-1.5 text-[13px] font-bold transition ${fTipo === id ? "border-[#E67E22] bg-[#E67E22] text-white shadow-sm" : "border-[var(--pp-border)] bg-white text-dash-navy hover:border-[#E67E22]/50"}`}>{label}</button>
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {CHIP_ESTADOS.map(([id, label]) => (
+              <button key={id} onClick={() => comReset(setFEstado)(fEstado === id ? "abertos" : id)}
+                className={`inline-flex items-center rounded-full border px-3 py-1.5 text-[13px] font-bold transition ${fEstado === id ? "border-[#0F4C5C] bg-[#0F4C5C] text-white shadow-sm" : "border-[var(--pp-border)] bg-white text-dash-navy hover:border-[#0F4C5C]/40"}`}>{label}</button>
+            ))}
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:flex xl:items-center">
+          {[
+            { rot: "Prioridade", val: fPrio, set: setFPrio, ops: [["todas", "Todas"], ["critico", "Crítico"], ["atencao", "Atenção"], ["normal", "Normal"]] },
+            { rot: "Tempo de espera", val: fEspera, set: setFEspera, ops: [["todos", "Qualquer"], ["5", "Acima de 5 min"], ["10", "Acima de 10 min"]] },
+            { rot: "Responsável", val: fResp, set: setFResp, ops: [["todos", "Todos"], ["nao", "Não atribuído"], ...respOpcoes.map((id) => [id, nomeResp(id)])] },
+            { rot: "Ordenar por", val: ordenacao, set: setOrdenacao, ops: [["prioridade", "Prioridade"], ["antigos", "Mais antigos"], ["recentes", "Mais recentes"]] },
+          ].map((s) => (
+            <label key={s.rot} className={selBox}>
+              <div className="min-w-0 flex-1">
+                <span className="block text-[9px] font-bold uppercase tracking-wider text-[var(--pp-text-muted)]">{s.rot}</span>
+                <select value={s.val} onChange={(e) => comReset(s.set)(e.target.value)} className="w-full cursor-pointer bg-transparent text-[13px] font-bold text-dash-navy outline-none">
+                  {s.ops.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                </select>
               </div>
-            );
-          })}
+            </label>
+          ))}
+          <button onClick={limparFiltros} className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl border border-[#E67E22]/40 bg-[#E67E22]/8 px-3.5 py-2 text-[13px] font-bold text-[#C2410C] transition hover:bg-[#E67E22]/15">Limpar filtros</button>
+        </div>
+      </div>
+
+      {/* Fila de chamados + Visão analítica */}
+      <div className="grid gap-4 xl:grid-cols-[1.35fr_1fr]">
+        {/* Fila */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="page-title flex items-center gap-2 text-lg font-bold text-dash-navy">Fila de chamados
+              <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-[#E67E22]/12 px-1.5 text-xs font-black text-[#C2410C]">{totalFila}</span>
+            </h3>
+            <span className="text-xs font-semibold text-[var(--pp-text-muted)]">Ordenar por: <b className="text-dash-navy">{({ prioridade: "Prioridade", antigos: "Mais antigos", recentes: "Mais recentes" })[ordenacao]}</b></span>
+          </div>
+
+          {totalFila === 0 ? (
+            <EmptyState titulo="Nenhum chamado nesta fila" dica="Ajuste os filtros ou aguarde novas solicitações das mesas." />
+          ) : (
+            <div className="space-y-2.5">
+              {visiveis.map((c) => {
+                const t = CHAMADO_TIPOS[c.tipo] || CHAMADO_TIPOS.garcom;
+                const p = c.atendido ? null : (CHAMADO_PRIOS[c.prioridade] || CHAMADO_PRIOS.normal);
+                const critico = c.prioridade === "critico";
+                const aberto = expandido === c.id;
+                return (
+                  <div key={c.id} className={`rounded-2xl border bg-white p-4 shadow-[0_2px_8px_rgba(43,35,32,0.04)] transition ${critico ? "border-[#DC2626]/40 bg-[#DC2626]/[0.04]" : "border-[var(--pp-border)]"}`}>
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                      <div className="min-w-[120px]">
+                        <p className="page-title text-base font-black text-dash-navy">{c.mesa || "Mesa —"}</p>
+                        <p className="text-[11px] text-[var(--pp-text-muted)]">Origem: {c.origem}</p>
+                      </div>
+                      <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-black ${t.cls}`}>{t.emoji} {t.label}</span>
+                      <div className="min-w-[110px] text-[13px]">
+                        <p className="flex items-center gap-1.5 font-semibold text-dash-navy"><IconRelogio /> {fmtEsperaChamado(c.esperaMin ?? 0)}</p>
+                        <p className="text-[11px] text-[var(--pp-text-muted)]">Responsável: {c.responsavel || "Não atribuído"}</p>
+                      </div>
+                      {p && <span className="inline-flex items-center gap-1.5 text-[13px] font-bold" style={{ color: p.cor }}><span className="h-2 w-2 rounded-full" style={{ background: p.cor }} />{p.label}</span>}
+                      <div className="ml-auto flex items-center gap-2">
+                        {c.estado === "em_atendimento"
+                          ? <button onClick={() => atenderChamado(c.id)} className="btn-verde rounded-xl px-4 py-2 text-[13px] font-bold">Marcar atendido</button>
+                          : <button onClick={() => assumirChamado(c.id)} className="btn-laranja rounded-xl px-4 py-2 text-[13px] font-bold">Assumir</button>}
+                        <button onClick={() => setExpandido(aberto ? null : c.id)} className="rounded-xl border border-[var(--pp-border)] bg-white px-3 py-2 text-[13px] font-bold text-dash-navy transition hover:bg-[var(--pp-bg)]">Ver detalhes</button>
+                      </div>
+                    </div>
+                    {aberto && (
+                      <div className="mt-3 grid grid-cols-2 gap-3 border-t border-[var(--pp-border)] pt-3 text-[13px] sm:grid-cols-4">
+                        <div><p className="text-[10px] font-bold uppercase tracking-wider text-[var(--pp-text-muted)]">Comanda</p><p className="font-semibold text-dash-navy">{c.comanda || "—"}</p></div>
+                        <div><p className="text-[10px] font-bold uppercase tracking-wider text-[var(--pp-text-muted)]">Aberto às</p><p className="font-semibold text-dash-navy">{fmtHoraChamado(c.criadoEmISO)}</p></div>
+                        <div><p className="text-[10px] font-bold uppercase tracking-wider text-[var(--pp-text-muted)]">Estado</p><p className="font-semibold text-dash-navy">{c.estado === "em_atendimento" ? "Em atendimento" : c.estado === "atendido" ? "Atendido" : "Pendente"}</p></div>
+                        <div><p className="text-[10px] font-bold uppercase tracking-wider text-[var(--pp-text-muted)]">Origem</p><p className="font-semibold text-dash-navy">{c.origem}</p></div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+
+              {/* Paginação */}
+              {totalFila > POR_PAGINA && (
+                <div className="flex items-center justify-between gap-3 pt-1">
+                  <p className="text-sm text-[var(--pp-text-muted)]">Mostrando {inicio + 1}–{Math.min(inicio + POR_PAGINA, totalFila)} de {totalFila} chamados</p>
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => setPagina(Math.max(1, pgAtual - 1))} disabled={pgAtual <= 1} className="flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--pp-border)] bg-white text-dash-navy transition hover:bg-[var(--pp-bg)] disabled:opacity-40">‹</button>
+                    {Array.from({ length: totalPaginas }, (_, i) => i + 1).map((pp) => (
+                      <button key={pp} onClick={() => setPagina(pp)} className={`flex h-8 min-w-8 items-center justify-center rounded-lg border px-2 text-sm font-bold transition ${pp === pgAtual ? "border-[#E67E22] bg-[#E67E22] text-white" : "border-[var(--pp-border)] bg-white text-dash-navy hover:bg-[var(--pp-bg)]"}`}>{pp}</button>
+                    ))}
+                    <button onClick={() => setPagina(Math.min(totalPaginas, pgAtual + 1))} disabled={pgAtual >= totalPaginas} className="flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--pp-border)] bg-white text-dash-navy transition hover:bg-[var(--pp-bg)] disabled:opacity-40">›</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Visão analítica */}
+        <div className="space-y-4 rounded-2xl border border-[var(--pp-border)] bg-white p-4 shadow-[0_2px_8px_rgba(43,35,32,0.04)]">
+          <h3 className="page-title text-lg font-bold text-dash-navy">Visão analítica <span className="text-xs font-semibold text-[var(--pp-text-muted)]">· hoje</span></h3>
+
+          {/* Chamados por tipo (rosca) */}
+          <div className="rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-4">
+            <p className="mb-3 text-[11px] font-bold uppercase tracking-wider text-[var(--pp-text-muted)]">Chamados por tipo</p>
+            <div className="flex items-center gap-4">
+              <div className="relative h-[130px] w-[130px] shrink-0">
+                <svg viewBox="0 0 140 140" className="h-full w-full -rotate-90">
+                  <circle cx="70" cy="70" r="54" fill="none" stroke="#EAE0D6" strokeWidth="18" />
+                  {totalTipo > 0 && (() => {
+                    const C = 2 * Math.PI * 54; let acc = 0;
+                    return porTipo.filter((x) => x.n > 0).map((x) => {
+                      const len = (x.n / totalTipo) * C; const el = <circle key={x.t} cx="70" cy="70" r="54" fill="none" stroke={x.cor} strokeWidth="18" strokeDasharray={`${len} ${C - len}`} strokeDashoffset={-acc} strokeLinecap="butt" />; acc += len; return el;
+                    });
+                  })()}
+                </svg>
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--pp-text-muted)]">Total</span>
+                  <span className="page-title text-2xl font-black text-dash-navy">{totalTipo}</span>
+                </div>
+              </div>
+              <div className="min-w-0 flex-1 space-y-1.5">
+                {porTipo.map((x) => (
+                  <div key={x.t} className="flex items-center gap-2 text-[13px]">
+                    <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: x.cor }} />
+                    <span className="text-dash-navy">{x.label}</span>
+                    <span className="ml-auto font-bold text-dash-navy">{x.n} <span className="font-semibold text-[var(--pp-text-muted)]">({totalTipo ? Math.round((x.n / totalTipo) * 100) : 0}%)</span></span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Mesas com mais chamados */}
+          <div className="rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-4">
+            <p className="mb-3 text-[11px] font-bold uppercase tracking-wider text-[var(--pp-text-muted)]">Mesas com mais chamados</p>
+            {mesasRank.length === 0 ? <p className="text-sm text-[var(--pp-text-muted)]">Sem chamados hoje.</p> : (
+              <div className="space-y-2">
+                {mesasRank.slice(0, 4).map((m) => (
+                  <div key={m.mesa} className="flex items-center gap-2 text-[13px]">
+                    <span className="w-16 shrink-0 font-semibold text-dash-navy">{m.mesa}</span>
+                    <div className="h-3 flex-1 overflow-hidden rounded-full bg-[#EAE0D6]"><div className="h-full rounded-full bg-[#0F4C5C]" style={{ width: `${Math.max(8, (m.n / mesasRank[0].n) * 100)}%` }} /></div>
+                    <span className="w-5 shrink-0 text-right font-bold text-dash-navy">{m.n}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* SLA + Tendência */}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-4">
+              <p className="mb-3 text-[11px] font-bold uppercase tracking-wider text-[var(--pp-text-muted)]">SLA de atendimento</p>
+              <div className="flex items-center gap-3">
+                <div className="relative h-[76px] w-[76px] shrink-0">
+                  <svg viewBox="0 0 80 80" className="h-full w-full -rotate-90">
+                    <circle cx="40" cy="40" r="32" fill="none" stroke="#EAE0D6" strokeWidth="10" />
+                    <circle cx="40" cy="40" r="32" fill="none" stroke={slaPct >= 80 ? "#059669" : slaPct >= 50 ? "#D97706" : "#DC2626"} strokeWidth="10" strokeLinecap="round" strokeDasharray={`${(slaPct / 100) * 2 * Math.PI * 32} ${2 * Math.PI * 32}`} />
+                  </svg>
+                  <div className="absolute inset-0 flex items-center justify-center"><span className="page-title text-base font-black text-dash-navy">{slaPct}%</span></div>
+                </div>
+                <div className="min-w-0 text-[12px]">
+                  <p className="font-semibold text-[#047857]">Dentro do prazo <b>{slaPct}%</b></p>
+                  <p className="mt-1 text-[var(--pp-text-muted)]">Acima de {CHAMADO_SLA_CRITICO} min</p>
+                  <p className="font-bold text-[#B91C1C]">{acimaPrazo} {acimaPrazo === 1 ? "chamado" : "chamados"}</p>
+                </div>
+              </div>
+            </div>
+            <div className="rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-4">
+              <p className="mb-3 text-[11px] font-bold uppercase tracking-wider text-[var(--pp-text-muted)]">Tendência <span className="normal-case text-[var(--pp-text-muted)]">(últimas 2h)</span></p>
+              <svg viewBox="0 0 240 80" className="h-[70px] w-full">
+                {(() => {
+                  const pts = buckets.map((b, i) => { const x = 10 + (i / (buckets.length - 1)) * 220; const y = 70 - (b.n / maxBucket) * 56; return [x, y]; });
+                  const linha = pts.map((p) => p.join(",")).join(" ");
+                  const area = `10,70 ${linha} 230,70`;
+                  return <>
+                    <polygon points={area} fill="#0F4C5C" opacity="0.08" />
+                    <polyline points={linha} fill="none" stroke="#0F4C5C" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                    {pts.map((p, i) => <circle key={i} cx={p[0]} cy={p[1]} r="2.5" fill="#0F4C5C" />)}
+                  </>;
+                })()}
+              </svg>
+              <div className="mt-1 flex justify-between text-[10px] font-semibold text-[var(--pp-text-muted)]"><span>{buckets[0]?.hora}</span><span>{buckets[buckets.length - 1]?.hora}</span></div>
+            </div>
+          </div>
+
+          {/* Sugestão do sistema */}
+          {mesaTop && mesaTop2h >= 2 && (
+            <div className="rounded-xl border border-[#0F4C5C]/20 bg-[#0F4C5C]/[0.05] p-4">
+              <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-[#0F4C5C]">💡 Sugestão do sistema</p>
+              <p className="mt-1.5 text-[13px] text-dash-navy">{mesaTop.mesa} teve {mesaTop2h} chamados nas últimas 2h. Verificar necessidade de apoio no salão.</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Atendidos recentemente */}
+      {recentes.length > 0 && (
+        <div className="overflow-hidden rounded-2xl border border-[var(--pp-border)] bg-white">
+          <div className="flex items-center justify-between border-b border-[var(--pp-border)] px-5 py-3">
+            <h3 className="page-title flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-dash-navy"><IconCheck /> Atendidos recentemente</h3>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[720px] text-sm">
+              <thead>
+                <tr className="border-b border-[var(--pp-border)] text-left text-[10px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]">
+                  <th className="py-2.5 pl-5 pr-3">Mesa</th><th className="py-2.5 pr-3">Tipo</th><th className="py-2.5 pr-3">Responsável</th>
+                  <th className="py-2.5 pr-3">Horário</th><th className="py-2.5 pr-3">Tempo de resposta</th><th className="py-2.5 pr-5">Origem</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentes.map((c) => {
+                  const t = CHAMADO_TIPOS[c.tipo] || CHAMADO_TIPOS.garcom;
+                  return (
+                    <tr key={c.id} className="border-b border-[var(--pp-border)] last:border-0">
+                      <td className="py-2.5 pl-5 pr-3 font-bold text-dash-navy">{c.mesa || "—"}</td>
+                      <td className="py-2.5 pr-3"><span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-black ${t.cls}`}>{t.emoji} {t.label}</span></td>
+                      <td className="py-2.5 pr-3 text-dash-navy">{c.responsavel || "—"}</td>
+                      <td className="py-2.5 pr-3 text-[var(--pp-text-muted)]">{fmtHoraChamado(c.atendidoEmISO)}</td>
+                      <td className="py-2.5 pr-3 font-semibold text-dash-navy">{c.respostaMin != null ? fmtRespostaChamado(c.respostaMin) : "—"}</td>
+                      <td className="py-2.5 pr-5 text-[var(--pp-text-muted)]">{c.origem}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </main>
