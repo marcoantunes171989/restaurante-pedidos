@@ -34,3 +34,6 @@ dist-ssr
 
 # Segredos locais (service role) — nunca versionar
 scripts/.env
+
+# Artefato temporário da skill migrations-supabase (SQL consolidado p/ colar)
+supabase/_migrations-bundle.sql
