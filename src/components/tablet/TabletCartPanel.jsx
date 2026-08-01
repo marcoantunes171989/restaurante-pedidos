@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { ShoppingCart, X, QrCode, Minus, Plus, Loader2, CheckCircle2, Receipt, RefreshCcw } from "lucide-react";
+import { ShoppingCart, X, QrCode, Minus, Plus, Loader2, CheckCircle2, Receipt, RefreshCcw, Check, Star, ChevronRight } from "lucide-react";
 import { formatCurrency } from "../../App";
 import { useFocusTrap } from "../../lib/useFocusTrap";
 
@@ -17,10 +17,19 @@ export default function TabletCartPanel({
   onEnviar, enviando,
   podeFecharConta, contaSolicitada, onFecharConta, temPedidoNaMesa,
   lojaInfo,
+  pontosGanhar = 0, orderStage = -1, hasActiveOrder = false, statusConta = null, tomConta = "info", onAbrirAcompanhamento = () => {},
   onFechar, // presente só na variante "sheet" (mobile/retrato)
 }) {
   const containerRef = useRef(null);
   useFocusTrap(containerRef, Boolean(onFechar));
+
+  // Etapas de preparo do pedido — o cliente acompanha o avanço sem sair da tela.
+  const ETAPAS = ["Recebido", "Em preparo", "Pronto", "Entregue"];
+  const TOM_STATUS = {
+    success: "border-[var(--client-success-border)] bg-[var(--client-success-soft)] text-[var(--client-success)]",
+    warning: "border-[var(--client-warning-border)] bg-[var(--client-warning-soft)] text-[var(--client-warning)]",
+    info: "border-[var(--client-info-border)] bg-[var(--client-info-soft)] text-[var(--client-info)]",
+  };
 
   return (
     <div ref={containerRef} className="flex h-full flex-col bg-[var(--client-surface)]">
@@ -78,12 +87,59 @@ export default function TabletCartPanel({
 
       {/* Itens */}
       <div className="scrollbar-none flex-1 space-y-2.5 overflow-y-auto px-4 py-3.5">
+        {/* Acompanhamento MINIMIZADO no topo — quando há itens no carrinho e um pedido ativo na mesa */}
+        {cart.length > 0 && hasActiveOrder && orderStage >= 0 && (
+          <button type="button" onClick={onAbrirAcompanhamento} aria-label={`Acompanhar pedido — ${statusConta || ETAPAS[orderStage]}`}
+            className={`flex w-full items-center justify-between gap-2 rounded-xl border px-3 py-2 text-left transition active:scale-[0.99] hover:brightness-95 ${TOM_STATUS[tomConta] || TOM_STATUS.info}`}>
+            <span className="flex min-w-0 items-center gap-2">
+              <span aria-hidden="true" className="flex shrink-0 gap-0.5">
+                {ETAPAS.map((_, i) => <span key={i} className={`h-1.5 w-3.5 rounded-full bg-current ${i <= orderStage ? "" : "opacity-25"}`} />)}
+              </span>
+              <span className="truncate text-xs font-black">{statusConta || ETAPAS[orderStage]}</span>
+            </span>
+            <ChevronRight aria-hidden="true" size={15} className="shrink-0" />
+          </button>
+        )}
+
         {cart.length === 0 ? (
-          <div className="flex h-full flex-col items-center justify-center gap-2 text-center opacity-80">
-            <span aria-hidden="true" className="flex h-14 w-14 items-center justify-center rounded-full bg-[var(--client-background-soft)] text-[var(--client-text-muted)]"><ShoppingCart size={24} /></span>
-            <p className="text-sm font-bold text-[var(--client-text-primary)]">Seu pedido começa aqui</p>
-            <p className="max-w-[220px] text-xs text-[var(--client-text-muted)]">Adicione produtos do cardápio para montar seu pedido.</p>
-          </div>
+          hasActiveOrder && orderStage >= 0 ? (
+            /* ESPAÇO VAZIO → acompanhamento COMPLETO do preparo (sem sair da tela).
+               justify-start evita cortar a 1ª etapa em telas curtas; em telas
+               altas o espaço em branco abaixo é natural. */
+            <div className="flex h-full flex-col items-center justify-start gap-3 px-2 py-4">
+              <div className="text-center">
+                <p className="text-sm font-black text-[var(--client-text-primary)]">Acompanhe seu pedido</p>
+                <p className="mt-0.5 text-xs text-[var(--client-text-muted)]">O preparo avança em tempo real aqui.</p>
+              </div>
+              <ol className="w-full max-w-[240px]">
+                {ETAPAS.map((label, i) => {
+                  const done = i < orderStage, current = i === orderStage;
+                  return (
+                    <li key={label} className="flex items-stretch gap-3">
+                      <div className="flex flex-col items-center">
+                        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-black ${current ? "btn-laranja bg-[var(--client-primary-hover)] text-white ring-4 ring-[var(--client-primary-soft)]" : done ? "bg-[var(--client-success)] text-white" : "bg-[var(--client-background-soft)] text-[var(--client-text-muted)]"}`}>
+                          {done ? <Check aria-hidden="true" size={14} /> : i + 1}
+                        </span>
+                        {i < ETAPAS.length - 1 && <span className={`w-0.5 flex-1 ${i < orderStage ? "bg-[var(--client-success)]" : "bg-[var(--client-border)]"}`} />}
+                      </div>
+                      <span className={`pb-5 pt-1.5 text-sm font-bold ${current ? "text-[var(--client-primary-hover)]" : done ? "text-[var(--client-text-primary)]" : "text-[var(--client-text-muted)]"}`}>
+                        {label}{current && <span className="ml-1.5 rounded-full bg-[var(--client-primary-soft)] px-1.5 py-0.5 text-[10px] font-black text-[var(--client-primary-hover)]">agora</span>}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ol>
+              <button type="button" onClick={onAbrirAcompanhamento} className="inline-flex items-center gap-1 text-xs font-black text-[var(--client-primary-hover)] underline-offset-2 hover:underline">Ver detalhes do pedido <ChevronRight aria-hidden="true" size={13} /></button>
+              <p className="max-w-[240px] text-center text-[11px] text-[var(--client-text-muted)]">Quer pedir mais? Toque num produto do cardápio para adicionar.</p>
+            </div>
+          ) : (
+            /* Carrinho vazio e sem pedido ativo → estado inicial */
+            <div className="flex h-full flex-col items-center justify-center gap-2 text-center opacity-80">
+              <span aria-hidden="true" className="flex h-14 w-14 items-center justify-center rounded-full bg-[var(--client-background-soft)] text-[var(--client-text-muted)]"><ShoppingCart size={24} /></span>
+              <p className="text-sm font-bold text-[var(--client-text-primary)]">Seu pedido começa aqui</p>
+              <p className="max-w-[220px] text-xs text-[var(--client-text-muted)]">Adicione produtos do cardápio para montar seu pedido.</p>
+            </div>
+          )
         ) : cart.map((item) => (
           <div key={item._uid || item.id} className={`rounded-xl border bg-[var(--client-surface)] p-3 shadow-[var(--client-shadow-sm)] ${item.comboId ? "border-[var(--client-success-border)]" : "border-[var(--client-border)]"}`}>
             <div className="flex items-center justify-between gap-2">
@@ -122,6 +178,13 @@ export default function TabletCartPanel({
           <div className="h-px bg-[var(--client-border)]" />
           <div className="flex items-center justify-between"><span className="text-base font-black text-[var(--client-text-primary)]">Total</span><span className="text-lg font-black text-[var(--client-text-primary)]">{formatCurrency(total)}</span></div>
         </div>
+
+        {/* Fidelidade — pontos que esta compra rende (mesma regra do caixa/celular) */}
+        {pontosGanhar > 0 && (
+          <div className="flex items-center justify-center gap-1.5 rounded-xl border border-[var(--client-primary-border)] bg-[var(--client-primary-soft)] px-3 py-2 text-xs font-black text-[var(--client-primary-hover)]">
+            <Star aria-hidden="true" size={13} className="shrink-0" /> Você ganhará {pontosGanhar.toLocaleString("pt-BR")} pontos com esta compra
+          </div>
+        )}
 
         {message.text && (
           <div role={message.type === "error" ? "alert" : "status"}

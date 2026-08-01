@@ -2141,6 +2141,7 @@ export default function RestaurantePedidoApp() {
               mesas={filtraLoja(mesas).filter((m) => m.active)}
               dispositivos={filtraLoja(dispositivos)}
               orders={filtraLoja(orders)}
+              fidCaixa={fidCaixa}
             />
             {scannerAberto && (
               <QRScannerModal
@@ -2196,7 +2197,7 @@ function TabletView({
   subtotal, serviceFee, total,
   handleSendOrder, requestBill, message, onAbrirScanner,
   currentTableOrders = [], currentTableCancelled = [], cancelarPedidoTablet = () => {}, currentTableSubtotal = 0, currentTableTotal = 0,
-  lojaInfo, mesas = [], dispositivos = [], orders = [],
+  lojaInfo, mesas = [], dispositivos = [], orders = [], fidCaixa = null,
 }) {
   const [verConta, setVerConta]         = useState(false);
   const [carrinhoAberto, setCarrinhoAberto] = useState(false); // gaveta do carrinho
@@ -2459,6 +2460,16 @@ function TabletView({
     : ["Fechamento solicitado", "Em preparação"].includes(statusTabletConta) ? "warning"
     : "info";
 
+  // Fidelidade no tablet (dispositivo interno) — MESMA regra do caixa/smartphone.
+  // Projeta os pontos da compra atual (carrinho) sobre o subtotal sem taxa e
+  // atualiza em tempo real quando a regra muda (fidCaixa vem de fidRegraAtual).
+  const valorPorPontoTab = Number(fidCaixa?.valorPorPonto) || 0;
+  const fidAtivoTab = !!fidCaixa?.ativo && valorPorPontoTab > 0;
+  const pontosGanharCartTab = fidAtivoTab ? Math.floor(subtotal / valorPorPontoTab) : 0;
+  // Etapa de preparo mais avançada entre os pedidos da mesa (0..3; -1 = nenhum).
+  const ORDEM_TAB = ["received", "preparing", "ready", "delivered"];
+  const stepIdxTab = currentTableOrders.length ? Math.max(0, ...currentTableOrders.map((o) => ORDEM_TAB.indexOf(o.status))) : -1;
+
   // Envio do pedido: trava duplo clique/duplo toque e expõe um estado de
   // carregamento para o botão. handleSendOrder já faz toda a validação e só
   // limpa o carrinho em caso de sucesso — aqui só cuidamos do feedback
@@ -2628,6 +2639,8 @@ function TabletView({
             onEnviar={enviarPedidoTablet} enviando={enviandoPedido}
             podeFecharConta={podeFecharConta} contaSolicitada={contaSolicitada} onFecharConta={() => setConfirmarConta(true)} temPedidoNaMesa={temPedidoNaMesa}
             lojaInfo={lojaInfo}
+            pontosGanhar={pontosGanharCartTab} orderStage={stepIdxTab} hasActiveOrder={temPedidoNaMesa}
+            statusConta={statusTabletConta} tomConta={tomTabletConta} onAbrirAcompanhamento={() => setVerConta(true)}
           />
         </aside>
       </div>
@@ -2649,6 +2662,8 @@ function TabletView({
               onEnviar={enviarPedidoTablet} enviando={enviandoPedido}
               podeFecharConta={podeFecharConta} contaSolicitada={contaSolicitada} onFecharConta={() => setConfirmarConta(true)} temPedidoNaMesa={temPedidoNaMesa}
               lojaInfo={lojaInfo}
+              pontosGanhar={pontosGanharCartTab} orderStage={stepIdxTab} hasActiveOrder={temPedidoNaMesa}
+              statusConta={statusTabletConta} tomConta={tomTabletConta} onAbrirAcompanhamento={() => { setCarrinhoAberto(false); setVerConta(true); }}
               onFechar={() => setCarrinhoAberto(false)}
             />
           </div>
