@@ -17670,6 +17670,9 @@ function ChamadosPainel({ chamados = [], atenderChamado, assumirChamado = async 
   const [fEspera, setFEspera] = useState("todos");        // todos | 5 | 10
   const [fResp, setFResp] = useState("todos");            // todos | nao | <userId>
   const [ordenacao, setOrdenacao] = useState("prioridade");
+  const [periodoAnalise, setPeriodoAnalise] = useState("hoje"); // rege KPIs de análise + Visão analítica
+  const [periodoIni, setPeriodoIni] = useState("");
+  const [periodoFim, setPeriodoFim] = useState("");
   const [pagina, setPagina] = useState(1);
   const [expandido, setExpandido] = useState(null);
   const [alertasAbertos, setAlertasAbertos] = useState(false);
@@ -17692,38 +17695,55 @@ function ChamadosPainel({ chamados = [], atenderChamado, assumirChamado = async 
       return { ...c, criadoMs, atendido, esperaMin, respostaMin, estado, prioridade, responsavel: nomeResp(c.atendidoPor), origem: c.origem || "QR da mesa" };
     }), [chamados, agora, usuarios]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Janelas de tempo (hoje/ontem/últimas horas) ──
-  const inicioHoje = new Date(); inicioHoje.setHours(0, 0, 0, 0);
-  const inicioHojeMs = inicioHoje.getTime();
-  const inicioOntemMs = inicioHojeMs - 86400000;
-  const h1 = agora - 3600000, h2 = agora - 2 * 3600000;
-
+  // ── KPIs operacionais AO VIVO (independem do período): fila aberta agora ──
+  const h1 = agora - 3600000;
   const abertos = enriquecidos.filter((c) => !c.atendido);
   const criticos = abertos.filter((c) => c.prioridade === "critico").length;
   const novosUltimaHora = abertos.filter((c) => c.criadoMs >= h1).length;
-  const atendidosHoje = enriquecidos.filter((c) => c.atendido && c.atendidoEmISO && new Date(c.atendidoEmISO).getTime() >= inicioHojeMs);
-  const atendidosOntem = enriquecidos.filter((c) => { if (!c.atendido || !c.atendidoEmISO) return false; const t = new Date(c.atendidoEmISO).getTime(); return t >= inicioOntemMs && t < inicioHojeMs; });
-  const media = (arr) => arr.length ? arr.reduce((s, c) => s + c.respostaMin, 0) / arr.length : null;
-  const tmrHoje = media(atendidosHoje), tmrOntem = media(atendidosOntem);
-  const deltaTmr = (tmrHoje != null && tmrOntem != null) ? tmrHoje - tmrOntem : null;
-  const deltaAtend = atendidosOntem.length ? atendidosHoje.length - atendidosOntem.length : null;
 
-  // Ranking de mesas (do dia) e análise por tipo / SLA / tendência.
-  const chamadosHoje = enriquecidos.filter((c) => c.criadoMs >= inicioHojeMs);
-  const porMesa = {}; chamadosHoje.forEach((c) => { const m = c.mesa || "—"; porMesa[m] = (porMesa[m] || 0) + 1; });
+  // ── Período de análise (rege KPIs de análise + Visão analítica) ──
+  const [aData, bData] = intervaloPeriodo(periodoAnalise, periodoIni, periodoFim);
+  const aMs = aData.getTime(), bMs = bData.getTime();
+  const durMs = Math.max(1, bMs - aMs);
+  const prevAMs = aMs - durMs; // período anterior de mesma duração (para o comparativo)
+  const noPeriodo = (ms) => ms >= aMs && ms <= bMs;
+  const atendMs = (c) => (c.atendido && c.atendidoEmISO) ? new Date(c.atendidoEmISO).getTime() : null;
+
+  const chamadosPeriodo = enriquecidos.filter((c) => noPeriodo(c.criadoMs));
+  const atendidosPeriodo = enriquecidos.filter((c) => { const t = atendMs(c); return t != null && noPeriodo(t); });
+  const atendidosAnterior = enriquecidos.filter((c) => { const t = atendMs(c); return t != null && t >= prevAMs && t < aMs; });
+  const media = (arr) => arr.length ? arr.reduce((s, c) => s + c.respostaMin, 0) / arr.length : null;
+  const tmr = media(atendidosPeriodo), tmrPrev = media(atendidosAnterior);
+  const deltaTmr = (tmr != null && tmrPrev != null) ? tmr - tmrPrev : null;
+  const deltaAtend = atendidosAnterior.length ? atendidosPeriodo.length - atendidosAnterior.length : null;
+
+  // Ranking de mesas e análise por tipo / SLA / tendência — no período.
+  const porMesa = {}; chamadosPeriodo.forEach((c) => { const m = c.mesa || "—"; porMesa[m] = (porMesa[m] || 0) + 1; });
   const mesasRank = Object.entries(porMesa).map(([mesa, n]) => ({ mesa, n })).sort((a, b) => b.n - a.n);
   const mesaTop = mesasRank[0] || null;
-  const mesaTop2h = mesaTop ? enriquecidos.filter((c) => c.mesa === mesaTop.mesa && c.criadoMs >= h2).length : 0;
 
-  const porTipo = Object.keys(CHAMADO_TIPOS).map((t) => ({ t, ...CHAMADO_TIPOS[t], n: chamadosHoje.filter((c) => c.tipo === t).length }));
+  const porTipo = Object.keys(CHAMADO_TIPOS).map((t) => ({ t, ...CHAMADO_TIPOS[t], n: chamadosPeriodo.filter((c) => c.tipo === t).length }));
   const totalTipo = porTipo.reduce((s, x) => s + x.n, 0);
-  const dentroPrazo = atendidosHoje.filter((c) => c.respostaMin <= CHAMADO_SLA_CRITICO).length;
-  const slaPct = atendidosHoje.length ? Math.round((dentroPrazo / atendidosHoje.length) * 100) : 0;
-  const acimaPrazo = atendidosHoje.length - dentroPrazo;
-  // Tendência: chamados criados por faixa de 20 min nas últimas 2h.
-  const buckets = []; const passo = 20 * 60000;
-  for (let i = 5; i >= 0; i--) { const ini = agora - (i + 1) * passo, fim = agora - i * passo; buckets.push({ n: enriquecidos.filter((c) => c.criadoMs >= ini && c.criadoMs < fim).length, hora: fmtHoraChamado(new Date(fim).toISOString()) }); }
+  const dentroPrazo = atendidosPeriodo.filter((c) => c.respostaMin <= CHAMADO_SLA_CRITICO).length;
+  const slaPct = atendidosPeriodo.length ? Math.round((dentroPrazo / atendidosPeriodo.length) * 100) : 0;
+  const acimaPrazo = atendidosPeriodo.length - dentroPrazo;
+
+  // Tendência adaptativa: divide o período em faixas iguais e conta os chamados
+  // criados em cada faixa. Rótulos por hora (1 dia) ou por data (vários dias).
+  const umDia = 86400000;
+  const multiDias = durMs > umDia * 1.5;
+  const nFaixas = Math.min(12, Math.max(4, multiDias ? Math.ceil(durMs / umDia) : 6));
+  const faixaMs = durMs / nFaixas;
+  const buckets = [];
+  for (let i = 0; i < nFaixas; i++) {
+    const ini = aMs + i * faixaMs, fim = i === nFaixas - 1 ? bMs + 1 : aMs + (i + 1) * faixaMs;
+    const d = new Date(ini);
+    const rot = multiDias ? d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) : fmtHoraChamado(d.toISOString());
+    buckets.push({ n: enriquecidos.filter((c) => c.criadoMs >= ini && c.criadoMs < fim).length, rot });
+  }
   const maxBucket = Math.max(1, ...buckets.map((b) => b.n));
+  const PERIODO_LABEL = { hoje: "Hoje", ontem: "Ontem", "7": "Últimos 7 dias", "15": "Últimos 15 dias", "30": "Últimos 30 dias", periodo: (periodoIni || periodoFim) ? `${periodoIni || "—"} a ${periodoFim || "—"}` : "Período" };
+  const periodoLabel = PERIODO_LABEL[periodoAnalise] || "Período";
 
   // ── Fila filtrada + ordenada ──
   const q = busca.trim().toLowerCase();
@@ -17748,15 +17768,16 @@ function ChamadosPainel({ chamados = [], atenderChamado, assumirChamado = async 
   const recentes = enriquecidos.filter((c) => c.atendido && c.atendidoEmISO).sort((a, b) => new Date(b.atendidoEmISO) - new Date(a.atendidoEmISO)).slice(0, 6);
   const respOpcoes = [...new Set(enriquecidos.map((c) => c.atendidoPor).filter((x) => x != null).map(String))];
 
-  function limparFiltros() { setBusca(""); setFTipo("todos"); setFEstado("abertos"); setFPrio("todas"); setFEspera("todos"); setFResp("todos"); setOrdenacao("prioridade"); setPagina(1); }
+  function limparFiltros() { setBusca(""); setFTipo("todos"); setFEstado("abertos"); setFPrio("todas"); setFEspera("todos"); setFResp("todos"); setOrdenacao("prioridade"); setPeriodoAnalise("hoje"); setPeriodoIni(""); setPeriodoFim(""); setPagina(1); }
   const horaAtualizacao = `${String(new Date(atualizadoEm).getHours()).padStart(2, "0")}:${String(new Date(atualizadoEm).getMinutes()).padStart(2, "0")}`;
+  const periodoBaixo = periodoLabel.toLowerCase();
 
   const KPIS = [
     { rot: "Pendentes agora", val: abertos.length, cor: "#E67E22", Icone: IconComanda, sub: novosUltimaHora > 0 ? `+${novosUltimaHora} na última hora` : "estável na última hora" },
     { rot: "Críticos", val: criticos, cor: "#DC2626", Icone: IconAlerta, sub: `acima de ${CHAMADO_SLA_CRITICO} min de espera` },
-    { rot: "Tempo médio de resposta", val: tmrHoje != null ? fmtRespostaChamado(tmrHoje) : "—", cor: "#0F4C5C", Icone: IconRelogio, sub: deltaTmr != null ? `${deltaTmr <= 0 ? "−" : "+"}${fmtRespostaChamado(Math.abs(deltaTmr))} vs. ontem` : "sem base de ontem", subCor: deltaTmr != null ? (deltaTmr <= 0 ? "#047857" : "#B91C1C") : null },
-    { rot: "Mesa com mais chamados", val: mesaTop ? mesaTop.mesa : "—", cor: "#0F4C5C", Icone: IconUsuarios, sub: mesaTop ? `${mesaTop2h} ${mesaTop2h === 1 ? "chamado" : "chamados"} nas últimas 2h` : "sem chamados hoje" },
-    { rot: "Atendidos hoje", val: atendidosHoje.length, cor: "#059669", Icone: IconCheck, sub: deltaAtend != null ? `${deltaAtend >= 0 ? "+" : "−"}${Math.abs(deltaAtend)} vs. ontem` : `${dentroPrazo} no prazo`, subCor: deltaAtend != null ? (deltaAtend >= 0 ? "#047857" : "#B91C1C") : null },
+    { rot: "Tempo médio de resposta", val: tmr != null ? fmtRespostaChamado(tmr) : "—", cor: "#0F4C5C", Icone: IconRelogio, sub: deltaTmr != null ? `${deltaTmr <= 0 ? "−" : "+"}${fmtRespostaChamado(Math.abs(deltaTmr))} vs. período anterior` : `${periodoBaixo} · sem base anterior`, subCor: deltaTmr != null ? (deltaTmr <= 0 ? "#047857" : "#B91C1C") : null },
+    { rot: "Mesa com mais chamados", val: mesaTop ? mesaTop.mesa : "—", cor: "#0F4C5C", Icone: IconUsuarios, sub: mesaTop ? `${mesaTop.n} ${mesaTop.n === 1 ? "chamado" : "chamados"} · ${periodoBaixo}` : `sem chamados · ${periodoBaixo}` },
+    { rot: "Atendidos", val: atendidosPeriodo.length, cor: "#059669", Icone: IconCheck, sub: deltaAtend != null ? `${deltaAtend >= 0 ? "+" : "−"}${Math.abs(deltaAtend)} vs. período anterior` : `${dentroPrazo} no prazo · ${periodoBaixo}`, subCor: deltaAtend != null ? (deltaAtend >= 0 ? "#047857" : "#B91C1C") : null },
   ];
   const selBox = "flex min-w-0 items-center gap-2 rounded-xl border border-[var(--pp-border)] bg-white px-3 py-1.5";
   const CHIP_ESTADOS = [["pendente", "Pendentes"], ["em_atendimento", "Em atendimento"], ["atendido", "Atendidos"]];
@@ -17824,6 +17845,7 @@ function ChamadosPainel({ chamados = [], atenderChamado, assumirChamado = async 
         </div>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:flex xl:items-center">
           {[
+            { rot: "Período (análise)", val: periodoAnalise, set: setPeriodoAnalise, ops: [["hoje", "Hoje"], ["ontem", "Ontem"], ["7", "7 dias"], ["15", "15 dias"], ["30", "30 dias"], ["periodo", "Período"]] },
             { rot: "Prioridade", val: fPrio, set: setFPrio, ops: [["todas", "Todas"], ["critico", "Crítico"], ["atencao", "Atenção"], ["normal", "Normal"]] },
             { rot: "Tempo de espera", val: fEspera, set: setFEspera, ops: [["todos", "Qualquer"], ["5", "Acima de 5 min"], ["10", "Acima de 10 min"]] },
             { rot: "Responsável", val: fResp, set: setFResp, ops: [["todos", "Todos"], ["nao", "Não atribuído"], ...respOpcoes.map((id) => [id, nomeResp(id)])] },
@@ -17838,6 +17860,24 @@ function ChamadosPainel({ chamados = [], atenderChamado, assumirChamado = async 
               </div>
             </label>
           ))}
+          {periodoAnalise === "periodo" && (
+            <>
+              <label className={`${selBox} col-span-2 sm:col-span-1`}>
+                <div className="min-w-0 flex-1">
+                  <span className="block text-[9px] font-bold uppercase tracking-wider text-[var(--pp-text-muted)]">Data inicial</span>
+                  <input type="date" value={periodoIni} max={periodoFim || undefined} onChange={(e) => comReset(setPeriodoIni)(e.target.value)}
+                    className="w-full cursor-pointer bg-transparent text-[13px] font-bold text-dash-navy outline-none" />
+                </div>
+              </label>
+              <label className={`${selBox} col-span-2 sm:col-span-1`}>
+                <div className="min-w-0 flex-1">
+                  <span className="block text-[9px] font-bold uppercase tracking-wider text-[var(--pp-text-muted)]">Data final</span>
+                  <input type="date" value={periodoFim} min={periodoIni || undefined} onChange={(e) => comReset(setPeriodoFim)(e.target.value)}
+                    className="w-full cursor-pointer bg-transparent text-[13px] font-bold text-dash-navy outline-none" />
+                </div>
+              </label>
+            </>
+          )}
           <button onClick={limparFiltros} className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl border border-[#E67E22]/40 bg-[#E67E22]/8 px-3.5 py-2 text-[13px] font-bold text-[#C2410C] transition hover:bg-[#E67E22]/15">Limpar filtros</button>
         </div>
       </div>
@@ -17913,7 +17953,7 @@ function ChamadosPainel({ chamados = [], atenderChamado, assumirChamado = async 
 
         {/* Visão analítica */}
         <div className="space-y-4 rounded-2xl border border-[var(--pp-border)] bg-white p-4 shadow-[0_2px_8px_rgba(43,35,32,0.04)]">
-          <h3 className="page-title text-lg font-bold text-dash-navy">Visão analítica <span className="text-xs font-semibold text-[var(--pp-text-muted)]">· hoje</span></h3>
+          <h3 className="page-title text-lg font-bold text-dash-navy">Visão analítica <span className="text-xs font-semibold text-[var(--pp-text-muted)]">· {periodoBaixo}</span></h3>
 
           {/* Chamados por tipo (rosca) */}
           <div className="rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-4">
@@ -17949,7 +17989,7 @@ function ChamadosPainel({ chamados = [], atenderChamado, assumirChamado = async 
           {/* Mesas com mais chamados */}
           <div className="rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-4">
             <p className="mb-3 text-[11px] font-bold uppercase tracking-wider text-[var(--pp-text-muted)]">Mesas com mais chamados</p>
-            {mesasRank.length === 0 ? <p className="text-sm text-[var(--pp-text-muted)]">Sem chamados hoje.</p> : (
+            {mesasRank.length === 0 ? <p className="text-sm text-[var(--pp-text-muted)]">Sem chamados no período.</p> : (
               <div className="space-y-2">
                 {mesasRank.slice(0, 4).map((m) => (
                   <div key={m.mesa} className="flex items-center gap-2 text-[13px]">
@@ -17982,7 +18022,7 @@ function ChamadosPainel({ chamados = [], atenderChamado, assumirChamado = async 
               </div>
             </div>
             <div className="rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-4">
-              <p className="mb-3 text-[11px] font-bold uppercase tracking-wider text-[var(--pp-text-muted)]">Tendência <span className="normal-case text-[var(--pp-text-muted)]">(últimas 2h)</span></p>
+              <p className="mb-3 text-[11px] font-bold uppercase tracking-wider text-[var(--pp-text-muted)]">Tendência <span className="normal-case text-[var(--pp-text-muted)]">· {periodoBaixo}</span></p>
               <svg viewBox="0 0 240 80" className="h-[70px] w-full">
                 {(() => {
                   const pts = buckets.map((b, i) => { const x = 10 + (i / (buckets.length - 1)) * 220; const y = 70 - (b.n / maxBucket) * 56; return [x, y]; });
@@ -17995,15 +18035,15 @@ function ChamadosPainel({ chamados = [], atenderChamado, assumirChamado = async 
                   </>;
                 })()}
               </svg>
-              <div className="mt-1 flex justify-between text-[10px] font-semibold text-[var(--pp-text-muted)]"><span>{buckets[0]?.hora}</span><span>{buckets[buckets.length - 1]?.hora}</span></div>
+              <div className="mt-1 flex justify-between text-[10px] font-semibold text-[var(--pp-text-muted)]"><span>{buckets[0]?.rot}</span><span>{buckets[buckets.length - 1]?.rot}</span></div>
             </div>
           </div>
 
           {/* Sugestão do sistema */}
-          {mesaTop && mesaTop2h >= 2 && (
+          {mesaTop && mesaTop.n >= 3 && (
             <div className="rounded-xl border border-[#0F4C5C]/20 bg-[#0F4C5C]/[0.05] p-4">
               <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-[#0F4C5C]">💡 Sugestão do sistema</p>
-              <p className="mt-1.5 text-[13px] text-dash-navy">{mesaTop.mesa} teve {mesaTop2h} chamados nas últimas 2h. Verificar necessidade de apoio no salão.</p>
+              <p className="mt-1.5 text-[13px] text-dash-navy">{mesaTop.mesa} concentrou {mesaTop.n} chamados ({periodoBaixo}). Verificar necessidade de apoio no salão.</p>
             </div>
           )}
         </div>
