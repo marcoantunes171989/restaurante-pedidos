@@ -454,6 +454,15 @@ export async function excluirRecompensa(id) {
   const { error } = await supabase.from('tab_fidelidade_recompensas').delete().eq('id', id)
   if (error) throw error
 }
+export async function atualizarRecompensa(id, campos) {
+  const patch = {}
+  if (campos.nome != null) patch.nome = campos.nome
+  if (campos.descricao !== undefined) patch.descricao = campos.descricao || null
+  if (campos.pontosNecessarios != null) patch.pontos_necessarios = Number(campos.pontosNecessarios) || 0
+  if (typeof campos.ativo === 'boolean') patch.ativo = campos.ativo
+  const { error } = await supabase.from('tab_fidelidade_recompensas').update(patch).eq('id', id)
+  if (error) throw error
+}
 export async function fetchFidelidadeTransacoes(lojaId) {
   let q = supabase.from('tab_fidelidade_transacoes').select('*').order('criado_em', { ascending: false }).limit(5000)
   if (lojaId != null) q = q.eq('loja_id', lojaId)

@@ -22,7 +22,7 @@ import {
   fetchGruposOpcoes, fetchOpcoes, inserirGrupoOpcoes, atualizarGrupoOpcoes, excluirGrupoOpcoes, inserirOpcao, atualizarOpcao, excluirOpcao, escutarGruposOpcoes, escutarOpcoes,
   fetchSetoresCozinha, inserirSetorCozinha, atualizarSetorCozinha, excluirSetorCozinha, escutarSetoresCozinha,
   fetchCaixas, fetchMovimentosCaixa, abrirCaixa, registrarMovimentoCaixa, fecharCaixa, escutarCaixas,
-  fetchFidelidadeRegras, salvarFidelidadeRegra, fetchFidelidadeRecompensas, inserirRecompensa, excluirRecompensa, fetchFidelidadeTransacoes, lancarFidelidadeTransacao, escutarFidelidadeTransacoes,
+  fetchFidelidadeRegras, salvarFidelidadeRegra, fetchFidelidadeRecompensas, inserirRecompensa, excluirRecompensa, atualizarRecompensa, fetchFidelidadeTransacoes, lancarFidelidadeTransacao, escutarFidelidadeTransacoes,
   escutarPesquisas,
   fetchChamados, criarChamado, atualizarChamado, escutarChamados,
   perguntarCopilotoIA,
@@ -1494,6 +1494,12 @@ export default function RestaurantePedidoApp() {
     setFidRecompensas((cur) => cur.filter((r) => r.id !== id));
     try { await excluirRecompensa(id); } catch (e) { notify("error", "Erro ao excluir: " + (e.message || e)); }
   }
+  async function editarRecompensaFid(id, campos) {
+    if (campos.nome != null && !campos.nome.trim()) return notify("error", "Informe o nome da recompensa.");
+    setFidRecompensas((cur) => cur.map((r) => r.id === id ? { ...r, ...campos, pontosNecessarios: campos.pontosNecessarios != null ? Number(campos.pontosNecessarios) || 0 : r.pontosNecessarios } : r).sort((a, b) => a.pontosNecessarios - b.pontosNecessarios));
+    try { await atualizarRecompensa(id, campos); notify("success", "Recompensa atualizada."); }
+    catch (e) { notify("error", "Erro ao atualizar: " + (e.message || e)); }
+  }
   async function lancarPontos(clienteId, pontos, tipo, descricao) {
     if (!clienteId || !pontos) return;
     try { const t = await lancarFidelidadeTransacao({ lojaId: lojaAtual, clienteId, pontos, tipo, descricao }); setFidTransacoes((cur) => [t, ...cur]); notify("success", tipo === "redeem" ? "Resgate registrado." : "Pontos lançados."); }
@@ -2130,7 +2136,7 @@ export default function RestaurantePedidoApp() {
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} products={products} lojaInfo={lojaInfo} />}
         {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierView orders={orders} baixarComandas={baixarComandas} formasPagamento={formasPagamentoLoja} lojaInfo={lojaInfo} currentUser={currentUser} caixaAberto={caixaAberto} auditar={auditar} conexaoOk={conexaoOk} editarItensPedido={editarItensPedido} products={products} />}
         {/* activeTab === "opmobile" agora é tratado pelo branch dedicado no início desta função (sem cabeçalho/grade de módulos) */}
-        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} toggleLoja={toggleLoja} editarLoja={editarLoja} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} filtraLoja={filtraLoja} pesquisas={pesquisas} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} cancelarPedido={cancelarPedido} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} salvarConfigCrm={salvarConfigCrm} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} assinaturas={assinaturas} promocoes={filtraLoja(promocoes)} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} opcoesApi={{ grupos: filtraLoja(gruposOpcoes), opcoes: filtraLoja(opcoes), addGrupo: addGrupoOpcoes, editarGrupo: editarGrupoOpcoes, removerGrupo: removerGrupoOpcoes, addOpcao, editarOpcao, removerOpcao }} setores={filtraLoja(setoresCozinha)} setoresApi={{ add: addSetorCozinha, editar: editarSetorCozinha, remover: removerSetorCozinha }} vincularProdutoSetor={vincularProdutoSetor} salvarProdutoQr={salvarProdutoQr} irParaCozinha={(setorId) => { setCozinhaSetorInicial(setorId ?? null); if (canAccess(currentUser, "kitchen")) setActiveTab("kitchen"); else notify("error", "Sem permissão para acessar o painel da cozinha."); }} caixaAberto={caixaAberto} caixasLoja={filtraLoja(caixas)} caixaApi={{ abrir: abrirCaixaFn, movimentar: movimentarCaixaFn, fechar: fecharCaixaFn, fetchMovimentos: fetchMovimentosCaixa }} fidRegra={fidRegraAtual} fidRecompensas={filtraLoja(fidRecompensas)} fidTransacoes={filtraLoja(fidTransacoes)} fidApi={{ salvarRegra: salvarRegraFid, addRecompensa: addRecompensaFid, removerRecompensa: removerRecompensaFid, lancarPontos }} chamados={filtraLoja(chamados)} atenderChamado={atenderChamadoFn} assumirChamado={assumirChamadoFn} auditoria={filtraLoja(auditoria)} />}
+        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} toggleLoja={toggleLoja} editarLoja={editarLoja} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} filtraLoja={filtraLoja} pesquisas={pesquisas} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} cancelarPedido={cancelarPedido} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} salvarConfigCrm={salvarConfigCrm} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} assinaturas={assinaturas} promocoes={filtraLoja(promocoes)} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} opcoesApi={{ grupos: filtraLoja(gruposOpcoes), opcoes: filtraLoja(opcoes), addGrupo: addGrupoOpcoes, editarGrupo: editarGrupoOpcoes, removerGrupo: removerGrupoOpcoes, addOpcao, editarOpcao, removerOpcao }} setores={filtraLoja(setoresCozinha)} setoresApi={{ add: addSetorCozinha, editar: editarSetorCozinha, remover: removerSetorCozinha }} vincularProdutoSetor={vincularProdutoSetor} salvarProdutoQr={salvarProdutoQr} irParaCozinha={(setorId) => { setCozinhaSetorInicial(setorId ?? null); if (canAccess(currentUser, "kitchen")) setActiveTab("kitchen"); else notify("error", "Sem permissão para acessar o painel da cozinha."); }} caixaAberto={caixaAberto} caixasLoja={filtraLoja(caixas)} caixaApi={{ abrir: abrirCaixaFn, movimentar: movimentarCaixaFn, fechar: fecharCaixaFn, fetchMovimentos: fetchMovimentosCaixa }} fidRegra={fidRegraAtual} fidRecompensas={filtraLoja(fidRecompensas)} fidTransacoes={filtraLoja(fidTransacoes)} fidApi={{ salvarRegra: salvarRegraFid, addRecompensa: addRecompensaFid, removerRecompensa: removerRecompensaFid, editarRecompensa: editarRecompensaFid, lancarPontos }} chamados={filtraLoja(chamados)} atenderChamado={atenderChamadoFn} assumirChamado={assumirChamadoFn} auditoria={filtraLoja(auditoria)} />}
 
       </div>
       )}
@@ -6863,7 +6869,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           {ativo === "copiloto"   && (precisaEmpresa ? avisoEmpresa : <DashboardAdmin orders={orders} products={products} clientes={clientes} setores={setores} pesquisas={filtraLoja(pesquisas)} usuarios={usersLoja ?? users} irPara={setAdminSection} soCopiloto />)}
           {ativo === "relatorios" && <RelatoriosAdmin orders={orders} products={products} lojaInfo={lojaInfo} pesquisas={filtraLoja(pesquisas)} irParaMesas={() => setAdminSection("mesas")} irParaProdutos={() => setAdminSection("products")} currentUser={currentUser} />}
           {ativo === "crm"        && <CrmAdmin clientes={clientes} orders={orders} fidTransacoes={fidTransacoes} fidRecompensas={fidRecompensas} lancarPontos={fidApi?.lancarPontos} configCrm={lojaInfo?.configCrm || {}} salvarConfigCrm={salvarConfigCrm} />}
-          {ativo === "fidelidade" && (precisaEmpresa ? avisoEmpresa : <FidelidadeAdmin regra={fidRegra} recompensas={fidRecompensas} transacoes={fidTransacoes} clientes={clientes} api={fidApi} />)}
+          {ativo === "fidelidade" && (precisaEmpresa ? avisoEmpresa : <FidelidadeAdmin regra={fidRegra} recompensas={fidRecompensas} transacoes={fidTransacoes} clientes={clientes} orders={orders} api={fidApi} onVerClientes={() => setAdminSection("crm")} />)}
           {ativo === "products"   && (precisaEmpresa ? avisoEmpresa : <ProductAdmin   products={products} categories={categories} categoriasDb={categoriasDb} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} editarProduto={editarProduto} removerProduto={removerProduto} lojaId={lojaInfo?.id} opcoesApi={opcoesApi} setores={setores} />)}
           {ativo === "setores"    && (precisaEmpresa ? avisoEmpresa : <SetoresCozinhaAdmin setores={setores} produtos={products} orders={orders} api={setoresApi} vincularProduto={vincularProdutoSetor} irParaCozinha={irParaCozinha} />)}
           {ativo === "operacaomobile" && <OperacaoMobileView orders={orders} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} confirmarRetirada={confirmarRetirada} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} products={products} setores={setores} formasPagamento={formasPagamento} lojaInfo={lojaInfo} perms={acessosOperacionais(currentUser)} usuarioNome={currentUser?.name || ""} onFechar={() => setAdminSection("dashboard")} cancelarPedido={cancelarPedido} podeCancelarPedido={canAccess(currentUser, "kitchen")} />}
@@ -17557,69 +17563,362 @@ function FidelidadePainelCliente({ cliente, pontos, recompensas = [], lancarPont
   );
 }
 
-function FidelidadeAdmin({ regra, recompensas = [], transacoes = [], clientes = [], api }) {
+// ── Ícones inline (tema claro) para o Programa de Fidelidade ──
+const FidIco = {
+  pessoas: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" /></svg>,
+  estrela: (p) => <svg viewBox="0 0 24 24" fill="currentColor" {...p}><path d="M12 2l2.9 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77 5.82 21l1.18-6.88-5-4.87 7.1-1.01z" /></svg>,
+  presente: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><rect x="3" y="8" width="18" height="4" rx="1" /><path d="M12 8v13M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7" /><path d="M7.5 8a2.5 2.5 0 0 1 0-5C11 3 12 8 12 8s1-5 4.5-5a2.5 2.5 0 0 1 0 5" /></svg>,
+  dinheiro: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><circle cx="12" cy="12" r="9" /><path d="M14.5 9a2.5 2 0 0 0-2.5-1.5c-1.4 0-2.5.7-2.5 1.8 0 2.4 5 1.2 5 3.6 0 1.1-1.1 1.8-2.5 1.8A2.5 2 0 0 1 9.5 15M12 6.5v11" /></svg>,
+  config: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>,
+  info: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><circle cx="12" cy="12" r="10" /><path d="M12 16v-4M12 8h.01" /></svg>,
+  download: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg>,
+  lapis: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z" /></svg>,
+  lixo: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /></svg>,
+  mais: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M12 5v14M5 12h14" /></svg>,
+  check: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M20 6L9 17l-5-5" /></svg>,
+  seta: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M5 12h14M12 5l7 7-7 7" /></svg>,
+};
+const fmtInt = (n) => Number(n || 0).toLocaleString("pt-BR");
+// Variação mês a mês de uma métrica (soma no mês atual vs. anterior)
+function deltaMesFid(atual, anterior) {
+  if (anterior > 0) { const pct = Math.round(((atual - anterior) / anterior) * 100); return { txt: `${pct >= 0 ? "+" : ""}${pct}% este mês`, cor: pct >= 0 ? "#3F6021" : "#B91C1C" }; }
+  if (atual > 0) return { txt: `${fmtInt(atual)} este mês`, cor: "#3F6021" };
+  return { txt: "sem movimento este mês", cor: "var(--pp-text-muted)" };
+}
+
+function FidelidadeAdmin({ regra, recompensas = [], transacoes = [], clientes = [], orders = [], api, onVerClientes }) {
   const [valorPorPonto, setValorPorPonto] = useState(regra?.valorPorPonto ?? 1);
-  const [nova, setNova] = useState({ nome: "", descricao: "", pontosNecessarios: "" });
+  const [configAberto, setConfigAberto] = useState(false);
+  const [modalRec, setModalRec] = useState(null); // null | {} (nova) | recompensa (editar)
+  const [confirmarExcluir, setConfirmarExcluir] = useState(null);
+  const [verTodasRec, setVerTodasRec] = useState(false);
+  const regraRef = useRef(null);
   useEffect(() => { setValorPorPonto(regra?.valorPorPonto ?? 1); }, [regra?.id]);
+
+  const programaAtivo = regra?.ativo !== false && !!regra;
+  const vpp = Number(String(regra?.valorPorPonto ?? valorPorPonto).replace(",", ".")) || 1;
+
+  // ── Métricas 100% reais ──
   const saldo = useMemo(() => { const m = {}; transacoes.forEach((t) => { if (t.clienteId != null) m[t.clienteId] = (m[t.clienteId] || 0) + t.pontos; }); return m; }, [transacoes]);
-  const ranking = clientes.map((c) => ({ ...c, pontos: saldo[c.id] || 0 })).filter((c) => c.pontos > 0).sort((a, b) => b.pontos - a.pontos).slice(0, 20);
-  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-gold-400/60 transition";
-  const lbl = "mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500";
+  const now = new Date();
+  const mesAtual = (iso) => { const d = new Date(iso); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); };
+  const mesAnterior = (iso) => { const d = new Date(iso); const p = new Date(now.getFullYear(), now.getMonth() - 1, 1); return d.getMonth() === p.getMonth() && d.getFullYear() === p.getFullYear(); };
+
+  const met = useMemo(() => {
+    const earn = transacoes.filter((t) => t.tipo === "earn");
+    const redeem = transacoes.filter((t) => t.tipo === "redeem");
+    const somaPts = (arr, filtro) => arr.reduce((s, t) => s + (filtro && !filtro(t.criadoEmISO) ? 0 : (Number(t.pontos) || 0)), 0);
+    const emitidos = somaPts(earn);
+    const emitidosMes = somaPts(earn, mesAtual), emitidosAnt = somaPts(earn, mesAnterior);
+    const resgatados = Math.abs(somaPts(redeem));
+    const resgMes = Math.abs(somaPts(redeem, mesAtual)), resgAnt = Math.abs(somaPts(redeem, mesAnterior));
+    const cadMes = clientes.filter((c) => c.criadoEm && mesAtual(c.criadoEm)).length;
+    const cadAnt = clientes.filter((c) => c.criadoEm && mesAnterior(c.criadoEm)).length;
+    return {
+      totalClientes: clientes.length, cadMes, cadAnt,
+      emitidos, emitidosMes, emitidosAnt,
+      resgatados, resgMes, resgAnt,
+      valorGerado: emitidos * vpp, valorMes: emitidosMes * vpp, valorAnt: emitidosAnt * vpp,
+    };
+  }, [transacoes, clientes, vpp]);
+
+  // Gasto/última compra por cliente (casado pelo telefone, mesmo critério do CRM)
+  const gastoPorCliente = useMemo(() => {
+    const m = {};
+    (clientes || []).forEach((c) => {
+      const peds = (orders || []).filter((o) => o.clienteTelefone && o.clienteTelefone === c.telefone && o.status !== "cancelled");
+      const total = peds.reduce((s, o) => s + o.items.reduce((a, i) => a + i.price * i.quantity, 0), 0);
+      const ultimo = peds.map((o) => o.createdAtISO).filter(Boolean).sort().slice(-1)[0] || null;
+      m[c.id] = { total, ultimo };
+    });
+    return m;
+  }, [clientes, orders]);
+
+  const ranking = clientes.map((c) => ({ ...c, pontos: saldo[c.id] || 0, ...(gastoPorCliente[c.id] || { total: 0, ultimo: null }) }))
+    .filter((c) => c.pontos > 0).sort((a, b) => b.pontos - a.pontos);
+  const recVisiveis = verTodasRec ? recompensas : recompensas.slice(0, 5);
+
+  const KPIS = [
+    { rot: "Clientes Cadastrados", val: fmtInt(met.totalClientes), d: deltaMesFid(met.cadMes, met.cadAnt), cor: "#E67E22", Icone: FidIco.pessoas },
+    { rot: "Pontos Emitidos", val: fmtInt(met.emitidos), d: deltaMesFid(met.emitidosMes, met.emitidosAnt), cor: "#0F4C5C", Icone: FidIco.estrela },
+    { rot: "Pontos Resgatados", val: fmtInt(met.resgatados), d: deltaMesFid(met.resgMes, met.resgAnt), cor: "#5E8C31", Icone: FidIco.presente },
+    { rot: "Valor Gerado", val: formatCurrency(met.valorGerado), d: deltaMesFid(met.valorMes, met.valorAnt), cor: "#B45309", Icone: FidIco.dinheiro },
+  ];
+
+  // Exportações CSV (dados reais)
+  function baixarCsv(nome, linhas) {
+    const csv = linhas.map((l) => l.map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`).join(";")).join("\n");
+    const url = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" }));
+    const a = document.createElement("a"); a.href = url; a.download = nome; a.click(); URL.revokeObjectURL(url);
+  }
+  function exportarClientes() {
+    baixarCsv("fidelidade-clientes.csv", [["Cliente", "Telefone", "Pontos", "Total gasto", "Última compra"],
+      ...ranking.map((c) => [c.nome, c.telefone || "", c.pontos, c.total.toFixed(2).replace(".", ","), c.ultimo ? new Date(c.ultimo).toLocaleDateString("pt-BR") : "—"])]);
+  }
+  function exportarMovimentacoes() {
+    const nomeCli = {}; clientes.forEach((c) => (nomeCli[c.id] = c.nome));
+    baixarCsv("fidelidade-movimentacoes.csv", [["Data", "Cliente", "Tipo", "Pontos", "Descrição"],
+      ...transacoes.map((t) => [t.criadoEmISO ? new Date(t.criadoEmISO).toLocaleString("pt-BR") : "", nomeCli[t.clienteId] || "—", t.tipo === "redeem" ? "Resgate" : "Emissão", t.pontos, t.descricao || ""])]);
+  }
+
+  const inpCard = "w-full rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2.5 text-sm text-dash-navy outline-none transition focus:border-[#E67E22]";
+  const COMO = [
+    { n: 1, cor: "#E67E22", Icone: FidIco.dinheiro, t: "Cliente faz compra", d: "A cada real gasto, pontos são acumulados automaticamente." },
+    { n: 2, cor: "#0F4C5C", Icone: FidIco.estrela, t: "Pontos acumulam", d: "Os pontos ficam disponíveis na conta do cliente." },
+    { n: 3, cor: "#5E8C31", Icone: FidIco.presente, t: "Troca por recompensas", d: "Cliente troca pontos por recompensas incríveis!" },
+  ];
+  const DICAS = ["Divulgue o programa nas redes sociais", "Informe os clientes no momento do pedido", "Crie recompensas atrativas", "Acompanhe os relatórios regularmente"];
 
   return (
     <main className="space-y-5">
-      <PageHeader icone={<IconLicencas />} titulo="Programa de Fidelidade" descricao="Cada R$ gasto vira pontos; pontos viram recompensas. Pontos são creditados automaticamente ao fechar a conta de clientes identificados." />
-
-      {/* Regra de pontuação */}
-      <div className="rounded-[2rem] border border-gold-400/20 bg-gold-400/[0.04] p-6">
-        <h3 className="page-title text-base font-bold tracking-tight text-white">Regra de pontuação</h3>
-        <div className="mt-3 flex flex-wrap items-end gap-3">
-          <div className="min-w-[180px]">
-            <span className={lbl}>R$ que valem 1 ponto</span>
-            <input inputMode="decimal" value={valorPorPonto} onChange={(e) => setValorPorPonto(e.target.value.replace(/[^\d.,]/g, ""))} className={inp} />
-          </div>
-          <PrimeButton onClick={() => api?.salvarRegra({ valorPorPonto: Number(String(valorPorPonto).replace(",", ".")) || 1, ativo: true })}>Salvar regra</PrimeButton>
-          <p className="text-sm text-slate-400">Ex.: <b className="text-gold-300">R$ 1</b> = 1 ponto → uma compra de R$ 50 gera 50 pontos.</p>
+      {/* Cabeçalho */}
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <h2 className="page-title flex items-center gap-3 text-2xl font-bold tracking-tight text-dash-navy">
+            Programa de Fidelidade
+            <span className={`rounded-full px-2.5 py-1 text-xs font-black ${programaAtivo ? "bg-[#5E8C31]/15 text-[#3F6021]" : "bg-[var(--pp-border)] text-[var(--pp-text-muted)]"}`}>{programaAtivo ? "Ativo" : "Inativo"}</span>
+          </h2>
+          <p className="mt-1 text-sm text-[var(--pp-text-muted)]">Gerencie regras de pontuação, recompensas e acompanhe a performance do seu programa.</p>
         </div>
-      </div>
-
-      {/* Recompensas */}
-      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
-        <h3 className="page-title text-base font-bold tracking-tight text-white">Recompensas</h3>
-        <div className="mt-3 flex flex-wrap items-end gap-2">
-          <div className="min-w-[160px] flex-1"><span className={lbl}>Nome</span><input value={nova.nome} onChange={(e) => setNova({ ...nova, nome: e.target.value })} placeholder="Ex.: Sobremesa grátis" className={inp} /></div>
-          <div className="min-w-[140px] flex-1"><span className={lbl}>Descrição</span><input value={nova.descricao} onChange={(e) => setNova({ ...nova, descricao: e.target.value })} placeholder="Opcional" className={inp} /></div>
-          <div className="w-28"><span className={lbl}>Pontos</span><input inputMode="numeric" value={nova.pontosNecessarios} onChange={(e) => setNova({ ...nova, pontosNecessarios: e.target.value.replace(/\D/g, "") })} placeholder="100" className={inp} /></div>
-          <PrimeButton onClick={() => { if (nova.nome.trim()) { api?.addRecompensa({ ...nova, pontosNecessarios: Number(nova.pontosNecessarios) || 0 }); setNova({ nome: "", descricao: "", pontosNecessarios: "" }); } }}>+ Criar</PrimeButton>
-        </div>
-        <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-          {recompensas.length === 0 && <p className="text-sm text-slate-500">Nenhuma recompensa cadastrada.</p>}
-          {recompensas.map((r) => (
-            <div key={r.id} className="flex items-center justify-between gap-2 rounded-2xl border border-gold-400/20 bg-gold-400/[0.05] px-4 py-3">
-              <div className="min-w-0">
-                <p className="truncate font-black text-white">🎁 {r.nome}</p>
-                <p className="truncate text-[11px] text-slate-400">{r.descricao || "—"}</p>
+        <div className="relative">
+          <button onClick={() => setConfigAberto((v) => !v)} className="inline-flex items-center gap-2 rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-sm font-bold text-dash-navy transition hover:bg-[var(--pp-bg)] [&>svg]:h-4 [&>svg]:w-4"><FidIco.config /> Configurações do Programa</button>
+          {configAberto && (
+            <>
+              <div className="fixed inset-0 z-[90]" onClick={() => setConfigAberto(false)} />
+              <div className="absolute right-0 z-[95] mt-2 w-64 rounded-2xl border border-[var(--pp-border)] bg-white p-4 shadow-xl">
+                <p className="text-sm font-black text-dash-navy">Status do programa</p>
+                <p className="mt-0.5 text-xs text-[var(--pp-text-muted)]">Quando inativo, novas compras não creditam pontos.</p>
+                <div className="mt-3 flex items-center justify-between">
+                  <span className="text-sm font-bold text-dash-navy">{programaAtivo ? "Ativo" : "Inativo"}</span>
+                  <button type="button" role="switch" aria-checked={programaAtivo} onClick={() => { api?.salvarRegra({ valorPorPonto: vpp, ativo: !programaAtivo }); setConfigAberto(false); }}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${programaAtivo ? "bg-[#5E8C31]" : "bg-[var(--pp-border)]"}`}>
+                    <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${programaAtivo ? "translate-x-5" : "translate-x-0.5"}`} />
+                  </button>
+                </div>
               </div>
-              <span className="shrink-0 rounded-full bg-gold-400/15 px-2.5 py-1 text-xs font-black text-gold-300">{r.pontosNecessarios} pts</span>
-              <button onClick={() => api?.removerRecompensa(r.id)} className="shrink-0 rounded-lg p-1 text-slate-500 hover:text-red-300">🗑️</button>
-            </div>
-          ))}
+            </>
+          )}
         </div>
       </div>
 
-      {/* Ranking de clientes por pontos */}
-      <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.04]">
-        <div className="border-b border-gold-400/15 px-5 py-3"><h3 className="page-title text-sm font-bold uppercase tracking-wider text-white">Clientes com mais pontos</h3></div>
-        {ranking.length === 0 && <p className="px-5 py-6 text-center text-sm text-slate-500">Nenhum cliente com pontos ainda.</p>}
-        {ranking.map((c, i) => (
-          <div key={c.id} className="flex items-center gap-3 border-t border-white/5 px-5 py-2.5 text-sm">
-            <span className="w-6 shrink-0 text-center font-black text-gold-400">{i + 1}</span>
-            <span className="min-w-0 flex-1 truncate font-bold text-white">{c.nome}</span>
-            <span className="shrink-0 font-black text-gold-300">⭐ {c.pontos} pts</span>
+      {/* KPIs */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {KPIS.map((k) => (
+          <div key={k.rot} className="rounded-2xl border border-[var(--pp-border)] bg-white p-4 shadow-[0_2px_8px_rgba(43,35,32,0.04)]">
+            <div className="flex items-start gap-3">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl [&>svg]:h-5 [&>svg]:w-5" style={{ background: `${k.cor}1A`, color: k.cor }}><k.Icone /></span>
+              <div className="min-w-0">
+                <p className="truncate text-xs font-semibold text-[var(--pp-text-muted)]">{k.rot}</p>
+                <p className="page-title text-2xl font-black text-dash-navy">{k.val}</p>
+                <p className="mt-0.5 text-[11px] font-bold" style={{ color: k.d.cor }}>{k.d.txt}</p>
+              </div>
+            </div>
           </div>
         ))}
       </div>
+
+      {/* Corpo: 2/3 (regra + recompensas + ranking) · 1/3 (como funciona + dicas + exportar) */}
+      <div className="grid gap-5 lg:grid-cols-3">
+        <div className="space-y-5 lg:col-span-2">
+          {/* Regra de Pontuação */}
+          <section ref={regraRef} className="rounded-2xl border border-[var(--pp-border)] bg-white p-5">
+            <h3 className="flex items-center gap-1.5 text-base font-black text-dash-navy">Regra de Pontuação <span className="text-[var(--pp-text-muted)] [&>svg]:h-3.5 [&>svg]:w-3.5" title="A cada R$ gasto o cliente acumula pontos."><FidIco.info /></span></h3>
+            <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-end">
+              <div className="lg:w-52">
+                <span className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-[var(--pp-text-muted)]">A cada R$ gasto, vale:</span>
+                <div className="flex items-center gap-2">
+                  <input inputMode="decimal" value={valorPorPonto} onChange={(e) => setValorPorPonto(e.target.value.replace(/[^\d.,]/g, ""))} className={`${inpCard} font-black`} />
+                  <span className="shrink-0 text-sm font-bold text-[var(--pp-text-muted)]">ponto(s)</span>
+                </div>
+              </div>
+              <span className="hidden text-[var(--pp-text-muted)] lg:block [&>svg]:h-5 [&>svg]:w-5"><FidIco.seta /></span>
+              <div className="flex-1 rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-4 py-3">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-[var(--pp-text-muted)]">Exemplo prático</p>
+                <p className="mt-0.5 text-sm text-dash-navy">R$ {String(vpp).replace(".", ",")} em compras = <b>1 ponto</b></p>
+                <p className="text-sm text-dash-navy">R$ {String(vpp * 50).replace(".", ",")} em compras = <b>50 pontos</b></p>
+              </div>
+              <button onClick={() => api?.salvarRegra({ valorPorPonto: Number(String(valorPorPonto).replace(",", ".")) || 1, ativo: programaAtivo || !regra })} className="btn-laranja rounded-xl px-5 py-2.5 text-sm font-bold">Salvar Regra</button>
+            </div>
+          </section>
+
+          {/* Recompensas Disponíveis */}
+          <section className="rounded-2xl border border-[var(--pp-border)] bg-white p-5">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-base font-black text-dash-navy">Recompensas Disponíveis</h3>
+              <button onClick={() => setModalRec({})} className="inline-flex items-center gap-1.5 rounded-xl border border-[#E67E22]/40 bg-[#E67E22]/[0.08] px-3.5 py-2 text-sm font-bold text-[#C2410C] transition hover:bg-[#E67E22]/15 [&>svg]:h-4 [&>svg]:w-4"><FidIco.mais /> Nova Recompensa</button>
+            </div>
+            <div className="mt-4 overflow-x-auto">
+              <table className="w-full min-w-[560px] text-sm">
+                <thead>
+                  <tr className="border-b border-[var(--pp-border)] text-left text-[11px] font-bold uppercase tracking-wider text-[var(--pp-text-muted)]">
+                    <th className="pb-2 pr-3">Recompensa</th><th className="pb-2 pr-3">Descrição</th><th className="pb-2 pr-3">Pontos Necessários</th><th className="pb-2 pr-3">Status</th><th className="pb-2 text-right">Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recompensas.length === 0 && <tr><td colSpan={5} className="py-6 text-center text-[var(--pp-text-muted)]">Nenhuma recompensa cadastrada.</td></tr>}
+                  {recVisiveis.map((r) => (
+                    <tr key={r.id} className="border-b border-[var(--pp-border)] last:border-0">
+                      <td className="py-3 pr-3">
+                        <span className="flex items-center gap-2 font-bold text-dash-navy">
+                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#E67E22]/12 text-[#E67E22] [&>svg]:h-4 [&>svg]:w-4"><FidIco.presente /></span>
+                          {r.nome}
+                        </span>
+                      </td>
+                      <td className="py-3 pr-3 text-[var(--pp-text-muted)]">{r.descricao || "—"}</td>
+                      <td className="py-3 pr-3 font-bold text-dash-navy">{fmtInt(r.pontosNecessarios)} pts</td>
+                      <td className="py-3 pr-3">
+                        <button onClick={() => api?.editarRecompensa?.(r.id, { ativo: r.ativo === false })} title="Alternar status"
+                          className={`rounded-full px-2.5 py-1 text-xs font-black transition ${r.ativo === false ? "bg-[var(--pp-border)] text-[var(--pp-text-muted)]" : "bg-[#5E8C31]/15 text-[#3F6021] hover:bg-[#5E8C31]/25"}`}>
+                          {r.ativo === false ? "Inativa" : "Ativa"}
+                        </button>
+                      </td>
+                      <td className="py-3">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button onClick={() => setModalRec(r)} title="Editar" className="rounded-lg border border-[var(--pp-border)] bg-white p-1.5 text-[#0F4C5C] transition hover:bg-[var(--pp-bg)] [&>svg]:h-4 [&>svg]:w-4"><FidIco.lapis /></button>
+                          <button onClick={() => setConfirmarExcluir(r)} title="Excluir" className="rounded-lg border border-[#DC2626]/25 bg-[#DC2626]/[0.06] p-1.5 text-[#B91C1C] transition hover:bg-[#DC2626]/12 [&>svg]:h-4 [&>svg]:w-4"><FidIco.lixo /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {recompensas.length > 5 && (
+              <div className="mt-3 text-center">
+                <button onClick={() => setVerTodasRec((v) => !v)} className="text-sm font-bold text-[#C2410C] hover:underline">{verTodasRec ? "Mostrar menos" : `Ver todas as recompensas (${recompensas.length})`}</button>
+              </div>
+            )}
+          </section>
+
+          {/* Clientes com Mais Pontos */}
+          <section className="rounded-2xl border border-[var(--pp-border)] bg-white p-5">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-base font-black text-dash-navy">Clientes com Mais Pontos</h3>
+              {onVerClientes && <button onClick={onVerClientes} className="inline-flex items-center gap-1.5 text-sm font-bold text-[#C2410C] hover:underline [&>svg]:h-3.5 [&>svg]:w-3.5">Ver todos os clientes <FidIco.seta /></button>}
+            </div>
+            <div className="mt-4 overflow-x-auto">
+              <table className="w-full min-w-[560px] text-sm">
+                <thead>
+                  <tr className="border-b border-[var(--pp-border)] text-left text-[11px] font-bold uppercase tracking-wider text-[var(--pp-text-muted)]">
+                    <th className="pb-2 pr-3">Posição</th><th className="pb-2 pr-3">Cliente</th><th className="pb-2 pr-3">Pontos</th><th className="pb-2 pr-3">Última Compra</th><th className="pb-2 text-right">Total Gasto</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ranking.length === 0 && <tr><td colSpan={5} className="py-6 text-center text-[var(--pp-text-muted)]">Nenhum cliente com pontos ainda.</td></tr>}
+                  {ranking.slice(0, 5).map((c, i) => {
+                    const medalha = ["#E6A817", "#9CA3AF", "#B45309"][i];
+                    return (
+                      <tr key={c.id} className="border-b border-[var(--pp-border)] last:border-0">
+                        <td className="py-3 pr-3">
+                          <span className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-black ${medalha ? "text-white" : "bg-[var(--pp-bg)] text-[var(--pp-text-muted)]"}`} style={medalha ? { background: medalha } : undefined}>{i + 1}</span>
+                        </td>
+                        <td className="py-3 pr-3 font-bold text-dash-navy">{c.nome}</td>
+                        <td className="py-3 pr-3 font-black text-[#C2410C]">{fmtInt(c.pontos)} pts</td>
+                        <td className="py-3 pr-3 text-[var(--pp-text-muted)]">{c.ultimo ? new Date(c.ultimo).toLocaleDateString("pt-BR") : "—"}</td>
+                        <td className="py-3 text-right font-bold text-dash-navy">{formatCurrency(c.total)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+
+        {/* Coluna lateral */}
+        <div className="space-y-5">
+          {/* Como funciona */}
+          <section className="rounded-2xl border border-[var(--pp-border)] bg-white p-5">
+            <h3 className="text-base font-black text-dash-navy">Como funciona?</h3>
+            <div className="mt-4 space-y-4">
+              {COMO.map((c, i) => (
+                <div key={c.n} className="relative flex gap-3">
+                  {i < COMO.length - 1 && <span className="absolute left-[15px] top-9 h-[calc(100%-4px)] w-px bg-[var(--pp-border)]" />}
+                  <span className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-black text-white" style={{ background: c.cor }}>{c.n}</span>
+                  <div className="min-w-0">
+                    <p className="flex items-center gap-1.5 text-sm font-black text-dash-navy"><span className="[&>svg]:h-4 [&>svg]:w-4" style={{ color: c.cor }}><c.Icone /></span> {c.t}</p>
+                    <p className="mt-0.5 text-xs leading-snug text-[var(--pp-text-muted)]">{c.d}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* Dicas */}
+          <section className="rounded-2xl border border-[var(--pp-border)] bg-white p-5">
+            <h3 className="text-base font-black text-dash-navy">Dicas para engajar mais</h3>
+            <ul className="mt-3 space-y-2.5">
+              {DICAS.map((d) => (
+                <li key={d} className="flex items-start gap-2 text-sm text-dash-navy">
+                  <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#5E8C31]/15 text-[#3F6021] [&>svg]:h-3 [&>svg]:w-3"><FidIco.check /></span>
+                  {d}
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          {/* Exportar Relatórios */}
+          <section className="rounded-2xl border border-[var(--pp-border)] bg-white p-5">
+            <h3 className="text-base font-black text-dash-navy">Exportar Relatórios</h3>
+            <p className="mt-0.5 text-xs text-[var(--pp-text-muted)]">Baixe relatórios detalhados do programa.</p>
+            <div className="mt-3 grid grid-cols-2 gap-2.5">
+              <button onClick={exportarClientes} className="inline-flex items-center justify-center gap-2 rounded-xl border border-[var(--pp-border)] bg-white px-3 py-2.5 text-sm font-bold text-dash-navy transition hover:bg-[var(--pp-bg)] [&>svg]:h-4 [&>svg]:w-4"><FidIco.download /> Clientes</button>
+              <button onClick={exportarMovimentacoes} className="inline-flex items-center justify-center gap-2 rounded-xl border border-[var(--pp-border)] bg-white px-3 py-2.5 text-sm font-bold text-dash-navy transition hover:bg-[var(--pp-bg)] [&>svg]:h-4 [&>svg]:w-4"><FidIco.download /> Movimentações</button>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      {/* Modal nova/editar recompensa */}
+      {modalRec && (
+        <RecompensaModal recompensa={modalRec.id ? modalRec : null}
+          onFechar={() => setModalRec(null)}
+          onSalvar={(dados) => { if (modalRec.id) api?.editarRecompensa?.(modalRec.id, dados); else api?.addRecompensa?.(dados); setModalRec(null); }} />
+      )}
+
+      {/* Confirmar exclusão */}
+      {confirmarExcluir && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[rgba(33,24,20,0.4)] p-4 backdrop-blur-sm" onClick={() => setConfirmarExcluir(null)}>
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm space-y-4 rounded-2xl border border-[var(--pp-border)] bg-white p-6 shadow-xl">
+            <div>
+              <h2 className="text-lg font-black text-dash-navy">Excluir recompensa?</h2>
+              <p className="mt-1 text-sm text-[var(--pp-text-muted)]">A recompensa <b className="text-dash-navy">{confirmarExcluir.nome}</b> será removida do programa.</p>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setConfirmarExcluir(null)} className="flex-1 rounded-xl border border-[var(--pp-border)] bg-white py-3 text-sm font-bold text-dash-navy transition hover:bg-[var(--pp-bg)]">Cancelar</button>
+              <button onClick={() => { api?.removerRecompensa?.(confirmarExcluir.id); setConfirmarExcluir(null); }} className="flex-[1.5] rounded-xl bg-[#DC2626] py-3 text-sm font-black text-white transition hover:opacity-90">Excluir</button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
+  );
+}
+
+// Modal de cadastro/edição de recompensa (tema claro)
+function RecompensaModal({ recompensa, onFechar, onSalvar }) {
+  const [f, setF] = useState({ nome: recompensa?.nome || "", descricao: recompensa?.descricao || "", pontosNecessarios: recompensa?.pontosNecessarios != null ? String(recompensa.pontosNecessarios) : "" });
+  const inp = "w-full rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2.5 text-sm text-dash-navy outline-none transition focus:border-[#E67E22]";
+  const lbl = "mb-1.5 block text-xs font-bold uppercase tracking-wider text-[var(--pp-text-muted)]";
+  const valido = f.nome.trim().length > 0 && Number(f.pontosNecessarios) > 0;
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[rgba(33,24,20,0.4)] p-4 backdrop-blur-sm" onClick={onFechar}>
+      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md overflow-hidden rounded-2xl border border-[var(--pp-border)] bg-white shadow-xl">
+        <div className="flex items-center justify-between border-b border-[var(--pp-border)] px-6 py-4">
+          <h2 className="text-lg font-black text-dash-navy">{recompensa ? "Editar recompensa" : "Nova recompensa"}</h2>
+          <button onClick={onFechar} className="rounded-lg border border-[var(--pp-border)] bg-white px-3 py-1.5 text-sm font-bold text-dash-navy hover:bg-[var(--pp-bg)]">✕</button>
+        </div>
+        <div className="space-y-4 px-6 py-5">
+          <div><span className={lbl}>Nome *</span><input value={f.nome} onChange={(e) => setF({ ...f, nome: e.target.value })} placeholder="Ex.: Sobremesa grátis" className={inp} autoFocus /></div>
+          <div><span className={lbl}>Descrição</span><input value={f.descricao} onChange={(e) => setF({ ...f, descricao: e.target.value })} placeholder="Opcional (ex.: A escolher)" className={inp} /></div>
+          <div><span className={lbl}>Pontos necessários *</span><input inputMode="numeric" value={f.pontosNecessarios} onChange={(e) => setF({ ...f, pontosNecessarios: e.target.value.replace(/\D/g, "") })} placeholder="100" className={inp} /></div>
+        </div>
+        <div className="flex gap-3 border-t border-[var(--pp-border)] px-6 py-4">
+          <button onClick={onFechar} className="flex-1 rounded-xl border border-[var(--pp-border)] bg-white py-3 text-sm font-bold text-dash-navy transition hover:bg-[var(--pp-bg)]">Cancelar</button>
+          <button onClick={() => valido && onSalvar({ nome: f.nome.trim(), descricao: f.descricao.trim(), pontosNecessarios: Number(f.pontosNecessarios) || 0 })} disabled={!valido} className="btn-laranja flex-[2] rounded-xl py-3 text-sm font-bold disabled:opacity-50">{recompensa ? "Salvar alterações" : "Criar recompensa"}</button>
+        </div>
+      </div>
+    </div>
   );
 }
 
