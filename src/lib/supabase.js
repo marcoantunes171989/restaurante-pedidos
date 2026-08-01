@@ -486,6 +486,16 @@ export function escutarFidelidadeTransacoes(onMudanca) {
     .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
   return () => supabase.removeChannel(canal)
 }
+// Realtime da REGRA de pontos: quando o admin altera o Programa de Fidelidade,
+// qualquer sessão aberta (inclusive o PDV com uma comanda já carregada) recebe a
+// nova regra na hora e recalcula os pontos automaticamente.
+export function escutarFidelidadeRegras(onMudanca) {
+  const reload = async () => { try { onMudanca(await fetchFidelidadeRegras()) } catch { /* tolerante */ } }
+  const canal = supabase.channel('ch_fid_regras_' + Math.random().toString(36).slice(2))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_fidelidade_regras' }, reload)
+    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
+  return () => supabase.removeChannel(canal)
+}
 
 // ════════════════════════════════════════════════════════════
 //  Chamados de mesa (migration 044) — CRUD + Realtime (tolerante)

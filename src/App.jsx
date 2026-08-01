@@ -22,7 +22,7 @@ import {
   fetchGruposOpcoes, fetchOpcoes, inserirGrupoOpcoes, atualizarGrupoOpcoes, excluirGrupoOpcoes, inserirOpcao, atualizarOpcao, excluirOpcao, escutarGruposOpcoes, escutarOpcoes,
   fetchSetoresCozinha, inserirSetorCozinha, atualizarSetorCozinha, excluirSetorCozinha, escutarSetoresCozinha,
   fetchCaixas, fetchMovimentosCaixa, abrirCaixa, registrarMovimentoCaixa, fecharCaixa, escutarCaixas,
-  fetchFidelidadeRegras, salvarFidelidadeRegra, fetchFidelidadeRecompensas, inserirRecompensa, excluirRecompensa, atualizarRecompensa, fetchFidelidadeTransacoes, lancarFidelidadeTransacao, escutarFidelidadeTransacoes,
+  fetchFidelidadeRegras, salvarFidelidadeRegra, fetchFidelidadeRecompensas, inserirRecompensa, excluirRecompensa, atualizarRecompensa, fetchFidelidadeTransacoes, lancarFidelidadeTransacao, escutarFidelidadeTransacoes, escutarFidelidadeRegras,
   escutarPesquisas,
   fetchChamados, criarChamado, atualizarChamado, escutarChamados,
   perguntarCopilotoIA,
@@ -445,6 +445,7 @@ export default function RestaurantePedidoApp() {
         try { unsubs.push(escutarSetoresCozinha(setSetoresCozinha)); } catch {}
         try { unsubs.push(escutarCaixas(setCaixas)); } catch {}
         try { unsubs.push(escutarFidelidadeTransacoes(setFidTransacoes)); } catch {}
+        try { unsubs.push(escutarFidelidadeRegras(setFidRegras)); } catch { /* migration 043 pendente */ }
         try { unsubs.push(escutarPesquisas(setPesquisas)); } catch {}
         try { unsubs.push(escutarChamados(setChamados)); } catch {}
         try { unsubs.push(escutarAuditoria(setAuditoria)); } catch {}
@@ -3969,6 +3970,23 @@ function CashierView({ orders, baixarComandas, formasPagamento = [], lojaInfo, c
   const pontosGanharCx = (fidCaixa?.ativo && telConta && valorPorPontoCx > 0) ? Math.floor(subtotalGeralBruto / valorPorPontoCx) : 0;
   const formasAtivasCx = formasPagamento.filter((f) => f.active !== false);
   const formasComPontos = maxPontosReaisCx > 0 ? [...formasAtivasCx, { id: "pontos", nome: "Pontos", tipo: "outro", permiteTroco: false }] : formasAtivasCx;
+
+  // Se a REGRA de fidelidade mudar enquanto a comanda está aberta (realtime), o
+  // teto de R$ em pontos pode diminuir: reajusta a linha "Pontos" já lançada para
+  // não exceder o novo limite — respeitando a regra automaticamente, sem reabrir.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setLinhasPagamento((cur) => {
+      let mudou = false;
+      const prox = cur.map((l) => {
+        if (l.formaId !== "pontos") return l;
+        if (l.valor > maxPontosReaisCx) { mudou = true; return { ...l, valor: maxPontosReaisCx }; }
+        return l;
+      }).filter((l) => l.formaId !== "pontos" || l.valor > 0); // remove a linha se o saldo zerou
+      if (cur.length !== prox.length) mudou = true;
+      return mudou ? prox : cur;
+    });
+  }, [maxPontosReaisCx]);
 
   function addLinhaPagamento(forma) {
     let restanteAgora = Math.max(0, total - pagoLinhas);

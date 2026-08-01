@@ -20,3 +20,17 @@ language sql security definer set search_path = public as $$
 $$;
 
 grant execute on function public.pub_fidelidade_regra(bigint) to anon, authenticated;
+
+-- Realtime da regra: garante que alterações em tab_fidelidade_regras sejam
+-- transmitidas por realtime (postgres_changes) às sessões abertas — assim o PDV
+-- reflete a nova regra na hora, sem recarregar. Idempotente e tolerante caso a
+-- tabela já esteja na publication ou a publication não exista.
+do $$
+begin
+  begin
+    alter publication supabase_realtime add table public.tab_fidelidade_regras;
+  exception
+    when duplicate_object then null;   -- já está na publication
+    when undefined_object then null;   -- publication supabase_realtime inexistente
+  end;
+end $$;
