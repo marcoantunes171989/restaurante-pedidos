@@ -168,6 +168,9 @@ export default function CardapioPublico() {
   const [mesasLoja, setMesasLoja] = useState(null);
   const [orders, setOrders]       = useState([]);
   const [pedidosOffline, setPedidosOffline] = useState(false); // true quando a atualização em tempo real dos pedidos está falhando (polling/realtime)
+  // Consulta por comanda: só assume "sem pedidos" DEPOIS do 1º poll ter voltado
+  // (evita o falso vazio em redes lentas do celular, enquanto a busca ainda corre).
+  const [pedidosSync, setPedidosSync] = useState(false);
   // Carrinho sobrevive a navegação/F5: por empresa+mesa (link externo cai em
   // "ext"), pra não vazar carrinho entre mesas/empresas diferentes no mesmo
   // navegador. sessionStorage (não localStorage) — some quando a aba fecha,
@@ -287,6 +290,7 @@ export default function CardapioPublico() {
           if (!vivo) return;
           setOrders(lista);
           setPedidosOffline(false); // poll respondeu — conexão OK
+          setPedidosSync(true);     // 1º carregamento concluído (libera o estado vazio)
         } catch { if (vivo) setPedidosOffline(true); } // poll falhou (rede/RLS) — mantém os últimos dados válidos, só sinaliza
       };
       buscar();
@@ -294,21 +298,13 @@ export default function CardapioPublico() {
       return () => { vivo = false; clearInterval(iv); };
     }
     const off = escutarPedidos(
-      (all) => { setOrders(all.filter((o) => o.lojaId === loja.id)); setPedidosOffline(false); },
+      (all) => { setOrders(all.filter((o) => o.lojaId === loja.id)); setPedidosOffline(false); setPedidosSync(true); },
       (status) => setPedidosOffline(status === "TIMED_OUT" || status === "CHANNEL_ERROR" || status === "CLOSED"),
     );
     return () => off && off();
   }, [loja?.id, modoExterno, comanda, telefone]);
 
   useEffect(() => { if (!msg) return; const t = setTimeout(() => setMsg(null), 3500); return () => clearTimeout(t); }, [msg]);
-
-  // Consulta por comanda: dá um tempo ao 1º poll antes de assumir "sem pedidos".
-  const [consultaEsperou, setConsultaEsperou] = useState(false);
-  useEffect(() => {
-    if (!consultaComanda) return;
-    const t = setTimeout(() => setConsultaEsperou(true), 5000);
-    return () => clearTimeout(t);
-  }, [consultaComanda]);
 
   // QR por mesa (recurso local: Interno/Ambos) e link/pedido externo
   // (Externo/Ambos) são regras INDEPENDENTES — QR de mesa nunca depende do
@@ -1211,11 +1207,12 @@ export default function CardapioPublico() {
 
           {pedidosC.length === 0 ? (
             <div className="mt-10 flex flex-col items-center text-center">
-              {consultaEsperou ? (
+              {pedidosSync ? (
                 <>
                   <span className="text-5xl">🧾</span>
-                  <p className="mt-3 font-black text-[var(--client-text-primary)]">Nenhum pedido nesta comanda</p>
-                  <p className="mt-1 text-sm text-[var(--client-text-secondary)]">Ainda não há pedidos vinculados a <b>{comanda}</b>.</p>
+                  <p className="mt-3 font-black text-[var(--client-text-primary)]">Nenhum pedido nesta comanda ainda</p>
+                  <p className="mt-1 text-sm text-[var(--client-text-secondary)]">Assim que um pedido for lançado na comanda <b>{comanda}</b>, ele aparece aqui automaticamente.</p>
+                  <p className="mt-4 inline-flex items-center gap-2 rounded-full border border-[var(--client-border)] bg-[var(--client-surface)] px-3 py-1.5 text-xs font-bold text-[var(--client-text-secondary)]"><span className="h-1.5 w-1.5 rounded-full bg-[var(--client-success)]" aria-hidden="true" /> Atualizando ao vivo</p>
                 </>
               ) : (
                 <>
