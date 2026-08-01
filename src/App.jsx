@@ -2466,6 +2466,7 @@ function TabletView({
   const valorPorPontoTab = Number(fidCaixa?.valorPorPonto) || 0;
   const fidAtivoTab = !!fidCaixa?.ativo && valorPorPontoTab > 0;
   const pontosGanharCartTab = fidAtivoTab ? Math.floor(subtotal / valorPorPontoTab) : 0;
+  const pontosContaTab = fidAtivoTab ? Math.floor(currentTableSubtotal / valorPorPontoTab) : 0;
   // Etapa de preparo mais avançada entre os pedidos da mesa (0..3; -1 = nenhum).
   const ORDEM_TAB = ["received", "preparing", "ready", "delivered"];
   const stepIdxTab = currentTableOrders.length ? Math.max(0, ...currentTableOrders.map((o) => ORDEM_TAB.indexOf(o.status))) : -1;
@@ -2676,6 +2677,7 @@ function TabletView({
           tableNumber={tableNumber} porComanda={porComanda} currentTableCancelled={currentTableCancelled}
           currentTableSubtotal={currentTableSubtotal} currentTableTotal={currentTableTotal}
           podeFecharConta={podeFecharConta} contaSolicitada={contaSolicitada}
+          orderStage={stepIdxTab} statusConta={statusTabletConta} tomConta={tomTabletConta} pontosConta={pontosContaTab}
           onSolicitarFechamento={() => { setVerConta(false); setConfirmarConta(true); }}
           onCancelarPedido={(order) => setCancelandoPedido(order)}
           onFechar={() => setVerConta(false)}

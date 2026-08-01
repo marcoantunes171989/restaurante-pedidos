@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { X, Receipt, RefreshCcw, Ban } from "lucide-react";
+import { X, Receipt, RefreshCcw, Ban, Check, Star } from "lucide-react";
 import { formatCurrency, statusMap, STATUS_TABLET_LABEL } from "../../App";
 import { useFocusTrap } from "../../lib/useFocusTrap";
 
@@ -16,12 +16,20 @@ export default function TabletOrderTrackingDrawer({
   tableNumber, porComanda, currentTableCancelled = [],
   currentTableSubtotal, currentTableTotal,
   podeFecharConta, contaSolicitada, onSolicitarFechamento,
+  orderStage = -1, statusConta = null, tomConta = "info", pontosConta = 0,
   onCancelarPedido, onFechar,
 }) {
   const containerRef = useRef(null);
   useFocusTrap(containerRef, true);
   const comandasArr = Object.values(porComanda);
   const semNada = comandasArr.length === 0 && currentTableCancelled.length === 0;
+  // Stepper visual do preparo (mesmo do painel do carrinho) — visão geral da mesa.
+  const ETAPAS = ["Recebido", "Em preparo", "Pronto", "Entregue"];
+  const TOM_STATUS = {
+    success: "border-[var(--client-success-border)] bg-[var(--client-success-soft)] text-[var(--client-success)]",
+    warning: "border-[var(--client-warning-border)] bg-[var(--client-warning-soft)] text-[var(--client-warning)]",
+    info: "border-[var(--client-info-border)] bg-[var(--client-info-soft)] text-[var(--client-info)]",
+  };
 
   return (
     <div className="fixed inset-0 z-[100] flex items-end justify-center bg-[rgba(33,24,20,0.45)] backdrop-blur-sm sm:items-center sm:p-4" onClick={onFechar}>
@@ -46,6 +54,38 @@ export default function TabletOrderTrackingDrawer({
               <Receipt aria-hidden="true" size={36} className="text-[var(--client-text-muted)]" />
               <p className="font-black text-[var(--client-text-primary)]">Nenhum pedido na mesa ainda</p>
               <p className="text-xs text-[var(--client-text-muted)]">Envie um pedido para que a conta seja exibida aqui.</p>
+            </div>
+          )}
+
+          {/* Stepper do preparo — visão geral da mesa (mesma linguagem do carrinho) */}
+          {comandasArr.length > 0 && orderStage >= 0 && (
+            <div className="rounded-2xl border border-[var(--client-border)] bg-[var(--client-background-soft)] p-4">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <p className="text-sm font-black text-[var(--client-text-primary)]">Andamento do pedido</p>
+                {statusConta && <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-black ${TOM_STATUS[tomConta] || TOM_STATUS.info}`}>{statusConta}</span>}
+              </div>
+              <ol className="flex items-start">
+                {ETAPAS.map((label, i) => {
+                  const done = i < orderStage, current = i === orderStage;
+                  return (
+                    <li key={label} className="flex flex-1 flex-col items-center text-center">
+                      <div className="flex w-full items-center">
+                        <span className={`h-0.5 flex-1 ${i === 0 ? "opacity-0" : (i <= orderStage ? "bg-[var(--client-success)]" : "bg-[var(--client-border)]")}`} />
+                        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-black ${current ? "btn-laranja bg-[var(--client-primary-hover)] text-white ring-4 ring-[var(--client-primary-soft)]" : done ? "bg-[var(--client-success)] text-white" : "border border-[var(--client-border)] bg-[var(--client-surface)] text-[var(--client-text-muted)]"}`}>
+                          {done ? <Check aria-hidden="true" size={14} /> : i + 1}
+                        </span>
+                        <span className={`h-0.5 flex-1 ${i === ETAPAS.length - 1 ? "opacity-0" : (i < orderStage ? "bg-[var(--client-success)]" : "bg-[var(--client-border)]")}`} />
+                      </div>
+                      <span className={`mt-1.5 text-[11px] font-bold leading-tight ${current ? "text-[var(--client-primary-hover)]" : done ? "text-[var(--client-text-primary)]" : "text-[var(--client-text-muted)]"}`}>{label}</span>
+                    </li>
+                  );
+                })}
+              </ol>
+              {pontosConta > 0 && (
+                <p className="mt-3 flex items-center justify-center gap-1.5 rounded-xl border border-[var(--client-primary-border)] bg-[var(--client-primary-soft)] px-3 py-2 text-xs font-black text-[var(--client-primary-hover)]">
+                  <Star aria-hidden="true" size={13} className="shrink-0" /> Esta conta vai gerar {pontosConta.toLocaleString("pt-BR")} pontos
+                </p>
+              )}
             </div>
           )}
 
