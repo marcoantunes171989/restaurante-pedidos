@@ -6030,6 +6030,8 @@ function ComandasGestaoAdmin({ orders = [], products = [], lojaPrefixo = "", loj
   const [busca, setBusca] = useState("");
   const [filtro, setFiltro] = useState("em_andamento");
   const [periodo, setPeriodo] = useState("hoje");
+  const [periodoIni, setPeriodoIni] = useState(""); // data inicial (modo "período")
+  const [periodoFim, setPeriodoFim] = useState(""); // data final (modo "período")
   const [origem, setOrigem] = useState("todas");
   const [ordenacao, setOrdenacao] = useState("recentes");
   const [porPagina, setPorPagina] = useState(20);
@@ -6086,11 +6088,13 @@ function ComandasGestaoAdmin({ orders = [], products = [], lojaPrefixo = "", loj
   const kTempo = abertos.length ? Math.round(mediaMin) : 0;
 
   const q = busca.trim().toLowerCase();
+  // Reutiliza o mesmo helper de período dos relatórios (hoje/ontem/7/15/30 e
+  // intervalo personalizado data inicial→final). "todos" não filtra por data.
+  const [periodoIniData, periodoFimData] = periodo === "todos" ? [null, null] : intervaloPeriodo(periodo, periodoIni, periodoFim);
   const dentroPeriodo = (g) => {
     if (periodo === "todos" || !g.iso) return true;
-    if (periodo === "hoje") return new Date(g.iso).toDateString() === new Date().toDateString();
-    if (periodo === "7d") return (agora - new Date(g.iso).getTime()) / 86400000 <= 7;
-    return true;
+    const d = new Date(g.iso);
+    return d >= periodoIniData && d <= periodoFimData;
   };
   const casaStatus = (g) => filtro === "todas" ? true : filtro === "em_andamento" ? ABERTAS_KEYS.includes(g.sit) : g.sit === filtro;
   const casaOrigem = (g) => origem === "todas" ? true : origem === "externo" ? g.externo : !g.externo;
@@ -6132,7 +6136,7 @@ function ComandasGestaoAdmin({ orders = [], products = [], lojaPrefixo = "", loj
     return [1, "…", pgAtual - 1, pgAtual, pgAtual + 1, "…", totalPaginas];
   };
 
-  function limparFiltros() { setBusca(""); setFiltro("em_andamento"); setPeriodo("hoje"); setOrigem("todas"); setOrdenacao("recentes"); setPagina(1); }
+  function limparFiltros() { setBusca(""); setFiltro("em_andamento"); setPeriodo("hoje"); setPeriodoIni(""); setPeriodoFim(""); setOrigem("todas"); setOrdenacao("recentes"); setPagina(1); }
   function atualizar() { setAtualizadoEm(Date.now()); }
   function exportar() {
     const dataCurta = (iso) => { const d = iso ? new Date(iso) : null; return d && !isNaN(d.getTime()) ? d.toLocaleDateString("pt-BR") : ""; };
@@ -6235,7 +6239,7 @@ function ComandasGestaoAdmin({ orders = [], products = [], lojaPrefixo = "", loj
         </label>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:flex xl:items-center">
           {[
-            { rot: "Período", val: periodo, set: setPeriodo, ops: [["hoje", "Hoje"], ["7d", "7 dias"], ["todos", "Todos"]] },
+            { rot: "Período", val: periodo, set: setPeriodo, ops: [["hoje", "Hoje"], ["ontem", "Ontem"], ["7", "7 dias"], ["15", "15 dias"], ["30", "30 dias"], ["periodo", "Período"], ["todos", "Todos"]] },
             { rot: "Status", val: filtro, set: setFiltro, ops: [["em_andamento", "Em andamento"], ["todas", "Todos"], ["aberta", "Abertas"], ["em_preparo", "Em preparo"], ["pronta", "Prontas"], ["aguardando_pagamento", "Aguard. pagamento"], ["finalizada", "Finalizadas"], ["cancelada", "Canceladas"]] },
             { rot: "Origem", val: origem, set: setOrigem, ops: [["todas", "Todas"], ["local", "Local"], ["externo", "Externo"]] },
             { rot: "Ordenação", val: ordenacao, set: setOrdenacao, ops: [["recentes", "Mais recentes"], ["antigas", "Mais antigas"], ["maior", "Maior valor"], ["menor", "Menor valor"]] },
@@ -6249,6 +6253,24 @@ function ComandasGestaoAdmin({ orders = [], products = [], lojaPrefixo = "", loj
               </div>
             </label>
           ))}
+          {periodo === "periodo" && (
+            <>
+              <label className={`${selBox} col-span-2 sm:col-span-1`}>
+                <div className="min-w-0 flex-1">
+                  <span className="block text-[9px] font-bold uppercase tracking-wider text-[var(--pp-text-muted)]">Data inicial</span>
+                  <input type="date" value={periodoIni} max={periodoFim || undefined} onChange={(e) => comReset(setPeriodoIni)(e.target.value)}
+                    className="w-full cursor-pointer bg-transparent text-[13px] font-bold text-dash-navy outline-none" />
+                </div>
+              </label>
+              <label className={`${selBox} col-span-2 sm:col-span-1`}>
+                <div className="min-w-0 flex-1">
+                  <span className="block text-[9px] font-bold uppercase tracking-wider text-[var(--pp-text-muted)]">Data final</span>
+                  <input type="date" value={periodoFim} min={periodoIni || undefined} onChange={(e) => comReset(setPeriodoFim)(e.target.value)}
+                    className="w-full cursor-pointer bg-transparent text-[13px] font-bold text-dash-navy outline-none" />
+                </div>
+              </label>
+            </>
+          )}
           <button onClick={limparFiltros} className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl border border-[#E67E22]/40 bg-[#E67E22]/8 px-3.5 py-2 text-[13px] font-bold text-[#C2410C] transition hover:bg-[#E67E22]/15">Limpar filtros</button>
         </div>
       </div>
