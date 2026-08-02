@@ -2492,7 +2492,7 @@ function TabletView({
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col overflow-hidden bg-[var(--client-background)]"
-      style={{ height: "100dvh", paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)", fontFamily: "'Inter','Poppins',sans-serif" }}>
+      style={{ height: "100dvh", paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)", fontFamily: "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif" }}>
 
       <TabletMenuHeader
         lojaInfo={lojaInfo} mesaAtual={mesaSelecionada} tableNumber={tableNumber} dadosCompletos={dadosCompletos}
@@ -2934,7 +2934,7 @@ export function ProdutoModal({ produto, onFechar, onAdicionar, grupos = [], opco
 
   return (
     <div className="fixed inset-0 z-[100] flex items-stretch sm:items-center justify-center bg-[rgba(33,24,20,0.5)] backdrop-blur-sm p-0 sm:p-4"
-      style={{ fontFamily: "'Inter','Poppins',sans-serif" }} onClick={onFechar}>
+      style={{ fontFamily: "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif" }} onClick={onFechar}>
       <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="pm-titulo"
         className="relative flex w-full sm:w-[calc(100%-32px)] max-w-[520px] lg:max-w-[900px] flex-col lg:flex-row h-[100dvh] sm:h-auto sm:max-h-[92dvh] overflow-y-auto overscroll-contain lg:overflow-hidden rounded-none sm:rounded-[28px] border-0 sm:border border-[var(--client-border)] bg-[var(--client-surface)] shadow-[var(--client-shadow-floating)]">
 
@@ -5414,7 +5414,7 @@ function PosReceiptPreview({ blocos, mesas, comandas, subtotal, taxa, total, spl
           <h2 className="text-base font-black text-[var(--pp-text)]">Conferência</h2>
           <button onClick={onFechar} aria-label="Fechar" className="rounded-xl border border-[var(--pp-border)] bg-white px-3 py-1.5 text-xs font-black text-[var(--pp-text-body)] hover:bg-[var(--pp-bg)]">Fechar</button>
         </div>
-        <div className="flex-1 overflow-y-auto bg-[var(--pp-bg)] px-5 py-4 text-[var(--pp-text)]" style={{ fontFamily: "'Courier New', monospace", fontSize: 12 }}>
+        <div className="flex-1 overflow-y-auto bg-[var(--pp-bg)] px-5 py-4 text-[var(--pp-text)]" style={{ fontFamily: "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif", fontVariantNumeric: "tabular-nums", fontSize: 12 }}>
           <p className="text-center font-black">CONFERÊNCIA — SEM VALOR FISCAL</p>
           <div className="my-2 border-t border-dashed border-[var(--pp-border)]" />
           <p className="text-[11px]">Mesa(s): {mesas.join(", ") || "-"}</p>
@@ -12842,7 +12842,7 @@ function CupomNaoFiscalModal({ pedido, lojaInfo, onFechar, onAcao = () => {} }) 
           <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20">✕</button>
         </div>
         {/* Prévia 80mm */}
-        <div className="flex-1 overflow-y-auto bg-white px-6 py-5 text-slate-900" style={{ fontFamily: "'Courier New', monospace", fontSize: 12 }}>
+        <div className="flex-1 overflow-y-auto bg-white px-6 py-5 text-slate-900" style={{ fontFamily: "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif", fontVariantNumeric: "tabular-nums", fontSize: 12 }}>
           <p className="text-center text-base font-black">{empresa}</p>
           <p className="text-center text-[11px]">CUPOM NÃO FISCAL</p>
           <p className="text-center text-[9px] text-slate-500">Documento sem valor fiscal</p>

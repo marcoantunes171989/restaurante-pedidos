@@ -108,7 +108,7 @@ export default function SatisfactionSurvey({ onEnviar, onPular }) {
   const acaoPular = async () => { if (enviando) return; setEnviando(true); try { await onPular(); } finally { setEnviando(false); } };
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center sm:p-6" style={{ fontFamily: "'Inter','Poppins',sans-serif" }}>
+    <div className="fixed inset-0 z-[120] flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center sm:p-6" style={{ fontFamily: "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif" }}>
       <div className="flex max-h-[92dvh] w-full max-w-3xl flex-col overflow-hidden rounded-t-[2rem] border border-[var(--client-border)] bg-[var(--client-background)] shadow-[var(--client-shadow-floating)] sm:rounded-[2rem]">
         {/* Cabeçalho */}
         <div className="shrink-0 border-b border-[var(--client-border)] bg-[var(--client-surface)] px-5 pb-4 text-center" style={{ paddingTop: "max(1rem, calc(env(safe-area-inset-top) + 0.5rem))" }}>

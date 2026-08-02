@@ -194,7 +194,7 @@ export function QRScannerModal({ onSucesso, onCancelar, prefixoLoja = "CMD", loj
            : "border-gold-400/20 bg-black";
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 backdrop-blur-md p-4" style={{ fontFamily: "'Poppins','Inter',sans-serif" }}>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 backdrop-blur-md p-4" style={{ fontFamily: "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif" }}>
       <div className={`w-full max-w-sm rounded-[2rem] border shadow-2xl overflow-hidden transition-colors ${bg}`}>
 
         {/* Cabeçalho */}

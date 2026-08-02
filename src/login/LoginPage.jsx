@@ -28,7 +28,7 @@ export default function LoginPage({ loginForm, setLoginForm, login, message, dbR
     <div data-theme="light">
       <div
         className="pp-login-shell tema-claro-area pp-brand-manrope relative flex h-dvh max-h-dvh w-full items-stretch overflow-hidden text-[var(--login-text-primary)]"
-        style={{ fontFamily: "'Inter','Poppins',sans-serif", backgroundColor: "var(--login-background)", boxSizing: "border-box", margin: 0 }}
+        style={{ fontFamily: "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif", backgroundColor: "var(--login-background)", boxSizing: "border-box", margin: 0 }}
       >
         <LoginBrandPanel />
 

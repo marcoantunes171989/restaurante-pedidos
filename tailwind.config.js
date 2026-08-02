@@ -9,11 +9,11 @@ export default {
   theme: {
     extend: {
       fontFamily: {
+        // Tipografia ÚNICA do projeto: Inter em tudo (sans, display e data).
+        // Poppins/Manrope/Space Grotesk foram aposentadas na padronização 2026.
         sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'Arial', 'sans-serif'],
-        display: ['Poppins', 'Inter', 'sans-serif'],
-        // Números de dado (estatísticas, preços, passos numerados) — já
-        // carregada em index.html, sem custo extra de fonte.
-        data: ['"Space Grotesk"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        display: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'Arial', 'sans-serif'],
+        data: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
       },
       colors: {
         // ── Paleta OFICIAL (ver .claude/skills/identidade-visual) — namespace

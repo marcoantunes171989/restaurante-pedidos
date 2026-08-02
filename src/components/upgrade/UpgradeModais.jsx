@@ -54,7 +54,7 @@ export function ConsultorModal({ modulo = "Fidelidade", assuntoInicial = "", onF
 
   return (
     <div className={overlay} onClick={onFechar}>
-      <div onClick={(e) => e.stopPropagation()} className={`${cardModal} max-w-4xl`} style={{ fontFamily: "'Inter','Poppins',sans-serif" }}>
+      <div onClick={(e) => e.stopPropagation()} className={`${cardModal} max-w-4xl`} style={{ fontFamily: "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif" }}>
         {/* Cabeçalho */}
         <div className="relative shrink-0 px-6 pt-6 text-center">
           <button onClick={onFechar} className={`${btnFechar} absolute right-5 top-5`}>✕</button>
@@ -123,7 +123,7 @@ export function ConsultorModal({ modulo = "Fidelidade", assuntoInicial = "", onF
 export function PlanosModal({ onFechar, onEscolherPlano, onFalarConsultor }) {
   return (
     <div className={overlay} onClick={onFechar}>
-      <div onClick={(e) => e.stopPropagation()} className={`${cardModal} max-w-6xl`} style={{ fontFamily: "'Inter','Poppins',sans-serif" }}>
+      <div onClick={(e) => e.stopPropagation()} className={`${cardModal} max-w-6xl`} style={{ fontFamily: "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif" }}>
         <div className="relative shrink-0 px-6 pt-6 text-center">
           <button onClick={onFechar} className={`${btnFechar} absolute right-5 top-5`}>✕</button>
           <h2 className="page-title text-3xl font-black uppercase leading-tight tracking-tight text-white">Planos para o <span className="text-gold-400">seu restaurante</span></h2>
