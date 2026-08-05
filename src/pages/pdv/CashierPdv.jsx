@@ -879,7 +879,7 @@ ${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency
           onAlterarQtd={alterarQtdItem}
           onRemoverItem={removerItem}
           produtosBloqueados={produtosBloqueados}
-          className={`${painelMobile === "conta" ? "flex min-h-0 flex-1" : "hidden"} border-b lg:flex lg:w-[300px] lg:shrink-0 lg:border-b-0 lg:border-r xl:w-[320px]`}
+          className={`${painelMobile === "conta" ? "flex min-h-0 flex-1" : "hidden"} min-w-0 overflow-hidden border-b lg:flex lg:w-[280px] lg:max-w-[280px] lg:shrink-0 lg:border-b-0 lg:border-r xl:w-[300px] xl:max-w-[300px]`}
         />
 
         {/* Centro — canal Mesa / Delivery / Comanda / Cliente / Pedido */}
@@ -988,7 +988,7 @@ ${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency
           confirmarDesabilitado={!contaSel || totalSel <= 0}
           bufferEntrada={bufferEfetivo}
           valorExibido={recebidoEfetivo}
-          className={`${painelMobile === "pagamento" ? "flex min-h-0 flex-1" : "hidden"} border-t lg:flex lg:w-[300px] lg:shrink-0 lg:border-l lg:border-t-0 xl:w-[320px]`}
+          className={`${painelMobile === "pagamento" ? "flex min-h-0 flex-1" : "hidden"} min-w-0 overflow-hidden border-t lg:flex lg:w-[280px] lg:max-w-[280px] lg:shrink-0 lg:border-l lg:border-t-0 xl:w-[300px] xl:max-w-[300px]`}
         />
       </div>
 
