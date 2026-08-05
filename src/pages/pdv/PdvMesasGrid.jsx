@@ -1,28 +1,33 @@
+import { Clock, HandCoins, Users } from "lucide-react";
 import { formatCurrency, MESA_STATUS_META, rotuloMesa, tempoAbertoISO } from "./pdvHelpers";
 
-function rotuloStatusCard(status) {
-  if (status === "livre") return "Disponível";
-  if (status === "pendente") return "Pagamento pendente";
-  return "Mesa ocupada";
-}
-
 /**
- * Grade central das mesas do salão.
- * Mesa paga/finalizada aparece como Disponível (liberada para novo cliente).
+ * Grade central das mesas do salão — cor é informação: verde livre,
+ * laranja em consumo, amarelo aguardando pagamento. Mesa paga volta
+ * imediatamente para Disponível (liberada para o próximo cliente).
  */
 export default function PdvMesasGrid({
   mesasPainel = [],
   selecionadaKey,
   onSelecionar,
   agora,
+  totalMesas = 0,
+  busca = "",
 }) {
+  const filtrando = !!busca.trim();
+
   return (
     <section className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <div className="flex flex-wrap items-center justify-between gap-2 px-1 pb-2">
-        <h2 className="text-sm font-black text-[var(--pp-text)]">Mesas do salão</h2>
-        <div className="flex flex-wrap items-center gap-3 text-[11px] font-bold text-[var(--pp-text-muted)]">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-0.5 pb-2">
+        <h2 className="text-[13px] font-black text-[var(--pp-text)]">
+          Mesas do salão
+          <span className="ml-1.5 font-bold text-[var(--pp-text-muted)]">
+            {filtrando ? `${mesasPainel.length} de ${totalMesas}` : totalMesas}
+          </span>
+        </h2>
+        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[10px] font-bold text-[var(--pp-text-muted)]">
           {Object.entries(MESA_STATUS_META).map(([id, meta]) => (
-            <span key={id} className="inline-flex items-center gap-1.5">
+            <span key={id} className="inline-flex items-center gap-1">
               <span className={`h-2 w-2 rounded-full ${meta.dot}`} />
               {meta.label}
             </span>
@@ -30,65 +35,90 @@ export default function PdvMesasGrid({
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-0.5">
         {mesasPainel.length === 0 ? (
-          <div className="grid h-full min-h-[160px] place-items-center rounded-xl border border-dashed border-[var(--pp-border)] bg-[var(--pp-surface)] px-4 py-8 text-center">
+          <div className="grid h-full min-h-[140px] place-items-center rounded-xl border border-dashed border-[var(--pp-border)] bg-[var(--pp-surface)] px-4 py-6 text-center">
             <div>
-              <p className="text-sm font-black text-[var(--pp-text)]">Nenhuma mesa cadastrada</p>
-              <p className="mt-1 text-xs text-[var(--pp-text-muted)]">Cadastre as mesas da loja em Administrativo → Mesas para montar o salão.</p>
+              <p className="text-[13px] font-black text-[var(--pp-text)]">
+                {filtrando ? "Nenhuma mesa encontrada" : "Nenhuma mesa cadastrada"}
+              </p>
+              <p className="mt-1 text-[11px] text-[var(--pp-text-muted)]">
+                {filtrando
+                  ? "Ajuste a busca — ela procura por mesa, cliente, produto, valor ou telefone."
+                  : "Cadastre as mesas da loja em Administrativo → Mesas para montar o salão."}
+              </p>
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5">
-            {mesasPainel.map((m) => {
-              const meta = MESA_STATUS_META[m.status] || MESA_STATUS_META.livre;
-              const selected = selecionadaKey === m.key;
-              const ocupada = m.status === "ocupada" || m.status === "pendente";
-              return (
-                <button
-                  key={m.key}
-                  type="button"
-                  onClick={() => onSelecionar?.(m)}
-                  className={`relative flex min-h-[108px] flex-col items-start justify-between rounded-xl border bg-[var(--pp-surface)] p-3 text-left transition active:scale-[0.98] sm:min-h-[100px] sm:p-2.5 ${
-                    selected
-                      ? "border-[var(--pp-primary)] shadow-[0_0_0_2px_rgba(230,126,34,0.25)]"
-                      : `${meta.border} hover:border-[var(--pp-primary)]/50`
-                  }`}
-                >
-                  <div className="flex w-full items-center justify-between gap-1">
-                    <span className="text-base font-black text-[var(--pp-text)] sm:text-sm">{rotuloMesa(m.numero)}</span>
-                    <span className={`h-2 w-2 rounded-full ${meta.dot}`} />
-                  </div>
-
-                  <p className={`mt-1 text-[10px] font-black uppercase tracking-wide ${
-                    ocupada
-                      ? "text-[var(--pp-primary-text)]"
-                      : "text-[var(--pp-success-text)]"
-                  }`}>
-                    {rotuloStatusCard(m.status)}
-                  </p>
-
-                  {ocupada && m.conta ? (
-                    <div className="mt-auto w-full space-y-0.5 pt-1">
-                      {m.conta.cliente && (
-                        <p className="truncate text-[10px] font-semibold text-[var(--pp-text-muted)]">{m.conta.cliente}</p>
-                      )}
-                      <p className="truncate text-[10px] font-semibold text-[var(--pp-text-muted)]">
-                        {tempoAbertoISO(m.conta.aberturaISO, agora) || "—"}
-                      </p>
-                      <p className="text-xs font-black tabular-nums text-[var(--pp-text)]">
-                        {formatCurrency(m.conta.total || 0)}
-                      </p>
-                    </div>
-                  ) : (
-                    <p className="mt-auto pt-1 text-[11px] font-semibold text-[var(--pp-text-muted)]">Livre para novo cliente</p>
-                  )}
-                </button>
-              );
-            })}
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(118px,1fr))] gap-1.5 sm:gap-2">
+            {mesasPainel.map((m) => (
+              <CardMesa
+                key={m.key}
+                mesa={m}
+                selecionada={selecionadaKey === m.key}
+                agora={agora}
+                onSelecionar={onSelecionar}
+              />
+            ))}
           </div>
         )}
       </div>
     </section>
+  );
+}
+
+function CardMesa({ mesa, selecionada, agora, onSelecionar }) {
+  const meta = MESA_STATUS_META[mesa.status] || MESA_STATUS_META.livre;
+  const ocupada = mesa.status === "ocupada" || mesa.status === "pendente";
+  const conta = mesa.conta;
+  const tempo = ocupada ? tempoAbertoISO(conta?.aberturaISO, agora) : null;
+  const statusPedido = conta?.statusPedido;
+
+  return (
+    <button
+      type="button"
+      onClick={() => onSelecionar?.(mesa)}
+      title={`${rotuloMesa(mesa.numero)} · ${meta.label}`}
+      className={`flex min-h-[92px] flex-col gap-1 rounded-xl border p-2 text-left transition active:scale-[0.98] ${meta.card} ${
+        selecionada
+          ? "border-[var(--pp-primary)] shadow-[0_0_0_2px_var(--pp-primary-soft)]"
+          : `${meta.border} hover:border-[var(--pp-primary)]`
+      }`}
+    >
+      <div className="flex items-center justify-between gap-1">
+        <span className="truncate text-[13px] font-black text-[var(--pp-text)]">{rotuloMesa(mesa.numero)}</span>
+        <span className={`h-2 w-2 shrink-0 rounded-full ${meta.dot}`} />
+      </div>
+
+      <span className={`inline-flex w-fit max-w-full items-center gap-1 rounded-md px-1.5 py-0.5 text-[9px] font-black uppercase leading-tight ${meta.chip}`}>
+        {mesa.status === "pendente" && <HandCoins size={10} className="shrink-0" aria-hidden="true" />}
+        <span className="truncate">{meta.curto || meta.label}</span>
+      </span>
+
+      {ocupada && conta ? (
+        <div className="mt-auto w-full space-y-0.5">
+          {conta.cliente && (
+            <p className="truncate text-[10px] font-semibold text-[var(--pp-text-body)]">{conta.cliente}</p>
+          )}
+          <div className="flex items-center gap-1 text-[9px] font-bold text-[var(--pp-text-muted)]">
+            <Clock size={9} className="shrink-0" aria-hidden="true" />
+            <span className="truncate">{tempo || "—"}</span>
+          </div>
+          {statusPedido && (
+            <span className={`inline-flex max-w-full truncate rounded px-1 py-px text-[9px] font-black ${statusPedido.chip}`}>
+              {statusPedido.label}
+            </span>
+          )}
+          <p className="text-[12px] font-black tabular-nums text-[var(--pp-text)]">
+            {formatCurrency(conta.total || 0)}
+          </p>
+        </div>
+      ) : (
+        <div className="mt-auto flex items-center gap-1 text-[10px] font-semibold text-[var(--pp-text-muted)]">
+          <Users size={10} className="shrink-0" aria-hidden="true" />
+          <span className="truncate">{mesa.capacidade ? `${mesa.capacidade} lugares` : "Livre"}</span>
+        </div>
+      )}
+    </button>
   );
 }

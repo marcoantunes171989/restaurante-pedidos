@@ -69,11 +69,106 @@ export function situacaoMesaVisual(conta) {
   return "ocupada";
 }
 
+/**
+ * Cor da mesa = leitura instantânea do salão (só na tela de Mesa):
+ * verde livre, laranja claro em consumo, amarelo aguardando pagamento.
+ */
 export const MESA_STATUS_META = {
-  livre: { label: "Disponível", dot: "bg-[var(--pp-success)]", border: "border-[var(--pp-border)]", ring: "" },
-  ocupada: { label: "Ocupada", dot: "bg-[var(--pp-primary)]", border: "border-[var(--pp-primary)]/35", ring: "" },
-  pendente: { label: "Pendente", dot: "bg-[var(--pp-warning)]", border: "border-[var(--pp-warning)]/40", ring: "" },
+  livre: {
+    label: "Disponível",
+    curto: "Disponível",
+    dot: "bg-[#2F9E52]",
+    border: "border-[#BFE3CB]",
+    card: "bg-[#F2FBF5]",
+    texto: "text-[#1F7A3D]",
+    chip: "bg-[#DFF3E6] text-[#1F7A3D]",
+  },
+  ocupada: {
+    label: "Ocupada",
+    curto: "Ocupada",
+    dot: "bg-[#F2994A]",
+    border: "border-[#F7D9BB]",
+    card: "bg-[#FFF7EF]",
+    texto: "text-[#B3600E]",
+    chip: "bg-[#FCE8D4] text-[#B3600E]",
+  },
+  pendente: {
+    label: "Aguardando pagamento",
+    curto: "Conta pedida",
+    dot: "bg-[#F0B429]",
+    border: "border-[#F5DFA3]",
+    card: "bg-[#FFFBEB]",
+    texto: "text-[#8D6708]",
+    chip: "bg-[#FBEFC4] text-[#8D6708]",
+  },
 };
+
+const STATUS_PEDIDO_META = {
+  received: { label: "Recebido", chip: "bg-[#E0F0F4] text-[#0F4C5C]" },
+  preparing: { label: "Em preparo", chip: "bg-[#FCE8D4] text-[#B3600E]" },
+  ready: { label: "Pronto", chip: "bg-[#DFF3E6] text-[#1F7A3D]" },
+  delivered: { label: "Entregue", chip: "bg-[#EDF0F4] text-[#52606D]" },
+};
+
+/**
+ * Status consolidado dos pedidos de uma conta — o estágio MENOS avançado
+ * manda, porque é ele que o salão ainda precisa acompanhar.
+ */
+export function statusPedidosConta(pedidos = []) {
+  const abertos = pedidos.filter((o) => o?.status !== "cancelled");
+  if (!abertos.length) return null;
+  const ordem = ["received", "preparing", "ready", "delivered"];
+  const menor = ordem.find((s) => abertos.some((o) => o.status === s));
+  const id = menor || "delivered";
+  return { id, ...STATUS_PEDIDO_META[id] };
+}
+
+/** Forma com troco liberado — apenas dinheiro/espécie (regra do caixa). */
+export function formaPermiteTroco(forma) {
+  if (!forma) return false;
+  if (forma.permiteTroco === true) return true;
+  return estiloFormaPagamento(forma.nome) === "dinheiro";
+}
+
+/** Texto sem acento/caixa para a busca global casar "Joao" com "João". */
+export function normalizarBusca(texto) {
+  return String(texto || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+/**
+ * Índice de busca de uma conta: tudo que está visível na tela vira texto
+ * pesquisável (mesa, cliente, telefone, comanda, pedido, produtos e valores).
+ */
+export function textoBuscaConta(conta, pedidos = []) {
+  const partes = [
+    conta?.mesa,
+    conta?.cliente,
+    conta?.telefone,
+    String(conta?.telefone || "").replace(/\D/g, ""),
+    ...(conta?.comandas || []),
+    ...(conta?.pedidosIds || []),
+    numeroParaMoeda(conta?.total),
+    String(Number(conta?.total || 0).toFixed(2)),
+  ];
+  pedidos.forEach((o) => {
+    partes.push(o.id, o.command, o.customer, o.table);
+    (o.items || []).forEach((it) => {
+      partes.push(it.name, numeroParaMoeda(it.price), String(Number(it.price || 0).toFixed(2)), it.observation);
+    });
+  });
+  return normalizarBusca(partes.filter(Boolean).join(" "));
+}
+
+/** Casa todos os termos digitados (busca por palavras, em qualquer ordem). */
+export function combinaBusca(indice, termo) {
+  const alvo = normalizarBusca(termo);
+  if (!alvo) return true;
+  return alvo.split(/\s+/).every((t) => indice.includes(t));
+}
 
 export const CANAIS_PDV = [
   { id: "mesa", label: "Mesa" },

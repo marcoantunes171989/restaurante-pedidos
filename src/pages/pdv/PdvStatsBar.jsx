@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown, X, DoorClosed, Wallet, CheckCircle2, TrendingUp, Ticket } from "lucide-react";
+import { ChevronDown, X, DoorClosed, DoorOpen, Wallet, CheckCircle2, TrendingUp, Ticket } from "lucide-react";
 import { formatCurrency } from "./pdvHelpers";
 
 /**
@@ -7,6 +7,7 @@ import { formatCurrency } from "./pdvHelpers";
  */
 export default function PdvStatsBar({
   agora,
+  mesasDisponiveis = 0,
   mesasOcupadas = 0,
   pagamentoPendente = 0,
   pagamentoFinalizado = 0,
@@ -22,7 +23,7 @@ export default function PdvStatsBar({
 
   return (
     <section
-      className="shrink-0 border-b border-[var(--pp-border)] bg-[var(--pp-surface)] px-3 py-2 sm:px-4 sm:py-2.5 lg:px-5"
+      className="shrink-0 border-b border-[var(--pp-border)] bg-[var(--pp-surface)] px-3 py-2 sm:px-4 lg:px-4 lg:py-1.5"
       style={{ paddingLeft: "max(0.75rem, env(safe-area-inset-left))", paddingRight: "max(0.75rem, env(safe-area-inset-right))" }}
     >
       {/* Mobile */}
@@ -35,8 +36,9 @@ export default function PdvStatsBar({
           <span className="min-w-0 flex-1">
             <span className="block text-[10px] font-bold uppercase tracking-wide text-[var(--pp-text-muted)]">Resumo do turno · {dataTurno} {horaTurno}</span>
             <span className="flex flex-wrap items-baseline gap-x-2 text-sm font-black text-[var(--pp-text)]">
-              <span className="text-[var(--pp-primary)]">{mesasOcupadas} ocup.</span>
-              <span className="text-[var(--pp-warning-text)]">{pagamentoPendente} pend.</span>
+              <span className="text-[#1F7A3D]">{mesasDisponiveis} livres</span>
+              <span className="text-[var(--pp-primary-text)]">{mesasOcupadas} ocup.</span>
+              <span className="text-[#8D6708]">{pagamentoPendente} pend.</span>
               <span className="tabular-nums">{formatCurrency(faturamentoDia)}</span>
             </span>
           </span>
@@ -53,33 +55,37 @@ export default function PdvStatsBar({
         )}
       </div>
 
-      {/* Desktop */}
-      <div className="hidden flex-wrap items-center gap-x-4 gap-y-2 lg:flex">
+      {/* Desktop / tablet landscape — uma linha só, sem empurrar o salão */}
+      <div className="hidden items-center gap-x-3 gap-y-1 lg:flex">
         <button
           type="button"
           onClick={() => setModalAberto(true)}
-          className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-[var(--pp-border)] bg-[var(--pp-bg)] px-3 text-xs font-bold text-[var(--pp-text-body)] transition hover:border-[var(--pp-primary)]/40 active:scale-[0.99]"
+          className="inline-flex h-8 shrink-0 items-center gap-1 rounded-lg border border-[var(--pp-border)] bg-[var(--pp-bg)] px-2 text-[11px] font-bold text-[var(--pp-text-body)] transition hover:border-[var(--pp-primary)] active:scale-[0.99]"
         >
-          <span className="text-[var(--pp-text-muted)]">Resumo do turno</span>
-          <span className="font-black text-[var(--pp-text)]">Hoje, {dataTurno} · {horaTurno}</span>
-          <ChevronDown size={14} aria-hidden="true" />
+          <span className="text-[var(--pp-text-muted)]">Turno</span>
+          <span className="font-black text-[var(--pp-text)]">{dataTurno} · {horaTurno}</span>
+          <ChevronDown size={13} aria-hidden="true" />
         </button>
 
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm">
-          <Metrica label="Mesas ocupadas" valor={mesasOcupadas} tom="text-[var(--pp-primary)]" />
-          <Metrica label="Pagamento pendente" valor={pagamentoPendente} tom="text-[var(--pp-warning-text)]" />
-          <Metrica label="Pagamento finalizado" valor={pagamentoFinalizado} tom="text-[var(--pp-success-text)]" />
-          <Metrica label="Faturamento do dia" valor={formatCurrency(faturamentoDia)} tom="text-[var(--pp-text)]" />
-          <Metrica label="Tickets médios" valor={formatCurrency(ticketMedio)} tom="text-[var(--pp-text)]" />
+        <div className="flex min-w-0 flex-1 items-center gap-x-3 overflow-hidden">
+          <Metrica label="Disponíveis" valor={mesasDisponiveis} tom="text-[#1F7A3D]" />
+          <Metrica label="Ocupadas" valor={mesasOcupadas} tom="text-[var(--pp-primary-text)]" />
+          <Metrica label="Pendentes" valor={pagamentoPendente} tom="text-[#8D6708]" />
+          <Metrica label="Finalizados" valor={pagamentoFinalizado} tom="text-[#1F7A3D]" />
+          <Metrica label="Faturamento" valor={formatCurrency(faturamentoDia)} tom="text-[var(--pp-text)]" />
+          <Metrica label="Ticket médio" valor={formatCurrency(ticketMedio)} tom="text-[var(--pp-text)]" />
         </div>
 
         {pagamentoPendente > 0 && (
           <button
             type="button"
             onClick={() => setModalAberto(true)}
-            className="ml-auto inline-flex min-h-10 items-center rounded-lg border border-[var(--pp-warning)]/35 bg-[var(--pp-warning-soft)] px-3 text-xs font-bold text-[var(--pp-warning-text)]"
+            title={`${pagamentoPendente} conta(s) aguardando pagamento`}
+            className="inline-flex h-8 shrink-0 items-center gap-1 rounded-lg border border-[#F5DFA3] bg-[#FFFBEB] px-2 text-[11px] font-bold text-[#8D6708]"
           >
-            Atenção: {pagamentoPendente} mesa{pagamentoPendente === 1 ? "" : "s"} aguardando pagamento
+            <span className="font-black">{pagamentoPendente}</span>
+            <span className="hidden xl:inline">aguardando pagamento</span>
+            <span className="xl:hidden">aguardando</span>
           </button>
         )}
       </div>
@@ -88,6 +94,7 @@ export default function PdvStatsBar({
         <ModalResumoTurno
           dataCompleta={dataCompleta}
           horaTurno={horaTurno}
+          mesasDisponiveis={mesasDisponiveis}
           mesasOcupadas={mesasOcupadas}
           pagamentoPendente={pagamentoPendente}
           pagamentoFinalizado={pagamentoFinalizado}
@@ -105,6 +112,7 @@ export default function PdvStatsBar({
 function ModalResumoTurno({
   dataCompleta,
   horaTurno,
+  mesasDisponiveis,
   mesasOcupadas,
   pagamentoPendente,
   pagamentoFinalizado,
@@ -138,11 +146,12 @@ function ModalResumoTurno({
 
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5">
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            <CardMetrica Icon={DoorClosed} label="Mesas ocupadas" valor={mesasOcupadas} tom="text-[var(--pp-primary)]" />
-            <CardMetrica Icon={Wallet} label="Pag. pendente" valor={pagamentoPendente} tom="text-[var(--pp-warning-text)]" />
-            <CardMetrica Icon={CheckCircle2} label="Pag. finalizado" valor={pagamentoFinalizado} tom="text-[var(--pp-success-text)]" />
+            <CardMetrica Icon={DoorOpen} label="Mesas disponíveis" valor={mesasDisponiveis} tom="text-[#1F7A3D]" />
+            <CardMetrica Icon={DoorClosed} label="Mesas ocupadas" valor={mesasOcupadas} tom="text-[var(--pp-primary-text)]" />
+            <CardMetrica Icon={Wallet} label="Pag. pendente" valor={pagamentoPendente} tom="text-[#8D6708]" />
+            <CardMetrica Icon={CheckCircle2} label="Pag. finalizado" valor={pagamentoFinalizado} tom="text-[#1F7A3D]" />
             <CardMetrica Icon={TrendingUp} label="Faturamento" valor={formatCurrency(faturamentoDia)} tom="text-[var(--pp-text)]" />
-            <CardMetrica Icon={Ticket} label="Ticket médio" valor={formatCurrency(ticketMedio)} tom="text-[var(--pp-text)]" className="col-span-2 sm:col-span-1" />
+            <CardMetrica Icon={Ticket} label="Ticket médio" valor={formatCurrency(ticketMedio)} tom="text-[var(--pp-text)]" />
           </div>
 
           <div>
@@ -205,9 +214,9 @@ function ModalResumoTurno({
 
 function Metrica({ label, valor, tom }) {
   return (
-    <div className="leading-tight">
-      <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--pp-text-muted)]">{label}</p>
-      <p className={`text-base font-black tabular-nums ${tom}`}>{valor}</p>
+    <div className="min-w-0 leading-tight">
+      <p className="truncate text-[9px] font-bold uppercase tracking-wide text-[var(--pp-text-muted)]">{label}</p>
+      <p className={`truncate text-[13px] font-black tabular-nums ${tom}`}>{valor}</p>
     </div>
   );
 }

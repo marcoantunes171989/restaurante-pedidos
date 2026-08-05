@@ -514,6 +514,62 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
   background-image: linear-gradient(180deg, #3FB463 0%, #2A8548 100%);
 }
 
+/* ══════════════════════════════════════════════════════════════════
+   Botão AZUL PETRÓLEO — chrome operacional (--op-nav-accent) como
+   preenchimento sólido. Petróleo é escuro: o texto é SEMPRE branco
+   (contraste ~10:1). Mesma receita de degradê dos botões laranja/verde
+   para manter o acabamento entre as ações da tela.
+   ══════════════════════════════════════════════════════════════════ */
+.btn-petroleo {
+  background-image: linear-gradient(180deg, #17667A 0%, #0F4C5C 100%);
+  color: #FFFFFF;
+}
+.btn-petroleo:hover:not(:disabled):not([aria-disabled="true"]) {
+  background-image: linear-gradient(180deg, #1B7C93 0%, #12596B 100%);
+}
+.btn-petroleo:active:not(:disabled):not([aria-disabled="true"]) {
+  background-image: none;
+  background-color: #0B3D4A;
+}
+.btn-petroleo:disabled,
+.btn-petroleo[disabled] {
+  background-image: none;
+  background-color: #0F4C5C;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   TEMA DO PDV (.pdv-tema) — escopo EXCLUSIVO da tela de caixa. Duas
+   decisões de design vivem aqui e não vazam para o resto do app:
+   1) fundo CLEAN: sai o bege quente, entra branco com neutros frios de
+      apoio — o produto (comida/valores) fica sendo a única cor forte;
+   2) laranja MAIS CLARO: a ação continua laranja, porém num tom aberto
+      que não compete com os status das mesas (verde/amarelo).
+   Texto sobre fundo claro segue usando --pp-primary-text (AA).
+   ══════════════════════════════════════════════════════════════════ */
+.pdv-tema {
+  --pp-primary: #F2994A;
+  --pp-primary-hover: #E8873A;
+  --pp-primary-soft: rgba(242, 153, 74, 0.12);
+  --pp-primary-text: #B3600E;
+  --pp-bg: #F4F6F9;
+  --pp-surface: #FFFFFF;
+  --pp-border: #E3E8EF;
+  --pp-text: #1F2933;
+  --pp-text-body: #52606D;
+  --pp-text-muted: #7B8794;
+}
+.pdv-tema .btn-laranja {
+  background-image: linear-gradient(180deg, #F6A961 0%, #EC8B3E 100%);
+  text-shadow: 0 1px 1.5px rgba(90, 35, 0, 0.28);
+}
+.pdv-tema .btn-laranja:hover:not(:disabled):not([aria-disabled="true"]) {
+  background-image: linear-gradient(180deg, #FAB672 0%, #F2994A 100%);
+}
+.pdv-tema .btn-laranja:active:not(:disabled):not([aria-disabled="true"]) {
+  background-image: none;
+  background-color: #D77B2C;
+}
+
 /* ── Painel de filtro oficial (FilterGroup, src/components/Prime.jsx) ──
    Paleta oficial 2026 dos grupos "Turno/Canal/Status" do Dashboard
    Gerencial — aplicada automaticamente por QUALQUER FilterGroup (é a
