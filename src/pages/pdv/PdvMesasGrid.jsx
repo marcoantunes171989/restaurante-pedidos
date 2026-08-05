@@ -1,6 +1,13 @@
 import { Check } from "lucide-react";
 import { formatCurrency, MESA_STATUS_META, rotuloMesa, tempoAbertoISO } from "./pdvHelpers";
 
+function rotuloStatusCard(status) {
+  if (status === "livre") return "Disponível";
+  if (status === "finalizada") return "Finalizada";
+  // ocupada + pendente: texto pedido no salão
+  return "Mesa ocupada";
+}
+
 /**
  * Grade central das mesas do salão — status derivados dos pedidos reais.
  */
@@ -43,12 +50,13 @@ export default function PdvMesasGrid({
             {mesasPainel.map((m) => {
               const meta = MESA_STATUS_META[m.status] || MESA_STATUS_META.livre;
               const selected = selecionadaKey === m.key;
+              const ocupada = m.status === "ocupada" || m.status === "pendente";
               return (
                 <button
                   key={m.key}
                   type="button"
                   onClick={() => onSelecionar?.(m)}
-                  className={`relative flex min-h-[84px] flex-col items-start justify-between rounded-xl border bg-[var(--pp-surface)] p-2.5 text-left transition ${
+                  className={`relative flex min-h-[96px] flex-col items-start justify-between rounded-xl border bg-[var(--pp-surface)] p-2.5 text-left transition ${
                     selected
                       ? "border-[var(--pp-primary)] shadow-[0_0_0_2px_rgba(230,126,34,0.25)]"
                       : `${meta.border} hover:border-[var(--pp-primary)]/50`
@@ -64,8 +72,19 @@ export default function PdvMesasGrid({
                       <span className={`h-2 w-2 rounded-full ${meta.dot}`} />
                     )}
                   </div>
+
+                  <p className={`mt-1 text-[10px] font-black uppercase tracking-wide ${
+                    ocupada
+                      ? "text-[var(--pp-primary-text)]"
+                      : m.status === "finalizada"
+                        ? "text-[var(--pp-success-text)]"
+                        : "text-[var(--pp-text-muted)]"
+                  }`}>
+                    {rotuloStatusCard(m.status)}
+                  </p>
+
                   {m.conta ? (
-                    <div className="w-full space-y-0.5">
+                    <div className="mt-auto w-full space-y-0.5 pt-1">
                       <p className="truncate text-[10px] font-semibold text-[var(--pp-text-muted)]">
                         {tempoAbertoISO(m.conta.aberturaISO, agora) || "—"}
                       </p>
@@ -74,7 +93,7 @@ export default function PdvMesasGrid({
                       </p>
                     </div>
                   ) : (
-                    <p className="text-[11px] font-semibold text-[var(--pp-text-muted)]">Disponível</p>
+                    <p className="mt-auto pt-1 text-[11px] font-semibold text-[var(--pp-text-muted)]">Livre</p>
                   )}
                 </button>
               );
