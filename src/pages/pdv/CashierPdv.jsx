@@ -77,10 +77,10 @@ export default function CashierPdv({
   const formaAtual = formaSelecionada && formasAtivas.some((f) => f.id === formaSelecionada.id || f.nome === formaSelecionada.nome)
     ? formaSelecionada
     : formaPadrao;
-  const configCrm = lojaInfo?.configCrm || {};
 
   // Contas abertas agrupadas (mesa interna / command externo) a partir dos pedidos reais
   const contasAbertas = useMemo(() => {
+    const configCrm = lojaInfo?.configCrm || {};
     const mapa = {};
     orders.forEach((o) => {
       if (o.status === "cancelled" || o.paymentStatus === "paid") return;
@@ -124,7 +124,7 @@ export default function CashierPdv({
       }))
       .filter((c) => c.total > 0.001)
       .sort((a, b) => new Date(a.aberturaISO || 0) - new Date(b.aberturaISO || 0));
-  }, [orders, taxaPct, clientes, configCrm]);
+  }, [orders, taxaPct, clientes, lojaInfo?.configCrm]);
 
   // Contas finalizadas hoje (para grade + métricas)
   const contasFinalizadasHoje = useMemo(() => {
