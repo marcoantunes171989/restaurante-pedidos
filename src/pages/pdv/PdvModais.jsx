@@ -5,28 +5,29 @@ import { formatCurrency, numeroMesaDe, rotuloMesa } from "./pdvHelpers";
 /** Modal genérico do PDV. */
 function ModalShell({ titulo, subtitulo, onFechar, children, largura = "max-w-lg" }) {
   return (
-    <div className="fixed inset-0 z-[120] flex items-end justify-center bg-black/50 p-3 backdrop-blur-sm sm:items-center sm:p-4">
+    <div className="fixed inset-0 z-[120] flex items-end justify-center bg-black/50 p-0 backdrop-blur-sm sm:items-center sm:p-4">
       <div
         role="dialog"
         aria-modal="true"
         aria-label={titulo}
-        className={`flex max-h-[90vh] w-full ${largura} flex-col overflow-hidden rounded-3xl border border-[var(--pp-border)] bg-white shadow-2xl`}
+        className={`flex max-h-[92dvh] w-full ${largura} flex-col overflow-hidden rounded-t-3xl border border-[var(--pp-border)] bg-white shadow-2xl sm:rounded-3xl`}
+        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
       >
         <div className="flex items-start justify-between gap-3 border-b border-[var(--pp-border)] px-4 py-3 sm:px-5">
           <div className="min-w-0">
-            <h2 className="text-base font-black text-[var(--pp-text)]">{titulo}</h2>
+            <h2 className="text-base font-black text-[var(--pp-text)] sm:text-lg">{titulo}</h2>
             {subtitulo && <p className="mt-0.5 text-sm text-[var(--pp-text-muted)]">{subtitulo}</p>}
           </div>
           <button
             type="button"
             onClick={onFechar}
-            className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-[var(--pp-border)] text-[var(--pp-text-body)] hover:bg-[var(--pp-bg)]"
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-[var(--pp-border)] text-[var(--pp-text-body)] active:bg-[var(--pp-bg)]"
             aria-label="Fechar"
           >
             <X size={18} aria-hidden="true" />
           </button>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 sm:px-5">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3 sm:px-5">{children}</div>
       </div>
     </div>
   );
@@ -64,7 +65,7 @@ export function ModalIncluirProduto({ products = [], onIncluir, onFechar, bloque
           value={busca}
           onChange={(e) => setBusca(e.target.value)}
           placeholder="Buscar produto…"
-          className="min-h-11 w-full rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] py-2 pl-10 pr-3 text-sm font-semibold text-[var(--pp-text)] outline-none focus:border-[var(--pp-primary)]"
+          className="min-h-12 w-full rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] py-2 pl-10 pr-3 text-base font-semibold text-[var(--pp-text)] outline-none focus:border-[var(--pp-primary)] sm:min-h-11 sm:text-sm"
           autoFocus
         />
       </label>
@@ -76,7 +77,7 @@ export function ModalIncluirProduto({ products = [], onIncluir, onFechar, bloque
               <button
                 type="button"
                 onClick={() => onIncluir?.(p)}
-                className="flex w-full items-center justify-between gap-3 rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-3 py-2.5 text-left transition hover:border-[var(--pp-primary)]/50 hover:bg-white"
+                className="flex min-h-14 w-full items-center justify-between gap-3 rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-3 py-2.5 text-left transition active:border-[var(--pp-primary)]/50 hover:border-[var(--pp-primary)]/50 hover:bg-white"
               >
                 <span className="min-w-0">
                   <span className="block truncate text-sm font-black text-[var(--pp-text)]">{p.name}</span>
@@ -118,7 +119,7 @@ export function ModalCliente({ cliente = "", telefone = "", onSalvar, onFechar, 
           value={nome}
           onChange={(e) => setNome(e.target.value)}
           placeholder="Nome do cliente"
-          className="min-h-11 w-full rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-3 text-sm font-semibold text-[var(--pp-text)] outline-none focus:border-[var(--pp-primary)]"
+          className="min-h-12 w-full rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-3 text-base font-semibold text-[var(--pp-text)] outline-none focus:border-[var(--pp-primary)] sm:min-h-11 sm:text-sm"
           autoFocus
         />
       </label>
@@ -129,7 +130,7 @@ export function ModalCliente({ cliente = "", telefone = "", onSalvar, onFechar, 
           onChange={(e) => setTel(e.target.value.replace(/\D/g, "").slice(0, 11))}
           placeholder="(00) 00000-0000"
           inputMode="tel"
-          className="min-h-11 w-full rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-3 text-sm font-semibold tabular-nums text-[var(--pp-text)] outline-none focus:border-[var(--pp-primary)]"
+          className="min-h-12 w-full rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-3 text-base font-semibold tabular-nums text-[var(--pp-text)] outline-none focus:border-[var(--pp-primary)] sm:min-h-11 sm:text-sm"
         />
       </label>
       <div className="grid grid-cols-2 gap-2">
@@ -369,7 +370,7 @@ export function ModalObservacoes({ mesa, obsItens = [], valorInicial = "", onSal
   );
 }
 
-/** Controles de quantidade / remoção reutilizados no detalhe. */
+/** Controles de quantidade / remoção — alvos ≥44px no toque. */
 export function ControlesItem({ quantity, onMenos, onMais, onRemover, desabilitado }) {
   return (
     <div className="mt-2 flex items-center gap-1.5">
@@ -377,29 +378,29 @@ export function ControlesItem({ quantity, onMenos, onMais, onRemover, desabilita
         type="button"
         disabled={desabilitado}
         onClick={onMenos}
-        className="grid h-8 w-8 place-items-center rounded-lg border border-[var(--pp-border)] bg-white text-[var(--pp-text)] disabled:opacity-40"
+        className="grid h-11 w-11 place-items-center rounded-xl border border-[var(--pp-border)] bg-white text-[var(--pp-text)] active:scale-[0.97] disabled:opacity-40 sm:h-9 sm:w-9 sm:rounded-lg"
         aria-label="Diminuir quantidade"
       >
-        <Minus size={14} aria-hidden="true" />
+        <Minus size={16} aria-hidden="true" />
       </button>
-      <span className="min-w-6 text-center text-xs font-black tabular-nums text-[var(--pp-text)]">{quantity}</span>
+      <span className="min-w-7 text-center text-sm font-black tabular-nums text-[var(--pp-text)]">{quantity}</span>
       <button
         type="button"
         disabled={desabilitado}
         onClick={onMais}
-        className="grid h-8 w-8 place-items-center rounded-lg border border-[var(--pp-border)] bg-white text-[var(--pp-text)] disabled:opacity-40"
+        className="grid h-11 w-11 place-items-center rounded-xl border border-[var(--pp-border)] bg-white text-[var(--pp-text)] active:scale-[0.97] disabled:opacity-40 sm:h-9 sm:w-9 sm:rounded-lg"
         aria-label="Aumentar quantidade"
       >
-        <Plus size={14} aria-hidden="true" />
+        <Plus size={16} aria-hidden="true" />
       </button>
       <button
         type="button"
         disabled={desabilitado}
         onClick={onRemover}
-        className="ml-auto grid h-8 w-8 place-items-center rounded-lg border border-[var(--pp-danger)]/30 bg-[var(--pp-danger-soft)] text-[var(--pp-danger)] disabled:opacity-40"
+        className="ml-auto grid h-11 w-11 place-items-center rounded-xl border border-[var(--pp-danger)]/30 bg-[var(--pp-danger-soft)] text-[var(--pp-danger)] active:scale-[0.97] disabled:opacity-40 sm:h-9 sm:w-9 sm:rounded-lg"
         aria-label="Remover item"
       >
-        <Trash2 size={14} aria-hidden="true" />
+        <Trash2 size={16} aria-hidden="true" />
       </button>
     </div>
   );

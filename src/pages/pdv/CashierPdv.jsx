@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { IconCheck, IconImpressora, IconSpinner } from "../../components/PrimeIcons";
 import PdvHeader from "./PdvHeader";
 import PdvStatsBar from "./PdvStatsBar";
+import PdvMobileNav from "./PdvMobileNav";
 import PdvMesaDetail from "./PdvMesaDetail";
 import PdvMesasGrid from "./PdvMesasGrid";
 import PdvDeliveryStrip from "./PdvDeliveryStrip";
@@ -105,6 +106,8 @@ export default function CashierPdv({
   const [bloqueioProdutos, setBloqueioProdutos] = useState({});
   const [modal, setModal] = useState(null); // null | incluir | cliente | transferir | separar | historico | observacoes
   const [acaoProcessando, setAcaoProcessando] = useState(false);
+  // Mobile/tablet: Conta (produtos) | Salão | Pagar — abre em Conta (pedido em destaque).
+  const [painelMobile, setPainelMobile] = useState("conta");
   const processandoRef = useRef(false);
 
   const [agora, setAgora] = useState(() => new Date());
@@ -309,6 +312,7 @@ export default function CashierPdv({
     setBufferEntrada("");
     setCanal(conta.externo ? "delivery" : "mesa");
     setModal(null);
+    setPainelMobile("conta");
   }
 
   function selecionarMesaPainel(m) {
@@ -333,6 +337,7 @@ export default function CashierPdv({
     setValorManual(false);
     setBufferEntrada("");
     setRecebido(0);
+    setPainelMobile("pagamento");
   }
 
   function executarBusca() {
@@ -741,11 +746,20 @@ ${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency
     <div
       data-theme="light"
       className="tema-claro-area fixed inset-0 z-50 flex flex-col overflow-hidden bg-[var(--pp-bg)]"
-      style={{ paddingTop: "env(safe-area-inset-top)" }}
+      style={{
+        height: "100dvh",
+        maxHeight: "100dvh",
+        paddingTop: "env(safe-area-inset-top)",
+        paddingLeft: "env(safe-area-inset-left)",
+        paddingRight: "env(safe-area-inset-right)",
+      }}
     >
       <PdvHeader
         canal={canal}
-        onCanalChange={setCanal}
+        onCanalChange={(c) => {
+          setCanal(c);
+          setPainelMobile("salao");
+        }}
         busca={busca}
         onBuscaChange={setBusca}
         onBuscar={executarBusca}
@@ -763,7 +777,15 @@ ${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency
         ticketMedio={ticketMedio}
       />
 
+      <PdvMobileNav
+        ativo={painelMobile}
+        onChange={setPainelMobile}
+        temConta={temConta}
+        totalLabel={temConta ? formatCurrency(totalSel) : ""}
+      />
+
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+        {/* Conta / produtos — aba mobile + coluna desktop */}
         <PdvMesaDetail
           conta={contaSel}
           pedidos={pedidosSel}
@@ -776,9 +798,13 @@ ${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency
           onAlterarQtd={alterarQtdItem}
           onRemoverItem={removerItem}
           produtosBloqueados={produtosBloqueados}
+          className={`${painelMobile === "conta" ? "flex min-h-0 flex-1" : "hidden"} border-b lg:flex lg:w-[300px] lg:shrink-0 lg:border-b-0 lg:border-r xl:w-[320px]`}
         />
 
-        <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[var(--pp-bg)] p-3 sm:p-4">
+        {/* Salão / delivery — aba mobile + centro desktop */}
+        <main
+          className={`${painelMobile === "salao" ? "flex" : "hidden"} min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[var(--pp-bg)] p-3 sm:p-4 lg:flex`}
+        >
           {mostrarGrade ? (
             <PdvMesasGrid
               mesasPainel={mesasPainel}
@@ -787,7 +813,7 @@ ${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency
               agora={agora}
             />
           ) : (
-            <div className="mb-3 flex-1 overflow-y-auto">
+            <div className="mb-3 min-h-0 flex-1 overflow-y-auto overscroll-contain">
               <h2 className="mb-2 text-sm font-black text-[var(--pp-text)]">Delivery em andamento</h2>
               <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                 {deliveries.map((p) => (
@@ -795,7 +821,7 @@ ${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency
                     key={p.id}
                     type="button"
                     onClick={() => selecionarDelivery(p)}
-                    className={`rounded-xl border bg-[var(--pp-surface)] p-3 text-left transition ${
+                    className={`min-h-[88px] rounded-xl border bg-[var(--pp-surface)] p-3 text-left transition active:scale-[0.99] ${
                       contaSel?.comandas?.includes(p.command)
                         ? "border-[var(--pp-primary)]"
                         : "border-[var(--pp-border)] hover:border-[var(--pp-primary)]/40"
@@ -815,13 +841,26 @@ ${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency
             </div>
           )}
 
-          <PdvDeliveryStrip
-            pedidos={deliveries}
-            selecionadoId={pedidosSel.find((o) => ehPedidoExterno(o))?.id}
-            onSelecionar={selecionarDelivery}
-          />
+          <div className="hidden lg:block">
+            <PdvDeliveryStrip
+              pedidos={deliveries}
+              selecionadoId={pedidosSel.find((o) => ehPedidoExterno(o))?.id}
+              onSelecionar={selecionarDelivery}
+            />
+          </div>
+          {/* No mobile, delivery strip só no canal delivery (já listado acima) ou canal mesa com strip compacto */}
+          {canal === "mesa" && (
+            <div className="lg:hidden">
+              <PdvDeliveryStrip
+                pedidos={deliveries}
+                selecionadoId={pedidosSel.find((o) => ehPedidoExterno(o))?.id}
+                onSelecionar={selecionarDelivery}
+              />
+            </div>
+          )}
         </main>
 
+        {/* Pagamento — aba mobile + coluna direita desktop */}
         <PdvPaymentPanel
           totalConta={totalSel}
           aPagarAgora={aPagarAgora}
@@ -837,6 +876,7 @@ ${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency
           confirmarDesabilitado={!contaSel || totalSel <= 0}
           bufferEntrada={bufferEfetivo}
           valorExibido={recebidoEfetivo}
+          className={`${painelMobile === "pagamento" ? "flex min-h-0 flex-1" : "hidden"} border-t lg:flex lg:w-[300px] lg:shrink-0 lg:border-l lg:border-t-0 xl:w-[320px]`}
         />
       </div>
 
