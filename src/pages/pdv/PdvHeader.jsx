@@ -1,10 +1,11 @@
-import { Sun, Moon, Receipt, UserRound, ClipboardList } from "lucide-react";
+import { Sun, Moon } from "lucide-react";
 import { LogoPP } from "../../components/BrandLogo";
 import NotificationBell from "../../components/NotificationBell";
+import { CANAIS_PDV } from "./pdvHelpers";
 
 /**
- * Cabeçalho do PDV — marca + abas Mesa/Delivery + busca + perfil.
- * Mobile: compacto, busca em linha própria, inputs ≥16px (iOS).
+ * Cabeçalho do PDV — marca + canais (Mesa/Delivery/Comanda/Cliente/Pedido) + busca.
+ * Todos os canais no mesmo padrão de botão segmentado.
  */
 export default function PdvHeader({
   canal = "mesa",
@@ -22,14 +23,16 @@ export default function PdvHeader({
       style={{ paddingLeft: "max(0.75rem, env(safe-area-inset-left))", paddingRight: "max(0.75rem, env(safe-area-inset-right))" }}
     >
       <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 lg:gap-3">
-        <div className="flex min-w-0 flex-1 items-center gap-2 sm:flex-none sm:gap-2.5">
+        <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-2.5">
           <LogoPP size={32} className="shrink-0 sm:hidden" />
-          <span className="hidden sm:inline-flex"><LogoPP size={36} /></span>
-          <div role="tablist" aria-label="Canal do PDV" className="flex items-center gap-1 rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-1">
-            {[
-              ["mesa", "Mesa"],
-              ["delivery", "Delivery"],
-            ].map(([id, label]) => {
+          <span className="hidden shrink-0 sm:inline-flex"><LogoPP size={36} /></span>
+
+          <div
+            role="tablist"
+            aria-label="Canal do PDV"
+            className="flex min-w-0 max-w-full items-center gap-1 overflow-x-auto rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          >
+            {CANAIS_PDV.map(({ id, label }) => {
               const on = canal === id;
               return (
                 <button
@@ -38,7 +41,7 @@ export default function PdvHeader({
                   role="tab"
                   aria-selected={on}
                   onClick={() => onCanalChange?.(id)}
-                  className={`min-h-11 min-w-[4.5rem] rounded-lg px-3 text-sm font-black transition sm:min-h-10 ${
+                  className={`min-h-11 shrink-0 rounded-lg px-2.5 text-xs font-black transition sm:min-h-10 sm:px-3 sm:text-sm ${
                     on ? "btn-laranja text-white shadow-sm" : "text-[var(--op-nav-accent)] active:bg-[var(--pp-surface)]"
                   }`}
                 >
@@ -47,24 +50,6 @@ export default function PdvHeader({
               );
             })}
           </div>
-        </div>
-
-        <div className="hidden items-center gap-1 md:flex">
-          {[
-            [ClipboardList, "Comanda"],
-            [UserRound, "Cliente"],
-            [Receipt, "Pedido"],
-          ].map(([Icon, label]) => (
-            <button
-              key={label}
-              type="button"
-              title={label}
-              className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-[var(--pp-border)] bg-[var(--pp-bg)] px-2.5 text-xs font-bold text-[var(--pp-text-body)] transition hover:border-[var(--op-nav-accent)]/40 hover:text-[var(--op-nav-accent)]"
-            >
-              <Icon size={14} aria-hidden="true" />
-              <span className="hidden lg:inline">{label}</span>
-            </button>
-          ))}
         </div>
 
         <div className="flex shrink-0 items-center gap-1.5 sm:gap-2 sm:ml-auto">
@@ -89,7 +74,7 @@ export default function PdvHeader({
         </div>
 
         <form
-          className="order-last flex w-full basis-full items-center gap-2 lg:order-none lg:min-w-[220px] lg:flex-1 lg:basis-auto"
+          className="order-last flex w-full basis-full items-center gap-2 lg:order-none lg:min-w-[200px] lg:flex-1 lg:basis-auto"
           onSubmit={(e) => {
             e.preventDefault();
             onBuscar?.();

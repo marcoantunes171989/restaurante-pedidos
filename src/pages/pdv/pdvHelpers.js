@@ -57,21 +57,31 @@ export function rotuloMesa(n) {
   return `Mesa ${String(n).padStart(2, "0")}`;
 }
 
-/** Situação visual da mesa no salão (mockup PDV). */
+/**
+ * Situação visual da mesa no salão.
+ * Conta paga/finalizada → Disponível (libera a mesa para novo consumo).
+ */
 export function situacaoMesaVisual(conta) {
   if (!conta) return "livre";
-  if (conta.paymentStatus === "paid" || conta.situacao === "finalizada") return "finalizada";
+  if (conta.paymentStatus === "paid" || conta.situacao === "finalizada") return "livre";
   if (conta.solicitada || conta.situacao === "solicitado") return "pendente";
   if (conta.pendentePreparo) return "ocupada";
   return "ocupada";
 }
 
 export const MESA_STATUS_META = {
-  livre: { label: "Livre", dot: "bg-[var(--pp-success)]", border: "border-[var(--pp-border)]", ring: "" },
+  livre: { label: "Disponível", dot: "bg-[var(--pp-success)]", border: "border-[var(--pp-border)]", ring: "" },
   ocupada: { label: "Ocupada", dot: "bg-[var(--pp-primary)]", border: "border-[var(--pp-primary)]/35", ring: "" },
   pendente: { label: "Pendente", dot: "bg-[var(--pp-warning)]", border: "border-[var(--pp-warning)]/40", ring: "" },
-  finalizada: { label: "Finalizada", dot: "bg-[var(--pp-success)]", border: "border-[var(--pp-success)]/30", ring: "" },
 };
+
+export const CANAIS_PDV = [
+  { id: "mesa", label: "Mesa" },
+  { id: "delivery", label: "Delivery" },
+  { id: "comanda", label: "Comanda" },
+  { id: "cliente", label: "Cliente" },
+  { id: "pedido", label: "Pedido" },
+];
 
 export function tempoAbertoISO(iso, agora = new Date()) {
   if (!iso) return null;

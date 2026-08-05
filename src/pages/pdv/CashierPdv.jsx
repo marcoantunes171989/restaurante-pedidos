@@ -5,6 +5,7 @@ import PdvStatsBar from "./PdvStatsBar";
 import PdvMobileNav from "./PdvMobileNav";
 import PdvMesaDetail from "./PdvMesaDetail";
 import PdvMesasGrid from "./PdvMesasGrid";
+import PdvCanalGrid from "./PdvCanalGrid";
 import PdvDeliveryStrip from "./PdvDeliveryStrip";
 import PdvPaymentPanel from "./PdvPaymentPanel";
 import PdvActionBar from "./PdvActionBar";
@@ -175,38 +176,6 @@ export default function CashierPdv({
       .sort((a, b) => new Date(a.aberturaISO || 0) - new Date(b.aberturaISO || 0));
   }, [orders, taxaPct, clientes, lojaInfo?.configCrm]);
 
-  const contasFinalizadasHoje = useMemo(() => {
-    const hoje = new Date();
-    const mapa = {};
-    orders.forEach((o) => {
-      if (o.paymentStatus !== "paid" || o.status === "cancelled") return;
-      const ref = o.updatedAtISO || o.createdAtISO;
-      if (ref) {
-        const d = new Date(ref);
-        if (d.toDateString() !== hoje.toDateString()) return;
-      }
-      if (ehPedidoExterno(o)) return;
-      const key = o.table || chaveConta(o);
-      if (!mapa[key]) {
-        mapa[key] = {
-          key,
-          mesa: o.table,
-          comandas: [o.command],
-          subtotal: 0,
-          aberturaISO: o.createdAtISO || null,
-          cliente: nomeClienteDe(o, clientes),
-          situacao: "finalizada",
-          paymentStatus: "paid",
-          solicitada: false,
-          pendentePreparo: false,
-          externo: false,
-        };
-      }
-      mapa[key].subtotal += orderTotal(o);
-    });
-    return Object.values(mapa).map((m) => ({ ...m, total: m.subtotal * (1 + taxaPct / 100) }));
-  }, [orders, taxaPct, clientes]);
-
   const selecionadaEfetiva = useMemo(() => {
     if (selecionadaKey && contasAbertas.some((c) => c.key === selecionadaKey)) return selecionadaKey;
     const solicitadas = contasAbertas.filter((c) => c.solicitada);
@@ -260,17 +229,14 @@ export default function CashierPdv({
       numeros = [...derivadas].sort((a, b) => a - b);
     }
 
+    // Conta finalizada NÃO ocupa a mesa — libera para novo consumo (Disponível).
     return numeros.map((numero) => {
       const label = rotuloMesa(numero);
       const aberta = contasAbertas.find((c) => !c.externo && (c.mesa === label || numeroMesaDe(c.mesa) === numero));
-      const finalizada = !aberta
-        ? contasFinalizadasHoje.find((c) => c.mesa === label || numeroMesaDe(c.mesa) === numero)
-        : null;
-      const conta = aberta || finalizada || null;
-      const status = situacaoMesaVisual(conta);
-      return { key: label, numero, status, conta };
+      const status = situacaoMesaVisual(aberta || null);
+      return { key: label, numero, status, conta: aberta || null };
     });
-  }, [mesas, orders, contasAbertas, contasFinalizadasHoje]);
+  }, [mesas, orders, contasAbertas]);
 
   const deliveries = useMemo(() => {
     return orders
@@ -304,28 +270,135 @@ export default function CashierPdv({
     [contasAbertas],
   );
 
-  function selecionarConta(conta) {
+  function selecionarConta(conta, { manterCanal = false } = {}) {
     if (!conta) return;
     setSelecionadaKey(conta.key);
     setValorManual(false);
     setRecebido(0);
     setBufferEntrada("");
-    setCanal(conta.externo ? "delivery" : "mesa");
+    if (!manterCanal) setCanal(conta.externo ? "delivery" : "mesa");
     setModal(null);
     setPainelMobile("conta");
   }
 
   function selecionarMesaPainel(m) {
-    if (m.conta && m.status !== "finalizada") {
+    if (m.conta && (m.status === "ocupada" || m.status === "pendente")) {
       selecionarConta(m.conta);
       return;
     }
-    if (m.conta && m.status === "finalizada") {
-      setSelecionadaKey(null);
-      return;
-    }
+    // Mesa disponível — limpa seleção (pronta para novo cliente)
     setSelecionadaKey(null);
   }
+
+  function selecionarCardCanal(item) {
+    if (!item?.contaKey && !item?.orderId && !item?.comanda) return;
+    const conta = contasAbertas.find((c) =>
+      c.key === item.contaKey
+      || (item.comanda && c.comandas.includes(item.comanda))
+      || (item.orderId && c.pedidosIds?.includes(item.orderId)),
+    );
+    if (conta) selecionarConta(conta, { manterCanal: true });
+  }
+
+  // Cards Cliente — só identificados (nome ou telefone) com conta em aberto
+  const cardsCliente = useMemo(() => {
+    const mapa = {};
+    contasAbertas.forEach((c) => {
+      const tel = String(c.telefone || "").replace(/\D/g, "");
+      const nome = (c.cliente || "").trim();
+      if (!tel && !nome) return;
+      const key = tel || `nome:${nome.toLowerCase()}`;
+      if (!mapa[key]) {
+        mapa[key] = {
+          key,
+          contaKey: c.key,
+          titulo: nome || "Cliente",
+          subtitulo: c.externo ? "Delivery" : c.mesa,
+          telefone: c.telefone || "",
+          mesa: c.externo ? null : c.mesa,
+          comanda: c.comandas?.[0],
+          total: 0,
+          aberturaISO: c.aberturaISO,
+          vip: !!c.vip,
+          status: c.solicitada ? "pendente" : "ocupada",
+          statusLabel: c.solicitada ? "Pendente" : "Em consumo",
+          produtosResumo: "",
+          orderIds: [],
+        };
+      }
+      const row = mapa[key];
+      row.total += c.total || 0;
+      if (c.aberturaISO && (!row.aberturaISO || c.aberturaISO < row.aberturaISO)) row.aberturaISO = c.aberturaISO;
+      row.orderIds.push(...(c.pedidosIds || []));
+      if (c.vip) row.vip = true;
+      if (c.solicitada) {
+        row.status = "pendente";
+        row.statusLabel = "Pendente";
+      }
+    });
+    return Object.values(mapa)
+      .map((row) => {
+        const pedidos = orders.filter((o) => row.orderIds.includes(o.id));
+        const nomes = pedidos.flatMap((o) => (o.items || []).map((it) => `${it.quantity}x ${it.name}`));
+        return { ...row, produtosResumo: nomes.slice(0, 4).join(" · ") };
+      })
+      .sort((a, b) => b.total - a.total);
+  }, [contasAbertas, orders]);
+
+  // Cards Comanda — uma por comanda em aberto
+  const cardsComanda = useMemo(() => {
+    return contasAbertas.flatMap((c) =>
+      (c.comandas || []).map((cmd) => {
+        const pedidos = orders.filter((o) => o.command === cmd && o.paymentStatus !== "paid" && o.status !== "cancelled");
+        const sub = pedidos.reduce((s, o) => s + orderTotal(o), 0);
+        const nomes = pedidos.flatMap((o) => (o.items || []).map((it) => `${it.quantity}x ${it.name}`));
+        return {
+          key: `cmd-${cmd}`,
+          contaKey: c.key,
+          comanda: cmd,
+          orderId: pedidos[0]?.id,
+          titulo: cmd,
+          subtitulo: c.cliente || (c.externo ? "Delivery" : c.mesa),
+          telefone: c.telefone || "",
+          mesa: c.externo ? null : c.mesa,
+          total: sub * (1 + taxaPct / 100),
+          aberturaISO: c.aberturaISO,
+          vip: !!c.vip,
+          status: c.solicitada ? "pendente" : "ocupada",
+          statusLabel: c.solicitada ? "Pendente" : "Aberta",
+          produtosResumo: nomes.slice(0, 4).join(" · "),
+        };
+      }),
+    ).sort((a, b) => b.total - a.total);
+  }, [contasAbertas, orders, taxaPct]);
+
+  // Cards Pedido — um por pedido aberto
+  const cardsPedido = useMemo(() => {
+    return orders
+      .filter((o) => o.paymentStatus !== "paid" && o.status !== "cancelled")
+      .map((o) => {
+        const tot = orderTotal(o) * (1 + taxaPct / 100);
+        const nomes = (o.items || []).map((it) => `${it.quantity}x ${it.name}`);
+        const conta = contasAbertas.find((c) => c.comandas.includes(o.command) || c.pedidosIds?.includes(o.id));
+        return {
+          key: o.id,
+          contaKey: conta?.key,
+          orderId: o.id,
+          comanda: o.command,
+          titulo: o.id,
+          subtitulo: nomeClienteDe(o, clientes) || o.customer || "Sem cliente",
+          telefone: o.clienteTelefone || "",
+          mesa: ehPedidoExterno(o) ? o.table : o.table,
+          total: tot,
+          aberturaISO: o.createdAtISO,
+          vip: conta?.vip,
+          status: o.paymentStatus === "requested" ? "pendente" : "ocupada",
+          statusLabel: o.paymentStatus === "requested" ? "Pendente" : (o.status || "Aberto"),
+          produtosResumo: nomes.slice(0, 4).join(" · "),
+        };
+      })
+      .sort((a, b) => new Date(a.aberturaISO || 0) - new Date(b.aberturaISO || 0));
+  }, [orders, taxaPct, contasAbertas, clientes]);
 
   function selecionarDelivery(p) {
     const conta = contasAbertas.find((c) => c.comandas.includes(p.command) || c.pedidosIds?.includes(p.id));
@@ -739,8 +812,14 @@ ${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [confirmarFinalizacao, sucesso, contaSel, podeFechar, recebido, bufferEntrada, modal]);
 
-  const mostrarGrade = canal === "mesa";
   const temConta = !!contaSel;
+  const selecionadoCanalKey = canal === "cliente"
+    ? cardsCliente.find((c) => c.contaKey === contaSel?.key)?.key
+    : canal === "comanda"
+      ? cardsComanda.find((c) => c.contaKey === contaSel?.key)?.key
+      : canal === "pedido"
+        ? cardsPedido.find((c) => c.contaKey === contaSel?.key || contaSel?.pedidosIds?.includes(c.orderId))?.key
+        : contaSel?.mesa;
 
   return (
     <div
@@ -775,6 +854,8 @@ ${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency
         pagamentoFinalizado={pagamentoFinalizado}
         faturamentoDia={faturamentoDia}
         ticketMedio={ticketMedio}
+        contasAbertas={contasAbertas}
+        pagosHoje={pagosHoje}
       />
 
       <PdvMobileNav
@@ -801,19 +882,37 @@ ${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency
           className={`${painelMobile === "conta" ? "flex min-h-0 flex-1" : "hidden"} border-b lg:flex lg:w-[300px] lg:shrink-0 lg:border-b-0 lg:border-r xl:w-[320px]`}
         />
 
-        {/* Salão / delivery — aba mobile + centro desktop */}
+        {/* Centro — canal Mesa / Delivery / Comanda / Cliente / Pedido */}
         <main
           className={`${painelMobile === "salao" ? "flex" : "hidden"} min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[var(--pp-bg)] p-3 sm:p-4 lg:flex`}
         >
-          {mostrarGrade ? (
-            <PdvMesasGrid
-              mesasPainel={mesasPainel}
-              selecionadaKey={contaSel?.mesa}
-              onSelecionar={selecionarMesaPainel}
-              agora={agora}
-            />
-          ) : (
-            <div className="mb-3 min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          {canal === "mesa" && (
+            <>
+              <PdvMesasGrid
+                mesasPainel={mesasPainel}
+                selecionadaKey={contaSel?.mesa}
+                onSelecionar={selecionarMesaPainel}
+                agora={agora}
+              />
+              <div className="lg:hidden">
+                <PdvDeliveryStrip
+                  pedidos={deliveries}
+                  selecionadoId={pedidosSel.find((o) => ehPedidoExterno(o))?.id}
+                  onSelecionar={selecionarDelivery}
+                />
+              </div>
+              <div className="hidden lg:block">
+                <PdvDeliveryStrip
+                  pedidos={deliveries}
+                  selecionadoId={pedidosSel.find((o) => ehPedidoExterno(o))?.id}
+                  onSelecionar={selecionarDelivery}
+                />
+              </div>
+            </>
+          )}
+
+          {canal === "delivery" && (
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
               <h2 className="mb-2 text-sm font-black text-[var(--pp-text)]">Delivery em andamento</h2>
               <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                 {deliveries.map((p) => (
@@ -829,7 +928,10 @@ ${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency
                   >
                     <p className="text-xs font-black text-[var(--op-nav-accent)]">#{p.command}</p>
                     <p className="font-bold text-[var(--pp-text)]">{p.customer || "Cliente"}</p>
-                    <p className="text-sm font-black">{formatCurrency(p.total)}</p>
+                    <p className="mt-0.5 line-clamp-2 text-[11px] font-semibold text-[var(--pp-text-muted)]">
+                      {(p.items || []).map((it) => `${it.quantity}x ${it.name}`).join(" · ")}
+                    </p>
+                    <p className="mt-1 text-sm font-black">{formatCurrency(p.total)}</p>
                   </button>
                 ))}
                 {deliveries.length === 0 && (
@@ -841,22 +943,32 @@ ${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency
             </div>
           )}
 
-          <div className="hidden lg:block">
-            <PdvDeliveryStrip
-              pedidos={deliveries}
-              selecionadoId={pedidosSel.find((o) => ehPedidoExterno(o))?.id}
-              onSelecionar={selecionarDelivery}
+          {canal === "cliente" && (
+            <PdvCanalGrid
+              canal="cliente"
+              itens={cardsCliente}
+              selecionadoKey={selecionadoCanalKey}
+              onSelecionar={selecionarCardCanal}
+              agora={agora}
             />
-          </div>
-          {/* No mobile, delivery strip só no canal delivery (já listado acima) ou canal mesa com strip compacto */}
-          {canal === "mesa" && (
-            <div className="lg:hidden">
-              <PdvDeliveryStrip
-                pedidos={deliveries}
-                selecionadoId={pedidosSel.find((o) => ehPedidoExterno(o))?.id}
-                onSelecionar={selecionarDelivery}
-              />
-            </div>
+          )}
+          {canal === "comanda" && (
+            <PdvCanalGrid
+              canal="comanda"
+              itens={cardsComanda}
+              selecionadoKey={selecionadoCanalKey}
+              onSelecionar={selecionarCardCanal}
+              agora={agora}
+            />
+          )}
+          {canal === "pedido" && (
+            <PdvCanalGrid
+              canal="pedido"
+              itens={cardsPedido}
+              selecionadoKey={selecionadoCanalKey}
+              onSelecionar={selecionarCardCanal}
+              agora={agora}
+            />
           )}
         </main>
 
