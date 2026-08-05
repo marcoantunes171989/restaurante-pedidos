@@ -15,6 +15,7 @@ const ICONE_POR_TIPO = {
 
 /**
  * Coluna direita — pagamento com as formas cadastradas da loja.
+ * Ao selecionar a forma, o total é sugerido no campo (editável via teclado).
  */
 export default function PdvPaymentPanel({
   totalConta = 0,
@@ -30,9 +31,13 @@ export default function PdvPaymentPanel({
   onConfirmar,
   confirmarDesabilitado,
   bufferEntrada = "",
+  valorExibido = 0,
 }) {
   const formas = formasPagamento.filter((f) => f.active !== false && (f.nome || "").trim());
   const cols = Math.min(4, Math.max(2, formas.length || 1));
+  const valorCampo = bufferEntrada !== ""
+    ? Number(bufferEntrada) / 100
+    : (Number(valorExibido) || Number(recebido) || 0);
 
   return (
     <aside className="flex w-full flex-col overflow-y-auto border-t border-[var(--pp-border)] bg-[var(--pp-surface)] lg:w-[320px] lg:shrink-0 lg:border-l lg:border-t-0">
@@ -42,11 +47,12 @@ export default function PdvPaymentPanel({
           Total da conta:{" "}
           <span className="text-xl font-black tabular-nums text-[var(--pp-text)]">{formatCurrency(totalConta)}</span>
         </p>
-        {bufferEntrada !== "" && (
-          <p className="mt-1 text-right text-lg font-black tabular-nums text-[var(--op-nav-accent)]">
-            R$ {numeroParaMoeda(Number(bufferEntrada) / 100)}
-          </p>
-        )}
+        <p className="mt-1 text-right text-2xl font-black tabular-nums text-[var(--op-nav-accent)]">
+          R$ {numeroParaMoeda(valorCampo)}
+        </p>
+        <p className="text-right text-[11px] font-semibold text-[var(--pp-text-muted)]">
+          Valor a receber {formaSelecionada?.nome ? `· ${formaSelecionada.nome}` : "(selecione a forma)"}
+        </p>
       </div>
 
       <div className="px-4 py-3">

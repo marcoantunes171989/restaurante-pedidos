@@ -1,8 +1,10 @@
+import { Pencil, Plus } from "lucide-react";
 import { formatCurrency, tempoAbertoISO } from "./pdvHelpers";
+import { ControlesItem } from "./PdvModais";
 
 /**
  * Coluna esquerda — conta da mesa com foco nos produtos consumidos.
- * Hierarquia: produtos em destaque; metadados da mesa e totais em apoio.
+ * Permite incluir/remover produtos e editar cliente no momento do pagamento.
  */
 export default function PdvMesaDetail({
   conta,
@@ -11,6 +13,11 @@ export default function PdvMesaDetail({
   taxasDescontos = 0,
   total = 0,
   agora,
+  onEditarCliente,
+  onIncluirProduto,
+  onAlterarQtd,
+  onRemoverItem,
+  produtosBloqueados = false,
 }) {
   if (!conta) {
     return (
@@ -26,6 +33,8 @@ export default function PdvMesaDetail({
   const itens = pedidos.flatMap((o) =>
     (o.items || []).map((it, idx) => ({
       key: `${o.id}-${idx}`,
+      orderId: o.id,
+      index: idx,
       name: it.name,
       quantity: Number(it.quantity) || 0,
       unit: Number(it.price) || 0,
@@ -53,10 +62,10 @@ export default function PdvMesaDetail({
     : "—";
   const pedidoRef = pedidos[0]?.id || conta.comandas?.[0] || "—";
   const comandasTxt = (conta.comandas || []).join(", ");
+  const edicaoAtiva = typeof onAlterarQtd === "function" && !produtosBloqueados;
 
   return (
     <aside className="flex w-full flex-col overflow-hidden border-b border-[var(--pp-border)] bg-[var(--pp-surface)] lg:w-[320px] lg:shrink-0 lg:border-b-0 lg:border-r">
-      {/* Cabeçalho compacto da mesa */}
       <div className="border-b border-[var(--pp-border)] px-4 py-3">
         <div className="flex items-center justify-between gap-2">
           <h2 className="text-xl font-black tracking-tight text-[var(--pp-text)]">{titulo}</h2>
@@ -75,8 +84,22 @@ export default function PdvMesaDetail({
             {conta.vip && (
               <span className="ml-1.5 rounded-md bg-[var(--op-nav-accent)]/15 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-[var(--op-nav-accent)]">VIP</span>
             )}
+            {typeof onEditarCliente === "function" && (
+              <button
+                type="button"
+                onClick={onEditarCliente}
+                className="ml-1.5 inline-flex items-center gap-1 rounded-md border border-[var(--pp-border)] bg-white px-1.5 py-0.5 text-[10px] font-black text-[var(--pp-text-body)] hover:bg-[var(--pp-bg)]"
+              >
+                <Pencil size={11} aria-hidden="true" />
+                {conta.cliente || conta.telefone ? "Trocar" : "Incluir"}
+              </button>
+            )}
           </MetaLinha>
-          {conta.telefone && <MetaLinha rotulo="Telefone"><span className="font-bold tabular-nums text-[var(--pp-text)]">{conta.telefone}</span></MetaLinha>}
+          {conta.telefone && (
+            <MetaLinha rotulo="Telefone">
+              <span className="font-bold tabular-nums text-[var(--pp-text)]">{conta.telefone}</span>
+            </MetaLinha>
+          )}
           {comandasTxt && <MetaLinha rotulo="Comanda"><span className="font-bold text-[var(--pp-text)]">{comandasTxt}</span></MetaLinha>}
           {tempo && (
             <MetaLinha rotulo="Tempo">
@@ -87,16 +110,34 @@ export default function PdvMesaDetail({
         </div>
       </div>
 
-      {/* Produtos — bloco principal (valor ao produto) */}
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <div className="flex items-baseline justify-between gap-2 px-4 pb-1 pt-3">
+        <div className="flex items-center justify-between gap-2 px-4 pb-1 pt-3">
           <h3 className="text-[11px] font-black uppercase tracking-[0.14em] text-[var(--pp-text-muted)]">
             Produtos do pedido
           </h3>
-          <span className="rounded-full bg-[var(--pp-bg)] px-2 py-0.5 text-[11px] font-black text-[var(--pp-text-body)]">
-            {itens.length} {itens.length === 1 ? "item" : "itens"}
-          </span>
+          <div className="flex items-center gap-1.5">
+            <span className="rounded-full bg-[var(--pp-bg)] px-2 py-0.5 text-[11px] font-black text-[var(--pp-text-body)]">
+              {itens.length} {itens.length === 1 ? "item" : "itens"}
+            </span>
+            {typeof onIncluirProduto === "function" && (
+              <button
+                type="button"
+                onClick={onIncluirProduto}
+                disabled={produtosBloqueados}
+                title={produtosBloqueados ? "Comprovante emitido — inclusão bloqueada" : "Incluir produto"}
+                className="btn-laranja inline-flex h-8 items-center gap-1 rounded-lg px-2 text-[11px] font-black text-white disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Plus size={14} aria-hidden="true" /> Incluir
+              </button>
+            )}
+          </div>
         </div>
+
+        {produtosBloqueados && (
+          <p className="mx-3 mb-2 rounded-lg border border-[var(--pp-warning)]/35 bg-[var(--pp-warning-soft)] px-2.5 py-1.5 text-[11px] font-semibold text-[var(--pp-warning-text)]">
+            Comprovante emitido — inclusão de produtos bloqueada.
+          </p>
+        )}
 
         <ul className="min-h-0 flex-1 space-y-2 overflow-y-auto px-3 pb-3">
           {itens.map((it) => (
@@ -130,6 +171,14 @@ export default function PdvMesaDetail({
                       Extra: {it.extrasList.join(", ")}
                     </p>
                   )}
+                  {edicaoAtiva && (
+                    <ControlesItem
+                      quantity={it.quantity}
+                      onMenos={() => onAlterarQtd?.(it.orderId, it.index, it.quantity - 1)}
+                      onMais={() => onAlterarQtd?.(it.orderId, it.index, it.quantity + 1)}
+                      onRemover={() => onRemoverItem?.(it.orderId, it.index)}
+                    />
+                  )}
                 </div>
                 <span className="shrink-0 text-right text-sm font-black tabular-nums text-[var(--pp-text)]">
                   {formatCurrency(it.total)}
@@ -140,12 +189,16 @@ export default function PdvMesaDetail({
           {itens.length === 0 && (
             <li className="rounded-xl border border-dashed border-[var(--pp-border)] px-3 py-8 text-center text-sm text-[var(--pp-text-muted)]">
               Nenhum produto nesta conta.
+              {typeof onIncluirProduto === "function" && !produtosBloqueados && (
+                <button type="button" onClick={onIncluirProduto} className="btn-laranja mt-3 inline-flex min-h-10 items-center gap-1 rounded-xl px-3 text-xs font-black text-white">
+                  <Plus size={14} aria-hidden="true" /> Incluir produto
+                </button>
+              )}
             </li>
           )}
         </ul>
       </div>
 
-      {/* Totais — apoio financeiro abaixo dos produtos */}
       <div className="border-t border-[var(--pp-border)] px-4 py-3">
         <div className="space-y-1 text-sm">
           <LinhaTot label="Subtotal" valor={formatCurrency(subtotal)} />

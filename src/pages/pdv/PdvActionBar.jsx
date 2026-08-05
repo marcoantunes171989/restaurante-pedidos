@@ -13,25 +13,33 @@ const SECUNDARIAS_DIR = [
 ];
 
 /**
- * Barra inferior de ações operacionais do PDV (mockup).
+ * Barra inferior de ações operacionais do PDV.
  */
 export default function PdvActionBar({
   onFecharConta,
   podeFechar,
   fechando,
+  onTransferir,
+  onSeparar,
   onImprimir,
   onComprovante,
+  onObservacoes,
+  onHistorico,
 }) {
+  const handlers = {
+    transferir: onTransferir,
+    separar: onSeparar,
+    preconta: onImprimir,
+    comprovante: onComprovante,
+    observacoes: onObservacoes,
+    historico: onHistorico,
+  };
+
   return (
     <div className="shrink-0 border-t border-[var(--pp-border)] bg-[var(--pp-surface)] px-3 py-2.5 sm:px-4 lg:px-5">
       <div className="flex flex-wrap items-stretch gap-2">
         {SECUNDARIAS.map(({ id, label, Icon }) => (
-          <BotaoSec
-            key={id}
-            label={label}
-            Icon={Icon}
-            onClick={id === "preconta" ? onImprimir : undefined}
-          />
+          <BotaoSec key={id} label={label} Icon={Icon} onClick={handlers[id]} />
         ))}
 
         <button
@@ -49,12 +57,7 @@ export default function PdvActionBar({
         </button>
 
         {SECUNDARIAS_DIR.map(({ id, label, Icon }) => (
-          <BotaoSec
-            key={id}
-            label={label}
-            Icon={Icon}
-            onClick={id === "comprovante" ? onComprovante : undefined}
-          />
+          <BotaoSec key={id} label={label} Icon={Icon} onClick={handlers[id]} />
         ))}
       </div>
     </div>
@@ -68,7 +71,7 @@ function BotaoSec({ label, Icon, onClick }) {
       type="button"
       disabled={!ativo}
       onClick={onClick}
-      title={ativo ? undefined : "Em breve"}
+      title={ativo ? undefined : "Selecione uma mesa"}
       className={`flex min-h-[58px] min-w-[88px] flex-1 flex-col items-center justify-center gap-1 rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-2 py-2 text-center text-[11px] font-bold leading-tight text-[var(--pp-text-body)] transition ${
         ativo ? "hover:bg-white" : "opacity-70"
       }`}
