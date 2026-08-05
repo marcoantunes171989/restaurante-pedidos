@@ -10,9 +10,11 @@ import PdvActionBar from "./PdvActionBar";
 import PdvStatusBar from "./PdvStatusBar";
 import {
   chaveConta,
+  clienteEhVip,
   ehPedidoExterno,
   formatCurrency,
   lerConfigTaxaServico,
+  nomeClienteDe,
   numeroMesaDe,
   orderTotal,
   rotuloMesa,
@@ -20,13 +22,13 @@ import {
 } from "./pdvHelpers";
 
 /**
- * PDV Pedido Prime — layout reescrito conforme mockup (header, resumo do turno,
- * detalhe da mesa, grade do salão, delivery, pagamento, ações e atalhos).
- * Consome pedidos/mesas reais e finaliza via baixarComandas (mesma baixa financeira).
+ * PDV Pedido Prime — layout do mockup alimentado pelos dados atuais do sistema
+ * (pedidos, mesas, formas de pagamento e clientes da loja). Finaliza via baixarComandas.
  */
 export default function CashierPdv({
   orders = [],
   mesas = [],
+  clientes = [],
   baixarComandas = async () => {},
   formasPagamento = [],
   lojaInfo,
@@ -65,24 +67,26 @@ export default function CashierPdv({
   }, []);
 
   const formasAtivas = useMemo(
-    () => formasPagamento.filter((f) => f.active !== false),
+    () => formasPagamento.filter((f) => f.active !== false && (f.nome || "").trim()),
     [formasPagamento],
   );
   const formaPadrao = useMemo(
-    () => formasAtivas.find((f) => /dinheiro|espécie|especie/i.test(f.nome || ""))
-      || formasAtivas[0]
-      || { id: "dinheiro", nome: "Dinheiro", permiteTroco: true },
+    () => formasAtivas.find((f) => /dinheiro|espécie|especie/i.test(f.nome || "")) || formasAtivas[0] || null,
     [formasAtivas],
   );
-  const formaAtual = formaSelecionada || formaPadrao;
+  const formaAtual = formaSelecionada && formasAtivas.some((f) => f.id === formaSelecionada.id || f.nome === formaSelecionada.nome)
+    ? formaSelecionada
+    : formaPadrao;
+  const configCrm = lojaInfo?.configCrm || {};
 
-  // Contas abertas agrupadas (mesa interna / command externo)
+  // Contas abertas agrupadas (mesa interna / command externo) a partir dos pedidos reais
   const contasAbertas = useMemo(() => {
     const mapa = {};
     orders.forEach((o) => {
       if (o.status === "cancelled" || o.paymentStatus === "paid") return;
       const key = chaveConta(o) || "-";
       if (!mapa[key]) {
+        const tel = o.clienteTelefone || "";
         mapa[key] = {
           key,
           mesa: o.table,
@@ -90,11 +94,11 @@ export default function CashierPdv({
           pedidosIds: [],
           subtotal: 0,
           aberturaISO: o.createdAtISO || null,
-          cliente: o.customer || "",
-          vip: !!(o.clienteVip || o.vip),
+          cliente: nomeClienteDe(o, clientes),
+          telefone: tel,
+          vip: clienteEhVip({ telefone: tel, orders, configCrm }),
           pendentePreparo: false,
           solicitada: false,
-          observacaoInterna: o.observacaoInterna || o.observation || "",
           externo: ehPedidoExterno(o),
         };
       }
@@ -103,9 +107,11 @@ export default function CashierPdv({
       m.pedidosIds.push(o.id);
       m.subtotal += orderTotal(o);
       if (o.createdAtISO && (!m.aberturaISO || o.createdAtISO < m.aberturaISO)) m.aberturaISO = o.createdAtISO;
-      if (!m.cliente && o.customer) m.cliente = o.customer;
-      if (o.clienteVip || o.vip) m.vip = true;
-      if (o.observacaoInterna || o.observation) m.observacaoInterna = o.observacaoInterna || o.observation;
+      if (!m.cliente) m.cliente = nomeClienteDe(o, clientes);
+      if (!m.telefone && o.clienteTelefone) {
+        m.telefone = o.clienteTelefone;
+        m.vip = clienteEhVip({ telefone: o.clienteTelefone, orders, configCrm });
+      }
       if (o.status === "received" || o.status === "preparing") m.pendentePreparo = true;
       if (o.paymentStatus === "requested") m.solicitada = true;
     });
@@ -118,7 +124,7 @@ export default function CashierPdv({
       }))
       .filter((c) => c.total > 0.001)
       .sort((a, b) => new Date(a.aberturaISO || 0) - new Date(b.aberturaISO || 0));
-  }, [orders, taxaPct]);
+  }, [orders, taxaPct, clientes, configCrm]);
 
   // Contas finalizadas hoje (para grade + métricas)
   const contasFinalizadasHoje = useMemo(() => {
@@ -126,7 +132,7 @@ export default function CashierPdv({
     const mapa = {};
     orders.forEach((o) => {
       if (o.paymentStatus !== "paid" || o.status === "cancelled") return;
-      const ref = o.createdAtISO || o.updatedAtISO;
+      const ref = o.updatedAtISO || o.createdAtISO;
       if (ref) {
         const d = new Date(ref);
         if (d.toDateString() !== hoje.toDateString()) return;
@@ -140,7 +146,7 @@ export default function CashierPdv({
           comandas: [o.command],
           subtotal: 0,
           aberturaISO: o.createdAtISO || null,
-          cliente: o.customer || "",
+          cliente: nomeClienteDe(o, clientes),
           situacao: "finalizada",
           paymentStatus: "paid",
           solicitada: false,
@@ -151,7 +157,7 @@ export default function CashierPdv({
       mapa[key].subtotal += orderTotal(o);
     });
     return Object.values(mapa).map((m) => ({ ...m, total: m.subtotal * (1 + taxaPct / 100) }));
-  }, [orders, taxaPct]);
+  }, [orders, taxaPct, clientes]);
 
   // Seleção efetiva: respeita a escolha do operador; se inválida/vazia, cai na
   // conta com fechamento solicitado (ou a primeira aberta) — sem setState em effect.
@@ -172,17 +178,28 @@ export default function CashierPdv({
   const taxasSel = totalSel - subtotalSel;
   const falta = Math.max(0, totalSel - recebido);
   const aPagarAgora = totalSel;
-  const podeFechar = !!contaSel && !!formaAtual && recebido + 0.001 >= totalSel && totalSel > 0;
+  const podeFechar = !!contaSel && !!formaAtual && formasAtivas.length > 0 && recebido + 0.001 >= totalSel && totalSel > 0;
 
-  // Grade 01–20 (ou cadastro de mesas da loja)
+  // Grade do salão: mesas cadastradas na loja; se ainda não houver cadastro,
+  // deriva só das mesas que aparecem nos pedidos atuais (sem inventar 01–20).
   const mesasPainel = useMemo(() => {
-    const numerosCadastro = mesas
-      .filter((m) => m.active !== false)
-      .map((m) => Number(m.numero))
-      .filter((n) => Number.isFinite(n) && n > 0);
-    const maxCadastro = numerosCadastro.length ? Math.max(...numerosCadastro) : 0;
-    const totalSlots = Math.max(20, maxCadastro);
-    const numeros = Array.from({ length: totalSlots }, (_, i) => i + 1);
+    const numerosCadastro = [...new Set(
+      mesas
+        .filter((m) => m.active !== false)
+        .map((m) => Number(m.numero))
+        .filter((n) => Number.isFinite(n) && n > 0),
+    )].sort((a, b) => a - b);
+
+    let numeros = numerosCadastro;
+    if (!numeros.length) {
+      const derivadas = new Set();
+      orders.forEach((o) => {
+        if (ehPedidoExterno(o) || o.status === "cancelled") return;
+        const n = numeroMesaDe(o.table);
+        if (n) derivadas.add(n);
+      });
+      numeros = [...derivadas].sort((a, b) => a - b);
+    }
 
     return numeros.map((numero) => {
       const label = rotuloMesa(numero);
@@ -194,24 +211,25 @@ export default function CashierPdv({
       const status = situacaoMesaVisual(conta);
       return { key: label, numero, status, conta };
     });
-  }, [mesas, contasAbertas, contasFinalizadasHoje]);
+  }, [mesas, orders, contasAbertas, contasFinalizadasHoje]);
 
   const deliveries = useMemo(() => {
     return orders
       .filter((o) => ehPedidoExterno(o) && o.paymentStatus !== "paid" && o.status !== "cancelled")
       .map((o) => ({
         ...o,
+        customer: nomeClienteDe(o, clientes) || o.customer || "Cliente",
         total: orderTotal(o) * (1 + taxaPct / 100),
       }))
       .sort((a, b) => new Date(a.createdAtISO || 0) - new Date(b.createdAtISO || 0));
-  }, [orders, taxaPct]);
+  }, [orders, taxaPct, clientes]);
 
-  // Métricas do turno
+  // Métricas do turno — faturamento do dia usa o momento do pagamento (updatedAt)
   const pagosHoje = useMemo(() => {
     const hoje = new Date();
     return orders.filter((o) => {
       if (o.paymentStatus !== "paid" || o.status === "cancelled") return false;
-      const ref = o.createdAtISO || o.updatedAtISO;
+      const ref = o.updatedAtISO || o.createdAtISO;
       if (!ref) return true;
       return new Date(ref).toDateString() === hoje.toDateString();
     });
@@ -298,7 +316,7 @@ export default function CashierPdv({
   function tecladoConfirmar() {
     if (!bufferEntrada) {
       // Confirma recebimento do valor total na forma selecionada
-      if (!contaSel || !formaAtual) return;
+      if (!contaSel || !formaAtual || totalSel <= 0) return;
       setRecebido(totalSel);
       return;
     }

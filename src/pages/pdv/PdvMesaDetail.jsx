@@ -33,9 +33,7 @@ export default function PdvMesaDetail({
   );
 
   const observacoes = [
-    conta.observacaoInterna,
-    ...pedidos.map((o) => o.observacaoInterna || o.observation).filter(Boolean),
-    ...itens.map((it) => it.observation).filter(Boolean),
+    ...pedidos.flatMap((o) => (o.items || []).map((it) => it.observation).filter(Boolean)),
   ].filter(Boolean);
   const obsUnicas = [...new Set(observacoes)];
 
@@ -51,7 +49,8 @@ export default function PdvMesaDetail({
         minute: "2-digit",
       })
     : "—";
-  const pedidoId = pedidos[0]?.id?.replace(/^PED-/, "") || conta.comandas?.[0] || "—";
+  const pedidoRef = pedidos[0]?.id || conta.comandas?.[0] || "—";
+  const comandasTxt = (conta.comandas || []).join(", ");
 
   return (
     <aside className="flex w-full flex-col overflow-hidden border-b border-[var(--pp-border)] bg-[var(--pp-surface)] lg:w-[300px] lg:shrink-0 lg:border-b-0 lg:border-r">
@@ -77,6 +76,18 @@ export default function PdvMesaDetail({
               <span className="rounded-md bg-[var(--op-nav-accent)]/15 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-[var(--op-nav-accent)]">VIP</span>
             )}
           </p>
+          {conta.telefone && (
+            <p className="text-[var(--pp-text-body)]">
+              <span className="font-semibold text-[var(--pp-text-muted)]">Telefone:</span>{" "}
+              <span className="font-bold text-[var(--pp-text)]">{conta.telefone}</span>
+            </p>
+          )}
+          {comandasTxt && (
+            <p className="text-[var(--pp-text-body)]">
+              <span className="font-semibold text-[var(--pp-text-muted)]">Comanda:</span>{" "}
+              <span className="font-bold text-[var(--pp-text)]">{comandasTxt}</span>
+            </p>
+          )}
           {tempo && (
             <p className="text-[var(--pp-text-body)]">
               <span className="font-semibold text-[var(--pp-text-muted)]">Tempo aberta:</span>{" "}
@@ -133,7 +144,7 @@ export default function PdvMesaDetail({
       </div>
 
       <div className="border-t border-[var(--pp-border)] px-4 py-2.5 text-xs text-[var(--pp-text-muted)]">
-        Pedido #{pedidoId} · aberto em {aberturaFmt}
+        Pedido #{pedidoRef} · aberto em {aberturaFmt}
       </div>
     </aside>
   );

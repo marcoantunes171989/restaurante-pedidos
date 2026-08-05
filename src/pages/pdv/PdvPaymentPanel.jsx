@@ -1,22 +1,20 @@
-import { Eraser, Delete, CheckCircle2, Banknote, QrCode, CreditCard } from "lucide-react";
-import { formatCurrency, numeroParaMoeda } from "./pdvHelpers";
+import { Eraser, Delete, CheckCircle2, Banknote, QrCode, CreditCard, Wallet, Ticket, Star } from "lucide-react";
+import { estiloFormaPagamento, formatCurrency, numeroParaMoeda } from "./pdvHelpers";
 
 const TECLAS = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
 
-const FORMAS_UI = [
-  { id: "dinheiro", label: "Dinheiro", Icon: Banknote, match: (n) => /dinheiro|espécie|especie/i.test(n) },
-  { id: "pix", label: "PIX", Icon: QrCode, match: (n) => /pix/i.test(n) },
-  { id: "credito", label: "Crédito", Icon: CreditCard, match: (n) => /créd|cred/i.test(n) },
-  { id: "debito", label: "Débito", Icon: CreditCard, match: (n) => /déb|deb/i.test(n) },
-];
-
-function uiMatchNome(nome, uiId) {
-  const f = FORMAS_UI.find((x) => x.id === uiId);
-  return f ? f.match(nome || "") : false;
-}
+const ICONE_POR_TIPO = {
+  dinheiro: Banknote,
+  pix: QrCode,
+  credito: CreditCard,
+  debito: CreditCard,
+  voucher: Ticket,
+  pontos: Star,
+  outro: Wallet,
+};
 
 /**
- * Coluna direita — pagamento (total, teclado, formas, saldo a pagar).
+ * Coluna direita — pagamento com as formas cadastradas da loja.
  */
 export default function PdvPaymentPanel({
   totalConta = 0,
@@ -33,10 +31,8 @@ export default function PdvPaymentPanel({
   confirmarDesabilitado,
   bufferEntrada = "",
 }) {
-  const formasResolvidas = FORMAS_UI.map((ui) => {
-    const cadastro = formasPagamento.find((f) => ui.match(f.nome || ""));
-    return { ...ui, forma: cadastro || { id: ui.id, nome: ui.label, permiteTroco: ui.id === "dinheiro" } };
-  });
+  const formas = formasPagamento.filter((f) => f.active !== false && (f.nome || "").trim());
+  const cols = Math.min(4, Math.max(2, formas.length || 1));
 
   return (
     <aside className="flex w-full flex-col overflow-y-auto border-t border-[var(--pp-border)] bg-[var(--pp-surface)] lg:w-[320px] lg:shrink-0 lg:border-l lg:border-t-0">
@@ -102,32 +98,38 @@ export default function PdvPaymentPanel({
 
       <div className="border-t border-[var(--pp-border)] px-4 py-3">
         <h3 className="mb-2 text-[11px] font-black uppercase tracking-[0.14em] text-[var(--pp-text-muted)]">Formas de pagamento</h3>
-        <div className="grid grid-cols-4 gap-2">
-          {formasResolvidas.map(({ id, label, Icon, forma }) => {
-            const on = !!formaSelecionada && (
-              formaSelecionada.id === forma.id
-              || formaSelecionada.nome === forma.nome
-              || formaSelecionada.nome === label
-              || uiMatchNome(formaSelecionada.nome, id)
-            );
-            return (
-              <button
-                key={id}
-                type="button"
-                onClick={() => onSelecionarForma?.(forma)}
-                aria-pressed={on}
-                className={`flex min-h-[72px] flex-col items-center justify-center gap-1 rounded-xl border px-1 py-2 text-center transition ${
-                  on
-                    ? "border-[var(--pp-primary)] bg-[var(--pp-primary-soft)] text-[var(--pp-primary-text)]"
-                    : "border-[var(--pp-border)] bg-[var(--pp-bg)] text-[var(--pp-text-body)] hover:bg-white"
-                }`}
-              >
-                <Icon size={18} aria-hidden="true" />
-                <span className="text-[11px] font-bold">{label}</span>
-              </button>
-            );
-          })}
-        </div>
+        {formas.length === 0 ? (
+          <p className="rounded-xl border border-dashed border-[var(--pp-border)] bg-[var(--pp-bg)] px-3 py-4 text-center text-xs font-semibold text-[var(--pp-text-muted)]">
+            Nenhuma forma cadastrada nesta loja. Cadastre em Administrativo → Pagamento.
+          </p>
+        ) : (
+          <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
+            {formas.map((forma) => {
+              const tipo = estiloFormaPagamento(forma.nome);
+              const Icon = ICONE_POR_TIPO[tipo] || Wallet;
+              const on = !!formaSelecionada && (
+                formaSelecionada.id === forma.id
+                || formaSelecionada.nome === forma.nome
+              );
+              return (
+                <button
+                  key={forma.id ?? forma.nome}
+                  type="button"
+                  onClick={() => onSelecionarForma?.(forma)}
+                  aria-pressed={on}
+                  className={`flex min-h-[72px] flex-col items-center justify-center gap-1 rounded-xl border px-1 py-2 text-center transition ${
+                    on
+                      ? "border-[var(--pp-primary)] bg-[var(--pp-primary-soft)] text-[var(--pp-primary-text)]"
+                      : "border-[var(--pp-border)] bg-[var(--pp-bg)] text-[var(--pp-text-body)] hover:bg-white"
+                  }`}
+                >
+                  <Icon size={18} aria-hidden="true" />
+                  <span className="min-w-0 truncate text-[11px] font-bold">{forma.nome}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <div className="mt-auto space-y-1.5 border-t border-[var(--pp-border)] px-4 py-3 text-sm">

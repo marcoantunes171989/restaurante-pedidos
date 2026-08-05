@@ -78,3 +78,39 @@ export function tempoAbertoISO(iso, agora = new Date()) {
   const mins = Math.max(0, Math.round((agora.getTime() - new Date(iso).getTime()) / 60000));
   return formatarDuracaoMin(mins);
 }
+
+export const CRM_CFG_PADRAO = { vipPedidos: 5, vipValor: 200, inatividadeDias: 30 };
+
+/** VIP pelas regras do CRM da loja (mesmos critérios do painel de clientes). */
+export function clienteEhVip({ telefone, orders = [], configCrm = {} }) {
+  const tel = String(telefone || "").replace(/\D/g, "");
+  if (!tel) return false;
+  const cfg = { ...CRM_CFG_PADRAO, ...(configCrm || {}) };
+  const pagos = orders.filter((o) => {
+    if (o.paymentStatus !== "paid" || o.status === "cancelled") return false;
+    return String(o.clienteTelefone || "").replace(/\D/g, "") === tel;
+  });
+  const qtd = pagos.length;
+  const total = pagos.reduce((s, o) => s + orderTotal(o), 0);
+  return qtd >= (Number(cfg.vipPedidos) || 5) || total >= (Number(cfg.vipValor) || 200);
+}
+
+export function nomeClienteDe(pedido, clientes = []) {
+  if (pedido?.customer) return pedido.customer;
+  const tel = String(pedido?.clienteTelefone || "").replace(/\D/g, "");
+  if (!tel) return "";
+  const cli = clientes.find((c) => String(c.telefone || "").replace(/\D/g, "") === tel);
+  return cli?.nome || "";
+}
+
+/** Ícone/estilo da forma a partir do nome cadastrado na loja. */
+export function estiloFormaPagamento(nome) {
+  const n = (nome || "").toLowerCase();
+  if (n.includes("ponto")) return "pontos";
+  if (n.includes("pix")) return "pix";
+  if (n.includes("dinheiro") || n.includes("espécie") || n.includes("especie")) return "dinheiro";
+  if (n.includes("créd") || n.includes("cred")) return "credito";
+  if (n.includes("déb") || n.includes("deb")) return "debito";
+  if (n.includes("voucher") || n.includes("vale") || n.includes("ticket")) return "voucher";
+  return "outro";
+}
