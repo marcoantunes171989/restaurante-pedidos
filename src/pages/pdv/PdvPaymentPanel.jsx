@@ -1,4 +1,4 @@
-import { Eraser, Delete, Check, Banknote, QrCode, CreditCard, Wallet, Ticket, Star, X } from "lucide-react";
+import { Eraser, Delete, Check, Banknote, QrCode, CreditCard, Wallet, Ticket, Star, X, SplitSquareHorizontal } from "lucide-react";
 import { estiloFormaPagamento, formatCurrency, numeroParaMoeda, rotuloFormaCurto } from "./pdvHelpers";
 
 const TECLAS = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
@@ -29,6 +29,8 @@ export default function PdvPaymentPanel({
   permiteTroco = false,
   onSelecionarForma,
   onRemoverPagamento,
+  onDividir,
+  dividirDesabilitado,
   onDigito,
   onLimpar,
   onApagar,
@@ -61,13 +63,27 @@ export default function PdvPaymentPanel({
       </div>
 
       <div className="shrink-0 border-b border-[var(--pp-border)] px-2.5 py-1.5">
-        <h3 className="mb-1 text-[9px] font-black uppercase tracking-[0.14em] text-[var(--pp-text-muted)]">Formas de pagamento</h3>
+        <div className="mb-1 flex items-center justify-between gap-1.5">
+          <h3 className="truncate text-[9px] font-black uppercase tracking-[0.14em] text-[var(--pp-text-muted)]">Formas de pagamento</h3>
+          <button
+            type="button"
+            onClick={onDividir}
+            disabled={dividirDesabilitado}
+            title="Dividir a conta por pessoa, percentual ou produto"
+            className="inline-flex h-6 shrink-0 items-center gap-1 rounded-md border border-[var(--pp-border)] bg-[var(--pp-bg)] px-1.5 text-[9px] font-black text-[var(--pp-text-body)] transition hover:border-[var(--pp-primary)] hover:text-[var(--pp-primary-text)] disabled:cursor-not-allowed disabled:opacity-45"
+          >
+            <SplitSquareHorizontal size={11} aria-hidden="true" /> Dividir
+          </button>
+        </div>
         {formas.length === 0 ? (
           <p className="rounded-lg border border-dashed border-[var(--pp-border)] px-2 py-2 text-center text-[10px] font-semibold text-[var(--pp-text-muted)]">
             Nenhuma forma cadastrada. Cadastre em Administrativo → Pagamento.
           </p>
         ) : (
-          <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
+          <div
+            className="grid max-h-[104px] gap-1 overflow-y-auto overscroll-contain"
+            style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
+          >
             {formas.map((forma) => {
               const Icon = ICONE_POR_TIPO[estiloFormaPagamento(forma.nome)] || Wallet;
               const on = !!formaSelecionada && (formaSelecionada.id === forma.id || formaSelecionada.nome === forma.nome);
@@ -115,8 +131,8 @@ export default function PdvPaymentPanel({
               type="button"
               onClick={onConfirmar}
               disabled={confirmarDesabilitado}
-              title="Registrar esta forma de pagamento"
-              className="btn-petroleo row-span-2 grid place-items-center gap-0.5 rounded-lg text-[9px] font-black transition disabled:cursor-not-allowed disabled:opacity-45"
+              title="Registrar este valor na forma escolhida"
+              className="btn-verde row-span-2 grid place-items-center gap-0.5 rounded-lg text-[9px] font-black text-white transition disabled:cursor-not-allowed disabled:opacity-45"
             >
               <Check size={14} aria-hidden="true" /> OK
             </button>
@@ -130,7 +146,7 @@ export default function PdvPaymentPanel({
         </h3>
         {pagamentos.length === 0 ? (
           <p className="rounded-lg border border-dashed border-[var(--pp-border)] px-2 py-1.5 text-center text-[9px] font-semibold text-[var(--pp-text-muted)]">
-            Escolha a forma, digite o valor e toque em OK. Pode dividir em várias formas.
+            Escolha a forma, digite o valor e toque em OK. Pode repetir a mesma forma ou combinar várias.
           </p>
         ) : (
           <ul className="space-y-1">
