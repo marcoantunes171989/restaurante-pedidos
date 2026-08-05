@@ -21,14 +21,19 @@ import {
 import {
   chaveConta,
   clienteEhVip,
+  combinaBusca,
   ehPedidoExterno,
+  formaPermiteTroco,
   formatCurrency,
   lerConfigTaxaServico,
   nomeClienteDe,
+  normalizarBusca,
   numeroMesaDe,
   orderTotal,
   rotuloMesa,
   situacaoMesaVisual,
+  statusPedidosConta,
+  textoBuscaConta,
 } from "./pdvHelpers";
 
 function chaveObsInterna(lojaId, mesa) {
@@ -97,10 +102,12 @@ export default function CashierPdv({
   const [busca, setBusca] = useState("");
   const [temaClaro, setTemaClaro] = useState(true);
   const [selecionadaKey, setSelecionadaKey] = useState(null);
+  // Mesa livre em foco (sem conta aberta) — a coluna esquerda vira a ficha da mesa.
+  const [mesaLivreSel, setMesaLivreSel] = useState(null);
   const [formaSelecionada, setFormaSelecionada] = useState(null);
   const [bufferEntrada, setBufferEntrada] = useState("");
-  const [recebido, setRecebido] = useState(0);
-  const [valorManual, setValorManual] = useState(false);
+  // Pagamento dividido: parcelas já recebidas, por conta.
+  const [pagamentosPorConta, setPagamentosPorConta] = useState({});
   const [confirmarFinalizacao, setConfirmarFinalizacao] = useState(false);
   const [processando, setProcessando] = useState(false);
   const [sucesso, setSucesso] = useState(null);
@@ -142,6 +149,7 @@ export default function CashierPdv({
           mesa: o.table,
           comandas: new Set(),
           pedidosIds: [],
+          pedidos: [],
           subtotal: 0,
           aberturaISO: o.createdAtISO || null,
           cliente: nomeClienteDe(o, clientes),
@@ -155,6 +163,7 @@ export default function CashierPdv({
       const m = mapa[key];
       m.comandas.add(o.command);
       m.pedidosIds.push(o.id);
+      m.pedidos.push(o);
       m.subtotal += orderTotal(o);
       if (o.createdAtISO && (!m.aberturaISO || o.createdAtISO < m.aberturaISO)) m.aberturaISO = o.createdAtISO;
       if (!m.cliente) m.cliente = nomeClienteDe(o, clientes);
@@ -166,22 +175,28 @@ export default function CashierPdv({
       if (o.paymentStatus === "requested") m.solicitada = true;
     });
     return Object.values(mapa)
-      .map((m) => ({
-        ...m,
-        comandas: [...m.comandas],
-        total: m.subtotal * (1 + taxaPct / 100),
-        situacao: m.solicitada ? "solicitado" : m.pendentePreparo ? "entrega" : "pagamento",
-      }))
+      .map((m) => {
+        const conta = {
+          ...m,
+          comandas: [...m.comandas],
+          total: m.subtotal * (1 + taxaPct / 100),
+          situacao: m.solicitada ? "solicitado" : m.pendentePreparo ? "entrega" : "pagamento",
+          statusPedido: statusPedidosConta(m.pedidos),
+        };
+        return { ...conta, indiceBusca: textoBuscaConta(conta, m.pedidos) };
+      })
       .filter((c) => c.total > 0.001)
       .sort((a, b) => new Date(a.aberturaISO || 0) - new Date(b.aberturaISO || 0));
   }, [orders, taxaPct, clientes, lojaInfo?.configCrm]);
 
   const selecionadaEfetiva = useMemo(() => {
     if (selecionadaKey && contasAbertas.some((c) => c.key === selecionadaKey)) return selecionadaKey;
+    // Mesa livre em foco: respeita a escolha do operador, sem puxar outra conta.
+    if (mesaLivreSel) return null;
     const solicitadas = contasAbertas.filter((c) => c.solicitada);
     const urgente = [...solicitadas].sort((a, b) => new Date(a.aberturaISO || 0) - new Date(b.aberturaISO || 0))[0];
     return (urgente || contasAbertas[0])?.key || null;
-  }, [selecionadaKey, contasAbertas]);
+  }, [selecionadaKey, contasAbertas, mesaLivreSel]);
 
   const contaSel = contasAbertas.find((c) => c.key === selecionadaEfetiva) || null;
   const pedidosSel = useMemo(() => {
@@ -193,32 +208,30 @@ export default function CashierPdv({
   const subtotalSel = contaSel?.subtotal || 0;
   const totalSel = contaSel?.total || 0;
   const taxasSel = totalSel - subtotalSel;
-  // Sem edição manual: o valor acompanha o total da conta (ao escolher a forma).
-  const recebidoEfetivo = (!valorManual && formaAtual && totalSel > 0) ? totalSel : recebido;
-  const bufferEfetivo = (!valorManual && formaAtual && totalSel > 0)
-    ? String(Math.round(totalSel * 100))
-    : bufferEntrada;
-  const falta = Math.max(0, totalSel - recebidoEfetivo);
-  const aPagarAgora = totalSel;
-  // Fechamento: exige forma, valor positivo e cobertura do total (troco ok).
+
+  // Pagamento dividido: cada OK vira uma parcela; o painel cobra só o restante.
+  const pagamentosSel = (contaSel && pagamentosPorConta[contaSel.key]) || [];
+  const recebidoEfetivo = pagamentosSel.reduce((s, p) => s + (Number(p.valor) || 0), 0);
+  const restanteSel = Math.max(0, totalSel - recebidoEfetivo);
+  const trocoSel = Math.max(0, recebidoEfetivo - totalSel);
+  const trocoLiberado = formaPermiteTroco(formaAtual);
+  // Fechamento: exige o total coberto pelas parcelas registradas.
   const podeFechar = !!contaSel
-    && !!formaAtual
     && formasAtivas.length > 0
     && totalSel > 0
-    && recebidoEfetivo > 0
     && recebidoEfetivo + 0.001 >= totalSel;
 
   const produtosBloqueados = !!(contaSel && bloqueioProdutos[contaSel.key]);
 
   const mesasPainel = useMemo(() => {
-    const numerosCadastro = [...new Set(
-      mesas
-        .filter((m) => m.active !== false)
-        .map((m) => Number(m.numero))
-        .filter((n) => Number.isFinite(n) && n > 0),
-    )].sort((a, b) => a - b);
+    const cadastro = mesas.filter((m) => m.active !== false);
+    const porNumero = {};
+    cadastro.forEach((m) => {
+      const n = Number(m.numero);
+      if (Number.isFinite(n) && n > 0 && !porNumero[n]) porNumero[n] = m;
+    });
 
-    let numeros = numerosCadastro;
+    let numeros = Object.keys(porNumero).map(Number).sort((a, b) => a - b);
     if (!numeros.length) {
       const derivadas = new Set();
       orders.forEach((o) => {
@@ -232,11 +245,28 @@ export default function CashierPdv({
     // Conta finalizada NÃO ocupa a mesa — libera para novo consumo (Disponível).
     return numeros.map((numero) => {
       const label = rotuloMesa(numero);
+      const cad = porNumero[numero] || null;
       const aberta = contasAbertas.find((c) => !c.externo && (c.mesa === label || numeroMesaDe(c.mesa) === numero));
       const status = situacaoMesaVisual(aberta || null);
-      return { key: label, numero, status, conta: aberta || null };
+      return {
+        key: label,
+        label,
+        numero,
+        status,
+        conta: aberta || null,
+        nome: cad?.nome || "",
+        capacidade: cad?.capacidade || null,
+        localizacao: cad?.localizacao || "",
+        indiceBusca: aberta?.indiceBusca
+          || normalizarBusca([label, numero, cad?.nome, cad?.localizacao, "disponivel livre"].filter(Boolean).join(" ")),
+      };
     });
   }, [mesas, orders, contasAbertas]);
+
+  const mesasFiltradas = useMemo(
+    () => (busca.trim() ? mesasPainel.filter((m) => combinaBusca(m.indiceBusca, busca)) : mesasPainel),
+    [mesasPainel, busca],
+  );
 
   const deliveries = useMemo(() => {
     return orders
@@ -248,6 +278,11 @@ export default function CashierPdv({
       }))
       .sort((a, b) => new Date(a.createdAtISO || 0) - new Date(b.createdAtISO || 0));
   }, [orders, taxaPct, clientes]);
+
+  const deliveriesFiltrados = useMemo(() => {
+    if (!busca.trim()) return deliveries;
+    return deliveries.filter((p) => combinaBusca(textoBuscaConta({ mesa: p.table, cliente: p.customer, telefone: p.clienteTelefone, comandas: [p.command], total: p.total }, [p]), busca));
+  }, [deliveries, busca]);
 
   const pagosHoje = useMemo(() => {
     const hoje = new Date();
@@ -261,6 +296,7 @@ export default function CashierPdv({
 
   const faturamentoDia = pagosHoje.reduce((s, o) => s + orderTotal(o) * (1 + taxaPct / 100), 0);
   const ticketMedio = pagosHoje.length ? faturamentoDia / pagosHoje.length : 0;
+  const mesasDisponiveis = mesasPainel.filter((m) => m.status === "livre").length;
   const mesasOcupadas = new Set(contasAbertas.filter((c) => !c.externo).map((c) => c.mesa)).size;
   const pagamentoPendente = contasAbertas.filter((c) => c.solicitada || c.situacao === "pagamento").length;
   const pagamentoFinalizado = new Set(pagosHoje.filter((o) => !ehPedidoExterno(o)).map((o) => o.table)).size;
@@ -273,8 +309,7 @@ export default function CashierPdv({
   function selecionarConta(conta, { manterCanal = false } = {}) {
     if (!conta) return;
     setSelecionadaKey(conta.key);
-    setValorManual(false);
-    setRecebido(0);
+    setMesaLivreSel(null);
     setBufferEntrada("");
     if (!manterCanal) setCanal(conta.externo ? "delivery" : "mesa");
     setModal(null);
@@ -286,8 +321,18 @@ export default function CashierPdv({
       selecionarConta(m.conta);
       return;
     }
-    // Mesa disponível — limpa seleção (pronta para novo cliente)
+    // Mesa disponível — a coluna esquerda mostra a ficha da mesa livre.
     setSelecionadaKey(null);
+    setBufferEntrada("");
+    setMesaLivreSel({
+      key: m.key,
+      label: m.label || m.key,
+      numero: m.numero,
+      nome: m.nome,
+      capacidade: m.capacidade,
+      localizacao: m.localizacao,
+    });
+    setPainelMobile("conta");
   }
 
   function selecionarCardCanal(item) {
@@ -400,101 +445,114 @@ export default function CashierPdv({
       .sort((a, b) => new Date(a.aberturaISO || 0) - new Date(b.aberturaISO || 0));
   }, [orders, taxaPct, contasAbertas, clientes]);
 
+  /** Busca global vale para os cards de Cliente/Comanda/Pedido também. */
+  const filtrarCards = (lista) => {
+    if (!busca.trim()) return lista;
+    return lista.filter((c) => combinaBusca(
+      normalizarBusca([c.titulo, c.subtitulo, c.telefone, c.mesa, c.comanda, c.produtosResumo, c.statusLabel, formatCurrency(c.total)].filter(Boolean).join(" ")),
+      busca,
+    ));
+  };
+
   function selecionarDelivery(p) {
     const conta = contasAbertas.find((c) => c.comandas.includes(p.command) || c.pedidosIds?.includes(p.id));
     if (conta) selecionarConta(conta);
   }
 
+  /** Escolher a forma já sugere o que falta receber — 1 toque a menos. */
   function selecionarForma(forma) {
     setFormaSelecionada(forma);
-    setValorManual(false);
-    setBufferEntrada("");
-    setRecebido(0);
+    setBufferEntrada(restanteSel > 0 ? String(Math.round(restanteSel * 100)) : "");
     setPainelMobile("pagamento");
   }
 
+  /** Busca por Enter — leva direto para a primeira conta que casa com o termo. */
   function executarBusca() {
     const q = busca.trim();
     if (!q) return;
-    const qLower = q.toLowerCase();
-    const soDigitos = q.replace(/\D/g, "");
-
-    if (/^\d{1,3}$/.test(q) || /^mesa\s*\d+/i.test(q)) {
-      const n = numeroMesaDe(q.includes("esa") ? q : `Mesa ${q}`);
-      const label = rotuloMesa(n);
-      const conta = contasAbertas.find((c) => c.mesa === label || numeroMesaDe(c.mesa) === n);
-      if (conta) {
-        selecionarConta(conta);
-        setBusca("");
-        return;
-      }
+    const alvo = contasAbertas.find((c) => combinaBusca(c.indiceBusca, q));
+    if (alvo) {
+      selecionarConta(alvo);
+      return;
     }
-
-    const hit = orders.find((o) => {
-      if (o.status === "cancelled") return false;
-      const tel = String(o.clienteTelefone || "").replace(/\D/g, "");
-      return (
-        String(o.customer || "").toLowerCase().includes(qLower)
-        || String(o.id || "").toLowerCase().includes(qLower)
-        || String(o.command || "").toLowerCase().includes(qLower)
-        || (soDigitos.length >= 4 && tel.includes(soDigitos))
-        || String(o.table || "").toLowerCase().includes(qLower)
-      );
-    });
-    if (hit) {
-      const conta = contasAbertas.find((c) => c.comandas.includes(hit.command));
-      if (conta) selecionarConta(conta);
-      setBusca("");
-    }
+    const mesaLivre = mesasFiltradas.find((m) => m.status === "livre");
+    if (mesaLivre) selecionarMesaPainel(mesaLivre);
   }
 
+  /**
+   * Teto do que pode ser digitado: nunca acima do que falta receber.
+   * Só o dinheiro escapa da trava — é dele que sai o troco.
+   */
   function tecladoDigito(d) {
-    if (d === ",") return;
-    setValorManual(true);
+    if (!/^\d+$/.test(d)) return;
     setBufferEntrada((cur) => {
       const next = `${cur}${d}`.replace(/^0+(?=\d)/, "").slice(0, 9);
-      setRecebido(Number(next || 0) / 100);
+      const valor = Number(next || 0) / 100;
+      if (!trocoLiberado && restanteSel > 0 && valor > restanteSel + 0.001) {
+        return String(Math.round(restanteSel * 100));
+      }
       return next;
     });
   }
   function tecladoApagar() {
-    setValorManual(true);
-    setBufferEntrada((cur) => {
-      const next = cur.slice(0, -1);
-      setRecebido(Number(next || 0) / 100);
-      return next;
-    });
+    setBufferEntrada((cur) => cur.slice(0, -1));
   }
   function tecladoLimpar() {
-    setValorManual(true);
     setBufferEntrada("");
-    setRecebido(0);
   }
-  function tecladoConfirmar() {
-    if (!contaSel || !formaAtual) return;
-    if (!bufferEntrada && !valorManual) {
-      if (totalSel <= 0) return;
-      // Confirma o total sugerido explicitamente no estado.
-      setRecebido(totalSel);
-      setBufferEntrada(String(Math.round(totalSel * 100)));
-      setValorManual(true);
+
+  /** OK do teclado — registra a forma atual como uma parcela recebida. */
+  function registrarPagamentoParcial() {
+    if (!contaSel) {
+      notify("error", "Selecione uma conta para registrar o pagamento.");
       return;
     }
-    const raw = bufferEntrada || bufferEfetivo;
-    const valor = Number(raw || 0) / 100;
+    if (!formaAtual) {
+      notify("error", "Escolha a forma de pagamento.");
+      return;
+    }
+    if (restanteSel <= 0.001) {
+      notify("error", "Conta já quitada. Feche a conta para concluir.");
+      return;
+    }
+    const digitado = Number(bufferEntrada || 0) / 100;
+    const valor = digitado > 0 ? digitado : restanteSel;
     if (!(valor > 0)) {
       notify("error", "Informe um valor maior que zero.");
       return;
     }
-    setRecebido(valor);
-    setBufferEntrada(String(Math.round(valor * 100)));
-    setValorManual(true);
+    const aplicado = trocoLiberado ? valor : Math.min(valor, restanteSel);
+    const parcela = {
+      id: `pg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      forma: formaAtual.nome,
+      formaId: formaAtual.id ?? null,
+      valor: aplicado,
+    };
+    setPagamentosPorConta((cur) => ({ ...cur, [contaSel.key]: [...(cur[contaSel.key] || []), parcela] }));
+    const novoRestante = Math.max(0, restanteSel - aplicado);
+    setBufferEntrada(novoRestante > 0 ? String(Math.round(novoRestante * 100)) : "");
+    notify("success", novoRestante > 0
+      ? `${formaAtual.nome} · ${formatCurrency(aplicado)} recebido. Falta ${formatCurrency(novoRestante)}.`
+      : `${formaAtual.nome} · ${formatCurrency(aplicado)} recebido. Conta quitada.`);
+  }
+
+  function removerPagamentoParcial(id) {
+    if (!contaSel) return;
+    setPagamentosPorConta((cur) => ({
+      ...cur,
+      [contaSel.key]: (cur[contaSel.key] || []).filter((p) => p.id !== id),
+    }));
+    setBufferEntrada("");
   }
 
   function abrirConfirmacao() {
-    if (!podeFechar || processandoRef.current) return;
-    if (!(recebidoEfetivo > 0)) {
-      notify("error", "Valor zerado ou negativo não é permitido no fechamento.");
+    if (processandoRef.current) return;
+    if (!contaSel) {
+      notify("error", "Selecione uma conta para fechar.");
+      return;
+    }
+    if (!podeFechar) {
+      notify("error", `Ainda faltam ${formatCurrency(restanteSel)}. Registre o recebimento no teclado (OK).`);
       return;
     }
     setConfirmarFinalizacao(true);
@@ -504,18 +562,21 @@ export default function CashierPdv({
     if (processandoRef.current || !contaSel) return;
     const valorPago = recebidoEfetivo;
     if (!(valorPago > 0) || valorPago + 0.001 < totalSel) {
-      notify("error", "Valor inválido para fechamento. Informe um valor positivo que cubra o total.");
+      notify("error", "Valor inválido para fechamento. Registre recebimentos que cubram o total.");
       return;
     }
     processandoRef.current = true;
     setProcessando(true);
+    const contaKey = contaSel.key;
+    const mesaFechada = contaSel.mesa;
     try {
-      const troco = Math.max(0, valorPago - totalSel);
-      const detalhes = [{ forma: formaAtual?.nome || "Dinheiro", valor: valorPago }];
+      // Cada parcela vai como uma linha de detalhe — é assim que tab_pagamentos,
+      // o movimento de caixa e o relatório por forma conseguem separar o split.
+      const detalhes = pagamentosSel.map((p) => ({ forma: p.forma, valor: p.valor }));
       const info = {
-        mesa: contaSel.mesa,
+        mesa: mesaFechada,
         total: totalSel,
-        troco,
+        troco: trocoSel,
         detalhes,
         comandas: [...contaSel.comandas],
       };
@@ -524,7 +585,7 @@ export default function CashierPdv({
         mesa: info.mesa,
         comandas: contaSel.comandas,
         total: totalSel,
-        formas: [formaAtual?.nome],
+        formas: detalhes.map((d) => d.forma),
       });
       setSucesso({
         ...info,
@@ -534,10 +595,32 @@ export default function CashierPdv({
         alertasEstoque: baixa?.alertas || [],
       });
       setConfirmarFinalizacao(false);
-      setRecebido(0);
       setBufferEntrada("");
-      setValorManual(false);
+      setFormaSelecionada(null);
+      setPagamentosPorConta((cur) => {
+        const next = { ...cur };
+        delete next[contaKey];
+        return next;
+      });
+      setBloqueioProdutos((cur) => {
+        const next = { ...cur };
+        delete next[contaKey];
+        return next;
+      });
       setSelecionadaKey(null);
+      // Mesa liberada na hora: a coluna esquerda já mostra a ficha "Disponível".
+      const numero = numeroMesaDe(mesaFechada);
+      if (numero) {
+        const cad = mesasPainel.find((m) => m.numero === numero);
+        setMesaLivreSel({
+          key: rotuloMesa(numero),
+          label: rotuloMesa(numero),
+          numero,
+          nome: cad?.nome || "",
+          capacidade: cad?.capacidade || null,
+          localizacao: cad?.localizacao || "",
+        });
+      }
     } finally {
       processandoRef.current = false;
       setProcessando(false);
@@ -804,13 +887,13 @@ ${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency
         abrirConfirmacao();
       } else if (e.key === "F6") {
         e.preventDefault();
-        tecladoConfirmar();
+        registrarPagamentoParcial();
       }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [confirmarFinalizacao, sucesso, contaSel, podeFechar, recebido, bufferEntrada, modal]);
+  }, [confirmarFinalizacao, sucesso, contaSel, podeFechar, restanteSel, bufferEntrada, modal]);
 
   const temConta = !!contaSel;
   const selecionadoCanalKey = canal === "cliente"
@@ -824,7 +907,7 @@ ${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency
   return (
     <div
       data-theme="light"
-      className="tema-claro-area fixed inset-0 z-50 flex flex-col overflow-hidden bg-[var(--pp-bg)]"
+      className="pdv-tema tema-claro-area fixed inset-0 z-50 flex flex-col overflow-hidden bg-[var(--pp-surface)]"
       style={{
         height: "100dvh",
         maxHeight: "100dvh",
@@ -837,6 +920,7 @@ ${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency
         canal={canal}
         onCanalChange={(c) => {
           setCanal(c);
+          if (c !== "mesa") setMesaLivreSel(null);
           setPainelMobile("salao");
         }}
         busca={busca}
@@ -849,6 +933,7 @@ ${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency
 
       <PdvStatsBar
         agora={agora}
+        mesasDisponiveis={mesasDisponiveis}
         mesasOcupadas={mesasOcupadas}
         pagamentoPendente={pagamentoPendente}
         pagamentoFinalizado={pagamentoFinalizado}
@@ -874,79 +959,43 @@ ${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency
           taxasDescontos={taxasSel}
           total={totalSel}
           agora={agora}
+          mesaLivre={mesaLivreSel}
           onEditarCliente={temConta ? () => setModal("cliente") : undefined}
           onIncluirProduto={temConta ? () => setModal("incluir") : undefined}
           onAlterarQtd={alterarQtdItem}
           onRemoverItem={removerItem}
           produtosBloqueados={produtosBloqueados}
-          className={`${painelMobile === "conta" ? "flex min-h-0 flex-1" : "hidden"} min-w-0 overflow-hidden border-b lg:flex lg:w-[280px] lg:max-w-[280px] lg:shrink-0 lg:border-b-0 lg:border-r xl:w-[300px] xl:max-w-[300px]`}
+          className={`${painelMobile === "conta" ? "flex min-h-0 flex-1" : "hidden"} min-w-0 overflow-hidden border-b lg:flex lg:w-[214px] lg:max-w-[214px] lg:shrink-0 lg:border-b-0 lg:border-r xl:w-[248px] xl:max-w-[248px] 2xl:w-[280px] 2xl:max-w-[280px]`}
         />
 
         {/* Centro — canal Mesa / Delivery / Comanda / Cliente / Pedido */}
         <main
-          className={`${painelMobile === "salao" ? "flex" : "hidden"} min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[var(--pp-bg)] p-3 sm:p-4 lg:flex`}
+          className={`${painelMobile === "salao" ? "flex" : "hidden"} min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[var(--pp-surface)] p-2 sm:p-2.5 lg:flex lg:p-3`}
         >
           {canal === "mesa" && (
-            <>
-              <PdvMesasGrid
-                mesasPainel={mesasPainel}
-                selecionadaKey={contaSel?.mesa}
-                onSelecionar={selecionarMesaPainel}
-                agora={agora}
-              />
-              <div className="lg:hidden">
-                <PdvDeliveryStrip
-                  pedidos={deliveries}
-                  selecionadoId={pedidosSel.find((o) => ehPedidoExterno(o))?.id}
-                  onSelecionar={selecionarDelivery}
-                />
-              </div>
-              <div className="hidden lg:block">
-                <PdvDeliveryStrip
-                  pedidos={deliveries}
-                  selecionadoId={pedidosSel.find((o) => ehPedidoExterno(o))?.id}
-                  onSelecionar={selecionarDelivery}
-                />
-              </div>
-            </>
+            <PdvMesasGrid
+              mesasPainel={mesasFiltradas}
+              totalMesas={mesasPainel.length}
+              busca={busca}
+              selecionadaKey={contaSel?.mesa || mesaLivreSel?.key}
+              onSelecionar={selecionarMesaPainel}
+              agora={agora}
+            />
           )}
 
           {canal === "delivery" && (
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-              <h2 className="mb-2 text-sm font-black text-[var(--pp-text)]">Delivery em andamento</h2>
-              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                {deliveries.map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => selecionarDelivery(p)}
-                    className={`min-h-[88px] rounded-xl border bg-[var(--pp-surface)] p-3 text-left transition active:scale-[0.99] ${
-                      contaSel?.comandas?.includes(p.command)
-                        ? "border-[var(--pp-primary)]"
-                        : "border-[var(--pp-border)] hover:border-[var(--pp-primary)]/40"
-                    }`}
-                  >
-                    <p className="text-xs font-black text-[var(--op-nav-accent)]">#{p.command}</p>
-                    <p className="font-bold text-[var(--pp-text)]">{p.customer || "Cliente"}</p>
-                    <p className="mt-0.5 line-clamp-2 text-[11px] font-semibold text-[var(--pp-text-muted)]">
-                      {(p.items || []).map((it) => `${it.quantity}x ${it.name}`).join(" · ")}
-                    </p>
-                    <p className="mt-1 text-sm font-black">{formatCurrency(p.total)}</p>
-                  </button>
-                ))}
-                {deliveries.length === 0 && (
-                  <p className="col-span-full rounded-xl border border-dashed border-[var(--pp-border)] px-4 py-8 text-center text-sm text-[var(--pp-text-muted)]">
-                    Nenhum pedido delivery aberto.
-                  </p>
-                )}
-              </div>
-            </div>
+            <PdvDeliveryStrip
+              pedidos={deliveriesFiltrados}
+              selecionadoId={pedidosSel.find((o) => ehPedidoExterno(o))?.id}
+              onSelecionar={selecionarDelivery}
+              agora={agora}
+            />
           )}
 
           {canal === "cliente" && (
             <PdvCanalGrid
               canal="cliente"
-              itens={cardsCliente}
+              itens={filtrarCards(cardsCliente)}
               selecionadoKey={selecionadoCanalKey}
               onSelecionar={selecionarCardCanal}
               agora={agora}
@@ -955,7 +1004,7 @@ ${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency
           {canal === "comanda" && (
             <PdvCanalGrid
               canal="comanda"
-              itens={cardsComanda}
+              itens={filtrarCards(cardsComanda)}
               selecionadoKey={selecionadoCanalKey}
               onSelecionar={selecionarCardCanal}
               agora={agora}
@@ -964,7 +1013,7 @@ ${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency
           {canal === "pedido" && (
             <PdvCanalGrid
               canal="pedido"
-              itens={cardsPedido}
+              itens={filtrarCards(cardsPedido)}
               selecionadoKey={selecionadoCanalKey}
               onSelecionar={selecionarCardCanal}
               agora={agora}
@@ -975,20 +1024,22 @@ ${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency
         {/* Pagamento — aba mobile + coluna direita desktop */}
         <PdvPaymentPanel
           totalConta={totalSel}
-          aPagarAgora={aPagarAgora}
           recebido={recebidoEfetivo}
-          falta={falta}
+          restante={restanteSel}
+          troco={trocoSel}
+          pagamentos={pagamentosSel}
           formasPagamento={formasAtivas}
           formaSelecionada={formaAtual}
+          permiteTroco={trocoLiberado}
           onSelecionarForma={selecionarForma}
+          onRemoverPagamento={removerPagamentoParcial}
           onDigito={tecladoDigito}
           onLimpar={tecladoLimpar}
           onApagar={tecladoApagar}
-          onConfirmar={tecladoConfirmar}
-          confirmarDesabilitado={!contaSel || totalSel <= 0}
-          bufferEntrada={bufferEfetivo}
-          valorExibido={recebidoEfetivo}
-          className={`${painelMobile === "pagamento" ? "flex min-h-0 flex-1" : "hidden"} min-w-0 overflow-hidden border-t lg:flex lg:w-[280px] lg:max-w-[280px] lg:shrink-0 lg:border-l lg:border-t-0 xl:w-[300px] xl:max-w-[300px]`}
+          onConfirmar={registrarPagamentoParcial}
+          confirmarDesabilitado={!contaSel || totalSel <= 0 || restanteSel <= 0.001}
+          bufferEntrada={bufferEntrada}
+          className={`${painelMobile === "pagamento" ? "flex min-h-0 flex-1" : "hidden"} min-w-0 overflow-hidden border-t lg:flex lg:w-[214px] lg:max-w-[214px] lg:shrink-0 lg:border-l lg:border-t-0 xl:w-[248px] xl:max-w-[248px] 2xl:w-[280px] 2xl:max-w-[280px]`}
         />
       </div>
 
@@ -1073,9 +1124,14 @@ ${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency
             </p>
             <div className="mt-4 space-y-1.5 text-sm">
               <div className="flex justify-between"><span>Total</span><strong>{formatCurrency(totalSel)}</strong></div>
-              <div className="flex justify-between"><span>Recebido ({formaAtual?.nome})</span><strong>{formatCurrency(recebidoEfetivo)}</strong></div>
-              {recebidoEfetivo > totalSel && (
-                <div className="flex justify-between text-[var(--pp-primary)]"><span>Troco</span><strong>{formatCurrency(recebidoEfetivo - totalSel)}</strong></div>
+              {pagamentosSel.map((p) => (
+                <div key={p.id} className="flex justify-between text-[var(--pp-text-body)]">
+                  <span>{p.forma}</span><strong>{formatCurrency(p.valor)}</strong>
+                </div>
+              ))}
+              <div className="flex justify-between border-t border-[var(--pp-border)] pt-1.5"><span>Recebido</span><strong>{formatCurrency(recebidoEfetivo)}</strong></div>
+              {trocoSel > 0 && (
+                <div className="flex justify-between text-[var(--pp-primary-text)]"><span>Troco</span><strong>{formatCurrency(trocoSel)}</strong></div>
               )}
             </div>
             <div className="mt-5 grid grid-cols-2 gap-2">
