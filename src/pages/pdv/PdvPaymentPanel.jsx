@@ -10,6 +10,11 @@ const FORMAS_UI = [
   { id: "debito", label: "Débito", Icon: CreditCard, match: (n) => /déb|deb/i.test(n) },
 ];
 
+function uiMatchNome(nome, uiId) {
+  const f = FORMAS_UI.find((x) => x.id === uiId);
+  return f ? f.match(nome || "") : false;
+}
+
 /**
  * Coluna direita — pagamento (total, teclado, formas, saldo a pagar).
  */
@@ -99,7 +104,12 @@ export default function PdvPaymentPanel({
         <h3 className="mb-2 text-[11px] font-black uppercase tracking-[0.14em] text-[var(--pp-text-muted)]">Formas de pagamento</h3>
         <div className="grid grid-cols-4 gap-2">
           {formasResolvidas.map(({ id, label, Icon, forma }) => {
-            const on = (formaSelecionada?.id || formaSelecionada?.nome) === (forma.id || forma.nome) || formaSelecionada?.nome === label;
+            const on = !!formaSelecionada && (
+              formaSelecionada.id === forma.id
+              || formaSelecionada.nome === forma.nome
+              || formaSelecionada.nome === label
+              || uiMatchNome(formaSelecionada.nome, id)
+            );
             return (
               <button
                 key={id}

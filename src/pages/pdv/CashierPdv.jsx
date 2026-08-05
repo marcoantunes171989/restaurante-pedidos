@@ -68,6 +68,13 @@ export default function CashierPdv({
     () => formasPagamento.filter((f) => f.active !== false),
     [formasPagamento],
   );
+  const formaPadrao = useMemo(
+    () => formasAtivas.find((f) => /dinheiro|espécie|especie/i.test(f.nome || ""))
+      || formasAtivas[0]
+      || { id: "dinheiro", nome: "Dinheiro", permiteTroco: true },
+    [formasAtivas],
+  );
+  const formaAtual = formaSelecionada || formaPadrao;
 
   // Contas abertas agrupadas (mesa interna / command externo)
   const contasAbertas = useMemo(() => {
@@ -146,21 +153,17 @@ export default function CashierPdv({
     return Object.values(mapa).map((m) => ({ ...m, total: m.subtotal * (1 + taxaPct / 100) }));
   }, [orders, taxaPct]);
 
-  // Auto-seleciona a primeira conta com fechamento solicitado (ou a primeira aberta)
-  useEffect(() => {
-    if (selecionadaKey && contasAbertas.some((c) => c.key === selecionadaKey)) return;
-    const preferida = contasAbertas.find((c) => c.solicitada) || contasAbertas[0];
-    if (preferida) setSelecionadaKey(preferida.key);
-  }, [contasAbertas, selecionadaKey]);
+  // Seleção efetiva: respeita a escolha do operador; se inválida/vazia, cai na
+  // conta com fechamento solicitado (ou a primeira aberta) — sem setState em effect.
+  const selecionadaEfetiva = useMemo(() => {
+    if (selecionadaKey && contasAbertas.some((c) => c.key === selecionadaKey)) return selecionadaKey;
+    // Prioriza fechamento solicitado com maior tempo aberto (mais urgente).
+    const solicitadas = contasAbertas.filter((c) => c.solicitada);
+    const urgente = [...solicitadas].sort((a, b) => new Date(a.aberturaISO || 0) - new Date(b.aberturaISO || 0))[0];
+    return (urgente || contasAbertas[0])?.key || null;
+  }, [selecionadaKey, contasAbertas]);
 
-  // Forma padrão: Dinheiro
-  useEffect(() => {
-    if (formaSelecionada) return;
-    const dinheiro = formasAtivas.find((f) => /dinheiro|espécie|especie/i.test(f.nome || ""));
-    setFormaSelecionada(dinheiro || formasAtivas[0] || { id: "dinheiro", nome: "Dinheiro", permiteTroco: true });
-  }, [formasAtivas, formaSelecionada]);
-
-  const contaSel = contasAbertas.find((c) => c.key === selecionadaKey) || null;
+  const contaSel = contasAbertas.find((c) => c.key === selecionadaEfetiva) || null;
   const pedidosSel = contaSel
     ? orders.filter((o) => contaSel.comandas.includes(o.command) && o.paymentStatus !== "paid" && o.status !== "cancelled")
     : [];
@@ -169,6 +172,7 @@ export default function CashierPdv({
   const taxasSel = totalSel - subtotalSel;
   const falta = Math.max(0, totalSel - recebido);
   const aPagarAgora = totalSel;
+  const podeFechar = !!contaSel && !!formaAtual && recebido + 0.001 >= totalSel && totalSel > 0;
 
   // Grade 01–20 (ou cadastro de mesas da loja)
   const mesasPainel = useMemo(() => {
@@ -294,7 +298,7 @@ export default function CashierPdv({
   function tecladoConfirmar() {
     if (!bufferEntrada) {
       // Confirma recebimento do valor total na forma selecionada
-      if (!contaSel || !formaSelecionada) return;
+      if (!contaSel || !formaAtual) return;
       setRecebido(totalSel);
       return;
     }
@@ -302,8 +306,6 @@ export default function CashierPdv({
     setRecebido(valor);
     setBufferEntrada("");
   }
-
-  const podeFechar = !!contaSel && !!formaSelecionada && recebido + 0.001 >= totalSel && totalSel > 0;
 
   function abrirConfirmacao() {
     if (!podeFechar || processandoRef.current) return;
@@ -316,7 +318,7 @@ export default function CashierPdv({
     setProcessando(true);
     try {
       const troco = Math.max(0, recebido - totalSel);
-      const detalhes = [{ forma: formaSelecionada?.nome || "Dinheiro", valor: recebido }];
+      const detalhes = [{ forma: formaAtual?.nome || "Dinheiro", valor: recebido }];
       const info = {
         mesa: contaSel.mesa,
         total: totalSel,
@@ -329,7 +331,7 @@ export default function CashierPdv({
         mesa: info.mesa,
         comandas: contaSel.comandas,
         total: totalSel,
-        formas: [formaSelecionada?.nome],
+        formas: [formaAtual?.nome],
       });
       setSucesso({
         ...info,
@@ -374,7 +376,7 @@ ${itensHtml}
 <div class="row"><span>Subtotal</span><span>${formatCurrency(subtotalSel)}</span></div>
 <div class="row"><span>Taxas</span><span>${formatCurrency(taxasSel)}</span></div>
 <div class="row b"><span>TOTAL</span><span>${formatCurrency(totalSel)}</span></div>
-<script>window.onload=function(){window.print();setTimeout(function(){window.close()},300)}<\/script>
+<script>window.onload=function(){window.print();setTimeout(function(){window.close()},300)}</scr` + `ipt>
 </body></html>`);
     janela.document.close();
   }
@@ -399,7 +401,7 @@ body{font-family:'Courier New',monospace;font-size:12px;width:80mm;padding:4mm 3
 ${(dados.detalhes || []).map((d) => `<div class="row"><span>${d.forma}</span><span>${formatCurrency(d.valor)}</span></div>`).join("")}
 ${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency(dados.troco)}</span></div>` : ""}
 <div class="sep"></div><div class="c b">PAGAMENTO CONFIRMADO</div>
-<script>window.onload=function(){window.print();setTimeout(function(){window.close()},300)}<\/script>
+<script>window.onload=function(){window.print();setTimeout(function(){window.close()},300)}</scr` + `ipt>
 </body></html>`);
     j.document.close();
   }
@@ -524,7 +526,7 @@ ${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency
           recebido={recebido}
           falta={falta}
           formasPagamento={formasAtivas}
-          formaSelecionada={formaSelecionada}
+          formaSelecionada={formaAtual}
           onSelecionarForma={setFormaSelecionada}
           onDigito={tecladoDigito}
           onLimpar={tecladoLimpar}
@@ -554,7 +556,7 @@ ${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency
             </p>
             <div className="mt-4 space-y-1.5 text-sm">
               <div className="flex justify-between"><span>Total</span><strong>{formatCurrency(totalSel)}</strong></div>
-              <div className="flex justify-between"><span>Recebido ({formaSelecionada?.nome})</span><strong>{formatCurrency(recebido)}</strong></div>
+              <div className="flex justify-between"><span>Recebido ({formaAtual?.nome})</span><strong>{formatCurrency(recebido)}</strong></div>
               {recebido > totalSel && (
                 <div className="flex justify-between text-[var(--pp-primary)]"><span>Troco</span><strong>{formatCurrency(recebido - totalSel)}</strong></div>
               )}

@@ -72,7 +72,7 @@ const initialProducts = [
 const initialOrders = [
   // Seed do PDV — Mesa 12 (Marco VIP) espelha o mockup; demais mesas/delivery
   // alimentam a grade e as métricas do turno com dados realistas.
-  { id: "PED-1278", table: "Mesa 12", command: "CMD-001278", customer: "Marco", clienteVip: true, clienteTelefone: "11999999999", status: "ready", paymentStatus: "requested", createdAt: "22:40", createdAtISO: new Date(Date.now() - 88 * 60000).toISOString(), observacaoInterna: "Teste 123", items: [
+  { id: "PED-1278", table: "Mesa 12", command: "CMD-001278", customer: "Marco", clienteVip: true, clienteTelefone: "11999999999", status: "ready", paymentStatus: "requested", createdAt: "22:40", createdAtISO: new Date(Date.now() - 148 * 60000).toISOString(), observacaoInterna: "Teste 123", items: [
     { name: "Combo Cheese + Fritas + Refri", quantity: 2, price: 36.9, selectedIngredients: [], removedIngredients: [], extraIngredients: [], observation: "" },
     { name: "Coca Cola Lata 350ml", quantity: 3, price: 7.0, selectedIngredients: [], removedIngredients: [], extraIngredients: [], observation: "" },
     { name: "Nuggets (10un)", quantity: 1, price: 24.9, selectedIngredients: [], removedIngredients: [], extraIngredients: [], observation: "" },
