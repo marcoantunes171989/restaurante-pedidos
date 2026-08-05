@@ -38,7 +38,11 @@ export default function PdvActionBar({
           type="button"
           onClick={onFecharConta}
           disabled={!podeFechar || fechando}
-          className="btn-laranja flex min-h-[58px] min-w-[128px] flex-[1.35] flex-col items-center justify-center gap-1 rounded-xl px-3 py-2 text-xs font-black text-white transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-55"
+          className={`flex min-h-[58px] min-w-[128px] flex-[1.35] flex-col items-center justify-center gap-1 rounded-xl px-3 py-2 text-xs font-black text-white transition active:scale-[0.98] ${
+            podeFechar && !fechando
+              ? "btn-laranja"
+              : "cursor-not-allowed bg-[#E67E22]/55"
+          }`}
         >
           {fechando ? <Loader2 size={18} className="animate-spin" aria-hidden="true" /> : <DoorClosed size={18} aria-hidden="true" />}
           {fechando ? "Registrando…" : "Fechar conta"}
