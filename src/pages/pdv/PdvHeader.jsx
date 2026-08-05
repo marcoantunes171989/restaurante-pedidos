@@ -1,4 +1,4 @@
-import { Sun, Moon } from "lucide-react";
+import { Sun, Moon, Search, X } from "lucide-react";
 import { LogoPP } from "../../components/BrandLogo";
 import NotificationBell from "../../components/NotificationBell";
 import { CANAIS_PDV } from "./pdvHelpers";
@@ -19,20 +19,19 @@ export default function PdvHeader({
 }) {
   return (
     <header
-      className="shrink-0 border-b border-[var(--pp-border)] bg-[var(--pp-surface)] px-3 py-2 sm:px-4 lg:px-5"
+      className="shrink-0 border-b border-[var(--pp-border)] bg-[var(--pp-surface)] px-3 py-1.5 sm:px-4 lg:px-4"
       style={{ paddingLeft: "max(0.75rem, env(safe-area-inset-left))", paddingRight: "max(0.75rem, env(safe-area-inset-right))" }}
     >
-      <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 lg:gap-3">
-        <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-2.5">
-          <LogoPP size={32} className="shrink-0 sm:hidden" />
-          <span className="hidden shrink-0 sm:inline-flex"><LogoPP size={36} /></span>
+      <div className="flex flex-wrap items-center gap-2 lg:gap-2.5">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <LogoPP size={28} className="shrink-0" />
 
           <div
             role="tablist"
             aria-label="Canal do PDV"
-            className="flex min-w-0 max-w-full items-center gap-1 overflow-x-auto rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            className="flex min-w-0 max-w-full items-center gap-0.5 overflow-x-auto rounded-lg border border-[var(--pp-border)] bg-[var(--pp-bg)] p-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           >
-            {CANAIS_PDV.map(({ id, label }) => {
+            {CANAIS_PDV.map(({ id, label, dica }) => {
               const on = canal === id;
               return (
                 <button
@@ -40,9 +39,10 @@ export default function PdvHeader({
                   type="button"
                   role="tab"
                   aria-selected={on}
+                  title={dica}
                   onClick={() => onCanalChange?.(id)}
-                  className={`min-h-11 shrink-0 rounded-lg px-2.5 text-xs font-black transition sm:min-h-10 sm:px-3 sm:text-sm ${
-                    on ? "btn-laranja text-white shadow-sm" : "text-[var(--op-nav-accent)] active:bg-[var(--pp-surface)]"
+                  className={`h-8 shrink-0 rounded-md px-2.5 text-[11px] font-black transition ${
+                    on ? "btn-laranja text-white shadow-sm" : "text-[var(--op-nav-accent)] hover:bg-[var(--pp-surface)]"
                   }`}
                 >
                   {label}
@@ -52,43 +52,56 @@ export default function PdvHeader({
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2 sm:ml-auto">
-          <NotificationBell />
-          <button
-            type="button"
-            onClick={onToggleTema}
-            aria-label={temaClaro ? "Alternar para tema escuro" : "Alternar para tema claro"}
-            className="grid h-11 w-11 place-items-center rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] text-[var(--pp-text-body)] transition active:scale-[0.97] sm:h-10 sm:w-10"
-          >
-            {temaClaro ? <Sun size={16} /> : <Moon size={16} />}
-          </button>
-          <div className="flex min-h-11 items-center gap-2 rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-2 py-1 sm:min-h-10 sm:px-2.5">
-            <span className="grid h-8 w-8 place-items-center rounded-full bg-[var(--op-nav-accent)] text-xs font-black text-white">
-              {(currentUser?.name || "C").slice(0, 1).toUpperCase()}
-            </span>
-            <div className="hidden max-w-[9rem] leading-tight md:block">
-              <p className="truncate text-xs font-black text-[var(--pp-text)]">{currentUser?.name || "Caixa Operador"}</p>
-              <p className="text-[10px] font-semibold text-[var(--pp-text-muted)]">Operador</p>
-            </div>
-          </div>
-        </div>
-
         <form
-          className="order-last flex w-full basis-full items-center gap-2 lg:order-none lg:min-w-[200px] lg:flex-1 lg:basis-auto"
+          className="order-last flex w-full basis-full items-center lg:order-none lg:w-[268px] lg:basis-auto xl:w-[320px]"
           onSubmit={(e) => {
             e.preventDefault();
             onBuscar?.();
           }}
         >
           <label htmlFor="pdv-busca-global" className="sr-only">Buscar conta</label>
-          <input
-            id="pdv-busca-global"
-            value={busca}
-            onChange={(e) => onBuscaChange?.(e.target.value)}
-            placeholder="Mesa, cliente, pedido ou telefone…"
-            className="min-h-12 w-full rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-3.5 text-base font-semibold text-[var(--pp-text)] outline-none transition placeholder:font-normal placeholder:text-[var(--pp-text-muted)] focus:border-[var(--pp-primary)] focus:ring-2 focus:ring-[var(--pp-primary-soft)] sm:min-h-11 sm:px-4 sm:text-sm"
-          />
+          <div className="relative w-full">
+            <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--pp-text-muted)]" aria-hidden="true" />
+            <input
+              id="pdv-busca-global"
+              value={busca}
+              onChange={(e) => onBuscaChange?.(e.target.value)}
+              placeholder="Buscar mesa, cliente, produto, valor…"
+              className="h-9 w-full rounded-lg border border-[var(--pp-border)] bg-[var(--pp-bg)] pl-8 pr-8 text-[12px] font-semibold text-[var(--pp-text)] outline-none transition placeholder:font-normal placeholder:text-[var(--pp-text-muted)] focus:border-[var(--pp-primary)] focus:bg-[var(--pp-surface)]"
+            />
+            {busca && (
+              <button
+                type="button"
+                onClick={() => onBuscaChange?.("")}
+                aria-label="Limpar busca"
+                className="absolute right-1.5 top-1/2 grid h-6 w-6 -translate-y-1/2 place-items-center rounded-md text-[var(--pp-text-muted)] hover:bg-[var(--pp-bg)]"
+              >
+                <X size={13} />
+              </button>
+            )}
+          </div>
         </form>
+
+        <div className="flex shrink-0 items-center gap-1.5">
+          <NotificationBell />
+          <button
+            type="button"
+            onClick={onToggleTema}
+            aria-label={temaClaro ? "Alternar para tema escuro" : "Alternar para tema claro"}
+            className="grid h-9 w-9 place-items-center rounded-lg border border-[var(--pp-border)] bg-[var(--pp-bg)] text-[var(--pp-text-body)] transition hover:border-[var(--pp-primary)] active:scale-[0.97]"
+          >
+            {temaClaro ? <Sun size={15} /> : <Moon size={15} />}
+          </button>
+          <div className="flex h-9 items-center gap-1.5 rounded-lg border border-[var(--pp-border)] bg-[var(--pp-bg)] px-1.5">
+            <span className="grid h-6 w-6 place-items-center rounded-full bg-[var(--pp-primary-soft)] text-[10px] font-black text-[var(--pp-primary-text)]">
+              {(currentUser?.name || "C").slice(0, 1).toUpperCase()}
+            </span>
+            <div className="hidden max-w-[8rem] leading-tight lg:block">
+              <p className="truncate text-[11px] font-black text-[var(--pp-text)]">{currentUser?.name || "Caixa Operador"}</p>
+              <p className="text-[9px] font-semibold text-[var(--pp-text-muted)]">Operador</p>
+            </div>
+          </div>
+        </div>
       </div>
     </header>
   );

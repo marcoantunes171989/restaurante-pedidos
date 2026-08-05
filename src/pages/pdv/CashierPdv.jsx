@@ -10,6 +10,7 @@ import PdvDeliveryStrip from "./PdvDeliveryStrip";
 import PdvPaymentPanel from "./PdvPaymentPanel";
 import PdvActionBar from "./PdvActionBar";
 import PdvStatusBar from "./PdvStatusBar";
+import ModalDividirConta from "./PdvDividirConta";
 import {
   ModalCliente,
   ModalHistoricoMesa,
@@ -31,6 +32,7 @@ import {
   numeroMesaDe,
   orderTotal,
   rotuloMesa,
+  rotuloStatusPedido,
   situacaoMesaVisual,
   statusPedidosConta,
   textoBuscaConta,
@@ -112,7 +114,7 @@ export default function CashierPdv({
   const [processando, setProcessando] = useState(false);
   const [sucesso, setSucesso] = useState(null);
   const [bloqueioProdutos, setBloqueioProdutos] = useState({});
-  const [modal, setModal] = useState(null); // null | incluir | cliente | transferir | separar | historico | observacoes
+  const [modal, setModal] = useState(null); // null | incluir | cliente | transferir | separar | historico | observacoes | dividir
   const [acaoProcessando, setAcaoProcessando] = useState(false);
   // Mobile/tablet: Conta (produtos) | Salão | Pagar — abre em Conta (pedido em destaque).
   const [painelMobile, setPainelMobile] = useState("conta");
@@ -366,7 +368,8 @@ export default function CashierPdv({
           aberturaISO: c.aberturaISO,
           vip: !!c.vip,
           status: c.solicitada ? "pendente" : "ocupada",
-          statusLabel: c.solicitada ? "Pendente" : "Em consumo",
+          statusLabel: c.solicitada ? "Conta pedida" : "Em consumo",
+          statusChip: c.solicitada ? "bg-[#FBEFC4] text-[#8D6708]" : "bg-[#FCE8D4] text-[#B3600E]",
           produtosResumo: "",
           orderIds: [],
         };
@@ -378,7 +381,8 @@ export default function CashierPdv({
       if (c.vip) row.vip = true;
       if (c.solicitada) {
         row.status = "pendente";
-        row.statusLabel = "Pendente";
+        row.statusLabel = "Conta pedida";
+        row.statusChip = "bg-[#FBEFC4] text-[#8D6708]";
       }
     });
     return Object.values(mapa)
@@ -410,7 +414,8 @@ export default function CashierPdv({
           aberturaISO: c.aberturaISO,
           vip: !!c.vip,
           status: c.solicitada ? "pendente" : "ocupada",
-          statusLabel: c.solicitada ? "Pendente" : "Aberta",
+          statusLabel: c.solicitada ? "Conta pedida" : "Aberta",
+          statusChip: c.solicitada ? "bg-[#FBEFC4] text-[#8D6708]" : "bg-[#FCE8D4] text-[#B3600E]",
           produtosResumo: nomes.slice(0, 4).join(" · "),
         };
       }),
@@ -425,6 +430,9 @@ export default function CashierPdv({
         const tot = orderTotal(o) * (1 + taxaPct / 100);
         const nomes = (o.items || []).map((it) => `${it.quantity}x ${it.name}`);
         const conta = contasAbertas.find((c) => c.comandas.includes(o.command) || c.pedidosIds?.includes(o.id));
+        // Status vem em inglês do banco — o card sempre mostra o rótulo em PT-BR.
+        const st = rotuloStatusPedido(o.status);
+        const solicitado = o.paymentStatus === "requested";
         return {
           key: o.id,
           contaKey: conta?.key,
@@ -433,12 +441,13 @@ export default function CashierPdv({
           titulo: o.id,
           subtitulo: nomeClienteDe(o, clientes) || o.customer || "Sem cliente",
           telefone: o.clienteTelefone || "",
-          mesa: ehPedidoExterno(o) ? o.table : o.table,
+          mesa: o.table,
           total: tot,
           aberturaISO: o.createdAtISO,
           vip: conta?.vip,
-          status: o.paymentStatus === "requested" ? "pendente" : "ocupada",
-          statusLabel: o.paymentStatus === "requested" ? "Pendente" : (o.status || "Aberto"),
+          status: solicitado ? "pendente" : "ocupada",
+          statusLabel: solicitado ? "Conta pedida" : st.label,
+          statusChip: solicitado ? "bg-[#FBEFC4] text-[#8D6708]" : st.chip,
           produtosResumo: nomes.slice(0, 4).join(" · "),
         };
       })
@@ -459,10 +468,13 @@ export default function CashierPdv({
     if (conta) selecionarConta(conta);
   }
 
-  /** Escolher a forma já sugere o que falta receber — 1 toque a menos. */
+  /**
+   * Escolher a forma sugere o que falta receber — mas nunca sobrescreve um
+   * valor já digitado ou calculado na divisão da conta.
+   */
   function selecionarForma(forma) {
     setFormaSelecionada(forma);
-    setBufferEntrada(restanteSel > 0 ? String(Math.round(restanteSel * 100)) : "");
+    if (!bufferEntrada && restanteSel > 0) setBufferEntrada(String(Math.round(restanteSel * 100)));
     setPainelMobile("pagamento");
   }
 
@@ -999,6 +1011,7 @@ ${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency
               selecionadoKey={selecionadoCanalKey}
               onSelecionar={selecionarCardCanal}
               agora={agora}
+              busca={busca}
             />
           )}
           {canal === "comanda" && (
@@ -1008,6 +1021,7 @@ ${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency
               selecionadoKey={selecionadoCanalKey}
               onSelecionar={selecionarCardCanal}
               agora={agora}
+              busca={busca}
             />
           )}
           {canal === "pedido" && (
@@ -1017,6 +1031,7 @@ ${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency
               selecionadoKey={selecionadoCanalKey}
               onSelecionar={selecionarCardCanal}
               agora={agora}
+              busca={busca}
             />
           )}
         </main>
@@ -1033,6 +1048,8 @@ ${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency
           permiteTroco={trocoLiberado}
           onSelecionarForma={selecionarForma}
           onRemoverPagamento={removerPagamentoParcial}
+          onDividir={() => setModal("dividir")}
+          dividirDesabilitado={!contaSel || restanteSel <= 0.001}
           onDigito={tecladoDigito}
           onLimpar={tecladoLimpar}
           onApagar={tecladoApagar}
@@ -1098,6 +1115,25 @@ ${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency
         <ModalHistoricoMesa
           mesa={contaSel.mesa}
           pedidos={historicoMesaPedidos}
+          onFechar={() => setModal(null)}
+        />
+      )}
+      {modal === "dividir" && contaSel && (
+        <ModalDividirConta
+          total={totalSel}
+          restante={restanteSel}
+          itens={itensParaSeparar.map((it) => ({
+            key: it.key,
+            name: it.name,
+            quantity: it.quantity,
+            total: (Number(it.price) || 0) * (Number(it.quantity) || 0) * (1 + taxaPct / 100),
+          }))}
+          onAplicar={(valor) => {
+            setBufferEntrada(valor > 0 ? String(Math.round(valor * 100)) : "");
+            setModal(null);
+            setPainelMobile("pagamento");
+            notify("success", `Valor de ${formatCurrency(valor)} pronto para receber. Escolha a forma e toque em OK.`);
+          }}
           onFechar={() => setModal(null)}
         />
       )}

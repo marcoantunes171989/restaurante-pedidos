@@ -108,7 +108,13 @@ const STATUS_PEDIDO_META = {
   preparing: { label: "Em preparo", chip: "bg-[#FCE8D4] text-[#B3600E]" },
   ready: { label: "Pronto", chip: "bg-[#DFF3E6] text-[#1F7A3D]" },
   delivered: { label: "Entregue", chip: "bg-[#EDF0F4] text-[#52606D]" },
+  cancelled: { label: "Cancelado", chip: "bg-[#FBE3E9] text-[#A3183A]" },
 };
+
+/** Status do pedido sempre em português — o dado interno é em inglês. */
+export function rotuloStatusPedido(status) {
+  return STATUS_PEDIDO_META[status] || { label: "Em aberto", chip: "bg-[#EDF0F4] text-[#52606D]" };
+}
 
 /**
  * Status consolidado dos pedidos de uma conta — o estágio MENOS avançado
@@ -171,11 +177,11 @@ export function combinaBusca(indice, termo) {
 }
 
 export const CANAIS_PDV = [
-  { id: "mesa", label: "Mesa" },
-  { id: "delivery", label: "Delivery" },
-  { id: "comanda", label: "Comanda" },
-  { id: "cliente", label: "Cliente" },
-  { id: "pedido", label: "Pedido" },
+  { id: "mesa", label: "Salão", dica: "Mesas do salão" },
+  { id: "delivery", label: "Delivery", dica: "Pedidos de entrega e retirada" },
+  { id: "comanda", label: "Comandas", dica: "Comandas em aberto" },
+  { id: "cliente", label: "Clientes", dica: "Clientes identificados" },
+  { id: "pedido", label: "Pedidos", dica: "Pedidos em aberto" },
 ];
 
 export function tempoAbertoISO(iso, agora = new Date()) {
@@ -220,7 +226,12 @@ export function estiloFormaPagamento(nome) {
   return "outro";
 }
 
-/** Rótulo curto para caber no botão da forma sem estourar o layout. */
+/**
+ * Rótulo curto para caber no botão da forma sem estourar o layout.
+ * Só encurta o que é ambíguo por natureza ("Cartão de Crédito" → "Crédito");
+ * nomes livres cadastrados pela loja (vales, convênios, cortesias) mantêm o
+ * texto original, senão duas formas diferentes virariam o mesmo botão.
+ */
 export function rotuloFormaCurto(nome) {
   const n = String(nome || "").trim();
   if (!n) return "—";
@@ -229,7 +240,6 @@ export function rotuloFormaCurto(nome) {
   if (low.includes("dinheiro") || low.includes("espécie") || low.includes("especie")) return "Dinheiro";
   if (low.includes("créd") || low.includes("cred")) return "Crédito";
   if (low.includes("déb") || low.includes("deb")) return "Débito";
-  if (low.includes("voucher") || low.includes("vale") || low.includes("ticket")) return "Voucher";
-  if (low.includes("ponto")) return "Pontos";
-  return n.length > 10 ? `${n.slice(0, 9)}…` : n;
+  const limpo = n.replace(/^cart(ã|a)o\s+(de\s+)?/i, "");
+  return limpo.length > 16 ? `${limpo.slice(0, 15)}…` : limpo;
 }
