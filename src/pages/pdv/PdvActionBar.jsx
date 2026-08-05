@@ -11,9 +11,7 @@ const SECUNDARIAS = [
 ];
 
 /**
- * Barra inferior de ações — Fechar conta sempre em destaque (polegar).
- * Mobile: CTA full-width + ações em scroll / menu Mais.
- * Desktop: fila completa.
+ * Barra inferior — textos contidos, grid fixo no desktop (sem wrap/reflow).
  */
 export default function PdvActionBar({
   onFecharConta,
@@ -41,66 +39,67 @@ export default function PdvActionBar({
 
   return (
     <div
-      className="shrink-0 border-t border-[var(--pp-border)] bg-[var(--pp-surface)] px-3 py-2 sm:px-4 sm:py-2.5 lg:px-5"
+      className="shrink-0 border-t border-[var(--pp-border)] bg-[var(--pp-surface)] px-2 py-2 sm:px-3 lg:px-4"
       style={{
         paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))",
-        paddingLeft: "max(0.75rem, env(safe-area-inset-left))",
-        paddingRight: "max(0.75rem, env(safe-area-inset-right))",
+        paddingLeft: "max(0.5rem, env(safe-area-inset-left))",
+        paddingRight: "max(0.5rem, env(safe-area-inset-right))",
       }}
     >
-      {/* Mobile / tablet estreito */}
-      <div className="flex flex-col gap-2 lg:hidden">
+      {/* Mobile */}
+      <div className="flex flex-col gap-1.5 lg:hidden">
         <button
           type="button"
           onClick={onFecharConta}
           disabled={!podeFechar || fechando}
-          className={`flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl px-4 text-base font-black text-white transition active:scale-[0.99] ${
-            podeFechar && !fechando
-              ? "btn-laranja"
-              : "cursor-not-allowed bg-[#E67E22]/55"
-          }`}
-        >
-          {fechando ? <Loader2 size={20} className="animate-spin" aria-hidden="true" /> : <DoorClosed size={20} aria-hidden="true" />}
-          {fechando ? "Registrando…" : "Fechar conta"}
-        </button>
-
-        <div className="flex items-stretch gap-2 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {principaisMobile.map(({ id, label, Icon }) => (
-            <BotaoSec key={id} label={label} Icon={Icon} onClick={handlers[id]} compact />
-          ))}
-          <button
-            type="button"
-            onClick={() => setMaisAberto(true)}
-            className="flex min-h-12 min-w-[4.5rem] flex-col items-center justify-center gap-0.5 rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-2 text-[11px] font-bold text-[var(--pp-text-body)]"
-          >
-            <MoreHorizontal size={17} aria-hidden="true" />
-            Mais
-          </button>
-        </div>
-      </div>
-
-      {/* Desktop */}
-      <div className="hidden flex-wrap items-stretch gap-2 lg:flex">
-        {SECUNDARIAS.slice(0, 3).map(({ id, labelFull, Icon }) => (
-          <BotaoSec key={id} label={labelFull} Icon={Icon} onClick={handlers[id]} />
-        ))}
-
-        <button
-          type="button"
-          onClick={onFecharConta}
-          disabled={!podeFechar || fechando}
-          className={`flex min-h-[58px] min-w-[140px] flex-[1.35] flex-col items-center justify-center gap-1 rounded-xl px-3 py-2 text-xs font-black text-white transition active:scale-[0.98] ${
+          className={`flex h-12 w-full items-center justify-center gap-2 overflow-hidden rounded-xl px-3 text-sm font-black text-white transition ${
             podeFechar && !fechando
               ? "btn-laranja"
               : "cursor-not-allowed bg-[#E67E22]/55"
           }`}
         >
           {fechando ? <Loader2 size={18} className="animate-spin" aria-hidden="true" /> : <DoorClosed size={18} aria-hidden="true" />}
-          {fechando ? "Registrando…" : "Fechar conta"}
+          <span className="truncate">{fechando ? "Registrando…" : "Fechar conta"}</span>
         </button>
 
-        {SECUNDARIAS.slice(3).map(({ id, labelFull, Icon }) => (
-          <BotaoSec key={id} label={labelFull} Icon={Icon} onClick={handlers[id]} />
+        <div className="grid grid-cols-4 gap-1.5">
+          {principaisMobile.map(({ id, label, Icon }) => (
+            <BotaoSec key={id} label={label} Icon={Icon} onClick={handlers[id]} title={SECUNDARIAS.find((s) => s.id === id)?.labelFull} />
+          ))}
+          <button
+            type="button"
+            onClick={() => setMaisAberto(true)}
+            className="flex h-12 min-w-0 flex-col items-center justify-center gap-0.5 overflow-hidden rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-1 text-[10px] font-bold text-[var(--pp-text-body)]"
+          >
+            <MoreHorizontal size={15} aria-hidden="true" />
+            <span className="truncate">Mais</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Desktop — 7 colunas fixas, sem wrap */}
+      <div className="hidden grid-cols-7 gap-1.5 lg:grid">
+        {SECUNDARIAS.slice(0, 3).map(({ id, label, labelFull, Icon }) => (
+          <BotaoSec key={id} label={label} Icon={Icon} onClick={handlers[id]} title={labelFull} />
+        ))}
+
+        <button
+          type="button"
+          onClick={onFecharConta}
+          disabled={!podeFechar || fechando}
+          title="Fechar conta"
+          className={`flex h-12 min-w-0 flex-col items-center justify-center gap-0.5 overflow-hidden rounded-xl px-1 text-[10px] font-black text-white transition ${
+            podeFechar && !fechando
+              ? "btn-laranja"
+              : "cursor-not-allowed bg-[#E67E22]/55"
+          }`}
+        >
+          {fechando ? <Loader2 size={16} className="animate-spin" aria-hidden="true" /> : <DoorClosed size={16} aria-hidden="true" />}
+          <span className="line-clamp-2 w-full px-0.5 text-center leading-tight">{fechando ? "Registrando…" : "Fechar conta"}</span>
+        </button>
+
+        {SECUNDARIAS.slice(3).map(({ id, label, labelFull, Icon }) => (
+          <BotaoSec key={id} label={label} Icon={Icon} onClick={handlers[id]} title={labelFull} />
         ))}
       </div>
 
@@ -110,29 +109,30 @@ export default function PdvActionBar({
             role="dialog"
             aria-modal="true"
             aria-label="Mais ações"
-            className="w-full max-w-md rounded-3xl border border-[var(--pp-border)] bg-white p-4 shadow-2xl"
+            className="w-full max-w-md overflow-hidden rounded-3xl border border-[var(--pp-border)] bg-white p-4 shadow-2xl"
             style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
           >
-            <div className="mb-3 flex items-center justify-between">
+            <div className="mb-3 flex items-center justify-between gap-2">
               <h2 className="text-base font-black text-[var(--pp-text)]">Mais ações</h2>
-              <button type="button" onClick={() => setMaisAberto(false)} className="grid h-11 w-11 place-items-center rounded-xl border border-[var(--pp-border)]" aria-label="Fechar">
+              <button type="button" onClick={() => setMaisAberto(false)} className="grid h-10 w-10 place-items-center rounded-xl border border-[var(--pp-border)]" aria-label="Fechar">
                 <X size={18} />
               </button>
             </div>
             <div className="grid grid-cols-2 gap-2">
-              {[...principaisMobile, ...extrasMobile].map(({ id, labelFull, Icon }) => (
+              {[...principaisMobile, ...extrasMobile].map(({ id, label, labelFull, Icon }) => (
                 <button
                   key={id}
                   type="button"
                   disabled={typeof handlers[id] !== "function"}
+                  title={labelFull}
                   onClick={() => {
                     handlers[id]?.();
                     setMaisAberto(false);
                   }}
-                  className="flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-2 text-center text-xs font-bold text-[var(--pp-text-body)] disabled:opacity-50"
+                  className="flex h-14 min-w-0 flex-col items-center justify-center gap-1 overflow-hidden rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-2 text-center text-[11px] font-bold text-[var(--pp-text-body)] disabled:opacity-50"
                 >
-                  <Icon size={18} aria-hidden="true" />
-                  {labelFull}
+                  <Icon size={16} aria-hidden="true" />
+                  <span className="line-clamp-2 w-full leading-tight">{label}</span>
                 </button>
               ))}
             </div>
@@ -143,22 +143,20 @@ export default function PdvActionBar({
   );
 }
 
-function BotaoSec({ label, Icon, onClick, compact }) {
+function BotaoSec({ label, Icon, onClick, title }) {
   const ativo = typeof onClick === "function";
   return (
     <button
       type="button"
       disabled={!ativo}
       onClick={onClick}
-      title={ativo ? undefined : "Selecione uma mesa"}
-      className={`flex flex-col items-center justify-center gap-0.5 rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] text-center font-bold leading-tight text-[var(--pp-text-body)] transition ${
-        compact
-          ? "min-h-12 min-w-[5.25rem] shrink-0 px-2 py-1.5 text-[11px]"
-          : "min-h-[58px] min-w-[88px] flex-1 px-2 py-2 text-[11px]"
-      } ${ativo ? "active:bg-white hover:bg-white" : "opacity-70"}`}
+      title={title || (ativo ? label : "Selecione uma mesa")}
+      className={`box-border flex h-12 min-w-0 flex-col items-center justify-center gap-0.5 overflow-hidden rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-1 text-[10px] font-bold leading-tight text-[var(--pp-text-body)] transition ${
+        ativo ? "hover:bg-white" : "opacity-70"
+      }`}
     >
-      <Icon size={17} aria-hidden="true" />
-      <span className="max-w-full truncate">{label}</span>
+      <Icon size={15} className="shrink-0" aria-hidden="true" />
+      <span className="line-clamp-2 w-full max-w-full break-words px-0.5 text-center">{label}</span>
     </button>
   );
 }

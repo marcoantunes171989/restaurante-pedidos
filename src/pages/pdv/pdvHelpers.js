@@ -124,3 +124,17 @@ export function estiloFormaPagamento(nome) {
   if (n.includes("voucher") || n.includes("vale") || n.includes("ticket")) return "voucher";
   return "outro";
 }
+
+/** Rótulo curto para caber no botão da forma sem estourar o layout. */
+export function rotuloFormaCurto(nome) {
+  const n = String(nome || "").trim();
+  if (!n) return "—";
+  const low = n.toLowerCase();
+  if (low.includes("pix")) return "PIX";
+  if (low.includes("dinheiro") || low.includes("espécie") || low.includes("especie")) return "Dinheiro";
+  if (low.includes("créd") || low.includes("cred")) return "Crédito";
+  if (low.includes("déb") || low.includes("deb")) return "Débito";
+  if (low.includes("voucher") || low.includes("vale") || low.includes("ticket")) return "Voucher";
+  if (low.includes("ponto")) return "Pontos";
+  return n.length > 10 ? `${n.slice(0, 9)}…` : n;
+}

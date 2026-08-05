@@ -370,37 +370,37 @@ export function ModalObservacoes({ mesa, obsItens = [], valorInicial = "", onSal
   );
 }
 
-/** Controles de quantidade / remoção — alvos ≥44px no toque. */
+/** Controles de quantidade / remoção — compactos no desktop, confortáveis no toque. */
 export function ControlesItem({ quantity, onMenos, onMais, onRemover, desabilitado }) {
   return (
-    <div className="mt-2 flex items-center gap-1.5">
+    <div className="mt-1.5 flex items-center gap-1">
       <button
         type="button"
         disabled={desabilitado}
         onClick={onMenos}
-        className="grid h-11 w-11 place-items-center rounded-xl border border-[var(--pp-border)] bg-white text-[var(--pp-text)] active:scale-[0.97] disabled:opacity-40 sm:h-9 sm:w-9 sm:rounded-lg"
+        className="grid h-8 w-8 place-items-center rounded-md border border-[var(--pp-border)] bg-white text-[var(--pp-text)] disabled:opacity-40 sm:h-7 sm:w-7"
         aria-label="Diminuir quantidade"
       >
-        <Minus size={16} aria-hidden="true" />
+        <Minus size={13} aria-hidden="true" />
       </button>
-      <span className="min-w-7 text-center text-sm font-black tabular-nums text-[var(--pp-text)]">{quantity}</span>
+      <span className="min-w-5 text-center text-[11px] font-black tabular-nums text-[var(--pp-text)]">{quantity}</span>
       <button
         type="button"
         disabled={desabilitado}
         onClick={onMais}
-        className="grid h-11 w-11 place-items-center rounded-xl border border-[var(--pp-border)] bg-white text-[var(--pp-text)] active:scale-[0.97] disabled:opacity-40 sm:h-9 sm:w-9 sm:rounded-lg"
+        className="grid h-8 w-8 place-items-center rounded-md border border-[var(--pp-border)] bg-white text-[var(--pp-text)] disabled:opacity-40 sm:h-7 sm:w-7"
         aria-label="Aumentar quantidade"
       >
-        <Plus size={16} aria-hidden="true" />
+        <Plus size={13} aria-hidden="true" />
       </button>
       <button
         type="button"
         disabled={desabilitado}
         onClick={onRemover}
-        className="ml-auto grid h-11 w-11 place-items-center rounded-xl border border-[var(--pp-danger)]/30 bg-[var(--pp-danger-soft)] text-[var(--pp-danger)] active:scale-[0.97] disabled:opacity-40 sm:h-9 sm:w-9 sm:rounded-lg"
+        className="ml-auto grid h-8 w-8 place-items-center rounded-md border border-[var(--pp-danger)]/30 bg-[var(--pp-danger-soft)] text-[var(--pp-danger)] disabled:opacity-40 sm:h-7 sm:w-7"
         aria-label="Remover item"
       >
-        <Trash2 size={16} aria-hidden="true" />
+        <Trash2 size={13} aria-hidden="true" />
       </button>
     </div>
   );
