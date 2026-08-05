@@ -46,7 +46,7 @@ export default function PdvMesasGrid({
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-4 gap-2 sm:grid-cols-5 md:grid-cols-5 xl:grid-cols-5">
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5">
             {mesasPainel.map((m) => {
               const meta = MESA_STATUS_META[m.status] || MESA_STATUS_META.livre;
               const selected = selecionadaKey === m.key;
@@ -56,14 +56,14 @@ export default function PdvMesasGrid({
                   key={m.key}
                   type="button"
                   onClick={() => onSelecionar?.(m)}
-                  className={`relative flex min-h-[96px] flex-col items-start justify-between rounded-xl border bg-[var(--pp-surface)] p-2.5 text-left transition ${
+                  className={`relative flex min-h-[108px] flex-col items-start justify-between rounded-xl border bg-[var(--pp-surface)] p-3 text-left transition active:scale-[0.98] sm:min-h-[100px] sm:p-2.5 ${
                     selected
                       ? "border-[var(--pp-primary)] shadow-[0_0_0_2px_rgba(230,126,34,0.25)]"
                       : `${meta.border} hover:border-[var(--pp-primary)]/50`
                   }`}
                 >
                   <div className="flex w-full items-center justify-between gap-1">
-                    <span className="text-sm font-black text-[var(--pp-text)]">{rotuloMesa(m.numero)}</span>
+                    <span className="text-base font-black text-[var(--pp-text)] sm:text-sm">{rotuloMesa(m.numero)}</span>
                     {m.status === "finalizada" ? (
                       <span className="grid h-4 w-4 place-items-center rounded-full bg-[var(--pp-success)] text-white">
                         <Check size={10} strokeWidth={3} />

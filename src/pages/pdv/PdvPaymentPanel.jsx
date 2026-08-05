@@ -14,7 +14,7 @@ const ICONE_POR_TIPO = {
 };
 
 /**
- * Coluna direita — pagamento com as formas cadastradas da loja.
+ * Coluna / aba de pagamento — teclado e formas com alvos de toque confortáveis.
  */
 export default function PdvPaymentPanel({
   totalConta = 0,
@@ -30,26 +30,32 @@ export default function PdvPaymentPanel({
   onConfirmar,
   confirmarDesabilitado,
   bufferEntrada = "",
+  valorExibido = 0,
+  className = "",
 }) {
   const formas = formasPagamento.filter((f) => f.active !== false && (f.nome || "").trim());
   const cols = Math.min(4, Math.max(2, formas.length || 1));
+  const valorCampo = bufferEntrada !== ""
+    ? Number(bufferEntrada) / 100
+    : (Number(valorExibido) || Number(recebido) || 0);
 
   return (
-    <aside className="flex w-full flex-col overflow-y-auto border-t border-[var(--pp-border)] bg-[var(--pp-surface)] lg:w-[320px] lg:shrink-0 lg:border-l lg:border-t-0">
-      <div className="border-b border-[var(--pp-border)] px-4 py-3">
+    <aside className={`flex w-full flex-col overflow-y-auto overscroll-contain border-[var(--pp-border)] bg-[var(--pp-surface)] ${className}`}>
+      <div className="shrink-0 border-b border-[var(--pp-border)] px-3 py-2.5 sm:px-4 sm:py-3">
         <h2 className="text-[11px] font-black uppercase tracking-[0.14em] text-[var(--pp-text-muted)]">Pagamento</h2>
         <p className="mt-1 text-sm font-semibold text-[var(--pp-text-body)]">
           Total da conta:{" "}
-          <span className="text-xl font-black tabular-nums text-[var(--pp-text)]">{formatCurrency(totalConta)}</span>
+          <span className="text-xl font-black tabular-nums text-[var(--pp-text)] sm:text-2xl">{formatCurrency(totalConta)}</span>
         </p>
-        {bufferEntrada !== "" && (
-          <p className="mt-1 text-right text-lg font-black tabular-nums text-[var(--op-nav-accent)]">
-            R$ {numeroParaMoeda(Number(bufferEntrada) / 100)}
-          </p>
-        )}
+        <p className="mt-1 text-right text-2xl font-black tabular-nums text-[var(--op-nav-accent)] sm:text-3xl">
+          R$ {numeroParaMoeda(valorCampo)}
+        </p>
+        <p className="text-right text-[11px] font-semibold text-[var(--pp-text-muted)]">
+          Valor a receber {formaSelecionada?.nome ? `· ${formaSelecionada.nome}` : "(selecione a forma)"}
+        </p>
       </div>
 
-      <div className="px-4 py-3">
+      <div className="px-3 py-3 sm:px-4">
         <div className="grid grid-cols-4 gap-2">
           <div className="col-span-3 grid grid-cols-3 gap-2">
             {TECLAS.map((t) => (
@@ -57,7 +63,7 @@ export default function PdvPaymentPanel({
                 key={t}
                 type="button"
                 onClick={() => onDigito?.(t)}
-                className="grid h-12 place-items-center rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] text-lg font-black text-[var(--pp-text)] transition hover:bg-white active:scale-[0.97]"
+                className="grid h-14 place-items-center rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] text-xl font-black text-[var(--pp-text)] transition active:scale-[0.97] hover:bg-white sm:h-12 sm:text-lg"
               >
                 {t}
               </button>
@@ -65,14 +71,14 @@ export default function PdvPaymentPanel({
             <button
               type="button"
               onClick={() => onDigito?.("0")}
-              className="col-span-2 grid h-12 place-items-center rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] text-lg font-black text-[var(--pp-text)] transition hover:bg-white active:scale-[0.97]"
+              className="col-span-2 grid h-14 place-items-center rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] text-xl font-black text-[var(--pp-text)] transition active:scale-[0.97] hover:bg-white sm:h-12 sm:text-lg"
             >
               0
             </button>
             <button
               type="button"
               onClick={() => onDigito?.(",")}
-              className="grid h-12 place-items-center rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] text-lg font-black text-[var(--pp-text)] transition hover:bg-white active:scale-[0.97]"
+              className="grid h-14 place-items-center rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] text-xl font-black text-[var(--pp-text)] transition active:scale-[0.97] hover:bg-white sm:h-12 sm:text-lg"
             >
               ,
             </button>
@@ -96,7 +102,7 @@ export default function PdvPaymentPanel({
         </div>
       </div>
 
-      <div className="border-t border-[var(--pp-border)] px-4 py-3">
+      <div className="border-t border-[var(--pp-border)] px-3 py-3 sm:px-4">
         <h3 className="mb-2 text-[11px] font-black uppercase tracking-[0.14em] text-[var(--pp-text-muted)]">Formas de pagamento</h3>
         {formas.length === 0 ? (
           <p className="rounded-xl border border-dashed border-[var(--pp-border)] bg-[var(--pp-bg)] px-3 py-4 text-center text-xs font-semibold text-[var(--pp-text-muted)]">
@@ -117,14 +123,14 @@ export default function PdvPaymentPanel({
                   type="button"
                   onClick={() => onSelecionarForma?.(forma)}
                   aria-pressed={on}
-                  className={`flex min-h-[72px] flex-col items-center justify-center gap-1 rounded-xl border px-1 py-2 text-center transition ${
+                  className={`flex min-h-[72px] flex-col items-center justify-center gap-1 rounded-xl border px-1 py-2 text-center transition active:scale-[0.98] sm:min-h-[76px] ${
                     on
                       ? "border-[var(--pp-primary)] bg-[var(--pp-primary-soft)] text-[var(--pp-primary-text)]"
                       : "border-[var(--pp-border)] bg-[var(--pp-bg)] text-[var(--pp-text-body)] hover:bg-white"
                   }`}
                 >
                   <Icon size={18} aria-hidden="true" />
-                  <span className="min-w-0 truncate text-[11px] font-bold">{forma.nome}</span>
+                  <span className="min-w-0 truncate px-0.5 text-[11px] font-bold leading-tight">{forma.nome}</span>
                 </button>
               );
             })}
@@ -132,7 +138,7 @@ export default function PdvPaymentPanel({
         )}
       </div>
 
-      <div className="mt-auto space-y-1.5 border-t border-[var(--pp-border)] px-4 py-3 text-sm">
+      <div className="mt-auto space-y-1.5 border-t border-[var(--pp-border)] px-3 py-3 text-sm sm:px-4">
         <LinhaSaldo label="A pagar agora" valor={formatCurrency(aPagarAgora)} />
         <LinhaSaldo label="Recebido" valor={formatCurrency(recebido)} tom="text-[var(--pp-success-text)]" />
         <LinhaSaldo label="Falta" valor={formatCurrency(falta)} tom="text-[var(--pp-danger)]" destaque />

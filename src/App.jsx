@@ -11,7 +11,7 @@ import {
   fetchComandas, inserirComandas, escutarComandas, excluirComanda, renomearComanda, toggleComandaAtivo,
   fetchCargos, inserirCargo, atualizarCargo, excluirCargo, escutarCargos,
   fetchMesas, inserirMesa, atualizarMesa, excluirMesa, escutarMesas,
-  fetchClientes, escutarClientes,
+  fetchClientes, escutarClientes, upsertCliente,
   baixarEstoque, registrarPagamento,
   excluirProduto, excluirFormaPagamento, excluirUsuario,
   STATUS_APP_PARA_DB,
@@ -1235,6 +1235,141 @@ export default function RestaurantePedidoApp() {
     auditar("editar_itens_conta", "pedido", orderId, { qtdItens: novosItens.length });
   }
 
+  // PDV — incluir/trocar cliente e telefone nos pedidos da conta (momento da compra).
+  async function atualizarClientePedidos(orderIds, { customer, clienteTelefone }) {
+    if (!canAccess(currentUser, "cashier")) return notify("error", "Usuário sem permissão.");
+    const ids = Array.isArray(orderIds) ? orderIds.filter(Boolean) : [];
+    if (!ids.length) return notify("error", "Nenhum pedido para atualizar.");
+    const nome = String(customer || "").trim();
+    const tel = String(clienteTelefone || "").replace(/\D/g, "");
+    const anteriores = Object.fromEntries(
+      ordersAll.filter((o) => ids.includes(o.id)).map((o) => [o.id, { customer: o.customer, clienteTelefone: o.clienteTelefone }]),
+    );
+    setOrders((cur) => cur.map((o) => (ids.includes(o.id)
+      ? { ...o, customer: nome || o.customer || "Cliente", clienteTelefone: tel || null }
+      : o)));
+    if (dbReady) {
+      try {
+        await Promise.all(ids.map((id) => atualizarPedido(id, {
+          cliente: nome || "Cliente",
+          cliente_telefone: tel || null,
+        })));
+        if (tel && nome) {
+          try {
+            const c = await upsertCliente({ nome, telefone: tel, lojaId: lojaAtual });
+            if (c) setClientes((cur) => {
+              const sem = cur.filter((x) => !(x.telefone === c.telefone && x.lojaId === c.lojaId));
+              return [c, ...sem];
+            });
+          } catch { /* cadastro tolerante */ }
+        }
+      } catch {
+        setOrders((cur) => cur.map((o) => (anteriores[o.id] ? { ...o, ...anteriores[o.id] } : o)));
+        return notify("error", "Não foi possível atualizar o cliente.");
+      }
+    }
+    auditar("atualizar_cliente_conta", "pedido", ids[0], { nome, telefone: tel, qtd: ids.length });
+    notify("success", "Cliente da compra atualizado.");
+  }
+
+  // PDV — transferir todos os pedidos abertos para outra mesa.
+  async function transferirMesaPedidos(orderIds, novaMesa) {
+    if (!canAccess(currentUser, "cashier")) return notify("error", "Usuário sem permissão.");
+    const ids = Array.isArray(orderIds) ? orderIds.filter(Boolean) : [];
+    const mesa = String(novaMesa || "").trim();
+    if (!ids.length || !mesa) return notify("error", "Informe a mesa de destino.");
+    const anteriores = Object.fromEntries(
+      ordersAll.filter((o) => ids.includes(o.id)).map((o) => [o.id, o.table]),
+    );
+    setOrders((cur) => cur.map((o) => (ids.includes(o.id) ? { ...o, table: mesa } : o)));
+    if (dbReady) {
+      try {
+        await Promise.all(ids.map((id) => atualizarPedido(id, { mesa })));
+      } catch {
+        setOrders((cur) => cur.map((o) => (anteriores[o.id] != null ? { ...o, table: anteriores[o.id] } : o)));
+        return notify("error", "Não foi possível transferir a mesa.");
+      }
+    }
+    auditar("transferir_mesa", "pedido", ids[0], { mesa, qtd: ids.length });
+    notify("success", `Conta transferida para ${mesa}.`);
+  }
+
+  // PDV — separar itens selecionados para outra mesa (merge em pedido aberto ou novo pedido).
+  async function separarItensPedidos({ origemMesa, destinoMesa, itens, customer, clienteTelefone }) {
+    if (!canAccess(currentUser, "cashier")) return notify("error", "Usuário sem permissão.");
+    const destino = String(destinoMesa || "").trim();
+    const lista = Array.isArray(itens) ? itens : [];
+    if (!destino || !lista.length) return notify("error", "Selecione itens e a mesa destino.");
+
+    const mesaOrigem = String(origemMesa || "").trim();
+    const abertosOrigem = ordersAll.filter((o) =>
+      o.table === mesaOrigem && o.paymentStatus !== "paid" && o.status !== "cancelled",
+    );
+    const totalLinhasOrigem = abertosOrigem.reduce((s, o) => s + (o.items || []).length, 0);
+    if (lista.length >= totalLinhasOrigem) {
+      return notify("error", "Não é possível separar todos os itens da conta. Use Transferir mesa.");
+    }
+
+    const porOrigem = {};
+    lista.forEach((it) => {
+      if (!porOrigem[it.orderId]) porOrigem[it.orderId] = [];
+      porOrigem[it.orderId].push(it);
+    });
+
+    const movidos = lista.map(({ name, quantity, price, selectedIngredients, removedIngredients, extraIngredients, observation, selectedOptions }) => ({
+      name, quantity, price,
+      selectedIngredients: selectedIngredients || [],
+      removedIngredients: removedIngredients || [],
+      extraIngredients: extraIngredients || [],
+      observation: observation || "",
+      selectedOptions: selectedOptions || [],
+    }));
+
+    const pedidoDestino = ordersAll.find((o) =>
+      o.table === destino && o.paymentStatus !== "paid" && o.status !== "cancelled",
+    );
+
+    for (const [orderId, grupo] of Object.entries(porOrigem)) {
+      const pedido = ordersAll.find((o) => o.id === orderId);
+      if (!pedido) continue;
+      const indices = new Set(grupo.map((g) => g.index));
+      const novosItens = (pedido.items || []).filter((_, idx) => !indices.has(idx));
+      await editarItensPedido(orderId, novosItens);
+    }
+
+    if (pedidoDestino) {
+      await editarItensPedido(pedidoDestino.id, [...(pedidoDestino.items || []), ...movidos]);
+    } else {
+      const prefixo = lojaInfo?.prefixo || "CX";
+      const newOrder = {
+        id: `PED-${Date.now().toString().slice(-7)}${Math.floor(Math.random() * 90 + 10)}`,
+        table: destino,
+        command: `${prefixo}-SEP-${Date.now().toString().slice(-6)}`,
+        customer: customer || "Cliente",
+        clienteTelefone: clienteTelefone || null,
+        status: "received",
+        paymentStatus: "open",
+        createdAt: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+        createdAtISO: new Date().toISOString(),
+        items: movidos,
+        lojaId: lojaAtual,
+      };
+      if (dbReady) {
+        try {
+          const saved = await inserirPedido(newOrder);
+          setOrders((cur) => [saved, ...cur.filter((o) => o.id !== saved.id)]);
+        } catch (err) {
+          return notify("error", `Erro ao criar conta na mesa destino: ${err.message || err}`);
+        }
+      } else {
+        setOrders((cur) => [newOrder, ...cur]);
+      }
+    }
+
+    auditar("separar_itens_mesa", "pedido", null, { origemMesa: mesaOrigem, destinoMesa: destino, qtdItens: movidos.length });
+    notify("success", `${movidos.length} item(ns) separados para ${destino}.`);
+  }
+
   // Baixa das comandas após pagamento: marca pedidos NÃO PAGOS como pago + entregue (libera comanda)
   // Baixa completa: pagamento + estoque + registro. info = { mesa, total, troco, detalhes }
   async function baixarComandas(comandas, info = null, opts = {}) {
@@ -2176,7 +2311,7 @@ export default function RestaurantePedidoApp() {
           <KitchenView groupedOrders={groupedOrders} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} entregandoId={entregandoId} cancelarPedido={cancelarPedido} currentUser={currentUser} lojaInfo={lojaInfo} setores={filtraLoja(setoresCozinha)} produtos={products} setorInicial={cozinhaSetorInicial} />
         )}
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} products={products} lojaInfo={lojaInfo} />}
-        {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierPdv orders={orders} mesas={filtraLoja(mesas).filter((m) => m.active !== false)} clientes={filtraLoja(clientes)} baixarComandas={baixarComandas} formasPagamento={formasPagamentoLoja} lojaInfo={lojaInfo} currentUser={currentUser} caixaAberto={caixaAberto} auditar={auditar} conexaoOk={conexaoOk} editarItensPedido={editarItensPedido} products={products} fidCaixa={fidCaixa} />}
+        {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierPdv orders={orders} mesas={filtraLoja(mesas).filter((m) => m.active !== false)} clientes={filtraLoja(clientes)} baixarComandas={baixarComandas} formasPagamento={formasPagamentoLoja} lojaInfo={lojaInfo} currentUser={currentUser} caixaAberto={caixaAberto} auditar={auditar} conexaoOk={conexaoOk} editarItensPedido={editarItensPedido} products={products} fidCaixa={fidCaixa} atualizarClientePedidos={atualizarClientePedidos} transferirMesaPedidos={transferirMesaPedidos} separarItensPedidos={separarItensPedidos} notify={notify} />}
         {/* activeTab === "opmobile" agora é tratado pelo branch dedicado no início desta função (sem cabeçalho/grade de módulos) */}
         {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} toggleLoja={toggleLoja} editarLoja={editarLoja} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} filtraLoja={filtraLoja} pesquisas={pesquisas} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} cancelarPedido={cancelarPedido} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} salvarConfigCrm={salvarConfigCrm} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} assinaturas={assinaturas} promocoes={filtraLoja(promocoes)} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} opcoesApi={{ grupos: filtraLoja(gruposOpcoes), opcoes: filtraLoja(opcoes), addGrupo: addGrupoOpcoes, editarGrupo: editarGrupoOpcoes, removerGrupo: removerGrupoOpcoes, addOpcao, editarOpcao, removerOpcao }} setores={filtraLoja(setoresCozinha)} setoresApi={{ add: addSetorCozinha, editar: editarSetorCozinha, remover: removerSetorCozinha }} vincularProdutoSetor={vincularProdutoSetor} salvarProdutoQr={salvarProdutoQr} irParaCozinha={(setorId) => { setCozinhaSetorInicial(setorId ?? null); if (canAccess(currentUser, "kitchen")) setActiveTab("kitchen"); else notify("error", "Sem permissão para acessar o painel da cozinha."); }} caixaAberto={caixaAberto} caixasLoja={filtraLoja(caixas)} caixaApi={{ abrir: abrirCaixaFn, movimentar: movimentarCaixaFn, fechar: fecharCaixaFn, fetchMovimentos: fetchMovimentosCaixa }} fidRegra={fidRegraAtual} fidRecompensas={filtraLoja(fidRecompensas)} fidTransacoes={filtraLoja(fidTransacoes)} fidApi={{ salvarRegra: salvarRegraFid, addRecompensa: addRecompensaFid, removerRecompensa: removerRecompensaFid, editarRecompensa: editarRecompensaFid, lancarPontos }} fidCaixa={fidCaixa} chamados={filtraLoja(chamados)} atenderChamado={atenderChamadoFn} assumirChamado={assumirChamadoFn} auditoria={filtraLoja(auditoria)} />}
 
