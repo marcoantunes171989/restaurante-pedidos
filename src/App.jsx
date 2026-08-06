@@ -8198,7 +8198,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
               { r: "Pedido mais demorado", v: tempoMaxPrep != null ? formatarDuracaoMin(tempoMaxPrep) : "—" },
               { r: "Setor mais acionado", v: setorMaisAcionado },
             ].map((c) => (
-              <div key={c.r} className="rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-3 text-center">
+              <div key={c.r} className="rounded-2xl border border-[var(--pp-border)] bg-white p-3 text-center shadow-[0_1px_2px_rgba(15,76,92,0.05)]">
                 <p className="page-title text-lg font-bold text-dash-navy">{c.v}</p>
                 <p className="mt-1 text-[10px] leading-tight text-[var(--pp-text-muted)]">{c.r}</p>
               </div>
@@ -8223,7 +8223,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
               { r: "Pedidos por cliente", v: clientesPeriodo ? (filtrados.length / clientesPeriodo).toFixed(1) : "0" },
               { r: "Ticket médio/cliente", v: formatCurrency(ticketPorCliente) },
             ].map((c) => (
-              <div key={c.r} className="rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-3">
+              <div key={c.r} className="rounded-2xl border border-[var(--pp-border)] bg-white p-3 shadow-[0_1px_2px_rgba(15,76,92,0.05)]">
                 <p className="page-title text-lg font-bold text-dash-navy">{c.v}</p>
                 <p className="mt-0.5 text-[11px] text-[var(--pp-text-muted)]">{c.r}</p>
               </div>
@@ -8235,7 +8235,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
       {/* Painéis de ação gerencial */}
       <div className="grid gap-5 lg:grid-cols-2 xl:grid-cols-3">
         <Painel titulo="Mesas e Comandas em Atenção" className="xl:col-span-2"
-          acao={<button onClick={irParaMesas} className="rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-3 py-1.5 text-xs font-bold text-dash-navy transition hover:bg-[var(--pp-bg)]">Ver todas as mesas e comandas</button>}>
+          acao={<button onClick={irParaMesas} className="rounded-xl border border-[var(--pp-border)] bg-white px-3 py-1.5 text-xs font-bold text-dash-navy shadow-[0_1px_2px_rgba(15,76,92,0.05)] transition hover:bg-[rgba(15,76,92,0.04)]">Ver todas as mesas e comandas</button>}>
           {mesasAtencao.length === 0 ? (
             <p className="py-4 text-center text-sm text-[#2F9E52]">✅ Nenhuma mesa em aberto no momento.</p>
           ) : (
@@ -8296,7 +8296,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
                 { r: "Pedidos", v: comparativo.pedidos },
                 { r: "Ticket médio", v: comparativo.ticket },
               ].map((c) => (
-                <div key={c.r} className="rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-3 text-center">
+                <div key={c.r} className="rounded-2xl border border-[var(--pp-border)] bg-white p-3 text-center shadow-[0_1px_2px_rgba(15,76,92,0.05)]">
                   <p className={`page-title text-lg font-bold ${c.v == null ? "text-[var(--pp-text-muted)]" : c.v >= 0 ? "text-[#2F9E52]" : "text-[#C81E4A]"}`}>{c.v == null ? "—" : `${c.v >= 0 ? "+" : ""}${c.v.toFixed(0)}%`}</p>
                   <p className="mt-1 text-[10px] leading-tight text-[var(--pp-text-muted)]">{c.r}<br />vs período anterior</p>
                 </div>
@@ -8308,7 +8308,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
         <Painel titulo="Recomendações para o Gestor" className="xl:col-span-3">
           <ul className="grid gap-2 sm:grid-cols-2">
             {recomendacoes.map((r, i) => (
-              <li key={i} className="flex items-start gap-2 rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-4 py-2.5 text-sm text-[var(--pp-text-body)]">
+              <li key={i} className="flex items-start gap-2 rounded-2xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-sm text-[var(--pp-text-body)] shadow-[0_1px_2px_rgba(15,76,92,0.05)]">
                 <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#2F9E52]/15 text-[10px] font-black text-[#2F9E52]">✓</span>{r}
               </li>
             ))}
