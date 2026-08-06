@@ -52,10 +52,27 @@ create index if not exists idx_cupom_usos_loja  on public.tab_cupom_usos (loja_i
 
 alter table public.tab_cupons     enable row level security;
 alter table public.tab_cupom_usos enable row level security;
-drop policy if exists "tab_cupons_all"     on public.tab_cupons;
-drop policy if exists "tab_cupom_usos_all" on public.tab_cupom_usos;
-create policy "tab_cupons_all"     on public.tab_cupons     for all using (true) with check (true);
-create policy "tab_cupom_usos_all" on public.tab_cupom_usos for all using (true) with check (true);
+
+-- Policies RLS — criadas só se ainda não existirem (evita NOTICE do
+-- "DROP POLICY IF EXISTS" na primeira execução, que assusta no SQL Editor).
+do $$
+begin
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'public' and tablename = 'tab_cupons' and policyname = 'tab_cupons_all'
+  ) then
+    create policy "tab_cupons_all" on public.tab_cupons
+      for all using (true) with check (true);
+  end if;
+
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'public' and tablename = 'tab_cupom_usos' and policyname = 'tab_cupom_usos_all'
+  ) then
+    create policy "tab_cupom_usos_all" on public.tab_cupom_usos
+      for all using (true) with check (true);
+  end if;
+end $$;
 
 -- ── Validação (sem consumir) ────────────────────────────────
 -- Retorna json { ok, motivo, id, codigo, descricao, tipo, valor,
