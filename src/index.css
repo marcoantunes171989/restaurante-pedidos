@@ -1084,6 +1084,12 @@ select::-ms-expand { display: none; } /* IE/Edge antigo */
 }
 .scrollbar-none::-webkit-scrollbar { width: 0; height: 0; display: none; }
 
+/* Login — conteúdo institucional adaptativo por ALTURA de tela (responsividade
+   dinâmica): elementos "opcionais" (ex.: o mock 'Status das mesas') só aparecem
+   quando há folga vertical, evitando qualquer rolagem/scroll lateral no painel.
+   O essencial (marca, headline, benefícios, estabelecimentos) fica sempre. */
+@media (max-height: 900px) { .pp-login-optional { display: none !important; } }
+
 /* Remove a barra de rolagem lateral da página inteira (scroll continua
    funcional, só a barra visual some) — overflow-x:hidden já garantido
    acima (html, body, #root); aqui só a barra vertical fica invisível. */

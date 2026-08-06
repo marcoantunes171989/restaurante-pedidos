@@ -8204,7 +8204,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
           <div className="space-y-3">
             {a.topProdutos.length === 0 && <p className="py-4 text-center text-sm text-[var(--pp-text-muted)]">Nenhuma venda no período.</p>}
             {a.topProdutos.map((p, i) => (
-              <BarraHorizontal key={p.nome} label={p.nome} valor={p.qtd} max={maxProd} sufixo=" un" cor={i === 0 ? "bg-[#2F9E52]" : "bg-[#0F4C5C]"} />
+              <BarraHorizontal key={p.nome} label={p.nome} valor={p.qtd} max={maxProd} sufixo=" un" cor={i === 0 ? "bg-[#E67E22]" : "bg-[#0F4C5C]"} />
             ))}
           </div>
         </Painel>
@@ -8232,8 +8232,8 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
 
         <Painel titulo="Formas de Pagamento">
           <div className="space-y-3">
-            <BarraHorizontal label="Recebido (pago)" valor={a.faturamento} max={Math.max(1, previsto)} sufixo="R$" cor="bg-[#2F9E52]" />
-            <BarraHorizontal label="Pendente (em aberto)" valor={a.emAberto} max={Math.max(1, previsto)} sufixo="R$" cor="bg-[#E67E22]" />
+            <BarraHorizontal label="Recebido (pago)" valor={a.faturamento} max={Math.max(1, previsto)} sufixo="R$" cor="bg-[#E67E22]" />
+            <BarraHorizontal label="Pendente (em aberto)" valor={a.emAberto} max={Math.max(1, previsto)} sufixo="R$" cor="bg-[#0F4C5C]" />
           </div>
           <p className="mt-3 text-[11px] text-[var(--pp-text-muted)]">Detalhamento por forma (Pix, crédito, débito, dinheiro) disponível em <b className="text-dash-navy">Fechamento de Caixa</b>.</p>
         </Painel>
@@ -9476,10 +9476,10 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
                 {a.topProdutos.map((p, i) => (
                   <div key={p.nome}>
                     <div className="flex items-center justify-between gap-2 text-sm">
-                      <span className="flex min-w-0 items-center gap-2 font-semibold text-dash-navy"><span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[10px] font-black ${i === 0 ? "bg-amber-50 text-amber-600" : "bg-[rgba(15,76,92,0.06)] text-[#0F4C5C]"}`}>{i + 1}</span><span className="truncate">{p.nome}</span></span>
+                      <span className="flex min-w-0 items-center gap-2 font-semibold text-dash-navy"><span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[10px] font-black ${i === 0 ? "bg-[#E67E22]/12 text-[#E67E22]" : "bg-[rgba(15,76,92,0.06)] text-[#0F4C5C]"}`}>{i + 1}</span><span className="truncate">{p.nome}</span></span>
                       <span className="shrink-0 text-[var(--pp-text-muted)]">{p.qtd} un · <b className="text-[#2F9E52]">{formatCurrency(p.valor)}</b> · {a.faturamentoSemTaxa ? ((p.valor / a.faturamentoSemTaxa) * 100).toFixed(1) : 0}%</span>
                     </div>
-                    <div className="mt-1 h-2 overflow-hidden rounded-full bg-[var(--pp-bg)]"><div className={`h-full rounded-full ${i === 0 ? "bg-amber-500" : "bg-[#0F4C5C]"}`} style={{ width: `${a.faturamentoSemTaxa ? (p.valor / a.faturamentoSemTaxa) * 100 : 0}%` }} /></div>
+                    <div className="mt-1 h-2 overflow-hidden rounded-full bg-[var(--pp-bg)]"><div className={`h-full rounded-full ${i === 0 ? "bg-[#E67E22]" : "bg-[#0F4C5C]"}`} style={{ width: `${a.faturamentoSemTaxa ? (p.valor / a.faturamentoSemTaxa) * 100 : 0}%` }} /></div>
                   </div>
                 ))}
               </div>

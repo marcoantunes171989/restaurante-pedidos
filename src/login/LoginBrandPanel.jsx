@@ -18,7 +18,7 @@ export default function LoginBrandPanel() {
       <div className="pointer-events-none absolute -top-28 -right-24 h-[24rem] w-[24rem] rounded-full bg-[var(--login-primary-soft)] opacity-60 blur-[2px]" />
       <div className="pointer-events-none absolute -bottom-32 -left-20 h-[20rem] w-[20rem] rounded-full bg-[var(--login-surface-secondary)] opacity-70" />
 
-      <div className="relative z-10 flex h-full min-h-0 w-full flex-col justify-center gap-[clamp(1rem,3vh,2.25rem)] overflow-y-auto">
+      <div className="scrollbar-none relative z-10 flex h-full min-h-0 w-full flex-col justify-center gap-[clamp(0.75rem,2.4vh,1.75rem)] overflow-y-auto">
         <div className="mx-auto w-full max-w-md">
           <LogoPP size={40} />
         </div>
@@ -63,7 +63,9 @@ export default function LoginBrandPanel() {
             </div>
           </div>
 
-          <div className="mt-7">
+          {/* Mock 'Status das mesas' — opcional: só aparece quando há folga
+              vertical (evita rolagem no painel em telas mais baixas). */}
+          <div className="pp-login-optional mt-7">
             <ProductPreview />
           </div>
         </div>

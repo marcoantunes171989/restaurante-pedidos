@@ -1,5 +1,5 @@
 import { Fragment } from "react";
-import { IconMesa, IconRelogio, IconCentral, IconDados } from "./icons";
+import { IconMesa } from "./icons";
 
 // ════════════════════════════════════════════════════════════
 //  Prévia visual abstrata do produto — SEM fotografia, SEM métricas
@@ -25,12 +25,6 @@ const MESA_TOM = {
   warning: "bg-[var(--pp-warning)]/15 text-[var(--pp-warning-text)]",
   info: "bg-[var(--pp-info)]/12 text-[var(--pp-info)]",
 };
-
-const RESUMO = [
-  { Icon: IconCentral, texto: "Operação centralizada" },
-  { Icon: IconRelogio, texto: "Tempo real" },
-  { Icon: IconDados, texto: "Dados organizados" },
-];
 
 export default function ProductPreview() {
   return (
@@ -67,16 +61,6 @@ export default function ProductPreview() {
           <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[var(--pp-warning)]" />Ocupada</span>
           <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[var(--pp-info)]" />Aguardando</span>
         </div>
-      </div>
-
-      {/* Faixa — resumo operacional (só rótulos de capacidade, sem número) */}
-      <div className="relative mt-4 flex items-center justify-between gap-2 rounded-2xl border border-[var(--login-border)] bg-[var(--login-surface-secondary)] px-4 py-3">
-        {RESUMO.map(({ Icon, texto }) => (
-          <span key={texto} className="flex flex-1 items-center gap-1.5 text-[var(--login-text-secondary)]">
-            <Icon />
-            <span className="text-[9.5px] font-bold leading-tight">{texto}</span>
-          </span>
-        ))}
       </div>
     </div>
   );
