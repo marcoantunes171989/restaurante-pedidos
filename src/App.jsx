@@ -142,7 +142,11 @@ export function formatCurrency(value) {
 // em cada tela): 42 → "42min" · 2788 → "46h28min" · 3713 → "61h53min".
 export function formatarDuracaoMin(mins) {
   const m = Math.max(0, Math.round(Number(mins) || 0));
-  return m >= 60 ? `${Math.floor(m / 60)}h${String(m % 60).padStart(2, "0")}min` : `${m}min`;
+  if (m < 60) return `${m}min`;
+  const h = Math.floor(m / 60), mm = m % 60;
+  // Espaçamento elegante entre hora e minuto ("50h 25min"); minutos zerados
+  // somem ("2h") para uma leitura mais limpa/gourmet.
+  return mm === 0 ? `${h}h` : `${h}h ${mm}min`;
 }
 
 export function isValidCommand(code) {
@@ -2446,7 +2450,7 @@ export default function RestaurantePedidoApp() {
   if (loading || !authResolved) {
     return (
       <div data-theme="light">
-      <div className="tema-claro-area relative flex items-center justify-center overflow-hidden px-4 text-admin-text"
+      <div className="pp-splash-shell tema-claro-area relative flex items-center justify-center overflow-hidden px-4 text-admin-text"
         style={{
           minHeight: "100dvh",
           backgroundColor: "#FFFFFF",
@@ -7526,6 +7530,12 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
   const contagemSetor = {}; filtrados.forEach((o) => (o.items || []).forEach((it) => { const sid = setorPorProduto[it.name]; if (sid != null) contagemSetor[sid] = (contagemSetor[sid] || 0) + it.quantity; }));
   const setorTopId = Object.entries(contagemSetor).sort((x, y) => y[1] - x[1])[0]?.[0];
   const setorMaisAcionado = setorTopId != null ? (setores.find((s) => String(s.id) === String(setorTopId))?.nome || "—") : "—";
+  // Itens por SETOR (só quando os produtos estão cadastrados por setor) —
+  // ordenado do mais para o menos acionado; o 1º é o destaque (laranja claro).
+  const setoresAtividade = Object.entries(contagemSetor)
+    .map(([sid, qtd]) => ({ id: sid, nome: setores.find((s) => String(s.id) === String(sid))?.nome || "Setor", qtd }))
+    .sort((a, b) => b.qtd - a.qtd);
+  const maxSetorQtd = Math.max(1, ...setoresAtividade.map((s) => s.qtd));
 
   // Mesas/comandas em atenção (pedidos em aberto agrupados por mesa)
   const agora = Date.now();
@@ -8227,6 +8237,27 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
               </div>
             ))}
           </div>
+          {/* Detalhamento por SETOR — só quando os produtos estão cadastrados por
+              setor (2+ setores com movimento). O mais acionado é o destaque. */}
+          {setoresAtividade.length >= 2 && (
+            <div className="mt-3.5 space-y-2 border-t border-[var(--pp-border)] pt-3.5">
+              <p className="text-[10px] font-black uppercase tracking-widest text-[var(--pp-text-muted)]">Itens preparados por setor</p>
+              {setoresAtividade.map((s, i) => (
+                <div key={s.id}>
+                  <div className="mb-0.5 flex items-center justify-between gap-2 text-xs">
+                    <span className="flex min-w-0 items-center gap-2 font-semibold text-dash-navy">
+                      <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: i === 0 ? "var(--pp-destaque)" : "#0F4C5C" }} />
+                      <span className="truncate">{s.nome}</span>
+                    </span>
+                    <span className="shrink-0 text-[var(--pp-text-muted)]"><b className="text-dash-navy">{s.qtd}</b> {s.qtd === 1 ? "item" : "itens"}</span>
+                  </div>
+                  <div className="h-1.5 overflow-hidden rounded-full bg-[var(--pp-bg)]">
+                    <div className="h-full rounded-full" style={{ width: `${(s.qtd / maxSetorQtd) * 100}%`, background: i === 0 ? "var(--pp-destaque)" : "#0F4C5C" }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
           {tempoMedioPrep == null && <p className="mt-3 text-center text-[11px] text-[var(--pp-text-muted)]">Sem registros de preparo finalizados no período.</p>}
         </Painel>
 

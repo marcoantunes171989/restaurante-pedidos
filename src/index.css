@@ -650,10 +650,11 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
 [data-theme="light"].pp-admin-module .tema-claro-area {
   background-color: #FFFFFF !important;
 }
-/* Tela de LOGIN: fundo BRANCO (sobrepõe o off-white geral do tema claro). A
-   especificidade (.pp-login-shell.tema-claro-area) vence o !important da regra
-   base acima. */
-[data-theme="light"] .pp-login-shell.tema-claro-area {
+/* Tela de LOGIN e SPLASH de carregamento: fundo BRANCO (sobrepõem o off-white
+   geral do tema claro). A especificidade (.pp-*-shell.tema-claro-area) vence o
+   !important da regra base acima. */
+[data-theme="light"] .pp-login-shell.tema-claro-area,
+[data-theme="light"] .pp-splash-shell.tema-claro-area {
   background-color: #FFFFFF !important;
 }
 /* Padrão "superfícies brancas" (skill superficies-brancas-admin): as caixinhas/
