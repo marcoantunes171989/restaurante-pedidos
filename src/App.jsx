@@ -7920,7 +7920,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
                   <p className="mb-2 text-[11px] font-black uppercase tracking-widest text-[var(--pp-text)]">Três prioridades agora</p>
                   <div className="grid gap-2 sm:grid-cols-3">
                     {ia.acoes.slice(0, 3).map((ac, i) => (
-                      <div key={i} className="rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-3">
+                      <div key={i} className="rounded-xl border border-[var(--pp-border)] bg-white p-3 shadow-[0_1px_2px_rgba(15,76,92,0.05)]">
                         <span className="inline-flex rounded-full border px-2 py-0.5 text-[10px] font-black uppercase" style={{ borderColor: `${prioCor[ac.prio]}4D`, background: `${prioCor[ac.prio]}1A`, color: prioCor[ac.prio] }}>{prioLbl[ac.prio]}</span>
                         <p className="mt-1.5 text-xs font-semibold leading-snug text-[var(--pp-text)]">{ac.texto}</p>
                       </div>
@@ -8119,7 +8119,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
                       { titulo: "Promover 1 produto parado", premissa: produtoTop ? `Referência: ${produtoTop.nome} vendeu ${produtoTop.qtd} un. no período` : "Sem produto de referência no período", resultado: produtosParados.length ? `Se um item parado vender como 30% do carro-chefe, +${Math.round((produtoTop?.qtd || 0) * 0.3)} un. projetadas` : "Nenhum produto parado no período" },
                       { titulo: "Reduzir o tempo de preparo em 20%", premissa: tempoMedioPrep != null ? `Tempo atual: ${fmtTempo(tempoMedioPrep)}` : "Sem tempo médio de preparo no período", resultado: tempoMedioPrep != null ? `Tempo projetado: ${fmtTempo(Math.round(tempoMedioPrep * 0.8))} — pode aumentar o giro de mesas` : "—" },
                     ].map((s, i) => (
-                      <div key={i} className="rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-3.5">
+                      <div key={i} className="rounded-xl border border-[var(--pp-border)] bg-white p-3.5 shadow-[0_1px_2px_rgba(15,76,92,0.05)]">
                         <p className="text-xs font-black text-[var(--pp-text)]">{s.titulo}</p>
                         <p className="mt-1 text-[11px] text-[var(--pp-text-muted)]">Premissa: {s.premissa}</p>
                         <p className="mt-1 text-[11px] font-bold" style={{ color: "#8B5CF6" }}>Projeção: {s.resultado}</p>
