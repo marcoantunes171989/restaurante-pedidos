@@ -19,6 +19,7 @@ import {
   registrarDispositivo, fetchDispositivos, escutarDispositivos, renomearDispositivo, removerDispositivo,
   fetchPlanos, fetchAssinaturas, fetchPlanoModulos, escutarAssinaturas, salvarAssinatura,
   fetchPromocoes, inserirPromocao, atualizarPromocao, excluirPromocao, escutarPromocoes,
+  fetchCupons, inserirCupom, atualizarCupom, excluirCupom, escutarCupons, validarCupom, consumirCupom,
   fetchGruposOpcoes, fetchOpcoes, inserirGrupoOpcoes, atualizarGrupoOpcoes, excluirGrupoOpcoes, inserirOpcao, atualizarOpcao, excluirOpcao, escutarGruposOpcoes, escutarOpcoes,
   fetchSetoresCozinha, inserirSetorCozinha, atualizarSetorCozinha, excluirSetorCozinha, escutarSetoresCozinha,
   fetchCaixas, fetchMovimentosCaixa, abrirCaixa, registrarMovimentoCaixa, fecharCaixa, escutarCaixas,
@@ -356,6 +357,7 @@ export default function RestaurantePedidoApp() {
   const [assinaturas, setAssinaturas] = useState([]);      // assinatura por empresa
   const [planoModulos, setPlanoModulos] = useState([]);    // vínculo plano × módulo
   const [promocoes, setPromocoes] = useState([]);          // promoções por empresa (migration 039)
+  const [cupons, setCupons] = useState([]);                // cupons de desconto por loja (migration 075)
   const [gruposOpcoes, setGruposOpcoes] = useState([]);    // grupos de adicionais/variações (migration 040)
   const [opcoes, setOpcoes] = useState([]);                // opções dos grupos
   const [setoresCozinha, setSetoresCozinha] = useState([]); // setores de cozinha (migration 041)
@@ -412,6 +414,7 @@ export default function RestaurantePedidoApp() {
         try { setAssinaturas(await fetchAssinaturas()); } catch { /* migration 037 pendente */ }
         try { setPlanoModulos(await fetchPlanoModulos()); } catch { /* migration 037 pendente */ }
         try { setPromocoes(await fetchPromocoes()); } catch { /* migration 039 pendente */ }
+        try { setCupons(await fetchCupons()); } catch { /* migration 075 pendente */ }
         try { setGruposOpcoes(await fetchGruposOpcoes()); } catch { /* migration 040 pendente */ }
         try { setOpcoes(await fetchOpcoes()); } catch { /* migration 040 pendente */ }
         try { setSetoresCozinha(await fetchSetoresCozinha()); } catch { /* migration 041 pendente */ }
@@ -441,6 +444,7 @@ export default function RestaurantePedidoApp() {
         try { unsubs.push(escutarComandas(setComandas)); } catch {}
         try { unsubs.push(escutarAssinaturas(setAssinaturas)); } catch {}
         try { unsubs.push(escutarPromocoes(setPromocoes)); } catch {}
+        try { unsubs.push(escutarCupons(setCupons)); } catch { /* migration 075 pendente */ }
         try { unsubs.push(escutarGruposOpcoes(setGruposOpcoes)); } catch {}
         try { unsubs.push(escutarOpcoes(setOpcoes)); } catch {}
         try { unsubs.push(escutarSetoresCozinha(setSetoresCozinha)); } catch {}
@@ -1645,6 +1649,71 @@ export default function RestaurantePedidoApp() {
     notify("success", "Promoção excluída.");
   }
 
+  // ── Cupons de desconto (migration 075) ─────────────────────
+  // A regra fica por loja; a disponibilidade (quantidade) é sempre conferida
+  // no banco — na validação e de novo, de forma atômica, no fechamento.
+  const cuponsLoja = cupons.filter((c) => c.lojaId == null || lojaAtual == null || c.lojaId === lojaAtual);
+  async function addCupom(dados) {
+    if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
+    if (!String(dados.codigo || "").trim()) return notify("error", "Informe o código do cupom.");
+    const novo = { ...dados, lojaId: lojaAtual };
+    if (dbReady) {
+      try { const r = await inserirCupom(novo); setCupons((cur) => [r, ...cur]); }
+      catch (e) { return notify("error", /duplicate|unique/i.test(e.message || "") ? "Já existe um cupom com esse código nesta loja." : "Erro ao criar cupom: " + (e.message || e)); }
+    } else setCupons((cur) => [{ ...novo, id: Date.now(), quantidadeUsada: 0 }, ...cur]);
+    notify("success", "Cupom criado.");
+    return true;
+  }
+  async function editarCupomLoja(id, dados) {
+    if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
+    setCupons((cur) => cur.map((c) => c.id === id ? { ...c, ...dados } : c));
+    if (dbReady) try { await atualizarCupom(id, { ...dados, lojaId: dados.lojaId ?? lojaAtual }); }
+    catch (e) { return notify("error", "Erro ao salvar cupom: " + (e.message || e)); }
+    notify("success", "Cupom atualizado.");
+    return true;
+  }
+  async function toggleCupom(id) {
+    const c = cupons.find((x) => x.id === id);
+    const ativo = !c?.ativo;
+    setCupons((cur) => cur.map((x) => x.id === id ? { ...x, ativo } : x));
+    if (dbReady) try { await atualizarCupom(id, { ...c, ativo, lojaId: c?.lojaId ?? lojaAtual }); } catch { /* estado local já refletiu */ }
+  }
+  async function removerCupom(id) {
+    if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
+    setCupons((cur) => cur.filter((c) => c.id !== id));
+    if (dbReady) try { await excluirCupom(id); } catch (e) { return notify("error", "Erro ao excluir cupom: " + (e.message || e)); }
+    notify("success", "Cupom excluído.");
+  }
+  /** Validação no caixa — sem consumir. Cai para a regra local se o banco estiver fora. */
+  async function validarCupomCaixa({ codigo, valorConta }) {
+    const cod = String(codigo || "").trim();
+    if (!cod) return { ok: false, motivo: "Informe o código do cupom." };
+    if (dbReady) {
+      try { return await validarCupom({ lojaId: lojaAtual, codigo: cod, valorConta }); }
+      catch (e) { return { ok: false, motivo: "Não foi possível validar o cupom: " + (e.message || e) }; }
+    }
+    const c = cuponsLoja.find((x) => String(x.codigo).toUpperCase() === cod.toUpperCase());
+    if (!c) return { ok: false, motivo: "Cupom não encontrado." };
+    if (!c.ativo) return { ok: false, motivo: "Cupom inativo." };
+    const restantes = c.quantidadeTotal == null ? null : Math.max(0, c.quantidadeTotal - c.quantidadeUsada);
+    if (restantes != null && restantes <= 0) return { ok: false, motivo: "Cupom esgotado." };
+    if (valorConta < (c.minimoCompra || 0)) return { ok: false, motivo: `Consumo mínimo de ${formatCurrency(c.minimoCompra)} para usar este cupom.` };
+    const bruto = c.tipo === "valor" ? c.valor : (valorConta * c.valor) / 100;
+    return { ok: true, id: c.id, codigo: c.codigo, descricao: c.descricao, tipo: c.tipo, valor: c.valor, desconto: Math.min(bruto, valorConta), restantes };
+  }
+  /** Consumo no fechamento — reconfere a quantidade e grava o uso. */
+  async function consumirCupomCaixa(dados) {
+    if (!dbReady) {
+      setCupons((cur) => cur.map((c) => c.id === dados.cupomId ? { ...c, quantidadeUsada: (c.quantidadeUsada || 0) + 1 } : c));
+      return { ok: true };
+    }
+    try {
+      const r = await consumirCupom({ ...dados, lojaId: lojaAtual });
+      if (r?.ok) setCupons((cur) => cur.map((c) => c.id === dados.cupomId ? { ...c, quantidadeUsada: (c.quantidadeUsada || 0) + 1 } : c));
+      return r;
+    } catch (e) { return { ok: false, motivo: "Erro ao registrar o cupom: " + (e.message || e) }; }
+  }
+
   // ── Fidelidade (migration 043) ─────────────────────────────
   const fidRegraAtual = fidRegras.find((r) => (lojaAtual == null || r.lojaId === lojaAtual) && r.ativo) || null;
   // Fidelidade no CAIXA: saldo de pontos por telefone do cliente + valor de
@@ -2311,9 +2380,9 @@ export default function RestaurantePedidoApp() {
           <KitchenView groupedOrders={groupedOrders} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} entregandoId={entregandoId} cancelarPedido={cancelarPedido} currentUser={currentUser} lojaInfo={lojaInfo} setores={filtraLoja(setoresCozinha)} produtos={products} setorInicial={cozinhaSetorInicial} />
         )}
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} products={products} lojaInfo={lojaInfo} />}
-        {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierPdv orders={orders} mesas={filtraLoja(mesas).filter((m) => m.active !== false)} clientes={filtraLoja(clientes)} baixarComandas={baixarComandas} formasPagamento={formasPagamentoLoja} lojaInfo={lojaInfo} currentUser={currentUser} caixaAberto={caixaAberto} auditar={auditar} conexaoOk={conexaoOk} editarItensPedido={editarItensPedido} products={products} fidCaixa={fidCaixa} atualizarClientePedidos={atualizarClientePedidos} transferirMesaPedidos={transferirMesaPedidos} separarItensPedidos={separarItensPedidos} notify={notify} />}
+        {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierPdv orders={orders} mesas={filtraLoja(mesas).filter((m) => m.active !== false)} clientes={filtraLoja(clientes)} baixarComandas={baixarComandas} formasPagamento={formasPagamentoLoja} lojaInfo={lojaInfo} currentUser={currentUser} caixaAberto={caixaAberto} auditar={auditar} conexaoOk={conexaoOk} editarItensPedido={editarItensPedido} products={products} fidCaixa={fidCaixa} atualizarClientePedidos={atualizarClientePedidos} transferirMesaPedidos={transferirMesaPedidos} separarItensPedidos={separarItensPedidos} notify={notify} validarCupom={validarCupomCaixa} consumirCupom={consumirCupomCaixa} />}
         {/* activeTab === "opmobile" agora é tratado pelo branch dedicado no início desta função (sem cabeçalho/grade de módulos) */}
-        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} toggleLoja={toggleLoja} editarLoja={editarLoja} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} filtraLoja={filtraLoja} pesquisas={pesquisas} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} cancelarPedido={cancelarPedido} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} salvarConfigCrm={salvarConfigCrm} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} assinaturas={assinaturas} promocoes={filtraLoja(promocoes)} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} opcoesApi={{ grupos: filtraLoja(gruposOpcoes), opcoes: filtraLoja(opcoes), addGrupo: addGrupoOpcoes, editarGrupo: editarGrupoOpcoes, removerGrupo: removerGrupoOpcoes, addOpcao, editarOpcao, removerOpcao }} setores={filtraLoja(setoresCozinha)} setoresApi={{ add: addSetorCozinha, editar: editarSetorCozinha, remover: removerSetorCozinha }} vincularProdutoSetor={vincularProdutoSetor} salvarProdutoQr={salvarProdutoQr} irParaCozinha={(setorId) => { setCozinhaSetorInicial(setorId ?? null); if (canAccess(currentUser, "kitchen")) setActiveTab("kitchen"); else notify("error", "Sem permissão para acessar o painel da cozinha."); }} caixaAberto={caixaAberto} caixasLoja={filtraLoja(caixas)} caixaApi={{ abrir: abrirCaixaFn, movimentar: movimentarCaixaFn, fechar: fecharCaixaFn, fetchMovimentos: fetchMovimentosCaixa }} fidRegra={fidRegraAtual} fidRecompensas={filtraLoja(fidRecompensas)} fidTransacoes={filtraLoja(fidTransacoes)} fidApi={{ salvarRegra: salvarRegraFid, addRecompensa: addRecompensaFid, removerRecompensa: removerRecompensaFid, editarRecompensa: editarRecompensaFid, lancarPontos }} fidCaixa={fidCaixa} chamados={filtraLoja(chamados)} atenderChamado={atenderChamadoFn} assumirChamado={assumirChamadoFn} auditoria={filtraLoja(auditoria)} />}
+        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} toggleLoja={toggleLoja} editarLoja={editarLoja} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} filtraLoja={filtraLoja} pesquisas={pesquisas} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} cancelarPedido={cancelarPedido} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} salvarConfigCrm={salvarConfigCrm} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} assinaturas={assinaturas} promocoes={filtraLoja(promocoes)} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} cupons={cuponsLoja} addCupom={addCupom} editarCupom={editarCupomLoja} toggleCupom={toggleCupom} removerCupom={removerCupom} opcoesApi={{ grupos: filtraLoja(gruposOpcoes), opcoes: filtraLoja(opcoes), addGrupo: addGrupoOpcoes, editarGrupo: editarGrupoOpcoes, removerGrupo: removerGrupoOpcoes, addOpcao, editarOpcao, removerOpcao }} setores={filtraLoja(setoresCozinha)} setoresApi={{ add: addSetorCozinha, editar: editarSetorCozinha, remover: removerSetorCozinha }} vincularProdutoSetor={vincularProdutoSetor} salvarProdutoQr={salvarProdutoQr} irParaCozinha={(setorId) => { setCozinhaSetorInicial(setorId ?? null); if (canAccess(currentUser, "kitchen")) setActiveTab("kitchen"); else notify("error", "Sem permissão para acessar o painel da cozinha."); }} caixaAberto={caixaAberto} caixasLoja={filtraLoja(caixas)} caixaApi={{ abrir: abrirCaixaFn, movimentar: movimentarCaixaFn, fechar: fecharCaixaFn, fetchMovimentos: fetchMovimentosCaixa }} fidRegra={fidRegraAtual} fidRecompensas={filtraLoja(fidRecompensas)} fidTransacoes={filtraLoja(fidTransacoes)} fidApi={{ salvarRegra: salvarRegraFid, addRecompensa: addRecompensaFid, removerRecompensa: removerRecompensaFid, editarRecompensa: editarRecompensaFid, lancarPontos }} fidCaixa={fidCaixa} chamados={filtraLoja(chamados)} atenderChamado={atenderChamadoFn} assumirChamado={assumirChamadoFn} auditoria={filtraLoja(auditoria)} />}
 
       </div>
       )}
@@ -5297,7 +5366,7 @@ function MobileAdminDrawer({ open, onClose, triggerRef, children, titulo }) {
   );
 }
 
-function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, definirAcoesUsuario, toggleUserStatus, toggleAccessStatus, usersLoja, filtraLoja = (a) => a, pesquisas = [], adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], toggleLoja, editarLoja, setLicencaEmpresa = async()=>{}, setValidadeLicenca = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, updateOrderStatus = async()=>{}, marcarEntregue = async()=>{}, marcarSetorPronto = async()=>{}, baixarComandas = async()=>{}, cancelarPedido, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, setModoUsoEmpresa = async()=>{}, salvarConfigExterno = async()=>{}, salvarConfigCrm = async()=>{}, mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, clientes = [], planoAtual = null, assinaturaAtual = null, assinaturas = [], planos = [], planoModulos = [], definirAssinatura = async()=>{}, promocoes = [], addPromocao = async()=>{}, editarPromocao = async()=>{}, togglePromocao = async()=>{}, removerPromocao = async()=>{}, opcoesApi = null, setores = [], setoresApi = null, vincularProdutoSetor = async () => {}, salvarProdutoQr = async () => {}, irParaCozinha = () => {}, caixaAberto = null, caixasLoja = [], caixaApi = null, fidRegra = null, fidRecompensas = [], fidTransacoes = [], fidApi = null, chamados = [], atenderChamado = async()=>{}, assumirChamado = async()=>{}, auditoria = [], fidCaixa = null }) {
+function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, definirAcoesUsuario, toggleUserStatus, toggleAccessStatus, usersLoja, filtraLoja = (a) => a, pesquisas = [], adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], toggleLoja, editarLoja, setLicencaEmpresa = async()=>{}, setValidadeLicenca = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, updateOrderStatus = async()=>{}, marcarEntregue = async()=>{}, marcarSetorPronto = async()=>{}, baixarComandas = async()=>{}, cancelarPedido, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, setModoUsoEmpresa = async()=>{}, salvarConfigExterno = async()=>{}, salvarConfigCrm = async()=>{}, mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, clientes = [], planoAtual = null, assinaturaAtual = null, assinaturas = [], planos = [], planoModulos = [], definirAssinatura = async()=>{}, promocoes = [], addPromocao = async()=>{}, editarPromocao = async()=>{}, togglePromocao = async()=>{}, removerPromocao = async()=>{}, cupons = [], addCupom = async()=>{}, editarCupom = async()=>{}, toggleCupom = async()=>{}, removerCupom = async()=>{}, opcoesApi = null, setores = [], setoresApi = null, vincularProdutoSetor = async () => {}, salvarProdutoQr = async () => {}, irParaCozinha = () => {}, caixaAberto = null, caixasLoja = [], caixaApi = null, fidRegra = null, fidRecompensas = [], fidTransacoes = [], fidApi = null, chamados = [], atenderChamado = async()=>{}, assumirChamado = async()=>{}, auditoria = [], fidCaixa = null }) {
   // Menu reorganizado por contexto (SaaS premium) — mesmos ids e permissões de antes
   const menu = [
     { grupo: "Visão Geral", itens: [
@@ -5318,6 +5387,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
       { id: "products", icon: <IconProdutos />, label: "Produtos" },
       { id: "categorias", icon: <IconCategorias />, label: "Categorias" },
       { id: "promocoes", icon: <IconPromocao />, label: "Promoções" },
+      { id: "cupons", icon: <IconPromocao />, label: "Cupons" },
       { id: "crm", icon: <IconCrm />, label: "Clientes / CRM" },
       { id: "fidelidade", icon: <IconLicencas />, label: "Fidelidade" },
       { id: "cardapioqr", icon: <IconQr />, label: "Cardápio QR" },
@@ -5497,6 +5567,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           {ativo === "config"     && <ConfiguracoesAdmin lojaInfo={lojaInfo} />}
           {ativo === "plano"      && <MeuPlanoAdmin planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} lojaInfo={lojaInfo} isSuperAdmin={isSuperAdmin} lojaAtual={lojaInfo?.id} definirAssinatura={definirAssinatura} assinaturas={assinaturas} lojas={lojas} />}
           {ativo === "promocoes"  && (precisaEmpresa ? avisoEmpresa : <PromocoesAdmin promocoes={promocoes} produtos={products} categoriasDb={categoriasDb} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} />)}
+          {ativo === "cupons"     && (precisaEmpresa ? avisoEmpresa : <CuponsAdmin cupons={cupons} addCupom={addCupom} editarCupom={editarCupom} toggleCupom={toggleCupom} removerCupom={removerCupom} />)}
           {ativo === "lojas"      && <LojaAdmin lojas={lojas} toggleLoja={toggleLoja} editarLoja={editarLoja} lojaInfo={lojaInfo} criarEmpresa={criarEmpresa} />}
           {ativo === "licencas"   && <LicencaAdmin lojas={lojas} usuarios={users} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} />}
           {ativo === "versoes"    && <VersoesAdmin lojas={lojas} lojaFiltro={isSuperAdmin ? null : (lojaInfo?.id ?? null)} />}
@@ -15271,6 +15342,134 @@ export function promocaoVigente(p, agora = new Date()) {
     if (p.horaFim && hm > p.horaFim.slice(0, 5)) return false;
   }
   return true;
+}
+
+/**
+ * Cupons de desconto por loja (migration 075). A quantidade cadastrada aqui é
+ * o estoque do cupom: o caixa só consegue aplicar enquanto houver saldo, e o
+ * consumo é conferido de novo no banco na hora de fechar a conta.
+ */
+function CuponsAdmin({ cupons = [], addCupom, editarCupom, toggleCupom, removerCupom }) {
+  const VAZIO = { codigo: "", descricao: "", tipo: "percentual", valor: "", minimoCompra: "", quantidadeTotal: "", inicioEm: "", fimEm: "", ativo: true };
+  const [form, setForm] = useState(VAZIO);
+  const [editandoId, setEditandoId] = useState(null);
+  const [salvando, setSalvando] = useState(false);
+
+  const emEdicao = editandoId != null;
+  const podeSalvar = String(form.codigo).trim().length >= 3 && Number(String(form.valor).replace(",", ".")) > 0 && !salvando;
+
+  function iniciarEdicao(c) {
+    setEditandoId(c.id);
+    setForm({
+      codigo: c.codigo, descricao: c.descricao || "", tipo: c.tipo, valor: String(c.valor),
+      minimoCompra: c.minimoCompra ? String(c.minimoCompra) : "",
+      quantidadeTotal: c.quantidadeTotal == null ? "" : String(c.quantidadeTotal),
+      inicioEm: c.inicioEm ? String(c.inicioEm).slice(0, 10) : "",
+      fimEm: c.fimEm ? String(c.fimEm).slice(0, 10) : "",
+      ativo: c.ativo,
+    });
+  }
+
+  async function salvar() {
+    setSalvando(true);
+    try {
+      const dados = {
+        ...form,
+        codigo: String(form.codigo).trim().toUpperCase(),
+        inicioEm: form.inicioEm ? `${form.inicioEm}T00:00:00` : null,
+        fimEm: form.fimEm ? `${form.fimEm}T23:59:59` : null,
+      };
+      const ok = emEdicao ? await editarCupom(editandoId, dados) : await addCupom(dados);
+      if (ok) { setForm(VAZIO); setEditandoId(null); }
+    } finally { setSalvando(false); }
+  }
+
+  return (
+    <main className="space-y-5">
+      <PageHeader icone={<IconPromocao />} titulo="Cupons" descricao="Códigos de desconto da loja — o caixa aplica no pagamento enquanto houver quantidade disponível." />
+
+      <div className="rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-5">
+        <h3 className="mb-3 text-sm font-black text-white">{emEdicao ? "Editar cupom" : "Novo cupom"}</h3>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <CampoCupom label="Código" valor={form.codigo} onChange={(v) => setForm({ ...form, codigo: v.toUpperCase() })} placeholder="BEMVINDO10" />
+          <div>
+            <label className="mb-1 block text-[11px] font-bold text-slate-400">Tipo de desconto</label>
+            <select value={form.tipo} onChange={(e) => setForm({ ...form, tipo: e.target.value })} className="w-full rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white outline-none focus:border-gold-400/60">
+              <option value="percentual">Percentual (%)</option>
+              <option value="valor">Valor fixo (R$)</option>
+            </select>
+          </div>
+          <CampoCupom label={form.tipo === "valor" ? "Desconto (R$)" : "Desconto (%)"} valor={form.valor} onChange={(v) => setForm({ ...form, valor: v })} placeholder={form.tipo === "valor" ? "10,00" : "10"} />
+          <CampoCupom label="Consumo mínimo (R$)" valor={form.minimoCompra} onChange={(v) => setForm({ ...form, minimoCompra: v })} placeholder="0,00" />
+          <CampoCupom label="Quantidade disponível" valor={form.quantidadeTotal} onChange={(v) => setForm({ ...form, quantidadeTotal: v.replace(/\D/g, "") })} placeholder="vazio = ilimitado" />
+          <CampoCupom label="Válido de" tipo="date" valor={form.inicioEm} onChange={(v) => setForm({ ...form, inicioEm: v })} />
+          <CampoCupom label="Válido até" tipo="date" valor={form.fimEm} onChange={(v) => setForm({ ...form, fimEm: v })} />
+          <CampoCupom label="Descrição" valor={form.descricao} onChange={(v) => setForm({ ...form, descricao: v })} placeholder="Campanha de inauguração" />
+        </div>
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <PrimeButton disabled={!podeSalvar} onClick={salvar}>{emEdicao ? "Salvar cupom" : "Criar cupom"}</PrimeButton>
+          {emEdicao && (
+            <button type="button" onClick={() => { setEditandoId(null); setForm(VAZIO); }} className="rounded-xl border border-white/10 px-4 py-2 text-sm font-bold text-slate-300">
+              Cancelar
+            </button>
+          )}
+        </div>
+      </div>
+
+      {cupons.length === 0 ? (
+        <div className="rounded-[2rem] border border-white/10 bg-white/[0.03] py-14 text-center">
+          <p className="font-black text-white">Nenhum cupom cadastrado.</p>
+          <p className="text-sm text-slate-500">Crie um código para o caixa aplicar no fechamento da conta.</p>
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {cupons.map((c) => {
+            const restantes = c.quantidadeTotal == null ? null : Math.max(0, c.quantidadeTotal - (c.quantidadeUsada || 0));
+            const esgotado = restantes != null && restantes <= 0;
+            return (
+              <div key={c.id} className={`flex flex-col rounded-[1.5rem] border p-5 ${c.ativo && !esgotado ? "border-gold-400/30 bg-gold-400/[0.05]" : "border-white/10 bg-white/[0.03] opacity-70"}`}>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="truncate font-black text-white">{c.codigo}</p>
+                    <p className="truncate text-xs text-slate-400">{c.descricao || "Sem descrição"}</p>
+                  </div>
+                  <span className="shrink-0 rounded-lg bg-white/10 px-2 py-1 text-xs font-black text-white">
+                    {c.tipo === "valor" ? formatCurrency(c.valor) : `${c.valor}%`}
+                  </span>
+                </div>
+                <ul className="mt-3 space-y-1 text-xs text-slate-400">
+                  <li>Usados: <strong className="text-white">{c.quantidadeUsada || 0}</strong>{c.quantidadeTotal != null ? ` de ${c.quantidadeTotal}` : " (ilimitado)"}</li>
+                  {restantes != null && <li className={esgotado ? "text-rose-400" : ""}>Disponíveis: <strong>{restantes}</strong></li>}
+                  {c.minimoCompra > 0 && <li>Mínimo: {formatCurrency(c.minimoCompra)}</li>}
+                  {c.fimEm && <li>Válido até {new Date(c.fimEm).toLocaleDateString("pt-BR")}</li>}
+                </ul>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <button type="button" onClick={() => iniciarEdicao(c)} className="rounded-lg border border-white/10 px-3 py-1.5 text-xs font-bold text-slate-200">Editar</button>
+                  <button type="button" onClick={() => toggleCupom(c.id)} className="rounded-lg border border-white/10 px-3 py-1.5 text-xs font-bold text-slate-200">{c.ativo ? "Desativar" : "Ativar"}</button>
+                  <button type="button" onClick={() => removerCupom(c.id)} className="rounded-lg border border-rose-500/30 px-3 py-1.5 text-xs font-bold text-rose-300">Excluir</button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </main>
+  );
+}
+
+function CampoCupom({ label, valor, onChange, placeholder = "", tipo = "text" }) {
+  return (
+    <div>
+      <label className="mb-1 block text-[11px] font-bold text-slate-400">{label}</label>
+      <input
+        type={tipo}
+        value={valor}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-full rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white outline-none focus:border-gold-400/60"
+      />
+    </div>
+  );
 }
 
 function PromocoesAdmin({ promocoes = [], produtos = [], categoriasDb = [], addPromocao, editarPromocao, togglePromocao, removerPromocao }) {
