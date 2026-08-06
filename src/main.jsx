@@ -17,17 +17,7 @@ const MAX_RETRIES       = 5
 let swReg       = null
 let retryCount  = 0
 let retryTimer  = null
-let recarregando = false // evita loop de reload quando o novo SW assume
-let atualizacaoPronta = false // há uma nova versão pronta para aplicar
-const CARGA_INICIAL = Date.now()
-
-// Aplica a atualização pendente recarregando a página (assets novos já servidos
-// pelo SW que assumiu o controle). Guard contra loop de reload.
-function aplicarAtualizacaoAuto() {
-  if (!atualizacaoPronta || recarregando) return
-  recarregando = true
-  window.location.reload()
-}
+let recarregando = false // evita loop de reload quando o novo SW assume (após confirmação manual)
 
 function ehStandaloneLocal() {
   if (window.matchMedia?.("(display-mode: standalone)")?.matches) return true;
@@ -64,21 +54,11 @@ async function iniciarSW(onAtivado) {
 
     // updatefound: novo SW sendo instalado → ao ficar "installed" (com um
     // controlador já existente = atualização real), mostra o banner no app.
-    // Marca que há atualização pronta: mostra o banner (opção manual) e tenta
-    // aplicar automaticamente conforme as regras de auto-update.
+    // ATUALIZAÇÃO MANUAL: apenas marca que há versão nova e MOSTRA o banner —
+    // NUNCA recarrega sozinho. O reload só acontece quando o usuário confirma
+    // "Atualizar agora" (o banner envia SKIP_WAITING → controllerchange abaixo).
     const marcarAtualizacao = () => {
-      atualizacaoPronta = true
-      if (ehStandaloneLocal()) onAtivado() // banner como opção manual durante o uso
-      autoAplicarSeOportuno()
-    }
-    // Auto-update no PWA instalado:
-    //  - Logo após abrir o app (até 12s) → aplica na hora (cenário "reabrir o app").
-    //  - Já em uso → adia para o próximo foco/visibilidade da janela (ao voltar ao
-    //    app), evitando recarregar enquanto o usuário trabalha.
-    function autoAplicarSeOportuno() {
-      if (!atualizacaoPronta || recarregando) return
-      if (!ehStandaloneLocal()) { aplicarAtualizacaoAuto(); return }
-      if (Date.now() - CARGA_INICIAL < 12000) aplicarAtualizacaoAuto()
+      onAtivado() // banner de opção manual (o próprio banner decide onde exibir)
     }
 
     swReg.addEventListener('updatefound', () => {
@@ -93,20 +73,13 @@ async function iniciarSW(onAtivado) {
     // Se já havia um SW aguardando ao abrir (deploy ocorreu com o app fechado)
     if (swReg.waiting && navigator.serviceWorker.controller) marcarAtualizacao()
 
-    // controllerchange: o novo SW assumiu o controle.
-    //  - Navegador: recarrega silenciosamente (transparente).
-    //  - PWA instalado: marca atualização pronta e aplica automaticamente
-    //    (na hora se recém-aberto; senão ao reabrir/refocar a janela).
+    // controllerchange: o novo SW assumiu o controle. Isso SÓ acontece depois
+    // que o usuário confirma "Atualizar agora" (banner → SKIP_WAITING). Aqui
+    // apenas finalizamos, recarregando o app já com a versão nova.
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (!ehStandaloneLocal()) {
-        if (recarregando) return
-        recarregando = true
-        window.location.reload()
-        return
-      }
-      atualizacaoPronta = true
-      onAtivado()
-      autoAplicarSeOportuno()
+      if (recarregando) return
+      recarregando = true
+      window.location.reload()
     })
 
     // Mensagens do SW (SW_ATIVADO / SW_UPDATED compat.)
@@ -117,12 +90,8 @@ async function iniciarSW(onAtivado) {
       }
     })
 
-    // Ao reabrir/refocar a janela do PWA, aplica a atualização pendente.
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') aplicarAtualizacaoAuto()
-    })
-    window.addEventListener('focus', aplicarAtualizacaoAuto)
-    window.addEventListener('pageshow', aplicarAtualizacaoAuto)
+    // Não recarrega ao voltar/focar — a atualização é SEMPRE manual. O
+    // re-exibir do banner ao voltar ao app é tratado no próprio PwaUpdateBanner.
 
     await checkUpdate(swReg)
     setInterval(() => checkUpdate(swReg), CHECK_INTERVAL_MS)

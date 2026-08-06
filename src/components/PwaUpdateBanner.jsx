@@ -17,14 +17,21 @@ import { RefreshCw } from "lucide-react";
 //  atualizar) e nunca aparecem ao mesmo tempo — o Provider já garante
 //  isso (ver PwaExperienceProvider.jsx).
 // ════════════════════════════════════════════════════════════
+// Intervalo do "Depois": re-oferece a atualização a cada 30 minutos enquanto o
+// usuário não confirmar (nunca atualiza sozinho).
+const LEMBRETE_MS = 30 * 60 * 1000; // 30 min
+
 export default function PwaUpdateBanner({ swAtivado }) {
   const [visivel, setVisivel] = useState(false);
   const [atualizando, setAtualizando] = useState(false);
   const [novaVersao, setNovaVersao] = useState(null);
   const lembreteRef = useRef(null);
+  const pendenteRef = useRef(false); // há uma versão nova aguardando confirmação
+  const atualizandoRef = useRef(false);
   const versaoAtual = (typeof __APP_VERSION__ !== "undefined") ? __APP_VERSION__ : "local";
 
-  useEffect(() => { if (swAtivado) queueMicrotask(() => setVisivel(true)); }, [swAtivado]);
+  // Nova versão detectada (pelo SW) → marca como pendente e mostra o banner.
+  useEffect(() => { if (swAtivado) { pendenteRef.current = true; queueMicrotask(() => setVisivel(true)); } }, [swAtivado]);
 
   useEffect(() => {
     if (!visivel) return;
@@ -40,17 +47,46 @@ export default function PwaUpdateBanner({ swAtivado }) {
     return () => { cancelado = true; };
   }, [visivel]);
 
+  // Re-exibe o banner ao VOLTAR ao app (aba/janela ficou oculta e voltou a ficar
+  // visível, ou restauração via bfcache) — cobre "saiu da página e entrou de novo
+  // / logou de novo". Enquanto houver atualização pendente e não estiver aplicando.
+  useEffect(() => {
+    const reexibir = () => {
+      if (pendenteRef.current && !atualizandoRef.current && document.visibilityState === "visible") {
+        clearTimeout(lembreteRef.current);
+        setVisivel(true);
+      }
+    };
+    const onVis = () => { if (document.visibilityState === "visible") reexibir(); };
+    document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("pageshow", reexibir);
+    return () => { document.removeEventListener("visibilitychange", onVis); window.removeEventListener("pageshow", reexibir); };
+  }, []);
+
   useEffect(() => () => clearTimeout(lembreteRef.current), []);
 
+  // "Depois": esconde e re-oferece a cada 30 min (enquanto a versão continuar pendente).
   function adiar() {
     setVisivel(false);
     clearTimeout(lembreteRef.current);
-    lembreteRef.current = setTimeout(() => setVisivel(true), 15_000);
+    lembreteRef.current = setTimeout(() => { if (pendenteRef.current) setVisivel(true); }, LEMBRETE_MS);
   }
 
+  // "Atualizar agora": ÚNICO ponto onde a atualização acontece. Ativa o novo SW
+  // (SKIP_WAITING) e recarrega já com a versão nova (o controllerchange do
+  // main.jsx recarrega ao assumir; fallback garante o reload).
   async function aplicar() {
     clearTimeout(lembreteRef.current);
+    atualizandoRef.current = true;
     setAtualizando(true);
+    try {
+      const reg = await navigator.serviceWorker?.getRegistration?.();
+      if (reg?.waiting) {
+        reg.waiting.postMessage({ type: "SKIP_WAITING" });
+        setTimeout(() => window.location.reload(), 1500); // fallback se o controllerchange demorar
+        return;
+      }
+    } catch { /* segue para o reload direto */ }
     try {
       if ("caches" in window) {
         const keys = await caches.keys();

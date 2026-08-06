@@ -1,13 +1,16 @@
 /* ═══════════════════════════════════════════════════════════════
-   Service Worker — Pedido Prime  (v7)
+   Service Worker — Pedido Prime  (v8)
 
-   Restaura skipWaiting() no install → propagação imediata para
-   todos os usuários com versões antigas. Mantém compatibilidade
-   retroativa enviando SW_UPDATED (código antigo) + SW_ATIVADO (novo).
+   ATUALIZAÇÃO MANUAL: o novo SW NÃO faz skipWaiting no install — ele
+   fica "waiting" até o usuário confirmar no banner "Atualizar agora"
+   (que envia SKIP_WAITING). Assim o app NUNCA se atualiza/recarrega
+   sozinho enquanto está aberto, evitando perda de informação. Ao
+   confirmar, o SW assume (skipWaiting → activate → clients.claim →
+   controllerchange) e o app recarrega já com a versão nova.
 
-   v7: adiciona push + notificationclick (Web Push real — migration 064
-   / Edge Function notificacoes-push). Não cria um segundo SW nem mexe
-   na estratégia de cache/offline acima — só soma dois listeners novos.
+   v7: push + notificationclick (Web Push — migration 064).
+   v8: remove o skipWaiting automático do install (update só por ação
+   do usuário). Mantém o handler de mensagem SKIP_WAITING e o activate.
    ═══════════════════════════════════════════════════════════════ */
 
 // __BUILD_TIME__ é substituído pelo timestamp do build (vite.config.js) a cada
@@ -15,11 +18,16 @@
 // (inclusive em PWA instalado no Windows). Sem isso, o SW fica byte-idêntico e
 // o update nunca é detectado.
 const BUILD_TIME    = "__BUILD_TIME__";
+// Versão (commit) carimbada no build (vite.config → carimbarServiceWorker). O
+// PwaUpdateBanner lê esta linha do /sw.js para exibir "qual versão será aplicada".
+const APP_VERSION   = "__APP_VERSION__";
 const CACHE_VERSION = "pedido-prime-" + BUILD_TIME;
 const SHELL_URLS    = ["/", "/login"];
 
 self.addEventListener("install", (e) => {
-  self.skipWaiting();   // ativa imediatamente → todos recebem a atualização
+  // SEM skipWaiting: o novo SW aguarda em "waiting" até o usuário confirmar
+  // a atualização no banner (mensagem SKIP_WAITING). Evita atualização
+  // automática com o app aberto (e perda de dados em digitação/pagamento).
   e.waitUntil(
     caches.open(CACHE_VERSION)
       .then((c) => c.addAll(SHELL_URLS).catch(() => {}))
@@ -38,8 +46,8 @@ self.addEventListener("activate", (e) => {
     //   SW_UPDATED  → compatibilidade com código antigo (UpdateBanner)
     const clients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
     clients.forEach((c) => {
-      c.postMessage({ type: "SW_ATIVADO",  version: CACHE_VERSION });
-      c.postMessage({ type: "SW_UPDATED",  version: CACHE_VERSION }); // backward-compat
+      c.postMessage({ type: "SW_ATIVADO",  version: CACHE_VERSION, appVersion: APP_VERSION });
+      c.postMessage({ type: "SW_UPDATED",  version: CACHE_VERSION, appVersion: APP_VERSION }); // backward-compat
     });
   })());
 });
