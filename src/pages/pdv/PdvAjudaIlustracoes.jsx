@@ -159,15 +159,19 @@ function Cupom() {
   return (
     <div className="mx-auto max-w-[280px] space-y-1.5">
       <div className="flex items-center gap-1">
-        <span className="flex h-7 flex-1 items-center rounded-lg border border-[var(--pp-border)] bg-[var(--pp-surface)] px-2 text-[10px] font-bold text-[var(--pp-text-muted)]">
-          Código do cupom
+        <span className="flex h-7 flex-1 items-center rounded-lg border border-[var(--pp-border)] bg-[var(--pp-surface)] px-2 text-[10px] font-black uppercase tracking-wide text-[var(--pp-text)]">
+          PRIME10
         </span>
         <span className="flex h-7 items-center rounded-lg border border-[var(--pp-border)] bg-[var(--pp-bg)] px-2 text-[10px] font-black text-[var(--pp-text-body)]">Aplicar</span>
       </div>
-      <p className="text-center text-[9px] font-bold text-[var(--pp-text-muted)]">↓ validado no banco</p>
+      <p className="px-0.5 text-[9px] font-bold text-[#1F7A3D]">Cupom válido · −R$ 11,99 · 2 restante(s)</p>
       <div className="flex items-center gap-1.5 rounded-lg border border-[#BFE3CB] bg-[#F2FBF5] px-2 py-1">
-        <span className="min-w-0 flex-1 truncate text-[10px] font-black text-[#1F7A3D]">PRIME10</span>
+        <span className="min-w-0 flex-1 truncate text-[10px] font-black uppercase text-[#1F7A3D]">PRIME10</span>
         <span className="shrink-0 text-[10px] font-black text-[#1F7A3D]">−R$ 11,99</span>
+      </div>
+      <div className="grid grid-cols-2 gap-1">
+        <p className="rounded border border-[#F5DFA3] bg-[#FFFBEB] px-1.5 py-1 text-[8px] font-bold text-[#8D6708]">Fora do prazo</p>
+        <p className="rounded border border-[var(--pp-danger)]/25 bg-[var(--pp-danger-soft)] px-1.5 py-1 text-[8px] font-bold text-[var(--pp-danger)]">Quantidade esgotada</p>
       </div>
     </div>
   );

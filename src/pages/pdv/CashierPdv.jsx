@@ -40,6 +40,7 @@ import {
   statusPedidosConta,
   textoBuscaConta,
 } from "./pdvHelpers";
+import { legendaCupom } from "./pdvCupomValidacao";
 
 function chaveObsInterna(lojaId, mesa) {
   return `pedidoPrime:obsInterna:${lojaId || "geral"}:${mesa || "-"}`;
@@ -120,6 +121,8 @@ export default function CashierPdv({
   // Ajuste financeiro no pagamento: acréscimo, desconto manual e remoção de taxa.
   const [ajustePorConta, setAjustePorConta] = useState({});
   const [cupomProcessando, setCupomProcessando] = useState(false);
+  // Legenda sob o campo de cupom: válido / inválido / fora do prazo / esgotado…
+  const [cupomStatusUi, setCupomStatusUi] = useState({ status: "vazio" });
   const [avisoCliente, setAvisoCliente] = useState(null);
   const [ajudaAberta, setAjudaAberta] = useState(false);
   const [confirmarFinalizacao, setConfirmarFinalizacao] = useState(false);
@@ -660,23 +663,72 @@ export default function CashierPdv({
   /** Cupom: valida no banco (existe, vigente, mínimo e quantidade disponível). */
   async function aplicarCupom(codigo, aoAplicar) {
     if (!contaSel) return;
+    const cod = String(codigo || "").trim().toUpperCase();
+    if (!cod) {
+      setCupomStatusUi({ status: "vazio" });
+      return;
+    }
     setCupomProcessando(true);
+    setCupomStatusUi({ status: "validando" });
     try {
-      const r = await validarCupom({ codigo, valorConta: totalSel });
+      const r = await validarCupom({ codigo: cod, valorConta: totalCobrar > 0 ? totalCobrar : totalSel });
       if (!r?.ok) {
+        setCupomStatusUi({
+          status: r?.status || "nao_encontrado",
+          motivo: r?.motivo,
+          minimoCompra: r?.minimoCompra,
+        });
         notify("error", r?.motivo || "Cupom inválido.");
         return;
       }
       setCupomPorConta((cur) => ({
         ...cur,
-        [contaSel.key]: { id: r.id, codigo: r.codigo, desconto: Number(r.desconto) || 0, restantes: r.restantes ?? null },
+        [contaSel.key]: {
+          id: r.id,
+          codigo: String(r.codigo || cod).toUpperCase(),
+          desconto: Number(r.desconto) || 0,
+          restantes: r.restantes ?? null,
+        },
       }));
+      setCupomStatusUi({
+        status: "valido",
+        desconto: Number(r.desconto) || 0,
+        restantes: r.restantes ?? null,
+      });
       setBufferEntrada("");
       aoAplicar?.();
       notify("success", `Cupom ${r.codigo} aplicado · desconto de ${formatCurrency(r.desconto)}.`);
     } finally {
       setCupomProcessando(false);
     }
+  }
+
+  /** Pré-valida enquanto digita (existência/prazo/quantidade) sem aplicar o desconto. */
+  async function prevalidarCupomDigitado(codigo) {
+    const cod = String(codigo || "").trim().toUpperCase();
+    if (!cod) {
+      setCupomStatusUi({ status: "vazio" });
+      return;
+    }
+    if (cod.length < 3) {
+      setCupomStatusUi({ status: "digitando" });
+      return;
+    }
+    setCupomStatusUi({ status: "validando" });
+    const r = await validarCupom({ codigo: cod, valorConta: totalCobrar > 0 ? totalCobrar : totalSel });
+    if (!r?.ok) {
+      setCupomStatusUi({
+        status: r?.status || "nao_encontrado",
+        motivo: r?.motivo,
+        minimoCompra: r?.minimoCompra,
+      });
+      return;
+    }
+    setCupomStatusUi({
+      status: "valido",
+      desconto: Number(r.desconto) || 0,
+      restantes: r.restantes ?? null,
+    });
   }
 
   function removerCupom() {
@@ -686,8 +738,13 @@ export default function CashierPdv({
       delete next[contaSel.key];
       return next;
     });
+    setCupomStatusUi({ status: "vazio" });
     setBufferEntrada("");
   }
+
+  const cupomLegenda = cupomSel
+    ? legendaCupom("valido", { desconto: descontoCupom, restantes: cupomSel?.restantes })
+    : legendaCupom(cupomStatusUi.status, cupomStatusUi);
 
   /** Identificação do cliente no pagamento — habilita acúmulo e resgate. */
   async function identificarCliente({ nome, telefone, jaCadastrado }) {
@@ -1367,6 +1424,8 @@ ${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency
           onIdentificarCliente={temConta ? () => setModal("identificar") : undefined}
           onAplicarCupom={aplicarCupom}
           onRemoverCupom={removerCupom}
+          onPrevalidarCupom={prevalidarCupomDigitado}
+          cupomLegenda={cupomLegenda}
           onAlterarAcrescimo={(v) => patchAjuste({ acrescimo: Math.max(0, Number(v) || 0) })}
           onAlterarDescontoManual={(v) => patchAjuste({ desconto: Math.max(0, Number(v) || 0) })}
           onToggleTaxaServico={() => patchAjuste({ taxaRemovida: !taxaRemovida })}

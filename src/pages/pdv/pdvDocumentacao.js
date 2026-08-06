@@ -12,7 +12,7 @@
 import { formatCurrency } from "./pdvHelpers";
 
 /** Versão da documentação — acompanha a versão da tela do PDV. */
-export const PDV_DOC_VERSAO = "2026.08.2";
+export const PDV_DOC_VERSAO = "2026.08.4";
 export const PDV_DOC_ATUALIZADO_EM = "06/08/2026";
 
 const IMG = "/ajuda/pdv";
@@ -396,26 +396,51 @@ export function secoesDocumentacao(ctx = {}) {
     {
       id: "cupom",
       titulo: "Cupom de desconto",
-      resumo: "Aplicar, conferir disponibilidade e o que fazer se esgotar.",
+      resumo: "Cadastro no admin, validação no banco e legendas no PDV.",
       blocos: [
-        { tipo: "p", texto: "O campo de cupom fica abaixo dos ajustes de acréscimo/desconto. Digite o código e toque em Aplicar: o desconto entra na conta e o painel passa a cobrar o valor já reduzido." },
+        {
+          tipo: "p",
+          texto: "Os cupons são cadastrados em Administrativo → Gestão → Cupons e gravados no banco (Supabase). No PDV, o campo fica abaixo dos ajustes de acréscimo/desconto: a digitação é sempre em maiúsculas e, enquanto você digita, aparece uma legenda sob o campo.",
+        },
         { tipo: "ilustracao", nome: "cupom" },
+        {
+          tipo: "tabela",
+          cabecalho: ["Legenda no PDV", "Significado"],
+          linhas: [
+            ["Cupom válido", "Código existe, está na vigência, com saldo e consumo mínimo ok."],
+            ["Cupom inválido — código não encontrado", "Não há cupom com esse código nesta loja."],
+            ["Cupom inválido — desativado", "O cupom existe, mas foi desligado no administrativo."],
+            ["Fora do prazo — ainda não vigora", "A data inicial ainda não chegou."],
+            ["Fora do prazo — cupom expirado", "Passou da data final."],
+            ["Quantidade esgotada", "Todas as unidades já foram usadas."],
+            ["Consumo mínimo…", "O total da conta ainda não atinge o mínimo do cupom."],
+          ],
+        },
         {
           tipo: "lista",
           titulo: "O que é conferido na hora de aplicar",
           itens: [
             "Se o código existe e pertence a esta loja",
-            "Se está ativo e dentro da validade",
+            "Se está ativo e dentro da validade (válido de / até)",
             "Se a conta atinge o consumo mínimo exigido",
             "Se ainda há quantidade disponível do cupom",
           ],
         },
         {
+          tipo: "passos",
+          titulo: "Como cadastrar (Administrativo)",
+          itens: [
+            "Abra Gestão → Cupons.",
+            "Preencha código (maiúsculas), tipo, valor, mínimo, quantidade e vigência.",
+            "Toque em Criar cupom — a mensagem de sucesso ou erro aparece na própria tela e o registro vai para o banco.",
+            "No PDV, digite o código e Aplicar.",
+          ],
+        },
+        {
           tipo: "aviso",
           titulo: "A quantidade é conferida duas vezes",
-          texto: "Além da validação ao aplicar, o sistema reconfere no banco no momento do fechamento. Se o cupom esgotar entre uma coisa e outra (outro caixa usou a última unidade), o fechamento é bloqueado com aviso — remova o cupom e conclua o pagamento.",
+          texto: "Além da validação ao aplicar (e da pré-validação ao digitar), o sistema reconfere no banco no fechamento. Se o cupom esgotar entre uma coisa e outra, o fechamento é bloqueado — remova o cupom e conclua o pagamento.",
         },
-        { tipo: "p", texto: "Os cupons são cadastrados por loja em Administrativo → Gestão → Cupons, com código, tipo de desconto (percentual ou valor), consumo mínimo, quantidade e vigência." },
       ],
     },
 
@@ -505,7 +530,8 @@ export function secoesDocumentacao(ctx = {}) {
             ["Cortesia ou desconto combinado no caixa", "Use o campo Desconto no pagamento (valor em reais). Pode combinar com cupom."],
             ["Cliente pediu mais um item depois do comprovante", "Incluir produto → informe a comanda do cliente → escolha o produto. A nova venda fica vinculada à comanda."],
             ["Cliente quer pontuar ao incluir produto", "Ao escolher o produto, confirme Sim, identificar e complete o telefone."],
-            ["Cupom recusado", "Leia o motivo no aviso: código inexistente, expirado, esgotado ou consumo mínimo não atingido."],
+            ["Cupom recusado", "Leia a legenda sob o campo (inválido, fora do prazo, esgotado, mínimo) e o toast de erro."],
+            ["Criei o cupom e nada aconteceu", "A mensagem agora aparece na própria tela de Cupons. Se o banco ainda não tiver a migration 075, o erro orienta a rodá-la."],
             ["Conta paga mas a mesa continua ocupada", "Não acontece: a liberação é automática. Se a mesa continua laranja, existe outro pedido em aberto nela — confira pelo Histórico."],
             ["Errou o valor de uma parcela", "Remova a parcela pelo × na lista de Recebimentos e registre de novo."],
             ["Não lembra como usar uma função", "Toque no ? do topo ou pressione F1. Busque o tópico ou gere o PDF."],

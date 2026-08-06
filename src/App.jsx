@@ -47,6 +47,10 @@ import OperationalCentral from "./pages/OperationalCentral";
 import CentralDePedidos from "./pages/CentralDePedidos";
 import CentralDoCaixa from "./pages/CentralDoCaixa";
 import CashierPdv from "./pages/pdv/CashierPdv";
+import {
+  normalizarRespostaCupom,
+  validarCupomLocal,
+} from "./pages/pdv/pdvCupomValidacao";
 import CentralDaCozinha from "./pages/CentralDaCozinha";
 import CentralDoBar from "./pages/CentralDoBar";
 import OperationalBottomNav from "./components/OperationalBottomNav";
@@ -1695,54 +1699,143 @@ export default function RestaurantePedidoApp() {
   // ── Cupons de desconto (migration 075) ─────────────────────
   // A regra fica por loja; a disponibilidade (quantidade) é sempre conferida
   // no banco — na validação e de novo, de forma atômica, no fechamento.
+  // Feedback de sucesso/erro também volta no retorno { ok, erro } porque o
+  // toast global fica atrás do Admin (fixed inset-0) e o operador não via.
   const cuponsLoja = cupons.filter((c) => c.lojaId == null || lojaAtual == null || c.lojaId === lojaAtual);
   async function addCupom(dados) {
-    if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
-    if (!String(dados.codigo || "").trim()) return notify("error", "Informe o código do cupom.");
-    const novo = { ...dados, lojaId: lojaAtual };
+    if (!canAccess(currentUser, "admin")) {
+      const erro = "Usuário sem permissão administrativa.";
+      notify("error", erro);
+      return { ok: false, erro };
+    }
+    const codigo = String(dados.codigo || "").trim().toUpperCase();
+    if (codigo.length < 3) {
+      const erro = "Informe um código com pelo menos 3 caracteres.";
+      notify("error", erro);
+      return { ok: false, erro };
+    }
+    if (lojaAtual == null && !isSuperAdmin) {
+      const erro = "Selecione a empresa antes de criar o cupom.";
+      notify("error", erro);
+      return { ok: false, erro };
+    }
+    const novo = {
+      ...dados,
+      codigo,
+      valor: dados.valor,
+      minimoCompra: dados.minimoCompra,
+      quantidadeTotal: dados.quantidadeTotal === "" || dados.quantidadeTotal == null ? null : dados.quantidadeTotal,
+      lojaId: lojaAtual,
+      quantidadeUsada: 0,
+      ativo: dados.ativo !== false,
+    };
     if (dbReady) {
-      try { const r = await inserirCupom(novo); setCupons((cur) => [r, ...cur]); }
-      catch (e) { return notify("error", /duplicate|unique/i.test(e.message || "") ? "Já existe um cupom com esse código nesta loja." : "Erro ao criar cupom: " + (e.message || e)); }
-    } else setCupons((cur) => [{ ...novo, id: Date.now(), quantidadeUsada: 0 }, ...cur]);
-    notify("success", "Cupom criado.");
-    return true;
+      try {
+        const r = await inserirCupom(novo);
+        setCupons((cur) => [r, ...cur.filter((c) => c.id !== r.id)]);
+        notify("success", `Cupom ${r.codigo} criado e salvo no banco.`);
+        return { ok: true, cupom: r };
+      } catch (e) {
+        const msg = String(e?.message || e || "");
+        const erro = /duplicate|unique|idx_cupons/i.test(msg)
+          ? "Já existe um cupom com esse código nesta loja."
+          : /relation|does not exist|schema cache|tab_cupons/i.test(msg)
+            ? "Tabela de cupons ainda não existe no Supabase. Rode a migration 075 no SQL Editor."
+            : "Erro ao criar cupom no banco: " + msg;
+        notify("error", erro);
+        return { ok: false, erro };
+      }
+    }
+    const local = { ...novo, id: Date.now() };
+    setCupons((cur) => [local, ...cur]);
+    notify("success", `Cupom ${codigo} criado (modo local — conecte o Supabase para persistir).`);
+    return { ok: true, cupom: local, local: true };
   }
   async function editarCupomLoja(id, dados) {
-    if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
-    setCupons((cur) => cur.map((c) => c.id === id ? { ...c, ...dados } : c));
-    if (dbReady) try { await atualizarCupom(id, { ...dados, lojaId: dados.lojaId ?? lojaAtual }); }
-    catch (e) { return notify("error", "Erro ao salvar cupom: " + (e.message || e)); }
+    if (!canAccess(currentUser, "admin")) {
+      const erro = "Usuário sem permissão administrativa.";
+      notify("error", erro);
+      return { ok: false, erro };
+    }
+    const patch = {
+      ...dados,
+      codigo: String(dados.codigo || "").trim().toUpperCase(),
+      quantidadeTotal: dados.quantidadeTotal === "" || dados.quantidadeTotal == null ? null : dados.quantidadeTotal,
+      lojaId: dados.lojaId ?? lojaAtual,
+    };
+    const prev = cupons.find((c) => c.id === id);
+    setCupons((cur) => cur.map((c) => (c.id === id ? { ...c, ...patch } : c)));
+    if (dbReady) {
+      try {
+        await atualizarCupom(id, patch);
+      } catch (e) {
+        if (prev) setCupons((cur) => cur.map((c) => (c.id === id ? prev : c)));
+        const erro = "Erro ao salvar cupom: " + (e.message || e);
+        notify("error", erro);
+        return { ok: false, erro };
+      }
+    }
     notify("success", "Cupom atualizado.");
-    return true;
+    return { ok: true };
   }
   async function toggleCupom(id) {
     const c = cupons.find((x) => x.id === id);
-    const ativo = !c?.ativo;
-    setCupons((cur) => cur.map((x) => x.id === id ? { ...x, ativo } : x));
-    if (dbReady) try { await atualizarCupom(id, { ...c, ativo, lojaId: c?.lojaId ?? lojaAtual }); } catch { /* estado local já refletiu */ }
+    if (!c) return { ok: false, erro: "Cupom não encontrado." };
+    const ativo = !c.ativo;
+    setCupons((cur) => cur.map((x) => (x.id === id ? { ...x, ativo } : x)));
+    if (dbReady) {
+      try {
+        await atualizarCupom(id, { ...c, ativo, lojaId: c.lojaId ?? lojaAtual });
+      } catch (e) {
+        setCupons((cur) => cur.map((x) => (x.id === id ? c : x)));
+        const erro = "Erro ao alterar status: " + (e.message || e);
+        notify("error", erro);
+        return { ok: false, erro };
+      }
+    }
+    return { ok: true };
   }
   async function removerCupom(id) {
-    if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
-    setCupons((cur) => cur.filter((c) => c.id !== id));
-    if (dbReady) try { await excluirCupom(id); } catch (e) { return notify("error", "Erro ao excluir cupom: " + (e.message || e)); }
-    notify("success", "Cupom excluído.");
-  }
-  /** Validação no caixa — sem consumir. Cai para a regra local se o banco estiver fora. */
-  async function validarCupomCaixa({ codigo, valorConta }) {
-    const cod = String(codigo || "").trim();
-    if (!cod) return { ok: false, motivo: "Informe o código do cupom." };
-    if (dbReady) {
-      try { return await validarCupom({ lojaId: lojaAtual, codigo: cod, valorConta }); }
-      catch (e) { return { ok: false, motivo: "Não foi possível validar o cupom: " + (e.message || e) }; }
+    if (!canAccess(currentUser, "admin")) {
+      const erro = "Usuário sem permissão administrativa.";
+      notify("error", erro);
+      return { ok: false, erro };
     }
-    const c = cuponsLoja.find((x) => String(x.codigo).toUpperCase() === cod.toUpperCase());
-    if (!c) return { ok: false, motivo: "Cupom não encontrado." };
-    if (!c.ativo) return { ok: false, motivo: "Cupom inativo." };
-    const restantes = c.quantidadeTotal == null ? null : Math.max(0, c.quantidadeTotal - c.quantidadeUsada);
-    if (restantes != null && restantes <= 0) return { ok: false, motivo: "Cupom esgotado." };
-    if (valorConta < (c.minimoCompra || 0)) return { ok: false, motivo: `Consumo mínimo de ${formatCurrency(c.minimoCompra)} para usar este cupom.` };
-    const bruto = c.tipo === "valor" ? c.valor : (valorConta * c.valor) / 100;
-    return { ok: true, id: c.id, codigo: c.codigo, descricao: c.descricao, tipo: c.tipo, valor: c.valor, desconto: Math.min(bruto, valorConta), restantes };
+    const prev = cupons.find((c) => c.id === id);
+    setCupons((cur) => cur.filter((c) => c.id !== id));
+    if (dbReady) {
+      try {
+        await excluirCupom(id);
+      } catch (e) {
+        if (prev) setCupons((cur) => [prev, ...cur]);
+        const erro = "Erro ao excluir cupom: " + (e.message || e);
+        notify("error", erro);
+        return { ok: false, erro };
+      }
+    }
+    notify("success", "Cupom excluído.");
+    return { ok: true };
+  }
+  /** Validação no caixa — sem consumir. Banco primeiro; fallback local com vigência e quantidade. */
+  async function validarCupomCaixa({ codigo, valorConta }) {
+    const cod = String(codigo || "").trim().toUpperCase();
+    if (!cod) return { ok: false, status: "vazio", motivo: "Informe o código do cupom." };
+    if (dbReady) {
+      try {
+        const r = await validarCupom({ lojaId: lojaAtual, codigo: cod, valorConta });
+        return normalizarRespostaCupom(r);
+      } catch (e) {
+        // Se o RPC ainda não existe, cai na regra local dos cupons já carregados.
+        const local = validarCupomLocal({ cupons: cuponsLoja, codigo: cod, valorConta });
+        if (local.ok || local.status !== "nao_encontrado") return local;
+        return {
+          ok: false,
+          status: "erro",
+          motivo: "Não foi possível validar o cupom: " + (e.message || e),
+        };
+      }
+    }
+    return validarCupomLocal({ cupons: cuponsLoja, codigo: cod, valorConta });
   }
   /** Consumo no fechamento — reconfere a quantidade e grava o uso. */
   async function consumirCupomCaixa(dados) {
@@ -15397,11 +15490,15 @@ function CuponsAdmin({ cupons = [], addCupom, editarCupom, toggleCupom, removerC
   const [form, setForm] = useState(VAZIO);
   const [editandoId, setEditandoId] = useState(null);
   const [salvando, setSalvando] = useState(false);
+  // Feedback na própria tela — o toast global do hub fica atrás do Admin fullscreen.
+  const [feedback, setFeedback] = useState(null); // { tipo: 'ok'|'erro', texto }
 
   const emEdicao = editandoId != null;
-  const podeSalvar = String(form.codigo).trim().length >= 3 && Number(String(form.valor).replace(",", ".")) > 0 && !salvando;
+  const valorNum = Number(String(form.valor).replace(/\./g, "").replace(",", ".")) || Number(String(form.valor).replace(",", ".")) || 0;
+  const podeSalvar = String(form.codigo).trim().length >= 3 && valorNum > 0 && !salvando;
 
   function iniciarEdicao(c) {
+    setFeedback(null);
     setEditandoId(c.id);
     setForm({
       codigo: c.codigo, descricao: c.descricao || "", tipo: c.tipo, valor: String(c.valor),
@@ -15414,7 +15511,16 @@ function CuponsAdmin({ cupons = [], addCupom, editarCupom, toggleCupom, removerC
   }
 
   async function salvar() {
+    if (!podeSalvar) {
+      setFeedback({ tipo: "erro", texto: "Preencha o código (mín. 3 letras) e o valor do desconto." });
+      return;
+    }
+    if (form.inicioEm && form.fimEm && form.fimEm < form.inicioEm) {
+      setFeedback({ tipo: "erro", texto: "A data final não pode ser anterior à data inicial." });
+      return;
+    }
     setSalvando(true);
+    setFeedback(null);
     try {
       const dados = {
         ...form,
@@ -15422,19 +15528,44 @@ function CuponsAdmin({ cupons = [], addCupom, editarCupom, toggleCupom, removerC
         inicioEm: form.inicioEm ? `${form.inicioEm}T00:00:00` : null,
         fimEm: form.fimEm ? `${form.fimEm}T23:59:59` : null,
       };
-      const ok = emEdicao ? await editarCupom(editandoId, dados) : await addCupom(dados);
-      if (ok) { setForm(VAZIO); setEditandoId(null); }
-    } finally { setSalvando(false); }
+      const r = emEdicao ? await editarCupom(editandoId, dados) : await addCupom(dados);
+      // Compatível com retorno antigo (true) e novo ({ ok, erro }).
+      const ok = r === true || r?.ok === true;
+      if (ok) {
+        setForm(VAZIO);
+        setEditandoId(null);
+        setFeedback({
+          tipo: "ok",
+          texto: emEdicao
+            ? "Cupom atualizado no banco."
+            : r?.local
+              ? `Cupom ${dados.codigo} criado em modo local.`
+              : `Cupom ${dados.codigo} criado e gravado no banco.`,
+        });
+      } else {
+        setFeedback({ tipo: "erro", texto: r?.erro || "Não foi possível salvar o cupom. Tente de novo." });
+      }
+    } catch (e) {
+      setFeedback({ tipo: "erro", texto: "Erro inesperado: " + (e?.message || e) });
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  async function aoRemover(id) {
+    const r = await removerCupom(id);
+    if (r && r.ok === false) setFeedback({ tipo: "erro", texto: r.erro || "Falha ao excluir." });
+    else setFeedback({ tipo: "ok", texto: "Cupom excluído." });
   }
 
   return (
     <main className="space-y-5">
-      <PageHeader icone={<IconPromocao />} titulo="Cupons" descricao="Códigos de desconto da loja — o caixa aplica no pagamento enquanto houver quantidade disponível." />
+      <PageHeader icone={<IconPromocao />} titulo="Cupons" descricao="Códigos de desconto da loja — gravados no banco e aplicados no PDV enquanto houver quantidade e estiverem na vigência." />
 
       <div className="rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-5">
         <h3 className="mb-3 text-sm font-black text-white">{emEdicao ? "Editar cupom" : "Novo cupom"}</h3>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <CampoCupom label="Código" valor={form.codigo} onChange={(v) => setForm({ ...form, codigo: v.toUpperCase() })} placeholder="BEMVINDO10" />
+          <CampoCupom label="Código" valor={form.codigo} onChange={(v) => setForm({ ...form, codigo: v.toUpperCase().replace(/\s/g, "") })} placeholder="PRIME10" />
           <div>
             <label className="mb-1 block text-[11px] font-bold text-slate-400">Tipo de desconto</label>
             <select value={form.tipo} onChange={(e) => setForm({ ...form, tipo: e.target.value })} className="w-full rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white outline-none focus:border-gold-400/60">
@@ -15447,16 +15578,40 @@ function CuponsAdmin({ cupons = [], addCupom, editarCupom, toggleCupom, removerC
           <CampoCupom label="Quantidade disponível" valor={form.quantidadeTotal} onChange={(v) => setForm({ ...form, quantidadeTotal: v.replace(/\D/g, "") })} placeholder="vazio = ilimitado" />
           <CampoCupom label="Válido de" tipo="date" valor={form.inicioEm} onChange={(v) => setForm({ ...form, inicioEm: v })} />
           <CampoCupom label="Válido até" tipo="date" valor={form.fimEm} onChange={(v) => setForm({ ...form, fimEm: v })} />
-          <CampoCupom label="Descrição" valor={form.descricao} onChange={(v) => setForm({ ...form, descricao: v })} placeholder="Campanha de inauguração" />
+          <CampoCupom label="Descrição" valor={form.descricao} onChange={(v) => setForm({ ...form, descricao: v })} placeholder="Campanha Pedido Prime" />
         </div>
+        {feedback && (
+          <p
+            role="status"
+            className={`mt-3 rounded-xl border px-3 py-2 text-sm font-semibold ${
+              feedback.tipo === "ok"
+                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700"
+                : "border-rose-500/30 bg-rose-500/10 text-rose-700"
+            }`}
+          >
+            {feedback.texto}
+          </p>
+        )}
         <div className="mt-4 flex flex-wrap items-center gap-2">
-          <PrimeButton disabled={!podeSalvar} onClick={salvar}>{emEdicao ? "Salvar cupom" : "Criar cupom"}</PrimeButton>
+          <button
+            type="button"
+            disabled={!podeSalvar}
+            onClick={salvar}
+            className="btn-laranja inline-flex min-h-11 items-center justify-center rounded-2xl px-5 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-45"
+          >
+            {salvando ? "Salvando…" : emEdicao ? "Salvar cupom" : "Criar cupom"}
+          </button>
           {emEdicao && (
-            <button type="button" onClick={() => { setEditandoId(null); setForm(VAZIO); }} className="rounded-xl border border-white/10 px-4 py-2 text-sm font-bold text-slate-300">
+            <button
+              type="button"
+              onClick={() => { setEditandoId(null); setForm(VAZIO); setFeedback(null); }}
+              className="rounded-xl border border-white/10 px-4 py-2 text-sm font-bold text-slate-300"
+            >
               Cancelar
             </button>
           )}
         </div>
+        <p className="mt-2 text-[11px] text-slate-500">O código é sempre salvo em maiúsculas. O PDV valida existência, vigência e quantidade no banco ao aplicar e de novo no fechamento.</p>
       </div>
 
       {cupons.length === 0 ? (
@@ -15484,12 +15639,18 @@ function CuponsAdmin({ cupons = [], addCupom, editarCupom, toggleCupom, removerC
                   <li>Usados: <strong className="text-white">{c.quantidadeUsada || 0}</strong>{c.quantidadeTotal != null ? ` de ${c.quantidadeTotal}` : " (ilimitado)"}</li>
                   {restantes != null && <li className={esgotado ? "text-rose-400" : ""}>Disponíveis: <strong>{restantes}</strong></li>}
                   {c.minimoCompra > 0 && <li>Mínimo: {formatCurrency(c.minimoCompra)}</li>}
-                  {c.fimEm && <li>Válido até {new Date(c.fimEm).toLocaleDateString("pt-BR")}</li>}
+                  {(c.inicioEm || c.fimEm) && (
+                    <li>
+                      Vigência: {c.inicioEm ? new Date(c.inicioEm).toLocaleDateString("pt-BR") : "—"}
+                      {" → "}
+                      {c.fimEm ? new Date(c.fimEm).toLocaleDateString("pt-BR") : "—"}
+                    </li>
+                  )}
                 </ul>
                 <div className="mt-4 flex flex-wrap gap-2">
                   <button type="button" onClick={() => iniciarEdicao(c)} className="rounded-lg border border-white/10 px-3 py-1.5 text-xs font-bold text-slate-200">Editar</button>
                   <button type="button" onClick={() => toggleCupom(c.id)} className="rounded-lg border border-white/10 px-3 py-1.5 text-xs font-bold text-slate-200">{c.ativo ? "Desativar" : "Ativar"}</button>
-                  <button type="button" onClick={() => removerCupom(c.id)} className="rounded-lg border border-rose-500/30 px-3 py-1.5 text-xs font-bold text-rose-300">Excluir</button>
+                  <button type="button" onClick={() => aoRemover(c.id)} className="rounded-lg border border-rose-500/30 px-3 py-1.5 text-xs font-bold text-rose-300">Excluir</button>
                 </div>
               </div>
             );

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Eraser, Delete, Check, Banknote, QrCode, CreditCard, Wallet, Ticket, Star, X,
   SplitSquareHorizontal, UserPlus, BadgeCheck, Gift, TicketPercent, MinusCircle, PlusCircle,
@@ -52,6 +52,8 @@ export default function PdvPaymentPanel({
   onIdentificarCliente,
   onAplicarCupom,
   onRemoverCupom,
+  onPrevalidarCupom,
+  cupomLegenda = null,
   onAlterarAcrescimo,
   onAlterarDescontoManual,
   onToggleTaxaServico,
@@ -69,6 +71,7 @@ export default function PdvPaymentPanel({
   const [codigoCupom, setCodigoCupom] = useState("");
   const [acrescimoTxt, setAcrescimoTxt] = useState("");
   const [descontoTxt, setDescontoTxt] = useState("");
+  const debounceCupomRef = useRef(null);
   const formas = formasPagamento.filter((f) => f.active !== false && (f.nome || "").trim());
   const cols = Math.min(4, Math.max(2, formas.length || 1));
   const valorCampo = Number(bufferEntrada || 0) / 100;
@@ -77,6 +80,26 @@ export default function PdvPaymentPanel({
   const identificado = !!(cliente?.nome || cliente?.telefone);
   const mostraTaxa = taxaPct > 0;
   const temAjuste = acrescimo > 0 || descontoManual > 0 || taxaRemovida || descontoCupom > 0;
+
+  useEffect(() => () => {
+    if (debounceCupomRef.current) clearTimeout(debounceCupomRef.current);
+  }, []);
+
+  function aoDigitarCupom(valorBruto) {
+    const valor = String(valorBruto || "").toUpperCase().replace(/\s/g, "");
+    setCodigoCupom(valor);
+    if (debounceCupomRef.current) clearTimeout(debounceCupomRef.current);
+    debounceCupomRef.current = setTimeout(() => {
+      onPrevalidarCupom?.(valor);
+    }, 380);
+  }
+
+  const tomLegenda = {
+    ok: "text-[#1F7A3D]",
+    erro: "text-[var(--pp-danger)]",
+    aviso: "text-[#8D6708]",
+    neutro: "text-[var(--pp-text-muted)]",
+  };
 
   return (
     <aside className={`flex w-full min-w-0 flex-col overflow-hidden border-[var(--pp-border)] bg-[var(--pp-surface)] ${className}`}>
@@ -314,40 +337,60 @@ export default function PdvPaymentPanel({
         )}
       </div>
 
-      {/* Cupom — a disponibilidade é conferida no banco ao aplicar e ao fechar */}
+      {/* Cupom — validação no banco (existência, vigência, quantidade) + legenda */}
       <div className="shrink-0 border-t border-[var(--pp-border)] px-2.5 py-1.5">
         {cupomAplicado ? (
-          <div className="flex items-center gap-1.5 rounded-lg border border-[#BFE3CB] bg-[#F2FBF5] px-1.5 py-1">
-            <TicketPercent size={12} className="shrink-0 text-[#1F7A3D]" aria-hidden="true" />
-            <span className="min-w-0 flex-1 truncate text-[10px] font-black text-[#1F7A3D]">{cupomAplicado.codigo}</span>
-            <span className="shrink-0 text-[10px] font-black tabular-nums text-[#1F7A3D]">−{formatCurrency(descontoCupom)}</span>
-            <button type="button" onClick={onRemoverCupom} aria-label="Remover cupom" className="grid h-5 w-5 shrink-0 place-items-center rounded border border-[var(--pp-border)] bg-[var(--pp-surface)] text-[var(--pp-danger)]">
-              <X size={10} aria-hidden="true" />
-            </button>
+          <div className="space-y-1">
+            <div className="flex items-center gap-1.5 rounded-lg border border-[#BFE3CB] bg-[#F2FBF5] px-1.5 py-1">
+              <TicketPercent size={12} className="shrink-0 text-[#1F7A3D]" aria-hidden="true" />
+              <span className="min-w-0 flex-1 truncate text-[10px] font-black uppercase text-[#1F7A3D]">{cupomAplicado.codigo}</span>
+              <span className="shrink-0 text-[10px] font-black tabular-nums text-[#1F7A3D]">−{formatCurrency(descontoCupom)}</span>
+              <button type="button" onClick={onRemoverCupom} aria-label="Remover cupom" className="grid h-5 w-5 shrink-0 place-items-center rounded border border-[var(--pp-border)] bg-[var(--pp-surface)] text-[var(--pp-danger)]">
+                <X size={10} aria-hidden="true" />
+              </button>
+            </div>
+            {cupomLegenda?.texto && (
+              <p className={`px-0.5 text-[9px] font-bold leading-tight ${tomLegenda[cupomLegenda.tom] || tomLegenda.ok}`}>
+                {cupomLegenda.texto}
+              </p>
+            )}
           </div>
         ) : (
-          <form
-            className="flex items-center gap-1"
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (codigoCupom.trim()) onAplicarCupom?.(codigoCupom.trim(), () => setCodigoCupom(""));
-            }}
-          >
-            <input
-              value={codigoCupom}
-              onChange={(e) => setCodigoCupom(e.target.value.toUpperCase())}
-              placeholder="Código do cupom"
-              aria-label="Código do cupom"
-              className="h-7 min-w-0 flex-1 rounded-lg border border-[var(--pp-border)] bg-[var(--pp-bg)] px-2 text-[10px] font-bold uppercase text-[var(--pp-text)] outline-none placeholder:font-semibold placeholder:normal-case placeholder:text-[var(--pp-text-muted)] focus:border-[var(--pp-primary)] focus:bg-[var(--pp-surface)]"
-            />
-            <button
-              type="submit"
-              disabled={!codigoCupom.trim() || cupomProcessando}
-              className="h-7 shrink-0 rounded-lg border border-[var(--pp-border)] bg-[var(--pp-bg)] px-2 text-[10px] font-black text-[var(--pp-text-body)] transition hover:border-[var(--pp-primary)] hover:text-[var(--pp-primary-text)] disabled:opacity-45"
+          <div className="space-y-1">
+            <form
+              className="flex items-center gap-1"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (codigoCupom.trim()) onAplicarCupom?.(codigoCupom.trim().toUpperCase(), () => setCodigoCupom(""));
+              }}
             >
-              {cupomProcessando ? "…" : "Aplicar"}
-            </button>
-          </form>
+              <input
+                value={codigoCupom}
+                onChange={(e) => aoDigitarCupom(e.target.value)}
+                placeholder="Código do cupom"
+                aria-label="Código do cupom"
+                autoCapitalize="characters"
+                spellCheck={false}
+                className="h-7 min-w-0 flex-1 rounded-lg border border-[var(--pp-border)] bg-[var(--pp-bg)] px-2 text-[10px] font-bold uppercase tracking-wide text-[var(--pp-text)] outline-none placeholder:font-semibold placeholder:normal-case placeholder:tracking-normal placeholder:text-[var(--pp-text-muted)] focus:border-[var(--pp-primary)] focus:bg-[var(--pp-surface)]"
+              />
+              <button
+                type="submit"
+                disabled={!codigoCupom.trim() || cupomProcessando}
+                className="h-7 shrink-0 rounded-lg border border-[var(--pp-border)] bg-[var(--pp-bg)] px-2 text-[10px] font-black text-[var(--pp-text-body)] transition hover:border-[var(--pp-primary)] hover:text-[var(--pp-primary-text)] disabled:opacity-45"
+              >
+                {cupomProcessando ? "…" : "Aplicar"}
+              </button>
+            </form>
+            {cupomLegenda?.texto && (
+              <p
+                role="status"
+                aria-live="polite"
+                className={`px-0.5 text-[9px] font-bold leading-tight ${tomLegenda[cupomLegenda.tom] || tomLegenda.neutro}`}
+              >
+                {cupomLegenda.texto}
+              </p>
+            )}
+          </div>
         )}
       </div>
 
