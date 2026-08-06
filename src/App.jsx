@@ -4445,10 +4445,10 @@ function FinanceiroVisaoAdmin({ orders = [], fidRegra = null, fidTransacoes = []
         })}
       </div>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <CardMetrica titulo="Receitas (pago)" valor={formatCurrency(receita)} sub={`${pagos.length} pedidos pagos`} cor="text-emerald-400" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="12" rx="2" /><circle cx="12" cy="12" r="2.5" /></svg>} />
-        <CardMetrica titulo="Valores em aberto" valor={formatCurrency(emAberto)} sub={`${abertos.length} comandas pendentes`} cor="text-gold-400" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>} />
-        <CardMetrica titulo="Saldo previsto" valor={formatCurrency(receita + emAberto)} sub="pago + em aberto" cor="text-blue-400" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 17l6-6 4 4 8-8" /><path d="M17 7h4v4" /></svg>} />
-        <CardMetrica titulo="Ticket médio" valor={formatCurrency(ticket)} sub="por pedido pago" cor="text-violet-300" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z" /><path d="M9 8h6M9 12h6" /></svg>} />
+        <CardMetrica compact titulo="Receitas (pago)" valor={formatCurrency(receita)} sub={`${pagos.length} pedidos pagos`} cor="text-emerald-400" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="12" rx="2" /><circle cx="12" cy="12" r="2.5" /></svg>} />
+        <CardMetrica compact titulo="Valores em aberto" valor={formatCurrency(emAberto)} sub={`${abertos.length} comandas pendentes`} cor="text-gold-400" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>} />
+        <CardMetrica compact titulo="Saldo previsto" valor={formatCurrency(receita + emAberto)} sub="pago + em aberto" cor="text-blue-400" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 17l6-6 4 4 8-8" /><path d="M17 7h4v4" /></svg>} />
+        <CardMetrica compact titulo="Ticket médio" valor={formatCurrency(ticket)} sub="por pedido pago" cor="text-violet-300" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z" /><path d="M9 8h6M9 12h6" /></svg>} />
       </div>
       <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-4 sm:p-5">
         <h3 className="page-title text-base font-bold text-white">Receita por forma de pagamento</h3>
@@ -8413,10 +8413,10 @@ function KpiExecutivo({ titulo, valor, variacao, desc, icon, tendencia }) {
   return (
     <div className="h-full rounded-2xl border border-[var(--pp-border)] bg-white p-4 shadow-[0_1px_2px_rgba(13,27,42,0.04)]">
       <div className="flex items-start justify-between gap-2">
-        <p className="text-[11px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]">{titulo}</p>
+        <p className="text-[10.5px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]">{titulo}</p>
         {icon && <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#0F4C5C]/10 text-sm">{icon}</span>}
       </div>
-      <p className="page-title mt-1.5 text-2xl font-black text-[var(--pp-text)]">{valor}</p>
+      <p className="page-title mt-1.5 text-[22px] font-bold leading-tight text-[var(--pp-text)]">{valor}</p>
       <div className="mt-1 flex items-center gap-2">
         {variacao != null && (
           <span className={`text-[11px] font-bold ${variacao >= 0 ? "text-[#2F9E52]" : "text-[#F59E0B]"}`}>{variacao >= 0 ? "▲" : "▼"} {Math.abs(Math.round(variacao))}%</span>
@@ -9390,14 +9390,14 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
   const labelClsClientesE = "mb-1 block text-[10px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]";
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h2 className="page-title flex items-center gap-2.5 text-2xl font-bold tracking-tight text-dash-navy">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#E67E22]/30 bg-[#E67E22]/10 text-[#E67E22]"><IconRelatorios /></span>
+          <h2 className="page-title flex items-center gap-2.5 text-xl font-bold tracking-tight text-dash-navy">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#E67E22]/30 bg-[#E67E22]/10 text-[#E67E22] [&>svg]:h-[18px] [&>svg]:w-[18px]"><IconRelatorios /></span>
             Relatórios de vendas
           </h2>
-          <p className="mt-1 text-sm text-[var(--pp-text-muted)]">Análise gerencial: vendas, cupons, estoque, clientes e tempo de permanência.</p>
+          <p className="mt-1 text-[13px] text-[var(--pp-text-muted)]">Análise gerencial: vendas, cupons, estoque, clientes e tempo de permanência.</p>
         </div>
         <div className="pp-filter-panel">
           <SeletorPeriodo periodo={periodo} setPeriodo={setPeriodo} ini={ini} setIni={setIni} fim={fim} setFim={setFim} />
@@ -9415,13 +9415,13 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
         <>
           <BotoesExport />
           {/* 6 KPIs */}
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
-            <CardMetrica titulo="Faturamento total" valor={formatCurrency(a.faturamento)} cor="text-dash-navy" tone="dashSuccess" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="12" rx="2" /><circle cx="12" cy="12" r="2.5" /><path d="M6 12h.01M18 12h.01" /></svg>} variacao={comparativo?.faturamento} />
-            <CardMetrica titulo="Subtotal vendido" valor={formatCurrency(a.faturamentoSemTaxa)} cor="text-dash-navy" icon="📈" />
-            <CardMetrica titulo="Ticket médio" valor={formatCurrency(a.ticket)} cor="text-dash-navy" tone="dashPrimary" icon="🎫" variacao={comparativo?.ticket} />
-            <CardMetrica titulo="Itens vendidos" valor={itensVendidos} cor="text-dash-navy" icon="🛍️" />
-            <CardMetrica titulo="Pedidos" valor={a.totalPedidos} cor="text-dash-navy" tone="dashInfo" icon="📋" variacao={comparativo?.pedidos} />
-            <CardMetrica titulo="Margem estimada" valor={formatCurrency(margemEstimada)} sub={`${margemPct.toFixed(1)}% sobre faturamento`} cor="text-dash-navy" tone="dashWarning" icon="🧮" />
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+            <CardMetrica compact titulo="Faturamento total" valor={formatCurrency(a.faturamento)} cor="text-dash-navy" tone="dashSuccess" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="12" rx="2" /><circle cx="12" cy="12" r="2.5" /><path d="M6 12h.01M18 12h.01" /></svg>} variacao={comparativo?.faturamento} />
+            <CardMetrica compact titulo="Subtotal vendido" valor={formatCurrency(a.faturamentoSemTaxa)} cor="text-dash-navy" icon="📈" />
+            <CardMetrica compact titulo="Ticket médio" valor={formatCurrency(a.ticket)} cor="text-dash-navy" tone="dashPrimary" icon="🎫" variacao={comparativo?.ticket} />
+            <CardMetrica compact titulo="Itens vendidos" valor={itensVendidos} cor="text-dash-navy" icon="🛍️" />
+            <CardMetrica compact titulo="Pedidos" valor={a.totalPedidos} cor="text-dash-navy" tone="dashInfo" icon="📋" variacao={comparativo?.pedidos} />
+            <CardMetrica compact titulo="Margem estimada" valor={formatCurrency(margemEstimada)} sub={`${margemPct.toFixed(1)}% sobre faturamento`} cor="text-dash-navy" tone="dashWarning" icon="🧮" />
           </div>
 
           {/* Evolução + categoria + horário */}
@@ -9534,7 +9534,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
           )}
 
           {/* 1. Resumo executivo */}
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
             <KpiExecutivo titulo="Clientes identificados" valor={clientesIdentificados} desc="Com nome ou telefone no pedido" icon="🧑" />
             <KpiExecutivo titulo="Clientes não identificados" valor={`${pedidosSemId} pedido(s)`} desc={formatCurrency(fatSemId)} icon="❓" />
             <KpiExecutivo titulo="Ticket médio" valor={formatCurrency(a.ticket)} variacao={compararPeriodoClientesE ? comparativo?.ticket : null} desc="Por pedido pago no período" icon="🎟️" />
@@ -9962,7 +9962,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
           </div>
 
           {/* 1. Resumo executivo */}
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
             <KpiExecutivo titulo="Estoque total atual" valor={`${totalEmEstoque} un.`} desc="Soma de todos os produtos ativos" icon="📦" />
             <KpiExecutivo titulo="Itens vendidos no período" valor={`${totalVendidoPeriodo} un.`} variacao={compararPeriodoEstoque ? comparativoEstoqueE?.itensVendidos : null} desc="Unidades baixadas por venda paga" icon="🧾" />
             <KpiExecutivo titulo="Maior estoque" valor={maiorEstoque ? maiorEstoque.name : "—"} desc={maiorEstoque ? `${maiorEstoque.estoque ?? 0} un.` : "Sem produtos"} icon="🔝" />
@@ -11167,17 +11167,17 @@ function RelatorioCupom({ pedidos, products = [], lojaInfo, periodo, ini, fim, c
   return (
     <div className="space-y-4">
       {/* 1. Cabeçalho executivo — cards padrão do Dashboard (CardMetrica) */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
-        <CardMetrica titulo="Total de cupons" valor={pagos.length} cor="text-dash-navy" />
-        <CardMetrica titulo="Faturamento" valor={formatCurrency(faturamentoCupons)} cor="text-dash-navy" tone="dashSuccess" />
-        <CardMetrica titulo="Ticket médio" valor={formatCurrency(ticketMedioCupons)} cor="text-dash-navy" tone="dashPrimary" />
-        <CardMetrica titulo="Maior venda" valor={formatCurrency(maiorVendaCupom)} cor="text-dash-navy" tone="dashWarning" />
-        <CardMetrica titulo="Menor venda" valor={formatCurrency(menorVendaCupom)} cor="text-dash-navy" />
-        <CardMetrica titulo="Desconto médio" valor="—" sub="sem desconto por pedido no modelo atual" cor="text-dash-navy" />
-        <CardMetrica titulo="Tempo médio de atendimento" valor={tempoAtendimentoMedioGlobal > 0 ? formatarDuracaoMin(tempoAtendimentoMedioGlobal) : "—"} sub="criação → pagamento" cor="text-dash-navy" tone="dashInfo" />
-        <CardMetrica titulo="Lucro estimado" valor={formatCurrency(lucroTotalCupons)} sub={`margem ${margemPctGlobal.toFixed(0)}% · preço − custo cadastrado`} cor="text-dash-navy" tone="dashSuccess" />
-        <CardMetrica titulo="Reimpressões" valor={reimpressoesTotais} sub="registradas nesta sessão" cor="text-dash-navy" tone="dashWarning" />
-        <CardMetrica titulo="Cancelamentos" valor={cancelamentosCount} cor="text-dash-navy" tone="dashDanger" />
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
+        <CardMetrica compact titulo="Total de cupons" valor={pagos.length} cor="text-dash-navy" />
+        <CardMetrica compact titulo="Faturamento" valor={formatCurrency(faturamentoCupons)} cor="text-dash-navy" tone="dashSuccess" />
+        <CardMetrica compact titulo="Ticket médio" valor={formatCurrency(ticketMedioCupons)} cor="text-dash-navy" tone="dashPrimary" />
+        <CardMetrica compact titulo="Maior venda" valor={formatCurrency(maiorVendaCupom)} cor="text-dash-navy" tone="dashWarning" />
+        <CardMetrica compact titulo="Menor venda" valor={formatCurrency(menorVendaCupom)} cor="text-dash-navy" />
+        <CardMetrica compact titulo="Desconto médio" valor="—" sub="sem desconto por pedido no modelo atual" cor="text-dash-navy" />
+        <CardMetrica compact titulo="Tempo médio de atendimento" valor={tempoAtendimentoMedioGlobal > 0 ? formatarDuracaoMin(tempoAtendimentoMedioGlobal) : "—"} sub="criação → pagamento" cor="text-dash-navy" tone="dashInfo" />
+        <CardMetrica compact titulo="Lucro estimado" valor={formatCurrency(lucroTotalCupons)} sub={`margem ${margemPctGlobal.toFixed(0)}% · preço − custo cadastrado`} cor="text-dash-navy" tone="dashSuccess" />
+        <CardMetrica compact titulo="Reimpressões" valor={reimpressoesTotais} sub="registradas nesta sessão" cor="text-dash-navy" tone="dashWarning" />
+        <CardMetrica compact titulo="Cancelamentos" valor={cancelamentosCount} cor="text-dash-navy" tone="dashDanger" />
       </div>
 
       {/* 9. Métricas premium */}
@@ -12361,7 +12361,7 @@ function RelatorioPermanencia({ pedidos, orders = [], products = [], periodo, in
       </div>
 
       {/* 1. KPIs */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
         <KpiExecutivo titulo="Permanência média" valor={formatarDuracaoMin(Math.round(mediaGeralMinutos))} variacao={compararPeriodoPermE ? comparativoPermE?.variacaoMedia : null} desc={`${lista.length} comanda(s) analisada(s)`} icon="⏱️" />
         <KpiExecutivo titulo="Comandas finalizadas" valor={lista.length} variacao={compararPeriodoPermE ? comparativoPermE?.variacaoComandas : null} desc="Do pedido ao pagamento" icon="🧾" />
         <KpiExecutivo titulo="Tempo médio até pagamento" valor={tempoMedioAtePagamentoE != null ? formatarDuracaoMin(Math.round(tempoMedioAtePagamentoE)) : "—"} desc="Do pedido pronto ao pagamento" icon="💳" />
@@ -15545,9 +15545,9 @@ function MeuPlanoAdmin({ planoAtual, assinaturaAtual, planos = [], planoModulos 
           <p className="page-title mt-2 text-xl font-bold text-white">{planoAtual ? planoAtual.nome : "Não configurado"}</p>
           <p className="mt-0.5 text-sm font-black text-gold-400">{planoAtual?.precoBase != null ? `A partir de ${formatCurrency(planoAtual.precoBase)}/mês` : (planoAtual?.isPersonalizado ? "Sob consulta" : "Acesso completo")}</p>
         </div>
-        <CardMetrica titulo="Status da assinatura" valor={st.rotulo} cor={tomBadge} />
-        <CardMetrica titulo="Validade" valor={assinaturaAtual?.dataFim ? new Date(assinaturaAtual.dataFim).toLocaleDateString("pt-BR") : "—"} sub={st.diasTrial != null ? `Trial: ${Math.max(0, st.diasTrial)} dia(s)` : ""} cor="text-white" />
-        <CardMetrica titulo="Valor contratado" valor={assinaturaAtual?.precoMensal != null ? formatCurrency(assinaturaAtual.precoMensal) : (planoAtual?.precoBase != null ? formatCurrency(planoAtual.precoBase) : "—")} sub="por mês" cor="text-gold-400" />
+        <CardMetrica compact titulo="Status da assinatura" valor={st.rotulo} cor={tomBadge} />
+        <CardMetrica compact titulo="Validade" valor={assinaturaAtual?.dataFim ? new Date(assinaturaAtual.dataFim).toLocaleDateString("pt-BR") : "—"} sub={st.diasTrial != null ? `Trial: ${Math.max(0, st.diasTrial)} dia(s)` : ""} cor="text-white" />
+        <CardMetrica compact titulo="Valor contratado" valor={assinaturaAtual?.precoMensal != null ? formatCurrency(assinaturaAtual.precoMensal) : (planoAtual?.precoBase != null ? formatCurrency(planoAtual.precoBase) : "—")} sub="por mês" cor="text-gold-400" />
       </div>
 
       {!planoAtual && (
@@ -16718,10 +16718,10 @@ function CaixaSessaoAdmin({ caixaAberto, caixas = [], api }) {
       ) : (
         <>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <CardMetrica titulo="Aberto em" valor={caixaAberto.abertoEmISO ? new Date(caixaAberto.abertoEmISO).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—"} sub="sessão atual" cor="text-white" />
-            <CardMetrica titulo="Total vendido" valor={formatCurrency(vendas)} sub={`${movs.filter((m) => m.tipo === "venda").length} venda(s)`} cor="text-emerald-400" />
-            <CardMetrica titulo="Suprimentos − Sangrias" valor={formatCurrency(suprimentos - sangrias)} sub={`+${formatCurrency(suprimentos)} / −${formatCurrency(sangrias)}`} cor="text-white" />
-            <CardMetrica titulo="Esperado em dinheiro" valor={formatCurrency(esperadoDinheiro)} sub="abertura + dinheiro − sangria" cor="text-gold-400" />
+            <CardMetrica compact titulo="Aberto em" valor={caixaAberto.abertoEmISO ? new Date(caixaAberto.abertoEmISO).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—"} sub="sessão atual" cor="text-white" />
+            <CardMetrica compact titulo="Total vendido" valor={formatCurrency(vendas)} sub={`${movs.filter((m) => m.tipo === "venda").length} venda(s)`} cor="text-emerald-400" />
+            <CardMetrica compact titulo="Suprimentos − Sangrias" valor={formatCurrency(suprimentos - sangrias)} sub={`+${formatCurrency(suprimentos)} / −${formatCurrency(sangrias)}`} cor="text-white" />
+            <CardMetrica compact titulo="Esperado em dinheiro" valor={formatCurrency(esperadoDinheiro)} sub="abertura + dinheiro − sangria" cor="text-gold-400" />
           </div>
 
           <div className="flex flex-wrap gap-2">
