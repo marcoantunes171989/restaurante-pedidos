@@ -215,7 +215,11 @@ export default function CardapioPublico() {
   const [enviando, setEnviando]   = useState(false);
   const enviandoRef = useRef(false); // trava síncrona contra clique duplo (ver enviar())
   const [msg, setMsg]             = useState(null);
-  const [etapa, setEtapa]         = useState(mesaURL ? "welcome" : "cardapio"); // welcome | cardapio
+  // Tela de boas-vindas (premium) como ENTRADA tanto no QR da mesa quanto no
+  // link geral de divulgação (externo). O cliente vê a apresentação da marca +
+  // destaques e toca "Ver cardápio" para entrar. Os blocos exclusivos de mesa
+  // (ex.: "Precisa de algo?") já são condicionados a !modoExterno && mesa.
+  const [etapa, setEtapa]         = useState("welcome"); // welcome | cardapio
   const [tipoPedido, setTipoPedido] = useState(""); // pedido externo: local | retirada | entrega (config_externo)
   const [formaPagto, setFormaPagto] = useState(""); // forma de pagamento: pix | cartao | dinheiro (config_externo)
   const [agora, setAgora] = useState(() => new Date()); // relógio p/ reavaliar aberto/fechado ao vivo
@@ -1524,7 +1528,7 @@ export default function CardapioPublico() {
       sino: (p) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6Z" /><path d="M10 19a2 2 0 0 0 4 0" /></svg>),
     };
     return (
-      <div data-theme="light" className="pp-mesa-welcome tema-claro-area flex h-[100dvh] max-h-[100dvh] w-full max-w-[100vw] flex-col overflow-y-auto scrollbar-none bg-[var(--client-background)] px-5 text-[var(--client-text-primary)]"
+      <div data-theme="light" className={`pp-mesa-welcome tema-claro-area flex h-[100dvh] max-h-[100dvh] w-full max-w-[100vw] flex-col overflow-y-auto scrollbar-none bg-[var(--client-background)] px-5 text-[var(--client-text-primary)] ${modoExterno ? "pp-welcome-ext" : ""}`}
         style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.5rem)", paddingBottom: "calc(env(safe-area-inset-bottom) + 0.5rem)" }}>
         {/* my-auto centraliza verticalmente quando cabe (tela única, sem rolar);
             se em telas muito baixas o conteúdo exceder, o my-auto colapsa e o

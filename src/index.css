@@ -1110,9 +1110,15 @@ select::-ms-expand { display: none; } /* IE/Edge antigo */
      opt1 (precisa de algo — redundante com o cabeçalho do cardápio) (< 740px)
      opt-sub (subtítulo do "Bem-vindo") → some por último em telas bem baixas.
    Assim os botões nunca são cortados pelo overflow-hidden do container. */
-@media (max-height: 940px) { .pp-mesa-welcome .pp-mesa-opt3 { display: none !important; } }
-@media (max-height: 860px) { .pp-mesa-welcome .pp-mesa-opt2 { display: none !important; } }
-@media (max-height: 780px) { .pp-mesa-welcome .pp-mesa-opt1 { display: none !important; } }
+/* MESA (QR): tem o bloco extra "Precisa de algo?" (opt1) → some mais cedo. */
+@media (max-height: 940px) { .pp-mesa-welcome:not(.pp-welcome-ext) .pp-mesa-opt3 { display: none !important; } }
+@media (max-height: 860px) { .pp-mesa-welcome:not(.pp-welcome-ext) .pp-mesa-opt2 { display: none !important; } }
+@media (max-height: 780px) { .pp-mesa-welcome:not(.pp-welcome-ext) .pp-mesa-opt1 { display: none !important; } }
+/* EXTERNO (link geral): sem "Precisa de algo?" → há mais folga, os selos e a
+   fidelidade permanecem visíveis por mais tempo (somem só em telas bem baixas). */
+@media (max-height: 760px) { .pp-welcome-ext .pp-mesa-opt3 { display: none !important; } }
+@media (max-height: 700px) { .pp-welcome-ext .pp-mesa-opt2 { display: none !important; } }
+/* Subtítulo do "Bem-vindo" some por último, em telas muito baixas (ambos os modos). */
 @media (max-height: 680px) { .pp-mesa-welcome .pp-mesa-opt-sub { display: none !important; } }
 
 /* Remove a barra de rolagem lateral da página inteira (scroll continua
