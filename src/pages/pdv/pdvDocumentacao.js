@@ -12,7 +12,7 @@
 import { formatCurrency } from "./pdvHelpers";
 
 /** Versão da documentação — acompanha a versão da tela do PDV. */
-export const PDV_DOC_VERSAO = "2026.08.5";
+export const PDV_DOC_VERSAO = "2026.08.6";
 export const PDV_DOC_ATUALIZADO_EM = "06/08/2026";
 
 const IMG = "/ajuda/pdv";
@@ -217,7 +217,7 @@ export function secoesDocumentacao(ctx = {}) {
             ["Por forma de pagamento", "Barras com PIX, cartão, dinheiro etc. no turno."],
           ],
         },
-        { tipo: "p", texto: "Toque em Turno para abrir o painel branco e limpo com KPIs, análise financeira, listas de contas em aberto e pagamentos do dia." },
+        { tipo: "p", texto: "Toque em Turno para abrir o painel branco do Pedido Prime (marca, azul petróleo e detalhes laranja): KPIs do dia, análise financeira, cozinha, contas em aberto e pagamentos — leitura rápida para o caixa." },
         {
           tipo: "dica",
           titulo: "Layout estável no pagamento",
