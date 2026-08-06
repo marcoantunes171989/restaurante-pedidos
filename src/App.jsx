@@ -2449,26 +2449,49 @@ export default function RestaurantePedidoApp() {
       <div className="tema-claro-area relative flex items-center justify-center overflow-hidden px-4 text-admin-text"
         style={{
           minHeight: "100dvh",
-          backgroundColor: "#F7F8FA",
+          backgroundColor: "#FFFFFF",
           paddingTop: "env(safe-area-inset-top)",
           paddingBottom: "env(safe-area-inset-bottom)",
           backgroundImage:
-            "radial-gradient(30rem 30rem at -6rem -6rem, rgba(15, 76, 92,0.18), transparent 70%), radial-gradient(30rem 30rem at calc(100% + 6rem) calc(100% + 6rem), rgba(124,58,237,0.14), transparent 70%)",
+            "radial-gradient(34rem 34rem at -8rem -8rem, rgba(15,76,92,0.06), transparent 70%), radial-gradient(30rem 30rem at calc(100% + 8rem) calc(100% + 8rem), rgba(230,126,34,0.05), transparent 70%)",
         }}>
-        {/* Grade de pontos discreta */}
-        <div className="pointer-events-none absolute inset-0 opacity-[0.06]"
-          style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #1A1A1A 1px, transparent 0)", backgroundSize: "32px 32px" }} />
+        {/* Textura de pontos bem discreta (papel gourmet) */}
+        <div className="pointer-events-none absolute inset-0 opacity-[0.035]"
+          style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #0F4C5C 1px, transparent 0)", backgroundSize: "34px 34px" }} />
 
-        <div className="relative flex flex-col items-center gap-7 text-center">
-          <div className="flex h-20 w-20 items-center justify-center animate-pulse"><LogoPP size={80} /></div>
+        <div className="relative flex flex-col items-center gap-6 text-center">
+          {/* Logo com anel fino girando (petróleo→laranja) */}
+          <div className="relative flex h-24 w-24 items-center justify-center">
+            <span className="pp-load-ring absolute inset-0 rounded-full border-2 border-[#0F4C5C]/12 border-t-[#E67E22]" aria-hidden="true" />
+            <LogoPP size={68} />
+          </div>
+
           <div>
-            <h1 className="text-2xl font-black tracking-tight text-pp-graphite">Pedido <span className="text-[var(--pp-primary)]">Prime</span></h1>
-            <p className="mt-1.5 text-sm text-pp-textMuted">Carregando ambiente do restaurante...</p>
+            <h1 className="text-2xl font-black tracking-tight"><span className="text-[#0F4C5C]">Pedido</span> <span className="text-[#E67E22]">Prime</span></h1>
+            <p className="mt-1.5 text-sm text-[var(--pp-text-muted)]">Preparando o ambiente do seu restaurante…</p>
           </div>
-          <div className="flex items-center gap-2.5 rounded-full border border-pp-border bg-pp-surface px-5 py-2 shadow-premium">
-            <span className="h-4 w-4 animate-spin rounded-full border-2 border-blue-400/30 border-t-blue-500" />
-            <span className="text-sm font-bold text-pp-textBody">Inicializando sistema...</span>
+
+          {/* Ícones de restaurante em sequência (staggered) — talheres, chapéu, chama, comanda */}
+          <div className="flex items-end gap-3.5 text-[#0F4C5C]" role="img" aria-label="Preparando o restaurante">
+            {[
+              // Talheres (garfo + faca)
+              <svg key="cut" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M7 2v7a2 2 0 0 0 2 2h0V2M7 5v0M11 2v9M9 11v11M17 2c-1.5 1-2.5 3-2.5 6 0 1.5 1 2 2.5 2v11" /></svg>,
+              // Chapéu de chef
+              <svg key="hat" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M6 19h12M7 19v-4M17 19v-4M6.5 15a3.5 3.5 0 0 1-1-6.8A4 4 0 0 1 12 5a4 4 0 0 1 6.5 3.2 3.5 3.5 0 0 1-1 6.8Z" /></svg>,
+              // Chama (frescor/preparo)
+              <svg key="fire" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2c1 3 4 4.5 4 8a4 4 0 0 1-8 0c0-1.2.4-2.2 1-3-.2 2 .8 3 2 3 1.2 0 2-1 2-2.2C15 8 12 6 12 2Z" /><path d="M8 14a4 4 0 1 0 8 0" /></svg>,
+              // Comanda/nota
+              <svg key="doc" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M6 3h9l3 3v15l-2-1-2 1-2-1-2 1-2-1-2 1V3Z" /><path d="M9 8h6M9 12h6M9 16h4" /></svg>,
+            ].map((icon, i) => (
+              <span key={i} className="pp-load-bounce h-6 w-6 [&>svg]:h-6 [&>svg]:w-6" style={{ animationDelay: `${i * 140}ms` }}>{icon}</span>
+            ))}
           </div>
+
+          {/* Barra de progresso indeterminada (petróleo→laranja) */}
+          <div className="relative h-1.5 w-56 max-w-[70vw] overflow-hidden rounded-full bg-[#0F4C5C]/[0.08]">
+            <div className="pp-load-bar absolute inset-y-0 left-0 w-1/3 rounded-full" style={{ background: "linear-gradient(90deg, #0F4C5C, #E67E22)" }} />
+          </div>
+          <p className="text-xs font-semibold uppercase tracking-widest text-[var(--pp-text-muted)]">Inicializando sistema…</p>
         </div>
       </div>
       </div>
