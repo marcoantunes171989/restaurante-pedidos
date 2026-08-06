@@ -48,6 +48,24 @@ Constantes do padrão:
   ponto/badge/valor (laranja `#E67E22`, petróleo `#0F4C5C`, verde `#5E8C31`, e
   vermelho `#C81E4A` só para erro/crítico).
 
+## Base automática (já ativa) — regra CSS que uniformiza tudo
+
+Existe uma regra em `src/index.css` que **já pinta de branco** toda superfície
+`bg-[var(--pp-bg)]` dentro do painel admin, de uma vez, em todas as telas:
+
+```css
+[data-theme="light"].pp-admin-module .tema-claro-area .bg-\[var\(--pp-bg\)\]:not(.animate-pulse) {
+  background-color: #FFFFFF !important;
+}
+```
+
+Ou seja: **não é preciso editar cada tile** só para tirar o off-white — a regra
+cobre o fundo. Os passos manuais abaixo servem para o **acabamento premium**
+(acrescentar a `shadow` de elevação e a borda petróleo onde o elemento merece
+destaque de "tile gourmet"), e para elementos que usam OUTROS fundos crus
+(`bg-white/[0.06]`, `bg-slate-50/100`, classes dark-theme remapeadas) que a regra
+acima não alcança — esses precisam de edição no JSX.
+
 ## O que NÃO transformar em branco (importante)
 
 1. **Skeletons de carregamento** — barras `animate-pulse ... bg-[var(--pp-bg)]`.

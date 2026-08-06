@@ -613,6 +613,17 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
 [data-theme="light"].pp-admin-module .tema-claro-area {
   background-color: #FFFFFF !important;
 }
+/* Padrão "superfícies brancas" (skill superficies-brancas-admin): as caixinhas/
+   tiles/chips/itens internos do admin que usam o off-white da paleta (--pp-bg)
+   passam a BRANCO, para não destoarem do fundo branco — a separação fica na
+   borda + sombra própria de cada elemento. Escopo: só dentro do painel admin.
+   EXCEÇÃO: skeletons de carregamento (.animate-pulse) mantêm o off-white (é o
+   shimmer; em branco sumiriam). Trilhos de barra usam bg-slate-100 (não --pp-bg),
+   então não são afetados. Módulos não-admin (caixa/cozinha/painel/cardápio)
+   ficam fora de .pp-admin-module e seguem no off-white padrão. */
+[data-theme="light"].pp-admin-module .tema-claro-area .bg-\[var\(--pp-bg\)\]:not(.animate-pulse) {
+  background-color: #FFFFFF !important;
+}
 /* Superfícies sólidas escuras → branco (cards/painéis) */
 [data-theme="light"] .tema-claro-area.bg-black,
 [data-theme="light"] .tema-claro-area .bg-black,

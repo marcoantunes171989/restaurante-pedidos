@@ -5724,20 +5724,20 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
   const precisaEmpresa = isSuperAdmin && !lojaInfo;
   const avisoEmpresa = (
     <main className="mx-auto max-w-lg">
-      <Card>
+      <section className="rounded-[2rem] border border-[var(--pp-border)] bg-white p-6 shadow-[0_1px_2px_rgba(15,76,92,0.05),0_18px_40px_-24px_rgba(15,76,92,0.25)]">
         <div className="text-center">
-          <span className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-3xl bg-blue-500/15 text-3xl">🏪</span>
-          <h3 className="text-lg font-black text-white">Selecione uma empresa</h3>
-          <p className="mt-2 text-sm text-slate-400">Como administrador geral, escolha a <b className="text-blue-300">Empresa em foco</b> no menu lateral para visualizar e gerenciar os cadastros desta empresa, sem misturar dados de outras.</p>
+          <span className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-3xl bg-[#0F4C5C]/10 text-3xl">🏪</span>
+          <h3 className="text-lg font-black text-[var(--pp-text)]">Selecione uma empresa</h3>
+          <p className="mt-2 text-sm text-[var(--pp-text-muted)]">Como administrador geral, escolha a <b className="text-[#E67E22]">Empresa em foco</b> no menu lateral para visualizar e gerenciar os cadastros desta empresa, sem misturar dados de outras.</p>
           <select
             value={lojaContexto ?? ""}
             onChange={(e) => setLojaContexto(e.target.value ? Number(e.target.value) : null)}
-            className="mt-4 w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-gold-400/60">
+            className="mt-4 w-full rounded-2xl border border-[var(--pp-border)] bg-white px-4 py-3 text-[var(--pp-text)] shadow-[0_1px_2px_rgba(15,76,92,0.05)] outline-none transition focus:border-[#0F4C5C] focus:ring-2 focus:ring-[#0F4C5C]/20">
             <option value="">Selecione a empresa…</option>
             {lojas.map((l) => <option key={l.id} value={l.id}>{l.nome} ({l.prefixo})</option>)}
           </select>
         </div>
-      </Card>
+      </section>
     </main>
   );
   return (
