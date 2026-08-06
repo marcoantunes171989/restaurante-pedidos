@@ -23,7 +23,7 @@ export default function PdvStatsBar({
   pagosHoje = [],
   taxaPct = 0,
 }) {
-  const [modalAberto, setModalAberto] = useState(false);
+  const [modalAberto, setModalAberto] = useState(true);
   const dataTurno = agora.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
   const horaTurno = agora.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
   const dataCompleta = agora.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" });

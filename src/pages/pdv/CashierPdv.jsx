@@ -41,6 +41,16 @@ import {
   textoBuscaConta,
 } from "./pdvHelpers";
 import { legendaCupom } from "./pdvCupomValidacao";
+import {
+  abrirCupomTermico,
+  htmlComprovanteCompletoPagamento,
+  htmlComprovanteEntregaRetirada,
+  htmlConferenciaMesa,
+  htmlCupomClienteSimplificado,
+  htmlPreConta,
+  imprimirPedidosProducaoPorSetor,
+  montarCtxConta,
+} from "./pdvCuponsTermicos";
 
 function chaveObsInterna(lojaId, mesa) {
   return `pedidoPrime:obsInterna:${lojaId || "geral"}:${mesa || "-"}`;
@@ -93,6 +103,7 @@ export default function CashierPdv({
   editarItensPedido = async () => {},
   criarPedidoCaixa = async () => null,
   products = [],
+  setores = [],
   fidCaixa = null,
   atualizarClientePedidos = async () => {},
   transferirMesaPedidos = async () => {},
@@ -101,8 +112,6 @@ export default function CashierPdv({
   validarCupom = async () => ({ ok: false, motivo: "Cupons indisponíveis." }),
   consumirCupom = async () => ({ ok: true }),
 }) {
-  void caixaAberto;
-
   const SERVICE_FEE = lerConfigTaxaServico(lojaInfo?.id);
   const taxaPct = SERVICE_FEE.enabled && SERVICE_FEE.chargingRule !== "nao_cobrar" ? SERVICE_FEE.percent : 0;
 
@@ -859,6 +868,12 @@ export default function CashierPdv({
         pontosGanhos: pontosGanhar,
         codigo: `PAG-${Date.now().toString().slice(-8)}`,
         alertasEstoque: baixa?.alertas || [],
+        cliente: contaSel.cliente || "",
+        telefone: contaSel.telefone || "",
+        aberturaISO: contaSel.aberturaISO || null,
+        externo: !!contaSel.externo,
+        itens: pedidosSel.flatMap((o) => o.items || []),
+        tipoEntrega: /entreg/i.test(contaSel.mesa || "") ? "entrega" : "retirada",
       });
       setConfirmarFinalizacao(false);
       setBufferEntrada("");
@@ -906,103 +921,175 @@ export default function CashierPdv({
     }
   }
 
-  function htmlCupom({ titulo, mesa, cliente, itensHtml, subtotal, taxas, total, rodape }) {
-    const agoraD = new Date();
-    return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>${titulo}</title>
-<style>
-*{margin:0;padding:0;box-sizing:border-box}@page{size:80mm auto;margin:0}
-body{font-family:'Courier New',monospace;font-size:12px;width:80mm;padding:4mm 3mm;color:#000}
-.c{text-align:center}.b{font-weight:bold}.sep{border-top:1px dashed #000;margin:5px 0}
-.row{display:flex;justify-content:space-between;gap:6px;margin:2px 0}
-</style></head><body>
-<div class="c b">${(lojaInfo?.nome || "PEDIDO PRIME").toUpperCase()}</div>
-<div class="c">${titulo}</div>
-<div class="sep"></div>
-<div class="row"><span>${mesa || "—"}</span><span>${agoraD.toLocaleString("pt-BR")}</span></div>
-<div class="row"><span>Cliente</span><span>${cliente || "—"}</span></div>
-<div class="sep"></div>
-${itensHtml}
-<div class="sep"></div>
-<div class="row"><span>Subtotal</span><span>${formatCurrency(subtotal)}</span></div>
-<div class="row"><span>Taxas</span><span>${formatCurrency(taxas)}</span></div>
-<div class="row b"><span>TOTAL</span><span>${formatCurrency(total)}</span></div>
-${rodape || ""}
-<script>window.onload=function(){window.print();setTimeout(function(){window.close()},300)}</scr` + `ipt>
-</body></html>`;
+  /** Contexto compartilhado dos cupons térmicos 80mm da conta selecionada. */
+  function ctxCupomConta(extras = {}) {
+    const mesaCad = mesas.find((m) => numeroMesaDe(contaSel?.mesa) === m.numero);
+    const formasNomes = formasAtivas.map((f) => f.nome).filter(Boolean).join(" · ")
+      || "PIX · Dinheiro · Débito · Crédito";
+    return montarCtxConta({
+      lojaInfo,
+      conta: contaSel,
+      pedidos: pedidosSel,
+      products,
+      setores,
+      currentUser,
+      caixaAberto,
+      pessoas: mesaCad?.capacidade || extras.pessoas || 0,
+      observacaoGeral: contaSel ? lerObsInterna(lojaInfo?.id, contaSel.mesa) : "",
+      financeiros: {
+        subtotal: subtotalSel,
+        desconto: descontoCupom + descontoManualSel,
+        descontoProvisorio: descontoCupom + descontoManualSel,
+        acrescimo: acrescimoSel,
+        taxaServico: taxaValorSel,
+        taxaEstimada: taxaValorSel,
+        taxaEntrega: 0,
+        total: totalCobrar > 0 ? totalCobrar : totalSel,
+        totalEstimado: totalCobrar > 0 ? totalCobrar : totalSel,
+        formasAceitas: formasNomes,
+        ...extras.financeiros,
+      },
+      ...extras,
+    });
   }
 
-  function itensHtmlPedidos(pedidos) {
-    return pedidos
-      .flatMap((o) => (o.items || []).map((it) => `<div class="row"><span>${it.quantity}x ${it.name}</span><span>${formatCurrency(it.price * it.quantity)}</span></div>`))
-      .join("");
-  }
-
+  /** Pré-conta (modelo 5) — documento sem valor fiscal para o cliente. */
   function imprimirPreConta() {
-    if (!contaSel || pedidosSel.length === 0) return;
-    const janela = window.open("", "_blank", "width=400,height=640");
-    if (!janela) return;
-    janela.document.write(htmlCupom({
-      titulo: "PRÉ-CONTA — SEM VALOR FISCAL",
-      mesa: contaSel.mesa,
-      cliente: contaSel.cliente,
-      itensHtml: itensHtmlPedidos(pedidosSel),
-      subtotal: subtotalSel,
-      taxas: taxasSel,
-      total: totalSel,
-    }));
-    janela.document.close();
+    if (!contaSel || pedidosSel.length === 0) {
+      notify("error", "Selecione uma conta com produtos para imprimir a pré-conta.");
+      return;
+    }
+    const ctx = ctxCupomConta();
+    const ok = abrirCupomTermico(
+      `Pré-conta · ${ctx.mesa || ctx.comanda}`,
+      htmlPreConta(ctx),
+    );
+    if (!ok) {
+      notify("error", "Permita pop-ups para imprimir a pré-conta na impressora de cupom.");
+      return;
+    }
+    auditar("imprimir_pre_conta", "comanda", null, { mesa: contaSel.mesa, total: ctx.total });
   }
 
-  /** Emite comprovante da mesa aberta e bloqueia inclusão de novos produtos. */
+  /**
+   * Conferência de mesa (modelo 4) ou comprovante de retirada/entrega (modelo 6)
+   * quando a conta é externa. Bloqueia alteração dos itens já impressos.
+   */
   function emitirComprovanteMesa() {
     if (!contaSel || pedidosSel.length === 0) {
-      notify("error", "Selecione uma mesa com produtos para emitir o comprovante.");
+      notify("error", "Selecione uma conta com produtos para emitir o comprovante.");
       return;
     }
-    const janela = window.open("", "_blank", "width=400,height=640");
-    if (!janela) {
-      notify("error", "Permita pop-ups para imprimir o comprovante.");
+    const ctx = ctxCupomConta();
+    const ok = contaSel.externo
+      ? abrirCupomTermico(
+        `Retirada/Entrega · #${ctx.pedidoNumero}`,
+        htmlComprovanteEntregaRetirada({
+          ...ctx,
+          tipo: /entreg/i.test(contaSel.mesa || "") ? "entrega" : "retirada",
+          codigoRastreio: ctx.comanda || ctx.pedidoNumero,
+          realizadoISO: ctx.aberturaISO,
+          formaPagamento: "Aguardando pagamento",
+          statusPagamento: "EM ABERTO",
+          total: ctx.total,
+          conferidoPor: currentUser?.name || "",
+          volumes: Math.max(1, ctx.itens.reduce((s, it) => s + (Number(it.quantity) || 0), 0)),
+        }),
+      )
+      : abrirCupomTermico(
+        `Conferência · ${ctx.mesa || ctx.comanda}`,
+        htmlConferenciaMesa(ctx),
+      );
+    if (!ok) {
+      notify("error", "Permita pop-ups para imprimir o comprovante na impressora de cupom.");
       return;
     }
-    janela.document.write(htmlCupom({
-      titulo: "COMPROVANTE DA MESA — NÃO FISCAL",
-      mesa: contaSel.mesa,
-      cliente: contaSel.cliente,
-      itensHtml: itensHtmlPedidos(pedidosSel),
-      subtotal: subtotalSel,
-      taxas: taxasSel,
-      total: totalSel,
-      rodape: `<div class="sep"></div><div class="c b">COMPROVANTE EMITIDO</div><div class="c">Novos produtos exigem comanda do cliente</div>`,
-    }));
-    janela.document.close();
     setBloqueioProdutos((cur) => ({ ...cur, [contaSel.key]: true }));
-    auditar("emitir_comprovante_mesa", "comanda", null, { mesa: contaSel.mesa, total: totalSel });
+    auditar("emitir_comprovante_mesa", "comanda", null, {
+      mesa: contaSel.mesa,
+      total: ctx.total,
+      modelo: contaSel.externo ? "entrega_retirada" : "conferencia",
+    });
     notify("success", "Comprovante emitido. Para incluir produtos, informe a comanda do cliente.");
   }
 
-  function imprimirComprovante(dados) {
+  /** Produção: um cupom por setor de cozinha (modelo 3). */
+  function imprimirCuponsCozinha() {
+    if (!contaSel || pedidosSel.length === 0) {
+      notify("error", "Selecione uma conta com produtos para imprimir a cozinha.");
+      return;
+    }
+    const ctx = ctxCupomConta();
+    const n = imprimirPedidosProducaoPorSetor(ctx);
+    if (!n) {
+      notify("error", "Permita pop-ups para imprimir os cupons de produção.");
+      return;
+    }
+    auditar("imprimir_cozinha_setores", "comanda", null, {
+      mesa: contaSel.mesa,
+      setores: n,
+    });
+    notify("success", n === 1
+      ? "Cupom de produção enviado à impressora."
+      : `${n} cupons de produção enviados (um por setor).`);
+  }
+
+  /** Após pagamento: comprovante completo (2), simplificado (1) ou retirada/entrega (6). */
+  function imprimirComprovante(dados, variante = "completo") {
     if (!dados) return;
-    const j = window.open("", "_blank", "width=400,height=640");
-    if (!j) return;
-    j.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Comprovante</title>
-<style>
-*{margin:0;padding:0;box-sizing:border-box}@page{size:80mm auto;margin:0}
-body{font-family:'Courier New',monospace;font-size:12px;width:80mm;padding:4mm 3mm}
-.c{text-align:center}.b{font-weight:bold}.sep{border-top:1px dashed #000;margin:5px 0}
-.row{display:flex;justify-content:space-between;gap:6px}
-</style></head><body>
-<div class="c b">${(lojaInfo?.nome || "PEDIDO PRIME").toUpperCase()}</div>
-<div class="c">COMPROVANTE NÃO FISCAL</div>
-<div class="sep"></div>
-<div class="row"><span>${dados.mesa}</span><span>${dados.codigo}</span></div>
-<div class="sep"></div>
-<div class="row b"><span>TOTAL</span><span>${formatCurrency(dados.total)}</span></div>
-${(dados.detalhes || []).map((d) => `<div class="row"><span>${d.forma}</span><span>${formatCurrency(d.valor)}</span></div>`).join("")}
-${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency(dados.troco)}</span></div>` : ""}
-<div class="sep"></div><div class="c b">PAGAMENTO CONFIRMADO</div>
-<script>window.onload=function(){window.print();setTimeout(function(){window.close()},300)}</scr` + `ipt>
-</body></html>`);
-    j.document.close();
+    const itens = dados.itens || [];
+    const base = {
+      lojaInfo,
+      mesa: dados.mesa,
+      comanda: (dados.comandas || []).join(", "),
+      pedidoNumero: dados.codigo?.replace(/\D/g, "").slice(-6) || String(dados.codigo || "").slice(-6),
+      cliente: dados.cliente || "",
+      telefone: dados.telefone || "",
+      aberturaISO: dados.aberturaISO || null,
+      fechamentoISO: new Date().toISOString(),
+      operador: currentUser?.name || "",
+      itens,
+      subtotal: dados.subtotal || 0,
+      desconto: (Number(dados.desconto) || 0) + (Number(dados.descontoManual) || 0),
+      cupomCodigo: dados.cupom || "",
+      acrescimo: Number(dados.acrescimo) || 0,
+      taxaServico: Number(dados.taxa) || 0,
+      total: dados.total || 0,
+      pagamentos: dados.detalhes || [],
+      troco: dados.troco || 0,
+      pagamentoId: dados.codigo || "",
+      caixaId: caixaAberto?.id ? String(caixaAberto.id).slice(-6) : "",
+      pdvId: "PDV-CAIXA",
+      atendimento: dados.externo ? "Delivery / Retirada" : "Salão",
+    };
+
+    let html;
+    let titulo;
+    if (dados.externo || variante === "entrega") {
+      titulo = `Retirada/Entrega · ${base.pedidoNumero}`;
+      html = htmlComprovanteEntregaRetirada({
+        ...base,
+        tipo: dados.tipoEntrega === "entrega" ? "entrega" : "retirada",
+        codigoRastreio: base.comanda || base.pedidoNumero,
+        realizadoISO: base.aberturaISO,
+        formaPagamento: (dados.detalhes || []).map((d) => d.forma).join(" + ") || "—",
+        statusPagamento: "PAGO",
+        conferidoPor: currentUser?.name || "",
+        volumes: Math.max(1, itens.reduce((s, it) => s + (Number(it.quantity) || 0), 0)),
+      });
+    } else if (variante === "simplificado") {
+      titulo = `Cupom · ${base.pedidoNumero}`;
+      html = htmlCupomClienteSimplificado({
+        ...base,
+        formaPagamento: (dados.detalhes || []).map((d) => d.forma).join(" + "),
+        dataHora: new Date(),
+      });
+    } else {
+      titulo = `Pagamento · ${base.pedidoNumero}`;
+      html = htmlComprovanteCompletoPagamento(base);
+    }
+    const ok = abrirCupomTermico(titulo, html);
+    if (!ok) notify("error", "Permita pop-ups para imprimir na impressora de cupom.");
   }
 
   async function alterarQtdItem(orderId, index, novaQtd) {
@@ -1476,6 +1563,7 @@ ${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency
         onSeparar={temConta && !contaSel.externo && itensParaSeparar.length > 0 ? () => setModal("separar") : undefined}
         onImprimir={temConta ? imprimirPreConta : undefined}
         onComprovante={temConta ? emitirComprovanteMesa : undefined}
+        onCozinha={temConta ? imprimirCuponsCozinha : undefined}
         onObservacoes={temConta ? () => setModal("observacoes") : undefined}
         onHistorico={temConta ? () => setModal("historico") : undefined}
       />
@@ -1680,9 +1768,23 @@ ${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency
               <p className="text-xs font-bold text-[#1F7A3D]">Cliente ganhou {sucesso.pontosGanhos} pontos</p>
             )}
             <div className="mt-5 space-y-2">
-              <button type="button" onClick={() => imprimirComprovante(sucesso)} className="btn-laranja flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl text-sm font-black text-white">
-                <IconImpressora width={16} height={16} /> Imprimir comprovante
+              <button
+                type="button"
+                onClick={() => imprimirComprovante(sucesso, sucesso.externo ? "entrega" : "completo")}
+                className="btn-laranja flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl text-sm font-black text-white"
+              >
+                <IconImpressora width={16} height={16} />
+                {sucesso.externo ? "Imprimir retirada / entrega" : "Imprimir comprovante completo"}
               </button>
+              {!sucesso.externo && (
+                <button
+                  type="button"
+                  onClick={() => imprimirComprovante(sucesso, "simplificado")}
+                  className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-[var(--pp-border)] text-sm font-black text-[var(--pp-text-body)]"
+                >
+                  <IconImpressora width={16} height={16} /> Cupom simplificado do cliente
+                </button>
+              )}
               <button type="button" onClick={() => setSucesso(null)} className="min-h-11 w-full rounded-2xl border border-[var(--pp-border)] text-sm font-black text-[var(--pp-text-body)]">
                 Voltar ao PDV
               </button>

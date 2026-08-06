@@ -51,6 +51,10 @@ import {
   normalizarRespostaCupom,
   validarCupomLocal,
 } from "./pages/pdv/pdvCupomValidacao";
+import {
+  abrirCupomTermico,
+  htmlPedidoProducao,
+} from "./pages/pdv/pdvCuponsTermicos";
 import CentralDaCozinha from "./pages/CentralDaCozinha";
 import CentralDoBar from "./pages/CentralDoBar";
 import OperationalBottomNav from "./components/OperationalBottomNav";
@@ -2519,7 +2523,7 @@ export default function RestaurantePedidoApp() {
           <KitchenView groupedOrders={groupedOrders} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} entregandoId={entregandoId} cancelarPedido={cancelarPedido} currentUser={currentUser} lojaInfo={lojaInfo} setores={filtraLoja(setoresCozinha)} produtos={products} setorInicial={cozinhaSetorInicial} />
         )}
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} products={products} lojaInfo={lojaInfo} />}
-        {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierPdv orders={orders} mesas={filtraLoja(mesas).filter((m) => m.active !== false)} clientes={filtraLoja(clientes)} baixarComandas={baixarComandas} formasPagamento={formasPagamentoLoja} lojaInfo={lojaInfo} currentUser={currentUser} caixaAberto={caixaAberto} auditar={auditar} conexaoOk={conexaoOk} editarItensPedido={editarItensPedido} criarPedidoCaixa={criarPedidoCaixa} products={products} fidCaixa={fidCaixa} atualizarClientePedidos={atualizarClientePedidos} transferirMesaPedidos={transferirMesaPedidos} separarItensPedidos={separarItensPedidos} notify={notify} validarCupom={validarCupomCaixa} consumirCupom={consumirCupomCaixa} />}
+        {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierPdv orders={orders} mesas={filtraLoja(mesas).filter((m) => m.active !== false)} clientes={filtraLoja(clientes)} baixarComandas={baixarComandas} formasPagamento={formasPagamentoLoja} lojaInfo={lojaInfo} currentUser={currentUser} caixaAberto={caixaAberto} auditar={auditar} conexaoOk={conexaoOk} editarItensPedido={editarItensPedido} criarPedidoCaixa={criarPedidoCaixa} products={products} setores={filtraLoja(setoresCozinha)} fidCaixa={fidCaixa} atualizarClientePedidos={atualizarClientePedidos} transferirMesaPedidos={transferirMesaPedidos} separarItensPedidos={separarItensPedidos} notify={notify} validarCupom={validarCupomCaixa} consumirCupom={consumirCupomCaixa} />}
         {/* activeTab === "opmobile" agora é tratado pelo branch dedicado no início desta função (sem cabeçalho/grade de módulos) */}
         {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} toggleLoja={toggleLoja} editarLoja={editarLoja} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} filtraLoja={filtraLoja} pesquisas={pesquisas} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} cancelarPedido={cancelarPedido} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} salvarConfigCrm={salvarConfigCrm} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} assinaturas={assinaturas} promocoes={filtraLoja(promocoes)} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} cupons={cuponsLoja} addCupom={addCupom} editarCupom={editarCupomLoja} toggleCupom={toggleCupom} removerCupom={removerCupom} opcoesApi={{ grupos: filtraLoja(gruposOpcoes), opcoes: filtraLoja(opcoes), addGrupo: addGrupoOpcoes, editarGrupo: editarGrupoOpcoes, removerGrupo: removerGrupoOpcoes, addOpcao, editarOpcao, removerOpcao }} setores={filtraLoja(setoresCozinha)} setoresApi={{ add: addSetorCozinha, editar: editarSetorCozinha, remover: removerSetorCozinha }} vincularProdutoSetor={vincularProdutoSetor} salvarProdutoQr={salvarProdutoQr} irParaCozinha={(setorId) => { setCozinhaSetorInicial(setorId ?? null); if (canAccess(currentUser, "kitchen")) setActiveTab("kitchen"); else notify("error", "Sem permissão para acessar o painel da cozinha."); }} caixaAberto={caixaAberto} caixasLoja={filtraLoja(caixas)} caixaApi={{ abrir: abrirCaixaFn, movimentar: movimentarCaixaFn, fechar: fecharCaixaFn, fetchMovimentos: fetchMovimentosCaixa }} fidRegra={fidRegraAtual} fidRecompensas={filtraLoja(fidRecompensas)} fidTransacoes={filtraLoja(fidTransacoes)} fidApi={{ salvarRegra: salvarRegraFid, addRecompensa: addRecompensaFid, removerRecompensa: removerRecompensaFid, editarRecompensa: editarRecompensaFid, lancarPontos }} fidCaixa={fidCaixa} chamados={filtraLoja(chamados)} atenderChamado={atenderChamadoFn} assumirChamado={assumirChamadoFn} auditoria={filtraLoja(auditoria)} />}
 
@@ -6314,34 +6318,34 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
         ? { l: "🔒 Aguardando pagamento", fn: null, c: "bg-[#F3F4F6] text-[#98A2B3]", disabled: true }
         : { l: "Entregue", fn: () => marcarEntregue(o.id), c: "bg-[#0F4C5C] text-white" })
     : null;
-  // Comanda operacional (menu de três pontos — Pedidos/Cozinha/Bar): reaproveita
-  // o mesmo abrirImpressaoTermica() (App.jsx:185) já usado pelos cupons/
-  // conferências do Caixa — só o corpo HTML é novo, nenhuma lógica de impressão
-  // duplicada. `setoresNoPedido` já chega filtrado pelo setor do contexto atual
-  // (Cozinha/Bar só veem os próprios setores; Pedidos vê todos).
+  // Comanda operacional (Pedidos/Cozinha/Bar): cupom térmico de produção
+  // (modelo 3 do PDV), um ticket por setor quando há vários setores no pedido.
   async function imprimirTicketOperacional(pedido, contexto, setoresNoPedido = []) {
     const numero = numeroPedido[pedido.id] ?? "";
     const setoresAlvo = setoresNoPedido.length ? setoresNoPedido : setoresPresentes(pedido);
-    const itens = setoresAlvo.flatMap((sk) => itensDoSetor(pedido, sk));
-    const tituloSetor = contexto === "kitchen" ? "Cozinha" : contexto === "bar" ? "Bar" : "Pedido";
-    const linhasItens = itens.map((it) => {
-      const mods = [
-        ...(it.removedIngredients || []).map((x) => "- " + x),
-        ...(it.extraIngredients || []).map((x) => "+ " + x),
-        it.observation,
-      ].filter(Boolean).join(", ");
-      return `<div class="row"><span>${it.quantity}x ${it.name}</span></div>${mods ? `<div class="obs">${mods}</div>` : ""}`;
-    }).join("");
-    const corpo = `
-      <div class="c b big">${tituloSetor}</div>
-      <div class="c">Pedido #${numero || pedido.id}</div>
-      <div class="c sm mut">${pedido.table || ""}${pedido.command ? " · " + pedido.command : ""}</div>
-      <div class="hr"></div>
-      ${linhasItens || '<div class="c sm mut">Sem itens para este setor.</div>'}
-      <div class="hr"></div>
-      <div class="c sm mut">${new Date().toLocaleString("pt-BR")}</div>
-    `;
-    abrirImpressaoTermica(`${tituloSetor} · Pedido #${numero || pedido.id}`, corpo);
+    const lista = setoresAlvo.length ? setoresAlvo : ["Cozinha"];
+    lista.forEach((setorNome, i) => {
+      const itens = itensDoSetor(pedido, setorNome);
+      if (!itens.length && lista.length > 1) return;
+      const tituloSetor = setorNome || (contexto === "bar" ? "Bar" : "Cozinha");
+      setTimeout(() => {
+        abrirCupomTermico(
+          `${tituloSetor} · Pedido #${numero || pedido.id}`,
+          htmlPedidoProducao({
+            lojaInfo,
+            setor: tituloSetor,
+            pedidoNumero: numero || String(pedido.id).slice(-6),
+            mesa: pedido.table || "",
+            comanda: pedido.command || "",
+            atendimento: pedido.table === "Externo" || /^Externo/i.test(pedido.table || "") ? "Delivery / Retirada" : "Salão",
+            entradaISO: pedido.createdAtISO || null,
+            itens: itens.length ? itens : (pedido.items || []),
+            prioridade: pedido.prioritario === true,
+            observacaoGeral: pedido.observation || pedido.observacao || "",
+          }),
+        );
+      }, i * 350);
+    });
   }
   const titulo = tab === "central" ? "Central Operacional" : tab === "pedidos" ? "Pedidos" : tab === "cozinha" ? "Cozinha" : tab === "bar" ? "Bar" : "Caixa";
 
