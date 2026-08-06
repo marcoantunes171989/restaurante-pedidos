@@ -8187,7 +8187,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
             <span className="block text-sm font-black text-[var(--pp-text)]">{formatCurrency(a.faturamento)}</span>
           </span>
         ) : null}>
-        <BarrasHora dados={vendasPorHora} paleta={{ semVenda: "#E6E6E6", pico: "#E67E22", acimaMedia: "#0F4C5C", padrao: "#0F4C5C", grade: "#E6E6E6", texto: "#8A7D73", textoValor: "#8A7D73" }} />
+        <BarrasHora dados={vendasPorHora} paleta={{ semVenda: "#E6E6E6", pico: "var(--pp-destaque)", acimaMedia: "#0F4C5C", padrao: "#0F4C5C", grade: "#E6E6E6", texto: "#8A7D73", textoValor: "#8A7D73" }} />
         {melhorHora.valor > 0 && (
           <div className="mt-4 flex flex-wrap gap-2">
             <span className="rounded-full bg-[#E67E22]/10 px-3 py-1.5 text-xs font-bold text-[#E67E22]">★ Melhor horário: {melhorHora.label} — {formatCurrency(melhorHora.valor)}</span>
@@ -8204,7 +8204,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
           <div className="space-y-3">
             {a.topProdutos.length === 0 && <p className="py-4 text-center text-sm text-[var(--pp-text-muted)]">Nenhuma venda no período.</p>}
             {a.topProdutos.map((p, i) => (
-              <BarraHorizontal key={p.nome} label={p.nome} valor={p.qtd} max={maxProd} sufixo=" un" cor={i === 0 ? "bg-[#E67E22]" : "bg-[#0F4C5C]"} />
+              <BarraHorizontal key={p.nome} label={p.nome} valor={p.qtd} max={maxProd} sufixo=" un" cor={i === 0 ? "bg-[var(--pp-destaque)]" : "bg-[#0F4C5C]"} />
             ))}
           </div>
         </Painel>
@@ -8232,7 +8232,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
 
         <Painel titulo="Formas de Pagamento">
           <div className="space-y-3">
-            <BarraHorizontal label="Recebido (pago)" valor={a.faturamento} max={Math.max(1, previsto)} sufixo="R$" cor="bg-[#E67E22]" />
+            <BarraHorizontal label="Recebido (pago)" valor={a.faturamento} max={Math.max(1, previsto)} sufixo="R$" cor="bg-[var(--pp-destaque)]" />
             <BarraHorizontal label="Pendente (em aberto)" valor={a.emAberto} max={Math.max(1, previsto)} sufixo="R$" cor="bg-[#0F4C5C]" />
           </div>
           <p className="mt-3 text-[11px] text-[var(--pp-text-muted)]">Detalhamento por forma (Pix, crédito, débito, dinheiro) disponível em <b className="text-dash-navy">Fechamento de Caixa</b>.</p>
@@ -9476,10 +9476,10 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
                 {a.topProdutos.map((p, i) => (
                   <div key={p.nome}>
                     <div className="flex items-center justify-between gap-2 text-sm">
-                      <span className="flex min-w-0 items-center gap-2 font-semibold text-dash-navy"><span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[10px] font-black ${i === 0 ? "bg-[#E67E22]/12 text-[#E67E22]" : "bg-[rgba(15,76,92,0.06)] text-[#0F4C5C]"}`}>{i + 1}</span><span className="truncate">{p.nome}</span></span>
+                      <span className="flex min-w-0 items-center gap-2 font-semibold text-dash-navy"><span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[10px] font-black ${i === 0 ? "bg-[var(--pp-destaque-soft)] text-[#B4611A]" : "bg-[rgba(15,76,92,0.06)] text-[#0F4C5C]"}`}>{i + 1}</span><span className="truncate">{p.nome}</span></span>
                       <span className="shrink-0 text-[var(--pp-text-muted)]">{p.qtd} un · <b className="text-[#2F9E52]">{formatCurrency(p.valor)}</b> · {a.faturamentoSemTaxa ? ((p.valor / a.faturamentoSemTaxa) * 100).toFixed(1) : 0}%</span>
                     </div>
-                    <div className="mt-1 h-2 overflow-hidden rounded-full bg-[var(--pp-bg)]"><div className={`h-full rounded-full ${i === 0 ? "bg-[#E67E22]" : "bg-[#0F4C5C]"}`} style={{ width: `${a.faturamentoSemTaxa ? (p.valor / a.faturamentoSemTaxa) * 100 : 0}%` }} /></div>
+                    <div className="mt-1 h-2 overflow-hidden rounded-full bg-[var(--pp-bg)]"><div className={`h-full rounded-full ${i === 0 ? "bg-[var(--pp-destaque)]" : "bg-[#0F4C5C]"}`} style={{ width: `${a.faturamentoSemTaxa ? (p.valor / a.faturamentoSemTaxa) * 100 : 0}%` }} /></div>
                   </div>
                 ))}
               </div>
@@ -13031,8 +13031,14 @@ function RelatorioSatisfacao({ pesquisas = [], todasPesquisas = [], pedidos = []
           <h3 className="page-title mb-4 text-sm font-bold uppercase tracking-wider text-[#0D1B2A]">Média por pergunta</h3>
           {lista.length === 0 ? <p className="text-sm text-[#64748B]">Nenhuma avaliação no filtro selecionado.</p> : (
             <div className="space-y-3.5">
-              {medias.map((m) => {
+              {(() => {
+                // DESTAQUE (skill destaque-laranja-claro): a MELHOR média do
+                // conjunto recebe o laranja claro (--pp-destaque); as demais barras
+                // ficam em azul petróleo. Facilita identificar o ponto forte.
+                const keyDestaque = medias.reduce((b, m) => (m.n > 0 && m.media > b.media ? { media: m.media, key: m.key } : b), { media: -1, key: null }).key;
+                return medias.map((m) => {
                 const classe = classificacaoMediaSatE(m.n > 0 ? m.media : null);
+                const ehDestaque = m.key === keyDestaque;
                 const varAnt = comparativoSatE?.mediasPorPergunta?.[m.key];
                 const varPct = varAnt != null && varAnt > 0 && m.n > 0 ? ((m.media - varAnt) / varAnt) * 100 : null;
                 return (
@@ -13040,17 +13046,18 @@ function RelatorioSatisfacao({ pesquisas = [], todasPesquisas = [], pedidos = []
                     <div className="mb-1 flex flex-wrap items-center justify-between gap-2 text-xs">
                       <span className="font-semibold text-[#334155]">{m.label}</span>
                       <span className="flex items-center gap-2">
-                        {classe && <span className="rounded-full px-2 py-0.5 text-[9px] font-black" style={{ background: `${classe.cor}1A`, color: classe.cor }}>{classe.label}</span>}
+                        {classe && <span className="rounded-full px-2 py-0.5 text-[9px] font-black" style={ehDestaque ? { background: "var(--pp-destaque-soft)", color: "#B4611A" } : { background: `${classe.cor}1A`, color: classe.cor }}>{classe.label}</span>}
                         <EstrelasMedia nota={m.media} /><span className="w-8 text-right font-bold text-[#0D1B2A]">{m.n ? m.media.toFixed(1) : "—"}</span>
                       </span>
                     </div>
                     <div className="h-2 overflow-hidden rounded-full bg-[#F1F5F9]">
-                      <div className="h-full rounded-full" style={{ width: `${(m.media / 5) * 100}%`, background: classe?.cor || "#0F4C5C" }} />
+                      <div className="h-full rounded-full" style={{ width: `${(m.media / 5) * 100}%`, background: ehDestaque ? "var(--pp-destaque)" : "#0F4C5C" }} />
                     </div>
                     <p className="mt-0.5 text-[10px] text-[#94A3B8]">{m.n} resposta(s){compararPeriodoSatE && varPct != null ? ` · ${varPct >= 0 ? "+" : ""}${varPct.toFixed(0)}% vs. período anterior` : ""}</p>
                   </div>
                 );
-              })}
+                });
+              })()}
             </div>
           )}
         </div>

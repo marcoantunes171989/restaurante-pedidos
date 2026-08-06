@@ -268,6 +268,16 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
   --pp-primary-hover: #D06E1A;
   --pp-primary-soft: rgba(230, 126, 34, 0.08);
 
+  /* DESTAQUE DE DADOS — "laranja claro". Cor ÚNICA para realçar o melhor/maior
+     ponto de um conjunto (o 1º de um ranking, a barra/linha de maior valor, a
+     melhor média/nota) em gráficos, listas e comparativos. É mais claro que o
+     --pp-primary (ação/CTA) DE PROPÓSITO: separa "dado em destaque" de "botão de
+     ação", e facilita a leitura para tomada de decisão. Os demais itens do
+     conjunto ficam em azul petróleo (--pp-info / #0F4C5C). Ver skill
+     `destaque-laranja-claro`. */
+  --pp-destaque: #F2994A;
+  --pp-destaque-soft: rgba(242, 153, 74, 0.14);
+
   /* Chrome do /operacional (navegação + header) — azul petróleo (paleta
      oficial: cor de navegação/menus/barras). Não altera a cor de ação
      (laranja --pp-primary) do restante das telas. */
