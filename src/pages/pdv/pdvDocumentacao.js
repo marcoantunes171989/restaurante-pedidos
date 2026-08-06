@@ -12,7 +12,7 @@
 import { formatCurrency } from "./pdvHelpers";
 
 /** Versão da documentação — acompanha a versão da tela do PDV. */
-export const PDV_DOC_VERSAO = "2026.08.1";
+export const PDV_DOC_VERSAO = "2026.08.2";
 export const PDV_DOC_ATUALIZADO_EM = "06/08/2026";
 
 const IMG = "/ajuda/pdv";
@@ -379,8 +379,10 @@ export function secoesDocumentacao(ctx = {}) {
           titulo: "Pagar com pontos",
           itens: [
             "Com o cliente identificado e saldo disponível, a forma Pontos aparece junto das demais.",
-            "Selecione Pontos e toque em Valor total — o sistema já limita ao que o saldo cobre.",
-            "Confirme com OK e complete o restante em outra forma, se houver.",
+            "Ao selecionar Pontos, o valor já vem preenchido com o saldo em reais (limitado ao que falta receber).",
+            "Confirme com OK — a parcela mostra quantos pontos serão usados.",
+            "No fechamento da conta os pontos são baixados do saldo do cliente no financeiro.",
+            "Se sobrar valor, complete com outra forma normalmente.",
           ],
         },
         {
@@ -449,14 +451,15 @@ export function secoesDocumentacao(ctx = {}) {
           tipo: "tabela",
           cabecalho: ["Ação", "Para que serve"],
           linhas: [
-            ["Transferir", "Move toda a conta para outra mesa — o cliente mudou de lugar."],
-            ["Separar", "Leva itens escolhidos para outra mesa, dividindo a conta fisicamente."],
+            ["Transferir", "Move toda a conta para outra mesa. Mostra mesas disponíveis (verde) e ocupadas (laranja) e pede confirmação."],
+            ["Separar", "Leva itens escolhidos para outra mesa. Não permite separar todos (use Transferir). Confirma antes de mover."],
             ["Pré-conta", "Imprime a conferência para o cliente, sem valor fiscal."],
             ["Comprovante", "Imprime o comprovante da mesa. Novos produtos passam a exigir a comanda do cliente."],
             ["Observações", "Anotação interna da mesa, visível apenas para a equipe."],
             ["Histórico", "Todos os pedidos daquela mesa no dia, inclusive os já pagos."],
           ],
         },
+        { tipo: "p", texto: "A exclusão de um produto na conta pede confirmação e fica registrada na auditoria do sistema." },
         { tipo: "p", texto: "Em telas menores, as ações menos usadas ficam no botão Mais." },
       ],
     },
