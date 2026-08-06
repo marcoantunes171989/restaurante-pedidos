@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Minus, Plus, Search, Trash2, X } from "lucide-react";
-import { formatCurrency, numeroMesaDe, rotuloMesa } from "./pdvHelpers";
+import { formatCurrency, MESA_STATUS_META, numeroMesaDe, rotuloMesa } from "./pdvHelpers";
 
 /** Modal genérico do PDV. */
 function ModalShell({ titulo, subtitulo, onFechar, children, largura = "max-w-lg" }) {
@@ -141,11 +141,11 @@ export function ModalIncluirProduto({
           onChange={(e) => setBusca(e.target.value)}
           placeholder="Buscar produto…"
           disabled={exigeComanda && !comandaOk}
-          className="min-h-12 w-full rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] py-2 pl-10 pr-3 text-base font-semibold text-[var(--pp-text)] outline-none focus:border-[var(--pp-primary)] sm:min-h-11 sm:text-sm disabled:cursor-not-allowed"
+          className="min-h-12 w-full rounded-xl border border-[var(--pp-border)] bg-white py-2 pl-10 pr-3 text-base font-semibold text-[var(--pp-text)] outline-none focus:border-[var(--pp-primary)] sm:min-h-11 sm:text-sm disabled:cursor-not-allowed"
           autoFocus={!exigeComanda}
         />
       </label>
-      <ul className={`space-y-2 ${exigeComanda && !comandaOk ? "pointer-events-none opacity-45" : ""}`}>
+      <ul className={`divide-y divide-[var(--pp-border)] rounded-xl border border-[var(--pp-border)] bg-white ${exigeComanda && !comandaOk ? "pointer-events-none opacity-45" : ""}`}>
         {lista.map((p) => {
           const preco = p.precoPromocional != null ? Number(p.precoPromocional) : Number(p.price) || 0;
           return (
@@ -154,19 +154,19 @@ export function ModalIncluirProduto({
                 type="button"
                 disabled={processando || (exigeComanda && !comandaOk)}
                 onClick={() => escolherProduto(p)}
-                className="flex min-h-14 w-full items-center justify-between gap-3 rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-3 py-2.5 text-left transition active:border-[var(--pp-primary)]/50 hover:border-[var(--pp-primary)]/50 hover:bg-white disabled:cursor-not-allowed"
+                className="flex min-h-14 w-full items-center justify-between gap-3 bg-white px-3 py-2.5 text-left transition hover:bg-[#FFF7EF] active:bg-[var(--pp-primary-soft)] disabled:cursor-not-allowed"
               >
                 <span className="min-w-0">
                   <span className="block truncate text-sm font-black text-[var(--pp-text)]">{p.name}</span>
                   {p.category && <span className="text-xs font-semibold text-[var(--pp-text-muted)]">{p.category}</span>}
                 </span>
-                <span className="shrink-0 text-sm font-black tabular-nums text-[var(--pp-primary)]">{formatCurrency(preco)}</span>
+                <span className="shrink-0 text-sm font-black tabular-nums text-[var(--pp-primary-text)]">{formatCurrency(preco)}</span>
               </button>
             </li>
           );
         })}
         {lista.length === 0 && (
-          <li className="rounded-xl border border-dashed border-[var(--pp-border)] px-3 py-8 text-center text-sm text-[var(--pp-text-muted)]">
+          <li className="px-3 py-8 text-center text-sm text-[var(--pp-text-muted)]">
             Nenhum produto encontrado.
           </li>
         )}
@@ -230,7 +230,121 @@ export function ModalCliente({ cliente = "", telefone = "", onSalvar, onFechar, 
 /** Transferir todos os pedidos da conta para outra mesa. */
 export function ModalTransferirMesa({ mesaAtual, mesas = [], mesasOcupadas = [], onConfirmar, onFechar, processando }) {
   const [destino, setDestino] = useState("");
-  const livres = useMemo(() => {
+  const [confirmar, setConfirmar] = useState(false);
+  const opcoes = useMemo(() => {
+    const ocup = new Set(mesasOcupadas.map((n) => Number(n)).filter(Boolean));
+    const nAtual = numeroMesaDe(mesaAtual);
+    return (mesas || [])
+      .filter((m) => m.active !== false)
+      .map((m) => Number(m.numero))
+      .filter((n) => Number.isFinite(n) && n > 0 && n !== nAtual)
+      .sort((a, b) => a - b)
+      .map((n) => ({ n, ocupada: ocup.has(n), label: rotuloMesa(n) }));
+  }, [mesas, mesasOcupadas, mesaAtual]);
+  const destinoMeta = opcoes.find((o) => o.label === destino);
+
+  if (confirmar && destino) {
+    return (
+      <ModalShell titulo="Confirmar transferência" subtitulo={`De ${mesaAtual || "—"} para ${destino}`} onFechar={onFechar}>
+        <p className="rounded-xl border border-[#F7D9BB] bg-[#FFF7EF] px-3 py-3 text-sm font-semibold text-[var(--pp-text-body)]">
+          Toda a conta de <strong className="text-[var(--pp-text)]">{mesaAtual}</strong> será movida para{" "}
+          <strong className="text-[var(--pp-text)]">{destino}</strong>
+          {destinoMeta?.ocupada ? " (mesa já ocupada — as contas serão unificadas)." : " (mesa disponível)."}
+          {" "}Deseja continuar?
+        </p>
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <button type="button" onClick={() => setConfirmar(false)} className="min-h-11 rounded-2xl border border-[var(--pp-border)] text-sm font-black text-[var(--pp-text-body)]">
+            Voltar
+          </button>
+          <button
+            type="button"
+            disabled={processando}
+            onClick={() => onConfirmar?.(destino)}
+            className="btn-laranja min-h-11 rounded-2xl text-sm font-black text-white disabled:opacity-60"
+          >
+            {processando ? "Transferindo…" : "Confirmar"}
+          </button>
+        </div>
+      </ModalShell>
+    );
+  }
+
+  return (
+    <ModalShell titulo="Transferir mesa" subtitulo={`De ${mesaAtual || "—"} para…`} onFechar={onFechar}>
+      <LegendaMesas />
+      <div className="grid max-h-[50vh] grid-cols-4 gap-2 overflow-y-auto sm:grid-cols-5">
+        {opcoes.map(({ n, ocupada, label }) => {
+          const meta = ocupada ? MESA_STATUS_META.ocupada : MESA_STATUS_META.livre;
+          const on = destino === label;
+          return (
+            <button
+              key={n}
+              type="button"
+              onClick={() => setDestino(label)}
+              className={`min-h-14 rounded-xl border px-1 text-xs font-black transition ${
+                on
+                  ? "border-[var(--pp-primary)] bg-[var(--pp-primary-soft)] text-[var(--pp-primary-text)] ring-2 ring-[var(--pp-primary)]/30"
+                  : `${meta.border} ${meta.card} ${meta.texto}`
+              }`}
+            >
+              {String(n).padStart(2, "0")}
+              <span className="mt-0.5 block text-[9px] font-bold opacity-90">{ocupada ? "Ocupada" : "Disponível"}</span>
+            </button>
+          );
+        })}
+        {opcoes.length === 0 && (
+          <p className="col-span-full py-6 text-center text-sm text-[var(--pp-text-muted)]">Nenhuma mesa cadastrada para transferir.</p>
+        )}
+      </div>
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        <button type="button" onClick={onFechar} className="min-h-11 rounded-2xl border border-[var(--pp-border)] bg-white text-sm font-black text-[var(--pp-text-body)]">
+          Cancelar
+        </button>
+        <button
+          type="button"
+          disabled={!destino || processando}
+          onClick={() => setConfirmar(true)}
+          className="btn-laranja min-h-11 rounded-2xl text-sm font-black text-white disabled:opacity-60"
+        >
+          Transferir
+        </button>
+      </div>
+    </ModalShell>
+  );
+}
+
+function LegendaMesas() {
+  return (
+    <div className="mb-3 flex flex-wrap items-center gap-3 text-[10px] font-bold">
+      <span className="inline-flex items-center gap-1.5 text-[#1F7A3D]">
+        <span className="h-2.5 w-2.5 rounded-full bg-[#2F9E52]" /> Disponível
+      </span>
+      <span className="inline-flex items-center gap-1.5 text-[#B3600E]">
+        <span className="h-2.5 w-2.5 rounded-full bg-[#F2994A]" /> Ocupada
+      </span>
+    </div>
+  );
+}
+
+/**
+ * Separar itens: move seleção para outra mesa (conta existente ou nova).
+ * Regras: ao menos 1 item; não pode separar todos; destino obrigatório; confirmação.
+ */
+export function ModalSepararItens({
+  itens = [],
+  mesas = [],
+  mesaAtual,
+  mesasOcupadas = [],
+  onConfirmar,
+  onFechar,
+  processando,
+}) {
+  const [sel, setSel] = useState(() => new Set());
+  const [destino, setDestino] = useState("");
+  const [confirmar, setConfirmar] = useState(false);
+  const [aviso, setAviso] = useState("");
+
+  const destinos = useMemo(() => {
     const ocup = new Set(mesasOcupadas.map((n) => Number(n)).filter(Boolean));
     const nAtual = numeroMesaDe(mesaAtual);
     return (mesas || [])
@@ -241,66 +355,8 @@ export function ModalTransferirMesa({ mesaAtual, mesas = [], mesasOcupadas = [],
       .map((n) => ({ n, ocupada: ocup.has(n), label: rotuloMesa(n) }));
   }, [mesas, mesasOcupadas, mesaAtual]);
 
-  return (
-    <ModalShell titulo="Transferir mesa" subtitulo={`De ${mesaAtual || "—"} para…`} onFechar={onFechar}>
-      <div className="grid max-h-[50vh] grid-cols-4 gap-2 overflow-y-auto sm:grid-cols-5">
-        {livres.map(({ n, ocupada, label }) => (
-          <button
-            key={n}
-            type="button"
-            onClick={() => setDestino(label)}
-            className={`min-h-12 rounded-xl border px-1 text-xs font-black transition ${
-              destino === label
-                ? "border-[var(--pp-primary)] bg-[var(--pp-primary-soft)] text-[var(--pp-primary-text)]"
-                : ocupada
-                  ? "border-[var(--pp-warning)]/40 bg-[var(--pp-warning-soft)] text-[var(--pp-warning-text)]"
-                  : "border-[var(--pp-border)] bg-[var(--pp-bg)] text-[var(--pp-text)] hover:bg-white"
-            }`}
-          >
-            {String(n).padStart(2, "0")}
-            {ocupada && <span className="mt-0.5 block text-[9px] font-bold opacity-80">ocupada</span>}
-          </button>
-        ))}
-        {livres.length === 0 && (
-          <p className="col-span-full py-6 text-center text-sm text-[var(--pp-text-muted)]">Nenhuma mesa cadastrada para transferir.</p>
-        )}
-      </div>
-      <div className="mt-4 grid grid-cols-2 gap-2">
-        <button type="button" onClick={onFechar} className="min-h-11 rounded-2xl border border-[var(--pp-border)] text-sm font-black text-[var(--pp-text-body)]">
-          Cancelar
-        </button>
-        <button
-          type="button"
-          disabled={!destino || processando}
-          onClick={() => onConfirmar?.(destino)}
-          className="btn-laranja min-h-11 rounded-2xl text-sm font-black text-white disabled:opacity-60"
-        >
-          {processando ? "Transferindo…" : "Transferir"}
-        </button>
-      </div>
-    </ModalShell>
-  );
-}
-
-/**
- * Separar itens: move seleção para outra mesa (conta existente ou nova).
- * itens = [{ orderId, index, name, quantity, price, ...rest }]
- */
-export function ModalSepararItens({ itens = [], mesas = [], mesaAtual, onConfirmar, onFechar, processando }) {
-  const [sel, setSel] = useState(() => new Set());
-  const [destino, setDestino] = useState("");
-
-  const destinos = useMemo(() => {
-    const nAtual = numeroMesaDe(mesaAtual);
-    return (mesas || [])
-      .filter((m) => m.active !== false)
-      .map((m) => Number(m.numero))
-      .filter((n) => Number.isFinite(n) && n > 0 && n !== nAtual)
-      .sort((a, b) => a - b)
-      .map((n) => rotuloMesa(n));
-  }, [mesas, mesaAtual]);
-
   function toggle(key) {
+    setAviso("");
     setSel((cur) => {
       const next = new Set(cur);
       if (next.has(key)) next.delete(key);
@@ -310,10 +366,61 @@ export function ModalSepararItens({ itens = [], mesas = [], mesaAtual, onConfirm
   }
 
   const escolhidos = itens.filter((it) => sel.has(it.key));
+  const destinoMeta = destinos.find((d) => d.label === destino);
+
+  function tentarAvancar() {
+    if (!escolhidos.length) {
+      setAviso("Selecione ao menos um produto para separar.");
+      return;
+    }
+    if (escolhidos.length >= itens.length) {
+      setAviso("Não é possível separar todos os itens. Use Transferir mesa para mover a conta inteira.");
+      return;
+    }
+    if (!destino) {
+      setAviso("Escolha a mesa destino.");
+      return;
+    }
+    setConfirmar(true);
+  }
+
+  if (confirmar && destino) {
+    return (
+      <ModalShell titulo="Confirmar separação" subtitulo={`${escolhidos.length} item(ns) → ${destino}`} onFechar={onFechar}>
+        <p className="rounded-xl border border-[#F7D9BB] bg-[#FFF7EF] px-3 py-3 text-sm font-semibold text-[var(--pp-text-body)]">
+          Mover <strong className="text-[var(--pp-text)]">{escolhidos.length}</strong> produto(s) de{" "}
+          <strong className="text-[var(--pp-text)]">{mesaAtual || "—"}</strong> para{" "}
+          <strong className="text-[var(--pp-text)]">{destino}</strong>
+          {destinoMeta?.ocupada ? " (mesa ocupada — os itens entram na conta aberta)." : " (mesa disponível — abre nova conta)."}
+        </p>
+        <ul className="mt-3 max-h-40 space-y-1 overflow-y-auto rounded-xl border border-[var(--pp-border)] bg-white px-3 py-2">
+          {escolhidos.map((it) => (
+            <li key={it.key} className="flex justify-between gap-2 text-xs font-bold text-[var(--pp-text)]">
+              <span className="truncate">{it.quantity}x {it.name}</span>
+              <span className="shrink-0 tabular-nums">{formatCurrency((Number(it.price) || 0) * (Number(it.quantity) || 0))}</span>
+            </li>
+          ))}
+        </ul>
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <button type="button" onClick={() => setConfirmar(false)} className="min-h-11 rounded-2xl border border-[var(--pp-border)] bg-white text-sm font-black text-[var(--pp-text-body)]">
+            Voltar
+          </button>
+          <button
+            type="button"
+            disabled={processando}
+            onClick={() => onConfirmar?.({ destino, itens: escolhidos })}
+            className="btn-laranja min-h-11 rounded-2xl text-sm font-black text-white disabled:opacity-60"
+          >
+            {processando ? "Separando…" : "Confirmar"}
+          </button>
+        </div>
+      </ModalShell>
+    );
+  }
 
   return (
     <ModalShell titulo="Separar itens" subtitulo="Mova produtos para outra mesa" onFechar={onFechar} largura="max-w-xl">
-      <ul className="mb-3 max-h-[40vh] space-y-2 overflow-y-auto">
+      <ul className="mb-3 max-h-[32vh] divide-y divide-[var(--pp-border)] overflow-y-auto rounded-xl border border-[var(--pp-border)] bg-white">
         {itens.map((it) => {
           const on = sel.has(it.key);
           return (
@@ -322,17 +429,15 @@ export function ModalSepararItens({ itens = [], mesas = [], mesaAtual, onConfirm
                 type="button"
                 onClick={() => toggle(it.key)}
                 aria-pressed={on}
-                className={`flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition ${
-                  on
-                    ? "border-[var(--pp-primary)] bg-[var(--pp-primary-soft)]"
-                    : "border-[var(--pp-border)] bg-[var(--pp-bg)] hover:bg-white"
+                className={`flex w-full items-center gap-3 px-3 py-2.5 text-left transition ${
+                  on ? "bg-[var(--pp-primary-soft)]" : "bg-white hover:bg-[#FFF7EF]"
                 }`}
               >
-                <span className={`grid h-8 w-8 place-items-center rounded-lg text-xs font-black ${on ? "bg-[var(--pp-primary)] text-white" : "bg-white text-[var(--pp-text)]"}`}>
+                <span className={`grid h-8 w-8 place-items-center rounded-lg text-xs font-black ${on ? "bg-[var(--pp-primary)] text-white" : "border border-[var(--pp-border)] bg-white text-[var(--pp-text)]"}`}>
                   {it.quantity}x
                 </span>
                 <span className="min-w-0 flex-1 truncate text-sm font-black text-[var(--pp-text)]">{it.name}</span>
-                <span className="text-sm font-black tabular-nums">{formatCurrency((Number(it.price) || 0) * (Number(it.quantity) || 0))}</span>
+                <span className="text-sm font-black tabular-nums text-[var(--pp-text)]">{formatCurrency((Number(it.price) || 0) * (Number(it.quantity) || 0))}</span>
               </button>
             </li>
           );
@@ -340,35 +445,45 @@ export function ModalSepararItens({ itens = [], mesas = [], mesaAtual, onConfirm
         {itens.length === 0 && <li className="py-6 text-center text-sm text-[var(--pp-text-muted)]">Nenhum item para separar.</li>}
       </ul>
 
-      <p className="mb-2 text-xs font-black uppercase tracking-wide text-[var(--pp-text-muted)]">Mesa destino</p>
-      <div className="mb-4 grid max-h-36 grid-cols-4 gap-2 overflow-y-auto sm:grid-cols-5">
-        {destinos.map((label) => (
-          <button
-            key={label}
-            type="button"
-            onClick={() => setDestino(label)}
-            className={`min-h-11 rounded-xl border text-xs font-black ${
-              destino === label
-                ? "border-[var(--pp-primary)] bg-[var(--pp-primary-soft)] text-[var(--pp-primary-text)]"
-                : "border-[var(--pp-border)] bg-[var(--pp-bg)] text-[var(--pp-text)]"
-            }`}
-          >
-            {String(numeroMesaDe(label)).padStart(2, "0")}
-          </button>
-        ))}
+      <p className="mb-1 text-xs font-black uppercase tracking-wide text-[var(--pp-text-muted)]">Mesa destino</p>
+      <LegendaMesas />
+      <div className="mb-3 grid max-h-36 grid-cols-4 gap-2 overflow-y-auto sm:grid-cols-5">
+        {destinos.map(({ n, ocupada, label }) => {
+          const meta = ocupada ? MESA_STATUS_META.ocupada : MESA_STATUS_META.livre;
+          const on = destino === label;
+          return (
+            <button
+              key={label}
+              type="button"
+              onClick={() => { setDestino(label); setAviso(""); }}
+              className={`min-h-12 rounded-xl border px-1 text-xs font-black ${
+                on
+                  ? "border-[var(--pp-primary)] bg-[var(--pp-primary-soft)] text-[var(--pp-primary-text)] ring-2 ring-[var(--pp-primary)]/30"
+                  : `${meta.border} ${meta.card} ${meta.texto}`
+              }`}
+            >
+              {String(n).padStart(2, "0")}
+              <span className="mt-0.5 block text-[9px] font-bold opacity-90">{ocupada ? "Ocupada" : "Disponível"}</span>
+            </button>
+          );
+        })}
       </div>
 
+      {aviso && (
+        <p className="mb-3 rounded-lg border border-[#F5DFA3] bg-[#FFFBEB] px-2.5 py-2 text-[11px] font-semibold text-[#8D6708]">{aviso}</p>
+      )}
+
       <div className="grid grid-cols-2 gap-2">
-        <button type="button" onClick={onFechar} className="min-h-11 rounded-2xl border border-[var(--pp-border)] text-sm font-black text-[var(--pp-text-body)]">
+        <button type="button" onClick={onFechar} className="min-h-11 rounded-2xl border border-[var(--pp-border)] bg-white text-sm font-black text-[var(--pp-text-body)]">
           Cancelar
         </button>
         <button
           type="button"
-          disabled={!destino || escolhidos.length === 0 || processando}
-          onClick={() => onConfirmar?.({ destino, itens: escolhidos })}
+          disabled={processando}
+          onClick={tentarAvancar}
           className="btn-laranja min-h-11 rounded-2xl text-sm font-black text-white disabled:opacity-60"
         >
-          {processando ? "Separando…" : `Separar (${escolhidos.length})`}
+          Separar ({escolhidos.length})
         </button>
       </div>
     </ModalShell>

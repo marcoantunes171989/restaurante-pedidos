@@ -223,14 +223,19 @@ export default function PdvPaymentPanel({
         ) : (
           <ul className="space-y-1">
             {pagamentos.map((p) => (
-              <li key={p.id} className="flex items-center gap-1.5 rounded-lg border border-[var(--pp-border)] bg-[var(--pp-bg)] px-1.5 py-1">
-                <span className="min-w-0 flex-1 truncate text-[10px] font-bold text-[var(--pp-text)]">{rotuloFormaCurto(p.forma)}</span>
+              <li key={p.id} className="flex items-center gap-1.5 rounded-lg border border-[var(--pp-border)] bg-white px-1.5 py-1">
+                <span className="min-w-0 flex-1 truncate text-[10px] font-bold text-[var(--pp-text)]">
+                  {rotuloFormaCurto(p.forma)}
+                  {p.pontos && p.pontosQtd > 0 && (
+                    <span className="ml-1 font-semibold text-[var(--pp-text-muted)]">· {p.pontosQtd} pts</span>
+                  )}
+                </span>
                 <span className="shrink-0 text-[10px] font-black tabular-nums text-[var(--pp-text)]">{formatCurrency(p.valor)}</span>
                 <button
                   type="button"
                   onClick={() => onRemoverPagamento?.(p.id)}
                   aria-label={`Remover ${p.forma}`}
-                  className="grid h-5 w-5 shrink-0 place-items-center rounded border border-[var(--pp-border)] bg-[var(--pp-surface)] text-[var(--pp-danger)]"
+                  className="grid h-5 w-5 shrink-0 place-items-center rounded border border-[var(--pp-border)] bg-white text-[var(--pp-danger)]"
                 >
                   <X size={10} aria-hidden="true" />
                 </button>

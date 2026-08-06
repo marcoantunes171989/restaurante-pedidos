@@ -24,7 +24,7 @@ export default function PdvStatsBar({
 
   return (
     <section
-      className="shrink-0 border-b border-[var(--pp-border)] bg-[var(--pp-surface)] px-3 py-2 sm:px-4 lg:px-4 lg:py-1.5"
+      className="shrink-0 border-b border-[var(--pp-border)] bg-white px-3 py-2 sm:px-4 lg:px-4 lg:py-1.5"
       style={{ paddingLeft: "max(0.75rem, env(safe-area-inset-left))", paddingRight: "max(0.75rem, env(safe-area-inset-right))" }}
     >
       {/* Mobile */}
@@ -32,7 +32,7 @@ export default function PdvStatsBar({
         <button
           type="button"
           onClick={() => setModalAberto(true)}
-          className="inline-flex min-h-11 flex-1 items-center gap-2 rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-3 text-left active:scale-[0.99]"
+          className="inline-flex min-h-11 flex-1 items-center gap-2 rounded-xl border border-[var(--pp-border)] bg-white px-3 text-left shadow-[inset_0_0_0_1px_rgba(15,76,92,0.04)] active:scale-[0.99]"
         >
           <span className="min-w-0 flex-1">
             <span className="block text-[10px] font-bold uppercase tracking-wide text-[var(--pp-text-muted)]">Resumo do turno · {dataTurno} {horaTurno}</span>
@@ -52,60 +52,43 @@ export default function PdvStatsBar({
           <button
             type="button"
             onClick={() => setModalAberto(true)}
-            className="grid h-11 min-w-11 place-items-center rounded-xl border border-[var(--pp-warning)]/35 bg-[var(--pp-warning-soft)] px-2 text-xs font-black text-[var(--pp-warning-text)]"
+            className="grid h-11 min-w-11 place-items-center rounded-xl border border-[#F5DFA3] bg-white px-2 text-xs font-black text-[#8D6708]"
           >
             {pagamentoPendente}
           </button>
         )}
       </div>
 
-      {/* Desktop / tablet landscape — uma linha só, sem empurrar o salão */}
-      <div className="hidden items-center gap-x-2.5 gap-y-1 lg:flex">
+      {/* Desktop — uma linha: turno · salão · cozinha · financeiro */}
+      <div className="hidden items-stretch gap-2 lg:flex">
         <button
           type="button"
           onClick={() => setModalAberto(true)}
-          className="inline-flex h-8 shrink-0 items-center gap-1 rounded-lg border border-[var(--pp-border)] bg-[var(--pp-bg)] px-2 text-[11px] font-bold text-[var(--pp-text-body)] transition hover:border-[var(--pp-primary)] active:scale-[0.99]"
+          className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-[var(--pp-border)] bg-white px-2.5 text-[11px] font-bold text-[var(--pp-text-body)] shadow-[inset_0_0_0_1px_rgba(15,76,92,0.03)] transition hover:border-[var(--pp-primary)] active:scale-[0.99]"
         >
           <span className="text-[var(--pp-text-muted)]">Turno</span>
           <span className="font-black text-[var(--pp-text)]">{dataTurno} · {horaTurno}</span>
           <ChevronDown size={13} aria-hidden="true" />
         </button>
 
-        <div className="flex shrink-0 items-center gap-x-2.5">
+        <GrupoInfo titulo="Salão">
           <Metrica label="Disponíveis" valor={mesasDisponiveis} tom="text-[#1F7A3D]" />
           <Metrica label="Ocupadas" valor={mesasOcupadas} tom="text-[var(--pp-primary-text)]" />
-        </div>
+        </GrupoInfo>
 
-        {/* Status cozinha — o caixa acompanha o preparo sem trocar de tela */}
-        <div className="flex min-w-0 items-center gap-x-2.5 rounded-lg border border-[var(--pp-border)] bg-[var(--pp-bg)] px-2 py-1">
-          <span className="shrink-0 text-[9px] font-black uppercase leading-tight tracking-wide text-[var(--pp-text-muted)]">
-            Status<br />cozinha
-          </span>
+        <GrupoInfo titulo="Status cozinha" className="min-w-0">
           <Metrica label="Recebido" valor={cozinha.recebido} tom="text-[#0F4C5C]" />
           <Metrica label="Em preparo" valor={cozinha.preparando} tom="text-[var(--pp-primary-text)]" />
           <Metrica label="Pronto" valor={cozinha.pronto} tom="text-[#1F7A3D]" />
           <Metrica label="Retirado" valor={cozinha.retirado} tom="text-[var(--pp-text-body)]" />
           <Metrica label="Aguard. pagto" valor={pagamentoPendente} tom="text-[#8D6708]" />
-        </div>
+        </GrupoInfo>
 
-        <div className="flex min-w-0 flex-1 items-center gap-x-2.5 overflow-hidden">
+        <GrupoInfo titulo="Financeiro" className="min-w-0 flex-1">
           <Metrica label="Finalizados" valor={pagamentoFinalizado} tom="text-[#1F7A3D]" />
           <Metrica label="Faturamento" valor={formatCurrency(faturamentoDia)} tom="text-[var(--pp-text)]" />
           <Metrica label="Ticket médio" valor={formatCurrency(ticketMedio)} tom="text-[var(--pp-text)]" />
-        </div>
-
-        {pagamentoPendente > 0 && (
-          <button
-            type="button"
-            onClick={() => setModalAberto(true)}
-            title={`${pagamentoPendente} conta(s) aguardando pagamento`}
-            className="inline-flex h-8 shrink-0 items-center gap-1 rounded-lg border border-[#F5DFA3] bg-[#FFFBEB] px-2 text-[11px] font-bold text-[#8D6708]"
-          >
-            <span className="font-black">{pagamentoPendente}</span>
-            <span className="hidden 2xl:inline">aguardando pagamento</span>
-            <span className="2xl:hidden">aguard.</span>
-          </button>
-        )}
+        </GrupoInfo>
       </div>
 
       {modalAberto && (
@@ -237,6 +220,23 @@ function ModalResumoTurno({
             Fechar resumo
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function GrupoInfo({ titulo, children, className = "" }) {
+  return (
+    <div
+      className={`flex items-center gap-x-2.5 rounded-lg border border-[var(--pp-border)] bg-white px-2.5 py-1 shadow-[inset_0_0_0_1px_rgba(15,76,92,0.03)] ${className}`}
+    >
+      <span className="shrink-0 border-r border-[var(--pp-border)] pr-2 text-[9px] font-black uppercase leading-tight tracking-wide text-[var(--pp-text-muted)]">
+        {titulo.split(" ").map((p) => (
+          <span key={p} className="block">{p}</span>
+        ))}
+      </span>
+      <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-0.5">
+        {children}
       </div>
     </div>
   );

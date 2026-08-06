@@ -127,6 +127,7 @@ export default function CashierPdv({
   const [sucesso, setSucesso] = useState(null);
   const [bloqueioProdutos, setBloqueioProdutos] = useState({});
   const [modal, setModal] = useState(null); // null | incluir | cliente | transferir | separar | historico | observacoes | dividir | identificar
+  const [excluirPendente, setExcluirPendente] = useState(null); // { orderId, index, name, quantity }
   const [acaoProcessando, setAcaoProcessando] = useState(false);
   // Mobile/tablet: Conta (produtos) | Salão | Pagar — abre em Conta (pedido em destaque).
   const [painelMobile, setPainelMobile] = useState("conta");
@@ -539,13 +540,18 @@ export default function CashierPdv({
   }
 
   /**
-   * Trocar a forma zera o valor: o caixa sempre confirma quanto está
-   * recebendo naquela forma (ou usa o botão "Valor total").
+   * Trocar a forma zera o valor — exceto Pontos, que já lança o saldo
+   * disponível em reais (teto do resgate) para o caixa só confirmar com OK.
    */
   function selecionarForma(forma) {
     setFormaSelecionada(forma);
-    setBufferEntrada("");
     setPainelMobile("pagamento");
+    if (forma?.pontos) {
+      const teto = Math.min(restanteSel, Math.max(0, pontosDisponiveisReais));
+      setBufferEntrada(teto > 0 ? String(Math.round(teto * 100)) : "");
+      return;
+    }
+    setBufferEntrada("");
   }
 
   /** Teto do valor digitável na forma atual (pontos limitam ao saldo). */
@@ -621,17 +627,31 @@ export default function CashierPdv({
       return;
     }
     const aplicado = (trocoLiberado && !formaEhPontos) ? valor : Math.min(valor, tetoDaForma());
+    const ptsUsados = formaEhPontos ? Math.round(aplicado * pontosPorReal) : 0;
     const parcela = {
       id: `pg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       forma: formaAtual.nome,
       formaId: formaAtual.pontos ? null : (formaAtual.id ?? null),
       pontos: !!formaAtual.pontos,
       valor: aplicado,
+      pontosQtd: ptsUsados || undefined,
     };
     setPagamentosPorConta((cur) => ({ ...cur, [contaSel.key]: [...(cur[contaSel.key] || []), parcela] }));
     // Valor sempre volta a zero: a próxima parcela é digitada do começo.
     setBufferEntrada("");
     const novoRestante = Math.max(0, restanteSel - aplicado);
+    if (formaEhPontos) {
+      auditar("pagamento_pontos", "comanda", null, {
+        mesa: contaSel.mesa,
+        valor: aplicado,
+        pontos: ptsUsados,
+        telefone: telefoneConta,
+      });
+      notify("success", novoRestante > 0
+        ? `Pontos · ${formatCurrency(aplicado)} (${ptsUsados} pts). Falta ${formatCurrency(novoRestante)}.`
+        : `Pontos · ${formatCurrency(aplicado)} (${ptsUsados} pts). Conta quitada — pontos serão baixados no fechamento.`);
+      return;
+    }
     notify("success", novoRestante > 0
       ? `${formaAtual.nome} · ${formatCurrency(aplicado)} recebido. Falta ${formatCurrency(novoRestante)}.`
       : `${formaAtual.nome} · ${formatCurrency(aplicado)} recebido. Conta quitada.`);
@@ -931,8 +951,50 @@ ${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency
     await editarItensPedido(orderId, itens);
   }
 
+  /** Abre confirmação antes de excluir o produto da conta. */
+  function pedirExclusaoItem(orderId, index) {
+    if (produtosBloqueados) {
+      notify("error", "Comprovante emitido — exclusão dos itens atuais bloqueada.");
+      return;
+    }
+    const pedido = orders.find((o) => o.id === orderId);
+    const item = pedido?.items?.[index];
+    if (!item) return;
+    if ((pedido.items || []).length <= 1) {
+      notify("error", "A conta precisa de ao menos um produto. Use o cancelamento da conta se necessário.");
+      return;
+    }
+    setExcluirPendente({
+      orderId,
+      index,
+      name: item.name,
+      quantity: Number(item.quantity) || 1,
+      price: Number(item.price) || 0,
+    });
+  }
+
+  async function confirmarExclusaoItem() {
+    if (!excluirPendente || !contaSel) return;
+    const { orderId, index, name, quantity, price } = excluirPendente;
+    setAcaoProcessando(true);
+    try {
+      await alterarQtdItem(orderId, index, 0);
+      auditar("excluir_produto_conta", "pedido", orderId, {
+        mesa: contaSel.mesa,
+        produto: name,
+        quantidade: quantity,
+        valor: (Number(price) || 0) * (Number(quantity) || 0),
+        comandas: contaSel.comandas,
+      });
+      notify("success", `${name} removido da conta.`);
+      setExcluirPendente(null);
+    } finally {
+      setAcaoProcessando(false);
+    }
+  }
+
   async function removerItem(orderId, index) {
-    await alterarQtdItem(orderId, index, 0);
+    pedirExclusaoItem(orderId, index);
   }
 
   /**
@@ -1108,6 +1170,10 @@ ${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency
         if (e.key === "Escape") setAjudaAberta(false);
         return;
       }
+      if (excluirPendente) {
+        if (e.key === "Escape") setExcluirPendente(null);
+        return;
+      }
       if (modal || confirmarFinalizacao || sucesso) {
         if (e.key === "Escape") {
           setModal(null);
@@ -1136,7 +1202,7 @@ ${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [confirmarFinalizacao, sucesso, contaSel, podeFechar, restanteSel, bufferEntrada, modal, ajudaAberta]);
+  }, [confirmarFinalizacao, sucesso, contaSel, podeFechar, restanteSel, bufferEntrada, modal, ajudaAberta, excluirPendente]);
 
   const temConta = !!contaSel;
   const selecionadoCanalKey = canal === "cliente"
@@ -1367,10 +1433,35 @@ ${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency
           itens={itensParaSeparar}
           mesas={mesas}
           mesaAtual={contaSel.mesa}
+          mesasOcupadas={mesasOcupadasNums}
           onConfirmar={confirmarSeparacao}
           onFechar={() => setModal(null)}
           processando={acaoProcessando}
         />
+      )}
+      {excluirPendente && (
+        <div className="fixed inset-0 z-[125] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+          <div role="dialog" aria-modal="true" aria-label="Confirmar exclusão" className="w-full max-w-sm rounded-3xl border border-[var(--pp-border)] bg-white p-5 shadow-2xl">
+            <h2 className="text-base font-black text-[var(--pp-text)]">Excluir produto?</h2>
+            <p className="mt-2 text-sm font-semibold text-[var(--pp-text-body)]">
+              Remover <strong className="text-[var(--pp-text)]">{excluirPendente.quantity}x {excluirPendente.name}</strong> desta conta?
+              A exclusão será registrada na auditoria.
+            </p>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <button type="button" onClick={() => setExcluirPendente(null)} className="min-h-11 rounded-2xl border border-[var(--pp-border)] text-sm font-black text-[var(--pp-text-body)]">
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={acaoProcessando}
+                onClick={confirmarExclusaoItem}
+                className="min-h-11 rounded-2xl border border-[var(--pp-danger)]/40 bg-[var(--pp-danger-soft)] text-sm font-black text-[var(--pp-danger)] disabled:opacity-60"
+              >
+                {acaoProcessando ? "Removendo…" : "Excluir"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
       {modal === "historico" && contaSel && (
         <ModalHistoricoMesa
