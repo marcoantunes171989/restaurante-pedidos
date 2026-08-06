@@ -22,7 +22,7 @@ function MapaTela() {
       <Faixa titulo="Resumo do turno · status da cozinha" tom="neutro" />
       <div className="grid grid-cols-[0.9fr_1.6fr_0.9fr] gap-1.5">
         <Coluna titulo="Conta" itens={["Cliente", "Incluir produto", "Itens", "Totais"]} />
-        <Coluna titulo="Salão / canal ativo" itens={["Mesas", "Delivery", "Comandas"]} destaque />
+        <Coluna titulo="Mesa / canal ativo" itens={["Mesas", "Delivery", "Comandas"]} destaque />
         <Coluna titulo="Pagamento" itens={["Cliente e pontos", "Formas", "Teclado", "Acréscimo / desconto", "Cupom"]} />
       </div>
       <Faixa titulo="Ações da conta · Fechar conta" tom="laranja" />

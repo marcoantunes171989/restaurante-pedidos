@@ -177,7 +177,7 @@ export function combinaBusca(indice, termo) {
 }
 
 export const CANAIS_PDV = [
-  { id: "mesa", label: "Mesa", dica: "Mesas do salão" },
+  { id: "mesa", label: "Mesa", dica: "Mesas do atendimento" },
   { id: "delivery", label: "Delivery", dica: "Pedidos de entrega e retirada" },
   { id: "comanda", label: "Comanda", dica: "Comandas em aberto" },
   { id: "cliente", label: "Cliente", dica: "Clientes identificados" },

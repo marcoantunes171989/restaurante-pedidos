@@ -2,7 +2,7 @@ import { LayoutGrid, Receipt, Wallet } from "lucide-react";
 
 const ABAS = [
   { id: "conta", label: "Conta", Icon: Receipt, dica: "Produtos e cliente" },
-  { id: "salao", label: "Salão", Icon: LayoutGrid, dica: "Mesas e delivery" },
+  { id: "salao", label: "Mesa", Icon: LayoutGrid, dica: "Mesas e delivery" },
   { id: "pagamento", label: "Pagar", Icon: Wallet, dica: "Formas e valor" },
 ];
 

@@ -18,10 +18,9 @@ const ICONE_POR_TIPO = {
 };
 
 /**
- * Coluna de pagamento — alturas fixas (nada se move ao trocar de forma).
- * O valor começa sempre zerado e é sempre digitado (ou lançado inteiro pelo
- * botão "Valor total"). Cada OK vira uma parcela, então a conta pode ser paga
- * em quantas formas forem necessárias — inclusive repetindo a mesma.
+ * Coluna de pagamento — topo fixo (total, cliente, formas, teclado).
+ * Abaixo: área com scroll próprio para recebimentos, acréscimo/desconto,
+ * cupom e saldos — assim a tela não “pula” ao aplicar ajustes.
  */
 export default function PdvPaymentPanel({
   totalConta = 0,
@@ -79,7 +78,6 @@ export default function PdvPaymentPanel({
   const quitado = restante <= 0.001 && totalCobrar > 0;
   const identificado = !!(cliente?.nome || cliente?.telefone);
   const mostraTaxa = taxaPct > 0;
-  const temAjuste = acrescimo > 0 || descontoManual > 0 || taxaRemovida || descontoCupom > 0;
 
   useEffect(() => () => {
     if (debounceCupomRef.current) clearTimeout(debounceCupomRef.current);
@@ -103,6 +101,7 @@ export default function PdvPaymentPanel({
 
   return (
     <aside className={`flex w-full min-w-0 flex-col overflow-hidden border-[var(--pp-border)] bg-[var(--pp-surface)] ${className}`}>
+      {/* ── Topo fixo ───────────────────────────────────────── */}
       <div className="shrink-0 border-b border-[var(--pp-border)] px-2.5 py-1.5">
         <div className="flex items-baseline justify-between gap-2">
           <h2 className="text-[9px] font-black uppercase tracking-[0.14em] text-[var(--pp-text-muted)]">Pagamento</h2>
@@ -118,7 +117,6 @@ export default function PdvPaymentPanel({
         </p>
       </div>
 
-      {/* Cliente — porta de entrada dos pontos */}
       <button
         type="button"
         onClick={onIdentificarCliente}
@@ -196,7 +194,7 @@ export default function PdvPaymentPanel({
         )}
       </div>
 
-      <div className="shrink-0 px-2.5 py-1.5">
+      <div className="shrink-0 border-b border-[var(--pp-border)] px-2.5 py-1.5">
         <button
           type="button"
           onClick={onValorTotal}
@@ -235,112 +233,113 @@ export default function PdvPaymentPanel({
         </div>
       </div>
 
-      <div className="min-h-[3rem] flex-1 overflow-y-auto overscroll-contain border-t border-[var(--pp-border)] px-2.5 py-1.5">
-        <h3 className="mb-1 text-[9px] font-black uppercase tracking-[0.14em] text-[var(--pp-text-muted)]">
-          Recebimentos {pagamentos.length > 0 && <span className="text-[var(--pp-text-body)]">({pagamentos.length})</span>}
-        </h3>
-        {pagamentos.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-[var(--pp-border)] px-2 py-1.5 text-center text-[9px] font-semibold text-[var(--pp-text-muted)]">
-            Escolha a forma, digite o valor e toque em OK. Pode repetir a mesma forma ou combinar várias.
-          </p>
-        ) : (
-          <ul className="space-y-1">
-            {pagamentos.map((p) => (
-              <li key={p.id} className="flex items-center gap-1.5 rounded-lg border border-[var(--pp-border)] bg-white px-1.5 py-1">
-                <span className="min-w-0 flex-1 truncate text-[10px] font-bold text-[var(--pp-text)]">
-                  {rotuloFormaCurto(p.forma)}
-                  {p.pontos && p.pontosQtd > 0 && (
-                    <span className="ml-1 font-semibold text-[var(--pp-text-muted)]">· {p.pontosQtd} pts</span>
-                  )}
-                </span>
-                <span className="shrink-0 text-[10px] font-black tabular-nums text-[var(--pp-text)]">{formatCurrency(p.valor)}</span>
-                <button
-                  type="button"
-                  onClick={() => onRemoverPagamento?.(p.id)}
-                  aria-label={`Remover ${p.forma}`}
-                  className="grid h-5 w-5 shrink-0 place-items-center rounded border border-[var(--pp-border)] bg-white text-[var(--pp-danger)]"
-                >
-                  <X size={10} aria-hidden="true" />
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-
-      {/* Acréscimo / desconto / taxa — ajuste no momento do pagamento */}
-      <div className="shrink-0 space-y-1 border-t border-[var(--pp-border)] px-2.5 py-1.5">
-        <div className="grid grid-cols-2 gap-1">
-          <label className="min-w-0">
-            <span className="mb-0.5 flex items-center gap-0.5 text-[8px] font-black uppercase tracking-wide text-[var(--pp-danger)]">
-              <MinusCircle size={9} aria-hidden="true" /> Desconto
-            </span>
-            <input
-              value={descontoTxt === ""
-                ? (descontoManual > 0 ? numeroParaMoeda(descontoManual) : "")
-                : numeroParaMoeda(Number(descontoTxt) / 100)}
-              onFocus={() => setDescontoTxt(String(Math.round((descontoManual || 0) * 100)))}
-              onChange={(e) => {
-                const digits = e.target.value.replace(/\D/g, "").slice(0, 9);
-                setDescontoTxt(digits);
-                onAlterarDescontoManual?.(Number(digits || 0) / 100);
-              }}
-              onBlur={() => setDescontoTxt("")}
-              placeholder="0,00"
-              inputMode="numeric"
-              aria-label="Desconto manual"
-              className="h-7 w-full rounded-lg border border-[var(--pp-border)] bg-[var(--pp-bg)] px-1.5 text-[10px] font-bold tabular-nums text-[var(--pp-text)] outline-none placeholder:text-[var(--pp-text-muted)] focus:border-[var(--pp-primary)]"
-            />
-          </label>
-          <label className="min-w-0">
-            <span className="mb-0.5 flex items-center gap-0.5 text-[8px] font-black uppercase tracking-wide text-[#1F7A3D]">
-              <PlusCircle size={9} aria-hidden="true" /> Acréscimo
-            </span>
-            <input
-              value={acrescimoTxt === ""
-                ? (acrescimo > 0 ? numeroParaMoeda(acrescimo) : "")
-                : numeroParaMoeda(Number(acrescimoTxt) / 100)}
-              onFocus={() => setAcrescimoTxt(String(Math.round((acrescimo || 0) * 100)))}
-              onChange={(e) => {
-                const digits = e.target.value.replace(/\D/g, "").slice(0, 9);
-                setAcrescimoTxt(digits);
-                onAlterarAcrescimo?.(Number(digits || 0) / 100);
-              }}
-              onBlur={() => setAcrescimoTxt("")}
-              placeholder="0,00"
-              inputMode="numeric"
-              aria-label="Acréscimo"
-              className="h-7 w-full rounded-lg border border-[var(--pp-border)] bg-[var(--pp-bg)] px-1.5 text-[10px] font-bold tabular-nums text-[var(--pp-text)] outline-none placeholder:text-[var(--pp-text-muted)] focus:border-[var(--pp-primary)]"
-            />
-          </label>
+      {/* ── Área rolável: recebimentos + ajustes + cupom + saldos ─ */}
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        <div className="border-b border-[var(--pp-border)] px-2.5 py-1.5">
+          <h3 className="mb-1 text-[9px] font-black uppercase tracking-[0.14em] text-[var(--pp-text-muted)]">
+            Recebimentos {pagamentos.length > 0 && <span className="text-[var(--pp-text-body)]">({pagamentos.length})</span>}
+          </h3>
+          {pagamentos.length === 0 ? (
+            <p className="rounded-lg border border-dashed border-[var(--pp-border)] px-2 py-1.5 text-center text-[9px] font-semibold text-[var(--pp-text-muted)]">
+              Escolha a forma, digite o valor e toque em OK. Pode repetir a mesma forma ou combinar várias.
+            </p>
+          ) : (
+            <ul className="space-y-1">
+              {pagamentos.map((p) => (
+                <li key={p.id} className="flex items-center gap-1.5 rounded-lg border border-[var(--pp-border)] bg-white px-1.5 py-1">
+                  <span className="min-w-0 flex-1 truncate text-[10px] font-bold text-[var(--pp-text)]">
+                    {rotuloFormaCurto(p.forma)}
+                    {p.pontos && p.pontosQtd > 0 && (
+                      <span className="ml-1 font-semibold text-[var(--pp-text-muted)]">· {p.pontosQtd} pts</span>
+                    )}
+                  </span>
+                  <span className="shrink-0 text-[10px] font-black tabular-nums text-[var(--pp-text)]">{formatCurrency(p.valor)}</span>
+                  <button
+                    type="button"
+                    onClick={() => onRemoverPagamento?.(p.id)}
+                    aria-label={`Remover ${p.forma}`}
+                    className="grid h-5 w-5 shrink-0 place-items-center rounded border border-[var(--pp-border)] bg-white text-[var(--pp-danger)]"
+                  >
+                    <X size={10} aria-hidden="true" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
-        {mostraTaxa && (
-          <button
-            type="button"
-            onClick={onToggleTaxaServico}
-            aria-pressed={taxaRemovida}
-            className={`flex h-7 w-full items-center justify-between gap-1 rounded-lg border px-1.5 text-[9px] font-black transition ${
-              taxaRemovida
-                ? "border-[#F5DFA3] bg-[#FFFBEB] text-[#8D6708]"
-                : "border-[var(--pp-border)] bg-[var(--pp-bg)] text-[var(--pp-text-body)] hover:border-[var(--pp-primary)]"
-            }`}
-          >
-            <span className="truncate">
-              {taxaRemovida
-                ? `Taxa ${taxaPct}% removida`
-                : `Taxa de serviço ${taxaPct}% · ${formatCurrency(subtotal * taxaPct / 100)}`}
-            </span>
-            <span className="shrink-0 underline decoration-dotted">
-              {taxaRemovida ? "Restaurar" : "Remover"}
-            </span>
-          </button>
-        )}
-      </div>
 
-      {/* Cupom — validação no banco (existência, vigência, quantidade) + legenda */}
-      <div className="shrink-0 border-t border-[var(--pp-border)] px-2.5 py-1.5">
-        {cupomAplicado ? (
-          <div className="space-y-1">
+        <div className="space-y-1 border-b border-[var(--pp-border)] px-2.5 py-1.5">
+          <div className="grid grid-cols-2 gap-1">
+            <label className="min-w-0">
+              <span className="mb-0.5 flex h-3.5 items-center gap-0.5 text-[8px] font-black uppercase tracking-wide text-[var(--pp-danger)]">
+                <MinusCircle size={9} aria-hidden="true" /> Desconto
+              </span>
+              <input
+                value={descontoTxt === ""
+                  ? (descontoManual > 0 ? numeroParaMoeda(descontoManual) : "")
+                  : numeroParaMoeda(Number(descontoTxt) / 100)}
+                onFocus={() => setDescontoTxt(String(Math.round((descontoManual || 0) * 100)))}
+                onChange={(e) => {
+                  const digits = e.target.value.replace(/\D/g, "").slice(0, 9);
+                  setDescontoTxt(digits);
+                  onAlterarDescontoManual?.(Number(digits || 0) / 100);
+                }}
+                onBlur={() => setDescontoTxt("")}
+                placeholder="0,00"
+                inputMode="numeric"
+                aria-label="Desconto manual"
+                className="h-7 w-full rounded-lg border border-[var(--pp-border)] bg-[var(--pp-bg)] px-1.5 text-[10px] font-bold tabular-nums text-[var(--pp-text)] outline-none placeholder:text-[var(--pp-text-muted)] focus:border-[var(--pp-primary)]"
+              />
+            </label>
+            <label className="min-w-0">
+              <span className="mb-0.5 flex h-3.5 items-center gap-0.5 text-[8px] font-black uppercase tracking-wide text-[#1F7A3D]">
+                <PlusCircle size={9} aria-hidden="true" /> Acréscimo
+              </span>
+              <input
+                value={acrescimoTxt === ""
+                  ? (acrescimo > 0 ? numeroParaMoeda(acrescimo) : "")
+                  : numeroParaMoeda(Number(acrescimoTxt) / 100)}
+                onFocus={() => setAcrescimoTxt(String(Math.round((acrescimo || 0) * 100)))}
+                onChange={(e) => {
+                  const digits = e.target.value.replace(/\D/g, "").slice(0, 9);
+                  setAcrescimoTxt(digits);
+                  onAlterarAcrescimo?.(Number(digits || 0) / 100);
+                }}
+                onBlur={() => setAcrescimoTxt("")}
+                placeholder="0,00"
+                inputMode="numeric"
+                aria-label="Acréscimo"
+                className="h-7 w-full rounded-lg border border-[var(--pp-border)] bg-[var(--pp-bg)] px-1.5 text-[10px] font-bold tabular-nums text-[var(--pp-text)] outline-none placeholder:text-[var(--pp-text-muted)] focus:border-[var(--pp-primary)]"
+              />
+            </label>
+          </div>
+          {mostraTaxa ? (
+            <button
+              type="button"
+              onClick={onToggleTaxaServico}
+              aria-pressed={taxaRemovida}
+              className={`flex h-7 w-full items-center justify-between gap-1 rounded-lg border px-1.5 text-[9px] font-black transition ${
+                taxaRemovida
+                  ? "border-[#F5DFA3] bg-[#FFFBEB] text-[#8D6708]"
+                  : "border-[var(--pp-border)] bg-[var(--pp-bg)] text-[var(--pp-text-body)] hover:border-[var(--pp-primary)]"
+              }`}
+            >
+              <span className="truncate">
+                {taxaRemovida
+                  ? `Taxa ${taxaPct}% removida`
+                  : `Taxa de serviço ${taxaPct}% · ${formatCurrency(subtotal * taxaPct / 100)}`}
+              </span>
+              <span className="shrink-0 underline decoration-dotted">
+                {taxaRemovida ? "Restaurar" : "Remover"}
+              </span>
+            </button>
+          ) : (
+            <div className="h-7" aria-hidden="true" />
+          )}
+        </div>
+
+        <div className="border-b border-[var(--pp-border)] px-2.5 py-1.5">
+          {cupomAplicado ? (
             <div className="flex items-center gap-1.5 rounded-lg border border-[#BFE3CB] bg-[#F2FBF5] px-1.5 py-1">
               <TicketPercent size={12} className="shrink-0 text-[#1F7A3D]" aria-hidden="true" />
               <span className="min-w-0 flex-1 truncate text-[10px] font-black uppercase text-[#1F7A3D]">{cupomAplicado.codigo}</span>
@@ -349,14 +348,7 @@ export default function PdvPaymentPanel({
                 <X size={10} aria-hidden="true" />
               </button>
             </div>
-            {cupomLegenda?.texto && (
-              <p className={`px-0.5 text-[9px] font-bold leading-tight ${tomLegenda[cupomLegenda.tom] || tomLegenda.ok}`}>
-                {cupomLegenda.texto}
-              </p>
-            )}
-          </div>
-        ) : (
-          <div className="space-y-1">
+          ) : (
             <form
               className="flex items-center gap-1"
               onSubmit={(e) => {
@@ -381,62 +373,70 @@ export default function PdvPaymentPanel({
                 {cupomProcessando ? "…" : "Aplicar"}
               </button>
             </form>
-            {cupomLegenda?.texto && (
-              <p
-                role="status"
-                aria-live="polite"
-                className={`px-0.5 text-[9px] font-bold leading-tight ${tomLegenda[cupomLegenda.tom] || tomLegenda.neutro}`}
-              >
-                {cupomLegenda.texto}
+          )}
+          {/* Altura reservada — a legenda não empurra o restante do painel */}
+          <p
+            role="status"
+            aria-live="polite"
+            className={`mt-1 min-h-[14px] px-0.5 text-[9px] font-bold leading-[14px] ${tomLegenda[cupomLegenda?.tom] || tomLegenda.neutro}`}
+          >
+            {cupomLegenda?.texto || "\u00a0"}
+          </p>
+        </div>
+
+        {/* Saldos sempre nas mesmas linhas — evita salto ao lançar acréscimo/desconto */}
+        <div className="space-y-0.5 px-2.5 py-1.5">
+          <LinhaSaldo label="Subtotal" valor={formatCurrency(subtotal || totalConta)} tom="text-[var(--pp-text-muted)]" />
+          {mostraTaxa && (
+            <LinhaSaldo
+              label={taxaRemovida ? `Taxa ${taxaPct}% (removida)` : `Taxa ${taxaPct}%`}
+              valor={taxaRemovida ? formatCurrency(0) : formatCurrency(taxaServico)}
+              tom={taxaRemovida ? "text-[#8D6708]" : "text-[var(--pp-text-muted)]"}
+            />
+          )}
+          <LinhaSaldo
+            label="Acréscimo"
+            valor={acrescimo > 0 ? `+${formatCurrency(acrescimo)}` : formatCurrency(0)}
+            tom={acrescimo > 0 ? "text-[#1F7A3D]" : "text-[var(--pp-text-muted)]"}
+          />
+          <LinhaSaldo
+            label="Desconto"
+            valor={descontoManual > 0 ? `−${formatCurrency(descontoManual)}` : formatCurrency(0)}
+            tom={descontoManual > 0 ? "text-[var(--pp-danger)]" : "text-[var(--pp-text-muted)]"}
+          />
+          <LinhaSaldo
+            label={cupomAplicado ? `Cupom ${cupomAplicado.codigo}` : "Cupom"}
+            valor={descontoCupom > 0 ? `−${formatCurrency(descontoCupom)}` : formatCurrency(0)}
+            tom={descontoCupom > 0 ? "text-[#1F7A3D]" : "text-[var(--pp-text-muted)]"}
+          />
+          <LinhaSaldo label="Recebido" valor={formatCurrency(recebido)} tom="text-[#1F7A3D]" />
+          <LinhaSaldo
+            label={quitado ? "Restante" : "Falta"}
+            valor={formatCurrency(restante)}
+            tom={quitado ? "text-[#1F7A3D]" : "text-[var(--pp-danger)]"}
+            destaque
+          />
+          <div className="min-h-[14px]">
+            {permiteTroco && troco > 0 && (
+              <LinhaSaldo label="Troco" valor={formatCurrency(troco)} tom="text-[var(--pp-primary-text)]" />
+            )}
+          </div>
+          <div className="min-h-[14px]">
+            {fidelidadeAtiva && pontosGanhar > 0 && (
+              <p className="flex items-center gap-1 pt-0.5 text-[9px] font-bold text-[#1F7A3D]">
+                <Gift size={10} className="shrink-0" aria-hidden="true" />
+                Cliente ganha {pontosGanhar} {pontosGanhar === 1 ? "ponto" : "pontos"} nesta compra
               </p>
             )}
           </div>
-        )}
-      </div>
-
-      <div className="shrink-0 space-y-0.5 border-t border-[var(--pp-border)] px-2.5 py-1.5">
-        {temAjuste && (
-          <>
-            <LinhaSaldo label="Subtotal" valor={formatCurrency(subtotal || totalConta)} tom="text-[var(--pp-text-muted)]" />
-            {mostraTaxa && (
-              <LinhaSaldo
-                label={taxaRemovida ? `Taxa ${taxaPct}% (removida)` : `Taxa ${taxaPct}%`}
-                valor={taxaRemovida ? formatCurrency(0) : formatCurrency(taxaServico)}
-                tom={taxaRemovida ? "text-[#8D6708]" : "text-[var(--pp-text-muted)]"}
-              />
+          <div className="min-h-[14px]">
+            {mensagemCliente && (
+              <p className={`truncate pt-0.5 text-[9px] font-bold ${mensagemCliente.tom || "text-[var(--pp-text-muted)]"}`}>
+                {mensagemCliente.texto}
+              </p>
             )}
-            {acrescimo > 0 && (
-              <LinhaSaldo label="Acréscimo" valor={`+${formatCurrency(acrescimo)}`} tom="text-[#1F7A3D]" />
-            )}
-            {descontoManual > 0 && (
-              <LinhaSaldo label="Desconto" valor={`−${formatCurrency(descontoManual)}`} tom="text-[var(--pp-danger)]" />
-            )}
-            {descontoCupom > 0 && (
-              <LinhaSaldo label={`Cupom ${cupomAplicado?.codigo || ""}`} valor={`−${formatCurrency(descontoCupom)}`} tom="text-[#1F7A3D]" />
-            )}
-          </>
-        )}
-        <LinhaSaldo label="Recebido" valor={formatCurrency(recebido)} tom="text-[#1F7A3D]" />
-        <LinhaSaldo
-          label={quitado ? "Restante" : "Falta"}
-          valor={formatCurrency(restante)}
-          tom={quitado ? "text-[#1F7A3D]" : "text-[var(--pp-danger)]"}
-          destaque
-        />
-        {permiteTroco && troco > 0 && (
-          <LinhaSaldo label="Troco" valor={formatCurrency(troco)} tom="text-[var(--pp-primary-text)]" />
-        )}
-        {fidelidadeAtiva && pontosGanhar > 0 && (
-          <p className="flex items-center gap-1 pt-0.5 text-[9px] font-bold text-[#1F7A3D]">
-            <Gift size={10} className="shrink-0" aria-hidden="true" />
-            Cliente ganha {pontosGanhar} {pontosGanhar === 1 ? "ponto" : "pontos"} nesta compra
-          </p>
-        )}
-        {mensagemCliente && (
-          <p className={`truncate pt-0.5 text-[9px] font-bold ${mensagemCliente.tom || "text-[var(--pp-text-muted)]"}`}>
-            {mensagemCliente.texto}
-          </p>
-        )}
+          </div>
+        </div>
       </div>
     </aside>
   );

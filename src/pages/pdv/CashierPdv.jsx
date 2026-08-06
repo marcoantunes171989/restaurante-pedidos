@@ -132,7 +132,7 @@ export default function CashierPdv({
   const [modal, setModal] = useState(null); // null | incluir | cliente | transferir | separar | historico | observacoes | dividir | identificar
   const [excluirPendente, setExcluirPendente] = useState(null); // { orderId, index, name, quantity }
   const [acaoProcessando, setAcaoProcessando] = useState(false);
-  // Mobile/tablet: Conta (produtos) | Salão | Pagar — abre em Conta (pedido em destaque).
+  // Mobile/tablet: Conta (produtos) | Mesa | Pagar — abre em Conta (pedido em destaque).
   const [painelMobile, setPainelMobile] = useState("conta");
   const processandoRef = useRef(false);
 
@@ -1303,12 +1303,14 @@ ${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency
         cozinha={statusCozinha}
         mesasDisponiveis={mesasDisponiveis}
         mesasOcupadas={mesasOcupadas}
+        totalMesas={mesasPainel.length}
         pagamentoPendente={pagamentoPendente}
         pagamentoFinalizado={pagamentoFinalizado}
         faturamentoDia={faturamentoDia}
         ticketMedio={ticketMedio}
         contasAbertas={contasAbertas}
         pagosHoje={pagosHoje}
+        taxaPct={taxaPct}
       />
 
       <PdvMobileNav
@@ -1325,7 +1327,14 @@ ${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency
           pedidos={pedidosSel}
           subtotal={subtotalSel}
           taxasDescontos={taxasSel}
-          total={totalSel}
+          total={totalCobrar > 0 ? totalCobrar : totalSel}
+          taxaServico={taxaValorSel}
+          taxaPct={taxaPct}
+          taxaRemovida={taxaRemovida}
+          acrescimo={acrescimoSel}
+          descontoManual={descontoManualSel}
+          descontoCupom={descontoCupom}
+          cupomCodigo={cupomSel?.codigo || ""}
           agora={agora}
           mesaLivre={mesaLivreSel}
           onEditarCliente={temConta ? () => setModal("cliente") : undefined}

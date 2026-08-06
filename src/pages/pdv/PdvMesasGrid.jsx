@@ -20,7 +20,7 @@ export default function PdvMesasGrid({
     <section className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-0.5 pb-2">
         <h2 className="text-[13px] font-black text-[var(--pp-text)]">
-          Mesas do salão
+          Mesas
           <span className="ml-1.5 font-bold text-[var(--pp-text-muted)]">
             {filtrando ? `${mesasPainel.length} de ${totalMesas}` : totalMesas}
           </span>
@@ -45,7 +45,7 @@ export default function PdvMesasGrid({
               <p className="mt-1 text-[11px] text-[var(--pp-text-muted)]">
                 {filtrando
                   ? "Ajuste a busca — ela procura por mesa, cliente, produto, valor ou telefone."
-                  : "Cadastre as mesas da loja em Administrativo → Mesas para montar o salão."}
+                  : "Cadastre as mesas da loja em Administrativo → Mesas."}
               </p>
             </div>
           </div>

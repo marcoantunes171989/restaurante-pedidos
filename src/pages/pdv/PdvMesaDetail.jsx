@@ -13,6 +13,13 @@ export default function PdvMesaDetail({
   subtotal = 0,
   taxasDescontos = 0,
   total = 0,
+  taxaServico = 0,
+  taxaPct = 0,
+  taxaRemovida = false,
+  acrescimo = 0,
+  descontoManual = 0,
+  descontoCupom = 0,
+  cupomCodigo = "",
   agora,
   mesaLivre = null,
   onEditarCliente,
@@ -31,7 +38,7 @@ export default function PdvMesaDetail({
           <div className="flex flex-1 flex-col items-center justify-center gap-1.5 p-5 text-center">
             <p className="text-[13px] font-black text-[var(--pp-text)]">Nenhuma mesa selecionada</p>
             <p className="max-w-xs text-[11px] text-[var(--pp-text-muted)]">
-              Toque em uma mesa do salão ou busque por número, cliente, produto ou valor.
+              Toque em uma mesa ou busque por número, cliente, produto ou valor.
             </p>
           </div>
         )}
@@ -121,8 +128,9 @@ export default function PdvMesaDetail({
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <div className="flex shrink-0 items-center justify-between gap-2 px-2.5 pb-1 pt-1.5">
+      {/* Corpo rolável: produtos + totais completos — scroll dinâmico à esquerda */}
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        <div className="flex items-center justify-between gap-2 px-2.5 pb-1 pt-1.5">
           <h3 className="truncate text-[9px] font-black uppercase tracking-[0.14em] text-[var(--pp-text-muted)]">
             Produtos
           </h3>
@@ -132,7 +140,7 @@ export default function PdvMesaDetail({
         </div>
 
         {typeof onIncluirProduto === "function" && (
-          <div className="shrink-0 px-2.5 pb-1.5">
+          <div className="px-2.5 pb-1.5">
             <button
               type="button"
               onClick={onIncluirProduto}
@@ -147,12 +155,12 @@ export default function PdvMesaDetail({
         )}
 
         {produtosBloqueados && (
-          <p className="mx-2.5 mb-1 shrink-0 rounded-md border border-[#F5DFA3] bg-[#FFFBEB] px-1.5 py-1 text-[9px] font-semibold text-[#8D6708]">
+          <p className="mx-2.5 mb-1 rounded-md border border-[#F5DFA3] bg-[#FFFBEB] px-1.5 py-1 text-[9px] font-semibold text-[#8D6708]">
             Comprovante emitido — para incluir produto, informe a comanda do cliente.
           </p>
         )}
 
-        <ul className="min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain px-2.5 pb-2">
+        <ul className="space-y-1 px-2.5 pb-2">
           {itens.map((it) => (
             <li
               key={it.key}
@@ -199,17 +207,36 @@ export default function PdvMesaDetail({
             </li>
           )}
         </ul>
-      </div>
 
-      <div className="shrink-0 border-t border-[var(--pp-border)] px-2.5 py-1.5">
-        <div className="space-y-0.5">
-          <LinhaTot label="Subtotal" valor={formatCurrency(subtotal)} className="hidden sm:flex" />
-          <LinhaTot label="Taxas e descontos" valor={formatCurrency(taxasDescontos)} className="hidden sm:flex" />
-          <LinhaTot label="Total geral" valor={formatCurrency(total)} destaque />
+        {/* Totais na mesma coluna rolável — produtos + ajustes ficam íntegros */}
+        <div className="sticky bottom-0 border-t border-[var(--pp-border)] bg-[var(--pp-surface)] px-2.5 py-1.5">
+          <div className="space-y-0.5">
+            <LinhaTot label="Subtotal" valor={formatCurrency(subtotal)} />
+            {taxaPct > 0 && (
+              <LinhaTot
+                label={taxaRemovida ? `Taxa ${taxaPct}% (removida)` : `Taxa ${taxaPct}%`}
+                valor={formatCurrency(taxaRemovida ? 0 : taxaServico)}
+              />
+            )}
+            <LinhaTot
+              label="Acréscimo"
+              valor={acrescimo > 0 ? `+${formatCurrency(acrescimo)}` : formatCurrency(0)}
+            />
+            <LinhaTot
+              label="Desconto"
+              valor={descontoManual > 0 ? `−${formatCurrency(descontoManual)}` : formatCurrency(0)}
+            />
+            <LinhaTot
+              label={cupomCodigo ? `Cupom ${cupomCodigo}` : "Cupom"}
+              valor={descontoCupom > 0 ? `−${formatCurrency(descontoCupom)}` : formatCurrency(0)}
+            />
+            <LinhaTot label="Total geral" valor={formatCurrency(total)} destaque />
+          </div>
+          <p className="mt-0.5 truncate text-[9px] text-[var(--pp-text-muted)]">
+            Pedido #{pedidoRef}
+            {Math.abs(taxasDescontos) > 0.001 ? ` · ajuste ${formatCurrency(taxasDescontos)}` : ""}
+          </p>
         </div>
-        <p className="mt-0.5 hidden truncate text-[9px] text-[var(--pp-text-muted)] sm:block">
-          Pedido #{pedidoRef}
-        </p>
       </div>
     </aside>
   );

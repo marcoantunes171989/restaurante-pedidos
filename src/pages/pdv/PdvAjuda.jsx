@@ -370,7 +370,7 @@ function blocoParaHtml(b) {
   }
   if (b.tipo === "ilustracao") {
     const rotulos = {
-      mapaTela: "Mapa da tela: canais, conta, salão e pagamento.",
+      mapaTela: "Mapa da tela: canais, conta, mesas e pagamento.",
       coresMesa: "Cores das mesas: disponível, ocupada e conta pedida.",
       anatomiaPagamento: "Anatomia da coluna de pagamento.",
       ajusteFinanceiro: "Desconto, acréscimo e remoção de taxa.",

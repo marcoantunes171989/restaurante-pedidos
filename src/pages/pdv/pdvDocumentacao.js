@@ -12,7 +12,7 @@
 import { formatCurrency } from "./pdvHelpers";
 
 /** Versão da documentação — acompanha a versão da tela do PDV. */
-export const PDV_DOC_VERSAO = "2026.08.4";
+export const PDV_DOC_VERSAO = "2026.08.5";
 export const PDV_DOC_ATUALIZADO_EM = "06/08/2026";
 
 const IMG = "/ajuda/pdv";
@@ -53,10 +53,10 @@ export function secoesDocumentacao(ctx = {}) {
           cabecalho: ["Área", "O que faz"],
           linhas: [
             ["Barra superior", "Canais (Mesa, Delivery, Comanda, Cliente, Pedido), busca global, ajuda (?), tema e operador."],
-            ["Resumo do turno", "Mesas disponíveis e ocupadas, status da cozinha, faturamento e ticket médio do dia."],
-            ["Coluna esquerda", "A conta selecionada: cliente, botão Incluir produto, itens, subtotal, taxas e total."],
-            ["Centro", "O canal ativo — salão de mesas, delivery, comandas, clientes ou pedidos."],
-            ["Coluna direita", "Pagamento: cliente e pontos, formas, teclado, recebimentos, acréscimo/desconto, taxa, cupom e saldos."],
+            ["Resumo do turno", "Mesas, cozinha, faturamento e análise financeira do dia (formas, ocupação, aberto × pago)."],
+            ["Coluna esquerda", "A conta: produtos e totais (subtotal, taxa, acréscimo, desconto, cupom). Rola quando a lista cresce."],
+            ["Centro", "O canal ativo — mesas, delivery, comandas, clientes ou pedidos."],
+            ["Coluna direita", "Pagamento com topo fixo; recebimentos, ajustes e cupom rolam sem deslocar o teclado."],
             ["Rodapé", "Ações da conta (transferir, separar, pré-conta, comprovante, observações, histórico) e Fechar conta."],
           ],
         },
@@ -64,7 +64,7 @@ export function secoesDocumentacao(ctx = {}) {
         {
           tipo: "dica",
           titulo: "Em tablet e celular",
-          texto: "Abaixo de 1024px as três colunas viram as abas Conta, Salão e Pagar, logo abaixo do resumo do turno. O conteúdo é o mesmo, só muda a navegação.",
+          texto: "Abaixo de 1024px as três colunas viram as abas Conta, Mesa e Pagar, logo abaixo do resumo do turno. O conteúdo é o mesmo, só muda a navegação.",
         },
       ],
     },
@@ -79,7 +79,7 @@ export function secoesDocumentacao(ctx = {}) {
           tipo: "tabela",
           cabecalho: ["Canal", "Use quando"],
           linhas: [
-            ["Mesa", "Atendimento no salão. Mostra todas as mesas cadastradas com a cor do status."],
+            ["Mesa", "Atendimento presencial. Mostra todas as mesas cadastradas com a cor do status."],
             ["Delivery", "Pedidos externos de entrega e retirada, com o estágio de cada um."],
             ["Comanda", "Você tem o número da comanda em mãos e quer chegar direto na conta."],
             ["Cliente", "Procurar pelo nome ou telefone de quem está consumindo."],
@@ -96,8 +96,8 @@ export function secoesDocumentacao(ctx = {}) {
 
     {
       id: "salao",
-      titulo: "Salão: as cores das mesas",
-      resumo: "Verde, laranja e amarelo — leitura do salão em um olhar.",
+      titulo: "Mesas: as cores do status",
+      resumo: "Verde, laranja e amarelo — leitura do atendimento em um olhar.",
       blocos: [
         { tipo: "p", texto: "No canal Mesa a cor é informação, não enfeite. Cada card mostra o status, o cliente, há quanto tempo a mesa está ocupada, em que estágio está o pedido na cozinha e o valor acumulado." },
         { tipo: "ilustracao", nome: "coresMesa" },
@@ -113,10 +113,10 @@ export function secoesDocumentacao(ctx = {}) {
         {
           tipo: "p",
           texto: totalMesas > 0
-            ? `Hoje o salão desta loja tem ${totalMesas} ${totalMesas === 1 ? "mesa cadastrada" : "mesas cadastradas"}. Para incluir ou remover mesas, vá em Administrativo → Mesas.`
-            : "Nenhuma mesa cadastrada ainda. Cadastre o salão em Administrativo → Mesas para que os cards apareçam aqui.",
+            ? `Hoje esta loja tem ${totalMesas} ${totalMesas === 1 ? "mesa cadastrada" : "mesas cadastradas"}. Para incluir ou remover mesas, vá em Administrativo → Mesas.`
+            : "Nenhuma mesa cadastrada ainda. Cadastre em Administrativo → Mesas para que os cards apareçam aqui.",
         },
-        { tipo: "imagem", src: `${IMG}/salao.png`, legenda: "Salão com mesas disponíveis (verde), ocupadas (laranja) e com conta pedida (amarelo)." },
+        { tipo: "imagem", src: `${IMG}/salao.png`, legenda: "Mesas disponíveis (verde), ocupadas (laranja) e com conta pedida (amarelo)." },
         {
           tipo: "aviso",
           titulo: "Mesa paga volta a ficar verde",
@@ -134,7 +134,7 @@ export function secoesDocumentacao(ctx = {}) {
           tipo: "passos",
           titulo: "Abrir uma conta",
           itens: [
-            "Toque na mesa desejada no salão.",
+            "Toque na mesa desejada no canal Mesa.",
             "Se a mesa estiver ocupada, a conta aparece na coluna da esquerda com todos os produtos.",
             "Se estiver livre, a coluna mostra a ficha da mesa com capacidade e localização — é a confirmação de que ela está pronta para o próximo cliente.",
           ],
@@ -200,24 +200,29 @@ export function secoesDocumentacao(ctx = {}) {
 
     {
       id: "turno",
-      titulo: "Resumo do turno e status da cozinha",
-      resumo: "Os números que o caixa acompanha durante o serviço.",
+      titulo: "Resumo do turno e análise financeira",
+      resumo: "Mesas, cozinha e leitura financeira do dia para o caixa.",
       blocos: [
         {
           tipo: "tabela",
           cabecalho: ["Indicador", "Leitura"],
           linhas: [
-            ["Disponíveis", "Mesas livres para receber cliente agora."],
-            ["Ocupadas", "Mesas com conta aberta."],
-            ["Status cozinha · Recebido", "Pedidos que entraram e ainda não começaram."],
-            ["Status cozinha · Em preparo", "Pedidos sendo produzidos."],
-            ["Status cozinha · Pronto", "Pedidos prontos aguardando entrega ao cliente."],
-            ["Status cozinha · Retirado", "Pedidos já entregues hoje."],
+            ["Disponíveis / Ocupadas", "Mesas livres e com conta aberta (grupo Mesa na faixa)."],
+            ["Status cozinha", "Recebido, em preparo, pronto e retirado — ritmo da produção."],
             ["Aguardando pagamento", "Contas em que o cliente já pediu para fechar."],
             ["Faturamento e ticket médio", "Total recebido no dia e média por pedido pago."],
+            ["Em aberto", "Soma das contas ainda não pagas — potencial a receber."],
+            ["Ocupação", "Percentual de mesas ocupadas sobre o total cadastrado."],
+            ["Mesas × Delivery", "Quanto do faturamento veio de cada canal."],
+            ["Por forma de pagamento", "Barras com PIX, cartão, dinheiro etc. no turno."],
           ],
         },
-        { tipo: "p", texto: "Tocar no botão Turno abre o detalhe com os mesmos números em cards, mais a lista de contas em aberto e os pagamentos já registrados no dia." },
+        { tipo: "p", texto: "Toque em Turno para abrir o painel branco e limpo com KPIs, análise financeira, listas de contas em aberto e pagamentos do dia." },
+        {
+          tipo: "dica",
+          titulo: "Layout estável no pagamento",
+          texto: "Acréscimo, desconto e cupom não deslocam o teclado: a coluna da direita rola a parte de baixo. Na coluna da esquerda, produtos e totais (incluindo cupom) rolam juntos para você conferir tudo intacto.",
+        },
       ],
     },
 
