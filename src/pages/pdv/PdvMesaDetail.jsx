@@ -126,27 +126,29 @@ export default function PdvMesaDetail({
           <h3 className="truncate text-[9px] font-black uppercase tracking-[0.14em] text-[var(--pp-text-muted)]">
             Produtos
           </h3>
-          <div className="flex items-center gap-1">
-            <span className="rounded-full bg-[var(--pp-bg)] px-1.5 py-0.5 text-[9px] font-black text-[var(--pp-text-body)]">
-              {itens.length} {itens.length === 1 ? "item" : "itens"}
-            </span>
-            {typeof onIncluirProduto === "function" && (
-              <button
-                type="button"
-                onClick={onIncluirProduto}
-                disabled={produtosBloqueados}
-                title={produtosBloqueados ? "Comprovante emitido — inclusão bloqueada" : "Incluir produto"}
-                className="btn-laranja inline-flex h-6 items-center gap-0.5 rounded-md px-1.5 text-[9px] font-black text-white disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <Plus size={11} aria-hidden="true" /> Incluir
-              </button>
-            )}
-          </div>
+          <span className="rounded-full bg-[var(--pp-bg)] px-1.5 py-0.5 text-[9px] font-black text-[var(--pp-text-body)]">
+            {itens.length} {itens.length === 1 ? "item" : "itens"}
+          </span>
         </div>
+
+        {typeof onIncluirProduto === "function" && (
+          <div className="shrink-0 px-2.5 pb-1.5">
+            <button
+              type="button"
+              onClick={onIncluirProduto}
+              title={produtosBloqueados
+                ? "Comprovante emitido — informe a comanda para vincular nova venda"
+                : "Incluir produto na conta"}
+              className="btn-laranja flex h-10 w-full items-center justify-center gap-1.5 rounded-xl text-[12px] font-black text-white"
+            >
+              <Plus size={16} aria-hidden="true" /> Incluir produto
+            </button>
+          </div>
+        )}
 
         {produtosBloqueados && (
           <p className="mx-2.5 mb-1 shrink-0 rounded-md border border-[#F5DFA3] bg-[#FFFBEB] px-1.5 py-1 text-[9px] font-semibold text-[#8D6708]">
-            Comprovante emitido — inclusão bloqueada.
+            Comprovante emitido — para incluir produto, informe a comanda do cliente.
           </p>
         )}
 
@@ -194,11 +196,6 @@ export default function PdvMesaDetail({
           {itens.length === 0 && (
             <li className="rounded-lg border border-dashed border-[var(--pp-border)] px-3 py-5 text-center text-[11px] text-[var(--pp-text-muted)]">
               Nenhum produto nesta conta.
-              {typeof onIncluirProduto === "function" && !produtosBloqueados && (
-                <button type="button" onClick={onIncluirProduto} className="btn-laranja mt-2 inline-flex h-8 items-center gap-1 rounded-lg px-2.5 text-[10px] font-black text-white">
-                  <Plus size={11} aria-hidden="true" /> Incluir produto
-                </button>
-              )}
             </li>
           )}
         </ul>

@@ -14,6 +14,7 @@ export default function PdvStatusBar({ conexaoOk = true, agora }) {
       <span className="text-[10px] font-black uppercase tracking-wider text-[var(--pp-text-muted)]">Atalhos Rápidos</span>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
         {[
+          ["F1", "Ajuda"],
           ["F2", "Buscar"],
           ["F3", "Abrir pedido"],
           ["F4", "Pré-conta"],

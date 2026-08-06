@@ -12,6 +12,7 @@ import PdvActionBar from "./PdvActionBar";
 import PdvStatusBar from "./PdvStatusBar";
 import ModalDividirConta from "./PdvDividirConta";
 import ModalIdentificarCliente from "./PdvIdentificarCliente";
+import PdvAjuda from "./PdvAjuda";
 import {
   ModalCliente,
   ModalHistoricoMesa,
@@ -89,6 +90,7 @@ export default function CashierPdv({
   auditar = () => {},
   conexaoOk = true,
   editarItensPedido = async () => {},
+  criarPedidoCaixa = async () => null,
   products = [],
   fidCaixa = null,
   atualizarClientePedidos = async () => {},
@@ -115,13 +117,16 @@ export default function CashierPdv({
   const [pagamentosPorConta, setPagamentosPorConta] = useState({});
   // Cupom validado por conta + aviso de identificação do cliente.
   const [cupomPorConta, setCupomPorConta] = useState({});
+  // Ajuste financeiro no pagamento: acréscimo, desconto manual e remoção de taxa.
+  const [ajustePorConta, setAjustePorConta] = useState({});
   const [cupomProcessando, setCupomProcessando] = useState(false);
   const [avisoCliente, setAvisoCliente] = useState(null);
+  const [ajudaAberta, setAjudaAberta] = useState(false);
   const [confirmarFinalizacao, setConfirmarFinalizacao] = useState(false);
   const [processando, setProcessando] = useState(false);
   const [sucesso, setSucesso] = useState(null);
   const [bloqueioProdutos, setBloqueioProdutos] = useState({});
-  const [modal, setModal] = useState(null); // null | incluir | cliente | transferir | separar | historico | observacoes | dividir
+  const [modal, setModal] = useState(null); // null | incluir | cliente | transferir | separar | historico | observacoes | dividir | identificar
   const [acaoProcessando, setAcaoProcessando] = useState(false);
   // Mobile/tablet: Conta (produtos) | Salão | Pagar — abre em Conta (pedido em destaque).
   const [painelMobile, setPainelMobile] = useState("conta");
@@ -216,13 +221,28 @@ export default function CashierPdv({
     );
   }, [orders, contaSel]);
   const subtotalSel = contaSel?.subtotal || 0;
-  const totalSel = contaSel?.total || 0;
+  const ajusteSel = (contaSel && ajustePorConta[contaSel.key]) || {};
+  const taxaRemovida = !!ajusteSel.taxaRemovida;
+  const acrescimoSel = Math.max(0, Number(ajusteSel.acrescimo) || 0);
+  const descontoManualSel = Math.max(0, Number(ajusteSel.desconto) || 0);
+  const taxaValorSel = taxaRemovida ? 0 : subtotalSel * (taxaPct / 100);
+  // Total da conta com taxa (se mantida), acréscimo e desconto manual.
+  const totalSel = Math.max(0, subtotalSel + taxaValorSel + acrescimoSel - descontoManualSel);
   const taxasSel = totalSel - subtotalSel;
 
   // Cupom validado para esta conta — o desconto reduz o que será cobrado.
   const cupomSel = (contaSel && cupomPorConta[contaSel.key]) || null;
   const descontoCupom = Math.min(Number(cupomSel?.desconto) || 0, totalSel);
   const totalCobrar = Math.max(0, totalSel - descontoCupom);
+
+  function patchAjuste(patch) {
+    if (!contaSel) return;
+    setAjustePorConta((cur) => ({
+      ...cur,
+      [contaSel.key]: { ...(cur[contaSel.key] || {}), ...patch },
+    }));
+    setBufferEntrada("");
+  }
 
   // Fidelidade: só cliente identificado acumula e resgata pontos.
   const fidAtiva = !!fidCaixa?.ativo;
@@ -733,12 +753,17 @@ export default function CashierPdv({
         comandas: contaSel.comandas,
         total: totalCobrar,
         formas: detalhes.map((d) => d.forma),
-        ...(descontoCupom > 0 ? { cupom: cupomSel?.codigo, desconto: descontoCupom } : {}),
+        ...(descontoCupom > 0 ? { cupom: cupomSel?.codigo, descontoCupom } : {}),
+        ...(descontoManualSel > 0 ? { descontoManual: descontoManualSel } : {}),
+        ...(acrescimoSel > 0 ? { acrescimo: acrescimoSel } : {}),
+        ...(taxaRemovida ? { taxaRemovida: true } : {}),
       });
       setSucesso({
         ...info,
         subtotal: subtotalSel,
-        taxa: taxasSel,
+        taxa: taxaValorSel,
+        acrescimo: acrescimoSel,
+        descontoManual: descontoManualSel,
         pontosGanhos: pontosGanhar,
         codigo: `PAG-${Date.now().toString().slice(-8)}`,
         alertasEstoque: baixa?.alertas || [],
@@ -753,6 +778,11 @@ export default function CashierPdv({
         return next;
       });
       setCupomPorConta((cur) => {
+        const next = { ...cur };
+        delete next[contaKey];
+        return next;
+      });
+      setAjustePorConta((cur) => {
         const next = { ...cur };
         delete next[contaKey];
         return next;
@@ -848,12 +878,12 @@ ${rodape || ""}
       subtotal: subtotalSel,
       taxas: taxasSel,
       total: totalSel,
-      rodape: `<div class="sep"></div><div class="c b">COMPROVANTE EMITIDO</div><div class="c">Inclusão de produtos bloqueada</div>`,
+      rodape: `<div class="sep"></div><div class="c b">COMPROVANTE EMITIDO</div><div class="c">Novos produtos exigem comanda do cliente</div>`,
     }));
     janela.document.close();
     setBloqueioProdutos((cur) => ({ ...cur, [contaSel.key]: true }));
     auditar("emitir_comprovante_mesa", "comanda", null, { mesa: contaSel.mesa, total: totalSel });
-    notify("success", "Comprovante emitido. Inclusão de produtos bloqueada nesta conta.");
+    notify("success", "Comprovante emitido. Para incluir produtos, informe a comanda do cliente.");
   }
 
   function imprimirComprovante(dados) {
@@ -883,7 +913,7 @@ ${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency
 
   async function alterarQtdItem(orderId, index, novaQtd) {
     if (produtosBloqueados) {
-      notify("error", "Comprovante emitido — alteração de produtos bloqueada.");
+      notify("error", "Comprovante emitido — alteração dos itens atuais bloqueada. Inclua novos produtos pela comanda do cliente.");
       return;
     }
     const pedido = orders.find((o) => o.id === orderId);
@@ -905,28 +935,77 @@ ${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency
     await alterarQtdItem(orderId, index, 0);
   }
 
-  async function incluirProduto(produto) {
-    if (produtosBloqueados) {
-      notify("error", "Comprovante emitido — inclusão bloqueada.");
+  /**
+   * Inclui produto no pagamento. Sempre habilitado.
+   * Com comprovante emitido: exige comanda e cria/vincula nova venda.
+   * Se o cliente quiser pontuar e ainda não estiver identificado, abre a identificação.
+   */
+  async function incluirProduto(produto, opts = {}) {
+    if (!contaSel) {
+      notify("error", "Selecione uma conta para incluir o produto.");
       return;
     }
-    if (!pedidosSel.length) {
-      notify("error", "Nenhum pedido aberto nesta conta.");
-      return;
-    }
-    // Preferência: último pedido da conta (mais recente).
-    const alvo = [...pedidosSel].sort((a, b) => new Date(b.createdAtISO || 0) - new Date(a.createdAtISO || 0))[0];
+    const comandaInformada = String(opts.comanda || "").trim().toUpperCase();
+    const querPontuar = !!opts.pontuar;
     const novo = itemDeProduto(produto);
-    const itens = [...(alvo.items || [])];
-    const mesmo = itens.findIndex((it) => it.name === novo.name && Number(it.price) === Number(novo.price) && !it.observation);
-    if (mesmo >= 0) {
-      itens[mesmo] = { ...itens[mesmo], quantity: (Number(itens[mesmo].quantity) || 0) + 1 };
-    } else {
-      itens.push(novo);
+
+    setAcaoProcessando(true);
+    try {
+      if (produtosBloqueados) {
+        if (!comandaInformada) {
+          notify("error", "Informe a comanda do cliente para vincular a nova venda.");
+          return;
+        }
+        // Mescla em pedido aberto da mesma comanda nesta mesa; senão cria nova venda.
+        const pedidoComanda = pedidosSel.find((o) => String(o.command || "").toUpperCase() === comandaInformada);
+        if (pedidoComanda) {
+          const itens = [...(pedidoComanda.items || [])];
+          const mesmo = itens.findIndex((it) => it.name === novo.name && Number(it.price) === Number(novo.price) && !it.observation);
+          if (mesmo >= 0) {
+            itens[mesmo] = { ...itens[mesmo], quantity: (Number(itens[mesmo].quantity) || 0) + 1 };
+          } else {
+            itens.push(novo);
+          }
+          await editarItensPedido(pedidoComanda.id, itens);
+        } else {
+          const criado = await criarPedidoCaixa({
+            table: contaSel.mesa,
+            command: comandaInformada,
+            customer: contaSel.cliente,
+            clienteTelefone: contaSel.telefone || null,
+            items: [novo],
+          });
+          if (!criado) return;
+        }
+        notify("success", `${produto.name} vinculado à comanda ${comandaInformada}.`);
+      } else {
+        if (!pedidosSel.length) {
+          notify("error", "Nenhum pedido aberto nesta conta.");
+          return;
+        }
+        const alvo = [...pedidosSel].sort((a, b) => new Date(b.createdAtISO || 0) - new Date(a.createdAtISO || 0))[0];
+        const itens = [...(alvo.items || [])];
+        const mesmo = itens.findIndex((it) => it.name === novo.name && Number(it.price) === Number(novo.price) && !it.observation);
+        if (mesmo >= 0) {
+          itens[mesmo] = { ...itens[mesmo], quantity: (Number(itens[mesmo].quantity) || 0) + 1 };
+        } else {
+          itens.push(novo);
+        }
+        await editarItensPedido(alvo.id, itens);
+        notify("success", `${produto.name} incluído na conta.`);
+      }
+
+      setModal(null);
+      if (querPontuar && fidAtiva && !clienteIdentificado) {
+        setModal("identificar");
+        setAvisoCliente({
+          texto: "Identifique o cliente para pontuar nesta compra",
+          tom: "text-[#1F7A3D]",
+        });
+      }
+    } finally {
+      setAcaoProcessando(false);
     }
-    await editarItensPedido(alvo.id, itens);
-    setModal(null);
-    notify("success", `${produto.name} incluído na conta.`);
   }
 
   async function salvarCliente({ customer, clienteTelefone }) {
@@ -1020,6 +1099,15 @@ ${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency
 
   useEffect(() => {
     function onKey(e) {
+      if (e.key === "F1") {
+        e.preventDefault();
+        setAjudaAberta((a) => !a);
+        return;
+      }
+      if (ajudaAberta) {
+        if (e.key === "Escape") setAjudaAberta(false);
+        return;
+      }
       if (modal || confirmarFinalizacao || sucesso) {
         if (e.key === "Escape") {
           setModal(null);
@@ -1048,7 +1136,7 @@ ${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [confirmarFinalizacao, sucesso, contaSel, podeFechar, restanteSel, bufferEntrada, modal]);
+  }, [confirmarFinalizacao, sucesso, contaSel, podeFechar, restanteSel, bufferEntrada, modal, ajudaAberta]);
 
   const temConta = !!contaSel;
   const selecionadoCanalKey = canal === "cliente"
@@ -1084,6 +1172,7 @@ ${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency
         currentUser={currentUser}
         temaClaro={temaClaro}
         onToggleTema={() => setTemaClaro((t) => !t)}
+        onAbrirAjuda={() => setAjudaAberta(true)}
       />
 
       <PdvStatsBar
@@ -1184,6 +1273,12 @@ ${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency
         <PdvPaymentPanel
           totalConta={totalSel}
           totalCobrar={totalCobrar}
+          subtotal={subtotalSel}
+          taxaServico={taxaValorSel}
+          taxaPct={taxaPct}
+          taxaRemovida={taxaRemovida}
+          acrescimo={acrescimoSel}
+          descontoManual={descontoManualSel}
           descontoCupom={descontoCupom}
           cupomAplicado={cupomSel}
           recebido={recebidoEfetivo}
@@ -1206,6 +1301,9 @@ ${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency
           onIdentificarCliente={temConta ? () => setModal("identificar") : undefined}
           onAplicarCupom={aplicarCupom}
           onRemoverCupom={removerCupom}
+          onAlterarAcrescimo={(v) => patchAjuste({ acrescimo: Math.max(0, Number(v) || 0) })}
+          onAlterarDescontoManual={(v) => patchAjuste({ desconto: Math.max(0, Number(v) || 0) })}
+          onToggleTaxaServico={() => patchAjuste({ taxaRemovida: !taxaRemovida })}
           cupomProcessando={cupomProcessando}
           dividirDesabilitado={!contaSel || restanteSel <= 0.001}
           onDigito={tecladoDigito}
@@ -1238,7 +1336,11 @@ ${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency
           products={products}
           onIncluir={incluirProduto}
           onFechar={() => setModal(null)}
-          bloqueado={produtosBloqueados}
+          exigeComanda={produtosBloqueados}
+          fidelidadeAtiva={fidAtiva}
+          clienteIdentificado={clienteIdentificado}
+          prefixoLoja={lojaInfo?.prefixo || ""}
+          processando={acaoProcessando}
         />
       )}
       {modal === "cliente" && contaSel && (
@@ -1277,6 +1379,20 @@ ${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency
           onFechar={() => setModal(null)}
         />
       )}
+      {ajudaAberta && (
+        <PdvAjuda
+          contexto={{
+            nomeLoja: lojaInfo?.nome,
+            formasPagamento: formasAtivas,
+            fidelidadeAtiva: fidAtiva,
+            pontosPorReal,
+            valorPorPonto,
+            totalMesas: mesasPainel.length,
+            taxaServico: taxaPct,
+          }}
+          onFechar={() => setAjudaAberta(false)}
+        />
+      )}
       {modal === "identificar" && contaSel && (
         <ModalIdentificarCliente
           clientes={clientesComPontos}
@@ -1296,7 +1412,7 @@ ${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency
             key: it.key,
             name: it.name,
             quantity: it.quantity,
-            total: (Number(it.price) || 0) * (Number(it.quantity) || 0) * (1 + taxaPct / 100),
+            total: (Number(it.price) || 0) * (Number(it.quantity) || 0) * (1 + (taxaRemovida ? 0 : taxaPct) / 100),
           }))}
           onAplicar={(valor) => {
             setBufferEntrada(valor > 0 ? String(Math.round(valor * 100)) : "");
@@ -1329,13 +1445,23 @@ ${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency
               {contaSel?.mesa} · {contaSel?.comandas?.join(", ")}
             </p>
             <div className="mt-4 space-y-1.5 text-sm">
-              <div className="flex justify-between"><span>Conta</span><strong>{formatCurrency(totalSel)}</strong></div>
-              {descontoCupom > 0 && (
-                <>
-                  <div className="flex justify-between text-[#1F7A3D]"><span>Cupom {cupomSel?.codigo}</span><strong>−{formatCurrency(descontoCupom)}</strong></div>
-                  <div className="flex justify-between"><span>Total a pagar</span><strong>{formatCurrency(totalCobrar)}</strong></div>
-                </>
+              <div className="flex justify-between"><span>Subtotal</span><strong>{formatCurrency(subtotalSel)}</strong></div>
+              {taxaPct > 0 && (
+                <div className={`flex justify-between ${taxaRemovida ? "text-[#8D6708]" : ""}`}>
+                  <span>{taxaRemovida ? `Taxa ${taxaPct}% (removida)` : `Taxa ${taxaPct}%`}</span>
+                  <strong>{formatCurrency(taxaValorSel)}</strong>
+                </div>
               )}
+              {acrescimoSel > 0 && (
+                <div className="flex justify-between text-[#1F7A3D]"><span>Acréscimo</span><strong>+{formatCurrency(acrescimoSel)}</strong></div>
+              )}
+              {descontoManualSel > 0 && (
+                <div className="flex justify-between text-[var(--pp-danger)]"><span>Desconto</span><strong>−{formatCurrency(descontoManualSel)}</strong></div>
+              )}
+              {descontoCupom > 0 && (
+                <div className="flex justify-between text-[#1F7A3D]"><span>Cupom {cupomSel?.codigo}</span><strong>−{formatCurrency(descontoCupom)}</strong></div>
+              )}
+              <div className="flex justify-between"><span>Total a pagar</span><strong>{formatCurrency(totalCobrar)}</strong></div>
               {pagamentosSel.map((p) => (
                 <div key={p.id} className="flex justify-between text-[var(--pp-text-body)]">
                   <span>{p.forma}</span><strong>{formatCurrency(p.valor)}</strong>
