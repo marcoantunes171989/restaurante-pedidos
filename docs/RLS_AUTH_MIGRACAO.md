@@ -68,8 +68,15 @@ Auth**. Sem isso, ligar RLS restritiva derruba o app inteiro.
    menu + RPCs `security definer`). Destrava o cardápio anônimo sob RLS.
 3. **Registrar o hook** em Authentication → Hooks → Custom Access Token →
    `public.custom_access_token_hook`.
-4. **Criar usuários no Auth**: `node scripts/criar-auth-users.mjs`
-   (com `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY`). Idempotente.
+4. **Criar usuários no Auth**:
+   - **Novos cadastros pelo Admin** já sincronizam com `auth.users` via
+     `/api/gerenciar-usuario-auth` (exige `SUPABASE_SERVICE_ROLE_KEY` nas
+     Environment Variables da Vercel) ou pela Edge Function
+     `gerenciar-usuario-auth`.
+   - **Usuários já existentes** em `tab_usuarios`: rode
+     `node scripts/criar-auth-users.mjs` (com `SUPABASE_URL` e
+     `SUPABASE_SERVICE_ROLE_KEY`). Idempotente. Ou edite o usuário no Admin
+     e salve a senha (mín. 6) para criar/alinhar o Auth.
 5. **Flip + deploy:** em `src/lib/authMode.js` ligue **as duas flags**
    `AUTH_MODE = 'supabase'` **e** `CARDAPIO_PUBLICO_VIA_RPC = true`; publique.
 6. **Login de teste** (gestor, operador, super admin) e **pedido pelo cardápio**

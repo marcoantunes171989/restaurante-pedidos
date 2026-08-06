@@ -781,6 +781,126 @@ export async function loginSupabaseAuth(email, senha) {
     return { ok: true, session: data?.session ?? null }
   } catch (e) { return { ok: false, error: e?.message || 'Falha na autenticação.' } }
 }
+
+// Mínimo exigido pelo Supabase Auth (e pela API /api/gerenciar-usuario-auth).
+export const SENHA_MIN_AUTH = 6
+
+/**
+ * Sincroniza create/update/delete de usuário no Supabase Auth (auth.users).
+ * Necessário quando AUTH_MODE=supabase: o login valida a senha no Auth, não
+ * só em tab_usuarios. Tenta a rota Vercel e, se indisponível, a Edge Function.
+ */
+export async function gerenciarUsuarioAuth({ acao, email, senha, nome, lojaId, emailAnterior }) {
+  const { data: sess } = await supabase.auth.getSession()
+  const token = sess?.session?.access_token
+  if (!token) throw new Error('Sessão inválida — faça login novamente.')
+
+  const payload = {
+    acao,
+    email: (email || '').trim().toLowerCase(),
+    senha: senha != null ? String(senha) : '',
+    nome: nome || '',
+    lojaId: lojaId ?? null,
+    emailAnterior: emailAnterior ? String(emailAnterior).trim().toLowerCase() : '',
+  }
+
+  // 1) Vercel Serverless (produção) — sobe com o deploy; exige SERVICE_ROLE na Vercel.
+  let tentarEdge = true
+  try {
+    const r = await fetch('/api/gerenciar-usuario-auth', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+      body: JSON.stringify(payload),
+    })
+    const ct = r.headers.get('content-type') || ''
+    let data = {}
+    if (ct.includes('application/json')) {
+      try { data = await r.json() } catch { data = {} }
+    } else {
+      // HTML (vite local / 404) — tenta Edge Function.
+      tentarEdge = true
+      data = null
+    }
+    if (data && r.ok && !data.error) return data
+    if (data && (r.status === 400 || r.status === 401 || r.status === 403 || r.status === 503)) {
+      throw new Error(data.error || `Erro ${r.status} ao sincronizar login.`)
+    }
+    if (data && r.status >= 500) {
+      throw new Error(data.error || `Erro ${r.status} ao sincronizar login.`)
+    }
+    // 404/não-JSON → Edge
+  } catch (e) {
+    if (e?.message && /SERVICE_ROLE|não configurada|Sem permissão|Senha deve|E-mail|Só é possível|Ação inválida|Sessão inválida|Erro \d+/i.test(e.message)) {
+      throw e
+    }
+    // rede / rota ausente → Edge
+  }
+
+  if (!tentarEdge) throw new Error('Falha ao sincronizar login no Auth.')
+
+  // 2) Edge Function Supabase (se publicada).
+  const { data, error } = await supabase.functions.invoke('gerenciar-usuario-auth', { body: payload })
+  if (error) {
+    const detalhe = (typeof error.message === 'string' && error.message) || 'Falha ao chamar gerenciar-usuario-auth.'
+    throw new Error(
+      /Failed to send|not found|404|FunctionsFetchError|FunctionsHttpError/i.test(detalhe)
+        ? 'Não foi possível sincronizar o login. Configure SUPABASE_SERVICE_ROLE_KEY na Vercel (ou publique a Edge Function gerenciar-usuario-auth).'
+        : detalhe,
+    )
+  }
+  if (data?.error) throw new Error(data.error)
+  return data
+}
+
+/**
+ * Fallback local: cria o usuário no Auth via signUp e restaura a sessão do admin.
+ * Só para "criar" quando a API com service role não está disponível. Exige
+ * confirmação de e-mail DESLIGADA no projeto Supabase (ou o login falha até confirmar).
+ */
+export async function criarAuthUsuarioViaSignUp({ email, senha, nome, lojaId }) {
+  const emailNorm = (email || '').trim().toLowerCase()
+  if (!emailNorm || !senha) throw new Error('E-mail e senha são obrigatórios para o login.')
+  if (String(senha).length < SENHA_MIN_AUTH) {
+    throw new Error(`Senha deve ter no mínimo ${SENHA_MIN_AUTH} caracteres (exigência do login).`)
+  }
+  const { data: sessAntes } = await supabase.auth.getSession()
+  const prev = sessAntes?.session
+  const { data, error } = await supabase.auth.signUp({
+    email: emailNorm,
+    password: String(senha),
+    options: { data: { nome: nome || '', loja_id: lojaId ?? null } },
+  })
+  // Restaura a sessão do admin imediatamente (signUp pode trocar o JWT).
+  if (prev?.access_token && prev?.refresh_token) {
+    try { await supabase.auth.setSession({ access_token: prev.access_token, refresh_token: prev.refresh_token }) } catch { /* best-effort */ }
+  } else {
+    try { await supabase.auth.signOut({ scope: 'local' }) } catch { /* */ }
+    if (prev) {
+      try { await supabase.auth.setSession({ access_token: prev.access_token, refresh_token: prev.refresh_token }) } catch { /* */ }
+    }
+  }
+  if (error) {
+    // E-mail já registrado: trata como ok (pode ser re-cadastro parcial).
+    if (/already|registered|exists|já/i.test(error.message || '')) {
+      return { ok: true, jaExistia: true }
+    }
+    throw new Error(error.message || 'Falha ao criar login no Auth.')
+  }
+  return { ok: true, id: data?.user?.id ?? null, identities: data?.user?.identities }
+}
+
+/** Cria no Auth: API service-role primeiro; se indisponível, tenta signUp. */
+export async function sincronizarAuthAoCriarUsuario({ email, senha, nome, lojaId }) {
+  try {
+    return await gerenciarUsuarioAuth({ acao: 'criar', email, senha, nome, lojaId })
+  } catch (e) {
+    const msg = e?.message || ''
+    if (/SERVICE_ROLE|não configurada|não foi possível sincronizar|Failed to send|404|Failed to fetch/i.test(msg)) {
+      return await criarAuthUsuarioViaSignUp({ email, senha, nome, lojaId })
+    }
+    throw e
+  }
+}
 export async function logoutSupabaseAuth() {
   try { await supabase.auth.signOut() } catch {}
 }
