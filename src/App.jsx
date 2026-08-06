@@ -5630,7 +5630,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
       { id: "comandas", icon: <IconQr />, label: "QR Code" },
       { id: "chamados", icon: <IconMesas />, label: "Chamados" },
       { id: "setores", icon: <IconCategorias />, label: "Setores de Produção" },
-      { id: "impressoes", icon: <IconImpressora />, label: "Impressões Cozinha" },
+      { id: "impressoes", icon: <IconImpressora />, label: "Impressões Setores" },
       { id: "operacaomobile", icon: <IconQr />, label: "Operação Mobile" },
       { id: "acessosop", icon: <IconPermissoes />, label: "Acessos Operacionais" },
     ]},
@@ -16381,7 +16381,7 @@ function SetoresCozinhaAdmin({ setores = [], produtos = [], orders = [], api, vi
               <h4 className="page-title text-sm font-bold">Regra de impressão</h4>
             </div>
             <p className="mt-2 text-xs leading-5 text-slate-300">Prioridade: setor do <b>produto</b> → setor da <b>categoria</b>. Pedido com lanche, bebida e sobremesa em setores diferentes gera comandas separadas, uma por impressora.</p>
-            <p className="mt-2 text-xs leading-5 text-slate-400">Monitore falhas em Administrativo → Impressões Cozinha.</p>
+            <p className="mt-2 text-xs leading-5 text-slate-400">Monitore falhas em Administrativo → Impressões Setores.</p>
           </div>
         </div>
 

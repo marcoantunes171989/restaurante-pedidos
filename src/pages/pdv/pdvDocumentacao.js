@@ -527,7 +527,7 @@ export function secoesDocumentacao(ctx = {}) {
             "Vincule o setor na categoria e, se precisar, no produto (produto tem prioridade).",
             "Pedido no tablet, QR ou externo gera a fila por setor automaticamente.",
             "Com Cozinha/Operação aberta, as comandas saem sozinhas — mesa e produtos em destaque para o garçom.",
-            "Falhas aparecem em Administrativo → Impressões Cozinha para reimpressão ou intervenção.",
+            "Falhas aparecem em Administrativo → Impressões Setores para reimpressão ou intervenção.",
           ],
         },
         { tipo: "dica", titulo: "Impressora de cupom", texto: "Os layouts são feitos para impressora térmica de automação comercial (80mm, fonte monoespaçada). Libere pop-ups no navegador — a cozinha pode abrir várias janelas (uma por setor)." },

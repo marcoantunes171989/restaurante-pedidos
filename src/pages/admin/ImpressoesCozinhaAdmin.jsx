@@ -90,7 +90,7 @@ export default function ImpressoesCozinhaAdmin({
               <Printer size={22} aria-hidden="true" />
             </span>
             <div>
-              <h3 className="page-title text-xl font-bold tracking-tight text-white sm:text-2xl">Impressões da cozinha</h3>
+              <h3 className="page-title text-xl font-bold tracking-tight text-white sm:text-2xl">Impressões Setores</h3>
               <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-400">
                 Acompanhe se as comandas saíram automaticamente por setor. Itens em atenção precisam de manutenção ou reimpressão manual.
               </p>
