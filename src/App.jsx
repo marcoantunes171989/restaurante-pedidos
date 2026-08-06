@@ -22,6 +22,7 @@ import {
   fetchCupons, inserirCupom, atualizarCupom, excluirCupom, escutarCupons, validarCupom, consumirCupom,
   fetchGruposOpcoes, fetchOpcoes, inserirGrupoOpcoes, atualizarGrupoOpcoes, excluirGrupoOpcoes, inserirOpcao, atualizarOpcao, excluirOpcao, escutarGruposOpcoes, escutarOpcoes,
   fetchSetoresCozinha, inserirSetorCozinha, atualizarSetorCozinha, excluirSetorCozinha, escutarSetoresCozinha,
+  fetchImpressoras, inserirImpressora, atualizarImpressora, excluirImpressora, escutarImpressoras,
   fetchImpressoesCozinha, inserirImpressoesCozinha, atualizarImpressaoCozinha, escutarImpressoesCozinha,
   fetchCaixas, fetchMovimentosCaixa, abrirCaixa, registrarMovimentoCaixa, fecharCaixa, escutarCaixas,
   fetchFidelidadeRegras, salvarFidelidadeRegra, fetchFidelidadeRecompensas, inserirRecompensa, excluirRecompensa, atualizarRecompensa, fetchFidelidadeTransacoes, lancarFidelidadeTransacao, escutarFidelidadeTransacoes, escutarFidelidadeRegras,
@@ -49,6 +50,7 @@ import CentralDePedidos from "./pages/CentralDePedidos";
 import CentralDoCaixa from "./pages/CentralDoCaixa";
 import CashierPdv from "./pages/pdv/CashierPdv";
 import ImpressoesCozinhaAdmin from "./pages/admin/ImpressoesCozinhaAdmin";
+import SetorImpressorasAdmin from "./pages/admin/SetorImpressorasAdmin";
 import EstacaoImpressaoAuto from "./components/EstacaoImpressaoAuto";
 import { montarFilasImpressaoPedido } from "./lib/impressaoCozinha";
 import {
@@ -374,6 +376,7 @@ export default function RestaurantePedidoApp() {
   const [opcoes, setOpcoes] = useState([]);                // opções dos grupos
   const [setoresCozinha, setSetoresCozinha] = useState([]); // setores de cozinha (migration 041)
   const [impressoesCozinha, setImpressoesCozinha] = useState([]); // fila impressão por setor (077)
+  const [impressoras, setImpressoras] = useState([]); // cadastro Setor Impressoras (078)
   const [caixas, setCaixas] = useState([]);                // sessões de caixa (migration 042)
   const [fidRegras, setFidRegras] = useState([]);          // fidelidade: regras (migration 043)
   const [fidRecompensas, setFidRecompensas] = useState([]); // fidelidade: recompensas
@@ -462,6 +465,7 @@ export default function RestaurantePedidoApp() {
         try { unsubs.push(escutarGruposOpcoes(setGruposOpcoes)); } catch {}
         try { unsubs.push(escutarOpcoes(setOpcoes)); } catch {}
         try { unsubs.push(escutarSetoresCozinha(setSetoresCozinha)); } catch {}
+        try { unsubs.push(escutarImpressoras(setImpressoras, lojaAtual)); } catch {}
         try { unsubs.push(escutarImpressoesCozinha(setImpressoesCozinha, lojaAtual)); } catch {}
         try { unsubs.push(escutarCaixas(setCaixas)); } catch {}
         try { unsubs.push(escutarFidelidadeTransacoes(setFidTransacoes)); } catch {}
@@ -1567,9 +1571,11 @@ export default function RestaurantePedidoApp() {
     if (categoriasDb.some((c) => c.nome.toLowerCase() === n.toLowerCase())) return notify("error", "Categoria já existe.");
     try {
       const setorId = extras.setorId != null && extras.setorId !== "" ? Number(extras.setorId) : null;
+      const impressoraId = extras.impressoraId != null && extras.impressoraId !== "" ? Number(extras.impressoraId) : null;
+      if (!impressoraId) return notify("error", "Selecione a impressora da categoria (obrigatória).");
       const nova = dbReady
-        ? await inserirCategoria(n, lojaAtual, { setorId })
-        : { id: Date.now(), nome: n, active: true, lojaId: lojaAtual, setorId };
+        ? await inserirCategoria(n, lojaAtual, { setorId, impressoraId })
+        : { id: Date.now(), nome: n, active: true, lojaId: lojaAtual, setorId, impressoraId };
       setCategoriasDb((cur) => [...cur, nova]);
       notify("success", "Categoria cadastrada.");
       return true;
@@ -1617,6 +1623,12 @@ export default function RestaurantePedidoApp() {
     }
     if (campos.setorId !== undefined) {
       patch.setorId = campos.setorId === "" || campos.setorId == null ? null : Number(campos.setorId);
+    }
+    if (campos.impressoraId !== undefined) {
+      if (campos.impressoraId === "" || campos.impressoraId == null) {
+        return notify("error", "A impressora da categoria é obrigatória.");
+      }
+      patch.impressoraId = Number(campos.impressoraId);
     }
     const anterior = categoriasDb.find((x) => x.id === id);
     setCategoriasDb((cur) => cur.map((x) => (x.id === id ? { ...x, ...patch } : x)));
@@ -1971,6 +1983,31 @@ export default function RestaurantePedidoApp() {
     if (dbReady) try { await excluirSetorCozinha(id); } catch (e) { notify("error", "Erro ao excluir setor: " + (e.message || e)); }
   }
 
+  async function addImpressoraCadastro(dados) {
+    if (!canAccess(currentUser, "admin")) { notify("error", "Usuário sem permissão administrativa."); throw new Error("sem permissão"); }
+    if (dbReady) {
+      try {
+        const s = await inserirImpressora({ ...dados, lojaId: lojaAtual });
+        setImpressoras((cur) => [...cur, s]);
+        return s;
+      } catch (e) {
+        notify("error", "Erro ao criar impressora: " + (e.message || e));
+        throw e;
+      }
+    }
+    const local = { id: Date.now(), lojaId: lojaAtual, ...dados, ativo: dados.ativo !== false, impressaoAuto: dados.impressaoAuto !== false };
+    setImpressoras((cur) => [...cur, local]);
+    return local;
+  }
+  async function editarImpressoraCadastro(id, dados) {
+    setImpressoras((cur) => cur.map((i) => i.id === id ? { ...i, ...dados } : i));
+    if (dbReady) try { await atualizarImpressora(id, dados); } catch (e) { notify("error", "Erro ao salvar impressora: " + (e.message || e)); throw e; }
+  }
+  async function removerImpressoraCadastro(id) {
+    setImpressoras((cur) => cur.filter((i) => i.id !== id));
+    if (dbReady) try { await excluirImpressora(id); } catch (e) { notify("error", "Erro ao excluir impressora: " + (e.message || e)); }
+  }
+
   /** Enfileira comandas de produção por setor (produto > categoria). */
   async function enfileirarImpressaoPedido(pedido, origem = "sistema") {
     if (!pedido?.id || !Array.isArray(pedido.items) || !pedido.items.length) return [];
@@ -1981,6 +2018,7 @@ export default function RestaurantePedidoApp() {
           products,
           categories: categoriasDb,
           setores: filtraLoja(setoresCozinha),
+          impressoras: filtraLoja(impressoras),
           lojaId: lojaAtual,
         },
         origem,
@@ -2147,12 +2185,12 @@ export default function RestaurantePedidoApp() {
     if (custoAdd <= 0) return notify("error", "Informe o custo do produto.");
     const imgFinal = (typeof overrideImageUrl === "string" && overrideImageUrl) ? overrideImageUrl : adminForm.imageUrl;
     if (!adminForm.time || !adminForm.time.trim()) return notify("error", "Selecione o tempo de preparo.");
-    const np = { name: adminForm.name.trim(), category: adminForm.category, categoriaId: adminForm.categoriaId, price: precoAdd, cost: custoAdd, active: true, time: adminForm.time, description: adminForm.description || "Produto cadastrado pelo administrativo.", badge: "Admin", imageUrl: imgFinal || fallbackImage, ingredients: adminForm.ingredientsText.split(",").map((s) => s.trim()).filter(Boolean), adicionais: adminForm.adicionais || [], estoque: 100, lojaId: lojaAtual };
+    const np = { name: adminForm.name.trim(), category: adminForm.category, categoriaId: adminForm.categoriaId, price: precoAdd, cost: custoAdd, active: true, time: adminForm.time, description: adminForm.description || "Produto cadastrado pelo administrativo.", badge: "Admin", imageUrl: imgFinal || fallbackImage, ingredients: adminForm.ingredientsText.split(",").map((s) => s.trim()).filter(Boolean), adicionais: adminForm.adicionais || [], estoque: 100, lojaId: lojaAtual, setorId: adminForm.setorId || null, impressoraId: adminForm.impressoraId || null };
     try {
       const saved = dbReady ? await inserirProduto(np) : { ...np, id: Date.now() };
       setProducts((cur) => [saved, ...cur]);
     } catch { setProducts((cur) => [{ ...np, id: Date.now() }, ...cur]); }
-    setAdminForm({ name: "", category: "", categoriaId: null, price: "", cost: "", time: "15-25 min", imageUrl: "", ingredientsText: "", description: "" });
+    setAdminForm({ name: "", category: "", categoriaId: null, price: "", cost: "", time: "15-25 min", imageUrl: "", ingredientsText: "", description: "", setorId: "", impressoraId: "" });
     auditar("criar", "produto", null, { nome: np.name });
     notify("success", "Produto cadastrado com sucesso no administrativo.");
     return true;
@@ -2194,6 +2232,8 @@ export default function RestaurantePedidoApp() {
         ...(dados.disponivel != null ? { disponivel: !!dados.disponivel } : {}),
         // Migration 041 — setor de cozinha
         ...(dados.setorId !== undefined ? { setor_id: dados.setorId || null } : {}),
+        // Migration 078 — impressora opcional no produto
+        ...(dados.impressoraId !== undefined ? { impressora_id: dados.impressoraId || null } : {}),
       });
     } catch (e) { notify("error", "Erro ao salvar: " + e.message); }
     auditar("editar", "produto", pid, { nome: dados.name });
@@ -2632,7 +2672,7 @@ export default function RestaurantePedidoApp() {
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} products={products} lojaInfo={lojaInfo} />}
         {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierPdv orders={orders} mesas={filtraLoja(mesas).filter((m) => m.active !== false)} clientes={filtraLoja(clientes)} baixarComandas={baixarComandas} formasPagamento={formasPagamentoLoja} lojaInfo={lojaInfo} currentUser={currentUser} caixaAberto={caixaAberto} auditar={auditar} conexaoOk={conexaoOk} editarItensPedido={editarItensPedido} criarPedidoCaixa={criarPedidoCaixa} products={products} categories={categoriasDb} setores={filtraLoja(setoresCozinha)} fidCaixa={fidCaixa} atualizarClientePedidos={atualizarClientePedidos} transferirMesaPedidos={transferirMesaPedidos} separarItensPedidos={separarItensPedidos} notify={notify} validarCupom={validarCupomCaixa} consumirCupom={consumirCupomCaixa} />}
         {/* activeTab === "opmobile" agora é tratado pelo branch dedicado no início desta função (sem cabeçalho/grade de módulos) */}
-        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} toggleLoja={toggleLoja} editarLoja={editarLoja} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} filtraLoja={filtraLoja} pesquisas={pesquisas} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} cancelarPedido={cancelarPedido} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} salvarConfigCrm={salvarConfigCrm} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} assinaturas={assinaturas} promocoes={filtraLoja(promocoes)} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} cupons={cuponsLoja} addCupom={addCupom} editarCupom={editarCupomLoja} toggleCupom={toggleCupom} removerCupom={removerCupom} opcoesApi={{ grupos: filtraLoja(gruposOpcoes), opcoes: filtraLoja(opcoes), addGrupo: addGrupoOpcoes, editarGrupo: editarGrupoOpcoes, removerGrupo: removerGrupoOpcoes, addOpcao, editarOpcao, removerOpcao }} setores={filtraLoja(setoresCozinha)} setoresApi={{ add: addSetorCozinha, editar: editarSetorCozinha, remover: removerSetorCozinha }} vincularProdutoSetor={vincularProdutoSetor} salvarProdutoQr={salvarProdutoQr} irParaCozinha={(setorId) => { setCozinhaSetorInicial(setorId ?? null); if (canAccess(currentUser, "kitchen")) setActiveTab("kitchen"); else notify("error", "Sem permissão para acessar o painel da cozinha."); }} caixaAberto={caixaAberto} caixasLoja={filtraLoja(caixas)} caixaApi={{ abrir: abrirCaixaFn, movimentar: movimentarCaixaFn, fechar: fecharCaixaFn, fetchMovimentos: fetchMovimentosCaixa }} fidRegra={fidRegraAtual} fidRecompensas={filtraLoja(fidRecompensas)} fidTransacoes={filtraLoja(fidTransacoes)} fidApi={{ salvarRegra: salvarRegraFid, addRecompensa: addRecompensaFid, removerRecompensa: removerRecompensaFid, editarRecompensa: editarRecompensaFid, lancarPontos }} fidCaixa={fidCaixa} chamados={filtraLoja(chamados)} atenderChamado={atenderChamadoFn} assumirChamado={assumirChamadoFn} auditoria={filtraLoja(auditoria)} impressoesCozinha={filtraLoja(impressoesCozinha)} onAtualizarImpressao={atualizarStatusImpressao} onRecarregarImpressoes={async () => { try { setImpressoesCozinha(await fetchImpressoesCozinha(lojaAtual)); } catch {} }} editarCategoriaCampos={editarCategoriaCampos} />}
+        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} toggleLoja={toggleLoja} editarLoja={editarLoja} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} filtraLoja={filtraLoja} pesquisas={pesquisas} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} cancelarPedido={cancelarPedido} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} salvarConfigCrm={salvarConfigCrm} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} assinaturas={assinaturas} promocoes={filtraLoja(promocoes)} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} cupons={cuponsLoja} addCupom={addCupom} editarCupom={editarCupomLoja} toggleCupom={toggleCupom} removerCupom={removerCupom} opcoesApi={{ grupos: filtraLoja(gruposOpcoes), opcoes: filtraLoja(opcoes), addGrupo: addGrupoOpcoes, editarGrupo: editarGrupoOpcoes, removerGrupo: removerGrupoOpcoes, addOpcao, editarOpcao, removerOpcao }} impressoras={filtraLoja(impressoras)} impressorasApi={{ add: addImpressoraCadastro, editar: editarImpressoraCadastro, remover: removerImpressoraCadastro }} setores={filtraLoja(setoresCozinha)} setoresApi={{ add: addSetorCozinha, editar: editarSetorCozinha, remover: removerSetorCozinha }} vincularProdutoSetor={vincularProdutoSetor} salvarProdutoQr={salvarProdutoQr} irParaCozinha={(setorId) => { setCozinhaSetorInicial(setorId ?? null); if (canAccess(currentUser, "kitchen")) setActiveTab("kitchen"); else notify("error", "Sem permissão para acessar o painel da cozinha."); }} caixaAberto={caixaAberto} caixasLoja={filtraLoja(caixas)} caixaApi={{ abrir: abrirCaixaFn, movimentar: movimentarCaixaFn, fechar: fecharCaixaFn, fetchMovimentos: fetchMovimentosCaixa }} fidRegra={fidRegraAtual} fidRecompensas={filtraLoja(fidRecompensas)} fidTransacoes={filtraLoja(fidTransacoes)} fidApi={{ salvarRegra: salvarRegraFid, addRecompensa: addRecompensaFid, removerRecompensa: removerRecompensaFid, editarRecompensa: editarRecompensaFid, lancarPontos }} fidCaixa={fidCaixa} chamados={filtraLoja(chamados)} atenderChamado={atenderChamadoFn} assumirChamado={assumirChamadoFn} auditoria={filtraLoja(auditoria)} impressoesCozinha={filtraLoja(impressoesCozinha)} onAtualizarImpressao={atualizarStatusImpressao} onRecarregarImpressoes={async () => { try { setImpressoesCozinha(await fetchImpressoesCozinha(lojaAtual)); } catch {} }} editarCategoriaCampos={editarCategoriaCampos} />}
 
       </div>
       )}
@@ -5616,7 +5656,7 @@ function MobileAdminDrawer({ open, onClose, triggerRef, children, titulo }) {
   );
 }
 
-function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, definirAcoesUsuario, toggleUserStatus, toggleAccessStatus, usersLoja, filtraLoja = (a) => a, pesquisas = [], adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], toggleLoja, editarLoja, setLicencaEmpresa = async()=>{}, setValidadeLicenca = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, updateOrderStatus = async()=>{}, marcarEntregue = async()=>{}, marcarSetorPronto = async()=>{}, baixarComandas = async()=>{}, cancelarPedido, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, setModoUsoEmpresa = async()=>{}, salvarConfigExterno = async()=>{}, salvarConfigCrm = async()=>{}, mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, clientes = [], planoAtual = null, assinaturaAtual = null, assinaturas = [], planos = [], planoModulos = [], definirAssinatura = async()=>{}, promocoes = [], addPromocao = async()=>{}, editarPromocao = async()=>{}, togglePromocao = async()=>{}, removerPromocao = async()=>{}, cupons = [], addCupom = async()=>{}, editarCupom = async()=>{}, toggleCupom = async()=>{}, removerCupom = async()=>{}, opcoesApi = null, setores = [], setoresApi = null, vincularProdutoSetor = async () => {}, salvarProdutoQr = async () => {}, irParaCozinha = () => {}, caixaAberto = null, caixasLoja = [], caixaApi = null, fidRegra = null, fidRecompensas = [], fidTransacoes = [], fidApi = null, chamados = [], atenderChamado = async()=>{}, assumirChamado = async()=>{}, auditoria = [], fidCaixa = null, impressoesCozinha = [], onAtualizarImpressao = async () => {}, onRecarregarImpressoes = async () => {}, editarCategoriaCampos = async () => {} }) {
+function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, definirAcoesUsuario, toggleUserStatus, toggleAccessStatus, usersLoja, filtraLoja = (a) => a, pesquisas = [], adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], toggleLoja, editarLoja, setLicencaEmpresa = async()=>{}, setValidadeLicenca = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, updateOrderStatus = async()=>{}, marcarEntregue = async()=>{}, marcarSetorPronto = async()=>{}, baixarComandas = async()=>{}, cancelarPedido, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, setModoUsoEmpresa = async()=>{}, salvarConfigExterno = async()=>{}, salvarConfigCrm = async()=>{}, mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, clientes = [], planoAtual = null, assinaturaAtual = null, assinaturas = [], planos = [], planoModulos = [], definirAssinatura = async()=>{}, promocoes = [], addPromocao = async()=>{}, editarPromocao = async()=>{}, togglePromocao = async()=>{}, removerPromocao = async()=>{}, cupons = [], addCupom = async()=>{}, editarCupom = async()=>{}, toggleCupom = async()=>{}, removerCupom = async()=>{}, opcoesApi = null, impressoras = [], impressorasApi = null, setores = [], setoresApi = null, vincularProdutoSetor = async () => {}, salvarProdutoQr = async () => {}, irParaCozinha = () => {}, caixaAberto = null, caixasLoja = [], caixaApi = null, fidRegra = null, fidRecompensas = [], fidTransacoes = [], fidApi = null, chamados = [], atenderChamado = async()=>{}, assumirChamado = async()=>{}, auditoria = [], fidCaixa = null, impressoesCozinha = [], onAtualizarImpressao = async () => {}, onRecarregarImpressoes = async () => {}, editarCategoriaCampos = async () => {} }) {
   // Menu reorganizado por contexto (SaaS premium) — mesmos ids e permissões de antes
   const menu = [
     { grupo: "Visão Geral", itens: [
@@ -5630,6 +5670,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
       { id: "comandas", icon: <IconQr />, label: "QR Code" },
       { id: "chamados", icon: <IconMesas />, label: "Chamados" },
       { id: "setores", icon: <IconCategorias />, label: "Setores de Produção" },
+      { id: "setor-impressoras", icon: <IconImpressora />, label: "Setor Impressoras" },
       { id: "impressoes", icon: <IconImpressora />, label: "Impressões Setores" },
       { id: "operacaomobile", icon: <IconQr />, label: "Operação Mobile" },
       { id: "acessosop", icon: <IconPermissoes />, label: "Acessos Operacionais" },
@@ -5786,9 +5827,10 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           {ativo === "relatorios" && <RelatoriosAdmin orders={orders} products={products} lojaInfo={lojaInfo} pesquisas={filtraLoja(pesquisas)} irParaMesas={() => setAdminSection("mesas")} irParaProdutos={() => setAdminSection("products")} currentUser={currentUser} />}
           {ativo === "crm"        && <CrmAdmin clientes={clientes} orders={orders} fidTransacoes={fidTransacoes} fidRecompensas={fidRecompensas} lancarPontos={fidApi?.lancarPontos} configCrm={lojaInfo?.configCrm || {}} salvarConfigCrm={salvarConfigCrm} />}
           {ativo === "fidelidade" && (precisaEmpresa ? avisoEmpresa : <FidelidadeAdmin regra={fidRegra} recompensas={fidRecompensas} transacoes={fidTransacoes} clientes={clientes} orders={orders} api={fidApi} onVerClientes={() => setAdminSection("crm")} />)}
-          {ativo === "products"   && (precisaEmpresa ? avisoEmpresa : <ProductAdmin   products={products} categories={categories} categoriasDb={categoriasDb} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} editarProduto={editarProduto} removerProduto={removerProduto} lojaId={lojaInfo?.id} opcoesApi={opcoesApi} setores={setores} />)}
+          {ativo === "products"   && (precisaEmpresa ? avisoEmpresa : <ProductAdmin   products={products} categories={categories} categoriasDb={categoriasDb} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} editarProduto={editarProduto} removerProduto={removerProduto} lojaId={lojaInfo?.id} opcoesApi={opcoesApi} setores={setores} impressoras={impressoras} />)}
           {ativo === "setores"    && (precisaEmpresa ? avisoEmpresa : <SetoresCozinhaAdmin setores={setores} produtos={products} orders={orders} api={setoresApi} vincularProduto={vincularProdutoSetor} irParaCozinha={irParaCozinha} />)}
-          {ativo === "impressoes" && (precisaEmpresa ? avisoEmpresa : <ImpressoesCozinhaAdmin impressoes={impressoesCozinha} setores={setores} lojaInfo={lojaInfo} onAtualizarStatus={onAtualizarImpressao} onRecarregar={onRecarregarImpressoes} />)}
+          {ativo === "setor-impressoras" && (precisaEmpresa ? avisoEmpresa : <SetorImpressorasAdmin impressoras={impressoras} categorias={categoriasDb} produtos={products} api={impressorasApi} lojaInfo={lojaInfo} />)}
+          {ativo === "impressoes" && (precisaEmpresa ? avisoEmpresa : <ImpressoesCozinhaAdmin impressoes={impressoesCozinha} impressoras={impressoras} categorias={categoriasDb} lojaInfo={lojaInfo} onAtualizarStatus={onAtualizarImpressao} onRecarregar={onRecarregarImpressoes} />)}
           {ativo === "operacaomobile" && <OperacaoMobileView orders={orders} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} confirmarRetirada={confirmarRetirada} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} products={products} setores={setores} formasPagamento={formasPagamento} lojaInfo={lojaInfo} perms={acessosOperacionais(currentUser)} usuarioNome={currentUser?.name || ""} onFechar={() => setAdminSection("dashboard")} cancelarPedido={cancelarPedido} podeCancelarPedido={canAccess(currentUser, "kitchen")} fidCaixa={fidCaixa} />}
           {ativo === "cardapioqr"  && (precisaEmpresa ? avisoEmpresa : <CardapioQrConfigAdmin products={products} setores={setores} salvarProdutoQr={salvarProdutoQr} irParaProdutos={() => setAdminSection("products")} />)}
           {ativo === "acessosop"   && <AcessosOperacionaisAdmin users={filtraLoja(users)} definirAcessos={definirAcessos} />}
@@ -5811,7 +5853,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           {ativo === "cargos"     && <CargoAdmin     cargos={filtraLoja(cargos)} users={filtraLoja(users)} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} />}
           {ativo === "access"     && <AccessAdmin    accesses={accesses} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleAccessStatus={toggleAccessStatus} />}
           {ativo === "link"       && <UserAccessAdmin users={filtraLoja(users)} accesses={accesses} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} lojaInfo={lojaInfo} lojas={lojas} isSuperAdmin={isSuperAdmin} />}
-          {ativo === "categorias" && (precisaEmpresa ? avisoEmpresa : <CategoriaAdmin categoriasDb={categoriasDb} produtos={products} setores={setores} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} editarCategoriaCampos={editarCategoriaCampos} />)}
+          {ativo === "categorias" && (precisaEmpresa ? avisoEmpresa : <CategoriaAdmin categoriasDb={categoriasDb} produtos={products} setores={setores} impressoras={impressoras} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} editarCategoriaCampos={editarCategoriaCampos} />)}
           {ativo === "mesas"      && (precisaEmpresa ? avisoEmpresa : <MesaAdmin mesas={mesas} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} orders={orders} />)}
           {ativo === "comandas-gestao" && (precisaEmpresa ? avisoEmpresa : <ComandasGestaoAdmin orders={filtraLoja(orders)} products={filtraLoja(products)} lojaPrefixo={lojaInfo?.prefixo || ""} lojaId={lojaInfo?.id} />)}
           {ativo === "comandas"   && (precisaEmpresa ? avisoEmpresa : <GeradorComandas prefixoLoja={lojaInfo?.prefixo || "CMD"} empresa={lojaInfo?.nome || "Restaurante"} onGerar={registrarComandas} comandasRegistradas={comandasRegistradas} orders={orders} onExcluirComanda={excluirComandaFn} onRenomearComanda={renomearComandaFn} onToggleComanda={toggleComandaFn} lojaId={lojaInfo?.id} logoSalvo={lojaInfo?.logoUrl || ""} onSalvarLogo={(url) => salvarLogoEmpresa(lojaInfo?.id, url)} onIrCardapioExterno={() => setAdminSection("cardapioext")} />)}
@@ -15038,7 +15080,7 @@ function LojaEditModal({ loja, onSalvar, onFechar }) {
 // ════════════════════════════════════════════════════════════
 //  Admin — Categorias
 // ════════════════════════════════════════════════════════════
-function CategoriaAdmin({ categoriasDb, produtos, setores = [], addCategoria, toggleCategoria, removerCategoria, renomearCategoria, editarCategoriaCampos = async () => {} }) {
+function CategoriaAdmin({ categoriasDb, produtos, setores = [], impressoras = [], addCategoria, toggleCategoria, removerCategoria, renomearCategoria, editarCategoriaCampos = async () => {} }) {
   const [excluir, setExcluir]   = useState(null);
   const [criando, setCriando]   = useState(false);
   const [editando, setEditando] = useState(null); // categoria sendo editada
@@ -15051,17 +15093,18 @@ function CategoriaAdmin({ categoriasDb, produtos, setores = [], addCategoria, to
   const produtosDaCat = (cat) => produtos.filter((p) => (p.categoriaId != null ? String(p.categoriaId) === String(cat.id) : p.category === cat.nome));
   const contagem = (cat) => produtosDaCat(cat).length;
   const nomeSetor = (sid) => setores.find((s) => String(s.id) === String(sid))?.nome || "";
+  const nomeImp = (iid) => impressoras.find((i) => String(i.id) === String(iid))?.nome || "";
 
   const termo = busca.trim().toLowerCase();
   const filtradas = termo ? categoriasDb.filter((c) => c.nome.toLowerCase().includes(termo)) : categoriasDb;
 
-  async function salvarNova({ nome, setorId }) {
-    const ok = await addCategoria(nome, { setorId });
+  async function salvarNova({ nome, setorId, impressoraId }) {
+    const ok = await addCategoria(nome, { setorId, impressoraId });
     if (ok) setCriando(false);
   }
-  async function salvarEdicao({ nome, setorId }) {
+  async function salvarEdicao({ nome, setorId, impressoraId }) {
     if (!editando) return;
-    const ok = await editarCategoriaCampos(editando.id, { nome, setorId });
+    const ok = await editarCategoriaCampos(editando.id, { nome, setorId, impressoraId });
     if (ok) setEditando(null);
   }
 
@@ -15107,7 +15150,8 @@ function CategoriaAdmin({ categoriasDb, produtos, setores = [], addCategoria, to
                   <p className="font-black text-white truncate">{c.nome}</p>
                   <p className="text-xs text-slate-400">
                     {usos} produto(s)
-                    {c.setorId ? ` · Setor: ${nomeSetor(c.setorId) || c.setorId}` : " · Sem setor de impressão"}
+                    {c.impressoraId ? ` · Imp.: ${nomeImp(c.impressoraId) || c.impressoraId}` : " · Sem impressora"}
+                    {c.setorId ? ` · Setor: ${nomeSetor(c.setorId) || c.setorId}` : ""}
                   </p>
                 </div>
                 <span className="shrink-0 text-xs text-slate-600 group-hover:text-blue-400 transition">✏️ Editar</span>
@@ -15125,12 +15169,13 @@ function CategoriaAdmin({ categoriasDb, produtos, setores = [], addCategoria, to
         </div>
       </div>
 
-      {criando && <CategoriaCadastroModal setores={setores} onSalvar={salvarNova} onFechar={() => setCriando(false)} />}
+      {criando && <CategoriaCadastroModal setores={setores} impressoras={impressoras} onSalvar={salvarNova} onFechar={() => setCriando(false)} />}
       {editando && (
         <CategoriaEditModal
           categoria={editando}
           produtos={produtosDaCat(editando)}
           setores={setores}
+          impressoras={impressoras}
           onSalvar={salvarEdicao}
           onToggle={() => { toggleCategoria(editando.id); setEditando((c) => c ? { ...c, active: c.active === false ? true : false } : c); }}
           onFechar={() => setEditando(null)}
@@ -15164,20 +15209,24 @@ function CategoriaAdmin({ categoriasDb, produtos, setores = [], addCategoria, to
 }
 
 // Modal de edição de categoria + lista de produtos vinculados
-function CategoriaEditModal({ categoria, produtos, setores = [], onSalvar, onToggle, onFechar }) {
+function CategoriaEditModal({ categoria, produtos, setores = [], impressoras = [], onSalvar, onToggle, onFechar }) {
   const [nome, setNome] = useState(categoria.nome);
   const [setorId, setSetorId] = useState(categoria.setorId ?? "");
+  const [impressoraId, setImpressoraId] = useState(categoria.impressoraId ?? "");
   const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-gold-400/60 placeholder:text-slate-600";
   const lbl = "mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500";
-  const valido = nome.trim().length > 0;
+  const valido = nome.trim().length > 0 && impressoraId !== "" && impressoraId != null;
   const ativa = categoria.active !== false;
   const setoresAtivos = setores.filter((s) => s.ativo !== false);
+  const impressorasAtivas = impressoras.filter((i) => i.ativo !== false);
+  const semMudanca = nome.trim() === categoria.nome
+    && String(setorId || "") === String(categoria.setorId || "")
+    && String(impressoraId || "") === String(categoria.impressoraId || "");
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onFechar}>
       <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-md flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl max-h-[90vh]">
 
-        {/* Header */}
         <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
           <div className="flex items-center gap-2">
             <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-blue-500/15 text-lg">🏷️</span>
@@ -15187,26 +15236,41 @@ function CategoriaEditModal({ categoria, produtos, setores = [], onSalvar, onTog
         </div>
 
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
-          {/* Nome */}
           <div>
             <span className={lbl}>Nome da categoria *</span>
             <input autoFocus value={nome} onChange={(e) => setNome(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter" && valido) onSalvar({ nome, setorId }); }}
+              onKeyDown={(e) => { if (e.key === "Enter" && valido) onSalvar({ nome, setorId, impressoraId }); }}
               placeholder="Ex.: Entradas, Bebidas..." className={inp} />
           </div>
 
           <div>
-            <span className={lbl}>Setor de impressão (cozinha)</span>
+            <span className={lbl}>Impressora *</span>
+            {impressorasAtivas.length === 0 ? (
+              <p className="rounded-2xl border border-amber-400/20 bg-amber-500/10 px-3 py-2 text-xs font-bold text-amber-200">
+                Cadastre impressoras em <b className="text-white">Operação → Setor Impressoras</b> antes de vincular.
+              </p>
+            ) : (
+              <select value={impressoraId} onChange={(e) => setImpressoraId(e.target.value ? Number(e.target.value) : "")} className={inp}>
+                <option value="">Selecione a impressora...</option>
+                {impressorasAtivas.map((i) => (
+                  <option key={i.id} value={i.id}>{i.nome}{i.destino ? ` · ${i.destino}` : ""}</option>
+                ))}
+              </select>
+            )}
+            <p className="mt-1 text-[11px] text-slate-500">Obrigatória. Produtos desta categoria usam esta impressora, salvo override no produto.</p>
+          </div>
+
+          <div>
+            <span className={lbl}>Setor de produção (cozinha)</span>
             <select value={setorId} onChange={(e) => setSetorId(e.target.value ? Number(e.target.value) : "")} className={inp}>
               <option value="">Sem setor (usa o do produto)</option>
               {setoresAtivos.map((s) => (
-                <option key={s.id} value={s.id}>{s.nome}{s.impressoraNome ? ` · ${s.impressoraNome}` : ""}</option>
+                <option key={s.id} value={s.id}>{s.nome}</option>
               ))}
             </select>
-            <p className="mt-1 text-[11px] text-slate-500">Usado quando o produto não tem setor próprio. Produto sempre tem prioridade.</p>
+            <p className="mt-1 text-[11px] text-slate-500">Separa a comanda no painel da cozinha. Produto tem prioridade sobre a categoria.</p>
           </div>
 
-          {/* Status */}
           <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
             <div>
               <p className="text-sm font-black text-white">Status</p>
@@ -15218,7 +15282,6 @@ function CategoriaEditModal({ categoria, produtos, setores = [], onSalvar, onTog
             </button>
           </div>
 
-          {/* Produtos vinculados */}
           <div>
             <p className={lbl}>Produtos vinculados ({produtos.length})</p>
             {produtos.length === 0 ? (
@@ -15243,12 +15306,11 @@ function CategoriaEditModal({ categoria, produtos, setores = [], onSalvar, onTog
           </div>
         </div>
 
-        {/* Rodapé */}
         <div className="shrink-0 border-t border-white/10 px-6 py-4 flex gap-3">
           <button onClick={onFechar} className="flex-1 rounded-2xl border border-white/10 bg-white/[0.06] py-3.5 text-sm font-black text-slate-300 hover:bg-white/10">Cancelar</button>
           <button
-            onClick={() => onSalvar({ nome, setorId })}
-            disabled={!valido || (nome.trim() === categoria.nome && String(setorId || "") === String(categoria.setorId || ""))}
+            onClick={() => onSalvar({ nome, setorId, impressoraId })}
+            disabled={!valido || semMudanca}
             className="flex-[2] rounded-2xl bg-blue-500 py-3.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             💾 Salvar alterações
@@ -15260,13 +15322,15 @@ function CategoriaEditModal({ categoria, produtos, setores = [], onSalvar, onTog
 }
 
 // Modal de cadastro de nova categoria (mesmo padrão do produto)
-function CategoriaCadastroModal({ setores = [], onSalvar, onFechar }) {
+function CategoriaCadastroModal({ setores = [], impressoras = [], onSalvar, onFechar }) {
   const [nome, setNome] = useState("");
   const [setorId, setSetorId] = useState("");
+  const [impressoraId, setImpressoraId] = useState("");
   const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-gold-400/60 placeholder:text-slate-600";
   const lbl = "mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500";
-  const valido = nome.trim().length > 0;
+  const valido = nome.trim().length > 0 && impressoraId !== "" && impressoraId != null;
   const setoresAtivos = setores.filter((s) => s.ativo !== false);
+  const impressorasAtivas = impressoras.filter((i) => i.ativo !== false);
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onFechar}>
       <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-md flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl">
@@ -15281,11 +15345,26 @@ function CategoriaCadastroModal({ setores = [], onSalvar, onFechar }) {
           <div>
             <span className={lbl}>Nome da categoria *</span>
             <input autoFocus value={nome} onChange={(e) => setNome(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter" && valido) onSalvar({ nome, setorId }); }}
+              onKeyDown={(e) => { if (e.key === "Enter" && valido) onSalvar({ nome, setorId, impressoraId }); }}
               placeholder="Ex.: Massas, Porções, Vinhos..." className={inp} />
           </div>
           <div>
-            <span className={lbl}>Setor de impressão</span>
+            <span className={lbl}>Impressora *</span>
+            {impressorasAtivas.length === 0 ? (
+              <p className="rounded-2xl border border-amber-400/20 bg-amber-500/10 px-3 py-2 text-xs font-bold text-amber-200">
+                Nenhuma impressora ativa. Cadastre em <b className="text-white">Operação → Setor Impressoras</b>.
+              </p>
+            ) : (
+              <select value={impressoraId} onChange={(e) => setImpressoraId(e.target.value ? Number(e.target.value) : "")} className={inp}>
+                <option value="">Selecione a impressora...</option>
+                {impressorasAtivas.map((i) => (
+                  <option key={i.id} value={i.id}>{i.nome}{i.destino ? ` · ${i.destino}` : ""}</option>
+                ))}
+              </select>
+            )}
+          </div>
+          <div>
+            <span className={lbl}>Setor de produção</span>
             <select value={setorId} onChange={(e) => setSetorId(e.target.value ? Number(e.target.value) : "")} className={inp}>
               <option value="">Sem setor (definir depois)</option>
               {setoresAtivos.map((s) => (
@@ -15293,11 +15372,11 @@ function CategoriaCadastroModal({ setores = [], onSalvar, onFechar }) {
               ))}
             </select>
           </div>
-          <p className="text-xs text-slate-500">A categoria fica disponível imediatamente no cadastro de produtos e no cardápio.</p>
+          <p className="text-xs text-slate-500">A impressora é obrigatória para a comanda sair na fila certa. O setor organiza o painel da cozinha.</p>
         </div>
         <div className="shrink-0 border-t border-white/10 px-6 py-4 flex gap-3">
           <button onClick={onFechar} className="flex-1 rounded-2xl border border-white/10 bg-white/[0.06] py-3.5 text-sm font-black text-slate-300 hover:bg-white/10">Cancelar</button>
-          <button onClick={() => onSalvar({ nome, setorId })} disabled={!valido}
+          <button onClick={() => onSalvar({ nome, setorId, impressoraId })} disabled={!valido}
             className="flex-[2] rounded-2xl bg-blue-500 py-3.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
             + Cadastrar categoria
           </button>
@@ -16205,9 +16284,6 @@ function SetoresCozinhaAdmin({ setores = [], produtos = [], orders = [], api, vi
   // Formulário de novo setor
   const [nome, setNome] = useState("");
   const [descricao, setDescricao] = useState("");
-  const [impressoraNome, setImpressoraNome] = useState("");
-  const [impressoraDestino, setImpressoraDestino] = useState("");
-  const [impressaoAuto, setImpressaoAuto] = useState(true);
   const [ativoNovo, setAtivoNovo] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [msg, setMsg] = useState(null); // { tipo, texto }
@@ -16241,9 +16317,7 @@ function SetoresCozinhaAdmin({ setores = [], produtos = [], orders = [], api, vi
 
   async function criar() {
     const n = nome.trim();
-    const imp = impressoraNome.trim() || n;
     if (!n) { aviso("erro", "Informe o nome do setor."); nomeRef.current?.focus(); return; }
-    if (!imp) { aviso("erro", "Informe a impressora do setor (obrigatória para separar a comanda)."); return; }
     if (nomeDuplicado(n)) { aviso("erro", "Já existe um setor com esse nome."); return; }
     setSalvando(true);
     try {
@@ -16252,23 +16326,18 @@ function SetoresCozinhaAdmin({ setores = [], produtos = [], orders = [], api, vi
         descricao: descricao.trim(),
         ativo: ativoNovo,
         ordem: setores.length,
-        impressoraNome: imp,
-        impressoraDestino: impressoraDestino.trim(),
-        impressaoAuto,
       });
-      setNome(""); setDescricao(""); setImpressoraNome(""); setImpressoraDestino(""); setImpressaoAuto(true); setAtivoNovo(true);
+      setNome(""); setDescricao(""); setAtivoNovo(true);
       aviso("ok", "Setor criado com sucesso.");
     } catch { aviso("erro", "Não foi possível criar o setor."); }
     finally { setSalvando(false); }
   }
-  function limpar() { setNome(""); setDescricao(""); setImpressoraNome(""); setImpressoraDestino(""); setImpressaoAuto(true); setAtivoNovo(true); setMsg(null); }
+  function limpar() { setNome(""); setDescricao(""); setAtivoNovo(true); setMsg(null); }
   function focarNome() { nomeRef.current?.focus(); nomeRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }); }
 
   async function salvarEdicao() {
     const n = (editando.nome || "").trim();
-    const imp = (editando.impressoraNome || "").trim() || n;
     if (!n) { aviso("erro", "O nome do setor não pode ficar vazio."); return; }
-    if (!imp) { aviso("erro", "A impressora do setor é obrigatória."); return; }
     if (nomeDuplicado(n, editando.id)) { aviso("erro", "Já existe um setor com esse nome."); return; }
     try {
       await api?.editar(editando.id, {
@@ -16276,9 +16345,6 @@ function SetoresCozinhaAdmin({ setores = [], produtos = [], orders = [], api, vi
         descricao: (editando.descricao || "").trim(),
         ativo: editando.ativo !== false,
         ordem: editando.ordem ?? 0,
-        impressoraNome: imp,
-        impressoraDestino: (editando.impressoraDestino || "").trim(),
-        impressaoAuto: editando.impressaoAuto !== false,
       });
       setEditando(null); aviso("ok", "Setor atualizado.");
     } catch { aviso("erro", "Não foi possível salvar o setor."); }
@@ -16304,9 +16370,9 @@ function SetoresCozinhaAdmin({ setores = [], produtos = [], orders = [], api, vi
         <div className="relative flex items-start gap-4">
           <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-gold-400/40 bg-gold-400/10 text-gold-300 [&>svg]:h-6 [&>svg]:w-6"><IcoChef /></span>
           <div className="min-w-0">
-            <h3 className="page-title text-xl font-bold tracking-tight text-white sm:text-2xl">Setores de Produção e Impressoras</h3>
+            <h3 className="page-title text-xl font-bold tracking-tight text-white sm:text-2xl">Setores de Produção</h3>
             <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-400">
-              Cadastre o setor, vincule a impressora e associe categorias/produtos. No pedido, cada setor recebe sua comanda automaticamente.
+              Organize a cozinha por setores e vincule produtos. A impressora é configurada em Operação → Setor Impressoras e ligada na categoria/produto.
             </p>
           </div>
         </div>
@@ -16346,21 +16412,6 @@ function SetoresCozinhaAdmin({ setores = [], produtos = [], orders = [], api, vi
                 <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-slate-500">Descrição do setor</label>
                 <textarea value={descricao} maxLength={120} onChange={(e) => setDescricao(e.target.value)} rows={2} placeholder="Descreva a função ou os tipos de preparo deste setor..." className={`${inp} resize-none`} />
               </div>
-              <div>
-                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-slate-500">Impressora do setor *</label>
-                <input value={impressoraNome} onChange={(e) => setImpressoraNome(e.target.value)} placeholder="Ex.: Impressora Chapa 80mm" className={inp} />
-              </div>
-              <div>
-                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-slate-500">Destino técnico (opcional)</label>
-                <input value={impressoraDestino} onChange={(e) => setImpressoraDestino(e.target.value)} placeholder="IP, compartilhamento ou alias do driver" className={inp} />
-              </div>
-              <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-3">
-                <span className="text-sm font-semibold text-slate-300">Impressão automática</span>
-                <button type="button" onClick={() => setImpressaoAuto((v) => !v)} className={`relative h-6 w-11 rounded-full transition ${impressaoAuto ? "bg-emerald-500" : "bg-slate-600"}`}>
-                  <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${impressaoAuto ? "left-[22px]" : "left-0.5"}`} />
-                </button>
-                <span className={`w-14 text-right text-xs font-bold ${impressaoAuto ? "text-emerald-300" : "text-slate-400"}`}>{impressaoAuto ? "Ativa" : "Manual"}</span>
-              </div>
               <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-3">
                 <span className="text-sm font-semibold text-slate-300">Status</span>
                 <button type="button" onClick={() => setAtivoNovo((v) => !v)} className={`relative h-6 w-11 rounded-full transition ${ativoNovo ? "bg-emerald-500" : "bg-slate-600"}`}>
@@ -16378,10 +16429,10 @@ function SetoresCozinhaAdmin({ setores = [], produtos = [], orders = [], api, vi
           <div className="rounded-[2rem] border border-gold-400/25 bg-gold-400/[0.05] p-5">
             <div className="flex items-center gap-2 text-gold-300">
               <span className="[&>svg]:h-5 [&>svg]:w-5"><IcoBulb /></span>
-              <h4 className="page-title text-sm font-bold">Regra de impressão</h4>
+              <h4 className="page-title text-sm font-bold">Como funciona</h4>
             </div>
-            <p className="mt-2 text-xs leading-5 text-slate-300">Prioridade: setor do <b>produto</b> → setor da <b>categoria</b>. Pedido com lanche, bebida e sobremesa em setores diferentes gera comandas separadas, uma por impressora.</p>
-            <p className="mt-2 text-xs leading-5 text-slate-400">Monitore falhas em Administrativo → Impressões Setores.</p>
+            <p className="mt-2 text-xs leading-5 text-slate-300">O setor organiza o painel da cozinha (produto → categoria). A impressora é cadastrada em <b>Setor Impressoras</b> e vinculada na categoria (obrigatório) ou no produto (opcional).</p>
+            <p className="mt-2 text-xs leading-5 text-slate-400">Monitore impresso/pendente/reimpressão em Operação → Impressões Setores.</p>
           </div>
         </div>
 
@@ -16425,11 +16476,6 @@ function SetoresCozinhaAdmin({ setores = [], produtos = [], orders = [], api, vi
                             <span className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold ${ativo ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-300" : "border-white/15 bg-white/[0.06] text-slate-400"}`}>{ativo ? "Ativo" : "Inativo"}</span>
                           </div>
                           <p className="mt-0.5 line-clamp-2 text-xs text-slate-400">{s.descricao || "Sem descrição."}</p>
-                          <p className="mt-1 text-[11px] font-semibold text-slate-300">
-                            Imp.: {s.impressoraNome || <span className="text-amber-300">não cadastrada</span>}
-                            {s.impressoraDestino ? ` · ${s.impressoraDestino}` : ""}
-                            {s.impressaoAuto === false ? " · manual" : " · automática"}
-                          </p>
                           <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-500">
                             <span><b className="text-slate-300">{contarProdutos(s.id)}</b> produto(s) vinculado(s)</span>
                             <span><b className="text-orange-300">{pedidosEmPreparo(s.id)}</b> pedido(s) em preparo</span>
@@ -16470,21 +16516,6 @@ function SetoresCozinhaAdmin({ setores = [], produtos = [], orders = [], api, vi
               <div>
                 <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-slate-500">Descrição</label>
                 <textarea value={editando.descricao || ""} maxLength={120} rows={2} onChange={(e) => setEditando({ ...editando, descricao: e.target.value })} className={`${inp} resize-none`} />
-              </div>
-              <div>
-                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-slate-500">Impressora do setor *</label>
-                <input value={editando.impressoraNome || ""} onChange={(e) => setEditando({ ...editando, impressoraNome: e.target.value })} className={inp} placeholder="Nome da impressora" />
-              </div>
-              <div>
-                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-slate-500">Destino técnico</label>
-                <input value={editando.impressoraDestino || ""} onChange={(e) => setEditando({ ...editando, impressoraDestino: e.target.value })} className={inp} placeholder="IP / compartilhamento" />
-              </div>
-              <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-3">
-                <span className="text-sm font-semibold text-slate-300">Impressão automática</span>
-                <button type="button" onClick={() => setEditando({ ...editando, impressaoAuto: editando.impressaoAuto === false })} className={`relative h-6 w-11 rounded-full transition ${editando.impressaoAuto !== false ? "bg-emerald-500" : "bg-slate-600"}`}>
-                  <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${editando.impressaoAuto !== false ? "left-[22px]" : "left-0.5"}`} />
-                </button>
-                <span className={`w-14 text-right text-xs font-bold ${editando.impressaoAuto !== false ? "text-emerald-300" : "text-slate-400"}`}>{editando.impressaoAuto !== false ? "Ativa" : "Manual"}</span>
               </div>
               <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-3">
                 <span className="text-sm font-semibold text-slate-300">Status</span>
@@ -18633,7 +18664,7 @@ function AdicionaisEditor({ value = [], onChange }) {
   );
 }
 
-function ProductAdmin({ products, categories, categoriasDb = [], adminForm, setAdminForm, addProduct, toggleProduct, editarProduto, removerProduto, lojaId, opcoesApi = null, setores = [] }) {
+function ProductAdmin({ products, categories, categoriasDb = [], adminForm, setAdminForm, addProduct, toggleProduct, editarProduto, removerProduto, lojaId, opcoesApi = null, setores = [], impressoras = [] }) {
   const [editando, setEditando] = useState(null);
   const [excluir, setExcluir]   = useState(null);
   const [variacoes, setVariacoes] = useState(null); // produto cujas variações/adicionais estamos editando
@@ -18766,9 +18797,10 @@ function ProductAdmin({ products, categories, categoriasDb = [], adminForm, setA
 
       {criando && (
         <ProdutoCadastroModal adminForm={adminForm} setAdminForm={setAdminForm} categoriasAtivas={categoriasAtivas} lojaId={lojaId}
+          setores={setores} impressoras={impressoras}
           onSalvar={salvarNovo} onFechar={() => setCriando(false)} />
       )}
-      {editando && <ProdutoEditModal produto={editando} categoriasAtivas={categoriasAtivas} lojaId={lojaId} setores={setores} onSalvar={(d) => { editarProduto(editando.id, d); setEditando(null); }} onFechar={() => setEditando(null)} />}
+      {editando && <ProdutoEditModal produto={editando} categoriasAtivas={categoriasAtivas} lojaId={lojaId} setores={setores} impressoras={impressoras} onSalvar={(d) => { editarProduto(editando.id, d); setEditando(null); }} onFechar={() => setEditando(null)} />}
       {variacoes && opcoesApi && <GruposOpcoesModal produto={variacoes} api={opcoesApi} onFechar={() => setVariacoes(null)} />}
       {excluir && (
         <ConfirmModal titulo="Excluir produto?"
@@ -18863,7 +18895,7 @@ function SeletorImagem({ urlAtual, onImageUrl, onFileChange, uploading = false, 
   );
 }
 
-function ProdutoCadastroModal({ adminForm, setAdminForm, categoriasAtivas, onSalvar, onFechar, lojaId }) {
+function ProdutoCadastroModal({ adminForm, setAdminForm, categoriasAtivas, onSalvar, onFechar, lojaId, setores = [], impressoras = [] }) {
   const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-gold-400/60 placeholder:text-slate-600";
   const lbl = "mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500";
   const set = (k, v) => setAdminForm({ ...adminForm, [k]: v });
@@ -18948,6 +18980,29 @@ function ProdutoCadastroModal({ adminForm, setAdminForm, categoriasAtivas, onSal
               </div>
             </div>
           </div>
+
+          {(setores.length > 0 || impressoras.length > 0) && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {setores.length > 0 && (
+                <div>
+                  <span className={lbl}>Setor de preparo <span className="text-slate-600 normal-case">— opcional</span></span>
+                  <select value={adminForm.setorId || ""} onChange={(e) => set("setorId", e.target.value ? Number(e.target.value) : "")} className={inp}>
+                    <option value="">— Usar setor da categoria —</option>
+                    {setores.filter((s) => s.ativo !== false).map((s) => <option key={s.id} value={s.id}>{s.nome}</option>)}
+                  </select>
+                </div>
+              )}
+              {impressoras.length > 0 && (
+                <div>
+                  <span className={lbl}>Impressora <span className="text-slate-600 normal-case">— opcional</span></span>
+                  <select value={adminForm.impressoraId || ""} onChange={(e) => set("impressoraId", e.target.value ? Number(e.target.value) : "")} className={inp}>
+                    <option value="">— Usar impressora da categoria —</option>
+                    {impressoras.filter((i) => i.ativo !== false).map((i) => <option key={i.id} value={i.id}>{i.nome}</option>)}
+                  </select>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Custo / Preço venda / Preparo */}
           <div className="grid grid-cols-3 gap-3">
@@ -19048,7 +19103,7 @@ function SeletorCategoria({ valorId, aoMudar, categorias }) {
   );
 }
 
-function ProdutoEditModal({ produto, categoriasAtivas, onSalvar, onFechar, lojaId, setores = [] }) {
+function ProdutoEditModal({ produto, categoriasAtivas, onSalvar, onFechar, lojaId, setores = [], impressoras = [] }) {
   // Inicializa campos de moeda já formatados
   const toDisplay = (v) => {
     if (!v && v !== 0) return "";
@@ -19074,6 +19129,8 @@ function ProdutoEditModal({ produto, categoriasAtivas, onSalvar, onFechar, lojaI
     disponivel: produto.disponivel !== false,
     // Migration 041 — setor de cozinha
     setorId: produto.setorId || "",
+    // Migration 078 — impressora opcional
+    impressoraId: produto.impressoraId || "",
   });
   const [tags, setTags] = useState([...(produto.ingredients || [])]); // ingredientes como tags
   const [adicionais, setAdicionais] = useState([...(produto.adicionais || [])]); // extras do produto
@@ -19110,6 +19167,7 @@ function ProdutoEditModal({ produto, categoriasAtivas, onSalvar, onFechar, lojaI
       visivelTablet: f.visivelTablet, visivelQr: f.visivelQr, visivelExterno: f.visivelExterno,
       isFeatured: f.isFeatured, featuredLabel: f.isFeatured ? (f.featuredLabel || "Destaque") : "", showOnHome: f.showOnHome, disponivel: f.disponivel,
       setorId: f.setorId || null,
+      impressoraId: f.impressoraId || null,
     });
   }
 
@@ -19217,14 +19275,27 @@ function ProdutoEditModal({ produto, categoriasAtivas, onSalvar, onFechar, lojaI
             </div>
           </div>
 
-          {/* Setor de cozinha (migration 041) */}
-          {setores.length > 0 && (
-            <div>
-              <span className={lbl}>Setor de preparo</span>
-              <select value={f.setorId} onChange={(e) => setF({ ...f, setorId: e.target.value ? Number(e.target.value) : "" })} className={inp}>
-                <option value="">— Sem setor —</option>
-                {setores.filter((s) => s.ativo !== false).map((s) => <option key={s.id} value={s.id}>{s.nome}</option>)}
-              </select>
+          {/* Setor / impressora (041 + 078) */}
+          {(setores.length > 0 || impressoras.length > 0) && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {setores.length > 0 && (
+                <div>
+                  <span className={lbl}>Setor de preparo <span className="text-slate-600 normal-case">— opcional</span></span>
+                  <select value={f.setorId} onChange={(e) => setF({ ...f, setorId: e.target.value ? Number(e.target.value) : "" })} className={inp}>
+                    <option value="">— Usar setor da categoria —</option>
+                    {setores.filter((s) => s.ativo !== false).map((s) => <option key={s.id} value={s.id}>{s.nome}</option>)}
+                  </select>
+                </div>
+              )}
+              {impressoras.length > 0 && (
+                <div>
+                  <span className={lbl}>Impressora <span className="text-slate-600 normal-case">— opcional</span></span>
+                  <select value={f.impressoraId} onChange={(e) => setF({ ...f, impressoraId: e.target.value ? Number(e.target.value) : "" })} className={inp}>
+                    <option value="">— Usar impressora da categoria —</option>
+                    {impressoras.filter((i) => i.ativo !== false).map((i) => <option key={i.id} value={i.id}>{i.nome}</option>)}
+                  </select>
+                </div>
+              )}
             </div>
           )}
 

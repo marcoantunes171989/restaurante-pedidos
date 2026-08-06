@@ -9,7 +9,8 @@ import { imprimirFilaProducao } from "../pdv/pdvCuponsTermicos";
  */
 export default function ImpressoesCozinhaAdmin({
   impressoes = [],
-  setores = [],
+  impressoras = [],
+  categorias = [],
   lojaInfo = null,
   onAtualizarStatus = async () => {},
   onRecarregar = async () => {},
@@ -34,7 +35,8 @@ export default function ImpressoesCozinhaAdmin({
     return impressoes.filter((j) => j.status === filtro);
   }, [impressoes, filtro]);
 
-  const setoresSemImpressora = setores.filter((s) => s.ativo !== false && !(s.impressoraNome || "").trim());
+  const semImpressorasCadastradas = impressoras.filter((i) => i.ativo !== false).length === 0;
+  const categoriasSemImpressora = categorias.filter((c) => c.active !== false && !c.impressoraId);
 
   async function reimprimir(job) {
     setProcessandoId(job.id);
@@ -106,7 +108,7 @@ export default function ImpressoesCozinhaAdmin({
         </div>
       </div>
 
-      {(contadores.intervencao > 0 || setoresSemImpressora.length > 0) && (
+      {(contadores.intervencao > 0 || semImpressorasCadastradas || categoriasSemImpressora.length > 0) && (
         <div className="rounded-2xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
           <p className="flex items-center gap-2 font-bold">
             <AlertTriangle size={16} aria-hidden="true" />
@@ -116,11 +118,17 @@ export default function ImpressoesCozinhaAdmin({
             {contadores.intervencao > 0 && (
               <li>{contadores.intervencao} impressão(ões) pendente(s) ou com erro — reimprima ou marque como impresso.</li>
             )}
-            {setoresSemImpressora.map((s) => (
-              <li key={s.id}>
-                Setor <b>{s.nome}</b> sem impressora cadastrada — complete em Setores de Produção.
+            {semImpressorasCadastradas && (
+              <li>Nenhuma impressora ativa — cadastre em Operação → Setor Impressoras e faça o teste de impressão.</li>
+            )}
+            {categoriasSemImpressora.slice(0, 4).map((c) => (
+              <li key={c.id}>
+                Categoria <b>{c.nome}</b> sem impressora — vincule em Gestão → Categorias.
               </li>
             ))}
+            {categoriasSemImpressora.length > 4 && (
+              <li>+{categoriasSemImpressora.length - 4} outras categorias sem impressora.</li>
+            )}
           </ul>
         </div>
       )}

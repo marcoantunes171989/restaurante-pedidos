@@ -12,7 +12,7 @@
 import { formatCurrency } from "./pdvHelpers";
 
 /** Versão da documentação — acompanha a versão da tela do PDV. */
-export const PDV_DOC_VERSAO = "2026.08.10";
+export const PDV_DOC_VERSAO = "2026.08.11";
 export const PDV_DOC_ATUALIZADO_EM = "06/08/2026";
 
 const IMG = "/ajuda/pdv";
@@ -523,11 +523,12 @@ export function secoesDocumentacao(ctx = {}) {
           tipo: "passos",
           titulo: "Impressão automática por setor",
           itens: [
-            "Cadastre o setor com impressora em Administrativo → Setores de Produção.",
-            "Vincule o setor na categoria e, se precisar, no produto (produto tem prioridade).",
-            "Pedido no tablet, QR ou externo gera a fila por setor automaticamente.",
+            "Cadastre a impressora (driver local, IP ou compartilhamento) em Operação → Setor Impressoras e faça o teste.",
+            "Vincule a impressora na categoria (obrigatório) e, se precisar, no produto (opcional — produto tem prioridade).",
+            "Organize o painel da cozinha em Operação → Setores de Produção (produto → categoria).",
+            "Pedido no tablet, QR ou externo gera a fila por setor/impressora automaticamente.",
             "Com Cozinha/Operação aberta, as comandas saem sozinhas — mesa e produtos em destaque para o garçom.",
-            "Falhas aparecem em Administrativo → Impressões Setores para reimpressão ou intervenção.",
+            "Falhas e reimpressão ficam em Operação → Impressões Setores.",
           ],
         },
         { tipo: "dica", titulo: "Impressora de cupom", texto: "Os layouts são feitos para impressora térmica de automação comercial (80mm, fonte monoespaçada). Libere pop-ups no navegador — a cozinha pode abrir várias janelas (uma por setor)." },
@@ -559,7 +560,7 @@ export function secoesDocumentacao(ctx = {}) {
         {
           tipo: "aviso",
           titulo: "Setores e impressoras",
-          texto: "Regra: setor do produto tem prioridade; se vazio, usa o setor da categoria; só então cai na heurística de nome. Cada setor cadastra sua impressora — lanche, bebida e sobremesa em setores diferentes geram comandas separadas e simultâneas.",
+          texto: "Setor (cozinha): produto → categoria. Impressora (driver): produto → categoria. Cadastre impressoras em Setor Impressoras; lanche, bebida e sobremesa em setores/impressoras diferentes geram comandas separadas.",
         },
         {
           tipo: "passos",
