@@ -1,11 +1,11 @@
-import { Sun, Moon, Search, X } from "lucide-react";
+import { Sun, Moon, Search, X, HelpCircle } from "lucide-react";
 import { LogoPP } from "../../components/BrandLogo";
 import NotificationBell from "../../components/NotificationBell";
 import { CANAIS_PDV } from "./pdvHelpers";
 
 /**
  * Cabeçalho do PDV — marca + canais (Mesa/Delivery/Comanda/Cliente/Pedido) + busca.
- * Todos os canais no mesmo padrão de botão segmentado.
+ * O ícone ? abre a Central de Ajuda (documentação viva da tela).
  */
 export default function PdvHeader({
   canal = "mesa",
@@ -16,6 +16,7 @@ export default function PdvHeader({
   currentUser,
   temaClaro = true,
   onToggleTema,
+  onAbrirAjuda,
 }) {
   return (
     <header
@@ -83,6 +84,17 @@ export default function PdvHeader({
         </form>
 
         <div className="flex shrink-0 items-center gap-1.5">
+          {typeof onAbrirAjuda === "function" && (
+            <button
+              type="button"
+              onClick={onAbrirAjuda}
+              aria-label="Abrir a central de ajuda do PDV"
+              title="Ajuda do PDV (F1)"
+              className="grid h-9 w-9 place-items-center rounded-lg border border-[var(--pp-primary)]/40 bg-[var(--pp-primary-soft)] text-[var(--pp-primary-text)] transition hover:border-[var(--pp-primary)] active:scale-[0.97]"
+            >
+              <HelpCircle size={16} aria-hidden="true" />
+            </button>
+          )}
           <NotificationBell />
           <button
             type="button"

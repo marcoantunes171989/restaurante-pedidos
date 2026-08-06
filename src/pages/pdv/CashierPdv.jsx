@@ -12,6 +12,7 @@ import PdvActionBar from "./PdvActionBar";
 import PdvStatusBar from "./PdvStatusBar";
 import ModalDividirConta from "./PdvDividirConta";
 import ModalIdentificarCliente from "./PdvIdentificarCliente";
+import PdvAjuda from "./PdvAjuda";
 import {
   ModalCliente,
   ModalHistoricoMesa,
@@ -120,6 +121,7 @@ export default function CashierPdv({
   const [ajustePorConta, setAjustePorConta] = useState({});
   const [cupomProcessando, setCupomProcessando] = useState(false);
   const [avisoCliente, setAvisoCliente] = useState(null);
+  const [ajudaAberta, setAjudaAberta] = useState(false);
   const [confirmarFinalizacao, setConfirmarFinalizacao] = useState(false);
   const [processando, setProcessando] = useState(false);
   const [sucesso, setSucesso] = useState(null);
@@ -1097,6 +1099,15 @@ ${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency
 
   useEffect(() => {
     function onKey(e) {
+      if (e.key === "F1") {
+        e.preventDefault();
+        setAjudaAberta((a) => !a);
+        return;
+      }
+      if (ajudaAberta) {
+        if (e.key === "Escape") setAjudaAberta(false);
+        return;
+      }
       if (modal || confirmarFinalizacao || sucesso) {
         if (e.key === "Escape") {
           setModal(null);
@@ -1125,7 +1136,7 @@ ${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [confirmarFinalizacao, sucesso, contaSel, podeFechar, restanteSel, bufferEntrada, modal]);
+  }, [confirmarFinalizacao, sucesso, contaSel, podeFechar, restanteSel, bufferEntrada, modal, ajudaAberta]);
 
   const temConta = !!contaSel;
   const selecionadoCanalKey = canal === "cliente"
@@ -1161,6 +1172,7 @@ ${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency
         currentUser={currentUser}
         temaClaro={temaClaro}
         onToggleTema={() => setTemaClaro((t) => !t)}
+        onAbrirAjuda={() => setAjudaAberta(true)}
       />
 
       <PdvStatsBar
@@ -1365,6 +1377,20 @@ ${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency
           mesa={contaSel.mesa}
           pedidos={historicoMesaPedidos}
           onFechar={() => setModal(null)}
+        />
+      )}
+      {ajudaAberta && (
+        <PdvAjuda
+          contexto={{
+            nomeLoja: lojaInfo?.nome,
+            formasPagamento: formasAtivas,
+            fidelidadeAtiva: fidAtiva,
+            pontosPorReal,
+            valorPorPonto,
+            totalMesas: mesasPainel.length,
+            taxaServico: taxaPct,
+          }}
+          onFechar={() => setAjudaAberta(false)}
         />
       )}
       {modal === "identificar" && contaSel && (
