@@ -828,6 +828,14 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
 [data-theme="light"] .tema-claro-area .bg-emerald-500.text-white,
 [data-theme="light"] .tema-claro-area .bg-green-500.text-white,
 [data-theme="light"] .tema-claro-area .bg-red-500.text-white { color: #FFFFFF !important; }
+/* PADRONIZAÇÃO de contraste: qualquer preenchimento SÓLIDO de cor via classe hex
+   (ex.: bg-[#0F4C5C] petróleo, bg-[#E67E22] laranja, bg-[#C81E4A] etc.) com
+   text-white DEVE manter o branco. Sem isto, o remap genérico .text-white→grafite
+   escurecia o texto e criava "texto escuro sobre fundo escuro" (toggles ativos,
+   selos, chips selecionados). Espelha a regra já usada para os fills --client-*.
+   Os fills translúcidos (/10, /12…) usam texto COLORIDO, não branco, então não
+   entram nesse caso. */
+[data-theme="light"] .tema-claro-area [class*="bg-[#"].text-white { color: #FFFFFF !important; }
 /* Cardápio do cliente: preenchimentos coloridos (tokens --client-*) com texto
    branco DEVEM manter o branco. A regra genérica acima (.text-white -> grafite)
    existe para remapear telas admin de tema escuro, mas escurecia por engano o

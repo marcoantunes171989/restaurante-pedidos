@@ -8404,6 +8404,18 @@ class SecaoErrorBoundary extends React.Component {
   }
 }
 
+// Cor de texto legível SOBRE um fundo colorido: claro (branco) em fundos
+// escuros, grafite escuro em fundos claros — decidido pela luminância perceptual
+// (YIQ). Usado em rótulos que ficam DENTRO de segmentos/barras coloridas (fundo
+// via style inline), onde o remap global .text-white→grafite não se aplica.
+function corTextoContraste(hex) {
+  const h = String(hex || "").replace("#", "");
+  if (h.length < 6) return "#FFFFFF";
+  const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
+  const yiq = (r * 299 + g * 587 + b * 114) / 1000; // 0 (escuro) … 255 (claro)
+  return yiq >= 150 ? "#2D3436" : "#FFFFFF";
+}
+
 // ── Componentes exclusivos do painel executivo da aba Vendas (Relatórios) ──
 // Não reaproveitam CardMetrica (compartilhado por 40+ telas) para não alterar
 // o visual padrão dele em nenhuma outra tela — mesmo princípio já usado em
@@ -13004,7 +13016,7 @@ function RelatorioSatisfacao({ pesquisas = [], todasPesquisas = [], pedidos = []
                     <div className="mb-1 flex items-center justify-between text-xs"><span className="font-semibold text-[#334155]">{m.label}</span><span className="font-bold text-[#64748B]">{tot} resposta(s)</span></div>
                     <div className="flex h-6 overflow-hidden rounded-lg bg-[#F1F5F9]">
                       {m.dist.map((c, i) => c > 0 && (
-                        <div key={i} className="flex items-center justify-center text-[10px] font-black text-white" style={{ width: `${(c / tot) * 100}%`, background: CORES_NOTA[i] }} title={`${i + 1}★: ${c} (${((c / tot) * 100).toFixed(0)}%)`}>{(c / tot) >= 0.08 ? c : ""}</div>
+                        <div key={i} className="flex items-center justify-center text-[10px] font-black" style={{ width: `${(c / tot) * 100}%`, background: CORES_NOTA[i], color: corTextoContraste(CORES_NOTA[i]) }} title={`${i + 1}★: ${c} (${((c / tot) * 100).toFixed(0)}%)`}>{(c / tot) >= 0.08 ? c : ""}</div>
                       ))}
                     </div>
                   </div>
