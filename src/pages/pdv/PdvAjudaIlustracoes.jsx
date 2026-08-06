@@ -25,7 +25,7 @@ function MapaTela() {
         <Coluna titulo="Salão / canal ativo" itens={["Mesas", "Delivery", "Comandas"]} destaque />
         <Coluna titulo="Pagamento" itens={["Cliente e pontos", "Formas", "Teclado", "Acréscimo / desconto", "Cupom"]} />
       </div>
-      <Faixa titulo="Ações da conta · Fechar conta" tom="laranja" />
+      <Faixa titulo="Pré-conta · Comprovante · Cozinha · Fechar conta" tom="laranja" />
     </div>
   );
 }
@@ -173,6 +173,40 @@ function Cupom() {
   );
 }
 
+/** Seis modelos térmicos 80mm — esquemático para a Central de Ajuda. */
+function CuponsTermicos() {
+  const modelos = [
+    { n: "1", t: "Cliente", d: "Simplificado" },
+    { n: "2", t: "Pagamento", d: "Completo" },
+    { n: "3", t: "Cozinha", d: "Por setor" },
+    { n: "4", t: "Conferência", d: "Mesa aberta" },
+    { n: "5", t: "Pré-conta", d: "Sem fiscal" },
+    { n: "6", t: "Retirada", d: "Assinatura" },
+  ];
+  return (
+    <div className="space-y-2">
+      <div className="rounded-lg border border-dashed border-[var(--pp-border)] bg-[var(--pp-surface)] px-2 py-2 font-mono text-[9px] leading-tight text-[var(--pp-text)]">
+        <p className="text-center text-[8px] font-black tracking-widest">PEDIDO PRIME</p>
+        <p className="text-center text-[10px] font-black">LANCHONETE BOM SABOR</p>
+        <p className="my-1 border-t border-dashed border-[var(--pp-border)]" />
+        <p className="text-center text-[8px] font-bold uppercase text-[var(--pp-text-muted)]">Documento não fiscal · 80mm</p>
+        <p className="mt-1">1x X-Burger ………… R$ 28,90</p>
+        <p className="pl-3 text-[8px] text-[var(--pp-text-muted)]">+ Bacon</p>
+        <p className="mt-1 border-t border-dashed border-[var(--pp-border)] pt-1 text-center text-[10px] font-black">TOTAL  R$ 51,59</p>
+      </div>
+      <div className="grid grid-cols-3 gap-1.5">
+        {modelos.map((m) => (
+          <div key={m.n} className="rounded-lg border border-[var(--pp-border)] bg-[var(--pp-bg)] px-1.5 py-1.5 text-center">
+            <span className="mx-auto grid h-4 w-4 place-items-center rounded-full bg-[var(--pp-primary-soft)] text-[8px] font-black text-[var(--pp-primary-text)]">{m.n}</span>
+            <p className="mt-0.5 truncate text-[9px] font-black text-[var(--pp-text)]">{m.t}</p>
+            <p className="truncate text-[8px] text-[var(--pp-text-muted)]">{m.d}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Faixa({ titulo, tom = "neutro" }) {
   const tons = {
     neutro: "border-[var(--pp-border)] bg-[var(--pp-surface)] text-[var(--pp-text-body)]",
@@ -222,4 +256,5 @@ const MAPA = {
   dividirConta: DividirConta,
   clientePontos: ClientePontos,
   cupom: Cupom,
+  cuponsTermicos: CuponsTermicos,
 };
