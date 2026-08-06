@@ -220,7 +220,7 @@ export function htmlTesteImpressora(impressora, lojaInfo = null) {
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
   return `
-<div class="c" style="font-family:ui-monospace,Menlo,Consolas,monospace;width:72mm;padding:4mm;color:#000">
+<div class="c" style="font-family:'Inter', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;width:72mm;padding:4mm;color:#000">
   <div style="text-align:center;font-weight:800;font-size:14px">${esc(nomeLoja)}</div>
   <div style="text-align:center;font-size:11px;margin:4px 0 8px">TESTE DE IMPRESSORA</div>
   <div style="border-top:1px dashed #000;margin:6px 0"></div>

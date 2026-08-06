@@ -190,7 +190,7 @@ function achatarItens(pedidos = []) {
 const CSS_TERMICO = `
 *{margin:0;padding:0;box-sizing:border-box}
 @page{size:80mm auto;margin:0}
-body{font-family:'Courier New',Courier,monospace;font-size:12px;width:80mm;padding:3.5mm 3mm;color:#000;line-height:1.25;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body{font-family:'Inter', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;font-size:12px;width:80mm;padding:3.5mm 3mm;color:#000;line-height:1.25;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .c{text-align:center}.b{font-weight:700}.big{font-size:14px}.xl{font-size:16px}.xxl{font-size:18px}
 .sm{font-size:10px}.xs{font-size:9px}.mut{color:#222}
 .brand{font-size:11px;font-weight:700;letter-spacing:.12em}

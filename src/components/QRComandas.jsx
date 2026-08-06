@@ -802,7 +802,7 @@ function imprimirComandas(comandas, opts = {}) {
     .emp{font-size:15px;font-weight:800;letter-spacing:.3px;line-height:1.1;color:#2D3436}
     .tag{font-size:8px;color:#8A7D73;text-transform:uppercase;letter-spacing:2.5px;margin-top:2px}
     .qr{width:${termica ? 130 : 150}px;height:${termica ? 130 : 150}px;margin:8px 0 6px}
-    .num{font-family:'Courier New',monospace;font-size:18px;font-weight:800;letter-spacing:3px;color:#2D3436}
+    .num{font-family:'Inter', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;font-size:18px;font-weight:800;letter-spacing:3px;color:#2D3436}
     .cta{font-size:9.5px;color:#5b6b6f;margin-top:5px}
     .instr{margin-top:6px;font-size:8px;color:#8A7D73;line-height:1.3}
   </style></head><body>

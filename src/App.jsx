@@ -214,7 +214,7 @@ function abrirImpressaoTermica(tituloDoc, corpoHTML) {
   <style>
     @page { size: 80mm auto; margin: 0; }
     * { box-sizing: border-box; }
-    body { width: 80mm; margin: 0 auto; padding: 6mm 5mm; font-family: 'Courier New', monospace; font-size: 12px; color:#000; }
+    body { width: 80mm; margin: 0 auto; padding: 6mm 5mm; font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif; font-size: 12px; color:#000; }
     .c{text-align:center} .b{font-weight:bold} .big{font-size:15px} .sm{font-size:10px} .mut{color:#444}
     .row{display:flex;justify-content:space-between;gap:8px}
     .obs{font-size:10px;color:#333;padding-left:8px}
@@ -4924,7 +4924,7 @@ async function abrirPDFComanda(g, opts = {}) {
     .top { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid #E67E22; padding-bottom:12px; }
     .brand { font-size:20px; font-weight:800; } .brand b{ color:#E67E22; }
     .brand .sub{ display:block; font-size:11px; font-weight:600; color:#8A7D73; margin-top:2px; }
-    .cod { text-align:right; } .cod .c{ font-family:'Courier New',monospace; font-size:16px; font-weight:800; }
+    .cod { text-align:right; } .cod .c{ font-family:'Inter', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif; font-size:16px; font-weight:800; }
     .badge{ display:inline-block; margin-top:4px; padding:3px 10px; border-radius:999px; font-size:11px; font-weight:800; border:1px solid #0F4C5C; color:#0F4C5C; }
     .meta{ margin:10px 0 16px; font-size:12px; color:#8A7D73; }
     .kpis{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:16px; }

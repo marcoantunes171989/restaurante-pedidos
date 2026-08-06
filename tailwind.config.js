@@ -14,6 +14,9 @@ export default {
         sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'Arial', 'sans-serif'],
         display: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'Arial', 'sans-serif'],
         data: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        // Códigos/comandas/atalhos (font-mono) também em Inter — legibilidade de
+        // código via tracking-widest + tabular-nums. Fonte única do projeto.
+        mono: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'Arial', 'sans-serif'],
       },
       colors: {
         // ── Paleta OFICIAL (ver .claude/skills/identidade-visual) — namespace
