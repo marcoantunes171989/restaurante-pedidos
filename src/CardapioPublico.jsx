@@ -211,6 +211,7 @@ export default function CardapioPublico() {
   const [aba, setAba]             = useState(null); // null | 'carrinho' | 'conta'
   const [qrModal, setQrModal]     = useState(null); // dataURL do QR do cardápio (botão "Ver QR")
   const [survey, setSurvey]       = useState(null); // pesquisa de satisfação na finalização: { pedidoId, mesa, origem }
+  const [welcomeSlide, setWelcomeSlide] = useState(0); // slide ativo do carrossel de destaques (tela de boas-vindas)
   const [enviando, setEnviando]   = useState(false);
   const enviandoRef = useRef(false); // trava síncrona contra clique duplo (ver enviar())
   const [msg, setMsg]             = useState(null);
@@ -1447,51 +1448,151 @@ export default function CardapioPublico() {
     // (sem configuração não há o que informar — evita "Fechado" enganoso).
     const temHorarioHoje = diaTemHorario(cfgExt.horarios, agora, cfgExt.fusoHorario);
     const lojaStatus = abertoAgora ? "aberto" : temHorarioHoje ? "fechado" : null;
+    const versaoApp = (typeof __APP_VERSION__ !== "undefined") ? __APP_VERSION__ : "local";
+    // Destaques do carrossel (até 6) com DADOS REAIS: prioriza produtos em
+    // DESTAQUE e garante 1 bebida; completa com os demais disponíveis.
+    const catNomeDe = (p) => p.category || catNomePorId[p.categoriaId] || "";
+    const ehBebida = (p) => /bebida|suco|refri|drink|[áa]gua|cerveja|refrigerante|chopp|vinho|caf[ée]|ch[áa]/i.test(catNomeDe(p));
+    const dispon = produtos.filter((p) => p.disponivel !== false);
+    const destaquesProd = dispon.filter((p) => p.badge);
+    const bebidasProd = dispon.filter(ehBebida);
+    const slides = [];
+    const addSlide = (p) => { if (p && !slides.some((x) => x.id === p.id) && slides.length < 6) slides.push(p); };
+    destaquesProd.forEach(addSlide);                 // 1) destaques como prioridade
+    addSlide(bebidasProd.find((b) => !slides.some((x) => x.id === b.id)) || bebidasProd[0]); // 2) garante 1 bebida
+    dispon.forEach(addSlide);                         // 3) completa até 6
+    const nSlides = slides.length;
+    const slideAtual = nSlides ? Math.min(welcomeSlide, nSlides - 1) : 0;
+    const IconeMini = {
+      escudo: (p) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M12 3l7 3v5c0 4.5-3 7.6-7 9-4-1.4-7-4.5-7-9V6l7-3Z" /><path d="M9.2 12.2l2 2 3.6-3.8" /></svg>),
+      relogio: (p) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...p}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>),
+      selo: (p) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M12 2l2.4 4.9 5.4.8-3.9 3.8.9 5.4L12 19l-4.8 2.5.9-5.4L4.2 8.7l5.4-.8L12 2Z" /></svg>),
+      presente: (p) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...p}><rect x="3" y="8" width="18" height="4" rx="1" /><path d="M5 12v8h14v-8M12 8v12M12 8S9.5 3.5 7.5 5 12 8 12 8ZM12 8s2.5-4.5 4.5-3S12 8 12 8Z" /></svg>),
+      cadeado: (p) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" {...p}><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>),
+      fogo: (p) => (<svg viewBox="0 0 24 24" fill="currentColor" {...p}><path d="M12 2c1 3 4 4.5 4 8a4 4 0 0 1-8 0c0-1.2.4-2.2 1-3-.2 2 .8 3 2 3 1.2 0 2-1 2-2.2C15 8 12 6 12 2Z" /></svg>),
+    };
     return (
-      <div data-theme="light" className="tema-claro-area flex min-h-screen w-full max-w-[100vw] flex-col overflow-x-hidden bg-[var(--client-background)] px-6 text-[var(--client-text-primary)]"
-        style={{ minHeight: "100dvh", paddingTop: "calc(env(safe-area-inset-top) + 2rem)", paddingBottom: "calc(env(safe-area-inset-bottom) + 2rem)" }}>
-        <div className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center text-center">
-          {loja.logoUrl ? <img src={loja.logoUrl} alt="" className="h-20 w-20 rounded-3xl border border-[var(--client-border)] object-cover shadow-[var(--client-shadow-sm)]" /> : <LogoPP size={80} />}
-          <h1 className="page-title mt-5 text-2xl font-bold tracking-tight text-[var(--client-text-primary)]">{loja.nome}</h1>
-          {(currentTable || lojaStatus) && (
-            <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
-              {currentTable && <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--client-primary-border)] bg-[var(--client-primary-soft)] px-4 py-1.5 text-sm font-bold text-[var(--client-primary-hover)]"><CkIconMesa width={14} height={14} /> {currentTable}</span>}
-              {lojaStatus === "aberto" && <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--client-success-border)] bg-[var(--client-success-soft)] px-3.5 py-1.5 text-sm font-bold text-[var(--client-success)]"><span className="h-1.5 w-1.5 rounded-full bg-[var(--client-success)]" aria-hidden="true" /> Aberto agora</span>}
-              {lojaStatus === "fechado" && <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--client-status-neutral-border)] bg-[var(--client-status-neutral-soft)] px-3.5 py-1.5 text-sm font-bold text-[var(--client-status-neutral)]"><CkIconRelogio width={13} height={13} /> Fechado no momento</span>}
+      <div data-theme="light" className="pp-mesa-welcome tema-claro-area flex min-h-screen w-full max-w-[100vw] flex-col overflow-x-hidden bg-[var(--client-background)] px-5 text-[var(--client-text-primary)]"
+        style={{ minHeight: "100dvh", paddingTop: "calc(env(safe-area-inset-top) + 1.5rem)", paddingBottom: "calc(env(safe-area-inset-bottom) + 1.5rem)" }}>
+        <div className="mx-auto flex w-full max-w-md flex-col">
+          {/* Marca */}
+          <div className="flex flex-col items-center text-center">
+            {loja.logoUrl ? <img src={loja.logoUrl} alt="" className="h-16 w-16 rounded-2xl border border-[var(--client-border)] object-cover shadow-[var(--client-shadow-sm)]" /> : <LogoPP size={64} />}
+            <h1 className="page-title mt-3 text-2xl font-bold tracking-tight text-[var(--client-text-primary)]">{loja.nome}</h1>
+            <div className="mt-1.5 flex items-center gap-2 text-[var(--client-primary)]" aria-hidden="true">
+              <span className="h-px w-6 bg-[var(--client-border)]" />★★★<span className="h-px w-6 bg-[var(--client-border)]" />
             </div>
-          )}
-          <p className="mt-6 text-lg font-bold text-[var(--client-text-primary)]">Bem-vindo!</p>
-          <p className="mt-1 text-sm leading-6 text-[var(--client-text-secondary)]">Faça seu pedido de forma rápida e prática direto pelo celular.</p>
-          <div className="mt-8 flex w-full flex-col items-center">
-            <button onClick={() => setEtapa("cardapio")} className="w-full min-h-[52px] rounded-2xl btn-laranja bg-[var(--client-primary-hover)] py-4 text-base font-black text-white shadow-[var(--client-shadow-sm)] transition active:scale-95 hover:bg-[var(--client-primary)]">Ver cardápio</button>
-            {meusPedidos.length > 0 && (
-              <button onClick={() => { setEtapa("cardapio"); setAba("conta"); }} className="mt-4 inline-flex min-h-11 items-center gap-1.5 px-3 text-sm font-bold text-[var(--client-info)] transition hover:text-[var(--client-info-hover)]">
-                <CkIconRecibo width={15} height={15} /> Acompanhar meu pedido ({meusPedidos.length})
-              </button>
+            {(currentTable || lojaStatus) && (
+              <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+                {currentTable && <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--client-primary-border)] bg-[var(--client-primary-soft)] px-4 py-1.5 text-sm font-bold text-[var(--client-primary-hover)]"><CkIconMesa width={14} height={14} /> {currentTable}</span>}
+                {lojaStatus === "aberto" && <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--client-success-border)] bg-[var(--client-success-soft)] px-3.5 py-1.5 text-sm font-bold text-[var(--client-success)]"><span className="h-1.5 w-1.5 rounded-full bg-[var(--client-success)]" aria-hidden="true" /> Aberto agora</span>}
+                {lojaStatus === "fechado" && <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--client-status-neutral-border)] bg-[var(--client-status-neutral-soft)] px-3.5 py-1.5 text-sm font-bold text-[var(--client-status-neutral)]"><CkIconRelogio width={13} height={13} /> Fechado no momento</span>}
+              </div>
             )}
           </div>
+
+          {/* Carrossel de destaques (dados reais) */}
+          {nSlides > 0 && (
+            <div className="relative mt-5">
+              <div className="flex snap-x snap-mandatory overflow-x-auto scrollbar-none rounded-[1.75rem]"
+                onScroll={(e) => { const w = e.currentTarget.clientWidth; if (w) setWelcomeSlide(Math.round(e.currentTarget.scrollLeft / w)); }}>
+                {slides.map((p, i) => (
+                  <article key={p.id} className="relative flex h-[280px] w-full shrink-0 snap-center overflow-hidden rounded-[1.75rem]" style={{ background: "#0E2A33" }}>
+                    <img src={p.imageUrl || fallbackImage} alt={p.name} loading={i === 0 ? "eager" : "lazy"} decoding="async"
+                      onError={(e) => { if (e.currentTarget.src !== fallbackImage) e.currentTarget.src = fallbackImage; }}
+                      className="absolute inset-y-0 right-0 h-full w-[62%] object-cover" />
+                    <div className="absolute inset-0" style={{ background: "linear-gradient(90deg, #0E2A33 34%, rgba(14,42,51,0.85) 52%, rgba(14,42,51,0) 78%)" }} />
+                    <span className="absolute right-3 top-3 rounded-full bg-black/35 px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur-sm">{i + 1} / {nSlides}</span>
+                    <div className="relative z-10 flex w-[64%] flex-col justify-center p-5">
+                      {p.badge && (
+                        <span className="mb-2 inline-flex w-fit items-center gap-1.5 rounded-full bg-[var(--client-primary)] px-3 py-1 text-[11px] font-black uppercase tracking-wide text-white shadow-[0_4px_14px_rgba(230,126,34,0.4)]">
+                          <IconeMini.fogo width={12} height={12} /> {p.badge}
+                        </span>
+                      )}
+                      <h2 className="page-title text-[22px] font-black leading-[1.1] text-white line-clamp-2">{p.name}</h2>
+                      {p.description && <p className="mt-1.5 line-clamp-3 text-[12px] leading-snug text-white/75">{p.description}</p>}
+                      <p className="mt-2.5 text-xl font-black text-[var(--client-primary)]">{formatCurrency(p.price)}</p>
+                      <button onClick={() => setDetalhe(p)} className="mt-3 inline-flex w-fit items-center gap-2 rounded-xl bg-white px-4 py-2 text-[13px] font-black text-[#0E2A33] shadow-sm transition active:scale-95">
+                        Ver detalhes <span aria-hidden="true">→</span>
+                      </button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+              {nSlides > 1 && (
+                <div className="mt-3 flex justify-center gap-1.5">
+                  {slides.map((_, i) => <span key={i} className={`h-1.5 rounded-full transition-all duration-200 ${i === slideAtual ? "w-4 bg-[var(--client-primary)]" : "w-1.5 bg-[var(--client-border)]"}`} />)}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Boas-vindas + CTA */}
+          <div className="mt-5 text-center">
+            <p className="text-lg font-black text-[var(--client-text-primary)]"><span aria-hidden="true">👋</span> Bem-vindo!</p>
+            <p className="mt-1 text-sm leading-6 text-[var(--client-text-secondary)]">Peça seus pratos favoritos de forma rápida, segura e prática direto do seu celular.</p>
+          </div>
+          <button onClick={() => setEtapa("cardapio")} className="mt-4 flex w-full min-h-[54px] items-center justify-center gap-3 rounded-2xl btn-laranja bg-[var(--client-primary-hover)] px-5 text-base font-black text-white shadow-[var(--client-shadow-sm)] transition active:scale-95 hover:bg-[var(--client-primary)]">
+            <CkIconRecibo width={18} height={18} /> Ver cardápio <span className="ml-auto" aria-hidden="true">→</span>
+          </button>
+          {meusPedidos.length > 0 && (
+            <button onClick={() => { setEtapa("cardapio"); setAba("conta"); }} className="mt-3 inline-flex min-h-11 items-center justify-center gap-1.5 px-3 text-sm font-bold text-[var(--client-info)] transition hover:text-[var(--client-info-hover)]">
+              <CkIconRecibo width={15} height={15} /> Acompanhar meu pedido ({meusPedidos.length})
+            </button>
+          )}
+
+          {/* Precisa de algo? — chamados REAIS (garçom/ajuda/limpeza) */}
           {!modoExterno && mesa && (
-            <div className="mt-8 w-full">
-              {/* Chamados SÓ-ÍCONE — mesmo padrão do header do cardápio (grafite
-                  neutro sobre superfície secundária = ação secundária). aria-label
-                  + title para clareza/acessibilidade; a legenda "Precisa de algo?"
-                  dá o contexto do grupo. */}
-              <p className="text-xs font-bold uppercase tracking-widest text-[var(--client-text-secondary)]">Precisa de algo?</p>
-              <div className="mt-2 flex justify-center gap-1.5">
-                {[["garcom", CkIconSino, "Garçom", "Chamar garçom"], ["ajuda", CkIconAjuda, "Ajuda", "Pedir ajuda"], ["limpeza", CkIconLimpeza, "Limpeza", "Solicitar limpeza"]].map(([t, Icone, rotulo, aria]) => {
+            <div className="mt-5 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] p-4 shadow-[var(--client-shadow-sm)]">
+              <p className="text-center text-sm font-black text-[var(--client-text-primary)]">Precisa de algo?</p>
+              <div className="mt-3 grid grid-cols-3 gap-2">
+                {[["garcom", CkIconSino, "Chamar", "atendente", "Chamar garçom"], ["ajuda", CkIconAjuda, "Ajuda", "e suporte", "Pedir ajuda"], ["limpeza", CkIconLimpeza, "Limpeza", "da mesa", "Solicitar limpeza"]].map(([t, Icone, l1, l2, aria]) => {
                   const emAndamento = chamando === t;
                   return (
-                    <button key={t} onClick={() => chamar(t, rotulo)} disabled={!!chamando} aria-busy={emAndamento} aria-label={aria} title={aria}
-                      className="flex h-11 w-11 items-center justify-center rounded-xl border border-[var(--client-border)] bg-[var(--client-surface-secondary)] text-[var(--client-text-primary)] transition active:scale-90 hover:bg-[var(--client-border)] disabled:cursor-not-allowed disabled:opacity-60">
-                      {emAndamento ? <CkIconSpinner /> : <Icone width={18} height={18} />}
+                    <button key={t} onClick={() => chamar(t, l1)} disabled={!!chamando} aria-busy={emAndamento} aria-label={aria} title={aria}
+                      className="flex flex-col items-center gap-1.5 rounded-xl border border-[var(--client-border)] bg-[var(--client-surface-secondary)] px-2 py-3 text-center transition active:scale-95 hover:bg-[var(--client-border)] disabled:cursor-not-allowed disabled:opacity-60">
+                      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--client-info-soft)] text-[var(--client-info)]">{emAndamento ? <CkIconSpinner /> : <Icone width={17} height={17} />}</span>
+                      <span className="text-[12px] font-bold leading-tight text-[var(--client-text-primary)]">{l1}</span>
+                      <span className="-mt-1 text-[10px] leading-tight text-[var(--client-text-secondary)]">{l2}</span>
                     </button>
                   );
                 })}
               </div>
             </div>
           )}
+
+          {/* Selos de confiança */}
+          <div className="mt-4 grid grid-cols-3 gap-3 rounded-2xl px-4 py-3.5 text-white" style={{ background: "#0E2A33" }}>
+            {[[IconeMini.escudo, "Pedido Seguro", "Dados protegidos"], [IconeMini.relogio, "Rápido e Fácil", "Em poucos passos"], [IconeMini.selo, "Qualidade", "Ingredientes selecionados"]].map(([Ic, t, s]) => (
+              <div key={t} className="flex flex-col items-center gap-1.5 text-center">
+                <Ic width={20} height={20} />
+                <span className="text-[11px] font-black leading-tight">{t}</span>
+                <span className="-mt-0.5 text-[9.5px] leading-tight text-white/70">{s}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Fidelidade — só quando há programa de pontos vigente (dado real) */}
+          {fidRegraPub && (
+            <button onClick={() => setEtapa("cardapio")} className="mt-3 flex w-full items-center gap-3 rounded-2xl border border-[var(--client-primary-border)] bg-[var(--client-primary-soft)] px-4 py-3 text-left transition active:scale-[0.99]">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--client-primary)] text-white"><IconeMini.presente width={18} height={18} /></span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[13px] font-black text-[var(--client-primary-hover)]">Acumule pontos e ganhe benefícios!</span>
+                <span className="block text-[11px] text-[var(--client-text-secondary)]">Participe do nosso programa de fidelidade.</span>
+              </span>
+              <span className="shrink-0 text-[13px] font-black text-[var(--client-primary-hover)]" aria-hidden="true">→</span>
+            </button>
+          )}
+
+          {/* Rodapé — assinatura + versão sincronizada com o deploy (Vercel) */}
+          <div className="mt-5 flex items-center justify-center gap-2 text-[11px] text-[var(--client-text-secondary)]">
+            <IconeMini.cadeado width={12} height={12} /> Tecnologia e confiança
+            <span className="font-black"><span className="text-[var(--client-text-primary)]">Pedido</span><span className="text-[var(--client-primary)]">Prime</span></span>
+            <span className="text-[var(--client-border)]">·</span> Versão {versaoApp}
+          </div>
         </div>
-        {msg && <div className="mx-auto w-full max-w-md"><div role={msg.t === "error" ? "alert" : "status"} aria-live={msg.t === "error" ? "assertive" : "polite"} className={`rounded-2xl border px-4 py-2.5 text-center text-sm font-bold ${msg.t === "error" ? "border-[var(--client-error-border)] bg-[var(--client-error-soft)] text-[var(--client-error)]" : "border-[var(--client-success-border)] bg-[var(--client-success-soft)] text-[var(--client-success)]"}`}>{msg.m}</div></div>}
+        {msg && <div className="mx-auto mt-3 w-full max-w-md"><div role={msg.t === "error" ? "alert" : "status"} aria-live={msg.t === "error" ? "assertive" : "polite"} className={`rounded-2xl border px-4 py-2.5 text-center text-sm font-bold ${msg.t === "error" ? "border-[var(--client-error-border)] bg-[var(--client-error-soft)] text-[var(--client-error)]" : "border-[var(--client-success-border)] bg-[var(--client-success-soft)] text-[var(--client-success)]"}`}>{msg.m}</div></div>}
+        {detalhe && <ProdutoModal produto={detalhe} grupos={gruposOpcoes} opcoes={opcoes} onFechar={() => setDetalhe(null)} onAdicionar={addConfigurado} />}
       </div>
     );
   }
