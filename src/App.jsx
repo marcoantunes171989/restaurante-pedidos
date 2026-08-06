@@ -7811,14 +7811,14 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
           { dot: estoqueBaixo === 0 ? "bg-[#5E8C31]" : "bg-[#C81E4A]", txt: estoqueBaixo === 0 ? "Estoque sem alertas" : <>{estoqueBaixo} produto(s) sem estoque</> },
         ].filter(Boolean);
         return (
-          <div className="mt-4 flex flex-wrap items-center gap-2 rounded-2xl border border-[rgba(15,76,92,0.18)] bg-white px-3.5 py-2.5 shadow-[0_1px_2px_rgba(43,35,32,0.04),0_12px_28px_-14px_rgba(43,35,32,0.14)]">
+          <div className="mt-4 flex flex-wrap items-center gap-2 rounded-2xl border border-[rgba(15,76,92,0.16)] bg-[rgba(15,76,92,0.035)] px-3.5 py-2.5 shadow-[0_1px_2px_rgba(43,35,32,0.04),0_12px_28px_-14px_rgba(43,35,32,0.14)]">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-[rgba(15,76,92,0.10)] px-2.5 py-1 text-[10.5px] font-black uppercase tracking-widest text-[#0F4C5C]">
               <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor"><path d="M12 2l2.4 6.9H22l-6 4.3 2.3 7L12 16l-6.3 4.2 2.3-7-6-4.3h7.6z" /></svg>
               Resumo inteligente
             </span>
             <span className="hidden h-4 w-px bg-[var(--pp-border)] sm:block" />
             {pills.map((p, i) => (
-              <span key={i} className="inline-flex items-center gap-2 rounded-full border border-[var(--pp-border)] bg-[var(--pp-bg)] px-2.5 py-1 text-[11px] font-semibold text-[var(--pp-text-muted)]">
+              <span key={i} className="inline-flex items-center gap-2 rounded-full border border-[rgba(15,76,92,0.16)] bg-white px-2.5 py-1 text-[11px] font-semibold text-[var(--pp-text-body)] shadow-[0_1px_2px_rgba(15,76,92,0.06)]">
                 <span className={`h-1.5 w-1.5 rounded-full ${p.dot}`} />{p.txt}
               </span>
             ))}
