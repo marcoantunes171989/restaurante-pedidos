@@ -104,6 +104,7 @@ Configurar em **GitHub → Settings → Secrets and variables → Actions**:
 |---|---|
 | `VITE_SUPABASE_URL` | Supabase → Project Settings → API |
 | `VITE_SUPABASE_ANON_KEY` | Supabase → Project Settings → API (chave `anon public`) |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase → API → `service_role` (**só na Vercel**, nunca `VITE_*`) — necessária para `/api/gerenciar-usuario-auth` (cadastro de usuário com login) |
 | `VERCEL_TOKEN` | Vercel → Account Settings → Tokens |
 | `VERCEL_ORG_ID` | Vercel → Project Settings → General (ou arquivo `.vercel/project.json` local, campo `orgId`) |
 | `VERCEL_PROJECT_ID` | Vercel → Project Settings → General (ou `.vercel/project.json`, campo `projectId`) |

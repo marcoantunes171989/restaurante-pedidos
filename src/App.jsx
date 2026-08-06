@@ -50,6 +50,7 @@ import {
   perguntarCopilotoIA,
   fetchAuditoria, registrarAuditoria, escutarAuditoria, marcarAuditoriaAnalisada,
   loginSupabaseAuth, logoutSupabaseAuth, aguardarSessao, getSessionEmail,
+  gerenciarUsuarioAuth, sincronizarAuthAoCriarUsuario, SENHA_MIN_AUTH,
   fetchLancamentos, inserirLancamento, atualizarLancamento, excluirLancamento,
 } from "./lib/supabase";
 import { usandoSupabaseAuth } from "./lib/authMode";
@@ -2792,17 +2793,47 @@ export default function RestaurantePedidoApp() {
   // Usuários — edição e exclusão
   async function editarUsuario(uid, dados) {
     if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
+    const atual = users.find((u) => u.id === uid);
+    if (!atual) return notify("error", "Usuário não encontrado.");
+    if (!dados.password || String(dados.password).length < SENHA_MIN_AUTH) {
+      return notify("error", `Informe uma senha com no mínimo ${SENHA_MIN_AUTH} caracteres.`);
+    }
     const cargoId = dados.cargoId ? Number(dados.cargoId) : null;
-    setUsers((cur) => cur.map((u) => u.id === uid ? { ...u, ...dados, cargoId } : u));
-    if (dbReady) try {
-      await atualizarUsuario(uid, { nome: dados.name, email: dados.email, senha: dados.password, perfil: dados.role, ...(cargoId ? { cargo_id: cargoId } : {}) });
-    } catch (e) { notify("error", "Erro: " + e.message); }
-    notify("success", "Usuário atualizado.");
+    const emailNovo = (dados.email || "").trim().toLowerCase();
+    if (dbReady && usandoSupabaseAuth()) {
+      try {
+        await gerenciarUsuarioAuth({
+          acao: "atualizar",
+          email: emailNovo,
+          emailAnterior: atual.email,
+          senha: dados.password,
+          nome: (dados.name || "").trim(),
+          lojaId: atual.lojaId ?? lojaAtual,
+        });
+      } catch (e) {
+        return notify("error", "Não foi possível atualizar o login: " + (e.message || e));
+      }
+    }
+    if (dbReady) {
+      try {
+        await atualizarUsuario(uid, { nome: dados.name, email: dados.email, senha: dados.password, perfil: dados.role, ...(cargoId ? { cargo_id: cargoId } : {}) });
+      } catch (e) { return notify("error", "Erro ao salvar no banco: " + e.message); }
+    }
+    setUsers((cur) => cur.map((u) => u.id === uid ? { ...u, ...dados, email: emailNovo || dados.email, cargoId } : u));
+    notify("success", "Usuário atualizado. Login e senha sincronizados.");
   }
   async function removerUsuario(uid) {
     if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
-    setUsers((cur) => cur.filter((u) => u.id !== uid));
+    const alvo = users.find((u) => u.id === uid);
+    if (dbReady && usandoSupabaseAuth() && alvo?.email) {
+      try {
+        await gerenciarUsuarioAuth({ acao: "excluir", email: alvo.email, lojaId: alvo.lojaId ?? lojaAtual });
+      } catch (e) {
+        return notify("error", "Não foi possível remover o login: " + (e.message || e));
+      }
+    }
     if (dbReady) try { await excluirUsuario(uid); } catch (e) { notify("error", "Erro ao excluir: " + e.message); return; }
+    setUsers((cur) => cur.filter((u) => u.id !== uid));
     notify("success", "Usuário excluído.");
   }
 
@@ -2819,18 +2850,50 @@ export default function RestaurantePedidoApp() {
     const lojaDestino = userForm.lojaId || lojaAtual;
     if (isSuperAdmin && !lojaDestino) return notify("error", "Selecione a empresa do usuário.");
     if (!userForm.name.trim() || !userForm.email.trim()) return notify("error", "Informe nome e e-mail do usuário.");
-    if (!userForm.password || userForm.password.length < 4) return notify("error", "Informe uma senha com no mínimo 4 caracteres.");
+    if (!userForm.password || userForm.password.length < SENHA_MIN_AUTH) {
+      return notify("error", `Informe uma senha com no mínimo ${SENHA_MIN_AUTH} caracteres.`);
+    }
     if (!userForm.cargoId) return notify("error", "Selecione o cargo/perfil do usuário.");
-    if (users.some((u) => u.email.toLowerCase() === userForm.email.toLowerCase())) return notify("error", "Já existe usuário com este e-mail.");
+    const emailNorm = userForm.email.trim().toLowerCase();
+    if (users.some((u) => (u.email || "").toLowerCase() === emailNorm)) return notify("error", "Já existe usuário com este e-mail.");
     const cargo = cargos.find((c) => c.id === Number(userForm.cargoId));
-    const nu = { name: userForm.name.trim(), email: userForm.email.trim(), password: userForm.password, role: cargo?.nome || userForm.role || "Operador", cargoId: cargo?.id || null, active: true, accessIds: [], lojaId: lojaDestino };
+    const nu = {
+      name: userForm.name.trim(),
+      email: emailNorm,
+      password: userForm.password,
+      role: cargo?.nome || userForm.role || "Operador",
+      cargoId: cargo?.id || null,
+      active: true,
+      accessIds: [],
+      lojaId: lojaDestino,
+    };
+
+    // Com AUTH_MODE=supabase o login valida contra auth.users — cria lá ANTES de tab_usuarios.
+    if (dbReady && usandoSupabaseAuth()) {
+      try {
+        await sincronizarAuthAoCriarUsuario({
+          email: nu.email,
+          senha: nu.password,
+          nome: nu.name,
+          lojaId: nu.lojaId,
+        });
+      } catch (e) {
+        notify("error", "Não foi possível criar o login: " + (e.message || e));
+        return false;
+      }
+    }
+
     try {
       const saved = dbReady ? await inserirUsuario(nu) : { ...nu, id: Date.now() };
       setUsers((cur) => [saved, ...cur]);
-    } catch { setUsers((cur) => [{ ...nu, id: Date.now() }, ...cur]); }
+    } catch (e) {
+      // Auth já criado: avisa para não ficar login órfão sem linha no app.
+      notify("error", "Login criado, mas falhou ao salvar o usuário no banco: " + (e.message || e));
+      return false;
+    }
     setUserForm({ name: "", email: "", password: "", role: "", cargoId: "", lojaId: isSuperAdmin ? "" : lojaAtual });
     auditar("criar", "usuario", null, { nome: nu.name, email: nu.email, cargo: nu.role });
-    notify("success", "Usuário cadastrado. Agora vincule os acessos na tela Usuário x Acesso.");
+    notify("success", "Usuário cadastrado com login ativo. Vincule os acessos em Usuário x Acesso para liberar as telas.");
     return true;
   }
 
@@ -22358,7 +22421,7 @@ function UserAdmin({ users, userForm, setUserForm, addUser, toggleUserStatus, ed
   const formValido =
     (!isSuperAdmin || userForm.lojaId) &&
     userForm.name.trim() && userForm.email.trim() &&
-    (userForm.password || "").length >= 4 && userForm.cargoId;
+    (userForm.password || "").length >= SENHA_MIN_AUTH && userForm.cargoId;
 
   // Lista sempre da EMPRESA EM FOCO (seletor da lateral esquerda). Para o super
   // admin, restringe pela empresa em foco; sem foco definido, mostra todas.
@@ -22494,11 +22557,12 @@ function UsuarioCadastroModal({ userForm, setUserForm, onSalvar, onFechar, cargo
               <input value={userForm.email} onChange={(e) => setUserForm({ ...userForm, email: e.target.value })} placeholder="usuario@empresa.com" className={inp} autoComplete="off" name="novo_usuario_email" />
             </div>
             <div>
-              <span className={lbl}>Senha * (mín. 4)</span>
+              <span className={lbl}>Senha * (mín. {SENHA_MIN_AUTH})</span>
               <div className="relative">
                 <input type={verSenha ? "text" : "password"} value={userForm.password} onChange={(e) => setUserForm({ ...userForm, password: e.target.value })} placeholder="Defina a senha" className={`${inp} pr-12`} autoComplete="new-password" name="novo_usuario_senha" />
                 <button type="button" onClick={() => setVerSenha((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-400 hover:text-white">{verSenha ? "🙈" : "👁️"}</button>
               </div>
+              <p className="mt-1 text-[11px] text-slate-500">Mesma senha usada no login (validada no banco/Auth).</p>
             </div>
           </div>
 
@@ -22532,7 +22596,7 @@ function UsuarioEditModal({ usuario, cargos = [], onSalvar, onFechar }) {
   const [verSenha, setVerSenha] = useState(false);
   const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-gold-400/60";
   const lbl = "mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500";
-  const valido = f.name.trim() && f.email.trim() && (f.password || "").length >= 4 && f.cargoId;
+  const valido = f.name.trim() && f.email.trim() && (f.password || "").length >= SENHA_MIN_AUTH && f.cargoId;
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onFechar}>
       <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl">
@@ -22544,11 +22608,12 @@ function UsuarioEditModal({ usuario, cargos = [], onSalvar, onFechar }) {
           <div><label className={lbl}>Nome</label><input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="Nome" className={inp} /></div>
           <div><label className={lbl}>E-mail</label><input value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} placeholder="E-mail" className={inp} /></div>
           <div>
-            <label className={lbl}>Senha (mín. 4)</label>
+            <label className={lbl}>Senha (mín. {SENHA_MIN_AUTH})</label>
             <div className="relative">
               <input type={verSenha ? "text" : "password"} value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} placeholder="Senha" className={`${inp} pr-12`} />
               <button type="button" onClick={() => setVerSenha((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-400 hover:text-white">{verSenha ? "🙈" : "👁️"}</button>
             </div>
+            <p className="mt-1 text-[11px] text-slate-500">Ao salvar, a senha é sincronizada com o login do sistema.</p>
           </div>
           <div>
             <label className={lbl}>Cargo / Perfil</label>
