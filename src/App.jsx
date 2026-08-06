@@ -2997,7 +2997,7 @@ function TabletView({
           <TabletCategoryStrip categorias={categoriasVisiveis} categoriaAtiva={categoriaAtiva} onSelecionar={irParaCategoriaTablet} iconeCategoria={iconeCategoria} />
 
           {/* Seções da vitrine */}
-          <div className="flex-1 overflow-y-auto p-4 sm:p-5">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-5">
             {/* Faixa de ofertas vigentes (promoções) */}
             {promosTabletVigentes.length > 0 && (
               <div className="mb-5">
@@ -5790,7 +5790,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
       </MobileAdminDrawer>
 
       {/* ── Conteúdo ─────────────────────────────────────────── */}
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         {/* Cabeçalho mobile/tablet — azul petróleo, mesma cor da sidebar desktop
             (botão de menu abre o drawer de navegação, lg:hidden) */}
         <div className="lg:hidden flex shrink-0 items-center justify-between gap-3 border-b border-white/10 bg-[var(--pp-nav)] px-4 py-3" style={{ paddingTop: "calc(env(safe-area-inset-top) + 12px)" }}>
@@ -5811,7 +5811,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
         {/* Conteúdo rolável — remonta ao trocar a "Empresa em foco" para refletir a empresa selecionada em todas as telas.
             Padding responsivo: no celular usa p-4 (mais largura útil, sem estourar em telas de 320px);
             cresce para p-5/p-6 em telas maiores. */}
-        <div key={`ctx-${lojaContexto ?? "geral"}`} className="tema-claro-area flex-1 overflow-y-auto p-4 sm:p-5 lg:p-6">
+        <div key={`ctx-${lojaContexto ?? "geral"}`} className="tema-claro-area flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-5 lg:p-6">
           {!canAccessModule(ativo, { assinatura: assinaturaAtual, plano: planoAtual, planoModulos, isSuperAdmin }) ? (
             <ModuloBloqueado slug={ativo} />
           ) : (<SecaoErrorBoundary key={ativo}>
