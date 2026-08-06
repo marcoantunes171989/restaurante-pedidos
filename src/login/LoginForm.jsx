@@ -6,7 +6,10 @@ import PasswordField from "./PasswordField";
 import LoginAlert from "./LoginAlert";
 import { FORM, VALIDACAO, emailValido } from "./content";
 
-const EMAIL_CLS = "box-border min-h-[50px] w-full rounded-[11px] border bg-[var(--login-surface)] py-3 pl-11 pr-4 text-[16px] text-[var(--login-text-primary)] caret-[var(--login-primary)] outline-none transition-colors placeholder:text-[var(--login-text-secondary)]/70";
+// Campos mais enxutos (elegantes) e com FOCO NEUTRO (sem borda/anel colorido) —
+// visual gourmet: no foco só um leve escurecer da borda + sombra neutra suave.
+const EMAIL_CLS = "box-border min-h-[44px] w-full rounded-[11px] border bg-[var(--login-surface)] py-2.5 pl-10 pr-4 text-[15px] text-[var(--login-text-primary)] caret-[var(--login-primary)] outline-none transition placeholder:text-[var(--login-text-secondary)]/60";
+const FOCO_NEUTRO = "focus:border-[#C9C3B9] focus:shadow-[0_0_0_3px_rgba(45,52,54,0.05)]";
 
 // ════════════════════════════════════════════════════════════
 //  Formulário de autenticação — único ponto de cor forte é o botão
@@ -49,20 +52,20 @@ export default function LoginForm({ loginForm, setLoginForm, login, message, dbR
   }
 
   return (
-    <div className="pp-anim-up relative w-full max-w-[440px] shrink-0">
+    <div className="pp-anim-up relative w-full max-w-[400px] shrink-0">
       <form
         onSubmit={handleSubmit}
         autoComplete="off"
         noValidate
-        className="relative flex flex-col gap-4 overflow-hidden rounded-[20px] border border-[var(--login-border)] bg-[var(--login-surface)] p-[clamp(1.25rem,2.6vh,1.75rem)]"
+        className="relative flex flex-col gap-3.5 overflow-hidden rounded-[20px] border border-[var(--login-border)] bg-[var(--login-surface)] p-[clamp(1.1rem,2.4vh,1.5rem)]"
         style={{ boxShadow: "var(--login-shadow)" }}
       >
         <span className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-[var(--login-primary)]" />
 
         <div className="text-center">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center"><LogoPP size={56} /></div>
-          <h1 className="font-display mt-3 text-2xl font-black tracking-tight text-[var(--login-text-primary)]">{FORM.titulo}</h1>
-          <p className="mt-1 text-sm text-[var(--login-text-secondary)]">{FORM.subtitulo}</p>
+          <div className="mx-auto flex h-12 w-12 items-center justify-center"><LogoPP size={48} /></div>
+          <h1 className="font-display mt-2.5 text-xl font-black tracking-tight text-[var(--login-text-primary)]">{FORM.titulo}</h1>
+          <p className="mt-1 text-[13px] text-[var(--login-text-secondary)]">{FORM.subtitulo}</p>
           <p className="mt-1 text-xs text-[var(--login-text-secondary)] md:hidden">{FORM.fraseValorMobile}</p>
         </div>
 
@@ -95,7 +98,7 @@ export default function LoginForm({ loginForm, setLoginForm, login, message, dbR
               placeholder={FORM.placeholderEmail}
               aria-invalid={mostrarErroEmail}
               aria-describedby={mostrarErroEmail ? "login-email-erro" : "login-mensagem"}
-              className={`${EMAIL_CLS} ${mostrarErroEmail ? "border-[var(--login-error)] focus:border-[var(--login-error)] focus:ring-[3px] focus:ring-[var(--login-error)]/15" : "border-[var(--login-border)] focus:border-[var(--login-primary)] focus:ring-[3px] focus:ring-[var(--login-focus)]"}`}
+              className={`${EMAIL_CLS} ${mostrarErroEmail ? "border-[var(--login-error)] focus:border-[var(--login-error)] focus:shadow-[0_0_0_3px_rgba(180,35,77,0.12)]" : `border-[var(--login-border)] ${FOCO_NEUTRO}`}`}
             />
           </div>
           {mostrarErroEmail && <p id="login-email-erro" className="mt-1.5 text-xs font-semibold text-[var(--login-error)]">{erroEmailTexto}</p>}
@@ -125,7 +128,7 @@ export default function LoginForm({ loginForm, setLoginForm, login, message, dbR
         <LoginAlert id="login-mensagem" message={message} />
 
         <button type="submit" disabled={entrando}
-          className="flex h-[50px] w-full items-center justify-center gap-2 rounded-[11px] btn-laranja bg-[var(--login-primary-hover)] px-5 text-sm font-black text-white transition duration-200 hover:bg-[var(--login-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--login-primary)] active:bg-[var(--login-primary-active)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70 disabled:active:scale-100">
+          className="mt-0.5 flex h-[46px] w-full items-center justify-center gap-2 rounded-[11px] btn-laranja-claro px-5 text-sm font-black text-white transition duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--login-primary)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70 disabled:active:scale-100">
           {entrando ? <><IconSpinner /> {FORM.botaoEntrando}</> : FORM.botaoEntrar}
         </button>
       </form>
@@ -138,7 +141,7 @@ export default function LoginForm({ loginForm, setLoginForm, login, message, dbR
             <span className="h-px flex-1 bg-[var(--login-border)]" />
           </div>
           <button type="button" onClick={onQrClick}
-            className="flex h-[50px] w-full items-center justify-center gap-2 rounded-[11px] border border-[var(--login-border)] bg-[var(--login-surface)] text-sm font-bold text-[var(--login-text-primary)] transition hover:bg-[var(--login-surface-secondary)]">
+            className="flex h-[44px] w-full items-center justify-center gap-2 rounded-[11px] border border-[var(--login-border)] bg-[var(--login-surface)] text-sm font-bold text-[var(--login-text-primary)] transition hover:bg-[var(--login-surface-secondary)]">
             <IconQr /> {FORM.botaoQr}
           </button>
         </>

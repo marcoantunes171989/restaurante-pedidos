@@ -15,6 +15,23 @@ export const INSTITUCIONAL = {
   rodape: "Plataforma segura · acesso por usuário e permissão",
 };
 
+// Tipos de estabelecimento atendidos pelo Pedido Prime — reforça, na tela de
+// login, para QUEM o sistema é feito (valoriza e cria pertencimento). Ícones
+// leves (emoji) + paleta neutra; o acento fica só no ponto/realce.
+export const ESTABELECIMENTOS = {
+  titulo: "Feito para o seu negócio gastronômico",
+  itens: [
+    { icon: "🍔", nome: "Hamburgueria" },
+    { icon: "🍕", nome: "Pizzaria" },
+    { icon: "🍣", nome: "Japonês & Sushi" },
+    { icon: "🍽️", nome: "Restaurante" },
+    { icon: "🍧", nome: "Açaiteria" },
+    { icon: "☕", nome: "Cafeteria" },
+    { icon: "🍢", nome: "Espetaria" },
+    { icon: "🍺", nome: "Bar & Boteco" },
+  ],
+};
+
 export const FORM = {
   titulo: "Bem-vindo ao Pedido Prime",
   subtitulo: "Acesse sua conta para continuar.",

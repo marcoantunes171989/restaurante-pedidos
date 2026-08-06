@@ -44,7 +44,7 @@ export default function LoginPage({ loginForm, setLoginForm, login, message, dbR
             dbReady={dbReady}
             onQrClick={() => setScanLogin(true)}
           />
-          <div className="w-full max-w-[440px]">
+          <div className="w-full max-w-[400px]">
             <LoginFooter onVoltar={voltarAoSite} />
           </div>
         </main>

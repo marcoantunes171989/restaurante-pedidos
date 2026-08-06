@@ -1,7 +1,7 @@
 import { LogoPP } from "../components/BrandLogo";
 import { IconShield, IconCentral, IconRelogio, IconDados } from "./icons";
 import ProductPreview from "./ProductPreview";
-import { INSTITUCIONAL } from "./content";
+import { INSTITUCIONAL, ESTABELECIMENTOS } from "./content";
 
 const ICONES_BENEFICIO = { central: IconCentral, tempo: IconRelogio, dados: IconDados };
 
@@ -46,6 +46,21 @@ export default function LoginBrandPanel() {
                 </div>
               );
             })}
+          </div>
+
+          {/* Estabelecimentos atendidos — chips gourmet (para quem o Pedido Prime é feito) */}
+          <div className="mt-7">
+            <p className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-[var(--login-text-secondary)]">
+              <span className="h-1.5 w-1.5 rounded-full bg-[var(--login-primary)]" />
+              {ESTABELECIMENTOS.titulo}
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {ESTABELECIMENTOS.itens.map((e) => (
+                <span key={e.nome} className="inline-flex items-center gap-1.5 rounded-full border border-[var(--login-border)] bg-[var(--login-surface)] px-3 py-1.5 text-[12px] font-semibold text-[var(--login-text-primary)] shadow-[0_1px_2px_rgba(15,76,92,0.04)]">
+                  <span aria-hidden="true">{e.icon}</span>{e.nome}
+                </span>
+              ))}
+            </div>
           </div>
 
           <div className="mt-7">

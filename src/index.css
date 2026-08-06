@@ -336,9 +336,9 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
      off-white=fundo · branco=superfície · grafite=texto/ícones ·
      cinza claro=bordas · LARANJA=ação/CTA · AZUL PETRÓLEO=institucional ·
      VERDE=confirmação/sucesso. Erro em crimson (fora da paleta, semântico). */
-  --login-background: #F8F6F2;   /* off-white — fundo */
+  --login-background: #FFFFFF;   /* branco — fundo (tela de login) */
   --login-surface: #FFFFFF;      /* branco — cards/inputs */
-  --login-surface-secondary: #F1F0EC;
+  --login-surface-secondary: #F6F5F2;
   --login-text-primary: #2D3436; /* grafite — texto/ícones */
   --login-text-secondary: #5F6B6E;
   --login-border: #E6E6E6;       /* cinza claro — bordas/divisórias */
@@ -493,6 +493,21 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
   background-image: none;
   text-shadow: none;
 }
+/* Variante LARANJA CLARO (login): degradê mais claro/luminoso partindo de um
+   laranja suave até o laranja da marca — CTA elegante e "gourmet". */
+.btn-laranja-claro {
+  background-image: linear-gradient(180deg, #F4A45E 0%, #E67E22 100%);
+  text-shadow: 0 1px 1.5px rgba(90, 35, 0, 0.28);
+}
+.btn-laranja-claro:hover:not(:disabled):not([aria-disabled="true"]) {
+  background-image: linear-gradient(180deg, #F7B274 0%, #EC8B3E 100%);
+}
+.btn-laranja-claro:active:not(:disabled):not([aria-disabled="true"]) {
+  background-image: none;
+  background-color: #D06E1A;
+}
+.btn-laranja-claro:disabled,
+.btn-laranja-claro[disabled] { background-image: none; text-shadow: none; }
 
 /* ══════════════════════════════════════════════════════════════════
    Botão verde "GOURMET" — mesma receita do .btn-laranja, mas na cor de
@@ -625,6 +640,12 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
 [data-theme="light"].pp-admin-module .tema-claro-area {
   background-color: #FFFFFF !important;
 }
+/* Tela de LOGIN: fundo BRANCO (sobrepõe o off-white geral do tema claro). A
+   especificidade (.pp-login-shell.tema-claro-area) vence o !important da regra
+   base acima. */
+[data-theme="light"] .pp-login-shell.tema-claro-area {
+  background-color: #FFFFFF !important;
+}
 /* Padrão "superfícies brancas" (skill superficies-brancas-admin): as caixinhas/
    tiles/chips/itens internos do admin que usam o off-white da paleta (--pp-bg)
    passam a BRANCO, para não destoarem do fundo branco — a separação fica na
@@ -635,6 +656,13 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
    ficam fora de .pp-admin-module e seguem no off-white padrão. */
 [data-theme="light"].pp-admin-module .tema-claro-area .bg-\[var\(--pp-bg\)\]:not(.animate-pulse) {
   background-color: #FFFFFF !important;
+}
+/* Hover padronizado do painel admin: o realce ao passar o mouse (linhas de
+   tabela, botões neutros, itens) usa um tom de AZUL PETRÓLEO bem suave — em vez
+   do creme/off-white que destoava — harmonizando com a paleta oficial em TODAS
+   as telas do admin de uma vez. */
+[data-theme="light"].pp-admin-module .tema-claro-area .hover\:bg-\[var\(--pp-bg\)\]:hover {
+  background-color: rgba(15, 76, 92, 0.06) !important;
 }
 /* Superfícies sólidas escuras → branco (cards/painéis) */
 [data-theme="light"] .tema-claro-area.bg-black,
