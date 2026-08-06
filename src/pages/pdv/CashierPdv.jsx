@@ -11,6 +11,7 @@ import PdvPaymentPanel from "./PdvPaymentPanel";
 import PdvActionBar from "./PdvActionBar";
 import PdvStatusBar from "./PdvStatusBar";
 import ModalDividirConta from "./PdvDividirConta";
+import ModalIdentificarCliente from "./PdvIdentificarCliente";
 import {
   ModalCliente,
   ModalHistoricoMesa,
@@ -31,6 +32,7 @@ import {
   normalizarBusca,
   numeroMesaDe,
   orderTotal,
+  resumoCozinha,
   rotuloMesa,
   rotuloStatusPedido,
   situacaoMesaVisual,
@@ -93,9 +95,10 @@ export default function CashierPdv({
   transferirMesaPedidos = async () => {},
   separarItensPedidos = async () => {},
   notify = () => {},
+  validarCupom = async () => ({ ok: false, motivo: "Cupons indisponíveis." }),
+  consumirCupom = async () => ({ ok: true }),
 }) {
   void caixaAberto;
-  void fidCaixa;
 
   const SERVICE_FEE = lerConfigTaxaServico(lojaInfo?.id);
   const taxaPct = SERVICE_FEE.enabled && SERVICE_FEE.chargingRule !== "nao_cobrar" ? SERVICE_FEE.percent : 0;
@@ -110,6 +113,10 @@ export default function CashierPdv({
   const [bufferEntrada, setBufferEntrada] = useState("");
   // Pagamento dividido: parcelas já recebidas, por conta.
   const [pagamentosPorConta, setPagamentosPorConta] = useState({});
+  // Cupom validado por conta + aviso de identificação do cliente.
+  const [cupomPorConta, setCupomPorConta] = useState({});
+  const [cupomProcessando, setCupomProcessando] = useState(false);
+  const [avisoCliente, setAvisoCliente] = useState(null);
   const [confirmarFinalizacao, setConfirmarFinalizacao] = useState(false);
   const [processando, setProcessando] = useState(false);
   const [sucesso, setSucesso] = useState(null);
@@ -134,7 +141,8 @@ export default function CashierPdv({
     () => formasAtivas.find((f) => /dinheiro|espécie|especie/i.test(f.nome || "")) || formasAtivas[0] || null,
     [formasAtivas],
   );
-  const formaAtual = formaSelecionada && formasAtivas.some((f) => f.id === formaSelecionada.id || f.nome === formaSelecionada.nome)
+  const formaAtual = formaSelecionada
+    && (formaSelecionada.pontos || formasAtivas.some((f) => f.id === formaSelecionada.id || f.nome === formaSelecionada.nome))
     ? formaSelecionada
     : formaPadrao;
 
@@ -211,17 +219,58 @@ export default function CashierPdv({
   const totalSel = contaSel?.total || 0;
   const taxasSel = totalSel - subtotalSel;
 
+  // Cupom validado para esta conta — o desconto reduz o que será cobrado.
+  const cupomSel = (contaSel && cupomPorConta[contaSel.key]) || null;
+  const descontoCupom = Math.min(Number(cupomSel?.desconto) || 0, totalSel);
+  const totalCobrar = Math.max(0, totalSel - descontoCupom);
+
+  // Fidelidade: só cliente identificado acumula e resgata pontos.
+  const fidAtiva = !!fidCaixa?.ativo;
+  const pontosPorReal = Number(fidCaixa?.pontosPorReal) || 100;
+  const valorPorPonto = Number(fidCaixa?.valorPorPonto) || 0;
+  const telefoneConta = String(contaSel?.telefone || "").replace(/\D/g, "");
+  const clienteIdentificado = !!(contaSel && (contaSel.telefone || contaSel.cliente));
+  const saldoPontos = (fidAtiva && telefoneConta) ? (fidCaixa?.saldoPorTelefone?.[contaSel.telefone] || fidCaixa?.saldoPorTelefone?.[telefoneConta] || 0) : 0;
+  const pontosEmReais = Math.floor((saldoPontos / pontosPorReal) * 100) / 100;
+
   // Pagamento dividido: cada OK vira uma parcela; o painel cobra só o restante.
   const pagamentosSel = (contaSel && pagamentosPorConta[contaSel.key]) || [];
   const recebidoEfetivo = pagamentosSel.reduce((s, p) => s + (Number(p.valor) || 0), 0);
-  const restanteSel = Math.max(0, totalSel - recebidoEfetivo);
-  const trocoSel = Math.max(0, recebidoEfetivo - totalSel);
+  const pontosJaUsados = pagamentosSel.filter((p) => p.pontos).reduce((s, p) => s + (Number(p.valor) || 0), 0);
+  const restanteSel = Math.max(0, totalCobrar - recebidoEfetivo);
+  const trocoSel = Math.max(0, recebidoEfetivo - totalCobrar);
   const trocoLiberado = formaPermiteTroco(formaAtual);
+  const pontosDisponiveisReais = Math.max(0, pontosEmReais - pontosJaUsados);
+
+  // Forma virtual "Pontos" — aparece só com cliente identificado e saldo.
+  const formasComPontos = useMemo(() => {
+    if (!fidAtiva || !telefoneConta || pontosDisponiveisReais <= 0) return formasAtivas;
+    return [...formasAtivas, {
+      id: "__pontos",
+      nome: "Pontos",
+      tipo: "pontos",
+      pontos: true,
+      maxValor: pontosDisponiveisReais,
+    }];
+  }, [formasAtivas, fidAtiva, telefoneConta, pontosDisponiveisReais]);
+
+  // Base de consulta da identificação: cliente da loja + saldo de pontos.
+  const clientesComPontos = useMemo(
+    () => clientes.map((c) => ({ ...c, pontos: fidCaixa?.saldoPorTelefone?.[c.telefone] ?? null })),
+    [clientes, fidCaixa],
+  );
+
+  const formaEhPontos = !!formaAtual?.pontos;
+  // Pontos ganhos: sobre o valor efetivamente pago em dinheiro/cartão/etc.
+  const pontosGanhar = (fidAtiva && telefoneConta && valorPorPonto > 0)
+    ? Math.floor(Math.max(0, Math.min(recebidoEfetivo, totalCobrar) - pontosJaUsados) / valorPorPonto)
+    : 0;
+
   // Fechamento: exige o total coberto pelas parcelas registradas.
   const podeFechar = !!contaSel
     && formasAtivas.length > 0
-    && totalSel > 0
-    && recebidoEfetivo + 0.001 >= totalSel;
+    && totalCobrar > 0
+    && recebidoEfetivo + 0.001 >= totalCobrar;
 
   const produtosBloqueados = !!(contaSel && bloqueioProdutos[contaSel.key]);
 
@@ -298,6 +347,7 @@ export default function CashierPdv({
 
   const faturamentoDia = pagosHoje.reduce((s, o) => s + orderTotal(o) * (1 + taxaPct / 100), 0);
   const ticketMedio = pagosHoje.length ? faturamentoDia / pagosHoje.length : 0;
+  const statusCozinha = useMemo(() => resumoCozinha(orders), [orders]);
   const mesasDisponiveis = mesasPainel.filter((m) => m.status === "livre").length;
   const mesasOcupadas = new Set(contasAbertas.filter((c) => !c.externo).map((c) => c.mesa)).size;
   const pagamentoPendente = contasAbertas.filter((c) => c.solicitada || c.situacao === "pagamento").length;
@@ -469,13 +519,19 @@ export default function CashierPdv({
   }
 
   /**
-   * Escolher a forma sugere o que falta receber — mas nunca sobrescreve um
-   * valor já digitado ou calculado na divisão da conta.
+   * Trocar a forma zera o valor: o caixa sempre confirma quanto está
+   * recebendo naquela forma (ou usa o botão "Valor total").
    */
   function selecionarForma(forma) {
     setFormaSelecionada(forma);
-    if (!bufferEntrada && restanteSel > 0) setBufferEntrada(String(Math.round(restanteSel * 100)));
+    setBufferEntrada("");
     setPainelMobile("pagamento");
+  }
+
+  /** Teto do valor digitável na forma atual (pontos limitam ao saldo). */
+  function tetoDaForma() {
+    if (formaEhPontos) return Math.min(restanteSel, pontosDisponiveisReais);
+    return restanteSel;
   }
 
   /** Busca por Enter — leva direto para a primeira conta que casa com o termo. */
@@ -497,11 +553,13 @@ export default function CashierPdv({
    */
   function tecladoDigito(d) {
     if (!/^\d+$/.test(d)) return;
+    const teto = tetoDaForma();
     setBufferEntrada((cur) => {
       const next = `${cur}${d}`.replace(/^0+(?=\d)/, "").slice(0, 9);
       const valor = Number(next || 0) / 100;
-      if (!trocoLiberado && restanteSel > 0 && valor > restanteSel + 0.001) {
-        return String(Math.round(restanteSel * 100));
+      // Dinheiro é a única forma que pode passar do restante (troco).
+      if ((!trocoLiberado || formaEhPontos) && teto > 0 && valor > teto + 0.001) {
+        return String(Math.round(teto * 100));
       }
       return next;
     });
@@ -511,6 +569,12 @@ export default function CashierPdv({
   }
   function tecladoLimpar() {
     setBufferEntrada("");
+  }
+  /** Atalho para quando o cliente paga tudo de uma vez só. */
+  function lancarValorTotal() {
+    const teto = tetoDaForma();
+    if (!(teto > 0)) return;
+    setBufferEntrada(String(Math.round(teto * 100)));
   }
 
   /** OK do teclado — registra a forma atual como uma parcela recebida. */
@@ -527,25 +591,79 @@ export default function CashierPdv({
       notify("error", "Conta já quitada. Feche a conta para concluir.");
       return;
     }
-    const digitado = Number(bufferEntrada || 0) / 100;
-    const valor = digitado > 0 ? digitado : restanteSel;
+    const valor = Number(bufferEntrada || 0) / 100;
     if (!(valor > 0)) {
-      notify("error", "Informe um valor maior que zero.");
+      notify("error", "Digite o valor a receber ou use o botão Valor total.");
       return;
     }
-    const aplicado = trocoLiberado ? valor : Math.min(valor, restanteSel);
+    if (formaEhPontos && valor > pontosDisponiveisReais + 0.001) {
+      notify("error", `Saldo em pontos cobre até ${formatCurrency(pontosDisponiveisReais)}.`);
+      return;
+    }
+    const aplicado = (trocoLiberado && !formaEhPontos) ? valor : Math.min(valor, tetoDaForma());
     const parcela = {
       id: `pg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       forma: formaAtual.nome,
-      formaId: formaAtual.id ?? null,
+      formaId: formaAtual.pontos ? null : (formaAtual.id ?? null),
+      pontos: !!formaAtual.pontos,
       valor: aplicado,
     };
     setPagamentosPorConta((cur) => ({ ...cur, [contaSel.key]: [...(cur[contaSel.key] || []), parcela] }));
+    // Valor sempre volta a zero: a próxima parcela é digitada do começo.
+    setBufferEntrada("");
     const novoRestante = Math.max(0, restanteSel - aplicado);
-    setBufferEntrada(novoRestante > 0 ? String(Math.round(novoRestante * 100)) : "");
     notify("success", novoRestante > 0
       ? `${formaAtual.nome} · ${formatCurrency(aplicado)} recebido. Falta ${formatCurrency(novoRestante)}.`
       : `${formaAtual.nome} · ${formatCurrency(aplicado)} recebido. Conta quitada.`);
+  }
+
+  /** Cupom: valida no banco (existe, vigente, mínimo e quantidade disponível). */
+  async function aplicarCupom(codigo, aoAplicar) {
+    if (!contaSel) return;
+    setCupomProcessando(true);
+    try {
+      const r = await validarCupom({ codigo, valorConta: totalSel });
+      if (!r?.ok) {
+        notify("error", r?.motivo || "Cupom inválido.");
+        return;
+      }
+      setCupomPorConta((cur) => ({
+        ...cur,
+        [contaSel.key]: { id: r.id, codigo: r.codigo, desconto: Number(r.desconto) || 0, restantes: r.restantes ?? null },
+      }));
+      setBufferEntrada("");
+      aoAplicar?.();
+      notify("success", `Cupom ${r.codigo} aplicado · desconto de ${formatCurrency(r.desconto)}.`);
+    } finally {
+      setCupomProcessando(false);
+    }
+  }
+
+  function removerCupom() {
+    if (!contaSel) return;
+    setCupomPorConta((cur) => {
+      const next = { ...cur };
+      delete next[contaSel.key];
+      return next;
+    });
+    setBufferEntrada("");
+  }
+
+  /** Identificação do cliente no pagamento — habilita acúmulo e resgate. */
+  async function identificarCliente({ nome, telefone, jaCadastrado }) {
+    if (!contaSel) return;
+    setAcaoProcessando(true);
+    try {
+      await atualizarClientePedidos(pedidosSel.map((o) => o.id), { customer: nome, clienteTelefone: telefone });
+      setModal(null);
+      setAvisoCliente({
+        texto: jaCadastrado ? `Cliente identificado · ${nome}` : `Cliente cadastrado com sucesso · ${nome}`,
+        tom: "text-[#1F7A3D]",
+      });
+      notify("success", jaCadastrado ? "Cliente identificado." : "Cliente cadastrado com sucesso.");
+    } finally {
+      setAcaoProcessando(false);
+    }
   }
 
   function removerPagamentoParcial(id) {
@@ -573,7 +691,7 @@ export default function CashierPdv({
   async function confirmarEFinalizar() {
     if (processandoRef.current || !contaSel) return;
     const valorPago = recebidoEfetivo;
-    if (!(valorPago > 0) || valorPago + 0.001 < totalSel) {
+    if (!(valorPago > 0) || valorPago + 0.001 < totalCobrar) {
       notify("error", "Valor inválido para fechamento. Registre recebimentos que cubram o total.");
       return;
     }
@@ -582,34 +700,59 @@ export default function CashierPdv({
     const contaKey = contaSel.key;
     const mesaFechada = contaSel.mesa;
     try {
+      // Cupom: reconfere a disponibilidade AGORA e consome uma unidade. Se
+      // acabou entre a aplicação e o fechamento, o pagamento não segue.
+      if (cupomSel?.id) {
+        const uso = await consumirCupom({
+          cupomId: cupomSel.id,
+          valorConta: totalSel,
+          valorDesconto: descontoCupom,
+          mesa: mesaFechada,
+          comandas: [...contaSel.comandas],
+          clienteTelefone: contaSel.telefone || null,
+        });
+        if (!uso?.ok) {
+          notify("error", uso?.motivo || "Cupom indisponível. Remova o cupom para concluir o pagamento.");
+          return;
+        }
+      }
       // Cada parcela vai como uma linha de detalhe — é assim que tab_pagamentos,
       // o movimento de caixa e o relatório por forma conseguem separar o split.
       const detalhes = pagamentosSel.map((p) => ({ forma: p.forma, valor: p.valor }));
       const info = {
         mesa: mesaFechada,
-        total: totalSel,
+        total: totalCobrar,
         troco: trocoSel,
         detalhes,
         comandas: [...contaSel.comandas],
+        ...(descontoCupom > 0 ? { desconto: descontoCupom, cupom: cupomSel?.codigo } : {}),
       };
       const baixa = await baixarComandas(contaSel.comandas, info);
       auditar("finalizar_pagamento", "comanda", null, {
         mesa: info.mesa,
         comandas: contaSel.comandas,
-        total: totalSel,
+        total: totalCobrar,
         formas: detalhes.map((d) => d.forma),
+        ...(descontoCupom > 0 ? { cupom: cupomSel?.codigo, desconto: descontoCupom } : {}),
       });
       setSucesso({
         ...info,
         subtotal: subtotalSel,
         taxa: taxasSel,
+        pontosGanhos: pontosGanhar,
         codigo: `PAG-${Date.now().toString().slice(-8)}`,
         alertasEstoque: baixa?.alertas || [],
       });
       setConfirmarFinalizacao(false);
       setBufferEntrada("");
       setFormaSelecionada(null);
+      setAvisoCliente(null);
       setPagamentosPorConta((cur) => {
+        const next = { ...cur };
+        delete next[contaKey];
+        return next;
+      });
+      setCupomPorConta((cur) => {
         const next = { ...cur };
         delete next[contaKey];
         return next;
@@ -945,6 +1088,7 @@ ${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency
 
       <PdvStatsBar
         agora={agora}
+        cozinha={statusCozinha}
         mesasDisponiveis={mesasDisponiveis}
         mesasOcupadas={mesasOcupadas}
         pagamentoPendente={pagamentoPendente}
@@ -1039,22 +1183,37 @@ ${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency
         {/* Pagamento — aba mobile + coluna direita desktop */}
         <PdvPaymentPanel
           totalConta={totalSel}
+          totalCobrar={totalCobrar}
+          descontoCupom={descontoCupom}
+          cupomAplicado={cupomSel}
           recebido={recebidoEfetivo}
           restante={restanteSel}
           troco={trocoSel}
           pagamentos={pagamentosSel}
-          formasPagamento={formasAtivas}
+          formasPagamento={formasComPontos}
           formaSelecionada={formaAtual}
-          permiteTroco={trocoLiberado}
+          permiteTroco={trocoLiberado && !formaEhPontos}
+          cliente={contaSel ? { nome: contaSel.cliente, telefone: contaSel.telefone } : null}
+          saldoPontos={saldoPontos}
+          pontosGanhar={pontosGanhar}
+          fidelidadeAtiva={fidAtiva}
+          mensagemCliente={avisoCliente || (contaSel && !clienteIdentificado
+            ? { texto: "Cliente não identificado — sem pontos nesta compra", tom: "text-[var(--pp-text-muted)]" }
+            : null)}
           onSelecionarForma={selecionarForma}
           onRemoverPagamento={removerPagamentoParcial}
           onDividir={() => setModal("dividir")}
+          onIdentificarCliente={temConta ? () => setModal("identificar") : undefined}
+          onAplicarCupom={aplicarCupom}
+          onRemoverCupom={removerCupom}
+          cupomProcessando={cupomProcessando}
           dividirDesabilitado={!contaSel || restanteSel <= 0.001}
           onDigito={tecladoDigito}
           onLimpar={tecladoLimpar}
           onApagar={tecladoApagar}
+          onValorTotal={lancarValorTotal}
           onConfirmar={registrarPagamentoParcial}
-          confirmarDesabilitado={!contaSel || totalSel <= 0 || restanteSel <= 0.001}
+          confirmarDesabilitado={!contaSel || totalCobrar <= 0 || restanteSel <= 0.001}
           bufferEntrada={bufferEntrada}
           className={`${painelMobile === "pagamento" ? "flex min-h-0 flex-1" : "hidden"} min-w-0 overflow-hidden border-t lg:flex lg:w-[214px] lg:max-w-[214px] lg:shrink-0 lg:border-l lg:border-t-0 xl:w-[248px] xl:max-w-[248px] 2xl:w-[280px] 2xl:max-w-[280px]`}
         />
@@ -1118,9 +1277,20 @@ ${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency
           onFechar={() => setModal(null)}
         />
       )}
+      {modal === "identificar" && contaSel && (
+        <ModalIdentificarCliente
+          clientes={clientesComPontos}
+          telefoneInicial={contaSel.telefone}
+          nomeInicial={contaSel.cliente}
+          pontosPorReal={pontosPorReal}
+          onConfirmar={identificarCliente}
+          onFechar={() => setModal(null)}
+          salvando={acaoProcessando}
+        />
+      )}
       {modal === "dividir" && contaSel && (
         <ModalDividirConta
-          total={totalSel}
+          total={totalCobrar}
           restante={restanteSel}
           itens={itensParaSeparar.map((it) => ({
             key: it.key,
@@ -1159,7 +1329,13 @@ ${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency
               {contaSel?.mesa} · {contaSel?.comandas?.join(", ")}
             </p>
             <div className="mt-4 space-y-1.5 text-sm">
-              <div className="flex justify-between"><span>Total</span><strong>{formatCurrency(totalSel)}</strong></div>
+              <div className="flex justify-between"><span>Conta</span><strong>{formatCurrency(totalSel)}</strong></div>
+              {descontoCupom > 0 && (
+                <>
+                  <div className="flex justify-between text-[#1F7A3D]"><span>Cupom {cupomSel?.codigo}</span><strong>−{formatCurrency(descontoCupom)}</strong></div>
+                  <div className="flex justify-between"><span>Total a pagar</span><strong>{formatCurrency(totalCobrar)}</strong></div>
+                </>
+              )}
               {pagamentosSel.map((p) => (
                 <div key={p.id} className="flex justify-between text-[var(--pp-text-body)]">
                   <span>{p.forma}</span><strong>{formatCurrency(p.valor)}</strong>
@@ -1168,6 +1344,9 @@ ${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency
               <div className="flex justify-between border-t border-[var(--pp-border)] pt-1.5"><span>Recebido</span><strong>{formatCurrency(recebidoEfetivo)}</strong></div>
               {trocoSel > 0 && (
                 <div className="flex justify-between text-[var(--pp-primary-text)]"><span>Troco</span><strong>{formatCurrency(trocoSel)}</strong></div>
+              )}
+              {pontosGanhar > 0 && (
+                <div className="flex justify-between text-[#1F7A3D]"><span>Pontos ao cliente</span><strong>{pontosGanhar}</strong></div>
               )}
             </div>
             <div className="mt-5 grid grid-cols-2 gap-2">
@@ -1192,6 +1371,12 @@ ${dados.troco > 0 ? `<div class="row b"><span>TROCO</span><span>${formatCurrency
             <h2 className="mt-3 text-xl font-black text-[var(--pp-text)]">Pagamento concluído</h2>
             <p className="text-sm text-[var(--pp-text-body)]">{sucesso.mesa}</p>
             <p className="mt-2 text-2xl font-black text-[var(--pp-text)]">{formatCurrency(sucesso.total)}</p>
+            {sucesso.desconto > 0 && (
+              <p className="text-xs font-bold text-[#1F7A3D]">Cupom {sucesso.cupom} · −{formatCurrency(sucesso.desconto)}</p>
+            )}
+            {sucesso.pontosGanhos > 0 && (
+              <p className="text-xs font-bold text-[#1F7A3D]">Cliente ganhou {sucesso.pontosGanhos} pontos</p>
+            )}
             <div className="mt-5 space-y-2">
               <button type="button" onClick={() => imprimirComprovante(sucesso)} className="btn-laranja flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl text-sm font-black text-white">
                 <IconImpressora width={16} height={16} /> Imprimir comprovante

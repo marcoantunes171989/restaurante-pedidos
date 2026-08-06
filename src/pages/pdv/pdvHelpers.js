@@ -177,12 +177,34 @@ export function combinaBusca(indice, termo) {
 }
 
 export const CANAIS_PDV = [
-  { id: "mesa", label: "Salão", dica: "Mesas do salão" },
+  { id: "mesa", label: "Mesa", dica: "Mesas do salão" },
   { id: "delivery", label: "Delivery", dica: "Pedidos de entrega e retirada" },
-  { id: "comanda", label: "Comandas", dica: "Comandas em aberto" },
-  { id: "cliente", label: "Clientes", dica: "Clientes identificados" },
-  { id: "pedido", label: "Pedidos", dica: "Pedidos em aberto" },
+  { id: "comanda", label: "Comanda", dica: "Comandas em aberto" },
+  { id: "cliente", label: "Cliente", dica: "Clientes identificados" },
+  { id: "pedido", label: "Pedido", dica: "Pedidos em aberto" },
 ];
+
+/**
+ * Situação da cozinha para o caixa acompanhar sem trocar de tela.
+ * "Retirado" é o pedido já entregue ao cliente (status delivered).
+ */
+export function resumoCozinha(orders = []) {
+  const base = { recebido: 0, preparando: 0, pronto: 0, retirado: 0 };
+  const hoje = new Date().toDateString();
+  orders.forEach((o) => {
+    if (o.status === "cancelled") return;
+    if (o.status === "delivered") {
+      const ref = o.updatedAtISO || o.createdAtISO;
+      if (ref && new Date(ref).toDateString() !== hoje) return;
+      base.retirado += 1;
+      return;
+    }
+    if (o.status === "received") base.recebido += 1;
+    else if (o.status === "preparing") base.preparando += 1;
+    else if (o.status === "ready") base.pronto += 1;
+  });
+  return base;
+}
 
 export function tempoAbertoISO(iso, agora = new Date()) {
   if (!iso) return null;

@@ -259,6 +259,81 @@ export function escutarPromocoes(onMudanca) {
 }
 
 // ════════════════════════════════════════════════════════════
+//  tab_cupons — cupons de desconto por loja (migration 075)
+//  Validação e consumo passam pelas funções cupom_validar /
+//  cupom_consumir: a quantidade disponível é conferida no banco,
+//  nunca só no front.
+// ════════════════════════════════════════════════════════════
+function dbParaCupom(r) {
+  return {
+    id: r.id, lojaId: r.loja_id ?? null, codigo: r.codigo, descricao: r.descricao ?? '',
+    tipo: r.tipo ?? 'percentual', valor: Number(r.valor) || 0,
+    minimoCompra: Number(r.minimo_compra) || 0,
+    quantidadeTotal: r.quantidade_total == null ? null : Number(r.quantidade_total),
+    quantidadeUsada: Number(r.quantidade_usada) || 0,
+    inicioEm: r.inicio_em ?? null, fimEm: r.fim_em ?? null, ativo: r.ativo !== false,
+  }
+}
+function cupomParaDb(c) {
+  return {
+    loja_id: c.lojaId ?? null,
+    codigo: String(c.codigo || '').trim().toUpperCase(),
+    descricao: c.descricao || null,
+    tipo: c.tipo === 'valor' ? 'valor' : 'percentual',
+    valor: numBR(c.valor) ?? 0,
+    minimo_compra: numBR(c.minimoCompra) ?? 0,
+    quantidade_total: c.quantidadeTotal == null || c.quantidadeTotal === '' ? null : Math.max(0, parseInt(c.quantidadeTotal, 10) || 0),
+    inicio_em: c.inicioEm || null,
+    fim_em: c.fimEm || null,
+    ativo: c.ativo !== false,
+  }
+}
+export async function fetchCupons() {
+  const { data, error } = await supabase.from('tab_cupons').select('*').order('criado_em', { ascending: false })
+  if (error || !data) return []
+  return data.map(dbParaCupom)
+}
+export async function inserirCupom(c) {
+  const { data, error } = await supabase.from('tab_cupons').insert([cupomParaDb(c)]).select().single()
+  if (error) throw error
+  return dbParaCupom(data)
+}
+export async function atualizarCupom(id, c) {
+  const { error } = await supabase.from('tab_cupons')
+    .update({ ...cupomParaDb(c), atualizado_em: new Date().toISOString() }).eq('id', id)
+  if (error) throw error
+}
+export async function excluirCupom(id) {
+  const { error } = await supabase.from('tab_cupons').delete().eq('id', id)
+  if (error) throw error
+}
+export function escutarCupons(onMudanca) {
+  const reload = async () => { try { onMudanca(await fetchCupons()) } catch {} }
+  const canal = supabase.channel('ch_cupons_' + Math.random().toString(36).slice(2))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_cupons' }, reload)
+    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
+  return () => supabase.removeChannel(canal)
+}
+/** Valida o código sem consumir — devolve { ok, motivo } ou os dados do desconto. */
+export async function validarCupom({ lojaId = null, codigo, valorConta = 0 }) {
+  const { data, error } = await supabase.rpc('cupom_validar', {
+    p_loja_id: lojaId, p_codigo: String(codigo || '').trim(), p_valor_conta: Number(valorConta) || 0,
+  })
+  if (error) throw error
+  return data || { ok: false, motivo: 'Não foi possível validar o cupom.' }
+}
+/** Consome uma unidade do cupom no fechamento (atômico) e registra o uso. */
+export async function consumirCupom({ cupomId, lojaId = null, valorConta = 0, valorDesconto = 0, mesa = null, comandas = null, clienteTelefone = null }) {
+  const { data, error } = await supabase.rpc('cupom_consumir', {
+    p_cupom_id: cupomId, p_loja_id: lojaId,
+    p_valor_conta: Number(valorConta) || 0, p_valor_desconto: Number(valorDesconto) || 0,
+    p_mesa: mesa, p_comandas: comandas, p_cliente_telefone: clienteTelefone,
+  })
+  if (error) throw error
+  return data || { ok: false, motivo: 'Não foi possível registrar o uso do cupom.' }
+}
+
+// ════════════════════════════════════════════════════════════
 //  Adicionais e Variações (migration 040) — grupos + opções
 //  Tolerante: [] se as tabelas ainda não existirem.
 // ════════════════════════════════════════════════════════════

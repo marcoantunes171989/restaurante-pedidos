@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown, X, DoorClosed, DoorOpen, Wallet, CheckCircle2, TrendingUp, Ticket } from "lucide-react";
+import { ChevronDown, X, DoorClosed, DoorOpen, Wallet, CheckCircle2, TrendingUp, Ticket, ChefHat, Flame, PackageCheck } from "lucide-react";
 import { formatCurrency } from "./pdvHelpers";
 
 /**
@@ -13,6 +13,7 @@ export default function PdvStatsBar({
   pagamentoFinalizado = 0,
   faturamentoDia = 0,
   ticketMedio = 0,
+  cozinha = { recebido: 0, preparando: 0, pronto: 0, retirado: 0 },
   contasAbertas = [],
   pagosHoje = [],
 }) {
@@ -41,6 +42,9 @@ export default function PdvStatsBar({
               <span className="text-[#8D6708]">{pagamentoPendente} pend.</span>
               <span className="tabular-nums">{formatCurrency(faturamentoDia)}</span>
             </span>
+            <span className="block truncate text-[10px] font-bold text-[var(--pp-text-muted)]">
+              Cozinha · {cozinha.recebido} receb. · {cozinha.preparando} preparo · {cozinha.pronto} pronto · {cozinha.retirado} retirado
+            </span>
           </span>
           <ChevronDown size={16} className="shrink-0 text-[var(--pp-text-muted)]" aria-hidden="true" />
         </button>
@@ -56,7 +60,7 @@ export default function PdvStatsBar({
       </div>
 
       {/* Desktop / tablet landscape — uma linha só, sem empurrar o salão */}
-      <div className="hidden items-center gap-x-3 gap-y-1 lg:flex">
+      <div className="hidden items-center gap-x-2.5 gap-y-1 lg:flex">
         <button
           type="button"
           onClick={() => setModalAberto(true)}
@@ -67,10 +71,24 @@ export default function PdvStatsBar({
           <ChevronDown size={13} aria-hidden="true" />
         </button>
 
-        <div className="flex min-w-0 flex-1 items-center gap-x-3 overflow-hidden">
+        <div className="flex shrink-0 items-center gap-x-2.5">
           <Metrica label="Disponíveis" valor={mesasDisponiveis} tom="text-[#1F7A3D]" />
           <Metrica label="Ocupadas" valor={mesasOcupadas} tom="text-[var(--pp-primary-text)]" />
-          <Metrica label="Pendentes" valor={pagamentoPendente} tom="text-[#8D6708]" />
+        </div>
+
+        {/* Status cozinha — o caixa acompanha o preparo sem trocar de tela */}
+        <div className="flex min-w-0 items-center gap-x-2.5 rounded-lg border border-[var(--pp-border)] bg-[var(--pp-bg)] px-2 py-1">
+          <span className="shrink-0 text-[9px] font-black uppercase leading-tight tracking-wide text-[var(--pp-text-muted)]">
+            Status<br />cozinha
+          </span>
+          <Metrica label="Recebido" valor={cozinha.recebido} tom="text-[#0F4C5C]" />
+          <Metrica label="Em preparo" valor={cozinha.preparando} tom="text-[var(--pp-primary-text)]" />
+          <Metrica label="Pronto" valor={cozinha.pronto} tom="text-[#1F7A3D]" />
+          <Metrica label="Retirado" valor={cozinha.retirado} tom="text-[var(--pp-text-body)]" />
+          <Metrica label="Aguard. pagto" valor={pagamentoPendente} tom="text-[#8D6708]" />
+        </div>
+
+        <div className="flex min-w-0 flex-1 items-center gap-x-2.5 overflow-hidden">
           <Metrica label="Finalizados" valor={pagamentoFinalizado} tom="text-[#1F7A3D]" />
           <Metrica label="Faturamento" valor={formatCurrency(faturamentoDia)} tom="text-[var(--pp-text)]" />
           <Metrica label="Ticket médio" valor={formatCurrency(ticketMedio)} tom="text-[var(--pp-text)]" />
@@ -84,8 +102,8 @@ export default function PdvStatsBar({
             className="inline-flex h-8 shrink-0 items-center gap-1 rounded-lg border border-[#F5DFA3] bg-[#FFFBEB] px-2 text-[11px] font-bold text-[#8D6708]"
           >
             <span className="font-black">{pagamentoPendente}</span>
-            <span className="hidden xl:inline">aguardando pagamento</span>
-            <span className="xl:hidden">aguardando</span>
+            <span className="hidden 2xl:inline">aguardando pagamento</span>
+            <span className="2xl:hidden">aguard.</span>
           </button>
         )}
       </div>
@@ -100,6 +118,7 @@ export default function PdvStatsBar({
           pagamentoFinalizado={pagamentoFinalizado}
           faturamentoDia={faturamentoDia}
           ticketMedio={ticketMedio}
+          cozinha={cozinha}
           contasAbertas={contasAbertas}
           pagosHoje={pagosHoje}
           onFechar={() => setModalAberto(false)}
@@ -118,6 +137,7 @@ function ModalResumoTurno({
   pagamentoFinalizado,
   faturamentoDia,
   ticketMedio,
+  cozinha = { recebido: 0, preparando: 0, pronto: 0, retirado: 0 },
   contasAbertas,
   pagosHoje,
   onFechar,
@@ -152,6 +172,16 @@ function ModalResumoTurno({
             <CardMetrica Icon={CheckCircle2} label="Pag. finalizado" valor={pagamentoFinalizado} tom="text-[#1F7A3D]" />
             <CardMetrica Icon={TrendingUp} label="Faturamento" valor={formatCurrency(faturamentoDia)} tom="text-[var(--pp-text)]" />
             <CardMetrica Icon={Ticket} label="Ticket médio" valor={formatCurrency(ticketMedio)} tom="text-[var(--pp-text)]" />
+          </div>
+
+          <div>
+            <h3 className="mb-2 text-[11px] font-black uppercase tracking-wide text-[var(--pp-text-muted)]">Status da cozinha</h3>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <CardMetrica Icon={ChefHat} label="Recebido" valor={cozinha.recebido} tom="text-[#0F4C5C]" />
+              <CardMetrica Icon={Flame} label="Em preparo" valor={cozinha.preparando} tom="text-[var(--pp-primary-text)]" />
+              <CardMetrica Icon={CheckCircle2} label="Pronto" valor={cozinha.pronto} tom="text-[#1F7A3D]" />
+              <CardMetrica Icon={PackageCheck} label="Retirado" valor={cozinha.retirado} tom="text-[var(--pp-text-body)]" />
+            </div>
           </div>
 
           <div>
