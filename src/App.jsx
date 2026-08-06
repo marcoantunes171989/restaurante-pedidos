@@ -4298,13 +4298,13 @@ function CompanySelector({ lojas = [], valor, onChange }) {
   return (
     <div className="relative">
       <button onClick={() => setAberto((o) => !o)} aria-haspopup="listbox" aria-expanded={aberto}
-        className={`group flex min-h-[44px] w-full items-center gap-2.5 rounded-[18px] border px-3.5 py-3 text-left transition duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-nav-accent)] ${aberto ? "border-[var(--pp-nav-accent)] bg-[rgba(88,183,205,0.10)]" : "border-white/[0.08] bg-white/[0.06] hover:border-[var(--pp-nav-accent)] hover:bg-[rgba(88,183,205,0.10)]"}`}>
-        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/[0.05] transition-colors duration-150 ${aberto ? "text-[var(--pp-nav-accent)]" : "text-white group-hover:text-[var(--pp-nav-accent)]"}`}>
+        className={`group flex min-h-[38px] w-full items-center gap-2 rounded-[14px] border px-2.5 py-2 text-left transition duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-nav-accent)] ${aberto ? "border-[var(--pp-nav-accent)] bg-[rgba(88,183,205,0.10)]" : "border-white/[0.08] bg-white/[0.06] hover:border-[var(--pp-nav-accent)] hover:bg-[rgba(88,183,205,0.10)]"}`}>
+        <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/[0.05] transition-colors duration-150 ${aberto ? "text-[var(--pp-nav-accent)]" : "text-white group-hover:text-[var(--pp-nav-accent)]"}`}>
           {atual ? <IconEmpresa /> : <Globo />}
         </span>
         <div className="min-w-0 flex-1">
-          <p className="font-display truncate text-sm font-bold text-white">{atual ? atual.nome : "Visão geral"}</p>
-          <p className="truncate text-[10px] font-medium text-white/70">{atual ? `Comandas: ${atual.prefixo}` : "Todas as empresas"}</p>
+          <p className="font-display truncate text-[12.5px] font-bold text-white">{atual ? atual.nome : "Visão geral"}</p>
+          <p className="truncate text-[9.5px] font-medium text-white/65">{atual ? `Comandas: ${atual.prefixo}` : "Todas as empresas"}</p>
         </div>
         <svg className={`h-3.5 w-3.5 shrink-0 transition-transform duration-200 ${aberto ? "rotate-180 text-[var(--pp-nav-accent)]" : "text-white group-hover:text-[var(--pp-nav-accent)]"}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
       </button>
@@ -5488,8 +5488,9 @@ function ComandasGestaoAdmin({ orders = [], products = [], lojaPrefixo = "", loj
 // ════════════════════════════════════════════════════════════
 //  Design System do Sidebar administrativo — componentes oficiais.
 //  Todo menu lateral do Pedido Prime deve usar exclusivamente estes
-//  componentes (SidebarHeader, SidebarUserCompact, CompanySelector,
-//  SidebarSection, SidebarItem, SidebarFooter). Nenhum CSS próprio
+//  componentes (SidebarHeader, CompanySelector, SidebarSection,
+//  SidebarItem, SidebarFooter — este reúne usuário logado + Sair).
+//  Nenhum CSS próprio
 //  fora daqui — tokens de cor centralizados nestes componentes.
 // ════════════════════════════════════════════════════════════
 
@@ -5507,28 +5508,6 @@ function SidebarHeader({ subtitulo, onClose }) {
         <button onClick={onClose} aria-label="Fechar menu"
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.06] text-white/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-nav-accent)]">✕</button>
       )}
-    </div>
-  );
-}
-
-// Identidade do usuário logado — bloco compacto, logo abaixo do header
-// (hierarquia oficial: Logo → Usuário → Empresa → Menu → Rodapé → Sair).
-function SidebarUserCompact({ currentUser, isSuperAdmin, lojaInfo }) {
-  if (!currentUser) return null;
-  return (
-    <div className="flex items-center gap-2.5 border-b border-white/10 px-4 py-2.5">
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/10 text-[13px] font-black text-white/85 uppercase select-none" aria-hidden="true">
-        {(currentUser.name || "U").charAt(0)}
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-[13px] font-black text-white leading-tight">{currentUser.name}</p>
-        <p className="truncate text-[10.5px] text-white/60 leading-tight">{currentUser.role || "Usuário"}</p>
-      </div>
-      {isSuperAdmin ? (
-        <span className="shrink-0 rounded-full bg-[rgba(88,183,205,0.15)] px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-[var(--pp-nav-accent)]">Admin</span>
-      ) : lojaInfo ? (
-        <span className="shrink-0 rounded-full bg-white/10 px-1.5 py-0.5 font-mono text-[9px] font-black text-white/60">{lojaInfo.prefixo}</span>
-      ) : null}
     </div>
   );
 }
@@ -5572,12 +5551,31 @@ function SidebarSection({ titulo, children }) {
 // Estilo neutro (não usa --pp-danger): "Sair" não é um status de pedido
 // nem um erro — as 4 cores semânticas ficam reservadas exclusivamente ao
 // fluxo de pedidos, com o mesmo significado nas três superfícies.
-function SidebarFooter({ assinaturaAtual, onSair }) {
+// Rodapé — agora reúne, próximos entre si (abaixo do menu), a IDENTIDADE do
+// usuário logado + selo de assinatura + ação de sair. Fontes menores para um
+// acabamento mais elegante/gourmet, mantendo contraste AA (branco no petróleo).
+function SidebarFooter({ currentUser, isSuperAdmin, lojaInfo, assinaturaAtual, onSair }) {
   return (
-    <div className="shrink-0 border-t border-white/10 p-3 space-y-2">
+    <div className="shrink-0 border-t border-white/10 p-2.5 space-y-2">
+      {currentUser && (
+        <div className="flex items-center gap-2.5 rounded-xl border border-white/[0.07] bg-white/[0.04] px-2.5 py-2">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/10 text-[12px] font-black text-white/85 uppercase select-none" aria-hidden="true">
+            {(currentUser.name || "U").charAt(0)}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[12px] font-black text-white leading-tight">{currentUser.name}</p>
+            <p className="truncate text-[9.5px] text-white/55 leading-tight">{currentUser.role || "Usuário"}</p>
+          </div>
+          {isSuperAdmin ? (
+            <span className="shrink-0 rounded-full bg-[rgba(88,183,205,0.15)] px-1.5 py-0.5 text-[8.5px] font-black uppercase tracking-wide text-[var(--pp-nav-accent)]">Admin</span>
+          ) : lojaInfo ? (
+            <span className="shrink-0 rounded-full bg-white/10 px-1.5 py-0.5 font-mono text-[8.5px] font-black text-white/55">{lojaInfo.prefixo}</span>
+          ) : null}
+        </div>
+      )}
       <TrialBadge assinatura={assinaturaAtual} />
       <button onClick={onSair}
-        className="w-full min-h-[44px] rounded-2xl border border-white/15 bg-transparent py-2.5 text-sm font-black text-white/80 hover:bg-white/10 transition active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/40">
+        className="flex w-full min-h-[36px] items-center justify-center gap-1 rounded-xl border border-white/15 bg-transparent py-2 text-[12px] font-bold text-white/75 hover:bg-white/10 transition active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/40">
         ← Sair
       </button>
     </div>
@@ -5743,7 +5741,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
     </main>
   );
   return (
-    <div data-theme="light" className="pp-admin-module fixed inset-0 z-50 flex bg-[#F7F8FA] overflow-hidden">
+    <div data-theme="light" className="pp-admin-module fixed inset-0 z-50 flex bg-white overflow-hidden">
 
       <CommandPalette open={cmdOpen} onClose={() => setCmdOpen(false)} sections={cmdSections}
         onNavigate={(id) => { setAdminSection(id); setCmdOpen(false); }} onSair={onSair} />
@@ -5752,10 +5750,9 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           → Empresa → Menu (protagonista) → Rodapé → Sair ── */}
       <aside className="hidden lg:flex h-full w-64 shrink-0 flex-col overflow-hidden bg-[var(--pp-nav)]">
         <SidebarHeader subtitulo={isSuperAdmin ? "Administrador geral" : (lojaInfo ? lojaInfo.nome : "Painel gerencial")} />
-        <SidebarUserCompact currentUser={currentUser} isSuperAdmin={isSuperAdmin} lojaInfo={lojaInfo} />
         {isSuperAdmin && (
-          <div className="border-b border-white/10 px-4 py-3">
-            <label className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-white/70">Empresa em foco</label>
+          <div className="border-b border-white/10 px-4 py-2.5">
+            <label className="mb-1 block text-[9px] font-black uppercase tracking-widest text-white/60">Empresa em foco</label>
             <CompanySelector lojas={lojas} valor={lojaContexto} onChange={setLojaContexto} />
           </div>
         )}
@@ -5769,24 +5766,23 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
         </div>
         <SidebarNavItems menu={menu} ativo={ativo} setAdminSection={setAdminSection} canAccessModule={canAccessModule}
           assinaturaAtual={assinaturaAtual} planoAtual={planoAtual} planoModulos={planoModulos} isSuperAdmin={isSuperAdmin} />
-        <SidebarFooter assinaturaAtual={assinaturaAtual} onSair={onSair} />
+        <SidebarFooter currentUser={currentUser} isSuperAdmin={isSuperAdmin} lojaInfo={lojaInfo} assinaturaAtual={assinaturaAtual} onSair={onSair} />
       </aside>
 
       {/* ── Drawer de navegação mobile (substitui o menu fixo) — mesma
           hierarquia e mesmos componentes oficiais do Sidebar desktop ── */}
       <MobileAdminDrawer open={menuMobileAberto} onClose={() => setMenuMobileAberto(false)} triggerRef={botaoMenuRef} titulo="Menu Pedido Prime">
         <SidebarHeader subtitulo={isSuperAdmin ? "Administrador geral" : (lojaInfo ? lojaInfo.nome : "Painel gerencial")} onClose={() => setMenuMobileAberto(false)} />
-        <SidebarUserCompact currentUser={currentUser} isSuperAdmin={isSuperAdmin} lojaInfo={lojaInfo} />
         {isSuperAdmin && (
-          <div className="border-b border-white/10 px-4 py-3">
-            <label className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-white/70">Empresa em foco</label>
+          <div className="border-b border-white/10 px-4 py-2.5">
+            <label className="mb-1 block text-[9px] font-black uppercase tracking-widest text-white/60">Empresa em foco</label>
             <CompanySelector lojas={lojas} valor={lojaContexto} onChange={setLojaContexto} />
           </div>
         )}
         <SidebarNavItems menu={menu} ativo={ativo} setAdminSection={setAdminSection} canAccessModule={canAccessModule}
           assinaturaAtual={assinaturaAtual} planoAtual={planoAtual} planoModulos={planoModulos} isSuperAdmin={isSuperAdmin}
           onNavigate={() => setMenuMobileAberto(false)} />
-        <SidebarFooter assinaturaAtual={assinaturaAtual} onSair={onSair} />
+        <SidebarFooter currentUser={currentUser} isSuperAdmin={isSuperAdmin} lojaInfo={lojaInfo} assinaturaAtual={assinaturaAtual} onSair={onSair} />
       </MobileAdminDrawer>
 
       {/* ── Conteúdo ─────────────────────────────────────────── */}
@@ -5811,7 +5807,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
         {/* Conteúdo rolável — remonta ao trocar a "Empresa em foco" para refletir a empresa selecionada em todas as telas.
             Padding responsivo: no celular usa p-4 (mais largura útil, sem estourar em telas de 320px);
             cresce para p-5/p-6 em telas maiores. */}
-        <div key={`ctx-${lojaContexto ?? "geral"}`} className={`tema-claro-area flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-5 lg:p-6 ${ativo === "dashboard" || ativo === "copiloto" ? "bg-white" : ""}`}>
+        <div key={`ctx-${lojaContexto ?? "geral"}`} className="tema-claro-area flex-1 overflow-y-auto overflow-x-hidden bg-white p-4 sm:p-5 lg:p-6">
           {!canAccessModule(ativo, { assinatura: assinaturaAtual, plano: planoAtual, planoModulos, isSuperAdmin }) ? (
             <ModuloBloqueado slug={ativo} />
           ) : (<SecaoErrorBoundary key={ativo}>
