@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { ArrowLeftRight, Split, Printer, DoorClosed, ReceiptText, StickyNote, History, Loader2, MoreHorizontal, X } from "lucide-react";
+import { ArrowLeftRight, Split, Printer, DoorClosed, ReceiptText, StickyNote, History, Loader2, MoreHorizontal, X, ChefHat } from "lucide-react";
 
 const SECUNDARIAS = [
   { id: "transferir", label: "Transferir", labelFull: "Transferir mesa", Icon: ArrowLeftRight },
   { id: "separar", label: "Separar", labelFull: "Separar itens", Icon: Split },
-  { id: "preconta", label: "Pré-conta", labelFull: "Imprimir pré-conta", Icon: Printer },
-  { id: "comprovante", label: "Comprovante", labelFull: "Emitir comprovante", Icon: ReceiptText },
+  { id: "preconta", label: "Pré-conta", labelFull: "Imprimir pré-conta (80mm)", Icon: Printer },
+  { id: "comprovante", label: "Comprovante", labelFull: "Emitir comprovante / conferência (80mm)", Icon: ReceiptText },
+  { id: "cozinha", label: "Cozinha", labelFull: "Imprimir produção por setor (80mm)", Icon: ChefHat },
   { id: "observacoes", label: "Observações", labelFull: "Observações internas", Icon: StickyNote },
   { id: "historico", label: "Histórico", labelFull: "Histórico da mesa", Icon: History },
 ];
@@ -22,6 +23,7 @@ export default function PdvActionBar({
   onSeparar,
   onImprimir,
   onComprovante,
+  onCozinha,
   onObservacoes,
   onHistorico,
 }) {
@@ -31,12 +33,13 @@ export default function PdvActionBar({
     separar: onSeparar,
     preconta: onImprimir,
     comprovante: onComprovante,
+    cozinha: onCozinha,
     observacoes: onObservacoes,
     historico: onHistorico,
   };
 
-  const principaisMobile = SECUNDARIAS.filter((a) => ["preconta", "comprovante", "historico"].includes(a.id));
-  const extrasMobile = SECUNDARIAS.filter((a) => !["preconta", "comprovante", "historico"].includes(a.id));
+  const principaisMobile = SECUNDARIAS.filter((a) => ["preconta", "comprovante", "cozinha"].includes(a.id));
+  const extrasMobile = SECUNDARIAS.filter((a) => !["preconta", "comprovante", "cozinha"].includes(a.id));
 
   return (
     <div
@@ -78,7 +81,7 @@ export default function PdvActionBar({
 
       {/* Desktop — ações secundárias discretas + destaque no fechamento */}
       <div className="hidden items-center gap-1 lg:flex">
-        <div className="grid min-w-0 flex-1 grid-cols-6 gap-1">
+        <div className="grid min-w-0 flex-1 grid-cols-7 gap-1">
           {SECUNDARIAS.map(({ id, label, labelFull, Icon }) => (
             <BotaoSec key={id} label={label} Icon={Icon} onClick={handlers[id]} title={labelFull} />
           ))}
@@ -89,7 +92,7 @@ export default function PdvActionBar({
           onClick={onFecharConta}
           disabled={!podeFechar || fechando}
           title="Fechar conta (F5)"
-          className={`flex h-9 w-[168px] shrink-0 items-center justify-center gap-1.5 overflow-hidden rounded-lg px-2 text-[11px] font-black text-white transition ${
+          className={`flex h-9 w-[158px] shrink-0 items-center justify-center gap-1.5 overflow-hidden rounded-lg px-2 text-[11px] font-black text-white transition ${
             podeFechar && !fechando ? "btn-laranja" : "cursor-not-allowed bg-[#F2994A]/45"
           }`}
         >

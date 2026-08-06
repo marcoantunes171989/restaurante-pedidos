@@ -12,7 +12,7 @@
 import { formatCurrency } from "./pdvHelpers";
 
 /** Versão da documentação — acompanha a versão da tela do PDV. */
-export const PDV_DOC_VERSAO = "2026.08.2";
+export const PDV_DOC_VERSAO = "2026.08.3";
 export const PDV_DOC_ATUALIZADO_EM = "06/08/2026";
 
 const IMG = "/ajuda/pdv";
@@ -57,7 +57,7 @@ export function secoesDocumentacao(ctx = {}) {
             ["Coluna esquerda", "A conta selecionada: cliente, botão Incluir produto, itens, subtotal, taxas e total."],
             ["Centro", "O canal ativo — salão de mesas, delivery, comandas, clientes ou pedidos."],
             ["Coluna direita", "Pagamento: cliente e pontos, formas, teclado, recebimentos, acréscimo/desconto, taxa, cupom e saldos."],
-            ["Rodapé", "Ações da conta (transferir, separar, pré-conta, comprovante, observações, histórico) e Fechar conta."],
+            ["Rodapé", "Ações da conta (transferir, separar, pré-conta, comprovante, cozinha, observações, histórico) e Fechar conta."],
           ],
         },
         { tipo: "imagem", src: `${IMG}/visao-geral.png`, legenda: "Tela do PDV: conta à esquerda, canal ao centro e pagamento à direita." },
@@ -431,7 +431,7 @@ export function secoesDocumentacao(ctx = {}) {
             "Com o total coberto, toque em Fechar conta (ou F5).",
             "A confirmação mostra subtotal, taxa (ou taxa removida), acréscimo, desconto, cupom, cada forma recebida, o troco e os pontos que o cliente vai ganhar.",
             "Confirme. O pagamento é gravado, o estoque é baixado e a mesa é liberada.",
-            "Na tela de sucesso dá para imprimir o comprovante ou voltar ao PDV.",
+            "Na tela de sucesso: comprovante completo de pagamento (ou retirada/entrega no delivery) e, no salão, também o cupom simplificado do cliente.",
           ],
         },
         {
@@ -445,7 +445,7 @@ export function secoesDocumentacao(ctx = {}) {
     {
       id: "rodape",
       titulo: "Ações do rodapé",
-      resumo: "Transferir, separar, pré-conta, comprovante, observações e histórico.",
+      resumo: "Transferir, separar, pré-conta, comprovante, cozinha, observações e histórico.",
       blocos: [
         {
           tipo: "tabela",
@@ -453,14 +453,62 @@ export function secoesDocumentacao(ctx = {}) {
           linhas: [
             ["Transferir", "Move toda a conta para outra mesa. Mostra mesas disponíveis (verde) e ocupadas (laranja) e pede confirmação."],
             ["Separar", "Leva itens escolhidos para outra mesa. Não permite separar todos (use Transferir). Confirma antes de mover."],
-            ["Pré-conta", "Imprime a conferência para o cliente, sem valor fiscal."],
-            ["Comprovante", "Imprime o comprovante da mesa. Novos produtos passam a exigir a comanda do cliente."],
-            ["Observações", "Anotação interna da mesa, visível apenas para a equipe."],
+            ["Pré-conta", "Imprime o modelo de pré-conta 80mm (sem valor fiscal), com divisão sugerida quando a mesa tem capacidade cadastrada."],
+            ["Comprovante", "Mesa: conferência em aberto (bloqueia alteração dos itens). Delivery/retirada: comprovante logístico com assinatura."],
+            ["Cozinha", "Imprime o pedido de produção 80mm — um cupom por setor (Cozinha, Bar, Sobremesa…), conforme o vínculo do produto."],
+            ["Observações", "Anotação interna da mesa, visível apenas para a equipe (também pode sair no cupom de produção)."],
             ["Histórico", "Todos os pedidos daquela mesa no dia, inclusive os já pagos."],
           ],
         },
         { tipo: "p", texto: "A exclusão de um produto na conta pede confirmação e fica registrada na auditoria do sistema." },
-        { tipo: "p", texto: "Em telas menores, as ações menos usadas ficam no botão Mais." },
+        { tipo: "p", texto: "Em telas menores, Pré-conta, Comprovante e Cozinha ficam à vista; Transferir, Separar, Observações e Histórico ficam em Mais." },
+        { tipo: "dica", titulo: "Impressora de cupom", texto: "Os layouts são feitos para impressora térmica de automação comercial (80mm, fonte monoespaçada). Libere pop-ups no navegador — a cozinha pode abrir várias janelas (uma por setor)." },
+      ],
+    },
+
+    {
+      id: "cupons-termicos",
+      titulo: "Cupons térmicos (80mm)",
+      resumo: "Os seis modelos de impressão do Pedido Prime e quando usar cada um.",
+      blocos: [
+        {
+          tipo: "p",
+          texto: "Todo cupom do PDV é documento não fiscal, com a marca Pedido Prime no topo, o nome da sua loja e, quando cadastrados, documento (CNPJ/CPF), telefone e endereço. A impressão usa 80mm — o padrão das impressoras de automação comercial.",
+        },
+        { tipo: "ilustracao", nome: "cuponsTermicos" },
+        {
+          tipo: "tabela",
+          cabecalho: ["Modelo", "Quando sai", "O que destaca"],
+          linhas: [
+            ["1. Cupom simplificado do cliente", "Após fechar a conta → Cupom simplificado", "Itens, subtotal, desconto, total e forma de pagamento — versão curta para o cliente."],
+            ["2. Comprovante completo de pagamento", "Após fechar a conta → Comprovante completo", "Mesa, comanda, horários, operador, unitário, taxas, split de pagamentos, troco e bloco de controle interno (PDV, caixa, ID)."],
+            ["3. Pedido para produção (cozinha)", "Rodapé → Cozinha (e também na Central Operacional)", "Um cupom por setor. Nome do item em destaque, modificadores (+/−), observação e prioridade."],
+            ["4. Conferência de mesa / comanda", "Rodapé → Comprovante (mesa em aberto)", "Linha do tempo com hora de cada item, total estimado e aviso de conta em aberto."],
+            ["5. Pré-conta", "Rodapé → Pré-conta (ou F4)", "Totais, divisão sugerida por pessoa (capacidade da mesa) e formas aceitas."],
+            ["6. Entrega / retirada", "Comprovante em pedido externo; ou após pagamento delivery", "Código, horários, volumes, conferido/entregue por, status e campos de assinatura."],
+          ],
+        },
+        {
+          tipo: "aviso",
+          titulo: "Setores de cozinha",
+          texto: "O cupom de produção só separa por setor se o produto estiver vinculado a um setor em Administrativo → Setores / Cardápio QR. Sem vínculo, o sistema usa a categoria (bebida → Bar, sobremesa → Sobremesa, demais → Cozinha).",
+        },
+        {
+          tipo: "passos",
+          titulo: "Fluxo recomendado no salão",
+          itens: [
+            "Lance os produtos na conta.",
+            "Toque em Cozinha para disparar a produção (um cupom por setor).",
+            "Quando o cliente pedir a conta, imprima a Pré-conta (F4).",
+            "Se precisar travar a conta, use Comprovante (conferência).",
+            "Ao receber, feche a conta e imprima o comprovante completo ou o cupom simplificado.",
+          ],
+        },
+        {
+          tipo: "dica",
+          titulo: "Delivery e retirada",
+          texto: "No canal Delivery, o botão Comprovante já usa o modelo logístico (com assinatura). Depois do pagamento, o botão principal da tela de sucesso imprime esse mesmo modelo.",
+        },
       ],
     },
 
@@ -509,6 +557,9 @@ export function secoesDocumentacao(ctx = {}) {
             ["Conta paga mas a mesa continua ocupada", "Não acontece: a liberação é automática. Se a mesa continua laranja, existe outro pedido em aberto nela — confira pelo Histórico."],
             ["Errou o valor de uma parcela", "Remova a parcela pelo × na lista de Recebimentos e registre de novo."],
             ["Não lembra como usar uma função", "Toque no ? do topo ou pressione F1. Busque o tópico ou gere o PDF."],
+            ["Precisa mandar o pedido para a cozinha e o bar", "Rodapé → Cozinha: sai um cupom 80mm por setor (produto vinculado ao setor)."],
+            ["Cliente pediu a conta para conferir", "Pré-conta (F4). Depois, se for travar a conta, use Comprovante."],
+            ["Impressora não abriu a janela", "Libere pop-ups do navegador para pedidoprime.com.br — a cozinha pode abrir mais de uma janela."],
           ],
         },
       ],
@@ -544,7 +595,7 @@ export function secoesDocumentacao(ctx = {}) {
           itens: [
             "Nenhuma mesa deve ficar laranja sem consumo real.",
             "Confira faturamento e ticket médio no resumo do turno.",
-            "Imprima os comprovantes pendentes antes de fechar o caixa.",
+            "Imprima os comprovantes de pagamento pendentes (completo ou simplificado) antes de fechar o caixa.",
           ],
         },
       ],
