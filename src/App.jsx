@@ -261,15 +261,6 @@ function acessosOperacionais(user) {
 }
 const temAcessoOperacional = (user) => { const p = acessosOperacionais(user); return p.pedidos || p.cozinha || p.bar || p.caixa; };
 
-// Tipo de dispositivo por LARGURA da tela (prioridade sobre user-agent):
-// celular ≤767px → "mobile"; 768–1024px → "tablet"; >1024px → "desktop".
-function identificarTipoDispositivo() {
-  const largura = (typeof window !== "undefined") ? window.innerWidth : 1280;
-  if (largura <= 767) return "mobile";
-  if (largura <= 1024) return "tablet";
-  return "desktop";
-}
-
 // Ações configuráveis por módulo (briefing item 23 — migration 032)
 const ACOES_MODULO = [
   ["ver", "Visualizar"], ["incluir", "Incluir"], ["alterar", "Alterar"],
@@ -845,14 +836,14 @@ export default function RestaurantePedidoApp() {
     } else if (deepAdmin && deepAdmin[1] !== "cozinha" && acessosAtivos("admin")) {
       setActiveTab("admin");
       setAdminSection(deepAdmin[1]);
-    }
-    // Regra por resolução: SÓ celular (≤767px) abre direto a Operação Mobile
-    // (se o usuário tiver acesso operacional). Tablet/desktop → layout padrão.
-    else if (identificarTipoDispositivo() === "mobile" && temAcessoOperacional(credOk)) {
-      setActiveTab("opmobile");
     } else {
+      // Pouso padrão IGUAL em todos os dispositivos (inclusive smartphone): o
+      // celular NÃO é mais forçado para a Operação Mobile — cada perfil abre a
+      // sua tela natural (admin no dashboard; caixa no PDV; cozinha no KDS…),
+      // exatamente como em tablet/desktop. Só cai na Operação Mobile quem tem
+      // ACESSO exclusivamente operacional (sem nenhuma aba do menu principal).
       const primeira = acessosAtivos("admin") ? "admin" : ordemMenu.find((id) => acessosAtivos(id));
-      setActiveTab(primeira || "blocked");
+      setActiveTab(primeira || (temAcessoOperacional(credOk) ? "opmobile" : "blocked"));
     }
     if (!silencioso) notify("success", `Acesso liberado para ${credOk.name}.`);
     return true;
