@@ -27,6 +27,16 @@ describe("pdvCuponsTermicos", () => {
     expect(setorDoItemCupom({ name: "Brownie" }, products, setores)).toBe("Sobremesa");
   });
 
+  it("prioriza setor do produto e cai no setor da categoria cadastrada", () => {
+    const cats = [{ id: 5, nome: "Bebidas", setorId: 2 }];
+    const prods = [
+      { id: 1, name: "Água", category: "Bebidas", categoriaId: 5 },
+      { id: 2, name: "Chopp", setorId: 1, category: "Bebidas", categoriaId: 5 },
+    ];
+    expect(setorDoItemCupom({ name: "Água" }, prods, setores, cats)).toBe("Bar");
+    expect(setorDoItemCupom({ name: "Chopp" }, prods, setores, cats)).toBe("Cozinha");
+  });
+
   it("agrupa itens por setor na ordem de cadastro", () => {
     const grupos = agruparItensPorSetor(
       [

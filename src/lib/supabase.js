@@ -440,7 +440,17 @@ export function escutarOpcoes(onMudanca) {
 //  Setores de cozinha (migration 041) — CRUD + Realtime (tolerante)
 // ════════════════════════════════════════════════════════════
 function dbParaSetor(r) {
-  return { id: r.id, lojaId: r.loja_id, nome: r.nome, descricao: r.descricao ?? "", ordem: r.ordem ?? 0, ativo: r.ativo !== false }
+  return {
+    id: r.id,
+    lojaId: r.loja_id,
+    nome: r.nome,
+    descricao: r.descricao ?? "",
+    ordem: r.ordem ?? 0,
+    ativo: r.ativo !== false,
+    impressoraNome: r.impressora_nome ?? "",
+    impressoraDestino: r.impressora_destino ?? "",
+    impressaoAuto: r.impressao_auto !== false,
+  }
 }
 export async function fetchSetoresCozinha(lojaId = null) {
   let q = supabase.from('tab_setores_cozinha').select('*').order('ordem', { ascending: true })
@@ -450,7 +460,16 @@ export async function fetchSetoresCozinha(lojaId = null) {
   return data.map(dbParaSetor)
 }
 export async function inserirSetorCozinha(s) {
-  const { data, error } = await supabase.from('tab_setores_cozinha').insert([{ loja_id: s.lojaId ?? null, nome: s.nome, descricao: s.descricao || null, ordem: s.ordem ?? 0 }]).select().single()
+  const { data, error } = await supabase.from('tab_setores_cozinha').insert([{
+    loja_id: s.lojaId ?? null,
+    nome: s.nome,
+    descricao: s.descricao || null,
+    ordem: s.ordem ?? 0,
+    ativo: s.ativo !== false,
+    impressora_nome: s.impressoraNome || s.nome || null,
+    impressora_destino: s.impressoraDestino || null,
+    impressao_auto: s.impressaoAuto !== false,
+  }]).select().single()
   if (error) throw error
   return dbParaSetor(data)
 }
@@ -462,6 +481,9 @@ export async function atualizarSetorCozinha(id, s) {
   if (s.descricao !== undefined) campos.descricao = s.descricao || null
   if (s.ativo !== undefined) campos.ativo = s.ativo !== false
   if (s.ordem !== undefined) campos.ordem = s.ordem ?? 0
+  if (s.impressoraNome !== undefined) campos.impressora_nome = s.impressoraNome || null
+  if (s.impressoraDestino !== undefined) campos.impressora_destino = s.impressoraDestino || null
+  if (s.impressaoAuto !== undefined) campos.impressao_auto = s.impressaoAuto !== false
   const { error } = await supabase.from('tab_setores_cozinha').update(campos).eq('id', id)
   if (error) throw error
 }
@@ -1111,20 +1133,46 @@ export function escutarDispositivos(onMudanca) {
 // ════════════════════════════════════════════════════════════
 //  tab_categorias — CRUD + Realtime
 // ════════════════════════════════════════════════════════════
+function dbParaCategoria(r) {
+  return {
+    id: r.id,
+    nome: r.nome,
+    active: r.ativo,
+    ordem: r.ordem,
+    lojaId: r.loja_id ?? null,
+    setorId: r.setor_id ?? null,
+  }
+}
 export async function fetchCategorias() {
   const { data, error } = await supabase
     .from('tab_categorias').select('*').order('ordem', { ascending: true }).order('nome', { ascending: true })
   if (error) throw error
-  return data.map((r) => ({ id: r.id, nome: r.nome, active: r.ativo, ordem: r.ordem, lojaId: r.loja_id ?? null }))
+  return data.map(dbParaCategoria)
 }
-export async function inserirCategoria(nome, lojaId = null) {
+export async function inserirCategoria(nome, lojaId = null, extras = {}) {
   const { data, error } = await supabase
-    .from('tab_categorias').insert([{ nome, ...(lojaId ? { loja_id: lojaId } : {}) }]).select().single()
+    .from('tab_categorias').insert([{
+      nome,
+      ...(lojaId ? { loja_id: lojaId } : {}),
+      ...(extras.setorId != null ? { setor_id: extras.setorId } : {}),
+    }]).select().single()
   if (error) throw error
-  return { id: data.id, nome: data.nome, active: data.ativo, ordem: data.ordem, lojaId: data.loja_id ?? null }
+  return dbParaCategoria(data)
 }
 export async function atualizarCategoria(id, campos) {
-  const { error } = await supabase.from('tab_categorias').update(campos).eq('id', id)
+  const db = { ...campos }
+  if (Object.prototype.hasOwnProperty.call(campos, 'setorId')) {
+    db.setor_id = campos.setorId || null
+    delete db.setorId
+  }
+  if (Object.prototype.hasOwnProperty.call(campos, 'active')) {
+    db.ativo = campos.active !== false
+    delete db.active
+  }
+  if (Object.prototype.hasOwnProperty.call(campos, 'nome')) {
+    db.nome = campos.nome
+  }
+  const { error } = await supabase.from('tab_categorias').update(db).eq('id', id)
   if (error) throw error
 }
 export async function excluirCategoria(id) {
@@ -1141,10 +1189,103 @@ export function escutarCategorias(onMudanca) {
   const reload = async () => {
     const { data, error } = await supabase
       .from('tab_categorias').select('*').order('ordem', { ascending: true }).order('nome', { ascending: true })
-    if (!error && data) onMudanca(data.map((r) => ({ id: r.id, nome: r.nome, active: r.ativo, ordem: r.ordem, lojaId: r.loja_id ?? null })))
+    if (!error && data) onMudanca(data.map(dbParaCategoria))
   }
   const canal = supabase.channel('ch_categorias_'+Math.random().toString(36).slice(2))
     .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_categorias' }, reload)
+    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
+  return () => supabase.removeChannel(canal)
+}
+
+// ════════════════════════════════════════════════════════════
+//  Fila de impressões da cozinha (migration 077)
+// ════════════════════════════════════════════════════════════
+function dbParaImpressao(r) {
+  return {
+    id: r.id,
+    lojaId: r.loja_id ?? null,
+    pedidoId: r.pedido_id,
+    setorId: r.setor_id ?? null,
+    setorNome: r.setor_nome,
+    impressoraNome: r.impressora_nome ?? "",
+    impressoraDestino: r.impressora_destino ?? "",
+    mesa: r.mesa ?? "",
+    comanda: r.comanda ?? "",
+    atendimento: r.atendimento ?? "",
+    garcom: r.garcom ?? "",
+    itens: Array.isArray(r.itens) ? r.itens : [],
+    status: r.status || "pendente",
+    origem: r.origem || "sistema",
+    erroMsg: r.erro_msg || "",
+    tentativas: Number(r.tentativas) || 0,
+    precisaIntervencao: !!r.precisa_intervencao,
+    criadoEmISO: r.criado_em,
+    impressoEmISO: r.impresso_em,
+    atualizadoEmISO: r.atualizado_em,
+  }
+}
+function impressaoParaDb(j) {
+  return {
+    loja_id: j.lojaId ?? null,
+    pedido_id: String(j.pedidoId || ""),
+    setor_id: j.setorId ?? null,
+    setor_nome: j.setorNome,
+    impressora_nome: j.impressoraNome || null,
+    impressora_destino: j.impressoraDestino || null,
+    mesa: j.mesa || null,
+    comanda: j.comanda || null,
+    atendimento: j.atendimento || null,
+    garcom: j.garcom || null,
+    itens: j.itens || [],
+    status: j.status || "pendente",
+    origem: j.origem || "sistema",
+    erro_msg: j.erroMsg || null,
+    tentativas: j.tentativas ?? 0,
+    precisa_intervencao: !!j.precisaIntervencao,
+  }
+}
+export async function fetchImpressoesCozinha(lojaId = null, { status = null, limite = 80 } = {}) {
+  let q = supabase.from('tab_impressoes_cozinha').select('*').order('criado_em', { ascending: false }).limit(limite)
+  if (lojaId != null) q = q.eq('loja_id', lojaId)
+  if (status) q = q.eq('status', status)
+  const { data, error } = await q
+  if (error) {
+    // Migration 077 ainda não aplicada — não derruba o app.
+    if (/does not exist|column|relation/i.test(error.message || "")) return []
+    throw error
+  }
+  return (data || []).map(dbParaImpressao)
+}
+export async function inserirImpressoesCozinha(filas = []) {
+  if (!filas.length) return []
+  const { data, error } = await supabase
+    .from('tab_impressoes_cozinha')
+    .insert(filas.map(impressaoParaDb))
+    .select()
+  if (error) throw error
+  return (data || []).map(dbParaImpressao)
+}
+export async function atualizarImpressaoCozinha(id, patch = {}) {
+  const campos = { atualizado_em: new Date().toISOString() }
+  if (patch.status !== undefined) campos.status = patch.status
+  if (patch.erroMsg !== undefined) campos.erro_msg = patch.erroMsg || null
+  if (patch.tentativas !== undefined) campos.tentativas = patch.tentativas
+  if (patch.precisaIntervencao !== undefined) campos.precisa_intervencao = !!patch.precisaIntervencao
+  if (patch.impressoEmISO !== undefined) campos.impresso_em = patch.impressoEmISO
+  if (patch.status === "impresso" || patch.status === "reimpresso") {
+    campos.impresso_em = patch.impressoEmISO || new Date().toISOString()
+    campos.precisa_intervencao = false
+    campos.erro_msg = null
+  }
+  const { error } = await supabase.from('tab_impressoes_cozinha').update(campos).eq('id', id)
+  if (error) throw error
+}
+export function escutarImpressoesCozinha(onMudanca, lojaId = null) {
+  const reload = async () => {
+    try { onMudanca(await fetchImpressoesCozinha(lojaId)) } catch { /* ignore */ }
+  }
+  const canal = supabase.channel('ch_impressoes_' + Math.random().toString(36).slice(2))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_impressoes_cozinha' }, reload)
     .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
   return () => supabase.removeChannel(canal)
 }

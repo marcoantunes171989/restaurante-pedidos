@@ -122,19 +122,33 @@ function modsHtml(item, { grande = false } = {}) {
   return linhas.map((l) => `<div class="${cls}">${esc(l)}</div>`).join("");
 }
 
-/** Resolve o setor de produção do item (cadastro do produto → heurística). */
-export function setorDoItemCupom(item, products = [], setores = []) {
-  const porNome = {};
-  products.forEach((p) => {
-    if (p?.name) porNome[p.name] = p.setorId ?? null;
-  });
+/**
+ * Resolve o setor de produção do item.
+ * Prioridade: produto.setorId → categoria.setorId → heurística de nome.
+ * `categories` opcional (migration 077) habilita o fallback por categoria.
+ */
+export function setorDoItemCupom(item, products = [], setores = [], categories = []) {
   const nomePorId = {};
   setores.forEach((s) => {
     if (s?.id != null) nomePorId[s.id] = s.nome || s.name || `Setor ${s.id}`;
   });
-  const sid = item?.setorId ?? porNome[item?.name];
-  if (sid != null && nomePorId[sid]) return nomePorId[sid];
-  const prod = products.find((p) => p.name === item?.name);
+  const prod = products.find((p) =>
+    (item?.productId != null && String(p.id) === String(item.productId))
+    || (item?.name && p.name === item.name),
+  );
+  const sidProduto = item?.setorId ?? prod?.setorId ?? null;
+  if (sidProduto != null && nomePorId[sidProduto]) return nomePorId[sidProduto];
+
+  if (categories.length) {
+    const catId = prod?.categoriaId ?? item?.categoriaId ?? null;
+    const catNome = prod?.category || prod?.categoria || item?.category || "";
+    const cat = categories.find((c) =>
+      (catId != null && String(c.id) === String(catId))
+      || (catNome && c.nome === catNome),
+    );
+    if (cat?.setorId != null && nomePorId[cat.setorId]) return nomePorId[cat.setorId];
+  }
+
   const cat = prod?.category || prod?.categoria || "";
   if (/bebida|drink|suco|refri|bar/i.test(cat) || /bebida|drink|suco|refri/i.test(item?.name || "")) return "Bar";
   if (/sobremesa|doce|bolo|sweet/i.test(cat) || /sobremesa|doce|bolo/i.test(item?.name || "")) return "Sobremesa";
@@ -142,11 +156,11 @@ export function setorDoItemCupom(item, products = [], setores = []) {
 }
 
 /** Agrupa itens planos por nome de setor, na ordem de cadastro dos setores. */
-export function agruparItensPorSetor(itens = [], products = [], setores = []) {
+export function agruparItensPorSetor(itens = [], products = [], setores = [], categories = []) {
   const ordem = setores.filter((s) => s.ativo !== false).map((s) => s.nome || s.name).filter(Boolean);
   const grupos = new Map();
   itens.forEach((it) => {
-    const setor = setorDoItemCupom(it, products, setores);
+    const setor = setorDoItemCupom(it, products, setores, categories);
     if (!grupos.has(setor)) grupos.set(setor, []);
     grupos.get(setor).push(it);
   });
@@ -387,6 +401,7 @@ export function htmlPedidoProducao(ctx = {}) {
   const {
     lojaInfo,
     setor = "Cozinha",
+    impressoraNome = "",
     pedidoNumero = "",
     mesa = "",
     comanda = "",
@@ -398,6 +413,8 @@ export function htmlPedidoProducao(ctx = {}) {
     observacaoGeral = "",
   } = ctx;
   const qtdTotal = itens.reduce((s, it) => s + (Number(it.quantity) || 0), 0);
+  const ehDelivery = /externo|entreg|retir|delivery/i.test(`${mesa} ${atendimento}`);
+  const rotuloLocal = ehDelivery ? "Entrega / Retirada" : "Mesa";
   const linhas = itens.map((it) => `
     <div class="item">
       <div class="xxl b">${esc(it.quantity)}x ${esc(it.name)}</div>
@@ -408,20 +425,26 @@ export function htmlPedidoProducao(ctx = {}) {
     ${cabecalhoHtml(lojaInfo, [])}
     <div class="c xxl b">*** ${esc(String(setor).toUpperCase())} ***</div>
     <div class="c sm">PEDIDO PARA PRODUÇÃO</div>
+    ${impressoraNome ? `<div class="c xs mut">Impressora: ${esc(impressoraNome)}</div>` : ""}
     ${sepDuplo()}
+    <div class="box" style="font-size:14px">
+      ${esc(rotuloLocal)}: <span class="xxl">${esc(mesa || "—")}</span>
+    </div>
     <div class="row"><span>Pedido</span><span class="b xl">#${esc(pedidoNumero || "—")}</span></div>
-    <div class="row"><span>Mesa</span><span class="b">${esc(mesa || "—")}</span></div>
-    <div class="row"><span>Comanda</span><span>${esc(comanda || "—")}</span></div>
+    <div class="row"><span>Comanda</span><span class="b">${esc(comanda || "—")}</span></div>
     <div class="row"><span>Atendimento</span><span>${esc(atendimento)}</span></div>
-    ${garcom ? `<div class="row"><span>Garçom</span><span>${esc(garcom)}</span></div>` : ""}
+    ${garcom ? `<div class="row"><span>Garçom / Entrega</span><span class="b">${esc(garcom)}</span></div>` : ""}
     <div class="row"><span>Entrada</span><span>${esc(dataHoraFmt(entradaISO))}</span></div>
     <div class="row"><span>Impressão</span><span>${esc(agoraFmt())}</span></div>
     ${sepDuplo()}
+    <div class="c sm b">PRODUTOS DO SETOR</div>
+    ${sep()}
     ${linhas || '<div class="c sm mut">Sem itens neste setor</div>'}
     ${observacaoGeral ? `${sep()}<div class="box">OBSERVAÇÃO: ${esc(observacaoGeral)}</div>` : ""}
     ${sepDuplo()}
     <div class="row b"><span>Itens do setor</span><span>${esc(qtdTotal)}</span></div>
     <div class="row b"><span>Prioritário</span><span>${prioridade ? "SIM" : "NÃO"}</span></div>
+    <div class="box">Quando pronto: conferir ${esc(rotuloLocal.toLowerCase())} e chamar o garçom</div>
     <div class="c sm mut" style="margin-top:8px">${esc(MARCA)} · Produção</div>
   `;
 }
@@ -578,6 +601,7 @@ export function montarCtxConta({
   conta,
   pedidos = [],
   products = [],
+  categories = [],
   setores = [],
   currentUser,
   caixaAberto,
@@ -604,6 +628,7 @@ export function montarCtxConta({
     garcom: "",
     itens,
     products,
+    categories,
     setores,
     pessoas,
     observacaoGeral,
@@ -615,8 +640,8 @@ export function montarCtxConta({
 
 /** Imprime um cupom por setor de cozinha (finalidade produção). */
 export function imprimirPedidosProducaoPorSetor(ctx = {}) {
-  const { itens = [], products = [], setores = [], lojaInfo } = ctx;
-  const grupos = agruparItensPorSetor(itens, products, setores);
+  const { itens = [], products = [], setores = [], categories = [], lojaInfo } = ctx;
+  const grupos = agruparItensPorSetor(itens, products, setores, categories);
   if (!grupos.length) {
     const ok = abrirCupomTermico("Cozinha", htmlPedidoProducao({ ...ctx, setor: "Cozinha", itens: [] }));
     return ok ? 1 : 0;
@@ -625,6 +650,7 @@ export function imprimirPedidosProducaoPorSetor(ctx = {}) {
   grupos.forEach((g, i) => {
     // Pequeno atraso evita bloqueio de pop-up em sequência.
     const delay = i * 350;
+    const setorCad = setores.find((s) => (s.nome || s.name) === g.setor);
     setTimeout(() => {
       abrirCupomTermico(
         `${g.setor} · Pedido #${ctx.pedidoNumero || ""}`,
@@ -632,6 +658,7 @@ export function imprimirPedidosProducaoPorSetor(ctx = {}) {
           ...ctx,
           lojaInfo,
           setor: g.setor,
+          impressoraNome: setorCad?.impressoraNome || "",
           itens: g.itens,
         }),
       );
@@ -639,6 +666,26 @@ export function imprimirPedidosProducaoPorSetor(ctx = {}) {
     n += 1;
   });
   return n;
+}
+
+/** Imprime uma fila já montada (monitoramento / auto-impressão). */
+export function imprimirFilaProducao(fila, ctx = {}) {
+  return abrirCupomTermico(
+    `${fila.setorNome || "Cozinha"} · Pedido #${fila.pedidoId || ""}`,
+    htmlPedidoProducao({
+      lojaInfo: ctx.lojaInfo,
+      setor: fila.setorNome || "Cozinha",
+      impressoraNome: fila.impressoraNome || "",
+      pedidoNumero: fila.pedidoId || "",
+      mesa: fila.mesa || "",
+      comanda: fila.comanda || "",
+      atendimento: fila.atendimento || "Salão",
+      garcom: fila.garcom || "",
+      entradaISO: fila.criadoEmISO || null,
+      itens: fila.itens || [],
+      observacaoGeral: ctx.observacaoGeral || "",
+    }),
+  );
 }
 
 export const CUPONS_TERMICOS = {

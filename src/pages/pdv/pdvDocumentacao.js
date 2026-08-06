@@ -12,7 +12,7 @@
 import { formatCurrency } from "./pdvHelpers";
 
 /** Versão da documentação — acompanha a versão da tela do PDV. */
-export const PDV_DOC_VERSAO = "2026.08.9";
+export const PDV_DOC_VERSAO = "2026.08.10";
 export const PDV_DOC_ATUALIZADO_EM = "06/08/2026";
 
 const IMG = "/ajuda/pdv";
@@ -228,7 +228,16 @@ export function secoesDocumentacao(ctx = {}) {
             ["Por forma de pagamento", "Barras com PIX, cartão, dinheiro etc. no turno."],
           ],
         },
-        { tipo: "p", texto: "Toque em Turno para abrir o painel branco e limpo com KPIs, análise financeira, listas de contas em aberto e pagamentos do dia." },
+        { tipo: "p", texto: "Toque em Turno para abrir o painel branco e limpo com KPIs, análise financeira, contas em aberto e pagamentos do dia. Fundos claros, sem blocos cinza — leitura rápida no caixa." },
+        {
+          tipo: "lista",
+          titulo: "Contas em aberto — separadas por tipo",
+          itens: [
+            "Mesas: número da mesa, cliente, comanda e status (em consumo / conta pedida / preparo).",
+            "Delivery: comanda, tipo (entrega ou retirada), cliente/telefone e valor.",
+            "Os indicadores mostram também quantas contas abertas são de mesa e quantas de delivery.",
+          ],
+        },
         {
           tipo: "dica",
           titulo: "Layout estável no pagamento",
@@ -503,13 +512,24 @@ export function secoesDocumentacao(ctx = {}) {
             ["Separar", "Leva itens escolhidos para outra mesa. Não permite separar todos (use Transferir). Confirma antes de mover."],
             ["Pré-conta", "Imprime o modelo de pré-conta 80mm (sem valor fiscal), com divisão sugerida quando a mesa tem capacidade cadastrada."],
             ["Comprovante", "Mesa: conferência em aberto (bloqueia alteração dos itens). Delivery/retirada: comprovante logístico com assinatura."],
-            ["Cozinha", "Imprime o pedido de produção 80mm — um cupom por setor (Cozinha, Bar, Sobremesa…), conforme o vínculo do produto."],
+            ["Cozinha", "Imprime o pedido de produção 80mm — um cupom por setor, conforme produto e categoria."],
             ["Observações", "Anotação interna da mesa, visível apenas para a equipe (também pode sair no cupom de produção)."],
             ["Histórico", "Todos os pedidos daquela mesa no dia, inclusive os já pagos."],
           ],
         },
         { tipo: "p", texto: "A exclusão de um produto na conta pede confirmação e fica registrada na auditoria do sistema." },
         { tipo: "p", texto: "Em telas menores, Pré-conta, Comprovante e Cozinha ficam à vista; Transferir, Separar, Observações e Histórico ficam em Mais." },
+        {
+          tipo: "passos",
+          titulo: "Impressão automática por setor",
+          itens: [
+            "Cadastre o setor com impressora em Administrativo → Setores de Produção.",
+            "Vincule o setor na categoria e, se precisar, no produto (produto tem prioridade).",
+            "Pedido no tablet, QR ou externo gera a fila por setor automaticamente.",
+            "Com Cozinha/Operação aberta, as comandas saem sozinhas — mesa e produtos em destaque para o garçom.",
+            "Falhas aparecem em Administrativo → Impressões Cozinha para reimpressão ou intervenção.",
+          ],
+        },
         { tipo: "dica", titulo: "Impressora de cupom", texto: "Os layouts são feitos para impressora térmica de automação comercial (80mm, fonte monoespaçada). Libere pop-ups no navegador — a cozinha pode abrir várias janelas (uma por setor)." },
       ],
     },
@@ -538,8 +558,8 @@ export function secoesDocumentacao(ctx = {}) {
         },
         {
           tipo: "aviso",
-          titulo: "Setores de cozinha",
-          texto: "O cupom de produção só separa por setor se o produto estiver vinculado a um setor em Administrativo → Setores / Cardápio QR. Sem vínculo, o sistema usa a categoria (bebida → Bar, sobremesa → Sobremesa, demais → Cozinha).",
+          titulo: "Setores e impressoras",
+          texto: "Regra: setor do produto tem prioridade; se vazio, usa o setor da categoria; só então cai na heurística de nome. Cada setor cadastra sua impressora — lanche, bebida e sobremesa em setores diferentes geram comandas separadas e simultâneas.",
         },
         {
           tipo: "passos",

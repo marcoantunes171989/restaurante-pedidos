@@ -22,6 +22,7 @@ import {
   fetchCupons, inserirCupom, atualizarCupom, excluirCupom, escutarCupons, validarCupom, consumirCupom,
   fetchGruposOpcoes, fetchOpcoes, inserirGrupoOpcoes, atualizarGrupoOpcoes, excluirGrupoOpcoes, inserirOpcao, atualizarOpcao, excluirOpcao, escutarGruposOpcoes, escutarOpcoes,
   fetchSetoresCozinha, inserirSetorCozinha, atualizarSetorCozinha, excluirSetorCozinha, escutarSetoresCozinha,
+  fetchImpressoesCozinha, inserirImpressoesCozinha, atualizarImpressaoCozinha, escutarImpressoesCozinha,
   fetchCaixas, fetchMovimentosCaixa, abrirCaixa, registrarMovimentoCaixa, fecharCaixa, escutarCaixas,
   fetchFidelidadeRegras, salvarFidelidadeRegra, fetchFidelidadeRecompensas, inserirRecompensa, excluirRecompensa, atualizarRecompensa, fetchFidelidadeTransacoes, lancarFidelidadeTransacao, escutarFidelidadeTransacoes, escutarFidelidadeRegras,
   escutarPesquisas,
@@ -47,6 +48,9 @@ import OperationalCentral from "./pages/OperationalCentral";
 import CentralDePedidos from "./pages/CentralDePedidos";
 import CentralDoCaixa from "./pages/CentralDoCaixa";
 import CashierPdv from "./pages/pdv/CashierPdv";
+import ImpressoesCozinhaAdmin from "./pages/admin/ImpressoesCozinhaAdmin";
+import EstacaoImpressaoAuto from "./components/EstacaoImpressaoAuto";
+import { montarFilasImpressaoPedido } from "./lib/impressaoCozinha";
 import {
   normalizarRespostaCupom,
   validarCupomLocal,
@@ -369,6 +373,7 @@ export default function RestaurantePedidoApp() {
   const [gruposOpcoes, setGruposOpcoes] = useState([]);    // grupos de adicionais/variações (migration 040)
   const [opcoes, setOpcoes] = useState([]);                // opções dos grupos
   const [setoresCozinha, setSetoresCozinha] = useState([]); // setores de cozinha (migration 041)
+  const [impressoesCozinha, setImpressoesCozinha] = useState([]); // fila impressão por setor (077)
   const [caixas, setCaixas] = useState([]);                // sessões de caixa (migration 042)
   const [fidRegras, setFidRegras] = useState([]);          // fidelidade: regras (migration 043)
   const [fidRecompensas, setFidRecompensas] = useState([]); // fidelidade: recompensas
@@ -426,6 +431,7 @@ export default function RestaurantePedidoApp() {
         try { setGruposOpcoes(await fetchGruposOpcoes()); } catch { /* migration 040 pendente */ }
         try { setOpcoes(await fetchOpcoes()); } catch { /* migration 040 pendente */ }
         try { setSetoresCozinha(await fetchSetoresCozinha()); } catch { /* migration 041 pendente */ }
+        try { setImpressoesCozinha(await fetchImpressoesCozinha(lojaAtual)); } catch { /* migration 077 pendente */ }
         try { setCaixas(await fetchCaixas(null)); } catch { /* migration 042 pendente */ }
         try { setFidRegras(await fetchFidelidadeRegras()); } catch { /* migration 043 pendente */ }
         try { setFidRecompensas(await fetchFidelidadeRecompensas()); } catch { /* migration 043 pendente */ }
@@ -456,6 +462,7 @@ export default function RestaurantePedidoApp() {
         try { unsubs.push(escutarGruposOpcoes(setGruposOpcoes)); } catch {}
         try { unsubs.push(escutarOpcoes(setOpcoes)); } catch {}
         try { unsubs.push(escutarSetoresCozinha(setSetoresCozinha)); } catch {}
+        try { unsubs.push(escutarImpressoesCozinha(setImpressoesCozinha, lojaAtual)); } catch {}
         try { unsubs.push(escutarCaixas(setCaixas)); } catch {}
         try { unsubs.push(escutarFidelidadeTransacoes(setFidTransacoes)); } catch {}
         try { unsubs.push(escutarFidelidadeRegras(setFidRegras)); } catch { /* migration 043 pendente */ }
@@ -1039,6 +1046,7 @@ export default function RestaurantePedidoApp() {
       try {
         const saved = await inserirPedido(newOrder);
         setOrders((cur) => [saved, ...cur.filter((o) => o.id !== saved.id)]);
+        await enfileirarImpressaoPedido(saved, "tablet");
         // O Realtime vai propagar para cozinha e painel automaticamente
       } catch (err) {
         console.error("Falha ao salvar pedido no Supabase:", err);
@@ -1047,6 +1055,7 @@ export default function RestaurantePedidoApp() {
     } else {
       // Modo offline — apenas local
       setOrders((cur) => [newOrder, ...cur]);
+      await enfileirarImpressaoPedido(newOrder, "tablet");
     }
 
     // Mantém a MESA fixa do tablet, mas SEMPRE limpa a comanda e o carrinho —
@@ -1260,6 +1269,7 @@ export default function RestaurantePedidoApp() {
       try {
         const saved = await inserirPedido(newOrder);
         setOrders((cur) => [saved, ...cur.filter((o) => o.id !== saved.id)]);
+        await enfileirarImpressaoPedido(saved, "pdv");
         auditar("criar_pedido_caixa", "pedido", saved.id, { mesa, comanda, qtdItens: lista.length });
         return saved;
       } catch (err) {
@@ -1268,6 +1278,7 @@ export default function RestaurantePedidoApp() {
       }
     }
     setOrders((cur) => [newOrder, ...cur]);
+    await enfileirarImpressaoPedido(newOrder, "pdv");
     auditar("criar_pedido_caixa", "pedido", newOrder.id, { mesa, comanda, qtdItens: lista.length });
     return newOrder;
   }
@@ -1549,13 +1560,16 @@ export default function RestaurantePedidoApp() {
 
   // ── Formas de pagamento (admin) ──────────────────────────────
   // ── Categorias (admin) ──────────────────────────────────────
-  async function addCategoria(nome) {
+  async function addCategoria(nome, extras = {}) {
     if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
     const n = nome.trim();
     if (!n) return notify("error", "Informe o nome da categoria.");
     if (categoriasDb.some((c) => c.nome.toLowerCase() === n.toLowerCase())) return notify("error", "Categoria já existe.");
     try {
-      const nova = dbReady ? await inserirCategoria(n, lojaAtual) : { id: Date.now(), nome: n, active: true, lojaId: lojaAtual };
+      const setorId = extras.setorId != null && extras.setorId !== "" ? Number(extras.setorId) : null;
+      const nova = dbReady
+        ? await inserirCategoria(n, lojaAtual, { setorId })
+        : { id: Date.now(), nome: n, active: true, lojaId: lojaAtual, setorId };
       setCategoriasDb((cur) => [...cur, nova]);
       notify("success", "Categoria cadastrada.");
       return true;
@@ -1588,6 +1602,32 @@ export default function RestaurantePedidoApp() {
     }
     if (dbReady) try { await atualizarCategoria(id, { nome: n }); } catch (e) { notify("error", "Erro ao renomear: " + e.message); return; }
     notify("success", "Categoria renomeada com sucesso.");
+    return true;
+  }
+  async function editarCategoriaCampos(id, campos = {}) {
+    if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
+    const patch = {};
+    if (campos.nome !== undefined) {
+      const n = String(campos.nome || "").trim();
+      if (!n) return notify("error", "Informe o nome da categoria.");
+      if (categoriasDb.some((c) => c.id !== id && c.nome.toLowerCase() === n.toLowerCase())) {
+        return notify("error", "Já existe uma categoria com este nome.");
+      }
+      patch.nome = n;
+    }
+    if (campos.setorId !== undefined) {
+      patch.setorId = campos.setorId === "" || campos.setorId == null ? null : Number(campos.setorId);
+    }
+    const anterior = categoriasDb.find((x) => x.id === id);
+    setCategoriasDb((cur) => cur.map((x) => (x.id === id ? { ...x, ...patch } : x)));
+    if (patch.nome && anterior?.nome && patch.nome !== anterior.nome) {
+      setProducts((cur) => cur.map((p) => (p.category === anterior.nome ? { ...p, category: patch.nome } : p)));
+    }
+    if (dbReady) {
+      try { await atualizarCategoria(id, patch); }
+      catch (e) { notify("error", "Erro ao salvar categoria: " + e.message); return false; }
+    }
+    notify("success", "Categoria atualizada.");
     return true;
   }
 
@@ -1930,6 +1970,64 @@ export default function RestaurantePedidoApp() {
     setSetoresCozinha((cur) => cur.filter((s) => s.id !== id));
     if (dbReady) try { await excluirSetorCozinha(id); } catch (e) { notify("error", "Erro ao excluir setor: " + (e.message || e)); }
   }
+
+  /** Enfileira comandas de produção por setor (produto > categoria). */
+  async function enfileirarImpressaoPedido(pedido, origem = "sistema") {
+    if (!pedido?.id || !Array.isArray(pedido.items) || !pedido.items.length) return [];
+    try {
+      const { filas } = montarFilasImpressaoPedido(
+        pedido,
+        {
+          products,
+          categories: categoriasDb,
+          setores: filtraLoja(setoresCozinha),
+          lojaId: lojaAtual,
+        },
+        origem,
+      );
+      if (!filas.length) return [];
+      // Evita duplicar fila se o pedido já tiver jobs.
+      if (impressoesCozinha.some((j) => String(j.pedidoId) === String(pedido.id))) return [];
+      if (dbReady) {
+        const salvos = await inserirImpressoesCozinha(filas);
+        setImpressoesCozinha((cur) => [...salvos, ...cur.filter((x) => !salvos.some((s) => s.id === x.id))]);
+        return salvos;
+      }
+      const locais = filas.map((f, i) => ({ ...f, id: `local-${Date.now()}-${i}` }));
+      setImpressoesCozinha((cur) => [...locais, ...cur]);
+      return locais;
+    } catch (e) {
+      console.warn("Fila de impressão da cozinha:", e?.message || e);
+      return [];
+    }
+  }
+
+  async function atualizarStatusImpressao(id, patch) {
+    setImpressoesCozinha((cur) => cur.map((j) => (j.id === id ? { ...j, ...patch, atualizadoEmISO: new Date().toISOString() } : j)));
+    if (dbReady) {
+      try { await atualizarImpressaoCozinha(id, patch); }
+      catch (e) { console.warn("Atualizar impressão:", e?.message || e); }
+    }
+  }
+
+  // Rede de segurança: pedidos recentes sem fila (ex.: veio do cardápio antes da estação abrir).
+  const syncImpressaoRef = useRef(new Set());
+  useEffect(() => {
+    if (!dbReady) return;
+    const limite = Date.now() - 3 * 60 * 60 * 1000;
+    const candidatos = orders.filter((o) => {
+      if (!o?.id || o.paymentStatus === "paid" || o.status === "cancelled") return false;
+      const t = new Date(o.createdAtISO || 0).getTime();
+      if (t && t < limite) return false;
+      if (impressoesCozinha.some((j) => String(j.pedidoId) === String(o.id))) return false;
+      if (syncImpressaoRef.current.has(o.id)) return false;
+      return true;
+    }).slice(0, 8);
+    candidatos.forEach((o) => {
+      syncImpressaoRef.current.add(o.id);
+      enfileirarImpressaoPedido(o, "sincronizacao");
+    });
+  }, [orders, impressoesCozinha, dbReady]);
 
   // ── Adicionais e Variações estruturados (migration 040) ─────
   async function addGrupoOpcoes(produtoId, dados) {
@@ -2402,6 +2500,7 @@ export default function RestaurantePedidoApp() {
               duplicar essa lógica aqui). O onFechar do embutido dentro do
               admin (abaixo, "operacaomobile") continua voltando ao dashboard —
               ali o usuário não está "saindo do app", só fechando a ferramenta. */}
+          <EstacaoImpressaoAuto impressoes={filtraLoja(impressoesCozinha)} lojaInfo={lojaInfo} ativo onAtualizarStatus={atualizarStatusImpressao} />
           <OperacaoMobileView orders={orders} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} confirmarRetirada={confirmarRetirada} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} products={products} setores={filtraLoja(setoresCozinha)} formasPagamento={formasPagamentoLoja} lojaInfo={lojaInfo} perms={acessosOperacionais(currentUser)} usuarioNome={currentUser?.name || ""} tabInicial={opmobileTab} onTabChange={setOpmobileTab} onFechar={logout} cancelarPedido={cancelarPedido} podeCancelarPedido={canAccess(currentUser, "kitchen")} fidCaixa={fidCaixa} />
         </div>
       ) : (
@@ -2520,12 +2619,20 @@ export default function RestaurantePedidoApp() {
         )}
 
         {activeTab === "kitchen" && canAccess(currentUser, "kitchen") && (
-          <KitchenView groupedOrders={groupedOrders} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} entregandoId={entregandoId} cancelarPedido={cancelarPedido} currentUser={currentUser} lojaInfo={lojaInfo} setores={filtraLoja(setoresCozinha)} produtos={products} setorInicial={cozinhaSetorInicial} />
+          <>
+            <EstacaoImpressaoAuto
+              impressoes={filtraLoja(impressoesCozinha)}
+              lojaInfo={lojaInfo}
+              ativo={true}
+              onAtualizarStatus={atualizarStatusImpressao}
+            />
+            <KitchenView groupedOrders={groupedOrders} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} entregandoId={entregandoId} cancelarPedido={cancelarPedido} currentUser={currentUser} lojaInfo={lojaInfo} setores={filtraLoja(setoresCozinha)} produtos={products} setorInicial={cozinhaSetorInicial} />
+          </>
         )}
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} products={products} lojaInfo={lojaInfo} />}
-        {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierPdv orders={orders} mesas={filtraLoja(mesas).filter((m) => m.active !== false)} clientes={filtraLoja(clientes)} baixarComandas={baixarComandas} formasPagamento={formasPagamentoLoja} lojaInfo={lojaInfo} currentUser={currentUser} caixaAberto={caixaAberto} auditar={auditar} conexaoOk={conexaoOk} editarItensPedido={editarItensPedido} criarPedidoCaixa={criarPedidoCaixa} products={products} setores={filtraLoja(setoresCozinha)} fidCaixa={fidCaixa} atualizarClientePedidos={atualizarClientePedidos} transferirMesaPedidos={transferirMesaPedidos} separarItensPedidos={separarItensPedidos} notify={notify} validarCupom={validarCupomCaixa} consumirCupom={consumirCupomCaixa} />}
+        {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierPdv orders={orders} mesas={filtraLoja(mesas).filter((m) => m.active !== false)} clientes={filtraLoja(clientes)} baixarComandas={baixarComandas} formasPagamento={formasPagamentoLoja} lojaInfo={lojaInfo} currentUser={currentUser} caixaAberto={caixaAberto} auditar={auditar} conexaoOk={conexaoOk} editarItensPedido={editarItensPedido} criarPedidoCaixa={criarPedidoCaixa} products={products} categories={categoriasDb} setores={filtraLoja(setoresCozinha)} fidCaixa={fidCaixa} atualizarClientePedidos={atualizarClientePedidos} transferirMesaPedidos={transferirMesaPedidos} separarItensPedidos={separarItensPedidos} notify={notify} validarCupom={validarCupomCaixa} consumirCupom={consumirCupomCaixa} />}
         {/* activeTab === "opmobile" agora é tratado pelo branch dedicado no início desta função (sem cabeçalho/grade de módulos) */}
-        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} toggleLoja={toggleLoja} editarLoja={editarLoja} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} filtraLoja={filtraLoja} pesquisas={pesquisas} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} cancelarPedido={cancelarPedido} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} salvarConfigCrm={salvarConfigCrm} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} assinaturas={assinaturas} promocoes={filtraLoja(promocoes)} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} cupons={cuponsLoja} addCupom={addCupom} editarCupom={editarCupomLoja} toggleCupom={toggleCupom} removerCupom={removerCupom} opcoesApi={{ grupos: filtraLoja(gruposOpcoes), opcoes: filtraLoja(opcoes), addGrupo: addGrupoOpcoes, editarGrupo: editarGrupoOpcoes, removerGrupo: removerGrupoOpcoes, addOpcao, editarOpcao, removerOpcao }} setores={filtraLoja(setoresCozinha)} setoresApi={{ add: addSetorCozinha, editar: editarSetorCozinha, remover: removerSetorCozinha }} vincularProdutoSetor={vincularProdutoSetor} salvarProdutoQr={salvarProdutoQr} irParaCozinha={(setorId) => { setCozinhaSetorInicial(setorId ?? null); if (canAccess(currentUser, "kitchen")) setActiveTab("kitchen"); else notify("error", "Sem permissão para acessar o painel da cozinha."); }} caixaAberto={caixaAberto} caixasLoja={filtraLoja(caixas)} caixaApi={{ abrir: abrirCaixaFn, movimentar: movimentarCaixaFn, fechar: fecharCaixaFn, fetchMovimentos: fetchMovimentosCaixa }} fidRegra={fidRegraAtual} fidRecompensas={filtraLoja(fidRecompensas)} fidTransacoes={filtraLoja(fidTransacoes)} fidApi={{ salvarRegra: salvarRegraFid, addRecompensa: addRecompensaFid, removerRecompensa: removerRecompensaFid, editarRecompensa: editarRecompensaFid, lancarPontos }} fidCaixa={fidCaixa} chamados={filtraLoja(chamados)} atenderChamado={atenderChamadoFn} assumirChamado={assumirChamadoFn} auditoria={filtraLoja(auditoria)} />}
+        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} toggleLoja={toggleLoja} editarLoja={editarLoja} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} filtraLoja={filtraLoja} pesquisas={pesquisas} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} cancelarPedido={cancelarPedido} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} salvarConfigCrm={salvarConfigCrm} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} assinaturas={assinaturas} promocoes={filtraLoja(promocoes)} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} cupons={cuponsLoja} addCupom={addCupom} editarCupom={editarCupomLoja} toggleCupom={toggleCupom} removerCupom={removerCupom} opcoesApi={{ grupos: filtraLoja(gruposOpcoes), opcoes: filtraLoja(opcoes), addGrupo: addGrupoOpcoes, editarGrupo: editarGrupoOpcoes, removerGrupo: removerGrupoOpcoes, addOpcao, editarOpcao, removerOpcao }} setores={filtraLoja(setoresCozinha)} setoresApi={{ add: addSetorCozinha, editar: editarSetorCozinha, remover: removerSetorCozinha }} vincularProdutoSetor={vincularProdutoSetor} salvarProdutoQr={salvarProdutoQr} irParaCozinha={(setorId) => { setCozinhaSetorInicial(setorId ?? null); if (canAccess(currentUser, "kitchen")) setActiveTab("kitchen"); else notify("error", "Sem permissão para acessar o painel da cozinha."); }} caixaAberto={caixaAberto} caixasLoja={filtraLoja(caixas)} caixaApi={{ abrir: abrirCaixaFn, movimentar: movimentarCaixaFn, fechar: fecharCaixaFn, fetchMovimentos: fetchMovimentosCaixa }} fidRegra={fidRegraAtual} fidRecompensas={filtraLoja(fidRecompensas)} fidTransacoes={filtraLoja(fidTransacoes)} fidApi={{ salvarRegra: salvarRegraFid, addRecompensa: addRecompensaFid, removerRecompensa: removerRecompensaFid, editarRecompensa: editarRecompensaFid, lancarPontos }} fidCaixa={fidCaixa} chamados={filtraLoja(chamados)} atenderChamado={atenderChamadoFn} assumirChamado={assumirChamadoFn} auditoria={filtraLoja(auditoria)} impressoesCozinha={filtraLoja(impressoesCozinha)} onAtualizarImpressao={atualizarStatusImpressao} onRecarregarImpressoes={async () => { try { setImpressoesCozinha(await fetchImpressoesCozinha(lojaAtual)); } catch {} }} editarCategoriaCampos={editarCategoriaCampos} />}
 
       </div>
       )}
@@ -5509,7 +5616,7 @@ function MobileAdminDrawer({ open, onClose, triggerRef, children, titulo }) {
   );
 }
 
-function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, definirAcoesUsuario, toggleUserStatus, toggleAccessStatus, usersLoja, filtraLoja = (a) => a, pesquisas = [], adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], toggleLoja, editarLoja, setLicencaEmpresa = async()=>{}, setValidadeLicenca = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, updateOrderStatus = async()=>{}, marcarEntregue = async()=>{}, marcarSetorPronto = async()=>{}, baixarComandas = async()=>{}, cancelarPedido, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, setModoUsoEmpresa = async()=>{}, salvarConfigExterno = async()=>{}, salvarConfigCrm = async()=>{}, mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, clientes = [], planoAtual = null, assinaturaAtual = null, assinaturas = [], planos = [], planoModulos = [], definirAssinatura = async()=>{}, promocoes = [], addPromocao = async()=>{}, editarPromocao = async()=>{}, togglePromocao = async()=>{}, removerPromocao = async()=>{}, cupons = [], addCupom = async()=>{}, editarCupom = async()=>{}, toggleCupom = async()=>{}, removerCupom = async()=>{}, opcoesApi = null, setores = [], setoresApi = null, vincularProdutoSetor = async () => {}, salvarProdutoQr = async () => {}, irParaCozinha = () => {}, caixaAberto = null, caixasLoja = [], caixaApi = null, fidRegra = null, fidRecompensas = [], fidTransacoes = [], fidApi = null, chamados = [], atenderChamado = async()=>{}, assumirChamado = async()=>{}, auditoria = [], fidCaixa = null }) {
+function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, definirAcoesUsuario, toggleUserStatus, toggleAccessStatus, usersLoja, filtraLoja = (a) => a, pesquisas = [], adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], toggleLoja, editarLoja, setLicencaEmpresa = async()=>{}, setValidadeLicenca = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, updateOrderStatus = async()=>{}, marcarEntregue = async()=>{}, marcarSetorPronto = async()=>{}, baixarComandas = async()=>{}, cancelarPedido, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, setModoUsoEmpresa = async()=>{}, salvarConfigExterno = async()=>{}, salvarConfigCrm = async()=>{}, mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, clientes = [], planoAtual = null, assinaturaAtual = null, assinaturas = [], planos = [], planoModulos = [], definirAssinatura = async()=>{}, promocoes = [], addPromocao = async()=>{}, editarPromocao = async()=>{}, togglePromocao = async()=>{}, removerPromocao = async()=>{}, cupons = [], addCupom = async()=>{}, editarCupom = async()=>{}, toggleCupom = async()=>{}, removerCupom = async()=>{}, opcoesApi = null, setores = [], setoresApi = null, vincularProdutoSetor = async () => {}, salvarProdutoQr = async () => {}, irParaCozinha = () => {}, caixaAberto = null, caixasLoja = [], caixaApi = null, fidRegra = null, fidRecompensas = [], fidTransacoes = [], fidApi = null, chamados = [], atenderChamado = async()=>{}, assumirChamado = async()=>{}, auditoria = [], fidCaixa = null, impressoesCozinha = [], onAtualizarImpressao = async () => {}, onRecarregarImpressoes = async () => {}, editarCategoriaCampos = async () => {} }) {
   // Menu reorganizado por contexto (SaaS premium) — mesmos ids e permissões de antes
   const menu = [
     { grupo: "Visão Geral", itens: [
@@ -5523,6 +5630,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
       { id: "comandas", icon: <IconQr />, label: "QR Code" },
       { id: "chamados", icon: <IconMesas />, label: "Chamados" },
       { id: "setores", icon: <IconCategorias />, label: "Setores de Produção" },
+      { id: "impressoes", icon: <IconImpressora />, label: "Impressões Cozinha" },
       { id: "operacaomobile", icon: <IconQr />, label: "Operação Mobile" },
       { id: "acessosop", icon: <IconPermissoes />, label: "Acessos Operacionais" },
     ]},
@@ -5680,6 +5788,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           {ativo === "fidelidade" && (precisaEmpresa ? avisoEmpresa : <FidelidadeAdmin regra={fidRegra} recompensas={fidRecompensas} transacoes={fidTransacoes} clientes={clientes} orders={orders} api={fidApi} onVerClientes={() => setAdminSection("crm")} />)}
           {ativo === "products"   && (precisaEmpresa ? avisoEmpresa : <ProductAdmin   products={products} categories={categories} categoriasDb={categoriasDb} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} editarProduto={editarProduto} removerProduto={removerProduto} lojaId={lojaInfo?.id} opcoesApi={opcoesApi} setores={setores} />)}
           {ativo === "setores"    && (precisaEmpresa ? avisoEmpresa : <SetoresCozinhaAdmin setores={setores} produtos={products} orders={orders} api={setoresApi} vincularProduto={vincularProdutoSetor} irParaCozinha={irParaCozinha} />)}
+          {ativo === "impressoes" && (precisaEmpresa ? avisoEmpresa : <ImpressoesCozinhaAdmin impressoes={impressoesCozinha} setores={setores} lojaInfo={lojaInfo} onAtualizarStatus={onAtualizarImpressao} onRecarregar={onRecarregarImpressoes} />)}
           {ativo === "operacaomobile" && <OperacaoMobileView orders={orders} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} confirmarRetirada={confirmarRetirada} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} products={products} setores={setores} formasPagamento={formasPagamento} lojaInfo={lojaInfo} perms={acessosOperacionais(currentUser)} usuarioNome={currentUser?.name || ""} onFechar={() => setAdminSection("dashboard")} cancelarPedido={cancelarPedido} podeCancelarPedido={canAccess(currentUser, "kitchen")} fidCaixa={fidCaixa} />}
           {ativo === "cardapioqr"  && (precisaEmpresa ? avisoEmpresa : <CardapioQrConfigAdmin products={products} setores={setores} salvarProdutoQr={salvarProdutoQr} irParaProdutos={() => setAdminSection("products")} />)}
           {ativo === "acessosop"   && <AcessosOperacionaisAdmin users={filtraLoja(users)} definirAcessos={definirAcessos} />}
@@ -5702,7 +5811,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           {ativo === "cargos"     && <CargoAdmin     cargos={filtraLoja(cargos)} users={filtraLoja(users)} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} />}
           {ativo === "access"     && <AccessAdmin    accesses={accesses} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleAccessStatus={toggleAccessStatus} />}
           {ativo === "link"       && <UserAccessAdmin users={filtraLoja(users)} accesses={accesses} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} lojaInfo={lojaInfo} lojas={lojas} isSuperAdmin={isSuperAdmin} />}
-          {ativo === "categorias" && (precisaEmpresa ? avisoEmpresa : <CategoriaAdmin categoriasDb={categoriasDb} produtos={products} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} />)}
+          {ativo === "categorias" && (precisaEmpresa ? avisoEmpresa : <CategoriaAdmin categoriasDb={categoriasDb} produtos={products} setores={setores} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} editarCategoriaCampos={editarCategoriaCampos} />)}
           {ativo === "mesas"      && (precisaEmpresa ? avisoEmpresa : <MesaAdmin mesas={mesas} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} orders={orders} />)}
           {ativo === "comandas-gestao" && (precisaEmpresa ? avisoEmpresa : <ComandasGestaoAdmin orders={filtraLoja(orders)} products={filtraLoja(products)} lojaPrefixo={lojaInfo?.prefixo || ""} lojaId={lojaInfo?.id} />)}
           {ativo === "comandas"   && (precisaEmpresa ? avisoEmpresa : <GeradorComandas prefixoLoja={lojaInfo?.prefixo || "CMD"} empresa={lojaInfo?.nome || "Restaurante"} onGerar={registrarComandas} comandasRegistradas={comandasRegistradas} orders={orders} onExcluirComanda={excluirComandaFn} onRenomearComanda={renomearComandaFn} onToggleComanda={toggleComandaFn} lojaId={lojaInfo?.id} logoSalvo={lojaInfo?.logoUrl || ""} onSalvarLogo={(url) => salvarLogoEmpresa(lojaInfo?.id, url)} onIrCardapioExterno={() => setAdminSection("cardapioext")} />)}
@@ -14929,7 +15038,7 @@ function LojaEditModal({ loja, onSalvar, onFechar }) {
 // ════════════════════════════════════════════════════════════
 //  Admin — Categorias
 // ════════════════════════════════════════════════════════════
-function CategoriaAdmin({ categoriasDb, produtos, addCategoria, toggleCategoria, removerCategoria, renomearCategoria }) {
+function CategoriaAdmin({ categoriasDb, produtos, setores = [], addCategoria, toggleCategoria, removerCategoria, renomearCategoria, editarCategoriaCampos = async () => {} }) {
   const [excluir, setExcluir]   = useState(null);
   const [criando, setCriando]   = useState(false);
   const [editando, setEditando] = useState(null); // categoria sendo editada
@@ -14941,17 +15050,18 @@ function CategoriaAdmin({ categoriasDb, produtos, addCategoria, toggleCategoria,
   // String(): bigint pode vir como number OU string — nunca compara por === direto.
   const produtosDaCat = (cat) => produtos.filter((p) => (p.categoriaId != null ? String(p.categoriaId) === String(cat.id) : p.category === cat.nome));
   const contagem = (cat) => produtosDaCat(cat).length;
+  const nomeSetor = (sid) => setores.find((s) => String(s.id) === String(sid))?.nome || "";
 
   const termo = busca.trim().toLowerCase();
   const filtradas = termo ? categoriasDb.filter((c) => c.nome.toLowerCase().includes(termo)) : categoriasDb;
 
-  async function salvarNova(nome) {
-    const ok = await addCategoria(nome);
+  async function salvarNova({ nome, setorId }) {
+    const ok = await addCategoria(nome, { setorId });
     if (ok) setCriando(false);
   }
-  async function salvarEdicao(novoNome) {
+  async function salvarEdicao({ nome, setorId }) {
     if (!editando) return;
-    const ok = await renomearCategoria(editando.id, novoNome);
+    const ok = await editarCategoriaCampos(editando.id, { nome, setorId });
     if (ok) setEditando(null);
   }
 
@@ -14995,7 +15105,10 @@ function CategoriaAdmin({ categoriasDb, produtos, addCategoria, toggleCategoria,
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white/[0.06] text-lg group-hover:bg-blue-500/15 transition">🏷️</span>
                 <div className="min-w-0 flex-1">
                   <p className="font-black text-white truncate">{c.nome}</p>
-                  <p className="text-xs text-slate-400">{usos} produto(s) nesta categoria</p>
+                  <p className="text-xs text-slate-400">
+                    {usos} produto(s)
+                    {c.setorId ? ` · Setor: ${nomeSetor(c.setorId) || c.setorId}` : " · Sem setor de impressão"}
+                  </p>
                 </div>
                 <span className="shrink-0 text-xs text-slate-600 group-hover:text-blue-400 transition">✏️ Editar</span>
                 <button onClick={(e) => { e.stopPropagation(); toggleCategoria(c.id); }}
@@ -15012,11 +15125,12 @@ function CategoriaAdmin({ categoriasDb, produtos, addCategoria, toggleCategoria,
         </div>
       </div>
 
-      {criando && <CategoriaCadastroModal onSalvar={salvarNova} onFechar={() => setCriando(false)} />}
+      {criando && <CategoriaCadastroModal setores={setores} onSalvar={salvarNova} onFechar={() => setCriando(false)} />}
       {editando && (
         <CategoriaEditModal
           categoria={editando}
           produtos={produtosDaCat(editando)}
+          setores={setores}
           onSalvar={salvarEdicao}
           onToggle={() => { toggleCategoria(editando.id); setEditando((c) => c ? { ...c, active: c.active === false ? true : false } : c); }}
           onFechar={() => setEditando(null)}
@@ -15050,12 +15164,14 @@ function CategoriaAdmin({ categoriasDb, produtos, addCategoria, toggleCategoria,
 }
 
 // Modal de edição de categoria + lista de produtos vinculados
-function CategoriaEditModal({ categoria, produtos, onSalvar, onToggle, onFechar }) {
+function CategoriaEditModal({ categoria, produtos, setores = [], onSalvar, onToggle, onFechar }) {
   const [nome, setNome] = useState(categoria.nome);
+  const [setorId, setSetorId] = useState(categoria.setorId ?? "");
   const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-gold-400/60 placeholder:text-slate-600";
   const lbl = "mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500";
   const valido = nome.trim().length > 0;
   const ativa = categoria.active !== false;
+  const setoresAtivos = setores.filter((s) => s.ativo !== false);
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onFechar}>
@@ -15075,8 +15191,19 @@ function CategoriaEditModal({ categoria, produtos, onSalvar, onToggle, onFechar 
           <div>
             <span className={lbl}>Nome da categoria *</span>
             <input autoFocus value={nome} onChange={(e) => setNome(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter" && valido) onSalvar(nome); }}
+              onKeyDown={(e) => { if (e.key === "Enter" && valido) onSalvar({ nome, setorId }); }}
               placeholder="Ex.: Entradas, Bebidas..." className={inp} />
+          </div>
+
+          <div>
+            <span className={lbl}>Setor de impressão (cozinha)</span>
+            <select value={setorId} onChange={(e) => setSetorId(e.target.value ? Number(e.target.value) : "")} className={inp}>
+              <option value="">Sem setor (usa o do produto)</option>
+              {setoresAtivos.map((s) => (
+                <option key={s.id} value={s.id}>{s.nome}{s.impressoraNome ? ` · ${s.impressoraNome}` : ""}</option>
+              ))}
+            </select>
+            <p className="mt-1 text-[11px] text-slate-500">Usado quando o produto não tem setor próprio. Produto sempre tem prioridade.</p>
           </div>
 
           {/* Status */}
@@ -15119,8 +15246,11 @@ function CategoriaEditModal({ categoria, produtos, onSalvar, onToggle, onFechar 
         {/* Rodapé */}
         <div className="shrink-0 border-t border-white/10 px-6 py-4 flex gap-3">
           <button onClick={onFechar} className="flex-1 rounded-2xl border border-white/10 bg-white/[0.06] py-3.5 text-sm font-black text-slate-300 hover:bg-white/10">Cancelar</button>
-          <button onClick={() => onSalvar(nome)} disabled={!valido || nome.trim() === categoria.nome}
-            className="flex-[2] rounded-2xl bg-blue-500 py-3.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+          <button
+            onClick={() => onSalvar({ nome, setorId })}
+            disabled={!valido || (nome.trim() === categoria.nome && String(setorId || "") === String(categoria.setorId || ""))}
+            className="flex-[2] rounded-2xl bg-blue-500 py-3.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
             💾 Salvar alterações
           </button>
         </div>
@@ -15130,11 +15260,13 @@ function CategoriaEditModal({ categoria, produtos, onSalvar, onToggle, onFechar 
 }
 
 // Modal de cadastro de nova categoria (mesmo padrão do produto)
-function CategoriaCadastroModal({ onSalvar, onFechar }) {
+function CategoriaCadastroModal({ setores = [], onSalvar, onFechar }) {
   const [nome, setNome] = useState("");
+  const [setorId, setSetorId] = useState("");
   const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-gold-400/60 placeholder:text-slate-600";
   const lbl = "mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500";
   const valido = nome.trim().length > 0;
+  const setoresAtivos = setores.filter((s) => s.ativo !== false);
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onFechar}>
       <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-md flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl">
@@ -15149,14 +15281,23 @@ function CategoriaCadastroModal({ onSalvar, onFechar }) {
           <div>
             <span className={lbl}>Nome da categoria *</span>
             <input autoFocus value={nome} onChange={(e) => setNome(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter" && valido) onSalvar(nome); }}
+              onKeyDown={(e) => { if (e.key === "Enter" && valido) onSalvar({ nome, setorId }); }}
               placeholder="Ex.: Massas, Porções, Vinhos..." className={inp} />
+          </div>
+          <div>
+            <span className={lbl}>Setor de impressão</span>
+            <select value={setorId} onChange={(e) => setSetorId(e.target.value ? Number(e.target.value) : "")} className={inp}>
+              <option value="">Sem setor (definir depois)</option>
+              {setoresAtivos.map((s) => (
+                <option key={s.id} value={s.id}>{s.nome}</option>
+              ))}
+            </select>
           </div>
           <p className="text-xs text-slate-500">A categoria fica disponível imediatamente no cadastro de produtos e no cardápio.</p>
         </div>
         <div className="shrink-0 border-t border-white/10 px-6 py-4 flex gap-3">
           <button onClick={onFechar} className="flex-1 rounded-2xl border border-white/10 bg-white/[0.06] py-3.5 text-sm font-black text-slate-300 hover:bg-white/10">Cancelar</button>
-          <button onClick={() => onSalvar(nome)} disabled={!valido}
+          <button onClick={() => onSalvar({ nome, setorId })} disabled={!valido}
             className="flex-[2] rounded-2xl bg-blue-500 py-3.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
             + Cadastrar categoria
           </button>
@@ -16064,6 +16205,9 @@ function SetoresCozinhaAdmin({ setores = [], produtos = [], orders = [], api, vi
   // Formulário de novo setor
   const [nome, setNome] = useState("");
   const [descricao, setDescricao] = useState("");
+  const [impressoraNome, setImpressoraNome] = useState("");
+  const [impressoraDestino, setImpressoraDestino] = useState("");
+  const [impressaoAuto, setImpressaoAuto] = useState(true);
   const [ativoNovo, setAtivoNovo] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [msg, setMsg] = useState(null); // { tipo, texto }
@@ -16097,25 +16241,45 @@ function SetoresCozinhaAdmin({ setores = [], produtos = [], orders = [], api, vi
 
   async function criar() {
     const n = nome.trim();
+    const imp = impressoraNome.trim() || n;
     if (!n) { aviso("erro", "Informe o nome do setor."); nomeRef.current?.focus(); return; }
+    if (!imp) { aviso("erro", "Informe a impressora do setor (obrigatória para separar a comanda)."); return; }
     if (nomeDuplicado(n)) { aviso("erro", "Já existe um setor com esse nome."); return; }
     setSalvando(true);
     try {
-      await api?.add({ nome: n, descricao: descricao.trim(), ativo: ativoNovo, ordem: setores.length });
-      setNome(""); setDescricao(""); setAtivoNovo(true);
+      await api?.add({
+        nome: n,
+        descricao: descricao.trim(),
+        ativo: ativoNovo,
+        ordem: setores.length,
+        impressoraNome: imp,
+        impressoraDestino: impressoraDestino.trim(),
+        impressaoAuto,
+      });
+      setNome(""); setDescricao(""); setImpressoraNome(""); setImpressoraDestino(""); setImpressaoAuto(true); setAtivoNovo(true);
       aviso("ok", "Setor criado com sucesso.");
     } catch { aviso("erro", "Não foi possível criar o setor."); }
     finally { setSalvando(false); }
   }
-  function limpar() { setNome(""); setDescricao(""); setAtivoNovo(true); setMsg(null); }
+  function limpar() { setNome(""); setDescricao(""); setImpressoraNome(""); setImpressoraDestino(""); setImpressaoAuto(true); setAtivoNovo(true); setMsg(null); }
   function focarNome() { nomeRef.current?.focus(); nomeRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }); }
 
   async function salvarEdicao() {
     const n = (editando.nome || "").trim();
+    const imp = (editando.impressoraNome || "").trim() || n;
     if (!n) { aviso("erro", "O nome do setor não pode ficar vazio."); return; }
+    if (!imp) { aviso("erro", "A impressora do setor é obrigatória."); return; }
     if (nomeDuplicado(n, editando.id)) { aviso("erro", "Já existe um setor com esse nome."); return; }
     try {
-      await api?.editar(editando.id, { nome: n, descricao: (editando.descricao || "").trim(), ativo: editando.ativo !== false, ordem: editando.ordem ?? 0 });
+      await api?.editar(editando.id, {
+        nome: n,
+        descricao: (editando.descricao || "").trim(),
+        ativo: editando.ativo !== false,
+        ordem: editando.ordem ?? 0,
+        impressoraNome: imp,
+        impressoraDestino: (editando.impressoraDestino || "").trim(),
+        impressaoAuto: editando.impressaoAuto !== false,
+      });
       setEditando(null); aviso("ok", "Setor atualizado.");
     } catch { aviso("erro", "Não foi possível salvar o setor."); }
   }
@@ -16140,8 +16304,10 @@ function SetoresCozinhaAdmin({ setores = [], produtos = [], orders = [], api, vi
         <div className="relative flex items-start gap-4">
           <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-gold-400/40 bg-gold-400/10 text-gold-300 [&>svg]:h-6 [&>svg]:w-6"><IcoChef /></span>
           <div className="min-w-0">
-            <h3 className="page-title text-xl font-bold tracking-tight text-white sm:text-2xl">Setores de Cozinha</h3>
-            <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-400">Organize o preparo dos pedidos por área e direcione cada produto para o setor responsável.</p>
+            <h3 className="page-title text-xl font-bold tracking-tight text-white sm:text-2xl">Setores de Produção e Impressoras</h3>
+            <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-400">
+              Cadastre o setor, vincule a impressora e associe categorias/produtos. No pedido, cada setor recebe sua comanda automaticamente.
+            </p>
           </div>
         </div>
       </div>
@@ -16178,8 +16344,22 @@ function SetoresCozinhaAdmin({ setores = [], produtos = [], orders = [], api, vi
               </div>
               <div>
                 <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-slate-500">Descrição do setor</label>
-                <textarea value={descricao} maxLength={120} onChange={(e) => setDescricao(e.target.value)} rows={3} placeholder="Descreva a função ou os tipos de preparo deste setor..." className={`${inp} resize-none`} />
-                <p className="mt-1 text-right text-[10px] text-slate-600">{descricao.length}/120</p>
+                <textarea value={descricao} maxLength={120} onChange={(e) => setDescricao(e.target.value)} rows={2} placeholder="Descreva a função ou os tipos de preparo deste setor..." className={`${inp} resize-none`} />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-slate-500">Impressora do setor *</label>
+                <input value={impressoraNome} onChange={(e) => setImpressoraNome(e.target.value)} placeholder="Ex.: Impressora Chapa 80mm" className={inp} />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-slate-500">Destino técnico (opcional)</label>
+                <input value={impressoraDestino} onChange={(e) => setImpressoraDestino(e.target.value)} placeholder="IP, compartilhamento ou alias do driver" className={inp} />
+              </div>
+              <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-3">
+                <span className="text-sm font-semibold text-slate-300">Impressão automática</span>
+                <button type="button" onClick={() => setImpressaoAuto((v) => !v)} className={`relative h-6 w-11 rounded-full transition ${impressaoAuto ? "bg-emerald-500" : "bg-slate-600"}`}>
+                  <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${impressaoAuto ? "left-[22px]" : "left-0.5"}`} />
+                </button>
+                <span className={`w-14 text-right text-xs font-bold ${impressaoAuto ? "text-emerald-300" : "text-slate-400"}`}>{impressaoAuto ? "Ativa" : "Manual"}</span>
               </div>
               <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-3">
                 <span className="text-sm font-semibold text-slate-300">Status</span>
@@ -16198,10 +16378,10 @@ function SetoresCozinhaAdmin({ setores = [], produtos = [], orders = [], api, vi
           <div className="rounded-[2rem] border border-gold-400/25 bg-gold-400/[0.05] p-5">
             <div className="flex items-center gap-2 text-gold-300">
               <span className="[&>svg]:h-5 [&>svg]:w-5"><IcoBulb /></span>
-              <h4 className="page-title text-sm font-bold">Dicas de uso</h4>
+              <h4 className="page-title text-sm font-bold">Regra de impressão</h4>
             </div>
-            <p className="mt-2 text-xs leading-5 text-slate-300">Crie setores de acordo com as áreas da sua cozinha, como Bar, Pizzaria, Chapa, Cozinha e Sobremesas. Depois, vincule os produtos corretamente para otimizar o fluxo de preparo.</p>
-            <p className="mt-2 text-xs leading-5 text-slate-400">Isso ajuda a organizar os pedidos e melhorar o tempo de produção.</p>
+            <p className="mt-2 text-xs leading-5 text-slate-300">Prioridade: setor do <b>produto</b> → setor da <b>categoria</b>. Pedido com lanche, bebida e sobremesa em setores diferentes gera comandas separadas, uma por impressora.</p>
+            <p className="mt-2 text-xs leading-5 text-slate-400">Monitore falhas em Administrativo → Impressões Cozinha.</p>
           </div>
         </div>
 
@@ -16245,6 +16425,11 @@ function SetoresCozinhaAdmin({ setores = [], produtos = [], orders = [], api, vi
                             <span className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold ${ativo ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-300" : "border-white/15 bg-white/[0.06] text-slate-400"}`}>{ativo ? "Ativo" : "Inativo"}</span>
                           </div>
                           <p className="mt-0.5 line-clamp-2 text-xs text-slate-400">{s.descricao || "Sem descrição."}</p>
+                          <p className="mt-1 text-[11px] font-semibold text-slate-300">
+                            Imp.: {s.impressoraNome || <span className="text-amber-300">não cadastrada</span>}
+                            {s.impressoraDestino ? ` · ${s.impressoraDestino}` : ""}
+                            {s.impressaoAuto === false ? " · manual" : " · automática"}
+                          </p>
                           <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-500">
                             <span><b className="text-slate-300">{contarProdutos(s.id)}</b> produto(s) vinculado(s)</span>
                             <span><b className="text-orange-300">{pedidosEmPreparo(s.id)}</b> pedido(s) em preparo</span>
@@ -16284,7 +16469,22 @@ function SetoresCozinhaAdmin({ setores = [], produtos = [], orders = [], api, vi
               </div>
               <div>
                 <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-slate-500">Descrição</label>
-                <textarea value={editando.descricao || ""} maxLength={120} rows={3} onChange={(e) => setEditando({ ...editando, descricao: e.target.value })} className={`${inp} resize-none`} />
+                <textarea value={editando.descricao || ""} maxLength={120} rows={2} onChange={(e) => setEditando({ ...editando, descricao: e.target.value })} className={`${inp} resize-none`} />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-slate-500">Impressora do setor *</label>
+                <input value={editando.impressoraNome || ""} onChange={(e) => setEditando({ ...editando, impressoraNome: e.target.value })} className={inp} placeholder="Nome da impressora" />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-slate-500">Destino técnico</label>
+                <input value={editando.impressoraDestino || ""} onChange={(e) => setEditando({ ...editando, impressoraDestino: e.target.value })} className={inp} placeholder="IP / compartilhamento" />
+              </div>
+              <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-3">
+                <span className="text-sm font-semibold text-slate-300">Impressão automática</span>
+                <button type="button" onClick={() => setEditando({ ...editando, impressaoAuto: editando.impressaoAuto === false })} className={`relative h-6 w-11 rounded-full transition ${editando.impressaoAuto !== false ? "bg-emerald-500" : "bg-slate-600"}`}>
+                  <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${editando.impressaoAuto !== false ? "left-[22px]" : "left-0.5"}`} />
+                </button>
+                <span className={`w-14 text-right text-xs font-bold ${editando.impressaoAuto !== false ? "text-emerald-300" : "text-slate-400"}`}>{editando.impressaoAuto !== false ? "Ativa" : "Manual"}</span>
               </div>
               <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-3">
                 <span className="text-sm font-semibold text-slate-300">Status</span>

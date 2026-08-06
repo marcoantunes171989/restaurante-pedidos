@@ -5,10 +5,12 @@ import {
   buscarClientePorTelefone, upsertCliente, criarChamado,
   rpcCriarPedidoPublico, rpcUpsertClientePublico, rpcBuscarClientePublico, rpcPedidosComanda, rpcPedidosCliente, rpcSolicitarContaPublico, rpcSaldoFidelidade, rpcFidelidadeRegra, rpcCriarChamadoPublico,
   rpcPesquisaSatisfacao, inserirPesquisaSatisfacao, rpcStatusMesa,
+  inserirImpressoesCozinha,
 } from "./lib/supabase";
 import { cardapioViaRpc } from "./lib/authMode";
 import { useScrollLock } from "./lib/scrollLock";
 import { CATEGORIA_TODOS, agruparProdutosPorCategoria, montarListaCategorias, escolherCategoriaAtiva, calcularDestinoScroll } from "./lib/cardapioCategorias";
+import { montarFilasImpressaoPedido } from "./lib/impressaoCozinha";
 import SatisfactionSurvey from "./components/SatisfactionSurvey";
 import {
   ProdutoModal, formatCurrency, fallbackImage, isValidCommand,
@@ -1165,6 +1167,18 @@ export default function CardapioPublico() {
       const mesaId = modoExterno ? null : (mesaCadastrada?.id ?? null);
       if (cardapioViaRpc()) { const r = await rpcCriarPedidoPublico({ lojaId: loja.id, mesa: novo.table, comanda: novo.command, cliente: novo.customer, telefone: novo.clienteTelefone || "", itens, pagForma: formaSel?.label ?? null, pagMomento: momentoPagto, mesaNumero, mesaId, trocoPara: trocoParaNum }); if (r) pedidoId = r; }
       else await inserirPedido(novo);
+      // Fila de impressão por setor (produto > categoria) — impressão automática na estação.
+      try {
+        const pedidoFila = { ...novo, id: pedidoId };
+        const { filas } = montarFilasImpressaoPedido(
+          pedidoFila,
+          { products: produtos, categories: categorias, setores, lojaId: loja.id },
+          modoExterno ? "externo" : "qr",
+        );
+        if (filas.length) await inserirImpressoesCozinha(filas);
+      } catch (errImp) {
+        console.warn("Fila impressão cardápio:", errImp?.message || errImp);
+      }
       // A Pesquisa de Satisfação NÃO aparece agora — só quando o pedido CONCLUIR
       // (pago + retirado/entregue). Registra o pedido como pendente de pesquisa.
       try { const pend = lerSetLS(SURVEY_PEND_KEY); pend.add(pedidoId); salvarSetLS(SURVEY_PEND_KEY, pend); } catch {}

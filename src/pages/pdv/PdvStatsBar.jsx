@@ -140,7 +140,9 @@ function ModalResumoTurno({
     [contasAbertas, pagosHoje, taxaPct, mesasDisponiveis, mesasOcupadas, totalMesas, faturamentoDia],
   );
 
-  const abertas = analise.contasMesa;
+  const abertasMesa = analise.contasMesa;
+  const abertasDelivery = analise.contasDelivery;
+  const totalAbertas = abertasMesa.length + abertasDelivery.length;
   const pagos = analise.pagosOrdenados;
 
   return (
@@ -184,7 +186,7 @@ function ModalResumoTurno({
               <CardMetrica Icon={Bike} label="Delivery" valor={formatCurrency(analise.fatDelivery)} tom="text-[var(--pp-text)]" />
             </div>
             <div className="mt-2 grid gap-2 sm:grid-cols-2">
-              <div className="rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-3 py-2.5">
+              <div className="rounded-xl border border-[var(--pp-border)] bg-white px-3 py-2.5">
                 <p className="text-[10px] font-black uppercase tracking-wide text-[var(--pp-text-muted)]">Por forma de pagamento</p>
                 {analise.porForma.length === 0 ? (
                   <p className="mt-2 text-xs font-semibold text-[var(--pp-text-muted)]">Nenhum pagamento registrado hoje.</p>
@@ -196,7 +198,7 @@ function ModalResumoTurno({
                           <span className="truncate font-bold text-[var(--pp-text)]">{f.nome}</span>
                           <span className="shrink-0 font-black tabular-nums text-[var(--pp-text)]">{formatCurrency(f.valor)}</span>
                         </div>
-                        <div className="h-1.5 overflow-hidden rounded-full bg-white">
+                        <div className="h-1.5 overflow-hidden rounded-full bg-[#F8F6F2]">
                           <div
                             className="h-full rounded-full bg-[var(--pp-primary)]"
                             style={{ width: `${Math.max(4, f.pct)}%` }}
@@ -208,11 +210,13 @@ function ModalResumoTurno({
                   </ul>
                 )}
               </div>
-              <div className="rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-3 py-2.5">
+              <div className="rounded-xl border border-[var(--pp-border)] bg-white px-3 py-2.5">
                 <p className="text-[10px] font-black uppercase tracking-wide text-[var(--pp-text-muted)]">Indicadores do dia</p>
                 <ul className="mt-2 space-y-2 text-[11px]">
                   <IndicadorLinha label="Pedidos pagos" valor={String(analise.qtdPagos)} />
                   <IndicadorLinha label="Contas em aberto" valor={String(analise.qtdAberto)} />
+                  <IndicadorLinha label="Abertas · mesa" valor={String(abertasMesa.length)} />
+                  <IndicadorLinha label="Abertas · delivery" valor={String(abertasDelivery.length)} />
                   <IndicadorLinha label="Ticket médio mesa" valor={formatCurrency(analise.ticketMesa)} />
                   <IndicadorLinha label="Ticket médio delivery" valor={formatCurrency(analise.ticketDelivery)} />
                   <IndicadorLinha label="Maior venda" valor={formatCurrency(analise.maiorVenda)} />
@@ -233,24 +237,26 @@ function ModalResumoTurno({
           </section>
 
           <section>
-            <SecaoTitulo titulo={`Contas em aberto (${abertas.length})`} />
-            {abertas.length === 0 ? (
-              <p className="rounded-xl border border-dashed border-[var(--pp-border)] px-3 py-4 text-center text-sm text-[var(--pp-text-muted)]">Nenhuma conta aberta no momento.</p>
+            <SecaoTitulo titulo={`Contas em aberto (${totalAbertas})`} />
+            {totalAbertas === 0 ? (
+              <p className="rounded-xl border border-dashed border-[var(--pp-border)] px-3 py-4 text-center text-sm text-[var(--pp-text-muted)]">
+                Nenhuma conta aberta no momento.
+              </p>
             ) : (
-              <ul className="space-y-2">
-                {abertas.map((c) => (
-                  <li key={c.key} className="flex items-center justify-between gap-2 rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-3 py-2.5">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-black text-[var(--pp-text)]">{c.mesa}</p>
-                      <p className="truncate text-xs font-semibold text-[var(--pp-text-muted)]">
-                        {c.cliente || "Cliente não identificado"}
-                        {c.solicitada ? " · pagamento solicitado" : ""}
-                      </p>
-                    </div>
-                    <span className="shrink-0 text-sm font-black tabular-nums text-[var(--pp-text)]">{formatCurrency(c.total)}</span>
-                  </li>
-                ))}
-              </ul>
+              <div className="space-y-4">
+                <GrupoContasAbertas
+                  titulo="Mesas"
+                  Icon={UtensilsCrossed}
+                  contas={abertasMesa}
+                  vazio="Nenhuma mesa com conta aberta."
+                />
+                <GrupoContasAbertas
+                  titulo="Delivery"
+                  Icon={Bike}
+                  contas={abertasDelivery}
+                  vazio="Nenhum pedido delivery em aberto."
+                />
+              </div>
             )}
           </section>
 
@@ -262,10 +268,18 @@ function ModalResumoTurno({
               <ul className="space-y-2">
                 {pagos.slice(0, 30).map((o) => {
                   const tot = orderTotal(o) * (1 + (Number(taxaPct) || 0) / 100);
+                  const externo = ehPedidoExterno(o);
                   return (
-                    <li key={o.id} className="flex items-center justify-between gap-2 rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-3 py-2.5">
+                    <li key={o.id} className="flex items-center justify-between gap-2 rounded-xl border border-[var(--pp-border)] bg-white px-3 py-2.5">
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-black text-[var(--pp-text)]">{o.table || o.command}</p>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className={`rounded px-1.5 py-0.5 text-[9px] font-black uppercase ${
+                            externo ? "bg-[#E0F0F4] text-[#0F4C5C]" : "bg-[#FCE8D4] text-[#B3600E]"
+                          }`}>
+                            {externo ? "Delivery" : "Mesa"}
+                          </span>
+                          <p className="truncate text-sm font-black text-[var(--pp-text)]">{o.table || o.command}</p>
+                        </div>
                         <p className="truncate text-xs font-semibold text-[var(--pp-text-muted)]">
                           {o.customer || "Cliente"} · #{o.command || o.id}
                           {o.pagamentoForma ? ` · ${o.pagamentoForma}` : ""}
@@ -413,12 +427,84 @@ function Metrica({ label, valor, tom }) {
 
 function CardMetrica({ Icon, label, valor, tom, className = "" }) {
   return (
-    <div className={`rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-3 py-2.5 ${className}`}>
+    <div className={`rounded-xl border border-[var(--pp-border)] bg-white px-3 py-2.5 ${className}`}>
       <div className="mb-1 flex items-center gap-1.5 text-[var(--pp-text-muted)]">
         <Icon size={14} aria-hidden="true" />
         <p className="text-[10px] font-bold uppercase tracking-wide">{label}</p>
       </div>
       <p className={`truncate text-lg font-black tabular-nums ${tom}`}>{valor}</p>
+    </div>
+  );
+}
+
+function GrupoContasAbertas({ titulo, Icon, contas = [], vazio }) {
+  return (
+    <div>
+      <div className="mb-1.5 flex items-center justify-between gap-2">
+        <p className="inline-flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wide text-[var(--pp-text)]">
+          {Icon && <Icon size={13} className="text-[var(--pp-primary-text)]" aria-hidden="true" />}
+          {titulo}
+        </p>
+        <span className="rounded-full border border-[var(--pp-border)] px-2 py-0.5 text-[10px] font-black text-[var(--pp-text-body)]">
+          {contas.length}
+        </span>
+      </div>
+      {contas.length === 0 ? (
+        <p className="rounded-xl border border-dashed border-[var(--pp-border)] px-3 py-3 text-center text-xs text-[var(--pp-text-muted)]">
+          {vazio}
+        </p>
+      ) : (
+        <ul className="space-y-2">
+          {contas.map((c) => {
+            const tipoEntrega = /entreg/i.test(c.mesa || "")
+              ? "Entrega"
+              : /retir/i.test(c.mesa || "")
+                ? "Retirada"
+                : c.externo
+                  ? "Delivery"
+                  : "Mesa";
+            const comandas = (c.comandas || []).filter(Boolean).join(", ");
+            const statusLabel = c.solicitada
+              ? "Pagamento solicitado"
+              : c.pendentePreparo
+                ? "Em preparo"
+                : "Em consumo";
+            return (
+              <li
+                key={c.key}
+                className="flex items-center justify-between gap-2 rounded-xl border border-[var(--pp-border)] bg-white px-3 py-2.5"
+              >
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className={`rounded px-1.5 py-0.5 text-[9px] font-black uppercase ${
+                      c.externo ? "bg-[#E0F0F4] text-[#0F4C5C]" : "bg-[#FCE8D4] text-[#B3600E]"
+                    }`}>
+                      {tipoEntrega}
+                    </span>
+                    {c.solicitada && (
+                      <span className="rounded px-1.5 py-0.5 text-[9px] font-black uppercase bg-[#FBEFC4] text-[#8D6708]">
+                        Conta pedida
+                      </span>
+                    )}
+                    <p className="truncate text-sm font-black text-[var(--pp-text)]">
+                      {c.externo ? (comandas ? `#${comandas}` : c.mesa) : c.mesa}
+                    </p>
+                  </div>
+                  <p className="truncate text-xs font-semibold text-[var(--pp-text-muted)]">
+                    {c.cliente || "Cliente não identificado"}
+                    {!c.externo && comandas ? ` · ${comandas}` : ""}
+                    {c.telefone ? ` · ${c.telefone}` : ""}
+                    {` · ${statusLabel}`}
+                  </p>
+                </div>
+                <span className="shrink-0 text-sm font-black tabular-nums text-[var(--pp-text)]">
+                  {formatCurrency(c.total)}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }
