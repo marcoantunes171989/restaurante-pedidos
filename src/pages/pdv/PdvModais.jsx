@@ -33,9 +33,25 @@ function ModalShell({ titulo, subtitulo, onFechar, children, largura = "max-w-lg
   );
 }
 
-/** Incluir produtos na conta (ajuste de caixa). */
-export function ModalIncluirProduto({ products = [], onIncluir, onFechar, bloqueado }) {
+/**
+ * Incluir produtos na conta (ajuste de caixa).
+ * Após comprovante: exige comanda do cliente para vincular a nova venda.
+ * Com fidelidade ativa e cliente não identificado: pergunta se deseja pontuar.
+ */
+export function ModalIncluirProduto({
+  products = [],
+  onIncluir,
+  onFechar,
+  exigeComanda = false,
+  fidelidadeAtiva = false,
+  clienteIdentificado = false,
+  prefixoLoja = "",
+  processando = false,
+}) {
   const [busca, setBusca] = useState("");
+  const [comanda, setComanda] = useState("");
+  const [pendente, setPendente] = useState(null); // produto aguardando decisão de pontuar
+
   const lista = useMemo(() => {
     const q = busca.trim().toLowerCase();
     return (products || [])
@@ -44,40 +60,101 @@ export function ModalIncluirProduto({ products = [], onIncluir, onFechar, bloque
       .sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "pt-BR"));
   }, [products, busca]);
 
-  if (bloqueado) {
+  const comandaOk = !exigeComanda || /^[A-Z]{1,5}-\d{4,8}$/i.test(comanda.trim());
+  const perguntaPontos = fidelidadeAtiva && !clienteIdentificado;
+
+  function escolherProduto(p) {
+    if (exigeComanda && !comandaOk) return;
+    if (perguntaPontos) {
+      setPendente(p);
+      return;
+    }
+    onIncluir?.(p, { comanda: comanda.trim().toUpperCase(), pontuar: false });
+  }
+
+  function confirmarComPontuar(querPontuar) {
+    if (!pendente) return;
+    const p = pendente;
+    setPendente(null);
+    onIncluir?.(p, { comanda: comanda.trim().toUpperCase(), pontuar: querPontuar });
+  }
+
+  if (pendente) {
     return (
-      <ModalShell titulo="Incluir produto" subtitulo="Comprovante já emitido" onFechar={onFechar}>
-        <p className="rounded-xl border border-[var(--pp-warning)]/40 bg-[var(--pp-warning-soft)] px-3 py-4 text-sm font-semibold text-[var(--pp-warning-text)]">
-          Após emitir o comprovante da mesa, novos produtos não podem ser incluídos nesta conta.
+      <ModalShell titulo="Pontuar nesta compra?" subtitulo={pendente.name} onFechar={onFechar}>
+        <p className="rounded-xl border border-[#BFE3CB] bg-[#F2FBF5] px-3 py-3 text-sm font-semibold text-[#1F7A3D]">
+          Este produto pontua no programa de fidelidade. Deseja identificar o cliente para acumular pontos?
         </p>
-        <button type="button" onClick={onFechar} className="btn-laranja mt-4 min-h-11 w-full rounded-2xl text-sm font-black text-white">
-          Entendi
-        </button>
+        <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <button
+            type="button"
+            disabled={processando}
+            onClick={() => confirmarComPontuar(true)}
+            className="btn-laranja min-h-11 rounded-2xl text-sm font-black text-white disabled:opacity-60"
+          >
+            Sim, identificar
+          </button>
+          <button
+            type="button"
+            disabled={processando}
+            onClick={() => confirmarComPontuar(false)}
+            className="min-h-11 rounded-2xl border border-[var(--pp-border)] text-sm font-black text-[var(--pp-text-body)] disabled:opacity-60"
+          >
+            Continuar sem pontos
+          </button>
+        </div>
       </ModalShell>
     );
   }
 
   return (
-    <ModalShell titulo="Incluir produto" subtitulo="Ajuste de conta — sem ticket de cozinha" onFechar={onFechar} largura="max-w-xl">
-      <label className="relative mb-3 block">
+    <ModalShell
+      titulo="Incluir produto"
+      subtitulo={exigeComanda ? "Nova venda vinculada à comanda do cliente" : "Ajuste de conta — sem ticket de cozinha"}
+      onFechar={onFechar}
+      largura="max-w-xl"
+    >
+      {exigeComanda && (
+        <div className="mb-3 space-y-2">
+          <p className="rounded-xl border border-[#F5DFA3] bg-[#FFFBEB] px-3 py-2.5 text-sm font-semibold text-[#8D6708]">
+            Comprovante já emitido. Informe a comanda do cliente para vincular esta nova venda.
+          </p>
+          <label className="block">
+            <span className="mb-1 block text-xs font-black uppercase tracking-wide text-[var(--pp-text-muted)]">
+              Comanda do cliente{prefixoLoja ? ` (${prefixoLoja}-…)` : ""}
+            </span>
+            <input
+              value={comanda}
+              onChange={(e) => setComanda(e.target.value.toUpperCase().replace(/\s+/g, ""))}
+              placeholder={prefixoLoja ? `${prefixoLoja}-000001` : "CMD-000001"}
+              autoFocus
+              className="min-h-12 w-full rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-3 text-base font-bold uppercase tabular-nums text-[var(--pp-text)] outline-none focus:border-[var(--pp-primary)] sm:min-h-11 sm:text-sm"
+            />
+          </label>
+        </div>
+      )}
+
+      <label className={`relative mb-3 block ${exigeComanda && !comandaOk ? "pointer-events-none opacity-45" : ""}`}>
         <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--pp-text-muted)]" aria-hidden="true" />
         <input
           value={busca}
           onChange={(e) => setBusca(e.target.value)}
           placeholder="Buscar produto…"
-          className="min-h-12 w-full rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] py-2 pl-10 pr-3 text-base font-semibold text-[var(--pp-text)] outline-none focus:border-[var(--pp-primary)] sm:min-h-11 sm:text-sm"
-          autoFocus
+          disabled={exigeComanda && !comandaOk}
+          className="min-h-12 w-full rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] py-2 pl-10 pr-3 text-base font-semibold text-[var(--pp-text)] outline-none focus:border-[var(--pp-primary)] sm:min-h-11 sm:text-sm disabled:cursor-not-allowed"
+          autoFocus={!exigeComanda}
         />
       </label>
-      <ul className="space-y-2">
+      <ul className={`space-y-2 ${exigeComanda && !comandaOk ? "pointer-events-none opacity-45" : ""}`}>
         {lista.map((p) => {
           const preco = p.precoPromocional != null ? Number(p.precoPromocional) : Number(p.price) || 0;
           return (
             <li key={p.id}>
               <button
                 type="button"
-                onClick={() => onIncluir?.(p)}
-                className="flex min-h-14 w-full items-center justify-between gap-3 rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-3 py-2.5 text-left transition active:border-[var(--pp-primary)]/50 hover:border-[var(--pp-primary)]/50 hover:bg-white"
+                disabled={processando || (exigeComanda && !comandaOk)}
+                onClick={() => escolherProduto(p)}
+                className="flex min-h-14 w-full items-center justify-between gap-3 rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-3 py-2.5 text-left transition active:border-[var(--pp-primary)]/50 hover:border-[var(--pp-primary)]/50 hover:bg-white disabled:cursor-not-allowed"
               >
                 <span className="min-w-0">
                   <span className="block truncate text-sm font-black text-[var(--pp-text)]">{p.name}</span>

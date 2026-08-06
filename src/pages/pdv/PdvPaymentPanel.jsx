@@ -1,7 +1,7 @@
 import { useState } from "react";
 import {
   Eraser, Delete, Check, Banknote, QrCode, CreditCard, Wallet, Ticket, Star, X,
-  SplitSquareHorizontal, UserPlus, BadgeCheck, Gift, TicketPercent,
+  SplitSquareHorizontal, UserPlus, BadgeCheck, Gift, TicketPercent, MinusCircle, PlusCircle,
 } from "lucide-react";
 import { estiloFormaPagamento, formatCurrency, numeroParaMoeda, rotuloFormaCurto } from "./pdvHelpers";
 
@@ -26,6 +26,12 @@ const ICONE_POR_TIPO = {
 export default function PdvPaymentPanel({
   totalConta = 0,
   totalCobrar = 0,
+  subtotal = 0,
+  taxaServico = 0,
+  taxaPct = 0,
+  taxaRemovida = false,
+  acrescimo = 0,
+  descontoManual = 0,
   descontoCupom = 0,
   cupomAplicado = null,
   recebido = 0,
@@ -46,6 +52,9 @@ export default function PdvPaymentPanel({
   onIdentificarCliente,
   onAplicarCupom,
   onRemoverCupom,
+  onAlterarAcrescimo,
+  onAlterarDescontoManual,
+  onToggleTaxaServico,
   cupomProcessando = false,
   dividirDesabilitado,
   onDigito,
@@ -58,12 +67,16 @@ export default function PdvPaymentPanel({
   className = "",
 }) {
   const [codigoCupom, setCodigoCupom] = useState("");
+  const [acrescimoTxt, setAcrescimoTxt] = useState("");
+  const [descontoTxt, setDescontoTxt] = useState("");
   const formas = formasPagamento.filter((f) => f.active !== false && (f.nome || "").trim());
   const cols = Math.min(4, Math.max(2, formas.length || 1));
   const valorCampo = Number(bufferEntrada || 0) / 100;
   const formaLabel = formaSelecionada?.nome ? rotuloFormaCurto(formaSelecionada.nome) : "—";
   const quitado = restante <= 0.001 && totalCobrar > 0;
   const identificado = !!(cliente?.nome || cliente?.telefone);
+  const mostraTaxa = taxaPct > 0;
+  const temAjuste = acrescimo > 0 || descontoManual > 0 || taxaRemovida || descontoCupom > 0;
 
   return (
     <aside className={`flex w-full min-w-0 flex-col overflow-hidden border-[var(--pp-border)] bg-[var(--pp-surface)] ${className}`}>
@@ -227,6 +240,75 @@ export default function PdvPaymentPanel({
         )}
       </div>
 
+      {/* Acréscimo / desconto / taxa — ajuste no momento do pagamento */}
+      <div className="shrink-0 space-y-1 border-t border-[var(--pp-border)] px-2.5 py-1.5">
+        <div className="grid grid-cols-2 gap-1">
+          <label className="min-w-0">
+            <span className="mb-0.5 flex items-center gap-0.5 text-[8px] font-black uppercase tracking-wide text-[var(--pp-danger)]">
+              <MinusCircle size={9} aria-hidden="true" /> Desconto
+            </span>
+            <input
+              value={descontoTxt === ""
+                ? (descontoManual > 0 ? numeroParaMoeda(descontoManual) : "")
+                : numeroParaMoeda(Number(descontoTxt) / 100)}
+              onFocus={() => setDescontoTxt(String(Math.round((descontoManual || 0) * 100)))}
+              onChange={(e) => {
+                const digits = e.target.value.replace(/\D/g, "").slice(0, 9);
+                setDescontoTxt(digits);
+                onAlterarDescontoManual?.(Number(digits || 0) / 100);
+              }}
+              onBlur={() => setDescontoTxt("")}
+              placeholder="0,00"
+              inputMode="numeric"
+              aria-label="Desconto manual"
+              className="h-7 w-full rounded-lg border border-[var(--pp-border)] bg-[var(--pp-bg)] px-1.5 text-[10px] font-bold tabular-nums text-[var(--pp-text)] outline-none placeholder:text-[var(--pp-text-muted)] focus:border-[var(--pp-primary)]"
+            />
+          </label>
+          <label className="min-w-0">
+            <span className="mb-0.5 flex items-center gap-0.5 text-[8px] font-black uppercase tracking-wide text-[#1F7A3D]">
+              <PlusCircle size={9} aria-hidden="true" /> Acréscimo
+            </span>
+            <input
+              value={acrescimoTxt === ""
+                ? (acrescimo > 0 ? numeroParaMoeda(acrescimo) : "")
+                : numeroParaMoeda(Number(acrescimoTxt) / 100)}
+              onFocus={() => setAcrescimoTxt(String(Math.round((acrescimo || 0) * 100)))}
+              onChange={(e) => {
+                const digits = e.target.value.replace(/\D/g, "").slice(0, 9);
+                setAcrescimoTxt(digits);
+                onAlterarAcrescimo?.(Number(digits || 0) / 100);
+              }}
+              onBlur={() => setAcrescimoTxt("")}
+              placeholder="0,00"
+              inputMode="numeric"
+              aria-label="Acréscimo"
+              className="h-7 w-full rounded-lg border border-[var(--pp-border)] bg-[var(--pp-bg)] px-1.5 text-[10px] font-bold tabular-nums text-[var(--pp-text)] outline-none placeholder:text-[var(--pp-text-muted)] focus:border-[var(--pp-primary)]"
+            />
+          </label>
+        </div>
+        {mostraTaxa && (
+          <button
+            type="button"
+            onClick={onToggleTaxaServico}
+            aria-pressed={taxaRemovida}
+            className={`flex h-7 w-full items-center justify-between gap-1 rounded-lg border px-1.5 text-[9px] font-black transition ${
+              taxaRemovida
+                ? "border-[#F5DFA3] bg-[#FFFBEB] text-[#8D6708]"
+                : "border-[var(--pp-border)] bg-[var(--pp-bg)] text-[var(--pp-text-body)] hover:border-[var(--pp-primary)]"
+            }`}
+          >
+            <span className="truncate">
+              {taxaRemovida
+                ? `Taxa ${taxaPct}% removida`
+                : `Taxa de serviço ${taxaPct}% · ${formatCurrency(subtotal * taxaPct / 100)}`}
+            </span>
+            <span className="shrink-0 underline decoration-dotted">
+              {taxaRemovida ? "Restaurar" : "Remover"}
+            </span>
+          </button>
+        )}
+      </div>
+
       {/* Cupom — a disponibilidade é conferida no banco ao aplicar e ao fechar */}
       <div className="shrink-0 border-t border-[var(--pp-border)] px-2.5 py-1.5">
         {cupomAplicado ? (
@@ -265,8 +347,26 @@ export default function PdvPaymentPanel({
       </div>
 
       <div className="shrink-0 space-y-0.5 border-t border-[var(--pp-border)] px-2.5 py-1.5">
-        {descontoCupom > 0 && (
-          <LinhaSaldo label="Conta" valor={formatCurrency(totalConta)} tom="text-[var(--pp-text-muted)]" />
+        {temAjuste && (
+          <>
+            <LinhaSaldo label="Subtotal" valor={formatCurrency(subtotal || totalConta)} tom="text-[var(--pp-text-muted)]" />
+            {mostraTaxa && (
+              <LinhaSaldo
+                label={taxaRemovida ? `Taxa ${taxaPct}% (removida)` : `Taxa ${taxaPct}%`}
+                valor={taxaRemovida ? formatCurrency(0) : formatCurrency(taxaServico)}
+                tom={taxaRemovida ? "text-[#8D6708]" : "text-[var(--pp-text-muted)]"}
+              />
+            )}
+            {acrescimo > 0 && (
+              <LinhaSaldo label="Acréscimo" valor={`+${formatCurrency(acrescimo)}`} tom="text-[#1F7A3D]" />
+            )}
+            {descontoManual > 0 && (
+              <LinhaSaldo label="Desconto" valor={`−${formatCurrency(descontoManual)}`} tom="text-[var(--pp-danger)]" />
+            )}
+            {descontoCupom > 0 && (
+              <LinhaSaldo label={`Cupom ${cupomAplicado?.codigo || ""}`} valor={`−${formatCurrency(descontoCupom)}`} tom="text-[#1F7A3D]" />
+            )}
+          </>
         )}
         <LinhaSaldo label="Recebido" valor={formatCurrency(recebido)} tom="text-[#1F7A3D]" />
         <LinhaSaldo
