@@ -4291,7 +4291,7 @@ function CompanySelector({ lojas = [], valor, onChange }) {
   const termo = busca.trim().toLowerCase();
   const lista = termo ? lojas.filter((l) => `${l.nome} ${l.prefixo}`.toLowerCase().includes(termo)) : lojas;
   const escolher = (id) => { onChange(id); setAberto(false); setBusca(""); };
-  const item = (sel) => `group flex w-full items-center gap-2.5 rounded-xl border px-2.5 py-2 text-left text-sm transition duration-150 ${sel ? "border-[var(--pp-nav-accent)] bg-[rgba(88,183,205,0.14)] text-white" : "border-transparent text-white/85 hover:border-[var(--pp-nav-accent)] hover:bg-[rgba(88,183,205,0.10)]"}`;
+  const item = (sel) => `group flex w-full items-center gap-2.5 rounded-xl border px-2.5 py-1.5 text-left text-[12px] transition duration-150 ${sel ? "border-[var(--pp-nav-accent)] bg-[rgba(88,183,205,0.14)] text-white" : "border-transparent text-white/85 hover:border-[var(--pp-nav-accent)] hover:bg-[rgba(88,183,205,0.10)]"}`;
   const avatar = (sel) => `flex h-7 w-7 shrink-0 items-center justify-center rounded-md border transition-colors duration-150 ${sel ? "border-[rgba(88,183,205,0.5)] bg-[rgba(88,183,205,0.16)] text-[var(--pp-nav-accent)]" : "border-white/10 bg-white/[0.05] text-white/70 group-hover:text-[var(--pp-nav-accent)]"}`;
   const Globo = ({ className = "h-4 w-4" }) => (<svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c2.5 2.5 3.8 5.7 3.8 9S14.5 18.5 12 21c-2.5-2.5-3.8-5.7-3.8-9S9.5 5.5 12 3Z" /></svg>);
 
@@ -4303,8 +4303,8 @@ function CompanySelector({ lojas = [], valor, onChange }) {
           {atual ? <IconEmpresa /> : <Globo />}
         </span>
         <div className="min-w-0 flex-1">
-          <p className="font-display truncate text-[12.5px] font-bold text-white">{atual ? atual.nome : "Visão geral"}</p>
-          <p className="truncate text-[9.5px] font-medium text-white/65">{atual ? `Comandas: ${atual.prefixo}` : "Todas as empresas"}</p>
+          <p className="font-display truncate text-[11.5px] font-bold text-white leading-tight">{atual ? atual.nome : "Visão geral"}</p>
+          <p className="truncate text-[9px] font-medium text-white/60 leading-tight">{atual ? `Comandas: ${atual.prefixo}` : "Todas as empresas"}</p>
         </div>
         <svg className={`h-3.5 w-3.5 shrink-0 transition-transform duration-200 ${aberto ? "rotate-180 text-[var(--pp-nav-accent)]" : "text-white group-hover:text-[var(--pp-nav-accent)]"}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
       </button>

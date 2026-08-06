@@ -606,6 +606,13 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
   background-color: var(--pp-bg) !important; /* fundo geral (paleta oficial 2026) */
   color: var(--pp-text-body);                 /* texto principal */
 }
+/* Painel ADMINISTRATIVO: fundo BRANCO puro em toda a área de conteúdo (sobrepõe
+   o off-white geral do tema claro). Escopo só dentro de .pp-admin-module — as
+   demais áreas de tema claro (caixa, cozinha, painel) seguem no off-white.
+   Especificidade maior que a regra acima para vencer o !important. */
+[data-theme="light"].pp-admin-module .tema-claro-area {
+  background-color: #FFFFFF !important;
+}
 /* Superfícies sólidas escuras → branco (cards/painéis) */
 [data-theme="light"] .tema-claro-area.bg-black,
 [data-theme="light"] .tema-claro-area .bg-black,
