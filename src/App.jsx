@@ -5497,11 +5497,11 @@ function ComandasGestaoAdmin({ orders = [], products = [], lojaPrefixo = "", loj
 // botão de fechar — usado só no drawer mobile.
 function SidebarHeader({ subtitulo, onClose }) {
   return (
-    <div className="flex items-center gap-3 border-b border-white/10 px-5 py-4">
-      <LogoPP size={40} />
+    <div className="flex items-center gap-2.5 border-b border-white/10 px-4 py-3">
+      <LogoPP size={34} />
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-black leading-tight truncate"><span className="text-white">PEDIDO</span> <span className="text-[var(--pp-primary)]">PRIME</span></p>
-        <p className="text-[11px] text-white/70 truncate">{subtitulo}</p>
+        <p className="text-[13px] font-black leading-tight truncate"><span className="text-white">PEDIDO</span> <span className="text-[var(--pp-primary)]">PRIME</span></p>
+        <p className="text-[10.5px] text-white/70 truncate">{subtitulo}</p>
       </div>
       {onClose && (
         <button onClick={onClose} aria-label="Fechar menu"
@@ -5516,13 +5516,13 @@ function SidebarHeader({ subtitulo, onClose }) {
 function SidebarUserCompact({ currentUser, isSuperAdmin, lojaInfo }) {
   if (!currentUser) return null;
   return (
-    <div className="flex items-center gap-2.5 border-b border-white/10 px-5 py-3.5">
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/10 text-sm font-black text-white/85 uppercase select-none" aria-hidden="true">
+    <div className="flex items-center gap-2.5 border-b border-white/10 px-4 py-2.5">
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/10 text-[13px] font-black text-white/85 uppercase select-none" aria-hidden="true">
         {(currentUser.name || "U").charAt(0)}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-black text-white leading-tight">{currentUser.name}</p>
-        <p className="truncate text-[11px] text-white/60 leading-tight">{currentUser.role || "Usuário"}</p>
+        <p className="truncate text-[13px] font-black text-white leading-tight">{currentUser.name}</p>
+        <p className="truncate text-[10.5px] text-white/60 leading-tight">{currentUser.role || "Usuário"}</p>
       </div>
       {isSuperAdmin ? (
         <span className="shrink-0 rounded-full bg-[rgba(88,183,205,0.15)] px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-[var(--pp-nav-accent)]">Admin</span>
@@ -5544,7 +5544,7 @@ const SidebarItem = React.memo(function SidebarItem({ icon, label, selected, blo
   return (
     <button onClick={onClick} title={title} aria-current={selected ? "page" : undefined}
       className={cxSidebar(
-        "group relative flex min-h-[44px] w-full items-center gap-3 rounded-2xl border-l-[3px] p-4 text-[13px] tracking-[0.01em] transition-all duration-200 ease-out",
+        "group relative flex min-h-[38px] w-full items-center gap-2.5 rounded-xl border-l-[3px] px-3 py-2 text-[12.5px] tracking-[0.01em] transition-all duration-200 ease-out",
         "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-nav-accent)]",
         selected
           ? "border-l-[var(--pp-nav-accent)] bg-[rgba(88,183,205,0.16)] font-bold text-[var(--pp-nav-accent)]"
@@ -5562,8 +5562,8 @@ const cxSidebar = (...c) => c.filter(Boolean).join(" ");
 function SidebarSection({ titulo, children }) {
   return (
     <div>
-      <p className="px-4 mb-1.5 text-[10px] font-bold uppercase tracking-widest text-white/60">{titulo}</p>
-      <div className="space-y-1">{children}</div>
+      <p className="px-3 mb-1 text-[9.5px] font-bold uppercase tracking-widest text-white/55">{titulo}</p>
+      <div className="space-y-0.5">{children}</div>
     </div>
   );
 }
@@ -5588,7 +5588,7 @@ function SidebarFooter({ assinaturaAtual, onSair }) {
 // (nenhum outro componente deve renderizar itens de menu fora deste par).
 function SidebarNavItems({ menu, ativo, setAdminSection, canAccessModule, assinaturaAtual, planoAtual, planoModulos, isSuperAdmin, onNavigate }) {
   return (
-    <nav className="scrollbar-none flex-1 overflow-y-auto px-3 py-4 space-y-5" aria-label="Navegação principal">
+    <nav className="scrollbar-none flex-1 overflow-y-auto px-2.5 py-3 space-y-3" aria-label="Navegação principal">
       {menu.map((g) => (
         <SidebarSection key={g.grupo} titulo={g.grupo}>
           {g.itens.map((it) => {
@@ -5759,9 +5759,9 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
             <CompanySelector lojas={lojas} valor={lojaContexto} onChange={setLojaContexto} />
           </div>
         )}
-        <div className="border-b border-white/10 px-3 py-3">
+        <div className="border-b border-white/10 px-2.5 py-2.5">
           <button onClick={() => setCmdOpen(true)} aria-label="Abrir busca rápida (Ctrl K)"
-            className="flex min-h-[44px] w-full items-center gap-2 rounded-xl border border-white/10 bg-white/[0.05] px-3 py-2 text-left text-[13px] text-white/80 transition hover:bg-white/[0.08] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-nav-accent)]">
+            className="flex min-h-[38px] w-full items-center gap-2 rounded-lg border border-white/10 bg-white/[0.05] px-3 py-1.5 text-left text-[12.5px] text-white/80 transition hover:bg-white/[0.08] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-nav-accent)]">
             <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-white/80" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
             <span className="flex-1 truncate">Buscar telas…</span>
             <span className="shrink-0 rounded-md border border-white/10 px-1.5 py-0.5 text-[10px] font-bold text-white/70">Ctrl K</span>
@@ -5811,7 +5811,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
         {/* Conteúdo rolável — remonta ao trocar a "Empresa em foco" para refletir a empresa selecionada em todas as telas.
             Padding responsivo: no celular usa p-4 (mais largura útil, sem estourar em telas de 320px);
             cresce para p-5/p-6 em telas maiores. */}
-        <div key={`ctx-${lojaContexto ?? "geral"}`} className="tema-claro-area flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-5 lg:p-6">
+        <div key={`ctx-${lojaContexto ?? "geral"}`} className={`tema-claro-area flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-5 lg:p-6 ${ativo === "dashboard" || ativo === "copiloto" ? "bg-white" : ""}`}>
           {!canAccessModule(ativo, { assinatura: assinaturaAtual, plano: planoAtual, planoModulos, isSuperAdmin }) ? (
             <ModuloBloqueado slug={ativo} />
           ) : (<SecaoErrorBoundary key={ativo}>
@@ -6114,22 +6114,29 @@ const CARD_METRICA_TONES = {
   dashWarning: "bg-amber-500/10 text-amber-500",
   dashInfo:    "bg-violet-500/10 text-violet-500",
   dashDanger:  "bg-red-500/10 text-red-500",
+  // Paleta OFICIAL Pedido Prime (laranja=ação, petróleo=institucional, verde=sucesso)
+  marcaPetroleo: "bg-[#0F4C5C]/10 text-[#0F4C5C]",
+  marcaLaranja:  "bg-[#E67E22]/12 text-[#E67E22]",
+  marcaVerde:    "bg-[#5E8C31]/12 text-[#5E8C31]",
 };
-function CardMetrica({ titulo, valor, sub, cor = "text-brand-ink", icon, variacao = null, tone = "gold" }) {
+// `compact` (aditivo, default false) — versão mais enxuta e elegante do card,
+// usada no Dashboard Gerencial (fonte/altura menores). As demais telas seguem
+// idênticas ao passar sem a prop.
+function CardMetrica({ titulo, valor, sub, cor = "text-brand-ink", icon, variacao = null, tone = "gold", compact = false }) {
   const toneCls = CARD_METRICA_TONES[tone] || CARD_METRICA_TONES.gold;
   return (
-    <div className="h-full rounded-3xl border border-brand-border bg-white p-5">
-      <div className="flex items-center justify-between">
-        <p className="text-xs font-bold uppercase tracking-widest text-brand-inkMuted">{titulo}</p>
-        {icon && <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm [&>svg]:h-[18px] [&>svg]:w-[18px] ${toneCls}`}>{icon}</span>}
+    <div className={`h-full border border-brand-border bg-white ${compact ? "rounded-2xl p-4" : "rounded-3xl p-5"}`}>
+      <div className="flex items-center justify-between gap-2">
+        <p className={`font-bold uppercase tracking-widest text-brand-inkMuted ${compact ? "text-[10.5px]" : "text-xs"}`}>{titulo}</p>
+        {icon && <span className={`flex shrink-0 items-center justify-center rounded-full text-sm ${compact ? "h-8 w-8 [&>svg]:h-4 [&>svg]:w-4" : "h-10 w-10 [&>svg]:h-[18px] [&>svg]:w-[18px]"} ${toneCls}`}>{icon}</span>}
       </div>
-      <p className={`page-title mt-2 text-3xl font-bold ${cor}`}>{valor}</p>
+      <p className={`page-title font-bold ${compact ? "mt-1.5 text-[22px] leading-tight" : "mt-2 text-3xl"} ${cor}`}>{valor}</p>
       {variacao != null && (
         <p className={`mt-1 text-[11px] font-semibold ${variacao >= 0 ? "text-brand-success" : "text-brand-danger"}`}>
           {variacao >= 0 ? "▲ +" : "▼ "}{variacao.toFixed(0)}% em relação ao período anterior
         </p>
       )}
-      {sub && <p className="mt-1 text-xs text-brand-inkMuted">{sub}</p>}
+      {sub && <p className={`mt-1 text-brand-inkMuted ${compact ? "text-[11px]" : "text-xs"}`}>{sub}</p>}
     </div>
   );
 }
@@ -7476,11 +7483,14 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
   // Donut categorias e status — paleta oficial única de donuts do projeto, na
   // ordem definida: azul, verde, âmbar, violeta, ciano, cinza. Vermelho fica
   // reservado para erro/cancelado/crítico (não entra no ciclo de categorias).
-  const PALETA_SERIES_DASHBOARD = ["#0F4C5C", "#10B981", "#F59E0B", "#8B5CF6", "#06B6D4", "#64748B"];
+  // Paleta OFICIAL Pedido Prime: petróleo (institucional) + laranja (ação) +
+  // verde (frescor) e seus tons claros — sem arco-íris (azul/violeta/ciano fora
+  // da marca). Grafite fecha o ciclo como neutro para categorias extras.
+  const PALETA_SERIES_DASHBOARD = ["#0F4C5C", "#E67E22", "#5E8C31", "#3E7C8C", "#F0A55E", "#2D3436"];
   const catDonut = a.categorias.slice(0, 6).map((c, i) => ({ label: c.categoria, valor: c.valor, cor: PALETA_SERIES_DASHBOARD[i % PALETA_SERIES_DASHBOARD.length] }));
-  // Cor semântica por status (não cíclica): aguardando=âmbar (pendência), em
-  // preparo=azul (padrão), pronto=ciano (apoio gráfico), entregue=verde (sucesso).
-  const CORES_STATUS_PEDIDO = { received: "#F59E0B", preparing: "#0F4C5C", ready: "#06B6D4", delivered: "#10B981" };
+  // Cor semântica por status, dentro da paleta: aguardando=laranja (atenção/ação),
+  // em preparo=petróleo (padrão), pronto=petróleo claro (apoio), entregue=verde (sucesso).
+  const CORES_STATUS_PEDIDO = { received: "#E67E22", preparing: "#0F4C5C", ready: "#3E7C8C", delivered: "#5E8C31" };
   const statusDist = ["received", "preparing", "ready", "delivered"]
     .map((s) => ({ label: statusMap[s]?.label || s, valor: filtrados.filter((o) => o.status === s).length, cor: CORES_STATUS_PEDIDO[s] }))
     .filter((d) => d.valor > 0);
@@ -7513,7 +7523,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
   const mesasAbertas = mesasAtencao.length;
   const tempoMedioMesa = mesasAbertas ? Math.round(mesasAtencao.reduce((s, m) => s + m.mins, 0) / mesasAbertas) : 0;
   const fmtTempo = formatarDuracaoMin; // helper global — mesmo formato em toda a tela
-  const situacaoMesa = (m) => m.preparo ? { label: "Pedido em preparo", cls: "border-[#0F4C5C]/30 bg-[#0F4C5C]/10 text-[#0F4C5C]" } : { label: "Aguardando pagamento", cls: "border-amber-500/30 bg-amber-500/10 text-amber-500" };
+  const situacaoMesa = (m) => m.preparo ? { label: "Pedido em preparo", cls: "border-[#0F4C5C]/30 bg-[#0F4C5C]/10 text-[#0F4C5C]" } : { label: "Aguardando pagamento", cls: "border-[#E67E22]/30 bg-[#E67E22]/10 text-[#E67E22]" };
 
   // Cancelamentos e perdas
   const valorPerdido = cancelados.reduce((s, o) => s + orderTotal(o) * 1.1, 0);
@@ -7543,7 +7553,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
   ];
   const tomCls = {
     danger:  "border-[rgba(200,30,74,0.30)] bg-[rgba(200,30,74,0.08)] text-[#C81E4A]",
-    warning: "border-[rgba(245,158,11,0.30)] bg-[rgba(245,158,11,0.08)] text-amber-500",
+    warning: "border-[rgba(230,126,34,0.30)] bg-[rgba(230,126,34,0.08)] text-[#E67E22]",
     info:    "border-[rgba(15,76,92,0.30)] bg-[rgba(15,76,92,0.08)] text-[#0F4C5C]",
     success: "border-[rgba(47,158,82,0.30)] bg-[rgba(47,158,82,0.08)] text-[#2F9E52]",
   };
@@ -7743,15 +7753,15 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
   function analisarIndicador(pergunta) { enviarPerguntaIA(pergunta); }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Cabeçalho + período */}
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h2 className="page-title flex items-center gap-3 text-2xl font-bold tracking-tight text-[var(--pp-text)]">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#E67E22]/30 bg-[#E67E22]/10 text-[#E67E22]">{soCopiloto ? "🤖" : <IconDashboard />}</span>
+          <h2 className="page-title flex items-center gap-2.5 text-xl font-bold tracking-tight text-[var(--pp-text)]">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#E67E22]/30 bg-[#E67E22]/10 text-[#E67E22] [&>svg]:h-[18px] [&>svg]:w-[18px]">{soCopiloto ? "🤖" : <IconDashboard />}</span>
             {soCopiloto ? "Copiloto IA" : "Dashboard Gerencial"}
           </h2>
-          <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1.5 max-w-2xl text-sm text-[var(--pp-text-muted)]">
+          <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1.5 max-w-2xl text-[13px] text-[var(--pp-text-muted)]">
             <span>{soCopiloto ? "Inteligência gerencial baseada nos dados reais do seu negócio." : "Visão estratégica de vendas, operação, produtos, clientes e desempenho financeiro."}</span>
             {!soCopiloto && (
               <span className="inline-flex items-center gap-1.5 rounded-full bg-[rgba(47,158,82,0.10)] px-2.5 py-1 text-[11px] font-bold text-[var(--pp-success)]" title="Os dados são atualizados automaticamente em tempo real">
@@ -7798,21 +7808,21 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
         const meta = 45;
         const estoqueBaixo = (products || []).filter((p) => p.controlaEstoque && (Number(p.estoque) || 0) <= (Number(p.estoqueMinimo) || 0)).length;
         const pills = [
-          melhorHora?.valor > 0 && { dot: "bg-amber-500", txt: <>Melhor horário: <b className="font-bold text-dash-navy">{melhorHora.label}</b></> },
+          melhorHora?.valor > 0 && { dot: "bg-[#E67E22]", txt: <>Melhor horário: <b className="font-bold text-dash-navy">{melhorHora.label}</b></> },
           produtoTop && { dot: "bg-[#0F4C5C]", txt: <>Destaque: <b className="font-bold text-dash-navy">{produtoTop.nome}</b></> },
-          { dot: a.ticket >= meta ? "bg-[#2F9E52]" : "bg-amber-500", txt: <>Ticket médio {a.ticket >= meta ? "acima" : "abaixo"} da meta</> },
-          { dot: abertos.length === 0 ? "bg-[#2F9E52]" : "bg-amber-500", txt: abertos.length === 0 ? "Sem pendências financeiras" : <>{abertos.length} comanda(s) em aberto</> },
-          { dot: estoqueBaixo === 0 ? "bg-[#2F9E52]" : "bg-[#C81E4A]", txt: estoqueBaixo === 0 ? "Estoque sem alertas" : <>{estoqueBaixo} produto(s) sem estoque</> },
+          { dot: a.ticket >= meta ? "bg-[#5E8C31]" : "bg-[#E67E22]", txt: <>Ticket médio {a.ticket >= meta ? "acima" : "abaixo"} da meta</> },
+          { dot: abertos.length === 0 ? "bg-[#5E8C31]" : "bg-[#E67E22]", txt: abertos.length === 0 ? "Sem pendências financeiras" : <>{abertos.length} comanda(s) em aberto</> },
+          { dot: estoqueBaixo === 0 ? "bg-[#5E8C31]" : "bg-[#C81E4A]", txt: estoqueBaixo === 0 ? "Estoque sem alertas" : <>{estoqueBaixo} produto(s) sem estoque</> },
         ].filter(Boolean);
         return (
-          <div className="mt-4 flex flex-wrap items-center gap-2.5 rounded-2xl border border-[rgba(15,76,92,0.18)] bg-white px-4 py-3 shadow-[0_1px_2px_rgba(43,35,32,0.04),0_12px_28px_-14px_rgba(43,35,32,0.14)]">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-[rgba(15,76,92,0.10)] px-2.5 py-1 text-[11px] font-black uppercase tracking-widest text-[#0F4C5C]">
+          <div className="mt-4 flex flex-wrap items-center gap-2 rounded-2xl border border-[rgba(15,76,92,0.18)] bg-white px-3.5 py-2.5 shadow-[0_1px_2px_rgba(43,35,32,0.04),0_12px_28px_-14px_rgba(43,35,32,0.14)]">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-[rgba(15,76,92,0.10)] px-2.5 py-1 text-[10.5px] font-black uppercase tracking-widest text-[#0F4C5C]">
               <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor"><path d="M12 2l2.4 6.9H22l-6 4.3 2.3 7L12 16l-6.3 4.2 2.3-7-6-4.3h7.6z" /></svg>
               Resumo inteligente
             </span>
             <span className="hidden h-4 w-px bg-[var(--pp-border)] sm:block" />
             {pills.map((p, i) => (
-              <span key={i} className="inline-flex items-center gap-2 rounded-full border border-[var(--pp-border)] bg-[var(--pp-bg)] px-3 py-1.5 text-xs font-semibold text-[var(--pp-text-muted)]">
+              <span key={i} className="inline-flex items-center gap-2 rounded-full border border-[var(--pp-border)] bg-[var(--pp-bg)] px-2.5 py-1 text-[11px] font-semibold text-[var(--pp-text-muted)]">
                 <span className={`h-1.5 w-1.5 rounded-full ${p.dot}`} />{p.txt}
               </span>
             ))}
@@ -7821,21 +7831,21 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
       })()}
 
       {/* KPIs (8) */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <button onClick={() => setModal({ titulo: "Faturamento — pedidos pagos", pedidos: pagos })} className="block h-full w-full text-left">
-          <CardMetrica titulo="Faturamento pago" valor={formatCurrency(a.faturamento)} sub={`${pagos.length} pedidos pagos • ver detalhes`} cor="text-dash-navy" tone="dashSuccess" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="12" rx="2" /><circle cx="12" cy="12" r="2.5" /><path d="M6 12h.01M18 12h.01" /></svg>} variacao={comparativo?.faturamento} />
+          <CardMetrica compact titulo="Faturamento pago" valor={formatCurrency(a.faturamento)} sub={`${pagos.length} pedidos pagos • ver detalhes`} cor="text-dash-navy" tone="marcaVerde" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="12" rx="2" /><circle cx="12" cy="12" r="2.5" /><path d="M6 12h.01M18 12h.01" /></svg>} variacao={comparativo?.faturamento} />
         </button>
         <button onClick={() => setModal({ titulo: "Valores em aberto", pedidos: abertos })} className="block h-full w-full text-left">
-          <CardMetrica titulo="Valores em aberto" valor={formatCurrency(a.emAberto)} sub={`${abertos.length} comandas pendentes`} cor="text-dash-navy" tone="dashWarning" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>} />
+          <CardMetrica compact titulo="Valores em aberto" valor={formatCurrency(a.emAberto)} sub={`${abertos.length} comandas pendentes`} cor="text-dash-navy" tone="marcaLaranja" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>} />
         </button>
-        <CardMetrica titulo="Faturamento previsto" valor={formatCurrency(previsto)} sub="pago + em aberto" cor="text-dash-navy" tone="dashPrimary" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 17l6-6 4 4 8-8" /><path d="M17 7h4v4" /></svg>} />
-        <CardMetrica titulo="Ticket médio" valor={formatCurrency(a.ticket)} sub="meta sugerida: R$ 45,00" cor="text-dash-navy" tone="dashSuccess" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z" /><path d="M9 8h6M9 12h6" /></svg>} variacao={comparativo?.ticket} />
+        <CardMetrica compact titulo="Faturamento previsto" valor={formatCurrency(previsto)} sub="pago + em aberto" cor="text-dash-navy" tone="marcaPetroleo" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 17l6-6 4 4 8-8" /><path d="M17 7h4v4" /></svg>} />
+        <CardMetrica compact titulo="Ticket médio" valor={formatCurrency(a.ticket)} sub="meta sugerida: R$ 45,00" cor="text-dash-navy" tone="marcaPetroleo" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z" /><path d="M9 8h6M9 12h6" /></svg>} variacao={comparativo?.ticket} />
         <button onClick={() => setModal({ titulo: "Todos os pedidos do período", pedidos: filtrados })} className="block h-full w-full text-left">
-          <CardMetrica titulo="Total de pedidos" valor={a.totalPedidos} sub={`${pagos.length} pagos | ${abertos.length} em aberto`} cor="text-dash-navy" tone="dashPrimary" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8l-9-5-9 5 9 5 9-5z" /><path d="M3 8v8l9 5 9-5V8" /><path d="M12 13v8" /></svg>} variacao={comparativo?.pedidos} />
+          <CardMetrica compact titulo="Total de pedidos" valor={a.totalPedidos} sub={`${pagos.length} pagos | ${abertos.length} em aberto`} cor="text-dash-navy" tone="marcaPetroleo" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8l-9-5-9 5 9 5 9-5z" /><path d="M3 8v8l9 5 9-5V8" /><path d="M12 13v8" /></svg>} variacao={comparativo?.pedidos} />
         </button>
-        <CardMetrica titulo="Produto mais vendido" valor={produtoTop ? produtoTop.nome : "—"} sub={produtoTop ? `${produtoTop.qtd} unidades vendidas` : "sem vendas"} cor="text-dash-navy" tone="dashSuccess" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="9" r="5" /><path d="M9 13.5 8 21l4-2 4 2-1-7.5" /></svg>} />
-        <CardMetrica titulo="Mesas abertas" valor={mesasAbertas} sub={mesasAbertas ? `tempo médio aberto: ${tempoMedioMesa} min` : "nenhuma mesa aberta"} cor="text-dash-navy" tone="dashInfo" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></svg>} />
-        <CardMetrica titulo="Clientes no período" valor={clientesPeriodo} sub={`de ${clientes.length} cadastrados`} cor="text-dash-navy" tone="dashInfo" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 20v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="8" r="3.5" /><path d="M22 20v-2a4 4 0 0 0-3-3.8" /><path d="M16 4.2a4 4 0 0 1 0 7.6" /></svg>} />
+        <CardMetrica compact titulo="Produto mais vendido" valor={produtoTop ? produtoTop.nome : "—"} sub={produtoTop ? `${produtoTop.qtd} unidades vendidas` : "sem vendas"} cor="text-dash-navy" tone="marcaLaranja" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="9" r="5" /><path d="M9 13.5 8 21l4-2 4 2-1-7.5" /></svg>} />
+        <CardMetrica compact titulo="Mesas abertas" valor={mesasAbertas} sub={mesasAbertas ? `tempo médio aberto: ${tempoMedioMesa} min` : "nenhuma mesa aberta"} cor="text-dash-navy" tone="marcaPetroleo" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></svg>} />
+        <CardMetrica compact titulo="Clientes no período" valor={clientesPeriodo} sub={`de ${clientes.length} cadastrados`} cor="text-dash-navy" tone="marcaPetroleo" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 20v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="8" r="3.5" /><path d="M22 20v-2a4 4 0 0 0-3-3.8" /><path d="M16 4.2a4 4 0 0 1 0 7.6" /></svg>} />
       </div>
 
       </>)}
@@ -8158,10 +8168,10 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
             <span className="block text-sm font-black text-[var(--pp-text)]">{formatCurrency(a.faturamento)}</span>
           </span>
         ) : null}>
-        <BarrasHora dados={vendasPorHora} paleta={{ semVenda: "#0F4C5C", pico: "#F59E0B", acimaMedia: "#0F4C5C", padrao: "#0F4C5C", grade: "#EAE0D6", texto: "#8A7D73", textoValor: "#8A7D73" }} />
+        <BarrasHora dados={vendasPorHora} paleta={{ semVenda: "#E6E6E6", pico: "#E67E22", acimaMedia: "#0F4C5C", padrao: "#0F4C5C", grade: "#E6E6E6", texto: "#8A7D73", textoValor: "#8A7D73" }} />
         {melhorHora.valor > 0 && (
           <div className="mt-4 flex flex-wrap gap-2">
-            <span className="rounded-full bg-amber-500/10 px-3 py-1.5 text-xs font-bold text-amber-500">★ Melhor horário: {melhorHora.label} — {formatCurrency(melhorHora.valor)}</span>
+            <span className="rounded-full bg-[#E67E22]/10 px-3 py-1.5 text-xs font-bold text-[#E67E22]">★ Melhor horário: {melhorHora.label} — {formatCurrency(melhorHora.valor)}</span>
             <span className="rounded-full bg-[#0F4C5C]/10 px-3 py-1.5 text-xs font-bold text-[#0F4C5C]">Oportunidade: estimular vendas nos horários de menor movimento.</span>
           </div>
         )}
@@ -8204,7 +8214,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
         <Painel titulo="Formas de Pagamento">
           <div className="space-y-3">
             <BarraHorizontal label="Recebido (pago)" valor={a.faturamento} max={Math.max(1, previsto)} sufixo="R$" cor="bg-[#2F9E52]" />
-            <BarraHorizontal label="Pendente (em aberto)" valor={a.emAberto} max={Math.max(1, previsto)} sufixo="R$" cor="bg-amber-500" />
+            <BarraHorizontal label="Pendente (em aberto)" valor={a.emAberto} max={Math.max(1, previsto)} sufixo="R$" cor="bg-[#E67E22]" />
           </div>
           <p className="mt-3 text-[11px] text-[var(--pp-text-muted)]">Detalhamento por forma (Pix, crédito, débito, dinheiro) disponível em <b className="text-dash-navy">Fechamento de Caixa</b>.</p>
         </Painel>
@@ -8244,7 +8254,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
                     return (
                       <tr key={m.mesa} className="border-b border-[var(--pp-border)]">
                         <td className="py-2.5 pr-3 font-bold text-dash-navy">{m.mesa}</td>
-                        <td className={`py-2.5 pr-3 ${m.mins >= 40 ? "text-amber-500 font-semibold" : "text-[var(--pp-text-muted)]"}`}>{fmtTempo(m.mins)}</td>
+                        <td className={`py-2.5 pr-3 ${m.mins >= 40 ? "text-[#E67E22] font-semibold" : "text-[var(--pp-text-muted)]"}`}>{fmtTempo(m.mins)}</td>
                         <td className="py-2.5 pr-3 text-right font-semibold text-dash-navy">{formatCurrency(m.valor)}</td>
                         <td className="py-2.5 pl-3"><span className={`inline-flex rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${sit.cls}`}>{sit.label}</span></td>
                       </tr>
