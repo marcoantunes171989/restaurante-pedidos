@@ -1472,18 +1472,21 @@ export default function CardapioPublico() {
       fogo: (p) => (<svg viewBox="0 0 24 24" fill="currentColor" {...p}><path d="M12 2c1 3 4 4.5 4 8a4 4 0 0 1-8 0c0-1.2.4-2.2 1-3-.2 2 .8 3 2 3 1.2 0 2-1 2-2.2C15 8 12 6 12 2Z" /></svg>),
     };
     return (
-      <div data-theme="light" className="pp-mesa-welcome tema-claro-area flex min-h-screen w-full max-w-[100vw] flex-col overflow-x-hidden bg-[var(--client-background)] px-5 text-[var(--client-text-primary)]"
-        style={{ minHeight: "100dvh", paddingTop: "calc(env(safe-area-inset-top) + 1.5rem)", paddingBottom: "calc(env(safe-area-inset-bottom) + 1.5rem)" }}>
-        <div className="mx-auto flex w-full max-w-md flex-col">
+      <div data-theme="light" className="pp-mesa-welcome tema-claro-area flex h-[100dvh] max-h-[100dvh] w-full max-w-[100vw] flex-col overflow-y-auto scrollbar-none bg-[var(--client-background)] px-5 text-[var(--client-text-primary)]"
+        style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.5rem)", paddingBottom: "calc(env(safe-area-inset-bottom) + 0.5rem)" }}>
+        {/* my-auto centraliza verticalmente quando cabe (tela única, sem rolar);
+            se em telas muito baixas o conteúdo exceder, o my-auto colapsa e o
+            container rola — os botões continuam sempre acessíveis (nunca cortados). */}
+        <div className="mx-auto my-auto flex w-full max-w-md flex-col gap-[clamp(0.4rem,1.3vh,0.85rem)]">
           {/* Marca */}
           <div className="flex flex-col items-center text-center">
-            {loja.logoUrl ? <img src={loja.logoUrl} alt="" className="h-16 w-16 rounded-2xl border border-[var(--client-border)] object-cover shadow-[var(--client-shadow-sm)]" /> : <LogoPP size={64} />}
-            <h1 className="page-title mt-3 text-2xl font-bold tracking-tight text-[var(--client-text-primary)]">{loja.nome}</h1>
-            <div className="mt-1.5 flex items-center gap-2 text-[var(--client-primary)]" aria-hidden="true">
+            {loja.logoUrl ? <img src={loja.logoUrl} alt="" className="h-[clamp(44px,7vh,60px)] w-[clamp(44px,7vh,60px)] rounded-2xl border border-[var(--client-border)] object-cover shadow-[var(--client-shadow-sm)]" /> : <LogoPP size={52} />}
+            <h1 className="page-title mt-1.5 text-[clamp(1.15rem,2.4vh,1.5rem)] font-bold tracking-tight text-[var(--client-text-primary)]">{loja.nome}</h1>
+            <div className="mt-1 flex items-center gap-2 text-sm text-[var(--client-primary)]" aria-hidden="true">
               <span className="h-px w-6 bg-[var(--client-border)]" />★★★<span className="h-px w-6 bg-[var(--client-border)]" />
             </div>
             {(currentTable || lojaStatus) && (
-              <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+              <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
                 {currentTable && <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--client-primary-border)] bg-[var(--client-primary-soft)] px-4 py-1.5 text-sm font-bold text-[var(--client-primary-hover)]"><CkIconMesa width={14} height={14} /> {currentTable}</span>}
                 {lojaStatus === "aberto" && <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--client-success-border)] bg-[var(--client-success-soft)] px-3.5 py-1.5 text-sm font-bold text-[var(--client-success)]"><span className="h-1.5 w-1.5 rounded-full bg-[var(--client-success)]" aria-hidden="true" /> Aberto agora</span>}
                 {lojaStatus === "fechado" && <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--client-status-neutral-border)] bg-[var(--client-status-neutral-soft)] px-3.5 py-1.5 text-sm font-bold text-[var(--client-status-neutral)]"><CkIconRelogio width={13} height={13} /> Fechado no momento</span>}
@@ -1491,28 +1494,30 @@ export default function CardapioPublico() {
             )}
           </div>
 
-          {/* Carrossel de destaques (dados reais) */}
+          {/* Carrossel de destaques (dados reais) — altura fluida por vh para
+              caber junto do resto numa única tela; conteúdo interno também
+              encolhe por clamp. */}
           {nSlides > 0 && (
-            <div className="relative mt-5">
-              <div className="flex snap-x snap-mandatory overflow-x-auto scrollbar-none rounded-[1.75rem]"
+            <div className="relative mt-3">
+              <div className="flex snap-x snap-mandatory overflow-x-auto scrollbar-none rounded-[1.5rem]"
                 onScroll={(e) => { const w = e.currentTarget.clientWidth; if (w) setWelcomeSlide(Math.round(e.currentTarget.scrollLeft / w)); }}>
                 {slides.map((p, i) => (
-                  <article key={p.id} className="relative flex h-[280px] w-full shrink-0 snap-center overflow-hidden rounded-[1.75rem]" style={{ background: "#0E2A33" }}>
+                  <article key={p.id} className="relative flex h-[clamp(150px,23vh,222px)] w-full shrink-0 snap-center overflow-hidden rounded-[1.5rem]" style={{ background: "#0E2A33" }}>
                     <img src={p.imageUrl || fallbackImage} alt={p.name} loading={i === 0 ? "eager" : "lazy"} decoding="async"
                       onError={(e) => { if (e.currentTarget.src !== fallbackImage) e.currentTarget.src = fallbackImage; }}
                       className="absolute inset-y-0 right-0 h-full w-[62%] object-cover" />
                     <div className="absolute inset-0" style={{ background: "linear-gradient(90deg, #0E2A33 34%, rgba(14,42,51,0.85) 52%, rgba(14,42,51,0) 78%)" }} />
-                    <span className="absolute right-3 top-3 rounded-full bg-black/35 px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur-sm">{i + 1} / {nSlides}</span>
-                    <div className="relative z-10 flex w-[64%] flex-col justify-center p-5">
+                    <span className="absolute right-3 top-3 rounded-full bg-black/35 px-2.5 py-0.5 text-[10px] font-bold text-white backdrop-blur-sm">{i + 1} / {nSlides}</span>
+                    <div className="relative z-10 flex w-[64%] flex-col justify-center p-4">
                       {p.badge && (
-                        <span className="mb-2 inline-flex w-fit items-center gap-1.5 rounded-full bg-[var(--client-primary)] px-3 py-1 text-[11px] font-black uppercase tracking-wide text-white shadow-[0_4px_14px_rgba(230,126,34,0.4)]">
-                          <IconeMini.fogo width={12} height={12} /> {p.badge}
+                        <span className="mb-1.5 inline-flex w-fit items-center gap-1 rounded-full bg-[var(--client-primary)] px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-white shadow-[0_4px_14px_rgba(230,126,34,0.4)]">
+                          <IconeMini.fogo width={11} height={11} /> {p.badge}
                         </span>
                       )}
-                      <h2 className="page-title text-[22px] font-black leading-[1.1] text-white line-clamp-2">{p.name}</h2>
-                      {p.description && <p className="mt-1.5 line-clamp-3 text-[12px] leading-snug text-white/75">{p.description}</p>}
-                      <p className="mt-2.5 text-xl font-black text-[var(--client-primary)]">{formatCurrency(p.price)}</p>
-                      <button onClick={() => setDetalhe(p)} className="mt-3 inline-flex w-fit items-center gap-2 rounded-xl bg-white px-4 py-2 text-[13px] font-black text-[#0E2A33] shadow-sm transition active:scale-95">
+                      <h2 className="page-title text-[clamp(16px,2.4vh,20px)] font-black leading-[1.1] text-white line-clamp-2">{p.name}</h2>
+                      {p.description && <p className="mt-1 line-clamp-2 text-[11px] leading-snug text-white/75">{p.description}</p>}
+                      <p className="mt-1.5 text-lg font-black text-[var(--client-primary)]">{formatCurrency(p.price)}</p>
+                      <button onClick={() => setDetalhe(p)} className="mt-2 inline-flex w-fit items-center gap-2 rounded-xl bg-white px-3.5 py-1.5 text-[12px] font-black text-[#0E2A33] shadow-sm transition active:scale-95">
                         Ver detalhes <span aria-hidden="true">→</span>
                       </button>
                     </div>
@@ -1520,40 +1525,42 @@ export default function CardapioPublico() {
                 ))}
               </div>
               {nSlides > 1 && (
-                <div className="mt-3 flex justify-center gap-1.5">
+                <div className="mt-2 flex justify-center gap-1.5">
                   {slides.map((_, i) => <span key={i} className={`h-1.5 rounded-full transition-all duration-200 ${i === slideAtual ? "w-4 bg-[var(--client-primary)]" : "w-1.5 bg-[var(--client-border)]"}`} />)}
                 </div>
               )}
             </div>
           )}
 
-          {/* Boas-vindas + CTA */}
-          <div className="mt-5 text-center">
-            <p className="text-lg font-black text-[var(--client-text-primary)]"><span aria-hidden="true">👋</span> Bem-vindo!</p>
-            <p className="mt-1 text-sm leading-6 text-[var(--client-text-secondary)]">Peça seus pratos favoritos de forma rápida, segura e prática direto do seu celular.</p>
+          {/* Boas-vindas + CTA — sempre visíveis e acessíveis (nunca cortados) */}
+          <div className="mt-1 text-center">
+            <p className="text-[clamp(15px,2.2vh,18px)] font-black text-[var(--client-text-primary)]"><span aria-hidden="true">👋</span> Bem-vindo!</p>
+            <p className="pp-mesa-opt-sub mt-0.5 text-[13px] leading-snug text-[var(--client-text-secondary)]">Peça seus pratos favoritos de forma rápida, segura e prática direto do seu celular.</p>
           </div>
-          <button onClick={() => setEtapa("cardapio")} className="mt-4 flex w-full min-h-[54px] items-center justify-center gap-3 rounded-2xl btn-laranja bg-[var(--client-primary-hover)] px-5 text-base font-black text-white shadow-[var(--client-shadow-sm)] transition active:scale-95 hover:bg-[var(--client-primary)]">
+          <button onClick={() => setEtapa("cardapio")} className="mt-1 flex w-full min-h-[52px] items-center justify-center gap-3 rounded-2xl btn-laranja bg-[var(--client-primary-hover)] px-5 text-base font-black text-white shadow-[var(--client-shadow-sm)] transition active:scale-95 hover:bg-[var(--client-primary)]">
             <CkIconRecibo width={18} height={18} /> Ver cardápio <span className="ml-auto" aria-hidden="true">→</span>
           </button>
           {meusPedidos.length > 0 && (
-            <button onClick={() => { setEtapa("cardapio"); setAba("conta"); }} className="mt-3 inline-flex min-h-11 items-center justify-center gap-1.5 px-3 text-sm font-bold text-[var(--client-info)] transition hover:text-[var(--client-info-hover)]">
+            <button onClick={() => { setEtapa("cardapio"); setAba("conta"); }} className="inline-flex min-h-11 items-center justify-center gap-1.5 px-3 text-sm font-bold text-[var(--client-info)] transition hover:text-[var(--client-info-hover)]">
               <CkIconRecibo width={15} height={15} /> Acompanhar meu pedido ({meusPedidos.length})
             </button>
           )}
 
-          {/* Precisa de algo? — chamados REAIS (garçom/ajuda/limpeza) */}
+          {/* Precisa de algo? — chamados REAIS (garçom/ajuda/limpeza).
+              Optional: oculto em telas muito baixas (o cabeçalho do cardápio
+              também oferece esses chamados). */}
           {!modoExterno && mesa && (
-            <div className="mt-5 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] p-4 shadow-[var(--client-shadow-sm)]">
-              <p className="text-center text-sm font-black text-[var(--client-text-primary)]">Precisa de algo?</p>
-              <div className="mt-3 grid grid-cols-3 gap-2">
+            <div className="pp-mesa-opt1 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] p-3 shadow-[var(--client-shadow-sm)]">
+              <p className="text-center text-[13px] font-black text-[var(--client-text-primary)]">Precisa de algo?</p>
+              <div className="mt-2 grid grid-cols-3 gap-2">
                 {[["garcom", CkIconSino, "Chamar", "atendente", "Chamar garçom"], ["ajuda", CkIconAjuda, "Ajuda", "e suporte", "Pedir ajuda"], ["limpeza", CkIconLimpeza, "Limpeza", "da mesa", "Solicitar limpeza"]].map(([t, Icone, l1, l2, aria]) => {
                   const emAndamento = chamando === t;
                   return (
                     <button key={t} onClick={() => chamar(t, l1)} disabled={!!chamando} aria-busy={emAndamento} aria-label={aria} title={aria}
-                      className="flex flex-col items-center gap-1.5 rounded-xl border border-[var(--client-border)] bg-[var(--client-surface-secondary)] px-2 py-3 text-center transition active:scale-95 hover:bg-[var(--client-border)] disabled:cursor-not-allowed disabled:opacity-60">
-                      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--client-info-soft)] text-[var(--client-info)]">{emAndamento ? <CkIconSpinner /> : <Icone width={17} height={17} />}</span>
-                      <span className="text-[12px] font-bold leading-tight text-[var(--client-text-primary)]">{l1}</span>
-                      <span className="-mt-1 text-[10px] leading-tight text-[var(--client-text-secondary)]">{l2}</span>
+                      className="flex flex-col items-center gap-1 rounded-xl border border-[var(--client-border)] bg-[var(--client-surface-secondary)] px-2 py-2 text-center transition active:scale-95 hover:bg-[var(--client-border)] disabled:cursor-not-allowed disabled:opacity-60">
+                      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--client-info-soft)] text-[var(--client-info)]">{emAndamento ? <CkIconSpinner /> : <Icone width={16} height={16} />}</span>
+                      <span className="text-[11px] font-bold leading-tight text-[var(--client-text-primary)]">{l1}</span>
+                      <span className="-mt-0.5 text-[9px] leading-tight text-[var(--client-text-secondary)]">{l2}</span>
                     </button>
                   );
                 })}
@@ -1561,32 +1568,33 @@ export default function CardapioPublico() {
             </div>
           )}
 
-          {/* Selos de confiança */}
-          <div className="mt-4 grid grid-cols-3 gap-3 rounded-2xl px-4 py-3.5 text-white" style={{ background: "#0E2A33" }}>
+          {/* Selos de confiança — optional em telas baixas */}
+          <div className="pp-mesa-opt2 grid grid-cols-3 gap-3 rounded-2xl px-4 py-3 text-white" style={{ background: "#0E2A33" }}>
             {[[IconeMini.escudo, "Pedido Seguro", "Dados protegidos"], [IconeMini.relogio, "Rápido e Fácil", "Em poucos passos"], [IconeMini.selo, "Qualidade", "Ingredientes selecionados"]].map(([Ic, t, s]) => (
-              <div key={t} className="flex flex-col items-center gap-1.5 text-center">
-                <Ic width={20} height={20} />
-                <span className="text-[11px] font-black leading-tight">{t}</span>
-                <span className="-mt-0.5 text-[9.5px] leading-tight text-white/70">{s}</span>
+              <div key={t} className="flex flex-col items-center gap-1 text-center">
+                <Ic width={19} height={19} />
+                <span className="text-[10.5px] font-black leading-tight">{t}</span>
+                <span className="-mt-0.5 text-[9px] leading-tight text-white/70">{s}</span>
               </div>
             ))}
           </div>
 
-          {/* Fidelidade — só quando há programa de pontos vigente (dado real) */}
+          {/* Fidelidade — só quando há programa de pontos vigente (dado real).
+              Optional em telas baixas. */}
           {fidRegraPub && (
-            <button onClick={() => setEtapa("cardapio")} className="mt-3 flex w-full items-center gap-3 rounded-2xl border border-[var(--client-primary-border)] bg-[var(--client-primary-soft)] px-4 py-3 text-left transition active:scale-[0.99]">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--client-primary)] text-white"><IconeMini.presente width={18} height={18} /></span>
+            <button onClick={() => setEtapa("cardapio")} className="pp-mesa-opt3 flex w-full items-center gap-3 rounded-2xl border border-[var(--client-primary-border)] bg-[var(--client-primary-soft)] px-4 py-2.5 text-left transition active:scale-[0.99]">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[var(--client-primary)] text-white"><IconeMini.presente width={17} height={17} /></span>
               <span className="min-w-0 flex-1">
-                <span className="block text-[13px] font-black text-[var(--client-primary-hover)]">Acumule pontos e ganhe benefícios!</span>
-                <span className="block text-[11px] text-[var(--client-text-secondary)]">Participe do nosso programa de fidelidade.</span>
+                <span className="block text-[12.5px] font-black text-[var(--client-primary-hover)]">Acumule pontos e ganhe benefícios!</span>
+                <span className="block text-[10.5px] text-[var(--client-text-secondary)]">Participe do nosso programa de fidelidade.</span>
               </span>
               <span className="shrink-0 text-[13px] font-black text-[var(--client-primary-hover)]" aria-hidden="true">→</span>
             </button>
           )}
 
           {/* Rodapé — assinatura + versão sincronizada com o deploy (Vercel) */}
-          <div className="mt-5 flex items-center justify-center gap-2 text-[11px] text-[var(--client-text-secondary)]">
-            <IconeMini.cadeado width={12} height={12} /> Tecnologia e confiança
+          <div className="flex items-center justify-center gap-2 text-[10.5px] text-[var(--client-text-secondary)]">
+            <IconeMini.cadeado width={11} height={11} /> Tecnologia e confiança
             <span className="font-black"><span className="text-[var(--client-text-primary)]">Pedido</span><span className="text-[var(--client-primary)]">Prime</span></span>
             <span className="text-[var(--client-border)]">·</span> Versão {versaoApp}
           </div>

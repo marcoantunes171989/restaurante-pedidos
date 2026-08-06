@@ -1101,6 +1101,20 @@ select::-ms-expand { display: none; } /* IE/Edge antigo */
    O essencial (marca, headline, benefícios, estabelecimentos) fica sempre. */
 @media (max-height: 900px) { .pp-login-optional { display: none !important; } }
 
+/* Tela de boas-vindas da mesa (QR) — cabe numa ÚNICA tela do celular sem
+   rolar. O essencial (marca, carrossel, "Bem-vindo" e o botão "Ver cardápio")
+   fica SEMPRE visível e acessível; os blocos opcionais vão sendo ocultados à
+   medida que a altura diminui, do menos ao mais importante:
+     opt3 (fidelidade)  → some antes    (< 860px)
+     opt2 (selos)       → some em seguida (< 800px)
+     opt1 (precisa de algo — redundante com o cabeçalho do cardápio) (< 740px)
+     opt-sub (subtítulo do "Bem-vindo") → some por último em telas bem baixas.
+   Assim os botões nunca são cortados pelo overflow-hidden do container. */
+@media (max-height: 940px) { .pp-mesa-welcome .pp-mesa-opt3 { display: none !important; } }
+@media (max-height: 860px) { .pp-mesa-welcome .pp-mesa-opt2 { display: none !important; } }
+@media (max-height: 780px) { .pp-mesa-welcome .pp-mesa-opt1 { display: none !important; } }
+@media (max-height: 680px) { .pp-mesa-welcome .pp-mesa-opt-sub { display: none !important; } }
+
 /* Remove a barra de rolagem lateral da página inteira (scroll continua
    funcional, só a barra visual some) — overflow-x:hidden já garantido
    acima (html, body, #root); aqui só a barra vertical fica invisível. */
