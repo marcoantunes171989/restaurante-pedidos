@@ -1741,7 +1741,9 @@ export default function RestaurantePedidoApp() {
           ? "Já existe um cupom com esse código nesta loja."
           : /relation|does not exist|schema cache|tab_cupons/i.test(msg)
             ? "Tabela de cupons ainda não existe no Supabase. Rode a migration 075 no SQL Editor."
-            : "Erro ao criar cupom no banco: " + msg;
+            : /canal|hora_inicio|hora_fim|076/i.test(msg)
+              ? "Campos de canal/horário do cupom ainda não existem. Rode a migration 076 no SQL Editor."
+              : "Erro ao criar cupom no banco: " + msg;
         notify("error", erro);
         return { ok: false, erro };
       }
