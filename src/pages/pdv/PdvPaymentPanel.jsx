@@ -23,17 +23,14 @@ const ICONE_POR_TIPO = {
  * cupom e saldos — assim a tela não “pula” ao aplicar ajustes.
  */
 export default function PdvPaymentPanel({
-  totalConta = 0,
   totalCobrar = 0,
   subtotal = 0,
-  taxaServico = 0,
   taxaPct = 0,
   taxaRemovida = false,
   acrescimo = 0,
   descontoManual = 0,
   descontoCupom = 0,
   cupomAplicado = null,
-  recebido = 0,
   restante = 0,
   troco = 0,
   pagamentos = [],
@@ -384,32 +381,8 @@ export default function PdvPaymentPanel({
           </p>
         </div>
 
-        {/* Saldos sempre nas mesmas linhas — evita salto ao lançar acréscimo/desconto */}
+        {/* Falta/Troco à direita — subtotal, taxa, desconto, acréscimo e recebido ficam na coluna da conta */}
         <div className="space-y-0.5 px-2.5 py-1.5">
-          <LinhaSaldo label="Subtotal" valor={formatCurrency(subtotal || totalConta)} tom="text-[var(--pp-text-muted)]" />
-          {mostraTaxa && (
-            <LinhaSaldo
-              label={taxaRemovida ? `Taxa ${taxaPct}% (removida)` : `Taxa ${taxaPct}%`}
-              valor={taxaRemovida ? formatCurrency(0) : formatCurrency(taxaServico)}
-              tom={taxaRemovida ? "text-[#8D6708]" : "text-[var(--pp-text-muted)]"}
-            />
-          )}
-          <LinhaSaldo
-            label="Acréscimo"
-            valor={acrescimo > 0 ? `+${formatCurrency(acrescimo)}` : formatCurrency(0)}
-            tom={acrescimo > 0 ? "text-[#1F7A3D]" : "text-[var(--pp-text-muted)]"}
-          />
-          <LinhaSaldo
-            label="Desconto"
-            valor={descontoManual > 0 ? `−${formatCurrency(descontoManual)}` : formatCurrency(0)}
-            tom={descontoManual > 0 ? "text-[var(--pp-danger)]" : "text-[var(--pp-text-muted)]"}
-          />
-          <LinhaSaldo
-            label={cupomAplicado ? `Cupom ${cupomAplicado.codigo}` : "Cupom"}
-            valor={descontoCupom > 0 ? `−${formatCurrency(descontoCupom)}` : formatCurrency(0)}
-            tom={descontoCupom > 0 ? "text-[#1F7A3D]" : "text-[var(--pp-text-muted)]"}
-          />
-          <LinhaSaldo label="Recebido" valor={formatCurrency(recebido)} tom="text-[#1F7A3D]" />
           <LinhaSaldo
             label={quitado ? "Restante" : "Falta"}
             valor={formatCurrency(restante)}

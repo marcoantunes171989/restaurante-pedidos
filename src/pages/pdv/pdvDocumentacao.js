@@ -12,7 +12,7 @@
 import { formatCurrency } from "./pdvHelpers";
 
 /** Versão da documentação — acompanha a versão da tela do PDV. */
-export const PDV_DOC_VERSAO = "2026.08.8";
+export const PDV_DOC_VERSAO = "2026.08.9";
 export const PDV_DOC_ATUALIZADO_EM = "06/08/2026";
 
 const IMG = "/ajuda/pdv";
@@ -80,7 +80,7 @@ export function secoesDocumentacao(ctx = {}) {
           cabecalho: ["Canal", "Use quando"],
           linhas: [
             ["Mesa", "Atendimento presencial. Mostra todas as mesas cadastradas com a cor do status."],
-            ["Delivery", "Pedidos externos de entrega e retirada, com o estágio de cada um."],
+            ["Delivery", "Pedidos externos de entrega e retirada, com o estágio de cada um. Dá para pagar vários de uma vez."],
             ["Comanda", "Você tem o número da comanda em mãos e quer chegar direto na conta."],
             ["Cliente", "Procurar pelo nome ou telefone de quem está consumindo."],
             ["Pedido", "Localizar por número do pedido — útil para conferência e conflitos."],
@@ -90,6 +90,17 @@ export function secoesDocumentacao(ctx = {}) {
           tipo: "dica",
           titulo: "Atalho",
           texto: "A tecla F3 volta para o canal Mesa de qualquer lugar da tela.",
+        },
+        {
+          tipo: "passos",
+          titulo: "Delivery: pagar vários pedidos no mesmo fechamento",
+          itens: [
+            "Abra o canal Delivery e toque em Pagar vários (fica ativo em destaque).",
+            "Toque em cada card que deve entrar no pagamento — a faixa mostra quantos e o total somado.",
+            "À esquerda, os produtos aparecem separados por comanda, pedido, tipo (entrega/retirada) e cliente.",
+            "Na coluna de pagamento, lance as formas normalmente sobre o total combinado e feche a conta — todas as comandas selecionadas são baixadas juntas.",
+            "Para voltar ao modo um a um, toque de novo em Pagar vários.",
+          ],
         },
       ],
     },
@@ -221,7 +232,7 @@ export function secoesDocumentacao(ctx = {}) {
         {
           tipo: "dica",
           titulo: "Layout estável no pagamento",
-          texto: "Acréscimo, desconto e cupom não deslocam o teclado: a coluna da direita rola a parte de baixo. Na coluna da esquerda, produtos e totais (incluindo cupom) rolam juntos para você conferir tudo intacto.",
+          texto: "Acréscimo, desconto e cupom não deslocam o teclado: a coluna da direita rola a parte de baixo. Subtotal, taxa, acréscimo, desconto, cupom e recebido ficam na coluna da esquerda (conta); à direita você acompanha só Falta, Troco e pontos.",
         },
       ],
     },
@@ -236,7 +247,7 @@ export function secoesDocumentacao(ctx = {}) {
           tipo: "passos",
           titulo: "Passo a passo",
           itens: [
-            "Selecione a conta (mesa, comanda, cliente ou pedido).",
+            "Selecione a conta (mesa, comanda, cliente, pedido — ou vários deliveries com Pagar vários).",
             "Escolha a forma de pagamento na coluna da direita.",
             "Digite o valor recebido no teclado — ou toque em Valor total para lançar de uma vez tudo o que falta.",
             "Toque em OK (verde). O valor entra na lista de Recebimentos e o painel passa a cobrar só o restante.",
@@ -248,6 +259,10 @@ export function secoesDocumentacao(ctx = {}) {
           titulo: "O valor sempre começa zerado",
           texto: "Ao trocar de forma, aplicar cupom, alterar acréscimo/desconto ou registrar uma parcela, o campo volta para R$ 0,00. É uma trava contra o erro mais caro do caixa: confirmar um valor que sobrou da operação anterior.",
         },
+        {
+          tipo: "p",
+          texto: "Os totais detalhados (subtotal, taxa, acréscimo, desconto, cupom e valor já recebido) ficam na coluna da conta, à esquerda. Na direita permanecem Falta/Restante, Troco e avisos de fidelidade — para o caixa focar no que ainda falta receber.",
+        },
         { tipo: "p", texto: `Formas cadastradas nesta loja: ${listaFormas}.` },
         { tipo: "imagem", src: `${IMG}/pagamento.png`, legenda: "Coluna de pagamento com teclado, recebimentos e ajustes financeiros." },
       ],
@@ -258,7 +273,7 @@ export function secoesDocumentacao(ctx = {}) {
       titulo: "Acréscimo, desconto e taxa de serviço",
       resumo: "Ajustes no momento do pagamento, sem sair da tela.",
       blocos: [
-        { tipo: "p", texto: "Na coluna de pagamento, abaixo dos recebimentos, ficam os campos de Desconto e Acréscimo. Eles alteram o total a cobrar na hora — úteis para cortesia, taxa extra de delivery combinada ou acordo com o cliente." },
+        { tipo: "p", texto: "Na coluna de pagamento, abaixo dos recebimentos, ficam os campos de Desconto e Acréscimo (entrada do valor). O reflexo desses ajustes no resumo financeiro aparece na coluna da esquerda, junto com subtotal, taxa e cupom — úteis para cortesia, taxa extra de delivery combinada ou acordo com o cliente." },
         { tipo: "ilustracao", nome: "ajusteFinanceiro" },
         {
           tipo: "lista",

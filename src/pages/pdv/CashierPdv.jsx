@@ -143,6 +143,9 @@ export default function CashierPdv({
   const [acaoProcessando, setAcaoProcessando] = useState(false);
   // Mobile/tablet: Conta (produtos) | Mesa | Pagar — abre em Conta (pedido em destaque).
   const [painelMobile, setPainelMobile] = useState("conta");
+  // Delivery: pagar vários pedidos/comandas no mesmo fechamento.
+  const [deliveryMultiAtivo, setDeliveryMultiAtivo] = useState(false);
+  const [deliveryIdsSel, setDeliveryIdsSel] = useState([]);
   const processandoRef = useRef(false);
 
   const [agora, setAgora] = useState(() => new Date());
@@ -150,6 +153,14 @@ export default function CashierPdv({
     const iv = setInterval(() => setAgora(new Date()), 30000);
     return () => clearInterval(iv);
   }, []);
+
+  // Seleção múltipla só considera pedidos ainda em aberto.
+  const deliveryIdsEfetivos = useMemo(
+    () => deliveryIdsSel.filter((id) => orders.some((o) =>
+      o.id === id && o.paymentStatus !== "paid" && o.status !== "cancelled",
+    )),
+    [deliveryIdsSel, orders],
+  );
 
   const formasAtivas = useMemo(
     () => formasPagamento.filter((f) => f.active !== false && (f.nome || "").trim()),
@@ -221,14 +232,73 @@ export default function CashierPdv({
     if (selecionadaKey && contasAbertas.some((c) => c.key === selecionadaKey)) return selecionadaKey;
     // Mesa livre em foco: respeita a escolha do operador, sem puxar outra conta.
     if (mesaLivreSel) return null;
+    // Em "Pagar vários" o operador escolhe explicitamente — sem auto-seleção.
+    if (deliveryMultiAtivo) return null;
     const solicitadas = contasAbertas.filter((c) => c.solicitada);
     const urgente = [...solicitadas].sort((a, b) => new Date(a.aberturaISO || 0) - new Date(b.aberturaISO || 0))[0];
     return (urgente || contasAbertas[0])?.key || null;
-  }, [selecionadaKey, contasAbertas, mesaLivreSel]);
+  }, [selecionadaKey, contasAbertas, mesaLivreSel, deliveryMultiAtivo]);
 
-  const contaSel = contasAbertas.find((c) => c.key === selecionadaEfetiva) || null;
+  const contaSelSimples = contasAbertas.find((c) => c.key === selecionadaEfetiva) || null;
+
+  const contaMultiDelivery = useMemo(() => {
+    if (!deliveryMultiAtivo || deliveryIdsEfetivos.length === 0) return null;
+    const pedidos = orders.filter((o) =>
+      deliveryIdsEfetivos.includes(o.id)
+      && ehPedidoExterno(o)
+      && o.paymentStatus !== "paid"
+      && o.status !== "cancelled",
+    );
+    if (pedidos.length === 0) return null;
+    const configCrm = lojaInfo?.configCrm || {};
+    const comandas = [...new Set(pedidos.map((o) => o.command).filter(Boolean))];
+    const key = `multi:${[...comandas].sort().join("+")}`;
+    let subtotal = 0;
+    let aberturaISO = null;
+    let telefone = "";
+    let cliente = "";
+    let pendentePreparo = false;
+    let solicitada = false;
+    const pedidosIds = [];
+    pedidos.forEach((o) => {
+      subtotal += orderTotal(o);
+      pedidosIds.push(o.id);
+      if (o.createdAtISO && (!aberturaISO || o.createdAtISO < aberturaISO)) aberturaISO = o.createdAtISO;
+      if (!telefone && o.clienteTelefone) telefone = o.clienteTelefone;
+      if (!cliente) cliente = nomeClienteDe(o, clientes) || o.customer || "";
+      if (o.status === "received" || o.status === "preparing") pendentePreparo = true;
+      if (o.paymentStatus === "requested") solicitada = true;
+    });
+    const n = pedidos.length;
+    return {
+      key,
+      mesa: n > 1 ? `Delivery · ${n} pedidos` : (pedidos[0]?.table || "Externo"),
+      comandas,
+      pedidosIds,
+      pedidos,
+      subtotal,
+      total: subtotal * (1 + taxaPct / 100),
+      aberturaISO,
+      cliente,
+      telefone,
+      vip: clienteEhVip({ telefone, orders, configCrm }),
+      pendentePreparo,
+      solicitada,
+      externo: true,
+      multiPagamento: true,
+      situacao: solicitada ? "solicitado" : pendentePreparo ? "entrega" : "pagamento",
+      statusPedido: statusPedidosConta(pedidos),
+    };
+  }, [deliveryMultiAtivo, deliveryIdsEfetivos, orders, taxaPct, clientes, lojaInfo?.configCrm]);
+
+  const contaSel = contaMultiDelivery || (deliveryMultiAtivo ? null : contaSelSimples);
   const pedidosSel = useMemo(() => {
     if (!contaSel) return [];
+    if (contaSel.multiPagamento) {
+      return orders.filter((o) =>
+        contaSel.pedidosIds.includes(o.id) && o.paymentStatus !== "paid" && o.status !== "cancelled",
+      );
+    }
     return orders.filter((o) =>
       contaSel.comandas.includes(o.command) && o.paymentStatus !== "paid" && o.status !== "cancelled",
     );
@@ -391,12 +461,20 @@ export default function CashierPdv({
     [contasAbertas],
   );
 
+  function trocarCanal(novo) {
+    setCanal(novo);
+    if (novo !== "delivery") {
+      setDeliveryMultiAtivo(false);
+      setDeliveryIdsSel([]);
+    }
+  }
+
   function selecionarConta(conta, { manterCanal = false } = {}) {
     if (!conta) return;
     setSelecionadaKey(conta.key);
     setMesaLivreSel(null);
     setBufferEntrada("");
-    if (!manterCanal) setCanal(conta.externo ? "delivery" : "mesa");
+    if (!manterCanal) trocarCanal(conta.externo ? "delivery" : "mesa");
     setModal(null);
     setPainelMobile("conta");
   }
@@ -547,8 +625,47 @@ export default function CashierPdv({
   };
 
   function selecionarDelivery(p) {
+    if (deliveryMultiAtivo) {
+      setDeliveryIdsSel((cur) => {
+        const tem = cur.includes(p.id);
+        return tem ? cur.filter((id) => id !== p.id) : [...cur, p.id];
+      });
+      setSelecionadaKey(null);
+      setMesaLivreSel(null);
+      setBufferEntrada("");
+      setPainelMobile("conta");
+      return;
+    }
     const conta = contasAbertas.find((c) => c.comandas.includes(p.command) || c.pedidosIds?.includes(p.id));
     if (conta) selecionarConta(conta);
+  }
+
+  function toggleDeliveryMulti(ativo) {
+    if (ativo) {
+      const atual = contaSelSimples?.externo
+        ? orders.find((o) =>
+          contaSelSimples.pedidosIds?.includes(o.id)
+          || contaSelSimples.comandas?.includes(o.command),
+        )
+        : null;
+      const seedId = atual && ehPedidoExterno(atual) ? atual.id : null;
+      setDeliveryMultiAtivo(true);
+      setDeliveryIdsSel(seedId ? [seedId] : []);
+      setSelecionadaKey(null);
+      setMesaLivreSel(null);
+      setBufferEntrada("");
+      return;
+    }
+    const primeiroId = deliveryIdsEfetivos[0];
+    setDeliveryMultiAtivo(false);
+    setDeliveryIdsSel([]);
+    if (primeiroId) {
+      const p = orders.find((o) => o.id === primeiroId);
+      if (p) {
+        const conta = contasAbertas.find((c) => c.comandas.includes(p.command) || c.pedidosIds?.includes(p.id));
+        if (conta) selecionarConta(conta, { manterCanal: true });
+      }
+    }
   }
 
   /**
@@ -902,6 +1019,7 @@ export default function CashierPdv({
         return next;
       });
       setSelecionadaKey(null);
+      setDeliveryIdsSel([]);
       // Mesa liberada na hora: a coluna esquerda já mostra a ficha "Disponível".
       const numero = numeroMesaDe(mesaFechada);
       if (numero) {
@@ -1348,7 +1466,7 @@ export default function CashierPdv({
         document.getElementById("pdv-busca-global")?.focus();
       } else if (e.key === "F3") {
         e.preventDefault();
-        setCanal("mesa");
+        trocarCanal("mesa");
       } else if (e.key === "F4" && contaSel) {
         e.preventDefault();
         imprimirPreConta();
@@ -1389,7 +1507,7 @@ export default function CashierPdv({
       <PdvHeader
         canal={canal}
         onCanalChange={(c) => {
-          setCanal(c);
+          trocarCanal(c);
           if (c !== "mesa") setMesaLivreSel(null);
           setPainelMobile("salao");
         }}
@@ -1439,12 +1557,13 @@ export default function CashierPdv({
           descontoManual={descontoManualSel}
           descontoCupom={descontoCupom}
           cupomCodigo={cupomSel?.codigo || ""}
+          recebido={recebidoEfetivo}
           agora={agora}
           mesaLivre={mesaLivreSel}
-          onEditarCliente={temConta ? () => setModal("cliente") : undefined}
-          onIncluirProduto={temConta ? () => setModal("incluir") : undefined}
-          onAlterarQtd={alterarQtdItem}
-          onRemoverItem={removerItem}
+          onEditarCliente={temConta && !contaSel?.multiPagamento ? () => setModal("cliente") : undefined}
+          onIncluirProduto={temConta && !contaSel?.multiPagamento ? () => setModal("incluir") : undefined}
+          onAlterarQtd={contaSel?.multiPagamento ? undefined : alterarQtdItem}
+          onRemoverItem={contaSel?.multiPagamento ? undefined : removerItem}
           produtosBloqueados={produtosBloqueados}
           className={`${painelMobile === "conta" ? "flex min-h-0 flex-1" : "hidden"} min-w-0 overflow-hidden border-b lg:flex lg:w-[214px] lg:max-w-[214px] lg:shrink-0 lg:border-b-0 lg:border-r xl:w-[248px] xl:max-w-[248px] 2xl:w-[280px] 2xl:max-w-[280px]`}
         />
@@ -1468,7 +1587,10 @@ export default function CashierPdv({
             <PdvDeliveryStrip
               pedidos={deliveriesFiltrados}
               selecionadoId={pedidosSel.find((o) => ehPedidoExterno(o))?.id}
+              selecionadosIds={deliveryIdsEfetivos}
+              multiAtivo={deliveryMultiAtivo}
               onSelecionar={selecionarDelivery}
+              onToggleMulti={toggleDeliveryMulti}
               agora={agora}
             />
           )}

@@ -69,7 +69,7 @@ function AnatomiaPagamento() {
       <Bloco rotulo="5" texto="Recebimentos registrados" />
       <Bloco rotulo="6" texto="Desconto · Acréscimo · Remover taxa" />
       <Bloco rotulo="7" texto="Cupom de desconto" />
-      <Bloco rotulo="8" texto="Recebido · Falta · Troco · Pontos" />
+      <Bloco rotulo="8" texto="Falta · Troco · Pontos" />
     </div>
   );
 }
