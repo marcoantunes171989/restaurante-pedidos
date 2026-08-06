@@ -12,7 +12,7 @@
 import { formatCurrency } from "./pdvHelpers";
 
 /** Versão da documentação — acompanha a versão da tela do PDV. */
-export const PDV_DOC_VERSAO = "2026.08.5";
+export const PDV_DOC_VERSAO = "2026.08.7";
 export const PDV_DOC_ATUALIZADO_EM = "06/08/2026";
 
 const IMG = "/ajuda/pdv";
@@ -412,11 +412,13 @@ export function secoesDocumentacao(ctx = {}) {
           tipo: "tabela",
           cabecalho: ["Legenda no PDV", "Significado"],
           linhas: [
-            ["Cupom válido", "Código existe, está na vigência, com saldo e consumo mínimo ok."],
+            ["Cupom válido · −R$ … · N restante(s)", "Canal, data, horário, saldo e mínimo ok."],
             ["Cupom inválido — código não encontrado", "Não há cupom com esse código nesta loja."],
             ["Cupom inválido — desativado", "O cupom existe, mas foi desligado no administrativo."],
             ["Fora do prazo — ainda não vigora", "A data inicial ainda não chegou."],
             ["Fora do prazo — cupom expirado", "Passou da data final."],
+            ["Cupom fora do horário…", "Fora da janela de horário (início/fim) cadastrada."],
+            ["Válido apenas interno / externo", "Canal da conta (mesa × delivery) não combina com o cupom."],
             ["Quantidade esgotada", "Todas as unidades já foram usadas."],
             ["Consumo mínimo…", "O total da conta ainda não atinge o mínimo do cupom."],
           ],
@@ -426,7 +428,8 @@ export function secoesDocumentacao(ctx = {}) {
           titulo: "O que é conferido na hora de aplicar",
           itens: [
             "Se o código existe e pertence a esta loja",
-            "Se está ativo e dentro da validade (válido de / até)",
+            "Se o canal permite (interno/mesa, externo/delivery ou ambos)",
+            "Se está ativo, na data e no horário de vigência",
             "Se a conta atinge o consumo mínimo exigido",
             "Se ainda há quantidade disponível do cupom",
           ],
@@ -436,15 +439,15 @@ export function secoesDocumentacao(ctx = {}) {
           titulo: "Como cadastrar (Administrativo)",
           itens: [
             "Abra Gestão → Cupons.",
-            "Preencha código (maiúsculas), tipo, valor, mínimo, quantidade e vigência.",
+            "Preencha código, tipo, valor, mínimo, quantidade, utilização (interno/externo/ambos), datas e horários.",
             "Toque em Criar cupom — a mensagem de sucesso ou erro aparece na própria tela e o registro vai para o banco.",
-            "No PDV, digite o código e Aplicar.",
+            "No PDV, digite o código e Aplicar. Após finalizar o pagamento, os dados do cupom são limpos da tela.",
           ],
         },
         {
           tipo: "aviso",
           titulo: "A quantidade é conferida duas vezes",
-          texto: "Além da validação ao aplicar (e da pré-validação ao digitar), o sistema reconfere no banco no fechamento. Se o cupom esgotar entre uma coisa e outra, o fechamento é bloqueado — remova o cupom e conclua o pagamento.",
+          texto: "Além da validação ao aplicar (e da pré-validação ao digitar), o sistema reconfere canal, horário e saldo no fechamento. Se algo falhar, o pagamento é bloqueado — remova o cupom ou ajuste e conclua.",
         },
       ],
     },

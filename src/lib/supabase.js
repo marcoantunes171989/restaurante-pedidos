@@ -264,7 +264,19 @@ export function escutarPromocoes(onMudanca) {
 //  cupom_consumir: a quantidade disponível é conferida no banco,
 //  nunca só no front.
 // ════════════════════════════════════════════════════════════
+function normalizarHoraCupom(h) {
+  if (h == null || h === '') return null
+  const s = String(h).trim()
+  const m = s.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/)
+  if (!m) return null
+  const hh = String(Math.min(23, Number(m[1]))).padStart(2, '0')
+  const mm = String(Math.min(59, Number(m[2]))).padStart(2, '0')
+  return `${hh}:${mm}:00`
+}
 function dbParaCupom(r) {
+  const canal = ['interno', 'externo', 'ambos'].includes(r.canal) ? r.canal : 'ambos'
+  const hi = r.hora_inicio != null ? String(r.hora_inicio).slice(0, 5) : ''
+  const hf = r.hora_fim != null ? String(r.hora_fim).slice(0, 5) : ''
   return {
     id: r.id, lojaId: r.loja_id ?? null, codigo: r.codigo, descricao: r.descricao ?? '',
     tipo: r.tipo ?? 'percentual', valor: Number(r.valor) || 0,
@@ -272,9 +284,13 @@ function dbParaCupom(r) {
     quantidadeTotal: r.quantidade_total == null ? null : Number(r.quantidade_total),
     quantidadeUsada: Number(r.quantidade_usada) || 0,
     inicioEm: r.inicio_em ?? null, fimEm: r.fim_em ?? null, ativo: r.ativo !== false,
+    canal,
+    horaInicio: hi || '',
+    horaFim: hf || '',
   }
 }
 function cupomParaDb(c) {
+  const canal = ['interno', 'externo', 'ambos'].includes(c.canal) ? c.canal : 'ambos'
   return {
     loja_id: c.lojaId ?? null,
     codigo: String(c.codigo || '').trim().toUpperCase(),
@@ -286,6 +302,9 @@ function cupomParaDb(c) {
     inicio_em: c.inicioEm || null,
     fim_em: c.fimEm || null,
     ativo: c.ativo !== false,
+    canal,
+    hora_inicio: normalizarHoraCupom(c.horaInicio),
+    hora_fim: normalizarHoraCupom(c.horaFim),
   }
 }
 export async function fetchCupons() {
@@ -294,13 +313,23 @@ export async function fetchCupons() {
   return data.map(dbParaCupom)
 }
 export async function inserirCupom(c) {
-  const { data, error } = await supabase.from('tab_cupons').insert([cupomParaDb(c)]).select().single()
+  const linha = cupomParaDb(c)
+  let { data, error } = await supabase.from('tab_cupons').insert([linha]).select().single()
+  // Banco sem migration 076 (canal/horário) → tenta sem as colunas novas.
+  if (error && (ehColunaAusente(error, 'canal') || ehColunaAusente(error, 'hora_inicio') || ehColunaAusente(error, 'hora_fim'))) {
+    const { canal, hora_inicio, hora_fim, ...rest } = linha
+    ;({ data, error } = await supabase.from('tab_cupons').insert([rest]).select().single())
+  }
   if (error) throw error
   return dbParaCupom(data)
 }
 export async function atualizarCupom(id, c) {
-  const { error } = await supabase.from('tab_cupons')
-    .update({ ...cupomParaDb(c), atualizado_em: new Date().toISOString() }).eq('id', id)
+  const linha = { ...cupomParaDb(c), atualizado_em: new Date().toISOString() }
+  let { error } = await supabase.from('tab_cupons').update(linha).eq('id', id)
+  if (error && (ehColunaAusente(error, 'canal') || ehColunaAusente(error, 'hora_inicio') || ehColunaAusente(error, 'hora_fim'))) {
+    const { canal, hora_inicio, hora_fim, ...rest } = linha
+    ;({ error } = await supabase.from('tab_cupons').update(rest).eq('id', id))
+  }
   if (error) throw error
 }
 export async function excluirCupom(id) {
@@ -315,19 +344,28 @@ export function escutarCupons(onMudanca) {
   return () => supabase.removeChannel(canal)
 }
 /** Valida o código sem consumir — devolve { ok, motivo } ou os dados do desconto. */
-export async function validarCupom({ lojaId = null, codigo, valorConta = 0 }) {
+export async function validarCupom({ lojaId = null, codigo, valorConta = 0, canal = 'interno' }) {
+  const p_canal = canal === 'externo' ? 'externo' : 'interno'
   const { data, error } = await supabase.rpc('cupom_validar', {
-    p_loja_id: lojaId, p_codigo: String(codigo || '').trim(), p_valor_conta: Number(valorConta) || 0,
+    p_loja_id: lojaId,
+    p_codigo: String(codigo || '').trim(),
+    p_valor_conta: Number(valorConta) || 0,
+    p_canal,
   })
   if (error) throw error
   return data || { ok: false, motivo: 'Não foi possível validar o cupom.' }
 }
 /** Consome uma unidade do cupom no fechamento (atômico) e registra o uso. */
-export async function consumirCupom({ cupomId, lojaId = null, valorConta = 0, valorDesconto = 0, mesa = null, comandas = null, clienteTelefone = null }) {
+export async function consumirCupom({
+  cupomId, lojaId = null, valorConta = 0, valorDesconto = 0,
+  mesa = null, comandas = null, clienteTelefone = null, canal = 'interno',
+}) {
+  const p_canal = canal === 'externo' ? 'externo' : 'interno'
   const { data, error } = await supabase.rpc('cupom_consumir', {
     p_cupom_id: cupomId, p_loja_id: lojaId,
     p_valor_conta: Number(valorConta) || 0, p_valor_desconto: Number(valorDesconto) || 0,
     p_mesa: mesa, p_comandas: comandas, p_cliente_telefone: clienteTelefone,
+    p_canal,
   })
   if (error) throw error
   return data || { ok: false, motivo: 'Não foi possível registrar o uso do cupom.' }

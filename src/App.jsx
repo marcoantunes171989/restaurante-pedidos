@@ -1816,17 +1816,18 @@ export default function RestaurantePedidoApp() {
     notify("success", "Cupom excluído.");
     return { ok: true };
   }
-  /** Validação no caixa — sem consumir. Banco primeiro; fallback local com vigência e quantidade. */
-  async function validarCupomCaixa({ codigo, valorConta }) {
+  /** Validação no caixa — sem consumir. Banco primeiro; fallback local com vigência, canal e horário. */
+  async function validarCupomCaixa({ codigo, valorConta, canal = "interno" }) {
     const cod = String(codigo || "").trim().toUpperCase();
+    const canalConta = canal === "externo" ? "externo" : "interno";
     if (!cod) return { ok: false, status: "vazio", motivo: "Informe o código do cupom." };
     if (dbReady) {
       try {
-        const r = await validarCupom({ lojaId: lojaAtual, codigo: cod, valorConta });
+        const r = await validarCupom({ lojaId: lojaAtual, codigo: cod, valorConta, canal: canalConta });
         return normalizarRespostaCupom(r);
       } catch (e) {
-        // Se o RPC ainda não existe, cai na regra local dos cupons já carregados.
-        const local = validarCupomLocal({ cupons: cuponsLoja, codigo: cod, valorConta });
+        // Se o RPC ainda não existe / migration 076 pendente, cai na regra local.
+        const local = validarCupomLocal({ cupons: cuponsLoja, codigo: cod, valorConta, canalConta });
         if (local.ok || local.status !== "nao_encontrado") return local;
         return {
           ok: false,
@@ -1835,7 +1836,7 @@ export default function RestaurantePedidoApp() {
         };
       }
     }
-    return validarCupomLocal({ cupons: cuponsLoja, codigo: cod, valorConta });
+    return validarCupomLocal({ cupons: cuponsLoja, codigo: cod, valorConta, canalConta });
   }
   /** Consumo no fechamento — reconfere a quantidade e grava o uso. */
   async function consumirCupomCaixa(dados) {
@@ -15486,7 +15487,11 @@ export function promocaoVigente(p, agora = new Date()) {
  * consumo é conferido de novo no banco na hora de fechar a conta.
  */
 function CuponsAdmin({ cupons = [], addCupom, editarCupom, toggleCupom, removerCupom }) {
-  const VAZIO = { codigo: "", descricao: "", tipo: "percentual", valor: "", minimoCompra: "", quantidadeTotal: "", inicioEm: "", fimEm: "", ativo: true };
+  const VAZIO = {
+    codigo: "", descricao: "", tipo: "percentual", valor: "", minimoCompra: "",
+    quantidadeTotal: "", inicioEm: "", fimEm: "", horaInicio: "", horaFim: "",
+    canal: "ambos", ativo: true,
+  };
   const [form, setForm] = useState(VAZIO);
   const [editandoId, setEditandoId] = useState(null);
   const [salvando, setSalvando] = useState(false);
@@ -15506,6 +15511,9 @@ function CuponsAdmin({ cupons = [], addCupom, editarCupom, toggleCupom, removerC
       quantidadeTotal: c.quantidadeTotal == null ? "" : String(c.quantidadeTotal),
       inicioEm: c.inicioEm ? String(c.inicioEm).slice(0, 10) : "",
       fimEm: c.fimEm ? String(c.fimEm).slice(0, 10) : "",
+      horaInicio: c.horaInicio || "",
+      horaFim: c.horaFim || "",
+      canal: c.canal || "ambos",
       ativo: c.ativo,
     });
   }
@@ -15525,6 +15533,9 @@ function CuponsAdmin({ cupons = [], addCupom, editarCupom, toggleCupom, removerC
       const dados = {
         ...form,
         codigo: String(form.codigo).trim().toUpperCase(),
+        canal: form.canal || "ambos",
+        horaInicio: form.horaInicio || "",
+        horaFim: form.horaFim || "",
         inicioEm: form.inicioEm ? `${form.inicioEm}T00:00:00` : null,
         fimEm: form.fimEm ? `${form.fimEm}T23:59:59` : null,
       };
@@ -15560,7 +15571,7 @@ function CuponsAdmin({ cupons = [], addCupom, editarCupom, toggleCupom, removerC
 
   return (
     <main className="space-y-5">
-      <PageHeader icone={<IconPromocao />} titulo="Cupons" descricao="Códigos de desconto da loja — gravados no banco e aplicados no PDV enquanto houver quantidade e estiverem na vigência." />
+      <PageHeader icone={<IconPromocao />} titulo="Cupons" descricao="Códigos de desconto da loja — canal (interno/externo/ambos), vigência por data e horário, quantidade e aplicação no PDV." />
 
       <div className="rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-5">
         <h3 className="mb-3 text-sm font-black text-white">{emEdicao ? "Editar cupom" : "Novo cupom"}</h3>
@@ -15576,8 +15587,18 @@ function CuponsAdmin({ cupons = [], addCupom, editarCupom, toggleCupom, removerC
           <CampoCupom label={form.tipo === "valor" ? "Desconto (R$)" : "Desconto (%)"} valor={form.valor} onChange={(v) => setForm({ ...form, valor: v })} placeholder={form.tipo === "valor" ? "10,00" : "10"} />
           <CampoCupom label="Consumo mínimo (R$)" valor={form.minimoCompra} onChange={(v) => setForm({ ...form, minimoCompra: v })} placeholder="0,00" />
           <CampoCupom label="Quantidade disponível" valor={form.quantidadeTotal} onChange={(v) => setForm({ ...form, quantidadeTotal: v.replace(/\D/g, "") })} placeholder="vazio = ilimitado" />
+          <div>
+            <label className="mb-1 block text-[11px] font-bold text-slate-400">Utilização</label>
+            <select value={form.canal} onChange={(e) => setForm({ ...form, canal: e.target.value })} className="w-full rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white outline-none focus:border-gold-400/60">
+              <option value="ambos">Interno e externo</option>
+              <option value="interno">Somente interno (mesa)</option>
+              <option value="externo">Somente externo (delivery)</option>
+            </select>
+          </div>
           <CampoCupom label="Válido de" tipo="date" valor={form.inicioEm} onChange={(v) => setForm({ ...form, inicioEm: v })} />
           <CampoCupom label="Válido até" tipo="date" valor={form.fimEm} onChange={(v) => setForm({ ...form, fimEm: v })} />
+          <CampoCupom label="Horário inicial" tipo="time" valor={form.horaInicio} onChange={(v) => setForm({ ...form, horaInicio: v })} />
+          <CampoCupom label="Horário final" tipo="time" valor={form.horaFim} onChange={(v) => setForm({ ...form, horaFim: v })} />
           <CampoCupom label="Descrição" valor={form.descricao} onChange={(v) => setForm({ ...form, descricao: v })} placeholder="Campanha Pedido Prime" />
         </div>
         {feedback && (
@@ -15611,7 +15632,7 @@ function CuponsAdmin({ cupons = [], addCupom, editarCupom, toggleCupom, removerC
             </button>
           )}
         </div>
-        <p className="mt-2 text-[11px] text-slate-500">O código é sempre salvo em maiúsculas. O PDV valida existência, vigência e quantidade no banco ao aplicar e de novo no fechamento.</p>
+        <p className="mt-2 text-[11px] text-slate-500">Código em maiúsculas. O PDV valida canal, data, horário, mínimo e quantidade ao aplicar e de novo no fechamento. Horário vazio = qualquer hora do dia.</p>
       </div>
 
       {cupons.length === 0 ? (
@@ -15624,6 +15645,7 @@ function CuponsAdmin({ cupons = [], addCupom, editarCupom, toggleCupom, removerC
           {cupons.map((c) => {
             const restantes = c.quantidadeTotal == null ? null : Math.max(0, c.quantidadeTotal - (c.quantidadeUsada || 0));
             const esgotado = restantes != null && restantes <= 0;
+            const canalLabel = c.canal === "interno" ? "Interno (mesa)" : c.canal === "externo" ? "Externo (delivery)" : "Interno e externo";
             return (
               <div key={c.id} className={`flex flex-col rounded-[1.5rem] border p-5 ${c.ativo && !esgotado ? "border-gold-400/30 bg-gold-400/[0.05]" : "border-white/10 bg-white/[0.03] opacity-70"}`}>
                 <div className="flex items-start justify-between gap-2">
@@ -15636,6 +15658,7 @@ function CuponsAdmin({ cupons = [], addCupom, editarCupom, toggleCupom, removerC
                   </span>
                 </div>
                 <ul className="mt-3 space-y-1 text-xs text-slate-400">
+                  <li>Utilização: <strong className="text-white">{canalLabel}</strong></li>
                   <li>Usados: <strong className="text-white">{c.quantidadeUsada || 0}</strong>{c.quantidadeTotal != null ? ` de ${c.quantidadeTotal}` : " (ilimitado)"}</li>
                   {restantes != null && <li className={esgotado ? "text-rose-400" : ""}>Disponíveis: <strong>{restantes}</strong></li>}
                   {c.minimoCompra > 0 && <li>Mínimo: {formatCurrency(c.minimoCompra)}</li>}
@@ -15644,6 +15667,11 @@ function CuponsAdmin({ cupons = [], addCupom, editarCupom, toggleCupom, removerC
                       Vigência: {c.inicioEm ? new Date(c.inicioEm).toLocaleDateString("pt-BR") : "—"}
                       {" → "}
                       {c.fimEm ? new Date(c.fimEm).toLocaleDateString("pt-BR") : "—"}
+                    </li>
+                  )}
+                  {(c.horaInicio || c.horaFim) && (
+                    <li>
+                      Horário: {c.horaInicio || "00:00"} → {c.horaFim || "23:59"}
                     </li>
                   )}
                 </ul>

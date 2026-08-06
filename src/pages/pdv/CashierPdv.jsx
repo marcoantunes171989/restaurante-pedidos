@@ -660,7 +660,12 @@ export default function CashierPdv({
       : `${formaAtual.nome} · ${formatCurrency(aplicado)} recebido. Conta quitada.`);
   }
 
-  /** Cupom: valida no banco (existe, vigente, mínimo e quantidade disponível). */
+  /** Canal da conta selecionada — usado na validação do cupom (interno × externo). */
+  function canalDaConta(conta = contaSel) {
+    return conta?.externo ? "externo" : "interno";
+  }
+
+  /** Cupom: valida no banco (canal, vigência, horário, mínimo e quantidade). */
   async function aplicarCupom(codigo, aoAplicar) {
     if (!contaSel) return;
     const cod = String(codigo || "").trim().toUpperCase();
@@ -671,7 +676,11 @@ export default function CashierPdv({
     setCupomProcessando(true);
     setCupomStatusUi({ status: "validando" });
     try {
-      const r = await validarCupom({ codigo: cod, valorConta: totalCobrar > 0 ? totalCobrar : totalSel });
+      const r = await validarCupom({
+        codigo: cod,
+        valorConta: totalCobrar > 0 ? totalCobrar : totalSel,
+        canal: canalDaConta(),
+      });
       if (!r?.ok) {
         setCupomStatusUi({
           status: r?.status || "nao_encontrado",
@@ -697,13 +706,14 @@ export default function CashierPdv({
       });
       setBufferEntrada("");
       aoAplicar?.();
-      notify("success", `Cupom ${r.codigo} aplicado · desconto de ${formatCurrency(r.desconto)}.`);
+      const restTxt = r.restantes != null ? ` · ${r.restantes} restante(s)` : "";
+      notify("success", `Cupom válido · −${formatCurrency(r.desconto)}${restTxt}`);
     } finally {
       setCupomProcessando(false);
     }
   }
 
-  /** Pré-valida enquanto digita (existência/prazo/quantidade) sem aplicar o desconto. */
+  /** Pré-valida enquanto digita (canal/prazo/horário/quantidade) sem aplicar o desconto. */
   async function prevalidarCupomDigitado(codigo) {
     const cod = String(codigo || "").trim().toUpperCase();
     if (!cod) {
@@ -715,7 +725,11 @@ export default function CashierPdv({
       return;
     }
     setCupomStatusUi({ status: "validando" });
-    const r = await validarCupom({ codigo: cod, valorConta: totalCobrar > 0 ? totalCobrar : totalSel });
+    const r = await validarCupom({
+      codigo: cod,
+      valorConta: totalCobrar > 0 ? totalCobrar : totalSel,
+      canal: canalDaConta(),
+    });
     if (!r?.ok) {
       setCupomStatusUi({
         status: r?.status || "nao_encontrado",
@@ -807,6 +821,7 @@ export default function CashierPdv({
           mesa: mesaFechada,
           comandas: [...contaSel.comandas],
           clienteTelefone: contaSel.telefone || null,
+          canal: canalDaConta(contaSel),
         });
         if (!uso?.ok) {
           notify("error", uso?.motivo || "Cupom indisponível. Remova o cupom para concluir o pagamento.");
@@ -859,6 +874,8 @@ export default function CashierPdv({
         delete next[contaKey];
         return next;
       });
+      // Limpa legenda/campo do cupom na tela após o pagamento (não deixa “fantasma”).
+      setCupomStatusUi({ status: "vazio" });
       setAjustePorConta((cur) => {
         const next = { ...cur };
         delete next[contaKey];
