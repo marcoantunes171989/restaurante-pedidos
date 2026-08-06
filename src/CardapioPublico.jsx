@@ -233,6 +233,13 @@ export default function CardapioPublico() {
   const [chamando, setChamando] = useState(""); // tipo do chamado (garcom|ajuda|limpeza) em andamento, "" se nenhum
   const chamandoRef = useRef(false); // trava síncrona contra clique duplo (mesmo padrão de enviandoRef/solicitandoRef)
   const [pedidoRecolhido, setPedidoRecolhido] = useState({}); // { [id]: true } — cartão de pedido recolhido pelo cliente (padrão: expandido)
+  // Acessibilidade "Ajustar tela": escala de texto (1 = normal, 1.1, 1.2) aplicada
+  // à raiz do documento (rem escala junto), persistida. Real e segura (largura fica
+  // limitada pelo viewport), ajuda quem precisa de fonte maior para ler o cardápio.
+  const [escalaA11y, setEscalaA11y] = useState(() => { try { const v = Number(localStorage.getItem("pedidoPrime:a11yEscala")); return v >= 1 && v <= 1.2 ? v : 1; } catch { return 1; } });
+  // Notificações do navegador ("Notificações e novidades"): avisamos quando o
+  // pedido fica pronto. Estado reflete a permissão real concedida pelo cliente.
+  const [notifOn, setNotifOn] = useState(() => typeof Notification !== "undefined" && Notification.permission === "granted");
 
   // Confirmação obrigatória de "mesa ocupada" (QR por mesa) — status vem do
   // backend (pub_status_mesa, migration 067), nunca de cache/estado local.
@@ -957,6 +964,35 @@ export default function CardapioPublico() {
     return () => { vivo = false; clearTimeout(t); };
   }, [telDig, cliente, modoExterno, loja?.id]);
 
+  // Acessibilidade: aplica a escala de texto à raiz do documento (font-size em %),
+  // fazendo os textos em rem crescerem junto. Restaura ao desmontar para não
+  // "vazar" a escala para outras telas do app. Persiste a escolha do cliente.
+  useEffect(() => {
+    const html = document.documentElement;
+    html.style.fontSize = escalaA11y > 1 ? `${Math.round(escalaA11y * 100)}%` : "";
+    try { localStorage.setItem("pedidoPrime:a11yEscala", String(escalaA11y)); } catch { /* storage indisponível */ }
+    return () => { html.style.fontSize = ""; };
+  }, [escalaA11y]);
+
+  const cicloAcessibilidade = () => {
+    setEscalaA11y((v) => {
+      const prox = v >= 1.2 ? 1 : Math.round((v + 0.1) * 10) / 10;
+      setMsg({ t: "success", m: prox > 1 ? `Texto ampliado (${Math.round(prox * 100)}%) para facilitar a leitura.` : "Tamanho do texto normal." });
+      return prox;
+    });
+  };
+
+  const alternarNotificacoes = async () => {
+    if (typeof Notification === "undefined") { setMsg({ t: "error", m: "Seu navegador não suporta notificações." }); return; }
+    if (Notification.permission === "granted") { setNotifOn((v) => { setMsg({ t: "success", m: v ? "Notificações pausadas." : "Notificações ativadas — avisaremos quando seu pedido ficar pronto." }); return !v; }); return; }
+    if (Notification.permission === "denied") { setMsg({ t: "error", m: "Notificações bloqueadas nas configurações do navegador." }); return; }
+    try {
+      const p = await Notification.requestPermission();
+      if (p === "granted") { setNotifOn(true); setMsg({ t: "success", m: "Notificações ativadas — avisaremos quando seu pedido ficar pronto." }); }
+      else setMsg({ t: "error", m: "Sem permissão para notificar. Você pode ativar nas configurações." });
+    } catch { setMsg({ t: "error", m: "Não foi possível ativar as notificações agora." }); }
+  };
+
   const currentTable = mesa ? `Mesa ${String(mesa).padStart(2, "0")}` : "";
   // O pedido só deixa de ser acompanhado quando estiver CONCLUÍDO: pago E entregue/retirado.
   // Enquanto faltar uma das duas, continua aparecendo com o status do estágio atual.
@@ -964,6 +1000,18 @@ export default function CardapioPublico() {
   const meusPedidos = modoExterno
     ? orders.filter((o) => telDig && o.clienteTelefone === telDig && o.status !== "cancelled" && !concluido(o))
     : orders.filter((o) => o.table === currentTable && o.command === comanda && o.status !== "cancelled" && !concluido(o));
+  // Notificação do navegador quando um pedido acompanhado fica PRONTO (só se o
+  // cliente ativou em "Notificações e novidades"). Dispara uma vez por pedido.
+  const prontoNotifRef = useRef(new Set());
+  useEffect(() => {
+    if (!notifOn || typeof Notification === "undefined" || Notification.permission !== "granted") return;
+    for (const o of meusPedidos) {
+      if (o.status === "ready" && !prontoNotifRef.current.has(o.id)) {
+        prontoNotifRef.current.add(o.id);
+        try { new Notification("Seu pedido está pronto! 🍽️", { body: `${loja?.nome || "Pedido"}${currentTable ? " · " + currentTable : ""}`, tag: `pp-pronto-${o.id}` }); } catch { /* notificação indisponível */ }
+      }
+    }
+  }, [meusPedidos, notifOn, loja?.nome, currentTable]);
   // Pesquisa de Satisfação SÓ no fim: quando um pedido feito por este aparelho CONCLUIR
   // (pago + retirado/entregue). Mostra uma vez por pedido.
   // Guarda os pedidos pendentes vistos AINDA ATIVOS nesta sessão — só eles podem
@@ -1470,6 +1518,10 @@ export default function CardapioPublico() {
       presente: (p) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...p}><rect x="3" y="8" width="18" height="4" rx="1" /><path d="M5 12v8h14v-8M12 8v12M12 8S9.5 3.5 7.5 5 12 8 12 8ZM12 8s2.5-4.5 4.5-3S12 8 12 8Z" /></svg>),
       cadeado: (p) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" {...p}><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>),
       fogo: (p) => (<svg viewBox="0 0 24 24" fill="currentColor" {...p}><path d="M12 2c1 3 4 4.5 4 8a4 4 0 0 1-8 0c0-1.2.4-2.2 1-3-.2 2 .8 3 2 3 1.2 0 2-1 2-2.2C15 8 12 6 12 2Z" /></svg>),
+      fone: (p) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M4 13v-1a8 8 0 0 1 16 0v1" /><rect x="3" y="13" width="4" height="6" rx="1.4" /><rect x="17" y="13" width="4" height="6" rx="1.4" /><path d="M20 19a3 3 0 0 1-3 3h-3" /></svg>),
+      ajuda: (p) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...p}><circle cx="12" cy="12" r="9" /><path d="M9.2 9.2a2.8 2.8 0 0 1 5.4 1c0 1.9-2.6 1.9-2.6 3.6" /><path d="M12 17.2h.01" /></svg>),
+      sol: (p) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...p}><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg>),
+      sino: (p) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6Z" /><path d="M10 19a2 2 0 0 0 4 0" /></svg>),
     };
     return (
       <div data-theme="light" className="pp-mesa-welcome tema-claro-area flex h-[100dvh] max-h-[100dvh] w-full max-w-[100vw] flex-col overflow-y-auto scrollbar-none bg-[var(--client-background)] px-5 text-[var(--client-text-primary)]"
@@ -1546,50 +1598,59 @@ export default function CardapioPublico() {
             </button>
           )}
 
-          {/* Precisa de algo? — chamados REAIS (garçom/ajuda/limpeza).
+          {/* Precisa de algo? — 4 ações REAIS: chamar atendente e pedir ajuda
+              (chamados enviados à equipe), ajustar tela (amplia o texto para
+              acessibilidade) e notificações (avisa quando o pedido fica pronto).
               Optional: oculto em telas muito baixas (o cabeçalho do cardápio
-              também oferece esses chamados). */}
+              também oferece os chamados). */}
           {!modoExterno && mesa && (
             <div className="pp-mesa-opt1 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] p-3 shadow-[var(--client-shadow-sm)]">
               <p className="text-center text-[13px] font-black text-[var(--client-text-primary)]">Precisa de algo?</p>
-              <div className="mt-2 grid grid-cols-3 gap-2">
-                {[["garcom", CkIconSino, "Chamar", "atendente", "Chamar garçom"], ["ajuda", CkIconAjuda, "Ajuda", "e suporte", "Pedir ajuda"], ["limpeza", CkIconLimpeza, "Limpeza", "da mesa", "Solicitar limpeza"]].map(([t, Icone, l1, l2, aria]) => {
-                  const emAndamento = chamando === t;
-                  return (
-                    <button key={t} onClick={() => chamar(t, l1)} disabled={!!chamando} aria-busy={emAndamento} aria-label={aria} title={aria}
-                      className="flex flex-col items-center gap-1 rounded-xl border border-[var(--client-border)] bg-[var(--client-surface-secondary)] px-2 py-2 text-center transition active:scale-95 hover:bg-[var(--client-border)] disabled:cursor-not-allowed disabled:opacity-60">
-                      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--client-info-soft)] text-[var(--client-info)]">{emAndamento ? <CkIconSpinner /> : <Icone width={16} height={16} />}</span>
-                      <span className="text-[11px] font-bold leading-tight text-[var(--client-text-primary)]">{l1}</span>
-                      <span className="-mt-0.5 text-[9px] leading-tight text-[var(--client-text-secondary)]">{l2}</span>
-                    </button>
-                  );
-                })}
+              <div className="mt-2 grid grid-cols-4 gap-1.5">
+                {[
+                  { key: "garcom", Icone: IconeMini.fone, l1: "Chamar", l2: "atendente", aria: "Chamar atendente", busy: chamando === "garcom", disabled: !!chamando },
+                  { key: "ajuda", Icone: IconeMini.ajuda, l1: "Ajuda", l2: "e suporte", aria: "Ajuda e suporte", busy: chamando === "ajuda", disabled: !!chamando },
+                  { key: "a11y", Icone: IconeMini.sol, l1: "Ajustar tela", l2: "e acessibilidade", aria: "Ajustar tamanho do texto", ativo: escalaA11y > 1 },
+                  { key: "notif", Icone: IconeMini.sino, l1: "Notificações", l2: "e novidades", aria: "Ativar notificações do pedido", ativo: notifOn },
+                ].map((a) => (
+                  // onClick inline (event handler) — dispara o chamado/ação real de cada tile.
+                  <button key={a.key} onClick={() => { if (a.key === "garcom") chamar("garcom", "Chamar atendente"); else if (a.key === "ajuda") chamar("ajuda", "Ajuda e suporte"); else if (a.key === "a11y") cicloAcessibilidade(); else alternarNotificacoes(); }}
+                    disabled={a.disabled} aria-busy={a.busy} aria-pressed={a.ativo} aria-label={a.aria} title={a.aria}
+                    className={`flex flex-col items-center gap-1 rounded-xl border px-1 py-2 text-center transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 ${a.ativo ? "border-[var(--client-primary-border)] bg-[var(--client-primary-soft)]" : "border-[var(--client-border)] bg-[var(--client-surface-secondary)] hover:bg-[var(--client-border)]"}`}>
+                    <span className={`flex h-8 w-8 items-center justify-center rounded-full ${a.ativo ? "bg-[var(--client-primary)] text-white" : "bg-[var(--client-info-soft)] text-[var(--client-info)]"}`}>{a.busy ? <CkIconSpinner /> : <a.Icone width={16} height={16} />}</span>
+                    <span className="text-[10px] font-bold leading-tight text-[var(--client-text-primary)]">{a.l1}</span>
+                    <span className="-mt-0.5 text-[8.5px] leading-tight text-[var(--client-text-secondary)]">{a.l2}</span>
+                  </button>
+                ))}
               </div>
             </div>
           )}
 
-          {/* Selos de confiança — optional em telas baixas */}
-          <div className="pp-mesa-opt2 grid grid-cols-3 gap-3 rounded-2xl px-4 py-3 text-white" style={{ background: "#0E2A33" }}>
+          {/* Selos de confiança — barra petróleo, ícone à esquerda do texto
+              (layout horizontal). Optional em telas baixas. */}
+          <div className="pp-mesa-opt2 grid grid-cols-3 gap-2 rounded-2xl px-3 py-2.5 text-white" style={{ background: "#0E2A33" }}>
             {[[IconeMini.escudo, "Pedido Seguro", "Dados protegidos"], [IconeMini.relogio, "Rápido e Fácil", "Em poucos passos"], [IconeMini.selo, "Qualidade", "Ingredientes selecionados"]].map(([Ic, t, s]) => (
-              <div key={t} className="flex flex-col items-center gap-1 text-center">
-                <Ic width={19} height={19} />
-                <span className="text-[10.5px] font-black leading-tight">{t}</span>
-                <span className="-mt-0.5 text-[9px] leading-tight text-white/70">{s}</span>
+              <div key={t} className="flex items-center gap-2">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/10"><Ic width={15} height={15} /></span>
+                <span className="min-w-0">
+                  <span className="block text-[10px] font-black leading-tight">{t}</span>
+                  <span className="block text-[8.5px] leading-tight text-white/65">{s}</span>
+                </span>
               </div>
             ))}
           </div>
 
-          {/* Fidelidade — só quando há programa de pontos vigente (dado real).
-              Optional em telas baixas. */}
+          {/* Fidelidade — só quando há programa de pontos vigente (dado real),
+              com botão "Quero participar". Optional em telas baixas. */}
           {fidRegraPub && (
-            <button onClick={() => setEtapa("cardapio")} className="pp-mesa-opt3 flex w-full items-center gap-3 rounded-2xl border border-[var(--client-primary-border)] bg-[var(--client-primary-soft)] px-4 py-2.5 text-left transition active:scale-[0.99]">
+            <div className="pp-mesa-opt3 flex items-center gap-3 rounded-2xl border border-[var(--client-primary-border)] bg-[var(--client-primary-soft)] px-3.5 py-2.5">
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[var(--client-primary)] text-white"><IconeMini.presente width={17} height={17} /></span>
               <span className="min-w-0 flex-1">
-                <span className="block text-[12.5px] font-black text-[var(--client-primary-hover)]">Acumule pontos e ganhe benefícios!</span>
-                <span className="block text-[10.5px] text-[var(--client-text-secondary)]">Participe do nosso programa de fidelidade.</span>
+                <span className="block text-[12px] font-black text-[var(--client-primary-hover)]">Acumule pontos e ganhe benefícios!</span>
+                <span className="block text-[10px] text-[var(--client-text-secondary)]">Participe do nosso programa de fidelidade.</span>
               </span>
-              <span className="shrink-0 text-[13px] font-black text-[var(--client-primary-hover)]" aria-hidden="true">→</span>
-            </button>
+              <button onClick={() => setEtapa("cardapio")} className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[var(--client-primary)] px-3 py-1.5 text-[11px] font-black text-white transition active:scale-95">Quero participar <span aria-hidden="true">›</span></button>
+            </div>
           )}
 
           {/* Rodapé — assinatura + versão sincronizada com o deploy (Vercel) */}
