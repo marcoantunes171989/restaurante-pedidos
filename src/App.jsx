@@ -5808,8 +5808,10 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           <button onClick={onSair} className="shrink-0 rounded-2xl border border-white/15 bg-white/[0.06] px-3 py-1.5 text-xs font-black text-white/80">Sair</button>
         </div>
 
-        {/* Conteúdo rolável — remonta ao trocar a "Empresa em foco" para refletir a empresa selecionada em todas as telas */}
-        <div key={`ctx-${lojaContexto ?? "geral"}`} className="tema-claro-area flex-1 overflow-y-auto p-6">
+        {/* Conteúdo rolável — remonta ao trocar a "Empresa em foco" para refletir a empresa selecionada em todas as telas.
+            Padding responsivo: no celular usa p-4 (mais largura útil, sem estourar em telas de 320px);
+            cresce para p-5/p-6 em telas maiores. */}
+        <div key={`ctx-${lojaContexto ?? "geral"}`} className="tema-claro-area flex-1 overflow-y-auto p-4 sm:p-5 lg:p-6">
           {!canAccessModule(ativo, { assinatura: assinaturaAtual, plano: planoAtual, planoModulos, isSuperAdmin }) ? (
             <ModuloBloqueado slug={ativo} />
           ) : (<SecaoErrorBoundary key={ativo}>
@@ -6829,7 +6831,7 @@ function BarrasHora({ dados, paleta = PALETA_BARRAS_HORA_PADRAO }) {
           const aberto = ativo === i;
           const diffPct = d.valor > 0 && media > 0 ? Math.round(((d.valor - media) / media) * 100) : null;
           return (
-            <div key={i} className="relative min-w-[16px] flex-1" style={{ height: ALTURA_TRACK_HORA }}>
+            <div key={i} className="relative min-w-[10px] flex-1 sm:min-w-[16px]" style={{ height: ALTURA_TRACK_HORA }}>
               <button type="button"
                 className="pp-chart-focus absolute bottom-0 left-0 right-0 rounded-t-md transition-[height] duration-200 ease-out motion-reduce:transition-none"
                 style={{ height: alturaPx, backgroundColor: corDe(d) }}
