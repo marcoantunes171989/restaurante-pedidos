@@ -744,6 +744,51 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
   background-image: none !important;
   background-color: #0B3A46 !important;
 }
+/* Família de laranjas de TEXTO adicionais (burnt orange de rótulos/chips/status)
+   → petróleo, no repouso. Assim "Aguard. pagamento", "Aberta" etc. deixam de
+   sair em laranja. (Os pontos/selos semânticos verde/vermelho/âmbar seguem.) */
+[data-theme="light"].pp-admin-module .tema-claro-area [class~="text-[#C2410C]"],
+[data-theme="light"].pp-admin-module .tema-claro-area [class~="text-[#B45309]"] {
+  color: #0F4C5C !important;
+}
+/* Estados de HOVER laranja dentro do admin → petróleo — o hover NUNCA acende
+   laranja (fundo, borda e texto). Fundo branco→texto petróleo; fundo petróleo
+   →texto branco já vêm das regras de preenchimento acima. */
+[data-theme="light"].pp-admin-module .tema-claro-area [class*="hover:bg-[#E67E22]/"]:hover,
+[data-theme="light"].pp-admin-module .tema-claro-area [class*="hover:bg-[rgba(230,126,34"]:hover,
+[data-theme="light"].pp-admin-module .tema-claro-area [class*="hover:bg-[#FCEFE1"]:hover {
+  background-color: rgba(15, 76, 92, 0.08) !important;
+  background-image: none !important;
+}
+[data-theme="light"].pp-admin-module .tema-claro-area [class*="hover:border-[#E67E22"]:hover,
+[data-theme="light"].pp-admin-module .tema-claro-area [class*="hover:border-[rgba(230,126,34"]:hover {
+  border-color: rgba(15, 76, 92, 0.35) !important;
+}
+[data-theme="light"].pp-admin-module .tema-claro-area [class*="hover:text-[#E67E22]"]:hover,
+[data-theme="light"].pp-admin-module .tema-claro-area [class*="hover:text-[#D06E1A]"]:hover,
+[data-theme="light"].pp-admin-module .tema-claro-area [class*="hover:text-[#C2410C]"]:hover,
+[data-theme="light"].pp-admin-module .tema-claro-area [class*="hover:text-[#B45309]"]:hover {
+  color: #0F4C5C !important;
+}
+/* Painel de filtro (.pp-filter-panel) dentro do admin: a classe reescreve as
+   vars do chip com um creme laranja no hover (#FCEFE1) e laranja no selecionado
+   — aqui devolvemos TUDO para petróleo. Vence por ser mais específico e casar
+   o próprio elemento do painel (onde a var é resolvida). */
+[data-theme="light"].pp-admin-module .tema-claro-area .pp-filter-panel {
+  --filter-chip-selected: #0F4C5C;
+  --filter-chip-selected-hover: #0B3A46;
+  --filter-chip-hover-bg: rgba(15, 76, 92, 0.06);
+  --filter-chip-selected-shadow: 0 2px 6px rgba(15, 76, 92, 0.22);
+}
+/* Mesa OCUPADA: destaque proposital em LARANJA (status de atenção, como o
+   destaque de dados) — NÃO segue o petróleo de ação. Fundo laranja liso,
+   borda laranja, texto branco (spans internos já são text-white) e SEM
+   sombra/glow. A classe semântica .pp-mesa-ocupada fica ISENTA do remap. */
+[data-theme="light"].pp-admin-module .tema-claro-area .pp-mesa-ocupada {
+  background-color: #E67E22 !important;
+  border-color: #E67E22 !important;
+  box-shadow: none !important;
+}
 /* Superfícies sólidas escuras → branco (cards/painéis) */
 [data-theme="light"] .tema-claro-area.bg-black,
 [data-theme="light"] .tema-claro-area .bg-black,

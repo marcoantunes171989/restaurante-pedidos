@@ -71,7 +71,7 @@ import TabletProductCard from "./components/tablet/TabletProductCard";
 import TabletCartPanel from "./components/tablet/TabletCartPanel";
 import TabletMobileCartBar from "./components/tablet/TabletMobileCartBar";
 import TabletOrderTrackingDrawer from "./components/tablet/TabletOrderTrackingDrawer";
-import { ClipboardList, ChefHat, Wine, CreditCard, Utensils, Clock, TrendingUp, Bell, CheckCircle2, Hourglass, Receipt, Wallet, CalendarCheck, SearchX, Gift, Star, Tag, ChevronRight } from "lucide-react";
+import { ClipboardList, ChefHat, Wine, CreditCard, Utensils, Clock, TrendingUp, Bell, CheckCircle2, Hourglass, Receipt, Wallet, CalendarCheck, SearchX, Gift, Star, Tag, ChevronRight, Sun, Moon, Store, QrCode, ShoppingBag } from "lucide-react";
 
 export const fallbackImage = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=900&q=80";
 
@@ -5297,7 +5297,7 @@ function ComandasGestaoAdmin({ orders = [], products = [], lojaPrefixo = "", loj
               </label>
             </>
           )}
-          <button onClick={limparFiltros} className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl border border-[#E67E22]/40 bg-[#E67E22]/8 px-3.5 py-2 text-[13px] font-bold text-[#C2410C] transition hover:bg-[#E67E22]/15">Limpar filtros</button>
+          <button onClick={limparFiltros} className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl border border-[rgba(15,76,92,0.35)] bg-[rgba(15,76,92,0.06)] px-3.5 py-2 text-[13px] font-semibold text-[#0F4C5C] transition hover:bg-[rgba(15,76,92,0.12)]">Limpar filtros</button>
         </div>
       </div>
 
@@ -7851,11 +7851,11 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
       {/* Filtros secundários — um agrupamento independente por contexto (Turno,
           Canal, Status): 1 coluna no mobile, 2 no tablet, 3 lado a lado no desktop. */}
       <FiltersPanel>
-        <FilterGroup titulo="Turno" valor={turno} onChange={setTurno}
-          opcoes={[{ id: "todos", label: "Todos" }, { id: "almoco", label: "Almoço" }, { id: "jantar", label: "Jantar" }]} />
-        <FilterGroup titulo="Canal" valor={canal} onChange={setCanal}
-          opcoes={[{ id: "todos", label: "Todos" }, { id: "mesa_qr", label: "Mesa / QR Code" }, { id: "balcao_delivery", label: "Balcão / Delivery" }]} />
-        <FilterGroup titulo="Status" valor={statusF} onChange={setStatusF}
+        <FilterGroup titulo="Turno" icone={<Sun />} descricao="Selecione o período do dia" valor={turno} onChange={setTurno}
+          opcoes={[{ id: "todos", label: "Todos" }, { id: "almoco", label: "Almoço", icon: <Sun /> }, { id: "jantar", label: "Jantar", icon: <Moon /> }]} />
+        <FilterGroup titulo="Canal" icone={<Store />} descricao="Selecione o canal de origem" valor={canal} onChange={setCanal}
+          opcoes={[{ id: "todos", label: "Todos" }, { id: "mesa_qr", label: "Mesa / QR Code", icon: <QrCode /> }, { id: "balcao_delivery", label: "Balcão / Delivery", icon: <ShoppingBag /> }]} />
+        <FilterGroup titulo="Status" icone={<ClipboardList />} descricao="Acompanhe a situação dos pedidos" valor={statusF} onChange={setStatusF}
           opcoes={[{ id: "todos", label: "Todos" }, { id: "pago", label: "Pago", tone: "success" }, { id: "aberto", label: "Em aberto", tone: "warning" }, { id: "cancelado", label: "Cancelado", tone: "error" }]} />
       </FiltersPanel>
       <ActiveFiltersSummary
@@ -17586,7 +17586,7 @@ function ChamadosPainel({ chamados = [], atenderChamado, assumirChamado = async 
               </label>
             </>
           )}
-          <button onClick={limparFiltros} className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl border border-[#E67E22]/40 bg-[#E67E22]/8 px-3.5 py-2 text-[13px] font-bold text-[#C2410C] transition hover:bg-[#E67E22]/15">Limpar filtros</button>
+          <button onClick={limparFiltros} className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl border border-[rgba(15,76,92,0.35)] bg-[rgba(15,76,92,0.06)] px-3.5 py-2 text-[13px] font-semibold text-[#0F4C5C] transition hover:bg-[rgba(15,76,92,0.12)]">Limpar filtros</button>
         </div>
       </div>
 
@@ -20424,7 +20424,7 @@ function MesaAdmin({ mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, o
             const ocupada = abertos > 0;
             // Mesa OCUPADA em destaque: fundo laranja sólido + texto branco.
             return (
-              <div key={m.id} className={`flex items-center gap-2.5 rounded-2xl border p-2.5 transition ${ocupada ? "pp-mesa-ocupada border-[#E67E22] bg-[#E67E22] shadow-[0_6px_16px_rgba(230,126,34,0.28)]" : "border-[var(--pp-border)] bg-white shadow-[0_1px_2px_rgba(15,76,92,0.04)] hover:border-[rgba(15,76,92,0.24)]"}`}>
+              <div key={m.id} className={`flex items-center gap-2.5 rounded-2xl border p-2.5 transition ${ocupada ? "pp-mesa-ocupada" : "border-[var(--pp-border)] bg-white shadow-[0_1px_2px_rgba(15,76,92,0.04)] hover:border-[rgba(15,76,92,0.24)]"}`}>
                 <span className={`flex h-10 w-12 shrink-0 items-center justify-center rounded-xl text-sm font-black ${ocupada ? "bg-white/20 text-white" : "bg-[rgba(15,76,92,0.06)] text-[#0F4C5C]"}`}>
                   {String(m.numero).padStart(2, "0")}
                 </span>

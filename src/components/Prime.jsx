@@ -42,7 +42,7 @@ export const FilterChip = memo(function FilterChip({
     <button type="button" onClick={bloqueado ? undefined : onClick} disabled={disabled}
       aria-pressed={selected} aria-selected={selected} title={tooltip} data-color={color} className={cls}>
       {loading ? <span className="h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-current border-r-transparent" aria-label="Carregando" />
-        : (icon && <span className="shrink-0" aria-hidden="true">{icon}</span>)}
+        : (icon && <span className="shrink-0 [&>svg]:h-3.5 [&>svg]:w-3.5" aria-hidden="true">{icon}</span>)}
       {tone && FILTER_CHIP_TONES[tone] && (
         <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: FILTER_CHIP_TONES[tone] }} aria-hidden="true" />
       )}
@@ -66,20 +66,32 @@ export const FilterChip = memo(function FilterChip({
 // selecionado #0F4C5C) via a classe `pp-filter-panel` (src/index.css),
 // sem afetar outros usos de FilterChip (permissões, config, templates
 // etc.), que continuam com a cor vermelha padrão do sistema.
+const CHECK_ICON = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5" /></svg>
+);
 export const FilterGroup = memo(function FilterGroup({
-  titulo, icone = null, opcoes, valor, onChange, contagens = null,
+  titulo, icone = null, descricao = null, opcoes, valor, onChange, contagens = null,
   disabled = false, className = "",
 }) {
   return (
     <div className={`pp-filter-panel rounded-[14px] border border-[#E2E8F0] bg-white p-4 shadow-[0_2px_8px_rgba(15,23,42,0.05)] ${className}`}>
-      <p className="mb-2.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-[#64748B]">
-        {icone && <span className="[&>svg]:h-3.5 [&>svg]:w-3.5" aria-hidden="true">{icone}</span>}
-        {titulo}
-      </p>
+      {/* Cabeçalho do card: tile de ícone + título + subtítulo (visual "gourmet"
+          e padronizado — mesmo formato em Turno/Canal/Status). */}
+      <div className="flex items-center gap-2.5">
+        {icone && (
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[rgba(15,76,92,0.08)] text-[#0F4C5C] [&>svg]:h-[18px] [&>svg]:w-[18px]" aria-hidden="true">{icone}</span>
+        )}
+        <div className="min-w-0">
+          <p className="text-[12px] font-semibold uppercase tracking-wide leading-tight text-[var(--pp-text)]">{titulo}</p>
+          {descricao && <p className="mt-0.5 text-[11px] leading-tight text-[var(--pp-text-muted)]">{descricao}</p>}
+        </div>
+      </div>
+      <div className="my-3 h-px bg-[#EEF1F4]" />
       <div className="flex flex-wrap gap-2" role="group" aria-label={titulo}>
         {opcoes.map((op) => (
           <FilterChip key={op.id} size="sm" selected={valor === op.id} disabled={disabled || op.disabled}
             label={op.label} tone={op.tone || null}
+            icon={valor === op.id ? CHECK_ICON : (op.icon || null)}
             badge={contagens ? (contagens[op.id] ?? null) : (op.badge ?? null)}
             onClick={() => onChange(op.id)} />
         ))}
