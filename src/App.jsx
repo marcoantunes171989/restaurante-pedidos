@@ -100,7 +100,9 @@ const TEMPOS_PREPARO = ["5-10 min", "10-15 min", "15-20 min", "20-30 min", "25-3
 // Classes OFICIAIS de campo do admin (branco + foco petróleo) — padrão
 // SetorImpressorasAdmin. Reusadas no modal de produto e nos primitivos.
 const PP_INP = "w-full rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2.5 text-sm text-[var(--pp-text)] outline-none transition focus:border-[#0F4C5C] focus:ring-2 focus:ring-[rgba(15,76,92,0.12)] placeholder:text-[var(--pp-text-muted)]";
-const PP_LBL = "mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--pp-text-muted)]";
+// min-h + leading-tight: rótulos de 1 e 2 linhas ocupam a MESMA altura, então os
+// inputs logo abaixo ficam alinhados em toda linha de grid (padrão entre abas).
+const PP_LBL = "mb-1 block min-h-[30px] text-[11px] font-semibold uppercase leading-tight tracking-wide text-[var(--pp-text-muted)]";
 
 const defaultAccesses = [
   { id: "tablet", label: "Tablet do cliente", desc: "Pedido, comanda e solicitação de conta", type: "Operacional", active: true },
@@ -19158,7 +19160,7 @@ function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       <button aria-label="Fechar" onClick={onFechar} className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-      <div className="relative flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-[var(--pp-border)] bg-white shadow-2xl">
+      <div className="relative flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-3xl border border-[var(--pp-border)] bg-white shadow-2xl">
         {/* Cabeçalho */}
         <div className="flex items-center justify-between gap-3 border-b border-[var(--pp-border)] px-6 py-4">
           <div className="flex items-center gap-3">
@@ -19168,11 +19170,11 @@ function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = 
           </div>
           <button onClick={onFechar} className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--pp-border)] bg-white text-lg text-[var(--pp-text-muted)] transition hover:bg-[rgba(15,76,92,0.04)]">✕</button>
         </div>
-        {/* Abas */}
-        <div className="flex gap-1 overflow-x-auto border-b border-[var(--pp-border)] px-4">
+        {/* Abas — barra fixa (fora da rolagem), alinhada ao conteúdo, com respiro */}
+        <div className="flex shrink-0 gap-1 overflow-x-auto border-b border-[var(--pp-border)] bg-white px-6 pt-1">
           {ABAS.map(([id, rot]) => (
             <button key={id} type="button" role="tab" aria-selected={aba === id} onClick={() => setAba(id)}
-              className={`shrink-0 border-b-2 px-3 py-3 text-[13px] font-semibold transition ${aba === id ? "border-[#0F4C5C] text-[#0F4C5C]" : "border-transparent text-[var(--pp-text-muted)] hover:text-[var(--pp-text-body)]"}`}>{rot}</button>
+              className={`shrink-0 whitespace-nowrap border-b-2 px-3.5 py-3 text-[13px] font-semibold transition ${aba === id ? "border-[#0F4C5C] text-[#0F4C5C]" : "border-transparent text-[var(--pp-text-muted)] hover:text-[var(--pp-text-body)]"}`}>{rot}</button>
           ))}
         </div>
 
