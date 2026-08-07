@@ -969,13 +969,15 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
    Tailwind (0,1,0) → vence sem !important. */
 [data-theme="light"] .tema-claro-area .font-black,
 [data-theme="light"] .tema-claro-area .font-bold { font-weight: 600; }
-/* Botões de AÇÃO com degradê (btn-laranja/btn-laranja-claro/btn-verde) não têm
-   classe bg-[#…], então o remap genérico .text-white→grafite escurecia seu texto
-   (ex.: "Entrar na plataforma", "Salvar", "Cadastrar"). O texto DEVE ser branco
-   (contraste sobre o degradê). Mesma especificidade do remap (0,3,0), depois → vence. */
+/* Botões de AÇÃO com degradê (btn-laranja/btn-laranja-claro/btn-verde/btn-petroleo)
+   não têm classe bg-[#…], então o remap genérico .text-white→grafite escurecia seu
+   texto (ex.: "Entrar na plataforma", "Salvar", "Cadastrar"). O texto — e o spinner
+   de "Entrando…" — DEVE ser branco (contraste sobre o degradê; petróleo é escuro,
+   grafite sobre ele some). Mesma especificidade do remap (0,3,0), depois → vence. */
 [data-theme="light"] .tema-claro-area .btn-laranja,
 [data-theme="light"] .tema-claro-area .btn-laranja-claro,
-[data-theme="light"] .tema-claro-area .btn-verde { color: #FFFFFF !important; }
+[data-theme="light"] .tema-claro-area .btn-verde,
+[data-theme="light"] .tema-claro-area .btn-petroleo { color: #FFFFFF !important; }
 /* Linha de mesa OCUPADA: fundo laranja sólido + texto branco. A classe
    .pp-mesa-ocupada eleva a especificidade (0,4,0) para o texto branco vencer
    o remap, inclusive em filhos que não têm bg-[#…]. */

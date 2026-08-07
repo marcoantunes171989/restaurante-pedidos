@@ -64,7 +64,14 @@ export default function LoginForm({ loginForm, setLoginForm, login, message, dbR
 
         <div className="text-center">
           <div className="mx-auto flex h-12 w-12 items-center justify-center"><LogoPP size={48} /></div>
-          <h1 className="font-display mt-2.5 text-xl font-black tracking-tight text-[var(--login-text-primary)]">{FORM.titulo}</h1>
+          <h1 className="font-display mt-2.5 text-xl font-black tracking-tight text-[var(--login-text-primary)]">
+            {(() => {
+              // "Prime" em laranja (só nesta tela) — mantém o resto no grafite.
+              const t = FORM.titulo;
+              const i = t.toLowerCase().lastIndexOf("prime");
+              return i === -1 ? t : <>{t.slice(0, i)}<span className="text-[#E67E22]">{t.slice(i)}</span></>;
+            })()}
+          </h1>
           <p className="mt-1 text-[13px] text-[var(--login-text-secondary)]">{FORM.subtitulo}</p>
           <p className="mt-1 text-xs text-[var(--login-text-secondary)] md:hidden">{FORM.fraseValorMobile}</p>
         </div>
