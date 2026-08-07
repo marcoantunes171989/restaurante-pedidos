@@ -668,6 +668,21 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
 [data-theme="light"].pp-admin-module .tema-claro-area .bg-\[var\(--pp-bg\)\]:not(.animate-pulse) {
   background-color: #FFFFFF !important;
 }
+/* Superfícies com BRANCO-TRANSLÚCIDO (bg-white/[0.02]…bg-white/10) — o padrão
+   de card/painel herdado do tema escuro. No tema claro geral elas viram um
+   off-white (#F5F4F0); DENTRO do admin passam a BRANCO PURO, para o painel
+   ficar 100% branco e clean (skill superficies-brancas-admin). A separação
+   dos cards fica na borda + sombra própria. Escopo: só .pp-admin-module. */
+[data-theme="light"].pp-admin-module .tema-claro-area .bg-white\/\[0\.02\]:not(.animate-pulse),
+[data-theme="light"].pp-admin-module .tema-claro-area .bg-white\/\[0\.03\]:not(.animate-pulse),
+[data-theme="light"].pp-admin-module .tema-claro-area .bg-white\/\[0\.04\]:not(.animate-pulse),
+[data-theme="light"].pp-admin-module .tema-claro-area .bg-white\/\[0\.05\]:not(.animate-pulse),
+[data-theme="light"].pp-admin-module .tema-claro-area .bg-white\/\[0\.06\]:not(.animate-pulse),
+[data-theme="light"].pp-admin-module .tema-claro-area .bg-white\/\[0\.08\]:not(.animate-pulse),
+[data-theme="light"].pp-admin-module .tema-claro-area .bg-white\/5:not(.animate-pulse),
+[data-theme="light"].pp-admin-module .tema-claro-area .bg-white\/10:not(.animate-pulse) {
+  background-color: #FFFFFF !important;
+}
 /* Hover padronizado do painel admin: o realce ao passar o mouse (linhas de
    tabela, botões neutros, itens) usa um tom de AZUL PETRÓLEO bem suave — em vez
    do creme/off-white que destoava — harmonizando com a paleta oficial em TODAS

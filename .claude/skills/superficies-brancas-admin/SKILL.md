@@ -59,12 +59,22 @@ Existe uma regra em `src/index.css` que **já pinta de branco** toda superfície
 }
 ```
 
-Ou seja: **não é preciso editar cada tile** só para tirar o off-white — a regra
-cobre o fundo. Os passos manuais abaixo servem para o **acabamento premium**
-(acrescentar a `shadow` de elevação e a borda petróleo onde o elemento merece
-destaque de "tile gourmet"), e para elementos que usam OUTROS fundos crus
-(`bg-white/[0.06]`, `bg-slate-50/100`, classes dark-theme remapeadas) que a regra
-acima não alcança — esses precisam de edição no JSX.
+Além disso, o **branco-translúcido** herdado do tema escuro
+(`bg-white/[0.02]`…`bg-white/[0.08]`, `bg-white/5`, `bg-white/10`) — padrão de
+card/painel em muitas telas (ex.: Produtos: tiles de resumo + container de
+busca/lista) — que no tema claro geral virava um off-white (`#F5F4F0`), **dentro
+do admin também é pintado de BRANCO puro** por regra irmã (mesmo escopo,
+`:not(.animate-pulse)`). E os fundos escuros sólidos (`bg-slate-900/950`, etc.)
+já viram `--pp-surface` (#FFFFFF) por outra regra.
+
+Ou seja: **não é preciso editar cada tile** só para tirar o off-white — as regras
+cobrem `bg-[var(--pp-bg)]`, o branco-translúcido e os fundos escuros de uma vez,
+em todas as telas do admin. Os passos manuais abaixo servem para o **acabamento
+premium** (acrescentar a `shadow` de elevação e a borda petróleo onde o elemento
+merece destaque de "tile gourmet"), e para fundos crus fora dessas famílias
+(`bg-slate-50/100`, `bg-[#F1F5F9]`/`#F8FAFC` usados como grandes superfícies) —
+esses ainda pedem edição no JSX (cuidado: os mesmos cinzas em selos/pílulas
+pequenas devem permanecer, senão somem no branco).
 
 ## O que NÃO transformar em branco (importante)
 
