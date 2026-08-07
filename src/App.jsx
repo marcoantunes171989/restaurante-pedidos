@@ -6298,35 +6298,35 @@ function AcessosOperacionaisAdmin({ users = [], definirAcessos = async () => {} 
         descricao="Libere Pedidos, Cozinha, Bar e Caixa para cada usuário. Acesso total libera todos os módulos. Use individual para operadores de um único setor."
         indicadores={[{ valor: elegiveis.length, rotulo: elegiveis.length === 1 ? "usuário" : "usuários" }]}
       />
-      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+      <div className="rounded-[2rem] border border-[var(--pp-border)] bg-white p-5 shadow-[0_1px_2px_rgba(15,76,92,0.05)]">
         <div className="relative mb-4">
-          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"><IconBusca /></span>
-          <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar usuário..." className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-gold-400/60" />
+          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[var(--pp-text-muted)]"><IconBusca /></span>
+          <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar usuário..." className="w-full rounded-xl border border-[var(--pp-border)] bg-white py-2.5 pl-11 pr-4 text-sm text-[var(--pp-text)] outline-none transition focus:border-[#0F4C5C] focus:ring-2 focus:ring-[rgba(15,76,92,0.12)] placeholder:text-[var(--pp-text-muted)]" />
         </div>
-        {lista.length === 0 && <p className="py-8 text-center text-sm text-slate-500">Nenhum usuário encontrado.</p>}
+        {lista.length === 0 && <p className="py-8 text-center text-sm text-[var(--pp-text-muted)]">Nenhum usuário encontrado.</p>}
         <div className="space-y-2">
           {lista.map((u) => {
             const eff = acessosOperacionais(u);
             const admin = !!u.superAdmin || (u.accessIds || []).includes("admin");
             return (
-              <div key={u.id} className="rounded-2xl border border-white/10 bg-slate-950/40 p-3.5">
+              <div key={u.id} className="rounded-2xl border border-[var(--pp-border)] bg-white p-3.5 shadow-[0_1px_2px_rgba(15,76,92,0.04)]">
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                   <div className="flex min-w-0 items-center gap-3">
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-blue-500/15 text-base font-black uppercase text-blue-300">{(u.name || "?").charAt(0)}</span>
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[rgba(15,76,92,0.08)] text-base font-semibold uppercase text-[#0F4C5C]">{(u.name || "?").charAt(0)}</span>
                     <div className="min-w-0">
-                      <div className="flex items-center gap-2"><p className="truncate font-bold text-white">{u.name}</p>{!u.active && <span className="rounded-full border border-white/15 bg-white/[0.06] px-2 py-0.5 text-[9px] font-bold text-slate-400">Inativo</span>}</div>
-                      <p className="truncate text-[11px] text-slate-500">{u.role || "Operador"}{u.email ? ` · ${u.email}` : ""}</p>
+                      <div className="flex items-center gap-2"><p className="truncate text-sm font-semibold text-[var(--pp-text)]">{u.name}</p>{!u.active && <span className="rounded-full border border-[var(--pp-border)] bg-[rgba(15,76,92,0.06)] px-2 py-0.5 text-[9px] font-semibold text-[var(--pp-text-muted)]">Inativo</span>}</div>
+                      <p className="truncate text-[11px] text-[var(--pp-text-muted)]">{u.role || "Operador"}{u.email ? ` · ${u.email}` : ""}</p>
                     </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-1.5">
                     {admin ? (
-                      <span className="rounded-full border border-gold-400/40 bg-gold-400/10 px-3 py-1.5 text-xs font-black text-gold-300">⭐ Acesso total (admin)</span>
+                      <span className="rounded-full border border-[rgba(230,126,34,0.3)] bg-[rgba(230,126,34,0.1)] px-3 py-1.5 text-xs font-semibold text-[#B4611A]">⭐ Acesso total (admin)</span>
                     ) : (<>
                       <FilterChip size="sm" selected={eff.total} label="Acesso total" onClick={() => setTotal(u, !eff.total)} />
                       {OP_MODULOS.map((m) => (
                         <FilterChip key={m.id} size="sm" selected={eff[m.id]} icon={m.ic} label={m.label} onClick={() => setModulo(u, m.id, !eff[m.id])} />
                       ))}
-                      <button onClick={() => restaurarPadrao(u)} title="Restaurar acesso padrão (legado)" className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-bold text-slate-400 hover:bg-white/10">↺ Padrão</button>
+                      <button onClick={() => restaurarPadrao(u)} title="Restaurar acesso padrão (legado)" className="rounded-xl border border-[var(--pp-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--pp-text-muted)] transition hover:bg-[rgba(15,76,92,0.04)]">↺ Padrão</button>
                     </>)}
                   </div>
                 </div>
@@ -6334,7 +6334,7 @@ function AcessosOperacionaisAdmin({ users = [], definirAcessos = async () => {} 
             );
           })}
         </div>
-        <p className="mt-3 text-[11px] text-slate-500">💡 Operadores com <b className="text-slate-300">apenas 1 módulo</b> entram direto nele ao abrir a Operação Mobile; com mais de um, veem a <b className="text-slate-300">Central Operacional</b>. Usuários nunca configurados aqui seguem os acessos atuais (Cozinha = quem tem "Cozinha"; Caixa = quem tem "Pagamento").</p>
+        <p className="mt-3 text-[11px] text-[var(--pp-text-muted)]">💡 Operadores com <b className="font-semibold text-[var(--pp-text-body)]">apenas 1 módulo</b> entram direto nele ao abrir a Operação Mobile; com mais de um, veem a <b className="font-semibold text-[var(--pp-text-body)]">Central Operacional</b>. Usuários nunca configurados aqui seguem os acessos atuais (Cozinha = quem tem "Cozinha"; Caixa = quem tem "Pagamento").</p>
       </div>
     </main>
   );

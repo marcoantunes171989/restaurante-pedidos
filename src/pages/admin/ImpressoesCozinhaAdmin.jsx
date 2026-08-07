@@ -17,6 +17,8 @@ export default function ImpressoesCozinhaAdmin({
 }) {
   const [filtro, setFiltro] = useState("atencao");
   const [processandoId, setProcessandoId] = useState(null);
+  const [pagina, setPagina] = useState(1);
+  const POR_PAGINA = 10;
 
   const contadores = useMemo(() => {
     const base = { pendente: 0, erro: 0, impresso: 0, reimpresso: 0, cancelado: 0, intervencao: 0 };
@@ -34,6 +36,12 @@ export default function ImpressoesCozinhaAdmin({
     if (filtro === "todos") return impressoes;
     return impressoes.filter((j) => j.status === filtro);
   }, [impressoes, filtro]);
+
+  // Paginação — 10 registros por página
+  const totalPaginas = Math.max(1, Math.ceil(lista.length / POR_PAGINA));
+  const paginaAtual = Math.min(pagina, totalPaginas);
+  const listaPagina = lista.slice((paginaAtual - 1) * POR_PAGINA, paginaAtual * POR_PAGINA);
+  const trocarFiltro = (id) => { setFiltro(id); setPagina(1); };
 
   const semImpressorasCadastradas = impressoras.filter((i) => i.ativo !== false).length === 0;
   const categoriasSemImpressora = categorias.filter((c) => c.active !== false && !c.impressoraId);
@@ -85,15 +93,15 @@ export default function ImpressoesCozinhaAdmin({
 
   return (
     <main className="space-y-5">
-      <div className="relative overflow-hidden rounded-[2rem] border border-gold-400/25 bg-gradient-to-br from-white to-[#EDF3FB] p-6">
+      <div className="relative overflow-hidden rounded-[2rem] border border-[var(--pp-border)] bg-white p-6 shadow-[0_1px_2px_rgba(15,76,92,0.05)]">
         <div className="relative flex flex-wrap items-start justify-between gap-4">
           <div className="flex items-start gap-4">
-            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-gold-400/40 bg-gold-400/10 text-gold-300">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[rgba(230,126,34,0.3)] bg-[rgba(230,126,34,0.1)] text-[#E67E22]">
               <Printer size={22} aria-hidden="true" />
             </span>
             <div>
-              <h3 className="page-title text-xl font-bold tracking-tight text-white sm:text-2xl">Impressões Setores</h3>
-              <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-400">
+              <h3 className="page-title text-lg font-semibold tracking-tight text-[var(--pp-text)] sm:text-xl">Impressões Setores</h3>
+              <p className="mt-1 max-w-2xl text-[13px] leading-6 text-[var(--pp-text-muted)]">
                 Acompanhe se as comandas saíram automaticamente por setor. Itens em atenção precisam de manutenção ou reimpressão manual.
               </p>
             </div>
@@ -101,7 +109,7 @@ export default function ImpressoesCozinhaAdmin({
           <button
             type="button"
             onClick={() => onRecarregar?.()}
-            className="inline-flex items-center gap-1.5 rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-2.5 text-sm font-bold text-slate-200 hover:bg-white/10"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-[13px] font-semibold text-[var(--pp-text-body)] shadow-[0_1px_2px_rgba(15,76,92,0.05)] transition hover:bg-[rgba(15,76,92,0.04)]"
           >
             <RefreshCw size={14} aria-hidden="true" /> Atualizar
           </button>
@@ -109,12 +117,12 @@ export default function ImpressoesCozinhaAdmin({
       </div>
 
       {(contadores.intervencao > 0 || semImpressorasCadastradas || categoriasSemImpressora.length > 0) && (
-        <div className="rounded-2xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
-          <p className="flex items-center gap-2 font-bold">
+        <div className="rounded-2xl border border-[rgba(230,126,34,0.3)] bg-[rgba(230,126,34,0.06)] px-4 py-3 text-sm text-[var(--pp-text-body)]">
+          <p className="flex items-center gap-2 font-semibold text-[#B4611A]">
             <AlertTriangle size={16} aria-hidden="true" />
             Manutenção necessária
           </p>
-          <ul className="mt-1.5 list-disc space-y-0.5 pl-5 text-xs text-amber-100/90">
+          <ul className="mt-1.5 list-disc space-y-0.5 pl-5 text-xs text-[var(--pp-text-body)]">
             {contadores.intervencao > 0 && (
               <li>{contadores.intervencao} impressão(ões) pendente(s) ou com erro — reimprima ou marque como impresso.</li>
             )}
@@ -123,7 +131,7 @@ export default function ImpressoesCozinhaAdmin({
             )}
             {categoriasSemImpressora.slice(0, 4).map((c) => (
               <li key={c.id}>
-                Categoria <b>{c.nome}</b> sem impressora — vincule em Gestão → Categorias.
+                Categoria <b className="font-semibold">{c.nome}</b> sem impressora — vincule em Gestão → Categorias.
               </li>
             ))}
             {categoriasSemImpressora.length > 4 && (
@@ -135,16 +143,14 @@ export default function ImpressoesCozinhaAdmin({
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {[
-          { rotulo: "Precisam atenção", valor: contadores.intervencao, tom: "orange" },
-          { rotulo: "Pendentes", valor: contadores.pendente, tom: "gold" },
-          { rotulo: "Com erro", valor: contadores.erro, tom: "red" },
-          { rotulo: "Impressas", valor: contadores.impresso + contadores.reimpresso, tom: "emerald" },
+          { rotulo: "Precisam atenção", valor: contadores.intervencao, cor: "#E67E22" },
+          { rotulo: "Pendentes", valor: contadores.pendente, cor: "#0F4C5C" },
+          { rotulo: "Com erro", valor: contadores.erro, cor: "#C81E4A" },
+          { rotulo: "Impressas", valor: contadores.impresso + contadores.reimpresso, cor: "#2F9E52" },
         ].map((c) => (
-          <div key={c.rotulo} className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-4">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{c.rotulo}</p>
-            <p className={`mt-2 text-2xl font-bold ${
-              c.tom === "emerald" ? "text-emerald-300" : c.tom === "red" ? "text-red-300" : c.tom === "orange" ? "text-orange-300" : "text-gold-300"
-            }`}>{c.valor}</p>
+          <div key={c.rotulo} className="rounded-2xl border border-[var(--pp-border)] bg-white p-3.5 shadow-[0_1px_2px_rgba(15,76,92,0.05)]">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--pp-text-muted)]">{c.rotulo}</p>
+            <p className="mt-1.5 text-xl font-semibold tabular-nums" style={{ color: c.cor }}>{c.valor}</p>
           </div>
         ))}
       </div>
@@ -160,11 +166,11 @@ export default function ImpressoesCozinhaAdmin({
           <button
             key={id}
             type="button"
-            onClick={() => setFiltro(id)}
-            className={`rounded-full border px-3 py-1.5 text-xs font-bold transition ${
+            onClick={() => trocarFiltro(id)}
+            className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
               filtro === id
-                ? "border-gold-400/50 bg-gold-400/15 text-gold-200"
-                : "border-white/10 bg-white/[0.04] text-slate-300 hover:bg-white/10"
+                ? "border-[#E67E22] bg-[rgba(230,126,34,0.12)] text-[#B4611A]"
+                : "border-[var(--pp-border)] bg-white text-[var(--pp-text-body)] hover:bg-[rgba(15,76,92,0.04)]"
             }`}
           >
             {label}
@@ -172,43 +178,44 @@ export default function ImpressoesCozinhaAdmin({
         ))}
       </div>
 
-      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+      <div className="rounded-[2rem] border border-[var(--pp-border)] bg-white p-5 shadow-[0_1px_2px_rgba(15,76,92,0.05)]">
         {lista.length === 0 ? (
           <div className="py-10 text-center">
-            <CheckCircle2 className="mx-auto text-emerald-300" size={28} aria-hidden="true" />
-            <p className="mt-2 font-bold text-white">Nada pendente neste filtro</p>
-            <p className="mt-1 text-sm text-slate-500">As impressões automáticas por setor estão em dia.</p>
+            <CheckCircle2 className="mx-auto text-[#2F9E52]" size={28} aria-hidden="true" />
+            <p className="mt-2 font-semibold text-[var(--pp-text)]">Nada pendente neste filtro</p>
+            <p className="mt-1 text-sm text-[var(--pp-text-muted)]">As impressões automáticas por setor estão em dia.</p>
           </div>
         ) : (
+          <>
           <ul className="space-y-3">
-            {lista.map((j) => {
+            {listaPagina.map((j) => {
               const st = rotuloStatusImpressao(j.status);
               const busy = processandoId === j.id;
               return (
-                <li key={j.id} className="rounded-2xl border border-white/10 bg-slate-950/40 p-4">
+                <li key={j.id} className="rounded-2xl border border-[var(--pp-border)] bg-white p-4 shadow-[0_1px_2px_rgba(15,76,92,0.04)]">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase ${st.chip}`}>{st.label}</span>
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${st.chip}`}>{st.label}</span>
                         {j.precisaIntervencao && (
-                          <span className="rounded-full bg-red-500/15 px-2 py-0.5 text-[10px] font-black uppercase text-red-300">
+                          <span className="rounded-full bg-[rgba(200,30,74,0.12)] px-2 py-0.5 text-[10px] font-semibold uppercase text-[#C81E4A]">
                             Intervenção
                           </span>
                         )}
-                        <p className="truncate text-sm font-bold text-white">
+                        <p className="truncate text-sm font-semibold text-[var(--pp-text)]">
                           {j.setorNome} · #{j.pedidoId}
                         </p>
                       </div>
-                      <p className="mt-1 text-xs text-slate-400">
+                      <p className="mt-1 text-xs text-[var(--pp-text-muted)]">
                         {j.mesa || "—"} · Comanda {j.comanda || "—"} · {j.atendimento || "—"}
                         {j.impressoraNome ? ` · Imp.: ${j.impressoraNome}` : " · Sem impressora"}
                         {j.origem ? ` · Origem: ${j.origem}` : ""}
                       </p>
-                      <p className="mt-1 truncate text-xs text-slate-500">
+                      <p className="mt-1 truncate text-xs text-[var(--pp-text-muted)]">
                         {(j.itens || []).map((it) => `${it.quantity}x ${it.name}`).join(" · ") || "Sem itens"}
                       </p>
                       {j.erroMsg && (
-                        <p className="mt-1 flex items-start gap-1 text-xs font-semibold text-red-300">
+                        <p className="mt-1 flex items-start gap-1 text-xs font-semibold text-[#C81E4A]">
                           <XCircle size={12} className="mt-0.5 shrink-0" aria-hidden="true" />
                           {j.erroMsg}
                         </p>
@@ -219,7 +226,7 @@ export default function ImpressoesCozinhaAdmin({
                         type="button"
                         disabled={busy}
                         onClick={() => reimprimir(j)}
-                        className="rounded-xl border border-gold-400/30 bg-gold-400/10 px-3 py-1.5 text-xs font-bold text-gold-200 hover:bg-gold-400/20 disabled:opacity-50"
+                        className="rounded-xl border border-[rgba(230,126,34,0.3)] bg-white px-3 py-1.5 text-xs font-semibold text-[#E67E22] shadow-[0_1px_2px_rgba(15,76,92,0.05)] transition hover:bg-[rgba(230,126,34,0.08)] disabled:opacity-50"
                       >
                         {busy ? "…" : "Reimprimir"}
                       </button>
@@ -228,7 +235,7 @@ export default function ImpressoesCozinhaAdmin({
                           type="button"
                           disabled={busy}
                           onClick={() => marcarImpresso(j)}
-                          className="rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-bold text-emerald-200 hover:bg-emerald-500/20 disabled:opacity-50"
+                          className="rounded-xl border border-[rgba(47,158,82,0.3)] bg-white px-3 py-1.5 text-xs font-semibold text-[#2F9E52] shadow-[0_1px_2px_rgba(15,76,92,0.05)] transition hover:bg-[rgba(47,158,82,0.08)] disabled:opacity-50"
                         >
                           Marcar impresso
                         </button>
@@ -238,7 +245,7 @@ export default function ImpressoesCozinhaAdmin({
                           type="button"
                           disabled={busy}
                           onClick={() => cancelar(j)}
-                          className="rounded-xl border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs font-bold text-slate-300 hover:bg-white/10 disabled:opacity-50"
+                          className="rounded-xl border border-[var(--pp-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--pp-text-body)] shadow-[0_1px_2px_rgba(15,76,92,0.05)] transition hover:bg-[rgba(15,76,92,0.04)] disabled:opacity-50"
                         >
                           Cancelar
                         </button>
@@ -249,6 +256,19 @@ export default function ImpressoesCozinhaAdmin({
               );
             })}
           </ul>
+          {totalPaginas > 1 && (
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--pp-border)] pt-3">
+              <p className="text-[11px] text-[var(--pp-text-muted)]">Página {paginaAtual} de {totalPaginas} · {lista.length} registro(s)</p>
+              <div className="flex items-center gap-1.5">
+                <button onClick={() => setPagina((p) => Math.max(1, p - 1))} disabled={paginaAtual <= 1} aria-label="Página anterior" className="flex h-8 min-w-[32px] items-center justify-center rounded-lg border border-[var(--pp-border)] bg-white px-2 text-sm font-semibold text-[var(--pp-text-body)] transition hover:bg-[rgba(15,76,92,0.04)] disabled:cursor-not-allowed disabled:opacity-40">‹</button>
+                {Array.from({ length: totalPaginas }, (_, i) => i + 1).map((n) => (
+                  <button key={n} onClick={() => setPagina(n)} className={`flex h-8 min-w-[32px] items-center justify-center rounded-lg px-2 text-xs font-semibold transition ${n === paginaAtual ? "bg-[#E67E22] text-white" : "border border-[var(--pp-border)] bg-white text-[var(--pp-text-body)] hover:bg-[rgba(15,76,92,0.04)]"}`}>{n}</button>
+                ))}
+                <button onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))} disabled={paginaAtual >= totalPaginas} aria-label="Próxima página" className="flex h-8 min-w-[32px] items-center justify-center rounded-lg border border-[var(--pp-border)] bg-white px-2 text-sm font-semibold text-[var(--pp-text-body)] transition hover:bg-[rgba(15,76,92,0.04)] disabled:cursor-not-allowed disabled:opacity-40">›</button>
+              </div>
+            </div>
+          )}
+          </>
         )}
       </div>
     </main>

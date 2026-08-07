@@ -327,7 +327,10 @@ export default function SetorImpressorasAdmin({
           <button aria-label="Fechar" onClick={() => setEditando(null)} className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
           <div className="relative flex max-h-[88vh] w-full max-w-md flex-col rounded-3xl border border-[var(--pp-border)] bg-white shadow-2xl">
             <div className="flex items-center justify-between border-b border-[var(--pp-border)] px-6 py-4">
-              <h4 className="page-title text-base font-semibold text-[var(--pp-text)]">Editar impressora</h4>
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[rgba(230,126,34,0.12)] text-[#E67E22]"><Printer className="h-[18px] w-[18px]" /></span>
+                <h4 className="page-title text-base font-semibold text-[var(--pp-text)]">Editar impressora</h4>
+              </div>
               <button onClick={() => setEditando(null)} aria-label="Fechar" className="flex h-8 w-8 items-center justify-center rounded-xl border border-[var(--pp-border)] bg-white text-lg text-[var(--pp-text-muted)] transition hover:bg-[rgba(15,76,92,0.04)]">✕</button>
             </div>
             <div className="space-y-3 overflow-y-auto px-6 py-4">
