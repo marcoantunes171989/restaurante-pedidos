@@ -2494,7 +2494,7 @@ export default function RestaurantePedidoApp() {
 
           {/* Barra de progresso indeterminada (petróleo→laranja) */}
           <div className="relative h-1.5 w-56 max-w-[70vw] overflow-hidden rounded-full bg-[#0F4C5C]/[0.08]">
-            <div className="pp-load-bar absolute inset-y-0 left-0 w-1/3 rounded-full" style={{ background: "linear-gradient(90deg, #0F4C5C, #E67E22)" }} />
+            <div className="pp-load-bar absolute inset-y-0 left-0 w-1/3 rounded-full" style={{ background: "linear-gradient(90deg, #F2994A, #E67E22)" }} />
           </div>
           <p className="text-xs font-semibold uppercase tracking-widest text-[var(--pp-text-muted)]">Inicializando sistema…</p>
         </div>
@@ -16466,23 +16466,23 @@ function SetoresCozinhaAdmin({ setores = [], produtos = [], orders = [], api, vi
     setConfirmar(null);
   }
 
-  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-gold-400/60 transition placeholder:text-slate-600";
+  const inp = "w-full rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2.5 text-sm text-[var(--pp-text)] outline-none transition focus:border-[#0F4C5C] focus:ring-2 focus:ring-[rgba(15,76,92,0.12)] placeholder:text-[var(--pp-text-muted)]";
 
   return (
     <main className="space-y-5">
       {/* Toast de feedback */}
       {msg && (
-        <div className={`fixed right-5 top-5 z-[60] rounded-2xl border px-4 py-3 text-sm font-bold shadow-xl ${msg.tipo === "ok" ? "border-emerald-400/30 bg-emerald-500/15 text-emerald-200" : "border-red-400/30 bg-red-500/15 text-red-200"}`}>{msg.texto}</div>
+        <div className={`fixed right-5 top-5 z-[60] rounded-2xl border px-4 py-3 text-sm font-semibold shadow-xl ${msg.tipo === "ok" ? "border-[rgba(47,158,82,0.3)] bg-[rgba(47,158,82,0.12)] text-[#2F9E52]" : "border-[rgba(200,30,74,0.3)] bg-[rgba(200,30,74,0.1)] text-[#C81E4A]"}`}>{msg.texto}</div>
       )}
 
       {/* ── Cabeçalho ─────────────────────────────────────── */}
-      <div className="relative overflow-hidden rounded-[2rem] border border-gold-400/25 bg-gradient-to-br from-white to-[#EDF3FB] p-6">
-        <span className="pointer-events-none absolute -right-6 -top-6 text-gold-400/10 [&>svg]:h-44 [&>svg]:w-44"><IcoChef /></span>
+      <div className="relative overflow-hidden rounded-[2rem] border border-[var(--pp-border)] bg-white p-6 shadow-[0_1px_2px_rgba(15,76,92,0.05)]">
+        <span className="pointer-events-none absolute -right-6 -top-6 text-[rgba(230,126,34,0.06)] [&>svg]:h-44 [&>svg]:w-44"><IcoChef /></span>
         <div className="relative flex items-start gap-4">
-          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-gold-400/40 bg-gold-400/10 text-gold-300 [&>svg]:h-6 [&>svg]:w-6"><IcoChef /></span>
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[rgba(230,126,34,0.3)] bg-[rgba(230,126,34,0.1)] text-[#E67E22] [&>svg]:h-6 [&>svg]:w-6"><IcoChef /></span>
           <div className="min-w-0">
-            <h3 className="page-title text-xl font-bold tracking-tight text-white sm:text-2xl">Setores de Produção</h3>
-            <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-400">
+            <h3 className="page-title text-lg font-semibold tracking-tight text-[var(--pp-text)] sm:text-xl">Setores de Produção</h3>
+            <p className="mt-1 max-w-2xl text-[13px] leading-6 text-[var(--pp-text-muted)]">
               Organize a cozinha por setores e vincule produtos. A impressora é configurada em Operação → Setor Impressoras e ligada na categoria/produto.
             </p>
           </div>
@@ -16492,18 +16492,18 @@ function SetoresCozinhaAdmin({ setores = [], produtos = [], orders = [], api, vi
       {/* ── Cards de resumo ───────────────────────────────── */}
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {[
-          { rotulo: "Total de setores", valor: totalSetores, sub: "Setores cadastrados", icone: <IcoLayers />, tom: "gold" },
-          { rotulo: "Setores ativos", valor: setoresAtivos, sub: `${pctAtivos}% dos setores ativos`, icone: <IcoChef />, tom: "emerald" },
-          { rotulo: "Produtos vinculados", valor: produtosVinculados, sub: "Em todos os setores", icone: <IcoBox />, tom: "blue" },
-          { rotulo: "Pedidos em preparo", valor: pedidosPreparoTotal, sub: "Agora na cozinha", icone: <IcoFogo />, tom: "orange" },
+          { rotulo: "Total de setores", valor: totalSetores, sub: "Setores cadastrados", icone: <IcoLayers />, cor: "#0F4C5C" },
+          { rotulo: "Setores ativos", valor: setoresAtivos, sub: `${pctAtivos}% dos setores ativos`, icone: <IcoChef />, cor: "#2F9E52" },
+          { rotulo: "Produtos vinculados", valor: produtosVinculados, sub: "Em todos os setores", icone: <IcoBox />, cor: "#0F4C5C" },
+          { rotulo: "Pedidos em preparo", valor: pedidosPreparoTotal, sub: "Agora na cozinha", icone: <IcoFogo />, cor: "#E67E22" },
         ].map((c) => (
-          <div key={c.rotulo} className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-4 shadow-lg shadow-black/20">
+          <div key={c.rotulo} className="rounded-2xl border border-[var(--pp-border)] bg-white p-3.5 shadow-[0_1px_2px_rgba(15,76,92,0.05)]">
             <div className="flex items-start justify-between gap-3">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{c.rotulo}</p>
-              <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border [&>svg]:h-5 [&>svg]:w-5 ${c.tom === "emerald" ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-300" : c.tom === "blue" ? "border-blue-400/30 bg-blue-500/10 text-blue-200" : c.tom === "orange" ? "border-orange-400/30 bg-orange-500/10 text-orange-300" : "border-gold-400/30 bg-gold-400/10 text-gold-300"}`}>{c.icone}</span>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--pp-text-muted)]">{c.rotulo}</p>
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full [&>svg]:h-[18px] [&>svg]:w-[18px]" style={{ background: `${c.cor}14`, color: c.cor }}>{c.icone}</span>
             </div>
-            <p className="page-title mt-2 text-2xl font-bold text-white">{c.valor}</p>
-            <p className="mt-1 text-[11px] text-slate-500">{c.sub}</p>
+            <p className="mt-1.5 text-xl font-semibold tabular-nums" style={{ color: c.cor }}>{c.valor}</p>
+            <p className="mt-1 text-[11px] text-[var(--pp-text-muted)]">{c.sub}</p>
           </div>
         ))}
       </div>
@@ -16511,95 +16511,95 @@ function SetoresCozinhaAdmin({ setores = [], produtos = [], orders = [], api, vi
       <div className="grid gap-5 lg:grid-cols-[360px_1fr]">
         {/* ── Coluna esquerda: novo setor + dicas ─────────── */}
         <div className="space-y-4">
-          <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
-            <h4 className="page-title text-base font-bold text-white">Novo setor</h4>
-            <p className="mt-0.5 text-xs text-slate-500">Crie um novo setor para organizar sua cozinha.</p>
+          <div className="rounded-[2rem] border border-[var(--pp-border)] bg-white p-5 shadow-[0_1px_2px_rgba(15,76,92,0.05)]">
+            <h4 className="page-title text-base font-semibold text-[var(--pp-text)]">Novo setor</h4>
+            <p className="mt-0.5 text-xs text-[var(--pp-text-muted)]">Crie um novo setor para organizar sua cozinha.</p>
             <div className="mt-4 space-y-3">
               <div>
-                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-slate-500">Nome do setor</label>
+                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--pp-text-muted)]">Nome do setor</label>
                 <input ref={nomeRef} value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: Pizzaria, Chapa, Bar..." className={inp} onKeyDown={(e) => { if (e.key === "Enter") criar(); }} />
               </div>
               <div>
-                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-slate-500">Descrição do setor</label>
+                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--pp-text-muted)]">Descrição do setor</label>
                 <textarea value={descricao} maxLength={120} onChange={(e) => setDescricao(e.target.value)} rows={2} placeholder="Descreva a função ou os tipos de preparo deste setor..." className={`${inp} resize-none`} />
               </div>
-              <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-3">
-                <span className="text-sm font-semibold text-slate-300">Status</span>
-                <button type="button" onClick={() => setAtivoNovo((v) => !v)} className={`relative h-6 w-11 rounded-full transition ${ativoNovo ? "bg-emerald-500" : "bg-slate-600"}`}>
-                  <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${ativoNovo ? "left-[22px]" : "left-0.5"}`} />
+              <div className="flex items-center justify-between rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5 shadow-[0_1px_2px_rgba(15,76,92,0.04)]">
+                <span className="text-sm font-semibold text-[var(--pp-text-body)]">Status</span>
+                <button type="button" onClick={() => setAtivoNovo((v) => !v)} className={`relative h-6 w-11 rounded-full transition ${ativoNovo ? "bg-[#2F9E52]" : "bg-[var(--pp-border)]"}`}>
+                  <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${ativoNovo ? "left-[22px]" : "left-0.5"}`} />
                 </button>
-                <span className={`w-14 text-right text-xs font-bold ${ativoNovo ? "text-emerald-300" : "text-slate-400"}`}>{ativoNovo ? "Ativo" : "Inativo"}</span>
+                <span className={`w-14 text-right text-xs font-semibold ${ativoNovo ? "text-[#2F9E52]" : "text-[var(--pp-text-muted)]"}`}>{ativoNovo ? "Ativo" : "Inativo"}</span>
               </div>
               <div className="flex gap-2 pt-1">
                 <PrimeButton onClick={criar} disabled={salvando} className="flex-1"><span className="text-lg leading-none">+</span> {salvando ? "Criando…" : "Criar setor"}</PrimeButton>
-                <button onClick={limpar} className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-bold text-slate-300 transition hover:bg-white/10">Limpar campos</button>
+                <button onClick={limpar} className="rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--pp-text-body)] transition hover:bg-[rgba(15,76,92,0.04)]">Limpar campos</button>
               </div>
             </div>
           </div>
 
-          <div className="rounded-[2rem] border border-gold-400/25 bg-gold-400/[0.05] p-5">
-            <div className="flex items-center gap-2 text-gold-300">
+          <div className="rounded-[2rem] border border-[rgba(230,126,34,0.25)] bg-white p-5 shadow-[0_1px_2px_rgba(15,76,92,0.05)]">
+            <div className="flex items-center gap-2 text-[#E67E22]">
               <span className="[&>svg]:h-5 [&>svg]:w-5"><IcoBulb /></span>
-              <h4 className="page-title text-sm font-bold">Como funciona</h4>
+              <h4 className="page-title text-sm font-semibold">Como funciona</h4>
             </div>
-            <p className="mt-2 text-xs leading-5 text-slate-300">O setor organiza o painel da cozinha (produto → categoria). A impressora é cadastrada em <b>Setor Impressoras</b> e vinculada na categoria (obrigatório) ou no produto (opcional).</p>
-            <p className="mt-2 text-xs leading-5 text-slate-400">Monitore impresso/pendente/reimpressão em Operação → Impressões Setores.</p>
+            <p className="mt-2 text-xs leading-5 text-[var(--pp-text-body)]">O setor organiza o painel da cozinha (produto → categoria). A impressora é cadastrada em <b className="font-semibold">Setor Impressoras</b> e vinculada na categoria (obrigatório) ou no produto (opcional).</p>
+            <p className="mt-2 text-xs leading-5 text-[var(--pp-text-muted)]">Monitore impresso/pendente/reimpressão em Operação → Impressões Setores.</p>
           </div>
         </div>
 
         {/* ── Coluna direita: listagem ────────────────────── */}
-        <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+        <div className="rounded-[2rem] border border-[var(--pp-border)] bg-white p-5 shadow-[0_1px_2px_rgba(15,76,92,0.05)]">
           <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h4 className="page-title text-base font-bold text-white">Setores cadastrados</h4>
-              <p className="text-xs text-slate-500">Gerencie os setores da sua cozinha.</p>
+              <h4 className="page-title text-base font-semibold text-[var(--pp-text)]">Setores cadastrados</h4>
+              <p className="text-xs text-[var(--pp-text-muted)]">Gerencie os setores da sua cozinha.</p>
             </div>
-            <span className="text-xs font-semibold text-slate-400">{filtrados.length} de {totalSetores} setor(es)</span>
+            <span className="text-xs font-semibold text-[var(--pp-text-muted)]">{filtrados.length} de {totalSetores} setor(es)</span>
           </div>
 
           <div className="relative mt-4">
-            <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"><IconBusca /></span>
+            <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[var(--pp-text-muted)]"><IconBusca /></span>
             <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar setor..." className={`${inp} pl-11`} />
           </div>
 
           {lista.length === 0 ? (
-            <div className="mt-4 rounded-2xl border border-dashed border-white/15 bg-white/[0.02] py-12 text-center">
-              <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-gold-400/30 bg-gold-400/10 text-gold-300 [&>svg]:h-7 [&>svg]:w-7"><IcoChef /></span>
-              <p className="mt-3 font-bold text-white">Nenhum setor cadastrado ainda.</p>
-              <p className="mx-auto mt-1 max-w-md text-sm text-slate-500">Crie setores para organizar o preparo dos pedidos e facilitar o controle da cozinha.</p>
-              <p className="mt-1 text-xs text-slate-600">Exemplos: Bar, Pizzaria, Chapa, Cozinha, Sobremesas e Bebidas.</p>
-              <button onClick={focarNome} className="mt-4 rounded-2xl bg-gold-400 px-5 py-2.5 text-sm font-bold text-blue-950 transition hover:bg-gold-300">Criar primeiro setor</button>
+            <div className="mt-4 rounded-2xl border border-dashed border-[var(--pp-border)] py-12 text-center">
+              <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-[rgba(230,126,34,0.3)] bg-[rgba(230,126,34,0.1)] text-[#E67E22] [&>svg]:h-7 [&>svg]:w-7"><IcoChef /></span>
+              <p className="mt-3 font-semibold text-[var(--pp-text)]">Nenhum setor cadastrado ainda.</p>
+              <p className="mx-auto mt-1 max-w-md text-sm text-[var(--pp-text-muted)]">Crie setores para organizar o preparo dos pedidos e facilitar o controle da cozinha.</p>
+              <p className="mt-1 text-xs text-[var(--pp-text-muted)]">Exemplos: Bar, Pizzaria, Chapa, Cozinha, Sobremesas e Bebidas.</p>
+              <button onClick={focarNome} className="btn-laranja mt-4 rounded-xl px-5 py-2.5 text-sm font-semibold text-white">Criar primeiro setor</button>
             </div>
           ) : filtrados.length === 0 ? (
-            <p className="mt-6 py-8 text-center text-sm text-slate-500">Nenhum setor encontrado para "{busca}".</p>
+            <p className="mt-6 py-8 text-center text-sm text-[var(--pp-text-muted)]">Nenhum setor encontrado para "{busca}".</p>
           ) : (
             <div className="mt-4 space-y-3">
               {filtrados.map((s) => {
                 const ativo = s.ativo !== false;
                 return (
-                  <div key={s.id} className={`rounded-2xl border p-4 transition ${ativo ? "border-white/10 bg-slate-950/40 hover:bg-slate-950/60" : "border-white/10 bg-white/[0.02] opacity-75"}`}>
+                  <div key={s.id} className={`rounded-2xl border p-4 transition ${ativo ? "border-[var(--pp-border)] bg-white shadow-[0_1px_2px_rgba(15,76,92,0.04)] hover:border-[rgba(15,76,92,0.24)]" : "border-[var(--pp-border)] bg-white opacity-70"}`}>
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div className="flex min-w-0 items-start gap-3">
-                        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-gold-400/25 bg-gold-400/10 text-gold-300 [&>svg]:h-5 [&>svg]:w-5"><IcoChef /></span>
+                        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[rgba(230,126,34,0.25)] bg-[rgba(230,126,34,0.1)] text-[#E67E22] [&>svg]:h-5 [&>svg]:w-5"><IcoChef /></span>
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">
-                            <p className="page-title truncate text-base font-bold text-white">{s.nome}</p>
-                            <span className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold ${ativo ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-300" : "border-white/15 bg-white/[0.06] text-slate-400"}`}>{ativo ? "Ativo" : "Inativo"}</span>
+                            <p className="page-title truncate text-sm font-semibold text-[var(--pp-text)]">{s.nome}</p>
+                            <span className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${ativo ? "border-[rgba(47,158,82,0.3)] bg-[rgba(47,158,82,0.1)] text-[#2F9E52]" : "border-[var(--pp-border)] bg-[rgba(15,76,92,0.06)] text-[var(--pp-text-muted)]"}`}>{ativo ? "Ativo" : "Inativo"}</span>
                           </div>
-                          <p className="mt-0.5 line-clamp-2 text-xs text-slate-400">{s.descricao || "Sem descrição."}</p>
-                          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-500">
-                            <span><b className="text-slate-300">{contarProdutos(s.id)}</b> produto(s) vinculado(s)</span>
-                            <span><b className="text-orange-300">{pedidosEmPreparo(s.id)}</b> pedido(s) em preparo</span>
+                          <p className="mt-0.5 line-clamp-2 text-xs text-[var(--pp-text-muted)]">{s.descricao || "Sem descrição."}</p>
+                          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-[var(--pp-text-muted)]">
+                            <span><b className="font-semibold text-[#0F4C5C]">{contarProdutos(s.id)}</b> produto(s) vinculado(s)</span>
+                            <span><b className="font-semibold text-[#E67E22]">{pedidosEmPreparo(s.id)}</b> pedido(s) em preparo</span>
                           </div>
                         </div>
                       </div>
                       <div className="flex shrink-0 flex-wrap gap-1.5">
-                        <button onClick={() => setEditando({ ...s })} className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs font-bold text-slate-200 transition hover:bg-white/10 [&>svg]:h-3.5 [&>svg]:w-3.5"><IcoEditSet /> Editar</button>
-                        <button onClick={() => setVinculando(s)} className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs font-bold text-slate-200 transition hover:bg-white/10 [&>svg]:h-3.5 [&>svg]:w-3.5"><IcoLinkSet /> Vincular produtos</button>
-                        <button onClick={() => irParaCozinha(s.id)} className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs font-bold text-slate-200 transition hover:bg-white/10 [&>svg]:h-3.5 [&>svg]:w-3.5"><IcoFiltro /> Filtrar cozinha</button>
+                        <button onClick={() => setEditando({ ...s })} className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--pp-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--pp-text-body)] shadow-[0_1px_2px_rgba(15,76,92,0.05)] transition hover:bg-[rgba(15,76,92,0.04)] [&>svg]:h-3.5 [&>svg]:w-3.5"><IcoEditSet /> Editar</button>
+                        <button onClick={() => setVinculando(s)} className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--pp-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--pp-text-body)] shadow-[0_1px_2px_rgba(15,76,92,0.05)] transition hover:bg-[rgba(15,76,92,0.04)] [&>svg]:h-3.5 [&>svg]:w-3.5"><IcoLinkSet /> Vincular produtos</button>
+                        <button onClick={() => irParaCozinha(s.id)} className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--pp-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--pp-text-body)] shadow-[0_1px_2px_rgba(15,76,92,0.05)] transition hover:bg-[rgba(15,76,92,0.04)] [&>svg]:h-3.5 [&>svg]:w-3.5"><IcoFiltro /> Filtrar cozinha</button>
                         {ativo
-                          ? <button onClick={() => setConfirmar(s)} className="inline-flex items-center gap-1.5 rounded-xl border border-red-400/25 bg-red-500/10 px-3 py-1.5 text-xs font-bold text-red-300 transition hover:bg-red-500/20 [&>svg]:h-3.5 [&>svg]:w-3.5"><IcoPower /> Inativar</button>
-                          : <button onClick={() => alternarAtivo(s, true)} className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-400/25 bg-emerald-500/10 px-3 py-1.5 text-xs font-bold text-emerald-300 transition hover:bg-emerald-500/20 [&>svg]:h-3.5 [&>svg]:w-3.5"><IcoPower /> Ativar</button>}
+                          ? <button onClick={() => setConfirmar(s)} className="inline-flex items-center gap-1.5 rounded-xl border border-[rgba(200,30,74,0.24)] bg-white px-3 py-1.5 text-xs font-semibold text-[#C81E4A] shadow-[0_1px_2px_rgba(15,76,92,0.05)] transition hover:bg-[rgba(200,30,74,0.08)] [&>svg]:h-3.5 [&>svg]:w-3.5"><IcoPower /> Inativar</button>
+                          : <button onClick={() => alternarAtivo(s, true)} className="inline-flex items-center gap-1.5 rounded-xl border border-[rgba(47,158,82,0.3)] bg-white px-3 py-1.5 text-xs font-semibold text-[#2F9E52] shadow-[0_1px_2px_rgba(15,76,92,0.05)] transition hover:bg-[rgba(47,158,82,0.08)] [&>svg]:h-3.5 [&>svg]:w-3.5"><IcoPower /> Ativar</button>}
                       </div>
                     </div>
                   </div>
@@ -16614,31 +16614,31 @@ function SetoresCozinhaAdmin({ setores = [], produtos = [], orders = [], api, vi
       {editando && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <button aria-label="Fechar" onClick={() => setEditando(null)} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-          <div className="relative w-full max-w-md rounded-[2rem] border border-white/10 bg-blue-950 p-6 shadow-2xl">
+          <div className="relative w-full max-w-md rounded-3xl border border-[var(--pp-border)] bg-white p-6 shadow-2xl">
             <div className="flex items-center justify-between">
-              <h4 className="page-title text-lg font-bold text-white">Editar setor</h4>
-              <button onClick={() => setEditando(null)} className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-slate-300 hover:bg-white/10 [&>svg]:h-4 [&>svg]:w-4"><IcoFechaSet /></button>
+              <h4 className="page-title text-base font-semibold text-[var(--pp-text)]">Editar setor</h4>
+              <button onClick={() => setEditando(null)} className="flex h-8 w-8 items-center justify-center rounded-xl border border-[var(--pp-border)] bg-white text-[var(--pp-text-muted)] transition hover:bg-[rgba(15,76,92,0.04)] [&>svg]:h-4 [&>svg]:w-4"><IcoFechaSet /></button>
             </div>
             <div className="mt-4 space-y-3">
               <div>
-                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-slate-500">Nome do setor</label>
+                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--pp-text-muted)]">Nome do setor</label>
                 <input value={editando.nome} onChange={(e) => setEditando({ ...editando, nome: e.target.value })} className={inp} autoFocus />
               </div>
               <div>
-                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-slate-500">Descrição</label>
+                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--pp-text-muted)]">Descrição</label>
                 <textarea value={editando.descricao || ""} maxLength={120} rows={2} onChange={(e) => setEditando({ ...editando, descricao: e.target.value })} className={`${inp} resize-none`} />
               </div>
-              <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-3">
-                <span className="text-sm font-semibold text-slate-300">Status</span>
-                <button type="button" onClick={() => setEditando({ ...editando, ativo: editando.ativo === false })} className={`relative h-6 w-11 rounded-full transition ${editando.ativo !== false ? "bg-emerald-500" : "bg-slate-600"}`}>
-                  <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${editando.ativo !== false ? "left-[22px]" : "left-0.5"}`} />
+              <div className="flex items-center justify-between rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5 shadow-[0_1px_2px_rgba(15,76,92,0.04)]">
+                <span className="text-sm font-semibold text-[var(--pp-text-body)]">Status</span>
+                <button type="button" onClick={() => setEditando({ ...editando, ativo: editando.ativo === false })} className={`relative h-6 w-11 rounded-full transition ${editando.ativo !== false ? "bg-[#2F9E52]" : "bg-[var(--pp-border)]"}`}>
+                  <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${editando.ativo !== false ? "left-[22px]" : "left-0.5"}`} />
                 </button>
-                <span className={`w-14 text-right text-xs font-bold ${editando.ativo !== false ? "text-emerald-300" : "text-slate-400"}`}>{editando.ativo !== false ? "Ativo" : "Inativo"}</span>
+                <span className={`w-14 text-right text-xs font-semibold ${editando.ativo !== false ? "text-[#2F9E52]" : "text-[var(--pp-text-muted)]"}`}>{editando.ativo !== false ? "Ativo" : "Inativo"}</span>
               </div>
             </div>
             <div className="mt-5 flex gap-2">
-              <button onClick={salvarEdicao} className="flex-1 rounded-2xl bg-gold-400 px-4 py-2.5 text-sm font-bold text-blue-950 transition hover:bg-gold-300">Salvar alterações</button>
-              <button onClick={() => setEditando(null)} className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-2.5 text-sm font-bold text-slate-300 transition hover:bg-white/10">Cancelar</button>
+              <button onClick={salvarEdicao} className="btn-laranja flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold text-white">Salvar alterações</button>
+              <button onClick={() => setEditando(null)} className="rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--pp-text-body)] transition hover:bg-[rgba(15,76,92,0.04)]">Cancelar</button>
             </div>
           </div>
         </div>
@@ -16648,13 +16648,13 @@ function SetoresCozinhaAdmin({ setores = [], produtos = [], orders = [], api, vi
       {confirmar && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <button aria-label="Fechar" onClick={() => setConfirmar(null)} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-          <div className="relative w-full max-w-md rounded-[2rem] border border-white/10 bg-blue-950 p-6 shadow-2xl">
-            <h4 className="page-title text-lg font-bold text-white">Deseja realmente inativar este setor?</h4>
-            <p className="mt-2 text-sm leading-6 text-slate-400">Setores inativos não aparecerão como opção principal no painel da cozinha, mas permanecerão no histórico do sistema.</p>
-            <p className="mt-3 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-bold text-white">{confirmar.nome}</p>
+          <div className="relative w-full max-w-md rounded-3xl border border-[var(--pp-border)] bg-white p-6 shadow-2xl">
+            <h4 className="page-title text-base font-semibold text-[var(--pp-text)]">Deseja realmente inativar este setor?</h4>
+            <p className="mt-2 text-sm leading-6 text-[var(--pp-text-muted)]">Setores inativos não aparecerão como opção principal no painel da cozinha, mas permanecerão no histórico do sistema.</p>
+            <p className="mt-3 rounded-xl border border-[var(--pp-border)] bg-[rgba(15,76,92,0.04)] px-3 py-2 text-sm font-semibold text-[var(--pp-text)]">{confirmar.nome}</p>
             <div className="mt-5 flex gap-2">
-              <button onClick={() => alternarAtivo(confirmar, false)} className="flex-1 rounded-2xl border border-red-400/30 bg-red-500/15 px-4 py-2.5 text-sm font-bold text-red-200 transition hover:bg-red-500/25">Confirmar inativação</button>
-              <button onClick={() => setConfirmar(null)} className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-2.5 text-sm font-bold text-slate-300 transition hover:bg-white/10">Cancelar</button>
+              <button onClick={() => alternarAtivo(confirmar, false)} className="flex-1 rounded-xl bg-[#C81E4A] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#B01A40]">Confirmar inativação</button>
+              <button onClick={() => setConfirmar(null)} className="rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--pp-text-body)] transition hover:bg-[rgba(15,76,92,0.04)]">Cancelar</button>
             </div>
           </div>
         </div>
@@ -16700,48 +16700,48 @@ function VincularProdutosModal({ setor, produtos = [], setores = [], onFechar, o
     await onSalvar(alteracoes);
     setSalvando(false);
   }
-  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-gold-400/60";
+  const inp = "w-full rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2.5 text-sm text-[var(--pp-text)] outline-none transition focus:border-[#0F4C5C] focus:ring-2 focus:ring-[rgba(15,76,92,0.12)] placeholder:text-[var(--pp-text-muted)]";
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <button aria-label="Fechar" onClick={onFechar} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-      <div className="relative flex max-h-[85vh] w-full max-w-lg flex-col rounded-[2rem] border border-white/10 bg-blue-950 shadow-2xl">
-        <div className="border-b border-white/10 px-6 py-4">
+      <button aria-label="Fechar" onClick={onFechar} className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+      <div className="relative flex max-h-[85vh] w-full max-w-lg flex-col rounded-3xl border border-[var(--pp-border)] bg-white shadow-2xl">
+        <div className="border-b border-[var(--pp-border)] px-6 py-4">
           <div className="flex items-center justify-between">
-            <h4 className="page-title text-lg font-bold text-white">Vincular produtos ao setor</h4>
-            <button onClick={onFechar} className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-slate-300 hover:bg-white/10 [&>svg]:h-4 [&>svg]:w-4"><IcoFechaSet /></button>
+            <h4 className="page-title text-base font-semibold text-[var(--pp-text)]">Vincular produtos ao setor</h4>
+            <button onClick={onFechar} className="flex h-8 w-8 items-center justify-center rounded-xl border border-[var(--pp-border)] bg-white text-[var(--pp-text-muted)] transition hover:bg-[rgba(15,76,92,0.04)] [&>svg]:h-4 [&>svg]:w-4"><IcoFechaSet /></button>
           </div>
-          <p className="mt-0.5 text-xs text-slate-500">Selecione os produtos que devem ser preparados em <b className="text-gold-300">{setor.nome}</b>.</p>
+          <p className="mt-0.5 text-xs text-[var(--pp-text-muted)]">Selecione os produtos que devem ser preparados em <b className="font-semibold text-[#E67E22]">{setor.nome}</b>.</p>
           <div className="relative mt-3">
-            <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"><IconBusca /></span>
+            <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[var(--pp-text-muted)]"><IconBusca /></span>
             <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar produto..." className={`${inp} pl-11`} />
           </div>
         </div>
         <div className="flex-1 overflow-y-auto px-6 py-3">
           {lista.length === 0 ? (
-            <p className="py-8 text-center text-sm text-slate-500">{termo ? "Nenhum produto encontrado." : "Nenhum produto disponível — os demais já estão vinculados a outros setores."}</p>
+            <p className="py-8 text-center text-sm text-[var(--pp-text-muted)]">{termo ? "Nenhum produto encontrado." : "Nenhum produto disponível — os demais já estão vinculados a outros setores."}</p>
           ) : lista.map((p) => {
             const marcado = sel.has(p.id);
             const vinculado = p.setorId === setor.id;
             return (
-              <button key={p.id} onClick={() => toggle(p.id)} className={`flex w-full items-center gap-3 border-b border-white/5 py-2.5 text-left transition hover:bg-white/[0.03]`}>
-                <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${marcado ? "border-gold-400 bg-gold-400 text-blue-950" : "border-white/20"}`}>{marcado && <span className="text-[11px] font-black">✓</span>}</span>
+              <button key={p.id} onClick={() => toggle(p.id)} className={`flex w-full items-center gap-3 border-b border-[var(--pp-border)] py-2.5 text-left transition hover:bg-[rgba(15,76,92,0.03)]`}>
+                <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${marcado ? "border-[#E67E22] bg-[#E67E22] text-white" : "border-[var(--pp-border)]"}`}>{marcado && <span className="text-[11px] font-semibold">✓</span>}</span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-semibold text-white">{p.name}</span>
-                  <span className="block truncate text-[11px] text-slate-500">{p.category || "Sem categoria"} · {brl(p.price)}</span>
+                  <span className="block truncate text-sm font-semibold text-[var(--pp-text)]">{p.name}</span>
+                  <span className="block truncate text-[11px] text-[var(--pp-text-muted)]">{p.category || "Sem categoria"} · {brl(p.price)}</span>
                 </span>
                 <span className="flex shrink-0 flex-col items-end gap-1">
-                  {vinculado && <span className="rounded-full bg-gold-400/15 px-2 py-0.5 text-[10px] font-bold text-gold-300">{nomeSetor(p.setorId)}</span>}
-                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${p.active !== false ? "bg-emerald-500/10 text-emerald-300" : "bg-white/[0.06] text-slate-400"}`}>{p.active !== false ? "Ativo" : "Inativo"}</span>
+                  {vinculado && <span className="rounded-full bg-[rgba(230,126,34,0.12)] px-2 py-0.5 text-[10px] font-semibold text-[#B4611A]">{nomeSetor(p.setorId)}</span>}
+                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${p.active !== false ? "bg-[rgba(47,158,82,0.1)] text-[#2F9E52]" : "bg-[rgba(15,76,92,0.06)] text-[var(--pp-text-muted)]"}`}>{p.active !== false ? "Ativo" : "Inativo"}</span>
                 </span>
               </button>
             );
           })}
         </div>
-        <div className="flex items-center justify-between gap-2 border-t border-white/10 px-6 py-4">
-          <span className="text-xs text-slate-400"><b className="text-white">{sel.size}</b> selecionado(s)</span>
+        <div className="flex items-center justify-between gap-2 border-t border-[var(--pp-border)] px-6 py-4">
+          <span className="text-xs text-[var(--pp-text-muted)]"><b className="font-semibold text-[var(--pp-text)]">{sel.size}</b> selecionado(s)</span>
           <div className="flex gap-2">
-            <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-2.5 text-sm font-bold text-slate-300 transition hover:bg-white/10">Cancelar</button>
-            <button onClick={salvar} disabled={salvando} className="rounded-2xl bg-gold-400 px-5 py-2.5 text-sm font-bold text-blue-950 transition hover:bg-gold-300 disabled:opacity-50">{salvando ? "Salvando…" : "Salvar vínculos"}</button>
+            <button onClick={onFechar} className="rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--pp-text-body)] transition hover:bg-[rgba(15,76,92,0.04)]">Cancelar</button>
+            <button onClick={salvar} disabled={salvando} className="btn-laranja rounded-xl px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50">{salvando ? "Salvando…" : "Salvar vínculos"}</button>
           </div>
         </div>
       </div>
