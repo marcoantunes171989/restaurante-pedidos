@@ -2371,8 +2371,9 @@ export default function RestaurantePedidoApp() {
     if (mesas.some((m) => m.id !== id && m.numero === n && (m.lojaId === lojaId || (m.lojaId == null && lojaId == null)))) return notify("error", `Mesa ${n} já cadastrada.`);
     const nome = (dados.nome || "").trim();
     const capacidade = dados.capacidade ? parseInt(dados.capacidade, 10) : null;
-    setMesas((cur) => cur.map((m) => m.id === id ? { ...m, numero: n, nome, capacidade } : m));
-    if (dbReady) try { await atualizarMesa(id, { numero: n, nome: nome || null, capacidade }); } catch (e) { notify("error", "Erro: " + e.message); return; }
+    const localizacao = (dados.localizacao || "").trim() || null;
+    setMesas((cur) => cur.map((m) => m.id === id ? { ...m, numero: n, nome, capacidade, localizacao } : m));
+    if (dbReady) try { await atualizarMesa(id, { numero: n, nome: nome || null, capacidade, localizacao }); } catch (e) { notify("error", "Erro: " + e.message); return; }
     notify("success", `Mesa ${String(n).padStart(2, "0")} atualizada.`);
   }
   async function toggleMesa(id) {
@@ -20335,65 +20336,68 @@ function MesaAdmin({ mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, o
         acao={<PrimeButton onClick={() => setCriando(true)}><span className="text-lg leading-none">+</span> Cadastrar mesa</PrimeButton>}
       />
 
-      {/* Cards de resumo */}
+      {/* Cards de resumo — superfícies brancas, acento na paleta (petróleo/verde/laranja) */}
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {[
-          { l: "Total de mesas", v: mesas.length, tom: "text-white" },
-          { l: "Disponíveis", v: mesas.filter((m) => m.active !== false && pedidosAbertos(m) === 0).length, tom: "text-emerald-400" },
-          { l: "Ocupadas", v: mesas.filter((m) => m.active !== false && pedidosAbertos(m) > 0).length, tom: "text-amber-400" },
-          { l: "Inativas", v: mesas.filter((m) => m.active === false).length, tom: "text-slate-300" },
+          { l: "Total de mesas", v: mesas.length, cor: "#0F4C5C" },
+          { l: "Disponíveis", v: mesas.filter((m) => m.active !== false && pedidosAbertos(m) === 0).length, cor: "#2F9E52" },
+          { l: "Ocupadas", v: mesas.filter((m) => m.active !== false && pedidosAbertos(m) > 0).length, cor: "#E67E22" },
+          { l: "Inativas", v: mesas.filter((m) => m.active === false).length, cor: "#8A7D73" },
         ].map((c) => (
-          <div key={c.l} className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{c.l}</p>
-            <p className={`page-title mt-1.5 text-2xl font-black ${c.tom}`}>{c.v}</p>
+          <div key={c.l} className="rounded-2xl border border-[var(--pp-border)] bg-white p-3.5 shadow-[0_1px_2px_rgba(15,76,92,0.05)]">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]">{c.l}</p>
+            <p className="mt-1 text-xl font-black tabular-nums" style={{ color: c.cor }}>{c.v}</p>
           </div>
         ))}
       </div>
 
-      {/* Busca + lista */}
-      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+      {/* Busca + lista — superfície branca, separação por borda petróleo + sombra leve */}
+      <div className="rounded-3xl border border-[var(--pp-border)] bg-white p-4 shadow-[0_1px_2px_rgba(15,76,92,0.05)] sm:p-5">
         <div className="relative mb-4">
-          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"><IconBusca /></span>
+          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[var(--pp-text-muted)]"><IconBusca /></span>
           <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por número ou nome..."
-            className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-gold-400/60" />
+            className="w-full rounded-2xl border border-[var(--pp-border)] bg-white py-2.5 pl-11 pr-4 text-sm text-[var(--pp-text)] outline-none transition focus:border-[#0F4C5C] focus:ring-2 focus:ring-[rgba(15,76,92,0.12)] placeholder:text-[var(--pp-text-muted)]" />
         </div>
         <div className="space-y-2">
           {mesas.length === 0 && (
-            <div className="py-10 text-center">
-              <p className="text-sm text-slate-500">Nenhuma mesa cadastrada.</p>
-              <button onClick={() => setCriando(true)} className="mt-3 rounded-2xl border border-blue-400/30 bg-blue-500/15 px-4 py-2 text-xs font-black text-blue-200 hover:bg-blue-500/25">+ Cadastrar mesa</button>
+            <div className="rounded-2xl border border-dashed border-[var(--pp-border)] py-10 text-center">
+              <p className="text-sm text-[var(--pp-text-muted)]">Nenhuma mesa cadastrada.</p>
+              <button onClick={() => setCriando(true)} className="btn-laranja mt-3 rounded-xl px-4 py-2 text-xs font-black text-white">+ Cadastrar mesa</button>
             </div>
           )}
-          {mesas.length > 0 && mesasOrdenadas.length === 0 && <p className="py-6 text-center text-sm text-slate-500">Nenhuma mesa encontrada.</p>}
+          {mesas.length > 0 && mesasOrdenadas.length === 0 && <p className="py-6 text-center text-sm text-[var(--pp-text-muted)]">Nenhuma mesa encontrada.</p>}
           {mesasOrdenadas.map((m) => {
             const abertos = pedidosAbertos(m);
             return (
-              <div key={m.id} className="flex items-center gap-3 rounded-3xl border border-white/10 bg-slate-950/40 p-3">
-                <span className="flex h-11 w-14 shrink-0 items-center justify-center rounded-2xl bg-white/[0.06] text-base font-black text-white">
+              <div key={m.id} className="flex items-center gap-2.5 rounded-2xl border border-[var(--pp-border)] bg-white p-2.5 shadow-[0_1px_2px_rgba(15,76,92,0.04)] transition hover:border-[rgba(15,76,92,0.24)]">
+                <span className="flex h-10 w-12 shrink-0 items-center justify-center rounded-xl bg-[rgba(15,76,92,0.06)] text-sm font-black text-[#0F4C5C]">
                   {String(m.numero).padStart(2, "0")}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="font-black text-white leading-tight">{m.nome || `Mesa ${String(m.numero).padStart(2, "0")}`}</p>
-                  <p className="text-xs text-slate-400">
+                  <p className="truncate text-sm font-bold leading-tight text-[var(--pp-text)]">{m.nome || `Mesa ${String(m.numero).padStart(2, "0")}`}</p>
+                  <p className="text-[11px] text-[var(--pp-text-muted)]">
                     {m.capacidade ? `${m.capacidade} lugares` : "Capacidade não definida"}
-                    {m.localizacao && <span className="text-slate-500"> · 📍 {m.localizacao}</span>}
-                    {abertos > 0 && <span className="ml-2 rounded-full bg-amber-500/20 px-1.5 py-0.5 font-bold text-amber-300">{abertos} pedido(s) · {formatCurrency(valorMesa(m))}</span>}
+                    {m.localizacao && <span> · 📍 {m.localizacao}</span>}
+                    {abertos > 0 && <span className="ml-1.5 rounded-full bg-[rgba(230,126,34,0.12)] px-1.5 py-0.5 font-bold text-[#B4611A]">{abertos} pedido(s) · {formatCurrency(valorMesa(m))}</span>}
                   </p>
                 </div>
-                {/* Status operacional (briefing item 16): ocupada > inativa > disponível */}
-                <span className={`hidden shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black sm:inline ${abertos > 0 ? "bg-amber-500/20 text-amber-300" : m.active === false ? "bg-slate-700 text-slate-300" : "bg-emerald-500/15 text-emerald-300"}`}>
+                {/* Status operacional: ocupada > inativa > disponível */}
+                <span className={`hidden shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black sm:inline ${abertos > 0 ? "bg-[rgba(230,126,34,0.12)] text-[#B4611A]" : m.active === false ? "bg-[rgba(15,76,92,0.06)] text-[var(--pp-text-muted)]" : "bg-[rgba(47,158,82,0.12)] text-[#2F9E52]"}`}>
                   {abertos > 0 ? "Ocupada" : m.active === false ? "Inativa" : "Disponível"}
                 </span>
                 <button onClick={() => toggleMesa(m.id)}
-                  className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-black transition ${m.active !== false ? "bg-emerald-500 text-white" : "bg-slate-700 text-slate-200"}`}>
+                  className={`shrink-0 rounded-full px-3 py-1.5 text-[11px] font-black transition active:scale-95 ${m.active !== false ? "bg-[#2F9E52] text-white" : "border border-[var(--pp-border)] bg-white text-[var(--pp-text-muted)] hover:bg-[rgba(15,76,92,0.04)]"}`}>
                   {m.active !== false ? "Ativa" : "Inativa"}
                 </button>
-                <button onClick={() => setEditando(m)}
-                  className="shrink-0 rounded-xl border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs font-black text-blue-300 hover:bg-white/10">✏️</button>
-                <button onClick={() => setExcluir(m)}
-                  disabled={abertos > 0}
-                  title={abertos > 0 ? "Há pedidos em aberto — inative em vez de excluir" : "Excluir mesa"}
-                  className="shrink-0 rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-1.5 text-xs font-black text-red-300 hover:bg-red-500/20 disabled:opacity-30 disabled:cursor-not-allowed">🗑️</button>
+                <button onClick={() => setEditando(m)} title="Editar mesa" aria-label="Editar mesa"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-[var(--pp-border)] bg-white text-[#E67E22] shadow-[0_1px_2px_rgba(15,76,92,0.05)] transition hover:bg-[rgba(230,126,34,0.08)]">
+                  <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
+                </button>
+                <button onClick={() => setExcluir(m)} disabled={abertos > 0}
+                  title={abertos > 0 ? "Há pedidos em aberto — inative em vez de excluir" : "Excluir mesa"} aria-label="Excluir mesa"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-[rgba(200,30,74,0.24)] bg-white text-[#C81E4A] shadow-[0_1px_2px_rgba(15,76,92,0.05)] transition hover:bg-[rgba(200,30,74,0.08)] disabled:cursor-not-allowed disabled:opacity-30">
+                  <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6" /></svg>
+                </button>
               </div>
             );
           })}
@@ -20413,53 +20417,63 @@ function MesaAdmin({ mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, o
   );
 }
 
+// Ícones (linha) reutilizados nos modais de mesa — visual premium, na paleta.
+const IconMesaLinha = (p) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...p}><ellipse cx="12" cy="7" rx="8" ry="3" /><path d="M6 9v7M18 9v7M12 10v9" /></svg>);
+const MesaFormCampos = ({ form, setForm, onEnter }) => {
+  const inp = "w-full rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2.5 text-sm text-[var(--pp-text)] outline-none transition focus:border-[#0F4C5C] focus:ring-2 focus:ring-[rgba(15,76,92,0.12)] placeholder:text-[var(--pp-text-muted)]";
+  const lbl = "mb-1 block text-[11px] font-bold uppercase tracking-wide text-[var(--pp-text-muted)]";
+  return (
+    <>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={lbl}>Número *</label>
+          <input autoFocus value={form.numero}
+            onChange={(e) => setForm({ ...form, numero: e.target.value.replace(/[^0-9]/g, "").slice(0, 3) })}
+            onKeyDown={(e) => { if (e.key === "Enter") onEnter?.(); }}
+            type="tel" inputMode="numeric" placeholder="Ex.: 1" className={inp} />
+        </div>
+        <div>
+          <label className={lbl}>Capacidade</label>
+          <input value={form.capacidade}
+            onChange={(e) => setForm({ ...form, capacidade: e.target.value.replace(/[^0-9]/g, "").slice(0, 2) })}
+            type="tel" inputMode="numeric" placeholder="Nº de lugares" className={inp} />
+        </div>
+      </div>
+      <div>
+        <label className={lbl}>Nome / Identificação</label>
+        <input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })}
+          placeholder="Ex.: Varanda, VIP, Área externa" className={inp} />
+      </div>
+      <div>
+        <label className={lbl}>Localização</label>
+        <input value={form.localizacao} onChange={(e) => setForm({ ...form, localizacao: e.target.value })}
+          placeholder="Ex.: Salão principal, 2º andar, próximo à janela" className={inp} />
+      </div>
+    </>
+  );
+};
+
 function MesaCadastroModal({ onSalvar, onFechar }) {
   const [form, setForm] = useState({ numero: "", nome: "", capacidade: "", localizacao: "" });
-  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-gold-400/60 placeholder:text-slate-600";
-  const lbl = "mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500";
   const valido = parseInt(form.numero, 10) > 0;
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onFechar}>
-      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-md flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl">
-        <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
-          <div className="flex items-center gap-2">
-            <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-blue-500/15 text-lg">🪑</span>
-            <h2 className="text-lg font-black text-white">Nova mesa</h2>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm" onClick={onFechar}>
+      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-md flex-col overflow-hidden rounded-3xl border border-[var(--pp-border)] bg-white shadow-2xl">
+        <div className="flex items-center justify-between border-b border-[var(--pp-border)] px-5 py-3.5">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[rgba(230,126,34,0.12)] text-[#E67E22]"><IconMesaLinha width={17} height={17} /></span>
+            <h2 className="page-title text-base font-black text-[var(--pp-text)]">Nova mesa</h2>
           </div>
-          <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20">✕</button>
+          <button onClick={onFechar} aria-label="Fechar" className="flex h-8 w-8 items-center justify-center rounded-xl border border-[var(--pp-border)] bg-white text-[var(--pp-text-muted)] transition hover:bg-[rgba(15,76,92,0.04)]">✕</button>
         </div>
-        <div className="px-6 py-5 space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={lbl}>Número *</label>
-              <input autoFocus value={form.numero}
-                onChange={(e) => setForm({ ...form, numero: e.target.value.replace(/[^0-9]/g, "").slice(0, 3) })}
-                onKeyDown={(e) => { if (e.key === "Enter" && valido) onSalvar(form); }}
-                type="tel" inputMode="numeric" placeholder="Ex.: 1" className={inp} />
-            </div>
-            <div>
-              <label className={lbl}>Capacidade</label>
-              <input value={form.capacidade}
-                onChange={(e) => setForm({ ...form, capacidade: e.target.value.replace(/[^0-9]/g, "").slice(0, 2) })}
-                type="tel" inputMode="numeric" placeholder="Nº de lugares" className={inp} />
-            </div>
-          </div>
-          <div>
-            <label className={lbl}>Nome / Identificação</label>
-            <input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })}
-              placeholder="Ex.: Varanda, VIP, Área externa" className={inp} />
-          </div>
-          <div>
-            <label className={lbl}>Localização</label>
-            <input value={form.localizacao} onChange={(e) => setForm({ ...form, localizacao: e.target.value })}
-              placeholder="Ex.: Salão principal, 2º andar, próximo à janela" className={inp} />
-          </div>
-          <p className="text-xs text-slate-500">A mesa ficará disponível imediatamente no tablet do cliente.</p>
+        <div className="space-y-3 px-5 py-4">
+          <MesaFormCampos form={form} setForm={setForm} onEnter={() => valido && onSalvar(form)} />
+          <p className="text-[11px] text-[var(--pp-text-muted)]">A mesa ficará disponível imediatamente no tablet e no QR Code do cliente.</p>
         </div>
-        <div className="shrink-0 border-t border-white/10 px-6 py-4 flex gap-3">
-          <button onClick={onFechar} className="flex-1 rounded-2xl border border-white/10 bg-white/[0.06] py-3.5 text-sm font-black text-slate-300 hover:bg-white/10">Cancelar</button>
+        <div className="flex shrink-0 gap-3 border-t border-[var(--pp-border)] px-5 py-3.5">
+          <button onClick={onFechar} className="flex-1 rounded-xl border border-[var(--pp-border)] bg-white py-2.5 text-sm font-black text-[var(--pp-text-body)] transition hover:bg-[rgba(15,76,92,0.04)]">Cancelar</button>
           <button onClick={() => onSalvar(form)} disabled={!valido}
-            className="flex-[2] rounded-2xl bg-blue-500 py-3.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+            className="btn-laranja flex-[2] rounded-xl py-2.5 text-sm font-black text-white transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-50">
             + Cadastrar mesa
           </button>
         </div>
@@ -20469,40 +20483,27 @@ function MesaCadastroModal({ onSalvar, onFechar }) {
 }
 
 function MesaEditModal({ mesa, onSalvar, onFechar }) {
-  const [form, setForm] = useState({ numero: String(mesa.numero), nome: mesa.nome || "", capacidade: mesa.capacidade ? String(mesa.capacidade) : "" });
-  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-gold-400/60 placeholder:text-slate-600";
-  const lbl = "mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500";
+  const [form, setForm] = useState({ numero: String(mesa.numero), nome: mesa.nome || "", capacidade: mesa.capacidade ? String(mesa.capacidade) : "", localizacao: mesa.localizacao || "" });
   const valido = parseInt(form.numero, 10) > 0;
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onFechar}>
-      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl">
-        <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
-          <h2 className="text-lg font-black text-white">✏️ Editar mesa {String(mesa.numero).padStart(2, "0")}</h2>
-          <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20">✕</button>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm" onClick={onFechar}>
+      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-md flex-col overflow-hidden rounded-3xl border border-[var(--pp-border)] bg-white shadow-2xl">
+        <div className="flex items-center justify-between border-b border-[var(--pp-border)] px-5 py-3.5">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[rgba(230,126,34,0.12)] text-[#E67E22]"><IconMesaLinha width={17} height={17} /></span>
+            <h2 className="page-title text-base font-black text-[var(--pp-text)]">Editar mesa {String(mesa.numero).padStart(2, "0")}</h2>
+          </div>
+          <button onClick={onFechar} aria-label="Fechar" className="flex h-8 w-8 items-center justify-center rounded-xl border border-[var(--pp-border)] bg-white text-[var(--pp-text-muted)] transition hover:bg-[rgba(15,76,92,0.04)]">✕</button>
         </div>
-        <div className="px-6 py-4 space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={lbl}>Número *</label>
-              <input autoFocus value={form.numero}
-                onChange={(e) => setForm({ ...form, numero: e.target.value.replace(/[^0-9]/g, "").slice(0, 3) })}
-                type="tel" inputMode="numeric" className={inp} />
-            </div>
-            <div>
-              <label className={lbl}>Capacidade</label>
-              <input value={form.capacidade}
-                onChange={(e) => setForm({ ...form, capacidade: e.target.value.replace(/[^0-9]/g, "").slice(0, 2) })}
-                type="tel" inputMode="numeric" placeholder="Nº de lugares" className={inp} />
-            </div>
-          </div>
-          <div>
-            <label className={lbl}>Nome / Identificação</label>
-            <input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })}
-              placeholder="Ex.: Varanda, VIP, Área externa" className={inp} />
-          </div>
+        <div className="space-y-3 px-5 py-4">
+          <MesaFormCampos form={form} setForm={setForm} onEnter={() => valido && onSalvar(form)} />
+          <p className="text-[11px] text-[var(--pp-text-muted)]">As alterações valem imediatamente no tablet e no QR Code do cliente.</p>
+        </div>
+        <div className="flex shrink-0 gap-3 border-t border-[var(--pp-border)] px-5 py-3.5">
+          <button onClick={onFechar} className="flex-1 rounded-xl border border-[var(--pp-border)] bg-white py-2.5 text-sm font-black text-[var(--pp-text-body)] transition hover:bg-[rgba(15,76,92,0.04)]">Cancelar</button>
           <button onClick={() => valido && onSalvar(form)} disabled={!valido}
-            className="w-full rounded-2xl bg-emerald-500 py-4 text-sm font-black text-white hover:bg-emerald-400 disabled:opacity-50 transition">
-            💾 Salvar alterações
+            className="btn-laranja flex-[2] rounded-xl py-2.5 text-sm font-black text-white transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-50">
+            Salvar alterações
           </button>
         </div>
       </div>
