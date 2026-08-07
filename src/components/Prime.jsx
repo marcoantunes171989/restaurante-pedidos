@@ -153,15 +153,17 @@ export function PageHeader({ icone = null, titulo, descricao, indicadores = [], 
 // 2026). "blue" mantido como nome da variante por compatibilidade com os
 // 18 call-sites existentes; a cor em si já é coral (--pp-primary-hover).
 export function PrimeButton({ children, onClick, variante = "blue", className = "", disabled = false, type = "button" }) {
+  // Botão de ação padrão (skill botao-acao-padrao): laranja liso, SEM sombra/glow,
+  // fonte no padrão do sistema (13px, semibold). A ênfase vem da cor, não da sombra.
   const estilos = {
-    blue: "bg-[#E67E22] text-white hover:bg-[#D06E1A] shadow-lg shadow-[#E67E22]/40",
-    gold: "bg-[#E67E22] text-white hover:bg-[#D06E1A] shadow-lg shadow-[#E67E22]/30",
-    ghost: "border border-white/10 bg-white/[0.06] text-slate-300 hover:bg-white/10",
-    danger: "border border-red-400/30 bg-red-500/10 text-red-300 hover:bg-red-500/20",
+    blue: "bg-[#E67E22] text-white hover:bg-[#D06E1A]",
+    gold: "bg-[#E67E22] text-white hover:bg-[#D06E1A]",
+    ghost: "border border-[var(--pp-border)] bg-white text-[var(--pp-text-body)] hover:bg-[rgba(15,76,92,0.04)]",
+    danger: "border border-[rgba(200,30,74,0.24)] bg-white text-[#C81E4A] hover:bg-[rgba(200,30,74,0.08)]",
   };
   return (
     <button type={type} onClick={onClick} disabled={disabled}
-      className={`font-display inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-bold transition active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed ${estilos[variante]} ${className}`}>
+      className={`font-display inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-[13px] font-semibold transition active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed ${estilos[variante]} ${className}`}>
       {children}
     </button>
   );

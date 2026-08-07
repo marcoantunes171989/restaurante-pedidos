@@ -5723,7 +5723,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
       { id: "comandas-gestao", icon: <IconQr />, label: "Comandas" },
       { id: "comandas", icon: <IconQr />, label: "QR Code" },
       { id: "chamados", icon: <IconMesas />, label: "Chamados" },
-      { id: "setores", icon: <IconCategorias />, label: "Setores de Produção" },
+      { id: "setores", icon: <IconCategorias />, label: "Setores de Produtos" },
       { id: "setor-impressoras", icon: <IconImpressora />, label: "Setor Impressoras" },
       { id: "impressoes", icon: <IconImpressora />, label: "Impressões Setores" },
       { id: "operacaomobile", icon: <IconQr />, label: "Operação Mobile" },
@@ -16401,6 +16401,7 @@ function SetoresCozinhaAdmin({ setores = [], produtos = [], orders = [], api, vi
   const nomeRef = useRef(null);
   // Busca + modais
   const [busca, setBusca] = useState("");
+  const [criando, setCriando] = useState(false);    // modal de novo setor (padrão Mesas)
   const [editando, setEditando] = useState(null);   // setor em edição (modal)
   const [confirmar, setConfirmar] = useState(null);  // setor a inativar (modal)
   const [vinculando, setVinculando] = useState(null);// setor p/ vincular produtos (modal)
@@ -16438,13 +16439,12 @@ function SetoresCozinhaAdmin({ setores = [], produtos = [], orders = [], api, vi
         ativo: ativoNovo,
         ordem: setores.length,
       });
-      setNome(""); setDescricao(""); setAtivoNovo(true);
+      setNome(""); setDescricao(""); setAtivoNovo(true); setCriando(false);
       aviso("ok", "Setor criado com sucesso.");
     } catch { aviso("erro", "Não foi possível criar o setor."); }
     finally { setSalvando(false); }
   }
   function limpar() { setNome(""); setDescricao(""); setAtivoNovo(true); setMsg(null); }
-  function focarNome() { nomeRef.current?.focus(); nomeRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }); }
 
   async function salvarEdicao() {
     const n = (editando.nome || "").trim();
@@ -16475,17 +16475,20 @@ function SetoresCozinhaAdmin({ setores = [], produtos = [], orders = [], api, vi
         <div className={`fixed right-5 top-5 z-[60] rounded-2xl border px-4 py-3 text-sm font-semibold shadow-xl ${msg.tipo === "ok" ? "border-[rgba(47,158,82,0.3)] bg-[rgba(47,158,82,0.12)] text-[#2F9E52]" : "border-[rgba(200,30,74,0.3)] bg-[rgba(200,30,74,0.1)] text-[#C81E4A]"}`}>{msg.texto}</div>
       )}
 
-      {/* ── Cabeçalho ─────────────────────────────────────── */}
+      {/* ── Cabeçalho — botão de cadastro no topo direito (padrão Mesas) ── */}
       <div className="relative overflow-hidden rounded-[2rem] border border-[var(--pp-border)] bg-white p-6 shadow-[0_1px_2px_rgba(15,76,92,0.05)]">
         <span className="pointer-events-none absolute -right-6 -top-6 text-[rgba(230,126,34,0.06)] [&>svg]:h-44 [&>svg]:w-44"><IcoChef /></span>
-        <div className="relative flex items-start gap-4">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[rgba(230,126,34,0.3)] bg-[rgba(230,126,34,0.1)] text-[#E67E22] [&>svg]:h-6 [&>svg]:w-6"><IcoChef /></span>
-          <div className="min-w-0">
-            <h3 className="page-title text-lg font-semibold tracking-tight text-[var(--pp-text)] sm:text-xl">Setores de Produção</h3>
-            <p className="mt-1 max-w-2xl text-[13px] leading-6 text-[var(--pp-text-muted)]">
-              Organize a cozinha por setores e vincule produtos. A impressora é configurada em Operação → Setor Impressoras e ligada na categoria/produto.
-            </p>
+        <div className="relative flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex items-start gap-4">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[rgba(230,126,34,0.3)] bg-[rgba(230,126,34,0.1)] text-[#E67E22] [&>svg]:h-6 [&>svg]:w-6"><IcoChef /></span>
+            <div className="min-w-0">
+              <h3 className="page-title text-lg font-semibold tracking-tight text-[var(--pp-text)] sm:text-xl">Setores de Produtos</h3>
+              <p className="mt-1 max-w-2xl text-[13px] leading-6 text-[var(--pp-text-muted)]">
+                Organize a cozinha por setores e vincule produtos. A impressora é configurada em Operação → Setor Impressoras e ligada na categoria/produto.
+              </p>
+            </div>
           </div>
+          <div className="shrink-0"><PrimeButton onClick={() => setCriando(true)}><span className="text-lg leading-none">+</span> Cadastrar setor</PrimeButton></div>
         </div>
       </div>
 
@@ -16508,47 +16511,8 @@ function SetoresCozinhaAdmin({ setores = [], produtos = [], orders = [], api, vi
         ))}
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-[360px_1fr]">
-        {/* ── Coluna esquerda: novo setor + dicas ─────────── */}
-        <div className="space-y-4">
-          <div className="rounded-[2rem] border border-[var(--pp-border)] bg-white p-5 shadow-[0_1px_2px_rgba(15,76,92,0.05)]">
-            <h4 className="page-title text-base font-semibold text-[var(--pp-text)]">Novo setor</h4>
-            <p className="mt-0.5 text-xs text-[var(--pp-text-muted)]">Crie um novo setor para organizar sua cozinha.</p>
-            <div className="mt-4 space-y-3">
-              <div>
-                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--pp-text-muted)]">Nome do setor</label>
-                <input ref={nomeRef} value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: Pizzaria, Chapa, Bar..." className={inp} onKeyDown={(e) => { if (e.key === "Enter") criar(); }} />
-              </div>
-              <div>
-                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--pp-text-muted)]">Descrição do setor</label>
-                <textarea value={descricao} maxLength={120} onChange={(e) => setDescricao(e.target.value)} rows={2} placeholder="Descreva a função ou os tipos de preparo deste setor..." className={`${inp} resize-none`} />
-              </div>
-              <div className="flex items-center justify-between rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5 shadow-[0_1px_2px_rgba(15,76,92,0.04)]">
-                <span className="text-sm font-semibold text-[var(--pp-text-body)]">Status</span>
-                <button type="button" onClick={() => setAtivoNovo((v) => !v)} className={`relative h-6 w-11 rounded-full transition ${ativoNovo ? "bg-[#2F9E52]" : "bg-[var(--pp-border)]"}`}>
-                  <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${ativoNovo ? "left-[22px]" : "left-0.5"}`} />
-                </button>
-                <span className={`w-14 text-right text-xs font-semibold ${ativoNovo ? "text-[#2F9E52]" : "text-[var(--pp-text-muted)]"}`}>{ativoNovo ? "Ativo" : "Inativo"}</span>
-              </div>
-              <div className="flex gap-2 pt-1">
-                <PrimeButton onClick={criar} disabled={salvando} className="flex-1"><span className="text-lg leading-none">+</span> {salvando ? "Criando…" : "Criar setor"}</PrimeButton>
-                <button onClick={limpar} className="rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--pp-text-body)] transition hover:bg-[rgba(15,76,92,0.04)]">Limpar campos</button>
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-[2rem] border border-[rgba(230,126,34,0.25)] bg-white p-5 shadow-[0_1px_2px_rgba(15,76,92,0.05)]">
-            <div className="flex items-center gap-2 text-[#E67E22]">
-              <span className="[&>svg]:h-5 [&>svg]:w-5"><IcoBulb /></span>
-              <h4 className="page-title text-sm font-semibold">Como funciona</h4>
-            </div>
-            <p className="mt-2 text-xs leading-5 text-[var(--pp-text-body)]">O setor organiza o painel da cozinha (produto → categoria). A impressora é cadastrada em <b className="font-semibold">Setor Impressoras</b> e vinculada na categoria (obrigatório) ou no produto (opcional).</p>
-            <p className="mt-2 text-xs leading-5 text-[var(--pp-text-muted)]">Monitore impresso/pendente/reimpressão em Operação → Impressões Setores.</p>
-          </div>
-        </div>
-
-        {/* ── Coluna direita: listagem ────────────────────── */}
-        <div className="rounded-[2rem] border border-[var(--pp-border)] bg-white p-5 shadow-[0_1px_2px_rgba(15,76,92,0.05)]">
+      {/* ── Listagem (largura total) — cadastro agora abre em modal ── */}
+      <div className="rounded-[2rem] border border-[var(--pp-border)] bg-white p-5 shadow-[0_1px_2px_rgba(15,76,92,0.05)]">
           <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h4 className="page-title text-base font-semibold text-[var(--pp-text)]">Setores cadastrados</h4>
@@ -16568,7 +16532,7 @@ function SetoresCozinhaAdmin({ setores = [], produtos = [], orders = [], api, vi
               <p className="mt-3 font-semibold text-[var(--pp-text)]">Nenhum setor cadastrado ainda.</p>
               <p className="mx-auto mt-1 max-w-md text-sm text-[var(--pp-text-muted)]">Crie setores para organizar o preparo dos pedidos e facilitar o controle da cozinha.</p>
               <p className="mt-1 text-xs text-[var(--pp-text-muted)]">Exemplos: Bar, Pizzaria, Chapa, Cozinha, Sobremesas e Bebidas.</p>
-              <button onClick={focarNome} className="btn-laranja mt-4 rounded-xl px-5 py-2.5 text-sm font-semibold text-white">Criar primeiro setor</button>
+              <button onClick={() => setCriando(true)} className="btn-laranja mt-4 rounded-xl px-5 py-2.5 text-sm font-semibold text-white">Criar primeiro setor</button>
             </div>
           ) : filtrados.length === 0 ? (
             <p className="mt-6 py-8 text-center text-sm text-[var(--pp-text-muted)]">Nenhum setor encontrado para "{busca}".</p>
@@ -16607,8 +16571,53 @@ function SetoresCozinhaAdmin({ setores = [], produtos = [], orders = [], api, vi
               })}
             </div>
           )}
-        </div>
       </div>
+
+      {/* ── Como funciona (largura total, informativo) ────── */}
+      <div className="rounded-[2rem] border border-[rgba(230,126,34,0.25)] bg-white p-5 shadow-[0_1px_2px_rgba(15,76,92,0.05)]">
+        <div className="flex items-center gap-2 text-[#E67E22]">
+          <span className="[&>svg]:h-5 [&>svg]:w-5"><IcoBulb /></span>
+          <h4 className="page-title text-sm font-semibold">Como funciona</h4>
+        </div>
+        <p className="mt-2 text-xs leading-5 text-[var(--pp-text-body)]">O setor organiza o painel da cozinha (produto → categoria). A impressora é cadastrada em <b className="font-semibold">Setor Impressoras</b> e vinculada na categoria (obrigatório) ou no produto (opcional). Monitore impresso/pendente/reimpressão em Operação → Impressões Setores.</p>
+      </div>
+
+      {/* ── Modal: novo setor (padrão Mesas) ──────────────── */}
+      {criando && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <button aria-label="Fechar" onClick={() => setCriando(false)} className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+          <div className="relative w-full max-w-md rounded-3xl border border-[var(--pp-border)] bg-white p-6 shadow-2xl">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[rgba(230,126,34,0.12)] text-[#E67E22] [&>svg]:h-[18px] [&>svg]:w-[18px]"><IcoChef /></span>
+                <h4 className="page-title text-base font-semibold text-[var(--pp-text)]">Novo setor</h4>
+              </div>
+              <button onClick={() => setCriando(false)} className="flex h-8 w-8 items-center justify-center rounded-xl border border-[var(--pp-border)] bg-white text-[var(--pp-text-muted)] transition hover:bg-[rgba(15,76,92,0.04)] [&>svg]:h-4 [&>svg]:w-4"><IcoFechaSet /></button>
+            </div>
+            <div className="mt-4 space-y-3">
+              <div>
+                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--pp-text-muted)]">Nome do setor</label>
+                <input ref={nomeRef} value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: Pizzaria, Chapa, Bar..." className={inp} autoFocus onKeyDown={(e) => { if (e.key === "Enter") criar(); }} />
+              </div>
+              <div>
+                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--pp-text-muted)]">Descrição do setor</label>
+                <textarea value={descricao} maxLength={120} onChange={(e) => setDescricao(e.target.value)} rows={2} placeholder="Descreva a função ou os tipos de preparo deste setor..." className={`${inp} resize-none`} />
+              </div>
+              <div className="flex items-center justify-between rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5 shadow-[0_1px_2px_rgba(15,76,92,0.04)]">
+                <span className="text-sm font-semibold text-[var(--pp-text-body)]">Status</span>
+                <button type="button" onClick={() => setAtivoNovo((v) => !v)} className={`relative h-6 w-11 rounded-full transition ${ativoNovo ? "bg-[#2F9E52]" : "bg-[var(--pp-border)]"}`}>
+                  <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${ativoNovo ? "left-[22px]" : "left-0.5"}`} />
+                </button>
+                <span className={`w-14 text-right text-xs font-semibold ${ativoNovo ? "text-[#2F9E52]" : "text-[var(--pp-text-muted)]"}`}>{ativoNovo ? "Ativo" : "Inativo"}</span>
+              </div>
+            </div>
+            <div className="mt-5 flex gap-2">
+              <button onClick={limpar} className="rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--pp-text-body)] transition hover:bg-[rgba(15,76,92,0.04)]">Limpar</button>
+              <PrimeButton onClick={criar} disabled={salvando} className="flex-1"><span className="text-lg leading-none">+</span> {salvando ? "Criando…" : "Cadastrar setor"}</PrimeButton>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Modal: editar setor ───────────────────────────── */}
       {editando && (

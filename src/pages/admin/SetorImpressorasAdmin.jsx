@@ -30,6 +30,7 @@ export default function SetorImpressorasAdmin({
   const [salvando, setSalvando] = useState(false);
   const [msg, setMsg] = useState(null);
   const [busca, setBusca] = useState("");
+  const [criando, setCriando] = useState(false);
   const [editando, setEditando] = useState(null);
   const [confirmar, setConfirmar] = useState(null);
   const nomeRef = useRef(null);
@@ -86,7 +87,7 @@ export default function SetorImpressorasAdmin({
         ativo: ativoNovo,
         ordem: impressoras.length,
       });
-      setNome(""); setDestino(""); setTipo("local"); setObservacao(""); setImpressaoAuto(true); setAtivoNovo(true);
+      setNome(""); setDestino(""); setTipo("local"); setObservacao(""); setImpressaoAuto(true); setAtivoNovo(true); setCriando(false);
       aviso("ok", "Impressora cadastrada. Faça um teste de impressão.");
     } catch (e) {
       aviso("erro", e?.message || "Não foi possível cadastrar a impressora.");
@@ -147,12 +148,52 @@ export default function SetorImpressorasAdmin({
     return <HardDrive className="h-4 w-4" />;
   };
 
-  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-gold-400/60 transition placeholder:text-slate-600";
+  const inp = "w-full rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2.5 text-sm text-[var(--pp-text)] outline-none transition focus:border-[#0F4C5C] focus:ring-2 focus:ring-[rgba(15,76,92,0.12)] placeholder:text-[var(--pp-text-muted)]";
+  const lbl = "mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--pp-text-muted)]";
+  const toggleRow = "flex items-center justify-between rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5 shadow-[0_1px_2px_rgba(15,76,92,0.04)]";
+  // Campos do formulário (reaproveitados no modal de novo)
+  const camposNovo = (
+    <div className="space-y-3">
+      <div>
+        <label className={lbl}>Nome amigável *</label>
+        <input ref={nomeRef} value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: Cozinha 80mm, Bar, Caixa" className={inp} autoFocus onKeyDown={(e) => { if (e.key === "Enter") criar(); }} />
+      </div>
+      <div>
+        <label className={lbl}>Tipo de instalação *</label>
+        <select value={tipo} onChange={(e) => setTipo(e.target.value)} className={inp}>
+          {TIPOS_IMPRESSORA.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+        </select>
+      </div>
+      <div>
+        <label className={lbl}>Destino do driver *</label>
+        <input value={destino} onChange={(e) => setDestino(e.target.value)} placeholder={placeholderDestino} className={inp} />
+        <p className="mt-1 text-[11px] leading-4 text-[var(--pp-text-muted)]">{dicaDestino}</p>
+      </div>
+      <div>
+        <label className={lbl}>Observação</label>
+        <textarea value={observacao} maxLength={160} rows={2} onChange={(e) => setObservacao(e.target.value)} placeholder="Ex.: USB na estação da chapa; fila compartilhada do notebook do bar" className={`${inp} resize-none`} />
+      </div>
+      <div className={toggleRow}>
+        <span className="text-sm font-semibold text-[var(--pp-text-body)]">Impressão automática</span>
+        <button type="button" onClick={() => setImpressaoAuto((v) => !v)} className={`relative h-6 w-11 rounded-full transition ${impressaoAuto ? "bg-[#2F9E52]" : "bg-[var(--pp-border)]"}`}>
+          <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${impressaoAuto ? "left-[22px]" : "left-0.5"}`} />
+        </button>
+        <span className={`w-14 text-right text-xs font-semibold ${impressaoAuto ? "text-[#2F9E52]" : "text-[var(--pp-text-muted)]"}`}>{impressaoAuto ? "Ativa" : "Manual"}</span>
+      </div>
+      <div className={toggleRow}>
+        <span className="text-sm font-semibold text-[var(--pp-text-body)]">Status</span>
+        <button type="button" onClick={() => setAtivoNovo((v) => !v)} className={`relative h-6 w-11 rounded-full transition ${ativoNovo ? "bg-[#2F9E52]" : "bg-[var(--pp-border)]"}`}>
+          <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${ativoNovo ? "left-[22px]" : "left-0.5"}`} />
+        </button>
+        <span className={`w-14 text-right text-xs font-semibold ${ativoNovo ? "text-[#2F9E52]" : "text-[var(--pp-text-muted)]"}`}>{ativoNovo ? "Ativo" : "Inativo"}</span>
+      </div>
+    </div>
+  );
 
   return (
     <main className="space-y-5">
       {msg && (
-        <div className={`fixed right-5 top-5 z-[60] rounded-2xl border px-4 py-3 text-sm font-bold shadow-xl ${msg.tipo === "ok" ? "border-emerald-400/30 bg-emerald-500/15 text-emerald-200" : "border-red-400/30 bg-red-500/15 text-red-200"}`}>
+        <div className={`fixed right-5 top-5 z-[60] rounded-2xl border px-4 py-3 text-sm font-semibold shadow-xl ${msg.tipo === "ok" ? "border-[rgba(47,158,82,0.3)] bg-[rgba(47,158,82,0.12)] text-[#2F9E52]" : "border-[rgba(200,30,74,0.3)] bg-[rgba(200,30,74,0.1)] text-[#C81E4A]"}`}>
           {msg.texto}
         </div>
       )}
@@ -167,186 +208,164 @@ export default function SetorImpressorasAdmin({
           { valor: comAuto, rotulo: "com auto-print", tom: "gold" },
           { valor: categorias.filter((c) => c.impressoraId).length, rotulo: "categorias vinculadas" },
         ]}
+        acao={<PrimeButton onClick={() => setCriando(true)}><span className="text-lg leading-none">+</span> Cadastrar impressora</PrimeButton>}
       />
 
-      <div className="grid gap-5 lg:grid-cols-[380px_1fr]">
-        <div className="space-y-4">
-          <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
-            <h4 className="page-title text-base font-bold text-white">Nova impressora</h4>
-            <p className="mt-0.5 text-xs text-slate-500">Apontamento usado pelo Pedido Prime na impressão de teste e automática.</p>
-            <div className="mt-4 space-y-3">
-              <div>
-                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-slate-500">Nome amigável *</label>
-                <input ref={nomeRef} value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: Cozinha 80mm, Bar, Caixa" className={inp} onKeyDown={(e) => { if (e.key === "Enter") criar(); }} />
-              </div>
-              <div>
-                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-slate-500">Tipo de instalação *</label>
-                <select value={tipo} onChange={(e) => setTipo(e.target.value)} className={inp}>
-                  {TIPOS_IMPRESSORA.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-slate-500">Destino do driver *</label>
-                <input value={destino} onChange={(e) => setDestino(e.target.value)} placeholder={placeholderDestino} className={inp} />
-                <p className="mt-1 text-[11px] leading-4 text-slate-500">{dicaDestino}</p>
-              </div>
-              <div>
-                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-slate-500">Observação</label>
-                <textarea value={observacao} maxLength={160} rows={2} onChange={(e) => setObservacao(e.target.value)} placeholder="Ex.: USB na estação da chapa; fila compartilhada do notebook do bar" className={`${inp} resize-none`} />
-              </div>
-              <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-3">
-                <span className="text-sm font-semibold text-slate-300">Impressão automática</span>
-                <button type="button" onClick={() => setImpressaoAuto((v) => !v)} className={`relative h-6 w-11 rounded-full transition ${impressaoAuto ? "bg-emerald-500" : "bg-slate-600"}`}>
-                  <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${impressaoAuto ? "left-[22px]" : "left-0.5"}`} />
-                </button>
-                <span className={`w-14 text-right text-xs font-bold ${impressaoAuto ? "text-emerald-300" : "text-slate-400"}`}>{impressaoAuto ? "Ativa" : "Manual"}</span>
-              </div>
-              <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-3">
-                <span className="text-sm font-semibold text-slate-300">Status</span>
-                <button type="button" onClick={() => setAtivoNovo((v) => !v)} className={`relative h-6 w-11 rounded-full transition ${ativoNovo ? "bg-emerald-500" : "bg-slate-600"}`}>
-                  <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${ativoNovo ? "left-[22px]" : "left-0.5"}`} />
-                </button>
-                <span className={`w-14 text-right text-xs font-bold ${ativoNovo ? "text-emerald-300" : "text-slate-400"}`}>{ativoNovo ? "Ativo" : "Inativo"}</span>
-              </div>
-              <div className="flex gap-2 pt-1">
-                <PrimeButton onClick={criar} disabled={salvando} className="flex-1">
-                  <span className="text-lg leading-none">+</span> {salvando ? "Salvando…" : "Cadastrar impressora"}
-                </PrimeButton>
-                <button onClick={limpar} className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-bold text-slate-300 transition hover:bg-white/10">Limpar</button>
-              </div>
-            </div>
+      {/* Listagem (largura total) — cadastro abre em modal */}
+      <div className="rounded-[2rem] border border-[var(--pp-border)] bg-white p-5 shadow-[0_1px_2px_rgba(15,76,92,0.05)]">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h4 className="page-title text-base font-semibold text-[var(--pp-text)]">Impressoras cadastradas</h4>
+            <p className="text-xs text-[var(--pp-text-muted)]">Gerencie apontamentos e testes.</p>
           </div>
-
-          <div className="rounded-[2rem] border border-gold-400/25 bg-gold-400/[0.05] p-5">
-            <h4 className="page-title text-sm font-bold text-gold-300">Como configurar rápido</h4>
-            <ol className="mt-2 list-decimal space-y-1.5 pl-4 text-xs leading-5 text-slate-300">
-              <li>Instale ou compartilhe a impressora no Windows/Linux da estação.</li>
-              <li>Cadastre aqui o nome e o destino (driver, IP ou \\\\PC\\Fila).</li>
-              <li>Clique em <b>Testar impressão</b> e selecione a fila correta na janela do sistema.</li>
-              <li>Vincule a impressora na <b>categoria</b> (obrigatório) e, se precisar, no produto (opcional).</li>
-              <li>Acompanhe pendentes/reimpressão em <b>Impressões Setores</b>.</li>
-            </ol>
-          </div>
+          <span className="text-xs font-semibold text-[var(--pp-text-muted)]">{filtrados.length} de {lista.length}</span>
         </div>
 
-        <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
-          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h4 className="page-title text-base font-bold text-white">Impressoras cadastradas</h4>
-              <p className="text-xs text-slate-500">Gerencie apontamentos e testes.</p>
-            </div>
-            <span className="text-xs font-semibold text-slate-400">{filtrados.length} de {lista.length}</span>
-          </div>
+        <div className="relative mt-4">
+          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[var(--pp-text-muted)]"><IconBusca /></span>
+          <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar impressora, destino ou tipo..." className={`${inp} pl-11`} />
+        </div>
 
-          <div className="relative mt-4">
-            <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"><IconBusca /></span>
-            <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar impressora, destino ou tipo..." className={`${inp} pl-11`} />
+        {lista.length === 0 ? (
+          <div className="mt-4 rounded-2xl border border-dashed border-[var(--pp-border)] py-12 text-center">
+            <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-[rgba(230,126,34,0.3)] bg-[rgba(230,126,34,0.1)] text-[#E67E22]"><Printer className="h-7 w-7" /></span>
+            <p className="mt-3 font-semibold text-[var(--pp-text)]">Nenhuma impressora cadastrada.</p>
+            <p className="mx-auto mt-1 max-w-md text-sm text-[var(--pp-text-muted)]">Cadastre ao menos uma para vincular nas categorias e liberar a impressão automática.</p>
+            <button onClick={() => setCriando(true)} className="btn-laranja mt-4 rounded-xl px-5 py-2.5 text-sm font-semibold text-white">Cadastrar impressora</button>
           </div>
-
-          {lista.length === 0 ? (
-            <div className="mt-4 rounded-2xl border border-dashed border-white/15 bg-white/[0.02] py-12 text-center">
-              <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-gold-400/30 bg-gold-400/10 text-gold-300"><Printer className="h-7 w-7" /></span>
-              <p className="mt-3 font-bold text-white">Nenhuma impressora cadastrada.</p>
-              <p className="mx-auto mt-1 max-w-md text-sm text-slate-500">Cadastre ao menos uma para vincular nas categorias e liberar a impressão automática.</p>
-            </div>
-          ) : filtrados.length === 0 ? (
-            <p className="mt-6 py-8 text-center text-sm text-slate-500">Nenhuma impressora encontrada para &quot;{busca}&quot;.</p>
-          ) : (
-            <div className="mt-4 space-y-3">
-              {filtrados.map((imp) => {
-                const ativo = imp.ativo !== false;
-                return (
-                  <div key={imp.id} className={`rounded-2xl border p-4 transition ${ativo ? "border-white/10 bg-slate-950/40 hover:bg-slate-950/60" : "border-white/10 bg-white/[0.02] opacity-75"}`}>
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                      <div className="flex min-w-0 items-start gap-3">
-                        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-gold-400/25 bg-gold-400/10 text-gold-300">
-                          {iconeTipo(imp.tipo)}
-                        </span>
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <p className="page-title truncate text-base font-bold text-white">{imp.nome}</p>
-                            <span className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold ${ativo ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-300" : "border-white/15 bg-white/[0.06] text-slate-400"}`}>
-                              {ativo ? "Ativa" : "Inativa"}
-                            </span>
-                            <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-bold text-slate-300">
-                              {rotuloTipoImpressora(imp.tipo)}
-                            </span>
-                          </div>
-                          <p className="mt-1 break-all font-mono text-[11px] text-slate-300">{imp.destino || "—"}</p>
-                          {imp.observacao ? <p className="mt-0.5 text-xs text-slate-500">{imp.observacao}</p> : null}
-                          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-500">
-                            <span>{imp.impressaoAuto === false ? "Impressão manual" : "Impressão automática"}</span>
-                            <span><b className="text-slate-300">{categoriasVinculadas(imp.id)}</b> categoria(s)</span>
-                            <span><b className="text-slate-300">{produtosVinculados(imp.id)}</b> produto(s) com override</span>
-                          </div>
+        ) : filtrados.length === 0 ? (
+          <p className="mt-6 py-8 text-center text-sm text-[var(--pp-text-muted)]">Nenhuma impressora encontrada para &quot;{busca}&quot;.</p>
+        ) : (
+          <div className="mt-4 space-y-3">
+            {filtrados.map((imp) => {
+              const ativo = imp.ativo !== false;
+              return (
+                <div key={imp.id} className={`rounded-2xl border p-4 transition ${ativo ? "border-[var(--pp-border)] bg-white shadow-[0_1px_2px_rgba(15,76,92,0.04)] hover:border-[rgba(15,76,92,0.24)]" : "border-[var(--pp-border)] bg-white opacity-70"}`}>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex min-w-0 items-start gap-3">
+                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[rgba(15,76,92,0.2)] bg-[rgba(15,76,92,0.06)] text-[#0F4C5C]">
+                        {iconeTipo(imp.tipo)}
+                      </span>
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="page-title truncate text-sm font-semibold text-[var(--pp-text)]">{imp.nome}</p>
+                          <span className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${ativo ? "border-[rgba(47,158,82,0.3)] bg-[rgba(47,158,82,0.1)] text-[#2F9E52]" : "border-[var(--pp-border)] bg-[rgba(15,76,92,0.06)] text-[var(--pp-text-muted)]"}`}>
+                            {ativo ? "Ativa" : "Inativa"}
+                          </span>
+                          <span className="rounded-full border border-[var(--pp-border)] bg-[rgba(15,76,92,0.05)] px-2 py-0.5 text-[10px] font-semibold text-[var(--pp-text-body)]">
+                            {rotuloTipoImpressora(imp.tipo)}
+                          </span>
+                        </div>
+                        <p className="mt-1 break-all font-mono text-[11px] text-[var(--pp-text-body)]">{imp.destino || "—"}</p>
+                        {imp.observacao ? <p className="mt-0.5 text-xs text-[var(--pp-text-muted)]">{imp.observacao}</p> : null}
+                        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-[var(--pp-text-muted)]">
+                          <span>{imp.impressaoAuto === false ? "Impressão manual" : "Impressão automática"}</span>
+                          <span><b className="font-semibold text-[#0F4C5C]">{categoriasVinculadas(imp.id)}</b> categoria(s)</span>
+                          <span><b className="font-semibold text-[#0F4C5C]">{produtosVinculados(imp.id)}</b> produto(s) com override</span>
                         </div>
                       </div>
-                      <div className="flex shrink-0 flex-wrap gap-1.5">
-                        <button type="button" onClick={() => testar(imp)} className="inline-flex items-center gap-1.5 rounded-xl border border-gold-400/30 bg-gold-400/10 px-3 py-1.5 text-xs font-bold text-gold-200 transition hover:bg-gold-400/20">
-                          <FlaskConical className="h-3.5 w-3.5" /> Testar impressão
-                        </button>
-                        <button type="button" onClick={() => setEditando({ ...imp })} className="rounded-xl border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs font-bold text-slate-200 transition hover:bg-white/10">Editar</button>
-                        {ativo
-                          ? <button type="button" onClick={() => setConfirmar(imp)} className="rounded-xl border border-red-400/25 bg-red-500/10 px-3 py-1.5 text-xs font-bold text-red-300 transition hover:bg-red-500/20">Inativar</button>
-                          : <button type="button" onClick={() => alternarAtivo(imp, true)} className="rounded-xl border border-emerald-400/25 bg-emerald-500/10 px-3 py-1.5 text-xs font-bold text-emerald-300 transition hover:bg-emerald-500/20">Ativar</button>}
-                      </div>
+                    </div>
+                    <div className="flex shrink-0 flex-wrap gap-1.5">
+                      <button type="button" onClick={() => testar(imp)} className="inline-flex items-center gap-1.5 rounded-xl border border-[rgba(230,126,34,0.3)] bg-white px-3 py-1.5 text-xs font-semibold text-[#E67E22] shadow-[0_1px_2px_rgba(15,76,92,0.05)] transition hover:bg-[rgba(230,126,34,0.08)]">
+                        <FlaskConical className="h-3.5 w-3.5" /> Testar impressão
+                      </button>
+                      <button type="button" onClick={() => setEditando({ ...imp })} className="rounded-xl border border-[var(--pp-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--pp-text-body)] shadow-[0_1px_2px_rgba(15,76,92,0.05)] transition hover:bg-[rgba(15,76,92,0.04)]">Editar</button>
+                      {ativo
+                        ? <button type="button" onClick={() => setConfirmar(imp)} className="rounded-xl border border-[rgba(200,30,74,0.24)] bg-white px-3 py-1.5 text-xs font-semibold text-[#C81E4A] shadow-[0_1px_2px_rgba(15,76,92,0.05)] transition hover:bg-[rgba(200,30,74,0.08)]">Inativar</button>
+                        : <button type="button" onClick={() => alternarAtivo(imp, true)} className="rounded-xl border border-[rgba(47,158,82,0.3)] bg-white px-3 py-1.5 text-xs font-semibold text-[#2F9E52] shadow-[0_1px_2px_rgba(15,76,92,0.05)] transition hover:bg-[rgba(47,158,82,0.08)]">Ativar</button>}
                     </div>
                   </div>
-                );
-              })}
-            </div>
-          )}
+                </div>
+              );
+            })}
+          </div>
+        )}
 
-          {categorias.some((c) => !c.impressoraId && c.active !== false) && (
-            <p className="mt-4 rounded-2xl border border-amber-400/25 bg-amber-500/10 px-4 py-3 text-xs text-amber-100">
-              Há categorias ativas sem impressora. Vincule em <b>Gestão → Categorias</b> para a impressão automática funcionar.
-              {categorias.filter((c) => !c.impressoraId && c.active !== false).slice(0, 3).map((c) => ` “${c.nome}”`).join(",")}
-            </p>
-          )}
-        </div>
+        {categorias.some((c) => !c.impressoraId && c.active !== false) && (
+          <p className="mt-4 rounded-2xl border border-[rgba(230,126,34,0.3)] bg-[rgba(230,126,34,0.08)] px-4 py-3 text-xs text-[#B4611A]">
+            Há categorias ativas sem impressora. Vincule em <b className="font-semibold">Gestão → Categorias</b> para a impressão automática funcionar.
+            {categorias.filter((c) => !c.impressoraId && c.active !== false).slice(0, 3).map((c) => ` “${c.nome}”`).join(",")}
+          </p>
+        )}
       </div>
+
+      {/* Como configurar rápido (largura total, informativo) */}
+      <div className="rounded-[2rem] border border-[rgba(230,126,34,0.25)] bg-white p-5 shadow-[0_1px_2px_rgba(15,76,92,0.05)]">
+        <h4 className="page-title text-sm font-semibold text-[#E67E22]">Como configurar rápido</h4>
+        <ol className="mt-2 list-decimal space-y-1.5 pl-4 text-xs leading-5 text-[var(--pp-text-body)]">
+          <li>Instale ou compartilhe a impressora no Windows/Linux da estação.</li>
+          <li>Cadastre aqui o nome e o destino (driver, IP ou \\\\PC\\Fila).</li>
+          <li>Clique em <b className="font-semibold">Testar impressão</b> e selecione a fila correta na janela do sistema.</li>
+          <li>Vincule a impressora na <b className="font-semibold">categoria</b> (obrigatório) e, se precisar, no produto (opcional).</li>
+          <li>Acompanhe pendentes/reimpressão em <b className="font-semibold">Impressões Setores</b>.</li>
+        </ol>
+      </div>
+
+      {/* Modal: nova impressora (padrão Mesas) */}
+      {criando && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <button aria-label="Fechar" onClick={() => setCriando(false)} className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+          <div className="relative flex max-h-[88vh] w-full max-w-md flex-col rounded-3xl border border-[var(--pp-border)] bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-[var(--pp-border)] px-6 py-4">
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[rgba(230,126,34,0.12)] text-[#E67E22]"><Printer className="h-[18px] w-[18px]" /></span>
+                <h4 className="page-title text-base font-semibold text-[var(--pp-text)]">Nova impressora</h4>
+              </div>
+              <button onClick={() => setCriando(false)} aria-label="Fechar" className="flex h-8 w-8 items-center justify-center rounded-xl border border-[var(--pp-border)] bg-white text-lg text-[var(--pp-text-muted)] transition hover:bg-[rgba(15,76,92,0.04)]">✕</button>
+            </div>
+            <div className="overflow-y-auto px-6 py-4">{camposNovo}</div>
+            <div className="flex gap-2 border-t border-[var(--pp-border)] px-6 py-4">
+              <button onClick={limpar} className="rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--pp-text-body)] transition hover:bg-[rgba(15,76,92,0.04)]">Limpar</button>
+              <PrimeButton onClick={criar} disabled={salvando} className="flex-1"><span className="text-lg leading-none">+</span> {salvando ? "Salvando…" : "Cadastrar impressora"}</PrimeButton>
+            </div>
+          </div>
+        </div>
+      )}
 
       {editando && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <button aria-label="Fechar" onClick={() => setEditando(null)} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-          <div className="relative w-full max-w-md rounded-[2rem] border border-white/10 bg-blue-950 p-6 shadow-2xl">
-            <h4 className="page-title text-lg font-bold text-white">Editar impressora</h4>
-            <div className="mt-4 space-y-3">
+          <button aria-label="Fechar" onClick={() => setEditando(null)} className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+          <div className="relative flex max-h-[88vh] w-full max-w-md flex-col rounded-3xl border border-[var(--pp-border)] bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-[var(--pp-border)] px-6 py-4">
+              <h4 className="page-title text-base font-semibold text-[var(--pp-text)]">Editar impressora</h4>
+              <button onClick={() => setEditando(null)} aria-label="Fechar" className="flex h-8 w-8 items-center justify-center rounded-xl border border-[var(--pp-border)] bg-white text-lg text-[var(--pp-text-muted)] transition hover:bg-[rgba(15,76,92,0.04)]">✕</button>
+            </div>
+            <div className="space-y-3 overflow-y-auto px-6 py-4">
               <div>
-                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-slate-500">Nome *</label>
+                <label className={lbl}>Nome *</label>
                 <input value={editando.nome} onChange={(e) => setEditando({ ...editando, nome: e.target.value })} className={inp} autoFocus />
               </div>
               <div>
-                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-slate-500">Tipo *</label>
+                <label className={lbl}>Tipo *</label>
                 <select value={editando.tipo || "local"} onChange={(e) => setEditando({ ...editando, tipo: e.target.value })} className={inp}>
                   {TIPOS_IMPRESSORA.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
                 </select>
               </div>
               <div>
-                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-slate-500">Destino do driver *</label>
+                <label className={lbl}>Destino do driver *</label>
                 <input value={editando.destino || ""} onChange={(e) => setEditando({ ...editando, destino: e.target.value })} className={inp} />
               </div>
               <div>
-                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-slate-500">Observação</label>
+                <label className={lbl}>Observação</label>
                 <textarea value={editando.observacao || ""} maxLength={160} rows={2} onChange={(e) => setEditando({ ...editando, observacao: e.target.value })} className={`${inp} resize-none`} />
               </div>
-              <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-3">
-                <span className="text-sm font-semibold text-slate-300">Impressão automática</span>
-                <button type="button" onClick={() => setEditando({ ...editando, impressaoAuto: editando.impressaoAuto === false })} className={`relative h-6 w-11 rounded-full transition ${editando.impressaoAuto !== false ? "bg-emerald-500" : "bg-slate-600"}`}>
-                  <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${editando.impressaoAuto !== false ? "left-[22px]" : "left-0.5"}`} />
+              <div className={toggleRow}>
+                <span className="text-sm font-semibold text-[var(--pp-text-body)]">Impressão automática</span>
+                <button type="button" onClick={() => setEditando({ ...editando, impressaoAuto: editando.impressaoAuto === false })} className={`relative h-6 w-11 rounded-full transition ${editando.impressaoAuto !== false ? "bg-[#2F9E52]" : "bg-[var(--pp-border)]"}`}>
+                  <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${editando.impressaoAuto !== false ? "left-[22px]" : "left-0.5"}`} />
                 </button>
               </div>
-              <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-3">
-                <span className="text-sm font-semibold text-slate-300">Status</span>
-                <button type="button" onClick={() => setEditando({ ...editando, ativo: editando.ativo === false })} className={`relative h-6 w-11 rounded-full transition ${editando.ativo !== false ? "bg-emerald-500" : "bg-slate-600"}`}>
-                  <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${editando.ativo !== false ? "left-[22px]" : "left-0.5"}`} />
+              <div className={toggleRow}>
+                <span className="text-sm font-semibold text-[var(--pp-text-body)]">Status</span>
+                <button type="button" onClick={() => setEditando({ ...editando, ativo: editando.ativo === false })} className={`relative h-6 w-11 rounded-full transition ${editando.ativo !== false ? "bg-[#2F9E52]" : "bg-[var(--pp-border)]"}`}>
+                  <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${editando.ativo !== false ? "left-[22px]" : "left-0.5"}`} />
                 </button>
               </div>
             </div>
-            <div className="mt-5 flex gap-2">
-              <button type="button" onClick={salvarEdicao} className="flex-1 rounded-2xl bg-gold-400 px-4 py-2.5 text-sm font-bold text-blue-950 transition hover:bg-gold-300">Salvar</button>
-              <button type="button" onClick={() => testar(editando)} className="rounded-2xl border border-gold-400/30 bg-gold-400/10 px-4 py-2.5 text-sm font-bold text-gold-200 transition hover:bg-gold-400/20">Testar</button>
-              <button type="button" onClick={() => setEditando(null)} className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-2.5 text-sm font-bold text-slate-300 transition hover:bg-white/10">Cancelar</button>
+            <div className="flex gap-2 border-t border-[var(--pp-border)] px-6 py-4">
+              <PrimeButton onClick={salvarEdicao} className="flex-1">Salvar</PrimeButton>
+              <button type="button" onClick={() => testar(editando)} className="rounded-xl border border-[rgba(230,126,34,0.3)] bg-white px-4 py-2.5 text-sm font-semibold text-[#E67E22] transition hover:bg-[rgba(230,126,34,0.08)]">Testar</button>
+              <button type="button" onClick={() => setEditando(null)} className="rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--pp-text-body)] transition hover:bg-[rgba(15,76,92,0.04)]">Cancelar</button>
             </div>
           </div>
         </div>
@@ -354,14 +373,14 @@ export default function SetorImpressorasAdmin({
 
       {confirmar && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <button aria-label="Fechar" onClick={() => setConfirmar(null)} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-          <div className="relative w-full max-w-md rounded-[2rem] border border-white/10 bg-blue-950 p-6 shadow-2xl">
-            <h4 className="page-title text-lg font-bold text-white">Inativar impressora?</h4>
-            <p className="mt-2 text-sm leading-6 text-slate-400">Ela deixa de aparecer na seleção de categorias/produtos. Histórico da fila de impressão é preservado.</p>
-            <p className="mt-3 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-bold text-white">{confirmar.nome}</p>
+          <button aria-label="Fechar" onClick={() => setConfirmar(null)} className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+          <div className="relative w-full max-w-md rounded-3xl border border-[var(--pp-border)] bg-white p-6 shadow-2xl">
+            <h4 className="page-title text-base font-semibold text-[var(--pp-text)]">Inativar impressora?</h4>
+            <p className="mt-2 text-sm leading-6 text-[var(--pp-text-muted)]">Ela deixa de aparecer na seleção de categorias/produtos. Histórico da fila de impressão é preservado.</p>
+            <p className="mt-3 rounded-xl border border-[var(--pp-border)] bg-[rgba(15,76,92,0.04)] px-3 py-2 text-sm font-semibold text-[var(--pp-text)]">{confirmar.nome}</p>
             <div className="mt-5 flex gap-2">
-              <button type="button" onClick={() => alternarAtivo(confirmar, false)} className="flex-1 rounded-2xl border border-red-400/30 bg-red-500/15 px-4 py-2.5 text-sm font-bold text-red-200 transition hover:bg-red-500/25">Confirmar inativação</button>
-              <button type="button" onClick={() => setConfirmar(null)} className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-2.5 text-sm font-bold text-slate-300 transition hover:bg-white/10">Cancelar</button>
+              <button type="button" onClick={() => alternarAtivo(confirmar, false)} className="flex-1 rounded-xl bg-[#C81E4A] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#B01A40]">Confirmar inativação</button>
+              <button type="button" onClick={() => setConfirmar(null)} className="rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--pp-text-body)] transition hover:bg-[rgba(15,76,92,0.04)]">Cancelar</button>
             </div>
           </div>
         </div>
