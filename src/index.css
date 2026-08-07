@@ -353,10 +353,10 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
   --login-text-secondary: #5F6B6E;
   --login-border: #E6E6E6;       /* cinza claro — bordas/divisórias */
 
-  --login-primary: #E67E22;      /* laranja — ação/CTA/foco */
-  --login-primary-hover: #D06E1A;
-  --login-primary-active: #B25E15;
-  --login-primary-soft: #FCEFE1;
+  --login-primary: #0F4C5C;      /* azul petróleo — ação/CTA/foco (padrão admin) */
+  --login-primary-hover: #0B3A46;
+  --login-primary-active: #093039;
+  --login-primary-soft: rgba(15, 76, 92, 0.08);
 
   /* Secundária institucional — azul petróleo (confiança/tecnologia). */
   --login-secondary: #0F4C5C;
@@ -1100,8 +1100,23 @@ h1, h2, h3, .brand-title, .page-title, .font-display,
 .pp-admin-module .pp-btn-text       { font-size: 14px; font-weight: 600; line-height: 1.2; }
 .pp-admin-module .pp-table-text     { font-size: 13px; font-weight: 400; line-height: 1.4; }
 .pp-admin-module .pp-table-header   { font-size: 12px; font-weight: 600; line-height: 1.3; }
-.pp-admin-module .pp-kpi            { font-size: 28px; font-weight: 700; line-height: 1.2; }
+.pp-admin-module .pp-kpi            { font-size: 20px; font-weight: 700; line-height: 1.2; }
 .pp-admin-module .pp-caption        { font-size: 12px; font-weight: 400; line-height: 1.4; }
+
+/* ══════════════════════════════════════════════════════════════════
+   NÚMEROS do painel administrativo — TAMANHO PADRÃO ÚNICO E PEQUENO
+   (skill numeros-admin). Todo número grande (KPI, total, contagem, %)
+   das telas do admin fica em 20px — pequeno, elegante e consistente em
+   TODAS as telas. text-xl já é 20px; aqui unificamos os tamanhos maiores
+   (2xl=24px, 3xl=30px e o arbitrário 22px) para o mesmo 20px. Escopo:
+   conteúdo do admin (.pp-admin-module .tema-claro-area); não afeta o
+   cardápio do cliente, tablet, PDV, cozinha, login nem o splash. */
+.pp-admin-module .tema-claro-area .text-3xl,
+.pp-admin-module .tema-claro-area .text-2xl,
+.pp-admin-module .tema-claro-area .text-\[22px\] {
+  font-size: 20px !important;
+  line-height: 1.2 !important;
+}
 
 /* ── Responsividade global: ajusta a todas as resoluções ────── */
 html {

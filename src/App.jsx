@@ -2467,7 +2467,7 @@ export default function RestaurantePedidoApp() {
         <div className="relative flex flex-col items-center gap-6 text-center">
           {/* Logo com anel fino girando (petróleo→laranja) */}
           <div className="relative flex h-24 w-24 items-center justify-center">
-            <span className="pp-load-ring absolute inset-0 rounded-full border-2 border-[#0F4C5C]/12 border-t-[#E67E22]" aria-hidden="true" />
+            <span className="pp-load-ring absolute inset-0 rounded-full border-2 border-[#0F4C5C]/12 border-t-[#0F4C5C]" aria-hidden="true" />
             <LogoPP size={68} />
           </div>
 
@@ -2494,9 +2494,9 @@ export default function RestaurantePedidoApp() {
 
           {/* Barra de progresso indeterminada (petróleo→laranja) */}
           <div className="relative h-1.5 w-56 max-w-[70vw] overflow-hidden rounded-full bg-[#0F4C5C]/[0.08]">
-            <div className="pp-load-bar absolute inset-y-0 left-0 w-1/3 rounded-full" style={{ background: "linear-gradient(90deg, #F2994A, #E67E22)" }} />
+            <div className="pp-load-bar absolute inset-y-0 left-0 w-1/3 rounded-full" style={{ background: "linear-gradient(90deg, #17667A, #0F4C5C)" }} />
           </div>
-          <p className="text-xs font-semibold uppercase tracking-widest text-[var(--pp-text-muted)]">Inicializando sistema…</p>
+          <p className="text-xs font-semibold uppercase tracking-widest text-[#0F4C5C]">Inicializando sistema…</p>
         </div>
       </div>
       </div>
