@@ -847,6 +847,12 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
    Os fills translúcidos (/10, /12…) usam texto COLORIDO, não branco, então não
    entram nesse caso. */
 [data-theme="light"] .tema-claro-area [class*="bg-[#"].text-white { color: #FFFFFF !important; }
+/* TIPOGRAFIA CLEAN (skill tipografia-clean): o peso 900 (font-black) é pesado
+   demais para leitura de painel e deixa tudo "gritando". Em TODAS as superfícies
+   de tema claro (admin, cardápio, login, splash, boas-vindas) o black vira BOLD
+   (700) — mantém a ênfase sem o excesso, deixando o visual leve e elegante.
+   Especificidade (0,3,0) > utilitário Tailwind (0,1,0) → vence sem !important. */
+[data-theme="light"] .tema-claro-area .font-black { font-weight: 700; }
 /* Botões de AÇÃO com degradê (btn-laranja/btn-verde) não têm classe bg-[#…],
    então o remap genérico .text-white→grafite escurecia seu texto. O texto
    desses botões DEVE ser branco (contraste sobre o degradê). Mesma especificidade

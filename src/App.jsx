@@ -7914,49 +7914,56 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
                 <div className="flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-bold shadow-lg" style={{ borderColor: "#2F9E5233", background: "#2F9E521A", color: "#2F9E52" }}>✅ {toastAcao}</div>
               </div>
             )}
-            {/* 4. Diagnóstico do negócio */}
+            {/* 4a. Saúde do estabelecimento (gráfico) — bloco SEPARADO do resumo */}
             <div className="rounded-2xl border border-[var(--pp-border)] bg-white p-5 shadow-[0_1px_2px_rgba(43,35,32,0.04),0_12px_28px_-14px_rgba(43,35,32,0.14)] sm:p-6">
-              <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="relative h-20 w-20 shrink-0" style={{ background: `conic-gradient(${nivelCorAnel} ${ia.score * 3.6}deg, #EAE0D6 0deg)`, borderRadius: "9999px" }}>
-                    <div className="absolute inset-[6px] flex flex-col items-center justify-center rounded-full bg-white">
-                      <span className="text-2xl font-black leading-none" style={{ color: nivelCorAnel }}>{ia.score}</span>
-                      <span className="mt-0.5 text-[9px] font-bold uppercase tracking-wider text-[var(--pp-text-muted)]">/100</span>
-                    </div>
-                  </div>
-                  <div>
-                    <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]">
-                      Diagnóstico do negócio
-                      <span tabIndex={0} title={`Como o score é calculado (regras locais, sem IA):\n${ia.regrasScore.map((r) => `• ${r.desc}`).join("\n")}`} aria-label="Como o score é calculado" className="cursor-help text-[var(--pp-text-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F4C5C] focus-visible:ring-offset-1 rounded-full">ⓘ</span>
-                    </p>
-                    <span className="mt-1 inline-flex rounded-full border px-3 py-1 text-sm font-black" style={{ borderColor: `${nivelCorAnel}4D`, background: `${nivelCorAnel}1A`, color: nivelCorAnel }}>{ia.nivel}</span>
-                    {comparativo?.faturamento != null && (
-                      <p className="mt-1.5 text-xs font-bold" style={{ color: comparativo.faturamento >= 0 ? "#2F9E52" : "#C81E4A" }}>
-                        {comparativo.faturamento >= 0 ? "▲" : "▼"} {Math.abs(Math.round(comparativo.faturamento))}% de faturamento vs. período anterior
-                      </p>
-                    )}
+              <div className="flex items-center gap-4">
+                <div className="relative h-20 w-20 shrink-0" style={{ background: `conic-gradient(${nivelCorAnel} ${ia.score * 3.6}deg, #EAE0D6 0deg)`, borderRadius: "9999px" }}>
+                  <div className="absolute inset-[6px] flex flex-col items-center justify-center rounded-full bg-white">
+                    <span className="text-2xl font-bold leading-none" style={{ color: nivelCorAnel }}>{ia.score}</span>
+                    <span className="mt-0.5 text-[9px] font-semibold uppercase tracking-wider text-[var(--pp-text-muted)]">/100</span>
                   </div>
                 </div>
-                <div className="flex-1 lg:max-w-xl">
-                  <p className="text-[11px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]">Resumo do cenário</p>
-                  <p className="mt-1 text-sm leading-relaxed text-[var(--pp-text)]">{semDados ? "Sem pedidos no período e filtros selecionados — ajuste os filtros acima para ver a análise." : ia.resumo}</p>
+                <div className="min-w-0">
+                  <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-widest text-[var(--pp-text-muted)]">
+                    Saúde do estabelecimento
+                    <span tabIndex={0} title={`Como o score é calculado (regras locais, sem IA):\n${ia.regrasScore.map((r) => `• ${r.desc}`).join("\n")}`} aria-label="Como o score é calculado" className="cursor-help text-[var(--pp-text-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F4C5C] focus-visible:ring-offset-1 rounded-full">ⓘ</span>
+                  </p>
+                  <span className="mt-1 inline-flex rounded-full border px-3 py-1 text-sm font-bold" style={{ borderColor: `${nivelCorAnel}4D`, background: `${nivelCorAnel}1A`, color: nivelCorAnel }}>{ia.nivel}</span>
+                  {comparativo?.faturamento != null && (
+                    <p className="mt-1.5 text-xs font-semibold" style={{ color: comparativo.faturamento >= 0 ? "#2F9E52" : "#C81E4A" }}>
+                      {comparativo.faturamento >= 0 ? "▲" : "▼"} {Math.abs(Math.round(comparativo.faturamento))}% de faturamento vs. período anterior
+                    </p>
+                  )}
                 </div>
               </div>
+            </div>
+
+            {/* 4b. Resumo do cenário — bloco SEPARADO, com destaque para leitura rápida */}
+            <div className="rounded-2xl border border-[var(--pp-border)] bg-white p-5 shadow-[0_1px_2px_rgba(43,35,32,0.04),0_12px_28px_-14px_rgba(43,35,32,0.14)] sm:p-6">
+              <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-widest text-[var(--pp-text-muted)]">
+                <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-[rgba(15,76,92,0.08)] text-[#0F4C5C]" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 5h16M4 12h16M4 19h10" /></svg>
+                </span>
+                Resumo do cenário
+              </p>
+              <div className="mt-2.5 rounded-xl border-l-[3px] border-[#0F4C5C] bg-[rgba(15,76,92,0.035)] px-4 py-3.5">
+                <p className="text-[15px] leading-relaxed text-[var(--pp-text)]">{semDados ? "Sem pedidos no período e filtros selecionados — ajuste os filtros acima para ver a análise." : ia.resumo}</p>
+              </div>
               {!semDados && (
-                <div className="mt-5 grid gap-2.5 border-t border-[var(--pp-bg)] pt-4 sm:grid-cols-3">
-                  <div className="rounded-xl p-3" style={{ background: "#2F9E520D" }}><p className="text-[9px] font-black uppercase tracking-widest" style={{ color: "#2F9E52" }}>Principal resultado positivo</p><p className="mt-1 text-xs font-semibold leading-snug text-[var(--pp-text)]">{ia.resultadoPositivo}</p></div>
-                  <div className="rounded-xl p-3" style={{ background: "#C81E4A0D" }}><p className="text-[9px] font-black uppercase tracking-widest" style={{ color: "#C81E4A" }}>Principal risco</p><p className="mt-1 text-xs font-semibold leading-snug text-[var(--pp-text)]">{ia.principalRisco}</p></div>
-                  <div className="rounded-xl p-3" style={{ background: "#8B5CF60D" }}><p className="text-[9px] font-black uppercase tracking-widest" style={{ color: "#8B5CF6" }}>Principal oportunidade</p><p className="mt-1 text-xs font-semibold leading-snug text-[var(--pp-text)]">{ia.principalOportunidade}</p></div>
+                <div className="mt-4 grid gap-2.5 sm:grid-cols-3">
+                  <div className="rounded-xl border border-[rgba(47,158,82,0.18)] p-3" style={{ background: "#2F9E520D" }}><p className="text-[9px] font-semibold uppercase tracking-widest" style={{ color: "#2F9E52" }}>Principal resultado positivo</p><p className="mt-1 text-[13px] font-medium leading-snug text-[var(--pp-text)]">{ia.resultadoPositivo}</p></div>
+                  <div className="rounded-xl border border-[rgba(200,30,74,0.18)] p-3" style={{ background: "#C81E4A0D" }}><p className="text-[9px] font-semibold uppercase tracking-widest" style={{ color: "#C81E4A" }}>Principal risco</p><p className="mt-1 text-[13px] font-medium leading-snug text-[var(--pp-text)]">{ia.principalRisco}</p></div>
+                  <div className="rounded-xl border border-[rgba(139,92,246,0.18)] p-3" style={{ background: "#8B5CF60D" }}><p className="text-[9px] font-semibold uppercase tracking-widest" style={{ color: "#8B5CF6" }}>Principal oportunidade</p><p className="mt-1 text-[13px] font-medium leading-snug text-[var(--pp-text)]">{ia.principalOportunidade}</p></div>
                 </div>
               )}
               {!semDados && ia.acoes.length > 0 && (
-                <div className="mt-3 border-t border-[var(--pp-bg)] pt-4">
-                  <p className="mb-2 text-[11px] font-black uppercase tracking-widest text-[var(--pp-text)]">Três prioridades agora</p>
+                <div className="mt-3 border-t border-[var(--pp-border)] pt-4">
+                  <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-[var(--pp-text)]">Três prioridades agora</p>
                   <div className="grid gap-2 sm:grid-cols-3">
                     {ia.acoes.slice(0, 3).map((ac, i) => (
                       <div key={i} className="rounded-xl border border-[var(--pp-border)] bg-white p-3 shadow-[0_1px_2px_rgba(15,76,92,0.05)]">
-                        <span className="inline-flex rounded-full border px-2 py-0.5 text-[10px] font-black uppercase" style={{ borderColor: `${prioCor[ac.prio]}4D`, background: `${prioCor[ac.prio]}1A`, color: prioCor[ac.prio] }}>{prioLbl[ac.prio]}</span>
-                        <p className="mt-1.5 text-xs font-semibold leading-snug text-[var(--pp-text)]">{ac.texto}</p>
+                        <span className="inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase" style={{ borderColor: `${prioCor[ac.prio]}4D`, background: `${prioCor[ac.prio]}1A`, color: prioCor[ac.prio] }}>{prioLbl[ac.prio]}</span>
+                        <p className="mt-1.5 text-[13px] font-medium leading-snug text-[var(--pp-text)]">{ac.texto}</p>
                       </div>
                     ))}
                   </div>

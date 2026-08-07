@@ -101,31 +101,31 @@ export default function PwaUpdateBanner({ swAtivado }) {
   return (
     <div className="fixed inset-x-0 bottom-0 z-[140] flex justify-center p-3 sm:p-4" style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 0.75rem)" }}>
       <div role="status" aria-live="polite" className="w-full max-w-md overflow-hidden rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-surface)] shadow-[0_20px_50px_rgba(43,35,32,0.18)]">
-        <div className="flex items-start gap-3 p-4">
-          <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--pp-info-soft)] text-[var(--pp-info)] ${atualizando ? "animate-spin" : ""}`}>
-            <RefreshCw aria-hidden="true" size={18} />
+        <div className="flex items-start gap-2.5 p-3.5">
+          <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--pp-info-soft)] text-[var(--pp-info)] ${atualizando ? "animate-spin" : ""}`}>
+            <RefreshCw aria-hidden="true" size={15} />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-bold text-[var(--pp-text)]">Nova versão disponível</p>
-            <p className="mt-0.5 text-xs leading-5 text-[var(--pp-text-muted)]">
+            <p className="text-[13px] font-semibold text-[var(--pp-text)]">Nova versão disponível</p>
+            <p className="mt-0.5 text-[11px] leading-4 text-[var(--pp-text-muted)]">
               {atualizando ? "Aplicando atualização…" : "Reinicie o app para ter as últimas novidades."}
             </p>
             {!atualizando && (
-              <p className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 font-mono text-[11px] tabular-nums">
-                <span className="text-[var(--pp-text-muted)]">Atual: {versaoAtual}</span>
-                <span className="text-[var(--pp-text-muted)]">→</span>
-                <span className="rounded bg-[var(--pp-info-soft)] px-1.5 py-[1px] font-black text-[var(--pp-info)]">{novaVersao || "carregando…"}</span>
+              <p className="mt-1 flex flex-wrap items-center gap-x-1.5 font-mono text-[10.5px] tabular-nums text-[var(--pp-text-muted)]">
+                <span>Atual: {versaoAtual}</span>
+                <span aria-hidden="true">→</span>
+                <span className="font-semibold text-[var(--pp-text-body)]">{novaVersao || "carregando…"}</span>
               </p>
             )}
           </div>
         </div>
         {!atualizando && (
-          <div className="flex gap-2.5 border-t border-[var(--pp-border)] p-3">
-            <button type="button" onClick={adiar} className="flex min-h-[44px] flex-1 items-center justify-center rounded-xl border border-[var(--pp-border)] bg-[var(--pp-surface)] text-sm font-bold text-[var(--pp-text-body)] transition-colors duration-150 hover:bg-[var(--pp-bg)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-primary)]">
+          <div className="flex gap-2.5 border-t border-[var(--pp-border)] p-2.5">
+            <button type="button" onClick={adiar} className="flex min-h-[42px] flex-1 items-center justify-center rounded-xl border border-[var(--pp-border)] bg-[var(--pp-surface)] text-[13px] font-semibold text-[var(--pp-text-body)] transition-colors duration-150 hover:bg-[var(--pp-bg)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-primary)]">
               Depois
             </button>
-            <button type="button" onClick={aplicar} className="flex min-h-[44px] flex-[1.4] items-center justify-center gap-2 rounded-xl btn-laranja bg-[var(--pp-primary)] text-sm font-bold text-white transition-colors duration-150 hover:bg-[var(--pp-primary-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-primary-hover)]">
-              <RefreshCw aria-hidden="true" size={15} /> Atualizar agora
+            <button type="button" onClick={aplicar} className="flex min-h-[42px] flex-[1.4] items-center justify-center gap-2 rounded-xl btn-laranja bg-[var(--pp-primary)] text-[13px] font-semibold text-white transition-colors duration-150 hover:bg-[var(--pp-primary-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-primary-hover)]">
+              <RefreshCw aria-hidden="true" size={14} /> Atualizar agora
             </button>
           </div>
         )}
