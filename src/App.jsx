@@ -104,6 +104,62 @@ const PP_INP = "w-full rounded-xl border border-[var(--pp-border)] bg-white px-3
 // inputs logo abaixo ficam alinhados em toda linha de grid (padrão entre abas).
 const PP_LBL = "mb-1 block min-h-[30px] text-[11px] font-semibold uppercase leading-tight tracking-wide text-[var(--pp-text-muted)]";
 
+// ── Personalização inteligente do produto (aba "Opções") ─────────────
+// Tipos de produto e detecção pelo NOME da categoria (único sinal disponível).
+const TIPOS_PRODUTO = [
+  { id: "lanche", nome: "Lanche" }, { id: "pizza", nome: "Pizza" },
+  { id: "bebida", nome: "Bebida" }, { id: "sobremesa", nome: "Sobremesa / Açaí" },
+  { id: "salada", nome: "Salada" }, { id: "combo", nome: "Combo" },
+  { id: "prato", nome: "Prato" }, { id: "outro", nome: "Outro" },
+];
+function detectarTipoProduto(categoriaNome = "") {
+  const s = String(categoriaNome).toLowerCase();
+  if (/pizza/.test(s)) return "pizza";
+  if (/lanche|burg|hamb|x-|sandu|hot ?dog|cachorro/.test(s)) return "lanche";
+  if (/bebida|suco|refri|drink|cerveja|água|agua|chopp|vinho/.test(s)) return "bebida";
+  if (/aça|aca|sorvete|sobremesa|doce|milk ?shake|milkshake/.test(s)) return "sobremesa";
+  if (/salada/.test(s)) return "salada";
+  if (/combo/.test(s)) return "combo";
+  if (/prato|executivo|refei/.test(s)) return "prato";
+  return "outro";
+}
+// Sugestões de grupos de opções por tipo. Cada grupo: nome, obrigatório, min/max
+// e opções { nome, precoDelta }. Δ0 por padrão — o admin ajusta o preço depois.
+const PRESETS_OPCOES = {
+  lanche: [
+    { nome: "Ponto da carne", obrigatorio: true, minSelect: 1, maxSelect: 1, opcoes: [{ nome: "Mal passada", precoDelta: 0 }, { nome: "Ao ponto", precoDelta: 0 }, { nome: "Bem passada", precoDelta: 0 }] },
+    { nome: "Adicionais da casa", obrigatorio: false, minSelect: 0, maxSelect: 5, opcoes: [{ nome: "Bacon", precoDelta: 0 }, { nome: "Queijo extra", precoDelta: 0 }, { nome: "Ovo", precoDelta: 0 }, { nome: "Cheddar", precoDelta: 0 }] },
+  ],
+  pizza: [
+    { nome: "Número de fatias", obrigatorio: true, minSelect: 1, maxSelect: 1, opcoes: [{ nome: "4 fatias", precoDelta: 0 }, { nome: "6 fatias", precoDelta: 0 }, { nome: "8 fatias", precoDelta: 0 }, { nome: "10 fatias", precoDelta: 0 }] },
+    { nome: "Borda", obrigatorio: false, minSelect: 0, maxSelect: 1, opcoes: [{ nome: "Sem borda", precoDelta: 0 }, { nome: "Catupiry", precoDelta: 0 }, { nome: "Cheddar", precoDelta: 0 }, { nome: "Chocolate", precoDelta: 0 }] },
+  ],
+  bebida: [
+    { nome: "Tamanho", obrigatorio: true, minSelect: 1, maxSelect: 1, opcoes: [{ nome: "300ml", precoDelta: 0 }, { nome: "500ml", precoDelta: 0 }, { nome: "1L", precoDelta: 0 }] },
+    { nome: "Gelo", obrigatorio: false, minSelect: 0, maxSelect: 1, opcoes: [{ nome: "Com gelo", precoDelta: 0 }, { nome: "Sem gelo", precoDelta: 0 }] },
+    { nome: "Limão", obrigatorio: false, minSelect: 0, maxSelect: 1, opcoes: [{ nome: "Com limão", precoDelta: 0 }, { nome: "Sem limão", precoDelta: 0 }] },
+  ],
+  sobremesa: [
+    { nome: "Tamanho", obrigatorio: true, minSelect: 1, maxSelect: 1, opcoes: [{ nome: "300ml", precoDelta: 0 }, { nome: "500ml", precoDelta: 0 }, { nome: "700ml", precoDelta: 0 }] },
+    { nome: "Acompanhamentos", obrigatorio: false, minSelect: 0, maxSelect: 5, opcoes: [{ nome: "Granola", precoDelta: 0 }, { nome: "Leite condensado", precoDelta: 0 }, { nome: "Banana", precoDelta: 0 }, { nome: "Morango", precoDelta: 0 }, { nome: "Paçoca", precoDelta: 0 }] },
+  ],
+  salada: [
+    { nome: "Molho", obrigatorio: true, minSelect: 1, maxSelect: 1, opcoes: [{ nome: "Azeite e limão", precoDelta: 0 }, { nome: "Balsâmico", precoDelta: 0 }, { nome: "Iogurte", precoDelta: 0 }, { nome: "Sem molho", precoDelta: 0 }] },
+    { nome: "Proteína", obrigatorio: false, minSelect: 0, maxSelect: 1, opcoes: [{ nome: "Frango grelhado", precoDelta: 0 }, { nome: "Atum", precoDelta: 0 }, { nome: "Sem proteína", precoDelta: 0 }] },
+  ],
+  combo: [
+    { nome: "Bebida do combo", obrigatorio: true, minSelect: 1, maxSelect: 1, opcoes: [{ nome: "Refrigerante", precoDelta: 0 }, { nome: "Suco", precoDelta: 0 }, { nome: "Água", precoDelta: 0 }] },
+  ],
+  prato: [
+    { nome: "Acompanhamento", obrigatorio: true, minSelect: 1, maxSelect: 1, opcoes: [{ nome: "Arroz e feijão", precoDelta: 0 }, { nome: "Salada", precoDelta: 0 }, { nome: "Fritas", precoDelta: 0 }] },
+  ],
+  outro: [],
+};
+// id temporário para grupos/opções em memória (modo criar) — contador simples
+// em escopo de módulo (fora do render, sem impureza no corpo do componente).
+let _tidSeq = 0;
+const gerarTid = () => `t${++_tidSeq}`;
+
 const defaultAccesses = [
   { id: "tablet", label: "Tablet do cliente", desc: "Pedido, comanda e solicitação de conta", type: "Operacional", active: true },
   { id: "kitchen", label: "Cozinha", desc: "Pedidos recebidos, preparo e finalização", type: "Operacional", active: true },
@@ -2200,13 +2256,24 @@ export default function RestaurantePedidoApp() {
       setorId: o.setorId || null, impressoraId: o.impressoraId || null,
       lojaId: lojaAtual,
     };
+    let saved;
     try {
-      const saved = dbReady ? await inserirProduto(np) : { ...np, id: Date.now() };
+      saved = dbReady ? await inserirProduto(np) : { ...np, id: Date.now() };
       setProducts((cur) => [saved, ...cur]);
     } catch (e) { notify("error", "Erro ao cadastrar: " + (e.message || e)); return; }
+    // Grupos de opções montados na aba "Opções" (modo criar): agora que o produto
+    // tem id, persiste cada grupo + suas opções (best-effort — o produto já existe).
+    if (saved?.id && Array.isArray(o.gruposNovos) && o.gruposNovos.length) {
+      for (const g of o.gruposNovos) {
+        try {
+          const grupo = await addGrupoOpcoes(saved.id, { nome: g.nome, minSelect: g.minSelect ?? 0, maxSelect: g.maxSelect ?? 1, obrigatorio: !!g.obrigatorio, ordem: g.ordem ?? 0 });
+          if (grupo?.id) for (const op of (g.opcoes || [])) await addOpcao(grupo.id, { nome: op.nome, precoDelta: Number(op.precoDelta) || 0 });
+        } catch { /* segue — grupo isolado pode falhar sem abortar o cadastro */ }
+      }
+    }
     auditar("criar", "produto", null, { nome: np.name });
     notify("success", "Produto cadastrado com sucesso no administrativo.");
-    return true;
+    return saved;
   }
 
   async function toggleProduct(pid) {
@@ -18938,10 +19005,10 @@ function ProductAdmin({ products, categories, categoriasDb = [], addProduct, tog
 
       {criando && (
         <ProdutoAdminModal modo="criar" categoriasAtivas={categoriasAtivas} lojaId={lojaId}
-          setores={setores} impressoras={impressoras}
+          setores={setores} impressoras={impressoras} opcoesApi={opcoesApi}
           onSalvar={salvarNovo} onFechar={() => setCriando(false)} />
       )}
-      {editando && <ProdutoAdminModal modo="editar" produto={editando} categoriasAtivas={categoriasAtivas} lojaId={lojaId} setores={setores} impressoras={impressoras} onSalvar={(d) => { editarProduto(editando.id, d); setEditando(null); }} onFechar={() => setEditando(null)} />}
+      {editando && <ProdutoAdminModal modo="editar" produto={editando} categoriasAtivas={categoriasAtivas} lojaId={lojaId} setores={setores} impressoras={impressoras} opcoesApi={opcoesApi} onSalvar={(d) => { editarProduto(editando.id, d); setEditando(null); }} onFechar={() => setEditando(null)} />}
       {variacoes && opcoesApi && <GruposOpcoesModal produto={variacoes} api={opcoesApi} onFechar={() => setVariacoes(null)} />}
       {excluir && (
         <ConfirmModal titulo="Excluir produto?"
@@ -19038,7 +19105,7 @@ function SeletorImagem({ urlAtual, onImageUrl, onFileChange, uploading = false, 
 
 // Modal ÚNICO de produto (cadastro = edição), 5 abas — Geral · Comercial &
 // Estoque · Operação · Fiscal · NF-e/NFC-e. Padrão branco/petróleo do admin.
-function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = [], onSalvar, onFechar, lojaId, setores = [], impressoras = [] }) {
+function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = [], onSalvar, onFechar, lojaId, setores = [], impressoras = [], opcoesApi = null }) {
   const ehEdicao = modo === "editar";
   const toDisplay = (v) => {
     if (!v && v !== 0) return "";
@@ -19086,6 +19153,53 @@ function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = 
   const fiscalPreparado = !!(fis.sku || fis.ncm || fis.cfopInterno);
   const valido = f.name.trim() && f.categoriaId != null && precoNum > 0 && custoNum > 0 && f.time.trim() && f.imageUrl.trim() && tags.length > 0 && f.description.trim();
 
+  // ── Opções / personalização (aba "Opções") ──────────────────────────
+  // Tipo auto-detectado pelo nome da categoria; sticky se o admin escolher.
+  const [tipoOverride, setTipoOverride] = useState(op.tipoProduto || null);
+  const tipoProduto = tipoOverride || detectarTipoProduto(catNome);
+  // Modo CRIAR: grupos ficam em memória (sem id ainda). Modo EDITAR: usa opcoesApi.
+  const [gruposNovos, setGruposNovos] = useState([]);
+  const [novaOpcao, setNovaOpcao] = useState({}); // { [grupoKey]: { nome, precoDelta } }
+  const grupos = ehEdicao
+    ? (opcoesApi?.grupos || []).filter((g) => g.produtoId === produto?.id).sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0))
+    : gruposNovos;
+  const opcoesDe = (g) => ehEdicao
+    ? (opcoesApi?.opcoes || []).filter((o) => o.grupoId === g.id).sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0))
+    : (g.opcoes || []);
+  const chaveGrupo = (g) => (ehEdicao ? g.id : g._tid);
+  async function addGrupo(preset) {
+    const base = { nome: preset.nome, obrigatorio: !!preset.obrigatorio, minSelect: preset.minSelect ?? 0, maxSelect: preset.maxSelect ?? 1 };
+    if (ehEdicao && opcoesApi) {
+      const g = await opcoesApi.addGrupo(produto.id, { ...base, ordem: grupos.length });
+      if (g?.id) for (const o of (preset.opcoes || [])) await opcoesApi.addOpcao(g.id, { nome: o.nome, precoDelta: Number(o.precoDelta) || 0 });
+    } else {
+      setGruposNovos((cur) => [...cur, { ...base, _tid: gerarTid(), ordem: cur.length, opcoes: (preset.opcoes || []).map((o) => ({ _tid: gerarTid(), nome: o.nome, precoDelta: Number(o.precoDelta) || 0 })) }]);
+    }
+  }
+  function editGrupo(g, patch) {
+    if (ehEdicao && opcoesApi) opcoesApi.editarGrupo(g.id, patch);
+    else setGruposNovos((cur) => cur.map((x) => (x._tid === g._tid ? { ...x, ...patch } : x)));
+  }
+  function removeGrupo(g) {
+    if (ehEdicao && opcoesApi) opcoesApi.removerGrupo(g.id);
+    else setGruposNovos((cur) => cur.filter((x) => x._tid !== g._tid));
+  }
+  async function addOpcaoG(g) {
+    const d = novaOpcao[chaveGrupo(g)] || {};
+    const nome = (d.nome || "").trim();
+    if (!nome) return;
+    const precoDelta = Number(String(d.precoDelta || "0").replace(",", ".")) || 0;
+    if (ehEdicao && opcoesApi) await opcoesApi.addOpcao(g.id, { nome, precoDelta });
+    else setGruposNovos((cur) => cur.map((x) => (x._tid === g._tid ? { ...x, opcoes: [...(x.opcoes || []), { _tid: gerarTid(), nome, precoDelta }] } : x)));
+    setNovaOpcao((c) => ({ ...c, [chaveGrupo(g)]: { nome: "", precoDelta: "" } }));
+  }
+  function removeOpcaoG(g, o) {
+    if (ehEdicao && opcoesApi) opcoesApi.removerOpcao(o.id);
+    else setGruposNovos((cur) => cur.map((x) => (x._tid === g._tid ? { ...x, opcoes: (x.opcoes || []).filter((y) => y._tid !== o._tid) } : x)));
+  }
+  const nomesGrupos = new Set(grupos.map((g) => String(g.nome || "").toLowerCase()));
+  const sugestoes = (PRESETS_OPCOES[tipoProduto] || []).filter((p) => !nomesGrupos.has(p.nome.toLowerCase()));
+
   async function handleSalvar() {
     setErroUpload("");
     let imgFinal = f.imageUrl;
@@ -19100,6 +19214,7 @@ function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = 
       canalSalao: f.canalSalao, canalRetirada: f.canalRetirada, canalDelivery: f.canalDelivery,
       impressaoAutomatica: f.impressaoAutomatica, permitirObservacoes: f.permitirObservacoes, separarFila: f.separarFila,
       permitirPromo: f.permitirPromo, exibirMargemAutorizados: f.exibirMargemAutorizados, alertaEstoqueMinimo: f.alertaEstoqueMinimo,
+      tipoProduto,
     };
     onSalvar({
       name: f.name, category: f.category, categoriaId: f.categoriaId, price: precoNum, cost: custoNum,
@@ -19109,6 +19224,8 @@ function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = 
       isFeatured: f.isFeatured, featuredLabel: f.isFeatured ? (f.featuredLabel || "Destaque") : "", showOnHome: f.showOnHome,
       disponivel: f.disponivel, active: f.active, setorId: f.setorId || null, impressoraId: f.impressoraId || null,
       fiscal: fis, operacao,
+      // Modo criar: grupos de opções montados na aba "Opções" (criados após o insert)
+      ...(ehEdicao ? {} : { gruposNovos }),
     });
   }
 
@@ -19155,7 +19272,7 @@ function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = 
     </button>
   );
 
-  const ABAS = [["geral", "Geral"], ["comercial", "Comercial & Estoque"], ["operacao", "Operação"], ["fiscal", "Fiscal"], ["nfe", "NF-e / NFC-e"]];
+  const ABAS = [["geral", "Geral"], ["comercial", "Comercial & Estoque"], ["operacao", "Operação"], ["opcoes", "Opções"], ["fiscal", "Fiscal"], ["nfe", "NF-e / NFC-e"]];
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -19290,6 +19407,68 @@ function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = 
                 {stat("Canais", [f.visivelTablet && "Tablet", f.visivelQr && "QR", f.visivelExterno && "Externo"].filter(Boolean).join(" + ") || "—", "#0F4C5C", "📱")}
                 {stat("Status", f.disponivel ? "Operacional" : "Indisponível", f.disponivel ? "#2F9E52" : "#C81E4A", "🛡")}
               </div>)}
+          </>)}
+
+          {/* ══ ABA OPÇÕES (personalização inteligente) ══ */}
+          {aba === "opcoes" && (<>
+            {secao("🧠", "Tipo de produto", "Detectamos pela categoria — ajuste se precisar. Ele guia as sugestões de personalização.", <>
+              <div className="flex flex-wrap gap-2">
+                {TIPOS_PRODUTO.map((t) => (
+                  <button key={t.id} type="button" onClick={() => setTipoOverride(t.id)}
+                    className={`rounded-full border px-3.5 py-1.5 text-[13px] font-semibold transition ${tipoProduto === t.id ? "border-[#0F4C5C] bg-[#0F4C5C] text-white" : "border-[var(--pp-border)] bg-white text-[var(--pp-text-body)] hover:border-[#0F4C5C]"}`}>{t.nome}</button>
+                ))}
+              </div>
+              <p className="mt-2 text-[12px] text-[var(--pp-text-muted)]">Categoria: <b className="font-semibold text-[var(--pp-text)]">{catNome}</b>{!tipoOverride && <span> · tipo automático</span>}</p>
+            </>)}
+
+            {sugestoes.length > 0 && secao("✨", "Sugestões para este tipo", "Um clique cria o grupo de opções já configurado — você pode editar depois.",
+              <div className="flex flex-wrap gap-2">
+                {sugestoes.map((p) => (
+                  <button key={p.nome} type="button" onClick={() => addGrupo(p)}
+                    className="inline-flex items-center gap-2 rounded-xl border border-[rgba(230,126,34,0.35)] bg-[rgba(230,126,34,0.06)] px-3.5 py-2 text-[13px] font-semibold text-[#B4611A] transition hover:bg-[rgba(230,126,34,0.12)]">
+                    <span className="text-base leading-none">＋</span>{p.nome}
+                    {p.obrigatorio && <span className="rounded-full bg-[rgba(15,76,92,0.1)] px-1.5 py-0.5 text-[10px] font-semibold text-[#0F4C5C]">obrigatório</span>}
+                  </button>
+                ))}
+              </div>)}
+
+            {secao("⭐", "Grupos de opções", "Ex.: Ponto da carne, Número de fatias, Tamanho, Borda. Aparecem para o cliente ao pedir.", <>
+              {grupos.length === 0 && <p className="rounded-xl border border-[var(--pp-border)] bg-white px-4 py-3 text-sm text-[var(--pp-text-muted)]">Nenhum grupo ainda. Use as sugestões acima ou crie um grupo abaixo.</p>}
+              <div className="space-y-3">
+                {grupos.map((g) => {
+                  const ops = opcoesDe(g);
+                  const nd = novaOpcao[chaveGrupo(g)] || { nome: "", precoDelta: "" };
+                  return (
+                    <div key={chaveGrupo(g)} className="rounded-2xl border border-[var(--pp-border)] bg-white p-3.5 shadow-[0_1px_2px_rgba(15,76,92,0.04)]">
+                      <div className="flex flex-wrap items-end gap-2">
+                        <div className="min-w-[150px] flex-1"><label className={PP_LBL}>Grupo</label><input value={g.nome} onChange={(e) => editGrupo(g, { nome: e.target.value })} className={PP_INP} /></div>
+                        <div className="w-16"><label className={PP_LBL}>Mín</label><input inputMode="numeric" value={g.minSelect} onChange={(e) => editGrupo(g, { minSelect: Number(e.target.value.replace(/\D/g, "")) || 0 })} className={PP_INP} /></div>
+                        <div className="w-16"><label className={PP_LBL}>Máx</label><input inputMode="numeric" value={g.maxSelect} onChange={(e) => editGrupo(g, { maxSelect: Number(e.target.value.replace(/\D/g, "")) || 1 })} className={PP_INP} /></div>
+                        <button type="button" onClick={() => editGrupo(g, { obrigatorio: !g.obrigatorio })} className={`rounded-xl border px-3 py-2.5 text-xs font-semibold transition ${g.obrigatorio ? "border-[#0F4C5C] bg-[#0F4C5C] text-white" : "border-[var(--pp-border)] bg-white text-[var(--pp-text-body)]"}`}>{g.obrigatorio ? "Obrigatório" : "Opcional"}</button>
+                        <button type="button" onClick={() => removeGrupo(g)} className="rounded-xl border border-[rgba(200,30,74,0.24)] bg-white px-3 py-2.5 text-xs font-semibold text-[#C81E4A] transition hover:bg-[rgba(200,30,74,0.08)]">🗑</button>
+                      </div>
+                      <div className="mt-2.5 space-y-1.5">
+                        {ops.map((o) => (
+                          <div key={ehEdicao ? o.id : o._tid} className="flex items-center gap-2 rounded-xl border border-[var(--pp-border)] bg-white px-3 py-2">
+                            <span className="flex-1 truncate text-sm text-[var(--pp-text)]">{o.nome}</span>
+                            <span className="text-xs font-semibold text-[#2F9E52]">{o.precoDelta > 0 ? `+ ${formatCurrency(o.precoDelta)}` : (o.precoDelta < 0 ? formatCurrency(o.precoDelta) : "Grátis")}</span>
+                            <button type="button" onClick={() => removeOpcaoG(g, o)} className="rounded-lg p-1 text-[var(--pp-text-muted)] transition hover:text-[#C81E4A]">🗑</button>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="mt-2 flex gap-2">
+                        <input value={nd.nome} onChange={(e) => setNovaOpcao((c) => ({ ...c, [chaveGrupo(g)]: { ...nd, nome: e.target.value } }))} onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addOpcaoG(g))} placeholder="Nova opção (ex.: Ao ponto)" className={`${PP_INP} flex-1`} />
+                        <input value={nd.precoDelta} onChange={(e) => setNovaOpcao((c) => ({ ...c, [chaveGrupo(g)]: { ...nd, precoDelta: e.target.value.replace(/[^\d.,-]/g, "") } }))} onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addOpcaoG(g))} placeholder="+ R$" className={`${PP_INP} w-24 shrink-0`} />
+                        <button type="button" onClick={() => addOpcaoG(g)} className="flex h-[42px] w-11 shrink-0 items-center justify-center rounded-xl bg-[#0F4C5C] text-lg font-semibold text-white transition hover:bg-[#0B3A46]">＋</button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <button type="button" onClick={() => addGrupo({ nome: "Novo grupo", obrigatorio: false, minSelect: 0, maxSelect: 1, opcoes: [] })}
+                className="mt-3 inline-flex items-center gap-1.5 rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-[13px] font-semibold text-[var(--pp-text-body)] shadow-[0_1px_2px_rgba(15,76,92,0.05)] transition hover:bg-[rgba(15,76,92,0.04)]"><span className="text-base leading-none">＋</span> Criar grupo em branco</button>
+              <p className="mt-2 text-[11px] text-[var(--pp-text-muted)]">Preço 0 aparece como “Grátis”. Diferente de <b className="font-semibold">Adicionais</b> (aba Geral), que são extras pagos avulsos.</p>
+            </>)}
           </>)}
 
           {/* ══ ABA FISCAL ══ */}
