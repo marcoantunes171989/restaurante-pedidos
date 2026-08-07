@@ -4378,6 +4378,43 @@ function CompanySelector({ lojas = [], valor, onChange }) {
   );
 }
 
+// Seletor de "Empresa em foco" (super admin) na tela clara de aviso — dropdown
+// customizado na PALETA (petróleo), no lugar do <select> nativo (destaque cinza
+// do SO). Campo e realce de seleção em azul petróleo.
+function SelectEmpresaFoco({ lojas = [], valor, onChange }) {
+  const [aberto, setAberto] = useState(false);
+  const atual = lojas.find((l) => String(l.id) === String(valor)) || null;
+  return (
+    <div className="relative mt-4">
+      <button type="button" onClick={() => setAberto((o) => !o)} aria-haspopup="listbox" aria-expanded={aberto}
+        className={`flex w-full items-center gap-2.5 rounded-2xl border bg-white px-4 py-3 text-left shadow-[0_1px_2px_rgba(15,76,92,0.05)] outline-none transition ${aberto ? "border-[#0F4C5C] ring-2 ring-[rgba(15,76,92,0.2)]" : "border-[rgba(15,76,92,0.45)] hover:border-[#0F4C5C]"}`}>
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[rgba(15,76,92,0.1)] text-[#0F4C5C]"><IconEmpresa /></span>
+        <span className={`min-w-0 flex-1 truncate text-sm ${atual ? "font-semibold text-[var(--pp-text)]" : "text-[var(--pp-text-muted)]"}`}>{atual ? `${atual.nome} (${atual.prefixo})` : "Selecione a empresa…"}</span>
+        <svg className={`h-4 w-4 shrink-0 text-[#0F4C5C] transition-transform duration-200 ${aberto ? "rotate-180" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
+      </button>
+      {aberto && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setAberto(false)} />
+          <div role="listbox" className="absolute left-0 right-0 top-full z-50 mt-2 max-h-64 overflow-y-auto rounded-2xl border border-[rgba(15,76,92,0.2)] bg-white p-1.5 shadow-[0_18px_40px_-16px_rgba(15,76,92,0.35)]">
+            {lojas.map((l) => {
+              const sel = String(l.id) === String(valor);
+              return (
+                <button key={l.id} type="button" role="option" aria-selected={sel}
+                  onClick={() => { onChange(l.id); setAberto(false); }}
+                  className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm transition ${sel ? "bg-[#0F4C5C] text-white" : "text-[var(--pp-text)] hover:bg-[rgba(15,76,92,0.08)] hover:text-[#0F4C5C]"}`}>
+                  <span className="min-w-0 flex-1 truncate">{l.nome} <span className={sel ? "text-white/70" : "text-[var(--pp-text-muted)]"}>({l.prefixo})</span></span>
+                  {sel && <span className="shrink-0" aria-hidden="true">✓</span>}
+                </button>
+              );
+            })}
+            {lojas.length === 0 && <p className="px-3 py-3 text-center text-sm text-[var(--pp-text-muted)]">Nenhuma empresa.</p>}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ── Visão Financeira (SOMENTE LEITURA) — consolida dados existentes ──
 // Não cria lançamentos/contas: só agrega receitas, em aberto e formas de
 // pagamento a partir dos pedidos (orders). Aditivo, sem novas tabelas.
@@ -5755,15 +5792,9 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
       <section className="rounded-[2rem] border border-[var(--pp-border)] bg-white p-6 shadow-[0_1px_2px_rgba(15,76,92,0.05),0_18px_40px_-24px_rgba(15,76,92,0.25)]">
         <div className="text-center">
           <span className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-3xl bg-[#0F4C5C]/10 text-3xl">🏪</span>
-          <h3 className="text-lg font-black text-[var(--pp-text)]">Selecione uma empresa</h3>
-          <p className="mt-2 text-sm text-[var(--pp-text-muted)]">Como administrador geral, escolha a <b className="text-[#E67E22]">Empresa em foco</b> no menu lateral para visualizar e gerenciar os cadastros desta empresa, sem misturar dados de outras.</p>
-          <select
-            value={lojaContexto ?? ""}
-            onChange={(e) => setLojaContexto(e.target.value ? Number(e.target.value) : null)}
-            className="mt-4 w-full rounded-2xl border border-[var(--pp-border)] bg-white px-4 py-3 text-[var(--pp-text)] shadow-[0_1px_2px_rgba(15,76,92,0.05)] outline-none transition focus:border-[#0F4C5C] focus:ring-2 focus:ring-[#0F4C5C]/20">
-            <option value="">Selecione a empresa…</option>
-            {lojas.map((l) => <option key={l.id} value={l.id}>{l.nome} ({l.prefixo})</option>)}
-          </select>
+          <h3 className="text-lg font-semibold text-[var(--pp-text)]">Selecione uma empresa</h3>
+          <p className="mt-2 text-sm text-[var(--pp-text-muted)]">Como administrador geral, escolha a <b className="font-semibold text-[#E67E22]">Empresa em foco</b> no menu lateral para visualizar e gerenciar os cadastros desta empresa, sem misturar dados de outras.</p>
+          <SelectEmpresaFoco lojas={lojas} valor={lojaContexto} onChange={(id) => setLojaContexto(id != null ? Number(id) : null)} />
         </div>
       </section>
     </main>

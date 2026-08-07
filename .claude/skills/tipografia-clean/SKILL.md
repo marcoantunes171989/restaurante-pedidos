@@ -15,9 +15,8 @@ Painel de gestão se lê melhor com tipografia **leve e hierárquica**. O peso 9
 |---|---|---|
 | Corpo de texto, descrições | 400–450 | `font-normal` |
 | Texto de apoio com leve ênfase | 500 | `font-medium` |
-| Rótulos (uppercase), sub-legendas, chips | 600 | `font-semibold` |
-| **Títulos, números-chave, valores, CTA** | **700 (máx.)** | `font-bold` |
-| ❌ Black / 900 | — | `font-black` **(não usar)** |
+| **Rótulos, títulos, números-chave, valores, CTA** | **600 (máx.)** | `font-semibold` |
+| ❌ Bold / 700 e Black / 900 | — | `font-bold` / `font-black` **(não usar)** |
 
 > **Ênfase sem peso:** um número grande já se destaca pelo TAMANHO (`text-xl`/`text-2xl`)
 > e pela COR (petróleo/laranja/verde). Não precisa de 900 por cima.
@@ -29,11 +28,16 @@ que **rebaixa `font-black` → 700** em TODAS as superfícies de tema claro
 (admin, cardápio do cliente, login, splash, boas-vindas):
 
 ```css
-[data-theme="light"] .tema-claro-area .font-black { font-weight: 700; }
+[data-theme="light"] .tema-claro-area .font-black,
+[data-theme="light"] .tema-claro-area .font-bold { font-weight: 600; }
 ```
 
+> **Atualização:** o teto agora é **SEMIBOLD (600)** — `font-black` (900) E
+> `font-bold` (700) caem para 600, tirando de vez o "negrito pesado". Ver também a
+> skill **escala-de-fontes** (tamanhos).
+
 Especificidade (0,3,0) > utilitário Tailwind (0,1,0), então vence sem `!important`.
-Efeito imediato em todo o projeto: o "black" some, o visual fica clean.
+Efeito imediato em todo o projeto: o "black/bold" some, o visual fica clean.
 
 ## Ao criar/alterar UI (daqui pra frente)
 

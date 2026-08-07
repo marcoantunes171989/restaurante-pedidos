@@ -847,17 +847,20 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
    Os fills translúcidos (/10, /12…) usam texto COLORIDO, não branco, então não
    entram nesse caso. */
 [data-theme="light"] .tema-claro-area [class*="bg-[#"].text-white { color: #FFFFFF !important; }
-/* TIPOGRAFIA CLEAN (skill tipografia-clean): o peso 900 (font-black) é pesado
-   demais para leitura de painel e deixa tudo "gritando". Em TODAS as superfícies
-   de tema claro (admin, cardápio, login, splash, boas-vindas) o black vira BOLD
-   (700) — mantém a ênfase sem o excesso, deixando o visual leve e elegante.
-   Especificidade (0,3,0) > utilitário Tailwind (0,1,0) → vence sem !important. */
-[data-theme="light"] .tema-claro-area .font-black { font-weight: 700; }
-/* Botões de AÇÃO com degradê (btn-laranja/btn-verde) não têm classe bg-[#…],
-   então o remap genérico .text-white→grafite escurecia seu texto. O texto
-   desses botões DEVE ser branco (contraste sobre o degradê). Mesma especificidade
-   do remap (0,3,0), declarada depois → vence. */
+/* TIPOGRAFIA CLEAN (skills tipografia-clean + escala-de-fontes): pesos extremos
+   (900 black e 700 bold) deixam o painel "gritando" e cansam a leitura. Em TODAS
+   as superfícies de tema claro (admin, cardápio, login, splash, boas-vindas) o
+   teto de peso é SEMIBOLD (600) — a ênfase vem de TAMANHO + COR, não de peso.
+   font-black e font-bold caem para 600. Especificidade (0,3,0) > utilitário
+   Tailwind (0,1,0) → vence sem !important. */
+[data-theme="light"] .tema-claro-area .font-black,
+[data-theme="light"] .tema-claro-area .font-bold { font-weight: 600; }
+/* Botões de AÇÃO com degradê (btn-laranja/btn-laranja-claro/btn-verde) não têm
+   classe bg-[#…], então o remap genérico .text-white→grafite escurecia seu texto
+   (ex.: "Entrar na plataforma", "Salvar", "Cadastrar"). O texto DEVE ser branco
+   (contraste sobre o degradê). Mesma especificidade do remap (0,3,0), depois → vence. */
 [data-theme="light"] .tema-claro-area .btn-laranja,
+[data-theme="light"] .tema-claro-area .btn-laranja-claro,
 [data-theme="light"] .tema-claro-area .btn-verde { color: #FFFFFF !important; }
 /* Linha de mesa OCUPADA: fundo laranja sólido + texto branco. A classe
    .pp-mesa-ocupada eleva a especificidade (0,4,0) para o texto branco vencer
