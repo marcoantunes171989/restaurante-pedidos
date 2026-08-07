@@ -97,6 +97,11 @@ const categoriasPadrao = ["Entradas", "Pratos principais", "Lanches", "Bebidas",
 // Tempos de preparo padronizados — aparecem igual em todas as telas (tablet, cozinha, etc.)
 const TEMPOS_PREPARO = ["5-10 min", "10-15 min", "15-20 min", "20-30 min", "25-35 min", "35-45 min", "45-60 min", "Mais de 60 min"];
 
+// Classes OFICIAIS de campo do admin (branco + foco petróleo) — padrão
+// SetorImpressorasAdmin. Reusadas no modal de produto e nos primitivos.
+const PP_INP = "w-full rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2.5 text-sm text-[var(--pp-text)] outline-none transition focus:border-[#0F4C5C] focus:ring-2 focus:ring-[rgba(15,76,92,0.12)] placeholder:text-[var(--pp-text-muted)]";
+const PP_LBL = "mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--pp-text-muted)]";
+
 const defaultAccesses = [
   { id: "tablet", label: "Tablet do cliente", desc: "Pedido, comanda e solicitação de conta", type: "Operacional", active: true },
   { id: "kitchen", label: "Cozinha", desc: "Pedidos recebidos, preparo e finalização", type: "Operacional", active: true },
@@ -2169,23 +2174,34 @@ export default function RestaurantePedidoApp() {
     return true;
   }
 
-  async function addProduct(overrideImageUrl) {
+  // Cadastro de produto — recebe o objeto COMPLETO do modal de 5 abas (base +
+  // comercial/estoque + operação + fiscal). Números já vêm normalizados.
+  async function addProduct(obj) {
     if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
-    if (!adminForm.name.trim()) return notify("error", "Informe o nome do produto.");
+    const o = obj || {};
+    if (!o.name || !o.name.trim()) return notify("error", "Informe o nome do produto.");
     // Migration 068 — categoria obrigatória, vínculo por ID (nunca por nome)
-    if (adminForm.categoriaId == null) return notify("error", "Selecione uma categoria para o produto.");
-    const precoAdd = moedaParaNum(String(adminForm.price));
-    const custoAdd = moedaParaNum(String(adminForm.cost));
+    if (o.categoriaId == null) return notify("error", "Selecione uma categoria para o produto.");
+    const precoAdd = Number(o.price) || 0;
+    const custoAdd = Number(o.cost) || 0;
     if (precoAdd <= 0) return notify("error", "Informe um preço de venda válido.");
     if (custoAdd <= 0) return notify("error", "Informe o custo do produto.");
-    const imgFinal = (typeof overrideImageUrl === "string" && overrideImageUrl) ? overrideImageUrl : adminForm.imageUrl;
-    if (!adminForm.time || !adminForm.time.trim()) return notify("error", "Selecione o tempo de preparo.");
-    const np = { name: adminForm.name.trim(), category: adminForm.category, categoriaId: adminForm.categoriaId, price: precoAdd, cost: custoAdd, active: true, time: adminForm.time, description: adminForm.description || "Produto cadastrado pelo administrativo.", badge: "Admin", imageUrl: imgFinal || fallbackImage, ingredients: adminForm.ingredientsText.split(",").map((s) => s.trim()).filter(Boolean), adicionais: adminForm.adicionais || [], estoque: 100, lojaId: lojaAtual, setorId: adminForm.setorId || null, impressoraId: adminForm.impressoraId || null };
+    if (!o.time || !o.time.trim()) return notify("error", "Selecione o tempo de preparo.");
+    const np = {
+      ...o,
+      name: o.name.trim(), price: precoAdd, cost: custoAdd, active: true, badge: "Admin",
+      description: o.description || "Produto cadastrado pelo administrativo.",
+      imageUrl: o.imageUrl || fallbackImage,
+      ingredients: Array.isArray(o.ingredients) ? o.ingredients : [],
+      adicionais: Array.isArray(o.adicionais) ? o.adicionais : [],
+      estoque: Number(o.estoque) || 0,
+      setorId: o.setorId || null, impressoraId: o.impressoraId || null,
+      lojaId: lojaAtual,
+    };
     try {
       const saved = dbReady ? await inserirProduto(np) : { ...np, id: Date.now() };
       setProducts((cur) => [saved, ...cur]);
-    } catch { setProducts((cur) => [{ ...np, id: Date.now() }, ...cur]); }
-    setAdminForm({ name: "", category: "", categoriaId: null, price: "", cost: "", time: "15-25 min", imageUrl: "", ingredientsText: "", description: "", setorId: "", impressoraId: "" });
+    } catch (e) { notify("error", "Erro ao cadastrar: " + (e.message || e)); return; }
     auditar("criar", "produto", null, { nome: np.name });
     notify("success", "Produto cadastrado com sucesso no administrativo.");
     return true;
@@ -2229,6 +2245,11 @@ export default function RestaurantePedidoApp() {
         ...(dados.setorId !== undefined ? { setor_id: dados.setorId || null } : {}),
         // Migration 078 — impressora opcional no produto
         ...(dados.impressoraId !== undefined ? { impressora_id: dados.impressoraId || null } : {}),
+        // Migration 079 — fiscal (NF-e/NFC-e) e config operacional (JSONB)
+        ...(dados.fiscal && typeof dados.fiscal === "object" ? { fiscal: dados.fiscal } : {}),
+        ...(dados.operacao && typeof dados.operacao === "object" ? { operacao: dados.operacao } : {}),
+        // Ativo/inativo pelo seletor do cabeçalho do modal
+        ...(dados.active != null ? { ativo: !!dados.active } : {}),
       });
     } catch (e) { notify("error", "Erro ao salvar: " + e.message); }
     auditar("editar", "produto", pid, { nome: dados.name });
@@ -18718,7 +18739,6 @@ function Paginacao({ pagina, totalPaginas, total, porPagina = 10, onMudar, rotul
 // Campo de tags reutilizável (ingredientes, etc.)
 function TagsInput({ tags, setTags, placeholder = "Adicionar + Enter" }) {
   const [input, setInput] = useState("");
-  const inp = "flex-1 rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-gold-400/60";
   function add() {
     const novos = input.split(",").map((s) => s.trim()).filter((s) => s && !tags.includes(s));
     if (novos.length) setTags([...tags, ...novos]);
@@ -18729,15 +18749,15 @@ function TagsInput({ tags, setTags, placeholder = "Adicionar + Enter" }) {
       <div className="flex gap-2">
         <input value={input} onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
-          placeholder={placeholder} className={inp} />
-        <button onClick={add} className="shrink-0 rounded-2xl bg-blue-500 px-4 text-sm font-black text-white hover:bg-blue-400 transition">Adicionar</button>
+          placeholder={placeholder} className={`${PP_INP} flex-1`} />
+        <button type="button" onClick={add} className="shrink-0 rounded-xl border border-[var(--pp-border)] bg-white px-4 text-[13px] font-semibold text-[var(--pp-text-body)] shadow-[0_1px_2px_rgba(15,76,92,0.05)] transition hover:bg-[rgba(15,76,92,0.04)]">Adicionar</button>
       </div>
       {tags.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-2">
           {tags.map((t) => (
-            <span key={t} className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-3 py-1.5 text-sm font-bold text-emerald-200">
+            <span key={t} className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(15,76,92,0.2)] bg-[rgba(15,76,92,0.06)] px-3 py-1.5 text-sm font-semibold text-[#0F4C5C]">
               {t}
-              <button onClick={() => setTags(tags.filter((x) => x !== t))} className="flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500/30 text-xs text-emerald-100 hover:bg-red-500/40 hover:text-white transition">✕</button>
+              <button type="button" onClick={() => setTags(tags.filter((x) => x !== t))} className="flex h-4 w-4 items-center justify-center rounded-full bg-[rgba(15,76,92,0.15)] text-xs text-[#0F4C5C] transition hover:bg-[rgba(200,30,74,0.2)] hover:text-[#C81E4A]">✕</button>
             </span>
           ))}
         </div>
@@ -18750,7 +18770,7 @@ function TagsInput({ tags, setTags, placeholder = "Adicionar + Enter" }) {
 function AdicionaisEditor({ value = [], onChange }) {
   const [nome, setNome] = useState("");
   const [preco, setPreco] = useState("");
-  const inp = "rounded-2xl border border-white/10 bg-slate-950/70 px-3 py-2.5 text-white outline-none focus:border-gold-400/60 text-sm";
+  const inp = PP_INP;
   function add() {
     const n = nome.trim();
     // Preço opcional: vazio = R$ 0,00 (adicional sem custo / grátis)
@@ -18766,16 +18786,16 @@ function AdicionaisEditor({ value = [], onChange }) {
         <input value={nome} onChange={(e) => setNome(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
           placeholder="Adicional (ex.: Bacon)" className={`${inp} flex-1`} />
         <input value={preco} onChange={(e) => { const { display } = handleMoeda(e); setPreco(display); }} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
-          inputMode="numeric" placeholder="R$ 0,00" className={`${inp} w-28`} />
-        <button type="button" onClick={add} className="shrink-0 rounded-2xl bg-blue-500 px-4 text-sm font-black text-white hover:bg-blue-400">+</button>
+          inputMode="numeric" placeholder="R$ 0,00" className={`${inp} w-28 shrink-0`} />
+        <button type="button" onClick={add} className="flex h-[42px] w-11 shrink-0 items-center justify-center rounded-xl bg-[#E67E22] text-lg font-semibold text-white transition hover:bg-[#D06E1A]">+</button>
       </div>
       {(value || []).length > 0 && (
         <div className="mt-2 space-y-1.5">
           {value.map((a, i) => (
-            <div key={i} className="flex items-center justify-between rounded-xl border border-white/10 bg-slate-950/40 px-3 py-1.5">
-              <span className="text-sm font-bold text-white">{a.nome}</span>
-              <span className="flex items-center gap-2 text-sm"><span className="font-black text-emerald-300">{(Number(a.preco) || 0) > 0 ? formatCurrency(Number(a.preco)) : "Grátis"}</span>
-                <button type="button" onClick={() => onChange(value.filter((_, idx) => idx !== i))} className="flex h-5 w-5 items-center justify-center rounded-full bg-red-500/20 text-xs text-red-300 hover:bg-red-500/40">✕</button></span>
+            <div key={i} className="flex items-center justify-between rounded-xl border border-[var(--pp-border)] bg-white px-3 py-1.5 shadow-[0_1px_2px_rgba(15,76,92,0.04)]">
+              <span className="text-sm font-semibold text-[var(--pp-text)]">{a.nome}</span>
+              <span className="flex items-center gap-2 text-sm"><span className="font-semibold text-[#2F9E52]">{(Number(a.preco) || 0) > 0 ? formatCurrency(Number(a.preco)) : "Grátis"}</span>
+                <button type="button" onClick={() => onChange(value.filter((_, idx) => idx !== i))} className="flex h-5 w-5 items-center justify-center rounded-full bg-[rgba(200,30,74,0.12)] text-xs text-[#C81E4A] transition hover:bg-[rgba(200,30,74,0.24)]">✕</button></span>
             </div>
           ))}
         </div>
@@ -18784,7 +18804,7 @@ function AdicionaisEditor({ value = [], onChange }) {
   );
 }
 
-function ProductAdmin({ products, categories, categoriasDb = [], adminForm, setAdminForm, addProduct, toggleProduct, editarProduto, removerProduto, lojaId, opcoesApi = null, setores = [], impressoras = [] }) {
+function ProductAdmin({ products, categories, categoriasDb = [], addProduct, toggleProduct, editarProduto, removerProduto, lojaId, opcoesApi = null, setores = [], impressoras = [] }) {
   const [editando, setEditando] = useState(null);
   const [excluir, setExcluir]   = useState(null);
   const [variacoes, setVariacoes] = useState(null); // produto cujas variações/adicionais estamos editando
@@ -18812,12 +18832,11 @@ function ProductAdmin({ products, categories, categoriasDb = [], adminForm, setA
   const visiveis = filtrados.slice((paginaAtual - 1) * POR_PAGINA, paginaAtual * POR_PAGINA);
 
   function abrirCadastro() {
-    // Sem categoria padrão fixa — o admin precisa escolher (campo obrigatório).
-    setAdminForm({ name: "", category: "", categoriaId: null, price: "", cost: "", time: TEMPOS_PREPARO[3], imageUrl: "", ingredientsText: "", description: "" });
+    // O ProdutoAdminModal (modo="criar") mantém o próprio estado local.
     setCriando(true);
   }
-  async function salvarNovo(overrideImageUrl) {
-    const ok = await addProduct(overrideImageUrl);
+  async function salvarNovo(obj) {
+    const ok = await addProduct(obj);
     if (ok) setCriando(false);
   }
 
@@ -18916,11 +18935,11 @@ function ProductAdmin({ products, categories, categoriasDb = [], adminForm, setA
       </div>
 
       {criando && (
-        <ProdutoCadastroModal adminForm={adminForm} setAdminForm={setAdminForm} categoriasAtivas={categoriasAtivas} lojaId={lojaId}
+        <ProdutoAdminModal modo="criar" categoriasAtivas={categoriasAtivas} lojaId={lojaId}
           setores={setores} impressoras={impressoras}
           onSalvar={salvarNovo} onFechar={() => setCriando(false)} />
       )}
-      {editando && <ProdutoEditModal produto={editando} categoriasAtivas={categoriasAtivas} lojaId={lojaId} setores={setores} impressoras={impressoras} onSalvar={(d) => { editarProduto(editando.id, d); setEditando(null); }} onFechar={() => setEditando(null)} />}
+      {editando && <ProdutoAdminModal modo="editar" produto={editando} categoriasAtivas={categoriasAtivas} lojaId={lojaId} setores={setores} impressoras={impressoras} onSalvar={(d) => { editarProduto(editando.id, d); setEditando(null); }} onFechar={() => setEditando(null)} />}
       {variacoes && opcoesApi && <GruposOpcoesModal produto={variacoes} api={opcoesApi} onFechar={() => setVariacoes(null)} />}
       {excluir && (
         <ConfirmModal titulo="Excluir produto?"
@@ -18978,14 +18997,14 @@ function SeletorImagem({ urlAtual, onImageUrl, onFileChange, uploading = false, 
     <div className="space-y-2">
       <div className="flex gap-3">
         {/* Miniatura */}
-        <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-slate-800">
+        <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-2xl border border-[var(--pp-border)] bg-[rgba(15,76,92,0.05)]">
           {exibir
             ? <img src={exibir} alt="prévia" className="h-full w-full object-cover" onError={() => {}} />
             : <div className="flex h-full w-full items-center justify-center text-2xl">🖼️</div>
           }
           {uploading && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/60">
-              <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-400 border-t-transparent" />
+            <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+              <div className="h-6 w-6 animate-spin rounded-full border-2 border-white border-t-transparent" />
             </div>
           )}
         </div>
@@ -18994,17 +19013,17 @@ function SeletorImagem({ urlAtual, onImageUrl, onFileChange, uploading = false, 
           {/* Arquivo local */}
           <input ref={fileRef} type="file" accept=".png,.jpg,.jpeg,image/png,image/jpeg" className="hidden" onChange={handleFile} />
           <button type="button" onClick={() => fileRef.current?.click()}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-blue-400/30 bg-blue-500/10 py-2.5 text-xs font-black text-blue-300 hover:bg-blue-500/20 transition">
-            📁 Escolher arquivo (PNG / JPEG • máx 2 MB)
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-[rgba(15,76,92,0.25)] bg-white py-2.5 text-xs font-semibold text-[#0F4C5C] shadow-[0_1px_2px_rgba(15,76,92,0.05)] transition hover:bg-[rgba(15,76,92,0.05)]">
+            ⬆ Trocar imagem <span className="text-[var(--pp-text-muted)]">(PNG / JPEG • máx 2 MB)</span>
           </button>
           {/* OU URL */}
           <div className="relative">
-            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-600">🔗</span>
+            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-[var(--pp-text-muted)]">🔗</span>
             <input
               value={previa ? "" : (urlAtual || "")}
               onChange={(e) => { setPrevia(""); onFileChange(null); onImageUrl(e.target.value); }}
               placeholder="ou cole uma URL de imagem..."
-              className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-2.5 pl-8 pr-3 text-xs text-white outline-none focus:border-gold-400/60 placeholder:text-slate-600"
+              className="w-full rounded-xl border border-[var(--pp-border)] bg-white py-2.5 pl-8 pr-3 text-xs text-[var(--pp-text)] outline-none transition focus:border-[#0F4C5C] focus:ring-2 focus:ring-[rgba(15,76,92,0.12)] placeholder:text-[var(--pp-text-muted)]"
             />
           </div>
         </div>
@@ -19015,182 +19034,335 @@ function SeletorImagem({ urlAtual, onImageUrl, onFileChange, uploading = false, 
   );
 }
 
-function ProdutoCadastroModal({ adminForm, setAdminForm, categoriasAtivas, onSalvar, onFechar, lojaId, setores = [], impressoras = [] }) {
-  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-gold-400/60 placeholder:text-slate-600";
-  const lbl = "mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500";
-  const set = (k, v) => setAdminForm({ ...adminForm, [k]: v });
-  // Escolher a categoria grava os dois: categoriaId (vínculo real, migration
-  // 068) e category (nome, mantido em sincronia p/ telas ainda lendo o texto).
-  const setCategoria = (cat) => setAdminForm({ ...adminForm, categoriaId: cat.id, category: cat.nome });
-  const tagsAtuais = adminForm.ingredientsText ? adminForm.ingredientsText.split(",").map((s) => s.trim()).filter(Boolean) : [];
-  const precoNum = moedaParaNum(String(adminForm.price));
-  const custoNum = moedaParaNum(String(adminForm.cost));
-  const [arquivoImg, setArquivoImg] = React.useState(null);
-  const [uploadando, setUploadando] = React.useState(false);
-  const [erroUpload, setErroUpload] = React.useState("");
-  // Todos os campos são obrigatórios (categoria: migration 068, vínculo por ID)
-  const valido = adminForm.name.trim() &&
-    adminForm.categoriaId != null &&
-    precoNum > 0 && custoNum > 0 &&
-    adminForm.time.trim() &&
-    adminForm.imageUrl.trim() &&
-    tagsAtuais.length > 0 &&
-    adminForm.description.trim();
-  const margem = precoNum > 0 && custoNum > 0
-    ? (((precoNum - custoNum) / precoNum) * 100).toFixed(0)
-    : null;
-  // Inicializa display dos campos moeda na primeira vez (se value for numérico puro)
-  function displayMoeda(v) {
-    if (!v || v === "0") return "";
+// Modal ÚNICO de produto (cadastro = edição), 5 abas — Geral · Comercial &
+// Estoque · Operação · Fiscal · NF-e/NFC-e. Padrão branco/petróleo do admin.
+function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = [], onSalvar, onFechar, lojaId, setores = [], impressoras = [] }) {
+  const ehEdicao = modo === "editar";
+  const toDisplay = (v) => {
+    if (!v && v !== 0) return "";
     if (String(v).startsWith("R$")) return v;
     const digits = String(Math.round(Number(v) * 100)).padStart(3, "0");
     return rawParaMoeda(digits);
-  }
+  };
+  const op = produto?.operacao || {};
+  const [aba, setAba] = useState("geral");
+  const [f, setF] = useState(() => ({
+    name: produto?.name || "", category: produto?.category || "", categoriaId: produto?.categoriaId ?? null,
+    price: produto ? toDisplay(produto.price) : "", cost: produto ? toDisplay(produto.cost) : "",
+    precoPromo: produto?.precoPromocional ? toDisplay(produto.precoPromocional) : "",
+    time: produto?.time || "", imageUrl: produto?.imageUrl || "", description: produto?.description || "",
+    estoque: produto?.estoque ?? 0, controlaEstoque: produto?.controlaEstoque ?? false, estoqueMinimo: produto?.estoqueMinimo ?? 0,
+    visivelTablet: produto?.visivelTablet !== false, visivelQr: produto?.visivelQr !== false, visivelExterno: produto?.visivelExterno !== false,
+    isFeatured: produto?.isFeatured ?? false, featuredLabel: produto?.featuredLabel || "", showOnHome: produto?.showOnHome !== false,
+    disponivel: produto?.disponivel !== false, active: produto ? produto.active !== false : true,
+    setorId: produto?.setorId || "", impressoraId: produto?.impressoraId || "",
+    prioridade: op.prioridade || "Normal", exibirNoPainel: op.exibirNoPainel ?? true,
+    canalSalao: op.canalSalao ?? true, canalRetirada: op.canalRetirada ?? true, canalDelivery: op.canalDelivery ?? true,
+    impressaoAutomatica: op.impressaoAutomatica ?? true, permitirObservacoes: op.permitirObservacoes ?? true, separarFila: op.separarFila ?? true,
+    permitirPromo: op.permitirPromo ?? true, exibirMargemAutorizados: op.exibirMargemAutorizados ?? false, alertaEstoqueMinimo: op.alertaEstoqueMinimo ?? true,
+  }));
+  const set = (k, v) => setF((cur) => ({ ...cur, [k]: v }));
+  const [tags, setTags] = useState([...(produto?.ingredients || [])]);
+  const [adicionais, setAdicionais] = useState([...(produto?.adicionais || [])]);
+  const [fis, setFis] = useState(() => ({ ...(produto?.fiscal || {}) }));
+  const setF2 = (k, v) => setFis((cur) => ({ ...cur, [k]: v }));
+  const [arquivoImg, setArquivoImg] = useState(null);
+  const [uploadando, setUploadando] = useState(false);
+  const [erroUpload, setErroUpload] = useState("");
 
-  // Salvar: se houver arquivo local, faz upload primeiro e usa a URL pública
+  const precoNum = moedaParaNum(String(f.price));
+  const custoNum = moedaParaNum(String(f.cost));
+  const promoNum = moedaParaNum(String(f.precoPromo));
+  const margem = precoNum > 0 ? ((precoNum - custoNum) / precoNum) * 100 : 0;
+  const lucro = precoNum - custoNum;
+  const markup = custoNum > 0 ? precoNum / custoNum : 0;
+  const estoqueN = Number(f.estoque) || 0;
+  const estoqueMinN = Number(f.estoqueMinimo) || 0;
+  const estoqueSaudavel = !f.controlaEstoque || estoqueN > estoqueMinN;
+  const catNome = categoriasAtivas.find((c) => c.id === f.categoriaId)?.nome || f.category || "Sem categoria";
+  const opcoesTempo = TEMPOS_PREPARO.includes(f.time) || !f.time ? TEMPOS_PREPARO : [f.time, ...TEMPOS_PREPARO];
+  const fiscalPreparado = !!(fis.sku || fis.ncm || fis.cfopInterno);
+  const valido = f.name.trim() && f.categoriaId != null && precoNum > 0 && custoNum > 0 && f.time.trim() && f.imageUrl.trim() && tags.length > 0 && f.description.trim();
+
   async function handleSalvar() {
     setErroUpload("");
-    let urlFinal;
+    let imgFinal = f.imageUrl;
     if (arquivoImg) {
       setUploadando(true);
-      try {
-        urlFinal = await uploadImagemProduto(arquivoImg, lojaId || "geral");
-        set("imageUrl", urlFinal);
-      } catch (e) {
-        setUploadando(false);
-        setErroUpload(e.message || "Falha no upload da imagem.");
-        return;
-      }
+      try { imgFinal = await uploadImagemProduto(arquivoImg, lojaId || "geral"); }
+      catch (e) { setUploadando(false); setErroUpload(e.message || "Falha no upload da imagem."); return; }
       setUploadando(false);
     }
-    onSalvar(urlFinal);
+    const operacao = {
+      prioridade: f.prioridade, exibirNoPainel: f.exibirNoPainel,
+      canalSalao: f.canalSalao, canalRetirada: f.canalRetirada, canalDelivery: f.canalDelivery,
+      impressaoAutomatica: f.impressaoAutomatica, permitirObservacoes: f.permitirObservacoes, separarFila: f.separarFila,
+      permitirPromo: f.permitirPromo, exibirMargemAutorizados: f.exibirMargemAutorizados, alertaEstoqueMinimo: f.alertaEstoqueMinimo,
+    };
+    onSalvar({
+      name: f.name, category: f.category, categoriaId: f.categoriaId, price: precoNum, cost: custoNum,
+      time: f.time, imageUrl: imgFinal, description: f.description, ingredients: tags, adicionais,
+      estoque: estoqueN, precoPromocional: promoNum, controlaEstoque: f.controlaEstoque, estoqueMinimo: estoqueMinN,
+      visivelTablet: f.visivelTablet, visivelQr: f.visivelQr, visivelExterno: f.visivelExterno,
+      isFeatured: f.isFeatured, featuredLabel: f.isFeatured ? (f.featuredLabel || "Destaque") : "", showOnHome: f.showOnHome,
+      disponivel: f.disponivel, active: f.active, setorId: f.setorId || null, impressoraId: f.impressoraId || null,
+      fiscal: fis, operacao,
+    });
   }
 
+  // ── helpers de render (funções, não componentes: seguras p/ lint) ──
+  const toggle = (on, onClick) => (
+    <button type="button" onClick={onClick} className={`relative h-6 w-11 shrink-0 rounded-full transition ${on ? "bg-[#2F9E52]" : "bg-[var(--pp-border)]"}`}>
+      <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${on ? "left-[22px]" : "left-0.5"}`} />
+    </button>
+  );
+  const secao = (icon, titulo, desc, children) => (
+    <section className="rounded-2xl border border-[var(--pp-border)] bg-white p-4 shadow-[0_1px_2px_rgba(15,76,92,0.04)]">
+      <div className="mb-3 flex items-start gap-2.5">
+        <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[rgba(15,76,92,0.08)] text-[13px] text-[#0F4C5C]">{icon}</span>
+        <div className="min-w-0"><h4 className="text-sm font-semibold text-[var(--pp-text)]">{titulo}</h4>{desc && <p className="text-[12px] leading-snug text-[var(--pp-text-muted)]">{desc}</p>}</div>
+      </div>
+      {children}
+    </section>
+  );
+  const regra = (on, onClick, titulo, desc) => (
+    <div className="flex items-start gap-2.5">
+      {toggle(on, onClick)}
+      <div className="min-w-0"><p className="text-[13px] font-semibold text-[var(--pp-text)]">{titulo}</p><p className="text-[11px] leading-snug text-[var(--pp-text-muted)]">{desc}</p></div>
+    </div>
+  );
+  const stat = (rotulo, valor, cor, icon) => (
+    <div className="rounded-xl border border-[var(--pp-border)] bg-white p-3 shadow-[0_1px_2px_rgba(15,76,92,0.04)]">
+      <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--pp-text-muted)]">{icon && <span>{icon}</span>}{rotulo}</div>
+      <p className="mt-1 text-lg font-semibold tabular-nums" style={{ color: cor }}>{valor}</p>
+    </div>
+  );
+  const fIn = (k, label, ph, full = false) => (
+    <div className={full ? "sm:col-span-2" : ""}><label className={PP_LBL}>{label}</label>
+      <input value={fis[k] || ""} onChange={(e) => setF2(k, e.target.value)} placeholder={ph} className={PP_INP} /></div>
+  );
+  const fSel = (k, label, opts, full = false) => (
+    <div className={full ? "sm:col-span-2" : ""}><label className={PP_LBL}>{label}</label>
+      <select value={fis[k] || ""} onChange={(e) => setF2(k, e.target.value)} className={PP_INP}>
+        <option value="">Selecione...</option>{opts.map((o) => <option key={o} value={o}>{o}</option>)}
+      </select></div>
+  );
+  const chipCanal = (k, label) => (
+    <button type="button" onClick={() => set(k, !f[k])} className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition ${f[k] ? "border-[#0F4C5C] bg-[#0F4C5C] text-white" : "border-[var(--pp-border)] bg-white text-[var(--pp-text-body)]"}`}>
+      <span>{f[k] ? "✓" : "○"}</span>{label}
+    </button>
+  );
+
+  const ABAS = [["geral", "Geral"], ["comercial", "Comercial & Estoque"], ["operacao", "Operação"], ["fiscal", "Fiscal"], ["nfe", "NF-e / NFC-e"]];
+
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onFechar}>
-      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-2xl flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl max-h-[92vh]">
-        <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
-          <div className="flex items-center gap-2">
-            <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-blue-500/15 text-lg">🛒</span>
-            <h2 className="text-lg font-black text-white">Novo produto</h2>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      <button aria-label="Fechar" onClick={onFechar} className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+      <div className="relative flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-[var(--pp-border)] bg-white shadow-2xl">
+        {/* Cabeçalho */}
+        <div className="flex items-center justify-between gap-3 border-b border-[var(--pp-border)] px-6 py-4">
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[rgba(230,126,34,0.12)] text-lg text-[#E67E22]">{ehEdicao ? "✏️" : "＋"}</span>
+            <div><h2 className="text-lg font-semibold text-[var(--pp-text)]">{ehEdicao ? "Editar produto" : "Cadastrar produto"}</h2>
+              <p className="text-[13px] text-[var(--pp-text-muted)]">{ehEdicao ? "Atualize as informações do produto no cardápio." : "Preencha as informações do novo produto."}</p></div>
           </div>
-          <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20">✕</button>
+          <button onClick={onFechar} className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--pp-border)] bg-white text-lg text-[var(--pp-text-muted)] transition hover:bg-[rgba(15,76,92,0.04)]">✕</button>
+        </div>
+        {/* Abas */}
+        <div className="flex gap-1 overflow-x-auto border-b border-[var(--pp-border)] px-4">
+          {ABAS.map(([id, rot]) => (
+            <button key={id} type="button" role="tab" aria-selected={aba === id} onClick={() => setAba(id)}
+              className={`shrink-0 border-b-2 px-3 py-3 text-[13px] font-semibold transition ${aba === id ? "border-[#0F4C5C] text-[#0F4C5C]" : "border-transparent text-[var(--pp-text-muted)] hover:text-[var(--pp-text-body)]"}`}>{rot}</button>
+          ))}
         </div>
 
-        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
-          {/* Prévia + nome/categoria */}
-          <div className="flex gap-4">
-            <div className="h-24 w-24 shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-slate-800">
-              <img src={adminForm.imageUrl || fallbackImage} alt="prévia" className="h-full w-full object-cover" />
+        <div className="flex-1 space-y-4 overflow-y-auto px-6 py-5">
+          {/* Card do produto (topo de todas as abas) */}
+          <div className="flex flex-wrap items-center gap-4 rounded-2xl border border-[var(--pp-border)] bg-white p-4 shadow-[0_1px_2px_rgba(15,76,92,0.04)]">
+            <div className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl border border-[var(--pp-border)] bg-[rgba(15,76,92,0.05)]">
+              <img src={f.imageUrl || fallbackImage} alt="prévia" className="h-full w-full object-cover" />
             </div>
-            <div className="min-w-0 flex-1 space-y-3">
-              <div>
-                <span className={lbl}>Nome do produto *</span>
-                <input autoFocus value={adminForm.name} onChange={(e) => set("name", e.target.value)} placeholder="Ex.: Risoto de Filé Mignon" className={inp} />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-base font-semibold text-[var(--pp-text)]">{f.name || "Novo produto"}</p>
+              <p className="mt-0.5 flex items-center gap-1.5 text-[13px] text-[var(--pp-text-muted)]"><span className="h-1.5 w-1.5 rounded-full bg-[#E67E22]" />{catNome}{f.time && <span className="ml-1.5">🕐 {f.time}</span>}</p>
+              {f.description && <p className="mt-0.5 truncate text-[12px] text-[var(--pp-text-muted)]">{f.description}</p>}
+            </div>
+            <div className="flex shrink-0 flex-col items-end gap-1.5">
+              <button type="button" onClick={() => set("active", !f.active)} className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[12px] font-semibold transition ${f.active ? "border-[rgba(47,158,82,0.3)] bg-[rgba(47,158,82,0.1)] text-[#2F9E52]" : "border-[var(--pp-border)] bg-white text-[var(--pp-text-muted)]"}`}>{f.active ? "✓ Produto ativo" : "○ Inativo"}</button>
+              <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[12px] font-semibold ${fiscalPreparado ? "border-[rgba(15,76,92,0.25)] bg-[rgba(15,76,92,0.08)] text-[#0F4C5C]" : "border-[var(--pp-border)] bg-white text-[var(--pp-text-muted)]"}`}>📄 {fiscalPreparado ? "Fiscal preparado" : "Fiscal pendente"}</span>
+            </div>
+          </div>
+
+          {/* ══ ABA GERAL ══ */}
+          {aba === "geral" && (<>
+            {secao("ℹ️", "Informações principais", "Nome, categoria e descrição do produto.", <>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div><label className={PP_LBL}>Nome do produto *</label><input autoFocus value={f.name} onChange={(e) => set("name", e.target.value)} placeholder="Ex.: X-Salada" className={PP_INP} /></div>
+                <div><label className={PP_LBL}>Tempo de preparo *</label><select value={f.time || ""} onChange={(e) => set("time", e.target.value)} className={PP_INP}><option value="" disabled>Selecione...</option>{opcoesTempo.map((t) => <option key={t} value={t}>{t}</option>)}</select></div>
               </div>
-              <div>
-                <span className={lbl}>Categoria *</span>
-                {categoriasAtivas.length === 0 ? (
-                  <p className="rounded-2xl border border-amber-400/20 bg-amber-500/10 px-3 py-2 text-xs font-bold text-amber-200">
-                    Nenhuma categoria ativa cadastrada. Cadastre em <b className="text-white">Cadastros → Categorias</b> antes de criar produtos.
-                  </p>
-                ) : (
-                  <SeletorCategoria valorId={adminForm.categoriaId} aoMudar={setCategoria} categorias={categoriasAtivas} />
-                )}
+              <div className="mt-3"><label className={PP_LBL}>Categoria *</label>
+                {categoriasAtivas.length === 0 ? <p className="rounded-xl border border-[rgba(230,126,34,0.3)] bg-[rgba(230,126,34,0.06)] px-3 py-2 text-xs font-semibold text-[#B4611A]">Nenhuma categoria ativa. Cadastre em Cadastros → Categorias.</p>
+                  : <SeletorCategoria valorId={f.categoriaId} aoMudar={(c) => setF((cur) => ({ ...cur, categoriaId: c.id, category: c.nome }))} categorias={categoriasAtivas} />}
               </div>
-            </div>
-          </div>
+              <div className="mt-3"><label className={PP_LBL}>Descrição *</label>
+                <textarea value={f.description} onChange={(e) => set("description", e.target.value.slice(0, 500))} rows={2} placeholder="Descreva o produto…" className={`${PP_INP} resize-none`} />
+                <p className="mt-1 text-right text-[11px] text-[var(--pp-text-muted)]">{f.description.length}/500</p></div>
+            </>)}
+            {secao("🖼️", "Imagem do produto", "Use uma imagem de alta qualidade para valorizar seu cardápio.", <>
+              <SeletorImagem urlAtual={f.imageUrl} onImageUrl={(u) => set("imageUrl", u)} onFileChange={setArquivoImg} uploading={uploadando} erroUpload={erroUpload} />
+              <p className="mt-2 text-[11px] text-[var(--pp-text-muted)]">Formatos suportados: PNG, JPG · Tamanho máximo: 2 MB</p>
+            </>)}
+            {secao("🌿", "Ingredientes *", "Enter para adicionar cada item.", <TagsInput tags={tags} setTags={setTags} placeholder="Ex.: Parmesão" />)}
+            {secao("⭐", "Adicionais", "Extras com preço que o cliente pode adicionar ao produto.", <AdicionaisEditor value={adicionais} onChange={setAdicionais} />)}
+          </>)}
 
-          {(setores.length > 0 || impressoras.length > 0) && (
-            <div className="grid gap-3 sm:grid-cols-2">
-              {setores.length > 0 && (
-                <div>
-                  <span className={lbl}>Setor de preparo <span className="text-slate-600 normal-case">— opcional</span></span>
-                  <select value={adminForm.setorId || ""} onChange={(e) => set("setorId", e.target.value ? Number(e.target.value) : "")} className={inp}>
-                    <option value="">— Usar setor da categoria —</option>
-                    {setores.filter((s) => s.ativo !== false).map((s) => <option key={s.id} value={s.id}>{s.nome}</option>)}
-                  </select>
-                </div>
-              )}
-              {impressoras.length > 0 && (
-                <div>
-                  <span className={lbl}>Impressora <span className="text-slate-600 normal-case">— opcional</span></span>
-                  <select value={adminForm.impressoraId || ""} onChange={(e) => set("impressoraId", e.target.value ? Number(e.target.value) : "")} className={inp}>
-                    <option value="">— Usar impressora da categoria —</option>
-                    {impressoras.filter((i) => i.ativo !== false).map((i) => <option key={i.id} value={i.id}>{i.nome}</option>)}
-                  </select>
-                </div>
-              )}
-            </div>
-          )}
+          {/* ══ ABA COMERCIAL & ESTOQUE ══ */}
+          {aba === "comercial" && (<>
+            {secao("🏷️", "Preço e margem", "Defina os preços e visualize a margem estimada deste produto.", <>
+              <div className="grid gap-3 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-end">
+                <div><label className={PP_LBL}>Custo *</label><input inputMode="numeric" value={f.cost} onChange={(e) => { const { display } = handleMoeda(e); set("cost", display); }} placeholder="R$ 0,00" className={PP_INP} /></div>
+                <div><label className={PP_LBL}>Preço de venda *</label><input inputMode="numeric" value={f.price} onChange={(e) => { const { display } = handleMoeda(e); set("price", display); }} placeholder="R$ 0,00" className={PP_INP} /></div>
+                <div><label className={PP_LBL}>Preço promocional</label><input inputMode="numeric" value={f.precoPromo} onChange={(e) => { const { display } = handleMoeda(e); set("precoPromo", display); }} placeholder="R$ 0,00" className={PP_INP} /></div>
+                <div className="rounded-xl border border-[rgba(47,158,82,0.3)] bg-[rgba(47,158,82,0.07)] px-4 py-2 text-center"><p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--pp-text-muted)]">Margem estimada</p><p className="text-lg font-semibold tabular-nums text-[#2F9E52]">{margem.toFixed(0)}%</p></div>
+              </div>
+              <p className="mt-2 text-[11px] text-[var(--pp-text-muted)]">ⓘ Margem calculada automaticamente pelo sistema.</p>
+            </>)}
+            {secao("📦", "Controle de estoque", "Gerencie o estoque e receba alertas quando o produto estiver com baixo estoque.", <>
+              <div className="mb-3 flex items-center justify-between rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5"><span className="text-sm font-semibold text-[var(--pp-text-body)]">Controlar estoque deste produto</span>{toggle(f.controlaEstoque, () => set("controlaEstoque", !f.controlaEstoque))}</div>
+              <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+                <div><label className={PP_LBL}>Estoque atual</label><input value={f.estoque} onChange={(e) => set("estoque", e.target.value.replace(/\D/g, ""))} placeholder="0" className={PP_INP} /></div>
+                <div><label className={PP_LBL}>Estoque mínimo — alerta</label><input value={f.estoqueMinimo} onChange={(e) => set("estoqueMinimo", e.target.value.replace(/\D/g, ""))} placeholder="0" disabled={!f.controlaEstoque} className={`${PP_INP} disabled:opacity-50`} /></div>
+                <div className={`rounded-xl border px-4 py-2 text-center ${estoqueSaudavel ? "border-[rgba(47,158,82,0.3)] bg-[rgba(47,158,82,0.07)]" : "border-[rgba(230,126,34,0.3)] bg-[rgba(230,126,34,0.06)]"}`}><p className={`text-[12px] font-semibold ${estoqueSaudavel ? "text-[#2F9E52]" : "text-[#B4611A]"}`}>🛡 {estoqueSaudavel ? "Estoque saudável" : "Estoque baixo"}</p><p className="text-[11px] text-[var(--pp-text-muted)]">{estoqueSaudavel ? "Níveis dentro do esperado." : "Abaixo do mínimo."}</p></div>
+              </div>
+            </>)}
+            {secao("📈", "Indicadores rápidos", "Resumo comercial e de estoque para uma visão rápida do desempenho.",
+              <div className="grid gap-3 sm:grid-cols-4">
+                {stat("Preço de venda", formatCurrency(precoNum), "#0F4C5C", "🏷️")}
+                {stat("Lucro bruto por item", formatCurrency(lucro), "#2F9E52", "📈")}
+                {stat("Markup estimado", `${markup.toFixed(2)}x`, "#0F4C5C", "📊")}
+                {stat("Situação do estoque", estoqueSaudavel ? "Normal" : "Baixo", estoqueSaudavel ? "#2F9E52" : "#E67E22", "🛡")}
+              </div>)}
+            {secao("⚙️", "Regras comerciais", "Configure regras que impactam a precificação, visibilidade e alertas deste produto.",
+              <div className="grid gap-4 sm:grid-cols-3">
+                {regra(f.permitirPromo, () => set("permitirPromo", !f.permitirPromo), "Permitir preço promocional", "Permite cadastrar e aplicar preço promocional.")}
+                {regra(f.exibirMargemAutorizados, () => set("exibirMargemAutorizados", !f.exibirMargemAutorizados), "Exibir margem apenas para usuários autorizados", "Restringe a visualização da margem do produto.")}
+                {regra(f.alertaEstoqueMinimo, () => set("alertaEstoqueMinimo", !f.alertaEstoqueMinimo), "Aplicar alerta de estoque mínimo", "Ativa alertas quando o estoque atingir o mínimo definido.")}
+              </div>)}
+          </>)}
 
-          {/* Custo / Preço venda / Preparo */}
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <span className={lbl}>Custo *</span>
-              <input inputMode="numeric" value={displayMoeda(adminForm.cost)}
-                onChange={(e) => { const {display} = handleMoeda(e); set("cost", display); }}
-                placeholder="R$ 0,00" className={inp} />
-            </div>
-            <div>
-              <span className={lbl}>Preço venda *</span>
-              <input inputMode="numeric" value={displayMoeda(adminForm.price)}
-                onChange={(e) => { const {display} = handleMoeda(e); set("price", display); }}
-                placeholder="R$ 0,00" className={inp} />
-            </div>
-            <div>
-              <span className={lbl}>Preparo *</span>
-              <select value={adminForm.time || ""} onChange={(e) => set("time", e.target.value)} className={inp}>
-                <option value="" disabled>Selecione...</option>
-                {TEMPOS_PREPARO.map((t) => <option key={t} value={t}>{t}</option>)}
-              </select>
-            </div>
-          </div>
-          {margem !== null && <p className="text-xs font-bold text-emerald-300">Margem estimada: {margem}%</p>}
+          {/* ══ ABA OPERAÇÃO ══ */}
+          {aba === "operacao" && (<>
+            {secao("⚙️", "Produção", "Defina como o produto será produzido e para onde deve ser encaminhado.", <>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div><label className={PP_LBL}>Setor de preparo</label><select value={f.setorId} onChange={(e) => set("setorId", e.target.value ? Number(e.target.value) : "")} className={PP_INP}><option value="">— da categoria —</option>{setores.filter((s) => s.ativo !== false).map((s) => <option key={s.id} value={s.id}>{s.nome}</option>)}</select></div>
+                <div><label className={PP_LBL}>Impressora</label><select value={f.impressoraId} onChange={(e) => set("impressoraId", e.target.value ? Number(e.target.value) : "")} className={PP_INP}><option value="">— da categoria —</option>{impressoras.filter((i) => i.ativo !== false).map((i) => <option key={i.id} value={i.id}>{i.nome}</option>)}</select></div>
+                <div><label className={PP_LBL}>Tempo de preparo</label><select value={f.time || ""} onChange={(e) => set("time", e.target.value)} className={PP_INP}><option value="" disabled>Selecione...</option>{opcoesTempo.map((t) => <option key={t} value={t}>{t}</option>)}</select></div>
+                <div><label className={PP_LBL}>Prioridade de produção</label><select value={f.prioridade} onChange={(e) => set("prioridade", e.target.value)} className={PP_INP}>{["Baixa", "Normal", "Alta"].map((p) => <option key={p} value={p}>{p}</option>)}</select></div>
+                <div className="flex items-center justify-between rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5 sm:col-span-2"><span className="text-sm font-semibold text-[var(--pp-text-body)]">Exibir no painel de preparo</span>{toggle(f.exibirNoPainel, () => set("exibirNoPainel", !f.exibirNoPainel))}</div>
+              </div>
+            </>)}
+            {secao("🌐", "Disponibilidade e canais", "Controle onde e como o produto estará disponível para os clientes.", <>
+              <div className="flex items-center justify-between rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5"><span className="text-sm font-semibold text-[var(--pp-text-body)]">Disponível para venda</span>{toggle(f.disponivel, () => set("disponivel", !f.disponivel))}</div>
+              <p className={`${PP_LBL} mt-3`}>Visível em</p>
+              <div className="flex flex-wrap gap-2">{chipCanal("visivelTablet", "📲 Tablet")}{chipCanal("visivelQr", "🔳 QR Code")}{chipCanal("visivelExterno", "🌐 Cardápio externo")}</div>
+              <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                <div className="flex items-center gap-2.5">{toggle(f.canalSalao, () => set("canalSalao", !f.canalSalao))}<span className="text-[13px] font-semibold text-[var(--pp-text-body)]">Pedido no salão</span></div>
+                <div className="flex items-center gap-2.5">{toggle(f.canalRetirada, () => set("canalRetirada", !f.canalRetirada))}<span className="text-[13px] font-semibold text-[var(--pp-text-body)]">Retirada / balcão</span></div>
+                <div className="flex items-center gap-2.5">{toggle(f.canalDelivery, () => set("canalDelivery", !f.canalDelivery))}<span className="text-[13px] font-semibold text-[var(--pp-text-body)]">Delivery</span></div>
+              </div>
+            </>)}
+            {secao("⭐", "Destaque do produto", "Destaque o produto para aumentar vendas e visibilidade.", <>
+              <div className="flex items-center justify-between rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5"><span className="text-sm font-semibold text-[var(--pp-text-body)]">Produto em destaque</span>{toggle(f.isFeatured, () => set("isFeatured", !f.isFeatured))}</div>
+              {f.isFeatured && (<div className="mt-3"><p className={PP_LBL}>Etiqueta do destaque</p><div className="flex flex-wrap gap-2">{["Mais vendido", "Sugestão do chef", "Novo", "Especial da casa", "Promoção", "Destaque"].map((lab) => <FilterChip key={lab} size="sm" selected={f.featuredLabel === lab} label={lab} onClick={() => set("featuredLabel", lab)} />)}</div></div>)}
+            </>)}
+            {secao("⚙️", "Regras operacionais", "Automatize processos e defina regras que otimizam o fluxo na cozinha e no atendimento.",
+              <div className="grid gap-4 sm:grid-cols-3">
+                {regra(f.impressaoAutomatica, () => set("impressaoAutomatica", !f.impressaoAutomatica), "Impressão automática ao confirmar pedido", "O item será impresso automaticamente.")}
+                {regra(f.permitirObservacoes, () => set("permitirObservacoes", !f.permitirObservacoes), "Permitir observações do cliente", "Observações serão enviadas para o painel de preparo.")}
+                {regra(f.separarFila, () => set("separarFila", !f.separarFila), "Separar item na fila de produção", "O item recebe prioridade conforme a ordem do pedido.")}
+              </div>)}
+            {secao("📊", "Resumo operacional", "Visão geral da configuração operacional deste produto.",
+              <div className="grid gap-3 sm:grid-cols-4">
+                {stat("Setor", setores.find((s) => s.id === f.setorId)?.nome || "Categoria", "#0F4C5C", "👨‍🍳")}
+                {stat("Tempo", f.time || "—", "#0F4C5C", "🕐")}
+                {stat("Canais", [f.visivelTablet && "Tablet", f.visivelQr && "QR", f.visivelExterno && "Externo"].filter(Boolean).join(" + ") || "—", "#0F4C5C", "📱")}
+                {stat("Status", f.disponivel ? "Operacional" : "Indisponível", f.disponivel ? "#2F9E52" : "#C81E4A", "🛡")}
+              </div>)}
+          </>)}
 
-          {/* Imagem — arquivo local (PNG/JPEG) ou URL */}
-          <div>
-            <span className={lbl}>Imagem do produto *</span>
-            <SeletorImagem
-              urlAtual={adminForm.imageUrl}
-              onImageUrl={(u) => set("imageUrl", u)}
-              onFileChange={setArquivoImg}
-              uploading={uploadando}
-              erroUpload={erroUpload}
-            />
-          </div>
+          {/* ══ ABA FISCAL ══ */}
+          {aba === "fiscal" && (<>
+            {secao("🧾", "Informações fiscais do produto", "Preencha os campos abaixo para preparar o produto para futuras emissões de NF-e/NFC-e.", <>
+              <div className="grid gap-3 sm:grid-cols-4">
+                {fIn("sku", "Código interno / SKU", "Ex.: XSALADA")}
+                {fIn("gtin", "GTIN / EAN", "Ex.: 7891234567890")}
+                {fIn("ncm", "NCM", "Ex.: 2106.90.30")}
+                {fIn("cest", "CEST", "Ex.: 17.015.00")}
+                {fSel("unidadeComercial", "Unidade comercial", ["UN - Unidade", "KG - Quilograma", "L - Litro", "PC - Pacote"])}
+                {fSel("unidadeTributavel", "Unidade tributável", ["UN - Unidade", "KG - Quilograma", "L - Litro", "PC - Pacote"])}
+                {fSel("origem", "Origem da mercadoria", ["0 - Nacional", "1 - Estrangeira (importação direta)", "2 - Estrangeira (mercado interno)"], true)}
+                {fSel("cfopInterno", "CFOP padrão — interno", ["5.102 - Venda de mercadoria", "5.101 - Venda de produção do estabelecimento", "5.405 - Venda ST"])}
+                {fSel("cfopInterestadual", "CFOP padrão — interestadual", ["6.102 - Venda de mercadoria", "6.101 - Venda de produção do estabelecimento", "6.405 - Venda ST"])}
+                {fSel("cstIcms", "CST / CSOSN ICMS", ["102 - Tributada pelo Simples", "101 - Tributada com permissão de crédito", "500 - ICMS cobrado por ST", "00 - Tributada integralmente"])}
+                {fIn("aliquotaIcms", "Alíquota ICMS (%)", "18,00")}
+                {fSel("cstPis", "CST PIS", ["01 - Operação Tributável", "07 - Isenta", "49 - Outras"])}
+                {fIn("aliquotaPis", "Alíquota PIS (%)", "1,65")}
+                {fSel("cstCofins", "CST COFINS", ["01 - Operação Tributável", "07 - Isenta", "49 - Outras"])}
+                {fIn("aliquotaCofins", "Alíquota COFINS (%)", "7,60")}
+                {fSel("cstIpi", "CST IPI", ["53 - Saída não tributada", "50 - Saída tributada", "99 - Outras saídas"])}
+                {fIn("aliquotaIpi", "Alíquota IPI (%)", "0,00")}
+                {fIn("cBenef", "cBenef", "Ex.: 123456")}
+                {fSel("cstIbsCbs", "CST IBS/CBS", ["200 - Tributada pelo regime regular", "400 - Isenta", "000 - Tributada integralmente"])}
+                {fIn("cClassTrib", "cClassTrib", "Ex.: 001")}
+                {fIn("cCredPres", "cCredPres", "Ex.: 001")}
+              </div>
+              <div className="mt-3"><label className={PP_LBL}>Observações fiscais</label><textarea value={fis.observacoesFiscais || ""} onChange={(e) => setF2("observacoesFiscais", e.target.value.slice(0, 500))} rows={2} placeholder="Informações complementares para fiscais e integração com ERP…" className={`${PP_INP} resize-none`} /></div>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <div className="rounded-xl border border-[rgba(15,76,92,0.2)] bg-[rgba(15,76,92,0.05)] p-3 text-[12px] text-[var(--pp-text-body)]"><p className="font-semibold text-[#0F4C5C]">ⓘ CRT / regime tributário é definido nas configurações da empresa.</p><p className="mt-0.5">As informações fiscais do produto seguirão o regime da empresa.</p></div>
+                <div className="rounded-xl border border-[rgba(230,126,34,0.25)] bg-[rgba(230,126,34,0.06)] p-3 text-[12px] text-[var(--pp-text-body)]"><p className="font-semibold text-[#B4611A]">⚖ Reforma Tributária — IBS / CBS</p><p className="mt-0.5">Os campos CST IBS/CBS, cClassTrib e cCredPres serão utilizados quando a Reforma Tributária estiver em vigor.</p></div>
+              </div>
+            </>)}
+          </>)}
 
-          {/* Ingredientes */}
-          <div>
-            <span className={lbl}>Ingredientes * <span className="text-slate-600 normal-case">— Enter para adicionar</span></span>
-            <TagsInput tags={tagsAtuais} setTags={(arr) => set("ingredientsText", arr.join(", "))} placeholder="Ex.: Parmesão" />
-          </div>
-
-          {/* Adicionais (extras) do produto */}
-          <div>
-            <span className={lbl}>Adicionais <span className="text-slate-600 normal-case">— extras com preço que o cliente pode escolher</span></span>
-            <AdicionaisEditor value={adminForm.adicionais || []} onChange={(v) => set("adicionais", v)} />
-          </div>
-
-          {/* Descrição */}
-          <div>
-            <span className={lbl}>Descrição *</span>
-            <textarea value={adminForm.description} onChange={(e) => set("description", e.target.value)} placeholder="Descrição do produto" rows={2} className={`${inp} resize-none`} />
-          </div>
+          {/* ══ ABA NF-e / NFC-e ══ */}
+          {aba === "nfe" && (<>
+            {secao("🖨️", "Informações para impressão e documentos", "Dados que aparecem no DANFE / NFC-e.", <>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div><label className={PP_LBL}>Descrição resumida no DANFE / NFC-e</label><input value={fis.descricaoDanfe || ""} onChange={(e) => setF2("descricaoDanfe", e.target.value.slice(0, 60))} placeholder="Ex.: X-Salada" className={PP_INP} /><p className="mt-1 text-right text-[11px] text-[var(--pp-text-muted)]">{(fis.descricaoDanfe || "").length}/60</p></div>
+                <div><label className={PP_LBL}>Informação complementar</label><input value={fis.informacaoComplementar || ""} onChange={(e) => setF2("informacaoComplementar", e.target.value.slice(0, 200))} placeholder="Aparecerá no DANFE" className={PP_INP} /><p className="mt-1 text-right text-[11px] text-[var(--pp-text-muted)]">{(fis.informacaoComplementar || "").length}/200</p></div>
+                {fIn("codigoBarrasEan", "Código de barras (EAN)", "7891234567890")}
+              </div>
+            </>)}
+            {secao("📄", "Configurações para NF-e", "Indicadores usados na emissão da NF-e.",
+              <div className="grid gap-3 sm:grid-cols-2">
+                {fSel("indPres", "Indicador de presença (indPres)", ["1 - Operação presencial", "0 - Não se aplica", "2 - Não presencial (internet)", "9 - Não presencial (outros)"])}
+                {fSel("indIntermed", "Indicador de intermediador (indIntermed)", ["0 - Operação sem intermediador", "1 - Operação com intermediador"])}
+                {fSel("indEntrega", "Indicador de entrega (indEntrega)", ["1 - Entrega por conta do emitente", "0 - Sem entrega", "2 - Entrega por conta do destinatário"])}
+                {fSel("modalidadeFrete", "Modalidade do frete", ["0 - Contratação por conta do Remetente (CIF)", "1 - Por conta do Destinatário (FOB)", "9 - Sem frete"])}
+              </div>)}
+            {secao("🧾", "Configurações para NFC-e", "Indicadores usados na emissão da NFC-e.",
+              <div className="grid gap-3 sm:grid-cols-2">
+                {fSel("crt", "Código do Regime Tributário (CRT)", ["1 - Simples Nacional", "2 - Simples Nacional (excesso)", "3 - Regime Normal"])}
+                {fSel("indFinal", "Indicador de Contribuinte (indFinal)", ["1 - Contribuinte final", "0 - Não contribuinte"])}
+                {fSel("indIEDest", "Consumidor final (indIEDest)", ["1 - Consumidor final", "2 - Contribuinte isento", "9 - Não contribuinte"])}
+                {fSel("destinoOperacao", "Destino da operação", ["1 - Operação interna", "2 - Operação interestadual", "3 - Operação com exterior"])}
+              </div>)}
+            {secao("💬", "Observações e personalizações", "Mensagens do documento e notas internas.",
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div><label className={PP_LBL}>Mensagem no rodapé do DANFE / NFC-e</label><textarea value={fis.mensagemRodapeDanfe || ""} onChange={(e) => setF2("mensagemRodapeDanfe", e.target.value.slice(0, 300))} rows={2} placeholder="Ex.: Obrigado pela preferência! Volte sempre." className={`${PP_INP} resize-none`} /></div>
+                <div><label className={PP_LBL}>Observações internas</label><textarea value={fis.observacoesInternas || ""} onChange={(e) => setF2("observacoesInternas", e.target.value.slice(0, 300))} rows={2} placeholder="Apenas para controle interno" className={`${PP_INP} resize-none`} /></div>
+              </div>)}
+            <div className="rounded-xl border border-[rgba(15,76,92,0.2)] bg-[rgba(15,76,92,0.05)] p-3 text-[12px] text-[var(--pp-text-body)]"><p className="font-semibold text-[#0F4C5C]">ⓘ Sobre NF-e / NFC-e</p><p className="mt-0.5">Estas informações serão utilizadas na emissão dos documentos fiscais eletrônicos. Certifique-se de que os dados fiscais estejam corretos para evitar rejeições.</p></div>
+          </>)}
         </div>
 
-        <div className="shrink-0 border-t border-white/10 px-6 py-4 space-y-2">
-          {!valido && (adminForm.name || moedaParaNum(String(adminForm.price)) > 0) && (
-            <p className="text-xs font-semibold text-amber-400">
-              ⚠ Preencha todos os campos obrigatórios (*) para cadastrar.
-            </p>
-          )}
-          <div className="flex gap-3">
-            <button onClick={onFechar} className="flex-1 rounded-2xl border border-white/10 bg-white/[0.06] py-3.5 text-sm font-black text-slate-300 hover:bg-white/10">Cancelar</button>
-            <button onClick={handleSalvar} disabled={!valido || uploadando}
-              className="flex-[2] rounded-2xl bg-blue-500 py-3.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
-              {uploadando ? "⏳ Enviando imagem..." : "+ Cadastrar produto"}
-            </button>
+        {/* Rodapé */}
+        <div className="shrink-0 space-y-2 border-t border-[var(--pp-border)] px-6 py-4">
+          {!valido && <p className="text-xs font-semibold text-[#B4611A]">⚠ Preencha os campos obrigatórios da aba Geral (nome, categoria, custo, preço, preparo, imagem, ingredientes, descrição).</p>}
+          {erroUpload && <p className="text-xs font-semibold text-[#C81E4A]">❌ {erroUpload}</p>}
+          <div className="flex gap-2">
+            <button onClick={onFechar} className="rounded-xl border border-[var(--pp-border)] bg-white px-5 py-2.5 text-sm font-semibold text-[var(--pp-text-body)] transition hover:bg-[rgba(15,76,92,0.04)]">Cancelar</button>
+            <PrimeButton onClick={handleSalvar} disabled={!valido || uploadando} className="flex-1">{uploadando ? "⏳ Enviando imagem…" : (ehEdicao ? "💾 Salvar alterações" : "＋ Cadastrar produto")}</PrimeButton>
           </div>
         </div>
       </div>
@@ -19209,298 +19381,16 @@ function SeletorCategoria({ valorId, aoMudar, categorias }) {
         const ativo = valorId === c.id;
         return (
           <button key={c.id} type="button" onClick={() => aoMudar(c)}
-            className={`group inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-bold tracking-tight transition active:scale-95 ${
+            className={`group inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-[13px] font-semibold tracking-tight transition active:scale-95 ${
               ativo
-                ? "border-[#EBCE86] bg-[#FAF0D6] text-[#8A6A12] shadow-[0_0_0_1px_rgba(201,154,46,0.18),0_4px_16px_-6px_rgba(201,154,46,0.4)]"
-                : "border-white/10 bg-white/[0.04] text-slate-300 hover:border-[#EBCE86]/60 hover:bg-white/[0.07] hover:text-[#8A6A12]"
+                ? "border-[#0F4C5C] bg-[#0F4C5C] text-white shadow-[0_2px_6px_rgba(15,76,92,0.22)]"
+                : "border-[var(--pp-border)] bg-white text-[var(--pp-text-body)] hover:border-[#0F4C5C] hover:text-[#0F4C5C]"
             }`}>
-            <span className={`h-1.5 w-1.5 rounded-full transition ${ativo ? "bg-[#C99A2E] shadow-[0_0_6px_1px_rgba(201,154,46,0.6)]" : "bg-slate-600 group-hover:bg-[#C99A2E]/60"}`} />
+            {ativo && <span className="text-[13px] leading-none">✓</span>}
             {c.nome}
           </button>
         );
       })}
-    </div>
-  );
-}
-
-function ProdutoEditModal({ produto, categoriasAtivas, onSalvar, onFechar, lojaId, setores = [], impressoras = [] }) {
-  // Inicializa campos de moeda já formatados
-  const toDisplay = (v) => {
-    if (!v && v !== 0) return "";
-    if (String(v).startsWith("R$")) return v;
-    const digits = String(Math.round(Number(v) * 100)).padStart(3, "0");
-    return rawParaMoeda(digits);
-  };
-  const [f, setF] = useState({
-    name: produto.name, category: produto.category, categoriaId: produto.categoriaId ?? null,
-    price: toDisplay(produto.price), cost: toDisplay(produto.cost),
-    precoPromo: produto.precoPromocional ? toDisplay(produto.precoPromocional) : "",
-    time: produto.time || "", imageUrl: produto.imageUrl || "", description: produto.description || "",
-    estoque: produto.estoque ?? 0,
-    controlaEstoque: produto.controlaEstoque ?? false,
-    estoqueMinimo: produto.estoqueMinimo ?? 0,
-    visivelTablet: produto.visivelTablet !== false,
-    visivelQr: produto.visivelQr !== false,
-    visivelExterno: produto.visivelExterno !== false,
-    // Migration 038 — destaque e disponibilidade
-    isFeatured: produto.isFeatured ?? false,
-    featuredLabel: produto.featuredLabel || "",
-    showOnHome: produto.showOnHome !== false,
-    disponivel: produto.disponivel !== false,
-    // Migration 041 — setor de cozinha
-    setorId: produto.setorId || "",
-    // Migration 078 — impressora opcional
-    impressoraId: produto.impressoraId || "",
-  });
-  const [tags, setTags] = useState([...(produto.ingredients || [])]); // ingredientes como tags
-  const [adicionais, setAdicionais] = useState([...(produto.adicionais || [])]); // extras do produto
-  const [arquivoImg, setArquivoImg] = React.useState(null);
-  const [uploadando, setUploadando] = React.useState(false);
-  const [erroUpload, setErroUpload] = React.useState("");
-  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-gold-400/60";
-  const lbl = "mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500";
-  const precoNum = moedaParaNum(String(f.price));
-  const custoNum = moedaParaNum(String(f.cost));
-  const validoEdit = f.name.trim() && f.categoriaId != null && precoNum > 0 && custoNum > 0 &&
-    f.time.trim() && f.imageUrl.trim() && tags.length > 0 && f.description.trim();
-  // Tempos: garante que o valor atual apareça mesmo se for um texto antigo fora do padrão
-  const opcoesTempo = TEMPOS_PREPARO.includes(f.time) || !f.time ? TEMPOS_PREPARO : [f.time, ...TEMPOS_PREPARO];
-
-  async function handleSalvarEdit() {
-    setErroUpload("");
-    let imgFinal = f.imageUrl;
-    if (arquivoImg) {
-      setUploadando(true);
-      try {
-        imgFinal = await uploadImagemProduto(arquivoImg, lojaId || "geral");
-      } catch (e) {
-        setUploadando(false);
-        setErroUpload(e.message || "Falha no upload da imagem.");
-        return;
-      }
-      setUploadando(false);
-    }
-    onSalvar({
-      ...f, imageUrl: imgFinal, price: precoNum, cost: custoNum, ingredients: tags, adicionais,
-      precoPromocional: moedaParaNum(String(f.precoPromo)),
-      controlaEstoque: f.controlaEstoque, estoqueMinimo: f.estoqueMinimo,
-      visivelTablet: f.visivelTablet, visivelQr: f.visivelQr, visivelExterno: f.visivelExterno,
-      isFeatured: f.isFeatured, featuredLabel: f.isFeatured ? (f.featuredLabel || "Destaque") : "", showOnHome: f.showOnHome, disponivel: f.disponivel,
-      setorId: f.setorId || null,
-      impressoraId: f.impressoraId || null,
-    });
-  }
-
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onFechar}>
-      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-2xl flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl max-h-[92vh]">
-        <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
-          <div className="flex items-center gap-2">
-            <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-blue-500/15 text-lg">✏️</span>
-            <h2 className="text-lg font-black text-white">Editar produto</h2>
-          </div>
-          <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20">✕</button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
-          {/* Prévia + nome/categoria */}
-          <div className="flex gap-4">
-            <div className="h-24 w-24 shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-slate-800">
-              <img src={f.imageUrl || fallbackImage} alt="prévia" className="h-full w-full object-cover" />
-            </div>
-            <div className="min-w-0 flex-1 space-y-3">
-              <div>
-                <span className={lbl}>Nome do produto *</span>
-                <input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="Ex.: Risoto de Filé Mignon" className={inp} />
-              </div>
-              <div>
-                <span className={lbl}>Categoria *</span>
-                {categoriasAtivas.length === 0 ? (
-                  <p className="rounded-2xl border border-amber-400/20 bg-amber-500/10 px-3 py-2 text-xs font-bold text-amber-200">
-                    Nenhuma categoria ativa cadastrada. Cadastre em <b className="text-white">Cadastros → Categorias</b>.
-                  </p>
-                ) : (
-                  <SeletorCategoria valorId={f.categoriaId} aoMudar={(c) => setF({ ...f, categoriaId: c.id, category: c.nome })} categorias={categoriasAtivas} />
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Custo / Preço venda / Preparo / Estoque */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <div>
-              <span className={lbl}>Custo *</span>
-              <input inputMode="numeric" value={f.cost}
-                onChange={(e) => { const {display}=handleMoeda(e); setF({...f, cost: display}); }}
-                placeholder="R$ 0,00" className={inp} />
-            </div>
-            <div>
-              <span className={lbl}>Preço venda *</span>
-              <input inputMode="numeric" value={f.price}
-                onChange={(e) => { const {display}=handleMoeda(e); setF({...f, price: display}); }}
-                placeholder="R$ 0,00" className={inp} />
-            </div>
-            <div>
-              <span className={lbl}>Preparo *</span>
-              <select value={f.time || ""} onChange={(e) => setF({ ...f, time: e.target.value })} className={inp}>
-                <option value="" disabled>Selecione...</option>
-                {opcoesTempo.map((t) => <option key={t} value={t}>{t}</option>)}
-              </select>
-            </div>
-            <div>
-              <span className={lbl}>Estoque</span>
-              <input value={f.estoque} onChange={(e) => setF({ ...f, estoque: e.target.value.replace(/\D/g, "") })} placeholder="0" className={inp} />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <div className="sm:col-span-2">
-              <span className={lbl}>Preço promocional <span className="text-slate-600 normal-case">— opcional</span></span>
-              <input inputMode="numeric" value={f.precoPromo}
-                onChange={(e) => { const {display}=handleMoeda(e); setF({...f, precoPromo: display}); }}
-                placeholder="R$ 0,00" className={inp} />
-            </div>
-          </div>
-          {precoNum > 0 && custoNum > 0 && (
-            <p className="text-xs font-bold text-emerald-300">
-              Margem estimada: {(((precoNum-custoNum)/precoNum)*100).toFixed(0)}%
-              {moedaParaNum(String(f.precoPromo)) > 0 && <span className="ml-2 text-gold-300">· Promo: {(((moedaParaNum(String(f.precoPromo))-custoNum)/moedaParaNum(String(f.precoPromo)))*100).toFixed(0)}%</span>}
-            </p>
-          )}
-
-          {/* Estoque & Visibilidade (migration 034) */}
-          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 space-y-3">
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-xs font-bold uppercase tracking-widest text-slate-400">Controle de estoque</span>
-              <button type="button" onClick={() => setF({ ...f, controlaEstoque: !f.controlaEstoque })}
-                className={`relative h-6 w-11 shrink-0 rounded-full transition ${f.controlaEstoque ? "bg-emerald-500" : "bg-slate-700"}`}>
-                <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${f.controlaEstoque ? "left-[22px]" : "left-0.5"}`} />
-              </button>
-            </div>
-            {f.controlaEstoque && (
-              <div>
-                <span className={lbl}>Estoque mínimo <span className="text-slate-600 normal-case">— alerta de baixo estoque</span></span>
-                <input value={f.estoqueMinimo} onChange={(e) => setF({ ...f, estoqueMinimo: e.target.value.replace(/\D/g, "") })} placeholder="0" className={inp} />
-              </div>
-            )}
-            <div>
-              <span className={lbl}>Visível em</span>
-              <div className="flex flex-wrap gap-2">
-                {[["visivelTablet", "📲 Tablet"], ["visivelQr", "🔳 QR Code"], ["visivelExterno", "📱 Cardápio externo"]].map(([k, t]) => (
-                  <button key={k} type="button" onClick={() => setF({ ...f, [k]: !f[k] })}
-                    className={`rounded-xl border px-3 py-2 text-xs font-bold transition ${f[k] ? "border-gold-400/60 bg-gold-400/10 text-gold-200" : "border-white/10 bg-white/[0.03] text-slate-500"}`}>
-                    <span className={`mr-1.5 ${f[k] ? "" : "opacity-40"}`}>{f[k] ? "✓" : "○"}</span>{t}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Setor / impressora (041 + 078) */}
-          {(setores.length > 0 || impressoras.length > 0) && (
-            <div className="grid gap-3 sm:grid-cols-2">
-              {setores.length > 0 && (
-                <div>
-                  <span className={lbl}>Setor de preparo <span className="text-slate-600 normal-case">— opcional</span></span>
-                  <select value={f.setorId} onChange={(e) => setF({ ...f, setorId: e.target.value ? Number(e.target.value) : "" })} className={inp}>
-                    <option value="">— Usar setor da categoria —</option>
-                    {setores.filter((s) => s.ativo !== false).map((s) => <option key={s.id} value={s.id}>{s.nome}</option>)}
-                  </select>
-                </div>
-              )}
-              {impressoras.length > 0 && (
-                <div>
-                  <span className={lbl}>Impressora <span className="text-slate-600 normal-case">— opcional</span></span>
-                  <select value={f.impressoraId} onChange={(e) => setF({ ...f, impressoraId: e.target.value ? Number(e.target.value) : "" })} className={inp}>
-                    <option value="">— Usar impressora da categoria —</option>
-                    {impressoras.filter((i) => i.ativo !== false).map((i) => <option key={i.id} value={i.id}>{i.nome}</option>)}
-                  </select>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Destaque & Disponibilidade (migration 038) */}
-          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 space-y-3">
-            {/* Disponibilidade */}
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <span className="text-xs font-bold uppercase tracking-widest text-slate-400">Disponível para venda</span>
-                <p className="text-[11px] text-slate-500">Desligado: aparece como “Indisponível no momento” e não pode ser pedido.</p>
-              </div>
-              <button type="button" onClick={() => setF({ ...f, disponivel: !f.disponivel })}
-                className={`relative h-6 w-11 shrink-0 rounded-full transition ${f.disponivel ? "bg-emerald-500" : "bg-slate-700"}`}>
-                <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${f.disponivel ? "left-[22px]" : "left-0.5"}`} />
-              </button>
-            </div>
-            {/* Destaque */}
-            <div className="flex items-center justify-between gap-3 border-t border-white/10 pt-3">
-              <div>
-                <span className="text-xs font-bold uppercase tracking-widest text-gold-300">⭐ Produto em destaque</span>
-                <p className="text-[11px] text-slate-500">Aparece na seção “Destaques da Casa” do cardápio/tablet.</p>
-              </div>
-              <button type="button" onClick={() => setF({ ...f, isFeatured: !f.isFeatured })}
-                className={`relative h-6 w-11 shrink-0 rounded-full transition ${f.isFeatured ? "bg-gold-400" : "bg-slate-700"}`}>
-                <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${f.isFeatured ? "left-[22px]" : "left-0.5"}`} />
-              </button>
-            </div>
-            {f.isFeatured && (
-              <div>
-                <span className={lbl}>Etiqueta do destaque</span>
-                <div className="flex flex-wrap gap-2">
-                  {["Mais vendido", "Sugestão do chef", "Novo", "Especial da casa", "Promoção", "Destaque"].map((lab) => (
-                    <FilterChip key={lab} size="sm" selected={f.featuredLabel === lab} label={lab} onClick={() => setF({ ...f, featuredLabel: lab })} />
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Imagem — arquivo local (PNG/JPEG) ou URL */}
-          <div>
-            <span className={lbl}>Imagem do produto *</span>
-            <SeletorImagem
-              urlAtual={f.imageUrl}
-              onImageUrl={(u) => setF((cur) => ({ ...cur, imageUrl: u }))}
-              onFileChange={setArquivoImg}
-              uploading={uploadando}
-              erroUpload={erroUpload}
-            />
-          </div>
-
-          {/* Ingredientes como TAGS */}
-          <div>
-            <span className={lbl}>Ingredientes * <span className="text-slate-600 normal-case">— Enter para adicionar</span></span>
-            <TagsInput tags={tags} setTags={setTags} placeholder="Ex.: Parmesão" />
-          </div>
-
-          {/* Adicionais (extras) do produto — nome + preço */}
-          <div>
-            <span className={lbl}>Adicionais <span className="text-slate-600 normal-case">— extras com preço que o cliente pode escolher</span></span>
-            <AdicionaisEditor value={adicionais} onChange={setAdicionais} />
-          </div>
-
-          {/* Descrição */}
-          <div>
-            <span className={lbl}>Descrição *</span>
-            <textarea value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} placeholder="Descrição do produto" rows={2} className={`${inp} resize-none`} />
-          </div>
-        </div>
-
-        <div className="shrink-0 border-t border-white/10 px-6 py-4 space-y-2">
-          {!validoEdit && (
-            <p className="text-xs font-semibold text-amber-400">
-              ⚠ Preencha todos os campos obrigatórios (*) para salvar.
-            </p>
-          )}
-          <div className="flex gap-3">
-            <button onClick={onFechar} className="flex-1 rounded-2xl border border-white/10 bg-white/[0.06] py-3.5 text-sm font-black text-slate-300 hover:bg-white/10">Cancelar</button>
-            <button onClick={handleSalvarEdit} disabled={!validoEdit || uploadando}
-              className="flex-[2] rounded-2xl bg-blue-500 py-3.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
-              {uploadando ? "⏳ Enviando imagem..." : "💾 Salvar alterações"}
-            </button>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

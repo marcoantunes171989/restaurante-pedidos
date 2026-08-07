@@ -81,12 +81,20 @@ export async function inserirProduto(p) {
     const { categoria_id, ...semCategoriaId } = linha;
     res = await supabase.from('tab_produtos').insert([semCategoriaId]).select().single();
   }
+  // Fallback amplo: se ainda faltar QUALQUER coluna opcional (034/038/079 não
+  // aplicadas — fiscal, operacao, controla_estoque, etc.), insere sem todas
+  // elas. O cadastro sempre sucede; os campos passam a persistir após migrar.
+  if (res.error && COLS_PRODUTO_OPCIONAIS.some((c) => c in linha) && ehColunaAusente(res.error, 'column')) {
+    const semOpcionais = { ...linha };
+    COLS_PRODUTO_OPCIONAIS.forEach((c) => delete semOpcionais[c]);
+    res = await supabase.from('tab_produtos').insert([semOpcionais]).select().single();
+  }
   if (res.error) throw res.error
   return dbParaProduto(res.data)
 }
 
-// Colunas opcionais (migrations 029/034/068) — removidas no fallback se o banco não as tiver
-const COLS_PRODUTO_OPCIONAIS = ['adicionais', 'controla_estoque', 'estoque_minimo', 'preco_promocional', 'visivel_tablet', 'visivel_qr', 'visivel_externo', 'is_featured', 'featured_label', 'featured_order', 'show_on_home', 'disponivel', 'setor_id', 'categoria_id', 'impressora_id'];
+// Colunas opcionais (migrations 029/034/068/079) — removidas no fallback se o banco não as tiver
+const COLS_PRODUTO_OPCIONAIS = ['adicionais', 'controla_estoque', 'estoque_minimo', 'preco_promocional', 'visivel_tablet', 'visivel_qr', 'visivel_externo', 'is_featured', 'featured_label', 'featured_order', 'show_on_home', 'disponivel', 'setor_id', 'categoria_id', 'impressora_id', 'fiscal', 'operacao'];
 export async function atualizarProduto(id, campos) {
   let { error } = await supabase.from('tab_produtos').update(campos).eq('id', id)
   if (error && COLS_PRODUTO_OPCIONAIS.some((c) => c in campos) && ehColunaAusente(error, 'column')) {
@@ -1638,6 +1646,11 @@ function dbParaProduto(r) {
     disponivel:       r.disponivel !== false,
     setorId:          r.setor_id ?? null,
     impressoraId:     r.impressora_id ?? null,
+    // Migration 079 — dados fiscais (NF-e/NFC-e) e config operacional nova,
+    // guardados como JSONB flexível. Banco sem a 079: colunas não existem →
+    // vêm undefined e caem no objeto vazio (tolerante).
+    fiscal:           (r.fiscal && typeof r.fiscal === 'object') ? r.fiscal : {},
+    operacao:         (r.operacao && typeof r.operacao === 'object') ? r.operacao : {},
   }
 }
 
@@ -1771,6 +1784,22 @@ function produtoParaDb(p) {
     ...(p.categoriaId != null ? { categoria_id: p.categoriaId } : {}),
     ...(p.setorId != null ? { setor_id: p.setorId } : {}),
     ...(p.impressoraId != null ? { impressora_id: p.impressoraId } : {}),
+    // Campos opcionais (migrations 034/038) — gravados também no CADASTRO para
+    // que o modal de 5 abas persista tudo (não só na edição). inserirProduto()
+    // tolera colunas ausentes (COLS_PRODUTO_OPCIONAIS).
+    ...(p.precoPromocional != null ? { preco_promocional: p.precoPromocional > 0 ? p.precoPromocional : null } : {}),
+    ...(p.controlaEstoque != null ? { controla_estoque: !!p.controlaEstoque } : {}),
+    ...(p.estoqueMinimo != null ? { estoque_minimo: Number(p.estoqueMinimo) || 0 } : {}),
+    ...(p.visivelTablet != null ? { visivel_tablet: !!p.visivelTablet } : {}),
+    ...(p.visivelQr != null ? { visivel_qr: !!p.visivelQr } : {}),
+    ...(p.visivelExterno != null ? { visivel_externo: !!p.visivelExterno } : {}),
+    ...(p.isFeatured != null ? { is_featured: !!p.isFeatured } : {}),
+    ...(p.featuredLabel !== undefined ? { featured_label: p.featuredLabel || null } : {}),
+    ...(p.showOnHome != null ? { show_on_home: !!p.showOnHome } : {}),
+    ...(p.disponivel != null ? { disponivel: !!p.disponivel } : {}),
+    // Migration 079 — fiscal (NF-e/NFC-e) e config operacional nova (JSONB).
+    ...(p.fiscal && typeof p.fiscal === 'object' ? { fiscal: p.fiscal } : {}),
+    ...(p.operacao && typeof p.operacao === 'object' ? { operacao: p.operacao } : {}),
   }
 }
 
