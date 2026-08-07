@@ -847,6 +847,16 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
    Os fills translúcidos (/10, /12…) usam texto COLORIDO, não branco, então não
    entram nesse caso. */
 [data-theme="light"] .tema-claro-area [class*="bg-[#"].text-white { color: #FFFFFF !important; }
+/* Botões de AÇÃO com degradê (btn-laranja/btn-verde) não têm classe bg-[#…],
+   então o remap genérico .text-white→grafite escurecia seu texto. O texto
+   desses botões DEVE ser branco (contraste sobre o degradê). Mesma especificidade
+   do remap (0,3,0), declarada depois → vence. */
+[data-theme="light"] .tema-claro-area .btn-laranja,
+[data-theme="light"] .tema-claro-area .btn-verde { color: #FFFFFF !important; }
+/* Linha de mesa OCUPADA: fundo laranja sólido + texto branco. A classe
+   .pp-mesa-ocupada eleva a especificidade (0,4,0) para o texto branco vencer
+   o remap, inclusive em filhos que não têm bg-[#…]. */
+[data-theme="light"] .tema-claro-area .pp-mesa-ocupada .text-white { color: #FFFFFF !important; }
 /* Cardápio do cliente: preenchimentos coloridos (tokens --client-*) com texto
    branco DEVEM manter o branco. A regra genérica acima (.text-white -> grafite)
    existe para remapear telas admin de tema escuro, mas escurecia por engano o

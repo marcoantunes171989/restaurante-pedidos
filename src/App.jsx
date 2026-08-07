@@ -20301,12 +20301,18 @@ function MesaAdmin({ mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, o
   const [excluir, setExcluir]   = useState(null);
   const [criando, setCriando]   = useState(false);
   const [busca, setBusca]       = useState("");
+  const [pagina, setPagina]     = useState(1);
 
   const termo = busca.trim().toLowerCase();
   const filtradas = termo
     ? mesas.filter((m) => `${String(m.numero).padStart(2,"0")} ${m.nome}`.toLowerCase().includes(termo))
     : mesas;
   const mesasOrdenadas = [...filtradas].sort((a, b) => a.numero - b.numero);
+  // Paginação: 10 mesas por página.
+  const POR_PAGINA = 10;
+  const totalPaginas = Math.max(1, Math.ceil(mesasOrdenadas.length / POR_PAGINA));
+  const paginaAtual = Math.min(pagina, totalPaginas);
+  const mesasPagina = mesasOrdenadas.slice((paginaAtual - 1) * POR_PAGINA, paginaAtual * POR_PAGINA);
 
   const abertosDaMesa = (mesa) => {
     const label = `Mesa ${String(mesa.numero).padStart(2, "0")}`;
@@ -20355,7 +20361,7 @@ function MesaAdmin({ mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, o
       <div className="rounded-3xl border border-[var(--pp-border)] bg-white p-4 shadow-[0_1px_2px_rgba(15,76,92,0.05)] sm:p-5">
         <div className="relative mb-4">
           <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[var(--pp-text-muted)]"><IconBusca /></span>
-          <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por número ou nome..."
+          <input value={busca} onChange={(e) => { setBusca(e.target.value); setPagina(1); }} placeholder="Buscar por número ou nome..."
             className="w-full rounded-2xl border border-[var(--pp-border)] bg-white py-2.5 pl-11 pr-4 text-sm text-[var(--pp-text)] outline-none transition focus:border-[#0F4C5C] focus:ring-2 focus:ring-[rgba(15,76,92,0.12)] placeholder:text-[var(--pp-text-muted)]" />
         </div>
         <div className="space-y-2">
@@ -20366,42 +20372,60 @@ function MesaAdmin({ mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, o
             </div>
           )}
           {mesas.length > 0 && mesasOrdenadas.length === 0 && <p className="py-6 text-center text-sm text-[var(--pp-text-muted)]">Nenhuma mesa encontrada.</p>}
-          {mesasOrdenadas.map((m) => {
+          {mesasPagina.map((m) => {
             const abertos = pedidosAbertos(m);
+            const ocupada = abertos > 0;
+            // Mesa OCUPADA em destaque: fundo laranja sólido + texto branco.
             return (
-              <div key={m.id} className="flex items-center gap-2.5 rounded-2xl border border-[var(--pp-border)] bg-white p-2.5 shadow-[0_1px_2px_rgba(15,76,92,0.04)] transition hover:border-[rgba(15,76,92,0.24)]">
-                <span className="flex h-10 w-12 shrink-0 items-center justify-center rounded-xl bg-[rgba(15,76,92,0.06)] text-sm font-black text-[#0F4C5C]">
+              <div key={m.id} className={`flex items-center gap-2.5 rounded-2xl border p-2.5 transition ${ocupada ? "pp-mesa-ocupada border-[#E67E22] bg-[#E67E22] shadow-[0_6px_16px_rgba(230,126,34,0.28)]" : "border-[var(--pp-border)] bg-white shadow-[0_1px_2px_rgba(15,76,92,0.04)] hover:border-[rgba(15,76,92,0.24)]"}`}>
+                <span className={`flex h-10 w-12 shrink-0 items-center justify-center rounded-xl text-sm font-black ${ocupada ? "bg-white/20 text-white" : "bg-[rgba(15,76,92,0.06)] text-[#0F4C5C]"}`}>
                   {String(m.numero).padStart(2, "0")}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-bold leading-tight text-[var(--pp-text)]">{m.nome || `Mesa ${String(m.numero).padStart(2, "0")}`}</p>
-                  <p className="text-[11px] text-[var(--pp-text-muted)]">
+                  <p className={`truncate text-sm font-bold leading-tight ${ocupada ? "text-white" : "text-[var(--pp-text)]"}`}>{m.nome || `Mesa ${String(m.numero).padStart(2, "0")}`}</p>
+                  <p className={`text-[11px] ${ocupada ? "text-white/85" : "text-[var(--pp-text-muted)]"}`}>
                     {m.capacidade ? `${m.capacidade} lugares` : "Capacidade não definida"}
                     {m.localizacao && <span> · 📍 {m.localizacao}</span>}
-                    {abertos > 0 && <span className="ml-1.5 rounded-full bg-[rgba(230,126,34,0.12)] px-1.5 py-0.5 font-bold text-[#B4611A]">{abertos} pedido(s) · {formatCurrency(valorMesa(m))}</span>}
+                    {ocupada && <span className="ml-1.5 rounded-full bg-white/20 px-1.5 py-0.5 font-bold text-white">{abertos} pedido(s) · {formatCurrency(valorMesa(m))}</span>}
                   </p>
                 </div>
                 {/* Status operacional: ocupada > inativa > disponível */}
-                <span className={`hidden shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black sm:inline ${abertos > 0 ? "bg-[rgba(230,126,34,0.12)] text-[#B4611A]" : m.active === false ? "bg-[rgba(15,76,92,0.06)] text-[var(--pp-text-muted)]" : "bg-[rgba(47,158,82,0.12)] text-[#2F9E52]"}`}>
-                  {abertos > 0 ? "Ocupada" : m.active === false ? "Inativa" : "Disponível"}
+                <span className={`hidden shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black sm:inline ${ocupada ? "bg-white/25 text-white" : m.active === false ? "bg-[rgba(15,76,92,0.06)] text-[var(--pp-text-muted)]" : "bg-[rgba(47,158,82,0.12)] text-[#2F9E52]"}`}>
+                  {ocupada ? "Ocupada" : m.active === false ? "Inativa" : "Disponível"}
                 </span>
                 <button onClick={() => toggleMesa(m.id)}
-                  className={`shrink-0 rounded-full px-3 py-1.5 text-[11px] font-black transition active:scale-95 ${m.active !== false ? "bg-[#2F9E52] text-white" : "border border-[var(--pp-border)] bg-white text-[var(--pp-text-muted)] hover:bg-[rgba(15,76,92,0.04)]"}`}>
+                  className={`shrink-0 rounded-full px-3 py-1.5 text-[11px] font-black transition active:scale-95 ${m.active !== false ? (ocupada ? "bg-white text-[#2F9E52]" : "bg-[#2F9E52] text-white") : "border border-[var(--pp-border)] bg-white text-[var(--pp-text-muted)] hover:bg-[rgba(15,76,92,0.04)]"}`}>
                   {m.active !== false ? "Ativa" : "Inativa"}
                 </button>
                 <button onClick={() => setEditando(m)} title="Editar mesa" aria-label="Editar mesa"
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-[var(--pp-border)] bg-white text-[#E67E22] shadow-[0_1px_2px_rgba(15,76,92,0.05)] transition hover:bg-[rgba(230,126,34,0.08)]">
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition ${ocupada ? "border border-white/40 bg-white/15 text-white hover:bg-white/25" : "border border-[var(--pp-border)] bg-white text-[#E67E22] shadow-[0_1px_2px_rgba(15,76,92,0.05)] hover:bg-[rgba(230,126,34,0.08)]"}`}>
                   <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
                 </button>
                 <button onClick={() => setExcluir(m)} disabled={abertos > 0}
                   title={abertos > 0 ? "Há pedidos em aberto — inative em vez de excluir" : "Excluir mesa"} aria-label="Excluir mesa"
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-[rgba(200,30,74,0.24)] bg-white text-[#C81E4A] shadow-[0_1px_2px_rgba(15,76,92,0.05)] transition hover:bg-[rgba(200,30,74,0.08)] disabled:cursor-not-allowed disabled:opacity-30">
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition disabled:cursor-not-allowed disabled:opacity-40 ${ocupada ? "border border-white/40 bg-white/15 text-white" : "border border-[rgba(200,30,74,0.24)] bg-white text-[#C81E4A] shadow-[0_1px_2px_rgba(15,76,92,0.05)] hover:bg-[rgba(200,30,74,0.08)]"}`}>
                   <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6" /></svg>
                 </button>
               </div>
             );
           })}
         </div>
+        {/* Paginação — 10 mesas por página */}
+        {totalPaginas > 1 && (
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--pp-border)] pt-3">
+            <p className="text-[11px] text-[var(--pp-text-muted)]">Página {paginaAtual} de {totalPaginas} · {mesasOrdenadas.length} mesas</p>
+            <div className="flex items-center gap-1.5">
+              <button onClick={() => setPagina((p) => Math.max(1, p - 1))} disabled={paginaAtual <= 1} aria-label="Página anterior"
+                className="flex h-8 min-w-[32px] items-center justify-center rounded-lg border border-[var(--pp-border)] bg-white px-2 text-sm font-black text-[var(--pp-text-body)] transition hover:bg-[rgba(15,76,92,0.04)] disabled:cursor-not-allowed disabled:opacity-40">‹</button>
+              {Array.from({ length: totalPaginas }, (_, i) => i + 1).map((n) => (
+                <button key={n} onClick={() => setPagina(n)}
+                  className={`flex h-8 min-w-[32px] items-center justify-center rounded-lg px-2 text-xs font-black transition ${n === paginaAtual ? "bg-[#E67E22] text-white" : "border border-[var(--pp-border)] bg-white text-[var(--pp-text-body)] hover:bg-[rgba(15,76,92,0.04)]"}`}>{n}</button>
+              ))}
+              <button onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))} disabled={paginaAtual >= totalPaginas} aria-label="Próxima página"
+                className="flex h-8 min-w-[32px] items-center justify-center rounded-lg border border-[var(--pp-border)] bg-white px-2 text-sm font-black text-[var(--pp-text-body)] transition hover:bg-[rgba(15,76,92,0.04)] disabled:cursor-not-allowed disabled:opacity-40">›</button>
+            </div>
+          </div>
+        )}
       </div>
 
       {criando && <MesaCadastroModal onSalvar={salvarNova} onFechar={() => setCriando(false)} />}
