@@ -94,7 +94,7 @@ export async function inserirProduto(p) {
 }
 
 // Colunas opcionais (migrations 029/034/068/079) — removidas no fallback se o banco não as tiver
-const COLS_PRODUTO_OPCIONAIS = ['adicionais', 'controla_estoque', 'estoque_minimo', 'preco_promocional', 'visivel_tablet', 'visivel_qr', 'visivel_externo', 'is_featured', 'featured_label', 'featured_order', 'show_on_home', 'disponivel', 'setor_id', 'categoria_id', 'impressora_id', 'fiscal', 'operacao', 'ncm_id'];
+const COLS_PRODUTO_OPCIONAIS = ['adicionais', 'controla_estoque', 'estoque_minimo', 'preco_promocional', 'visivel_tablet', 'visivel_qr', 'visivel_externo', 'is_featured', 'featured_label', 'featured_order', 'show_on_home', 'disponivel', 'setor_id', 'categoria_id', 'impressora_id', 'fiscal', 'operacao', 'ncm_id', 'cfop_id', 'pis_id', 'cofins_id', 'ipi_id', 'cest_id'];
 export async function atualizarProduto(id, campos) {
   let { error } = await supabase.from('tab_produtos').update(campos).eq('id', id)
   if (error && COLS_PRODUTO_OPCIONAIS.some((c) => c in campos) && ehColunaAusente(error, 'column')) {
@@ -582,6 +582,64 @@ export function escutarFiscalNcm(onMudanca) {
     .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
   return () => supabase.removeChannel(canal)
 }
+
+// ════════════════════════════════════════════════════════════
+//  Cadastros fiscais — Fase 2 (migration 082): CFOP, PIS, COFINS,
+//  IPI e CEST. Fábrica genérica de CRUD + Realtime (tolerante à 082).
+// ════════════════════════════════════════════════════════════
+function crudFiscal(tabela, ordemCol, dbPara, paraDb) {
+  const fetchAll = async (lojaId = null) => {
+    let q = supabase.from(tabela).select('*').order(ordemCol, { ascending: true })
+    if (lojaId != null) q = q.eq('loja_id', lojaId)
+    const { data, error } = await q
+    if (error) return []
+    return (data || []).map(dbPara)
+  }
+  const inserir = async (p) => {
+    const { data, error } = await supabase.from(tabela).insert([paraDb(p)]).select().single()
+    if (error) throw error
+    return dbPara(data)
+  }
+  const atualizar = async (id, campos) => {
+    const patch = paraDb(campos); delete patch.loja_id; patch.atualizado_em = new Date().toISOString()
+    const { error } = await supabase.from(tabela).update(patch).eq('id', id)
+    if (error) throw error
+  }
+  const excluir = async (id) => {
+    const { error } = await supabase.from(tabela).delete().eq('id', id)
+    if (error) throw error
+  }
+  const escutar = (onMudanca) => {
+    const reload = async () => { try { onMudanca(await fetchAll()) } catch { /* migration 082 pendente */ } }
+    const canal = supabase.channel('ch_' + tabela + '_' + Math.random().toString(36).slice(2))
+      .on('postgres_changes', { event: '*', schema: 'public', table: tabela }, reload)
+      .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
+    return () => supabase.removeChannel(canal)
+  }
+  return { fetchAll, inserir, atualizar, excluir, escutar }
+}
+
+// CFOP — campos próprios (tipo/operação/finalidade)
+const dbParaCfop = (r) => ({ id: r.id, lojaId: r.loja_id ?? null, codigo: r.codigo, descricao: r.descricao ?? '', tipo: r.tipo ?? '', operacao: r.operacao ?? '', finalidade: r.finalidade ?? '', ativo: r.ativo !== false })
+const cfopParaDb = (p) => ({ ...(p.lojaId != null ? { loja_id: p.lojaId } : {}), codigo: p.codigo, descricao: p.descricao || null, tipo: p.tipo || null, operacao: p.operacao || null, finalidade: p.finalidade || null, ativo: p.ativo !== false })
+const _cfop = crudFiscal('tab_fiscal_cfop', 'codigo', dbParaCfop, cfopParaDb)
+export const fetchFiscalCfop = _cfop.fetchAll, inserirFiscalCfop = _cfop.inserir, atualizarFiscalCfop = _cfop.atualizar, excluirFiscalCfop = _cfop.excluir, escutarFiscalCfop = _cfop.escutar
+
+// PIS / COFINS / IPI — mesma estrutura (código, descrição, CST, tipo cálculo, alíquota)
+const dbParaTrib = (r) => ({ id: r.id, lojaId: r.loja_id ?? null, codigo: r.codigo ?? '', descricao: r.descricao ?? '', cst: r.cst ?? '', tipoCalculo: r.tipo_calculo ?? '', aliquota: Number(r.aliquota ?? 0), ativo: r.ativo !== false })
+const tribParaDb = (p) => ({ ...(p.lojaId != null ? { loja_id: p.lojaId } : {}), codigo: p.codigo || null, descricao: p.descricao, cst: p.cst || null, tipo_calculo: p.tipoCalculo || null, aliquota: _num(p.aliquota), ativo: p.ativo !== false })
+const _pis = crudFiscal('tab_fiscal_pis', 'descricao', dbParaTrib, tribParaDb)
+export const fetchFiscalPis = _pis.fetchAll, inserirFiscalPis = _pis.inserir, atualizarFiscalPis = _pis.atualizar, excluirFiscalPis = _pis.excluir, escutarFiscalPis = _pis.escutar
+const _cofins = crudFiscal('tab_fiscal_cofins', 'descricao', dbParaTrib, tribParaDb)
+export const fetchFiscalCofins = _cofins.fetchAll, inserirFiscalCofins = _cofins.inserir, atualizarFiscalCofins = _cofins.atualizar, excluirFiscalCofins = _cofins.excluir, escutarFiscalCofins = _cofins.escutar
+const _ipi = crudFiscal('tab_fiscal_ipi', 'descricao', dbParaTrib, tribParaDb)
+export const fetchFiscalIpi = _ipi.fetchAll, inserirFiscalIpi = _ipi.inserir, atualizarFiscalIpi = _ipi.atualizar, excluirFiscalIpi = _ipi.excluir, escutarFiscalIpi = _ipi.escutar
+
+// CEST — código + descrição
+const dbParaCest = (r) => ({ id: r.id, lojaId: r.loja_id ?? null, codigo: r.codigo, descricao: r.descricao ?? '', ativo: r.ativo !== false })
+const cestParaDb = (p) => ({ ...(p.lojaId != null ? { loja_id: p.lojaId } : {}), codigo: p.codigo, descricao: p.descricao || null, ativo: p.ativo !== false })
+const _cest = crudFiscal('tab_fiscal_cest', 'codigo', dbParaCest, cestParaDb)
+export const fetchFiscalCest = _cest.fetchAll, inserirFiscalCest = _cest.inserir, atualizarFiscalCest = _cest.atualizar, excluirFiscalCest = _cest.excluir, escutarFiscalCest = _cest.escutar
 
 // ════════════════════════════════════════════════════════════
 //  Setores de cozinha (migration 041) — CRUD + Realtime (tolerante)
@@ -1787,6 +1845,12 @@ function dbParaProduto(r) {
     impressoraId:     r.impressora_id ?? null,
     // Migration 081 — vínculo com o cadastro de NCM (Produto → NCM → ICMS).
     ncmId:            r.ncm_id ?? null,
+    // Migration 082 — vínculos fiscais por FK (CFOP, PIS, COFINS, IPI, CEST).
+    cfopId:           r.cfop_id ?? null,
+    pisId:            r.pis_id ?? null,
+    cofinsId:         r.cofins_id ?? null,
+    ipiId:            r.ipi_id ?? null,
+    cestId:           r.cest_id ?? null,
     // Migration 079 — dados fiscais (NF-e/NFC-e) e config operacional nova,
     // guardados como JSONB flexível. Banco sem a 079: colunas não existem →
     // vêm undefined e caem no objeto vazio (tolerante).
@@ -1943,6 +2007,12 @@ function produtoParaDb(p) {
     ...(p.operacao && typeof p.operacao === 'object' ? { operacao: p.operacao } : {}),
     // Migration 081 — vínculo com o NCM (null desvincula).
     ...(p.ncmId !== undefined ? { ncm_id: p.ncmId != null ? p.ncmId : null } : {}),
+    // Migration 082 — vínculos fiscais por FK (null desvincula).
+    ...(p.cfopId !== undefined ? { cfop_id: p.cfopId != null ? p.cfopId : null } : {}),
+    ...(p.pisId !== undefined ? { pis_id: p.pisId != null ? p.pisId : null } : {}),
+    ...(p.cofinsId !== undefined ? { cofins_id: p.cofinsId != null ? p.cofinsId : null } : {}),
+    ...(p.ipiId !== undefined ? { ipi_id: p.ipiId != null ? p.ipiId : null } : {}),
+    ...(p.cestId !== undefined ? { cest_id: p.cestId != null ? p.cestId : null } : {}),
   }
 }
 

@@ -23,6 +23,11 @@ import {
   fetchGruposOpcoes, fetchOpcoes, inserirGrupoOpcoes, atualizarGrupoOpcoes, excluirGrupoOpcoes, inserirOpcao, atualizarOpcao, excluirOpcao, escutarGruposOpcoes, escutarOpcoes,
   fetchFiscalIcms, inserirFiscalIcms, atualizarFiscalIcms, excluirFiscalIcms, escutarFiscalIcms,
   fetchFiscalNcm, inserirFiscalNcm, atualizarFiscalNcm, excluirFiscalNcm, escutarFiscalNcm,
+  fetchFiscalCfop, inserirFiscalCfop, atualizarFiscalCfop, excluirFiscalCfop, escutarFiscalCfop,
+  fetchFiscalPis, inserirFiscalPis, atualizarFiscalPis, excluirFiscalPis, escutarFiscalPis,
+  fetchFiscalCofins, inserirFiscalCofins, atualizarFiscalCofins, excluirFiscalCofins, escutarFiscalCofins,
+  fetchFiscalIpi, inserirFiscalIpi, atualizarFiscalIpi, excluirFiscalIpi, escutarFiscalIpi,
+  fetchFiscalCest, inserirFiscalCest, atualizarFiscalCest, excluirFiscalCest, escutarFiscalCest,
   fetchSetoresCozinha, inserirSetorCozinha, atualizarSetorCozinha, excluirSetorCozinha, escutarSetoresCozinha,
   fetchImpressoras, inserirImpressora, atualizarImpressora, excluirImpressora, escutarImpressoras,
   fetchImpressoesCozinha, inserirImpressoesCozinha, atualizarImpressaoCozinha, escutarImpressoesCozinha,
@@ -161,12 +166,47 @@ const PRESETS_OPCOES = {
 // em escopo de módulo (fora do render, sem impureza no corpo do componente).
 let _tidSeq = 0;
 const gerarTid = () => `t${++_tidSeq}`;
+// Id local temporário (modo offline, sem banco) — contador puro em escopo de
+// módulo, para não introduzir chamada impura (Date.now) no corpo de render.
+let _idLocalSeq = 1000000;
+const gerarIdLocal = () => ++_idLocalSeq;
+
+// Genéricos de CRUD dos cadastros fiscais simples (CFOP, PIS, COFINS, IPI,
+// CEST) — em escopo de módulo para não criar closures no corpo de render.
+// `ctx` traz permissão/estado; `cfg` traz tabela/rótulo/campos.
+async function fiscalCrudAdd(ctx, cfg, dados) {
+  if (!ctx.podeAdmin) return ctx.notify("error", "Sem permissão administrativa.");
+  if (!String(dados?.[cfg.campoObrig] || "").trim()) return ctx.notify("error", `Informe o campo obrigatório do ${cfg.rotulo}.`);
+  const p = { ...dados, [cfg.campoObrig]: String(dados[cfg.campoObrig]).trim(), lojaId: ctx.lojaAtual };
+  try {
+    const saved = ctx.dbReady ? await cfg.inserirFn(p) : { ...p, id: gerarIdLocal(), ativo: true };
+    cfg.setState((cur) => [...cur, saved].sort((a, b) => String(a[cfg.ordenarPor] ?? "").localeCompare(String(b[cfg.ordenarPor] ?? ""))));
+  } catch (e) { ctx.notify("error", `Erro ao salvar ${cfg.rotulo}: ` + (e.message || e)); return; }
+  ctx.auditar("criar", cfg.entidade, null, { [cfg.campoObrig]: p[cfg.campoObrig] });
+  ctx.notify("success", `${cfg.rotulo} cadastrado.`);
+  return true;
+}
+async function fiscalCrudEditar(ctx, cfg, id, dados) {
+  if (!ctx.podeAdmin) return ctx.notify("error", "Sem permissão administrativa.");
+  cfg.setState((cur) => cur.map((x) => x.id === id ? { ...x, ...dados } : x));
+  if (ctx.dbReady) try { await cfg.atualizarFn(id, dados); } catch (e) { ctx.notify("error", `Erro ao salvar ${cfg.rotulo}: ` + (e.message || e)); }
+  ctx.auditar("editar", cfg.entidade, id);
+  return true;
+}
+async function fiscalCrudRemover(ctx, cfg, id) {
+  if (!ctx.podeAdmin) return ctx.notify("error", "Sem permissão administrativa.");
+  cfg.setState((cur) => cur.filter((x) => x.id !== id));
+  if (ctx.dbReady) try { await cfg.excluirFn(id); } catch (e) { ctx.notify("error", `Erro ao excluir ${cfg.rotulo}: ` + (e.message || e)); }
+  ctx.auditar("excluir", cfg.entidade, id);
+}
 
 // Listas de opções fiscais usadas nos cadastros normalizados (migration 081).
 const UNIDADES_FISCAIS = ["UN - Unidade", "KG - Quilograma", "L - Litro", "PC - Pacote", "CX - Caixa", "DZ - Dúzia"];
 const ORIGENS_FISCAIS = ["0 - Nacional", "1 - Estrangeira (importação direta)", "2 - Estrangeira (mercado interno)", "3 - Nacional (>40% importação)", "5 - Nacional (<40% importação)"];
 const CST_ICMS = ["00 - Tributada integralmente", "10 - Tributada com ST", "20 - Com redução de base", "40 - Isenta", "41 - Não tributada", "60 - ICMS cobrado por ST", "90 - Outras"];
 const CSOSN_ICMS = ["101 - Tributada com permissão de crédito", "102 - Tributada sem permissão de crédito", "103 - Isenção do ICMS (faixa de receita)", "300 - Imune", "400 - Não tributada pelo Simples", "500 - ICMS cobrado por ST", "900 - Outros"];
+const CST_PIS_COFINS = ["01 - Operação Tributável (alíquota básica)", "02 - Operação Tributável (alíquota diferenciada)", "04 - Tributável (monofásica, alíquota zero)", "06 - Tributável (alíquota zero)", "07 - Operação Isenta", "08 - Operação sem incidência", "09 - Operação com suspensão", "49 - Outras operações de saída", "99 - Outras operações"];
+const CST_IPI = ["50 - Saída tributada", "51 - Saída tributável (alíquota zero)", "52 - Saída isenta", "53 - Saída não tributada", "54 - Saída imune", "55 - Saída com suspensão", "99 - Outras saídas"];
 
 const defaultAccesses = [
   { id: "tablet", label: "Tablet do cliente", desc: "Pedido, comanda e solicitação de conta", type: "Operacional", active: true },
@@ -442,6 +482,11 @@ export default function RestaurantePedidoApp() {
   const [opcoes, setOpcoes] = useState([]);                // opções dos grupos
   const [fiscalIcms, setFiscalIcms] = useState([]);        // regras de ICMS (migration 081)
   const [fiscalNcm, setFiscalNcm] = useState([]);          // NCMs, cada um vincula uma regra de ICMS (migration 081)
+  const [fiscalCfop, setFiscalCfop] = useState([]);        // CFOP (migration 082)
+  const [fiscalPis, setFiscalPis] = useState([]);          // PIS (migration 082)
+  const [fiscalCofins, setFiscalCofins] = useState([]);    // COFINS (migration 082)
+  const [fiscalIpi, setFiscalIpi] = useState([]);          // IPI (migration 082)
+  const [fiscalCest, setFiscalCest] = useState([]);        // CEST (migration 082)
   const [setoresCozinha, setSetoresCozinha] = useState([]); // setores de cozinha (migration 041)
   const [impressoesCozinha, setImpressoesCozinha] = useState([]); // fila impressão por setor (077)
   const [impressoras, setImpressoras] = useState([]); // cadastro Setor Impressoras (078)
@@ -503,6 +548,11 @@ export default function RestaurantePedidoApp() {
         try { setOpcoes(await fetchOpcoes()); } catch { /* migration 040 pendente */ }
         try { setFiscalIcms(await fetchFiscalIcms()); } catch { /* migration 081 pendente */ }
         try { setFiscalNcm(await fetchFiscalNcm()); } catch { /* migration 081 pendente */ }
+        try { setFiscalCfop(await fetchFiscalCfop()); } catch { /* migration 082 pendente */ }
+        try { setFiscalPis(await fetchFiscalPis()); } catch { /* migration 082 pendente */ }
+        try { setFiscalCofins(await fetchFiscalCofins()); } catch { /* migration 082 pendente */ }
+        try { setFiscalIpi(await fetchFiscalIpi()); } catch { /* migration 082 pendente */ }
+        try { setFiscalCest(await fetchFiscalCest()); } catch { /* migration 082 pendente */ }
         try { setSetoresCozinha(await fetchSetoresCozinha()); } catch { /* migration 041 pendente */ }
         try { setImpressoesCozinha(await fetchImpressoesCozinha(lojaAtual)); } catch { /* migration 077 pendente */ }
         try { setCaixas(await fetchCaixas(null)); } catch { /* migration 042 pendente */ }
@@ -536,6 +586,11 @@ export default function RestaurantePedidoApp() {
         try { unsubs.push(escutarOpcoes(setOpcoes)); } catch {}
         try { unsubs.push(escutarFiscalIcms(setFiscalIcms)); } catch { /* migration 081 pendente */ }
         try { unsubs.push(escutarFiscalNcm(setFiscalNcm)); } catch { /* migration 081 pendente */ }
+        try { unsubs.push(escutarFiscalCfop(setFiscalCfop)); } catch { /* migration 082 pendente */ }
+        try { unsubs.push(escutarFiscalPis(setFiscalPis)); } catch { /* migration 082 pendente */ }
+        try { unsubs.push(escutarFiscalCofins(setFiscalCofins)); } catch { /* migration 082 pendente */ }
+        try { unsubs.push(escutarFiscalIpi(setFiscalIpi)); } catch { /* migration 082 pendente */ }
+        try { unsubs.push(escutarFiscalCest(setFiscalCest)); } catch { /* migration 082 pendente */ }
         try { unsubs.push(escutarSetoresCozinha(setSetoresCozinha)); } catch {}
         try { unsubs.push(escutarImpressoras(setImpressoras, lojaAtual)); } catch {}
         try { unsubs.push(escutarImpressoesCozinha(setImpressoesCozinha, lojaAtual)); } catch {}
@@ -2221,6 +2276,21 @@ export default function RestaurantePedidoApp() {
     auditar("excluir", "fiscal_ncm", id);
   }
 
+  // Handlers CRUD dos cadastros fiscais simples (CFOP, PIS, COFINS, IPI, CEST).
+  // Declarações hoisted (referência estável) que delegam aos genéricos de
+  // módulo — `ctx`/`cfg` são montados só na invocação (evento), não no render.
+  const ctxFiscal = () => ({ podeAdmin: canAccess(currentUser, "admin"), notify, auditar, dbReady, lojaAtual });
+  const CFG_CFOP = { entidade: "fiscal_cfop", rotulo: "CFOP", campoObrig: "codigo", ordenarPor: "codigo", setState: setFiscalCfop, inserirFn: inserirFiscalCfop, atualizarFn: atualizarFiscalCfop, excluirFn: excluirFiscalCfop };
+  const CFG_PIS = { entidade: "fiscal_pis", rotulo: "PIS", campoObrig: "descricao", ordenarPor: "descricao", setState: setFiscalPis, inserirFn: inserirFiscalPis, atualizarFn: atualizarFiscalPis, excluirFn: excluirFiscalPis };
+  const CFG_COFINS = { entidade: "fiscal_cofins", rotulo: "COFINS", campoObrig: "descricao", ordenarPor: "descricao", setState: setFiscalCofins, inserirFn: inserirFiscalCofins, atualizarFn: atualizarFiscalCofins, excluirFn: excluirFiscalCofins };
+  const CFG_IPI = { entidade: "fiscal_ipi", rotulo: "IPI", campoObrig: "descricao", ordenarPor: "descricao", setState: setFiscalIpi, inserirFn: inserirFiscalIpi, atualizarFn: atualizarFiscalIpi, excluirFn: excluirFiscalIpi };
+  const CFG_CEST = { entidade: "fiscal_cest", rotulo: "CEST", campoObrig: "codigo", ordenarPor: "codigo", setState: setFiscalCest, inserirFn: inserirFiscalCest, atualizarFn: atualizarFiscalCest, excluirFn: excluirFiscalCest };
+  const hCfop = { add: (d) => fiscalCrudAdd(ctxFiscal(), CFG_CFOP, d), editar: (id, d) => fiscalCrudEditar(ctxFiscal(), CFG_CFOP, id, d), remover: (id) => fiscalCrudRemover(ctxFiscal(), CFG_CFOP, id) };
+  const hPis = { add: (d) => fiscalCrudAdd(ctxFiscal(), CFG_PIS, d), editar: (id, d) => fiscalCrudEditar(ctxFiscal(), CFG_PIS, id, d), remover: (id) => fiscalCrudRemover(ctxFiscal(), CFG_PIS, id) };
+  const hCofins = { add: (d) => fiscalCrudAdd(ctxFiscal(), CFG_COFINS, d), editar: (id, d) => fiscalCrudEditar(ctxFiscal(), CFG_COFINS, id, d), remover: (id) => fiscalCrudRemover(ctxFiscal(), CFG_COFINS, id) };
+  const hIpi = { add: (d) => fiscalCrudAdd(ctxFiscal(), CFG_IPI, d), editar: (id, d) => fiscalCrudEditar(ctxFiscal(), CFG_IPI, id, d), remover: (id) => fiscalCrudRemover(ctxFiscal(), CFG_IPI, id) };
+  const hCest = { add: (d) => fiscalCrudAdd(ctxFiscal(), CFG_CEST, d), editar: (id, d) => fiscalCrudEditar(ctxFiscal(), CFG_CEST, id, d), remover: (id) => fiscalCrudRemover(ctxFiscal(), CFG_CEST, id) };
+
   // ── Licença de uso por empresa (somente administrador geral) ──
   // Define/remove a validade da licença (migration 031) e registra no histórico
   async function setValidadeLicenca(id, dataISO) {
@@ -2849,7 +2919,7 @@ export default function RestaurantePedidoApp() {
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} products={products} lojaInfo={lojaInfo} />}
         {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierPdv orders={orders} mesas={filtraLoja(mesas).filter((m) => m.active !== false)} clientes={filtraLoja(clientes)} baixarComandas={baixarComandas} formasPagamento={formasPagamentoLoja} lojaInfo={lojaInfo} currentUser={currentUser} caixaAberto={caixaAberto} auditar={auditar} conexaoOk={conexaoOk} editarItensPedido={editarItensPedido} criarPedidoCaixa={criarPedidoCaixa} products={products} categories={categoriasDb} setores={filtraLoja(setoresCozinha)} fidCaixa={fidCaixa} atualizarClientePedidos={atualizarClientePedidos} transferirMesaPedidos={transferirMesaPedidos} separarItensPedidos={separarItensPedidos} notify={notify} validarCupom={validarCupomCaixa} consumirCupom={consumirCupomCaixa} />}
         {/* activeTab === "opmobile" agora é tratado pelo branch dedicado no início desta função (sem cabeçalho/grade de módulos) */}
-        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} toggleLoja={toggleLoja} editarLoja={editarLoja} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} filtraLoja={filtraLoja} pesquisas={pesquisas} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} cancelarPedido={cancelarPedido} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} salvarConfigCrm={salvarConfigCrm} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} assinaturas={assinaturas} promocoes={filtraLoja(promocoes)} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} cupons={cuponsLoja} addCupom={addCupom} editarCupom={editarCupomLoja} toggleCupom={toggleCupom} removerCupom={removerCupom} opcoesApi={{ grupos: filtraLoja(gruposOpcoes), opcoes: filtraLoja(opcoes), addGrupo: addGrupoOpcoes, editarGrupo: editarGrupoOpcoes, removerGrupo: removerGrupoOpcoes, addOpcao, editarOpcao, removerOpcao }} fiscalIcms={filtraLoja(fiscalIcms)} fiscalNcm={filtraLoja(fiscalNcm)} fiscalApi={{ addIcms: addFiscalIcms, editarIcms: editarFiscalIcms, removerIcms: removerFiscalIcms, addNcm: addFiscalNcm, editarNcm: editarFiscalNcm, removerNcm: removerFiscalNcm }} impressoras={filtraLoja(impressoras)} impressorasApi={{ add: addImpressoraCadastro, editar: editarImpressoraCadastro, remover: removerImpressoraCadastro }} setores={filtraLoja(setoresCozinha)} setoresApi={{ add: addSetorCozinha, editar: editarSetorCozinha, remover: removerSetorCozinha }} vincularProdutoSetor={vincularProdutoSetor} salvarProdutoQr={salvarProdutoQr} irParaCozinha={(setorId) => { setCozinhaSetorInicial(setorId ?? null); if (canAccess(currentUser, "kitchen")) setActiveTab("kitchen"); else notify("error", "Sem permissão para acessar o painel da cozinha."); }} caixaAberto={caixaAberto} caixasLoja={filtraLoja(caixas)} caixaApi={{ abrir: abrirCaixaFn, movimentar: movimentarCaixaFn, fechar: fecharCaixaFn, fetchMovimentos: fetchMovimentosCaixa }} fidRegra={fidRegraAtual} fidRecompensas={filtraLoja(fidRecompensas)} fidTransacoes={filtraLoja(fidTransacoes)} fidApi={{ salvarRegra: salvarRegraFid, addRecompensa: addRecompensaFid, removerRecompensa: removerRecompensaFid, editarRecompensa: editarRecompensaFid, lancarPontos }} fidCaixa={fidCaixa} chamados={filtraLoja(chamados)} atenderChamado={atenderChamadoFn} assumirChamado={assumirChamadoFn} auditoria={filtraLoja(auditoria)} impressoesCozinha={filtraLoja(impressoesCozinha)} onAtualizarImpressao={atualizarStatusImpressao} onRecarregarImpressoes={async () => { try { setImpressoesCozinha(await fetchImpressoesCozinha(lojaAtual)); } catch {} }} editarCategoriaCampos={editarCategoriaCampos} />}
+        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} toggleLoja={toggleLoja} editarLoja={editarLoja} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} filtraLoja={filtraLoja} pesquisas={pesquisas} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} cancelarPedido={cancelarPedido} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} salvarConfigCrm={salvarConfigCrm} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} assinaturas={assinaturas} promocoes={filtraLoja(promocoes)} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} cupons={cuponsLoja} addCupom={addCupom} editarCupom={editarCupomLoja} toggleCupom={toggleCupom} removerCupom={removerCupom} opcoesApi={{ grupos: filtraLoja(gruposOpcoes), opcoes: filtraLoja(opcoes), addGrupo: addGrupoOpcoes, editarGrupo: editarGrupoOpcoes, removerGrupo: removerGrupoOpcoes, addOpcao, editarOpcao, removerOpcao }} fiscalIcms={filtraLoja(fiscalIcms)} fiscalNcm={filtraLoja(fiscalNcm)} fiscalCfop={filtraLoja(fiscalCfop)} fiscalPis={filtraLoja(fiscalPis)} fiscalCofins={filtraLoja(fiscalCofins)} fiscalIpi={filtraLoja(fiscalIpi)} fiscalCest={filtraLoja(fiscalCest)} fiscalApi={{ addIcms: addFiscalIcms, editarIcms: editarFiscalIcms, removerIcms: removerFiscalIcms, addNcm: addFiscalNcm, editarNcm: editarFiscalNcm, removerNcm: removerFiscalNcm, addCfop: hCfop.add, editarCfop: hCfop.editar, removerCfop: hCfop.remover, addPis: hPis.add, editarPis: hPis.editar, removerPis: hPis.remover, addCofins: hCofins.add, editarCofins: hCofins.editar, removerCofins: hCofins.remover, addIpi: hIpi.add, editarIpi: hIpi.editar, removerIpi: hIpi.remover, addCest: hCest.add, editarCest: hCest.editar, removerCest: hCest.remover }} impressoras={filtraLoja(impressoras)} impressorasApi={{ add: addImpressoraCadastro, editar: editarImpressoraCadastro, remover: removerImpressoraCadastro }} setores={filtraLoja(setoresCozinha)} setoresApi={{ add: addSetorCozinha, editar: editarSetorCozinha, remover: removerSetorCozinha }} vincularProdutoSetor={vincularProdutoSetor} salvarProdutoQr={salvarProdutoQr} irParaCozinha={(setorId) => { setCozinhaSetorInicial(setorId ?? null); if (canAccess(currentUser, "kitchen")) setActiveTab("kitchen"); else notify("error", "Sem permissão para acessar o painel da cozinha."); }} caixaAberto={caixaAberto} caixasLoja={filtraLoja(caixas)} caixaApi={{ abrir: abrirCaixaFn, movimentar: movimentarCaixaFn, fechar: fecharCaixaFn, fetchMovimentos: fetchMovimentosCaixa }} fidRegra={fidRegraAtual} fidRecompensas={filtraLoja(fidRecompensas)} fidTransacoes={filtraLoja(fidTransacoes)} fidApi={{ salvarRegra: salvarRegraFid, addRecompensa: addRecompensaFid, removerRecompensa: removerRecompensaFid, editarRecompensa: editarRecompensaFid, lancarPontos }} fidCaixa={fidCaixa} chamados={filtraLoja(chamados)} atenderChamado={atenderChamadoFn} assumirChamado={assumirChamadoFn} auditoria={filtraLoja(auditoria)} impressoesCozinha={filtraLoja(impressoesCozinha)} onAtualizarImpressao={atualizarStatusImpressao} onRecarregarImpressoes={async () => { try { setImpressoesCozinha(await fetchImpressoesCozinha(lojaAtual)); } catch {} }} editarCategoriaCampos={editarCategoriaCampos} />}
 
       </div>
       )}
@@ -5868,7 +5938,7 @@ function MobileAdminDrawer({ open, onClose, triggerRef, children, titulo }) {
   );
 }
 
-function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, definirAcoesUsuario, toggleUserStatus, toggleAccessStatus, usersLoja, filtraLoja = (a) => a, pesquisas = [], adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], toggleLoja, editarLoja, setLicencaEmpresa = async()=>{}, setValidadeLicenca = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, updateOrderStatus = async()=>{}, marcarEntregue = async()=>{}, marcarSetorPronto = async()=>{}, baixarComandas = async()=>{}, cancelarPedido, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, setModoUsoEmpresa = async()=>{}, salvarConfigExterno = async()=>{}, salvarConfigCrm = async()=>{}, mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, clientes = [], planoAtual = null, assinaturaAtual = null, assinaturas = [], planos = [], planoModulos = [], definirAssinatura = async()=>{}, promocoes = [], addPromocao = async()=>{}, editarPromocao = async()=>{}, togglePromocao = async()=>{}, removerPromocao = async()=>{}, cupons = [], addCupom = async()=>{}, editarCupom = async()=>{}, toggleCupom = async()=>{}, removerCupom = async()=>{}, opcoesApi = null, fiscalIcms = [], fiscalNcm = [], fiscalApi = null, impressoras = [], impressorasApi = null, setores = [], setoresApi = null, vincularProdutoSetor = async () => {}, salvarProdutoQr = async () => {}, irParaCozinha = () => {}, caixaAberto = null, caixasLoja = [], caixaApi = null, fidRegra = null, fidRecompensas = [], fidTransacoes = [], fidApi = null, chamados = [], atenderChamado = async()=>{}, assumirChamado = async()=>{}, auditoria = [], fidCaixa = null, impressoesCozinha = [], onAtualizarImpressao = async () => {}, onRecarregarImpressoes = async () => {}, editarCategoriaCampos = async () => {} }) {
+function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, definirAcoesUsuario, toggleUserStatus, toggleAccessStatus, usersLoja, filtraLoja = (a) => a, pesquisas = [], adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], toggleLoja, editarLoja, setLicencaEmpresa = async()=>{}, setValidadeLicenca = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, updateOrderStatus = async()=>{}, marcarEntregue = async()=>{}, marcarSetorPronto = async()=>{}, baixarComandas = async()=>{}, cancelarPedido, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, setModoUsoEmpresa = async()=>{}, salvarConfigExterno = async()=>{}, salvarConfigCrm = async()=>{}, mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, clientes = [], planoAtual = null, assinaturaAtual = null, assinaturas = [], planos = [], planoModulos = [], definirAssinatura = async()=>{}, promocoes = [], addPromocao = async()=>{}, editarPromocao = async()=>{}, togglePromocao = async()=>{}, removerPromocao = async()=>{}, cupons = [], addCupom = async()=>{}, editarCupom = async()=>{}, toggleCupom = async()=>{}, removerCupom = async()=>{}, opcoesApi = null, fiscalIcms = [], fiscalNcm = [], fiscalCfop = [], fiscalPis = [], fiscalCofins = [], fiscalIpi = [], fiscalCest = [], fiscalApi = null, impressoras = [], impressorasApi = null, setores = [], setoresApi = null, vincularProdutoSetor = async () => {}, salvarProdutoQr = async () => {}, irParaCozinha = () => {}, caixaAberto = null, caixasLoja = [], caixaApi = null, fidRegra = null, fidRecompensas = [], fidTransacoes = [], fidApi = null, chamados = [], atenderChamado = async()=>{}, assumirChamado = async()=>{}, auditoria = [], fidCaixa = null, impressoesCozinha = [], onAtualizarImpressao = async () => {}, onRecarregarImpressoes = async () => {}, editarCategoriaCampos = async () => {} }) {
   // Menu reorganizado por contexto (SaaS premium) — mesmos ids e permissões de antes
   const menu = [
     { grupo: "Visão Geral", itens: [
@@ -6034,8 +6104,8 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           {ativo === "relatorios" && <RelatoriosAdmin orders={orders} products={products} lojaInfo={lojaInfo} pesquisas={filtraLoja(pesquisas)} irParaMesas={() => setAdminSection("mesas")} irParaProdutos={() => setAdminSection("products")} currentUser={currentUser} />}
           {ativo === "crm"        && <CrmAdmin clientes={clientes} orders={orders} fidTransacoes={fidTransacoes} fidRecompensas={fidRecompensas} lancarPontos={fidApi?.lancarPontos} configCrm={lojaInfo?.configCrm || {}} salvarConfigCrm={salvarConfigCrm} />}
           {ativo === "fidelidade" && (precisaEmpresa ? avisoEmpresa : <FidelidadeAdmin regra={fidRegra} recompensas={fidRecompensas} transacoes={fidTransacoes} clientes={clientes} orders={orders} api={fidApi} onVerClientes={() => setAdminSection("crm")} />)}
-          {ativo === "products"   && (precisaEmpresa ? avisoEmpresa : <ProductAdmin   products={products} categories={categories} categoriasDb={categoriasDb} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} editarProduto={editarProduto} removerProduto={removerProduto} lojaId={lojaInfo?.id} opcoesApi={opcoesApi} setores={setores} impressoras={impressoras} fiscalNcm={fiscalNcm} fiscalIcms={fiscalIcms} />)}
-          {ativo === "fiscal"     && (precisaEmpresa ? avisoEmpresa : <FiscalAdmin ncm={fiscalNcm} icms={fiscalIcms} api={fiscalApi} produtos={products} categoriasDb={categoriasDb} editarProduto={editarProduto} />)}
+          {ativo === "products"   && (precisaEmpresa ? avisoEmpresa : <ProductAdmin   products={products} categories={categories} categoriasDb={categoriasDb} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} editarProduto={editarProduto} removerProduto={removerProduto} lojaId={lojaInfo?.id} opcoesApi={opcoesApi} setores={setores} impressoras={impressoras} fiscalNcm={fiscalNcm} fiscalIcms={fiscalIcms} fiscalCfop={fiscalCfop} fiscalPis={fiscalPis} fiscalCofins={fiscalCofins} fiscalIpi={fiscalIpi} fiscalCest={fiscalCest} />)}
+          {ativo === "fiscal"     && (precisaEmpresa ? avisoEmpresa : <FiscalAdmin ncm={fiscalNcm} icms={fiscalIcms} cfop={fiscalCfop} pis={fiscalPis} cofins={fiscalCofins} ipi={fiscalIpi} cest={fiscalCest} api={fiscalApi} produtos={products} />)}
           {ativo === "setores"    && (precisaEmpresa ? avisoEmpresa : <SetoresCozinhaAdmin setores={setores} produtos={products} orders={orders} api={setoresApi} vincularProduto={vincularProdutoSetor} irParaCozinha={irParaCozinha} />)}
           {ativo === "setor-impressoras" && (precisaEmpresa ? avisoEmpresa : <SetorImpressorasAdmin impressoras={impressoras} categorias={categoriasDb} produtos={products} api={impressorasApi} lojaInfo={lojaInfo} />)}
           {ativo === "impressoes" && (precisaEmpresa ? avisoEmpresa : <ImpressoesCozinhaAdmin impressoes={impressoesCozinha} impressoras={impressoras} categorias={categoriasDb} lojaInfo={lojaInfo} onAtualizarStatus={onAtualizarImpressao} onRecarregar={onRecarregarImpressoes} />)}
@@ -18948,7 +19018,7 @@ function AdicionaisEditor({ value = [], onChange }) {
 //  Arquitetura por chave estrangeira: Produto → NCM → Regra de ICMS.
 //  Fase 1: NCM + Regras de ICMS. Fases seguintes: CFOP, PIS, COFINS, IPI, CEST.
 // ════════════════════════════════════════════════════════════
-function FiscalAdmin({ ncm = [], icms = [], api = null, produtos = [] }) {
+function FiscalAdmin({ ncm = [], icms = [], cfop = [], pis = [], cofins = [], ipi = [], cest = [], api = null, produtos = [] }) {
   const [aba, setAba] = useState("ncm");
   if (!api) return null;
 
@@ -18959,12 +19029,17 @@ function FiscalAdmin({ ncm = [], icms = [], api = null, produtos = [] }) {
     const ids = new Set(ncm.filter((n) => String(n.icmsId ?? "") === String(id)).map((n) => String(n.id)));
     return produtos.filter((p) => ids.has(String(p.ncmId ?? ""))).length;
   };
+  const produtosPorCampo = (campo, id) => produtos.filter((p) => String(p[campo] ?? "") === String(id)).length;
 
   const abas = [
     { id: "ncm", label: "NCM", badge: ncm.length },
     { id: "icms", label: "Regras de ICMS", badge: icms.length },
+    { id: "cfop", label: "CFOP", badge: cfop.length },
+    { id: "pis", label: "PIS", badge: pis.length },
+    { id: "cofins", label: "COFINS", badge: cofins.length },
+    { id: "ipi", label: "IPI", badge: ipi.length },
+    { id: "cest", label: "CEST", badge: cest.length },
   ];
-  const roadmap = ["CFOP", "PIS", "COFINS", "IPI", "CEST"];
 
   return (
     <main className="space-y-5">
@@ -18982,16 +19057,15 @@ function FiscalAdmin({ ncm = [], icms = [], api = null, produtos = [] }) {
       {/* Sub-navegação dos cadastros fiscais */}
       <div className="flex flex-wrap items-center gap-2">
         {abas.map((t) => <FilterChip key={t.id} size="sm" selected={aba === t.id} label={t.label} badge={t.badge} onClick={() => setAba(t.id)} />)}
-        <span className="mx-1 hidden h-5 w-px bg-white/10 sm:block" />
-        {roadmap.map((r) => <FilterChip key={r} size="sm" disabled label={r} tooltip="Em breve (próxima fase)" onClick={() => {}} />)}
       </div>
 
-      {aba === "ncm" && (
-        <FiscalNcmLista ncm={ncm} icms={icms} api={api} produtosPorNcm={produtosPorNcm} />
-      )}
-      {aba === "icms" && (
-        <FiscalIcmsLista icms={icms} api={api} ncmsPorIcms={ncmsPorIcms} produtosPorIcms={produtosPorIcms} />
-      )}
+      {aba === "ncm"    && <FiscalNcmLista ncm={ncm} icms={icms} api={api} produtosPorNcm={produtosPorNcm} />}
+      {aba === "icms"   && <FiscalIcmsLista icms={icms} api={api} ncmsPorIcms={ncmsPorIcms} produtosPorIcms={produtosPorIcms} />}
+      {aba === "cfop"   && <FiscalCfopLista cfop={cfop} api={api} usoDe={(id) => produtosPorCampo("cfopId", id)} />}
+      {aba === "pis"    && <FiscalTribLista tipo="PIS" itens={pis} api={{ add: api.addPis, editar: api.editarPis, remover: api.removerPis }} usoDe={(id) => produtosPorCampo("pisId", id)} />}
+      {aba === "cofins" && <FiscalTribLista tipo="COFINS" itens={cofins} api={{ add: api.addCofins, editar: api.editarCofins, remover: api.removerCofins }} usoDe={(id) => produtosPorCampo("cofinsId", id)} />}
+      {aba === "ipi"    && <FiscalTribLista tipo="IPI" itens={ipi} api={{ add: api.addIpi, editar: api.editarIpi, remover: api.removerIpi }} usoDe={(id) => produtosPorCampo("ipiId", id)} />}
+      {aba === "cest"   && <FiscalCestLista cest={cest} api={api} usoDe={(id) => produtosPorCampo("cestId", id)} />}
     </main>
   );
 }
@@ -19287,6 +19361,203 @@ function IcmsModal({ icms = null, api, impacto = 0, onFechar }) {
   );
 }
 
+// ── Lista fiscal genérica (CFOP, PIS, COFINS, IPI, CEST) ─────
+// Reaproveita busca, filtro por situação, seleção em lote, paginação e
+// contagem de produtos vinculados. Só o conteúdo da linha e o modal mudam.
+function FiscalListaSimples({ titulo, subtitulo, itens, api, usoDe, buscaPh, textoBusca, tile, novoRotulo, emptyTitulo, emptyDica, nomeDe, rotuloUso, renderResumo, renderModal }) {
+  const [editando, setEditando] = useState(null);
+  const [criando, setCriando]   = useState(false);
+  const [excluir, setExcluir]   = useState(null);
+  const [sel, setSel]           = useState(() => new Set());
+  const f = useFiltroLista(itens, textoBusca);
+
+  const toggleSel = (id) => setSel((s) => { const x = new Set(s); x.has(id) ? x.delete(id) : x.add(id); return x; });
+  const idsVisiveis = f.visiveis.map((x) => x.id);
+  const todosMarcados = idsVisiveis.length > 0 && idsVisiveis.every((id) => sel.has(id));
+  const marcarTodos = () => setSel((s) => { const x = new Set(s); todosMarcados ? idsVisiveis.forEach((id) => x.delete(id)) : idsVisiveis.forEach((id) => x.add(id)); return x; });
+  const emLote = async (ativo) => { for (const id of sel) await api.editar(id, { ativo }); setSel(new Set()); };
+
+  return (
+    <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div><h3 className="page-title text-lg font-bold text-white">{titulo}</h3><p className="text-xs text-slate-400">{subtitulo}</p></div>
+        <PrimeButton onClick={() => setCriando(true)}><span className="text-lg leading-none">+</span> {novoRotulo}</PrimeButton>
+      </div>
+      <FiltroSituacaoBusca f={f} placeholder={buscaPh} />
+      <BulkBar n={sel.size} onAtivar={() => emLote(true)} onInativar={() => emLote(false)} onLimpar={() => setSel(new Set())} />
+
+      {f.filtrados.length === 0 ? (
+        <EmptyState titulo={itens.length === 0 ? emptyTitulo : "Nenhum registro encontrado"}
+          dica={itens.length === 0 ? emptyDica : "Ajuste a busca ou o filtro de situação."}
+          acao={itens.length === 0 ? <PrimeButton onClick={() => setCriando(true)}>+ {novoRotulo}</PrimeButton> : null} />
+      ) : (<>
+        <label className="mb-2 flex items-center gap-2 text-xs font-semibold text-slate-400">
+          <input type="checkbox" checked={todosMarcados} onChange={marcarTodos} className="h-4 w-4 accent-[#0F4C5C]" /> Selecionar os desta página
+        </label>
+        <div className="space-y-2">
+          {f.visiveis.map((x) => {
+            const uso = usoDe(x.id);
+            return (
+              <div key={x.id} className={`flex flex-wrap items-center gap-3 rounded-3xl border border-white/10 bg-slate-950/40 p-4 transition hover:bg-slate-900/60 ${x.ativo === false ? "opacity-60" : ""}`}>
+                <input type="checkbox" checked={sel.has(x.id)} onChange={() => toggleSel(x.id)} className="h-4 w-4 shrink-0 accent-[#0F4C5C]" />
+                <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-sm font-black ${tile.cor === "laranja" ? "bg-[rgba(230,126,34,0.12)] text-[#E67E22]" : "bg-[rgba(15,76,92,0.12)] text-[#0F4C5C]"}`}>{tile.txt}</span>
+                <div className="min-w-[160px] flex-1">
+                  <p className="font-black text-white">{nomeDe(x)}</p>
+                  <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-400">
+                    {renderResumo(x)}
+                    <span className={uso > 0 ? "text-emerald-300" : "text-slate-500"}>{uso} {rotuloUso}{uso === 1 ? "" : "s"}</span>
+                  </div>
+                </div>
+                <div className="ml-auto flex shrink-0 items-center gap-2">
+                  <button onClick={() => api.editar(x.id, { ativo: !(x.ativo !== false) })} title={x.ativo !== false ? "Inativar" : "Ativar"} className={`rounded-full px-3 py-1.5 text-xs font-black transition ${x.ativo !== false ? "bg-emerald-500 text-white hover:bg-emerald-400" : "bg-slate-700 text-slate-200 hover:bg-slate-600"}`}>{x.ativo !== false ? "Ativo" : "Inativo"}</button>
+                  <button onClick={() => setEditando(x)} title="Editar" className="rounded-xl border border-blue-400/20 bg-blue-500/10 px-3 py-1.5 text-xs font-black text-blue-300 transition hover:bg-blue-500/20">✏️</button>
+                  <button onClick={() => setExcluir(x)} title="Excluir" className="rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-1.5 text-xs font-black text-red-300 transition hover:bg-red-500/20">🗑️</button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <Paginacao pagina={f.pagina} totalPaginas={f.totalPaginas} total={f.filtrados.length} porPagina={f.POR_PAGINA} onMudar={f.setPagina} rotulo="registro(s)" />
+      </>)}
+
+      {criando && renderModal(null, () => setCriando(false))}
+      {editando && renderModal(editando, () => setEditando(null))}
+      {excluir && (
+        <ConfirmModal titulo={`Excluir ${titulo}?`}
+          mensagem={`Excluir "${nomeDe(excluir)}"? ${usoDe(excluir.id)} produto(s) vinculado(s) ficarão sem este vínculo. Dica: você pode apenas inativá-lo.`}
+          confirmar="Sim, excluir" onConfirmar={() => { api.remover(excluir.id); setExcluir(null); }} onCancelar={() => setExcluir(null)} />
+      )}
+    </div>
+  );
+}
+
+function FiscalCfopLista({ cfop, api, usoDe }) {
+  const capi = { add: api.addCfop, editar: api.editarCfop, remover: api.removerCfop };
+  return (
+    <FiscalListaSimples titulo="CFOP" subtitulo="Reutilize o mesmo CFOP em vários produtos e operações fiscais."
+      itens={cfop} api={capi} usoDe={usoDe} buscaPh="Buscar CFOP por código ou descrição..."
+      textoBusca={(x) => `${x.codigo} ${x.descricao || ""}`} tile={{ txt: "CFOP", cor: "petroleo" }}
+      novoRotulo="Cadastrar CFOP" emptyTitulo="Nenhum CFOP cadastrado"
+      emptyDica="Cadastre os CFOPs usados nas vendas (ex.: 5.102, 6.102). Requer a migration 082 aplicada no Supabase."
+      nomeDe={(x) => x.codigo} rotuloUso="produto"
+      renderResumo={(x) => (<>
+        {x.descricao && <span className="truncate">{x.descricao}</span>}
+        {x.tipo && <span className="rounded-full bg-white/[0.06] px-2 py-0.5">{x.tipo}</span>}
+        {x.operacao && <span>{x.operacao}</span>}
+      </>)}
+      renderModal={(item, onFechar) => <CfopModal cfop={item} api={capi} onFechar={onFechar} />} />
+  );
+}
+
+function FiscalCestLista({ cest, api, usoDe }) {
+  const capi = { add: api.addCest, editar: api.editarCest, remover: api.removerCest };
+  return (
+    <FiscalListaSimples titulo="CEST" subtitulo="Código Especificador da Substituição Tributária, quando aplicável."
+      itens={cest} api={capi} usoDe={usoDe} buscaPh="Buscar CEST por código ou descrição..."
+      textoBusca={(x) => `${x.codigo} ${x.descricao || ""}`} tile={{ txt: "CEST", cor: "petroleo" }}
+      novoRotulo="Cadastrar CEST" emptyTitulo="Nenhum CEST cadastrado"
+      emptyDica="Cadastre os CESTs dos produtos sujeitos a ST. Requer a migration 082 aplicada no Supabase."
+      nomeDe={(x) => x.codigo} rotuloUso="produto"
+      renderResumo={(x) => (x.descricao ? <span className="truncate">{x.descricao}</span> : <span className="text-slate-500">Sem descrição</span>)}
+      renderModal={(item, onFechar) => <CestModal cest={item} api={capi} onFechar={onFechar} />} />
+  );
+}
+
+// Lista de PIS/COFINS/IPI (estrutura idêntica; `tipo` só muda o rótulo).
+function FiscalTribLista({ tipo, itens, api, usoDe }) {
+  return (
+    <FiscalListaSimples titulo={tipo} subtitulo={`Regras de ${tipo} reutilizáveis e vinculáveis aos produtos.`}
+      itens={itens} api={api} usoDe={usoDe} buscaPh={`Buscar ${tipo} por descrição, código ou CST...`}
+      textoBusca={(x) => `${x.descricao} ${x.codigo || ""} ${x.cst || ""}`} tile={{ txt: tipo.slice(0, 3).toUpperCase() === "IPI" ? "IPI" : tipo.slice(0, 3), cor: "laranja" }}
+      novoRotulo={`Cadastrar ${tipo}`} emptyTitulo={`Nenhuma regra de ${tipo} cadastrada`}
+      emptyDica={`Cadastre as regras de ${tipo} (CST, tipo de cálculo, alíquota). Requer a migration 082 aplicada no Supabase.`}
+      nomeDe={(x) => x.descricao} rotuloUso="produto"
+      renderResumo={(x) => (<>
+        {x.cst && <span className="rounded-full bg-white/[0.06] px-2 py-0.5">CST {x.cst}</span>}
+        <span>{Number(x.aliquota || 0).toFixed(2)}%</span>
+        {x.tipoCalculo && <span>{x.tipoCalculo}</span>}
+        {x.codigo && <span className="text-slate-500">cód. {x.codigo}</span>}
+      </>)}
+      renderModal={(item, onFechar) => <TribModal tipo={tipo} item={item} api={api} onFechar={onFechar} />} />
+  );
+}
+
+// Modal de CFOP.
+function CfopModal({ cfop = null, api, onFechar }) {
+  const ehEdicao = !!cfop;
+  const [d, setD] = useState(() => ({ codigo: cfop?.codigo || "", descricao: cfop?.descricao || "", tipo: cfop?.tipo || "", operacao: cfop?.operacao || "", finalidade: cfop?.finalidade || "", ativo: cfop?.ativo !== false }));
+  const set = (k, v) => setD((c) => ({ ...c, [k]: v }));
+  const [erro, setErro] = useState(""); const [salvando, setSalvando] = useState(false);
+  async function salvar() {
+    if (!d.codigo.trim()) { setErro("Informe o código do CFOP."); return; }
+    setErro(""); setSalvando(true);
+    try { const ok = ehEdicao ? await api.editar(cfop.id, d) : await api.add(d); if (ok) onFechar(); else setErro("Não foi possível salvar. Verifique se a migration 082 foi aplicada."); }
+    finally { setSalvando(false); }
+  }
+  return (
+    <FiscalModalShell titulo={ehEdicao ? "Editar CFOP" : "Cadastrar CFOP"} sub="Reutilizável em vários produtos e operações." icone="🔁" erro={erro} salvando={salvando} onFechar={onFechar} onSalvar={salvar} podeSalvar={!!d.codigo.trim()} rotulo={ehEdicao ? "Salvar alterações" : "Cadastrar CFOP"}>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div><label className={PP_LBL}>Código CFOP *</label><input autoFocus value={d.codigo} onChange={(e) => set("codigo", e.target.value)} placeholder="Ex.: 5.102" className={PP_INP} /></div>
+        <div><label className={PP_LBL}>Tipo</label><select value={d.tipo} onChange={(e) => set("tipo", e.target.value)} className={PP_INP}><option value="">Selecione...</option><option>Entrada</option><option>Saída</option></select></div>
+        <div className="sm:col-span-2"><label className={PP_LBL}>Descrição</label><input value={d.descricao} onChange={(e) => set("descricao", e.target.value)} placeholder="Ex.: Venda de mercadoria adquirida de terceiros" className={PP_INP} /></div>
+        <div><label className={PP_LBL}>Tipo de operação</label><select value={d.operacao} onChange={(e) => set("operacao", e.target.value)} className={PP_INP}><option value="">Selecione...</option><option>Interna</option><option>Interestadual</option><option>Exterior</option></select></div>
+        <div><label className={PP_LBL}>Finalidade</label><input value={d.finalidade} onChange={(e) => set("finalidade", e.target.value)} placeholder="Ex.: Venda" className={PP_INP} /></div>
+      </div>
+      <label className="mt-3 flex items-center gap-2 text-sm font-semibold text-[var(--pp-text-body)]"><input type="checkbox" checked={d.ativo} onChange={(e) => set("ativo", e.target.checked)} className="h-4 w-4 accent-[#0F4C5C]" /> CFOP ativo</label>
+    </FiscalModalShell>
+  );
+}
+
+// Modal de CEST.
+function CestModal({ cest = null, api, onFechar }) {
+  const ehEdicao = !!cest;
+  const [d, setD] = useState(() => ({ codigo: cest?.codigo || "", descricao: cest?.descricao || "", ativo: cest?.ativo !== false }));
+  const set = (k, v) => setD((c) => ({ ...c, [k]: v }));
+  const [erro, setErro] = useState(""); const [salvando, setSalvando] = useState(false);
+  async function salvar() {
+    if (!d.codigo.trim()) { setErro("Informe o código do CEST."); return; }
+    setErro(""); setSalvando(true);
+    try { const ok = ehEdicao ? await api.editar(cest.id, d) : await api.add(d); if (ok) onFechar(); else setErro("Não foi possível salvar. Verifique se a migration 082 foi aplicada."); }
+    finally { setSalvando(false); }
+  }
+  return (
+    <FiscalModalShell titulo={ehEdicao ? "Editar CEST" : "Cadastrar CEST"} sub="Código Especificador da Substituição Tributária." icone="🏷️" erro={erro} salvando={salvando} onFechar={onFechar} onSalvar={salvar} podeSalvar={!!d.codigo.trim()} rotulo={ehEdicao ? "Salvar alterações" : "Cadastrar CEST"}>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div><label className={PP_LBL}>Código CEST *</label><input autoFocus value={d.codigo} onChange={(e) => set("codigo", e.target.value)} placeholder="Ex.: 17.015.00" className={PP_INP} /></div>
+        <div className="sm:col-span-2"><label className={PP_LBL}>Descrição</label><input value={d.descricao} onChange={(e) => set("descricao", e.target.value)} placeholder="Descrição do CEST" className={PP_INP} /></div>
+      </div>
+      <label className="mt-3 flex items-center gap-2 text-sm font-semibold text-[var(--pp-text-body)]"><input type="checkbox" checked={d.ativo} onChange={(e) => set("ativo", e.target.checked)} className="h-4 w-4 accent-[#0F4C5C]" /> CEST ativo</label>
+    </FiscalModalShell>
+  );
+}
+
+// Modal de PIS/COFINS/IPI (mesma estrutura).
+function TribModal({ tipo, item = null, api, onFechar }) {
+  const ehEdicao = !!item;
+  const [d, setD] = useState(() => ({ codigo: item?.codigo || "", descricao: item?.descricao || "", cst: item?.cst || "", tipoCalculo: item?.tipoCalculo || "Percentual", aliquota: item?.aliquota ?? "", ativo: item?.ativo !== false }));
+  const set = (k, v) => setD((c) => ({ ...c, [k]: v }));
+  const [erro, setErro] = useState(""); const [salvando, setSalvando] = useState(false);
+  async function salvar() {
+    if (!d.descricao.trim()) { setErro("Informe a descrição da regra."); return; }
+    setErro(""); setSalvando(true);
+    try { const ok = ehEdicao ? await api.editar(item.id, d) : await api.add(d); if (ok) onFechar(); else setErro("Não foi possível salvar. Verifique se a migration 082 foi aplicada."); }
+    finally { setSalvando(false); }
+  }
+  const cstOpts = tipo === "IPI" ? CST_IPI : CST_PIS_COFINS;
+  return (
+    <FiscalModalShell titulo={ehEdicao ? `Editar ${tipo}` : `Cadastrar ${tipo}`} sub={`Regra de ${tipo} reutilizável nos produtos.`} icone="🧾" erro={erro} salvando={salvando} onFechar={onFechar} onSalvar={salvar} podeSalvar={!!d.descricao.trim()} rotulo={ehEdicao ? "Salvar alterações" : `Cadastrar ${tipo}`}>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="sm:col-span-2"><label className={PP_LBL}>Descrição *</label><input autoFocus value={d.descricao} onChange={(e) => set("descricao", e.target.value)} placeholder={`Ex.: ${tipo} tributável 1,65%`} className={PP_INP} /></div>
+        <div><label className={PP_LBL}>Código</label><input value={d.codigo} onChange={(e) => set("codigo", e.target.value)} placeholder="Opcional" className={PP_INP} /></div>
+        <div><label className={PP_LBL}>CST</label><select value={d.cst} onChange={(e) => set("cst", e.target.value)} className={PP_INP}><option value="">Selecione...</option>{cstOpts.map((o) => <option key={o} value={o}>{o}</option>)}</select></div>
+        <div><label className={PP_LBL}>Tipo de cálculo</label><select value={d.tipoCalculo} onChange={(e) => set("tipoCalculo", e.target.value)} className={PP_INP}><option>Percentual</option><option>Valor por unidade</option></select></div>
+        <div><label className={PP_LBL}>Alíquota (%)</label><input inputMode="decimal" value={d.aliquota} onChange={(e) => set("aliquota", e.target.value.replace(/[^\d.,]/g, ""))} placeholder="Ex.: 1,65" className={PP_INP} /></div>
+      </div>
+      <label className="mt-3 flex items-center gap-2 text-sm font-semibold text-[var(--pp-text-body)]"><input type="checkbox" checked={d.ativo} onChange={(e) => set("ativo", e.target.checked)} className="h-4 w-4 accent-[#0F4C5C]" /> Regra ativa</label>
+    </FiscalModalShell>
+  );
+}
+
 // Shell comum dos modais fiscais (branco/petróleo, altura fixa — não "pula").
 function FiscalModalShell({ titulo, sub, icone, erro, salvando, onFechar, onSalvar, podeSalvar, rotulo, children }) {
   return (
@@ -19315,7 +19586,8 @@ function FiscalModalShell({ titulo, sub, icone, erro, salvando, onFechar, onSalv
   );
 }
 
-function ProductAdmin({ products, categories, categoriasDb = [], addProduct, toggleProduct, editarProduto, removerProduto, lojaId, opcoesApi = null, setores = [], impressoras = [], fiscalNcm = [], fiscalIcms = [] }) {
+function ProductAdmin({ products, categories, categoriasDb = [], addProduct, toggleProduct, editarProduto, removerProduto, lojaId, opcoesApi = null, setores = [], impressoras = [], fiscalNcm = [], fiscalIcms = [], fiscalCfop = [], fiscalPis = [], fiscalCofins = [], fiscalIpi = [], fiscalCest = [] }) {
+  const fiscalVinc = { ncm: fiscalNcm, icms: fiscalIcms, cfop: fiscalCfop, pis: fiscalPis, cofins: fiscalCofins, ipi: fiscalIpi, cest: fiscalCest };
   const [editando, setEditando] = useState(null);
   const [excluir, setExcluir]   = useState(null);
   const [variacoes, setVariacoes] = useState(null); // produto cujas variações/adicionais estamos editando
@@ -19447,10 +19719,10 @@ function ProductAdmin({ products, categories, categoriasDb = [], addProduct, tog
 
       {criando && (
         <ProdutoAdminModal modo="criar" categoriasAtivas={categoriasAtivas} lojaId={lojaId}
-          setores={setores} impressoras={impressoras} opcoesApi={opcoesApi} fiscalNcm={fiscalNcm} fiscalIcms={fiscalIcms}
+          setores={setores} impressoras={impressoras} opcoesApi={opcoesApi} fiscalNcm={fiscalNcm} fiscalIcms={fiscalIcms} fiscalVinc={fiscalVinc}
           onSalvar={salvarNovo} onFechar={() => setCriando(false)} />
       )}
-      {editando && <ProdutoAdminModal modo="editar" produto={editando} categoriasAtivas={categoriasAtivas} lojaId={lojaId} setores={setores} impressoras={impressoras} opcoesApi={opcoesApi} fiscalNcm={fiscalNcm} fiscalIcms={fiscalIcms} onSalvar={(d) => { editarProduto(editando.id, d); setEditando(null); }} onFechar={() => setEditando(null)} />}
+      {editando && <ProdutoAdminModal modo="editar" produto={editando} categoriasAtivas={categoriasAtivas} lojaId={lojaId} setores={setores} impressoras={impressoras} opcoesApi={opcoesApi} fiscalNcm={fiscalNcm} fiscalIcms={fiscalIcms} fiscalVinc={fiscalVinc} onSalvar={(d) => { editarProduto(editando.id, d); setEditando(null); }} onFechar={() => setEditando(null)} />}
       {variacoes && opcoesApi && <GruposOpcoesModal produto={variacoes} api={opcoesApi} onFechar={() => setVariacoes(null)} />}
       {excluir && (
         <ConfirmModal titulo="Excluir produto?"
@@ -19547,7 +19819,7 @@ function SeletorImagem({ urlAtual, onImageUrl, onFileChange, uploading = false, 
 
 // Modal ÚNICO de produto (cadastro = edição), 5 abas — Geral · Comercial &
 // Estoque · Operação · Fiscal · NF-e/NFC-e. Padrão branco/petróleo do admin.
-function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = [], onSalvar, onFechar, lojaId, setores = [], impressoras = [], opcoesApi = null, fiscalNcm = [], fiscalIcms = [] }) {
+function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = [], onSalvar, onFechar, lojaId, setores = [], impressoras = [], opcoesApi = null, fiscalNcm = [], fiscalIcms = [], fiscalVinc = null }) {
   const ehEdicao = modo === "editar";
   const toDisplay = (v) => {
     if (!v && v !== 0) return "";
@@ -19581,6 +19853,9 @@ function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = 
   const [ncmId, setNcmId] = useState(produto?.ncmId ?? null);
   const ncmSel = fiscalNcm.find((n) => String(n.id) === String(ncmId)) || null;
   const icmsDoNcm = ncmSel ? fiscalIcms.find((r) => String(r.id) === String(ncmSel.icmsId)) || null : null;
+  // Migration 082 — vínculos fiscais por FK (CFOP, PIS, COFINS, IPI, CEST).
+  const [vinc, setVinc] = useState(() => ({ cfopId: produto?.cfopId ?? null, pisId: produto?.pisId ?? null, cofinsId: produto?.cofinsId ?? null, ipiId: produto?.ipiId ?? null, cestId: produto?.cestId ?? null }));
+  const setV = (k, v) => setVinc((cur) => ({ ...cur, [k]: v ? Number(v) : null }));
   const [arquivoImg, setArquivoImg] = useState(null);
   const [uploadando, setUploadando] = useState(false);
   const [erroUpload, setErroUpload] = useState("");
@@ -19670,6 +19945,7 @@ function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = 
       isFeatured: f.isFeatured, featuredLabel: f.isFeatured ? (f.featuredLabel || "Destaque") : "", showOnHome: f.showOnHome,
       disponivel: f.disponivel, active: f.active, setorId: f.setorId || null, impressoraId: f.impressoraId || null,
       fiscal: fis, operacao, ncmId: ncmId ?? null,
+      cfopId: vinc.cfopId ?? null, pisId: vinc.pisId ?? null, cofinsId: vinc.cofinsId ?? null, ipiId: vinc.ipiId ?? null, cestId: vinc.cestId ?? null,
       // Modo criar: grupos de opções montados na aba "Opções" (criados após o insert)
       ...(ehEdicao ? {} : { gruposNovos }),
     });
@@ -19943,10 +20219,30 @@ function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = 
                         </div>
                       </div>
                     )}
-                    <p className="mt-2 text-[11px] text-[var(--pp-text-muted)]">Os campos abaixo (SKU, GTIN, CFOP, PIS/COFINS…) continuam por produto. O NCM centraliza NCM + CEST + regra de ICMS.</p>
+                    <p className="mt-2 text-[11px] text-[var(--pp-text-muted)]">O NCM centraliza NCM + CEST + regra de ICMS. Os demais vínculos (CFOP, PIS, COFINS, IPI, CEST) estão logo abaixo.</p>
                   </>)}
             </>)}
-            {secao("🧾", "Informações fiscais do produto", "Preencha os campos abaixo para preparar o produto para futuras emissões de NF-e/NFC-e.", <>
+            {fiscalVinc && secao("🔗", "Vínculos fiscais", "Selecione os cadastros reutilizáveis do módulo Fiscal. Alterar a regra no cadastro reflete em todos os produtos vinculados.", <>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {[
+                  ["cfopId", "CFOP", fiscalVinc.cfop, (x) => `${x.codigo}${x.descricao ? ` — ${x.descricao}` : ""}`],
+                  ["cestId", "CEST", fiscalVinc.cest, (x) => `${x.codigo}${x.descricao ? ` — ${x.descricao}` : ""}`],
+                  ["pisId", "PIS", fiscalVinc.pis, (x) => x.descricao],
+                  ["cofinsId", "COFINS", fiscalVinc.cofins, (x) => x.descricao],
+                  ["ipiId", "IPI", fiscalVinc.ipi, (x) => x.descricao],
+                ].map(([campo, rot, lista, textoDe]) => (
+                  <div key={campo}><label className={PP_LBL}>{rot}</label>
+                    {lista.length === 0
+                      ? <p className="rounded-xl border border-[rgba(230,126,34,0.3)] bg-[rgba(230,126,34,0.06)] px-3 py-2 text-[11px] font-semibold text-[#B4611A]">Nenhum {rot} cadastrado — crie no menu <b>Fiscal</b>.</p>
+                      : <select value={vinc[campo] ?? ""} onChange={(e) => setV(campo, e.target.value)} className={PP_INP}>
+                          <option value="">Sem {rot} vinculado</option>
+                          {lista.filter((x) => x.ativo !== false || String(x.id) === String(vinc[campo])).map((x) => <option key={x.id} value={x.id}>{textoDe(x)}</option>)}
+                        </select>}
+                  </div>
+                ))}
+              </div>
+            </>)}
+            {secao("🧾", "Informações fiscais do produto", "Campos complementares para emissão de NF-e/NFC-e (guardados no próprio produto).", <>
               <div className="grid gap-3 sm:grid-cols-4">
                 {fIn("sku", "Código interno / SKU", "Ex.: XSALADA")}
                 {fIn("gtin", "GTIN / EAN", "Ex.: 7891234567890")}
