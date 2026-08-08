@@ -94,7 +94,7 @@ export async function inserirProduto(p) {
 }
 
 // Colunas opcionais (migrations 029/034/068/079) — removidas no fallback se o banco não as tiver
-const COLS_PRODUTO_OPCIONAIS = ['adicionais', 'controla_estoque', 'estoque_minimo', 'preco_promocional', 'visivel_tablet', 'visivel_qr', 'visivel_externo', 'is_featured', 'featured_label', 'featured_order', 'show_on_home', 'disponivel', 'setor_id', 'categoria_id', 'impressora_id', 'fiscal', 'operacao'];
+const COLS_PRODUTO_OPCIONAIS = ['adicionais', 'controla_estoque', 'estoque_minimo', 'preco_promocional', 'visivel_tablet', 'visivel_qr', 'visivel_externo', 'is_featured', 'featured_label', 'featured_order', 'show_on_home', 'disponivel', 'setor_id', 'categoria_id', 'impressora_id', 'fiscal', 'operacao', 'ncm_id'];
 export async function atualizarProduto(id, campos) {
   let { error } = await supabase.from('tab_produtos').update(campos).eq('id', id)
   if (error && COLS_PRODUTO_OPCIONAIS.some((c) => c in campos) && ehColunaAusente(error, 'column')) {
@@ -481,6 +481,104 @@ export function escutarFiscalPerfis(onMudanca) {
   const reload = async () => { try { onMudanca(await fetchFiscalPerfis()) } catch { /* migration 080 pendente */ } }
   const canal = supabase.channel('ch_fiscal_perfis_' + Math.random().toString(36).slice(2))
     .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_fiscal_perfis' }, reload)
+    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
+  return () => supabase.removeChannel(canal)
+}
+
+// ════════════════════════════════════════════════════════════
+//  Cadastros fiscais normalizados (migration 081) — Regras de ICMS
+//  e NCM. CRUD + Realtime, tolerantes se a 081 não foi aplicada.
+//  Relação: Produto → NCM → Regra de ICMS.
+// ════════════════════════════════════════════════════════════
+const _num = (v) => (v === '' || v == null ? 0 : Number(String(v).replace(',', '.')) || 0)
+
+function dbParaIcms(r) {
+  return {
+    id: r.id, lojaId: r.loja_id ?? null, nome: r.nome,
+    origem: r.origem ?? '', cst: r.cst ?? '', csosn: r.csosn ?? '',
+    aliquota: Number(r.aliquota ?? 0), reducaoBase: Number(r.reducao_base ?? 0),
+    icmsSt: r.icms_st === true, mva: Number(r.mva ?? 0), fcp: Number(r.fcp ?? 0),
+    ufOrigem: r.uf_origem ?? '', ufDestino: r.uf_destino ?? '', ativo: r.ativo !== false,
+  }
+}
+function icmsParaDb(p) {
+  return {
+    ...(p.lojaId != null ? { loja_id: p.lojaId } : {}),
+    nome: p.nome, origem: p.origem || null, cst: p.cst || null, csosn: p.csosn || null,
+    aliquota: _num(p.aliquota), reducao_base: _num(p.reducaoBase), icms_st: !!p.icmsSt,
+    mva: _num(p.mva), fcp: _num(p.fcp), uf_origem: p.ufOrigem || null, uf_destino: p.ufDestino || null,
+    ativo: p.ativo !== false,
+  }
+}
+export async function fetchFiscalIcms(lojaId = null) {
+  let q = supabase.from('tab_fiscal_icms').select('*').order('nome', { ascending: true })
+  if (lojaId != null) q = q.eq('loja_id', lojaId)
+  const { data, error } = await q
+  if (error) return []
+  return (data || []).map(dbParaIcms)
+}
+export async function inserirFiscalIcms(p) {
+  const { data, error } = await supabase.from('tab_fiscal_icms').insert([icmsParaDb(p)]).select().single()
+  if (error) throw error
+  return dbParaIcms(data)
+}
+export async function atualizarFiscalIcms(id, campos) {
+  const patch = icmsParaDb(campos); delete patch.loja_id; patch.atualizado_em = new Date().toISOString()
+  const { error } = await supabase.from('tab_fiscal_icms').update(patch).eq('id', id)
+  if (error) throw error
+}
+export async function excluirFiscalIcms(id) {
+  const { error } = await supabase.from('tab_fiscal_icms').delete().eq('id', id)
+  if (error) throw error
+}
+export function escutarFiscalIcms(onMudanca) {
+  const reload = async () => { try { onMudanca(await fetchFiscalIcms()) } catch { /* migration 081 pendente */ } }
+  const canal = supabase.channel('ch_fiscal_icms_' + Math.random().toString(36).slice(2))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_fiscal_icms' }, reload)
+    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
+  return () => supabase.removeChannel(canal)
+}
+
+function dbParaNcm(r) {
+  return {
+    id: r.id, lojaId: r.loja_id ?? null, codigo: r.codigo, descricao: r.descricao ?? '',
+    exTipi: r.ex_tipi ?? '', unidade: r.unidade ?? '', cest: r.cest ?? '',
+    icmsId: r.icms_id ?? null, ativo: r.ativo !== false,
+  }
+}
+function ncmParaDb(p) {
+  return {
+    ...(p.lojaId != null ? { loja_id: p.lojaId } : {}),
+    codigo: p.codigo, descricao: p.descricao || null, ex_tipi: p.exTipi || null,
+    unidade: p.unidade || null, cest: p.cest || null,
+    icms_id: p.icmsId != null ? p.icmsId : null, ativo: p.ativo !== false,
+  }
+}
+export async function fetchFiscalNcm(lojaId = null) {
+  let q = supabase.from('tab_fiscal_ncm').select('*').order('codigo', { ascending: true })
+  if (lojaId != null) q = q.eq('loja_id', lojaId)
+  const { data, error } = await q
+  if (error) return []
+  return (data || []).map(dbParaNcm)
+}
+export async function inserirFiscalNcm(p) {
+  const { data, error } = await supabase.from('tab_fiscal_ncm').insert([ncmParaDb(p)]).select().single()
+  if (error) throw error
+  return dbParaNcm(data)
+}
+export async function atualizarFiscalNcm(id, campos) {
+  const patch = ncmParaDb(campos); delete patch.loja_id; patch.atualizado_em = new Date().toISOString()
+  const { error } = await supabase.from('tab_fiscal_ncm').update(patch).eq('id', id)
+  if (error) throw error
+}
+export async function excluirFiscalNcm(id) {
+  const { error } = await supabase.from('tab_fiscal_ncm').delete().eq('id', id)
+  if (error) throw error
+}
+export function escutarFiscalNcm(onMudanca) {
+  const reload = async () => { try { onMudanca(await fetchFiscalNcm()) } catch { /* migration 081 pendente */ } }
+  const canal = supabase.channel('ch_fiscal_ncm_' + Math.random().toString(36).slice(2))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_fiscal_ncm' }, reload)
     .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
   return () => supabase.removeChannel(canal)
 }
@@ -1687,6 +1785,8 @@ function dbParaProduto(r) {
     disponivel:       r.disponivel !== false,
     setorId:          r.setor_id ?? null,
     impressoraId:     r.impressora_id ?? null,
+    // Migration 081 — vínculo com o cadastro de NCM (Produto → NCM → ICMS).
+    ncmId:            r.ncm_id ?? null,
     // Migration 079 — dados fiscais (NF-e/NFC-e) e config operacional nova,
     // guardados como JSONB flexível. Banco sem a 079: colunas não existem →
     // vêm undefined e caem no objeto vazio (tolerante).
@@ -1841,6 +1941,8 @@ function produtoParaDb(p) {
     // Migration 079 — fiscal (NF-e/NFC-e) e config operacional nova (JSONB).
     ...(p.fiscal && typeof p.fiscal === 'object' ? { fiscal: p.fiscal } : {}),
     ...(p.operacao && typeof p.operacao === 'object' ? { operacao: p.operacao } : {}),
+    // Migration 081 — vínculo com o NCM (null desvincula).
+    ...(p.ncmId !== undefined ? { ncm_id: p.ncmId != null ? p.ncmId : null } : {}),
   }
 }
 
