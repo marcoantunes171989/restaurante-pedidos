@@ -1522,7 +1522,6 @@ export default function CardapioPublico() {
     const temHorarioHoje = diaTemHorario(cfgExt.horarios, agora, cfgExt.fusoHorario);
     const lojaStatus = abertoAgora ? "aberto" : temHorarioHoje ? "fechado" : null;
     const fechaHoje = horarioFechaHoje(cfgExt.horarios, agora, cfgExt.fusoHorario);
-    const versaoApp = (typeof __APP_VERSION__ !== "undefined") ? __APP_VERSION__ : "local";
     const partesNome = String(loja.nome || "").trim().split(/\s+/).filter(Boolean);
     const nomePrimario = partesNome[0] || loja.nome || "Estabelecimento";
     const nomeSecundario = partesNome.slice(1).join(" ");
@@ -1565,85 +1564,44 @@ export default function CardapioPublico() {
     };
 
     return (
-      <div data-theme="light" className={`pp-mesa-welcome tema-claro-area relative flex h-[100dvh] max-h-[100dvh] w-full max-w-[100vw] flex-col overflow-hidden bg-[#F8F6F2] text-[var(--client-text-primary)] ${modoExterno ? "pp-welcome-ext" : ""}`}
+      <div data-theme="light" className={`pp-mesa-welcome tema-claro-area relative flex h-[100dvh] max-h-[100dvh] w-full max-w-[100vw] flex-col overflow-hidden bg-white text-[#2D3436] ${modoExterno ? "pp-welcome-ext" : ""}`}
         style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}>
-        {/* Atmosfera: wash quente suave — sem roubar a cena da foto */}
-        <div aria-hidden="true" className="pointer-events-none absolute inset-0"
-          style={{ background: "radial-gradient(120% 70% at 50% -10%, rgba(230,126,34,0.10) 0%, transparent 55%), radial-gradient(90% 50% at 100% 100%, rgba(15,76,92,0.06) 0%, transparent 50%)" }} />
-
-        <div className="relative mx-auto flex h-full w-full max-w-[420px] min-h-0 flex-col pb-[clamp(0.35rem,1vh,0.6rem)]">
-          {/* ── Topo: marca em faixa (hierarquia clara, sem torre) ── */}
-          <header className="pp-welcome-enter flex shrink-0 items-center gap-2.5 px-3.5 pt-[clamp(0.4rem,1.2vh,0.75rem)]">
+        <div className="relative mx-auto flex h-full w-full max-w-[420px] min-h-0 flex-col">
+          {/* ── Marca + contexto — tipografia limpa, sem chips/sombras ── */}
+          <header className="flex shrink-0 items-center gap-3 px-5 pt-4 pb-3">
             {loja.logoUrl ? (
-              <img src={loja.logoUrl} alt={`Logo ${loja.nome}`} className="h-11 w-11 shrink-0 rounded-full border-2 border-white object-cover shadow-[0_4px_14px_rgba(45,52,54,0.10)]" onError={(e) => { e.currentTarget.style.display = "none"; }} />
+              <img src={loja.logoUrl} alt={`Logo ${loja.nome}`} className="h-10 w-10 shrink-0 rounded-full object-cover" onError={(e) => { e.currentTarget.style.display = "none"; }} />
             ) : (
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 border-white bg-white text-base font-black shadow-[0_4px_14px_rgba(45,52,54,0.10)]" aria-hidden="true">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#F8F6F2] text-sm font-black" aria-hidden="true">
                 <span className="text-[#0F4C5C]">{(loja.prefixo || nomePrimario).slice(0, 1)}</span>
                 <span className="text-[#E67E22]">{(loja.prefixo || nomePrimario).slice(1, 2) || ""}</span>
               </span>
             )}
             <div className="min-w-0 flex-1">
-              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#0F4C5C]/70">Cardápio digital</p>
-              <h1 className="truncate font-black leading-tight tracking-tight">
-                <span className="text-[clamp(1.15rem,3.4vh,1.45rem)] text-[#0F4C5C]">{nomePrimario}</span>
-                {nomeSecundario ? <span className="text-[clamp(1.15rem,3.4vh,1.45rem)] text-[#E67E22]"> {nomeSecundario}</span> : null}
+              <h1 className="truncate text-[1.2rem] font-black leading-tight tracking-tight">
+                <span className="text-[#0F4C5C]">{nomePrimario}</span>
+                {nomeSecundario ? <span className="text-[#E67E22]"> {nomeSecundario}</span> : null}
               </h1>
+              {(currentTable || lojaStatus) && (
+                <p className="mt-0.5 truncate text-[12px] font-medium text-[#2D3436]/55">
+                  {currentTable || "Pedido online"}
+                  {lojaStatus === "aberto" ? ` · Aberto${fechaHoje ? ` até ${fechaHoje}` : ""}` : null}
+                  {lojaStatus === "fechado" ? " · Fechado agora" : null}
+                </p>
+              )}
             </div>
           </header>
 
-          {/* ── Contexto: chips leves (não cards) ── */}
-          {(currentTable || lojaStatus) && (
-            <div className="pp-welcome-enter mt-2.5 flex shrink-0 flex-wrap items-center gap-1.5 px-3.5" style={{ animationDelay: "60ms" }}>
-              {currentTable ? (
-                <span className="inline-flex max-w-[55%] items-center gap-1.5 rounded-full bg-white/90 px-2.5 py-1 text-[12px] font-bold text-[#0F4C5C] shadow-[0_2px_8px_rgba(45,52,54,0.06)] ring-1 ring-[#E6E6E6]/80">
-                  <span className="shrink-0 text-[#E67E22]"><CkIconMesa width={13} height={13} /></span>
-                  <span className="truncate">{currentTable}</span>
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/90 px-2.5 py-1 text-[12px] font-bold text-[#0F4C5C] shadow-[0_2px_8px_rgba(45,52,54,0.06)] ring-1 ring-[#E6E6E6]/80">
-                  <span className="shrink-0 text-[#E67E22]"><CkIconLoja width={13} height={13} /></span>
-                  Pedido online
-                </span>
-              )}
-              {lojaStatus === "aberto" ? (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-[#5E8C31]/12 px-2.5 py-1 text-[12px] font-bold text-[#5E8C31] ring-1 ring-[#5E8C31]/20">
-                  <span className="relative flex h-2 w-2">
-                    <span className="absolute inset-0 animate-ping rounded-full bg-[#5E8C31]/45" aria-hidden="true" />
-                    <span className="relative h-2 w-2 rounded-full bg-[#5E8C31]" aria-hidden="true" />
-                  </span>
-                  {fechaHoje ? `Aberto · até ${fechaHoje}` : "Aberto agora"}
-                </span>
-              ) : lojaStatus === "fechado" ? (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-[#EDF0F4] px-2.5 py-1 text-[12px] font-bold text-[#52606D] ring-1 ring-[#E6E6E6]">
-                  <CkIconRelogio width={13} height={13} />
-                  Fechado agora
-                </span>
-              ) : null}
-            </div>
-          )}
-
-          {/* ── Palco: foto full-bleed, inteira, laterais infinitas ── */}
+          {/* ── Foto: fundo branco, prato inteiro, laterais full-bleed ── */}
           {produtoAtivo ? (
-            <section className="mt-2.5 flex min-h-0 flex-1 flex-col" aria-labelledby="pp-destaques-titulo"
+            <section className="flex min-h-0 flex-1 flex-col" aria-labelledby="pp-destaques-titulo"
               onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
               <h2 id="pp-destaques-titulo" className="sr-only">Destaques da casa</h2>
 
-              <div className="pp-mesa-welcome-bleed relative flex min-h-0 flex-1 flex-col">
+              <div className="pp-mesa-welcome-bleed relative flex min-h-0 flex-1 flex-col bg-white">
                 <button type="button" onClick={() => setDetalhe(produtoAtivo)}
-                  className="group relative flex min-h-0 w-full flex-1 flex-col overflow-hidden text-left outline-none focus-visible:ring-2 focus-visible:ring-[#E67E22] focus-visible:ring-inset">
-                  <div className="relative min-h-0 flex-1 overflow-hidden bg-[#EDE9E2]">
-                    {/* Fundo contínuo — mesma foto, sem faixas chapadas */}
-                    <img
-                      key={`bg-${produtoAtivo.id}`}
-                      src={produtoAtivo.imageUrl || fallbackImage}
-                      alt=""
-                      aria-hidden="true"
-                      loading="eager"
-                      decoding="async"
-                      onError={(e) => { if (e.currentTarget.src !== fallbackImage) e.currentTarget.src = fallbackImage; }}
-                      className="pointer-events-none absolute inset-0 h-full w-full scale-[1.2] object-cover object-center blur-3xl saturate-[1.05] opacity-80"
-                    />
-                    {/* Prato nítido — contain: nunca corta */}
+                  className="relative flex min-h-0 w-full flex-1 flex-col overflow-hidden bg-white text-left outline-none focus-visible:ring-2 focus-visible:ring-[#E67E22] focus-visible:ring-inset">
+                  <div className="relative min-h-0 flex-1 overflow-hidden bg-white">
                     <img
                       key={produtoAtivo.id}
                       src={produtoAtivo.imageUrl || fallbackImage}
@@ -1653,104 +1611,87 @@ export default function CardapioPublico() {
                       onError={(e) => { if (e.currentTarget.src !== fallbackImage) e.currentTarget.src = fallbackImage; }}
                       className="pp-mesa-welcome-hero absolute inset-0 h-full w-full object-contain object-center"
                     />
-
                     {produtoAtivo.badge ? (
-                      <span className="absolute right-3 top-3 z-10 rounded-full bg-[#E67E22] px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-white shadow-[0_4px_12px_rgba(230,126,34,0.35)]">
+                      <span className="absolute right-4 top-3 z-10 text-[11px] font-black uppercase tracking-[0.12em] text-[#E67E22]">
                         {produtoAtivo.badge}
                       </span>
                     ) : null}
-
-                    {/* Contador discreto — não compete com o prato */}
-                    {nSlides > 1 && (
-                      <span className="absolute bottom-3 left-1/2 z-10 -translate-x-1/2 rounded-full bg-[#2D3436]/55 px-2.5 py-0.5 text-[10px] font-bold tabular-nums tracking-wide text-white backdrop-blur-sm">
-                        {slideAtual + 1} / {nSlides}
-                      </span>
-                    )}
                   </div>
 
-                  {/* Dock tipográfico — nome + preço, sem ruído */}
-                  <div className="shrink-0 bg-white/95 px-4 py-3 backdrop-blur-md">
-                    <div className="flex items-end justify-between gap-3">
+                  <div className="shrink-0 bg-white px-5 py-3">
+                    <div className="flex items-baseline justify-between gap-3">
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-[clamp(1.05rem,2.6vh,1.25rem)] font-black leading-tight tracking-tight text-[#0F4C5C]">{produtoAtivo.name}</p>
-                        <p className="mt-0.5 line-clamp-1 text-[12px] leading-snug text-[#2D3436]/65">{descCurta(produtoAtivo)}</p>
+                        <p className="truncate text-[1.125rem] font-black leading-tight tracking-tight text-[#0F4C5C]">{produtoAtivo.name}</p>
+                        <p className="mt-0.5 line-clamp-1 text-[12px] text-[#2D3436]/50">{descCurta(produtoAtivo)}</p>
                       </div>
-                      <p className="shrink-0 text-[clamp(1.1rem,2.7vh,1.35rem)] font-black tabular-nums tracking-tight text-[#E67E22]">{formatCurrency(produtoAtivo.price)}</p>
+                      <p className="shrink-0 text-[1.2rem] font-black tabular-nums tracking-tight text-[#E67E22]">{formatCurrency(produtoAtivo.price)}</p>
                     </div>
                   </div>
                 </button>
 
-                {/* Setas flutuantes sobre a foto — gesto natural, sem chrome extra */}
                 {nSlides > 1 && (
                   <>
                     <button type="button" onClick={(e) => { e.stopPropagation(); irSlide(-1); }} aria-label="Produto anterior"
-                      className="absolute left-2 top-[42%] z-20 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-[#0F4C5C] shadow-[0_4px_16px_rgba(45,52,54,0.14)] ring-1 ring-black/5 transition active:scale-95">
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
+                      className="absolute left-1 top-[40%] z-20 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full text-[#0F4C5C] transition active:scale-95">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
                     </button>
                     <button type="button" onClick={(e) => { e.stopPropagation(); irSlide(1); }} aria-label="Próximo produto"
-                      className="absolute right-2 top-[42%] z-20 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-[#0F4C5C] shadow-[0_4px_16px_rgba(45,52,54,0.14)] ring-1 ring-black/5 transition active:scale-95">
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
+                      className="absolute right-1 top-[40%] z-20 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full text-[#0F4C5C] transition active:scale-95">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
                     </button>
                   </>
                 )}
               </div>
 
               {nSlides > 1 && (
-                <div className="mt-2 flex shrink-0 justify-center gap-1.5" role="tablist" aria-label="Destaques">
+                <div className="flex shrink-0 justify-center gap-1.5 py-2" role="tablist" aria-label="Destaques">
                   {destaques.map((p, i) => (
                     <button key={p.id} type="button" role="tab" aria-selected={i === slideAtual} aria-label={`Destaque ${i + 1}: ${p.name}`}
                       onClick={() => setWelcomeSlide(i)}
-                      className={`h-1.5 rounded-full transition-all duration-300 ${i === slideAtual ? "w-6 bg-[#E67E22]" : "w-1.5 bg-[#0F4C5C]/20"}`} />
+                      className={`h-1 rounded-full transition-all duration-300 ${i === slideAtual ? "w-5 bg-[#E67E22]" : "w-1.5 bg-[#E6E6E6]"}`} />
                   ))}
                 </div>
               )}
             </section>
           ) : (
-            <div className="mt-2.5 flex min-h-0 flex-1 flex-col items-center justify-center px-6 text-center">
-              <p className="text-[15px] font-black text-[#0F4C5C]">Bem-vindo!</p>
-              <p className="mt-1 text-[13px] text-[#2D3436]/65">Explore o cardápio e faça seu pedido.</p>
+            <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-6 text-center">
+              <p className="text-[15px] font-black text-[#0F4C5C]">Bem-vindo</p>
+              <p className="mt-1 text-[13px] text-[#2D3436]/50">Explore o cardápio e faça seu pedido.</p>
             </div>
           )}
 
-          {/* ── Um CTA, um trabalho: entrar no cardápio ── */}
-          <div className="pp-welcome-enter mt-2.5 flex shrink-0 flex-col px-3.5" style={{ animationDelay: "120ms" }}>
+          {/* ── CTA + rodapé mínimos ── */}
+          <div className="flex shrink-0 flex-col px-5 pb-4 pt-1">
             <button type="button" onClick={() => setEtapa("cardapio")}
-              className="flex w-full min-h-[52px] items-center justify-center gap-2 rounded-2xl btn-laranja px-4 text-[15px] font-black text-white shadow-[0_10px_24px_rgba(230,126,34,0.32)] transition active:scale-[0.99]">
+              className="flex w-full min-h-[50px] items-center justify-center gap-2 rounded-2xl btn-laranja px-4 text-[15px] font-black text-white transition active:scale-[0.99]">
               <span>Ver cardápio</span>
-              <span aria-hidden="true" className="text-lg leading-none">→</span>
+              <span aria-hidden="true">→</span>
             </button>
 
             {meusPedidos.length > 0 && (
               <button type="button" onClick={() => { setEtapa("cardapio"); setAba("conta"); }}
-                className="mt-1.5 inline-flex min-h-9 items-center justify-center gap-1.5 self-center px-2 text-[12px] font-bold text-[#0F4C5C]">
+                className="mt-2 inline-flex min-h-9 items-center justify-center gap-1.5 self-center text-[12px] font-bold text-[#0F4C5C]">
                 <CkIconRecibo width={13} height={13} /> Acompanhar pedido ({meusPedidos.length})
               </button>
             )}
 
             {!modoExterno && mesa && (
-              <div className="pp-mesa-opt1 mt-2 flex items-center justify-between gap-2">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-[#2D3436]/45">Precisa de algo?</p>
-                <div className="flex gap-1.5">
-                  {[["garcom", CkIconSino, "Chamar garçom", "Garçom"], ["ajuda", CkIconAjuda, "Pedir ajuda", "Ajuda"], ["limpeza", CkIconLimpeza, "Solicitar limpeza", "Limpeza"]].map(([t, Icone, aria, rotulo]) => {
-                    const emAndamento = chamando === t;
-                    return (
-                      <button key={t} type="button" onClick={() => chamar(t, rotulo)} disabled={!!chamando} aria-busy={emAndamento} aria-label={aria} title={aria}
-                        className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-[#0F4C5C] shadow-[0_2px_8px_rgba(45,52,54,0.08)] ring-1 ring-[#E6E6E6]/80 transition active:scale-90 disabled:opacity-60">
-                        {emAndamento ? <CkIconSpinner /> : <Icone width={15} height={15} />}
-                      </button>
-                    );
-                  })}
-                </div>
+              <div className="pp-mesa-opt1 mt-3 flex items-center justify-center gap-3">
+                {[["garcom", CkIconSino, "Chamar garçom", "Garçom"], ["ajuda", CkIconAjuda, "Pedir ajuda", "Ajuda"], ["limpeza", CkIconLimpeza, "Solicitar limpeza", "Limpeza"]].map(([t, Icone, aria, rotulo]) => {
+                  const emAndamento = chamando === t;
+                  return (
+                    <button key={t} type="button" onClick={() => chamar(t, rotulo)} disabled={!!chamando} aria-busy={emAndamento} aria-label={aria} title={aria}
+                      className="flex h-9 w-9 items-center justify-center text-[#0F4C5C]/55 transition active:scale-90 active:text-[#0F4C5C] disabled:opacity-50">
+                      {emAndamento ? <CkIconSpinner /> : <Icone width={18} height={18} />}
+                    </button>
+                  );
+                })}
               </div>
             )}
 
-            <footer className="mt-2 flex shrink-0 items-center justify-center gap-1 text-center">
-              <p className="text-[10px] text-[#2D3436]/40">
-                <span className="font-black"><span className="text-[#0F4C5C]">Pedido</span><span className="text-[#E67E22]">Prime</span></span>
-                <span className="mx-1.5 text-[#2D3436]/25">·</span>
-                v{versaoApp}
-              </p>
-            </footer>
+            <p className="mt-3 text-center text-[10px] font-medium tracking-wide text-[#2D3436]/30">
+              <span className="font-black text-[#0F4C5C]/50">Pedido</span><span className="font-black text-[#E67E22]/60">Prime</span>
+            </p>
           </div>
         </div>
 
