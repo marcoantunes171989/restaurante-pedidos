@@ -208,6 +208,34 @@ const CSOSN_ICMS = ["101 - Tributada com permissão de crédito", "102 - Tributa
 const CST_PIS_COFINS = ["01 - Operação Tributável (alíquota básica)", "02 - Operação Tributável (alíquota diferenciada)", "04 - Tributável (monofásica, alíquota zero)", "06 - Tributável (alíquota zero)", "07 - Operação Isenta", "08 - Operação sem incidência", "09 - Operação com suspensão", "49 - Outras operações de saída", "99 - Outras operações"];
 const CST_IPI = ["50 - Saída tributada", "51 - Saída tributável (alíquota zero)", "52 - Saída isenta", "53 - Saída não tributada", "54 - Saída imune", "55 - Saída com suspensão", "99 - Outras saídas"];
 
+// ── Máscara + validação de NCM/CEST ─────────────────────────
+// NCM = 8 dígitos (0000.00.00); CEST = 7 dígitos (00.000.00). A validação de
+// existência do NCM consulta a base nacional (BrasilAPI, espelho da tabela do
+// Siscomex/Receita Federal). É advisória — nunca bloqueia o salvamento.
+function mascaraNcm(v) {
+  const d = soDigitos(v).slice(0, 8);
+  let o = d.slice(0, 4);
+  if (d.length > 4) o += "." + d.slice(4, 6);
+  if (d.length > 6) o += "." + d.slice(6, 8);
+  return o;
+}
+function mascaraCest(v) {
+  const d = soDigitos(v).slice(0, 7);
+  let o = d.slice(0, 2);
+  if (d.length > 2) o += "." + d.slice(2, 5);
+  if (d.length > 5) o += "." + d.slice(5, 7);
+  return o;
+}
+async function validarNcmNacional(dig) {
+  try {
+    const r = await fetch(`https://brasilapi.com.br/api/ncm/v1/${dig}`);
+    if (r.status === 404) return { estado: "invalido", msg: "NCM não encontrado na base nacional (Siscomex)." };
+    if (!r.ok) return { estado: "erro", msg: "Não foi possível validar na base nacional agora." };
+    const d = await r.json();
+    return { estado: "valido", msg: d?.descricao ? `Válido — ${d.descricao}` : "NCM válido na base nacional." };
+  } catch { return { estado: "erro", msg: "Sem conexão para validar na base nacional." }; }
+}
+
 const defaultAccesses = [
   { id: "tablet", label: "Tablet do cliente", desc: "Pedido, comanda e solicitação de conta", type: "Operacional", active: true },
   { id: "kitchen", label: "Cozinha", desc: "Pedidos recebidos, preparo e finalização", type: "Operacional", active: true },
@@ -19301,14 +19329,14 @@ function NcmModal({ ncm = null, icms = [], api, onFechar }) {
   return (
     <FiscalModalShell titulo={ehEdicao ? "Editar NCM" : "Cadastrar NCM"} sub="NCM centraliza classificação, CEST e regra de ICMS." icone="🧾" erro={erro} salvando={salvando} onFechar={onFechar} onSalvar={salvar} podeSalvar={!!d.codigo.trim()} rotulo={ehEdicao ? "Salvar alterações" : "Cadastrar NCM"}>
       <div className="grid gap-3 sm:grid-cols-2">
-        <div><label className={PP_LBL}>Código NCM *</label><input autoFocus value={d.codigo} onChange={(e) => set("codigo", e.target.value)} placeholder="Ex.: 2106.90.30" className={PP_INP} /></div>
+        <CampoFiscalValidado tipo="ncm" label="Código NCM" obrigatorio valor={d.codigo} onChange={(v) => set("codigo", v)} />
         <div><label className={PP_LBL}>EX TIPI</label><input value={d.exTipi} onChange={(e) => set("exTipi", e.target.value)} placeholder="Ex.: 01" className={PP_INP} /></div>
         <div className="sm:col-span-2"><label className={PP_LBL}>Descrição</label><input value={d.descricao} onChange={(e) => set("descricao", e.target.value)} placeholder="Descrição do NCM" className={PP_INP} /></div>
         <div><label className={PP_LBL}>Unidade</label>
           <select value={d.unidade} onChange={(e) => set("unidade", e.target.value)} className={PP_INP}>
             <option value="">Selecione...</option>{UNIDADES_FISCAIS.map((u) => <option key={u} value={u}>{u}</option>)}
           </select></div>
-        <div><label className={PP_LBL}>CEST (quando aplicável)</label><input value={d.cest} onChange={(e) => set("cest", e.target.value)} placeholder="Ex.: 17.015.00" className={PP_INP} /></div>
+        <CampoFiscalValidado tipo="cest" label="CEST (quando aplicável)" valor={d.cest} onChange={(v) => set("cest", v)} />
         <div className="sm:col-span-2"><label className={PP_LBL}>Regra de ICMS vinculada</label>
           <select value={d.icmsId ?? ""} onChange={(e) => set("icmsId", e.target.value ? Number(e.target.value) : null)} className={PP_INP}>
             <option value="">Sem regra de ICMS</option>
@@ -19541,7 +19569,7 @@ function CestModal({ cest = null, api, onFechar }) {
   return (
     <FiscalModalShell titulo={ehEdicao ? "Editar CEST" : "Cadastrar CEST"} sub="Código Especificador da Substituição Tributária." icone="🏷️" erro={erro} salvando={salvando} onFechar={onFechar} onSalvar={salvar} podeSalvar={!!d.codigo.trim()} rotulo={ehEdicao ? "Salvar alterações" : "Cadastrar CEST"}>
       <div className="grid gap-3 sm:grid-cols-2">
-        <div><label className={PP_LBL}>Código CEST *</label><input autoFocus value={d.codigo} onChange={(e) => set("codigo", e.target.value)} placeholder="Ex.: 17.015.00" className={PP_INP} /></div>
+        <CampoFiscalValidado tipo="cest" label="Código CEST" obrigatorio valor={d.codigo} onChange={(v) => set("codigo", v)} />
         <div className="sm:col-span-2"><label className={PP_LBL}>Descrição</label><input value={d.descricao} onChange={(e) => set("descricao", e.target.value)} placeholder="Descrição do CEST" className={PP_INP} /></div>
       </div>
       <label className="mt-3 flex items-center gap-2 text-sm font-semibold text-[var(--pp-text-body)]"><input type="checkbox" checked={d.ativo} onChange={(e) => set("ativo", e.target.checked)} className="h-4 w-4 accent-[#0F4C5C]" /> CEST ativo</label>
@@ -19596,6 +19624,8 @@ function FiscalLoteView({ produtos = [], categoriasDb = [], ncm = [], icms = [],
   const [simular, setSimular] = useState(false);
   const [confirmar, setConfirmar] = useState(false);
   const [salvando, setSalvando] = useState(false);
+  const [excluidos, setExcluidos] = useState(() => new Set()); // ids desmarcados na lista
+  const [buscaProd, setBuscaProd] = useState("");
 
   const labelDe = (lista, id) => {
     const def = LOTE_CAMPOS.find((c) => c.lista === lista);
@@ -19614,10 +19644,17 @@ function FiscalLoteView({ produtos = [], categoriasDb = [], ncm = [], icms = [],
     if (filtros.situacao !== "todos" && (filtros.situacao === "ativos" ? p.active === false : p.active !== false)) return false;
     return true;
   });
+  // Alvo = produtos do filtro que continuam marcados (não excluídos manualmente)
+  const alvo = filtrados.filter((p) => !excluidos.has(p.id));
   const chaves = Object.keys(alter);
   const mudaProduto = (p) => chaves.some((k) => String(p[k] ?? "") !== String(alter[k] ?? ""));
-  const afetados = chaves.length ? filtrados.filter(mudaProduto) : [];
+  const afetados = chaves.length ? alvo.filter(mudaProduto) : [];
   const temFiltro = filtros.categoriaId || filtros.ncmId || filtros.cfopId || filtros.icmsId || filtros.situacao !== "todos";
+  const visiveisProd = filtrados.filter((p) => `${p.name} ${catNome(p.categoriaId)}`.toLowerCase().includes(buscaProd.toLowerCase()));
+  const todosMarcados = filtrados.length > 0 && alvo.length === filtrados.length;
+  const toggleTodos = () => setExcluidos(todosMarcados ? new Set(filtrados.map((p) => p.id)) : new Set());
+  const toggleProd = (id) => setExcluidos((s) => { const x = new Set(s); x.has(id) ? x.delete(id) : x.add(id); return x; });
+  const chipsFiscais = (p) => LOTE_CAMPOS.map(({ campo, rot, lista }) => p[campo] ? `${rot} ${labelDe(lista, p[campo]).split(" — ")[0]}` : null).filter(Boolean);
 
   const setAlterCampo = (campo, raw) => setAlter((c) => {
     const n = { ...c };
@@ -19657,7 +19694,37 @@ function FiscalLoteView({ produtos = [], categoriasDb = [], ncm = [], icms = [],
             <button onClick={() => setFiltros({ categoriaId: "", ncmId: "", cfopId: "", icmsId: "", situacao: "todos" })} className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-xs font-black text-slate-300 transition hover:bg-white/[0.08]">Limpar filtros</button>
           </div>
         </div>
-        <p className="mt-3 text-sm font-semibold text-slate-300"><b className="text-white">{filtrados.length}</b> produto(s) no filtro{temFiltro ? "" : " (todos)"}.</p>
+        <p className="mt-3 text-sm font-semibold text-slate-300"><b className="text-white">{filtrados.length}</b> produto(s) no filtro{temFiltro ? "" : " (todos)"} · <b className="text-[#2F9E52]">{alvo.length}</b> marcado(s) para receber a alteração.</p>
+
+        {/* Lista de seleção — marque todos ou escolha produto a produto */}
+        {filtrados.length > 0 && (
+          <div className="mt-3 rounded-2xl border border-white/10 bg-slate-950/30 p-3">
+            <div className="mb-2 flex flex-wrap items-center gap-2">
+              <label className="flex items-center gap-2 text-xs font-black text-slate-200">
+                <input type="checkbox" checked={todosMarcados} onChange={toggleTodos} className="h-4 w-4 accent-[#0F4C5C]" /> Selecionar todos ({filtrados.length})
+              </label>
+              <div className="relative ml-auto min-w-[180px] flex-1 sm:max-w-xs">
+                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-500"><IconBusca /></span>
+                <input value={buscaProd} onChange={(e) => setBuscaProd(e.target.value)} placeholder="Filtrar por nome nesta lista..." className="w-full rounded-xl border border-white/10 bg-slate-950/70 py-2 pl-8 pr-3 text-xs text-white outline-none" />
+              </div>
+            </div>
+            <div className="max-h-64 space-y-1.5 overflow-y-auto pr-1">
+              {visiveisProd.map((p) => (
+                <label key={p.id} className={`flex cursor-pointer items-center gap-2.5 rounded-xl border px-3 py-2 transition ${excluidos.has(p.id) ? "border-white/5 bg-transparent opacity-60" : "border-white/10 bg-white/[0.04]"}`}>
+                  <input type="checkbox" checked={!excluidos.has(p.id)} onChange={() => toggleProd(p.id)} className="h-4 w-4 shrink-0 accent-[#0F4C5C]" />
+                  <img src={p.imageUrl || fallbackImage} alt="" className="h-8 w-8 shrink-0 rounded-lg object-cover" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-bold text-white">{p.name} <span className="text-[11px] font-semibold text-slate-500">· {catNome(p.categoriaId)}</span></p>
+                    <div className="flex flex-wrap gap-1">
+                      {chipsFiscais(p).length ? chipsFiscais(p).map((c, i) => <span key={i} className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[10px] font-semibold text-slate-400">{c}</span>) : <span className="text-[10px] text-amber-400">sem vínculos fiscais</span>}
+                    </div>
+                  </div>
+                </label>
+              ))}
+              {visiveisProd.length === 0 && <p className="py-3 text-center text-xs text-slate-500">Nenhum produto neste filtro/busca.</p>}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 2 — Alterações */}
@@ -19720,6 +19787,43 @@ function FiscalLoteView({ produtos = [], categoriasDb = [], ncm = [], icms = [],
           confirmar={salvando ? "Aplicando…" : `Sim, atualizar ${afetados.length}`}
           onConfirmar={confirmarAplicar} onCancelar={() => setConfirmar(false)} />
       )}
+    </div>
+  );
+}
+
+// Campo de NCM/CEST com máscara automática e validação na base nacional.
+// A validação roda no evento (não em efeito) para não disparar regras de
+// pureza do compilador; um token de sequência descarta respostas obsoletas.
+function CampoFiscalValidado({ tipo, valor, onChange, label, obrigatorio = false }) {
+  const [status, setStatus] = useState(null); // { estado, msg }
+  const seqRef = React.useRef(0);
+  const mascara = tipo === "ncm" ? mascaraNcm : mascaraCest;
+  const tam = tipo === "ncm" ? 8 : 7;
+  const ph = tipo === "ncm" ? "0000.00.00" : "00.000.00";
+
+  async function handle(v) {
+    const m = mascara(v);
+    onChange(m);
+    const dig = soDigitos(m);
+    if (dig.length === 0) { setStatus(null); return; }
+    if (dig.length < tam) { setStatus({ estado: "incompleto", msg: `Faltam ${tam - dig.length} dígito(s).` }); return; }
+    if (tipo === "cest") { setStatus({ estado: "formato", msg: "Formato de CEST válido (7 dígitos)." }); return; }
+    const meu = ++seqRef.current;
+    setStatus({ estado: "validando", msg: "Consultando base nacional…" });
+    const r = await validarNcmNacional(dig);
+    if (meu === seqRef.current) setStatus(r);
+  }
+
+  const cor = { valido: "#2F9E52", formato: "#2F9E52", invalido: "#C81E4A", incompleto: "#B4611A", validando: "#0F4C5C", erro: "#B4611A" }[status?.estado] || "";
+  const icone = { valido: "✅", formato: "✅", invalido: "❌", incompleto: "…", validando: "⏳", erro: "ⓘ" }[status?.estado] || "";
+  const borda = status?.estado === "invalido" ? "border-[#C81E4A]" : status?.estado === "valido" || status?.estado === "formato" ? "border-[#2F9E52]" : "border-[var(--pp-border)]";
+
+  return (
+    <div>
+      <label className={PP_LBL}>{label}{obrigatorio ? " *" : ""}</label>
+      <input value={valor || ""} onChange={(e) => handle(e.target.value)} placeholder={ph} inputMode="numeric"
+        className={`${PP_INP.replace("border-[var(--pp-border)]", borda)}`} />
+      {status && <p className="mt-1 flex items-center gap-1 text-[11px] font-semibold" style={{ color: cor }}>{icone} {status.msg}</p>}
     </div>
   );
 }
