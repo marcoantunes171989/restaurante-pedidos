@@ -803,6 +803,143 @@ const _catCstCofins = crudCatalogoGlobal('fiscal_catalogo_cst_cofins', 'codigo',
 export const fetchCatCstCofins = _catCstCofins.fetchAll, inserirCatCstCofins = _catCstCofins.inserir, atualizarCatCstCofins = _catCstCofins.atualizar, excluirCatCstCofins = _catCstCofins.excluir, escutarCatCstCofins = _catCstCofins.escutar
 
 // ════════════════════════════════════════════════════════════
+//  CENTRAL FISCAL PRIME — REGRAS FISCAIS + VERSÃO (migration 086)
+//  Regra = cabeçalho (identidade) + versões. Cada versão traz o contexto
+//  da operação, os tributos, a vigência e o status. Publicar uma versão
+//  substitui a anterior (nunca sobrescreve). Globais, escrita só super.
+// ════════════════════════════════════════════════════════════
+function dbParaRegra(r) {
+  return {
+    id: r.id, nome: r.nome, descricao: r.descricao ?? '', segmento: r.segmento ?? '',
+    regime: r.regime ?? '', versaoAtual: r.versao_atual ?? null, status: r.status ?? 'rascunho',
+    fonte: r.fonte ?? '', ativo: r.ativo !== false, criadoEmISO: r.criado_em ?? null,
+  }
+}
+function regraParaDb(p) {
+  return {
+    nome: p.nome, descricao: p.descricao || null, segmento: p.segmento || null,
+    regime: p.regime || null, fonte: p.fonte || null, ativo: p.ativo !== false,
+  }
+}
+function dbParaRegraVersao(r) {
+  return {
+    id: r.id, regraId: r.regra_id, versao: r.versao ?? 1, status: r.status ?? 'rascunho',
+    tipoOperacao: r.tipo_operacao ?? '', modeloDocumento: r.modelo_documento ?? '',
+    ufOrigem: r.uf_origem ?? '', ufDestino: r.uf_destino ?? '', ambito: r.ambito ?? '',
+    consumidorFinal: r.consumidor_final === true, contribuinteIcms: r.contribuinte_icms === true,
+    ncmCodigo: r.ncm_codigo ?? '', cestCodigo: r.cest_codigo ?? '', cfopCodigo: r.cfop_codigo ?? '',
+    cstIcms: r.cst_icms ?? '', csosn: r.csosn ?? '',
+    icmsAliquota: Number(r.icms_aliquota ?? 0), icmsReducao: Number(r.icms_reducao ?? 0),
+    fcpAliquota: Number(r.fcp_aliquota ?? 0), icmsSt: r.icms_st === true, mva: Number(r.mva ?? 0),
+    cstPis: r.cst_pis ?? '', pisAliquota: Number(r.pis_aliquota ?? 0),
+    cstCofins: r.cst_cofins ?? '', cofinsAliquota: Number(r.cofins_aliquota ?? 0),
+    ipiCst: r.ipi_cst ?? '', ipiAliquota: Number(r.ipi_aliquota ?? 0),
+    ibsAliquota: Number(r.ibs_aliquota ?? 0), cbsAliquota: Number(r.cbs_aliquota ?? 0),
+    impostoSeletivo: Number(r.imposto_seletivo ?? 0), beneficioCbenef: r.beneficio_cbenef ?? '',
+    observacao: r.observacao ?? '', vigenciaInicio: r.vigencia_inicio ?? '', vigenciaFim: r.vigencia_fim ?? '',
+    fonte: r.fonte ?? '', fonteReferencia: r.fonte_referencia ?? '',
+    criadoEmISO: r.criado_em ?? null, publicadoEmISO: r.publicado_em ?? null,
+  }
+}
+function _n2(v) { const n = Number(String(v ?? '').replace(',', '.')); return Number.isFinite(n) ? n : 0 }
+function versaoParaDb(p) {
+  return {
+    tipo_operacao: p.tipoOperacao || null, modelo_documento: p.modeloDocumento || null,
+    uf_origem: p.ufOrigem || null, uf_destino: p.ufDestino || null, ambito: p.ambito || null,
+    consumidor_final: !!p.consumidorFinal, contribuinte_icms: !!p.contribuinteIcms,
+    ncm_codigo: p.ncmCodigo || null, cest_codigo: p.cestCodigo || null, cfop_codigo: p.cfopCodigo || null,
+    cst_icms: p.cstIcms || null, csosn: p.csosn || null,
+    icms_aliquota: _n2(p.icmsAliquota), icms_reducao: _n2(p.icmsReducao), fcp_aliquota: _n2(p.fcpAliquota),
+    icms_st: !!p.icmsSt, mva: _n2(p.mva),
+    cst_pis: p.cstPis || null, pis_aliquota: _n2(p.pisAliquota),
+    cst_cofins: p.cstCofins || null, cofins_aliquota: _n2(p.cofinsAliquota),
+    ipi_cst: p.ipiCst || null, ipi_aliquota: _n2(p.ipiAliquota),
+    ibs_aliquota: _n2(p.ibsAliquota), cbs_aliquota: _n2(p.cbsAliquota), imposto_seletivo: _n2(p.impostoSeletivo),
+    beneficio_cbenef: p.beneficioCbenef || null, observacao: p.observacao || null,
+    vigencia_inicio: p.vigenciaInicio || null, vigencia_fim: p.vigenciaFim || null,
+    fonte: p.fonte || null, fonte_referencia: p.fonteReferencia || null,
+  }
+}
+
+export async function fetchFiscalRegras() {
+  const { data, error } = await supabase.from('fiscal_regra').select('*').order('nome', { ascending: true })
+  if (error) return []
+  return (data || []).map(dbParaRegra)
+}
+export async function fetchFiscalRegraVersoes() {
+  const { data, error } = await supabase.from('fiscal_regra_versao').select('*').order('versao', { ascending: true })
+  if (error) return []
+  return (data || []).map(dbParaRegraVersao)
+}
+// Cria a regra + a versão 1 (rascunho). Retorna { regra, versao }.
+export async function inserirFiscalRegra(regra, versaoInicial = {}) {
+  const linha = regraParaDb(regra); if (regra.criadoPor != null) linha.criado_por = regra.criadoPor
+  const { data: r, error } = await supabase.from('fiscal_regra').insert([linha]).select().single()
+  if (error) throw error
+  const v = versaoParaDb(versaoInicial); v.regra_id = r.id; v.versao = 1; v.status = 'rascunho'
+  if (regra.criadoPor != null) v.criado_por = regra.criadoPor
+  const { data: vr, error: e2 } = await supabase.from('fiscal_regra_versao').insert([v]).select().single()
+  if (e2) throw e2
+  return { regra: dbParaRegra(r), versao: dbParaRegraVersao(vr) }
+}
+export async function atualizarFiscalRegra(id, campos) {
+  const patch = regraParaDb(campos); patch.atualizado_em = new Date().toISOString()
+  if (campos.atualizadoPor != null) patch.atualizado_por = campos.atualizadoPor
+  const { error } = await supabase.from('fiscal_regra').update(patch).eq('id', id)
+  if (error) throw error
+}
+// Atualiza uma versão em RASCUNHO (guardado no front: publicadas não editam).
+export async function atualizarFiscalRegraVersao(id, campos) {
+  const { error } = await supabase.from('fiscal_regra_versao').update(versaoParaDb(campos)).eq('id', id)
+  if (error) throw error
+}
+// Publica uma versão: marca a publicada anterior como "substituida", esta como
+// "publicada" e atualiza o cabeçalho (versao_atual + status). Sem RPC → sequência.
+export async function publicarFiscalRegraVersao({ regraId, versaoId, versao, usuarioId = null }) {
+  await supabase.from('fiscal_regra_versao').update({ status: 'substituida' })
+    .eq('regra_id', regraId).eq('status', 'publicada')
+  const { error } = await supabase.from('fiscal_regra_versao')
+    .update({ status: 'publicada', publicado_em: new Date().toISOString(), ...(usuarioId != null ? { publicado_por: usuarioId } : {}) })
+    .eq('id', versaoId)
+  if (error) throw error
+  await supabase.from('fiscal_regra').update({ versao_atual: versao, status: 'publicada', atualizado_em: new Date().toISOString() }).eq('id', regraId)
+}
+// Nova versão: clona a versão base num novo rascunho (versao = max+1).
+export async function novaVersaoFiscalRegra({ regraId, base, usuarioId = null }) {
+  const { data: existentes } = await supabase.from('fiscal_regra_versao').select('versao').eq('regra_id', regraId)
+  const prox = (existentes || []).reduce((m, x) => Math.max(m, x.versao || 0), 0) + 1
+  const v = versaoParaDb(base); v.regra_id = regraId; v.versao = prox; v.status = 'rascunho'
+  if (usuarioId != null) v.criado_por = usuarioId
+  const { data: vr, error } = await supabase.from('fiscal_regra_versao').insert([v]).select().single()
+  if (error) throw error
+  await supabase.from('fiscal_regra').update({ status: 'rascunho', atualizado_em: new Date().toISOString() }).eq('id', regraId)
+  return dbParaRegraVersao(vr)
+}
+export async function inativarFiscalRegra(regraId, inativa = true) {
+  const st = inativa ? 'inativa' : 'rascunho'
+  await supabase.from('fiscal_regra').update({ status: st, ativo: !inativa, atualizado_em: new Date().toISOString() }).eq('id', regraId)
+  if (inativa) await supabase.from('fiscal_regra_versao').update({ status: 'inativa' }).eq('regra_id', regraId).neq('status', 'substituida')
+}
+export async function excluirFiscalRegra(regraId) {
+  const { error } = await supabase.from('fiscal_regra').delete().eq('id', regraId)
+  if (error) throw error
+}
+export function escutarFiscalRegras(onMudanca) {
+  const reload = async () => { try { onMudanca(await fetchFiscalRegras()) } catch { /* migration 086 pendente */ } }
+  const canal = supabase.channel('ch_fiscal_regra_' + Math.random().toString(36).slice(2))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'fiscal_regra' }, reload)
+    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
+  return () => supabase.removeChannel(canal)
+}
+export function escutarFiscalRegraVersoes(onMudanca) {
+  const reload = async () => { try { onMudanca(await fetchFiscalRegraVersoes()) } catch { /* migration 086 pendente */ } }
+  const canal = supabase.channel('ch_fiscal_regra_versao_' + Math.random().toString(36).slice(2))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'fiscal_regra_versao' }, reload)
+    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
+  return () => supabase.removeChannel(canal)
+}
+
+// ════════════════════════════════════════════════════════════
 //  Setores de cozinha (migration 041) — CRUD + Realtime (tolerante)
 // ════════════════════════════════════════════════════════════
 function dbParaSetor(r) {
