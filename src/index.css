@@ -1266,12 +1266,18 @@ select::-ms-expand { display: none; } /* IE/Edge antigo */
    O essencial (marca, headline, benefícios, estabelecimentos) fica sempre. */
 @media (max-height: 900px) { .pp-login-optional { display: none !important; } }
 
-/* Tela de boas-vindas (QR mesa / link externo) — layout mobile do mockup.
-   Essencial: marca, mesa/status, destaques, CTA. Em alturas baixas, oculta
-   blocos secundários para evitar corte e scroll lateral. */
-@media (max-height: 720px) { .pp-mesa-welcome .pp-mesa-opt1 { display: none !important; } }
-@media (max-height: 640px) { .pp-mesa-welcome .pp-mesa-opt-sub { display: none !important; } }
-.pp-mesa-welcome { overflow-x: hidden; max-width: 100vw; }
+/* Tela de boas-vindas (QR mesa / link externo) — UMA tela no celular,
+   sem rolar: marca + mesa + carrossel 1 produto + CTA + rodapé sempre visível.
+   Em alturas baixas, oculta blocos secundários para caber o essencial. */
+@media (max-height: 700px) { .pp-mesa-welcome .pp-mesa-opt1 { display: none !important; } }
+@media (max-height: 620px) { .pp-mesa-welcome .pp-mesa-opt-sub { display: none !important; } }
+.pp-mesa-welcome {
+  overflow: hidden;
+  overflow-x: hidden;
+  max-width: 100vw;
+  overscroll-behavior: none;
+  touch-action: pan-y;
+}
 
 /* Remove a barra de rolagem lateral da página inteira (scroll continua
    funcional, só a barra visual some) — overflow-x:hidden já garantido
