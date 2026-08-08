@@ -105,6 +105,21 @@ export async function atualizarProduto(id, campos) {
   if (error) throw error
 }
 
+// Atualização fiscal em lote (migration 081/082) — aplica os mesmos campos de
+// vínculo (ncm_id/cfop_id/pis_id/cofins_id/ipi_id/cest_id) a vários produtos de
+// uma vez. Tolera colunas ausentes. `patch` já vem no formato de coluna do banco.
+export async function atualizarProdutosFiscalLote(ids, patch) {
+  if (!Array.isArray(ids) || ids.length === 0 || !patch || Object.keys(patch).length === 0) return
+  let { error } = await supabase.from('tab_produtos').update(patch).in('id', ids)
+  if (error && COLS_PRODUTO_OPCIONAIS.some((c) => c in patch) && ehColunaAusente(error, 'column')) {
+    const rest = { ...patch }
+    COLS_PRODUTO_OPCIONAIS.forEach((c) => delete rest[c])
+    if (Object.keys(rest).length === 0) return
+    ;({ error } = await supabase.from('tab_produtos').update(rest).in('id', ids))
+  }
+  if (error) throw error
+}
+
 export function escutarProdutos(onMudanca) {
   const reload = async () => {
     const { data, error } = await supabase
