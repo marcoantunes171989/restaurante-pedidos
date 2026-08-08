@@ -445,6 +445,47 @@ export function escutarOpcoes(onMudanca) {
 }
 
 // ════════════════════════════════════════════════════════════
+//  Perfis fiscais reutilizáveis (migration 080) — CRUD + Realtime (tolerante)
+// ════════════════════════════════════════════════════════════
+function dbParaFiscalPerfil(r) {
+  return { id: r.id, lojaId: r.loja_id ?? null, nome: r.nome, dados: (r.dados && typeof r.dados === 'object') ? r.dados : {}, ativo: r.ativo !== false }
+}
+export async function fetchFiscalPerfis(lojaId = null) {
+  let q = supabase.from('tab_fiscal_perfis').select('*').order('nome', { ascending: true })
+  if (lojaId != null) q = q.eq('loja_id', lojaId)
+  const { data, error } = await q
+  if (error) return []
+  return (data || []).map(dbParaFiscalPerfil)
+}
+export async function inserirFiscalPerfil(p) {
+  const { data, error } = await supabase.from('tab_fiscal_perfis')
+    .insert([{ loja_id: p.lojaId ?? null, nome: p.nome, dados: p.dados || {}, ativo: p.ativo !== false }])
+    .select().single()
+  if (error) throw error
+  return dbParaFiscalPerfil(data)
+}
+export async function atualizarFiscalPerfil(id, campos) {
+  const patch = {}
+  if (campos.nome !== undefined) patch.nome = campos.nome
+  if (campos.dados !== undefined) patch.dados = campos.dados
+  if (campos.ativo !== undefined) patch.ativo = campos.ativo
+  patch.atualizado_em = new Date().toISOString()
+  const { error } = await supabase.from('tab_fiscal_perfis').update(patch).eq('id', id)
+  if (error) throw error
+}
+export async function excluirFiscalPerfil(id) {
+  const { error } = await supabase.from('tab_fiscal_perfis').delete().eq('id', id)
+  if (error) throw error
+}
+export function escutarFiscalPerfis(onMudanca) {
+  const reload = async () => { try { onMudanca(await fetchFiscalPerfis()) } catch { /* migration 080 pendente */ } }
+  const canal = supabase.channel('ch_fiscal_perfis_' + Math.random().toString(36).slice(2))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_fiscal_perfis' }, reload)
+    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
+  return () => supabase.removeChannel(canal)
+}
+
+// ════════════════════════════════════════════════════════════
 //  Setores de cozinha (migration 041) — CRUD + Realtime (tolerante)
 // ════════════════════════════════════════════════════════════
 function dbParaSetor(r) {
