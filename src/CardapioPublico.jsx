@@ -100,6 +100,14 @@ function diaTemHorario(horarios, agora = new Date(), fuso) {
   const { dia } = diaEHoraNoFuso(fuso, agora);
   return /\d/.test(String((horarios || {})[dia] || ""));
 }
+/** Horário de fechamento de hoje (ex.: "23:00"), ou null se não cadastrado. */
+function horarioFechaHoje(horarios, agora = new Date(), fuso) {
+  const { dia } = diaEHoraNoFuso(fuso, agora);
+  const faixa = String((horarios || {})[dia] || "");
+  if (!/\d/.test(faixa)) return null;
+  const fecha = faixa.split("–").map((s) => (s || "").trim())[1] || "";
+  return /^\d{1,2}:\d{2}$/.test(fecha) ? fecha : null;
+}
 // Respeita prefers-reduced-motion nas rolagens programáticas (clique em
 // categoria/"Todos"/oferta e centralização do chip) — usa "auto" (instantâneo)
 // em vez de "smooth" quando o usuário pediu menos movimento no sistema.
@@ -1494,177 +1502,240 @@ export default function CardapioPublico() {
     );
   }
 
-  // ── Tela de boas-vindas (somente no modo mesa via QR) ──────────
+  // ── Tela de boas-vindas (QR da mesa / link externo) ──────────
+  // Layout fiel ao mockup mobile: marca, mesa + status, grade de
+  // destaques reais, boas-vindas e CTA — sem scroll horizontal.
   if (etapa === "welcome") {
-    // Status de funcionamento só aparece quando HÁ horário cadastrado para hoje
-    // (sem configuração não há o que informar — evita "Fechado" enganoso).
     const temHorarioHoje = diaTemHorario(cfgExt.horarios, agora, cfgExt.fusoHorario);
     const lojaStatus = abertoAgora ? "aberto" : temHorarioHoje ? "fechado" : null;
+    const fechaHoje = horarioFechaHoje(cfgExt.horarios, agora, cfgExt.fusoHorario);
     const versaoApp = (typeof __APP_VERSION__ !== "undefined") ? __APP_VERSION__ : "local";
-    // Destaques do carrossel (até 6) com DADOS REAIS: prioriza produtos em
-    // DESTAQUE e garante 1 bebida; completa com os demais disponíveis.
-    const catNomeDe = (p) => p.category || catNomePorId[p.categoriaId] || "";
-    const ehBebida = (p) => /bebida|suco|refri|drink|[áa]gua|cerveja|refrigerante|chopp|vinho|caf[ée]|ch[áa]/i.test(catNomeDe(p));
-    const dispon = produtos.filter((p) => p.disponivel !== false);
-    const destaquesProd = dispon.filter((p) => p.badge);
-    const bebidasProd = dispon.filter(ehBebida);
-    const slides = [];
-    const addSlide = (p) => { if (p && !slides.some((x) => x.id === p.id) && slides.length < 6) slides.push(p); };
-    destaquesProd.forEach(addSlide);                 // 1) destaques como prioridade
-    addSlide(bebidasProd.find((b) => !slides.some((x) => x.id === b.id)) || bebidasProd[0]); // 2) garante 1 bebida
-    dispon.forEach(addSlide);                         // 3) completa até 6
-    const nSlides = slides.length;
-    const slideAtual = nSlides ? Math.min(welcomeSlide, nSlides - 1) : 0;
-    const IconeMini = {
-      escudo: (p) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M12 3l7 3v5c0 4.5-3 7.6-7 9-4-1.4-7-4.5-7-9V6l7-3Z" /><path d="M9.2 12.2l2 2 3.6-3.8" /></svg>),
-      relogio: (p) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...p}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>),
-      selo: (p) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M12 2l2.4 4.9 5.4.8-3.9 3.8.9 5.4L12 19l-4.8 2.5.9-5.4L4.2 8.7l5.4-.8L12 2Z" /></svg>),
-      presente: (p) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...p}><rect x="3" y="8" width="18" height="4" rx="1" /><path d="M5 12v8h14v-8M12 8v12M12 8S9.5 3.5 7.5 5 12 8 12 8ZM12 8s2.5-4.5 4.5-3S12 8 12 8Z" /></svg>),
-      cadeado: (p) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" {...p}><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>),
-      fogo: (p) => (<svg viewBox="0 0 24 24" fill="currentColor" {...p}><path d="M12 2c1 3 4 4.5 4 8a4 4 0 0 1-8 0c0-1.2.4-2.2 1-3-.2 2 .8 3 2 3 1.2 0 2-1 2-2.2C15 8 12 6 12 2Z" /></svg>),
-      fone: (p) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M4 13v-1a8 8 0 0 1 16 0v1" /><rect x="3" y="13" width="4" height="6" rx="1.4" /><rect x="17" y="13" width="4" height="6" rx="1.4" /><path d="M20 19a3 3 0 0 1-3 3h-3" /></svg>),
-      ajuda: (p) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...p}><circle cx="12" cy="12" r="9" /><path d="M9.2 9.2a2.8 2.8 0 0 1 5.4 1c0 1.9-2.6 1.9-2.6 3.6" /><path d="M12 17.2h.01" /></svg>),
-      sol: (p) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...p}><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg>),
-      sino: (p) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6Z" /><path d="M10 19a2 2 0 0 0 4 0" /></svg>),
-    };
-    return (
-      <div data-theme="light" className={`pp-mesa-welcome tema-claro-area flex h-[100dvh] max-h-[100dvh] w-full max-w-[100vw] flex-col overflow-y-auto scrollbar-none bg-[var(--client-background)] px-5 text-[var(--client-text-primary)] ${modoExterno ? "pp-welcome-ext" : ""}`}
-        style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.5rem)", paddingBottom: "calc(env(safe-area-inset-bottom) + 0.5rem)" }}>
-        {/* my-auto centraliza verticalmente quando cabe (tela única, sem rolar);
-            se em telas muito baixas o conteúdo exceder, o my-auto colapsa e o
-            container rola — os botões continuam sempre acessíveis (nunca cortados). */}
-        <div className="mx-auto my-auto flex w-full max-w-md flex-col gap-[clamp(0.4rem,1.3vh,0.85rem)]">
-          {/* Marca */}
-          <div className="flex flex-col items-center text-center">
-            {loja.logoUrl ? <img src={loja.logoUrl} alt="" className="h-[clamp(44px,7vh,60px)] w-[clamp(44px,7vh,60px)] rounded-2xl border border-[var(--client-border)] object-cover shadow-[var(--client-shadow-sm)]" /> : <LogoPP size={52} />}
-            <h1 className="page-title mt-1.5 text-[clamp(1.15rem,2.4vh,1.5rem)] font-bold tracking-tight text-[var(--client-text-primary)]">{loja.nome}</h1>
-            <div className="mt-1 flex items-center gap-2 text-sm text-[var(--client-primary)]" aria-hidden="true">
-              <span className="h-px w-6 bg-[var(--client-border)]" />★★★<span className="h-px w-6 bg-[var(--client-border)]" />
-            </div>
-            {(currentTable || lojaStatus) && (
-              <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
-                {currentTable && <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--client-primary-border)] bg-[var(--client-primary-soft)] px-4 py-1.5 text-sm font-bold text-[var(--client-primary-hover)]"><CkIconMesa width={14} height={14} /> {currentTable}</span>}
-                {lojaStatus === "aberto" && <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--client-success-border)] bg-[var(--client-success-soft)] px-3.5 py-1.5 text-sm font-bold text-[var(--client-success)]"><span className="h-1.5 w-1.5 rounded-full bg-[var(--client-success)]" aria-hidden="true" /> Aberto agora</span>}
-                {lojaStatus === "fechado" && <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--client-status-neutral-border)] bg-[var(--client-status-neutral-soft)] px-3.5 py-1.5 text-sm font-bold text-[var(--client-status-neutral)]"><CkIconRelogio width={13} height={13} /> Fechado no momento</span>}
-              </div>
-            )}
-          </div>
+    const partesNome = String(loja.nome || "").trim().split(/\s+/).filter(Boolean);
+    const nomePrimario = partesNome[0] || loja.nome || "Estabelecimento";
+    const nomeSecundario = partesNome.slice(1).join(" ");
 
-          {/* Carrossel de destaques (dados reais) — altura fluida por vh para
-              caber junto do resto numa única tela; conteúdo interno também
-              encolhe por clamp. */}
-          {nSlides > 0 && (
-            <div className="relative mt-3">
-              <div className="flex snap-x snap-mandatory overflow-x-auto scrollbar-none rounded-[1.5rem]"
-                onScroll={(e) => { const w = e.currentTarget.clientWidth; if (w) setWelcomeSlide(Math.round(e.currentTarget.scrollLeft / w)); }}>
-                {slides.map((p, i) => (
-                  <article key={p.id} className="relative flex h-[clamp(150px,23vh,222px)] w-full shrink-0 snap-center overflow-hidden rounded-[1.5rem]" style={{ background: "#0E2A33" }}>
-                    <img src={p.imageUrl || fallbackImage} alt={p.name} loading={i === 0 ? "eager" : "lazy"} decoding="async"
-                      onError={(e) => { if (e.currentTarget.src !== fallbackImage) e.currentTarget.src = fallbackImage; }}
-                      className="absolute inset-y-0 right-0 h-full w-[62%] object-cover" />
-                    <div className="absolute inset-0" style={{ background: "linear-gradient(90deg, #0E2A33 34%, rgba(14,42,51,0.85) 52%, rgba(14,42,51,0) 78%)" }} />
-                    <span className="absolute right-3 top-3 rounded-full bg-black/35 px-2.5 py-0.5 text-[10px] font-bold text-white backdrop-blur-sm">{i + 1} / {nSlides}</span>
-                    <div className="relative z-10 flex w-[64%] flex-col justify-center p-4">
-                      {p.badge && (
-                        <span className="mb-1.5 inline-flex w-fit items-center gap-1 rounded-full bg-[var(--client-primary)] px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-white shadow-[0_4px_14px_rgba(230,126,34,0.4)]">
-                          <IconeMini.fogo width={11} height={11} /> {p.badge}
-                        </span>
-                      )}
-                      <h2 className="page-title text-[clamp(16px,2.4vh,20px)] font-black leading-[1.1] text-white line-clamp-2">{p.name}</h2>
-                      {p.description && <p className="mt-1 line-clamp-2 text-[11px] leading-snug text-white/75">{p.description}</p>}
-                      <p className="mt-1.5 text-lg font-black text-[var(--client-primary)]">{formatCurrency(p.price)}</p>
-                      <button onClick={() => setDetalhe(p)} className="mt-2 inline-flex w-fit items-center gap-2 rounded-xl bg-white px-3.5 py-1.5 text-[12px] font-black text-[#0E2A33] shadow-sm transition active:scale-95">
-                        Ver detalhes <span aria-hidden="true">→</span>
-                      </button>
-                    </div>
-                  </article>
-                ))}
-              </div>
-              {nSlides > 1 && (
-                <div className="mt-2 flex justify-center gap-1.5">
-                  {slides.map((_, i) => <span key={i} className={`h-1.5 rounded-full transition-all duration-200 ${i === slideAtual ? "w-4 bg-[var(--client-primary)]" : "w-1.5 bg-[var(--client-border)]"}`} />)}
+    // Destaques REAIS: isFeatured → badge → demais disponíveis (visíveis no QR).
+    const dispon = produtos.filter((p) => p.disponivel !== false);
+    const ordenarDestaque = (a, b) => (Number(a.featuredOrder) || 0) - (Number(b.featuredOrder) || 0);
+    const featured = dispon.filter((p) => p.isFeatured).sort(ordenarDestaque);
+    const comBadge = dispon.filter((p) => p.badge && !featured.some((f) => f.id === p.id));
+    const resto = dispon.filter((p) => !featured.some((f) => f.id === p.id) && !comBadge.some((f) => f.id === p.id));
+    const destaques = [...featured, ...comBadge, ...resto].slice(0, 18);
+    const porPagina = 6;
+    const totalPaginas = Math.max(1, Math.ceil(destaques.length / porPagina));
+    const paginaAtual = Math.min(welcomeSlide, totalPaginas - 1);
+    const paginaItens = destaques.slice(paginaAtual * porPagina, paginaAtual * porPagina + porPagina);
+    const irPagina = (dir) => setWelcomeSlide((cur) => {
+      const n = Math.min(Math.max(cur, 0), totalPaginas - 1);
+      return Math.min(Math.max(n + dir, 0), totalPaginas - 1);
+    });
+    const descCurta = (p) => {
+      const d = String(p.description || p.category || catNomePorId[p.categoriaId] || "").trim();
+      if (!d) return "Destaque da casa";
+      return d.length > 42 ? `${d.slice(0, 40)}…` : d;
+    };
+
+    return (
+      <div data-theme="light" className={`pp-mesa-welcome tema-claro-area relative flex min-h-[100dvh] w-full max-w-[100vw] flex-col overflow-x-hidden overflow-y-auto scrollbar-none bg-[#F7F4EF] text-[var(--client-text-primary)] ${modoExterno ? "pp-welcome-ext" : ""}`}
+        style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)", paddingBottom: "calc(env(safe-area-inset-bottom) + 0.75rem)" }}>
+        {/* Marca d'água decorativa — não inventa produto; só atmosfera */}
+        <div aria-hidden="true" className="pointer-events-none absolute -right-6 top-2 h-36 w-36 opacity-[0.07]" style={{ background: "radial-gradient(circle at 40% 40%, #0F4C5C 0%, transparent 65%)" }} />
+
+        <div className="relative mx-auto flex w-full max-w-[420px] flex-col px-4 sm:px-5">
+          {/* ── Marca ── */}
+          <header className="flex flex-col items-center text-center">
+            {loja.logoUrl ? (
+              <img src={loja.logoUrl} alt={`Logo ${loja.nome}`} className="h-[72px] w-[72px] rounded-full border-[3px] border-white object-cover shadow-[0_8px_24px_rgba(15,76,92,0.14)]" onError={(e) => { e.currentTarget.style.display = "none"; }} />
+            ) : (
+              <span className="flex h-[72px] w-[72px] items-center justify-center rounded-full border-[3px] border-white bg-white text-2xl font-black shadow-[0_8px_24px_rgba(15,76,92,0.14)]" aria-hidden="true">
+                <span className="text-[#0F4C5C]">{(loja.prefixo || nomePrimario).slice(0, 1)}</span>
+                <span className="text-[#E67E22]">{(loja.prefixo || nomePrimario).slice(1, 2) || ""}</span>
+              </span>
+            )}
+            <h1 className="mt-3 font-black leading-none tracking-tight">
+              <span className="text-[clamp(1.55rem,6.5vw,1.9rem)] text-[#0F4C5C]">{nomePrimario}</span>
+              {nomeSecundario ? <span className="text-[clamp(1.55rem,6.5vw,1.9rem)] text-[#E67E22]"> {nomeSecundario}</span> : null}
+            </h1>
+            <div className="mt-2 flex items-center gap-2.5">
+              <span className="h-px w-8 bg-[#E67E22]/70" aria-hidden="true" />
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#0F4C5C]">Cardápio digital</p>
+              <span className="h-px w-8 bg-[#E67E22]/70" aria-hidden="true" />
+            </div>
+          </header>
+
+          {/* ── Mesa + status de atendimento ── */}
+          {(currentTable || lojaStatus) && (
+            <div className="mt-4 grid grid-cols-2 gap-2.5">
+              {currentTable ? (
+                <div className="flex min-w-0 items-center gap-2.5 rounded-2xl border border-white bg-white px-3 py-3 shadow-[0_6px_18px_rgba(15,76,92,0.07)]">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#FCEFE1] text-[#E67E22]"><CkIconMesa width={20} height={20} /></span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-[15px] font-black text-[#0F4C5C]">{currentTable}</span>
+                    <span className="block text-[11px] font-medium text-[#6B7280]">Sua comanda</span>
+                  </span>
+                </div>
+              ) : (
+                <div className="flex min-w-0 items-center gap-2.5 rounded-2xl border border-white bg-white px-3 py-3 shadow-[0_6px_18px_rgba(15,76,92,0.07)]">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#FCEFE1] text-[#E67E22]"><CkIconLoja width={20} height={20} /></span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-[15px] font-black text-[#0F4C5C]">Pedido online</span>
+                    <span className="block text-[11px] font-medium text-[#6B7280]">Cardápio externo</span>
+                  </span>
                 </div>
               )}
+              <div className="flex min-w-0 items-center gap-2.5 rounded-2xl border border-white bg-white px-3 py-3 shadow-[0_6px_18px_rgba(15,76,92,0.07)]">
+                {lojaStatus === "aberto" ? (
+                  <>
+                    <span className="relative flex h-10 w-10 shrink-0 items-center justify-center">
+                      <span className="absolute h-2.5 w-2.5 rounded-full bg-[#5E8C31]" aria-hidden="true" />
+                      <span className="absolute h-2.5 w-2.5 animate-ping rounded-full bg-[#5E8C31]/50" aria-hidden="true" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-[15px] font-black text-[#5E8C31]">Aberto agora</span>
+                      <span className="block truncate text-[11px] font-medium text-[#6B7280]">{fechaHoje ? `Atendemos até ${fechaHoje}` : "Pronto para receber"}</span>
+                    </span>
+                  </>
+                ) : lojaStatus === "fechado" ? (
+                  <>
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#EDF0F4] text-[#52606D]"><CkIconRelogio width={18} height={18} /></span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-[15px] font-black text-[#52606D]">Fechado agora</span>
+                      <span className="block truncate text-[11px] font-medium text-[#6B7280]">{fechaHoje ? `Reabrimos conforme horário` : "Fora do horário"}</span>
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#EDF0F4] text-[#0F4C5C]"><CkIconRelogio width={18} height={18} /></span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-[15px] font-black text-[#0F4C5C]">Atendimento</span>
+                      <span className="block truncate text-[11px] font-medium text-[#6B7280]">Consulte a equipe</span>
+                    </span>
+                  </>
+                )}
+              </div>
             </div>
           )}
 
-          {/* Boas-vindas + CTA — sempre visíveis e acessíveis (nunca cortados) */}
-          <div className="mt-1 text-center">
-            <p className="text-[clamp(15px,2.2vh,18px)] font-black text-[var(--client-text-primary)]"><span aria-hidden="true">👋</span> Bem-vindo!</p>
-            <p className="pp-mesa-opt-sub mt-0.5 text-[13px] leading-snug text-[var(--client-text-secondary)]">Peça seus pratos favoritos de forma rápida, segura e prática direto do seu celular.</p>
+          {/* ── Destaques da casa (produtos reais) ── */}
+          {destaques.length > 0 && (
+            <section className="mt-5" aria-labelledby="pp-destaques-titulo">
+              <div className="flex items-end justify-between gap-3">
+                <div className="min-w-0">
+                  <h2 id="pp-destaques-titulo" className="text-[17px] font-black text-[#0F4C5C]">Destaques da casa</h2>
+                  <p className="text-[12px] text-[#6B7280]">Os preferidos dos nossos clientes</p>
+                </div>
+                {totalPaginas > 1 && (
+                  <div className="flex shrink-0 gap-1.5">
+                    <button type="button" onClick={() => irPagina(-1)} disabled={paginaAtual === 0} aria-label="Destaques anteriores"
+                      className="flex h-9 w-9 items-center justify-center rounded-full border border-[#E6E6E6] bg-white text-[#0F4C5C] transition active:scale-95 disabled:opacity-40">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
+                    </button>
+                    <button type="button" onClick={() => irPagina(1)} disabled={paginaAtual >= totalPaginas - 1} aria-label="Próximos destaques"
+                      className="flex h-9 w-9 items-center justify-center rounded-full btn-laranja text-white transition active:scale-95 disabled:opacity-40">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-3 grid grid-cols-2 gap-2.5">
+                {paginaItens.map((p, idx) => {
+                  const n = paginaAtual * porPagina + idx + 1;
+                  return (
+                    <button key={p.id} type="button" onClick={() => setDetalhe(p)}
+                      className="group flex min-w-0 flex-col overflow-hidden rounded-2xl border border-white bg-white text-left shadow-[0_6px_18px_rgba(15,76,92,0.07)] transition active:scale-[0.98]">
+                      <div className="relative aspect-[4/3] w-full overflow-hidden bg-[#EDF0F4]">
+                        <img src={p.imageUrl || fallbackImage} alt="" loading={idx < 2 ? "eager" : "lazy"} decoding="async"
+                          onError={(e) => { if (e.currentTarget.src !== fallbackImage) e.currentTarget.src = fallbackImage; }}
+                          className="h-full w-full object-cover transition duration-300 group-active:scale-105" />
+                        <span className="absolute left-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-[#E67E22] text-[11px] font-black text-white shadow-sm">{n}</span>
+                      </div>
+                      <div className="min-w-0 px-2.5 pb-2.5 pt-2">
+                        <p className="truncate text-[13px] font-black leading-tight text-[#0F4C5C]">{p.name}</p>
+                        <p className="mt-0.5 truncate text-[11px] text-[#6B7280]">{descCurta(p)}</p>
+                        <p className="mt-1 text-[14px] font-black text-[#E67E22]">{formatCurrency(p.price)}</p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {totalPaginas > 1 && (
+                <div className="mt-3 flex justify-center gap-1.5" role="tablist" aria-label="Páginas de destaques">
+                  {Array.from({ length: totalPaginas }, (_, i) => (
+                    <button key={i} type="button" role="tab" aria-selected={i === paginaAtual} aria-label={`Página ${i + 1}`}
+                      onClick={() => setWelcomeSlide(i)}
+                      className={`h-1.5 rounded-full transition-all ${i === paginaAtual ? "w-4 bg-[#E67E22]" : "w-1.5 bg-[#D5D9DE]"}`} />
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* ── Boas-vindas ── */}
+          <div className="pp-mesa-opt-sub mt-4 flex items-center gap-3 rounded-2xl border border-white bg-white px-3.5 py-3.5 shadow-[0_6px_18px_rgba(15,76,92,0.07)]">
+            <span className="text-2xl" aria-hidden="true">👋</span>
+            <p className="min-w-0 flex-1 text-[13px] leading-snug text-[#374151]">
+              <b className="font-black text-[#0F4C5C]">Olá! Seja bem-vindo!</b>{" "}
+              Preparamos um cardápio especial para você aproveitar cada momento.
+            </p>
+            <span className="shrink-0 text-[#E67E22]" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21.3l7.8-7.9 1-1a5.5 5.5 0 0 0 0-7.8Z" /></svg>
+            </span>
           </div>
-          <button onClick={() => setEtapa("cardapio")} className="mt-1 flex w-full min-h-[52px] items-center justify-center gap-3 rounded-2xl btn-laranja bg-[var(--client-primary-hover)] px-5 text-base font-black text-white shadow-[var(--client-shadow-sm)] transition active:scale-95 hover:bg-[var(--client-primary)]">
-            <CkIconRecibo width={18} height={18} /> Ver cardápio <span className="ml-auto" aria-hidden="true">→</span>
+
+          {/* ── CTA principal ── */}
+          <button type="button" onClick={() => setEtapa("cardapio")}
+            className="mt-3 flex w-full min-h-[54px] items-center gap-3 rounded-2xl btn-laranja px-5 text-[15px] font-black text-white shadow-[0_10px_24px_rgba(230,126,34,0.28)] transition active:scale-[0.99]">
+            <CkIconRecibo width={18} height={18} />
+            <span className="flex-1 text-left">Ver cardápio completo</span>
+            <span aria-hidden="true">→</span>
           </button>
+
           {meusPedidos.length > 0 && (
-            <button onClick={() => { setEtapa("cardapio"); setAba("conta"); }} className="inline-flex min-h-11 items-center justify-center gap-1.5 px-3 text-sm font-bold text-[var(--client-info)] transition hover:text-[var(--client-info-hover)]">
+            <button type="button" onClick={() => { setEtapa("cardapio"); setAba("conta"); }}
+              className="mt-2 inline-flex min-h-11 items-center justify-center gap-1.5 self-center px-3 text-sm font-bold text-[var(--client-info)] transition hover:text-[var(--client-info-hover)]">
               <CkIconRecibo width={15} height={15} /> Acompanhar meu pedido ({meusPedidos.length})
             </button>
           )}
 
-          {/* Precisa de algo? — 4 ações REAIS: chamar atendente e pedir ajuda
-              (chamados enviados à equipe), ajustar tela (amplia o texto para
-              acessibilidade) e notificações (avisa quando o pedido fica pronto).
-              Optional: oculto em telas muito baixas (o cabeçalho do cardápio
-              também oferece os chamados). */}
+          {/* Chamados — só mesa; compacto para não competir com o hero */}
           {!modoExterno && mesa && (
-            <div className="pp-mesa-opt1 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] p-3 shadow-[var(--client-shadow-sm)]">
-              <p className="text-center text-[13px] font-black text-[var(--client-text-primary)]">Precisa de algo?</p>
-              <div className="mt-2 grid grid-cols-4 gap-1.5">
-                {[
-                  { key: "garcom", Icone: IconeMini.fone, l1: "Chamar", l2: "atendente", aria: "Chamar atendente", busy: chamando === "garcom", disabled: !!chamando },
-                  { key: "ajuda", Icone: IconeMini.ajuda, l1: "Ajuda", l2: "e suporte", aria: "Ajuda e suporte", busy: chamando === "ajuda", disabled: !!chamando },
-                  { key: "a11y", Icone: IconeMini.sol, l1: "Ajustar tela", l2: "e acessibilidade", aria: "Ajustar tamanho do texto", ativo: escalaA11y > 1 },
-                  { key: "notif", Icone: IconeMini.sino, l1: "Notificações", l2: "e novidades", aria: "Ativar notificações do pedido", ativo: notifOn },
-                ].map((a) => (
-                  // onClick inline (event handler) — dispara o chamado/ação real de cada tile.
-                  <button key={a.key} onClick={() => { if (a.key === "garcom") chamar("garcom", "Chamar atendente"); else if (a.key === "ajuda") chamar("ajuda", "Ajuda e suporte"); else if (a.key === "a11y") cicloAcessibilidade(); else alternarNotificacoes(); }}
-                    disabled={a.disabled} aria-busy={a.busy} aria-pressed={a.ativo} aria-label={a.aria} title={a.aria}
-                    className={`flex flex-col items-center gap-1 rounded-xl border px-1 py-2 text-center transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 ${a.ativo ? "border-[var(--client-primary-border)] bg-[var(--client-primary-soft)]" : "border-[var(--client-border)] bg-[var(--client-surface-secondary)] hover:bg-[var(--client-border)]"}`}>
-                    <span className={`flex h-8 w-8 items-center justify-center rounded-full ${a.ativo ? "bg-[var(--client-primary)] text-white" : "bg-[var(--client-info-soft)] text-[var(--client-info)]"}`}>{a.busy ? <CkIconSpinner /> : <a.Icone width={16} height={16} />}</span>
-                    <span className="text-[10px] font-bold leading-tight text-[var(--client-text-primary)]">{a.l1}</span>
-                    <span className="-mt-0.5 text-[8.5px] leading-tight text-[var(--client-text-secondary)]">{a.l2}</span>
-                  </button>
-                ))}
+            <div className="pp-mesa-opt1 mt-3 flex items-center justify-between gap-2 rounded-2xl border border-white bg-white/80 px-3 py-2.5">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-[#6B7280]">Precisa de algo?</p>
+              <div className="flex gap-1.5">
+                {[["garcom", CkIconSino, "Chamar garçom", "Garçom"], ["ajuda", CkIconAjuda, "Pedir ajuda", "Ajuda"], ["limpeza", CkIconLimpeza, "Solicitar limpeza", "Limpeza"]].map(([t, Icone, aria, rotulo]) => {
+                  const emAndamento = chamando === t;
+                  return (
+                    <button key={t} type="button" onClick={() => chamar(t, rotulo)} disabled={!!chamando} aria-busy={emAndamento} aria-label={aria} title={aria}
+                      className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#E6E6E6] bg-[#F7F4EF] text-[#0F4C5C] transition active:scale-90 disabled:opacity-60">
+                      {emAndamento ? <CkIconSpinner /> : <Icone width={17} height={17} />}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
 
-          {/* Selos de confiança — barra petróleo, ícone à esquerda do texto
-              (layout horizontal). Optional em telas baixas. */}
-          <div className="pp-mesa-opt2 grid grid-cols-3 gap-2 rounded-2xl px-3 py-2.5 text-white" style={{ background: "#0E2A33" }}>
-            {[[IconeMini.escudo, "Pedido Seguro", "Dados protegidos"], [IconeMini.relogio, "Rápido e Fácil", "Em poucos passos"], [IconeMini.selo, "Qualidade", "Ingredientes selecionados"]].map(([Ic, t, s]) => (
-              <div key={t} className="flex items-center gap-2">
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/10"><Ic width={15} height={15} /></span>
-                <span className="min-w-0">
-                  <span className="block text-[10px] font-black leading-tight">{t}</span>
-                  <span className="block text-[8.5px] leading-tight text-white/65">{s}</span>
-                </span>
-              </div>
-            ))}
-          </div>
-
-          {/* Fidelidade — só quando há programa de pontos vigente (dado real),
-              com botão "Quero participar". Optional em telas baixas. */}
-          {fidRegraPub && (
-            <div className="pp-mesa-opt3 flex items-center gap-3 rounded-2xl border border-[var(--client-primary-border)] bg-[var(--client-primary-soft)] px-3.5 py-2.5">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[var(--client-primary)] text-white"><IconeMini.presente width={17} height={17} /></span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-[12px] font-black text-[var(--client-primary-hover)]">Acumule pontos e ganhe benefícios!</span>
-                <span className="block text-[10px] text-[var(--client-text-secondary)]">Participe do nosso programa de fidelidade.</span>
-              </span>
-              <button onClick={() => setEtapa("cardapio")} className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[var(--client-primary)] px-3 py-1.5 text-[11px] font-black text-white transition active:scale-95">Quero participar <span aria-hidden="true">›</span></button>
-            </div>
-          )}
-
-          {/* Rodapé — assinatura + versão sincronizada com o deploy (Vercel) */}
-          <div className="flex items-center justify-center gap-2 text-[10.5px] text-[var(--client-text-secondary)]">
-            <IconeMini.cadeado width={11} height={11} /> Tecnologia e confiança
-            <span className="font-black"><span className="text-[var(--client-text-primary)]">Pedido</span><span className="text-[var(--client-primary)]">Prime</span></span>
-            <span className="text-[var(--client-border)]">·</span> Versão {versaoApp}
-          </div>
+          {/* Rodapé */}
+          <footer className="mt-4 flex flex-col items-center gap-1 pb-1 text-center">
+            <p className="flex items-center gap-1.5 text-[11px] text-[#6B7280]">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 7.6-7 9-4-1.4-7-4.5-7-9V6l7-3Z" /><path d="M9.2 12.2l2 2 3.6-3.8" /></svg>
+              Tecnologia e confiança
+              <span className="font-black"><span className="text-[#0F4C5C]">Pedido</span><span className="text-[#E67E22]">Prime</span></span>
+            </p>
+            <p className="text-[10px] text-[#9CA3AF]">Versão {versaoApp}</p>
+          </footer>
         </div>
-        {msg && <div className="mx-auto mt-3 w-full max-w-md"><div role={msg.t === "error" ? "alert" : "status"} aria-live={msg.t === "error" ? "assertive" : "polite"} className={`rounded-2xl border px-4 py-2.5 text-center text-sm font-bold ${msg.t === "error" ? "border-[var(--client-error-border)] bg-[var(--client-error-soft)] text-[var(--client-error)]" : "border-[var(--client-success-border)] bg-[var(--client-success-soft)] text-[var(--client-success)]"}`}>{msg.m}</div></div>}
+
+        {msg && (
+          <div className="mx-auto mt-3 w-full max-w-[420px] px-4">
+            <div role={msg.t === "error" ? "alert" : "status"} aria-live={msg.t === "error" ? "assertive" : "polite"}
+              className={`rounded-2xl border px-4 py-2.5 text-center text-sm font-bold ${msg.t === "error" ? "border-[var(--client-error-border)] bg-[var(--client-error-soft)] text-[var(--client-error)]" : "border-[var(--client-success-border)] bg-[var(--client-success-soft)] text-[var(--client-success)]"}`}>
+              {msg.m}
+            </div>
+          </div>
+        )}
         {detalhe && <ProdutoModal produto={detalhe} grupos={gruposOpcoes} opcoes={opcoes} onFechar={() => setDetalhe(null)} onAdicionar={addConfigurado} />}
       </div>
     );
