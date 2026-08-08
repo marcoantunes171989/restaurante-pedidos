@@ -940,6 +940,103 @@ export function escutarFiscalRegraVersoes(onMudanca) {
 }
 
 // ════════════════════════════════════════════════════════════
+//  CENTRAL FISCAL PRIME — CONFIG FISCAL DA LOJA (migration 087)
+//  Cópia PRÓPRIA da loja de uma regra publicada. Guarda a origem
+//  (regra_global_id + versao_importada) para avisar de novas versões.
+//  Editável só localmente (loja_id) — nunca afeta a Central/outra loja.
+// ════════════════════════════════════════════════════════════
+// Parâmetros tributários + contexto da operação (compartilhados com a versão
+// global, mas SEM os campos fonte/fonte_referencia — a cópia da loja não tem).
+function lojaTributosParaDb(p) {
+  return {
+    tipo_operacao: p.tipoOperacao || null, modelo_documento: p.modeloDocumento || null,
+    uf_origem: p.ufOrigem || null, uf_destino: p.ufDestino || null, ambito: p.ambito || null,
+    consumidor_final: !!p.consumidorFinal, contribuinte_icms: !!p.contribuinteIcms,
+    ncm_codigo: p.ncmCodigo || null, cest_codigo: p.cestCodigo || null, cfop_codigo: p.cfopCodigo || null,
+    cst_icms: p.cstIcms || null, csosn: p.csosn || null,
+    icms_aliquota: _n2(p.icmsAliquota), icms_reducao: _n2(p.icmsReducao), fcp_aliquota: _n2(p.fcpAliquota),
+    icms_st: !!p.icmsSt, mva: _n2(p.mva),
+    cst_pis: p.cstPis || null, pis_aliquota: _n2(p.pisAliquota),
+    cst_cofins: p.cstCofins || null, cofins_aliquota: _n2(p.cofinsAliquota),
+    ipi_cst: p.ipiCst || null, ipi_aliquota: _n2(p.ipiAliquota),
+    ibs_aliquota: _n2(p.ibsAliquota), cbs_aliquota: _n2(p.cbsAliquota), imposto_seletivo: _n2(p.impostoSeletivo),
+    beneficio_cbenef: p.beneficioCbenef || null, observacao: p.observacao || null,
+    vigencia_inicio: p.vigenciaInicio || null, vigencia_fim: p.vigenciaFim || null,
+  }
+}
+function dbParaLojaRegra(r) {
+  return {
+    id: r.id, lojaId: r.loja_id ?? null, regraGlobalId: r.regra_global_id ?? null,
+    regraNome: r.regra_nome ?? '', versaoImportada: r.versao_importada ?? null,
+    ultimaVersaoChecada: r.ultima_versao_checada ?? null, customizada: r.customizada === true,
+    tipoOperacao: r.tipo_operacao ?? '', modeloDocumento: r.modelo_documento ?? '',
+    ufOrigem: r.uf_origem ?? '', ufDestino: r.uf_destino ?? '', ambito: r.ambito ?? '',
+    consumidorFinal: r.consumidor_final === true, contribuinteIcms: r.contribuinte_icms === true,
+    ncmCodigo: r.ncm_codigo ?? '', cestCodigo: r.cest_codigo ?? '', cfopCodigo: r.cfop_codigo ?? '',
+    cstIcms: r.cst_icms ?? '', csosn: r.csosn ?? '',
+    icmsAliquota: Number(r.icms_aliquota ?? 0), icmsReducao: Number(r.icms_reducao ?? 0),
+    fcpAliquota: Number(r.fcp_aliquota ?? 0), icmsSt: r.icms_st === true, mva: Number(r.mva ?? 0),
+    cstPis: r.cst_pis ?? '', pisAliquota: Number(r.pis_aliquota ?? 0),
+    cstCofins: r.cst_cofins ?? '', cofinsAliquota: Number(r.cofins_aliquota ?? 0),
+    ipiCst: r.ipi_cst ?? '', ipiAliquota: Number(r.ipi_aliquota ?? 0),
+    ibsAliquota: Number(r.ibs_aliquota ?? 0), cbsAliquota: Number(r.cbs_aliquota ?? 0),
+    impostoSeletivo: Number(r.imposto_seletivo ?? 0), beneficioCbenef: r.beneficio_cbenef ?? '',
+    observacao: r.observacao ?? '', vigenciaInicio: r.vigencia_inicio ?? '', vigenciaFim: r.vigencia_fim ?? '',
+    ativo: r.ativo !== false, importadoEmISO: r.importado_em ?? null,
+  }
+}
+export async function fetchLojaFiscalRegras(lojaId = null) {
+  let q = supabase.from('loja_fiscal_regra').select('*').order('importado_em', { ascending: false })
+  if (lojaId != null) q = q.eq('loja_id', lojaId)
+  const { data, error } = await q
+  if (error) return []
+  return (data || []).map(dbParaLojaRegra)
+}
+// Importa uma versão publicada da Central → cria a cópia própria da loja.
+export async function importarLojaFiscalRegra({ lojaId, regraGlobalId, regraNome, versao, snapshot }) {
+  const linha = {
+    ...lojaTributosParaDb(snapshot || {}),
+    loja_id: lojaId, regra_global_id: regraGlobalId, regra_nome: regraNome || null,
+    versao_importada: versao ?? null, ultima_versao_checada: versao ?? null, customizada: false,
+  }
+  const { data, error } = await supabase.from('loja_fiscal_regra').insert([linha]).select().single()
+  if (error) throw error
+  return dbParaLojaRegra(data)
+}
+// Edição LOCAL da cópia da loja (marca customizada=true).
+export async function atualizarLojaFiscalRegra(id, campos) {
+  const patch = { ...lojaTributosParaDb(campos), customizada: true, atualizado_em: new Date().toISOString() }
+  const { error } = await supabase.from('loja_fiscal_regra').update(patch).eq('id', id)
+  if (error) throw error
+}
+// Aceita a nova versão da Central: sobrescreve o snapshot e zera "customizada".
+export async function aplicarVersaoLojaFiscalRegra(id, { versao, snapshot }) {
+  const patch = {
+    ...lojaTributosParaDb(snapshot || {}),
+    versao_importada: versao ?? null, ultima_versao_checada: versao ?? null,
+    customizada: false, atualizado_em: new Date().toISOString(),
+  }
+  const { error } = await supabase.from('loja_fiscal_regra').update(patch).eq('id', id)
+  if (error) throw error
+}
+// Manter/ignorar: só registra que a loja avaliou a versão (sem alterar dados).
+export async function marcarChecadaLojaFiscalRegra(id, versao) {
+  const { error } = await supabase.from('loja_fiscal_regra').update({ ultima_versao_checada: versao ?? null }).eq('id', id)
+  if (error) throw error
+}
+export async function excluirLojaFiscalRegra(id) {
+  const { error } = await supabase.from('loja_fiscal_regra').delete().eq('id', id)
+  if (error) throw error
+}
+export function escutarLojaFiscalRegras(onMudanca, lojaId = null) {
+  const reload = async () => { try { onMudanca(await fetchLojaFiscalRegras(lojaId)) } catch { /* migration 087 pendente */ } }
+  const canal = supabase.channel('ch_loja_fiscal_regra_' + Math.random().toString(36).slice(2))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'loja_fiscal_regra' }, reload)
+    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
+  return () => supabase.removeChannel(canal)
+}
+
+// ════════════════════════════════════════════════════════════
 //  Setores de cozinha (migration 041) — CRUD + Realtime (tolerante)
 // ════════════════════════════════════════════════════════════
 function dbParaSetor(r) {

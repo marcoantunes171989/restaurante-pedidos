@@ -39,6 +39,7 @@ import {
   fetchCatCstCofins, inserirCatCstCofins, atualizarCatCstCofins, excluirCatCstCofins, escutarCatCstCofins,
   fetchFiscalRegras, fetchFiscalRegraVersoes, inserirFiscalRegra, atualizarFiscalRegra, atualizarFiscalRegraVersao,
   publicarFiscalRegraVersao, novaVersaoFiscalRegra, inativarFiscalRegra, excluirFiscalRegra, escutarFiscalRegras, escutarFiscalRegraVersoes,
+  fetchLojaFiscalRegras, importarLojaFiscalRegra, atualizarLojaFiscalRegra, aplicarVersaoLojaFiscalRegra, marcarChecadaLojaFiscalRegra, excluirLojaFiscalRegra, escutarLojaFiscalRegras,
   fetchSetoresCozinha, inserirSetorCozinha, atualizarSetorCozinha, excluirSetorCozinha, escutarSetoresCozinha,
   fetchImpressoras, inserirImpressora, atualizarImpressora, excluirImpressora, escutarImpressoras,
   fetchImpressoesCozinha, inserirImpressoesCozinha, atualizarImpressaoCozinha, escutarImpressoesCozinha,
@@ -571,6 +572,7 @@ export default function RestaurantePedidoApp() {
   const [catCstCofins, setCatCstCofins] = useState([]);
   const [fiscalRegras, setFiscalRegras] = useState([]);        // regras fiscais (migration 086)
   const [fiscalRegraVersoes, setFiscalRegraVersoes] = useState([]); // versões das regras
+  const [lojaFiscalRegras, setLojaFiscalRegras] = useState([]); // config fiscal importada por loja (migration 087)
   const [setoresCozinha, setSetoresCozinha] = useState([]); // setores de cozinha (migration 041)
   const [impressoesCozinha, setImpressoesCozinha] = useState([]); // fila impressão por setor (077)
   const [impressoras, setImpressoras] = useState([]); // cadastro Setor Impressoras (078)
@@ -647,6 +649,7 @@ export default function RestaurantePedidoApp() {
         try { setCatCstCofins(await fetchCatCstCofins()); } catch { /* migration 085 pendente */ }
         try { setFiscalRegras(await fetchFiscalRegras()); } catch { /* migration 086 pendente */ }
         try { setFiscalRegraVersoes(await fetchFiscalRegraVersoes()); } catch { /* migration 086 pendente */ }
+        try { setLojaFiscalRegras(await fetchLojaFiscalRegras()); } catch { /* migration 087 pendente */ }
         try { setSetoresCozinha(await fetchSetoresCozinha()); } catch { /* migration 041 pendente */ }
         try { setImpressoesCozinha(await fetchImpressoesCozinha(lojaAtual)); } catch { /* migration 077 pendente */ }
         try { setCaixas(await fetchCaixas(null)); } catch { /* migration 042 pendente */ }
@@ -695,6 +698,7 @@ export default function RestaurantePedidoApp() {
         try { unsubs.push(escutarCatCstCofins(setCatCstCofins)); } catch { /* migration 085 pendente */ }
         try { unsubs.push(escutarFiscalRegras(setFiscalRegras)); } catch { /* migration 086 pendente */ }
         try { unsubs.push(escutarFiscalRegraVersoes(setFiscalRegraVersoes)); } catch { /* migration 086 pendente */ }
+        try { unsubs.push(escutarLojaFiscalRegras(setLojaFiscalRegras)); } catch { /* migration 087 pendente */ }
         try { unsubs.push(escutarSetoresCozinha(setSetoresCozinha)); } catch {}
         try { unsubs.push(escutarImpressoras(setImpressoras, lojaAtual)); } catch {}
         try { unsubs.push(escutarImpressoesCozinha(setImpressoesCozinha, lojaAtual)); } catch {}
@@ -2559,6 +2563,34 @@ export default function RestaurantePedidoApp() {
     publicar: publicarVersaoRegra, novaVersao: criarNovaVersaoRegra, inativar: inativarRegraFiscal, remover: removerRegraFiscal,
   };
 
+  // ── Configuração Fiscal da Loja — importação da Central (migration 087) ──
+  const recarregarLojaRegras = async () => { try { setLojaFiscalRegras(await fetchLojaFiscalRegras()); } catch { /* migration 087 pendente */ } };
+  async function importarRegraParaLoja({ regraGlobalId, regraNome, versao, snapshot }) {
+    if (lojaAtual == null) return notify("error", "Selecione a empresa em foco para importar.");
+    if (!dbReady) return notify("error", "Banco indisponível. Aplique a migration 087.");
+    try { await importarLojaFiscalRegra({ lojaId: lojaAtual, regraGlobalId, regraNome, versao, snapshot }); }
+    catch (e) { return notify("error", "Erro ao importar: " + (e.message || e)); }
+    await recarregarLojaRegras(); auditar("importar", "loja_fiscal_regra", regraGlobalId, { regra: regraNome, versao });
+    notify("success", `Regra "${regraNome}" importada para a sua loja (v${versao}).`); return true;
+  }
+  async function salvarLojaRegra(id, campos) {
+    if (dbReady) try { await atualizarLojaFiscalRegra(id, campos); } catch (e) { return notify("error", "Erro ao salvar: " + (e.message || e)); }
+    await recarregarLojaRegras(); auditar("editar", "loja_fiscal_regra", id); notify("success", "Configuração da loja atualizada."); return true;
+  }
+  async function aplicarVersaoLojaRegra(id, { versao, snapshot }) {
+    if (dbReady) try { await aplicarVersaoLojaFiscalRegra(id, { versao, snapshot }); } catch (e) { return notify("error", "Erro ao atualizar: " + (e.message || e)); }
+    await recarregarLojaRegras(); auditar("atualizar", "loja_fiscal_regra", id, { versao }); notify("success", `Configuração atualizada para a versão ${versao}.`); return true;
+  }
+  async function manterVersaoLojaRegra(id, versao, ignorar = false) {
+    if (dbReady) try { await marcarChecadaLojaFiscalRegra(id, versao); } catch (e) { return notify("error", "Erro: " + (e.message || e)); }
+    await recarregarLojaRegras(); auditar(ignorar ? "ignorar_atualizacao" : "manter_versao", "loja_fiscal_regra", id, { versao }); return true;
+  }
+  async function excluirLojaRegra(id) {
+    if (dbReady) try { await excluirLojaFiscalRegra(id); } catch (e) { return notify("error", "Erro ao excluir: " + (e.message || e)); }
+    await recarregarLojaRegras(); auditar("excluir", "loja_fiscal_regra", id); return true;
+  }
+  const lojaFiscalApi = { importar: importarRegraParaLoja, salvar: salvarLojaRegra, aplicarVersao: aplicarVersaoLojaRegra, manter: manterVersaoLojaRegra, excluir: excluirLojaRegra };
+
   // ── Licença de uso por empresa (somente administrador geral) ──
   // Define/remove a validade da licença (migration 031) e registra no histórico
   async function setValidadeLicenca(id, dataISO) {
@@ -3187,7 +3219,7 @@ export default function RestaurantePedidoApp() {
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} products={products} lojaInfo={lojaInfo} />}
         {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierPdv orders={orders} mesas={filtraLoja(mesas).filter((m) => m.active !== false)} clientes={filtraLoja(clientes)} baixarComandas={baixarComandas} formasPagamento={formasPagamentoLoja} lojaInfo={lojaInfo} currentUser={currentUser} caixaAberto={caixaAberto} auditar={auditar} conexaoOk={conexaoOk} editarItensPedido={editarItensPedido} criarPedidoCaixa={criarPedidoCaixa} products={products} categories={categoriasDb} setores={filtraLoja(setoresCozinha)} fidCaixa={fidCaixa} atualizarClientePedidos={atualizarClientePedidos} transferirMesaPedidos={transferirMesaPedidos} separarItensPedidos={separarItensPedidos} notify={notify} validarCupom={validarCupomCaixa} consumirCupom={consumirCupomCaixa} />}
         {/* activeTab === "opmobile" agora é tratado pelo branch dedicado no início desta função (sem cabeçalho/grade de módulos) */}
-        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} toggleLoja={toggleLoja} editarLoja={editarLoja} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} filtraLoja={filtraLoja} pesquisas={pesquisas} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} cancelarPedido={cancelarPedido} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} salvarConfigCrm={salvarConfigCrm} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} assinaturas={assinaturas} promocoes={filtraLoja(promocoes)} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} cupons={cuponsLoja} addCupom={addCupom} editarCupom={editarCupomLoja} toggleCupom={toggleCupom} removerCupom={removerCupom} opcoesApi={{ grupos: filtraLoja(gruposOpcoes), opcoes: filtraLoja(opcoes), addGrupo: addGrupoOpcoes, editarGrupo: editarGrupoOpcoes, removerGrupo: removerGrupoOpcoes, addOpcao, editarOpcao, removerOpcao }} fiscalIcms={filtraLoja(fiscalIcms)} fiscalNcm={filtraLoja(fiscalNcm)} fiscalCfop={filtraLoja(fiscalCfop)} fiscalPis={filtraLoja(fiscalPis)} fiscalCofins={filtraLoja(fiscalCofins)} fiscalIpi={filtraLoja(fiscalIpi)} fiscalCest={filtraLoja(fiscalCest)} fiscalApi={{ addIcms: addFiscalIcms, editarIcms: editarFiscalIcms, removerIcms: removerFiscalIcms, addNcm: addFiscalNcm, editarNcm: editarFiscalNcm, removerNcm: removerFiscalNcm, importarNcm: importarFiscalNcmLote, addCfop: hCfop.add, editarCfop: hCfop.editar, removerCfop: hCfop.remover, addPis: hPis.add, editarPis: hPis.editar, removerPis: hPis.remover, addCofins: hCofins.add, editarCofins: hCofins.editar, removerCofins: hCofins.remover, addIpi: hIpi.add, editarIpi: hIpi.editar, removerIpi: hIpi.remover, addCest: hCest.add, editarCest: hCest.editar, removerCest: hCest.remover, aplicarLote: aplicarFiscalLote, reverterLote: reverterFiscalLote, excluirNcmLote: excluirFiscalNcmEmLote, inativarNcmLote: inativarFiscalNcmEmLote }} fiscalLoteLog={filtraLoja(fiscalLoteLog)} centralFiscal={{ ncm: catNcm, cest: catCest, cfop: catCfop, cstIcms: catCstIcms, csosn: catCsosn, cstPis: catCstPis, cstCofins: catCstCofins }} centralFiscalApi={centralFiscalApi} fiscalRegras={fiscalRegras} fiscalRegraVersoes={fiscalRegraVersoes} regrasFiscalApi={regrasFiscalApi} impressoras={filtraLoja(impressoras)} impressorasApi={{ add: addImpressoraCadastro, editar: editarImpressoraCadastro, remover: removerImpressoraCadastro }} setores={filtraLoja(setoresCozinha)} setoresApi={{ add: addSetorCozinha, editar: editarSetorCozinha, remover: removerSetorCozinha }} vincularProdutoSetor={vincularProdutoSetor} salvarProdutoQr={salvarProdutoQr} irParaCozinha={(setorId) => { setCozinhaSetorInicial(setorId ?? null); if (canAccess(currentUser, "kitchen")) setActiveTab("kitchen"); else notify("error", "Sem permissão para acessar o painel da cozinha."); }} caixaAberto={caixaAberto} caixasLoja={filtraLoja(caixas)} caixaApi={{ abrir: abrirCaixaFn, movimentar: movimentarCaixaFn, fechar: fecharCaixaFn, fetchMovimentos: fetchMovimentosCaixa }} fidRegra={fidRegraAtual} fidRecompensas={filtraLoja(fidRecompensas)} fidTransacoes={filtraLoja(fidTransacoes)} fidApi={{ salvarRegra: salvarRegraFid, addRecompensa: addRecompensaFid, removerRecompensa: removerRecompensaFid, editarRecompensa: editarRecompensaFid, lancarPontos }} fidCaixa={fidCaixa} chamados={filtraLoja(chamados)} atenderChamado={atenderChamadoFn} assumirChamado={assumirChamadoFn} auditoria={filtraLoja(auditoria)} impressoesCozinha={filtraLoja(impressoesCozinha)} onAtualizarImpressao={atualizarStatusImpressao} onRecarregarImpressoes={async () => { try { setImpressoesCozinha(await fetchImpressoesCozinha(lojaAtual)); } catch {} }} editarCategoriaCampos={editarCategoriaCampos} />}
+        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} toggleLoja={toggleLoja} editarLoja={editarLoja} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} filtraLoja={filtraLoja} pesquisas={pesquisas} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} cancelarPedido={cancelarPedido} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} salvarConfigCrm={salvarConfigCrm} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} assinaturas={assinaturas} promocoes={filtraLoja(promocoes)} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} cupons={cuponsLoja} addCupom={addCupom} editarCupom={editarCupomLoja} toggleCupom={toggleCupom} removerCupom={removerCupom} opcoesApi={{ grupos: filtraLoja(gruposOpcoes), opcoes: filtraLoja(opcoes), addGrupo: addGrupoOpcoes, editarGrupo: editarGrupoOpcoes, removerGrupo: removerGrupoOpcoes, addOpcao, editarOpcao, removerOpcao }} fiscalIcms={filtraLoja(fiscalIcms)} fiscalNcm={filtraLoja(fiscalNcm)} fiscalCfop={filtraLoja(fiscalCfop)} fiscalPis={filtraLoja(fiscalPis)} fiscalCofins={filtraLoja(fiscalCofins)} fiscalIpi={filtraLoja(fiscalIpi)} fiscalCest={filtraLoja(fiscalCest)} fiscalApi={{ addIcms: addFiscalIcms, editarIcms: editarFiscalIcms, removerIcms: removerFiscalIcms, addNcm: addFiscalNcm, editarNcm: editarFiscalNcm, removerNcm: removerFiscalNcm, importarNcm: importarFiscalNcmLote, addCfop: hCfop.add, editarCfop: hCfop.editar, removerCfop: hCfop.remover, addPis: hPis.add, editarPis: hPis.editar, removerPis: hPis.remover, addCofins: hCofins.add, editarCofins: hCofins.editar, removerCofins: hCofins.remover, addIpi: hIpi.add, editarIpi: hIpi.editar, removerIpi: hIpi.remover, addCest: hCest.add, editarCest: hCest.editar, removerCest: hCest.remover, aplicarLote: aplicarFiscalLote, reverterLote: reverterFiscalLote, excluirNcmLote: excluirFiscalNcmEmLote, inativarNcmLote: inativarFiscalNcmEmLote }} fiscalLoteLog={filtraLoja(fiscalLoteLog)} centralFiscal={{ ncm: catNcm, cest: catCest, cfop: catCfop, cstIcms: catCstIcms, csosn: catCsosn, cstPis: catCstPis, cstCofins: catCstCofins }} centralFiscalApi={centralFiscalApi} fiscalRegras={fiscalRegras} fiscalRegraVersoes={fiscalRegraVersoes} regrasFiscalApi={regrasFiscalApi} lojaFiscalRegras={filtraLoja(lojaFiscalRegras)} lojaFiscalApi={lojaFiscalApi} impressoras={filtraLoja(impressoras)} impressorasApi={{ add: addImpressoraCadastro, editar: editarImpressoraCadastro, remover: removerImpressoraCadastro }} setores={filtraLoja(setoresCozinha)} setoresApi={{ add: addSetorCozinha, editar: editarSetorCozinha, remover: removerSetorCozinha }} vincularProdutoSetor={vincularProdutoSetor} salvarProdutoQr={salvarProdutoQr} irParaCozinha={(setorId) => { setCozinhaSetorInicial(setorId ?? null); if (canAccess(currentUser, "kitchen")) setActiveTab("kitchen"); else notify("error", "Sem permissão para acessar o painel da cozinha."); }} caixaAberto={caixaAberto} caixasLoja={filtraLoja(caixas)} caixaApi={{ abrir: abrirCaixaFn, movimentar: movimentarCaixaFn, fechar: fecharCaixaFn, fetchMovimentos: fetchMovimentosCaixa }} fidRegra={fidRegraAtual} fidRecompensas={filtraLoja(fidRecompensas)} fidTransacoes={filtraLoja(fidTransacoes)} fidApi={{ salvarRegra: salvarRegraFid, addRecompensa: addRecompensaFid, removerRecompensa: removerRecompensaFid, editarRecompensa: editarRecompensaFid, lancarPontos }} fidCaixa={fidCaixa} chamados={filtraLoja(chamados)} atenderChamado={atenderChamadoFn} assumirChamado={assumirChamadoFn} auditoria={filtraLoja(auditoria)} impressoesCozinha={filtraLoja(impressoesCozinha)} onAtualizarImpressao={atualizarStatusImpressao} onRecarregarImpressoes={async () => { try { setImpressoesCozinha(await fetchImpressoesCozinha(lojaAtual)); } catch {} }} editarCategoriaCampos={editarCategoriaCampos} />}
 
       </div>
       )}
@@ -6206,7 +6238,7 @@ function MobileAdminDrawer({ open, onClose, triggerRef, children, titulo }) {
   );
 }
 
-function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, definirAcoesUsuario, toggleUserStatus, toggleAccessStatus, usersLoja, filtraLoja = (a) => a, pesquisas = [], adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], toggleLoja, editarLoja, setLicencaEmpresa = async()=>{}, setValidadeLicenca = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, updateOrderStatus = async()=>{}, marcarEntregue = async()=>{}, marcarSetorPronto = async()=>{}, baixarComandas = async()=>{}, cancelarPedido, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, setModoUsoEmpresa = async()=>{}, salvarConfigExterno = async()=>{}, salvarConfigCrm = async()=>{}, mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, clientes = [], planoAtual = null, assinaturaAtual = null, assinaturas = [], planos = [], planoModulos = [], definirAssinatura = async()=>{}, promocoes = [], addPromocao = async()=>{}, editarPromocao = async()=>{}, togglePromocao = async()=>{}, removerPromocao = async()=>{}, cupons = [], addCupom = async()=>{}, editarCupom = async()=>{}, toggleCupom = async()=>{}, removerCupom = async()=>{}, opcoesApi = null, fiscalIcms = [], fiscalNcm = [], fiscalCfop = [], fiscalPis = [], fiscalCofins = [], fiscalIpi = [], fiscalCest = [], fiscalLoteLog = [], fiscalApi = null, centralFiscal = null, centralFiscalApi = null, fiscalRegras = [], fiscalRegraVersoes = [], regrasFiscalApi = null, impressoras = [], impressorasApi = null, setores = [], setoresApi = null, vincularProdutoSetor = async () => {}, salvarProdutoQr = async () => {}, irParaCozinha = () => {}, caixaAberto = null, caixasLoja = [], caixaApi = null, fidRegra = null, fidRecompensas = [], fidTransacoes = [], fidApi = null, chamados = [], atenderChamado = async()=>{}, assumirChamado = async()=>{}, auditoria = [], fidCaixa = null, impressoesCozinha = [], onAtualizarImpressao = async () => {}, onRecarregarImpressoes = async () => {}, editarCategoriaCampos = async () => {} }) {
+function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, definirAcoesUsuario, toggleUserStatus, toggleAccessStatus, usersLoja, filtraLoja = (a) => a, pesquisas = [], adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], toggleLoja, editarLoja, setLicencaEmpresa = async()=>{}, setValidadeLicenca = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, updateOrderStatus = async()=>{}, marcarEntregue = async()=>{}, marcarSetorPronto = async()=>{}, baixarComandas = async()=>{}, cancelarPedido, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, setModoUsoEmpresa = async()=>{}, salvarConfigExterno = async()=>{}, salvarConfigCrm = async()=>{}, mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, clientes = [], planoAtual = null, assinaturaAtual = null, assinaturas = [], planos = [], planoModulos = [], definirAssinatura = async()=>{}, promocoes = [], addPromocao = async()=>{}, editarPromocao = async()=>{}, togglePromocao = async()=>{}, removerPromocao = async()=>{}, cupons = [], addCupom = async()=>{}, editarCupom = async()=>{}, toggleCupom = async()=>{}, removerCupom = async()=>{}, opcoesApi = null, fiscalIcms = [], fiscalNcm = [], fiscalCfop = [], fiscalPis = [], fiscalCofins = [], fiscalIpi = [], fiscalCest = [], fiscalLoteLog = [], fiscalApi = null, centralFiscal = null, centralFiscalApi = null, fiscalRegras = [], fiscalRegraVersoes = [], regrasFiscalApi = null, lojaFiscalRegras = [], lojaFiscalApi = null, impressoras = [], impressorasApi = null, setores = [], setoresApi = null, vincularProdutoSetor = async () => {}, salvarProdutoQr = async () => {}, irParaCozinha = () => {}, caixaAberto = null, caixasLoja = [], caixaApi = null, fidRegra = null, fidRecompensas = [], fidTransacoes = [], fidApi = null, chamados = [], atenderChamado = async()=>{}, assumirChamado = async()=>{}, auditoria = [], fidCaixa = null, impressoesCozinha = [], onAtualizarImpressao = async () => {}, onRecarregarImpressoes = async () => {}, editarCategoriaCampos = async () => {} }) {
   // Menu reorganizado por contexto (SaaS premium) — mesmos ids e permissões de antes
   const menu = [
     { grupo: "Visão Geral", itens: [
@@ -6229,6 +6261,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
       { id: "products", icon: <IconProdutos />, label: "Produtos" },
       { id: "categorias", icon: <IconCategorias />, label: "Categorias" },
       { id: "fiscal", icon: <span className="text-base leading-none">🧾</span>, label: "Fiscal" },
+      { id: "config-fiscal", icon: <span className="text-base leading-none">📥</span>, label: "Configuração Fiscal" },
       { id: "promocoes", icon: <IconPromocao />, label: "Promoções" },
       { id: "cupons", icon: <IconPromocao />, label: "Cupons" },
       { id: "crm", icon: <IconCrm />, label: "Clientes / CRM" },
@@ -6375,6 +6408,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           {ativo === "fidelidade" && (precisaEmpresa ? avisoEmpresa : <FidelidadeAdmin regra={fidRegra} recompensas={fidRecompensas} transacoes={fidTransacoes} clientes={clientes} orders={orders} api={fidApi} onVerClientes={() => setAdminSection("crm")} />)}
           {ativo === "products"   && (precisaEmpresa ? avisoEmpresa : <ProductAdmin   products={products} categories={categories} categoriasDb={categoriasDb} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} editarProduto={editarProduto} removerProduto={removerProduto} lojaId={lojaInfo?.id} opcoesApi={opcoesApi} setores={setores} impressoras={impressoras} fiscalNcm={fiscalNcm} fiscalIcms={fiscalIcms} fiscalCfop={fiscalCfop} fiscalPis={fiscalPis} fiscalCofins={fiscalCofins} fiscalIpi={fiscalIpi} fiscalCest={fiscalCest} />)}
           {ativo === "fiscal"     && (precisaEmpresa ? avisoEmpresa : <FiscalAdmin ncm={fiscalNcm} icms={fiscalIcms} cfop={fiscalCfop} pis={fiscalPis} cofins={fiscalCofins} ipi={fiscalIpi} cest={fiscalCest} loteLog={fiscalLoteLog} api={fiscalApi} produtos={products} categoriasDb={categoriasDb} lojaInfo={lojaInfo} />)}
+          {ativo === "config-fiscal" && (precisaEmpresa ? avisoEmpresa : <LojaFiscalConfig importadas={lojaFiscalRegras} regras={fiscalRegras} versoes={fiscalRegraVersoes} api={lojaFiscalApi} lojaInfo={lojaInfo} />)}
           {ativo === "setores"    && (precisaEmpresa ? avisoEmpresa : <SetoresCozinhaAdmin setores={setores} produtos={products} orders={orders} api={setoresApi} vincularProduto={vincularProdutoSetor} irParaCozinha={irParaCozinha} />)}
           {ativo === "setor-impressoras" && (precisaEmpresa ? avisoEmpresa : <SetorImpressorasAdmin impressoras={impressoras} categorias={categoriasDb} produtos={products} api={impressorasApi} lojaInfo={lojaInfo} />)}
           {ativo === "impressoes" && (precisaEmpresa ? avisoEmpresa : <ImpressoesCozinhaAdmin impressoes={impressoesCozinha} impressoras={impressoras} categorias={categoriasDb} lojaInfo={lojaInfo} onAtualizarStatus={onAtualizarImpressao} onRecarregar={onRecarregarImpressoes} />)}
@@ -19314,6 +19348,30 @@ function StatusRegraBadge({ status }) {
   return <span className={`rounded-full border px-2.5 py-0.5 text-[11px] font-black ${s.cls}`}>{s.rot}</span>;
 }
 
+// Campos exibidos/comparados na config fiscal da loja (ordem e rótulo).
+const CAMPOS_REGRA_CMP = [
+  { k: "tipoOperacao", label: "Operação" }, { k: "modeloDocumento", label: "Documento" }, { k: "ambito", label: "Âmbito" },
+  { k: "ufOrigem", label: "UF origem" }, { k: "ufDestino", label: "UF destino" },
+  { k: "consumidorFinal", label: "Consumidor final", bool: true }, { k: "contribuinteIcms", label: "Contribuinte ICMS", bool: true },
+  { k: "ncmCodigo", label: "NCM" }, { k: "cestCodigo", label: "CEST" }, { k: "cfopCodigo", label: "CFOP" },
+  { k: "cstIcms", label: "CST ICMS" }, { k: "csosn", label: "CSOSN" },
+  { k: "icmsAliquota", label: "ICMS %", pct: true }, { k: "icmsReducao", label: "Redução base %", pct: true },
+  { k: "fcpAliquota", label: "FCP %", pct: true }, { k: "icmsSt", label: "ICMS ST", bool: true }, { k: "mva", label: "MVA %", pct: true },
+  { k: "cstPis", label: "CST PIS" }, { k: "pisAliquota", label: "PIS %", pct: true },
+  { k: "cstCofins", label: "CST COFINS" }, { k: "cofinsAliquota", label: "COFINS %", pct: true },
+  { k: "ipiCst", label: "CST IPI" }, { k: "ipiAliquota", label: "IPI %", pct: true },
+  { k: "ibsAliquota", label: "IBS %", pct: true }, { k: "cbsAliquota", label: "CBS %", pct: true }, { k: "impostoSeletivo", label: "Imposto Seletivo %", pct: true },
+  { k: "beneficioCbenef", label: "Benefício (cBenef)" },
+  { k: "vigenciaInicio", label: "Vigência início", data: true }, { k: "vigenciaFim", label: "Vigência fim", data: true },
+];
+function fmtCampoRegra(c, v) {
+  const val = v?.[c.k];
+  if (c.bool) return val ? "Sim" : "Não";
+  if (c.pct) return `${Number(val || 0).toFixed(2)}%`;
+  if (c.data) return val ? formatarDataBR(val) : "—";
+  return (val === "" || val == null) ? "—" : String(val);
+}
+
 // Descritores dos catálogos: rótulo, dica, campos do formulário e resumo da linha.
 const CATALOGOS_FISCAIS = {
   ncm: {
@@ -19877,6 +19935,303 @@ function FiscalRegraVersoes({ regras = [], versoes = [] }) {
         })}
       </div>
     </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+//  CONFIGURAÇÃO FISCAL DA LOJA (migration 087) — importa da Central,
+//  edita localmente e recebe aviso de nova versão (nunca automático).
+// ════════════════════════════════════════════════════════════
+function LojaFiscalConfig({ importadas = [], regras = [], versoes = [], api = null, lojaInfo = null }) {
+  const [aba, setAba] = useState("minha");
+  const publicadaDe = (regraId) => versoes.find((v) => v.regraId === regraId && v.status === "publicada") || null;
+  const publicadas = regras.filter((r) => r.status === "publicada");
+  const importadaDe = (regraId) => importadas.find((i) => i.regraGlobalId === regraId) || null;
+  // Atualização disponível: a Central publicou versão > a última avaliada pela loja.
+  const atualizacaoDe = (imp) => {
+    const pub = publicadaDe(imp.regraGlobalId);
+    if (!pub) return null;
+    const checada = imp.ultimaVersaoChecada ?? imp.versaoImportada ?? 0;
+    return pub.versao > checada ? pub : null;
+  };
+  const pendentes = importadas.filter((i) => atualizacaoDe(i)).length;
+
+  const abas = [
+    { id: "minha", label: "🏪 Minha loja", badge: importadas.length || null },
+    { id: "biblioteca", label: "📚 Biblioteca Fiscal Prime", badge: publicadas.length || null },
+  ];
+
+  return (
+    <main className="space-y-5">
+      <PageHeader
+        icone={<span className="text-base leading-none">📥</span>}
+        titulo="Configuração Fiscal"
+        descricao={`Importe regras publicadas da Central Fiscal Prime e mantenha a configuração própria da ${lojaInfo?.nome || "sua loja"}. O que você ajusta aqui é local — nunca altera a Central nem outra loja.`}
+        indicadores={[
+          { valor: importadas.length, rotulo: "regras na loja" },
+          { valor: importadas.filter((i) => i.customizada).length, rotulo: "customizadas" },
+          { valor: pendentes, rotulo: "atualizações disponíveis", tom: pendentes ? "alerta" : "ok" },
+        ]}
+      />
+
+      {pendentes > 0 && aba !== "minha" && (
+        <button onClick={() => setAba("minha")} className="w-full rounded-2xl border border-[rgba(230,126,34,0.35)] bg-[rgba(230,126,34,0.08)] px-4 py-3 text-left text-[13px] font-bold text-[#B4611A]">
+          ⚠ {pendentes} atualização(ões) fiscal(is) disponível(is) — revise em “Minha loja”.
+        </button>
+      )}
+
+      <div className="flex flex-wrap items-center gap-2">
+        {abas.map((t) => (
+          <button key={t.id} type="button" onClick={() => setAba(t.id)}
+            className={`filter-chip inline-flex shrink-0 items-center gap-2 rounded-full border min-h-11 sm:min-h-[36px] px-3.5 py-2 text-[13px] transition-all ${aba === t.id ? "border-[var(--filter-chip-selected)] bg-[var(--filter-chip-selected)] font-semibold text-[var(--filter-chip-text-selected)]" : "border-[var(--filter-chip-border)] bg-[var(--filter-chip-bg)] font-medium text-[var(--filter-chip-text)] hover:border-[var(--filter-chip-selected)] hover:text-[var(--filter-chip-selected)]"}`}>
+            {t.label}{t.badge != null && <span className="text-[11px] font-black opacity-70">{t.badge}</span>}
+          </button>
+        ))}
+      </div>
+
+      {aba === "minha" && <LojaFiscalMinhaLoja importadas={importadas} atualizacaoDe={atualizacaoDe} api={api} />}
+      {aba === "biblioteca" && <LojaFiscalBiblioteca publicadas={publicadas} publicadaDe={publicadaDe} importadaDe={importadaDe} api={api} />}
+    </main>
+  );
+}
+
+// Biblioteca: regras publicadas da Central → Visualizar / Importar.
+function LojaFiscalBiblioteca({ publicadas = [], publicadaDe, importadaDe, api }) {
+  const [ver, setVer] = useState(null); // versão a visualizar
+  const f = useFiltroLista(publicadas, (r) => `${r.nome} ${r.segmento || ""} ${r.regime || ""}`);
+  async function importar(regra) {
+    const pub = publicadaDe(regra.id); if (!pub || !api) return;
+    await api.importar({ regraGlobalId: regra.id, regraNome: regra.nome, versao: pub.versao, snapshot: pub });
+  }
+  return (
+    <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+      <div className="mb-3"><h3 className="page-title text-lg font-bold text-white">Biblioteca Fiscal Prime</h3>
+        <p className="text-xs text-slate-400">Regras publicadas pela Central. Visualize e importe para a sua loja — cria uma cópia própria e editável.</p></div>
+      <div className="relative mb-3"><span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"><IconBusca /></span>
+        <input value={f.busca} onChange={(e) => f.setBusca(e.target.value)} placeholder="Buscar regra publicada..." className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-gold-400/60" /></div>
+      {f.filtrados.length === 0 ? (
+        <EmptyState titulo="Nenhuma regra publicada" dica="A Central Fiscal ainda não publicou regras para importar." />
+      ) : (
+        <div className="space-y-2">
+          {f.visiveis.map((r) => {
+            const pub = publicadaDe(r.id); const imp = importadaDe(r.id);
+            return (
+              <div key={r.id} className="flex flex-wrap items-center gap-3 rounded-3xl border border-white/10 bg-slate-950/40 p-4">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[rgba(15,76,92,0.12)] text-lg text-[#0F4C5C]">⚖️</span>
+                <div className="min-w-[180px] flex-1">
+                  <p className="flex flex-wrap items-center gap-2 text-base font-semibold text-white">{r.nome}{imp && <span className="rounded-full border border-emerald-400/30 bg-emerald-500/15 px-2 py-0.5 text-[11px] font-black text-emerald-600">Importada v{imp.versaoImportada}</span>}</p>
+                  <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-400">
+                    {r.segmento && <span className="rounded-full bg-white/[0.06] px-2 py-0.5">{r.segmento}</span>}
+                    {r.regime && <span>{r.regime}</span>}
+                    {pub && <span className="text-emerald-300">v{pub.versao} publicada</span>}
+                    {pub?.fonte && <span className="rounded-full bg-[rgba(230,126,34,0.12)] px-2 py-0.5 font-semibold text-[#E67E22]">{pub.fonte}</span>}
+                  </div>
+                </div>
+                <div className="ml-auto flex shrink-0 items-center gap-2">
+                  <button onClick={() => setVer({ titulo: `${r.nome} — v${pub?.versao}`, dados: pub })} className="rounded-xl border border-[var(--pp-border)] bg-white px-3 py-1.5 text-xs font-black text-[var(--pp-text-body)] transition hover:bg-[rgba(15,76,92,0.04)]">👁 Visualizar</button>
+                  <button onClick={() => importar(r)} className="rounded-xl bg-[#E67E22] px-3 py-1.5 text-xs font-black text-white transition hover:bg-[#D06E1A]">{imp ? "Importar novamente" : "＋ Importar"}</button>
+                </div>
+              </div>
+            );
+          })}
+          <Paginacao pagina={f.pagina} totalPaginas={f.totalPaginas} total={f.filtrados.length} porPagina={f.POR_PAGINA} onMudar={f.setPagina} rotulo="regra(s)" />
+        </div>
+      )}
+      {ver && <LojaRegraVerModal titulo={ver.titulo} dados={ver.dados} onFechar={() => setVer(null)} />}
+    </div>
+  );
+}
+
+// Minha loja: regras importadas — editar local, aviso + comparar/atualizar.
+function LojaFiscalMinhaLoja({ importadas = [], atualizacaoDe, api }) {
+  const [editar, setEditar] = useState(null);
+  const [comparar, setComparar] = useState(null); // { imp, nova }
+  const [excluir, setExcluir] = useState(null);
+  const [ver, setVer] = useState(null);
+  const f = useFiltroLista(importadas, (r) => `${r.regraNome || ""} ${r.cfopCodigo || ""} ${r.ncmCodigo || ""}`);
+
+  if (importadas.length === 0) {
+    return <EmptyState titulo="Nenhuma regra na sua loja" dica="Vá à Biblioteca Fiscal Prime e importe uma regra publicada para começar." />;
+  }
+  return (
+    <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+      <div className="mb-3"><h3 className="page-title text-lg font-bold text-white">Configurações da minha loja</h3>
+        <p className="text-xs text-slate-400">Suas cópias editáveis. Ajuste conforme a orientação contábil — nada aqui volta para a Central.</p></div>
+      <div className="relative mb-3"><span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"><IconBusca /></span>
+        <input value={f.busca} onChange={(e) => f.setBusca(e.target.value)} placeholder="Buscar na minha loja..." className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-gold-400/60" /></div>
+      <div className="space-y-2">
+        {f.visiveis.map((imp) => {
+          const nova = atualizacaoDe(imp);
+          return (
+            <div key={imp.id} className={`rounded-3xl border p-4 ${nova ? "border-[rgba(230,126,34,0.35)] bg-[rgba(230,126,34,0.06)]" : "border-white/10 bg-slate-950/40"}`}>
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[rgba(15,76,92,0.12)] text-lg text-[#0F4C5C]">⚖️</span>
+                <div className="min-w-[180px] flex-1">
+                  <p className="flex flex-wrap items-center gap-2 text-base font-semibold text-white">{imp.regraNome || "Regra importada"}
+                    {imp.customizada && <span className="rounded-full border border-blue-400/30 bg-blue-500/15 px-2 py-0.5 text-[11px] font-black text-blue-300">Customizada</span>}
+                  </p>
+                  <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-400">
+                    <span className="text-slate-500">importada v{imp.versaoImportada}</span>
+                    {imp.cfopCodigo && <span>CFOP {imp.cfopCodigo}</span>}
+                    {(imp.cstIcms || imp.csosn) && <span>ICMS {imp.cstIcms || imp.csosn} · {Number(imp.icmsAliquota || 0).toFixed(2)}%</span>}
+                  </div>
+                </div>
+                <div className="ml-auto flex flex-wrap shrink-0 items-center gap-2">
+                  <button onClick={() => setVer({ titulo: imp.regraNome || "Regra da loja", dados: imp })} className="rounded-xl border border-[var(--pp-border)] bg-white px-3 py-1.5 text-xs font-black text-[var(--pp-text-body)] transition hover:bg-[rgba(15,76,92,0.04)]">👁</button>
+                  <button onClick={() => setEditar(imp)} className="rounded-xl border border-blue-400/20 bg-blue-500/10 px-3 py-1.5 text-xs font-black text-blue-300 transition hover:bg-blue-500/20">✏️ Editar</button>
+                  <button onClick={() => setExcluir(imp)} className="rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-1.5 text-xs font-black text-red-300 transition hover:bg-red-500/20">🗑️</button>
+                </div>
+              </div>
+              {nova && (
+                <div className="mt-3 flex flex-wrap items-center gap-2 rounded-2xl border border-[rgba(230,126,34,0.35)] bg-white/[0.03] px-3 py-2">
+                  <span className="text-[13px] font-black text-[#B4611A]">⚠ Atualização fiscal disponível — Central publicou a v{nova.versao}.</span>
+                  <button onClick={() => setComparar({ imp, nova })} className="ml-auto rounded-xl bg-[#E67E22] px-3 py-1.5 text-xs font-black text-white transition hover:bg-[#D06E1A]">Comparar e decidir</button>
+                </div>
+              )}
+            </div>
+          );
+        })}
+        <Paginacao pagina={f.pagina} totalPaginas={f.totalPaginas} total={f.filtrados.length} porPagina={f.POR_PAGINA} onMudar={f.setPagina} rotulo="regra(s)" />
+      </div>
+
+      {ver && <LojaRegraVerModal titulo={ver.titulo} dados={ver.dados} onFechar={() => setVer(null)} />}
+      {editar && <EditarLojaRegraModal imp={editar} api={api} onFechar={() => setEditar(null)} />}
+      {comparar && <CompararVersaoModal imp={comparar.imp} nova={comparar.nova} api={api} onFechar={() => setComparar(null)} />}
+      {excluir && (
+        <ConfirmModal titulo="Remover regra da loja?" mensagem={`Remover "${excluir.regraNome}" da configuração da sua loja? Isto não afeta a Central. Você pode importá-la novamente depois.`}
+          confirmar="Sim, remover" onConfirmar={() => { api.excluir(excluir.id); setExcluir(null); }} onCancelar={() => setExcluir(null)} />
+      )}
+    </div>
+  );
+}
+
+// Modal só-leitura dos parâmetros de uma regra/cópia.
+function LojaRegraVerModal({ titulo, dados, onFechar }) {
+  return (
+    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+      <button aria-label="Fechar" onClick={onFechar} className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+      <div className="relative flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-[var(--pp-border)] bg-white shadow-2xl">
+        <div className="flex items-center justify-between gap-3 border-b border-[var(--pp-border)] px-6 py-4">
+          <h2 className="text-lg font-semibold text-[var(--pp-text)]">{titulo}</h2>
+          <button onClick={onFechar} className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--pp-border)] bg-white text-lg text-[var(--pp-text-muted)]">✕</button>
+        </div>
+        <div className="grid flex-1 grid-cols-2 gap-x-4 gap-y-2 overflow-y-auto px-6 py-5 sm:grid-cols-3">
+          {CAMPOS_REGRA_CMP.map((c) => (
+            <div key={c.k} className="rounded-xl border border-[var(--pp-border)] bg-white px-3 py-2">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--pp-text-muted)]">{c.label}</p>
+              <p className="text-[13px] font-semibold text-[var(--pp-text)]">{fmtCampoRegra(c, dados)}</p>
+            </div>
+          ))}
+        </div>
+        <div className="shrink-0 border-t border-[var(--pp-border)] px-6 py-4"><button onClick={onFechar} className="w-full rounded-xl bg-[#0F4C5C] px-5 py-2.5 text-sm font-semibold text-white">Fechar</button></div>
+      </div>
+    </div>
+  );
+}
+
+// Comparação atual × nova versão + decisão (Atualizar / Manter / Ignorar).
+function CompararVersaoModal({ imp, nova, api, onFechar }) {
+  const [salvando, setSalvando] = useState(false);
+  const difs = CAMPOS_REGRA_CMP.map((c) => ({ c, a: fmtCampoRegra(c, imp), b: fmtCampoRegra(c, nova), mudou: fmtCampoRegra(c, imp) !== fmtCampoRegra(c, nova) }));
+  const mudancas = difs.filter((d) => d.mudou);
+  const run = async (fn) => { setSalvando(true); try { const ok = await fn(); if (ok) onFechar(); } finally { setSalvando(false); } };
+  return (
+    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+      <button aria-label="Fechar" onClick={onFechar} className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+      <div className="relative flex max-h-[86vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-[var(--pp-border)] bg-white shadow-2xl">
+        <div className="flex items-center justify-between gap-3 border-b border-[var(--pp-border)] px-6 py-4">
+          <div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[rgba(230,126,34,0.12)] text-lg text-[#E67E22]">⚠</span>
+            <div><h2 className="text-lg font-semibold text-[var(--pp-text)]">Atualização fiscal — v{imp.versaoImportada} → v{nova.versao}</h2>
+              <p className="text-[13px] text-[var(--pp-text-muted)]">{mudancas.length} campo(s) alterado(s). Nada muda até você decidir.</p></div>
+          </div>
+          <button onClick={onFechar} className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--pp-border)] bg-white text-lg text-[var(--pp-text-muted)]">✕</button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-6 py-5">
+          <div className="overflow-hidden rounded-2xl border border-[var(--pp-border)]">
+            <div className="grid grid-cols-[1.2fr_1fr_1fr] bg-[rgba(15,76,92,0.05)] text-[11px] font-black uppercase tracking-wide text-[var(--pp-text-muted)]">
+              <div className="px-3 py-2">Campo</div><div className="px-3 py-2">Config. atual</div><div className="px-3 py-2">Nova versão</div>
+            </div>
+            {(mudancas.length ? mudancas : difs).map(({ c, a, b, mudou }) => (
+              <div key={c.k} className={`grid grid-cols-[1.2fr_1fr_1fr] border-t border-[var(--pp-border)] text-[13px] ${mudou ? "bg-[rgba(230,126,34,0.06)]" : ""}`}>
+                <div className="px-3 py-2 font-semibold text-[var(--pp-text)]">{c.label}</div>
+                <div className={`px-3 py-2 ${mudou ? "text-[#C81E4A] line-through" : "text-[var(--pp-text-body)]"}`}>{a}</div>
+                <div className={`px-3 py-2 font-semibold ${mudou ? "text-[#2F9E52]" : "text-[var(--pp-text-body)]"}`}>{b}</div>
+              </div>
+            ))}
+          </div>
+          {imp.customizada && <p className="mt-3 rounded-xl border border-[rgba(230,126,34,0.3)] bg-[rgba(230,126,34,0.06)] px-3 py-2 text-[12px] font-semibold text-[#B4611A]">Atenção: esta cópia foi customizada. Atualizar substitui os valores pela nova versão da Central.</p>}
+        </div>
+        <div className="shrink-0 space-y-2 border-t border-[var(--pp-border)] px-6 py-4">
+          <div className="flex flex-wrap gap-2">
+            <button disabled={salvando} onClick={() => run(() => api.manter(imp.id, nova.versao, true))} className="flex-1 rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--pp-text-body)] transition hover:bg-[rgba(15,76,92,0.04)] disabled:opacity-40">Ignorar</button>
+            <button disabled={salvando} onClick={() => run(() => api.manter(imp.id, nova.versao, false))} className="flex-1 rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--pp-text-body)] transition hover:bg-[rgba(15,76,92,0.04)] disabled:opacity-40">Manter atual</button>
+            <button disabled={salvando} onClick={() => run(() => api.aplicarVersao(imp.id, { versao: nova.versao, snapshot: nova }))} className="flex-1 rounded-xl bg-[#E67E22] px-4 py-2.5 text-sm font-black text-white transition hover:bg-[#D06E1A] disabled:opacity-40">{salvando ? "⏳…" : `Atualizar para v${nova.versao}`}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Edição local da cópia da loja (contexto + tributos + vigência).
+function EditarLojaRegraModal({ imp, api, onFechar }) {
+  const [v, setV] = useState(() => ({ ...imp }));
+  const set = (k, val) => setV((c) => ({ ...c, [k]: val }));
+  const [erro, setErro] = useState(""); const [salvando, setSalvando] = useState(false);
+  const numInput = (label, k) => (<div><label className={PP_LBL}>{label}</label><input type="number" step="0.01" min="0" value={v[k]} onChange={(e) => set(k, e.target.value)} className={PP_INP} /></div>);
+  const secTitulo = "mb-2 mt-4 flex items-center gap-2 text-xs font-black uppercase tracking-wide text-[#0F4C5C]";
+  async function salvar() {
+    setErro(""); setSalvando(true);
+    try { const ok = await api.salvar(imp.id, v); if (ok) onFechar(); else setErro("Não foi possível salvar. Verifique a migration 087."); }
+    finally { setSalvando(false); }
+  }
+  return (
+    <FiscalModalShell titulo={`Editar — ${imp.regraNome || "regra da loja"}`} sub="Ajuste local da sua loja. Não afeta a Central nem outra loja." icone="✏️"
+      erro={erro} salvando={salvando} onFechar={onFechar} onSalvar={salvar} podeSalvar rotulo="Salvar configuração">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div><label className={PP_LBL}>Tipo de operação</label><select value={v.tipoOperacao} onChange={(e) => set("tipoOperacao", e.target.value)} className={PP_INP}><option value="">—</option>{TIPOS_OPERACAO_FISCAL.map((s) => <option key={s}>{s}</option>)}</select></div>
+        <div><label className={PP_LBL}>Documento</label><select value={v.modeloDocumento} onChange={(e) => set("modeloDocumento", e.target.value)} className={PP_INP}><option value="">—</option>{MODELOS_DOC_FISCAL.map((s) => <option key={s}>{s}</option>)}</select></div>
+        <div className="grid grid-cols-2 gap-2">
+          <div><label className={PP_LBL}>UF origem</label><select value={v.ufOrigem} onChange={(e) => set("ufOrigem", e.target.value)} className={PP_INP}><option value="">—</option>{UFS_BR.map((s) => <option key={s}>{s}</option>)}</select></div>
+          <div><label className={PP_LBL}>UF destino</label><select value={v.ufDestino} onChange={(e) => set("ufDestino", e.target.value)} className={PP_INP}><option value="">—</option>{UFS_BR.map((s) => <option key={s}>{s}</option>)}</select></div>
+        </div>
+        <div><label className={PP_LBL}>Âmbito</label><select value={v.ambito} onChange={(e) => set("ambito", e.target.value)} className={PP_INP}><option value="">—</option>{AMBITOS_FISCAIS.map((s) => <option key={s}>{s}</option>)}</select></div>
+      </div>
+      <h4 className={secTitulo}>🏷️ Classificação</h4>
+      <div className="grid gap-3 sm:grid-cols-3">
+        <div><label className={PP_LBL}>NCM</label><input value={v.ncmCodigo} onChange={(e) => set("ncmCodigo", e.target.value)} className={PP_INP} /></div>
+        <div><label className={PP_LBL}>CEST</label><input value={v.cestCodigo} onChange={(e) => set("cestCodigo", e.target.value)} className={PP_INP} /></div>
+        <div><label className={PP_LBL}>CFOP</label><input value={v.cfopCodigo} onChange={(e) => set("cfopCodigo", e.target.value)} className={PP_INP} /></div>
+      </div>
+      <h4 className={secTitulo}>💠 ICMS</h4>
+      <div className="grid gap-3 sm:grid-cols-3">
+        <div><label className={PP_LBL}>CST ICMS</label><input value={v.cstIcms} onChange={(e) => set("cstIcms", e.target.value)} className={PP_INP} /></div>
+        <div><label className={PP_LBL}>CSOSN</label><input value={v.csosn} onChange={(e) => set("csosn", e.target.value)} className={PP_INP} /></div>
+        {numInput("Alíquota ICMS %", "icmsAliquota")}
+        {numInput("Redução base %", "icmsReducao")}
+        {numInput("FCP %", "fcpAliquota")}
+        {numInput("MVA %", "mva")}
+      </div>
+      <label className="mt-2 flex items-center gap-2 text-sm font-semibold text-[var(--pp-text-body)]"><input type="checkbox" checked={v.icmsSt} onChange={(e) => set("icmsSt", e.target.checked)} className="h-4 w-4 accent-[#0F4C5C]" /> ICMS ST</label>
+      <h4 className={secTitulo}>💵 PIS · COFINS · IPI</h4>
+      <div className="grid gap-3 sm:grid-cols-3">
+        <div><label className={PP_LBL}>CST PIS</label><input value={v.cstPis} onChange={(e) => set("cstPis", e.target.value)} className={PP_INP} /></div>
+        {numInput("PIS %", "pisAliquota")}
+        <div />
+        <div><label className={PP_LBL}>CST COFINS</label><input value={v.cstCofins} onChange={(e) => set("cstCofins", e.target.value)} className={PP_INP} /></div>
+        {numInput("COFINS %", "cofinsAliquota")}
+        <div />
+        <div><label className={PP_LBL}>CST IPI</label><input value={v.ipiCst} onChange={(e) => set("ipiCst", e.target.value)} className={PP_INP} /></div>
+        {numInput("IPI %", "ipiAliquota")}
+      </div>
+      <h4 className={secTitulo}>🆕 IBS · CBS · IS</h4>
+      <div className="grid gap-3 sm:grid-cols-3">
+        {numInput("IBS %", "ibsAliquota")}
+        {numInput("CBS %", "cbsAliquota")}
+        {numInput("Imposto Seletivo %", "impostoSeletivo")}
+      </div>
+      <div className="mt-3"><label className={PP_LBL}>Observação</label><input value={v.observacao} onChange={(e) => set("observacao", e.target.value)} className={PP_INP} /></div>
+    </FiscalModalShell>
   );
 }
 
