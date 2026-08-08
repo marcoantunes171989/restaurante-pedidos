@@ -1673,15 +1673,14 @@ export default function CardapioPublico() {
                   <img key={produtoAtivo.id} src={produtoAtivo.imageUrl || fallbackImage} alt={produtoAtivo.name} loading="eager" decoding="async"
                     onError={(e) => { if (e.currentTarget.src !== fallbackImage) e.currentTarget.src = fallbackImage; }}
                     className="absolute inset-0 h-full w-full object-cover transition duration-500 group-active:scale-105" />
-                  <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24" style={{ background: "linear-gradient(to top, rgba(15,76,92,0.72), transparent)" }} />
                   <span className="absolute left-3 top-3 flex h-7 w-7 items-center justify-center rounded-full bg-[#E67E22] text-[12px] font-black text-white shadow-sm">{slideAtual + 1}</span>
                   {produtoAtivo.badge && (
                     <span className="absolute right-3 top-3 rounded-full bg-black/40 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-white backdrop-blur-sm">{produtoAtivo.badge}</span>
                   )}
                   <div className="absolute inset-x-0 bottom-0 p-3.5 text-white">
-                    <p className="truncate text-[clamp(15px,2.3vh,18px)] font-black leading-tight">{produtoAtivo.name}</p>
-                    <p className="mt-0.5 line-clamp-1 text-[11px] text-white/80">{descCurta(produtoAtivo)}</p>
-                    <p className="mt-1 text-[clamp(15px,2.2vh,18px)] font-black text-[#F6C18A]">{formatCurrency(produtoAtivo.price)}</p>
+                    <p className="truncate text-[clamp(15px,2.3vh,18px)] font-black leading-tight drop-shadow-[0_1px_2px_rgba(0,0,0,0.55)]">{produtoAtivo.name}</p>
+                    <p className="mt-0.5 line-clamp-1 text-[11px] text-white/90 drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)]">{descCurta(produtoAtivo)}</p>
+                    <p className="mt-1 text-[clamp(15px,2.2vh,18px)] font-black text-[#F6C18A] drop-shadow-[0_1px_2px_rgba(0,0,0,0.55)]">{formatCurrency(produtoAtivo.price)}</p>
                   </div>
                 </div>
               </button>
