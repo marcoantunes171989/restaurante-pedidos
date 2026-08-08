@@ -1563,15 +1563,15 @@ export default function CardapioPublico() {
     };
 
     return (
-      <div data-theme="light" className={`pp-mesa-welcome tema-claro-area relative flex h-[100dvh] max-h-[100dvh] w-full max-w-[100vw] flex-col overflow-hidden bg-[#F7F4EF] text-[var(--client-text-primary)] ${modoExterno ? "pp-welcome-ext" : ""}`}
+      <div data-theme="light" className={`pp-mesa-welcome tema-claro-area relative flex h-[100dvh] max-h-[100dvh] w-full max-w-[100vw] flex-col overflow-hidden bg-white text-[var(--client-text-primary)] ${modoExterno ? "pp-welcome-ext" : ""}`}
         style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}>
         <div className="relative mx-auto flex h-full w-full max-w-[420px] min-h-0 flex-col px-3.5 pt-[clamp(0.35rem,1.2vh,0.75rem)] pb-[clamp(0.25rem,0.8vh,0.5rem)]">
           {/* ── Estabelecimento ── */}
           <header className="flex shrink-0 flex-col items-center text-center">
             {loja.logoUrl ? (
-              <img src={loja.logoUrl} alt={`Logo ${loja.nome}`} className="h-[clamp(44px,7vh,64px)] w-[clamp(44px,7vh,64px)] rounded-full border-[3px] border-white object-cover" onError={(e) => { e.currentTarget.style.display = "none"; }} />
+              <img src={loja.logoUrl} alt={`Logo ${loja.nome}`} className="h-[clamp(44px,7vh,64px)] w-[clamp(44px,7vh,64px)] rounded-full border-[3px] border-[#E6E6E6] object-cover bg-white" onError={(e) => { e.currentTarget.style.display = "none"; }} />
             ) : (
-              <span className="flex h-[clamp(44px,7vh,64px)] w-[clamp(44px,7vh,64px)] items-center justify-center rounded-full border-[3px] border-white bg-white text-xl font-black" aria-hidden="true">
+              <span className="flex h-[clamp(44px,7vh,64px)] w-[clamp(44px,7vh,64px)] items-center justify-center rounded-full border-[3px] border-[#E6E6E6] bg-white text-xl font-black" aria-hidden="true">
                 <span className="text-[#0F4C5C]">{(loja.prefixo || nomePrimario).slice(0, 1)}</span>
                 <span className="text-[#E67E22]">{(loja.prefixo || nomePrimario).slice(1, 2) || ""}</span>
               </span>
@@ -1581,9 +1581,9 @@ export default function CardapioPublico() {
               {nomeSecundario ? <span className="text-[clamp(1.2rem,3.6vh,1.7rem)] text-[#E67E22]"> {nomeSecundario}</span> : null}
             </h1>
             <div className="mt-1 flex items-center gap-2">
-              <span className="h-px w-6 bg-[#E67E22]/70" aria-hidden="true" />
+              <span className="h-px w-6 bg-[#E6E6E6]" aria-hidden="true" />
               <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-[#0F4C5C]">Cardápio digital</p>
-              <span className="h-px w-6 bg-[#E67E22]/70" aria-hidden="true" />
+              <span className="h-px w-6 bg-[#E6E6E6]" aria-hidden="true" />
             </div>
           </header>
 
@@ -1592,7 +1592,7 @@ export default function CardapioPublico() {
             <div className="mt-[clamp(0.4rem,1.2vh,0.7rem)] grid shrink-0 grid-cols-2 gap-2">
               {currentTable ? (
                 <div className="flex min-w-0 items-center gap-2 rounded-2xl border border-[#E6E6E6] bg-white px-2.5 py-[clamp(0.45rem,1.1vh,0.7rem)]">
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#FCEFE1] text-[#E67E22]"><CkIconMesa width={16} height={16} /></span>
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-[#E6E6E6] bg-white text-[#E67E22]"><CkIconMesa width={16} height={16} /></span>
                   <span className="min-w-0">
                     <span className="block truncate text-[13px] font-black text-[#0F4C5C]">{currentTable}</span>
                     <span className="block text-[10px] font-medium text-[#6B7280]">Sua comanda</span>
@@ -1600,7 +1600,7 @@ export default function CardapioPublico() {
                 </div>
               ) : (
                 <div className="flex min-w-0 items-center gap-2 rounded-2xl border border-[#E6E6E6] bg-white px-2.5 py-[clamp(0.45rem,1.1vh,0.7rem)]">
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#FCEFE1] text-[#E67E22]"><CkIconLoja width={16} height={16} /></span>
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-[#E6E6E6] bg-white text-[#E67E22]"><CkIconLoja width={16} height={16} /></span>
                   <span className="min-w-0">
                     <span className="block truncate text-[13px] font-black text-[#0F4C5C]">Pedido online</span>
                     <span className="block text-[10px] font-medium text-[#6B7280]">Cardápio externo</span>
@@ -1610,7 +1610,7 @@ export default function CardapioPublico() {
               <div className="flex min-w-0 items-center gap-2 rounded-2xl border border-[#E6E6E6] bg-white px-2.5 py-[clamp(0.45rem,1.1vh,0.7rem)]">
                 {lojaStatus === "aberto" ? (
                   <>
-                    <span className="relative flex h-8 w-8 shrink-0 items-center justify-center">
+                    <span className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-[#E6E6E6] bg-white">
                       <span className="absolute h-2 w-2 rounded-full bg-[#5E8C31]" aria-hidden="true" />
                       <span className="absolute h-2 w-2 animate-ping rounded-full bg-[#5E8C31]/50" aria-hidden="true" />
                     </span>
@@ -1621,7 +1621,7 @@ export default function CardapioPublico() {
                   </>
                 ) : lojaStatus === "fechado" ? (
                   <>
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#EDF0F4] text-[#52606D]"><CkIconRelogio width={15} height={15} /></span>
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-[#E6E6E6] bg-white text-[#52606D]"><CkIconRelogio width={15} height={15} /></span>
                     <span className="min-w-0">
                       <span className="block truncate text-[13px] font-black text-[#52606D]">Fechado agora</span>
                       <span className="block truncate text-[10px] font-medium text-[#6B7280]">Fora do horário</span>
@@ -1629,7 +1629,7 @@ export default function CardapioPublico() {
                   </>
                 ) : (
                   <>
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#EDF0F4] text-[#0F4C5C]"><CkIconRelogio width={15} height={15} /></span>
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-[#E6E6E6] bg-white text-[#0F4C5C]"><CkIconRelogio width={15} height={15} /></span>
                     <span className="min-w-0">
                       <span className="block truncate text-[13px] font-black text-[#0F4C5C]">Atendimento</span>
                       <span className="block truncate text-[10px] font-medium text-[#6B7280]">Consulte a equipe</span>
@@ -1640,7 +1640,7 @@ export default function CardapioPublico() {
             </div>
           )}
 
-          {/* ── Carrossel: foto sem overlay azul; infos abaixo ── */}
+          {/* ── Carrossel: foto sem overlay; infos abaixo ── */}
           {produtoAtivo && (
             <section className="mt-[clamp(0.35rem,1.1vh,0.65rem)] flex min-h-0 flex-1 flex-col" aria-labelledby="pp-destaques-titulo"
               onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
@@ -1665,13 +1665,13 @@ export default function CardapioPublico() {
 
               <button type="button" onClick={() => setDetalhe(produtoAtivo)}
                 className="group relative flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-[1.35rem] border border-[#E6E6E6] bg-white text-left transition active:scale-[0.995]">
-                <div className="relative min-h-0 flex-1 overflow-hidden bg-[#EDF0F4]">
+                <div className="relative min-h-0 flex-1 overflow-hidden bg-white">
                   <img key={produtoAtivo.id} src={produtoAtivo.imageUrl || fallbackImage} alt={produtoAtivo.name} loading="eager" decoding="async"
                     onError={(e) => { if (e.currentTarget.src !== fallbackImage) e.currentTarget.src = fallbackImage; }}
                     className="absolute inset-0 h-full w-full object-cover transition duration-500 group-active:scale-105" />
-                  <span className="absolute left-3 top-3 flex h-7 w-7 items-center justify-center rounded-full bg-[#E67E22] text-[12px] font-black text-white">{slideAtual + 1}</span>
+                  <span className="absolute left-3 top-3 flex h-7 w-7 items-center justify-center rounded-full border border-[#E6E6E6] bg-white text-[12px] font-black text-[#0F4C5C]">{slideAtual + 1}</span>
                   {produtoAtivo.badge ? (
-                    <span className="absolute right-3 top-3 rounded-full bg-black/40 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-white backdrop-blur-sm">{produtoAtivo.badge}</span>
+                    <span className="absolute right-3 top-3 rounded-full border border-[#E6E6E6] bg-white px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-[#E67E22]">{produtoAtivo.badge}</span>
                   ) : null}
                 </div>
                 <div className="shrink-0 border-t border-[#E6E6E6] bg-white px-3.5 py-2.5">
@@ -1686,7 +1686,7 @@ export default function CardapioPublico() {
                   {destaques.map((p, i) => (
                     <button key={p.id} type="button" role="tab" aria-selected={i === slideAtual} aria-label={`Destaque ${i + 1}: ${p.name}`}
                       onClick={() => setWelcomeSlide(i)}
-                      className={`h-1.5 rounded-full transition-all ${i === slideAtual ? "w-4 bg-[#E67E22]" : "w-1.5 bg-[#D5D9DE]"}`} />
+                      className={`h-1.5 rounded-full transition-all ${i === slideAtual ? "w-4 bg-[#E67E22]" : "w-1.5 bg-[#E6E6E6]"}`} />
                   ))}
                 </div>
               )}
@@ -1725,7 +1725,7 @@ export default function CardapioPublico() {
                     const emAndamento = chamando === t;
                     return (
                       <button key={t} type="button" onClick={() => chamar(t, rotulo)} disabled={!!chamando} aria-busy={emAndamento} aria-label={aria} title={aria}
-                        className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#E6E6E6] bg-[#F7F4EF] text-[#0F4C5C] transition active:scale-90 disabled:opacity-60">
+                        className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#E6E6E6] bg-white text-[#0F4C5C] transition active:scale-90 disabled:opacity-60">
                         {emAndamento ? <CkIconSpinner /> : <Icone width={15} height={15} />}
                       </button>
                     );
