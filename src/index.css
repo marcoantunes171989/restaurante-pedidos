@@ -223,8 +223,8 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
   --color-danger:  #E5484D;  --color-danger-bg:  #FFF1F2;
   --color-info:    #0F4C5C;  --color-info-bg:    #E5EDEF;
 
-  --shadow-card: none;
-  --shadow-card-hover: none;
+  --shadow-card: 0 8px 24px rgba(16, 24, 40, 0.06);
+  --shadow-card-hover: 0 12px 32px rgba(16, 24, 40, 0.08);
 
   /* ══════════════════════════════════════════════════════════════
      PALETA OFICIAL 2026 v2 — Pedido Prime (tokens --pp-*)
@@ -454,9 +454,9 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
   --client-focus-primary: rgba(230, 126, 34, 0.22); /* laranja oficial #E67E22 */
   --client-focus-info: rgba(15, 76, 92, 0.22); /* azul petróleo #0F4C5C */
 
-  --client-shadow-sm: none;
-  --client-shadow-md: none;
-  --client-shadow-floating: none;
+  --client-shadow-sm: 0 4px 14px rgba(57, 40, 31, 0.06);
+  --client-shadow-md: 0 12px 32px rgba(57, 40, 31, 0.10);
+  --client-shadow-floating: 0 18px 48px rgba(57, 40, 31, 0.14);
 }
 
 /* Equivalentes propostos para modo escuro (NÃO ativado — este projeto
@@ -489,8 +489,7 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
    ══════════════════════════════════════════════════════════════════ */
 .btn-laranja {
   background-image: linear-gradient(180deg, #EC8B3E 0%, #D06E1A 100%);
-  text-shadow: none;
-  box-shadow: none;
+  text-shadow: 0 1px 1.5px rgba(90, 35, 0, 0.35);
 }
 .btn-laranja:hover:not(:disabled):not([aria-disabled="true"]) {
   background-image: linear-gradient(180deg, #F0994A 0%, #DE7420 100%);
@@ -508,8 +507,7 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
    laranja suave até o laranja da marca — CTA elegante e "gourmet". */
 .btn-laranja-claro {
   background-image: linear-gradient(180deg, #F4A45E 0%, #E67E22 100%);
-  text-shadow: none;
-  box-shadow: none;
+  text-shadow: 0 1px 1.5px rgba(90, 35, 0, 0.28);
 }
 .btn-laranja-claro:hover:not(:disabled):not([aria-disabled="true"]) {
   background-image: linear-gradient(180deg, #F7B274 0%, #EC8B3E 100%);
@@ -532,8 +530,7 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
    ══════════════════════════════════════════════════════════════════ */
 .btn-verde {
   background-image: linear-gradient(180deg, #3FB463 0%, #2A8548 100%);
-  text-shadow: none;
-  box-shadow: none;
+  text-shadow: 0 1px 1.5px rgba(0, 45, 18, 0.35);
 }
 .btn-verde:hover:not(:disabled):not([aria-disabled="true"]) {
   background-image: linear-gradient(180deg, #52C075 0%, #319556 100%);
@@ -600,8 +597,7 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
 }
 .pdv-tema .btn-laranja {
   background-image: linear-gradient(180deg, #F6A961 0%, #EC8B3E 100%);
-  text-shadow: none;
-  box-shadow: none;
+  text-shadow: 0 1px 1.5px rgba(90, 35, 0, 0.28);
 }
 .pdv-tema .btn-laranja:hover:not(:disabled):not([aria-disabled="true"]) {
   background-image: linear-gradient(180deg, #FAB672 0%, #F2994A 100%);
@@ -877,10 +873,10 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
 [data-theme="light"] .tema-claro-area .border-white\/10,
 [data-theme="light"] .tema-claro-area .border-white\/20,
 [data-theme="light"] .tema-claro-area .border-white\/\[0\.08\] { border-color: var(--pp-border) !important; }
-/* Sem sombra nos cards/painéis (superfícies brancas) */
+/* Sombra leve e elegante nos cards/painéis principais (superfícies brancas) */
 [data-theme="light"] .tema-claro-area .rounded-\[2rem\],
 [data-theme="light"] .tema-claro-area .rounded-3xl {
-  box-shadow: none;
+  box-shadow: 0 8px 24px rgba(16, 24, 40, 0.06);
 }
 /* ── Botões e cores semânticas na paleta oficial 2026 (Fase 2) ──
    Padroniza os fundos sólidos de ação/estado para os tokens --pp-*,
@@ -1199,7 +1195,7 @@ select::-ms-expand { display: none; } /* IE/Edge antigo */
 .pp-notif-panel {
   background: var(--pp-surface);
   border: 1px solid var(--pp-border);
-  box-shadow: none;
+  box-shadow: 0 22px 60px rgba(57, 40, 31, 0.18);
   overflow: hidden;
 }
 
@@ -1215,7 +1211,7 @@ select::-ms-expand { display: none; } /* IE/Edge antigo */
 .pp-notif-modal {
   background: var(--pp-surface);
   border: 1px solid var(--pp-border);
-  box-shadow: none;
+  box-shadow: 0 22px 60px rgba(57, 40, 31, 0.18);
   border-radius: 24px 24px 0 0;
   width: 100%;
   max-height: 88vh;
@@ -1231,7 +1227,7 @@ select::-ms-expand { display: none; } /* IE/Edge antigo */
 .pp-notif-toggle { position: relative; display: inline-flex; height: 26px; width: 46px; flex-shrink: 0; border-radius: 999px; border: 1px solid var(--pp-border); background: var(--pp-bg); transition: .2s; cursor: pointer; }
 .pp-notif-toggle.is-on { background: var(--pp-primary-hover); border-color: transparent; }
 .pp-notif-toggle:disabled { opacity: .45; cursor: not-allowed; }
-.pp-notif-toggle .pp-notif-knob { position: absolute; top: 2px; left: 2px; height: 20px; width: 20px; border-radius: 999px; background: #fff; box-shadow: none; transition: .2s; }
+.pp-notif-toggle .pp-notif-knob { position: absolute; top: 2px; left: 2px; height: 20px; width: 20px; border-radius: 999px; background: #fff; box-shadow: 0 1px 3px rgba(57, 40, 31, 0.25); transition: .2s; }
 .pp-notif-toggle.is-on .pp-notif-knob { transform: translateX(20px); }
 .pp-notif-toggle:focus-visible { outline: 2px solid var(--pp-primary); outline-offset: 2px; }
 
@@ -1239,8 +1235,8 @@ select::-ms-expand { display: none; } /* IE/Edge antigo */
    migration 064 / NotificationBell) — usada por OrderCard.jsx e
    AccountCard.jsx (Pedidos/Cozinha/Bar/Caixa). Some sozinho depois de
    alguns segundos (ver CentralDePedidos.jsx/CentralDoCaixa.jsx/etc.). */
-.pp-order-destaque { border-color: var(--pp-primary) !important; box-shadow: none; animation: none; }
-@keyframes pp-order-destaque-pulso { 0% { box-shadow: none; } 100% { box-shadow: none; } }
+.pp-order-destaque { border-color: var(--pp-primary) !important; box-shadow: 0 0 0 3px var(--pp-primary-soft), 0 14px 32px rgba(43,35,32,.12); animation: pp-order-destaque-pulso 1.6s ease-out 2; }
+@keyframes pp-order-destaque-pulso { 0% { box-shadow: 0 0 0 0 rgba(198,63,29,.45); } 100% { box-shadow: 0 0 0 10px rgba(198,63,29,0); } }
 @media (prefers-reduced-motion: reduce) { .pp-order-destaque { animation: none; } }
 
 /* ── Scrollbar minimalista (global) ─────────────────────────── */
@@ -1271,7 +1267,8 @@ select::-ms-expand { display: none; } /* IE/Edge antigo */
 @media (max-height: 900px) { .pp-login-optional { display: none !important; } }
 
 /* Tela de boas-vindas (QR) — fundo branco, composição limpa:
-   marca + foto contain full-bleed + CTA. Sem scroll / sem enfeites. */
+   marca + foto contain full-bleed + CTA .btn-laranja (padrão do projeto).
+   Sem scroll; sem box-shadow decorativo (text-shadow do botão permanece). */
 @media (max-height: 700px) { .pp-mesa-welcome .pp-mesa-opt1 { display: none !important; } }
 .pp-mesa-welcome {
   overflow: hidden;
@@ -1281,12 +1278,10 @@ select::-ms-expand { display: none; } /* IE/Edge antigo */
   touch-action: pan-y;
   background: #ffffff;
 }
-/* Página de boas-vindas: sem sombras (botão, cards, tipografia). */
-.pp-mesa-welcome,
-.pp-mesa-welcome * {
+.pp-mesa-welcome .rounded-\[2rem\],
+.pp-mesa-welcome .rounded-3xl,
+.pp-mesa-welcome .rounded-2xl {
   box-shadow: none !important;
-  text-shadow: none !important;
-  filter: none !important;
 }
 @keyframes pp-welcome-hero {
   from { opacity: 0; }
