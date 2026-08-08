@@ -1651,7 +1651,7 @@ export default function CardapioPublico() {
                       loading="eager"
                       decoding="async"
                       onError={(e) => { if (e.currentTarget.src !== fallbackImage) e.currentTarget.src = fallbackImage; }}
-                      className="pp-mesa-welcome-hero absolute inset-0 h-full w-full object-contain object-center drop-shadow-[0_12px_28px_rgba(45,52,54,0.18)]"
+                      className="pp-mesa-welcome-hero absolute inset-0 h-full w-full object-contain object-center"
                     />
 
                     {produtoAtivo.badge ? (
