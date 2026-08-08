@@ -1567,9 +1567,9 @@ export default function CardapioPublico() {
     return (
       <div data-theme="light" className={`pp-mesa-welcome tema-claro-area relative flex h-[100dvh] max-h-[100dvh] w-full max-w-[100vw] flex-col overflow-hidden bg-[#F7F4EF] text-[var(--client-text-primary)] ${modoExterno ? "pp-welcome-ext" : ""}`}
         style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}>
-        <div className="relative mx-auto flex h-full w-full max-w-[420px] min-h-0 flex-col px-3.5 pt-[clamp(0.3rem,1vh,0.65rem)] pb-[clamp(0.2rem,0.7vh,0.45rem)]">
+        <div className="relative mx-auto flex h-full w-full max-w-[420px] min-h-0 flex-col pt-[clamp(0.3rem,1vh,0.65rem)] pb-[clamp(0.2rem,0.7vh,0.45rem)]">
           {/* ── Marca (compacta — libera altura para a foto hero) ── */}
-          <header className="flex shrink-0 flex-col items-center text-center">
+          <header className="flex shrink-0 flex-col items-center px-3.5 text-center">
             {loja.logoUrl ? (
               <img src={loja.logoUrl} alt={`Logo ${loja.nome}`} className="h-[clamp(40px,6.2vh,56px)] w-[clamp(40px,6.2vh,56px)] rounded-full border-[3px] border-white object-cover shadow-[0_6px_18px_rgba(15,76,92,0.12)]" onError={(e) => { e.currentTarget.style.display = "none"; }} />
             ) : (
@@ -1591,7 +1591,7 @@ export default function CardapioPublico() {
 
           {/* ── Mesa + status ── */}
           {(currentTable || lojaStatus) && (
-            <div className="mt-[clamp(0.4rem,1.2vh,0.7rem)] grid shrink-0 grid-cols-2 gap-2">
+            <div className="mt-[clamp(0.4rem,1.2vh,0.7rem)] grid shrink-0 grid-cols-2 gap-2 px-3.5">
               {currentTable ? (
                 <div className="flex min-w-0 items-center gap-2 rounded-2xl border border-white bg-white px-2.5 py-[clamp(0.45rem,1.1vh,0.7rem)] shadow-[0_4px_14px_rgba(15,76,92,0.06)]">
                   <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#FCEFE1] text-[#E67E22]"><CkIconMesa width={16} height={16} /></span>
@@ -1642,11 +1642,11 @@ export default function CardapioPublico() {
             </div>
           )}
 
-          {/* ── Carrossel: foto hero limpa + info abaixo (valoriza o acesso) ── */}
+          {/* ── Carrossel full-bleed: laterais infinitas + foto inteira (sem corte) ── */}
           {produtoAtivo && (
             <section className="mt-[clamp(0.3rem,1vh,0.55rem)] flex min-h-0 flex-1 flex-col" aria-labelledby="pp-destaques-titulo"
               onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
-              <div className="mb-1 flex shrink-0 items-center justify-between gap-2">
+              <div className="mb-1 flex shrink-0 items-center justify-between gap-2 px-3.5">
                 <div className="min-w-0">
                   <h2 id="pp-destaques-titulo" className="text-[clamp(13px,2vh,15px)] font-black text-[#0F4C5C]">Destaques da casa</h2>
                   <p className="text-[10px] text-[#6B7280]">{slideAtual + 1} de {nSlides} · toque na foto para pedir</p>
@@ -1666,17 +1666,33 @@ export default function CardapioPublico() {
               </div>
 
               <button type="button" onClick={() => setDetalhe(produtoAtivo)}
-                className="group relative flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-[1.4rem] border border-[#E6E6E6]/80 bg-white text-left shadow-[0_8px_24px_rgba(45,52,54,0.08)] transition active:scale-[0.995]">
-                {/* Foto em evidência — sem overlay; protagonismo visual do prato */}
+                className="pp-mesa-welcome-bleed group relative flex min-h-0 flex-1 flex-col overflow-hidden bg-white text-left transition active:scale-[0.998]">
+                {/* Foto full-bleed: contain (sem cortar) + fundo borrado nas laterais (sensação infinita) */}
                 <div className="relative min-h-[38%] flex-[1.65] overflow-hidden bg-[#F0EEEA]">
-                  <img key={produtoAtivo.id} src={produtoAtivo.imageUrl || fallbackImage} alt={produtoAtivo.name} loading="eager" decoding="async"
+                  <img
+                    key={`bg-${produtoAtivo.id}`}
+                    src={produtoAtivo.imageUrl || fallbackImage}
+                    alt=""
+                    aria-hidden="true"
+                    loading="eager"
+                    decoding="async"
                     onError={(e) => { if (e.currentTarget.src !== fallbackImage) e.currentTarget.src = fallbackImage; }}
-                    className="pp-mesa-welcome-hero absolute inset-0 h-full w-full object-cover object-center transition duration-700 ease-out group-hover:scale-[1.03] group-active:scale-[1.04]" />
-                  <span className="absolute left-3 top-3 flex h-7 min-w-7 items-center justify-center rounded-full bg-white/95 px-2 text-[11px] font-black text-[#0F4C5C] shadow-sm backdrop-blur-[2px]">
+                    className="pointer-events-none absolute inset-0 h-full w-full scale-125 object-cover object-center blur-3xl opacity-70"
+                  />
+                  <img
+                    key={produtoAtivo.id}
+                    src={produtoAtivo.imageUrl || fallbackImage}
+                    alt={produtoAtivo.name}
+                    loading="eager"
+                    decoding="async"
+                    onError={(e) => { if (e.currentTarget.src !== fallbackImage) e.currentTarget.src = fallbackImage; }}
+                    className="pp-mesa-welcome-hero absolute inset-0 h-full w-full object-contain object-center"
+                  />
+                  <span className="absolute left-3 top-3 z-10 flex h-7 min-w-7 items-center justify-center rounded-full bg-white/95 px-2 text-[11px] font-black text-[#0F4C5C] shadow-sm backdrop-blur-[2px]">
                     {String(slideAtual + 1).padStart(2, "0")}
                   </span>
                   {produtoAtivo.badge ? (
-                    <span className="absolute right-3 top-3 rounded-full bg-[#E67E22] px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-white shadow-sm">
+                    <span className="absolute right-3 top-3 z-10 rounded-full bg-[#E67E22] px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-white shadow-sm">
                       {produtoAtivo.badge}
                     </span>
                   ) : null}
@@ -1700,7 +1716,7 @@ export default function CardapioPublico() {
               </button>
 
               {nSlides > 1 && (
-                <div className="mt-1.5 flex shrink-0 justify-center gap-1.5" role="tablist" aria-label="Destaques">
+                <div className="mt-1.5 flex shrink-0 justify-center gap-1.5 px-3.5" role="tablist" aria-label="Destaques">
                   {destaques.map((p, i) => (
                     <button key={p.id} type="button" role="tab" aria-selected={i === slideAtual} aria-label={`Destaque ${i + 1}: ${p.name}`}
                       onClick={() => setWelcomeSlide(i)}
@@ -1712,7 +1728,7 @@ export default function CardapioPublico() {
           )}
 
           {/* ── Boas-vindas + CTA + rodapé (sempre visíveis, sem rolar) ── */}
-          <div className="mt-[clamp(0.35rem,1vh,0.6rem)] flex shrink-0 flex-col">
+          <div className="mt-[clamp(0.35rem,1vh,0.6rem)] flex shrink-0 flex-col px-3.5">
             <div className="pp-mesa-opt-sub flex items-center gap-2.5 rounded-2xl border border-white bg-white px-3 py-2 shadow-[0_4px_14px_rgba(15,76,92,0.06)]">
               <span className="text-xl" aria-hidden="true">👋</span>
               <p className="min-w-0 flex-1 text-[11px] leading-snug text-[#374151]">
