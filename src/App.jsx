@@ -22,7 +22,7 @@ import {
   fetchCupons, inserirCupom, atualizarCupom, excluirCupom, escutarCupons, validarCupom, consumirCupom,
   fetchGruposOpcoes, fetchOpcoes, inserirGrupoOpcoes, atualizarGrupoOpcoes, excluirGrupoOpcoes, inserirOpcao, atualizarOpcao, excluirOpcao, escutarGruposOpcoes, escutarOpcoes,
   fetchFiscalIcms, inserirFiscalIcms, atualizarFiscalIcms, excluirFiscalIcms, escutarFiscalIcms,
-  fetchFiscalNcm, inserirFiscalNcm, atualizarFiscalNcm, excluirFiscalNcm, escutarFiscalNcm,
+  fetchFiscalNcm, inserirFiscalNcm, atualizarFiscalNcm, excluirFiscalNcm, escutarFiscalNcm, inserirFiscalNcmLote,
   fetchFiscalCfop, inserirFiscalCfop, atualizarFiscalCfop, excluirFiscalCfop, escutarFiscalCfop,
   fetchFiscalPis, inserirFiscalPis, atualizarFiscalPis, excluirFiscalPis, escutarFiscalPis,
   fetchFiscalCofins, inserirFiscalCofins, atualizarFiscalCofins, excluirFiscalCofins, escutarFiscalCofins,
@@ -2303,6 +2303,27 @@ export default function RestaurantePedidoApp() {
     if (dbReady) try { await excluirFiscalNcm(id); } catch (e) { notify("error", "Erro ao excluir NCM: " + (e.message || e)); }
     auditar("excluir", "fiscal_ncm", id);
   }
+  // Importação da TIPI (XLSX): insere NCMs válidos em blocos, reportando o
+  // progresso via callback. `linhas` já vem validada e sem duplicatas.
+  async function importarFiscalNcmLote(linhas, onProgress) {
+    if (!canAccess(currentUser, "admin")) { notify("error", "Sem permissão administrativa."); return 0; }
+    const CHUNK = 200;
+    let inseridos = [];
+    for (let i = 0; i < linhas.length; i += CHUNK) {
+      const parte = linhas.slice(i, i + CHUNK).map((l) => ({ ...l, lojaId: lojaAtual, ativo: true }));
+      try {
+        const saved = dbReady ? await inserirFiscalNcmLote(parte) : parte.map((l) => ({ ...l, id: gerarIdLocal() }));
+        inseridos = inseridos.concat(saved);
+      } catch (e) { notify("error", "Erro na importação: " + (e.message || e)); break; }
+      onProgress?.(Math.min(i + CHUNK, linhas.length), linhas.length);
+    }
+    if (inseridos.length) {
+      setFiscalNcm((cur) => [...cur, ...inseridos].sort((a, b) => String(a.codigo).localeCompare(String(b.codigo))));
+      auditar("importar", "fiscal_ncm", null, { qtd: inseridos.length });
+      notify("success", `${inseridos.length} NCM(s) importado(s) da TIPI.`);
+    }
+    return inseridos.length;
+  }
   // Atualização fiscal em lote (Fase 3): aplica os vínculos escolhidos a todos
   // os produtos informados. `alteracoes` traz só as chaves a alterar
   // (ncmId/cfopId/pisId/cofinsId/ipiId/cestId); valor null = desvincular.
@@ -2963,7 +2984,7 @@ export default function RestaurantePedidoApp() {
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} products={products} lojaInfo={lojaInfo} />}
         {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierPdv orders={orders} mesas={filtraLoja(mesas).filter((m) => m.active !== false)} clientes={filtraLoja(clientes)} baixarComandas={baixarComandas} formasPagamento={formasPagamentoLoja} lojaInfo={lojaInfo} currentUser={currentUser} caixaAberto={caixaAberto} auditar={auditar} conexaoOk={conexaoOk} editarItensPedido={editarItensPedido} criarPedidoCaixa={criarPedidoCaixa} products={products} categories={categoriasDb} setores={filtraLoja(setoresCozinha)} fidCaixa={fidCaixa} atualizarClientePedidos={atualizarClientePedidos} transferirMesaPedidos={transferirMesaPedidos} separarItensPedidos={separarItensPedidos} notify={notify} validarCupom={validarCupomCaixa} consumirCupom={consumirCupomCaixa} />}
         {/* activeTab === "opmobile" agora é tratado pelo branch dedicado no início desta função (sem cabeçalho/grade de módulos) */}
-        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} toggleLoja={toggleLoja} editarLoja={editarLoja} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} filtraLoja={filtraLoja} pesquisas={pesquisas} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} cancelarPedido={cancelarPedido} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} salvarConfigCrm={salvarConfigCrm} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} assinaturas={assinaturas} promocoes={filtraLoja(promocoes)} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} cupons={cuponsLoja} addCupom={addCupom} editarCupom={editarCupomLoja} toggleCupom={toggleCupom} removerCupom={removerCupom} opcoesApi={{ grupos: filtraLoja(gruposOpcoes), opcoes: filtraLoja(opcoes), addGrupo: addGrupoOpcoes, editarGrupo: editarGrupoOpcoes, removerGrupo: removerGrupoOpcoes, addOpcao, editarOpcao, removerOpcao }} fiscalIcms={filtraLoja(fiscalIcms)} fiscalNcm={filtraLoja(fiscalNcm)} fiscalCfop={filtraLoja(fiscalCfop)} fiscalPis={filtraLoja(fiscalPis)} fiscalCofins={filtraLoja(fiscalCofins)} fiscalIpi={filtraLoja(fiscalIpi)} fiscalCest={filtraLoja(fiscalCest)} fiscalApi={{ addIcms: addFiscalIcms, editarIcms: editarFiscalIcms, removerIcms: removerFiscalIcms, addNcm: addFiscalNcm, editarNcm: editarFiscalNcm, removerNcm: removerFiscalNcm, addCfop: hCfop.add, editarCfop: hCfop.editar, removerCfop: hCfop.remover, addPis: hPis.add, editarPis: hPis.editar, removerPis: hPis.remover, addCofins: hCofins.add, editarCofins: hCofins.editar, removerCofins: hCofins.remover, addIpi: hIpi.add, editarIpi: hIpi.editar, removerIpi: hIpi.remover, addCest: hCest.add, editarCest: hCest.editar, removerCest: hCest.remover, aplicarLote: aplicarFiscalLote }} impressoras={filtraLoja(impressoras)} impressorasApi={{ add: addImpressoraCadastro, editar: editarImpressoraCadastro, remover: removerImpressoraCadastro }} setores={filtraLoja(setoresCozinha)} setoresApi={{ add: addSetorCozinha, editar: editarSetorCozinha, remover: removerSetorCozinha }} vincularProdutoSetor={vincularProdutoSetor} salvarProdutoQr={salvarProdutoQr} irParaCozinha={(setorId) => { setCozinhaSetorInicial(setorId ?? null); if (canAccess(currentUser, "kitchen")) setActiveTab("kitchen"); else notify("error", "Sem permissão para acessar o painel da cozinha."); }} caixaAberto={caixaAberto} caixasLoja={filtraLoja(caixas)} caixaApi={{ abrir: abrirCaixaFn, movimentar: movimentarCaixaFn, fechar: fecharCaixaFn, fetchMovimentos: fetchMovimentosCaixa }} fidRegra={fidRegraAtual} fidRecompensas={filtraLoja(fidRecompensas)} fidTransacoes={filtraLoja(fidTransacoes)} fidApi={{ salvarRegra: salvarRegraFid, addRecompensa: addRecompensaFid, removerRecompensa: removerRecompensaFid, editarRecompensa: editarRecompensaFid, lancarPontos }} fidCaixa={fidCaixa} chamados={filtraLoja(chamados)} atenderChamado={atenderChamadoFn} assumirChamado={assumirChamadoFn} auditoria={filtraLoja(auditoria)} impressoesCozinha={filtraLoja(impressoesCozinha)} onAtualizarImpressao={atualizarStatusImpressao} onRecarregarImpressoes={async () => { try { setImpressoesCozinha(await fetchImpressoesCozinha(lojaAtual)); } catch {} }} editarCategoriaCampos={editarCategoriaCampos} />}
+        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} toggleLoja={toggleLoja} editarLoja={editarLoja} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} filtraLoja={filtraLoja} pesquisas={pesquisas} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} cancelarPedido={cancelarPedido} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} salvarConfigCrm={salvarConfigCrm} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} assinaturas={assinaturas} promocoes={filtraLoja(promocoes)} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} cupons={cuponsLoja} addCupom={addCupom} editarCupom={editarCupomLoja} toggleCupom={toggleCupom} removerCupom={removerCupom} opcoesApi={{ grupos: filtraLoja(gruposOpcoes), opcoes: filtraLoja(opcoes), addGrupo: addGrupoOpcoes, editarGrupo: editarGrupoOpcoes, removerGrupo: removerGrupoOpcoes, addOpcao, editarOpcao, removerOpcao }} fiscalIcms={filtraLoja(fiscalIcms)} fiscalNcm={filtraLoja(fiscalNcm)} fiscalCfop={filtraLoja(fiscalCfop)} fiscalPis={filtraLoja(fiscalPis)} fiscalCofins={filtraLoja(fiscalCofins)} fiscalIpi={filtraLoja(fiscalIpi)} fiscalCest={filtraLoja(fiscalCest)} fiscalApi={{ addIcms: addFiscalIcms, editarIcms: editarFiscalIcms, removerIcms: removerFiscalIcms, addNcm: addFiscalNcm, editarNcm: editarFiscalNcm, removerNcm: removerFiscalNcm, importarNcm: importarFiscalNcmLote, addCfop: hCfop.add, editarCfop: hCfop.editar, removerCfop: hCfop.remover, addPis: hPis.add, editarPis: hPis.editar, removerPis: hPis.remover, addCofins: hCofins.add, editarCofins: hCofins.editar, removerCofins: hCofins.remover, addIpi: hIpi.add, editarIpi: hIpi.editar, removerIpi: hIpi.remover, addCest: hCest.add, editarCest: hCest.editar, removerCest: hCest.remover, aplicarLote: aplicarFiscalLote }} impressoras={filtraLoja(impressoras)} impressorasApi={{ add: addImpressoraCadastro, editar: editarImpressoraCadastro, remover: removerImpressoraCadastro }} setores={filtraLoja(setoresCozinha)} setoresApi={{ add: addSetorCozinha, editar: editarSetorCozinha, remover: removerSetorCozinha }} vincularProdutoSetor={vincularProdutoSetor} salvarProdutoQr={salvarProdutoQr} irParaCozinha={(setorId) => { setCozinhaSetorInicial(setorId ?? null); if (canAccess(currentUser, "kitchen")) setActiveTab("kitchen"); else notify("error", "Sem permissão para acessar o painel da cozinha."); }} caixaAberto={caixaAberto} caixasLoja={filtraLoja(caixas)} caixaApi={{ abrir: abrirCaixaFn, movimentar: movimentarCaixaFn, fechar: fecharCaixaFn, fetchMovimentos: fetchMovimentosCaixa }} fidRegra={fidRegraAtual} fidRecompensas={filtraLoja(fidRecompensas)} fidTransacoes={filtraLoja(fidTransacoes)} fidApi={{ salvarRegra: salvarRegraFid, addRecompensa: addRecompensaFid, removerRecompensa: removerRecompensaFid, editarRecompensa: editarRecompensaFid, lancarPontos }} fidCaixa={fidCaixa} chamados={filtraLoja(chamados)} atenderChamado={atenderChamadoFn} assumirChamado={assumirChamadoFn} auditoria={filtraLoja(auditoria)} impressoesCozinha={filtraLoja(impressoesCozinha)} onAtualizarImpressao={atualizarStatusImpressao} onRecarregarImpressoes={async () => { try { setImpressoesCozinha(await fetchImpressoesCozinha(lojaAtual)); } catch {} }} editarCategoriaCampos={editarCategoriaCampos} />}
 
       </div>
       )}
@@ -19173,6 +19194,7 @@ function FiscalNcmLista({ ncm, icms, api, produtosPorNcm }) {
   const [editando, setEditando] = useState(null);
   const [criando, setCriando]   = useState(false);
   const [excluir, setExcluir]   = useState(null);
+  const [importar, setImportar] = useState(false);
   const [sel, setSel]           = useState(() => new Set());
   const f = useFiltroLista(ncm, (n) => `${n.codigo} ${n.descricao || ""}`);
 
@@ -19187,8 +19209,11 @@ function FiscalNcmLista({ ncm, icms, api, produtosPorNcm }) {
     <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div><h3 className="page-title text-lg font-bold text-white">Cadastro de NCM</h3>
-          <p className="text-xs text-slate-400">Cada NCM guarda descrição, unidade, CEST e vincula uma regra de ICMS.</p></div>
-        <PrimeButton onClick={() => setCriando(true)}><span className="text-lg leading-none">+</span> Cadastrar NCM</PrimeButton>
+          <p className="text-xs text-slate-400">Cadastre manualmente ou importe a Tabela TIPI (XLSX). Cada NCM guarda descrição, tipo, CEST e regra de ICMS.</p></div>
+        <div className="flex flex-wrap gap-2">
+          <button onClick={() => setImportar(true)} className="inline-flex items-center gap-2 rounded-xl border border-[rgba(15,76,92,0.25)] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0F4C5C] shadow-[0_1px_2px_rgba(15,76,92,0.05)] transition hover:bg-[rgba(15,76,92,0.05)]">⬆ Importar TIPI (XLSX)</button>
+          <PrimeButton onClick={() => setCriando(true)}><span className="text-lg leading-none">+</span> Cadastrar NCM</PrimeButton>
+        </div>
       </div>
       <FiltroSituacaoBusca f={f} placeholder="Buscar NCM por código ou descrição..." />
       <BulkBar n={sel.size} onAtivar={() => emLote(true)} onInativar={() => emLote(false)} onLimpar={() => setSel(new Set())} />
@@ -19212,6 +19237,7 @@ function FiscalNcmLista({ ncm, icms, api, produtosPorNcm }) {
                   <p className="font-black text-white">{n.codigo}{n.exTipi ? <span className="ml-1.5 text-xs font-bold text-slate-400">EX {n.exTipi}</span> : null}</p>
                   <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-400">
                     {n.descricao && <span className="truncate">{n.descricao}</span>}
+                    {n.tipo && <span className="rounded bg-[rgba(230,126,34,0.12)] px-1.5 py-0.5 font-semibold text-[#E67E22]">{n.tipo}</span>}
                     {rIcms ? <span className="rounded-full bg-white/[0.06] px-2 py-0.5">ICMS: {rIcms}</span> : <span className="text-amber-400">sem regra de ICMS</span>}
                     {n.cest && <span>CEST {n.cest}</span>}
                     <span className={uso > 0 ? "text-emerald-300" : "text-slate-500"}>{uso} produto{uso === 1 ? "" : "s"}</span>
@@ -19231,6 +19257,7 @@ function FiscalNcmLista({ ncm, icms, api, produtosPorNcm }) {
 
       {criando && <NcmModal icms={icms} api={api} onFechar={() => setCriando(false)} />}
       {editando && <NcmModal ncm={editando} icms={icms} api={api} onFechar={() => setEditando(null)} />}
+      {importar && <ImportarNcmModal existentes={ncm} importar={api.importarNcm} onFechar={() => setImportar(false)} />}
       {excluir && (
         <ConfirmModal titulo="Excluir NCM?"
           mensagem={`Excluir o NCM "${excluir.codigo}"? ${produtosPorNcm(excluir.id)} produto(s) vinculado(s) ficarão sem NCM. Dica: você pode apenas inativá-lo.`}
@@ -19315,7 +19342,7 @@ function FiscalIcmsLista({ icms, api, ncmsPorIcms, produtosPorIcms }) {
 // Modal de cadastro/edição de NCM (shell branco/petróleo do admin).
 function NcmModal({ ncm = null, icms = [], api, onFechar }) {
   const ehEdicao = !!ncm;
-  const [d, setD] = useState(() => ({ codigo: ncm?.codigo || "", descricao: ncm?.descricao || "", exTipi: ncm?.exTipi || "", unidade: ncm?.unidade || "", cest: ncm?.cest || "", icmsId: ncm?.icmsId ?? null, ativo: ncm?.ativo !== false }));
+  const [d, setD] = useState(() => ({ codigo: ncm?.codigo || "", descricao: ncm?.descricao || "", exTipi: ncm?.exTipi || "", tipo: ncm?.tipo || "", unidade: ncm?.unidade || "", cest: ncm?.cest || "", icmsId: ncm?.icmsId ?? null, ativo: ncm?.ativo !== false }));
   const set = (k, v) => setD((c) => ({ ...c, [k]: v }));
   const [erro, setErro] = useState(""); const [salvando, setSalvando] = useState(false);
   async function salvar() {
@@ -19332,6 +19359,7 @@ function NcmModal({ ncm = null, icms = [], api, onFechar }) {
         <CampoFiscalValidado tipo="ncm" label="Código NCM" obrigatorio valor={d.codigo} onChange={(v) => set("codigo", v)} />
         <div><label className={PP_LBL}>EX TIPI</label><input value={d.exTipi} onChange={(e) => set("exTipi", e.target.value)} placeholder="Ex.: 01" className={PP_INP} /></div>
         <div className="sm:col-span-2"><label className={PP_LBL}>Descrição</label><input value={d.descricao} onChange={(e) => set("descricao", e.target.value)} placeholder="Descrição do NCM" className={PP_INP} /></div>
+        <div className="sm:col-span-2"><label className={PP_LBL}>Tipo / Alíquota (TIPI)</label><input value={d.tipo} onChange={(e) => set("tipo", e.target.value)} placeholder="Ex.: NT, 0, 5" className={PP_INP} /></div>
         <div><label className={PP_LBL}>Unidade</label>
           <select value={d.unidade} onChange={(e) => set("unidade", e.target.value)} className={PP_INP}>
             <option value="">Selecione...</option>{UNIDADES_FISCAIS.map((u) => <option key={u} value={u}>{u}</option>)}
@@ -19824,6 +19852,146 @@ function CampoFiscalValidado({ tipo, valor, onChange, label, obrigatorio = false
       <input value={valor || ""} onChange={(e) => handle(e.target.value)} placeholder={ph} inputMode="numeric"
         className={`${PP_INP.replace("border-[var(--pp-border)]", borda)}`} />
       {status && <p className="mt-1 flex items-center gap-1 text-[11px] font-semibold" style={{ color: cor }}>{icone} {status.msg}</p>}
+    </div>
+  );
+}
+
+// Modal de importação da Tabela TIPI (XLSX) para o cadastro de NCM.
+// Lê o arquivo no navegador (SheetJS via import dinâmico), valida linha a
+// linha e insere só NCMs completos (8 dígitos) com descrição e tipo.
+function ImportarNcmModal({ existentes = [], importar, onFechar }) {
+  const fileRef = React.useRef(null);
+  const [nomeArq, setNomeArq] = useState("");
+  const [analisando, setAnalisando] = useState(false);
+  const [resultado, setResultado] = useState(null); // { total, validos:[], incompleto, semCampos, duplicados }
+  const [erro, setErro] = useState("");
+  const [importando, setImportando] = useState(false);
+  const [progresso, setProgresso] = useState({ feito: 0, total: 0 });
+  const [concluido, setConcluido] = useState(null);
+
+  async function analisar(file) {
+    setErro(""); setResultado(null); setConcluido(null); setNomeArq(file.name); setAnalisando(true);
+    try {
+      const buf = await file.arrayBuffer();
+      const XLSX = await import("xlsx");
+      const wb = XLSX.read(buf, { type: "array" });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: "" });
+      let hi = aoa.findIndex((r) => r.some((c) => String(c).trim().toUpperCase() === "NCM"));
+      if (hi < 0) hi = 0;
+      const head = (aoa[hi] || []).map((c) => String(c).trim().toUpperCase());
+      const iN = head.findIndex((h) => h === "NCM"); const cN = iN < 0 ? 0 : iN;
+      const iD = head.findIndex((h) => h.startsWith("DESCRI")); const cD = iD < 0 ? 2 : iD;
+      const iT = head.findIndex((h) => h.startsWith("AL")); const cT = iT < 0 ? 3 : iT;
+      const existSet = new Set(existentes.map((x) => soDigitos(x.codigo)));
+      const vistos = new Set();
+      let total = 0, incompleto = 0, semCampos = 0, duplicados = 0; const validos = [];
+      for (let i = hi + 1; i < aoa.length; i++) {
+        const r = aoa[i]; if (!r || r.every((c) => String(c).trim() === "")) continue;
+        total++;
+        const dig = soDigitos(r[cN]); const desc = String(r[cD] || "").trim(); const tipo = String(r[cT] || "").trim();
+        if (dig.length !== 8) { incompleto++; continue; }
+        if (!desc || !tipo) { semCampos++; continue; }
+        if (existSet.has(dig) || vistos.has(dig)) { duplicados++; continue; }
+        vistos.add(dig);
+        validos.push({ codigo: mascaraNcm(dig), descricao: desc, tipo });
+      }
+      setResultado({ total, validos, incompleto, semCampos, duplicados });
+    } catch (e) { setErro("Não foi possível ler o arquivo. Confirme que é a planilha TIPI (.xlsx). " + (e.message || "")); }
+    finally { setAnalisando(false); }
+  }
+
+  async function fazerImport() {
+    if (!resultado?.validos.length) return;
+    setImportando(true); setProgresso({ feito: 0, total: resultado.validos.length });
+    const n = await importar(resultado.validos, (feito, total) => setProgresso({ feito, total }));
+    setImportando(false); setConcluido(n ?? 0);
+  }
+
+  const pct = progresso.total ? Math.round((progresso.feito / progresso.total) * 100) : 0;
+
+  return (
+    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+      <button aria-label="Fechar" onClick={onFechar} className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+      <div className="relative flex max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-[var(--pp-border)] bg-white shadow-2xl">
+        <div className="flex items-center justify-between gap-3 border-b border-[var(--pp-border)] px-6 py-4">
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[rgba(15,76,92,0.1)] text-lg text-[#0F4C5C]">⬆</span>
+            <div><h2 className="text-lg font-semibold text-[var(--pp-text)]">Importar Tabela TIPI</h2>
+              <p className="text-[13px] text-[var(--pp-text-muted)]">Arquivo .xlsx com colunas NCM · Descrição · Alíquota (tipo).</p></div>
+          </div>
+          <button onClick={onFechar} className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--pp-border)] bg-white text-lg text-[var(--pp-text-muted)] transition hover:bg-[rgba(15,76,92,0.04)]">✕</button>
+        </div>
+
+        <div className="flex-1 space-y-4 overflow-y-auto px-6 py-5">
+          {/* Seletor de arquivo */}
+          <input ref={fileRef} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) analisar(f); }} />
+          <button type="button" onClick={() => fileRef.current?.click()} disabled={importando}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-[rgba(15,76,92,0.25)] bg-[rgba(15,76,92,0.03)] py-6 text-sm font-semibold text-[#0F4C5C] transition hover:bg-[rgba(15,76,92,0.06)] disabled:opacity-50">
+            📄 {nomeArq || "Escolher arquivo TIPI (.xlsx)"}
+          </button>
+
+          {analisando && <p className="text-sm font-semibold text-[#0F4C5C]">⏳ Lendo e validando a planilha…</p>}
+          {erro && <p className="rounded-xl border border-[rgba(200,30,74,0.24)] bg-[rgba(200,30,74,0.06)] px-3 py-2 text-xs font-semibold text-[#C81E4A]">❌ {erro}</p>}
+
+          {/* Análise */}
+          {resultado && !concluido && (<>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-2xl border border-[rgba(47,158,82,0.3)] bg-[rgba(47,158,82,0.06)] p-4">
+                <p className="text-2xl font-black text-[#2F9E52]">{resultado.validos.length}</p>
+                <p className="text-xs font-semibold text-[var(--pp-text-body)]">NCM(s) válidos para importar</p>
+              </div>
+              <div className="rounded-2xl border border-[var(--pp-border)] bg-white p-4">
+                <p className="text-sm text-[var(--pp-text-muted)]">De <b className="text-[var(--pp-text)]">{resultado.total}</b> linhas no arquivo.</p>
+                <ul className="mt-1 space-y-0.5 text-[12px] text-[var(--pp-text-muted)]">
+                  <li>• {resultado.incompleto} ignorado(s) — NCM incompleto (capítulo/posição)</li>
+                  <li>• {resultado.semCampos} ignorado(s) — sem tipo ou descrição</li>
+                  <li>• {resultado.duplicados} ignorado(s) — já cadastrado / repetido</li>
+                </ul>
+              </div>
+            </div>
+            {resultado.validos.length > 0 && (
+              <div className="rounded-2xl border border-[var(--pp-border)] bg-white p-3">
+                <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-[var(--pp-text-muted)]">Prévia (primeiros 6)</p>
+                <div className="space-y-1">
+                  {resultado.validos.slice(0, 6).map((v) => (
+                    <div key={v.codigo} className="flex items-center gap-2 text-[12px]">
+                      <span className="rounded bg-[rgba(15,76,92,0.08)] px-1.5 py-0.5 font-semibold text-[#0F4C5C]">{v.codigo}</span>
+                      <span className="rounded bg-[rgba(230,126,34,0.1)] px-1.5 py-0.5 font-semibold text-[#B4611A]">{v.tipo}</span>
+                      <span className="min-w-0 flex-1 truncate text-[var(--pp-text-body)]">{v.descricao}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {importando && (
+              <div>
+                <div className="mb-1 flex justify-between text-[12px] font-semibold text-[var(--pp-text-body)]"><span>Importando…</span><span>{progresso.feito} / {progresso.total} ({pct}%)</span></div>
+                <div className="h-3 w-full overflow-hidden rounded-full bg-[rgba(15,76,92,0.1)]"><div className="h-full rounded-full bg-[#2F9E52] transition-all duration-200" style={{ width: `${pct}%` }} /></div>
+              </div>
+            )}
+          </>)}
+
+          {concluido != null && (
+            <div className="rounded-2xl border border-[rgba(47,158,82,0.3)] bg-[rgba(47,158,82,0.06)] p-5 text-center">
+              <p className="text-3xl">✅</p>
+              <p className="mt-1 text-lg font-black text-[#2F9E52]">{concluido} NCM(s) importado(s)!</p>
+              <p className="text-[13px] text-[var(--pp-text-muted)]">Já disponíveis no cadastro de NCM e para vincular aos produtos.</p>
+            </div>
+          )}
+        </div>
+
+        <div className="shrink-0 border-t border-[var(--pp-border)] px-6 py-4">
+          <div className="flex gap-2">
+            <button onClick={onFechar} className="rounded-xl border border-[var(--pp-border)] bg-white px-5 py-2.5 text-sm font-semibold text-[var(--pp-text-body)] transition hover:bg-[rgba(15,76,92,0.04)]">{concluido != null ? "Fechar" : "Cancelar"}</button>
+            {concluido == null && (
+              <PrimeButton onClick={fazerImport} disabled={!resultado?.validos.length || importando || analisando} className="flex-1">
+                {importando ? `⏳ Importando… ${pct}%` : `⬆ Importar ${resultado?.validos.length || 0} NCM(s)`}
+              </PrimeButton>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

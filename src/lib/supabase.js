@@ -558,6 +558,7 @@ function dbParaNcm(r) {
   return {
     id: r.id, lojaId: r.loja_id ?? null, codigo: r.codigo, descricao: r.descricao ?? '',
     exTipi: r.ex_tipi ?? '', unidade: r.unidade ?? '', cest: r.cest ?? '',
+    tipo: r.tipo ?? '', // migration 083 (TIPI: alíquota / "NT")
     icmsId: r.icms_id ?? null, ativo: r.ativo !== false,
   }
 }
@@ -566,6 +567,7 @@ function ncmParaDb(p) {
     ...(p.lojaId != null ? { loja_id: p.lojaId } : {}),
     codigo: p.codigo, descricao: p.descricao || null, ex_tipi: p.exTipi || null,
     unidade: p.unidade || null, cest: p.cest || null,
+    ...(p.tipo !== undefined ? { tipo: p.tipo || null } : {}),
     icms_id: p.icmsId != null ? p.icmsId : null, ativo: p.ativo !== false,
   }
 }
@@ -580,6 +582,19 @@ export async function inserirFiscalNcm(p) {
   const { data, error } = await supabase.from('tab_fiscal_ncm').insert([ncmParaDb(p)]).select().single()
   if (error) throw error
   return dbParaNcm(data)
+}
+// Inserção em lote (importação TIPI). Tolerante à coluna `tipo` ausente
+// (migration 083 não aplicada) — reenvia sem o campo nesse caso.
+export async function inserirFiscalNcmLote(linhas) {
+  if (!Array.isArray(linhas) || linhas.length === 0) return []
+  const payload = linhas.map(ncmParaDb)
+  let { data, error } = await supabase.from('tab_fiscal_ncm').insert(payload).select()
+  if (error && ehColunaAusente(error, 'column')) {
+    const semTipo = payload.map((p) => { const q = { ...p }; delete q.tipo; return q })
+    ;({ data, error } = await supabase.from('tab_fiscal_ncm').insert(semTipo).select())
+  }
+  if (error) throw error
+  return (data || []).map(dbParaNcm)
 }
 export async function atualizarFiscalNcm(id, campos) {
   const patch = ncmParaDb(campos); delete patch.loja_id; patch.atualizado_em = new Date().toISOString()
