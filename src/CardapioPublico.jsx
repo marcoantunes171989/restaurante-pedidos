@@ -1565,204 +1565,177 @@ export default function CardapioPublico() {
     };
 
     return (
-      <div data-theme="light" className={`pp-mesa-welcome tema-claro-area relative flex h-[100dvh] max-h-[100dvh] w-full max-w-[100vw] flex-col overflow-hidden bg-[#F7F4EF] text-[var(--client-text-primary)] ${modoExterno ? "pp-welcome-ext" : ""}`}
+      <div data-theme="light" className={`pp-mesa-welcome tema-claro-area relative flex h-[100dvh] max-h-[100dvh] w-full max-w-[100vw] flex-col overflow-hidden bg-[#F8F6F2] text-[var(--client-text-primary)] ${modoExterno ? "pp-welcome-ext" : ""}`}
         style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}>
-        <div className="relative mx-auto flex h-full w-full max-w-[420px] min-h-0 flex-col pt-[clamp(0.3rem,1vh,0.65rem)] pb-[clamp(0.2rem,0.7vh,0.45rem)]">
-          {/* ── Marca (compacta — libera altura para a foto hero) ── */}
-          <header className="flex shrink-0 flex-col items-center px-3.5 text-center">
+        {/* Atmosfera: wash quente suave — sem roubar a cena da foto */}
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0"
+          style={{ background: "radial-gradient(120% 70% at 50% -10%, rgba(230,126,34,0.10) 0%, transparent 55%), radial-gradient(90% 50% at 100% 100%, rgba(15,76,92,0.06) 0%, transparent 50%)" }} />
+
+        <div className="relative mx-auto flex h-full w-full max-w-[420px] min-h-0 flex-col pb-[clamp(0.35rem,1vh,0.6rem)]">
+          {/* ── Topo: marca em faixa (hierarquia clara, sem torre) ── */}
+          <header className="pp-welcome-enter flex shrink-0 items-center gap-2.5 px-3.5 pt-[clamp(0.4rem,1.2vh,0.75rem)]">
             {loja.logoUrl ? (
-              <img src={loja.logoUrl} alt={`Logo ${loja.nome}`} className="h-[clamp(40px,6.2vh,56px)] w-[clamp(40px,6.2vh,56px)] rounded-full border-[3px] border-white object-cover shadow-[0_6px_18px_rgba(15,76,92,0.12)]" onError={(e) => { e.currentTarget.style.display = "none"; }} />
+              <img src={loja.logoUrl} alt={`Logo ${loja.nome}`} className="h-11 w-11 shrink-0 rounded-full border-2 border-white object-cover shadow-[0_4px_14px_rgba(45,52,54,0.10)]" onError={(e) => { e.currentTarget.style.display = "none"; }} />
             ) : (
-              <span className="flex h-[clamp(40px,6.2vh,56px)] w-[clamp(40px,6.2vh,56px)] items-center justify-center rounded-full border-[3px] border-white bg-white text-lg font-black shadow-[0_6px_18px_rgba(15,76,92,0.12)]" aria-hidden="true">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 border-white bg-white text-base font-black shadow-[0_4px_14px_rgba(45,52,54,0.10)]" aria-hidden="true">
                 <span className="text-[#0F4C5C]">{(loja.prefixo || nomePrimario).slice(0, 1)}</span>
                 <span className="text-[#E67E22]">{(loja.prefixo || nomePrimario).slice(1, 2) || ""}</span>
               </span>
             )}
-            <h1 className="mt-[clamp(0.2rem,0.6vh,0.4rem)] font-black leading-none tracking-tight">
-              <span className="text-[clamp(1.1rem,3.2vh,1.55rem)] text-[#0F4C5C]">{nomePrimario}</span>
-              {nomeSecundario ? <span className="text-[clamp(1.1rem,3.2vh,1.55rem)] text-[#E67E22]"> {nomeSecundario}</span> : null}
-            </h1>
-            <div className="mt-1 flex items-center gap-2">
-              <span className="h-px w-6 bg-[#E67E22]/70" aria-hidden="true" />
-              <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-[#0F4C5C]">Cardápio digital</p>
-              <span className="h-px w-6 bg-[#E67E22]/70" aria-hidden="true" />
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#0F4C5C]/70">Cardápio digital</p>
+              <h1 className="truncate font-black leading-tight tracking-tight">
+                <span className="text-[clamp(1.15rem,3.4vh,1.45rem)] text-[#0F4C5C]">{nomePrimario}</span>
+                {nomeSecundario ? <span className="text-[clamp(1.15rem,3.4vh,1.45rem)] text-[#E67E22]"> {nomeSecundario}</span> : null}
+              </h1>
             </div>
           </header>
 
-          {/* ── Mesa + status ── */}
+          {/* ── Contexto: chips leves (não cards) ── */}
           {(currentTable || lojaStatus) && (
-            <div className="mt-[clamp(0.4rem,1.2vh,0.7rem)] grid shrink-0 grid-cols-2 gap-2 px-3.5">
+            <div className="pp-welcome-enter mt-2.5 flex shrink-0 flex-wrap items-center gap-1.5 px-3.5" style={{ animationDelay: "60ms" }}>
               {currentTable ? (
-                <div className="flex min-w-0 items-center gap-2 rounded-2xl border border-white bg-white px-2.5 py-[clamp(0.45rem,1.1vh,0.7rem)] shadow-[0_4px_14px_rgba(15,76,92,0.06)]">
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#FCEFE1] text-[#E67E22]"><CkIconMesa width={16} height={16} /></span>
-                  <span className="min-w-0">
-                    <span className="block truncate text-[13px] font-black text-[#0F4C5C]">{currentTable}</span>
-                    <span className="block text-[10px] font-medium text-[#6B7280]">Sua comanda</span>
-                  </span>
-                </div>
+                <span className="inline-flex max-w-[55%] items-center gap-1.5 rounded-full bg-white/90 px-2.5 py-1 text-[12px] font-bold text-[#0F4C5C] shadow-[0_2px_8px_rgba(45,52,54,0.06)] ring-1 ring-[#E6E6E6]/80">
+                  <span className="shrink-0 text-[#E67E22]"><CkIconMesa width={13} height={13} /></span>
+                  <span className="truncate">{currentTable}</span>
+                </span>
               ) : (
-                <div className="flex min-w-0 items-center gap-2 rounded-2xl border border-white bg-white px-2.5 py-[clamp(0.45rem,1.1vh,0.7rem)] shadow-[0_4px_14px_rgba(15,76,92,0.06)]">
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#FCEFE1] text-[#E67E22]"><CkIconLoja width={16} height={16} /></span>
-                  <span className="min-w-0">
-                    <span className="block truncate text-[13px] font-black text-[#0F4C5C]">Pedido online</span>
-                    <span className="block text-[10px] font-medium text-[#6B7280]">Cardápio externo</span>
-                  </span>
-                </div>
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/90 px-2.5 py-1 text-[12px] font-bold text-[#0F4C5C] shadow-[0_2px_8px_rgba(45,52,54,0.06)] ring-1 ring-[#E6E6E6]/80">
+                  <span className="shrink-0 text-[#E67E22]"><CkIconLoja width={13} height={13} /></span>
+                  Pedido online
+                </span>
               )}
-              <div className="flex min-w-0 items-center gap-2 rounded-2xl border border-white bg-white px-2.5 py-[clamp(0.45rem,1.1vh,0.7rem)] shadow-[0_4px_14px_rgba(15,76,92,0.06)]">
-                {lojaStatus === "aberto" ? (
-                  <>
-                    <span className="relative flex h-8 w-8 shrink-0 items-center justify-center">
-                      <span className="absolute h-2 w-2 rounded-full bg-[#5E8C31]" aria-hidden="true" />
-                      <span className="absolute h-2 w-2 animate-ping rounded-full bg-[#5E8C31]/50" aria-hidden="true" />
-                    </span>
-                    <span className="min-w-0">
-                      <span className="block truncate text-[13px] font-black text-[#5E8C31]">Aberto agora</span>
-                      <span className="block truncate text-[10px] font-medium text-[#6B7280]">{fechaHoje ? `Até ${fechaHoje}` : "Pronto para receber"}</span>
-                    </span>
-                  </>
-                ) : lojaStatus === "fechado" ? (
-                  <>
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#EDF0F4] text-[#52606D]"><CkIconRelogio width={15} height={15} /></span>
-                    <span className="min-w-0">
-                      <span className="block truncate text-[13px] font-black text-[#52606D]">Fechado agora</span>
-                      <span className="block truncate text-[10px] font-medium text-[#6B7280]">Fora do horário</span>
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#EDF0F4] text-[#0F4C5C]"><CkIconRelogio width={15} height={15} /></span>
-                    <span className="min-w-0">
-                      <span className="block truncate text-[13px] font-black text-[#0F4C5C]">Atendimento</span>
-                      <span className="block truncate text-[10px] font-medium text-[#6B7280]">Consulte a equipe</span>
-                    </span>
-                  </>
-                )}
-              </div>
+              {lojaStatus === "aberto" ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-[#5E8C31]/12 px-2.5 py-1 text-[12px] font-bold text-[#5E8C31] ring-1 ring-[#5E8C31]/20">
+                  <span className="relative flex h-2 w-2">
+                    <span className="absolute inset-0 animate-ping rounded-full bg-[#5E8C31]/45" aria-hidden="true" />
+                    <span className="relative h-2 w-2 rounded-full bg-[#5E8C31]" aria-hidden="true" />
+                  </span>
+                  {fechaHoje ? `Aberto · até ${fechaHoje}` : "Aberto agora"}
+                </span>
+              ) : lojaStatus === "fechado" ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-[#EDF0F4] px-2.5 py-1 text-[12px] font-bold text-[#52606D] ring-1 ring-[#E6E6E6]">
+                  <CkIconRelogio width={13} height={13} />
+                  Fechado agora
+                </span>
+              ) : null}
             </div>
           )}
 
-          {/* ── Carrossel full-bleed: laterais infinitas + foto inteira (sem corte) ── */}
-          {produtoAtivo && (
-            <section className="mt-[clamp(0.3rem,1vh,0.55rem)] flex min-h-0 flex-1 flex-col" aria-labelledby="pp-destaques-titulo"
+          {/* ── Palco: foto full-bleed, inteira, laterais infinitas ── */}
+          {produtoAtivo ? (
+            <section className="mt-2.5 flex min-h-0 flex-1 flex-col" aria-labelledby="pp-destaques-titulo"
               onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
-              <div className="mb-1 flex shrink-0 items-center justify-between gap-2 px-3.5">
-                <div className="min-w-0">
-                  <h2 id="pp-destaques-titulo" className="text-[clamp(13px,2vh,15px)] font-black text-[#0F4C5C]">Destaques da casa</h2>
-                  <p className="text-[10px] text-[#6B7280]">{slideAtual + 1} de {nSlides} · toque na foto para pedir</p>
-                </div>
-                {nSlides > 1 && (
-                  <div className="flex shrink-0 gap-1.5">
-                    <button type="button" onClick={() => irSlide(-1)} aria-label="Produto anterior"
-                      className="flex h-8 w-8 items-center justify-center rounded-full border border-[#E6E6E6] bg-white text-[#0F4C5C] transition active:scale-95">
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
-                    </button>
-                    <button type="button" onClick={() => irSlide(1)} aria-label="Próximo produto"
-                      className="flex h-8 w-8 items-center justify-center rounded-full btn-laranja text-white transition active:scale-95">
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
-                    </button>
+              <h2 id="pp-destaques-titulo" className="sr-only">Destaques da casa</h2>
+
+              <div className="pp-mesa-welcome-bleed relative flex min-h-0 flex-1 flex-col">
+                <button type="button" onClick={() => setDetalhe(produtoAtivo)}
+                  className="group relative flex min-h-0 w-full flex-1 flex-col overflow-hidden text-left outline-none focus-visible:ring-2 focus-visible:ring-[#E67E22] focus-visible:ring-inset">
+                  <div className="relative min-h-0 flex-1 overflow-hidden bg-[#EDE9E2]">
+                    {/* Fundo contínuo — mesma foto, sem faixas chapadas */}
+                    <img
+                      key={`bg-${produtoAtivo.id}`}
+                      src={produtoAtivo.imageUrl || fallbackImage}
+                      alt=""
+                      aria-hidden="true"
+                      loading="eager"
+                      decoding="async"
+                      onError={(e) => { if (e.currentTarget.src !== fallbackImage) e.currentTarget.src = fallbackImage; }}
+                      className="pointer-events-none absolute inset-0 h-full w-full scale-[1.2] object-cover object-center blur-3xl saturate-[1.05] opacity-80"
+                    />
+                    {/* Prato nítido — contain: nunca corta */}
+                    <img
+                      key={produtoAtivo.id}
+                      src={produtoAtivo.imageUrl || fallbackImage}
+                      alt={produtoAtivo.name}
+                      loading="eager"
+                      decoding="async"
+                      onError={(e) => { if (e.currentTarget.src !== fallbackImage) e.currentTarget.src = fallbackImage; }}
+                      className="pp-mesa-welcome-hero absolute inset-0 h-full w-full object-contain object-center drop-shadow-[0_12px_28px_rgba(45,52,54,0.18)]"
+                    />
+
+                    {produtoAtivo.badge ? (
+                      <span className="absolute right-3 top-3 z-10 rounded-full bg-[#E67E22] px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-white shadow-[0_4px_12px_rgba(230,126,34,0.35)]">
+                        {produtoAtivo.badge}
+                      </span>
+                    ) : null}
+
+                    {/* Contador discreto — não compete com o prato */}
+                    {nSlides > 1 && (
+                      <span className="absolute bottom-3 left-1/2 z-10 -translate-x-1/2 rounded-full bg-[#2D3436]/55 px-2.5 py-0.5 text-[10px] font-bold tabular-nums tracking-wide text-white backdrop-blur-sm">
+                        {slideAtual + 1} / {nSlides}
+                      </span>
+                    )}
                   </div>
+
+                  {/* Dock tipográfico — nome + preço, sem ruído */}
+                  <div className="shrink-0 bg-white/95 px-4 py-3 backdrop-blur-md">
+                    <div className="flex items-end justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[clamp(1.05rem,2.6vh,1.25rem)] font-black leading-tight tracking-tight text-[#0F4C5C]">{produtoAtivo.name}</p>
+                        <p className="mt-0.5 line-clamp-1 text-[12px] leading-snug text-[#2D3436]/65">{descCurta(produtoAtivo)}</p>
+                      </div>
+                      <p className="shrink-0 text-[clamp(1.1rem,2.7vh,1.35rem)] font-black tabular-nums tracking-tight text-[#E67E22]">{formatCurrency(produtoAtivo.price)}</p>
+                    </div>
+                  </div>
+                </button>
+
+                {/* Setas flutuantes sobre a foto — gesto natural, sem chrome extra */}
+                {nSlides > 1 && (
+                  <>
+                    <button type="button" onClick={(e) => { e.stopPropagation(); irSlide(-1); }} aria-label="Produto anterior"
+                      className="absolute left-2 top-[42%] z-20 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-[#0F4C5C] shadow-[0_4px_16px_rgba(45,52,54,0.14)] ring-1 ring-black/5 transition active:scale-95">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
+                    </button>
+                    <button type="button" onClick={(e) => { e.stopPropagation(); irSlide(1); }} aria-label="Próximo produto"
+                      className="absolute right-2 top-[42%] z-20 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-[#0F4C5C] shadow-[0_4px_16px_rgba(45,52,54,0.14)] ring-1 ring-black/5 transition active:scale-95">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
+                    </button>
+                  </>
                 )}
               </div>
 
-              <button type="button" onClick={() => setDetalhe(produtoAtivo)}
-                className="pp-mesa-welcome-bleed group relative flex min-h-0 flex-1 flex-col overflow-hidden bg-white text-left transition active:scale-[0.998]">
-                {/* Foto full-bleed: contain (sem cortar) + fundo borrado nas laterais (sensação infinita) */}
-                <div className="relative min-h-[38%] flex-[1.65] overflow-hidden bg-[#F0EEEA]">
-                  <img
-                    key={`bg-${produtoAtivo.id}`}
-                    src={produtoAtivo.imageUrl || fallbackImage}
-                    alt=""
-                    aria-hidden="true"
-                    loading="eager"
-                    decoding="async"
-                    onError={(e) => { if (e.currentTarget.src !== fallbackImage) e.currentTarget.src = fallbackImage; }}
-                    className="pointer-events-none absolute inset-0 h-full w-full scale-125 object-cover object-center blur-3xl opacity-70"
-                  />
-                  <img
-                    key={produtoAtivo.id}
-                    src={produtoAtivo.imageUrl || fallbackImage}
-                    alt={produtoAtivo.name}
-                    loading="eager"
-                    decoding="async"
-                    onError={(e) => { if (e.currentTarget.src !== fallbackImage) e.currentTarget.src = fallbackImage; }}
-                    className="pp-mesa-welcome-hero absolute inset-0 h-full w-full object-contain object-center"
-                  />
-                  <span className="absolute left-3 top-3 z-10 flex h-7 min-w-7 items-center justify-center rounded-full bg-white/95 px-2 text-[11px] font-black text-[#0F4C5C] shadow-sm backdrop-blur-[2px]">
-                    {String(slideAtual + 1).padStart(2, "0")}
-                  </span>
-                  {produtoAtivo.badge ? (
-                    <span className="absolute right-3 top-3 z-10 rounded-full bg-[#E67E22] px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-white shadow-sm">
-                      {produtoAtivo.badge}
-                    </span>
-                  ) : null}
-                </div>
-                {/* Infos fora da foto — legíveis e sem cobrir o prato */}
-                <div className="shrink-0 border-t border-[#F0EEEA] bg-white px-3.5 py-2">
-                  <div className="flex items-end justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-[clamp(15px,2.3vh,18px)] font-black leading-tight text-[#0F4C5C]">{produtoAtivo.name}</p>
-                      <p className="mt-0.5 line-clamp-1 text-[11px] text-[#6B7280]">{descCurta(produtoAtivo)}</p>
-                    </div>
-                    <p className="shrink-0 text-[clamp(16px,2.3vh,19px)] font-black tabular-nums text-[#E67E22]">{formatCurrency(produtoAtivo.price)}</p>
-                  </div>
-                  <p className="mt-1 flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-[#0F4C5C]/70">
-                    <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-[#FCEFE1] text-[#E67E22]" aria-hidden="true">
-                      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6" /></svg>
-                    </span>
-                    Toque para ver e pedir
-                  </p>
-                </div>
-              </button>
-
               {nSlides > 1 && (
-                <div className="mt-1.5 flex shrink-0 justify-center gap-1.5 px-3.5" role="tablist" aria-label="Destaques">
+                <div className="mt-2 flex shrink-0 justify-center gap-1.5" role="tablist" aria-label="Destaques">
                   {destaques.map((p, i) => (
                     <button key={p.id} type="button" role="tab" aria-selected={i === slideAtual} aria-label={`Destaque ${i + 1}: ${p.name}`}
                       onClick={() => setWelcomeSlide(i)}
-                      className={`h-1.5 rounded-full transition-all ${i === slideAtual ? "w-5 bg-[#E67E22]" : "w-1.5 bg-[#D5D9DE]"}`} />
+                      className={`h-1.5 rounded-full transition-all duration-300 ${i === slideAtual ? "w-6 bg-[#E67E22]" : "w-1.5 bg-[#0F4C5C]/20"}`} />
                   ))}
                 </div>
               )}
             </section>
+          ) : (
+            <div className="mt-2.5 flex min-h-0 flex-1 flex-col items-center justify-center px-6 text-center">
+              <p className="text-[15px] font-black text-[#0F4C5C]">Bem-vindo!</p>
+              <p className="mt-1 text-[13px] text-[#2D3436]/65">Explore o cardápio e faça seu pedido.</p>
+            </div>
           )}
 
-          {/* ── Boas-vindas + CTA + rodapé (sempre visíveis, sem rolar) ── */}
-          <div className="mt-[clamp(0.35rem,1vh,0.6rem)] flex shrink-0 flex-col px-3.5">
-            <div className="pp-mesa-opt-sub flex items-center gap-2.5 rounded-2xl border border-white bg-white px-3 py-2 shadow-[0_4px_14px_rgba(15,76,92,0.06)]">
-              <span className="text-xl" aria-hidden="true">👋</span>
-              <p className="min-w-0 flex-1 text-[11px] leading-snug text-[#374151]">
-                <b className="font-black text-[#0F4C5C]">Olá! Seja bem-vindo!</b>{" "}
-                Cardápio especial para você aproveitar cada momento.
-              </p>
-              <span className="shrink-0 text-[#E67E22]" aria-hidden="true">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21.3l7.8-7.9 1-1a5.5 5.5 0 0 0 0-7.8Z" /></svg>
-              </span>
-            </div>
-
+          {/* ── Um CTA, um trabalho: entrar no cardápio ── */}
+          <div className="pp-welcome-enter mt-2.5 flex shrink-0 flex-col px-3.5" style={{ animationDelay: "120ms" }}>
             <button type="button" onClick={() => setEtapa("cardapio")}
-              className="mt-2 flex w-full min-h-[48px] items-center gap-2.5 rounded-2xl btn-laranja px-4 text-[14px] font-black text-white shadow-[0_8px_20px_rgba(230,126,34,0.28)] transition active:scale-[0.99]">
-              <CkIconRecibo width={16} height={16} />
-              <span className="flex-1 text-left">Ver cardápio completo</span>
-              <span aria-hidden="true">→</span>
+              className="flex w-full min-h-[52px] items-center justify-center gap-2 rounded-2xl btn-laranja px-4 text-[15px] font-black text-white shadow-[0_10px_24px_rgba(230,126,34,0.32)] transition active:scale-[0.99]">
+              <span>Ver cardápio</span>
+              <span aria-hidden="true" className="text-lg leading-none">→</span>
             </button>
 
             {meusPedidos.length > 0 && (
               <button type="button" onClick={() => { setEtapa("cardapio"); setAba("conta"); }}
-                className="mt-1 inline-flex min-h-9 items-center justify-center gap-1.5 self-center px-2 text-[12px] font-bold text-[var(--client-info)]">
+                className="mt-1.5 inline-flex min-h-9 items-center justify-center gap-1.5 self-center px-2 text-[12px] font-bold text-[#0F4C5C]">
                 <CkIconRecibo width={13} height={13} /> Acompanhar pedido ({meusPedidos.length})
               </button>
             )}
 
             {!modoExterno && mesa && (
-              <div className="pp-mesa-opt1 mt-1.5 flex items-center justify-between gap-2 rounded-xl border border-white/80 bg-white/70 px-2.5 py-1.5">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-[#6B7280]">Precisa de algo?</p>
-                <div className="flex gap-1">
+              <div className="pp-mesa-opt1 mt-2 flex items-center justify-between gap-2">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[#2D3436]/45">Precisa de algo?</p>
+                <div className="flex gap-1.5">
                   {[["garcom", CkIconSino, "Chamar garçom", "Garçom"], ["ajuda", CkIconAjuda, "Pedir ajuda", "Ajuda"], ["limpeza", CkIconLimpeza, "Solicitar limpeza", "Limpeza"]].map(([t, Icone, aria, rotulo]) => {
                     const emAndamento = chamando === t;
                     return (
                       <button key={t} type="button" onClick={() => chamar(t, rotulo)} disabled={!!chamando} aria-busy={emAndamento} aria-label={aria} title={aria}
-                        className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#E6E6E6] bg-[#F7F4EF] text-[#0F4C5C] transition active:scale-90 disabled:opacity-60">
+                        className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-[#0F4C5C] shadow-[0_2px_8px_rgba(45,52,54,0.08)] ring-1 ring-[#E6E6E6]/80 transition active:scale-90 disabled:opacity-60">
                         {emAndamento ? <CkIconSpinner /> : <Icone width={15} height={15} />}
                       </button>
                     );
@@ -1771,13 +1744,12 @@ export default function CardapioPublico() {
               </div>
             )}
 
-            <footer className="mt-1.5 flex shrink-0 flex-col items-center gap-0.5 text-center">
-              <p className="flex items-center gap-1 text-[10px] text-[#6B7280]">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 7.6-7 9-4-1.4-7-4.5-7-9V6l7-3Z" /><path d="M9.2 12.2l2 2 3.6-3.8" /></svg>
-                Tecnologia e confiança
+            <footer className="mt-2 flex shrink-0 items-center justify-center gap-1 text-center">
+              <p className="text-[10px] text-[#2D3436]/40">
                 <span className="font-black"><span className="text-[#0F4C5C]">Pedido</span><span className="text-[#E67E22]">Prime</span></span>
+                <span className="mx-1.5 text-[#2D3436]/25">·</span>
+                v{versaoApp}
               </p>
-              <p className="text-[9px] text-[#9CA3AF]">Versão {versaoApp}</p>
             </footer>
           </div>
         </div>
