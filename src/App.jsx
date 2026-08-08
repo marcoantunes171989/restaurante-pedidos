@@ -19293,8 +19293,9 @@ function FiscalNcmLista({ ncm, icms, api, produtos = [], produtosPorNcm }) {
     if (ps.length === 0) return setExcluir(n);
     setVinculos({ acao: "excluir", itens: [{ ncm: n, produtos: ps }] });
   }
-  // Em lote (usa as operações em lote do banco): aplica aos SEM vínculo; os
-  // COM vínculo vão para o modal de manutenção. Ativar não tem restrição.
+  // Em lote (usa as operações em lote do banco): aplica aos SEM vínculo e
+  // MANTÉM selecionados apenas os COM vínculo, mostrando-os no modal de
+  // manutenção com quantos foram processados. Ativar não tem restrição.
   async function emLote(acao) {
     const selNcm = ncm.filter((n) => sel.has(n.id));
     if (acao === "ativar") { await api.inativarNcmLote(selNcm.map((n) => n.id), true); setSel(new Set()); return; }
@@ -19305,8 +19306,9 @@ function FiscalNcmLista({ ncm, icms, api, produtos = [], produtosPorNcm }) {
       if (acao === "excluir") await api.excluirNcmLote(livresIds);
       else await api.inativarNcmLote(livresIds, false);
     }
-    setSel(new Set());
-    if (bloqueados.length) setVinculos({ acao, itens: bloqueados.map((n) => ({ ncm: n, produtos: produtosDoNcm(n.id) })) });
+    // Mantém marcados só os que ficaram (com vínculo), para continuar a manutenção.
+    setSel(new Set(bloqueados.map((n) => n.id)));
+    if (bloqueados.length) setVinculos({ acao, feitos: livres.length, itens: bloqueados.map((n) => ({ ncm: n, produtos: produtosDoNcm(n.id) })) });
   }
 
   return (
@@ -19382,23 +19384,25 @@ function FiscalNcmLista({ ncm, icms, api, produtos = [], produtosPorNcm }) {
 
 // Modal de vínculos: mostra os produtos que impedem inativar/excluir NCM(s),
 // facilitando a identificação para manutenção (desvincular antes).
-function VinculosNcmModal({ acao, itens = [], onFechar }) {
+function VinculosNcmModal({ acao, itens = [], feitos = 0, onFechar }) {
   const totalProd = itens.reduce((s, it) => s + it.produtos.length, 0);
   const verbo = acao === "excluir" ? "excluir" : "inativar";
+  const verboFeito = acao === "excluir" ? "excluído(s)" : "inativado(s)";
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
       <button aria-label="Fechar" onClick={onFechar} className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
       <div className="relative flex max-h-[85vh] w-full max-w-xl flex-col overflow-hidden rounded-3xl border border-[var(--pp-border)] bg-white shadow-2xl">
         <div className="flex items-center justify-between gap-3 border-b border-[var(--pp-border)] px-6 py-4">
           <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[rgba(200,30,74,0.1)] text-lg text-[#C81E4A]">🔗</span>
-            <div><h2 className="text-lg font-semibold text-[var(--pp-text)]">Não é possível {verbo}</h2>
-              <p className="text-[13px] text-[var(--pp-text-muted)]">{itens.length} NCM({itens.length === 1 ? "" : "s"}) em uso por {totalProd} produto(s).</p></div>
+            <span className={`flex h-10 w-10 items-center justify-center rounded-2xl text-lg ${feitos > 0 ? "bg-[rgba(47,158,82,0.12)] text-[#2F9E52]" : "bg-[rgba(200,30,74,0.1)] text-[#C81E4A]"}`}>{feitos > 0 ? "✅" : "🔗"}</span>
+            <div><h2 className="text-lg font-semibold text-[var(--pp-text)]">{feitos > 0 ? `${feitos} ${verboFeito} · ${itens.length} mantido(s)` : `Não é possível ${verbo}`}</h2>
+              <p className="text-[13px] text-[var(--pp-text-muted)]">{itens.length} NCM({itens.length === 1 ? "" : "s"}) em uso por {totalProd} produto(s) {feitos > 0 ? "permanecem" : "não pode(m) ser removidos"}.</p></div>
           </div>
           <button onClick={onFechar} className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--pp-border)] bg-white text-lg text-[var(--pp-text-muted)] transition hover:bg-[rgba(15,76,92,0.04)]">✕</button>
         </div>
         <div className="flex-1 space-y-3 overflow-y-auto px-6 py-5">
-          <p className="rounded-xl border border-[rgba(230,126,34,0.3)] bg-[rgba(230,126,34,0.06)] px-3 py-2 text-[12px] font-semibold text-[#B4611A]">Para {verbo}, primeiro desvincule (ou troque o NCM) dos produtos abaixo — na aba Produtos ou pela Atualização em lote.</p>
+          {feitos > 0 && <p className="rounded-xl border border-[rgba(47,158,82,0.3)] bg-[rgba(47,158,82,0.06)] px-3 py-2 text-[12px] font-semibold text-[#2F9E52]">✅ {feitos} NCM(s) sem vínculo {verboFeito} com sucesso. Os {itens.length} abaixo continuam selecionados por terem produtos vinculados.</p>}
+          <p className="rounded-xl border border-[rgba(230,126,34,0.3)] bg-[rgba(230,126,34,0.06)] px-3 py-2 text-[12px] font-semibold text-[#B4611A]">Para {verbo} estes, primeiro desvincule (ou troque o NCM) dos produtos abaixo — na aba Produtos ou pela Atualização em lote.</p>
           {itens.map(({ ncm, produtos }) => (
             <div key={ncm.id} className="rounded-2xl border border-[var(--pp-border)] bg-white p-3 shadow-[0_1px_2px_rgba(15,76,92,0.04)]">
               <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-[var(--pp-text)]"><span className="rounded bg-[rgba(15,76,92,0.08)] px-1.5 py-0.5 text-xs font-black text-[#0F4C5C]">NCM {ncm.codigo}</span><span className="text-[var(--pp-text-muted)]">{produtos.length} produto(s)</span></p>
