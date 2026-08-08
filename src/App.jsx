@@ -2281,6 +2281,8 @@ export default function RestaurantePedidoApp() {
   async function addFiscalNcm(dados) {
     if (!canAccess(currentUser, "admin")) return notify("error", "Sem permissão administrativa.");
     if (!dados?.codigo?.trim()) return notify("error", "Informe o código do NCM.");
+    // Evita duplicidade: mesmo código (comparando só os dígitos) já cadastrado.
+    if (fiscalNcm.some((n) => soDigitos(n.codigo) === soDigitos(dados.codigo))) return notify("error", `NCM ${dados.codigo} já está cadastrado.`);
     const p = { ...dados, codigo: dados.codigo.trim(), lojaId: lojaAtual };
     try {
       const saved = dbReady ? await inserirFiscalNcm(p) : { ...p, id: Date.now(), ativo: true };
@@ -19125,7 +19127,7 @@ function FiscalAdmin({ ncm = [], icms = [], cfop = [], pis = [], cofins = [], ip
         {abas.map((t) => <FilterChip key={t.id} size="sm" selected={aba === t.id} label={t.label} badge={t.badge} onClick={() => setAba(t.id)} />)}
       </div>
 
-      {aba === "ncm"    && <FiscalNcmLista ncm={ncm} icms={icms} api={api} produtosPorNcm={produtosPorNcm} />}
+      {aba === "ncm"    && <FiscalNcmLista ncm={ncm} icms={icms} api={api} produtos={produtos} produtosPorNcm={produtosPorNcm} />}
       {aba === "icms"   && <FiscalIcmsLista icms={icms} api={api} ncmsPorIcms={ncmsPorIcms} produtosPorIcms={produtosPorIcms} />}
       {aba === "cfop"   && <FiscalCfopLista cfop={cfop} api={api} usoDe={(id) => produtosPorCampo("cfopId", id)} />}
       {aba === "pis"    && <FiscalTribLista tipo="PIS" itens={pis} api={{ add: api.addPis, editar: api.editarPis, remover: api.removerPis }} usoDe={(id) => produtosPorCampo("pisId", id)} />}
@@ -19137,8 +19139,8 @@ function FiscalAdmin({ ncm = [], icms = [], cfop = [], pis = [], cofins = [], ip
   );
 }
 
-// Barra de seleção em lote (comum às listas fiscais): ativar/inativar vários.
-function BulkBar({ n, onAtivar, onInativar, onLimpar }) {
+// Barra de seleção em lote (comum às listas fiscais): ativar/inativar/excluir.
+function BulkBar({ n, onAtivar, onInativar, onExcluir = null, onLimpar }) {
   if (n === 0) return null;
   return (
     <div className="mb-3 flex flex-wrap items-center gap-2 rounded-2xl border border-[#0F4C5C]/30 bg-[rgba(15,76,92,0.08)] px-4 py-2.5">
@@ -19146,6 +19148,7 @@ function BulkBar({ n, onAtivar, onInativar, onLimpar }) {
       <div className="ml-auto flex gap-2">
         <button onClick={onAtivar} className="rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-black text-emerald-600 transition hover:bg-emerald-500/20">Ativar</button>
         <button onClick={onInativar} className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-1.5 text-xs font-black text-amber-600 transition hover:bg-amber-500/20">Inativar</button>
+        {onExcluir && <button onClick={onExcluir} className="rounded-xl border border-red-400/30 bg-red-500/10 px-3 py-1.5 text-xs font-black text-red-600 transition hover:bg-red-500/20">Excluir</button>}
         <button onClick={onLimpar} className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-black text-slate-400 transition hover:bg-white/[0.08]">Limpar</button>
       </div>
     </div>
@@ -19190,20 +19193,49 @@ function FiltroSituacaoBusca({ f, placeholder }) {
 }
 
 // ── Lista de NCM ─────────────────────────────────────────────
-function FiscalNcmLista({ ncm, icms, api, produtosPorNcm }) {
+function FiscalNcmLista({ ncm, icms, api, produtos = [], produtosPorNcm }) {
   const [editando, setEditando] = useState(null);
   const [criando, setCriando]   = useState(false);
   const [excluir, setExcluir]   = useState(null);
   const [importar, setImportar] = useState(false);
+  const [vinculos, setVinculos] = useState(null); // { acao, itens:[{ncm, produtos}] }
   const [sel, setSel]           = useState(() => new Set());
   const f = useFiltroLista(ncm, (n) => `${n.codigo} ${n.descricao || ""}`);
 
+  const produtosDoNcm = (id) => produtos.filter((p) => String(p.ncmId ?? "") === String(id));
   const toggleSel = (id) => setSel((s) => { const x = new Set(s); x.has(id) ? x.delete(id) : x.add(id); return x; });
   const idsVisiveis = f.visiveis.map((n) => n.id);
   const todosMarcados = idsVisiveis.length > 0 && idsVisiveis.every((id) => sel.has(id));
   const marcarTodos = () => setSel((s) => { const x = new Set(s); todosMarcados ? idsVisiveis.forEach((id) => x.delete(id)) : idsVisiveis.forEach((id) => x.add(id)); return x; });
-  const emLote = async (ativo) => { for (const id of sel) await api.editarNcm(id, { ativo }); setSel(new Set()); };
   const nomeIcms = (id) => icms.find((r) => String(r.id) === String(id))?.nome || null;
+
+  // Guarda de vínculo: só permite inativar/excluir NCM sem produtos vinculados.
+  // Com vínculos → mostra o modal listando os produtos para manutenção.
+  function inativarUm(n) {
+    const ativando = n.ativo === false;
+    if (ativando) return api.editarNcm(n.id, { ativo: true });
+    const ps = produtosDoNcm(n.id);
+    if (ps.length === 0) return api.editarNcm(n.id, { ativo: false });
+    setVinculos({ acao: "inativar", itens: [{ ncm: n, produtos: ps }] });
+  }
+  function excluirUm(n) {
+    const ps = produtosDoNcm(n.id);
+    if (ps.length === 0) return setExcluir(n);
+    setVinculos({ acao: "excluir", itens: [{ ncm: n, produtos: ps }] });
+  }
+  // Em lote: aplica aos SEM vínculo; os COM vínculo vão para o modal de manutenção.
+  async function emLote(acao) {
+    const selNcm = ncm.filter((n) => sel.has(n.id));
+    if (acao === "ativar") { for (const n of selNcm) await api.editarNcm(n.id, { ativo: true }); setSel(new Set()); return; }
+    const bloqueados = [], livres = [];
+    for (const n of selNcm) (produtosDoNcm(n.id).length ? bloqueados : livres).push(n);
+    for (const n of livres) {
+      if (acao === "excluir") await api.removerNcm(n.id);
+      else await api.editarNcm(n.id, { ativo: false });
+    }
+    setSel(new Set());
+    if (bloqueados.length) setVinculos({ acao, itens: bloqueados.map((n) => ({ ncm: n, produtos: produtosDoNcm(n.id) })) });
+  }
 
   return (
     <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
@@ -19216,7 +19248,7 @@ function FiscalNcmLista({ ncm, icms, api, produtosPorNcm }) {
         </div>
       </div>
       <FiltroSituacaoBusca f={f} placeholder="Buscar NCM por código ou descrição..." />
-      <BulkBar n={sel.size} onAtivar={() => emLote(true)} onInativar={() => emLote(false)} onLimpar={() => setSel(new Set())} />
+      <BulkBar n={sel.size} onAtivar={() => emLote("ativar")} onInativar={() => emLote("inativar")} onExcluir={() => emLote("excluir")} onLimpar={() => setSel(new Set())} />
 
       {f.filtrados.length === 0 ? (
         <EmptyState titulo={ncm.length === 0 ? "Nenhum NCM cadastrado" : "Nenhum NCM encontrado"}
@@ -19244,9 +19276,9 @@ function FiscalNcmLista({ ncm, icms, api, produtosPorNcm }) {
                   </div>
                 </div>
                 <div className="ml-auto flex shrink-0 items-center gap-2">
-                  <button onClick={() => api.editarNcm(n.id, { ativo: !(n.ativo !== false) })} title={n.ativo !== false ? "Inativar" : "Ativar"} className={`rounded-full px-3 py-1.5 text-xs font-black transition ${n.ativo !== false ? "bg-emerald-500 text-white hover:bg-emerald-400" : "bg-slate-700 text-slate-200 hover:bg-slate-600"}`}>{n.ativo !== false ? "Ativo" : "Inativo"}</button>
+                  <button onClick={() => inativarUm(n)} title={n.ativo !== false ? "Inativar" : "Ativar"} className={`rounded-full px-3 py-1.5 text-xs font-black transition ${n.ativo !== false ? "bg-emerald-500 text-white hover:bg-emerald-400" : "bg-slate-700 text-slate-200 hover:bg-slate-600"}`}>{n.ativo !== false ? "Ativo" : "Inativo"}</button>
                   <button onClick={() => setEditando(n)} title="Editar" className="rounded-xl border border-blue-400/20 bg-blue-500/10 px-3 py-1.5 text-xs font-black text-blue-300 transition hover:bg-blue-500/20">✏️</button>
-                  <button onClick={() => setExcluir(n)} title="Excluir" className="rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-1.5 text-xs font-black text-red-300 transition hover:bg-red-500/20">🗑️</button>
+                  <button onClick={() => excluirUm(n)} title="Excluir" className="rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-1.5 text-xs font-black text-red-300 transition hover:bg-red-500/20">🗑️</button>
                 </div>
               </div>
             );
@@ -19260,9 +19292,52 @@ function FiscalNcmLista({ ncm, icms, api, produtosPorNcm }) {
       {importar && <ImportarNcmModal existentes={ncm} importar={api.importarNcm} onFechar={() => setImportar(false)} />}
       {excluir && (
         <ConfirmModal titulo="Excluir NCM?"
-          mensagem={`Excluir o NCM "${excluir.codigo}"? ${produtosPorNcm(excluir.id)} produto(s) vinculado(s) ficarão sem NCM. Dica: você pode apenas inativá-lo.`}
+          mensagem={`Excluir o NCM "${excluir.codigo}"? Nenhum produto usa este NCM — a exclusão é segura.`}
           confirmar="Sim, excluir" onConfirmar={() => { api.removerNcm(excluir.id); setExcluir(null); }} onCancelar={() => setExcluir(null)} />
       )}
+      {vinculos && <VinculosNcmModal acao={vinculos.acao} itens={vinculos.itens} onFechar={() => setVinculos(null)} />}
+    </div>
+  );
+}
+
+// Modal de vínculos: mostra os produtos que impedem inativar/excluir NCM(s),
+// facilitando a identificação para manutenção (desvincular antes).
+function VinculosNcmModal({ acao, itens = [], onFechar }) {
+  const totalProd = itens.reduce((s, it) => s + it.produtos.length, 0);
+  const verbo = acao === "excluir" ? "excluir" : "inativar";
+  return (
+    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+      <button aria-label="Fechar" onClick={onFechar} className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+      <div className="relative flex max-h-[85vh] w-full max-w-xl flex-col overflow-hidden rounded-3xl border border-[var(--pp-border)] bg-white shadow-2xl">
+        <div className="flex items-center justify-between gap-3 border-b border-[var(--pp-border)] px-6 py-4">
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[rgba(200,30,74,0.1)] text-lg text-[#C81E4A]">🔗</span>
+            <div><h2 className="text-lg font-semibold text-[var(--pp-text)]">Não é possível {verbo}</h2>
+              <p className="text-[13px] text-[var(--pp-text-muted)]">{itens.length} NCM({itens.length === 1 ? "" : "s"}) em uso por {totalProd} produto(s).</p></div>
+          </div>
+          <button onClick={onFechar} className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--pp-border)] bg-white text-lg text-[var(--pp-text-muted)] transition hover:bg-[rgba(15,76,92,0.04)]">✕</button>
+        </div>
+        <div className="flex-1 space-y-3 overflow-y-auto px-6 py-5">
+          <p className="rounded-xl border border-[rgba(230,126,34,0.3)] bg-[rgba(230,126,34,0.06)] px-3 py-2 text-[12px] font-semibold text-[#B4611A]">Para {verbo}, primeiro desvincule (ou troque o NCM) dos produtos abaixo — na aba Produtos ou pela Atualização em lote.</p>
+          {itens.map(({ ncm, produtos }) => (
+            <div key={ncm.id} className="rounded-2xl border border-[var(--pp-border)] bg-white p-3 shadow-[0_1px_2px_rgba(15,76,92,0.04)]">
+              <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-[var(--pp-text)]"><span className="rounded bg-[rgba(15,76,92,0.08)] px-1.5 py-0.5 text-xs font-black text-[#0F4C5C]">NCM {ncm.codigo}</span><span className="text-[var(--pp-text-muted)]">{produtos.length} produto(s)</span></p>
+              <div className="space-y-1">
+                {produtos.map((p) => (
+                  <div key={p.id} className="flex items-center gap-2 rounded-xl border border-[var(--pp-border)] bg-white px-3 py-1.5">
+                    <img src={p.imageUrl || fallbackImage} alt="" className="h-7 w-7 shrink-0 rounded-lg object-cover" />
+                    <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-[var(--pp-text)]">{p.name}</span>
+                    <span className="shrink-0 rounded-full bg-[rgba(15,76,92,0.06)] px-2 py-0.5 text-[11px] text-[var(--pp-text-muted)]">{p.category || "—"}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="shrink-0 border-t border-[var(--pp-border)] px-6 py-4">
+          <button onClick={onFechar} className="w-full rounded-xl border border-[var(--pp-border)] bg-white px-5 py-2.5 text-sm font-semibold text-[var(--pp-text-body)] transition hover:bg-[rgba(15,76,92,0.04)]">Entendi</button>
+        </div>
+      </div>
     </div>
   );
 }
