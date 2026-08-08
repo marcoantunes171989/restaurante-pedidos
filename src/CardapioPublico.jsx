@@ -1567,22 +1567,20 @@ export default function CardapioPublico() {
     return (
       <div data-theme="light" className={`pp-mesa-welcome tema-claro-area relative flex h-[100dvh] max-h-[100dvh] w-full max-w-[100vw] flex-col overflow-hidden bg-[#F7F4EF] text-[var(--client-text-primary)] ${modoExterno ? "pp-welcome-ext" : ""}`}
         style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}>
-        <div aria-hidden="true" className="pointer-events-none absolute -right-8 top-0 h-28 w-28 opacity-[0.06]" style={{ background: "radial-gradient(circle at 40% 40%, #0F4C5C 0%, transparent 65%)" }} />
-
-        <div className="relative mx-auto flex h-full w-full max-w-[420px] min-h-0 flex-col px-3.5 pt-[clamp(0.35rem,1.2vh,0.75rem)] pb-[clamp(0.25rem,0.8vh,0.5rem)]">
-          {/* ── Marca (compacta) ── */}
+        <div className="relative mx-auto flex h-full w-full max-w-[420px] min-h-0 flex-col px-3.5 pt-[clamp(0.3rem,1vh,0.65rem)] pb-[clamp(0.2rem,0.7vh,0.45rem)]">
+          {/* ── Marca (compacta — libera altura para a foto hero) ── */}
           <header className="flex shrink-0 flex-col items-center text-center">
             {loja.logoUrl ? (
-              <img src={loja.logoUrl} alt={`Logo ${loja.nome}`} className="h-[clamp(44px,7vh,64px)] w-[clamp(44px,7vh,64px)] rounded-full border-[3px] border-white object-cover shadow-[0_6px_18px_rgba(15,76,92,0.12)]" onError={(e) => { e.currentTarget.style.display = "none"; }} />
+              <img src={loja.logoUrl} alt={`Logo ${loja.nome}`} className="h-[clamp(40px,6.2vh,56px)] w-[clamp(40px,6.2vh,56px)] rounded-full border-[3px] border-white object-cover shadow-[0_6px_18px_rgba(15,76,92,0.12)]" onError={(e) => { e.currentTarget.style.display = "none"; }} />
             ) : (
-              <span className="flex h-[clamp(44px,7vh,64px)] w-[clamp(44px,7vh,64px)] items-center justify-center rounded-full border-[3px] border-white bg-white text-xl font-black shadow-[0_6px_18px_rgba(15,76,92,0.12)]" aria-hidden="true">
+              <span className="flex h-[clamp(40px,6.2vh,56px)] w-[clamp(40px,6.2vh,56px)] items-center justify-center rounded-full border-[3px] border-white bg-white text-lg font-black shadow-[0_6px_18px_rgba(15,76,92,0.12)]" aria-hidden="true">
                 <span className="text-[#0F4C5C]">{(loja.prefixo || nomePrimario).slice(0, 1)}</span>
                 <span className="text-[#E67E22]">{(loja.prefixo || nomePrimario).slice(1, 2) || ""}</span>
               </span>
             )}
-            <h1 className="mt-[clamp(0.25rem,0.8vh,0.5rem)] font-black leading-none tracking-tight">
-              <span className="text-[clamp(1.2rem,3.6vh,1.7rem)] text-[#0F4C5C]">{nomePrimario}</span>
-              {nomeSecundario ? <span className="text-[clamp(1.2rem,3.6vh,1.7rem)] text-[#E67E22]"> {nomeSecundario}</span> : null}
+            <h1 className="mt-[clamp(0.2rem,0.6vh,0.4rem)] font-black leading-none tracking-tight">
+              <span className="text-[clamp(1.1rem,3.2vh,1.55rem)] text-[#0F4C5C]">{nomePrimario}</span>
+              {nomeSecundario ? <span className="text-[clamp(1.1rem,3.2vh,1.55rem)] text-[#E67E22]"> {nomeSecundario}</span> : null}
             </h1>
             <div className="mt-1 flex items-center gap-2">
               <span className="h-px w-6 bg-[#E67E22]/70" aria-hidden="true" />
@@ -1644,14 +1642,14 @@ export default function CardapioPublico() {
             </div>
           )}
 
-          {/* ── Carrossel: 1 produto por vez, infinito (até 6) ── */}
+          {/* ── Carrossel: foto hero limpa + info abaixo (valoriza o acesso) ── */}
           {produtoAtivo && (
-            <section className="mt-[clamp(0.35rem,1.1vh,0.65rem)] flex min-h-0 flex-1 flex-col" aria-labelledby="pp-destaques-titulo"
+            <section className="mt-[clamp(0.3rem,1vh,0.55rem)] flex min-h-0 flex-1 flex-col" aria-labelledby="pp-destaques-titulo"
               onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
-              <div className="mb-1.5 flex shrink-0 items-center justify-between gap-2">
+              <div className="mb-1 flex shrink-0 items-center justify-between gap-2">
                 <div className="min-w-0">
-                  <h2 id="pp-destaques-titulo" className="text-[clamp(14px,2.1vh,16px)] font-black text-[#0F4C5C]">Destaques da casa</h2>
-                  <p className="text-[10px] text-[#6B7280]">{slideAtual + 1} de {nSlides}</p>
+                  <h2 id="pp-destaques-titulo" className="text-[clamp(13px,2vh,15px)] font-black text-[#0F4C5C]">Destaques da casa</h2>
+                  <p className="text-[10px] text-[#6B7280]">{slideAtual + 1} de {nSlides} · toque na foto para pedir</p>
                 </div>
                 {nSlides > 1 && (
                   <div className="flex shrink-0 gap-1.5">
@@ -1668,20 +1666,36 @@ export default function CardapioPublico() {
               </div>
 
               <button type="button" onClick={() => setDetalhe(produtoAtivo)}
-                className="group relative flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-[1.35rem] border border-white bg-white text-left shadow-[0_8px_22px_rgba(15,76,92,0.08)] transition active:scale-[0.995]">
-                <div className="relative min-h-0 flex-1 overflow-hidden bg-[#EDF0F4]">
+                className="group relative flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-[1.4rem] border border-[#E6E6E6]/80 bg-white text-left shadow-[0_8px_24px_rgba(45,52,54,0.08)] transition active:scale-[0.995]">
+                {/* Foto em evidência — sem overlay; protagonismo visual do prato */}
+                <div className="relative min-h-[38%] flex-[1.65] overflow-hidden bg-[#F0EEEA]">
                   <img key={produtoAtivo.id} src={produtoAtivo.imageUrl || fallbackImage} alt={produtoAtivo.name} loading="eager" decoding="async"
                     onError={(e) => { if (e.currentTarget.src !== fallbackImage) e.currentTarget.src = fallbackImage; }}
-                    className="absolute inset-0 h-full w-full object-cover transition duration-500 group-active:scale-105" />
-                  <span className="absolute left-3 top-3 flex h-7 w-7 items-center justify-center rounded-full bg-[#E67E22] text-[12px] font-black text-white shadow-sm">{slideAtual + 1}</span>
-                  {produtoAtivo.badge && (
-                    <span className="absolute right-3 top-3 rounded-full bg-black/40 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-white backdrop-blur-sm">{produtoAtivo.badge}</span>
-                  )}
-                  <div className="absolute inset-x-0 bottom-0 p-3.5 text-white">
-                    <p className="truncate text-[clamp(15px,2.3vh,18px)] font-black leading-tight drop-shadow-[0_1px_2px_rgba(0,0,0,0.55)]">{produtoAtivo.name}</p>
-                    <p className="mt-0.5 line-clamp-1 text-[11px] text-white/90 drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)]">{descCurta(produtoAtivo)}</p>
-                    <p className="mt-1 text-[clamp(15px,2.2vh,18px)] font-black text-[#F6C18A] drop-shadow-[0_1px_2px_rgba(0,0,0,0.55)]">{formatCurrency(produtoAtivo.price)}</p>
+                    className="pp-mesa-welcome-hero absolute inset-0 h-full w-full object-cover object-center transition duration-700 ease-out group-hover:scale-[1.03] group-active:scale-[1.04]" />
+                  <span className="absolute left-3 top-3 flex h-7 min-w-7 items-center justify-center rounded-full bg-white/95 px-2 text-[11px] font-black text-[#0F4C5C] shadow-sm backdrop-blur-[2px]">
+                    {String(slideAtual + 1).padStart(2, "0")}
+                  </span>
+                  {produtoAtivo.badge ? (
+                    <span className="absolute right-3 top-3 rounded-full bg-[#E67E22] px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-white shadow-sm">
+                      {produtoAtivo.badge}
+                    </span>
+                  ) : null}
+                </div>
+                {/* Infos fora da foto — legíveis e sem cobrir o prato */}
+                <div className="shrink-0 border-t border-[#F0EEEA] bg-white px-3.5 py-2">
+                  <div className="flex items-end justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[clamp(15px,2.3vh,18px)] font-black leading-tight text-[#0F4C5C]">{produtoAtivo.name}</p>
+                      <p className="mt-0.5 line-clamp-1 text-[11px] text-[#6B7280]">{descCurta(produtoAtivo)}</p>
+                    </div>
+                    <p className="shrink-0 text-[clamp(16px,2.3vh,19px)] font-black tabular-nums text-[#E67E22]">{formatCurrency(produtoAtivo.price)}</p>
                   </div>
+                  <p className="mt-1 flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-[#0F4C5C]/70">
+                    <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-[#FCEFE1] text-[#E67E22]" aria-hidden="true">
+                      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6" /></svg>
+                    </span>
+                    Toque para ver e pedir
+                  </p>
                 </div>
               </button>
 
@@ -1690,7 +1704,7 @@ export default function CardapioPublico() {
                   {destaques.map((p, i) => (
                     <button key={p.id} type="button" role="tab" aria-selected={i === slideAtual} aria-label={`Destaque ${i + 1}: ${p.name}`}
                       onClick={() => setWelcomeSlide(i)}
-                      className={`h-1.5 rounded-full transition-all ${i === slideAtual ? "w-4 bg-[#E67E22]" : "w-1.5 bg-[#D5D9DE]"}`} />
+                      className={`h-1.5 rounded-full transition-all ${i === slideAtual ? "w-5 bg-[#E67E22]" : "w-1.5 bg-[#D5D9DE]"}`} />
                   ))}
                 </div>
               )}
