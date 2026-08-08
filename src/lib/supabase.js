@@ -120,6 +120,47 @@ export async function atualizarProdutosFiscalLote(ids, patch) {
   if (error) throw error
 }
 
+// ── Histórico das atualizações fiscais em lote (migration 084) ──
+function dbParaLoteLog(r) {
+  return {
+    id: r.id, lojaId: r.loja_id ?? null, loteId: r.lote_id, produtoId: r.produto_id,
+    produtoNome: r.produto_nome ?? '', campo: r.campo,
+    valorAnterior: r.valor_anterior ?? null, valorPosterior: r.valor_posterior ?? null,
+    usuarioId: r.usuario_id ?? null, usuarioNome: r.usuario_nome ?? '—',
+    criadoEm: r.criado_em, revertido: r.revertido === true, revertidoEm: r.revertido_em ?? null,
+  }
+}
+export async function inserirFiscalLoteLog(registros) {
+  if (!Array.isArray(registros) || registros.length === 0) return []
+  const payload = registros.map((x) => ({
+    loja_id: x.lojaId ?? null, lote_id: x.loteId, produto_id: x.produtoId, produto_nome: x.produtoNome || null,
+    campo: x.campo, valor_anterior: x.valorAnterior ?? null, valor_posterior: x.valorPosterior ?? null,
+    usuario_id: x.usuarioId ?? null, usuario_nome: x.usuarioNome || null,
+  }))
+  const { data, error } = await supabase.from('tab_fiscal_lote_log').insert(payload).select()
+  if (error) throw error
+  return (data || []).map(dbParaLoteLog)
+}
+export async function fetchFiscalLoteLog(lojaId = null, limite = 2000) {
+  let q = supabase.from('tab_fiscal_lote_log').select('*').order('criado_em', { ascending: false }).limit(limite)
+  if (lojaId != null) q = q.eq('loja_id', lojaId)
+  const { data, error } = await q
+  if (error) return []
+  return (data || []).map(dbParaLoteLog)
+}
+export async function marcarFiscalLoteLogRevertido(ids) {
+  if (!ids?.length) return
+  const { error } = await supabase.from('tab_fiscal_lote_log').update({ revertido: true, revertido_em: new Date().toISOString() }).in('id', ids)
+  if (error) throw error
+}
+export function escutarFiscalLoteLog(onMudanca) {
+  const reload = async () => { try { onMudanca(await fetchFiscalLoteLog()) } catch { /* migration 084 pendente */ } }
+  const canal = supabase.channel('ch_fiscal_lote_log_' + Math.random().toString(36).slice(2))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_fiscal_lote_log' }, reload)
+    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
+  return () => supabase.removeChannel(canal)
+}
+
 export function escutarProdutos(onMudanca) {
   const reload = async () => {
     const { data, error } = await supabase
@@ -599,6 +640,17 @@ export async function inserirFiscalNcmLote(linhas) {
 export async function atualizarFiscalNcm(id, campos) {
   const patch = ncmParaDb(campos); delete patch.loja_id; patch.atualizado_em = new Date().toISOString()
   const { error } = await supabase.from('tab_fiscal_ncm').update(patch).eq('id', id)
+  if (error) throw error
+}
+// Operações de NCM em lote (perf) — exclusão e ativar/inativar de vários ids.
+export async function excluirFiscalNcmLote(ids) {
+  if (!ids?.length) return
+  const { error } = await supabase.from('tab_fiscal_ncm').delete().in('id', ids)
+  if (error) throw error
+}
+export async function atualizarFiscalNcmLoteAtivo(ids, ativo) {
+  if (!ids?.length) return
+  const { error } = await supabase.from('tab_fiscal_ncm').update({ ativo: !!ativo, atualizado_em: new Date().toISOString() }).in('id', ids)
   if (error) throw error
 }
 export async function excluirFiscalNcm(id) {
