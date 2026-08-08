@@ -30,6 +30,13 @@ import {
   fetchFiscalCofins, inserirFiscalCofins, atualizarFiscalCofins, excluirFiscalCofins, escutarFiscalCofins,
   fetchFiscalIpi, inserirFiscalIpi, atualizarFiscalIpi, excluirFiscalIpi, escutarFiscalIpi,
   fetchFiscalCest, inserirFiscalCest, atualizarFiscalCest, excluirFiscalCest, escutarFiscalCest,
+  fetchCatNcm, inserirCatNcm, atualizarCatNcm, excluirCatNcm, escutarCatNcm,
+  fetchCatCest, inserirCatCest, atualizarCatCest, excluirCatCest, escutarCatCest,
+  fetchCatCfop, inserirCatCfop, atualizarCatCfop, excluirCatCfop, escutarCatCfop,
+  fetchCatCstIcms, inserirCatCstIcms, atualizarCatCstIcms, excluirCatCstIcms, escutarCatCstIcms,
+  fetchCatCsosn, inserirCatCsosn, atualizarCatCsosn, excluirCatCsosn, escutarCatCsosn,
+  fetchCatCstPis, inserirCatCstPis, atualizarCatCstPis, excluirCatCstPis, escutarCatCstPis,
+  fetchCatCstCofins, inserirCatCstCofins, atualizarCatCstCofins, excluirCatCstCofins, escutarCatCstCofins,
   fetchSetoresCozinha, inserirSetorCozinha, atualizarSetorCozinha, excluirSetorCozinha, escutarSetoresCozinha,
   fetchImpressoras, inserirImpressora, atualizarImpressora, excluirImpressora, escutarImpressoras,
   fetchImpressoesCozinha, inserirImpressoesCozinha, atualizarImpressaoCozinha, escutarImpressoesCozinha,
@@ -197,6 +204,40 @@ async function fiscalCrudEditar(ctx, cfg, id, dados) {
 }
 async function fiscalCrudRemover(ctx, cfg, id) {
   if (!ctx.podeAdmin) return ctx.notify("error", "Sem permissão administrativa.");
+  cfg.setState((cur) => cur.filter((x) => x.id !== id));
+  if (ctx.dbReady) try { await cfg.excluirFn(id); } catch (e) { ctx.notify("error", `Erro ao excluir ${cfg.rotulo}: ` + (e.message || e)); }
+  ctx.auditar("excluir", cfg.entidade, id);
+}
+
+// Genéricos de CRUD dos catálogos GLOBAIS da Central Fiscal (migration 085).
+// São globais (sem lojaId) e só o super admin escreve. `ctx` traz super/estado;
+// `cfg` traz tabela/rótulo/funções. Mantidos em escopo de módulo (React Compiler).
+async function catalogoCrudAdd(ctx, cfg, dados) {
+  if (!ctx.ehSuper) return ctx.notify("error", "Apenas o super administrador pode alterar a Central Fiscal.");
+  const codigo = String(dados?.codigo || "").trim();
+  if (!codigo) return ctx.notify("error", `Informe o código do ${cfg.rotulo}.`);
+  const p = { ...dados, codigo, criadoPor: ctx.usuarioId };
+  try {
+    const saved = ctx.dbReady ? await cfg.inserirFn(p) : { ...p, id: gerarIdLocal(), ativo: true };
+    cfg.setState((cur) => [...cur, saved].sort((a, b) => String(a.codigo ?? "").localeCompare(String(b.codigo ?? ""))));
+  } catch (e) {
+    const dup = String(e?.code) === "23505" || /duplicate|unique/i.test(e?.message || "");
+    ctx.notify("error", dup ? `Já existe um ${cfg.rotulo} com o código ${codigo}.` : `Erro ao salvar ${cfg.rotulo}: ` + (e.message || e));
+    return;
+  }
+  ctx.auditar("criar", cfg.entidade, null, { codigo });
+  ctx.notify("success", `${cfg.rotulo} cadastrado na Central Fiscal.`);
+  return true;
+}
+async function catalogoCrudEditar(ctx, cfg, id, dados) {
+  if (!ctx.ehSuper) return ctx.notify("error", "Apenas o super administrador pode alterar a Central Fiscal.");
+  cfg.setState((cur) => cur.map((x) => x.id === id ? { ...x, ...dados } : x));
+  if (ctx.dbReady) try { await cfg.atualizarFn(id, { ...dados, atualizadoPor: ctx.usuarioId }); } catch (e) { ctx.notify("error", `Erro ao salvar ${cfg.rotulo}: ` + (e.message || e)); }
+  ctx.auditar("editar", cfg.entidade, id);
+  return true;
+}
+async function catalogoCrudRemover(ctx, cfg, id) {
+  if (!ctx.ehSuper) return ctx.notify("error", "Apenas o super administrador pode alterar a Central Fiscal.");
   cfg.setState((cur) => cur.filter((x) => x.id !== id));
   if (ctx.dbReady) try { await cfg.excluirFn(id); } catch (e) { ctx.notify("error", `Erro ao excluir ${cfg.rotulo}: ` + (e.message || e)); }
   ctx.auditar("excluir", cfg.entidade, id);
@@ -518,6 +559,14 @@ export default function RestaurantePedidoApp() {
   const [fiscalIpi, setFiscalIpi] = useState([]);          // IPI (migration 082)
   const [fiscalCest, setFiscalCest] = useState([]);        // CEST (migration 082)
   const [fiscalLoteLog, setFiscalLoteLog] = useState([]);  // histórico de atualização em lote (migration 084)
+  // Central Fiscal Prime — catálogos GLOBAIS (migration 085, só super admin)
+  const [catNcm, setCatNcm] = useState([]);
+  const [catCest, setCatCest] = useState([]);
+  const [catCfop, setCatCfop] = useState([]);
+  const [catCstIcms, setCatCstIcms] = useState([]);
+  const [catCsosn, setCatCsosn] = useState([]);
+  const [catCstPis, setCatCstPis] = useState([]);
+  const [catCstCofins, setCatCstCofins] = useState([]);
   const [setoresCozinha, setSetoresCozinha] = useState([]); // setores de cozinha (migration 041)
   const [impressoesCozinha, setImpressoesCozinha] = useState([]); // fila impressão por setor (077)
   const [impressoras, setImpressoras] = useState([]); // cadastro Setor Impressoras (078)
@@ -585,6 +634,13 @@ export default function RestaurantePedidoApp() {
         try { setFiscalIpi(await fetchFiscalIpi()); } catch { /* migration 082 pendente */ }
         try { setFiscalCest(await fetchFiscalCest()); } catch { /* migration 082 pendente */ }
         try { setFiscalLoteLog(await fetchFiscalLoteLog()); } catch { /* migration 084 pendente */ }
+        try { setCatNcm(await fetchCatNcm()); } catch { /* migration 085 pendente */ }
+        try { setCatCest(await fetchCatCest()); } catch { /* migration 085 pendente */ }
+        try { setCatCfop(await fetchCatCfop()); } catch { /* migration 085 pendente */ }
+        try { setCatCstIcms(await fetchCatCstIcms()); } catch { /* migration 085 pendente */ }
+        try { setCatCsosn(await fetchCatCsosn()); } catch { /* migration 085 pendente */ }
+        try { setCatCstPis(await fetchCatCstPis()); } catch { /* migration 085 pendente */ }
+        try { setCatCstCofins(await fetchCatCstCofins()); } catch { /* migration 085 pendente */ }
         try { setSetoresCozinha(await fetchSetoresCozinha()); } catch { /* migration 041 pendente */ }
         try { setImpressoesCozinha(await fetchImpressoesCozinha(lojaAtual)); } catch { /* migration 077 pendente */ }
         try { setCaixas(await fetchCaixas(null)); } catch { /* migration 042 pendente */ }
@@ -624,6 +680,13 @@ export default function RestaurantePedidoApp() {
         try { unsubs.push(escutarFiscalIpi(setFiscalIpi)); } catch { /* migration 082 pendente */ }
         try { unsubs.push(escutarFiscalCest(setFiscalCest)); } catch { /* migration 082 pendente */ }
         try { unsubs.push(escutarFiscalLoteLog(setFiscalLoteLog)); } catch { /* migration 084 pendente */ }
+        try { unsubs.push(escutarCatNcm(setCatNcm)); } catch { /* migration 085 pendente */ }
+        try { unsubs.push(escutarCatCest(setCatCest)); } catch { /* migration 085 pendente */ }
+        try { unsubs.push(escutarCatCfop(setCatCfop)); } catch { /* migration 085 pendente */ }
+        try { unsubs.push(escutarCatCstIcms(setCatCstIcms)); } catch { /* migration 085 pendente */ }
+        try { unsubs.push(escutarCatCsosn(setCatCsosn)); } catch { /* migration 085 pendente */ }
+        try { unsubs.push(escutarCatCstPis(setCatCstPis)); } catch { /* migration 085 pendente */ }
+        try { unsubs.push(escutarCatCstCofins(setCatCstCofins)); } catch { /* migration 085 pendente */ }
         try { unsubs.push(escutarSetoresCozinha(setSetoresCozinha)); } catch {}
         try { unsubs.push(escutarImpressoras(setImpressoras, lojaAtual)); } catch {}
         try { unsubs.push(escutarImpressoesCozinha(setImpressoesCozinha, lojaAtual)); } catch {}
@@ -2415,6 +2478,27 @@ export default function RestaurantePedidoApp() {
   const hIpi = { add: (d) => fiscalCrudAdd(ctxFiscal(), CFG_IPI, d), editar: (id, d) => fiscalCrudEditar(ctxFiscal(), CFG_IPI, id, d), remover: (id) => fiscalCrudRemover(ctxFiscal(), CFG_IPI, id) };
   const hCest = { add: (d) => fiscalCrudAdd(ctxFiscal(), CFG_CEST, d), editar: (id, d) => fiscalCrudEditar(ctxFiscal(), CFG_CEST, id, d), remover: (id) => fiscalCrudRemover(ctxFiscal(), CFG_CEST, id) };
 
+  // ── Central Fiscal Prime — catálogos globais (migration 085, super admin) ──
+  // Segue o padrão dos handlers fiscais: CFG em constante + objeto literal com
+  // arrows que chamam os genéricos de escopo de módulo (sem função no render).
+  const ctxCatalogo = () => ({ ehSuper: !!currentUser?.superAdmin, usuarioId: currentUser?.id ?? null, notify, auditar, dbReady });
+  const CAT_NCM = { entidade: "cat_ncm", rotulo: "NCM", setState: setCatNcm, inserirFn: inserirCatNcm, atualizarFn: atualizarCatNcm, excluirFn: excluirCatNcm };
+  const CAT_CEST = { entidade: "cat_cest", rotulo: "CEST", setState: setCatCest, inserirFn: inserirCatCest, atualizarFn: atualizarCatCest, excluirFn: excluirCatCest };
+  const CAT_CFOP = { entidade: "cat_cfop", rotulo: "CFOP", setState: setCatCfop, inserirFn: inserirCatCfop, atualizarFn: atualizarCatCfop, excluirFn: excluirCatCfop };
+  const CAT_CST_ICMS = { entidade: "cat_cst_icms", rotulo: "CST ICMS", setState: setCatCstIcms, inserirFn: inserirCatCstIcms, atualizarFn: atualizarCatCstIcms, excluirFn: excluirCatCstIcms };
+  const CAT_CSOSN = { entidade: "cat_csosn", rotulo: "CSOSN", setState: setCatCsosn, inserirFn: inserirCatCsosn, atualizarFn: atualizarCatCsosn, excluirFn: excluirCatCsosn };
+  const CAT_CST_PIS = { entidade: "cat_cst_pis", rotulo: "CST PIS", setState: setCatCstPis, inserirFn: inserirCatCstPis, atualizarFn: atualizarCatCstPis, excluirFn: excluirCatCstPis };
+  const CAT_CST_COFINS = { entidade: "cat_cst_cofins", rotulo: "CST COFINS", setState: setCatCstCofins, inserirFn: inserirCatCstCofins, atualizarFn: atualizarCatCstCofins, excluirFn: excluirCatCstCofins };
+  const centralFiscalApi = {
+    ncm: { add: (d) => catalogoCrudAdd(ctxCatalogo(), CAT_NCM, d), editar: (id, d) => catalogoCrudEditar(ctxCatalogo(), CAT_NCM, id, d), remover: (id) => catalogoCrudRemover(ctxCatalogo(), CAT_NCM, id) },
+    cest: { add: (d) => catalogoCrudAdd(ctxCatalogo(), CAT_CEST, d), editar: (id, d) => catalogoCrudEditar(ctxCatalogo(), CAT_CEST, id, d), remover: (id) => catalogoCrudRemover(ctxCatalogo(), CAT_CEST, id) },
+    cfop: { add: (d) => catalogoCrudAdd(ctxCatalogo(), CAT_CFOP, d), editar: (id, d) => catalogoCrudEditar(ctxCatalogo(), CAT_CFOP, id, d), remover: (id) => catalogoCrudRemover(ctxCatalogo(), CAT_CFOP, id) },
+    cstIcms: { add: (d) => catalogoCrudAdd(ctxCatalogo(), CAT_CST_ICMS, d), editar: (id, d) => catalogoCrudEditar(ctxCatalogo(), CAT_CST_ICMS, id, d), remover: (id) => catalogoCrudRemover(ctxCatalogo(), CAT_CST_ICMS, id) },
+    csosn: { add: (d) => catalogoCrudAdd(ctxCatalogo(), CAT_CSOSN, d), editar: (id, d) => catalogoCrudEditar(ctxCatalogo(), CAT_CSOSN, id, d), remover: (id) => catalogoCrudRemover(ctxCatalogo(), CAT_CSOSN, id) },
+    cstPis: { add: (d) => catalogoCrudAdd(ctxCatalogo(), CAT_CST_PIS, d), editar: (id, d) => catalogoCrudEditar(ctxCatalogo(), CAT_CST_PIS, id, d), remover: (id) => catalogoCrudRemover(ctxCatalogo(), CAT_CST_PIS, id) },
+    cstCofins: { add: (d) => catalogoCrudAdd(ctxCatalogo(), CAT_CST_COFINS, d), editar: (id, d) => catalogoCrudEditar(ctxCatalogo(), CAT_CST_COFINS, id, d), remover: (id) => catalogoCrudRemover(ctxCatalogo(), CAT_CST_COFINS, id) },
+  };
+
   // ── Licença de uso por empresa (somente administrador geral) ──
   // Define/remove a validade da licença (migration 031) e registra no histórico
   async function setValidadeLicenca(id, dataISO) {
@@ -3043,7 +3127,7 @@ export default function RestaurantePedidoApp() {
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} products={products} lojaInfo={lojaInfo} />}
         {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierPdv orders={orders} mesas={filtraLoja(mesas).filter((m) => m.active !== false)} clientes={filtraLoja(clientes)} baixarComandas={baixarComandas} formasPagamento={formasPagamentoLoja} lojaInfo={lojaInfo} currentUser={currentUser} caixaAberto={caixaAberto} auditar={auditar} conexaoOk={conexaoOk} editarItensPedido={editarItensPedido} criarPedidoCaixa={criarPedidoCaixa} products={products} categories={categoriasDb} setores={filtraLoja(setoresCozinha)} fidCaixa={fidCaixa} atualizarClientePedidos={atualizarClientePedidos} transferirMesaPedidos={transferirMesaPedidos} separarItensPedidos={separarItensPedidos} notify={notify} validarCupom={validarCupomCaixa} consumirCupom={consumirCupomCaixa} />}
         {/* activeTab === "opmobile" agora é tratado pelo branch dedicado no início desta função (sem cabeçalho/grade de módulos) */}
-        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} toggleLoja={toggleLoja} editarLoja={editarLoja} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} filtraLoja={filtraLoja} pesquisas={pesquisas} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} cancelarPedido={cancelarPedido} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} salvarConfigCrm={salvarConfigCrm} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} assinaturas={assinaturas} promocoes={filtraLoja(promocoes)} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} cupons={cuponsLoja} addCupom={addCupom} editarCupom={editarCupomLoja} toggleCupom={toggleCupom} removerCupom={removerCupom} opcoesApi={{ grupos: filtraLoja(gruposOpcoes), opcoes: filtraLoja(opcoes), addGrupo: addGrupoOpcoes, editarGrupo: editarGrupoOpcoes, removerGrupo: removerGrupoOpcoes, addOpcao, editarOpcao, removerOpcao }} fiscalIcms={filtraLoja(fiscalIcms)} fiscalNcm={filtraLoja(fiscalNcm)} fiscalCfop={filtraLoja(fiscalCfop)} fiscalPis={filtraLoja(fiscalPis)} fiscalCofins={filtraLoja(fiscalCofins)} fiscalIpi={filtraLoja(fiscalIpi)} fiscalCest={filtraLoja(fiscalCest)} fiscalApi={{ addIcms: addFiscalIcms, editarIcms: editarFiscalIcms, removerIcms: removerFiscalIcms, addNcm: addFiscalNcm, editarNcm: editarFiscalNcm, removerNcm: removerFiscalNcm, importarNcm: importarFiscalNcmLote, addCfop: hCfop.add, editarCfop: hCfop.editar, removerCfop: hCfop.remover, addPis: hPis.add, editarPis: hPis.editar, removerPis: hPis.remover, addCofins: hCofins.add, editarCofins: hCofins.editar, removerCofins: hCofins.remover, addIpi: hIpi.add, editarIpi: hIpi.editar, removerIpi: hIpi.remover, addCest: hCest.add, editarCest: hCest.editar, removerCest: hCest.remover, aplicarLote: aplicarFiscalLote, reverterLote: reverterFiscalLote, excluirNcmLote: excluirFiscalNcmEmLote, inativarNcmLote: inativarFiscalNcmEmLote }} fiscalLoteLog={filtraLoja(fiscalLoteLog)} impressoras={filtraLoja(impressoras)} impressorasApi={{ add: addImpressoraCadastro, editar: editarImpressoraCadastro, remover: removerImpressoraCadastro }} setores={filtraLoja(setoresCozinha)} setoresApi={{ add: addSetorCozinha, editar: editarSetorCozinha, remover: removerSetorCozinha }} vincularProdutoSetor={vincularProdutoSetor} salvarProdutoQr={salvarProdutoQr} irParaCozinha={(setorId) => { setCozinhaSetorInicial(setorId ?? null); if (canAccess(currentUser, "kitchen")) setActiveTab("kitchen"); else notify("error", "Sem permissão para acessar o painel da cozinha."); }} caixaAberto={caixaAberto} caixasLoja={filtraLoja(caixas)} caixaApi={{ abrir: abrirCaixaFn, movimentar: movimentarCaixaFn, fechar: fecharCaixaFn, fetchMovimentos: fetchMovimentosCaixa }} fidRegra={fidRegraAtual} fidRecompensas={filtraLoja(fidRecompensas)} fidTransacoes={filtraLoja(fidTransacoes)} fidApi={{ salvarRegra: salvarRegraFid, addRecompensa: addRecompensaFid, removerRecompensa: removerRecompensaFid, editarRecompensa: editarRecompensaFid, lancarPontos }} fidCaixa={fidCaixa} chamados={filtraLoja(chamados)} atenderChamado={atenderChamadoFn} assumirChamado={assumirChamadoFn} auditoria={filtraLoja(auditoria)} impressoesCozinha={filtraLoja(impressoesCozinha)} onAtualizarImpressao={atualizarStatusImpressao} onRecarregarImpressoes={async () => { try { setImpressoesCozinha(await fetchImpressoesCozinha(lojaAtual)); } catch {} }} editarCategoriaCampos={editarCategoriaCampos} />}
+        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} toggleLoja={toggleLoja} editarLoja={editarLoja} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} filtraLoja={filtraLoja} pesquisas={pesquisas} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} cancelarPedido={cancelarPedido} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} salvarConfigCrm={salvarConfigCrm} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} assinaturas={assinaturas} promocoes={filtraLoja(promocoes)} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} cupons={cuponsLoja} addCupom={addCupom} editarCupom={editarCupomLoja} toggleCupom={toggleCupom} removerCupom={removerCupom} opcoesApi={{ grupos: filtraLoja(gruposOpcoes), opcoes: filtraLoja(opcoes), addGrupo: addGrupoOpcoes, editarGrupo: editarGrupoOpcoes, removerGrupo: removerGrupoOpcoes, addOpcao, editarOpcao, removerOpcao }} fiscalIcms={filtraLoja(fiscalIcms)} fiscalNcm={filtraLoja(fiscalNcm)} fiscalCfop={filtraLoja(fiscalCfop)} fiscalPis={filtraLoja(fiscalPis)} fiscalCofins={filtraLoja(fiscalCofins)} fiscalIpi={filtraLoja(fiscalIpi)} fiscalCest={filtraLoja(fiscalCest)} fiscalApi={{ addIcms: addFiscalIcms, editarIcms: editarFiscalIcms, removerIcms: removerFiscalIcms, addNcm: addFiscalNcm, editarNcm: editarFiscalNcm, removerNcm: removerFiscalNcm, importarNcm: importarFiscalNcmLote, addCfop: hCfop.add, editarCfop: hCfop.editar, removerCfop: hCfop.remover, addPis: hPis.add, editarPis: hPis.editar, removerPis: hPis.remover, addCofins: hCofins.add, editarCofins: hCofins.editar, removerCofins: hCofins.remover, addIpi: hIpi.add, editarIpi: hIpi.editar, removerIpi: hIpi.remover, addCest: hCest.add, editarCest: hCest.editar, removerCest: hCest.remover, aplicarLote: aplicarFiscalLote, reverterLote: reverterFiscalLote, excluirNcmLote: excluirFiscalNcmEmLote, inativarNcmLote: inativarFiscalNcmEmLote }} fiscalLoteLog={filtraLoja(fiscalLoteLog)} centralFiscal={{ ncm: catNcm, cest: catCest, cfop: catCfop, cstIcms: catCstIcms, csosn: catCsosn, cstPis: catCstPis, cstCofins: catCstCofins }} centralFiscalApi={centralFiscalApi} impressoras={filtraLoja(impressoras)} impressorasApi={{ add: addImpressoraCadastro, editar: editarImpressoraCadastro, remover: removerImpressoraCadastro }} setores={filtraLoja(setoresCozinha)} setoresApi={{ add: addSetorCozinha, editar: editarSetorCozinha, remover: removerSetorCozinha }} vincularProdutoSetor={vincularProdutoSetor} salvarProdutoQr={salvarProdutoQr} irParaCozinha={(setorId) => { setCozinhaSetorInicial(setorId ?? null); if (canAccess(currentUser, "kitchen")) setActiveTab("kitchen"); else notify("error", "Sem permissão para acessar o painel da cozinha."); }} caixaAberto={caixaAberto} caixasLoja={filtraLoja(caixas)} caixaApi={{ abrir: abrirCaixaFn, movimentar: movimentarCaixaFn, fechar: fecharCaixaFn, fetchMovimentos: fetchMovimentosCaixa }} fidRegra={fidRegraAtual} fidRecompensas={filtraLoja(fidRecompensas)} fidTransacoes={filtraLoja(fidTransacoes)} fidApi={{ salvarRegra: salvarRegraFid, addRecompensa: addRecompensaFid, removerRecompensa: removerRecompensaFid, editarRecompensa: editarRecompensaFid, lancarPontos }} fidCaixa={fidCaixa} chamados={filtraLoja(chamados)} atenderChamado={atenderChamadoFn} assumirChamado={assumirChamadoFn} auditoria={filtraLoja(auditoria)} impressoesCozinha={filtraLoja(impressoesCozinha)} onAtualizarImpressao={atualizarStatusImpressao} onRecarregarImpressoes={async () => { try { setImpressoesCozinha(await fetchImpressoesCozinha(lojaAtual)); } catch {} }} editarCategoriaCampos={editarCategoriaCampos} />}
 
       </div>
       )}
@@ -6062,7 +6146,7 @@ function MobileAdminDrawer({ open, onClose, triggerRef, children, titulo }) {
   );
 }
 
-function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, definirAcoesUsuario, toggleUserStatus, toggleAccessStatus, usersLoja, filtraLoja = (a) => a, pesquisas = [], adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], toggleLoja, editarLoja, setLicencaEmpresa = async()=>{}, setValidadeLicenca = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, updateOrderStatus = async()=>{}, marcarEntregue = async()=>{}, marcarSetorPronto = async()=>{}, baixarComandas = async()=>{}, cancelarPedido, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, setModoUsoEmpresa = async()=>{}, salvarConfigExterno = async()=>{}, salvarConfigCrm = async()=>{}, mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, clientes = [], planoAtual = null, assinaturaAtual = null, assinaturas = [], planos = [], planoModulos = [], definirAssinatura = async()=>{}, promocoes = [], addPromocao = async()=>{}, editarPromocao = async()=>{}, togglePromocao = async()=>{}, removerPromocao = async()=>{}, cupons = [], addCupom = async()=>{}, editarCupom = async()=>{}, toggleCupom = async()=>{}, removerCupom = async()=>{}, opcoesApi = null, fiscalIcms = [], fiscalNcm = [], fiscalCfop = [], fiscalPis = [], fiscalCofins = [], fiscalIpi = [], fiscalCest = [], fiscalLoteLog = [], fiscalApi = null, impressoras = [], impressorasApi = null, setores = [], setoresApi = null, vincularProdutoSetor = async () => {}, salvarProdutoQr = async () => {}, irParaCozinha = () => {}, caixaAberto = null, caixasLoja = [], caixaApi = null, fidRegra = null, fidRecompensas = [], fidTransacoes = [], fidApi = null, chamados = [], atenderChamado = async()=>{}, assumirChamado = async()=>{}, auditoria = [], fidCaixa = null, impressoesCozinha = [], onAtualizarImpressao = async () => {}, onRecarregarImpressoes = async () => {}, editarCategoriaCampos = async () => {} }) {
+function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, definirAcoesUsuario, toggleUserStatus, toggleAccessStatus, usersLoja, filtraLoja = (a) => a, pesquisas = [], adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], toggleLoja, editarLoja, setLicencaEmpresa = async()=>{}, setValidadeLicenca = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, updateOrderStatus = async()=>{}, marcarEntregue = async()=>{}, marcarSetorPronto = async()=>{}, baixarComandas = async()=>{}, cancelarPedido, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, setModoUsoEmpresa = async()=>{}, salvarConfigExterno = async()=>{}, salvarConfigCrm = async()=>{}, mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, clientes = [], planoAtual = null, assinaturaAtual = null, assinaturas = [], planos = [], planoModulos = [], definirAssinatura = async()=>{}, promocoes = [], addPromocao = async()=>{}, editarPromocao = async()=>{}, togglePromocao = async()=>{}, removerPromocao = async()=>{}, cupons = [], addCupom = async()=>{}, editarCupom = async()=>{}, toggleCupom = async()=>{}, removerCupom = async()=>{}, opcoesApi = null, fiscalIcms = [], fiscalNcm = [], fiscalCfop = [], fiscalPis = [], fiscalCofins = [], fiscalIpi = [], fiscalCest = [], fiscalLoteLog = [], fiscalApi = null, centralFiscal = null, centralFiscalApi = null, impressoras = [], impressorasApi = null, setores = [], setoresApi = null, vincularProdutoSetor = async () => {}, salvarProdutoQr = async () => {}, irParaCozinha = () => {}, caixaAberto = null, caixasLoja = [], caixaApi = null, fidRegra = null, fidRecompensas = [], fidTransacoes = [], fidApi = null, chamados = [], atenderChamado = async()=>{}, assumirChamado = async()=>{}, auditoria = [], fidCaixa = null, impressoesCozinha = [], onAtualizarImpressao = async () => {}, onRecarregarImpressoes = async () => {}, editarCategoriaCampos = async () => {} }) {
   // Menu reorganizado por contexto (SaaS premium) — mesmos ids e permissões de antes
   const menu = [
     { grupo: "Visão Geral", itens: [
@@ -6119,6 +6203,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
       ]},
       { grupo: "Plataforma", itens: [
         { id: "lojas", icon: <IconEmpresas />, label: "Empresas" },
+        { id: "central-fiscal", icon: <span className="text-base leading-none">🏛️</span>, label: "Central Fiscal" },
         { id: "licencas", icon: <IconLicencas />, label: "Licenças de Uso" },
         { id: "versoes", icon: <IconVersoes />, label: "Controle de Versões" },
       ]},
@@ -6264,6 +6349,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           {ativo === "plano"      && <MeuPlanoAdmin planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} lojaInfo={lojaInfo} isSuperAdmin={isSuperAdmin} lojaAtual={lojaInfo?.id} definirAssinatura={definirAssinatura} assinaturas={assinaturas} lojas={lojas} />}
           {ativo === "promocoes"  && (precisaEmpresa ? avisoEmpresa : <PromocoesAdmin promocoes={promocoes} produtos={products} categoriasDb={categoriasDb} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} />)}
           {ativo === "cupons"     && (precisaEmpresa ? avisoEmpresa : <CuponsAdmin cupons={cupons} addCupom={addCupom} editarCupom={editarCupom} toggleCupom={toggleCupom} removerCupom={removerCupom} />)}
+          {ativo === "central-fiscal" && <CentralFiscalAdmin dados={centralFiscal} api={centralFiscalApi} ehSuper={isSuperAdmin} />}
           {ativo === "lojas"      && <LojaAdmin lojas={lojas} toggleLoja={toggleLoja} editarLoja={editarLoja} lojaInfo={lojaInfo} criarEmpresa={criarEmpresa} />}
           {ativo === "licencas"   && <LicencaAdmin lojas={lojas} usuarios={users} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} />}
           {ativo === "versoes"    && <VersoesAdmin lojas={lojas} lojaFiltro={isSuperAdmin ? null : (lojaInfo?.id ?? null)} />}
@@ -19134,6 +19220,309 @@ function AdicionaisEditor({ value = [], onChange }) {
         </div>
       )}
     </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+//  CENTRAL FISCAL PRIME — biblioteca fiscal GLOBAL (migration 085)
+//  Base independente das lojas, administrada só pelo Super Admin. As
+//  lojas consultam/importam estas referências. Fase 1: catálogos
+//  (NCM, CEST, CFOP, CST ICMS, CSOSN, CST PIS, CST COFINS). Fases
+//  seguintes: regras fiscais + versão + importação p/ a loja + templates.
+// ════════════════════════════════════════════════════════════
+
+// Fontes oficiais da informação fiscal (seção "Fonte da informação").
+const FONTES_FISCAIS = ["Receita Federal", "CONFAZ", "SEFAZ", "Legislação estadual", "Administrador Pedido Prime", "Outra fonte oficial"];
+
+// Descritores dos catálogos: rótulo, dica, campos do formulário e resumo da linha.
+const CATALOGOS_FISCAIS = {
+  ncm: {
+    titulo: "NCM", tile: "NCM", singular: "NCM", buscaPh: "Buscar NCM por código ou descrição...",
+    sub: "Nomenclatura Comum do Mercosul — classificação fiscal do produto. Base para a regra de ICMS/IPI.",
+    campos: [
+      { k: "codigo", label: "Código NCM", obrig: true, ph: "Ex.: 2106.90.90" },
+      { k: "unidade", label: "Unidade" },
+      { k: "descricao", label: "Descrição", full: true, ph: "Descrição da classificação" },
+      { k: "exTipi", label: "EX TIPI", ph: "Ex.: 01" },
+      { k: "tipo", label: "Tipo/Alíquota IPI (TIPI)", ph: 'Ex.: "NT" ou 5' },
+      { k: "cestSugerido", label: "CEST sugerido", ph: "Se sujeito a ST" },
+    ],
+    resumo: (x) => [x.descricao, x.unidade && `un. ${x.unidade}`, x.tipo && `TIPI ${x.tipo}`].filter(Boolean),
+  },
+  cest: {
+    titulo: "CEST", tile: "CEST", singular: "CEST", buscaPh: "Buscar CEST por código, NCM ou descrição...",
+    sub: "Código Especificador da Substituição Tributária — usado quando o produto está sujeito a ST.",
+    campos: [
+      { k: "codigo", label: "Código CEST", obrig: true, ph: "Ex.: 17.096.00" },
+      { k: "ncmRef", label: "NCM associado", ph: "Ex.: 2106.90.90" },
+      { k: "descricao", label: "Descrição", full: true },
+      { k: "segmento", label: "Segmento", full: true, ph: "Ex.: Alimentos" },
+    ],
+    resumo: (x) => [x.descricao, x.ncmRef && `NCM ${x.ncmRef}`, x.segmento].filter(Boolean),
+  },
+  cfop: {
+    titulo: "CFOP", tile: "CFOP", singular: "CFOP", buscaPh: "Buscar CFOP por código ou descrição...",
+    sub: "Código Fiscal de Operações e Prestações — identifica a natureza da operação (venda, devolução, transferência…).",
+    campos: [
+      { k: "codigo", label: "Código CFOP", obrig: true, ph: "Ex.: 5.102" },
+      { k: "tipo", label: "Tipo", tipo: "select", opcoes: ["Entrada", "Saída"] },
+      { k: "descricao", label: "Descrição", full: true, ph: "Ex.: Venda de mercadoria adquirida de terceiros" },
+      { k: "operacao", label: "Operação", tipo: "select", opcoes: ["Interna", "Interestadual", "Exterior"] },
+      { k: "finalidade", label: "Finalidade", ph: "Ex.: Venda" },
+    ],
+    resumo: (x) => [x.descricao, x.tipo, x.operacao].filter(Boolean),
+  },
+  cstIcms: {
+    titulo: "CST ICMS", tile: "CST", singular: "CST ICMS", buscaPh: "Buscar CST ICMS por código ou descrição...",
+    sub: "Código de Situação Tributária do ICMS (regime normal).",
+    campos: [{ k: "codigo", label: "Código", obrig: true, ph: "Ex.: 00" }, { k: "descricao", label: "Descrição", full: true }],
+    resumo: (x) => [x.descricao].filter(Boolean),
+  },
+  csosn: {
+    titulo: "CSOSN", tile: "CSOSN", singular: "CSOSN", buscaPh: "Buscar CSOSN por código ou descrição...",
+    sub: "Código de Situação da Operação no Simples Nacional.",
+    campos: [{ k: "codigo", label: "Código", obrig: true, ph: "Ex.: 102" }, { k: "descricao", label: "Descrição", full: true }],
+    resumo: (x) => [x.descricao].filter(Boolean),
+  },
+  cstPis: {
+    titulo: "CST PIS", tile: "PIS", singular: "CST PIS", buscaPh: "Buscar CST PIS por código ou descrição...",
+    sub: "Código de Situação Tributária do PIS.",
+    campos: [{ k: "codigo", label: "Código", obrig: true, ph: "Ex.: 01" }, { k: "descricao", label: "Descrição", full: true }],
+    resumo: (x) => [x.descricao].filter(Boolean),
+  },
+  cstCofins: {
+    titulo: "CST COFINS", tile: "COFINS", singular: "CST COFINS", buscaPh: "Buscar CST COFINS por código ou descrição...",
+    sub: "Código de Situação Tributária da COFINS.",
+    campos: [{ k: "codigo", label: "Código", obrig: true, ph: "Ex.: 01" }, { k: "descricao", label: "Descrição", full: true }],
+    resumo: (x) => [x.descricao].filter(Boolean),
+  },
+};
+
+// Tela principal da Central Fiscal Prime (super admin). Visão geral + catálogos.
+function CentralFiscalAdmin({ dados = null, api = null, ehSuper = false }) {
+  const [aba, setAba] = useState("geral");
+  const d = dados || {};
+  const contagem = {
+    ncm: (d.ncm || []).length, cest: (d.cest || []).length, cfop: (d.cfop || []).length,
+    cstIcms: (d.cstIcms || []).length, csosn: (d.csosn || []).length,
+    cstPis: (d.cstPis || []).length, cstCofins: (d.cstCofins || []).length,
+  };
+  const totalCst = contagem.cstIcms + contagem.csosn + contagem.cstPis + contagem.cstCofins;
+
+  const abas = [
+    { id: "geral", label: "🧭 Visão geral" },
+    { id: "ncm", label: "NCM", badge: contagem.ncm },
+    { id: "cest", label: "CEST", badge: contagem.cest },
+    { id: "cfop", label: "CFOP", badge: contagem.cfop },
+    { id: "cstIcms", label: "CST ICMS", badge: contagem.cstIcms },
+    { id: "csosn", label: "CSOSN", badge: contagem.csosn },
+    { id: "cstPis", label: "CST PIS", badge: contagem.cstPis },
+    { id: "cstCofins", label: "CST COFINS", badge: contagem.cstCofins },
+  ];
+
+  return (
+    <main className="space-y-5">
+      <PageHeader
+        icone={<span className="text-base leading-none">🏛️</span>}
+        titulo="Central Fiscal Prime"
+        descricao="Biblioteca fiscal global do Pedido Prime — independente das lojas e administrada pelo super administrador. As lojas consultam e importam estas referências; alterações locais nunca afetam a Central."
+        indicadores={[
+          { valor: contagem.ncm, rotulo: "NCM" },
+          { valor: contagem.cest, rotulo: "CEST" },
+          { valor: contagem.cfop, rotulo: "CFOP" },
+          { valor: totalCst, rotulo: "códigos CST/CSOSN", tom: "ok" },
+        ]}
+      />
+
+      {!ehSuper && (
+        <div className="rounded-2xl border border-[rgba(230,126,34,0.3)] bg-[rgba(230,126,34,0.06)] px-4 py-3 text-[13px] font-semibold text-[#B4611A]">
+          Você está no modo consulta. Apenas o super administrador pode criar, editar ou remover itens da Central Fiscal.
+        </div>
+      )}
+
+      <div className="flex flex-wrap items-center gap-2">
+        {abas.map((t) => (
+          <button key={t.id} type="button" onClick={() => setAba(t.id)}
+            className={`filter-chip inline-flex shrink-0 items-center gap-2 rounded-full border min-h-11 sm:min-h-[36px] px-3.5 py-2 text-[13px] transition-all ${aba === t.id ? "border-[var(--filter-chip-selected)] bg-[var(--filter-chip-selected)] font-semibold text-[var(--filter-chip-text-selected)]" : "border-[var(--filter-chip-border)] bg-[var(--filter-chip-bg)] font-medium text-[var(--filter-chip-text)] hover:border-[var(--filter-chip-selected)] hover:text-[var(--filter-chip-selected)]"}`}>
+            {t.label}{t.badge != null && <span className="text-[11px] font-black opacity-70">{t.badge}</span>}
+          </button>
+        ))}
+      </div>
+
+      {aba === "geral" && <CentralFiscalVisaoGeral contagem={contagem} totalCst={totalCst} onIr={setAba} />}
+      {aba !== "geral" && api && (
+        <CatalogoFiscalLista tipo={aba} itens={d[aba] || []} api={api[aba]} ehSuper={ehSuper} />
+      )}
+    </main>
+  );
+}
+
+// Visão geral: cards de contagem + explicação da arquitetura e próximas fases.
+function CentralFiscalVisaoGeral({ contagem, totalCst, onIr }) {
+  const cards = [
+    { id: "ncm", rotulo: "NCM cadastrados", valor: contagem.ncm },
+    { id: "cest", rotulo: "CEST cadastrados", valor: contagem.cest },
+    { id: "cfop", rotulo: "CFOP cadastrados", valor: contagem.cfop },
+    { id: "cstIcms", rotulo: "Códigos CST/CSOSN", valor: totalCst },
+  ];
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {cards.map((c) => (
+          <button key={c.id} type="button" onClick={() => onIr(c.id === "cstIcms" ? "cstIcms" : c.id)}
+            className="rounded-2xl border border-[var(--pp-border)] bg-white p-4 text-left shadow-[0_1px_2px_rgba(15,76,92,0.04)] transition hover:border-[#0F4C5C]/40">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]">{c.rotulo}</p>
+            <p className="page-title mt-1 text-[20px] font-bold text-[#0F4C5C]">{c.valor}</p>
+          </button>
+        ))}
+      </div>
+      <div className="rounded-2xl border border-[var(--pp-border)] bg-white p-5 shadow-[0_1px_2px_rgba(15,76,92,0.04)]">
+        <h4 className="text-sm font-bold text-[var(--pp-text)]">Como a Central Fiscal funciona</h4>
+        <ul className="mt-2 space-y-1.5">
+          {[
+            "A base é global e reutilizável por todas as lojas — configure uma vez, disponibilize para todos.",
+            "Cada loja consulta e importa uma referência, gerando uma cópia própria que pode ajustar conforme a orientação contábil.",
+            "Alterações da loja são locais: nunca alteram a Central nem a configuração de outra loja.",
+            "A arquitetura segue: Central Fiscal → Regra → Versão → Importação → Configuração da loja → Produtos → NF-e/NFC-e.",
+          ].map((t, i) => (
+            <li key={i} className="flex gap-2 text-[13px] leading-relaxed text-[var(--pp-text-body)]"><span className="text-[#E67E22]">•</span><span>{t}</span></li>
+          ))}
+        </ul>
+        <div className="mt-3 rounded-xl border border-[rgba(15,76,92,0.15)] bg-[rgba(15,76,92,0.04)] px-3 py-2 text-[12px] font-semibold text-[#0F4C5C]">
+          Próximas fases: regras fiscais por operação (com versão e vigência), importação para a loja com aviso de atualização, e templates por segmento.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Lista genérica de um catálogo global (busca, filtro, seleção em lote, CRUD).
+function CatalogoFiscalLista({ tipo, itens = [], api = null, ehSuper = false }) {
+  const cfg = CATALOGOS_FISCAIS[tipo];
+  const [criando, setCriando] = useState(false);
+  const [editando, setEditando] = useState(null);
+  const [excluir, setExcluir] = useState(null);
+  const [sel, setSel] = useState(() => new Set());
+  const f = useFiltroLista(itens, (x) => `${x.codigo} ${x.descricao || ""} ${x.fonte || ""}`);
+
+  const toggleSel = (id) => setSel((s) => { const x = new Set(s); x.has(id) ? x.delete(id) : x.add(id); return x; });
+  const idsVisiveis = f.visiveis.map((x) => x.id);
+  const todosMarcados = idsVisiveis.length > 0 && idsVisiveis.every((id) => sel.has(id));
+  const marcarTodos = () => setSel((s) => { const x = new Set(s); todosMarcados ? idsVisiveis.forEach((id) => x.delete(id)) : idsVisiveis.forEach((id) => x.add(id)); return x; });
+  const emLote = async (acao) => {
+    for (const id of sel) { if (acao === "excluir") await api.remover(id); else await api.editar(id, { ativo: acao === "ativar" }); }
+    setSel(new Set());
+  };
+
+  if (!api) return null;
+  return (
+    <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div><h3 className="page-title text-lg font-bold text-white">{cfg.titulo}</h3><p className="text-xs text-slate-400">{cfg.sub}</p></div>
+        {ehSuper && <PrimeButton onClick={() => setCriando(true)}><span className="text-lg leading-none">+</span> Cadastrar {cfg.singular}</PrimeButton>}
+      </div>
+      <FiltroSituacaoBusca f={f} placeholder={cfg.buscaPh} />
+      {ehSuper && <BulkBar n={sel.size} onAtivar={() => emLote("ativar")} onInativar={() => emLote("inativar")} onExcluir={() => emLote("excluir")} onLimpar={() => setSel(new Set())} />}
+
+      {f.filtrados.length === 0 ? (
+        <EmptyState titulo={itens.length === 0 ? `Nenhum ${cfg.singular} na Central` : "Nenhum registro encontrado"}
+          dica={itens.length === 0 ? `Cadastre o primeiro ${cfg.singular}. Requer a migration 085 aplicada no Supabase.` : "Ajuste a busca ou o filtro de situação."}
+          acao={itens.length === 0 && ehSuper ? <PrimeButton onClick={() => setCriando(true)}>+ Cadastrar {cfg.singular}</PrimeButton> : null} />
+      ) : (<>
+        {ehSuper && (
+          <label className="mb-2 flex items-center gap-2 text-xs font-semibold text-slate-400">
+            <input type="checkbox" checked={todosMarcados} onChange={marcarTodos} className="h-4 w-4 accent-[#0F4C5C]" /> Selecionar os desta página
+          </label>
+        )}
+        <div className="space-y-2">
+          {f.visiveis.map((x) => (
+            <div key={x.id} className={`flex flex-wrap items-center gap-3 rounded-3xl border border-white/10 bg-slate-950/40 p-4 transition hover:bg-slate-900/60 ${x.ativo === false ? "opacity-60" : ""}`}>
+              {ehSuper && <input type="checkbox" checked={sel.has(x.id)} onChange={() => toggleSel(x.id)} className="h-4 w-4 shrink-0 accent-[#0F4C5C]" />}
+              <span className="flex h-11 min-w-[44px] shrink-0 items-center justify-center rounded-2xl bg-[rgba(15,76,92,0.12)] px-2 text-[11px] font-black text-[#0F4C5C]">{cfg.tile}</span>
+              <div className="min-w-[160px] flex-1">
+                <p className="text-base font-semibold tabular-nums text-white">{x.codigo}</p>
+                <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-400">
+                  {cfg.resumo(x).map((r, i) => <span key={i} className="truncate">{r}</span>)}
+                  {x.fonte && <span className="rounded-full bg-[rgba(230,126,34,0.12)] px-2 py-0.5 font-semibold text-[#E67E22]">{x.fonte}</span>}
+                </div>
+              </div>
+              <div className="ml-auto flex shrink-0 items-center gap-2">
+                <span className={`rounded-full px-3 py-1.5 text-xs font-black ${x.ativo !== false ? "bg-emerald-500 text-white" : "bg-slate-700 text-slate-200"}`}>{x.ativo !== false ? "Ativo" : "Inativo"}</span>
+                {ehSuper && <button onClick={() => setEditando(x)} title="Editar" className="rounded-xl border border-blue-400/20 bg-blue-500/10 px-3 py-1.5 text-xs font-black text-blue-300 transition hover:bg-blue-500/20">✏️</button>}
+                {ehSuper && <button onClick={() => setExcluir(x)} title="Excluir" className="rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-1.5 text-xs font-black text-red-300 transition hover:bg-red-500/20">🗑️</button>}
+              </div>
+            </div>
+          ))}
+        </div>
+        <Paginacao pagina={f.pagina} totalPaginas={f.totalPaginas} total={f.filtrados.length} porPagina={f.POR_PAGINA} onMudar={f.setPagina} rotulo="registro(s)" />
+      </>)}
+
+      {criando && <CatalogoFiscalModal tipo={tipo} item={null} api={api} onFechar={() => setCriando(false)} />}
+      {editando && <CatalogoFiscalModal tipo={tipo} item={editando} api={api} onFechar={() => setEditando(null)} />}
+      {excluir && (
+        <ConfirmModal titulo={`Excluir ${cfg.singular}?`}
+          mensagem={`Excluir "${excluir.codigo}" da Central Fiscal? As lojas que já importaram este código mantêm a cópia local. Dica: você pode apenas inativá-lo.`}
+          confirmar="Sim, excluir" onConfirmar={() => { api.remover(excluir.id); setExcluir(null); }} onCancelar={() => setExcluir(null)} />
+      )}
+    </div>
+  );
+}
+
+// Modal genérico de um catálogo global — campos do descritor + fonte + observação.
+function CatalogoFiscalModal({ tipo, item = null, api, onFechar }) {
+  const cfg = CATALOGOS_FISCAIS[tipo];
+  const ehEdicao = !!item;
+  const [d, setD] = useState(() => {
+    const base = { fonte: item?.fonte || "", observacao: item?.observacao || "", ativo: item?.ativo !== false };
+    cfg.campos.forEach((c) => { base[c.k] = item?.[c.k] || ""; });
+    return base;
+  });
+  const set = (k, v) => setD((c) => ({ ...c, [k]: v }));
+  const [erro, setErro] = useState(""); const [salvando, setSalvando] = useState(false);
+  const podeSalvar = cfg.campos.filter((c) => c.obrig).every((c) => String(d[c.k] || "").trim());
+
+  async function salvar() {
+    const faltando = cfg.campos.find((c) => c.obrig && !String(d[c.k] || "").trim());
+    if (faltando) { setErro(`Informe o campo obrigatório: ${faltando.label}.`); return; }
+    setErro(""); setSalvando(true);
+    try {
+      const ok = ehEdicao ? await api.editar(item.id, d) : await api.add(d);
+      if (ok) onFechar(); else setErro("Não foi possível salvar. Verifique se a migration 085 foi aplicada.");
+    } finally { setSalvando(false); }
+  }
+
+  return (
+    <FiscalModalShell titulo={`${ehEdicao ? "Editar" : "Cadastrar"} ${cfg.singular}`} sub="Item da biblioteca fiscal global — disponível para todas as lojas."
+      icone="🏛️" erro={erro} salvando={salvando} onFechar={onFechar} onSalvar={salvar} podeSalvar={podeSalvar}
+      rotulo={ehEdicao ? "Salvar alterações" : `Cadastrar ${cfg.singular}`}>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {cfg.campos.map((c, i) => (
+          <div key={c.k} className={c.full ? "sm:col-span-2" : ""}>
+            <label className={PP_LBL}>{c.label}{c.obrig ? " *" : ""}</label>
+            {c.tipo === "select" ? (
+              <select value={d[c.k]} onChange={(e) => set(c.k, e.target.value)} className={PP_INP}>
+                <option value="">Selecione...</option>
+                {c.opcoes.map((o) => <option key={o} value={o}>{o}</option>)}
+              </select>
+            ) : (
+              <input autoFocus={i === 0} value={d[c.k]} onChange={(e) => set(c.k, e.target.value)} placeholder={c.ph || ""} className={PP_INP} />
+            )}
+          </div>
+        ))}
+        <div>
+          <label className={PP_LBL}>Fonte</label>
+          <select value={d.fonte} onChange={(e) => set("fonte", e.target.value)} className={PP_INP}>
+            <option value="">Selecione...</option>
+            {FONTES_FISCAIS.map((o) => <option key={o} value={o}>{o}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className={PP_LBL}>Observação</label>
+          <input value={d.observacao} onChange={(e) => set("observacao", e.target.value)} placeholder="Referência/legislação (opcional)" className={PP_INP} />
+        </div>
+      </div>
+      <label className="mt-3 flex items-center gap-2 text-sm font-semibold text-[var(--pp-text-body)]"><input type="checkbox" checked={d.ativo} onChange={(e) => set("ativo", e.target.checked)} className="h-4 w-4 accent-[#0F4C5C]" /> {cfg.singular} ativo</label>
+    </FiscalModalShell>
   );
 }
 

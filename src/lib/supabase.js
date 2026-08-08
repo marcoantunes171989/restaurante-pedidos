@@ -724,6 +724,85 @@ const _cest = crudFiscal('tab_fiscal_cest', 'codigo', dbParaCest, cestParaDb)
 export const fetchFiscalCest = _cest.fetchAll, inserirFiscalCest = _cest.inserir, atualizarFiscalCest = _cest.atualizar, excluirFiscalCest = _cest.excluir, escutarFiscalCest = _cest.escutar
 
 // ════════════════════════════════════════════════════════════
+//  CENTRAL FISCAL PRIME (migration 085) — catálogos GLOBAIS de
+//  referência, administrados só pelo Super Admin. Independentes de
+//  loja (sem loja_id). Fábrica genérica de CRUD + Realtime, tolerante
+//  à migration ausente (retorna [] e ignora se a 085 não foi aplicada).
+// ════════════════════════════════════════════════════════════
+function crudCatalogoGlobal(tabela, ordemCol, dbPara, paraDb) {
+  const fetchAll = async () => {
+    const { data, error } = await supabase.from(tabela).select('*').order(ordemCol, { ascending: true })
+    if (error) return []
+    return (data || []).map(dbPara)
+  }
+  const inserir = async (p) => {
+    const linha = paraDb(p)
+    if (p.criadoPor != null) linha.criado_por = p.criadoPor
+    const { data, error } = await supabase.from(tabela).insert([linha]).select().single()
+    if (error) throw error
+    return dbPara(data)
+  }
+  const atualizar = async (id, campos) => {
+    const patch = paraDb(campos)
+    patch.atualizado_em = new Date().toISOString()
+    if (campos.atualizadoPor != null) patch.atualizado_por = campos.atualizadoPor
+    const { error } = await supabase.from(tabela).update(patch).eq('id', id)
+    if (error) throw error
+  }
+  const excluir = async (id) => {
+    const { error } = await supabase.from(tabela).delete().eq('id', id)
+    if (error) throw error
+  }
+  const escutar = (onMudanca) => {
+    const reload = async () => { try { onMudanca(await fetchAll()) } catch { /* migration 085 pendente */ } }
+    const canal = supabase.channel('ch_' + tabela + '_' + Math.random().toString(36).slice(2))
+      .on('postgres_changes', { event: '*', schema: 'public', table: tabela }, reload)
+      .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
+    return () => supabase.removeChannel(canal)
+  }
+  return { fetchAll, inserir, atualizar, excluir, escutar }
+}
+
+// Base comum (código + descrição + fonte + observação + ativo)
+const catBaseDb = (r) => ({
+  id: r.id, codigo: r.codigo ?? '', descricao: r.descricao ?? '',
+  fonte: r.fonte ?? '', observacao: r.observacao ?? '', ativo: r.ativo !== false,
+  criadoEmISO: r.criado_em ?? null, atualizadoEmISO: r.atualizado_em ?? null,
+})
+const catBaseParaDb = (p) => ({
+  codigo: p.codigo, descricao: p.descricao || null,
+  fonte: p.fonte || null, observacao: p.observacao || null, ativo: p.ativo !== false,
+})
+
+// NCM global — campos próprios (unidade, ex_tipi, tipo/TIPI, CEST sugerido)
+const dbParaCatNcm = (r) => ({ ...catBaseDb(r), unidade: r.unidade ?? '', exTipi: r.ex_tipi ?? '', tipo: r.tipo ?? '', cestSugerido: r.cest_sugerido ?? '' })
+const catNcmParaDb = (p) => ({ ...catBaseParaDb(p), unidade: p.unidade || null, ex_tipi: p.exTipi || null, tipo: p.tipo || null, cest_sugerido: p.cestSugerido || null })
+const _catNcm = crudCatalogoGlobal('fiscal_catalogo_ncm', 'codigo', dbParaCatNcm, catNcmParaDb)
+export const fetchCatNcm = _catNcm.fetchAll, inserirCatNcm = _catNcm.inserir, atualizarCatNcm = _catNcm.atualizar, excluirCatNcm = _catNcm.excluir, escutarCatNcm = _catNcm.escutar
+
+// CEST global — + NCM de referência e segmento
+const dbParaCatCest = (r) => ({ ...catBaseDb(r), ncmRef: r.ncm_ref ?? '', segmento: r.segmento ?? '' })
+const catCestParaDb = (p) => ({ ...catBaseParaDb(p), ncm_ref: p.ncmRef || null, segmento: p.segmento || null })
+const _catCest = crudCatalogoGlobal('fiscal_catalogo_cest', 'codigo', dbParaCatCest, catCestParaDb)
+export const fetchCatCest = _catCest.fetchAll, inserirCatCest = _catCest.inserir, atualizarCatCest = _catCest.atualizar, excluirCatCest = _catCest.excluir, escutarCatCest = _catCest.escutar
+
+// CFOP global — + tipo/operação/finalidade
+const dbParaCatCfop = (r) => ({ ...catBaseDb(r), tipo: r.tipo ?? '', operacao: r.operacao ?? '', finalidade: r.finalidade ?? '' })
+const catCfopParaDb = (p) => ({ ...catBaseParaDb(p), tipo: p.tipo || null, operacao: p.operacao || null, finalidade: p.finalidade || null })
+const _catCfop = crudCatalogoGlobal('fiscal_catalogo_cfop', 'codigo', dbParaCatCfop, catCfopParaDb)
+export const fetchCatCfop = _catCfop.fetchAll, inserirCatCfop = _catCfop.inserir, atualizarCatCfop = _catCfop.atualizar, excluirCatCfop = _catCfop.excluir, escutarCatCfop = _catCfop.escutar
+
+// CST ICMS / CSOSN / CST PIS / CST COFINS — só base (código + descrição)
+const _catCstIcms = crudCatalogoGlobal('fiscal_catalogo_cst_icms', 'codigo', catBaseDb, catBaseParaDb)
+export const fetchCatCstIcms = _catCstIcms.fetchAll, inserirCatCstIcms = _catCstIcms.inserir, atualizarCatCstIcms = _catCstIcms.atualizar, excluirCatCstIcms = _catCstIcms.excluir, escutarCatCstIcms = _catCstIcms.escutar
+const _catCsosn = crudCatalogoGlobal('fiscal_catalogo_csosn', 'codigo', catBaseDb, catBaseParaDb)
+export const fetchCatCsosn = _catCsosn.fetchAll, inserirCatCsosn = _catCsosn.inserir, atualizarCatCsosn = _catCsosn.atualizar, excluirCatCsosn = _catCsosn.excluir, escutarCatCsosn = _catCsosn.escutar
+const _catCstPis = crudCatalogoGlobal('fiscal_catalogo_cst_pis', 'codigo', catBaseDb, catBaseParaDb)
+export const fetchCatCstPis = _catCstPis.fetchAll, inserirCatCstPis = _catCstPis.inserir, atualizarCatCstPis = _catCstPis.atualizar, excluirCatCstPis = _catCstPis.excluir, escutarCatCstPis = _catCstPis.escutar
+const _catCstCofins = crudCatalogoGlobal('fiscal_catalogo_cst_cofins', 'codigo', catBaseDb, catBaseParaDb)
+export const fetchCatCstCofins = _catCstCofins.fetchAll, inserirCatCstCofins = _catCstCofins.inserir, atualizarCatCstCofins = _catCstCofins.atualizar, excluirCatCstCofins = _catCstCofins.excluir, escutarCatCstCofins = _catCstCofins.escutar
+
+// ════════════════════════════════════════════════════════════
 //  Setores de cozinha (migration 041) — CRUD + Realtime (tolerante)
 // ════════════════════════════════════════════════════════════
 function dbParaSetor(r) {
