@@ -7,7 +7,16 @@ export const TAXA_SERVICO_DEFAULT = {
   partialStrategy: "proporcional_itens",
 };
 
-export function lerConfigTaxaServico(lojaId) {
+/**
+ * Lê a taxa de serviço da loja.
+ * Fonte da verdade: `tab_lojas.config_taxa_servico` (via lojaInfo.configTaxaServico).
+ * Fallback: localStorage (migração / offline) → defaults.
+ */
+export function lerConfigTaxaServico(lojaId, configFromDb = null) {
+  const doBanco = configFromDb && typeof configFromDb === "object" && Object.keys(configFromDb).length > 0
+    ? configFromDb
+    : null;
+  if (doBanco) return { ...TAXA_SERVICO_DEFAULT, ...doBanco };
   try {
     return {
       ...TAXA_SERVICO_DEFAULT,

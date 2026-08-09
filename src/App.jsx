@@ -43,8 +43,8 @@ import {
   fetchSetoresCozinha, inserirSetorCozinha, atualizarSetorCozinha, excluirSetorCozinha, escutarSetoresCozinha,
   fetchImpressoras, inserirImpressora, atualizarImpressora, excluirImpressora, escutarImpressoras,
   fetchImpressoesCozinha, inserirImpressoesCozinha, atualizarImpressaoCozinha, escutarImpressoesCozinha,
-  fetchCaixas, fetchMovimentosCaixa, abrirCaixa, registrarMovimentoCaixa, fecharCaixa, escutarCaixas,
-  fetchFidelidadeRegras, salvarFidelidadeRegra, fetchFidelidadeRecompensas, inserirRecompensa, excluirRecompensa, atualizarRecompensa, fetchFidelidadeTransacoes, lancarFidelidadeTransacao, escutarFidelidadeTransacoes, escutarFidelidadeRegras,
+  fetchCaixas, fetchMovimentosCaixa, abrirCaixa, registrarMovimentoCaixa, fecharCaixa, escutarCaixas, escutarMovimentosCaixa,
+  fetchFidelidadeRegras, salvarFidelidadeRegra, fetchFidelidadeRecompensas, inserirRecompensa, excluirRecompensa, atualizarRecompensa, fetchFidelidadeTransacoes, lancarFidelidadeTransacao, escutarFidelidadeTransacoes, escutarFidelidadeRegras, escutarFidelidadeRecompensas,
   escutarPesquisas,
   fetchChamados, criarChamado, atualizarChamado, escutarChamados,
   perguntarCopilotoIA,
@@ -53,7 +53,7 @@ import {
   validarLoginNoBanco, fetchUsuarioPorEmail,
   gerenciarUsuarioAuth, sincronizarAuthAoCriarUsuario, mapUsuarioDb, SENHA_MIN_AUTH,
   persistirUsuarioCampos, criarUsuarioNoBanco,
-  fetchLancamentos, inserirLancamento, atualizarLancamento, excluirLancamento,
+  fetchLancamentos, inserirLancamento, atualizarLancamento, excluirLancamento, escutarLancamentos,
 } from "./lib/supabase";
 import { usandoSupabaseAuth } from "./lib/authMode";
 import { useScrollLock } from "./lib/scrollLock";
@@ -708,6 +708,7 @@ export default function RestaurantePedidoApp() {
         try { unsubs.push(escutarCaixas(setCaixas)); } catch {}
         try { unsubs.push(escutarFidelidadeTransacoes(setFidTransacoes)); } catch {}
         try { unsubs.push(escutarFidelidadeRegras(setFidRegras)); } catch { /* migration 043 pendente */ }
+        try { unsubs.push(escutarFidelidadeRecompensas(setFidRecompensas)); } catch { /* migration 043 pendente */ }
         try { unsubs.push(escutarPesquisas(setPesquisas)); } catch {}
         try { unsubs.push(escutarChamados(setChamados)); } catch {}
         try { unsubs.push(escutarAuditoria(setAuditoria)); } catch {}
@@ -798,12 +799,14 @@ export default function RestaurantePedidoApp() {
     window.history.replaceState({}, "", "/login");
   }, [authResolved, currentUser]);
 
-  // ── Atualização quase imediata na cozinha e painel ──────────
+  // ── Atualização quase imediata: cozinha, painel, PDV e operação ──
   // Realtime (WebSocket) cobre o instantâneo; este polling de 1.5s
-  // garante atualização mesmo se o Realtime falhar/atrasar.
+  // garante atualização mesmo se o Realtime falhar/atrasar — inclusive
+  // quando o pedido muda no SQL Editor ou em outro dispositivo.
   useEffect(() => {
     if (!dbReady) return;
-    if (activeTab !== "kitchen" && activeTab !== "panel") return;
+    const abasComPoll = new Set(["kitchen", "panel", "cashier", "opmobile"]);
+    if (!abasComPoll.has(activeTab)) return;
     let ativo = true;
     async function atualizar() {
       try {
@@ -811,7 +814,7 @@ export default function RestaurantePedidoApp() {
         if (ativo) setOrders(ords);
       } catch { /* silencioso — Realtime cobre */ }
     }
-    atualizar(); // dispara imediatamente ao entrar na tela
+    atualizar();
     const intervalo = setInterval(atualizar, 1500);
     return () => { ativo = false; clearInterval(intervalo); };
   }, [dbReady, activeTab]);
@@ -1177,6 +1180,80 @@ export default function RestaurantePedidoApp() {
     setTableNumber("");
     setCurrentUser(null); setActiveTab("tablet"); setMessage({ type: "", text: "" });
   }
+
+  // ── Banco → tela: sessão acompanha tab_usuarios ──────────────────────
+  // Quando o cadastro muda no SQL Editor / outro dispositivo (senha, acessos,
+  // ativo, nome…), `users` atualiza via Realtime/polling. Aqui espelhamos no
+  // currentUser e encerramos a sessão se a conta sumir ou for inativada.
+  useEffect(() => {
+    if (!currentUser || !users.length) return;
+    const fresco = users.find((u) => u.id === currentUser.id);
+    if (!fresco) {
+      setCurrentUser(null);
+      setActiveTab("tablet");
+      setMessage({ type: "error", text: "Sua conta foi removida. Faça login novamente." });
+      return;
+    }
+    if (fresco.active === false) {
+      setCurrentUser(null);
+      setActiveTab("tablet");
+      setMessage({ type: "error", text: "Usuário inativo, entre em contato com o administrador do sistema." });
+      return;
+    }
+    const mesmo =
+      fresco.name === currentUser.name &&
+      fresco.email === currentUser.email &&
+      String(fresco.password ?? "") === String(currentUser.password ?? "") &&
+      fresco.role === currentUser.role &&
+      fresco.cargoId === currentUser.cargoId &&
+      fresco.lojaId === currentUser.lojaId &&
+      !!fresco.superAdmin === !!currentUser.superAdmin &&
+      fresco.active === currentUser.active &&
+      JSON.stringify(fresco.accessIds || []) === JSON.stringify(currentUser.accessIds || []) &&
+      JSON.stringify(fresco.permissoesAcoes || {}) === JSON.stringify(currentUser.permissoesAcoes || {});
+    if (!mesmo) setCurrentUser(fresco);
+  }, [users, currentUser]);
+
+  // Fallback: se o Realtime de usuários atrasar/falhar (tabela fora da
+  // publication, WebSocket caído), recarrega tab_usuarios periodicamente.
+  useEffect(() => {
+    if (!dbReady) return;
+    let ativo = true;
+    async function atualizar() {
+      try {
+        const usrs = await fetchUsuarios();
+        if (!ativo) return;
+        // Evita re-render a cada poll quando nada mudou no banco.
+        setUsers((cur) => {
+          if (cur.length !== usrs.length) return usrs;
+          for (let i = 0; i < usrs.length; i++) {
+            const a = cur[i], b = usrs[i];
+            if (!a || a.id !== b.id || a.name !== b.name || a.email !== b.email
+              || String(a.password ?? "") !== String(b.password ?? "")
+              || a.role !== b.role || a.cargoId !== b.cargoId || a.lojaId !== b.lojaId
+              || a.active !== b.active || !!a.superAdmin !== !!b.superAdmin
+              || JSON.stringify(a.accessIds || []) !== JSON.stringify(b.accessIds || [])
+              || JSON.stringify(a.permissoesAcoes || {}) !== JSON.stringify(b.permissoesAcoes || {})) {
+              return usrs;
+            }
+          }
+          return cur;
+        });
+      } catch { /* Realtime cobre quando disponível */ }
+    }
+    const intervalo = setInterval(atualizar, 4000);
+    const noFoco = () => {
+      if (document.visibilityState === "visible") atualizar();
+    };
+    document.addEventListener("visibilitychange", noFoco);
+    window.addEventListener("focus", noFoco);
+    return () => {
+      ativo = false;
+      clearInterval(intervalo);
+      document.removeEventListener("visibilitychange", noFoco);
+      window.removeEventListener("focus", noFoco);
+    };
+  }, [dbReady]);
 
   // ── Validação contínua da licença (em TODOS os dispositivos) ──────────
   // O realtime (escutarLojas) mantém `lojas` atualizado. Sempre que a licença
@@ -1992,6 +2069,28 @@ export default function RestaurantePedidoApp() {
     if (dbReady) try { await atualizarLoja(id, { config_crm: config }); }
     catch (e) { notify("error", "Erro ao salvar regras do CRM: " + (e.message || e)); return; }
     notify("success", "Regras do CRM salvas.");
+    return true;
+  }
+
+  // Taxa de serviço por empresa (migration 092) — tab_lojas.config_taxa_servico
+  async function salvarConfigTaxaServicoDb(config) {
+    if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
+    const id = lojaAtual;
+    if (!id) return notify("error", "Selecione uma empresa em foco para salvar a taxa de serviço.");
+    const prev = lojas.find((x) => x.id === id)?.configTaxaServico;
+    setLojas((cur) => cur.map((x) => x.id === id ? { ...x, configTaxaServico: config } : x));
+    // Espelho local (offline / migration ainda não aplicada)
+    try { localStorage.setItem(`pedidoPrime:taxaServico:${id}`, JSON.stringify(config)); } catch {}
+    if (dbReady) {
+      try {
+        await atualizarLoja(id, { config_taxa_servico: config });
+      } catch (e) {
+        setLojas((cur) => cur.map((x) => x.id === id ? { ...x, configTaxaServico: prev || {} } : x));
+        notify("error", "Erro ao salvar taxa de serviço no banco: " + (e.message || e));
+        return false;
+      }
+    }
+    notify("success", "Taxa de serviço salva no banco.");
     return true;
   }
 
@@ -3029,10 +3128,24 @@ export default function RestaurantePedidoApp() {
     const n = (dados.nome || "").trim();
     if (!n) return notify("error", "Informe o nome do cargo.");
     if (cargos.some((c) => c.id !== id && c.nome.toLowerCase() === n.toLowerCase())) return notify("error", "Já existe outro cargo com este nome.");
+    const prevCargos = cargos;
+    const prevUsers = users;
     setCargos((cur) => cur.map((c) => c.id === id ? { ...c, nome: n, descricao: (dados.descricao || "").trim() } : c));
     // Mantém o nome do perfil sincronizado nos usuários vinculados a este cargo
     setUsers((cur) => cur.map((u) => u.cargoId === id ? { ...u, role: n } : u));
-    if (dbReady) try { await atualizarCargo(id, { nome: n, descricao: (dados.descricao || "").trim() }); } catch (e) { notify("error", "Erro: " + e.message); return; }
+    if (dbReady) {
+      try {
+        await atualizarCargo(id, { nome: n, descricao: (dados.descricao || "").trim() });
+        // Persiste `perfil` em tab_usuarios (não só na tela) para quem tem este cargo.
+        const vinculados = users.filter((u) => u.cargoId === id);
+        await Promise.all(vinculados.map((u) => atualizarUsuario(u.id, { perfil: n })));
+      } catch (e) {
+        setCargos(prevCargos);
+        setUsers(prevUsers);
+        notify("error", "Erro: " + e.message);
+        return;
+      }
+    }
     notify("success", `Cargo "${n}" atualizado.`);
   }
   async function toggleCargo(id) {
@@ -3104,10 +3217,13 @@ export default function RestaurantePedidoApp() {
     try {
       const saved = dbReady ? await inserirAcesso(na) : na;
       setAccesses((cur) => [...cur, saved]);
-    } catch { setAccesses((cur) => [...cur, na]); }
-    setAccessForm({ id: "", label: "", desc: "", type: "Operacional" });
-    notify("success", "Permissão de acesso cadastrada com sucesso.");
-    return true;
+      setAccessForm({ id: "", label: "", desc: "", type: "Operacional" });
+      notify("success", "Permissão de acesso cadastrada com sucesso.");
+      return true;
+    } catch (e) {
+      notify("error", "Erro ao salvar permissão no banco: " + (e?.message || e));
+      return false;
+    }
   }
 
   async function toggleUserAccess(uid, aid) {
@@ -3463,7 +3579,7 @@ export default function RestaurantePedidoApp() {
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} products={products} lojaInfo={lojaInfo} />}
         {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierPdv orders={orders} mesas={filtraLoja(mesas).filter((m) => m.active !== false)} clientes={filtraLoja(clientes)} baixarComandas={baixarComandas} formasPagamento={formasPagamentoLoja} lojaInfo={lojaInfo} currentUser={currentUser} caixaAberto={caixaAberto} auditar={auditar} conexaoOk={conexaoOk} editarItensPedido={editarItensPedido} criarPedidoCaixa={criarPedidoCaixa} products={products} categories={categoriasDb} setores={filtraLoja(setoresCozinha)} fidCaixa={fidCaixa} atualizarClientePedidos={atualizarClientePedidos} transferirMesaPedidos={transferirMesaPedidos} separarItensPedidos={separarItensPedidos} notify={notify} validarCupom={validarCupomCaixa} consumirCupom={consumirCupomCaixa} />}
         {/* activeTab === "opmobile" agora é tratado pelo branch dedicado no início desta função (sem cabeçalho/grade de módulos) */}
-        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} toggleLoja={toggleLoja} editarLoja={editarLoja} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} filtraLoja={filtraLoja} pesquisas={pesquisas} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} cancelarPedido={cancelarPedido} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} salvarConfigCrm={salvarConfigCrm} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} assinaturas={assinaturas} promocoes={filtraLoja(promocoes)} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} cupons={cuponsLoja} addCupom={addCupom} editarCupom={editarCupomLoja} toggleCupom={toggleCupom} removerCupom={removerCupom} opcoesApi={{ grupos: filtraLoja(gruposOpcoes), opcoes: filtraLoja(opcoes), addGrupo: addGrupoOpcoes, editarGrupo: editarGrupoOpcoes, removerGrupo: removerGrupoOpcoes, addOpcao, editarOpcao, removerOpcao }} fiscalIcms={filtraLoja(fiscalIcms)} fiscalNcm={filtraLoja(fiscalNcm)} fiscalCfop={filtraLoja(fiscalCfop)} fiscalPis={filtraLoja(fiscalPis)} fiscalCofins={filtraLoja(fiscalCofins)} fiscalIpi={filtraLoja(fiscalIpi)} fiscalCest={filtraLoja(fiscalCest)} fiscalApi={{ addIcms: addFiscalIcms, editarIcms: editarFiscalIcms, removerIcms: removerFiscalIcms, addNcm: addFiscalNcm, editarNcm: editarFiscalNcm, removerNcm: removerFiscalNcm, importarNcm: importarFiscalNcmLote, addCfop: hCfop.add, editarCfop: hCfop.editar, removerCfop: hCfop.remover, addPis: hPis.add, editarPis: hPis.editar, removerPis: hPis.remover, addCofins: hCofins.add, editarCofins: hCofins.editar, removerCofins: hCofins.remover, addIpi: hIpi.add, editarIpi: hIpi.editar, removerIpi: hIpi.remover, addCest: hCest.add, editarCest: hCest.editar, removerCest: hCest.remover, aplicarLote: aplicarFiscalLote, reverterLote: reverterFiscalLote, excluirNcmLote: excluirFiscalNcmEmLote, inativarNcmLote: inativarFiscalNcmEmLote }} fiscalLoteLog={filtraLoja(fiscalLoteLog)} centralFiscal={{ ncm: catNcm, cest: catCest, cfop: catCfop, cstIcms: catCstIcms, csosn: catCsosn, cstPis: catCstPis, cstCofins: catCstCofins }} centralFiscalApi={centralFiscalApi} fiscalRegras={fiscalRegras} fiscalRegraVersoes={fiscalRegraVersoes} regrasFiscalApi={regrasFiscalApi} lojaFiscalRegras={filtraLoja(lojaFiscalRegras)} lojaFiscalApi={lojaFiscalApi} impressoras={filtraLoja(impressoras)} impressorasApi={{ add: addImpressoraCadastro, editar: editarImpressoraCadastro, remover: removerImpressoraCadastro }} setores={filtraLoja(setoresCozinha)} setoresApi={{ add: addSetorCozinha, editar: editarSetorCozinha, remover: removerSetorCozinha }} vincularProdutoSetor={vincularProdutoSetor} salvarProdutoQr={salvarProdutoQr} irParaCozinha={(setorId) => { setCozinhaSetorInicial(setorId ?? null); if (canAccess(currentUser, "kitchen")) setActiveTab("kitchen"); else notify("error", "Sem permissão para acessar o painel da cozinha."); }} caixaAberto={caixaAberto} caixasLoja={filtraLoja(caixas)} caixaApi={{ abrir: abrirCaixaFn, movimentar: movimentarCaixaFn, fechar: fecharCaixaFn, fetchMovimentos: fetchMovimentosCaixa }} fidRegra={fidRegraAtual} fidRecompensas={filtraLoja(fidRecompensas)} fidTransacoes={filtraLoja(fidTransacoes)} fidApi={{ salvarRegra: salvarRegraFid, addRecompensa: addRecompensaFid, removerRecompensa: removerRecompensaFid, editarRecompensa: editarRecompensaFid, lancarPontos }} fidCaixa={fidCaixa} chamados={filtraLoja(chamados)} atenderChamado={atenderChamadoFn} assumirChamado={assumirChamadoFn} auditoria={filtraLoja(auditoria)} impressoesCozinha={filtraLoja(impressoesCozinha)} onAtualizarImpressao={atualizarStatusImpressao} onRecarregarImpressoes={async () => { try { setImpressoesCozinha(await fetchImpressoesCozinha(lojaAtual)); } catch {} }} editarCategoriaCampos={editarCategoriaCampos} />}
+        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} toggleLoja={toggleLoja} editarLoja={editarLoja} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} filtraLoja={filtraLoja} pesquisas={pesquisas} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} cancelarPedido={cancelarPedido} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} salvarConfigCrm={salvarConfigCrm} salvarConfigTaxaServicoDb={salvarConfigTaxaServicoDb} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} assinaturas={assinaturas} promocoes={filtraLoja(promocoes)} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} cupons={cuponsLoja} addCupom={addCupom} editarCupom={editarCupomLoja} toggleCupom={toggleCupom} removerCupom={removerCupom} opcoesApi={{ grupos: filtraLoja(gruposOpcoes), opcoes: filtraLoja(opcoes), addGrupo: addGrupoOpcoes, editarGrupo: editarGrupoOpcoes, removerGrupo: removerGrupoOpcoes, addOpcao, editarOpcao, removerOpcao }} fiscalIcms={filtraLoja(fiscalIcms)} fiscalNcm={filtraLoja(fiscalNcm)} fiscalCfop={filtraLoja(fiscalCfop)} fiscalPis={filtraLoja(fiscalPis)} fiscalCofins={filtraLoja(fiscalCofins)} fiscalIpi={filtraLoja(fiscalIpi)} fiscalCest={filtraLoja(fiscalCest)} fiscalApi={{ addIcms: addFiscalIcms, editarIcms: editarFiscalIcms, removerIcms: removerFiscalIcms, addNcm: addFiscalNcm, editarNcm: editarFiscalNcm, removerNcm: removerFiscalNcm, importarNcm: importarFiscalNcmLote, addCfop: hCfop.add, editarCfop: hCfop.editar, removerCfop: hCfop.remover, addPis: hPis.add, editarPis: hPis.editar, removerPis: hPis.remover, addCofins: hCofins.add, editarCofins: hCofins.editar, removerCofins: hCofins.remover, addIpi: hIpi.add, editarIpi: hIpi.editar, removerIpi: hIpi.remover, addCest: hCest.add, editarCest: hCest.editar, removerCest: hCest.remover, aplicarLote: aplicarFiscalLote, reverterLote: reverterFiscalLote, excluirNcmLote: excluirFiscalNcmEmLote, inativarNcmLote: inativarFiscalNcmEmLote }} fiscalLoteLog={filtraLoja(fiscalLoteLog)} centralFiscal={{ ncm: catNcm, cest: catCest, cfop: catCfop, cstIcms: catCstIcms, csosn: catCsosn, cstPis: catCstPis, cstCofins: catCstCofins }} centralFiscalApi={centralFiscalApi} fiscalRegras={fiscalRegras} fiscalRegraVersoes={fiscalRegraVersoes} regrasFiscalApi={regrasFiscalApi} lojaFiscalRegras={filtraLoja(lojaFiscalRegras)} lojaFiscalApi={lojaFiscalApi} impressoras={filtraLoja(impressoras)} impressorasApi={{ add: addImpressoraCadastro, editar: editarImpressoraCadastro, remover: removerImpressoraCadastro }} setores={filtraLoja(setoresCozinha)} setoresApi={{ add: addSetorCozinha, editar: editarSetorCozinha, remover: removerSetorCozinha }} vincularProdutoSetor={vincularProdutoSetor} salvarProdutoQr={salvarProdutoQr} irParaCozinha={(setorId) => { setCozinhaSetorInicial(setorId ?? null); if (canAccess(currentUser, "kitchen")) setActiveTab("kitchen"); else notify("error", "Sem permissão para acessar o painel da cozinha."); }} caixaAberto={caixaAberto} caixasLoja={filtraLoja(caixas)} caixaApi={{ abrir: abrirCaixaFn, movimentar: movimentarCaixaFn, fechar: fecharCaixaFn, fetchMovimentos: fetchMovimentosCaixa }} fidRegra={fidRegraAtual} fidRecompensas={filtraLoja(fidRecompensas)} fidTransacoes={filtraLoja(fidTransacoes)} fidApi={{ salvarRegra: salvarRegraFid, addRecompensa: addRecompensaFid, removerRecompensa: removerRecompensaFid, editarRecompensa: editarRecompensaFid, lancarPontos }} fidCaixa={fidCaixa} chamados={filtraLoja(chamados)} atenderChamado={atenderChamadoFn} assumirChamado={assumirChamadoFn} auditoria={filtraLoja(auditoria)} impressoesCozinha={filtraLoja(impressoesCozinha)} onAtualizarImpressao={atualizarStatusImpressao} onRecarregarImpressoes={async () => { try { setImpressoesCozinha(await fetchImpressoesCozinha(lojaAtual)); } catch {} }} editarCategoriaCampos={editarCategoriaCampos} />}
 
       </div>
       )}
@@ -5376,9 +5492,14 @@ function LancamentosAdmin({ lojaId = null, orders = [], modo = "todos" }) {
   const [mostrarVendas, setMostrarVendas] = useState(false);
 
   useEffect(() => {
-    let vivo = true; setCarregando(true);
-    fetchLancamentos(lojaId).then((l) => { if (vivo) { setLista(l); setCarregando(false); } }).catch(() => { if (vivo) { setLista([]); setCarregando(false); } });
-    return () => { vivo = false; };
+    let vivo = true;
+    setCarregando(true);
+    fetchLancamentos(lojaId)
+      .then((l) => { if (vivo) { setLista(l); setCarregando(false); } })
+      .catch(() => { if (vivo) { setLista([]); setCarregando(false); } });
+    // Banco → tela: Realtime em tab_lancamentos (migration 094).
+    const unsub = escutarLancamentos((l) => { if (vivo) setLista(l || []); }, lojaId);
+    return () => { vivo = false; unsub && unsub(); };
   }, [lojaId]);
 
   const flash = (t, m) => { setMsg({ t, m }); setTimeout(() => setMsg(null), 4000); };
@@ -5816,7 +5937,7 @@ function situacaoComanda(pedidos) {
 }
 const ABERTAS_KEYS = ["aberta", "em_preparo", "pronta", "aguardando_pagamento"];
 const ehComandaExterna = (o) => o.table === "Externo" || /^EXT-/.test(o.command || "");
-function ComandasGestaoAdmin({ orders = [], products = [], lojaPrefixo = "", lojaId = null }) {
+function ComandasGestaoAdmin({ orders = [], products = [], lojaPrefixo = "", lojaId = null, configTaxaServico = null }) {
   // Mapa nome do item → categoria do produto, para o resumo por categoria do PDF.
   const catDe = useMemo(() => {
     const m = {};
@@ -5847,7 +5968,7 @@ function ComandasGestaoAdmin({ orders = [], products = [], lojaPrefixo = "", loj
   // aplica e imprime no cupom. Só entra no cálculo quando a cobrança está
   // habilitada e não está marcada como "não cobrar"; assim os valores exibidos
   // refletem o que realmente sai no cupom.
-  const SERVICE_FEE_CONFIG = lerConfigTaxaServico(lojaId);
+  const SERVICE_FEE_CONFIG = lerConfigTaxaServico(lojaId, configTaxaServico);
   const taxaPercent = (SERVICE_FEE_CONFIG.enabled && SERVICE_FEE_CONFIG.chargingRule !== "nao_cobrar")
     ? (Number(SERVICE_FEE_CONFIG.percent) || 0) : 0;
 
@@ -6482,7 +6603,7 @@ function MobileAdminDrawer({ open, onClose, triggerRef, children, titulo }) {
   );
 }
 
-function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, definirAcoesUsuario, toggleUserStatus, toggleAccessStatus, usersLoja, filtraLoja = (a) => a, pesquisas = [], adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], toggleLoja, editarLoja, setLicencaEmpresa = async()=>{}, setValidadeLicenca = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, updateOrderStatus = async()=>{}, marcarEntregue = async()=>{}, marcarSetorPronto = async()=>{}, baixarComandas = async()=>{}, cancelarPedido, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, setModoUsoEmpresa = async()=>{}, salvarConfigExterno = async()=>{}, salvarConfigCrm = async()=>{}, mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, clientes = [], planoAtual = null, assinaturaAtual = null, assinaturas = [], planos = [], planoModulos = [], definirAssinatura = async()=>{}, promocoes = [], addPromocao = async()=>{}, editarPromocao = async()=>{}, togglePromocao = async()=>{}, removerPromocao = async()=>{}, cupons = [], addCupom = async()=>{}, editarCupom = async()=>{}, toggleCupom = async()=>{}, removerCupom = async()=>{}, opcoesApi = null, fiscalIcms = [], fiscalNcm = [], fiscalCfop = [], fiscalPis = [], fiscalCofins = [], fiscalIpi = [], fiscalCest = [], fiscalLoteLog = [], fiscalApi = null, centralFiscal = null, centralFiscalApi = null, fiscalRegras = [], fiscalRegraVersoes = [], regrasFiscalApi = null, lojaFiscalRegras = [], lojaFiscalApi = null, impressoras = [], impressorasApi = null, setores = [], setoresApi = null, vincularProdutoSetor = async () => {}, salvarProdutoQr = async () => {}, irParaCozinha = () => {}, caixaAberto = null, caixasLoja = [], caixaApi = null, fidRegra = null, fidRecompensas = [], fidTransacoes = [], fidApi = null, chamados = [], atenderChamado = async()=>{}, assumirChamado = async()=>{}, auditoria = [], fidCaixa = null, impressoesCozinha = [], onAtualizarImpressao = async () => {}, onRecarregarImpressoes = async () => {}, editarCategoriaCampos = async () => {} }) {
+function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, definirAcoesUsuario, toggleUserStatus, toggleAccessStatus, usersLoja, filtraLoja = (a) => a, pesquisas = [], adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], toggleLoja, editarLoja, setLicencaEmpresa = async()=>{}, setValidadeLicenca = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, updateOrderStatus = async()=>{}, marcarEntregue = async()=>{}, marcarSetorPronto = async()=>{}, baixarComandas = async()=>{}, cancelarPedido, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, setModoUsoEmpresa = async()=>{}, salvarConfigExterno = async()=>{}, salvarConfigCrm = async()=>{}, salvarConfigTaxaServicoDb = async()=>{}, mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, clientes = [], planoAtual = null, assinaturaAtual = null, assinaturas = [], planos = [], planoModulos = [], definirAssinatura = async()=>{}, promocoes = [], addPromocao = async()=>{}, editarPromocao = async()=>{}, togglePromocao = async()=>{}, removerPromocao = async()=>{}, cupons = [], addCupom = async()=>{}, editarCupom = async()=>{}, toggleCupom = async()=>{}, removerCupom = async()=>{}, opcoesApi = null, fiscalIcms = [], fiscalNcm = [], fiscalCfop = [], fiscalPis = [], fiscalCofins = [], fiscalIpi = [], fiscalCest = [], fiscalLoteLog = [], fiscalApi = null, centralFiscal = null, centralFiscalApi = null, fiscalRegras = [], fiscalRegraVersoes = [], regrasFiscalApi = null, lojaFiscalRegras = [], lojaFiscalApi = null, impressoras = [], impressorasApi = null, setores = [], setoresApi = null, vincularProdutoSetor = async () => {}, salvarProdutoQr = async () => {}, irParaCozinha = () => {}, caixaAberto = null, caixasLoja = [], caixaApi = null, fidRegra = null, fidRecompensas = [], fidTransacoes = [], fidApi = null, chamados = [], atenderChamado = async()=>{}, assumirChamado = async()=>{}, auditoria = [], fidCaixa = null, impressoesCozinha = [], onAtualizarImpressao = async () => {}, onRecarregarImpressoes = async () => {}, editarCategoriaCampos = async () => {} }) {
   // Menu reorganizado por contexto (SaaS premium) — mesmos ids e permissões de antes
   const menu = [
     { grupo: "Visão Geral", itens: [
@@ -6680,10 +6801,10 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           {ativo === "link"       && <UserAccessAdmin users={filtraLoja(users)} accesses={accesses} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} lojaInfo={lojaInfo} lojas={lojas} isSuperAdmin={isSuperAdmin} />}
           {ativo === "categorias" && (precisaEmpresa ? avisoEmpresa : <CategoriaAdmin categoriasDb={categoriasDb} produtos={products} setores={setores} impressoras={impressoras} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} editarCategoriaCampos={editarCategoriaCampos} />)}
           {ativo === "mesas"      && (precisaEmpresa ? avisoEmpresa : <MesaAdmin mesas={mesas} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} orders={orders} />)}
-          {ativo === "comandas-gestao" && (precisaEmpresa ? avisoEmpresa : <ComandasGestaoAdmin orders={filtraLoja(orders)} products={filtraLoja(products)} lojaPrefixo={lojaInfo?.prefixo || ""} lojaId={lojaInfo?.id} />)}
+          {ativo === "comandas-gestao" && (precisaEmpresa ? avisoEmpresa : <ComandasGestaoAdmin orders={filtraLoja(orders)} products={filtraLoja(products)} lojaPrefixo={lojaInfo?.prefixo || ""} lojaId={lojaInfo?.id} configTaxaServico={lojaInfo?.configTaxaServico} />)}
           {ativo === "comandas"   && (precisaEmpresa ? avisoEmpresa : <GeradorComandas prefixoLoja={lojaInfo?.prefixo || "CMD"} empresa={lojaInfo?.nome || "Restaurante"} onGerar={registrarComandas} comandasRegistradas={comandasRegistradas} orders={orders} onExcluirComanda={excluirComandaFn} onRenomearComanda={renomearComandaFn} onToggleComanda={toggleComandaFn} lojaId={lojaInfo?.id} logoSalvo={lojaInfo?.logoUrl || ""} onSalvarLogo={(url) => salvarLogoEmpresa(lojaInfo?.id, url)} onIrCardapioExterno={() => setAdminSection("cardapioext")} />)}
           {ativo === "pagamento"  && (precisaEmpresa ? avisoEmpresa : <PagamentoAdmin formasPagamento={formasPagamento} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} />)}
-          {ativo === "config"     && <ConfiguracoesAdmin lojaInfo={lojaInfo} />}
+          {ativo === "config"     && <ConfiguracoesAdmin lojaInfo={lojaInfo} salvarConfigTaxa={salvarConfigTaxaServicoDb} />}
           {ativo === "plano"      && <MeuPlanoAdmin planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} lojaInfo={lojaInfo} isSuperAdmin={isSuperAdmin} lojaAtual={lojaInfo?.id} definirAssinatura={definirAssinatura} assinaturas={assinaturas} lojas={lojas} />}
           {ativo === "promocoes"  && (precisaEmpresa ? avisoEmpresa : <PromocoesAdmin promocoes={promocoes} produtos={products} categoriasDb={categoriasDb} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} />)}
           {ativo === "cupons"     && (precisaEmpresa ? avisoEmpresa : <CuponsAdmin cupons={cupons} addCupom={addCupom} editarCupom={editarCupom} toggleCupom={toggleCupom} removerCupom={removerCupom} />)}
@@ -17549,12 +17670,23 @@ function CaixaSessaoAdmin({ caixaAberto, caixas = [], api }) {
   const [contado, setContado] = useState("");
   const num = (s) => Number(String(s).replace(/\./g, "").replace(",", ".").replace(/[^\d.]/g, "")) || 0;
 
-  // Carrega as movimentações do caixa aberto
+  // Carrega movimentos do caixa aberto + sync banco→tela (Realtime + polling).
   useEffect(() => {
     let vivo = true;
-    if (caixaAberto && api?.fetchMovimentos) { api.fetchMovimentos(caixaAberto.id).then((m) => { if (vivo) setMovs(m || []); }).catch(() => {}); }
-    else setMovs([]);
-    return () => { vivo = false; };
+    if (!caixaAberto) { setMovs([]); return () => { vivo = false; }; }
+    async function carregar() {
+      if (!api?.fetchMovimentos) return;
+      try {
+        const m = await api.fetchMovimentos(caixaAberto.id);
+        if (vivo) setMovs(m || []);
+      } catch { /* Realtime cobre */ }
+    }
+    carregar();
+    const unsub = typeof escutarMovimentosCaixa === "function"
+      ? escutarMovimentosCaixa(caixaAberto.id, (m) => { if (vivo) setMovs(m || []); })
+      : () => {};
+    const intervalo = setInterval(carregar, 2500);
+    return () => { vivo = false; clearInterval(intervalo); unsub && unsub(); };
   }, [caixaAberto?.id]);
 
   const soma = (tipo) => movs.filter((m) => m.tipo === tipo).reduce((s, m) => s + m.valor, 0);
@@ -19128,30 +19260,38 @@ function AuditoriaAdmin({ logs = [], lojas = [], onAtualizar = null, onMarcarAna
   );
 }
 
-// ── Taxa de serviço — parametrização por empresa ──
-// TODO: mover para coluna própria em `tab_lojas` (JSONB) quando existir
-// migration para isso; por ora, persistida localmente por empresa (mesmo
-// padrão dos favoritos), sem exigir alteração de banco.
+// ── Taxa de serviço — parametrização por empresa (migration 092) ──
+// Fonte da verdade: tab_lojas.config_taxa_servico. localStorage é só fallback.
 const TAXA_SERVICO_DEFAULT = { enabled: true, percent: 10, chargingRule: "opcional", partialStrategy: "proporcional_itens" };
-function lerConfigTaxaServico(lojaId) {
+function lerConfigTaxaServico(lojaId, configFromDb = null) {
+  const doBanco = configFromDb && typeof configFromDb === "object" && Object.keys(configFromDb).length > 0
+    ? configFromDb
+    : null;
+  if (doBanco) return { ...TAXA_SERVICO_DEFAULT, ...doBanco };
   try { return { ...TAXA_SERVICO_DEFAULT, ...JSON.parse(localStorage.getItem(`pedidoPrime:taxaServico:${lojaId || "geral"}`) || "{}") }; }
   catch { return TAXA_SERVICO_DEFAULT; }
 }
-function salvarConfigTaxaServico(lojaId, cfg) {
-  try { localStorage.setItem(`pedidoPrime:taxaServico:${lojaId || "geral"}`, JSON.stringify(cfg)); } catch {}
-}
 
-function ConfiguracoesAdmin({ lojaInfo }) {
-  const [taxaCfg, setTaxaCfg] = useState(() => lerConfigTaxaServico(lojaInfo?.id));
-  function atualizarTaxa(patch) {
-    setTaxaCfg((cur) => { const novo = { ...cur, ...patch }; salvarConfigTaxaServico(lojaInfo?.id, novo); return novo; });
+function ConfiguracoesAdmin({ lojaInfo, salvarConfigTaxa = async () => false }) {
+  const [taxaCfg, setTaxaCfg] = useState(() => lerConfigTaxaServico(lojaInfo?.id, lojaInfo?.configTaxaServico));
+  const [salvando, setSalvando] = useState(false);
+  // Banco → tela: se a loja mudar via Realtime, espelha a config.
+  useEffect(() => {
+    setTaxaCfg(lerConfigTaxaServico(lojaInfo?.id, lojaInfo?.configTaxaServico));
+  }, [lojaInfo?.id, lojaInfo?.configTaxaServico]);
+  async function atualizarTaxa(patch) {
+    const novo = { ...taxaCfg, ...patch };
+    setTaxaCfg(novo);
+    setSalvando(true);
+    try { await salvarConfigTaxa(novo); } finally { setSalvando(false); }
   }
   return (
     <main className="space-y-5">
       <PageHeader
         icone={<IconConfig />}
         titulo="Configurações"
-        descricao="Preferências do sistema. As alterações ficam salvas neste aparelho."
+        descricao="Preferências da empresa. As alterações são salvas no banco e sincronizam em todos os aparelhos."
+        indicadores={salvando ? [{ valor: "…", rotulo: "salvando", tom: "ok" }] : []}
       />
 
       {/* Taxa de serviço */}
