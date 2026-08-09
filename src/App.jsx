@@ -757,53 +757,58 @@ export default function RestaurantePedidoApp() {
     return () => unsubs.forEach((fn) => fn && fn());
   }, []);
 
-  // ── Restaura o login SOMENTE no reload imediato pós-login ───────
-  // Ao logar no modo supabase, a página recarrega e inicializa autenticada.
-  // Para EXIGIR login a cada carregamento (F5 ou nova aba), usamos um flag de
-  // uso único ("pp_restore_once"): ele é gravado no momento do login, logo antes
-  // do reload, e consumido aqui. Assim:
-  //   • reload imediato pós-login → flag presente → reassocia o currentUser;
-  //   • F5 / nova aba / acesso direto → sem flag → encerra a sessão persistida
-  //     e mostra a tela de login.
-  // `authResolved` marca o instante em que essa checagem TERMINA (com ou sem
-  // usuário reassociado) — usado tanto para não piscar a tela de login antes
-  // da hora quanto para só então corrigir a URL de uma rota protegida para
-  // "/login" quando não há sessão (ver os dois useEffect logo abaixo).
+  // ── Restaura sessão no F5 / atualizar ───────────────────────────
+  // Com `pp_sessao_ativa` (e e-mail da sessão), o F5 RECARREGA os dados e
+  // mantém o mesmo login na MESMA tela (URL). Não pede login de novo.
+  // Voltar do navegador → logout (ver popstate abaixo).
+  // `authResolved` evita piscar a tela de login enquanto a sessão é checada.
   const restaurouSessaoRef = useRef(false);
   const [authResolved, setAuthResolved] = useState(false);
   useEffect(() => {
     if (loading || currentUser || restaurouSessaoRef.current) return;
-    // Modo legacy, ou banco indisponível (fallback local/offline — sem
-    // usandoSupabaseAuth() ou sem dbReady não há sessão Supabase a restaurar):
-    // a checagem termina aqui mesmo, sem tentativa de restauração.
-    if (!usandoSupabaseAuth() || !dbReady) {
-      restaurouSessaoRef.current = true;
-      queueMicrotask(() => setAuthResolved(true));
-      return;
-    }
-    let restaurar = false;
-    try { restaurar = sessionStorage.getItem("pp_restore_once") === "1"; } catch {}
-    // loading já é false aqui: users veio do fetch (ou []). Se a lista não
-    // trouxer o usuário (RLS), buscamos pelo e-mail da sessão abaixo.
     restaurouSessaoRef.current = true;
     (async () => {
-      if (!restaurar) {
-        // Sem flag → carregamento "limpo": encerra qualquer sessão persistida
-        // para que o login seja realmente solicitado novamente.
-        try { await logoutSupabaseAuth(); } catch {}
-        setAuthResolved(true);
-        return;
-      }
-      try { sessionStorage.removeItem("pp_restore_once"); } catch {}
       try {
-        const email = await getSessionEmail();
-        if (email) {
+        let sessaoAtiva = false;
+        let emailSalvo = "";
+        try {
+          sessaoAtiva = sessionStorage.getItem("pp_sessao_ativa") === "1";
+          emailSalvo = String(sessionStorage.getItem("pp_sessao_email") || "").trim().toLowerCase();
+          if (sessionStorage.getItem("pp_restore_once") === "1") {
+            sessionStorage.removeItem("pp_restore_once");
+            sessaoAtiva = true;
+          }
+        } catch { /* sessionStorage indisponível */ }
+
+        let email = null;
+        if (dbReady && usandoSupabaseAuth()) {
+          try { email = await getSessionEmail(); } catch { email = null; }
+        }
+        if (!email && emailSalvo) email = emailSalvo;
+
+        if (!sessaoAtiva && !email) {
+          setAuthResolved(true);
+          return;
+        }
+
+        if (email && dbReady) {
           let u = users.find((x) => (x.email || "").toLowerCase() === email.toLowerCase());
           if (!u) {
             try { u = await fetchUsuarioPorEmail(email); } catch { u = null; }
             if (u) setUsers((cur) => (cur.some((x) => x.id === u.id) ? cur : [...cur, u]));
           }
-          if (u) aplicarLogin(u, { silencioso: true });
+          if (u && u.active !== false) {
+            // F5: a URL atual é a fonte da verdade (ex.: /app/caixa) — não
+            // reaproveita redirect antigo de uma tentativa sem sessão.
+            limparRedirectPosLogin();
+            aplicarLogin(u, { silencioso: true });
+          } else {
+            try {
+              sessionStorage.removeItem("pp_sessao_ativa");
+              sessionStorage.removeItem("pp_sessao_email");
+            } catch { /* ignore */ }
+            if (usandoSupabaseAuth()) try { await logoutSupabaseAuth(); } catch { /* ignore */ }
+          }
         }
       } finally {
         setAuthResolved(true);
@@ -828,12 +833,13 @@ export default function RestaurantePedidoApp() {
     window.history.replaceState({}, "", "/login");
   }, [authResolved, currentUser]);
 
-  // ── Atualização quase imediata na cozinha e painel ──────────
+  // ── Atualização quase imediata: cozinha, painel e PDV ────────
   // Realtime (WebSocket) cobre o instantâneo; este polling de 1.5s
   // garante atualização mesmo se o Realtime falhar/atrasar.
   useEffect(() => {
     if (!dbReady) return;
-    if (activeTab !== "kitchen" && activeTab !== "panel") return;
+    const abasComPoll = new Set(["kitchen", "panel", "cashier", "opmobile"]);
+    if (!abasComPoll.has(activeTab)) return;
     let ativo = true;
     async function atualizar() {
       try {
@@ -841,7 +847,7 @@ export default function RestaurantePedidoApp() {
         if (ativo) setOrders(ords);
       } catch { /* silencioso — Realtime cobre */ }
     }
-    atualizar(); // dispara imediatamente ao entrar na tela
+    atualizar();
     const intervalo = setInterval(atualizar, 1500);
     return () => { ativo = false; clearInterval(intervalo); };
   }, [dbReady, activeTab]);
@@ -966,7 +972,9 @@ export default function RestaurantePedidoApp() {
     }
     limparRedirectPosLogin();
   }, [currentUser]);
-  // Espelha a tela atual na URL (replace na 1ª vez; push nas seguintes)
+  // Espelha a tela atual na URL — SEMPRE replaceState (nunca empilha telas do
+  // app). Assim o Voltar do navegador não navega entre Caixa↔Cozinha↔Admin;
+  // o popstate abaixo manda sempre para o login.
   useEffect(() => {
     if (!currentUser) return;
     if (popstateRef.current) { popstateRef.current = false; return; }
@@ -974,37 +982,41 @@ export default function RestaurantePedidoApp() {
     const atual = window.location.pathname + window.location.search;
     if (primeiraSyncRef.current) {
       primeiraSyncRef.current = false;
-      window.history.replaceState({}, "", novoPath); // normaliza a entrada base (ex.: /login → /admin/dashboard)
+      // Guarda de histórico: 1 entrada "anterior" + 1 atual → Voltar dispara
+      // popstate dentro do app (e vai para o login), sem carregar outra tela.
+      window.history.replaceState({ ppApp: true }, "", novoPath);
+      window.history.pushState({ ppApp: true }, "", novoPath);
       return;
     }
-    if (novoPath !== atual) window.history.pushState({}, "", novoPath);
+    if (novoPath !== atual) window.history.replaceState({ ppApp: true }, "", novoPath);
   }, [activeTab, adminSection, cozinhaSetorInicial, opmobileTab, currentUser]);
-  // Refs para o handler de popstate enxergar os valores atuais sem recriar o listener
+  // Refs para o handler de popstate / logout enxergar valores atuais
   const currentUserRef = useRef(null);
   const activeTabRef = useRef("tablet");
   const adminSectionRef = useRef("dashboard");
+  const logoutRef = useRef(() => {});
   useEffect(() => { currentUserRef.current = currentUser; activeTabRef.current = activeTab; adminSectionRef.current = adminSection; });
-  // Voltar/Avançar do navegador → restaura a tela correspondente
+  // Voltar do navegador → SEMPRE tela de login (encerra sessão). Nunca troca
+  // para outra tela do sistema (caixa→cozinha, admin→app, etc.).
   useEffect(() => {
     const onPop = () => {
+      if (!currentUserRef.current) return;
       popstateRef.current = true;
-      const { pathname, search } = window.location;
-      if (/^\/(admin|app|operacional)(\/|$)/.test(pathname)) aplicarRota(pathname, search, currentUserRef.current);
-      else if (currentUserRef.current) {
-        // Autenticado tentando sair para landing/login pelo voltar → mantém no app
-        window.history.replaceState({}, "", rotaDoEstado(activeTabRef.current, adminSectionRef.current, null));
-      }
-      // Garante que a flag nunca fique "presa" em true — se aplicarRota não mudar
-      // nenhum estado (ex.: voltar para a mesma seção), o efeito de espelhamento da
-      // URL nunca dispara para consumi-la, e o próximo clique no menu ficaria sem
-      // atualizar a URL. Reseta de forma assíncrona, após o commit dos setState.
+      try { logoutRef.current(); } catch { /* ignore */ }
+      try { window.history.replaceState({}, "", "/login"); } catch { /* ignore */ }
       setTimeout(() => { popstateRef.current = false; }, 0);
     };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
   }, []);
-  // Sinaliza sessão ativa para o Root (main.jsx) impedir landing pelo "voltar"
-  useEffect(() => { try { if (currentUser) sessionStorage.setItem("pp_sessao_ativa", "1"); } catch {} }, [currentUser]);
+  // Sinaliza sessão ativa para o Root (main.jsx) e para o F5 restaurar o login
+  useEffect(() => {
+    if (!currentUser) return;
+    try {
+      sessionStorage.setItem("pp_sessao_ativa", "1");
+      if (currentUser.email) sessionStorage.setItem("pp_sessao_email", String(currentUser.email).toLowerCase());
+    } catch { /* ignore */ }
+  }, [currentUser]);
 
   // ── Multi-loja: filtra todos os dados pela loja do usuário logado ──
   const isSuperAdmin = !!currentUser?.superAdmin;
@@ -1193,6 +1205,12 @@ export default function RestaurantePedidoApp() {
 
     setUsers((cur) => (cur.some((u) => u.id === credOk.id) ? cur : [credOk, ...cur]));
 
+    // Persiste sessão da aba (F5 mantém login + tela).
+    try {
+      sessionStorage.setItem("pp_sessao_ativa", "1");
+      sessionStorage.setItem("pp_sessao_email", email);
+    } catch { /* ignore */ }
+
     // Best-effort: sessão Supabase Auth (RLS). Não bloqueia o acesso se falhar.
     if (usandoSupabaseAuth()) {
       const r = await loginSupabaseAuth(email, senha);
@@ -1204,7 +1222,6 @@ export default function RestaurantePedidoApp() {
     }
 
     if (!aplicarLogin(credOk)) return;
-    try { sessionStorage.setItem("pp_sessao_ativa", "1"); } catch {}
   }
 
   function logout() {
@@ -1212,14 +1229,17 @@ export default function RestaurantePedidoApp() {
     // peça a seleção da mesa novamente (e libere a mesa para outros).
     try { localStorage.removeItem("pp_tablet_mesa"); } catch {}
     try { sessionStorage.removeItem("pp_restore_once"); } catch {}
-    try { sessionStorage.removeItem("pp_sessao_ativa"); } catch {} // libera o acesso à landing/login
+    try { sessionStorage.removeItem("pp_sessao_ativa"); } catch {}
+    try { sessionStorage.removeItem("pp_sessao_email"); } catch {}
     limparRedirectPosLogin(); // não retomar destino de uma tentativa de acesso anterior
     try { window.history.replaceState({}, "", "/login"); } catch {}
     primeiraSyncRef.current = true; // próxima sessão recomeça normalizando a URL
+    rotaInicialRef.current = false; // permite reaplicar rota no próximo login/F5
     if (usandoSupabaseAuth()) logoutSupabaseAuth();
     setTableNumber("");
     setCurrentUser(null); setActiveTab("tablet"); setMessage({ type: "", text: "" });
   }
+  logoutRef.current = logout;
 
   // ── Validação contínua da licença (em TODOS os dispositivos) ──────────
   // O realtime (escutarLojas) mantém `lojas` atualizado. Sempre que a licença

@@ -17,7 +17,11 @@ export default function LoginPage({ loginForm, setLoginForm, login, message, dbR
 
   function voltarAoSite() {
     // Limpa o marcador de sessão para que "/" renderize a landing pública.
-    try { sessionStorage.removeItem("pp_sessao_ativa"); sessionStorage.removeItem("pp_restore_once"); } catch {}
+    try {
+      sessionStorage.removeItem("pp_sessao_ativa");
+      sessionStorage.removeItem("pp_sessao_email");
+      sessionStorage.removeItem("pp_restore_once");
+    } catch {}
     window.location.href = "/";
   }
 
