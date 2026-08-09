@@ -1512,34 +1512,86 @@ export async function loginSupabaseAuth(email, senha) {
 }
 
 /**
- * Valida e-mail/senha em tab_usuarios (via API com service role) e alinha
- * o Auth para o signInWithPassword usar a mesma senha do cadastro.
- * Retorno: { ok: true } | throw Error com .code (INVALID_CREDENTIALS, …).
+ * Valida e-mail/senha em tab_usuarios (fonte da verdade do cadastro).
+ * 1) API /api/login-banco (service role + alinha Auth em best-effort)
+ * 2) Fallback: SELECT direto em tab_usuarios (chave anon / sessão)
+ * Retorno: { ok, usuario (shape do app), authAlinhado? } ou throw com .code
  */
-export async function garantirLoginNoBanco(email, senha) {
-  const payload = {
-    email: (email || '').trim().toLowerCase(),
-    senha: senha != null ? String(senha) : '',
-  }
-  const r = await fetch('/api/login-banco', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(payload),
-  })
-  const ct = r.headers.get('content-type') || ''
-  let data = {}
-  if (ct.includes('application/json')) {
-    try { data = await r.json() } catch { data = {} }
-  } else {
-    const err = new Error('API de login indisponível.')
-    err.code = 'API_UNAVAILABLE'
+export async function validarLoginNoBanco(email, senha) {
+  const emailNorm = (email || '').trim().toLowerCase()
+  const senhaStr = senha != null ? String(senha) : ''
+  if (!emailNorm || !senhaStr) {
+    const err = new Error('Informe e-mail e senha.')
+    err.code = 'INVALID_INPUT'
     throw err
   }
-  if (r.ok && data?.ok) return data
-  const err = new Error(data?.error || `Erro ${r.status} ao validar login.`)
-  err.code = data?.code || (r.status === 503 ? 'SERVICE_ROLE_MISSING' : 'LOGIN_BANCO_FAIL')
-  err.status = r.status
-  throw err
+
+  // 1) API servidor (valida no banco real; Auth é opcional).
+  try {
+    const r = await fetch('/api/login-banco', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email: emailNorm, senha: senhaStr }),
+    })
+    const ct = r.headers.get('content-type') || ''
+    if (ct.includes('application/json')) {
+      const data = await r.json().catch(() => ({}))
+      if (r.ok && data?.ok) {
+        return {
+          ok: true,
+          authAlinhado: !!data.authAlinhado,
+          usuario: data.usuario ? mapUsuarioDb(data.usuario) : null,
+          raw: data,
+        }
+      }
+      if (data?.code === 'INVALID_CREDENTIALS' || r.status === 401) {
+        const err = new Error(data?.error || 'E-mail ou senha incorretos.')
+        err.code = 'INVALID_CREDENTIALS'
+        err.status = 401
+        throw err
+      }
+      if (data?.code === 'INACTIVE' || r.status === 403) {
+        const err = new Error(data?.error || 'Usuário inativo.')
+        err.code = 'INACTIVE'
+        err.status = 403
+        throw err
+      }
+      // 503 / erro de API → tenta leitura direta da tabela abaixo.
+    }
+  } catch (e) {
+    if (e?.code === 'INVALID_CREDENTIALS' || e?.code === 'INACTIVE') throw e
+    // rede / HTML / 503 → fallback
+  }
+
+  // 2) Fallback: confere direto em tab_usuarios (policies permissivas / anon).
+  const { data: row, error } = await supabase
+    .from('tab_usuarios')
+    .select('*')
+    .ilike('email', emailNorm)
+    .maybeSingle()
+  if (error) {
+    const err = new Error(error.message || 'Falha ao consultar usuários.')
+    err.code = 'DB_ERROR'
+    throw err
+  }
+  if (!row || String(row.senha ?? '') !== senhaStr) {
+    const err = new Error('E-mail ou senha incorretos.')
+    err.code = 'INVALID_CREDENTIALS'
+    err.status = 401
+    throw err
+  }
+  if (row.ativo === false) {
+    const err = new Error('Usuário inativo, entre em contato com o administrador do sistema.')
+    err.code = 'INACTIVE'
+    err.status = 403
+    throw err
+  }
+  return { ok: true, authAlinhado: false, usuario: dbParaUsuario(row) }
+}
+
+/** @deprecated use validarLoginNoBanco */
+export async function garantirLoginNoBanco(email, senha) {
+  return validarLoginNoBanco(email, senha)
 }
 
 /** Busca um usuário do app pelo e-mail (para restaurar sessão pós-login). */

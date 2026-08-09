@@ -135,48 +135,59 @@ export default async function handler(req, res) {
       });
     }
 
+    // Credenciais OK no banco → login liberado. Auth é best-effort (JWT/RLS).
     const meta = {
       nome: row.nome || "",
       loja_id: row.loja_id ?? null,
       perfil: row.perfil || "",
     };
 
-    let authUser = await encontrarAuthPorEmail(email);
-    if (!authUser) {
-      try {
-        const criado = await authAdmin("/admin/users", {
-          method: "POST",
+    let authId = null;
+    let authAlinhado = false;
+    try {
+      let authUser = await encontrarAuthPorEmail(email);
+      if (!authUser) {
+        try {
+          const criado = await authAdmin("/admin/users", {
+            method: "POST",
+            body: {
+              email,
+              password: senha,
+              email_confirm: true,
+              user_metadata: meta,
+            },
+          });
+          authUser = { id: criado?.id || criado?.user?.id || null, user_metadata: meta };
+        } catch (e) {
+          if (!/already|registered|exists|duplicate/i.test(String(e.message || ""))) throw e;
+          authUser = await encontrarAuthPorEmail(email);
+          if (!authUser) throw e;
+        }
+      }
+      if (authUser?.id) {
+        await authAdmin(`/admin/users/${authUser.id}`, {
+          method: "PUT",
           body: {
-            email,
             password: senha,
             email_confirm: true,
-            user_metadata: meta,
+            user_metadata: { ...(authUser.user_metadata || {}), ...meta },
           },
         });
-        authUser = { id: criado?.id || criado?.user?.id || null, user_metadata: meta };
-      } catch (e) {
-        // Já existia no Auth (ex.: cadastro parcial) — alinha senha abaixo.
-        if (!/already|registered|exists|duplicate/i.test(String(e.message || ""))) throw e;
-        authUser = await encontrarAuthPorEmail(email);
-        if (!authUser) throw e;
+        authId = authUser.id;
+        authAlinhado = true;
       }
-    }
-    if (authUser?.id) {
-      await authAdmin(`/admin/users/${authUser.id}`, {
-        method: "PUT",
-        body: {
-          password: senha,
-          email_confirm: true,
-          user_metadata: { ...(authUser.user_metadata || {}), ...meta },
-        },
-      });
+    } catch (e) {
+      // Não bloqueia o login: senha já conferiu em tab_usuarios.
+      console.warn("[login-banco] Auth não alinhado (login liberado pelo banco):", e?.message || e);
     }
 
     return json(res, 200, {
       ok: true,
       email,
-      authId: authUser?.id || null,
+      authId,
+      authAlinhado,
       usuarioId: row.id,
+      usuario: row,
     });
   } catch (e) {
     console.error("[login-banco]", e);

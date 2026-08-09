@@ -50,7 +50,7 @@ import {
   perguntarCopilotoIA,
   fetchAuditoria, registrarAuditoria, escutarAuditoria, marcarAuditoriaAnalisada,
   loginSupabaseAuth, logoutSupabaseAuth, aguardarSessao, getSessionEmail,
-  garantirLoginNoBanco, fetchUsuarioPorEmail,
+  validarLoginNoBanco, fetchUsuarioPorEmail,
   gerenciarUsuarioAuth, sincronizarAuthAoCriarUsuario, mapUsuarioDb, SENHA_MIN_AUTH,
   fetchLancamentos, inserirLancamento, atualizarLancamento, excluirLancamento,
 } from "./lib/supabase";
@@ -1108,57 +1108,59 @@ export default function RestaurantePedidoApp() {
     const senha = creds.password != null ? String(creds.password) : "";
     if (!email || !senha) return notify("error", "Informe e-mail e senha.");
 
-    if (usandoSupabaseAuth()) {
-      // 1) Fonte da verdade: tab_usuarios (cadastro/senha do Admin).
-      //    A API alinha o Auth com essa senha para o signIn funcionar.
-      let bancoOk = false;
-      try {
-        await garantirLoginNoBanco(email, senha);
-        bancoOk = true;
-      } catch (e) {
-        const code = e?.code || "";
-        if (code === "INACTIVE") {
-          return notify("error", e.message || "Usuário inativo, entre em contato com o administrador do sistema.");
-        }
-        if (code === "INVALID_CREDENTIALS" || e?.status === 401) {
-          return notify("error", "E-mail ou senha incorretos.");
-        }
-        // Sem service role / API offline: tenta Auth direto e, se preciso, legado em memória.
-        if (!/SERVICE_ROLE|API_UNAVAILABLE|503/i.test(String(code) + String(e?.message || ""))) {
-          return notify("error", mensagemErroAcesso(e?.message));
-        }
+    // Fonte da verdade: tab_usuarios (e-mail + senha no banco).
+    // Se existir e estiver ativo → libera o sistema. Auth/JWT é best-effort.
+    let credOk = null;
+    try {
+      const v = await validarLoginNoBanco(email, senha);
+      credOk = v?.usuario || null;
+    } catch (e) {
+      const code = e?.code || "";
+      if (code === "INACTIVE") {
+        return notify("error", e.message || "Usuário inativo, entre em contato com o administrador do sistema.");
       }
-
-      // 2) Sessão JWT (RLS) com a senha já validada/alinhada.
-      const r = await loginSupabaseAuth(email, senha);
-      if (!r.ok) {
-        // Fallback: senha confere com tab_usuarios já carregada (modo permissivo).
-        const credOk = users.find(
-          (u) => (u.email || "").toLowerCase() === email && String(u.password ?? "") === senha,
-        );
-        if (credOk) {
-          if (!aplicarLogin(credOk)) return;
-          try { sessionStorage.setItem("pp_sessao_ativa", "1"); } catch {}
-          return;
-        }
-        if (bancoOk) {
-          return notify("error", "Senha válida no cadastro, mas o login Auth falhou. Confira SUPABASE_SERVICE_ROLE_KEY na Vercel e tente de novo.");
-        }
-        return notify("error", mensagemErroAcesso(r.error));
+      if (code === "INVALID_CREDENTIALS" || e?.status === 401) {
+        return notify("error", "E-mail ou senha incorretos.");
       }
-
-      // Recarrega para inicializar já autenticado (JWT/RLS). Flag de uso único.
-      try { sessionStorage.setItem("pp_restore_once", "1"); } catch {}
-      window.location.reload();
-      return;
+      // Último recurso: lista já carregada em memória (mesmo critério do banco).
+      credOk = users.find(
+        (u) => (u.email || "").toLowerCase() === email && String(u.password ?? "") === senha,
+      ) || null;
+      if (!credOk) return notify("error", mensagemErroAcesso(e?.message));
+      if (credOk.active === false) {
+        return notify("error", "Usuário inativo, entre em contato com o administrador do sistema.");
+      }
     }
 
-    // Modo legacy: compara contra tab_usuarios.
-    const credOk = users.find(
-      (u) => (u.email || "").toLowerCase() === email && String(u.password ?? "") === senha,
-    );
-    if (!credOk) return notify("error", "Usuário ou senha inválidos.");
-    aplicarLogin(credOk);
+    if (!credOk) {
+      // API ok sem row no payload — tenta memória / fetch.
+      credOk = users.find(
+        (u) => (u.email || "").toLowerCase() === email && String(u.password ?? "") === senha,
+      ) || null;
+      if (!credOk) {
+        try { credOk = await fetchUsuarioPorEmail(email); } catch { credOk = null; }
+        if (credOk && String(credOk.password ?? "") !== senha) credOk = null;
+      }
+    }
+    if (!credOk) return notify("error", "E-mail ou senha incorretos.");
+    if (credOk.active === false) {
+      return notify("error", "Usuário inativo, entre em contato com o administrador do sistema.");
+    }
+
+    setUsers((cur) => (cur.some((u) => u.id === credOk.id) ? cur : [credOk, ...cur]));
+
+    // Best-effort: sessão Supabase Auth (RLS). Não bloqueia o acesso se falhar.
+    if (usandoSupabaseAuth()) {
+      const r = await loginSupabaseAuth(email, senha);
+      if (r.ok) {
+        try { sessionStorage.setItem("pp_restore_once", "1"); } catch {}
+        window.location.reload();
+        return;
+      }
+    }
+
+    if (!aplicarLogin(credOk)) return;
+    try { sessionStorage.setItem("pp_sessao_ativa", "1"); } catch {}
   }
 
   function logout() {
