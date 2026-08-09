@@ -1018,17 +1018,27 @@ export default function RestaurantePedidoApp() {
     } catch { /* ignore */ }
   }, [currentUser]);
 
-  // Após login: recarrega usuários e cargos via RPC (095) — o SELECT inicial
-  // com RLS sem claim JWT só devolvia o próprio usuário e cargos vazios.
+  // Após login/sessão: recarrega dados operacionais. Sem claim JWT
+  // (hook 047), o SELECT inicial via RLS vinha vazio e o dashboard
+  // “sumia” — helpers 096 + este refresh restauram sem apagar o banco.
   useEffect(() => {
     if (!dbReady || !currentUser) return;
     let cancelado = false;
     (async () => {
       try {
-        const [listaU, listaC] = await Promise.all([fetchUsuarios(), fetchCargos()]);
+        const [listaU, listaC, ords, prods, ls] = await Promise.all([
+          fetchUsuarios().catch(() => null),
+          fetchCargos().catch(() => null),
+          fetchPedidos().catch(() => null),
+          fetchProdutos().catch(() => null),
+          fetchLojas().catch(() => null),
+        ]);
         if (cancelado) return;
         if (Array.isArray(listaU) && listaU.length) setUsers(listaU);
         if (Array.isArray(listaC) && listaC.length) setCargos(listaC);
+        if (Array.isArray(ords) && ords.length) setOrders(ords);
+        if (Array.isArray(prods) && prods.length) setProducts(prods);
+        if (Array.isArray(ls) && ls.length) setLojas(ls);
       } catch { /* mantém estado atual */ }
     })();
     return () => { cancelado = true; };

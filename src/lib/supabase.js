@@ -2467,14 +2467,21 @@ function dbParaCargo(r) {
   return { id: r.id, nome: r.nome, descricao: r.descricao ?? '', active: r.ativo }
 }
 export async function fetchCargos() {
-  // 1) RPC security definer (migration 095) — funciona com RLS restritiva.
+  // 1) RPC security definer (migration 095) — só aceita se trouxer linhas.
+  // Array vazio NÃO encerra a busca (evita zerar cargos na UI).
+  let rpcRows = null
   try {
     const { data, error } = await supabase.rpc('app_listar_cargos')
-    if (!error && Array.isArray(data)) {
+    if (!error && Array.isArray(data) && data.length > 0) {
       return data.map(dbParaCargo)
     }
+    if (!error && Array.isArray(data)) rpcRows = data
   } catch { /* RPC ausente → SELECT */ }
   const { data, error } = await supabase.from('tab_cargos').select('*').order('nome', { ascending: true })
+  if (!error && Array.isArray(data) && data.length > 0) {
+    return data.map(dbParaCargo)
+  }
+  if (rpcRows) return rpcRows.map(dbParaCargo)
   if (error) throw error
   return (data || []).map(dbParaCargo)
 }
@@ -2493,7 +2500,12 @@ export async function excluirCargo(id) {
 }
 export function escutarCargos(onMudanca) {
   const reload = async () => {
-    try { onMudanca(await fetchCargos()) } catch { /* silencioso */ }
+    try {
+      const lista = await fetchCargos()
+      // Evita apagar cargos na UI quando RLS/JWT ainda não resolve (lista vazia).
+      if (Array.isArray(lista) && lista.length === 0) return
+      onMudanca(lista)
+    } catch { /* silencioso */ }
   }
   const canal = supabase.channel('ch_cargos_'+Math.random().toString(36).slice(2))
     .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_cargos' }, reload)
@@ -2551,15 +2563,22 @@ export function escutarMesas(onMudanca) {
 // ════════════════════════════════════════════════════════════
 export async function fetchUsuarios() {
   // 1) RPC security definer (migration 095): super/admin vê a lista completa
-  // mesmo sem claim JWT super_admin (RLS da 048).
+  // mesmo sem claim JWT. Array vazio NÃO encerra a busca — o Realtime
+  // chama isto e um [] apagava a lista na UI.
+  let rpcRows = null
   try {
     const { data, error } = await supabase.rpc('app_listar_usuarios')
-    if (!error && Array.isArray(data)) {
+    if (!error && Array.isArray(data) && data.length > 0) {
       return data.map(dbParaUsuario)
     }
+    if (!error && Array.isArray(data)) rpcRows = data
   } catch { /* RPC ausente → SELECT */ }
   const { data, error } = await supabase
     .from('tab_usuarios').select('*').order('id', { ascending: true })
+  if (!error && Array.isArray(data) && data.length > 0) {
+    return data.map(dbParaUsuario)
+  }
+  if (rpcRows) return rpcRows.map(dbParaUsuario)
   if (error) throw error
   return (data || []).map(dbParaUsuario)
 }
@@ -2589,7 +2608,12 @@ export async function atualizarUsuariosPorLoja(lojaId, campos) {
 
 export function escutarUsuarios(onMudanca) {
   const reload = async () => {
-    try { onMudanca(await fetchUsuarios()) } catch { /* silencioso */ }
+    try {
+      const lista = await fetchUsuarios()
+      // Evita apagar a lista na UI quando a consulta volta vazia por RLS/JWT.
+      if (Array.isArray(lista) && lista.length === 0) return
+      onMudanca(lista)
+    } catch { /* silencioso */ }
   }
   const canal = supabase.channel('ch_usuarios_'+Math.random().toString(36).slice(2))
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'tab_usuarios' }, reload)
