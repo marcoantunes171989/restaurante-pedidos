@@ -52,6 +52,7 @@ import {
   loginSupabaseAuth, logoutSupabaseAuth, aguardarSessao, getSessionEmail,
   validarLoginNoBanco, fetchUsuarioPorEmail,
   gerenciarUsuarioAuth, sincronizarAuthAoCriarUsuario, mapUsuarioDb, SENHA_MIN_AUTH,
+  persistirUsuarioCampos, criarUsuarioNoBanco,
   fetchLancamentos, inserirLancamento, atualizarLancamento, excluirLancamento,
 } from "./lib/supabase";
 import { usandoSupabaseAuth } from "./lib/authMode";
@@ -2839,48 +2840,63 @@ export default function RestaurantePedidoApp() {
     notify("success", "Produto excluído.");
   }
 
-  // Usuários — edição e exclusão (Auth + tab_usuarios via API com service role)
+  // Usuários — edição e exclusão (persiste todos os campos em tab_usuarios)
   async function editarUsuario(uid, dados) {
     if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
     const atual = users.find((u) => u.id === uid);
     if (!atual) return notify("error", "Usuário não encontrado.");
-    if (!dados.password || String(dados.password).length < SENHA_MIN_AUTH) {
+    const senhaNova = dados.password != null ? String(dados.password) : "";
+    if (senhaNova && senhaNova.length < SENHA_MIN_AUTH) {
       return notify("error", `Informe uma senha com no mínimo ${SENHA_MIN_AUTH} caracteres.`);
     }
     const cargoId = dados.cargoId ? Number(dados.cargoId) : null;
     const emailNovo = (dados.email || "").trim().toLowerCase();
-    if (dbReady && usandoSupabaseAuth()) {
-      try {
+    if (!dbReady) {
+      setUsers((cur) => cur.map((u) => u.id === uid ? { ...u, ...dados, email: emailNovo || dados.email, cargoId } : u));
+      notify("success", "Usuário atualizado (modo local).");
+      return;
+    }
+    try {
+      // Com senha: alinha Auth + banco; sem senha: só cadastro/perfil no banco.
+      if (usandoSupabaseAuth() && senhaNova) {
         const r = await gerenciarUsuarioAuth({
           acao: "atualizar",
           email: emailNovo,
           emailAnterior: atual.email,
-          senha: dados.password,
+          senha: senhaNova,
           nome: (dados.name || "").trim(),
           lojaId: atual.lojaId ?? lojaAtual,
           perfil: dados.role || atual.role,
           cargoId,
           ativo: atual.active !== false,
           idsAcesso: atual.accessIds || [],
+          permissoesAcoes: atual.permissoesAcoes || {},
           persistirPerfil: true,
         });
         const mapped = mapUsuarioDb(r?.usuario);
         if (mapped) {
           setUsers((cur) => cur.map((u) => u.id === uid || u.id === mapped.id ? { ...u, ...mapped } : u));
-          notify("success", "Usuário atualizado. Login e senha sincronizados no banco.");
+          notify("success", "Usuário atualizado no banco (login e cadastro).");
           return;
         }
-      } catch (e) {
-        return notify("error", "Não foi possível atualizar o usuário: " + (e.message || e));
       }
+      const saved = await persistirUsuarioCampos(uid, {
+        name: (dados.name || "").trim(),
+        email: emailNovo,
+        emailAnterior: atual.email,
+        password: senhaNova || undefined,
+        role: dados.role || atual.role,
+        cargoId,
+        lojaId: atual.lojaId ?? lojaAtual,
+        active: atual.active !== false,
+        accessIds: atual.accessIds || [],
+        permissoesAcoes: atual.permissoesAcoes || {},
+      });
+      setUsers((cur) => cur.map((u) => u.id === uid || u.id === saved.id ? { ...u, ...saved } : u));
+      notify("success", "Usuário atualizado no banco.");
+    } catch (e) {
+      return notify("error", "Não foi possível atualizar o usuário: " + (e.message || e));
     }
-    if (dbReady) {
-      try {
-        await atualizarUsuario(uid, { nome: dados.name, email: dados.email, senha: dados.password, perfil: dados.role, ...(cargoId ? { cargo_id: cargoId } : {}) });
-      } catch (e) { return notify("error", "Erro ao salvar no banco: " + e.message); }
-    }
-    setUsers((cur) => cur.map((u) => u.id === uid ? { ...u, ...dados, email: emailNovo || dados.email, cargoId } : u));
-    notify("success", "Usuário atualizado. Login e senha sincronizados.");
   }
   async function removerUsuario(uid) {
     if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
@@ -2936,54 +2952,52 @@ export default function RestaurantePedidoApp() {
       lojaId: lojaDestino,
     };
 
-    // AUTH_MODE=supabase: API grava Auth + tab_usuarios (service role). Sem isso o
-    // login falha e/ou a linha some sob RLS ao inserir só pelo client.
-    if (dbReady && usandoSupabaseAuth()) {
-      try {
-        const r = await sincronizarAuthAoCriarUsuario({
-          email: nu.email,
-          senha: nu.password,
-          nome: nu.name,
-          lojaId: nu.lojaId,
-          perfil: nu.role,
-          cargoId: nu.cargoId,
-          ativo: true,
-          idsAcesso: [],
-        });
-        const mapped = mapUsuarioDb(r?.usuario);
-        if (mapped) {
-          setUsers((cur) => [mapped, ...cur.filter((u) => (u.email || "").toLowerCase() !== mapped.email.toLowerCase())]);
-          setUserForm({ name: "", email: "", password: "", role: "", cargoId: "", lojaId: isSuperAdmin ? "" : lojaAtual });
-          auditar("criar", "usuario", mapped.id, { nome: nu.name, email: nu.email, cargo: nu.role });
-          notify("success", "Usuário cadastrado no banco com login ativo. Vincule os acessos em Usuário x Acesso.");
-          return true;
-        }
-        // Fallback (signUp sem service role): ainda precisa gravar tab_usuarios no client.
-        if (r?.perfilPersistido === false || !r?.usuario) {
-          const saved = await inserirUsuario(nu);
-          setUsers((cur) => [saved, ...cur]);
-          setUserForm({ name: "", email: "", password: "", role: "", cargoId: "", lojaId: isSuperAdmin ? "" : lojaAtual });
-          auditar("criar", "usuario", saved.id, { nome: nu.name, email: nu.email, cargo: nu.role });
-          notify("success", "Usuário cadastrado. Confirme SUPABASE_SERVICE_ROLE_KEY na Vercel para sync completo.");
-          return true;
-        }
-      } catch (e) {
-        notify("error", "Não foi possível criar o usuário: " + (e.message || e));
-        return false;
-      }
+    if (!dbReady) {
+      const saved = { ...nu, id: Date.now() };
+      setUsers((cur) => [saved, ...cur]);
+      setUserForm({ name: "", email: "", password: "", role: "", cargoId: "", lojaId: isSuperAdmin ? "" : lojaAtual });
+      notify("success", "Usuário cadastrado (modo local).");
+      return true;
     }
 
     try {
-      const saved = dbReady ? await inserirUsuario(nu) : { ...nu, id: Date.now() };
-      setUsers((cur) => [saved, ...cur]);
+      // 1) Auth + tab_usuarios via API (quando disponível)
+      if (usandoSupabaseAuth()) {
+        try {
+          const r = await sincronizarAuthAoCriarUsuario({
+            email: nu.email,
+            senha: nu.password,
+            nome: nu.name,
+            lojaId: nu.lojaId,
+            perfil: nu.role,
+            cargoId: nu.cargoId,
+            ativo: true,
+            idsAcesso: nu.accessIds || [],
+          });
+          const mapped = mapUsuarioDb(r?.usuario);
+          if (mapped) {
+            setUsers((cur) => [mapped, ...cur.filter((u) => (u.email || "").toLowerCase() !== mapped.email.toLowerCase())]);
+            setUserForm({ name: "", email: "", password: "", role: "", cargoId: "", lojaId: isSuperAdmin ? "" : lojaAtual });
+            auditar("criar", "usuario", mapped.id, { nome: nu.name, email: nu.email, cargo: nu.role });
+            notify("success", "Usuário cadastrado no banco. Vincule os acessos em Usuário x Acesso.");
+            return true;
+          }
+        } catch (e) {
+          // Continua para RPC/insert — o importante é gravar em tab_usuarios.
+          console.warn("Sync Auth ao criar usuário:", e?.message || e);
+        }
+      }
+      // 2) RPC app_criar_usuario / insert direto
+      const saved = await criarUsuarioNoBanco(nu);
+      setUsers((cur) => [saved, ...cur.filter((u) => (u.email || "").toLowerCase() !== (saved.email || "").toLowerCase())]);
+      setUserForm({ name: "", email: "", password: "", role: "", cargoId: "", lojaId: isSuperAdmin ? "" : lojaAtual });
+      auditar("criar", "usuario", saved.id, { nome: nu.name, email: nu.email, cargo: nu.role });
+      notify("success", "Usuário cadastrado no banco. Vincule os acessos em Usuário x Acesso.");
+      return true;
     } catch (e) {
       notify("error", "Falha ao salvar o usuário no banco: " + (e.message || e));
       return false;
     }
-    setUserForm({ name: "", email: "", password: "", role: "", cargoId: "", lojaId: isSuperAdmin ? "" : lojaAtual });
-    auditar("criar", "usuario", null, { nome: nu.name, email: nu.email, cargo: nu.role });
-    notify("success", "Usuário cadastrado com login ativo. Vincule os acessos em Usuário x Acesso para liberar as telas.");
-    return true;
   }
 
   // ── Cargos / Perfis ─────────────────────────────────────────
@@ -3089,31 +3103,87 @@ export default function RestaurantePedidoApp() {
   async function toggleUserAccess(uid, aid) {
     if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
     const user = users.find((u) => u.id === uid);
-    const ex = user?.accessIds.includes(aid);
-    const accessIds = ex ? user.accessIds.filter((id) => id !== aid) : [...(user?.accessIds || []), aid];
+    if (!user) return notify("error", "Usuário não encontrado.");
+    const ex = (user.accessIds || []).includes(aid);
+    const accessIds = ex ? user.accessIds.filter((id) => id !== aid) : [...(user.accessIds || []), aid];
+    const prev = user.accessIds || [];
     setUsers((cur) => cur.map((u) => u.id === uid ? { ...u, accessIds } : u));
-    if (dbReady) try { await atualizarUsuario(uid, { ids_acesso: accessIds }); } catch {}
+    if (!dbReady) return;
+    try {
+      const saved = await persistirUsuarioCampos(uid, {
+        email: user.email,
+        accessIds,
+        lojaId: user.lojaId ?? lojaAtual,
+      });
+      setUsers((cur) => cur.map((u) => u.id === uid ? { ...u, ...saved } : u));
+    } catch (e) {
+      setUsers((cur) => cur.map((u) => u.id === uid ? { ...u, accessIds: prev } : u));
+      notify("error", "Erro ao salvar acessos no banco: " + (e.message || e));
+    }
   }
   // Define o conjunto completo de acessos de uma vez (ações em massa: liberar/bloquear todas)
   async function definirAcessos(uid, accessIds) {
     if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
-    setUsers((cur) => cur.map((u) => u.id === uid ? { ...u, accessIds } : u));
-    if (dbReady) try { await atualizarUsuario(uid, { ids_acesso: accessIds }); } catch {}
+    const user = users.find((u) => u.id === uid);
+    if (!user) return notify("error", "Usuário não encontrado.");
+    const prev = user.accessIds || [];
+    const next = Array.isArray(accessIds) ? accessIds : [];
+    setUsers((cur) => cur.map((u) => u.id === uid ? { ...u, accessIds: next } : u));
+    if (!dbReady) return;
+    try {
+      const saved = await persistirUsuarioCampos(uid, {
+        email: user.email,
+        accessIds: next,
+        lojaId: user.lojaId ?? lojaAtual,
+      });
+      setUsers((cur) => cur.map((u) => u.id === uid ? { ...u, ...saved } : u));
+      notify("success", "Acessos atualizados no banco.");
+    } catch (e) {
+      setUsers((cur) => cur.map((u) => u.id === uid ? { ...u, accessIds: prev } : u));
+      notify("error", "Erro ao salvar acessos no banco: " + (e.message || e));
+    }
   }
-  // Salva o mapa de ações por módulo do usuário (migration 032). Tolerante se a coluna não existir.
+  // Salva o mapa de ações por módulo do usuário (migration 032).
   async function definirAcoesUsuario(uid, permissoesAcoes) {
     if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
-    setUsers((cur) => cur.map((u) => u.id === uid ? { ...u, permissoesAcoes } : u));
-    if (dbReady) try { await atualizarUsuario(uid, { permissoes_acoes: permissoesAcoes }); }
-    catch (e) { notify("error", "Erro ao salvar permissões: " + (e.message || e)); }
+    const user = users.find((u) => u.id === uid);
+    if (!user) return notify("error", "Usuário não encontrado.");
+    const prev = user.permissoesAcoes || {};
+    const next = permissoesAcoes || {};
+    setUsers((cur) => cur.map((u) => u.id === uid ? { ...u, permissoesAcoes: next } : u));
+    if (!dbReady) return;
+    try {
+      const saved = await persistirUsuarioCampos(uid, {
+        email: user.email,
+        permissoesAcoes: next,
+        lojaId: user.lojaId ?? lojaAtual,
+      });
+      setUsers((cur) => cur.map((u) => u.id === uid ? { ...u, ...saved } : u));
+    } catch (e) {
+      setUsers((cur) => cur.map((u) => u.id === uid ? { ...u, permissoesAcoes: prev } : u));
+      notify("error", "Erro ao salvar permissões no banco: " + (e.message || e));
+    }
   }
 
   async function toggleUserStatus(uid) {
     if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
     const user = users.find((u) => u.id === uid);
-    const active = !user?.active;
+    if (!user) return notify("error", "Usuário não encontrado.");
+    const active = !user.active;
     setUsers((cur) => cur.map((u) => u.id === uid ? { ...u, active } : u));
-    if (dbReady) try { await atualizarUsuario(uid, { ativo: active }); } catch {}
+    if (!dbReady) return;
+    try {
+      const saved = await persistirUsuarioCampos(uid, {
+        email: user.email,
+        active,
+        lojaId: user.lojaId ?? lojaAtual,
+      });
+      setUsers((cur) => cur.map((u) => u.id === uid ? { ...u, ...saved } : u));
+      notify("success", active ? "Usuário ativado no banco." : "Usuário inativado no banco.");
+    } catch (e) {
+      setUsers((cur) => cur.map((u) => u.id === uid ? { ...u, active: user.active } : u));
+      notify("error", "Erro ao atualizar status no banco: " + (e.message || e));
+    }
   }
 
   async function toggleAccessStatus(aid) {
@@ -22681,11 +22751,12 @@ function UsuarioCadastroModal({ userForm, setUserForm, onSalvar, onFechar, cargo
 }
 
 function UsuarioEditModal({ usuario, cargos = [], onSalvar, onFechar }) {
-  const [f, setF] = useState({ name: usuario.name, email: usuario.email, password: usuario.password, role: usuario.role, cargoId: usuario.cargoId ?? "" });
+  const [f, setF] = useState({ name: usuario.name, email: usuario.email, password: "", role: usuario.role, cargoId: usuario.cargoId ?? "" });
   const [verSenha, setVerSenha] = useState(false);
   const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-gold-400/60";
   const lbl = "mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500";
-  const valido = f.name.trim() && f.email.trim() && (f.password || "").length >= SENHA_MIN_AUTH && f.cargoId;
+  const senhaOk = !f.password || f.password.length >= SENHA_MIN_AUTH;
+  const valido = f.name.trim() && f.email.trim() && senhaOk && f.cargoId;
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onFechar}>
       <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl">
@@ -22697,12 +22768,12 @@ function UsuarioEditModal({ usuario, cargos = [], onSalvar, onFechar }) {
           <div><label className={lbl}>Nome</label><input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="Nome" className={inp} /></div>
           <div><label className={lbl}>E-mail</label><input value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} placeholder="E-mail" className={inp} /></div>
           <div>
-            <label className={lbl}>Senha (mín. {SENHA_MIN_AUTH})</label>
+            <label className={lbl}>Nova senha (opcional, mín. {SENHA_MIN_AUTH})</label>
             <div className="relative">
-              <input type={verSenha ? "text" : "password"} value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} placeholder="Senha" className={`${inp} pr-12`} />
+              <input type={verSenha ? "text" : "password"} value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} placeholder="Deixe em branco para manter" className={`${inp} pr-12`} />
               <button type="button" onClick={() => setVerSenha((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-400 hover:text-white">{verSenha ? "🙈" : "👁️"}</button>
             </div>
-            <p className="mt-1 text-[11px] text-slate-500">Ao salvar, a senha é sincronizada com o login do sistema.</p>
+            <p className="mt-1 text-[11px] text-slate-500">Nome, e-mail e cargo são gravados no banco. Senha só altera se preenchida.</p>
           </div>
           <div>
             <label className={lbl}>Cargo / Perfil</label>
@@ -22711,7 +22782,7 @@ function UsuarioEditModal({ usuario, cargos = [], onSalvar, onFechar }) {
               {cargos.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
             </select>
           </div>
-          <button onClick={() => valido && onSalvar(f)} disabled={!valido} className="w-full rounded-2xl bg-emerald-500 py-4 text-sm font-black text-white hover:bg-emerald-400 disabled:opacity-50">💾 Salvar alterações</button>
+          <button onClick={() => valido && onSalvar(f)} disabled={!valido} className="w-full rounded-2xl bg-emerald-500 py-4 text-sm font-black text-white hover:bg-emerald-400 disabled:opacity-50">💾 Salvar no banco</button>
         </div>
       </div>
     </div>

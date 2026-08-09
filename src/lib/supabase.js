@@ -1609,6 +1609,126 @@ export async function garantirLoginNoBanco(email, senha) {
   return validarLoginNoBanco(email, senha)
 }
 
+/**
+ * Persiste campos do usuário em tab_usuarios (cadastro, acessos, ações, ativo…).
+ * Ordem: API service-role → RPC app_salvar_usuario → update direto.
+ */
+export async function persistirUsuarioCampos(usuarioId, camposApp = {}) {
+  if (usuarioId == null) throw new Error('ID do usuário inválido.')
+  const payload = {
+    acao: 'perfil',
+    usuarioId,
+    email: camposApp.email || '',
+    emailAnterior: camposApp.emailAnterior || camposApp.email || '',
+    senha: camposApp.password != null ? camposApp.password : (camposApp.senha != null ? camposApp.senha : ''),
+    nome: camposApp.name != null ? camposApp.name : (camposApp.nome || ''),
+    lojaId: camposApp.lojaId ?? camposApp.loja_id ?? null,
+    perfil: camposApp.role != null ? camposApp.role : (camposApp.perfil || undefined),
+    cargoId: camposApp.cargoId ?? camposApp.cargo_id ?? null,
+    ativo: typeof camposApp.active === 'boolean' ? camposApp.active
+      : (typeof camposApp.ativo === 'boolean' ? camposApp.ativo : undefined),
+    idsAcesso: Array.isArray(camposApp.accessIds) ? camposApp.accessIds
+      : (Array.isArray(camposApp.ids_acesso) ? camposApp.ids_acesso : undefined),
+    permissoesAcoes: camposApp.permissoesAcoes != null ? camposApp.permissoesAcoes
+      : (camposApp.permissoes_acoes != null ? camposApp.permissoes_acoes : undefined),
+    persistirPerfil: true,
+  }
+
+  // 1) API Vercel (service role) — quando há sessão Auth do admin.
+  try {
+    const r = await gerenciarUsuarioAuth(payload)
+    if (r?.usuario) return mapUsuarioDb(r.usuario)
+    if (r?.ok) {
+      const u = await fetchUsuarioPorEmail(payload.email || payload.emailAnterior)
+      if (u) return u
+    }
+  } catch (e) {
+    if (/Sem permissão|permissão administrativa|Só é possível/i.test(String(e?.message || ''))) throw e
+    // segue para RPC / update direto
+  }
+
+  // 2) RPC security definer (migration 089)
+  const rpcCampos = {}
+  if (payload.nome) rpcCampos.nome = payload.nome
+  if (payload.email) rpcCampos.email = payload.email
+  if (payload.senha) rpcCampos.senha = payload.senha
+  if (payload.perfil) rpcCampos.perfil = payload.perfil
+  if (typeof payload.ativo === 'boolean') rpcCampos.ativo = payload.ativo
+  if (Array.isArray(payload.idsAcesso)) rpcCampos.ids_acesso = payload.idsAcesso
+  if (payload.cargoId != null && payload.cargoId !== '') rpcCampos.cargo_id = payload.cargoId
+  if (payload.lojaId != null && payload.lojaId !== '') rpcCampos.loja_id = payload.lojaId
+  if (payload.permissoesAcoes != null) rpcCampos.permissoes_acoes = payload.permissoesAcoes
+
+  try {
+    const { data, error } = await supabase.rpc('app_salvar_usuario', {
+      p_id: Number(usuarioId),
+      p_campos: rpcCampos,
+    })
+    if (!error && data?.ok && data.usuario) return mapUsuarioDb(data.usuario)
+    if (!error && data && data.ok === false) {
+      throw Object.assign(new Error(data.error || 'Falha ao salvar usuário.'), { code: data.code })
+    }
+  } catch (e) {
+    if (e?.code && e.code !== 'PGRST202' && !/function|does not exist|404/i.test(String(e?.message || ''))) {
+      if (e.code !== 'AUTH_REQUIRED') throw e
+    }
+  }
+
+  // 3) Update direto (policies permissivas / JWT com loja)
+  const dbCampos = {}
+  if (rpcCampos.nome != null) dbCampos.nome = rpcCampos.nome
+  if (rpcCampos.email != null) dbCampos.email = rpcCampos.email
+  if (rpcCampos.senha != null) dbCampos.senha = rpcCampos.senha
+  if (rpcCampos.perfil != null) dbCampos.perfil = rpcCampos.perfil
+  if (typeof rpcCampos.ativo === 'boolean') dbCampos.ativo = rpcCampos.ativo
+  if (Array.isArray(rpcCampos.ids_acesso)) dbCampos.ids_acesso = rpcCampos.ids_acesso
+  if (rpcCampos.cargo_id != null) dbCampos.cargo_id = rpcCampos.cargo_id
+  if (rpcCampos.loja_id != null) dbCampos.loja_id = rpcCampos.loja_id
+  if (rpcCampos.permissoes_acoes != null) dbCampos.permissoes_acoes = rpcCampos.permissoes_acoes
+  await atualizarUsuario(usuarioId, dbCampos)
+  const { data: row, error } = await supabase.from('tab_usuarios').select('*').eq('id', usuarioId).maybeSingle()
+  if (error) throw error
+  if (!row) throw new Error('Usuário não encontrado após salvar.')
+  return dbParaUsuario(row)
+}
+
+/** Cria usuário em tab_usuarios (RPC → insert direto). Auth fica a cargo do caller. */
+export async function criarUsuarioNoBanco(nu) {
+  const dados = {
+    nome: nu.name || nu.nome || '',
+    email: (nu.email || '').trim().toLowerCase(),
+    senha: nu.password || nu.senha || '',
+    perfil: nu.role || nu.perfil || 'Operador',
+    ativo: nu.active !== false,
+    ids_acesso: Array.isArray(nu.accessIds) ? nu.accessIds : (nu.ids_acesso || []),
+    loja_id: nu.lojaId ?? nu.loja_id ?? null,
+    cargo_id: nu.cargoId ?? nu.cargo_id ?? null,
+    permissoes_acoes: nu.permissoesAcoes || nu.permissoes_acoes || {},
+  }
+  try {
+    const { data, error } = await supabase.rpc('app_criar_usuario', { p_dados: dados })
+    if (!error && data?.ok && data.usuario) return mapUsuarioDb(data.usuario)
+    if (!error && data?.ok === false) {
+      throw Object.assign(new Error(data.error || 'Falha ao criar usuário.'), { code: data.code })
+    }
+  } catch (e) {
+    if (e?.code && !/PGRST202|function|does not exist|AUTH_REQUIRED/i.test(String(e.code) + String(e.message || ''))) {
+      throw e
+    }
+  }
+  return inserirUsuario({
+    name: dados.nome,
+    email: dados.email,
+    password: dados.senha,
+    role: dados.perfil,
+    active: dados.ativo,
+    accessIds: dados.ids_acesso,
+    lojaId: dados.loja_id,
+    cargoId: dados.cargo_id,
+    permissoesAcoes: dados.permissoes_acoes,
+  })
+}
+
 /** Busca um usuário do app pelo e-mail (para restaurar sessão pós-login). */
 export async function fetchUsuarioPorEmail(email) {
   const alvo = (email || '').trim().toLowerCase()
@@ -1633,7 +1753,8 @@ export const SENHA_MIN_AUTH = 6
  */
 export async function gerenciarUsuarioAuth({
   acao, email, senha, nome, lojaId, emailAnterior,
-  perfil, cargoId, ativo, idsAcesso, persistirPerfil = true,
+  perfil, cargoId, ativo, idsAcesso, permissoesAcoes, usuarioId,
+  persistirPerfil = true,
 }) {
   const { data: sess } = await supabase.auth.getSession()
   const token = sess?.session?.access_token
@@ -1648,8 +1769,10 @@ export async function gerenciarUsuarioAuth({
     emailAnterior: emailAnterior ? String(emailAnterior).trim().toLowerCase() : '',
     perfil: perfil || '',
     cargoId: cargoId ?? null,
-    ativo: ativo !== false,
+    usuarioId: usuarioId ?? null,
+    ...(typeof ativo === 'boolean' ? { ativo } : {}),
     idsAcesso: Array.isArray(idsAcesso) ? idsAcesso : undefined,
+    permissoesAcoes: permissoesAcoes != null ? permissoesAcoes : undefined,
     persistirPerfil: persistirPerfil !== false,
   }
 
@@ -2689,6 +2812,7 @@ function usuarioParaDb(u) {
     ...(u.lojaId ? { loja_id: u.lojaId } : {}),
     ...(u.cargoId ? { cargo_id: u.cargoId } : {}),
     ...(u.superAdmin != null ? { super_admin: u.superAdmin } : {}),
+    ...(u.permissoesAcoes != null ? { permissoes_acoes: u.permissoesAcoes } : {}),
   }
 }
 

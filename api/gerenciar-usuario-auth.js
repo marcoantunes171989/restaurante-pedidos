@@ -178,20 +178,28 @@ function podeGerenciarLoja(operador, lojaIdAlvo) {
   return String(operador.lojaId) === String(lojaIdAlvo);
 }
 
-function montarRowApp({ email, senha, nome, lojaId, perfil, cargoId, ativo, idsAcesso }) {
+function montarRowApp({ email, senha, nome, lojaId, perfil, cargoId, ativo, idsAcesso, permissoesAcoes }) {
   const row = {
-    email: String(email || "").trim().toLowerCase(),
-    nome: String(nome || "").trim() || email,
-    senha: senha != null ? String(senha) : undefined,
-    perfil: String(perfil || "Operador").trim() || "Operador",
-    ativo: ativo !== false,
-    ids_acesso: Array.isArray(idsAcesso) ? idsAcesso : [],
+    email: email != null ? String(email).trim().toLowerCase() : undefined,
+    nome: nome != null ? (String(nome).trim() || undefined) : undefined,
+    senha: senha != null && String(senha) !== "" ? String(senha) : undefined,
+    perfil: perfil != null ? (String(perfil).trim() || "Operador") : undefined,
+    ativo: typeof ativo === "boolean" ? ativo : undefined,
+    ids_acesso: Array.isArray(idsAcesso) ? idsAcesso : undefined,
+    permissoes_acoes: permissoesAcoes != null && typeof permissoesAcoes === "object" ? permissoesAcoes : undefined,
   };
   if (lojaId != null && lojaId !== "") row.loja_id = lojaId;
   if (cargoId != null && cargoId !== "") row.cargo_id = Number(cargoId);
-  // Remove undefined (senha opcional em update parcial).
   Object.keys(row).forEach((k) => { if (row[k] === undefined) delete row[k]; });
   return row;
+}
+
+async function restSelectUsuarioPorId(id) {
+  if (id == null || id === "") return null;
+  const rows = await rest(
+    `/tab_usuarios?id=eq.${encodeURIComponent(id)}&select=id,email,loja_id,ativo,super_admin,ids_acesso,nome,senha,perfil,cargo_id,permissoes_acoes`,
+  );
+  return Array.isArray(rows) && rows[0] ? rows[0] : null;
 }
 
 export default async function handler(req, res) {
@@ -228,15 +236,20 @@ export default async function handler(req, res) {
     const lojaId = body.lojaId != null && body.lojaId !== "" ? body.lojaId : null;
     const perfil = body.perfil != null ? String(body.perfil) : "Operador";
     const cargoId = body.cargoId != null && body.cargoId !== "" ? body.cargoId : null;
-    const ativo = body.ativo !== false;
-    const idsAcesso = Array.isArray(body.idsAcesso) ? body.idsAcesso : [];
+    const ativo = typeof body.ativo === "boolean" ? body.ativo : undefined;
+    const idsAcesso = Array.isArray(body.idsAcesso) ? body.idsAcesso : undefined;
+    const permissoesAcoes = body.permissoesAcoes != null && typeof body.permissoesAcoes === "object"
+      ? body.permissoesAcoes
+      : undefined;
+    const usuarioId = body.usuarioId != null && body.usuarioId !== "" ? body.usuarioId : null;
     // persistirPerfil=false → só Auth (compat); padrão true grava tab_usuarios.
     const persistirPerfil = body.persistirPerfil !== false;
 
-    if (!["criar", "atualizar", "excluir"].includes(acao)) {
+    if (!["criar", "atualizar", "excluir", "perfil"].includes(acao)) {
       return json(res, 400, { error: "Ação inválida." });
     }
-    if (!email || !email.includes("@")) {
+    // "perfil" pode vir só com usuarioId (ex.: só ids_acesso / ativo).
+    if (acao !== "perfil" && (!email || !email.includes("@"))) {
       return json(res, 400, { error: "E-mail inválido." });
     }
 
@@ -275,10 +288,88 @@ export default async function handler(req, res) {
       let usuario = null;
       if (persistirPerfil) {
         usuario = await upsertTabUsuario(montarRowApp({
-          email, senha, nome, lojaId, perfil, cargoId, ativo, idsAcesso,
+          email, senha, nome, lojaId, perfil, cargoId,
+          ativo: ativo !== false,
+          idsAcesso: Array.isArray(idsAcesso) ? idsAcesso : [],
+          permissoesAcoes: permissoesAcoes || {},
         }));
       }
       return json(res, 200, { ok: true, id: authId, atualizado: !!existente, usuario });
+    }
+
+    // Atualiza só tab_usuarios (cadastro / permissões / ativo) — senha opcional.
+    if (acao === "perfil") {
+      const rowApp = usuarioId
+        ? await restSelectUsuarioPorId(usuarioId)
+        : await restSelectUsuarioPorEmail(emailAnterior || email);
+      if (!rowApp) return json(res, 404, { error: "Usuário não encontrado no banco." });
+      if (!podeGerenciarLoja(operador, rowApp.loja_id) && !operador.superAdmin) {
+        return json(res, 403, { error: "Só é possível editar usuários da sua empresa." });
+      }
+      if (senha) {
+        const errSenha = validarSenha(senha);
+        if (errSenha) return json(res, 400, { error: errSenha });
+      }
+      const emailNovo = email && email.includes("@") ? email : rowApp.email;
+      const campos = montarRowApp({
+        email: emailNovo,
+        senha: senha || undefined,
+        nome: nome || undefined,
+        lojaId: lojaId != null ? lojaId : undefined,
+        perfil: body.perfil != null ? perfil : undefined,
+        cargoId: cargoId != null ? cargoId : undefined,
+        ativo,
+        idsAcesso,
+        permissoesAcoes,
+      });
+      if (!Object.keys(campos).length) {
+        return json(res, 400, { error: "Nenhum campo para atualizar." });
+      }
+      let usuario;
+      try {
+        usuario = await updateTabUsuarioPorId(rowApp.id, campos);
+      } catch (e) {
+        // Coluna permissoes_acoes pode não existir ainda.
+        if (campos.permissoes_acoes != null && /permissoes_acoes|column/i.test(String(e.message || ""))) {
+          const { permissoes_acoes, ...rest } = campos;
+          usuario = await updateTabUsuarioPorId(rowApp.id, rest);
+        } else {
+          throw e;
+        }
+      }
+      // Alinha Auth se senha/e-mail/nome mudaram (best-effort).
+      if (senha || (emailNovo && emailNovo !== String(rowApp.email || "").toLowerCase()) || nome) {
+        try {
+          let authUser = await encontrarAuthPorEmail(rowApp.email);
+          if (!authUser && emailNovo !== rowApp.email) authUser = await encontrarAuthPorEmail(emailNovo);
+          if (authUser?.id) {
+            const patch = {
+              email_confirm: true,
+              user_metadata: {
+                ...(authUser.user_metadata || {}),
+                nome: nome || rowApp.nome,
+                loja_id: rowApp.loja_id,
+              },
+            };
+            if (senha) patch.password = senha;
+            if (emailNovo && emailNovo !== String(authUser.email || "").toLowerCase()) patch.email = emailNovo;
+            await authAdmin(`/admin/users/${authUser.id}`, { method: "PUT", body: patch });
+          } else if (senha) {
+            await authAdmin("/admin/users", {
+              method: "POST",
+              body: {
+                email: emailNovo,
+                password: senha,
+                email_confirm: true,
+                user_metadata: { nome: nome || rowApp.nome, loja_id: rowApp.loja_id },
+              },
+            });
+          }
+        } catch (e) {
+          console.warn("[gerenciar-usuario-auth] Auth best-effort (perfil):", e?.message || e);
+        }
+      }
+      return json(res, 200, { ok: true, usuario });
     }
 
     if (acao === "atualizar") {
@@ -338,11 +429,19 @@ export default async function handler(req, res) {
           lojaId: lojaEfetiva,
           perfil: body.perfil != null ? perfil : (rowApp?.perfil || perfil),
           cargoId: cargoId != null ? cargoId : rowApp?.cargo_id,
-          ativo,
-          idsAcesso: Array.isArray(body.idsAcesso) ? idsAcesso : (rowApp?.ids_acesso || []),
+          ativo: typeof ativo === "boolean" ? ativo : (rowApp?.ativo !== false),
+          idsAcesso: Array.isArray(idsAcesso) ? idsAcesso : (rowApp?.ids_acesso || []),
+          permissoesAcoes: permissoesAcoes != null ? permissoesAcoes : undefined,
         });
         if (rowApp?.id) {
-          usuario = await updateTabUsuarioPorId(rowApp.id, campos);
+          try {
+            usuario = await updateTabUsuarioPorId(rowApp.id, campos);
+          } catch (e) {
+            if (campos.permissoes_acoes != null && /permissoes_acoes|column/i.test(String(e.message || ""))) {
+              const { permissoes_acoes, ...rest } = campos;
+              usuario = await updateTabUsuarioPorId(rowApp.id, rest);
+            } else throw e;
+          }
         } else {
           if (!campos.senha) {
             return json(res, 400, { error: "Informe a senha para criar o registro do usuário no banco." });
