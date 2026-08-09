@@ -453,6 +453,36 @@ function acessosOperacionais(user) {
 }
 const temAcessoOperacional = (user) => { const p = acessosOperacionais(user); return p.pedidos || p.cozinha || p.bar || p.caixa; };
 
+// Abas do menu principal (fora da Central Operacional /operacional).
+const MENU_PRINCIPAL_IDS = ["admin", "tablet", "kitchen", "panel", "cashier"];
+function temAcessoMenuPrincipal(user) {
+  if (!user || !user.active) return false;
+  if (user.superAdmin) return true;
+  const ids = user.accessIds || [];
+  return MENU_PRINCIPAL_IDS.some((id) => ids.includes(id));
+}
+/**
+ * Pouso natural pós-login.
+ * Operação Mobile (/operacional) SÓ quando o perfil é exclusivamente
+ * operacional — sem admin/tablet/cozinha/painel/caixa do menu principal.
+ * (admin e kitchen também “herdam” flags op_* via legado; isso NÃO pode
+ * forçar /operacional no login.)
+ */
+function abaInicialDoUsuario(user) {
+  if (!user || !user.active) return "blocked";
+  const ids = user.accessIds || [];
+  const has = (id) => ids.includes(id);
+  if (user.superAdmin || has("admin")) return "admin";
+  for (const id of ["tablet", "kitchen", "panel", "cashier"]) {
+    if (has(id)) return id;
+  }
+  if (temAcessoOperacional(user)) return "opmobile";
+  return "blocked";
+}
+function perfilExclusivoOperacional(user) {
+  return !!user && temAcessoOperacional(user) && !temAcessoMenuPrincipal(user);
+}
+
 // Ações configuráveis por módulo (briefing item 23 — migration 032)
 const ACOES_MODULO = [
   ["ver", "Visualizar"], ["incluir", "Incluir"], ["alterar", "Alterar"],
@@ -852,9 +882,7 @@ export default function RestaurantePedidoApp() {
   // quando a URL aponta para uma tela que o usuário logado não tem permissão de
   // acessar (ex.: Admin caindo em /app/tablet por link/estado antigo no navegador).
   function rotaSeguraFallback(user) {
-    if (canAccess(user, "admin")) return "admin";
-    if (temAcessoOperacional(user)) return "opmobile";
-    return ordemMenu.find((id) => canAccess(user, id)) || "blocked";
+    return abaInicialDoUsuario(user);
   }
   // Aplica o fallback seguro na tela E normaliza a seção do admin p/ "dashboard"
   // quando o pouso for no admin — evita reaproveitar uma adminSection antiga.
@@ -880,7 +908,12 @@ export default function RestaurantePedidoApp() {
     }
     const opMatch = pathname.match(/^\/operacional(?:\/([^/?]+))?/);
     if (opMatch) {
-      if (!temAcessoOperacional(user)) { irParaFallbackSeguro(user); return; }
+      // Bookmark/redirect em /operacional NÃO pode sequestrar admin, cozinha,
+      // caixa etc. Só perfil exclusivamente operacional pousa aqui.
+      if (!perfilExclusivoOperacional(user)) {
+        irParaFallbackSeguro(user);
+        return;
+      }
       const sub = opMatch[1];
       setOpmobileTab(["pedidos", "cozinha", "bar", "caixa"].includes(sub) ? sub : "central");
       setActiveTab("opmobile");
@@ -894,7 +927,7 @@ export default function RestaurantePedidoApp() {
       // também tenha o acesso técnico "tablet" marcado (ex.: dono/gestor com todos os
       // acessos), a navegação AUTOMÁTICA (deep-link/voltar) nunca deve levar quem tem
       // acesso admin para essa tela — só entra manualmente pelo menu, se quiser.
-      const liberado = alvo === "opmobile" ? temAcessoOperacional(user)
+      const liberado = alvo === "opmobile" ? perfilExclusivoOperacional(user)
         : alvo === "tablet" ? (canAccess(user, "tablet") && !canAccess(user, "admin"))
         : canAccess(user, alvo);
       if (!liberado) { irParaFallbackSeguro(user); return; }
@@ -915,6 +948,14 @@ export default function RestaurantePedidoApp() {
     const redirectSalvo = obterRedirectPosLogin();
     const pathname = redirectSalvo ? redirectSalvo.pathname : window.location.pathname;
     const search = redirectSalvo ? redirectSalvo.search : window.location.search;
+    // /operacional salvo por bookmark NÃO sobrescreve o pouso natural de quem
+    // tem menu principal (admin/PDV/cozinha…). Limpa o redirect e mantém a aba
+    // já definida em aplicarLogin.
+    if (/^\/operacional(\/|$)/.test(pathname) && !perfilExclusivoOperacional(currentUser)) {
+      limparRedirectPosLogin();
+      irParaFallbackSeguro(currentUser);
+      return;
+    }
     if (/^\/(admin|app|operacional)(\/|$)/.test(pathname)) {
       popstateRef.current = true;
       aplicarRota(pathname, search, currentUser);
@@ -1074,7 +1115,6 @@ export default function RestaurantePedidoApp() {
     }
     setCurrentUser(credOk);
     auditar("login", "usuario", credOk.id, { email: credOk.email }, credOk);
-    const acessosAtivos = (id) => credOk.accessIds.includes(id) && accesses.some((a) => a.id === id && a.active);
     // Respeita link direto (ex.: /admin/copiloto) — usa a rota original salva
     // quando o acesso protegido foi feito sem sessão (a URL, nesse caso, já
     // foi corrigida para "/login"); sem redirect salvo, cai na URL atual
@@ -1085,19 +1125,22 @@ export default function RestaurantePedidoApp() {
     const redirectSalvo = obterRedirectPosLogin();
     const pathnameAlvo = redirectSalvo ? redirectSalvo.pathname : window.location.pathname;
     const deepAdmin = pathnameAlvo.match(/^\/admin\/([^/?]+)/);
+    // /operacional NÃO define pouso aqui — só perfil exclusivo operacional
+    // (tratado em rotaInicialRef/aplicarRota). Demais perfis usam aba natural.
+    const redirectOperacional = /^\/operacional(\/|$)/.test(pathnameAlvo);
     if (deepAdmin && deepAdmin[1] === "cozinha" && canAccess(credOk, "kitchen")) {
       setActiveTab("kitchen");
-    } else if (deepAdmin && deepAdmin[1] !== "cozinha" && acessosAtivos("admin")) {
+    } else if (deepAdmin && deepAdmin[1] !== "cozinha" && canAccess(credOk, "admin")) {
       setActiveTab("admin");
       setAdminSection(deepAdmin[1]);
+    } else if (redirectOperacional && perfilExclusivoOperacional(credOk)) {
+      setActiveTab("opmobile");
     } else {
-      // Pouso padrão IGUAL em todos os dispositivos (inclusive smartphone): o
-      // celular NÃO é mais forçado para a Operação Mobile — cada perfil abre a
-      // sua tela natural (admin no dashboard; caixa no PDV; cozinha no KDS…),
-      // exatamente como em tablet/desktop. Só cai na Operação Mobile quem tem
-      // ACESSO exclusivamente operacional (sem nenhuma aba do menu principal).
-      const primeira = acessosAtivos("admin") ? "admin" : ordemMenu.find((id) => acessosAtivos(id));
-      setActiveTab(primeira || (temAcessoOperacional(credOk) ? "opmobile" : "blocked"));
+      // Pouso padrão: admin → dashboard; caixa → PDV; cozinha → KDS…
+      // Operação Mobile só para perfil exclusivamente operacional.
+      const home = abaInicialDoUsuario(credOk);
+      if (home === "admin") setAdminSection("dashboard");
+      setActiveTab(home);
     }
     if (!silencioso) notify("success", `Acesso liberado para ${credOk.name}.`);
     return true;
