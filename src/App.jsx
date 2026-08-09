@@ -6674,7 +6674,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           {ativo === "contas-receber" && (precisaEmpresa ? avisoEmpresa : <LancamentosAdmin lojaId={lojaInfo?.id} orders={filtraLoja(orders)} modo="receber" />)}
           {ativo === "contas-pagar" && (precisaEmpresa ? avisoEmpresa : <LancamentosAdmin lojaId={lojaInfo?.id} orders={filtraLoja(orders)} modo="pagar" />)}
           {ativo === "caixa"      && (precisaEmpresa ? avisoEmpresa : <CaixaSessaoAdmin caixaAberto={caixaAberto} caixas={caixasLoja} api={caixaApi} />)}
-          {ativo === "users"      && <UserAdmin      users={filtraLoja(users)} userForm={userForm} setUserForm={setUserForm} addUser={addUser} toggleUserStatus={toggleUserStatus} editarUsuario={editarUsuario} removerUsuario={removerUsuario} lojaInfo={lojaInfo} lojas={lojas} isSuperAdmin={isSuperAdmin} cargos={cargos} />}
+          {ativo === "users"      && <UserAdmin      users={filtraLoja(users)} userForm={userForm} setUserForm={setUserForm} addUser={addUser} toggleUserStatus={toggleUserStatus} editarUsuario={editarUsuario} removerUsuario={removerUsuario} lojaInfo={lojaInfo} lojas={lojas} isSuperAdmin={isSuperAdmin} cargos={cargos} currentUser={currentUser} />}
           {ativo === "cargos"     && <CargoAdmin     cargos={filtraLoja(cargos)} users={filtraLoja(users)} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} />}
           {ativo === "access"     && <AccessAdmin    accesses={accesses} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleAccessStatus={toggleAccessStatus} />}
           {ativo === "link"       && <UserAccessAdmin users={filtraLoja(users)} accesses={accesses} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} lojaInfo={lojaInfo} lojas={lojas} isSuperAdmin={isSuperAdmin} />}
@@ -22589,11 +22589,14 @@ function CargoEditModal({ cargo, onSalvar, onFechar }) {
   );
 }
 
-function UserAdmin({ users, userForm, setUserForm, addUser, toggleUserStatus, editarUsuario, removerUsuario, lojaInfo, lojas = [], isSuperAdmin = false, cargos = [] }) {
+function UserAdmin({ users, userForm, setUserForm, addUser, toggleUserStatus, editarUsuario, removerUsuario, lojaInfo, lojas = [], isSuperAdmin = false, cargos = [], currentUser = null }) {
   const [editando, setEditando] = useState(null);
   const [excluir, setExcluir]   = useState(null);
   const [criando, setCriando]   = useState(false);
   const [busca, setBusca]       = useState("");
+  // Senha em claro na lista/edição só para administrador (admin ou super admin).
+  const podeVerSenha = !!(currentUser?.superAdmin || (currentUser?.accessIds || []).includes("admin"));
+  const [senhasVisiveis, setSenhasVisiveis] = useState({}); // id → true para revelar na lista
   const lojasAtivas = lojas.filter((l) => l.active !== false);
   const cargosAtivos = cargos.filter((c) => c.active !== false);
   const lojaDoUser = (u) => lojas.find((l) => l.id === u.lojaId);
@@ -22657,12 +22660,33 @@ function UserAdmin({ users, userForm, setUserForm, addUser, toggleUserStatus, ed
             </div>
           )}
           {users.length > 0 && usuariosFiltrados.length === 0 && <p className="py-6 text-center text-sm text-slate-500">Nenhum usuário encontrado.</p>}
-          {usuariosFiltrados.map((u) => (
+          {usuariosFiltrados.map((u) => {
+            const senha = u.password != null ? String(u.password) : "";
+            const revelada = !!senhasVisiveis[u.id];
+            return (
             <div key={u.id} className="flex items-center gap-3 rounded-3xl border border-white/10 bg-slate-950/40 p-3">
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-500/15 text-lg">👤</div>
               <div className="min-w-0 flex-1">
                 <p className="font-black text-white truncate">{u.name}{u.superAdmin && <span className="ml-2 rounded-full bg-gold-500/20 px-2 py-0.5 text-[10px] font-black text-gold-300 align-middle">ADMIN GERAL</span>}</p>
                 <p className="text-xs text-slate-400 truncate">{u.email}</p>
+                {podeVerSenha && (
+                  <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-300">
+                    <span className="font-bold uppercase tracking-wide text-slate-500">Senha</span>
+                    <span className="rounded-lg border border-white/10 bg-slate-950/60 px-2 py-0.5 font-mono text-[12px] text-emerald-200">
+                      {senha ? (revelada ? senha : "••••••••") : "—"}
+                    </span>
+                    {senha ? (
+                      <button
+                        type="button"
+                        onClick={() => setSenhasVisiveis((cur) => ({ ...cur, [u.id]: !cur[u.id] }))}
+                        className="rounded-lg border border-white/10 bg-white/[0.06] px-2 py-0.5 text-[11px] font-black text-slate-300 hover:bg-white/10"
+                        title={revelada ? "Ocultar senha" : "Mostrar senha"}
+                      >
+                        {revelada ? "Ocultar" : "Mostrar"}
+                      </button>
+                    ) : null}
+                  </p>
+                )}
                 <div className="mt-1 flex flex-wrap items-center gap-1.5">
                   <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[11px] font-bold text-slate-200">🪪 {u.role || "—"}</span>
                   {isSuperAdmin && <span className="rounded-full bg-blue-500/10 px-2 py-0.5 text-[11px] font-bold text-blue-200">🏪 {lojaDoUser(u)?.nome || (u.superAdmin ? "Todas" : "Sem empresa")}</span>}
@@ -22673,15 +22697,16 @@ function UserAdmin({ users, userForm, setUserForm, addUser, toggleUserStatus, ed
               <button onClick={() => setEditando(u)} className="shrink-0 rounded-xl border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs font-black text-blue-300 hover:bg-white/10">✏️</button>
               <button onClick={() => setExcluir(u)} disabled={u.superAdmin} className="shrink-0 rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-1.5 text-xs font-black text-red-300 hover:bg-red-500/20 disabled:opacity-30 disabled:cursor-not-allowed">🗑️</button>
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
       {criando && (
         <UsuarioCadastroModal userForm={userForm} setUserForm={setUserForm} onSalvar={salvarNovo} onFechar={() => setCriando(false)}
-          cargos={cargosAtivos} lojas={lojasAtivas} isSuperAdmin={isSuperAdmin} lojaInfo={lojaInfo} formValido={formValido} />
+          cargos={cargosAtivos} lojas={lojasAtivas} isSuperAdmin={isSuperAdmin} lojaInfo={lojaInfo} formValido={formValido} podeVerSenha={podeVerSenha} />
       )}
-      {editando && <UsuarioEditModal usuario={editando} cargos={cargosAtivos} onSalvar={async (d) => {
+      {editando && <UsuarioEditModal usuario={editando} cargos={cargosAtivos} podeVerSenha={podeVerSenha} onSalvar={async (d) => {
         const ok = await editarUsuario(editando.id, d);
         if (ok !== false) setEditando(null);
       }} onFechar={() => setEditando(null)} />}
@@ -22697,8 +22722,9 @@ function UserAdmin({ users, userForm, setUserForm, addUser, toggleUserStatus, ed
 }
 
 // Modal de cadastro de usuário (empresa em chips p/ super admin + cargo em chips)
-function UsuarioCadastroModal({ userForm, setUserForm, onSalvar, onFechar, cargos = [], lojas = [], isSuperAdmin, lojaInfo, formValido }) {
-  const [verSenha, setVerSenha] = useState(false);
+function UsuarioCadastroModal({ userForm, setUserForm, onSalvar, onFechar, cargos = [], lojas = [], isSuperAdmin, lojaInfo, formValido, podeVerSenha = false }) {
+  // Administrador vê a senha em claro ao cadastrar; demais mantêm campo oculto.
+  const [verSenha, setVerSenha] = useState(!!podeVerSenha);
   const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-gold-400/60 placeholder:text-slate-600";
   const lbl = "mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500";
   const chip = (sel) => `flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-black transition active:scale-95 ${sel ? "border-blue-400 bg-blue-500 text-white shadow-lg shadow-blue-950/40" : "border-white/10 bg-white/[0.04] text-slate-300 hover:border-white/25 hover:bg-white/10"}`;
@@ -22744,9 +22770,15 @@ function UsuarioCadastroModal({ userForm, setUserForm, onSalvar, onFechar, cargo
               <span className={lbl}>Senha * (mín. {SENHA_MIN_AUTH})</span>
               <div className="relative">
                 <input type={verSenha ? "text" : "password"} value={userForm.password} onChange={(e) => setUserForm({ ...userForm, password: e.target.value })} placeholder="Defina a senha" className={`${inp} pr-12`} autoComplete="new-password" name="novo_usuario_senha" />
-                <button type="button" onClick={() => setVerSenha((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-400 hover:text-white">{verSenha ? "🙈" : "👁️"}</button>
+                {podeVerSenha && (
+                  <button type="button" onClick={() => setVerSenha((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-400 hover:text-white" title={verSenha ? "Ocultar senha" : "Mostrar senha"}>{verSenha ? "🙈" : "👁️"}</button>
+                )}
               </div>
-              <p className="mt-1 text-[11px] text-slate-500">Mesma senha usada no login (validada no banco/Auth).</p>
+              <p className="mt-1 text-[11px] text-slate-500">
+                {podeVerSenha
+                  ? "Senha visível para administrador — a mesma usada no login (tab_usuarios)."
+                  : "Mesma senha usada no login (validada no banco/Auth)."}
+              </p>
             </div>
           </div>
 
@@ -22775,9 +22807,16 @@ function UsuarioCadastroModal({ userForm, setUserForm, onSalvar, onFechar, cargo
   );
 }
 
-function UsuarioEditModal({ usuario, cargos = [], onSalvar, onFechar }) {
-  const [f, setF] = useState({ name: usuario.name, email: usuario.email, password: "", role: usuario.role, cargoId: usuario.cargoId ?? "" });
-  const [verSenha, setVerSenha] = useState(false);
+function UsuarioEditModal({ usuario, cargos = [], onSalvar, onFechar, podeVerSenha = false }) {
+  const senhaAtual = usuario.password != null ? String(usuario.password) : "";
+  const [f, setF] = useState({
+    name: usuario.name,
+    email: usuario.email,
+    password: podeVerSenha ? senhaAtual : "",
+    role: usuario.role,
+    cargoId: usuario.cargoId ?? "",
+  });
+  const [verSenha, setVerSenha] = useState(!!podeVerSenha);
   const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-gold-400/60";
   const lbl = "mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500";
   const senhaOk = !f.password || f.password.length >= SENHA_MIN_AUTH;
@@ -22793,12 +22832,22 @@ function UsuarioEditModal({ usuario, cargos = [], onSalvar, onFechar }) {
           <div><label className={lbl}>Nome</label><input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="Nome" className={inp} /></div>
           <div><label className={lbl}>E-mail</label><input value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} placeholder="E-mail" className={inp} /></div>
           <div>
-            <label className={lbl}>Nova senha (opcional, mín. {SENHA_MIN_AUTH})</label>
+            <label className={lbl}>{podeVerSenha ? `Senha (mín. ${SENHA_MIN_AUTH})` : `Nova senha (opcional, mín. ${SENHA_MIN_AUTH})`}</label>
             <div className="relative">
-              <input type={verSenha ? "text" : "password"} value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} placeholder="Deixe em branco para manter" className={`${inp} pr-12`} />
+              <input
+                type={verSenha ? "text" : "password"}
+                value={f.password}
+                onChange={(e) => setF({ ...f, password: e.target.value })}
+                placeholder={podeVerSenha ? "Senha do usuário" : "Deixe em branco para manter"}
+                className={`${inp} pr-12`}
+              />
               <button type="button" onClick={() => setVerSenha((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-400 hover:text-white">{verSenha ? "🙈" : "👁️"}</button>
             </div>
-            <p className="mt-1 text-[11px] text-slate-500">Nome, e-mail e cargo são gravados no banco. Senha só altera se preenchida.</p>
+            <p className="mt-1 text-[11px] text-slate-500">
+              {podeVerSenha
+                ? "Visível apenas para administrador. Alterações são gravadas em tab_usuarios."
+                : "Nome, e-mail e cargo são gravados no banco. Senha só altera se preenchida."}
+            </p>
           </div>
           <div>
             <label className={lbl}>Cargo / Perfil</label>
