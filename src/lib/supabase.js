@@ -1502,10 +1502,57 @@ export async function rpcCriarChamadoPublico({ lojaId, mesa, comanda, tipo }) {
 // ════════════════════════════════════════════════════════════
 export async function loginSupabaseAuth(email, senha) {
   try {
-    const { data, error } = await supabase.auth.signInWithPassword({ email: (email || '').trim(), password: senha || '' })
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: (email || '').trim().toLowerCase(),
+      password: senha || '',
+    })
     if (error) return { ok: false, error: error.message }
     return { ok: true, session: data?.session ?? null }
   } catch (e) { return { ok: false, error: e?.message || 'Falha na autenticação.' } }
+}
+
+/**
+ * Valida e-mail/senha em tab_usuarios (via API com service role) e alinha
+ * o Auth para o signInWithPassword usar a mesma senha do cadastro.
+ * Retorno: { ok: true } | throw Error com .code (INVALID_CREDENTIALS, …).
+ */
+export async function garantirLoginNoBanco(email, senha) {
+  const payload = {
+    email: (email || '').trim().toLowerCase(),
+    senha: senha != null ? String(senha) : '',
+  }
+  const r = await fetch('/api/login-banco', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  const ct = r.headers.get('content-type') || ''
+  let data = {}
+  if (ct.includes('application/json')) {
+    try { data = await r.json() } catch { data = {} }
+  } else {
+    const err = new Error('API de login indisponível.')
+    err.code = 'API_UNAVAILABLE'
+    throw err
+  }
+  if (r.ok && data?.ok) return data
+  const err = new Error(data?.error || `Erro ${r.status} ao validar login.`)
+  err.code = data?.code || (r.status === 503 ? 'SERVICE_ROLE_MISSING' : 'LOGIN_BANCO_FAIL')
+  err.status = r.status
+  throw err
+}
+
+/** Busca um usuário do app pelo e-mail (para restaurar sessão pós-login). */
+export async function fetchUsuarioPorEmail(email) {
+  const alvo = (email || '').trim().toLowerCase()
+  if (!alvo) return null
+  const { data, error } = await supabase
+    .from('tab_usuarios')
+    .select('*')
+    .ilike('email', alvo)
+    .maybeSingle()
+  if (error) throw error
+  return data ? dbParaUsuario(data) : null
 }
 
 // Mínimo exigido pelo Supabase Auth (e pela API /api/gerenciar-usuario-auth).

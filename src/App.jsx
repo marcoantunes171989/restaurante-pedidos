@@ -50,6 +50,7 @@ import {
   perguntarCopilotoIA,
   fetchAuditoria, registrarAuditoria, escutarAuditoria, marcarAuditoriaAnalisada,
   loginSupabaseAuth, logoutSupabaseAuth, aguardarSessao, getSessionEmail,
+  garantirLoginNoBanco, fetchUsuarioPorEmail,
   gerenciarUsuarioAuth, sincronizarAuthAoCriarUsuario, mapUsuarioDb, SENHA_MIN_AUTH,
   fetchLancamentos, inserirLancamento, atualizarLancamento, excluirLancamento,
 } from "./lib/supabase";
@@ -751,8 +752,8 @@ export default function RestaurantePedidoApp() {
     }
     let restaurar = false;
     try { restaurar = sessionStorage.getItem("pp_restore_once") === "1"; } catch {}
-    // Para reassociar precisamos da lista de usuários já carregada; aguarda.
-    if (restaurar && users.length === 0) return;
+    // loading já é false aqui: users veio do fetch (ou []). Se a lista não
+    // trouxer o usuário (RLS), buscamos pelo e-mail da sessão abaixo.
     restaurouSessaoRef.current = true;
     (async () => {
       if (!restaurar) {
@@ -763,12 +764,19 @@ export default function RestaurantePedidoApp() {
         return;
       }
       try { sessionStorage.removeItem("pp_restore_once"); } catch {}
-      const email = await getSessionEmail();
-      if (email) {
-        const u = users.find((x) => (x.email || "").toLowerCase() === email.toLowerCase());
-        if (u) aplicarLogin(u, { silencioso: true }); // sem sessão/usuário → mostra a tela de login
+      try {
+        const email = await getSessionEmail();
+        if (email) {
+          let u = users.find((x) => (x.email || "").toLowerCase() === email.toLowerCase());
+          if (!u) {
+            try { u = await fetchUsuarioPorEmail(email); } catch { u = null; }
+            if (u) setUsers((cur) => (cur.some((x) => x.id === u.id) ? cur : [...cur, u]));
+          }
+          if (u) aplicarLogin(u, { silencioso: true });
+        }
+      } finally {
+        setAuthResolved(true);
       }
-      setAuthResolved(true);
     })();
   }, [loading, dbReady, users, currentUser]);
 
@@ -1096,20 +1104,59 @@ export default function RestaurantePedidoApp() {
 
   async function login(credsOverride) {
     const creds = (credsOverride && credsOverride.email) ? credsOverride : loginForm;
+    const email = (creds.email || "").trim().toLowerCase();
+    const senha = creds.password != null ? String(creds.password) : "";
+    if (!email || !senha) return notify("error", "Informe e-mail e senha.");
+
     if (usandoSupabaseAuth()) {
-      // Modo Supabase Auth (transição p/ RLS): valida a senha no Auth e recarrega
-      // para o app inicializar JÁ AUTENTICADO (os dados carregam com o JWT/RLS).
-      const r = await loginSupabaseAuth(creds.email, creds.password);
-      if (!r.ok) return notify("error", mensagemErroAcesso(r.error));
-      // Recarrega para inicializar já autenticado. O flag de uso único autoriza
-      // a reassociação APENAS neste reload pós-login; em F5/nova aba o login é
-      // solicitado novamente.
+      // 1) Fonte da verdade: tab_usuarios (cadastro/senha do Admin).
+      //    A API alinha o Auth com essa senha para o signIn funcionar.
+      let bancoOk = false;
+      try {
+        await garantirLoginNoBanco(email, senha);
+        bancoOk = true;
+      } catch (e) {
+        const code = e?.code || "";
+        if (code === "INACTIVE") {
+          return notify("error", e.message || "Usuário inativo, entre em contato com o administrador do sistema.");
+        }
+        if (code === "INVALID_CREDENTIALS" || e?.status === 401) {
+          return notify("error", "E-mail ou senha incorretos.");
+        }
+        // Sem service role / API offline: tenta Auth direto e, se preciso, legado em memória.
+        if (!/SERVICE_ROLE|API_UNAVAILABLE|503/i.test(String(code) + String(e?.message || ""))) {
+          return notify("error", mensagemErroAcesso(e?.message));
+        }
+      }
+
+      // 2) Sessão JWT (RLS) com a senha já validada/alinhada.
+      const r = await loginSupabaseAuth(email, senha);
+      if (!r.ok) {
+        // Fallback: senha confere com tab_usuarios já carregada (modo permissivo).
+        const credOk = users.find(
+          (u) => (u.email || "").toLowerCase() === email && String(u.password ?? "") === senha,
+        );
+        if (credOk) {
+          if (!aplicarLogin(credOk)) return;
+          try { sessionStorage.setItem("pp_sessao_ativa", "1"); } catch {}
+          return;
+        }
+        if (bancoOk) {
+          return notify("error", "Senha válida no cadastro, mas o login Auth falhou. Confira SUPABASE_SERVICE_ROLE_KEY na Vercel e tente de novo.");
+        }
+        return notify("error", mensagemErroAcesso(r.error));
+      }
+
+      // Recarrega para inicializar já autenticado (JWT/RLS). Flag de uso único.
       try { sessionStorage.setItem("pp_restore_once", "1"); } catch {}
       window.location.reload();
       return;
     }
-    // Modo legacy (padrão): compara contra tab_usuarios.
-    const credOk = users.find((u) => u.email.toLowerCase() === creds.email.toLowerCase() && u.password === creds.password);
+
+    // Modo legacy: compara contra tab_usuarios.
+    const credOk = users.find(
+      (u) => (u.email || "").toLowerCase() === email && String(u.password ?? "") === senha,
+    );
     if (!credOk) return notify("error", "Usuário ou senha inválidos.");
     aplicarLogin(credOk);
   }

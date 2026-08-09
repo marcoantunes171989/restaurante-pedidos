@@ -10,8 +10,11 @@ export function mensagemErroAcesso(erroBruto) {
   if (raw.includes("fetch") || raw.includes("network") || raw.includes("timeout") || raw.includes("conex") || raw.includes("offline")) {
     return "Sua conexão parece estar indisponível.";
   }
-  if (raw.includes("invalid") || raw.includes("credencial") || raw.includes("inválid") || raw.includes("incorret")) {
+  if (raw.includes("invalid") || raw.includes("credencial") || raw.includes("inválid") || raw.includes("incorret") || raw.includes("email_not_confirmed")) {
     return "E-mail ou senha incorretos.";
+  }
+  if (raw.includes("service_role") || raw.includes("não configurada")) {
+    return "Login temporariamente indisponível. Peça ao administrador para configurar o acesso ao banco (SERVICE_ROLE) na Vercel.";
   }
   return "Não foi possível acessar sua conta. Tente novamente.";
 }
