@@ -1808,6 +1808,13 @@ export async function criarUsuarioNoBanco(nu, adminCreds = null) {
 export async function fetchUsuarioPorEmail(email) {
   const alvo = (email || '').trim().toLowerCase()
   if (!alvo) return null
+  try {
+    const { data, error } = await supabase.rpc('app_usuario_sessao', { p_email: alvo })
+    if (!error && data) {
+      const row = Array.isArray(data) ? data[0] : data
+      if (row) return dbParaUsuario(row)
+    }
+  } catch { /* RPC ausente → SELECT */ }
   const { data, error } = await supabase
     .from('tab_usuarios')
     .select('*')
@@ -2460,9 +2467,16 @@ function dbParaCargo(r) {
   return { id: r.id, nome: r.nome, descricao: r.descricao ?? '', active: r.ativo }
 }
 export async function fetchCargos() {
+  // 1) RPC security definer (migration 095) — funciona com RLS restritiva.
+  try {
+    const { data, error } = await supabase.rpc('app_listar_cargos')
+    if (!error && Array.isArray(data)) {
+      return data.map(dbParaCargo)
+    }
+  } catch { /* RPC ausente → SELECT */ }
   const { data, error } = await supabase.from('tab_cargos').select('*').order('nome', { ascending: true })
   if (error) throw error
-  return data.map(dbParaCargo)
+  return (data || []).map(dbParaCargo)
 }
 export async function inserirCargo({ nome, descricao = '' }) {
   const { data, error } = await supabase.from('tab_cargos').insert([{ nome, descricao }]).select().single()
@@ -2479,8 +2493,7 @@ export async function excluirCargo(id) {
 }
 export function escutarCargos(onMudanca) {
   const reload = async () => {
-    const { data, error } = await supabase.from('tab_cargos').select('*').order('nome', { ascending: true })
-    if (!error && data) onMudanca(data.map(dbParaCargo))
+    try { onMudanca(await fetchCargos()) } catch { /* silencioso */ }
   }
   const canal = supabase.channel('ch_cargos_'+Math.random().toString(36).slice(2))
     .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_cargos' }, reload)
@@ -2537,10 +2550,18 @@ export function escutarMesas(onMudanca) {
 //  tab_usuarios — CRUD + Realtime
 // ════════════════════════════════════════════════════════════
 export async function fetchUsuarios() {
+  // 1) RPC security definer (migration 095): super/admin vê a lista completa
+  // mesmo sem claim JWT super_admin (RLS da 048).
+  try {
+    const { data, error } = await supabase.rpc('app_listar_usuarios')
+    if (!error && Array.isArray(data)) {
+      return data.map(dbParaUsuario)
+    }
+  } catch { /* RPC ausente → SELECT */ }
   const { data, error } = await supabase
     .from('tab_usuarios').select('*').order('id', { ascending: true })
   if (error) throw error
-  return data.map(dbParaUsuario)
+  return (data || []).map(dbParaUsuario)
 }
 
 export async function inserirUsuario(u) {
@@ -2568,9 +2589,7 @@ export async function atualizarUsuariosPorLoja(lojaId, campos) {
 
 export function escutarUsuarios(onMudanca) {
   const reload = async () => {
-    const { data, error } = await supabase
-      .from('tab_usuarios').select('*').order('id', { ascending: true })
-    if (!error && data) onMudanca(data.map(dbParaUsuario))
+    try { onMudanca(await fetchUsuarios()) } catch { /* silencioso */ }
   }
   const canal = supabase.channel('ch_usuarios_'+Math.random().toString(36).slice(2))
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'tab_usuarios' }, reload)

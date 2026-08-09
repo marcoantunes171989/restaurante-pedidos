@@ -1018,6 +1018,22 @@ export default function RestaurantePedidoApp() {
     } catch { /* ignore */ }
   }, [currentUser]);
 
+  // Após login: recarrega usuários e cargos via RPC (095) — o SELECT inicial
+  // com RLS sem claim JWT só devolvia o próprio usuário e cargos vazios.
+  useEffect(() => {
+    if (!dbReady || !currentUser) return;
+    let cancelado = false;
+    (async () => {
+      try {
+        const [listaU, listaC] = await Promise.all([fetchUsuarios(), fetchCargos()]);
+        if (cancelado) return;
+        if (Array.isArray(listaU) && listaU.length) setUsers(listaU);
+        if (Array.isArray(listaC) && listaC.length) setCargos(listaC);
+      } catch { /* mantém estado atual */ }
+    })();
+    return () => { cancelado = true; };
+  }, [dbReady, currentUser?.id]);
+
   // ── Multi-loja: filtra todos os dados pela loja do usuário logado ──
   const isSuperAdmin = !!currentUser?.superAdmin;
   // O super admin não tem empresa fixa: escolhe uma "empresa em foco" para gerenciar os cadastros
@@ -22872,26 +22888,33 @@ function UsuarioCadastroModal({ userForm, setUserForm, onSalvar, onFechar, cargo
 
 function UsuarioEditModal({ usuario, cargos = [], onSalvar, onFechar, podeVerSenha = false }) {
   const senhaAtual = usuario.password != null ? String(usuario.password) : "";
+  // Normaliza cargoId (bigint/string) para casar com os chips.
+  const cargoInicial = (() => {
+    if (usuario.cargoId != null && usuario.cargoId !== "") return usuario.cargoId;
+    const porNome = cargos.find((c) => String(c.nome || "").toLowerCase() === String(usuario.role || "").toLowerCase());
+    return porNome?.id ?? "";
+  })();
   const [f, setF] = useState({
     name: usuario.name,
     email: usuario.email,
     password: podeVerSenha ? senhaAtual : "",
     role: usuario.role,
-    cargoId: usuario.cargoId ?? "",
+    cargoId: cargoInicial,
   });
   const [verSenha, setVerSenha] = useState(!!podeVerSenha);
   const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-gold-400/60";
   const lbl = "mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500";
+  const chip = (sel) => `flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-black transition active:scale-95 ${sel ? "border-blue-400 bg-blue-500 text-white shadow-lg shadow-blue-950/40" : "border-white/10 bg-white/[0.04] text-slate-300 hover:border-white/25 hover:bg-white/10"}`;
   const senhaOk = !f.password || f.password.length >= SENHA_MIN_AUTH;
-  const valido = f.name.trim() && f.email.trim() && senhaOk && f.cargoId;
+  const valido = f.name.trim() && f.email.trim() && senhaOk && f.cargoId !== "" && f.cargoId != null;
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onFechar}>
-      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl">
-        <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-md max-h-[92vh] flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl">
+        <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-6 py-4">
           <h2 className="text-lg font-black text-white">✏️ Editar usuário</h2>
           <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20">✕</button>
         </div>
-        <div className="px-6 py-4 space-y-3">
+        <div className="flex-1 space-y-3 overflow-y-auto px-6 py-4">
           <div><label className={lbl}>Nome</label><input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="Nome" className={inp} /></div>
           <div><label className={lbl}>E-mail</label><input value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} placeholder="E-mail" className={inp} /></div>
           <div>
@@ -22913,12 +22936,29 @@ function UsuarioEditModal({ usuario, cargos = [], onSalvar, onFechar, podeVerSen
             </p>
           </div>
           <div>
-            <label className={lbl}>Cargo / Perfil</label>
-            <select value={f.cargoId ?? ""} onChange={(e) => { const id = e.target.value ? Number(e.target.value) : ""; const c = cargos.find((x) => x.id === id); setF({ ...f, cargoId: id, role: c?.nome || f.role }); }} className={inp}>
-              <option value="">Selecione o cargo…</option>
-              {cargos.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
-            </select>
+            <label className={lbl}>Cargo / Perfil *</label>
+            <div className="flex flex-wrap gap-2">
+              {cargos.length === 0 && (
+                <p className="text-xs text-amber-300">Nenhum cargo carregado. Rode a migration 095 no Supabase ou cadastre em “Cargos / Perfis”.</p>
+              )}
+              {cargos.map((c) => {
+                const sel = String(f.cargoId ?? "") === String(c.id);
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => setF({ ...f, cargoId: c.id, role: c.nome })}
+                    className={chip(sel)}
+                  >
+                    {sel && <span className="text-[11px]">✓</span>}
+                    {c.nome}
+                  </button>
+                );
+              })}
+            </div>
           </div>
+        </div>
+        <div className="shrink-0 border-t border-white/10 px-6 py-4">
           <button onClick={() => valido && onSalvar(f)} disabled={!valido} className="w-full rounded-2xl bg-emerald-500 py-4 text-sm font-black text-white hover:bg-emerald-400 disabled:opacity-50">💾 Salvar no banco</button>
         </div>
       </div>
