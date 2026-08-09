@@ -20,8 +20,14 @@ export default function LoginPage({ loginForm, setLoginForm, login, message, dbR
     try {
       sessionStorage.removeItem("pp_sessao_ativa");
       sessionStorage.removeItem("pp_sessao_email");
+      sessionStorage.removeItem("pp_sessao_usuario");
       sessionStorage.removeItem("pp_restore_once");
-    } catch {}
+    } catch { /* storage indisponível */ }
+    try {
+      localStorage.removeItem("pp_sessao_ativa");
+      localStorage.removeItem("pp_sessao_email");
+      localStorage.removeItem("pp_sessao_usuario");
+    } catch { /* storage indisponível */ }
     window.location.href = "/";
   }
 

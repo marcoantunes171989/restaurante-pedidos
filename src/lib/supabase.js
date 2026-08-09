@@ -15,7 +15,15 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || FALLBACK_URL
 const envKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 const supabaseKey = (envKey && envKey.startsWith('sb_')) ? envKey : FALLBACK_KEY
 
-export const supabase = createClient(supabaseUrl, supabaseKey)
+export const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+    // localStorage sobrevive a F5 e à atualização de versão (reload do SW).
+    storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+  },
+})
 
 // ════════════════════════════════════════════════════════════
 //  Storage — upload de imagens de produtos
@@ -1808,6 +1816,14 @@ export async function criarUsuarioNoBanco(nu, adminCreds = null) {
 export async function fetchUsuarioPorEmail(email) {
   const alvo = (email || '').trim().toLowerCase()
   if (!alvo) return null
+  // 1) RPC security definer (migration 091) — funciona mesmo com RLS estrita.
+  try {
+    const { data, error } = await supabase.rpc('app_usuario_sessao', { p_email: alvo })
+    if (!error && data) {
+      const row = Array.isArray(data) ? data[0] : data
+      if (row) return dbParaUsuario(row)
+    }
+  } catch { /* RPC ausente → SELECT */ }
   const { data, error } = await supabase
     .from('tab_usuarios')
     .select('*')
@@ -2537,10 +2553,18 @@ export function escutarMesas(onMudanca) {
 //  tab_usuarios — CRUD + Realtime
 // ════════════════════════════════════════════════════════════
 export async function fetchUsuarios() {
+  // 1) RPC security definer (migration 091): super admin / admin da loja
+  // vê a lista completa mesmo sem claim JWT super_admin.
+  try {
+    const { data, error } = await supabase.rpc('app_listar_usuarios')
+    if (!error && Array.isArray(data)) {
+      return data.map(dbParaUsuario)
+    }
+  } catch { /* RPC ausente → SELECT */ }
   const { data, error } = await supabase
     .from('tab_usuarios').select('*').order('id', { ascending: true })
   if (error) throw error
-  return data.map(dbParaUsuario)
+  return (data || []).map(dbParaUsuario)
 }
 
 export async function inserirUsuario(u) {
@@ -2568,9 +2592,10 @@ export async function atualizarUsuariosPorLoja(lojaId, campos) {
 
 export function escutarUsuarios(onMudanca) {
   const reload = async () => {
-    const { data, error } = await supabase
-      .from('tab_usuarios').select('*').order('id', { ascending: true })
-    if (!error && data) onMudanca(data.map(dbParaUsuario))
+    try {
+      const lista = await fetchUsuarios()
+      onMudanca(lista)
+    } catch { /* silencioso — próxima mudança tenta de novo */ }
   }
   const canal = supabase.channel('ch_usuarios_'+Math.random().toString(36).slice(2))
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'tab_usuarios' }, reload)
