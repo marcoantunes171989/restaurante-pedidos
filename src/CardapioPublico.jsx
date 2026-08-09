@@ -863,10 +863,33 @@ export default function CardapioPublico() {
         <button type="button" onClick={() => !indisponivel && abrir()} disabled={indisponivel}
           aria-label={indisponivel ? `${item.name} — indisponível` : `Ver ${item.name}`}
           className="relative shrink-0 transition active:scale-[0.98] disabled:cursor-not-allowed">
-          <span className="pp-img-fill relative block h-[84px] w-[84px] shrink-0 overflow-hidden rounded-2xl bg-[var(--client-surface-secondary)]">
-            <img src={item.imageUrl || fallbackImage} alt={item.name} loading="lazy" decoding="async"
-              onError={(e) => { if (e.currentTarget.src !== fallbackImage) e.currentTarget.src = fallbackImage; }}
-              className={`pp-img-fill h-full w-full object-cover ${indisponivel ? "grayscale opacity-50" : ""}`} />
+          <span
+            className="relative block h-[84px] w-[84px] shrink-0 overflow-hidden rounded-2xl bg-[var(--client-surface-secondary)]"
+            style={{
+              backgroundImage: `url(${JSON.stringify(String(item.imageUrl || fallbackImage))})`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+            }}
+          >
+            <img
+              src={item.imageUrl || fallbackImage}
+              alt={item.name}
+              loading="lazy"
+              decoding="async"
+              width={84}
+              height={84}
+              onError={(e) => {
+                if (e.currentTarget.src !== fallbackImage) {
+                  e.currentTarget.src = fallbackImage;
+                  const box = e.currentTarget.parentElement;
+                  if (box) {
+                    box.style.backgroundImage = `url(${JSON.stringify(fallbackImage)})`;
+                  }
+                }
+              }}
+              className={`pp-img-fill block h-full w-full object-cover ${indisponivel ? "grayscale opacity-50" : ""}`}
+              style={{ maxWidth: "none" }}
+            />
           </span>
           {personalizavel && !indisponivel && (
             <span aria-hidden="true" title="Personalizável" className="pointer-events-none absolute left-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-full border border-[var(--client-border)] bg-[var(--client-surface)] text-[var(--client-text-secondary)] shadow-[var(--client-shadow-sm)]">
@@ -1580,7 +1603,7 @@ export default function CardapioPublico() {
               <span className="text-[clamp(1.2rem,3.6vh,1.7rem)] text-[#0F4C5C]">{nomePrimario}</span>
               {nomeSecundario ? <span className="text-[clamp(1.2rem,3.6vh,1.7rem)] text-[#E67E22]"> {nomeSecundario}</span> : null}
             </h1>
-            <div className="mt-1 flex items-center gap-2">
+            <div className="pp-welcome-brand-sub mt-1 flex items-center gap-2">
               <span className="h-px w-6 bg-[#E6E6E6]" aria-hidden="true" />
               <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-[#0F4C5C]">Cardápio digital</p>
               <span className="h-px w-6 bg-[#E6E6E6]" aria-hidden="true" />
@@ -1663,30 +1686,61 @@ export default function CardapioPublico() {
                 )}
               </div>
 
-              <button type="button" onClick={() => setDetalhe(produtoAtivo)}
-                className="group relative flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-hidden rounded-[1.35rem] border border-[#E6E6E6] bg-white text-left transition active:scale-[0.995]">
-                {/* Foto: min-height + .pp-img-fill evita colapso em iOS/Android
-                    (img absoluta com max-width:100% global ficava em branco). */}
-                <div className="pp-welcome-foto pp-img-fill">
-                  <img key={produtoAtivo.id} src={produtoAtivo.imageUrl || fallbackImage} alt={produtoAtivo.name}
-                    loading="eager" decoding="async" fetchPriority="high"
-                    sizes="(max-width: 420px) 100vw, 420px"
-                    onError={(e) => { if (e.currentTarget.src !== fallbackImage) e.currentTarget.src = fallbackImage; }}
-                    className="pp-img-fill transition duration-500 group-active:scale-105" />
-                  <span className="pointer-events-none absolute left-3 top-3 z-[1] flex h-7 w-7 items-center justify-center rounded-full border border-[#E6E6E6] bg-white text-[12px] font-black text-[#0F4C5C]">{slideAtual + 1}</span>
-                  {produtoAtivo.badge ? (
-                    <span className="pointer-events-none absolute right-3 top-3 z-[1] max-w-[45%] truncate rounded-full border border-[#E6E6E6] bg-white px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-[#E67E22]">{produtoAtivo.badge}</span>
-                  ) : null}
-                </div>
+              {/* div[role=button] em vez de <button>: no iOS/Safari imagens
+                  dentro de <button> com layout flex/absolute podem ficar em branco. */}
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => setDetalhe(produtoAtivo)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setDetalhe(produtoAtivo);
+                  }
+                }}
+                aria-label={`Ver ${produtoAtivo.name}`}
+                className="pp-welcome-card group relative flex min-h-0 w-full min-w-0 max-w-full flex-1 cursor-pointer flex-col overflow-hidden rounded-[1.35rem] border border-[#E6E6E6] bg-white text-left transition active:scale-[0.995]"
+              >
+                {(() => {
+                  const fotoSrc = produtoAtivo.imageUrl || fallbackImage;
+                  return (
+                    <div
+                      className="pp-welcome-foto"
+                      style={{ backgroundImage: `url(${JSON.stringify(String(fotoSrc))})` }}
+                    >
+                      <img
+                        key={produtoAtivo.id}
+                        src={fotoSrc}
+                        alt={produtoAtivo.name}
+                        loading="eager"
+                        decoding="async"
+                        fetchPriority="high"
+                        sizes="(max-width: 420px) 100vw, 420px"
+                        onError={(e) => {
+                          if (e.currentTarget.src !== fallbackImage) {
+                            e.currentTarget.src = fallbackImage;
+                            const box = e.currentTarget.parentElement;
+                            if (box) box.style.backgroundImage = `url(${JSON.stringify(fallbackImage)})`;
+                          }
+                        }}
+                        className="pp-img-fill transition duration-500 group-active:scale-105"
+                      />
+                      <span className="pp-welcome-foto-badge pointer-events-none absolute left-3 top-3 flex h-7 w-7 items-center justify-center rounded-full border border-[#E6E6E6] bg-white text-[12px] font-black text-[#0F4C5C]">{slideAtual + 1}</span>
+                      {produtoAtivo.badge ? (
+                        <span className="pp-welcome-foto-badge pointer-events-none absolute right-3 top-3 max-w-[45%] truncate rounded-full border border-[#E6E6E6] bg-white px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-[#E67E22]">{produtoAtivo.badge}</span>
+                      ) : null}
+                    </div>
+                  );
+                })()}
                 <div className="min-w-0 shrink-0 border-t border-[#E6E6E6] bg-white px-3.5 py-2.5">
                   <p className="truncate text-[clamp(15px,2.3vh,18px)] font-black leading-tight text-[#0F4C5C]">{produtoAtivo.name}</p>
                   <p className="mt-0.5 line-clamp-1 text-[11px] text-[#6B7280]">{descCurta(produtoAtivo)}</p>
                   <p className="mt-1 text-[clamp(15px,2.2vh,18px)] font-black text-[#E67E22]">{formatCurrency(produtoAtivo.price)}</p>
                 </div>
-              </button>
+              </div>
 
               {nSlides > 1 && (
-                <div className="mt-1.5 flex shrink-0 justify-center gap-1.5" role="tablist" aria-label="Destaques">
+                <div className="pp-welcome-dots mt-1.5 flex shrink-0 justify-center gap-1.5" role="tablist" aria-label="Destaques">
                   {destaques.map((p, i) => (
                     <button key={p.id} type="button" role="tab" aria-selected={i === slideAtual} aria-label={`Destaque ${i + 1}: ${p.name}`}
                       onClick={() => setWelcomeSlide(i)}

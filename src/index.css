@@ -1280,7 +1280,11 @@ select::-ms-expand { display: none; } /* IE/Edge antigo */
    toda a composição; mantém padrão do sistema (tipografia, borda
    #E6E6E6, .btn-laranja no CTA). Sem sombra no botão. */
 @media (max-height: 700px) { .pp-mesa-welcome .pp-mesa-opt1 { display: none !important; } }
-@media (max-height: 620px) { .pp-mesa-welcome .pp-mesa-opt-sub { display: none !important; } }
+@media (max-height: 640px) { .pp-mesa-welcome .pp-mesa-opt-sub { display: none !important; } }
+@media (max-height: 560px) {
+  .pp-mesa-welcome .pp-welcome-dots { display: none !important; }
+  .pp-mesa-welcome .pp-welcome-brand-sub { display: none !important; }
+}
 .pp-mesa-welcome {
   overflow: hidden;
   overflow-x: clip;
@@ -1296,24 +1300,78 @@ select::-ms-expand { display: none; } /* IE/Edge antigo */
 .pp-mesa-welcome *::after {
   box-sizing: border-box;
 }
-/* Área da foto do carrossel: altura mínima garantida em smartphone
-   (flex-1 sozinho + img absoluta colapsava em viewports baixas). */
+/* Foto do destaque: aspect-ratio + flex-shrink:0 — NÃO pode colapsar no XS.
+   background-image é fallback se o <img> falhar (Safari/iOS em <button>). */
 .pp-mesa-welcome .pp-welcome-foto {
   position: relative;
   flex: 1 1 auto;
-  min-height: clamp(140px, 34dvh, 320px);
+  flex-shrink: 0; /* nunca some para caber o rodapé */
   width: 100%;
   max-width: 100%;
+  aspect-ratio: 4 / 3;
+  min-height: 140px;
+  max-height: min(42dvh, 340px);
   overflow: hidden;
-  background: #F3F4F6;
+  background-color: #F3F4F6;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  isolation: isolate;
 }
+.pp-mesa-welcome .pp-welcome-foto img,
 .pp-mesa-welcome .pp-welcome-foto img.pp-img-fill {
-  position: absolute;
-  inset: 0;
+  position: absolute !important;
+  inset: 0 !important;
+  z-index: 0;
+  display: block !important;
   max-width: none !important;
   width: 100% !important;
   height: 100% !important;
-  object-fit: cover;
+  min-width: 100% !important;
+  min-height: 100% !important;
+  object-fit: cover !important;
+  object-position: center !important;
+  border: 0;
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: none;
+}
+.pp-mesa-welcome .pp-welcome-foto .pp-welcome-foto-badge {
+  z-index: 1;
+}
+.pp-mesa-welcome .pp-welcome-card {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 100%;
+}
+/* Telas baixas (SE / XS): foto fixa por ratio; página pode rolar no eixo Y. */
+@media (max-height: 680px) {
+  .pp-mesa-welcome {
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .pp-mesa-welcome .pp-welcome-card {
+    flex: 0 0 auto; /* não espreme a foto para caber o rodapé */
+  }
+  .pp-mesa-welcome .pp-welcome-foto {
+    flex: 0 0 auto;
+    aspect-ratio: 16 / 10;
+    min-height: 132px;
+    max-height: 36dvh;
+  }
+}
+@media (max-height: 560px) {
+  .pp-mesa-welcome .pp-welcome-foto {
+    aspect-ratio: 16 / 9;
+    min-height: 120px;
+    max-height: 34dvh;
+  }
+}
+@media (max-width: 380px) {
+  .pp-mesa-welcome .pp-welcome-foto {
+    min-height: 128px;
+  }
 }
 /* CTA da boas-vindas: degradê oficial, sem text-shadow / box-shadow. */
 .pp-mesa-welcome .pp-welcome-cta.btn-laranja,
