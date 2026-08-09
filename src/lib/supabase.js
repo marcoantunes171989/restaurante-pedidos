@@ -1216,6 +1216,24 @@ export function escutarCaixas(onMudanca) {
   const reload = async () => { try { onMudanca(await fetchCaixas(null)) } catch {} }
   const canal = supabase.channel('ch_caixas_' + Math.random().toString(36).slice(2))
     .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_caixas' }, reload)
+    // Vendas/suprimentos/sangrias chegam em tab_caixa_mov — dispara refresh
+    // da sessão de caixa (o UI recarrega movimentos pelo id aberto).
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_caixa_mov' }, reload)
+    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
+  return () => supabase.removeChannel(canal)
+}
+
+/** Escuta movimentos de um caixa específico (Fechamento de Caixa ao vivo). */
+export function escutarMovimentosCaixa(caixaId, onMudanca) {
+  if (!caixaId) return () => {}
+  const reload = async () => {
+    try { onMudanca(await fetchMovimentosCaixa(caixaId)) } catch { /* tolerante */ }
+  }
+  const canal = supabase.channel('ch_caixa_mov_' + caixaId + '_' + Math.random().toString(36).slice(2))
+    .on('postgres_changes', {
+      event: '*', schema: 'public', table: 'tab_caixa_mov',
+      filter: `caixa_id=eq.${caixaId}`,
+    }, reload)
     .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
   return () => supabase.removeChannel(canal)
 }
@@ -1294,6 +1312,14 @@ export function escutarFidelidadeRegras(onMudanca) {
   const reload = async () => { try { onMudanca(await fetchFidelidadeRegras()) } catch { /* tolerante */ } }
   const canal = supabase.channel('ch_fid_regras_' + Math.random().toString(36).slice(2))
     .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_fidelidade_regras' }, reload)
+    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
+  return () => supabase.removeChannel(canal)
+}
+
+export function escutarFidelidadeRecompensas(onMudanca) {
+  const reload = async () => { try { onMudanca(await fetchFidelidadeRecompensas()) } catch { /* tolerante */ } }
+  const canal = supabase.channel('ch_fid_recomp_' + Math.random().toString(36).slice(2))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_fidelidade_recompensas' }, reload)
     .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
   return () => supabase.removeChannel(canal)
 }
@@ -2097,10 +2123,30 @@ export async function registrarLicencaHistorico({ lojaId, acao, motivo = null, u
 // ════════════════════════════════════════════════════════════
 //  tab_lojas — CRUD + Realtime (multi-empresa)
 // ════════════════════════════════════════════════════════════
+function dbParaLoja(r) {
+  return {
+    id: r.id,
+    nome: r.nome,
+    prefixo: r.prefixo,
+    active: r.ativo,
+    plano: r.plano ?? 'free',
+    emailResponsavel: r.email_responsavel ?? null,
+    licencaBloqueada: r.licenca_bloqueada === true,
+    logoUrl: r.logo_url ?? null,
+    documento: r.documento ?? null,
+    modoUso: r.modo_uso ?? 'interno',
+    licencaValidade: r.licenca_validade ?? null,
+    configExterno: r.config_externo ?? {},
+    configCrm: r.config_crm ?? {},
+    // Migration 092 — taxa de serviço por empresa (antes só localStorage)
+    configTaxaServico: r.config_taxa_servico ?? {},
+  }
+}
+
 export async function fetchLojas() {
   const { data, error } = await supabase.from('tab_lojas').select('*').order('id', { ascending: true })
   if (error) throw error
-  return data.map((r) => ({ id: r.id, nome: r.nome, prefixo: r.prefixo, active: r.ativo, plano: r.plano ?? 'free', emailResponsavel: r.email_responsavel ?? null, licencaBloqueada: r.licenca_bloqueada === true, logoUrl: r.logo_url ?? null, documento: r.documento ?? null, modoUso: r.modo_uso ?? 'interno', licencaValidade: r.licenca_validade ?? null, configExterno: r.config_externo ?? {}, configCrm: r.config_crm ?? {} }))
+  return data.map(dbParaLoja)
 }
 export async function inserirLoja(loja) {
   const { data, error } = await supabase
@@ -2167,7 +2213,7 @@ export async function excluirLoja(id) {
 export function escutarLojas(onMudanca) {
   const reload = async () => {
     const { data, error } = await supabase.from('tab_lojas').select('*').order('id', { ascending: true })
-    if (!error && data) onMudanca(data.map((r) => ({ id: r.id, nome: r.nome, prefixo: r.prefixo, active: r.ativo, plano: r.plano ?? 'free', emailResponsavel: r.email_responsavel ?? null, licencaBloqueada: r.licenca_bloqueada === true, logoUrl: r.logo_url ?? null, documento: r.documento ?? null, modoUso: r.modo_uso ?? 'interno', licencaValidade: r.licenca_validade ?? null, configExterno: r.config_externo ?? {}, configCrm: r.config_crm ?? {} })))
+    if (!error && data) onMudanca(data.map(dbParaLoja))
   }
   const canal = supabase.channel('ch_lojas_'+Math.random().toString(36).slice(2))
     .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_lojas' }, reload)
@@ -2825,6 +2871,15 @@ export async function fetchLancamentos(lojaId = null) {
     if (error) return []
     return (data || []).map(dbParaLancamento)
   } catch { return [] }
+}
+export function escutarLancamentos(onMudanca, lojaId = null) {
+  const reload = async () => {
+    try { onMudanca(await fetchLancamentos(lojaId)) } catch { /* tolerante */ }
+  }
+  const canal = supabase.channel('ch_lancamentos_' + Math.random().toString(36).slice(2))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_lancamentos' }, reload)
+    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
+  return () => supabase.removeChannel(canal)
 }
 export async function inserirLancamento(l) {
   const { data, error } = await supabase.from('tab_lancamentos').insert([lancamentoParaDb(l)]).select().single()

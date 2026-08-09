@@ -113,7 +113,7 @@ export default function CashierPdv({
   validarCupom = async () => ({ ok: false, motivo: "Cupons indisponíveis." }),
   consumirCupom = async () => ({ ok: true }),
 }) {
-  const SERVICE_FEE = lerConfigTaxaServico(lojaInfo?.id);
+  const SERVICE_FEE = lerConfigTaxaServico(lojaInfo?.id, lojaInfo?.configTaxaServico);
   const taxaPct = SERVICE_FEE.enabled && SERVICE_FEE.chargingRule !== "nao_cobrar" ? SERVICE_FEE.percent : 0;
 
   const [canal, setCanal] = useState("mesa");
