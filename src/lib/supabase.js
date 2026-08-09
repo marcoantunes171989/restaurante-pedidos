@@ -1513,8 +1513,10 @@ export async function loginSupabaseAuth(email, senha) {
 
 /**
  * Valida e-mail/senha em tab_usuarios (fonte da verdade do cadastro).
- * 1) API /api/login-banco (service role + alinha Auth em best-effort)
- * 2) Fallback: SELECT direto em tab_usuarios (chave anon / sessão)
+ * Ordem:
+ *  1) RPC app_validar_login (security definer — funciona com RLS / sem service role)
+ *  2) API /api/login-banco (alinha Auth em best-effort)
+ *  3) SELECT direto em tab_usuarios
  * Retorno: { ok, usuario (shape do app), authAlinhado? } ou throw com .code
  */
 export async function validarLoginNoBanco(email, senha) {
@@ -1526,7 +1528,36 @@ export async function validarLoginNoBanco(email, senha) {
     throw err
   }
 
-  // 1) API servidor (valida no banco real; Auth é opcional).
+  const rejeitar = (code, message, status) => {
+    const err = new Error(message)
+    err.code = code
+    if (status) err.status = status
+    throw err
+  }
+
+  // 1) RPC no banco (migration 088) — caminho principal para liberar o login.
+  try {
+    const { data, error } = await supabase.rpc('app_validar_login', {
+      p_email: emailNorm,
+      p_senha: senhaStr,
+    })
+    if (!error && data && typeof data === 'object') {
+      if (data.ok && data.usuario) {
+        return { ok: true, authAlinhado: false, usuario: mapUsuarioDb(data.usuario) }
+      }
+      if (data.code === 'INACTIVE') {
+        rejeitar('INACTIVE', 'Usuário inativo, entre em contato com o administrador do sistema.', 403)
+      }
+      if (data.code === 'INVALID_CREDENTIALS' || data.ok === false) {
+        rejeitar('INVALID_CREDENTIALS', 'E-mail ou senha incorretos.', 401)
+      }
+    }
+    // função ausente / erro → tenta API e SELECT
+  } catch (e) {
+    if (e?.code === 'INVALID_CREDENTIALS' || e?.code === 'INACTIVE') throw e
+  }
+
+  // 2) API servidor (valida no banco + tenta alinhar Auth).
   try {
     const r = await fetch('/api/login-banco', {
       method: 'POST',
@@ -1545,46 +1576,30 @@ export async function validarLoginNoBanco(email, senha) {
         }
       }
       if (data?.code === 'INVALID_CREDENTIALS' || r.status === 401) {
-        const err = new Error(data?.error || 'E-mail ou senha incorretos.')
-        err.code = 'INVALID_CREDENTIALS'
-        err.status = 401
-        throw err
+        rejeitar('INVALID_CREDENTIALS', data?.error || 'E-mail ou senha incorretos.', 401)
       }
       if (data?.code === 'INACTIVE' || r.status === 403) {
-        const err = new Error(data?.error || 'Usuário inativo.')
-        err.code = 'INACTIVE'
-        err.status = 403
-        throw err
+        rejeitar('INACTIVE', data?.error || 'Usuário inativo.', 403)
       }
-      // 503 / erro de API → tenta leitura direta da tabela abaixo.
     }
   } catch (e) {
     if (e?.code === 'INVALID_CREDENTIALS' || e?.code === 'INACTIVE') throw e
-    // rede / HTML / 503 → fallback
   }
 
-  // 2) Fallback: confere direto em tab_usuarios (policies permissivas / anon).
+  // 3) Fallback: SELECT direto (policies permissivas).
   const { data: row, error } = await supabase
     .from('tab_usuarios')
     .select('*')
     .ilike('email', emailNorm)
     .maybeSingle()
   if (error) {
-    const err = new Error(error.message || 'Falha ao consultar usuários.')
-    err.code = 'DB_ERROR'
-    throw err
+    rejeitar('DB_ERROR', error.message || 'Falha ao consultar usuários.')
   }
   if (!row || String(row.senha ?? '') !== senhaStr) {
-    const err = new Error('E-mail ou senha incorretos.')
-    err.code = 'INVALID_CREDENTIALS'
-    err.status = 401
-    throw err
+    rejeitar('INVALID_CREDENTIALS', 'E-mail ou senha incorretos.', 401)
   }
   if (row.ativo === false) {
-    const err = new Error('Usuário inativo, entre em contato com o administrador do sistema.')
-    err.code = 'INACTIVE'
-    err.status = 403
-    throw err
+    rejeitar('INACTIVE', 'Usuário inativo, entre em contato com o administrador do sistema.', 403)
   }
   return { ok: true, authAlinhado: false, usuario: dbParaUsuario(row) }
 }
