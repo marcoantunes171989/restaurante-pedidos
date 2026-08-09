@@ -128,7 +128,13 @@ function Root() {
   const ehCardapio              = /^\/cardapio(\/|$)/.test(path)
   // Usuário autenticado nunca cai na landing pelo "voltar": qualquer rota
   // (inclusive "/") com sessão ativa renderiza o App (que mantém a tela atual).
-  const sessaoAtiva             = (() => { try { return sessionStorage.getItem('pp_sessao_ativa') === '1' } catch { return false } })()
+  const sessaoAtiva             = (() => {
+    try {
+      if (sessionStorage.getItem('pp_sessao_ativa') === '1') return true
+      if (localStorage.getItem('pp_sessao_ativa') === '1') return true
+    } catch { /* storage indisponível */ }
+    return false
+  })()
 
   useEffect(() => {
     const onPop = () => setPath(window.location.pathname)

@@ -75,10 +75,24 @@ export default function PwaUpdateBanner({ swAtivado }) {
   // "Atualizar agora": ÚNICO ponto onde a atualização acontece. Ativa o novo SW
   // (SKIP_WAITING) e recarrega já com a versão nova (o controllerchange do
   // main.jsx recarrega ao assumir; fallback garante o reload).
+  // Preserva marcadores de sessão para o App restaurar o login na mesma tela.
+  function preservarSessaoNoReload() {
+    try {
+      if (sessionStorage.getItem("pp_sessao_ativa") === "1" || localStorage.getItem("pp_sessao_ativa") === "1") {
+        sessionStorage.setItem("pp_restore_once", "1");
+        sessionStorage.setItem("pp_sessao_ativa", "1");
+        const email = sessionStorage.getItem("pp_sessao_email") || localStorage.getItem("pp_sessao_email");
+        if (email) sessionStorage.setItem("pp_sessao_email", email);
+        const snap = sessionStorage.getItem("pp_sessao_usuario") || localStorage.getItem("pp_sessao_usuario");
+        if (snap) sessionStorage.setItem("pp_sessao_usuario", snap);
+      }
+    } catch { /* ignore */ }
+  }
   async function aplicar() {
     clearTimeout(lembreteRef.current);
     atualizandoRef.current = true;
     setAtualizando(true);
+    preservarSessaoNoReload();
     try {
       const reg = await navigator.serviceWorker?.getRegistration?.();
       if (reg?.waiting) {

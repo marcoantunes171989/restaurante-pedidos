@@ -544,6 +544,84 @@ function limparRedirectPosLogin() {
   try { sessionStorage.removeItem(CHAVE_REDIRECT_POS_LOGIN); } catch { /* sessionStorage indisponível */ }
 }
 
+// ── Snapshot de sessão (F5 / atualização de versão) ──────────────────────
+// Mantém o usuário logado na MESMA tela mesmo se o SELECT em tab_usuarios
+// falhar por RLS ou se o Auth ainda não reanexou o JWT. sessionStorage
+// cobre F5; localStorage cobre reload após atualizar o service worker.
+const CHAVE_SESSAO_USUARIO = "pp_sessao_usuario";
+function serializarUsuarioSessao(u) {
+  if (!u || !u.email) return null;
+  return {
+    id: u.id,
+    name: u.name,
+    email: String(u.email).toLowerCase(),
+    password: u.password ?? "",
+    role: u.role ?? "",
+    active: u.active !== false,
+    accessIds: Array.isArray(u.accessIds) ? u.accessIds : [],
+    lojaId: u.lojaId ?? null,
+    cargoId: u.cargoId ?? null,
+    superAdmin: !!u.superAdmin,
+    permissoesAcoes: u.permissoesAcoes && typeof u.permissoesAcoes === "object" ? u.permissoesAcoes : {},
+  };
+}
+function salvarSessaoUsuario(u) {
+  const snap = serializarUsuarioSessao(u);
+  if (!snap) return;
+  const bruto = JSON.stringify(snap);
+  try {
+    sessionStorage.setItem("pp_sessao_ativa", "1");
+    sessionStorage.setItem("pp_sessao_email", snap.email);
+    sessionStorage.setItem(CHAVE_SESSAO_USUARIO, bruto);
+  } catch { /* ignore */ }
+  try {
+    localStorage.setItem("pp_sessao_ativa", "1");
+    localStorage.setItem("pp_sessao_email", snap.email);
+    localStorage.setItem(CHAVE_SESSAO_USUARIO, bruto);
+  } catch { /* ignore */ }
+}
+function lerSessaoUsuario() {
+  for (const store of [sessionStorage, localStorage]) {
+    try {
+      const bruto = store.getItem(CHAVE_SESSAO_USUARIO);
+      if (!bruto) continue;
+      const dados = JSON.parse(bruto);
+      if (dados && typeof dados.email === "string" && dados.email) return dados;
+    } catch { /* ignore */ }
+  }
+  return null;
+}
+function limparSessaoUsuario() {
+  for (const store of [sessionStorage, localStorage]) {
+    try {
+      store.removeItem("pp_sessao_ativa");
+      store.removeItem("pp_sessao_email");
+      store.removeItem(CHAVE_SESSAO_USUARIO);
+      store.removeItem("pp_restore_once");
+    } catch { /* ignore */ }
+  }
+}
+function temMarcadorSessao() {
+  try {
+    if (sessionStorage.getItem("pp_sessao_ativa") === "1") return true;
+    if (sessionStorage.getItem("pp_restore_once") === "1") return true;
+    if (localStorage.getItem("pp_sessao_ativa") === "1") return true;
+  } catch { /* ignore */ }
+  return false;
+}
+function lerEmailSessaoSalvo() {
+  try {
+    const a = String(sessionStorage.getItem("pp_sessao_email") || "").trim().toLowerCase();
+    if (a) return a;
+  } catch { /* ignore */ }
+  try {
+    const b = String(localStorage.getItem("pp_sessao_email") || "").trim().toLowerCase();
+    if (b) return b;
+  } catch { /* ignore */ }
+  const snap = lerSessaoUsuario();
+  return snap?.email ? String(snap.email).toLowerCase() : "";
+}
+
 // Rótulos de acompanhamento exibidos no TABLET (mesmos nomes dos estágios da
 // cozinha, mais amigáveis para o cliente acompanhar).
 export const STATUS_TABLET_LABEL = {
@@ -758,63 +836,94 @@ export default function RestaurantePedidoApp() {
   }, []);
 
   // ── Restaura sessão no F5 / atualizar ───────────────────────────
-  // Com `pp_sessao_ativa` (e e-mail da sessão), o F5 RECARREGA os dados e
-  // mantém o mesmo login na MESMA tela (URL). Não pede login de novo.
+  // Ordem: (1) snapshot local → login imediato na URL atual;
+  // (2) Auth/DB refresh sem derrubar a sessão se a rede/RLS falhar.
   // Voltar do navegador → logout (ver popstate abaixo).
-  // `authResolved` evita piscar a tela de login enquanto a sessão é checada.
   const restaurouSessaoRef = useRef(false);
   const [authResolved, setAuthResolved] = useState(false);
   useEffect(() => {
     if (loading || currentUser || restaurouSessaoRef.current) return;
     restaurouSessaoRef.current = true;
     (async () => {
+      let restaurou = false;
       try {
-        let sessaoAtiva = false;
-        let emailSalvo = "";
+        let sessaoAtiva = temMarcadorSessao();
         try {
-          sessaoAtiva = sessionStorage.getItem("pp_sessao_ativa") === "1";
-          emailSalvo = String(sessionStorage.getItem("pp_sessao_email") || "").trim().toLowerCase();
           if (sessionStorage.getItem("pp_restore_once") === "1") {
             sessionStorage.removeItem("pp_restore_once");
             sessaoAtiva = true;
           }
-        } catch { /* sessionStorage indisponível */ }
+        } catch { /* ignore */ }
+
+        const snap = lerSessaoUsuario();
+        const emailSalvo = lerEmailSessaoSalvo();
+
+        // 1) Snapshot: mantém o usuário na tela atual mesmo offline / sem JWT.
+        if (sessaoAtiva && snap && snap.active !== false) {
+          limparRedirectPosLogin();
+          aplicarLogin(snap, { silencioso: true, manterUrl: true });
+          restaurou = true;
+        }
 
         let email = null;
-        if (dbReady && usandoSupabaseAuth()) {
+        if (usandoSupabaseAuth()) {
+          try { await aguardarSessao(); } catch { /* ignore */ }
           try { email = await getSessionEmail(); } catch { email = null; }
         }
         if (!email && emailSalvo) email = emailSalvo;
+        if (!email && snap?.email) email = String(snap.email).toLowerCase();
 
-        if (!sessaoAtiva && !email) {
-          setAuthResolved(true);
+        if (!sessaoAtiva && !email && !snap) {
           return;
         }
 
+        // 2) Refresh no banco (quando pronto) — falha NÃO derruba o snapshot.
         if (email && dbReady) {
           let u = users.find((x) => (x.email || "").toLowerCase() === email.toLowerCase());
           if (!u) {
             try { u = await fetchUsuarioPorEmail(email); } catch { u = null; }
-            if (u) setUsers((cur) => (cur.some((x) => x.id === u.id) ? cur : [...cur, u]));
           }
           if (u && u.active !== false) {
-            // F5: a URL atual é a fonte da verdade (ex.: /app/caixa) — não
-            // reaproveita redirect antigo de uma tentativa sem sessão.
+            setUsers((cur) => (cur.some((x) => x.id === u.id) ? cur : [...cur, u]));
             limparRedirectPosLogin();
-            aplicarLogin(u, { silencioso: true });
-          } else {
+            aplicarLogin(u, { silencioso: true, manterUrl: true });
+            salvarSessaoUsuario(u);
+            restaurou = true;
             try {
-              sessionStorage.removeItem("pp_sessao_ativa");
-              sessionStorage.removeItem("pp_sessao_email");
-            } catch { /* ignore */ }
+              const lista = await fetchUsuarios();
+              if (Array.isArray(lista) && lista.length) setUsers(lista);
+            } catch { /* lista parcial — UI já está logada */ }
+          } else if (u && u.active === false) {
+            limparSessaoUsuario();
             if (usandoSupabaseAuth()) try { await logoutSupabaseAuth(); } catch { /* ignore */ }
+            restaurou = false;
+            setCurrentUser(null);
           }
+          // u == null: mantém snapshot se houver (rede/RLS transitório)
+        } else if (email && !dbReady && snap && snap.active !== false) {
+          restaurou = true;
         }
       } finally {
+        // Garante que o setCurrentUser do snapshot seja commitado antes de
+        // liberar o redirect para /login (evita race authResolved × currentUser).
+        try { await Promise.resolve(); } catch { /* ignore */ }
         setAuthResolved(true);
       }
     })();
-  }, [loading, dbReady, users, currentUser]);
+  }, [loading, dbReady, currentUser]);
+
+  // Após login/restauração: recarrega a lista completa (RPC 091 / SELECT).
+  useEffect(() => {
+    if (!dbReady || !currentUser) return;
+    let cancelado = false;
+    (async () => {
+      try {
+        const lista = await fetchUsuarios();
+        if (!cancelado && Array.isArray(lista) && lista.length) setUsers(lista);
+      } catch { /* mantém lista atual */ }
+    })();
+    return () => { cancelado = true; };
+  }, [dbReady, currentUser?.id]);
 
   // ── Sincroniza a URL com a tela de login ────────────────────────
   // Enquanto a sessão ainda está sendo verificada (authResolved=false), nada
@@ -1009,13 +1118,10 @@ export default function RestaurantePedidoApp() {
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
   }, []);
-  // Sinaliza sessão ativa para o Root (main.jsx) e para o F5 restaurar o login
+  // Sinaliza sessão ativa + snapshot para F5 / atualização de versão
   useEffect(() => {
     if (!currentUser) return;
-    try {
-      sessionStorage.setItem("pp_sessao_ativa", "1");
-      if (currentUser.email) sessionStorage.setItem("pp_sessao_email", String(currentUser.email).toLowerCase());
-    } catch { /* ignore */ }
+    salvarSessaoUsuario(currentUser);
   }, [currentUser]);
 
   // ── Multi-loja: filtra todos os dados pela loja do usuário logado ──
@@ -1117,7 +1223,8 @@ export default function RestaurantePedidoApp() {
 
   // Aplica o usuário autenticado: checa licença/atividade, define currentUser e
   // a aba inicial. Usado pelo login legacy e pela restauração de sessão (supabase).
-  function aplicarLogin(credOk, { silencioso = false } = {}) {
+  // `manterUrl` (F5/versão): prioriza a URL atual e NÃO empurra para o home.
+  function aplicarLogin(credOk, { silencioso = false, manterUrl = false } = {}) {
     const lojaDoUser = lojas.find((l) => l.id === credOk.lojaId);
     if (!credOk.superAdmin && lojaDoUser && lojaDoUser.licencaBloqueada === true) {
       notify("error", "Licença suspensa, entre em contato com o administrador do sistema."); return false;
@@ -1126,7 +1233,8 @@ export default function RestaurantePedidoApp() {
       notify("error", "Usuário inativo, entre em contato com o administrador do sistema."); return false;
     }
     setCurrentUser(credOk);
-    auditar("login", "usuario", credOk.id, { email: credOk.email }, credOk);
+    salvarSessaoUsuario(credOk);
+    if (!silencioso) auditar("login", "usuario", credOk.id, { email: credOk.email }, credOk);
     // Respeita link direto (ex.: /admin/copiloto) — usa a rota original salva
     // quando o acesso protegido foi feito sem sessão (a URL, nesse caso, já
     // foi corrigida para "/login"); sem redirect salvo, cai na URL atual
@@ -1136,10 +1244,12 @@ export default function RestaurantePedidoApp() {
     // /admin, /app e /operacional de forma uniforme com fallback de permissão.
     const redirectSalvo = obterRedirectPosLogin();
     const pathnameAlvo = redirectSalvo ? redirectSalvo.pathname : window.location.pathname;
+    const searchAlvo = redirectSalvo ? redirectSalvo.search : window.location.search;
     const deepAdmin = pathnameAlvo.match(/^\/admin\/([^/?]+)/);
     // /operacional NÃO define pouso aqui — só perfil exclusivo operacional
     // (tratado em rotaInicialRef/aplicarRota). Demais perfis usam aba natural.
     const redirectOperacional = /^\/operacional(\/|$)/.test(pathnameAlvo);
+    const urlProtegida = /^\/(admin|app|operacional)(\/|$)/.test(pathnameAlvo);
     if (deepAdmin && deepAdmin[1] === "cozinha" && canAccess(credOk, "kitchen")) {
       setActiveTab("kitchen");
     } else if (deepAdmin && deepAdmin[1] !== "cozinha" && canAccess(credOk, "admin")) {
@@ -1147,6 +1257,14 @@ export default function RestaurantePedidoApp() {
       setAdminSection(deepAdmin[1]);
     } else if (redirectOperacional && perfilExclusivoOperacional(credOk)) {
       setActiveTab("opmobile");
+    } else if (manterUrl && urlProtegida) {
+      // F5/versão: aplica a rota da URL sem cair no dashboard padrão.
+      aplicarRota(pathnameAlvo, searchAlvo, credOk);
+    } else if (manterUrl && !urlProtegida) {
+      // URL já era /login por race — usa redirect salvo ou home.
+      const home = abaInicialDoUsuario(credOk);
+      if (home === "admin") setAdminSection("dashboard");
+      setActiveTab(home);
     } else {
       // Pouso padrão: admin → dashboard; caixa → PDV; cozinha → KDS…
       // Operação Mobile só para perfil exclusivamente operacional.
@@ -1205,32 +1323,33 @@ export default function RestaurantePedidoApp() {
 
     setUsers((cur) => (cur.some((u) => u.id === credOk.id) ? cur : [credOk, ...cur]));
 
-    // Persiste sessão da aba (F5 mantém login + tela).
-    try {
-      sessionStorage.setItem("pp_sessao_ativa", "1");
-      sessionStorage.setItem("pp_sessao_email", email);
-    } catch { /* ignore */ }
+    // Persiste sessão + snapshot (F5 / atualização de versão mantém login + tela).
+    salvarSessaoUsuario(credOk);
 
     // Best-effort: sessão Supabase Auth (RLS). Não bloqueia o acesso se falhar.
     if (usandoSupabaseAuth()) {
       const r = await loginSupabaseAuth(email, senha);
       if (r.ok) {
         try { sessionStorage.setItem("pp_restore_once", "1"); } catch {}
+        // Recarrega lista completa com JWT (RPC app_listar_usuarios).
         window.location.reload();
         return;
       }
     }
 
     if (!aplicarLogin(credOk)) return;
+    // Sem Auth: ainda tenta recarregar a lista (SELECT/RPC conforme disponível).
+    try {
+      const lista = await fetchUsuarios();
+      if (Array.isArray(lista) && lista.length) setUsers(lista);
+    } catch { /* mantém o que já está em memória */ }
   }
 
   function logout() {
     // Ao sair, libera a mesa fixa deste aparelho para que o próximo login
     // peça a seleção da mesa novamente (e libere a mesa para outros).
     try { localStorage.removeItem("pp_tablet_mesa"); } catch {}
-    try { sessionStorage.removeItem("pp_restore_once"); } catch {}
-    try { sessionStorage.removeItem("pp_sessao_ativa"); } catch {}
-    try { sessionStorage.removeItem("pp_sessao_email"); } catch {}
+    limparSessaoUsuario();
     limparRedirectPosLogin(); // não retomar destino de uma tentativa de acesso anterior
     try { window.history.replaceState({}, "", "/login"); } catch {}
     primeiraSyncRef.current = true; // próxima sessão recomeça normalizando a URL
