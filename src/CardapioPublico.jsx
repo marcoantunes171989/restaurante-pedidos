@@ -863,10 +863,10 @@ export default function CardapioPublico() {
         <button type="button" onClick={() => !indisponivel && abrir()} disabled={indisponivel}
           aria-label={indisponivel ? `${item.name} — indisponível` : `Ver ${item.name}`}
           className="relative shrink-0 transition active:scale-[0.98] disabled:cursor-not-allowed">
-          <span className="block h-[84px] w-[84px] overflow-hidden rounded-2xl bg-[var(--client-surface-secondary)]">
+          <span className="pp-img-fill relative block h-[84px] w-[84px] shrink-0 overflow-hidden rounded-2xl bg-[var(--client-surface-secondary)]">
             <img src={item.imageUrl || fallbackImage} alt={item.name} loading="lazy" decoding="async"
               onError={(e) => { if (e.currentTarget.src !== fallbackImage) e.currentTarget.src = fallbackImage; }}
-              className={`h-full w-full object-cover ${indisponivel ? "grayscale opacity-50" : ""}`} />
+              className={`pp-img-fill h-full w-full object-cover ${indisponivel ? "grayscale opacity-50" : ""}`} />
           </span>
           {personalizavel && !indisponivel && (
             <span aria-hidden="true" title="Personalizável" className="pointer-events-none absolute left-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-full border border-[var(--client-border)] bg-[var(--client-surface)] text-[var(--client-text-secondary)] shadow-[var(--client-shadow-sm)]">
@@ -1364,7 +1364,7 @@ export default function CardapioPublico() {
       : { t: "Conta em aberto", cls: "border-[var(--client-info-border)] bg-[var(--client-info-soft)] text-[var(--client-text-primary)]", ic: "bg-[var(--client-info)]" };
 
     return (
-      <div data-theme="light" className="tema-claro-area min-h-screen w-full max-w-[100vw] overflow-x-hidden bg-[var(--client-background)] text-[var(--client-text-primary)]" style={{ minHeight: "100dvh" }}>
+      <div data-theme="light" className="tema-claro-area min-h-screen w-full max-w-full overflow-x-hidden bg-[var(--client-background)] text-[var(--client-text-primary)]" style={{ minHeight: "100dvh" }}>
         {/* Cabeçalho da marca */}
         <header className="border-b border-[var(--client-border)] bg-[var(--client-surface)] px-4 pb-4" style={{ paddingTop: "calc(env(safe-area-inset-top) + 1rem)" }}>
           <div className="mx-auto flex max-w-md items-center gap-3">
@@ -1494,7 +1494,7 @@ export default function CardapioPublico() {
   if (mesaURL && statusMesa?.ocupada && !ocupacaoConfirmada) {
     const numeroFmt = String(statusMesa.numero ?? mesaURL).padStart(2, "0");
     return (
-      <div data-theme="light" className="tema-claro-area fixed inset-0 z-[130] flex min-h-screen w-full max-w-[100vw] items-center justify-center overflow-x-hidden bg-black/60 p-6 backdrop-blur-sm" style={{ minHeight: "100dvh" }}>
+      <div data-theme="light" className="tema-claro-area fixed inset-0 z-[130] flex min-h-screen w-full max-w-full items-center justify-center overflow-x-hidden bg-black/60 p-6 backdrop-blur-sm" style={{ minHeight: "100dvh" }}>
         <div role="alertdialog" aria-modal="true" aria-labelledby="msg-mesa-ocupada" className="w-full max-w-sm rounded-3xl border border-[var(--client-border)] bg-[var(--client-surface)] p-5 text-center shadow-[var(--client-shadow-floating)]">
           <p className="text-3xl">🍽️</p>
           <p id="msg-mesa-ocupada" className="mt-2 text-base font-black text-[var(--client-text-primary)]">Esta mesa já está ocupada.</p>
@@ -1563,9 +1563,9 @@ export default function CardapioPublico() {
     };
 
     return (
-      <div data-theme="light" className={`pp-mesa-welcome tema-claro-area relative flex h-[100dvh] max-h-[100dvh] w-full max-w-[100vw] flex-col overflow-hidden bg-white text-[var(--client-text-primary)] ${modoExterno ? "pp-welcome-ext" : ""}`}
+      <div data-theme="light" className={`pp-mesa-welcome tema-claro-area relative flex h-[100dvh] max-h-[100dvh] w-full max-w-full flex-col overflow-hidden bg-white text-[var(--client-text-primary)] ${modoExterno ? "pp-welcome-ext" : ""}`}
         style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}>
-        <div className="relative mx-auto flex h-full w-full max-w-[420px] min-h-0 flex-col px-3.5 pt-[clamp(0.35rem,1.2vh,0.75rem)] pb-[clamp(0.25rem,0.8vh,0.5rem)]">
+        <div className="relative mx-auto flex h-full w-full min-w-0 max-w-[420px] min-h-0 flex-col overflow-x-hidden px-3.5 pt-[clamp(0.35rem,1.2vh,0.75rem)] pb-[clamp(0.25rem,0.8vh,0.5rem)]">
           {/* ── Estabelecimento ── */}
           <header className="flex shrink-0 flex-col items-center text-center">
             {loja.logoUrl ? (
@@ -1642,11 +1642,11 @@ export default function CardapioPublico() {
 
           {/* ── Carrossel: foto sem overlay; infos abaixo ── */}
           {produtoAtivo && (
-            <section className="mt-[clamp(0.35rem,1.1vh,0.65rem)] flex min-h-0 flex-1 flex-col" aria-labelledby="pp-destaques-titulo"
+            <section className="mt-[clamp(0.35rem,1.1vh,0.65rem)] flex min-h-0 min-w-0 max-w-full flex-1 flex-col overflow-x-hidden" aria-labelledby="pp-destaques-titulo"
               onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
-              <div className="mb-1.5 flex shrink-0 items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <h2 id="pp-destaques-titulo" className="text-[clamp(14px,2.1vh,16px)] font-black text-[#0F4C5C]">Destaques da casa</h2>
+              <div className="mb-1.5 flex min-w-0 shrink-0 items-center justify-between gap-2">
+                <div className="min-w-0 flex-1 overflow-hidden">
+                  <h2 id="pp-destaques-titulo" className="truncate text-[clamp(14px,2.1vh,16px)] font-black text-[#0F4C5C]">Destaques da casa</h2>
                   <p className="text-[10px] text-[#6B7280]">{slideAtual + 1} de {nSlides}</p>
                 </div>
                 {nSlides > 1 && (
@@ -1664,17 +1664,21 @@ export default function CardapioPublico() {
               </div>
 
               <button type="button" onClick={() => setDetalhe(produtoAtivo)}
-                className="group relative flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-[1.35rem] border border-[#E6E6E6] bg-white text-left transition active:scale-[0.995]">
-                <div className="relative min-h-0 flex-1 overflow-hidden bg-white">
-                  <img key={produtoAtivo.id} src={produtoAtivo.imageUrl || fallbackImage} alt={produtoAtivo.name} loading="eager" decoding="async"
+                className="group relative flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-hidden rounded-[1.35rem] border border-[#E6E6E6] bg-white text-left transition active:scale-[0.995]">
+                {/* Foto: min-height + .pp-img-fill evita colapso em iOS/Android
+                    (img absoluta com max-width:100% global ficava em branco). */}
+                <div className="pp-welcome-foto pp-img-fill">
+                  <img key={produtoAtivo.id} src={produtoAtivo.imageUrl || fallbackImage} alt={produtoAtivo.name}
+                    loading="eager" decoding="async" fetchPriority="high"
+                    sizes="(max-width: 420px) 100vw, 420px"
                     onError={(e) => { if (e.currentTarget.src !== fallbackImage) e.currentTarget.src = fallbackImage; }}
-                    className="absolute inset-0 h-full w-full object-cover transition duration-500 group-active:scale-105" />
-                  <span className="absolute left-3 top-3 flex h-7 w-7 items-center justify-center rounded-full border border-[#E6E6E6] bg-white text-[12px] font-black text-[#0F4C5C]">{slideAtual + 1}</span>
+                    className="pp-img-fill transition duration-500 group-active:scale-105" />
+                  <span className="pointer-events-none absolute left-3 top-3 z-[1] flex h-7 w-7 items-center justify-center rounded-full border border-[#E6E6E6] bg-white text-[12px] font-black text-[#0F4C5C]">{slideAtual + 1}</span>
                   {produtoAtivo.badge ? (
-                    <span className="absolute right-3 top-3 rounded-full border border-[#E6E6E6] bg-white px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-[#E67E22]">{produtoAtivo.badge}</span>
+                    <span className="pointer-events-none absolute right-3 top-3 z-[1] max-w-[45%] truncate rounded-full border border-[#E6E6E6] bg-white px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-[#E67E22]">{produtoAtivo.badge}</span>
                   ) : null}
                 </div>
-                <div className="shrink-0 border-t border-[#E6E6E6] bg-white px-3.5 py-2.5">
+                <div className="min-w-0 shrink-0 border-t border-[#E6E6E6] bg-white px-3.5 py-2.5">
                   <p className="truncate text-[clamp(15px,2.3vh,18px)] font-black leading-tight text-[#0F4C5C]">{produtoAtivo.name}</p>
                   <p className="mt-0.5 line-clamp-1 text-[11px] text-[#6B7280]">{descCurta(produtoAtivo)}</p>
                   <p className="mt-1 text-[clamp(15px,2.2vh,18px)] font-black text-[#E67E22]">{formatCurrency(produtoAtivo.price)}</p>
@@ -1790,7 +1794,7 @@ export default function CardapioPublico() {
     entrega: "Receba o pedido no endereço combinado com a equipe.",
   };
   return (
-    <div ref={raizRef} data-theme="light" className="tema-claro-area min-h-screen w-full max-w-[100vw] bg-[var(--client-background)] text-[var(--client-text-primary)]" style={{ minHeight: "100dvh", paddingBottom: "calc(env(safe-area-inset-bottom) + 92px)" }}>
+    <div ref={raizRef} data-theme="light" className="tema-claro-area min-h-screen w-full max-w-full overflow-x-hidden bg-[var(--client-background)] text-[var(--client-text-primary)]" style={{ minHeight: "100dvh", paddingBottom: "calc(env(safe-area-inset-bottom) + 92px)" }}>
       {/* Cabeçalho */}
       {/* Cabeçalho + categorias num ÚNICO container sticky (top-0): grudam
           JUNTOS no topo por CSS nativo, sem depender do valor MEDIDO do header
@@ -2503,7 +2507,7 @@ export default function CardapioPublico() {
 }
 
 function Centro({ children }) {
-  return <div data-theme="light" className="tema-claro-area flex min-h-screen w-full max-w-[100vw] flex-col items-center justify-center overflow-x-hidden bg-[var(--client-background)] px-6 text-center text-[var(--client-text-primary)]" style={{ minHeight: "100dvh" }}>{children}</div>;
+  return <div data-theme="light" className="tema-claro-area flex min-h-screen w-full max-w-full flex-col items-center justify-center overflow-x-hidden bg-[var(--client-background)] px-6 text-center text-[var(--client-text-primary)]" style={{ minHeight: "100dvh" }}>{children}</div>;
 }
 function Spinner() { return <div className="h-10 w-10 animate-spin rounded-full border-4 border-[var(--client-primary-border)] border-t-[var(--client-primary)]" />; }
 
@@ -2514,7 +2518,7 @@ function Spinner() { return <div className="h-10 w-10 animate-spin rounded-full 
 function BlocoSkeleton({ className }) { return <div className={`animate-pulse rounded-full bg-[var(--client-surface-secondary)] ${className}`} />; }
 function CardapioSkeleton() {
   return (
-    <div data-theme="light" className="tema-claro-area min-h-screen w-full max-w-[100vw] bg-[var(--client-background)]" style={{ minHeight: "100dvh" }} aria-busy="true" aria-label="Carregando cardápio">
+    <div data-theme="light" className="tema-claro-area min-h-screen w-full max-w-full bg-[var(--client-background)]" style={{ minHeight: "100dvh" }} aria-busy="true" aria-label="Carregando cardápio">
       <header className="sticky top-0 z-30 border-b border-[var(--client-border)] bg-[var(--client-surface)] px-4 pb-3" style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)" }}>
         <div className="mx-auto flex max-w-3xl items-center gap-3">
           <div className="h-12 w-12 shrink-0 animate-pulse rounded-2xl bg-[var(--client-surface-secondary)]" />
@@ -2731,7 +2735,7 @@ function Gaveta({ titulo, subtitulo, onFechar, children, rodape, fecharLabel = "
   const overlayStyle = vp ? { top: vp.top, height: vp.h, bottom: "auto" } : undefined;
   const sheetMax = vp ? `${vp.h}px` : "92dvh";
   return (
-    <div data-theme="light" className="tema-claro-area fixed inset-x-0 top-0 z-[110] flex w-full max-w-[100vw] items-end justify-center overflow-x-hidden bg-black/60 backdrop-blur-sm" style={overlayStyle} onClick={onFechar}>
+    <div data-theme="light" className="tema-claro-area fixed inset-x-0 top-0 z-[110] flex w-full max-w-full items-end justify-center overflow-x-hidden bg-black/60 backdrop-blur-sm" style={overlayStyle} onClick={onFechar}>
       {/* flex-col + min-h-0 no corpo: o rodapé (quando existe) reserva sua
           própria altura de verdade (medida pelo navegador), e o corpo rolável
           ocupa exatamente o resto — sem precisar "chutar" um px fixo de
