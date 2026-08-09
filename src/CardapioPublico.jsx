@@ -1586,11 +1586,11 @@ export default function CardapioPublico() {
     };
 
     return (
-      <div data-theme="light" className={`pp-mesa-welcome tema-claro-area relative flex h-[100dvh] max-h-[100dvh] w-full max-w-full flex-col overflow-hidden bg-white text-[var(--client-text-primary)] ${modoExterno ? "pp-welcome-ext" : ""}`}
+      <div data-theme="light" className={`pp-mesa-welcome tema-claro-area relative flex h-[100dvh] max-h-[100dvh] w-full max-w-full flex-col overflow-x-clip bg-white text-[var(--client-text-primary)] ${modoExterno ? "pp-welcome-ext" : ""}`}
         style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}>
-        <div className="relative mx-auto flex h-full w-full min-w-0 max-w-[420px] min-h-0 flex-col overflow-x-hidden px-3.5 pt-[clamp(0.35rem,1.2vh,0.75rem)] pb-[clamp(0.25rem,0.8vh,0.5rem)]">
+        <div className="pp-welcome-inner relative flex flex-col pt-[clamp(0.35rem,1.2vh,0.75rem)] pb-[clamp(0.25rem,0.8vh,0.5rem)]">
           {/* ── Estabelecimento ── */}
-          <header className="flex shrink-0 flex-col items-center text-center">
+          <header className="flex w-full min-w-0 shrink-0 flex-col items-center text-center">
             {loja.logoUrl ? (
               <img src={loja.logoUrl} alt={`Logo ${loja.nome}`} className="h-[clamp(44px,7vh,64px)] w-[clamp(44px,7vh,64px)] rounded-full border-[3px] border-[#E6E6E6] object-cover bg-white" onError={(e) => { e.currentTarget.style.display = "none"; }} />
             ) : (
@@ -1599,9 +1599,9 @@ export default function CardapioPublico() {
                 <span className="text-[#E67E22]">{(loja.prefixo || nomePrimario).slice(1, 2) || ""}</span>
               </span>
             )}
-            <h1 className="mt-[clamp(0.25rem,0.8vh,0.5rem)] font-black leading-none tracking-tight">
-              <span className="text-[clamp(1.2rem,3.6vh,1.7rem)] text-[#0F4C5C]">{nomePrimario}</span>
-              {nomeSecundario ? <span className="text-[clamp(1.2rem,3.6vh,1.7rem)] text-[#E67E22]"> {nomeSecundario}</span> : null}
+            <h1 className="mt-[clamp(0.25rem,0.8vh,0.5rem)] max-w-full px-1 font-black leading-none tracking-tight break-words">
+              <span className="text-[clamp(1.15rem,3.4vh,1.7rem)] text-[#0F4C5C]">{nomePrimario}</span>
+              {nomeSecundario ? <span className="text-[clamp(1.15rem,3.4vh,1.7rem)] text-[#E67E22]"> {nomeSecundario}</span> : null}
             </h1>
             <div className="pp-welcome-brand-sub mt-1 flex items-center gap-2">
               <span className="h-px w-6 bg-[#E6E6E6]" aria-hidden="true" />
@@ -1612,48 +1612,48 @@ export default function CardapioPublico() {
 
           {/* ── Mesa + status do estabelecimento ── */}
           {(currentTable || lojaStatus) && (
-            <div className="mt-[clamp(0.4rem,1.2vh,0.7rem)] grid shrink-0 grid-cols-2 gap-2">
+            <div className="pp-welcome-status mt-[clamp(0.4rem,1.2vh,0.7rem)] grid w-full shrink-0 grid-cols-2 gap-2">
               {currentTable ? (
-                <div className="flex min-w-0 items-center gap-2 rounded-2xl border border-[#E6E6E6] bg-white px-2.5 py-[clamp(0.45rem,1.1vh,0.7rem)]">
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-[#E6E6E6] bg-white text-[#E67E22]"><CkIconMesa width={16} height={16} /></span>
-                  <span className="min-w-0">
+                <div className="flex min-w-0 items-center gap-2 overflow-hidden rounded-2xl border border-[#E6E6E6] bg-white px-2.5 py-[clamp(0.45rem,1.1vh,0.7rem)]">
+                  <span className="pp-welcome-status-icon flex h-8 w-8 items-center justify-center rounded-xl border border-[#E6E6E6] bg-white text-[#E67E22]"><CkIconMesa width={16} height={16} /></span>
+                  <span className="min-w-0 flex-1 overflow-hidden">
                     <span className="block truncate text-[13px] font-black text-[#0F4C5C]">{currentTable}</span>
-                    <span className="block text-[10px] font-medium text-[#6B7280]">Sua comanda</span>
+                    <span className="block truncate text-[10px] font-medium text-[#6B7280]">Sua comanda</span>
                   </span>
                 </div>
               ) : (
-                <div className="flex min-w-0 items-center gap-2 rounded-2xl border border-[#E6E6E6] bg-white px-2.5 py-[clamp(0.45rem,1.1vh,0.7rem)]">
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-[#E6E6E6] bg-white text-[#E67E22]"><CkIconLoja width={16} height={16} /></span>
-                  <span className="min-w-0">
+                <div className="flex min-w-0 items-center gap-2 overflow-hidden rounded-2xl border border-[#E6E6E6] bg-white px-2.5 py-[clamp(0.45rem,1.1vh,0.7rem)]">
+                  <span className="pp-welcome-status-icon flex h-8 w-8 items-center justify-center rounded-xl border border-[#E6E6E6] bg-white text-[#E67E22]"><CkIconLoja width={16} height={16} /></span>
+                  <span className="min-w-0 flex-1 overflow-hidden">
                     <span className="block truncate text-[13px] font-black text-[#0F4C5C]">Pedido online</span>
-                    <span className="block text-[10px] font-medium text-[#6B7280]">Cardápio externo</span>
+                    <span className="block truncate text-[10px] font-medium text-[#6B7280]">Cardápio externo</span>
                   </span>
                 </div>
               )}
-              <div className="flex min-w-0 items-center gap-2 rounded-2xl border border-[#E6E6E6] bg-white px-2.5 py-[clamp(0.45rem,1.1vh,0.7rem)]">
+              <div className="flex min-w-0 items-center gap-2 overflow-hidden rounded-2xl border border-[#E6E6E6] bg-white px-2.5 py-[clamp(0.45rem,1.1vh,0.7rem)]">
                 {lojaStatus === "aberto" ? (
                   <>
-                    <span className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-[#E6E6E6] bg-white">
+                    <span className="pp-welcome-status-icon relative flex h-8 w-8 items-center justify-center rounded-xl border border-[#E6E6E6] bg-white">
                       <span className="absolute h-2 w-2 rounded-full bg-[#5E8C31]" aria-hidden="true" />
                       <span className="absolute h-2 w-2 animate-ping rounded-full bg-[#5E8C31]/50" aria-hidden="true" />
                     </span>
-                    <span className="min-w-0">
+                    <span className="min-w-0 flex-1 overflow-hidden">
                       <span className="block truncate text-[13px] font-black text-[#5E8C31]">Aberto agora</span>
                       <span className="block truncate text-[10px] font-medium text-[#6B7280]">{fechaHoje ? `Até ${fechaHoje}` : "Pronto para receber"}</span>
                     </span>
                   </>
                 ) : lojaStatus === "fechado" ? (
                   <>
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-[#E6E6E6] bg-white text-[#52606D]"><CkIconRelogio width={15} height={15} /></span>
-                    <span className="min-w-0">
+                    <span className="pp-welcome-status-icon flex h-8 w-8 items-center justify-center rounded-xl border border-[#E6E6E6] bg-white text-[#52606D]"><CkIconRelogio width={15} height={15} /></span>
+                    <span className="min-w-0 flex-1 overflow-hidden">
                       <span className="block truncate text-[13px] font-black text-[#52606D]">Fechado agora</span>
                       <span className="block truncate text-[10px] font-medium text-[#6B7280]">Fora do horário</span>
                     </span>
                   </>
                 ) : (
                   <>
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-[#E6E6E6] bg-white text-[#0F4C5C]"><CkIconRelogio width={15} height={15} /></span>
-                    <span className="min-w-0">
+                    <span className="pp-welcome-status-icon flex h-8 w-8 items-center justify-center rounded-xl border border-[#E6E6E6] bg-white text-[#0F4C5C]"><CkIconRelogio width={15} height={15} /></span>
+                    <span className="min-w-0 flex-1 overflow-hidden">
                       <span className="block truncate text-[13px] font-black text-[#0F4C5C]">Atendimento</span>
                       <span className="block truncate text-[10px] font-medium text-[#6B7280]">Consulte a equipe</span>
                     </span>
@@ -1699,7 +1699,7 @@ export default function CardapioPublico() {
                   }
                 }}
                 aria-label={`Ver ${produtoAtivo.name}`}
-                className="pp-welcome-card group relative flex min-h-0 w-full min-w-0 max-w-full flex-1 cursor-pointer flex-col overflow-hidden rounded-[1.35rem] border border-[#E6E6E6] bg-white text-left transition active:scale-[0.995]"
+                className="pp-welcome-card group relative flex min-h-0 w-full min-w-0 max-w-full flex-1 cursor-pointer flex-col overflow-hidden rounded-[1.35rem] border border-[#E6E6E6] bg-white text-left transition active:opacity-95"
               >
                 {(() => {
                   const fotoSrc = produtoAtivo.imageUrl || fallbackImage;
@@ -1715,7 +1715,7 @@ export default function CardapioPublico() {
                         loading="eager"
                         decoding="async"
                         fetchPriority="high"
-                        sizes="(max-width: 420px) 100vw, 420px"
+                        sizes="100%"
                         onError={(e) => {
                           if (e.currentTarget.src !== fallbackImage) {
                             e.currentTarget.src = fallbackImage;
@@ -1723,11 +1723,11 @@ export default function CardapioPublico() {
                             if (box) box.style.backgroundImage = `url(${JSON.stringify(fallbackImage)})`;
                           }
                         }}
-                        className="pp-img-fill transition duration-500 group-active:scale-105"
+                        className="pp-img-fill"
                       />
-                      <span className="pp-welcome-foto-badge pointer-events-none absolute left-3 top-3 flex h-7 w-7 items-center justify-center rounded-full border border-[#E6E6E6] bg-white text-[12px] font-black text-[#0F4C5C]">{slideAtual + 1}</span>
+                      <span className="pp-welcome-foto-badge pointer-events-none absolute left-2 top-2 flex h-7 w-7 items-center justify-center rounded-full border border-[#E6E6E6] bg-white text-[12px] font-black text-[#0F4C5C]">{slideAtual + 1}</span>
                       {produtoAtivo.badge ? (
-                        <span className="pp-welcome-foto-badge pointer-events-none absolute right-3 top-3 max-w-[45%] truncate rounded-full border border-[#E6E6E6] bg-white px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-[#E67E22]">{produtoAtivo.badge}</span>
+                        <span className="pp-welcome-foto-badge pointer-events-none absolute right-2 top-2 truncate rounded-full border border-[#E6E6E6] bg-white px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-[#E67E22]">{produtoAtivo.badge}</span>
                       ) : null}
                     </div>
                   );
@@ -1752,9 +1752,9 @@ export default function CardapioPublico() {
           )}
 
           {/* ── CTA + rodapé ── */}
-          <div className="mt-[clamp(0.35rem,1vh,0.6rem)] flex shrink-0 flex-col">
-            <div className="pp-mesa-opt-sub flex items-center gap-2.5 rounded-2xl border border-[#E6E6E6] bg-white px-3 py-2">
-              <span className="text-xl" aria-hidden="true">👋</span>
+          <div className="mt-[clamp(0.35rem,1vh,0.6rem)] flex w-full min-w-0 shrink-0 flex-col">
+            <div className="pp-mesa-opt-sub flex min-w-0 items-center gap-2.5 overflow-hidden rounded-2xl border border-[#E6E6E6] bg-white px-3 py-2">
+              <span className="shrink-0 text-xl" aria-hidden="true">👋</span>
               <p className="min-w-0 flex-1 text-[11px] leading-snug text-[#374151]">
                 <b className="font-black text-[#0F4C5C]">Olá! Seja bem-vindo!</b>{" "}
                 Cardápio especial para você aproveitar cada momento.
@@ -1762,10 +1762,10 @@ export default function CardapioPublico() {
             </div>
 
             <button type="button" onClick={() => setEtapa("cardapio")}
-              className="pp-welcome-cta mt-2 flex w-full min-h-[48px] items-center gap-2.5 rounded-2xl btn-laranja px-4 text-[14px] font-black text-white transition active:scale-[0.99]">
-              <CkIconRecibo width={16} height={16} />
-              <span className="flex-1 text-left">Ver cardápio completo</span>
-              <span aria-hidden="true">→</span>
+              className="pp-welcome-cta mt-2 flex w-full min-h-[48px] min-w-0 items-center gap-2.5 rounded-2xl btn-laranja px-3 text-[14px] font-black text-white transition active:opacity-95 sm:px-4">
+              <CkIconRecibo width={16} height={16} className="shrink-0" />
+              <span className="min-w-0 flex-1 truncate text-left">Ver cardápio completo</span>
+              <span className="shrink-0" aria-hidden="true">→</span>
             </button>
 
             {meusPedidos.length > 0 && (
@@ -1848,7 +1848,7 @@ export default function CardapioPublico() {
     entrega: "Receba o pedido no endereço combinado com a equipe.",
   };
   return (
-    <div ref={raizRef} data-theme="light" className="tema-claro-area min-h-screen w-full max-w-full overflow-x-hidden bg-[var(--client-background)] text-[var(--client-text-primary)]" style={{ minHeight: "100dvh", paddingBottom: "calc(env(safe-area-inset-bottom) + 92px)" }}>
+    <div ref={raizRef} data-theme="light" className="tema-claro-area min-h-screen w-full max-w-full overflow-x-clip bg-[var(--client-background)] text-[var(--client-text-primary)]" style={{ minHeight: "100dvh", paddingBottom: "calc(env(safe-area-inset-bottom) + 92px)", paddingLeft: "env(safe-area-inset-left)", paddingRight: "env(safe-area-inset-right)" }}>
       {/* Cabeçalho */}
       {/* Cabeçalho + categorias num ÚNICO container sticky (top-0): grudam
           JUNTOS no topo por CSS nativo, sem depender do valor MEDIDO do header
