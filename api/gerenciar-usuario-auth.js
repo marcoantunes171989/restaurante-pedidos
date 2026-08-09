@@ -1,8 +1,8 @@
 // ════════════════════════════════════════════════════════════
 //  Vercel Serverless Function: /api/gerenciar-usuario-auth
 //  Cria / atualiza / exclui usuários no Supabase Auth (auth.users)
-//  quando o admin cadastra usuários no app. Sem isso, o login em
-//  AUTH_MODE=supabase falha porque só existiria a linha em tab_usuarios.
+//  E na tabela tab_usuarios — para o login (AUTH_MODE=supabase) e o
+//  cadastro no Admin ficarem consistentes com o banco real.
 //
 //  A SERVICE ROLE KEY fica SÓ no servidor (env na Vercel), nunca no front.
 //  Vercel → Settings → Environment Variables →
@@ -10,7 +10,7 @@
 //  (Production + Preview) → Redeploy.
 //
 //  Segurança: exige JWT válido + usuário ativo com acesso "admin"
-//  (ou super_admin). Operador de loja só gerencia e-mails da própria loja.
+//  (ou super_admin). Operador de loja só gerencia a própria loja.
 // ════════════════════════════════════════════════════════════
 
 const SENHA_MIN = 6;
@@ -53,16 +53,69 @@ async function authAdmin(path, { method = "GET", body } = {}) {
   return data;
 }
 
-async function restSelectUsuarioPorEmail(email) {
+async function rest(path, { method = "GET", body, prefer } = {}) {
   const key = serviceKey();
-  // ilike: e-mails antigos podem ter casing diferente do JWT.
-  const filtro = `email=ilike.${encodeURIComponent(email)}`;
-  const r = await fetch(`${supabaseUrl()}/rest/v1/tab_usuarios?${filtro}&select=id,email,loja_id,ativo,super_admin,ids_acesso`, {
-    headers: { apikey: key, authorization: `Bearer ${key}`, accept: "application/json" },
+  const headers = {
+    apikey: key,
+    authorization: `Bearer ${key}`,
+    accept: "application/json",
+    "content-type": "application/json",
+  };
+  if (prefer) headers.prefer = prefer;
+  const r = await fetch(`${supabaseUrl()}/rest/v1${path}`, {
+    method,
+    headers,
+    body: body != null ? JSON.stringify(body) : undefined,
   });
-  if (!r.ok) return null;
-  const rows = await r.json();
+  let data = null;
+  const text = await r.text();
+  if (text) {
+    try { data = JSON.parse(text); } catch { data = text; }
+  }
+  if (!r.ok) {
+    const msg = data?.message || data?.error || data?.hint || `REST HTTP ${r.status}`;
+    const err = new Error(msg);
+    err.status = r.status;
+    throw err;
+  }
+  return data;
+}
+
+function filtroEmail(email) {
+  // ilike sem wildcard = match case-insensitive (e-mails legados com casing misto).
+  return `email=ilike.${encodeURIComponent(String(email || "").trim().toLowerCase())}`;
+}
+
+async function restSelectUsuarioPorEmail(email) {
+  const rows = await rest(
+    `/tab_usuarios?${filtroEmail(email)}&select=id,email,loja_id,ativo,super_admin,ids_acesso,nome,senha,perfil,cargo_id`,
+  );
   return Array.isArray(rows) && rows[0] ? rows[0] : null;
+}
+
+async function upsertTabUsuario(row) {
+  const rows = await rest("/tab_usuarios?on_conflict=email&select=*", {
+    method: "POST",
+    prefer: "resolution=merge-duplicates,return=representation",
+    body: [row],
+  });
+  return Array.isArray(rows) ? rows[0] : rows;
+}
+
+async function updateTabUsuarioPorId(id, campos) {
+  const rows = await rest(`/tab_usuarios?id=eq.${encodeURIComponent(id)}&select=*`, {
+    method: "PATCH",
+    prefer: "return=representation",
+    body: campos,
+  });
+  return Array.isArray(rows) ? rows[0] : rows;
+}
+
+async function deleteTabUsuarioPorEmail(email) {
+  await rest(`/tab_usuarios?${filtroEmail(email)}`, {
+    method: "DELETE",
+    prefer: "return=minimal",
+  });
 }
 
 async function operadorDoToken(req) {
@@ -93,6 +146,13 @@ async function operadorDoToken(req) {
 async function encontrarAuthPorEmail(email) {
   const alvo = String(email || "").trim().toLowerCase();
   if (!alvo) return null;
+  // Filtro direto (GoTrue) — evita paginar todos os usuários.
+  try {
+    const data = await authAdmin(`/admin/users?email=${encodeURIComponent(alvo)}`);
+    const users = data?.users || (data?.id ? [data] : []);
+    const hit = users.find((u) => (u.email || "").toLowerCase() === alvo);
+    if (hit) return hit;
+  } catch { /* fallback paginado */ }
   let page = 1;
   for (;;) {
     const data = await authAdmin(`/admin/users?page=${page}&per_page=200`);
@@ -116,6 +176,22 @@ function podeGerenciarLoja(operador, lojaIdAlvo) {
   if (operador.superAdmin) return true;
   if (lojaIdAlvo == null || lojaIdAlvo === "") return false;
   return String(operador.lojaId) === String(lojaIdAlvo);
+}
+
+function montarRowApp({ email, senha, nome, lojaId, perfil, cargoId, ativo, idsAcesso }) {
+  const row = {
+    email: String(email || "").trim().toLowerCase(),
+    nome: String(nome || "").trim() || email,
+    senha: senha != null ? String(senha) : undefined,
+    perfil: String(perfil || "Operador").trim() || "Operador",
+    ativo: ativo !== false,
+    ids_acesso: Array.isArray(idsAcesso) ? idsAcesso : [],
+  };
+  if (lojaId != null && lojaId !== "") row.loja_id = lojaId;
+  if (cargoId != null && cargoId !== "") row.cargo_id = Number(cargoId);
+  // Remove undefined (senha opcional em update parcial).
+  Object.keys(row).forEach((k) => { if (row[k] === undefined) delete row[k]; });
+  return row;
 }
 
 export default async function handler(req, res) {
@@ -150,6 +226,12 @@ export default async function handler(req, res) {
     const senha = body.senha != null ? String(body.senha) : "";
     const nome = String(body.nome || "").trim();
     const lojaId = body.lojaId != null && body.lojaId !== "" ? body.lojaId : null;
+    const perfil = body.perfil != null ? String(body.perfil) : "Operador";
+    const cargoId = body.cargoId != null && body.cargoId !== "" ? body.cargoId : null;
+    const ativo = body.ativo !== false;
+    const idsAcesso = Array.isArray(body.idsAcesso) ? body.idsAcesso : [];
+    // persistirPerfil=false → só Auth (compat); padrão true grava tab_usuarios.
+    const persistirPerfil = body.persistirPerfil !== false;
 
     if (!["criar", "atualizar", "excluir"].includes(acao)) {
       return json(res, 400, { error: "Ação inválida." });
@@ -165,9 +247,9 @@ export default async function handler(req, res) {
       const errSenha = validarSenha(senha);
       if (errSenha) return json(res, 400, { error: errSenha });
 
+      let authId = null;
       const existente = await encontrarAuthPorEmail(email);
       if (existente) {
-        // Já existe no Auth: alinha a senha (idempotente) para o cadastro funcionar no login.
         await authAdmin(`/admin/users/${existente.id}`, {
           method: "PUT",
           body: {
@@ -176,19 +258,27 @@ export default async function handler(req, res) {
             user_metadata: { ...(existente.user_metadata || {}), nome, loja_id: lojaId },
           },
         });
-        return json(res, 200, { ok: true, id: existente.id, atualizado: true });
+        authId = existente.id;
+      } else {
+        const criado = await authAdmin("/admin/users", {
+          method: "POST",
+          body: {
+            email,
+            password: senha,
+            email_confirm: true,
+            user_metadata: { nome, loja_id: lojaId },
+          },
+        });
+        authId = criado?.id || criado?.user?.id || null;
       }
 
-      const criado = await authAdmin("/admin/users", {
-        method: "POST",
-        body: {
-          email,
-          password: senha,
-          email_confirm: true,
-          user_metadata: { nome, loja_id: lojaId },
-        },
-      });
-      return json(res, 200, { ok: true, id: criado?.id || criado?.user?.id || null });
+      let usuario = null;
+      if (persistirPerfil) {
+        usuario = await upsertTabUsuario(montarRowApp({
+          email, senha, nome, lojaId, perfil, cargoId, ativo, idsAcesso,
+        }));
+      }
+      return json(res, 200, { ok: true, id: authId, atualizado: !!existente, usuario });
     }
 
     if (acao === "atualizar") {
@@ -197,7 +287,8 @@ export default async function handler(req, res) {
       if (rowApp && !podeGerenciarLoja(operador, rowApp.loja_id) && !operador.superAdmin) {
         return json(res, 403, { error: "Só é possível editar usuários da sua empresa." });
       }
-      if (lojaId != null && !podeGerenciarLoja(operador, lojaId)) {
+      const lojaEfetiva = lojaId != null ? lojaId : (rowApp?.loja_id ?? null);
+      if (lojaEfetiva != null && !podeGerenciarLoja(operador, lojaEfetiva)) {
         return json(res, 403, { error: "Só é possível editar usuários da sua empresa." });
       }
       if (senha) {
@@ -210,8 +301,8 @@ export default async function handler(req, res) {
         authUser = await encontrarAuthPorEmail(email);
       }
 
+      let authId = null;
       if (!authUser) {
-        // Usuário legado só em tab_usuarios — cria o Auth para liberar o login.
         if (!senha) return json(res, 400, { error: "Informe a senha para criar o login deste usuário." });
         const criado = await authAdmin("/admin/users", {
           method: "POST",
@@ -219,21 +310,47 @@ export default async function handler(req, res) {
             email,
             password: senha,
             email_confirm: true,
-            user_metadata: { nome, loja_id: lojaId },
+            user_metadata: { nome, loja_id: lojaEfetiva },
           },
         });
-        return json(res, 200, { ok: true, id: criado?.id || criado?.user?.id || null, criado: true });
+        authId = criado?.id || criado?.user?.id || null;
+      } else {
+        const patch = {
+          email_confirm: true,
+          user_metadata: {
+            ...(authUser.user_metadata || {}),
+            nome,
+            loja_id: lojaEfetiva ?? authUser.user_metadata?.loja_id,
+          },
+        };
+        if (senha) patch.password = senha;
+        if (email && email !== (authUser.email || "").toLowerCase()) patch.email = email;
+        await authAdmin(`/admin/users/${authUser.id}`, { method: "PUT", body: patch });
+        authId = authUser.id;
       }
 
-      const patch = {
-        email_confirm: true,
-        user_metadata: { ...(authUser.user_metadata || {}), nome, loja_id: lojaId ?? authUser.user_metadata?.loja_id },
-      };
-      if (senha) patch.password = senha;
-      if (email && email !== (authUser.email || "").toLowerCase()) patch.email = email;
-
-      await authAdmin(`/admin/users/${authUser.id}`, { method: "PUT", body: patch });
-      return json(res, 200, { ok: true, id: authUser.id });
+      let usuario = null;
+      if (persistirPerfil) {
+        const campos = montarRowApp({
+          email,
+          senha: senha || undefined,
+          nome: nome || rowApp?.nome,
+          lojaId: lojaEfetiva,
+          perfil: body.perfil != null ? perfil : (rowApp?.perfil || perfil),
+          cargoId: cargoId != null ? cargoId : rowApp?.cargo_id,
+          ativo,
+          idsAcesso: Array.isArray(body.idsAcesso) ? idsAcesso : (rowApp?.ids_acesso || []),
+        });
+        if (rowApp?.id) {
+          usuario = await updateTabUsuarioPorId(rowApp.id, campos);
+        } else {
+          if (!campos.senha) {
+            return json(res, 400, { error: "Informe a senha para criar o registro do usuário no banco." });
+          }
+          usuario = await upsertTabUsuario(campos);
+        }
+      }
+      return json(res, 200, { ok: true, id: authId, usuario });
     }
 
     // excluir
@@ -245,7 +362,10 @@ export default async function handler(req, res) {
     if (authUser) {
       await authAdmin(`/admin/users/${authUser.id}`, { method: "DELETE" });
     }
-    return json(res, 200, { ok: true, removido: !!authUser });
+    if (persistirPerfil) {
+      await deleteTabUsuarioPorEmail(email);
+    }
+    return json(res, 200, { ok: true, removido: !!authUser, perfilRemovido: persistirPerfil });
   } catch (e) {
     console.error("[gerenciar-usuario-auth]", e);
     return json(res, e.status && e.status < 500 ? e.status : 500, {

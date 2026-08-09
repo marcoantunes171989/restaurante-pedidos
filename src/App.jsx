@@ -50,7 +50,7 @@ import {
   perguntarCopilotoIA,
   fetchAuditoria, registrarAuditoria, escutarAuditoria, marcarAuditoriaAnalisada,
   loginSupabaseAuth, logoutSupabaseAuth, aguardarSessao, getSessionEmail,
-  gerenciarUsuarioAuth, sincronizarAuthAoCriarUsuario, SENHA_MIN_AUTH,
+  gerenciarUsuarioAuth, sincronizarAuthAoCriarUsuario, mapUsuarioDb, SENHA_MIN_AUTH,
   fetchLancamentos, inserirLancamento, atualizarLancamento, excluirLancamento,
 } from "./lib/supabase";
 import { usandoSupabaseAuth } from "./lib/authMode";
@@ -2790,7 +2790,7 @@ export default function RestaurantePedidoApp() {
     notify("success", "Produto excluído.");
   }
 
-  // Usuários — edição e exclusão
+  // Usuários — edição e exclusão (Auth + tab_usuarios via API com service role)
   async function editarUsuario(uid, dados) {
     if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
     const atual = users.find((u) => u.id === uid);
@@ -2802,16 +2802,27 @@ export default function RestaurantePedidoApp() {
     const emailNovo = (dados.email || "").trim().toLowerCase();
     if (dbReady && usandoSupabaseAuth()) {
       try {
-        await gerenciarUsuarioAuth({
+        const r = await gerenciarUsuarioAuth({
           acao: "atualizar",
           email: emailNovo,
           emailAnterior: atual.email,
           senha: dados.password,
           nome: (dados.name || "").trim(),
           lojaId: atual.lojaId ?? lojaAtual,
+          perfil: dados.role || atual.role,
+          cargoId,
+          ativo: atual.active !== false,
+          idsAcesso: atual.accessIds || [],
+          persistirPerfil: true,
         });
+        const mapped = mapUsuarioDb(r?.usuario);
+        if (mapped) {
+          setUsers((cur) => cur.map((u) => u.id === uid || u.id === mapped.id ? { ...u, ...mapped } : u));
+          notify("success", "Usuário atualizado. Login e senha sincronizados no banco.");
+          return;
+        }
       } catch (e) {
-        return notify("error", "Não foi possível atualizar o login: " + (e.message || e));
+        return notify("error", "Não foi possível atualizar o usuário: " + (e.message || e));
       }
     }
     if (dbReady) {
@@ -2827,9 +2838,17 @@ export default function RestaurantePedidoApp() {
     const alvo = users.find((u) => u.id === uid);
     if (dbReady && usandoSupabaseAuth() && alvo?.email) {
       try {
-        await gerenciarUsuarioAuth({ acao: "excluir", email: alvo.email, lojaId: alvo.lojaId ?? lojaAtual });
+        await gerenciarUsuarioAuth({
+          acao: "excluir",
+          email: alvo.email,
+          lojaId: alvo.lojaId ?? lojaAtual,
+          persistirPerfil: true,
+        });
+        setUsers((cur) => cur.filter((u) => u.id !== uid));
+        notify("success", "Usuário excluído do login e do banco.");
+        return;
       } catch (e) {
-        return notify("error", "Não foi possível remover o login: " + (e.message || e));
+        return notify("error", "Não foi possível remover o usuário: " + (e.message || e));
       }
     }
     if (dbReady) try { await excluirUsuario(uid); } catch (e) { notify("error", "Erro ao excluir: " + e.message); return; }
@@ -2868,17 +2887,39 @@ export default function RestaurantePedidoApp() {
       lojaId: lojaDestino,
     };
 
-    // Com AUTH_MODE=supabase o login valida contra auth.users — cria lá ANTES de tab_usuarios.
+    // AUTH_MODE=supabase: API grava Auth + tab_usuarios (service role). Sem isso o
+    // login falha e/ou a linha some sob RLS ao inserir só pelo client.
     if (dbReady && usandoSupabaseAuth()) {
       try {
-        await sincronizarAuthAoCriarUsuario({
+        const r = await sincronizarAuthAoCriarUsuario({
           email: nu.email,
           senha: nu.password,
           nome: nu.name,
           lojaId: nu.lojaId,
+          perfil: nu.role,
+          cargoId: nu.cargoId,
+          ativo: true,
+          idsAcesso: [],
         });
+        const mapped = mapUsuarioDb(r?.usuario);
+        if (mapped) {
+          setUsers((cur) => [mapped, ...cur.filter((u) => (u.email || "").toLowerCase() !== mapped.email.toLowerCase())]);
+          setUserForm({ name: "", email: "", password: "", role: "", cargoId: "", lojaId: isSuperAdmin ? "" : lojaAtual });
+          auditar("criar", "usuario", mapped.id, { nome: nu.name, email: nu.email, cargo: nu.role });
+          notify("success", "Usuário cadastrado no banco com login ativo. Vincule os acessos em Usuário x Acesso.");
+          return true;
+        }
+        // Fallback (signUp sem service role): ainda precisa gravar tab_usuarios no client.
+        if (r?.perfilPersistido === false || !r?.usuario) {
+          const saved = await inserirUsuario(nu);
+          setUsers((cur) => [saved, ...cur]);
+          setUserForm({ name: "", email: "", password: "", role: "", cargoId: "", lojaId: isSuperAdmin ? "" : lojaAtual });
+          auditar("criar", "usuario", saved.id, { nome: nu.name, email: nu.email, cargo: nu.role });
+          notify("success", "Usuário cadastrado. Confirme SUPABASE_SERVICE_ROLE_KEY na Vercel para sync completo.");
+          return true;
+        }
       } catch (e) {
-        notify("error", "Não foi possível criar o login: " + (e.message || e));
+        notify("error", "Não foi possível criar o usuário: " + (e.message || e));
         return false;
       }
     }
@@ -2887,8 +2928,7 @@ export default function RestaurantePedidoApp() {
       const saved = dbReady ? await inserirUsuario(nu) : { ...nu, id: Date.now() };
       setUsers((cur) => [saved, ...cur]);
     } catch (e) {
-      // Auth já criado: avisa para não ficar login órfão sem linha no app.
-      notify("error", "Login criado, mas falhou ao salvar o usuário no banco: " + (e.message || e));
+      notify("error", "Falha ao salvar o usuário no banco: " + (e.message || e));
       return false;
     }
     setUserForm({ name: "", email: "", password: "", role: "", cargoId: "", lojaId: isSuperAdmin ? "" : lojaAtual });

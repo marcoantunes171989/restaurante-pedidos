@@ -1512,11 +1512,15 @@ export async function loginSupabaseAuth(email, senha) {
 export const SENHA_MIN_AUTH = 6
 
 /**
- * Sincroniza create/update/delete de usuário no Supabase Auth (auth.users).
- * Necessário quando AUTH_MODE=supabase: o login valida a senha no Auth, não
- * só em tab_usuarios. Tenta a rota Vercel e, se indisponível, a Edge Function.
+ * Sincroniza create/update/delete de usuário no Supabase Auth (auth.users)
+ * e, por padrão, também em tab_usuarios (service role no servidor).
+ * Necessário quando AUTH_MODE=supabase: o login valida a senha no Auth.
+ * Tenta a rota Vercel e, se indisponível, a Edge Function.
  */
-export async function gerenciarUsuarioAuth({ acao, email, senha, nome, lojaId, emailAnterior }) {
+export async function gerenciarUsuarioAuth({
+  acao, email, senha, nome, lojaId, emailAnterior,
+  perfil, cargoId, ativo, idsAcesso, persistirPerfil = true,
+}) {
   const { data: sess } = await supabase.auth.getSession()
   const token = sess?.session?.access_token
   if (!token) throw new Error('Sessão inválida — faça login novamente.')
@@ -1528,6 +1532,11 @@ export async function gerenciarUsuarioAuth({ acao, email, senha, nome, lojaId, e
     nome: nome || '',
     lojaId: lojaId ?? null,
     emailAnterior: emailAnterior ? String(emailAnterior).trim().toLowerCase() : '',
+    perfil: perfil || '',
+    cargoId: cargoId ?? null,
+    ativo: ativo !== false,
+    idsAcesso: Array.isArray(idsAcesso) ? idsAcesso : undefined,
+    persistirPerfil: persistirPerfil !== false,
   }
 
   // 1) Vercel Serverless (produção) — sobe com o deploy; exige SERVICE_ROLE na Vercel.
@@ -1615,16 +1624,40 @@ export async function criarAuthUsuarioViaSignUp({ email, senha, nome, lojaId }) 
   return { ok: true, id: data?.user?.id ?? null, identities: data?.user?.identities }
 }
 
-/** Cria no Auth: API service-role primeiro; se indisponível, tenta signUp. */
-export async function sincronizarAuthAoCriarUsuario({ email, senha, nome, lojaId }) {
+/** Cria no Auth (+ tab_usuarios via API): service-role primeiro; se indisponível, tenta signUp (só Auth). */
+export async function sincronizarAuthAoCriarUsuario({
+  email, senha, nome, lojaId, perfil, cargoId, ativo, idsAcesso,
+}) {
   try {
-    return await gerenciarUsuarioAuth({ acao: 'criar', email, senha, nome, lojaId })
+    return await gerenciarUsuarioAuth({
+      acao: 'criar', email, senha, nome, lojaId, perfil, cargoId, ativo, idsAcesso, persistirPerfil: true,
+    })
   } catch (e) {
     const msg = e?.message || ''
     if (/SERVICE_ROLE|não configurada|não foi possível sincronizar|Failed to send|404|Failed to fetch/i.test(msg)) {
-      return await criarAuthUsuarioViaSignUp({ email, senha, nome, lojaId })
+      // Fallback frágil: só Auth; o caller ainda precisa inserir tab_usuarios.
+      const auth = await criarAuthUsuarioViaSignUp({ email, senha, nome, lojaId })
+      return { ...auth, perfilPersistido: false }
     }
     throw e
+  }
+}
+
+/** Converte linha tab_usuarios (API) para o shape do app — espelho de dbParaUsuario. */
+export function mapUsuarioDb(r) {
+  if (!r) return null
+  return {
+    id: r.id,
+    name: r.nome,
+    email: r.email,
+    password: r.senha,
+    role: r.perfil,
+    active: r.ativo,
+    accessIds: r.ids_acesso ?? [],
+    lojaId: r.loja_id ?? null,
+    cargoId: r.cargo_id ?? null,
+    superAdmin: r.super_admin ?? false,
+    permissoesAcoes: r.permissoes_acoes ?? {},
   }
 }
 export async function logoutSupabaseAuth() {

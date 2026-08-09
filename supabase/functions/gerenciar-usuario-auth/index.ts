@@ -1,8 +1,8 @@
 // ════════════════════════════════════════════════════════════
 //  Edge Function: gerenciar-usuario-auth
 //  Espelho da Vercel Function /api/gerenciar-usuario-auth.
-//  Usa SERVICE_ROLE (injetada no runtime) para criar/atualizar/excluir
-//  usuários no Supabase Auth quando o admin cadastra no app.
+//  Usa SERVICE_ROLE para criar/atualizar/excluir no Auth E em
+//  tab_usuarios quando o admin cadastra no app.
 //
 //  Deploy (opcional se a rota Vercel já estiver ativa com a env):
 //    supabase functions deploy gerenciar-usuario-auth
@@ -63,6 +63,23 @@ function podeGerenciarLoja(operador: { superAdmin: boolean; lojaId: unknown }, l
   return String(operador.lojaId) === String(lojaIdAlvo);
 }
 
+function montarRowApp(p: {
+  email: string; senha?: string; nome: string; lojaId: unknown;
+  perfil: string; cargoId: unknown; ativo: boolean; idsAcesso: unknown[];
+}) {
+  const row: Record<string, unknown> = {
+    email: p.email,
+    nome: p.nome || p.email,
+    perfil: p.perfil || "Operador",
+    ativo: p.ativo !== false,
+    ids_acesso: Array.isArray(p.idsAcesso) ? p.idsAcesso : [],
+  };
+  if (p.senha != null && p.senha !== "") row.senha = p.senha;
+  if (p.lojaId != null && p.lojaId !== "") row.loja_id = p.lojaId;
+  if (p.cargoId != null && p.cargoId !== "") row.cargo_id = Number(p.cargoId);
+  return row;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ error: "Método não permitido." }, 405);
@@ -78,6 +95,11 @@ Deno.serve(async (req) => {
     const senha = body?.senha != null ? String(body.senha) : "";
     const nome = String(body?.nome || "").trim();
     const lojaId = body?.lojaId != null && body.lojaId !== "" ? body.lojaId : null;
+    const perfil = body?.perfil != null ? String(body.perfil) : "Operador";
+    const cargoId = body?.cargoId != null && body.cargoId !== "" ? body.cargoId : null;
+    const ativo = body?.ativo !== false;
+    const idsAcesso = Array.isArray(body?.idsAcesso) ? body.idsAcesso : [];
+    const persistirPerfil = body?.persistirPerfil !== false;
 
     if (!["criar", "atualizar", "excluir"].includes(acao)) return json({ error: "Ação inválida." }, 400);
     if (!email || !email.includes("@")) return json({ error: "E-mail inválido." }, 400);
@@ -89,6 +111,7 @@ Deno.serve(async (req) => {
       if (!senha || senha.length < SENHA_MIN) {
         return json({ error: `Senha deve ter no mínimo ${SENHA_MIN} caracteres (exigência do login).` }, 400);
       }
+      let authId: string | null = null;
       const existente = await encontrarAuthPorEmail(email);
       if (existente) {
         const { error } = await admin.auth.admin.updateUserById(existente.id, {
@@ -97,25 +120,40 @@ Deno.serve(async (req) => {
           user_metadata: { ...(existente.user_metadata || {}), nome, loja_id: lojaId },
         });
         if (error) throw error;
-        return json({ ok: true, id: existente.id, atualizado: true });
+        authId = existente.id;
+      } else {
+        const { data, error } = await admin.auth.admin.createUser({
+          email,
+          password: senha,
+          email_confirm: true,
+          user_metadata: { nome, loja_id: lojaId },
+        });
+        if (error) throw error;
+        authId = data.user?.id ?? null;
       }
-      const { data, error } = await admin.auth.admin.createUser({
-        email,
-        password: senha,
-        email_confirm: true,
-        user_metadata: { nome, loja_id: lojaId },
-      });
-      if (error) throw error;
-      return json({ ok: true, id: data.user?.id ?? null });
+
+      let usuario = null;
+      if (persistirPerfil) {
+        const { data, error } = await admin.from("tab_usuarios").upsert(
+          montarRowApp({ email, senha, nome, lojaId, perfil, cargoId, ativo, idsAcesso }),
+          { onConflict: "email" },
+        ).select().single();
+        if (error) throw error;
+        usuario = data;
+      }
+      return json({ ok: true, id: authId, atualizado: !!existente, usuario });
     }
 
     if (acao === "atualizar") {
       const emailBusca = emailAnterior || email;
-      const { data: rowApp } = await admin.from("tab_usuarios").select("loja_id").ilike("email", emailBusca).maybeSingle();
+      const { data: rowApp } = await admin.from("tab_usuarios")
+        .select("id, loja_id, nome, perfil, cargo_id, ids_acesso")
+        .ilike("email", emailBusca).maybeSingle();
       if (rowApp && !podeGerenciarLoja(operador, rowApp.loja_id) && !operador.superAdmin) {
         return json({ error: "Só é possível editar usuários da sua empresa." }, 403);
       }
-      if (lojaId != null && !podeGerenciarLoja(operador, lojaId)) {
+      const lojaEfetiva = lojaId != null ? lojaId : (rowApp?.loja_id ?? null);
+      if (lojaEfetiva != null && !podeGerenciarLoja(operador, lojaEfetiva)) {
         return json({ error: "Só é possível editar usuários da sua empresa." }, 403);
       }
       if (senha && senha.length < SENHA_MIN) {
@@ -125,27 +163,53 @@ Deno.serve(async (req) => {
       let authUser = await encontrarAuthPorEmail(emailBusca);
       if (!authUser && email !== emailBusca) authUser = await encontrarAuthPorEmail(email);
 
+      let authId: string | null = null;
       if (!authUser) {
         if (!senha) return json({ error: "Informe a senha para criar o login deste usuário." }, 400);
         const { data, error } = await admin.auth.admin.createUser({
           email,
           password: senha,
           email_confirm: true,
-          user_metadata: { nome, loja_id: lojaId },
+          user_metadata: { nome, loja_id: lojaEfetiva },
         });
         if (error) throw error;
-        return json({ ok: true, id: data.user?.id ?? null, criado: true });
+        authId = data.user?.id ?? null;
+      } else {
+        const patch: Record<string, unknown> = {
+          email_confirm: true,
+          user_metadata: { ...(authUser.user_metadata || {}), nome, loja_id: lojaEfetiva ?? authUser.user_metadata?.loja_id },
+        };
+        if (senha) patch.password = senha;
+        if (email && email !== (authUser.email || "").toLowerCase()) patch.email = email;
+        const { error } = await admin.auth.admin.updateUserById(authUser.id, patch);
+        if (error) throw error;
+        authId = authUser.id;
       }
 
-      const patch: Record<string, unknown> = {
-        email_confirm: true,
-        user_metadata: { ...(authUser.user_metadata || {}), nome, loja_id: lojaId ?? authUser.user_metadata?.loja_id },
-      };
-      if (senha) patch.password = senha;
-      if (email && email !== (authUser.email || "").toLowerCase()) patch.email = email;
-      const { error } = await admin.auth.admin.updateUserById(authUser.id, patch);
-      if (error) throw error;
-      return json({ ok: true, id: authUser.id });
+      let usuario = null;
+      if (persistirPerfil) {
+        const campos = montarRowApp({
+          email,
+          senha: senha || undefined,
+          nome: nome || rowApp?.nome || email,
+          lojaId: lojaEfetiva,
+          perfil: body?.perfil != null ? perfil : (rowApp?.perfil || perfil),
+          cargoId: cargoId != null ? cargoId : rowApp?.cargo_id,
+          ativo,
+          idsAcesso: Array.isArray(body?.idsAcesso) ? idsAcesso : (rowApp?.ids_acesso || []),
+        });
+        if (rowApp?.id) {
+          const { data, error } = await admin.from("tab_usuarios").update(campos).eq("id", rowApp.id).select().single();
+          if (error) throw error;
+          usuario = data;
+        } else {
+          if (!senha) return json({ error: "Informe a senha para criar o registro do usuário no banco." }, 400);
+          const { data, error } = await admin.from("tab_usuarios").upsert(campos, { onConflict: "email" }).select().single();
+          if (error) throw error;
+          usuario = data;
+        }
+      }
+      return json({ ok: true, id: authId, usuario });
     }
 
     const { data: rowApp } = await admin.from("tab_usuarios").select("loja_id").ilike("email", email).maybeSingle();
@@ -157,7 +221,11 @@ Deno.serve(async (req) => {
       const { error } = await admin.auth.admin.deleteUser(authUser.id);
       if (error) throw error;
     }
-    return json({ ok: true, removido: !!authUser });
+    if (persistirPerfil) {
+      const { error } = await admin.from("tab_usuarios").delete().ilike("email", email);
+      if (error) throw error;
+    }
+    return json({ ok: true, removido: !!authUser, perfilRemovido: persistirPerfil });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Falha ao sincronizar login no Auth.";
     console.error("[gerenciar-usuario-auth]", msg);

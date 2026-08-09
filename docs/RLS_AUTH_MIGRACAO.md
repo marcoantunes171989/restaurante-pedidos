@@ -68,12 +68,14 @@ Auth**. Sem isso, ligar RLS restritiva derruba o app inteiro.
    menu + RPCs `security definer`). Destrava o cardápio anônimo sob RLS.
 3. **Registrar o hook** em Authentication → Hooks → Custom Access Token →
    `public.custom_access_token_hook`.
-4. **Criar usuários no Auth**:
-   - **Novos cadastros pelo Admin** já sincronizam com `auth.users` via
-     `/api/gerenciar-usuario-auth` (exige `SUPABASE_SERVICE_ROLE_KEY` nas
-     Environment Variables da Vercel) ou pela Edge Function
-     `gerenciar-usuario-auth`.
-   - **Usuários já existentes** em `tab_usuarios`: rode
+4. **Criar usuários no Auth + `tab_usuarios`**:
+   - **Novos cadastros / edição de senha pelo Admin** passam por
+     `/api/gerenciar-usuario-auth`, que grava **Auth e `tab_usuarios`** com
+     service role (exige `SUPABASE_SERVICE_ROLE_KEY` na Vercel — Production e
+     Preview — e redeploy). Alternativa: Edge Function `gerenciar-usuario-auth`.
+   - Sem a service role, o app tenta `signUp` (só Auth) e o insert da tabela
+     pode falhar sob RLS — o usuário **não aparece no banco** e o login quebra.
+   - **Usuários já existentes** só em `tab_usuarios`: rode
      `node scripts/criar-auth-users.mjs` (com `SUPABASE_URL` e
      `SUPABASE_SERVICE_ROLE_KEY`). Idempotente. Ou edite o usuário no Admin
      e salve a senha (mín. 6) para criar/alinhar o Auth.
