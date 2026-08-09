@@ -17,6 +17,29 @@ const supabaseKey = (envKey && envKey.startsWith('sb_')) ? envKey : FALLBACK_KEY
 
 export const supabase = createClient(supabaseUrl, supabaseKey)
 
+/**
+ * Lê via RPC SECURITY DEFINER (se existir e trouxer linhas) e cai no SELECT.
+ * Array vazio da RPC NÃO encerra a busca — evita UI “apagada” por RLS fraca.
+ * Nunca altera registros: só leitura.
+ */
+async function lerRpcOuSelect(rpcName, selectFn) {
+  let rpcRows = null
+  try {
+    const { data, error } = await supabase.rpc(rpcName)
+    if (!error && Array.isArray(data) && data.length > 0) return data
+    if (!error && Array.isArray(data)) rpcRows = data
+  } catch { /* RPC ausente → SELECT */ }
+  try {
+    const rows = await selectFn()
+    if (Array.isArray(rows) && rows.length > 0) return rows
+    if (rpcRows) return rpcRows
+    return Array.isArray(rows) ? rows : []
+  } catch (e) {
+    if (rpcRows) return rpcRows
+    throw e
+  }
+}
+
 // ════════════════════════════════════════════════════════════
 //  Storage — upload de imagens de produtos
 // ════════════════════════════════════════════════════════════
@@ -163,9 +186,12 @@ export function escutarFiscalLoteLog(onMudanca) {
 
 export function escutarProdutos(onMudanca) {
   const reload = async () => {
-    const { data, error } = await supabase
-      .from('tab_produtos').select('*').order('id', { ascending: true })
-    if (!error && data) onMudanca(data.map(dbParaProduto))
+    try {
+      const lista = await fetchProdutos()
+      // Não zera produtos na UI se a leitura voltar vazia (rede/RLS transitório).
+      if (Array.isArray(lista) && lista.length === 0) return
+      onMudanca(lista)
+    } catch { /* silencioso */ }
   }
   const canal = supabase.channel('ch_produtos_'+Math.random().toString(36).slice(2))
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'tab_produtos' }, reload)
@@ -1053,10 +1079,27 @@ function dbParaSetor(r) {
   }
 }
 export async function fetchSetoresCozinha(lojaId = null) {
+  // RPC 097 (security definer) — depois filtra loja no client se pedido.
+  if (lojaId == null) {
+    try {
+      const rows = await lerRpcOuSelect('app_listar_setores_cozinha', async () => {
+        const { data, error } = await supabase.from('tab_setores_cozinha').select('*').order('ordem', { ascending: true })
+        if (error) throw error
+        return data || []
+      })
+      return rows.map(dbParaSetor)
+    } catch { return [] }
+  }
   let q = supabase.from('tab_setores_cozinha').select('*').order('ordem', { ascending: true })
-  if (lojaId != null) q = q.eq('loja_id', lojaId)
+  q = q.eq('loja_id', lojaId)
   const { data, error } = await q
-  if (error || !data) return []
+  if (error || !data) {
+    // Fallback: RPC completa + filtro local
+    try {
+      const rows = await lerRpcOuSelect('app_listar_setores_cozinha', async () => [])
+      return rows.filter((r) => r.loja_id == null || Number(r.loja_id) === Number(lojaId)).map(dbParaSetor)
+    } catch { return [] }
+  }
   return data.map(dbParaSetor)
 }
 export async function inserirSetorCozinha(s) {
@@ -1092,7 +1135,13 @@ export async function excluirSetorCozinha(id) {
   if (error) throw error
 }
 export function escutarSetoresCozinha(onMudanca) {
-  const reload = async () => { try { onMudanca(await fetchSetoresCozinha()) } catch {} }
+  const reload = async () => {
+    try {
+      const lista = await fetchSetoresCozinha()
+      if (Array.isArray(lista) && lista.length === 0) return
+      onMudanca(lista)
+    } catch { /* silencioso */ }
+  }
   const canal = supabase.channel('ch_setores_' + Math.random().toString(36).slice(2))
     .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_setores_cozinha' }, reload)
     .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
@@ -1980,8 +2029,19 @@ export async function logoutSupabaseAuth() {
   try { await supabase.auth.signOut() } catch {}
 }
 // Garante que a sessão (JWT) já esteja anexada antes de carregar os dados.
-export async function aguardarSessao() {
-  try { const { data } = await supabase.auth.getSession(); return data?.session ?? null } catch { return null }
+// Faz polling curto: no cold start o getSession() às vezes ainda está vazio.
+export async function aguardarSessao(timeoutMs = 2500) {
+  const inicio = Date.now()
+  try {
+    let { data } = await supabase.auth.getSession()
+    if (data?.session) return data.session
+    while (Date.now() - inicio < timeoutMs) {
+      await new Promise((r) => setTimeout(r, 150))
+      ;({ data } = await supabase.auth.getSession())
+      if (data?.session) return data.session
+    }
+    return data?.session ?? null
+  } catch { return null }
 }
 // E-mail do usuário da sessão atual (para restaurar o login após reload).
 export async function getSessionEmail() {
@@ -2055,10 +2115,13 @@ export async function salvarAssinatura(lojaId, campos) {
 //  tab_formas_pagamento — CRUD + Realtime
 // ════════════════════════════════════════════════════════════
 export async function fetchFormasPagamento() {
-  const { data, error } = await supabase
-    .from('tab_formas_pagamento').select('*').order('id', { ascending: true })
-  if (error) throw error
-  return data.map(dbParaForma)
+  const rows = await lerRpcOuSelect('app_listar_formas_pagamento', async () => {
+    const { data, error } = await supabase
+      .from('tab_formas_pagamento').select('*').order('id', { ascending: true })
+    if (error) throw error
+    return data || []
+  })
+  return rows.map(dbParaForma)
 }
 export async function inserirFormaPagamento(f) {
   const { data, error } = await supabase
@@ -2072,9 +2135,11 @@ export async function atualizarFormaPagamento(id, campos) {
 }
 export function escutarFormasPagamento(onMudanca) {
   const reload = async () => {
-    const { data, error } = await supabase
-      .from('tab_formas_pagamento').select('*').order('id', { ascending: true })
-    if (!error && data) onMudanca(data.map(dbParaForma))
+    try {
+      const lista = await fetchFormasPagamento()
+      if (Array.isArray(lista) && lista.length === 0) return
+      onMudanca(lista)
+    } catch { /* silencioso */ }
   }
   const canal = supabase.channel('ch_formas_'+Math.random().toString(36).slice(2))
     .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_formas_pagamento' }, reload)
@@ -2173,8 +2238,11 @@ export async function excluirLoja(id) {
 }
 export function escutarLojas(onMudanca) {
   const reload = async () => {
-    const { data, error } = await supabase.from('tab_lojas').select('*').order('id', { ascending: true })
-    if (!error && data) onMudanca(data.map((r) => ({ id: r.id, nome: r.nome, prefixo: r.prefixo, active: r.ativo, plano: r.plano ?? 'free', emailResponsavel: r.email_responsavel ?? null, licencaBloqueada: r.licenca_bloqueada === true, logoUrl: r.logo_url ?? null, documento: r.documento ?? null, modoUso: r.modo_uso ?? 'interno', licencaValidade: r.licenca_validade ?? null, configExterno: r.config_externo ?? {}, configCrm: r.config_crm ?? {} })))
+    try {
+      const lista = await fetchLojas()
+      if (Array.isArray(lista) && lista.length === 0) return
+      onMudanca(lista)
+    } catch { /* silencioso */ }
   }
   const canal = supabase.channel('ch_lojas_'+Math.random().toString(36).slice(2))
     .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_lojas' }, reload)
@@ -2186,9 +2254,12 @@ export function escutarLojas(onMudanca) {
 //  tab_comandas — registro de comandas geradas (validação)
 // ════════════════════════════════════════════════════════════
 export async function fetchComandas() {
-  const { data, error } = await supabase.from('tab_comandas').select('codigo, loja_id, ativo')
-  if (error) throw error
-  return data.map((r) => ({ codigo: r.codigo, lojaId: r.loja_id, ativo: r.ativo !== false }))
+  const rows = await lerRpcOuSelect('app_listar_comandas', async () => {
+    const { data, error } = await supabase.from('tab_comandas').select('codigo, loja_id, ativo')
+    if (error) throw error
+    return data || []
+  })
+  return rows.map((r) => ({ codigo: r.codigo, lojaId: r.loja_id, ativo: r.ativo !== false }))
 }
 export async function toggleComandaAtivo(codigo, ativo) {
   const { error } = await supabase.from('tab_comandas').update({ ativo }).eq('codigo', codigo)
@@ -2211,8 +2282,11 @@ export async function renomearComanda(codigoAntigo, codigoNovo, lojaId) {
 }
 export function escutarComandas(onMudanca) {
   const reload = async () => {
-    const { data, error } = await supabase.from('tab_comandas').select('codigo, loja_id, ativo')
-    if (!error && data) onMudanca(data.map((r) => ({ codigo: r.codigo, lojaId: r.loja_id, ativo: r.ativo !== false })))
+    try {
+      const lista = await fetchComandas()
+      if (Array.isArray(lista) && lista.length === 0) return
+      onMudanca(lista)
+    } catch { /* silencioso */ }
   }
   const canal = supabase.channel('ch_comandas_'+Math.random().toString(36).slice(2))
     .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_comandas' }, reload)
@@ -2548,9 +2622,11 @@ export async function excluirMesa(id) {
 }
 export function escutarMesas(onMudanca) {
   const reload = async () => {
-    const { data, error } = await supabase
-      .from('tab_mesas').select('*').order('loja_id', { ascending: true }).order('numero', { ascending: true })
-    if (!error && data) onMudanca(data.map(mapMesa))
+    try {
+      const lista = await fetchMesas()
+      if (Array.isArray(lista) && lista.length === 0) return
+      onMudanca(lista)
+    } catch { /* silencioso */ }
   }
   const canal = supabase.channel('ch_mesas_' + Math.random().toString(36).slice(2))
     .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_mesas' }, reload)
@@ -2663,10 +2739,13 @@ export function escutarAcessos(onMudanca) {
 //  tab_pedidos — CRUD + Realtime
 // ════════════════════════════════════════════════════════════
 export async function fetchPedidos() {
-  const { data, error } = await supabase
-    .from('tab_pedidos').select('*').order('criado_em', { ascending: false })
-  if (error) throw error
-  return data.map(dbParaPedido)
+  const rows = await lerRpcOuSelect('app_listar_pedidos', async () => {
+    const { data, error } = await supabase
+      .from('tab_pedidos').select('*').order('criado_em', { ascending: false })
+    if (error) throw error
+    return data || []
+  })
+  return rows.map(dbParaPedido)
 }
 
 export async function inserirPedido(p) {
@@ -2689,10 +2768,12 @@ export function escutarPedidos(onMudanca, onStatus) {
   let seq = 0
   const reload = async () => {
     const minha = ++seq
-    const { data, error } = await supabase
-      .from('tab_pedidos').select('*').order('criado_em', { ascending: false })
-    if (minha !== seq) return // resposta obsoleta — já existe um reload mais novo
-    if (!error && data) onMudanca(data.map(dbParaPedido))
+    try {
+      // Usa fetchPedidos (RPC 097 + fallback SELECT) — fonte alinhada ao banco.
+      const lista = await fetchPedidos()
+      if (minha !== seq) return
+      onMudanca(lista)
+    } catch { /* silencioso */ }
   }
   const canal = supabase.channel('ch_pedidos_'+Math.random().toString(36).slice(2))
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'tab_pedidos' }, reload)
@@ -2983,12 +3064,21 @@ export async function upsertCliente({ nome, telefone, lojaId = null }) {
   return mapCliente(data);
 }
 export async function fetchClientes() {
-  const { data, error } = await supabase.from('tab_clientes').select('*').order('criado_em', { ascending: false });
-  if (error) throw error;
-  return (data || []).map(mapCliente);
+  const rows = await lerRpcOuSelect('app_listar_clientes', async () => {
+    const { data, error } = await supabase.from('tab_clientes').select('*').order('criado_em', { ascending: false })
+    if (error) throw error
+    return data || []
+  })
+  return rows.map(mapCliente)
 }
 export function escutarClientes(onMudanca) {
-  const reload = async () => { try { onMudanca(await fetchClientes()); } catch {} };
+  const reload = async () => {
+    try {
+      const lista = await fetchClientes()
+      if (Array.isArray(lista) && lista.length === 0) return
+      onMudanca(lista)
+    } catch { /* silencioso */ }
+  }
   const canal = supabase.channel('ch_clientes_' + Math.random().toString(36).slice(2))
     .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_clientes' }, reload)
     .subscribe((s) => { if (s === 'SUBSCRIBED') reload(); });

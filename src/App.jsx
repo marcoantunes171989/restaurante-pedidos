@@ -844,7 +844,8 @@ export default function RestaurantePedidoApp() {
     async function atualizar() {
       try {
         const ords = await fetchPedidos();
-        if (ativo) setOrders(ords);
+        // Não zera a tela operacional se a leitura voltar vazia por RLS transitório.
+        if (ativo && Array.isArray(ords) && ords.length > 0) setOrders(ords);
       } catch { /* silencioso — Realtime cobre */ }
     }
     atualizar();
@@ -1018,20 +1019,28 @@ export default function RestaurantePedidoApp() {
     } catch { /* ignore */ }
   }, [currentUser]);
 
-  // Após login/sessão: recarrega dados operacionais. Sem claim JWT
-  // (hook 047), o SELECT inicial via RLS vinha vazio e o dashboard
-  // “sumia” — helpers 096 + este refresh restauram sem apagar o banco.
+  // Após login/sessão: recarrega dados operacionais do banco (só leitura).
+  // Não sobrescreve estado com arrays vazios — evita tela inconsistente.
   useEffect(() => {
     if (!dbReady || !currentUser) return;
     let cancelado = false;
     (async () => {
       try {
-        const [listaU, listaC, ords, prods, ls] = await Promise.all([
+        const [
+          listaU, listaC, ords, prods, ls, formas, cats, mesasL, clientesL,
+          comandasL, setoresL,
+        ] = await Promise.all([
           fetchUsuarios().catch(() => null),
           fetchCargos().catch(() => null),
           fetchPedidos().catch(() => null),
           fetchProdutos().catch(() => null),
           fetchLojas().catch(() => null),
+          fetchFormasPagamento().catch(() => null),
+          fetchCategorias().catch(() => null),
+          fetchMesas().catch(() => null),
+          fetchClientes().catch(() => null),
+          fetchComandas().catch(() => null),
+          fetchSetoresCozinha().catch(() => null),
         ]);
         if (cancelado) return;
         if (Array.isArray(listaU) && listaU.length) setUsers(listaU);
@@ -1039,6 +1048,15 @@ export default function RestaurantePedidoApp() {
         if (Array.isArray(ords) && ords.length) setOrders(ords);
         if (Array.isArray(prods) && prods.length) setProducts(prods);
         if (Array.isArray(ls) && ls.length) setLojas(ls);
+        if (Array.isArray(formas) && formas.length) setFormasPagamento(formas);
+        if (Array.isArray(cats) && cats.length) setCategoriasDb(cats);
+        if (Array.isArray(mesasL) && mesasL.length) setMesas(mesasL);
+        if (Array.isArray(clientesL) && clientesL.length) setClientes(clientesL);
+        if (Array.isArray(comandasL) && comandasL.length) {
+          setComandas(comandasL);
+          setComandasCarregadas(true);
+        }
+        if (Array.isArray(setoresL) && setoresL.length) setSetoresCozinha(setoresL);
       } catch { /* mantém estado atual */ }
     })();
     return () => { cancelado = true; };
@@ -1048,7 +1066,7 @@ export default function RestaurantePedidoApp() {
   const isSuperAdmin = !!currentUser?.superAdmin;
   // O super admin não tem empresa fixa: escolhe uma "empresa em foco" para gerenciar os cadastros
   const lojaAtual = currentUser?.lojaId ?? (isSuperAdmin ? lojaContexto : null);
-  const lojaInfo = lojas.find((l) => l.id === lojaAtual) || null;
+  const lojaInfo = lojas.find((l) => Number(l.id) === Number(lojaAtual)) || null;
   // SaaS: assinatura e plano da empresa em foco (Fase 1 — somente exibição)
   const assinaturaAtual = lojaAtual != null ? (assinaturas.find((a) => a.lojaId === lojaAtual) || null) : null;
   const planoAtual = getCurrentCompanyPlan(assinaturaAtual, planos);
@@ -1078,7 +1096,12 @@ export default function RestaurantePedidoApp() {
   // entrar — não deve bloquear o login/uso (em nenhum dispositivo). A
   // identificação/renome do aparelho é feita no painel Controle de versões.
   const [precisaNomear, setPrecisaNomear] = useState(false);
-  const filtraLoja = (arr) => lojaAtual == null ? arr : arr.filter((x) => x.lojaId == null || x.lojaId === lojaAtual);
+  // Compara loja por Number — evita lista vazia quando id vem string do JSON/RPC.
+  const filtraLoja = (arr) => {
+    if (lojaAtual == null) return arr;
+    const alvo = Number(lojaAtual);
+    return arr.filter((x) => x.lojaId == null || Number(x.lojaId) === alvo);
+  };
   const products      = filtraLoja(productsAll);
   const orders        = filtraLoja(ordersAll);
   const formasPagamentoLoja = filtraLoja(formasPagamento);
@@ -1237,9 +1260,20 @@ export default function RestaurantePedidoApp() {
       sessionStorage.setItem("pp_sessao_email", email);
     } catch { /* ignore */ }
 
-    // Best-effort: sessão Supabase Auth (RLS). Não bloqueia o acesso se falhar.
+    // Sessão Supabase Auth (JWT) é necessária para RLS ler o banco na tela.
+    // Se o 1º signIn falhar, tenta alinhar Auth via API e repetir uma vez.
     if (usandoSupabaseAuth()) {
-      const r = await loginSupabaseAuth(email, senha);
+      let r = await loginSupabaseAuth(email, senha);
+      if (!r.ok) {
+        try {
+          await fetch("/api/login-banco", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ email, senha }),
+          });
+        } catch { /* best-effort */ }
+        r = await loginSupabaseAuth(email, senha);
+      }
       if (r.ok) {
         try { sessionStorage.setItem("pp_restore_once", "1"); } catch {}
         window.location.reload();
@@ -1273,7 +1307,7 @@ export default function RestaurantePedidoApp() {
   // qualquer dispositivo, a sessão é encerrada IMEDIATAMENTE aqui.
   useEffect(() => {
     if (!currentUser || currentUser.superAdmin) return;
-    const lojaDoUser = lojas.find((l) => l.id === currentUser.lojaId);
+    const lojaDoUser = lojas.find((l) => Number(l.id) === Number(currentUser.lojaId));
     if (!lojaDoUser) return;
     if (lojaDoUser.licencaBloqueada === true) {
       setCurrentUser(null);
