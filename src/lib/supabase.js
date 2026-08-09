@@ -1500,6 +1500,9 @@ export async function rpcCriarChamadoPublico({ lojaId, mesa, comanda, tipo }) {
 //  Supabase Auth (transição para RLS real) — usado só quando o
 //  AUTH_MODE = 'supabase' (src/lib/authMode.js). Inerte no modo legacy.
 // ════════════════════════════════════════════════════════════
+// Mínimo exigido pelo Supabase Auth e pelas RPCs de cadastro/senha.
+export const SENHA_MIN_AUTH = 6
+
 export async function loginSupabaseAuth(email, senha) {
   try {
     const { data, error } = await supabase.auth.signInWithPassword({
@@ -1609,18 +1612,42 @@ export async function garantirLoginNoBanco(email, senha) {
   return validarLoginNoBanco(email, senha)
 }
 
+function montarCamposRpcUsuario(payload) {
+  const rpcCampos = {}
+  if (payload.nome) rpcCampos.nome = payload.nome
+  if (payload.email) rpcCampos.email = payload.email
+  if (payload.senha) rpcCampos.senha = payload.senha
+  if (payload.perfil) rpcCampos.perfil = payload.perfil
+  if (typeof payload.ativo === 'boolean') rpcCampos.ativo = payload.ativo
+  if (Array.isArray(payload.idsAcesso)) rpcCampos.ids_acesso = payload.idsAcesso
+  if (payload.cargoId != null && payload.cargoId !== '') rpcCampos.cargo_id = payload.cargoId
+  if (payload.lojaId != null && payload.lojaId !== '') rpcCampos.loja_id = payload.lojaId
+  if (payload.permissoesAcoes != null) rpcCampos.permissoes_acoes = payload.permissoesAcoes
+  return rpcCampos
+}
+
+function assertSenhaGravada(usuario, senhaEsperada) {
+  if (!senhaEsperada) return usuario
+  if (!usuario || String(usuario.password ?? '') !== String(senhaEsperada)) {
+    throw Object.assign(new Error('Senha não foi gravada no banco de dados.'), { code: 'SAVE_FAILED' })
+  }
+  return usuario
+}
+
 /**
- * Persiste campos do usuário em tab_usuarios (cadastro, acessos, ações, ativo…).
- * Ordem: API service-role → RPC app_salvar_usuario → update direto.
+ * Persiste campos do usuário em tab_usuarios (cadastro, senha, acessos…).
+ * Ordem: RPC admin (e-mail+senha do admin no banco) → API → RPC JWT → update direto.
+ * adminCreds: { email, password } do operador logado — necessário para gravar senha sem JWT Auth.
  */
-export async function persistirUsuarioCampos(usuarioId, camposApp = {}) {
+export async function persistirUsuarioCampos(usuarioId, camposApp = {}, adminCreds = null) {
   if (usuarioId == null) throw new Error('ID do usuário inválido.')
   const payload = {
     acao: 'perfil',
     usuarioId,
     email: camposApp.email || '',
     emailAnterior: camposApp.emailAnterior || camposApp.email || '',
-    senha: camposApp.password != null ? camposApp.password : (camposApp.senha != null ? camposApp.senha : ''),
+    senha: camposApp.password != null ? String(camposApp.password)
+      : (camposApp.senha != null ? String(camposApp.senha) : ''),
     nome: camposApp.name != null ? camposApp.name : (camposApp.nome || ''),
     lojaId: camposApp.lojaId ?? camposApp.loja_id ?? null,
     perfil: camposApp.role != null ? camposApp.role : (camposApp.perfil || undefined),
@@ -1633,38 +1660,55 @@ export async function persistirUsuarioCampos(usuarioId, camposApp = {}) {
       : (camposApp.permissoes_acoes != null ? camposApp.permissoes_acoes : undefined),
     persistirPerfil: true,
   }
+  const rpcCampos = montarCamposRpcUsuario(payload)
+  const senhaEsperada = payload.senha || ''
 
-  // 1) API Vercel (service role) — quando há sessão Auth do admin.
+  // 1) RPC admin por credenciais do banco (migration 090) — grava senha sem JWT Auth.
+  const adminEmail = (adminCreds?.email || '').trim().toLowerCase()
+  const adminSenha = adminCreds?.password != null ? String(adminCreds.password) : ''
+  if (adminEmail && adminSenha) {
+    try {
+      const { data, error } = await supabase.rpc('app_admin_salvar_usuario', {
+        p_admin_email: adminEmail,
+        p_admin_senha: adminSenha,
+        p_usuario_id: Number(usuarioId),
+        p_campos: rpcCampos,
+      })
+      if (!error && data?.ok && data.usuario) {
+        return assertSenhaGravada(mapUsuarioDb(data.usuario), senhaEsperada)
+      }
+      if (!error && data?.ok === false) {
+        throw Object.assign(new Error(data.error || 'Falha ao salvar usuário.'), { code: data.code })
+      }
+    } catch (e) {
+      if (e?.code && !/PGRST202|function|does not exist|404/i.test(String(e.code) + String(e.message || ''))) {
+        throw e
+      }
+    }
+  }
+
+  // 2) API Vercel (service role) — quando há sessão Auth do admin.
   try {
     const r = await gerenciarUsuarioAuth(payload)
-    if (r?.usuario) return mapUsuarioDb(r.usuario)
+    if (r?.usuario) return assertSenhaGravada(mapUsuarioDb(r.usuario), senhaEsperada)
     if (r?.ok) {
       const u = await fetchUsuarioPorEmail(payload.email || payload.emailAnterior)
-      if (u) return u
+      if (u) return assertSenhaGravada(u, senhaEsperada)
     }
   } catch (e) {
     if (/Sem permissão|permissão administrativa|Só é possível/i.test(String(e?.message || ''))) throw e
-    // segue para RPC / update direto
+    // segue
   }
 
-  // 2) RPC security definer (migration 089)
-  const rpcCampos = {}
-  if (payload.nome) rpcCampos.nome = payload.nome
-  if (payload.email) rpcCampos.email = payload.email
-  if (payload.senha) rpcCampos.senha = payload.senha
-  if (payload.perfil) rpcCampos.perfil = payload.perfil
-  if (typeof payload.ativo === 'boolean') rpcCampos.ativo = payload.ativo
-  if (Array.isArray(payload.idsAcesso)) rpcCampos.ids_acesso = payload.idsAcesso
-  if (payload.cargoId != null && payload.cargoId !== '') rpcCampos.cargo_id = payload.cargoId
-  if (payload.lojaId != null && payload.lojaId !== '') rpcCampos.loja_id = payload.lojaId
-  if (payload.permissoesAcoes != null) rpcCampos.permissoes_acoes = payload.permissoesAcoes
-
+  // 3) RPC com JWT (migration 089)
   try {
     const { data, error } = await supabase.rpc('app_salvar_usuario', {
       p_id: Number(usuarioId),
       p_campos: rpcCampos,
     })
-    if (!error && data?.ok && data.usuario) return mapUsuarioDb(data.usuario)
+    if (!error && data?.ok && data.usuario) {
+      return assertSenhaGravada(mapUsuarioDb(data.usuario), senhaEsperada)
+    }
     if (!error && data && data.ok === false) {
       throw Object.assign(new Error(data.error || 'Falha ao salvar usuário.'), { code: data.code })
     }
@@ -1674,7 +1718,7 @@ export async function persistirUsuarioCampos(usuarioId, camposApp = {}) {
     }
   }
 
-  // 3) Update direto (policies permissivas / JWT com loja)
+  // 4) Update direto
   const dbCampos = {}
   if (rpcCampos.nome != null) dbCampos.nome = rpcCampos.nome
   if (rpcCampos.email != null) dbCampos.email = rpcCampos.email
@@ -1685,15 +1729,16 @@ export async function persistirUsuarioCampos(usuarioId, camposApp = {}) {
   if (rpcCampos.cargo_id != null) dbCampos.cargo_id = rpcCampos.cargo_id
   if (rpcCampos.loja_id != null) dbCampos.loja_id = rpcCampos.loja_id
   if (rpcCampos.permissoes_acoes != null) dbCampos.permissoes_acoes = rpcCampos.permissoes_acoes
+  if (!Object.keys(dbCampos).length) throw new Error('Nenhum campo para salvar.')
   await atualizarUsuario(usuarioId, dbCampos)
   const { data: row, error } = await supabase.from('tab_usuarios').select('*').eq('id', usuarioId).maybeSingle()
   if (error) throw error
   if (!row) throw new Error('Usuário não encontrado após salvar.')
-  return dbParaUsuario(row)
+  return assertSenhaGravada(dbParaUsuario(row), senhaEsperada)
 }
 
-/** Cria usuário em tab_usuarios (RPC → insert direto). Auth fica a cargo do caller. */
-export async function criarUsuarioNoBanco(nu) {
+/** Cria usuário em tab_usuarios com senha. adminCreds autoriza a RPC 090. */
+export async function criarUsuarioNoBanco(nu, adminCreds = null) {
   const dados = {
     nome: nu.name || nu.nome || '',
     email: (nu.email || '').trim().toLowerCase(),
@@ -1705,9 +1750,37 @@ export async function criarUsuarioNoBanco(nu) {
     cargo_id: nu.cargoId ?? nu.cargo_id ?? null,
     permissoes_acoes: nu.permissoesAcoes || nu.permissoes_acoes || {},
   }
+  if (!dados.senha || String(dados.senha).length < SENHA_MIN_AUTH) {
+    throw Object.assign(new Error(`Senha deve ter no mínimo ${SENHA_MIN_AUTH} caracteres.`), { code: 'INVALID_INPUT' })
+  }
+
+  const adminEmail = (adminCreds?.email || '').trim().toLowerCase()
+  const adminSenha = adminCreds?.password != null ? String(adminCreds.password) : ''
+  if (adminEmail && adminSenha) {
+    try {
+      const { data, error } = await supabase.rpc('app_admin_criar_usuario', {
+        p_admin_email: adminEmail,
+        p_admin_senha: adminSenha,
+        p_dados: dados,
+      })
+      if (!error && data?.ok && data.usuario) {
+        return assertSenhaGravada(mapUsuarioDb(data.usuario), dados.senha)
+      }
+      if (!error && data?.ok === false) {
+        throw Object.assign(new Error(data.error || 'Falha ao criar usuário.'), { code: data.code })
+      }
+    } catch (e) {
+      if (e?.code && !/PGRST202|function|does not exist|404/i.test(String(e.code) + String(e.message || ''))) {
+        throw e
+      }
+    }
+  }
+
   try {
     const { data, error } = await supabase.rpc('app_criar_usuario', { p_dados: dados })
-    if (!error && data?.ok && data.usuario) return mapUsuarioDb(data.usuario)
+    if (!error && data?.ok && data.usuario) {
+      return assertSenhaGravada(mapUsuarioDb(data.usuario), dados.senha)
+    }
     if (!error && data?.ok === false) {
       throw Object.assign(new Error(data.error || 'Falha ao criar usuário.'), { code: data.code })
     }
@@ -1716,7 +1789,8 @@ export async function criarUsuarioNoBanco(nu) {
       throw e
     }
   }
-  return inserirUsuario({
+
+  const saved = await inserirUsuario({
     name: dados.nome,
     email: dados.email,
     password: dados.senha,
@@ -1727,6 +1801,7 @@ export async function criarUsuarioNoBanco(nu) {
     cargoId: dados.cargo_id,
     permissoesAcoes: dados.permissoes_acoes,
   })
+  return assertSenhaGravada(saved, dados.senha)
 }
 
 /** Busca um usuário do app pelo e-mail (para restaurar sessão pós-login). */
@@ -1741,9 +1816,6 @@ export async function fetchUsuarioPorEmail(email) {
   if (error) throw error
   return data ? dbParaUsuario(data) : null
 }
-
-// Mínimo exigido pelo Supabase Auth (e pela API /api/gerenciar-usuario-auth).
-export const SENHA_MIN_AUTH = 6
 
 /**
  * Sincroniza create/update/delete de usuário no Supabase Auth (auth.users)
