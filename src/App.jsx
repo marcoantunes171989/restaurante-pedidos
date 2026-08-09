@@ -1219,7 +1219,23 @@ export default function RestaurantePedidoApp() {
     async function atualizar() {
       try {
         const usrs = await fetchUsuarios();
-        if (ativo) setUsers(usrs);
+        if (!ativo) return;
+        // Evita re-render a cada poll quando nada mudou no banco.
+        setUsers((cur) => {
+          if (cur.length !== usrs.length) return usrs;
+          for (let i = 0; i < usrs.length; i++) {
+            const a = cur[i], b = usrs[i];
+            if (!a || a.id !== b.id || a.name !== b.name || a.email !== b.email
+              || String(a.password ?? "") !== String(b.password ?? "")
+              || a.role !== b.role || a.cargoId !== b.cargoId || a.lojaId !== b.lojaId
+              || a.active !== b.active || !!a.superAdmin !== !!b.superAdmin
+              || JSON.stringify(a.accessIds || []) !== JSON.stringify(b.accessIds || [])
+              || JSON.stringify(a.permissoesAcoes || {}) !== JSON.stringify(b.permissoesAcoes || {})) {
+              return usrs;
+            }
+          }
+          return cur;
+        });
       } catch { /* Realtime cobre quando disponível */ }
     }
     const intervalo = setInterval(atualizar, 4000);
