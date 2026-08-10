@@ -109,7 +109,7 @@ export default function AccountCard({
           <button
             type="button"
             onClick={() => (onAbrirCheckout ? onAbrirCheckout(o) : setAberto(true))}
-            className="btn-laranja flex min-h-[44px] min-w-0 items-center justify-center gap-2 rounded-xl text-sm font-bold text-white transition-colors duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-primary-hover)]"
+            className="btn-laranja flex min-h-[44px] min-w-0 items-center justify-center gap-2 rounded-xl text-sm font-bold text-[#012E46] transition-colors duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-primary-hover)]"
           >
             <CreditCard aria-hidden="true" size={15} /> Receber
           </button>

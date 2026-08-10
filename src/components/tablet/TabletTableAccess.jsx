@@ -22,7 +22,7 @@ function ConfirmacaoMesaOcupada({ mesa, onVoltar, onContinuar }) {
           <button type="button" onClick={onVoltar} className="flex min-h-[48px] flex-1 items-center justify-center rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] text-sm font-bold text-[var(--client-text-secondary)] transition hover:bg-[var(--client-surface-secondary)]">
             Escolher outra mesa
           </button>
-          <button type="button" onClick={onContinuar} className="flex min-h-[48px] flex-1 items-center justify-center rounded-2xl btn-laranja bg-[var(--client-primary-hover)] text-sm font-bold text-white transition hover:bg-[var(--client-primary)]">
+          <button type="button" onClick={onContinuar} className="flex min-h-[48px] flex-1 items-center justify-center rounded-2xl btn-laranja bg-[var(--client-primary-hover)] text-sm font-bold text-[#012E46] transition hover:bg-[var(--client-primary)]">
             Continuar na Mesa {numeroFmt}
           </button>
         </div>
@@ -196,7 +196,7 @@ export default function TabletTableAccess({
                 />
                 <button
                   onClick={() => Number(mesaManual) > 0 && onConfirmar(mesaManual)} disabled={!(Number(mesaManual) > 0)} type="button"
-                  className="w-full rounded-2xl btn-laranja bg-[var(--client-primary-hover)] py-3.5 text-sm font-black text-white transition active:scale-95 hover:bg-[var(--client-primary)] disabled:opacity-40"
+                  className="w-full rounded-2xl btn-laranja bg-[var(--client-primary-hover)] py-3.5 text-sm font-black text-[#012E46] transition active:scale-95 hover:bg-[var(--client-primary)] disabled:opacity-40"
                 >
                   Confirmar mesa
                 </button>
@@ -270,7 +270,7 @@ export default function TabletTableAccess({
                 className={`flex min-h-[52px] w-full items-center justify-center gap-2 rounded-2xl text-sm font-bold transition active:scale-[0.98] ${
                   sucesso ? "bg-[var(--client-success)] text-white"
                     : (!selecionada || enviando) ? "bg-[var(--client-disabled-background)] text-[var(--client-disabled-text)]"
-                    : "btn-laranja bg-[var(--client-primary-hover)] text-white hover:bg-[var(--client-primary)]"
+                    : "btn-laranja bg-[var(--client-primary-hover)] text-[#012E46] hover:bg-[var(--client-primary)]"
                 }`}
               >
                 {enviando && <Loader2 aria-hidden="true" size={17} className="animate-spin" />}

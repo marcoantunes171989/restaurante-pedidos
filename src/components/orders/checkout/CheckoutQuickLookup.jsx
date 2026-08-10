@@ -35,7 +35,7 @@ export default function CheckoutQuickLookup({ tipoAtivo = "mesa", indicadores })
             return (
               <button key={id} type="button" aria-pressed={ativo}
                 className={`flex min-h-[48px] items-center gap-3 rounded-xl px-3 text-sm font-bold transition-colors ${
-                  ativo ? "btn-laranja text-white" : "border border-[var(--pp-border)] bg-[var(--pp-surface)] text-[var(--pp-text-body)] hover:bg-[var(--pp-bg)]"
+                  ativo ? "btn-laranja text-[#012E46]" : "border border-[var(--pp-border)] bg-[var(--pp-surface)] text-[var(--pp-text-body)] hover:bg-[var(--pp-bg)]"
                 }`}>
                 <Icon aria-hidden="true" size={18} className="shrink-0" />
                 <span className="min-w-0 flex-1 truncate text-left">{label}</span>

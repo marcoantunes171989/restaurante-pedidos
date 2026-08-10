@@ -275,7 +275,7 @@ export default function NotificationSettings() {
                     <div className="mt-4 flex flex-col gap-2.5 sm:flex-row">
                       <button
                         onClick={testar} type="button" disabled={processando || !inscrito} aria-busy={acaoEmAndamento === "teste"}
-                        className="flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-xl btn-laranja bg-[var(--pp-primary-hover)] text-sm font-bold text-white transition hover:bg-[var(--pp-primary)] disabled:opacity-40"
+                        className="flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-xl btn-laranja bg-[var(--pp-primary-hover)] text-sm font-bold text-[#012E46] transition hover:bg-[var(--pp-primary)] disabled:opacity-40"
                       >
                         {acaoEmAndamento === "teste" && <Loader2 aria-hidden="true" size={15} className="animate-spin" />}
                         {acaoEmAndamento === "teste" ? "Enviando teste…" : "Enviar notificação de teste"}

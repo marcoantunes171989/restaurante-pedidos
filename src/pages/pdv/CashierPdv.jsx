@@ -1895,7 +1895,7 @@ export default function CashierPdv({
               <button
                 type="button"
                 onClick={() => imprimirComprovante(sucesso, sucesso.externo ? "entrega" : "completo")}
-                className="btn-laranja flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl text-sm font-black text-white"
+                className="btn-laranja flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl text-sm font-black text-[#012E46]"
               >
                 <IconImpressora width={16} height={16} />
                 {sucesso.externo ? "Imprimir retirada / entrega" : "Imprimir comprovante completo"}

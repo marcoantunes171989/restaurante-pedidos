@@ -295,7 +295,7 @@ function ModalResumoTurno({
         </div>
 
         <div className="shrink-0 border-t border-[var(--pp-border)] bg-white px-4 py-3 sm:px-5">
-          <button type="button" onClick={onFechar} className="btn-laranja min-h-12 w-full rounded-2xl text-sm font-black text-white">
+          <button type="button" onClick={onFechar} className="btn-laranja min-h-12 w-full rounded-2xl text-sm font-black text-[#012E46]">
             Fechar resumo
           </button>
         </div>

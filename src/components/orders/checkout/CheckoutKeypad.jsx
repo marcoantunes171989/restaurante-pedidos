@@ -33,11 +33,11 @@ export default function CheckoutKeypad({ onDigito, onLimpar, onApagar, onConfirm
         {/* Coluna de ações */}
         <div className="grid grid-rows-3 gap-2.5">
           <button type="button" onClick={onLimpar} aria-label="Limpar valor"
-            className="btn-laranja grid place-items-center gap-0.5 rounded-xl text-[11px] font-black text-white transition active:scale-[0.97] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-primary-hover)]">
+            className="btn-laranja grid place-items-center gap-0.5 rounded-xl text-[11px] font-black text-[#012E46] transition active:scale-[0.97] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-primary-hover)]">
             <Eraser aria-hidden="true" size={17} /> LIMPAR
           </button>
           <button type="button" onClick={onApagar} aria-label="Apagar último dígito"
-            className="btn-laranja grid place-items-center gap-0.5 rounded-xl text-[11px] font-black text-white transition active:scale-[0.97] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-primary-hover)]">
+            className="btn-laranja grid place-items-center gap-0.5 rounded-xl text-[11px] font-black text-[#012E46] transition active:scale-[0.97] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-primary-hover)]">
             <Delete aria-hidden="true" size={17} /> APAGAR
           </button>
           <button type="button" onClick={onConfirmar} disabled={confirmarDesabilitado} aria-label="Confirmar valor"

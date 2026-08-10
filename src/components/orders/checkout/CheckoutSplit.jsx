@@ -21,7 +21,7 @@ export default function CheckoutSplit({ total, pessoas, onPessoas }) {
         {MODOS.map(({ id, label, icon: Icon, ativoPadrao }) => (
           <button key={id} type="button" disabled={!ativoPadrao} aria-pressed={ativoPadrao} title={ativoPadrao ? undefined : "Em breve"}
             className={`flex min-h-[64px] flex-col items-center justify-center gap-1 rounded-xl border px-1.5 py-2 text-center text-[11px] font-bold leading-tight transition-colors ${
-              ativoPadrao ? "btn-laranja border-transparent text-white" : "border-[var(--pp-border)] bg-[var(--pp-surface)] text-[var(--pp-text-body)] opacity-70"
+              ativoPadrao ? "btn-laranja border-transparent text-[#012E46]" : "border-[var(--pp-border)] bg-[var(--pp-surface)] text-[var(--pp-text-body)] opacity-70"
             }`}>
             <Icon aria-hidden="true" size={18} />
             <span className="min-w-0">{label}</span>
@@ -38,7 +38,7 @@ export default function CheckoutSplit({ total, pessoas, onPessoas }) {
               return (
                 <button key={n} type="button" onClick={() => onPessoas(n)} aria-pressed={on}
                   className={`flex min-h-[40px] items-center justify-center rounded-xl border text-sm font-bold transition-colors ${
-                    on ? "btn-laranja border-transparent text-white" : "border-[var(--pp-border)] bg-[var(--pp-surface)] text-[var(--pp-text-body)] hover:bg-[var(--pp-bg)]"
+                    on ? "btn-laranja border-transparent text-[#012E46]" : "border-[var(--pp-border)] bg-[var(--pp-surface)] text-[var(--pp-text-body)] hover:bg-[var(--pp-bg)]"
                   }`}>
                   {n} pessoas
                 </button>

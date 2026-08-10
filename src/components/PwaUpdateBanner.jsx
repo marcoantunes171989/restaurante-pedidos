@@ -124,7 +124,7 @@ export default function PwaUpdateBanner({ swAtivado }) {
             <button type="button" onClick={adiar} className="flex min-h-[42px] flex-1 items-center justify-center rounded-xl border border-[var(--pp-border)] bg-[var(--pp-surface)] text-[13px] font-semibold text-[var(--pp-text-body)] transition-colors duration-150 hover:bg-[var(--pp-bg)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-primary)]">
               Depois
             </button>
-            <button type="button" onClick={aplicar} className="flex min-h-[42px] flex-[1.4] items-center justify-center gap-2 rounded-xl btn-laranja bg-[var(--pp-primary)] text-[13px] font-semibold text-white transition-colors duration-150 hover:bg-[var(--pp-primary-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-primary-hover)]">
+            <button type="button" onClick={aplicar} className="flex min-h-[42px] flex-[1.4] items-center justify-center gap-2 rounded-xl btn-laranja bg-[var(--pp-primary)] text-[13px] font-semibold text-[#012E46] transition-colors duration-150 hover:bg-[var(--pp-primary-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-primary-hover)]">
               <RefreshCw aria-hidden="true" size={14} /> Atualizar agora
             </button>
           </div>

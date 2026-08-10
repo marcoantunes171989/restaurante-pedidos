@@ -117,7 +117,7 @@ export default function TabletCartPanel({
                   return (
                     <li key={label} className="flex items-stretch gap-3">
                       <div className="flex flex-col items-center">
-                        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-black ${current ? "btn-laranja bg-[var(--client-primary-hover)] text-white ring-4 ring-[var(--client-primary-soft)]" : done ? "bg-[var(--client-success)] text-white" : "bg-[var(--client-background-soft)] text-[var(--client-text-muted)]"}`}>
+                        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-black ${current ? "btn-laranja bg-[var(--client-primary-hover)] text-[#012E46] ring-4 ring-[var(--client-primary-soft)]" : done ? "bg-[var(--client-success)] text-white" : "bg-[var(--client-background-soft)] text-[var(--client-text-muted)]"}`}>
                           {done ? <Check aria-hidden="true" size={14} /> : i + 1}
                         </span>
                         {i < ETAPAS.length - 1 && <span className={`w-0.5 flex-1 ${i < orderStage ? "bg-[var(--client-success)]" : "bg-[var(--client-border)]"}`} />}
@@ -155,7 +155,7 @@ export default function TabletCartPanel({
                     className="flex h-7 w-7 items-center justify-center rounded-md text-[var(--client-text-primary)] transition hover:bg-[var(--client-surface)]"><Minus aria-hidden="true" size={13} /></button>
                   <span className="w-5 text-center text-sm font-black text-[var(--client-text-primary)]">{item.quantity}</span>
                   <button type="button" onClick={() => addToCart(item)} aria-label={`Adicionar mais uma unidade de ${item.name}`}
-                    className="flex h-7 w-7 items-center justify-center rounded-md btn-laranja bg-[var(--client-primary-hover)] text-white transition hover:bg-[var(--client-primary)]"><Plus aria-hidden="true" size={13} /></button>
+                    className="flex h-7 w-7 items-center justify-center rounded-md btn-laranja bg-[var(--client-primary-hover)] text-[#012E46] transition hover:bg-[var(--client-primary)]"><Plus aria-hidden="true" size={13} /></button>
                 </div>
               )}
             </div>
@@ -201,12 +201,12 @@ export default function TabletCartPanel({
 
         {!comandaValida ? (
           <button type="button" onClick={onAbrirScanner} disabled={!podeEscanear}
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-xl btn-laranja bg-[var(--client-primary-hover)] text-sm font-bold text-white transition active:scale-[0.98] hover:bg-[var(--client-primary)] disabled:cursor-not-allowed disabled:bg-[var(--client-disabled-background)] disabled:text-[var(--client-disabled-text)]">
+            className="flex h-12 w-full items-center justify-center gap-2 rounded-xl btn-laranja bg-[var(--client-primary-hover)] text-sm font-bold text-[#012E46] transition active:scale-[0.98] hover:bg-[var(--client-primary)] disabled:cursor-not-allowed disabled:bg-[var(--client-disabled-background)] disabled:text-[var(--client-disabled-text)]">
             <QrCode aria-hidden="true" size={17} /> Escanear comanda e enviar pedido
           </button>
         ) : (
           <button type="button" onClick={onEnviar} disabled={cart.length === 0 || enviando} aria-busy={enviando}
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-xl btn-laranja bg-[var(--client-primary-hover)] text-sm font-bold text-white transition active:scale-[0.98] hover:bg-[var(--client-primary)] disabled:cursor-not-allowed disabled:bg-[var(--client-disabled-background)] disabled:text-[var(--client-disabled-text)]">
+            className="flex h-12 w-full items-center justify-center gap-2 rounded-xl btn-laranja bg-[var(--client-primary-hover)] text-sm font-bold text-[#012E46] transition active:scale-[0.98] hover:bg-[var(--client-primary)] disabled:cursor-not-allowed disabled:bg-[var(--client-disabled-background)] disabled:text-[var(--client-disabled-text)]">
             {enviando ? (<><Loader2 aria-hidden="true" size={17} className="animate-spin" /> Enviando pedido...</>) : "Enviar pedido para a cozinha"}
           </button>
         )}

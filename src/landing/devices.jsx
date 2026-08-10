@@ -93,7 +93,7 @@ export function TelaMesa() {
       </div>
       <div className="mt-2.5 flex items-center justify-between rounded-xl bg-[var(--pp-bg)] px-3 py-2.5">
         <p className="font-display text-base font-black text-[var(--pp-graphite)]">R$ 117,60</p>
-        <span className="rounded-lg bg-[var(--pp-primary-hover)] px-2.5 py-1.5 text-[10px] font-bold text-white">Solicitar conta</span>
+        <span className="rounded-lg bg-[var(--pp-primary-hover)] px-2.5 py-1.5 text-[10px] font-bold text-[#012E46]">Solicitar conta</span>
       </div>
     </div>
   );
@@ -117,7 +117,7 @@ export function TelaCardapioCliente({ compacta = false }) {
       </div>
       <div className="flex gap-1.5 overflow-hidden px-1">
         {["Lanches", "Bebidas", "Sobremesas"].map((c, i) => (
-          <span key={c} className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-bold ${i === 0 ? "bg-[var(--pp-primary-hover)] text-white" : "bg-[#F3EDE4] text-[var(--pp-text-muted)]"}`}>{c}</span>
+          <span key={c} className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-bold ${i === 0 ? "bg-[var(--pp-primary-hover)] text-[#012E46]" : "bg-[#F3EDE4] text-[var(--pp-text-muted)]"}`}>{c}</span>
         ))}
       </div>
       <div className="mt-2 space-y-1.5 px-1">
@@ -175,7 +175,7 @@ export function TelaNotificacaoPush() {
   return (
     <div className="space-y-2 bg-[var(--pp-bg)] p-2.5">
       <div className="flex items-center gap-2 rounded-xl border border-[var(--pp-border)] bg-white p-2.5 shadow-sm">
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--pp-primary-hover)] text-[9px] font-black text-white">PP</span>
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--pp-primary-hover)] text-[9px] font-black text-[#012E46]">PP</span>
         <div className="min-w-0 flex-1">
           <p className="truncate text-[9px] font-bold text-[var(--pp-graphite)]">Pedido Prime</p>
           <p className="truncate text-[8.5px] text-[var(--pp-text-muted)]">Novo pedido recebido — Mesa 07</p>

@@ -81,7 +81,7 @@ function BotaoPrimario({ children, onClick, carregando, disabled, ariaLabel }) {
   return (
     <button
       type="button" onClick={onClick} disabled={disabled || carregando} aria-label={ariaLabel}
-      className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl btn-laranja bg-[var(--pp-primary)] px-5 text-sm font-bold text-white transition-colors duration-150 hover:bg-[var(--pp-primary-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-primary-hover)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 sm:flex-[1.4]"
+      className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl btn-laranja bg-[var(--pp-primary)] px-5 text-sm font-bold text-[#012E46] transition-colors duration-150 hover:bg-[var(--pp-primary-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-primary-hover)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 sm:flex-[1.4]"
     >
       {carregando && <Loader2 aria-hidden="true" size={16} className="animate-spin" />}
       {children}

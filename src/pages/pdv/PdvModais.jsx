@@ -90,7 +90,7 @@ export function ModalIncluirProduto({
             type="button"
             disabled={processando}
             onClick={() => confirmarComPontuar(true)}
-            className="btn-laranja min-h-11 rounded-2xl text-sm font-black text-white disabled:opacity-60"
+            className="btn-laranja min-h-11 rounded-2xl text-sm font-black text-[#012E46] disabled:opacity-60"
           >
             Sim, identificar
           </button>
@@ -218,7 +218,7 @@ export function ModalCliente({ cliente = "", telefone = "", onSalvar, onFechar, 
           type="button"
           disabled={salvando || (!nome.trim() && !tel)}
           onClick={() => onSalvar?.({ customer: nome.trim(), clienteTelefone: tel.replace(/\D/g, "") })}
-          className="btn-laranja min-h-11 rounded-2xl text-sm font-black text-white disabled:opacity-60"
+          className="btn-laranja min-h-11 rounded-2xl text-sm font-black text-[#012E46] disabled:opacity-60"
         >
           {salvando ? "Salvando…" : "Salvar"}
         </button>
@@ -260,7 +260,7 @@ export function ModalTransferirMesa({ mesaAtual, mesas = [], mesasOcupadas = [],
             type="button"
             disabled={processando}
             onClick={() => onConfirmar?.(destino)}
-            className="btn-laranja min-h-11 rounded-2xl text-sm font-black text-white disabled:opacity-60"
+            className="btn-laranja min-h-11 rounded-2xl text-sm font-black text-[#012E46] disabled:opacity-60"
           >
             {processando ? "Transferindo…" : "Confirmar"}
           </button>
@@ -304,7 +304,7 @@ export function ModalTransferirMesa({ mesaAtual, mesas = [], mesasOcupadas = [],
           type="button"
           disabled={!destino || processando}
           onClick={() => setConfirmar(true)}
-          className="btn-laranja min-h-11 rounded-2xl text-sm font-black text-white disabled:opacity-60"
+          className="btn-laranja min-h-11 rounded-2xl text-sm font-black text-[#012E46] disabled:opacity-60"
         >
           Transferir
         </button>
@@ -409,7 +409,7 @@ export function ModalSepararItens({
             type="button"
             disabled={processando}
             onClick={() => onConfirmar?.({ destino, itens: escolhidos })}
-            className="btn-laranja min-h-11 rounded-2xl text-sm font-black text-white disabled:opacity-60"
+            className="btn-laranja min-h-11 rounded-2xl text-sm font-black text-[#012E46] disabled:opacity-60"
           >
             {processando ? "Separando…" : "Confirmar"}
           </button>
@@ -433,7 +433,7 @@ export function ModalSepararItens({
                   on ? "bg-[var(--pp-primary-soft)]" : "bg-white hover:bg-[#FFF7EF]"
                 }`}
               >
-                <span className={`grid h-8 w-8 place-items-center rounded-lg text-xs font-black ${on ? "bg-[var(--pp-primary)] text-white" : "border border-[var(--pp-border)] bg-white text-[var(--pp-text)]"}`}>
+                <span className={`grid h-8 w-8 place-items-center rounded-lg text-xs font-black ${on ? "bg-[var(--pp-primary)] text-[#012E46]" : "border border-[var(--pp-border)] bg-white text-[var(--pp-text)]"}`}>
                   {it.quantity}x
                 </span>
                 <span className="min-w-0 flex-1 truncate text-sm font-black text-[var(--pp-text)]">{it.name}</span>
@@ -481,7 +481,7 @@ export function ModalSepararItens({
           type="button"
           disabled={processando}
           onClick={tentarAvancar}
-          className="btn-laranja min-h-11 rounded-2xl text-sm font-black text-white disabled:opacity-60"
+          className="btn-laranja min-h-11 rounded-2xl text-sm font-black text-[#012E46] disabled:opacity-60"
         >
           Separar ({escolhidos.length})
         </button>
@@ -554,7 +554,7 @@ export function ModalObservacoes({ mesa, obsItens = [], valorInicial = "", onSal
         <button type="button" onClick={onFechar} className="min-h-11 rounded-2xl border border-[var(--pp-border)] text-sm font-black text-[var(--pp-text-body)]">
           Cancelar
         </button>
-        <button type="button" onClick={() => onSalvar?.(texto.trim())} className="btn-laranja min-h-11 rounded-2xl text-sm font-black text-white">
+        <button type="button" onClick={() => onSalvar?.(texto.trim())} className="btn-laranja min-h-11 rounded-2xl text-sm font-black text-[#012E46]">
           Salvar
         </button>
       </div>

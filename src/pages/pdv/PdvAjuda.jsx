@@ -105,7 +105,7 @@ export default function PdvAjuda({ contexto = {}, onFechar }) {
                       }`}
                     >
                       <span className={`grid h-4 w-4 shrink-0 place-items-center rounded text-[9px] font-black ${
-                        on ? "bg-[var(--pp-primary)] text-white" : "bg-[var(--pp-border)] text-[var(--pp-text-body)]"
+                        on ? "bg-[var(--pp-primary)] text-[#012E46]" : "bg-[var(--pp-border)] text-[var(--pp-text-body)]"
                       }`}>
                         {i + 1}
                       </span>
@@ -143,7 +143,7 @@ export default function PdvAjuda({ contexto = {}, onFechar }) {
           <p className="truncate text-[10px] font-semibold text-[var(--pp-text-muted)]">
             Pedido Prime · documentação viva: acompanha a versão da tela.
           </p>
-          <button type="button" onClick={onFechar} className="btn-laranja h-9 shrink-0 rounded-lg px-4 text-[12px] font-black text-white">
+          <button type="button" onClick={onFechar} className="btn-laranja h-9 shrink-0 rounded-lg px-4 text-[12px] font-black text-[#012E46]">
             Voltar ao PDV
           </button>
         </div>

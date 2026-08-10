@@ -48,7 +48,7 @@ export const FilterChip = memo(function FilterChip({
       )}
       <span>{label}</span>
       {badge != null && (
-        <span className={`ml-0.5 inline-flex min-w-[18px] shrink-0 items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none ${selected ? "bg-white/25 text-white" : "bg-[#F1F5F9] text-[#475569]"}`}>
+        <span className={`ml-0.5 inline-flex min-w-[18px] shrink-0 items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none ${selected ? "bg-black/10 text-[var(--filter-chip-text-selected)]" : "bg-[#F1F5F9] text-[#475569]"}`}>
           {badge}
         </span>
       )}

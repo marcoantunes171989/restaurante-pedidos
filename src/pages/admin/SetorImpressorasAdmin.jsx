@@ -231,7 +231,7 @@ export default function SetorImpressorasAdmin({
             <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-[rgba(243, 133, 37,0.3)] bg-[rgba(243, 133, 37,0.1)] text-[#F38525]"><Printer className="h-7 w-7" /></span>
             <p className="mt-3 font-semibold text-[var(--pp-text)]">Nenhuma impressora cadastrada.</p>
             <p className="mx-auto mt-1 max-w-md text-sm text-[var(--pp-text-muted)]">Cadastre ao menos uma para vincular nas categorias e liberar a impressão automática.</p>
-            <button onClick={() => setCriando(true)} className="btn-laranja mt-4 rounded-xl px-5 py-2.5 text-sm font-semibold text-white">Cadastrar impressora</button>
+            <button onClick={() => setCriando(true)} className="btn-laranja mt-4 rounded-xl px-5 py-2.5 text-sm font-semibold text-[#012E46]">Cadastrar impressora</button>
           </div>
         ) : filtrados.length === 0 ? (
           <p className="mt-6 py-8 text-center text-sm text-[var(--pp-text-muted)]">Nenhuma impressora encontrada para &quot;{busca}&quot;.</p>

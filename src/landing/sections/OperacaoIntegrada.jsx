@@ -32,7 +32,7 @@ function TimelinePedido() {
         {TIMELINE_PEDIDO.map((etapa, i) => (
           <div key={etapa} className="text-center">
             <span
-              className={`mx-auto flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-black transition-colors duration-500 motion-reduce:transition-none ${ativo ? "bg-[var(--pp-primary-hover)] text-white" : "border border-[var(--pp-border)] bg-white text-[var(--pp-text-muted)]"}`}
+              className={`mx-auto flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-black transition-colors duration-500 motion-reduce:transition-none ${ativo ? "bg-[var(--pp-primary-hover)] text-[#012E46]" : "border border-[var(--pp-border)] bg-white text-[var(--pp-text-muted)]"}`}
               style={{ transitionDelay: ativo ? `${i * 260}ms` : "0ms" }}
             >
               {i + 1}

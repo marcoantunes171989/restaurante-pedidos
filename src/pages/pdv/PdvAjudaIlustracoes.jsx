@@ -98,7 +98,7 @@ function AjusteFinanceiro() {
 function IncluirProduto() {
   return (
     <div className="mx-auto max-w-[300px] space-y-1.5">
-      <div className="flex h-9 items-center justify-center gap-1 rounded-xl bg-[var(--pp-primary)] text-[11px] font-black text-white shadow-sm">
+      <div className="flex h-9 items-center justify-center gap-1 rounded-xl bg-[var(--pp-primary)] text-[11px] font-black text-[#012E46] shadow-sm">
         + Incluir produto
       </div>
       <div className="rounded-lg border border-[#F5DFA3] bg-[#FFFBEB] px-2 py-1.5 text-[9px] font-semibold text-[#012E46]">

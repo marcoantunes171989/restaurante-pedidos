@@ -11,7 +11,7 @@ export default function TabletMobileCartBar({ totalCartItems, total, onAbrir }) 
     <div className="shrink-0 border-t border-[var(--client-border)] bg-[var(--client-surface)] px-3 py-2.5 lg:hidden"
       style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 10px)" }}>
       <button type="button" onClick={onAbrir}
-        className="flex h-[54px] w-full items-center justify-between gap-3 rounded-2xl btn-laranja bg-[var(--client-primary-hover)] px-4 text-white transition active:scale-[0.98] hover:bg-[var(--client-primary)]">
+        className="flex h-[54px] w-full items-center justify-between gap-3 rounded-2xl btn-laranja bg-[var(--client-primary-hover)] px-4 text-[#012E46] transition active:scale-[0.98] hover:bg-[var(--client-primary)]">
         <span className="flex items-center gap-2 text-sm font-bold">
           <ShoppingCart aria-hidden="true" size={18} />
           {totalCartItems} {totalCartItems === 1 ? "item" : "itens"} · {formatCurrency(total)}

@@ -85,7 +85,7 @@ export function SurveyActions({ enviando, onEnviar, onPular }) {
   return (
     <div className="flex flex-col gap-2 sm:flex-row-reverse">
       <button onClick={onEnviar} disabled={enviando}
-        className="flex-1 rounded-2xl btn-laranja bg-[var(--client-primary-hover)] py-3.5 text-sm font-black text-white shadow-[var(--client-shadow-sm)] transition active:scale-95 hover:bg-[var(--client-primary)] disabled:cursor-not-allowed disabled:opacity-60">
+        className="flex-1 rounded-2xl btn-laranja bg-[var(--client-primary-hover)] py-3.5 text-sm font-black text-[#012E46] shadow-[var(--client-shadow-sm)] transition active:scale-95 hover:bg-[var(--client-primary)] disabled:cursor-not-allowed disabled:opacity-60">
         {enviando ? "Finalizando…" : "Enviar avaliação e finalizar pedido"}
       </button>
       <button onClick={onPular} disabled={enviando}

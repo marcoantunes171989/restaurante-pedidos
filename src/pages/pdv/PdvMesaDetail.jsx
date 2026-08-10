@@ -165,7 +165,7 @@ export default function PdvMesaDetail({
               title={produtosBloqueados
                 ? "Comprovante emitido — informe a comanda para vincular nova venda"
                 : "Incluir produto na conta"}
-              className="btn-laranja flex h-10 w-full items-center justify-center gap-1.5 rounded-xl text-[12px] font-black text-white"
+              className="btn-laranja flex h-10 w-full items-center justify-center gap-1.5 rounded-xl text-[12px] font-black text-[#012E46]"
             >
               <Plus size={16} aria-hidden="true" /> Incluir produto
             </button>

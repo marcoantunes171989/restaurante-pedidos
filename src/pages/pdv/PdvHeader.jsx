@@ -43,7 +43,7 @@ export default function PdvHeader({
                   title={dica}
                   onClick={() => onCanalChange?.(id)}
                   className={`h-8 shrink-0 rounded-md px-2.5 text-[11px] font-black transition ${
-                    on ? "btn-laranja text-white shadow-sm" : "text-[var(--op-nav-accent)] hover:bg-[var(--pp-surface)]"
+                    on ? "btn-laranja text-[#012E46] shadow-sm" : "text-[var(--op-nav-accent)] hover:bg-[var(--pp-surface)]"
                   }`}
                 >
                   {label}

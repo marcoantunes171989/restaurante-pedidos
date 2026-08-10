@@ -17,7 +17,7 @@ export default function Crescimento() {
               return (
                 <div key={etapa.titulo} className={`relative flex items-start gap-5 sm:items-center ${esquerda ? "sm:flex-row" : "sm:flex-row-reverse"}`}>
                   <div className="absolute left-4 top-1 z-10 -translate-x-1/2 sm:left-1/2">
-                    <span className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-[var(--pp-primary-hover)] text-[11px] font-black text-white shadow-md">{i + 1}</span>
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-[var(--pp-primary-hover)] text-[11px] font-black text-[#012E46] shadow-md">{i + 1}</span>
                   </div>
                   <div className="ml-10 flex-1 sm:ml-0">
                     <div className={`rounded-2xl border border-[var(--pp-border)] bg-white p-5 shadow-[0_14px_36px_-28px_rgba(28,20,15,0.25)] sm:max-w-sm ${esquerda ? "sm:ml-auto sm:mr-10 sm:text-right" : "sm:ml-10"}`}>

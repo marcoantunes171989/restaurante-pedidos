@@ -69,7 +69,7 @@ export default function ProductHighlightCarousel({ produtos = [] }) {
 
       <div className="absolute inset-x-0 bottom-0 p-5 sm:p-6">
         {p.isFeatured && (
-          <span className="mb-2 inline-flex items-center rounded-full bg-[var(--client-primary-hover)] px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-white">Destaque</span>
+          <span className="mb-2 inline-flex items-center rounded-full bg-[var(--client-primary-hover)] px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-[#012E46]">Destaque</span>
         )}
         <h3 className="text-xl font-black leading-tight text-white sm:text-2xl">{p.name}</h3>
         {p.description && <p className="mt-1 max-w-md text-sm leading-snug text-white/85">{p.description}</p>}

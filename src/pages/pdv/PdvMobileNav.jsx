@@ -28,7 +28,7 @@ export default function PdvMobileNav({ ativo = "conta", onChange, temConta = fal
               title={dica}
               className={`flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-xl px-1 py-1.5 text-[11px] font-black transition active:scale-[0.98] ${
                 on
-                  ? "btn-laranja text-white"
+                  ? "btn-laranja text-[#012E46]"
                   : "bg-[var(--pp-bg)] text-[var(--pp-text-body)]"
               }`}
             >

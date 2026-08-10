@@ -19,7 +19,7 @@ export default function OrdersViewToggle({ view, onChange }) {
             key={o.key} type="button" role="tab" aria-selected={ativo}
             onClick={() => onChange(o.key)}
             className={`flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-lg px-4 text-sm font-bold transition-colors duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-primary-hover)] sm:flex-none ${
-              ativo ? "btn-laranja text-white" : "text-[var(--pp-text-body)] hover:bg-[var(--pp-surface)]"
+              ativo ? "btn-laranja text-[#012E46]" : "text-[var(--pp-text-body)] hover:bg-[var(--pp-surface)]"
             }`}
           >
             <o.Icon aria-hidden="true" size={15} />

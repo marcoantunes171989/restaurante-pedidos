@@ -28,7 +28,7 @@ export default function CheckoutPaymentMethods({ opcoes = [], formaAtiva, onTogg
               className={`relative flex min-h-[76px] flex-col items-center justify-center gap-1.5 rounded-xl border px-1.5 py-2 text-center transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-primary)] ${
                 on ? "border-[var(--pp-primary)] bg-[var(--pp-primary-soft)]" : "border-[var(--pp-border)] bg-[var(--pp-surface)] hover:bg-[var(--pp-bg)]"
               }`}>
-              {on && <span aria-hidden="true" className="absolute right-1.5 top-1.5 grid h-4 w-4 place-items-center rounded-full bg-[var(--pp-primary-hover)] text-white"><Check size={11} /></span>}
+              {on && <span aria-hidden="true" className="absolute right-1.5 top-1.5 grid h-4 w-4 place-items-center rounded-full bg-[var(--pp-primary-hover)] text-[#012E46]"><Check size={11} /></span>}
               <Icon aria-hidden="true" size={22} className={on ? "text-[var(--pp-primary-text)]" : cor} />
               <span className={`min-w-0 truncate text-xs font-bold ${on ? "text-[var(--pp-primary-text)]" : "text-[var(--pp-text-body)]"}`}>{f}</span>
             </button>

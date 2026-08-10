@@ -71,7 +71,7 @@ export default function ModalDividirConta({ total = 0, restante = 0, itens = [],
                   onClick={() => setModo(id)}
                   aria-pressed={on}
                   className={`flex h-9 items-center justify-center gap-1 rounded-md px-1 text-[11px] font-black transition ${
-                    on ? "btn-laranja text-white" : "text-[var(--pp-text-body)] hover:bg-[var(--pp-surface)]"
+                    on ? "btn-laranja text-[#012E46]" : "text-[var(--pp-text-body)] hover:bg-[var(--pp-surface)]"
                   }`}
                 >
                   <Icon size={13} aria-hidden="true" />
@@ -197,7 +197,7 @@ export default function ModalDividirConta({ total = 0, restante = 0, itens = [],
               type="button"
               disabled={!(valor > 0)}
               onClick={() => onAplicar?.(Math.min(valor, restante))}
-              className="btn-laranja h-10 rounded-lg text-[12px] font-black text-white disabled:cursor-not-allowed disabled:opacity-50"
+              className="btn-laranja h-10 rounded-lg text-[12px] font-black text-[#012E46] disabled:cursor-not-allowed disabled:opacity-50"
             >
               Usar este valor
             </button>

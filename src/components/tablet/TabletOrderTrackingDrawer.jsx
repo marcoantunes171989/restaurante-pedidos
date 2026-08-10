@@ -71,7 +71,7 @@ export default function TabletOrderTrackingDrawer({
                     <li key={label} className="flex flex-1 flex-col items-center text-center">
                       <div className="flex w-full items-center">
                         <span className={`h-0.5 flex-1 ${i === 0 ? "opacity-0" : (i <= orderStage ? "bg-[var(--client-success)]" : "bg-[var(--client-border)]")}`} />
-                        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-black ${current ? "btn-laranja bg-[var(--client-primary-hover)] text-white ring-4 ring-[var(--client-primary-soft)]" : done ? "bg-[var(--client-success)] text-white" : "border border-[var(--client-border)] bg-[var(--client-surface)] text-[var(--client-text-muted)]"}`}>
+                        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-black ${current ? "btn-laranja bg-[var(--client-primary-hover)] text-[#012E46] ring-4 ring-[var(--client-primary-soft)]" : done ? "bg-[var(--client-success)] text-white" : "border border-[var(--client-border)] bg-[var(--client-surface)] text-[var(--client-text-muted)]"}`}>
                           {done ? <Check aria-hidden="true" size={14} /> : i + 1}
                         </span>
                         <span className={`h-0.5 flex-1 ${i === ETAPAS.length - 1 ? "opacity-0" : (i < orderStage ? "bg-[var(--client-success)]" : "bg-[var(--client-border)]")}`} />
@@ -162,7 +162,7 @@ export default function TabletOrderTrackingDrawer({
           )}
           <button type="button" onClick={onSolicitarFechamento} disabled={!podeFecharConta}
             title={!podeFecharConta ? "Disponível somente quando todos os pedidos forem entregues pela cozinha" : ""}
-            className={`mt-1 flex h-12 w-full items-center justify-center gap-2 rounded-xl text-sm font-black transition active:scale-[0.98] disabled:cursor-not-allowed disabled:border disabled:border-[var(--client-border)] disabled:bg-[var(--client-disabled-background)] disabled:text-[var(--client-disabled-text)] ${contaSolicitada ? "bg-[var(--client-warning-soft)] text-[var(--client-warning)] hover:brightness-95" : "bg-[var(--client-primary-hover)] text-white hover:bg-[var(--client-primary)]"}`}>
+            className={`mt-1 flex h-12 w-full items-center justify-center gap-2 rounded-xl text-sm font-black transition active:scale-[0.98] disabled:cursor-not-allowed disabled:border disabled:border-[var(--client-border)] disabled:bg-[var(--client-disabled-background)] disabled:text-[var(--client-disabled-text)] ${contaSolicitada ? "bg-[var(--client-warning-soft)] text-[var(--client-warning)] hover:brightness-95" : "bg-[var(--client-primary-hover)] text-[#012E46] hover:bg-[var(--client-primary)]"}`}>
             {contaSolicitada ? <><RefreshCcw aria-hidden="true" size={16} /> Reenviar conta ao caixa</> : <><Receipt aria-hidden="true" size={16} /> Solicitar fechamento ao caixa</>}
           </button>
           {!podeFecharConta && comandasArr.length > 0 && (

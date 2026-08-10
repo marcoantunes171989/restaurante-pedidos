@@ -4186,7 +4186,7 @@ function ChipSelecao({ selecionado, disabled = false, onClick, texto, detalhe, i
             : "border-[var(--client-border)] bg-[var(--client-surface)] text-[var(--client-text-secondary)] hover:border-[var(--client-border-strong)] hover:bg-[var(--client-surface-secondary)]"
       }`}>
       <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors ${
-        disabled ? "border-[var(--client-disabled-border)]" : selecionado ? "border-[var(--client-primary)] bg-[var(--client-primary-hover)] text-white" : "border-[var(--client-border-strong)] text-transparent group-hover:border-[var(--client-text-muted)]"
+        disabled ? "border-[var(--client-disabled-border)]" : selecionado ? "border-[var(--client-primary)] bg-[var(--client-primary-hover)] text-[#012E46]" : "border-[var(--client-border-strong)] text-transparent group-hover:border-[var(--client-text-muted)]"
       }`}>
         {icone === "remover" ? <PmIconX /> : <PmIconCheck />}
       </span>
@@ -16856,7 +16856,7 @@ function CuponsAdmin({ cupons = [], addCupom, editarCupom, toggleCupom, removerC
             type="button"
             disabled={!podeSalvar}
             onClick={salvar}
-            className="btn-laranja inline-flex min-h-11 items-center justify-center rounded-2xl px-5 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-45"
+            className="btn-laranja inline-flex min-h-11 items-center justify-center rounded-2xl px-5 text-sm font-black text-[#012E46] disabled:cursor-not-allowed disabled:opacity-45"
           >
             {salvando ? "Salvando…" : emEdicao ? "Salvar cupom" : "Criar cupom"}
           </button>
@@ -17433,7 +17433,7 @@ function SetoresCozinhaAdmin({ setores = [], produtos = [], orders = [], api, vi
               <p className="mt-3 font-semibold text-[var(--pp-text)]">Nenhum setor cadastrado ainda.</p>
               <p className="mx-auto mt-1 max-w-md text-sm text-[var(--pp-text-muted)]">Crie setores para organizar o preparo dos pedidos e facilitar o controle da cozinha.</p>
               <p className="mt-1 text-xs text-[var(--pp-text-muted)]">Exemplos: Bar, Pizzaria, Chapa, Cozinha, Sobremesas e Bebidas.</p>
-              <button onClick={() => setCriando(true)} className="btn-laranja mt-4 rounded-xl px-5 py-2.5 text-sm font-semibold text-white">Criar primeiro setor</button>
+              <button onClick={() => setCriando(true)} className="btn-laranja mt-4 rounded-xl px-5 py-2.5 text-sm font-semibold text-[#012E46]">Criar primeiro setor</button>
             </div>
           ) : filtrados.length === 0 ? (
             <p className="mt-6 py-8 text-center text-sm text-[var(--pp-text-muted)]">Nenhum setor encontrado para "{busca}".</p>
@@ -17547,7 +17547,7 @@ function SetoresCozinhaAdmin({ setores = [], produtos = [], orders = [], api, vi
               </div>
             </div>
             <div className="mt-5 flex gap-2">
-              <button onClick={salvarEdicao} className="btn-laranja flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold text-white">Salvar alterações</button>
+              <button onClick={salvarEdicao} className="btn-laranja flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold text-[#012E46]">Salvar alterações</button>
               <button onClick={() => setEditando(null)} className="rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--pp-text-body)] transition hover:bg-[rgba(1, 46, 70,0.04)]">Cancelar</button>
             </div>
           </div>
@@ -17651,7 +17651,7 @@ function VincularProdutosModal({ setor, produtos = [], setores = [], onFechar, o
           <span className="text-xs text-[var(--pp-text-muted)]"><b className="font-semibold text-[var(--pp-text)]">{sel.size}</b> selecionado(s)</span>
           <div className="flex gap-2">
             <button onClick={onFechar} className="rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--pp-text-body)] transition hover:bg-[rgba(1, 46, 70,0.04)]">Cancelar</button>
-            <button onClick={salvar} disabled={salvando} className="btn-laranja rounded-xl px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50">{salvando ? "Salvando…" : "Salvar vínculos"}</button>
+            <button onClick={salvar} disabled={salvando} className="btn-laranja rounded-xl px-5 py-2.5 text-sm font-semibold text-[#012E46] disabled:opacity-50">{salvando ? "Salvando…" : "Salvar vínculos"}</button>
           </div>
         </div>
       </div>
@@ -23560,7 +23560,7 @@ function MesaAdmin({ mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, o
           {mesas.length === 0 && (
             <div className="rounded-2xl border border-dashed border-[var(--pp-border)] py-10 text-center">
               <p className="text-sm text-[var(--pp-text-muted)]">Nenhuma mesa cadastrada.</p>
-              <button onClick={() => setCriando(true)} className="btn-laranja mt-3 rounded-xl px-4 py-2 text-xs font-black text-white">+ Cadastrar mesa</button>
+              <button onClick={() => setCriando(true)} className="btn-laranja mt-3 rounded-xl px-4 py-2 text-xs font-black text-[#012E46]">+ Cadastrar mesa</button>
             </div>
           )}
           {mesas.length > 0 && mesasOrdenadas.length === 0 && <p className="py-6 text-center text-sm text-[var(--pp-text-muted)]">Nenhuma mesa encontrada.</p>}
@@ -23689,7 +23689,7 @@ function MesaCadastroModal({ onSalvar, onFechar }) {
         <div className="flex shrink-0 gap-3 border-t border-[var(--pp-border)] px-5 py-3.5">
           <button onClick={onFechar} className="flex-1 rounded-xl border border-[var(--pp-border)] bg-white py-2.5 text-sm font-black text-[var(--pp-text-body)] transition hover:bg-[rgba(1, 46, 70,0.04)]">Cancelar</button>
           <button onClick={() => onSalvar(form)} disabled={!valido}
-            className="btn-laranja flex-[2] rounded-xl py-2.5 text-sm font-black text-white transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-50">
+            className="btn-laranja flex-[2] rounded-xl py-2.5 text-sm font-black text-[#012E46] transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-50">
             + Cadastrar mesa
           </button>
         </div>
@@ -23718,7 +23718,7 @@ function MesaEditModal({ mesa, onSalvar, onFechar }) {
         <div className="flex shrink-0 gap-3 border-t border-[var(--pp-border)] px-5 py-3.5">
           <button onClick={onFechar} className="flex-1 rounded-xl border border-[var(--pp-border)] bg-white py-2.5 text-sm font-black text-[var(--pp-text-body)] transition hover:bg-[rgba(1, 46, 70,0.04)]">Cancelar</button>
           <button onClick={() => valido && onSalvar(form)} disabled={!valido}
-            className="btn-laranja flex-[2] rounded-xl py-2.5 text-sm font-black text-white transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-50">
+            className="btn-laranja flex-[2] rounded-xl py-2.5 text-sm font-black text-[#012E46] transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-50">
             Salvar alterações
           </button>
         </div>
