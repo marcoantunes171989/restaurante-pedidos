@@ -78,8 +78,8 @@ export function TelaMesa() {
     <div className="p-3.5">
       <div className="flex items-center justify-between rounded-xl bg-[var(--pp-graphite)] px-3.5 py-2.5 text-white">
         <div>
-          <p className="font-display text-xs font-bold leading-none">Forno &amp; Lenha</p>
-          <p className="mt-1 text-[9px] text-white/60">Mesa 07 · Comanda #012E46</p>
+          <p className="font-display text-xs font-bold leading-none">Mesa 07</p>
+          <p className="mt-1 text-[9px] text-white/60">Comanda ativa · Salão</p>
         </div>
         <span className="rounded-full bg-[#F38525]/25 px-2 py-1 text-[9px] font-bold text-white">Em preparo</span>
       </div>
@@ -175,7 +175,7 @@ export function TelaNotificacaoPush() {
   return (
     <div className="space-y-2 bg-[var(--pp-bg)] p-2.5">
       <div className="flex items-center gap-2 rounded-xl border border-[var(--pp-border)] bg-white p-2.5 shadow-sm">
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--pp-primary-hover)] text-[9px] font-black text-[#012E46]">PP</span>
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--pp-primary-hover)]" aria-hidden="true" />
         <div className="min-w-0 flex-1">
           <p className="truncate text-[9px] font-bold text-[var(--pp-graphite)]">Pedido Prime</p>
           <p className="truncate text-[8.5px] text-[var(--pp-text-muted)]">Novo pedido recebido — Mesa 07</p>
@@ -183,7 +183,7 @@ export function TelaNotificacaoPush() {
         <span className="shrink-0 text-[8px] text-[var(--pp-text-muted)]">agora</span>
       </div>
       <div className="flex items-center gap-2 rounded-xl border border-[var(--pp-border)] bg-white/70 p-2.5 opacity-70">
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#012E46] text-[9px] font-black text-white">PP</span>
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#012E46]" aria-hidden="true" />
         <div className="min-w-0 flex-1">
           <p className="truncate text-[9px] font-bold text-[var(--pp-graphite)]">Pedido Prime</p>
           <p className="truncate text-[8.5px] text-[var(--pp-text-muted)]">Fechamento de caixa concluído</p>
