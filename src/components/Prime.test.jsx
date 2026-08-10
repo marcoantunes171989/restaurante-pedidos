@@ -46,7 +46,7 @@ describe("FilterChip — contrato de contraste", () => {
     document.documentElement.dataset.theme = "light";
     const chip = renderChip(
       { selected: true, label: "Novos", badge: 1 },
-      "tema-claro-area pp-filter-panel",
+      "tema-claro-area",
     );
 
     expect(chip.textContent).toContain("Novos");
@@ -57,5 +57,21 @@ describe("FilterChip — contrato de contraste", () => {
     expect(css).toContain('.filter-chip[aria-selected="true"]:not(:disabled)');
     expect(css).toContain("color: var(--filter-chip-text-selected) !important");
     expect(css).toContain('.filter-chip[aria-selected="true"]:not(:disabled) > *');
+  });
+
+  it("pp-filter-panel usa par fixo petróleo + branco (não primary+petróleo)", () => {
+    const css = readFileSync("src/index.css", "utf8");
+    const block = css.match(/\.pp-filter-panel\s*\{[^}]+\}/);
+    expect(block).toBeTruthy();
+    expect(block[0]).toContain("--filter-chip-selected: #012E46");
+    expect(block[0]).toContain("--filter-chip-text-selected: #FFFFFF");
+    expect(block[0]).not.toContain("--filter-chip-selected: var(--pp-primary)");
+    expect(block[0]).not.toContain("--filter-chip-text-selected: #012E46");
+  });
+
+  it("expõe utilitários globais pp-fill-petroleo / pp-fill-laranja", () => {
+    const css = readFileSync("src/index.css", "utf8");
+    expect(css).toContain(".pp-fill-petroleo");
+    expect(css).toContain(".pp-fill-laranja");
   });
 });

@@ -21,7 +21,7 @@ export default function Planos() {
               <Reveal as="article" key={p.id} delay={i * 80}
                 className={`relative flex flex-col rounded-[1.25rem] border bg-white p-7 transition ${destaque ? "border-[#012E46] shadow-[0_32px_70px_-24px_rgba(1, 46, 70,0.45)] lg:-translate-y-3 lg:scale-[1.03]" : "border-[var(--pp-border)]"}`}>
                 {destaque && (
-                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-[#012E46] px-3.5 py-1 text-[11px] font-black uppercase tracking-wider text-[var(--pp-graphite)] shadow">Recomendado</span>
+                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-[#012E46] px-3.5 py-1 text-[11px] font-black uppercase tracking-wider text-white shadow">Recomendado</span>
                 )}
                 <span className={`flex h-11 w-11 items-center justify-center rounded-2xl border ${destaque ? "border-[#012E46]/40 text-[#012E46]" : "border-[var(--pp-border)] text-[var(--pp-primary-hover)]"}`}><Icone className="h-5 w-5" /></span>
                 <h3 className="font-display mt-4 text-xl font-bold text-[var(--pp-graphite)]">{p.nome}</h3>

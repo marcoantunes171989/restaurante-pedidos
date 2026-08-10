@@ -5,7 +5,9 @@ description: Diagnosticar e corrigir cirurgicamente contraste, texto ausente e c
 
 # Corrigir contraste de botões do Pedido Prime
 
-Aplicar esta skill junto de `$padronizar-cores-pedido-prime`. Tratar `references/regras-contraste.md` como requisito obrigatório.
+Aplicar esta skill junto de `$padronizar-cores-pedido-prime` e
+`$texto-claro-botao-escuro-pedido-prime`. Tratar `references/regras-contraste.md`
+como requisito obrigatório.
 
 ## Fluxo obrigatório
 

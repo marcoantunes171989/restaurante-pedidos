@@ -628,39 +628,68 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
 }
 
 /* ── Painel de filtro oficial (FilterGroup, src/components/Prime.jsx) ──
-   Paleta oficial 2026 dos grupos "Turno/Canal/Status" do Dashboard
-   Gerencial — aplicada automaticamente por QUALQUER FilterGroup (é a
-   própria classe-raiz do componente). Sobrescreve as variáveis do
-   FilterChip (componente compartilhado, ver acima) só dentro de
-   .pp-filter-panel, sem alterar a cor oficial usada pelo FilterChip nas
-   demais telas (telas com tema escuro legado, permissões, configurações,
-   templates). Selecionado usa --pp-primary-text (não --pp-primary) como
-   fundo em repouso — só a variante escura atinge 4.5:1 com texto branco
-   (ver nota de contraste em :root); --pp-primary (mais claro) fica para
-   o hover. */
+   Filtro ATIVO = sempre petróleo + texto branco (skill
+   texto-claro-botao-escuro-pedido-prime). Nunca amarrar o fill a
+   var(--pp-primary) com texto hardcoded #012E46 — quando o primary vira
+   petróleo (admin), fill e texto ficam iguais e o rótulo some. */
 .pp-filter-panel {
   --filter-chip-bg: var(--pp-surface);
-  --filter-chip-selected: var(--pp-primary);
-  --filter-chip-selected-hover: var(--pp-primary-hover);
-  --filter-chip-hover-bg: #FCEFE1;
+  --filter-chip-selected: #012E46;
+  --filter-chip-selected-hover: #012E46;
+  --filter-chip-hover-bg: rgba(1, 46, 70, 0.06);
   --filter-chip-border: var(--pp-border);
   --filter-chip-text: var(--pp-text-body);
-  --filter-chip-text-selected: #012E46;
-  --filter-chip-selected-shadow: 0 2px 6px rgba(243, 133, 37, 0.25);
+  --filter-chip-text-selected: #FFFFFF;
+  --filter-chip-selected-shadow: 0 2px 6px rgba(1, 46, 70, 0.22);
 }
 .pp-filter-panel .filter-chip:focus-visible {
-  box-shadow: 0 0 0 4px rgba(198, 63, 29, 0.25);
+  box-shadow: 0 0 0 4px rgba(1, 46, 70, 0.25);
 }
 
 /* Contrato semântico do FilterChip: o estado selecionado governa a cor do
    rótulo, ícone e contador pelo token resolvido no próprio contexto. Esta
-   regra deliberadamente vence remapeamentos genéricos de `.text-white` do
-   tema claro e elimina correções por tela/especificidade. O estado disabled
-   fica fora para conservar os tokens neutros de desabilitado. */
+   regra deliberadamente vence remapeamentos genéricos de `.text-white` /
+   `text-[#012E46]` do tema claro. O estado disabled fica fora. */
 .filter-chip[aria-selected="true"]:not(:disabled) {
   color: var(--filter-chip-text-selected) !important;
 }
 .filter-chip[aria-selected="true"]:not(:disabled) > * {
+  color: inherit !important;
+}
+/* Painel de filtro: cinto de segurança — ativo SEMPRE branco sobre petróleo. */
+.pp-filter-panel .filter-chip[aria-selected="true"]:not(:disabled),
+.pp-filter-panel .filter-chip[aria-selected="true"]:not(:disabled) > * {
+  color: #FFFFFF !important;
+}
+
+/* ── Utilitários globais de fill + contraste (novas telas devem usar) ── */
+.pp-fill-petroleo {
+  background-color: #012E46 !important;
+  background-image: none !important;
+  color: #FFFFFF !important;
+}
+.pp-fill-petroleo > * { color: inherit !important; }
+.pp-fill-laranja {
+  background-color: #F38525 !important;
+  background-image: none !important;
+  color: #012E46 !important;
+}
+.pp-fill-laranja > * { color: inherit !important; }
+
+/* Controles com fill sólido petróleo via utilitário Tailwind → texto branco.
+   Escopo: button/a/tab/role=button — não pinta cards decorativos inteiros. */
+button[class~="bg-[#012E46]"]:not(:disabled),
+a[class~="bg-[#012E46]"],
+[role="tab"][class~="bg-[#012E46]"],
+[role="button"][class~="bg-[#012E46]"],
+.btn-petroleo:not(:disabled) {
+  color: #FFFFFF !important;
+}
+button[class~="bg-[#012E46]"]:not(:disabled) > *,
+a[class~="bg-[#012E46]"] > *,
+[role="tab"][class~="bg-[#012E46]"] > *,
+[role="button"][class~="bg-[#012E46]"] > *,
+.btn-petroleo:not(:disabled) > * {
   color: inherit !important;
 }
 
@@ -803,6 +832,27 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
 [data-theme="light"].pp-admin-module .tema-claro-area [class~="text-[#F38525]"],
 [data-theme="light"].pp-admin-module .tema-claro-area [class~="text-[#012E46]"] {
   color: #012E46 !important;
+}
+/* CRÍTICO: o remap acima de text-[#012E46] NÃO pode vencer fills escuros
+   (.btn-laranja admin, .btn-petroleo, .pp-fill-petroleo, bg sólido petróleo,
+   FilterChip selecionado). Reafirma texto branco DEPOIS do remap. */
+[data-theme="light"].pp-admin-module .tema-claro-area .btn-laranja,
+[data-theme="light"].pp-admin-module .tema-claro-area .btn-laranja-claro,
+[data-theme="light"].pp-admin-module .tema-claro-area .btn-petroleo,
+[data-theme="light"].pp-admin-module .tema-claro-area .pp-fill-petroleo,
+[data-theme="light"].pp-admin-module .tema-claro-area button[class~="bg-[#012E46]"],
+[data-theme="light"].pp-admin-module .tema-claro-area [role="tab"][class~="bg-[#012E46]"],
+[data-theme="light"].pp-admin-module .tema-claro-area .filter-chip[aria-selected="true"]:not(:disabled) {
+  color: #FFFFFF !important;
+}
+[data-theme="light"].pp-admin-module .tema-claro-area .btn-laranja > *,
+[data-theme="light"].pp-admin-module .tema-claro-area .btn-laranja-claro > *,
+[data-theme="light"].pp-admin-module .tema-claro-area .btn-petroleo > *,
+[data-theme="light"].pp-admin-module .tema-claro-area .pp-fill-petroleo > *,
+[data-theme="light"].pp-admin-module .tema-claro-area button[class~="bg-[#012E46]"] > *,
+[data-theme="light"].pp-admin-module .tema-claro-area [role="tab"][class~="bg-[#012E46]"] > *,
+[data-theme="light"].pp-admin-module .tema-claro-area .filter-chip[aria-selected="true"]:not(:disabled) > * {
+  color: inherit !important;
 }
 /* Estados de HOVER laranja dentro do admin → petróleo — o hover NUNCA acende
    laranja (fundo, borda e texto). Fundo branco→texto petróleo; fundo petróleo

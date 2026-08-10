@@ -14,10 +14,14 @@ Complementa `padronizar-cores-pedido-prime/references/paleta.md`.
 
 - Estado selecionado de **filtro** (status, turno, canal, abas de filtro):
   fundo `#012E46` + conteúdo `#FFFFFF`.
+- `.pp-filter-panel` deve fixar esse par (não `var(--pp-primary)` + texto
+  `#012E46` — quebra quando o primary vira petróleo no admin).
 - Rótulo textual obrigatório e visível. Um ponto/ícone isolado **não** é
   estado válido nem prova de contraste correto.
 - Contador/badge no filtro ativo herda o par petróleo/branco (nunca branco
   sobre laranja).
+- Telas novas: preferir `.pp-fill-petroleo` / `FilterChip` (ver skill
+  `texto-claro-botao-escuro-pedido-prime`).
 
 ## Proibido
 
