@@ -10,6 +10,27 @@
 .section { padding-top: 4rem; padding-bottom: 4rem; }
 @media (min-width: 640px) { .section { padding-top: 6rem; padding-bottom: 6rem; } }
 
+/* Landing pública — display Anton (scoped; resto do app segue Inter) */
+.pp-landing {
+  --pp-landing-petroleo: #012E46;
+  --pp-landing-laranja: #F38525;
+  --pp-landing-preto: #0F0C0A;
+  --pp-landing-suave: #EEEEEE;
+  overflow-x: clip;
+}
+.pp-landing-display,
+.pp-landing .pp-landing-display {
+  font-family: "Anton", "Oswald", "Bebas Neue", Impact, sans-serif;
+  font-weight: 400;
+  font-style: normal;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+.pp-landing a,
+.pp-landing button {
+  -webkit-tap-highlight-color: transparent;
+}
+
 /* ── Landing Pedido Prime: animações leves + carrossel ──────────
    Fade/slide ao entrar na viewport (via IntersectionObserver que
    adiciona .pp-in). Respeita prefers-reduced-motion. */
